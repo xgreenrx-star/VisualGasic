@@ -1,0 +1,4 @@
+[gd_scene format=3 uid="uid://flk1sxrxt1tb"]
+
+[node name="Form1" type="Panel"]
+custom_minimum_size = Vector2(400, 300)

@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://vslider_proto"]
+
+[node name="VSlider" type="VSlider"]
+offset_right = 16.0
+offset_bottom = 200.0
+value = 50.0

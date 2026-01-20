@@ -1,0 +1,223 @@
+' Dodge The Creeps - Main Game Script
+Option Explicit
+
+Global Player As Object
+Global ScoreTimer As Object
+Global MobTimer As Object
+Global StartTimer As Object
+Global StartButton As Object
+Global MessageLabel As Object
+Global ScoreLabel As Object
+Global Score As Integer
+Global ScreenSize As Vector2
+
+Sub _Ready()
+	Randomize()
+	ScreenSize = GetViewportRect().Size
+	
+	' Create Background
+	Dim bg As Object
+	Set bg = CreateNode("ColorRect")
+	bg.Color = Color(0.2, 0.2, 0.2)
+	bg.Size = ScreenSize
+	AddChild(bg)
+	
+	' Create Player (Area2D)
+	Set Player = CreateNode("Area2D")
+	Player.Name = "Player"
+	
+	Dim pSprite As Object
+	Set pSprite = CreateNode("ColorRect")
+	pSprite.Color = Color(0.8, 0.8, 0.2) ' Yellow
+	pSprite.Size.x = 40
+	pSprite.Size.y = 40
+	pSprite.Position.x = -20 ' Center
+	pSprite.Position.y = -20
+	Player.AddChild(pSprite)
+	
+	Dim pColl As Object
+	Set pColl = CreateNode("CollisionShape2D")
+	Dim pShape As Object
+	Set pShape = CreateNode("RectangleShape2D")
+	pShape.Size.x = 40
+	pShape.Size.y = 40
+	pColl.Shape = pShape
+	Player.AddChild(pColl)
+	AddChild(Player)
+	
+	' Connect Player Collision
+	Call Connect(Player, "body_entered", "OnPlayerHit")
+	
+	' Hide Player initially
+	Player.Hide()
+	
+	' Timers
+	Set MobTimer = CreateNode("Timer")
+	MobTimer.WaitTime = 0.5
+	Call Connect(MobTimer, "timeout", "OnMobTimer")
+	AddChild(MobTimer)
+	
+	Set ScoreTimer = CreateNode("Timer")
+	ScoreTimer.WaitTime = 1.0
+	Call Connect(ScoreTimer, "timeout", "OnScoreTimer")
+	AddChild(ScoreTimer)
+	
+	Set StartTimer = CreateNode("Timer")
+	StartTimer.WaitTime = 2.0
+	StartTimer.OneShot = True
+	Call Connect(StartTimer, "timeout", "OnStartTimer")
+	AddChild(StartTimer)
+	
+	' UI
+	Set ScoreLabel = CreateLabel("0", ScreenSize.x / 2 - 20, 50)
+	ScoreLabel.AddThemeFontSizeOverride("font_size", 64)
+	
+	Set MessageLabel = CreateLabel("Dodge the Creeps!", ScreenSize.x / 2 - 150, ScreenSize.y / 2 - 100)
+	MessageLabel.AddThemeFontSizeOverride("font_size", 48)
+	MessageLabel.HorizontalAlignment = 1 ' Center
+	MessageLabel.VerticalAlignment = 1
+	
+	Set StartButton = CreateButton("Start", ScreenSize.x / 2 - 100, ScreenSize.y / 2 + 50, 200, 100)
+	Call Connect(StartButton, "pressed", "NewGame")
+End Sub
+
+Sub NewGame()
+	Score = 0
+	ScoreLabel.Text = "0"
+	
+	Player.Position = ScreenSize / 2
+	Player.Show()
+	
+	StartButton.Hide()
+	MessageLabel.Hide()
+	
+	Call StartTimer.Start()
+	
+	' Clear old mobs? (Group management not fully implemented in GASIC examples yet)
+	' We will rely on game over clearing via scene reload or manual tracking if needed.
+	' For this simple version, previous mobs persist (hard mode!).
+End Sub
+
+Sub OnStartTimer()
+	Call MobTimer.Start()
+	Call ScoreTimer.Start()
+End Sub
+
+Sub OnScoreTimer()
+	Score = Score + 1
+	ScoreLabel.Text = Str(Score)
+End Sub
+
+Sub OnMobTimer()
+	' Create Mob using RigidBody2D
+	Dim mob As Object
+	Set mob = CreateNode("RigidBody2D")
+	
+	' Attach Script Logic
+	mob.SetScript(Load("res://examples/dodge/mob.bas"))
+	
+	' Visuals
+	Dim mSprite As Object
+	Set mSprite = CreateNode("ColorRect")
+	mSprite.Color = Color(1, 0.2, 0.2) ' Red
+	mSprite.Size.x = 30
+	mSprite.Size.y = 30
+	mSprite.Position.x = -15
+	mSprite.Position.y = -15
+	mob.AddChild(mSprite)
+	
+	Dim mColl As Object
+	Set mColl = CreateNode("CollisionShape2D")
+	Dim mShape As Object
+	Set mShape = CreateNode("RectangleShape2D")
+	mShape.Size.x = 30
+	mShape.Size.y = 30
+	mColl.Shape = mShape
+	mob.AddChild(mColl)
+	
+	' Pick random spawn location along edges
+	' Simplification: Random edge index 0-3
+	Dim edge As Integer
+	edge = Int(Rnd() * 4)
+	
+	Dim spawnX As Single
+	Dim spawnY As Single
+	Dim velocityX As Single
+	Dim velocityY As Single
+	Dim speed As Single
+	
+	spawnX = 0
+	spawnY = 0
+	velocityX = 0
+	velocityY = 0
+	speed = 150 + (Rnd() * 100)
+	
+	If edge = 0 Then ' Top
+		spawnX = Rnd() * ScreenSize.x
+		spawnY = -20
+		velocityY = speed
+		velocityX = (Rnd() * 200) - 100
+	ElseIf edge = 1 Then ' Right
+		spawnX = ScreenSize.x + 20
+		spawnY = Rnd() * ScreenSize.y
+		velocityX = -speed
+		velocityY = (Rnd() * 200) - 100
+	ElseIf edge = 2 Then ' Bottom
+		spawnX = Rnd() * ScreenSize.x
+		spawnY = ScreenSize.y + 20
+		velocityY = -speed
+		velocityX = (Rnd() * 200) - 100
+	Else ' Left
+		spawnX = -20
+		spawnY = Rnd() * ScreenSize.y
+		velocityX = speed
+		velocityY = (Rnd() * 200) - 100
+	EndIf
+	
+	mob.Position.x = spawnX
+	mob.Position.y = -15'spawnY
+	mob.LinearVelocity.x = velocityX
+	mob.LinearVelocity.y = velocityY
+	mob.GravityScale = 0 ' No gravity
+	
+	AddChild(mob)
+End Sub
+
+Sub OnPlayerHit(body)
+	' Game Over
+	Player.Hide()
+	MobTimer.Stop()
+	ScoreTimer.Stop()
+	
+	MessageLabel.Text = "Game Over"
+	MessageLabel.Show()
+	StartButton.Show()
+End Sub
+
+Sub _Process(delta)
+	If Player.Visible Then
+		Dim velocityX As Integer
+		Dim velocityY As Integer
+		Dim speed As Integer
+		
+		velocityX = 0
+		velocityY = 0
+		speed = 400
+		
+		If IsKeyDown("Right") Then velocityX = 1
+		If IsKeyDown("Left") Then velocityX = -1
+		If IsKeyDown("Down") Then velocityY = 1
+		If IsKeyDown("Up") Then velocityY = -1
+		
+		If velocityX <> 0 Or velocityY <> 0 Then
+			 Player.Position.x = Player.Position.x + (velocityX * speed * delta)
+			 Player.Position.y = Player.Position.y + (velocityY * speed * delta)
+		End If
+		
+		' Clamp
+		If Player.Position.x < 0 Then Player.Position.x = 0
+		If Player.Position.y < 0 Then Player.Position.y = 0
+		If Player.Position.x > ScreenSize.x Then Player.Position.x = ScreenSize.x
+		If Player.Position.y > ScreenSize.y Then Player.Position.y = ScreenSize.y
+	End If
+End Sub

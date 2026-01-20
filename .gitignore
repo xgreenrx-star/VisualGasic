@@ -1,0 +1,26 @@
+# Godot-specific ignores
+.godot/
+demo/.godot/
+*.import
+
+# SCons
+.sconsign.dblite
+
+# Binary / Build
+bin/
+demo/bin/
+*.o
+*.a
+*.so
+*.dll
+*.dylib
+Godot_v4.5.1-stable_linux.x86_64
+*.zip
+
+# Python/Venv
+venv/
+__pycache__/
+*.pyc
+
+# VS Code
+.vscode/

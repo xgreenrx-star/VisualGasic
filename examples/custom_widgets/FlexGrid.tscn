@@ -1,0 +1,10 @@
+[gd_scene load_steps=1 format=3 uid="uid://flexgrid_proto"]
+
+[node name="FlexGrid" type="Tree"]
+offset_right = 300.0
+offset_bottom = 200.0
+columns = 4
+column_titles_visible = true
+allow_reselect = true
+allow_rmb_select = true
+select_mode = 1

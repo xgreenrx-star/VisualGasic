@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://option_proto"]
+
+[node name="Option" type="CheckBox"]
+offset_right = 100.0
+offset_bottom = 24.0
+text = "Option 1"

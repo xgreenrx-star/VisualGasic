@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://slider_proto"]
+
+[node name="Slider" type="HSlider"]
+offset_right = 200.0
+offset_bottom = 16.0
+value = 50.0

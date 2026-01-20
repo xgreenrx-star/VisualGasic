@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://dodge_example_main"]
+
+[ext_resource type="VisualGasic" uid="uid://dodge_script" path="res://dodge/main.bas" id="1_dodge"]
+
+[node name="DodgeGame" type="Node2D"]
+script = ExtResource("1_dodge")

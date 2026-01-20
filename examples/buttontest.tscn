@@ -1,0 +1,11 @@
+[gd_scene load_steps=2 format=3 uid="uid://bbuhko4rt2b1i"]
+
+[ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/Button.tscn" id="1_6hyay"]
+
+[node name="Node2D" type="Node2D"]
+
+[node name="Button" parent="." instance=ExtResource("1_6hyay")]
+offset_left = 144.0
+offset_top = 177.0
+offset_right = 244.0
+offset_bottom = 208.0

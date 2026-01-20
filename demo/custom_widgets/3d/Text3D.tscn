@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://text3d_proto"]
+
+[node name="Text3D" type="Label3D"]
+text = "3D Text"
+font_size = 64
+billboard = 1

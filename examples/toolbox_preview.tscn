@@ -1,0 +1,13 @@
+[gd_scene load_steps=2 format=3 uid="uid://toolbox_debug"]
+
+[node name="ToolboxDebug" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+text = "Toolbox Preview"
+
+[node name="VisualGasicToolbox" type="VisualGasicToolbox" parent="."]
+layout_mode = 0
+offset_right = 200.0
+offset_bottom = 400.0

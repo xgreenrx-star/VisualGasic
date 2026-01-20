@@ -1,0 +1,7 @@
+[gd_scene format=3 uid="uid://richtext_proto"]
+
+[node name="RichText" type="RichTextLabel"]
+offset_right = 200.0
+offset_bottom = 100.0
+text = "RichText"
+bbcode_enabled = true

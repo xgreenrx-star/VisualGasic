@@ -1,0 +1,5 @@
+[gd_scene format=3 uid="uid://light_proto"]
+
+[node name="Light" type="OmniLight3D"]
+light_energy = 5.0
+omni_range = 10.0

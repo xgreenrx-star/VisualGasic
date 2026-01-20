@@ -1,0 +1,23 @@
+config_version=5
+
+[application]
+
+config/name="Visual Gasic Examples"
+config/features=PackedStringArray("4.5", "GDExtension")
+config/icon="res://icon.svg"
+
+[autoload]
+
+; No autoloads needed for these examples
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/visual_gasic/plugin.cfg")
+
+[dotnet]
+
+project/assembly_name="Visual Gasic Examples"
+
+[visual_gasic]
+
+; Visual Gasic Settings (optional)

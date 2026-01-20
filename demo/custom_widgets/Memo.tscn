@@ -1,0 +1,7 @@
+[gd_scene format=3 uid="uid://memo_proto"]
+
+[node name="Memo" type="TextEdit"]
+offset_right = 200.0
+offset_bottom = 100.0
+text = "Multi-line text"
+wrap_mode = 1

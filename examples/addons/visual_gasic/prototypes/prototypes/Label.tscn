@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[node name="Label" type="Label"]
+offset_right = 100.0
+offset_bottom = 30.0
+text = "Label"

@@ -1,0 +1,12 @@
+[gd_scene format=3 uid="uid://tabs_proto"]
+
+[node name="Tabs" type="TabContainer"]
+offset_right = 300.0
+offset_bottom = 200.0
+
+[node name="Tab 1" type="TabBar" parent="."]
+layout_mode = 2
+
+[node name="Tab 2" type="TabBar" parent="."]
+visible = false
+layout_mode = 2
