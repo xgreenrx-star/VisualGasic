@@ -3,12 +3,12 @@ Attribute VB_Name = "FullTest"
 Sub Main()
     Print "Testing All Features"
     
-    Dim NewName
+    Dim ame As Variant
     NewName = "RenamedNode"
     ' Test Sub Call with argument
     Call set_name(NewName) 
     
-    Dim Result
+    Dim lt As Variant
     
     ' Test Call Expression (Return Value) using set_meta/get_meta
     ' First set a meta value using Call statement
@@ -20,7 +20,7 @@ Sub Main()
     Print "Meta Result (should be 42):"
     Print Result
     
-    Dim Check
+    Dim k As Variant
     ' Test boolean return
     Check = has_meta("TestKey")
     
@@ -31,7 +31,7 @@ Sub Main()
     End If
     
     ' Check variable modification
-    Dim Counter
+    Dim ter As Variant
     Counter = 0
     For i = 1 To 3
         Counter = Counter + i

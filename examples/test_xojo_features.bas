@@ -2,7 +2,7 @@ Sub Main()
     Print "--- Starting Feature Check ---"
 
     ' 1. Test Select Case
-    Dim scVal
+    Dim l As Variant
     scVal = 2
     Select Case scVal
         Case 1
@@ -16,7 +16,7 @@ Sub Main()
     End Select
 
     ' 2. Test ElseIf
-    Dim eiVal
+    Dim l As Variant
     eiVal = 20
     If eiVal = 10 Then
         Print "Strict Fail: If matched 10"
@@ -27,8 +27,8 @@ Sub Main()
     End If
 
     ' 3. Test Exit For
-    Dim i
-    Dim exitCheck
+
+    Dim Check As Variant
     exitCheck = 0
     For i = 1 To 10
         If i = 5 Then 
@@ -44,9 +44,9 @@ Sub Main()
     End If
 
     ' 4. Test Split and Join
-    Dim sRaw
+
     sRaw = "Apple,Banana,Cherry"
-    Dim parts
+    Dim s As Variant
     parts = Split(sRaw, ",")
     
     ' Check size - dependent on array implementation, usually UBound for VB, or just use index
@@ -55,7 +55,7 @@ Sub Main()
     If parts(0) = "Apple" Then Print "Pass: Split Index 0" Else Print "Strict Fail: Split Index 0"
     If parts(1) = "Banana" Then Print "Pass: Split Index 1" Else Print "Strict Fail: Split Index 1"
 
-    Dim sJoined
+    Dim ned As Variant
     sJoined = Join(parts, "-")
     If sJoined = "Apple-Banana-Cherry" Then Print "Pass: Join" Else Print "Strict Fail: Join Result: " & sJoined
 

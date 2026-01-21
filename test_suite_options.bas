@@ -2,7 +2,7 @@ Option Compare Text
 Sub Main()
     Print "Testing Option Compare Text"
     
-    Dim s1, s2
+    Dim s2 As Variant
     s1 = "Hello"
     s2 = "HELLO"
     
@@ -16,9 +16,9 @@ Sub Main()
         Print "s1 <> s2 (Strange, should be equal in Text mode)"
     End If
     
-    Dim s3
+
     s3 = "apple"
-    Dim s4
+
     s4 = "Banana"
     ' "apple" < "Banana" might depend on casing in ASCII ("a" > "B" usually), but in Text mode "a" < "b".
     ' "apple" vs "Banana" -> "apple" < "banana" (True)

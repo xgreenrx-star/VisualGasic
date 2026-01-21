@@ -1,0 +1,272 @@
+Untyped 'Dim' declarations found:
+ - test_suite_memory.bas:5: Dim obj
+ - test_suite_memory.bas:7: Dim wr
+ - test_suite_memory.bas:21: Dim mb
+ - test_suite_options.bas:5: Dim s1, s2
+ - test_suite_options.bas:19: Dim s3
+ - test_suite_options.bas:21: Dim s4
+ - test_suite_foreach.bas:3: Dim arr(3)
+ - test_suite_foreach.bas:8: Dim item
+ - test_suite_2.bas:7: Dim x
+ - test_suite_2.bas:29: Dim s
+ - test_suite_2.bas:31: Dim i
+ - test_suite_2.bas:35: Dim d
+ - test_suite_2.bas:40: Dim strVal
+ - test_suite_2.bas:42: Dim parts
+ - test_suite_2.bas:47: Dim joined
+ - test_suite_2.bas:55: Dim dict
+ - test_suite_enum.bas:14: Dim State
+ - test_suite_me.bas:6: Dim s
+ - test_full.bas:6: Dim Name
+ - test_full.bas:11: Dim Result
+ - test_full.bas:23: Dim Check
+ - test_full.bas:34: Dim Counter
+ - examples/test_twinbasic.bas:5: Dim s
+ - examples/test_twinbasic.bas:9: Dim parts
+ - examples/test_twinbasic.bas:17: Dim joined
+ - examples/test_function.bas:9: Dim Sum
+ - examples/test_doevents.bas:3: Dim i
+ - examples/test_bool.bas:6: Dim A
+ - examples/test_bool.bas:7: Dim B
+ - examples/test_pro.bas:1: Dim LblStatus
+ - examples/test_pro.bas:2: Dim TxtName
+ - examples/test_new_syntax.bas:26: Dim Z
+ - examples/test_operators.bas:2: Dim i
+ - examples/test_comm.bas:5: Dim MSComm1
+ - examples/test_math.bas:4: Dim Pi
+ - examples/test_flexgrid.bas:4: Dim grid
+ - examples/test_dynamic_shader.bas:4: Dim spr
+ - examples/test_dynamic_shader.bas:14: Dim code
+ - examples/test_dynamic_shader.bas:23: Dim sh
+ - examples/test_error.bas:4: Dim A(5)
+ - examples/test_select.bas:2: Dim I
+ - examples/pong_angle.bas:116: Dim bRect = Ball.GetRect()
+ - examples/pong_angle.bas:119: Dim p1Rect = Paddle1.GetRect()
+ - examples/pong_angle.bas:122: Dim p2Rect = Paddle2.GetRect()
+ - examples/test_freefile.bas:2: Dim f
+ - examples/test_freefile.bas:6: Dim path
+ - examples/test_features.bas:5: Dim d
+ - examples/test_features.bas:12: Dim l
+ - examples/test_features.bas:20: Dim t
+ - examples/test_features.bas:26: Dim a
+ - examples/test_loops.bas:6: Dim i
+ - examples/test_simple.bas:1: Dim a\na=10\nPrint a
+ - examples/test_advanced_loops.bas:6: Dim numbers(3)
+ - examples/test_advanced_loops.bas:12: Dim n
+ - examples/test_datetime.bas:4: Dim d
+ - examples/test_datetime.bas:16: Dim t0
+ - examples/test_datetime.bas:19: Dim i
+ - examples/test_float.bas:2: Dim a = 626.8
+ - examples/test_float.bas:3: Dim b = 628.0
+ - examples/test_strings.bas:36: Dim tree
+ - examples/test_shader.bas:5: Dim spr
+ - examples/test_shader.bas:14: Dim sh
+ - examples/test_iter.bas:2: Dim arr(3)
+ - examples/test_iter.bas:7: Dim x
+ - examples/test_collision.bas:5: Dim a
+ - examples/test_collision.bas:6: Dim b
+ - examples/test_collision.bas:27: Dim c
+ - examples/test_system.bas:5: Dim lbl
+ - examples/test_system.bas:17: Dim ax
+ - examples/test_system.bas:22: Dim jax
+ - examples/test_system.bas:27: Dim parts
+ - examples/test_system.bas:36: Dim mm
+ - examples/test_system.bas:45: Dim tr
+ - examples/test_system.bas:54: Dim s3d
+ - examples/test_system.bas:71: Dim enemy
+ - examples/test_system.bas:72: Dim player
+ - examples/test_commands.bas:11: Dim f, path, path2
+ - examples/test_commands.bas:31: Dim res
+ - examples/test_helpers.bas:6: Dim s
+ - examples/test_helpers.bas:13: Dim d
+ - examples/pong.bas:3: Dim ball_node
+ - examples/pong.bas:9: Dim p1_node
+ - examples/pong.bas:10: Dim p2_node
+ - examples/test_sprites.bas:5: Dim n
+ - examples/test_sprites.bas:22: Dim spr
+ - examples/test_sprites.bas:46: Dim tex
+ - examples/test_sprites.bas:50: Dim s2
+ - examples/test_modifiers.bas:39: Dim i
+ - examples/test_me.bas:3: Dim s
+ - examples/test_me.bas:9: Dim tree
+ - examples/test_gap.bas:5: Dim path
+ - examples/test_gap.bas:15: Dim f
+ - examples/test_timer.bas:8: Dim t
+ - examples/test_multi_array.bas:4: Dim Grid(2, 2) ' 3x3 Grid
+ - examples/test_multi_array.bas:22: Dim Cube(1, 1, 1) ' 2x2x2 Cube
+ - examples/test_extensions.bas:5: Dim v
+ - examples/test_extensions.bas:9: Dim v3
+ - examples/test_extensions.bas:16: Dim s
+ - examples/test_extensions.bas:18: Dim parts
+ - examples/test_extensions.bas:24: Dim j
+ - examples/test_extensions.bas:34: Dim shell_args(0)
+ - examples/test_full.bas:6: Dim NewName
+ - examples/test_full.bas:11: Dim Result
+ - examples/test_full.bas:23: Dim Check
+ - examples/test_full.bas:34: Dim Counter
+ - examples/test_mscom.bas:5: Dim pb
+ - examples/test_mscom.bas:12: Dim sl
+ - examples/test_mscom.bas:19: Dim lv
+ - examples/test_xojo_features.bas:5: Dim scVal
+ - examples/test_xojo_features.bas:19: Dim eiVal
+ - examples/test_xojo_features.bas:30: Dim i
+ - examples/test_xojo_features.bas:31: Dim exitCheck
+ - examples/test_xojo_features.bas:47: Dim sRaw
+ - examples/test_xojo_features.bas:49: Dim parts
+ - examples/test_xojo_features.bas:58: Dim sJoined
+ - examples/test_arrays.bas:6: Dim A(5)
+ - examples/test_arrays.bas:22: Dim Sum
+ - examples/pong/pong.bas:116: Dim bRect = Ball.GetRect()
+ - examples/pong/pong.bas:119: Dim p1Rect = Paddle1.GetRect()
+ - examples/pong/pong.bas:122: Dim p2Rect = Paddle2.GetRect()
+ - demo/test_twinbasic.bas:5: Dim s
+ - demo/test_twinbasic.bas:9: Dim parts
+ - demo/test_twinbasic.bas:17: Dim joined
+ - demo/test_function.bas:9: Dim Sum
+ - demo/test_doevents.bas:3: Dim i
+ - demo/test_bool.bas:6: Dim A
+ - demo/test_bool.bas:7: Dim B
+ - demo/test_pro.bas:1: Dim LblStatus
+ - demo/test_pro.bas:2: Dim TxtName
+ - demo/test_operators.bas:2: Dim i
+ - demo/test_comm.bas:5: Dim MSComm1
+ - demo/test_math.bas:4: Dim Pi
+ - demo/test_flexgrid.bas:4: Dim grid
+ - demo/test_dynamic_shader.bas:4: Dim spr
+ - demo/test_dynamic_shader.bas:14: Dim code
+ - demo/test_dynamic_shader.bas:23: Dim sh
+ - demo/test_error.bas:4: Dim A(5)
+ - demo/test_select.bas:2: Dim I
+ - demo/pong_angle.bas:78: Dim oldTop = Ball.Top
+ - demo/pong_angle.bas:86: Dim P2Vy = 0
+ - demo/pong_angle.bas:96: Dim P1Vy = 0
+ - demo/pong_angle.bas:119: Dim bRect = Ball.GetRect()
+ - demo/pong_angle.bas:122: Dim p1Rect = Paddle1.GetRect()
+ - demo/pong_angle.bas:125: Dim p2Rect = Paddle2.GetRect()
+ - demo/pong_angle.bas:132: Dim diff1 = (Ball.Top + 10) - (Paddle1.Position.y + 50)
+ - demo/pong_angle.bas:140: Dim diff2 = (Ball.Top + 10) - (Paddle2.Position.y + 50)
+ - demo/test_freefile.bas:2: Dim f
+ - demo/test_freefile.bas:6: Dim path
+ - demo/test_features.bas:5: Dim d
+ - demo/test_features.bas:12: Dim l
+ - demo/test_features.bas:20: Dim t
+ - demo/test_features.bas:26: Dim a
+ - demo/test_loops.bas:6: Dim i
+ - demo/test_advanced_loops.bas:6: Dim numbers(3)
+ - demo/test_advanced_loops.bas:12: Dim n
+ - demo/test_datetime.bas:4: Dim d
+ - demo/test_datetime.bas:16: Dim t0
+ - demo/test_datetime.bas:19: Dim i
+ - demo/test_strings.bas:36: Dim tree
+ - demo/test_shader.bas:5: Dim spr
+ - demo/test_shader.bas:14: Dim sh
+ - demo/test_iter.bas:2: Dim arr(3)
+ - demo/test_iter.bas:7: Dim x
+ - demo/test_collision.bas:5: Dim a
+ - demo/test_collision.bas:6: Dim b
+ - demo/test_collision.bas:27: Dim c
+ - demo/test_system.bas:5: Dim lbl
+ - demo/test_system.bas:17: Dim ax
+ - demo/test_system.bas:22: Dim jax
+ - demo/test_system.bas:27: Dim parts
+ - demo/test_system.bas:36: Dim mm
+ - demo/test_system.bas:45: Dim tr
+ - demo/test_system.bas:54: Dim s3d
+ - demo/test_system.bas:71: Dim enemy
+ - demo/test_system.bas:72: Dim player
+ - demo/test_commands.bas:11: Dim f, path, path2
+ - demo/test_commands.bas:31: Dim res
+ - demo/test_helpers.bas:6: Dim s
+ - demo/test_helpers.bas:13: Dim d
+ - demo/pong.bas:3: Dim ball_node
+ - demo/pong.bas:9: Dim p1_node
+ - demo/pong.bas:10: Dim p2_node
+ - demo/test_sprites.bas:5: Dim n
+ - demo/test_sprites.bas:22: Dim spr
+ - demo/test_sprites.bas:46: Dim tex
+ - demo/test_sprites.bas:50: Dim s2
+ - demo/test_me.bas:3: Dim s
+ - demo/test_me.bas:9: Dim tree
+ - demo/test_gap.bas:5: Dim path
+ - demo/test_gap.bas:15: Dim f
+ - demo/test_timer.bas:8: Dim t
+ - demo/test_multi_array.bas:4: Dim Grid(2, 2) ' 3x3 Grid
+ - demo/test_multi_array.bas:22: Dim Cube(1, 1, 1) ' 2x2x2 Cube
+ - demo/test_extensions.bas:5: Dim v
+ - demo/test_extensions.bas:9: Dim v3
+ - demo/test_extensions.bas:16: Dim s
+ - demo/test_extensions.bas:18: Dim parts
+ - demo/test_extensions.bas:24: Dim j
+ - demo/test_extensions.bas:34: Dim shell_args(0)
+ - demo/test_full.bas:6: Dim Name
+ - demo/test_full.bas:11: Dim Result
+ - demo/test_full.bas:23: Dim Check
+ - demo/test_full.bas:34: Dim Counter
+ - demo/test_mscom.bas:5: Dim pb
+ - demo/test_mscom.bas:12: Dim sl
+ - demo/test_mscom.bas:19: Dim lv
+ - demo/test_arrays.bas:6: Dim A(5)
+ - demo/test_arrays.bas:22: Dim Sum
+ - package/examples/pong/pong.bas:100: Dim bRect = Ball.GetRect()
+ - package/examples/pong/pong.bas:103: Dim p1Rect = Paddle1.GetRect()
+ - package/examples/pong/pong.bas:106: Dim p2Rect = Paddle2.GetRect()
+ - package/examples/dodge/mob.bas:8: Dim notif = CreateNode("VisibleOnScreenNotifier2D")
+ - package/examples/dodge/main.bas:18: Dim bg = CreateNode("ColorRect")
+ - package/examples/dodge/main.bas:26: Dim pSprite = CreateNode("ColorRect")
+ - package/examples/dodge/main.bas:34: Dim pColl = CreateNode("CollisionShape2D")
+ - package/examples/dodge/main.bas:35: Dim pShape = CreateNode("RectangleShape2D")
+ - package/examples/dodge/main.bas:107: Dim mob = CreateNode("RigidBody2D")
+ - package/examples/dodge/main.bas:113: Dim mSprite = CreateNode("ColorRect")
+ - package/examples/dodge/main.bas:121: Dim mColl = CreateNode("CollisionShape2D")
+ - package/examples/dodge/main.bas:122: Dim mShape = CreateNode("RectangleShape2D")
+ - package/examples/dodge/main.bas:130: Dim edge = Int(Rnd() * 4)
+ - package/examples/dodge/main.bas:131: Dim spawnX = 0
+ - package/examples/dodge/main.bas:132: Dim spawnY = 0
+ - package/examples/dodge/main.bas:133: Dim velocityX = 0
+ - package/examples/dodge/main.bas:134: Dim velocityY = 0
+ - package/examples/dodge/main.bas:135: Dim speed = 150 + (Rnd() * 100)
+ - package/examples/dodge/main.bas:181: Dim velocityX = 0
+ - package/examples/dodge/main.bas:182: Dim velocityY = 0
+ - package/examples/dodge/main.bas:183: Dim speed = 400
+ - package/test_release/examples/pong/pong.bas:100: Dim bRect = Ball.GetRect()
+ - package/test_release/examples/pong/pong.bas:103: Dim p1Rect = Paddle1.GetRect()
+ - package/test_release/examples/pong/pong.bas:106: Dim p2Rect = Paddle2.GetRect()
+ - package/test_release/examples/dodge/mob.bas:8: Dim notif = CreateNode("VisibleOnScreenNotifier2D")
+ - package/test_release/examples/dodge/main.bas:18: Dim bg = CreateNode("ColorRect")
+ - package/test_release/examples/dodge/main.bas:26: Dim pSprite = CreateNode("ColorRect")
+ - package/test_release/examples/dodge/main.bas:34: Dim pColl = CreateNode("CollisionShape2D")
+ - package/test_release/examples/dodge/main.bas:35: Dim pShape = CreateNode("RectangleShape2D")
+ - package/test_release/examples/dodge/main.bas:107: Dim mob = CreateNode("RigidBody2D")
+ - package/test_release/examples/dodge/main.bas:113: Dim mSprite = CreateNode("ColorRect")
+ - package/test_release/examples/dodge/main.bas:121: Dim mColl = CreateNode("CollisionShape2D")
+ - package/test_release/examples/dodge/main.bas:122: Dim mShape = CreateNode("RectangleShape2D")
+ - package/test_release/examples/dodge/main.bas:130: Dim edge = Int(Rnd() * 4)
+ - package/test_release/examples/dodge/main.bas:131: Dim spawnX = 0
+ - package/test_release/examples/dodge/main.bas:132: Dim spawnY = 0
+ - package/test_release/examples/dodge/main.bas:133: Dim velocityX = 0
+ - package/test_release/examples/dodge/main.bas:134: Dim velocityY = 0
+ - package/test_release/examples/dodge/main.bas:135: Dim speed = 150 + (Rnd() * 100)
+ - package/test_release/examples/dodge/main.bas:181: Dim velocityX = 0
+ - package/test_release/examples/dodge/main.bas:182: Dim velocityY = 0
+ - package/test_release/examples/dodge/main.bas:183: Dim speed = 400
+ - package/extracted/examples/pong/pong.bas:100: Dim bRect = Ball.GetRect()
+ - package/extracted/examples/pong/pong.bas:103: Dim p1Rect = Paddle1.GetRect()
+ - package/extracted/examples/pong/pong.bas:106: Dim p2Rect = Paddle2.GetRect()
+ - package/extracted/examples/dodge/mob.bas:8: Dim notif = CreateNode("VisibleOnScreenNotifier2D")
+ - package/extracted/examples/dodge/main.bas:18: Dim bg = CreateNode("ColorRect")
+ - package/extracted/examples/dodge/main.bas:26: Dim pSprite = CreateNode("ColorRect")
+ - package/extracted/examples/dodge/main.bas:34: Dim pColl = CreateNode("CollisionShape2D")
+ - package/extracted/examples/dodge/main.bas:35: Dim pShape = CreateNode("RectangleShape2D")
+ - package/extracted/examples/dodge/main.bas:107: Dim mob = CreateNode("RigidBody2D")
+ - package/extracted/examples/dodge/main.bas:113: Dim mSprite = CreateNode("ColorRect")
+ - package/extracted/examples/dodge/main.bas:121: Dim mColl = CreateNode("CollisionShape2D")
+ - package/extracted/examples/dodge/main.bas:122: Dim mShape = CreateNode("RectangleShape2D")
+ - package/extracted/examples/dodge/main.bas:130: Dim edge = Int(Rnd() * 4)
+ - package/extracted/examples/dodge/main.bas:131: Dim spawnX = 0
+ - package/extracted/examples/dodge/main.bas:132: Dim spawnY = 0
+ - package/extracted/examples/dodge/main.bas:133: Dim velocityX = 0
+ - package/extracted/examples/dodge/main.bas:134: Dim velocityY = 0
+ - package/extracted/examples/dodge/main.bas:135: Dim speed = 150 + (Rnd() * 100)
+ - package/extracted/examples/dodge/main.bas:181: Dim velocityX = 0
+ - package/extracted/examples/dodge/main.bas:182: Dim velocityY = 0
+ - package/extracted/examples/dodge/main.bas:183: Dim speed = 400

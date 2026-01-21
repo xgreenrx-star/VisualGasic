@@ -3,7 +3,7 @@ Attribute VB_Name = "ArrayTest"
 Sub Main()
     Print "Testing Arrays"
     
-    Dim A(5)
+
     
     A(0) = 10
     A(1) = 20
@@ -19,7 +19,7 @@ Sub Main()
     Print A(5)
     
     Print "Looping Array:"
-    Dim Sum
+
     Sum = 0
     For i = 0 To 5
         ' Use > 0 to filter out nulls/empty

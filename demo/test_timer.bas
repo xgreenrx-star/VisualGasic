@@ -5,7 +5,7 @@ Sub Main()
     tick_count = 0
     
     ' Create a standard Godot Timer
-    Dim t
+
     Set t = New Timer
     Print "Timer created: " & t
     

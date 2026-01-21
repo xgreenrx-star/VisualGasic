@@ -1,7 +1,7 @@
 Sub Main()
     Print "Testing Dynamic Shader Generation..."
     
-    Dim spr
+
     Set spr = LoadSprite("res://icon.svg")
     If TypeName(spr) = "Sprite2D" Then
         AddChild spr
@@ -11,7 +11,7 @@ Sub Main()
     End If
     
     ' Build Shader Code in BASIC
-    Dim code
+
     code = "shader_type canvas_item;" & Chr(10)
     code = code & "void fragment() {" & Chr(10)
     code = code & "  COLOR = texture(TEXTURE, UV);" & Chr(10)
@@ -20,7 +20,7 @@ Sub Main()
     code = code & "}"
     
     Print "Compiling Shader..."
-    Dim sh
+
     Set sh = CompileShader(code)
     
     If Not sh Is Nothing Then

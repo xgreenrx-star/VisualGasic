@@ -1,9 +1,9 @@
 Sub Main()
-    Dim f
+
     f = FreeFile
     Print "FreeFile: " & f
     
-    Dim path
+
     path = "user://temp_test_kill.txt"
     
     Open path For Output As #f

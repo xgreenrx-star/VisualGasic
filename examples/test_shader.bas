@@ -2,7 +2,7 @@ Sub Main()
     Print "Testing Shaders..."
     
     ' Load generic icon
-    Dim spr
+
     Set spr = LoadSprite("res://icon.svg")
     
     ' Check if sprite loaded (headless environment issue?)
@@ -11,7 +11,7 @@ Sub Main()
         spr.position = Vector2(300, 300)
         
         ' Load Shader
-        Dim sh
+
         Set sh = LoadShader("res://test_shader.gdshader")
         
         If Not sh Is Nothing Then

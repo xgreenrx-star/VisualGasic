@@ -36,7 +36,7 @@ End Sub
 
 Sub TestParamArray(prefix, ParamArray args)
     Print "Prefix: " & prefix & ", Count: " & args.Size()
-    Dim i
+
     For i = 0 To args.Size() - 1
         Print "Arg " & i & ": " & args(i)
     Next

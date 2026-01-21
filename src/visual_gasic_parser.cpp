@@ -53,7 +53,6 @@ void VisualGasicParser::error(const String& message) {
     err.column = t.column;
     err.message = message;
     errors.push_back(err);
-    // UtilityFunctions::print("Parser Error (", t.line, ":", t.column, "): ", message);
 }
 
 // Reimplementing correct logic
@@ -439,78 +438,77 @@ Statement* VisualGasicParser::parse_statement() {
     }
     
     String val = t.value.operator String().to_lower();
-    
-    if (val == "enum") {
-        parse_enum();
-        return nullptr; // Enum is a definition, not a statement
-    }
-    
-    if (val == "print") {
-        return parse_print();
-    }
-    if (val == "open") return parse_open();
-    if (val == "close") return parse_close();
-    if (val == "seek") return parse_seek();
-    if (val == "kill") return parse_kill();
-    if (val == "name") return parse_name();
-    if (val == "try") return parse_try();
-    if (val == "input") return parse_input(false);
-    if (val == "line") {
-        advance();
-        if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("input") == 0) {
-             return parse_input(true);
+
+    // Only treat reserved words as statements when the tokenizer classified them as KEYWORD.
+    if (t.type == VisualGasicTokenizer::TOKEN_KEYWORD) {
+        if (val == "enum") {
+            parse_enum();
+            return nullptr; // Enum is a definition, not a statement
         }
-        // else ... line without input? (Line (x,y)-(x,y), color BF?)
-    }
+        if (val == "print") {
+            return parse_print();
+        }
+        if (val == "open") return parse_open();
+        if (val == "close") return parse_close();
+        if (val == "seek") return parse_seek();
+        if (val == "kill") return parse_kill();
+        if (val == "name") return parse_name();
+        if (val == "try") return parse_try();
+        if (val == "input") return parse_input(false);
+        if (val == "line") {
+            advance();
+            if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("input") == 0) {
+                 return parse_input(true);
+            }
+        }
 
-    if (val == "var") {
-         return parse_dim(); // Helper alias for Var -> Dim
-    }
+        if (val == "var") {
+             return parse_dim(); // Helper alias for Var -> Dim
+        }
 
-    if (val == "dim") return parse_dim();
-    if (val == "static") {
-        DimStatement* ds = parse_dim();
-        if (ds) ds->is_static = true;
-        return ds;
-    }
-    if (val == "const") return parse_const();
-    if (val == "pass") {
-        advance();
-        return new PassStatement();
-    }
-    if (val == "doevents") {
-        advance();
-        return new DoEventsStatement();
-    }
-    if (val == "data") return parse_data();
-    if (val == "datafile") return parse_data_file();
-    if (val == "loaddata") return parse_load_data();
-    if (val == "read") return parse_read();
-    if (val == "restore") return parse_restore();
-    if (val == "if") return parse_if();
-    if (val == "for") return parse_for();
-    if (val == "while") return parse_while();
-    if (val == "do") return parse_do();
-    if (val == "select") return parse_select();
-    if (val == "exit") return parse_exit();
-    if (val == "redim") return parse_redim();
-    if (val == "with") return parse_with();
-    if (val == "return") return parse_return();
-    if (val == "continue") return parse_continue();
-    if (val == "raise") {
-        return parse_raise();
-    }
-    if (val == "raiseevent") {
-        advance();
-        return parse_raise_event();
-    }
-    
-    if (val == "set") {
-        advance(); // Eat Set
-        // Parse assignment: Target = Value
-        return parse_assignment_or_call();
-        // parse_assignment_or_call starts by parsing an expression (Target).
-        // It handles assignment if it sees '='.
+        if (val == "dim") return parse_dim();
+        if (val == "static") {
+            DimStatement* ds = parse_dim();
+            if (ds) ds->is_static = true;
+            return ds;
+        }
+        if (val == "const") return parse_const();
+        if (val == "pass") {
+            advance();
+            return new PassStatement();
+        }
+        if (val == "doevents") {
+            advance();
+            return new DoEventsStatement();
+        }
+        if (val == "data") return parse_data();
+        if (val == "datafile") return parse_data_file();
+        if (val == "loaddata") return parse_load_data();
+        if (val == "read") return parse_read();
+        if (val == "restore") return parse_restore();
+        if (val == "if") return parse_if();
+        if (val == "for") return parse_for();
+        if (val == "while") return parse_while();
+        if (val == "do") return parse_do();
+        if (val == "select") return parse_select();
+        if (val == "exit") return parse_exit();
+        if (val == "redim") return parse_redim();
+        if (val == "with") return parse_with();
+        if (val == "return") return parse_return();
+        if (val == "continue") return parse_continue();
+        if (val == "raise") {
+            return parse_raise();
+        }
+        if (val == "raiseevent") {
+            advance();
+            return parse_raise_event();
+        }
+        
+        if (val == "set") {
+            advance(); // Eat Set
+            // Parse assignment: Target = Value
+            return parse_assignment_or_call();
+        }
     }
     if (val == "goto") {
         advance();
@@ -1748,6 +1746,10 @@ Statement* VisualGasicParser::parse_assignment_or_call() {
         String op = peek().value;
         if (op == "=") {
             advance(); // Eat =
+            // Defensive: sometimes tokenizer/positions can leave stray '=' tokens; skip any additional '=' to reach RHS
+            while (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().value == "=") {
+                advance();
+            }
              
             if (current_module && current_module->option_explicit && head->type == ExpressionNode::VARIABLE) {
                 String var_name = ((VariableNode*)head)->name;
@@ -2384,7 +2386,7 @@ TryStatement* VisualGasicParser::parse_try() {
     if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).to_lower() == "catch") {
         advance(); // Eat Catch
         
-        Token vars = peek();
+        VisualGasicTokenizer::Token vars = peek();
         // Optional Variable? Catch ex As Exception?
         if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
             // Store exception variable name

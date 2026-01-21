@@ -1,7 +1,7 @@
 Sub _Ready
     Print "Testing Math..."
     
-    Dim Pi
+
     Pi = 3.1415926535
 
     Print "Sin(Pi/2): " & Sin(Pi/2)

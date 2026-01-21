@@ -3,8 +3,8 @@ Attribute VB_Name = "BoolTest"
 Sub Main()
     Print "Testing Boolean Logic"
     
-    Dim A
-    Dim B
+
+
     A = 10
     B = 20
     

@@ -1,6 +1,6 @@
 Sub Main()
-    Dim a = 626.8
-    Dim b = 628.0
+    Dim 626.8 As Variant
+    Dim 628.0 As Variant
     
     If a > b Then
         Print "FAILURE: " & a & " > " & b & " is True!"

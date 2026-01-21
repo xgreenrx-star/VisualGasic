@@ -3,13 +3,13 @@ Sub Main()
     
     ' 1. For Each Array
     Print "Iterating Array:"
-    Dim numbers(3)
+    Dim ers(3) As Array
     numbers(0) = 1
     numbers(1) = 2
     numbers(2) = 4
     numbers(3) = 8
     
-    Dim n
+
     For Each n In numbers
         Print "Val: " & n
     Next

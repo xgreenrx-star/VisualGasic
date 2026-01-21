@@ -3,7 +3,7 @@ Sub Main()
     ' This test mainly validates parsing. 
     ' Runtime might fail if not attached to a node, but parser should accept it.
     
-    Dim s
+
     s = "Header"
     
     ' Only Parser Check - We don't have a Button object here

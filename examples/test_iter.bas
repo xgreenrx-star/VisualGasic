@@ -1,10 +1,10 @@
 Sub IterTest()
-    Dim arr(3)
+    Dim 3) As Variant
     arr(0) = 10
     arr(1) = 20
     arr(2) = 30
     
-    Dim x
+
     Print "Iterating numbers:"
     For Each x In arr
         Print x

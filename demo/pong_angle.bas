@@ -75,7 +75,7 @@ Sub _Process(delta)
 	' Move Ball using Top/Left aliases for safety
 	Ball.Left = Ball.Left + (BallVelX * delta)
 	
-	Dim oldTop = Ball.Top
+	Dim op As Variant
 	Ball.Top = Ball.Top + (BallVelY * delta)
 	
 	If Ball.Top > 620.0 Then
@@ -83,7 +83,7 @@ Sub _Process(delta)
 	End If
 	
 	' Simple AI for Paddle 2 (Right)
-	Dim P2Vy = 0
+	Dim  As Integer
 	If Ball.Top > Paddle2.Position.y + 50 Then
 		P2Vy = 200
 		Paddle2.Position.y = Paddle2.Position.y + (P2Vy * delta)
@@ -93,7 +93,7 @@ Sub _Process(delta)
 	End If
 	
 	' Player Input for Paddle 1
-	Dim P1Vy = 0
+	Dim  As Integer
 	If IsKeyDown("S") Then
 		P1Vy = 300
 	End If
@@ -116,20 +116,20 @@ Sub _Process(delta)
 	End If
 	
 	' Paddle Collision (Simple AABB)
-	Dim bRect = Ball.GetRect()
+	Dim t As Object
 	bRect.Position = Ball.Position ' Position should still update correctly from Top/Left logic
 	
-	Dim p1Rect = Paddle1.GetRect()
+	Dim ct As Object
 	p1Rect.Position = Paddle1.Position
 	
-	Dim p2Rect = Paddle2.GetRect()
+	Dim ct As Object
 	p2Rect.Position = Paddle2.Position
 	
 	If bRect.Intersects(p1Rect) Then
 		BallVelX = Abs(BallVelX) * 1.1 ' Speed up and bounce right
 		BallVelY = BallVelY + (P1Vy * 0.5) ' Transfer paddle velocity
 		' Add relative intersect logic for gameplay feel
-		Dim diff1 = (Ball.Top + 10) - (Paddle1.Position.y + 50)
+		Dim 1 As Variant
 		BallVelY = BallVelY + (diff1 * 2.0)
 	End If
 	
@@ -137,7 +137,7 @@ Sub _Process(delta)
 		BallVelX = -Abs(BallVelX) * 1.1 ' Speed up and bounce left
 		BallVelY = BallVelY + (P2Vy * 0.5) ' Transfer paddle velocity
 		' Add relative intersect logic
-		Dim diff2 = (Ball.Top + 10) - (Paddle2.Position.y + 50)
+		Dim 2 As Variant
 		BallVelY = BallVelY + (diff2 * 2.0)
 	End If
 	

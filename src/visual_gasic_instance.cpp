@@ -25,6 +25,7 @@
 #include "visual_gasic_instance.h"
 #include "visual_gasic_language.h"
 #include "visual_gasic_parser.h" // For parsing data values at runtime
+#include "visual_gasic_builtins.h"
 #include <godot_cpp/core/object.hpp>
 #include <godot_cpp/classes/node.hpp>
 #include <godot_cpp/classes/input.hpp>
@@ -391,6 +392,87 @@ VisualGasicInstance::~VisualGasicInstance() {
     }
 }
 
+Variant VisualGasicInstance::evaluate_expression_for_builtins(ExpressionNode* expr) {
+    return _evaluate_expression_impl(expr);
+}
+
+Variant VisualGasicInstance::builtin_lof(int file_num) {
+    if (open_files.has(file_num)) {
+        Ref<FileAccess> fa = open_files[file_num];
+        if (fa.is_valid()) return fa->get_length();
+    }
+    return 0;
+}
+
+Variant VisualGasicInstance::builtin_loc(int file_num) {
+    if (open_files.has(file_num)) {
+        Ref<FileAccess> fa = open_files[file_num];
+        if (fa.is_valid()) return fa->get_position();
+    }
+    return 0;
+}
+
+Variant VisualGasicInstance::builtin_eof(int file_num) {
+    if (open_files.has(file_num)) {
+        Ref<FileAccess> fa = open_files[file_num];
+        if (fa.is_valid()) return fa->eof_reached();
+    }
+    return true;
+}
+
+int VisualGasicInstance::builtin_freefile(int range) {
+    int start = 1;
+    if (range == 1) start = 256;
+    for (int i = start; i < start + 255; i++) {
+        if (!open_files.has(i)) return i;
+    }
+    raise_error("Too many files open");
+    return 0;
+}
+
+Variant VisualGasicInstance::builtin_filelen(const String &path) {
+    Ref<FileAccess> fa = FileAccess::open(path, FileAccess::READ);
+    if (fa.is_valid()) return fa->get_length();
+    return 0;
+}
+
+Variant VisualGasicInstance::builtin_dir(const Array &args) {
+    if (args.size() >= 1) {
+        String path = args[0];
+        String folder = path.get_base_dir();
+        if (folder.is_empty()) folder = "res://";
+        dir_pattern = path.get_file();
+        if (dir_pattern.is_empty()) dir_pattern = "*";
+        current_dir = DirAccess::open(folder);
+        if (current_dir.is_valid()) {
+            current_dir->list_dir_begin();
+            String f = current_dir->get_next();
+            while (!f.is_empty()) {
+                if (f != "." && f != ".." && f.matchn(dir_pattern)) return f;
+                f = current_dir->get_next();
+            }
+        }
+        return String();
+    } else {
+        if (current_dir.is_valid()) {
+            String f = current_dir->get_next();
+            while (!f.is_empty()) {
+                if (f != "." && f != ".." && f.matchn(dir_pattern)) return f;
+                f = current_dir->get_next();
+            }
+        }
+        return String();
+    }
+}
+
+void VisualGasicInstance::builtin_randomize() {
+    UtilityFunctions::randomize();
+}
+
+void VisualGasicInstance::raise_error_for_builtins(const String &p_msg, int p_code) {
+    raise_error(p_msg, p_code);
+}
+
 bool VisualGasicInstance::set(const StringName &p_name, const Variant &p_value) {
     if (variables.has(p_name)) {
         variables[p_name] = p_value;
@@ -416,6 +498,27 @@ bool VisualGasicInstance::get(const StringName &p_name, Variant &r_ret) {
         return true;
     }
     return false;
+}
+
+// Retrieve a variable by name into r_ret. Returns true if found.
+bool VisualGasicInstance::get_variable(const String &p_name, Variant &r_ret) {
+    if (variables.has(p_name)) {
+        r_ret = variables[p_name];
+        return true;
+    }
+    return false;
+}
+
+// Wrapper that forwards statement-level builtin calls to the centralized builtins module.
+void VisualGasicInstance::call_builtin(const String &p_method, const Array &p_args, bool &r_found) {
+    r_found = false;
+    Variant dummy_ret;
+    bool handled = false;
+    if (VisualGasicBuiltins::call_builtin(this, p_method, p_args, dummy_ret, handled)) {
+        r_found = handled;
+        return;
+    }
+    r_found = false;
 }
 
 const GDExtensionPropertyInfo *VisualGasicInstance::get_property_list(uint32_t *r_count) {
@@ -1014,11 +1117,17 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
     if (expr->type == ExpressionNode::EXPRESSION_CALL) {
         CallExpression* call = (CallExpression*)expr;
         
+        // Delegate to centralized expression-level builtins first (they may evaluate arguments themselves)
+        {
+            bool _bg_handled = false;
+            Variant _bg_res = VisualGasicBuiltins::call_builtin_expr(this, call, _bg_handled);
+            if (_bg_handled) return _bg_res;
+        }
+
         Array call_args;
         for(int i=0; i<call->arguments.size(); i++) {
             call_args.push_back(evaluate_expression(call->arguments[i]));
         }
-
         if (call->method_name.nocasecmp_to("CreateNode") == 0) {
              // Debug 
              // UtilityFunctions::print("DEBUG: Handling Call: ", call->method_name);
@@ -1044,99 +1153,30 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
         }
 
         if (call->base_object) {
-             // Clipboard Check (Expression)
-             if (call->base_object->type == ExpressionNode::VARIABLE) {
-                 String var_name = ((VariableNode*)call->base_object)->name;
-                 if (var_name == "Clipboard") {
-                     if (call->method_name == "GetText") {
-                         return DisplayServer::get_singleton()->clipboard_get();
-                     }
-                     // SetText returns nothing, but if called in expression context? "x = Clipboard.SetText"? 
-                     // Typically SetText is a sub. If called as function, returns Empty.
-                     if (call->method_name == "SetText") {
-                          if (call_args.size() >= 1) DisplayServer::get_singleton()->clipboard_set(String(call_args[0]));
-                          return Variant();
-                     }
-                     if (call->method_name == "Clear") {
-                          DisplayServer::get_singleton()->clipboard_set("");
-                          return Variant();
-                     }
-                 }
-             }
-        
-             Variant base = evaluate_expression(call->base_object);
-             
-             // Handle Err.Clear or similar on Dictionaries
-             if (base.get_type() == Variant::DICTIONARY) {
-                 Dictionary d = base;
-                 if (call->method_name == "Clear") {
-                     // Err.Clear logic. 
-                     // Actually we just want to reset Number/Desc, not wipe the dict.
-                     // Check if it is the Err object? 
-                     // Hard to know if this dictionary IS the Err object by value.
-                     // But typically Err is the only dict we use this way.
-                     // Safe approach: If it has "Number" and "Description" keys, reset them.
-                     if (d.has("Number") && d.has("Description")) {
-                         d["Number"] = 0;
-                         d["Description"] = "";
-                         d["Source"] = "";
-                         return Variant();
-                     }
-                     // Otherwise generic dict clear?
-                     d.clear();
-                     return Variant();
-                 }
-                 if (call->method_name == "Raise") {
-                     // Err.Raise Number, Source, Desc
-                     if (call_args.size() >= 1) d["Number"] = call_args[0];
-                     if (call_args.size() >= 2) d["Source"] = call_args[1];
-                     if (call_args.size() >= 3) d["Description"] = call_args[2];
-                     
-                     // Trigger Error
-                     String msg = d.has("Description") ? (String)d["Description"] : "Runtime Error";
-                     int code = d.has("Number") ? (int)d["Number"] : 0;
-                     raise_error(msg, code);
-                     return Variant();
-                 }
-             }
-             
-             if (base.get_type() == Variant::OBJECT) {
-                 Object* obj = base;
-                 if (obj) {
-                     // Intercept GetTextMatrix
-                     if (obj->is_class("Tree")) {
-                          if (call->method_name == "GetTextMatrix" && call_args.size() >= 2) {
-                               Tree *t = Object::cast_to<Tree>(obj);
-                               int row = call_args[0];
-                               int col = call_args[1];
-                               TreeItem *root = t->get_root();
-                               if (root && row >= 0 && row < root->get_child_count()) {
-                                   TreeItem *it = root->get_child(row);
-                                   return it->get_text(col);
-                               }
-                               return "";
-                          }
-                     }
-                     
-                     if (call->method_name.nocasecmp_to("Connect") == 0 && call_args.size() == 2) {
-                         String signal = call_args[0];
-                         String target = call_args[1];
-                         // Connect signal to owner (this script)
-                         if (owner) {
-                             obj->connect(signal, Callable(owner, target));
-                             return Variant();
-                         }
-                     }
+            // If base is a simple variable (eg. Clipboard) let builtins handle it first
+            if (call->base_object->type == ExpressionNode::VARIABLE) {
+                String var_name = ((VariableNode*)call->base_object)->name;
+                Variant br;
+                if (VisualGasicBuiltins::call_builtin_for_base_variable(this, var_name, call->method_name, call_args, br)) {
+                    return br;
+                }
+            }
 
-                     if (obj->has_method(call->method_name)) {
-                         return obj->callv(call->method_name, call_args);
-                     }
-                     String snake = call->method_name.to_snake_case();
-                     if (obj->has_method(snake)) {
-                         return obj->callv(snake, call_args);
-                     }
-                 }
-             }
+            Variant base = evaluate_expression(call->base_object);
+            Variant br;
+            if (VisualGasicBuiltins::call_builtin_for_base_variant(this, base, call->method_name, call_args, br)) {
+                return br;
+            }
+
+            // Fallback: object method call (try direct, snake_case, or callp fallback)
+            if (base.get_type() == Variant::OBJECT) {
+                Object* obj = base;
+                if (obj) {
+                    if (obj->has_method(call->method_name)) return obj->callv(call->method_name, call_args);
+                    String snake = call->method_name.to_snake_case();
+                    if (obj->has_method(snake)) return obj->callv(snake, call_args);
+                }
+            }
 
              // Fallback for Variant types (Structs like Rect2, Vector2, etc.)
              if (base.get_type() != Variant::OBJECT && base.get_type() != Variant::NIL) {
@@ -1245,165 +1285,10 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
              }
         }
         
-        // String Library
-        if (call->method_name == "Len" && call_args.size() == 1) {
-            String s = call_args[0];
-            return s.length();
-        }
-        if (call->method_name == "Left" && call_args.size() == 2) {
-            String s = call_args[0];
-            int n = call_args[1];
-            return s.left(n);
-        }
-        if (call->method_name == "Right" && call_args.size() == 2) {
-            String s = call_args[0];
-            int n = call_args[1];
-            return s.right(n);
-        }
-        if (call->method_name == "Mid" && call_args.size() >= 2) {
-            String s = call_args[0];
-            int start = (int)call_args[1] - 1; // 1-based index support
-            if (start < 0) start = 0;
-            if (call_args.size() == 3) {
-                int len = call_args[2];
-                return s.substr(start, len);
-            } else {
-                return s.substr(start);
-            }
-        }
-        if (call->method_name == "UCase" && call_args.size() == 1) {
-            String s = call_args[0];
-            return s.to_upper();
-        }
-        if (call->method_name == "LCase" && call_args.size() == 1) {
-            String s = call_args[0];
-            return s.to_lower();
-        }
-        if (call->method_name == "Asc" && call_args.size() == 1) {
-             String s = call_args[0];
-             if (s.length() > 0) return s.unicode_at(0);
-             return 0;
-        }
-        if (call->method_name == "Chr" && call_args.size() == 1) {
-             return String::chr((int)call_args[0]);
-        }
-        if (call->method_name == "Space" && call_args.size() == 1) {
-             int n = (int)call_args[0];
-             String s = "";
-             for(int i=0; i<n; i++) s += " ";
-             return s;
-        }
-        if (call->method_name == "String" && call_args.size() == 2) {
-             int n = (int)call_args[0];
-             String char_str = String(call_args[1]);
-             String s = "";
-             if (char_str.length() > 0) {
-                  String c = char_str.substr(0, 1);
-                  for(int i=0; i<n; i++) s += c;
-             }
-             return s;
-        }
-        if (call->method_name == "Str" && call_args.size() == 1) {
-            return ((Variant)call_args[0]).stringify();
-        }
-        if (call->method_name == "Val" && call_args.size() == 1) {
-            String s = call_args[0];
-            if (s.is_valid_float()) return s.to_float();
-            if (s.is_valid_int()) return s.to_int();
-            return 0.0;
-        }
-
-        if (call->method_name == "LOF" && call_args.size() == 1) {
-            int file_num = call_args[0];
-            if (open_files.has(file_num)) {
-                 Ref<FileAccess> fa = open_files[file_num];
-                 return fa->get_length();
-            }
-            return 0;
-        }
-
-        if (call->method_name == "Loc" && call_args.size() == 1) {
-            int file_num = call_args[0];
-            if (open_files.has(file_num)) {
-                 Ref<FileAccess> fa = open_files[file_num];
-                 return fa->get_position();
-            }
-            return 0;
-        }
-
-        if (call->method_name == "InStr" && call_args.size() == 2) {
-             String s1 = call_args[0];
-             String s2 = call_args[1];
-             int pos = s1.find(s2);
-             if (pos == -1) return 0;
-             return pos + 1; // 1-based logic
-        }
-        if (call->method_name == "Replace" && call_args.size() == 3) {
-             String s = call_args[0];
-             String what = call_args[1];
-             String with = call_args[2];
-             return s.replace(what, with);
-        }
-        if (call->method_name == "Trim" && call_args.size() == 1) {
-             String s = call_args[0];
-             return s.strip_edges();
-        }
-        if (call->method_name == "LTrim" && call_args.size() == 1) {
-             String s = call_args[0];
-             return s.strip_edges(true, false);
-        }
-        if (call->method_name == "RTrim" && call_args.size() == 1) {
-             String s = call_args[0];
-             return s.strip_edges(false, true);
-        }
-        if (call->method_name == "StrReverse" && call_args.size() == 1) {
-             String s = call_args[0];
-             String res = "";
-             for(int i=s.length()-1; i>=0; i--) res += s[i];
-             return res;
-        }
-        if (call->method_name == "Hex" && call_args.size() == 1) {
-             int64_t val = (int64_t)call_args[0];
-             return String::num_int64(val, 16).to_upper();
-        }
-        if (call->method_name == "Oct" && call_args.size() == 1) {
-             int64_t val = (int64_t)call_args[0];
-             return String::num_int64(val, 8);
-        }
-        if (call->method_name == "Split" && call_args.size() >= 2) {
-             String s = call_args[0];
-             String del = call_args[1];
-             return s.split(del);
-        }
-        if (call->method_name == "Join" && call_args.size() == 2) {
-            Variant v = call_args[0];
-            if (v.get_type() == Variant::PACKED_STRING_ARRAY) {
-                PackedStringArray psa = v;
-                return String(call_args[1]).join(psa); // Godot: delimiter.join(array)
-            }
-            // If it's a generic Array
-            if (v.get_type() == Variant::ARRAY) {
-                Array arr = v;
-                PackedStringArray psa;
-                for(int i=0; i<arr.size(); i++) psa.push_back((String)arr[i]);
-                return String(call_args[1]).join(psa);
-            }
-            return "";
-        }
-        
-        if (call->method_name == "UBound" && call_args.size() >= 1) {
-            Variant v = call_args[0];
-            if (v.get_type() == Variant::ARRAY) return ((Array)v).size() - 1;
-            if (v.get_type() == Variant::PACKED_STRING_ARRAY) return ((PackedStringArray)v).size() - 1;
-            if (v.get_type() == Variant::PACKED_INT32_ARRAY) return ((PackedInt32Array)v).size() - 1;
-            if (v.get_type() == Variant::PACKED_FLOAT32_ARRAY) return ((PackedFloat32Array)v).size() - 1;
-            if (v.get_type() == Variant::PACKED_INT64_ARRAY) return ((PackedInt64Array)v).size() - 1;
-            if (v.get_type() == Variant::PACKED_FLOAT64_ARRAY) return ((PackedFloat64Array)v).size() - 1;
-            return -1;
-        }
-        if (call->method_name == "LBound" && call_args.size() >= 1) {
-            return 0; // Visual Gasic arrays are 0-based
-        }
+        // Expression-level builtins (strings, array helpers, file/dir, math, etc.)
+        // are delegated to VisualGasicBuiltins::call_builtin_expr /
+        // call_builtin_expr_evaluated earlier. This avoids duplicate
+        // implementations here and keeps logic centralized.
         if (call->method_name.nocasecmp_to("Shell") == 0 && call_args.size() >= 1) {
              String cmd_line = call_args[0];
              // Parse command line (EXE + Args) VB6 Style
@@ -3070,6 +2955,15 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                 call_args.push_back(evaluate_expression(s->arguments[i]));
             }
 
+            // Try centralized statement-level builtins first
+            {
+                Variant _bg_ret;
+                bool _bg_found = false;
+                if (VisualGasicBuiltins::call_builtin(this, s->method_name, call_args, _bg_ret, _bg_found)) {
+                    if (_bg_found) break;
+                }
+            }
+
             if (s->method_name.nocasecmp_to("TweenProperty") == 0) {
                  if (call_args.size() == 4) {
                       Object *obj = call_args[0];
@@ -3089,50 +2983,27 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
 
 
             if (s->base_object) {
-                // Clipboard Check (Statement)
+                // Delegate variable-base builtins (Clipboard etc.) to centralized handler
                  if (s->base_object->type == ExpressionNode::VARIABLE) {
                      String var_name = ((VariableNode*)s->base_object)->name;
-                     if (var_name == "Clipboard") {
-                         if (s->method_name == "SetText" && call_args.size() >= 1) {
-                              DisplayServer::get_singleton()->clipboard_set(String(call_args[0]));
-                              break;
-                         }
-                         if (s->method_name == "Clear") {
-                              DisplayServer::get_singleton()->clipboard_set("");
-                              break;
-                         }
+                     Variant _var_ret;
+                     if (VisualGasicBuiltins::call_builtin_for_base_variable(this, var_name, s->method_name, call_args, _var_ret)) {
+                         break;
                      }
                  }
                  
                 Variant base = evaluate_expression(s->base_object);
+
+                    // Let builtins handle dictionary/object cases first
+                    {
+                        Variant _bb_ret;
+                        if (VisualGasicBuiltins::call_builtin_for_base_variant(this, base, s->method_name, call_args, _bb_ret)) {
+                            break;
+                        }
+                    }
                 
-                // Err Object Support
-                if (base.get_type() == Variant::DICTIONARY) {
-                     Dictionary d = base;
-                     if (s->method_name == "Clear") {
-                         if (d.has("Number") && d.has("Description")) {
-                             d["Number"] = 0;
-                             d["Description"] = "";
-                             d["Source"] = "";
-                             break;
-                         }
-                         d.clear();
-                         break;
-                     }
-                     if (s->method_name == "Raise") {
-                         if (call_args.size() >= 1) d["Number"] = call_args[0];
-                         if (call_args.size() >= 2) d["Source"] = call_args[1];
-                         if (call_args.size() >= 3) d["Description"] = call_args[2];
-                         
-                         String msg = d.has("Description") ? (String)d["Description"] : "Runtime Error";
-                         int code = d.has("Number") ? (int)d["Number"] : 0;
-                         raise_error(msg, code);
-                         break;
-                     }
-                }
-                
-                 if (base.get_type() == Variant::OBJECT) {
-                    Object* obj = base;
+                    if (base.get_type() == Variant::OBJECT) {
+                        Object* obj = base;
                     if (obj) {
                          // FlexGrid / Tree Helpers
                          if (obj->is_class("Tree")) {

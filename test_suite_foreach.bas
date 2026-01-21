@@ -1,11 +1,11 @@
 Sub Main()
     Print "Testing For Each"
-    Dim arr(3)
+    Dim 3) As Variant
     arr(0) = "A"
     arr(1) = "B"
     arr(2) = "C"
     
-    Dim item
+
     For Each item In arr
         Print "Item: " & item
     Next

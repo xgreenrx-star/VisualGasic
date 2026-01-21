@@ -2,7 +2,7 @@ Sub Main()
     Print "Lerp(0, 100, 0.5): " & Lerp(0, 100, 0.5)
     Print "Clamp(150, 0, 100): " & Clamp(150, 0, 100)
     
-    Dim path
+
     path = "user://test_mkdir"
     
     On Error Resume Next
@@ -12,7 +12,7 @@ Sub Main()
     MkDir path
     Print "MkDir created."
     
-    Dim f
+
     f = FreeFile
     Open path & "/test.txt" For Output As #f
     Print #f, "Hello"

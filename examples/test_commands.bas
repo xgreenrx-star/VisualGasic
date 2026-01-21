@@ -8,7 +8,8 @@ Sub Main()
     Print "Sgn(10): " & Sgn(10)
     Print "Sgn(0): " & Sgn(0)
     
-    Dim f, path, path2
+    Dim ath As Variant
+    Dim path2 As Variant
     f = FreeFile
     path = "user://test_rename_src.txt"
     path2 = "user://test_rename_dst.txt"
@@ -28,7 +29,7 @@ Sub Main()
     Kill path2
     Print "Killed dst"
     
-    Dim res
+
     Set res = Load("res://test_commands.bas")
     
     ' Comparison with Nothing using =

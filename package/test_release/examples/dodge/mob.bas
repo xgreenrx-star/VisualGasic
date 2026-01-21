@@ -5,7 +5,7 @@ Sub _Ready()
     ' For now, we are just a generic physics body
     
     ' Add visibility notifier to cleanup
-    Dim notif = CreateNode("VisibleOnScreenNotifier2D")
+    Dim f As Object
     AddChild(notif)
     ' Connect signal. Note: Standard signal is "screen_exited"
     ' We connect it to a local sub "OnScreenExited"

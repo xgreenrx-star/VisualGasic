@@ -2,11 +2,11 @@ Sub Main()
     Print "Testing TwinBasic/Extended Commands..."
     
     ' Split and Join
-    Dim s
+
     s = "Apple,Banana,Cherry"
     Print "Original: " + s
     
-    Dim parts
+    Dim s As Variant
     parts = Split(s, ",")
     
     Print "UBound: "
@@ -14,7 +14,7 @@ Sub Main()
     Print "Part 0: " + parts(0)
     Print "Part 1: " + parts(1)
     
-    Dim joined
+    Dim ed As Variant
     joined = Join(parts, " - ")
     Print "Joined: " + joined
     

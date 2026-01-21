@@ -1,7 +1,7 @@
 Sub Main()
     Print "Testing FlexGrid..."
 
-    Dim grid
+
     ' Create 3x3 Grid
     Set grid = CreateFlexGrid(3, 3, 50, 50)
     
