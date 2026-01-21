@@ -4,7 +4,7 @@ Sub Main()
     ' Test 1: Try Catch Generally
     Print "Test 1: General Try Catch"
     Try
-        Dim x
+
         x = 1 / 0 ' Cause Error (if 1/0 throws, otherwise manually raise)
         ' Actually in VG, 1/0 might allow Inf or error. Let's Raise.
         Raise 101, "Test Error"
@@ -26,25 +26,25 @@ Sub Main()
     Print "After Try-Finally"
 
     ' Test 3: CType
-    Dim s
+
     s = "123"
-    Dim i
+
     i = CType(s, "Integer")
     Print "CType Result: " & (i + 1) ' Should be 124
     
-    Dim d
+
     d = CDbl("12.5")
     Print "CDbl Result: " & d
     
     ' Test 4: String Functions
-    Dim strVal
+    Dim al As Variant
     strVal = "A,B,C"
-    Dim parts
+    Dim s As Variant
     parts = Split(strVal, ",")
     Print "Split Count: " & (UBound(parts) + 1)
     Print "Part 1: " & parts(1)
     
-    Dim joined
+    Dim ed As Variant
     joined = Join(parts, "-")
     Print "Joined: " & joined
     
@@ -52,7 +52,7 @@ Sub Main()
 
     ' Test 5: Me and New
     ' Requires class/struct context for real test, but New Dictionary works globally
-    Dim dict
+
     ' Set dict = New Dictionary ' Parser needs "Set" for objects usually? Or just assignment.
     ' Let's try standard assignment if Value type, or Set if Ref.
     ' In VG, Dictionary is Variant, so = is fine.

@@ -31,6 +31,11 @@ This project introduces a custom Scripting Language to Godot 4.x via GDExtension
 *   [Language Keyword Reference](docs/manual/keywords.md) - List of commands and functions.
 *   [IDE Tools Guide](docs/manual/ide_tools.md) - Layout of the Menu Editor, Object Browser, and more.
 
+### Builtin Functions
+
+Core builtin functions and the extension points for adding or overriding them are documented in `docs/BUILTINS.md`.
+This covers expression- and statement-level builtins, base-object handlers, and the small `VisualGasicInstance` wrappers used by the builtins implementation.
+
 ## Development
 
 The core logic is in `src/visual_gasic_script.cpp` and `src/visual_gasic_language.cpp`. You will need to implement a parser (or integrate an existing BASIC parser) in `instance_create` to actually run code.

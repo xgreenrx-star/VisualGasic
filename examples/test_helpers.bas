@@ -3,14 +3,14 @@ Sub Main()
     Sleep 100
     Print "Waited 100ms"
     
-    Dim s
+
     s = "Hello"
     Print "TypeName(s): " & TypeName(s)
     Print "IsNumeric(123): " & IsNumeric(123)
     Print "IsNumeric(ABC): " & IsNumeric("ABC")
     Print "IsArray(s): " & IsArray(s)
     
-    Dim d
+
     d = 3.14159
     Print "Round(PI, 2): " & Round(d, 2)
     Print "Round(PI): " & Round(d)

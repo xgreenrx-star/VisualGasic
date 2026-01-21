@@ -2,7 +2,7 @@ Sub Main()
     Form_Load
 End Sub
 
-Dim MSComm1
+Dim mm1 As Variant
 
 Private Sub Form_Load()
     Print "Initializing MSComm1..."

@@ -1,7 +1,7 @@
 Sub Main
     Print "Starting Error Test"
     
-    Dim A(5)
+
     
     ' Test 1: Goto
     Print "Testing Goto..."

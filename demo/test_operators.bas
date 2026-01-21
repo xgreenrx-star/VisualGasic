@@ -1,5 +1,5 @@
 Sub Main()
-    Dim i
+
     i = 10
     Print "Initial i: " + i
     

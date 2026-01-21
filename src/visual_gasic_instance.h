@@ -59,16 +59,40 @@ class VisualGasicInstance {
     
     Variant call_internal(const String& p_method, const Array& p_args, bool &r_found);
 
+    // Small helper declarations used by statement execution implementation.
+    // `call_builtin` dispatches built-in method calls (returns via found flag).
+    void call_builtin(const String &p_method, const Array &p_args, bool &r_found);
+
+    // Retrieve a variable by name into r_ret. Returns true if found.
+    bool get_variable(const String &p_name, Variant &r_ret);
+
     void assign_to_target(ExpressionNode* target, Variant val);
     void assign_variable(const String& name, Variant val);
 
     void execute_statement(Statement* stmt);
     Variant evaluate_expression(ExpressionNode* expr);
+    // Internal helper implementations moved out into separate translation units
+    Variant _evaluate_expression_impl(ExpressionNode* expr);
+    void _execute_statement_impl(Statement* stmt);
     void raise_error(String msg, int code = 5);
 
 public:
     VisualGasicInstance(Ref<VisualGasicScript> p_script, Object *p_owner);
     ~VisualGasicInstance();
+
+    // Public helper for other modules (builtins) to evaluate expression nodes
+    Variant evaluate_expression_for_builtins(ExpressionNode* expr);
+
+    // File/Directory helpers exposed for builtins
+    Variant builtin_lof(int file_num);
+    Variant builtin_loc(int file_num);
+    Variant builtin_eof(int file_num);
+    int builtin_freefile(int range);
+    Variant builtin_filelen(const String &path);
+    Variant builtin_dir(const Array &args);
+    void builtin_randomize();
+    // Allow builtins to raise runtime errors via instance wrapper
+    void raise_error_for_builtins(const String &p_msg, int p_code = 5);
 
     void execute_bytecode(BytecodeChunk* chunk);
 

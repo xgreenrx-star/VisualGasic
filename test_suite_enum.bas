@@ -11,7 +11,7 @@ Sub Main()
     Print "Enum Menu: " & Menu
     Print "Enum Playing: " & Playing
     
-    Dim State
+    Dim e As Variant
     State = Playing
     
     If State = Playing Then

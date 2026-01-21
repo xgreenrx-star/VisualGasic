@@ -33,7 +33,7 @@ Sub _Ready()
     ' StrReverse (Bonus)
     Print "StrReverse: " & StrReverse(s)
 
-    Dim tree
+
     Set tree = GetTree()
     Print "Tree: " & tree
 

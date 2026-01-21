@@ -2,9 +2,9 @@ Sub Main()
     Print "Testing Low Level Features"
     
     ' Test 1: WeakRef
-    Dim obj
+
     Set obj = New Dictionary
-    Dim wr
+
     // This needs to be Set if WeakRef returns an Object
     Set wr = WeakRef(obj)
     
@@ -18,7 +18,7 @@ Sub Main()
     // So 'obj' holds a strong ref.
     
     ' Test 2: MemoryBlock (PackedByteArray)
-    Dim mb
+
     mb = New MemoryBlock(16)
     Print "MemoryBlock Size: " & mb.size()
     

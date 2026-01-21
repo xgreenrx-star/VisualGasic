@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Make Godot executable
+        run: chmod +x ./Godot_v4.5.1-stable_linux.x86_64 || true
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y scons build-essential python3 python3-pip
+
+      - name: Dim linter
+        run: |
+          chmod +x ./scripts/check_dim_types.py
+          ./scripts/check_dim_types.py
+
+      - name: Build
+        run: scons platform=linux target=template_debug -j2
+
+      - name: Run smoke tests
+        env:
+          DISPLAY: ""
+        run: |
+          chmod +x ./tests/run_smoke_tests.py
+          ./tests/run_smoke_tests.py
+
+      - name: Run builtin tests
+        env:
+          DISPLAY: ""
+        run: |
+          chmod +x ./tests/run_builtin_tests.py
+          ./tests/run_builtin_tests.py

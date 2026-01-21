@@ -224,6 +224,7 @@ struct MemberAccessNode : public ExpressionNode {
 
 struct Statement : public ASTNode {
     StatementType type;
+    int line = 0;
     Statement(StatementType t) : type(t) {}
 };
 
@@ -617,7 +618,10 @@ struct TryStatement : public Statement {
 struct RaiseStatement : public Statement {
     ExpressionNode* code;
     ExpressionNode* msg;
-    RaiseStatement() : Statement(STMT_RAISE) { code=nullptr; msg=nullptr; } 
+    // Backwards-compatible aliases used in other code: `error_code` and `message`.
+    ExpressionNode*& error_code;
+    ExpressionNode*& message;
+    RaiseStatement() : Statement(STMT_RAISE), error_code(code), message(msg) { code=nullptr; msg=nullptr; } 
     virtual ~RaiseStatement() {
         if(code) delete code;
         if(msg) delete msg;

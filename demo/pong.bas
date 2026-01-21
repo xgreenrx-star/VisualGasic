@@ -1,13 +1,13 @@
 Attribute VB_Name = "Pong"
 
-Dim ball_node
+Dim _node As Variant
 Dim ball_pos_x As Single
 Dim ball_pos_y As Single
 Dim ball_vel_x As Single
 Dim ball_vel_y As Single
 
-Dim p1_node
-Dim p2_node
+Dim ode As Variant
+Dim ode As Variant
 Dim p1_pos_y As Single
 Dim p2_pos_y As Single
 

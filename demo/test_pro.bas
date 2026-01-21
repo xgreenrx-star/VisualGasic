@@ -1,5 +1,5 @@
-Dim LblStatus
-Dim TxtName
+Dim tatus As Variant
+Dim ame As Variant
 
 Sub Main()
     Print "Starting Form Test..."

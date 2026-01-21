@@ -23,7 +23,7 @@ Sub _Ready()
     Print "Continuing execution..."
     
     ' Test Option Explicit
-    Dim Z
+
     Z = 30
     Print "Z is " & Z
     

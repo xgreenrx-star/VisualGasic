@@ -3,7 +3,7 @@ Attribute VB_Name = "LoopTest"
 Sub Main()
     Print "Testing Loops"
     
-    Dim i
+
     i = 0
     
     Print "While Loop (should be 0,1,2):"

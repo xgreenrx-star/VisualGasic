@@ -2,8 +2,8 @@ Sub Main
     Print "Testing Collision..."
     
     ' Create two actors at same position effectively to force collision
-    Dim a
-    Dim b
+
+
     Set a = CreateActor2D("res://icon.svg", 100, 100)
     Set b = CreateActor2D("res://icon.svg", 105, 100)
     
@@ -24,7 +24,7 @@ Sub Main
         Print "No Collision (Expected for static)"
     End If
     
-    Dim c
+
     Set c = GetCollider(a)
     Print "Collider type: " & TypeName(c)
     

@@ -1,7 +1,7 @@
 Sub Main
     Print "Testing Multidimensional Arrays"
     
-    Dim Grid(2, 2) ' 3x3 Grid
+    Dim (2, 2) As Variant ' 3x3 Grid
     
     Grid(0, 0) = 1
     Grid(0, 1) = 2
@@ -19,7 +19,7 @@ Sub Main
     Print "Grid(2, 0) should be 7: "
     Print Grid(2, 0)
     
-    Dim Cube(1, 1, 1) ' 2x2x2 Cube
+    Dim (1, 1, 1) As Variant ' 2x2x2 Cube
     Cube(0, 0, 0) = 100
     Cube(1, 1, 1) = 999
     

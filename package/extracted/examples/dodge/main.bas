@@ -15,7 +15,7 @@ Sub _Ready()
     ScreenSize = GetViewportRect().Size
     
     ' Create Background
-    Dim bg = CreateNode("ColorRect")
+    Dim CreateNode("ColorRect") As Array
     bg.Color = Color(0.2, 0.2, 0.2)
     bg.Size = ScreenSize
     AddChild(bg)
@@ -23,7 +23,7 @@ Sub _Ready()
     ' Create Player (Area2D)
     Set Player = CreateNode("Area2D")
     Player.Name = "Player"
-    Dim pSprite = CreateNode("ColorRect")
+    Dim ite As Object
     pSprite.Color = Color(0.8, 0.8, 0.2) ' Yellow
     pSprite.Size.x = 40
     pSprite.Size.y = 40
@@ -31,8 +31,8 @@ Sub _Ready()
     pSprite.Position.y = -20
     Player.AddChild(pSprite)
     
-    Dim pColl = CreateNode("CollisionShape2D")
-    Dim pShape = CreateNode("RectangleShape2D")
+    Dim l As Object
+    Dim pe As Object
     pShape.Size.x = 40
     pShape.Size.y = 40
     pColl.Shape = pShape
@@ -104,13 +104,13 @@ End Sub
 
 Sub OnMobTimer()
     ' Create Mob using RigidBody2D
-    Dim mob = CreateNode("RigidBody2D")
+    Dim  As Object
     
     ' Attach Script Logic
     mob.SetScript(Load("res://examples/dodge/mob.bas"))
     
     ' Visuals
-    Dim mSprite = CreateNode("ColorRect")
+    Dim ite As Object
     mSprite.Color = Color(1, 0.2, 0.2) ' Red
     mSprite.Size.x = 30
     mSprite.Size.y = 30
@@ -118,8 +118,8 @@ Sub OnMobTimer()
     mSprite.Position.y = -15
     mob.AddChild(mSprite)
     
-    Dim mColl = CreateNode("CollisionShape2D")
-    Dim mShape = CreateNode("RectangleShape2D")
+    Dim l As Object
+    Dim pe As Object
     mShape.Size.x = 30
     mShape.Size.y = 30
     mColl.Shape = mShape
@@ -127,12 +127,12 @@ Sub OnMobTimer()
     
     ' Pick random spawn location along edges
     ' Simplification: Random edge index 0-3
-    Dim edge = Int(Rnd() * 4)
-    Dim spawnX = 0
-    Dim spawnY = 0
-    Dim velocityX = 0
-    Dim velocityY = 0
-    Dim speed = 150 + (Rnd() * 100)
+    Dim  As Variant
+    Dim nX As Integer
+    Dim nY As Integer
+    Dim cityX As Integer
+    Dim cityY As Integer
+    Dim d As Variant
     
     If edge = 0 Then ' Top
         spawnX = Rnd() * ScreenSize.x
@@ -178,9 +178,9 @@ End Sub
 
 Sub _Process(delta)
     If Player.Visible Then
-        Dim velocityX = 0
-        Dim velocityY = 0
-        Dim speed = 400
+        Dim cityX As Integer
+        Dim cityY As Integer
+        Dim d As Integer
         
         If Input.IsActionPressed("ui_right") Then velocityX = 1
         If Input.IsActionPressed("ui_left") Then velocityX = -1

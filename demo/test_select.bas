@@ -1,5 +1,5 @@
 Sub Main
-    Dim I
+
     For I = 1 To 5
         Print "Checking " + Str(I)
         Select Case I

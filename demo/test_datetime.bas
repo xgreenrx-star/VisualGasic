@@ -1,7 +1,7 @@
 Sub Main()
     Print "=== Date/Time Test ==="
     
-    Dim d
+
     d = Now()
     Print "Now dictionary: "
     Print d
@@ -13,10 +13,10 @@ Sub Main()
     
     Print "Timer (s): " & Timer()
     
-    Dim t0
+
     t0 = Timer()
     ' Busy wait roughly
-    Dim i
+
     For i = 1 To 10000
     Next
     Print "Delta: " & (Timer() - t0)

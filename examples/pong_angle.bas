@@ -113,13 +113,13 @@ Sub _Process(delta)
 	End If
 	
 	' Paddle Collision (Simple AABB)
-	Dim bRect = Ball.GetRect()
+	Dim t As Object
 	bRect.Position = Ball.Position ' Position should still update correctly from Top/Left logic
 	
-	Dim p1Rect = Paddle1.GetRect()
+	Dim ct As Object
 	p1Rect.Position = Paddle1.Position
 	
-	Dim p2Rect = Paddle2.GetRect()
+	Dim ct As Object
 	p2Rect.Position = Paddle2.Position
 	
 	If bRect.Intersects(p1Rect) Then

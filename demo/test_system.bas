@@ -2,7 +2,7 @@ Sub Main()
     Print "Testing System Commands..."
     
     ' 1. Test CreateText
-    Dim lbl
+
     Set lbl = CreateText("Hello Visual Gasic!", 100, 100)
     
     If TypeName(lbl) = "Label" Then
@@ -14,17 +14,17 @@ Sub Main()
     End If
     
     ' 2. Test Input Axis (Headless defaults to 0 usually)
-    Dim ax
+
     ax = GetAxis("ui_left", "ui_right")
     Print "Input Axis (ui_left/right): " & ax
     
     ' 3. Test Joy Axis
-    Dim jax
+
     jax = GetJoyAxis(0, 0)
     Print "Joy 0 Axis 0: " & jax
     
     ' 4. Test CreateParticles2D
-    Dim parts
+    Dim s As Variant
     Set parts = CreateParticles2D("res://dummy_material.tres", 50, 50)
     If TypeName(parts) = "GPUParticles2D" Then
         Print "CreateParticles2D: Success (GPUParticles2D created)"
@@ -33,7 +33,7 @@ Sub Main()
     End If
     
     ' 5. Test CreateMultiMeshInstance3D
-    Dim mm
+
     Set mm = CreateMultiMeshInstance3D("res://dummy_multimesh.tres", 0, 0, 0)
     If TypeName(mm) = "MultiMeshInstance3D" Then
         Print "CreateMultiMeshInstance3D: Success"
@@ -42,7 +42,7 @@ Sub Main()
     End If
     
     ' 6. Test CreateTextureRect
-    Dim tr
+
     Set tr = CreateTextureRect("res://icon.svg", 10, 10)
     If TypeName(tr) = "TextureRect" Then
         Print "CreateTextureRect: Success"
@@ -51,7 +51,7 @@ Sub Main()
     End If
     
     ' 7. Test CreateSprite3D
-    Dim s3d
+
     Set s3d = CreateSprite3D("res://icon.svg", 0, 0, 0)
     If TypeName(s3d) = "Sprite3D" Then
         Print "CreateSprite3D: Success"
@@ -68,8 +68,8 @@ Sub Main()
     
     ' 9. Test AI System (Chase)
     ' Create dummy enemy and player using Actors (Physics bodies)
-    Dim enemy
-    Dim player
+    Dim y As Variant
+    Dim er As Variant
     Set enemy = CreateActor2D("res://icon.svg", 100, 100)
     Set player = CreateActor2D("res://icon.svg", 400, 400)
     
