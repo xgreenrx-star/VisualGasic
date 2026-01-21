@@ -1,11 +1,24 @@
 #include "visual_gasic_parser.h"
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <godot_cpp/classes/file_access.hpp>
+#include <stdio.h>
 
 VisualGasicParser::VisualGasicParser() : current_pos(0) {
 }
 
 VisualGasicParser::~VisualGasicParser() {
+    // Free any parser-owned nodes that were not transferred to the
+    // returned ModuleNode (i.e. parse failure paths that left
+    // temporary allocations).
+    for (int i = 0; i < allocated_nodes.size(); i++) {
+        if (allocated_nodes[i]) delete allocated_nodes[i];
+    }
+    allocated_nodes.clear();
+
+    for (int i = 0; i < allocated_expr_nodes.size(); i++) {
+        if (allocated_expr_nodes[i]) delete allocated_expr_nodes[i];
+    }
+    allocated_expr_nodes.clear();
 }
 
 VisualGasicTokenizer::Token VisualGasicParser::peek(int offset) {
@@ -64,7 +77,7 @@ ModuleNode* VisualGasicParser::parse(const Vector<VisualGasicTokenizer::Token>& 
     ModuleNode* module = new ModuleNode();
     current_module = module;
 
-    while (!is_at_end()) {
+        while (!is_at_end()) {
         VisualGasicTokenizer::Token t = peek();
         
         if (t.type == VisualGasicTokenizer::TOKEN_NEWLINE) {
@@ -104,6 +117,7 @@ ModuleNode* VisualGasicParser::parse(const Vector<VisualGasicTokenizer::Token>& 
             // parse_event is defined above parse_statement now, but we need to declare it in the class or just add it to ModuleNode
             if (evt) {
                 module->events.push_back(evt);
+                unregister_node(evt);
             }
             continue;
         }
@@ -112,6 +126,7 @@ ModuleNode* VisualGasicParser::parse(const Vector<VisualGasicTokenizer::Token>& 
             SubDefinition* sub = parse_sub();
             if (sub) {
                 module->subs.push_back(sub);
+                unregister_node(sub);
             }
             continue;
         }
@@ -120,6 +135,7 @@ ModuleNode* VisualGasicParser::parse(const Vector<VisualGasicTokenizer::Token>& 
             StructDefinition* def = parse_struct();
             if (def) {
                 module->structs.push_back(def);
+                unregister_node(def);
             }
             continue;
         }
@@ -130,7 +146,7 @@ ModuleNode* VisualGasicParser::parse(const Vector<VisualGasicTokenizer::Token>& 
             // Parse DimStatement logic but store as global VariableDefinition
              DimStatement* dim = parse_dim(); // Reuse parse_dim which handles Dim A As Integer
              if (dim) {
-                 VariableDefinition* v = new VariableDefinition();
+                 VariableDefinition* v = static_cast<VariableDefinition*>(register_node(new VariableDefinition()));
                  v->name = dim->variable_name;
                  v->type = dim->type_name; // can be empty
                  v->visibility = (val == "public") ? VIS_PUBLIC : (val == "private" ? VIS_PRIVATE : VIS_DIM);
@@ -146,7 +162,9 @@ ModuleNode* VisualGasicParser::parse(const Vector<VisualGasicTokenizer::Token>& 
                  }
                  
                  module->variables.push_back(v);
-                 delete dim; // Don't need the statement wrapper
+                 unregister_node(v);
+                        unregister_node(dim);
+                        delete dim; // Don't need the statement wrapper
              }
              continue;
         }
@@ -181,6 +199,7 @@ ModuleNode* VisualGasicParser::parse(const Vector<VisualGasicTokenizer::Token>& 
              ConstStatement* c = parse_const();
              if (c) {
                  module->constants.push_back(c);
+                 unregister_node(c);
                  // Keep the ConstStatement wrapper as it holds the value expression
              }
              continue;
@@ -192,7 +211,8 @@ ModuleNode* VisualGasicParser::parse(const Vector<VisualGasicTokenizer::Token>& 
         if (is_datafile) {
             Statement* s = parse_data_file();
             if (s) {
-                 module->global_statements.push_back(s);
+                module->global_statements.push_back(s);
+                unregister_node(s);
             }
             continue;
         }
@@ -204,6 +224,7 @@ ModuleNode* VisualGasicParser::parse(const Vector<VisualGasicTokenizer::Token>& 
                 if (s->type == STMT_DATA || s->type == STMT_LABEL) {
                     module->global_statements.push_back(s);
                 } else {
+                    unregister_node(s);
                     delete s;
                     error("Only Data and Labels are allowed at module level.");
                 }
@@ -215,7 +236,70 @@ ModuleNode* VisualGasicParser::parse(const Vector<VisualGasicTokenizer::Token>& 
         current_pos++;
     }
 
+    // If parsing recorded errors, free the partially-built AST and
+    // return nullptr so callers know parsing failed. This ensures the
+    // parser is responsible for cleanup on failure and avoids leaving
+    // dangling allocations for higher layers to clean.
+    if (errors.size() > 0) {
+        delete module;
+        // Delete any parser-owned nodes that weren't transferred
+        for (int i = 0; i < allocated_nodes.size(); i++) if (allocated_nodes[i]) delete allocated_nodes[i];
+        allocated_nodes.clear();
+        for (int i = 0; i < allocated_expr_nodes.size(); i++) if (allocated_expr_nodes[i]) delete allocated_expr_nodes[i];
+        allocated_expr_nodes.clear();
+        return nullptr;
+    }
+
+    // Successful parse: ownership of AST nodes should now belong to
+    // the ModuleNode and its sub-structures. Clear the allocated_nodes
+    // tracker without deleting to avoid double-free.
+    allocated_nodes.clear();
+    allocated_expr_nodes.clear();
+
     return module;
+}
+
+ASTNode* VisualGasicParser::register_node(ASTNode* p_node) {
+    if (p_node) {
+        allocated_nodes.push_back(p_node);
+        // parser registration (silenced in normal runs)
+    }
+    return p_node;
+}
+
+void VisualGasicParser::unregister_node(ASTNode* p_node) {
+    if (!p_node) return;
+    for (int i = 0; i < allocated_nodes.size(); i++) {
+        if (allocated_nodes[i] == p_node) {
+            allocated_nodes.remove_at(i);
+            // parser unregister (silenced in normal runs)
+            return;
+        }
+    }
+}
+
+ExpressionNode* VisualGasicParser::register_node(ExpressionNode* p_node) {
+    if (p_node) {
+        allocated_expr_nodes.push_back(p_node);
+        // expression registration (silenced in normal runs)
+    }
+    return p_node;
+}
+
+void VisualGasicParser::unregister_node(ExpressionNode* p_node) {
+    if (!p_node) return;
+    for (int i = 0; i < allocated_expr_nodes.size(); i++) {
+        if (allocated_expr_nodes[i] == p_node) {
+            allocated_expr_nodes.remove_at(i);
+            // expression unregister (silenced in normal runs)
+            return;
+        }
+    }
+}
+
+void VisualGasicParser::clear_tracked_nodes() {
+    allocated_nodes.clear();
+    allocated_expr_nodes.clear();
 }
 
 SubDefinition* VisualGasicParser::parse_sub() {
@@ -281,7 +365,7 @@ SubDefinition* VisualGasicParser::parse_sub() {
                      }
 
                      // Handle Default Value (= value) for Optional
-                     if (param.is_optional && check(VisualGasicTokenizer::TOKEN_OPERATOR) && String(peek().value) == "=") {
+                         if (param.is_optional && check(VisualGasicTokenizer::TOKEN_OPERATOR) && String(peek().value) == "=") {
                          advance(); // Eat =
                          ExpressionNode* expr = parse_expression();
                          if (expr && expr->type == ExpressionNode::LITERAL) {
@@ -291,7 +375,7 @@ SubDefinition* VisualGasicParser::parse_sub() {
                              // usually requires constant folding.
                              // We'll leave as NIL if not literal.
                          }
-                         if (expr) delete expr;
+                         if (expr) { unregister_node(expr); delete expr; }
                      }
 
                      parameters.push_back(param);
@@ -314,7 +398,7 @@ SubDefinition* VisualGasicParser::parse_sub() {
           current_pos++;
     }
 
-    SubDefinition* sub = new SubDefinition();
+    SubDefinition* sub = static_cast<SubDefinition*>(register_node(new SubDefinition()));
     sub->name = name;
     sub->type = is_function ? SubDefinition::TYPE_FUNCTION : SubDefinition::TYPE_SUB;
     sub->parameters = parameters;
@@ -336,6 +420,7 @@ SubDefinition* VisualGasicParser::parse_sub() {
         Statement* stmt = parse_statement();
         if (stmt) {
             sub->statements.push_back(stmt);
+            unregister_node(stmt);
         } else {
             current_pos++; // Skip unknown token to avoid infinite loop
         }
@@ -346,7 +431,7 @@ SubDefinition* VisualGasicParser::parse_sub() {
 
 // Helper declaration
 RaiseEventStatement* VisualGasicParser::parse_raise_event() {
-    RaiseEventStatement* stmt = new RaiseEventStatement();
+    RaiseEventStatement* stmt = static_cast<RaiseEventStatement*>(register_node(new RaiseEventStatement()));
     
     if (!check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
         error("Expected event name after RaiseEvent");
@@ -361,8 +446,11 @@ RaiseEventStatement* VisualGasicParser::parse_raise_event() {
         if (!check(VisualGasicTokenizer::TOKEN_PAREN_CLOSE)) {
              while (true) {
                  ExpressionNode* arg = parse_expression();
-                 if (arg) stmt->arguments.push_back(arg);
-                 
+                 if (arg) {
+                     stmt->arguments.push_back(arg);
+                     unregister_node(arg);
+                 }
+                
                  if (check(VisualGasicTokenizer::TOKEN_COMMA)) {
                      advance();
                  } else {
@@ -384,7 +472,7 @@ EventDefinition* VisualGasicParser::parse_event() {
         return nullptr;
     }
     
-    EventDefinition* evt = new EventDefinition();
+    EventDefinition* evt = static_cast<EventDefinition*>(register_node(new EventDefinition()));
     evt->name = advance().value;
     
     if (check(VisualGasicTokenizer::TOKEN_PAREN_OPEN)) {
@@ -475,11 +563,11 @@ Statement* VisualGasicParser::parse_statement() {
         if (val == "const") return parse_const();
         if (val == "pass") {
             advance();
-            return new PassStatement();
+            return static_cast<PassStatement*>(register_node(new PassStatement()));
         }
         if (val == "doevents") {
             advance();
-            return new DoEventsStatement();
+            return static_cast<DoEventsStatement*>(register_node(new DoEventsStatement()));
         }
         if (val == "data") return parse_data();
         if (val == "datafile") return parse_data_file();
@@ -515,7 +603,7 @@ Statement* VisualGasicParser::parse_statement() {
         if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
             String label = peek().value;
             advance();
-            GotoStatement* g = new GotoStatement();
+            GotoStatement* g = static_cast<GotoStatement*>(register_node(new GotoStatement()));
             g->label_name = label;
             return g;
         }
@@ -535,7 +623,7 @@ Statement* VisualGasicParser::parse_statement() {
                  advance();
                  if (String(peek().value).nocasecmp_to("Next") == 0) {
                      advance();
-                     OnErrorStatement* s = new OnErrorStatement();
+                     OnErrorStatement* s = static_cast<OnErrorStatement*>(register_node(new OnErrorStatement()));
                      s->mode = OnErrorStatement::RESUME_NEXT;
                      return s;
                  }
@@ -544,7 +632,7 @@ Statement* VisualGasicParser::parse_statement() {
                  if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
                      String label = peek().value;
                      advance();
-                     OnErrorStatement* s = new OnErrorStatement();
+                     OnErrorStatement* s = static_cast<OnErrorStatement*>(register_node(new OnErrorStatement()));
                      s->mode = OnErrorStatement::GOTO_LABEL;
                      s->label_name = label;
                      return s;
@@ -556,7 +644,7 @@ Statement* VisualGasicParser::parse_statement() {
                            // Treated as disable, or empty label?
                            // For now, let's just ignore or treat as disable.
                            // Actually, we can make it a specific mode or empty label.
-                           OnErrorStatement* s = new OnErrorStatement();
+                           OnErrorStatement* s = static_cast<OnErrorStatement*>(register_node(new OnErrorStatement()));
                            s->mode = OnErrorStatement::GOTO_LABEL;
                            s->label_name = ""; // Empty label means disable
                            return s;
@@ -570,10 +658,10 @@ Statement* VisualGasicParser::parse_statement() {
         advance();
         ExpressionNode* target = nullptr;
         if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("Me") == 0) {
-            target = new ExpressionNode(); target->type = ExpressionNode::ME;
+            target = static_cast<ExpressionNode*>(register_node(new ExpressionNode())); target->type = ExpressionNode::ME;
             advance();
         } else if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
-            VariableNode* v = new VariableNode(); v->name = peek().value;
+            VariableNode* v = static_cast<VariableNode*>(register_node(new VariableNode())); v->name = peek().value;
             target = v;
             advance();
         } else { return nullptr; }
@@ -581,7 +669,7 @@ Statement* VisualGasicParser::parse_statement() {
         while(check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().value == ".") {
             advance();
             if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER) || check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
-                MemberAccessNode* ma = new MemberAccessNode(); ma->base_object = target;
+                MemberAccessNode* ma = static_cast<MemberAccessNode*>(register_node(new MemberAccessNode())); ma->base_object = target;
                 ma->member_name = peek().value;
                 target = ma;
                 advance();
@@ -604,7 +692,13 @@ Statement* VisualGasicParser::parse_statement() {
              // Parse args
              do {
                  if (check(VisualGasicTokenizer::TOKEN_NEWLINE) || check(VisualGasicTokenizer::TOKEN_EOF)) break;
-                 args.push_back(parse_expression());
+                 {
+                     ExpressionNode* _tmp = parse_expression();
+                     if (_tmp) {
+                         args.push_back(_tmp);
+                         unregister_node(_tmp);
+                     }
+                 }
                  if (check(VisualGasicTokenizer::TOKEN_COMMA)) {
                      advance();
                  } else {
@@ -621,16 +715,16 @@ Statement* VisualGasicParser::parse_statement() {
              }
         }
         
-        CallStatement* call_stmt = new CallStatement();
+        CallStatement* call_stmt = static_cast<CallStatement*>(register_node(new CallStatement()));
         if (target->type == ExpressionNode::MEMBER_ACCESS) {
             MemberAccessNode* ma = (MemberAccessNode*)target;
             call_stmt->base_object = ma->base_object;
             call_stmt->method_name = ma->member_name;
-            ma->base_object = nullptr; delete ma;
+            ma->base_object = nullptr; unregister_node(ma); delete ma;
         } else if (target->type == ExpressionNode::VARIABLE) {
             call_stmt->method_name = ((VariableNode*)target)->name;
-            delete target;
-        } else { delete target; delete call_stmt; return nullptr; }
+            unregister_node(target); delete target;
+        } else { unregister_node(target); delete target; unregister_node(call_stmt); delete call_stmt; return nullptr; }
 
         call_stmt->arguments = args;
         return call_stmt;
@@ -642,7 +736,7 @@ Statement* VisualGasicParser::parse_statement() {
             String label_name = t.value;
             advance(); // Identifier
             advance(); // Colon
-            LabelStatement* l = new LabelStatement();
+            LabelStatement* l = static_cast<LabelStatement*>(register_node(new LabelStatement()));
             l->name = label_name;
             return l;
         }
@@ -682,7 +776,7 @@ ExpressionNode* VisualGasicParser::parse_expression() {
             ExpressionNode* false_part = parse_expression(); // Recursive
             
             // Build IIfNode (Reuse IIfNode structure)
-            IIfNode* iif = new IIfNode();
+            IIfNode* iif = static_cast<IIfNode*>(register_node(new IIfNode()));
             iif->condition = cond;
             iif->true_part = expr;
             iif->false_part = false_part;
@@ -702,9 +796,15 @@ ExpressionNode* VisualGasicParser::parse_logical_or() {
         if (op.nocasecmp_to("Or") == 0 || op.nocasecmp_to("Xor") == 0 || op.nocasecmp_to("OrElse") == 0) {
             advance();
             ExpressionNode* right = parse_and();
-            BinaryOpNode* bin = new BinaryOpNode();
-            bin->left = expr;
-            bin->right = right;
+            BinaryOpNode* bin = static_cast<BinaryOpNode*>(register_node(new BinaryOpNode()));
+            if (expr) {
+                ExpressionNode* ldup = expr->duplicate();
+                if (ldup) bin->left = register_node(ldup); else bin->left = expr;
+            } else bin->left = nullptr;
+            if (right) {
+                ExpressionNode* rdup = right->duplicate();
+                if (rdup) bin->right = register_node(rdup); else bin->right = right;
+            } else bin->right = nullptr;
             bin->op = op;
             expr = bin;
         } else {
@@ -721,9 +821,15 @@ ExpressionNode* VisualGasicParser::parse_and() {
         if (op.nocasecmp_to("And") == 0 || op.nocasecmp_to("AndAlso") == 0) {
             advance();
             ExpressionNode* right = parse_not();
-            BinaryOpNode* bin = new BinaryOpNode();
-            bin->left = expr;
-            bin->right = right;
+            BinaryOpNode* bin = static_cast<BinaryOpNode*>(register_node(new BinaryOpNode()));
+            if (expr) {
+                ExpressionNode* ldup = expr->duplicate();
+                if (ldup) bin->left = register_node(ldup); else bin->left = expr;
+            } else bin->left = nullptr;
+            if (right) {
+                ExpressionNode* rdup = right->duplicate();
+                if (rdup) bin->right = register_node(rdup); else bin->right = right;
+            } else bin->right = nullptr;
             bin->op = op;
             expr = bin;
         } else {
@@ -738,9 +844,12 @@ ExpressionNode* VisualGasicParser::parse_not() {
         String op = String(peek().value);
         advance();
         ExpressionNode* operand = parse_not();
-        UnaryOpNode* unary = new UnaryOpNode();
+        UnaryOpNode* unary = static_cast<UnaryOpNode*>(register_node(new UnaryOpNode()));
         unary->op = op;
-        unary->operand = operand;
+        if (operand) {
+            ExpressionNode* odup = operand->duplicate();
+            if (odup) unary->operand = register_node(odup); else unary->operand = operand;
+        } else unary->operand = nullptr;
         return unary;
     }
     return parse_comparison();
@@ -756,9 +865,15 @@ ExpressionNode* VisualGasicParser::parse_comparison() {
             if (op == "=" || op == "<" || op == ">" || op == "<=" || op == ">=" || op == "<>") {
                 advance();
                 ExpressionNode* right = parse_addition();
-                BinaryOpNode* bin = new BinaryOpNode();
-                bin->left = expr;
-                bin->right = right;
+                BinaryOpNode* bin = static_cast<BinaryOpNode*>(register_node(new BinaryOpNode()));
+                if (expr) {
+                    ExpressionNode* ldup = expr->duplicate();
+                    if (ldup) bin->left = register_node(ldup); else bin->left = expr;
+                } else bin->left = nullptr;
+                if (right) {
+                    ExpressionNode* rdup = right->duplicate();
+                    if (rdup) bin->right = register_node(rdup); else bin->right = right;
+                } else bin->right = nullptr;
                 bin->op = op;
                 expr = bin;
                 continue;
@@ -768,9 +883,18 @@ ExpressionNode* VisualGasicParser::parse_comparison() {
         if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("Is") == 0) {
             advance();
             ExpressionNode* right = parse_addition();
-            BinaryOpNode* bin = new BinaryOpNode();
-            bin->left = expr;
-            bin->right = right;
+            BinaryOpNode* bin = static_cast<BinaryOpNode*>(register_node(new BinaryOpNode()));
+            // Duplicate children when attaching to avoid sharing the same
+            // ExpressionNode instance between multiple parents which causes
+            // double-delete during AST teardown.
+            if (expr) {
+                ExpressionNode* ldup = expr->duplicate();
+                if (ldup) bin->left = register_node(ldup); else bin->left = expr;
+            } else bin->left = nullptr;
+            if (right) {
+                ExpressionNode* rdup = right->duplicate();
+                if (rdup) bin->right = register_node(rdup); else bin->right = right;
+            } else bin->right = nullptr;
             bin->op = "Is";
             expr = bin;
             continue;
@@ -789,9 +913,15 @@ ExpressionNode* VisualGasicParser::parse_addition() {
         if (op == "+" || op == "-" || op == "&") {
             advance();
             ExpressionNode* right = parse_term();
-            BinaryOpNode* bin = new BinaryOpNode();
-            bin->left = expr;
-            bin->right = right;
+            BinaryOpNode* bin = static_cast<BinaryOpNode*>(register_node(new BinaryOpNode()));
+            if (expr) {
+                ExpressionNode* ldup = expr->duplicate();
+                if (ldup) bin->left = register_node(ldup); else bin->left = expr;
+            } else bin->left = nullptr;
+            if (right) {
+                ExpressionNode* rdup = right->duplicate();
+                if (rdup) bin->right = register_node(rdup); else bin->right = right;
+            } else bin->right = nullptr;
             bin->op = op;
             expr = bin;
         } else {
@@ -809,9 +939,15 @@ ExpressionNode* VisualGasicParser::parse_term() {
         if (op == "*" || op == "/" || op == "//") {
             advance();
             ExpressionNode* right = parse_unary();
-            BinaryOpNode* bin = new BinaryOpNode();
-            bin->left = expr;
-            bin->right = right;
+            BinaryOpNode* bin = static_cast<BinaryOpNode*>(register_node(new BinaryOpNode()));
+            if (expr) {
+                ExpressionNode* ldup = expr->duplicate();
+                if (ldup) bin->left = register_node(ldup); else bin->left = expr;
+            } else bin->left = nullptr;
+            if (right) {
+                ExpressionNode* rdup = right->duplicate();
+                if (rdup) bin->right = register_node(rdup); else bin->right = right;
+            } else bin->right = nullptr;
             bin->op = op;
             expr = bin;
         } else {
@@ -827,9 +963,15 @@ ExpressionNode* VisualGasicParser::parse_exponentiation() {
     if (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().value == "**") {
         advance();
         ExpressionNode* right = parse_exponentiation(); // Right Associative
-        BinaryOpNode* bin = new BinaryOpNode();
-        bin->left = expr;
-        bin->right = right;
+        BinaryOpNode* bin = static_cast<BinaryOpNode*>(register_node(new BinaryOpNode()));
+        if (expr) {
+            ExpressionNode* ldup = expr->duplicate();
+            if (ldup) bin->left = register_node(ldup); else bin->left = expr;
+        } else bin->left = nullptr;
+        if (right) {
+            ExpressionNode* rdup = right->duplicate();
+            if (rdup) bin->right = register_node(rdup); else bin->right = right;
+        } else bin->right = nullptr;
         bin->op = "**";
         return bin;
     }
@@ -840,9 +982,12 @@ ExpressionNode* VisualGasicParser::parse_unary() {
     if (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().value == "-") {
         advance();
         ExpressionNode* operand = parse_unary();
-        UnaryOpNode* u = new UnaryOpNode();
+        UnaryOpNode* u = static_cast<UnaryOpNode*>(register_node(new UnaryOpNode()));
         u->op = "-"; // Unary Minus
-        u->operand = operand;
+        if (operand) {
+            ExpressionNode* odup = operand->duplicate();
+            if (odup) u->operand = register_node(odup); else u->operand = operand;
+        } else u->operand = nullptr;
         return u;
     }
     // Check for Not (Logical Not is usually higher than Relational but lower than Arithmetic? In VB Not is bitwise too)
@@ -859,11 +1004,11 @@ ExpressionNode* VisualGasicParser::parse_factor() {
         // We can create a dummy WITH_CONTEXT node as base.
         advance(); // Eat .
         
-        ExpressionNode* base = new ExpressionNode();
+        ExpressionNode* base = static_cast<ExpressionNode*>(register_node(new ExpressionNode()));
         base->type = ExpressionNode::WITH_CONTEXT;
         
         if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
-             MemberAccessNode* ma = new MemberAccessNode();
+             MemberAccessNode* ma = static_cast<MemberAccessNode*>(register_node(new MemberAccessNode()));
              ma->base_object = base;
              ma->member_name = peek().value;
              advance();
@@ -882,7 +1027,7 @@ ExpressionNode* VisualGasicParser::parse_factor() {
         check(VisualGasicTokenizer::TOKEN_LITERAL_FLOAT) ||
         check(VisualGasicTokenizer::TOKEN_LITERAL_STRING)) {
         
-        LiteralNode* node = new LiteralNode();
+        LiteralNode* node = static_cast<LiteralNode*>(register_node(new LiteralNode()));
         node->value = peek().value;
         advance();
         return node;
@@ -901,10 +1046,10 @@ ExpressionNode* VisualGasicParser::parse_factor() {
              if (open == -1) {
                  String remainder = raw.substr(start);
                  if (!remainder.is_empty()) {
-                     LiteralNode* lit = new LiteralNode(); lit->value = remainder;
+                     LiteralNode* lit = static_cast<LiteralNode*>(register_node(new LiteralNode())); lit->value = remainder;
                      if (!root) root = lit;
                      else {
-                         BinaryOpNode* bin = new BinaryOpNode();
+                         BinaryOpNode* bin = static_cast<BinaryOpNode*>(register_node(new BinaryOpNode()));
                          bin->left = root; bin->right = lit; bin->op = "&";
                          root = bin;
                      }
@@ -914,10 +1059,10 @@ ExpressionNode* VisualGasicParser::parse_factor() {
              
              if (open > start) {
                  String prefix = raw.substr(start, open - start);
-                 LiteralNode* lit = new LiteralNode(); lit->value = prefix;
+                 LiteralNode* lit = static_cast<LiteralNode*>(register_node(new LiteralNode())); lit->value = prefix;
                  if (!root) root = lit;
                  else {
-                     BinaryOpNode* bin = new BinaryOpNode();
+                     BinaryOpNode* bin = static_cast<BinaryOpNode*>(register_node(new BinaryOpNode()));
                      bin->left = root; bin->right = lit; bin->op = "&";
                      root = bin;
                  }
@@ -941,10 +1086,15 @@ ExpressionNode* VisualGasicParser::parse_factor() {
              
              ExpressionNode* sub_expr = sub_parser.parse_expression();
              if (sub_expr) {
-                  if (!root) root = sub_expr;
+                  // Duplicate the sub-parser expression into this parser's ownership
+                  ExpressionNode* transferred = nullptr;
+                  ExpressionNode* d = sub_expr->duplicate();
+                  if (d) transferred = register_node(d); else transferred = sub_expr;
+                  if (!root) root = transferred;
                   else {
-                      BinaryOpNode* bin = new BinaryOpNode();
-                      bin->left = root; bin->right = sub_expr; bin->op = "&";
+                      BinaryOpNode* bin = static_cast<BinaryOpNode*>(register_node(new BinaryOpNode()));
+                      // root is owned by this parser; transferred is duplicated/registered above
+                      bin->left = root; bin->right = transferred; bin->op = "&";
                       root = bin;
                   }
              }
@@ -953,7 +1103,7 @@ ExpressionNode* VisualGasicParser::parse_factor() {
          }
          
          if (!root) {
-              LiteralNode* empty = new LiteralNode(); empty->value = "";
+              LiteralNode* empty = static_cast<LiteralNode*>(register_node(new LiteralNode())); empty->value = "";
               return empty;
          }
          return root;
@@ -965,28 +1115,28 @@ ExpressionNode* VisualGasicParser::parse_factor() {
         String k = peek().value;
         if (k.nocasecmp_to("True") == 0) {
             advance();
-            LiteralNode* node = new LiteralNode();
+            LiteralNode* node = static_cast<LiteralNode*>(register_node(new LiteralNode()));
             node->value = true;
             return node;
         }
         if (k.nocasecmp_to("False") == 0) {
             advance();
-            LiteralNode* node = new LiteralNode();
+            LiteralNode* node = static_cast<LiteralNode*>(register_node(new LiteralNode()));
             node->value = false;
             return node;
         }
         if (k.nocasecmp_to("Me") == 0) {
             advance();
-            return new MeNode();
+            return static_cast<MeNode*>(register_node(new MeNode()));
         }
         if (k.nocasecmp_to("Super") == 0 || k.nocasecmp_to("MyBase") == 0) {
             advance();
-            return new SuperNode();
+            return static_cast<SuperNode*>(register_node(new SuperNode()));
         }
         if (k.nocasecmp_to("New") == 0) {
             advance();
              if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER) || check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
-                 NewNode* n = new NewNode();
+                 NewNode* n = static_cast<NewNode*>(register_node(new NewNode()));
                  n->class_name = peek().value;
                  advance();
                  
@@ -996,7 +1146,13 @@ ExpressionNode* VisualGasicParser::parse_factor() {
                      if (!check(VisualGasicTokenizer::TOKEN_PAREN_CLOSE)) {
                          do {
                              if (check(VisualGasicTokenizer::TOKEN_NEWLINE) || check(VisualGasicTokenizer::TOKEN_EOF)) break;
-                             n->args.push_back(parse_expression());
+                             {
+                                 ExpressionNode* _tmp = parse_expression();
+                                 if (_tmp) {
+                                     n->args.push_back(_tmp);
+                                     unregister_node(_tmp);
+                                 }
+                             }
                              if (check(VisualGasicTokenizer::TOKEN_COMMA)) {
                                  advance();
                              } else {
@@ -1041,7 +1197,7 @@ ExpressionNode* VisualGasicParser::parse_factor() {
         ExpressionNode* false_part = parse_expression();
         match(VisualGasicTokenizer::TOKEN_PAREN_CLOSE);
         
-        IIfNode* iif = new IIfNode();
+        IIfNode* iif = static_cast<IIfNode*>(register_node(new IIfNode()));
         iif->condition = cond;
         iif->true_part = true_part;
         iif->false_part = false_part;
@@ -1050,7 +1206,7 @@ ExpressionNode* VisualGasicParser::parse_factor() {
     
     // Check for Nothing
     if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("Nothing") == 0) {
-        LiteralNode* node = new LiteralNode();
+        LiteralNode* node = static_cast<LiteralNode*>(register_node(new LiteralNode()));
         node->value = Variant(); // Nil
         advance();
         return node; 
@@ -1059,14 +1215,14 @@ ExpressionNode* VisualGasicParser::parse_factor() {
     // Check for Me
     if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("Me") == 0) {
         advance();
-        ExpressionNode* left = new ExpressionNode();
+        ExpressionNode* left = static_cast<ExpressionNode*>(register_node(new ExpressionNode()));
         left->type = ExpressionNode::ME;
         
         // Handle member access
         while (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().value == ".") {
             advance(); // Eat .
             if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER) || check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
-                MemberAccessNode* member = new MemberAccessNode();
+                MemberAccessNode* member = static_cast<MemberAccessNode*>(register_node(new MemberAccessNode()));
                 member->base_object = left;
                 member->member_name = peek().value;
                 advance();
@@ -1078,12 +1234,12 @@ ExpressionNode* VisualGasicParser::parse_factor() {
         
         if (check(VisualGasicTokenizer::TOKEN_PAREN_OPEN)) {
             advance();
-            CallExpression* call = new CallExpression();
+            CallExpression* call = static_cast<CallExpression*>(register_node(new CallExpression()));
             if (left->type == ExpressionNode::MEMBER_ACCESS) {
                 MemberAccessNode* ma = (MemberAccessNode*)left;
                 call->base_object = ma->base_object;
                 call->method_name = ma->member_name;
-                ma->base_object = nullptr; delete ma;
+                ma->base_object = nullptr; unregister_node(ma); delete ma;
             } else {
                  // Me(...) call? Invalid?
                  // delete left; 
@@ -1094,7 +1250,7 @@ ExpressionNode* VisualGasicParser::parse_factor() {
              if (!check(VisualGasicTokenizer::TOKEN_PAREN_CLOSE)) {
                 while (true) {
                     ExpressionNode* expr = parse_expression();
-                    if (expr) call->arguments.push_back(expr);
+                    if (expr) { call->arguments.push_back(expr); unregister_node(expr); }
                     if (match(VisualGasicTokenizer::TOKEN_COMMA)) continue;
                     break;
                 }
@@ -1110,7 +1266,7 @@ ExpressionNode* VisualGasicParser::parse_factor() {
     if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("New") == 0) {
         advance();
         if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER) || check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
-             NewNode* n = new NewNode();
+             NewNode* n = static_cast<NewNode*>(register_node(new NewNode()));
              n->class_name = peek().value;
              advance();
              return n;
@@ -1136,14 +1292,14 @@ ExpressionNode* VisualGasicParser::parse_factor() {
         // Function Call? "Func(x)"
         if (check(VisualGasicTokenizer::TOKEN_PAREN_OPEN)) {
             advance(); // Eat (
-            CallExpression* call = new CallExpression();
+            CallExpression* call = static_cast<CallExpression*>(register_node(new CallExpression()));
             call->method_name = name;
             
             if (!check(VisualGasicTokenizer::TOKEN_PAREN_CLOSE)) {
                 // Parse arguments
                 while (true) {
                     ExpressionNode* expr = parse_expression();
-                    if (expr) call->arguments.push_back(expr);
+                    if (expr) { call->arguments.push_back(expr); unregister_node(expr); }
                     
                     if (match(VisualGasicTokenizer::TOKEN_COMMA)) continue;
                     break;
@@ -1156,7 +1312,7 @@ ExpressionNode* VisualGasicParser::parse_factor() {
             left = call;
         } else {
             // Variable
-            VariableNode* node = new VariableNode();
+            VariableNode* node = static_cast<VariableNode*>(register_node(new VariableNode()));
             node->name = name;
             left = node;
         }
@@ -1167,7 +1323,7 @@ ExpressionNode* VisualGasicParser::parse_factor() {
             
             // Allow Identifier OR Keyword (e.g. Input, New)
             if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER) || check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
-                MemberAccessNode* member = new MemberAccessNode();
+                MemberAccessNode* member = static_cast<MemberAccessNode*>(register_node(new MemberAccessNode()));
                 member->base_object = left;
                 member->member_name = peek().value;
                 advance();
@@ -1176,15 +1332,15 @@ ExpressionNode* VisualGasicParser::parse_factor() {
                 // Check for Method Call syntax .Method(Args)
                 if (check(VisualGasicTokenizer::TOKEN_PAREN_OPEN)) {
                     advance(); // Eat (
-                    CallExpression* call = new CallExpression();
+                    CallExpression* call = static_cast<CallExpression*>(register_node(new CallExpression()));
                     call->base_object = member->base_object;
                     call->method_name = member->member_name;
-                    member->base_object = nullptr; delete member;
+                    member->base_object = nullptr; unregister_node(member); delete member;
                     
                     if (!check(VisualGasicTokenizer::TOKEN_PAREN_CLOSE)) {
                          while(true) {
                              ExpressionNode* expr = parse_expression();
-                             if (expr) call->arguments.push_back(expr);
+                             if (expr) { call->arguments.push_back(expr); unregister_node(expr); }
                              
                              if (match(VisualGasicTokenizer::TOKEN_COMMA)) continue;
                              break;
@@ -1220,8 +1376,12 @@ ExpressionNode* VisualGasicParser::parse_factor() {
 
 WithStatement* VisualGasicParser::parse_with() {
     advance(); // Eat With
-    WithStatement* stmt = new WithStatement();
-    stmt->expression = parse_expression();
+    WithStatement* stmt = static_cast<WithStatement*>(register_node(new WithStatement()));
+    {
+        ExpressionNode* _tmp = parse_expression();
+        stmt->expression = _tmp;
+        unregister_node(_tmp);
+    }
     
     // Parse Block
     while (!match(VisualGasicTokenizer::TOKEN_EOF)) {
@@ -1235,7 +1395,7 @@ WithStatement* VisualGasicParser::parse_with() {
         }
         
         Statement* s = parse_statement();
-        if (s) stmt->body.push_back(s);
+        if (s) { stmt->body.push_back(s); unregister_node(s); }
         else {
              if (check(VisualGasicTokenizer::TOKEN_NEWLINE)) advance();
              else if (!is_at_end()) advance();
@@ -1252,14 +1412,17 @@ DimStatement* VisualGasicParser::parse_dim() {
         return nullptr;
     }
     
-    DimStatement* stmt = new DimStatement();
+    DimStatement* stmt = static_cast<DimStatement*>(register_node(new DimStatement()));
     stmt->variable_name = peek().value;
     advance();
     
     // Check for Array declaration: Dim A(10) or Dim A(5, 5)
     if (match(VisualGasicTokenizer::TOKEN_PAREN_OPEN)) {
         do {
-            stmt->array_sizes.push_back(parse_expression());
+            {
+                ExpressionNode* _tmp = parse_expression();
+                if (_tmp) { stmt->array_sizes.push_back(_tmp); unregister_node(_tmp); }
+            }
             if (check(VisualGasicTokenizer::TOKEN_COMMA)) {
                 advance();
             } else {
@@ -1286,7 +1449,11 @@ DimStatement* VisualGasicParser::parse_dim() {
     // Optional: = Initializer
     if (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().value == "=") {
         advance(); // Eat =
-        stmt->initializer = parse_expression();
+        {
+            ExpressionNode* _tmp = parse_expression();
+            stmt->initializer = _tmp;
+            unregister_node(_tmp);
+        }
     }
     
     return stmt;
@@ -1295,8 +1462,12 @@ DimStatement* VisualGasicParser::parse_dim() {
 IfStatement* VisualGasicParser::parse_if() {
     advance(); // Eat If
     
-    IfStatement* stmt = new IfStatement();
-    stmt->condition = parse_expression();
+    IfStatement* stmt = static_cast<IfStatement*>(register_node(new IfStatement()));
+    {
+        ExpressionNode* _tmp = parse_expression();
+        stmt->condition = _tmp;
+        unregister_node(_tmp);
+    }
     
     bool is_block = false;
     
@@ -1336,8 +1507,12 @@ IfStatement* VisualGasicParser::parse_if() {
                  if (val.nocasecmp_to("Elif") == 0 || val.nocasecmp_to("ElseIf") == 0) {
                      advance(); // Eat Elif
                      
-                     IfStatement* next_if = new IfStatement();
-                     next_if->condition = parse_expression();
+                     IfStatement* next_if = static_cast<IfStatement*>(register_node(new IfStatement()));
+                     {
+                         ExpressionNode* _tmp = parse_expression();
+                         next_if->condition = _tmp;
+                         unregister_node(_tmp);
+                     }
                      
                      if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("Then") == 0) {
                         advance();
@@ -1345,6 +1520,7 @@ IfStatement* VisualGasicParser::parse_if() {
 
                      // Link to previous Else
                      current_if_node->else_branch.push_back(next_if);
+                     unregister_node(next_if);
                      
                      // Switch Context
                      current_if_node = next_if;
@@ -1355,7 +1531,7 @@ IfStatement* VisualGasicParser::parse_if() {
             }
             
             Statement* s = parse_statement();
-            if (s) current_branch->push_back(s);
+            if (s) { current_branch->push_back(s); unregister_node(s); }
             else if (check(VisualGasicTokenizer::TOKEN_NEWLINE)) advance();
             else if (check(VisualGasicTokenizer::TOKEN_EOF)) break;
             else advance(); // Skip garbage
@@ -1367,12 +1543,13 @@ IfStatement* VisualGasicParser::parse_if() {
         Statement* s = parse_statement();
         if (s) {
             stmt->then_branch.push_back(s);
-            
+            unregister_node(s);
+
             // Check for Else (Single Line)
             if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("Else") == 0) {
                  advance();
                  Statement* el = parse_statement();
-                 if (el) stmt->else_branch.push_back(el);
+                 if (el) { stmt->else_branch.push_back(el); unregister_node(el); }
             }
         }
     }
@@ -1407,9 +1584,13 @@ Statement* VisualGasicParser::parse_for() {
         }
         advance(); // Eat In
         
-        ForEachStatement* stmt = new ForEachStatement();
+        ForEachStatement* stmt = static_cast<ForEachStatement*>(register_node(new ForEachStatement()));
         stmt->variable_name = var_name;
-        stmt->collection = parse_expression();
+        {
+            ExpressionNode* _tmp = parse_expression();
+            stmt->collection = _tmp;
+            unregister_node(_tmp);
+        }
         
         while (!match(VisualGasicTokenizer::TOKEN_EOF)) {
              // Handle Next
@@ -1420,7 +1601,7 @@ Statement* VisualGasicParser::parse_for() {
                 break;
             }
             Statement* s = parse_statement();
-            if (s) stmt->body.push_back(s);
+            if (s) { stmt->body.push_back(s); unregister_node(s); }
             else {
                 if (check(VisualGasicTokenizer::TOKEN_NEWLINE)) advance();
                 else if (!is_at_end()) advance(); // Skip garbage
@@ -1430,14 +1611,18 @@ Statement* VisualGasicParser::parse_for() {
     }
 
     // Standard For Loop
-    ForStatement* stmt = new ForStatement();
+    ForStatement* stmt = static_cast<ForStatement*>(register_node(new ForStatement()));
     stmt->variable_name = var_name;
     
     if (!match(VisualGasicTokenizer::TOKEN_OPERATOR)) { // Expect =
         UtilityFunctions::print("Parser Error: Expected = in For");
     }
     
-    stmt->from_val = parse_expression();
+    {
+        ExpressionNode* _tmp = parse_expression();
+        stmt->from_val = _tmp;
+        unregister_node(_tmp);
+    }
     
     bool found_to = false;
     VisualGasicTokenizer::Token t_to = peek();
@@ -1452,7 +1637,11 @@ Statement* VisualGasicParser::parse_for() {
     }
     
     if (found_to) {
-        stmt->to_val = parse_expression();
+        {
+            ExpressionNode* _tmp = parse_expression();
+            stmt->to_val = _tmp;
+            unregister_node(_tmp);
+        }
     } else {
         UtilityFunctions::print("Parser Error: Expected To in For statement");
     }
@@ -1462,7 +1651,11 @@ Statement* VisualGasicParser::parse_for() {
     if ((t_step.type == VisualGasicTokenizer::TOKEN_KEYWORD || t_step.type == VisualGasicTokenizer::TOKEN_IDENTIFIER)
         && t_step.value.operator String().nocasecmp_to("Step") == 0) {
         advance();
-        stmt->step_val = parse_expression();
+        {
+            ExpressionNode* _tmp = parse_expression();
+            stmt->step_val = _tmp;
+            unregister_node(_tmp);
+        }
     }
     
     match(VisualGasicTokenizer::TOKEN_NEWLINE);
@@ -1477,7 +1670,7 @@ Statement* VisualGasicParser::parse_for() {
         }
         
         Statement* s = parse_statement();
-        if (s) stmt->body.push_back(s);
+        if (s) { stmt->body.push_back(s); unregister_node(s); }
         else if (check(VisualGasicTokenizer::TOKEN_NEWLINE)) advance();
         else advance();
     }
@@ -1495,8 +1688,12 @@ SelectStatement* VisualGasicParser::parse_select() {
         UtilityFunctions::print("Parser Error: Expected Case after Select");
     }
     
-    SelectStatement* stmt = new SelectStatement();
-    stmt->expression = parse_expression();
+    SelectStatement* stmt = static_cast<SelectStatement*>(register_node(new SelectStatement()));
+    {
+        ExpressionNode* _tmp = parse_expression();
+        stmt->expression = _tmp;
+        unregister_node(_tmp);
+    }
     match(VisualGasicTokenizer::TOKEN_NEWLINE);
     
     while (!is_at_end()) {
@@ -1516,7 +1713,7 @@ SelectStatement* VisualGasicParser::parse_select() {
         if ((t.type == VisualGasicTokenizer::TOKEN_KEYWORD || t.type == VisualGasicTokenizer::TOKEN_IDENTIFIER) && String(t.value).nocasecmp_to("Case") == 0) {
             advance(); // Eat Case
             
-            CaseBlock* block = new CaseBlock();
+            CaseBlock* block = static_cast<CaseBlock*>(register_node(new CaseBlock()));
             
             // Case Else
             if ((check(VisualGasicTokenizer::TOKEN_KEYWORD) || check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) && String(peek().value).nocasecmp_to("Else") == 0) {
@@ -1525,7 +1722,10 @@ SelectStatement* VisualGasicParser::parse_select() {
             } else {
                 // Parse values: Case 1, 2, 3
                 do {
-                    block->values.push_back(parse_expression());
+                    {
+                        ExpressionNode* _tmp = parse_expression();
+                        if (_tmp) { block->values.push_back(_tmp); unregister_node(_tmp); }
+                    }
                     if (match(VisualGasicTokenizer::TOKEN_COMMA)) continue;
                     break;
                 } while (!is_at_end());
@@ -1543,13 +1743,14 @@ SelectStatement* VisualGasicParser::parse_select() {
                 }
                 
                 Statement* s = parse_statement();
-                if (s) block->body.push_back(s);
+                if (s) { block->body.push_back(s); unregister_node(s); }
                 else {
                     if (check(VisualGasicTokenizer::TOKEN_NEWLINE)) advance();
                     else break; // Avoid infinite loop or move next
                 }
             }
             stmt->cases.push_back(block);
+            unregister_node(block);
             continue;
         }
 
@@ -1569,7 +1770,7 @@ WhileStatement* VisualGasicParser::parse_while() {
     ExpressionNode* condition = parse_expression();
     match(VisualGasicTokenizer::TOKEN_NEWLINE);
     
-    WhileStatement* stmt = new WhileStatement();
+    WhileStatement* stmt = static_cast<WhileStatement*>(register_node(new WhileStatement()));
     stmt->condition = condition;
     
     while (!is_at_end()) {
@@ -1580,7 +1781,7 @@ WhileStatement* VisualGasicParser::parse_while() {
         }
         
         Statement* s = parse_statement();
-        if (s) stmt->body.push_back(s);
+        if (s) { stmt->body.push_back(s); unregister_node(s); }
         else if (check(VisualGasicTokenizer::TOKEN_NEWLINE)) advance();
         else current_pos++;
     }
@@ -1590,7 +1791,7 @@ WhileStatement* VisualGasicParser::parse_while() {
 DoStatement* VisualGasicParser::parse_do() {
     advance(); // Eat Do
     
-    DoStatement* stmt = new DoStatement();
+    DoStatement* stmt = static_cast<DoStatement*>(register_node(new DoStatement()));
     
     VisualGasicTokenizer::Token t = peek();
     String val = t.value;
@@ -1598,11 +1799,19 @@ DoStatement* VisualGasicParser::parse_do() {
     if (val.nocasecmp_to("While") == 0) {
         advance();
         stmt->condition_type = DoStatement::WHILE;
-        stmt->condition = parse_expression();
+        {
+            ExpressionNode* _tmp = parse_expression();
+            stmt->condition = _tmp;
+            unregister_node(_tmp);
+        }
     } else if (val.nocasecmp_to("Until") == 0) {
         advance();
         stmt->condition_type = DoStatement::UNTIL;
-        stmt->condition = parse_expression();
+        {
+            ExpressionNode* _tmp = parse_expression();
+            stmt->condition = _tmp;
+            unregister_node(_tmp);
+        }
     }
     
     match(VisualGasicTokenizer::TOKEN_NEWLINE);
@@ -1619,19 +1828,27 @@ DoStatement* VisualGasicParser::parse_do() {
                       advance();
                       stmt->condition_type = DoStatement::WHILE;
                       stmt->is_post_condition = true;
-                      stmt->condition = parse_expression();
+                      {
+                          ExpressionNode* _tmp = parse_expression();
+                          stmt->condition = _tmp;
+                          unregister_node(_tmp);
+                      }
                   } else if (String(t_post.value).nocasecmp_to("Until") == 0) {
                       advance();
                       stmt->condition_type = DoStatement::UNTIL;
                       stmt->is_post_condition = true;
-                      stmt->condition = parse_expression();
+                      {
+                          ExpressionNode* _tmp = parse_expression();
+                          stmt->condition = _tmp;
+                          unregister_node(_tmp);
+                      }
                   }
             }
             break;
         }
         
         Statement* s = parse_statement();
-        if (s) stmt->body.push_back(s);
+        if (s) { stmt->body.push_back(s); unregister_node(s); }
         else if (check(VisualGasicTokenizer::TOKEN_NEWLINE)) advance();
         else current_pos++;
     }
@@ -1649,16 +1866,20 @@ DoStatement* VisualGasicParser::parse_do() {
 
 Statement* VisualGasicParser::parse_return() {
     advance(); // Eat Return
-    ReturnStatement* ret = new ReturnStatement();
+    ReturnStatement* ret = static_cast<ReturnStatement*>(register_node(new ReturnStatement()));
     if (!check(VisualGasicTokenizer::TOKEN_NEWLINE) && !check(VisualGasicTokenizer::TOKEN_EOF)) {
-        ret->return_value = parse_expression();
+        {
+            ExpressionNode* _tmp = parse_expression();
+            ret->return_value = _tmp;
+            unregister_node(_tmp);
+        }
     }
     return ret;
 }
 
 Statement* VisualGasicParser::parse_continue() {
     advance(); // Eat Continue
-    ContinueStatement* c = new ContinueStatement();
+    ContinueStatement* c = static_cast<ContinueStatement*>(register_node(new ContinueStatement()));
     
     if (check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
         String val = peek().value;
@@ -1682,8 +1903,8 @@ Statement* VisualGasicParser::parse_assignment_or_call() {
     if (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().value == ".") {
         advance(); // Eat .
         if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER) || check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
-             MemberAccessNode* ma = new MemberAccessNode();
-             ExpressionNode* ctx = new ExpressionNode();
+             MemberAccessNode* ma = static_cast<MemberAccessNode*>(register_node(new MemberAccessNode()));
+             ExpressionNode* ctx = static_cast<ExpressionNode*>(register_node(new ExpressionNode()));
              ctx->type = ExpressionNode::WITH_CONTEXT;
              ma->base_object = ctx;
              ma->member_name = peek().value;
@@ -1696,14 +1917,14 @@ Statement* VisualGasicParser::parse_assignment_or_call() {
     } else {
         String name = peek().value;
         advance();
-        if (name.nocasecmp_to("Me") == 0) {
-             head = new ExpressionNode();
-             head->type = ExpressionNode::ME;
-        } else {
-             VariableNode* var = new VariableNode();
-             var->name = name;
-             head = var;
-        }
+           if (name.nocasecmp_to("Me") == 0) {
+               head = static_cast<ExpressionNode*>(register_node(new ExpressionNode()));
+               head->type = ExpressionNode::ME;
+           } else {
+               VariableNode* var = static_cast<VariableNode*>(register_node(new VariableNode()));
+               var->name = name;
+               head = var;
+           }
     }
     
     // Parse chain of dots and parens to build the L-Value expression
@@ -1711,7 +1932,7 @@ Statement* VisualGasicParser::parse_assignment_or_call() {
         if (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().value == ".") {
             advance();
             if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER) || check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
-                 MemberAccessNode* ma = new MemberAccessNode();
+                 MemberAccessNode* ma = static_cast<MemberAccessNode*>(register_node(new MemberAccessNode()));
                  ma->base_object = head;
                  ma->member_name = peek().value;
                  head = ma;
@@ -1723,12 +1944,15 @@ Statement* VisualGasicParser::parse_assignment_or_call() {
         }
         else if (check(VisualGasicTokenizer::TOKEN_PAREN_OPEN)) {
              advance(); // Eat (
-             ArrayAccessNode* aa = new ArrayAccessNode();
+             ArrayAccessNode* aa = static_cast<ArrayAccessNode*>(register_node(new ArrayAccessNode()));
              aa->base = head;
              
              if (!check(VisualGasicTokenizer::TOKEN_PAREN_CLOSE)) {
                  while(true) {
-                     aa->indices.push_back(parse_expression());
+                     {
+                         ExpressionNode* _tmp = parse_expression();
+                         if (_tmp) { aa->indices.push_back(_tmp); unregister_node(_tmp); }
+                     }
                      if (match(VisualGasicTokenizer::TOKEN_COMMA)) continue;
                      break;
                  }
@@ -1769,21 +1993,29 @@ Statement* VisualGasicParser::parse_assignment_or_call() {
                 }
             }
             
-            AssignmentStatement* assign = new AssignmentStatement();
+            AssignmentStatement* assign = static_cast<AssignmentStatement*>(register_node(new AssignmentStatement()));
             assign->target = head;
-            assign->value = parse_expression();
+            {
+                ExpressionNode* _tmp = parse_expression();
+                assign->value = _tmp;
+                unregister_node(_tmp);
+            }
             return assign;
 
         } else if (op == "+=" || op == "-=" || op == "*=" || op == "/=") {
             advance(); // Eat Op
             
-            AssignmentStatement* assign = new AssignmentStatement();
+            AssignmentStatement* assign = static_cast<AssignmentStatement*>(register_node(new AssignmentStatement()));
             assign->target = head; 
             ExpressionNode* lhs_read = head->duplicate();
             
-            BinaryOpNode* bin = new BinaryOpNode();
+            BinaryOpNode* bin = static_cast<BinaryOpNode*>(register_node(new BinaryOpNode()));
             bin->left = lhs_read;
-            bin->right = parse_expression();
+            {
+                ExpressionNode* _tmp = parse_expression();
+                bin->right = _tmp;
+                unregister_node(_tmp);
+            }
             
             if (op == "+=") bin->op = "+";
             else if (op == "-=") bin->op = "-";
@@ -1796,14 +2028,14 @@ Statement* VisualGasicParser::parse_assignment_or_call() {
         } else if (op == "++" || op == "--") {
             advance(); // Eat Op
 
-            AssignmentStatement* assign = new AssignmentStatement();
+            AssignmentStatement* assign = static_cast<AssignmentStatement*>(register_node(new AssignmentStatement()));
             assign->target = head;
             ExpressionNode* lhs_read = head->duplicate();
             
-            BinaryOpNode* bin = new BinaryOpNode();
+            BinaryOpNode* bin = static_cast<BinaryOpNode*>(register_node(new BinaryOpNode()));
             bin->left = lhs_read;
             
-            LiteralNode* one = new LiteralNode();
+            LiteralNode* one = static_cast<LiteralNode*>(register_node(new LiteralNode()));
             one->value = 1;
             bin->right = one;
             
@@ -1816,38 +2048,45 @@ Statement* VisualGasicParser::parse_assignment_or_call() {
     }
     
     // Call Statement conversion
-    CallStatement* call = new CallStatement();
+            CallStatement* call = static_cast<CallStatement*>(register_node(new CallStatement()));
     
     if (head->type == ExpressionNode::ARRAY_ACCESS) {
         ArrayAccessNode* aa = (ArrayAccessNode*)head;
         ExpressionNode* callee = aa->base;
         aa->base = nullptr; 
         
-        call->arguments = aa->indices;
-        aa->indices.clear(); 
-        
-        if (callee->type == ExpressionNode::VARIABLE) {
-            call->method_name = ((VariableNode*)callee)->name;
-            delete callee; 
-        } else if (callee->type == ExpressionNode::MEMBER_ACCESS) {
-             MemberAccessNode* ma = (MemberAccessNode*)callee;
-             call->method_name = ma->member_name;
-             call->base_object = ma->base_object;
-             ma->base_object = nullptr; 
-             delete callee;
-        }
-        delete head;
+           // Transfer indices to call arguments and unregister them from the parser tracker
+           for (int i = 0; i < aa->indices.size(); i++) {
+              ExpressionNode* idx = aa->indices[i];
+              if (idx) {
+                 call->arguments.push_back(idx);
+                 unregister_node(idx);
+              }
+           }
+           aa->indices.clear(); 
+
+           if (callee->type == ExpressionNode::VARIABLE) {
+              call->method_name = ((VariableNode*)callee)->name;
+              unregister_node(callee); delete callee; 
+           } else if (callee->type == ExpressionNode::MEMBER_ACCESS) {
+               MemberAccessNode* ma = (MemberAccessNode*)callee;
+               call->method_name = ma->member_name;
+               call->base_object = ma->base_object;
+               ma->base_object = nullptr; 
+               unregister_node(ma); delete ma;
+           }
+           unregister_node(aa); delete aa;
     } else if (head->type == ExpressionNode::VARIABLE) {
          call->method_name = ((VariableNode*)head)->name;
-         delete head;
+            unregister_node(head); delete head;
     } else if (head->type == ExpressionNode::MEMBER_ACCESS) {
          MemberAccessNode* ma = (MemberAccessNode*)head;
          call->method_name = ma->member_name;
          call->base_object = ma->base_object;
          ma->base_object = nullptr;
-         delete head;
+            unregister_node(head); delete head;
     } else {
-         delete head; 
+            unregister_node(head); delete head; 
     }
     
     if (!check(VisualGasicTokenizer::TOKEN_NEWLINE) && !check(VisualGasicTokenizer::TOKEN_EOF) && 
@@ -1859,9 +2098,7 @@ Statement* VisualGasicParser::parse_assignment_or_call() {
         
         while (true) {
             ExpressionNode* expr = parse_expression();
-             if (expr) {
-                call->arguments.push_back(expr);
-            }
+            if (expr) { call->arguments.push_back(expr); unregister_node(expr); }
             if (check(VisualGasicTokenizer::TOKEN_COMMA)) {
                 advance();
                 continue;
@@ -1881,7 +2118,7 @@ StructDefinition* VisualGasicParser::parse_struct() {
         return nullptr;
     }
     
-    StructDefinition* def = new StructDefinition();
+    StructDefinition* def = static_cast<StructDefinition*>(register_node(new StructDefinition()));
     def->name = peek().value;
     advance();
     
@@ -1941,12 +2178,16 @@ StructDefinition* VisualGasicParser::parse_struct() {
 
 PrintStatement* VisualGasicParser::parse_print() {
     advance(); // Eat Print
-    PrintStatement* stmt = new PrintStatement();
+    PrintStatement* stmt = static_cast<PrintStatement*>(register_node(new PrintStatement()));
     
     // Check for #1
     if (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().value == "#") {
         advance(); // Eat #
-        stmt->file_number = parse_expression();
+        {
+            ExpressionNode* _tmp = parse_expression();
+            stmt->file_number = _tmp;
+            unregister_node(_tmp);
+        }
         if (check(VisualGasicTokenizer::TOKEN_COMMA)) {
             advance();
         }
@@ -1955,7 +2196,11 @@ PrintStatement* VisualGasicParser::parse_print() {
     // Parse expression(s)
     // currently only one supported by AST
     if (!check(VisualGasicTokenizer::TOKEN_NEWLINE) && !check(VisualGasicTokenizer::TOKEN_EOF) && !check(VisualGasicTokenizer::TOKEN_COLON)) {
-        stmt->expression = parse_expression();
+        {
+            ExpressionNode* _tmp = parse_expression();
+            stmt->expression = _tmp;
+            unregister_node(_tmp);
+        }
     }
     
     return stmt;
@@ -1965,8 +2210,12 @@ OpenStatement* VisualGasicParser::parse_open() {
     advance(); // Eat Open
     
     // Open path For Mode As #Num
-    OpenStatement* stmt = new OpenStatement();
-    stmt->path = parse_expression();
+    OpenStatement* stmt = static_cast<OpenStatement*>(register_node(new OpenStatement()));
+    {
+        ExpressionNode* _tmp = parse_expression();
+        stmt->path = _tmp;
+        unregister_node(_tmp);
+    }
     
     if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("For") == 0) {
         advance();
@@ -1985,7 +2234,11 @@ OpenStatement* VisualGasicParser::parse_open() {
         if (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().value == "#") {
             advance();
         } 
-        stmt->file_number = parse_expression();
+        {
+            ExpressionNode* _tmp = parse_expression();
+            stmt->file_number = _tmp;
+            unregister_node(_tmp);
+        }
     }
     
     return stmt;
@@ -1994,13 +2247,17 @@ OpenStatement* VisualGasicParser::parse_open() {
 CloseStatement* VisualGasicParser::parse_close() {
     advance(); // Eat Close
     
-    CloseStatement* stmt = new CloseStatement();
+    CloseStatement* stmt = static_cast<CloseStatement*>(register_node(new CloseStatement()));
     if (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().value == "#") {
         advance();
     }
     
     if (!check(VisualGasicTokenizer::TOKEN_NEWLINE) && !check(VisualGasicTokenizer::TOKEN_EOF)) {
-         stmt->file_number = parse_expression();
+         {
+             ExpressionNode* _tmp = parse_expression();
+             stmt->file_number = _tmp;
+             unregister_node(_tmp);
+         }
     }
     
     return stmt;
@@ -2010,32 +2267,40 @@ SeekStatement* VisualGasicParser::parse_seek() {
     advance(); // Eat Seek
     // Seek #FileNum, Position
     
-    SeekStatement* stmt = new SeekStatement();
+    SeekStatement* stmt = static_cast<SeekStatement*>(register_node(new SeekStatement()));
     
     // Check #
     if (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().value == "#") {
         advance();
     }
     
-    stmt->file_number = parse_expression();
-    if (!stmt->file_number) {
+    {
+        ExpressionNode* _tmp = parse_expression();
+        stmt->file_number = _tmp;
+        unregister_node(_tmp);
+    }
+        if (!stmt->file_number) {
         error("Expected file number in Seek statement");
-        delete stmt;
+        unregister_node(stmt); delete stmt;
         return nullptr;
     }
     
     if (check(VisualGasicTokenizer::TOKEN_COMMA)) {
         advance();
-    } else {
+        } else {
         error("Expected comma after file number in Seek statement");
-        delete stmt;
+        unregister_node(stmt); delete stmt;
         return nullptr;
     }
     
-    stmt->position = parse_expression();
+    {
+        ExpressionNode* _tmp = parse_expression();
+        stmt->position = _tmp;
+        unregister_node(_tmp);
+    }
     if (!stmt->position) {
         error("Expected position expression in Seek statement");
-        delete stmt;
+        unregister_node(stmt); delete stmt;
         return nullptr;
     }
     
@@ -2044,11 +2309,15 @@ SeekStatement* VisualGasicParser::parse_seek() {
 
 KillStatement* VisualGasicParser::parse_kill() {
     advance(); // Eat Kill
-    KillStatement* stmt = new KillStatement();
-    stmt->path = parse_expression();
+    KillStatement* stmt = static_cast<KillStatement*>(register_node(new KillStatement()));
+    {
+        ExpressionNode* _tmp = parse_expression();
+        stmt->path = _tmp;
+        unregister_node(_tmp);
+    }
     if (!stmt->path) {
         error("Expected path expression in Kill statement");
-        delete stmt;
+        unregister_node(stmt); delete stmt;
         return nullptr;
     }
     return stmt;
@@ -2056,13 +2325,17 @@ KillStatement* VisualGasicParser::parse_kill() {
 
 NameStatement* VisualGasicParser::parse_name() {
     advance(); // Eat Name
-    NameStatement* stmt = new NameStatement();
+    NameStatement* stmt = static_cast<NameStatement*>(register_node(new NameStatement()));
     
     // Name Old As New
-    stmt->old_path = parse_expression();
+    {
+        ExpressionNode* _tmp = parse_expression();
+        stmt->old_path = _tmp;
+        unregister_node(_tmp);
+    }
     if (!stmt->old_path) {
         error("Expected old file path in Name statement");
-        delete stmt;
+        unregister_node(stmt); delete stmt;
         return nullptr;
     }
     
@@ -2070,14 +2343,18 @@ NameStatement* VisualGasicParser::parse_name() {
         advance();
     } else {
         error("Expected 'As' in Name statement");
-        delete stmt;
+        unregister_node(stmt); delete stmt;
         return nullptr;
     }
     
-    stmt->new_path = parse_expression();
+    {
+        ExpressionNode* _tmp = parse_expression();
+        stmt->new_path = _tmp;
+        unregister_node(_tmp);
+    }
     if (!stmt->new_path) {
         error("Expected new file path in Name statement");
-        delete stmt;
+        unregister_node(stmt); delete stmt;
         return nullptr;
     }
     
@@ -2086,10 +2363,13 @@ NameStatement* VisualGasicParser::parse_name() {
 
 DataStatement* VisualGasicParser::parse_data() {
     advance(); // Eat Data
-    DataStatement* stmt = new DataStatement();
+    DataStatement* stmt = static_cast<DataStatement*>(register_node(new DataStatement()));
     
     while (!check(VisualGasicTokenizer::TOKEN_NEWLINE) && !check(VisualGasicTokenizer::TOKEN_EOF)) {
-        stmt->values.push_back(parse_expression());
+        {
+            ExpressionNode* _tmp = parse_expression();
+            if (_tmp) { stmt->values.push_back(_tmp); unregister_node(_tmp); }
+        }
         
         if (check(VisualGasicTokenizer::TOKEN_COMMA)) {
             advance();
@@ -2102,11 +2382,14 @@ DataStatement* VisualGasicParser::parse_data() {
 
 ReadStatement* VisualGasicParser::parse_read() {
     advance(); // Eat Read
-    ReadStatement* stmt = new ReadStatement();
+    ReadStatement* stmt = static_cast<ReadStatement*>(register_node(new ReadStatement()));
     
     while (!check(VisualGasicTokenizer::TOKEN_NEWLINE) && !check(VisualGasicTokenizer::TOKEN_EOF)) {
         // Parse L-Values (Variables, Array elements, Properties)
-        stmt->targets.push_back(parse_expression());
+        {
+            ExpressionNode* _tmp = parse_expression();
+            if (_tmp) { stmt->targets.push_back(_tmp); unregister_node(_tmp); }
+        }
         
         if (check(VisualGasicTokenizer::TOKEN_COMMA)) {
             advance();
@@ -2119,7 +2402,7 @@ ReadStatement* VisualGasicParser::parse_read() {
 
 RestoreStatement* VisualGasicParser::parse_restore() {
     advance(); // Eat Restore
-    RestoreStatement* stmt = new RestoreStatement();
+    RestoreStatement* stmt = static_cast<RestoreStatement*>(register_node(new RestoreStatement()));
     
     if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
         stmt->label_name = peek().value;
@@ -2186,7 +2469,7 @@ DataStatement* VisualGasicParser::parse_data_file() {
     String content = file->get_as_text();
     file->close();
     
-    DataStatement* stmt = new DataStatement();
+    DataStatement* stmt = static_cast<DataStatement*>(register_node(new DataStatement()));
     stmt->values = parse_data_values_from_text(content);
     return stmt;
 }
@@ -2194,11 +2477,15 @@ DataStatement* VisualGasicParser::parse_data_file() {
 LoadDataStatement* VisualGasicParser::parse_load_data() {
     advance(); // Eat LoadData
     
-    LoadDataStatement* stmt = new LoadDataStatement();
-    stmt->path_expression = parse_expression();
+    LoadDataStatement* stmt = static_cast<LoadDataStatement*>(register_node(new LoadDataStatement()));
+    {
+        ExpressionNode* _tmp = parse_expression();
+        stmt->path_expression = _tmp;
+        unregister_node(_tmp);
+    }
     if (!stmt->path_expression) {
         error("Expected string expression for file path after LoadData");
-        delete stmt;
+        unregister_node(stmt); delete stmt;
         return nullptr;
     }
     return stmt;
@@ -2208,7 +2495,7 @@ InputStatement* VisualGasicParser::parse_input(bool is_line) {
     if (is_line) advance(); // Input token
     else advance(); // Eat Input
     
-    InputStatement* stmt = new InputStatement();
+    InputStatement* stmt = static_cast<InputStatement*>(register_node(new InputStatement()));
     stmt->is_line_input = is_line;
     
     // Check #
@@ -2233,7 +2520,10 @@ InputStatement* VisualGasicParser::parse_input(bool is_line) {
         // We can reuse parse_expression but we need to verify it's an L-Value later?
         // Or duplicate the logic?
         // parse_expression will parse Variable, Member, Array.
-        stmt->variables.push_back(parse_expression());
+        {
+            ExpressionNode* _tmp = parse_expression();
+            if (_tmp) { stmt->variables.push_back(_tmp); unregister_node(_tmp); }
+        }
         
         if (check(VisualGasicTokenizer::TOKEN_COMMA)) {
             advance();
@@ -2251,7 +2541,7 @@ ExitStatement* VisualGasicParser::parse_exit() {
     if (check(VisualGasicTokenizer::TOKEN_KEYWORD) || check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
         String type = String(peek().value).to_lower();
         
-        ExitStatement* s = new ExitStatement();
+        ExitStatement* s = static_cast<ExitStatement*>(register_node(new ExitStatement()));
         bool valid = false;
         
         if (type == "sub") {
@@ -2272,7 +2562,7 @@ ExitStatement* VisualGasicParser::parse_exit() {
             advance();
             return s;
         } else {
-            delete s;
+            unregister_node(s); delete s;
             return nullptr;
         }
     }
@@ -2287,7 +2577,7 @@ ConstStatement* VisualGasicParser::parse_const() {
         return nullptr;
     }
     
-    ConstStatement* s = new ConstStatement();
+    ConstStatement* s = static_cast<ConstStatement*>(register_node(new ConstStatement()));
     s->name = peek().value;
     advance();
     
@@ -2300,7 +2590,11 @@ ConstStatement* VisualGasicParser::parse_const() {
     // = Value
     if (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().value == "=") {
         advance();
-        s->value = parse_expression();
+        {
+            ExpressionNode* _tmp = parse_expression();
+            s->value = _tmp;
+            unregister_node(_tmp);
+        }
     } else {
         UtilityFunctions::print("Parser Error: Expected = in Const definition");
     }
@@ -2311,7 +2605,7 @@ ConstStatement* VisualGasicParser::parse_const() {
 ReDimStatement* VisualGasicParser::parse_redim() {
     advance(); // Eat ReDim
     
-    ReDimStatement* s = new ReDimStatement();
+    ReDimStatement* s = static_cast<ReDimStatement*>(register_node(new ReDimStatement()));
     
     if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("preserve") == 0) {
         s->preserve = true;
@@ -2320,7 +2614,7 @@ ReDimStatement* VisualGasicParser::parse_redim() {
     
     if (!check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
         UtilityFunctions::print("Parser Error: Expected variable name after ReDim");
-        delete s;
+        unregister_node(s); delete s;
         return nullptr;
     }
     
@@ -2332,7 +2626,10 @@ ReDimStatement* VisualGasicParser::parse_redim() {
         advance();
         if (!check(VisualGasicTokenizer::TOKEN_PAREN_CLOSE)) {
             while (true) {
-                s->array_sizes.push_back(parse_expression());
+                {
+                    ExpressionNode* _tmp = parse_expression();
+                    if (_tmp) { s->array_sizes.push_back(_tmp); unregister_node(_tmp); }
+                }
                 if (check(VisualGasicTokenizer::TOKEN_COMMA)) {
                     advance();
                 } else {
@@ -2359,7 +2656,7 @@ ReDimStatement* VisualGasicParser::parse_redim() {
 TryStatement* VisualGasicParser::parse_try() {
     advance(); // Eat Try
     
-    TryStatement* s = new TryStatement();
+    TryStatement* s = static_cast<TryStatement*>(register_node(new TryStatement()));
     
     // Parse Try Block
     while (!is_at_end()) {
@@ -2378,7 +2675,7 @@ TryStatement* VisualGasicParser::parse_try() {
         }
         
         Statement* stmt = parse_statement();
-        if (stmt) s->try_block.push_back(stmt);
+        if (stmt) { s->try_block.push_back(stmt); unregister_node(stmt); }
         else advance(); 
     }
     
@@ -2411,7 +2708,7 @@ TryStatement* VisualGasicParser::parse_try() {
                  }
              }
              Statement* stmt = parse_statement();
-             if (stmt) s->catch_block.push_back(stmt);
+             if (stmt) { s->catch_block.push_back(stmt); unregister_node(stmt); }
              else advance();
         }
     }
@@ -2430,7 +2727,7 @@ TryStatement* VisualGasicParser::parse_try() {
                  }
              }
              Statement* stmt = parse_statement();
-             if (stmt) s->finally_block.push_back(stmt);
+             if (stmt) { s->finally_block.push_back(stmt); unregister_node(stmt); }
              else advance();
         }
     }
@@ -2447,16 +2744,24 @@ TryStatement* VisualGasicParser::parse_try() {
 
 RaiseStatement* VisualGasicParser::parse_raise() {
     advance(); // Eat Raise
-    RaiseStatement* s = new RaiseStatement();
+    RaiseStatement* s = static_cast<RaiseStatement*>(register_node(new RaiseStatement()));
     
-    s->error_code = parse_expression();
+    {
+        ExpressionNode* _tmp = parse_expression();
+        s->error_code = _tmp;
+        unregister_node(_tmp);
+    }
     if (!s->error_code) {
         error("Expected error code in Raise statement");
     }
     
     if (check(VisualGasicTokenizer::TOKEN_COMMA)) {
         advance();
-        s->message = parse_expression();
+        {
+            ExpressionNode* _tmp = parse_expression();
+            s->message = _tmp;
+            unregister_node(_tmp);
+        }
     }
     
     return s;
@@ -2475,7 +2780,7 @@ void VisualGasicParser::parse_enum() {
     String enum_name = peek().value;
     advance();
     
-    EnumDefinition* def = new EnumDefinition();
+    EnumDefinition* def = static_cast<EnumDefinition*>(register_node(new EnumDefinition()));
     def->name = enum_name;
     
     int next_val = 0;
@@ -2503,11 +2808,11 @@ void VisualGasicParser::parse_enum() {
                  advance();
                  // Expect integer literal or expression (constant)
                  // For now, strict literal/constant
-                 ExpressionNode* expr = parse_expression();
-                 if (expr && expr->type == ExpressionNode::LITERAL) {
-                     val = (int)((LiteralNode*)expr)->value;
-                 }
-                 delete expr;
+                ExpressionNode* expr = parse_expression();
+                if (expr && expr->type == ExpressionNode::LITERAL) {
+                    val = (int)((LiteralNode*)expr)->value;
+                }
+                if (expr) { unregister_node(expr); delete expr; }
              }
              
              EnumValue ev;

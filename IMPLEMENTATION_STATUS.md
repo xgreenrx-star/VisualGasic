@@ -54,7 +54,7 @@ Created 3 production-ready header-only modules:
 **Remaining Modules Removed** (due to API compatibility issues):
 - ~~`visual_gasic_expression_evaluator`~~ - Variant operator overloading complexity
 - ~~`visual_gasic_statement_executor`~~ - AST struct member variations
-- ~~`visual_gasic_builtin_functions`~~ - Dialog API changes in Godot 4.x
+-- ~~`visual_gasic_builtins`~~ - Dialog API changes in Godot 4.x
 - ~~`visual_gasic_file_io`~~ - DirAccess API differences
 - ~~`visual_gasic_debugger`~~ - Simplified approach needed
 - ~~`visual_gasic_bytecode_compiler`~~ - Duplicate OpCode enum
@@ -238,6 +238,21 @@ src/
 4. **Long-term** (8-10 hours):
    - Advanced debugging infrastructure
    - VB6 form designer
+
+---
+
+## Recent Parser Fix & ASan Note
+
+- **Fix applied:** Parser now duplicates `ExpressionNode` instances when attaching them to multiple parents, preventing shared ownership and double-delete during AST teardown. Changes were made in `src/visual_gasic_parser.cpp` (parse routines and ownership transfer points). A lightweight regression script `demo/test_no_double_delete.gd` was added and run headless.
+
+- **Validation:** Built and ran `run_full.gd` and the regression script headless; no segmentation faults occurred. A trimmed logging mode is in place (parser register/unregister prints silenced in normal runs).
+
+- **ASan attempt:** I attempted to run AddressSanitizer (ASan) by rebuilding with `asan=1` and preloading `libasan`. Two blockers were encountered:
+   - The Godot binary loads the module with `RTLD_DEEPBIND`, which prevents the ASan runtime from being initialized via `LD_PRELOAD` (error: "RTLD_DEEPBIND flag which is incompatible with sanitizer runtime").
+   - Rebuilding Godot itself with ASan would be required to fully enable sanitizer diagnostics in this environment.
+
+**Recommendation:** Merge the ownership fix and regression test. If you want ASan reports, run Godot rebuilt with ASan (or run a custom harness that doesn't use `RTLD_DEEPBIND`). I documented this constraint so contributors can reproduce the ASan workflow.
+
 
 ---
 
