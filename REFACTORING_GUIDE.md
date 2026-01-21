@@ -38,7 +38,7 @@ Variant result = ExpressionEvaluator::evaluate(instance, expr_node);
 StatementExecutor::execute(instance, stmt);
 ```
 
-#### **Built-in Functions** (`visual_gasic_builtin_functions.h/cpp`)
+#### **Built-in Functions** (`visual_gasic_builtins.h/cpp`)
 - **Purpose**: Implements VB6 built-in functions
 - **Categories**:
   - **String**: LEN, LEFT, RIGHT, MID, UPPER, LOWER, TRIM, INSTR, REPLACE
@@ -50,8 +50,8 @@ StatementExecutor::execute(instance, stmt);
 **Usage**:
 ```cpp
 Variant result;
-if (BuiltinFunctions::is_builtin("LEN")) {
-    BuiltinFunctions::call_builtin(instance, "LEN", args, result);
+if (VisualGasicBuiltins::call_builtin(instance, "LEN", args, result)) {
+  // handled by builtin dispatch
 }
 ```
 
@@ -179,7 +179,7 @@ src/
 ├── visual_gasic_instance.cpp       (Core instance - simplified)
 ├── visual_gasic_expression_evaluator.h/cpp
 ├── visual_gasic_statement_executor.h/cpp
-├── visual_gasic_builtin_functions.h/cpp
+├── visual_gasic_builtins.h/cpp
 ├── visual_gasic_file_io.h/cpp
 ├── visual_gasic_variable_scope.h
 ├── visual_gasic_error_reporter.h

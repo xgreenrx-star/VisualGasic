@@ -1,0 +1,186 @@
+long godot::internal::_call_native_mb_ret<long, signed char*>(void const*, void*, signed char* const&)
+/home/Commodore/Documents/VisualGasic/godot-cpp/include/godot_cpp/core/engine_ptrcall.hpp:61
+godot::Script::reload(bool)
+/home/Commodore/Documents/VisualGasic/godot-cpp/gen/src/classes/script.cpp:79 (discriminator 1)
+godot::ScriptExtension::register_virtuals<VisualGasicScript, godot::ScriptExtension>()::{lambda(void*, void const* const*, void*)#11}::operator()(void*, void const* const*, void*) const
+/home/Commodore/Documents/VisualGasic/godot-cpp/gen/include/godot_cpp/classes/script_extension.hpp:139
+godot::ScriptExtension::register_virtuals<VisualGasicScript, godot::ScriptExtension>()::{lambda(void*, void const* const*, void*)#11}::_FUN(void*, void const* const*, void*)
+/home/Commodore/Documents/VisualGasic/godot-cpp/gen/include/godot_cpp/classes/script_extension.hpp:139
+godot::ResourceFormatLoader::register_virtuals<VisualGasicFormatLoader, godot::ResourceFormatLoader>()::{lambda(void*, void const* const*, void*)#4}::operator()(void*, void const* const*, void*) const
+/home/Commodore/Documents/VisualGasic/godot-cpp/gen/include/godot_cpp/classes/resource_format_loader.hpp:110
+godot::ResourceFormatLoader::register_virtuals<VisualGasicFormatLoader, godot::ResourceFormatLoader>()::{lambda(void*, void const* const*, void*)#4}::_FUN(void*, void const* const*, void*)
+/home/Commodore/Documents/VisualGasic/godot-cpp/gen/include/godot_cpp/classes/resource_format_loader.hpp:110
+void godot::call_with_ptr_args<VisualGasicScript, godot::Error, bool>(VisualGasicScript*, godot::Error (VisualGasicScript::*)(bool), void const* const*, void*)
+/home/Commodore/Documents/VisualGasic/godot-cpp/include/godot_cpp/core/binder_common.hpp:224
+void godot::call_with_ptr_args<VisualGasicFormatLoader, godot::Variant, godot::String const&, godot::String const&, bool, int>(VisualGasicFormatLoader*, godot::Variant (VisualGasicFormatLoader::*)(godot::String const&, godot::String const&, bool, int) const, void const* const*, void*)
+/home/Commodore/Documents/VisualGasic/godot-cpp/include/godot_cpp/core/binder_common.hpp:229
+void godot::call_with_ptr_args_ret_helper<VisualGasicScript, godot::Error, bool, 0ul>(VisualGasicScript*, godot::Error (VisualGasicScript::*)(bool), void const* const*, void*, godot::IndexSequence<0ul>)
+/home/Commodore/Documents/VisualGasic/godot-cpp/include/godot_cpp/core/binder_common.hpp:203 (discriminator 4)
+void godot::call_with_ptr_args_retc_helper<VisualGasicFormatLoader, godot::Variant, godot::String const&, godot::String const&, bool, int, 0ul, 1ul, 2ul, 3ul>(VisualGasicFormatLoader*, godot::Variant (VisualGasicFormatLoader::*)(godot::String const&, godot::String const&, bool, int) const, void const* const*, void*, godot::IndexSequence<0ul, 1ul, 2ul, 3ul>)
+/home/Commodore/Documents/VisualGasic/godot-cpp/include/godot_cpp/core/binder_common.hpp:208 (discriminator 4)
+VisualGasicFormatLoader::_load(godot::String const&, godot::String const&, bool, int) const
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_loader.cpp:42
+VisualGasicParser::parse(godot::Vector<VisualGasicTokenizer::Token> const&)
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:127
+VisualGasicParser::parse(godot::Vector<VisualGasicTokenizer::Token> const&)
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:132
+VisualGasicParser::register_node(ASTNode*)
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:268
+VisualGasicParser::unregister_node(ASTNode*)
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:287
+VisualGasicParser::register_node(ExpressionNode*)
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:305
+VisualGasicParser::unregister_node(ExpressionNode*)
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:324
+VisualGasicParser::parse_sub()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:438
+VisualGasicParser::parse_sub()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:457
+VisualGasicParser::parse_sub()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:460
+VisualGasicParser::parse_statement()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:574
+VisualGasicParser::parse_statement()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:594 (discriminator 1)
+VisualGasicParser::parse_statement()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:614 (discriminator 1)
+VisualGasicParser::parse_statement()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:615 (discriminator 1)
+VisualGasicParser::parse_statement()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:622 (discriminator 1)
+VisualGasicParser::parse_statement()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:623 (discriminator 1)
+VisualGasicParser::parse_statement()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:781
+VisualGasicParser::parse_expression()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:800
+VisualGasicParser::parse_expression()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:806
+VisualGasicParser::parse_expression()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:813
+VisualGasicParser::parse_expression()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:816
+VisualGasicParser::parse_logical_or()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:830
+VisualGasicParser::parse_logical_or()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:835
+VisualGasicParser::parse_logical_or()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:836
+VisualGasicParser::parse_and()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:849
+VisualGasicParser::parse_and()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:854
+VisualGasicParser::parse_and()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:855
+VisualGasicParser::parse_not()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:877
+VisualGasicParser::parse_comparison()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:881
+VisualGasicParser::parse_comparison()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:889
+VisualGasicParser::parse_comparison()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:890
+VisualGasicParser::parse_addition()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:916
+VisualGasicParser::parse_addition()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:922
+VisualGasicParser::parse_addition()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:923
+VisualGasicParser::parse_term()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:936
+VisualGasicParser::parse_term()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:942
+VisualGasicParser::parse_term()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:943
+VisualGasicParser::parse_exponentiation()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:956
+VisualGasicParser::parse_unary()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:981
+VisualGasicParser::parse_factor()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:1016
+VisualGasicParser::parse_factor()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:1035
+VisualGasicParser::parse_factor()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:1038
+VisualGasicParser::parse_factor()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:1048
+VisualGasicParser::parse_factor()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:1051
+VisualGasicParser::parse_factor()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:1073
+VisualGasicParser::parse_factor()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:1077
+VisualGasicParser::parse_factor()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:1099
+VisualGasicParser::parse_factor()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:1105
+VisualGasicParser::parse_factor()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:1160
+VisualGasicParser::parse_factor()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:1169
+VisualGasicParser::parse_factor()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:1178
+VisualGasicParser::parse_factor()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:1181
+VisualGasicParser::parse_factor()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:1276
+VisualGasicParser::parse_factor()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:1282
+VisualGasicParser::parse_factor()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:1285
+VisualGasicParser::parse_factor()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:1296
+VisualGasicParser::parse_dim()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:1396
+VisualGasicParser::parse_if()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:1446
+VisualGasicParser::parse_if()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:1448
+VisualGasicParser::parse_if()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:1453
+VisualGasicParser::parse_if()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:1514
+VisualGasicParser::parse_if()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:1515 (discriminator 1)
+VisualGasicParser::parse_if()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:1524
+VisualGasicParser::parse_if()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:1530
+VisualGasicParser::parse_for()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:1595
+VisualGasicParser::parse_for()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:1603
+VisualGasicParser::parse_for()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:1608
+VisualGasicParser::parse_for()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:1622
+VisualGasicParser::parse_for()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:1624
+VisualGasicParser::parse_for()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:1653
+VisualGasicParser::parse_for()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:1654 (discriminator 1)
+VisualGasicParser::parse_return()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:1850
+VisualGasicParser::parse_return()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:1853
+VisualGasicParser::parse_return()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:1858
+VisualGasicParser::parse_continue()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:1863
+VisualGasicParser::parse_assignment_or_call()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:1905
+VisualGasicParser::parse_assignment_or_call()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:1977
+VisualGasicParser::parse_assignment_or_call()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:1980
+VisualGasicParser::parse_assignment_or_call()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:1984
+VisualGasicParser::parse_print()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:2162
+VisualGasicParser::parse_print()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:2181
+VisualGasicParser::parse_print()
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_parser.cpp:2187
+VisualGasicScript::_reload(bool)
+/home/Commodore/Documents/VisualGasic/src/visual_gasic_script.cpp:141

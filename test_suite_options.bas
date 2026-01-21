@@ -2,7 +2,7 @@ Option Compare Text
 Sub Main()
     Print "Testing Option Compare Text"
     
-    Dim s2 As Variant
+    Dim s2 As String
     s1 = "Hello"
     s2 = "HELLO"
     

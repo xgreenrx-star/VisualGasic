@@ -37,14 +37,14 @@ Sub Main()
     Print "CDbl Result: " & d
     
     ' Test 4: String Functions
-    Dim al As Variant
+    Dim al As String
     strVal = "A,B,C"
-    Dim s As Variant
+    Dim s As String
     parts = Split(strVal, ",")
     Print "Split Count: " & (UBound(parts) + 1)
     Print "Part 1: " & parts(1)
     
-    Dim ed As Variant
+    Dim ed As String
     joined = Join(parts, "-")
     Print "Joined: " & joined
     

@@ -8,7 +8,7 @@ Sub Main()
     ' Test Sub Call with argument
     Call set_name(Name) 
     
-    Dim lt As Variant
+    Dim lt As String
     
     ' Test Call Expression (Return Value) using set_meta/get_meta
     ' First set a meta value using Call statement
@@ -20,7 +20,7 @@ Sub Main()
     Print "Meta Result (should be 42):"
     Print Result
     
-    Dim k As Variant
+    Dim k As String
     ' Test boolean return
     Check = has_meta("TestKey")
     
@@ -31,7 +31,7 @@ Sub Main()
     End If
     
     ' Check variable modification
-    Dim ter As Variant
+    Dim ter As String
     Counter = 0
     For i = 1 To 3
         Counter = Counter + i

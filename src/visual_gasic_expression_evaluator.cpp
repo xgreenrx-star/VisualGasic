@@ -88,10 +88,13 @@ Variant VisualGasicExpressionEvaluator::evaluate(ExpressionNode* expr, Context& 
         }
         if (ctx.owner) {
             Node* owner_node = Object::cast_to<Node>(ctx.owner);
-            if (owner_node) {
-                Node* root = owner_node->get_tree()->get_root();
-                if (root->has_node(name)) {
-                    return root->get_node<Node>(name);
+            if (owner_node && owner_node->is_inside_tree()) {
+                SceneTree *tree = owner_node->get_tree();
+                if (tree) {
+                    Node* root = tree->get_root();
+                    if (root && root->has_node(name)) {
+                        return root->get_node<Node>(name);
+                    }
                 }
             }
         }

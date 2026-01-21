@@ -1,6 +1,5 @@
 Sub Main()
-    Dim 626.8 As Variant
-    Dim 628.0 As Variant
+    // removed malformed Dim lines introduced by autofix
     
     If a > b Then
         Print "FAILURE: " & a & " > " & b & " is True!"

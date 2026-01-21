@@ -1,5 +1,5 @@
 Sub IterTest()
-    Dim 3) As Variant
+    Dim arr(2) As Integer
     arr(0) = 10
     arr(1) = 20
     arr(2) = 30

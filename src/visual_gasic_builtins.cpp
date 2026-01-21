@@ -181,13 +181,13 @@ Variant call_builtin_expr(VisualGasicInstance *instance, CallExpression *call, b
     if (name == "LBound" && args.size() >= 1) { r_handled = true; return 0; }
 
     // File / Dir Helpers (use instance wrappers)
-    if (name.nocasecmp_to("LOF") == 0 && args.size() == 1) { r_handled = true; return instance->builtin_lof((int)args[0]); }
-    if (name.nocasecmp_to("Loc") == 0 && args.size() == 1) { r_handled = true; return instance->builtin_loc((int)args[0]); }
-    if (name.nocasecmp_to("EOF") == 0 && args.size() == 1) { r_handled = true; return instance->builtin_eof((int)args[0]); }
-    if (name.nocasecmp_to("FreeFile") == 0) { r_handled = true; int range = 0; if (args.size()>0) range = (int)args[0]; return instance->builtin_freefile(range); }
-    if (name.nocasecmp_to("FileLen") == 0 && args.size() == 1) { r_handled = true; return instance->builtin_filelen(String(args[0])); }
-    if (name.nocasecmp_to("Dir") == 0) { r_handled = true; return instance->builtin_dir(args); }
-    if (name.nocasecmp_to("Randomize") == 0) { r_handled = true; instance->builtin_randomize(); return Variant(); }
+    if (name.nocasecmp_to("LOF") == 0 && args.size() == 1) { r_handled = true; return instance->file_lof((int)args[0]); }
+    if (name.nocasecmp_to("Loc") == 0 && args.size() == 1) { r_handled = true; return instance->file_loc((int)args[0]); }
+    if (name.nocasecmp_to("EOF") == 0 && args.size() == 1) { r_handled = true; return instance->file_eof((int)args[0]); }
+    if (name.nocasecmp_to("FreeFile") == 0) { r_handled = true; int range = 0; if (args.size()>0) range = (int)args[0]; return instance->file_free(range); }
+    if (name.nocasecmp_to("FileLen") == 0 && args.size() == 1) { r_handled = true; return instance->file_len(String(args[0])); }
+    if (name.nocasecmp_to("Dir") == 0) { r_handled = true; return instance->file_dir(args); }
+    if (name.nocasecmp_to("Randomize") == 0) { r_handled = true; instance->randomize_seed(); return Variant(); }
 
     // If not handled here, leave r_handled false so caller can fallback
     return Variant();
@@ -372,7 +372,7 @@ bool call_builtin_for_base_variant(VisualGasicInstance *instance, const Variant 
             if (p_args.size() >= 3) d["Description"] = p_args[2];
             String msg = d.has("Description") ? (String)d["Description"] : "Runtime Error";
             int code = d.has("Number") ? (int)d["Number"] : 0;
-            instance->raise_error_for_builtins(msg, code);
+            instance->raise_runtime_error(msg, code);
             r_ret = Variant();
             return true;
         }

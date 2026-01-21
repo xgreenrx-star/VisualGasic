@@ -396,7 +396,7 @@ Variant VisualGasicInstance::evaluate_expression_for_builtins(ExpressionNode* ex
     return _evaluate_expression_impl(expr);
 }
 
-Variant VisualGasicInstance::builtin_lof(int file_num) {
+Variant VisualGasicInstance::file_lof(int file_num) {
     if (open_files.has(file_num)) {
         Ref<FileAccess> fa = open_files[file_num];
         if (fa.is_valid()) return fa->get_length();
@@ -404,7 +404,7 @@ Variant VisualGasicInstance::builtin_lof(int file_num) {
     return 0;
 }
 
-Variant VisualGasicInstance::builtin_loc(int file_num) {
+Variant VisualGasicInstance::file_loc(int file_num) {
     if (open_files.has(file_num)) {
         Ref<FileAccess> fa = open_files[file_num];
         if (fa.is_valid()) return fa->get_position();
@@ -412,7 +412,7 @@ Variant VisualGasicInstance::builtin_loc(int file_num) {
     return 0;
 }
 
-Variant VisualGasicInstance::builtin_eof(int file_num) {
+Variant VisualGasicInstance::file_eof(int file_num) {
     if (open_files.has(file_num)) {
         Ref<FileAccess> fa = open_files[file_num];
         if (fa.is_valid()) return fa->eof_reached();
@@ -420,7 +420,7 @@ Variant VisualGasicInstance::builtin_eof(int file_num) {
     return true;
 }
 
-int VisualGasicInstance::builtin_freefile(int range) {
+int VisualGasicInstance::file_free(int range) {
     int start = 1;
     if (range == 1) start = 256;
     for (int i = start; i < start + 255; i++) {
@@ -430,13 +430,13 @@ int VisualGasicInstance::builtin_freefile(int range) {
     return 0;
 }
 
-Variant VisualGasicInstance::builtin_filelen(const String &path) {
+Variant VisualGasicInstance::file_len(const String &path) {
     Ref<FileAccess> fa = FileAccess::open(path, FileAccess::READ);
     if (fa.is_valid()) return fa->get_length();
     return 0;
 }
 
-Variant VisualGasicInstance::builtin_dir(const Array &args) {
+Variant VisualGasicInstance::file_dir(const Array &args) {
     if (args.size() >= 1) {
         String path = args[0];
         String folder = path.get_base_dir();
@@ -465,11 +465,11 @@ Variant VisualGasicInstance::builtin_dir(const Array &args) {
     }
 }
 
-void VisualGasicInstance::builtin_randomize() {
+void VisualGasicInstance::randomize_seed() {
     UtilityFunctions::randomize();
 }
 
-void VisualGasicInstance::raise_error_for_builtins(const String &p_msg, int p_code) {
+void VisualGasicInstance::raise_runtime_error(const String &p_msg, int p_code) {
     raise_error(p_msg, p_code);
 }
 
@@ -510,7 +510,7 @@ bool VisualGasicInstance::get_variable(const String &p_name, Variant &r_ret) {
 }
 
 // Wrapper that forwards statement-level builtin calls to the centralized builtins module.
-void VisualGasicInstance::call_builtin(const String &p_method, const Array &p_args, bool &r_found) {
+void VisualGasicInstance::dispatch_builtin_call(const String &p_method, const Array &p_args, bool &r_found) {
     r_found = false;
     Variant dummy_ret;
     bool handled = false;
@@ -741,10 +741,13 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
         // Check Autoloads (Globals)
         if (owner) {
              Node* owner_node = Object::cast_to<Node>(owner);
-             if (owner_node) {
-                 Node* root = owner_node->get_tree()->get_root();
-                 if (root->has_node(name)) {
-                     return root->get_node<Node>(name);
+             if (owner_node && owner_node->is_inside_tree()) {
+                 SceneTree *tree = owner_node->get_tree();
+                 if (tree) {
+                     Node* root = tree->get_root();
+                     if (root && root->has_node(name)) {
+                         return root->get_node<Node>(name);
+                     }
                  }
                  // Try PascalCase -> snake_case? Autoloads are usually PascalCase though.
              }
@@ -3410,15 +3413,18 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                      if (!path.begins_with("res://")) path = "res://" + path;
                      
                      Ref<PackedScene> scene = ResourceLoader::get_singleton()->load(path);
-                     if (scene.is_valid()) {
+                         if (scene.is_valid()) {
                          Node* new_form = scene->instantiate();
                          if (owner) {
                              Node* owner_node = Object::cast_to<Node>(owner);
-                             if (owner_node) {
-                                 // Add to Window
-                                 owner_node->get_tree()->get_root()->add_child(new_form);
-                                 // VB6 behavior: Load means load into memory. Show means visible.
-                                 // Here we just add it (visible by default usually).
+                             if (owner_node && owner_node->is_inside_tree()) {
+                                 SceneTree *tree = owner_node->get_tree();
+                                 if (tree) {
+                                     Node* root = tree->get_root();
+                                     if (root) root->add_child(new_form);
+                                 }
+                             } else {
+                                 // Not inside scene tree; skip adding for headless/test environments.
                              }
                          }
                      } else {
@@ -4758,9 +4764,8 @@ static GDExtensionBool instance_property_get_revert(GDExtensionScriptInstanceDat
 }
 
 static GDExtensionObjectPtr instance_get_owner(GDExtensionScriptInstanceDataPtr p_instance) {
-    // VisualGasicInstance *instance = (VisualGasicInstance *)p_instance;
-    // return AccessObject::get_internal_ptr(instance->get_owner());
-    return nullptr; // Debugging crash
+    VisualGasicInstance *instance = (VisualGasicInstance *)p_instance;
+    return AccessObject::get_internal_ptr(instance->get_owner());
 }
 
 static void instance_get_property_state(GDExtensionScriptInstanceDataPtr p_instance, GDExtensionScriptInstancePropertyStateAdd p_add_func, void *p_userdata) {

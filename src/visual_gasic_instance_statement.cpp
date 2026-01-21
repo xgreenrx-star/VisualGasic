@@ -17,7 +17,7 @@ void VisualGasicInstance::_execute_statement_impl(Statement* stmt) {
 			for (auto* expr : c->arguments) {
 				args.push_back(_evaluate_expression_impl(expr));
 			}
-			call_builtin(c->method_name, args, found);
+			dispatch_builtin_call(c->method_name, args, found);
 			break;
 		}
 		case STMT_IF: {

@@ -39,17 +39,17 @@ The builtins implementation uses a handful of instance helpers. These are docume
 - `Variant evaluate_expression_for_builtins(ExpressionNode *expr)`
   - Evaluates an expression from the instance context; used by builtins that accept expressions as arguments.
 
-- File/IO wrappers:
-  - `int builtin_lof(int handle)`
-  - `int builtin_loc(int handle)`
-  - `int builtin_eof(int handle)`
-  - `int builtin_freefile(int range)`
-  - `int builtin_filelen(const String &path)`
-  - `Variant builtin_dir(const Array &args)`
-  - `void builtin_randomize()`
+- File/IO wrappers (renamed):
+  - `Variant file_lof(int handle)`
+  - `Variant file_loc(int handle)`
+  - `Variant file_eof(int handle)`
+  - `int file_free(int range)`
+  - `Variant file_len(const String &path)`
+  - `Variant file_dir(const Array &args)`
+  - `void randomize_seed()`
 
-- Error raising wrapper:
-  - `void raise_error_for_builtins(const String &msg, int code)` — used by Err.Raise and similar flows.
+- Error raising wrapper (renamed):
+  - `void raise_runtime_error(const String &msg, int code)` — used by Err.Raise and similar flows.
 
 These wrappers are intentionally small and stable to allow `visual_gasic_builtins.cpp` to be compiled in a separate translation unit while still using instance functionality.
 

@@ -3,5 +3,3 @@
 [node name="ItemList" type="ItemList"]
 offset_right = 100.0
 offset_bottom = 100.0
-size_flags_horizontal = 3
-size_flags_vertical = 3

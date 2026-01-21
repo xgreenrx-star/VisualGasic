@@ -83,7 +83,7 @@ Sub _Process(delta)
 	End If
 	
 	' Simple AI for Paddle 2 (Right)
-	Dim  As Integer
+	Dim P2Vy As Integer
 	If Ball.Top > Paddle2.Position.y + 50 Then
 		P2Vy = 200
 		Paddle2.Position.y = Paddle2.Position.y + (P2Vy * delta)
@@ -93,7 +93,7 @@ Sub _Process(delta)
 	End If
 	
 	' Player Input for Paddle 1
-	Dim  As Integer
+	Dim P1Vy As Integer
 	If IsKeyDown("S") Then
 		P1Vy = 300
 	End If
@@ -129,7 +129,7 @@ Sub _Process(delta)
 		BallVelX = Abs(BallVelX) * 1.1 ' Speed up and bounce right
 		BallVelY = BallVelY + (P1Vy * 0.5) ' Transfer paddle velocity
 		' Add relative intersect logic for gameplay feel
-		Dim 1 As Variant
+		Dim diff1 As Double
 		BallVelY = BallVelY + (diff1 * 2.0)
 	End If
 	
@@ -137,7 +137,7 @@ Sub _Process(delta)
 		BallVelX = -Abs(BallVelX) * 1.1 ' Speed up and bounce left
 		BallVelY = BallVelY + (P2Vy * 0.5) ' Transfer paddle velocity
 		' Add relative intersect logic
-		Dim 2 As Variant
+		Dim diff2 As Double
 		BallVelY = BallVelY + (diff2 * 2.0)
 	End If
 	

@@ -1,6 +1,6 @@
 Sub Main()
     Print "Testing For Each"
-    Dim 3) As Variant
+    Dim arr(2) As String
     arr(0) = "A"
     arr(1) = "B"
     arr(2) = "C"

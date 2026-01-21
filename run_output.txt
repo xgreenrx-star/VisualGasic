@@ -1,0 +1,90 @@
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+
+Checking if resource exists: true
+ParseStmt Token: Print Type: 3
+ParseStmt Token: ' Test 1: String Interpolation Type: 13
+ParseStmt Token: Dim Type: 3
+ParseStmt Token: myname Type: 2
+ParseStmt Token: Dim Type: 3
+ParseStmt Token: ver Type: 2
+ParseStmt Token: Print Type: 3
+ParseStmt Token: ' Test 2: IIf Type: 13
+ParseStmt Token: Dim Type: 3
+ParseStmt Token: x Type: 2
+ParseStmt Token: Dim Type: 3
+ParseStmt Token: res Type: 2
+ParseStmt Token: Print Type: 3
+ParseStmt Token: Dim Type: 3
+ParseStmt Token: res2 Type: 2
+ParseStmt Token: Print Type: 3
+ParseStmt Token: Dim Type: 3
+ParseStmt Token: res3 Type: 2
+ParseStmt Token: Print Type: 3
+ParseStmt Token: Dim Type: 3
+ParseStmt Token: Dim Type: 3
+ParseStmt Token: pTest Type: 2
+ParseStmt Token: ' 10 + (20 If True Else 0) -> 30 Type: 13
+ParseStmt Token: res4 Type: 2
+ParseStmt Token: Print Type: 3
+ParseStmt Token: ' Test 3: AndAlso / OrElse (Short Circuit) Type: 13
+ParseStmt Token: Print Type: 3
+ParseStmt Token: If Type: 3
+ParseStmt Token: Print Type: 3
+ParseStmt Token: If Type: 3
+ParseStmt Token: Print Type: 3
+ParseStmt Token: Print Type: 3
+ParseStmt Token: ' Test 4: Return Type: 13
+ParseStmt Token: Print Type: 3
+ParseStmt Token: ' Test 5: Continue Type: 13
+ParseStmt Token: Print Type: 3
+ParseStmt Token: Dim Type: 3
+ParseStmt Token: For Type: 3
+ParseStmt Token: If Type: 3
+ParseStmt Token: Continue Type: 3
+ParseStmt Token: Print Type: 3
+ParseStmt Token: If Type: 3
+ParseStmt Token: Return Type: 3
+ParseStmt Token: Return Type: 3
+ParseStmt Token: Print Type: 3
+ParseStmt Token: Return Type: 3
+Loaded: <VisualGasicScript#-9223372011571509894>
+~BinaryOpNode this=0x3a47e0d0 left=0x3a47dca0 right=0x3a427a30
+~BinaryOpNode this=0x3a47dca0 left=0x3a47d640 right=0x3a2fb460
+~BinaryOpNode this=0x3a47d640 left=0x3a47d610 right=0x3a433e60
+~BinaryOpNode this=0x3a47d610 left=0x3a433f40 right=0x3a2fb460
+
+================================================================
+handle_crash: Program crashed with signal 11
+Engine version: Godot Engine v4.5.1.stable.official (f62fdbde15035c5576dad93e586201f4d41ef0cb)
+Dumping the backtrace. Please include this when reporting the bug on: https://github.com/godotengine/godot/issues
+[1] /lib/x86_64-linux-gnu/libc.so.6(+0x3c050) [0x7ce8b1d17050] (??:0)
+[2] /home/Commodore/Documents/VisualGasic/demo/bin/libvisualgasic.linux.template_debug.x86_64.so(+0xdcb7b) [0x7ce8a82dcb7b] (??:0)
+[3] /home/Commodore/Documents/VisualGasic/demo/bin/libvisualgasic.linux.template_debug.x86_64.so(+0xdcbb4) [0x7ce8a82dcbb4] (??:0)
+[4] /home/Commodore/Documents/VisualGasic/demo/bin/libvisualgasic.linux.template_debug.x86_64.so(+0xdcb54) [0x7ce8a82dcb54] (??:0)
+[5] /home/Commodore/Documents/VisualGasic/demo/bin/libvisualgasic.linux.template_debug.x86_64.so(+0xdcbb4) [0x7ce8a82dcbb4] (??:0)
+[6] /home/Commodore/Documents/VisualGasic/demo/bin/libvisualgasic.linux.template_debug.x86_64.so(+0xde14d) [0x7ce8a82de14d] (??:0)
+[7] /home/Commodore/Documents/VisualGasic/demo/bin/libvisualgasic.linux.template_debug.x86_64.so(+0xde19e) [0x7ce8a82de19e] (??:0)
+[8] /home/Commodore/Documents/VisualGasic/demo/bin/libvisualgasic.linux.template_debug.x86_64.so(+0xe2bf3) [0x7ce8a82e2bf3] (??:0)
+[9] /home/Commodore/Documents/VisualGasic/demo/bin/libvisualgasic.linux.template_debug.x86_64.so(+0xe2d52) [0x7ce8a82e2d52] (??:0)
+[10] /home/Commodore/Documents/VisualGasic/demo/bin/libvisualgasic.linux.template_debug.x86_64.so(+0xc358a) [0x7ce8a82c358a] (??:0)
+[11] /home/Commodore/Documents/VisualGasic/demo/bin/libvisualgasic.linux.template_debug.x86_64.so(+0xf4717) [0x7ce8a82f4717] (??:0)
+[12] /home/Commodore/Documents/VisualGasic/demo/bin/libvisualgasic.linux.template_debug.x86_64.so(+0x46c54) [0x7ce8a8246c54] (??:0)
+[13] /home/Commodore/Documents/VisualGasic/Godot_v4.5.1-stable_linux.x86_64() [0x484e1b8] (??:0)
+[14] /home/Commodore/Documents/VisualGasic/Godot_v4.5.1-stable_linux.x86_64() [0x49b35b] (??:0)
+[15] /home/Commodore/Documents/VisualGasic/Godot_v4.5.1-stable_linux.x86_64() [0x4569e66] (??:0)
+[16] /home/Commodore/Documents/VisualGasic/Godot_v4.5.1-stable_linux.x86_64() [0x4b94ee] (??:0)
+[17] /home/Commodore/Documents/VisualGasic/Godot_v4.5.1-stable_linux.x86_64() [0xad156a] (??:0)
+[18] /home/Commodore/Documents/VisualGasic/Godot_v4.5.1-stable_linux.x86_64() [0x994d3b] (??:0)
+[19] /home/Commodore/Documents/VisualGasic/Godot_v4.5.1-stable_linux.x86_64() [0x995516] (??:0)
+[20] /home/Commodore/Documents/VisualGasic/Godot_v4.5.1-stable_linux.x86_64() [0x4839117] (??:0)
+[21] /home/Commodore/Documents/VisualGasic/Godot_v4.5.1-stable_linux.x86_64() [0x575f92] (??:0)
+[22] /home/Commodore/Documents/VisualGasic/Godot_v4.5.1-stable_linux.x86_64() [0x42d0f7] (??:0)
+[23] /lib/x86_64-linux-gnu/libc.so.6(+0x2724a) [0x7ce8b1d0224a] (??:0)
+[24] /lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0x85) [0x7ce8b1d02305] (??:0)
+[25] /home/Commodore/Documents/VisualGasic/Godot_v4.5.1-stable_linux.x86_64() [0x46ca2a] (??:0)
+-- END OF C++ BACKTRACE --
+================================================================
+GDScript backtrace (most recent call first):
+    [0] _init (res://check_open.gd:10)
+-- END OF GDSCRIPT BACKTRACE --
+================================================================

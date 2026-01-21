@@ -131,6 +131,12 @@ Error VisualGasicScript::_reload(bool p_keep_state) {
     }
     
     // Re-parse
+    // Ensure parser does not try to delete AST-owned nodes from its
+    // tracked allocation lists when the script is torn down. Clear
+    // the parser trackers first to avoid double-delete in the
+    // parser destructor (parser is a member and will be destroyed
+    // after this object).
+    parser.clear_tracked_nodes();
     if (ast_root) delete ast_root;
     ast_root = parser.parse(tokens);
     if (parser.errors.size() > 0) {

@@ -3,6 +3,3 @@
 [node name="HScrollBar" type="HScrollBar"]
 offset_right = 200.0
 offset_bottom = 20.0
-max_value = 100.0
-step = 1.0
-page = 10.0

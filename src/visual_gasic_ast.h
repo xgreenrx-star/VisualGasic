@@ -5,6 +5,7 @@
 #include <godot_cpp/templates/vector.hpp>
 #include <godot_cpp/variant/variant.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
+#include <stdio.h>
 
 using namespace godot;
 
@@ -489,7 +490,7 @@ struct OnErrorStatement : public Statement {
     OnErrorStatement() : Statement(STMT_ON_ERROR) {}
 };
 
-struct CaseBlock {
+struct CaseBlock : public ASTNode {
     Vector<ExpressionNode*> values; // Empty for Case Else? Or specific flag?
     bool is_else;
     Vector<Statement*> body;
@@ -561,7 +562,7 @@ struct EnumDefinition : public ASTNode {
 
 enum Visibility { VIS_PUBLIC, VIS_PRIVATE, VIS_DIM };
 
-struct VariableDefinition {
+struct VariableDefinition : public ASTNode {
     String name;
     String type;
     Visibility visibility;

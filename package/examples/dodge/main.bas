@@ -15,7 +15,8 @@ Sub _Ready()
     ScreenSize = GetViewportRect().Size
     
     ' Create Background
-    Dim CreateNode("ColorRect") As Array
+    Dim bg As Object
+    Set bg = CreateNode("ColorRect")
     bg.Color = Color(0.2, 0.2, 0.2)
     bg.Size = ScreenSize
     AddChild(bg)
@@ -104,7 +105,7 @@ End Sub
 
 Sub OnMobTimer()
     ' Create Mob using RigidBody2D
-    Dim  As Object
+    Dim mob As Object
     
     ' Attach Script Logic
     mob.SetScript(Load("res://examples/dodge/mob.bas"))
@@ -127,7 +128,7 @@ Sub OnMobTimer()
     
     ' Pick random spawn location along edges
     ' Simplification: Random edge index 0-3
-    Dim  As Variant
+    Dim edge As Integer
     Dim nX As Integer
     Dim nY As Integer
     Dim cityX As Integer

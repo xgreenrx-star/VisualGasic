@@ -83,7 +83,24 @@ private:
     ExpressionNode* parse_unary();
     ExpressionNode* parse_factor();     // ( ) Lit Var Call unary-
 
+    // Parser-owned allocations tracking: register nodes created during
+    // parsing so the parser can free them on failure. On successful
+    // parse ownership is typically transferred to the returned
+    // `ModuleNode`, in which case the parser will clear the tracker
+    // without deleting the nodes.
+    ASTNode* register_node(ASTNode* p_node);
+    void unregister_node(ASTNode* p_node);
+    ExpressionNode* register_node(ExpressionNode* p_node);
+    void unregister_node(ExpressionNode* p_node);
+
+    // Internal list of parser-owned allocations
+    Vector<ASTNode*> allocated_nodes;
+    Vector<ExpressionNode*> allocated_expr_nodes;
 public:
+    // Clear tracked allocations without deleting them (used when ownership
+    // has been transferred to the AST to avoid double-free in parser dtor).
+    void clear_tracked_nodes();
+
     static String format_iif_to_inline(const String& p_source);
 };
 
