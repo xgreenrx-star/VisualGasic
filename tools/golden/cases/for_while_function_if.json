@@ -1,0 +1,1 @@
+{"nodes":[{"type":"Function","name":"Add","body":["Return"]},{"type":"For","var":"i","start":"1","end":"3","body":["Print i"]},{"type":"While","cond":"x < 5","body":["Print x"]},{"type":"If","cond":"x > 10","body":["Print big"]}]}

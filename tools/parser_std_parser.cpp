@@ -358,19 +358,24 @@ ForEntry ParserStd::parse_for() {
     if (pos_to != std::string::npos) {
         std::string left = hdr.substr(0, pos_to);
         std::string right = hdr.substr(pos_to + 4);
+        auto trim = [](std::string s){ while(!s.empty() && isspace((unsigned char)s.front())) s.erase(s.begin()); while(!s.empty() && isspace((unsigned char)s.back())) s.pop_back(); return s; };
+        left = trim(left);
+        right = trim(right);
         // left may be "i = 1" or "i 1". extract var and start
         size_t eq = left.find("=");
         if (eq != std::string::npos) {
-            out.var = left.substr(0, eq);
-            out.start_expr = left.substr(eq+1);
+            out.var = trim(left.substr(0, eq));
+            out.start_expr = trim(left.substr(eq+1));
+            // strip leading '=' if present
+            if (!out.start_expr.empty() && out.start_expr.front() == '=') out.start_expr = trim(out.start_expr.substr(1));
         } else {
             // split by space
             size_t sp = left.find(' ');
             if (sp != std::string::npos) {
-                out.var = left.substr(0, sp);
-                out.start_expr = left.substr(sp+1);
+                out.var = trim(left.substr(0, sp));
+                out.start_expr = trim(left.substr(sp+1));
             } else {
-                out.var = left;
+                out.var = trim(left);
             }
         }
         out.end_expr = right;
