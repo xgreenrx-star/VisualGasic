@@ -2,11 +2,43 @@
 #include "standalone_tokenizer.h"
 #include "parser_std_parser.h"
 
-int main() {
-    std::string src = "Watch x do\n  Print \"changed\"\nEnd Watch\n\nWhenever x is >10 then\n  Print \"big\"\nEnd Whenever\n";
-    std::cout << "[unit-std] starting tokenization" << std::endl;
+#include <fstream>
+#include <sstream>
+
+int main(int argc, char** argv) {
+    bool json_mode = false;
+    std::string input_file;
+    for (int i=1;i<argc;i++) {
+        std::string a = argv[i];
+        if (a == "--json") json_mode = true;
+        else if (a == "--input" && i+1<argc) { input_file = argv[++i]; }
+        else input_file = a;
+    }
+
+    std::string src;
+    if (!input_file.empty()) {
+        std::ifstream f(input_file);
+        if (!f) {
+            std::cerr << "Failed to open input file: " << input_file << std::endl;
+            return 2;
+        }
+        std::ostringstream ss; ss << f.rdbuf(); src = ss.str();
+    } else {
+        src = "Watch x do\n  Print \"changed\"\nEnd Watch\n\nWhenever x is >10 then\n  Print \"big\"\nEnd Whenever\n";
+    }
+
     StandaloneTokenizer tok;
     auto tokens = tok.tokenize(src);
+
+    ParserStd p(tokens);
+    ParserStdResult r = p.parse();
+
+    if (json_mode) {
+        std::string json = ast_to_json(r);
+        std::cout << "[AST_JSON] " << json << std::endl;
+        return 0;
+    }
+
     std::cout << "[unit-std] tokenization complete. count=" << tokens.size() << std::endl;
     for (size_t i=0;i<tokens.size();i++) {
         auto &t = tokens[i];
@@ -14,8 +46,6 @@ int main() {
     }
 
     std::cout << "[unit-std] running std-parser" << std::endl;
-    ParserStd p(tokens);
-    ParserStdResult r = p.parse();
 
     std::cout << "Found " << r.watches.size() << " watch(es) and " << r.whenevers.size() << " whenever(s)" << std::endl;
     for (size_t i=0;i<r.watches.size();i++) {
