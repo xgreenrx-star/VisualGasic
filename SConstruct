@@ -69,40 +69,49 @@ else:
 Default(library)
 
 # Additional helper target: parser harness (link against same objects)
-try:
-    prog = env.Program(target="tools/parser_harness", source=(['tools/parser_harness.cpp'] + sources))
-    Default(prog)
-except Exception:
-    pass
+import os
+if os.path.exists('tools/parser_harness.cpp'):
+    try:
+        prog = env.Program(target="tools/parser_harness", source=(['tools/parser_harness.cpp'] + sources))
+        Default(prog)
+    except Exception:
+        pass
 
-try:
-    # Minimal parser-only unit test: link only tokenizer+parser implementation
-    parser_unit_sources = ['tools/parser_unit_test.cpp', 'src/visual_gasic_tokenizer.cpp', 'src/visual_gasic_parser.cpp', 'src/init_probes.cpp']
-    prog_unit = env.Program(target="tools/parser_unit_test", source=parser_unit_sources)
-    Default(prog_unit)
-except Exception:
-    pass
+# Only create parser unit programs if their source files exist to avoid build failures on trimmed checkouts
+parser_unit_sources = ['tools/parser_unit_test.cpp', 'src/visual_gasic_tokenizer.cpp', 'src/visual_gasic_parser.cpp', 'src/init_probes.cpp']
+if all(os.path.exists(p) for p in parser_unit_sources):
+    try:
+        prog_unit = env.Program(target="tools/parser_unit_test", source=parser_unit_sources)
+        Default(prog_unit)
+    except Exception:
+        pass
 
-try:
-    prog_std = env.Program(target="tools/parser_unit_std", source=['tools/parser_unit_std.cpp', 'tools/standalone_tokenizer.cpp', 'tools/parser_std_parser.cpp'])
-    Default(prog_std)
-except Exception:
-    pass
+prog_std_sources = ['tools/parser_unit_std.cpp', 'tools/standalone_tokenizer.cpp', 'tools/parser_std_parser.cpp']
+if all(os.path.exists(p) for p in prog_std_sources):
+    try:
+        prog_std = env.Program(target="tools/parser_unit_std", source=prog_std_sources)
+        Default(prog_std)
+    except Exception:
+        pass
 
-try:
-    prog_std_test = env.Program(target="tools/parser_unit_std_test", source=['tools/parser_unit_std_test.cpp', 'tools/standalone_tokenizer.cpp', 'tools/parser_std_parser.cpp'])
-    Default(prog_std_test)
-except Exception:
-    pass
+prog_std_test_sources = ['tools/parser_unit_std_test.cpp', 'tools/standalone_tokenizer.cpp', 'tools/parser_std_parser.cpp']
+if all(os.path.exists(p) for p in prog_std_test_sources):
+    try:
+        prog_std_test = env.Program(target="tools/parser_unit_std_test", source=prog_std_test_sources)
+        Default(prog_std_test)
+    except Exception:
+        pass
 
-try:
-    prog_std_cli_test = env.Program(target="tools/parser_unit_std_cli_test", source=['tools/parser_unit_std_cli_test.cpp'])
-    Default(prog_std_cli_test)
-except Exception:
-    pass
+if os.path.exists('tools/parser_unit_std_cli_test.cpp'):
+    try:
+        prog_std_cli_test = env.Program(target="tools/parser_unit_std_cli_test", source=['tools/parser_unit_std_cli_test.cpp'])
+        Default(prog_std_cli_test)
+    except Exception:
+        pass
 
-try:
-    prog_std_golden = env.Program(target="tools/parser_unit_std_golden_test", source=['tools/parser_unit_std_golden_test.cpp'])
-    Default(prog_std_golden)
-except Exception:
-    pass
+if os.path.exists('tools/parser_unit_std_golden_test.cpp'):
+    try:
+        prog_std_golden = env.Program(target="tools/parser_unit_std_golden_test", source=['tools/parser_unit_std_golden_test.cpp'])
+        Default(prog_std_golden)
+    except Exception:
+        pass
