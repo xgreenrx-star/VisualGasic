@@ -292,13 +292,37 @@ IfEntry ParserStd::parse_if() {
     if ((peek().type == StandaloneTokenizer::TOKEN_KEYWORD || peek().type == StandaloneTokenizer::TOKEN_IDENTIFIER) && to_lower(peek().value) == "then") advance();
     consume_newline();
 
-    // read body until End If
+    // read body until End If, supporting nested If blocks
+    int depth = 0;
     while (!is_at_end()) {
+        // check for End If
         if ((peek().type == StandaloneTokenizer::TOKEN_KEYWORD || peek().type == StandaloneTokenizer::TOKEN_IDENTIFIER) && to_lower(peek().value) == "end") {
             if (peek(1).type == StandaloneTokenizer::TOKEN_KEYWORD || peek(1).type == StandaloneTokenizer::TOKEN_IDENTIFIER) {
-                if (to_lower(peek(1).value) == "if") { advance(); advance(); break; }
+                if (to_lower(peek(1).value) == "if") {
+                    if (depth == 0) { advance(); advance(); break; } // close outer if
+                    // inner End If -> include as a line and continue
+                    std::string endline = std::string(peek().value) + " " + std::string(peek(1).value);
+                    advance(); advance();
+                    out.body_lines.push_back(endline);
+                    consume_newline();
+                    depth--; // close nested
+                    continue;
+                }
             }
         }
+
+        // check for nested If start at beginning of line
+        if ((peek().type == StandaloneTokenizer::TOKEN_KEYWORD || peek().type == StandaloneTokenizer::TOKEN_IDENTIFIER) && to_lower(peek().value) == "if") {
+            // capture the entire line as usual, but note nesting
+            std::string line;
+            while (!is_at_end() && peek().type != StandaloneTokenizer::TOKEN_NEWLINE) { if (!line.empty()) line += " "; line += peek().value; advance(); }
+            if (!line.empty()) out.body_lines.push_back(line);
+            // if line ends with 'Then' consider it a nested block opener
+            if (to_lower(line).find("then") != std::string::npos) depth++;
+            consume_newline();
+            continue;
+        }
+
         std::string line;
         while (!is_at_end() && peek().type != StandaloneTokenizer::TOKEN_NEWLINE) { if (!line.empty()) line += " "; line += peek().value; advance(); }
         if (!line.empty()) out.body_lines.push_back(line);
