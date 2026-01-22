@@ -1,0 +1,28 @@
+shader_type spatial;
+render_mode blend_mix, vertex_lighting, depth_draw_always, diffuse_lambert, specular_occlusion_disabled, specular_disabled, shadows_disabled, fog_disabled;
+
+#include "res://addons/psx_visuals_gd4/shaders/psx.gdshaderinc"
+
+void vertex() {
+	vec3 v_col;
+	float v_depth;
+	float v_fog;
+	vec2 v_affine;
+	
+	psx_compute_vertex(VERTEX, COLOR.rgb, UV, v_col, v_depth, v_fog, v_affine);
+	
+	VERTEX_COLOR = v_col;
+	VERTEX_DEPTH = v_depth;
+	fog_strength = v_fog;
+	affine_uv_scaled = v_affine;
+}
+
+void fragment() {
+	psx_compute_fragment(UV, ALBEDO, ALPHA, EMISSION);
+
+	SPECULAR = 0.0;
+	ROUGHNESS = 0.0;
+	METALLIC = 0.0;
+	AO = 1.0;
+	NORMAL = NORMAL;
+}

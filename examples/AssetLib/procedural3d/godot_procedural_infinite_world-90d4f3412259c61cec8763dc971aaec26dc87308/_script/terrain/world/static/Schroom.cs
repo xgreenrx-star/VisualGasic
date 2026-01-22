@@ -1,0 +1,34 @@
+////////////////////////////////////////////////////////////////////////////////////////////
+/// This script is part of the project "Infinite Runner", a procedural generation project
+/// By Adrien Pierret
+/// 
+/// Shroom . Makes the character jump if walked on.
+/// ///////////////////////////////////////////////////////////////////////////////////////
+using Godot;
+using Bouncerock.Terrain;
+using System.Collections;
+using System.Collections.Generic;
+
+    public partial class Schroom : WorldItemModel 
+	{
+        [Export]
+	public CollisionShape3D collider;
+        public  void _on_area_3d_body_entered(Node3D area)
+        {
+            if (area is MainCharacter)
+            {
+                MainCharacter chara = area as MainCharacter;
+                chara.JumpVelocityMultiplier = 5;
+                chara.CurrentAction = MainCharacter.CharacterActions.Jumping;
+            }
+        }
+
+        public  void _on_area_3d_body_exited(Node3D area)
+        {
+            if (area is MainCharacter)
+            {
+                MainCharacter chara = area as MainCharacter;
+                chara.JumpVelocityMultiplier = 1;
+            }
+        }
+    }

@@ -1,0 +1,9 @@
+shader_type canvas_item;
+
+#include "res://addons/psx_visuals_gd4/shaders/psx.gdshaderinc"
+
+uniform sampler2D SCREEN_TEXTURE: hint_screen_texture;
+
+void fragment() {
+	COLOR = vec4(dither(texture(SCREEN_TEXTURE, UV), FRAGCOORD.xy, psx_bit_depth).rgb, 1.0);
+}

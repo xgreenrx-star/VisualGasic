@@ -1,0 +1,33 @@
+[gd_resource type="ShaderMaterial" load_steps=11 format=3 uid="uid://knjtxqt2cr3q"]
+
+[ext_resource type="Shader" uid="uid://bk0p06c2cmk1n" path="res://materials/shaders/terrain_new.gdshader" id="1_ivu2r"]
+[ext_resource type="Texture2D" uid="uid://0ffwpjrxnxh7" path="res://materials/textures/terrain/muddy/Export_Godot_standard_Color.png" id="2_ahhlb"]
+[ext_resource type="Texture2D" uid="uid://2wxpgwjw64sa" path="res://materials/textures/textures/terrain/grassy/Grass_1_colourOpacity.png" id="2_ni7xb"]
+[ext_resource type="Texture2D" uid="uid://cwpeyus2mt7bs" path="res://materials/textures/terrain/sandy/Export_Unity_standard_BasecolourOpacity.png" id="4_ivu2r"]
+[ext_resource type="Texture2D" uid="uid://dwy66aoct7ciw" path="res://materials/textures/terrain/muddy/Export_Godot_standard_Normal.png" id="4_ni7xb"]
+[ext_resource type="Texture2D" uid="uid://ygbtatcclgu8" path="res://materials/textures/textures/terrain/grassy/Grass_1__Normal.png" id="5_0nwbt"]
+[ext_resource type="Texture2D" uid="uid://lpshst420kaw" path="res://materials/textures/terrain/muddy/Export_Godot_standard_Rough.png" id="6_0nwbt"]
+[ext_resource type="Texture2D" uid="uid://dpjne4xjmm56r" path="res://materials/textures/terrain/sandy/Export_Unity_standard_MetallicSmoothness.png" id="7_0nwbt"]
+[ext_resource type="Texture2D" uid="uid://b3hdb2c8fdw5c" path="res://materials/textures/textures/terrain/grassy/Grass_1_MetallicSmoothness_r.png" id="8_udo8l"]
+[ext_resource type="Texture2D" uid="uid://b0ewnsednsi30" path="res://materials/textures/terrain/sandy/Export_Unity_standard_Normal.png" id="10_qclsw"]
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_ivu2r")
+shader_parameter/albedo0 = ExtResource("2_ahhlb")
+shader_parameter/normal0 = ExtResource("4_ni7xb")
+shader_parameter/rough0 = ExtResource("6_0nwbt")
+shader_parameter/albedo1 = ExtResource("2_ni7xb")
+shader_parameter/normal1 = ExtResource("5_0nwbt")
+shader_parameter/rough1 = ExtResource("8_udo8l")
+shader_parameter/albedo2 = ExtResource("4_ivu2r")
+shader_parameter/normal2 = ExtResource("10_qclsw")
+shader_parameter/rough2 = ExtResource("7_0nwbt")
+shader_parameter/channel_mask0 = Vector3(1, 0, 0)
+shader_parameter/channel_mask1 = Vector3(0, 1, 0)
+shader_parameter/channel_mask2 = Vector3(0, 0, 1)
+shader_parameter/uv_scale = 5.0
+shader_parameter/normal_strength = 0.256
+shader_parameter/rough_strength = 1.487
+shader_parameter/invert_normal_y = false
+shader_parameter/invert_roughness = false

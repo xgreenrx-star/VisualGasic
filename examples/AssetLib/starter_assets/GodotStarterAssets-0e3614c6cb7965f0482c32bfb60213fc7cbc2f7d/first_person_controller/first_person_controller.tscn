@@ -1,0 +1,65 @@
+[gd_scene load_steps=7 format=3 uid="uid://djxd7re3uj5ud"]
+
+[ext_resource type="Script" uid="uid://dmrylyu8y6n0s" path="res://first_person_controller/first_person_controller.gd" id="1_ja5wc"]
+[ext_resource type="Material" uid="uid://d2csa2eqiuqal" path="res://materials/reticle.material" id="2_irgtj"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_j0767"]
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_227sj"]
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_irgtj"]
+top_radius = 0.05
+bottom_radius = 0.05
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_oewh3"]
+top_radius = 0.0
+bottom_radius = 0.25
+height = 1.0
+
+[node name="FirstPersonController" type="CharacterBody3D"]
+script = ExtResource("1_ja5wc")
+mouse_sensitivity = 2.5
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("CapsuleShape3D_j0767")
+
+[node name="CameraPosition" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)
+
+[node name="CameraGimbal" type="Node3D" parent="."]
+editor_description = "This node never rotates and interpolates it's position towards the CameraPosition node."
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)
+
+[node name="Yaw" type="Node3D" parent="CameraGimbal"]
+
+[node name="Pitch" type="Node3D" parent="CameraGimbal/Yaw"]
+
+[node name="Camera" type="Camera3D" parent="CameraGimbal/Yaw/Pitch"]
+
+[node name="Reticle" type="ColorRect" parent="CameraGimbal/Yaw/Pitch/Camera"]
+material = ExtResource("2_irgtj")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+mouse_filter = 2
+
+[node name="Body" type="Node3D" parent="."]
+editor_description = "Container node for the first person body mesh. 
+
+The node origin will be interpolated towards the character, but the rotation will always match the camera yaw."
+
+[node name="Capsule" type="MeshInstance3D" parent="Body"]
+mesh = SubResource("CapsuleMesh_227sj")
+skeleton = NodePath("../..")
+
+[node name="ArrowBody" type="MeshInstance3D" parent="Body/Capsule"]
+transform = Transform3D(1, 0, 0, 0, -4.371139e-08, 1, 0, -1, -4.371139e-08, 0, 0, -1)
+mesh = SubResource("CylinderMesh_irgtj")
+
+[node name="ArrowTip" type="MeshInstance3D" parent="Body/Capsule/ArrowBody"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 4.371139e-08)
+mesh = SubResource("CylinderMesh_oewh3")

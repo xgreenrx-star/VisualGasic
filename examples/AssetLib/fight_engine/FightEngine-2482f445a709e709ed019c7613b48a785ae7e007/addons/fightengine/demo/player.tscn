@@ -1,0 +1,167 @@
+[gd_scene load_steps=16 format=3 uid="uid://br0byr5lt8y6q"]
+
+[ext_resource type="Script" uid="uid://1bu1wt8x2eru" path="res://addons/fightengine/demo/scripts/player.gd" id="1_i3pqv"]
+[ext_resource type="Script" uid="uid://5fmcmrmv4fer" path="res://addons/fightengine/scripts/hitbox.gd" id="2_hqtel"]
+[ext_resource type="Script" uid="uid://6diqwr0gvdj5" path="res://addons/fightengine/demo/scripts/label.gd" id="2_ql0tm"]
+[ext_resource type="Texture2D" uid="uid://bi7ebwcr2hcwp" path="res://addons/fightengine/demo/Assets/Spritesheets/Brawler Girl/kick.png" id="3_f7ibj"]
+[ext_resource type="Script" uid="uid://duykthh1p76v2" path="res://addons/fightengine/scripts/hurtbox.gd" id="3_sweqy"]
+[ext_resource type="Script" uid="uid://cy3ix10sg1y3s" path="res://addons/fightengine/demo/scripts/states/idle_state.gd" id="7_2f3ce"]
+[ext_resource type="AnimationLibrary" uid="uid://dmr0wycgb3sfr" path="res://addons/fightengine/demo/animations/moves.res" id="8_2mx8m"]
+[ext_resource type="Script" uid="uid://cxny4bskhhjmx" path="res://addons/fightengine/demo/scripts/states/move_state.gd" id="8_7q5f8"]
+[ext_resource type="Script" uid="uid://hiqebig6x8it" path="res://addons/fightengine/demo/scripts/states/attack_state.gd" id="9_f7ibj"]
+
+[sub_resource type="LabelSettings" id="LabelSettings_f7ibj"]
+font_size = 14
+
+[sub_resource type="CapsuleShape2D" id="CapsuleShape2D_2hs0m"]
+height = 45.0
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_6uqi0"]
+size = Vector2(0, 0)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_ykrsh"]
+size = Vector2(20, 45)
+
+[sub_resource type="Animation" id="Animation_ql0tm"]
+length = 0.001
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("Sprite2D:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [0]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("Sprite2D/HurtBox:position")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Vector2(-3, -23)]
+}
+tracks/2/type = "value"
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/path = NodePath("Sprite2D/HitBox:shape:size")
+tracks/2/interp = 1
+tracks/2/loop_wrap = true
+tracks/2/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Vector2(0, 0)]
+}
+tracks/3/type = "value"
+tracks/3/imported = false
+tracks/3/enabled = true
+tracks/3/path = NodePath("Sprite2D/HitBox:position")
+tracks/3/interp = 1
+tracks/3/loop_wrap = true
+tracks/3/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Vector2(-3, -23)]
+}
+tracks/4/type = "value"
+tracks/4/imported = false
+tracks/4/enabled = true
+tracks/4/path = NodePath("Sprite2D/HitBox:rotation")
+tracks/4/interp = 1
+tracks/4/loop_wrap = true
+tracks/4/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [0.0]
+}
+tracks/5/type = "value"
+tracks/5/imported = false
+tracks/5/enabled = true
+tracks/5/path = NodePath("Sprite2D/HitBox:is_active")
+tracks/5/interp = 1
+tracks/5/loop_wrap = true
+tracks/5/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [false]
+}
+
+[sub_resource type="AnimationLibrary" id="AnimationLibrary_2mx8m"]
+_data = {
+&"RESET": SubResource("Animation_ql0tm")
+}
+
+[node name="Player" type="CharacterBody2D"]
+script = ExtResource("1_i3pqv")
+
+[node name="Label" type="Label" parent="." node_paths=PackedStringArray("limbo_hsm")]
+offset_left = -31.0
+offset_top = -67.0
+offset_right = 28.0
+offset_bottom = -44.0
+text = "idle"
+label_settings = SubResource("LabelSettings_f7ibj")
+horizontal_alignment = 1
+script = ExtResource("2_ql0tm")
+limbo_hsm = NodePath("../LimboHSM")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+visible = false
+position = Vector2(-3, -22.5)
+shape = SubResource("CapsuleShape2D_2hs0m")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+texture = ExtResource("3_f7ibj")
+offset = Vector2(0, -31.5)
+hframes = 5
+
+[node name="HitBox" type="Area2D" parent="Sprite2D"]
+position = Vector2(-3, -23)
+script = ExtResource("2_hqtel")
+damage = 15
+is_active = false
+shape = SubResource("RectangleShape2D_6uqi0")
+metadata/_custom_type_script = "uid://5fmcmrmv4fer"
+
+[node name="HurtBox" type="Area2D" parent="Sprite2D"]
+position = Vector2(-3, -23)
+script = ExtResource("3_sweqy")
+shape = SubResource("RectangleShape2D_ykrsh")
+metadata/_custom_type_script = "uid://duykthh1p76v2"
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="."]
+libraries = {
+&"": SubResource("AnimationLibrary_2mx8m"),
+&"moves": ExtResource("8_2mx8m")
+}
+autoplay = "idle"
+
+[node name="LimboHSM" type="LimboHSM" parent="."]
+
+[node name="Idle" type="LimboState" parent="LimboHSM" node_paths=PackedStringArray("anim_player")]
+script = ExtResource("7_2f3ce")
+anim_player = NodePath("../../AnimationPlayer")
+anim_name = &"idle"
+friction = 100.0
+
+[node name="Move" type="LimboState" parent="LimboHSM" node_paths=PackedStringArray("anim_player")]
+script = ExtResource("8_7q5f8")
+anim_player = NodePath("../../AnimationPlayer")
+anim_name = &"walk"
+walk_speed = 3000.0
+
+[node name="Attack" type="LimboState" parent="LimboHSM" node_paths=PackedStringArray("anim_player")]
+script = ExtResource("9_f7ibj")
+anim_player = NodePath("../../AnimationPlayer")
+friction = 100.0

@@ -1,0 +1,12 @@
+[gd_resource type="ShaderMaterial" load_steps=3 format=3]
+
+[ext_resource type="Shader" path="res://addons/psx_visuals_gd4/shaders/psx_transparent.gdshader" id="1_busvn"]
+[ext_resource type="Texture2D" path="res://addons/psx_visuals_gd4/textures/shadow_32x32.png" id="2_jq7op"]
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_busvn")
+shader_parameter/use_vertex_colors_in_albedo = true
+shader_parameter/albedo = ExtResource("2_jq7op")
+shader_parameter/albedo_tint = Color(1, 1, 1, 0.5019608)
+shader_parameter/emission_tint = Color(1, 1, 1, 1)
