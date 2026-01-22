@@ -13,6 +13,8 @@
 #include <godot_cpp/classes/os.hpp>
 #include <godot_cpp/classes/tree.hpp>
 #include <godot_cpp/classes/tree_item.hpp>
+#include <godot_cpp/variant/vector2.hpp>
+#include <godot_cpp/variant/vector3.hpp>
 
 using namespace godot;
 
@@ -92,6 +94,22 @@ bool call_builtin(VisualGasicInstance *instance, const String &p_method, const A
         result = le->get_text();
         dialog->queue_free();
         r_ret = result;
+        return true;
+    }
+
+    // Convenience: statement-level AddChild(parent?) - if called as a statement, add the child to the instance owner
+    if (method.nocasecmp_to("AddChild") == 0) {
+        r_found = true;
+        if (!instance->get_owner()) return true;
+        Node *parent = Object::cast_to<Node>(instance->get_owner());
+        if (!parent) return true;
+        if (p_args.size() >= 1) {
+            Object *child_obj = Object::cast_to<Object>(p_args[0]);
+            if (child_obj) {
+                Node *child = Object::cast_to<Node>(child_obj);
+                if (child) parent->add_child(child);
+            }
+        }
         return true;
     }
 
@@ -235,6 +253,71 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
 
     if (name.nocasecmp_to("Lerp") == 0 && args.size() == 3) { r_handled = true; double a = args[0]; double b = args[1]; double t = args[2]; return Math::lerp(a,b,t); }
     if (name.nocasecmp_to("Clamp") == 0 && args.size() == 3) { r_handled = true; double val = args[0]; double mn = args[1]; double mx = args[2]; return Math::clamp(val,mn,mx); }
+
+    // Vector helpers (Vec3 constructor already exists in instance; provide convenience wrappers here)
+    if (name.nocasecmp_to("Vec3") == 0 && args.size() == 3) { r_handled = true; return Vector3(args[0], args[1], args[2]); }
+
+    // Generic vector math helpers: works for Vector2 or Vector3 depending on input types
+    if (name.nocasecmp_to("VAdd") == 0 && args.size() == 2) {
+        r_handled = true;
+        Variant a = args[0]; Variant b = args[1];
+        if (a.get_type() == Variant::VECTOR3 && b.get_type() == Variant::VECTOR3) return Vector3(a) + Vector3(b);
+        if (a.get_type() == Variant::VECTOR2 && b.get_type() == Variant::VECTOR2) return Vector2(a) + Vector2(b);
+        return Variant();
+    }
+    if (name.nocasecmp_to("VSub") == 0 && args.size() == 2) {
+        r_handled = true;
+        Variant a = args[0]; Variant b = args[1];
+        if (a.get_type() == Variant::VECTOR3 && b.get_type() == Variant::VECTOR3) return Vector3(a) - Vector3(b);
+        if (a.get_type() == Variant::VECTOR2 && b.get_type() == Variant::VECTOR2) return Vector2(a) - Vector2(b);
+        return Variant();
+    }
+    if (name.nocasecmp_to("VDot") == 0 && args.size() == 2) {
+        r_handled = true;
+        Variant a = args[0]; Variant b = args[1];
+        if (a.get_type() == Variant::VECTOR3 && b.get_type() == Variant::VECTOR3) return Vector3(a).dot(Vector3(b));
+        if (a.get_type() == Variant::VECTOR2 && b.get_type() == Variant::VECTOR2) return Vector2(a).dot(Vector2(b));
+        return Variant();
+    }
+    if (name.nocasecmp_to("VCross") == 0 && args.size() == 2) {
+        r_handled = true;
+        Variant a = args[0]; Variant b = args[1];
+        if (a.get_type() == Variant::VECTOR3 && b.get_type() == Variant::VECTOR3) return Vector3(a).cross(Vector3(b));
+        return Variant();
+    }
+    if (name.nocasecmp_to("VLen") == 0 && args.size() == 1) {
+        r_handled = true;
+        Variant a = args[0];
+        if (a.get_type() == Variant::VECTOR3) return Vector3(a).length();
+        if (a.get_type() == Variant::VECTOR2) return Vector2(a).length();
+        return Variant();
+    }
+    if (name.nocasecmp_to("VNormalize") == 0 && args.size() == 1) {
+        r_handled = true;
+        Variant a = args[0];
+        if (a.get_type() == Variant::VECTOR3) { Vector3 v = Vector3(a); v.normalize(); return v; }
+        if (a.get_type() == Variant::VECTOR2) { Vector2 v = Vector2(a); v.normalize(); return v; }
+        return Variant();
+    }
+
+    // Convenience property setter: SetProp(obj, "prop_name", value)
+    if (name.nocasecmp_to("SetProp") == 0 && args.size() == 3) {
+        r_handled = true;
+        Variant obj_v = args[0];
+        String prop = args[1];
+        Variant val = args[2];
+        if (obj_v.get_type() == Variant::OBJECT) {
+            Object *o = obj_v;
+            if (o) {
+                // Try direct set, then snake_case fallback
+                o->set(prop, val);
+                if (o->get(prop).get_type() == Variant::NIL) {
+                    o->set(prop.to_snake_case(), val);
+                }
+            }
+        }
+        return Variant();
+    }
 
     return Variant();
 }
