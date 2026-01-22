@@ -15,6 +15,8 @@
 #include <godot_cpp/classes/tree_item.hpp>
 #include <godot_cpp/variant/vector2.hpp>
 #include <godot_cpp/variant/vector3.hpp>
+#include <godot_cpp/classes/rendering_server.hpp>
+#include <godot_cpp/classes/viewport.hpp>
 
 using namespace godot;
 
@@ -134,6 +136,83 @@ bool call_builtin(VisualGasicInstance *instance, const String &p_method, const A
     }
 
     // Fallback: not handled here
+    // Statement-level compositor helpers
+    if (method.nocasecmp_to("CompositorSetEffects") == 0) {
+        r_found = true;
+        if (p_args.size() >= 2) {
+            Variant comp = p_args[0];
+            Variant arr = p_args[1];
+            if (arr.get_type() == Variant::ARRAY) {
+                Array a = arr;
+                TypedArray<RID> t(a);
+                RenderingServer::get_singleton()->compositor_set_compositor_effects(comp, t);
+            }
+        }
+        return true;
+    }
+
+    if (method.nocasecmp_to("CompositorEffectSetEnabled") == 0) {
+        r_found = true;
+        if (p_args.size() >= 2) {
+            Variant eff = p_args[0];
+            bool en = (bool)p_args[1];
+            RenderingServer::get_singleton()->compositor_effect_set_enabled(eff, en);
+        }
+        return true;
+    }
+
+    if (method.nocasecmp_to("CompositorEffectSetFlag") == 0) {
+        r_found = true;
+        if (p_args.size() >= 3) {
+            Variant eff = p_args[0];
+            int flag = (int)p_args[1];
+            bool val = (bool)p_args[2];
+            RenderingServer::get_singleton()->compositor_effect_set_flag(eff, (RenderingServer::CompositorEffectFlags)flag, val);
+        }
+        return true;
+    }
+
+    // Statement-level ViewportRIDs
+    if (method.nocasecmp_to("ViewportGetRID") == 0) {
+        r_found = true;
+        if (p_args.size() >= 1) {
+            Variant v = p_args[0];
+            if (v.get_type() == Variant::OBJECT) {
+                Object *o = v;
+                if (o && o->is_class("Viewport")) {
+                    Viewport *vp = Object::cast_to<Viewport>(o);
+                    r_ret = vp->get_viewport_rid();
+                }
+            }
+        }
+        return true;
+    }
+
+    // Free compositor / effect RIDs to avoid leaked resources
+    if (method.nocasecmp_to("CompositorFree") == 0) {
+        r_found = true;
+        if (p_args.size() >= 1) {
+            Variant v = p_args[0];
+            if (v.get_type() == Variant::RID) {
+                RID rid = v;
+                RenderingServer::get_singleton()->free_rid(rid);
+            }
+        }
+        return true;
+    }
+
+    if (method.nocasecmp_to("CompositorEffectFree") == 0) {
+        r_found = true;
+        if (p_args.size() >= 1) {
+            Variant v = p_args[0];
+            if (v.get_type() == Variant::RID) {
+                RID rid = v;
+                RenderingServer::get_singleton()->free_rid(rid);
+            }
+        }
+        return true;
+    }
+
     return false;
 }
 
@@ -244,6 +323,29 @@ Variant call_builtin_expr(VisualGasicInstance *instance, CallExpression *call, b
         r_handled = true; Variant a=args[0]; if (a.get_type()==Variant::VECTOR3) return Vector3(a).length(); if (a.get_type()==Variant::VECTOR2) return Vector2(a).length(); return Variant(); }
     if (name.nocasecmp_to("VNormalize") == 0 && args.size() == 1) {
         r_handled = true; Variant a=args[0]; if (a.get_type()==Variant::VECTOR3) { Vector3 v=Vector3(a); v.normalize(); return v; } if (a.get_type()==Variant::VECTOR2) { Vector2 v=Vector2(a); v.normalize(); return v; } return Variant(); }
+
+    // Compositor helpers (expression-level)
+    if (name.nocasecmp_to("CompositorCreate") == 0 && args.size() == 0) {
+        r_handled = true;
+        return RenderingServer::get_singleton()->compositor_create();
+    }
+    if (name.nocasecmp_to("CompositorEffectCreate") == 0 && args.size() == 0) {
+        r_handled = true;
+        return RenderingServer::get_singleton()->compositor_effect_create();
+    }
+
+    if (name.nocasecmp_to("ViewportGetRID") == 0 && args.size() == 1) {
+        r_handled = true;
+        Variant v = args[0];
+        if (v.get_type() == Variant::OBJECT) {
+            Object *o = v;
+            if (o && o->is_class("Viewport")) {
+                Viewport *vp = Object::cast_to<Viewport>(o);
+                return vp->get_viewport_rid();
+            }
+        }
+        return RID();
+    }
 
     // If not handled here, leave r_handled false so caller can fallback
     return Variant();

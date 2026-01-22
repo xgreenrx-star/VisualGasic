@@ -96,6 +96,7 @@
 #include <godot_cpp/classes/tree.hpp>
 #include <godot_cpp/classes/tree_item.hpp>
 #include "visual_gasic_comm.h"
+#include <functional>
 
 
 
@@ -4671,6 +4672,26 @@ void VisualGasicInstance::notification(int32_t p_what) {
                  
                  // Run Auto-Wire for Signals
                  _connect_vb_signals_recursive(node, this, node);
+
+                 // Also auto-assign child nodes into VB variable scope
+                 // (Mimics GasicForm auto-wiring into BASIC scope)
+                 std::function<void(Node*)> assign_vars = [&](Node* n) {
+                     TypedArray<Node> children = n->get_children();
+                     for (int i=0;i<children.size();i++) {
+                         Node* child = Object::cast_to<Node>(children[i]);
+                         if (!child) continue;
+                         String name = child->get_name();
+                         if (name.is_empty()) continue;
+                         // assign into BASIC variable space
+                         // Directly set into the variables dictionary to ensure availability
+                         variables[name] = Variant(child);
+                         // Also set snake_case variant for convenience
+                         variables[name.to_snake_case()] = Variant(child);
+                         // recurse
+                         assign_vars(child);
+                     }
+                 };
+                 assign_vars(node);
              }
          }
 

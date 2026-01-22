@@ -26,6 +26,12 @@ expected_substrings = [
     "VLEN:5.0",
     # AddChild/SetProp smoke
     "ADDCHILD_POS_X:10",
+    # Compositor smoke
+    "COMPOSITOR_CREATED",
+    "EFFECT_CREATED",
+    "EFFECT_ENABLED",
+    "EFFECT_FREED",
+    "COMPOSITOR_FREED",
     "BUILTINS_DONE",
 ]
 
@@ -54,6 +60,13 @@ if __name__ == '__main__':
     if rc != 0:
         print('Godot run failed')
         sys.exit(rc)
+
+    # Fail if Godot reported leaked compositor RIDs
+    for l in out_lines:
+        if 'RID allocations' in l and 'were leaked' in l:
+            print('RID leak detected:')
+            print(l)
+            sys.exit(3)
 
     # Check expected substrings
     missing = []

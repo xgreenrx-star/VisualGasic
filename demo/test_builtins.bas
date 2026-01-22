@@ -34,5 +34,20 @@ Sub Main()
     AddChild n
     Print "ADDCHILD_POS_X:" & n.position.x
 
+    ' Compositor smoke tests
+    Set comp = CompositorCreate()
+    Print "COMPOSITOR_CREATED"
+    Set eff = CompositorEffectCreate()
+    Print "EFFECT_CREATED"
+    Call CompositorSetEffects(comp, Array(eff))
+    Call CompositorEffectSetEnabled(eff, 1)
+    Print "EFFECT_ENABLED"
+
+    ' Free compositor resources to avoid RID leaks
+    Call CompositorEffectFree(eff)
+    Print "EFFECT_FREED"
+    Call CompositorFree(comp)
+    Print "COMPOSITOR_FREED"
+
     Print "BUILTINS_DONE"
 End Sub
