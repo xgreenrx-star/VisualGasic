@@ -113,6 +113,26 @@ bool call_builtin(VisualGasicInstance *instance, const String &p_method, const A
         return true;
     }
 
+    // Statement-level SetProp(obj, "prop", value) convenience
+    if (method.nocasecmp_to("SetProp") == 0) {
+        r_found = true;
+        if (p_args.size() >= 3) {
+            Variant obj_v = p_args[0];
+            String prop = p_args[1];
+            Variant val = p_args[2];
+            if (obj_v.get_type() == Variant::OBJECT) {
+                Object *o = obj_v;
+                if (o) {
+                    o->set(prop, val);
+                    if (o->get(prop).get_type() == Variant::NIL) {
+                        o->set(prop.to_snake_case(), val);
+                    }
+                }
+            }
+        }
+        return true;
+    }
+
     // Fallback: not handled here
     return false;
 }
@@ -206,6 +226,25 @@ Variant call_builtin_expr(VisualGasicInstance *instance, CallExpression *call, b
     if (name.nocasecmp_to("FileLen") == 0 && args.size() == 1) { r_handled = true; return instance->file_len(String(args[0])); }
     if (name.nocasecmp_to("Dir") == 0) { r_handled = true; return instance->file_dir(args); }
     if (name.nocasecmp_to("Randomize") == 0) { r_handled = true; instance->randomize_seed(); return Variant(); }
+
+    // Vector conveniences for unevaluated-args path
+    if (name.nocasecmp_to("Vec3") == 0 && args.size() == 3) { r_handled = true; return Vector3(args[0], args[1], args[2]); }
+    if (name.nocasecmp_to("VAdd") == 0 && args.size() == 2) {
+        r_handled = true; Variant a=args[0], b=args[1];
+        UtilityFunctions::print("DEBUG: VAdd types: ", (int)a.get_type(), ",", (int)b.get_type());
+        if (a.get_type()==Variant::VECTOR3 && b.get_type()==Variant::VECTOR3) return Vector3(a)+Vector3(b);
+        if (a.get_type()==Variant::VECTOR2 && b.get_type()==Variant::VECTOR2) return Vector2(a)+Vector2(b);
+        return Variant(); }
+    if (name.nocasecmp_to("VSub") == 0 && args.size() == 2) {
+        r_handled = true; Variant a=args[0], b=args[1]; if (a.get_type()==Variant::VECTOR3 && b.get_type()==Variant::VECTOR3) return Vector3(a)-Vector3(b); if (a.get_type()==Variant::VECTOR2 && b.get_type()==Variant::VECTOR2) return Vector2(a)-Vector2(b); return Variant(); }
+    if (name.nocasecmp_to("VDot") == 0 && args.size() == 2) {
+        r_handled = true; Variant a=args[0], b=args[1]; if (a.get_type()==Variant::VECTOR3 && b.get_type()==Variant::VECTOR3) return Vector3(a).dot(Vector3(b)); if (a.get_type()==Variant::VECTOR2 && b.get_type()==Variant::VECTOR2) return Vector2(a).dot(Vector2(b)); return Variant(); }
+    if (name.nocasecmp_to("VCross") == 0 && args.size() == 2) {
+        r_handled = true; Variant a=args[0], b=args[1]; if (a.get_type()==Variant::VECTOR3 && b.get_type()==Variant::VECTOR3) return Vector3(a).cross(Vector3(b)); return Variant(); }
+    if (name.nocasecmp_to("VLen") == 0 && args.size() == 1) {
+        r_handled = true; Variant a=args[0]; if (a.get_type()==Variant::VECTOR3) return Vector3(a).length(); if (a.get_type()==Variant::VECTOR2) return Vector2(a).length(); return Variant(); }
+    if (name.nocasecmp_to("VNormalize") == 0 && args.size() == 1) {
+        r_handled = true; Variant a=args[0]; if (a.get_type()==Variant::VECTOR3) { Vector3 v=Vector3(a); v.normalize(); return v; } if (a.get_type()==Variant::VECTOR2) { Vector2 v=Vector2(a); v.normalize(); return v; } return Variant(); }
 
     // If not handled here, leave r_handled false so caller can fallback
     return Variant();

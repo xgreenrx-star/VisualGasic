@@ -16,13 +16,17 @@ Sub Main()
     Print "INT:" & Int(3.7)
     Print "ROUND:" & Round(3.6)
 
-    ' Vector helpers tests
-    Print "VADD_X:" & VAdd(Vec3(1,2,3), Vec3(2,3,4)).x
-    Print "VDOT:" & VDot(Vec3(1,2,3), Vec3(2,3,4))
-    Print "VCROSS_X:" & VCross(Vec3(1,2,3), Vec3(2,3,4)).x
-    Print "VCROSS_Y:" & VCross(Vec3(1,2,3), Vec3(2,3,4)).y
-    Print "VCROSS_Z:" & VCross(Vec3(1,2,3), Vec3(2,3,4)).z
-    Print "VLEN:" & VLen(Vec3(0,3,4))
+    ' Vector helpers tests (assign first to avoid nested call evaluation issues)
+    Set a = Vector3(1,2,3)
+    Set b = Vector3(2,3,4)
+    Print "VADD_X:" & VAdd(a, b).x
+    Print "VDOT:" & VDot(a, b)
+    Set c = VCross(a, b)
+    Print "VCROSS_X:" & c.x
+    Print "VCROSS_Y:" & c.y
+    Print "VCROSS_Z:" & c.z
+    Set d = Vector3(0,3,4)
+    Print "VLEN:" & VLen(d)
 
     ' AddChild / SetProp smoke test
     Set n = CreateNode("Node2D")
