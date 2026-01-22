@@ -165,4 +165,7 @@ private:
     WhileEntry parse_while();
 };
 
+// Free function: returns JSON serialization of ParserStdResult
+std::string ast_to_json(const ParserStdResult &r);
+
 #endif // TOOLS_PARSER_STD_PARSER_H

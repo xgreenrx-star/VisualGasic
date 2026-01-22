@@ -137,6 +137,11 @@ int main() {
         if (!assert_true(found_watch==1, "AST should contain 1 watch node")) failures++;
         if (!assert_true(found_whenever==1, "AST should contain 1 whenever node")) failures++;
         if (!assert_true(found_sub==1, "AST should contain 1 sub node")) failures++;
+
+        // Print JSON for CI consumption
+        std::string json = ast_to_json(r);
+        std::cout << "[AST_JSON] " << json << std::endl;
+        if (!assert_true(json.find("\"type\":\"Watch\"") != std::string::npos, "JSON should contain Watch node")) failures++;
     }
 
     if (failures == 0) {

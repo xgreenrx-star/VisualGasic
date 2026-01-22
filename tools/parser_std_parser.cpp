@@ -1,6 +1,8 @@
 #include "parser_std_parser.h"
 #include <algorithm>
 #include <memory>
+#include <sstream>
+#include <cstdio>
 
 static inline std::string to_lower(const std::string &s) {
     std::string r = s;
@@ -413,4 +415,94 @@ WhileEntry ParserStd::parse_while() {
     }
     out.end_line = peek().line;
     return out;
+}
+
+
+// JSON serialization helpers
+static std::string escape_json(const std::string &s) {
+    std::string o; o.reserve(s.size());
+    for (unsigned char c : s) {
+        switch (c) {
+            case '"': o += "\\\""; break;
+            case '\\': o += "\\\\"; break;
+            case '\b': o += "\\b"; break;
+            case '\f': o += "\\f"; break;
+            case '\n': o += "\\n"; break;
+            case '\r': o += "\\r"; break;
+            case '\t': o += "\\t"; break;
+            default:
+                if (c < 0x20) {
+                    char buf[7]; snprintf(buf, sizeof(buf), "\\u%04x", c);
+                    o += buf;
+                } else {
+                    o += (char)c;
+                }
+        }
+    }
+    return o;
+}
+
+std::string ast_to_json(const ParserStdResult &r) {
+    std::ostringstream out;
+    out << "{\"nodes\":[";
+    bool first = true;
+    for (auto &nptr : r.ast_nodes) {
+        if (!first) out << ',';
+        first = false;
+        switch (nptr->type) {
+            case AST_WATCH: {
+                ASTWatch *w = static_cast<ASTWatch*>(nptr.get());
+                out << "{\"type\":\"Watch\",\"var\":\"" << escape_json(w->var) << "\",\"once\":" << (w->once?"true":"false") << ",\"local\":" << (w->local?"true":"false") << ",\"body\":[";
+                for (size_t i=0;i<w->body_lines.size();i++) {
+                    if (i) out << ',';
+                    out << '"' << escape_json(w->body_lines[i]) << '"';
+                }
+                out << "]}";
+                break; }
+            case AST_WHENEVER: {
+                ASTWhenever *aw = static_cast<ASTWhenever*>(nptr.get());
+                out << "{\"type\":\"Whenever\",\"var\":\"" << escape_json(aw->var) << "\",\"branches\":[";
+                for (size_t i=0;i<aw->branches.size();i++) {
+                    if (i) out << ',';
+                    out << "{\"pattern\":\"" << escape_json(aw->branches[i].pattern) << "\",\"body\":[";
+                    for (size_t j=0;j<aw->branches[i].body_lines.size();j++) { if (j) out << ','; out << '"' << escape_json(aw->branches[i].body_lines[j]) << '"'; }
+                    out << "]}";
+                }
+                out << "]}";
+                break; }
+            case AST_SUB: {
+                ASTSub *as = static_cast<ASTSub*>(nptr.get());
+                out << "{\"type\":\"Sub\",\"name\":\"" << escape_json(as->name) << "\",\"body\":[";
+                for (size_t i=0;i<as->body_lines.size();i++) { if (i) out << ','; out << '"' << escape_json(as->body_lines[i]) << '"'; }
+                out << "]}";
+                break; }
+            case AST_IF: {
+                ASTIf *ai = static_cast<ASTIf*>(nptr.get());
+                out << "{\"type\":\"If\",\"cond\":\"" << escape_json(ai->condition) << "\",\"body\":[";
+                for (size_t i=0;i<ai->body_lines.size();i++) { if (i) out << ','; out << '"' << escape_json(ai->body_lines[i]) << '"'; }
+                out << "]}";
+                break; }
+            case AST_FUNCTION: {
+                ASTFunction *af = static_cast<ASTFunction*>(nptr.get());
+                out << "{\"type\":\"Function\",\"name\":\"" << escape_json(af->name) << "\",\"body\":[";
+                for (size_t i=0;i<af->body_lines.size();i++) { if (i) out << ','; out << '"' << escape_json(af->body_lines[i]) << '"'; }
+                out << "]}";
+                break; }
+            case AST_FOR: {
+                ASTFor *af = static_cast<ASTFor*>(nptr.get());
+                out << "{\"type\":\"For\",\"var\":\"" << escape_json(af->var) << "\",\"start\":\"" << escape_json(af->start_expr) << "\",\"end\":\"" << escape_json(af->end_expr) << "\",\"body\":[";
+                for (size_t i=0;i<af->body_lines.size();i++) { if (i) out << ','; out << '"' << escape_json(af->body_lines[i]) << '"'; }
+                out << "]}";
+                break; }
+            case AST_WHILE: {
+                ASTWhile *aw = static_cast<ASTWhile*>(nptr.get());
+                out << "{\"type\":\"While\",\"cond\":\"" << escape_json(aw->condition) << "\",\"body\":[";
+                for (size_t i=0;i<aw->body_lines.size();i++) { if (i) out << ','; out << '"' << escape_json(aw->body_lines[i]) << '"'; }
+                out << "]}";
+                break; }
+            default: break;
+        }
+    }
+    out << "]}";
+    return out.str();
 }
