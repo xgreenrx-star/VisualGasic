@@ -10,4 +10,4 @@ Notes about porting the Dual Kawase blur plugin to VisualGasic demos:
 
 - Boolean type: For portability, some examples use Integer (0/1) for enabled flags; if Boolean support differs between target environments, adapt accordingly.
 
-If you'd like, I can add lightweight helper GDScript bridge functions (e.g., `CreateCompositorEffect(name)` and `ApplyCompositorToViewport(viewport, effect)`) in `examples/AssetLib/dual_kawase/upstream/bridges/` to expose missing APIs to VisualGasic in a clean way.
+- A bridge helper is provided at `examples/AssetLib/dual_kawase/upstream/bridges/dual_kawase_bridge.gd`. Add the node to your scene (e.g., named `DualKawaseBridge`) and configure `target_node_path` if needed. The demo prefers the bridge if present and falls back to direct property access when the bridge is missing.

@@ -28,9 +28,16 @@ Sub Form_Load()
     ' Apply initial settings — property names below are illustrative;
     ' match them to the upstream plugin's API (check plugin docs).
     On Error Resume Next
-    DualKawase.blur_radius = blur_radius
-    DualKawase.iterations = iterations
-    DualKawase.enabled = enabled
+    ' Prefer a bridge helper if present, otherwise set properties directly
+    If Not DualKawaseBridge Is Nothing Then
+        Call DualKawaseBridge.SetParam("blur_radius", blur_radius)
+        Call DualKawaseBridge.SetParam("iterations", iterations)
+        Call DualKawaseBridge.SetParam("enabled", enabled)
+    Else
+        DualKawase.blur_radius = blur_radius
+        DualKawase.iterations = iterations
+        DualKawase.enabled = enabled
+    End If
     On Error GoTo 0
 
     Print "DualKawase demo loaded. radius=" & blur_radius & " iterations=" & iterations
@@ -40,7 +47,11 @@ Sub IncreaseBlur_Click()
     Dim v As Float
     v = blur_radius + 1.0
     blur_radius = v
-    If Not DualKawase Is Nothing Then DualKawase.blur_radius = blur_radius
+    If Not DualKawaseBridge Is Nothing Then
+        Call DualKawaseBridge.SetParam("blur_radius", blur_radius)
+    ElseIf Not DualKawase Is Nothing Then
+        DualKawase.blur_radius = blur_radius
+    End If
     Print "Increased blur to " & blur_radius
 End Sub
 
@@ -49,7 +60,11 @@ Sub DecreaseBlur_Click()
     v = blur_radius - 1.0
     If v < 0 Then v = 0
     blur_radius = v
-    If Not DualKawase Is Nothing Then DualKawase.blur_radius = blur_radius
+    If Not DualKawaseBridge Is Nothing Then
+        Call DualKawaseBridge.SetParam("blur_radius", blur_radius)
+    ElseIf Not DualKawase Is Nothing Then
+        DualKawase.blur_radius = blur_radius
+    End If
     Print "Decreased blur to " & blur_radius
 End Sub
 

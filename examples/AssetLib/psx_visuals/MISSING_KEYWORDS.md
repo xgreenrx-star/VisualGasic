@@ -10,4 +10,4 @@ Notes about porting PSX Visuals plugin into VisualGasic demos:
 
 - Boolean type: For consistency across demos, some examples use Integer (0/1) for flags — adapt to a boolean type if present in your target environment.
 
-Bridge suggestion: Add `examples/AssetLib/psx_visuals/upstream/bridges/psx_bridge.gd` that exposes helper methods such as `SetGlobal(name, value)` and `ToggleEffect(name)` so VisualGasic can call them easily via the auto-wired node.
+Bridge helper added: `examples/AssetLib/psx_visuals/upstream/bridges/psx_bridge.gd`. Add the node (e.g., `PSXBridge`) to your scene and configure `target_node_path` if the plugin node is named differently. The demo prefers the bridge if present and falls back to direct property access when the bridge is missing.

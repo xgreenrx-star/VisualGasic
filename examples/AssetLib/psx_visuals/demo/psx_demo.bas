@@ -18,10 +18,18 @@ Sub Form_Load()
     End If
 
     On Error Resume Next
-    PSXVisuals.pixel_size = pixel_size
-    PSXVisuals.dithering = dithering
-    PSXVisuals.saturation = saturation
-    PSXVisuals.mode = effect_mode
+    ' Prefer a bridge helper if present, otherwise set properties directly
+    If Not PSXBridge Is Nothing Then
+        Call PSXBridge.SetParam("pixel_size", pixel_size)
+        Call PSXBridge.SetParam("dithering", dithering)
+        Call PSXBridge.SetParam("saturation", saturation)
+        Call PSXBridge.SetParam("mode", effect_mode)
+    Else
+        PSXVisuals.pixel_size = pixel_size
+        PSXVisuals.dithering = dithering
+        PSXVisuals.saturation = saturation
+        PSXVisuals.mode = effect_mode
+    End If
     On Error GoTo 0
 
     Print "PSX Visuals demo loaded. pixel_size=" & pixel_size & " dithering=" & dithering & " saturation=" & saturation
