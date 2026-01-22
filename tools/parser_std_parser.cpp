@@ -80,8 +80,8 @@ WatchEntry ParserStd::parse_watch() {
         else if (mod == "local") { out.local = true; advance(); }
     }
 
-    // expect do (keyword)
-    if (check(StandaloneTokenizer::TOKEN_KEYWORD) && to_lower(peek().value) == "do") {
+    // expect do (keyword or identifier)
+    if ((check(StandaloneTokenizer::TOKEN_KEYWORD) || check(StandaloneTokenizer::TOKEN_IDENTIFIER)) && to_lower(peek().value) == "do") {
         advance();
     }
     // eat optional newline
@@ -123,8 +123,8 @@ WheneverEntry ParserStd::parse_whenever() {
         out.var = peek().value;
         advance();
     }
-    // expect 'is'
-    if (check(StandaloneTokenizer::TOKEN_KEYWORD) && to_lower(peek().value) == "is") advance();
+    // expect 'is' (keyword or identifier)
+    if ((check(StandaloneTokenizer::TOKEN_KEYWORD) || check(StandaloneTokenizer::TOKEN_IDENTIFIER)) && to_lower(peek().value) == "is") advance();
     // allow optional newline
     consume_newline();
 

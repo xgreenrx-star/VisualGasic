@@ -88,3 +88,9 @@ try:
     Default(prog_std)
 except Exception:
     pass
+
+try:
+    prog_std_test = env.Program(target="tools/parser_unit_std_test", source=['tools/parser_unit_std_test.cpp', 'tools/standalone_tokenizer.cpp', 'tools/parser_std_parser.cpp'])
+    Default(prog_std_test)
+except Exception:
+    pass
