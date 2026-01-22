@@ -1509,7 +1509,6 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
             return Vector2(call_args[0], call_args[1]);
         }
         if (call->method_name == "Vector3" && call_args.size() == 3) {
-            UtilityFunctions::print("DEBUG: Vector3 ctor raw args: ", call_args[0], call_args[1], call_args[2]);
             return Vector3(call_args[0], call_args[1], call_args[2]);
         }
         if (call->method_name == "Rect2" && call_args.size() == 4) {

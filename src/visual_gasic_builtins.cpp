@@ -231,7 +231,6 @@ Variant call_builtin_expr(VisualGasicInstance *instance, CallExpression *call, b
     if (name.nocasecmp_to("Vec3") == 0 && args.size() == 3) { r_handled = true; return Vector3(args[0], args[1], args[2]); }
     if (name.nocasecmp_to("VAdd") == 0 && args.size() == 2) {
         r_handled = true; Variant a=args[0], b=args[1];
-        UtilityFunctions::print("DEBUG: VAdd types: ", (int)a.get_type(), ",", (int)b.get_type());
         if (a.get_type()==Variant::VECTOR3 && b.get_type()==Variant::VECTOR3) return Vector3(a)+Vector3(b);
         if (a.get_type()==Variant::VECTOR2 && b.get_type()==Variant::VECTOR2) return Vector2(a)+Vector2(b);
         return Variant(); }
