@@ -100,3 +100,9 @@ try:
     Default(prog_std_cli_test)
 except Exception:
     pass
+
+try:
+    prog_std_golden = env.Program(target="tools/parser_unit_std_golden_test", source=['tools/parser_unit_std_golden_test.cpp'])
+    Default(prog_std_golden)
+except Exception:
+    pass

@@ -7,10 +7,12 @@
 
 int main(int argc, char** argv) {
     bool json_mode = false;
+    bool json_only = false;
     std::string input_file;
     for (int i=1;i<argc;i++) {
         std::string a = argv[i];
         if (a == "--json") json_mode = true;
+        else if (a == "--json-only") { json_mode = true; json_only = true; }
         else if (a == "--input" && i+1<argc) { input_file = argv[++i]; }
         else input_file = a;
     }
@@ -24,7 +26,7 @@ int main(int argc, char** argv) {
         }
         std::ostringstream ss; ss << f.rdbuf(); src = ss.str();
     } else {
-        src = "Watch x do\n  Print \"changed\"\nEnd Watch\n\nWhenever x is >10 then\n  Print \"big\"\nEnd Whenever\n";
+        src = "Watch x do\n  Print \"changed\"\nEnd Watch\n\nWhenever x is >10 then\n  Print \"big\"\nEnd Whenever\n\nSub Foo\n  Print \"inside\"\nEnd Sub\n";
     }
 
     StandaloneTokenizer tok;
@@ -35,7 +37,8 @@ int main(int argc, char** argv) {
 
     if (json_mode) {
         std::string json = ast_to_json(r);
-        std::cout << "[AST_JSON] " << json << std::endl;
+        if (json_only) std::cout << json << std::endl;
+        else std::cout << "[AST_JSON] " << json << std::endl;
         return 0;
     }
 

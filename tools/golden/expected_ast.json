@@ -1,0 +1,1 @@
+{"nodes":[{"type":"Watch","var":"x","once":false,"local":false,"body":["Print changed"]},{"type":"Whenever","var":"x","branches":[{"pattern":"> 10","body":["Print big"]}]},{"type":"Sub","name":"Foo","body":["Print inside"]}]}
