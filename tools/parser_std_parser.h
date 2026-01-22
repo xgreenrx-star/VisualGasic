@@ -26,9 +26,25 @@ struct WheneverEntry {
     std::vector<WheneverBranch> branches;
 };
 
+struct SubEntry {
+    std::string name;
+    int start_line = 0;
+    int end_line = 0;
+    std::vector<std::string> body_lines;
+};
+
+struct IfEntry {
+    std::string condition; // textual condition
+    int start_line = 0;
+    int end_line = 0;
+    std::vector<std::string> body_lines;
+};
+
 struct ParserStdResult {
     std::vector<WatchEntry> watches;
     std::vector<WheneverEntry> whenevers;
+    std::vector<SubEntry> subs;
+    std::vector<IfEntry> ifs;
 };
 
 class ParserStd {
@@ -51,6 +67,8 @@ private:
 
     WatchEntry parse_watch();
     WheneverEntry parse_whenever();
+    SubEntry parse_sub();
+    IfEntry parse_if();
 };
 
 #endif // TOOLS_PARSER_STD_PARSER_H

@@ -54,6 +54,16 @@ ParserStdResult ParserStd::parse() {
             res.whenevers.push_back(std::move(w));
             continue;
         }
+        if ((t.type == StandaloneTokenizer::TOKEN_KEYWORD || t.type == StandaloneTokenizer::TOKEN_IDENTIFIER) && to_lower(t.value) == "sub") {
+            SubEntry s = parse_sub();
+            res.subs.push_back(std::move(s));
+            continue;
+        }
+        if ((t.type == StandaloneTokenizer::TOKEN_KEYWORD || t.type == StandaloneTokenizer::TOKEN_IDENTIFIER) && to_lower(t.value) == "if") {
+            IfEntry it = parse_if();
+            res.ifs.push_back(std::move(it));
+            continue;
+        }
         // Unknown top-level - skip token
         advance();
     }
@@ -177,6 +187,72 @@ WheneverEntry ParserStd::parse_whenever() {
         out.branches.push_back(std::move(br));
     }
 
+    out.end_line = peek().line;
+    return out;
+
+    // New additions: parse_sub and parse_if implementations
+}
+
+SubEntry ParserStd::parse_sub() {
+    SubEntry out;
+    const auto &start = peek();
+    out.start_line = start.line;
+    advance(); // consume 'Sub'
+
+    if (check(StandaloneTokenizer::TOKEN_IDENTIFIER)) {
+        out.name = peek().value;
+        advance();
+    }
+    // consume rest of line if any
+    while (!is_at_end() && peek().type != StandaloneTokenizer::TOKEN_NEWLINE) advance();
+    consume_newline();
+
+    // read body until End Sub
+    while (!is_at_end()) {
+        if ((peek().type == StandaloneTokenizer::TOKEN_KEYWORD || peek().type == StandaloneTokenizer::TOKEN_IDENTIFIER) && to_lower(peek().value) == "end") {
+            if (peek(1).type == StandaloneTokenizer::TOKEN_KEYWORD || peek(1).type == StandaloneTokenizer::TOKEN_IDENTIFIER) {
+                if (to_lower(peek(1).value) == "sub") { advance(); advance(); break; }
+            }
+        }
+        std::string line;
+        while (!is_at_end() && peek().type != StandaloneTokenizer::TOKEN_NEWLINE) { if (!line.empty()) line += " "; line += peek().value; advance(); }
+        if (!line.empty()) out.body_lines.push_back(line);
+        consume_newline();
+    }
+    out.end_line = peek().line;
+    return out;
+}
+
+IfEntry ParserStd::parse_if() {
+    IfEntry out;
+    const auto &start = peek();
+    out.start_line = start.line;
+    advance(); // consume 'If'
+
+    // collect condition until 'Then'
+    std::string cond;
+    while (!is_at_end() && !(peek().type == StandaloneTokenizer::TOKEN_KEYWORD && to_lower(peek().value) == "then")) {
+        if (!cond.empty()) cond += " ";
+        cond += peek().value;
+        advance();
+    }
+    out.condition = cond;
+    // consume 'Then' if present
+    if ((peek().type == StandaloneTokenizer::TOKEN_KEYWORD || peek().type == StandaloneTokenizer::TOKEN_IDENTIFIER) && to_lower(peek().value) == "then") advance();
+    consume_newline();
+
+    // read body until End If
+    while (!is_at_end()) {
+        if ((peek().type == StandaloneTokenizer::TOKEN_KEYWORD || peek().type == StandaloneTokenizer::TOKEN_IDENTIFIER) && to_lower(peek().value) == "end") {
+            if (peek(1).type == StandaloneTokenizer::TOKEN_KEYWORD || peek(1).type == StandaloneTokenizer::TOKEN_IDENTIFIER) {
+                if (to_lower(peek(1).value) == "if") { advance(); advance(); break; }
+            }
+        }
+        std::string line;
+        while (!is_at_end() && peek().type != StandaloneTokenizer::TOKEN_NEWLINE) { if (!line.empty()) line += " "; line += peek().value; advance(); }
+        if (!line.empty()) out.body_lines.push_back(line);
+        consume_newline();
+    }
     out.end_line = peek().line;
     return out;
 }

@@ -45,6 +45,34 @@ int main() {
         }
     }
 
+    {
+        std::string src = "Sub Foo\n  Print \"inside\"\nEnd Sub\n";
+        StandaloneTokenizer tok;
+        auto tokens = tok.tokenize(src);
+        ParserStd p(tokens);
+        auto r = p.parse();
+        if (!assert_true(r.subs.size() == 1, "Expected 1 sub")) failures++;
+        if (r.subs.size() >= 1) {
+            auto &s = r.subs[0];
+            if (!assert_true(s.name == "Foo", "Sub name should be 'Foo'")) failures++;
+            if (!assert_true(s.body_lines.size() == 1, "Sub body should contain 1 line")) failures++;
+        }
+    }
+
+    {
+        std::string src = "If x > 10 Then\n  Print \"big\"\nEnd If\n";
+        StandaloneTokenizer tok;
+        auto tokens = tok.tokenize(src);
+        ParserStd p(tokens);
+        auto r = p.parse();
+        if (!assert_true(r.ifs.size() == 1, "Expected 1 if")) failures++;
+        if (r.ifs.size() >= 1) {
+            auto &it = r.ifs[0];
+            if (!assert_true(it.condition.find("10") != std::string::npos, "If condition should include '10'")) failures++;
+            if (!assert_true(it.body_lines.size() == 1, "If body should contain 1 line")) failures++;
+        }
+    }
+
     if (failures == 0) {
         std::cout << "[parser-unit-test] All tests passed" << std::endl;
         return 0;
