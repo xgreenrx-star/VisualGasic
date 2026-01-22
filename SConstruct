@@ -87,7 +87,7 @@ if all(os.path.exists(p) for p in parser_unit_sources):
         pass
 
 prog_std_sources = ['tools/parser_unit_std.cpp', 'tools/standalone_tokenizer.cpp', 'tools/parser_std_parser.cpp']
-if all(os.path.exists(p) for p in prog_std_sources):
+if os.path.exists('tools/standalone_tokenizer.h') and all(os.path.exists(p) for p in prog_std_sources):
     try:
         prog_std = env.Program(target="tools/parser_unit_std", source=prog_std_sources)
         Default(prog_std)
@@ -95,7 +95,7 @@ if all(os.path.exists(p) for p in prog_std_sources):
         pass
 
 prog_std_test_sources = ['tools/parser_unit_std_test.cpp', 'tools/standalone_tokenizer.cpp', 'tools/parser_std_parser.cpp']
-if all(os.path.exists(p) for p in prog_std_test_sources):
+if os.path.exists('tools/standalone_tokenizer.h') and all(os.path.exists(p) for p in prog_std_test_sources):
     try:
         prog_std_test = env.Program(target="tools/parser_unit_std_test", source=prog_std_test_sources)
         Default(prog_std_test)
