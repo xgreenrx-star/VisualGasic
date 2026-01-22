@@ -64,6 +64,21 @@ ParserStdResult ParserStd::parse() {
             res.ifs.push_back(std::move(it));
             continue;
         }
+        if ((t.type == StandaloneTokenizer::TOKEN_KEYWORD || t.type == StandaloneTokenizer::TOKEN_IDENTIFIER) && to_lower(t.value) == "function") {
+            FunctionEntry f = parse_function();
+            res.functions.push_back(std::move(f));
+            continue;
+        }
+        if ((t.type == StandaloneTokenizer::TOKEN_KEYWORD || t.type == StandaloneTokenizer::TOKEN_IDENTIFIER) && to_lower(t.value) == "for") {
+            ForEntry fr = parse_for();
+            res.fors.push_back(std::move(fr));
+            continue;
+        }
+        if ((t.type == StandaloneTokenizer::TOKEN_KEYWORD || t.type == StandaloneTokenizer::TOKEN_IDENTIFIER) && to_lower(t.value) == "while") {
+            WhileEntry wh = parse_while();
+            res.whiles.push_back(std::move(wh));
+            continue;
+        }
         // Unknown top-level - skip token
         advance();
     }
@@ -247,6 +262,115 @@ IfEntry ParserStd::parse_if() {
             if (peek(1).type == StandaloneTokenizer::TOKEN_KEYWORD || peek(1).type == StandaloneTokenizer::TOKEN_IDENTIFIER) {
                 if (to_lower(peek(1).value) == "if") { advance(); advance(); break; }
             }
+        }
+        std::string line;
+        while (!is_at_end() && peek().type != StandaloneTokenizer::TOKEN_NEWLINE) { if (!line.empty()) line += " "; line += peek().value; advance(); }
+        if (!line.empty()) out.body_lines.push_back(line);
+        consume_newline();
+    }
+    out.end_line = peek().line;
+    return out;
+}
+
+FunctionEntry ParserStd::parse_function() {
+    FunctionEntry out;
+    const auto &start = peek();
+    out.start_line = start.line;
+    advance(); // consume 'Function'
+
+    if (check(StandaloneTokenizer::TOKEN_IDENTIFIER)) {
+        out.name = peek().value;
+        advance();
+    }
+    // consume rest of line if any
+    while (!is_at_end() && peek().type != StandaloneTokenizer::TOKEN_NEWLINE) advance();
+    consume_newline();
+
+    // read body until End Function
+    while (!is_at_end()) {
+        if ((peek().type == StandaloneTokenizer::TOKEN_KEYWORD || peek().type == StandaloneTokenizer::TOKEN_IDENTIFIER) && to_lower(peek().value) == "end") {
+            if (peek(1).type == StandaloneTokenizer::TOKEN_KEYWORD || peek(1).type == StandaloneTokenizer::TOKEN_IDENTIFIER) {
+                if (to_lower(peek(1).value) == "function") { advance(); advance(); break; }
+            }
+        }
+        std::string line;
+        while (!is_at_end() && peek().type != StandaloneTokenizer::TOKEN_NEWLINE) { if (!line.empty()) line += " "; line += peek().value; advance(); }
+        if (!line.empty()) out.body_lines.push_back(line);
+        consume_newline();
+    }
+    out.end_line = peek().line;
+    return out;
+}
+
+ForEntry ParserStd::parse_for() {
+    ForEntry out;
+    const auto &start = peek();
+    out.start_line = start.line;
+    advance(); // consume 'For'
+
+    // parse header until newline e.g. "i = 1 To 10" or "i 1 To 10"
+    std::string hdr;
+    while (!is_at_end() && peek().type != StandaloneTokenizer::TOKEN_NEWLINE) { if (!hdr.empty()) hdr += " "; hdr += peek().value; advance(); }
+    consume_newline();
+
+    // Attempt to split header by 'To'
+    size_t pos_to = std::string::npos;
+    {
+        std::string lo = to_lower(hdr);
+        pos_to = lo.find(" to ");
+    }
+    if (pos_to != std::string::npos) {
+        std::string left = hdr.substr(0, pos_to);
+        std::string right = hdr.substr(pos_to + 4);
+        // left may be "i = 1" or "i 1". extract var and start
+        size_t eq = left.find("=");
+        if (eq != std::string::npos) {
+            out.var = left.substr(0, eq);
+            out.start_expr = left.substr(eq+1);
+        } else {
+            // split by space
+            size_t sp = left.find(' ');
+            if (sp != std::string::npos) {
+                out.var = left.substr(0, sp);
+                out.start_expr = left.substr(sp+1);
+            } else {
+                out.var = left;
+            }
+        }
+        out.end_expr = right;
+    } else {
+        out.var = hdr;
+    }
+
+    // parse body until Next
+    while (!is_at_end()) {
+        if ((peek().type == StandaloneTokenizer::TOKEN_KEYWORD || peek().type == StandaloneTokenizer::TOKEN_IDENTIFIER) && to_lower(peek().value) == "next") { advance(); break; }
+        std::string line;
+        while (!is_at_end() && peek().type != StandaloneTokenizer::TOKEN_NEWLINE) { if (!line.empty()) line += " "; line += peek().value; advance(); }
+        if (!line.empty()) out.body_lines.push_back(line);
+        consume_newline();
+    }
+    out.end_line = peek().line;
+    return out;
+}
+
+WhileEntry ParserStd::parse_while() {
+    WhileEntry out;
+    const auto &start = peek();
+    out.start_line = start.line;
+    advance(); // consume 'While'
+
+    // collect condition until newline
+    std::string cond;
+    while (!is_at_end() && peek().type != StandaloneTokenizer::TOKEN_NEWLINE) { if (!cond.empty()) cond += " "; cond += peek().value; advance(); }
+    out.condition = cond;
+    consume_newline();
+
+    // read body until Wend or End While
+    while (!is_at_end()) {
+        if ((peek().type == StandaloneTokenizer::TOKEN_KEYWORD || peek().type == StandaloneTokenizer::TOKEN_IDENTIFIER) && (to_lower(peek().value) == "wend" || (to_lower(peek().value) == "end" && (peek(1).type == StandaloneTokenizer::TOKEN_KEYWORD || peek(1).type == StandaloneTokenizer::TOKEN_IDENTIFIER) && to_lower(peek(1).value)=="while"))) {
+            if (to_lower(peek().value) == "wend") { advance(); break; }
+            if (to_lower(peek().value) == "end") { advance(); advance(); break; }
         }
         std::string line;
         while (!is_at_end() && peek().type != StandaloneTokenizer::TOKEN_NEWLINE) { if (!line.empty()) line += " "; line += peek().value; advance(); }

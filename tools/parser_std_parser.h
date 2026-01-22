@@ -40,11 +40,37 @@ struct IfEntry {
     std::vector<std::string> body_lines;
 };
 
+struct FunctionEntry {
+    std::string name;
+    int start_line = 0;
+    int end_line = 0;
+    std::vector<std::string> body_lines;
+};
+
+struct ForEntry {
+    std::string var;
+    std::string start_expr;
+    std::string end_expr;
+    int start_line = 0;
+    int end_line = 0;
+    std::vector<std::string> body_lines;
+};
+
+struct WhileEntry {
+    std::string condition;
+    int start_line = 0;
+    int end_line = 0;
+    std::vector<std::string> body_lines;
+};
+
 struct ParserStdResult {
     std::vector<WatchEntry> watches;
     std::vector<WheneverEntry> whenevers;
     std::vector<SubEntry> subs;
     std::vector<IfEntry> ifs;
+    std::vector<FunctionEntry> functions;
+    std::vector<ForEntry> fors;
+    std::vector<WhileEntry> whiles;
 };
 
 class ParserStd {
@@ -69,6 +95,9 @@ private:
     WheneverEntry parse_whenever();
     SubEntry parse_sub();
     IfEntry parse_if();
+    FunctionEntry parse_function();
+    ForEntry parse_for();
+    WhileEntry parse_while();
 };
 
 #endif // TOOLS_PARSER_STD_PARSER_H

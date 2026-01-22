@@ -73,6 +73,50 @@ int main() {
         }
     }
 
+    {
+        std::string src = "Function Add\n  Return\nEnd Function\n";
+        StandaloneTokenizer tok;
+        auto tokens = tok.tokenize(src);
+        ParserStd p(tokens);
+        auto r = p.parse();
+        if (!assert_true(r.functions.size() == 1, "Expected 1 function")) failures++;
+        if (r.functions.size() >= 1) {
+            auto &f = r.functions[0];
+            if (!assert_true(f.name == "Add", "Function name should be 'Add'")) failures++;
+            if (!assert_true(f.body_lines.size() == 1, "Function body should contain 1 line")) failures++;
+        }
+    }
+
+    {
+        std::string src = "For i = 1 To 3\n  Print i\nNext\n";
+        StandaloneTokenizer tok;
+        auto tokens = tok.tokenize(src);
+        ParserStd p(tokens);
+        auto r = p.parse();
+        if (!assert_true(r.fors.size() == 1, "Expected 1 for")) failures++;
+        if (r.fors.size() >= 1) {
+            auto &fr = r.fors[0];
+            if (!assert_true(fr.var.find("i") != std::string::npos, "For var should include 'i'")) failures++;
+            if (!assert_true(fr.start_expr.find("1") != std::string::npos, "For start should include '1'")) failures++;
+            if (!assert_true(fr.end_expr.find("3") != std::string::npos, "For end should include '3'")) failures++;
+            if (!assert_true(fr.body_lines.size() == 1, "For body should contain 1 line")) failures++;
+        }
+    }
+
+    {
+        std::string src = "While x < 5\n  Print x\nWend\n";
+        StandaloneTokenizer tok;
+        auto tokens = tok.tokenize(src);
+        ParserStd p(tokens);
+        auto r = p.parse();
+        if (!assert_true(r.whiles.size() == 1, "Expected 1 while")) failures++;
+        if (r.whiles.size() >= 1) {
+            auto &wh = r.whiles[0];
+            if (!assert_true(wh.condition.find("5") != std::string::npos, "While condition should include '5'")) failures++;
+            if (!assert_true(wh.body_lines.size() == 1, "While body should contain 1 line")) failures++;
+        }
+    }
+
     if (failures == 0) {
         std::cout << "[parser-unit-test] All tests passed" << std::endl;
         return 0;
