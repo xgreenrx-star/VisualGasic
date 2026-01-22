@@ -1,5 +1,6 @@
 #include "parser_std_parser.h"
 #include <algorithm>
+#include <memory>
 
 static inline std::string to_lower(const std::string &s) {
     std::string r = s;
@@ -46,37 +47,70 @@ ParserStdResult ParserStd::parse() {
         if (t.type == StandaloneTokenizer::TOKEN_NEWLINE) { advance(); continue; }
         if ((t.type == StandaloneTokenizer::TOKEN_KEYWORD || t.type == StandaloneTokenizer::TOKEN_IDENTIFIER) && to_lower(t.value) == "watch") {
             WatchEntry w = parse_watch();
+            // push both entry and AST node
             res.watches.push_back(std::move(w));
+            auto node = std::make_unique<ASTWatch>();
+            node->var = res.watches.back().var;
+            node->once = res.watches.back().once;
+            node->local = res.watches.back().local;
+            node->body_lines = res.watches.back().body_lines;
+            res.ast_nodes.push_back(std::move(node));
             continue;
         }
         if ((t.type == StandaloneTokenizer::TOKEN_KEYWORD || t.type == StandaloneTokenizer::TOKEN_IDENTIFIER) && to_lower(t.value) == "whenever") {
             WheneverEntry w = parse_whenever();
             res.whenevers.push_back(std::move(w));
+            auto node = std::make_unique<ASTWhenever>();
+            node->var = res.whenevers.back().var;
+            node->branches = res.whenevers.back().branches;
+            res.ast_nodes.push_back(std::move(node));
             continue;
         }
         if ((t.type == StandaloneTokenizer::TOKEN_KEYWORD || t.type == StandaloneTokenizer::TOKEN_IDENTIFIER) && to_lower(t.value) == "sub") {
             SubEntry s = parse_sub();
             res.subs.push_back(std::move(s));
+            auto node = std::make_unique<ASTSub>();
+            node->name = res.subs.back().name;
+            node->body_lines = res.subs.back().body_lines;
+            res.ast_nodes.push_back(std::move(node));
             continue;
         }
         if ((t.type == StandaloneTokenizer::TOKEN_KEYWORD || t.type == StandaloneTokenizer::TOKEN_IDENTIFIER) && to_lower(t.value) == "if") {
             IfEntry it = parse_if();
             res.ifs.push_back(std::move(it));
+            auto node = std::make_unique<ASTIf>();
+            node->condition = res.ifs.back().condition;
+            node->body_lines = res.ifs.back().body_lines;
+            res.ast_nodes.push_back(std::move(node));
             continue;
         }
         if ((t.type == StandaloneTokenizer::TOKEN_KEYWORD || t.type == StandaloneTokenizer::TOKEN_IDENTIFIER) && to_lower(t.value) == "function") {
             FunctionEntry f = parse_function();
             res.functions.push_back(std::move(f));
+            auto node = std::make_unique<ASTFunction>();
+            node->name = res.functions.back().name;
+            node->body_lines = res.functions.back().body_lines;
+            res.ast_nodes.push_back(std::move(node));
             continue;
         }
         if ((t.type == StandaloneTokenizer::TOKEN_KEYWORD || t.type == StandaloneTokenizer::TOKEN_IDENTIFIER) && to_lower(t.value) == "for") {
             ForEntry fr = parse_for();
             res.fors.push_back(std::move(fr));
+            auto node = std::make_unique<ASTFor>();
+            node->var = res.fors.back().var;
+            node->start_expr = res.fors.back().start_expr;
+            node->end_expr = res.fors.back().end_expr;
+            node->body_lines = res.fors.back().body_lines;
+            res.ast_nodes.push_back(std::move(node));
             continue;
         }
         if ((t.type == StandaloneTokenizer::TOKEN_KEYWORD || t.type == StandaloneTokenizer::TOKEN_IDENTIFIER) && to_lower(t.value) == "while") {
             WhileEntry wh = parse_while();
             res.whiles.push_back(std::move(wh));
+            auto node = std::make_unique<ASTWhile>();
+            node->condition = res.whiles.back().condition;
+            node->body_lines = res.whiles.back().body_lines;
+            res.ast_nodes.push_back(std::move(node));
             continue;
         }
         // Unknown top-level - skip token

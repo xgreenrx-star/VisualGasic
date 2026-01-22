@@ -117,6 +117,28 @@ int main() {
         }
     }
 
+    // Additional checks validating AST nodes
+    {
+        std::string src = "Watch x do\n  Print \"changed\"\nEnd Watch\nWhenever x is >10 then\n  Print \"big\"\nEnd Whenever\nSub Foo\n  Print \"inside\"\nEnd Sub\n";
+        StandaloneTokenizer tok;
+        auto tokens = tok.tokenize(src);
+        ParserStd p(tokens);
+        auto r = p.parse();
+        if (!assert_true(r.ast_nodes.size() >= 3, "Expected at least 3 AST nodes")) failures++;
+        int found_watch=0, found_whenever=0, found_sub=0;
+        for (auto &nptr : r.ast_nodes) {
+            switch (nptr->type) {
+                case AST_WATCH: found_watch++; break;
+                case AST_WHENEVER: found_whenever++; break;
+                case AST_SUB: found_sub++; break;
+                default: break;
+            }
+        }
+        if (!assert_true(found_watch==1, "AST should contain 1 watch node")) failures++;
+        if (!assert_true(found_whenever==1, "AST should contain 1 whenever node")) failures++;
+        if (!assert_true(found_sub==1, "AST should contain 1 sub node")) failures++;
+    }
+
     if (failures == 0) {
         std::cout << "[parser-unit-test] All tests passed" << std::endl;
         return 0;

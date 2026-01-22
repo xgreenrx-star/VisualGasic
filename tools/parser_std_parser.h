@@ -3,6 +3,7 @@
 
 #include <string>
 #include <vector>
+#include <memory>
 #include "standalone_tokenizer.h"
 
 struct WatchEntry {
@@ -63,6 +64,68 @@ struct WhileEntry {
     std::vector<std::string> body_lines;
 };
 
+// Lightweight AST node types for testing and structured assertions
+enum ASTNodeType {
+    AST_WATCH,
+    AST_WHENEVER,
+    AST_SUB,
+    AST_IF,
+    AST_FUNCTION,
+    AST_FOR,
+    AST_WHILE
+};
+
+struct ASTNode {
+    ASTNodeType type;
+    virtual ~ASTNode() {}
+};
+
+struct ASTWatch : public ASTNode {
+    std::string var;
+    bool once=false;
+    bool local=false;
+    std::vector<std::string> body_lines;
+    ASTWatch() { type = AST_WATCH; }
+};
+
+struct ASTWhenever : public ASTNode {
+    std::string var;
+    std::vector<WheneverBranch> branches;
+    ASTWhenever() { type = AST_WHENEVER; }
+};
+
+struct ASTSub : public ASTNode {
+    std::string name;
+    std::vector<std::string> body_lines;
+    ASTSub() { type = AST_SUB; }
+};
+
+struct ASTIf : public ASTNode {
+    std::string condition;
+    std::vector<std::string> body_lines;
+    ASTIf() { type = AST_IF; }
+};
+
+struct ASTFunction : public ASTNode {
+    std::string name;
+    std::vector<std::string> body_lines;
+    ASTFunction() { type = AST_FUNCTION; }
+};
+
+struct ASTFor : public ASTNode {
+    std::string var;
+    std::string start_expr;
+    std::string end_expr;
+    std::vector<std::string> body_lines;
+    ASTFor() { type = AST_FOR; }
+};
+
+struct ASTWhile : public ASTNode {
+    std::string condition;
+    std::vector<std::string> body_lines;
+    ASTWhile() { type = AST_WHILE; }
+};
+
 struct ParserStdResult {
     std::vector<WatchEntry> watches;
     std::vector<WheneverEntry> whenevers;
@@ -71,8 +134,10 @@ struct ParserStdResult {
     std::vector<FunctionEntry> functions;
     std::vector<ForEntry> fors;
     std::vector<WhileEntry> whiles;
-};
 
+    // Structured AST for assertions
+    std::vector<std::unique_ptr<ASTNode>> ast_nodes;
+};
 class ParserStd {
 public:
     ParserStd(const std::vector<StandaloneTokenizer::Token>& toks);
