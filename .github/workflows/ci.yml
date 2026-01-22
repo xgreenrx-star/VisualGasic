@@ -42,3 +42,13 @@ jobs:
         run: |
           chmod +x ./tests/run_builtin_tests.py
           ./tests/run_builtin_tests.py
+
+      - name: Build standalone parser tools
+        run: |
+          scons -Q -j2 tools/parser_unit_std_test tools/parser_unit_std_cli_test tools/parser_unit_std_golden_test
+
+      - name: Run parser unit tests
+        run: |
+          ./tools/parser_unit_std_test
+          ./tools/parser_unit_std_cli_test
+          ./tools/parser_unit_std_golden_test

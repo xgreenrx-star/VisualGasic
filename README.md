@@ -1,6 +1,10 @@
 # VisualGasic - Godot VB6 Support
 
+[![CI](https://github.com/your-org/your-repo/actions/workflows/ci.yml/badge.svg)](https://github.com/your-org/your-repo/actions/workflows/ci.yml)
+
 This project introduces a custom Scripting Language to Godot 4.x via GDExtension, emulating the syntax and flow of Visual Basic 6.
+
+> Note: Replace `your-org/your-repo` in the badge above with your repository path to enable the CI status badge.
 
 ## Structure
 
