@@ -17,6 +17,15 @@ expected_substrings = [
     "ABS:5",
     "INT:3",
     "ROUND:4",
+    # Vector helpers
+    "VADD_X:3",
+    "VDOT:20",
+    "VCROSS_X:-1",
+    "VCROSS_Y:2",
+    "VCROSS_Z:-1",
+    "VLEN:5",
+    # AddChild/SetProp smoke
+    "ADDCHILD_POS_X:10",
     "BUILTINS_DONE",
 ]
 
