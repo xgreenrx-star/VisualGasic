@@ -35,6 +35,9 @@ if "template_debug" in env.get("target", "").lower() or env.get("debug_build", F
     # Some toolchains or builders may run strip as a separate step; ensure STRIP is empty.
     env['STRIP'] = ''
 
+# Force no automatic stripping for all builds in this repository to help debugging.
+env['STRIP'] = ''
+
 # Optional: allow using ccache by setting the environment variable USE_CCACHE=1
 import os
 if os.environ.get("USE_CCACHE", "0") == "1":
@@ -64,3 +67,24 @@ else:
     )
 
 Default(library)
+
+# Additional helper target: parser harness (link against same objects)
+try:
+    prog = env.Program(target="tools/parser_harness", source=(['tools/parser_harness.cpp'] + sources))
+    Default(prog)
+except Exception:
+    pass
+
+try:
+    # Minimal parser-only unit test: link only tokenizer+parser implementation
+    parser_unit_sources = ['tools/parser_unit_test.cpp', 'src/visual_gasic_tokenizer.cpp', 'src/visual_gasic_parser.cpp', 'src/init_probes.cpp']
+    prog_unit = env.Program(target="tools/parser_unit_test", source=parser_unit_sources)
+    Default(prog_unit)
+except Exception:
+    pass
+
+try:
+    prog_std = env.Program(target="tools/parser_unit_std", source=['tools/parser_unit_std.cpp', 'tools/standalone_tokenizer.cpp', 'tools/parser_std_parser.cpp'])
+    Default(prog_std)
+except Exception:
+    pass
