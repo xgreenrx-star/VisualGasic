@@ -22,11 +22,23 @@ static std::string read_file(const std::string &p) {
 }
 
 int main() {
-    std::string out = run_cmd("./tools/parser_unit_std --json-only");
-    std::string expected = read_file("tools/golden/expected_ast.json");
+    const std::string actual_path = "tools/golden/actual_ast.json";
+    std::string cmd = "./tools/parser_unit_std --json-only --output " + actual_path;
+    int rc = system(cmd.c_str());
+    if (rc != 0) {
+        std::cerr << "CLI returned non-zero: " << rc << std::endl;
+        return 2;
+    }
+    auto rtrim = [](std::string s){ while(!s.empty() && (s.back()=='\n' || s.back()=='\r' || s.back()==' ' || s.back()=='\t')) s.pop_back(); return s; };
+    std::string out = rtrim(read_file(actual_path));
+    std::string expected = rtrim(read_file("tools/golden/expected_ast.json"));
     if (out != expected) {
         std::cerr << "Golden mismatch:\n-- actual --\n" << out << "\n-- expected --\n" << expected << std::endl;
         return 2;
+    }
+    // cleanup
+    if (std::remove(actual_path.c_str()) != 0) {
+        std::cerr << "Warning: failed to remove temporary file: " << actual_path << std::endl;
     }
     std::cout << "[golden-test] match" << std::endl;
     return 0;

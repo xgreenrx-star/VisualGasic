@@ -8,11 +8,13 @@
 int main(int argc, char** argv) {
     bool json_mode = false;
     bool json_only = false;
+    std::string output_file;
     std::string input_file;
     for (int i=1;i<argc;i++) {
         std::string a = argv[i];
         if (a == "--json") json_mode = true;
         else if (a == "--json-only") { json_mode = true; json_only = true; }
+        else if (a == "--output" && i+1<argc) { output_file = argv[++i]; }
         else if (a == "--input" && i+1<argc) { input_file = argv[++i]; }
         else input_file = a;
     }
@@ -37,8 +39,18 @@ int main(int argc, char** argv) {
 
     if (json_mode) {
         std::string json = ast_to_json(r);
-        if (json_only) std::cout << json << std::endl;
-        else std::cout << "[AST_JSON] " << json << std::endl;
+        if (!output_file.empty()) {
+            std::ofstream outf(output_file);
+            if (!outf) {
+                std::cerr << "Failed to open output file: " << output_file << std::endl;
+                return 3;
+            }
+            outf << json;
+            outf.close();
+        } else {
+            if (json_only) std::cout << json << std::endl;
+            else std::cout << "[AST_JSON] " << json << std::endl;
+        }
         return 0;
     }
 
