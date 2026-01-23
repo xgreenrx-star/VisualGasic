@@ -1,0 +1,5 @@
+[gd_scene format=3]
+
+[node name="ItemList" type="ItemList"]
+offset_right = 100.0
+offset_bottom = 100.0
