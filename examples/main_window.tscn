@@ -1,0 +1,10 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="PackedScene" uid="uid://flk1sxrxt1tb" path="res://Form1.tscn" id="1_form"]
+
+[node name="MainWindow" type="Window"]
+title = "Form1"
+initial_position = 1
+size = Vector2i(400, 300)
+
+[node name="Form1" parent="." instance=ExtResource("1_form")]

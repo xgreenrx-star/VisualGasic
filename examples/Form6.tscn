@@ -1,0 +1,22 @@
+[gd_scene format=3 uid="uid://sllv52ae1y0"]
+
+[node name="Form1" type="Panel"]
+custom_minimum_size = Vector2(400, 300)
+
+[node name="MenuBar" type="MenuBar" parent="."]
+layout_mode = 0
+offset_right = 35.0
+offset_bottom = 31.0
+size_flags_horizontal = 3
+
+[node name="mnuFile" type="PopupMenu" parent="MenuBar"]
+item_count = 4
+item_0/text = "Open..."
+item_0/id = 0
+item_1/text = "Save"
+item_1/id = 1
+item_2/id = -1
+item_2/separator = true
+item_3/text = "Exit"
+item_3/id = 3
+metadata/_menu_name = "File"

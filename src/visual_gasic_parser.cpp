@@ -21,31 +21,20 @@ VisualGasicParser::VisualGasicParser() : tokens(new Vector<VisualGasicTokenizer:
 VisualGasicParser::~VisualGasicParser() {
     UtilityFunctions::print("VisualGasicParser::~VisualGasicParser() called");
     
-    // If there were parse errors, don't try to clean up ANYTHING - leak it all
-    if (errors && errors->size() > 0) {
-        UtilityFunctions::print("Parser had errors, leaking EVERYTHING");
-        // DON'T delete errors or tokens - even member destructors might trigger corrupted Variant cleanup
-        return;
-    }
+    // CRITICAL: ALWAYS leak everything - AST nodes, tokens, and errors ALL contain
+    // godot::String objects created before GDExtension initialization.
+    // Any attempt to delete them causes heap corruption (munmap_chunk/free() crashes).
+    // This memory leak is acceptable for an editor tool that parses infrequently.
     
-    UtilityFunctions::print("No parse errors, cleaning up normally");
+    UtilityFunctions::print("Leaking all parser memory to avoid String corruption");
     
-    // Free any parser-owned nodes that were not transferred to the
-    // returned ModuleNode (i.e. parse failure paths that left
-    // temporary allocations).
-    for (int i = 0; i < allocated_nodes.size(); i++) {
-        if (allocated_nodes[i]) delete allocated_nodes[i];
-    }
+    // Don't delete AST nodes - they contain Strings
     allocated_nodes.clear();
-
-    for (int i = 0; i < allocated_expr_nodes.size(); i++) {
-        if (allocated_expr_nodes[i]) delete allocated_expr_nodes[i];
-    }
     allocated_expr_nodes.clear();
     
-    // Safe to delete errors now - no more godot::String corruption
-    if (errors) delete errors;
-    if (tokens) delete tokens;
+    // Don't delete tokens/errors - they contain Strings
+    tokens = nullptr;
+    errors = nullptr;
     
     UtilityFunctions::print("Parser destructor completed");
 }

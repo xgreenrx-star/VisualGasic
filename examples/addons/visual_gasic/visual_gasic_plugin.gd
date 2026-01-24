@@ -3,6 +3,8 @@ extends EditorPlugin
 
 var toolbox
 var import_plugin
+var form_designer
+var project_wizard
 
 func _enter_tree():
 	# Store self for static retrieval
@@ -71,6 +73,24 @@ func _enter_tree():
 	add_tool_menu_item("Visual Gasic Project Properties...", Callable(self, "_on_proj_props"))
 	add_tool_menu_item("Visual Gasic Object Browser", Callable(self, "_on_obj_browser"))
 	add_tool_menu_item("Visual Gasic Tab Order", Callable(self, "_on_tab_order"))
+	
+	# Load Form Designer plugin
+	var FormDesignerScript = load("res://addons/visual_gasic/form_designer.gd")
+	if FormDesignerScript:
+		form_designer = FormDesignerScript.new()
+		add_child(form_designer)
+		form_designer._enter_tree()
+		print("Form Designer activated")
+	
+	# Create Project Wizard (but don't show it yet)
+	var ProjectWizardScript = load("res://addons/visual_gasic/project_wizard.gd")
+	if ProjectWizardScript:
+		project_wizard = ProjectWizardScript.new()
+		add_child(project_wizard)
+		print("Project Wizard loaded")
+		
+		# Add menu item to show the wizard
+		add_tool_menu_item("New VisualGasic Project...", Callable(self, "_show_project_wizard"))
 
 func _exit_tree():
 	get_editor_interface().get_base_control().remove_meta("visual_gasic_plugin_instance")
@@ -84,6 +104,16 @@ func _exit_tree():
 	remove_tool_menu_item("Visual Gasic Project Properties...")
 	remove_tool_menu_item("Visual Gasic Object Browser")
 	remove_tool_menu_item("Visual Gasic Tab Order")
+	
+	if form_designer:
+		form_designer._exit_tree()
+		remove_child(form_designer)
+		form_designer.queue_free()
+	
+	if project_wizard:
+		remove_tool_menu_item("New VisualGasic Project...")
+		remove_child(project_wizard)
+		project_wizard.queue_free()
 	
 	if toolbox:
 		remove_control_from_docks(toolbox)
@@ -219,6 +249,10 @@ func _on_tab_order():
 	dlg.set_root(target)
 	dlg.popup_centered()
 
+func _show_project_wizard():
+	if project_wizard:
+		project_wizard.popup_centered()
+
 
 
 
@@ -295,14 +329,296 @@ func _handles(object):
 	return object is Control or object is Node2D
 
 func _forward_canvas_gui_input(event):
-	if event is InputEventMouseButton and event.double_click:
-		# Support both Left (Standard) and Right (User Request) double clicks
-		if event.button_index == MOUSE_BUTTON_LEFT or event.button_index == MOUSE_BUTTON_RIGHT:
+	if event is InputEventMouseButton:
+		# Handle double-click on MenuBar to show preview
+		if event.button_index == MOUSE_BUTTON_LEFT and event.double_click:
+			var sel = get_editor_interface().get_selection().get_selected_nodes()
+			if sel.size() == 1 and sel[0] is MenuBar:
+				_show_menu_preview(sel[0])
+				return true
+		
+		# Handle right-click for context menu when editing a form
+		if event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
 			var sel = get_editor_interface().get_selection().get_selected_nodes()
 			if sel.size() == 1:
-				_generate_event_handler(sel[0])
-				return true # Consume event
+				var node = sel[0]
+				# Check if it's a form (has gasic_form meta or is named Form*)
+				if node.has_meta("gasic_form") or node.name.begins_with("Form"):
+					_show_form_context_menu(event.global_position, node)
+					return true # Consume event
+		
+		# Handle double-click for event handler generation
+		if event.double_click:
+			# Support both Left (Standard) and Right (User Request) double clicks
+			if event.button_index == MOUSE_BUTTON_LEFT or event.button_index == MOUSE_BUTTON_RIGHT:
+				var sel = get_editor_interface().get_selection().get_selected_nodes()
+				if sel.size() == 1:
+					_generate_event_handler(sel[0])
+					return true # Consume event
 	return false
+
+func _show_menu_preview(menu_bar: MenuBar) -> void:
+	"""Show design-time menu preview"""
+	# Reconstruct menu structure from MenuBar nodes
+	var menu_structure = _extract_menu_structure(menu_bar)
+	
+	if not menu_structure.has("items") or menu_structure.items.size() == 0:
+		print("MenuBar has no menu items")
+		return
+	
+	var form_node = menu_bar.get_parent()
+	
+	var MenuPreviewScript = load("res://addons/visual_gasic/menu_preview.gd")
+	if MenuPreviewScript:
+		var preview = MenuPreviewScript.new()
+		preview.menu_item_double_clicked.connect(func(item_name, caption):
+			_generate_menu_event_handler(form_node, item_name, caption)
+		)
+		get_tree().root.add_child(preview)
+		preview.show_menu_structure(menu_structure, form_node)
+		preview.popup_centered()
+
+func _extract_menu_structure(menu_bar: MenuBar) -> Dictionary:
+	"""Extract menu structure from existing MenuBar nodes"""
+	var structure = {"items": []}
+	
+	# MenuBar in Godot 4.x uses indices, not direct child access
+	var menu_count = menu_bar.get_menu_count()
+	for i in range(menu_count):
+		var menu_title = menu_bar.get_menu_title(i)
+		var popup = menu_bar.get_menu_popup(i)
+		
+		if popup:
+			var menu_item = {
+				"caption": menu_title,
+				"name": popup.name,
+				"shortcut": "",
+				"checked": false,
+				"enabled": true,
+				"visible": true,
+				"children": []
+			}
+			
+			# Extract items from PopupMenu
+			_extract_popup_items(popup, menu_item.children)
+			structure.items.append(menu_item)
+	
+	return structure
+
+func _extract_popup_items(popup: PopupMenu, items: Array) -> void:
+	"""Recursively extract items from PopupMenu"""
+	for i in range(popup.get_item_count()):
+		var item_text = popup.get_item_text(i)
+		var submenu_name = popup.get_item_submenu(i)
+		
+		# Check if separator
+		if popup.is_item_separator(i):
+			items.append({
+				"caption": "-",
+				"name": "",
+				"shortcut": "",
+				"checked": false,
+				"enabled": true,
+				"visible": true,
+				"children": []
+			})
+		else:
+			# Get name from metadata, or generate from caption
+			var item_name = ""
+			var item_shortcut = ""
+			
+			if popup.get_item_metadata(i):
+				item_name = popup.get_item_metadata(i).get("name", "")
+				item_shortcut = popup.get_item_metadata(i).get("shortcut", "")
+			
+			# If no name in metadata, generate from caption (e.g., "Open..." -> "Open")
+			if item_name == "":
+				item_name = item_text.replace("...", "").replace("&", "").strip_edges()
+			
+			var item = {
+				"caption": item_text,
+				"name": item_name,
+				"shortcut": item_shortcut,
+				"checked": popup.is_item_checked(i),
+				"enabled": not popup.is_item_disabled(i),
+				"visible": true,
+				"children": []
+			}
+			
+			# If has submenu, extract its items
+			if submenu_name != "":
+				for child in popup.get_children():
+					if child is PopupMenu and child.name == submenu_name:
+						_extract_popup_items(child, item.children)
+						break
+			
+			items.append(item)
+
+
+func _show_form_context_menu(pos: Vector2, form_node: Node) -> void:
+	"""Show context menu for form"""
+	var popup = PopupMenu.new()
+	popup.add_item("Edit Form Menu...", 0)
+	popup.add_separator()
+	popup.add_item("Form Properties", 1)
+	
+	get_editor_interface().get_base_control().add_child(popup)
+	
+	popup.id_pressed.connect(func(id):
+		match id:
+			0: # Edit Form Menu
+				_open_menu_editor(form_node)
+			1: # Properties
+				pass # TODO: Show form properties
+		popup.queue_free()
+	)
+	
+	popup.position = Vector2i(pos)
+	popup.popup()
+
+func _open_menu_editor(form_node: Node) -> void:
+	"""Open menu editor for the form"""
+	var MenuEditorScript = load("res://addons/visual_gasic/menu_editor.gd")
+	if MenuEditorScript:
+		var menu_editor = MenuEditorScript.new()
+		menu_editor.menu_applied.connect(func(menu_structure):
+			_apply_menu_to_form(form_node, menu_structure)
+		)
+		get_tree().root.add_child(menu_editor)
+		menu_editor.popup_centered()
+
+func _apply_menu_to_form(form_node: Node, menu_structure: Dictionary) -> void:
+	"""Apply menu structure to form"""
+	if not form_node:
+		return
+	
+	# Remove existing menu bar if present
+	for child in form_node.get_children():
+		if child is MenuBar:
+			child.queue_free()
+	
+	# Create new MenuBar
+	var menu_bar = MenuBar.new()
+	menu_bar.name = "MenuBar"
+	menu_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	
+	# Store menu structure as metadata for preview
+	menu_bar.set_meta("menu_structure", menu_structure)
+	
+	# Build menu structure
+	if menu_structure.has("items"):
+		_build_menu_bar(menu_bar, menu_structure.items, form_node)
+	
+	# Add to form as first child
+	form_node.add_child(menu_bar)
+	
+	# Set owner for MenuBar and all children recursively
+	var scene_root = get_editor_interface().get_edited_scene_root()
+	if scene_root:
+		_set_owner_recursive(menu_bar, scene_root)
+	
+	# Position at top of form
+	menu_bar.position = Vector2.ZERO
+	
+	# Mark scene as changed
+	get_editor_interface().mark_scene_as_unsaved()
+	
+	print("MenuBar added to form with ", menu_structure.items.size() if menu_structure.has("items") else 0, " top-level menus")
+
+func _set_owner_recursive(node: Node, owner_node: Node) -> void:
+	"""Set owner for node and all its children recursively"""
+	node.set_owner(owner_node)
+	for child in node.get_children():
+		_set_owner_recursive(child, owner_node)
+
+func _build_menu_bar(menu_bar: MenuBar, items: Array, form_node: Node) -> void:
+	"""Recursively build menu structure"""
+	for item_data in items:
+		var caption = item_data.get("caption", "")
+		var children = item_data.get("children", [])
+		
+		# Create PopupMenu for this top-level menu
+		var popup = PopupMenu.new()
+		popup.name = item_data.get("name", "PopupMenu")
+		
+		# Add child items to popup
+		if children.size() > 0:
+			_build_popup_menu(popup, children, form_node)
+		
+		# Add to MenuBar (don't set owner here, will be done recursively later)
+		menu_bar.add_child(popup)
+		
+		# Set the menu bar item text (removes & for display)
+		var display_text = caption.replace("&", "")
+		menu_bar.set_menu_title(menu_bar.get_menu_count() - 1, display_text)
+
+func _build_popup_menu(popup: PopupMenu, items: Array, form_node: Node) -> void:
+	"""Recursively build popup menu items"""
+	for item_data in items:
+		var caption = item_data.get("caption", "")
+		var name = item_data.get("name", "")
+		var shortcut_text = item_data.get("shortcut", "")
+		var checked = item_data.get("checked", false)
+		var enabled = item_data.get("enabled", true)
+		var children = item_data.get("children", [])
+		
+		# Check if separator
+		if caption == "-":
+			popup.add_separator()
+		else:
+			var item_idx = popup.get_item_count()
+			
+			# Add submenu if has children
+			if children.size() > 0:
+				var submenu = PopupMenu.new()
+				submenu.name = name if name != "" else "SubMenu"
+				popup.add_child(submenu)
+				# Owner will be set recursively later
+				_build_popup_menu(submenu, children, form_node)
+				popup.add_submenu_item(caption.replace("&", ""), submenu.name)
+			else:
+				# Regular item
+				popup.add_item(caption.replace("&", ""))
+			
+			# Set properties
+			if not enabled:
+				popup.set_item_disabled(item_idx, true)
+			if checked:
+				popup.set_item_checked(item_idx, true)
+			
+			# Store metadata for event handling
+			popup.set_item_metadata(item_idx, {
+				"name": name,
+				"shortcut": shortcut_text
+			})
+
+func _generate_menu_event_handler(form_node: Node, item_name: String, caption: String) -> void:
+	"""Generate event handler for menu item (VB6 style: mnuFileOpen_Click)"""
+	print("VisualGasic: Generating menu event handler for " + item_name)
+	
+	var root = get_editor_interface().get_edited_scene_root()
+	if not root:
+		printerr("VisualGasic: No active scene root. Save the scene first.")
+		return
+	
+	var scene_path = root.scene_file_path
+	if scene_path == "":
+		printerr("VisualGasic: Scene not saved. Please save the scene first.")
+		return
+	
+	# Generate .bas file path
+	var bas_path = scene_path.get_basename() + ".bas"
+	
+	# Create .bas file if it doesn't exist
+	if not FileAccess.file_exists(bas_path):
+		var file = FileAccess.open(bas_path, FileAccess.WRITE)
+		if file:
+			file.store_string("' Code for " + root.name + "\n")
+			file.close()
+		get_editor_interface().get_resource_filesystem().scan()
+	
+	# Open and inject menu event handler
+	_open_and_inject(bas_path, item_name, "Click")
 
 func _generate_event_handler(node):
 	print("VisualGasic: Event Gen Request for " + node.name)
