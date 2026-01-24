@@ -125,23 +125,34 @@ Error VisualGasicScript::_reload(bool p_keep_state) {
     String processed_code = resolve_includes("", source_code);
     Vector<VisualGasicTokenizer::Token> tokens = tokenizer.tokenize(processed_code);
     if (tokens.size() > 0 && tokens[tokens.size()-1].type == VisualGasicTokenizer::TOKEN_ERROR) {
-        String err_msg = tokens[tokens.size()-1].value;
+        String err_msg = String(tokens[tokens.size()-1].text.c_str());
         UtilityFunctions::print("Script Reload Error (Token): ", err_msg);
         return ERR_PARSE_ERROR;
     }
     
-    // Re-parse
-    // Ensure parser does not try to delete AST-owned nodes from its
-    // tracked allocation lists when the script is torn down. Clear
-    // the parser trackers first to avoid double-delete in the
-    // parser destructor (parser is a member and will be destroyed
-    // after this object).
-    parser.clear_tracked_nodes();
-    if (ast_root) delete ast_root;
-    ast_root = parser.parse(tokens);
-    if (parser.errors.size() > 0) {
-         UtilityFunctions::print("Script Reload Error (Parse): ", parser.errors[0].message);
+    // Re-parse using a local parser instance to avoid shared-state races
+    VisualGasicParser local_parser;
+
+    // Ensure any existing AST is safely deleted before reassigning
+    if (ast_root) {
+        delete ast_root;
+        ast_root = nullptr;
     }
+
+    ModuleNode* new_ast = local_parser.parse(tokens);
+    if (local_parser.errors && local_parser.errors->size() > 0) {
+         UtilityFunctions::print("Script Reload Error (Parse): ", local_parser.errors->size(), " parse errors detected");
+    }
+
+    // If parsing failed, abort reload to avoid dereferencing nullptr AST later
+    if (!new_ast) {
+        UtilityFunctions::print("Script Reload: parse returned null; aborting reload and marking as invalid");
+        base_script.unref();
+        return ERR_PARSE_ERROR;
+    }
+
+    // Assign the newly parsed AST
+    ast_root = new_ast;
 
     // Handle Inheritance
     base_script.unref();

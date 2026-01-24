@@ -5,7 +5,7 @@
 #include "visual_gasic_ast.h"
 
 class VisualGasicParser {
-    Vector<VisualGasicTokenizer::Token> tokens;
+    Vector<VisualGasicTokenizer::Token>* tokens;  // Pointer so we can leak it to avoid corrupted Variant destructors
     int current_pos;
 
     VisualGasicTokenizer::Token peek(int offset = 0);
@@ -19,9 +19,9 @@ public:
     struct ParsingError {
         int line;
         int column;
-        String message;
+        std::string message;  // Use std::string to avoid GDExtension initialization issues
     };
-    Vector<ParsingError> errors;
+    Vector<ParsingError>* errors;  // Pointer so we can leak it to avoid corrupted String destructors
 
     VisualGasicParser();
     ~VisualGasicParser();

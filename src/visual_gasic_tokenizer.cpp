@@ -1,5 +1,8 @@
 #include "visual_gasic_tokenizer.h"
 #include <godot_cpp/variant/utility_functions.hpp>
+#include <strings.h>
+#include <vector>
+#include <cstdlib>  // for std::strtod, std::strtol
 
 VisualGasicTokenizer::VisualGasicTokenizer() {
     has_error = false;
@@ -46,14 +49,20 @@ String VisualGasicTokenizer::token_type_to_string(TokenType p_type) {
 }
 
 Vector<VisualGasicTokenizer::Token> VisualGasicTokenizer::tokenize(const String &p_source_code) {
+    // Keep the original wrapper that converts to UTF-8 std::string and forwards
+    std::string utf8 = p_source_code.utf8().get_data();
+    return tokenize_from_utf8(utf8);
+}
+
+Vector<VisualGasicTokenizer::Token> VisualGasicTokenizer::tokenize_from_utf8(const std::string &p_source_code) {
     Vector<Token> tokens;
-    int length = p_source_code.length();
+    int length = (int)p_source_code.size();
     int current = 0;
     int line = 1;
     int column = 1;
 
-    // VB6 Keywords
-    Vector<String> keywords;
+    // VB6 Keywords - use std::vector for standalone tests
+    std::vector<std::string> keywords;
     keywords.push_back("Dim");
     keywords.push_back("Sub");
     keywords.push_back("End");
@@ -101,7 +110,8 @@ Vector<VisualGasicTokenizer::Token> VisualGasicTokenizer::tokenize(const String 
     keywords.push_back("Inherits");
     keywords.push_back("Extends");
     keywords.push_back("Me");
-    keywords.push_back("Event");
+    // 'Event' is intentionally omitted from keywords to allow common parameter name 'event' in handlers
+    // (e.g., Sub _unhandled_input(event As Object)). Keep 'RaiseEvent' if needed.
     keywords.push_back("RaiseEvent");
     keywords.push_back("New");
     keywords.push_back("Dictionary");
@@ -135,7 +145,8 @@ Vector<VisualGasicTokenizer::Token> VisualGasicTokenizer::tokenize(const String 
     keywords.push_back("Static");
 
     while (current < length) {
-        char32_t c = p_source_code[current];
+        unsigned char uc = p_source_code[current];
+        char32_t c = (char32_t)uc; // ASCII/UTF-8-safe for our test inputs
 
         // Whitespace (ignore spaces and tabs, but keep track of column)
         if (c == ' ' || c == '\t' || c == '\r') {
@@ -160,22 +171,16 @@ Vector<VisualGasicTokenizer::Token> VisualGasicTokenizer::tokenize(const String 
 
         // Comments
         if (c == '\'') {
-            // Consume until end of line
             int start = current;
             while (current < length && p_source_code[current] != '\n') {
                 current++;
             }
-            // We treat comments as tokens or ignore them? Let's ignore them for execution but maybe keep for parsing if needed. 
-            // For now, let's just skip them or emit a comment token.
-            // Let's emit a Token for debugging.
             Token t;
             t.type = TOKEN_COMMENT;
-            t.value = p_source_code.substr(start, current - start);
+            t.text = std::string(p_source_code.c_str()+start, current-start);
             t.line = line;
             t.column = column;
             tokens.push_back(t);
-            
-            // Don't consume the newline here, let the next loop handle it
             column += (current - start);
             continue;
         }
@@ -184,17 +189,20 @@ Vector<VisualGasicTokenizer::Token> VisualGasicTokenizer::tokenize(const String 
         if (is_digit(c)) {
             int start = current;
             bool is_float = false;
-            while (current < length && (is_digit(p_source_code[current]) || p_source_code[current] == '.')) {
+            while (current < length && ((unsigned char)p_source_code[current] >= '0' && (unsigned char)p_source_code[current] <= '9' || p_source_code[current] == '.')) {
                 if (p_source_code[current] == '.') {
-                    if (is_float) break; // Second dot
+                    if (is_float) break;
                     is_float = true;
                 }
                 current++;
             }
-            String num_str = p_source_code.substr(start, current - start);
+            // Use std::string for numeric parsing to avoid godot::String initialization issues
+            std::string num_str(p_source_code.c_str()+start, current-start);
             Token t;
             t.type = is_float ? TOKEN_LITERAL_FLOAT : TOKEN_LITERAL_INTEGER;
-            t.value = is_float ? num_str.to_float() : num_str.to_int();
+            // Parse numeric value using strtod/strtol instead of String methods
+            t.value = is_float ? std::strtod(num_str.c_str(), nullptr) : std::strtol(num_str.c_str(), nullptr, 10);
+            t.text = num_str;
             t.line = line;
             t.column = column;
             tokens.push_back(t);
@@ -203,30 +211,29 @@ Vector<VisualGasicTokenizer::Token> VisualGasicTokenizer::tokenize(const String 
         }
 
         // Identifiers and Keywords
-        if (is_alpha(c)) {
+        auto is_alnum_local = [](unsigned char ch){ return (ch=='_' || (ch>='a' && ch<='z') || (ch>='A' && ch<='Z') || (ch>='0' && ch<='9')); };
+        auto is_alpha_local = [](unsigned char ch){ return (ch=='_' || (ch>='a' && ch<='z') || (ch>='A' && ch<='Z')); };
+
+        if (is_alpha_local(uc)) {
             int start = current;
-            while (current < length && is_alphanumeric(p_source_code[current])) {
+            while (current < length && is_alnum_local((unsigned char)p_source_code[current])) {
                 current++;
             }
-            String text = p_source_code.substr(start, current - start);
             Token t;
-            t.value = text;
+            t.text = std::string(p_source_code.c_str()+start, current-start);
             t.line = line;
             t.column = column;
 
-            // Check if keyword (Case insensitive)
             bool is_keyword = false;
-            for (int i = 0; i < keywords.size(); i++) {
-                if (keywords[i].nocasecmp_to(text) == 0) {
+            // Determine case-insensitive keyword match using std::string comparison
+            for (size_t i = 0; i < keywords.size(); i++) {
+                if (strcasecmp(keywords[i].c_str(), t.text.c_str()) == 0) {
                     is_keyword = true;
-                    // Store normalized keyword? Or original?
-                    t.value = keywords[i]; 
                     break;
                 }
             }
             t.type = is_keyword ? TOKEN_KEYWORD : TOKEN_IDENTIFIER;
             tokens.push_back(t);
-        // UtilityFunctions::print("Tokenizer Pushed: ", t.value, " Type: ", t.type);
             column += (current - start);
             continue;
         }
@@ -236,41 +243,32 @@ Vector<VisualGasicTokenizer::Token> VisualGasicTokenizer::tokenize(const String 
         if (c == '$' && current + 1 < length && p_source_code[current+1] == '"') {
              is_interpolated = true;
              current++; // Eat $
-             c = '"'; // Proceed to quote handling
+             c = '"';
         }
 
         if (c == '"') {
-            current++; // Skip opening quote
+            current++; // Skip opening
             int start = current;
             while (current < length && p_source_code[current] != '"' && p_source_code[current] != '\n') {
                 current++;
             }
-            
             if (current >= length || p_source_code[current] == '\n') {
-                 // Error: Unterminated string
                  Token t;
                  t.type = TOKEN_ERROR;
-                 t.value = "Unterminated string";
+                 t.text = "Unterminated string";
                  t.line = line;
                  t.column = column;
                  tokens.push_back(t);
                  continue;
             }
-
-            String str_val = p_source_code.substr(start, current - start);
-            current++; // Skip closing quote
-            
+            // Removed godot::String construction that could cause memory corruption
+            current++; // Skip closing
             Token t;
-            // Use specific token type for interpolated strings
             t.type = is_interpolated ? TOKEN_STRING_INTERP : TOKEN_LITERAL_STRING;
-            t.value = str_val;
-            
+            t.text = std::string(p_source_code.c_str()+start, current-start);
             t.line = line;
             t.column = column;
-            tokens.push_back(t); // Placeholder
-            
-            // Correct approach: Update header now.
-            // Revert this part or do it right.
+            tokens.push_back(t);
             column += (current - start + 2 + (is_interpolated?1:0));
             continue;
         }
@@ -282,86 +280,62 @@ Vector<VisualGasicTokenizer::Token> VisualGasicTokenizer::tokenize(const String 
         bool handled = true;
 
         switch (c) {
-            case '(': t.type = TOKEN_PAREN_OPEN; t.value = "("; break;
-            case ')': t.type = TOKEN_PAREN_CLOSE; t.value = ")"; break;
-            case ',': t.type = TOKEN_COMMA; t.value = ","; break;
+            case '(': t.type = TOKEN_PAREN_OPEN; t.text = "("; break;
+            case ')': t.type = TOKEN_PAREN_CLOSE; t.text = ")"; break;
+            case ',': t.type = TOKEN_COMMA; t.text = ","; break;
             case '+': 
-                if (current + 1 < length && p_source_code[current+1] == '=') {
-                    t.type = TOKEN_OPERATOR; t.value = "+="; current++;
-                } else if (current + 1 < length && p_source_code[current+1] == '+') {
-                    t.type = TOKEN_OPERATOR; t.value = "++"; current++;
-                } else {
-                    t.type = TOKEN_OPERATOR; t.value = "+"; 
-                }
+                if (current + 1 < length && p_source_code[current+1] == '=') { t.type = TOKEN_OPERATOR; t.text = "+="; current++; }
+                else if (current + 1 < length && p_source_code[current+1] == '+') { t.type = TOKEN_OPERATOR; t.text = "++"; current++; }
+                else { t.type = TOKEN_OPERATOR; t.text = "+"; }
                 break;
             case '-': 
-                if (current + 1 < length && p_source_code[current+1] == '=') {
-                    t.type = TOKEN_OPERATOR; t.value = "-="; current++;
-                } else if (current + 1 < length && p_source_code[current+1] == '-') {
-                    t.type = TOKEN_OPERATOR; t.value = "--"; current++;
-                } else {
-                    t.type = TOKEN_OPERATOR; t.value = "-"; 
-                }
+                if (current + 1 < length && p_source_code[current+1] == '=') { t.type = TOKEN_OPERATOR; t.text = "-="; current++; }
+                else if (current + 1 < length && p_source_code[current+1] == '-') { t.type = TOKEN_OPERATOR; t.text = "--"; current++; }
+                else { t.type = TOKEN_OPERATOR; t.text = "-"; }
                 break;
             case '*': 
-                if (current + 1 < length && p_source_code[current+1] == '=') {
-                    t.type = TOKEN_OPERATOR; t.value = "*="; current++;
-                } else if (current + 1 < length && p_source_code[current+1] == '*') {
-                    t.type = TOKEN_OPERATOR; t.value = "**"; current++;
-                } else {
-                    t.type = TOKEN_OPERATOR; t.value = "*"; 
-                }
+                if (current + 1 < length && p_source_code[current+1] == '=') { t.type = TOKEN_OPERATOR; t.text = "*="; current++; }
+                else if (current + 1 < length && p_source_code[current+1] == '*') { t.type = TOKEN_OPERATOR; t.text = "**"; current++; }
+                else { t.type = TOKEN_OPERATOR; t.text = "*"; }
                 break;
             case '/': 
-                if (current + 1 < length && p_source_code[current+1] == '=') {
-                    t.type = TOKEN_OPERATOR; t.value = "/="; current++;
-                } else if (current + 1 < length && p_source_code[current+1] == '/') {
-                    // Check if it's a comment or integer division
-                    // VB style comments are ' or REM. 
-                    // Visual Gasic uses ' for comments.
-                    // So // can be Integer Division (Pythonic).
-                    t.type = TOKEN_OPERATOR; t.value = "//"; current++;
-                } else {
-                    t.type = TOKEN_OPERATOR; t.value = "/"; 
-                }
+                if (current + 1 < length && p_source_code[current+1] == '=') { t.type = TOKEN_OPERATOR; t.text = "/="; current++; }
+                else if (current + 1 < length && p_source_code[current+1] == '/') { t.type = TOKEN_OPERATOR; t.text = "//"; current++; }
+                else { t.type = TOKEN_OPERATOR; t.text = "/"; }
                 break;
-            case '&': t.type = TOKEN_OPERATOR; t.value = "&"; break;
-            case ':': t.type = TOKEN_COLON;    t.value = ":"; break;
-            case '.': t.type = TOKEN_OPERATOR; t.value = "."; break;
-            case '=': t.type = TOKEN_OPERATOR; t.value = "="; break;
-            case '#': t.type = TOKEN_OPERATOR; t.value = "#"; break;
+            case '&': t.type = TOKEN_OPERATOR; t.text = "&"; break;
+            case ':': t.type = TOKEN_COLON;    t.text = ":"; break;
+            case '.': t.type = TOKEN_OPERATOR; t.text = "."; break;
+            case '=': t.type = TOKEN_OPERATOR; t.text = "="; break;
+            case '#': t.type = TOKEN_OPERATOR; t.text = "#"; break;
             case '>': 
-                if (current + 1 < length && p_source_code[current+1] == '=') {
-                    t.type = TOKEN_OPERATOR; t.value = ">="; current++;
-                } else {
-                    t.type = TOKEN_OPERATOR; t.value = ">";
-                }
+                if (current + 1 < length && p_source_code[current+1] == '=') { t.type = TOKEN_OPERATOR; t.text = ">="; current++; }
+                else { t.type = TOKEN_OPERATOR; t.text = ">"; }
                 break;
             case '<': 
-                if (current + 1 < length && p_source_code[current+1] == '=') {
-                    t.type = TOKEN_OPERATOR; t.value = "<="; current++;
-                } else if (current + 1 < length && p_source_code[current+1] == '>') {
-                    t.type = TOKEN_OPERATOR; t.value = "<>"; current++;
-                } else {
-                    t.type = TOKEN_OPERATOR; t.value = "<";
-                }
+                if (current + 1 < length && p_source_code[current+1] == '=') { t.type = TOKEN_OPERATOR; t.text = "<="; current++; }
+                else if (current + 1 < length && p_source_code[current+1] == '>') { t.type = TOKEN_OPERATOR; t.text = "<>"; current++; }
+                else { t.type = TOKEN_OPERATOR; t.text = "<"; }
                 break;
             default:
                 t.type = TOKEN_ERROR;
-                t.value = String("Unexpected character: ") + String::chr(c);
+                // Build textual error without creating a godot::String
+                std::string tmp = std::string("Unexpected character: ");
+                tmp.push_back((char)c);
+                t.text = tmp;
                 if (!has_error) {
                     has_error = true;
                     error_line = line;
                     error_column = column;
-                    error_message = t.value;
+                    error_message = tmp;
                 }
-                handled = true; // Still "handled" as an error
+                handled = true;
                 break;
         }
 
         if (handled) {
             current++;
-            column += t.value.operator String().length();
+            column += (int)t.text.size();
             tokens.push_back(t);
             continue;
         }

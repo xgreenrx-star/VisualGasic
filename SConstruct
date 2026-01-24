@@ -77,11 +77,22 @@ if os.path.exists('tools/parser_harness.cpp'):
     except Exception:
         pass
 
+# Add a small parser repro binary to exercise parsing outside Godot (useful for ASAN runs)
+if os.path.exists('tools/parser_repro.cpp'):
+    try:
+        prog_repro = env.Program(target="tools/parser_repro", source=(['tools/parser_repro.cpp'] + ['src/visual_gasic_tokenizer.cpp', 'src/visual_gasic_parser.cpp']))
+        Default(prog_repro)
+    except Exception:
+        pass
+
 # Only create parser unit programs if their source files exist to avoid build failures on trimmed checkouts
-parser_unit_sources = ['tools/parser_unit_test.cpp', 'src/visual_gasic_tokenizer.cpp', 'src/visual_gasic_parser.cpp', 'src/init_probes.cpp']
+parser_unit_sources = ['tools/parser_unit_test.cpp', 'src/visual_gasic_tokenizer.cpp', 'src/visual_gasic_parser.cpp', 'src/init_probes.cpp', 'src/gde_stubs.cpp']
 if all(os.path.exists(p) for p in parser_unit_sources):
     try:
-        prog_unit = env.Program(target="tools/parser_unit_test", source=parser_unit_sources)
+        # Clone environment for parser_unit_test with special link flags to export symbols for dlsym
+        env_parser_test = env.Clone()
+        env_parser_test.Append(LINKFLAGS=['-rdynamic'])
+        prog_unit = env_parser_test.Program(target="tools/parser_unit_test", source=parser_unit_sources)
         Default(prog_unit)
     except Exception:
         pass

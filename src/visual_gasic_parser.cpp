@@ -2,11 +2,34 @@
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <godot_cpp/classes/file_access.hpp>
 #include <stdio.h>
+#include <algorithm>
+#include <cctype>
+#include <string>
 
-VisualGasicParser::VisualGasicParser() : current_pos(0) {
+// Helper: get lowercased token text without constructing godot::String
+static std::string token_text_lower(const VisualGasicTokenizer::Token &t) {
+    std::string s = t.text;
+    std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c){ return std::tolower(c); });
+    return s;
+}
+static std::string token_text_lower(const VisualGasicTokenizer::Token &t, int /*unused*/) { return token_text_lower(t); }
+
+
+VisualGasicParser::VisualGasicParser() : tokens(new Vector<VisualGasicTokenizer::Token>()), current_pos(0), errors(new Vector<ParsingError>()) {
 }
 
 VisualGasicParser::~VisualGasicParser() {
+    UtilityFunctions::print("VisualGasicParser::~VisualGasicParser() called");
+    
+    // If there were parse errors, don't try to clean up ANYTHING - leak it all
+    if (errors && errors->size() > 0) {
+        UtilityFunctions::print("Parser had errors, leaking EVERYTHING");
+        // DON'T delete errors or tokens - even member destructors might trigger corrupted Variant cleanup
+        return;
+    }
+    
+    UtilityFunctions::print("No parse errors, cleaning up normally");
+    
     // Free any parser-owned nodes that were not transferred to the
     // returned ModuleNode (i.e. parse failure paths that left
     // temporary allocations).
@@ -19,20 +42,36 @@ VisualGasicParser::~VisualGasicParser() {
         if (allocated_expr_nodes[i]) delete allocated_expr_nodes[i];
     }
     allocated_expr_nodes.clear();
+    
+    // Safe to delete errors now - no more godot::String corruption
+    if (errors) delete errors;
+    if (tokens) delete tokens;
+    
+    UtilityFunctions::print("Parser destructor completed");
 }
 
 VisualGasicTokenizer::Token VisualGasicParser::peek(int offset) {
-    if (current_pos + offset >= tokens.size()) {
+    if (current_pos + offset < 0) {
+        UtilityFunctions::print("VisualGasicParser: peek called with negative current_pos:", current_pos, " offset:", offset);
         VisualGasicTokenizer::Token t;
         t.type = VisualGasicTokenizer::TOKEN_EOF;
         return t;
     }
-    return tokens[current_pos + offset];
+    if (current_pos + offset >= tokens->size()) {
+        VisualGasicTokenizer::Token t;
+        t.type = VisualGasicTokenizer::TOKEN_EOF;
+        return t;
+    }
+    return (*tokens)[current_pos + offset];
 }
 
 VisualGasicTokenizer::Token VisualGasicParser::advance() {
     if (!is_at_end()) current_pos++;
-    if (current_pos > 0 && current_pos <= tokens.size()) return tokens[current_pos - 1];
+    if (current_pos < 0) {
+        UtilityFunctions::print("VisualGasicParser: advance() current_pos went negative:", current_pos);
+    }
+    if (current_pos > 0 && current_pos <= tokens->size()) return (*tokens)[current_pos - 1];
+    UtilityFunctions::print("VisualGasicParser: advance() returning peek() due to out-of-range current_pos:", current_pos, " tokens.size=", tokens->size());
     return peek();
 }
 
@@ -55,7 +94,7 @@ bool VisualGasicParser::is_at_end() {
 
 // Helper needed because I used 'previous' in advance but didn't define it
 VisualGasicTokenizer::Token VisualGasicParser::previous() {
-    if (current_pos > 0) return tokens[current_pos - 1];
+    if (current_pos > 0) return (*tokens)[current_pos - 1];
     return VisualGasicTokenizer::Token();
 }
 
@@ -64,20 +103,24 @@ void VisualGasicParser::error(const String& message) {
     VisualGasicTokenizer::Token t = peek();
     err.line = t.line;
     err.column = t.column;
-    err.message = message;
-    errors.push_back(err);
+    err.message = std::string(message.utf8().get_data());  // Convert godot::String to std::string
+    errors->push_back(err);
 }
 
 // Reimplementing correct logic
 ModuleNode* VisualGasicParser::parse(const Vector<VisualGasicTokenizer::Token>& p_tokens) {
-    tokens = p_tokens;
-    errors.clear();
+    UtilityFunctions::print("VisualGasicParser: Starting parse (token count: ", p_tokens.size(), ")");
+    *tokens = p_tokens;
+    errors->clear();
     current_pos = 0;
     
     ModuleNode* module = new ModuleNode();
     current_module = module;
 
         while (!is_at_end()) {
+        if (current_pos < 0 || current_pos > tokens->size()) {
+            UtilityFunctions::print("VisualGasicParser: parse loop current_pos invalid:", current_pos, " tokens.size:", tokens->size());
+        }
         VisualGasicTokenizer::Token t = peek();
         
         if (t.type == VisualGasicTokenizer::TOKEN_NEWLINE) {
@@ -86,33 +129,32 @@ ModuleNode* VisualGasicParser::parse(const Vector<VisualGasicTokenizer::Token>& 
         }
 
         // Attribute VB_Name = "..."
-        if (t.type == VisualGasicTokenizer::TOKEN_IDENTIFIER && t.value == "Attribute") {
-            // Consume Attribute line
-            while (!is_at_end() && peek().type != VisualGasicTokenizer::TOKEN_NEWLINE) {
-                current_pos++;
-            }
-            continue;
+    if (t.type == VisualGasicTokenizer::TOKEN_IDENTIFIER && t.text == "Attribute") {
+        // Consume Attribute line
+        while (!is_at_end() && peek().type != VisualGasicTokenizer::TOKEN_NEWLINE) {
+            current_pos++;
         }
+        continue;
+    }
 
-        // Inheritance (Inherits or Extends)
-        String t_val_lower = String(t.value).to_lower();
-        if (t.type == VisualGasicTokenizer::TOKEN_KEYWORD && (t_val_lower == "inherits" || t_val_lower == "extends")) {
-            advance(); // consume keyword
-            if (check(VisualGasicTokenizer::TOKEN_LITERAL_STRING)) {
-                module->inherits_path = advance().value;
-            } else if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
-                // Treat identifiers as simple class names or resource paths if possible?
-                // VisualGasic doesn't have a global class map yet, so this might be just the name string.
-                // But Godot usually expects a path for non-global classes.
-                module->inherits_path = advance().value;
-            } else {
+    // Inheritance (Inherits or Extends)
+    std::string t_val_lower = token_text_lower(t);
+    if (t.type == VisualGasicTokenizer::TOKEN_KEYWORD && (t_val_lower == "inherits" || t_val_lower == "extends")) {
+        advance(); // consume keyword
+        if (check(VisualGasicTokenizer::TOKEN_LITERAL_STRING)) {
+            module->inherits_path = String(advance().text.c_str());
+        } else if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
+            // Treat identifiers as simple class names or resource paths if possible?
+            // VisualGasic doesn't have a global class map yet, so this might be just the name string.
+            // But Godot usually expects a path for non-global classes.
+            module->inherits_path = String(advance().text.c_str());
                 error("Expected string literal or class name after 'Inherits'");
             }
             continue;
         }
         
         // Event Definition
-        if (t.type == VisualGasicTokenizer::TOKEN_KEYWORD && String(t.value).to_lower() == "event") {
+        if (t.type == VisualGasicTokenizer::TOKEN_KEYWORD && token_text_lower(t) == "event") {
             EventDefinition* evt = parse_event(); // We need to add this method in parser.h too or include it inline?
             // parse_event is defined above parse_statement now, but we need to declare it in the class or just add it to ModuleNode
             if (evt) {
@@ -122,7 +164,7 @@ ModuleNode* VisualGasicParser::parse(const Vector<VisualGasicTokenizer::Token>& 
             continue;
         }
 
-        if ((t.type == VisualGasicTokenizer::TOKEN_IDENTIFIER || t.type == VisualGasicTokenizer::TOKEN_KEYWORD) && (t.value == "Sub" || t.value == "Function")) {
+        if ((t.type == VisualGasicTokenizer::TOKEN_IDENTIFIER || t.type == VisualGasicTokenizer::TOKEN_KEYWORD) && (t.text == "Sub" || t.text == "Function")) {
             SubDefinition* sub = parse_sub();
             if (sub) {
                 module->subs.push_back(sub);
@@ -131,7 +173,7 @@ ModuleNode* VisualGasicParser::parse(const Vector<VisualGasicTokenizer::Token>& 
             continue;
         }
 
-        if (t.type == VisualGasicTokenizer::TOKEN_KEYWORD && t.value == "Type") {
+        if (t.type == VisualGasicTokenizer::TOKEN_KEYWORD && t.text == "Type") {
             StructDefinition* def = parse_struct();
             if (def) {
                 module->structs.push_back(def);
@@ -141,7 +183,7 @@ ModuleNode* VisualGasicParser::parse(const Vector<VisualGasicTokenizer::Token>& 
         }
 
         // Variable Declaration (Dim, Public, Private)
-        String val = String(t.value).to_lower();
+        std::string val = token_text_lower(t);
         if (t.type == VisualGasicTokenizer::TOKEN_KEYWORD && (val == "public" || val == "private" || val == "dim")) {
             // Parse DimStatement logic but store as global VariableDefinition
              DimStatement* dim = parse_dim(); // Reuse parse_dim which handles Dim A As Integer
@@ -169,17 +211,17 @@ ModuleNode* VisualGasicParser::parse(const Vector<VisualGasicTokenizer::Token>& 
              continue;
         }
 
-        if (t.type == VisualGasicTokenizer::TOKEN_KEYWORD && String(t.value).to_lower() == "option") {
+        if (t.type == VisualGasicTokenizer::TOKEN_KEYWORD && token_text_lower(t) == "option") {
              advance(); // Eat Option
              if (check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
-                 String kw = String(peek().value).to_lower();
+                 std::string kw = token_text_lower(peek());
                  if (kw == "explicit") {
                      advance(); // Eat Explicit
                      module->option_explicit = true;
                  } else if (kw == "compare") {
                      advance(); // Eat Compare
                      if (check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
-                         String mode = String(peek().value).to_lower();
+                         std::string mode = token_text_lower(peek());
                          if (mode == "text") {
                              module->option_compare_text = true;
                              advance();
@@ -195,7 +237,7 @@ ModuleNode* VisualGasicParser::parse(const Vector<VisualGasicTokenizer::Token>& 
              continue;
         }
 
-        if (t.type == VisualGasicTokenizer::TOKEN_KEYWORD && String(t.value).to_lower() == "const") {
+        if (t.type == VisualGasicTokenizer::TOKEN_KEYWORD && token_text_lower(t) == "const") {
              ConstStatement* c = parse_const();
              if (c) {
                  module->constants.push_back(c);
@@ -206,7 +248,7 @@ ModuleNode* VisualGasicParser::parse(const Vector<VisualGasicTokenizer::Token>& 
         }
 
         // Global Data/Labels support
-        bool is_datafile = ((t.type == VisualGasicTokenizer::TOKEN_KEYWORD || t.type == VisualGasicTokenizer::TOKEN_IDENTIFIER) && String(t.value).to_lower() == "datafile");
+        bool is_datafile = ((t.type == VisualGasicTokenizer::TOKEN_KEYWORD || t.type == VisualGasicTokenizer::TOKEN_IDENTIFIER) && token_text_lower(t) == "datafile");
         
         if (is_datafile) {
             Statement* s = parse_data_file();
@@ -217,7 +259,7 @@ ModuleNode* VisualGasicParser::parse(const Vector<VisualGasicTokenizer::Token>& 
             continue;
         }
 
-        if ((t.type == VisualGasicTokenizer::TOKEN_KEYWORD && String(t.value).to_lower() == "data") || 
+        if ((t.type == VisualGasicTokenizer::TOKEN_KEYWORD && token_text_lower(t) == "data") || 
             (t.type == VisualGasicTokenizer::TOKEN_IDENTIFIER && peek(1).type == VisualGasicTokenizer::TOKEN_COLON)) {
             Statement* s = parse_statement();
             if (s) {
@@ -236,17 +278,13 @@ ModuleNode* VisualGasicParser::parse(const Vector<VisualGasicTokenizer::Token>& 
         current_pos++;
     }
 
-    // If parsing recorded errors, free the partially-built AST and
-    // return nullptr so callers know parsing failed. This ensures the
-    // parser is responsible for cleanup on failure and avoids leaving
-    // dangling allocations for higher layers to clean.
-    if (errors.size() > 0) {
-        delete module;
-        // Delete any parser-owned nodes that weren't transferred
-        for (int i = 0; i < allocated_nodes.size(); i++) if (allocated_nodes[i]) delete allocated_nodes[i];
-        allocated_nodes.clear();
-        for (int i = 0; i < allocated_expr_nodes.size(); i++) if (allocated_expr_nodes[i]) delete allocated_expr_nodes[i];
-        allocated_expr_nodes.clear();
+    // If parsing recorded errors, return nullptr so callers know parsing failed
+    if (errors->size() > 0) {
+        UtilityFunctions::print("VisualGasicParser: parse failed with ", errors->size(), " errors");
+        
+        // DON'T delete the module - it has godot::String members that might be corrupted
+        // Leak it to avoid crash
+        
         return nullptr;
     }
 
@@ -262,7 +300,7 @@ ModuleNode* VisualGasicParser::parse(const Vector<VisualGasicTokenizer::Token>& 
 ASTNode* VisualGasicParser::register_node(ASTNode* p_node) {
     if (p_node) {
         allocated_nodes.push_back(p_node);
-        // parser registration (silenced in normal runs)
+        UtilityFunctions::print("VisualGasicParser: register_node, total allocated nodes:", allocated_nodes.size());
     }
     return p_node;
 }
@@ -272,10 +310,11 @@ void VisualGasicParser::unregister_node(ASTNode* p_node) {
     for (int i = 0; i < allocated_nodes.size(); i++) {
         if (allocated_nodes[i] == p_node) {
             allocated_nodes.remove_at(i);
-            // parser unregister (silenced in normal runs)
+            UtilityFunctions::print("VisualGasicParser: unregister_node, remaining allocated:", allocated_nodes.size());
             return;
         }
     }
+    UtilityFunctions::print("VisualGasicParser: unregister_node called for node not found in allocated_nodes");
 }
 
 ExpressionNode* VisualGasicParser::register_node(ExpressionNode* p_node) {
@@ -304,7 +343,7 @@ void VisualGasicParser::clear_tracked_nodes() {
 
 SubDefinition* VisualGasicParser::parse_sub() {
     VisualGasicTokenizer::Token start_token = peek();
-    bool is_function = (String(start_token.value).nocasecmp_to("Function") == 0);
+    bool is_function = (token_text_lower(start_token) == "function");
     current_pos++; // Eat Sub or Function
 
     if (!check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
@@ -312,7 +351,7 @@ SubDefinition* VisualGasicParser::parse_sub() {
         return nullptr;
     }
     
-    String name = peek().value;
+    String name = String(peek().text.c_str());
     current_pos++; // Eat Name
 
     Vector<Parameter> parameters;
@@ -329,7 +368,7 @@ SubDefinition* VisualGasicParser::parse_sub() {
                  while (modifier_found) {
                      modifier_found = false;
                      if (peek().type == VisualGasicTokenizer::TOKEN_KEYWORD) {
-                         String k = String(peek().value).to_lower();
+                         std::string k = token_text_lower(peek());
                          if (k == "optional") {
                              param.is_optional = true;
                              advance();
@@ -351,21 +390,21 @@ SubDefinition* VisualGasicParser::parse_sub() {
                  }
 
                  if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
-                     param.name = peek().value;
+                     param.name = String(peek().text.c_str());
                      advance();
                      
                      // Handle "As Type"
-                     if (peek().type == VisualGasicTokenizer::TOKEN_KEYWORD && String(peek().value).nocasecmp_to("As") == 0) {
+                     if (peek().type == VisualGasicTokenizer::TOKEN_KEYWORD && token_text_lower(peek()) == "as") { 
                           advance(); // Eat 'As'
                           // Eat Type (Identifier or Keyword like Integer, String)
                           if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER) || check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
-                              param.type_hint = peek().value;
+                              param.type_hint = String(peek().text.c_str());
                               advance();
                           }
                      }
 
                      // Handle Default Value (= value) for Optional
-                         if (param.is_optional && check(VisualGasicTokenizer::TOKEN_OPERATOR) && String(peek().value) == "=") {
+                         if (param.is_optional && check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().text == "=") {
                          advance(); // Eat =
                          ExpressionNode* expr = parse_expression();
                          if (expr && expr->type == ExpressionNode::LITERAL) {
@@ -407,9 +446,9 @@ SubDefinition* VisualGasicParser::parse_sub() {
     while (!is_at_end()) {
         VisualGasicTokenizer::Token t = peek();
 
-        if ((t.type == VisualGasicTokenizer::TOKEN_IDENTIFIER || t.type == VisualGasicTokenizer::TOKEN_KEYWORD) && t.value == "End") {
+        if ((t.type == VisualGasicTokenizer::TOKEN_IDENTIFIER || t.type == VisualGasicTokenizer::TOKEN_KEYWORD) && t.text == "End") {
            VisualGasicTokenizer::Token next = peek(1);
-           String end_type = next.value;
+           String end_type = String(next.text.c_str());
            
            if ((is_function && end_type == "Function") || (!is_function && end_type == "Sub")) {
                current_pos += 2; // Eat End Sub/Function
@@ -437,7 +476,7 @@ RaiseEventStatement* VisualGasicParser::parse_raise_event() {
         error("Expected event name after RaiseEvent");
         return stmt;
     }
-    stmt->expression_name = advance().value;
+    stmt->expression_name = String(advance().text.c_str());
     
     // Check for arguments (Optional parens in VB sometimes, but let's assume standard call style)
     // RaiseEvent EventName(Arg, Arg)
@@ -473,7 +512,7 @@ EventDefinition* VisualGasicParser::parse_event() {
     }
     
     EventDefinition* evt = static_cast<EventDefinition*>(register_node(new EventDefinition()));
-    evt->name = advance().value;
+    evt->name = String(advance().text.c_str());
     
     if (check(VisualGasicTokenizer::TOKEN_PAREN_OPEN)) {
         advance();
@@ -482,16 +521,16 @@ EventDefinition* VisualGasicParser::parse_event() {
                 // Parse Arg
                 // ByVal/ByRef optional
                 if (check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
-                     String kw = String(peek().value).to_lower();
+                     std::string kw = token_text_lower(peek());
                      if (kw == "byval" || kw == "byref") advance();
                 }
                 
                 if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
-                    String arg_name = advance().value;
+                    String arg_name = String(advance().text.c_str());
                     evt->arguments.push_back(arg_name);
                     
                      // As Type?
-                    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).to_lower() == "as") {
+                    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && token_text_lower(peek()) == "as") {
                         advance();
                         if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER) || check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
                              advance(); // consume type
@@ -518,14 +557,14 @@ Statement* VisualGasicParser::parse_statement() {
     }
     
     VisualGasicTokenizer::Token t = peek();
-    UtilityFunctions::print("ParseStmt Token: ", t.value, " Type: ", t.type);
+    UtilityFunctions::print("ParseStmt Token: ", t.text.c_str(), " Type: ", t.type);
 
     if (t.type == VisualGasicTokenizer::TOKEN_COMMENT) {
         advance();
         return nullptr;
     }
     
-    String val = t.value.operator String().to_lower();
+    std::string val = token_text_lower(t);
 
     // Only treat reserved words as statements when the tokenizer classified them as KEYWORD.
     if (t.type == VisualGasicTokenizer::TOKEN_KEYWORD) {
@@ -545,7 +584,7 @@ Statement* VisualGasicParser::parse_statement() {
         if (val == "input") return parse_input(false);
         if (val == "line") {
             advance();
-            if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("input") == 0) {
+            if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && token_text_lower(peek()) == "input") {
                  return parse_input(true);
             }
         }
@@ -601,7 +640,7 @@ Statement* VisualGasicParser::parse_statement() {
     if (val == "goto") {
         advance();
         if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
-            String label = peek().value;
+            String label = String(peek().text.c_str());
             advance();
             GotoStatement* g = static_cast<GotoStatement*>(register_node(new GotoStatement()));
             g->label_name = label;
@@ -613,24 +652,24 @@ Statement* VisualGasicParser::parse_statement() {
         advance(); // On
         bool is_error = false;
         // Check for "Error"
-        if (String(peek().value).nocasecmp_to("Error") == 0) {
+        if (token_text_lower(peek()) == "error") {
             advance();
             is_error = true;
         }
         
         if (is_error) {
-             if (String(peek().value).nocasecmp_to("Resume") == 0) {
+             if (token_text_lower(peek()) == "resume") {
                  advance();
-                 if (String(peek().value).nocasecmp_to("Next") == 0) {
+                 if (token_text_lower(peek()) == "next") {
                      advance();
                      OnErrorStatement* s = static_cast<OnErrorStatement*>(register_node(new OnErrorStatement()));
                      s->mode = OnErrorStatement::RESUME_NEXT;
                      return s;
                  }
-             } else if (String(peek().value).nocasecmp_to("Goto") == 0) {
+             } else if (token_text_lower(peek()) == "goto") {
                  advance();
                  if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
-                     String label = peek().value;
+                     String label = String(peek().text.c_str());
                      advance();
                      OnErrorStatement* s = static_cast<OnErrorStatement*>(register_node(new OnErrorStatement()));
                      s->mode = OnErrorStatement::GOTO_LABEL;
@@ -657,22 +696,23 @@ Statement* VisualGasicParser::parse_statement() {
     if (val == "call") {
         advance();
         ExpressionNode* target = nullptr;
-        if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("Me") == 0) {
+        if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && token_text_lower(peek()) == "me") {
             target = static_cast<ExpressionNode*>(register_node(new ExpressionNode())); target->type = ExpressionNode::ME;
             advance();
         } else if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
-            VariableNode* v = static_cast<VariableNode*>(register_node(new VariableNode())); v->name = peek().value;
+            VariableNode* v = static_cast<VariableNode*>(register_node(new VariableNode())); v->name = String(peek().text.c_str());
             target = v;
             advance();
         } else { return nullptr; }
         
-        while(check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().value == ".") {
+        while(check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().text == ".") {
             advance();
             if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER) || check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
-                MemberAccessNode* ma = static_cast<MemberAccessNode*>(register_node(new MemberAccessNode())); ma->base_object = target;
-                ma->member_name = peek().value;
-                target = ma;
+                MemberAccessNode* ma = static_cast<MemberAccessNode*>(register_node(new MemberAccessNode()));
+                ma->base_object = target;
+                ma->member_name = String(peek().text.c_str());
                 advance();
+                target = ma;
             }
         }
         
@@ -732,8 +772,8 @@ Statement* VisualGasicParser::parse_statement() {
     
     if (t.type == VisualGasicTokenizer::TOKEN_IDENTIFIER) {
         // Check for Label: Identifier followed by Colon
-        if (current_pos + 1 < tokens.size() && tokens[current_pos + 1].type == VisualGasicTokenizer::TOKEN_COLON) {
-            String label_name = t.value;
+        if (current_pos + 1 < tokens->size() && (*tokens)[current_pos + 1].type == VisualGasicTokenizer::TOKEN_COLON) {
+            String label_name = String(t.text.c_str());
             advance(); // Identifier
             advance(); // Colon
             LabelStatement* l = static_cast<LabelStatement*>(register_node(new LabelStatement()));
@@ -744,12 +784,12 @@ Statement* VisualGasicParser::parse_statement() {
         return parse_assignment_or_call();
     }
 
-    if (t.type == VisualGasicTokenizer::TOKEN_KEYWORD && t.value.operator String().nocasecmp_to("me") == 0) {
+    if (t.type == VisualGasicTokenizer::TOKEN_KEYWORD && token_text_lower(t) == "me") {
         return parse_assignment_or_call();
     }
     
     // Check for Leading Dot (Implicit With member access)
-    if (t.type == VisualGasicTokenizer::TOKEN_OPERATOR && t.value == ".") {
+    if (t.type == VisualGasicTokenizer::TOKEN_OPERATOR && t.text == ".") {
         return parse_assignment_or_call();
     }
     
@@ -764,14 +804,14 @@ ExpressionNode* VisualGasicParser::parse_expression() {
     
     // Check for inline If (Pythonic Ternary)
     // Value If Condition Else OtherValue
-    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("If") == 0) {
+    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && token_text_lower(peek()) == "if") {
         advance(); // Eat If
         ExpressionNode* cond = parse_expression(); // Recursive for precedence?
         // Actually usually ternary condition connects to 'Else' tightly.
         // Python: x if c else y
         // c is an expression.
         
-        if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("Else") == 0) {
+        if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && token_text_lower(peek()) == "else") {
             advance(); // Eat Else
             ExpressionNode* false_part = parse_expression(); // Recursive
             
@@ -792,8 +832,9 @@ ExpressionNode* VisualGasicParser::parse_expression() {
 ExpressionNode* VisualGasicParser::parse_logical_or() {
     ExpressionNode* expr = parse_and();
     while (check(VisualGasicTokenizer::TOKEN_KEYWORD) || check(VisualGasicTokenizer::TOKEN_OPERATOR)) {
-        String op = String(peek().value);
-        if (op.nocasecmp_to("Or") == 0 || op.nocasecmp_to("Xor") == 0 || op.nocasecmp_to("OrElse") == 0) {
+        std::string op_l = token_text_lower(peek());
+        if (op_l == "or" || op_l == "xor" || op_l == "orelse") {
+            String op = String(peek().text.c_str());
             advance();
             ExpressionNode* right = parse_and();
             BinaryOpNode* bin = static_cast<BinaryOpNode*>(register_node(new BinaryOpNode()));
@@ -817,8 +858,9 @@ ExpressionNode* VisualGasicParser::parse_logical_or() {
 ExpressionNode* VisualGasicParser::parse_and() {
     ExpressionNode* expr = parse_not();
     while ((check(VisualGasicTokenizer::TOKEN_KEYWORD) || check(VisualGasicTokenizer::TOKEN_OPERATOR))) {
-        String op = String(peek().value);
-        if (op.nocasecmp_to("And") == 0 || op.nocasecmp_to("AndAlso") == 0) {
+        std::string op_l = token_text_lower(peek());
+        if (op_l == "and" || op_l == "andalso") {
+            String op = String(peek().text.c_str());
             advance();
             ExpressionNode* right = parse_not();
             BinaryOpNode* bin = static_cast<BinaryOpNode*>(register_node(new BinaryOpNode()));
@@ -840,8 +882,8 @@ ExpressionNode* VisualGasicParser::parse_and() {
 }
 
 ExpressionNode* VisualGasicParser::parse_not() {
-    if ((check(VisualGasicTokenizer::TOKEN_KEYWORD) || check(VisualGasicTokenizer::TOKEN_OPERATOR)) && String(peek().value).nocasecmp_to("Not") == 0) {
-        String op = String(peek().value);
+    if ((check(VisualGasicTokenizer::TOKEN_KEYWORD) || check(VisualGasicTokenizer::TOKEN_OPERATOR)) && token_text_lower(peek()) == "not") {
+        String op = String(peek().text.c_str());
         advance();
         ExpressionNode* operand = parse_not();
         UnaryOpNode* unary = static_cast<UnaryOpNode*>(register_node(new UnaryOpNode()));
@@ -861,7 +903,7 @@ ExpressionNode* VisualGasicParser::parse_comparison() {
     // Check for Operators and special Keyword 'Is'
     while (true) {
         if (check(VisualGasicTokenizer::TOKEN_OPERATOR)) {
-            String op = peek().value;
+            String op = String(peek().text.c_str());
             if (op == "=" || op == "<" || op == ">" || op == "<=" || op == ">=" || op == "<>") {
                 advance();
                 ExpressionNode* right = parse_addition();
@@ -880,7 +922,7 @@ ExpressionNode* VisualGasicParser::parse_comparison() {
             }
         }
         
-        if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("Is") == 0) {
+        if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && token_text_lower(peek()) == "is") {
             advance();
             ExpressionNode* right = parse_addition();
             BinaryOpNode* bin = static_cast<BinaryOpNode*>(register_node(new BinaryOpNode()));
@@ -909,7 +951,7 @@ ExpressionNode* VisualGasicParser::parse_addition() {
     ExpressionNode* expr = parse_term();
     
     while (check(VisualGasicTokenizer::TOKEN_OPERATOR)) {
-        String op = peek().value;
+        String op = String(peek().text.c_str());
         if (op == "+" || op == "-" || op == "&") {
             advance();
             ExpressionNode* right = parse_term();
@@ -935,7 +977,7 @@ ExpressionNode* VisualGasicParser::parse_term() {
     ExpressionNode* expr = parse_unary();
     
     while (check(VisualGasicTokenizer::TOKEN_OPERATOR)) {
-        String op = peek().value;
+        String op = String(peek().text.c_str());
         if (op == "*" || op == "/" || op == "//") {
             advance();
             ExpressionNode* right = parse_unary();
@@ -960,7 +1002,7 @@ ExpressionNode* VisualGasicParser::parse_term() {
 ExpressionNode* VisualGasicParser::parse_exponentiation() {
     ExpressionNode* expr = parse_factor();
     
-    if (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().value == "**") {
+    if (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().text == "**") {
         advance();
         ExpressionNode* right = parse_exponentiation(); // Right Associative
         BinaryOpNode* bin = static_cast<BinaryOpNode*>(register_node(new BinaryOpNode()));
@@ -979,7 +1021,7 @@ ExpressionNode* VisualGasicParser::parse_exponentiation() {
 }
 
 ExpressionNode* VisualGasicParser::parse_unary() {
-    if (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().value == "-") {
+    if (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().text == "-") {
         advance();
         ExpressionNode* operand = parse_unary();
         UnaryOpNode* u = static_cast<UnaryOpNode*>(register_node(new UnaryOpNode()));
@@ -997,7 +1039,7 @@ ExpressionNode* VisualGasicParser::parse_unary() {
 
 ExpressionNode* VisualGasicParser::parse_factor() {
     // Check for Leading Dot (With Context) (e.g. .x)
-    if (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().value == ".") {
+    if (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().text == ".") {
         // This is a MemberAccess on "Implicit With"
         // We handle this by creating a MEMBER_ACCESS with NULL base
         // But parse_call_or_member expects a 'left' node.
@@ -1010,7 +1052,7 @@ ExpressionNode* VisualGasicParser::parse_factor() {
         if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
              MemberAccessNode* ma = static_cast<MemberAccessNode*>(register_node(new MemberAccessNode()));
              ma->base_object = base;
-             ma->member_name = peek().value;
+             ma->member_name = String(peek().text.c_str());
              advance();
              
              // Check for more dots? passed back to caller
@@ -1028,13 +1070,13 @@ ExpressionNode* VisualGasicParser::parse_factor() {
         check(VisualGasicTokenizer::TOKEN_LITERAL_STRING)) {
         
         LiteralNode* node = static_cast<LiteralNode*>(register_node(new LiteralNode()));
-        node->value = peek().value;
+        node->value = String(peek().text.c_str());
         advance();
         return node;
     }
     
     if (check(VisualGasicTokenizer::TOKEN_STRING_INTERP)) {
-         String raw = peek().value;
+         String raw = String(peek().text.c_str());
          advance();
          
          ExpressionNode* root = nullptr;
@@ -1079,7 +1121,7 @@ ExpressionNode* VisualGasicParser::parse_factor() {
              VisualGasicTokenizer sub_tok;
              Vector<VisualGasicTokenizer::Token> sub_tokens = sub_tok.tokenize(expr_str);
              VisualGasicParser sub_parser;
-             sub_parser.tokens = sub_tokens;
+             *sub_parser.tokens = sub_tokens;
              // We deliberately do not pass full module context here as it's a lightweight parse
              // But if expr uses constants, it might fail? 
              // Variable names are just identifiers, resolved at runtime, so it's fine.
@@ -1112,7 +1154,7 @@ ExpressionNode* VisualGasicParser::parse_factor() {
 
     // Check for True/False/Action Keys/OO
     if (check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
-        String k = peek().value;
+        String k = String(peek().text.c_str());
         if (k.nocasecmp_to("True") == 0) {
             advance();
             LiteralNode* node = static_cast<LiteralNode*>(register_node(new LiteralNode()));
@@ -1137,7 +1179,7 @@ ExpressionNode* VisualGasicParser::parse_factor() {
             advance();
              if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER) || check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
                  NewNode* n = static_cast<NewNode*>(register_node(new NewNode()));
-                 n->class_name = peek().value;
+                 n->class_name = String(peek().text.c_str());
                  advance();
                  
                  // Handle arguments for New Class(Args) - mainly for MemoryBlock
@@ -1173,15 +1215,15 @@ ExpressionNode* VisualGasicParser::parse_factor() {
     }
 
     // Check for IIf
-    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("IIf") == 0) {
+    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && token_text_lower(peek()) == "iif") {
         advance(); // Eat IIf
         match(VisualGasicTokenizer::TOKEN_PAREN_OPEN);
         ExpressionNode* cond = parse_expression();
         match(VisualGasicTokenizer::TOKEN_COMMA);
         
         // Check optional "True ="
-        if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("True") == 0) {
-             if (current_pos+1 < tokens.size() && tokens[current_pos+1].type == VisualGasicTokenizer::TOKEN_OPERATOR && tokens[current_pos+1].value == "=") {
+        if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && token_text_lower(peek()) == "true") {
+             if (current_pos+1 < tokens->size() && (*tokens)[current_pos+1].type == VisualGasicTokenizer::TOKEN_OPERATOR && (*tokens)[current_pos+1].text == "=") {
                   advance(); advance(); // Eat True =
              }
         }
@@ -1189,8 +1231,8 @@ ExpressionNode* VisualGasicParser::parse_factor() {
         match(VisualGasicTokenizer::TOKEN_COMMA);
 
         // Check optional "False ="
-        if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("False") == 0) {
-             if (current_pos+1 < tokens.size() && tokens[current_pos+1].type == VisualGasicTokenizer::TOKEN_OPERATOR && tokens[current_pos+1].value == "=") {
+        if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && token_text_lower(peek()) == "false") {
+             if (current_pos+1 < tokens->size() && (*tokens)[current_pos+1].type == VisualGasicTokenizer::TOKEN_OPERATOR && (*tokens)[current_pos+1].text == "=") {
                   advance(); advance(); // Eat False =
              }
         }
@@ -1205,7 +1247,7 @@ ExpressionNode* VisualGasicParser::parse_factor() {
     }
     
     // Check for Nothing
-    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("Nothing") == 0) {
+    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && token_text_lower(peek()) == "nothing") {
         LiteralNode* node = static_cast<LiteralNode*>(register_node(new LiteralNode()));
         node->value = Variant(); // Nil
         advance();
@@ -1213,18 +1255,18 @@ ExpressionNode* VisualGasicParser::parse_factor() {
     }
 
     // Check for Me
-    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("Me") == 0) {
+    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && token_text_lower(peek()) == "me") {
         advance();
         ExpressionNode* left = static_cast<ExpressionNode*>(register_node(new ExpressionNode()));
         left->type = ExpressionNode::ME;
         
         // Handle member access
-        while (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().value == ".") {
+        while (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().text == ".") {
             advance(); // Eat .
             if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER) || check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
                 MemberAccessNode* member = static_cast<MemberAccessNode*>(register_node(new MemberAccessNode()));
                 member->base_object = left;
-                member->member_name = peek().value;
+                member->member_name = String(peek().text.c_str());
                 advance();
                 left = member;
             } else {
@@ -1263,11 +1305,11 @@ ExpressionNode* VisualGasicParser::parse_factor() {
     }
 
     // Check for New
-    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("New") == 0) {
+    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && token_text_lower(peek()) == "new") {
         advance();
         if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER) || check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
              NewNode* n = static_cast<NewNode*>(register_node(new NewNode()));
-             n->class_name = peek().value;
+             n->class_name = String(peek().text.c_str());
              advance();
              return n;
         } else {
@@ -1279,12 +1321,12 @@ ExpressionNode* VisualGasicParser::parse_factor() {
     bool is_ident = check(VisualGasicTokenizer::TOKEN_IDENTIFIER);
     bool is_special_base = false;
     if (check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
-         String kv = peek().value;
+         String kv = String(peek().text.c_str());
          if (kv.nocasecmp_to("Input") == 0) is_special_base = true;
     }
 
     if (is_ident || is_special_base) {
-        String name = peek().value;
+        String name = String(peek().text.c_str());
         advance();
         
         ExpressionNode* left = nullptr;
@@ -1318,14 +1360,14 @@ ExpressionNode* VisualGasicParser::parse_factor() {
         }
 
         // Check for member access .Field
-        while (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().value == ".") {
+        while (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().text == ".") {
             advance(); // Eat .
             
             // Allow Identifier OR Keyword (e.g. Input, New)
             if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER) || check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
                 MemberAccessNode* member = static_cast<MemberAccessNode*>(register_node(new MemberAccessNode()));
                 member->base_object = left;
-                member->member_name = peek().value;
+                member->member_name = String(peek().text.c_str());
                 advance();
                 left = member;
 
@@ -1367,7 +1409,20 @@ ExpressionNode* VisualGasicParser::parse_factor() {
         return expr;
     }
     
-    error("Unexpected token in expression: " + String(peek().value));
+    // If we encounter a logical expression terminator (Then, Else, End, newline, colon, EOF)
+    // treat it as end of expression and return gracefully to the caller rather than emitting
+    // a hard parse error which may cascade into crashes later.
+    if (peek().type == VisualGasicTokenizer::TOKEN_KEYWORD) {
+        std::string kw = token_text_lower(peek());
+        if (kw == "then" || kw == "else" || kw == "end" || kw == "next" || kw == "step" || kw == "until") {
+            return nullptr;
+        }
+    }
+    if (peek().type == VisualGasicTokenizer::TOKEN_NEWLINE || peek().type == VisualGasicTokenizer::TOKEN_EOF || peek().type == VisualGasicTokenizer::TOKEN_COLON) {
+        return nullptr;
+    }
+
+    error("Unexpected token in expression: " + String(peek().text.c_str()));
     advance();
     return nullptr;
 }
@@ -1385,9 +1440,9 @@ WithStatement* VisualGasicParser::parse_with() {
     
     // Parse Block
     while (!match(VisualGasicTokenizer::TOKEN_EOF)) {
-        if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("End") == 0) {
+        if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && token_text_lower(peek()) == "end") {
             VisualGasicTokenizer::Token next = peek(1);
-            if (String(next.value).nocasecmp_to("With") == 0) {
+            if (token_text_lower(next) == "with") {
                 advance(); // Eat End
                 advance(); // Eat With
                 break;
@@ -1413,7 +1468,7 @@ DimStatement* VisualGasicParser::parse_dim() {
     }
     
     DimStatement* stmt = static_cast<DimStatement*>(register_node(new DimStatement()));
-    stmt->variable_name = peek().value;
+    stmt->variable_name = String(peek().text.c_str());
     advance();
     
     // Check for Array declaration: Dim A(10) or Dim A(5, 5)
@@ -1436,10 +1491,10 @@ DimStatement* VisualGasicParser::parse_dim() {
     }
     
     // Optional: As Type
-    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("As") == 0) {
+    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && token_text_lower(peek()) == "as") {
         advance(); // Eat As
         if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER) || check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
-             stmt->type_name = peek().value;
+             stmt->type_name = String(peek().text.c_str());
              advance();
         } else {
              UtilityFunctions::print("Parser Error: Expected type name after As");
@@ -1447,7 +1502,7 @@ DimStatement* VisualGasicParser::parse_dim() {
     }
 
     // Optional: = Initializer
-    if (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().value == "=") {
+    if (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().text == "=") {
         advance(); // Eat =
         {
             ExpressionNode* _tmp = parse_expression();
@@ -1471,7 +1526,7 @@ IfStatement* VisualGasicParser::parse_if() {
     
     bool is_block = false;
     
-    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("Then") == 0) {
+    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && token_text_lower(peek()) == "then") {
         advance();
     }
     
@@ -1491,10 +1546,10 @@ IfStatement* VisualGasicParser::parse_if() {
         while (!is_at_end()) {
             // Check for End If / Else / Elif
             if (check(VisualGasicTokenizer::TOKEN_KEYWORD) || check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
-                 String val = peek().value;
+                 String val = String(peek().text.c_str());
                  if (val.nocasecmp_to("End") == 0) {
                       // Check next for If
-                      if (peek(1).value.operator String().nocasecmp_to("If") == 0) {
+                      if (token_text_lower(peek(1)) == "if") {
                           advance(); advance(); // Eat End If
                           break;
                       }
@@ -1514,7 +1569,7 @@ IfStatement* VisualGasicParser::parse_if() {
                          unregister_node(_tmp);
                      }
                      
-                     if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("Then") == 0) {
+                     if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && token_text_lower(peek()) == "then") {
                         advance();
                      }
 
@@ -1546,7 +1601,7 @@ IfStatement* VisualGasicParser::parse_if() {
             unregister_node(s);
 
             // Check for Else (Single Line)
-            if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("Else") == 0) {
+            if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && token_text_lower(peek()) == "else") {
                  advance();
                  Statement* el = parse_statement();
                  if (el) { stmt->else_branch.push_back(el); unregister_node(el); }
@@ -1562,23 +1617,23 @@ Statement* VisualGasicParser::parse_for() {
 
     // Check for "Each"
     bool is_for_each = false;
-    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("Each") == 0) {
+    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && token_text_lower(peek()) == "each") {
         is_for_each = true;
         advance();
     }
     
     if (!check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) return nullptr;
-    String var_name = peek().value;
+    String var_name = String(peek().text.c_str());
     
     // Check for "For i In list" (Python style)
-    if (!is_for_each && peek(1).type == VisualGasicTokenizer::TOKEN_KEYWORD && String(peek(1).value).nocasecmp_to("In") == 0) {
+    if (!is_for_each && peek(1).type == VisualGasicTokenizer::TOKEN_KEYWORD && token_text_lower(peek(1)) == "in") {
         is_for_each = true;
     }
 
     advance(); // Eat var name
 
     if (is_for_each) {
-        if (!check(VisualGasicTokenizer::TOKEN_KEYWORD) || String(peek().value).nocasecmp_to("In") != 0) {
+        if (!check(VisualGasicTokenizer::TOKEN_KEYWORD) || token_text_lower(peek()) != "in") {
             error("Expected 'In' after For Each variable");
             return nullptr;
         }
@@ -1594,7 +1649,7 @@ Statement* VisualGasicParser::parse_for() {
         
         while (!match(VisualGasicTokenizer::TOKEN_EOF)) {
              // Handle Next
-            if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("Next") == 0) {
+            if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && token_text_lower(peek()) == "next") {
                 advance();
                 // Optional variable name after Next
                 if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) advance();
@@ -1627,10 +1682,10 @@ Statement* VisualGasicParser::parse_for() {
     bool found_to = false;
     VisualGasicTokenizer::Token t_to = peek();
     
-    // UtilityFunctions::print("DEBUG FOR: Next token after from_val: ", t_to.value, " Type: ", t_to.type);
+    // UtilityFunctions::print("DEBUG FOR: Next token after from_val: ", t_to.text, " Type: ", t_to.type);
     
     if ((t_to.type == VisualGasicTokenizer::TOKEN_KEYWORD || t_to.type == VisualGasicTokenizer::TOKEN_IDENTIFIER)
-        && t_to.value.operator String().nocasecmp_to("To") == 0) {
+        && token_text_lower(t_to) == "to") {
         
         advance();
         found_to = true;
@@ -1649,7 +1704,7 @@ Statement* VisualGasicParser::parse_for() {
     // Step ?
     VisualGasicTokenizer::Token t_step = peek();
     if ((t_step.type == VisualGasicTokenizer::TOKEN_KEYWORD || t_step.type == VisualGasicTokenizer::TOKEN_IDENTIFIER)
-        && t_step.value.operator String().nocasecmp_to("Step") == 0) {
+        && token_text_lower(t_step) == "step") {
         advance();
         {
             ExpressionNode* _tmp = parse_expression();
@@ -1662,7 +1717,7 @@ Statement* VisualGasicParser::parse_for() {
     
     // Body
     while (!is_at_end()) {
-        if ((check(VisualGasicTokenizer::TOKEN_KEYWORD) || check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) && peek().value.operator String().nocasecmp_to("Next") == 0) {
+        if ((check(VisualGasicTokenizer::TOKEN_KEYWORD) || check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) && token_text_lower(peek()) == "next") {
             advance();
             // Optional variable name
             if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) advance();
@@ -1682,7 +1737,7 @@ SelectStatement* VisualGasicParser::parse_select() {
     advance(); // Eat Select
     
     // Check Case
-    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("Case") == 0) {
+    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && token_text_lower(peek()) == "case") {
         advance();
     } else {
         UtilityFunctions::print("Parser Error: Expected Case after Select");
@@ -1700,9 +1755,9 @@ SelectStatement* VisualGasicParser::parse_select() {
         VisualGasicTokenizer::Token t = peek();
         
         // End Select
-        if ((t.type == VisualGasicTokenizer::TOKEN_KEYWORD || t.type == VisualGasicTokenizer::TOKEN_IDENTIFIER) && String(t.value).nocasecmp_to("End") == 0) {
+        if ((t.type == VisualGasicTokenizer::TOKEN_KEYWORD || t.type == VisualGasicTokenizer::TOKEN_IDENTIFIER) && token_text_lower(t) == "end") {
             VisualGasicTokenizer::Token next = peek(1);
-            if ((next.type == VisualGasicTokenizer::TOKEN_KEYWORD || next.type == VisualGasicTokenizer::TOKEN_IDENTIFIER) && String(next.value).nocasecmp_to("Select") == 0) {
+            if ((next.type == VisualGasicTokenizer::TOKEN_KEYWORD || next.type == VisualGasicTokenizer::TOKEN_IDENTIFIER) && token_text_lower(next) == "select") {
                 advance(); // End
                 advance(); // Select
                 break;
@@ -1710,13 +1765,13 @@ SelectStatement* VisualGasicParser::parse_select() {
         }
         
         // Case ...
-        if ((t.type == VisualGasicTokenizer::TOKEN_KEYWORD || t.type == VisualGasicTokenizer::TOKEN_IDENTIFIER) && String(t.value).nocasecmp_to("Case") == 0) {
+        if ((t.type == VisualGasicTokenizer::TOKEN_KEYWORD || t.type == VisualGasicTokenizer::TOKEN_IDENTIFIER) && token_text_lower(t) == "case") {
             advance(); // Eat Case
             
             CaseBlock* block = static_cast<CaseBlock*>(register_node(new CaseBlock()));
             
             // Case Else
-            if ((check(VisualGasicTokenizer::TOKEN_KEYWORD) || check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) && String(peek().value).nocasecmp_to("Else") == 0) {
+            if ((check(VisualGasicTokenizer::TOKEN_KEYWORD) || check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) && token_text_lower(peek()) == "else") {
                 advance();
                 block->is_else = true;
             } else {
@@ -1736,10 +1791,10 @@ SelectStatement* VisualGasicParser::parse_select() {
             // Parse Body until next Case or End Select
             while (!is_at_end()) {
                 VisualGasicTokenizer::Token next = peek();
-                if ((next.type == VisualGasicTokenizer::TOKEN_KEYWORD || next.type == VisualGasicTokenizer::TOKEN_IDENTIFIER) && String(next.value).nocasecmp_to("Case") == 0) break;
-                if ((next.type == VisualGasicTokenizer::TOKEN_KEYWORD || next.type == VisualGasicTokenizer::TOKEN_IDENTIFIER) && String(next.value).nocasecmp_to("End") == 0) {
+                if ((next.type == VisualGasicTokenizer::TOKEN_KEYWORD || next.type == VisualGasicTokenizer::TOKEN_IDENTIFIER) && token_text_lower(next) == "case") break;
+                if ((next.type == VisualGasicTokenizer::TOKEN_KEYWORD || next.type == VisualGasicTokenizer::TOKEN_IDENTIFIER) && token_text_lower(next) == "end") {
                      VisualGasicTokenizer::Token next2 = peek(1);
-                     if (String(next2.value).nocasecmp_to("Select") == 0) break;
+                     if (token_text_lower(next2) == "select") break;
                 }
                 
                 Statement* s = parse_statement();
@@ -1775,7 +1830,7 @@ WhileStatement* VisualGasicParser::parse_while() {
     
     while (!is_at_end()) {
         VisualGasicTokenizer::Token t = peek();
-        if ((t.type == VisualGasicTokenizer::TOKEN_KEYWORD || t.type == VisualGasicTokenizer::TOKEN_IDENTIFIER) && String(t.value).nocasecmp_to("Wend") == 0) {
+        if ((t.type == VisualGasicTokenizer::TOKEN_KEYWORD || t.type == VisualGasicTokenizer::TOKEN_IDENTIFIER) && token_text_lower(t) == "wend") {
             advance();
             break;
         }
@@ -1794,7 +1849,7 @@ DoStatement* VisualGasicParser::parse_do() {
     DoStatement* stmt = static_cast<DoStatement*>(register_node(new DoStatement()));
     
     VisualGasicTokenizer::Token t = peek();
-    String val = t.value;
+    String val = String(t.text.c_str());
     
     if (val.nocasecmp_to("While") == 0) {
         advance();
@@ -1818,13 +1873,13 @@ DoStatement* VisualGasicParser::parse_do() {
     
     while (!is_at_end()) {
         VisualGasicTokenizer::Token t_loop = peek();
-        if ((t_loop.type == VisualGasicTokenizer::TOKEN_KEYWORD || t_loop.type == VisualGasicTokenizer::TOKEN_IDENTIFIER) && String(t_loop.value).nocasecmp_to("Loop") == 0) {
+        if ((t_loop.type == VisualGasicTokenizer::TOKEN_KEYWORD || t_loop.type == VisualGasicTokenizer::TOKEN_IDENTIFIER) && token_text_lower(t_loop) == "loop") {
             advance();
             
             // Post-condition
             if (stmt->condition_type == DoStatement::NONE) {
                   VisualGasicTokenizer::Token t_post = peek();
-                  if (String(t_post.value).nocasecmp_to("While") == 0) {
+                  if (token_text_lower(t_post) == "while") {
                       advance();
                       stmt->condition_type = DoStatement::WHILE;
                       stmt->is_post_condition = true;
@@ -1833,9 +1888,7 @@ DoStatement* VisualGasicParser::parse_do() {
                           stmt->condition = _tmp;
                           unregister_node(_tmp);
                       }
-                  } else if (String(t_post.value).nocasecmp_to("Until") == 0) {
-                      advance();
-                      stmt->condition_type = DoStatement::UNTIL;
+                  } else if (token_text_lower(t_post) == "until") {
                       stmt->is_post_condition = true;
                       {
                           ExpressionNode* _tmp = parse_expression();
@@ -1882,7 +1935,7 @@ Statement* VisualGasicParser::parse_continue() {
     ContinueStatement* c = static_cast<ContinueStatement*>(register_node(new ContinueStatement()));
     
     if (check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
-        String val = peek().value;
+        String val = String(peek().text.c_str());
         if (val.nocasecmp_to("For") == 0) {
             c->loop_type = ContinueStatement::FOR;
             advance();
@@ -1900,14 +1953,14 @@ Statement* VisualGasicParser::parse_continue() {
 Statement* VisualGasicParser::parse_assignment_or_call() {
     ExpressionNode* head = nullptr;
 
-    if (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().value == ".") {
+    if (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().text == ".") {
         advance(); // Eat .
         if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER) || check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
              MemberAccessNode* ma = static_cast<MemberAccessNode*>(register_node(new MemberAccessNode()));
              ExpressionNode* ctx = static_cast<ExpressionNode*>(register_node(new ExpressionNode()));
              ctx->type = ExpressionNode::WITH_CONTEXT;
              ma->base_object = ctx;
-             ma->member_name = peek().value;
+             ma->member_name = String(peek().text.c_str());
              head = ma;
              advance();
         } else {
@@ -1915,7 +1968,7 @@ Statement* VisualGasicParser::parse_assignment_or_call() {
              return nullptr;
         }
     } else {
-        String name = peek().value;
+        String name = String(peek().text.c_str());
         advance();
            if (name.nocasecmp_to("Me") == 0) {
                head = static_cast<ExpressionNode*>(register_node(new ExpressionNode()));
@@ -1929,12 +1982,12 @@ Statement* VisualGasicParser::parse_assignment_or_call() {
     
     // Parse chain of dots and parens to build the L-Value expression
     while(true) {
-        if (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().value == ".") {
+        if (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().text == ".") {
             advance();
             if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER) || check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
                  MemberAccessNode* ma = static_cast<MemberAccessNode*>(register_node(new MemberAccessNode()));
                  ma->base_object = head;
-                 ma->member_name = peek().value;
+                 ma->member_name = String(peek().text.c_str());
                  head = ma;
                  advance();
             } else {
@@ -1967,11 +2020,11 @@ Statement* VisualGasicParser::parse_assignment_or_call() {
     }
 
     if (check(VisualGasicTokenizer::TOKEN_OPERATOR)) {
-        String op = peek().value;
+        String op = String(peek().text.c_str());
         if (op == "=") {
             advance(); // Eat =
             // Defensive: sometimes tokenizer/positions can leave stray '=' tokens; skip any additional '=' to reach RHS
-            while (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().value == "=") {
+            while (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().text == "=") {
                 advance();
             }
              
@@ -2090,7 +2143,7 @@ Statement* VisualGasicParser::parse_assignment_or_call() {
     }
     
     if (!check(VisualGasicTokenizer::TOKEN_NEWLINE) && !check(VisualGasicTokenizer::TOKEN_EOF) && 
-        !(check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().value == ":")) {
+        !(check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().text == ":")) {
         
         if (!call->arguments.is_empty()) {
              if (check(VisualGasicTokenizer::TOKEN_COMMA)) advance();
@@ -2119,7 +2172,7 @@ StructDefinition* VisualGasicParser::parse_struct() {
     }
     
     StructDefinition* def = static_cast<StructDefinition*>(register_node(new StructDefinition()));
-    def->name = peek().value;
+    def->name = String(peek().text.c_str());
     advance();
     
     // Check for newline
@@ -2131,9 +2184,9 @@ StructDefinition* VisualGasicParser::parse_struct() {
         VisualGasicTokenizer::Token t = peek();
         // UtilityFunctions::print("ParseStruct Loop: ", t.value, " Type: ", t.type);
 
-        if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("End") == 0) {
+        if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && token_text_lower(peek()) == "end") {
             advance();
-            if (match(VisualGasicTokenizer::TOKEN_KEYWORD) && String(previous().value).nocasecmp_to("Type") == 0) {
+            if (match(VisualGasicTokenizer::TOKEN_KEYWORD) && token_text_lower(previous()) == "type") {
                  break;
             }
             // Ignore stray 'End' inside struct or treat as member if identifier check passes?
@@ -2145,13 +2198,13 @@ StructDefinition* VisualGasicParser::parse_struct() {
         // Handle Member Definition: Name As Type
         if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
             StructMember member;
-            member.name = peek().value;
+            member.name = String(peek().text.c_str());
             advance();
             
-            if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("As") == 0) {
+            if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && token_text_lower(peek()) == "as") {
                 advance(); // Eat As
                 if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER) || check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
-                    member.type = peek().value;
+                    member.type = String(peek().text.c_str());
                     advance();
                 }
             } else {
@@ -2181,7 +2234,7 @@ PrintStatement* VisualGasicParser::parse_print() {
     PrintStatement* stmt = static_cast<PrintStatement*>(register_node(new PrintStatement()));
     
     // Check for #1
-    if (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().value == "#") {
+    if (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().text == "#") {
         advance(); // Eat #
         {
             ExpressionNode* _tmp = parse_expression();
@@ -2217,10 +2270,10 @@ OpenStatement* VisualGasicParser::parse_open() {
         unregister_node(_tmp);
     }
     
-    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("For") == 0) {
+    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && token_text_lower(peek()) == "for") {
         advance();
         if (check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
-            String m = peek().value;
+            String m = String(peek().text.c_str());
             if (m.nocasecmp_to("Input") == 0) stmt->mode = OpenStatement::MODE_INPUT;
             else if (m.nocasecmp_to("Output") == 0) stmt->mode = OpenStatement::MODE_OUTPUT;
             else if (m.nocasecmp_to("Append") == 0) stmt->mode = OpenStatement::MODE_APPEND;
@@ -2229,9 +2282,9 @@ OpenStatement* VisualGasicParser::parse_open() {
         }
     }
     
-    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("As") == 0) {
+    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && token_text_lower(peek()) == "as") {
         advance();
-        if (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().value == "#") {
+        if (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().text == "#") {
             advance();
         } 
         {
@@ -2248,7 +2301,7 @@ CloseStatement* VisualGasicParser::parse_close() {
     advance(); // Eat Close
     
     CloseStatement* stmt = static_cast<CloseStatement*>(register_node(new CloseStatement()));
-    if (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().value == "#") {
+    if (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().text == "#") {
         advance();
     }
     
@@ -2270,7 +2323,7 @@ SeekStatement* VisualGasicParser::parse_seek() {
     SeekStatement* stmt = static_cast<SeekStatement*>(register_node(new SeekStatement()));
     
     // Check #
-    if (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().value == "#") {
+    if (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().text == "#") {
         advance();
     }
     
@@ -2339,7 +2392,7 @@ NameStatement* VisualGasicParser::parse_name() {
         return nullptr;
     }
     
-    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("As") == 0) {
+    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && token_text_lower(peek()) == "as") {
         advance();
     } else {
         error("Expected 'As' in Name statement");
@@ -2405,7 +2458,7 @@ RestoreStatement* VisualGasicParser::parse_restore() {
     RestoreStatement* stmt = static_cast<RestoreStatement*>(register_node(new RestoreStatement()));
     
     if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
-        stmt->label_name = peek().value;
+        stmt->label_name = String(peek().text.c_str());
         advance();
     }
     return stmt;
@@ -2422,8 +2475,8 @@ Vector<ExpressionNode*> VisualGasicParser::parse_data_values_from_text(const Str
     VisualGasicParser sub_parser;
     ModuleNode* sub_module = sub_parser.parse(wrapped_tokens);
     
-    if (sub_parser.errors.size() > 0) {
-        UtilityFunctions::print("Error parsing data text: " + sub_parser.errors[0].message);
+    if (sub_parser.errors->size() > 0) {
+        UtilityFunctions::print("Error parsing data text - ", sub_parser.errors->size(), " errors");
         if (sub_module) delete sub_module;
         return values;
     }
@@ -2449,7 +2502,7 @@ DataStatement* VisualGasicParser::parse_data_file() {
     
     String path;
     if (check(VisualGasicTokenizer::TOKEN_LITERAL_STRING)) {
-        path = peek().value;
+        path = String(peek().text.c_str());
         advance();
     } else {
         error("Expected file path string after DataFile");
@@ -2499,7 +2552,7 @@ InputStatement* VisualGasicParser::parse_input(bool is_line) {
     stmt->is_line_input = is_line;
     
     // Check #
-    if (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().value == "#") {
+    if (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().text == "#") {
         advance();
         stmt->file_number = parse_expression();
         if (check(VisualGasicTokenizer::TOKEN_COMMA)) advance();
@@ -2539,7 +2592,7 @@ ExitStatement* VisualGasicParser::parse_exit() {
     advance(); // consume Exit
     
     if (check(VisualGasicTokenizer::TOKEN_KEYWORD) || check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
-        String type = String(peek().value).to_lower();
+        std::string type = token_text_lower(peek());
         
         ExitStatement* s = static_cast<ExitStatement*>(register_node(new ExitStatement()));
         bool valid = false;
@@ -2578,17 +2631,17 @@ ConstStatement* VisualGasicParser::parse_const() {
     }
     
     ConstStatement* s = static_cast<ConstStatement*>(register_node(new ConstStatement()));
-    s->name = peek().value;
+    s->name = String(peek().text.c_str());
     advance();
     
     // Optional As Type (Ignore)
-    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("As") == 0) {
+    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && token_text_lower(peek()) == "as") {
         advance();
         advance(); // Eat type name
     }
     
     // = Value
-    if (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().value == "=") {
+    if (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().text == "=") {
         advance();
         {
             ExpressionNode* _tmp = parse_expression();
@@ -2607,7 +2660,7 @@ ReDimStatement* VisualGasicParser::parse_redim() {
     
     ReDimStatement* s = static_cast<ReDimStatement*>(register_node(new ReDimStatement()));
     
-    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("preserve") == 0) {
+    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && token_text_lower(peek()) == "preserve") {
         s->preserve = true;
         advance();
     }
@@ -2618,7 +2671,7 @@ ReDimStatement* VisualGasicParser::parse_redim() {
         return nullptr;
     }
     
-    s->variable_name = peek().value;
+    s->variable_name = String(peek().text.c_str());
     advance();
     
     // Must be array: (Size)
@@ -2645,7 +2698,7 @@ ReDimStatement* VisualGasicParser::parse_redim() {
     }
     
     // Ignore optional 'As Type'
-    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("As") == 0) {
+    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && token_text_lower(peek()) == "as") {
         advance();
         if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) advance(); // Eat Type
     }
@@ -2661,11 +2714,11 @@ TryStatement* VisualGasicParser::parse_try() {
     // Parse Try Block
     while (!is_at_end()) {
         if (check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
-             String kwa = String(peek().value).to_lower();
+             std::string kwa = token_text_lower(peek());
              if (kwa == "catch" || kwa == "finally" || kwa == "end") {
                  if (kwa == "end") {
                      // Check End Try
-                     if (peek(1).type == VisualGasicTokenizer::TOKEN_KEYWORD && String(peek(1).value).to_lower() == "try") {
+                     if (peek(1).type == VisualGasicTokenizer::TOKEN_KEYWORD && token_text_lower(peek(1)) == "try") {
                          break; 
                      }
                  } else {
@@ -2680,16 +2733,16 @@ TryStatement* VisualGasicParser::parse_try() {
     }
     
     // Catch Block
-    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).to_lower() == "catch") {
+    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && token_text_lower(peek()) == "catch") {
         advance(); // Eat Catch
         
         VisualGasicTokenizer::Token vars = peek();
         // Optional Variable? Catch ex As Exception?
         if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
             // Store exception variable name
-            s->catch_var_name = peek().value;
+            s->catch_var_name = String(peek().text.c_str());
             advance(); // Eat ident
-            if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("As") == 0) {
+            if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && token_text_lower(peek()) == "as") {
                  advance(); // Eat As
                  advance(); // Eat Type (Ignore type for now, treating as generic Exception/Variant)
             }
@@ -2697,12 +2750,12 @@ TryStatement* VisualGasicParser::parse_try() {
         
         while (!is_at_end()) {
              if (check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
-                 String kwa = String(peek().value).to_lower();
+                 std::string kwa = token_text_lower(peek());
                  if (kwa == "finally") {
                      break;
                  }
                  if (kwa == "end") {
-                      if (peek(1).type == VisualGasicTokenizer::TOKEN_KEYWORD && String(peek(1).value).to_lower() == "try") {
+                      if (peek(1).type == VisualGasicTokenizer::TOKEN_KEYWORD && token_text_lower(peek(1)) == "try") {
                           break;
                       }
                  }
@@ -2714,14 +2767,14 @@ TryStatement* VisualGasicParser::parse_try() {
     }
 
     // Finally Block
-    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).to_lower() == "finally") {
+    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && token_text_lower(peek()) == "finally") {
         advance(); // Eat Finally
         
         while (!is_at_end()) {
              if (check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
-                 String kwa = String(peek().value).to_lower();
+                 std::string kwa = token_text_lower(peek());
                  if (kwa == "end") {
-                      if (peek(1).type == VisualGasicTokenizer::TOKEN_KEYWORD && String(peek(1).value).to_lower() == "try") {
+                      if (peek(1).type == VisualGasicTokenizer::TOKEN_KEYWORD && token_text_lower(peek(1)) == "try") {
                           break;
                       }
                  }
@@ -2732,9 +2785,9 @@ TryStatement* VisualGasicParser::parse_try() {
         }
     }
 
-    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).to_lower() == "end") {
+    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && token_text_lower(peek()) == "end") {
         advance(); // Eat End
-        if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).to_lower() == "try") {
+        if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && token_text_lower(peek()) == "try") {
             advance(); // Eat Try
         }
     }
@@ -2777,7 +2830,7 @@ void VisualGasicParser::parse_enum() {
          error("Expected Enum Name");
          return;
     }
-    String enum_name = peek().value;
+    String enum_name = String(peek().text.c_str());
     advance();
     
     EnumDefinition* def = static_cast<EnumDefinition*>(register_node(new EnumDefinition()));
@@ -2789,10 +2842,10 @@ void VisualGasicParser::parse_enum() {
          if (check(VisualGasicTokenizer::TOKEN_NEWLINE)) { advance(); continue; }
          
          if (check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
-             String k = String(peek().value).to_lower();
+             std::string k = token_text_lower(peek());
              if (k == "end") {
                  advance();
-                 if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).to_lower() == "enum") {
+                 if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && token_text_lower(peek()) == "enum") {
                      advance();
                      break;
                  }
@@ -2800,11 +2853,11 @@ void VisualGasicParser::parse_enum() {
          }
          
          if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
-             String mem_name = peek().value;
+             String mem_name = String(peek().text.c_str());
              advance();
              
              int val = next_val;
-             if (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().value == "=") {
+             if (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().text == "=") {
                  advance();
                  // Expect integer literal or expression (constant)
                  // For now, strict literal/constant

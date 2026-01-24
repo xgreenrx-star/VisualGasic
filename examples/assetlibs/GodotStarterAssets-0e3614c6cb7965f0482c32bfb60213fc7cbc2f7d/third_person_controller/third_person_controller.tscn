@@ -1,0 +1,57 @@
+[gd_scene load_steps=7 format=3 uid="uid://dwunwemkqn2ci"]
+
+[ext_resource type="Script" uid="uid://dnc2ijcrtych3" path="res://third_person_controller/third_person_controller.gd" id="1_wpuov"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_j0767"]
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_wpuov"]
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_wpuov"]
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_wpuov"]
+top_radius = 0.05
+bottom_radius = 0.05
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_581ic"]
+top_radius = 0.0
+bottom_radius = 0.25
+height = 1.0
+
+[node name="ThirdPersonController" type="CharacterBody3D"]
+script = ExtResource("1_wpuov")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("CapsuleShape3D_j0767")
+
+[node name="CameraPosition" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+
+[node name="CameraGimbal" type="Node3D" parent="."]
+editor_description = "This node never rotates and interpolates it's position towards the CameraPosition node."
+
+[node name="Yaw" type="Node3D" parent="CameraGimbal"]
+
+[node name="Pitch" type="Node3D" parent="CameraGimbal/Yaw"]
+
+[node name="SpringArm" type="SpringArm3D" parent="CameraGimbal/Yaw/Pitch"]
+shape = SubResource("SphereShape3D_wpuov")
+spring_length = 10.0
+
+[node name="Camera" type="Camera3D" parent="CameraGimbal/Yaw/Pitch/SpringArm"]
+
+[node name="Body" type="Node3D" parent="."]
+editor_description = "Container node for the body mesh. 
+
+The node origin will be interpolated towards the character, and rotated towards the moving direction."
+
+[node name="Capsule" type="MeshInstance3D" parent="Body"]
+mesh = SubResource("CapsuleMesh_wpuov")
+skeleton = NodePath("../..")
+
+[node name="ArrowBody" type="MeshInstance3D" parent="Body/Capsule"]
+transform = Transform3D(1, 0, 0, 0, -4.371139e-08, 1, 0, -1, -4.371139e-08, 0, 0, -1)
+mesh = SubResource("CylinderMesh_wpuov")
+
+[node name="ArrowTip" type="MeshInstance3D" parent="Body/Capsule/ArrowBody"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 4.371139e-08)
+mesh = SubResource("CylinderMesh_581ic")

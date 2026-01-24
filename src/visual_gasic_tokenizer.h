@@ -8,6 +8,8 @@
 
 using namespace godot;
 
+#include <string>
+
 class VisualGasicTokenizer {
 public:
     enum TokenType {
@@ -30,7 +32,8 @@ public:
 
     struct Token {
         TokenType type;
-        Variant value;
+        Variant value; // still available for numeric values and later conversions
+        std::string text; // textual representation to avoid constructing godot::String during tokenization
         int line;
         int column;
     };
@@ -38,14 +41,15 @@ public:
     VisualGasicTokenizer();
     ~VisualGasicTokenizer();
 
-    Vector<Token> tokenize(const String &p_source_code);
-    String token_type_to_string(TokenType p_type);
-
-    // Error State
+    // Make tokenizer error message a plain std::string to avoid String ctor at construction time
     bool has_error;
     int error_line;
     int error_column;
-    String error_message;
+    std::string error_message;
+
+    Vector<Token> tokenize(const String &p_source_code);
+    Vector<Token> tokenize_from_utf8(const std::string &p_utf8);
+    String token_type_to_string(TokenType p_type);
 
     static bool is_digit(char32_t c);
     static bool is_alpha(char32_t c);

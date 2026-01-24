@@ -52,9 +52,13 @@ void initialize_visual_gasic_module(ModuleInitializationLevel p_level) {
     }
     
     if (p_level == MODULE_INITIALIZATION_LEVEL_EDITOR) {
+        UtilityFunctions::print("VisualGasic: C++ editor init reached. Registering editor classes...");
+        UtilityFunctions::print("VisualGasic: Registering VisualGasicToolbox");
         ClassDB::register_class<VisualGasicToolbox>();
+        UtilityFunctions::print("VisualGasic: Registering VisualGasicToolButton");
         ClassDB::register_class<VisualGasicToolButton>();
         // ClassDB::register_class<VisualGasicEditorPlugin>(); // Using GDScript plugin instead
+        UtilityFunctions::print("VisualGasic: Registering VisualGasicSyntaxHighlighter");
         ClassDB::register_class<VisualGasicSyntaxHighlighter>();
         
         // EditorPlugins::add_by_type<VisualGasicEditorPlugin>();

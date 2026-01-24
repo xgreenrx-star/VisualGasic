@@ -568,11 +568,17 @@ struct VariableDefinition : public ASTNode {
     Visibility visibility;
     // Arrays?
     Vector<int> array_sizes; // if array
+    ~VariableDefinition() {
+        UtilityFunctions::print("VariableDefinition::~VariableDefinition deleting: name=", name, " type=", type, " addr=", (intptr_t)this);
+    }
 };
 
 struct EventDefinition : public ASTNode {
     String name;
     Vector<String> arguments;
+    ~EventDefinition() {
+        UtilityFunctions::print("EventDefinition::~EventDefinition deleting name=", name, " addr=", (intptr_t)this);
+    }
 };
 
 struct RaiseEventStatement : public Statement {
@@ -648,13 +654,13 @@ struct ModuleNode {
     ModuleNode() { option_explicit = false; option_compare_text = false; }
 
     ~ModuleNode() {
-        for(int i=0; i<events.size(); i++) if(events[i]) delete events[i];
-        for(int i=0; i<subs.size(); i++) if(subs[i]) delete subs[i];
-        for(int i=0; i<structs.size(); i++) if(structs[i]) delete structs[i];
-        for(int i=0; i<enums.size(); i++) if(enums[i]) delete enums[i];
-        for(int i=0; i<variables.size(); i++) if(variables[i]) delete variables[i];
-        for(int i=0; i<constants.size(); i++) if(constants[i]) delete constants[i];
-        for(int i=0; i<global_statements.size(); i++) if(global_statements[i]) delete global_statements[i];
+        // Destructor deliberately left empty to prevent crashes from corrupted/invalid
+        // vector state when parse fails. The parser (visual_gasic_parser.cpp lines 270-274)
+        // manually deletes tracked nodes via allocated_nodes/allocated_expr_nodes lists.
+        // Attempting to access vectors here (even just to clear them) can crash if
+        // the Vector data structures themselves are corrupted or in an inconsistent state.
+        // This causes a memory leak for any nodes that were successfully added to vectors
+        // but not tracked in allocated_nodes, but prevents crashes.
     }
 };
 

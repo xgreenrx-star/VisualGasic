@@ -2,6 +2,10 @@
 extends EditorScript
 
 func _run():
+	# If run from the CLI with -s, the environment may not provide Editor APIs. Guard and explain.
+	if not has_method("get_editor_interface"):
+		print("VisualGasic: verify_toolbox must be run inside the Godot Editor as an EditorScript (use Script -> Run or the EditorScript runner). Aborting.")
+		return
 	print("VisualGasic: verify_toolbox running...")
 	var base = get_editor_interface().get_base_control()
 	if not base:

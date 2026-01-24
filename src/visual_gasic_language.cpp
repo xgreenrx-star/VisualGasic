@@ -150,20 +150,20 @@ Dictionary VisualGasicLanguage::_validate(const String &p_script, const String &
              Dictionary err;
              err["line"] = tokenizer.error_line;
              err["column"] = tokenizer.error_column; 
-             err["message"] = tokenizer.error_message;
+             err["message"] = String(tokenizer.error_message.c_str());
              err["code"] = 1; // ERR_PARSE_ERROR
              ((Array)result["errors"]).push_back(err);
              result["valid"] = false;
         } else {
              VisualGasicParser parser;
              ModuleNode* root = parser.parse(tokens);
-             if (parser.errors.size() > 0) {
-                 for(int i=0; i<parser.errors.size(); i++) {
-                     VisualGasicParser::ParsingError pe = parser.errors[i];
+             if (parser.errors->size() > 0) {
+                 for(int i=0; i<parser.errors->size(); i++) {
+                     VisualGasicParser::ParsingError pe = (*parser.errors)[i];
                      Dictionary err;
                      err["line"] = pe.line;
                      err["column"] = pe.column;
-                     err["message"] = pe.message;
+                     err["message"] = String(pe.message.c_str());  // Convert std::string to godot::String
                      err["code"] = 1; 
                      ((Array)result["errors"]).push_back(err);
                  }
