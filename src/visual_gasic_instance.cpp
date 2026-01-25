@@ -221,7 +221,7 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
     if (owner && script.is_valid()) {
         Node* node = Object::cast_to<Node>(owner);
         if (node) {
-             UtilityFunctions::print("Checking process for node: ", node->get_name());
+            // UtilityFunctions::print("Checking process for node: ", node->get_name());
              
              // Check via AST directly to avoid has_method virtual dispatch issues
              bool has_process = false;

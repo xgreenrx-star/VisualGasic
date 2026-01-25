@@ -522,7 +522,7 @@ Statement* VisualGasicParser::parse_statement() {
     }
     
     VisualGasicTokenizer::Token t = peek();
-    UtilityFunctions::print("ParseStmt Token: ", t.value, " Type: ", t.type);
+    // UtilityFunctions::print("ParseStmt Token: ", t.value, " Type: ", t.type);
 
     if (t.type == VisualGasicTokenizer::TOKEN_COMMENT) {
         advance();
