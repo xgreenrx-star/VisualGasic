@@ -240,6 +240,133 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
     if (name.nocasecmp_to("Lerp") == 0 && args.size() == 3) { r_handled = true; double a = args[0]; double b = args[1]; double t = args[2]; return Math::lerp(a,b,t); }
     if (name.nocasecmp_to("Clamp") == 0 && args.size() == 3) { r_handled = true; double val = args[0]; double mn = args[1]; double mx = args[2]; return Math::clamp(val,mn,mx); }
 
+    // Array functions
+    if (name.nocasecmp_to("Sort") == 0 && args.size() == 1) {
+        r_handled = true;
+        Variant input = args[0];
+        if (input.get_type() == Variant::ARRAY) {
+            Array arr = input;
+            Array sorted_arr = arr.duplicate();
+            
+            // Simple bubble sort for mixed types
+            int n = sorted_arr.size();
+            for (int i = 0; i < n - 1; i++) {
+                for (int j = 0; j < n - i - 1; j++) {
+                    Variant a = sorted_arr[j];
+                    Variant b = sorted_arr[j + 1];
+                    
+                    // Compare based on type
+                    bool should_swap = false;
+                    if (a.get_type() == b.get_type()) {
+                        if (a.get_type() == Variant::INT || a.get_type() == Variant::FLOAT) {
+                            should_swap = (double)a > (double)b;
+                        } else if (a.get_type() == Variant::STRING) {
+                            should_swap = String(a).naturalnocasecmp_to(String(b)) > 0;
+                        }
+                    } else {
+                        // Different types: convert to strings for comparison
+                        should_swap = String(a).naturalnocasecmp_to(String(b)) > 0;
+                    }
+                    
+                    if (should_swap) {
+                        sorted_arr[j] = b;
+                        sorted_arr[j + 1] = a;
+                    }
+                }
+            }
+            return sorted_arr;
+        }
+        return input;
+    }
+
+    if (name.nocasecmp_to("Reverse") == 0 && args.size() == 1) {
+        r_handled = true;
+        Variant input = args[0];
+        if (input.get_type() == Variant::ARRAY) {
+            Array arr = input;
+            Array reversed_arr;
+            for (int i = arr.size() - 1; i >= 0; i--) {
+                reversed_arr.append(arr[i]);
+            }
+            return reversed_arr;
+        }
+        return input;
+    }
+
+    if (name.nocasecmp_to("IndexOf") == 0 && args.size() == 2) {
+        r_handled = true;
+        Variant input = args[0];
+        Variant search_val = args[1];
+        if (input.get_type() == Variant::ARRAY) {
+            Array arr = input;
+            for (int i = 0; i < arr.size(); i++) {
+                if (arr[i] == search_val) {
+                    return i;
+                }
+            }
+        }
+        return -1;
+    }
+
+    if (name.nocasecmp_to("Contains") == 0 && args.size() == 2) {
+        r_handled = true;
+        Variant input = args[0];
+        Variant search_val = args[1];
+        if (input.get_type() == Variant::ARRAY) {
+            Array arr = input;
+            for (int i = 0; i < arr.size(); i++) {
+                if (arr[i] == search_val) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    if (name.nocasecmp_to("Unique") == 0 && args.size() == 1) {
+        r_handled = true;
+        Variant input = args[0];
+        if (input.get_type() == Variant::ARRAY) {
+            Array arr = input;
+            Array unique_arr;
+            for (int i = 0; i < arr.size(); i++) {
+                bool found = false;
+                for (int j = 0; j < unique_arr.size(); j++) {
+                    if (unique_arr[j] == arr[i]) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    unique_arr.append(arr[i]);
+                }
+            }
+            return unique_arr;
+        }
+        return input;
+    }
+
+    if (name.nocasecmp_to("Flatten") == 0 && args.size() == 1) {
+        r_handled = true;
+        Variant input = args[0];
+        if (input.get_type() == Variant::ARRAY) {
+            Array arr = input;
+            Array flat_arr;
+            for (int i = 0; i < arr.size(); i++) {
+                if (arr[i].get_type() == Variant::ARRAY) {
+                    Array sub_arr = arr[i];
+                    for (int j = 0; j < sub_arr.size(); j++) {
+                        flat_arr.append(sub_arr[j]);
+                    }
+                } else {
+                    flat_arr.append(arr[i]);
+                }
+            }
+            return flat_arr;
+        }
+        return input;
+    }
+
     return Variant();
 }
 
