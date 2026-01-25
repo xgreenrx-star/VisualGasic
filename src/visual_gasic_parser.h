@@ -3,6 +3,7 @@
 
 #include "visual_gasic_tokenizer.h"
 #include "visual_gasic_ast.h"
+#include "visual_gasic_profiler.h"
 
 class VisualGasicParser {
     Vector<VisualGasicTokenizer::Token> tokens;

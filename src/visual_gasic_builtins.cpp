@@ -1,5 +1,6 @@
 #include "visual_gasic_builtins.h"
 #include "visual_gasic_expression_evaluator.h"
+#include "visual_gasic_profiler.h"
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/classes/resource_loader.hpp>
@@ -19,6 +20,9 @@ using namespace godot;
 namespace VisualGasicBuiltins {
 
 bool call_builtin(VisualGasicInstance *instance, const String &p_method, const Array &p_args, Variant &r_ret, bool &r_found) {
+    VG_PROFILE_CATEGORY("builtin_call", "builtins");
+    VG_COUNT("builtin.function_calls");
+    
     r_found = false;
     r_ret = Variant();
 

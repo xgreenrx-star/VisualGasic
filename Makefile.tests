@@ -1,0 +1,239 @@
+# VisualGasic Integration Test Makefile
+# Use this to build and run comprehensive integration tests
+
+.PHONY: all build test clean performance stress reports help
+
+# Default target
+all: build test
+
+# Build integration test suite
+build:
+	@echo "=== Building VisualGasic Integration Test Suite ==="
+	@mkdir -p build/tests
+	@cd build && cmake .. -DBUILD_TESTS=ON
+	@cd build && make -j$(nproc)
+	@echo "✅ Integration test suite built successfully"
+
+# Run all integration tests
+test: build
+	@echo "=== Running VisualGasic Integration Tests ==="
+	@./build/tests/run_integration_tests
+	@echo "📊 Test results saved to tests/integration_test_report.txt"
+
+# Run specific test categories
+test-types:
+	@echo "Running Advanced Type System tests..."
+	@./build/tests/run_integration_tests --category=types
+
+test-async:
+	@echo "Running Async/Await integration tests..."
+	@./build/tests/run_integration_tests --category=async
+
+test-patterns:
+	@echo "Running Pattern Matching tests..."
+	@./build/tests/run_integration_tests --category=patterns
+
+test-repl:
+	@echo "Running REPL integration tests..."
+	@./build/tests/run_integration_tests --category=repl
+
+test-gpu:
+	@echo "Running GPU Computing tests..."
+	@./build/tests/run_integration_tests --category=gpu
+
+test-lsp:
+	@echo "Running Language Server Protocol tests..."
+	@./build/tests/run_integration_tests --category=lsp
+
+test-packages:
+	@echo "Running Package Manager tests..."
+	@./build/tests/run_integration_tests --category=packages
+
+test-ecs:
+	@echo "Running ECS integration tests..."
+	@./build/tests/run_integration_tests --category=ecs
+
+test-debugging:
+	@echo "Running Advanced Debugging tests..."
+	@./build/tests/run_integration_tests --category=debugging
+
+# Performance benchmarks
+performance: build
+	@echo "=== Running Performance Benchmarks ==="
+	@./build/tests/run_integration_tests --benchmark
+	@echo "📈 Performance results saved to tests/performance_report.txt"
+
+# Stress testing
+stress: build
+	@echo "=== Running Stress Tests ==="
+	@./build/tests/run_integration_tests --stress
+	@echo "💪 Stress test results saved to tests/stress_test_report.txt"
+
+# Run tests in continuous integration mode
+ci-test: build
+	@echo "=== Running CI Integration Tests ==="
+	@./build/tests/run_integration_tests --ci --junit-xml
+	@echo "🔧 CI results saved in JUnit XML format"
+
+# Generate comprehensive reports
+reports: test performance stress
+	@echo "=== Generating Comprehensive Test Reports ==="
+	@python3 tools/generate_reports.py
+	@echo "📋 Comprehensive reports generated in reports/ directory"
+
+# Run tests with Godot integration
+godot-test:
+	@echo "=== Running Godot Integration Tests ==="
+	@cd demo && godot --headless --script tests/integration_test_runner.gd
+	@echo "🎮 Godot integration test completed"
+
+# Memory leak detection
+memory-test: build
+	@echo "=== Running Memory Leak Detection ==="
+	@valgrind --leak-check=full --show-leak-kinds=all ./build/tests/run_integration_tests
+	@echo "🔍 Memory analysis completed"
+
+# Code coverage analysis
+coverage: 
+	@echo "=== Generating Code Coverage Report ==="
+	@cd build && cmake .. -DENABLE_COVERAGE=ON
+	@cd build && make -j$(nproc)
+	@./build/tests/run_integration_tests
+	@cd build && gcov -r ../ -s ../ src/*.cpp tests/*.cpp
+	@lcov -c -d . -o coverage.info
+	@genhtml coverage.info -o coverage_report
+	@echo "📊 Coverage report generated in build/coverage_report/"
+
+# Run tests in parallel
+parallel-test: build
+	@echo "=== Running Parallel Integration Tests ==="
+	@parallel -j$(nproc) ::: \
+		"./build/tests/run_integration_tests --category=types" \
+		"./build/tests/run_integration_tests --category=async" \
+		"./build/tests/run_integration_tests --category=patterns" \
+		"./build/tests/run_integration_tests --category=gpu"
+	@echo "⚡ Parallel tests completed"
+
+# Docker-based testing
+docker-test:
+	@echo "=== Running Tests in Docker Container ==="
+	@docker build -t visualgasic-test .
+	@docker run --rm visualgasic-test make test
+	@echo "🐳 Docker tests completed"
+
+# Regression testing against previous version
+regression-test: build
+	@echo "=== Running Regression Tests ==="
+	@./tools/run_regression_tests.sh
+	@echo "🔄 Regression testing completed"
+
+# Interactive test runner
+interactive:
+	@echo "=== Interactive Test Runner ==="
+	@./tools/interactive_test_runner.py
+
+# Clean build artifacts
+clean:
+	@echo "=== Cleaning Build Artifacts ==="
+	@rm -rf build/
+	@rm -f tests/*.xml tests/*.txt
+	@rm -rf coverage_report/
+	@echo "🧹 Cleaned successfully"
+
+# Install test dependencies
+install-deps:
+	@echo "=== Installing Test Dependencies ==="
+	@sudo apt-get update
+	@sudo apt-get install -y cmake build-essential valgrind lcov parallel
+	@pip3 install junit-xml coverage-badge
+	@echo "📦 Dependencies installed"
+
+# Quick smoke test
+smoke-test: build
+	@echo "=== Running Smoke Tests ==="
+	@timeout 60 ./build/tests/run_integration_tests --quick
+	@echo "💨 Smoke tests completed"
+
+# Help target
+help:
+	@echo "VisualGasic Integration Test Makefile"
+	@echo "====================================="
+	@echo ""
+	@echo "Targets:"
+	@echo "  all              - Build and run all tests (default)"
+	@echo "  build            - Build the integration test suite"
+	@echo "  test             - Run all integration tests"
+	@echo "  test-<category>  - Run specific test category"
+	@echo "  performance      - Run performance benchmarks"
+	@echo "  stress           - Run stress tests"
+	@echo "  ci-test          - Run tests in CI mode"
+	@echo "  godot-test       - Run Godot integration tests"
+	@echo "  memory-test      - Run with memory leak detection"
+	@echo "  coverage         - Generate code coverage report"
+	@echo "  parallel-test    - Run tests in parallel"
+	@echo "  docker-test      - Run tests in Docker"
+	@echo "  regression-test  - Run regression tests"
+	@echo "  interactive      - Start interactive test runner"
+	@echo "  smoke-test       - Run quick smoke tests"
+	@echo "  reports          - Generate comprehensive reports"
+	@echo "  clean            - Clean build artifacts"
+	@echo "  install-deps     - Install test dependencies"
+	@echo "  help             - Show this help"
+	@echo ""
+	@echo "Test Categories:"
+	@echo "  types       - Advanced Type System"
+	@echo "  async       - Async/Await Integration" 
+	@echo "  patterns    - Pattern Matching"
+	@echo "  repl        - Interactive REPL"
+	@echo "  gpu         - GPU Computing"
+	@echo "  lsp         - Language Server Protocol"
+	@echo "  packages    - Package Manager"
+	@echo "  ecs         - Entity Component System"
+	@echo "  debugging   - Advanced Debugging"
+	@echo ""
+	@echo "Examples:"
+	@echo "  make test              # Run all tests"
+	@echo "  make test-async        # Run only async tests"
+	@echo "  make performance       # Run performance benchmarks"
+	@echo "  make ci-test          # Run in CI mode"
+	@echo "  make parallel-test    # Run tests in parallel"
+
+# Development targets
+dev: build test-quick
+	@echo "🚀 Development testing cycle completed"
+
+test-quick: build
+	@echo "=== Running Quick Tests ==="
+	@./build/tests/run_integration_tests --quick --no-stress
+	@echo "⚡ Quick tests completed"
+
+watch:
+	@echo "=== Watching for changes and running tests ==="
+	@inotifywait -m -r --format '%w %e %f' src/ tests/ -e modify,create,delete | \
+		while read dir event file; do \
+			echo "Change detected: $$dir$$file"; \
+			make test-quick; \
+		done
+
+# Benchmark specific features
+benchmark-parser:
+	@./build/tests/run_integration_tests --benchmark=parser
+
+benchmark-execution:
+	@./build/tests/run_integration_tests --benchmark=execution
+
+benchmark-gpu:
+	@./build/tests/run_integration_tests --benchmark=gpu
+
+# Test specific edge cases
+test-edge-cases:
+	@echo "=== Testing Edge Cases ==="
+	@./build/tests/run_integration_tests --edge-cases
+	@echo "🔍 Edge case testing completed"
+
+# Performance profiling
+profile: build
+	@echo "=== Performance Profiling ==="
+	@perf record -g ./build/tests/run_integration_tests --profile
+	@perf report
+	@echo "📊 Performance profiling completed"
