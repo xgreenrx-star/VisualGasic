@@ -214,6 +214,7 @@ public:
     void set_compilation_mode(CompilationMode mode) { default_compilation_mode_ = mode; }
     void set_hot_path_config(const HotPathConfig& config) { config_ = config; }
     void enable_background_compilation(bool enable) { background_compilation_enabled_ = enable; }
+    void set_interpreter_callback(std::function<void(const ASTNode*, ExecutionContext&)> callback);
     
     // Cleanup and optimization
     void cleanup_unused_code();
@@ -242,6 +243,7 @@ private:
     std::atomic<size_t> total_compilations_{0};
     std::atomic<size_t> successful_compilations_{0};
     std::atomic<std::chrono::nanoseconds> total_compilation_time_{std::chrono::nanoseconds{0}};
+    std::function<void(const ASTNode*, ExecutionContext&)> interpreter_callback_;
     
     // Internal methods
     void start_background_compiler();

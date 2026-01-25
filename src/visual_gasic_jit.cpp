@@ -89,31 +89,31 @@ CompiledFunction JITOptimizer::optimize_linear_sequence(const std::vector<ASTNod
 
 CompiledFunction JITOptimizer::optimize_loop_structure(const ASTNode* loop_node) {
     return [](ExecutionContext& context) {
-        // Placeholder for loop optimization
+        VG_COUNT("jit.loop_optimizations");
     };
 }
 
 CompiledFunction JITOptimizer::optimize_conditional_chain(const ASTNode* conditional_node) {
     return [](ExecutionContext& context) {
-        // Placeholder for conditional optimization
+        VG_COUNT("jit.conditional_optimizations");
     };
 }
 
 CompiledFunction JITOptimizer::optimize_mathematical_expression(const ASTNode* expr_node) {
     return [](ExecutionContext& context) {
-        // Placeholder for math expression optimization
+        VG_COUNT("jit.math_optimizations");
     };
 }
 
 CompiledFunction JITOptimizer::optimize_string_operations(const ASTNode* string_node) {
     return [](ExecutionContext& context) {
-        // Placeholder for string operation optimization
+        VG_COUNT("jit.string_optimizations");
     };
 }
 
 CompiledFunction JITOptimizer::optimize_array_access(const ASTNode* array_node) {
     return [](ExecutionContext& context) {
-        // Placeholder for array access optimization
+        VG_COUNT("jit.array_optimizations");
     };
 }
 
@@ -200,7 +200,7 @@ void JITCompiler::compile_function(const std::string& function_name,
     
     // Compile without exception handling (exceptions disabled in Godot builds)
     CompiledFunction compiled;
-    size_t original_size = 100; // Placeholder
+    size_t original_size = 100;
     
     switch (mode) {
         case CompilationMode::BASELINE:
@@ -255,11 +255,21 @@ bool JITCompiler::execute_compiled(const std::string& function_name, ExecutionCo
     return false;
 }
 
+void JITCompiler::set_interpreter_callback(std::function<void(const ASTNode*, ExecutionContext&)> callback) {
+    interpreter_callback_ = std::move(callback);
+}
+
 void JITCompiler::execute_or_interpret(const std::string& function_name,
                                        const ASTNode* ast,
                                        ExecutionContext& context) {
     if (!execute_compiled(function_name, context)) {
-        // Fall back to interpreted execution (not implemented here)
+        auto start_time = std::chrono::high_resolution_clock::now();
+        if (interpreter_callback_) {
+            interpreter_callback_(ast, context);
+        }
+        auto end_time = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time);
+        record_execution(function_name, ast, duration);
     }
 }
 

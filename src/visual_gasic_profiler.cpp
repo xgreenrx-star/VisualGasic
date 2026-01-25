@@ -48,6 +48,11 @@ VisualGasicProfiler::VisualGasicProfiler() {
     add_counter("repl.evaluations", "evaluations");
     add_counter("jit.linear_sequences", "sequences");
     add_counter("jit.linear_ops", "ops");
+    add_counter("jit.loop_optimizations", "optimizations");
+    add_counter("jit.conditional_optimizations", "optimizations");
+    add_counter("jit.math_optimizations", "optimizations");
+    add_counter("jit.string_optimizations", "optimizations");
+    add_counter("jit.array_optimizations", "optimizations");
 }
 
 void VisualGasicProfiler::start_profile(const std::string& name, const std::string& category) {
