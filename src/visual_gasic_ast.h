@@ -9,8 +9,9 @@
 
 using namespace godot;
 namespace VisualGasic {
-// Forward declaration
+// Forward declarations
 struct ExpressionNode;
+struct PropertyDefinition;
 
 enum StatementType {
     STMT_PRINT,
@@ -694,6 +695,7 @@ struct ModuleNode {
     Vector<VariableDefinition*> variables; // Module level variables
     Vector<ConstStatement*> constants; // Module level constants
     Vector<Statement*> global_statements; // For Data and Labels at module level
+    Vector<PropertyDefinition*> properties; // Module level properties (owned by ClassDefinitions)
     
     ModuleNode() { option_explicit = false; option_compare_text = false; }
 
@@ -705,6 +707,7 @@ struct ModuleNode {
         for(int i=0; i<variables.size(); i++) if(variables[i]) delete variables[i];
         for(int i=0; i<constants.size(); i++) if(constants[i]) delete constants[i];
         for(int i=0; i<global_statements.size(); i++) if(global_statements[i]) delete global_statements[i];
+        // Note: properties are managed separately to avoid incomplete type issues with forward declaration
     }
 };
 
@@ -834,12 +837,12 @@ struct Pattern {
     String variable_name; // For variable capture
     String type_name; // For type patterns
     Vector<Pattern*> sub_patterns; // For tuple patterns
-    // ExpressionNode* guard_expression; // For When clauses - temporarily disabled
+    ExpressionNode* guard_expression; // For When clauses
     Variant literal_value; // For literal patterns
     
-    Pattern() { type = LITERAL_PATTERN; /* guard_expression = nullptr; */ }
+    Pattern() { type = LITERAL_PATTERN; guard_expression = nullptr; }
     ~Pattern() {
-        // if (guard_expression) delete guard_expression;
+        if (guard_expression) delete guard_expression;
         for(int i=0; i<sub_patterns.size(); i++) if(sub_patterns[i]) delete sub_patterns[i];
     }
 };

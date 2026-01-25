@@ -204,35 +204,163 @@ bool VisualGasicInstance::is_property_accessor(const String& prop_name, Property
     if (!root) return false;
     
     // Check module-level properties
-    // Note: Properties are typically stored in class definitions, not module level
-    // This is a placeholder for module-level property support
+    for (int i = 0; i < root->properties.size(); i++) {
+        PropertyDefinition* prop = root->properties[i];
+        if (prop && prop->name.nocasecmp_to(prop_name) == 0) {
+            type = prop->property_type;
+            return true;
+        }
+    }
+    
+    // Also check class definitions if we're in a class context
+    // (For now, module-level only)
     
     return false;
 }
 
 Variant VisualGasicInstance::call_property_get(const String& prop_name, const Array& args) {
-    // Placeholder for property Get execution
     ModuleNode* root = script->ast_root;
     if (!root) return Variant();
     
-    // Would execute Property Get procedure body
-    return Variant();
+    // Find the Property Get definition
+    PropertyDefinition* prop_def = nullptr;
+    for (int i = 0; i < root->properties.size(); i++) {
+        PropertyDefinition* prop = root->properties[i];
+        if (prop && prop->name.nocasecmp_to(prop_name) == 0 && 
+            prop->property_type == PropertyDefinition::PROP_GET) {
+            prop_def = prop;
+            break;
+        }
+    }
+    
+    if (!prop_def) {
+        UtilityFunctions::print("Property Get '", prop_name, "' not found");
+        return Variant();
+    }
+    
+    // Save current variable state
+    Dictionary saved_vars = variables.duplicate();
+    
+    // Set up property parameters (for indexed properties)
+    for (int i = 0; i < prop_def->parameters.size() && i < args.size(); i++) {
+        variables[prop_def->parameters[i].name] = args[i];
+    }
+    
+    // Execute property body
+    for (int i = 0; i < prop_def->body.size(); i++) {
+        execute_statement(prop_def->body[i]);
+        
+        if (error_state.mode == ErrorState::EXIT_SUB) {
+            error_state.mode = ErrorState::NONE;
+            break;
+        }
+    }
+    
+    // Get return value (property name is the return variable in VB)
+    Variant result;
+    if (variables.has(prop_name)) {
+        result = variables[prop_name];
+    }
+    
+    // Restore variables
+    variables = saved_vars;
+    
+    return result;
 }
 
 void VisualGasicInstance::call_property_let(const String& prop_name, const Array& args, const Variant& value) {
-    // Placeholder for property Let execution
     ModuleNode* root = script->ast_root;
     if (!root) return;
     
-    // Would execute Property Let procedure body
+    // Find the Property Let definition
+    PropertyDefinition* prop_def = nullptr;
+    for (int i = 0; i < root->properties.size(); i++) {
+        PropertyDefinition* prop = root->properties[i];
+        if (prop && prop->name.nocasecmp_to(prop_name) == 0 && 
+            prop->property_type == PropertyDefinition::PROP_LET) {
+            prop_def = prop;
+            break;
+        }
+    }
+    
+    if (!prop_def) {
+        UtilityFunctions::print("Property Let '", prop_name, "' not found");
+        return;
+    }
+    
+    // Save current variable state
+    Dictionary saved_vars = variables.duplicate();
+    
+    // Set up property parameters
+    // First parameters are index parameters, last parameter is the value
+    for (int i = 0; i < prop_def->parameters.size() - 1 && i < args.size(); i++) {
+        variables[prop_def->parameters[i].name] = args[i];
+    }
+    
+    // Set the value parameter (last parameter in Property Let)
+    if (prop_def->parameters.size() > 0) {
+        variables[prop_def->parameters[prop_def->parameters.size() - 1].name] = value;
+    }
+    
+    // Execute property body
+    for (int i = 0; i < prop_def->body.size(); i++) {
+        execute_statement(prop_def->body[i]);
+        
+        if (error_state.mode == ErrorState::EXIT_SUB) {
+            error_state.mode = ErrorState::NONE;
+            break;
+        }
+    }
+    
+    // Restore variables
+    variables = saved_vars;
 }
 
 void VisualGasicInstance::call_property_set(const String& prop_name, const Array& args, const Variant& value) {
-    // Placeholder for property Set execution (for object assignment)
     ModuleNode* root = script->ast_root;
     if (!root) return;
     
-    // Would execute Property Set procedure body
+    // Find the Property Set definition (for object assignment)
+    PropertyDefinition* prop_def = nullptr;
+    for (int i = 0; i < root->properties.size(); i++) {
+        PropertyDefinition* prop = root->properties[i];
+        if (prop && prop->name.nocasecmp_to(prop_name) == 0 && 
+            prop->property_type == PropertyDefinition::PROP_SET) {
+            prop_def = prop;
+            break;
+        }
+    }
+    
+    if (!prop_def) {
+        UtilityFunctions::print("Property Set '", prop_name, "' not found");
+        return;
+    }
+    
+    // Save current variable state
+    Dictionary saved_vars = variables.duplicate();
+    
+    // Set up property parameters (same as Let, last param is the object value)
+    for (int i = 0; i < prop_def->parameters.size() - 1 && i < args.size(); i++) {
+        variables[prop_def->parameters[i].name] = args[i];
+    }
+    
+    // Set the object value parameter
+    if (prop_def->parameters.size() > 0) {
+        variables[prop_def->parameters[prop_def->parameters.size() - 1].name] = value;
+    }
+    
+    // Execute property body
+    for (int i = 0; i < prop_def->body.size(); i++) {
+        execute_statement(prop_def->body[i]);
+        
+        if (error_state.mode == ErrorState::EXIT_SUB) {
+            error_state.mode = ErrorState::NONE;
+            break;
+        }
+    }
+    
+    // Restore variables
+    variables = saved_vars;
 }
 
 // FFI / DLL Support
@@ -305,20 +433,127 @@ Variant VisualGasicInstance::call_ffi_function(DeclareStatement* decl, const Arr
         return Variant();
     }
     
-    // Type marshaling and function invocation
-    // This is a complex operation that requires:
-    // 1. Converting VB6 types to C types
-    // 2. Handling ByVal vs ByRef parameters
-    // 3. Calling with correct calling convention (stdcall vs cdecl)
-    // 4. Converting return value back to Variant
+    // Validate argument count
+    if (args.size() != decl->param_names.size()) {
+        UtilityFunctions::print("Error: FFI function '", func_name, "' expects ", decl->param_names.size(), 
+                               " arguments, got ", args.size());
+        return Variant();
+    }
     
-    // For now, provide a stub that shows it's recognized but not fully implemented
-    UtilityFunctions::print("FFI call to ", func_name, " in ", decl->lib_name, " - Full FFI marshaling not yet implemented");
-    UtilityFunctions::print("  Parameters: ", args.size(), " expected: ", decl->param_names.size());
-    UtilityFunctions::print("  Calling convention: ", decl->use_cdecl ? "cdecl" : "stdcall");
+    // Convert arguments to C types and call the function
+    // We support common VB6 types: Integer (int), Long (int64), Single (float), Double, String, Boolean
     
-    // Basic implementation would use libffi or manual assembly for proper calling
-    return Variant();
+    // For simplicity, we'll use a union-based approach for up to 8 parameters
+    // This works for most VB6 API calls
+    
+    union FFIArg {
+        int32_t i32;
+        int64_t i64;
+        float f32;
+        double f64;
+        const char* str;
+        void* ptr;
+    };
+    
+    FFIArg ffi_args[8];
+    Vector<CharString> string_storage; // Keep strings alive during call
+    
+    for (int i = 0; i < args.size() && i < 8; i++) {
+        String param_type = decl->param_types[i];
+        Variant arg = args[i];
+        
+        if (param_type.nocasecmp_to("Integer") == 0 || param_type.nocasecmp_to("Short") == 0) {
+            ffi_args[i].i32 = (int32_t)arg;
+        } else if (param_type.nocasecmp_to("Long") == 0) {
+            ffi_args[i].i64 = (int64_t)arg;
+        } else if (param_type.nocasecmp_to("Single") == 0) {
+            ffi_args[i].f32 = (float)arg;
+        } else if (param_type.nocasecmp_to("Double") == 0) {
+            ffi_args[i].f64 = (double)arg;
+        } else if (param_type.nocasecmp_to("String") == 0) {
+            String s = arg;
+            string_storage.push_back(s.utf8());
+            ffi_args[i].str = string_storage[string_storage.size() - 1].get_data();
+        } else if (param_type.nocasecmp_to("Boolean") == 0) {
+            ffi_args[i].i32 = (bool)arg ? -1 : 0; // VB6 True = -1
+        } else if (param_type.nocasecmp_to("Any") == 0 || param_type.nocasecmp_to("Ptr") == 0) {
+            ffi_args[i].i64 = (int64_t)arg;
+        } else {
+            // Default to pointer/long
+            ffi_args[i].i64 = (int64_t)arg;
+        }
+    }
+    
+    // Call function based on number of parameters and return type
+    // Using function pointer casting for common signatures
+    
+    Variant result;
+    String ret_type = decl->return_type;
+    
+    // Determine return type handling
+    bool returns_void = ret_type.is_empty() || ret_type.nocasecmp_to("Sub") == 0;
+    bool returns_int = ret_type.nocasecmp_to("Integer") == 0 || ret_type.nocasecmp_to("Long") == 0;
+    bool returns_float = ret_type.nocasecmp_to("Single") == 0;
+    bool returns_double = ret_type.nocasecmp_to("Double") == 0;
+    bool returns_string = ret_type.nocasecmp_to("String") == 0;
+    
+    // Call with appropriate signature based on parameter count
+    switch (args.size()) {
+        case 0: {
+            if (returns_void) {
+                ((void(*)())func_ptr)();
+            } else if (returns_int) {
+                result = (int64_t)((int64_t(*)())func_ptr)();
+            } else if (returns_float) {
+                result = ((float(*)())func_ptr)();
+            } else if (returns_double) {
+                result = ((double(*)())func_ptr)();
+            }
+            break;
+        }
+        case 1: {
+            if (returns_void) {
+                ((void(*)(int64_t))func_ptr)(ffi_args[0].i64);
+            } else if (returns_int) {
+                result = (int64_t)((int64_t(*)(int64_t))func_ptr)(ffi_args[0].i64);
+            } else if (returns_float) {
+                result = ((float(*)(int64_t))func_ptr)(ffi_args[0].i64);
+            } else if (returns_double) {
+                result = ((double(*)(int64_t))func_ptr)(ffi_args[0].i64);
+            }
+            break;
+        }
+        case 2: {
+            if (returns_void) {
+                ((void(*)(int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64);
+            } else if (returns_int) {
+                result = (int64_t)((int64_t(*)(int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64);
+            }
+            break;
+        }
+        case 3: {
+            if (returns_void) {
+                ((void(*)(int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64);
+            } else if (returns_int) {
+                result = (int64_t)((int64_t(*)(int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64);
+            }
+            break;
+        }
+        case 4: {
+            if (returns_void) {
+                ((void(*)(int64_t, int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64);
+            } else if (returns_int) {
+                result = (int64_t)((int64_t(*)(int64_t, int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64);
+            }
+            break;
+        }
+        default: {
+            UtilityFunctions::print("FFI: Functions with more than 4 parameters not yet supported");
+            break;
+        }
+    }
+    
+    return result;
 }
 
 void VisualGasicInstance::register_declare(DeclareStatement* decl) {

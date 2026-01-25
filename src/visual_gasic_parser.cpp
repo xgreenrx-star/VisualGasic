@@ -3421,11 +3421,10 @@ Pattern* VisualGasicParser::parse_pattern() {
         }
     }
     
-    // Guard clause with When (guard expression disabled in AST for now)
+    // Guard clause with When
     if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).to_lower() == "when") {
         advance(); // consume "when"
-        // Skip the guard expression for now since it's commented out in AST
-        parse_expression(); // Parse but don't store
+        pattern->guard_expression = parse_expression();
     }
     
     return pattern;

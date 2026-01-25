@@ -517,8 +517,33 @@ void VisualGasicDebugger::cleanup_old_history() {
 }
 
 double VisualGasicDebugger::calculate_cpu_usage() const {
-    // Simplified CPU usage calculation
-    return 0.0; // Would implement actual CPU usage tracking
+    // Calculate CPU usage based on execution history timing
+    if (!current_session || current_session->execution_history.size() < 2) {
+        return 0.0;
+    }
+    
+    // Calculate average time between frames to estimate CPU usage
+    uint64_t total_time = 0;
+    size_t sample_count = Math::min((size_t)100, current_session->execution_history.size() - 1);
+    
+    for (size_t i = current_session->execution_history.size() - sample_count; 
+         i < current_session->execution_history.size() - 1; i++) {
+        uint64_t delta = current_session->execution_history[i + 1].timestamp_us - 
+                         current_session->execution_history[i].timestamp_us;
+        total_time += delta;
+    }
+    
+    if (sample_count == 0 || total_time == 0) return 0.0;
+    
+    // Average microseconds per instruction
+    double avg_us_per_op = (double)total_time / sample_count;
+    
+    // Estimate CPU usage: more operations per second = higher usage
+    // This is a heuristic: assume 100% CPU if processing > 10000 ops/sec
+    double ops_per_sec = 1000000.0 / avg_us_per_op;
+    double usage = Math::clamp(ops_per_sec / 10000.0, 0.0, 1.0) * 100.0;
+    
+    return usage;
 }
 
 void VisualGasicDebugger::update_memory_stats() {
@@ -555,11 +580,77 @@ Dictionary VisualGasicDebugger::breakpoint_to_dictionary(const Breakpoint& bp) c
 }
 
 String VisualGasicDebugger::get_allocation_stack_trace() const {
-    return "Stack trace not implemented"; // Would implement actual stack trace
+    // Build stack trace from current execution history
+    if (!current_session || current_session->execution_history.empty()) {
+        return "No execution history available";
+    }
+    
+    String trace;
+    trace += "=== Stack Trace ===\n";
+    
+    // Get the last few frames as the call stack
+    size_t start_index = current_session->execution_history.size() > 20 ? 
+                         current_session->execution_history.size() - 20 : 0;
+    
+    for (size_t i = current_session->execution_history.size(); i > start_index; i--) {
+        const ExecutionFrame& frame = current_session->execution_history[i - 1];
+        String frame_str = String("  at ") + frame.function_name + 
+                          " (" + frame.file_path + ":" + String::num(frame.line_number) + ")\n";
+        trace += frame_str;
+    }
+    
+    trace += "=== Memory Stats ===\n";
+    trace += "  Allocated: " + String::num(total_allocated_bytes) + " bytes\n";
+    trace += "  Freed: " + String::num(total_freed_bytes) + " bytes\n";
+    trace += "  In Use: " + String::num(total_allocated_bytes - total_freed_bytes) + " bytes\n";
+    trace += "  Active Allocations: " + String::num(active_allocations.size()) + "\n";
+    
+    return trace;
 }
 
 void VisualGasicDebugger::identify_performance_hotspots() {
-    // Analyze and identify performance bottlenecks
+    if (!current_session || current_session->execution_history.size() < 10) {
+        UtilityFunctions::print_rich("[color=yellow]Not enough execution history to analyze[/color]");
+        return;
+    }
+    
+    // Count function call frequencies
+    Dictionary function_counts;
+    Dictionary function_times;
+    
+    for (size_t i = 0; i < current_session->execution_history.size(); i++) {
+        const ExecutionFrame& frame = current_session->execution_history[i];
+        String key = frame.function_name;
+        
+        if (function_counts.has(key)) {
+            function_counts[key] = (int)function_counts[key] + 1;
+        } else {
+            function_counts[key] = 1;
+        }
+        
+        // Track time spent in each function
+        if (i > 0) {
+            uint64_t delta = frame.timestamp_us - current_session->execution_history[i - 1].timestamp_us;
+            if (function_times.has(key)) {
+                function_times[key] = (int64_t)function_times[key] + delta;
+            } else {
+                function_times[key] = (int64_t)delta;
+            }
+        }
+    }
+    
+    UtilityFunctions::print_rich("[color=cyan]=== Performance Hotspots ===[/color]");
+    
+    // Find functions with highest call count
+    Array keys = function_counts.keys();
+    UtilityFunctions::print_rich("[color=white]Top Functions by Call Count:[/color]");
+    for (int i = 0; i < keys.size() && i < 5; i++) {
+        String func = keys[i];
+        int count = function_counts[func];
+        int64_t time_us = function_times.has(func) ? (int64_t)function_times[func] : 0;
+        UtilityFunctions::print_rich("  " + func + ": " + String::num(count) + 
+                                    " calls, " + String::num(time_us / 1000.0, 2) + "ms total");
+    }
 }
 
 // Global debugger functions

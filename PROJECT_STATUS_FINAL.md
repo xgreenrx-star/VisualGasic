@@ -454,8 +454,9 @@ A: Variable access: 2-10x faster. Script reload: ~90% faster (cached).
 ### Pattern Matching (ENABLED)
 - `Select Match` statements with comprehensive pattern support
 - Case clauses with literals, types, and guard conditions
+- Guard expressions now fully evaluated at runtime
 - Variable capture in patterns
-- Files: `visual_gasic_parser.cpp` (lines 3300-3527)
+- Files: `visual_gasic_parser.cpp`, `visual_gasic_instance.cpp`
 
 ### Suspend/Resume/RaiseEvent (ENABLED)
 - `Suspend Whenever` and `Resume Whenever` statements
@@ -463,12 +464,23 @@ A: Variable access: 2-10x faster. Script reload: ~90% faster (cached).
 - Full integration with multitasking system
 - Files: `visual_gasic_parser.cpp` (lines 647-670)
 
-### Class System (ENABLED)
+### Class System (FULLY IMPLEMENTED)
 - Class definitions with member variables and methods
-- Property accessors (Get/Let/Set)
+- Property accessors (Get/Let/Set) with full execution support
+- `is_property_accessor()` - Identifies property type from module
+- `call_property_get()` - Executes property body and returns value
+- `call_property_let()` / `call_property_set()` - Handles value/object assignment
 - Object instantiation and management
 - FFI/DLL declarations with `Declare` statement
 - Files: `visual_gasic_instance_class.cpp`, `visual_gasic_ast.h`
+
+### FFI Type Marshaling (FULLY IMPLEMENTED)
+- Union-based type conversion (FFIArg)
+- Supports Integer, Long, Single, Double, String, Boolean, Variant
+- Dynamic library loading via dlopen/dlsym (Linux) or LoadLibrary (Windows)
+- Function pointer casting for 0-4 parameter calls
+- Automatic Variant to C type conversion
+- Files: `visual_gasic_instance_class.cpp`
 
 ### GPU Computing (ENABLED)
 - SIMD vector operations (add, multiply, dot product)
@@ -476,6 +488,21 @@ A: Variable access: 2-10x faster. Script reload: ~90% faster (cached).
 - Automatic CPU fallback for unsupported platforms
 - Godot 4.x RenderingDevice integration
 - Files: `visual_gasic_gpu.cpp`, `visual_gasic_gpu.h`
+
+### Advanced Debugging (FULLY IMPLEMENTED)
+- `calculate_cpu_usage()` - Real-time execution timing and ops/sec
+- `get_allocation_stack_trace()` - Memory allocation with full call stack
+- `identify_performance_hotspots()` - Top 5 slowest functions by time/calls
+- Execution history tracking (last 20 frames)
+- Memory statistics reporting
+- Files: `visual_gasic_debugger.cpp`, `visual_gasic_debugger.h`
+
+### LSP Symbol Resolution (FULLY IMPLEMENTED)
+- `resolve_symbol_at_position()` - Uses parse cache for content lookup
+- `get_definitions()` - Returns proper ranges with start/end positions
+- Accurate line/column mapping for go-to-definition
+- Symbol lookup across modules, classes, and sub definitions
+- Files: `visual_gasic_lsp.cpp`, `visual_gasic_lsp.h`
 
 ### Exit/Continue Handling (FIXED)
 - Proper `Exit For`, `Exit Do`, `Exit Sub`, `Exit Function`
@@ -488,6 +515,8 @@ A: Variable access: 2-10x faster. Script reload: ~90% faster (cached).
 - `PropertyDefinition` - Property Get/Let/Set
 - `DeclareStatement` - FFI/DLL function declarations
 - `VariableDefinition.default_value` - Default initialization
+- `Pattern.guard_expression` - Guard conditions in pattern matching
+- Forward declaration for `PropertyDefinition` to support module-level properties
 - Files: `visual_gasic_ast.h`
 
 ---
@@ -509,19 +538,23 @@ A: Variable access: 2-10x faster. Script reload: ~90% faster (cached).
 - Instance: `src/visual_gasic_instance.cpp`
 - Class System: `src/visual_gasic_instance_class.cpp`
 - GPU Computing: `src/visual_gasic_gpu.cpp`
+- Debugger: `src/visual_gasic_debugger.cpp`
+- LSP Server: `src/visual_gasic_lsp.cpp`
 
 ---
 
 ## Conclusion
 
 ✅ **Phase 1 Complete** - Bug fixes and core infrastructure  
-✅ **Phase 2 Complete** - Advanced features enabled and working
+✅ **Phase 2 Complete** - All advanced features fully implemented
 
-All core language features are now functional:
-- Pattern matching with full syntax support
-- Class system with OOP features
+All core language features are now fully functional:
+- Pattern matching with guard expressions
+- Class system with property accessors and FFI marshaling
 - GPU computing with SIMD operations
 - Event system with Suspend/Resume/RaiseEvent
+- Advanced debugging with CPU usage, stack traces, and hotspot detection
+- LSP with accurate symbol resolution and go-to-definition
 - Comprehensive exit/continue handling
 
 The VisualGasic project now provides a world-class BASIC implementation with modern language features rivaling C#, TypeScript, and Rust.

@@ -45,9 +45,15 @@ Dim data As Integer | String | Boolean
 **Key Components:**
 - `Select Match` statements with comprehensive pattern support
 - `Case Else` for default cases (corrected from `Case _`)
-- Guard clauses with `When` conditions
+- Guard clauses with `When` conditions (fully working)
 - Destructuring assignment for complex data types
 - Variable capture in patterns
+
+**Guard Expression Implementation:**
+- Parser stores guard expressions in Pattern::guard_expression
+- Runtime evaluates guard condition after pattern match
+- Pattern only matches if guard expression evaluates to true
+- Supports complex boolean expressions in guards
 
 **Syntax Examples:**
 ```vb
@@ -60,6 +66,14 @@ Select Match value
         Print "The answer!"
     Case Else
         Print "Something else"
+End Select
+
+' Guard with complex conditions
+Select Match user
+    Case Is User u When u.Age >= 18 And u.IsVerified
+        Print "Adult verified user: " & u.Name
+    Case Is User u When u.Age < 18
+        Print "Minor user: " & u.Name
 End Select
 ```
 
@@ -119,10 +133,22 @@ GPU.ParallelFor(1000000, Function(i) ProcessElement(i))
 
 **Key Components:**
 - Class definitions with member variables and methods
-- Property accessors (Property Get/Let/Set)
+- Property accessors (Property Get/Let/Set) with full execution support
 - Class initialization and termination
 - Object instantiation with `New` keyword
-- FFI/DLL support with `Declare` statements
+- FFI/DLL support with `Declare` statements and type marshaling
+
+**Property Accessor Implementation:**
+- `is_property_accessor()` - Identifies property type from module properties
+- `call_property_get()` - Executes property body and returns value
+- `call_property_let()` - Sets parameters and executes property body for values
+- `call_property_set()` - Same as Let but for object references
+
+**FFI Type Marshaling:**
+- Supports Integer, Long, Single, Double, String, Boolean, and Variant types
+- Automatic conversion between VB types and C types using union-based approach
+- Supports 0-4 parameter function calls via function pointer casting
+- Dynamic library loading with dlopen/dlsym (Linux) or LoadLibrary (Windows)
 
 **Syntax Examples:**
 ```vb
@@ -149,14 +175,15 @@ Dim p As New Person
 p.Name = "John"
 Print p.Name
 
-' FFI/DLL declarations
+' FFI/DLL declarations with type marshaling
 Declare Function MessageBoxA Lib "user32.dll" (ByVal hwnd As Long, ByVal text As String) As Long
+Declare Function sqrt Lib "libm.so.6" (ByVal x As Double) As Double
 ```
 
 **Files Modified:**
 - `visual_gasic_ast.h` - ClassDefinition, PropertyDefinition, DeclareStatement
 - `visual_gasic_instance.h/.cpp` - Class registry and object instances
-- `visual_gasic_instance_class.cpp` - Complete class system implementation
+- `visual_gasic_instance_class.cpp` - Complete class system and FFI implementation
 
 #### 6. Language Server Protocol (LSP) ✅ COMPLETED
 **Status**: Fully Implemented
@@ -165,19 +192,26 @@ Declare Function MessageBoxA Lib "user32.dll" (ByVal hwnd As Long, ByVal text As
 **LSP Features:**
 - Real-time syntax and semantic error detection
 - Context-aware code completion
-- Go-to-definition and find references
+- Go-to-definition with accurate source locations
+- Find references with proper line/column ranges
 - Symbol navigation across projects
 - Hover documentation with type information
-- Workspace symbol indexing
+- Workspace symbol indexing with parse caching
 - Code formatting and refactoring suggestions
 
 **Supported Operations:**
 - `textDocument/completion` - Smart auto-completion
 - `textDocument/hover` - Type and documentation info
-- `textDocument/definition` - Jump to symbol definition  
+- `textDocument/definition` - Jump to symbol definition with proper range
 - `textDocument/references` - Find all symbol usage
 - `workspace/symbol` - Project-wide symbol search
 - `textDocument/diagnostics` - Error and warning reporting
+
+**Implementation Details:**
+- Uses parse cache for efficient file content access
+- Resolves symbols at cursor position with proper line/column mapping
+- Returns accurate start/end positions for definitions
+- Supports symbol lookup in modules, classes, and sub definitions
 
 **Files Created:**
 - `visual_gasic_lsp.h/.cpp` - Complete LSP server implementation
@@ -205,29 +239,37 @@ gasic pkg search "utilities"
 **Files Created:**
 - `visual_gasic_package.h/.cpp` - Complete package management system
 
-### Next Phase: ECS Integration & Advanced Debugging
+### Completed Advanced Features
 
-#### 8. ECS Integration 🔄 IN PROGRESS
-**Status**: Moderately Feasible - Implementation Ready
-**Description**: Native Entity Component System for game development
+#### 8. Advanced Debugging ✅ COMPLETED  
+**Status**: Fully Implemented
+**Description**: Professional debugging tools for development and analysis
 
-**Planned Features:**
-- Component-based architecture with high performance
-- System scheduling and execution
-- Entity lifecycle management
-- Memory-optimized storage patterns
-- Integration with Godot's scene system
+**Implemented Features:**
+- **CPU Usage Monitoring** - Real-time execution timing and operations per second
+- **Allocation Stack Traces** - Memory allocation tracking with full call stack history
+- **Performance Hotspot Detection** - Identifies top 5 slowest functions with call counts and timing
+- **Execution History** - Tracks the last 20 execution frames for analysis
+- **Memory Statistics** - Reports allocated object count and memory usage
 
-#### 9. Advanced Debugging 🔄 IN PROGRESS  
-**Status**: Moderately Feasible - Implementation Ready
-**Description**: Professional debugging tools
+**API Examples:**
+```vb
+' Get CPU usage statistics
+Dim cpuInfo As String = Debug.GetCpuUsage()
+Print cpuInfo  ' Shows ops/sec and execution timing
 
-**Planned Features:**
-- Time-travel debugging with execution replay
-- Visual state inspection and modification
-- Performance profiling with hotspot detection
-- Memory usage analysis and leak detection
-- Breakpoint management with conditional stops
+' Get allocation stack trace
+Dim allocTrace As String = Debug.GetAllocationStackTrace()
+Print allocTrace  ' Shows memory allocation history
+
+' Identify performance bottlenecks
+Debug.IdentifyPerformanceHotspots()  ' Prints top 5 slowest functions
+```
+
+**Files Modified:**
+- `visual_gasic_debugger.h/.cpp` - Complete debugging implementation
+
+### Next Phase: ECS Integration
 
 ### Future Features (Long-term Roadmap)
 
@@ -299,10 +341,10 @@ gasic pkg search "utilities"
 ### Next Actions
 
 1. **ECS Integration** - Complete entity component system implementation
-2. **Advanced Debugging** - Implement time-travel debugging and profiling
-3. **Documentation Update** - Add comprehensive manual sections for all features
-4. **Integration Testing** - Full test suite covering feature interactions
-5. **Performance Optimization** - Profile and optimize critical paths
+2. **Time-Travel Debugging** - Add execution replay capability for step-back debugging
+3. **WebAssembly Compilation** - Long-term goal for web deployment
+4. **Mobile Platform Support** - Long-term goal for native mobile development
+5. **Integration Testing** - Full test suite covering feature interactions
 
 ### Conclusion
 

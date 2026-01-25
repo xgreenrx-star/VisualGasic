@@ -195,8 +195,20 @@ Array VisualGasicLSP::get_definitions(const String& uri, const Position& positio
     Symbol symbol = resolve_symbol_at_position(uri, position);
     if (!symbol.name.is_empty()) {
         Dictionary location;
-        location["uri"] = symbol.location.uri;
-        location["range"] = Dictionary(); // Would contain actual range
+        location["uri"] = symbol.location.uri.is_empty() ? uri : symbol.location.uri;
+        
+        // Build proper range from symbol location
+        Dictionary range_dict;
+        Dictionary start_pos;
+        start_pos["line"] = symbol.location.line;
+        start_pos["character"] = 0;
+        Dictionary end_pos;
+        end_pos["line"] = symbol.location.line;
+        end_pos["character"] = symbol.name.length();
+        range_dict["start"] = start_pos;
+        range_dict["end"] = end_pos;
+        
+        location["range"] = range_dict;
         definitions.push_back(location);
     }
     
@@ -473,7 +485,33 @@ void VisualGasicLSP::find_source_files(const String& directory, Array& files) {
 // Simplified implementations for other methods
 VisualGasicLSP::Symbol VisualGasicLSP::resolve_symbol_at_position(const String& uri, const Position& position) {
     Symbol symbol;
-    symbol.name = get_word_at_position("", position); // Would need actual content
+    
+    // Try to get cached parse result for this file
+    if (parse_cache.has(uri)) {
+        Dictionary cached = parse_cache[uri];
+        if (cached.has("content")) {
+            String content = cached["content"];
+            symbol.name = get_word_at_position(content, position);
+            
+            // Look up symbol in the symbol index
+            if (cached.has("symbols")) {
+                Array symbols = cached["symbols"];
+                for (int i = 0; i < symbols.size(); i++) {
+                    Dictionary sym = symbols[i];
+                    if (sym.has("name") && String(sym["name"]).nocasecmp_to(symbol.name) == 0) {
+                        symbol.type_info = sym.has("type") ? String(sym["type"]) : "Unknown";
+                        symbol.documentation = sym.has("doc") ? String(sym["doc"]) : "";
+                        if (sym.has("line")) {
+                            symbol.location.uri = uri;
+                            symbol.location.line = sym["line"];
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    
     return symbol;
 }
 

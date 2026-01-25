@@ -5664,11 +5664,11 @@ bool VisualGasicInstance::pattern_matches(Pattern* pattern, const Variant& value
         }
         
         case Pattern::GUARD_PATTERN: {
-            // Guard expressions temporarily disabled
-            // if (pattern->guard_expression) {
-            //     Variant guard_result = evaluate_expression(pattern->guard_expression);
-            //     return (bool)guard_result;
-            // }
+            // Guard expressions are evaluated as conditions
+            if (pattern->guard_expression) {
+                Variant guard_result = evaluate_expression(pattern->guard_expression);
+                return (bool)guard_result;
+            }
             return true;
         }
         
