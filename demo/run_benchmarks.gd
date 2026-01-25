@@ -1,7 +1,7 @@
 extends SceneTree
 
-const ITERATIONS := 200
-const INNER := 5000
+const ITERATIONS := 100
+const INNER := 1000
 
 func bench_gd(iterations: int, inner: int) -> Dictionary:
     var s := 0
@@ -55,11 +55,15 @@ func _init():
     print("VisualGasic: ", vg)
     print("C++: ", cpp)
 
-    if gd.has("elapsed_us") and vg.has("elapsed_us"):
-        var ratio_vg = float(vg["elapsed_us"]) / max(1.0, float(gd["elapsed_us"]))
-        print("VisualGasic vs GDScript: ", ratio_vg, "x")
-    if gd.has("elapsed_us") and cpp.has("elapsed_us"):
-        var ratio_cpp = float(cpp["elapsed_us"]) / max(1.0, float(gd["elapsed_us"]))
-        print("C++ vs GDScript: ", ratio_cpp, "x")
+    var checksums_match = gd.get("checksum") == vg.get("checksum") and gd.get("checksum") == cpp.get("checksum")
+    if not checksums_match:
+        push_warning("Checksum mismatch detected; results are not comparable.")
+    else:
+        if gd.has("elapsed_us") and vg.has("elapsed_us"):
+            var ratio_vg = float(vg["elapsed_us"]) / max(1.0, float(gd["elapsed_us"]))
+            print("VisualGasic vs GDScript: ", ratio_vg, "x")
+        if gd.has("elapsed_us") and cpp.has("elapsed_us"):
+            var ratio_cpp = float(cpp["elapsed_us"]) / max(1.0, float(gd["elapsed_us"]))
+            print("C++ vs GDScript: ", ratio_cpp, "x")
 
     quit(0)
