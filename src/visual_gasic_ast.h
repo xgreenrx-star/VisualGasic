@@ -589,6 +589,7 @@ struct VariableDefinition : public ASTNode {
 struct EventDefinition : public ASTNode {
     String name;
     Vector<String> arguments;
+    Vector<String> argument_types; // Types for each argument (e.g., "Integer", "String")
 };
 
 struct RaiseEventStatement : public Statement {

@@ -494,9 +494,13 @@ EventDefinition* VisualGasicParser::parse_event() {
                     if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).to_lower() == "as") {
                         advance();
                         if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER) || check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
-                             advance(); // consume type
-                             // TODO: store type
+                             String type_name = advance().value;
+                             evt->argument_types.push_back(type_name);
+                        } else {
+                             evt->argument_types.push_back("Variant");
                         }
+                    } else {
+                        evt->argument_types.push_back("Variant"); // Default type
                     }
                 }
                 
@@ -634,9 +638,8 @@ Statement* VisualGasicParser::parse_statement() {
             advance(); // consume "select"
             String next_val = String(peek().value).to_lower();
             if (next_val == "match") {
-                // Pattern matching feature disabled - fall through to regular select
-                current_pos--;
-                return parse_select();
+                advance(); // consume "match"
+                return parse_pattern_match();
             } else {
                 // Regular select case - put token back
                 current_pos--;
