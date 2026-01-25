@@ -587,6 +587,27 @@ Statement* VisualGasicParser::parse_statement() {
         if (val == "raise") {
             return parse_raise();
         }
+        if (val == "whenever") {
+            return parse_whenever();
+        }
+        if (val == "suspend") {
+            advance();
+            if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("whenever") == 0) {
+                advance(); // consume "whenever"
+                return parse_suspend_whenever();
+            }
+            error("Expected 'Whenever' after 'Suspend'");
+            return nullptr;
+        }
+        if (val == "resume") {
+            advance();
+            if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("whenever") == 0) {
+                advance(); // consume "whenever"
+                return parse_resume_whenever();
+            }
+            error("Expected 'Whenever' after 'Resume'");
+            return nullptr;
+        }
         if (val == "raiseevent") {
             advance();
             return parse_raise_event();
@@ -2765,6 +2786,139 @@ RaiseStatement* VisualGasicParser::parse_raise() {
     }
     
     return s;
+}
+
+WheneverSectionStatement* VisualGasicParser::parse_whenever() {
+    advance(); // Eat "Whenever"
+    
+    if (!check(VisualGasicTokenizer::TOKEN_KEYWORD) || String(peek().value).nocasecmp_to("section") != 0) {
+        error("Expected 'Section' after 'Whenever'");
+        return nullptr;
+    }
+    advance(); // Eat "Section"
+    
+    WheneverSectionStatement* stmt = static_cast<WheneverSectionStatement*>(register_node(new WheneverSectionStatement()));
+    
+    // Check for optional "Local" scope modifier
+    bool is_local = false;
+    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("local") == 0) {
+        is_local = true;
+        advance(); // consume "Local"
+    }
+    
+    // Parse section name
+    if (!check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
+        error("Expected section name after 'Whenever Section'");
+        return nullptr;
+    }
+    stmt->section_name = peek().value;
+    advance();
+    
+    // Check if this is a complex expression (starts with parentheses)
+    if (check(VisualGasicTokenizer::TOKEN_LPAREN)) {
+        // Complex condition expression: Whenever Section Name (expression) CallbackProc
+        stmt->variable_name = ""; // No single variable for complex expressions
+        
+        ExpressionNode* _tmp = parse_expression(); // This will handle the entire parenthetical expression
+        stmt->condition_expression = _tmp;
+        unregister_node(_tmp);
+        
+        stmt->comparison_operator = "expression"; // Special marker for complex expressions
+    } else {
+        // Traditional simple variable monitoring
+        // Parse variable name
+        if (!check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
+            error("Expected variable name in Whenever Section");
+            return nullptr;
+        }
+        stmt->variable_name = peek().value;
+        advance();
+        
+        // Parse comparison operator
+        if (!check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
+            error("Expected comparison operator (Changes, Becomes, Exceeds) in Whenever Section");
+            return nullptr;
+        }
+        String op = String(peek().value).to_lower();
+        if (op != "changes" && op != "becomes" && op != "exceeds" && op != "below" && op != "between" && op != "contains") {
+            error("Expected 'Changes', 'Becomes', 'Exceeds', 'Below', 'Between', or 'Contains' in Whenever Section");
+            return nullptr;
+        }
+        stmt->comparison_operator = peek().value;
+        advance();
+        
+        // Parse comparison value (optional for "Changes")
+        if (op != "changes") {
+            ExpressionNode* _tmp = parse_expression();
+            stmt->comparison_value = _tmp;
+            unregister_node(_tmp);
+            
+            // Handle "Between X And Y" syntax
+            if (op == "between") {
+                if (!check(VisualGasicTokenizer::TOKEN_KEYWORD) || String(peek().value).nocasecmp_to("and") != 0) {
+                    error("Expected 'And' after first value in 'Between' condition");
+                    return nullptr;
+                }
+                advance(); // consume "And"
+                
+                ExpressionNode* _tmp2 = parse_expression();
+                stmt->comparison_value2 = _tmp2;
+                unregister_node(_tmp2);
+            }
+        }
+    }
+    
+    // Parse callback procedure names (support comma-separated list)
+    if (!check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
+        error("Expected procedure name in Whenever Section");
+        return nullptr;
+    }
+    
+    // Parse first procedure name
+    stmt->callback_procedures.push_back(peek().value);
+    advance();
+    
+    // Parse additional procedures if comma-separated
+    while (check(VisualGasicTokenizer::TOKEN_COMMA)) {
+        advance(); // consume comma
+        if (!check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
+            error("Expected procedure name after comma in Whenever Section");
+            return nullptr;
+        }
+        stmt->callback_procedures.push_back(peek().value);
+        advance();
+    }
+    
+    // Set scope information
+    stmt->is_local_scope = is_local;
+    
+    return stmt;
+}
+
+SuspendWheneverStatement* VisualGasicParser::parse_suspend_whenever() {
+    SuspendWheneverStatement* stmt = static_cast<SuspendWheneverStatement*>(register_node(new SuspendWheneverStatement()));
+    
+    if (!check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
+        error("Expected section name after 'Suspend Whenever'");
+        return nullptr;
+    }
+    stmt->section_name = peek().value;
+    advance();
+    
+    return stmt;
+}
+
+ResumeWheneverStatement* VisualGasicParser::parse_resume_whenever() {
+    ResumeWheneverStatement* stmt = static_cast<ResumeWheneverStatement*>(register_node(new ResumeWheneverStatement()));
+    
+    if (!check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
+        error("Expected section name after 'Resume Whenever'");
+        return nullptr;
+    }
+    stmt->section_name = peek().value;
+    advance();
+    
+    return stmt;
 }
 
 void VisualGasicParser::parse_enum() {

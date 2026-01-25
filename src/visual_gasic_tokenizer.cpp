@@ -133,6 +133,17 @@ Vector<VisualGasicTokenizer::Token> VisualGasicTokenizer::tokenize(const String 
     keywords.push_back("ByRef");
     keywords.push_back("ParamArray");
     keywords.push_back("Static");
+    keywords.push_back("Whenever");
+    keywords.push_back("Section");
+    keywords.push_back("Changes");
+    keywords.push_back("Becomes");
+    keywords.push_back("Exceeds");
+    keywords.push_back("Below");
+    keywords.push_back("Between");
+    keywords.push_back("Contains");
+    keywords.push_back("Local");
+    keywords.push_back("Suspend");
+    keywords.push_back("Resume");
 
     while (current < length) {
         char32_t c = p_source_code[current];

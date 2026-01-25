@@ -4010,6 +4010,66 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
              raise_error(msg, code);
              break;
         }
+        case STMT_WHENEVER_SECTION: {
+            WheneverSectionStatement* s = (WheneverSectionStatement*)stmt;
+            
+            WheneverSection section;
+            section.section_name = s->section_name;
+            section.variable_name = s->variable_name;
+            section.comparison_operator = s->comparison_operator;
+            section.callback_procedures = s->callback_procedures;  // Copy all callbacks
+            section.condition_expression = s->condition_expression;  // Copy expression reference
+            
+            // Set scope information
+            if (s->is_local_scope) {
+                section.scope_type = "local";
+                section.scope_context = current_sub ? current_sub->name : "global";
+            } else {
+                section.scope_type = "global";
+                section.scope_context = "";
+            }
+            
+            section.is_active = true;
+            
+            if (s->comparison_value) {
+                section.comparison_value = evaluate_expression(s->comparison_value);
+            }
+            
+            if (s->comparison_value2) {
+                section.comparison_value2 = evaluate_expression(s->comparison_value2);
+            }
+            
+            // Initialize last_value with current variable value
+            Variant current_value;
+            if (get_variable(s->variable_name, current_value)) {
+                section.last_value = current_value;
+            }
+            
+            whenever_sections.push_back(section);
+            break;
+        }
+        case STMT_SUSPEND_WHENEVER: {
+            SuspendWheneverStatement* s = (SuspendWheneverStatement*)stmt;
+            
+            for (int i = 0; i < whenever_sections.size(); i++) {
+                if (whenever_sections[i].section_name == s->section_name) {
+                    whenever_sections.write[i].is_active = false;
+                    break;
+                }
+            }
+            break;
+        }
+        case STMT_RESUME_WHENEVER: {
+            ResumeWheneverStatement* s = (ResumeWheneverStatement*)stmt;
+            
+            for (int i = 0; i < whenever_sections.size(); i++) {
+                if (whenever_sections[i].section_name == s->section_name) {
+                    whenever_sections.write[i].is_active = true;
+                    break;
+                }
+            }
+            break;
+        }
         case STMT_TRY: {
             TryStatement* s = (TryStatement*)stmt;
             
@@ -4909,6 +4969,181 @@ void VisualGasicInstance::assign_variable(const String& name, Variant val) {
          variables[name] = val;
     } else {
          variables[name] = val;
+    }
+    
+    // Check Whenever sections for this variable
+    check_whenever_conditions(name, val);
+    
+    // Check complex expression conditions
+    check_expression_conditions();
+}
+
+void VisualGasicInstance::check_whenever_conditions(const String& variable_name, const Variant& new_value) {
+    for (int i = 0; i < whenever_sections.size(); i++) {
+        WheneverSection& section = whenever_sections.write[i];
+        
+        if (!section.is_active || section.variable_name != variable_name) {
+            continue;
+        }
+        
+        bool condition_met = false;
+        
+        if (section.comparison_operator.to_lower() == "changes") {
+            // Always trigger if value changed
+            condition_met = (section.last_value != new_value);
+        }
+        else if (section.comparison_operator.to_lower() == "becomes") {
+            // Trigger if value becomes the specified value
+            condition_met = (new_value == section.comparison_value);
+        }
+        else if (section.comparison_operator.to_lower() == "exceeds") {
+            // Trigger if value exceeds the specified value
+            double new_num = (double)new_value;
+            double threshold = (double)section.comparison_value;
+            condition_met = (new_num > threshold);
+        }
+        else if (section.comparison_operator.to_lower() == "below") {
+            // Trigger if value is below the specified value
+            double new_num = (double)new_value;
+            double threshold = (double)section.comparison_value;
+            condition_met = (new_num < threshold);
+        }
+        else if (section.comparison_operator.to_lower() == "between") {
+            // Trigger if value is between two specified values
+            double new_num = (double)new_value;
+            double min_val = (double)section.comparison_value;
+            double max_val = (double)section.comparison_value2;
+            condition_met = (new_num >= min_val && new_num <= max_val);
+        }
+        else if (section.comparison_operator.to_lower() == "contains") {
+            // Trigger if string/array contains the specified value
+            String haystack = String(new_value);
+            String needle = String(section.comparison_value);
+            condition_met = haystack.contains(needle);
+        }
+        
+        if (condition_met) {
+            // Check debounce timing
+            uint64_t current_time = OS::get_singleton()->get_ticks_msec();
+            if (section.debounce_ms > 0 && (current_time - section.last_trigger_time) < section.debounce_ms) {
+                // Skip this trigger due to debouncing
+                section.last_value = new_value;  // Still update last value
+                continue;
+            }
+            
+            // Update last trigger time
+            section.last_trigger_time = current_time;
+            
+            // Update last value for future comparisons
+            section.last_value = new_value;
+            
+            // Call all callback procedures
+            Array empty_args;
+            for (int j = 0; j < section.callback_procedures.size(); j++) {
+                bool found = false;
+                call_internal(section.callback_procedures[j], empty_args, found);
+                
+                if (!found) {
+                    UtilityFunctions::print("Warning: Whenever callback procedure '", section.callback_procedures[j], "' not found");
+                }
+            }
+        } else {
+            // Update last value even if condition wasn't met (for "changes" tracking)
+            section.last_value = new_value;
+        }
+    }
+}
+
+void VisualGasicInstance::check_expression_conditions() {
+    for (int i = 0; i < whenever_sections.size(); i++) {
+        WheneverSection& section = whenever_sections.write[i];
+        
+        if (!section.is_active || !section.condition_expression) {
+            continue;
+        }
+        
+        // Check debounce timing
+        uint64_t current_time = OS::get_singleton()->get_ticks_msec();
+        if (section.debounce_ms > 0 && (current_time - section.last_trigger_time) < section.debounce_ms) {
+            continue;
+        }
+        
+        // Evaluate the complex expression
+        Variant result = evaluate_expression(section.condition_expression);
+        bool condition_met = (bool)result;
+        
+        if (condition_met) {
+            // Update last trigger time
+            section.last_trigger_time = current_time;
+            
+            // Call all callback procedures
+            Array empty_args;
+            for (int j = 0; j < section.callback_procedures.size(); j++) {
+                bool found = false;
+                call_internal(section.callback_procedures[j], empty_args, found);
+                
+                if (!found) {
+                    UtilityFunctions::print("Warning: Whenever callback procedure '", section.callback_procedures[j], "' not found");
+                }
+            }
+        }
+    }
+}
+
+String VisualGasicInstance::get_whenever_status() const {
+    String status = "Whenever System Status:\n";
+    status += "Total Sections: " + String::num(whenever_sections.size()) + "\n";
+    
+    int active_count = 0;
+    for (int i = 0; i < whenever_sections.size(); i++) {
+        const WheneverSection& section = whenever_sections[i];
+        if (section.is_active) active_count++;
+        
+        String state = section.is_active ? "Active" : "Suspended";
+        String callbacks = "";
+        for (int j = 0; j < section.callback_procedures.size(); j++) {
+            if (j > 0) callbacks += ", ";
+            callbacks += section.callback_procedures[j];
+        }
+        status += "- " + section.section_name + " (" + section.variable_name + " " + 
+                 section.comparison_operator + ") -> " + callbacks + " [" + state + "]\n";
+    }
+    
+    status += "Active Sections: " + String::num(active_count) + "\n";
+    return status;
+}
+
+void VisualGasicInstance::clear_whenever_sections() {
+    whenever_sections.clear();
+}
+
+int VisualGasicInstance::get_active_whenever_count() const {
+    int count = 0;
+    for (int i = 0; i < whenever_sections.size(); i++) {
+        if (whenever_sections[i].is_active) count++;
+    }
+    return count;
+}
+
+void VisualGasicInstance::cleanup_scoped_whenever(const String& scope_type, const String& scope_context) {
+    for (int i = whenever_sections.size() - 1; i >= 0; i--) {
+        const WheneverSection& section = whenever_sections[i];
+        if (section.scope_type == scope_type && section.scope_context == scope_context) {
+            whenever_sections.remove_at(i);
+        }
+    }
+}
+
+void VisualGasicInstance::enter_scope(const String& scope_name) {
+    scope_stack.push_back(scope_name);
+}
+
+void VisualGasicInstance::exit_scope(const String& scope_name) {
+    if (!scope_stack.is_empty() && scope_stack[scope_stack.size() - 1] == scope_name) {
+        scope_stack.remove_at(scope_stack.size() - 1);
+        
+        // Cleanup local Whenever sections for this scope
+        cleanup_scoped_whenever("local", scope_name);
     }
 }
 

@@ -1,0 +1,104 @@
+[gd_scene load_steps=2 format=3 uid="uid://b4tp322xnyow7"]
+
+[ext_resource type="Script" uid="uid://nxsjhx216xwn" path="res://addons/visual_gasic/menubar_runtime.gd" id="1_bwu87"]
+
+[node name="Form1" type="Panel"]
+custom_minimum_size = Vector2(400, 300)
+
+[node name="@MenuBar@22807" type="MenuBar" parent="."]
+layout_mode = 0
+offset_right = 109.0
+offset_bottom = 31.0
+size_flags_horizontal = 3
+script = ExtResource("1_bwu87")
+metadata/menu_structure = {
+"items": [{
+"caption": "mnuFile",
+"checked": false,
+"children": [{
+"caption": "Open...",
+"checked": false,
+"children": [],
+"enabled": true,
+"name": "Open",
+"shortcut": "",
+"visible": true
+}, {
+"caption": "Save",
+"checked": false,
+"children": [],
+"enabled": true,
+"name": "Save",
+"shortcut": "",
+"visible": true
+}, {
+"caption": "-",
+"checked": false,
+"children": [],
+"enabled": true,
+"name": "",
+"shortcut": "",
+"visible": true
+}, {
+"caption": "Exit",
+"checked": false,
+"children": [],
+"enabled": true,
+"name": "Exit",
+"shortcut": "",
+"visible": true
+}],
+"enabled": true,
+"name": &"mnuFile",
+"shortcut": "",
+"visible": true
+}, {
+"caption": "nm",
+"checked": false,
+"children": [{
+"caption": "New Item",
+"checked": false,
+"children": [],
+"enabled": true,
+"name": "",
+"shortcut": "",
+"visible": true
+}, {
+"caption": "New Item",
+"checked": false,
+"children": [],
+"enabled": true,
+"name": "",
+"shortcut": "",
+"visible": true
+}],
+"enabled": true,
+"name": "nm",
+"shortcut": "",
+"visible": true
+}]
+}
+metadata/_menu_captions = {
+&"mnuFile": "mnuFile",
+"nm": "nm"
+}
+
+[node name="mnuFile" type="PopupMenu" parent="@MenuBar@22807"]
+item_count = 4
+item_0/text = "Open..."
+item_0/id = 0
+item_1/text = "Save"
+item_1/id = 1
+item_2/id = -1
+item_2/separator = true
+item_3/text = "Exit"
+item_3/id = 3
+metadata/_menu_caption = "mnuFile"
+
+[node name="nm" type="PopupMenu" parent="@MenuBar@22807"]
+item_count = 2
+item_0/text = "New Item"
+item_0/id = 0
+item_1/text = "New Item"
+item_1/id = 1
+metadata/_menu_caption = "nm"

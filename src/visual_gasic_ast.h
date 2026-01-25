@@ -47,6 +47,9 @@ enum StatementType {
     STMT_TRY,
     STMT_PASS,
     STMT_RAISE,
+    STMT_WHENEVER_SECTION,
+    STMT_SUSPEND_WHENEVER,
+    STMT_RESUME_WHENEVER,
     STMT_UNKNOWN
 };
 
@@ -631,6 +634,41 @@ struct RaiseStatement : public Statement {
 
 struct PassStatement : public Statement { 
     PassStatement() : Statement(STMT_PASS) {} 
+};
+
+struct WheneverSectionStatement : public Statement {
+    String section_name;
+    String variable_name;
+    String comparison_operator;  // "Changes", "Becomes", "Exceeds", "Below", "Between", "Contains"
+    ExpressionNode* comparison_value;
+    ExpressionNode* comparison_value2;  // For "Between" operator
+    ExpressionNode* condition_expression;  // For complex conditions like (health < 10 And stamina < 5)
+    Vector<String> callback_procedures;  // Support multiple callbacks
+    bool is_local_scope;  // True if declared with "Local" keyword
+    
+    WheneverSectionStatement() : Statement(STMT_WHENEVER_SECTION), is_local_scope(false) {
+        comparison_value = nullptr;
+        comparison_value2 = nullptr;
+        condition_expression = nullptr;
+    }
+    
+    virtual ~WheneverSectionStatement() {
+        if(comparison_value) delete comparison_value;
+        if(comparison_value2) delete comparison_value2;
+        if(condition_expression) delete condition_expression;
+    }
+};
+
+struct SuspendWheneverStatement : public Statement {
+    String section_name;
+    
+    SuspendWheneverStatement() : Statement(STMT_SUSPEND_WHENEVER) {}
+};
+
+struct ResumeWheneverStatement : public Statement {
+    String section_name;
+    
+    ResumeWheneverStatement() : Statement(STMT_RESUME_WHENEVER) {}
 };
 
 struct ModuleNode {

@@ -1,0 +1,74 @@
+[gd_scene load_steps=3 format=3 uid="uid://bk6xkupt4axcv"]
+
+[ext_resource type="Script" path="res://Form9.bas" id="1_125gb"]
+[ext_resource type="Script" uid="uid://nxsjhx216xwn" path="res://addons/visual_gasic/menubar_runtime.gd" id="2_xjyeg"]
+
+[node name="Form1" type="Panel"]
+custom_minimum_size = Vector2(400, 300)
+script = ExtResource("1_125gb")
+
+[node name="MenuBar" type="MenuBar" parent="."]
+layout_mode = 0
+offset_right = 35.0
+offset_bottom = 31.0
+size_flags_horizontal = 3
+script = ExtResource("2_xjyeg")
+metadata/menu_structure = {
+"items": [{
+"caption": "&File",
+"checked": false,
+"children": [{
+"caption": "&Open...",
+"checked": false,
+"children": [],
+"enabled": true,
+"name": "mnuFileOpen",
+"shortcut": "Ctrl+O",
+"visible": true
+}, {
+"caption": "&Save",
+"checked": false,
+"children": [],
+"enabled": true,
+"name": "mnuFileSave",
+"shortcut": "Ctrl+S",
+"visible": true
+}, {
+"caption": "-",
+"checked": false,
+"children": [],
+"enabled": true,
+"name": "mnuFileSep1",
+"shortcut": "",
+"visible": true
+}, {
+"caption": "E&xit",
+"checked": false,
+"children": [],
+"enabled": true,
+"name": "mnuFileExit",
+"shortcut": "Alt+F4",
+"visible": true
+}],
+"enabled": true,
+"name": "mnuFile",
+"shortcut": "",
+"visible": true
+}]
+}
+metadata/_menu_captions = {
+"mnuFile": "File"
+}
+
+[node name="mnuFile" type="PopupMenu" parent="MenuBar"]
+item_count = 4
+item_0/text = "Open..."
+item_0/id = 0
+item_1/text = "Save"
+item_1/id = 1
+item_2/id = -1
+item_2/separator = true
+item_3/text = "Exit"
+item_3/id = 3
+metadata/_menu_caption = "File"
+metadata/_menu_name = "File"

@@ -69,6 +69,9 @@ private:
     ReDimStatement* parse_redim();
     WithStatement* parse_with();
     RaiseStatement* parse_raise();
+    WheneverSectionStatement* parse_whenever();
+    SuspendWheneverStatement* parse_suspend_whenever();
+    ResumeWheneverStatement* parse_resume_whenever();
     void parse_enum(); // Parses Enum block
 
     // Expression parsing

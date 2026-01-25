@@ -6,6 +6,7 @@
 #include <godot_cpp/core/object.hpp>
 #include <godot_cpp/classes/file_access.hpp>
 #include <godot_cpp/classes/dir_access.hpp>
+#include <godot_cpp/classes/os.hpp>
 
 using namespace godot;
 
@@ -45,6 +46,31 @@ class VisualGasicInstance {
     // Name -> Dictionary(default object).
     Dictionary struct_prototypes; 
 
+    // Whenever system tracking
+    struct WheneverSection {
+        String section_name;
+        String variable_name;
+        String comparison_operator;
+        Variant comparison_value;
+        Variant comparison_value2;  // For "Between" operator
+        ExpressionNode* condition_expression;  // For complex conditions
+        Vector<String> callback_procedures;  // Support multiple callbacks
+        Variant last_value;  // For tracking changes
+        bool is_active;
+        uint64_t last_trigger_time;  // For debouncing
+        uint64_t debounce_ms;       // Minimum time between triggers
+        String scope_type;          // "global", "local", "member"
+        String scope_context;       // Sub/Function name or Class name
+        
+        WheneverSection() : condition_expression(nullptr), is_active(true), last_trigger_time(0), debounce_ms(0), scope_type("global") {}
+        
+        ~WheneverSection() {
+            // Note: condition_expression will be cleaned up by AST, don't delete here
+        }
+    };
+    Vector<WheneverSection> whenever_sections;
+    Vector<String> scope_stack;  // Track current scope hierarchy
+
     struct ErrorState {
         enum Mode { NONE, RESUME_NEXT, GOTO_LABEL, EXIT_SUB, EXIT_FOR, EXIT_DO, CONTINUE_FOR, CONTINUE_DO, CONTINUE_WHILE };
         Mode mode;
@@ -68,6 +94,8 @@ class VisualGasicInstance {
 
     void assign_to_target(ExpressionNode* target, Variant val);
     void assign_variable(const String& name, Variant val);
+    void check_whenever_conditions(const String& variable_name, const Variant& new_value);
+    void check_expression_conditions();  // For complex expression monitoring
 
     void execute_statement(Statement* stmt);
     Variant evaluate_expression(ExpressionNode* expr);
@@ -93,6 +121,14 @@ public:
     void randomize_seed();
     // Allow builtins to raise runtime errors via instance wrapper
     void raise_runtime_error(const String &p_msg, int p_code = 5);
+    
+    // Whenever system utilities
+    String get_whenever_status() const;
+    void clear_whenever_sections();
+    int get_active_whenever_count() const;
+    void cleanup_scoped_whenever(const String& scope_type, const String& scope_context);
+    void enter_scope(const String& scope_name);
+    void exit_scope(const String& scope_name);
 
     void execute_bytecode(BytecodeChunk* chunk);
 

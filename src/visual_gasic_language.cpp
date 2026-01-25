@@ -95,6 +95,17 @@ PackedStringArray VisualGasicLanguage::_get_reserved_words() const {
     words.push_back("Nothing");
     words.push_back("True");
     words.push_back("False");
+    words.push_back("Whenever");
+    words.push_back("Section");
+    words.push_back("Changes");
+    words.push_back("Becomes");
+    words.push_back("Exceeds");
+    words.push_back("Below");
+    words.push_back("Between");
+    words.push_back("Contains");
+    words.push_back("Local");
+    words.push_back("Suspend");
+    words.push_back("Resume");
     return words;
 }
 
