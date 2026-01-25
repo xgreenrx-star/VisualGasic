@@ -6,14 +6,15 @@
 #include <sstream>
 #include <iomanip>
 
-// SIMD headers disabled for compatibility
-// #ifdef _MSC_VER
-// #include <intrin.h>
-// #include <immintrin.h>
-// #elif defined(__GNUC__) || defined(__clang__)
-// #include <x86intrin.h>
-// #include <cpuid.h>
-// #endif
+#if defined(__AVX2__)
+    #if defined(_MSC_VER)
+        #include <intrin.h>
+        #include <immintrin.h>
+    #elif defined(__GNUC__) || defined(__clang__)
+        #include <immintrin.h>
+        #include <x86intrin.h>
+    #endif
+#endif
 
 using namespace godot;
 
@@ -45,6 +46,8 @@ VisualGasicProfiler::VisualGasicProfiler() {
     add_counter("memory.deallocations", "deallocations");
     add_counter("gpu.operations", "operations");
     add_counter("repl.evaluations", "evaluations");
+    add_counter("jit.linear_sequences", "sequences");
+    add_counter("jit.linear_ops", "ops");
 }
 
 void VisualGasicProfiler::start_profile(const std::string& name, const std::string& category) {

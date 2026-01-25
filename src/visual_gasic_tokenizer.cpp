@@ -325,11 +325,10 @@ Vector<VisualGasicTokenizer::Token> VisualGasicTokenizer::tokenize(const String 
             
             t.line = line;
             t.column = column;
-            tokens.push_back(t); // Placeholder
+            tokens.push_back(t);
             
-            // Correct approach: Update header now.
-            // Revert this part or do it right.
-            column += (current - start + 2 + (is_interpolated?1:0));
+            // Advance column by full token length (including quotes and optional $)
+            column += (current - start + 1 + (is_interpolated ? 1 : 0));
             continue;
         }
 

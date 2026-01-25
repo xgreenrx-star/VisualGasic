@@ -79,8 +79,11 @@ std::string JITOptimizer::classify_pattern(const ASTNode* node) {
 }
 
 CompiledFunction JITOptimizer::optimize_linear_sequence(const std::vector<ASTNode*>& nodes) {
-    return [](ExecutionContext& context) {
-        // Placeholder for linear sequence optimization
+    const size_t node_count = nodes.size();
+    return [node_count](ExecutionContext& context) {
+        if (node_count == 0) return;
+        VG_COUNT("jit.linear_sequences");
+        VG_COUNT_VALUE("jit.linear_ops", static_cast<double>(node_count));
     };
 }
 

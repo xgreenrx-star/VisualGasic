@@ -439,6 +439,10 @@ Variant VisualGasicInstance::call_ffi_function(DeclareStatement* decl, const Arr
                                " arguments, got ", args.size());
         return Variant();
     }
+    if (args.size() > 8) {
+        UtilityFunctions::print("FFI: Functions with more than 8 parameters are not supported");
+        return Variant();
+    }
     
     // Convert arguments to C types and call the function
     // We support common VB6 types: Integer (int), Long (int64), Single (float), Double, String, Boolean
@@ -528,6 +532,13 @@ Variant VisualGasicInstance::call_ffi_function(DeclareStatement* decl, const Arr
                 ((void(*)(int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64);
             } else if (returns_int) {
                 result = (int64_t)((int64_t(*)(int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64);
+            } else if (returns_float) {
+                result = ((float(*)(int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64);
+            } else if (returns_double) {
+                result = ((double(*)(int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64);
+            } else if (returns_string) {
+                const char* ret = ((const char*(*)(int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64);
+                result = ret ? String(ret) : String();
             }
             break;
         }
@@ -536,6 +547,13 @@ Variant VisualGasicInstance::call_ffi_function(DeclareStatement* decl, const Arr
                 ((void(*)(int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64);
             } else if (returns_int) {
                 result = (int64_t)((int64_t(*)(int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64);
+            } else if (returns_float) {
+                result = ((float(*)(int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64);
+            } else if (returns_double) {
+                result = ((double(*)(int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64);
+            } else if (returns_string) {
+                const char* ret = ((const char*(*)(int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64);
+                result = ret ? String(ret) : String();
             }
             break;
         }
@@ -544,11 +562,74 @@ Variant VisualGasicInstance::call_ffi_function(DeclareStatement* decl, const Arr
                 ((void(*)(int64_t, int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64);
             } else if (returns_int) {
                 result = (int64_t)((int64_t(*)(int64_t, int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64);
+            } else if (returns_float) {
+                result = ((float(*)(int64_t, int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64);
+            } else if (returns_double) {
+                result = ((double(*)(int64_t, int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64);
+            } else if (returns_string) {
+                const char* ret = ((const char*(*)(int64_t, int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64);
+                result = ret ? String(ret) : String();
             }
             break;
         }
-        default: {
-            UtilityFunctions::print("FFI: Functions with more than 4 parameters not yet supported");
+        case 5: {
+            if (returns_void) {
+                ((void(*)(int64_t, int64_t, int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64, ffi_args[4].i64);
+            } else if (returns_int) {
+                result = (int64_t)((int64_t(*)(int64_t, int64_t, int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64, ffi_args[4].i64);
+            } else if (returns_float) {
+                result = ((float(*)(int64_t, int64_t, int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64, ffi_args[4].i64);
+            } else if (returns_double) {
+                result = ((double(*)(int64_t, int64_t, int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64, ffi_args[4].i64);
+            } else if (returns_string) {
+                const char* ret = ((const char*(*)(int64_t, int64_t, int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64, ffi_args[4].i64);
+                result = ret ? String(ret) : String();
+            }
+            break;
+        }
+        case 6: {
+            if (returns_void) {
+                ((void(*)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64, ffi_args[4].i64, ffi_args[5].i64);
+            } else if (returns_int) {
+                result = (int64_t)((int64_t(*)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64, ffi_args[4].i64, ffi_args[5].i64);
+            } else if (returns_float) {
+                result = ((float(*)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64, ffi_args[4].i64, ffi_args[5].i64);
+            } else if (returns_double) {
+                result = ((double(*)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64, ffi_args[4].i64, ffi_args[5].i64);
+            } else if (returns_string) {
+                const char* ret = ((const char*(*)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64, ffi_args[4].i64, ffi_args[5].i64);
+                result = ret ? String(ret) : String();
+            }
+            break;
+        }
+        case 7: {
+            if (returns_void) {
+                ((void(*)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64, ffi_args[4].i64, ffi_args[5].i64, ffi_args[6].i64);
+            } else if (returns_int) {
+                result = (int64_t)((int64_t(*)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64, ffi_args[4].i64, ffi_args[5].i64, ffi_args[6].i64);
+            } else if (returns_float) {
+                result = ((float(*)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64, ffi_args[4].i64, ffi_args[5].i64, ffi_args[6].i64);
+            } else if (returns_double) {
+                result = ((double(*)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64, ffi_args[4].i64, ffi_args[5].i64, ffi_args[6].i64);
+            } else if (returns_string) {
+                const char* ret = ((const char*(*)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64, ffi_args[4].i64, ffi_args[5].i64, ffi_args[6].i64);
+                result = ret ? String(ret) : String();
+            }
+            break;
+        }
+        case 8: {
+            if (returns_void) {
+                ((void(*)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64, ffi_args[4].i64, ffi_args[5].i64, ffi_args[6].i64, ffi_args[7].i64);
+            } else if (returns_int) {
+                result = (int64_t)((int64_t(*)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64, ffi_args[4].i64, ffi_args[5].i64, ffi_args[6].i64, ffi_args[7].i64);
+            } else if (returns_float) {
+                result = ((float(*)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64, ffi_args[4].i64, ffi_args[5].i64, ffi_args[6].i64, ffi_args[7].i64);
+            } else if (returns_double) {
+                result = ((double(*)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64, ffi_args[4].i64, ffi_args[5].i64, ffi_args[6].i64, ffi_args[7].i64);
+            } else if (returns_string) {
+                const char* ret = ((const char*(*)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64, ffi_args[4].i64, ffi_args[5].i64, ffi_args[6].i64, ffi_args[7].i64);
+                result = ret ? String(ret) : String();
+            }
             break;
         }
     }

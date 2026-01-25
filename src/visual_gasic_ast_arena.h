@@ -2,9 +2,8 @@
 #define VISUAL_GASIC_AST_ARENA_H
 
 // Lightweight arena allocator for AST nodes.
-// Current implementation is a simple placeholder that can be
-// expanded later. It provides bulk allocation semantics and
-// an efficient clear() to free all allocated blocks at once.
+// Provides bulk allocation semantics and an efficient clear()
+// to free all allocated blocks at once.
 
 #include <vector>
 #include <cstddef>
