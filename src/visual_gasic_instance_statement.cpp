@@ -55,23 +55,44 @@ void VisualGasicInstance::_execute_statement_impl(Statement* stmt) {
 			Variant start = _evaluate_expression_impl(f->from_val);
 			Variant end = _evaluate_expression_impl(f->to_val);
 			Variant step = f->step_val ? _evaluate_expression_impl(f->step_val) : Variant(1);
-			assign_variable(f->variable_name, start);
-			Variant current;
-			while (true) {
-				if (!get_variable(f->variable_name, current)) break;
-				bool cond = false;
-				if ((double)step > 0) cond = (double)current <= (double)end;
-				else cond = (double)current >= (double)end;
-				if (!cond) break;
-				for (Statement* s : f->body) _execute_statement_impl(s);
-				if (error_state.mode == ErrorState::EXIT_FOR) {
-					error_state.mode = ErrorState::NONE;
-					break;
+			if (start.get_type() == Variant::INT && end.get_type() == Variant::INT && step.get_type() == Variant::INT) {
+				int64_t current = (int64_t)start;
+				int64_t end_i = (int64_t)end;
+				int64_t step_i = (int64_t)step;
+				if (step_i == 0) step_i = 1;
+				while (true) {
+					bool cond = step_i > 0 ? (current <= end_i) : (current >= end_i);
+					if (!cond) break;
+					assign_variable(f->variable_name, current);
+					for (Statement* s : f->body) _execute_statement_impl(s);
+					if (error_state.mode == ErrorState::EXIT_FOR) {
+						error_state.mode = ErrorState::NONE;
+						break;
+					}
+					if (error_state.mode == ErrorState::CONTINUE_FOR) {
+						error_state.mode = ErrorState::NONE;
+					}
+					current += step_i;
 				}
-				if (error_state.mode == ErrorState::CONTINUE_FOR) {
-					error_state.mode = ErrorState::NONE;
+			} else {
+				assign_variable(f->variable_name, start);
+				Variant current;
+				while (true) {
+					if (!get_variable(f->variable_name, current)) break;
+					bool cond = false;
+					if ((double)step > 0) cond = (double)current <= (double)end;
+					else cond = (double)current >= (double)end;
+					if (!cond) break;
+					for (Statement* s : f->body) _execute_statement_impl(s);
+					if (error_state.mode == ErrorState::EXIT_FOR) {
+						error_state.mode = ErrorState::NONE;
+						break;
+					}
+					if (error_state.mode == ErrorState::CONTINUE_FOR) {
+						error_state.mode = ErrorState::NONE;
+					}
+					assign_variable(f->variable_name, (double)current + (double)step);
 				}
-				assign_variable(f->variable_name, (double)current + (double)step);
 			}
 			break;
 		}

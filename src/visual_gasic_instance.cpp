@@ -2459,6 +2459,12 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
         }
         if (u->op == "-") {
             // Unary Negation
+            if (val.get_type() == Variant::INT) {
+                return -static_cast<int64_t>(val);
+            }
+            if (val.get_type() == Variant::FLOAT) {
+                return -static_cast<double>(val);
+            }
             bool valid;
             Variant res;
             Variant::evaluate(Variant::OP_NEGATE, val, Variant(), res, valid);
@@ -2579,6 +2585,42 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
              v_op = Variant::OP_NOT_EQUAL;
         }
         
+        // Fast numeric path
+        if ((l.get_type() == Variant::INT || l.get_type() == Variant::FLOAT) &&
+            (r.get_type() == Variant::INT || r.get_type() == Variant::FLOAT)) {
+            const bool l_int = l.get_type() == Variant::INT;
+            const bool r_int = r.get_type() == Variant::INT;
+            if (l_int && r_int) {
+                int64_t li = static_cast<int64_t>(l);
+                int64_t ri = static_cast<int64_t>(r);
+                if (op == "+") return li + ri;
+                if (op == "-") return li - ri;
+                if (op == "*") return li * ri;
+                if (op == "/") return (double)li / (double)ri;
+                if (op == "=") return li == ri;
+                if (op == "<") return li < ri;
+                if (op == ">") return li > ri;
+                if (op == "<=") return li <= ri;
+                if (op == ">=") return li >= ri;
+                if (op == "<>") return li != ri;
+                if (op == "!=") return li != ri;
+            } else {
+                double ld = (double)l;
+                double rd = (double)r;
+                if (op == "+") return ld + rd;
+                if (op == "-") return ld - rd;
+                if (op == "*") return ld * rd;
+                if (op == "/") return ld / rd;
+                if (op == "=") return ld == rd;
+                if (op == "<") return ld < rd;
+                if (op == ">") return ld > rd;
+                if (op == "<=") return ld <= rd;
+                if (op == ">=") return ld >= rd;
+                if (op == "<>") return ld != rd;
+                if (op == "!=") return ld != rd;
+            }
+        }
+
         Variant::evaluate(v_op, l, r, result, valid);
         return result;
     }
