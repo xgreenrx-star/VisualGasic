@@ -16,6 +16,7 @@
 #include "gasic_ai_controller.h"
 #include "gasic_form.h"
 #include "visual_gasic_comm.h"
+#include "visual_gasic_benchmark.h"
 
 using namespace godot;
 
@@ -40,6 +41,7 @@ void initialize_visual_gasic_module(ModuleInitializationLevel p_level) {
         ClassDB::register_class<GasicAIController>();
         ClassDB::register_class<GasicForm>();
         ClassDB::register_class<MSComm>();
+        ClassDB::register_class<VisualGasicBenchmark>();
     
         visual_gasic_language = memnew(VisualGasicLanguage);
         Engine::get_singleton()->register_script_language(visual_gasic_language);
