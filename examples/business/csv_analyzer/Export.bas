@@ -1,0 +1,777 @@
+' Export.bas - Data export functionality for CSV Data Analyzer
+Imports System.Data
+Imports System.IO
+Imports System.Text
+Imports System.Xml
+Imports System.Collections.Generic
+Imports System.Globalization
+Imports System.Drawing
+Imports System.ComponentModel
+Imports Microsoft.Office.Interop.Excel
+
+Option Explicit On
+Option Strict On
+
+Public Class Export
+    ' Export formats enumeration
+    Public Enum ExportFormat
+        CSV
+        TSV
+        Excel
+        JSON
+        XML
+        HTML
+        PDF
+        TXT
+        SQLInsert
+        CustomDelimited
+    End Enum
+    
+    ' Export configuration class
+    Public Class ExportConfiguration
+        Public Property Format As ExportFormat = ExportFormat.CSV
+        Public Property FilePath As String = ""
+        Public Property Delimiter As String = ","
+        Public Property TextQualifier As String = """"
+        Public Property IncludeHeaders As Boolean = True
+        Public Property Encoding As Encoding = Encoding.UTF8
+        Public Property DateFormat As String = "yyyy-MM-dd HH:mm:ss"
+        Public Property NumberFormat As String = "F2"
+        Public Property BooleanFormat As String = "True/False"  ' Options: True/False, 1/0, Yes/No
+        Public Property NullValueReplacement As String = ""
+        
+        ' Excel-specific options
+        Public Property WorksheetName As String = "Data"
+        Public Property AutoFitColumns As Boolean = True
+        Public Property FreezeHeaderRow As Boolean = True
+        Public Property ApplyFormatting As Boolean = True
+        
+        ' HTML-specific options
+        Public Property HtmlTitle As String = "Data Export"
+        Public Property IncludeCSS As Boolean = True
+        Public Property TableClass As String = "data-table"
+        
+        ' JSON-specific options
+        Public Property JsonIndented As Boolean = True
+        Public Property JsonArrayFormat As Boolean = True  ' True = array of objects, False = object with arrays
+        
+        ' SQL-specific options
+        Public Property TableName As String = "DataTable"
+        Public Property SqlDialect As String = "ANSI"  ' ANSI, MySQL, PostgreSQL, SQLServer
+        Public Property BatchSize As Integer = 1000
+        
+        ' Filtering options
+        Public Property ColumnsToExport As List(Of String) = Nothing  ' Nothing = all columns
+        Public Property RowFilter As String = ""  ' DataTable filter expression
+        Public Property MaxRows As Integer = 0  ' 0 = unlimited
+    End Class
+    
+    ' Export statistics
+    Public Class ExportStatistics
+        Public Property RowsExported As Integer = 0
+        Public Property ColumnsExported As Integer = 0
+        Public Property FileSize As Long = 0
+        Public Property ExportDuration As TimeSpan = TimeSpan.Zero
+        Public Property Errors As New List(Of String)
+        Public Property Warnings As New List(Of String)
+        
+        Public Overrides Function ToString() As String
+            Return $"Exported {RowsExported:N0} rows, {ColumnsExported} columns in {ExportDuration.TotalSeconds:F2} seconds"
+        End Function
+    End Class
+    
+    ' Events
+    Public Event ProgressChanged As EventHandler(Of ProgressChangedEventArgs)
+    Public Event ExportCompleted As EventHandler(Of ExportCompletedEventArgs)
+    Public Event ErrorOccurred As EventHandler(Of ErrorEventArgs)
+    
+    Public Class ExportCompletedEventArgs
+        Inherits EventArgs
+        
+        Public Property Success As Boolean
+        Public Property Statistics As ExportStatistics
+        Public Property Message As String = ""
+        
+        Public Sub New(success As Boolean, stats As ExportStatistics, Optional message As String = "")
+            Me.Success = success
+            Me.Statistics = stats
+            Me.Message = message
+        End Sub
+    End Class
+    
+    ' Main export method
+    Public Function ExportData(data As DataTable, config As ExportConfiguration) As ExportStatistics
+        If data Is Nothing Then
+            Throw New ArgumentNullException("data")
+        End If
+        
+        If config Is Nothing Then
+            config = New ExportConfiguration()
+        End If
+        
+        Dim stats As New ExportStatistics()
+        Dim startTime As DateTime = DateTime.Now
+        
+        Try
+            ' Apply column filter
+            Dim exportData As DataTable = FilterColumns(data, config)
+            
+            ' Apply row filter
+            If Not String.IsNullOrEmpty(config.RowFilter) Then
+                exportData = FilterRows(exportData, config)
+            End If
+            
+            ' Apply row limit
+            If config.MaxRows > 0 And exportData.Rows.Count > config.MaxRows Then
+                exportData = LimitRows(exportData, config.MaxRows)
+            End If
+            
+            stats.ColumnsExported = exportData.Columns.Count
+            stats.RowsExported = exportData.Rows.Count
+            
+            ' Perform export based on format
+            Select Case config.Format
+                Case ExportFormat.CSV
+                    ExportToCSV(exportData, config, stats)
+                Case ExportFormat.TSV
+                    ExportToTSV(exportData, config, stats)
+                Case ExportFormat.Excel
+                    ExportToExcel(exportData, config, stats)
+                Case ExportFormat.JSON
+                    ExportToJSON(exportData, config, stats)
+                Case ExportFormat.XML
+                    ExportToXML(exportData, config, stats)
+                Case ExportFormat.HTML
+                    ExportToHTML(exportData, config, stats)
+                Case ExportFormat.TXT
+                    ExportToText(exportData, config, stats)
+                Case ExportFormat.SQLInsert
+                    ExportToSQLInsert(exportData, config, stats)
+                Case ExportFormat.CustomDelimited
+                    ExportToCustomDelimited(exportData, config, stats)
+                Case Else
+                    Throw New NotSupportedException($"Export format {config.Format} is not supported")
+            End Select
+            
+            ' Get file size if file was created
+            If File.Exists(config.FilePath) Then
+                Dim fileInfo As New FileInfo(config.FilePath)
+                stats.FileSize = fileInfo.Length
+            End If
+            
+            stats.ExportDuration = DateTime.Now - startTime
+            RaiseEvent ExportCompleted(Me, New ExportCompletedEventArgs(True, stats, "Export completed successfully"))
+            
+            Return stats
+            
+        Catch ex As Exception
+            stats.Errors.Add(ex.Message)
+            stats.ExportDuration = DateTime.Now - startTime
+            
+            RaiseEvent ErrorOccurred(Me, New ErrorEventArgs(ex))
+            RaiseEvent ExportCompleted(Me, New ExportCompletedEventArgs(False, stats, $"Export failed: {ex.Message}"))
+            
+            Return stats
+        End Try
+    End Function
+    
+    ' CSV Export
+    Private Sub ExportToCSV(data As DataTable, config As ExportConfiguration, stats As ExportStatistics)
+        Using writer As New StreamWriter(config.FilePath, False, config.Encoding)
+            If config.IncludeHeaders Then
+                WriteCSVRow(writer, GetColumnNames(data), config)
+            End If
+            
+            For i As Integer = 0 To data.Rows.Count - 1
+                Dim values As String() = FormatRowValues(data.Rows(i), config)
+                WriteCSVRow(writer, values, config)
+                
+                If i Mod 1000 = 0 Then
+                    Dim progress As Integer = CInt((i / data.Rows.Count) * 100)
+                    RaiseEvent ProgressChanged(Me, New ProgressChangedEventArgs(progress, $"Exporting row {i + 1:N0} of {data.Rows.Count:N0}"))
+                End If
+            Next
+        End Using
+    End Sub
+    
+    Private Sub ExportToTSV(data As DataTable, config As ExportConfiguration, stats As ExportStatistics)
+        Dim tsvConfig As New ExportConfiguration()
+        CopyConfiguration(config, tsvConfig)
+        tsvConfig.Delimiter = vbTab
+        tsvConfig.TextQualifier = ""
+        
+        ExportToCSV(data, tsvConfig, stats)
+    End Sub
+    
+    ' Excel Export
+    Private Sub ExportToExcel(data As DataTable, config As ExportConfiguration, stats As ExportStatistics)
+        Dim app As Excel.Application = Nothing
+        Dim workbook As Excel.Workbook = Nothing
+        Dim worksheet As Excel.Worksheet = Nothing
+        
+        Try
+            app = New Excel.Application()
+            app.Visible = False
+            app.DisplayAlerts = False
+            
+            workbook = app.Workbooks.Add()
+            worksheet = DirectCast(workbook.ActiveSheet, Excel.Worksheet)
+            worksheet.Name = config.WorksheetName
+            
+            ' Write headers
+            If config.IncludeHeaders Then
+                For col As Integer = 0 To data.Columns.Count - 1
+                    worksheet.Cells(1, col + 1) = data.Columns(col).ColumnName
+                    
+                    If config.ApplyFormatting Then
+                        Dim headerCell As Excel.Range = DirectCast(worksheet.Cells(1, col + 1), Excel.Range)
+                        headerCell.Font.Bold = True
+                        headerCell.Interior.Color = ColorTranslator.ToOle(Color.LightGray)
+                    End If
+                Next
+                
+                If config.FreezeHeaderRow Then
+                    worksheet.Application.ActiveWindow.SplitRow = 1
+                    worksheet.Application.ActiveWindow.FreezePanes = True
+                End If
+            End If
+            
+            ' Write data
+            Dim startRow As Integer = If(config.IncludeHeaders, 2, 1)
+            For row As Integer = 0 To data.Rows.Count - 1
+                For col As Integer = 0 To data.Columns.Count - 1
+                    Dim value As Object = data.Rows(row)(col)
+                    worksheet.Cells(startRow + row, col + 1) = FormatValue(value, data.Columns(col).DataType, config)
+                Next
+                
+                If row Mod 1000 = 0 Then
+                    Dim progress As Integer = CInt((row / data.Rows.Count) * 100)
+                    RaiseEvent ProgressChanged(Me, New ProgressChangedEventArgs(progress, $"Exporting row {row + 1:N0} of {data.Rows.Count:N0}"))
+                End If
+            Next
+            
+            If config.AutoFitColumns Then
+                worksheet.Columns.AutoFit()
+            End If
+            
+            ' Save workbook
+            workbook.SaveAs(config.FilePath)
+            
+        Finally
+            If worksheet IsNot Nothing Then Marshal.ReleaseComObject(worksheet)
+            If workbook IsNot Nothing Then
+                workbook.Close(False)
+                Marshal.ReleaseComObject(workbook)
+            End If
+            If app IsNot Nothing Then
+                app.Quit()
+                Marshal.ReleaseComObject(app)
+            End If
+        End Try
+    End Sub
+    
+    ' JSON Export
+    Private Sub ExportToJSON(data As DataTable, config As ExportConfiguration, stats As ExportStatistics)
+        Using writer As New StreamWriter(config.FilePath, False, config.Encoding)
+            Dim json As New StringBuilder()
+            
+            If config.JsonArrayFormat Then
+                ' Array of objects format
+                json.AppendLine("[")
+                
+                For row As Integer = 0 To data.Rows.Count - 1
+                    If config.JsonIndented Then json.Append("  ")
+                    json.Append("{")
+                    
+                    For col As Integer = 0 To data.Columns.Count - 1
+                        If col > 0 Then json.Append(", ")
+                        
+                        If config.JsonIndented Then
+                            json.AppendLine()
+                            json.Append("    ")
+                        End If
+                        
+                        json.Append($"""{EscapeJsonString(data.Columns(col).ColumnName)}"": ")
+                        json.Append(FormatValueForJson(data.Rows(row)(col), data.Columns(col).DataType, config))
+                    Next
+                    
+                    If config.JsonIndented Then
+                        json.AppendLine()
+                        json.Append("  ")
+                    End If
+                    
+                    json.Append("}")
+                    If row < data.Rows.Count - 1 Then json.Append(",")
+                    If config.JsonIndented Then json.AppendLine()
+                Next
+                
+                json.AppendLine("]")
+            Else
+                ' Object with arrays format
+                json.AppendLine("{")
+                
+                For col As Integer = 0 To data.Columns.Count - 1
+                    If col > 0 Then json.AppendLine(",")
+                    
+                    json.Append($"  ""{EscapeJsonString(data.Columns(col).ColumnName)}"": [")
+                    
+                    For row As Integer = 0 To data.Rows.Count - 1
+                        If row > 0 Then json.Append(", ")
+                        json.Append(FormatValueForJson(data.Rows(row)(col), data.Columns(col).DataType, config))
+                    Next
+                    
+                    json.Append("]")
+                Next
+                
+                json.AppendLine()
+                json.AppendLine("}")
+            End If
+            
+            writer.Write(json.ToString())
+        End Using
+    End Sub
+    
+    ' XML Export
+    Private Sub ExportToXML(data As DataTable, config As ExportConfiguration, stats As ExportStatistics)
+        Dim settings As New XmlWriterSettings() With {
+            .Indent = True,
+            .IndentChars = "  ",
+            .Encoding = config.Encoding
+        }
+        
+        Using writer As XmlWriter = XmlWriter.Create(config.FilePath, settings)
+            writer.WriteStartDocument()
+            writer.WriteStartElement("data")
+            
+            For Each row As DataRow In data.Rows
+                writer.WriteStartElement("record")
+                
+                For col As Integer = 0 To data.Columns.Count - 1
+                    Dim columnName As String = data.Columns(col).ColumnName
+                    Dim value As Object = row(col)
+                    
+                    writer.WriteStartElement(MakeValidXmlName(columnName))
+                    If value IsNot Nothing And Not IsDBNull(value) Then
+                        writer.WriteString(FormatValue(value, data.Columns(col).DataType, config))
+                    End If
+                    writer.WriteEndElement()
+                Next
+                
+                writer.WriteEndElement()
+            Next
+            
+            writer.WriteEndElement()
+            writer.WriteEndDocument()
+        End Using
+    End Sub
+    
+    ' HTML Export
+    Private Sub ExportToHTML(data As DataTable, config As ExportConfiguration, stats As ExportStatistics)
+        Using writer As New StreamWriter(config.FilePath, False, config.Encoding)
+            writer.WriteLine("<!DOCTYPE html>")
+            writer.WriteLine("<html>")
+            writer.WriteLine("<head>")
+            writer.WriteLine($"  <title>{config.HtmlTitle}</title>")
+            writer.WriteLine("  <meta charset=""utf-8"">")
+            
+            If config.IncludeCSS Then
+                writer.WriteLine("  <style>")
+                writer.WriteLine($"    .{config.TableClass} {{")
+                writer.WriteLine("      border-collapse: collapse;")
+                writer.WriteLine("      width: 100%;")
+                writer.WriteLine("      font-family: Arial, sans-serif;")
+                writer.WriteLine("    }")
+                writer.WriteLine($"    .{config.TableClass} th, .{config.TableClass} td {{")
+                writer.WriteLine("      border: 1px solid #ddd;")
+                writer.WriteLine("      padding: 8px;")
+                writer.WriteLine("      text-align: left;")
+                writer.WriteLine("    }")
+                writer.WriteLine($"    .{config.TableClass} th {{")
+                writer.WriteLine("      background-color: #f2f2f2;")
+                writer.WriteLine("      font-weight: bold;")
+                writer.WriteLine("    }")
+                writer.WriteLine($"    .{config.TableClass} tr:nth-child(even) {{")
+                writer.WriteLine("      background-color: #f9f9f9;")
+                writer.WriteLine("    }")
+                writer.WriteLine("  </style>")
+            End If
+            
+            writer.WriteLine("</head>")
+            writer.WriteLine("<body>")
+            writer.WriteLine($"  <h1>{config.HtmlTitle}</h1>")
+            writer.WriteLine($"  <table class=""{config.TableClass}"">")
+            
+            ' Write headers
+            If config.IncludeHeaders Then
+                writer.WriteLine("    <thead>")
+                writer.WriteLine("      <tr>")
+                For Each column As DataColumn In data.Columns
+                    writer.WriteLine($"        <th>{System.Web.HttpUtility.HtmlEncode(column.ColumnName)}</th>")
+                Next
+                writer.WriteLine("      </tr>")
+                writer.WriteLine("    </thead>")
+            End If
+            
+            ' Write data
+            writer.WriteLine("    <tbody>")
+            For Each row As DataRow In data.Rows
+                writer.WriteLine("      <tr>")
+                For col As Integer = 0 To data.Columns.Count - 1
+                    Dim value As String = FormatValue(row(col), data.Columns(col).DataType, config)
+                    writer.WriteLine($"        <td>{System.Web.HttpUtility.HtmlEncode(value)}</td>")
+                Next
+                writer.WriteLine("      </tr>")
+            Next
+            writer.WriteLine("    </tbody>")
+            
+            writer.WriteLine("  </table>")
+            writer.WriteLine($"  <p>Generated on {DateTime.Now:yyyy-MM-dd HH:mm:ss} | {data.Rows.Count:N0} rows, {data.Columns.Count} columns</p>")
+            writer.WriteLine("</body>")
+            writer.WriteLine("</html>")
+        End Using
+    End Sub
+    
+    ' Text Export
+    Private Sub ExportToText(data As DataTable, config As ExportConfiguration, stats As ExportStatistics)
+        Using writer As New StreamWriter(config.FilePath, False, config.Encoding)
+            ' Calculate column widths
+            Dim columnWidths(data.Columns.Count - 1) As Integer
+            
+            For col As Integer = 0 To data.Columns.Count - 1
+                columnWidths(col) = data.Columns(col).ColumnName.Length
+                
+                For Each row As DataRow In data.Rows
+                    Dim value As String = FormatValue(row(col), data.Columns(col).DataType, config)
+                    columnWidths(col) = Math.Max(columnWidths(col), value.Length)
+                Next
+                
+                columnWidths(col) = Math.Min(columnWidths(col), 50)  ' Maximum width
+            Next
+            
+            ' Write headers
+            If config.IncludeHeaders Then
+                For col As Integer = 0 To data.Columns.Count - 1
+                    If col > 0 Then writer.Write(" | ")
+                    writer.Write(data.Columns(col).ColumnName.PadRight(columnWidths(col)))
+                Next
+                writer.WriteLine()
+                
+                ' Write separator line
+                For col As Integer = 0 To data.Columns.Count - 1
+                    If col > 0 Then writer.Write("-+-")
+                    writer.Write(New String("-"c, columnWidths(col)))
+                Next
+                writer.WriteLine()
+            End If
+            
+            ' Write data
+            For Each row As DataRow In data.Rows
+                For col As Integer = 0 To data.Columns.Count - 1
+                    If col > 0 Then writer.Write(" | ")
+                    Dim value As String = FormatValue(row(col), data.Columns(col).DataType, config)
+                    If value.Length > columnWidths(col) Then
+                        value = value.Substring(0, columnWidths(col) - 3) & "..."
+                    End If
+                    writer.Write(value.PadRight(columnWidths(col)))
+                Next
+                writer.WriteLine()
+            Next
+        End Using
+    End Sub
+    
+    ' SQL Insert Export
+    Private Sub ExportToSQLInsert(data As DataTable, config As ExportConfiguration, stats As ExportStatistics)
+        Using writer As New StreamWriter(config.FilePath, False, config.Encoding)
+            Dim columnNames As String = String.Join(", ", data.Columns.Cast(Of DataColumn).Select(Function(c) QuoteSqlIdentifier(c.ColumnName, config.SqlDialect)))
+            
+            Dim batchCount As Integer = 0
+            For row As Integer = 0 To data.Rows.Count - 1
+                If batchCount = 0 Then
+                    writer.WriteLine($"INSERT INTO {QuoteSqlIdentifier(config.TableName, config.SqlDialect)} ({columnNames}) VALUES")
+                End If
+                
+                If batchCount > 0 Then writer.Write(",")
+                writer.WriteLine()
+                writer.Write("  (")
+                
+                For col As Integer = 0 To data.Columns.Count - 1
+                    If col > 0 Then writer.Write(", ")
+                    writer.Write(FormatValueForSQL(data.Rows(row)(col), data.Columns(col).DataType, config))
+                Next
+                
+                writer.Write(")")
+                
+                batchCount += 1
+                If batchCount >= config.BatchSize Or row = data.Rows.Count - 1 Then
+                    writer.WriteLine(";")
+                    writer.WriteLine()
+                    batchCount = 0
+                End If
+            Next
+        End Using
+    End Sub
+    
+    ' Custom Delimited Export
+    Private Sub ExportToCustomDelimited(data As DataTable, config As ExportConfiguration, stats As ExportStatistics)
+        Using writer As New StreamWriter(config.FilePath, False, config.Encoding)
+            If config.IncludeHeaders Then
+                writer.WriteLine(String.Join(config.Delimiter, GetColumnNames(data)))
+            End If
+            
+            For Each row As DataRow In data.Rows
+                Dim values As String() = FormatRowValues(row, config)
+                writer.WriteLine(String.Join(config.Delimiter, values))
+            Next
+        End Using
+    End Sub
+    
+    ' Helper methods
+    Private Function FilterColumns(data As DataTable, config As ExportConfiguration) As DataTable
+        If config.ColumnsToExport Is Nothing OrElse config.ColumnsToExport.Count = 0 Then
+            Return data.Copy()
+        End If
+        
+        Dim filteredData As DataTable = data.Clone()
+        
+        ' Remove columns not in the export list
+        For i As Integer = filteredData.Columns.Count - 1 To 0 Step -1
+            Dim columnName As String = filteredData.Columns(i).ColumnName
+            If Not config.ColumnsToExport.Contains(columnName) Then
+                filteredData.Columns.RemoveAt(i)
+            End If
+        Next
+        
+        ' Copy rows with only the selected columns
+        For Each row As DataRow In data.Rows
+            Dim newRow As DataRow = filteredData.NewRow()
+            For Each column As DataColumn In filteredData.Columns
+                newRow(column.ColumnName) = row(column.ColumnName)
+            Next
+            filteredData.Rows.Add(newRow)
+        Next
+        
+        Return filteredData
+    End Function
+    
+    Private Function FilterRows(data As DataTable, config As ExportConfiguration) As DataTable
+        Dim view As New DataView(data, config.RowFilter, "", DataViewRowState.CurrentRows)
+        Return view.ToTable()
+    End Function
+    
+    Private Function LimitRows(data As DataTable, maxRows As Integer) As DataTable
+        Dim limitedData As DataTable = data.Clone()
+        
+        For i As Integer = 0 To Math.Min(maxRows - 1, data.Rows.Count - 1)
+            limitedData.ImportRow(data.Rows(i))
+        Next
+        
+        Return limitedData
+    End Function
+    
+    Private Function GetColumnNames(data As DataTable) As String()
+        Return data.Columns.Cast(Of DataColumn).Select(Function(c) c.ColumnName).ToArray()
+    End Function
+    
+    Private Function FormatRowValues(row As DataRow, config As ExportConfiguration) As String()
+        Dim values(row.Table.Columns.Count - 1) As String
+        
+        For i As Integer = 0 To row.Table.Columns.Count - 1
+            values(i) = FormatValue(row(i), row.Table.Columns(i).DataType, config)
+        Next
+        
+        Return values
+    End Function
+    
+    Private Function FormatValue(value As Object, dataType As Type, config As ExportConfiguration) As String
+        If value Is Nothing Or IsDBNull(value) Then
+            Return config.NullValueReplacement
+        End If
+        
+        Select Case dataType
+            Case GetType(DateTime)
+                Return CDate(value).ToString(config.DateFormat)
+            Case GetType(Boolean)
+                Dim boolValue As Boolean = CBool(value)
+                Select Case config.BooleanFormat.ToLower()
+                    Case "1/0"
+                        Return If(boolValue, "1", "0")
+                    Case "yes/no"
+                        Return If(boolValue, "Yes", "No")
+                    Case Else
+                        Return If(boolValue, "True", "False")
+                End Select
+            Case GetType(Double), GetType(Single), GetType(Decimal)
+                Return CDbl(value).ToString(config.NumberFormat)
+            Case Else
+                Return value.ToString()
+        End Select
+    End Function
+    
+    Private Sub WriteCSVRow(writer As StreamWriter, values As String(), config As ExportConfiguration)
+        For i As Integer = 0 To values.Length - 1
+            If i > 0 Then writer.Write(config.Delimiter)
+            
+            Dim value As String = values(i)
+            
+            ' Check if value needs to be quoted
+            If Not String.IsNullOrEmpty(config.TextQualifier) AndAlso
+               (value.Contains(config.Delimiter) Or value.Contains(config.TextQualifier) Or value.Contains(vbCr) Or value.Contains(vbLf)) Then
+                
+                ' Escape text qualifiers by doubling them
+                value = value.Replace(config.TextQualifier, config.TextQualifier & config.TextQualifier)
+                writer.Write(config.TextQualifier & value & config.TextQualifier)
+            Else
+                writer.Write(value)
+            End If
+        Next
+        
+        writer.WriteLine()
+    End Sub
+    
+    Private Function FormatValueForJson(value As Object, dataType As Type, config As ExportConfiguration) As String
+        If value Is Nothing Or IsDBNull(value) Then
+            Return "null"
+        End If
+        
+        Select Case dataType
+            Case GetType(String)
+                Return $"""{EscapeJsonString(value.ToString())}"""
+            Case GetType(Boolean)
+                Return CBool(value).ToString().ToLower()
+            Case GetType(DateTime)
+                Return $"""{CDate(value).ToString(config.DateFormat)}"""
+            Case GetType(Integer), GetType(Long), GetType(Short)
+                Return value.ToString()
+            Case GetType(Double), GetType(Single), GetType(Decimal)
+                Return CDbl(value).ToString(config.NumberFormat, CultureInfo.InvariantCulture)
+            Case Else
+                Return $"""{EscapeJsonString(value.ToString())}"""
+        End Select
+    End Function
+    
+    Private Function FormatValueForSQL(value As Object, dataType As Type, config As ExportConfiguration) As String
+        If value Is Nothing Or IsDBNull(value) Then
+            Return "NULL"
+        End If
+        
+        Select Case dataType
+            Case GetType(String)
+                Return $"'{EscapeSqlString(value.ToString())}'"
+            Case GetType(Boolean)
+                Return If(CBool(value), "1", "0")
+            Case GetType(DateTime)
+                Return $"'{CDate(value).ToString("yyyy-MM-dd HH:mm:ss")}'"
+            Case GetType(Integer), GetType(Long), GetType(Short)
+                Return value.ToString()
+            Case GetType(Double), GetType(Single), GetType(Decimal)
+                Return CDbl(value).ToString(CultureInfo.InvariantCulture)
+            Case Else
+                Return $"'{EscapeSqlString(value.ToString())}'"
+        End Select
+    End Function
+    
+    Private Function EscapeJsonString(text As String) As String
+        If String.IsNullOrEmpty(text) Then Return ""
+        
+        Return text.Replace("\", "\\") _
+                  .Replace("""", "\""") _
+                  .Replace(vbCr, "\r") _
+                  .Replace(vbLf, "\n") _
+                  .Replace(vbTab, "\t")
+    End Function
+    
+    Private Function EscapeSqlString(text As String) As String
+        If String.IsNullOrEmpty(text) Then Return ""
+        
+        Return text.Replace("'", "''")
+    End Function
+    
+    Private Function QuoteSqlIdentifier(identifier As String, dialect As String) As String
+        Select Case dialect.ToUpper()
+            Case "MYSQL"
+                Return $"`{identifier}`"
+            Case "POSTGRESQL"
+                Return $"""{identifier}"""
+            Case "SQLSERVER"
+                Return $"[{identifier}]"
+            Case Else
+                Return $"""{identifier}"""
+        End Select
+    End Function
+    
+    Private Function MakeValidXmlName(name As String) As String
+        If String.IsNullOrEmpty(name) Then Return "column"
+        
+        ' Replace invalid XML name characters
+        Dim validName As String = Regex.Replace(name, "[^\w]", "_")
+        
+        ' Ensure it starts with a letter or underscore
+        If Not Char.IsLetter(validName(0)) And validName(0) <> "_"c Then
+            validName = "_" & validName
+        End If
+        
+        Return validName
+    End Function
+    
+    Private Sub CopyConfiguration(source As ExportConfiguration, target As ExportConfiguration)
+        target.Format = source.Format
+        target.FilePath = source.FilePath
+        target.Delimiter = source.Delimiter
+        target.TextQualifier = source.TextQualifier
+        target.IncludeHeaders = source.IncludeHeaders
+        target.Encoding = source.Encoding
+        target.DateFormat = source.DateFormat
+        target.NumberFormat = source.NumberFormat
+        target.BooleanFormat = source.BooleanFormat
+        target.NullValueReplacement = source.NullValueReplacement
+    End Sub
+    
+    ' Quick export methods for common scenarios
+    Public Shared Function QuickExportToCSV(data As DataTable, filePath As String) As Boolean
+        Try
+            Dim exporter As New Export()
+            Dim config As New ExportConfiguration() With {
+                .Format = ExportFormat.CSV,
+                .FilePath = filePath
+            }
+            
+            exporter.ExportData(data, config)
+            Return True
+            
+        Catch
+            Return False
+        End Try
+    End Function
+    
+    Public Shared Function QuickExportToExcel(data As DataTable, filePath As String) As Boolean
+        Try
+            Dim exporter As New Export()
+            Dim config As New ExportConfiguration() With {
+                .Format = ExportFormat.Excel,
+                .FilePath = filePath
+            }
+            
+            exporter.ExportData(data, config)
+            Return True
+            
+        Catch
+            Return False
+        End Try
+    End Function
+    
+    Public Shared Function QuickExportToJSON(data As DataTable, filePath As String) As Boolean
+        Try
+            Dim exporter As New Export()
+            Dim config As New ExportConfiguration() With {
+                .Format = ExportFormat.JSON,
+                .FilePath = filePath
+            }
+            
+            exporter.ExportData(data, config)
+            Return True
+            
+        Catch
+            Return False
+        End Try
+    End Function
+End Class

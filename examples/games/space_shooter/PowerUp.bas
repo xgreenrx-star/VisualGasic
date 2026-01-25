@@ -1,0 +1,370 @@
+' PowerUp.bas - Collectible upgrades for Space Shooter
+Extends Area2D
+
+Option Explicit On
+Option Strict On
+
+Public Class PowerUp
+    Inherits Area2D
+    
+    ' PowerUp properties
+    Public Property PowerUpType As String = "health"
+    Public Property ScoreValue As Integer = 50
+    Public Property Lifetime As Single = 8.0  ' Seconds before disappearing
+    Public Property DropSpeed As Single = 100.0
+    
+    ' Visual properties
+    Private powerUpColor As Color = Color.Green
+    Private glowIntensity As Single = 1.0
+    Private rotationSpeed As Single = 2.0
+    
+    ' Internal state
+    Private timeAlive As Single = 0.0
+    Private isCollected As Boolean = False
+    Private blinkTimer As Single = 0.0
+    Private shouldBlink As Boolean = False
+    
+    ' Visual components
+    Private sprite As ColorRect
+    Private glowSprite As ColorRect
+    Private label As Label
+    
+    ' Screen bounds
+    Private screenSize As Vector2
+    
+    ' Events
+    Public Event PowerUpCollected(powerUp As PowerUp)
+    Public Event PowerUpExpired(powerUp As PowerUp)
+    
+    Public Overrides Sub _Ready()
+        screenSize = GetViewportRect().Size
+        
+        ' Set up collision
+        SetCollisionLayerBit(3, True)  ' PowerUp layer
+        SetCollisionMaskBit(1, True)   ' Player layer
+        
+        ' Configure based on power-up type
+        ConfigurePowerUpType()
+        
+        ' Set up visuals
+        SetupVisuals()
+        
+        ' Connect area signals
+        Connect("body_entered", AddressOf OnBodyEntered)
+        
+        Console.WriteLine($"PowerUp spawned: {PowerUpType}")
+    End Sub
+    
+    Private Sub ConfigurePowerUpType()
+        Select Case PowerUpType.ToLower()
+            Case "health"
+                powerUpColor = Color.Green
+                ScoreValue = 50
+                Lifetime = 8.0
+                
+            Case "weapon"
+                powerUpColor = Color.Blue
+                ScoreValue = 100
+                Lifetime = 10.0
+                
+            Case "speed"
+                powerUpColor = Color.Yellow
+                ScoreValue = 75
+                Lifetime = 7.0
+                
+            Case "shield"
+                powerUpColor = Color.Cyan
+                ScoreValue = 150
+                Lifetime = 12.0
+                
+            Case "life"
+                powerUpColor = Color.Magenta
+                ScoreValue = 500
+                Lifetime = 15.0
+                
+            Case "multishot"
+                powerUpColor = Color.Orange
+                ScoreValue = 200
+                Lifetime = 9.0
+                
+            Case "rapid_fire"
+                powerUpColor = Color.Red
+                ScoreValue = 125
+                Lifetime = 8.0
+                
+            Case "bomb"
+                powerUpColor = Color.White
+                ScoreValue = 300
+                Lifetime = 6.0
+                
+            Case "magnet"
+                powerUpColor = Color.Purple
+                ScoreValue = 100
+                Lifetime = 10.0
+        End Select
+    End Sub
+    
+    Private Sub SetupVisuals()
+        ' Main sprite
+        sprite = New ColorRect()
+        sprite.Size = GetPowerUpSize()
+        sprite.Color = powerUpColor
+        sprite.Position = -sprite.Size / 2
+        AddChild(sprite)
+        
+        ' Glow effect
+        glowSprite = New ColorRect()
+        glowSprite.Size = sprite.Size * 1.5
+        glowSprite.Color = Color(powerUpColor.R, powerUpColor.G, powerUpColor.B, 0.3)
+        glowSprite.Position = -glowSprite.Size / 2
+        AddChild(glowSprite)
+        MoveChild(glowSprite, 0)  ' Behind main sprite
+        
+        ' Text label
+        label = New Label()
+        label.Text = GetPowerUpSymbol()
+        label.Position = Vector2(-10, -10)
+        label.AddThemeColorOverride("font_color", Color.White)
+        AddChild(label)
+        
+        ' Set up collision shape
+        Dim collision As CollisionShape2D = New CollisionShape2D()
+        Dim shape As RectangleShape2D = New RectangleShape2D()
+        shape.Size = sprite.Size
+        collision.Shape = shape
+        AddChild(collision)
+    End Sub
+    
+    Private Function GetPowerUpSize() As Vector2
+        Select Case PowerUpType.ToLower()
+            Case "life", "bomb"
+                Return Vector2(24, 24)  ' Larger for rare items
+            Case Else
+                Return Vector2(16, 16)  ' Standard size
+        End Select
+    End Function
+    
+    Private Function GetPowerUpSymbol() As String
+        Select Case PowerUpType.ToLower()
+            Case "health"
+                Return "+"
+            Case "weapon"
+                Return "W"
+            Case "speed"
+                Return "S"
+            Case "shield"
+                Return "◊"
+            Case "life"
+                Return "♥"
+            Case "multishot"
+                Return "M"
+            Case "rapid_fire"
+                Return "R"
+            Case "bomb"
+                Return "B"
+            Case "magnet"
+                Return "⟐"
+            Case Else
+                Return "?"
+        End Select
+    End Function
+    
+    Public Overrides Sub _Process(delta As Single)
+        If isCollected Then Return
+        
+        timeAlive += delta
+        
+        ' Move downward
+        Position += Vector2(0, DropSpeed * delta)
+        
+        ' Rotate for visual appeal
+        Rotation += rotationSpeed * delta
+        
+        ' Pulsing glow effect
+        Dim pulse As Single = 0.5 + 0.5 * Math.Sin(timeAlive * 4)
+        glowSprite.Modulate = Color(1, 1, 1, pulse * 0.5)
+        
+        ' Start blinking when near expiration
+        If timeAlive > Lifetime - 3.0 Then
+            shouldBlink = True
+            blinkTimer += delta
+            
+            If blinkTimer > 0.2 Then
+                blinkTimer = 0.0
+                Visible = Not Visible
+            End If
+        End If
+        
+        ' Check lifetime
+        If timeAlive >= Lifetime Then
+            Expire()
+        End If
+        
+        ' Check bounds
+        If Position.Y > screenSize.Y + 50 Then
+            Expire()
+        End If
+        
+        ' Special behaviors
+        UpdateSpecialBehavior(delta)
+    End Sub
+    
+    Private Sub UpdateSpecialBehavior(delta As Single)
+        Select Case PowerUpType.ToLower()
+            Case "magnet"
+                ' Magnet pulls toward player
+                Dim player As Player = GetNode("../Player")
+                If player IsNot Nothing Then
+                    Dim distance As Single = Position.DistanceTo(player.Position)
+                    If distance < 100.0 Then  ' Magnet range
+                        Dim direction As Vector2 = (player.Position - Position).Normalized()
+                        Position += direction * 200.0 * delta
+                    End If
+                End If
+                
+            Case "speed"
+                ' Speed power-up moves faster
+                Position += Vector2(Math.Sin(timeAlive * 3) * 20, 0) * delta
+                
+            Case "shield"
+                ' Shield power-up has protective aura
+                Scale = Vector2(1 + Math.Sin(timeAlive * 6) * 0.1, 1 + Math.Sin(timeAlive * 6) * 0.1)
+        End Select
+    End Sub
+    
+    Public Sub Collect()
+        If isCollected Then Return
+        isCollected = True
+        
+        ' Create collection effect
+        CreateCollectionEffect()
+        
+        ' Play sound effect (would be implemented in full game)
+        Console.WriteLine($"PowerUp collected: {PowerUpType} (+{ScoreValue} points)")
+        
+        ' Notify listeners
+        RaiseEvent PowerUpCollected(Me)
+        
+        ' Remove from scene
+        QueueFree()
+    End Sub
+    
+    Private Sub CreateCollectionEffect()
+        ' Sparkle effect when collected
+        Dim particles As CPUParticles2D = New CPUParticles2D()
+        particles.GlobalPosition = GlobalPosition
+        particles.Emitting = True
+        particles.Amount = 20
+        particles.Lifetime = 0.8
+        particles.OneShot = True
+        
+        particles.EmissionShape = CPUParticles2D.EmissionShapeEnum.Sphere
+        particles.Direction = Vector2(0, -1)
+        particles.InitialVelocityMin = 50.0
+        particles.InitialVelocityMax = 120.0
+        particles.ScaleAmountMin = 0.3
+        particles.ScaleAmountMax = 0.8
+        particles.ColorRamp = CreateCollectionColorRamp()
+        
+        GetParent().AddChild(particles)
+        
+        ' Clean up particles
+        Dim timer As Timer = New Timer()
+        timer.WaitTime = 2.0
+        timer.OneShot = True
+        timer.Connect("timeout", Sub() particles.QueueFree())
+        particles.AddChild(timer)
+        timer.Start()
+    End Sub
+    
+    Private Function CreateCollectionColorRamp() As Gradient
+        Dim gradient As New Gradient()
+        gradient.AddPoint(0.0, powerUpColor)
+        gradient.AddPoint(1.0, Color(powerUpColor.R, powerUpColor.G, powerUpColor.B, 0))
+        Return gradient
+    End Function
+    
+    Private Sub Expire()
+        If isCollected Then Return
+        
+        Console.WriteLine($"PowerUp expired: {PowerUpType}")
+        RaiseEvent PowerUpExpired(Me)
+        QueueFree()
+    End Sub
+    
+    Private Sub OnBodyEntered(body As Node)
+        If isCollected Then Return
+        
+        If TypeOf body Is Player Then
+            Collect()
+        End If
+    End Sub
+    
+    ' Factory methods for creating different power-ups
+    Public Shared Function CreateRandomPowerUp(position As Vector2) As PowerUp
+        Dim powerTypes() As String = {
+            "health", "weapon", "speed", "shield", 
+            "multishot", "rapid_fire", "magnet"
+        }
+        
+        ' Rare power-ups with lower chance
+        Dim rareTypes() As String = {"life", "bomb"}
+        
+        Dim powerUp As New PowerUp()
+        powerUp.Position = position
+        
+        If Randf() < 0.1 Then  ' 10% chance for rare
+            powerUp.PowerUpType = rareTypes(Randi() Mod rareTypes.Length)
+        Else
+            powerUp.PowerUpType = powerTypes(Randi() Mod powerTypes.Length)
+        End If
+        
+        Return powerUp
+    End Function
+    
+    Public Shared Function CreateSpecificPowerUp(position As Vector2, powerType As String) As PowerUp
+        Dim powerUp As New PowerUp()
+        powerUp.Position = position
+        powerUp.PowerUpType = powerType
+        Return powerUp
+    End Function
+    
+    ' Power-up effects (to be applied by the player)
+    Public Function GetPowerUpDescription() As String
+        Select Case PowerUpType.ToLower()
+            Case "health"
+                Return "Restores 25 health points"
+            Case "weapon"
+                Return "Upgrades weapon level"
+            Case "speed"
+                Return "Increases movement speed"
+            Case "shield"
+                Return "Temporary invulnerability"
+            Case "life"
+                Return "Extra life!"
+            Case "multishot"
+                Return "Multiple projectiles"
+            Case "rapid_fire"
+                Return "Faster firing rate"
+            Case "bomb"
+                Return "Screen-clearing bomb"
+            Case "magnet"
+                Return "Attracts nearby items"
+            Case Else
+                Return "Mystery power-up"
+        End Select
+    End Function
+    
+    Public Function GetPowerUpValue(property As String) As Integer
+        Select Case property.ToLower()
+            Case "health_restore"
+                Return If(PowerUpType = "health", 25, 0)
+            Case "speed_boost"
+                Return If(PowerUpType = "speed", 50, 0)
+            Case "weapon_upgrade"
+                Return If(PowerUpType = "weapon", 1, 0)
+            Case Else
+                Return 0
+        End Select
+    End Function
+End Class

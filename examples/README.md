@@ -20,7 +20,9 @@
 - Score management
 - Simple AI for computer player
 
-**Code Preview**:
+**Complete Source Code:**
+
+**Main Game (PongGame.bas):**
 ```vb
 ' PongGame.bas - Main game scene
 Extends Control
@@ -31,69 +33,98 @@ Option Strict On
 Public Class PongGame
     Inherits Control
     
-    ' Game objects
-    Private ball As Ball
-    Private playerPaddle As Paddle
-    Private aiPaddle As Paddle
-    
-    ' Game state
-    Private playerScore As Integer = 0
-    Private aiScore As Integer = 0
-    Private gameRunning As Boolean = True
+    ' Use GameManager to handle all game logic
+    Private gameManager As GameManager
     
     Public Overrides Sub _Ready()
-        InitializeGame()
-        SetupInput()
+        ' Create and initialize game manager
+        gameManager = New GameManager()
+        AddChild(gameManager)
+        
+        Console.WriteLine("Pong Game Started!")
+        Console.WriteLine("Controls: W/S or Arrow Keys to move paddle")
+        Console.WriteLine("Space to pause, R to restart, ESC to quit")
     End Sub
+End Class
+```
+
+**Ball Class (Ball.bas):**
+```vb
+' Ball.bas - Ball physics and collision
+Extends RigidBody2D
+
+Public Class Ball
+    Inherits RigidBody2D
     
-    Private Sub InitializeGame()
-        ' Create ball
-        ball = New Ball()
-        ball.Position = Vector2(400, 300)
-        AddChild(ball)
-        
-        ' Create player paddle
-        playerPaddle = New Paddle()
-        playerPaddle.Position = Vector2(50, 250)
-        playerPaddle.IsPlayer = True
-        AddChild(playerPaddle)
-        
-        ' Create AI paddle  
-        aiPaddle = New Paddle()
-        aiPaddle.Position = Vector2(750, 250)
-        aiPaddle.IsPlayer = False
-        AddChild(aiPaddle)
-        
-        ' Connect signals
-        AddressOf ball.GoalScored += OnGoalScored
-    End Sub
+    Public Property Speed As Single = 300.0
+    Public Property Direction As Vector2 = Vector2(1, 0)
+    Public Event GoalScored(goalSide As String)
     
-    Public Overrides Sub _Process(delta As Single)
-        If Not gameRunning Then Return
+    Public Overrides Sub _PhysicsProcess(delta As Single)
+        ' Check for goals (ball goes off screen)
+        If Position.X < -50 Then
+            RaiseEvent GoalScored("left")
+        ElseIf Position.X > GetViewportRect().Size.X + 50 Then
+            RaiseEvent GoalScored("right")
+        End If
         
-        ' Update AI paddle
-        aiPaddle.FollowBall(ball.Position.Y)
-        
-        ' Check win condition
-        If playerScore >= 5 Or aiScore >= 5 Then
-            EndGame()
+        ' Keep consistent speed
+        Dim velocity As Vector2 = GetLinearVelocity()
+        If velocity.Length() > 0 Then
+            SetLinearVelocity(velocity.Normalized() * Speed)
         End If
     End Sub
     
-    Private Sub OnGoalScored(goalSide As String)
-        If goalSide = "left" Then
-            aiScore += 1
-        Else
-            playerScore += 1
+    Public Sub ResetBall()
+        Position = GetViewportRect().Size / 2
+        Dim randomDir As Integer = If(Randf() < 0.5, -1, 1)
+        SetLinearVelocity(Vector2(randomDir, Randf() - 0.5) * Speed)
+    End Sub
+End Class
+```
+
+**Paddle Class (Paddle.bas):**
+```vb
+' Paddle.bas - Player and AI paddle
+Extends CharacterBody2D
+
+Public Class Paddle
+    Inherits CharacterBody2D
+    
+    Public Property Speed As Single = 400.0
+    Public Property IsPlayer As Boolean = True
+    Private followSpeed As Single = 200.0
+    
+    Public Overrides Sub _PhysicsProcess(delta As Single)
+        Dim velocity As Vector2 = Vector2.Zero
+        
+        If IsPlayer Then
+            ' Player controls
+            If Input.IsKeyPressed(Key.W) Or Input.IsActionPressed("ui_up") Then
+                velocity.Y = -Speed
+            ElseIf Input.IsKeyPressed(Key.S) Or Input.IsActionPressed("ui_down") Then
+                velocity.Y = Speed
+            End If
         End If
         
-        UpdateScoreDisplay()
-        ResetBall()
+        SetVelocity(velocity)
+        MoveAndSlide()
+        ClampToBounds()
     End Sub
     
-    Private Sub UpdateScoreDisplay()
-        Dim scoreText As Label = GetNode("UI/ScoreLabel")
-        scoreText.Text = $"Player: {playerScore} | AI: {aiScore}"
+    Public Sub FollowBall(ballY As Single)
+        ' AI movement
+        Dim difference As Single = ballY - Position.Y
+        If Math.Abs(difference) > 10 Then
+            Dim moveAmount As Single = followSpeed * GetPhysicsProcessDeltaTime()
+            Position = New Vector2(Position.X, Position.Y + Math.Sign(difference) * moveAmount)
+            ClampToBounds()
+        End If
+    End Sub
+    
+    Private Sub ClampToBounds()
+        Dim screenHeight As Single = GetViewportRect().Size.Y
+        Position = New Vector2(Position.X, Math.Max(40, Math.Min(screenHeight - 40, Position.Y)))
     End Sub
 End Class
 ```
