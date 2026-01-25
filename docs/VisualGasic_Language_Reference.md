@@ -196,7 +196,8 @@ If level >= 5 Then      ' Greater than or equal
 If health < 10 Then     ' Less than
 If lives <= 0 Then      ' Less than or equal
 If name = "Player" Then ' Equal
-If status <> "Dead" Then ' Not equal
+If status <> "Dead" Then ' Not equal (VB style)
+If status != "Dead" Then ' Not equal (C-style)
 ```
 
 #### Logical Operators
@@ -220,6 +221,17 @@ If pattern Like "A*" Then              ' Pattern matching
 ```vb
 ' Single-line comment
 Dim value = 42 ' End-of-line comment
+
+/* 
+   Multi-line block comment
+   This can span multiple lines
+   like in C/C++/C#
+*/
+
+/*
+ * Block comment with asterisks
+ * for better formatting
+ */
 
 ' Multi-line comments using multiple single quotes
 ' This is a longer explanation

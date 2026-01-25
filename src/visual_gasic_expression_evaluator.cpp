@@ -267,6 +267,7 @@ Variant VisualGasicExpressionEvaluator::evaluate(ExpressionNode* expr, Context& 
         else if (op == "<=") v_op = Variant::OP_LESS_EQUAL;
         else if (op == ">=") v_op = Variant::OP_GREATER_EQUAL;
         else if (op == "<>") v_op = Variant::OP_NOT_EQUAL;
+        else if (op == "!=") v_op = Variant::OP_NOT_EQUAL;
         Variant::evaluate(v_op, l, r, result, valid);
         return result;
     }

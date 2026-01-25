@@ -180,6 +180,40 @@ Vector<VisualGasicTokenizer::Token> VisualGasicTokenizer::tokenize(const String 
             continue;
         }
 
+        // Block comments /* ... */
+        if (c == '/' && current + 1 < length && p_source_code[current+1] == '*') {
+            int start = current;
+            int start_line = line;
+            int start_column = column;
+            current += 2; // Skip /*
+            column += 2;
+            
+            // Find closing */
+            while (current + 1 < length) {
+                if (p_source_code[current] == '*' && p_source_code[current+1] == '/') {
+                    current += 2; // Skip */
+                    column += 2;
+                    break;
+                }
+                if (p_source_code[current] == '\n') {
+                    line++;
+                    column = 1;
+                } else {
+                    column++;
+                }
+                current++;
+            }
+            
+            // Emit block comment token
+            Token t;
+            t.type = TOKEN_COMMENT;
+            t.value = p_source_code.substr(start, current - start);
+            t.line = start_line;
+            t.column = start_column;
+            tokens.push_back(t);
+            continue;
+        }
+
         // Numbers
         if (is_digit(c)) {
             int start = current;
@@ -321,6 +355,10 @@ Vector<VisualGasicTokenizer::Token> VisualGasicTokenizer::tokenize(const String 
                     // Visual Gasic uses ' for comments.
                     // So // can be Integer Division (Pythonic).
                     t.type = TOKEN_OPERATOR; t.value = "//"; current++;
+                } else if (current + 1 < length && p_source_code[current+1] == '*') {
+                    // This is handled above in block comment section
+                    // Skip this token and continue
+                    handled = false;
                 } else {
                     t.type = TOKEN_OPERATOR; t.value = "/"; 
                 }
@@ -344,6 +382,13 @@ Vector<VisualGasicTokenizer::Token> VisualGasicTokenizer::tokenize(const String 
                     t.type = TOKEN_OPERATOR; t.value = "<>"; current++;
                 } else {
                     t.type = TOKEN_OPERATOR; t.value = "<";
+                }
+                break;
+            case '!':
+                if (current + 1 < length && p_source_code[current+1] == '=') {
+                    t.type = TOKEN_OPERATOR; t.value = "!="; current++;
+                } else {
+                    t.type = TOKEN_OPERATOR; t.value = "!";
                 }
                 break;
             default:

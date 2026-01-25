@@ -862,7 +862,7 @@ ExpressionNode* VisualGasicParser::parse_comparison() {
     while (true) {
         if (check(VisualGasicTokenizer::TOKEN_OPERATOR)) {
             String op = peek().value;
-            if (op == "=" || op == "<" || op == ">" || op == "<=" || op == ">=" || op == "<>") {
+            if (op == "=" || op == "<" || op == ">" || op == "<=" || op == ">=" || op == "<>" || op == "!=") {
                 advance();
                 ExpressionNode* right = parse_addition();
                 BinaryOpNode* bin = static_cast<BinaryOpNode*>(register_node(new BinaryOpNode()));

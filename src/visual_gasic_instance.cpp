@@ -2570,6 +2570,12 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
              }
              v_op = Variant::OP_NOT_EQUAL;
         }
+        else if (op == "!=") {
+             if (option_compare_text && l.get_type() == Variant::STRING && r.get_type() == Variant::STRING) {
+                 return String(l).nocasecmp_to(String(r)) != 0;
+             }
+             v_op = Variant::OP_NOT_EQUAL;
+        }
         
         Variant::evaluate(v_op, l, r, result, valid);
         return result;
