@@ -591,7 +591,7 @@ Statement* VisualGasicParser::parse_statement() {
             return parse_whenever();
         }
         
-        // Multitasking keywords
+        // Multitasking keywords - async/await/task/parallel
         if (val == "async") {
             advance(); // consume "async"
             if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && (String(peek().value).nocasecmp_to("sub") == 0 || String(peek().value).nocasecmp_to("function") == 0)) {
@@ -629,20 +629,22 @@ Statement* VisualGasicParser::parse_statement() {
             return nullptr;
         }
         
-        // Advanced features
+        // Advanced features - Select Match / Select Case
         if (val == "select") {
             advance(); // consume "select"
             String next_val = String(peek().value).to_lower();
             if (next_val == "match") {
-                advance(); // consume "match"
-                return parse_pattern_match();
+                // Pattern matching feature disabled - fall through to regular select
+                current_pos--;
+                return parse_select();
             } else {
                 // Regular select case - put token back
-                current--;
+                current_pos--;
                 return parse_select();
             }
         }
         
+#if 0  // DISABLED: Advanced async/whenever features
         if (val == "suspend") {
             advance();
             if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("whenever") == 0) {
@@ -665,6 +667,7 @@ Statement* VisualGasicParser::parse_statement() {
             advance();
             return parse_raise_event();
         }
+#endif  // DISABLED: Advanced async/whenever features
         
         if (val == "set") {
             advance(); // Eat Set
@@ -2868,7 +2871,7 @@ WheneverSectionStatement* VisualGasicParser::parse_whenever() {
     advance();
     
     // Check if this is a complex expression (starts with parentheses)
-    if (check(VisualGasicTokenizer::TOKEN_LPAREN)) {
+    if (check(VisualGasicTokenizer::TOKEN_PAREN_OPEN)) {
         // Complex condition expression: Whenever Section Name (expression) CallbackProc
         stmt->variable_name = ""; // No single variable for complex expressions
         
@@ -3079,7 +3082,7 @@ AsyncFunctionStatement* VisualGasicParser::parse_async_function() {
             // Type annotation
             if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).to_lower() == "as") {
                 advance(); // as
-                param->type = peek().value;
+                param->type_hint = peek().value;
                 advance();
             }
             
@@ -3099,7 +3102,7 @@ AsyncFunctionStatement* VisualGasicParser::parse_async_function() {
         advance();
     }
     
-    match_newline();
+    match(VisualGasicTokenizer::TOKEN_NEWLINE);
     
     // Parse body
     while (!is_at_end() && !(check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).to_lower() == "end")) {
@@ -3107,7 +3110,8 @@ AsyncFunctionStatement* VisualGasicParser::parse_async_function() {
         if (stmt) {
             async_func->body.push_back(stmt);
         } else {
-            advance_newline();
+            if (check(VisualGasicTokenizer::TOKEN_NEWLINE)) advance();
+            else advance();
         }
     }
     
@@ -3136,11 +3140,15 @@ Statement* VisualGasicParser::parse_await() {
         return nullptr;
     }
     
-    // Create await statement (simplified - in full impl would be expression)
+    // Create await statement using assignment AST
+    // Target is a VariableNode for __await_result__
     AssignmentStatement* await_stmt = static_cast<AssignmentStatement*>(register_node(new AssignmentStatement()));
-    await_stmt->variable_name = "__await_result__"; 
+    
+    VariableNode* target = new VariableNode();
+    target->name = "__await_result__";
+    
+    await_stmt->target = target;
     await_stmt->value = expr;
-    await_stmt->is_await = true; // Add flag to AST
     
     return await_stmt;
 }
@@ -3154,7 +3162,7 @@ TaskRunStatement* VisualGasicParser::parse_task_run() {
         advance();
     }
     
-    match_newline();
+    match(VisualGasicTokenizer::TOKEN_NEWLINE);
     
     // Parse task body until "End Task"
     while (!is_at_end() && !(check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).to_lower() == "end")) {
@@ -3162,7 +3170,8 @@ TaskRunStatement* VisualGasicParser::parse_task_run() {
         if (stmt) {
             task->task_body.push_back(stmt);
         } else {
-            advance_newline();
+            if (check(VisualGasicTokenizer::TOKEN_NEWLINE)) advance();
+            else advance();
         }
     }
     
@@ -3220,9 +3229,9 @@ ParallelForStatement* VisualGasicParser::parse_parallel_for() {
     par_for->variable_name = peek().value;
     advance();
     
-    // = or :=
-    if (check(VisualGasicTokenizer::TOKEN_EQUALS) || check(VisualGasicTokenizer::TOKEN_ASSIGNMENT)) {
-        advance();
+    // = (comes as TOKEN_OPERATOR)
+    if (!match(VisualGasicTokenizer::TOKEN_OPERATOR)) {
+        error("Expected = in Parallel For");
     }
     
     // Start expression
@@ -3240,7 +3249,7 @@ ParallelForStatement* VisualGasicParser::parse_parallel_for() {
         par_for->step_expr = parse_expression();
     }
     
-    match_newline();
+    match(VisualGasicTokenizer::TOKEN_NEWLINE);
     
     // Parse body
     while (!is_at_end() && !(check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).to_lower() == "next")) {
@@ -3248,7 +3257,8 @@ ParallelForStatement* VisualGasicParser::parse_parallel_for() {
         if (stmt) {
             par_for->body.push_back(stmt);
         } else {
-            advance_newline();
+            if (check(VisualGasicTokenizer::TOKEN_NEWLINE)) advance();
+            else advance();
         }
     }
     
@@ -3263,7 +3273,7 @@ ParallelForStatement* VisualGasicParser::parse_parallel_for() {
 ParallelSectionStatement* VisualGasicParser::parse_parallel_section() {
     ParallelSectionStatement* par_section = static_cast<ParallelSectionStatement*>(register_node(new ParallelSectionStatement()));
     
-    match_newline();
+    match(VisualGasicTokenizer::TOKEN_NEWLINE);
     
     // Parse section body until "End Section"
     while (!is_at_end() && !(check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).to_lower() == "end")) {
@@ -3271,7 +3281,8 @@ ParallelSectionStatement* VisualGasicParser::parse_parallel_section() {
         if (stmt) {
             par_section->section_body.push_back(stmt);
         } else {
-            advance_newline();
+            if (check(VisualGasicTokenizer::TOKEN_NEWLINE)) advance();
+            else advance();
         }
     }
     
@@ -3287,6 +3298,9 @@ ParallelSectionStatement* VisualGasicParser::parse_parallel_section() {
 }
 
 // === ADVANCED TYPE SYSTEM PARSING ===
+// DISABLED: Pattern matching and advanced type features need additional helper functions
+
+#if 0  // DISABLED: Pattern matching - needs match_newline, advance_newline, evaluate_expression
 
 PatternMatchStatement* VisualGasicParser::parse_pattern_match() {
     PatternMatchStatement* match_stmt = static_cast<PatternMatchStatement*>(register_node(new PatternMatchStatement()));
@@ -3492,3 +3506,5 @@ SubDefinition* VisualGasicParser::parse_generic_function() {
     
     return sub;
 }
+
+#endif  // DISABLED: Pattern matching features

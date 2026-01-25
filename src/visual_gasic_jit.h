@@ -14,14 +14,66 @@
 #include <thread>
 #include <mutex>
 #include <atomic>
+#include <string>
+#include <godot_cpp/variant/variant.hpp>
 
-// Forward declarations
-class ASTNode;
-class ExecutionContext;
-class PerformanceProfiler;
+// Include full profiler definition
+#include "visual_gasic_profiler.h"
+#include "visual_gasic_ast.h"
+
+// ASTNode alias for JIT compatibility (actual AST uses Statement/ExpressionNode)
+namespace VisualGasic {
+namespace JIT {
+    // Use void* as opaque handle for any AST node type
+    using ASTNode = void;
+}
+}
 
 namespace VisualGasic {
 namespace JIT {
+
+// ============================================================================
+// ExecutionContext - Minimal implementation for JIT compiled code
+// ============================================================================
+
+class ExecutionContext {
+public:
+    // Value stack operations
+    void push_value(const godot::Variant& value) { value_stack_.push_back(value); }
+    godot::Variant pop_value() { 
+        if (value_stack_.empty()) return godot::Variant();
+        godot::Variant v = value_stack_.back();
+        value_stack_.pop_back();
+        return v;
+    }
+    
+    // Variable access
+    void set_variable(const std::string& name, const godot::Variant& value) {
+        variables_[name] = value;
+    }
+    
+    godot::Variant get_variable(const std::string& name) const {
+        auto it = variables_.find(name);
+        if (it != variables_.end()) return it->second;
+        return godot::Variant();
+    }
+    
+    bool has_variable(const std::string& name) const {
+        return variables_.find(name) != variables_.end();
+    }
+    
+    // Error handling
+    void set_error(const std::string& msg) { error_message_ = msg; has_error_ = true; }
+    bool has_error() const { return has_error_; }
+    std::string get_error() const { return error_message_; }
+    void clear_error() { has_error_ = false; error_message_.clear(); }
+    
+private:
+    std::vector<godot::Variant> value_stack_;
+    std::unordered_map<std::string, godot::Variant> variables_;
+    bool has_error_ = false;
+    std::string error_message_;
+};
 
 // JIT compilation modes
 enum class CompilationMode {
@@ -180,7 +232,7 @@ private:
     std::unordered_map<std::string, std::unique_ptr<CompiledCode>> compiled_functions_;
     
     std::unique_ptr<JITOptimizer> optimizer_;
-    std::unique_ptr<PerformanceProfiler> profiler_;
+    std::unique_ptr<VisualGasicProfiler> profiler_;
     
     std::thread background_compiler_thread_;
     std::atomic<bool> background_compiler_running_{false};

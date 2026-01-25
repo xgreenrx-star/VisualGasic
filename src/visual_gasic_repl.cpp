@@ -1,7 +1,13 @@
+/**
+ * VisualGasic REPL - Interactive Read-Eval-Print Loop
+ * Fixed for Godot 4.x compatibility
+ */
+
 #include "visual_gasic_repl.h"
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <godot_cpp/classes/os.hpp>
 #include <godot_cpp/classes/display_server.hpp>
+#include <godot_cpp/classes/time.hpp>
 
 VisualGasicREPL::VisualGasicREPL() {
     instance = nullptr;
@@ -40,7 +46,7 @@ void VisualGasicREPL::stop_session() {
 
 String VisualGasicREPL::evaluate_input(const String& input) {
     if (!is_running || !instance) {
-        return "Error: REPL not started";
+        return String("Error: REPL not started");
     }
     
     // Add to history
@@ -54,62 +60,51 @@ String VisualGasicREPL::evaluate_input(const String& input) {
     
     // Check if input is complete
     if (!is_complete_statement(input)) {
-        current_input += input + "\n";
-        return "... "; // Continue input
+        current_input = current_input + input + String("\n");
+        return String("... "); // Continue input
     }
     
     String full_input = current_input + input;
-    current_input = "";
+    current_input = String("");
     
-    try {
-        // Parse and execute the input
-        Vector<Token> tokens = parser.tokenize(full_input);
-        if (tokens.size() == 0) {
-            return "";
-        }
-        
-        // Simple statement execution
-        if (full_input.strip_edges().begins_with("Print ")) {
-            // Handle Print statements directly
-            String expression = full_input.substr(6).strip_edges();
-            // Evaluate and return result
-            return "Output: " + expression; // Simplified
-        }
-        
-        // Variable assignment
-        if (full_input.contains("=") && !full_input.contains("==")) {
-            Array parts = full_input.split("=");
-            if (parts.size() == 2) {
-                String var_name = String(parts[0]).strip_edges();
-                String var_value = String(parts[1]).strip_edges();
-                
-                // Store in REPL variables
-                if (var_value.is_valid_int()) {
-                    repl_variables[var_name] = var_value.to_int();
-                } else if (var_value.is_valid_float()) {
-                    repl_variables[var_name] = var_value.to_float();
-                } else if (var_value.begins_with("\"") && var_value.ends_with("\"")) {
-                    repl_variables[var_name] = var_value.substr(1, var_value.length() - 2);
-                } else {
-                    repl_variables[var_name] = var_value;
-                }
-                
-                return "✓ " + var_name + " = " + format_value(repl_variables[var_name]);
-            }
-        }
-        
-        // Expression evaluation
-        if (repl_variables.has(full_input.strip_edges())) {
-            String var_name = full_input.strip_edges();
-            Variant value = repl_variables[var_name];
-            return var_name + " = " + format_value(value) + " (" + get_type_info(value) + ")";
-        }
-        
-        return "Executed: " + full_input;
-        
-    } catch (...) {
-        return "Error: Invalid syntax";
+    // Simple statement execution
+    if (full_input.strip_edges().begins_with("Print ")) {
+        // Handle Print statements directly
+        String expression = full_input.substr(6).strip_edges();
+        // Evaluate and return result
+        return String("Output: ") + expression; // Simplified
     }
+    
+    // Variable assignment
+    if (full_input.contains("=") && !full_input.contains("==")) {
+        Array parts = full_input.split("=");
+        if (parts.size() == 2) {
+            String var_name = String(parts[0]).strip_edges();
+            String var_value = String(parts[1]).strip_edges();
+            
+            // Store in REPL variables
+            if (var_value.is_valid_int()) {
+                repl_variables[var_name] = var_value.to_int();
+            } else if (var_value.is_valid_float()) {
+                repl_variables[var_name] = var_value.to_float();
+            } else if (var_value.begins_with("\"") && var_value.ends_with("\"")) {
+                repl_variables[var_name] = var_value.substr(1, var_value.length() - 2);
+            } else {
+                repl_variables[var_name] = var_value;
+            }
+            
+            return String("OK ") + var_name + String(" = ") + format_value(repl_variables[var_name]);
+        }
+    }
+    
+    // Expression evaluation
+    String trimmed = full_input.strip_edges();
+    if (repl_variables.has(trimmed)) {
+        Variant value = repl_variables[trimmed];
+        return trimmed + String(" = ") + format_value(value) + String(" (") + get_type_info(value) + String(")");
+    }
+    
+    return String("Executed: ") + full_input;
 }
 
 String VisualGasicREPL::process_command(const String& command) {
@@ -131,141 +126,180 @@ String VisualGasicREPL::process_command(const String& command) {
         return cmd_reset();
     } else if (cmd.begins_with("type ")) {
         return cmd_type(cmd.substr(5));
-    } else if (cmd == "quit" || cmd == "exit") {
+    } else if (cmd == "quit" || cmd == "q" || cmd == "exit") {
         stop_session();
-        return "Goodbye!";
-    } else {
-        return "Unknown command: " + cmd + ". Type :help for available commands.";
+        return String("Goodbye!");
     }
+    
+    return String("Unknown command: ") + cmd + String("\nType :help for available commands");
 }
 
 String VisualGasicREPL::cmd_help() {
-    return R"(
+    return String(R"(
 VisualGasic REPL Commands:
-=========================
-:help, :h         - Show this help
-:vars, :v         - List all variables
-:clear, :c        - Clear screen
-:history          - Show command history
-:load <file>      - Load and execute script file
-:save <file>      - Save current session to file
-:reset            - Reset REPL state
-:type <expr>      - Show type of expression
-:quit, :exit      - Exit REPL
+  :help, :h      - Show this help message
+  :vars, :v      - List all variables
+  :clear, :c     - Clear the screen
+  :history       - Show command history
+  :load <file>   - Load and execute a .bas file
+  :save <file>   - Save session to a file
+  :reset         - Clear all variables and history
+  :type <expr>   - Show the type of an expression
+  :quit, :q      - Exit the REPL
 
-Features:
-- Variable assignments: x = 42
-- Expression evaluation: x + 10
-- Print statements: Print "Hello"
-- Pattern matching: Select Match value
-- Async functions: Await LoadDataAsync()
-- Auto-completion with Tab
-- Command history with Up/Down arrows
-)";
+Examples:
+  x = 10                    - Assign a value
+  Print "Hello, World!"     - Print output
+  x                         - Show variable value
+)");
 }
 
 String VisualGasicREPL::cmd_vars() {
     if (repl_variables.size() == 0) {
-        return "No variables defined";
+        return String("No variables defined");
     }
     
-    String result = "Variables:\n";
+    String result = String("Variables:\n");
     Array keys = repl_variables.keys();
     for (int i = 0; i < keys.size(); i++) {
         String key = keys[i];
         Variant value = repl_variables[key];
-        result += "  " + key + " = " + format_value(value) + " (" + get_type_info(value) + ")\n";
+        result = result + String("  ") + key + String(" = ") + format_value(value) + 
+                 String(" (") + get_type_info(value) + String(")\n");
     }
-    
     return result;
 }
 
 String VisualGasicREPL::cmd_clear() {
     // In a real terminal, this would clear the screen
-    return "Screen cleared (simulated)";
+    return String("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");
 }
 
 String VisualGasicREPL::cmd_history() {
-    if (command_history.size() == 0) {
-        return "No command history";
-    }
-    
-    String result = "Command History:\n";
+    String result = String("Command History:\n");
     for (int i = 0; i < command_history.size(); i++) {
-        result += String::num(i + 1) + ": " + command_history[i] + "\n";
+        result = result + String("  ") + String::num_int64(i + 1) + String(". ") + command_history[i] + String("\n");
     }
-    
     return result;
 }
 
 String VisualGasicREPL::cmd_load(const String& filename) {
     Ref<FileAccess> file = FileAccess::open(filename, FileAccess::READ);
     if (!file.is_valid()) {
-        return "Error: Could not open file " + filename;
+        return String("Error: Could not open file ") + filename;
     }
     
     String content = file->get_as_text();
     file.unref();
     
-    return "Loaded and executing: " + filename + "\n" + evaluate_input(content);
+    return String("Loaded and executing: ") + filename + String("\n") + evaluate_input(content);
 }
 
 String VisualGasicREPL::cmd_save(const String& filename) {
     Ref<FileAccess> file = FileAccess::open(filename, FileAccess::WRITE);
     if (!file.is_valid()) {
-        return "Error: Could not create file " + filename;
+        return String("Error: Could not create file ") + filename;
     }
     
     // Save current variables and history
     file->store_string("' VisualGasic REPL Session\n");
-    file->store_string("' Generated: " + Time::get_singleton()->get_datetime_string_from_system() + "\n\n");
+    
+    // Get datetime string safely
+    String datetime_str = String("");
+    Time* time_singleton = Time::get_singleton();
+    if (time_singleton) {
+        Dictionary datetime = time_singleton->get_datetime_dict_from_system();
+        datetime_str = String::num_int64((int64_t)datetime["year"]) + String("-") +
+                       String::num_int64((int64_t)datetime["month"]) + String("-") +
+                       String::num_int64((int64_t)datetime["day"]) + String(" ") +
+                       String::num_int64((int64_t)datetime["hour"]) + String(":") +
+                       String::num_int64((int64_t)datetime["minute"]);
+    }
+    file->store_string(String("' Generated: ") + datetime_str + String("\n\n"));
     
     // Save variables
     Array keys = repl_variables.keys();
     for (int i = 0; i < keys.size(); i++) {
         String key = keys[i];
         Variant value = repl_variables[key];
-        file->store_string("Dim " + key + " As " + get_type_info(value) + " = " + format_value(value) + "\n");
+        file->store_string(String("Dim ") + key + String(" As ") + get_type_info(value) + 
+                          String(" = ") + format_value(value) + String("\n"));
     }
     
     file.unref();
-    return "Session saved to: " + filename;
+    return String("Session saved to: ") + filename;
 }
 
 String VisualGasicREPL::cmd_reset() {
     repl_variables.clear();
     command_history.clear();
-    current_input = "";
+    current_input = String("");
     history_index = -1;
-    return "REPL state reset";
+    return String("REPL state reset");
 }
 
 String VisualGasicREPL::cmd_type(const String& expression) {
     if (repl_variables.has(expression)) {
         Variant value = repl_variables[expression];
-        return expression + " : " + get_type_info(value);
+        return expression + String(" : ") + get_type_info(value);
     }
     
-    return "Unknown variable: " + expression;
+    return String("Unknown variable: ") + expression;
+}
+
+String VisualGasicREPL::hot_reload_script(const String& filename) {
+    // Reload and re-execute a script file
+    return cmd_load(filename);
+}
+
+String VisualGasicREPL::inspect_variable(const String& var_name) {
+    if (!repl_variables.has(var_name)) {
+        return String("Variable not found: ") + var_name;
+    }
+    
+    Variant value = repl_variables[var_name];
+    String result = String("Variable: ") + var_name + String("\n");
+    result = result + String("  Type: ") + get_type_info(value) + String("\n");
+    result = result + String("  Value: ") + format_value(value) + String("\n");
+    
+    if (value.get_type() == Variant::ARRAY) {
+        Array arr = value;
+        result = result + String("  Size: ") + String::num_int64(arr.size()) + String("\n");
+    } else if (value.get_type() == Variant::DICTIONARY) {
+        Dictionary dict = value;
+        result = result + String("  Keys: ") + String::num_int64(dict.size()) + String("\n");
+    }
+    
+    return result;
+}
+
+String VisualGasicREPL::list_functions() {
+    return String("Available built-in functions: Len, Left, Right, Mid, UCase, LCase, Trim, Chr, Asc, Sin, Cos, Abs, Int, Round, ...");
+}
+
+String VisualGasicREPL::debug_expression(const String& expression) {
+    return String("Debug output for: ") + expression;
 }
 
 void VisualGasicREPL::print_welcome_message() {
     UtilityFunctions::print(R"(
-╔══════════════════════════════════════════╗
-║          VisualGasic REPL v1.0           ║
-║    Interactive Programming Environment   ║
-╚══════════════════════════════════════════╝
+======================================
+      VisualGasic REPL v1.0
+  Interactive Programming Environment
+======================================
 
 Features:
-• Advanced type system with generics
-• Pattern matching with destructuring
-• Async/await programming
-• Reactive programming with Whenever
-• Live variable inspection
-• Hot code reloading
+  - Variable assignment and inspection
+  - Expression evaluation
+  - Command history
+  - Script loading and saving
 
 Type ':help' for commands or start coding!
 )");
+}
+
+void VisualGasicREPL::print_prompt() {
+    UtilityFunctions::print("VG> ");
 }
 
 bool VisualGasicREPL::is_complete_statement(const String& input) {
@@ -290,11 +324,11 @@ bool VisualGasicREPL::is_complete_statement(const String& input) {
 String VisualGasicREPL::format_value(const Variant& value) {
     switch (value.get_type()) {
         case Variant::STRING:
-            return "\"" + String(value) + "\"";
+            return String("\"") + String(value) + String("\"");
         case Variant::BOOL:
-            return (bool)value ? "True" : "False";
+            return (bool)value ? String("True") : String("False");
         case Variant::NIL:
-            return "Nothing";
+            return String("Nothing");
         default:
             return String(value);
     }
@@ -302,14 +336,14 @@ String VisualGasicREPL::format_value(const Variant& value) {
 
 String VisualGasicREPL::get_type_info(const Variant& value) {
     switch (value.get_type()) {
-        case Variant::INT: return "Integer";
-        case Variant::FLOAT: return "Double";
-        case Variant::STRING: return "String";
-        case Variant::BOOL: return "Boolean";
-        case Variant::ARRAY: return "Array";
-        case Variant::DICTIONARY: return "Dictionary";
-        case Variant::NIL: return "Nothing";
-        default: return "Object";
+        case Variant::INT: return String("Integer");
+        case Variant::FLOAT: return String("Double");
+        case Variant::STRING: return String("String");
+        case Variant::BOOL: return String("Boolean");
+        case Variant::ARRAY: return String("Array");
+        case Variant::DICTIONARY: return String("Dictionary");
+        case Variant::NIL: return String("Nothing");
+        default: return String("Object");
     }
 }
 
@@ -342,12 +376,48 @@ Vector<String> VisualGasicREPL::get_variable_names() {
     return names;
 }
 
+Vector<String> VisualGasicREPL::get_function_names() {
+    Vector<String> functions;
+    functions.push_back("Len");
+    functions.push_back("Left");
+    functions.push_back("Right");
+    functions.push_back("Mid");
+    functions.push_back("UCase");
+    functions.push_back("LCase");
+    functions.push_back("Trim");
+    functions.push_back("Sin");
+    functions.push_back("Cos");
+    functions.push_back("Abs");
+    functions.push_back("Int");
+    functions.push_back("Round");
+    return functions;
+}
+
 Vector<String> VisualGasicREPL::get_keyword_completions(const String& prefix) {
-    Vector<String> keywords = {
-        "Async", "Await", "Task", "Parallel", "Select", "Match", "Case", "When", 
-        "If", "Then", "Else", "For", "Next", "While", "Do", "Loop", "Sub", 
-        "Function", "Dim", "As", "Of", "Where", "Print", "Return", "Exit"
-    };
+    Vector<String> keywords;
+    keywords.push_back("Async");
+    keywords.push_back("Await");
+    keywords.push_back("Task");
+    keywords.push_back("Parallel");
+    keywords.push_back("Select");
+    keywords.push_back("Match");
+    keywords.push_back("Case");
+    keywords.push_back("When");
+    keywords.push_back("If");
+    keywords.push_back("Then");
+    keywords.push_back("Else");
+    keywords.push_back("For");
+    keywords.push_back("Next");
+    keywords.push_back("While");
+    keywords.push_back("Do");
+    keywords.push_back("Loop");
+    keywords.push_back("Sub");
+    keywords.push_back("Function");
+    keywords.push_back("Dim");
+    keywords.push_back("As");
+    keywords.push_back("Print");
+    keywords.push_back("Return");
+    keywords.push_back("Exit");
     
     Vector<String> matches;
     for (int i = 0; i < keywords.size(); i++) {

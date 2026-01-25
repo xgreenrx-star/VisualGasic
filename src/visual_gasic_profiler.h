@@ -6,8 +6,10 @@
 #include <godot_cpp/variant/array.hpp>
 #include <chrono>
 #include <unordered_map>
+#include <string>
 #include <vector>
 #include <memory>
+#include <functional>
 #include <atomic>
 
 using namespace godot;
@@ -105,10 +107,15 @@ public:
     }
 };
 
-// Convenience macros
-#define VG_PROFILE(name) ScopedProfiler _prof(name)
-#define VG_PROFILE_CATEGORY(name, category) ScopedProfiler _prof(name, category)
-#define VG_PROFILE_FUNCTION() ScopedProfiler _prof(__FUNCTION__)
+// Helper macro to generate unique variable names
+#define VG_PROFILE_CONCAT_IMPL(x, y) x##y
+#define VG_PROFILE_CONCAT(x, y) VG_PROFILE_CONCAT_IMPL(x, y)
+#define VG_PROFILE_VAR(base) VG_PROFILE_CONCAT(base, __LINE__)
+
+// Convenience macros - each uses unique variable name based on line number
+#define VG_PROFILE(name) ScopedProfiler VG_PROFILE_VAR(_prof_)(name)
+#define VG_PROFILE_CATEGORY(name, category) ScopedProfiler VG_PROFILE_VAR(_prof_cat_)(name, category)
+#define VG_PROFILE_FUNCTION() ScopedProfiler VG_PROFILE_VAR(_prof_fn_)(__FUNCTION__)
 #define VG_COUNT(name) VisualGasicProfiler::getInstance().increment_counter(name)
 #define VG_COUNT_VALUE(name, value) VisualGasicProfiler::getInstance().increment_counter(name, value)
 #define VG_SET_COUNTER(name, value) VisualGasicProfiler::getInstance().set_counter(name, value)
