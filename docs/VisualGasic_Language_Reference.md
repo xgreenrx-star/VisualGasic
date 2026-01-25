@@ -196,8 +196,8 @@ If level >= 5 Then      ' Greater than or equal
 If health < 10 Then     ' Less than
 If lives <= 0 Then      ' Less than or equal
 If name = "Player" Then ' Equal
-If status <> "Dead" Then ' Not equal (VB style)
-If status != "Dead" Then ' Not equal (C-style)
+If status <> "Dead" Then ' Not equal
+If status != "Dead" Then ' Not equal (alternative syntax)
 ```
 
 #### Logical Operators
@@ -264,6 +264,8 @@ If health <= 0 Then gameOver = True
 message = IIf(score > 100, "Excellent!", "Keep trying!")
 ```
 
+**See Also:** [If-Then-Else](#if-then-else) - Full conditional statements for more complex branching logic.
+
 ### Loops
 
 #### For-Next Loop
@@ -273,6 +275,11 @@ For i = 1 To 10
     Print i
 Next i
 
+' Variable after Next is optional
+For i = 1 To 10
+    Print i
+Next
+
 ' With step
 For i = 0 To 100 Step 5
     Print i
@@ -281,7 +288,7 @@ Next i
 ' Backwards
 For i = 10 To 1 Step -1
     Print i
-Next i
+Next
 ```
 
 #### For-Each Loop
@@ -290,6 +297,11 @@ Dim items As Array = ["apple", "banana", "cherry"]
 For Each item In items
     Print item
 Next item
+
+' Variable after Next is optional for For-Each too
+For Each item In items
+    Print item
+Next
 ```
 
 #### While-Wend Loop
@@ -299,6 +311,8 @@ While health > 0
     If health <= 0 Then Exit While
 Wend
 ```
+
+**See Also:** [Do-Loop](#do-loop) - Alternative loop syntax with `Do While` for similar functionality.
 
 #### Do-Loop
 ```vb
@@ -317,6 +331,8 @@ Do
     GetInput()
 Loop While input <> "quit"
 ```
+
+**See Also:** [While-Wend Loop](#while-wend-loop) - Alternative loop syntax with similar `While` condition syntax.
 
 ### Select Case
 
@@ -345,6 +361,8 @@ Select Case level
         difficulty = "Hard"
 End Select
 ```
+
+**See Also:** [Pattern Matching](#pattern-matching) - The `Match` statement provides similar functionality with enhanced pattern matching capabilities.
 
 ### Error Handling
 
@@ -645,6 +663,8 @@ Match score
         Print "Beginner"
 End Match
 ```
+
+**See Also:** [Select Case](#select-case) - Classic conditional branching with similar syntax.
 
 ### Null-Safe Operations
 
