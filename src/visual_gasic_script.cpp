@@ -118,6 +118,7 @@ void VisualGasicScript::_set_source_code(const String &p_code) {
 #include <godot_cpp/classes/project_settings.hpp>
 
 Error VisualGasicScript::_reload(bool p_keep_state) {
+    last_reload_had_error = false;
     // Apply Formatting just before successful reload?
     format_source_code();
     
@@ -127,6 +128,7 @@ Error VisualGasicScript::_reload(bool p_keep_state) {
     if (tokens.size() > 0 && tokens[tokens.size()-1].type == VisualGasicTokenizer::TOKEN_ERROR) {
         String err_msg = tokens[tokens.size()-1].value;
         UtilityFunctions::print("Script Reload Error (Token): ", err_msg);
+        last_reload_had_error = true;
         return ERR_PARSE_ERROR;
     }
     
@@ -141,7 +143,13 @@ Error VisualGasicScript::_reload(bool p_keep_state) {
     ast_root = parser.parse(tokens);
     if (parser.errors.size() > 0) {
          UtilityFunctions::print("Script Reload Error (Parse): ", parser.errors[0].message);
+            last_reload_had_error = true;
+            return ERR_PARSE_ERROR;
     }
+        if (!ast_root) {
+           last_reload_had_error = true;
+           return ERR_PARSE_ERROR;
+        }
 
     // Handle Inheritance
     base_script.unref();
@@ -187,7 +195,7 @@ bool VisualGasicScript::_is_tool() const {
 }
 
 bool VisualGasicScript::_is_valid() const {
-    return true;
+    return !last_reload_had_error;
 }
 
 ScriptLanguage *VisualGasicScript::_get_language() const {
@@ -277,7 +285,7 @@ TypedArray<StringName> VisualGasicScript::_get_members() const {
 }
 
 bool VisualGasicScript::_is_placeholder_fallback_enabled() const {
-    return false;
+    return last_reload_had_error;
 }
 
 Variant VisualGasicScript::_get_rpc_config() const {

@@ -16,6 +16,7 @@ class VisualGasicScript : public ScriptExtension {
     VisualGasicTokenizer tokenizer;
     VisualGasicParser parser;
     Ref<Script> base_script;
+    bool last_reload_had_error = false;
 
 public:
     ModuleNode *ast_root = nullptr;
@@ -62,6 +63,7 @@ public:
     virtual Variant _get_rpc_config() const override;
     virtual bool _has_static_method(const StringName &p_method) const override;
     virtual TypedArray<Dictionary> _get_documentation() const override;
+    bool has_reload_errors() const { return last_reload_had_error; }
 
     // Tools
     void format_source_code();

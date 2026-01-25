@@ -626,7 +626,8 @@ Ref<Script> VisualGasicInstance::get_script() {
 }
 
 bool VisualGasicInstance::is_placeholder() {
-    return false;
+    if (!script.is_valid()) return true;
+    return script->has_reload_errors();
 }
 
 Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
