@@ -644,7 +644,6 @@ Statement* VisualGasicParser::parse_statement() {
             }
         }
         
-#if 0  // DISABLED: Advanced async/whenever features
         if (val == "suspend") {
             advance();
             if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("whenever") == 0) {
@@ -667,7 +666,6 @@ Statement* VisualGasicParser::parse_statement() {
             advance();
             return parse_raise_event();
         }
-#endif  // DISABLED: Advanced async/whenever features
         
         if (val == "set") {
             advance(); // Eat Set
@@ -3298,9 +3296,6 @@ ParallelSectionStatement* VisualGasicParser::parse_parallel_section() {
 }
 
 // === ADVANCED TYPE SYSTEM PARSING ===
-// DISABLED: Pattern matching and advanced type features need additional helper functions
-
-#if 0  // DISABLED: Pattern matching - needs match_newline, advance_newline, evaluate_expression
 
 PatternMatchStatement* VisualGasicParser::parse_pattern_match() {
     PatternMatchStatement* match_stmt = static_cast<PatternMatchStatement*>(register_node(new PatternMatchStatement()));
@@ -3312,7 +3307,7 @@ PatternMatchStatement* VisualGasicParser::parse_pattern_match() {
         return nullptr;
     }
     
-    match_newline();
+    match(VisualGasicTokenizer::TOKEN_NEWLINE);
     
     // Parse cases
     while (!is_at_end() && !(check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).to_lower() == "end")) {
@@ -3322,7 +3317,8 @@ PatternMatchStatement* VisualGasicParser::parse_pattern_match() {
                 match_stmt->cases.push_back(match_case);
             }
         } else {
-            advance_newline();
+            if (check(VisualGasicTokenizer::TOKEN_NEWLINE)) advance();
+            else advance();
         }
     }
     
@@ -3353,7 +3349,7 @@ MatchCase* VisualGasicParser::parse_match_case() {
         match_case->pattern = parse_pattern();
     }
     
-    match_newline();
+    match(VisualGasicTokenizer::TOKEN_NEWLINE);
     
     // Parse statements until next Case or End Select
     while (!is_at_end() && !(check(VisualGasicTokenizer::TOKEN_KEYWORD) && 
@@ -3362,7 +3358,8 @@ MatchCase* VisualGasicParser::parse_match_case() {
         if (stmt) {
             match_case->statements.push_back(stmt);
         } else {
-            advance_newline();
+            if (check(VisualGasicTokenizer::TOKEN_NEWLINE)) advance();
+            else advance();
         }
     }
     
@@ -3397,20 +3394,38 @@ Pattern* VisualGasicParser::parse_pattern() {
             
             match(VisualGasicTokenizer::TOKEN_PAREN_CLOSE);
         } else {
-            // Simple type pattern
-            pattern->type = Pattern::TYPE_PATTERN;
-            pattern->type_name = type_name;
+            // Simple type or variable pattern
+            pattern->type = Pattern::VARIABLE_PATTERN;
+            pattern->variable_name = type_name;
         }
-    } else {
-        // Literal pattern
+    } else if (check(VisualGasicTokenizer::TOKEN_LITERAL_INTEGER) || 
+               check(VisualGasicTokenizer::TOKEN_LITERAL_FLOAT) ||
+               check(VisualGasicTokenizer::TOKEN_LITERAL_STRING)) {
+        // Literal pattern - parse the literal directly
         pattern->type = Pattern::LITERAL_PATTERN;
-        pattern->literal_value = evaluate_expression(parse_expression());
+        if (check(VisualGasicTokenizer::TOKEN_LITERAL_INTEGER)) {
+            pattern->literal_value = String(peek().value).to_int();
+        } else if (check(VisualGasicTokenizer::TOKEN_LITERAL_FLOAT)) {
+            pattern->literal_value = String(peek().value).to_float();
+        } else {
+            pattern->literal_value = peek().value;
+        }
+        advance();
+    } else {
+        // Default to literal pattern with expression
+        pattern->type = Pattern::LITERAL_PATTERN;
+        ExpressionNode* expr = parse_expression();
+        if (expr && expr->type == ExpressionNode::LITERAL) {
+            LiteralNode* lit = static_cast<LiteralNode*>(expr);
+            pattern->literal_value = lit->value;
+        }
     }
     
-    // Guard clause with When
+    // Guard clause with When (guard expression disabled in AST for now)
     if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).to_lower() == "when") {
         advance(); // consume "when"
-        pattern->guard_expression = parse_expression();
+        // Skip the guard expression for now since it's commented out in AST
+        parse_expression(); // Parse but don't store
     }
     
     return pattern;
@@ -3451,8 +3466,8 @@ AdvancedType* VisualGasicParser::parse_advanced_type() {
         match(VisualGasicTokenizer::TOKEN_PAREN_CLOSE);
     }
     
-    // Optional type: Player?
-    if (check(VisualGasicTokenizer::TOKEN_QUESTION)) {
+    // Optional type: Player? - check for operator "?"
+    if (check(VisualGasicTokenizer::TOKEN_OPERATOR) && String(peek().value) == "?") {
         advance();
         type->is_optional = true;
         type->kind = AdvancedType::OPTIONAL;
@@ -3506,5 +3521,3 @@ SubDefinition* VisualGasicParser::parse_generic_function() {
     
     return sub;
 }
-
-#endif  // DISABLED: Pattern matching features

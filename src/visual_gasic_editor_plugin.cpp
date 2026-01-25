@@ -1,4 +1,6 @@
 #include "visual_gasic_editor_plugin.h"
+#include <godot_cpp/classes/reg_ex_match.hpp>
+#include <godot_cpp/classes/reg_ex.hpp>
 #include "visual_gasic_tokenizer.h"
 #include <godot_cpp/classes/text_edit.hpp>
 #include <godot_cpp/classes/editor_interface.hpp>
@@ -321,12 +323,12 @@ void VisualGasicEditorPlugin::add_type_inference(TextEdit* editor, int line) {
     // Parse: Dim variableName = value
     RegEx regex;
     regex.compile("^(\\s*Dim\\s+)([a-zA-Z_][a-zA-Z0-9_]*)\\s*=\\s*(.+)$");
-    RegExMatch result = regex.search(line_text);
+    Ref<RegExMatch> result = regex.search(line_text);
     
-    if (result.is_valid() && result.get_group_count() >= 3) {
-        String prefix = result.get_string(1);  // "Dim "
-        String var_name = result.get_string(2); // variable name
-        String value = result.get_string(3).strip_edges(); // assigned value
+    if (result.is_valid() && result->get_group_count() >= 3) {
+        String prefix = result->get_string(1);  // "Dim "
+        String var_name = result->get_string(2); // variable name
+        String value = result->get_string(3).strip_edges(); // assigned value
         
         // Remove any trailing comment
         int comment_pos = value.find("'");
@@ -394,14 +396,14 @@ void VisualGasicEditorPlugin::handle_incomplete_dim(TextEdit* editor, int line) 
     // Parse: Dim variableName (possibly with comment)
     RegEx regex;
     regex.compile("^(\\s*Dim\\s+)([a-zA-Z_][a-zA-Z0-9_]*)(\\s*'.*)?$");
-    RegExMatch result = regex.search(line_text);
+    Ref<RegExMatch> result = regex.search(line_text);
     
-    if (result.is_valid() && result.get_group_count() >= 2) {
-        String prefix = result.get_string(1);  // "Dim "
-        String var_name = result.get_string(2); // variable name
+    if (result.is_valid() && result->get_group_count() >= 2) {
+        String prefix = result->get_string(1);  // "Dim "
+        String var_name = result->get_string(2); // variable name
         String comment = "";
-        if (result.get_group_count() >= 3 && result.get_string(3) != "") {
-            comment = result.get_string(3); // comment if exists
+        if (result->get_group_count() >= 3 && result->get_string(3) != "") {
+            comment = result->get_string(3); // comment if exists
         }
         
         String new_line = prefix + var_name + " As Variant" + comment;
@@ -427,19 +429,19 @@ void VisualGasicEditorPlugin::convert_template_literal(TextEdit* editor, int lin
     // Convert `Hello ${name}` to "Hello " + name
     RegEx regex;
     regex.compile("`([^`]*?)\\$\\{([^}]+)\\}([^`]*?)`");
-    RegExMatch result = regex.search(line_text);
+    Ref<RegExMatch> result = regex.search(line_text);
     
     if (result.is_valid()) {
-        String before = result.get_string(1);
-        String variable = result.get_string(2);
-        String after = result.get_string(3);
+        String before = result->get_string(1);
+        String variable = result->get_string(2);
+        String after = result->get_string(3);
         
         String replacement = "\"" + before + "\" + " + variable;
         if (after.length() > 0) {
             replacement += " + \"" + after + "\"";
         }
         
-        String new_text = line_text.replace(result.get_string(0), replacement);
+        String new_text = line_text.replace(result->get_string(0), replacement);
         editor->set_line(line, new_text);
     }
 }
@@ -449,19 +451,19 @@ void VisualGasicEditorPlugin::convert_f_string(TextEdit* editor, int line) {
     // Convert f"Score: {score}" to "Score: " + CStr(score)
     RegEx regex;
     regex.compile("f\"([^\"]*?)\\{([^}]+)\\}([^\"]*?)\"");
-    RegExMatch result = regex.search(line_text);
+    Ref<RegExMatch> result = regex.search(line_text);
     
     if (result.is_valid()) {
-        String before = result.get_string(1);
-        String variable = result.get_string(2);
-        String after = result.get_string(3);
+        String before = result->get_string(1);
+        String variable = result->get_string(2);
+        String after = result->get_string(3);
         
         String replacement = "\"" + before + "\" + CStr(" + variable + ")";
         if (after.length() > 0) {
             replacement += " + \"" + after + "\"";
         }
         
-        String new_text = line_text.replace(result.get_string(0), replacement);
+        String new_text = line_text.replace(result->get_string(0), replacement);
         editor->set_line(line, new_text);
     }
 }
@@ -471,19 +473,19 @@ void VisualGasicEditorPlugin::convert_interpolated_string(TextEdit* editor, int 
     // Convert $"Player {id}" to "Player " + CStr(id)
     RegEx regex;
     regex.compile("\\$\"([^\"]*?)\\{([^}]+)\\}([^\"]*?)\"");
-    RegExMatch result = regex.search(line_text);
+    Ref<RegExMatch> result = regex.search(line_text);
     
     if (result.is_valid()) {
-        String before = result.get_string(1);
-        String variable = result.get_string(2);
-        String after = result.get_string(3);
+        String before = result->get_string(1);
+        String variable = result->get_string(2);
+        String after = result->get_string(3);
         
         String replacement = "\"" + before + "\" + CStr(" + variable + ")";
         if (after.length() > 0) {
             replacement += " + \"" + after + "\"";
         }
         
-        String new_text = line_text.replace(result.get_string(0), replacement);
+        String new_text = line_text.replace(result->get_string(0), replacement);
         editor->set_line(line, new_text);
     }
 }
@@ -493,15 +495,15 @@ void VisualGasicEditorPlugin::convert_ternary_operator(TextEdit* editor, int lin
     // Convert condition ? a : b to If(condition, a, b)
     RegEx regex;
     regex.compile("([^?]+)\\?([^:]+):([^;\\n]+)");
-    RegExMatch result = regex.search(line_text);
+    Ref<RegExMatch> result = regex.search(line_text);
     
     if (result.is_valid()) {
-        String condition = result.get_string(1).strip_edges();
-        String true_value = result.get_string(2).strip_edges();
-        String false_value = result.get_string(3).strip_edges();
+        String condition = result->get_string(1).strip_edges();
+        String true_value = result->get_string(2).strip_edges();
+        String false_value = result->get_string(3).strip_edges();
         
         String replacement = "If(" + condition + ", " + true_value + ", " + false_value + ")";
-        String new_text = line_text.replace(result.get_string(0), replacement);
+        String new_text = line_text.replace(result->get_string(0), replacement);
         editor->set_line(line, new_text);
     }
 }
@@ -511,16 +513,16 @@ void VisualGasicEditorPlugin::convert_c_style_for_loop(TextEdit* editor, int lin
     // Convert for(i=0; i<10; i++) to For i = 0 To 9
     RegEx regex;
     regex.compile("for\\(([^=]+)=([^;]+);[^<]*<([^;]+);[^\\)]*\\)");
-    RegExMatch result = regex.search(line_text);
+    Ref<RegExMatch> result = regex.search(line_text);
     
     if (result.is_valid()) {
-        String var_name = result.get_string(1).strip_edges();
-        String start_val = result.get_string(2).strip_edges();
-        String end_val = result.get_string(3).strip_edges();
+        String var_name = result->get_string(1).strip_edges();
+        String start_val = result->get_string(2).strip_edges();
+        String end_val = result->get_string(3).strip_edges();
         
         // Convert to VB-style (0-based to end-1)
         String replacement = "For " + var_name + " = " + start_val + " To " + end_val + " - 1";
-        String new_text = line_text.replace(result.get_string(0), replacement);
+        String new_text = line_text.replace(result->get_string(0), replacement);
         editor->set_line(line, new_text);
     }
 }
@@ -530,14 +532,14 @@ void VisualGasicEditorPlugin::convert_python_range_loop(TextEdit* editor, int li
     // Convert for i in range(10) to For i = 0 To 9
     RegEx regex;
     regex.compile("for ([^\\s]+) in range\\(([^\\)]+)\\)");
-    RegExMatch result = regex.search(line_text);
+    Ref<RegExMatch> result = regex.search(line_text);
     
     if (result.is_valid()) {
-        String var_name = result.get_string(1);
-        String range_val = result.get_string(2);
+        String var_name = result->get_string(1);
+        String range_val = result->get_string(2);
         
         String replacement = "For " + var_name + " = 0 To " + range_val + " - 1";
-        String new_text = line_text.replace(result.get_string(0), replacement);
+        String new_text = line_text.replace(result->get_string(0), replacement);
         editor->set_line(line, new_text);
     }
 }
@@ -547,12 +549,12 @@ void VisualGasicEditorPlugin::convert_c_style_while(TextEdit* editor, int line) 
     // Convert while(condition) to While condition
     RegEx regex;
     regex.compile("while\\(([^\\)]+)\\)");
-    RegExMatch result = regex.search(line_text);
+    Ref<RegExMatch> result = regex.search(line_text);
     
     if (result.is_valid()) {
-        String condition = result.get_string(1);
+        String condition = result->get_string(1);
         String replacement = "While " + condition;
-        String new_text = line_text.replace(result.get_string(0), replacement);
+        String new_text = line_text.replace(result->get_string(0), replacement);
         editor->set_line(line, new_text);
     }
 }
@@ -564,13 +566,13 @@ void VisualGasicEditorPlugin::convert_array_brackets(TextEdit* editor, int line)
     
     RegEx regex;
     regex.compile("([a-zA-Z_][a-zA-Z0-9_]*)\\[([^\\]]+)\\]");
-    RegExMatch result = regex.search(line_text);
+    Ref<RegExMatch> result = regex.search(line_text);
     
     if (result.is_valid()) {
-        String array_name = result.get_string(1);
-        String index = result.get_string(2);
+        String array_name = result->get_string(1);
+        String index = result->get_string(2);
         String replacement = array_name + "(" + index + ")";
-        String new_text = line_text.replace(result.get_string(0), replacement);
+        String new_text = line_text.replace(result->get_string(0), replacement);
         editor->set_line(line, new_text);
     }
 }
@@ -632,10 +634,10 @@ void VisualGasicEditorPlugin::convert_import_statements(TextEdit* editor, int li
     else if (stripped.begins_with("from ")) {
         RegEx regex;
         regex.compile("from ([^\\s]+) import ([^\\n]+)");
-        RegExMatch result = regex.search(stripped);
+        Ref<RegExMatch> result = regex.search(stripped);
         if (result.is_valid()) {
-            String module = result.get_string(1);
-            String items = result.get_string(2);
+            String module = result->get_string(1);
+            String items = result->get_string(2);
             String equivalent = get_visualgasic_equivalent(module);
             if (equivalent != "") {
                 replacement = "' From " + module + " import " + items + " → " + equivalent;
@@ -657,10 +659,10 @@ void VisualGasicEditorPlugin::convert_import_statements(TextEdit* editor, int li
     // C++ includes
     else if (stripped.begins_with("#include")) {
         RegEx regex;
-        regex.compile("#include\\s*[<\"](.*?)[>\"]")
-        RegExMatch result = regex.search(stripped);
+        regex.compile("#include\\s*[<\"](.*?)[>\"]");
+        Ref<RegExMatch> result = regex.search(stripped);
         if (result.is_valid()) {
-            String header = result.get_string(1);
+            String header = result->get_string(1);
             String equivalent = get_visualgasic_equivalent(header);
             if (equivalent != "") {
                 replacement = "' Include: " + header + " → " + equivalent;

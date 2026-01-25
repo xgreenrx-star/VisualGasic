@@ -5,6 +5,8 @@
 #include "visual_gasic_ast.h"
 #include "visual_gasic_profiler.h"
 
+using namespace VisualGasic;
+
 class VisualGasicParser {
     Vector<VisualGasicTokenizer::Token> tokens;
     int current_pos;

@@ -1,4 +1,5 @@
 #include "visual_gasic_debugger.h"
+#include <algorithm>
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <godot_cpp/classes/time.hpp>
 #include <godot_cpp/classes/os.hpp>

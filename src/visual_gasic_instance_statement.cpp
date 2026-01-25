@@ -7,7 +7,13 @@ void VisualGasicInstance::_execute_statement_impl(Statement* stmt) {
 		case STMT_ASSIGNMENT: {
 			AssignmentStatement* a = static_cast<AssignmentStatement*>(stmt);
 			Variant val = _evaluate_expression_impl(a->value);
-			assign_variable("", val); // TODO: handle target properly
+			// Handle assignment target properly
+			if (a->target) {
+				assign_to_target(a->target, val);
+			} else {
+				// Fallback: no target specified
+				raise_error("Assignment has no target");
+			}
 			break;
 		}
 		case STMT_CALL: {
@@ -33,6 +39,14 @@ void VisualGasicInstance::_execute_statement_impl(Statement* stmt) {
 			WhileStatement* w = static_cast<WhileStatement*>(stmt);
 			while (_evaluate_expression_impl(w->condition).booleanize()) {
 				for (Statement* s : w->body) _execute_statement_impl(s);
+				if (error_state.mode == ErrorState::EXIT_DO) {
+					error_state.mode = ErrorState::NONE;
+					break;
+				}
+				if (error_state.mode == ErrorState::CONTINUE_DO || error_state.mode == ErrorState::CONTINUE_WHILE) {
+					error_state.mode = ErrorState::NONE;
+					continue;
+				}
 			}
 			break;
 		}
@@ -50,6 +64,13 @@ void VisualGasicInstance::_execute_statement_impl(Statement* stmt) {
 				else cond = (double)current >= (double)end;
 				if (!cond) break;
 				for (Statement* s : f->body) _execute_statement_impl(s);
+				if (error_state.mode == ErrorState::EXIT_FOR) {
+					error_state.mode = ErrorState::NONE;
+					break;
+				}
+				if (error_state.mode == ErrorState::CONTINUE_FOR) {
+					error_state.mode = ErrorState::NONE;
+				}
 				assign_variable(f->variable_name, (double)current + (double)step);
 			}
 			break;
@@ -78,7 +99,20 @@ void VisualGasicInstance::_execute_statement_impl(Statement* stmt) {
 			break;
 		}
 		case STMT_EXIT: {
-			// TODO: Implement proper exit handling
+			ExitStatement* ex = static_cast<ExitStatement*>(stmt);
+			// Set the appropriate exit mode based on the exit type
+			switch (ex->exit_type) {
+				case ExitStatement::EXIT_SUB:
+				case ExitStatement::EXIT_FUNCTION:
+					error_state.mode = ErrorState::EXIT_SUB;
+					break;
+				case ExitStatement::EXIT_FOR:
+					error_state.mode = ErrorState::EXIT_FOR;
+					break;
+				case ExitStatement::EXIT_DO:
+					error_state.mode = ErrorState::EXIT_DO;
+					break;
+			}
 			break;
 		}
 		default:

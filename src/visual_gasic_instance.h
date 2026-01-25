@@ -3,12 +3,14 @@
 
 #include "visual_gasic_script.h"
 #include "visual_gasic_bytecode.h"
+#include "visual_gasic_ast.h"
 #include <godot_cpp/core/object.hpp>
 #include <godot_cpp/classes/file_access.hpp>
 #include <godot_cpp/classes/dir_access.hpp>
 #include <godot_cpp/classes/os.hpp>
 
 using namespace godot;
+using namespace VisualGasic;
 
 class VisualGasicInstance {
     Ref<VisualGasicScript> script;
@@ -45,6 +47,13 @@ class VisualGasicInstance {
     // Or we can construct a Dictionary of Default Values for each struct eagerly.
     // Name -> Dictionary(default object).
     Dictionary struct_prototypes; 
+    
+    // Class system storage
+    Dictionary class_registry;       // class_name -> ClassDefinition* (as int64_t)
+    Dictionary object_instances;     // object_id -> Dictionary of member values
+    int next_object_id = 1;         // For unique object IDs
+    Dictionary loaded_libraries;     // lib_name -> handle (as int64_t)
+    Dictionary declared_functions;   // function_name -> DeclareStatement* (as int64_t)
 
     // Whenever system tracking
     struct WheneverSection {
@@ -192,6 +201,24 @@ public:
     void call(const StringName &p_method, const Variant *const *p_args, GDExtensionInt p_argcount, Variant *r_return, GDExtensionCallError *r_error);
     void notification(int32_t p_what);
     void to_string(GDExtensionBool *r_is_valid, GDExtensionStringPtr r_out);
+
+    // Class Management Methods
+    Variant instantiate_class(const String& class_name, const Array& args);
+    bool get_object_member(int obj_id, const String& member_name, Variant &r_ret);
+    void set_object_member(int obj_id, const String& member_name, const Variant& value);
+    Variant call_object_method(int obj_id, const String& method_name, const Array& args);
+    void register_class(ClassDefinition* cls);
+    void execute_class_method(ClassDefinition* cls, SubDefinition* method, int obj_id, const Array& args, Variant& r_ret);
+    bool is_property_accessor(const String& prop_name, PropertyDefinition::PropertyType& type);
+    Variant call_property_get(const String& prop_name, const Array& args);
+    void call_property_let(const String& prop_name, const Array& args, const Variant& value);
+    void call_property_set(const String& prop_name, const Array& args, const Variant& value);
+    
+    // FFI/DLL Support
+    void* load_library(const String& lib_name);
+    void* get_function_address(void* lib_handle, const String& func_name);
+    Variant call_ffi_function(DeclareStatement* decl, const Array& args);
+    void register_declare(DeclareStatement* decl);
 
     static const GDExtensionScriptInstanceInfo3 *get_script_instance_info();
 };

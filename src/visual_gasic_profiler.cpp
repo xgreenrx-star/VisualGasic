@@ -6,13 +6,14 @@
 #include <sstream>
 #include <iomanip>
 
-#ifdef _MSC_VER
-#include <intrin.h>
-#include <immintrin.h>
-#elif defined(__GNUC__) || defined(__clang__)
-#include <x86intrin.h>
-#include <cpuid.h>
-#endif
+// SIMD headers disabled for compatibility
+// #ifdef _MSC_VER
+// #include <intrin.h>
+// #include <immintrin.h>
+// #elif defined(__GNUC__) || defined(__clang__)
+// #include <x86intrin.h>
+// #include <cpuid.h>
+// #endif
 
 using namespace godot;
 
@@ -72,7 +73,9 @@ void VisualGasicProfiler::end_profile(const std::string& name) {
             end_time - profile->start_time).count() / 1000.0; // Convert to milliseconds
         
         profile->call_count++;
-        profile->total_time_ms += duration;
+        // std::atomic<double> doesn't support +=, use fetch_add pattern
+        double current = profile->total_time_ms.load();
+        while (!profile->total_time_ms.compare_exchange_weak(current, current + duration)) {}
         
         // Update min/max
         double current_min = profile->min_time_ms.load();
@@ -97,7 +100,9 @@ void VisualGasicProfiler::increment_counter(const std::string& name, double valu
     auto it = counters_.find(name);
     if (it != counters_.end()) {
         it->second->count++;
-        it->second->value += value;
+        // std::atomic<double> doesn't support +=, use compare_exchange
+        double current = it->second->value.load();
+        while (!it->second->value.compare_exchange_weak(current, current + value)) {}
     }
 }
 
@@ -167,26 +172,23 @@ void VisualGasicProfiler::print_performance_summary() {
         double avg_time = profile->call_count.load() > 0 ? 
             profile->total_time_ms.load() / profile->call_count.load() : 0.0;
         
-        UtilityFunctions::print(String("  %1: %2ms total (%3 calls, %4ms avg)")
-            .arg(String(name.c_str()))
-            .arg(String::num(profile->total_time_ms.load(), 2))
-            .arg(String::num(profile->call_count.load()))
-            .arg(String::num(avg_time, 3)));
+        UtilityFunctions::print(String("  ") + String(name.c_str()) + String(": ") + 
+            String::num(profile->total_time_ms.load(), 2) + String("ms total (") +
+            String::num(profile->call_count.load()) + String(" calls, ") +
+            String::num(avg_time, 3) + String("ms avg)"));
     }
     
     UtilityFunctions::print("\nPerformance Counters:");
     for (const auto& [name, counter] : counters_) {
         if (counter->count.load() > 0) {
-            UtilityFunctions::print(String("  %1: %2 %3 (%4 updates)")
-                .arg(String(counter->name.c_str()))
-                .arg(String::num(counter->value.load()))
-                .arg(String(counter->unit.c_str()))
-                .arg(String::num(counter->count.load())));
+            UtilityFunctions::print(String("  ") + String(counter->name.c_str()) + String(": ") +
+                String::num(counter->value.load()) + String(" ") + String(counter->unit.c_str()) + 
+                String(" (") + String::num(counter->count.load()) + String(" updates)"));
         }
     }
     
-    UtilityFunctions::print(String("Memory Pool Utilization: %1%")
-        .arg(String::num(memory_pool_->utilization() * 100.0, 1)));
+    UtilityFunctions::print(String("Memory Pool Utilization: ") +
+        String::num(memory_pool_->utilization() * 100.0, 1) + String("%"));
 }
 
 void VisualGasicProfiler::suggest_optimizations() {
@@ -198,32 +200,32 @@ void VisualGasicProfiler::suggest_optimizations() {
             profile->total_time_ms.load() / profile->call_count.load() : 0.0;
         
         if (avg_time > 10.0) { // >10ms average
-            UtilityFunctions::print(String("🔥 HOT PATH: %1 (%2ms avg) - Consider optimization")
-                .arg(String(name.c_str())).arg(String::num(avg_time, 2)));
+            UtilityFunctions::print(String("HOT PATH: ") + String(name.c_str()) + 
+                String(" (") + String::num(avg_time, 2) + String("ms avg) - Consider optimization"));
                 
             if (name.find("parser") != std::string::npos) {
-                UtilityFunctions::print("  💡 Try: AST node pooling, token caching");
+                UtilityFunctions::print("  Try: AST node pooling, token caching");
             } else if (name.find("execution") != std::string::npos) {
-                UtilityFunctions::print("  💡 Try: JIT compilation, instruction caching");
+                UtilityFunctions::print("  Try: JIT compilation, instruction caching");
             } else if (name.find("memory") != std::string::npos) {
-                UtilityFunctions::print("  💡 Try: Memory pool expansion, object pooling");
+                UtilityFunctions::print("  Try: Memory pool expansion, object pooling");
             }
         }
         
         if (profile->call_count.load() > 10000) { // Very frequent calls
-            UtilityFunctions::print(String("🚀 FREQUENT: %1 (%2 calls) - Consider caching")
-                .arg(String(name.c_str())).arg(String::num(profile->call_count.load())));
+            UtilityFunctions::print(String("FREQUENT: ") + String(name.c_str()) + 
+                String(" (") + String::num(profile->call_count.load()) + String(" calls) - Consider caching"));
         }
     }
     
     // Memory optimization suggestions
     double pool_util = memory_pool_->utilization();
     if (pool_util > 0.8) {
-        UtilityFunctions::print("💾 MEMORY: Pool utilization high (%1%) - Consider expansion"
-            .arg(String::num(pool_util * 100.0, 1)));
+        UtilityFunctions::print(String("MEMORY: Pool utilization high (") + 
+            String::num(pool_util * 100.0, 1) + String("%) - Consider expansion"));
     } else if (pool_util < 0.2) {
-        UtilityFunctions::print("💾 MEMORY: Pool utilization low (%1%) - Consider reduction"
-            .arg(String::num(pool_util * 100.0, 1)));
+        UtilityFunctions::print(String("MEMORY: Pool utilization low (") +
+            String::num(pool_util * 100.0, 1) + String("%) - Consider reduction"));
     }
 }
 

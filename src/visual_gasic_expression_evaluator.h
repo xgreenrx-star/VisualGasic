@@ -12,6 +12,7 @@
 #include <godot_cpp/templates/vector.hpp>
 
 using namespace godot;
+using namespace VisualGasic;
 
 class VisualGasicExpressionEvaluator {
 public:

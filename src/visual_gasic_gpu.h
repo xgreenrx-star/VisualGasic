@@ -33,7 +33,7 @@ public:
     };
 
 private:
-    Ref<RenderingDevice> rendering_device;
+    RenderingDevice* rendering_device;
     std::map<String, ComputeShaderInfo> compute_cache;
 
 public:

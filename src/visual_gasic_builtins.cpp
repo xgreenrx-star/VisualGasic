@@ -1,4 +1,7 @@
 #include "visual_gasic_builtins.h"
+#include <godot_cpp/classes/json.hpp>
+#include <godot_cpp/classes/file_access.hpp>
+#include <godot_cpp/classes/dir_access.hpp>
 #include "visual_gasic_expression_evaluator.h"
 #include "visual_gasic_profiler.h"
 #include <godot_cpp/variant/utility_functions.hpp>
@@ -240,7 +243,91 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
     if (name.nocasecmp_to("Lerp") == 0 && args.size() == 3) { r_handled = true; double a = args[0]; double b = args[1]; double t = args[2]; return Math::lerp(a,b,t); }
     if (name.nocasecmp_to("Clamp") == 0 && args.size() == 3) { r_handled = true; double val = args[0]; double mn = args[1]; double mx = args[2]; return Math::clamp(val,mn,mx); }
 
-    // Array functions
+    // String functions
+    if (name.nocasecmp_to("StartsWith") == 0 && args.size() == 2) {
+        r_handled = true;
+        String text = String(args[0]);
+        String prefix = String(args[1]);
+        return text.begins_with(prefix);
+    }
+    
+    if (name.nocasecmp_to("EndsWith") == 0 && args.size() == 2) {
+        r_handled = true;
+        String text = String(args[0]);
+        String suffix = String(args[1]);
+        return text.ends_with(suffix);
+    }
+    
+    if (name.nocasecmp_to("PadLeft") == 0 && (args.size() == 2 || args.size() == 3)) {
+        r_handled = true;
+        String text = String(args[0]);
+        int length = int(args[1]);
+        String pad_char = args.size() == 3 ? String(args[2]) : " ";
+        if (pad_char.length() > 0) {
+            while (text.length() < length) {
+                text = pad_char.substr(0, 1) + text;
+            }
+        }
+        return text;
+    }
+    
+    if (name.nocasecmp_to("PadRight") == 0 && (args.size() == 2 || args.size() == 3)) {
+        r_handled = true;
+        String text = String(args[0]);
+        int length = int(args[1]);
+        String pad_char = args.size() == 3 ? String(args[2]) : " ";
+        if (pad_char.length() > 0) {
+            while (text.length() < length) {
+                text = text + pad_char.substr(0, 1);
+            }
+        }
+        return text;
+    }
+
+    // Extended Array Functions
+    if (name.nocasecmp_to("Push") == 0 && args.size() == 2) {
+        r_handled = true;
+        Variant input = args[0];
+        Variant new_item = args[1];
+        if (input.get_type() == Variant::ARRAY) {
+            Array arr = input;
+            Array new_arr = arr.duplicate();
+            new_arr.append(new_item);
+            return new_arr;
+        }
+        return input;
+    }
+    
+    if (name.nocasecmp_to("Pop") == 0 && args.size() == 1) {
+        r_handled = true;
+        Variant input = args[0];
+        if (input.get_type() == Variant::ARRAY) {
+            Array arr = input;
+            if (arr.size() > 0) {
+                return arr[arr.size() - 1];
+            }
+        }
+        return Variant();
+    }
+    
+    if (name.nocasecmp_to("Slice") == 0 && args.size() >= 2) {
+        r_handled = true;
+        Variant input = args[0];
+        int start = int(args[1]);
+        int end = args.size() > 2 ? int(args[2]) : -1;
+        
+        if (input.get_type() == Variant::ARRAY) {
+            Array arr = input;
+            Array sliced;
+            if (end == -1) end = arr.size();
+            
+            for (int i = start; i < end && i < arr.size(); i++) {
+                if (i >= 0) sliced.append(arr[i]);
+            }
+            return sliced;
+        }
+        return input;
+    }
     if (name.nocasecmp_to("Sort") == 0 && args.size() == 1) {
         r_handled = true;
         Variant input = args[0];
@@ -312,6 +399,15 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
         r_handled = true;
         Variant input = args[0];
         Variant search_val = args[1];
+        
+        // Handle string contains
+        if (input.get_type() == Variant::STRING) {
+            String text = String(input);
+            String search = String(search_val);
+            return text.contains(search);
+        }
+        
+        // Handle array contains
         if (input.get_type() == Variant::ARRAY) {
             Array arr = input;
             for (int i = 0; i < arr.size(); i++) {
@@ -365,6 +461,430 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
             return flat_arr;
         }
         return input;
+    }
+    
+    if (name.nocasecmp_to("Push") == 0 && args.size() == 2) {
+        r_handled = true;
+        Variant input = args[0];
+        Variant new_item = args[1];
+        if (input.get_type() == Variant::ARRAY) {
+            Array arr = input;
+            Array new_arr = arr.duplicate();
+            new_arr.append(new_item);
+            return new_arr;
+        }
+        return input;
+    }
+    
+    if (name.nocasecmp_to("Pop") == 0 && args.size() == 1) {
+        r_handled = true;
+        Variant input = args[0];
+        if (input.get_type() == Variant::ARRAY) {
+            Array arr = input;
+            if (arr.size() > 0) {
+                return arr[arr.size() - 1];
+            }
+        }
+        return Variant();
+    }
+    
+    if (name.nocasecmp_to("Slice") == 0 && args.size() >= 2) {
+        r_handled = true;
+        Variant input = args[0];
+        int start = int(args[1]);
+        int end = args.size() > 2 ? int(args[2]) : -1;
+        
+        if (input.get_type() == Variant::ARRAY) {
+            Array arr = input;
+            Array sliced;
+            if (end == -1) end = arr.size();
+            
+            for (int i = start; i < end && i < arr.size(); i++) {
+                if (i >= 0) sliced.append(arr[i]);
+            }
+            return sliced;
+        }
+        return input;
+    }
+    
+    if (name.nocasecmp_to("Repeat") == 0 && args.size() == 2) {
+        r_handled = true;
+        Variant item = args[0];
+        int count = int(args[1]);
+        Array repeated;
+        
+        for (int i = 0; i < count; i++) {
+            repeated.append(item);
+        }
+        return repeated;
+    }
+    
+    if (name.nocasecmp_to("Zip") == 0 && args.size() == 2) {
+        r_handled = true;
+        Variant input1 = args[0];
+        Variant input2 = args[1];
+        
+        if (input1.get_type() == Variant::ARRAY && input2.get_type() == Variant::ARRAY) {
+            Array arr1 = input1;
+            Array arr2 = input2;
+            Array zipped;
+            
+            int min_size = Math::min(arr1.size(), arr2.size());
+            for (int i = 0; i < min_size; i++) {
+                Array pair;
+                pair.append(arr1[i]);
+                pair.append(arr2[i]);
+                zipped.append(pair);
+            }
+            return zipped;
+        }
+        return Array();
+    }
+    
+    if (name.nocasecmp_to("Range") == 0 && (args.size() >= 2 && args.size() <= 3)) {
+        r_handled = true;
+        int start = int(args[0]);
+        int end = int(args[1]);
+        int step = args.size() == 3 ? int(args[2]) : 1;
+        
+        Array range;
+        if (step > 0) {
+            for (int i = start; i < end; i += step) {
+                range.append(i);
+            }
+        } else if (step < 0) {
+            for (int i = start; i > end; i += step) {
+                range.append(i);
+            }
+        }
+        return range;
+    }
+    
+    // Dictionary functions
+    if (name.nocasecmp_to("Keys") == 0 && args.size() == 1) {
+        r_handled = true;
+        Variant input = args[0];
+        if (input.get_type() == Variant::DICTIONARY) {
+            Dictionary dict = input;
+            return dict.keys();
+        }
+        return Array();
+    }
+    
+    if (name.nocasecmp_to("Values") == 0 && args.size() == 1) {
+        r_handled = true;
+        Variant input = args[0];
+        if (input.get_type() == Variant::DICTIONARY) {
+            Dictionary dict = input;
+            return dict.values();
+        }
+        return Array();
+    }
+    
+    if (name.nocasecmp_to("HasKey") == 0 && args.size() == 2) {
+        r_handled = true;
+        Variant input = args[0];
+        Variant key = args[1];
+        if (input.get_type() == Variant::DICTIONARY) {
+            Dictionary dict = input;
+            return dict.has(key);
+        }
+        return false;
+    }
+    
+    if (name.nocasecmp_to("Merge") == 0 && args.size() == 2) {
+        r_handled = true;
+        Variant input1 = args[0];
+        Variant input2 = args[1];
+        
+        if (input1.get_type() == Variant::DICTIONARY && input2.get_type() == Variant::DICTIONARY) {
+            Dictionary dict1 = input1;
+            Dictionary dict2 = input2;
+            Dictionary merged = dict1.duplicate();
+            
+            Array keys2 = dict2.keys();
+            for (int i = 0; i < keys2.size(); i++) {
+                merged[keys2[i]] = dict2[keys2[i]];
+            }
+            return merged;
+        }
+        return input1;
+    }
+    
+    if (name.nocasecmp_to("Remove") == 0 && args.size() == 2) {
+        r_handled = true;
+        Variant input = args[0];
+        Variant key = args[1];
+        
+        if (input.get_type() == Variant::DICTIONARY) {
+            Dictionary dict = input;
+            Dictionary new_dict = dict.duplicate();
+            new_dict.erase(key);
+            return new_dict;
+        }
+        return input;
+    }
+    
+    // Type checking functions
+    if (name.nocasecmp_to("IsArray") == 0 && args.size() == 1) {
+        r_handled = true;
+        return args[0].get_type() == Variant::ARRAY;
+    }
+    
+    if (name.nocasecmp_to("IsDict") == 0 && args.size() == 1) {
+        r_handled = true;
+        return args[0].get_type() == Variant::DICTIONARY;
+    }
+    
+    if (name.nocasecmp_to("IsString") == 0 && args.size() == 1) {
+        r_handled = true;
+        return args[0].get_type() == Variant::STRING;
+    }
+    
+    if (name.nocasecmp_to("IsNumber") == 0 && args.size() == 1) {
+        r_handled = true;
+        Variant::Type type = args[0].get_type();
+        return type == Variant::INT || type == Variant::FLOAT;
+    }
+    
+    if (name.nocasecmp_to("IsNull") == 0 && args.size() == 1) {
+        r_handled = true;
+        return args[0].get_type() == Variant::NIL;
+    }
+    
+    if (name.nocasecmp_to("TypeName") == 0 && args.size() == 1) {
+        r_handled = true;
+        return Variant::get_type_name(args[0].get_type());
+    }
+    
+    // JSON functions
+    if (name.nocasecmp_to("JsonStringify") == 0 && args.size() >= 1) {
+        r_handled = true;
+        Variant data = args[0];
+        bool pretty = args.size() > 1 ? bool(args[1]) : false;
+        String indent = pretty ? "\t" : "";
+        return JSON::stringify(data, indent);
+    }
+    
+    if (name.nocasecmp_to("JsonParse") == 0 && args.size() == 1) {
+        r_handled = true;
+        String json_str = String(args[0]);
+        return JSON::parse_string(json_str);
+    }
+    
+    // File system functions
+    if (name.nocasecmp_to("FileExists") == 0 && args.size() == 1) {
+        r_handled = true;
+        String path = String(args[0]);
+        return FileAccess::file_exists(path);
+    }
+    
+    if (name.nocasecmp_to("DirExists") == 0 && args.size() == 1) {
+        r_handled = true;
+        String path = String(args[0]);
+        return DirAccess::dir_exists_absolute(path);
+    }
+    
+    if (name.nocasecmp_to("ReadAllText") == 0 && args.size() == 1) {
+        r_handled = true;
+        String path = String(args[0]);
+        Ref<FileAccess> file = FileAccess::open(path, FileAccess::READ);
+        if (file.is_valid()) {
+            String content = file->get_as_text();
+            file->close();
+            return content;
+        }
+        return String();
+    }
+    
+    if (name.nocasecmp_to("WriteAllText") == 0 && args.size() == 2) {
+        r_handled = true;
+        String path = String(args[0]);
+        String content = String(args[1]);
+        Ref<FileAccess> file = FileAccess::open(path, FileAccess::WRITE);
+        if (file.is_valid()) {
+            file->store_string(content);
+            file->close();
+            return true;
+        }
+        return false;
+    }
+    
+    if (name.nocasecmp_to("ReadLines") == 0 && args.size() == 1) {
+        r_handled = true;
+        String path = String(args[0]);
+        Ref<FileAccess> file = FileAccess::open(path, FileAccess::READ);
+        if (file.is_valid()) {
+            Array lines;
+            while (!file->eof_reached()) {
+                lines.append(file->get_line());
+            }
+            file->close();
+            return lines;
+        }
+        return Array();
+    }
+    
+    if (name.nocasecmp_to("Repeat") == 0 && args.size() == 2) {
+        r_handled = true;
+        Variant item = args[0];
+        int count = int(args[1]);
+        Array repeated;
+        
+        for (int i = 0; i < count; i++) {
+            repeated.append(item);
+        }
+        return repeated;
+    }
+    
+    if (name.nocasecmp_to("Zip") == 0 && args.size() == 2) {
+        r_handled = true;
+        Variant input1 = args[0];
+        Variant input2 = args[1];
+        
+        if (input1.get_type() == Variant::ARRAY && input2.get_type() == Variant::ARRAY) {
+            Array arr1 = input1;
+            Array arr2 = input2;
+            Array zipped;
+            
+            int min_size = Math::min(arr1.size(), arr2.size());
+            for (int i = 0; i < min_size; i++) {
+                Array pair;
+                pair.append(arr1[i]);
+                pair.append(arr2[i]);
+                zipped.append(pair);
+            }
+            return zipped;
+        }
+        return Array();
+    }
+    
+    if (name.nocasecmp_to("Range") == 0 && (args.size() >= 2 && args.size() <= 3)) {
+        r_handled = true;
+        int start = int(args[0]);
+        int end = int(args[1]);
+        int step = args.size() == 3 ? int(args[2]) : 1;
+        
+        Array range;
+        if (step > 0) {
+            for (int i = start; i < end; i += step) {
+                range.append(i);
+            }
+        } else if (step < 0) {
+            for (int i = start; i > end; i += step) {
+                range.append(i);
+            }
+        }
+        return range;
+    }
+
+    // Dictionary Functions
+    if (name.nocasecmp_to("Keys") == 0 && args.size() == 1) {
+        r_handled = true;
+        Variant input = args[0];
+        if (input.get_type() == Variant::DICTIONARY) {
+            Dictionary dict = input;
+            return dict.keys();
+        }
+        return Array();
+    }
+    
+    if (name.nocasecmp_to("Values") == 0 && args.size() == 1) {
+        r_handled = true;
+        Variant input = args[0];
+        if (input.get_type() == Variant::DICTIONARY) {
+            Dictionary dict = input;
+            return dict.values();
+        }
+        return Array();
+    }
+    
+    if (name.nocasecmp_to("HasKey") == 0 && args.size() == 2) {
+        r_handled = true;
+        Variant input = args[0];
+        Variant key = args[1];
+        if (input.get_type() == Variant::DICTIONARY) {
+            Dictionary dict = input;
+            return dict.has(key);
+        }
+        return false;
+    }
+    
+    if (name.nocasecmp_to("DictMerge") == 0 && args.size() == 2) {
+        r_handled = true;
+        Variant input1 = args[0];
+        Variant input2 = args[1];
+        
+        if (input1.get_type() == Variant::DICTIONARY && input2.get_type() == Variant::DICTIONARY) {
+            Dictionary dict1 = input1;
+            Dictionary dict2 = input2;
+            Dictionary merged = dict1.duplicate();
+            
+            Array keys2 = dict2.keys();
+            for (int i = 0; i < keys2.size(); i++) {
+                merged[keys2[i]] = dict2[keys2[i]];
+            }
+            return merged;
+        }
+        return input1;
+    }
+    
+    if (name.nocasecmp_to("DictRemove") == 0 && args.size() == 2) {
+        r_handled = true;
+        Variant input = args[0];
+        Variant key = args[1];
+        
+        if (input.get_type() == Variant::DICTIONARY) {
+            Dictionary dict = input;
+            Dictionary new_dict = dict.duplicate();
+            new_dict.erase(key);
+            return new_dict;
+        }
+        return input;
+    }
+    
+    if (name.nocasecmp_to("DictClear") == 0 && args.size() == 1) {
+        r_handled = true;
+        Variant input = args[0];
+        
+        if (input.get_type() == Variant::DICTIONARY) {
+            Dictionary dict = input;
+            Dictionary new_dict;
+            return new_dict;
+        }
+        return input;
+    }
+
+    // Type Checking Functions
+    if (name.nocasecmp_to("IsArray") == 0 && args.size() == 1) {
+        r_handled = true;
+        return args[0].get_type() == Variant::ARRAY;
+    }
+    
+    if (name.nocasecmp_to("IsDict") == 0 && args.size() == 1) {
+        r_handled = true;
+        return args[0].get_type() == Variant::DICTIONARY;
+    }
+    
+    if (name.nocasecmp_to("IsString") == 0 && args.size() == 1) {
+        r_handled = true;
+        return args[0].get_type() == Variant::STRING;
+    }
+    
+    if (name.nocasecmp_to("IsNumber") == 0 && args.size() == 1) {
+        r_handled = true;
+        Variant::Type type = args[0].get_type();
+        return type == Variant::INT || type == Variant::FLOAT;
+    }
+    
+    if (name.nocasecmp_to("IsNull") == 0 && args.size() == 1) {
+        r_handled = true;
+        return args[0].get_type() == Variant::NIL;
+    }
+    
+    if (name.nocasecmp_to("TypeName") == 0 && args.size() == 1) {
+        r_handled = true;
+        return Variant::get_type_name(args[0].get_type());
     }
 
     return Variant();

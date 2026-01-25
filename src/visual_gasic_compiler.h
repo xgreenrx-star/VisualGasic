@@ -4,6 +4,8 @@
 #include "visual_gasic_bytecode.h"
 #include "visual_gasic_ast.h"
 
+using namespace VisualGasic;
+
 class VisualGasicCompiler {
     BytecodeChunk* current_chunk;
     int current_line; // Track current source line

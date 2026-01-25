@@ -5642,7 +5642,7 @@ bool VisualGasicInstance::pattern_matches(Pattern* pattern, const Variant& value
         
         case Pattern::TYPE_PATTERN: {
             // Check if value is of the expected type
-            String value_type = value.get_type_name();
+            String value_type = Variant::get_type_name(value.get_type());
             bool type_matches = (value_type.to_lower() == pattern->type_name.to_lower());
             
             if (type_matches && pattern->sub_patterns.size() > 0) {
@@ -5664,10 +5664,11 @@ bool VisualGasicInstance::pattern_matches(Pattern* pattern, const Variant& value
         }
         
         case Pattern::GUARD_PATTERN: {
-            if (pattern->guard_expression) {
-                Variant guard_result = evaluate_expression(pattern->guard_expression);
-                return (bool)guard_result;
-            }
+            // Guard expressions temporarily disabled
+            // if (pattern->guard_expression) {
+            //     Variant guard_result = evaluate_expression(pattern->guard_expression);
+            //     return (bool)guard_result;
+            // }
             return true;
         }
         

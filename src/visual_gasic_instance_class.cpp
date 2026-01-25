@@ -2,6 +2,8 @@
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <dlfcn.h> // For dynamic library loading on Linux
 
+using namespace VisualGasic;
+
 // Class instantiation and management
 Variant VisualGasicInstance::instantiate_class(const String& class_name, const Array& args) {
     if (!class_registry.has(class_name)) {

@@ -8,7 +8,7 @@
 #include <stdio.h>
 
 using namespace godot;
-
+namespace VisualGasic {
 // Forward declaration
 struct ExpressionNode;
 
@@ -57,6 +57,7 @@ enum StatementType {
     STMT_PARALLEL_FOR,
     STMT_PARALLEL_SECTION,
     STMT_PATTERN_MATCH,
+    STMT_DECLARE,  // FFI/DLL declarations
     STMT_UNKNOWN
 };
 
@@ -576,8 +577,12 @@ struct VariableDefinition : public ASTNode {
     String name;
     String type;
     Visibility visibility;
+    ExpressionNode* default_value;  // Optional initialization value
     // Arrays?
     Vector<int> array_sizes; // if array
+    
+    VariableDefinition() : default_value(nullptr), visibility(VIS_PRIVATE) {}
+    ~VariableDefinition() { if(default_value) delete default_value; }
 };
 
 struct EventDefinition : public ASTNode {
@@ -794,8 +799,6 @@ struct TaskDefinition {
     TaskDefinition() : task_id(-1), is_completed(false), is_background(true) {}
 };
 
-};
-
 // === ADVANCED TYPE SYSTEM ===
 
 // Generic Type Parameter
@@ -831,12 +834,12 @@ struct Pattern {
     String variable_name; // For variable capture
     String type_name; // For type patterns
     Vector<Pattern*> sub_patterns; // For tuple patterns
-    ExpressionNode* guard_expression; // For When clauses
+    // ExpressionNode* guard_expression; // For When clauses - temporarily disabled
     Variant literal_value; // For literal patterns
     
-    Pattern() { type = LITERAL_PATTERN; guard_expression = nullptr; }
+    Pattern() { type = LITERAL_PATTERN; /* guard_expression = nullptr; */ }
     ~Pattern() {
-        if (guard_expression) delete guard_expression;
+        // if (guard_expression) delete guard_expression;
         for(int i=0; i<sub_patterns.size(); i++) if(sub_patterns[i]) delete sub_patterns[i];
     }
 };
@@ -890,5 +893,60 @@ struct TypeCheckExpression : ExpressionNode {
         if(check_type) delete check_type;
     }
 };
+
+// Class System Support
+struct PropertyDefinition : public ASTNode {
+    enum PropertyType { PROP_GET, PROP_LET, PROP_SET };
+    
+    String name;
+    PropertyType property_type;
+    String return_type;
+    Vector<Parameter> parameters;
+    Vector<Statement*> body;
+    
+    PropertyDefinition() : property_type(PROP_GET) {}
+    ~PropertyDefinition() {
+        for (Statement* s : body) { if(s) delete s; }
+    }
+};
+
+struct ClassDefinition : public ASTNode {
+    String name;
+    String base_class;  // For inheritance
+    Vector<VariableDefinition*> members;
+    Vector<SubDefinition*> methods;
+    Vector<PropertyDefinition*> properties;
+    Vector<EventDefinition*> events;
+    SubDefinition* class_initialize;  // Class_Initialize sub
+    SubDefinition* class_terminate;   // Class_Terminate sub
+    bool is_public;
+    
+    ClassDefinition() : class_initialize(nullptr), class_terminate(nullptr), is_public(true) {}
+    ~ClassDefinition() {
+        for (VariableDefinition* v : members) { if(v) delete v; }
+        for (SubDefinition* s : methods) { if(s) delete s; }
+        for (PropertyDefinition* p : properties) { if(p) delete p; }
+        for (EventDefinition* e : events) { if(e) delete e; }
+        // class_initialize and class_terminate are also in methods, so don't double-delete
+    }
+};
+
+// FFI/DLL Support
+struct DeclareStatement : public Statement {
+    String name;
+    String lib_name;
+    String alias_name;
+    String return_type;
+    Vector<String> param_names;
+    Vector<String> param_types;
+    Vector<bool> param_byval;  // True = ByVal, False = ByRef
+    bool use_cdecl;  // True = CDecl, False = StdCall (default for VB6)
+    
+    DeclareStatement() : Statement(STMT_DECLARE) {
+        use_cdecl = false;
+    }
+};
+
+} // namespace VisualGasic
 
 #endif // VISUAL_GASIC_AST_H
