@@ -71,6 +71,32 @@ class VisualGasicInstance {
     Vector<WheneverSection> whenever_sections;
     Vector<String> scope_stack;  // Track current scope hierarchy
 
+    // Multitasking system
+    struct TaskInfo {
+        String task_name;
+        int64_t task_id;  // Godot WorkerThreadPool task ID
+        bool is_completed;
+        bool is_background;
+        Variant result;
+        Vector<Statement*> task_body;
+        
+        TaskInfo() : task_id(-1), is_completed(false), is_background(true) {}
+    };
+    Vector<TaskInfo> active_tasks;
+    Dictionary task_results; // Task name -> result
+    
+    struct CoroutineState {
+        String function_name;
+        Vector<Statement*> remaining_statements;
+        int instruction_pointer;
+        Dictionary local_variables;
+        bool is_awaiting;
+        Variant await_result;
+        
+        CoroutineState() : instruction_pointer(0), is_awaiting(false) {}
+    };
+    Vector<CoroutineState> coroutine_stack;
+
     struct ErrorState {
         enum Mode { NONE, RESUME_NEXT, GOTO_LABEL, EXIT_SUB, EXIT_FOR, EXIT_DO, CONTINUE_FOR, CONTINUE_DO, CONTINUE_WHILE };
         Mode mode;
@@ -129,6 +155,17 @@ public:
     void cleanup_scoped_whenever(const String& scope_type, const String& scope_context);
     void enter_scope(const String& scope_name);
     void exit_scope(const String& scope_name);
+    
+    // Multitasking utilities
+    void execute_async_function(AsyncFunctionStatement* async_func);
+    Variant execute_await(ExpressionNode* expr);
+    void execute_task_run(TaskRunStatement* task);
+    void execute_task_wait(TaskWaitStatement* wait_stmt);
+    void execute_parallel_for(ParallelForStatement* par_for);
+    void execute_parallel_section(ParallelSectionStatement* par_section);
+    void update_tasks(); // Check task completion
+    static void _task_worker_function(void* user_data);
+    static void _parallel_worker_function(void* user_data, uint32_t index);
 
     void execute_bytecode(BytecodeChunk* chunk);
 

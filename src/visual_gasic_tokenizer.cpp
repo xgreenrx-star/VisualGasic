@@ -144,6 +144,10 @@ Vector<VisualGasicTokenizer::Token> VisualGasicTokenizer::tokenize(const String 
     keywords.push_back("Local");
     keywords.push_back("Suspend");
     keywords.push_back("Resume");
+    keywords.push_back("Async");
+    keywords.push_back("Await");
+    keywords.push_back("Task");
+    keywords.push_back("Parallel");
 
     while (current < length) {
         char32_t c = p_source_code[current];

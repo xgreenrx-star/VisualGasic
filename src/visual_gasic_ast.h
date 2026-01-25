@@ -50,6 +50,12 @@ enum StatementType {
     STMT_WHENEVER_SECTION,
     STMT_SUSPEND_WHENEVER,
     STMT_RESUME_WHENEVER,
+    STMT_ASYNC_FUNCTION,
+    STMT_AWAIT,
+    STMT_TASK_RUN,
+    STMT_TASK_WAIT,
+    STMT_PARALLEL_FOR,
+    STMT_PARALLEL_SECTION,
     STMT_UNKNOWN
 };
 
@@ -694,6 +700,97 @@ struct ModuleNode {
         for(int i=0; i<constants.size(); i++) if(constants[i]) delete constants[i];
         for(int i=0; i<global_statements.size(); i++) if(global_statements[i]) delete global_statements[i];
     }
+};
+
+// === MULTITASKING AST STRUCTURES ===
+
+// Async Function Statement
+struct AsyncFunctionStatement : Statement {
+    String function_name;
+    String return_type;
+    Vector<Parameter*> parameters;
+    Vector<Statement*> body;
+    
+    AsyncFunctionStatement() : Statement(STMT_ASYNC_FUNCTION) {}
+    ~AsyncFunctionStatement() {
+        for(int i=0; i<parameters.size(); i++) if(parameters[i]) delete parameters[i];
+        for(int i=0; i<body.size(); i++) if(body[i]) delete body[i];
+    }
+};
+
+// Await Expression
+struct AwaitExpression : ExpressionNode {
+    ExpressionNode* expression;
+    
+    AwaitExpression() : ExpressionNode() { 
+        type = LITERAL; // We'll extend this enum 
+        expression = nullptr;
+    }
+    ~AwaitExpression() { if(expression) delete expression; }
+};
+
+// Task.Run Statement  
+struct TaskRunStatement : Statement {
+    Vector<Statement*> task_body;
+    bool is_background;
+    String task_name;
+    
+    TaskRunStatement() : Statement(STMT_TASK_RUN), is_background(true) {}
+    ~TaskRunStatement() {
+        for(int i=0; i<task_body.size(); i++) if(task_body[i]) delete task_body[i];
+    }
+};
+
+// Task.Wait Statement
+struct TaskWaitStatement : Statement {
+    Vector<String> task_names; // For waiting multiple tasks
+    bool wait_all; // true = WaitAll, false = WaitAny
+    
+    TaskWaitStatement() : Statement(STMT_TASK_WAIT), wait_all(true) {}
+};
+
+// Parallel For Statement
+struct ParallelForStatement : Statement {
+    String variable_name;
+    ExpressionNode* start_expr;
+    ExpressionNode* end_expr;
+    ExpressionNode* step_expr;
+    Vector<Statement*> body;
+    
+    ParallelForStatement() : Statement(STMT_PARALLEL_FOR) {
+        start_expr = nullptr;
+        end_expr = nullptr; 
+        step_expr = nullptr;
+    }
+    ~ParallelForStatement() {
+        if(start_expr) delete start_expr;
+        if(end_expr) delete end_expr;
+        if(step_expr) delete step_expr;
+        for(int i=0; i<body.size(); i++) if(body[i]) delete body[i];
+    }
+};
+
+// Parallel Section Statement
+struct ParallelSectionStatement : Statement {
+    Vector<Statement*> section_body;
+    int max_threads; // -1 for auto
+    bool high_priority;
+    
+    ParallelSectionStatement() : Statement(STMT_PARALLEL_SECTION), max_threads(-1), high_priority(false) {}
+    ~ParallelSectionStatement() {
+        for(int i=0; i<section_body.size(); i++) if(section_body[i]) delete section_body[i];
+    }
+};
+
+// Task Definition (for runtime tracking)
+struct TaskDefinition {
+    String task_name;
+    int task_id; // Godot WorkerThreadPool task ID
+    bool is_completed;
+    bool is_background;
+    Variant result;
+    
+    TaskDefinition() : task_id(-1), is_completed(false), is_background(true) {}
 };
 
 #endif // VISUAL_GASIC_AST_H

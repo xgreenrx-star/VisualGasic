@@ -590,6 +590,45 @@ Statement* VisualGasicParser::parse_statement() {
         if (val == "whenever") {
             return parse_whenever();
         }
+        
+        // Multitasking keywords
+        if (val == "async") {
+            advance(); // consume "async"
+            if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && (String(peek().value).nocasecmp_to("sub") == 0 || String(peek().value).nocasecmp_to("function") == 0)) {
+                return parse_async_function();
+            }
+            error("Expected 'Sub' or 'Function' after 'Async'");
+            return nullptr;
+        }
+        if (val == "await") {
+            return parse_await();
+        }
+        if (val == "task") {
+            advance(); // consume "task"
+            String next_val = String(peek().value).to_lower();
+            if (next_val == "run") {
+                advance(); // consume "run"
+                return parse_task_run();
+            } else if (next_val == "wait" || next_val == "waitall" || next_val == "waitany") {
+                return parse_task_wait();
+            }
+            error("Expected 'Run', 'Wait', 'WaitAll', or 'WaitAny' after 'Task'");
+            return nullptr;
+        }
+        if (val == "parallel") {
+            advance(); // consume "parallel" 
+            String next_val = String(peek().value).to_lower();
+            if (next_val == "for") {
+                advance(); // consume "for"
+                return parse_parallel_for();
+            } else if (next_val == "section") {
+                advance(); // consume "section"
+                return parse_parallel_section();
+            }
+            error("Expected 'For' or 'Section' after 'Parallel'");
+            return nullptr;
+        }
+        
         if (val == "suspend") {
             advance();
             if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("whenever") == 0) {
@@ -2985,4 +3024,250 @@ void VisualGasicParser::parse_enum() {
     } else {
         delete def;
     }
+}
+
+// === MULTITASKING PARSING FUNCTIONS ===
+
+AsyncFunctionStatement* VisualGasicParser::parse_async_function() {
+    AsyncFunctionStatement* async_func = static_cast<AsyncFunctionStatement*>(register_node(new AsyncFunctionStatement()));
+    
+    // Should be "Sub" or "Function" 
+    bool is_function = false;
+    if (check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
+        String kw = String(peek().value).to_lower();
+        if (kw == "function") {
+            is_function = true;
+            advance();
+        } else if (kw == "sub") {
+            advance();
+        } else {
+            error("Expected 'Sub' or 'Function' in async declaration");
+            return nullptr;
+        }
+    }
+    
+    // Function name
+    if (!check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
+        error("Expected function name");
+        return nullptr;
+    }
+    async_func->function_name = peek().value;
+    advance();
+    
+    // Parameters
+    if (check(VisualGasicTokenizer::TOKEN_PAREN_OPEN)) {
+        advance(); // (
+        while (!check(VisualGasicTokenizer::TOKEN_PAREN_CLOSE) && !is_at_end()) {
+            Parameter* param = new Parameter();
+            param->name = peek().value;
+            advance();
+            
+            // Type annotation
+            if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).to_lower() == "as") {
+                advance(); // as
+                param->type = peek().value;
+                advance();
+            }
+            
+            async_func->parameters.push_back(param);
+            
+            if (check(VisualGasicTokenizer::TOKEN_COMMA)) {
+                advance();
+            }
+        }
+        match(VisualGasicTokenizer::TOKEN_PAREN_CLOSE);
+    }
+    
+    // Return type for functions
+    if (is_function && check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).to_lower() == "as") {
+        advance(); // as
+        async_func->return_type = peek().value;
+        advance();
+    }
+    
+    match_newline();
+    
+    // Parse body
+    while (!is_at_end() && !(check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).to_lower() == "end")) {
+        Statement* stmt = parse_statement();
+        if (stmt) {
+            async_func->body.push_back(stmt);
+        } else {
+            advance_newline();
+        }
+    }
+    
+    // End Sub/Function
+    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).to_lower() == "end") {
+        advance();
+        if (check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
+            String end_kw = String(peek().value).to_lower();
+            if ((is_function && end_kw == "function") || (!is_function && end_kw == "sub")) {
+                advance();
+            }
+        }
+    }
+    
+    return async_func;
+}
+
+Statement* VisualGasicParser::parse_await() {
+    advance(); // consume "await"
+    
+    // For now, treat await as a special assignment/call
+    // Await expression -> result
+    ExpressionNode* expr = parse_expression();
+    if (!expr) {
+        error("Expected expression after 'Await'");
+        return nullptr;
+    }
+    
+    // Create await statement (simplified - in full impl would be expression)
+    AssignmentStatement* await_stmt = static_cast<AssignmentStatement*>(register_node(new AssignmentStatement()));
+    await_stmt->variable_name = "__await_result__"; 
+    await_stmt->value = expr;
+    await_stmt->is_await = true; // Add flag to AST
+    
+    return await_stmt;
+}
+
+TaskRunStatement* VisualGasicParser::parse_task_run() {
+    TaskRunStatement* task = static_cast<TaskRunStatement*>(register_node(new TaskRunStatement()));
+    
+    // Optional task name
+    if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
+        task->task_name = peek().value;
+        advance();
+    }
+    
+    match_newline();
+    
+    // Parse task body until "End Task"
+    while (!is_at_end() && !(check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).to_lower() == "end")) {
+        Statement* stmt = parse_statement();
+        if (stmt) {
+            task->task_body.push_back(stmt);
+        } else {
+            advance_newline();
+        }
+    }
+    
+    // End Task
+    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).to_lower() == "end") {
+        advance();
+        if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).to_lower() == "task") {
+            advance();
+        }
+    }
+    
+    return task;
+}
+
+TaskWaitStatement* VisualGasicParser::parse_task_wait() {
+    TaskWaitStatement* wait_stmt = static_cast<TaskWaitStatement*>(register_node(new TaskWaitStatement()));
+    
+    String wait_type = String(peek().value).to_lower();
+    advance();
+    
+    if (wait_type == "waitall") {
+        wait_stmt->wait_all = true;
+    } else if (wait_type == "waitany") {
+        wait_stmt->wait_all = false;
+    } else {
+        wait_stmt->wait_all = true; // default
+    }
+    
+    // Parse task names
+    if (check(VisualGasicTokenizer::TOKEN_PAREN_OPEN)) {
+        advance(); // (
+        while (!check(VisualGasicTokenizer::TOKEN_PAREN_CLOSE) && !is_at_end()) {
+            if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
+                wait_stmt->task_names.push_back(peek().value);
+                advance();
+            }
+            if (check(VisualGasicTokenizer::TOKEN_COMMA)) {
+                advance();
+            }
+        }
+        match(VisualGasicTokenizer::TOKEN_PAREN_CLOSE);
+    }
+    
+    return wait_stmt;
+}
+
+ParallelForStatement* VisualGasicParser::parse_parallel_for() {
+    ParallelForStatement* par_for = static_cast<ParallelForStatement*>(register_node(new ParallelForStatement()));
+    
+    // Variable name
+    if (!check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
+        error("Expected loop variable name");
+        return nullptr;
+    }
+    par_for->variable_name = peek().value;
+    advance();
+    
+    // = or :=
+    if (check(VisualGasicTokenizer::TOKEN_EQUALS) || check(VisualGasicTokenizer::TOKEN_ASSIGNMENT)) {
+        advance();
+    }
+    
+    // Start expression
+    par_for->start_expr = parse_expression();
+    
+    // To
+    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).to_lower() == "to") {
+        advance();
+        par_for->end_expr = parse_expression();
+    }
+    
+    // Optional Step
+    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).to_lower() == "step") {
+        advance();
+        par_for->step_expr = parse_expression();
+    }
+    
+    match_newline();
+    
+    // Parse body
+    while (!is_at_end() && !(check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).to_lower() == "next")) {
+        Statement* stmt = parse_statement();
+        if (stmt) {
+            par_for->body.push_back(stmt);
+        } else {
+            advance_newline();
+        }
+    }
+    
+    // Next
+    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).to_lower() == "next") {
+        advance();
+    }
+    
+    return par_for;
+}
+
+ParallelSectionStatement* VisualGasicParser::parse_parallel_section() {
+    ParallelSectionStatement* par_section = static_cast<ParallelSectionStatement*>(register_node(new ParallelSectionStatement()));
+    
+    match_newline();
+    
+    // Parse section body until "End Section"
+    while (!is_at_end() && !(check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).to_lower() == "end")) {
+        Statement* stmt = parse_statement();
+        if (stmt) {
+            par_section->section_body.push_back(stmt);
+        } else {
+            advance_newline();
+        }
+    }
+    
+    // End Section
+    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).to_lower() == "end") {
+        advance();
+        if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).to_lower() == "section") {
+            advance();
+        }
+    }
+    
+    return par_section;
 }

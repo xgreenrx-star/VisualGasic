@@ -106,6 +106,10 @@ PackedStringArray VisualGasicLanguage::_get_reserved_words() const {
     words.push_back("Local");
     words.push_back("Suspend");
     words.push_back("Resume");
+    words.push_back("Async");
+    words.push_back("Await");
+    words.push_back("Task");
+    words.push_back("Parallel");
     return words;
 }
 

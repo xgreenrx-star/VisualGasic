@@ -21,6 +21,7 @@
 #include <godot_cpp/classes/label.hpp>
 #include <godot_cpp/classes/v_box_container.hpp>
 #include <godot_cpp/classes/display_server.hpp>
+#include <godot_cpp/classes/time.hpp>
 
 #include "visual_gasic_instance.h"
 #include "visual_gasic_language.h"
@@ -4432,6 +4433,38 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
             }
             break;
         }
+        
+        // === MULTITASKING STATEMENT EXECUTION ===
+        case STMT_ASYNC_FUNCTION: {
+            AsyncFunctionStatement* s = (AsyncFunctionStatement*)stmt;
+            execute_async_function(s);
+            break;
+        }
+        case STMT_AWAIT: {
+            // This would be handled in expression evaluation, but could be a statement too
+            break;
+        }
+        case STMT_TASK_RUN: {
+            TaskRunStatement* s = (TaskRunStatement*)stmt;
+            execute_task_run(s);
+            break;
+        }
+        case STMT_TASK_WAIT: {
+            TaskWaitStatement* s = (TaskWaitStatement*)stmt;
+            execute_task_wait(s);
+            break;
+        }
+        case STMT_PARALLEL_FOR: {
+            ParallelForStatement* s = (ParallelForStatement*)stmt;
+            execute_parallel_for(s);
+            break;
+        }
+        case STMT_PARALLEL_SECTION: {
+            ParallelSectionStatement* s = (ParallelSectionStatement*)stmt;
+            execute_parallel_section(s);
+            break;
+        }
+        
         default: break;
     }
 }
@@ -5024,7 +5057,7 @@ void VisualGasicInstance::check_whenever_conditions(const String& variable_name,
         
         if (condition_met) {
             // Check debounce timing
-            uint64_t current_time = OS::get_singleton()->get_ticks_msec();
+            uint64_t current_time = Time::get_singleton()->get_ticks_msec();
             if (section.debounce_ms > 0 && (current_time - section.last_trigger_time) < section.debounce_ms) {
                 // Skip this trigger due to debouncing
                 section.last_value = new_value;  // Still update last value
@@ -5063,7 +5096,7 @@ void VisualGasicInstance::check_expression_conditions() {
         }
         
         // Check debounce timing
-        uint64_t current_time = OS::get_singleton()->get_ticks_msec();
+        uint64_t current_time = Time::get_singleton()->get_ticks_msec();
         if (section.debounce_ms > 0 && (current_time - section.last_trigger_time) < section.debounce_ms) {
             continue;
         }
@@ -5393,4 +5426,157 @@ void VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk) {
                 return;
         }
     }
+}
+
+// === MULTITASKING RUNTIME IMPLEMENTATION ===
+
+void VisualGasicInstance::execute_async_function(AsyncFunctionStatement* async_func) {
+    // For now, async functions run immediately (simplified implementation)
+    // In full implementation, this would set up coroutine state
+    
+    CoroutineState coroutine;
+    coroutine.function_name = async_func->function_name;
+    coroutine.remaining_statements = async_func->body;
+    coroutine.instruction_pointer = 0;
+    
+    // Create local scope for function parameters
+    Dictionary backup_vars = variables;
+    
+    // Set parameter values (simplified)
+    for (int i = 0; i < async_func->parameters.size(); i++) {
+        variables[async_func->parameters[i]->name] = Variant(); // Default values
+    }
+    
+    // Execute function body
+    for (int i = 0; i < async_func->body.size(); i++) {
+        execute_statement(async_func->body[i]);
+        if (error_state.has_error || error_state.mode != ErrorState::NONE) {
+            break;
+        }
+    }
+    
+    // Restore variables (simplified scope handling)
+    variables = backup_vars;
+}
+
+Variant VisualGasicInstance::execute_await(ExpressionNode* expr) {
+    // Evaluate the awaited expression
+    Variant result = evaluate_expression(expr);
+    
+    // In real implementation, this would check if result is a Task/Promise
+    // and yield execution until completion
+    
+    // For now, just return the result immediately
+    return result;
+}
+
+void VisualGasicInstance::execute_task_run(TaskRunStatement* task) {
+    TaskInfo task_info;
+    task_info.task_name = task->task_name.is_empty() ? "Task_" + String::num(active_tasks.size()) : task->task_name;
+    task_info.task_body = task->task_body;
+    task_info.is_background = task->is_background;
+    task_info.is_completed = false;
+    
+    // Add task to WorkerThreadPool (requires Godot 4.1+)
+    // For now, execute synchronously as fallback
+    if (Engine::get_singleton()->is_in_physics_frame()) {
+        // Execute task body in background
+        for (int i = 0; i < task->task_body.size(); i++) {
+            execute_statement(task->task_body[i]);
+            if (error_state.has_error || error_state.mode != ErrorState::NONE) {
+                break;
+            }
+        }
+        task_info.is_completed = true;
+        task_info.result = Variant("Task completed");
+    }
+    
+    active_tasks.push_back(task_info);
+    task_results[task_info.task_name] = task_info.result;
+}
+
+void VisualGasicInstance::execute_task_wait(TaskWaitStatement* wait_stmt) {
+    if (wait_stmt->wait_all) {
+        // Wait for all specified tasks
+        for (int i = 0; i < wait_stmt->task_names.size(); i++) {
+            String task_name = wait_stmt->task_names[i];
+            // Find and wait for task completion
+            for (int j = 0; j < active_tasks.size(); j++) {
+                if (active_tasks[j].task_name == task_name) {
+                    // In real implementation, would wait for actual completion
+                    break;
+                }
+            }
+        }
+    } else {
+        // Wait for any task to complete (WaitAny)
+        // Simplified: just check if any task is completed
+        for (int i = 0; i < active_tasks.size(); i++) {
+            if (active_tasks[i].is_completed) {
+                break;
+            }
+        }
+    }
+}
+
+struct ParallelForWorkerData {
+    VisualGasicInstance* instance;
+    ParallelForStatement* par_for;
+    int start_index;
+    int end_index;
+    int step;
+};
+
+void VisualGasicInstance::execute_parallel_for(ParallelForStatement* par_for) {
+    int start = (int)evaluate_expression(par_for->start_expr);
+    int end = (int)evaluate_expression(par_for->end_expr);
+    int step = par_for->step_expr ? (int)evaluate_expression(par_for->step_expr) : 1;
+    
+    // For safety, execute sequentially for now
+    // In full implementation, would use WorkerThreadPool
+    for (int i = start; (step > 0 ? i <= end : i >= end); i += step) {
+        // Set loop variable
+        variables[par_for->variable_name] = i;
+        
+        // Execute loop body
+        for (int j = 0; j < par_for->body.size(); j++) {
+            execute_statement(par_for->body[j]);
+            if (error_state.has_error || error_state.mode != ErrorState::NONE) {
+                break;
+            }
+        }
+    }
+}
+
+void VisualGasicInstance::execute_parallel_section(ParallelSectionStatement* par_section) {
+    // Execute section sequentially for safety
+    // In full implementation, would distribute work across threads
+    for (int i = 0; i < par_section->section_body.size(); i++) {
+        execute_statement(par_section->section_body[i]);
+        if (error_state.has_error || error_state.mode != ErrorState::NONE) {
+            break;
+        }
+    }
+}
+
+void VisualGasicInstance::update_tasks() {
+    // Check for completed tasks and clean up
+    for (int i = active_tasks.size() - 1; i >= 0; i--) {
+        if (active_tasks[i].is_completed) {
+            // Task finished - could remove or keep for result access
+        }
+    }
+}
+
+// Static worker functions for thread pool integration
+void VisualGasicInstance::_task_worker_function(void* user_data) {
+    TaskInfo* task = static_cast<TaskInfo*>(user_data);
+    // Execute task body in worker thread
+    // This would require thread-safe execution context
+}
+
+void VisualGasicInstance::_parallel_worker_function(void* user_data, uint32_t index) {
+    ParallelForWorkerData* data = static_cast<ParallelForWorkerData*>(user_data);
+    // Execute parallel work item
+    // This would require thread-safe variable access
 }

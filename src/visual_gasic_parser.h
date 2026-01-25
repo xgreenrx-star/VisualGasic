@@ -72,6 +72,15 @@ private:
     WheneverSectionStatement* parse_whenever();
     SuspendWheneverStatement* parse_suspend_whenever();
     ResumeWheneverStatement* parse_resume_whenever();
+    
+    // Multitasking parsing functions
+    AsyncFunctionStatement* parse_async_function();
+    Statement* parse_await();
+    TaskRunStatement* parse_task_run();
+    TaskWaitStatement* parse_task_wait();
+    ParallelForStatement* parse_parallel_for();
+    ParallelSectionStatement* parse_parallel_section();
+    
     void parse_enum(); // Parses Enum block
 
     // Expression parsing
