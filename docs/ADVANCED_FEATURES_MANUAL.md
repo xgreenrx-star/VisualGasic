@@ -15,7 +15,7 @@
 
 ## Performance Snapshot
 
-VisualGasic targets high performance in tight loops and engine interop while keeping VB‑style ergonomics. Below is a snapshot from the built‑in benchmark suite (Godot 4.5.1 headless). Full results and methodology are in [docs/manual/performance.md](docs/manual/performance.md).
+VisualGasic targets high performance in tight loops and engine interop while keeping Gasic-style ergonomics. Below is a snapshot from the built‑in benchmark suite (Godot 4.5.1 headless). Full results and methodology are in [docs/manual/performance.md](docs/manual/performance.md).
 
 ```mermaid
 xychart-beta
@@ -46,7 +46,7 @@ xychart-beta
 ### Generics
 VisualGasic supports full generic programming with type parameters and constraints:
 
-```vb
+```gasic
 ' Generic function with type parameter
 Function Process(Of T)(data As T) As T
     Return data
@@ -97,7 +97,7 @@ Dim name As String = names.Get(0)
 ### Optional Types
 Handle null values safely with optional types:
 
-```vb
+```gasic
 ' Optional type declaration
 Function GetUserInput() As String?
     ' May return Nothing
@@ -127,7 +127,7 @@ Dim length As Integer? = name?.Length
 ### Union Types
 Store multiple possible types in a single variable:
 
-```vb
+```gasic
 ' Union type declaration
 Dim result As Integer | String | Boolean
 
@@ -158,7 +158,7 @@ End Select
 ### Type Inference
 Let the compiler determine types automatically:
 
-```vb
+```gasic
 ' Type inference in variable declarations
 Dim count = 42              ' Inferred as Integer
 Dim message = "Hello"       ' Inferred as String
@@ -178,10 +178,10 @@ Dim container = New DataContainer(Of Integer)(10)  ' Type inferred from construc
 
 ## Pattern Matching
 
-### Basic Pattern Matching
+### Core Pattern Matching
 Advanced pattern matching with Select Match statements:
 
-```vb
+```gasic
 Function ProcessValue(value As Object) As String
     Select Match value
         Case 0
@@ -205,7 +205,7 @@ End Function
 ### Destructuring Patterns
 Decompose complex data structures:
 
-```vb
+```gasic
 ' Tuple destructuring
 Dim point As (Integer, Integer) = (10, 20)
 Select Match point
@@ -238,7 +238,7 @@ End Select
 ### Guard Clauses
 Add conditions to patterns:
 
-```vb
+```gasic
 Function Classify(value As Object) As String
     Select Match value
         Case Is String s When s.StartsWith("http")
@@ -264,7 +264,7 @@ End Function
 ### SIMD Vector Operations
 High-performance vector operations using GPU acceleration:
 
-```vb
+```gasic
 ' Import GPU module
 Imports VisualGasic.GPU
 
@@ -289,7 +289,7 @@ End Sub
 ### Parallel Processing
 Distribute work across GPU cores:
 
-```vb
+```gasic
 Sub ParallelProcessing()
     ' Large dataset
     Dim data(999999) As Single
@@ -311,7 +311,7 @@ End Sub
 ### Map-Reduce Operations
 Distributed processing with automatic GPU/CPU fallback:
 
-```vb
+```gasic
 Function CalculateStatistics(numbers As Array) As Dictionary
     ' Sum using map-reduce
     Dim sumResult As Dictionary = GPU.ParallelMapReduce(numbers,
@@ -349,7 +349,7 @@ End Function
 ### Starting the REPL
 Interactive development environment for rapid prototyping:
 
-```vb
+```gasic
 ' Create and start REPL
 Dim repl As New VisualGasicREPL()
 repl.StartInteractiveSession()
@@ -381,7 +381,7 @@ Built-in commands for enhanced development experience:
 ```
 
 ### Advanced REPL Features
-```vb
+```gasic
 ' Variable inspection
 ' > :vars
 ' Variables:
@@ -418,7 +418,7 @@ Built-in commands for enhanced development experience:
 ### Time-Travel Debugging
 Record and replay execution with full state inspection:
 
-```vb
+```gasic
 ' Start debug session with time-travel enabled
 Sub Main()
     Debugger.StartSession("time_travel_demo")
@@ -445,15 +445,15 @@ End Function
 ### Breakpoint Management
 Set sophisticated breakpoints with conditions:
 
-```vb
-' Set basic breakpoint
-Debugger.SetBreakpoint("myfile.bas", 42)
+```gasic
+' Set core breakpoint
+Debugger.SetBreakpoint("myfile.gasic", 42)
 
 ' Set conditional breakpoint
-Debugger.SetBreakpoint("myfile.bas", 25, "counter > 10 AndAlso name IsNot Nothing")
+Debugger.SetBreakpoint("myfile.gasic", 25, "counter > 10 AndAlso name IsNot Nothing")
 
 ' Set breakpoint with action
-Debugger.SetBreakpoint("myfile.bas", 30, "", "log")  ' Log instead of breaking
+Debugger.SetBreakpoint("myfile.gasic", 30, "", "log")  ' Log instead of breaking
 
 ' In debug session, you can:
 ' :step_back       - Go to previous execution frame
@@ -466,7 +466,7 @@ Debugger.SetBreakpoint("myfile.bas", 30, "", "log")  ' Log instead of breaking
 ### Performance Profiling
 Analyze performance with detailed timing and hotspot detection:
 
-```vb
+```gasic
 Function SlowFunction() As Integer
     ' Function automatically timed when profiling enabled
     Dim result As Integer = 0
@@ -497,7 +497,7 @@ End Sub
 ### Memory Analysis
 Track memory usage and detect leaks:
 
-```vb
+```gasic
 Sub AnalyzeMemory()
     ' Get memory usage information
     Dim usage As Dictionary = Debugger.GetMemoryUsage()
@@ -534,10 +534,10 @@ End Sub
 ## Package Management
 
 ### Project Configuration
-Define project dependencies and metadata in Package.vb:
+Define project dependencies and metadata in Package.gasic:
 
-```vb
-' Package.vb - Project configuration file
+```gasic
+' Package.gasic - Project configuration file
 Package "MyGameProject"
     Version "1.0.0"
     Description "An awesome 2D platformer game"
@@ -605,7 +605,7 @@ gasic pkg login mycompany             # Authenticate for private registry
 ```
 
 ### Using Installed Packages
-```vb
+```gasic
 ' Import and use packages in your code
 Imports MathLibrary
 Imports JsonParser
@@ -650,10 +650,10 @@ gasic pkg version major             # Increment major version (1.0.0 -> 2.0.0)
 
 ## Entity Component System
 
-### Basic ECS Usage
+### Core ECS Usage
 High-performance game development with ECS architecture:
 
-```vb
+```gasic
 Imports VisualGasic.ECS
 
 Sub Main()
@@ -711,7 +711,7 @@ End Function
 ### Custom Components
 Create domain-specific components:
 
-```vb
+```gasic
 ' Health component for game entities
 Class HealthComponent
     Inherits ECSComponent
@@ -763,7 +763,7 @@ End Class
 ### Custom Systems
 Implement game logic with high-performance systems:
 
-```vb
+```gasic
 ' Health management system
 Class HealthSystem
     Inherits ECSSystem
@@ -876,7 +876,7 @@ End Class
 ### ECS Performance Features
 Leverage high-performance ECS optimizations:
 
-```vb
+```gasic
 Sub OptimizedECSUsage()
     Dim world As New ECSWorld()
     
@@ -974,4 +974,4 @@ Configure the language server for optimal development experience:
 }
 ```
 
-This comprehensive advanced features manual demonstrates VisualGasic's evolution into a professional-grade programming language with cutting-edge capabilities while maintaining the accessibility and rapid development benefits of Visual Basic.
+This comprehensive advanced features manual demonstrates VisualGasic's evolution into a professional-grade programming language with cutting-edge capabilities while maintaining the accessibility and rapid development benefits of VisualGasic.

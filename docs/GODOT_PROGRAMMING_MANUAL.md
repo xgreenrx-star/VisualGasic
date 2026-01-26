@@ -21,13 +21,13 @@ Updated: January 2026
 8. [Timers and Processing](#timers)
 
 ### Part III: 2D Game Development
-9. [2D Basics and Coordinate System](#2d-basics)
+9. [2D Foundations and Coordinate System](#2d-foundations)
 10. [Sprites and Animation](#sprites)
 11. [2D Physics and Movement](#2d-physics)
 12. [Collision Detection](#collision)
 
 ### Part IV: 3D Game Development
-13. [3D Basics and Coordinate System](#3d-basics)
+13. [3D Foundations and Coordinate System](#3d-foundations)
 14. [3D Models and Materials](#3d-models)
 15. [3D Physics and Movement](#3d-physics)
 16. [Lighting and Environment](#lighting)
@@ -64,17 +64,17 @@ Godot is a free and open-source game engine that provides a comprehensive set of
 
 ### Why VisualGasic for Godot?
 
-VisualGasic brings the familiar Visual Basic 6 syntax and programming model to Godot, allowing developers to:
+VisualGasic brings its modern Gasic syntax and programming model to Godot, allowing developers to:
 
-- Use familiar VB6 syntax and concepts
+- Use VisualGasic syntax and concepts
 - Leverage Godot's powerful node system
 - Create games without learning GDScript
 - Maintain readability and simplicity
-- Access all Godot features through VB-style code
+- Access all Godot features through Gasic-style code
 
 ## Performance Best Practices {#performance}
 
-VisualGasic focuses on high performance in hot paths while preserving VB‑style readability. Below is a benchmark snapshot (Godot 4.5.1 headless). See the full report and methodology in [docs/manual/performance.md](docs/manual/performance.md).
+VisualGasic focuses on high performance in hot paths while preserving Gasic-style readability. Below is a benchmark snapshot (Godot 4.5.1 headless). See the full report and methodology in [docs/manual/performance.md](docs/manual/performance.md).
 
 ```mermaid
 xychart-beta
@@ -102,8 +102,8 @@ xychart-beta
 
 ### Your First VisualGasic Godot Script
 
-```vb
-' HelloGodot.vb - Your first VisualGasic script for Godot
+```gasic
+' HelloGodot.vg - Your first VisualGasic script for Godot
 Imports Godot
 
 Public Class Player
@@ -156,14 +156,14 @@ End Class
 
 ### The Scene System
 
-Godot organizes everything into **Scenes**. A scene in Godot is like a form in Visual Basic, but more flexible:
+Godot organizes everything into **Scenes**. A scene in Godot is a reusable container for nodes and logic:
 
-```vb
-' MainGame.vb - A typical game scene
+```gasic
+' MainGame.vg - A typical game scene
 Public Class MainGame
     Inherits Node2D
     
-    ' Scene references - like form controls
+    ' Scene references for node access
     Private player As Player
     Private enemies As Node2D
     Private ui As CanvasLayer
@@ -179,7 +179,7 @@ Public Class MainGame
         ' Create player instance
         player = GetNode(Of Player)("Player")
         
-        ' Connect signals (like VB6 event handlers)
+        ' Connect signals (event handlers)
         player.Connect("health_changed", AddressOf OnPlayerHealthChanged)
     End Sub
 End Class
@@ -205,7 +205,7 @@ MainGame (Node2D)
 
 ### VisualGasic Node Types
 
-| VB6 Concept | Godot Node Type | VisualGasic Usage |
+| UI Concept | Godot Node Type | VisualGasic Usage |
 |-------------|----------------|-------------------|
 | Form | Control/Node2D/Node3D | Main container for scenes |
 | PictureBox | Sprite2D/TextureRect | Display images and sprites |
@@ -240,9 +240,9 @@ MyGame/
 │   ├── Player.tscn
 │   └── Enemy.tscn
 ├── scripts/
-│   ├── Main.vb
-│   ├── Player.vb
-│   └── Enemy.vb
+│   ├── Main.vg
+│   ├── Player.vg
+│   └── Enemy.vg
 ├── assets/
 │   ├── sprites/
 │   ├── sounds/
@@ -250,10 +250,10 @@ MyGame/
 └── project.godot
 ```
 
-### Basic Project Setup
+### Core Project Setup
 
-```vb
-' Main.vb - Main game controller
+```gasic
+' Main.vg - Main game controller
 Imports Godot
 
 Public Class Main
@@ -303,10 +303,10 @@ End Class
 
 ### Understanding Scenes
 
-A scene in Godot is a collection of nodes that work together. Think of it like a VB6 form with all its controls:
+A scene in Godot is a collection of nodes that work together:
 
-```vb
-' GameLevel.vb - A complete game level
+```gasic
+' GameLevel.vg - A complete game level
 Public Class GameLevel
     Inherits Node2D
     
@@ -339,10 +339,10 @@ End Class
 
 ### Working with the Scene Tree
 
-The scene tree is like the form hierarchy in VB6, but more dynamic:
+The scene tree is a hierarchical runtime graph that can change at any time:
 
-```vb
-' SceneManager.vb - Managing scenes dynamically
+```gasic
+' SceneManager.vg - Managing scenes dynamically
 Public Class SceneManager
     Inherits Node
     
@@ -379,33 +379,33 @@ End Class
 
 ### Node Lifecycle
 
-Every node in Godot has a lifecycle similar to VB6 form events:
+Every node in Godot has a lifecycle with key callbacks:
 
-```vb
-' GameObject.vb - Understanding node lifecycle
+```gasic
+' GameObject.vg - Understanding node lifecycle
 Public Class GameObject
     Inherits Node2D
     
-    ' VB6 Form_Load equivalent
+    ' Ready callback
     Public Sub _Ready()
         Print "Node is ready and added to scene tree"
         InitializeObject()
     End Sub
     
-    ' VB6 Form_Activate equivalent
+    ' Enter-tree callback
     Public Sub _EnterTree()
         Print "Node entered the scene tree"
     End Sub
     
-    ' VB6 Form_Deactivate equivalent  
+    ' Exit-tree callback  
     Public Sub _ExitTree()
         Print "Node is leaving the scene tree"
         Cleanup()
     End Sub
     
-    ' VB6 Timer event equivalent
+    ' Per-frame callback
     Public Sub _Process(delta As Single)
-        ' Called every frame - like a VB6 Timer with very short interval
+        ' Called every frame
         UpdateObject(delta)
     End Sub
     
@@ -431,14 +431,14 @@ End Class
 
 ### Node Communication
 
-Nodes communicate through signals (like VB6 events) and direct references:
+Nodes communicate through signals and direct references:
 
-```vb
-' Enemy.vb - Node communication example
+```gasic
+' Enemy.vg - Node communication example
 Public Class Enemy
     Inherits CharacterBody2D
     
-    ' Define custom signals (like VB6 custom events)
+    ' Define custom signals
     Signal EnemyDestroyed(enemy As Enemy, points As Integer)
     Signal PlayerHit(damage As Integer)
     
@@ -466,8 +466,8 @@ End Class
 
 ### Finding and Accessing Nodes
 
-```vb
-' NodeManager.vb - Finding and accessing nodes
+```gasic
+' NodeManager.vg - Finding and accessing nodes
 Public Class NodeManager
     Inherits Node
     
@@ -520,10 +520,10 @@ End Class
 
 ### Understanding Signals
 
-Signals in Godot are like events in VB6, allowing nodes to communicate without direct references:
+Signals in Godot are event-style callbacks that allow nodes to communicate without direct references:
 
-```vb
-' Player.vb - Using signals for communication
+```gasic
+' Player.vg - Using signals for communication
 Public Class Player
     Inherits CharacterBody2D
     
@@ -565,8 +565,8 @@ End Class
 
 ### Connecting Signals
 
-```vb
-' GameManager.vb - Connecting to signals
+```gasic
+' GameManager.vg - Connecting to signals
 Public Class GameManager
     Inherits Node
     
@@ -586,7 +586,7 @@ Public Class GameManager
         player.Connect(Player.SignalName.LevelCompleted, AddressOf OnLevelCompleted)
     End Sub
     
-    ' Signal handler methods (like VB6 event procedures)
+    ' Signal handler methods (event handlers)
     Private Sub OnPlayerHealthChanged(newHealth As Integer)
         ui.UpdateHealthBar(newHealth)
         
@@ -627,8 +627,8 @@ End Class
 
 ### Signal Groups and Broadcasting
 
-```vb
-' EnemyManager.vb - Working with signal groups
+```gasic
+' EnemyManager.vg - Working with signal groups
 Public Class EnemyManager
     Inherits Node2D
     
@@ -690,10 +690,10 @@ End Class
 
 ## Chapter 7: Input Handling {#input}
 
-### Basic Input Detection
+### Core Input Detection
 
-```vb
-' InputHandler.vb - Handling various input types
+```gasic
+' InputHandler.vg - Handling various input types
 Public Class InputHandler
     Inherits Node
     
@@ -759,8 +759,8 @@ End Class
 
 ### Action-Based Input System
 
-```vb
-' Player.vb - Using input actions (recommended approach)
+```gasic
+' Player.vg - Using input actions (recommended approach)
 Public Class Player
     Inherits CharacterBody2D
     
@@ -850,8 +850,8 @@ End Class
 
 ### Custom Input Manager
 
-```vb
-' InputManager.vb - Advanced input management
+```gasic
+' InputManager.vg - Advanced input management
 Public Class InputManager
     Inherits Node
     
@@ -948,8 +948,8 @@ End Class
 
 ### Using Godot Timers
 
-```vb
-' TimerExample.vb - Working with timers
+```gasic
+' TimerExample.vg - Working with timers
 Public Class TimerExample
     Inherits Node2D
     
@@ -962,7 +962,7 @@ Public Class TimerExample
     End Sub
     
     Private Sub SetupTimers()
-        ' Create game timer (like VB6 Timer control)
+        ' Create game timer
         gameTimer = New Timer()
         gameTimer.Timeout += AddressOf OnGameTimerTimeout
         gameTimer.WaitTime = 1.0  ' 1 second
@@ -1028,8 +1028,8 @@ End Class
 
 ### Frame-based Processing
 
-```vb
-' ProcessingExample.vb - Different types of processing
+```gasic
+' ProcessingExample.vg - Different types of processing
 Public Class ProcessingExample
     Inherits Node2D
     
@@ -1092,8 +1092,8 @@ End Class
 
 ### Tween Animations
 
-```vb
-' TweenExample.vb - Using tweens for smooth animations
+```gasic
+' TweenExample.vg - Using tweens for smooth animations
 Public Class TweenExample
     Inherits Node2D
     
