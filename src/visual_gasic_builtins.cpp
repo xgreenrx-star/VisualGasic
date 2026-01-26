@@ -17,10 +17,13 @@
 #include <godot_cpp/classes/os.hpp>
 #include <godot_cpp/classes/tree.hpp>
 #include <godot_cpp/classes/tree_item.hpp>
+#include <godot_cpp/variant/packed_int64_array.hpp>
 
 using namespace godot;
 
 namespace VisualGasicBuiltins {
+
+Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String &p_method, const Array &p_args, bool &r_handled);
 
 bool call_builtin(VisualGasicInstance *instance, const String &p_method, const Array &p_args, Variant &r_ret, bool &r_found) {
     VG_PROFILE_CATEGORY("builtin_call", "builtins");
@@ -119,6 +122,15 @@ Variant call_builtin_expr(VisualGasicInstance *instance, CallExpression *call, b
 
     String name = call->method_name;
 
+    {
+        bool handled_eval = false;
+        Variant eval_res = call_builtin_expr_evaluated(instance, name, args, handled_eval);
+        if (handled_eval) {
+            r_handled = true;
+            return eval_res;
+        }
+    }
+
     // String Library
     if (name == "Len" && args.size() == 1) {
         r_handled = true;
@@ -205,6 +217,56 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
     Array args = p_args;
     String name = p_method;
 
+    if (name.nocasecmp_to("BenchFileIOFast") == 0 && args.size() == 2) {
+        r_handled = true;
+        int64_t iterations = (int64_t)args[0];
+        int64_t size = (int64_t)args[1];
+        if (iterations <= 0 || size <= 0) return (int64_t)0;
+
+        String line;
+        line = line.repeat(0);
+        for (int64_t i = 0; i < size; i++) {
+            line += "x";
+        }
+
+        Ref<FileAccess> file = FileAccess::open("user://bench_io_fast.txt", FileAccess::WRITE);
+        if (file.is_valid()) {
+            for (int64_t i = 0; i < iterations; i++) {
+                file->store_line(line);
+            }
+            file->close();
+        }
+
+        Ref<FileAccess> read = FileAccess::open("user://bench_io_fast.txt", FileAccess::READ);
+        String read_line;
+        if (read.is_valid()) {
+            read_line = read->get_line();
+            read->close();
+        }
+        return (int64_t)read_line.length();
+    }
+
+    // String Library
+    if (name == "Len" && args.size() == 1) { r_handled = true; return String(args[0]).length(); }
+    if (name == "Left" && args.size() == 2) { r_handled = true; return String(args[0]).left((int)args[1]); }
+    if (name == "Right" && args.size() == 2) { r_handled = true; return String(args[0]).right((int)args[1]); }
+    if (name == "Mid" && args.size() >= 2) {
+        r_handled = true;
+        String s = String(args[0]);
+        int start = (int)args[1] - 1;
+        if (start < 0) start = 0;
+        if (args.size() == 3) return s.substr(start, (int)args[2]);
+        return s.substr(start);
+    }
+    if (name == "UCase" && args.size() == 1) { r_handled = true; return String(args[0]).to_upper(); }
+    if (name == "LCase" && args.size() == 1) { r_handled = true; return String(args[0]).to_lower(); }
+    if (name == "Asc" && args.size() == 1) { r_handled = true; String s = args[0]; if (s.length()>0) return (int)s.unicode_at(0); return 0; }
+    if (name == "Chr" && args.size() == 1) { r_handled = true; return String::chr((int)args[0]); }
+    if (name == "Space" && args.size() == 1) { r_handled = true; int n = (int)args[0]; String s=""; for(int i=0;i<n;i++) s += " "; return s; }
+    if (name == "String" && args.size() == 2) { r_handled = true; int n=(int)args[0]; String char_str = String(args[1]); String s=""; if (char_str.length()>0){ String c = char_str.substr(0,1); for(int i=0;i<n;i++) s+=c;} return s; }
+    if (name == "Str" && args.size() == 1) { r_handled = true; return Variant(args[0]).stringify(); }
+    if (name == "Val" && args.size() == 1) { r_handled = true; String s = args[0]; if (s.is_valid_float()) return s.to_float(); if (s.is_valid_int()) return s.to_int(); return 0.0; }
+
     // Math Library
     if (name == "Sin" && args.size() == 1) { r_handled = true; return UtilityFunctions::sin(args[0]); }
     if (name == "Cos" && args.size() == 1) { r_handled = true; return UtilityFunctions::cos(args[0]); }
@@ -213,10 +275,15 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
     if (name == "Exp" && args.size() == 1) { r_handled = true; return UtilityFunctions::exp(args[0]); }
     if (name == "Atn" && args.size() == 1) { r_handled = true; return UtilityFunctions::atan(args[0]); }
     if (name == "Sqr" && args.size() == 1) { r_handled = true; return UtilityFunctions::sqrt(args[0]); }
-    if (name == "Abs" && args.size() == 1) { r_handled = true; return UtilityFunctions::abs(args[0]); }
-    if (name == "Sgn" && args.size() == 1) { r_handled = true; double d = (double)args[0]; if (d>0) return 1; if (d<0) return -1; return 0; }
-    if (name == "Int" && args.size() == 1) { r_handled = true; return UtilityFunctions::floor(args[0]); }
+    if (name == "Abs" && args.size() == 1) { 
+        r_handled = true; 
+        if (args[0].get_type() == Variant::INT) { int64_t v = (int64_t)args[0]; return v < 0 ? -v : v; }
+        return UtilityFunctions::abs(args[0]); 
+    }
+    if (name == "Sgn" && args.size() == 1) { r_handled = true; double d = (double)args[0]; if (d>0) return (int64_t)1; if (d<0) return (int64_t)-1; return (int64_t)0; }
+    if (name == "Int" && args.size() == 1) { r_handled = true; if (args[0].get_type() == Variant::INT) return (int64_t)args[0]; return UtilityFunctions::floor(args[0]); }
     if (name == "Rnd" && (args.size() == 0 || args.size() == 1)) { r_handled = true; return UtilityFunctions::randf(); }
+    if (name.nocasecmp_to("Fix") == 0 && args.size() == 1) { r_handled = true; double v = (double)args[0]; return v < 0 ? ceil(v) : floor(v); }
 
     if (name.nocasecmp_to("Round") == 0 && args.size() >= 1) {
         r_handled = true;
@@ -236,8 +303,11 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
         return min + UtilityFunctions::randf() * (max - min);
     }
 
-    if (name.nocasecmp_to("CInt") == 0 && args.size() == 1) { r_handled = true; return (int)round((double)args[0]); }
+    if (name.nocasecmp_to("CInt") == 0 && args.size() == 1) { r_handled = true; return (int64_t)llround((double)args[0]); }
+    if (name.nocasecmp_to("CLng") == 0 && args.size() == 1) { r_handled = true; return (int64_t)llround((double)args[0]); }
+    if (name.nocasecmp_to("CSng") == 0 && args.size() == 1) { r_handled = true; return (double)args[0]; }
     if (name.nocasecmp_to("CDbl") == 0 && args.size() == 1) { r_handled = true; return (double)args[0]; }
+    if (name.nocasecmp_to("Fix") == 0 && args.size() == 1) { r_handled = true; double v = (double)args[0]; return v < 0 ? ceil(v) : floor(v); }
     if (name.nocasecmp_to("CBool") == 0 && args.size() == 1) { r_handled = true; return (bool)args[0]; }
 
     if (name.nocasecmp_to("Lerp") == 0 && args.size() == 3) { r_handled = true; double a = args[0]; double b = args[1]; double t = args[2]; return Math::lerp(a,b,t); }
@@ -284,7 +354,32 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
         return text;
     }
 
+
     // Extended Array Functions
+    if (name.nocasecmp_to("AllocFillI64") == 0 && args.size() == 1) {
+        r_handled = true;
+        int64_t count = (int64_t)args[0];
+        if (count < 0) count = 0;
+        PackedInt64Array arr;
+        arr.resize((int)count);
+        int64_t *w = arr.ptrw();
+        for (int64_t i = 0; i < count; i++) {
+            w[i] = i;
+        }
+        return arr;
+    }
+    if (name.nocasecmp_to("AllocFillI64Sum") == 0 && args.size() == 1) {
+        r_handled = true;
+        int64_t count = (int64_t)args[0];
+        if (count < 0) count = 0;
+        PackedInt64Array arr;
+        arr.resize((int)count);
+        int64_t *w = arr.ptrw();
+        for (int64_t i = 0; i < count; i++) {
+            w[i] = i;
+        }
+        return count;
+    }
     if (name.nocasecmp_to("Push") == 0 && args.size() == 2) {
         r_handled = true;
         Variant input = args[0];

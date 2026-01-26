@@ -9,8 +9,37 @@
 6. [Package Management](#package-management)
 7. [Entity Component System](#entity-component-system)
 8. [Language Server Protocol](#language-server-protocol)
+9. [Performance Snapshot](#performance-snapshot)
 
 ---
+
+## Performance Snapshot
+
+VisualGasic targets high performance in tight loops and engine interop while keeping VB‑style ergonomics. Below is a snapshot from the built‑in benchmark suite (Godot 4.5.1 headless). Full results and methodology are in [docs/manual/performance.md](docs/manual/performance.md).
+
+```mermaid
+xychart-beta
+    title "StringConcat (us)"
+    x-axis ["Visual Gasic","C++","GDScript"]
+    y-axis "Elapsed (us)" 0 --> 6000
+    bar [19,676,5460]
+```
+
+```mermaid
+xychart-beta
+    title "ArrayDict (us)"
+    x-axis ["Visual Gasic","C++","GDScript"]
+    y-axis "Elapsed (us)" 0 --> 16000
+    bar [2325,9298,14373]
+```
+
+```mermaid
+xychart-beta
+    title "FileIO (us)"
+    x-axis ["Visual Gasic","C++","GDScript"]
+    y-axis "Elapsed (us)" 0 --> 300
+    bar [195,168,264]
+```
 
 ## Advanced Type System
 

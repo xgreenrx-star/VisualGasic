@@ -72,6 +72,34 @@ VisualGasic brings the familiar Visual Basic 6 syntax and programming model to G
 - Maintain readability and simplicity
 - Access all Godot features through VB-style code
 
+## Performance Best Practices {#performance}
+
+VisualGasic focuses on high performance in hot paths while preserving VB‑style readability. Below is a benchmark snapshot (Godot 4.5.1 headless). See the full report and methodology in [docs/manual/performance.md](docs/manual/performance.md).
+
+```mermaid
+xychart-beta
+    title "StringConcat (us)"
+    x-axis ["Visual Gasic","C++","GDScript"]
+    y-axis "Elapsed (us)" 0 --> 6000
+    bar [19,676,5460]
+```
+
+```mermaid
+xychart-beta
+    title "ArrayDict (us)"
+    x-axis ["Visual Gasic","C++","GDScript"]
+    y-axis "Elapsed (us)" 0 --> 16000
+    bar [2325,9298,14373]
+```
+
+```mermaid
+xychart-beta
+    title "FileIO (us)"
+    x-axis ["Visual Gasic","C++","GDScript"]
+    y-axis "Elapsed (us)" 0 --> 300
+    bar [195,168,264]
+```
+
 ### Your First VisualGasic Godot Script
 
 ```vb
