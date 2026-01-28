@@ -10,7 +10,18 @@ This page summarizes the built‑in benchmark suite results for Visual Gasic ver
 - Build: Visual Gasic GDExtension (release)
 - Date: 2026‑01‑26
 
-## Results (elapsed time in microseconds, lower is faster)
+## Latest Results - 2026‑01‑28 (elapsed time in microseconds, lower is faster)
+
+| Test | Visual Gasic | C++ | GDScript | Fastest |
+|---|---:|---:|---:|---|
+| Arithmetic | 373 | 59 | 5,193 | C++ |
+| ArraySum | 92 | 37 | 4,343 | C++ |
+| StringConcat | 94 | 622 | 7,446 | Visual Gasic |
+| Branching | 61 | 26 | 4,323 | C++ |
+
+Only the four foundational workloads are part of the current automated harness. The remaining tests below still reflect the last full sweep (2026‑01‑26) and should be rerun once their scenarios are re-enabled in `demo/run_benchmarks.gd`.
+
+## Historical Results - 2026‑01‑26 (elapsed time in microseconds)
 
 | Test | Visual Gasic | C++ | GDScript | Fastest |
 |---|---:|---:|---:|---|
@@ -23,6 +34,17 @@ This page summarizes the built‑in benchmark suite results for Visual Gasic ver
 | Allocations | 100 | 1,456 | 8,953 | Visual Gasic |
 | AllocationsFast | 24 | 1,082 | 8,755 | Visual Gasic |
 | FileIO | 195 | 168 | 264 | C++ |
+
+### Visual Gasic delta vs previous publication (2026‑01‑28 vs 2026‑01‑26)
+
+| Test | Previous (µs) | Current (µs) | Δ (µs) | Δ % |
+|---|---:|---:|---:|---:|
+| Arithmetic | 276 | 373 | +97 | +35.1 % |
+| ArraySum | 1,083 | 92 | −991 | −91.5 % |
+| StringConcat | 19 | 94 | +75 | +394.7 % |
+| Branching | 18 | 61 | +43 | +238.9 % |
+
+Negative deltas indicate an improvement over the prior published numbers; positive deltas highlight regressions relative to the earlier run.
 
 ## Speedup vs GDScript (higher is faster; values under 1.00× are slower)
 

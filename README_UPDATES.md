@@ -64,3 +64,10 @@ Print $"Hello{name}, score is {score}"
 #### Control Flow
 *   `Return [Value]`: Exit a Sub or Function immediately (optionally returning a value).
 *   `Continue For/Do/While`: Skip to the next iteration of a loop.
+
+### Bytecode Baseline Updates
+- 2026-01-27: Refreshed bytecode baseline for entries: BenchArithmetic, BenchArraySum, BenchStringConcat, BenchBranch.
+
+
+### Benchmark Updates
+- 2026-01-28: Updated [docs/manual/performance.md](docs/manual/performance.md) with the latest Arithmetic/ArraySum/StringConcat/Branching results and delta comparisons against the 2026-01-26 sweep.

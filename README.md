@@ -192,6 +192,26 @@ gasic debug --time-travel MyProject.bas
 - **JIT Compilation** - Runtime optimization for hot code paths
 - **Memory Profiling** - Built-in leak detection and analysis
 
+## 🧪 **Testing & Bytecode Regression**
+
+Use the regression harness in [Makefile.tests](Makefile.tests) to keep builds, tests, and benchmarks reproducible:
+
+```bash
+make -f Makefile.tests test           # Headless bytecode test suite
+make -f Makefile.tests bench          # Cross-language benchmark harness
+make -f Makefile.tests bytecode-dump  # Deterministic bytecode JSON capture
+make -f Makefile.tests update-bytecode-baseline  # Refresh baseline + changelog entry
+```
+
+`make bytecode-dump` drives [demo/dump_bytecode.gd](demo/dump_bytecode.gd) in headless Godot to emit the JSON file pointed to by `BYTECODE_DUMP_OUTPUT` (defaults to `./bytecode_dump.json`). Customize what gets captured with `BYTECODE_DUMP_ENTRIES` (comma-delimited entry points) and `BYTECODE_DUMP_OUTPUT` (absolute or relative destination). The committed baseline at [tests/bytecode_baseline.json](tests/bytecode_baseline.json) is compared against the freshly generated dump via [scripts/compare_bytecode_dump.py](scripts/compare_bytecode_dump.py); CI fails if the opcode stream changes unexpectedly. When an intentional opcode change lands, refresh the baseline after reviewing the diff:
+
+```bash
+make -f Makefile.tests update-bytecode-baseline
+git add tests/bytecode_baseline.json README_UPDATES.md
+```
+
+The helper script [scripts/update_bytecode_changelog.py](scripts/update_bytecode_changelog.py) drives the changelog entry automatically, listing the entry points captured in the refreshed dump under the "Bytecode Baseline Updates" section of [README_UPDATES.md](README_UPDATES.md). Every CI run now captures release **and** debug Godot builds, compares both against the baseline, uploads the resulting dumps, and posts an inline PR comment containing the diff whenever mismatches occur.
+
 ## 🤝 **Contributing**
 
 VisualGasic welcomes contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for:

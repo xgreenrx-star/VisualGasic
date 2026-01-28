@@ -16,6 +16,7 @@ demo/bin/
 *.dylib
 Godot_v4.5.1-stable_linux.x86_64
 *.zip
+bytecode_dump*.json
 
 # Python/Venv
 venv/

@@ -52,3 +52,73 @@ jobs:
           ./tools/parser_unit_std_test
           ./tools/parser_unit_std_cli_test
           ./tools/parser_unit_std_golden_test
+
+      - name: Capture bytecode dump (release)
+        env:
+          DISPLAY: ""
+        run: make -f Makefile.tests bytecode-dump
+
+      - name: Compare bytecode dump to baseline (release)
+        id: compare_release
+        continue-on-error: true
+        run: python3 scripts/compare_bytecode_dump.py tests/bytecode_baseline.json bytecode_dump.json --diff-output bytecode_diff_release.txt
+
+      - name: Capture bytecode dump (debug)
+        env:
+          DISPLAY: ""
+          SCONS_ARGS: platform=linux target=template_debug
+          BYTECODE_DUMP_OUTPUT: bytecode_dump_debug.json
+        run: make -f Makefile.tests bytecode-dump
+
+      - name: Compare bytecode dump to baseline (debug)
+        id: compare_debug
+        continue-on-error: true
+        run: python3 scripts/compare_bytecode_dump.py tests/bytecode_baseline.json bytecode_dump_debug.json --diff-output bytecode_diff_debug.txt
+
+      - name: Comment bytecode diff on PR
+        if: github.event_name == 'pull_request' && (steps.compare_release.outcome == 'failure' || steps.compare_debug.outcome == 'failure')
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const diffs = [
+              { title: 'Release configuration', path: 'bytecode_diff_release.txt' },
+              { title: 'Debug configuration', path: 'bytecode_diff_debug.txt' },
+            ];
+            let body = 'Bytecode baseline differences detected in this PR.\n\n';
+            let found = false;
+            for (const diff of diffs) {
+              if (fs.existsSync(diff.path)) {
+                const content = fs.readFileSync(diff.path, 'utf8').trim();
+                if (content) {
+                  found = true;
+                  body += `#### ${diff.title}\n\n\`\`\`diff\n${content}\n\`\`\`\n\n`;
+                }
+              }
+            }
+            if (!found) {
+              body += '_Diff output was not captured._\n\n';
+            }
+            body += 'See README.md for bytecode baseline refresh instructions.';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
+
+      - name: Fail on bytecode mismatches
+        if: steps.compare_release.outcome == 'failure' || steps.compare_debug.outcome == 'failure'
+        run: |
+          echo "Bytecode dump differs from baseline"
+          exit 1
+
+      - name: Upload bytecode dump artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bytecode-dump
+          path: |
+            bytecode_dump*.json
+            bytecode_diff*.txt
+          if-no-files-found: error
