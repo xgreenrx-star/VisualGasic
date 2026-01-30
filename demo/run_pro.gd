@@ -6,7 +6,7 @@ var clicked = false
 
 func _init():
     print("Initializing Form Test...")
-    var script = load("res://test_pro.bas")
+    var script = load("res://test_pro.vg")
     if script:
         node = Node2D.new()
         node.set_name("TestNode")

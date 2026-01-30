@@ -113,7 +113,8 @@ VisualGasicToolbox::VisualGasicToolbox() {
     
     set_h_size_flags(Control::SIZE_EXPAND_FILL);
     set_v_size_flags(Control::SIZE_EXPAND_FILL);
-    set_custom_minimum_size(Vector2(240, 300));
+    // Allow the dock to shrink vertically while letting width be controlled by editor layout
+    set_custom_minimum_size(Vector2(0, 300));
 
     // Create Tabs
     tabs = memnew(TabContainer); 

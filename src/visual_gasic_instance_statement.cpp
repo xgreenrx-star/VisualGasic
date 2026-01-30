@@ -5,8 +5,10 @@ void VisualGasicInstance::_execute_statement_impl(Statement* stmt) {
 	if (!stmt) return;
 	switch (stmt->type) {
 		case STMT_ASSIGNMENT: {
-			AssignmentStatement* a = static_cast<AssignmentStatement*>(stmt);
-			Variant val = _evaluate_expression_impl(a->value);
+			AssignmentStatement* a = static_cast<AssignmentStatement*>(stmt);		if (!a->value) {
+			raise_error("Invalid assignment - missing value");
+			break;
+		}			Variant val = _evaluate_expression_impl(a->value);
 			// Handle assignment target properly
 			if (a->target) {
 				assign_to_target(a->target, val);
@@ -27,8 +29,10 @@ void VisualGasicInstance::_execute_statement_impl(Statement* stmt) {
 			break;
 		}
 		case STMT_IF: {
-			IfStatement* i = static_cast<IfStatement*>(stmt);
-			if (_evaluate_expression_impl(i->condition).booleanize()) {
+			IfStatement* i = static_cast<IfStatement*>(stmt);		if (!i->condition) {
+			raise_error("Invalid If statement - missing condition");
+			break;
+		}			if (_evaluate_expression_impl(i->condition).booleanize()) {
 				for (Statement* s : i->then_branch) _execute_statement_impl(s);
 			} else {
 				for (Statement* s : i->else_branch) _execute_statement_impl(s);
@@ -36,8 +40,10 @@ void VisualGasicInstance::_execute_statement_impl(Statement* stmt) {
 			break;
 		}
 		case STMT_WHILE: {
-			WhileStatement* w = static_cast<WhileStatement*>(stmt);
-			while (_evaluate_expression_impl(w->condition).booleanize()) {
+			WhileStatement* w = static_cast<WhileStatement*>(stmt);		if (!w->condition) {
+			raise_error("Invalid While statement - missing condition");
+			break;
+		}			while (_evaluate_expression_impl(w->condition).booleanize()) {
 				for (Statement* s : w->body) _execute_statement_impl(s);
 				if (error_state.mode == ErrorState::EXIT_DO) {
 					error_state.mode = ErrorState::NONE;
@@ -51,8 +57,11 @@ void VisualGasicInstance::_execute_statement_impl(Statement* stmt) {
 			break;
 		}
 		case STMT_FOR: {
-			ForStatement* f = static_cast<ForStatement*>(stmt);
-			Variant start = _evaluate_expression_impl(f->from_val);
+			ForStatement* f = static_cast<ForStatement*>(stmt);		// Null check: parser may have failed and returned incomplete statement
+		if (!f->from_val || !f->to_val) {
+			raise_error("Invalid For statement - missing start or end value");
+			break;
+		}			Variant start = _evaluate_expression_impl(f->from_val);
 			Variant end = _evaluate_expression_impl(f->to_val);
 			Variant step = f->step_val ? _evaluate_expression_impl(f->step_val) : Variant(1);
 			if (start.get_type() == Variant::INT && end.get_type() == Variant::INT && step.get_type() == Variant::INT) {

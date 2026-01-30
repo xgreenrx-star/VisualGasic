@@ -1,6 +1,6 @@
 [gd_scene load_steps=5 format=3 uid="uid://buojlsoqcvowy"]
 
-[ext_resource type="Script" uid="uid://d0cso0wb0f7do" path="res://node_vcvxc.bas" id="1_c6ga4"]
+[ext_resource type="Script" uid="uid://d0cso0wb0f7do" path="res://node_vcvxc.vg" id="1_c6ga4"]
 [ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/Button.tscn" id="2_oeojt"]
 [ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/FileDialog.tscn" id="3_yfbnt"]
 [ext_resource type="PackedScene" path="res://custom_widgets/CommonDialog.tscn" id="4_1rxtg"]

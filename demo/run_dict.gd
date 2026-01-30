@@ -1,7 +1,7 @@
 extends SceneTree
 
 func _init():
-    var script = load("res://test_dict.bas")
+    var script = load("res://test_dict.vg")
     var instance = Node.new()
     instance.set_script(script)
     root.add_child(instance)

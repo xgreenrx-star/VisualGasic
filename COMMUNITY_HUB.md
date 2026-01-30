@@ -9,7 +9,7 @@ Welcome to the VisualGasic Community! This hub contains everything you need to g
 
 ### New to VisualGasic?
 1. **[Download VisualGasic](INSTALLATION.md)** - Get up and running in minutes
-2. **[Your First Program](examples/hello_world.bas)** - Write your first VisualGasic program  
+2. **[Your First Program](examples/hello_world.vg)** - Write your first VisualGasic program  
 3. **[Basic Tutorial](tutorials/01_basic_tutorial.md)** - Learn the fundamentals
 4. **[Godot Integration](tutorials/02_godot_basics.md)** - Start making games
 
@@ -110,18 +110,18 @@ Complete database application with CRUD operations.
 ### Code Snippets & Utilities
 
 #### [Useful Code Snippets](examples/snippets/)
-- **[Form Animations](examples/snippets/form_animations.bas)** - Smooth UI transitions
-- **[Data Validation](examples/snippets/data_validation.bas)** - Input validation helpers
-- **[JSON Handling](examples/snippets/json_utilities.bas)** - JSON parsing and generation
-- **[HTTP Requests](examples/snippets/http_client.bas)** - Web API integration
-- **[Encryption Utilities](examples/snippets/encryption.bas)** - Secure data handling
+- **[Form Animations](examples/snippets/form_animations.vg)** - Smooth UI transitions
+- **[Data Validation](examples/snippets/data_validation.vg)** - Input validation helpers
+- **[JSON Handling](examples/snippets/json_utilities.vg)** - JSON parsing and generation
+- **[HTTP Requests](examples/snippets/http_client.vg)** - Web API integration
+- **[Encryption Utilities](examples/snippets/encryption.vg)** - Secure data handling
 
 #### [Reusable Components](examples/components/)
-- **[Enhanced ListBox](examples/components/enhanced_listbox.bas)** - Feature-rich list control
-- **[Color Picker](examples/components/color_picker.bas)** - Professional color selector
-- **[Data Grid](examples/components/data_grid.bas)** - Spreadsheet-like data display
-- **[Progress Dialog](examples/components/progress_dialog.bas)** - Long operation feedback
-- **[Settings Manager](examples/components/settings_manager.bas)** - Application configuration
+- **[Enhanced ListBox](examples/components/enhanced_listbox.vg)** - Feature-rich list control
+- **[Color Picker](examples/components/color_picker.vg)** - Professional color selector
+- **[Data Grid](examples/components/data_grid.vg)** - Spreadsheet-like data display
+- **[Progress Dialog](examples/components/progress_dialog.vg)** - Long operation feedback
+- **[Settings Manager](examples/components/settings_manager.vg)** - Application configuration
 
 ---
 

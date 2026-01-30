@@ -1,10 +1,10 @@
 extends SceneTree
 
 func _init():
-    print("Loading test_modifiers.bas...")
-    var script = load("res://test_modifiers.bas")
+    print("Loading test_modifiers.vg...")
+    var script = load("res://test_modifiers.vg")
     if not script:
-        print("FAIL: Could not load test_modifiers.bas")
+        print("FAIL: Could not load test_modifiers.vg")
         quit(1)
         return
         

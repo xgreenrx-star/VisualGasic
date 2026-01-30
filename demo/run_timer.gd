@@ -1,7 +1,7 @@
 extends SceneTree
 
 func _init():
-    var script = load("res://test_timer.bas")
+    var script = load("res://test_timer.vg")
     var instance = Node.new()
     instance.set_name("VisualGasicNode")
     instance.set_script(script)

@@ -2,7 +2,7 @@ extends SceneTree
 
 func _init():
     var script = VisualGasicScript.new()
-    script.source_code = FileAccess.get_file_as_string("res://test_include.bas")
+    script.source_code = FileAccess.get_file_as_string("res://test_include.vg")
     script.reload(true)
 
     var node = Node.new()

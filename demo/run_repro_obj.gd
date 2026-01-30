@@ -13,7 +13,7 @@ func _init():
     var root = Node2D.new() # Node2D so it has position context if needed, and children
     root.name = "Root"
     
-    var script = load("res://repro_obj.bas")
+    var script = load("res://repro_obj.vg")
     if not script:
         print("Failed to load script")
         quit(1)

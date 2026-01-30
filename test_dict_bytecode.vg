@@ -1,0 +1,6 @@
+Function TestDictSet() As Long
+    Dim dict As Dictionary
+    Set dict = New Dictionary
+    dict("key") = 42
+    TestDictSet = 1
+End Function

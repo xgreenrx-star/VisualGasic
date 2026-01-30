@@ -21,7 +21,7 @@ We welcome contributions to VisualGasic! This document provides guidelines for c
 ### Development Environment Setup
 ```bash
 # Clone the repository with submodules
-git clone --recursive https://github.com/your-org/VisualGasic.git
+git clone --recursive https://github.com/xgreenrx-star/VisualGasic.git
 cd VisualGasic
 
 # Build in debug mode for development

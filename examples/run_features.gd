@@ -5,7 +5,7 @@ var node
 
 func _init():
     print("Initializing Test...")
-    var script = load("res://test_features.bas")
+    var script = load("res://test_features.vg")
     if script:
         node = Node2D.new()
         node.set_name("TestNode")

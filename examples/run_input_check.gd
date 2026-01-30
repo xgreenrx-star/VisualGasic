@@ -2,7 +2,7 @@ extends SceneTree
 
 func _init():
     print("Initializing Input Test...")
-    var script = load("res://test_input.bas")
+    var script = load("res://test_input.vg")
     var instance = Node.new()
     instance.set_script(script)
     get_root().add_child(instance)

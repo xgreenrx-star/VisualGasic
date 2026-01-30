@@ -9,6 +9,7 @@ demo/.godot/
 # Binary / Build
 bin/
 demo/bin/
+build/
 *.o
 *.a
 *.so
@@ -17,11 +18,24 @@ demo/bin/
 Godot_v4.5.1-stable_linux.x86_64
 *.zip
 bytecode_dump*.json
+build*.log
+run_output.txt
+perf_*.txt
+*.exe
+VisualGasic
 
 # Python/Venv
 venv/
+.venv/
 __pycache__/
 *.pyc
+
+# Temporary and backup files
+*.bak
+*~
+*.tmp
+*.swp
+.DS_Store
 
 # VS Code
 .vscode/

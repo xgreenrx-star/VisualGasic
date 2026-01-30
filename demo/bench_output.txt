@@ -1,0 +1,345 @@
+WorkerThreadPool: 12 threads, 3 max low-priority.
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+TextServer: Added interface "Dummy"
+TextServer: Added interface "ICU / HarfBuzz / Graphite (Built-in)"
+Unrecognized output string "misc2" in mapping:
+030000000d0f0000ab01000011010000,Horipad Steam,a:b0,b:b1,back:b10,dpdown:h0.4,dpleft:h0.8,dpright:h0.2,dpup:h0.1,guide:b12,leftshoulder:b6,leftstick:b13,lefttrigger:a5,leftx:a0,lefty:a1,misc2:b2,paddle1:b19,paddle2:b18,paddle3:b15,paddle4:b5,rightshoulder:b7,rightstick:b14,righttrigger:a4,rightx:a2,righty:a3,start:b11,x:b3,y:b4,platform:Linux,
+Unrecognized output string "misc2" in mapping:
+050000000d0f00009601000091000000,Horipad Steam,a:b0,b:b1,back:b10,dpdown:h0.4,dpleft:h0.8,dpright:h0.2,dpup:h0.1,guide:b12,leftshoulder:b6,leftstick:b13,lefttrigger:a5,leftx:a0,lefty:a1,misc2:b2,paddle1:b19,paddle2:b18,paddle3:b15,paddle4:b5,rightshoulder:b7,rightstick:b14,righttrigger:a4,rightx:a2,righty:a3,start:b11,x:b3,y:b4,platform:Linux,
+Unrecognized output string "misc2" in mapping:
+030000007e0500006920000011010000,Nintendo Switch 2 Pro Controller,a:b0,b:b1,back:b14,dpdown:b8,dpleft:b10,dpright:b9,dpup:b11,guide:b16,leftshoulder:b12,leftstick:b15,lefttrigger:b13,leftx:a0,lefty:a1~,misc1:b17,misc2:b20,paddle1:b18,paddle2:b19,rightshoulder:b4,rightstick:b7,righttrigger:b5,rightx:a2,righty:a3~,start:b6,x:b2,y:b3,platform:Linux,
+SDL: Init OK!
+Using "default" pen tablet driver...
+
+TextServer: Primary interface set to: "ICU / HarfBuzz / Graphite (Built-in)".
+CORE API HASH: 937899573
+EDITOR API HASH: 1777164193
+Loading resource: res://run_benchmarks.gd
+SceneTreeFTI: traversal method DEFAULT
+Warmup...
+Loading resource: res://bench.bas
+Running benchmarks...
+
+=== Arithmetic ===
+GDScript: { "elapsed_us": 5535, "checksum": 298300000 }
+VisualGasic: { "elapsed_us": 181, "checksum": 298300000 }
+C++: { "elapsed_us": 64, "checksum": 298300000 }
+VisualGasic vs GDScript: 0.0327009936766x
+C++ vs GDScript: 0.01156278229449x
+Fastest: C++
+
+=== ArraySum ===
+GDScript: { "elapsed_us": 4433, "checksum": 99900000 }
+VisualGasic: { "elapsed_us": 104, "checksum": 99900000 }
+C++: { "elapsed_us": 62, "checksum": 99900000 }
+VisualGasic vs GDScript: 0.02346041055718x
+C++ vs GDScript: 0.01398601398601x
+Fastest: C++
+
+=== StringConcat ===
+GDScript: { "elapsed_us": 5458, "checksum": 400 }
+VisualGasic: { "elapsed_us": 72, "checksum": 400 }
+C++: { "elapsed_us": 738, "checksum": 400 }
+VisualGasic vs GDScript: 0.01319164529132x
+C++ vs GDScript: 0.13521436423598x
+Fastest: VisualGasic
+
+=== Branching ===
+GDScript: { "elapsed_us": 7389, "checksum": -100000 }
+VisualGasic: { "elapsed_us": 62, "checksum": -100000 }
+C++: { "elapsed_us": 52, "checksum": -100000 }
+VisualGasic vs GDScript: 0.00839085126539x
+C++ vs GDScript: 0.00703748815807x
+Fastest: C++
+
+=== ArrayDict ===
+GDScript: { "elapsed_us": 11321, "checksum": 49152000 }
+VisualGasic: { "elapsed_us": 86824, "checksum": 49152000 }
+C++: { "elapsed_us": 3597, "checksum": 49152000 }
+VisualGasic vs GDScript: 7.66928716544475x
+C++ vs GDScript: 0.31772811589082x
+Fastest: C++
+
+=== DictFastGet ===
+GDScript: { "elapsed_us": 30534, "checksum": 52326400 }
+VisualGasic: { "elapsed_us": 183384, "checksum": 52326400 }
+VisualGasic vs GDScript: 6.00589506779328x
+Fastest: GDScript
+
+=== DictFastSet ===
+GDScript: { "elapsed_us": 19619, "checksum": 93184000 }
+VisualGasic: { "elapsed_us": 231299, "checksum": 93184000 }
+VisualGasic vs GDScript: 11.7895407513125x
+Fastest: GDScript
+
+=== Interop ===
+GDScript: { "elapsed_us": 9156, "checksum": 166200 }
+VisualGasic: { "elapsed_us": 40895, "checksum": 166200 }
+C++: { "elapsed_us": 6303, "checksum": 166200 }
+VisualGasic vs GDScript: 4.46647007426824x
+C++ vs GDScript: 0.68840104849279x
+Fastest: C++
+
+=== Allocations ===
+GDScript: { "elapsed_us": 7112, "checksum": 13440000 }
+VisualGasic: { "elapsed_us": 60529, "checksum": 13440000 }
+C++: { "elapsed_us": 692, "checksum": 13440000 }
+VisualGasic vs GDScript: 8.51082677165354x
+C++ vs GDScript: 0.09730033745782x
+Fastest: C++
+
+=== AllocationsFast ===
+GDScript: { "elapsed_us": 10683, "checksum": 655360 }
+VisualGasic: { "elapsed_us": 1123, "checksum": 655360 }
+C++: { "elapsed_us": 274, "checksum": 655360 }
+VisualGasic vs GDScript: 0.10512028456426x
+C++ vs GDScript: 0.0256482261537x
+Fastest: C++
+
+=== FileIO ===
+GDScript: { "elapsed_us": 990, "checksum": 2048 }
+VisualGasic: { "elapsed_us": 494, "checksum": 2048 }
+C++: { "elapsed_us": 418, "checksum": 2048 }
+VisualGasic vs GDScript: 0.4989898989899x
+C++ vs GDScript: 0.42222222222222x
+Fastest: C++
+Loaded system CA certificates
+XR: Clearing primary interface
+XR: Removed interface "Native mobile"
+XR: Removed interface "OpenXR"
+WARNING: ObjectDB instances leaked at exit (run with --verbose for details).
+     at: cleanup (core/object/object.cpp:2514)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2374)
+Leaked instance: Node:25551701382 - Node path: 
+Hint: Leaked instances typically happen when nodes are removed from the scene tree (with `remove_child()`) but not freed (with `free()` or `queue_free()`).
+Orphan StringName: RDShaderSPIRV (static: 1, total: 3)
+Orphan StringName: PhysicsMaterial (static: 1, total: 3)
+Orphan StringName: RenderingDevice (static: 1, total: 3)
+Orphan StringName: AudioBusLayout (static: 1, total: 3)
+Orphan StringName: CheckBox (static: 1, total: 3)
+Orphan StringName: Mesh (static: 1, total: 3)
+Orphan StringName: ArrayMesh (static: 1, total: 3)
+Orphan StringName: Tween (static: 1, total: 3)
+Orphan StringName: MethodTweener (static: 1, total: 3)
+Orphan StringName: HScrollBar (static: 1, total: 3)
+Orphan StringName: PhysicsBody2D (static: 1, total: 3)
+Orphan StringName: PhysicsBody3D (static: 1, total: 3)
+Orphan StringName: VisualGasicToolbox (static: 0, total: 2)
+Orphan StringName: Shader (static: 1, total: 3)
+Orphan StringName: JSON (static: 1, total: 3)
+Orphan StringName: EditorDebuggerSession (static: 1, total: 3)
+Orphan StringName: Tree (static: 1, total: 3)
+Orphan StringName: AudioSample (static: 1, total: 3)
+Orphan StringName: SphereShape3D (static: 1, total: 3)
+Orphan StringName: RDFramebufferPass (static: 1, total: 3)
+Orphan StringName: LineEdit (static: 1, total: 3)
+Orphan StringName: RDVertexAttribute (static: 1, total: 3)
+Orphan StringName: PhysicsDirectSpaceState3D (static: 1, total: 3)
+Orphan StringName: PhysicsTestMotionResult3D (static: 1, total: 3)
+Orphan StringName: PrimitiveMesh (static: 1, total: 3)
+Orphan StringName: MainLoop (static: 1, total: 3)
+Orphan StringName: EditorDebuggerPlugin (static: 1, total: 3)
+Orphan StringName: AudioStreamPlayer (static: 1, total: 3)
+Orphan StringName: Camera2D (static: 1, total: 3)
+Orphan StringName: Camera3D (static: 1, total: 3)
+Orphan StringName: Label (static: 1, total: 3)
+Orphan StringName: EditorToaster (static: 1, total: 3)
+Orphan StringName: TriangleMesh (static: 1, total: 3)
+Orphan StringName: TextureRect (static: 1, total: 3)
+Orphan StringName: InputEvent (static: 1, total: 3)
+Orphan StringName: GasicAIController (static: 0, total: 2)
+Orphan StringName: EditorNode3DGizmoPlugin (static: 1, total: 3)
+Orphan StringName: EditorExportPreset (static: 1, total: 3)
+Orphan StringName: EditorExportPlugin (static: 1, total: 3)
+Orphan StringName: ThemeDB (static: 1, total: 3)
+Orphan StringName: ScriptBacktrace (static: 1, total: 3)
+Orphan StringName: Control (static: 1, total: 3)
+Orphan StringName: Shape2D (static: 1, total: 3)
+Orphan StringName: Shape3D (static: 1, total: 3)
+Orphan StringName: CircleShape2D (static: 1, total: 3)
+Orphan StringName: Input (static: 1, total: 3)
+Orphan StringName: ConfigFile (static: 1, total: 3)
+Orphan StringName: RDSamplerState (static: 1, total: 3)
+Orphan StringName: PhysicsServer3D (static: 1, total: 3)
+Orphan StringName: ResourceLoader (static: 1, total: 3)
+Orphan StringName: GasicForm (static: 0, total: 2)
+Orphan StringName: VisualGasicScript (static: 0, total: 2)
+Orphan StringName: UndoRedo (static: 1, total: 3)
+Orphan StringName: Area2D (static: 1, total: 3)
+Orphan StringName: SpriteBase3D (static: 1, total: 3)
+Orphan StringName: Button (static: 1, total: 3)
+Orphan StringName: AudioServer (static: 1, total: 3)
+Orphan StringName: RDShaderFile (static: 1, total: 3)
+Orphan StringName: AudioEffect (static: 1, total: 3)
+Orphan StringName: SubViewport (static: 1, total: 3)
+Orphan StringName: RDPipelineMultisampleState (static: 1, total: 3)
+Orphan StringName: ScriptLanguage (static: 1, total: 3)
+Orphan StringName: EditorFileSystem (static: 1, total: 3)
+Orphan StringName: VisualInstance3D (static: 1, total: 3)
+Orphan StringName: PhysicsDirectBodyState2D (static: 1, total: 3)
+Orphan StringName: PhysicsDirectBodyState3D (static: 1, total: 3)
+Orphan StringName: BoxMesh (static: 1, total: 3)
+Orphan StringName: Sprite2D (static: 1, total: 3)
+Orphan StringName: Sprite3D (static: 1, total: 3)
+Orphan StringName: Font (static: 1, total: 3)
+Orphan StringName: VBoxContainer (static: 1, total: 3)
+Orphan StringName: Tweener (static: 1, total: 3)
+Orphan StringName: EditorExportPlatform (static: 1, total: 3)
+Orphan StringName: SubtweenTweener (static: 1, total: 3)
+Orphan StringName: IntervalTweener (static: 1, total: 3)
+Orphan StringName: ResourceFormatSaver (static: 1, total: 3)
+Orphan StringName: EditorPaths (static: 1, total: 3)
+Orphan StringName: Skin (static: 1, total: 3)
+Orphan StringName: AudioStreamWAV (static: 1, total: 3)
+Orphan StringName: Node3DGizmo (static: 1, total: 3)
+Orphan StringName: RenderingServer (static: 1, total: 3)
+Orphan StringName: EditorInspector (static: 1, total: 3)
+Orphan StringName: MultiMeshInstance3D (static: 1, total: 3)
+Orphan StringName: Image (static: 1, total: 3)
+Orphan StringName: Resource (static: 1, total: 3)
+Orphan StringName: GeometryInstance3D (static: 1, total: 3)
+Orphan StringName: AudioEffectInstance (static: 1, total: 3)
+Orphan StringName: AudioStream (static: 1, total: 3)
+Orphan StringName: Popup (static: 1, total: 3)
+Orphan StringName: RectangleShape2D (static: 1, total: 3)
+Orphan StringName: EditorSyntaxHighlighter (static: 1, total: 3)
+Orphan StringName: OS (static: 1, total: 3)
+Orphan StringName: KinematicCollision2D (static: 1, total: 3)
+Orphan StringName: KinematicCollision3D (static: 1, total: 3)
+Orphan StringName: AudioListener2D (static: 1, total: 3)
+Orphan StringName: Viewport (static: 1, total: 3)
+Orphan StringName: AudioListener3D (static: 1, total: 3)
+Orphan StringName: ItemList (static: 1, total: 3)
+Orphan StringName: RDPipelineDepthStencilState (static: 1, total: 3)
+Orphan StringName: MultiplayerAPI (static: 1, total: 3)
+Orphan StringName: EditorInterface (static: 1, total: 3)
+Orphan StringName: Timer (static: 1, total: 3)
+Orphan StringName: DisplayServer (static: 1, total: 3)
+Orphan StringName: FileAccess (static: 1, total: 3)
+Orphan StringName: EditorTranslationParserPlugin (static: 1, total: 3)
+Orphan StringName: ResourceImporter (static: 1, total: 3)
+Orphan StringName: HSlider (static: 1, total: 3)
+Orphan StringName: AudioSamplePlayback (static: 1, total: 3)
+Orphan StringName: ButtonGroup (static: 1, total: 3)
+Orphan StringName: TabBar (static: 1, total: 3)
+Orphan StringName: bench_319 (static: 0, total: 1)
+Orphan StringName: ConcavePolygonShape3D (static: 1, total: 3)
+Orphan StringName: SphereMesh (static: 1, total: 3)
+Orphan StringName: CharacterBody2D (static: 1, total: 3)
+Orphan StringName: CharacterBody3D (static: 1, total: 3)
+Orphan StringName: EditorCommandPalette (static: 1, total: 3)
+Orphan StringName: RegExMatch (static: 1, total: 3)
+Orphan StringName: EditorNode3DGizmo (static: 1, total: 3)
+Orphan StringName: EditorResourceConversionPlugin (static: 1, total: 3)
+Orphan StringName: AudioStreamPlayback (static: 1, total: 3)
+Orphan StringName: CanvasItem (static: 1, total: 3)
+Orphan StringName: Node2D (static: 1, total: 3)
+Orphan StringName: Node3D (static: 1, total: 3)
+Orphan StringName: FileDialog (static: 1, total: 3)
+Orphan StringName: PhysicsTestMotionParameters3D (static: 1, total: 3)
+Orphan StringName: PanelContainer (static: 1, total: 3)
+Orphan StringName: RDAttachmentFormat (static: 1, total: 3)
+Orphan StringName: BoxContainer (static: 1, total: 3)
+Orphan StringName: EditorSceneFormatImporter (static: 1, total: 3)
+Orphan StringName: VisualGasicBenchmark (static: 0, total: 2)
+Orphan StringName: SceneTree (static: 1, total: 3)
+Orphan StringName: VisualGasicFormatSaver (static: 0, total: 2)
+Orphan StringName: MenuButton (static: 1, total: 3)
+Orphan StringName: ScrollContainer (static: 1, total: 3)
+Orphan StringName: EditorResourcePreview (static: 1, total: 3)
+Orphan StringName: GPUParticles2D (static: 1, total: 3)
+Orphan StringName: GPUParticles3D (static: 1, total: 3)
+Orphan StringName: NativeMenu (static: 1, total: 3)
+Orphan StringName: CollisionShape2D (static: 1, total: 3)
+Orphan StringName: CollisionShape3D (static: 1, total: 3)
+Orphan StringName: MeshInstance3D (static: 1, total: 3)
+Orphan StringName: SceneTreeTimer (static: 1, total: 3)
+Orphan StringName: Container (static: 1, total: 3)
+Orphan StringName: Texture (static: 1, total: 3)
+Orphan StringName: ResourceSaver (static: 1, total: 3)
+Orphan StringName: CanvasLayer (static: 1, total: 3)
+Orphan StringName: EditorScenePostImportPlugin (static: 1, total: 3)
+Orphan StringName: World2D (static: 1, total: 3)
+Orphan StringName: World3D (static: 1, total: 3)
+Orphan StringName: VisualGasicTestRunner (static: 0, total: 2)
+Orphan StringName: ShaderMaterial (static: 1, total: 3)
+Orphan StringName: GridContainer (static: 1, total: 3)
+Orphan StringName: Material (static: 1, total: 3)
+Orphan StringName: Node (static: 1, total: 3)
+Orphan StringName: SkinReference (static: 1, total: 3)
+Orphan StringName: ScriptCreateDialog (static: 1, total: 3)
+Orphan StringName: ProjectSettings (static: 1, total: 3)
+Orphan StringName: DirAccess (static: 1, total: 3)
+Orphan StringName: VisualGasicToolButton (static: 0, total: 2)
+Orphan StringName: TextServer (static: 1, total: 3)
+Orphan StringName: ParticleProcessMaterial (static: 1, total: 3)
+Orphan StringName: RefCounted (static: 1, total: 3)
+Orphan StringName: TabContainer (static: 1, total: 3)
+Orphan StringName: Engine (static: 1, total: 3)
+Orphan StringName: EditorPlugin (static: 1, total: 3)
+Orphan StringName: ScriptLanguageExtension (static: 1, total: 3)
+Orphan StringName: Object (static: 2, total: 4)
+Orphan StringName: RDUniform (static: 1, total: 3)
+Orphan StringName: Theme (static: 1, total: 3)
+Orphan StringName: FileSystemDock (static: 1, total: 3)
+Orphan StringName: TextEdit (static: 1, total: 3)
+Orphan StringName: SyntaxHighlighter (static: 1, total: 3)
+Orphan StringName: LabelSettings (static: 1, total: 3)
+Orphan StringName: Slider (static: 1, total: 3)
+Orphan StringName: RDPipelineRasterizationState (static: 1, total: 3)
+Orphan StringName: MSComm (static: 0, total: 2)
+Orphan StringName: MeshConvexDecompositionSettings (static: 1, total: 3)
+Orphan StringName: VSlider (static: 1, total: 3)
+Orphan StringName: RDTextureView (static: 1, total: 3)
+Orphan StringName: AcceptDialog (static: 1, total: 3)
+Orphan StringName: Shortcut (static: 1, total: 3)
+Orphan StringName: HBoxContainer (static: 1, total: 3)
+Orphan StringName: RDPipelineSpecializationConstant (static: 1, total: 3)
+Orphan StringName: ConvexPolygonShape3D (static: 1, total: 3)
+Orphan StringName: PropertyTweener (static: 1, total: 3)
+Orphan StringName: RigidBody2D (static: 1, total: 3)
+Orphan StringName: RigidBody3D (static: 1, total: 3)
+Orphan StringName: ScriptExtension (static: 1, total: 3)
+Orphan StringName: EditorSettings (static: 1, total: 3)
+Orphan StringName: ScriptEditor (static: 1, total: 3)
+Orphan StringName: RDTextureFormat (static: 1, total: 3)
+Orphan StringName: StandardMaterial3D (static: 1, total: 3)
+Orphan StringName: ResourceFormatLoader (static: 1, total: 3)
+Orphan StringName: MultiMesh (static: 1, total: 3)
+Orphan StringName: EditorImportPlugin (static: 1, total: 3)
+Orphan StringName: RDPipelineColorBlendState (static: 1, total: 3)
+Orphan StringName: ScrollBar (static: 1, total: 3)
+Orphan StringName: EditorUndoRedoManager (static: 1, total: 3)
+Orphan StringName: VisualGasicFormatLoader (static: 0, total: 2)
+Orphan StringName: EditorSelection (static: 1, total: 3)
+Orphan StringName: PackedScene (static: 1, total: 3)
+Orphan StringName: TreeItem (static: 1, total: 3)
+Orphan StringName: EditorInspectorPlugin (static: 1, total: 3)
+Orphan StringName: Texture2D (static: 1, total: 3)
+Orphan StringName: Texture3D (static: 1, total: 3)
+Orphan StringName: Window (static: 1, total: 3)
+Orphan StringName: CollisionObject2D (static: 1, total: 3)
+Orphan StringName: CollisionObject3D (static: 1, total: 3)
+Orphan StringName: PhysicsServer3DRenderingServerHandler (static: 1, total: 3)
+Orphan StringName: StyleBox (static: 1, total: 3)
+Orphan StringName: Range (static: 1, total: 3)
+Orphan StringName: Time (static: 1, total: 3)
+Orphan StringName: ViewportTexture (static: 1, total: 3)
+Orphan StringName: RDShaderSource (static: 1, total: 3)
+Orphan StringName: EditorContextMenuPlugin (static: 1, total: 3)
+Orphan StringName: BaseMaterial3D (static: 1, total: 3)
+Orphan StringName: ClassDB (static: 1, total: 3)
+Orphan StringName: Logger (static: 1, total: 3)
+Orphan StringName: VisualGasicSyntaxHighlighter (static: 0, total: 2)
+Orphan StringName: VScrollBar (static: 1, total: 3)
+Orphan StringName: CallbackTweener (static: 1, total: 3)
+Orphan StringName: ConfirmationDialog (static: 1, total: 3)
+Orphan StringName: VisualGasicLanguage (static: 0, total: 2)
+Orphan StringName: BaseButton (static: 1, total: 3)
+Orphan StringName: SceneState (static: 1, total: 3)
+Orphan StringName: RegEx (static: 1, total: 3)
+Orphan StringName: Script (static: 1, total: 3)
+Orphan StringName: PopupMenu (static: 1, total: 3)
+Orphan StringName: ProgressBar (static: 1, total: 3)
+StringName: 229 unclaimed string names at exit.

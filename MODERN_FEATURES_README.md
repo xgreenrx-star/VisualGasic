@@ -104,7 +104,7 @@ Run the example files to see the features in action:
 
 ```bash
 # Comprehensive feature showcase
-examples/test_modern_features.bas
+examples/test_modern_features.vg
 
 # Working examples you can run
 examples/test_modern_working.bas
@@ -135,7 +135,7 @@ examples/test_modern_working.bas
 ## Getting Started
 
 1. **Read the quick reference** - [MODERN_SYNTAX_QUICK_REF.md](MODERN_SYNTAX_QUICK_REF.md)
-2. **Try the examples** - `examples/test_modern_working.bas`
+2. **Try the examples** - `examples/test_modern_working.vg`
 3. **Start small** - Replace one array or dict at a time
 4. **Follow the migration guide** - [MIGRATION_GUIDE.md](MIGRATION_GUIDE.md)
 

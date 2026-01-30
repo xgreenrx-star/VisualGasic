@@ -6,7 +6,7 @@ func _init():
     if interface:
         print("EditorInterface found.")
         print("Trying to open script in editor...")
-        var script = load("res://dodge/main.bas")
+        var script = load("res://dodge/main.vg")
         if script:
             print("Script loaded: ", script)
             interface.edit_script(script)

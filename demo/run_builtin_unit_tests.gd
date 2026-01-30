@@ -2,9 +2,9 @@ extends SceneTree
 
 func _init():
     var tests = [
-        "res://builtin_tests/01_string.bas",
-        "res://builtin_tests/02_math.bas",
-        "res://builtin_tests/03_array.bas",
+        "res://builtin_tests/01_string.vg",
+        "res://builtin_tests/02_math.vg",
+        "res://builtin_tests/03_array.vg",
     ]
 
     for tpath in tests:

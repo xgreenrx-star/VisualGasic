@@ -5,7 +5,7 @@ func _init():
     var root = Node.new()
     root.name = "Root"
     
-    var script = load("res://debug_pong.bas")
+    var script = load("res://debug_pong.vg")
     if not script:
         print("Failed to load script")
         quit(1)

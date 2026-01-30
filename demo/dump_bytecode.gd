@@ -3,7 +3,7 @@ extends SceneTree
 func _init() -> void:
     var args = OS.get_cmdline_args()
     var entries = []
-    var script_path = "res://bench.bas"
+    var script_path = "res://bench.vg"
     var json_mode = false
     var output_path = ""
     for arg in args:

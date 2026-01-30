@@ -108,8 +108,8 @@ Full debugging infrastructure:
 #### Breakpoint Management
 ```cpp
 VisualGasicDebugger debugger;
-debugger.add_breakpoint("script.bas", 10);
-debugger.add_breakpoint("script.bas", 15, "x > 10"); // Conditional
+debugger.add_breakpoint("script.vg", 10);
+debugger.add_breakpoint("script.vg", 15, "x > 10"); // Conditional
 ```
 
 #### Execution Control

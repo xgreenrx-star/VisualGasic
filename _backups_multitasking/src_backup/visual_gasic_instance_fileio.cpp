@@ -1,3 +1,0 @@
-// File I/O operations extracted from visual_gasic_instance.cpp
-#include "visual_gasic_instance.h"
-// ...implementation will be moved here...

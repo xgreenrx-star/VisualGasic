@@ -1,6 +1,7 @@
 #ifndef VISUAL_GASIC_SCRIPT_H
 #define VISUAL_GASIC_SCRIPT_H
 
+#include <vector>
 #include <godot_cpp/classes/script_extension.hpp>
 #include <godot_cpp/classes/script_language.hpp>
 #include "visual_gasic_tokenizer.h"
@@ -17,6 +18,12 @@ class VisualGasicScript : public ScriptExtension {
     VisualGasicParser parser;
     Ref<Script> base_script;
     bool last_reload_had_error = false;
+    struct CompiledEntry {
+        String original_name;
+        String name_lower;
+        BytecodeChunk chunk;
+    };
+    std::vector<CompiledEntry> bytecode_cache;
 
 public:
     ModuleNode *ast_root = nullptr;
@@ -67,6 +74,9 @@ public:
 
     // Tools
     void format_source_code();
+    void clear_bytecode_cache();
+    BytecodeChunk *get_bytecode_for(const String &entry_point);
+    Dictionary debug_dump_bytecode(const String &entry_point);
 };
 
 #endif // VISUAL_GASIC_SCRIPT_H

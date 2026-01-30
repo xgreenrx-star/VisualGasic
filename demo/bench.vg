@@ -1,0 +1,240 @@
+' VisualGasic benchmark script
+
+Function BenchArithmetic(ByVal iterations As Long, ByVal inner As Long) As Long
+    Dim i As Long
+    Dim j As Long
+    Dim s As Long
+
+    For i = 0 To iterations - 1 Step 1
+        For j = 0 To inner - 1 Step 1
+            s = s + (j * 3) - 7
+        Next j
+    Next i
+
+    BenchArithmetic = s
+End Function
+
+Function BenchArraySum(ByVal iterations As Long, ByVal size As Long) As Long
+    Dim i As Long
+    Dim k As Long
+    Dim s As Long
+    Dim arr(0) As Long
+    ReDim arr(size - 1)
+
+    For i = 0 To size - 1 Step 1
+        arr(i) = i
+    Next i
+
+    For k = 0 To iterations - 1 Step 1
+        For i = 0 To size - 1 Step 1
+            s = s + arr(i)
+        Next i
+    Next k
+
+    BenchArraySum = s
+End Function
+
+Function BenchStringConcat(ByVal iterations As Long, ByVal inner As Long) As Long
+    Dim i As Long
+    Dim j As Long
+    Dim s As String
+
+    For i = 0 To iterations - 1 Step 1
+        s = ""
+        For j = 0 To inner - 1 Step 1
+            s = s & "x"
+        Next j
+    Next i
+
+    BenchStringConcat = Len(s)
+End Function
+
+Function BenchBranch(ByVal iterations As Long, ByVal inner As Long) As Long
+    Dim i As Long
+    Dim j As Long
+    Dim s As Long
+    Dim flag As Long
+
+    For i = 0 To iterations - 1 Step 1
+        flag = 0
+        For j = 0 To inner - 1 Step 1
+            If flag = 0 Then
+                s = s + j
+                flag = 1
+            Else
+                s = s - j
+                flag = 0
+            End If
+        Next j
+    Next i
+
+    BenchBranch = s
+End Function
+
+Function BenchArrayDict(ByVal iterations As Long, ByVal size As Long) As Long
+    Dim arr(0) As Long
+    Dim keys(0) As String
+    Dim dict As Dictionary
+    Dim i As Long
+    Dim iter As Long
+    Dim sum As Long
+
+    If iterations <= 0 Or size <= 0 Then
+        BenchArrayDict = 0
+        Exit Function
+    End If
+
+    ReDim arr(size - 1)
+    ReDim keys(size - 1)
+    For i = 0 To size - 1 Step 1
+        arr(i) = i
+        keys(i) = CStr(i)
+    Next i
+
+    Set dict = New Dictionary
+    For i = 0 To size - 1 Step 1
+        dict(keys(i)) = size - i
+    Next i
+
+    For iter = 0 To iterations - 1 Step 1
+        For i = 0 To size - 1 Step 1
+            sum = sum + arr(i)
+            sum = sum + dict(keys(i))
+        Next i
+    Next iter
+
+    BenchArrayDict = sum
+End Function
+
+Function BenchDictFastGet(ByVal iterations As Long, ByVal size As Long) As Long
+    Dim dict As Dictionary
+    Dim keys(0) As String
+    Dim i As Long
+    Dim iter As Long
+    Dim sum As Long
+
+    If iterations <= 0 Or size <= 0 Then
+        BenchDictFastGet = 0
+        Exit Function
+    End If
+
+    ReDim keys(size - 1)
+    Set dict = New Dictionary
+    For i = 0 To size - 1 Step 1
+        keys(i) = CStr(i)
+        dict(keys(i)) = i
+    Next i
+
+    For iter = 0 To iterations - 1 Step 1
+        For i = 0 To size - 1 Step 1
+            sum = sum + dict(keys(i))
+        Next i
+    Next iter
+
+    BenchDictFastGet = sum
+End Function
+
+Function BenchDictFastSet(ByVal iterations As Long, ByVal size As Long) As Long
+    Dim dict As Dictionary
+    Dim keys(0) As String
+    Dim i As Long
+    Dim iter As Long
+    Dim sum As Long
+
+    If iterations <= 0 Or size <= 0 Then
+        BenchDictFastSet = 0
+        Exit Function
+    End If
+
+    ReDim keys(size - 1)
+    Set dict = New Dictionary
+    For i = 0 To size - 1 Step 1
+        keys(i) = CStr(i)
+        dict(keys(i)) = 0
+    Next i
+
+    For iter = 0 To iterations - 1 Step 1
+        For i = 0 To size - 1 Step 1
+            dict(keys(i)) = iter + i
+            sum = sum + iter + i
+        Next i
+    Next iter
+
+    BenchDictFastSet = sum
+End Function
+
+Function BenchInterop(ByVal iterations As Long, ByVal inner As Long) As Long
+    Dim i As Long
+    Dim j As Long
+    Dim node As Node
+    Dim checksum As Long
+    Dim prefix As String
+
+    If iterations <= 0 Or inner <= 0 Then
+        BenchInterop = 0
+        Exit Function
+    End If
+
+    prefix = "bench_"
+    Set node = CreateNode("Node")
+
+    For i = 0 To iterations - 1 Step 1
+        For j = 0 To inner - 1 Step 1
+            node.Name = prefix & CStr(j)
+            checksum = checksum + Len(node.Name)
+        Next j
+    Next i
+
+    BenchInterop = checksum
+End Function
+
+Function BenchAllocations(ByVal iterations As Long, ByVal size As Long) As Long
+    Dim iter As Long
+    Dim i As Long
+    Dim arr(0) As Long
+    Dim text As String
+    Dim sum As Long
+
+    If iterations <= 0 Or size <= 0 Then
+        BenchAllocations = 0
+        Exit Function
+    End If
+
+    For iter = 0 To iterations - 1 Step 1
+        ReDim arr(size - 1)
+        text = ""
+        For i = 0 To size - 1 Step 1
+            arr(i) = iter + i
+            text = text & "x"
+            sum = sum + arr(i)
+        Next i
+        sum = sum + Len(text)
+    Next iter
+
+    BenchAllocations = sum
+End Function
+
+Function BenchAllocationsFast(ByVal iterations As Long, ByVal size As Long) As Long
+    Dim iter As Long
+    Dim sum As Long
+
+    If iterations <= 0 Or size <= 0 Then
+        BenchAllocationsFast = 0
+        Exit Function
+    End If
+
+    For iter = 0 To iterations - 1 Step 1
+        sum = sum + AllocFillI64Sum(size)
+    Next iter
+
+    BenchAllocationsFast = sum
+End Function
+
+Function BenchFileIO(ByVal iterations As Long, ByVal size As Long) As Long
+    If iterations <= 0 Or size <= 0 Then
+        BenchFileIO = 0
+        Exit Function
+    End If
+
+    BenchFileIO = BenchFileIOFast(iterations, size)
+End Function

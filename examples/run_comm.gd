@@ -1,8 +1,8 @@
 extends SceneTree
 
 func _init():
-    print("Loading test_comm.bas...")
-    var script = load("res://test_comm.bas")
+    print("Loading test_comm.vg...")
+    var script = load("res://test_comm.vg")
     if script:
         var node = Node2D.new()
         get_root().add_child(node)

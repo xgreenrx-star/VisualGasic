@@ -1,6 +1,6 @@
 [gd_scene load_steps=3 format=3 uid="uid://bk6xkupt4axcv"]
 
-[ext_resource type="Script" path="res://Form9.bas" id="1_125gb"]
+[ext_resource type="Script" path="res://Form9.vg" id="1_125gb"]
 [ext_resource type="Script" uid="uid://nxsjhx216xwn" path="res://addons/visual_gasic/menubar_runtime.gd" id="2_xjyeg"]
 
 [node name="Form1" type="Panel"]

@@ -153,10 +153,10 @@ ModuleNode* VisualGasicParser::parse(const Vector<VisualGasicTokenizer::Token>& 
                  
                  for(int i=0; i<dim->array_sizes.size(); i++) {
                      ExpressionNode* expr = dim->array_sizes[i];
-                     if (expr->type == ExpressionNode::LITERAL) {
+                     if (expr && expr->type == ExpressionNode::LITERAL) {
                          v->array_sizes.push_back((int)((LiteralNode*)expr)->value);
                      } else {
-                         // Error: Constant expression required
+                         // Error: Constant expression required or null expression
                          v->array_sizes.push_back(0); 
                      }
                  }
@@ -220,14 +220,12 @@ ModuleNode* VisualGasicParser::parse(const Vector<VisualGasicTokenizer::Token>& 
         if ((t.type == VisualGasicTokenizer::TOKEN_KEYWORD && String(t.value).to_lower() == "data") || 
             (t.type == VisualGasicTokenizer::TOKEN_IDENTIFIER && peek(1).type == VisualGasicTokenizer::TOKEN_COLON)) {
             Statement* s = parse_statement();
-            if (s) {
-                if (s->type == STMT_DATA || s->type == STMT_LABEL) {
-                    module->global_statements.push_back(s);
-                } else {
-                    unregister_node(s);
-                    delete s;
-                    error("Only Data and Labels are allowed at module level.");
-                }
+            if (s && s->type == STMT_DATA || (s && s->type == STMT_LABEL)) {
+                module->global_statements.push_back(s);
+            } else if (s) {
+                unregister_node(s);
+                delete s;
+                error("Only Data and Labels are allowed at module level.");
             }
             continue;
         }
@@ -381,6 +379,11 @@ SubDefinition* VisualGasicParser::parse_sub() {
                      parameters.push_back(param);
                  } else {
                      UtilityFunctions::print("Parser Error: Expected parameter name");
+                     // Skip to closing paren or newline to recover
+                     while (!is_at_end() && peek().type != VisualGasicTokenizer::TOKEN_PAREN_CLOSE && peek().type != VisualGasicTokenizer::TOKEN_NEWLINE) {
+                         advance();
+                     }
+                     break;
                  }
                  
                  if (match(VisualGasicTokenizer::TOKEN_COMMA)) continue;
@@ -389,6 +392,10 @@ SubDefinition* VisualGasicParser::parse_sub() {
         }
         if (!match(VisualGasicTokenizer::TOKEN_PAREN_CLOSE)) {
              UtilityFunctions::print("Parser Error: Expected ) after parameters");
+             // Skip to newline to recover
+             while (!is_at_end() && peek().type != VisualGasicTokenizer::TOKEN_NEWLINE) {
+                 advance();
+             }
         }
     }
     
@@ -788,7 +795,7 @@ Statement* VisualGasicParser::parse_statement() {
                  if (check(VisualGasicTokenizer::TOKEN_PAREN_CLOSE)) {
                      advance();
                  } else {
-                     UtilityFunctions::print("Parser Error: Expected )");
+                     error("Expected )");
                  }
              }
         }
@@ -1354,6 +1361,57 @@ ExpressionNode* VisualGasicParser::parse_factor() {
         }
     }
     
+    // Check for TypeOf ... Is ... (VB6 type checking syntax)
+    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("TypeOf") == 0) {
+        advance(); // Eat TypeOf
+        
+        // Parse just the variable name, not full expression (to avoid recursion issues)
+        if (!check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
+            error("Expected variable name after 'TypeOf'");
+            return nullptr;
+        }
+        String var_name = peek().value;
+        advance();
+        
+        VariableNode* target = static_cast<VariableNode*>(register_node(new VariableNode()));
+        target->name = var_name;
+        
+        // Expect "Is"
+        if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("Is") == 0) {
+            advance(); // Eat Is
+            
+            // Expect type name
+            if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER) || check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
+                String type_name = peek().value;
+                advance();
+                
+                // Create a binary operation node for "TypeOf x Is Type"
+                BinaryOpNode* typecheck = static_cast<BinaryOpNode*>(register_node(new BinaryOpNode()));
+                typecheck->op = "Is"; // Use "Is" as the operator
+                typecheck->left = target;
+                unregister_node(target);
+                
+                // Create a type node for the right side
+                VariableNode* type_node = static_cast<VariableNode*>(register_node(new VariableNode()));
+                type_node->name = type_name;
+                typecheck->right = type_node;
+                unregister_node(type_node);
+                
+                return typecheck;
+            } else {
+                error("Expected type name after 'TypeOf ... Is'");
+                unregister_node(target);
+                delete target;
+                return nullptr;
+            }
+        } else {
+            error("Expected 'Is' after 'TypeOf variable'");
+            unregister_node(target);
+            delete target;
+            return nullptr;
+        }
+    }
+    
     bool is_ident = check(VisualGasicTokenizer::TOKEN_IDENTIFIER);
     bool is_special_base = false;
     if (check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
@@ -1430,7 +1488,7 @@ ExpressionNode* VisualGasicParser::parse_factor() {
                     left = call;
                 }
             } else {
-                UtilityFunctions::print("Parser Error: Expected member name after .");
+                error("Expected member name after .");
             }
         }
 
@@ -1440,7 +1498,7 @@ ExpressionNode* VisualGasicParser::parse_factor() {
     if (match(VisualGasicTokenizer::TOKEN_PAREN_OPEN)) {
         ExpressionNode* expr = parse_expression();
         if (!match(VisualGasicTokenizer::TOKEN_PAREN_CLOSE)) {
-             UtilityFunctions::print("Parser Error: Expected )");
+             error("Expected )");
         }
         return expr;
     }
@@ -1487,6 +1545,10 @@ DimStatement* VisualGasicParser::parse_dim() {
     
     if (!check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
         UtilityFunctions::print("Parser Error: Expected variable name after Dim");
+        // Skip to end of line to recover
+        while (!is_at_end() && peek().type != VisualGasicTokenizer::TOKEN_NEWLINE) {
+            advance();
+        }
         return nullptr;
     }
     
@@ -1500,6 +1562,13 @@ DimStatement* VisualGasicParser::parse_dim() {
             {
                 ExpressionNode* _tmp = parse_expression();
                 if (_tmp) { stmt->array_sizes.push_back(_tmp); unregister_node(_tmp); }
+                else {
+                    // Expression parse failed, skip to closing paren or newline
+                    while (!is_at_end() && peek().type != VisualGasicTokenizer::TOKEN_PAREN_CLOSE && peek().type != VisualGasicTokenizer::TOKEN_NEWLINE) {
+                        advance();
+                    }
+                    break;
+                }
             }
             if (check(VisualGasicTokenizer::TOKEN_COMMA)) {
                 advance();
@@ -1529,8 +1598,16 @@ DimStatement* VisualGasicParser::parse_dim() {
         advance(); // Eat =
         {
             ExpressionNode* _tmp = parse_expression();
-            stmt->initializer = _tmp;
-            unregister_node(_tmp);
+            if (_tmp) {
+                stmt->initializer = _tmp;
+                unregister_node(_tmp);
+            } else {
+                // Expression parse failed, skip to newline
+                UtilityFunctions::print("Parser Error: Failed to parse initializer expression");
+                while (!is_at_end() && peek().type != VisualGasicTokenizer::TOKEN_NEWLINE) {
+                    advance();
+                }
+            }
         }
     }
     
@@ -1666,6 +1743,14 @@ Statement* VisualGasicParser::parse_for() {
         stmt->variable_name = var_name;
         {
             ExpressionNode* _tmp = parse_expression();
+            if (!_tmp) {
+                error("Failed to parse For Each collection expression");
+                // Skip to newline to recover
+                while (!is_at_end() && peek().type != VisualGasicTokenizer::TOKEN_NEWLINE) {
+                    advance();
+                }
+                return stmt;
+            }
             stmt->collection = _tmp;
             unregister_node(_tmp);
         }
@@ -1692,14 +1777,36 @@ Statement* VisualGasicParser::parse_for() {
     ForStatement* stmt = static_cast<ForStatement*>(register_node(new ForStatement()));
     stmt->variable_name = var_name;
     
+    //Handle optional "As Type" declaration
+    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("As") == 0) {
+        advance(); // Eat "As"
+        if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER) || check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
+            advance(); // Eat type name (Integer, String, etc.)
+        }
+    }
+    
     if (!match(VisualGasicTokenizer::TOKEN_OPERATOR)) { // Expect =
-        UtilityFunctions::print("Parser Error: Expected = in For");
+        error("Expected = in For");
+        // Skip to newline to recover
+        while (!is_at_end() && peek().type != VisualGasicTokenizer::TOKEN_NEWLINE) {
+            advance();
+        }
+        return stmt;
     }
     
     {
         ExpressionNode* _tmp = parse_expression();
-        stmt->from_val = _tmp;
-        unregister_node(_tmp);
+        if (_tmp) {
+            stmt->from_val = _tmp;
+            unregister_node(_tmp);
+        } else {
+            error("Failed to parse For start value");
+            // Skip to newline to recover
+            while (!is_at_end() && peek().type != VisualGasicTokenizer::TOKEN_NEWLINE) {
+                advance();
+            }
+            return stmt;
+        }
     }
     
     bool found_to = false;
@@ -1717,11 +1824,25 @@ Statement* VisualGasicParser::parse_for() {
     if (found_to) {
         {
             ExpressionNode* _tmp = parse_expression();
-            stmt->to_val = _tmp;
-            unregister_node(_tmp);
+            if (_tmp) {
+                stmt->to_val = _tmp;
+                unregister_node(_tmp);
+            } else {
+                error("Failed to parse For end value");
+                // Skip to newline to recover
+                while (!is_at_end() && peek().type != VisualGasicTokenizer::TOKEN_NEWLINE) {
+                    advance();
+                }
+                return stmt;
+            }
         }
     } else {
-        UtilityFunctions::print("Parser Error: Expected To in For statement");
+        error("Expected To in For statement");
+        // Skip to newline to recover
+        while (!is_at_end() && peek().type != VisualGasicTokenizer::TOKEN_NEWLINE) {
+            advance();
+        }
+        return stmt;
     }
     
     // Step ?
@@ -1739,18 +1860,40 @@ Statement* VisualGasicParser::parse_for() {
     match(VisualGasicTokenizer::TOKEN_NEWLINE);
     
     // Body
+    int body_depth = 0;
     while (!is_at_end()) {
-        if ((check(VisualGasicTokenizer::TOKEN_KEYWORD) || check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) && peek().value.operator String().nocasecmp_to("Next") == 0) {
-            advance();
-            // Optional variable name
-            if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) advance();
-            break;
+        if ((check(VisualGasicTokenizer::TOKEN_KEYWORD) || check(VisualGasicTokenizer::TOKEN_IDENTIFIER))) {
+            String kw = String(peek().value);
+            
+            // Check for Next
+            if (kw.nocasecmp_to("Next") == 0) {
+                advance();
+                // Optional variable name
+                if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) advance();
+                break;
+            }
+            
+            // Check for block-ending keywords that signal missing Next
+            if (kw.nocasecmp_to("End") == 0 || 
+                kw.nocasecmp_to("Wend") == 0 ||
+                kw.nocasecmp_to("Loop") == 0 ||
+                kw.nocasecmp_to("Else") == 0 ||
+                kw.nocasecmp_to("ElseIf") == 0 ||
+                kw.nocasecmp_to("Case") == 0) {
+                UtilityFunctions::print("Parser Error: Missing 'Next' statement for For loop (found '", kw, "')");
+                break;
+            }
         }
         
         Statement* s = parse_statement();
         if (s) { stmt->body.push_back(s); unregister_node(s); }
         else if (check(VisualGasicTokenizer::TOKEN_NEWLINE)) advance();
         else advance();
+    }
+    
+    // Check if we hit EOF without finding Next
+    if (is_at_end()) {
+        UtilityFunctions::print("Parser Error: Missing 'Next' statement for For loop (reached end of file)");
     }
     
     return stmt;
@@ -1846,6 +1989,18 @@ SelectStatement* VisualGasicParser::parse_select() {
 WhileStatement* VisualGasicParser::parse_while() {
     advance(); // Eat While
     ExpressionNode* condition = parse_expression();
+    
+    if (!condition) {
+        error("Failed to parse While condition");
+        // Skip to newline to recover
+        while (!is_at_end() && peek().type != VisualGasicTokenizer::TOKEN_NEWLINE) {
+            advance();
+        }
+        WhileStatement* stmt = static_cast<WhileStatement*>(register_node(new WhileStatement()));
+        stmt->condition = nullptr;
+        return stmt;
+    }
+    
     match(VisualGasicTokenizer::TOKEN_NEWLINE);
     
     WhileStatement* stmt = static_cast<WhileStatement*>(register_node(new WhileStatement()));
@@ -1853,9 +2008,25 @@ WhileStatement* VisualGasicParser::parse_while() {
     
     while (!is_at_end()) {
         VisualGasicTokenizer::Token t = peek();
-        if ((t.type == VisualGasicTokenizer::TOKEN_KEYWORD || t.type == VisualGasicTokenizer::TOKEN_IDENTIFIER) && String(t.value).nocasecmp_to("Wend") == 0) {
-            advance();
-            break;
+        if ((t.type == VisualGasicTokenizer::TOKEN_KEYWORD || t.type == VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
+            String kw = String(t.value);
+            
+            // Check for Wend
+            if (kw.nocasecmp_to("Wend") == 0) {
+                advance();
+                break;
+            }
+            
+            // Check for block-ending keywords that signal missing Wend
+            if (kw.nocasecmp_to("End") == 0 || 
+                kw.nocasecmp_to("Next") == 0 ||
+                kw.nocasecmp_to("Loop") == 0 ||
+                kw.nocasecmp_to("Else") == 0 ||
+                kw.nocasecmp_to("ElseIf") == 0 ||
+                kw.nocasecmp_to("Case") == 0) {
+                UtilityFunctions::print("Parser Error: Missing 'Wend' statement for While loop (found '", kw, "')");
+                break;
+            }
         }
         
         Statement* s = parse_statement();
@@ -1863,6 +2034,12 @@ WhileStatement* VisualGasicParser::parse_while() {
         else if (check(VisualGasicTokenizer::TOKEN_NEWLINE)) advance();
         else current_pos++;
     }
+    
+    // Check if we hit EOF without finding Wend
+    if (is_at_end()) {
+        UtilityFunctions::print("Parser Error: Missing 'Wend' statement for While loop (reached end of file)");
+    }
+    
     return stmt;
 }
 
@@ -1896,39 +2073,60 @@ DoStatement* VisualGasicParser::parse_do() {
     
     while (!is_at_end()) {
         VisualGasicTokenizer::Token t_loop = peek();
-        if ((t_loop.type == VisualGasicTokenizer::TOKEN_KEYWORD || t_loop.type == VisualGasicTokenizer::TOKEN_IDENTIFIER) && String(t_loop.value).nocasecmp_to("Loop") == 0) {
-            advance();
+        if ((t_loop.type == VisualGasicTokenizer::TOKEN_KEYWORD || t_loop.type == VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
+            String kw = String(t_loop.value);
             
-            // Post-condition
-            if (stmt->condition_type == DoStatement::NONE) {
-                  VisualGasicTokenizer::Token t_post = peek();
-                  if (String(t_post.value).nocasecmp_to("While") == 0) {
-                      advance();
-                      stmt->condition_type = DoStatement::WHILE;
-                      stmt->is_post_condition = true;
-                      {
-                          ExpressionNode* _tmp = parse_expression();
-                          stmt->condition = _tmp;
-                          unregister_node(_tmp);
+            // Check for Loop
+            if (kw.nocasecmp_to("Loop") == 0) {
+                advance();
+                
+                // Post-condition
+                if (stmt->condition_type == DoStatement::NONE) {
+                      VisualGasicTokenizer::Token t_post = peek();
+                      if (String(t_post.value).nocasecmp_to("While") == 0) {
+                          advance();
+                          stmt->condition_type = DoStatement::WHILE;
+                          stmt->is_post_condition = true;
+                          {
+                              ExpressionNode* _tmp = parse_expression();
+                              stmt->condition = _tmp;
+                              unregister_node(_tmp);
+                          }
+                      } else if (String(t_post.value).nocasecmp_to("Until") == 0) {
+                          advance();
+                          stmt->condition_type = DoStatement::UNTIL;
+                          stmt->is_post_condition = true;
+                          {
+                              ExpressionNode* _tmp = parse_expression();
+                              stmt->condition = _tmp;
+                              unregister_node(_tmp);
+                          }
                       }
-                  } else if (String(t_post.value).nocasecmp_to("Until") == 0) {
-                      advance();
-                      stmt->condition_type = DoStatement::UNTIL;
-                      stmt->is_post_condition = true;
-                      {
-                          ExpressionNode* _tmp = parse_expression();
-                          stmt->condition = _tmp;
-                          unregister_node(_tmp);
-                      }
-                  }
+                }
+                break;
             }
-            break;
+            
+            // Check for block-ending keywords that signal missing Loop
+            if (kw.nocasecmp_to("End") == 0 || 
+                kw.nocasecmp_to("Next") == 0 ||
+                kw.nocasecmp_to("Wend") == 0 ||
+                kw.nocasecmp_to("Else") == 0 ||
+                kw.nocasecmp_to("ElseIf") == 0 ||
+                kw.nocasecmp_to("Case") == 0) {
+                UtilityFunctions::print("Parser Error: Missing 'Loop' statement for Do block (found '", kw, "')");
+                break;
+            }
         }
         
         Statement* s = parse_statement();
         if (s) { stmt->body.push_back(s); unregister_node(s); }
         else if (check(VisualGasicTokenizer::TOKEN_NEWLINE)) advance();
         else current_pos++;
+    }
+    
+    // Check if we hit EOF without finding Loop
+    if (is_at_end()) {
+        UtilityFunctions::print("Parser Error: Missing 'Loop' statement for Do block (reached end of file)");
     }
     
     return stmt;

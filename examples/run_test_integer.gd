@@ -2,7 +2,7 @@ extends SceneTree
 
 func _init():
 	var node = Node.new()
-	var script = load("res://test_integer.bas")
+	var script = load("res://test_integer.vg")
 	if not script:
 		print("Failed to load basic script (is the plugin active/compiled?)")
 		# If this fails, perhaps we need to manually enable the plugin in project settings or it's auto-detected.

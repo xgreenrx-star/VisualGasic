@@ -2,14 +2,14 @@
 extends SceneTree
 
 func _init():
-	var bas_path = "res://test_modern.bas"
+	var bas_path = "res://test_modern.vg"
 	print("Checking if resource exists: ", ResourceLoader.exists(bas_path))
 	
 	if ResourceLoader.exists(bas_path):
 		var res = load(bas_path)
 		print("Loaded: ", res)
 	else:
-		print("ResourceLoader does not recognize .bas directly.")
+		print("ResourceLoader does not recognize .vg directly.")
 		
 	# Check if we can fake it
 	if ClassDB.class_exists("VisualGasicScript"):

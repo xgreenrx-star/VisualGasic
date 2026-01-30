@@ -7,10 +7,10 @@
 *Classic Pong implementation with modern VisualGasic features*
 
 **Files**: `examples/games/pong/`
-- `PongGame.bas` - Main game logic
-- `Paddle.bas` - Player paddle class
-- `Ball.bas` - Ball physics and collision
-- `GameManager.bas` - Score tracking and game states
+- `PongGame.vg` - Main game logic
+- `Paddle.vg` - Player paddle class
+- `Ball.vg` - Ball physics and collision
+- `GameManager.vg` - Score tracking and game states
 - `project.godot` - Godot project configuration
 
 **Key Learning Topics**:
@@ -22,9 +22,9 @@
 
 **Complete Source Code:**
 
-**Main Game (PongGame.bas):**
+**Main Game (PongGame.vg):**
 ```vb
-' PongGame.bas - Main game scene
+' PongGame.vg - Main game scene
 Extends Control
 
 Option Explicit On
@@ -48,9 +48,9 @@ Public Class PongGame
 End Class
 ```
 
-**Ball Class (Ball.bas):**
+**Ball Class (Ball.vg):**
 ```vb
-' Ball.bas - Ball physics and collision
+' Ball.vg - Ball physics and collision
 Extends RigidBody2D
 
 Public Class Ball
@@ -83,9 +83,9 @@ Public Class Ball
 End Class
 ```
 
-**Paddle Class (Paddle.bas):**
+**Paddle Class (Paddle.vg):**
 ```vb
-' Paddle.bas - Player and AI paddle
+' Paddle.vg - Player and AI paddle
 Extends CharacterBody2D
 
 Public Class Paddle
@@ -133,12 +133,12 @@ End Class
 *Top-down space shooter with enemies, power-ups, and particle effects*
 
 **Files**: `examples/games/space_shooter/`
-- `Player.bas` - Player ship with weapons
-- `Enemy.bas` - Enemy AI and behavior
-- `Bullet.bas` - Projectile system
-- `PowerUp.bas` - Collectible upgrades
-- `GameScreen.bas` - Main game scene
-- `UIManager.bas` - HUD and menus
+- `Player.vg` - Player ship with weapons
+- `Enemy.vg` - Enemy AI and behavior
+- `Bullet.vg` - Projectile system
+- `PowerUp.vg` - Collectible upgrades
+- `GameScreen.vg` - Main game scene
+- `UIManager.vg` - HUD and menus
 
 **Key Learning Topics**:
 - Object pooling for bullets
@@ -152,12 +152,12 @@ End Class
 *2D platformer with multiple levels, collectibles, and animated characters*
 
 **Files**: `examples/games/platformer/`
-- `Player.bas` - Character controller with animations
-- `Level.bas` - Level management and transitions
-- `Enemy.bas` - Various enemy types
-- `Collectible.bas` - Items and power-ups
-- `Platform.bas` - Moving and interactive platforms
-- `GameData.bas` - Save/load system
+- `Player.vg` - Character controller with animations
+- `Level.vg` - Level management and transitions
+- `Enemy.vg` - Various enemy types
+- `Collectible.vg` - Items and power-ups
+- `Platform.vg` - Moving and interactive platforms
+- `GameData.vg` - Save/load system
 
 **Key Learning Topics**:
 - Character state machines
@@ -173,11 +173,11 @@ End Class
 *Complete inventory management system with database integration*
 
 **Files**: `examples/business/inventory_manager/`
-- `MainWindow.bas` - Main application window
-- `Product.bas` - Product data class
-- `Database.bas` - SQLite database operations
-- `Reports.bas` - Inventory reports
-- `ImportExport.bas` - CSV import/export
+- `MainWindow.vg` - Main application window
+- `Product.vg` - Product data class
+- `Database.vg` - SQLite database operations
+- `Reports.vg` - Inventory reports
+- `ImportExport.vg` - CSV import/export
 
 **Key Learning Topics**:
 - Database design and operations
@@ -189,7 +189,7 @@ End Class
 
 **Code Preview**:
 ```vb
-' Product.bas - Product data model
+' Product.vg - Product data model
 Option Explicit On
 Option Strict On
 
@@ -260,22 +260,22 @@ End Class
 *Track income, expenses, budgets, and generate financial reports*
 
 **Files**: `examples/business/finance_tracker/`
-- `Transaction.bas` - Financial transaction model
-- `Category.bas` - Expense/income categories
-- `Budget.bas` - Budget planning and tracking
-- `Report.bas` - Financial reports and charts
-- `BankImport.bas` - Import from bank statements
+- `Transaction.vg` - Financial transaction model
+- `Category.vg` - Expense/income categories
+- `Budget.vg` - Budget planning and tracking
+- `Report.vg` - Financial reports and charts
+- `BankImport.vg` - Import from bank statements
 
 ### 6. Student Management System (Advanced)
 *Complete school management with students, courses, grades, and reporting*
 
 **Files**: `examples/business/student_management/`
-- `Student.bas` - Student information
-- `Course.bas` - Course management
-- `Grade.bas` - Grading system
-- `Teacher.bas` - Teacher profiles
-- `Schedule.bas` - Class scheduling
-- `ReportCard.bas` - Report generation
+- `Student.vg` - Student information
+- `Course.vg` - Course management
+- `Grade.vg` - Grading system
+- `Teacher.vg` - Teacher profiles
+- `Schedule.vg` - Class scheduling
+- `ReportCard.vg` - Report generation
 
 ## 🧮 Utility Applications
 
@@ -283,14 +283,14 @@ End Class
 *Scientific calculator with history and programmable functions*
 
 **Files**: `examples/utilities/calculator/`
-- `Calculator.bas` - Main calculator logic
-- `MathEngine.bas` - Mathematical operations
-- `History.bas` - Calculation history
-- `Functions.bas` - Custom functions
+- `Calculator.vg` - Main calculator logic
+- `MathEngine.vg` - Mathematical operations
+- `History.vg` - Calculation history
+- `Functions.vg` - Custom functions
 
 **Code Preview**:
 ```vb
-' Calculator.bas - Main calculator class
+' Calculator.vg - Main calculator class
 Option Explicit On
 Option Strict On
 
@@ -428,19 +428,19 @@ End Class
 *Automatically organize files based on type, date, or custom rules*
 
 **Files**: `examples/utilities/file_organizer/`
-- `FileManager.bas` - File operations
-- `Rules.bas` - Organization rules
-- `Monitor.bas` - Folder monitoring
-- `Settings.bas` - Application settings
+- `FileManager.vg` - File operations
+- `Rules.vg` - Organization rules
+- `Monitor.vg` - Folder monitoring
+- `Settings.vg` - Application settings
 
 ### 9. Password Manager (Advanced)
 *Secure password storage with encryption and auto-generation*
 
 **Files**: `examples/utilities/password_manager/`
-- `PasswordVault.bas` - Encrypted storage
-- `PasswordGenerator.bas` - Secure generation
-- `Encryption.bas` - AES encryption
-- `SecureForm.bas` - Secure UI components
+- `PasswordVault.vg` - Encrypted storage
+- `PasswordGenerator.vg` - Secure generation
+- `Encryption.vg` - AES encryption
+- `SecureForm.vg` - Secure UI components
 
 ## 🌐 Web and Network Applications
 
@@ -448,28 +448,28 @@ End Class
 *Get weather data from APIs with forecasts and location services*
 
 **Files**: `examples/web/weather_app/`
-- `WeatherAPI.bas` - API integration
-- `Location.bas` - GPS and location services  
-- `Forecast.bas` - Weather data models
-- `UI.bas` - Weather display interface
+- `WeatherAPI.vg` - API integration
+- `Location.vg` - GPS and location services  
+- `Forecast.vg` - Weather data models
+- `UI.vg` - Weather display interface
 
 ### 11. Chat Client (Advanced)
 *Real-time chat application with networking*
 
 **Files**: `examples/web/chat_client/`
-- `ChatClient.bas` - Network client
-- `MessageHandler.bas` - Message processing
-- `UI.bas` - Chat interface
-- `Protocol.bas` - Communication protocol
+- `ChatClient.vg` - Network client
+- `MessageHandler.vg` - Message processing
+- `UI.vg` - Chat interface
+- `Protocol.vg` - Communication protocol
 
 ### 12. RSS Reader (Intermediate)
 *Subscribe to RSS feeds and display articles*
 
 **Files**: `examples/web/rss_reader/`
-- `FeedParser.bas` - RSS/XML parsing
-- `Article.bas` - Article data model
-- `Subscription.bas` - Feed management
-- `UI.bas` - Article display
+- `FeedParser.vg` - RSS/XML parsing
+- `Article.vg` - Article data model
+- `Subscription.vg` - Feed management
+- `UI.vg` - Article display
 
 ## 🎨 Creative and Multimedia
 
@@ -477,28 +477,28 @@ End Class
 *View and organize images with basic editing tools*
 
 **Files**: `examples/multimedia/image_viewer/`
-- `ImageManager.bas` - Image loading and display
-- `Thumbnail.bas` - Thumbnail generation
-- `BasicEdit.bas` - Resize, rotate, crop
-- `Gallery.bas` - Image gallery view
+- `ImageManager.vg` - Image loading and display
+- `Thumbnail.vg` - Thumbnail generation
+- `BasicEdit.vg` - Resize, rotate, crop
+- `Gallery.vg` - Image gallery view
 
 ### 14. Music Player (Intermediate)
 *Play music files with playlists and controls*
 
 **Files**: `examples/multimedia/music_player/`
-- `AudioPlayer.bas` - Audio playback
-- `Playlist.bas` - Playlist management
-- `Metadata.bas` - ID3 tag reading
-- `Visualizer.bas` - Audio visualization
+- `AudioPlayer.vg` - Audio playback
+- `Playlist.vg` - Playlist management
+- `Metadata.vg` - ID3 tag reading
+- `Visualizer.vg` - Audio visualization
 
 ### 15. Drawing Application (Advanced)
 *Create digital artwork with brushes, layers, and effects*
 
 **Files**: `examples/multimedia/drawing_app/`
-- `Canvas.bas` - Drawing surface
-- `Brush.bas` - Drawing tools
-- `Layer.bas` - Layer management
-- `Effects.bas` - Image effects
+- `Canvas.vg` - Drawing surface
+- `Brush.vg` - Drawing tools
+- `Layer.vg` - Layer management
+- `Effects.vg` - Image effects
 
 ## 📊 Data Analysis and Visualization
 
@@ -506,14 +506,14 @@ End Class
 *Import, analyze, and visualize CSV data*
 
 **Files**: `examples/data/csv_analyzer/`
-- `CSVImporter.bas` - File parsing
-- `DataAnalysis.bas` - Statistical analysis
-- `Charts.bas` - Data visualization
-- `Export.bas` - Report generation
+- `CSVImporter.vg` - File parsing
+- `DataAnalysis.vg` - Statistical analysis
+- `Charts.vg` - Data visualization
+- `Export.vg` - Report generation
 
 **Code Preview**:
 ```vb
-' DataAnalysis.bas - Statistical analysis functions
+' DataAnalysis.vg - Statistical analysis functions
 Option Explicit On
 Option Strict On
 
@@ -584,10 +584,10 @@ End Class
 *Connect to databases and generate custom reports*
 
 **Files**: `examples/data/database_reporter/`
-- `DatabaseConnection.bas` - Multi-database support
-- `QueryBuilder.bas` - Dynamic SQL generation
-- `ReportEngine.bas` - Report formatting
-- `Scheduler.bas` - Automated reports
+- `DatabaseConnection.vg` - Multi-database support
+- `QueryBuilder.vg` - Dynamic SQL generation
+- `ReportEngine.vg` - Report formatting
+- `Scheduler.vg` - Automated reports
 
 ## 🎓 Educational Projects
 
@@ -595,28 +595,28 @@ End Class
 *Interactive math problems for different skill levels*
 
 **Files**: `examples/educational/math_tutor/`
-- `ProblemGenerator.bas` - Math problem creation
-- `ProgressTracker.bas` - Student progress
-- `Difficulty.bas` - Adaptive difficulty
-- `Rewards.bas` - Achievement system
+- `ProblemGenerator.vg` - Math problem creation
+- `ProgressTracker.vg` - Student progress
+- `Difficulty.vg` - Adaptive difficulty
+- `Rewards.vg` - Achievement system
 
 ### 19. Typing Tutor (Intermediate)
 *Learn touch typing with lessons and games*
 
 **Files**: `examples/educational/typing_tutor/`
-- `Lesson.bas` - Typing lessons
-- `WordGame.bas` - Typing games
-- `Statistics.bas` - WPM and accuracy
-- `Keyboard.bas` - Virtual keyboard
+- `Lesson.vg` - Typing lessons
+- `WordGame.vg` - Typing games
+- `Statistics.vg` - WPM and accuracy
+- `Keyboard.vg` - Virtual keyboard
 
 ### 20. Language Learning Flashcards (Advanced)
 *Spaced repetition flashcard system*
 
 **Files**: `examples/educational/flashcards/`
-- `Card.bas` - Flashcard model
-- `SpacedRepetition.bas` - Learning algorithm
-- `Deck.bas` - Card organization
-- `Progress.bas` - Learning analytics
+- `Card.vg` - Flashcard model
+- `SpacedRepetition.vg` - Learning algorithm
+- `Deck.vg` - Card organization
+- `Progress.vg` - Learning analytics
 
 ## 🔧 System Utilities
 
@@ -624,19 +624,19 @@ End Class
 *Monitor CPU, memory, disk, and network usage*
 
 **Files**: `examples/system/monitor/`
-- `SystemInfo.bas` - Hardware information
-- `Performance.bas` - Performance metrics
-- `Alerts.bas` - System alerts
-- `Logging.bas` - Performance logging
+- `SystemInfo.vg` - Hardware information
+- `Performance.vg` - Performance metrics
+- `Alerts.vg` - System alerts
+- `Logging.vg` - Performance logging
 
 ### 22. Backup Manager (Intermediate-Advanced)
 *Automated file backup with scheduling*
 
 **Files**: `examples/system/backup_manager/`
-- `BackupEngine.bas` - Backup operations
-- `Schedule.bas` - Backup scheduling
-- `Compression.bas` - File compression
-- `Encryption.bas` - Backup encryption
+- `BackupEngine.vg` - Backup operations
+- `Schedule.vg` - Backup scheduling
+- `Compression.vg` - File compression
+- `Encryption.vg` - Backup encryption
 
 ## 📱 Cross-Platform Applications
 
@@ -644,19 +644,19 @@ End Class
 *Rich text notes with synchronization*
 
 **Files**: `examples/cross_platform/notes/`
-- `Note.bas` - Note data model
-- `RichTextEditor.bas` - Text editing
-- `Sync.bas` - Cloud synchronization
-- `Search.bas` - Full-text search
+- `Note.vg` - Note data model
+- `RichTextEditor.vg` - Text editing
+- `Sync.vg` - Cloud synchronization
+- `Search.vg` - Full-text search
 
 ### 24. Todo Manager (Beginner-Intermediate)
 *Task management with categories and reminders*
 
 **Files**: `examples/cross_platform/todo/`
-- `Task.bas` - Task model
-- `Category.bas` - Task categories
-- `Reminder.bas` - Notification system
-- `Export.bas` - Data export
+- `Task.vg` - Task model
+- `Category.vg` - Task categories
+- `Reminder.vg` - Notification system
+- `Export.vg` - Data export
 
 ## 🎯 Getting Started with Examples
 
@@ -686,7 +686,7 @@ visualgasic PongGame.vgproj
 ```
 example_project/
 ├── src/                    # Source code files
-│   ├── Main.bas           # Main application file
+│   ├── Main.vg           # Main application file
 │   ├── Classes/           # Class definitions
 │   └── Forms/             # UI forms (if applicable)
 ├── assets/                # Images, sounds, data files

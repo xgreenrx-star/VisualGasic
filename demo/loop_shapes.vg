@@ -1,0 +1,92 @@
+Function LoopStepNeg(ByVal startValue As Long, ByVal endValue As Long) As Long
+    Dim i As Long
+    Dim sum As Long
+
+    If startValue < endValue Then
+        LoopStepNeg = 0
+        Exit Function
+    End If
+
+    For i = startValue To endValue Step -1
+        sum = sum + i
+    Next i
+
+    LoopStepNeg = sum
+End Function
+
+Function LoopStepVariable(ByVal startValue As Long, ByVal endValue As Long, ByVal delta As Long) As Long
+    Dim i As Long
+    Dim sum As Long
+
+    If delta = 0 Then
+        LoopStepVariable = 0
+        Exit Function
+    End If
+
+    If delta > 0 And startValue > endValue Then
+        LoopStepVariable = 0
+        Exit Function
+    End If
+
+    If delta < 0 And startValue < endValue Then
+        LoopStepVariable = 0
+        Exit Function
+    End If
+
+    For i = startValue To endValue Step delta
+        sum = sum + i
+    Next i
+
+    LoopStepVariable = sum
+End Function
+
+Function LoopStepFloat(ByVal limitValue As Double, ByVal delta As Double) As Double
+    Dim x As Double
+    Dim sum As Double
+
+    If delta = 0 Then
+        LoopStepFloat = 0
+        Exit Function
+    End If
+
+    If delta > 0 Then
+        For x = 0 To limitValue Step delta
+            sum = sum + x
+        Next x
+    Else
+        For x = 0 To limitValue Step delta
+            sum = sum + x
+        Next x
+    End If
+
+    LoopStepFloat = sum
+End Function
+
+Function LoopNestedFloat(ByVal outerLimit As Double, ByVal outerStep As Double, ByVal innerLimit As Double, ByVal innerStep As Double) As Double
+    Dim outer As Double
+    Dim inner As Double
+    Dim sum As Double
+
+    If outerStep = 0 Or innerStep = 0 Then
+        LoopNestedFloat = 0
+        Exit Function
+    End If
+
+    If (outerStep > 0 And outerLimit < 0) Or (outerStep < 0 And outerLimit > 0) Then
+        LoopNestedFloat = 0
+        Exit Function
+    End If
+
+    If (innerStep > 0 And innerLimit < 0) Or (innerStep < 0 And innerLimit > 0) Then
+        LoopNestedFloat = 0
+        Exit Function
+    End If
+
+    For outer = 0 To outerLimit Step outerStep
+        For inner = 0 To innerLimit Step innerStep
+            sum = sum + outer + inner
+        Next inner
+    Next outer
+
+    LoopNestedFloat = sum
+End Function

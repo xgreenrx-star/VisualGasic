@@ -1,0 +1,118 @@
+' Smart Bracket Completion Test
+' When you type "}" after a For/While/If/Sub/Function, 
+' VisualGasic will suggest the appropriate closing keyword!
+
+Sub TestBracketCompletion()
+    
+    ' Example 1: For Loop
+    ' Type "For i = 1 To 10" then press Enter, type code, then type "}"
+    ' VisualGasic will suggest "Next i"
+    For i = 1 To 10
+        Print "Count: " & i
+    Next i
+    ' TRY IT: Type "}" before "Next i" and it will suggest "Next i"
+    
+    ' Example 2: While Loop  
+    ' Type "While x < 100" then type "}"
+    ' VisualGasic will suggest "Wend"
+    Dim x As Integer = 0
+    While x < 100
+        x = x + 10
+    Wend
+    ' TRY IT: Type "}" before "Wend" and it will suggest "Wend"
+    
+    ' Example 3: If Statement
+    ' Type "If condition Then" then type "}"
+    ' VisualGasic will suggest "End If"
+    If x > 50 Then
+        Print "Greater than 50"
+    End If
+    ' TRY IT: Type "}" before "End If" and it will suggest "End If"
+    
+    ' Example 4: Nested Blocks
+    ' Bracket completion tracks nesting levels!
+    For j = 1 To 5
+        If j Mod 2 = 0 Then
+            Print "Even: " & j
+        End If
+        ' TRY IT: Type "}" before "End If" suggests "End If"
+    Next j
+    ' TRY IT: Type "}" before "Next j" suggests "Next j"
+
+End Sub
+
+Function CalculateTotal(amount As Double) As Double
+    ' Example 5: Function blocks
+    ' Type "}" at the end will suggest "End Function"
+    Dim result As Double = amount * 1.1
+    Return result
+End Function
+' TRY IT: Type "}" before "End Function" and it will suggest "End Function"
+
+' Example 6: Select Case
+Sub TestSelectCase()
+    Dim grade As String = "A"
+    
+    Select Case grade
+        Case "A"
+            Print "Excellent!"
+        Case "B"
+            Print "Good"
+        Case Else
+            Print "Try harder"
+    End Select
+    ' TRY IT: Type "}" before "End Select" and it will suggest "End Select"
+
+End Sub
+' TRY IT: Type "}" before "End Sub" and it will suggest "End Sub"
+
+' Example 7: With blocks
+Sub TestWith()
+    Dim player As Node2D = CreateActor2D("player", 0, 0)
+    
+    With player
+        .position.x = 100
+        .position.y = 200
+    End With
+    ' TRY IT: Type "}" before "End With" and it will suggest "End With"
+    
+End Sub
+' TRY IT: Type "}" before "End Sub" and it will suggest "End Sub"
+
+' Example 8: Do...Loop
+Sub TestDoLoop()
+    Dim counter As Integer = 0
+    
+    Do
+        counter = counter + 1
+        Print counter
+    Loop
+    ' TRY IT: Type "}" before "Loop" and it will suggest "Loop"
+    
+End Sub
+' TRY IT: Type "}" before "End Sub" and it will suggest "End Sub"
+
+' INSTRUCTIONS:
+' ==============
+' 1. Open this file in Godot Editor with VisualGasic extension loaded
+' 2. Position cursor at lines marked "TRY IT"  
+' 3. Type "}" character
+' 4. VisualGasic will automatically suggest the appropriate closing keyword!
+' 5. Press Tab or Enter to accept the completion
+'
+' SUPPORTED TRIGGERS:
+' - }  (closing brace) - Main trigger for block completion
+' - ]  (closing bracket) - Alternative trigger
+'
+' SUPPORTED BLOCK TYPES:
+' - For...Next (with variable name)
+' - While...Wend
+' - Do...Loop
+' - If...End If
+' - Select...End Select
+' - With...End With
+' - Sub...End Sub
+' - Function...End Function
+' - Property...End Property
+' - Class...End Class
+' - Try...End Try

@@ -1,11 +1,11 @@
 extends SceneTree
 
 func _init():
-    print("Running test_modern.bas...")
+    print("Running test_modern.vg...")
     var script = VisualGasicScript.new()
-    var fa = FileAccess.open("res://demo/test_modern.bas", FileAccess.READ)
+    var fa = FileAccess.open("res://demo/test_modern.vg", FileAccess.READ)
     if fa == null:
-        print("Could not open test_modern.bas")
+        print("Could not open test_modern.vg")
         quit()
         return
         

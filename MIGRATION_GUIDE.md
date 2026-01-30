@@ -461,7 +461,7 @@ When modernizing a file:
 
 1. **Start here**: [MODERN_SYNTAX_QUICK_REF.md](MODERN_SYNTAX_QUICK_REF.md)
 2. **Full details**: [MODERN_FEATURES.md](MODERN_FEATURES.md)
-3. **Examples**: [examples/test_modern_working.bas](examples/test_modern_working.bas)
+3. **Examples**: [examples/test_modern_working.vg](examples/test_modern_working.vg)
 4. **This guide**: You are here!
 
 ---
@@ -471,7 +471,7 @@ When modernizing a file:
 If you encounter issues:
 1. Check [MODERN_FEATURES.md](MODERN_FEATURES.md) for status
 2. Verify syntax in [MODERN_SYNTAX_QUICK_REF.md](MODERN_SYNTAX_QUICK_REF.md)
-3. Look at [examples/test_modern_working.bas](examples/test_modern_working.bas)
+3. Look at [examples/test_modern_working.vg](examples/test_modern_working.vg)
 
 ---
 

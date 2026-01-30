@@ -59,7 +59,7 @@ static func import_project(path: String):
 		
 		# Save Code
 		if code != "":
-			var bas_path = "res://mixed/" + root.name + ".bas"
+			var bas_path = "res://mixed/" + root.name + ".vg"
 			var bf = FileAccess.open(bas_path, FileAccess.WRITE)
 			bf.store_string(code)
 			bf.close()

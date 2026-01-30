@@ -5,12 +5,12 @@ func _init():
     print("User Args: ", args)
     var file = ""
     for a in args:
-        if a.ends_with(".bas"):
+        if a.ends_with(".vg"):
             file = a
             break
             
     if file == "":
-        print("Usage: godot --script run_test.gd -- file.bas")
+        print("Usage: godot --script run_test.gd -- file.vg")
         quit()
         return
 

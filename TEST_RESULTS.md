@@ -10,8 +10,8 @@ We executed the full test suite in `examples/` using the Godot 4.5.1 headless en
 
 ## Fixed Issues
 During testing, we identified and fixed path resolution errors in:
-- `run_angle_test.gd`: Fixed incorrect path `res://examples/pong/pong.bas` -> `res://pong/pong.bas`.
-- `run_test_integer.gd`: Fixed incorrect path `res://examples/test_integer.bas` -> `res://test_integer.bas`.
+- `run_angle_test.gd`: Fixed incorrect path `res://examples/pong/pong.vg` -> `res://pong/pong.vg`.
+- `run_test_integer.gd`: Fixed incorrect path `res://examples/test_integer.vg` -> `res://test_integer.vg`.
 
 ## Remaining Issues
 

@@ -1,4 +1,7 @@
 #include "visual_gasic_language.h"
+#include "visual_gasic_bracket_completion.h"
+#include "visual_gasic_snippets.h"
+#include "visual_gasic_cbm_completion.h"
 #include <godot_cpp/core/class_db.hpp>
 
 using namespace godot;
@@ -44,7 +47,7 @@ String VisualGasicLanguage::_get_type() const {
 }
 
 String VisualGasicLanguage::_get_extension() const {
-    return "bas";
+    return "vg";
 }
 
 void VisualGasicLanguage::_finish() {
@@ -245,47 +248,123 @@ bool VisualGasicLanguage::_overrides_external_editor() {
 Dictionary VisualGasicLanguage::_complete_code(const String &p_code, const String &p_path, Object *p_owner) const {
     Dictionary result;
     result["result"] = OK;
-    
-    // We should parse current token or use Godot's cursor info?
-    // Godot doesn't pass cursor pos in this call signature (in 3.x/4.0), 
-    // Wait, 4.x GDExtension signature of _complete_code is (code, path, owner).
-    // It assumes we complete at the end of code? 
-    // Or it expects us to parse invalid code. The p_code usually contains incomplete code marker?
-    // Actually, usually Editors pass the whole code, but we don't have cursor column/row.
-    // However, ScriptLanguage::complete_code has (code, path, owner, custom_options, force, call_hint).
-    // GDExtension might differ. 
-    // Let's assume p_code is the Full Source and we have to guess context?
-    // Actually, Godot's TextEdit usually sends the code *up to* the cursor if called improperly,
-    // BUT the standard API takes the full source code.
-    // The C++ API for complete_code in Godot 4 seems to omit cursor pos in this virtual function in extension_api sometimes?
-    // Let's check header again in `godot-cpp`.
-    // ScriptLanguageExtension::_complete_code(p_code, p_path, p_owner).
-    
-    // Without cursor position, we can only return ALL possibilities or guess based on end of string?
-    // Usually Godot calls this when Ctrl+Space is pressed.
-    // If we assume p_code is truncated to cursor (some editors do this), we check the last word.
-    // But usually it's full code. This API seems impossible to use without cursor pos unless Godot sets it on the instance?
-    // Actually, look at GDScript: it uses `code_completion` on parser.
-    // In GDExtension, `_code_complete` might not be enough.
-    // There is no `_lookup_code` or `_complete_code` with cursor in `ScriptLanguageExtension`?
-    // Wait, let's look at `_complete_code` signature carefully in my file. 
-    // Dictionary VisualGasicLanguage::_complete_code(const String &p_code, const String &p_path, Object *p_owner) const
-    
-    // If I can't know where the cursor is, I can't provide context-sensitive completion.
-    // However, maybe p_code *IS* the code up to the cursor?
-    // Let's assume p_code is what we analyze.
-    // Let's scan the last token in p_code.
-    
-    // 1. Get List of Keywords
-    PackedStringArray keywords = _get_reserved_words();
-    
-    // 2. Add Built-in Functions
-    keywords.push_back("CreateActor2D");
-    keywords.push_back("AI_Chase");
-    keywords.push_back("LoadForm");
-
     Array options;
-    String clean_code = p_code.strip_edges(false, true); 
+    
+    String clean_code = p_code.strip_edges(false, true);
+    
+    if (!clean_code.is_empty()) {
+        char32_t last_char = clean_code[clean_code.length() - 1];
+        
+        // 0. CBM-STYLE COMPLETION: Check for two-letter abbreviations
+        if (clean_code.length() >= 2) {
+            String last_two = clean_code.substr(clean_code.length() - 2, 2);
+            
+            // Check if this could be a CBM abbreviation
+            if (CBMCompletionHelper::should_trigger_cbm_completion(clean_code, last_two)) {
+                Array cbm_completions = CBMCompletionHelper::get_cbm_completions(last_two);
+                
+                if (cbm_completions.size() > 0) {
+                    // If unambiguous, auto-expand immediately
+                    if (cbm_completions.size() == 1) {
+                        Dictionary opt;
+                        opt["kind"] = ScriptLanguageExtension::CODE_COMPLETION_KIND_PLAIN_TEXT;
+                        opt["display"] = String(cbm_completions[0]) + " (CBM: " + last_two.to_upper() + ")";
+                        opt["insert_text"] = "\b\b" + String(cbm_completions[0]); // Delete 2 chars, insert expansion
+                        opt["location"] = 0;
+                        options.push_back(opt);
+                        
+                        result["options"] = options;
+                        result["forced"] = true;
+                        result["result"] = OK;
+                        return result;
+                    }
+                    
+                    // If ambiguous, show all options
+                    for (int i = 0; i < cbm_completions.size(); i++) {
+                        Dictionary opt;
+                        opt["kind"] = ScriptLanguageExtension::CODE_COMPLETION_KIND_PLAIN_TEXT;
+                        opt["display"] = String(cbm_completions[i]) + " (CBM: " + last_two.to_upper() + ")";
+                        opt["insert_text"] = "\b\b" + String(cbm_completions[i]);
+                        opt["location"] = 0;
+                        options.push_back(opt);
+                    }
+                    
+                    result["options"] = options;
+                    result["forced"] = true;
+                    result["result"] = OK;
+                    return result;
+                }
+            }
+        }
+        
+        // 1. SMART BRACE COMPLETION: "{" fills in "Then", "To", etc.
+        if (last_char == '{') {
+            // Get the current line
+            PackedStringArray lines = p_code.split("\n");
+            String current_line = lines.size() > 0 ? lines[lines.size() - 1] : "";
+            
+            String completion = SnippetHelper::detect_brace_keyword_completion(current_line);
+            if (!completion.is_empty()) {
+                Dictionary opt;
+                opt["kind"] = ScriptLanguageExtension::CODE_COMPLETION_KIND_PLAIN_TEXT;
+                opt["display"] = completion;
+                opt["insert_text"] = "\b" + completion; // \b to delete the {
+                opt["location"] = 0;
+                options.push_back(opt);
+                
+                result["options"] = options;
+                result["forced"] = true;
+                result["result"] = OK;
+                return result;
+            }
+        }
+        
+        // 2. BRACKET COMPLETION: "}" fills in "Next", "End If", etc.
+        if (BracketCompletionHelper::is_trigger_char(last_char)) {
+            int line_count = p_code.count("\n");
+            String closing_keyword = BracketCompletionHelper::detect_closing_keyword(p_code, line_count);
+            
+            if (!closing_keyword.is_empty()) {
+                Dictionary opt;
+                opt["kind"] = ScriptLanguageExtension::CODE_COMPLETION_KIND_PLAIN_TEXT;
+                opt["display"] = closing_keyword;
+                opt["insert_text"] = "\b" + closing_keyword;
+                opt["location"] = 0;
+                options.push_back(opt);
+                
+                result["options"] = options;
+                result["forced"] = true;
+                result["result"] = OK;
+                return result;
+            }
+        }
+        
+        // 3. PARAMETER HINTS: "(" shows function signature
+        if (last_char == '(') {
+            PackedStringArray lines = p_code.split("\n");
+            String current_line = lines.size() > 0 ? lines[lines.size() - 1] : "";
+            String func_name = SnippetHelper::extract_function_name(current_line);
+            
+            if (!func_name.is_empty()) {
+                Dictionary hint = SnippetHelper::get_parameter_hint(func_name);
+                if (hint.get("found", false)) {
+                    Dictionary opt;
+                    opt["kind"] = ScriptLanguageExtension::CODE_COMPLETION_KIND_FUNCTION;
+                    opt["display"] = String(hint["signature"]);
+                    opt["insert_text"] = "";  // Don't insert, just show hint
+                    opt["location"] = 0;
+                    options.push_back(opt);
+                    
+                    result["options"] = options;
+                    result["forced"] = true;
+                    result["result"] = OK;
+                    return result;
+                }
+            }
+        }
+    }
+    
+    // 4. MEMBER ACCESS COMPLETION
     if (clean_code.ends_with(".")) {
          options.push_back(create_completion_option("text", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Text Property"));
          options.push_back(create_completion_option("visible", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Visible Property"));
@@ -295,7 +374,57 @@ Dictionary VisualGasicLanguage::_complete_code(const String &p_code, const Strin
          result["result"] = OK;
          return result;
     }
-
+    
+    // 5. SNIPPET COMPLETION
+    // Check if user typed a snippet trigger
+    int len = p_code.length();
+    String last_word = "";
+    for(int i = len - 1; i >= 0; i--) {
+        char32_t c = p_code[i];
+        if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_') {
+            last_word = String::chr(c) + last_word;
+        } else {
+            break;
+        }
+    }
+    
+    // Check if it's a snippet trigger
+    if (!last_word.is_empty()) {
+        Dictionary snippet = SnippetHelper::get_snippet(last_word.to_lower());
+        if (!snippet.is_empty()) {
+            Dictionary opt;
+            opt["kind"] = ScriptLanguageExtension::CODE_COMPLETION_KIND_PLAIN_TEXT;
+            opt["display"] = String(snippet["trigger"]) + " - " + String(snippet["description"]);
+            opt["insert_text"] = String(snippet["insert_text"]);
+            opt["location"] = 0;
+            options.push_back(opt);
+        }
+    }
+    
+    // Also show all available snippets as suggestions
+    Array all_snippets = SnippetHelper::get_all_snippets();
+    for (int i = 0; i < all_snippets.size(); i++) {
+        Dictionary snip = all_snippets[i];
+        String trigger = snip["trigger"];
+        
+        // Filter by prefix if we have one
+        if (last_word.is_empty() || trigger.begins_with(last_word.to_lower())) {
+            Dictionary opt;
+            opt["kind"] = ScriptLanguageExtension::CODE_COMPLETION_KIND_PLAIN_TEXT;
+            opt["display"] = trigger + " - " + String(snip["description"]);
+            opt["insert_text"] = String(snip["insert_text"]);
+            opt["location"] = 0;
+            options.push_back(opt);
+        }
+    }
+    
+    // 6. KEYWORD AND FUNCTION COMPLETION
+    PackedStringArray keywords = _get_reserved_words();
+    
+    // Add Built-in Functions
+    keywords.push_back("CreateActor2D");
+    keywords.push_back("AI_Chase");
+    keywords.push_back("LoadForm");
     keywords.push_back("AI_Wander");
     keywords.push_back("AI_Patrol");
     keywords.push_back("AI_Stop");
@@ -333,33 +462,14 @@ Dictionary VisualGasicLanguage::_complete_code(const String &p_code, const Strin
     keywords.push_back("TypeName");
     keywords.push_back("Set");
     
-    // 3. Build Options
-    // Array options; // Already declared above
-    options.clear();
-    
-    // If we want to filter by prefix, we need the last word.
-    // Simple scanner for last word:
-    int len = p_code.length();
-    String prefix = "";
-    for(int i=len-1; i>=0; i--) {
-        char32_t c = p_code[i];
-        if ( (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' ) {
-            prefix = String::chr(c) + prefix;
-        } else {
-            break;
-        }
-    }
-    
-    // If prefix is empty, return all? Or none? Usually none if invoked without trigger.
-    // But if invoked explicitly (Ctrl+Space), return all.
+    // Build keyword completion options
+    // Use last_word from snippet section above as prefix filter
     
     for(int i=0; i<keywords.size(); i++) {
         String k = keywords[i];
-        if (prefix.is_empty() || k.begins_with(prefix) || k.to_lower().begins_with(prefix.to_lower())) {
+        if (last_word.is_empty() || k.begins_with(last_word) || k.to_lower().begins_with(last_word.to_lower())) {
              Dictionary opt;
-             opt["kind"] = 1; // Script.KIND_KEYWORD (Constants not available easily, assume 0 or 1)
-             // KIND values: CLASS=0, FUNCTION=1, VAIABLE=2, CONSTANT=3 ...
-             // Let's use FUNCTION(1) for all for now, or PLAIN_TEXT.
+             opt["kind"] = 1;
              opt["display"] = k;
              opt["insert_text"] = k;
              opt["completion_text"] = k;

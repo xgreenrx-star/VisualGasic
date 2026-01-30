@@ -17,7 +17,7 @@ func _init():
     txt.name = "Text1"
     form.add_child(txt)
     
-    var script = load("res://test_form.bas")
+    var script = load("res://test_form.vg")
     if script == null:
         print("Error: Could not load script")
         quit()

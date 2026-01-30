@@ -2,7 +2,7 @@
 extends SceneTree
 
 func _init():
-    var bas_path = "res://test_modern.bas"
+    var bas_path = "res://test_modern.vg"
     print("Regression test: instantiate and free VisualGasicScript")
 
     if not ClassDB.class_exists("VisualGasicScript"):

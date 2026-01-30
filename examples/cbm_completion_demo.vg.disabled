@@ -1,0 +1,404 @@
+' ============================================================================
+' CBM-STYLE COMPLETION DEMONSTRATION
+' ============================================================================
+' Experience authentic two-letter keyword abbreviations!
+' ============================================================================
+
+' ============================================================================
+' QUICK START GUIDE
+' ============================================================================
+' CBM-style completion uses two-letter abbreviations:
+' Type two letters and the keyword expands automatically!
+'
+' Examples:
+' PR → Print
+' FO → For  
+' IF → If
+' TH → Then
+' NE → Next
+' ============================================================================
+
+' ============================================================================
+' UNAMBIGUOUS ABBREVIATIONS (Auto-Expand Immediately)
+' ============================================================================
+' These expand automatically as soon as you type them:
+
+Sub DemoUnambiguous()
+    ' Type: IF x > 10 TH
+    ' Result: If x > 10 Then
+    If x > 10 Then
+        ' Type: PR "Hello"
+        ' Result: Print "Hello"
+        Print "Hello"
+    ' Type: EL
+    ' Result: Else (shows ElseIf option too)
+    Else
+        Print "World"
+    ' Type: EN IF
+    ' Result: End If
+    End If
+    
+    ' Type: FO i = 1 TO 10
+    ' Result: For i = 1 To 10
+    For i = 1 To 10
+        Print i
+    ' Type: NE
+    ' Result: Next
+    Next i
+    
+    ' Type: WH i < 100
+    ' Result: While (or With/When - shows menu)
+    While i < 100
+        i = i + 1
+    ' Type: WE
+    ' Result: Wend
+    Wend
+    
+    ' Type: DO
+    ' Result: Do
+    Do
+        ' code
+    ' Type: LO
+    ' Result: Loop
+    Loop
+End Sub
+
+
+' ============================================================================
+' COMPLETE CBM ABBREVIATION REFERENCE
+' ============================================================================
+
+' CONTROL FLOW:
+' =============
+' IF  → If
+' TH  → Then
+' EL  → Else (or ElseIf)
+' EN  → End (or Enum)
+' FO  → For (or Format)
+' TO  → To
+' ST  → Step
+' NE  → Next
+' WH  → While (or With, When)
+' WE  → Wend
+' DO  → Do
+' LO  → Loop
+' UN  → Until
+' SE  → Select (or Set)
+' CA  → Case
+' EA  → Each
+' GO  → GoTo
+' GS  → GoSub
+' EX  → Exit
+' CO  → Continue
+' RE  → Return (or ReDim)
+
+' DECLARATIONS:
+' =============
+' DI  → Dim
+' SU  → Sub
+' FU  → Function
+' PR  → Print (or Private, Property)
+' PU  → Public
+' FR  → Friend
+' CL  → Class
+' SR  → Static (or String, Structure)
+' MO  → Module
+' NA  → Namespace
+' TY  → TypeOf (or Type)
+' AS  → As
+' GE  → Get
+
+' EXCEPTION HANDLING:
+' ===================
+' TR  → Try
+' CH  → Catch
+' FI  → Finally
+' TW  → Throw
+
+' OPERATORS & KEYWORDS:
+' =====================
+' AN  → And (or AndAlso)
+' OR  → Or (or OrElse)
+' NT  → Not
+' XO  → Xor
+' IS  → Is
+' OF  → Of
+' ME  → Me
+' BY  → ByVal
+' BR  → ByRef
+
+' OBJECT-ORIENTED:
+' ================
+' IM  → Implements
+' IN  → Inherits
+' OV  → Overrides
+' MU  → MustOverride
+' NO  → NotOverridable
+' SH  → Shared
+
+' MODERN FEATURES:
+' ================
+' AS  → Async
+' AW  → Await
+' TA  → Task
+' PA  → Parallel
+' MA  → Match
+' OP  → Option
+' US  → Using
+
+
+' ============================================================================
+' REAL WORLD EXAMPLES
+' ============================================================================
+
+' Example 1: Traditional Loop
+' ----------------------------------
+' Type: FO i = 1 TO 10
+'       PR i
+'       NE
+Sub Example1()
+    For i = 1 To 10
+        Print i
+    Next i
+End Sub
+
+' Example 2: If-Then-Else
+' ------------------------
+' Type: IF x > 5 TH
+'       PR "Large"
+'       EL
+'       PR "Small"
+'       EN IF
+Sub Example2(x As Integer)
+    If x > 5 Then
+        Print "Large"
+    Else
+        Print "Small"
+    End If
+End Sub
+
+' Example 3: While Loop
+' ----------------------
+' Type: WH counter < 100
+'       counter = counter + 1
+'       WE
+Sub Example3()
+    Dim counter As Integer = 0
+    While counter < 100
+        counter = counter + 1
+    Wend
+End Sub
+
+' Example 4: Select Case
+' -----------------------
+' Type: SE CA value
+'       CA 1
+'       PR "One"
+'       CA 2
+'       PR "Two"
+'       EN SE
+Sub Example4(value As Integer)
+    Select Case value
+        Case 1
+            Print "One"
+        Case 2
+            Print "Two"
+    End Select
+End Sub
+
+' Example 5: Try-Catch
+' ---------------------
+' Type: TR
+'       ' code
+'       CH ex AS Exception
+'       PR ex.Message
+'       EN TR
+Sub Example5()
+    Try
+        ' risky code
+    Catch ex As Exception
+        Print ex.Message
+    End Try
+End Sub
+
+' Example 6: Function with Type
+' ------------------------------
+' Type: FU Calculate(x AS Integer) AS Integer
+'       RE x * 2
+'       EN FU
+Function Example6(x As Integer) As Integer
+    Return x * 2
+End Function
+
+' Example 7: Class Definition
+' ----------------------------
+' Type: CL MyClass
+'       PR _value AS Integer
+'       SU New()
+'       EN SU
+'       EN CL
+Class Example7
+    Private _value As Integer
+    
+    Sub New()
+        _value = 0
+    End Sub
+End Class
+
+
+' ============================================================================
+' AMBIGUOUS ABBREVIATIONS (Shows Menu)
+' ============================================================================
+' These show a selection menu with multiple options:
+
+' PR → [1] Print  [2] Private  [3] Property
+' FO → [1] For  [2] Format
+' WH → [1] While  [2] With  [3] When
+' SE → [1] Select  [2] Set
+' EN → [1] End  [2] Enum
+' EL → [1] Else  [2] ElseIf
+' RE → [1] Return  [2] ReDim
+' TY → [1] TypeOf  [2] Type
+' SR → [1] Static  [2] String  [3] Structure
+' AN → [1] And  [2] AndAlso
+' OR → [1] Or  [2] OrElse
+
+
+' ============================================================================
+' SAFETY FEATURES
+' ============================================================================
+' CBM completion is CONTEXT-AWARE and won't interfere with your code!
+
+Sub SafetyDemo()
+    ' ✓ SAFE: Won't expand inside identifiers
+    Dim myProduct As String
+    Dim priceList As Array
+    Dim formatData As String
+    
+    ' ✓ SAFE: Won't expand after dot (member access)
+    Dim obj As Object
+    obj.property = "value"
+    
+    ' ✓ SAFE: Won't expand in strings
+    Dim text As String = "PR is an abbreviation"
+    
+    ' ✓ SAFE: Won't expand in comments
+    ' PR would mean Print here but it's a comment
+    
+    ' ✓ WORKS: Only expands at statement boundaries
+    Dim counter As Integer = 0
+    ' Type: IF counter > 0 TH
+    If counter > 0 Then
+        ' Type: PR counter
+        Print counter
+    ' Type: EN IF
+    End If
+    
+    ' ✓ WORKS: After Then, Else, Do, etc.
+    If True Then PR "After Then"  ' PR expands here
+    If False Then Print "No" Else PR "After Else"  ' PR expands here
+End Sub
+
+
+' ============================================================================
+' COMBINING WITH OTHER COMPLETION FEATURES
+' ============================================================================
+' CBM-style works great with snippets, brackets, and braces!
+
+Sub CombinedFeatures()
+    ' Use CBM for quick keywords:
+    ' Type: FO i = 1 TO 10
+    For i = 1 To 10
+        ' Use IF + TH for condition:
+        ' Type: IF i MO 2 = 0 TH
+        If i Mod 2 = 0 Then
+            ' Use PR for output:
+            ' Type: PR i
+            Print i
+        ' Use "}" to close If:
+        ' Type: }
+        End If
+    ' Use "}" to close For with variable:
+    ' Type: }
+    Next i
+    
+    ' Or use snippets for full structures:
+    ' Type: tryc + Tab
+    Try
+        ' code
+    Catch ex As Exception
+        Print ex.Message
+    End Try
+    
+    ' Or use "{" for keyword completion:
+    ' Type: If x > 10 {
+    If x > 10 Then
+        Print "works"
+    End If
+End Sub
+
+
+' ============================================================================
+' PRACTICE AREA
+' ============================================================================
+' Try typing these CBM abbreviations:
+
+' Example 1: Type "FO i = 1 TO 10"
+
+
+' Example 2: Type "IF x > 5 TH"
+
+
+' Example 3: Type "PR" followed by your text
+
+
+' Example 4: Type "WH" condition
+
+
+' Example 5: Type "SE CA" variable
+
+
+' Example 6: Type "TR" for try-catch
+
+
+' Example 7: Type "DI counter AS Integer"
+
+
+' Example 8: Type "FU MyFunc() AS String"
+
+
+' ============================================================================
+' QUICK REFERENCE CARD
+' ============================================================================
+'
+' MOST COMMON CBM ABBREVIATIONS:
+' ===============================
+' PR  → Print          IF  → If             TH  → Then
+' FO  → For            TO  → To             NE  → Next
+' WH  → While          WE  → Wend           DO  → Do
+' LO  → Loop           DI  → Dim            AS  → As
+' SU  → Sub            FU  → Function       EN  → End
+' RE  → Return         EL  → Else           SE  → Select
+' CA  → Case           TR  → Try            CH  → Catch
+' ST  → Step           GO  → GoTo           EX  → Exit
+'
+' SAFETY RULES:
+' =============
+' ✓ Only triggers at statement start or after whitespace
+' ✓ Won't expand inside identifiers (myProduct stays myProduct)
+' ✓ Won't expand after dot (obj.property stays as-is)
+' ✓ Won't expand in strings or comments
+' ✓ Shows menu for ambiguous abbreviations
+' ✓ Auto-expands unambiguous abbreviations
+'
+' USAGE TIPS:
+' ===========
+' • Type two letters to trigger
+' • Works best at line start or after keywords
+' • Press Esc to cancel if unwanted
+' • Use with other completion features (snippets, brackets)
+' • Combines with "{" and "}" triggers
+'
+' ============================================================================
+
+' End of CBM-Style Completion Demo

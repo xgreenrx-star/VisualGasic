@@ -58,15 +58,15 @@ func _import(source_file, save_path, options, r_platform_variants, r_gen_files):
 	# Handle the CODE sidecar
 	# Importers shouldn't write to source folder, but for legacy migration usage it's often desired.
 	# However, strictly, we should probably embed the code as metadata OR write a generated script.
-	# Let's write the .bas file to the source directory IF it doesn't exist?
+	# Let's write the .vg file to the source directory IF it doesn't exist?
 	# Or better: Save it as a string in the scene metadata 'vb_code'
 	
 	# To be safe and compliant with Godot Import system, we just map the Visuals.
 	# The user can use the Tool Menu for the "Project conversion" which handles Code.
-	# But let's try to save the .bas file next to the source if possible.
+	# But let's try to save the .vg file next to the source if possible.
 	
     # NOTE: Writing to source_file directory during import can cause import loops if not careful.
-	# We will skip writing the .bas file in the automatic importer to avoid loops.
+	# We will skip writing the .vg file in the automatic importer to avoid loops.
     # The automatic importer is just for viewing/using the Form Layout.
 	
 	root.queue_free()

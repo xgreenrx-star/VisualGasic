@@ -4,6 +4,9 @@ extends VBoxContainer
 var editor_plugin: EditorPlugin
 var object_list: OptionButton
 var event_list: OptionButton
+var refresh_button: Button
+const REFRESH_TEXT = "Refresh Object List"
+const REFRESH_TEXT_THRESHOLD := 220
 
 # Standard VB6 Events
 const EVENTS_COMMON = ["Click", "DblClick", "MouseDown", "MouseUp", "MouseMove", "KeyDown", "KeyUp", "KeyPress"]
@@ -44,10 +47,47 @@ func _init():
 	add_child(hbox_evt)
 	
 	# Refresh Button (Optional, but useful)
-	var btn_refresh = Button.new()
-	btn_refresh.text = "Refresh Object List"
-	btn_refresh.pressed.connect(refresh_objects)
-	add_child(btn_refresh)
+	refresh_button = Button.new()
+	refresh_button.tooltip_text = REFRESH_TEXT
+	refresh_button.size_flags_horizontal = SIZE_SHRINK_CENTER
+	refresh_button.custom_minimum_size = Vector2(28, 28)
+	refresh_button.clip_text = true
+	refresh_button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	refresh_button.pressed.connect(refresh_objects)
+	_set_refresh_icon()
+	_update_refresh_mode()
+	add_child(refresh_button)
+
+func _notification(what):
+	if what == NOTIFICATION_THEME_CHANGED or what == NOTIFICATION_READY:
+		_set_refresh_icon()
+		_update_refresh_mode()
+	elif what == NOTIFICATION_RESIZED:
+		_update_refresh_mode()
+
+func _set_refresh_icon():
+	if not refresh_button:
+		return
+	var icon = refresh_button.get_theme_icon("Reload", "EditorIcons")
+	if icon:
+		refresh_button.icon = icon
+	else:
+		refresh_button.icon = null
+
+func _update_refresh_mode():
+	if not refresh_button:
+		return
+	var available_width = get_size().x
+	if available_width >= REFRESH_TEXT_THRESHOLD:
+		refresh_button.text = REFRESH_TEXT
+		refresh_button.size_flags_horizontal = SIZE_EXPAND_FILL
+		refresh_button.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		refresh_button.expand_icon = false
+	else:
+		refresh_button.text = ""
+		refresh_button.size_flags_horizontal = SIZE_SHRINK_CENTER
+		refresh_button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		refresh_button.expand_icon = true
 
 func setup(plugin: EditorPlugin):
 	editor_plugin = plugin
@@ -171,7 +211,7 @@ func _navigate_to_handler(node: Node, event: String):
 		print("Save scene first.")
 		return
 		
-	var bas_path = scene_path.get_basename() + ".bas"
+	var bas_path = scene_path.get_basename() + ".vg"
 	# Ensure file exists
 	if not FileAccess.file_exists(bas_path):
 		var f = FileAccess.open(bas_path, FileAccess.WRITE)

@@ -1,9 +1,9 @@
 extends SceneTree
 
 func _init():
-    var script = load("res://test_error.bas")
+    var script = load("res://test_error.vg")
     if not script:
-        print("Failed to load script: res://test_error.bas")
+        print("Failed to load script: res://test_error.vg")
         quit()
         return
 

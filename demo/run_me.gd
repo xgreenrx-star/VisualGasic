@@ -4,7 +4,7 @@ func _init():
     pass
 
 func _initialize():
-    var script = load("res://test_doevents.bas")
+    var script = load("res://test_doevents.vg")
     if script == null:
         print("Failed to load script")
         quit(1)

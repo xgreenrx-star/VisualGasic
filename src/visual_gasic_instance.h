@@ -8,6 +8,7 @@
 #include <godot_cpp/classes/file_access.hpp>
 #include <godot_cpp/classes/dir_access.hpp>
 #include <godot_cpp/classes/os.hpp>
+#include <godot_cpp/templates/hash_map.hpp>
 
 using namespace godot;
 using namespace VisualGasic;
@@ -49,11 +50,24 @@ class VisualGasicInstance {
     Dictionary struct_prototypes; 
     
     // Class system storage
+    struct FastKeyCacheEntry {
+        Variant variant;
+        uint32_t hit_count = 0;
+        uint32_t last_used = 0;
+    };
+
+    static constexpr uint32_t FAST_DICT_CACHE_TRIGGER = 3;
+    static constexpr uint32_t FAST_DICT_CACHE_MAX_ENTRIES = 256;
+
     Dictionary class_registry;       // class_name -> ClassDefinition* (as int64_t)
     Dictionary object_instances;     // object_id -> Dictionary of member values
     int next_object_id = 1;         // For unique object IDs
     Dictionary loaded_libraries;     // lib_name -> handle (as int64_t)
     Dictionary declared_functions;   // function_name -> DeclareStatement* (as int64_t)
+    HashMap<StringName, FastKeyCacheEntry> fast_dict_key_cache;
+    uint32_t fast_dict_key_cache_generation = 0;
+    StringName fast_dict_last_key_name;
+    uint32_t fast_dict_last_key_hits = 0;
 
     // Whenever system tracking
     struct WheneverSection {
@@ -138,6 +152,9 @@ class VisualGasicInstance {
     Variant _evaluate_expression_impl(ExpressionNode* expr);
     void _execute_statement_impl(Statement* stmt);
     void raise_error(String msg, int code = 5);
+    Variant *get_cached_fast_dict_key(const Variant &key_source);
+    Variant *insert_fast_dict_key_entry(const StringName &key_name, const Variant &key_source, uint32_t initial_hits);
+    void prune_fast_dict_cache_if_needed();
 
 public:
     VisualGasicInstance(Ref<VisualGasicScript> p_script, Object *p_owner);
@@ -182,7 +199,7 @@ public:
     AdvancedType* infer_type(const Variant& value);
     bool is_type_compatible(const AdvancedType* expected, const AdvancedType* actual);
 
-    void execute_bytecode(BytecodeChunk* chunk);
+    bool execute_bytecode(BytecodeChunk* chunk, SubDefinition* func, Variant &r_ret);
 
     bool set(const StringName &p_name, const Variant &p_value);
     bool get(const StringName &p_name, Variant &r_ret);

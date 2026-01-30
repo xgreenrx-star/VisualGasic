@@ -25,9 +25,9 @@ func _init():
     root.add_child(p2)
     
     # Attach Script
-    var script = load("res://pong.bas")
+    var script = load("res://pong.vg")
     if not script:
-        print("Failed to load pong.bas")
+        print("Failed to load pong.vg")
         quit(1)
         return
         

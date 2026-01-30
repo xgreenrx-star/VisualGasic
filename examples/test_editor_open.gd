@@ -3,7 +3,7 @@ extends EditorScript
 
 func _run():
     print("Trying to open script in editor...")
-    var script = load("res://dodge/main.bas")
+    var script = load("res://dodge/main.vg")
     if script:
         print("Script loaded: ", script)
         EditorInterface.edit_script(script)

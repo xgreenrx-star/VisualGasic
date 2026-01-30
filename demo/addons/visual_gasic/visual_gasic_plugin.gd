@@ -3,6 +3,7 @@ extends EditorPlugin
 
 var toolbox
 var import_plugin
+var immediate_window
 
 func _enter_tree():
 	# Store self for static retrieval
@@ -11,6 +12,10 @@ func _enter_tree():
 	# Import Plugin
 	import_plugin = preload("res://addons/visual_gasic/frm_import_plugin.gd").new()
 	add_import_plugin(import_plugin)
+	
+	# Immediate Window
+	immediate_window = preload("res://addons/visual_gasic/immediate_window.gd").new()
+	add_control_to_bottom_panel(immediate_window, "Immediate")
 
 	# TEST: Create a simple Label to verify dock mechanism
 	toolbox = VBoxContainer.new()
@@ -79,6 +84,11 @@ func _exit_tree():
 	remove_tool_menu_item("Import VB6 Project...")
 	remove_tool_menu_item("Visual Gasic Menu Editor")
 	
+	if immediate_window:
+		remove_control_from_bottom_panel(immediate_window)
+		immediate_window.queue_free()
+		immediate_window = null
+	
 	if toolbox:
 		remove_control_from_docks(toolbox)
 		toolbox.queue_free()
@@ -139,7 +149,7 @@ func _do_import_frm(path):
 	print("Saved Scene to " + save_path)
 	
 	if code != "":
-		var bas_path = "res://mixed/" + root.name + ".bas"
+		var bas_path = "res://mixed/" + root.name + ".vg"
 		var f = FileAccess.open(bas_path, FileAccess.WRITE)
 		f.store_string(code)
 		f.close()
@@ -164,7 +174,7 @@ func _on_new_form():
 	ResourceSaver.save(packed, path)
 	
 	# Create bas
-	var bas_path = path.replace(".tscn", ".bas")
+	var bas_path = path.replace(".tscn", ".vg")
 	var f = FileAccess.open(bas_path, FileAccess.WRITE)
 	f.store_string("' Code for " + root.name + "\n")
 	f.close()
@@ -297,8 +307,8 @@ func _generate_event_handler(node):
 		printerr("VisualGasic: Scene must be saved to generate code.")
 		return
 		
-	# Assume .bas file is adjacent to scene
-	var bas_path = scene_path.get_basename() + ".bas"
+	# Assume .vg file is adjacent to scene
+	var bas_path = scene_path.get_basename() + ".vg"
 	# absolute path for OS shell
 	var abs_path = ProjectSettings.globalize_path(bas_path)
 	

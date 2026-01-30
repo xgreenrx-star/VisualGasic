@@ -1,0 +1,5 @@
+Sub Test()
+    For i = 1 To 10
+        Print i
+    ' Missing Next - should not crash
+End Sub

@@ -9,7 +9,7 @@ using namespace godot;
 
 PackedStringArray VisualGasicFormatLoader::_get_recognized_extensions() const  {
 	PackedStringArray exts;
-	exts.push_back("bas");
+	exts.push_back("vg");
 	return exts;
 }
 
@@ -18,7 +18,7 @@ bool VisualGasicFormatLoader::_handles_type(const StringName &p_type) const {
 }
 
 String VisualGasicFormatLoader::_get_resource_type(const String &p_path) const {
-	if (p_path.get_extension().to_lower() == "bas") {
+	if (p_path.get_extension().to_lower() == "vg") {
 		return "VisualGasicScript";
 	}
 	return "";
@@ -37,7 +37,12 @@ Variant VisualGasicFormatLoader::_load(const String &p_path, const String &p_ori
 	script->set_source_code(source);
 	f->close();
 
-    script->reload(false);
+	// Reload with error handling to prevent crashes from malformed code
+	Error err = script->reload(false);
+	if (err != OK) {
+		UtilityFunctions::print_rich("[color=red]Warning: Failed to load VisualGasic script: " + p_path + "[/color]");
+		// Return the script anyway so it can be edited, but mark it as having errors
+	}
 
 	return script;
 }
@@ -47,7 +52,7 @@ Variant VisualGasicFormatLoader::_load(const String &p_path, const String &p_ori
 PackedStringArray VisualGasicFormatSaver::_get_recognized_extensions(const Ref<Resource> &p_resource) const {
 	PackedStringArray exts;
 	if (Object::cast_to<VisualGasicScript>(p_resource.ptr())) {
-		exts.push_back("bas");
+		exts.push_back("vg");
 	}
 	return exts;
 }

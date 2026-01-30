@@ -6,7 +6,7 @@ func _init():
 	root.name = "Form"
 	
 	# Load Script
-	var script = load("res://test_signals_manual.bas")
+	var script = load("res://test_signals_manual.vg")
 	if not script:
 		print("Error loading script")
 		quit(1)

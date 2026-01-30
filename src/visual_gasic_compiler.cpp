@@ -1,5 +1,28 @@
 #include "visual_gasic_compiler.h"
 #include <godot_cpp/variant/utility_functions.hpp>
+#include <godot_cpp/core/math.hpp>
+
+namespace {
+constexpr bool kEnableLoopFusions = true;
+constexpr bool kTraceArraySumMatcher = false;
+
+bool vg_variant_truthy(const Variant &value) {
+    switch (value.get_type()) {
+        case Variant::BOOL:
+            return (bool)value;
+        case Variant::INT:
+            return (int64_t)value != 0;
+        case Variant::FLOAT:
+            return !Math::is_zero_approx((double)value);
+        case Variant::STRING:
+            return !String(value).is_empty();
+        case Variant::NIL:
+            return false;
+        default:
+            return value != Variant();
+    }
+}
+}
 
 VisualGasicCompiler::VisualGasicCompiler() : current_chunk(nullptr), current_line(0), compile_ok(true) {
 }
@@ -54,10 +77,13 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
     current_chunk = chunk;
     compile_ok = true;
     array_vars.clear();
+    dictionary_vars.clear();
+    trusted_dictionary_vars.clear();
     array_types.clear();
     array_bound_vars.clear();
     local_slots.clear();
     local_types.clear();
+    typed_locals.clear();
     non_local_names.clear();
     used_vars.clear();
     expr_cache.clear();
@@ -165,7 +191,7 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
         }
         compile_statement(stmt);
     }
-    
+    current_chunk->local_count = local_slots.size();
     emit_return();
     return compile_ok;
 }
@@ -177,11 +203,14 @@ int VisualGasicCompiler::get_or_add_local(const String &name, ValueType type) {
     }
     if (local_slots.has(key)) {
         if (type != VT_UNKNOWN) {
-            local_types[key] = type;
-            uint8_t lt = to_local_type(type);
-            int slot = local_slots[key];
-            if (slot >= 0 && slot < current_chunk->local_types.size()) {
-                current_chunk->local_types.write[slot] = lt;
+            bool locked = typed_locals.has(key);
+            if (!locked || local_types[key] == VT_UNKNOWN) {
+                local_types[key] = type;
+                uint8_t lt = to_local_type(type);
+                int slot = local_slots[key];
+                if (slot >= 0 && slot < current_chunk->local_types.size()) {
+                    current_chunk->local_types.write[slot] = lt;
+                }
             }
         }
         return local_slots[key];
@@ -223,7 +252,14 @@ void VisualGasicCompiler::collect_locals(Statement* stmt) {
                 ValueType vt = VT_UNKNOWN;
                 if (t == "integer" || t == "long") vt = VT_INT;
                 else if (t == "single" || t == "double") vt = VT_FLOAT;
+                else if (t == "dictionary") {
+                    dictionary_vars.insert(s->variable_name.to_lower());
+                    trusted_dictionary_vars.insert(s->variable_name.to_lower());
+                }
                 get_or_add_local(s->variable_name, vt);
+                if (vt != VT_UNKNOWN) {
+                    typed_locals.insert(s->variable_name.to_lower());
+                }
             }
             break;
         }
@@ -237,6 +273,16 @@ void VisualGasicCompiler::collect_locals(Statement* stmt) {
             break;
         }
         case STMT_FOR: {
+        case STMT_ASSIGNMENT: {
+            AssignmentStatement *s = (AssignmentStatement *)stmt;
+            if (s->target && s->target->type == ExpressionNode::VARIABLE && s->value && s->value->type == ExpressionNode::NEW) {
+                NewNode *n = (NewNode *)s->value;
+                if (n->class_name.nocasecmp_to("Dictionary") == 0) {
+                    dictionary_vars.insert(((VariableNode *)s->target)->name.to_lower());
+                }
+            }
+            break;
+        }
             ForStatement* f = (ForStatement*)stmt;
             get_or_add_local(f->variable_name, VT_UNKNOWN);
             for (int i = 0; i < f->body.size(); i++) {
@@ -468,6 +514,22 @@ bool VisualGasicCompiler::is_pure_expr(ExpressionNode* expr) const {
     }
 }
 
+bool VisualGasicCompiler::is_fast_array_var(const String &name) const {
+    String key = name.to_lower();
+    if (!array_vars.has(key)) {
+        return false;
+    }
+    return !dictionary_vars.has(key);
+}
+
+bool VisualGasicCompiler::is_dictionary_var(const String &name) const {
+    return dictionary_vars.has(name.to_lower());
+}
+
+bool VisualGasicCompiler::is_trusted_dictionary_var(const String &name) const {
+    return trusted_dictionary_vars.has(name.to_lower());
+}
+
 String VisualGasicCompiler::extract_bound_var(ExpressionNode* expr) const {
     if (!expr || expr->type != ExpressionNode::BINARY_OP) return "";
     BinaryOpNode* b = (BinaryOpNode*)expr;
@@ -475,7 +537,13 @@ String VisualGasicCompiler::extract_bound_var(ExpressionNode* expr) const {
     if (b->left->type != ExpressionNode::VARIABLE) return "";
     if (b->right->type != ExpressionNode::LITERAL) return "";
     LiteralNode* l = (LiteralNode*)b->right;
-    if (l->value.get_type() == Variant::INT && (int64_t)l->value == 1) {
+    bool matches_one = false;
+    if (l->value.get_type() == Variant::INT) {
+        matches_one = ((int64_t)l->value == 1);
+    } else if (l->value.get_type() == Variant::FLOAT) {
+        matches_one = Math::is_equal_approx((double)l->value, 1.0);
+    }
+    if (matches_one) {
         return ((VariableNode*)b->left)->name;
     }
     return "";
@@ -647,7 +715,7 @@ bool VisualGasicCompiler::is_allocations_loop(ForStatement* f, String &sum_var, 
     };
 
     Vector<ExpressionNode*> terms;
-    collect_terms(sum_assign->value, terms, collect_terms);
+
     if (terms.size() != 3) return false;
 
     auto is_var_named = [&](ExpressionNode* expr, const String &name) -> bool {
@@ -964,67 +1032,144 @@ bool VisualGasicCompiler::is_nested_array_dict_sum(ForStatement* outer, String &
 }
 
 bool VisualGasicCompiler::is_nested_array_sum(ForStatement* outer, String &sum_var, String &arr_var, String &iter_var) const {
-    if (!outer || outer->body.size() != 1) return false;
-    if (!outer->from_val || outer->from_val->type != ExpressionNode::LITERAL) return false;
+    auto fail = [&](const String &reason) -> bool {
+        if (kTraceArraySumMatcher) {
+            UtilityFunctions::print("[ArraySumMatcher] ", reason);
+        }
+        return false;
+    };
+    auto literal_is_zero = [](LiteralNode* lit) -> bool {
+        if (!lit) {
+            return false;
+        }
+        Variant v = lit->value;
+        switch (v.get_type()) {
+            case Variant::INT:
+                return (int64_t)v == 0;
+            case Variant::BOOL:
+                return ((bool)v ? 1 : 0) == 0;
+            case Variant::FLOAT:
+                return Math::is_zero_approx((double)v);
+            default:
+                return false;
+        }
+    };
+    auto literal_is_one = [](LiteralNode* lit) -> bool {
+        if (!lit) {
+            return false;
+        }
+        Variant v = lit->value;
+        switch (v.get_type()) {
+            case Variant::INT:
+                return (int64_t)v == 1;
+            case Variant::BOOL:
+                return ((bool)v ? 1 : 0) == 1;
+            case Variant::FLOAT:
+                return Math::is_equal_approx((double)v, 1.0);
+            default:
+                return false;
+        }
+    };
+    if (!outer) return fail("outer loop missing");
+    if (!outer->from_val || outer->from_val->type != ExpressionNode::LITERAL) return fail("outer from not literal");
     LiteralNode* of = (LiteralNode*)outer->from_val;
-    if (of->value.get_type() != Variant::INT || (int64_t)of->value != 0) return false;
+    if (!literal_is_zero(of)) {
+        if (kTraceArraySumMatcher) {
+            UtilityFunctions::print("[ArraySumMatcher] outer from value type=",
+                                     Variant::get_type_name(of->value.get_type()), " value=", of->value);
+        }
+        return fail("outer from must be 0");
+    }
     if (outer->step_val) {
-        if (outer->step_val->type != ExpressionNode::LITERAL) return false;
+        if (outer->step_val->type != ExpressionNode::LITERAL) return fail("outer step not literal");
         LiteralNode* os = (LiteralNode*)outer->step_val;
-        if (os->value.get_type() != Variant::INT || (int64_t)os->value != 1) return false;
+        if (!literal_is_one(os)) return fail("outer step must be 1");
     }
 
-    Statement* inner_stmt = outer->body[0];
-    if (inner_stmt->type != STMT_FOR) return false;
-    ForStatement* inner = (ForStatement*)inner_stmt;
-    if (!inner->from_val || inner->from_val->type != ExpressionNode::LITERAL) return false;
+    ForStatement* inner = nullptr;
+    for (int i = 0; i < outer->body.size(); i++) {
+        Statement* stmt = outer->body[i];
+        if (!stmt) {
+            continue;
+        }
+        if (stmt->type == STMT_LABEL || stmt->type == STMT_PASS) {
+            continue;
+        }
+        if (stmt->type == STMT_FOR) {
+            if (inner) {
+                return fail("outer body has multiple inner loops");
+            }
+            inner = (ForStatement*)stmt;
+            continue;
+        }
+        return fail("outer body contains non-loop statement");
+    }
+    if (!inner) return fail("no inner loop found");
+    if (!inner->from_val || inner->from_val->type != ExpressionNode::LITERAL) return fail("inner from not literal");
     LiteralNode* inf = (LiteralNode*)inner->from_val;
-    if (inf->value.get_type() != Variant::INT || (int64_t)inf->value != 0) return false;
+    if (!literal_is_zero(inf)) return fail("inner from must be 0");
     if (inner->step_val) {
-        if (inner->step_val->type != ExpressionNode::LITERAL) return false;
+        if (inner->step_val->type != ExpressionNode::LITERAL) return fail("inner step not literal");
         LiteralNode* ins = (LiteralNode*)inner->step_val;
-        if (ins->value.get_type() != Variant::INT || (int64_t)ins->value != 1) return false;
+        if (!literal_is_one(ins)) return fail("inner step must be 1");
     }
 
-    if (inner->body.size() != 1) return false;
-    Statement* body_stmt = inner->body[0];
-    if (body_stmt->type != STMT_ASSIGNMENT) return false;
-    AssignmentStatement* as = (AssignmentStatement*)body_stmt;
-    if (!as->target || !as->value) return false;
-    if (as->target->type != ExpressionNode::VARIABLE) return false;
+    AssignmentStatement* as = nullptr;
+    for (int i = 0; i < inner->body.size(); i++) {
+        Statement* stmt = inner->body[i];
+        if (!stmt) {
+            continue;
+        }
+        if (stmt->type == STMT_LABEL || stmt->type == STMT_PASS) {
+            continue;
+        }
+        if (stmt->type != STMT_ASSIGNMENT) {
+            return fail("inner body contains non-assignment");
+        }
+        if (as) {
+            return fail("inner body has multiple assignments");
+        }
+        as = (AssignmentStatement*)stmt;
+    }
+    if (!as) return fail("no assignment in inner body");
+    if (!as->target || !as->value) return fail("assignment missing target or value");
+    if (as->target->type != ExpressionNode::VARIABLE) return fail("assignment target not variable");
     VariableNode* s = (VariableNode*)as->target;
-    if (as->value->type != ExpressionNode::BINARY_OP) return false;
+    if (as->value->type != ExpressionNode::BINARY_OP) return fail("assignment not binary op");
     BinaryOpNode* b = (BinaryOpNode*)as->value;
-    if (b->op != "+") return false;
-    if (b->left->type != ExpressionNode::VARIABLE) return false;
-    if (((VariableNode*)b->left)->name.to_lower() != s->name.to_lower()) return false;
+    if (b->op != "+") return fail("assignment not sum");
+    if (b->left->type != ExpressionNode::VARIABLE) return fail("lhs not variable");
+    if (((VariableNode*)b->left)->name.to_lower() != s->name.to_lower()) return fail("lhs variable mismatch");
     String arr_name;
     String idx_var;
     if (b->right->type == ExpressionNode::ARRAY_ACCESS) {
         ArrayAccessNode* aa = (ArrayAccessNode*)b->right;
-        if (aa->base->type != ExpressionNode::VARIABLE) return false;
-        if (aa->indices.size() != 1) return false;
-        if (aa->indices[0]->type != ExpressionNode::VARIABLE) return false;
+        if (aa->base->type != ExpressionNode::VARIABLE) return fail("array base not variable");
+        if (aa->indices.size() != 1) return fail("array access not single index");
+        if (aa->indices[0]->type != ExpressionNode::VARIABLE) return fail("array index not variable");
         arr_name = ((VariableNode*)aa->base)->name;
         idx_var = ((VariableNode*)aa->indices[0])->name.to_lower();
     } else if (b->right->type == ExpressionNode::EXPRESSION_CALL) {
         CallExpression* call = (CallExpression*)b->right;
-        if (call->base_object) return false;
-        if (call->arguments.size() != 1 || call->arguments[0]->type != ExpressionNode::VARIABLE) return false;
+        if (call->base_object) return fail("call has base object");
+        if (call->arguments.size() != 1 || call->arguments[0]->type != ExpressionNode::VARIABLE) return fail("call args invalid");
         arr_name = call->method_name;
         idx_var = ((VariableNode*)call->arguments[0])->name.to_lower();
     } else {
-        return false;
+        return fail("rhs is not array access or call");
     }
-    if (idx_var != inner->variable_name.to_lower()) return false;
+    if (idx_var != inner->variable_name.to_lower()) return fail("index var does not match inner loop var");
 
     // Require array of ints (or unknown, but not float)
     String arr_key = arr_name.to_lower();
-    if (array_types.has(arr_key) && array_types[arr_key] == VT_FLOAT) return false;
+    if (array_types.has(arr_key) && array_types[arr_key] == VT_FLOAT) return fail("array type is float");
 
     sum_var = s->name;
     arr_var = arr_name;
     iter_var = outer->variable_name;
+    if (kTraceArraySumMatcher) {
+        UtilityFunctions::print("[ArraySumMatcher] matched sum=", sum_var, " arr=", arr_var, " iter=", iter_var);
+    }
     return true;
 }
 
@@ -1495,6 +1640,14 @@ Variant VisualGasicCompiler::eval_constant_expr(ExpressionNode* expr) const {
         else if (b->op == "<=") Variant::evaluate(Variant::OP_LESS_EQUAL, a, c, res, valid);
         else if (b->op == ">=") Variant::evaluate(Variant::OP_GREATER_EQUAL, a, c, res, valid);
         else if (b->op == "<>") Variant::evaluate(Variant::OP_NOT_EQUAL, a, c, res, valid);
+        else if (b->op.nocasecmp_to("And") == 0) { valid = true; res = vg_variant_truthy(a) && vg_variant_truthy(c); }
+        else if (b->op.nocasecmp_to("Or") == 0) { valid = true; res = vg_variant_truthy(a) || vg_variant_truthy(c); }
+        else if (b->op.nocasecmp_to("Xor") == 0) {
+            bool left = vg_variant_truthy(a);
+            bool right = vg_variant_truthy(c);
+            valid = true;
+            res = (left && !right) || (!left && right);
+        }
         if (valid) return res;
     }
     return Variant();
@@ -1586,6 +1739,11 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                     else if (t == "single" || t == "double") init_val = (double)0.0;
                     else if (t == "string") init_val = "";
                     else if (t == "boolean") init_val = false;
+                    else if (t == "dictionary") {
+                        String lower = s->variable_name.to_lower();
+                        dictionary_vars.insert(lower);
+                        trusted_dictionary_vars.insert(lower);
+                    }
                     else init_val = Variant();
                 } else {
                     init_val = Variant();
@@ -1707,18 +1865,16 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                  s->value && s->value->type == ExpressionNode::BINARY_OP) {
                  VariableNode* v = (VariableNode*)s->target;
                  BinaryOpNode* b = (BinaryOpNode*)s->value;
-                 if ((b->op == "+" || b->op == "-") &&
-                     b->left && b->left->type == ExpressionNode::VARIABLE &&
-                     ((VariableNode*)b->left)->name.nocasecmp_to(v->name) == 0) {
-                     ValueType lt = infer_type(b->left);
-                     ValueType rt = infer_type(b->right);
-                     int slot = get_or_add_local(v->name, infer_type(s->value));
-                     if (slot >= 0 && lt == VT_INT && rt == VT_INT) {
-                         compile_expression(b->right);
-                         emit_byte(b->op == "+" ? OP_ADD_LOCAL_I64_STACK : OP_SUB_LOCAL_I64_STACK);
-                         emit_byte((uint8_t)slot);
-                         break;
-                     }
+                if ((b->op == "+" || b->op == "-") &&
+                    b->left && b->left->type == ExpressionNode::VARIABLE &&
+                    ((VariableNode*)b->left)->name.nocasecmp_to(v->name) == 0) {
+                    int slot = get_or_add_local(v->name, infer_type(s->value));
+                    if (slot >= 0 && get_local_type(v->name) == VT_INT) {
+                        compile_expression(b->right);
+                        emit_byte(b->op == "+" ? OP_ADD_LOCAL_I64_STACK : OP_SUB_LOCAL_I64_STACK);
+                        emit_byte((uint8_t)slot);
+                        break;
+                    }
                  }
              }
              if (s->target && s->target->type == ExpressionNode::VARIABLE &&
@@ -1740,9 +1896,9 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                      }
                  }
              }
-             compile_expression(s->value);
-             // Assume variable for now
-             if (s->target->type == ExpressionNode::VARIABLE) {
+            // Assume variable for now
+            if (s->target->type == ExpressionNode::VARIABLE) {
+                compile_expression(s->value);
                  VariableNode* v = (VariableNode*)s->target;
                  int slot = get_or_add_local(v->name, infer_type(s->value));
                  if (slot >= 0) {
@@ -1764,6 +1920,7 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                  VariableNode* v = (VariableNode*)aa->base;
                  compile_expression(aa->base);
                  compile_expression(aa->indices[0]);
+                 compile_expression(s->value);
                  bool unchecked = false;
                  if (!loop_vars.is_empty() && aa->indices[0]->type == ExpressionNode::VARIABLE) {
                      String loop_var = loop_vars[loop_vars.size() - 1].to_lower();
@@ -1774,7 +1931,20 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                          unchecked = true;
                      }
                  }
-                 emit_byte(unchecked ? OP_SET_ARRAY_UNCHECKED : OP_SET_ARRAY);
+                bool fast_array = is_fast_array_var(v->name);
+                bool fast_dict = is_dictionary_var(v->name);
+                bool trusted_dict = fast_dict && is_trusted_dictionary_var(v->name);
+                uint8_t opcode = OP_SET_ARRAY;
+                if (trusted_dict) {
+                    opcode = OP_SET_DICT_TRUSTED;
+                } else if (fast_dict) {
+                    opcode = OP_SET_DICT_FAST;
+                } else {
+                    opcode = unchecked
+                        ? (fast_array ? OP_SET_ARRAY_FAST_UNCHECKED : OP_SET_ARRAY_UNCHECKED)
+                        : (fast_array ? OP_SET_ARRAY_FAST : OP_SET_ARRAY);
+                }
+                 emit_byte(opcode);
                  emit_byte(1);
                 int slot = get_or_add_local(v->name, VT_UNKNOWN);
                 if (slot >= 0) emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
@@ -1790,16 +1960,66 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                  }
                  VariableNode tmp;
                  tmp.name = call->method_name;
-                 compile_expression(&tmp);
-                 compile_expression(call->arguments[0]);
-                 emit_byte(OP_SET_ARRAY);
-                 emit_byte(1);
+                 // For dictionary variables, use in-place modification opcodes to avoid copying
+                 bool fast_array = is_fast_array_var(call->method_name);
+                 bool fast_dict = is_dictionary_var(call->method_name);
+                 bool trusted_dict = fast_dict && is_trusted_dictionary_var(call->method_name);
+                 
+                 if (trusted_dict || fast_dict) {
+                     // Emit key and value only - don't load the dictionary variable
+                     compile_expression(call->arguments[0]);
+                     compile_expression(s->value);
+                     
+                     int slot = get_or_add_local(call->method_name, VT_UNKNOWN);
+                     if (slot >= 0) {
+                         emit_bytes(OP_SET_DICT_LOCAL, (uint8_t)slot);
+                     } else {
+                         int idx = current_chunk->add_constant(call->method_name);
+                         emit_bytes(OP_SET_DICT_GLOBAL, (uint8_t)idx);
+                     }
+                     emit_byte(1);  // arg count
+                 } else {
+                     // Original path for arrays
+                     compile_expression(&tmp);
+                     compile_expression(call->arguments[0]);
+                     compile_expression(s->value);
+                     uint8_t opcode = fast_array ? OP_SET_ARRAY_FAST : OP_SET_ARRAY;
+                     emit_byte(opcode);
+                     emit_byte(1);
 
-                 int slot = get_or_add_local(call->method_name, VT_UNKNOWN);
-                 if (slot >= 0) emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
-                 else {
-                     int idx = current_chunk->add_constant(call->method_name);
-                     emit_bytes(OP_SET_GLOBAL, (uint8_t)idx);
+                     int slot = get_or_add_local(call->method_name, VT_UNKNOWN);
+                     if (slot >= 0) emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
+                     else {
+                         int idx = current_chunk->add_constant(call->method_name);
+                         emit_bytes(OP_SET_GLOBAL, (uint8_t)idx);
+                     }
+                 }
+             } else if (s->target->type == ExpressionNode::MEMBER_ACCESS) {
+                 MemberAccessNode *ma = (MemberAccessNode *)s->target;
+                 if (!ma->base_object) {
+                     compile_ok = false;
+                     break;
+                 }
+                 compile_expression(ma->base_object);
+                 compile_expression(s->value);
+                 int member_idx = current_chunk->add_constant(ma->member_name);
+                 emit_bytes(OP_SET_MEMBER, (uint8_t)member_idx);
+
+                 bool stored = false;
+                 if (ma->base_object->type == ExpressionNode::VARIABLE) {
+                     VariableNode *base_var = (VariableNode *)ma->base_object;
+                     int slot = get_or_add_local(base_var->name, VT_UNKNOWN);
+                     if (slot >= 0) {
+                         emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
+                         stored = true;
+                     } else {
+                         int idx = current_chunk->add_constant(base_var->name);
+                         emit_bytes(OP_SET_GLOBAL, (uint8_t)idx);
+                         stored = true;
+                     }
+                 }
+                 if (!stored) {
+                     emit_byte(OP_POP);
                  }
              } else {
                  compile_ok = false;
@@ -1830,6 +2050,28 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                 compile_ok = false;
                 break;
             }
+
+            auto classify_integral_variant = [&](const Variant &value, int64_t &out) -> bool {
+                switch (value.get_type()) {
+                    case Variant::INT:
+                        out = (int64_t)value;
+                        return true;
+                    case Variant::FLOAT: {
+                        double d = (double)value;
+                        double rounded = Math::round(d);
+                        if (Math::is_equal_approx(d, rounded)) {
+                            out = (int64_t)rounded;
+                            return true;
+                        }
+                        return false;
+                    }
+                    case Variant::BOOL:
+                        out = ((bool)value) ? 1 : 0;
+                        return true;
+                    default:
+                        return false;
+                }
+            };
 
 
             String alloc_sum;
@@ -1879,34 +2121,33 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             }
 
             String fill_arr;
-            if (is_loop_array_fill(f, fill_arr)) {
-                VariableNode arr_node;
-                arr_node.name = fill_arr;
-                compile_expression(&arr_node);
+            if (kEnableLoopFusions && is_loop_array_fill(f, fill_arr)) {
+                ValueType bound_type = infer_type(f->to_val);
+                if (bound_type != VT_FLOAT) {
+                    VariableNode arr_node;
+                    arr_node.name = fill_arr;
+                    compile_expression(&arr_node);
 
-                if (infer_type(f->to_val) != VT_INT) {
-                    compile_ok = false;
+                    compile_expression(f->to_val);
+                    emit_constant(Variant((int64_t)1));
+                    emit_byte(OP_ADD_I64);
+
+                    emit_byte(OP_ARRAY_FILL_I64_SEQ);
+
+                    int slot = get_or_add_local(fill_arr, VT_UNKNOWN);
+                    if (slot >= 0) emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
+                    else {
+                        int idx = current_chunk->add_constant(fill_arr);
+                        emit_bytes(OP_SET_GLOBAL, (uint8_t)idx);
+                    }
                     break;
                 }
-                compile_expression(f->to_val);
-                emit_constant(Variant((int64_t)1));
-                emit_byte(OP_ADD_I64);
-
-                emit_byte(OP_ARRAY_FILL_I64_SEQ);
-
-                int slot = get_or_add_local(fill_arr, VT_UNKNOWN);
-                if (slot >= 0) emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
-                else {
-                    int idx = current_chunk->add_constant(fill_arr);
-                    emit_bytes(OP_SET_GLOBAL, (uint8_t)idx);
-                }
-                break;
             }
 
             String interop_sum;
             String interop_lit;
             ForStatement* interop_inner = nullptr;
-            if (is_interop_loop(f, interop_sum, interop_lit, interop_inner)) {
+            if (kEnableLoopFusions && is_interop_loop(f, interop_sum, interop_lit, interop_inner)) {
                 if (!interop_inner || !interop_inner->to_val) {
                     compile_ok = false;
                     break;
@@ -1930,7 +2171,7 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
 
             String repeat_target;
             String repeat_literal;
-            if (is_loop_string_concat(f, repeat_target, repeat_literal)) {
+            if (kEnableLoopFusions && is_loop_string_concat(f, repeat_target, repeat_literal)) {
                 // count = to_val + 1
                 compile_expression(f->to_val);
                 emit_constant(Variant((int64_t)1));
@@ -1950,11 +2191,29 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             String nested_target;
             String nested_literal;
             ForStatement* inner_string = nullptr;
-            if (is_nested_string_concat(f, nested_target, nested_literal, inner_string)) {
+            if (kEnableLoopFusions && is_nested_string_concat(f, nested_target, nested_literal, inner_string)) {
                 if (inner_string && inner_string->to_val) {
-                    // Stack: inner_to, outer_to
-                    compile_expression(inner_string->to_val);
-                    compile_expression(f->to_val);
+                    auto emit_loop_count = [&](ForStatement* loop) -> int {
+                        int slot = get_or_add_local(String("__fused_count_") + String::num_int64(temp_local_id++), VT_INT);
+                        String bound_var = extract_bound_var(loop->to_val);
+                        if (!bound_var.is_empty()) {
+                            VariableNode bound_node;
+                            bound_node.name = bound_var;
+                            compile_expression(&bound_node);
+                        } else {
+                            compile_expression(loop->to_val);
+                            emit_constant(Variant((int64_t)1));
+                            emit_byte(OP_ADD_I64);
+                        }
+                        emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
+                        return slot;
+                    };
+
+                    int inner_count_slot = emit_loop_count(inner_string);
+                    int outer_count_slot = emit_loop_count(f);
+
+                    emit_bytes(OP_GET_LOCAL, (uint8_t)inner_count_slot);
+                    emit_bytes(OP_GET_LOCAL, (uint8_t)outer_count_slot);
 
                     int slot = get_or_add_local(nested_target, VT_UNKNOWN);
                     int lit_idx = current_chunk->add_constant(nested_literal);
@@ -1970,7 +2229,7 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             String iter_var;
             int64_t arith_k = 0;
             int64_t arith_c = 0;
-            if (is_simple_arith_loop(f, sum_var, arith_k, arith_c)) {
+            if (kEnableLoopFusions && is_simple_arith_loop(f, sum_var, arith_k, arith_c)) {
                 if (f->to_val && get_local_type(sum_var) == VT_INT) {
                     compile_expression(f->to_val);
                     emit_constant(Variant((int64_t)0));
@@ -1994,7 +2253,7 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                     break;
                 }
             }
-            if (is_nested_arith_loop(f, sum_var, arith_k, arith_c)) {
+            if (kEnableLoopFusions && is_nested_arith_loop(f, sum_var, arith_k, arith_c)) {
                 ForStatement* inner = (ForStatement*)f->body[0];
                 if (inner && inner->to_val && f->to_val &&
                     infer_type(inner->to_val) != VT_FLOAT &&
@@ -2025,16 +2284,34 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             }
             String branch_sum_var;
             String branch_flag_var;
-            if (is_nested_branch_loop(f, branch_sum_var, branch_flag_var)) {
+            if (kEnableLoopFusions && is_nested_branch_loop(f, branch_sum_var, branch_flag_var)) {
                 ForStatement* inner = (ForStatement*)f->body[1];
                 if (inner && inner->to_val && f->to_val &&
                     get_local_type(branch_sum_var) == VT_INT &&
                     get_local_type(branch_flag_var) == VT_INT) {
                     int flag_slot = get_or_add_local(branch_flag_var, VT_INT);
                     if (flag_slot >= 0) {
-                        // Push inner_to, outer_to, current sum then apply closed-form branch sum.
-                        compile_expression(inner->to_val);
-                        compile_expression(f->to_val);
+                        auto emit_loop_count = [&](ForStatement* loop) -> int {
+                            int slot = get_or_add_local(String("__fused_count_") + String::num_int64(temp_local_id++), VT_INT);
+                            String bound_var = extract_bound_var(loop->to_val);
+                            if (!bound_var.is_empty()) {
+                                VariableNode bound_node;
+                                bound_node.name = bound_var;
+                                compile_expression(&bound_node);
+                            } else {
+                                compile_expression(loop->to_val);
+                                emit_constant(Variant((int64_t)1));
+                                emit_byte(OP_ADD_I64);
+                            }
+                            emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
+                            return slot;
+                        };
+
+                        int inner_count_slot = emit_loop_count(inner);
+                        int outer_count_slot = emit_loop_count(f);
+
+                        emit_bytes(OP_GET_LOCAL, (uint8_t)inner_count_slot);
+                        emit_bytes(OP_GET_LOCAL, (uint8_t)outer_count_slot);
 
                         VariableNode sum_node;
                         sum_node.name = branch_sum_var;
@@ -2053,7 +2330,7 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                     }
                 }
             }
-            if (is_nested_array_sum(f, sum_var, arr_var, iter_var)) {
+            if (kEnableLoopFusions && is_nested_array_sum(f, sum_var, arr_var, iter_var)) {
                 // sum = sum + sum(arr) * (iterations)
                 // compute array sum
                 VariableNode arr_node;
@@ -2083,8 +2360,11 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             }
 
             String dict_var;
-            bool matched_array_dict = is_nested_array_dict_sum(f, sum_var, arr_var, dict_var, iter_var);
+            bool matched_array_dict = kEnableLoopFusions && is_nested_array_dict_sum(f, sum_var, arr_var, dict_var, iter_var);
             auto try_match_simple_array_dict = [&](String &out_sum, String &out_arr, String &out_dict, String &out_iter) -> bool {
+                if (!kEnableLoopFusions) {
+                    return false;
+                }
                 if (!f) return false;
                 ForStatement* inner = nullptr;
                 for (int i = 0; i < f->body.size(); i++) {
@@ -2213,7 +2493,10 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             loop_vars.push_back(f->variable_name);
             loop_bound_vars.push_back(loop_bound);
 
-            int var_slot = get_or_add_local(f->variable_name, infer_type(f->from_val));
+            ValueType declared_type = get_local_type(f->variable_name);
+            ValueType init_type = declared_type != VT_UNKNOWN ? declared_type : infer_type(f->from_val);
+            int var_slot = get_or_add_local(f->variable_name, init_type);
+            ValueType loop_type = declared_type != VT_UNKNOWN ? declared_type : init_type;
             compile_expression(f->from_val);
             if (var_slot >= 0) {
                 emit_bytes(OP_SET_LOCAL, (uint8_t)var_slot);
@@ -2252,9 +2535,24 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             }
 
             int step_slot = -1;
+            bool has_step_const = false;
+            bool step_const_is_integral = false;
+            bool step_const_is_one = false;
+            int64_t step_const_int = 0;
+            ValueType step_expr_type = f->step_val ? infer_type(f->step_val) : loop_type;
+            if (!f->step_val) {
+                has_step_const = true;
+                step_const_is_integral = true;
+                step_const_is_one = true;
+                step_const_int = 1;
+            }
             if (f->step_val && is_constant_expr(f->step_val)) {
                 step_slot = get_or_add_local(String("__const_step_") + String::num_int64(temp_local_id++), infer_type(f->step_val));
-                emit_constant(eval_constant_expr(f->step_val));
+                Variant step_const = eval_constant_expr(f->step_val);
+                has_step_const = true;
+                step_const_is_integral = classify_integral_variant(step_const, step_const_int);
+                step_const_is_one = step_const_is_integral && step_const_int == 1;
+                emit_constant(step_const);
                 if (step_slot >= 0) {
                     emit_bytes(OP_SET_LOCAL, (uint8_t)step_slot);
                 }
@@ -2293,11 +2591,9 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                 emit_bytes(OP_GET_LOCAL, (uint8_t)to_slot);
             }
             else compile_expression(f->to_val);
-            if (infer_type(f->from_val) == VT_INT && infer_type(f->to_val) == VT_INT) {
-                emit_byte(OP_LESS_EQUAL_I64);
-            } else {
-                emit_byte(OP_LESS_EQUAL);
-            }
+            ValueType to_type = infer_type(f->to_val);
+            bool use_int_compare = (loop_type == VT_INT && to_type != VT_FLOAT);
+            emit_byte(use_int_compare ? OP_LESS_EQUAL_I64 : OP_LESS_EQUAL);
             int exit_jump = emit_jump(OP_JUMP_IF_FALSE);
             auto compile_statement_list = [&](const Vector<Statement*> &stmts) {
                 for (int i = 0; i < stmts.size(); i++) {
@@ -2338,36 +2634,41 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
 
             compile_statement_list(f->body);
 
-            if (var_slot >= 0) {
-                emit_bytes(OP_GET_LOCAL, (uint8_t)var_slot);
-            }
-            else {
-                int var_idx = current_chunk->add_constant(f->variable_name);
-                emit_bytes(OP_GET_GLOBAL, (uint8_t)var_idx);
-            }
-
-            if (step_slot >= 0) {
-                emit_bytes(OP_GET_LOCAL, (uint8_t)step_slot);
-            }
-            else if (f->step_val) compile_expression(f->step_val);
-            else emit_constant(Variant((int64_t)1));
-
-            bool inc_local_fast = false;
-            if (var_slot >= 0 && (!f->step_val || is_constant_expr(f->step_val))) {
-                Variant step_const = f->step_val ? eval_constant_expr(f->step_val) : Variant((int64_t)1);
-                if (step_const.get_type() == Variant::INT && (int64_t)step_const == 1 &&
-                    infer_type(f->from_val) == VT_INT) {
-                    inc_local_fast = true;
-                }
-            }
+            bool inc_local_fast = (var_slot >= 0 && has_step_const && step_const_is_one && loop_type == VT_INT);
 
             if (inc_local_fast) {
                 emit_byte(OP_INC_LOCAL_I64);
                 emit_byte((uint8_t)var_slot);
             } else {
-                if (infer_type(f->from_val) == VT_INT && infer_type(f->step_val ? f->step_val : f->from_val) == VT_INT) {
+                if (var_slot >= 0) {
+                    emit_bytes(OP_GET_LOCAL, (uint8_t)var_slot);
+                }
+                else {
+                    int var_idx = current_chunk->add_constant(f->variable_name);
+                    emit_bytes(OP_GET_GLOBAL, (uint8_t)var_idx);
+                }
+
+                if (step_slot >= 0) {
+                    emit_bytes(OP_GET_LOCAL, (uint8_t)step_slot);
+                }
+                else if (f->step_val) {
+                    compile_expression(f->step_val);
+                }
+                else {
+                    emit_constant(Variant((int64_t)1));
+                }
+
+                bool step_requires_float = false;
+                if (loop_type == VT_FLOAT) {
+                    step_requires_float = true;
+                } else if (!has_step_const && step_expr_type == VT_FLOAT) {
+                    step_requires_float = true;
+                } else if (has_step_const && !step_const_is_integral) {
+                    step_requires_float = true;
+                }
+                if (loop_type == VT_INT && !step_requires_float) {
                     emit_byte(OP_ADD_I64);
-                } else if (infer_type(f->from_val) == VT_FLOAT || infer_type(f->step_val ? f->step_val : f->from_val) == VT_FLOAT) {
+                } else if (step_requires_float) {
                     emit_byte(OP_ADD_F64);
                 } else {
                     emit_byte(OP_ADD);
@@ -2440,6 +2741,16 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             else {
                 int idx = current_chunk->add_constant(s->variable_name);
                 emit_bytes(OP_SET_GLOBAL, (uint8_t)idx);
+            }
+            break;
+        }
+        case STMT_EXIT: {
+            ExitStatement *s = (ExitStatement *)stmt;
+            if (s->exit_type == ExitStatement::EXIT_FUNCTION || s->exit_type == ExitStatement::EXIT_SUB) {
+                emit_return();
+            } else {
+                UtilityFunctions::print("Compiler: Unsupported exit type", s->exit_type);
+                compile_ok = false;
             }
             break;
         }
@@ -2585,6 +2896,9 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                     if (lt == VT_INT && rt == VT_INT) emit_byte(OP_NOT_EQUAL_I64);
                     else emit_byte(OP_NOT_EQUAL);
                 }
+                else if (b->op.nocasecmp_to("And") == 0) emit_byte(OP_AND);
+                else if (b->op.nocasecmp_to("Or") == 0) emit_byte(OP_OR);
+                else if (b->op.nocasecmp_to("Xor") == 0) emit_byte(OP_XOR);
                 else {
                     UtilityFunctions::print("Compiler: Unsupported binary op ", b->op);
                     compile_ok = false;
@@ -2665,6 +2979,9 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                 if (lt == VT_INT && rt == VT_INT) emit_byte(OP_NOT_EQUAL_I64);
                 else emit_byte(OP_NOT_EQUAL);
             }
+            else if (b->op.nocasecmp_to("And") == 0) emit_byte(OP_AND);
+            else if (b->op.nocasecmp_to("Or") == 0) emit_byte(OP_OR);
+            else if (b->op.nocasecmp_to("Xor") == 0) emit_byte(OP_XOR);
             else {
                 UtilityFunctions::print("Compiler: Unsupported binary op ", b->op);
                 compile_ok = false;
@@ -2689,7 +3006,23 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                     unchecked = true;
                 }
             }
-            emit_byte(unchecked ? OP_GET_ARRAY_UNCHECKED : OP_GET_ARRAY);
+            bool fast_array = (aa->base && aa->base->type == ExpressionNode::VARIABLE) &&
+                is_fast_array_var(((VariableNode*)aa->base)->name);
+            bool fast_dict = (aa->base && aa->base->type == ExpressionNode::VARIABLE) &&
+                is_dictionary_var(((VariableNode*)aa->base)->name);
+            bool trusted_dict = fast_dict && aa->base && aa->base->type == ExpressionNode::VARIABLE &&
+                is_trusted_dictionary_var(((VariableNode*)aa->base)->name);
+            uint8_t opcode = OP_GET_ARRAY;
+            if (trusted_dict) {
+                opcode = OP_GET_DICT_TRUSTED;
+            } else if (fast_dict) {
+                opcode = OP_GET_DICT_FAST;
+            } else {
+                opcode = unchecked
+                    ? (fast_array ? OP_GET_ARRAY_FAST_UNCHECKED : OP_GET_ARRAY_UNCHECKED)
+                    : (fast_array ? OP_GET_ARRAY_FAST : OP_GET_ARRAY);
+            }
+            emit_byte(opcode);
             emit_byte(1);
             break;
         }
@@ -2709,7 +3042,7 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
              }
 
              String call_name = call->method_name.to_lower();
-             if (array_vars.has(call_name) || local_slots.has(call_name)) {
+             if (array_vars.has(call_name) || dictionary_vars.has(call_name) || local_slots.has(call_name)) {
                  if (call->arguments.size() != 1) {
                      compile_ok = false;
                      break;
@@ -2719,7 +3052,13 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                  tmp.name = call->method_name;
                  compile_expression(&tmp);
                  compile_expression(call->arguments[0]);
-                 emit_byte(OP_GET_ARRAY);
+                 bool fast_array = is_fast_array_var(call->method_name);
+                 bool fast_dict = is_dictionary_var(call->method_name);
+                 bool trusted_dict = fast_dict && is_trusted_dictionary_var(call->method_name);
+                 uint8_t opcode = trusted_dict ? OP_GET_DICT_TRUSTED
+                     : (fast_dict ? OP_GET_DICT_FAST
+                         : (fast_array ? OP_GET_ARRAY_FAST : OP_GET_ARRAY));
+                 emit_byte(opcode);
                  emit_byte(1);
                  break;
              }

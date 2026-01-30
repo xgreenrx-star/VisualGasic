@@ -6,9 +6,9 @@ func _init():
     var root = Node2D.new()
     root.name = "Root"
     
-    var script = load("res://examples/pong/pong.bas") # Using the actual file location if possible, or copy it
+    var script = load("res://examples/pong/pong.vg") # Using the actual file location if possible, or copy it
     # Since res:// usually maps to project root.
-    # The user's workspace has examples/pong/pong.bas
+    # The user's workspace has examples/pong/pong.vg
     # We should probably copy it to root or load it via path if VisualGasic supports absolute paths or relative?
     # Usually VisualGasic Script loading is via ResourceLoader.
     # GDExtension usually expects imported resources.
@@ -19,11 +19,11 @@ func _init():
     
     var dir = DirAccess.open("res://")
     if dir:
-        dir.copy("res://examples/pong/pong.bas", "res://pong_angle.bas")
+        dir.copy("res://examples/pong/pong.vg", "res://pong_angle.vg")
     
-    var s = load("res://pong_angle.bas")
+    var s = load("res://pong_angle.vg")
     if not s:
-        print("Failed to load pong_angle.bas")
+        print("Failed to load pong_angle.vg")
         quit(1)
         
     root.set_script(s)
@@ -46,7 +46,7 @@ func _init():
     # OR we modified the script to check keys.
     
     # However, we can check the collision logic by moving paddle via script variable if exposed?
-    # pong.bas checks IsKeyDown("W").
+    # pong.vg checks IsKeyDown("W").
     
     # Alternative: We can modify the script for the test to Force P1Vy = -300
     # But we already modified the script to use IsKeyDown.

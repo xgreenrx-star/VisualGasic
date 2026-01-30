@@ -1,0 +1,294 @@
+' ============================================================================
+' SMART COMPLETION FEATURES DEMONSTRATION
+' ============================================================================
+' This file demonstrates all the new keyboard shortcuts and smart completion
+' features in VisualGasic. Try them in the Godot editor!
+' ============================================================================
+
+' ============================================================================
+' FEATURE 1: "{" AUTO-COMPLETES KEYWORDS
+' ============================================================================
+' Type "{" after incomplete statements to auto-fill missing keywords
+
+' Example 1: If statement
+' Type: If x > 10 {
+' Result: If x > 10 Then
+
+' Example 2: For loop
+' Type: For i = 1 {
+' Result: For i = 1 To 10
+
+' Example 3: While loop  
+' Type: While x < 100 {
+' Result: While x < 100  (no change, already complete)
+
+' TRY IT HERE:
+' Type below and press "{":
+' If count > 5
+
+
+' ============================================================================
+' FEATURE 2: "}" AUTO-COMPLETES CLOSING KEYWORDS
+' ============================================================================
+' Type "}" to auto-complete block endings
+
+Sub DemoClosingBraces()
+    ' Type "}" after each block to auto-complete
+    
+    For i = 1 To 10
+        Print i
+    ' TRY: Type "}" here → suggests "Next i"
+    
+    While i < 100
+        i = i + 10
+    ' TRY: Type "}" here → suggests "Wend"
+    
+    If i > 50 Then
+        Print "Large"
+    ' TRY: Type "}" here → suggests "End If"
+
+' TRY: Type "}" here → suggests "End Sub"
+
+
+' ============================================================================
+' FEATURE 3: SNIPPET COMPLETION
+' ============================================================================
+' Type snippet trigger + space/tab to expand
+
+' Available Snippets:
+' -------------------
+' fori   → For i = 1 To 10 loop
+' forr   → For reverse loop
+' fore   → For Each loop
+' whil   → While loop
+' dow    → Do While loop
+' dou    → Do Until loop
+' ife    → If Then Else
+' ift    → If Then
+' selc   → Select Case
+' tryc   → Try Catch
+' trycf  → Try Catch Finally
+' sub    → Sub procedure
+' func   → Function
+' propg  → Property Get
+' props  → Property Set
+' cls    → Class definition
+' wit    → With block
+' main   → Main entry point
+
+' TRY IT:
+' Type "fori" below and watch it expand:
+
+
+' Type "tryc" below:
+
+
+' Type "func" below:
+
+
+' ============================================================================
+' FEATURE 4: PARAMETER HINTS
+' ============================================================================
+' Type "(" after function name to see parameters
+
+Sub DemoParameterHints()
+    ' When you type the opening parenthesis, you'll see parameter info
+    
+    ' TRY: Type "CreateActor2D(" 
+    ' Shows: (name As String, x As Double, y As Double) As Node2D
+    
+    
+    ' TRY: Type "MsgBox("
+    ' Shows: (message As String, buttons As Integer, title As String) As Integer
+    
+    
+    ' TRY: Type "Format("
+    ' Shows: (value As Variant, formatString As String) As String
+    
+    
+    ' TRY: Type "RandRange("
+    ' Shows: (min As Double, max As Double) As Double
+    
+End Sub
+
+
+' ============================================================================
+' FEATURE 5: SMART INCOMPLETE LINE COMPLETION
+' ============================================================================
+' When you have an incomplete statement, completions suggest how to finish it
+
+Sub DemoSmartCompletion()
+    ' Incomplete If → suggests adding "Then"
+    ' Type: If x > 10
+    ' Completion shows: "If x > 10 Then"
+    
+    
+    ' Incomplete For → suggests adding "To"
+    ' Type: For i = 1
+    ' Completion shows: "For i = 1 To 10"
+    
+    
+    ' Incomplete Dim → suggests adding "As"
+    ' Type: Dim counter
+    ' Completion shows: "Dim counter As Variant"
+    
+End Sub
+
+
+' ============================================================================
+' FEATURE 6: ALL FEATURES COMBINED
+' ============================================================================
+' Here's how they work together for maximum productivity
+
+Sub RealWorldExample()
+    ' 1. Type "fori" → expands to For loop
+    For i = 1 To 10
+        ' 2. Type "ift" → expands to If statement
+        If i Mod 2 = 0 Then
+            ' 3. Type "MsgBox(" → shows parameter hint
+            MsgBox("Even number: " & i, 0, "Info")
+        ' 4. Type "}" → suggests "End If"
+        End If
+    ' 5. Type "}" → suggests "Next i"
+    Next i
+    
+    ' 6. Type "tryc" → expands to Try-Catch
+    Try
+        ' 7. Type "CreateActor2D(" → shows parameters
+        Dim player As Node2D = CreateActor2D("player", 100, 200)
+        
+        ' 8. Type "wit" → expands to With block
+        With player
+            .position.x = .position.x + 10
+            .visible = True
+        ' 9. Type "}" → suggests "End With"
+        End With
+        
+    ' 10. Type "}" → suggests appropriate Catch clause
+    Catch ex As Exception
+        Print "Error: " & ex.Message
+    End Try
+    
+End Sub
+
+
+' ============================================================================
+' NESTED BLOCKS EXAMPLE
+' ============================================================================
+' The system correctly handles complex nesting
+
+Function ProcessData(items As Array) As Integer
+    Dim total As Integer = 0
+    
+    ' Type "fore" for For Each
+    For Each item In items
+        ' Type "selc" for Select Case
+        Select Case item.type
+            Case "A"
+                ' Type "dow" for Do While
+                Do While item.value > 0
+                    total = total + 1
+                    item.value = item.value - 1
+                ' Type "}" → suggests "Loop"
+                Loop
+                
+            Case "B"
+                ' Type "ift" for If
+                If item.value > 10 Then
+                    total = total + item.value
+                ' Type "}" → suggests "End If"
+                End If
+                
+            Case Else
+                total = total + 1
+        ' Type "}" → suggests "End Select"
+        End Select
+    ' Type "}" → suggests "Next item"  
+    Next item
+    
+    Return total
+' Type "}" → suggests "End Function"
+End Function
+
+
+' ============================================================================
+' QUICK REFERENCE CARD
+' ============================================================================
+'
+' KEYBOARD TRIGGERS:
+' ==================
+' {     → Auto-complete "Then", "To", etc. (fills in missing keywords)
+' }     → Auto-complete "Next", "End If", etc. (closes blocks)
+' (     → Show function parameter hints
+'
+' SNIPPET TRIGGERS (type + space/tab):
+' ====================================
+' fori  → For i = 1 To 10 ... Next i
+' forr  → For i = 10 To 1 Step -1 ... Next i
+' fore  → For Each item In collection ... Next item
+' whil  → While condition ... Wend
+' dow   → Do While condition ... Loop
+' dou   → Do Until condition ... Loop
+' ife   → If condition Then ... Else ... End If
+' ift   → If condition Then ... End If
+' selc  → Select Case ... End Select
+' tryc  → Try ... Catch ... End Try
+' trycf → Try ... Catch ... Finally ... End Try
+' sub   → Sub Name() ... End Sub
+' func  → Function Name() As Type ... End Function
+' propg → Property Get Name() As Type ... End Property
+' props → Property Set Name(value) ... End Property
+' cls   → Class Name ... End Class
+' wit   → With object ... End With
+' main  → Sub Main() ... End Sub
+'
+' SMART COMPLETIONS:
+' ==================
+' Typing these will show smart completion suggestions:
+' • If x > 10        → suggests "Then"
+' • For i = 1        → suggests "To 10"
+' • Dim count        → suggests "As Variant"
+' • Function MyFunc  → suggests "() As Variant"
+' • Sub MyProc       → suggests "()"
+'
+' PARAMETER HINTS:
+' ================
+' Type "(" after these functions to see parameters:
+' • CreateActor2D(
+' • MsgBox(
+' • Format(
+' • RandRange(
+' • Lerp(
+' • Clamp(
+' • DrawText(
+' • DrawLine(
+' • DrawRect(
+' • DrawCircle(
+' • PlaySound(
+' • SetTitle(
+' • ChangeScene(
+' • Sleep(
+' • Shell(
+' • SaveSetting(
+' • GetSetting(
+' • LoadPicture(
+'
+' ============================================================================
+
+' PRACTICE AREA
+' =============
+' Use this space to practice the new features:
+
+
+
+
+
+
+
+
+
+
+
+' ============================================================================
+' END OF DEMONSTRATION
+' ============================================================================

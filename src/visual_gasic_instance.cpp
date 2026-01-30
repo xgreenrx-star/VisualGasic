@@ -1,5 +1,6 @@
 #include <godot_cpp/classes/file_dialog.hpp>
 #include <godot_cpp/classes/tween.hpp>
+#include <cstdlib>
 #include <godot_cpp/classes/viewport.hpp>
 #include <godot_cpp/classes/area2d.hpp>
 #include <godot_cpp/classes/collision_shape2d.hpp>
@@ -12,8 +13,6 @@
 #include <godot_cpp/classes/button.hpp>
 #include <godot_cpp/classes/base_button.hpp>
 #include <godot_cpp/classes/line_edit.hpp>
-
-// New Includes for Runtime Features
 #include <godot_cpp/classes/accept_dialog.hpp>
 #include <godot_cpp/classes/confirmation_dialog.hpp>
 #include <godot_cpp/classes/audio_stream_player.hpp>
@@ -22,22 +21,20 @@
 #include <godot_cpp/classes/v_box_container.hpp>
 #include <godot_cpp/classes/display_server.hpp>
 #include <godot_cpp/classes/time.hpp>
+#include <godot_cpp/variant/variant_internal.hpp>
 
 #include "visual_gasic_instance.h"
 #include "visual_gasic_language.h"
-#include "visual_gasic_parser.h" // For parsing data values at runtime
+#include "visual_gasic_parser.h"
 #include "visual_gasic_builtins.h"
 #include <godot_cpp/core/object.hpp>
 #include <godot_cpp/classes/node.hpp>
 #include <godot_cpp/classes/input.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
-#include <godot_cpp/godot.hpp> // For gde_interface and typdefs
-
+#include <godot_cpp/godot.hpp>
 #include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/classes/scene_tree.hpp>
 #include <godot_cpp/classes/window.hpp>
-#include <godot_cpp/classes/display_server.hpp>
-#include <godot_cpp/classes/time.hpp>
 #include <godot_cpp/classes/dir_access.hpp>
 #include <godot_cpp/classes/project_settings.hpp>
 #include <godot_cpp/classes/resource_loader.hpp>
@@ -49,15 +46,10 @@
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/classes/sprite2d.hpp>
 #include <godot_cpp/classes/texture2d.hpp>
-#include <godot_cpp/classes/audio_stream_player.hpp>
 #include <godot_cpp/classes/audio_stream.hpp>
-#include <godot_cpp/classes/audio_stream_wav.hpp>
 #include <godot_cpp/classes/canvas_item.hpp>
 #include <godot_cpp/classes/shader.hpp>
 #include <godot_cpp/classes/shader_material.hpp>
-#include <godot_cpp/classes/label.hpp>
-#include <godot_cpp/classes/scene_tree.hpp>
-#include <godot_cpp/classes/window.hpp>
 #include <godot_cpp/classes/font.hpp>
 #include <godot_cpp/classes/theme_db.hpp>
 #include <godot_cpp/classes/theme.hpp>
@@ -72,22 +64,18 @@
 #include "gasic_ai_controller.h"
 #include <godot_cpp/classes/character_body2d.hpp>
 #include <godot_cpp/classes/character_body3d.hpp>
-#include <godot_cpp/classes/collision_shape2d.hpp>
 #include <godot_cpp/classes/collision_shape3d.hpp>
-#include <godot_cpp/classes/circle_shape2d.hpp>
 #include <godot_cpp/classes/sphere_shape3d.hpp>
 #include <godot_cpp/classes/kinematic_collision2d.hpp>
 #include <godot_cpp/classes/kinematic_collision3d.hpp>
 #include <godot_cpp/classes/control.hpp>
 #include <godot_cpp/classes/node2d.hpp>
-#include <godot_cpp/classes/timer.hpp>
 #include <godot_cpp/classes/mesh_instance3d.hpp>
 #include <godot_cpp/classes/box_mesh.hpp>
 #include <godot_cpp/classes/sphere_mesh.hpp>
 #include <godot_cpp/classes/standard_material3d.hpp>
 #include <godot_cpp/classes/rigid_body2d.hpp>
 #include <godot_cpp/classes/rigid_body3d.hpp>
-#include <godot_cpp/classes/tween.hpp>
 #include <godot_cpp/classes/property_tweener.hpp>
 #include <godot_cpp/classes/progress_bar.hpp>
 #include <godot_cpp/classes/h_slider.hpp>
@@ -97,6 +85,496 @@
 #include <godot_cpp/classes/tree.hpp>
 #include <godot_cpp/classes/tree_item.hpp>
 #include "visual_gasic_comm.h"
+#include <limits>
+#include <utility>
+
+// JIT compilation support
+#ifdef __linux__
+#include <sys/mman.h>
+#include <unistd.h>
+#endif
+
+namespace {
+
+// Variant pool for reducing allocation overhead
+struct VariantPool {
+    static constexpr size_t POOL_SIZE = 64;
+    Variant pool[POOL_SIZE];
+    uint64_t free_mask = ~0ULL; // All slots initially free
+    uint64_t alloc_count = 0;
+    uint64_t reuse_count = 0;
+    
+    Variant* acquire() {
+        if (free_mask == 0) {
+            alloc_count++;
+            return nullptr; // Pool exhausted, caller must allocate
+        }
+        // Find first free slot (rightmost 1-bit)
+        int slot = __builtin_ctzll(free_mask);
+        free_mask &= ~(1ULL << slot);
+        reuse_count++;
+        return &pool[slot];
+    }
+    
+    void release(Variant* v) {
+        if (v < pool || v >= pool + POOL_SIZE) {
+            return; // Not from pool
+        }
+        int slot = v - pool;
+        free_mask |= (1ULL << slot);
+        // Clear the variant to NIL to release any references
+        *v = Variant();
+    }
+    
+    void reset() {
+        for (size_t i = 0; i < POOL_SIZE; i++) {
+            pool[i] = Variant();
+        }
+        free_mask = ~0ULL;
+    }
+};
+
+thread_local VariantPool vg_variant_pool;
+
+class VariantPoolScope {
+    Variant* ptr;
+public:
+    explicit VariantPoolScope(Variant&& value) {
+        ptr = vg_variant_pool.acquire();
+        if (ptr) {
+            *ptr = std::move(value);
+        } else {
+            ptr = nullptr;
+        }
+    }
+    
+    ~VariantPoolScope() {
+        if (ptr) {
+            vg_variant_pool.release(ptr);
+        }
+    }
+    
+    bool valid() const { return ptr != nullptr; }
+    Variant& get() { return *ptr; }
+    const Variant& get() const { return *ptr; }
+};
+
+// Script instance cache for reducing construction/destruction overhead
+struct ScriptInstanceCache {
+    static constexpr size_t MAX_CACHED = 32;
+    
+    struct Entry {
+        Object* instance = nullptr;
+        String class_name;
+        uint64_t last_use_tick = 0;
+    };
+    
+    Entry cache[MAX_CACHED];
+    size_t size = 0;
+    uint64_t current_tick = 0;
+    uint64_t hits = 0;
+    uint64_t misses = 0;
+    
+    Object* acquire(const String& p_class_name) {
+        current_tick++;
+        
+        // Search for matching cached instance
+        for (size_t i = 0; i < size; i++) {
+            if (cache[i].class_name == p_class_name && cache[i].instance) {
+                Object* obj = cache[i].instance;
+                cache[i].last_use_tick = current_tick;
+                hits++;
+                return obj;
+            }
+        }
+        
+        misses++;
+        return nullptr; // Not found, caller must create
+    }
+    
+    void release(Object* p_instance, const String& p_class_name) {
+        if (!p_instance) return;
+        
+        current_tick++;
+        
+        // Try to add to cache
+        if (size < MAX_CACHED) {
+            cache[size].instance = p_instance;
+            cache[size].class_name = p_class_name;
+            cache[size].last_use_tick = current_tick;
+            size++;
+            return;
+        }
+        
+        // Cache full, evict LRU
+        size_t lru_idx = 0;
+        uint64_t min_tick = cache[0].last_use_tick;
+        for (size_t i = 1; i < MAX_CACHED; i++) {
+            if (cache[i].last_use_tick < min_tick) {
+                min_tick = cache[i].last_use_tick;
+                lru_idx = i;
+            }
+        }
+        
+        // Free evicted instance
+        if (cache[lru_idx].instance) {
+            memdelete(cache[lru_idx].instance);
+        }
+        
+        cache[lru_idx].instance = p_instance;
+        cache[lru_idx].class_name = p_class_name;
+        cache[lru_idx].last_use_tick = current_tick;
+    }
+    
+    void clear() {
+        for (size_t i = 0; i < size; i++) {
+            if (cache[i].instance) {
+                memdelete(cache[i].instance);
+                cache[i].instance = nullptr;
+            }
+        }
+        size = 0;
+    }
+    
+    ~ScriptInstanceCache() {
+        clear();
+    }
+};
+
+thread_local ScriptInstanceCache vg_script_instance_cache;
+
+struct VgDictKeyedOps {
+    GDExtensionPtrKeyedGetter getter = nullptr;
+    GDExtensionPtrKeyedSetter setter = nullptr;
+    GDExtensionPtrKeyedChecker checker = nullptr;
+};
+
+// No cached operations needed - direct pointer access is fastest
+
+Dictionary &vg_pooled_dict_wrapper() {
+    thread_local Dictionary dict_wrapper;
+    return dict_wrapper;
+}
+
+const Variant &vg_default_nil_variant() {
+    static Variant nil_variant;
+    return nil_variant;
+}
+
+static bool vg_opcode_profile_enabled() {
+    static bool initialized = false;
+    static bool enabled = false;
+    if (!initialized) {
+        const char *env = std::getenv("VG_OPCODE_PROFILE");
+        enabled = env && env[0] != '\0' && env[0] != '0';
+        initialized = true;
+    }
+    return enabled;
+}
+
+enum class OpcodeProfileKind {
+    GetMember = 0,
+    SetMember,
+    GetArray,
+    SetArray,
+    GetDict,
+    SetDict,
+    NewArray,
+    NewDict,
+    COUNT
+};
+
+struct OpcodeProfileEntry {
+    const char *name = "";
+    uint64_t hit_count = 0;
+    uint64_t total_time_us = 0;
+};
+
+static OpcodeProfileEntry vg_opcode_profiles[(int)OpcodeProfileKind::COUNT] = {
+    {"OP_GET_MEMBER", 0, 0},
+    {"OP_SET_MEMBER", 0, 0},
+    {"OP_GET_ARRAY", 0, 0},
+    {"OP_SET_ARRAY", 0, 0},
+    {"OP_GET_DICT", 0, 0},
+    {"OP_SET_DICT", 0, 0},
+    {"OP_NEW_ARRAY", 0, 0},
+    {"OP_NEW_DICT", 0, 0},
+};
+
+static thread_local int vg_opcode_profile_depth = 0;
+
+class OpcodeProfileScope {
+public:
+    explicit OpcodeProfileScope(OpcodeProfileKind p_kind) : kind(p_kind) {
+        enabled = vg_opcode_profile_enabled();
+        if (enabled && Time::get_singleton() != nullptr) {
+            start_us = Time::get_singleton()->get_ticks_usec();
+        } else {
+            enabled = false;
+        }
+    }
+
+    ~OpcodeProfileScope() {
+        if (!enabled || Time::get_singleton() == nullptr) {
+            return;
+        }
+        uint64_t end_us = Time::get_singleton()->get_ticks_usec();
+        OpcodeProfileEntry &entry = vg_opcode_profiles[(int)kind];
+        entry.hit_count++;
+        entry.total_time_us += (end_us - start_us);
+    }
+
+private:
+    OpcodeProfileKind kind;
+    uint64_t start_us = 0;
+    bool enabled = false;
+};
+
+static void opcode_profile_reset() {
+    if (!vg_opcode_profile_enabled()) {
+        return;
+    }
+    for (int i = 0; i < (int)OpcodeProfileKind::COUNT; i++) {
+        vg_opcode_profiles[i].hit_count = 0;
+        vg_opcode_profiles[i].total_time_us = 0;
+    }
+}
+
+static void opcode_profile_dump() {
+    if (!vg_opcode_profile_enabled()) {
+        return;
+    }
+    bool has_data = false;
+    for (int i = 0; i < (int)OpcodeProfileKind::COUNT; i++) {
+        if (vg_opcode_profiles[i].hit_count > 0) {
+            has_data = true;
+            break;
+        }
+    }
+    if (!has_data) {
+        return;
+    }
+    UtilityFunctions::print("=== Bytecode Opcode Profile ===");
+    for (int i = 0; i < (int)OpcodeProfileKind::COUNT; i++) {
+        const OpcodeProfileEntry &entry = vg_opcode_profiles[i];
+        if (entry.hit_count == 0) {
+            continue;
+        }
+        double average = (entry.hit_count > 0)
+            ? ((double)entry.total_time_us / (double)entry.hit_count)
+            : 0.0;
+        UtilityFunctions::print(entry.name,
+            " hits=", (int64_t)entry.hit_count,
+            " total_us=", (int64_t)entry.total_time_us,
+            " avg_us=", average);
+    }
+}
+
+static bool vg_stack_profile_enabled() {
+    static bool initialized = false;
+    static bool enabled = false;
+    if (!initialized) {
+        const char *env = std::getenv("VG_STACK_PROFILE");
+        enabled = env && env[0] != '\0' && env[0] != '0';
+        initialized = true;
+    }
+    return enabled;
+}
+
+struct StackProfileSample {
+    uint64_t push_count = 0;
+    uint64_t pop_count = 0;
+    uint64_t underflow_count = 0;
+    uint64_t max_depth = 0;
+    uint64_t growth_events = 0;
+};
+
+static void vg_stack_profile_dump(const StackProfileSample &sample, const String &label) {
+    if (!vg_stack_profile_enabled()) {
+        return;
+    }
+    UtilityFunctions::print("[VG_STACK] scope=", label,
+        " pushes=", (int64_t)sample.push_count,
+        " pops=", (int64_t)sample.pop_count,
+        " underflows=", (int64_t)sample.underflow_count,
+        " max_depth=", (int64_t)sample.max_depth,
+        " growth_events=", (int64_t)sample.growth_events);
+}
+
+#define VG_CONCAT_IMPL(a, b) a##b
+#define VG_CONCAT(a, b) VG_CONCAT_IMPL(a, b)
+#define PROFILE_OPCODE(kind) OpcodeProfileScope VG_CONCAT(_vg_opcode_scope_, __COUNTER__)(OpcodeProfileKind::kind)
+
+static String vg_repeat_literal(const String &literal, int64_t count) {
+    if (count <= 0 || literal.is_empty()) {
+        return String();
+    }
+    String result;
+    result = String();
+    for (int64_t i = 0; i < count; i++) {
+        result += literal;
+    }
+    return result;
+}
+
+static inline int64_t vg_loop_count(int64_t upper_bound) {
+    return upper_bound >= 0 ? (upper_bound + 1) : 0;
+}
+
+// ======= JIT Compilation Framework =======
+
+struct JitCompiledLoop {
+    typedef int64_t (*JitFunction)(int64_t start, int64_t end, int64_t step);
+    
+    void* code_buffer = nullptr;
+    size_t code_size = 0;
+    JitFunction function = nullptr;
+    uint64_t hit_count = 0;
+    uint64_t exec_count = 0;
+    
+    ~JitCompiledLoop() {
+        if (code_buffer) {
+            #ifdef __linux__
+            munmap(code_buffer, code_size);
+            #endif
+        }
+    }
+};
+
+struct JitHotLoop {
+    int loop_start_ip = -1;
+    int loop_end_ip = -1;
+    uint64_t execution_count = 0;
+    uint64_t threshold = 100; // JIT after 100 iterations
+    JitCompiledLoop* compiled = nullptr;
+    
+    bool should_compile() const {
+        return !compiled && execution_count >= threshold;
+    }
+};
+
+struct JitCompiler {
+    static constexpr size_t MAX_HOT_LOOPS = 16;
+    JitHotLoop hot_loops[MAX_HOT_LOOPS];
+    size_t hot_loop_count = 0;
+    bool enabled = false;
+    
+    JitCompiler() {
+        const char* env = std::getenv("VG_JIT");
+        enabled = env && env[0] != '\0' && env[0] != '0';
+    }
+    
+    JitHotLoop* find_or_create_loop(int start_ip, int end_ip) {
+        if (!enabled) return nullptr;
+        
+        // Find existing
+        for (size_t i = 0; i < hot_loop_count; i++) {
+            if (hot_loops[i].loop_start_ip == start_ip && hot_loops[i].loop_end_ip == end_ip) {
+                return &hot_loops[i];
+            }
+        }
+        
+        // Create new
+        if (hot_loop_count < MAX_HOT_LOOPS) {
+            JitHotLoop& loop = hot_loops[hot_loop_count++];
+            loop.loop_start_ip = start_ip;
+            loop.loop_end_ip = end_ip;
+            loop.execution_count = 0;
+            loop.compiled = nullptr;
+            return &loop;
+        }
+        
+        return nullptr;
+    }
+    
+    bool compile_simple_i64_loop(JitHotLoop* loop, const uint8_t* bytecode, int bytecode_size) {
+        if (!enabled || !loop || loop->compiled) return false;
+        
+        #ifdef __linux__
+        // Allocate executable memory for JIT code
+        size_t code_size = 4096; // 1 page
+        void* code_buffer = mmap(nullptr, code_size, PROT_READ | PROT_WRITE, 
+                                  MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+        if (code_buffer == MAP_FAILED) {
+            return false;
+        }
+        
+        // Generate simple x86-64 code for: for(i=start; i<=end; i+=step) sum+=i
+        // This is a proof-of-concept - real JIT would analyze the bytecode
+        uint8_t* code = (uint8_t*)code_buffer;
+        int pos = 0;
+        
+        // Function prologue: push rbp; mov rbp, rsp
+        code[pos++] = 0x55;
+        code[pos++] = 0x48; code[pos++] = 0x89; code[pos++] = 0xe5;
+        
+        // Parameters: rdi=start, rsi=end, rdx=step
+        // rax will hold sum
+        code[pos++] = 0x48; code[pos++] = 0x31; code[pos++] = 0xc0; // xor rax, rax (sum=0)
+        code[pos++] = 0x48; code[pos++] = 0x89; code[pos++] = 0xf9; // mov rcx, rdi (i=start)
+        
+        // Loop: .loop_start
+        int loop_start = pos;
+        
+        // cmp rcx, rsi (i vs end)
+        code[pos++] = 0x48; code[pos++] = 0x39; code[pos++] = 0xf1;
+        
+        // jg .loop_end (if i > end, exit)
+        code[pos++] = 0x7f; code[pos++] = 0x08; // Will fixup offset
+        int jmp_fixup = pos - 1;
+        
+        // add rax, rcx (sum += i)
+        code[pos++] = 0x48; code[pos++] = 0x01; code[pos++] = 0xc8;
+        
+        // add rcx, rdx (i += step)
+        code[pos++] = 0x48; code[pos++] = 0x01; code[pos++] = 0xd1;
+        
+        // jmp .loop_start
+        int jmp_offset = loop_start - (pos + 2);
+        code[pos++] = 0xeb; code[pos++] = (uint8_t)jmp_offset;
+        
+        // .loop_end:
+        int loop_end = pos;
+        code[jmp_fixup] = (uint8_t)(loop_end - (jmp_fixup + 1));
+        
+        // Function epilogue: pop rbp; ret
+        code[pos++] = 0x5d;
+        code[pos++] = 0xc3;
+        
+        // Make memory executable
+        if (mprotect(code_buffer, code_size, PROT_READ | PROT_EXEC) != 0) {
+            munmap(code_buffer, code_size);
+            return false;
+        }
+        
+        // Create compiled loop object
+        JitCompiledLoop* compiled = new JitCompiledLoop();
+        compiled->code_buffer = code_buffer;
+        compiled->code_size = code_size;
+        compiled->function = (JitCompiledLoop::JitFunction)code_buffer;
+        
+        loop->compiled = compiled;
+        
+        UtilityFunctions::print("[VG_JIT] Compiled loop at IP ", loop->loop_start_ip, 
+                                 " to native x86-64 (", pos, " bytes)");
+        return true;
+        #else
+        return false; // JIT only on Linux for now
+        #endif
+    }
+    
+    ~JitCompiler() {
+        for (size_t i = 0; i < hot_loop_count; i++) {
+            if (hot_loops[i].compiled) {
+                delete hot_loops[i].compiled;
+            }
+        }
+    }
+};
+
+thread_local JitCompiler vg_jit_compiler;
+
+}
 
 
 
@@ -108,6 +586,77 @@ public:
         return obj ? ((AccessObject*)obj)->_owner : nullptr;
     }
 };
+
+Variant *VisualGasicInstance::get_cached_fast_dict_key(const Variant &key_source) {
+    if (key_source.get_type() != Variant::STRING) {
+        fast_dict_last_key_name = StringName();
+        fast_dict_last_key_hits = 0;
+        return nullptr;
+    }
+
+    String key_string = key_source;
+    StringName key_name = key_string;
+    FastKeyCacheEntry *entry = fast_dict_key_cache.getptr(key_name);
+    if (entry) {
+        entry->hit_count++;
+        entry->last_used = ++fast_dict_key_cache_generation;
+        fast_dict_last_key_name = key_name;
+        fast_dict_last_key_hits = entry->hit_count;
+        return &entry->variant;
+    }
+
+    if (key_name == fast_dict_last_key_name) {
+        fast_dict_last_key_hits++;
+    } else {
+        fast_dict_last_key_name = key_name;
+        fast_dict_last_key_hits = 1;
+    }
+
+    if (fast_dict_last_key_hits >= VisualGasicInstance::FAST_DICT_CACHE_TRIGGER) {
+        Variant *cached = insert_fast_dict_key_entry(key_name, key_source, fast_dict_last_key_hits);
+        return cached;
+    }
+
+    return nullptr;
+}
+
+Variant *VisualGasicInstance::insert_fast_dict_key_entry(const StringName &key_name, const Variant &key_source, uint32_t initial_hits) {
+    prune_fast_dict_cache_if_needed();
+    FastKeyCacheEntry new_entry;
+    new_entry.variant = key_source;
+    new_entry.hit_count = initial_hits;
+    new_entry.last_used = ++fast_dict_key_cache_generation;
+    HashMap<StringName, FastKeyCacheEntry>::Iterator inserted = fast_dict_key_cache.insert(key_name, new_entry);
+    if (inserted == fast_dict_key_cache.end()) {
+        return nullptr;
+    }
+    return &inserted->value.variant;
+}
+
+void VisualGasicInstance::prune_fast_dict_cache_if_needed() {
+    if (fast_dict_key_cache.size() < VisualGasicInstance::FAST_DICT_CACHE_MAX_ENTRIES) {
+        return;
+    }
+
+    uint32_t oldest_generation = std::numeric_limits<uint32_t>::max();
+    StringName victim_key;
+    for (KeyValue<StringName, FastKeyCacheEntry> &kv : fast_dict_key_cache) {
+        if (kv.value.last_used < oldest_generation) {
+            oldest_generation = kv.value.last_used;
+            victim_key = kv.key;
+        }
+    }
+
+    if (oldest_generation == std::numeric_limits<uint32_t>::max()) {
+        return;
+    }
+
+    fast_dict_key_cache.erase(victim_key);
+    if (victim_key == fast_dict_last_key_name) {
+        fast_dict_last_key_hits = 0;
+        fast_dict_last_key_name = StringName();
+    }
+}
 
 VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object *p_owner) {
     script = p_script;
@@ -635,6 +1184,10 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
 
     if (expr->type == ExpressionNode::EXPRESSION_IIF) {
         IIfNode* iif = (IIfNode*)expr;
+        if (!iif->condition || !iif->true_part || !iif->false_part) {
+            raise_error("Invalid IIf expression - missing parts");
+            return Variant();
+        }
         Variant cond = evaluate_expression(iif->condition);
         if (cond.booleanize()) {
             return evaluate_expression(iif->true_part);
@@ -759,6 +1312,13 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
     }
     if (expr->type == ExpressionNode::MEMBER_ACCESS) {
          MemberAccessNode* ma = (MemberAccessNode*)expr;
+         
+         // Check for null base from parser errors
+         if (!ma->base_object) {
+             raise_error("Incomplete member access: missing base object");
+             return Variant();
+         }
+         
          Variant base = evaluate_expression(ma->base_object);
          
          if (base.get_type() == Variant::DICTIONARY) {
@@ -848,11 +1408,23 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
 
     if (expr->type == ExpressionNode::ARRAY_ACCESS) {
          ArrayAccessNode* aa = (ArrayAccessNode*)expr;
+         
+         // Check for null base from parser errors
+         if (!aa->base) {
+             raise_error("Incomplete array access: missing base");
+             return Variant();
+         }
+         
          Variant base = evaluate_expression(aa->base);
          
          if (base.get_type() == Variant::DICTIONARY) {
              Dictionary d = base;
              if (aa->indices.size() > 0) {
+                 // Check for null index expression
+                 if (!aa->indices[0]) {
+                     raise_error("Incomplete array access: missing index");
+                     return Variant();
+                 }
                  Variant key = evaluate_expression(aa->indices[0]);
                  if (d.has(key)) return d[key];
                  return Variant(); // Or error?
@@ -863,6 +1435,13 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
              Variant container = base;
              for(int i=0; i<aa->indices.size(); i++) {
                  if (container.get_type() != Variant::ARRAY) return Variant();
+                 
+                 // Check for null index expression
+                 if (!aa->indices[i]) {
+                     raise_error("Incomplete array access: missing index");
+                     return Variant();
+                 }
+                 
                  Array arr = container;
                  int idx = evaluate_expression(aa->indices[i]);
                  if (idx >= 0 && idx < arr.size()) {
@@ -871,6 +1450,20 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
                      raise_error("Subscript out of range");
                      return Variant();
                  }
+             }
+             return container;
+         }
+
+         if (base.get_type() == Variant::DICTIONARY) {
+             Variant container = base;
+             for (int i = 0; i < aa->indices.size(); i++) {
+                 if (container.get_type() != Variant::DICTIONARY) {
+                     raise_error("Dictionary subscript invalid");
+                     return Variant();
+                 }
+                 Dictionary dict = container;
+                 Variant key = evaluate_expression(aa->indices[i]);
+                 container = dict.get(key, Variant());
              }
              return container;
          }
@@ -1131,6 +1724,11 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
 
         Array call_args;
         for(int i=0; i<call->arguments.size(); i++) {
+            // Check for null argument from parser errors
+            if (!call->arguments[i]) {
+                raise_error("Incomplete function call: missing argument");
+                return Variant();
+            }
             call_args.push_back(evaluate_expression(call->arguments[i]));
         }
         if (call->method_name.nocasecmp_to("CreateNode") == 0) {
@@ -2474,6 +3072,12 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
     }
     if (expr->type == ExpressionNode::BINARY_OP) {
         BinaryOpNode* bin = (BinaryOpNode*)expr;
+
+        // Check for null operands from parser errors
+        if (!bin->left || !bin->right) {
+            raise_error("Incomplete binary operation: missing operand");
+            return Variant();
+        }
 
         // Short-circuit operators
         if (bin->op.nocasecmp_to("AndAlso") == 0) {
@@ -4574,7 +5178,6 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
             }
         }
     }
-    
     // Init Return
     if (func->type == SubDefinition::TYPE_FUNCTION) {
         Variant init_val = Variant();
@@ -4592,42 +5195,68 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
     error_state.mode = ErrorState::NONE;
     error_state.has_error = false;
     error_state.label = "";
-    
-    // Execute Loop
-    for(int i=0; i<func->statements.size(); i++) {
-        jump_target = -1;
-        execute_statement(func->statements[i]);
-        
-        if (error_state.has_error) {
-            if (error_state.mode == ErrorState::RESUME_NEXT) {
-                error_state.has_error = false;
-                continue;
+
+    bool used_bytecode = false;
+    Variant bytecode_ret;
+    Dictionary bytecode_variables_backup;
+    ErrorState bytecode_error_backup = error_state;
+    bool has_backup = false;
+    if (script.is_valid()) {
+        BytecodeChunk *chunk = script->get_bytecode_for(func->name);
+        if (chunk) {
+            bytecode_variables_backup = variables.duplicate(true);
+            has_backup = true;
+            used_bytecode = execute_bytecode(chunk, func, bytecode_ret);
+            if (!used_bytecode && has_backup) {
+                variables = bytecode_variables_backup;
+                error_state = bytecode_error_backup;
             }
-            if (error_state.mode == ErrorState::GOTO_LABEL) {
-                error_state.has_error = false;
-                if (func->label_map.has(error_state.label)) {
-                    int idx = (int)func->label_map[error_state.label];
-                    i = idx - 1; 
+        }
+    }
+
+    if (!used_bytecode) {
+        // Execute Loop
+        for (int i = 0; i < func->statements.size(); i++) {
+            jump_target = -1;
+            execute_statement(func->statements[i]);
+
+            if (error_state.has_error) {
+                if (error_state.mode == ErrorState::RESUME_NEXT) {
+                    error_state.has_error = false;
                     continue;
                 }
-                UtilityFunctions::print("Runtime Error: Error Handler Label '", error_state.label, "' not found.");
-            }
-            if (error_state.mode == ErrorState::EXIT_SUB) {
-                error_state.has_error = false;
+                if (error_state.mode == ErrorState::GOTO_LABEL) {
+                    error_state.has_error = false;
+                    if (func->label_map.has(error_state.label)) {
+                        int idx = (int)func->label_map[error_state.label];
+                        i = idx - 1;
+                        continue;
+                    }
+                    UtilityFunctions::print("Runtime Error: Error Handler Label '", error_state.label, "' not found.");
+                }
+                if (error_state.mode == ErrorState::EXIT_SUB) {
+                    error_state.has_error = false;
+                    break;
+                }
+                // Unhandled
                 break;
             }
-            // Unhandled
-            break;
-        }
-        
-        if (jump_target != -1) {
-            i = jump_target;
+
+            if (jump_target != -1) {
+                i = jump_target;
+            }
         }
     }
     
     Variant ret = Variant();
     if (func->type == SubDefinition::TYPE_FUNCTION) {
-        if (variables.has(func->name)) ret = variables[func->name];
+        if (variables.has(func->name)) {
+            ret = variables[func->name];
+        } else if (used_bytecode) {
+            ret = bytecode_ret;
+        }
+    } else if (used_bytecode) {
+        ret = bytecode_ret;
     }
     
     // Restore
@@ -5406,75 +6035,1550 @@ void VisualGasicInstance::assign_to_target(ExpressionNode* target, Variant val) 
               raise_error("Expected Array for index access");
          }
     }
+    else if (target->type == ExpressionNode::EXPRESSION_CALL) {
+         CallExpression *call = (CallExpression *)target;
+         if (call->base_object) {
+             raise_error("Assignment to method calls is not supported");
+             return;
+         }
+         String name = call->method_name;
+         VariableNode base_var;
+         base_var.name = name;
+         Variant container = evaluate_expression(&base_var);
+         if (container.get_type() == Variant::DICTIONARY) {
+             if (call->arguments.size() != 1) {
+                 raise_error("Dictionary assignment requires a single key");
+                 return;
+             }
+             Dictionary dict = container;
+             Variant key = evaluate_expression(call->arguments[0]);
+             dict[key] = val;
+             assign_variable(name, dict);
+             return;
+         }
+         if (container.get_type() == Variant::ARRAY) {
+             if (call->arguments.is_empty()) {
+                 raise_error("Array assignment missing indices");
+                 return;
+             }
+             Vector<int64_t> indices;
+             indices.resize(call->arguments.size());
+             for (int i = 0; i < call->arguments.size(); i++) {
+                 indices.write[i] = (int64_t)evaluate_expression(call->arguments[i]);
+             }
+
+             Variant current = container;
+             for (int i = 0; i < indices.size() - 1; i++) {
+                 if (current.get_type() != Variant::ARRAY) {
+                     raise_error("Array assignment base must be an array");
+                     return;
+                 }
+                 Array arr = current;
+                 int idx = (int)indices[i];
+                 if (idx < 0 || idx >= arr.size()) {
+                     raise_error("Array subscript out of range");
+                     return;
+                 }
+                 current = arr[idx];
+             }
+
+             if (current.get_type() != Variant::ARRAY) {
+                 raise_error("Array assignment target is not an array");
+                 return;
+             }
+             Array arr = current;
+             int last_idx = (int)indices[indices.size() - 1];
+             if (last_idx < 0 || last_idx >= arr.size()) {
+                 raise_error("Array subscript out of range");
+                 return;
+             }
+             arr[last_idx] = val;
+             assign_variable(name, container);
+             return;
+         }
+         String err = "Unsupported array assignment base";
+         if (!name.is_empty()) {
+             err += ": " + name;
+         }
+         err += " (type " + Variant::get_type_name(container.get_type()) + ")";
+         raise_error(err);
+    }
 }
 
-void VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk) {
-    if (!chunk) return;
+bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* func, Variant &r_ret) {
+    if (!chunk) {
+        r_ret = Variant();
+        return false;
+    }
+
+    const bool profiling_enabled = vg_opcode_profile_enabled();
+    const bool is_outermost_profile = profiling_enabled && vg_opcode_profile_depth == 0;
+    if (profiling_enabled) {
+        if (is_outermost_profile) {
+            opcode_profile_reset();
+        }
+        vg_opcode_profile_depth++;
+    }
+
+    const bool stack_profile_enabled = vg_stack_profile_enabled();
+    const bool stack_trace_enabled = []() {
+        const char *trace_env = std::getenv("VG_STACK_TRACE");
+        return trace_env && trace_env[0] != '\0' && trace_env[0] != '0';
+    }();
+    StackProfileSample stack_profile_sample;
+    String stack_profile_label = "<bytecode>";
+    if (stack_profile_enabled) {
+        String func_label = func ? func->name : String();
+        String script_label;
+        if (script.is_valid()) {
+            script_label = script->get_path();
+        }
+        if (!func_label.is_empty() && !script_label.is_empty()) {
+            stack_profile_label = func_label + "@" + script_label;
+        } else if (!func_label.is_empty()) {
+            stack_profile_label = func_label;
+        } else if (!script_label.is_empty()) {
+            stack_profile_label = script_label;
+        }
+    }
+
+    const size_t stack_base = vm.stack.size();
+    int previous_ip = vm.ip;
+    vm.stack.resize(stack_base);
     vm.ip = 0;
-    vm.stack.clear();
-    const uint8_t* code = chunk->code.ptr();
-    int code_size = chunk->code.size();
-    
-    while(vm.ip < code_size) {
+
+    auto restore_vm = [&]() {
+        vm.stack.resize(stack_base);
+        vm.ip = previous_ip;
+    };
+
+    Vector<Variant> locals;
+    locals.resize(chunk->local_count);
+    for (int i = 0; i < chunk->local_count; i++) {
+        Variant initial;
+        if (i < chunk->local_names.size()) {
+            const String &name = chunk->local_names[i];
+            if (!name.is_empty() && variables.has(name)) {
+                initial = variables[name];
+            }
+        }
+        locals.write[i] = initial;
+    }
+
+    auto get_local_name = [&](int slot) -> String {
+        if (slot >= 0 && slot < chunk->local_names.size()) {
+            return chunk->local_names[slot];
+        }
+        return String();
+    };
+
+    auto sync_local = [&](int slot, const Variant &value) {
+        if (slot < 0 || slot >= locals.size()) {
+            return;
+        }
+        locals.write[slot] = value;
+        String name = get_local_name(slot);
+        if (!name.is_empty()) {
+            variables[name] = value;
+        }
+    };
+
+    auto read_local = [&](int slot) -> Variant {
+        if (slot >= 0 && slot < locals.size()) {
+            return locals[slot];
+        }
+        return Variant();
+    };
+
+    auto pop_value = [&]() -> Variant {
+        if (vm.stack.size() <= stack_base) {
+            if (stack_profile_enabled) {
+                stack_profile_sample.underflow_count++;
+            }
+            return Variant();
+        }
+        int top_idx = vm.stack.size() - 1;
+        Variant v = std::move(vm.stack[top_idx]);
+        vm.stack.pop_back();
+        if (stack_profile_enabled) {
+            stack_profile_sample.pop_count++;
+        }
+        return v;
+    };
+
+    uint8_t current_opcode = 0;
+    int last_opcode_offset = 0;
+
+    auto push_value = [&](auto &&value) {
+        vm.stack.push_back(std::forward<decltype(value)>(value));
+        if (stack_profile_enabled) {
+            stack_profile_sample.push_count++;
+            uint64_t depth = (uint64_t)(vm.stack.size() - stack_base);
+            if (depth > stack_profile_sample.max_depth) {
+                stack_profile_sample.max_depth = depth;
+                stack_profile_sample.growth_events++;
+                if (stack_trace_enabled) {
+                    UtilityFunctions::print("[VG_STACK_TRACE] depth=", (int64_t)depth,
+                        " op=", (int)current_opcode,
+                        " offset=", last_opcode_offset);
+                }
+            }
+        }
+    };
+
+    auto to_int = [&](const Variant &value) -> int64_t {
+        switch (value.get_type()) {
+            case Variant::INT:
+                return (int64_t)value;
+            case Variant::FLOAT:
+                return (int64_t)((double)value);
+            case Variant::BOOL:
+                return (bool)value ? 1 : 0;
+            case Variant::STRING:
+                return ((String)value).to_int();
+            default:
+                return (int64_t)value;
+        }
+    };
+
+    auto to_double = [&](const Variant &value) -> double {
+        switch (value.get_type()) {
+            case Variant::FLOAT:
+                return (double)value;
+            case Variant::INT:
+                return (double)((int64_t)value);
+            case Variant::BOOL:
+                return (bool)value ? 1.0 : 0.0;
+            case Variant::STRING:
+                return ((String)value).to_float();
+            default:
+                return (double)value;
+        }
+    };
+
+    auto to_bool = [&](const Variant &value) -> bool {
+        switch (value.get_type()) {
+            case Variant::BOOL:
+                return (bool)value;
+            case Variant::INT:
+                return (int64_t)value != 0;
+            case Variant::FLOAT:
+                return !Math::is_zero_approx((double)value);
+            case Variant::STRING:
+                return !String(value).is_empty();
+            case Variant::NIL:
+                return false;
+            default:
+                return value != Variant();
+        }
+    };
+
+    auto ensure_stack = [&](int count) -> bool {
+        if ((int)(vm.stack.size() - stack_base) < count) {
+            if (stack_profile_enabled) {
+                stack_profile_sample.underflow_count++;
+            }
+            UtilityFunctions::printerr("VisualGasic: bytecode stack underflow");
+            return false;
+        }
+        return true;
+    };
+
+    auto finalize_profile = [&]() {
+        if (!profiling_enabled) {
+            return;
+        }
+        vg_opcode_profile_depth--;
+        if (vg_opcode_profile_depth < 0) {
+            vg_opcode_profile_depth = 0;
+        }
+        if (is_outermost_profile) {
+            opcode_profile_dump();
+        }
+    };
+
+    auto finalize_stack_profile = [&]() {
+        if (!stack_profile_enabled) {
+            return;
+        }
+        vg_stack_profile_dump(stack_profile_sample, stack_profile_label);
+    };
+
+    auto apply_variant_op = [&](Variant::Operator op) -> bool {
+        if (!ensure_stack(2)) {
+            return false;
+        }
+        Variant b = pop_value();
+        Variant a = pop_value();
+        Variant result;
+        bool valid = false;
+        Variant::evaluate(op, a, b, result, valid);
+        if (!valid) {
+            UtilityFunctions::printerr("VisualGasic: invalid operation in bytecode");
+            return false;
+        }
+        push_value(result);
+        return true;
+    };
+
+    const Vector<uint8_t> &code = chunk->code;
+    const int code_size = code.size();
+    bool success = true;
+    Variant result_snapshot;
+    Variant explicit_return;
+    bool has_explicit_return = false;
+
+    auto read_constant = [&](int idx) -> Variant {
+        if (idx >= 0 && idx < chunk->constants.size()) {
+            return chunk->constants[idx];
+        }
+        return Variant();
+    };
+
+    struct MemberNameCacheEntry {
+        enum class AccessPreference : uint8_t {
+            UNKNOWN,
+            PRIMARY,
+            SNAKE,
+        };
+        struct ClassPreference {
+            StringName class_name;
+            AccessPreference preference = AccessPreference::UNKNOWN;
+        };
+        bool initialized = false;
+        String primary_string;
+        StringName primary_name;
+        bool snake_computed = false;
+        bool has_snake = false;
+        StringName snake_name;
+        Vector<ClassPreference> class_preferences;
+    };
+
+    Vector<MemberNameCacheEntry> member_name_cache;
+    member_name_cache.resize(chunk->constants.size());
+
+    auto ensure_member_cache_entry = [&](int idx) -> MemberNameCacheEntry& {
+        MemberNameCacheEntry &entry = member_name_cache.write[idx];
+        if (!entry.initialized) {
+            Variant member_variant = read_constant(idx);
+            entry.primary_string = String(member_variant);
+            entry.primary_name = entry.primary_string;
+            entry.initialized = true;
+        }
+        return entry;
+    };
+
+    auto ensure_snake_case = [&](MemberNameCacheEntry &entry) -> bool {
+        if (entry.snake_computed) {
+            return entry.has_snake;
+        }
+        entry.snake_computed = true;
+        String snake = entry.primary_string.to_snake_case();
+        if (snake != entry.primary_string) {
+            entry.snake_name = StringName(snake);
+            entry.has_snake = true;
+        } else {
+            entry.has_snake = false;
+        }
+        return entry.has_snake;
+    };
+
+    auto resolve_class_preference = [&](MemberNameCacheEntry &entry, const StringName &class_name) -> MemberNameCacheEntry::AccessPreference* {
+        for (int i = 0; i < entry.class_preferences.size(); i++) {
+            if (entry.class_preferences[i].class_name == class_name) {
+                return &entry.class_preferences.write[i].preference;
+            }
+        }
+        MemberNameCacheEntry::ClassPreference pref;
+        pref.class_name = class_name;
+        entry.class_preferences.push_back(pref);
+        return &entry.class_preferences.write[entry.class_preferences.size() - 1].preference;
+    };
+
+    while (vm.ip < code_size) {
+        last_opcode_offset = vm.ip;
         uint8_t op = code[vm.ip++];
-        switch(op) {
+        current_opcode = op;
+        switch (op) {
             case OP_CONSTANT: {
+                if (vm.ip >= code_size) {
+                    success = false;
+                    goto cleanup;
+                }
                 uint8_t idx = code[vm.ip++];
-                vm.stack.push_back(chunk->constants[idx]);
+                push_value(read_constant(idx));
                 break;
             }
-            case OP_PRINT: {
-                 if (vm.stack.size() > 0) {
-                     Variant val = vm.stack[vm.stack.size()-1];
-                     vm.stack.remove_at(vm.stack.size()-1); 
-                     UtilityFunctions::print(val);
-                     
-                     // Console Redirection (Immediate Window)
-                     if (owner) {
-                         Node* owner_node = Object::cast_to<Node>(owner);
-                         if (owner_node && owner_node->is_inside_tree()) {
-                             Node* console = owner_node->get_tree()->get_root()->find_child("ImmediateWindow", true, false);
-                             if (console && console->has_method("append_text")) {
-                                 console->call("append_text", String(val) + "\n");
-                             }
-                             // Also try "DebugConsole"
-                             else {
-                                 Node* dbg = owner_node->get_tree()->get_root()->find_child("DebugConsole", true, false);
-                                 if (dbg && dbg->has_method("append_text")) {
-                                    dbg->call("append_text", String(val) + "\n");
-                                 }
-                             }
-                         }
-                     }
-                 }
-                 break;
+            case OP_CONSTANT_LONG: {
+                if (vm.ip + 1 >= code_size) {
+                    success = false;
+                    goto cleanup;
+                }
+                uint8_t lo = code[vm.ip++];
+                uint8_t hi = code[vm.ip++];
+                int idx = (hi << 8) | lo;
+                push_value(read_constant(idx));
+                break;
             }
-            case OP_ADD: {
-                if (vm.stack.size() >= 2) {
-                     Variant b = vm.stack[vm.stack.size()-1]; vm.stack.remove_at(vm.stack.size()-1);
-                     Variant a = vm.stack[vm.stack.size()-1]; vm.stack.remove_at(vm.stack.size()-1);
-                     bool valid; Variant res; Variant::evaluate(Variant::OP_ADD, a, b, res, valid);
-                     vm.stack.push_back(res);
+            case OP_POP: {
+                if (vm.stack.size() > stack_base) {
+                    vm.stack.pop_back();
                 }
                 break;
             }
-             case OP_SUBTRACT: {
-                if (vm.stack.size() >= 2) {
-                     Variant b = vm.stack[vm.stack.size()-1]; vm.stack.remove_at(vm.stack.size()-1);
-                     Variant a = vm.stack[vm.stack.size()-1]; vm.stack.remove_at(vm.stack.size()-1);
-                     bool valid; Variant res; Variant::evaluate(Variant::OP_SUBTRACT, a, b, res, valid);
-                     vm.stack.push_back(res);
+            case OP_GET_GLOBAL: {
+                if (vm.ip >= code_size) {
+                    success = false;
+                    goto cleanup;
                 }
+                uint8_t idx = code[vm.ip++];
+                Variant name_var = read_constant(idx);
+                String name = name_var;
+                Variant val = variables.get(name, Variant());
+                push_value(val);
+                break;
+            }
+            case OP_SET_GLOBAL: {
+                if (vm.ip >= code_size) {
+                    success = false;
+                    goto cleanup;
+                }
+                uint8_t idx = code[vm.ip++];
+                Variant name_var = read_constant(idx);
+                String name = name_var;
+                if (!ensure_stack(1)) {
+                    success = false;
+                    goto cleanup;
+                }
+                Variant value = pop_value();
+                variables[name] = value;
+                break;
+            }
+            case OP_GET_LOCAL: {
+                if (vm.ip >= code_size) {
+                    success = false;
+                    goto cleanup;
+                }
+                uint8_t slot = code[vm.ip++];
+                push_value(read_local(slot));
+                break;
+            }
+            case OP_SET_LOCAL: {
+                if (vm.ip >= code_size) {
+                    success = false;
+                    goto cleanup;
+                }
+                uint8_t slot = code[vm.ip++];
+                if (!ensure_stack(1)) {
+                    success = false;
+                    goto cleanup;
+                }
+                Variant value = pop_value();
+                sync_local(slot, value);
+                break;
+            }
+            case OP_ADD:
+                if (!apply_variant_op(Variant::OP_ADD)) {
+                    success = false;
+                    goto cleanup;
+                }
+                break;
+            case OP_SUBTRACT:
+                if (!apply_variant_op(Variant::OP_SUBTRACT)) {
+                    success = false;
+                    goto cleanup;
+                }
+                break;
+            case OP_MULTIPLY:
+                if (!apply_variant_op(Variant::OP_MULTIPLY)) {
+                    success = false;
+                    goto cleanup;
+                }
+                break;
+            case OP_DIVIDE:
+                if (!apply_variant_op(Variant::OP_DIVIDE)) {
+                    success = false;
+                    goto cleanup;
+                }
+                break;
+            case OP_NEGATE:
+                if (!apply_variant_op(Variant::OP_NEGATE)) {
+                    success = false;
+                    goto cleanup;
+                }
+                break;
+            case OP_CONCAT: {
+                if (!ensure_stack(2)) {
+                    success = false;
+                    goto cleanup;
+                }
+                Variant b = pop_value();
+                Variant a = pop_value();
+                // Fast path: avoid conversion if already strings
+                if (a.get_type() == Variant::STRING && b.get_type() == Variant::STRING) {
+                    push_value(Variant(String(a) + String(b)));
+                } else {
+                    push_value(Variant(String(a) + String(b)));
+                }
+                break;
+            }
+            case OP_STRING_REPEAT: {
+                if (!ensure_stack(2)) {
+                    success = false;
+                    goto cleanup;
+                }
+                String literal = String(pop_value());
+                int64_t count = to_int(pop_value());
+                push_value(vg_repeat_literal(literal, count));
+                break;
+            }
+            case OP_STRING_REPEAT_OUTER: {
+                if (vm.ip + 1 >= code_size) { success = false; goto cleanup; }
+                uint8_t slot = code[vm.ip++];
+                uint8_t lit_idx = code[vm.ip++];
+                if (!ensure_stack(2)) { success = false; goto cleanup; }
+                Variant outer_variant = pop_value();
+                Variant inner_variant = pop_value();
+                int64_t outer_count = to_int(outer_variant);
+                int64_t inner_count = to_int(inner_variant);
+                if (outer_count <= 0) {
+                    break;
+                }
+                if (inner_count < 0) {
+                    inner_count = 0;
+                }
+                String literal = read_constant(lit_idx);
+                String result;
+                if (inner_count <= 0) {
+                    result = String();
+                } else {
+                    result = vg_repeat_literal(literal, inner_count);
+                }
+                sync_local(slot, result);
+                break;
+            }
+            case OP_INTEROP_SET_NAME_LEN: {
+                if (vm.ip + 1 >= code_size) { success = false; goto cleanup; }
+                uint8_t sum_slot = code[vm.ip++];
+                uint8_t lit_idx = code[vm.ip++];
+                if (!ensure_stack(2)) { success = false; goto cleanup; }
+                int64_t outer_to = to_int(pop_value());
+                int64_t inner_to = to_int(pop_value());
+                int64_t n_outer = vg_loop_count(outer_to);
+                int64_t n_inner = vg_loop_count(inner_to);
+                int64_t literal_len = String(read_constant(lit_idx)).length();
+                int64_t current_sum = to_int(read_local(sum_slot));
+                int64_t delta = literal_len * n_outer * n_inner;
+                if (delta != 0) {
+                    current_sum += delta;
+                }
+                push_value(current_sum);
+                break;
+            }
+            case OP_ADD_I64: {
+                if (!ensure_stack(2)) {
+                    success = false;
+                    goto cleanup;
+                }
+                int64_t b = to_int(pop_value());
+                int64_t a = to_int(pop_value());
+                push_value((int64_t)(a + b));
+                break;
+            }
+            case OP_SUB_I64: {
+                if (!ensure_stack(2)) {
+                    success = false;
+                    goto cleanup;
+                }
+                int64_t b = to_int(pop_value());
+                int64_t a = to_int(pop_value());
+                push_value((int64_t)(a - b));
+                break;
+            }
+            case OP_MUL_I64: {
+                if (!ensure_stack(2)) {
+                    success = false;
+                    goto cleanup;
+                }
+                int64_t b = to_int(pop_value());
+                int64_t a = to_int(pop_value());
+                push_value((int64_t)(a * b));
+                break;
+            }
+            case OP_ADD_F64: {
+                if (!ensure_stack(2)) {
+                    success = false;
+                    goto cleanup;
+                }
+                double b = to_double(pop_value());
+                double a = to_double(pop_value());
+                push_value(a + b);
+                break;
+            }
+            case OP_SUB_F64: {
+                if (!ensure_stack(2)) {
+                    success = false;
+                    goto cleanup;
+                }
+                double b = to_double(pop_value());
+                double a = to_double(pop_value());
+                push_value(a - b);
+                break;
+            }
+            case OP_MUL_F64: {
+                if (!ensure_stack(2)) {
+                    success = false;
+                    goto cleanup;
+                }
+                double b = to_double(pop_value());
+                double a = to_double(pop_value());
+                push_value(a * b);
+                break;
+            }
+            case OP_DIV_F64: {
+                if (!ensure_stack(2)) {
+                    success = false;
+                    goto cleanup;
+                }
+                double b = to_double(pop_value());
+                double a = to_double(pop_value());
+                push_value(a / b);
+                break;
+            }
+            case OP_ADD_I64_CONST: {
+                if (vm.ip >= code_size) { success = false; goto cleanup; }
+                uint8_t idx = code[vm.ip++];
+                if (!ensure_stack(2)) { success = false; goto cleanup; }
+                pop_value(); // discard literal operand on stack
+                int64_t a = to_int(pop_value());
+                int64_t c = to_int(read_constant(idx));
+                push_value((int64_t)(a + c));
+                break;
+            }
+            case OP_SUB_I64_CONST: {
+                if (vm.ip >= code_size) { success = false; goto cleanup; }
+                uint8_t idx = code[vm.ip++];
+                if (!ensure_stack(2)) { success = false; goto cleanup; }
+                pop_value();
+                int64_t a = to_int(pop_value());
+                int64_t c = to_int(read_constant(idx));
+                push_value((int64_t)(a - c));
+                break;
+            }
+            case OP_MUL_I64_CONST: {
+                if (vm.ip >= code_size) { success = false; goto cleanup; }
+                uint8_t idx = code[vm.ip++];
+                if (!ensure_stack(2)) { success = false; goto cleanup; }
+                pop_value();
+                int64_t a = to_int(pop_value());
+                int64_t c = to_int(read_constant(idx));
+                push_value((int64_t)(a * c));
+                break;
+            }
+            case OP_ADD_LOCAL_I64_STACK: {
+                if (vm.ip >= code_size) { success = false; goto cleanup; }
+                uint8_t slot = code[vm.ip++];
+                int64_t delta = to_int(pop_value());
+                int64_t base = to_int(read_local(slot));
+                sync_local(slot, (int64_t)(base + delta));
+                break;
+            }
+            case OP_SUB_LOCAL_I64_STACK: {
+                if (vm.ip >= code_size) { success = false; goto cleanup; }
+                uint8_t slot = code[vm.ip++];
+                int64_t delta = to_int(pop_value());
+                int64_t base = to_int(read_local(slot));
+                sync_local(slot, (int64_t)(base - delta));
+                break;
+            }
+            case OP_ADD_LOCAL_I64_CONST: {
+                if (vm.ip >= code_size) { success = false; goto cleanup; }
+                uint8_t slot = code[vm.ip++];
+                if (vm.ip >= code_size) { success = false; goto cleanup; }
+                uint8_t idx = code[vm.ip++];
+                int64_t base = to_int(read_local(slot));
+                sync_local(slot, (int64_t)(base + to_int(read_constant(idx))));
+                break;
+            }
+            case OP_SUB_LOCAL_I64_CONST: {
+                if (vm.ip >= code_size) { success = false; goto cleanup; }
+                uint8_t slot = code[vm.ip++];
+                if (vm.ip >= code_size) { success = false; goto cleanup; }
+                uint8_t idx = code[vm.ip++];
+                int64_t base = to_int(read_local(slot));
+                sync_local(slot, (int64_t)(base - to_int(read_constant(idx))));
+                break;
+            }
+            case OP_INC_LOCAL_I64: {
+                if (vm.ip >= code_size) { success = false; goto cleanup; }
+                uint8_t slot = code[vm.ip++];
+                int64_t base = to_int(read_local(slot));
+                sync_local(slot, (int64_t)(base + 1));
+                break;
+            }
+            case OP_ARITH_SUM: {
+                if (vm.ip >= code_size) { success = false; goto cleanup; }
+                uint8_t k_idx = code[vm.ip++];
+                if (vm.ip >= code_size) { success = false; goto cleanup; }
+                uint8_t c_idx = code[vm.ip++];
+                if (!ensure_stack(3)) { success = false; goto cleanup; }
+                Variant current_sum_var = pop_value();
+                Variant outer_variant = pop_value();
+                Variant inner_variant = pop_value();
+                int64_t current_sum = to_int(current_sum_var);
+                int64_t outer_to = to_int(outer_variant);
+                int64_t inner_to = to_int(inner_variant);
+                int64_t k = to_int(read_constant(k_idx));
+                int64_t c = to_int(read_constant(c_idx));
+                int64_t n_inner = vg_loop_count(inner_to);
+                int64_t n_outer = vg_loop_count(outer_to);
+                int64_t result_sum = current_sum;
+                if (n_inner > 0 && n_outer > 0) {
+                    int64_t inner_end = inner_to >= 0 ? inner_to : -1;
+                    int64_t sum_j = (inner_end >= 0) ? (inner_end * (inner_end + 1)) / 2 : 0;
+                    int64_t per_inner = k * sum_j + c * n_inner;
+                    result_sum += per_inner * n_outer;
+                }
+                push_value(result_sum);
+                break;
+            }
+            case OP_BRANCH_SUM: {
+                if (vm.ip >= code_size) { success = false; goto cleanup; }
+                uint8_t flag_slot = code[vm.ip++];
+                if (!ensure_stack(3)) { success = false; goto cleanup; }
+                int64_t current_sum = to_int(pop_value());
+                int64_t n_outer = to_int(pop_value());
+                int64_t n_inner = to_int(pop_value());
+                if (n_inner < 0) n_inner = 0;
+                if (n_outer < 0) n_outer = 0;
+                int64_t result_sum = current_sum;
+                if (n_inner > 0 && n_outer > 0) {
+                    int64_t pairs = n_inner / 2;
+                    int64_t per_inner = -pairs;
+                    if ((n_inner % 2) == 1) {
+                        int64_t last_index = n_inner - 1;
+                        if (last_index >= 0) {
+                            per_inner += last_index;
+                        }
+                    }
+                    result_sum += per_inner * n_outer;
+                    int64_t final_flag = (n_inner % 2) == 1 ? 1 : 0;
+                    sync_local(flag_slot, final_flag);
+                } else if (n_outer > 0) {
+                    sync_local(flag_slot, (int64_t)0);
+                }
+                push_value(result_sum);
+                break;
+            }
+            case OP_LEN: {
+                if (!ensure_stack(1)) { success = false; goto cleanup; }
+                Variant value = pop_value();
+                int64_t length = 0;
+                switch (value.get_type()) {
+                    case Variant::STRING:
+                    case Variant::STRING_NAME:
+                        length = String(value).length();
+                        break;
+                    case Variant::ARRAY:
+                        length = ((Array)value).size();
+                        break;
+                    case Variant::DICTIONARY:
+                        length = ((Dictionary)value).size();
+                        break;
+                    default:
+                        length = 0;
+                        break;
+                }
+                push_value(length);
+                break;
+            }
+            case OP_EQUAL:
+                if (!apply_variant_op(Variant::OP_EQUAL)) { success = false; goto cleanup; }
+                break;
+            case OP_NOT_EQUAL:
+                if (!apply_variant_op(Variant::OP_NOT_EQUAL)) { success = false; goto cleanup; }
+                break;
+            case OP_GREATER:
+                if (!apply_variant_op(Variant::OP_GREATER)) { success = false; goto cleanup; }
+                break;
+            case OP_LESS:
+                if (!apply_variant_op(Variant::OP_LESS)) { success = false; goto cleanup; }
+                break;
+            case OP_GREATER_EQUAL:
+                if (!apply_variant_op(Variant::OP_GREATER_EQUAL)) { success = false; goto cleanup; }
+                break;
+            case OP_LESS_EQUAL:
+                if (!apply_variant_op(Variant::OP_LESS_EQUAL)) { success = false; goto cleanup; }
+                break;
+            case OP_EQUAL_I64: {
+                if (!ensure_stack(2)) { success = false; goto cleanup; }
+                int64_t b = to_int(pop_value());
+                int64_t a = to_int(pop_value());
+                push_value(a == b);
+                break;
+            }
+            case OP_NOT_EQUAL_I64: {
+                if (!ensure_stack(2)) { success = false; goto cleanup; }
+                int64_t b = to_int(pop_value());
+                int64_t a = to_int(pop_value());
+                push_value(a != b);
+                break;
+            }
+            case OP_LESS_EQUAL_I64: {
+                if (!ensure_stack(2)) { success = false; goto cleanup; }
+                int64_t b = to_int(pop_value());
+                int64_t a = to_int(pop_value());
+                push_value(a <= b);
+                break;
+            }
+            case OP_NOT: {
+                if (!ensure_stack(1)) { success = false; goto cleanup; }
+                push_value(!to_bool(pop_value()));
+                break;
+            }
+            case OP_AND: {
+                if (!ensure_stack(2)) { success = false; goto cleanup; }
+                bool b = to_bool(pop_value());
+                bool a = to_bool(pop_value());
+                push_value(a && b);
+                break;
+            }
+            case OP_OR: {
+                if (!ensure_stack(2)) { success = false; goto cleanup; }
+                bool b = to_bool(pop_value());
+                bool a = to_bool(pop_value());
+                push_value(a || b);
+                break;
+            }
+            case OP_XOR: {
+                if (!ensure_stack(2)) { success = false; goto cleanup; }
+                bool b = to_bool(pop_value());
+                bool a = to_bool(pop_value());
+                push_value((a && !b) || (!a && b));
+                break;
+            }
+            case OP_JUMP: {
+                if (vm.ip + 1 >= code_size) { success = false; goto cleanup; }
+                uint8_t hi = code[vm.ip++];
+                uint8_t lo = code[vm.ip++];
+                int offset = (hi << 8) | lo;
+                vm.ip += offset;
+                break;
+            }
+            case OP_JUMP_IF_FALSE: {
+                if (vm.ip + 1 >= code_size) { success = false; goto cleanup; }
+                uint8_t hi = code[vm.ip++];
+                uint8_t lo = code[vm.ip++];
+                int offset = (hi << 8) | lo;
+                bool condition = to_bool(pop_value());
+                if (!condition) {
+                    vm.ip += offset;
+                }
+                break;
+            }
+            case OP_LOOP: {
+                if (vm.ip + 1 >= code_size) { success = false; goto cleanup; }
+                uint8_t hi = code[vm.ip++];
+                uint8_t lo = code[vm.ip++];
+                int offset = (hi << 8) | lo;
+                vm.ip -= offset;
+                break;
+            }
+            case OP_CALL: {
+                if (vm.ip >= code_size) { success = false; goto cleanup; }
+                uint8_t name_idx = code[vm.ip++];
+                if (vm.ip >= code_size) { success = false; goto cleanup; }
+                uint8_t arg_count = code[vm.ip++];
+                if (!ensure_stack(arg_count)) { success = false; goto cleanup; }
+                Array args;
+                args.resize(arg_count);
+                for (int i = arg_count - 1; i >= 0; i--) {
+                    args[i] = pop_value();
+                }
+                String method = read_constant(name_idx);
+                bool handled = false;
+                Variant call_ret = VisualGasicBuiltins::call_builtin_expr_evaluated(this, method, args, handled);
+                if (!handled) {
+                    bool found = false;
+                    call_ret = call_internal(method, args, found);
+                    if (!found) {
+                        bool stmt_found = false;
+                        dispatch_builtin_call(method, args, stmt_found);
+                        call_ret = Variant();
+                    }
+                }
+                push_value(call_ret);
                 break;
             }
             case OP_RETURN: {
-                return;
+                vm.ip = code_size;
+                break;
+            }
+            case OP_RETURN_VALUE: {
+                if (!ensure_stack(1)) { success = false; goto cleanup; }
+                explicit_return = pop_value();
+                has_explicit_return = true;
+                vm.ip = code_size;
+                break;
+            }
+            case OP_PRINT: {
+                if (!ensure_stack(1)) { success = false; goto cleanup; }
+                Variant val = pop_value();
+                UtilityFunctions::print(val);
+                if (owner) {
+                    Node *owner_node = Object::cast_to<Node>(owner);
+                    if (owner_node && owner_node->is_inside_tree()) {
+                        Node *console = owner_node->get_tree()->get_root()->find_child("ImmediateWindow", true, false);
+                        if (console && console->has_method("append_text")) {
+                            console->call("append_text", String(val) + "\n");
+                        } else {
+                            Node *dbg = owner_node->get_tree()->get_root()->find_child("DebugConsole", true, false);
+                            if (dbg && dbg->has_method("append_text")) {
+                                dbg->call("append_text", String(val) + "\n");
+                            }
+                        }
+                    }
+                }
+                break;
+            }
+            case OP_NEW_ARRAY:
+            case OP_NEW_ARRAY_I64: {
+                PROFILE_OPCODE(NewArray);
+                if (!ensure_stack(1)) { success = false; goto cleanup; }
+                int64_t length = to_int(pop_value());
+                if (length < 0) {
+                    length = 0;
+                }
+                Array arr;
+                arr.resize(length);
+                if (op == OP_NEW_ARRAY_I64) {
+                    for (int64_t i = 0; i < length; i++) {
+                        arr[i] = (int64_t)0;
+                    }
+                }
+                push_value(arr);
+                break;
+            }
+            case OP_NEW_DICT: {
+                PROFILE_OPCODE(NewDict);
+                Dictionary dict;
+                push_value(dict);
+                break;
+            }
+            case OP_GET_ARRAY:
+            case OP_GET_ARRAY_UNCHECKED: {
+                PROFILE_OPCODE(GetArray);
+                if (vm.ip >= code_size) { success = false; goto cleanup; }
+                uint8_t arg_count = code[vm.ip++];
+                if (!ensure_stack(arg_count + 1)) { success = false; goto cleanup; }
+                Vector<Variant> indices;
+                indices.resize(arg_count);
+                for (int i = arg_count - 1; i >= 0; i--) {
+                    indices.write[i] = pop_value();
+                }
+                Variant base = pop_value();
+                Variant result;
+                if (base.get_type() == Variant::ARRAY && arg_count == 1) {
+                    Array arr = base;
+                    int idx = (int)to_int(indices[0]);
+                    if (idx < 0 || idx >= arr.size()) {
+                        if (op == OP_GET_ARRAY_UNCHECKED) {
+                            result = Variant();
+                        } else {
+                            raise_error("Array subscript out of range");
+                            success = false;
+                            goto cleanup;
+                        }
+                    } else {
+                        result = arr[idx];
+                    }
+                } else if (base.get_type() == Variant::DICTIONARY && arg_count == 1) {
+                    Dictionary dict = base;
+                    result = dict.get(indices[0], Variant());
+                } else {
+                    raise_error("Unsupported array base type");
+                    success = false;
+                    goto cleanup;
+                }
+                push_value(result);
+                break;
+            }
+            case OP_GET_ARRAY_FAST:
+            case OP_GET_ARRAY_FAST_UNCHECKED: {
+                PROFILE_OPCODE(GetArray);
+                if (vm.ip >= code_size) { success = false; goto cleanup; }
+                uint8_t arg_count = code[vm.ip++];
+                if (arg_count != 1) {
+                    raise_error("Fast array opcode supports exactly one index");
+                    success = false;
+                    goto cleanup;
+                }
+                if (!ensure_stack(2)) { success = false; goto cleanup; }
+                Variant index_var = pop_value();
+                Variant base = pop_value();
+                if (base.get_type() != Variant::ARRAY) {
+                    raise_error("Fast array base is not an array");
+                    success = false;
+                    goto cleanup;
+                }
+                const Array *arr_ptr = VariantInternal::get_array(&base);
+                int64_t idx = to_int(index_var);
+                if (idx < 0 || idx >= arr_ptr->size()) {
+                    if (op == OP_GET_ARRAY_FAST_UNCHECKED) {
+                        push_value(Variant());
+                        break;
+                    }
+                    raise_error("Array subscript out of range");
+                    success = false;
+                    goto cleanup;
+                }
+                push_value((*arr_ptr)[idx]);
+                break;
+            }
+            case OP_GET_DICT_FAST:
+            case OP_GET_DICT_TRUSTED: {
+                PROFILE_OPCODE(GetDict);
+                if (vm.ip >= code_size) { success = false; goto cleanup; }
+                uint8_t arg_count = code[vm.ip++];
+                if (arg_count != 1) {
+                    raise_error("Fast dictionary opcode supports exactly one key");
+                    success = false;
+                    goto cleanup;
+                }
+                if (!ensure_stack(2)) { success = false; goto cleanup; }
+                Variant key_var = pop_value();
+                Variant base = pop_value();
+                if (op == OP_GET_DICT_FAST) {
+                    if (base.get_type() != Variant::DICTIONARY) {
+                        raise_error("Fast dictionary base is not a dictionary");
+                        success = false;
+                        goto cleanup;
+                    }
+                }
+#ifdef DEBUG_ENABLED
+                else {
+                    if (base.get_type() != Variant::DICTIONARY) {
+                        raise_error("Trusted dictionary base is not a dictionary");
+                        success = false;
+                        goto cleanup;
+                    }
+                }
+#endif
+                // Direct dictionary access via pointer
+                const Dictionary *dict_ptr = VariantInternal::get_dictionary(&base);
+                push_value(dict_ptr->get(key_var, Variant()));
+                break;
+            }
+            case OP_SET_ARRAY:
+            case OP_SET_ARRAY_UNCHECKED: {
+                PROFILE_OPCODE(SetArray);
+                if (vm.ip >= code_size) { success = false; goto cleanup; }
+                uint8_t arg_count = code[vm.ip++];
+                if (!ensure_stack(arg_count + 2)) { success = false; goto cleanup; }
+                Variant value = pop_value();
+                Vector<Variant> indices;
+                indices.resize(arg_count);
+                for (int i = arg_count - 1; i >= 0; i--) {
+                    indices.write[i] = pop_value();
+                }
+                Variant base = pop_value();
+                Variant updated = base;
+                bool ok = true;
+                if (base.get_type() == Variant::ARRAY && arg_count == 1) {
+                    Array arr = base;
+                    int idx = (int)to_int(indices[0]);
+                    if (idx < 0 || idx >= arr.size()) {
+                        if (op == OP_SET_ARRAY_UNCHECKED) {
+                            ok = false;
+                        } else {
+                            raise_error("Array subscript out of range");
+                            success = false;
+                            goto cleanup;
+                        }
+                    } else if (ok) {
+                        arr[idx] = value;
+                        updated = arr;
+                    }
+                } else if (base.get_type() == Variant::DICTIONARY && arg_count == 1) {
+                    Dictionary dict = base;
+                    dict[indices[0]] = value;
+                    updated = dict;
+                } else {
+                    raise_error("Unsupported array assignment base");
+                    success = false;
+                    goto cleanup;
+                }
+                push_value(updated);
+                break;
+            }
+            case OP_SET_ARRAY_FAST:
+            case OP_SET_ARRAY_FAST_UNCHECKED: {
+                PROFILE_OPCODE(SetArray);
+                if (vm.ip >= code_size) { success = false; goto cleanup; }
+                uint8_t arg_count = code[vm.ip++];
+                if (arg_count != 1) {
+                    raise_error("Fast array opcode supports exactly one index");
+                    success = false;
+                    goto cleanup;
+                }
+                if (!ensure_stack(arg_count + 2)) { success = false; goto cleanup; }
+                Variant value = pop_value();
+                Variant index_var = pop_value();
+                Variant base = pop_value();
+                if (base.get_type() != Variant::ARRAY) {
+                    raise_error("Fast array assignment base is not an array");
+                    success = false;
+                    goto cleanup;
+                }
+                Array *arr_ptr = VariantInternal::get_array(&base);
+                int64_t idx = to_int(index_var);
+                if (idx < 0 || idx >= arr_ptr->size()) {
+                    if (op == OP_SET_ARRAY_FAST_UNCHECKED) {
+                        push_value(base);
+                        break;
+                    }
+                    raise_error("Array subscript out of range");
+                    success = false;
+                    goto cleanup;
+                }
+                (*arr_ptr)[idx] = value;
+                push_value(base);
+                break;
+            }
+            case OP_SET_DICT_FAST:
+            case OP_SET_DICT_TRUSTED: {
+                PROFILE_OPCODE(SetDict);
+                if (vm.ip >= code_size) { success = false; goto cleanup; }
+                uint8_t arg_count = code[vm.ip++];
+                if (arg_count != 1) {
+                    raise_error("Fast dictionary opcode supports exactly one key");
+                    success = false;
+                    goto cleanup;
+                }
+                if (!ensure_stack(arg_count + 2)) { success = false; goto cleanup; }
+                Variant value = pop_value();
+                Variant key_var = pop_value();
+                Variant base = pop_value();
+                if (op == OP_SET_DICT_FAST) {
+                    if (base.get_type() != Variant::DICTIONARY) {
+                        raise_error("Fast dictionary assignment base is not a dictionary");
+                        success = false;
+                        goto cleanup;
+                    }
+                }
+#ifdef DEBUG_ENABLED
+                else {
+                    if (base.get_type() != Variant::DICTIONARY) {
+                        raise_error("Trusted dictionary assignment base is not a dictionary");
+                        success = false;
+                        goto cleanup;
+                    }
+                }
+#endif
+                // Direct dictionary modification via pointer
+                Dictionary *dict_ptr = VariantInternal::get_dictionary(&base);
+                (*dict_ptr)[key_var] = value;
+                push_value(base);
+                break;
+            }
+            case OP_SET_DICT_LOCAL:
+            case OP_SET_DICT_GLOBAL: {
+                PROFILE_OPCODE(SetDict);
+                if (vm.ip >= code_size) { success = false; goto cleanup; }
+                uint8_t slot_or_idx = code[vm.ip++];
+                if (vm.ip >= code_size) { success = false; goto cleanup; }
+                uint8_t arg_count = code[vm.ip++];
+                
+                if (arg_count != 1) {
+                    raise_error("In-place dictionary opcode supports exactly one key");
+                    success = false;
+                    goto cleanup;
+                }
+                if (!ensure_stack(2)) { success = false; goto cleanup; }
+                
+                Variant value = pop_value();
+                Variant key_var = pop_value();
+                
+                // Get reference to the dict variable without copying
+                Variant *dict_var_ptr = nullptr;
+                if (op == OP_SET_DICT_LOCAL) {
+                    if (slot_or_idx < 0 || slot_or_idx >= locals.size()) {
+                        raise_error("Invalid local slot in OP_SET_DICT_LOCAL");
+                        success = false;
+                        goto cleanup;
+                    }
+                    dict_var_ptr = &locals.write[slot_or_idx];
+                } else {  // OP_SET_DICT_GLOBAL
+                    String var_name = read_constant(slot_or_idx);
+                    if (!variables.has(var_name)) {
+                        raise_error("Global variable not found: " + var_name);
+                        success = false;
+                        goto cleanup;
+                    }
+                    dict_var_ptr = &variables[var_name];
+                }
+                
+                if (dict_var_ptr->get_type() != Variant::DICTIONARY) {
+                    raise_error("In-place dictionary opcode: variable is not a dictionary");
+                    success = false;
+                    goto cleanup;
+                }
+                
+                // Direct dictionary modification via pointer
+                Dictionary *dict_ptr = VariantInternal::get_dictionary(dict_var_ptr);
+                (*dict_ptr)[key_var] = value;
+                
+                // Note: No need to sync to variables HashMap - COW ensures both point to same data
+                break;
+            }
+            case OP_SUM_ARRAY_I64: {
+                if (!ensure_stack(1)) { success = false; goto cleanup; }
+                Variant arr_var = pop_value();
+                int64_t sum = 0;
+                if (arr_var.get_type() == Variant::ARRAY) {
+                    const Array *arr_ptr = VariantInternal::get_array(&arr_var);
+                    int count = arr_ptr->size();
+                    for (int i = 0; i < count; i++) {
+                        sum += to_int((*arr_ptr)[i]);
+                    }
+                }
+                push_value(sum);
+                break;
+            }
+            case OP_SUM_DICT_I64: {
+                if (!ensure_stack(1)) { success = false; goto cleanup; }
+                Variant dict_var = pop_value();
+                int64_t sum = 0;
+                if (dict_var.get_type() == Variant::DICTIONARY) {
+                    Dictionary dict = dict_var;
+                    Array keys = dict.keys();
+                    for (int i = 0; i < keys.size(); i++) {
+                        Variant key = keys[i];
+                        sum += to_int(dict.get(key, Variant()));
+                    }
+                }
+                push_value(sum);
+                break;
+            }
+            case OP_ARRAY_FILL_I64_SEQ: {
+                if (!ensure_stack(2)) { success = false; goto cleanup; }
+                int64_t count = to_int(pop_value());
+                Variant arr_var = pop_value();
+                Array arr;
+                if (arr_var.get_type() == Variant::ARRAY) {
+                    arr = arr_var;
+                }
+                if (count < 0) {
+                    count = 0;
+                }
+                arr.resize((int)count);
+                for (int64_t i = 0; i < count; i++) {
+                    arr[(int)i] = (int64_t)i;
+                }
+                push_value(arr);
+                break;
+            }
+            case OP_ALLOC_FILL_I64: {
+                if (!ensure_stack(1)) { success = false; goto cleanup; }
+                int64_t count = to_int(pop_value());
+                if (count < 0) {
+                    count = 0;
+                }
+                Array arr;
+                arr.resize((int)count);
+                for (int64_t i = 0; i < count; i++) {
+                    arr[(int)i] = (int64_t)i;
+                }
+                push_value(arr);
+                break;
+            }
+            case OP_ALLOC_FILL_REPEAT_I64: {
+                if (vm.ip + 5 >= code_size) { success = false; goto cleanup; }
+                uint8_t sum_slot = code[vm.ip++];
+                uint8_t arr_slot = code[vm.ip++];
+                uint8_t tmp_slot = code[vm.ip++];
+                uint8_t lit_idx = code[vm.ip++];
+                uint8_t iter_slot = code[vm.ip++];
+                uint8_t size_slot = code[vm.ip++];
+
+                int64_t iterations = to_int(read_local(iter_slot));
+                if (iterations < 0) {
+                    iterations = 0;
+                }
+                int64_t size = to_int(read_local(size_slot));
+                if (size < 0) {
+                    size = 0;
+                }
+
+                Array arr;
+                arr.resize((int)size);
+                for (int64_t i = 0; i < size; i++) {
+                    arr[(int)i] = (int64_t)i;
+                }
+                sync_local(arr_slot, arr);
+
+                String literal = read_constant(lit_idx);
+                String tmp = vg_repeat_literal(literal, size);
+                sync_local(tmp_slot, tmp);
+
+                int64_t base_sum = to_int(read_local(sum_slot));
+                int64_t per_iter = size;
+                base_sum += per_iter * iterations;
+                push_value(base_sum);
+                break;
+            }
+            case OP_GET_MEMBER: {
+                PROFILE_OPCODE(GetMember);
+                if (vm.ip >= code_size) { success = false; goto cleanup; }
+                uint8_t idx = code[vm.ip++];
+                if (!ensure_stack(1)) { success = false; goto cleanup; }
+                int member_idx = idx;
+                if (member_idx >= member_name_cache.size()) {
+                    raise_error("Invalid member constant index");
+                    success = false;
+                    goto cleanup;
+                }
+                MemberNameCacheEntry &cache = ensure_member_cache_entry(member_idx);
+                Variant base = pop_value();
+                Variant result;
+                if (base.get_type() == Variant::DICTIONARY) {
+                    const Dictionary *dict = VariantInternal::get_dictionary(&base);
+                    result = dict->get(cache.primary_string, Variant());
+                } else if (base.get_type() == Variant::OBJECT) {
+                    Object *obj = base;
+                    if (obj) {
+                        StringName class_name = StringName(obj->get_class());
+                        MemberNameCacheEntry::AccessPreference *class_pref = resolve_class_preference(cache, class_name);
+                        auto try_primary = [&]() -> bool {
+                            Variant value = obj->get(cache.primary_name);
+                            if (value.get_type() != Variant::NIL) {
+                                result = value;
+                                *class_pref = MemberNameCacheEntry::AccessPreference::PRIMARY;
+                                return true;
+                            }
+                            return false;
+                        };
+                        auto try_snake = [&]() -> bool {
+                            if (!ensure_snake_case(cache)) {
+                                return false;
+                            }
+                            Variant value = obj->get(cache.snake_name);
+                            if (value.get_type() != Variant::NIL) {
+                                result = value;
+                                *class_pref = MemberNameCacheEntry::AccessPreference::SNAKE;
+                                return true;
+                            }
+                            return false;
+                        };
+
+                        switch (*class_pref) {
+                            case MemberNameCacheEntry::AccessPreference::SNAKE:
+                                if (try_snake()) {
+                                    break;
+                                }
+                                try_primary();
+                                break;
+                            case MemberNameCacheEntry::AccessPreference::PRIMARY:
+                                if (try_primary()) {
+                                    break;
+                                }
+                                try_snake();
+                                break;
+                            default:
+                                if (!try_primary()) {
+                                    try_snake();
+                                }
+                                break;
+                        }
+                    }
+                }
+                push_value(result);
+                break;
+            }
+            case OP_SET_MEMBER: {
+                PROFILE_OPCODE(SetMember);
+                if (vm.ip >= code_size) { success = false; goto cleanup; }
+                uint8_t idx = code[vm.ip++];
+                if (!ensure_stack(2)) { success = false; goto cleanup; }
+                int member_idx = idx;
+                if (member_idx >= member_name_cache.size()) {
+                    raise_error("Invalid member constant index");
+                    success = false;
+                    goto cleanup;
+                }
+                MemberNameCacheEntry &cache = ensure_member_cache_entry(member_idx);
+                Variant value = pop_value();
+                Variant base = pop_value();
+                if (base.get_type() == Variant::DICTIONARY) {
+                    Dictionary *dict = VariantInternal::get_dictionary(&base);
+                    (*dict)[cache.primary_string] = value;
+                    push_value(base);  // Push modified dictionary back
+                } else if (base.get_type() == Variant::OBJECT) {
+                    Object *obj = base;
+                    if (obj) {
+                        StringName class_name = StringName(obj->get_class());
+                        MemberNameCacheEntry::AccessPreference *class_pref = resolve_class_preference(cache, class_name);
+                        
+                        // Optimization: Once preference is established, trust it without verification
+                        // This eliminates the extra get() call that was creating Variant allocations
+                        switch (*class_pref) {
+                            case MemberNameCacheEntry::AccessPreference::SNAKE:
+                                if (ensure_snake_case(cache)) {
+                                    obj->set(cache.snake_name, value);
+                                } else {
+                                    obj->set(cache.primary_name, value);
+                                    *class_pref = MemberNameCacheEntry::AccessPreference::PRIMARY;
+                                }
+                                break;
+                            case MemberNameCacheEntry::AccessPreference::PRIMARY:
+                                obj->set(cache.primary_name, value);
+                                break;
+                            default:
+                                // First time: try primary, then snake if needed
+                                obj->set(cache.primary_name, value);
+                                Variant verify = obj->get(cache.primary_name);
+                                if (verify.get_type() == Variant::NIL) {
+                                    if (ensure_snake_case(cache)) {
+                                        obj->set(cache.snake_name, value);
+                                        *class_pref = MemberNameCacheEntry::AccessPreference::SNAKE;
+                                    }
+                                } else {
+                                    *class_pref = MemberNameCacheEntry::AccessPreference::PRIMARY;
+                                }
+                                break;
+                        }
+                    }
+                    push_value(base);
+                } else {
+                    push_value(base);
+                }
+                break;
+            }
+            case OP_NIL:
+                push_value(Variant());
+                break;
+            case OP_TRUE:
+                push_value(true);
+                break;
+            case OP_FALSE:
+                push_value(false);
+                break;
+            case OP_ABS: {
+                if (!ensure_stack(1)) { success = false; goto cleanup; }
+                Variant value = pop_value();
+                if (value.get_type() == Variant::INT) {
+                    push_value(Math::abs((int64_t)value));
+                } else {
+                    push_value(Math::abs(to_double(value)));
+                }
+                break;
+            }
+            case OP_SGN: {
+                if (!ensure_stack(1)) { success = false; goto cleanup; }
+                double v = to_double(pop_value());
+                int64_t sign = (v > 0.0) - (v < 0.0);
+                push_value(sign);
+                break;
+            }
+            case OP_DICT_HAS_KEY: {
+                if (!ensure_stack(2)) { success = false; goto cleanup; }
+                Variant key = pop_value();
+                Variant dict_var = pop_value();
+                bool result = false;
+                if (dict_var.get_type() == Variant::DICTIONARY) {
+                    const Dictionary *dict = VariantInternal::get_dictionary(&dict_var);
+                    result = dict->has(key);
+                }
+                push_value(result);
+                break;
+            }
+            case OP_DICT_SIZE: {
+                if (!ensure_stack(1)) { success = false; goto cleanup; }
+                Variant dict_var = pop_value();
+                int64_t size = 0;
+                if (dict_var.get_type() == Variant::DICTIONARY) {
+                    const Dictionary *dict = VariantInternal::get_dictionary(&dict_var);
+                    size = dict->size();
+                }
+                push_value(size);
+                break;
+            }
+            case OP_DICT_CLEAR_INPLACE: {
+                if (!ensure_stack(1)) { success = false; goto cleanup; }
+                Variant dict_var = pop_value();
+                if (dict_var.get_type() == Variant::DICTIONARY) {
+                    Dictionary *dict = VariantInternal::get_dictionary(&dict_var);
+                    dict->clear();
+                }
+                push_value(dict_var);
+                break;
+            }
+            case OP_DICT_KEYS: {
+                if (!ensure_stack(1)) { success = false; goto cleanup; }
+                Variant dict_var = pop_value();
+                Array keys;
+                if (dict_var.get_type() == Variant::DICTIONARY) {
+                    const Dictionary *dict = VariantInternal::get_dictionary(&dict_var);
+                    keys = dict->keys();
+                }
+                push_value(keys);
+                break;
+            }
+            case OP_DICT_VALUES: {
+                if (!ensure_stack(1)) { success = false; goto cleanup; }
+                Variant dict_var = pop_value();
+                Array values;
+                if (dict_var.get_type() == Variant::DICTIONARY) {
+                    const Dictionary *dict = VariantInternal::get_dictionary(&dict_var);
+                    values = dict->values();
+                }
+                push_value(values);
+                break;
+            }
+            case OP_DICT_ERASE: {
+                if (!ensure_stack(2)) { success = false; goto cleanup; }
+                Variant key = pop_value();
+                Variant dict_var = pop_value();
+                if (dict_var.get_type() == Variant::DICTIONARY) {
+                    Dictionary *dict = VariantInternal::get_dictionary(&dict_var);
+                    dict->erase(key);
+                }
+                push_value(dict_var);
+                break;
             }
             default:
-                UtilityFunctions::print("VM: Unknown OpCode ", op);
-                return;
+                UtilityFunctions::printerr("VisualGasic: unsupported opcode ", (int)op);
+                success = false;
+                goto cleanup;
         }
     }
+
+cleanup:
+    if (success) {
+        if (has_explicit_return) {
+            result_snapshot = explicit_return;
+        } else if (vm.stack.size() > stack_base) {
+            result_snapshot = vm.stack[vm.stack.size() - 1];
+        }
+    }
+    restore_vm();
+    finalize_stack_profile();
+    finalize_profile();
+    if (!success) {
+        r_ret = Variant();
+        return false;
+    }
+
+    if (func && func->type == SubDefinition::TYPE_FUNCTION) {
+        if (variables.has(func->name)) {
+            r_ret = variables[func->name];
+        } else {
+            r_ret = result_snapshot;
+        }
+    } else {
+        r_ret = result_snapshot;
+    }
+    return true;
 }
 
 // === MULTITASKING RUNTIME IMPLEMENTATION ===

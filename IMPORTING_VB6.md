@@ -14,8 +14,8 @@ The import tools are located in the **VisualGasic Toolbox** (usually docked in t
 
 **What happens:**
 *   **Forms**: Evaluated and converted to Godot Scenes (`.tscn`) in `res://start_forms/`.
-*   **Code**: Extracted logic is saved as `.bas` files in `res://mixed/`.
-*   **Modules**: Standard `.bas` modules are copied to `res://mixed/`.
+*   **Code**: Extracted logic is saved as `.vg` files in `res://mixed/`.
+*   **Modules**: Standard `.vg` modules are copied to `res://mixed/`.
 *   **Signals**: Button clicks (`Command_Click`) and text changes (`Text_Change`) are automatically wired up to the generated script.
 
 ### Import a Single Form

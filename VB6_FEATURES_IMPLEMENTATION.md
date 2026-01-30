@@ -271,24 +271,24 @@ Declare Function printf Lib "libc.so.6" Cdecl _
 
 ## TEST FILES CREATED
 
-1. **examples/test_classes.bas**
+1. **examples/test_classes.vg**
    - Class definition demonstration
    - Property Get/Let examples
    - Class_Initialize and Class_Terminate
    - Method and function examples
 
-2. **examples/test_file_modes.bas**
+2. **examples/test_file_modes.vg**
    - All file mode combinations
    - Binary, Random, Access, Lock, Shared
    - Record length specification
 
-3. **examples/test_ffi_declare.bas**
+3. **examples/test_ffi_declare.vg**
    - Declare Function/Sub examples
    - ByVal/ByRef parameters
    - Cdecl calling convention
    - Lib and Alias keywords
 
-4. **examples/test_comprehensive_vb6.bas**
+4. **examples/test_comprehensive_vb6.vg**
    - Complete feature demonstration
    - All keywords and features tested
    - Comprehensive summary report

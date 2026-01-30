@@ -38,7 +38,9 @@ sources = [s for s in sources if str(s) not in exclude_files]
 if "debug" in env.get("target", "").lower() or env.get("debug_build", False):
     env.Append(CCFLAGS=["-g", "-O0"])
 else:
-    env.Append(CCFLAGS=["-O3", "-DNDEBUG"])
+    # Ship release binaries with symbols so perf reports can resolve VisualGasic frames
+    env.Append(CCFLAGS=["-O3", "-DNDEBUG", "-g"])
+    env.Append(LINKFLAGS=["-g"])
 
 # Ensure debug symbols are preserved for template_debug builds (force link debug flags)
 if "template_debug" in env.get("target", "").lower() or env.get("debug_build", False):

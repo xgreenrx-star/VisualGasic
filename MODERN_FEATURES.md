@@ -379,7 +379,7 @@ Legend:
 
 ## Testing
 
-See [examples/test_modern_features.bas](../examples/test_modern_features.bas) for comprehensive examples and testing.
+See [examples/test_modern_features.vg](../examples/test_modern_features.vg) for comprehensive examples and testing.
 
 ## Backward Compatibility
 

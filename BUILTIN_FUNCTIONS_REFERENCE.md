@@ -309,4 +309,4 @@ End Function
 ## See Also
 
 - [MODERN_FEATURES.md](MODERN_FEATURES.md) - Modern syntax features
-- [examples/test_new_builtins.bas](examples/test_new_builtins.bas) - Comprehensive test examples
+- [examples/test_new_builtins.vg](examples/test_new_builtins.vg) - Comprehensive test examples

@@ -1,6 +1,6 @@
 # VisualGasic - Advanced Visual Basic for Godot 4
 
-[![CI](https://github.com/your-org/your-repo/actions/workflows/ci.yml/badge.svg)](https://github.com/your-org/your-repo/actions/workflows/ci.yml)
+[![CI](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml/badge.svg)](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml)
 
 **World-Class RAD Platform**: Professional Visual Basic language implementation with cutting-edge modern features including multitasking, advanced type system, pattern matching, GPU computing, and comprehensive development tools.
 
@@ -27,8 +27,6 @@
 - **Entity Component System** - High-performance ECS with archetype optimization
 - **Godot Integration** - Native scene tree synchronization and node management
 - **Built-in Components** - Transform, Velocity, Render, and custom component support
-
-> Note: Replace `your-org/your-repo` in the badge above with your repository path to enable the CI status badge.
 
 ## 📁 **Project Structure**
 
@@ -65,7 +63,7 @@ VisualGasic/
 
 1. **Clone with submodules**:
    ```bash
-   git clone --recursive https://github.com/your-org/VisualGasic.git
+   git clone --recursive https://github.com/xgreenrx-star/VisualGasic.git
    cd VisualGasic
    ```
 
@@ -89,7 +87,7 @@ VisualGasic/
 
 ### **Basic VisualGasic Script**
 ```vb
-' hello_world.bas
+' hello_world.vg
 Sub Main()
     Print "Hello, VisualGasic World!"
     
@@ -145,7 +143,7 @@ gasic pkg install MathLibrary@^2.1.0
 gasic pkg publish MyAwesomeLib
 
 # Advanced debugging
-gasic debug --time-travel MyProject.bas
+gasic debug --time-travel MyProject.vg
 ```
 
 ## 📖 **Documentation**
@@ -246,3 +244,38 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ---
 
 **VisualGasic** - Where Visual Basic meets modern programming! 🚀
+
+## Immediate Window
+
+VisualGasic includes an **Immediate Window** for interactive code execution during development. Execute expressions, test functions, and debug code in real-time without running your full program.
+
+### Quick Start
+
+1. Open Godot Editor
+2. Click **Immediate** tab at bottom panel
+3. Type expressions and press Enter
+
+### Example Usage
+
+```
+> 2 + 2
+4
+
+> Dim x As Integer = 42
+✓ x = 42
+
+> x * 2
+84
+
+> Print "Hello World"
+Hello World
+```
+
+### Commands
+
+- `:help` - Show available commands
+- `:clear` - Clear output
+- `:vars` - List variables
+- `:history` - Command history
+
+See [Immediate Window Documentation](docs/IMMEDIATE_WINDOW.md) for complete guide.
