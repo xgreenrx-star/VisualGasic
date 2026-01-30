@@ -1,6 +1,6 @@
 [gd_scene load_steps=2 format=3 uid="uid://pong_example_scene"]
 
-[ext_resource type="VisualGasicScript" path="res://pong.vg" id="1_pong"]
+[ext_resource type="VisualGasicScript" path="res://pong/pong.vg" id="1_pong"]
 
 [node name="PongGame" type="Node2D"]
 script = ExtResource("1_pong")
