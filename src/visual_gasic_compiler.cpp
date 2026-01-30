@@ -2005,22 +2005,10 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                  int member_idx = current_chunk->add_constant(ma->member_name);
                  emit_bytes(OP_SET_MEMBER, (uint8_t)member_idx);
 
-                 bool stored = false;
-                 if (ma->base_object->type == ExpressionNode::VARIABLE) {
-                     VariableNode *base_var = (VariableNode *)ma->base_object;
-                     int slot = get_or_add_local(base_var->name, VT_UNKNOWN);
-                     if (slot >= 0) {
-                         emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
-                         stored = true;
-                     } else {
-                         int idx = current_chunk->add_constant(base_var->name);
-                         emit_bytes(OP_SET_GLOBAL, (uint8_t)idx);
-                         stored = true;
-                     }
-                 }
-                 if (!stored) {
-                     emit_byte(OP_POP);
-                 }
+                 // OP_SET_MEMBER pushes the modified base back onto the stack.
+                 // We need to pop it since we're not using the return value.
+                 // Do NOT store it back - that would create shadow locals for globals!
+                 emit_byte(OP_POP);
              } else {
                  compile_ok = false;
              }
