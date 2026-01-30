@@ -73,18 +73,18 @@ End Sub
 
 Sub _Process(delta)
 	' Move Ball using Top/Left aliases for safety
-	Ball.Left = Ball.Left + (BallVelX * delta)
+	Ball.position.x = Ball.position.x + (BallVelX * delta)
 	
 	Dim op As Variant
-	Ball.Top = Ball.Top + (BallVelY * delta)
+	Ball.position.y = Ball.position.y + (BallVelY * delta)
 	
-	If Ball.Top > 620.0 Then
-		 Print "DEBUG Frame: Old=" + Str(oldTop) + " New=" + Str(Ball.Top) + " d=" + Str(delta) + " Vy=" + Str(BallVelY)
+	If Ball.position.y > 620.0 Then
+		 Print "DEBUG Frame: Old=" + Str(oldTop) + " New=" + Str(Ball.position.y) + " d=" + Str(delta) + " Vy=" + Str(BallVelY)
 	End If
 	
 	' Simple AI for Paddle 2 (Right)
 	Dim P2Vy As Integer
-	If Ball.Top > Paddle2.position.y + 50 Then
+	If Ball.position.y > Paddle2.position.y + 50 Then
 		P2Vy = 200
 		Paddle2.position.y = Paddle2.position.y + (P2Vy * delta)
 	Else
@@ -103,16 +103,16 @@ Sub _Process(delta)
 	Paddle1.position.y = Paddle1.position.y + (P1Vy * delta)
 	
 	' Screen Collision (Top/Bottom)
-	If Ball.Top < 0.0 Then
-		Ball.Top = 0.0
+	If Ball.position.y < 0.0 Then
+		Ball.position.y = 0.0
 		BallVelY = Abs(BallVelY) ' Force Down
 		Print "Hit Top! Vy now: " + Str(BallVelY)
 	End If
-	If Ball.Top > 628.0 Then ' 648 - 20
-		Print "TRAP ENTRY: Top=" + Str(Ball.Top)
-		Ball.Top = 628.0
+	If Ball.position.y > 628.0 Then ' 648 - 20
+		Print "TRAP ENTRY: Top=" + Str(Ball.position.y)
+		Ball.position.y = 628.0
 		BallVelY = -Abs(BallVelY) ' Force Up
-		Print "Hit Bottom! Top=" + Str(Ball.Top) + " Vy=" + Str(BallVelY)
+		Print "Hit Bottom! Top=" + Str(Ball.position.y) + " Vy=" + Str(BallVelY)
 	End If
 	
 	' Paddle Collision (Simple AABB)

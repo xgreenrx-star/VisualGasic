@@ -82,15 +82,14 @@ Sub ResetBall()
 End Sub
 
 Sub _Process(delta)
-	' Move Ball using Top/Left aliases for safety
-	Ball.Left = Ball.Left + (BallVelX * delta)
-	
-	Ball.Top = Ball.Top + (BallVelY * delta)
+	' Move Ball
+	Ball.position.x = Ball.position.x + (BallVelX * delta)
+	Ball.position.y = Ball.position.y + (BallVelY * delta)
 	
 	' Simple AI for Paddle 2 (Right)
 	Dim P2Vy As Single
 	P2Vy = 0
-	If Ball.Top > Paddle2.position.y + 50 Then
+	If Ball.position.y > Paddle2.position.y + 50 Then
 		P2Vy = 200
 		Paddle2.position.y = Paddle2.position.y + (P2Vy * delta)
 	Else
@@ -110,14 +109,14 @@ Sub _Process(delta)
 	Paddle1.position.y = Paddle1.position.y + (P1Vy * delta)
 	
 	' Screen Collision (Top/Bottom)
-	If Ball.Top < 0.0 Then
-		Ball.Top = 0.0
+	If Ball.position.y < 0.0 Then
+		Ball.position.y = 0.0
 		BallVelY = Abs(BallVelY) ' Force Down
 	End If
 
 	' Force Up
-	If Ball.Top > 628.0 Then 
-		Ball.Top = 628.0
+	If Ball.position.y > 628.0 Then 
+		Ball.position.y = 628.0
 		BallVelY = -Abs(BallVelY) 
 	End If
 	
@@ -136,7 +135,7 @@ Sub _Process(delta)
 		BallVelY = BallVelY + (P1Vy * 0.5) ' Transfer paddle velocity
 		' Add relative intersect logic for gameplay feel
 		Dim diff1 As Single
-		diff1 = (Ball.Top + 10) - (Paddle1.position.y + 50)
+		diff1 = (Ball.position.y + 10) - (Paddle1.position.y + 50)
 		BallVelY = BallVelY + (diff1 * 2.0)
 	End If
 	
@@ -145,7 +144,7 @@ Sub _Process(delta)
 		BallVelY = BallVelY + (P2Vy * 0.5) ' Transfer paddle velocity
 		' Add relative intersect logic
 		Dim diff2 As Single
-		diff2 = (Ball.Top + 10) - (Paddle2.position.y + 50)
+		diff2 = (Ball.position.y + 10) - (Paddle2.position.y + 50)
 		BallVelY = BallVelY + (diff2 * 2.0)
 	End If
 	
