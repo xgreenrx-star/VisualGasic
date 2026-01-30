@@ -24,4 +24,3 @@ func _init():
 		print("VisualGasicScript class MISSING.")
 	
 	quit()
-

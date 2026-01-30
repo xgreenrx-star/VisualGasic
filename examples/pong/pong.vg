@@ -9,6 +9,10 @@ Dim Paddle2 As Object
 Dim LabelScore1 As Object
 Dim LabelScore2 As Object
 
+Dim bRect As Object
+Dim p1Rect As Object
+Dim p2Rect As Object
+
 Dim BallVelX As Single
 Dim BallVelY As Single
 Dim Score1 As Integer
@@ -22,6 +26,11 @@ Sub _Ready()
 	Score1 = 0
 	Score2 = 0
 	
+	' Create collision rectangles
+	Set bRect = CreateRect2()
+	Set p1Rect = CreateRect2()
+	Set p2Rect = CreateRect2()
+	
 	' Create Visual Elements using standard Godot Nodes
 	
 	' --- PADDLE 1 (Left) ---
@@ -30,8 +39,8 @@ Sub _Ready()
 	Paddle1.Color = Color(0.2, 0.8, 0.2)
 	Paddle1.Size.x = 20
 	Paddle1.Size.y = 100
-	Paddle1.Position.x = 50
-	Paddle1.Position.y = 250
+	Paddle1.position.x = 50
+	Paddle1.position.y = 250
 	
 	' --- PADDLE 2 (Right) ---
 	Set Paddle2 = CreateNode("ColorRect")
@@ -39,8 +48,8 @@ Sub _Ready()
 	Paddle2.Color = Color(0.2, 0.2, 0.8)
 	Paddle2.Size.x = 20
 	Paddle2.Size.y = 100
-	Paddle2.Position.x = 1080 ' Assuming 1152 width
-	Paddle2.Position.y = 250
+	Paddle2.position.x = 1080 ' Assuming 1152 width
+	Paddle2.position.y = 250
 	
 	' --- BALL ---
 	Set Ball = CreateNode("ColorRect")
@@ -61,8 +70,8 @@ Sub _Ready()
 End Sub
 
 Sub ResetBall()
-	Ball.Position.x = 576 ' Center Width
-	Ball.Position.y = 324 ' Center Height
+	Ball.position.x = 576 ' Center Width
+	Ball.position.y = 324 ' Center Height
 	
 	BallVelX = 300
 	If Rnd() > 0.5 Then BallVelX = -BallVelX
@@ -81,12 +90,12 @@ Sub _Process(delta)
 	' Simple AI for Paddle 2 (Right)
 	Dim P2Vy As Single
 	P2Vy = 0
-	If Ball.Top > Paddle2.Position.y + 50 Then
+	If Ball.Top > Paddle2.position.y + 50 Then
 		P2Vy = 200
-		Paddle2.Position.y = Paddle2.Position.y + (P2Vy * delta)
+		Paddle2.position.y = Paddle2.position.y + (P2Vy * delta)
 	Else
 		P2Vy = -200
-		Paddle2.Position.y = Paddle2.Position.y + (P2Vy * delta)
+		Paddle2.position.y = Paddle2.position.y + (P2Vy * delta)
 	End If
 	
 	' Player Input for Paddle 1
@@ -98,7 +107,7 @@ Sub _Process(delta)
 	If IsKeyDown("W") Then
 		P1Vy = -300
 	End If
-	Paddle1.Position.y = Paddle1.Position.y + (P1Vy * delta)
+	Paddle1.position.y = Paddle1.position.y + (P1Vy * delta)
 	
 	' Screen Collision (Top/Bottom)
 	If Ball.Top < 0.0 Then
@@ -113,21 +122,21 @@ Sub _Process(delta)
 	End If
 	
 	' Paddle Collision (Simple AABB)
-	Dim t As Object
-	bRect.Position = Ball.Position ' Position should still update correctly from Top/Left logic
+	bRect.position = Ball.position
+	bRect.size = Ball.Size
 	
-	Dim ct As Object
-	p1Rect.Position = Paddle1.Position
+	p1Rect.position = Paddle1.position
+	p1Rect.size = Paddle1.Size
 	
-	Dim ct As Object
-	p2Rect.Position = Paddle2.Position
+	p2Rect.position = Paddle2.position
+	p2Rect.size = Paddle2.Size
 	
 	If bRect.Intersects(p1Rect) Then
 		BallVelX = Abs(BallVelX) * 1.1 ' Speed up and bounce right
 		BallVelY = BallVelY + (P1Vy * 0.5) ' Transfer paddle velocity
 		' Add relative intersect logic for gameplay feel
 		Dim diff1 As Single
-		diff1 = (Ball.Top + 10) - (Paddle1.Position.y + 50)
+		diff1 = (Ball.Top + 10) - (Paddle1.position.y + 50)
 		BallVelY = BallVelY + (diff1 * 2.0)
 	End If
 	
@@ -136,18 +145,18 @@ Sub _Process(delta)
 		BallVelY = BallVelY + (P2Vy * 0.5) ' Transfer paddle velocity
 		' Add relative intersect logic
 		Dim diff2 As Single
-		diff2 = (Ball.Top + 10) - (Paddle2.Position.y + 50)
+		diff2 = (Ball.Top + 10) - (Paddle2.position.y + 50)
 		BallVelY = BallVelY + (diff2 * 2.0)
 	End If
 	
 	' Scoring
-	If Ball.Position.x < 0 Then
+	If Ball.position.x < 0 Then
 		Score2 = Score2 + 1
 		LabelScore2.Text = Str(Score2)
 		Call ResetBall
 	End If
 	
-	If Ball.Position.x > 1152 Then
+	If Ball.position.x > 1152 Then
 		Score1 = Score1 + 1
 		LabelScore1.Text = Str(Score1)
 		Call ResetBall
