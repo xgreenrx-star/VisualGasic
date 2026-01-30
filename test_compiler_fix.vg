@@ -1,0 +1,63 @@
+' Test the bytecode compiler fix for member assignment
+' This tests the specific pattern that was causing stack underflow
+
+Option Explicit
+
+Dim GlobalObj As Object
+
+Sub _Ready()
+	' Create a test node
+	Set GlobalObj = CreateNode("Node2D")
+	AddChild(GlobalObj)
+	
+	' Test 1: Direct member assignment (was creating shadow locals)
+	GlobalObj.position = Vector2(100, 200)
+	Print "Test 1: GlobalObj.position assigned"
+	
+	' Test 2: Multiple member assignments
+	GlobalObj.position = Vector2(150, 250)
+	GlobalObj.rotation = 0.5
+	Print "Test 2: Multiple assignments OK"
+	
+	' Test 3: Assignment in a loop (stress test)
+	Dim i As Integer
+	For i = 1 To 10
+		GlobalObj.position = Vector2(i * 10, i * 20)
+	Next i
+	Print "Test 3: Loop assignments OK"
+	
+	' Test 4: Local object member assignment
+	Dim LocalObj As Object
+	Set LocalObj = CreateNode("Node2D")
+	AddChild(LocalObj)
+	LocalObj.position = Vector2(300, 400)
+	Print "Test 4: Local object assignment OK"
+	
+	' Test 5: Reading back values
+	Dim pos As Object
+	Set pos = GlobalObj.position
+	Dim x As Single
+	Dim y As Single
+	x = pos.x
+	y = pos.y
+	Print "Test 5: Read back x=", x, " y=", y
+	
+	' Test 6: Complex expression (like Pong)
+	Dim delta As Single
+	delta = 0.016
+	Dim velX As Single
+	Dim velY As Single
+	velX = 100
+	velY = 50
+	
+	Set pos = GlobalObj.position
+	x = pos.x
+	y = pos.y
+	x = x + (velX * delta)
+	y = y + (velY * delta)
+	GlobalObj.position = Vector2(x, y)
+	Print "Test 6: Complex Pong-like movement OK"
+	
+	Print "*** ALL TESTS PASSED ***"
+	Print "Compiler fix verified: No stack underflow!"
+End Sub

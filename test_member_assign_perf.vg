@@ -1,0 +1,24 @@
+' Performance test for member assignments
+Option Explicit
+
+Dim TestObj As Object
+Dim StartTime As Single
+Dim EndTime As Single
+Dim i As Integer
+
+Sub _Ready()
+	Set TestObj = CreateNode("Node2D")
+	AddChild(TestObj)
+	
+	StartTime = GetTimeMsec()
+	
+	' Do 100,000 member assignments
+	For i = 1 To 100000
+		TestObj.position = Vector2(i, i)
+	Next i
+	
+	EndTime = GetTimeMsec()
+	
+	Print "100,000 member assignments took: ", (EndTime - StartTime), " ms"
+	Print "Average per assignment: ", ((EndTime - StartTime) / 100000), " ms"
+End Sub
