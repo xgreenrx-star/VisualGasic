@@ -3,7 +3,7 @@
 #include <godot_cpp/classes/file_access.hpp>
 #include <stdio.h>
 
-VisualGasicParser::VisualGasicParser() : current_pos(0) {
+VisualGasicParser::VisualGasicParser() : current_pos(0), error_count(0) {
 }
 
 VisualGasicParser::~VisualGasicParser() {
@@ -66,18 +66,26 @@ void VisualGasicParser::error(const String& message) {
     err.column = t.column;
     err.message = message;
     errors.push_back(err);
+    error_count++;
+    
+    // If we've hit too many errors, the parser state is likely corrupted
+    // Print a warning to help debug
+    if (error_count >= MAX_ERRORS) {
+        UtilityFunctions::printerr("Parser Error: Too many errors (", error_count, "), stopping parse to prevent crash");
+    }
 }
 
 // Reimplementing correct logic
 ModuleNode* VisualGasicParser::parse(const Vector<VisualGasicTokenizer::Token>& p_tokens) {
     tokens = p_tokens;
     errors.clear();
+    error_count = 0;
     current_pos = 0;
     
     ModuleNode* module = new ModuleNode();
     current_module = module;
 
-        while (!is_at_end()) {
+        while (!is_at_end() && error_count < MAX_ERRORS) {
         VisualGasicTokenizer::Token t = peek();
         
         if (t.type == VisualGasicTokenizer::TOKEN_NEWLINE) {
@@ -411,7 +419,7 @@ SubDefinition* VisualGasicParser::parse_sub() {
     sub->parameters = parameters;
 
     // Body
-    while (!is_at_end()) {
+    while (!is_at_end() && error_count < MAX_ERRORS) {
         VisualGasicTokenizer::Token t = peek();
 
         if ((t.type == VisualGasicTokenizer::TOKEN_IDENTIFIER || t.type == VisualGasicTokenizer::TOKEN_KEYWORD) && t.value == "End") {
@@ -1620,6 +1628,10 @@ IfStatement* VisualGasicParser::parse_if() {
     IfStatement* stmt = static_cast<IfStatement*>(register_node(new IfStatement()));
     {
         ExpressionNode* _tmp = parse_expression();
+        if (!_tmp) {
+            // Failed to parse condition - return null to signal error
+            return nullptr;
+        }
         stmt->condition = _tmp;
         unregister_node(_tmp);
     }
@@ -1861,7 +1873,7 @@ Statement* VisualGasicParser::parse_for() {
     
     // Body
     int body_depth = 0;
-    while (!is_at_end()) {
+    while (!is_at_end() && error_count < MAX_ERRORS) {
         if ((check(VisualGasicTokenizer::TOKEN_KEYWORD) || check(VisualGasicTokenizer::TOKEN_IDENTIFIER))) {
             String kw = String(peek().value);
             
@@ -2006,7 +2018,7 @@ WhileStatement* VisualGasicParser::parse_while() {
     WhileStatement* stmt = static_cast<WhileStatement*>(register_node(new WhileStatement()));
     stmt->condition = condition;
     
-    while (!is_at_end()) {
+    while (!is_at_end() && error_count < MAX_ERRORS) {
         VisualGasicTokenizer::Token t = peek();
         if ((t.type == VisualGasicTokenizer::TOKEN_KEYWORD || t.type == VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
             String kw = String(t.value);

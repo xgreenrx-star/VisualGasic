@@ -25,6 +25,8 @@ public:
         String message;
     };
     Vector<ParsingError> errors;
+    int error_count;
+    static const int MAX_ERRORS = 100;  // Stop parsing after this many errors
 
     VisualGasicParser();
     ~VisualGasicParser();
