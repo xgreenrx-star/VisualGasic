@@ -67,13 +67,27 @@ Sub ResetBall()
 End Sub
 
 Sub _Process(delta)
-	' Get positions and sizes as local variables for collision detection
-	Dim bx As Single, by As Single, bw As Single, bh As Single
-	Dim p1x As Single, p1y As Single, p1w As Single, p1h As Single
-	Dim p2x As Single, p2y As Single, p2w As Single, p2h As Single
-	Dim bPos As Object, bSize As Object
-	Dim p1Pos As Object, p1Size As Object
-	Dim p2Pos As Object, p2Size As Object
+	' Get positions and sizes for collision detection
+	Dim bx As Single
+	Dim by As Single
+	Dim bw As Single
+	Dim bh As Single
+	Dim p1x As Single
+	Dim p1y As Single
+	Dim p1w As Single
+	Dim p1h As Single
+	Dim p2x As Single
+	Dim p2y As Single
+	Dim p2w As Single
+	Dim p2h As Single
+	Dim bPos As Object
+	Dim bSize As Object
+	Dim p1Pos As Object
+	Dim p1Size As Object
+	Dim p2Pos As Object
+	Dim p2Size As Object
+	Dim P1Vy As Single
+	Dim P2Vy As Single
 	
 	Set bPos = Ball.position
 	Set bSize = Ball.size
@@ -102,7 +116,6 @@ Sub _Process(delta)
 	Ball.position = Vector2(bx, by)
 	
 	' Simple AI for Paddle 2 (Right)
-	Dim P2Vy As Single
 	P2Vy = 0
 	If by > p2y + 50 Then
 		P2Vy = 200
@@ -113,7 +126,6 @@ Sub _Process(delta)
 	Paddle2.position = Vector2(p2x, p2y)
 	
 	' Player Input for Paddle 1
-	Dim P1Vy As Single
 	P1Vy = 0
 	If IsKeyDown("S") Then
 		P1Vy = 300
@@ -138,11 +150,13 @@ Sub _Process(delta)
 	End If
 	
 	' Paddle Collision (Simple AABB collision detection)
+	Dim diff1 As Single
+	Dim diff2 As Single
+	
 	' Check Paddle 1 collision
 	If bx < p1x + p1w And bx + bw > p1x And by < p1y + p1h And by + bh > p1y Then
 		BallVelX = Abs(BallVelX) * 1.1
 		BallVelY = BallVelY + (P1Vy * 0.5)
-		Dim diff1 As Single
 		diff1 = (by + 10) - (p1y + 50)
 		BallVelY = BallVelY + (diff1 * 2.0)
 	End If
@@ -151,7 +165,6 @@ Sub _Process(delta)
 	If bx < p2x + p2w And bx + bw > p2x And by < p2y + p2h And by + bh > p2y Then
 		BallVelX = -Abs(BallVelX) * 1.1
 		BallVelY = BallVelY + (P2Vy * 0.5)
-		Dim diff2 As Single
 		diff2 = (by + 10) - (p2y + 50)
 		BallVelY = BallVelY + (diff2 * 2.0)
 	End If
