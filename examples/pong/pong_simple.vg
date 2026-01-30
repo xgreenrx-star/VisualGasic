@@ -1,0 +1,37 @@
+' Simple Pong Test - Minimal version to debug bytecode issues
+
+Dim Ball As Object
+Dim BallX As Single
+Dim BallY As Single
+Dim BallVelX As Single
+Dim BallVelY As Single
+
+Sub _Ready()
+	BallX = 400
+	BallY = 300
+	BallVelX = 200
+	BallVelY = 150
+	
+	Set Ball = CreateNode("ColorRect")
+	AddChild(Ball)
+	Ball.color = Color(1, 1, 1)
+	Ball.size = Vector2(20, 20)
+	Ball.position = Vector2(BallX, BallY)
+	
+	Print "Simple Pong Ready"
+End Sub
+
+Sub _Process(delta)
+	BallX = BallX + (BallVelX * delta)
+	BallY = BallY + (BallVelY * delta)
+	
+	Ball.position = Vector2(BallX, BallY)
+	
+	If BallY < 0 Or BallY > 600 Then
+		BallVelY = -BallVelY
+	End If
+	
+	If BallX < 0 Or BallX > 800 Then
+		BallVelX = -BallVelX
+	End If
+End Sub

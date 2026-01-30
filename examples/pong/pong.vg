@@ -14,6 +14,14 @@ Dim BallVelY As Single
 Dim Score1 As Integer
 Dim Score2 As Integer
 
+' Position and size tracking variables
+Dim bx As Single
+Dim by As Single
+Dim p1x As Single
+Dim p1y As Single
+Dim p2x As Single
+Dim p2y As Single
+
 Sub _Ready()
 	Randomize
 	' Setup Screen
@@ -56,7 +64,9 @@ Sub _Ready()
 End Sub
 
 Sub ResetBall()
-	Ball.position = Vector2(576, 324)
+	bx = 576
+	by = 324
+	Ball.position = Vector2(bx, by)
 	
 	BallVelX = 300
 	If Rnd() > 0.5 Then BallVelX = -BallVelX
@@ -67,48 +77,26 @@ Sub ResetBall()
 End Sub
 
 Sub _Process(delta)
-	' Get positions and sizes for collision detection
-	Dim bx As Single
-	Dim by As Single
-	Dim bw As Single
-	Dim bh As Single
-	Dim p1x As Single
-	Dim p1y As Single
-	Dim p1w As Single
-	Dim p1h As Single
-	Dim p2x As Single
-	Dim p2y As Single
-	Dim p2w As Single
-	Dim p2h As Single
+	Dim P1Vy As Single
+	Dim P2Vy As Single
 	Dim bPos As Object
 	Dim bSize As Object
 	Dim p1Pos As Object
-	Dim p1Size As Object
 	Dim p2Pos As Object
-	Dim p2Size As Object
-	Dim P1Vy As Single
-	Dim P2Vy As Single
 	
+	' Get current positions
 	Set bPos = Ball.position
 	Set bSize = Ball.size
 	bx = bPos.x
 	by = bPos.y
-	bw = bSize.x
-	bh = bSize.y
 	
 	Set p1Pos = Paddle1.position
-	Set p1Size = Paddle1.size
 	p1x = p1Pos.x
 	p1y = p1Pos.y
-	p1w = p1Size.x
-	p1h = p1Size.y
 	
 	Set p2Pos = Paddle2.position
-	Set p2Size = Paddle2.size
 	p2x = p2Pos.x
 	p2y = p2Pos.y
-	p2w = p2Size.x
-	p2h = p2Size.y
 	
 	' Move Ball
 	bx = bx + (BallVelX * delta)
@@ -149,24 +137,17 @@ Sub _Process(delta)
 		Ball.position = Vector2(bx, by)
 	End If
 	
-	' Paddle Collision (Simple AABB collision detection)
-	Dim diff1 As Single
-	Dim diff2 As Single
-	
-	' Check Paddle 1 collision
-	If bx < p1x + p1w And bx + bw > p1x And by < p1y + p1h And by + bh > p1y Then
+	' Paddle Collision (Simple AABB)
+	' Paddle 1 - using hardcoded size (20x100)
+	If bx < p1x + 20 And bx + 20 > p1x And by < p1y + 100 And by + 20 > p1y Then
 		BallVelX = Abs(BallVelX) * 1.1
 		BallVelY = BallVelY + (P1Vy * 0.5)
-		diff1 = (by + 10) - (p1y + 50)
-		BallVelY = BallVelY + (diff1 * 2.0)
 	End If
 	
-	' Check Paddle 2 collision
-	If bx < p2x + p2w And bx + bw > p2x And by < p2y + p2h And by + bh > p2y Then
+	' Paddle 2 - using hardcoded size (20x100)
+	If bx < p2x + 20 And bx + 20 > p2x And by < p2y + 100 And by + 20 > p2y Then
 		BallVelX = -Abs(BallVelX) * 1.1
 		BallVelY = BallVelY + (P2Vy * 0.5)
-		diff2 = (by + 10) - (p2y + 50)
-		BallVelY = BallVelY + (diff2 * 2.0)
 	End If
 	
 	' Scoring
