@@ -6314,7 +6314,13 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         bool valid = false;
         Variant::evaluate(op, a, b, result, valid);
         if (!valid) {
-            UtilityFunctions::printerr("VisualGasic: invalid operation in bytecode");
+            // Log to file since Godot may truncate console output
+            String debug_msg = vformat("Op:%d TypeA:%d TypeB:%d ValA:%s ValB:%s", (int)op, (int)a.get_type(), (int)b.get_type(), a, b);
+            Ref<FileAccess> f = FileAccess::open("/tmp/vg_invalid_op.log", FileAccess::WRITE);
+            if (f.is_valid()) {
+                f->store_line(debug_msg);
+            }
+            UtilityFunctions::printerr("VisualGasic: invalid operation in bytecode - ", debug_msg);
             return false;
         }
         push_value(result);

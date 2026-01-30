@@ -1,6 +1,7 @@
 #include "visual_gasic_compiler.h"
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <godot_cpp/core/math.hpp>
+#include <godot_cpp/classes/file_access.hpp>
 
 namespace {
 constexpr bool kEnableLoopFusions = true;
@@ -91,6 +92,8 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
     loop_bound_vars.clear();
     temp_local_id = 0;
     current_sub = nullptr;
+    
+    UtilityFunctions::printerr("DEBUG: Starting compilation of ", entry_point);
     
     // Find the entry point sub
     SubDefinition* sub = nullptr;
@@ -193,6 +196,15 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
     }
     current_chunk->local_count = local_slots.size();
     emit_return();
+    
+    UtilityFunctions::printerr("DEBUG: Compilation finished for ", entry_point, " result=", compile_ok);
+    if (!compile_ok) {
+        Ref<FileAccess> f = FileAccess::open("/tmp/vg_compile_fail.log", FileAccess::WRITE);
+        if (f.is_valid()) {
+            f->store_line(vformat("Compilation failed for %s", entry_point));
+        }
+    }
+    
     return compile_ok;
 }
 
