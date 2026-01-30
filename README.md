@@ -61,27 +61,22 @@ VisualGasic/
 
 ### **Installation**
 
-1. **Clone with submodules**:
-   ```bash
-   git clone --recursive https://github.com/xgreenrx-star/VisualGasic.git
-   cd VisualGasic
-   ```
+**Quick Install (Recommended):**
 
-2. **Build the extension**:
-   ```bash
-   # Linux
-   scons platform=linux target=template_debug
-   
-   # Windows
-   scons platform=windows target=template_debug
-   
-   # macOS
-   scons platform=macos target=template_debug
-   ```
+```bash
+# Linux/macOS
+curl -sSL https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/main/install.sh | bash
 
-3. **Install in Godot**:
-   - Copy `addons/visual_gasic/` to your project's `addons/` folder
-   - Enable the plugin in Project Settings → Plugins
+# Windows PowerShell
+iwr -useb https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/main/install.ps1 | iex
+```
+
+This installs VisualGasic as a project template. Create new projects with VisualGasic already configured!
+
+**Alternative Methods:**
+- **Asset Library**: Search "VisualGasic" in Godot's AssetLib tab (coming soon)
+- **Manual**: Download from [Releases](https://github.com/xgreenrx-star/VisualGasic/releases) and copy to `addons/`
+- **Build from Source**: See [INSTALLATION.md](INSTALLATION.md)
 
 ## 🎯 **Usage Examples**
 
