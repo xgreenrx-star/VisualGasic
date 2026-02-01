@@ -163,3 +163,42 @@ Sub _Process(delta)
 		Call ResetBall
 	End If
 End Sub
+
+' ============================================================
+' WHENEVER SECTIONS - Reactive Programming Demo
+' These sections run automatically when conditions are met
+' ============================================================
+
+' React when Player 1 scores - flash their paddle green
+Whenever Score1 Changes
+    Print "Player 1 scored! Score: " & Str(Score1)
+    Paddle1.color = Color(0, 1, 0)  ' Bright green flash
+End Whenever
+
+' React when Player 2 scores - flash their paddle blue  
+Whenever Score2 Changes
+    Print "Player 2 scored! Score: " & Str(Score2)
+    Paddle2.color = Color(0, 0, 1)  ' Bright blue flash
+End Whenever
+
+' Game point announcements using Exceeds operator
+Whenever Score1 Exceeds 4
+    Print "*** GAME POINT for Player 1! ***"
+End Whenever
+
+Whenever Score2 Exceeds 4
+    Print "*** GAME POINT for Player 2! ***"
+End Whenever
+
+' Victory detection using Exceeds
+Whenever Score1 Exceeds 5
+    Print "========================================="
+    Print "   PLAYER 1 WINS!"
+    Print "========================================="
+End Whenever
+
+Whenever Score2 Exceeds 5
+    Print "========================================="
+    Print "   PLAYER 2 WINS!"
+    Print "========================================="
+End Whenever

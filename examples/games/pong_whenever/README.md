@@ -6,45 +6,55 @@ This example demonstrates Visual Gasic's **Whenever** feature for reactive game 
 
 `Whenever` is Visual Gasic's reactive programming system. Instead of manually checking conditions in your game loop, you declare what should happen when a variable meets certain conditions. The system automatically monitors these variables and triggers callbacks when conditions are met.
 
-## Features Demonstrated
+## Features Demonstrated in This Example
 
-### 1. Score Monitoring
+### 1. Score Change Reactions (Changes Operator)
 ```vb
-Whenever Section Player1Scores Score1 Changes OnPlayer1Score
-Whenever Section Player2Scores Score2 Changes OnPlayer2Score
-```
-These sections trigger callbacks whenever either player's score changes.
+Whenever Score1 Changes
+    Print "Player 1 scored! Score: " & Str(Score1)
+    Paddle1.color = Color(0, 1, 0)  ' Bright green flash
+End Whenever
 
-### 2. Victory Conditions
-```vb
-Whenever Section Player1Wins Score1 Exceeds 4 OnPlayer1Victory
-Whenever Section Player2Wins Score2 Exceeds 4 OnPlayer2Victory
+Whenever Score2 Changes
+    Print "Player 2 scored! Score: " & Str(Score2)
+    Paddle2.color = Color(0, 0, 1)  ' Bright blue flash
+End Whenever
 ```
-Automatically detect when a player wins (first to 5 points).
+These sections trigger automatically whenever either player's score changes, providing visual feedback by flashing the paddle.
 
-### 3. Rally System
+### 2. Game Point Announcements (Exceeds Operator)
 ```vb
-Whenever Section HotRally RallyCount Exceeds 9 OnHotRally
-Whenever Section MegaRally RallyCount Exceeds 19 OnMegaRally
-```
-Track exciting rallies - the ball changes color as rallies get longer!
+Whenever Score1 Exceeds 4
+    Print "*** GAME POINT for Player 1! ***"
+End Whenever
 
-### 4. Speed Warnings
-```vb
-Whenever Section SpeedWarning BallSpeed Exceeds 500 OnBallTooFast
-Whenever Section InsaneSpeed BallSpeed Exceeds 700 OnInsaneSpeed
+Whenever Score2 Exceeds 4
+    Print "*** GAME POINT for Player 2! ***"
+End Whenever
 ```
-Visual feedback when the game gets intense.
+Automatically announce when a player reaches game point.
 
-### 5. Power-Up Trigger
+### 3. Victory Detection (Exceeds Operator)
 ```vb
-Whenever Section PowerUpCheck RallyCount Becomes 5 ActivatePowerUp
+Whenever Score1 Exceeds 5
+    Print "PLAYER 1 WINS!"
+End Whenever
+
+Whenever Score2 Exceeds 5
+    Print "PLAYER 2 WINS!"
+End Whenever
 ```
-Activate a power-up after 5 consecutive hits.
+Automatically detect and announce when a player wins (first to 6 points).
+
+## How It Works
+
+The Whenever system:
+1. **Monitors** the specified variable each frame
+2. **Compares** the current value against the condition
+3. **Triggers** the block when the condition is first met
+4. **Resets** when the condition is no longer true (for re-triggering)
 
 ## Using the Immediate Window
-
-The real power of Whenever is visible in the **Immediate Window**:
 
 1. Run the game
 2. Open the Immediate Window (bottom panel)
