@@ -16,19 +16,14 @@ enum FormType {
 
 var selected_type: FormType = FormType.BLANK
 var form_templates = {}
-var desc_label: RichTextLabel = null
-var item_list: ItemList = null
 
 func _ready():
 	title = "New Form"
 	size = Vector2(500, 450)
 	ok_button_text = "Create"
 	
-	_init_templates()
 	_setup_ui()
-	
-	# Wait for next frame to ensure everything is in the tree
-	call_deferred("_finalize_ui")
+	_init_templates()
 
 func _setup_ui():
 	var margin = MarginContainer.new()
@@ -61,8 +56,9 @@ func _setup_ui():
 	list.add_item("Data Entry Form - Form with common data controls")
 	list.add_item("MDI Parent Form - Multiple Document Interface parent")
 	list.add_item("MDI Child Form - MDI child window")
+	list.select(0)
+	list.item_selected.connect(_on_item_selected)
 	vbox.add_child(list)
-	item_list = list
 	
 	# Description
 	var lbl_desc_title = Label.new()
@@ -77,13 +73,7 @@ func _setup_ui():
 	desc.scroll_active = false
 	desc.fit_content = true
 	vbox.add_child(desc)
-	desc_label = desc
-
-func _finalize_ui():
-	# Connect signal and select first item
-	if item_list:
-		item_list.item_selected.connect(_on_item_selected)
-		item_list.select(0)
+	
 	_update_description(0)
 
 func _on_item_selected(index: int):
@@ -91,7 +81,8 @@ func _on_item_selected(index: int):
 	_update_description(index)
 
 func _update_description(index: int):
-	if not desc_label or not is_instance_valid(desc_label):
+	var desc_label = get_node("MarginContainer/VBoxContainer/DescriptionLabel") as RichTextLabel
+	if not desc_label:
 		return
 	
 	var descriptions = [
@@ -131,7 +122,6 @@ End Sub
 	# Dialog form template
 	form_templates[FormType.DIALOG] = {
 		"size": Vector2(400, 200),
-		"use_window": true,
 		"controls": [
 			{"type": "Button", "name": "btnOK", "text": "OK", "position": Vector2(220, 150), "size": Vector2(80, 30)},
 			{"type": "Button", "name": "btnCancel", "text": "Cancel", "position": Vector2(310, 150), "size": Vector2(80, 30)}
@@ -156,8 +146,6 @@ End Sub
 	# About box template
 	form_templates[FormType.ABOUT] = {
 		"size": Vector2(400, 250),
-		"use_window": true,
-		"unresizable": true,
 		"controls": [
 			{"type": "Label", "name": "lblAppName", "text": "Application Name", "position": Vector2(20, 20), "size": Vector2(360, 30)},
 			{"type": "Label", "name": "lblVersion", "text": "Version 1.0", "position": Vector2(20, 55), "size": Vector2(360, 20)},
@@ -182,7 +170,6 @@ End Sub
 	# Splash screen template
 	form_templates[FormType.SPLASH] = {
 		"size": Vector2(500, 300),
-		"use_window": true,
 		"borderless": true,
 		"controls": [
 			{"type": "Label", "name": "lblTitle", "text": "Application Title", "position": Vector2(150, 100), "size": Vector2(200, 40)},
@@ -200,8 +187,6 @@ End Sub
 	# Login form template
 	form_templates[FormType.LOGIN] = {
 		"size": Vector2(350, 200),
-		"use_window": true,
-		"unresizable": true,
 		"controls": [
 			{"type": "Label", "name": "lblUsername", "text": "Username:", "position": Vector2(20, 30), "size": Vector2(80, 20)},
 			{"type": "TextEdit", "name": "txtUsername", "text": "", "position": Vector2(110, 28), "size": Vector2(200, 25)},
@@ -240,7 +225,6 @@ End Sub
 	form_templates[FormType.MAIN_MENU] = {
 		"size": Vector2(600, 400),
 		"has_menu": true,
-		"use_window": true,
 		"controls": [],
 		"code": """' Form_Load event
 Sub Form_Load()
