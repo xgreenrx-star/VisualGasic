@@ -127,7 +127,10 @@ enum OpCode {
     // Literals
     OP_NIL,
     OP_TRUE,
-    OP_FALSE
+    OP_FALSE,
+    
+    // Debug Support
+    OP_DEBUG_LINE,     // [OP] [LINE_LO] [LINE_HI] - Track current source line for debugging
 };
 
 struct BytecodeChunk {

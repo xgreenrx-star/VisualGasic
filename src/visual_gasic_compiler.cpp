@@ -1701,6 +1701,12 @@ VisualGasicCompiler::ValueType VisualGasicCompiler::infer_type(ExpressionNode* e
 
 void VisualGasicCompiler::compile_statement(Statement* stmt) {
     current_line = stmt->line;
+    
+    // Emit debug line opcode for debugger support (line number as 16-bit value)
+    emit_byte(OP_DEBUG_LINE);
+    emit_byte((uint8_t)(current_line & 0xFF));        // Low byte
+    emit_byte((uint8_t)((current_line >> 8) & 0xFF)); // High byte
+    
     expr_cache.clear();
     switch (stmt->type) {
         case STMT_PRINT: {

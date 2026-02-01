@@ -129,6 +129,15 @@ class VisualGasicInstance {
         int code; // Added
     } error_state;
     
+    // Debug state for breakpoint support
+    struct DebugState {
+        int current_line = 0;
+        String current_file;
+        bool debug_paused = false;
+        enum StepMode { STEP_NONE, STEP_INTO, STEP_OVER, STEP_OUT } step_mode = STEP_NONE;
+        int step_depth = 0;  // For step over/out tracking
+    } debug_state;
+    
     SubDefinition* current_sub;
     int jump_target;
     
@@ -236,6 +245,17 @@ public:
     void* get_function_address(void* lib_handle, const String& func_name);
     Variant call_ffi_function(DeclareStatement* decl, const Array& args);
     void register_declare(DeclareStatement* decl);
+    
+    // Debug support methods
+    int get_debug_line() const { return debug_state.current_line; }
+    String get_debug_file() const { return debug_state.current_file; }
+    bool is_debug_paused() const { return debug_state.debug_paused; }
+    void set_debug_paused(bool p_paused) { debug_state.debug_paused = p_paused; }
+    void set_step_mode(DebugState::StepMode mode) { debug_state.step_mode = mode; }
+    DebugState::StepMode get_step_mode() const { return debug_state.step_mode; }
+    Dictionary get_debug_locals() const;
+    Dictionary get_debug_globals() const { return variables; }
+    SubDefinition* get_current_sub() const { return current_sub; }
 
     static const GDExtensionScriptInstanceInfo3 *get_script_instance_info();
 };

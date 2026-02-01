@@ -6073,6 +6073,26 @@ void VisualGasicInstance::exit_scope(const String& scope_name) {
     }
 }
 
+Dictionary VisualGasicInstance::get_debug_locals() const {
+    // Return current local variables for debugger
+    // If we're in bytecode execution, this returns variables from the current scope
+    // For now, return all variables - a more sophisticated implementation would
+    // track the local stack frame separately with a call stack
+    Dictionary locals;
+    if (current_sub) {
+        // Filter to only parameters defined in current function
+        for (int i = 0; i < current_sub->parameters.size(); i++) {
+            String param_name = current_sub->parameters[i].name;
+            if (variables.has(param_name)) {
+                locals[param_name] = variables[param_name];
+            }
+        }
+    }
+    // In a full implementation, we would also track local variables declared with Dim
+    // within the function scope, but that requires additional tracking infrastructure
+    return locals;
+}
+
 void VisualGasicInstance::assign_to_target(ExpressionNode* target, Variant val) {
     if (target->type == ExpressionNode::VARIABLE) {
          String name = ((VariableNode*)target)->name;
@@ -7928,6 +7948,23 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         break;
                     }
                 }
+                break;
+            }
+            case OP_DEBUG_LINE: {
+                // Read the line number (16-bit)
+                if (vm.ip + 1 >= code_size) { success = false; goto cleanup; }
+                uint8_t line_lo = code[vm.ip++];
+                uint8_t line_hi = code[vm.ip++];
+                int line_number = (line_hi << 8) | line_lo;
+                
+                // Update debug state
+                debug_state.current_line = line_number;
+                if (script.is_valid()) {
+                    debug_state.current_file = script->get_path();
+                }
+                
+                // TODO: Add breakpoint checking here once debugger integration is complete
+                // This is Phase 2 of the debugging implementation
                 break;
             }
             default:
