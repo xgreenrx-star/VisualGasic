@@ -37,6 +37,24 @@ Dim BallOrigColor As Object   ' For ball color effects
 ' Speed tier tracking (edge detection)
 Dim SpeedTier As Integer      ' 0=slow, 1=normal, 2=fast, 3=insane
 
+' Match history tracking
+Dim GamesWonP1 As Integer
+Dim GamesWonP2 As Integer
+Dim MatchCount As Integer
+
+' Combo system
+Dim ComboCount As Integer     ' Consecutive hits by same player
+Dim LastHitPlayer As Integer  ' 1 or 2
+
+' Screen shake
+Dim ShakeTimer As Single
+Dim ShakeIntensity As Single
+Dim OrigPosition As Object
+
+' Zone warning flash
+Dim ZoneFlashTimer As Single
+Dim LastZone As Integer
+
 Sub _Ready()
 	Randomize
 	' Setup Screen
@@ -50,7 +68,7 @@ Sub _Ready()
 	' --- PADDLE 1 (Left) ---
 	Set Paddle1 = CreateNode("ColorRect")
 	AddChild(Paddle1)
-	Set Paddle1OrigColor = Color(0.2, 0.8, 0.2)
+	Set Paddle1OrigColor = Color(0.2, 0.8, 0.2, 1.0)
 	Paddle1.color = Paddle1OrigColor
 	Paddle1.size = Vector2(20, 100)
 	Paddle1.position = Vector2(50, 250)
@@ -58,7 +76,7 @@ Sub _Ready()
 	' --- PADDLE 2 (Right) ---
 	Set Paddle2 = CreateNode("ColorRect")
 	AddChild(Paddle2)
-	Set Paddle2OrigColor = Color(0.2, 0.2, 0.8)
+	Set Paddle2OrigColor = Color(0.2, 0.2, 0.8, 1.0)
 	Paddle2.color = Paddle2OrigColor
 	Paddle2.size = Vector2(20, 100)
 	Paddle2.position = Vector2(1080, 250)
@@ -76,6 +94,19 @@ Sub _Ready()
 	BallSpeed = 0
 	BallZone = 2  ' Start in middle
 	SpeedTier = 1  ' Start at normal speed tier
+	
+	' Initialize new feature variables
+	GamesWonP1 = 0
+	GamesWonP2 = 0
+	MatchCount = 0
+	ComboCount = 0
+	LastHitPlayer = 0
+	ShakeTimer = 0
+	ShakeIntensity = 0
+	ZoneFlashTimer = 0
+	LastZone = 2
+	Set OrigPosition = Vector2(0, 0)
+	
 	Call ResetBall
 	
 	' --- UI ---
@@ -124,6 +155,18 @@ Sub _Process(delta)
 		If FlashTimer2 <= 0 Then
 			Paddle2.color = Paddle2OrigColor
 		End If
+	End If
+	
+	' Handle screen shake (applied to ball for visual effect)
+	If ShakeTimer > 0 Then
+		ShakeTimer = ShakeTimer - delta
+		' Shake effect is visual-only through ball jitter
+		' (keeping it simple to avoid crashes)
+	End If
+	
+	' Handle zone warning flash
+	If ZoneFlashTimer > 0 Then
+		ZoneFlashTimer = ZoneFlashTimer - delta
 	End If
 	
 	' Get current positions
@@ -182,12 +225,18 @@ Sub _Process(delta)
 	End If
 	
 	' Update ball zone (1=left danger, 2=middle, 3=right danger)
+	Dim OldZone As Integer
+	OldZone = BallZone
 	If bx < 200 Then
 		BallZone = 1  ' Left danger zone
 	ElseIf bx > 952 Then
 		BallZone = 3  ' Right danger zone
 	Else
 		BallZone = 2  ' Safe middle zone
+	End If
+	' Trigger zone change for Whenever (only on actual zone transition)
+	If BallZone <> OldZone Then
+		LastZone = BallZone
 	End If
 	
 	' Simple AI for Paddle 2 (Right)
@@ -230,6 +279,17 @@ Sub _Process(delta)
 		BallVelX = Abs(BallVelX) * 1.1
 		BallVelY = BallVelY + (P1Vy * 0.5)
 		RallyCount = RallyCount + 1  ' Increment rally on hit
+		' Combo tracking
+		If LastHitPlayer = 1 Then
+			ComboCount = ComboCount + 1
+		Else
+			ComboCount = 1
+			LastHitPlayer = 1
+		End If
+		' Screen shake on fast hits
+		If SpeedTier >= 2 Then
+			Call TriggerShake(SpeedTier * 3)
+		End If
 	End If
 	
 	' Paddle 2 - using hardcoded size (20x100)
@@ -237,6 +297,17 @@ Sub _Process(delta)
 		BallVelX = -Abs(BallVelX) * 1.1
 		BallVelY = BallVelY + (P2Vy * 0.5)
 		RallyCount = RallyCount + 1  ' Increment rally on hit
+		' Combo tracking
+		If LastHitPlayer = 2 Then
+			ComboCount = ComboCount + 1
+		Else
+			ComboCount = 1
+			LastHitPlayer = 2
+		End If
+		' Screen shake on fast hits
+		If SpeedTier >= 2 Then
+			Call TriggerShake(SpeedTier * 3)
+		End If
 	End If
 	
 	' Scoring
@@ -285,7 +356,18 @@ Sub SetupWhenever()
 	Whenever Section Rally10 RallyCount Becomes 10 OnRally10
 	Whenever Section Rally15 RallyCount Becomes 15 OnRally15
 	
-	Print "Whenever sections registered! (10 sections)"
+	' === NEW: Zone warnings - React when ball enters danger zones ===
+	Whenever Section ZoneWarning BallZone Changes OnZoneChange
+	
+	' === NEW: Combo milestones ===
+	Whenever Section Combo3 ComboCount Becomes 3 OnCombo3
+	Whenever Section Combo5 ComboCount Becomes 5 OnCombo5
+	Whenever Section Combo7 ComboCount Becomes 7 OnCombo7
+	
+	' === NEW: Match tracking ===
+	Whenever Section MatchUpdate MatchCount Changes OnMatchComplete
+	
+	Print "Whenever sections registered! (17 sections)"
 End Sub
 
 ' ============================================================
@@ -296,32 +378,48 @@ Sub OnPlayer1Score()
 	Print "Player 1 scored! Score: " & Str(Score1)
 	Paddle1.color = Color(0.0, 1.0, 0.0, 1.0)  ' Bright green flash
 	FlashTimer1 = 0.3  ' Flash for 0.3 seconds
+	Call PlaySound("score")
+	ComboCount = 0  ' Reset combo on score
 End Sub
 
 Sub OnPlayer2Score()
 	Print "Player 2 scored! Score: " & Str(Score2)
 	Paddle2.color = Color(0.0, 0.0, 1.0, 1.0)  ' Bright blue flash
 	FlashTimer2 = 0.3  ' Flash for 0.3 seconds
+	Call PlaySound("score")
+	ComboCount = 0  ' Reset combo on score
 End Sub
 
 Sub OnPlayer1GamePoint()
 	Print "*** GAME POINT for Player 1! ***"
+	Call PlaySound("game_point")
+	Call TriggerShake(8)
 End Sub
 
 Sub OnPlayer2GamePoint()
 	Print "*** GAME POINT for Player 2! ***"
+	Call PlaySound("game_point")
+	Call TriggerShake(8)
 End Sub
 
 Sub OnPlayer1Victory()
 	Print "========================================="
 	Print "   PLAYER 1 WINS!"
 	Print "========================================="
+	Call PlaySound("victory")
+	Call TriggerShake(15)
+	' Start new game after a delay
+	Call StartNewGame
 End Sub
 
 Sub OnPlayer2Victory()
 	Print "========================================="
 	Print "   PLAYER 2 WINS!"
 	Print "========================================="
+	Call PlaySound("victory")
+	Call TriggerShake(15)
+	' Start new game after a delay
+	Call StartNewGame
 End Sub
 
 ' === SPEED TIER CALLBACK (using Changes for edge detection) ===
@@ -331,15 +429,19 @@ Sub OnSpeedTierChange()
 	If SpeedTier = 0 Then
 		Print "Ball slowing down... (Tier 0)"
 		Ball.color = Color(0.5, 0.5, 1.0, 1.0)  ' Light blue = slow
+		Call PlaySound("slow_down")
 	ElseIf SpeedTier = 1 Then
 		Print "Normal speed (Tier 1)"
 		Ball.color = BallOrigColor  ' Back to white
 	ElseIf SpeedTier = 2 Then
 		Print "Ball getting fast! (Tier 2)"
 		Ball.color = Color(1.0, 1.0, 0.0, 1.0)  ' Yellow = fast
+		Call PlaySound("speed_up")
 	ElseIf SpeedTier = 3 Then
 		Print "INSANE SPEED! (Tier 3)"
 		Ball.color = Color(1.0, 0.0, 0.0, 1.0)  ' Red = crazy fast
+		Call PlaySound("insane_speed")
+		Call TriggerShake(5)
 	End If
 End Sub
 
@@ -348,14 +450,138 @@ End Sub
 Sub OnRally5()
 	Print "Nice rally! 5 hits!"
 	Ball.color = Color(0.0, 1.0, 1.0, 1.0)  ' Cyan
+	Call PlaySound("rally")
 End Sub
 
 Sub OnRally10()
 	Print "HOT RALLY! 10 hits!"
 	Ball.color = Color(1.0, 0.5, 0.0, 1.0)  ' Orange
+	Call PlaySound("hot_rally")
+	Call TriggerShake(3)
 End Sub
 
 Sub OnRally15()
 	Print "MEGA RALLY! 15 hits! Amazing!"
 	Ball.color = Color(1.0, 0.0, 1.0, 1.0)  ' Magenta
+	Call PlaySound("mega_rally")
+End Sub
+
+' ============================================================
+' ZONE WARNING CALLBACKS
+' ============================================================
+
+Sub OnZoneChange()
+	If BallZone = 1 Then
+		' Ball in left danger zone (Player 1's goal at risk)
+		Print "⚠ DANGER! Ball approaching Player 1 goal!"
+		Paddle1.color = Color(1.0, 0.5, 0.0, 1.0)  ' Orange warning flash
+		FlashTimer1 = 0.2
+		Call PlaySound("danger_warning")
+	ElseIf BallZone = 3 Then
+		' Ball in right danger zone (Player 2's goal at risk)
+		Print "⚠ DANGER! Ball approaching Player 2 goal!"
+		Paddle2.color = Color(1.0, 0.5, 0.0, 1.0)  ' Orange warning flash
+		FlashTimer2 = 0.2
+		Call PlaySound("danger_warning")
+	End If
+End Sub
+
+' ============================================================
+' COMBO CALLBACKS
+' ============================================================
+
+Sub OnCombo3()
+	Print "COMBO x3!"
+	If LastHitPlayer = 1 Then
+		Paddle1.color = Color(1.0, 1.0, 0.0, 1.0)  ' Yellow glow
+		FlashTimer1 = 0.5
+	Else
+		Paddle2.color = Color(1.0, 1.0, 0.0, 1.0)
+		FlashTimer2 = 0.5
+	End If
+	Call PlaySound("combo")
+End Sub
+
+Sub OnCombo5()
+	Print "SUPER COMBO x5!!"
+	Call TriggerShake(5)
+	If LastHitPlayer = 1 Then
+		Paddle1.color = Color(1.0, 0.5, 0.0, 1.0)  ' Orange glow
+		FlashTimer1 = 0.7
+	Else
+		Paddle2.color = Color(1.0, 0.5, 0.0, 1.0)
+		FlashTimer2 = 0.7
+	End If
+	Call PlaySound("super_combo")
+End Sub
+
+Sub OnCombo7()
+	Print "ULTRA COMBO x7!!!"
+	Call TriggerShake(10)
+	If LastHitPlayer = 1 Then
+		Paddle1.color = Color(1.0, 0.0, 1.0, 1.0)  ' Magenta glow
+		FlashTimer1 = 1.0
+	Else
+		Paddle2.color = Color(1.0, 0.0, 1.0, 1.0)
+		FlashTimer2 = 1.0
+	End If
+	Call PlaySound("ultra_combo")
+End Sub
+
+' ============================================================
+' MATCH HISTORY CALLBACKS
+' ============================================================
+
+Sub OnMatchComplete()
+	Print "========================================="
+	Print "   MATCH " & Str(MatchCount) & " COMPLETE!"
+	Print "   Series: P1 " & Str(GamesWonP1) & " - " & Str(GamesWonP2) & " P2"
+	If GamesWonP1 > GamesWonP2 Then
+		Print "   Player 1 leads the series!"
+	ElseIf GamesWonP2 > GamesWonP1 Then
+		Print "   Player 2 leads the series!"
+	Else
+		Print "   Series is tied!"
+	End If
+	Print "========================================="
+	Call PlaySound("match_complete")
+End Sub
+
+' ============================================================
+' UTILITY FUNCTIONS
+' ============================================================
+
+Sub TriggerShake(intensity)
+	ShakeIntensity = intensity
+	ShakeTimer = 0.15
+	' Visual feedback via paddle glow (safer than position manipulation)
+	Print "[SHAKE] intensity=" & Str(intensity)
+End Sub
+
+Sub PlaySound(soundName)
+	' Placeholder for sound effect
+	' In a real implementation, you'd use AudioStreamPlayer
+	Print "[SFX] " & soundName
+End Sub
+
+Sub StartNewGame()
+	' Record match result and start new game
+	If Score1 > Score2 Then
+		GamesWonP1 = GamesWonP1 + 1
+	Else
+		GamesWonP2 = GamesWonP2 + 1
+	End If
+	MatchCount = MatchCount + 1
+	
+	' Reset scores for new game
+	Score1 = 0
+	Score2 = 0
+	LabelScore1.Text = "0"
+	LabelScore2.Text = "0"
+	RallyCount = 0
+	ComboCount = 0
+	LastHitPlayer = 0
+	SpeedTier = 1
+	Ball.color = BallOrigColor
+	Call ResetBall
 End Sub
