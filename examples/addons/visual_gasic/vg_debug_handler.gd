@@ -48,10 +48,13 @@ func register_instance(instance: Object, script_path: String) -> int:
 	var id = _next_instance_id
 	_next_instance_id += 1
 	
+	var node_name = instance.name if instance is Node else "Instance"
+	print("[VGDebug] Registering instance #%d: %s (%s)" % [id, node_name, script_path])
+	
 	_registered_instances[id] = {
 		"instance": weakref(instance),
 		"script_path": script_path,
-		"node_name": instance.name if instance is Node else "Instance",
+		"node_name": node_name,
 		"node_path": str(instance.get_path()) if instance is Node else ""
 	}
 	
@@ -106,8 +109,12 @@ func _send_variable(instance_id: int, var_name: String) -> void:
 		EngineDebugger.send_message("visualgasic:variable", [var_name, null])
 		return
 	
-	# Try to get the variable from the instance
-	var value = inst.get(var_name)
+	# Use the internal method to get the variable
+	var value = null
+	if inst.has_method("_vg_get_variable"):
+		value = inst._vg_get_variable(var_name)
+	else:
+		value = inst.get(var_name)
 	EngineDebugger.send_message("visualgasic:variable", [var_name, value])
 
 func _send_all_variables(instance_id: int) -> void:
@@ -116,17 +123,19 @@ func _send_all_variables(instance_id: int) -> void:
 		EngineDebugger.send_message("visualgasic:variables_list", [{}])
 		return
 	
-	# Get all properties from the instance
+	# Use the internal method to get all VisualGasic script variables
 	var vars = {}
-	var props = inst.get_property_list()
-	for prop in props:
-		var name = prop["name"]
-		# Skip internal properties
-		if name.begins_with("_") or name in ["script", "Script Variables"]:
-			continue
-		# Only include user-defined variables (usage flag check)
-		if prop["usage"] & PROPERTY_USAGE_SCRIPT_VARIABLE:
-			vars[name] = inst.get(name)
+	if inst.has_method("_vg_get_all_variables"):
+		vars = inst.call("_vg_get_all_variables")
+	else:
+		# Fallback: try property list (won't find internal vars)
+		var props = inst.get_property_list()
+		for prop in props:
+			var name = prop["name"]
+			if name.begins_with("_") or name in ["script", "Script Variables"]:
+				continue
+			if prop["usage"] & PROPERTY_USAGE_SCRIPT_VARIABLE:
+				vars[name] = inst.get(name)
 	
 	EngineDebugger.send_message("visualgasic:variables_list", [vars])
 
@@ -135,7 +144,44 @@ func _set_variable(instance_id: int, var_name: String, value: Variant) -> void:
 	if inst == null:
 		return
 	
-	inst.set(var_name, value)
+	# Parse the value string to the appropriate type
+	var parsed_value = _parse_value(value)
+	print("[VGDebug] SET: %s = %s" % [var_name, str(parsed_value)])
+	
+	# Use the internal method to set the variable
+	if inst.has_method("_vg_set_variable"):
+		inst.call("_vg_set_variable", var_name, parsed_value)
+	else:
+		inst.set(var_name, parsed_value)
+
+func _parse_value(value: Variant) -> Variant:
+	"""Parse a string value to the appropriate type"""
+	if not value is String:
+		return value
+	
+	var str_val: String = value.strip_edges()
+	
+	# Boolean
+	if str_val.to_lower() == "true":
+		return true
+	if str_val.to_lower() == "false":
+		return false
+	
+	# Integer (check before float since integers are also valid floats)
+	if str_val.is_valid_int():
+		return str_val.to_int()
+	
+	# Float
+	if str_val.is_valid_float():
+		return str_val.to_float()
+	
+	# String with quotes
+	if (str_val.begins_with("\"") and str_val.ends_with("\"")) or \
+	   (str_val.begins_with("'") and str_val.ends_with("'")):
+		return str_val.substr(1, str_val.length() - 2)
+	
+	# Return as-is (could be a string without quotes)
+	return str_val
 
 func _evaluate_code(instance_id: int, code: String, request_id: int) -> void:
 	var inst = _get_instance(instance_id)

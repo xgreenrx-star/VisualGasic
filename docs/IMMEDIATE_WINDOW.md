@@ -13,6 +13,11 @@ The Immediate Window is a comprehensive development tool featuring:
 - ✅ Session save/load functionality
 - ✅ Command history with full navigation
 - ✅ Quick action toolbar
+- ✅ **Remote debugging** with auto-connect to running games
+- ✅ **Rename refactoring** with scope control (Ctrl+R)
+- ✅ **Go to Definition** for variables
+- ✅ **Live refresh** toggle for auto-updating values
+- ✅ **Editable values** - modify variables in-place
 
 ## Interface Layout
 
@@ -249,11 +254,12 @@ Command History:
 | **Enter** | Execute code |
 | **Shift+Enter** | New line (multi-line input) |
 | **Ctrl+Space** | Trigger auto-completion |
-| **Ctrl+R** | Repeat last command |
+| **Ctrl+R** | Rename variable (script editor) |
 | **Ctrl+L** | Clear output window |
 | **Up Arrow** | Previous command (history) |
 | **Down Arrow** | Next command (history) |
 | **Tab** | Accept completion (future) |
+| **Right-click** | Context menu (Variables tab) |
 
 ## Usage Examples
 
@@ -501,6 +507,131 @@ Click methods in Inspector to test them:
 8. **Session Save/Load** - Export/import command history
 9. **Command History** - Up/Down navigation through past commands
 10. **Enhanced Error Reporting** - Detailed error messages with context
+11. **Remote Debugging** - Connect to running game instances
+12. **Rename Refactoring** - Rename variables with scope control
+13. **Go to Definition** - Jump to variable declarations
+14. **Live Refresh** - Auto-update variables while game runs
+15. **Editable Values** - Double-click to modify variable values
+
+---
+
+## Remote Debugging
+
+The Immediate Window supports **remote debugging** of running game instances, allowing you to inspect and modify variables in real-time while your game is playing.
+
+### Connecting to Game Instances
+
+When you run your game from Godot, the Immediate Window automatically detects VisualGasic instances:
+
+```
+Found 1 remote instance(s) in game!
+✓ Connected to remote instance #0
+Auto-connected to single instance.
+```
+
+**Auto-Connect Feature:**
+- If only **one** game instance is running, the Immediate Window automatically connects to it
+- No manual selection required for single-instance games
+- For multiple instances, use the dropdown to select which instance to debug
+
+### Instance Dropdown
+
+The instance dropdown at the top of the window shows:
+- **(Not Connected)** - Default, no connection
+- **[Remote] Instance #0 (script.vg)** - Running game instances
+
+### Live Variable Updates
+
+With **Live** toggle enabled:
+1. Variables refresh automatically every 0.5 seconds
+2. See real-time game state changes
+3. Watch expressions update continuously
+
+Toggle the **Live** checkbox to enable/disable auto-refresh.
+
+### Modifying Variables Remotely
+
+Double-click any variable in the **Variables** tab to modify it:
+1. A dialog appears with the current value
+2. Enter the new value
+3. Click OK - the value is sent to the running game
+4. Game state updates immediately!
+
+**Example:**
+```
+Variables tab shows:
+  player_health = 50
+
+Double-click player_health:
+  [Dialog: Enter new value for player_health]
+  [Input: 100]
+  [OK]
+
+Game now has player_health = 100!
+```
+
+---
+
+## Refactoring Tools
+
+### Rename Variable (Ctrl+R)
+
+VisualGasic includes **IDE-style rename refactoring** for variables. This is available in both the script editor and the Immediate Window.
+
+#### In Script Editor
+
+1. Place cursor on a variable name in a `.vg` file
+2. Press **Ctrl+R**
+3. Choose scope:
+   - **Rename in Current Scope** - Only within the current Sub/Function
+   - **Rename in Entire Script** - All occurrences in the current file
+   - **Rename Everywhere** - All occurrences across all `.vg` files
+4. Enter the new name
+5. All occurrences are updated automatically
+
+**Scope Awareness:**
+- "Current Scope" finds the enclosing `Sub`/`Function` and only renames within it
+- Module-level code (outside procedures) is treated as its own scope
+- Comments and string literals are NOT modified
+
+#### In Variables Tab
+
+Right-click any variable in the **Variables** tab:
+- **Insert** - Insert variable name into input
+- **Go to Definition** - Jump to `Dim` declaration in script
+- **Rename in Current Scope...** - Rename within the current procedure
+- **Rename in Entire Script...** - Rename across the whole file
+- **Rename Everywhere...** - Rename in all project files
+
+### Go to Definition
+
+Right-click a variable and select **Go to Definition** to:
+1. Open the script file containing the variable
+2. Jump to the `Dim` statement that declares it
+3. Highlight the line for easy identification
+
+---
+
+## Editable Values
+
+Both **Variables** and **Watch** tabs support in-place value editing:
+
+### Editing Variables
+1. Double-click the **Value** column of any variable
+2. Enter the new value in the dialog
+3. For remote instances, the value is sent to the running game
+4. For local sessions, the value updates immediately
+
+### Editing Watch Expressions
+1. Double-click a watch expression to edit the expression itself
+2. The new expression is evaluated and displayed
+
+**Supported Value Types:**
+- Integers: `42`, `-10`
+- Floats: `3.14`, `-0.5`
+- Strings: `"hello"` (with quotes)
+- Booleans: `true`, `false`
+- Vectors: `Vector2(10, 20)`, `Vector3(1, 2, 3)`
 
 ### 🎯 Key Benefits
 
@@ -532,14 +663,25 @@ Click methods in Inspector to test them:
 - `:reset` - Reset everything
 
 **Shortcuts:**
-- Ctrl+R: Repeat last
+- Ctrl+R: Rename variable (in script editor)
 - Ctrl+L: Clear output
 - Up/Down: Navigate history
 
 **Panels:**
-- **Variables** - View all variables
-- **Watch** - Monitor expressions  
+- **Variables** - View/edit all variables (right-click for refactoring)
+- **Watch** - Monitor expressions (double-click to edit)
 - **Inspector** - Explore objects
+
+**Remote Debugging:**
+- Auto-connects when single instance running
+- Use dropdown for multiple instances
+- Toggle **Live** for auto-refresh
+- Double-click values to modify remotely
+
+**Refactoring (Ctrl+R in script editor):**
+- Rename in Current Scope
+- Rename in Entire Script
+- Rename Everywhere
 
 **Made development interactive and powerful!**
 

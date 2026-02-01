@@ -1,6 +1,6 @@
 # VisualGasic Refactoring: Implementation Status
 
-**Date**: Current Session  
+**Date**: February 2026  
 **Status**: ✅ **BUILD SUCCESSFUL** - Core infrastructure in place, ready for integration
 
 ---
@@ -32,6 +32,30 @@ Created 3 production-ready header-only modules:
    - ~90% faster reload on unchanged scripts
    - Automatic cache directory creation
 
+### Phase 3: Remote Debugging & IDE Features ✅
+
+1. **Remote Debugging** (`vg_debugger_plugin.gd`, `vg_debug_handler.gd`)
+   - Connect to running game instances from the editor
+   - **Auto-connect** when single instance is running
+   - Live variable inspection and modification
+   - Real-time variable updates with "Live" toggle
+
+2. **Immediate Window Enhancements** (`immediate_window.gd`)
+   - Variables tab with right-click context menu
+   - Watch expressions with auto-refresh
+   - Object inspector with deep drill-down
+   - Editable values (double-click to modify)
+   - Go to Definition feature
+
+3. **Rename Refactoring** (`visual_gasic_plugin.gd`, `immediate_window.gd`)
+   - **Ctrl+R** shortcut in script editor
+   - Three scope options:
+     - Rename in Current Scope (within Sub/Function)
+     - Rename in Entire Script
+     - Rename Everywhere (all .vg files)
+   - Smart filtering (ignores strings and comments)
+   - Word-boundary aware (won't rename partial matches)
+
 ### Test Infrastructure ✅
 - `test_tokenizer.gd`: GDScript unit test framework for tokenizer validation
 - `test_parser.gd`: GDScript unit test framework for parser validation
@@ -40,6 +64,7 @@ Created 3 production-ready header-only modules:
 - `PRIORITY_IMPROVEMENTS.md`: Comprehensive summary of phase 1
 - `REFACTORING_GUIDE.md`: Implementation guide and usage examples
 - `IMPLEMENTATION_STATUS.md`: This document
+- `IMMEDIATE_WINDOW.md`: Complete Immediate Window documentation
 
 ---
 

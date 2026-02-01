@@ -266,6 +266,20 @@ VisualGasic includes an **Immediate Window** for interactive code execution duri
 Hello World
 ```
 
+### Remote Debugging
+
+Connect to running game instances and debug live:
+- **Auto-connect** when single instance is running
+- **Live refresh** toggle for real-time variable updates
+- **Edit values remotely** by double-clicking in Variables tab
+
+### Refactoring Tools
+
+Press **Ctrl+R** on any variable in the script editor:
+- **Rename in Current Scope** - Within the current Sub/Function
+- **Rename in Entire Script** - All occurrences in the file
+- **Rename Everywhere** - Across all .vg files in the project
+
 ### Commands
 
 - `:help` - Show available commands

@@ -226,16 +226,31 @@ Testing...
 **Remote Debugging:**
 While your game runs, connect to live instances:
 ```vb
+' Auto-connects when single instance is running
+Found 1 remote instance(s) in game!
+✓ Connected to remote instance #0
+Auto-connected to single instance.
+
 ' View live values
 ? player.position
 (150, 200)
 
-' Modify in real-time
+' Modify in real-time (double-click in Variables tab)
 player.health = 100
 
-' Call methods
-player.Jump()
+' Toggle "Live" for auto-refresh every 0.5s
+' Variables update automatically while game runs
 ```
+
+**Refactoring (Ctrl+R in script editor):**
+- **Rename in Current Scope** - Within the current Sub/Function
+- **Rename in Entire Script** - All occurrences in the file  
+- **Rename Everywhere** - Across all .vg files
+
+**Variables Tab Context Menu (right-click):**
+- Insert variable name
+- Go to Definition
+- Rename options (3 scope levels)
 
 ### Menu Editor
 

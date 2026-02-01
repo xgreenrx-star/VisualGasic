@@ -5,6 +5,9 @@ var toolbox
 var import_plugin
 var immediate_window
 var debugger_plugin: EditorDebuggerPlugin
+var _script_context_menu: PopupMenu
+var _current_code_edit: CodeEdit
+var _script_editor_check_timer: Timer
 
 func _enter_tree():
 	# Store self for static retrieval
@@ -87,6 +90,7 @@ func _enter_tree():
 	print("Manually added Toolbox (GDScript Wrapper) to Dock Left BL")
 	
 	_post_init()
+	_setup_script_editor_context_menu()
 
 	add_tool_menu_item("Import VB6 Form...", Callable(self, "_on_import_vb6_form"))
 	add_tool_menu_item("Import VB6 Project...", Callable(self, "_on_import_vb6_project"))
@@ -121,6 +125,16 @@ func _exit_tree():
 		remove_control_from_docks(toolbox)
 		toolbox.queue_free()
 		toolbox = null
+	
+	# Cleanup script editor context menu
+	if _script_editor_check_timer:
+		_script_editor_check_timer.stop()
+		_script_editor_check_timer.queue_free()
+		_script_editor_check_timer = null
+	
+	if _script_context_menu:
+		_script_context_menu.queue_free()
+		_script_context_menu = null
 		
 	if get_editor_interface().get_selection().selection_changed.is_connected(_on_selection_changed):
 		get_editor_interface().get_selection().selection_changed.disconnect(_on_selection_changed)
@@ -823,3 +837,384 @@ func _reparent_node(node: Node, new_parent: Node):
 	# Restore selection
 	get_editor_interface().get_selection().clear()
 	get_editor_interface().get_selection().add_node(node)
+
+# === Script Editor Context Menu for Rename Refactoring ===
+
+func _setup_script_editor_context_menu():
+	"""Setup timer to monitor script editor for .vg files"""
+	# Create context menu
+	_script_context_menu = PopupMenu.new()
+	_script_context_menu.add_item("Rename in Current Scope...", 0)
+	_script_context_menu.add_item("Rename in Entire Script...", 1)
+	_script_context_menu.add_item("Rename Everywhere...", 2)
+	_script_context_menu.id_pressed.connect(_on_script_context_menu_selected)
+	get_editor_interface().get_base_control().add_child(_script_context_menu)
+	
+	# Timer to periodically check for .vg script in editor
+	_script_editor_check_timer = Timer.new()
+	_script_editor_check_timer.wait_time = 0.5
+	_script_editor_check_timer.timeout.connect(_check_script_editor_for_vg)
+	get_editor_interface().get_base_control().add_child(_script_editor_check_timer)
+	_script_editor_check_timer.start()
+
+func _check_script_editor_for_vg():
+	"""Check if a .vg file is being edited and hook into its CodeEdit"""
+	var script_editor = get_editor_interface().get_script_editor()
+	if not script_editor:
+		return
+	
+	var current_script = script_editor.get_current_script()
+	if not current_script:
+		return
+	
+	var script_path = current_script.resource_path
+	if not script_path.ends_with(".vg"):
+		_current_code_edit = null
+		return
+	
+	# Get the CodeEdit for this script
+	var current_editor = script_editor.get_current_editor()
+	if not current_editor:
+		return
+	
+	var code_edit = current_editor.get_base_editor() as CodeEdit
+	if not code_edit or code_edit == _current_code_edit:
+		return
+	
+	# New CodeEdit - hook into it
+	_current_code_edit = code_edit
+	if not code_edit.gui_input.is_connected(_on_code_edit_gui_input):
+		code_edit.gui_input.connect(_on_code_edit_gui_input)
+
+func _on_code_edit_gui_input(event: InputEvent):
+	"""Handle keyboard shortcuts in the code editor"""
+	if not _current_code_edit:
+		return
+	
+	# Use Ctrl+R for rename (like many IDEs)
+	if event is InputEventKey and event.pressed:
+		var key_event = event as InputEventKey
+		if key_event.ctrl_pressed and key_event.keycode == KEY_R:
+			# Get the word under cursor
+			var word = _get_word_under_cursor(_current_code_edit)
+			if not word.is_empty() and _is_valid_identifier(word):
+				# Store the word for later use
+				_script_context_menu.set_meta("selected_word", word)
+				_script_context_menu.set_meta("script_path", get_editor_interface().get_script_editor().get_current_script().resource_path)
+				
+				# Show menu at caret position
+				var caret_pos = _current_code_edit.get_caret_draw_pos()
+				_script_context_menu.position = Vector2i(_current_code_edit.get_screen_position()) + Vector2i(caret_pos)
+				_script_context_menu.popup()
+				_current_code_edit.accept_event()  # Consume the event
+
+func _get_word_under_cursor(code_edit: CodeEdit) -> String:
+	"""Get the word under the cursor in a CodeEdit"""
+	var line = code_edit.get_caret_line()
+	var col = code_edit.get_caret_column()
+	var text = code_edit.get_line(line)
+	
+	if col > text.length():
+		col = text.length()
+	
+	# Find word start
+	var start = col
+	while start > 0 and _is_identifier_char(text[start - 1]):
+		start -= 1
+	
+	# Find word end
+	var end = col
+	while end < text.length() and _is_identifier_char(text[end]):
+		end += 1
+	
+	if start >= end:
+		return ""
+	
+	return text.substr(start, end - start)
+
+func _is_identifier_char(c: String) -> bool:
+	return c.is_valid_identifier() or c == "_" or (c >= "0" and c <= "9")
+
+func _is_valid_identifier(name: String) -> bool:
+	if name.is_empty():
+		return false
+	if name[0] >= "0" and name[0] <= "9":
+		return false
+	for c in name:
+		if not _is_identifier_char(c):
+			return false
+	return true
+
+func _on_script_context_menu_selected(id: int):
+	"""Handle script editor context menu selection"""
+	var word = _script_context_menu.get_meta("selected_word", "")
+	var script_path = _script_context_menu.get_meta("script_path", "")
+	
+	if word.is_empty():
+		return
+	
+	# id: 0 = current scope, 1 = entire script, 2 = everywhere
+	_show_rename_dialog_for_script(word, script_path, id)
+
+func _show_rename_dialog_for_script(old_name: String, script_path: String, mode: int):
+	"""Show dialog to rename a variable in script files
+	   mode: 0 = current scope, 1 = entire script, 2 = everywhere"""
+	var mode_names = ["Current Scope", "Entire Script", "Everywhere"]
+	var dialog = AcceptDialog.new()
+	dialog.title = "Rename '%s' (%s)" % [old_name, mode_names[mode]]
+	
+	var vbox = VBoxContainer.new()
+	dialog.add_child(vbox)
+	
+	var label = Label.new()
+	label.text = "Rename '%s' to:" % old_name
+	vbox.add_child(label)
+	
+	var input = LineEdit.new()
+	input.text = old_name
+	input.select_all()
+	vbox.add_child(input)
+	
+	if mode == 2:
+		var warning = Label.new()
+		warning.text = "⚠ This will rename in ALL .vg files!"
+		warning.add_theme_color_override("font_color", Color.YELLOW)
+		vbox.add_child(warning)
+	elif mode == 1:
+		var info = Label.new()
+		info.text = "ℹ This will rename in the entire script file"
+		info.add_theme_color_override("font_color", Color.CYAN)
+		vbox.add_child(info)
+	else:
+		var info = Label.new()
+		info.text = "ℹ This will rename only in the current Sub/Function"
+		info.add_theme_color_override("font_color", Color.LIME_GREEN)
+		vbox.add_child(info)
+	
+	dialog.confirmed.connect(func():
+		var new_name = input.text.strip_edges()
+		if new_name.is_empty() or new_name == old_name:
+			return
+		if not _is_valid_identifier(new_name):
+			push_warning("'%s' is not a valid identifier" % new_name)
+			return
+		_perform_rename_in_scripts(old_name, new_name, script_path, mode)
+		dialog.queue_free()
+	)
+	
+	get_editor_interface().get_base_control().add_child(dialog)
+	dialog.popup_centered(Vector2(350, 150))
+	input.grab_focus()
+
+func _perform_rename_in_scripts(old_name: String, new_name: String, script_path: String, mode: int):
+	"""Perform the actual rename operation in script files
+	   mode: 0 = current scope, 1 = entire script, 2 = everywhere"""
+	
+	if mode == 2:
+		# All files
+		var files_to_search: Array[String] = _find_all_vg_files("res://")
+		var total_replacements = 0
+		var files_modified = 0
+		
+		for file_path in files_to_search:
+			var result = _rename_in_file(file_path, old_name, new_name)
+			if result > 0:
+				total_replacements += result
+				files_modified += 1
+		
+		if total_replacements > 0:
+			print("Renamed '%s' → '%s': %d replacements in %d file(s)" % [
+				old_name, new_name, total_replacements, files_modified
+			])
+		else:
+			print("No occurrences of '%s' found" % old_name)
+	elif mode == 1:
+		# Entire script
+		var result = _rename_in_file(script_path, old_name, new_name)
+		if result > 0:
+			print("Renamed '%s' → '%s': %d replacements" % [old_name, new_name, result])
+		else:
+			print("No occurrences of '%s' found in script" % old_name)
+	else:
+		# Current scope - need cursor position
+		var caret_line = 0
+		if _current_code_edit:
+			caret_line = _current_code_edit.get_caret_line()
+		var result = _rename_in_scope(script_path, old_name, new_name, caret_line)
+		if result > 0:
+			print("Renamed '%s' → '%s': %d replacements in current scope" % [old_name, new_name, result])
+		else:
+			print("No occurrences of '%s' found in current scope" % old_name)
+	
+	# Reload the script in the editor
+	_reload_current_script()
+
+func _reload_current_script():
+	"""Reload the current script to show changes"""
+	var script_editor = get_editor_interface().get_script_editor()
+	if script_editor:
+		var current = script_editor.get_current_script()
+		if current:
+			current.reload()
+
+func _rename_in_scope(file_path: String, old_name: String, new_name: String, caret_line: int) -> int:
+	"""Rename variable only within the current Sub/Function scope."""
+	var file = FileAccess.open(file_path, FileAccess.READ)
+	if not file:
+		return 0
+	
+	var content = file.get_as_text()
+	file.close()
+	
+	var lines = content.split("\n")
+	var proc_start = -1
+	var proc_end = -1
+	
+	# Find the enclosing Sub/Function based on caret position
+	for i in range(caret_line, -1, -1):
+		if i >= lines.size():
+			continue
+		var line_upper = lines[i].strip_edges().to_upper()
+		if line_upper.begins_with("SUB ") or line_upper.begins_with("FUNCTION ") or \
+		   line_upper.begins_with("PRIVATE SUB ") or line_upper.begins_with("PUBLIC SUB ") or \
+		   line_upper.begins_with("PRIVATE FUNCTION ") or line_upper.begins_with("PUBLIC FUNCTION "):
+			proc_start = i
+			break
+	
+	if proc_start == -1:
+		# Caret is at module level - rename only module-level occurrences
+		for i in range(lines.size()):
+			var line_upper = lines[i].strip_edges().to_upper()
+			if line_upper.begins_with("SUB ") or line_upper.begins_with("FUNCTION ") or \
+			   line_upper.begins_with("PRIVATE SUB ") or line_upper.begins_with("PUBLIC SUB ") or \
+			   line_upper.begins_with("PRIVATE FUNCTION ") or line_upper.begins_with("PUBLIC FUNCTION "):
+				proc_end = i  # Stop before first procedure
+				break
+		if proc_end == -1:
+			proc_end = lines.size()
+		proc_start = 0
+	else:
+		# Find END SUB or END FUNCTION
+		for i in range(proc_start, lines.size()):
+			var line_upper = lines[i].strip_edges().to_upper()
+			if line_upper == "END SUB" or line_upper == "END FUNCTION":
+				proc_end = i + 1
+				break
+		if proc_end == -1:
+			proc_end = lines.size()
+	
+	# Rename only within proc_start to proc_end
+	var regex = RegEx.new()
+	regex.compile("(?<![A-Za-z0-9_])" + old_name + "(?![A-Za-z0-9_])")
+	
+	var replacements = 0
+	var new_lines = lines.duplicate()
+	
+	for i in range(proc_start, proc_end):
+		var line = new_lines[i]
+		var matches = regex.search_all(line)
+		if matches.is_empty():
+			continue
+		
+		var new_line = line
+		for j in range(matches.size() - 1, -1, -1):
+			var m = matches[j]
+			if not _is_inside_string_or_comment(line, m.get_start()):
+				new_line = new_line.substr(0, m.get_start()) + new_name + new_line.substr(m.get_end())
+				replacements += 1
+		new_lines[i] = new_line
+	
+	if replacements > 0:
+		var write_file = FileAccess.open(file_path, FileAccess.WRITE)
+		if write_file:
+			write_file.store_string("\n".join(new_lines))
+			write_file.close()
+	
+	return replacements
+
+func _find_all_vg_files(path: String) -> Array[String]:
+	"""Recursively find all .vg files in a directory"""
+	var files: Array[String] = []
+	var dir = DirAccess.open(path)
+	if dir:
+		dir.list_dir_begin()
+		var file_name = dir.get_next()
+		while file_name != "":
+			var full_path = path.path_join(file_name)
+			if dir.current_is_dir():
+				if not file_name.begins_with("."):
+					files.append_array(_find_all_vg_files(full_path))
+			elif file_name.ends_with(".vg"):
+				files.append(full_path)
+			file_name = dir.get_next()
+		dir.list_dir_end()
+	return files
+
+func _rename_in_file(file_path: String, old_name: String, new_name: String) -> int:
+	"""Rename variable in a single file. Returns number of replacements."""
+	var file = FileAccess.open(file_path, FileAccess.READ)
+	if not file:
+		return 0
+	
+	var content = file.get_as_text()
+	file.close()
+	
+	# Use word-boundary aware replacement
+	var regex = RegEx.new()
+	regex.compile("(?<![A-Za-z0-9_])" + old_name + "(?![A-Za-z0-9_])")
+	
+	var matches = regex.search_all(content)
+	if matches.is_empty():
+		return 0
+	
+	# Filter out matches inside strings and comments
+	var valid_matches: Array = []
+	for m in matches:
+		if not _is_inside_string_or_comment(content, m.get_start()):
+			valid_matches.append(m)
+	
+	if valid_matches.is_empty():
+		return 0
+	
+	# Replace from end to start to preserve positions
+	var new_content = content
+	for i in range(valid_matches.size() - 1, -1, -1):
+		var m = valid_matches[i]
+		new_content = new_content.substr(0, m.get_start()) + new_name + new_content.substr(m.get_end())
+	
+	# Write back
+	var write_file = FileAccess.open(file_path, FileAccess.WRITE)
+	if write_file:
+		write_file.store_string(new_content)
+		write_file.close()
+		return valid_matches.size()
+	return 0
+
+func _is_inside_string_or_comment(content: String, pos: int) -> bool:
+	"""Check if a position in the content is inside a string or comment"""
+	var line_start = content.rfind("\n", pos)
+	if line_start == -1:
+		line_start = 0
+	else:
+		line_start += 1
+	
+	var line_portion = content.substr(line_start, pos - line_start)
+	
+	# Check for comment
+	var comment_pos = line_portion.find("'")
+	if comment_pos >= 0:
+		var in_string = false
+		for i in range(comment_pos):
+			if line_portion[i] == '"':
+				in_string = not in_string
+		if not in_string:
+			return true
+	
+	# Check if inside string
+	var quote_count = 0
+	for i in range(line_portion.length()):
+		if line_portion[i] == '"':
+			quote_count += 1
+	
+	return quote_count % 2 == 1
+

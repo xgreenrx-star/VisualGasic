@@ -21,6 +21,8 @@ var _inspector_tree: Tree
 var _current_inspected_object: Object = null
 var _auto_complete_popup: PopupMenu
 var _session_history: Array[String] = []
+var _var_context_menu: PopupMenu  # Right-click menu for variables
+var _current_script_path: String = ""  # Path of connected instance's script
 
 # Live debugging - instance connection (local in-process)
 var _instance_dropdown: OptionButton
@@ -34,10 +36,37 @@ var _remote_instances: Array = []
 var _connected_remote_id: int = -1
 var _pending_eval_callback: Callable
 
+# Auto-refresh for live variable updates
+var _auto_refresh_timer: Timer = null
+var _auto_refresh_enabled: bool = true
+var _is_editing: bool = false  # Track if user is currently editing a cell
+const AUTO_REFRESH_INTERVAL: float = 0.5  # Update every 500ms
+
 func _ready():
 	_setup_ui()
 	_initialize_repl()
 	_show_welcome()
+	_setup_auto_refresh_timer()
+
+func _setup_auto_refresh_timer():
+	_auto_refresh_timer = Timer.new()
+	_auto_refresh_timer.wait_time = AUTO_REFRESH_INTERVAL
+	_auto_refresh_timer.autostart = false
+	_auto_refresh_timer.timeout.connect(_on_auto_refresh_timeout)
+	add_child(_auto_refresh_timer)
+
+func _on_auto_refresh_timeout():
+	# Only auto-refresh when connected to a remote instance and not editing
+	if _connected_remote_id >= 0 and _debugger_plugin and _auto_refresh_enabled and not _is_editing:
+		_debugger_plugin.request_all_variables(_connected_remote_id)
+		# Watch expressions will be updated when variables are received
+
+func _on_auto_refresh_toggled(enabled: bool):
+	_auto_refresh_enabled = enabled
+	if enabled and _connected_remote_id >= 0 and _auto_refresh_timer:
+		_auto_refresh_timer.start()
+	elif not enabled and _auto_refresh_timer:
+		_auto_refresh_timer.stop()
 
 func set_debugger_plugin(plugin: EditorDebuggerPlugin) -> void:
 	_debugger_plugin = plugin
@@ -182,6 +211,14 @@ func _setup_ui():
 	var_refresh.pressed.connect(_refresh_variables)
 	var_toolbar.add_child(var_refresh)
 	
+	# Auto-refresh toggle button
+	var auto_refresh_btn = CheckButton.new()
+	auto_refresh_btn.text = "Live"
+	auto_refresh_btn.tooltip_text = "Auto-refresh variables every 0.5s when connected"
+	auto_refresh_btn.button_pressed = _auto_refresh_enabled
+	auto_refresh_btn.toggled.connect(_on_auto_refresh_toggled)
+	var_toolbar.add_child(auto_refresh_btn)
+	
 	_var_tree = Tree.new()
 	_var_tree.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_var_tree.columns = 3
@@ -189,8 +226,25 @@ func _setup_ui():
 	_var_tree.set_column_title(1, "Type")
 	_var_tree.set_column_title(2, "Value")
 	_var_tree.column_titles_visible = true
-	_var_tree.item_activated.connect(_on_var_item_activated)
+	_var_tree.select_mode = Tree.SELECT_ROW
+	_var_tree.item_activated.connect(_on_var_item_activated)  # Double-click -> go to definition
+	_var_tree.item_edited.connect(_on_var_item_edited)
+	_var_tree.item_selected.connect(_on_var_item_selected)
+	_var_tree.gui_input.connect(_on_var_tree_gui_input)  # Right-click handling
+	print("[ImmediateWindow] var_tree item_edited signal connected")
 	var_panel.add_child(_var_tree)
+	
+	# Create context menu for variables
+	_var_context_menu = PopupMenu.new()
+	_var_context_menu.add_item("Insert in Input", 0)
+	_var_context_menu.add_separator()
+	_var_context_menu.add_item("Go to Definition", 1)
+	_var_context_menu.add_separator()
+	_var_context_menu.add_item("Rename in Current Scope...", 2)
+	_var_context_menu.add_item("Rename in Entire Script...", 3)
+	_var_context_menu.add_item("Rename Everywhere...", 4)
+	_var_context_menu.id_pressed.connect(_on_var_context_menu_selected)
+	add_child(_var_context_menu)
 	
 	# Watch panel
 	var watch_panel = VBoxContainer.new()
@@ -216,6 +270,7 @@ func _setup_ui():
 	_watch_tree.set_column_title(1, "Value")
 	_watch_tree.column_titles_visible = true
 	_watch_tree.item_activated.connect(_on_watch_item_activated)
+	_watch_tree.item_edited.connect(_on_watch_item_edited)
 	watch_panel.add_child(_watch_tree)
 	
 	# Inspector panel
@@ -609,6 +664,9 @@ func _create_syntax_highlighter() -> SyntaxHighlighter:
 	# Numbers
 	highlighter.number_color = Color(0.6, 0.8, 1.0)
 	
+	# Symbols/operators - bright cyan for visibility
+	highlighter.symbol_color = Color(0.7, 0.9, 1.0)
+	
 	# Strings
 	highlighter.add_color_region("\"", "\"", Color(1.0, 0.93, 0.5))
 	
@@ -664,6 +722,14 @@ func _get_current_word(text: String) -> String:
 	return line.substr(start, caret_pos - start)
 
 func _refresh_variables():
+	# If connected to remote instance, request variables from it
+	if _connected_remote_id >= 0 and _debugger_plugin:
+		_debugger_plugin.request_all_variables(_connected_remote_id)
+		return
+	
+	_update_variables_tree()
+
+func _update_variables_tree():
 	_var_tree.clear()
 	if _variables.is_empty():
 		return
@@ -674,14 +740,425 @@ func _refresh_variables():
 		item.set_text(0, var_name)
 		item.set_text(1, _get_type_name(_variables[var_name]))
 		item.set_text(2, str(_variables[var_name]))
+		item.set_editable(2, true)  # Make Value column editable
 		item.set_metadata(0, var_name)
 
 func _on_var_item_activated():
+	"""Double-click: Navigate to variable definition in code"""
 	var selected = _var_tree.get_selected()
 	if selected:
 		var var_name = selected.get_metadata(0)
-		_input_field.text = var_name
-		_input_field.grab_focus()
+		_go_to_variable_definition(var_name)
+
+func _on_var_tree_gui_input(event: InputEvent):
+	"""Handle right-click on variable tree"""
+	if event is InputEventMouseButton:
+		var mouse_event = event as InputEventMouseButton
+		if mouse_event.button_index == MOUSE_BUTTON_RIGHT and mouse_event.pressed:
+			var selected = _var_tree.get_selected()
+			if selected:
+				_var_context_menu.position = _var_tree.get_screen_position() + mouse_event.position
+				_var_context_menu.popup()
+
+func _on_var_context_menu_selected(id: int):
+	"""Handle context menu selection"""
+	var selected = _var_tree.get_selected()
+	if not selected:
+		return
+	
+	var var_name = selected.get_metadata(0)
+	
+	match id:
+		0:  # Insert in Input
+			_input_field.text = var_name
+			_input_field.grab_focus()
+		1:  # Go to Definition
+			_go_to_variable_definition(var_name)
+		2:  # Rename in Current Scope
+			_show_rename_dialog(var_name, 0)  # scope only
+		3:  # Rename in Entire Script
+			_show_rename_dialog(var_name, 1)  # entire file
+		4:  # Rename Everywhere
+			_show_rename_dialog(var_name, 2)  # all files
+
+func _go_to_variable_definition(var_name: String):
+	"""Navigate to where a variable is defined in the source code"""
+	# Get the script path from the connected instance
+	if _current_script_path.is_empty():
+		# Try to get from remote instances
+		if not _remote_instances.is_empty() and _connected_remote_id >= 0:
+			for info in _remote_instances:
+				if info.get("id", -1) == _connected_remote_id:
+					_current_script_path = info.get("script_path", "")
+					break
+	
+	if _current_script_path.is_empty():
+		_append_output("[color=yellow]Cannot find script path for variable '%s'[/color]\n" % var_name)
+		return
+	
+	# Search for variable definition in the script
+	var file = FileAccess.open(_current_script_path, FileAccess.READ)
+	if not file:
+		_append_output("[color=red]Cannot open script: %s[/color]\n" % _current_script_path)
+		return
+	
+	var line_num = 0
+	var found_line = -1
+	var definition_patterns = [
+		"Dim " + var_name + " ",
+		"Dim " + var_name + "\t",
+		"Dim " + var_name + "\n",
+		"Dim " + var_name + ",",
+	]
+	
+	while not file.eof_reached():
+		var line = file.get_line()
+		line_num += 1
+		for pattern in definition_patterns:
+			if line.findn(pattern) >= 0:
+				found_line = line_num
+				break
+		if found_line > 0:
+			break
+	file.close()
+	
+	if found_line > 0:
+		# Open the file in the editor and go to the line
+		var editor_interface = EditorInterface
+		editor_interface.edit_script(load(_current_script_path), found_line, 0)
+		_append_output("[color=lime]Found '%s' at line %d[/color]\n" % [var_name, found_line])
+	else:
+		# Variable might be a local in a Sub - just open the file
+		var editor_interface = EditorInterface
+		editor_interface.edit_script(load(_current_script_path))
+		_append_output("[color=yellow]'%s' may be a local variable. Opened script.[/color]\n" % var_name)
+
+func _show_rename_dialog(var_name: String, mode: int):
+	"""Show dialog to rename a variable
+	   mode: 0 = current scope, 1 = entire script, 2 = everywhere"""
+	var mode_names = ["Current Scope", "Entire Script", "Everywhere"]
+	var dialog = AcceptDialog.new()
+	dialog.title = "Rename Variable (%s)" % mode_names[mode]
+	
+	var vbox = VBoxContainer.new()
+	dialog.add_child(vbox)
+	
+	var label = Label.new()
+	label.text = "Rename '%s' to:" % var_name
+	vbox.add_child(label)
+	
+	var input = LineEdit.new()
+	input.text = var_name
+	input.select_all()
+	vbox.add_child(input)
+	
+	if mode == 2:
+		var warning = Label.new()
+		warning.text = "⚠ This will rename in ALL .vg files!"
+		warning.add_theme_color_override("font_color", Color.YELLOW)
+		vbox.add_child(warning)
+	elif mode == 1:
+		var info = Label.new()
+		info.text = "ℹ This will rename in the entire script file"
+		info.add_theme_color_override("font_color", Color.CYAN)
+		vbox.add_child(info)
+	else:
+		var info = Label.new()
+		info.text = "ℹ This will rename only in the current Sub/Function"
+		info.add_theme_color_override("font_color", Color.LIME_GREEN)
+		vbox.add_child(info)
+	
+	dialog.confirmed.connect(func():
+		var new_name = input.text.strip_edges()
+		if new_name.is_empty() or new_name == var_name:
+			return
+		if not _is_valid_identifier(new_name):
+			_append_output("[color=red]'%s' is not a valid identifier[/color]\n" % new_name)
+			return
+		_perform_rename(var_name, new_name, mode)
+	)
+	
+	add_child(dialog)
+	dialog.popup_centered(Vector2(350, 150))
+	input.grab_focus()
+
+func _is_valid_identifier(name: String) -> bool:
+	"""Check if a name is a valid VB identifier"""
+	if name.is_empty():
+		return false
+	# Must start with letter
+	if not name[0].is_valid_identifier():
+		return false
+	# Rest can be letters, numbers, underscore
+	for c in name:
+		if not c.is_valid_identifier() and c != "_":
+			return false
+	return true
+
+func _perform_rename(old_name: String, new_name: String, mode: int):
+	"""Perform the actual rename operation
+	   mode: 0 = current scope, 1 = entire script, 2 = everywhere"""
+	
+	if _current_script_path.is_empty():
+		_append_output("[color=red]No script connected[/color]\n")
+		return
+	
+	if mode == 2:
+		# Find all .vg files in the project
+		var files_to_search: Array[String] = _find_all_vg_files("res://")
+		var total_replacements = 0
+		var files_modified = 0
+		
+		for file_path in files_to_search:
+			var result = _rename_in_file(file_path, old_name, new_name)
+			if result > 0:
+				total_replacements += result
+				files_modified += 1
+		
+		if total_replacements > 0:
+			_append_output("[color=lime]Renamed '%s' → '%s': %d replacements in %d file(s)[/color]\n" % [
+				old_name, new_name, total_replacements, files_modified
+			])
+			_append_output("[color=yellow]⚠ Restart game to apply changes[/color]\n")
+		else:
+			_append_output("[color=gray]No occurrences of '%s' found[/color]\n" % old_name)
+	elif mode == 1:
+		# Just the current script - entire file
+		var result = _rename_in_file(_current_script_path, old_name, new_name)
+		if result > 0:
+			_append_output("[color=lime]Renamed '%s' → '%s': %d replacements[/color]\n" % [
+				old_name, new_name, result
+			])
+			_append_output("[color=yellow]⚠ Restart game to apply changes[/color]\n")
+		else:
+			_append_output("[color=gray]No occurrences of '%s' found in script[/color]\n" % old_name)
+	else:
+		# Current scope only - find the procedure boundaries
+		var result = _rename_in_current_scope(_current_script_path, old_name, new_name)
+		if result > 0:
+			_append_output("[color=lime]Renamed '%s' → '%s': %d replacements in current scope[/color]\n" % [
+				old_name, new_name, result
+			])
+			_append_output("[color=yellow]⚠ Restart game to apply changes[/color]\n")
+		else:
+			_append_output("[color=gray]No occurrences of '%s' found in current scope[/color]\n" % old_name)
+
+func _rename_in_current_scope(file_path: String, old_name: String, new_name: String) -> int:
+	"""Rename variable only within the current Sub/Function scope."""
+	var file = FileAccess.open(file_path, FileAccess.READ)
+	if not file:
+		return 0
+	
+	var content = file.get_as_text()
+	file.close()
+	
+	# Find the current procedure that contains the caret
+	# We need to find the procedure where the variable is used
+	# For now, look for the procedure containing the first occurrence of old_name
+	
+	var lines = content.split("\n")
+	var proc_start = -1
+	var proc_end = -1
+	var found_var_line = -1
+	
+	# First, find a line with the variable
+	var regex = RegEx.new()
+	regex.compile("(?<![A-Za-z0-9_])" + old_name + "(?![A-Za-z0-9_])")
+	
+	for i in range(lines.size()):
+		var match_result = regex.search(lines[i])
+		if match_result and not _is_inside_string_or_comment(lines[i], match_result.get_start()):
+			found_var_line = i
+			break
+	
+	if found_var_line == -1:
+		return 0
+	
+	# Now find the enclosing Sub/Function
+	for i in range(found_var_line, -1, -1):
+		var line_upper = lines[i].strip_edges().to_upper()
+		if line_upper.begins_with("SUB ") or line_upper.begins_with("FUNCTION ") or \
+		   line_upper.begins_with("PRIVATE SUB ") or line_upper.begins_with("PUBLIC SUB ") or \
+		   line_upper.begins_with("PRIVATE FUNCTION ") or line_upper.begins_with("PUBLIC FUNCTION "):
+			proc_start = i
+			break
+	
+	if proc_start == -1:
+		# Variable is at module level, rename only module-level occurrences
+		# Find where first procedure starts
+		for i in range(lines.size()):
+			var line_upper = lines[i].strip_edges().to_upper()
+			if line_upper.begins_with("SUB ") or line_upper.begins_with("FUNCTION ") or \
+			   line_upper.begins_with("PRIVATE SUB ") or line_upper.begins_with("PUBLIC SUB ") or \
+			   line_upper.begins_with("PRIVATE FUNCTION ") or line_upper.begins_with("PUBLIC FUNCTION "):
+				proc_end = i  # Stop before first procedure
+				break
+		if proc_end == -1:
+			proc_end = lines.size()
+		proc_start = 0
+	else:
+		# Find END SUB or END FUNCTION
+		for i in range(found_var_line, lines.size()):
+			var line_upper = lines[i].strip_edges().to_upper()
+			if line_upper == "END SUB" or line_upper == "END FUNCTION":
+				proc_end = i + 1
+				break
+		if proc_end == -1:
+			proc_end = lines.size()
+	
+	# Now rename only within proc_start to proc_end
+	var replacements = 0
+	var new_lines = lines.duplicate()
+	
+	for i in range(proc_start, proc_end):
+		var line = new_lines[i]
+		var matches = regex.search_all(line)
+		if matches.is_empty():
+			continue
+		
+		# Filter and replace (from end to start)
+		var new_line = line
+		for j in range(matches.size() - 1, -1, -1):
+			var m = matches[j]
+			if not _is_inside_string_or_comment(line, m.get_start()):
+				new_line = new_line.substr(0, m.get_start()) + new_name + new_line.substr(m.get_end())
+				replacements += 1
+		new_lines[i] = new_line
+	
+	if replacements > 0:
+		var write_file = FileAccess.open(file_path, FileAccess.WRITE)
+		if write_file:
+			write_file.store_string("\n".join(new_lines))
+			write_file.close()
+	
+	return replacements
+
+func _find_all_vg_files(path: String) -> Array[String]:
+	"""Recursively find all .vg files in a directory"""
+	var files: Array[String] = []
+	var dir = DirAccess.open(path)
+	if dir:
+		dir.list_dir_begin()
+		var file_name = dir.get_next()
+		while file_name != "":
+			var full_path = path.path_join(file_name)
+			if dir.current_is_dir():
+				if not file_name.begins_with("."):
+					files.append_array(_find_all_vg_files(full_path))
+			elif file_name.ends_with(".vg"):
+				files.append(full_path)
+			file_name = dir.get_next()
+		dir.list_dir_end()
+	return files
+
+func _rename_in_file(file_path: String, old_name: String, new_name: String) -> int:
+	"""Rename variable in a single file. Returns number of replacements."""
+	var file = FileAccess.open(file_path, FileAccess.READ)
+	if not file:
+		return 0
+	
+	var content = file.get_as_text()
+	file.close()
+	
+	# Use word-boundary aware replacement
+	# Match old_name only when surrounded by non-identifier characters
+	var regex = RegEx.new()
+	# Pattern: word boundary before and after the name
+	# VB identifiers can contain letters, numbers, underscore
+	regex.compile("(?<![A-Za-z0-9_])" + old_name + "(?![A-Za-z0-9_])")
+	
+	var matches = regex.search_all(content)
+	if matches.is_empty():
+		return 0
+	
+	# Filter out matches inside strings and comments
+	var valid_matches: Array = []
+	for m in matches:
+		if not _is_inside_string_or_comment(content, m.get_start()):
+			valid_matches.append(m)
+	
+	if valid_matches.is_empty():
+		return 0
+	
+	# Replace from end to start to preserve positions
+	var new_content = content
+	for i in range(valid_matches.size() - 1, -1, -1):
+		var m = valid_matches[i]
+		new_content = new_content.substr(0, m.get_start()) + new_name + new_content.substr(m.get_end())
+	
+	# Write back
+	var write_file = FileAccess.open(file_path, FileAccess.WRITE)
+	if write_file:
+		write_file.store_string(new_content)
+		write_file.close()
+		return valid_matches.size()
+	return 0
+
+func _is_inside_string_or_comment(content: String, pos: int) -> bool:
+	"""Check if a position in the content is inside a string or comment"""
+	# Find the start of the current line
+	var line_start = content.rfind("\n", pos)
+	if line_start == -1:
+		line_start = 0
+	else:
+		line_start += 1
+	
+	var line_portion = content.substr(line_start, pos - line_start)
+	
+	# Check if there's a comment before this position on this line
+	var comment_pos = line_portion.find("'")
+	if comment_pos >= 0:
+		# Check if the comment marker is inside a string
+		var in_string = false
+		for i in range(comment_pos):
+			if line_portion[i] == '"':
+				in_string = not in_string
+		if not in_string:
+			return true  # We're in a comment
+	
+	# Check if we're inside a string (count unescaped quotes before position)
+	var quote_count = 0
+	for i in range(line_portion.length()):
+		if line_portion[i] == '"':
+			quote_count += 1
+	
+	return quote_count % 2 == 1  # Odd number means we're inside a string
+
+func _on_var_item_selected():
+	"""Called when user selects a variable - prepare for editing"""
+	_is_editing = true
+	print("[ImmediateWindow] Item selected, editing mode ON")
+
+func _on_var_item_edited():
+	"""Called when user edits a variable value in the tree"""
+	_is_editing = false  # Done editing
+	print("[ImmediateWindow] _on_var_item_edited called, editing mode OFF")
+	var edited = _var_tree.get_edited()
+	if not edited:
+		print("[ImmediateWindow] No edited item from get_edited()")
+		# Try get_selected as fallback
+		edited = _var_tree.get_selected()
+		if not edited:
+			print("[ImmediateWindow] No selected item either")
+			return
+	
+	var edited_column = _var_tree.get_edited_column()
+	print("[ImmediateWindow] Edited column: ", edited_column)
+	
+	var var_name = edited.get_metadata(0)
+	var new_value_str = edited.get_text(2)
+	print("[ImmediateWindow] Editing var: ", var_name, " = ", new_value_str)
+	
+	# Send the assignment command
+	if _connected_remote_id >= 0 and _debugger_plugin:
+		# Remote instance - send via debugger
+		print("[ImmediateWindow] Sending to remote instance #", _connected_remote_id)
+		_debugger_plugin.set_variable(_connected_remote_id, var_name, new_value_str)
+		_append_output("[color=cyan]Set %s = %s[/color]\n" % [var_name, new_value_str])
+	else:
+		# Local - execute assignment
+		var cmd = "%s = %s" % [var_name, new_value_str]
+		_process_command(cmd)
 
 func _add_watch_expression():
 	var dialog = AcceptDialog.new()
@@ -711,8 +1188,15 @@ func _update_watch_expressions():
 	for watch in _watch_expressions:
 		var item = _watch_tree.create_item(root)
 		item.set_text(0, watch["expr"])
-		var value = _eval_simple(watch["expr"])
+		var value
+		# Use remote variables if connected to remote instance
+		if _connected_remote_id >= 0 and _variables.has(watch["expr"]):
+			value = _variables[watch["expr"]]
+		else:
+			value = _eval_simple(watch["expr"])
 		item.set_text(1, str(value))
+		item.set_editable(1, true)  # Make Value column editable
+		item.set_metadata(0, watch["expr"])  # Store expression name for editing
 		watch["value"] = str(value)
 
 func _on_watch_item_activated():
@@ -721,6 +1205,25 @@ func _on_watch_item_activated():
 		var expr = selected.get_text(0)
 		_input_field.text = expr
 		_input_field.grab_focus()
+
+func _on_watch_item_edited():
+	"""Called when user edits a watch value in the tree"""
+	var selected = _watch_tree.get_selected()
+	if not selected:
+		return
+	
+	var var_name = selected.get_metadata(0)
+	var new_value_str = selected.get_text(1)
+	
+	# Send the assignment command
+	if _connected_remote_id >= 0 and _debugger_plugin:
+		# Remote instance - send via debugger
+		_debugger_plugin.set_variable(_connected_remote_id, var_name, new_value_str)
+		_append_output("[color=cyan]Set %s = %s[/color]\n" % [var_name, new_value_str])
+	else:
+		# Local - execute assignment
+		var cmd = "%s = %s" % [var_name, new_value_str]
+		_process_command(cmd)
 
 func _inspect_object(obj: Object):
 	_current_inspected_object = obj
@@ -918,6 +1421,7 @@ func _on_remote_instances_updated(instances: Array) -> void:
 	_instance_dropdown.clear()
 	_instance_dropdown.add_item("(Not Connected)", 0)
 	
+	var found_connected := false
 	for i in range(instances.size()):
 		var info = instances[i]
 		var label = _format_instance_label(info, i)
@@ -925,11 +1429,21 @@ func _on_remote_instances_updated(instances: Array) -> void:
 		
 		if info.get("id", -1) == _connected_remote_id:
 			_instance_dropdown.select(i + 1)
+			found_connected = true
 	
 	if instances.is_empty():
 		_append_output("[color=yellow]No VisualGasic instances in running game.[/color]\n")
 	else:
 		_append_output("[color=lime]Found %d remote instance(s) in game![/color]\n" % instances.size())
+		
+		# Auto-connect if there's exactly one instance and we're not already connected
+		if instances.size() == 1 and _connected_remote_id < 0 and not found_connected:
+			var info = instances[0]
+			var remote_id = info.get("id", -1)
+			if remote_id >= 0:
+				_instance_dropdown.select(1)  # Select the first (and only) instance
+				_connect_to_remote_instance(remote_id)
+				_append_output("[color=aqua]Auto-connected to single instance.[/color]\n")
 
 func _on_remote_variable_received(var_name: String, value: Variant) -> void:
 	"""Called when debugger receives a variable value"""
@@ -940,12 +1454,23 @@ func _on_remote_variable_received(var_name: String, value: Variant) -> void:
 
 func _on_remote_variables_received(variables: Dictionary) -> void:
 	"""Called when debugger receives all variables from an instance"""
-	if variables.is_empty():
-		_append_output("[color=gray]No variables found in instance[/color]\n")
-	else:
-		_append_output("[b]Remote Instance Variables:[/b]\n")
-		for key in variables.keys():
-			_append_output("  [color=lime]%s[/color] = %s\n" % [key, str(variables[key])])
+	# Update the session variables dictionary with remote variables
+	_variables = variables.duplicate()
+	
+	# Only print to output if not auto-refreshing (to avoid spam)
+	if not _auto_refresh_timer or not _auto_refresh_timer.time_left > 0 or not _auto_refresh_enabled:
+		if variables.is_empty():
+			_append_output("[color=gray]No variables found in instance[/color]\n")
+		else:
+			_append_output("[b]Remote Instance Variables:[/b]\n")
+			for key in variables.keys():
+				_append_output("  [color=lime]%s[/color] = %s\n" % [key, str(variables[key])])
+	
+	# Refresh the Variables panel tree
+	_update_variables_tree()
+	
+	# Also update watch expressions with the new variable values
+	_update_watch_expressions()
 
 func _on_instance_selected(index: int):
 	"""Handle instance dropdown selection"""
@@ -988,6 +1513,16 @@ func _connect_to_remote_instance(instance_id: int):
 	_connected_instance_ptr = 0
 	_append_output("[color=lime]✓ Connected to remote instance #%d[/color]\n" % instance_id)
 	
+	# Get the script path for this instance
+	for info in _remote_instances:
+		if info.get("id", -1) == instance_id:
+			_current_script_path = info.get("script_path", "")
+			break
+	
+	# Start auto-refresh timer for live updates
+	if _auto_refresh_timer:
+		_auto_refresh_timer.start()
+	
 	# Request variables from the remote instance
 	if _debugger_plugin:
 		_debugger_plugin.request_all_variables(instance_id)
@@ -998,7 +1533,13 @@ func _disconnect_from_instance():
 		_vg_repl.disconnect_instance()
 	_connected_instance_ptr = 0
 	_connected_remote_id = -1
+	_current_script_path = ""
 	_instance_dropdown.select(0)
+	
+	# Stop auto-refresh timer
+	if _auto_refresh_timer:
+		_auto_refresh_timer.stop()
+	
 	_append_output("[color=gray]Disconnected from instance[/color]\n")
 
 func _is_connected_to_remote() -> bool:
