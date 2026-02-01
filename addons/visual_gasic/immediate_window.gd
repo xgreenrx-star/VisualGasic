@@ -1550,25 +1550,26 @@ func _update_whenever_tree():
 	for section in _whenever_sections:
 		var item = _whenever_tree.create_item(root)
 		
-		# Build condition string
-		var condition = ""
+		# Build condition string: "SectionName: Variable Operator [Value]"
+		var section_name: String = section.get("name", "")
 		var var_name: String = section.get("variable", "")
 		var op: String = section.get("operator", "")
 		var val = section.get("value", "")
 		var val2 = section.get("value2", "")
 		
+		# Format: "SectionName: Variable Operator Value"
+		var condition = section_name
 		if not var_name.is_empty():
-			condition = var_name
+			condition += ": " + var_name
 			if not op.is_empty():
-				condition += " " + op
+				condition += " " + op.capitalize()
 				if op.to_upper() == "BETWEEN":
 					condition += " " + str(val) + " And " + str(val2)
 				elif op.to_upper() != "CHANGES":
 					condition += " " + str(val)
-		else:
-			condition = section.get("name", "Unknown")
 		
 		item.set_text(0, condition)
+		item.set_tooltip_text(0, "Section: " + section_name + "\nVariable: " + var_name + "\nOperator: " + op)
 		
 		# Status
 		var is_active: bool = section.get("is_active", true)

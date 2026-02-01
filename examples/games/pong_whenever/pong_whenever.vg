@@ -22,6 +22,12 @@ Dim p1y As Single
 Dim p2x As Single
 Dim p2y As Single
 
+' Original paddle colors (for flash reset)
+Dim Paddle1OrigColor As Object
+Dim Paddle2OrigColor As Object
+Dim FlashTimer1 As Single
+Dim FlashTimer2 As Single
+
 Sub _Ready()
 	Randomize
 	' Setup Screen
@@ -35,16 +41,21 @@ Sub _Ready()
 	' --- PADDLE 1 (Left) ---
 	Set Paddle1 = CreateNode("ColorRect")
 	AddChild(Paddle1)
-	Paddle1.color = Color(0.2, 0.8, 0.2)
+	Set Paddle1OrigColor = Color(0.2, 0.8, 0.2)
+	Paddle1.color = Paddle1OrigColor
 	Paddle1.size = Vector2(20, 100)
 	Paddle1.position = Vector2(50, 250)
 	
 	' --- PADDLE 2 (Right) ---
 	Set Paddle2 = CreateNode("ColorRect")
 	AddChild(Paddle2)
-	Paddle2.color = Color(0.2, 0.2, 0.8)
+	Set Paddle2OrigColor = Color(0.2, 0.2, 0.8)
+	Paddle2.color = Paddle2OrigColor
 	Paddle2.size = Vector2(20, 100)
 	Paddle2.position = Vector2(1080, 250)
+	
+	FlashTimer1 = 0
+	FlashTimer2 = 0
 	
 	' --- BALL ---
 	Set Ball = CreateNode("ColorRect")
@@ -86,6 +97,20 @@ Sub _Process(delta)
 	Dim bSize As Object
 	Dim p1Pos As Object
 	Dim p2Pos As Object
+	
+	' Handle paddle flash reset timers
+	If FlashTimer1 > 0 Then
+		FlashTimer1 = FlashTimer1 - delta
+		If FlashTimer1 <= 0 Then
+			Paddle1.color = Paddle1OrigColor
+		End If
+	End If
+	If FlashTimer2 > 0 Then
+		FlashTimer2 = FlashTimer2 - delta
+		If FlashTimer2 <= 0 Then
+			Paddle2.color = Paddle2OrigColor
+		End If
+	End If
 	
 	' Get current positions
 	Set bPos = Ball.position
@@ -175,21 +200,21 @@ End Sub
 
 ' Register Whenever sections in a setup sub (called from _Ready)
 Sub SetupWhenever()
-    ' React when Player 1 scores - flash their paddle green
-    Whenever Section Player1Scores Score1 Changes OnPlayer1Score
-    
-    ' React when Player 2 scores - flash their paddle blue  
-    Whenever Section Player2Scores Score2 Changes OnPlayer2Score
-    
-    ' Game point announcements using Exceeds operator
-    Whenever Section Player1GamePoint Score1 Exceeds 4 OnPlayer1GamePoint
-    Whenever Section Player2GamePoint Score2 Exceeds 4 OnPlayer2GamePoint
-    
-    ' Victory detection
-    Whenever Section Player1Wins Score1 Exceeds 5 OnPlayer1Victory
-    Whenever Section Player2Wins Score2 Exceeds 5 OnPlayer2Victory
-    
-    Print "Whenever sections registered!"
+	' React when Player 1 scores - flash their paddle green
+	Whenever Section Player1Scores Score1 Changes OnPlayer1Score
+	
+	' React when Player 2 scores - flash their paddle blue  
+	Whenever Section Player2Scores Score2 Changes OnPlayer2Score
+	
+	' Game point announcements using Exceeds operator
+	Whenever Section Player1GamePoint Score1 Exceeds 4 OnPlayer1GamePoint
+	Whenever Section Player2GamePoint Score2 Exceeds 4 OnPlayer2GamePoint
+	
+	' Victory detection
+	Whenever Section Player1Wins Score1 Exceeds 5 OnPlayer1Victory
+	Whenever Section Player2Wins Score2 Exceeds 5 OnPlayer2Victory
+	
+	Print "Whenever sections registered!"
 End Sub
 
 ' ============================================================
@@ -197,31 +222,33 @@ End Sub
 ' ============================================================
 
 Sub OnPlayer1Score()
-    Print "Player 1 scored! Score: " & Str(Score1)
-    Paddle1.color = Color(0, 1, 0)  ' Bright green flash
+	Print "Player 1 scored! Score: " & Str(Score1)
+	Paddle1.color = Color(0.0, 1.0, 0.0, 1.0)  ' Bright green flash
+	FlashTimer1 = 0.3  ' Flash for 0.3 seconds
 End Sub
 
 Sub OnPlayer2Score()
-    Print "Player 2 scored! Score: " & Str(Score2)
-    Paddle2.color = Color(0, 0, 1)  ' Bright blue flash
+	Print "Player 2 scored! Score: " & Str(Score2)
+	Paddle2.color = Color(0.0, 0.0, 1.0, 1.0)  ' Bright blue flash
+	FlashTimer2 = 0.3  ' Flash for 0.3 seconds
 End Sub
 
 Sub OnPlayer1GamePoint()
-    Print "*** GAME POINT for Player 1! ***"
+	Print "*** GAME POINT for Player 1! ***"
 End Sub
 
 Sub OnPlayer2GamePoint()
-    Print "*** GAME POINT for Player 2! ***"
+	Print "*** GAME POINT for Player 2! ***"
 End Sub
 
 Sub OnPlayer1Victory()
-    Print "========================================="
-    Print "   PLAYER 1 WINS!"
-    Print "========================================="
+	Print "========================================="
+	Print "   PLAYER 1 WINS!"
+	Print "========================================="
 End Sub
 
 Sub OnPlayer2Victory()
-    Print "========================================="
-    Print "   PLAYER 2 WINS!"
-    Print "========================================="
+	Print "========================================="
+	Print "   PLAYER 2 WINS!"
+	Print "========================================="
 End Sub
