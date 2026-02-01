@@ -158,4 +158,20 @@ This example uses several Whenever operators:
 4. **Declarative**: State what should happen, not how to check for it
 5. **Automatic**: The system handles monitoring and triggering
 
+## Technical Notes
+
+### Bytecode Compilation
+
+As of the latest update, **Whenever statements fully compile to bytecode**. This means:
+
+- Functions containing Whenever sections no longer fall back to the interpreter
+- Three new opcodes handle Whenever operations:
+  - `OP_REGISTER_WHENEVER` - Registers a Whenever section with the runtime
+  - `OP_SUSPEND_WHENEVER` - Suspends monitoring by section name
+  - `OP_RESUME_WHENEVER` - Resumes monitoring of a suspended section
+- Section data is packed into a Dictionary constant and unpacked at runtime
+- Expression-based comparison values are evaluated when the section is registered
+
+This provides improved performance and full integration with the bytecode executor.
+
 Enjoy reactive game programming with Visual Gasic! 🏓

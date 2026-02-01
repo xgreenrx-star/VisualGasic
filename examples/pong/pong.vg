@@ -35,21 +35,21 @@ Sub _Ready()
 	' --- PADDLE 1 (Left) ---
 	Set Paddle1 = CreateNode("ColorRect")
 	AddChild(Paddle1)
-	Paddle1.color = Color(0.2, 0.8, 0.2)
+	Paddle1.color = vbGreen
 	Paddle1.size = Vector2(20, 100)
 	Paddle1.position = Vector2(50, 250)
 	
 	' --- PADDLE 2 (Right) ---
 	Set Paddle2 = CreateNode("ColorRect")
 	AddChild(Paddle2)
-	Paddle2.color = Color(0.2, 0.2, 0.8)
+	Paddle2.color = vbBlue
 	Paddle2.size = Vector2(20, 100)
 	Paddle2.position = Vector2(1080, 250)
 	
 	' --- BALL ---
 	Set Ball = CreateNode("ColorRect")
 	AddChild(Ball)
-	Ball.color = Color(1, 1, 1)
+	Ball.color = vbWhite
 	Ball.size = Vector2(20, 20)
 	Call ResetBall
 	

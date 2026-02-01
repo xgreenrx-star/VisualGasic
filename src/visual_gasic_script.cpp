@@ -134,6 +134,9 @@ String opcode_name(uint8_t op) {
         OP_NAME_CASE(OP_FALSE);
         OP_NAME_CASE(OP_ABS);
         OP_NAME_CASE(OP_SGN);
+        OP_NAME_CASE(OP_REGISTER_WHENEVER);
+        OP_NAME_CASE(OP_SUSPEND_WHENEVER);
+        OP_NAME_CASE(OP_RESUME_WHENEVER);
 #undef OP_NAME_CASE
         default:
             return vformat("OP_UNKNOWN_%d", (int)op);
@@ -168,6 +171,9 @@ int opcode_operand_length(uint8_t op) {
         case OP_SET_DICT_FAST:
         case OP_GET_DICT_TRUSTED:
         case OP_SET_DICT_TRUSTED:
+        case OP_REGISTER_WHENEVER:
+        case OP_SUSPEND_WHENEVER:
+        case OP_RESUME_WHENEVER:
             return 1;
         case OP_CONSTANT_LONG:
         case OP_ADD_LOCAL_I64_CONST:

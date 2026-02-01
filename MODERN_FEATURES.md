@@ -369,6 +369,7 @@ End Sub
 | Pattern Matching | 🔜 Planned | 🔜 | 🔜 | Future feature |
 | Spread Operator | 🔜 Planned | 🔜 | 🔜 | Future feature |
 | Async/Await | 🔜 Planned | 🔜 | 🔜 | Complex feature |
+| Whenever Sections | ✅ Complete | ✅ | ✅ | Bytecode compiled |
 
 Legend:
 - ✅ Complete and tested
@@ -398,3 +399,53 @@ All modern features are **additive** - existing VB6 code continues to work witho
 
 **Last Updated**: January 2025  
 **VisualGasic Version**: 4.5.1
+
+---
+
+## 13. Whenever Reactive Sections
+
+**Status**: ✅ Fully implemented with bytecode compilation  
+**Syntax**:
+```vb
+Whenever Section <SectionName> <Variable> <Operator> [Value] <CallbackProcedure>
+```
+
+Reactive programming system for automatically responding to variable state changes.
+
+```vb
+' Trigger when a score changes
+Whenever Section Player1Scores Score1 Changes OnPlayer1Score
+
+' Trigger when health drops below threshold
+Whenever Section LowHealth Health Below 30 OnLowHealthWarning
+
+' Trigger when value equals target
+Whenever Section Victory Score1 Becomes 10 OnVictory
+
+' Trigger when value exceeds threshold
+Whenever Section SpeedBoost Speed Exceeds 500 OnSpeedBoost
+```
+
+**Operators Supported**:
+- `Changes` - Triggers when value changes at all
+- `Becomes` - Triggers when value equals target
+- `Exceeds` - Triggers when value goes above threshold
+- `Below` - Triggers when value drops below threshold
+- `Between...And` - Triggers when in range
+- `Contains` - For string matching
+
+**Control Statements**:
+```vb
+' Pause monitoring
+Suspend Whenever Player1Scores
+
+' Resume monitoring
+Resume Whenever Player1Scores
+```
+
+**Implementation Details**:
+- Compiles to dedicated bytecode opcodes: `OP_REGISTER_WHENEVER`, `OP_SUSPEND_WHENEVER`, `OP_RESUME_WHENEVER`
+- Section data packed into Dictionary constant for efficient runtime unpacking
+- Monitoring integrated with `_process` loop for frame-by-frame variable tracking
+- Visible in Immediate Window's "Whenever" tab with pause/resume support
+- Supports both global and local scope sections

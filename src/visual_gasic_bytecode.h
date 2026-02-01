@@ -119,6 +119,11 @@ enum OpCode {
     OP_SET_MEMBER,     // [OP] [NAME_IDX]
     OP_INTEROP_SET_NAME_LEN,
 
+    // Whenever system
+    OP_REGISTER_WHENEVER,   // [OP] [DATA_IDX] - Register a Whenever section (data is a Dictionary constant)
+    OP_SUSPEND_WHENEVER,    // [OP] [NAME_IDX] - Suspend a Whenever section by name
+    OP_RESUME_WHENEVER,     // [OP] [NAME_IDX] - Resume a Whenever section by name
+
     // Literals
     OP_NIL,
     OP_TRUE,

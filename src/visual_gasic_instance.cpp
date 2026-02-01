@@ -2577,19 +2577,9 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
 
         if (call->method_name == "CreateNode" && call_args.size() == 1) {
              String type = call_args[0];
-             UtilityFunctions::print("DEBUG: CreateNode called with type: '", type, "'");
              if (ClassDB::class_exists(type) && ClassDB::can_instantiate(type)) {
-                  // Instantiate object using ClassDB
-                  // Note: instantiate() returns Variant which wraps the Object*
                   Variant res = ClassDB::instantiate(type);
-                  if (res.get_type() == Variant::OBJECT && (Object*)res == nullptr) {
-                       UtilityFunctions::print("DEBUG: CreateNode returned NULL Object for type: ", type);
-                  } else {
-                       UtilityFunctions::print("DEBUG: CreateNode success: ", res);
-                  }
                   return res;
-             } else {
-                 UtilityFunctions::print("DEBUG: CreateNode FAILED for type: '", type, "' Exists: ", ClassDB::class_exists(type), " CanInstantiate: ", ClassDB::can_instantiate(type));
              }
              return Variant();
         }
@@ -6205,11 +6195,8 @@ void VisualGasicInstance::assign_to_target(ExpressionNode* target, Variant val) 
              if (valid) {
                  assign_to_target(ma->base_object, base);
                  return;
-             } else {
-                  UtilityFunctions::print("DEBUG: set_named failed for member '", ma->member_name, "' on base type ", base.get_type());
              }
              
-            UtilityFunctions::print("DEBUG: Runtime Error 5: Expression Type: ", ma->base_object->type);
              raise_error("Member assignment failed or not supported for this type: " + ma->member_name);
          }
     } 
@@ -6739,12 +6726,24 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     goto cleanup;
                 }
                 break;
-            case OP_NEGATE:
-                if (!apply_variant_op(Variant::OP_NEGATE)) {
+            case OP_NEGATE: {
+                // OP_NEGATE is a unary operation - only pop and push 1 value
+                if (!ensure_stack(1)) {
                     success = false;
                     goto cleanup;
                 }
+                Variant value = pop_value();
+                Variant result;
+                bool valid = false;
+                Variant::evaluate(Variant::OP_NEGATE, value, Variant(), result, valid);
+                if (!valid) {
+                    UtilityFunctions::printerr("VisualGasic: invalid negate operation on type ", (int)value.get_type());
+                    success = false;
+                    goto cleanup;
+                }
+                push_value(result);
                 break;
+            }
             case OP_CONCAT: {
                 if (!ensure_stack(2)) {
                     success = false;
@@ -7582,6 +7581,34 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 if (base.get_type() == Variant::DICTIONARY) {
                     const Dictionary *dict = VariantInternal::get_dictionary(&base);
                     result = dict->get(cache.primary_string, Variant());
+                } else if (base.get_type() == Variant::VECTOR2) {
+                    // Handle Vector2.x, Vector2.y member access
+                    Vector2 vec = base;
+                    String member = cache.primary_string.to_lower();
+                    if (member == "x") result = vec.x;
+                    else if (member == "y") result = vec.y;
+                } else if (base.get_type() == Variant::VECTOR3) {
+                    // Handle Vector3.x, Vector3.y, Vector3.z member access
+                    Vector3 vec = base;
+                    String member = cache.primary_string.to_lower();
+                    if (member == "x") result = vec.x;
+                    else if (member == "y") result = vec.y;
+                    else if (member == "z") result = vec.z;
+                } else if (base.get_type() == Variant::COLOR) {
+                    // Handle Color.r, Color.g, Color.b, Color.a member access
+                    Color col = base;
+                    String member = cache.primary_string.to_lower();
+                    if (member == "r" || member == "red") result = col.r;
+                    else if (member == "g" || member == "green") result = col.g;
+                    else if (member == "b" || member == "blue") result = col.b;
+                    else if (member == "a" || member == "alpha") result = col.a;
+                } else if (base.get_type() == Variant::RECT2) {
+                    // Handle Rect2.position, Rect2.size member access
+                    Rect2 rect = base;
+                    String member = cache.primary_string.to_lower();
+                    if (member == "position") result = rect.position;
+                    else if (member == "size") result = rect.size;
+                    else if (member == "end") result = rect.get_end();
                 } else if (base.get_type() == Variant::OBJECT) {
                     Object *obj = base;
                     if (obj) {
@@ -7651,6 +7678,28 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     Dictionary *dict = VariantInternal::get_dictionary(&base);
                     (*dict)[cache.primary_string] = value;
                     push_value(base);  // Push modified dictionary back
+                } else if (base.get_type() == Variant::VECTOR2) {
+                    // Value types need to be reconstructed
+                    Vector2 vec = base;
+                    String member = cache.primary_string.to_lower();
+                    if (member == "x") vec.x = (real_t)(double)value;
+                    else if (member == "y") vec.y = (real_t)(double)value;
+                    push_value(vec);
+                } else if (base.get_type() == Variant::VECTOR3) {
+                    Vector3 vec = base;
+                    String member = cache.primary_string.to_lower();
+                    if (member == "x") vec.x = (real_t)(double)value;
+                    else if (member == "y") vec.y = (real_t)(double)value;
+                    else if (member == "z") vec.z = (real_t)(double)value;
+                    push_value(vec);
+                } else if (base.get_type() == Variant::COLOR) {
+                    Color col = base;
+                    String member = cache.primary_string.to_lower();
+                    if (member == "r" || member == "red") col.r = (float)(double)value;
+                    else if (member == "g" || member == "green") col.g = (float)(double)value;
+                    else if (member == "b" || member == "blue") col.b = (float)(double)value;
+                    else if (member == "a" || member == "alpha") col.a = (float)(double)value;
+                    push_value(col);
                 } else if (base.get_type() == Variant::OBJECT) {
                     Object *obj = base;
                     if (obj) {
@@ -7782,6 +7831,103 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     dict->erase(key);
                 }
                 push_value(dict_var);
+                break;
+            }
+            case OP_REGISTER_WHENEVER: {
+                // Register a Whenever section from compiled bytecode
+                if (vm.ip >= code_size) { success = false; goto cleanup; }
+                uint8_t data_idx = code[vm.ip++];
+                Variant data_var = read_constant(data_idx);
+                if (data_var.get_type() != Variant::DICTIONARY) {
+                    UtilityFunctions::printerr("VisualGasic: OP_REGISTER_WHENEVER expected Dictionary");
+                    success = false;
+                    goto cleanup;
+                }
+                Dictionary section_data = data_var;
+                
+                WheneverSection section;
+                section.section_name = String(section_data.get("section_name", ""));
+                section.variable_name = String(section_data.get("variable_name", ""));
+                section.comparison_operator = String(section_data.get("comparison_operator", ""));
+                section.is_active = true;
+                
+                // Get callback procedures
+                Array callbacks = section_data.get("callback_procedures", Array());
+                for (int cb_i = 0; cb_i < callbacks.size(); cb_i++) {
+                    section.callback_procedures.push_back(String(callbacks[cb_i]));
+                }
+                
+                // Get comparison values if available as constants
+                if (section_data.has("comparison_value")) {
+                    section.comparison_value = section_data.get("comparison_value", Variant());
+                } else if (section_data.has("comparison_value_ptr")) {
+                    // Evaluate the expression at runtime
+                    int64_t ptr = (int64_t)section_data.get("comparison_value_ptr", 0);
+                    if (ptr != 0) {
+                        ExpressionNode* expr = (ExpressionNode*)(uintptr_t)ptr;
+                        section.comparison_value = evaluate_expression(expr);
+                    }
+                }
+                
+                if (section_data.has("comparison_value2")) {
+                    section.comparison_value2 = section_data.get("comparison_value2", Variant());
+                } else if (section_data.has("comparison_value2_ptr")) {
+                    int64_t ptr = (int64_t)section_data.get("comparison_value2_ptr", 0);
+                    if (ptr != 0) {
+                        ExpressionNode* expr = (ExpressionNode*)(uintptr_t)ptr;
+                        section.comparison_value2 = evaluate_expression(expr);
+                    }
+                }
+                
+                // Store condition expression pointer for runtime evaluation
+                if (section_data.has("condition_expression_ptr")) {
+                    int64_t ptr = (int64_t)section_data.get("condition_expression_ptr", 0);
+                    section.condition_expression = (ExpressionNode*)(uintptr_t)ptr;
+                }
+                
+                // Set scope information
+                bool is_local_scope = (bool)section_data.get("is_local_scope", false);
+                if (is_local_scope) {
+                    section.scope_type = "local";
+                    section.scope_context = String(section_data.get("scope_context", "global"));
+                } else {
+                    section.scope_type = "global";
+                    section.scope_context = "";
+                }
+                
+                // Initialize last_value with current variable value
+                Variant current_value;
+                if (get_variable(section.variable_name, current_value)) {
+                    section.last_value = current_value;
+                }
+                
+                whenever_sections.push_back(section);
+                break;
+            }
+            case OP_SUSPEND_WHENEVER: {
+                if (vm.ip >= code_size) { success = false; goto cleanup; }
+                uint8_t name_idx = code[vm.ip++];
+                String section_name = read_constant(name_idx);
+                
+                for (int ws_i = 0; ws_i < whenever_sections.size(); ws_i++) {
+                    if (whenever_sections[ws_i].section_name == section_name) {
+                        whenever_sections.write[ws_i].is_active = false;
+                        break;
+                    }
+                }
+                break;
+            }
+            case OP_RESUME_WHENEVER: {
+                if (vm.ip >= code_size) { success = false; goto cleanup; }
+                uint8_t name_idx = code[vm.ip++];
+                String section_name = read_constant(name_idx);
+                
+                for (int ws_i = 0; ws_i < whenever_sections.size(); ws_i++) {
+                    if (whenever_sections[ws_i].section_name == section_name) {
+                        whenever_sections.write[ws_i].is_active = true;
+                        break;
+                    }
+                }
                 break;
             }
             default:

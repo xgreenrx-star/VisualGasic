@@ -68,16 +68,14 @@ Sub _Ready()
 	' --- PADDLE 1 (Left) ---
 	Set Paddle1 = CreateNode("ColorRect")
 	AddChild(Paddle1)
-	Set Paddle1OrigColor = Color(0.2, 0.8, 0.2, 1.0)
-	Paddle1.color = Paddle1OrigColor
+	Paddle1.color = vbGreen
 	Paddle1.size = Vector2(20, 100)
 	Paddle1.position = Vector2(50, 250)
 	
 	' --- PADDLE 2 (Right) ---
 	Set Paddle2 = CreateNode("ColorRect")
 	AddChild(Paddle2)
-	Set Paddle2OrigColor = Color(0.2, 0.2, 0.8, 1.0)
-	Paddle2.color = Paddle2OrigColor
+	Paddle2.color = vbBlue
 	Paddle2.size = Vector2(20, 100)
 	Paddle2.position = Vector2(1080, 250)
 	
@@ -87,8 +85,7 @@ Sub _Ready()
 	' --- BALL ---
 	Set Ball = CreateNode("ColorRect")
 	AddChild(Ball)
-	Set BallOrigColor = Color(1.0, 1.0, 1.0, 1.0)
-	Ball.color = BallOrigColor
+	Ball.color = vbWhite
 	Ball.size = Vector2(20, 20)
 	RallyCount = 0
 	BallSpeed = 0
@@ -147,13 +144,13 @@ Sub _Process(delta)
 	If FlashTimer1 > 0 Then
 		FlashTimer1 = FlashTimer1 - delta
 		If FlashTimer1 <= 0 Then
-			Paddle1.color = Paddle1OrigColor
+			Paddle1.color = vbGreen
 		End If
 	End If
 	If FlashTimer2 > 0 Then
 		FlashTimer2 = FlashTimer2 - delta
 		If FlashTimer2 <= 0 Then
-			Paddle2.color = Paddle2OrigColor
+			Paddle2.color = vbBlue
 		End If
 	End If
 	
@@ -315,7 +312,7 @@ Sub _Process(delta)
 		Score2 = Score2 + 1
 		LabelScore2.Text = Str(Score2)
 		RallyCount = 0  ' Reset rally on score
-		Ball.color = BallOrigColor  ' Reset ball color
+		Ball.color = vbWhite
 		Call ResetBall
 	End If
 	
@@ -323,7 +320,7 @@ Sub _Process(delta)
 		Score1 = Score1 + 1
 		LabelScore1.Text = Str(Score1)
 		RallyCount = 0  ' Reset rally on score
-		Ball.color = BallOrigColor  ' Reset ball color
+		Ball.color = vbWhite
 		Call ResetBall
 	End If
 End Sub
@@ -376,7 +373,7 @@ End Sub
 
 Sub OnPlayer1Score()
 	Print "Player 1 scored! Score: " & Str(Score1)
-	Paddle1.color = Color(0.0, 1.0, 0.0, 1.0)  ' Bright green flash
+	Paddle1.color = vbGreen
 	FlashTimer1 = 0.3  ' Flash for 0.3 seconds
 	Call PlaySound("score")
 	ComboCount = 0  ' Reset combo on score
@@ -384,7 +381,7 @@ End Sub
 
 Sub OnPlayer2Score()
 	Print "Player 2 scored! Score: " & Str(Score2)
-	Paddle2.color = Color(0.0, 0.0, 1.0, 1.0)  ' Bright blue flash
+	Paddle2.color = vbBlue
 	FlashTimer2 = 0.3  ' Flash for 0.3 seconds
 	Call PlaySound("score")
 	ComboCount = 0  ' Reset combo on score
@@ -428,18 +425,18 @@ Sub OnSpeedTierChange()
 	' Handle speed tier changes based on current tier value
 	If SpeedTier = 0 Then
 		Print "Ball slowing down... (Tier 0)"
-		Ball.color = Color(0.5, 0.5, 1.0, 1.0)  ' Light blue = slow
+		Ball.color = vbCyan
 		Call PlaySound("slow_down")
 	ElseIf SpeedTier = 1 Then
 		Print "Normal speed (Tier 1)"
-		Ball.color = BallOrigColor  ' Back to white
+		Ball.color = vbWhite
 	ElseIf SpeedTier = 2 Then
 		Print "Ball getting fast! (Tier 2)"
-		Ball.color = Color(1.0, 1.0, 0.0, 1.0)  ' Yellow = fast
+		Ball.color = vbYellow
 		Call PlaySound("speed_up")
 	ElseIf SpeedTier = 3 Then
 		Print "INSANE SPEED! (Tier 3)"
-		Ball.color = Color(1.0, 0.0, 0.0, 1.0)  ' Red = crazy fast
+		Ball.color = vbRed
 		Call PlaySound("insane_speed")
 		Call TriggerShake(5)
 	End If
@@ -449,20 +446,20 @@ End Sub
 
 Sub OnRally5()
 	Print "Nice rally! 5 hits!"
-	Ball.color = Color(0.0, 1.0, 1.0, 1.0)  ' Cyan
+	Ball.color = vbCyan
 	Call PlaySound("rally")
 End Sub
 
 Sub OnRally10()
 	Print "HOT RALLY! 10 hits!"
-	Ball.color = Color(1.0, 0.5, 0.0, 1.0)  ' Orange
+	Ball.color = vbYellow
 	Call PlaySound("hot_rally")
 	Call TriggerShake(3)
 End Sub
 
 Sub OnRally15()
 	Print "MEGA RALLY! 15 hits! Amazing!"
-	Ball.color = Color(1.0, 0.0, 1.0, 1.0)  ' Magenta
+	Ball.color = vbMagenta
 	Call PlaySound("mega_rally")
 End Sub
 
@@ -473,14 +470,14 @@ End Sub
 Sub OnZoneChange()
 	If BallZone = 1 Then
 		' Ball in left danger zone (Player 1's goal at risk)
-		Print "⚠ DANGER! Ball approaching Player 1 goal!"
-		Paddle1.color = Color(1.0, 0.5, 0.0, 1.0)  ' Orange warning flash
+		Print "DANGER! Ball approaching Player 1 goal!"
+		Paddle1.color = vbYellow
 		FlashTimer1 = 0.2
 		Call PlaySound("danger_warning")
 	ElseIf BallZone = 3 Then
 		' Ball in right danger zone (Player 2's goal at risk)
-		Print "⚠ DANGER! Ball approaching Player 2 goal!"
-		Paddle2.color = Color(1.0, 0.5, 0.0, 1.0)  ' Orange warning flash
+		Print "DANGER! Ball approaching Player 2 goal!"
+		Paddle2.color = vbYellow
 		FlashTimer2 = 0.2
 		Call PlaySound("danger_warning")
 	End If
@@ -493,10 +490,10 @@ End Sub
 Sub OnCombo3()
 	Print "COMBO x3!"
 	If LastHitPlayer = 1 Then
-		Paddle1.color = Color(1.0, 1.0, 0.0, 1.0)  ' Yellow glow
+		Paddle1.color = vbYellow
 		FlashTimer1 = 0.5
 	Else
-		Paddle2.color = Color(1.0, 1.0, 0.0, 1.0)
+		Paddle2.color = vbYellow
 		FlashTimer2 = 0.5
 	End If
 	Call PlaySound("combo")
@@ -506,10 +503,10 @@ Sub OnCombo5()
 	Print "SUPER COMBO x5!!"
 	Call TriggerShake(5)
 	If LastHitPlayer = 1 Then
-		Paddle1.color = Color(1.0, 0.5, 0.0, 1.0)  ' Orange glow
+		Paddle1.color = vbRed
 		FlashTimer1 = 0.7
 	Else
-		Paddle2.color = Color(1.0, 0.5, 0.0, 1.0)
+		Paddle2.color = vbRed
 		FlashTimer2 = 0.7
 	End If
 	Call PlaySound("super_combo")
@@ -519,10 +516,10 @@ Sub OnCombo7()
 	Print "ULTRA COMBO x7!!!"
 	Call TriggerShake(10)
 	If LastHitPlayer = 1 Then
-		Paddle1.color = Color(1.0, 0.0, 1.0, 1.0)  ' Magenta glow
+		Paddle1.color = vbMagenta
 		FlashTimer1 = 1.0
 	Else
-		Paddle2.color = Color(1.0, 0.0, 1.0, 1.0)
+		Paddle2.color = vbMagenta
 		FlashTimer2 = 1.0
 	End If
 	Call PlaySound("ultra_combo")
@@ -582,6 +579,6 @@ Sub StartNewGame()
 	ComboCount = 0
 	LastHitPlayer = 0
 	SpeedTier = 1
-	Ball.color = BallOrigColor
+	Ball.color = vbWhite
 	Call ResetBall
 End Sub

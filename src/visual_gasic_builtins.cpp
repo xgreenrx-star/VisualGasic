@@ -17,6 +17,7 @@
 #include <godot_cpp/classes/v_box_container.hpp>
 #include <godot_cpp/classes/display_server.hpp>
 #include <godot_cpp/classes/os.hpp>
+#include <godot_cpp/classes/input.hpp>
 #include <godot_cpp/classes/tree.hpp>
 #include <godot_cpp/classes/tree_item.hpp>
 #include <godot_cpp/variant/packed_int64_array.hpp>
@@ -183,8 +184,7 @@ Variant call_builtin_expr(VisualGasicInstance *instance, CallExpression *call, b
     if (name == "Chr" && args.size() == 1) { r_handled = true; return String::chr((int)args[0]); }
     if (name == "Space" && args.size() == 1) { r_handled = true; int n = (int)args[0]; String s=""; for(int i=0;i<n;i++) s += " "; return s; }
     if (name == "String" && args.size() == 2) { r_handled = true; int n=(int)args[0]; String char_str = String(args[1]); String s=""; if (char_str.length()>0){ String c = char_str.substr(0,1); for(int i=0;i<n;i++) s+=c;} return s; }
-    if (name == "Str" && args.size() == 1) { r_handled = true; return Variant(args[0]).stringify(); }
-    if (name.nocasecmp_to("CStr") == 0 && args.size() == 1) { r_handled = true; return variant_to_cstr(args[0]); }
+    if (name == "Str" && args.size() == 1) { r_handled = true; return variant_to_cstr(args[0]); }
     if (name.nocasecmp_to("CStr") == 0 && args.size() == 1) { r_handled = true; return variant_to_cstr(args[0]); }
     if (name == "Val" && args.size() == 1) { r_handled = true; String s = args[0]; if (s.is_valid_float()) return s.to_float(); if (s.is_valid_int()) return s.to_int(); return 0.0; }
     if (METHOD_IS("instr") && args.size() == 2) { r_handled = true; String s1 = args[0]; String s2 = args[1]; int pos = s1.find(s2); if (pos==-1) return 0; return pos+1; }
@@ -263,6 +263,78 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
         return Variant();
     }
 
+    // Built-in type constructors
+    if (METHOD_IS("vector2")) {
+        r_handled = true;
+        if (args.size() == 0) return Vector2();
+        if (args.size() == 2) return Vector2((real_t)(double)args[0], (real_t)(double)args[1]);
+        return Vector2();
+    }
+    if (METHOD_IS("vector3")) {
+        r_handled = true;
+        if (args.size() == 0) return Vector3();
+        if (args.size() == 3) return Vector3((real_t)(double)args[0], (real_t)(double)args[1], (real_t)(double)args[2]);
+        return Vector3();
+    }
+    if (METHOD_IS("color")) {
+        r_handled = true;
+        if (args.size() == 0) return Color();
+        if (args.size() == 3) return Color((float)(double)args[0], (float)(double)args[1], (float)(double)args[2]);
+        if (args.size() == 4) return Color((float)(double)args[0], (float)(double)args[1], (float)(double)args[2], (float)(double)args[3]);
+        return Color();
+    }
+    if (METHOD_IS("color8")) {
+        r_handled = true;
+        if (args.size() == 3) return Color((int)args[0] / 255.0f, (int)args[1] / 255.0f, (int)args[2] / 255.0f);
+        if (args.size() == 4) return Color((int)args[0] / 255.0f, (int)args[1] / 255.0f, (int)args[2] / 255.0f, (int)args[3] / 255.0f);
+        return Color();
+    }
+    if (METHOD_IS("rect2")) {
+        r_handled = true;
+        if (args.size() == 4) return Rect2((real_t)(double)args[0], (real_t)(double)args[1], (real_t)(double)args[2], (real_t)(double)args[3]);
+        return Rect2();
+    }
+
+    // Input functions
+    if (METHOD_IS("iskeydown") && args.size() == 1) {
+        r_handled = true;
+        Key key = Key::KEY_NONE;
+        if (args[0].get_type() == Variant::INT || args[0].get_type() == Variant::FLOAT) {
+            key = (Key)(int)args[0];
+        } else {
+            String k = args[0];
+            key = (Key)OS::get_singleton()->find_keycode_from_string(k);
+        }
+        return Input::get_singleton()->is_key_pressed(key);
+    }
+    if (METHOD_IS("getkey") && args.size() == 1) {
+        r_handled = true;
+        Key key = Key::KEY_NONE;
+        if (args[0].get_type() == Variant::INT || args[0].get_type() == Variant::FLOAT) {
+            key = (Key)(int)args[0];
+        } else {
+            String k = args[0];
+            key = (Key)OS::get_singleton()->find_keycode_from_string(k);
+        }
+        return Input::get_singleton()->is_key_pressed(key);
+    }
+    if (METHOD_IS("ismousebuttondown") && args.size() == 1) {
+        r_handled = true;
+        int btn = args[0];
+        return Input::get_singleton()->is_mouse_button_pressed((MouseButton)btn);
+    }
+    if (METHOD_IS("rnd") && args.size() == 0) {
+        r_handled = true;
+        return UtilityFunctions::randf();
+    }
+    if (METHOD_IS("rnd") && args.size() == 1) {
+        r_handled = true;
+        // VB6 Rnd() - if arg <= 0, returns 0 or reseeds, otherwise returns random
+        double arg = (double)args[0];
+        if (arg <= 0) return 0.0;
+        return UtilityFunctions::randf();
+    }
+
     if (METHOD_IS("benchfileiofast") && args.size() == 2) {
         r_handled = true;
         int64_t iterations = (int64_t)args[0];
@@ -310,7 +382,7 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
     if (METHOD_IS("chr") && args.size() == 1) { r_handled = true; return String::chr((int)args[0]); }
     if (METHOD_IS("space") && args.size() == 1) { r_handled = true; int n = (int)args[0]; String s=""; for(int i=0;i<n;i++) s += " "; return s; }
     if (METHOD_IS("string") && args.size() == 2) { r_handled = true; int n=(int)args[0]; String char_str = String(args[1]); String s=""; if (char_str.length()>0){ String c = char_str.substr(0,1); for(int i=0;i<n;i++) s+=c;} return s; }
-    if (METHOD_IS("str") && args.size() == 1) { r_handled = true; return Variant(args[0]).stringify(); }
+    if (METHOD_IS("str") && args.size() == 1) { r_handled = true; return variant_to_cstr(args[0]); }
     if (METHOD_IS("cstr") && args.size() == 1) { r_handled = true; return variant_to_cstr(args[0]); }
     if (METHOD_IS("val") && args.size() == 1) { r_handled = true; String s = args[0]; if (s.is_valid_float()) return s.to_float(); if (s.is_valid_int()) return s.to_int(); return 0.0; }
 

@@ -2,6 +2,7 @@
 #define VISUAL_GASIC_SCRIPT_H
 
 #include <vector>
+#include <list>
 #include <godot_cpp/classes/script_extension.hpp>
 #include <godot_cpp/classes/script_language.hpp>
 #include "visual_gasic_tokenizer.h"
@@ -23,7 +24,10 @@ class VisualGasicScript : public ScriptExtension {
         String name_lower;
         BytecodeChunk chunk;
     };
-    std::vector<CompiledEntry> bytecode_cache;
+    // Use std::list instead of std::vector to avoid pointer invalidation when adding new entries
+    // This is critical because execute_bytecode holds a pointer to a chunk while nested calls
+    // may trigger compilation of other functions, which would invalidate pointers in a vector.
+    std::list<CompiledEntry> bytecode_cache;
 
 public:
     ModuleNode *ast_root = nullptr;

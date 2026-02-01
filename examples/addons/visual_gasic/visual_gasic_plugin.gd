@@ -1,14 +1,78 @@
 @tool
 extends EditorPlugin
+## Visual Gasic Editor Plugin
+##
+## This is the main editor plugin for Visual Gasic, providing a VB6-like development
+## experience within the Godot Engine. It integrates seamlessly with the Godot editor
+## to offer familiar Visual Basic workflows for game and application development.
+##
+## [b]Features:[/b]
+## - [b]VB6 Project/Form Import:[/b] Import existing .vbp projects and .frm forms
+## - [b]Toolbox:[/b] Drag-and-drop control palette (2D/3D widgets)
+## - [b]Code Navigator:[/b] Browse Subs, Functions, and variables
+## - [b]Property Inspector:[/b] VB6-style property editing
+## - [b]Immediate Window:[/b] Interactive debugging console (bottom panel)
+## - [b]Rename Refactoring:[/b] Ctrl+R to rename variables (scope-aware)
+## - [b]Auto Event Wiring:[/b] Double-click controls to generate event handlers
+## - [b]Menu Editor:[/b] Visual menu bar designer
+## - [b]Tab Order Editor:[/b] Set control focus order
+## - [b]Remote Debugger:[/b] Debug running games with breakpoints
+##
+## [b]Usage:[/b]
+## The plugin activates automatically when enabled. Access features via:
+## - Project > Tools menu for VB6 import and editors
+## - Left dock for Toolbox and Code Navigator
+## - Right dock for Property Inspector
+## - Bottom panel for Immediate Window
+## - Double-click controls in 2D view to create event handlers
+## - Ctrl+R in .vg scripts to rename variables
+##
+## [b]File Types:[/b]
+## - [code].vg[/code] - Visual Gasic script files (VB6-like syntax)
+## - [code].frm[/code] - VB6 form files (import only)
+## - [code].vbp[/code] - VB6 project files (import only)
+##
+## @tutorial: See GET_STARTED.md for quick start guide
+## @tutorial: See IMPORTING_VB6.md for migration from VB6
 
+# =============================================================================
+# PLUGIN STATE VARIABLES
+# =============================================================================
+
+## The main toolbox container in the left dock
 var toolbox
+
+## Import plugin for handling .frm file imports
 var import_plugin
+
+## Immediate Window panel for interactive debugging
 var immediate_window
+
+## Debugger plugin for remote debugging support
 var debugger_plugin: EditorDebuggerPlugin
+
+## Context menu for script editor rename refactoring
 var _script_context_menu: PopupMenu
+
+## Currently active CodeEdit in the script editor (for .vg files)
 var _current_code_edit: CodeEdit
+
+## Timer to periodically check for .vg files in script editor
 var _script_editor_check_timer: Timer
 
+# =============================================================================
+# PLUGIN LIFECYCLE
+# =============================================================================
+
+## Called when the plugin enters the editor tree.
+## Initializes all plugin components including:
+## - Import plugin for .frm files
+## - Debugger plugin for remote debugging
+## - Immediate Window (bottom panel)
+## - Toolbox with control palette (left dock)
+## - Code Navigator and Property Inspector
+## - Tool menu items
+## - Script editor context menu for rename refactoring
 func _enter_tree():
 	# Store self for static retrieval
 	get_editor_interface().get_base_control().set_meta("visual_gasic_plugin_instance", self)
@@ -99,6 +163,8 @@ func _enter_tree():
 	add_tool_menu_item("Visual Gasic Object Browser", Callable(self, "_on_obj_browser"))
 	add_tool_menu_item("Visual Gasic Tab Order", Callable(self, "_on_tab_order"))
 
+## Called when the plugin exits the editor tree.
+## Cleans up all plugin components and disconnects signals.
 func _exit_tree():
 	get_editor_interface().get_base_control().remove_meta("visual_gasic_plugin_instance")
 	
@@ -139,6 +205,12 @@ func _exit_tree():
 	if get_editor_interface().get_selection().selection_changed.is_connected(_on_selection_changed):
 		get_editor_interface().get_selection().selection_changed.disconnect(_on_selection_changed)
 
+# =============================================================================
+# VB6 IMPORT FUNCTIONS
+# =============================================================================
+
+## Opens a file dialog to select and import a VB6 project (.vbp) file.
+## The project will be converted to Godot scenes and .vg script files.
 func _on_import_vb6_project():
 	var fd = FileDialog.new()
 	fd.file_mode = FileDialog.FILE_MODE_OPEN_FILE
@@ -148,12 +220,16 @@ func _on_import_vb6_project():
 	get_editor_interface().get_base_control().add_child(fd)
 	fd.popup_centered_ratio(0.6)
 
+## Performs the actual VB6 project import.
+## @param path: Full filesystem path to the .vbp file
 func _do_import_vbp(path):
 	var importer = load("res://addons/visual_gasic/vb6_importer.gd")
 	if importer:
 		importer.import_project(path)
 		get_editor_interface().get_resource_filesystem().scan() # Refresh FileSystem
 
+## Opens a file dialog to select and import a single VB6 form (.frm) file.
+## The form will be converted to a Godot scene with an attached .vg script.
 func _on_import_vb6_form():
 	var fd = FileDialog.new()
 	fd.file_mode = FileDialog.FILE_MODE_OPEN_FILE
@@ -163,6 +239,9 @@ func _on_import_vb6_form():
 	get_editor_interface().get_base_control().add_child(fd)
 	fd.popup_centered_ratio(0.6)
 
+## Performs the actual VB6 form import.
+## Creates a scene in res://start_forms/ and code in res://mixed/
+## @param path: Full filesystem path to the .frm file
 func _do_import_frm(path):
 	var importer = load("res://addons/visual_gasic/vb6_importer.gd")
 	if !importer:
@@ -199,6 +278,12 @@ func _do_import_frm(path):
 		
 	get_editor_interface().open_scene_from_path(save_path)
 
+# =============================================================================
+# FORM CREATION
+# =============================================================================
+
+## Opens the New Form dialog to create a new Visual Gasic form.
+## Supports multiple templates (Standard, Dialog, MDI, etc.)
 func _on_new_form():
 	var dlg = load("res://addons/visual_gasic/new_form_dialog.gd").new()
 	get_editor_interface().get_base_control().add_child(dlg)
@@ -212,12 +297,22 @@ func _on_new_form():
 	# Create the form based on selected template
 	_create_form_from_template(template)
 
+## Deferred script attachment helper (called after scene is ready).
+## @param scene_path: Path to the scene file
+## @param script_path: Path to the .vg script file
 func _attach_script_deferred(scene_path, script_path):
 	var root = get_editor_interface().get_edited_scene_root()
 	if root and root.scene_file_path == scene_path:
 		pass # Logic to attach script handled by inspector or manual attach for now. 
 		# We need a proper resource loader for bas to set it effectively.
 
+## Creates a new form from the selected template.
+## Generates both the .tscn scene file and .vg script file.
+## The form uses VGFormBase for WinForms-style lifecycle events.
+## @param template: Dictionary containing form configuration:
+##   - size: Vector2 for form dimensions
+##   - has_menu: bool to add a MenuBar
+##   - controls: Array of control definitions to add
 func _create_form_from_template(template: Dictionary):
 	# Generate unique filename first
 	var path = "res://Form1.tscn"
@@ -337,6 +432,11 @@ func _create_form_from_template(template: Dictionary):
 	# Open the scene
 	get_editor_interface().open_scene_from_path(path)
 
+## Creates the initial .vg script file for a new form.
+## Includes WinForms-style boilerplate with lifecycle events and sample controls.
+## @param path: Output path for the .vg file
+## @param form_name: Name of the form (used in comments and default text)
+## @param template: Template dictionary (reserved for future template-specific code)
 func _create_vg_form_code(path: String, form_name: String, template: Dictionary):
 	var f = FileAccess.open(path, FileAccess.WRITE)
 	var code = """' """ + form_name + """.vg - WinForms-style Form
@@ -433,7 +533,12 @@ End Sub
 	f.store_string(code)
 	f.close()
 
+# =============================================================================
+# EDITOR DIALOGS
+# =============================================================================
 
+## Opens the visual Menu Editor for the selected MenuBar node.
+## Allows drag-and-drop menu item arrangement and property editing.
 func _on_menu_editor():
 	var selected = get_editor_interface().get_selection().get_selected_nodes()
 	if selected.is_empty():
@@ -451,22 +556,31 @@ func _on_menu_editor():
 	get_editor_interface().get_base_control().add_child(dlg)
 	dlg.popup_centered()
 
+## Callback when menu changes are applied from the Menu Editor.
+## Forces the editor to refresh the MenuBar display.
+## @param menu_bar: The MenuBar that was modified
 func _on_menu_applied(menu_bar: MenuBar):
 	# Force editor to update
 	get_editor_interface().get_selection().clear()
 	get_editor_interface().get_selection().add_node(menu_bar)
 	get_editor_interface().edit_node(menu_bar)
 
+## Opens the Project Properties dialog.
+## Configure app name, version, icon, and other project settings.
 func _on_proj_props():
 	var dlg = load("res://addons/visual_gasic/project_properties.gd").new()
 	get_editor_interface().get_base_control().add_child(dlg)
 	dlg.popup_centered()
 
+## Opens the Object Browser.
+## Browse available classes, methods, properties, and constants.
 func _on_obj_browser():
 	var dlg = load("res://addons/visual_gasic/object_browser.gd").new()
 	get_editor_interface().get_base_control().add_child(dlg)
 	dlg.popup_centered()
 
+## Opens the Tab Order Editor.
+## Set the focus order for controls in a form (like VB6 TabIndex).
 func _on_tab_order():
 	var root = get_editor_interface().get_selected_paths() # Wait, get_edited_scene_root()
 	var sel = get_editor_interface().get_selection().get_selected_nodes()
@@ -488,7 +602,12 @@ func _on_tab_order():
 
 
 
+# =============================================================================
+# HELPER LOADERS
+# =============================================================================
 
+## Loads and instantiates the Property Inspector panel.
+## @returns: Inspector instance or null if not found
 func loading_inspector():
 	if FileAccess.file_exists("res://addons/visual_gasic/simple_inspector.gd"):
 		var s = load("res://addons/visual_gasic/simple_inspector.gd")
@@ -496,6 +615,8 @@ func loading_inspector():
 		return inst
 	return null
 
+## Loads and instantiates the Code Navigator panel.
+## @returns: Navigator instance or null if not found
 func loading_code_navigator():
 	if FileAccess.file_exists("res://addons/visual_gasic/code_navigator.gd"):
 		var s = load("res://addons/visual_gasic/code_navigator.gd")
@@ -503,6 +624,12 @@ func loading_code_navigator():
 		return inst
 	return null
 
+# =============================================================================
+# TOOLBOX INITIALIZATION
+# =============================================================================
+
+## Post-initialization setup.
+## Registers all toolbox controls and connects editor signals.
 func _post_init():
 	# Register extended components
 	register_tool("FlexGrid", "Tree", "Tree", "res://custom_widgets/FlexGrid.tscn")
@@ -551,16 +678,28 @@ func _post_init():
 
 	print("VisualGasic: Initialized. Monitoring nesting & double-click events.")
 
+## Called when the editor switches between 2D, 3D, Script, and AssetLib screens.
+## Automatically switches toolbox tabs to show relevant controls.
+## @param scene_root: The root node of the newly active scene
 func _on_scene_changed(scene_root: Node):
 	# Auto-refresh navigator when switching scenes
 	var nav = _get_navigator()
 	if nav:
 		nav.refresh_objects()
 
+## Determines if this plugin handles input for the given object.
+## Returns true for Control and Node2D nodes to enable double-click event generation.
+## @param object: The object being edited
+## @returns: true if plugin should handle input for this object
 func _handles(object):
 	# Handle input for any Control or Node2D being edited
 	return object is Control or object is Node2D
 
+## Intercepts canvas GUI input for double-click event handler generation.
+## Double-clicking a control in the 2D view opens/creates the .vg script
+## and generates an appropriate event handler (e.g., Button_Click).
+## @param event: The input event
+## @returns: true if event was consumed
 func _forward_canvas_gui_input(event):
 	if event is InputEventMouseButton and event.double_click:
 		# Support both Left (Standard) and Right (User Request) double clicks
@@ -571,6 +710,12 @@ func _forward_canvas_gui_input(event):
 				return true # Consume event
 	return false
 
+## Generates an event handler for the given node.
+## Creates or opens the .vg script and inserts a Sub based on node type:
+## - Button: NodeName_Click()
+## - LineEdit/TextEdit: NodeName_Change()
+## - Slider/ScrollBar: NodeName_Change()
+## @param node: The control node to generate a handler for
 func _generate_event_handler(node):
 	print("VisualGasic: Event Gen Request for " + node.name)
 	var sub_suffix = ""
@@ -620,10 +765,21 @@ func _generate_event_handler(node):
 	# Open and Inject via Editor Buffer (to avoid disk reload conflicts)
 	_open_and_inject(bas_path, node.name, sub_suffix)
 
+## Opens the script file and injects the event handler code.
+## Uses deferred polling to wait for filesystem scan completion.
+## @param path: Path to the .vg script file
+## @param obj: Name of the control (e.g., "Button1")
+## @param event: Event suffix (e.g., "Click", "Change")
 func _open_and_inject(path: String, obj: String, event: String):
 	# We rely on async scan, but we can't block here easily.
 	_poll_for_inject.call_deferred(path, obj, event, 0)
 
+## Polls for script resource availability and injects event handler code.
+## Retries up to 20 times (2 seconds) waiting for filesystem scan.
+## @param path: Path to the .vg script file
+## @param obj: Name of the control
+## @param event: Event suffix
+## @param attempts: Current retry count
 func _poll_for_inject(path: String, obj: String, event: String, attempts: int):
 	# Max retries: 20 * 0.1s = 2 seconds
 	if attempts > 20:
@@ -674,7 +830,9 @@ func _poll_for_inject(path: String, obj: String, event: String, attempts: int):
 		await get_tree().create_timer(0.1).timeout
 		_poll_for_inject(path, obj, event, attempts + 1)
 
-
+## Called when the main editor screen changes (2D, 3D, Script, AssetLib).
+## Switches toolbox tab to match the current view.
+## @param screen_name: Name of the screen ("2D", "3D", "Script", etc.)
 func _on_main_screen_changed(screen_name: String):
 	var real_toolbox = _get_toolbox_instance()
 	if real_toolbox:
@@ -696,6 +854,9 @@ func _on_main_screen_changed(screen_name: String):
 	if nav:
 		nav.refresh_objects()
 
+## Sets up the toolbox control palette.
+## Instantiates the C++ VisualGasicToolbox class if available,
+## otherwise shows an error message.
 func setup_toolbox():
 	if ClassDB.class_exists("VisualGasicToolbox"):
 		var real_toolbox = ClassDB.instantiate("VisualGasicToolbox")
@@ -712,6 +873,12 @@ func setup_toolbox():
 	# Fallback/Additional Logic if needed
 	pass
 
+## Registers a tool in the toolbox control palette.
+## @param name: Display name in the toolbox (e.g., "Button", "TextEdit")
+## @param create_class: Godot class to instantiate when dropped
+## @param icon_name: Icon to display (usually same as create_class)
+## @param scene_path: Optional .tscn scene to instantiate instead
+## @param category: Toolbox tab category ("2D" or "3D")
 func register_tool(name: String, create_class: String, icon_name: String = "", scene_path: String = "", category: String = "2D"):
 	var real_toolbox = _get_toolbox_instance()
 	if real_toolbox:
@@ -719,6 +886,8 @@ func register_tool(name: String, create_class: String, icon_name: String = "", s
 	else:
 		printerr("VisualGasic: Toolbox not found!")
 
+## Gets the C++ VisualGasicToolbox instance from the toolbox container.
+## @returns: The toolbox instance or null if not found
 func _get_toolbox_instance():
 	if toolbox:
 		for c in toolbox.get_children():
@@ -727,7 +896,12 @@ func _get_toolbox_instance():
 	return null
 
 
+# =============================================================================
+# SELECTION & NESTING MANAGEMENT
+# =============================================================================
 
+## Called when the editor selection changes.
+## Handles VB6-style nesting restrictions and auto-text updates.
 func _on_selection_changed():
 	var sel = get_editor_interface().get_selection().get_selected_nodes()
 	if sel.size() == 1:
@@ -741,7 +915,9 @@ func _on_selection_changed():
 		# but refreshing the list when nodes are added/renamed is wise.
 		# For now, just a button, but can call nav.refresh_objects() if hierarchy changed?
 		pass
-		
+
+## Gets the Code Navigator instance from the toolbox.
+## @returns: The navigator panel or null
 func _get_navigator():
 	if toolbox:
 		for c in toolbox.get_children():
@@ -749,6 +925,9 @@ func _get_navigator():
 				return c
 	return null
 
+## Automatically sets control's text property to match its name.
+## Only applies when text is a default value like "Button" or "Label".
+## @param node: The node to check and update
 func _auto_set_text_from_name(node: Node):
 	if not is_instance_valid(node): return
 	
@@ -761,6 +940,11 @@ func _auto_set_text_from_name(node: Node):
 				print("VisualGasic: Auto-setting text to match name -> " + node.name)
 				node.text = node.name
 
+## Checks and enforces VB6-style nesting restrictions.
+## In VB6, most controls cannot contain other controls.
+## Only explicit containers (Panel, TabContainer, etc.) allow children.
+## Non-container parents cause the node to be reparented to the form root.
+## @param node: The node to check
 func _check_nesting(node: Node):
 	if not is_instance_valid(node): return
 	
@@ -807,6 +991,10 @@ func _check_nesting(node: Node):
 	else:
 		print("VisualGasic: Allowed Nesting in " + parent.name)
 
+## Moves a node to a new parent while preserving global position.
+## Used by _check_nesting to fix invalid parent relationships.
+## @param node: The node to reparent
+## @param new_parent: The target parent node
 func _reparent_node(node: Node, new_parent: Node):
 	if not new_parent: return
 	
@@ -838,8 +1026,13 @@ func _reparent_node(node: Node, new_parent: Node):
 	get_editor_interface().get_selection().clear()
 	get_editor_interface().get_selection().add_node(node)
 
-# === Script Editor Context Menu for Rename Refactoring ===
+# =============================================================================
+# SCRIPT EDITOR RENAME REFACTORING
+# =============================================================================
 
+## Sets up the script editor context menu for rename refactoring.
+## Creates a popup menu with scope-aware rename options and starts
+## a timer to monitor for .vg files in the script editor.
 func _setup_script_editor_context_menu():
 	"""Setup timer to monitor script editor for .vg files"""
 	# Create context menu
@@ -857,6 +1050,8 @@ func _setup_script_editor_context_menu():
 	get_editor_interface().get_base_control().add_child(_script_editor_check_timer)
 	_script_editor_check_timer.start()
 
+## Periodically checks if a .vg file is being edited in the script editor.
+## If found, hooks into the CodeEdit for keyboard shortcut handling.
 func _check_script_editor_for_vg():
 	"""Check if a .vg file is being edited and hook into its CodeEdit"""
 	var script_editor = get_editor_interface().get_script_editor()
@@ -886,6 +1081,9 @@ func _check_script_editor_for_vg():
 	if not code_edit.gui_input.is_connected(_on_code_edit_gui_input):
 		code_edit.gui_input.connect(_on_code_edit_gui_input)
 
+## Handles keyboard shortcuts in the code editor.
+## Ctrl+R triggers the rename refactoring dialog for the word under cursor.
+## @param event: The input event
 func _on_code_edit_gui_input(event: InputEvent):
 	"""Handle keyboard shortcuts in the code editor"""
 	if not _current_code_edit:
@@ -908,6 +1106,10 @@ func _on_code_edit_gui_input(event: InputEvent):
 				_script_context_menu.popup()
 				_current_code_edit.accept_event()  # Consume the event
 
+## Extracts the word under the cursor in a CodeEdit.
+## Scans left and right from cursor position to find word boundaries.
+## @param code_edit: The CodeEdit control
+## @returns: The word under cursor, or empty string if none
 func _get_word_under_cursor(code_edit: CodeEdit) -> String:
 	"""Get the word under the cursor in a CodeEdit"""
 	var line = code_edit.get_caret_line()
@@ -932,9 +1134,16 @@ func _get_word_under_cursor(code_edit: CodeEdit) -> String:
 	
 	return text.substr(start, end - start)
 
+## Checks if a character is valid for identifiers (letters, digits, underscore).
+## @param c: Single character string
+## @returns: true if valid identifier character
 func _is_identifier_char(c: String) -> bool:
 	return c.is_valid_identifier() or c == "_" or (c >= "0" and c <= "9")
 
+## Validates that a string is a valid identifier name.
+## Must not be empty, start with a digit, or contain invalid characters.
+## @param name: The identifier to validate
+## @returns: true if valid identifier
 func _is_valid_identifier(name: String) -> bool:
 	if name.is_empty():
 		return false
@@ -945,6 +1154,9 @@ func _is_valid_identifier(name: String) -> bool:
 			return false
 	return true
 
+## Handles script editor context menu item selection.
+## Triggers the appropriate rename dialog based on selected option.
+## @param id: Menu item ID (0=scope, 1=script, 2=everywhere)
 func _on_script_context_menu_selected(id: int):
 	"""Handle script editor context menu selection"""
 	var word = _script_context_menu.get_meta("selected_word", "")
@@ -956,6 +1168,10 @@ func _on_script_context_menu_selected(id: int):
 	# id: 0 = current scope, 1 = entire script, 2 = everywhere
 	_show_rename_dialog_for_script(word, script_path, id)
 
+## Shows the rename dialog for a variable in script files.
+## @param old_name: Current variable/identifier name
+## @param script_path: Path to the current .vg script
+## @param mode: Rename scope (0=current Sub/Function, 1=entire script, 2=all .vg files)
 func _show_rename_dialog_for_script(old_name: String, script_path: String, mode: int):
 	"""Show dialog to rename a variable in script files
 	   mode: 0 = current scope, 1 = entire script, 2 = everywhere"""
@@ -1006,6 +1222,13 @@ func _show_rename_dialog_for_script(old_name: String, script_path: String, mode:
 	dialog.popup_centered(Vector2(350, 150))
 	input.grab_focus()
 
+## Performs the actual rename operation in script files.
+## Handles three modes: current scope, entire script, or all .vg files.
+## Uses word-boundary aware regex to avoid partial matches.
+## @param old_name: Current variable name
+## @param new_name: New variable name
+## @param script_path: Path to the current .vg script
+## @param mode: Rename scope (0=scope, 1=script, 2=everywhere)
 func _perform_rename_in_scripts(old_name: String, new_name: String, script_path: String, mode: int):
 	"""Perform the actual rename operation in script files
 	   mode: 0 = current scope, 1 = entire script, 2 = everywhere"""
@@ -1049,6 +1272,7 @@ func _perform_rename_in_scripts(old_name: String, new_name: String, script_path:
 	# Reload the script in the editor
 	_reload_current_script()
 
+## Reloads the current script in the editor to show changes.
 func _reload_current_script():
 	"""Reload the current script to show changes"""
 	var script_editor = get_editor_interface().get_script_editor()
@@ -1057,6 +1281,14 @@ func _reload_current_script():
 		if current:
 			current.reload()
 
+## Renames a variable only within the current Sub/Function scope.
+## Finds the enclosing procedure based on cursor position and only
+## replaces occurrences within that scope.
+## @param file_path: Path to the .vg script file
+## @param old_name: Current variable name
+## @param new_name: New variable name
+## @param caret_line: Current cursor line (0-based)
+## @returns: Number of replacements made
 func _rename_in_scope(file_path: String, old_name: String, new_name: String, caret_line: int) -> int:
 	"""Rename variable only within the current Sub/Function scope."""
 	var file = FileAccess.open(file_path, FileAccess.READ)
@@ -1132,6 +1364,9 @@ func _rename_in_scope(file_path: String, old_name: String, new_name: String, car
 	
 	return replacements
 
+## Recursively finds all .vg files in a directory.
+## @param path: Directory path to search
+## @returns: Array of .vg file paths
 func _find_all_vg_files(path: String) -> Array[String]:
 	"""Recursively find all .vg files in a directory"""
 	var files: Array[String] = []
@@ -1150,6 +1385,12 @@ func _find_all_vg_files(path: String) -> Array[String]:
 		dir.list_dir_end()
 	return files
 
+## Renames a variable in a single file using word-boundary matching.
+## Skips occurrences inside strings and comments.
+## @param file_path: Path to the .vg file
+## @param old_name: Current variable name
+## @param new_name: New variable name
+## @returns: Number of replacements made
 func _rename_in_file(file_path: String, old_name: String, new_name: String) -> int:
 	"""Rename variable in a single file. Returns number of replacements."""
 	var file = FileAccess.open(file_path, FileAccess.READ)
@@ -1190,6 +1431,11 @@ func _rename_in_file(file_path: String, old_name: String, new_name: String) -> i
 		return valid_matches.size()
 	return 0
 
+## Checks if a position in the content is inside a string or comment.
+## Used to avoid renaming text within strings or comments.
+## @param content: The full file content
+## @param pos: Character position to check
+## @returns: true if position is inside string or comment
 func _is_inside_string_or_comment(content: String, pos: int) -> bool:
 	"""Check if a position in the content is inside a string or comment"""
 	var line_start = content.rfind("\n", pos)

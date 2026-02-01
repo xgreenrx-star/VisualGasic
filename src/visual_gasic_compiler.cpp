@@ -93,8 +93,6 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
     temp_local_id = 0;
     current_sub = nullptr;
     
-    UtilityFunctions::printerr("DEBUG: Starting compilation of ", entry_point);
-    
     // Find the entry point sub
     SubDefinition* sub = nullptr;
     for(int i=0; i<module->subs.size(); i++) {
@@ -197,7 +195,6 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
     current_chunk->local_count = local_slots.size();
     emit_return();
     
-    UtilityFunctions::printerr("DEBUG: Compilation finished for ", entry_point, " result=", compile_ok);
     if (!compile_ok) {
         Ref<FileAccess> f = FileAccess::open("/tmp/vg_compile_fail.log", FileAccess::WRITE);
         if (f.is_valid()) {
@@ -2764,6 +2761,70 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                 UtilityFunctions::print("Compiler: Unsupported exit type", s->exit_type);
                 compile_ok = false;
             }
+            break;
+        }
+        case STMT_WHENEVER_SECTION: {
+            // Compile Whenever section registration to bytecode
+            WheneverSectionStatement* s = (WheneverSectionStatement*)stmt;
+            
+            // Create a Dictionary with all the section data that the executor needs
+            Dictionary section_data;
+            section_data["section_name"] = s->section_name;
+            section_data["variable_name"] = s->variable_name;
+            section_data["comparison_operator"] = s->comparison_operator;
+            section_data["is_local_scope"] = s->is_local_scope;
+            
+            // Store callback procedures as an Array
+            Array callbacks;
+            for (int i = 0; i < s->callback_procedures.size(); i++) {
+                callbacks.push_back(s->callback_procedures[i]);
+            }
+            section_data["callback_procedures"] = callbacks;
+            
+            // Store comparison values if they are constant literals
+            if (s->comparison_value && is_constant_expr(s->comparison_value)) {
+                section_data["comparison_value"] = eval_constant_expr(s->comparison_value);
+            }
+            if (s->comparison_value2 && is_constant_expr(s->comparison_value2)) {
+                section_data["comparison_value2"] = eval_constant_expr(s->comparison_value2);
+            }
+            
+            // Note: For complex expressions (comparison_value, comparison_value2, condition_expression),
+            // the executor will need access to the AST. We store AST pointer addresses which the
+            // executor can use to get back to the original AST nodes.
+            // This works because the AST lives for the duration of script execution.
+            if (s->comparison_value) {
+                section_data["comparison_value_ptr"] = (int64_t)(uintptr_t)s->comparison_value;
+            }
+            if (s->comparison_value2) {
+                section_data["comparison_value2_ptr"] = (int64_t)(uintptr_t)s->comparison_value2;
+            }
+            if (s->condition_expression) {
+                section_data["condition_expression_ptr"] = (int64_t)(uintptr_t)s->condition_expression;
+            }
+            
+            // Store scope context info
+            if (current_sub) {
+                section_data["scope_context"] = current_sub->name;
+            }
+            
+            int data_idx = current_chunk->add_constant(section_data);
+            emit_byte(OP_REGISTER_WHENEVER);
+            emit_byte((uint8_t)data_idx);
+            break;
+        }
+        case STMT_SUSPEND_WHENEVER: {
+            SuspendWheneverStatement* s = (SuspendWheneverStatement*)stmt;
+            int name_idx = current_chunk->add_constant(s->section_name);
+            emit_byte(OP_SUSPEND_WHENEVER);
+            emit_byte((uint8_t)name_idx);
+            break;
+        }
+        case STMT_RESUME_WHENEVER: {
+            ResumeWheneverStatement* s = (ResumeWheneverStatement*)stmt;
+            int name_idx = current_chunk->add_constant(s->section_name);
+            emit_byte(OP_RESUME_WHENEVER);
+            emit_byte((uint8_t)name_idx);
             break;
         }
         default:
