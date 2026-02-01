@@ -242,7 +242,231 @@ VisualGasic is provided as a Godot extension (GDExtension). To install:
 1. Download the latest release from the project repository
 2. Extract to your Godot project's `addons/` folder
 3. Enable the VisualGasic plugin in Project Settings > Plugins
-4. Files with `.bas` extension will now use VisualGasic syntax
+4. Files with `.vg` or `.bas` extension will now use VisualGasic syntax
+
+---
+
+## The VisualGasic IDE
+
+VisualGasic provides a complete **Rapid Application Development (RAD)** environment within Godot, inspired by Visual Basic 6's legendary productivity tools.
+
+### Toolbox Panel
+
+The **Toolbox** is located in the left dock and provides quick access to all development features:
+
+**Import Section:**
+- **Import VB6 Project...** - Import complete `.vbp` project files with all forms and modules
+- **Import VB6 Form...** - Import individual `.frm` form files with control mappings
+
+**Form Creation:**
+- **New Form** - Create a new form from templates:
+  - **Blank Form** - Empty form ready for controls
+  - **Dialog Form** - Pre-configured with OK/Cancel buttons
+  - **About Box** - Standard about dialog template
+  - **Splash Screen** - Startup splash screen
+  - **Login Form** - Username/password entry form
+  - **Main Form with Menu** - Form with menu bar
+  - **Data Entry Form** - Common data entry controls
+  - **MDI Parent Form** - Multiple Document Interface parent
+  - **MDI Child Form** - MDI child window
+
+**Tools Menu (Project > Tools):**
+- **Visual Gasic Menu Editor** - Design menu bars visually
+- **Visual Gasic Project Properties** - Configure startup form and project settings
+- **Visual Gasic Object Browser** - Browse all available objects and their members
+- **Visual Gasic Tab Order** - Set control tab order visually
+
+### Visual Form Designer
+
+The **Visual Form Designer** allows you to create user interfaces by dragging and dropping controls onto forms, just like VB6.
+
+**Creating a Form:**
+1. Click **New Form** in the Toolbox
+2. Select a template (or Blank Form)
+3. Enter a form name
+4. The form opens in the 2D editor for visual editing
+
+**Adding Controls:**
+- Use Godot's scene tree to add Control nodes
+- Available VB6-style controls (mapped to Godot):
+
+| VB6 Control | Godot Node | Description |
+|-------------|------------|-------------|
+| Label | Label | Display static text |
+| TextBox | LineEdit / TextEdit | Text input field |
+| CommandButton | Button | Clickable button |
+| CheckBox | CheckBox | On/off toggle |
+| OptionButton | CheckBox (in group) | Radio button selection |
+| ListBox | ItemList | Scrollable list |
+| ComboBox | OptionButton | Dropdown selection |
+| PictureBox | TextureRect | Image display |
+| Frame | GroupBox / Panel | Container for controls |
+| Timer | Timer | Timed events |
+| HScrollBar | HScrollBar | Horizontal scrollbar |
+| VScrollBar | VScrollBar | Vertical scrollbar |
+| DriveListBox | FileDialog | Drive selection |
+| DirListBox | FileDialog | Directory selection |
+| FileListBox | FileDialog | File selection |
+
+**Event Wiring:**
+Controls automatically wire up to event handlers in your VisualGasic code:
+
+```vb
+' Button click handler - automatically connected
+Private Sub Command1_Click()
+    MsgBox "Button clicked!"
+End Sub
+
+' TextBox change handler
+Private Sub Text1_Change()
+    lblPreview.Text = Text1.Text
+End Sub
+
+' Form load event
+Private Sub Form_Load()
+    ' Initialize form
+    Me.Caption = "My Application"
+End Sub
+```
+
+### Property Inspector
+
+The **Property Inspector** (right dock) shows VB6-style properties for selected controls:
+
+- **Name** - Control identifier for code
+- **Text/Caption** - Display text
+- **Left, Top, Width, Height** - Position and size
+- **Visible** - Show/hide control
+- **Enabled** - Enable/disable control
+- **TabStop** - Include in tab order
+- **TabIndex** - Tab order position
+- **Font** - Text font properties
+- **BackColor/ForeColor** - Colors
+
+### Menu Editor
+
+The **Menu Editor** provides visual menu bar design:
+
+1. Open via **Project > Tools > Visual Gasic Menu Editor**
+2. Add top-level menus (File, Edit, View, Help, etc.)
+3. Add menu items with:
+   - Caption (display text)
+   - Name (for code reference)
+   - Shortcut key
+   - Checked state
+   - Enabled state
+4. Create submenus by indenting items
+5. Menus automatically wire to click handlers:
+
+```vb
+Private Sub mnuFileOpen_Click()
+    ' Handle File > Open
+    OpenFile()
+End Sub
+
+Private Sub mnuFileSave_Click()
+    ' Handle File > Save
+    SaveFile()
+End Sub
+
+Private Sub mnuEditCopy_Click()
+    ' Handle Edit > Copy
+    CopyToClipboard()
+End Sub
+```
+
+### Immediate Window
+
+The **Immediate Window** (bottom panel, "Immediate" tab) is a powerful debugging and testing tool that lets you interact with your running program in real-time.
+
+**Features:**
+- **Execute VisualGasic statements** - Run code directly
+- **Evaluate expressions** - Print variable values
+- **Call functions** - Test subroutines and functions
+- **Inspect objects** - View object properties
+- **Remote debugging** - Connect to running games
+
+**Basic Usage:**
+```vb
+' Print a variable's value
+? playerHealth
+100
+
+' Evaluate an expression
+? 2 + 2 * 10
+22
+
+' Call a function
+? Left("Hello World", 5)
+Hello
+
+' Execute a statement
+Print "Debug message"
+Debug message
+```
+
+**Commands:**
+- `?` or `Print` - Evaluate and display expression
+- `help` - Show available commands
+- `clear` - Clear output
+- `list` - List variables in scope
+- `connect <instance>` - Connect to running instance for remote debugging
+
+**Remote Debugging:**
+When your game is running, the Immediate Window can connect to it:
+1. Start your game (F5 or Play button)
+2. Use the instance dropdown to select running instances
+3. Execute commands that affect the live game:
+
+```vb
+' While game is running:
+? player.position
+(150, 200)
+
+' Modify values in real-time
+player.health = 100
+
+' Call game methods
+player.TakeDamage(10)
+```
+
+### Code Navigator
+
+The **Code Navigator** (in Toolbox) provides quick navigation through your code:
+
+- **Procedure Dropdown** - Jump to any Sub or Function
+- **Object Dropdown** - Select control or module
+- **Region Navigation** - Jump to code regions
+
+### Object Browser
+
+The **Object Browser** (Project > Tools > Visual Gasic Object Browser) lets you explore:
+
+- All available classes and types
+- Object members (properties, methods, events)
+- Built-in VisualGasic functions
+- Godot API wrapped for VisualGasic
+
+### Tab Order Editor
+
+The **Tab Order Editor** (Project > Tools > Visual Gasic Tab Order) provides:
+
+- Visual tab order preview
+- Drag-and-drop reordering
+- Auto-numbering
+- Focus testing
+
+### Project Properties
+
+The **Project Properties** dialog (Project > Tools > Visual Gasic Project Properties):
+
+- **Startup Form** - Which form loads first
+- **Project Name** - Application name
+- **Version Info** - Version numbers
+- **Icon** - Application icon
+- **Compile Options** - Build settings
+
+---
 
 ### Editor Shortcuts
 
@@ -1339,7 +1563,102 @@ ReDim arr(10)           ' Resize array
 ReDim Preserve arr(20)  ' Resize keeping existing data
 ```
 
-### File I/O Functions
+### Extended Array Functions
+
+```vb
+' Array manipulation
+Dim arr = [1, 2, 3, 4, 5]
+arr = Push(arr, 6)           ' Add element: [1,2,3,4,5,6]
+Dim last = Pop(arr)          ' Remove and return last: 6
+Dim sub = Slice(arr, 1, 3)   ' Get subarray: [2,3]
+
+' Array search
+Dim idx = IndexOf(arr, 3)    ' Find index: 2
+Dim has = Contains(arr, 2)   ' Check if exists: True
+
+' Array transform
+Dim reversed = Reverse(arr)  ' Reverse order
+Dim sorted = Sort(arr)       ' Sort ascending
+Dim unique = Unique([1,2,2,3]) ' Remove duplicates: [1,2,3]
+Dim flat = Flatten([[1,2],[3]]) ' Flatten: [1,2,3]
+
+' Array generation
+Dim repeated = Repeat("X", 3)    ' ["X","X","X"]
+Dim range = Range(0, 10, 2)      ' [0,2,4,6,8]
+Dim zipped = Zip([1,2], ["a","b"]) ' [[1,"a"],[2,"b"]]
+```
+
+### Dictionary Functions
+
+```vb
+Dim person = {"name": "Alice", "age": 30}
+
+' Dictionary operations
+Dim k = Keys(person)              ' ["name", "age"]
+Dim v = Values(person)            ' ["Alice", 30]
+Dim has = HasKey(person, "name")  ' True
+
+' Merging dictionaries
+Dim extra = {"city": "NYC"}
+Dim merged = Merge(person, extra) ' {"name":"Alice", "age":30, "city":"NYC"}
+
+' Removing keys
+Dim removed = Remove(person, "age") ' {"name": "Alice"}
+```
+
+### Type Checking Functions
+
+```vb
+IsArray([1,2,3])             ' True
+IsDict({"key": "val"})       ' True
+IsString("hello")            ' True
+IsNumber(42)                 ' True
+IsNull(Nothing)              ' True
+TypeName([1,2,3])            ' "Array"
+TypeName(42)                 ' "Int"
+```
+
+### JSON Functions
+
+```vb
+' Parse JSON string to object
+Dim json = '{"name":"Bob","age":25}'
+Dim data = JsonParse(json)
+Print data["name"]           ' "Bob"
+
+' Convert object to JSON string
+Dim person = {"name": "Alice", "age": 30}
+Dim str = JsonStringify(person)
+Print str                    ' {"name":"Alice","age":30}
+
+' Pretty-print with indent
+Dim pretty = JsonStringify(person, True)
+```
+
+### Modern File System Functions
+
+```vb
+' Modern file operations (simpler than Open/Close)
+If FileExists("data.txt") Then
+    Dim content = ReadAllText("data.txt")   ' Read entire file
+    Print content
+End If
+
+If DirExists("./saves") Then
+    Print "Saves folder exists"
+End If
+
+' Write file (overwrites)
+WriteAllText("output.txt", "Hello World!")
+
+' Read as array of lines
+Dim lines = ReadLines("data.txt")
+For Each line In lines
+    Print line
+Next
+```
+
+### File I/O Functions (Classic VB6 Style)
 
 ```vb
 ' File operations

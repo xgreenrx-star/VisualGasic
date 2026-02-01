@@ -147,6 +147,133 @@ VisualGasic includes a complete RAD (Rapid Application Development) environment:
 - **Property Inspector** for editing node properties
 - **Project Explorer** for managing files and resources
 
+---
+
+## The IDE in Detail
+
+### Toolbox (Left Dock)
+
+The **Toolbox** provides quick access to all VisualGasic features:
+
+| Button | Function |
+|--------|----------|
+| **Import VB6 Project...** | Import complete `.vbp` project with forms and modules |
+| **Import VB6 Form...** | Import individual `.frm` form files |
+| **New Form** | Create new form from templates |
+
+**Form Templates Available:**
+- Blank Form, Dialog, About Box, Splash Screen
+- Login Form, Main Form with Menu, Data Entry Form
+- MDI Parent/Child Forms
+
+### Visual Form Designer
+
+Create user interfaces by dragging controls onto forms:
+
+**VB6 to Godot Control Mappings:**
+
+| VB6 Control | Godot Node | Use For |
+|-------------|------------|---------|
+| Label | Label | Static text display |
+| TextBox | LineEdit | Single-line text input |
+| CommandButton | Button | Clickable buttons |
+| CheckBox | CheckBox | Toggle options |
+| ListBox | ItemList | Scrollable lists |
+| ComboBox | OptionButton | Dropdown selection |
+| PictureBox | TextureRect | Image display |
+| Timer | Timer | Timed events |
+| Frame | Panel | Group controls |
+
+**Event Handling:**
+```vb
+' Events auto-wire to handlers:
+Private Sub btnStart_Click()
+    StartGame()
+End Sub
+
+Private Sub txtName_Change()
+    UpdatePreview()
+End Sub
+
+Private Sub Form_Load()
+    InitializeUI()
+End Sub
+```
+
+### Immediate Window (Bottom Panel)
+
+The **Immediate Window** provides real-time debugging:
+
+**Basic Commands:**
+```vb
+' Print variable values
+? playerHealth
+100
+
+' Evaluate expressions
+? 10 * 5 + 2
+52
+
+' Call functions
+? UCase("hello")
+HELLO
+
+' Execute statements
+Print "Testing..."
+Testing...
+```
+
+**Remote Debugging:**
+While your game runs, connect to live instances:
+```vb
+' View live values
+? player.position
+(150, 200)
+
+' Modify in real-time
+player.health = 100
+
+' Call methods
+player.Jump()
+```
+
+### Menu Editor
+
+Design menu bars visually:
+1. **Project > Tools > Visual Gasic Menu Editor**
+2. Add File, Edit, View, Help menus
+3. Add menu items with shortcuts
+4. Handlers auto-wire:
+
+```vb
+Private Sub mnuFileNew_Click()
+    NewDocument()
+End Sub
+
+Private Sub mnuFileSave_Click()
+    SaveDocument()
+End Sub
+```
+
+### Property Inspector (Right Dock)
+
+VB6-style properties for selected controls:
+- Name, Text/Caption
+- Position (Left, Top, Width, Height)
+- Visible, Enabled
+- TabStop, TabIndex
+- Colors and Fonts
+
+### Tools Menu
+
+Access via **Project > Tools**:
+- **Menu Editor** - Visual menu design
+- **Project Properties** - Startup form, version info
+- **Object Browser** - Explore classes and members
+- **Tab Order** - Visual tab order editing
+
+---
+
 ## Performance Best Practices {#performance}
 
 VisualGasic focuses on high performance in hot paths while preserving Gasic-style readability. Below is a benchmark snapshot (Godot 4.5.1 headless). See the full report and methodology in [docs/manual/performance.md](docs/manual/performance.md).
