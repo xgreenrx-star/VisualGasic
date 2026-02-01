@@ -60,6 +60,9 @@ Sub _Ready()
 	Set LabelScore2 = CreateLabel("0", 800, 50)
 	LabelScore2.AddThemeFontSizeOverride("font_size", 40)
 	
+	' Setup Whenever reactive sections
+	Call SetupWhenever
+	
 	Print "Pong Ready!"
 End Sub
 
@@ -167,38 +170,58 @@ End Sub
 ' ============================================================
 ' WHENEVER SECTIONS - Reactive Programming Demo
 ' These sections run automatically when conditions are met
+' Syntax: Whenever Section <Name> <Variable> <Operator> <Callback>
 ' ============================================================
 
-' React when Player 1 scores - flash their paddle green
-Whenever Score1 Changes
+' Register Whenever sections in a setup sub (called from _Ready)
+Sub SetupWhenever()
+    ' React when Player 1 scores - flash their paddle green
+    Whenever Section Player1Scores Score1 Changes OnPlayer1Score
+    
+    ' React when Player 2 scores - flash their paddle blue  
+    Whenever Section Player2Scores Score2 Changes OnPlayer2Score
+    
+    ' Game point announcements using Exceeds operator
+    Whenever Section Player1GamePoint Score1 Exceeds 4 OnPlayer1GamePoint
+    Whenever Section Player2GamePoint Score2 Exceeds 4 OnPlayer2GamePoint
+    
+    ' Victory detection
+    Whenever Section Player1Wins Score1 Exceeds 5 OnPlayer1Victory
+    Whenever Section Player2Wins Score2 Exceeds 5 OnPlayer2Victory
+    
+    Print "Whenever sections registered!"
+End Sub
+
+' ============================================================
+' CALLBACK PROCEDURES - Called when conditions are triggered
+' ============================================================
+
+Sub OnPlayer1Score()
     Print "Player 1 scored! Score: " & Str(Score1)
     Paddle1.color = Color(0, 1, 0)  ' Bright green flash
-End Whenever
+End Sub
 
-' React when Player 2 scores - flash their paddle blue  
-Whenever Score2 Changes
+Sub OnPlayer2Score()
     Print "Player 2 scored! Score: " & Str(Score2)
     Paddle2.color = Color(0, 0, 1)  ' Bright blue flash
-End Whenever
+End Sub
 
-' Game point announcements using Exceeds operator
-Whenever Score1 Exceeds 4
+Sub OnPlayer1GamePoint()
     Print "*** GAME POINT for Player 1! ***"
-End Whenever
+End Sub
 
-Whenever Score2 Exceeds 4
+Sub OnPlayer2GamePoint()
     Print "*** GAME POINT for Player 2! ***"
-End Whenever
+End Sub
 
-' Victory detection using Exceeds
-Whenever Score1 Exceeds 5
+Sub OnPlayer1Victory()
     Print "========================================="
     Print "   PLAYER 1 WINS!"
     Print "========================================="
-End Whenever
+End Sub
 
-Whenever Score2 Exceeds 5
+Sub OnPlayer2Victory()
     Print "========================================="
     Print "   PLAYER 2 WINS!"
     Print "========================================="
-End Whenever
+End Sub

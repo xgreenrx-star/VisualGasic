@@ -6,53 +6,63 @@ This example demonstrates Visual Gasic's **Whenever** feature for reactive game 
 
 `Whenever` is Visual Gasic's reactive programming system. Instead of manually checking conditions in your game loop, you declare what should happen when a variable meets certain conditions. The system automatically monitors these variables and triggers callbacks when conditions are met.
 
+## Syntax
+
+```vb
+Whenever Section <SectionName> <Variable> <Operator> [Value] <CallbackProcedure>
+```
+
+**Components:**
+- `SectionName` - A unique name for this section (used for Suspend/Resume)
+- `Variable` - The variable to monitor
+- `Operator` - Changes, Becomes, Exceeds, Below, Between, Contains
+- `Value` - The comparison value (optional for Changes)
+- `CallbackProcedure` - The Sub to call when triggered
+
 ## Features Demonstrated in This Example
 
 ### 1. Score Change Reactions (Changes Operator)
 ```vb
-Whenever Score1 Changes
+Whenever Section Player1Scores Score1 Changes OnPlayer1Score
+Whenever Section Player2Scores Score2 Changes OnPlayer2Score
+
+Sub OnPlayer1Score()
     Print "Player 1 scored! Score: " & Str(Score1)
     Paddle1.color = Color(0, 1, 0)  ' Bright green flash
-End Whenever
-
-Whenever Score2 Changes
-    Print "Player 2 scored! Score: " & Str(Score2)
-    Paddle2.color = Color(0, 0, 1)  ' Bright blue flash
-End Whenever
+End Sub
 ```
 These sections trigger automatically whenever either player's score changes, providing visual feedback by flashing the paddle.
 
 ### 2. Game Point Announcements (Exceeds Operator)
 ```vb
-Whenever Score1 Exceeds 4
-    Print "*** GAME POINT for Player 1! ***"
-End Whenever
+Whenever Section Player1GamePoint Score1 Exceeds 4 OnPlayer1GamePoint
+Whenever Section Player2GamePoint Score2 Exceeds 4 OnPlayer2GamePoint
 
-Whenever Score2 Exceeds 4
-    Print "*** GAME POINT for Player 2! ***"
-End Whenever
+Sub OnPlayer1GamePoint()
+    Print "*** GAME POINT for Player 1! ***"
+End Sub
 ```
 Automatically announce when a player reaches game point.
 
 ### 3. Victory Detection (Exceeds Operator)
 ```vb
-Whenever Score1 Exceeds 5
-    Print "PLAYER 1 WINS!"
-End Whenever
+Whenever Section Player1Wins Score1 Exceeds 5 OnPlayer1Victory
+Whenever Section Player2Wins Score2 Exceeds 5 OnPlayer2Victory
 
-Whenever Score2 Exceeds 5
-    Print "PLAYER 2 WINS!"
-End Whenever
+Sub OnPlayer1Victory()
+    Print "PLAYER 1 WINS!"
+End Sub
 ```
 Automatically detect and announce when a player wins (first to 6 points).
 
 ## How It Works
 
 The Whenever system:
-1. **Monitors** the specified variable each frame
-2. **Compares** the current value against the condition
-3. **Triggers** the block when the condition is first met
-4. **Resets** when the condition is no longer true (for re-triggering)
+1. **Registers** sections during setup (typically in `_Ready`)
+2. **Monitors** the specified variable each frame
+3. **Compares** the current value against the condition
+4. **Triggers** the callback when the condition is first met
+5. **Resets** when the condition is no longer true (for re-triggering)
 
 ## Using the Immediate Window
 
