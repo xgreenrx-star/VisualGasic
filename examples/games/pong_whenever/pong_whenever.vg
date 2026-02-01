@@ -28,6 +28,15 @@ Dim Paddle2OrigColor As Object
 Dim FlashTimer1 As Single
 Dim FlashTimer2 As Single
 
+' Additional reactive variables
+Dim BallSpeed As Single       ' Current ball speed (for Exceeds demo)
+Dim RallyCount As Integer     ' Hits without scoring (for Becomes demo)
+Dim BallZone As Integer       ' 1=Left danger, 2=Middle, 3=Right danger (for Between demo)
+Dim BallOrigColor As Object   ' For ball color effects
+
+' Speed tier tracking (edge detection)
+Dim SpeedTier As Integer      ' 0=slow, 1=normal, 2=fast, 3=insane
+
 Sub _Ready()
 	Randomize
 	' Setup Screen
@@ -60,8 +69,13 @@ Sub _Ready()
 	' --- BALL ---
 	Set Ball = CreateNode("ColorRect")
 	AddChild(Ball)
-	Ball.color = Color(1, 1, 1)
+	Set BallOrigColor = Color(1.0, 1.0, 1.0, 1.0)
+	Ball.color = BallOrigColor
 	Ball.size = Vector2(20, 20)
+	RallyCount = 0
+	BallSpeed = 0
+	BallZone = 2  ' Start in middle
+	SpeedTier = 1  ' Start at normal speed tier
 	Call ResetBall
 	
 	' --- UI ---
@@ -131,6 +145,51 @@ Sub _Process(delta)
 	by = by + (BallVelY * delta)
 	Ball.position = Vector2(bx, by)
 	
+	' Calculate actual ball speed (approximate - sum of abs velocities)
+	Dim ActualSpeed As Single
+	Dim AbsX As Single
+	Dim AbsY As Single
+	If BallVelX < 0 Then
+		AbsX = -BallVelX
+	Else
+		AbsX = BallVelX
+	End If
+	If BallVelY < 0 Then
+		AbsY = -BallVelY
+	Else
+		AbsY = BallVelY
+	End If
+	ActualSpeed = AbsX + AbsY
+	
+	' Update SpeedTier for edge detection (only changes at thresholds)
+	' Thresholds for sum of abs velocities (approximate speed)
+	' Starting: ~450 (300 + 150), Fast: ~600, Insane: ~900
+	Dim NewTier As Integer
+	If ActualSpeed < 300 Then
+		NewTier = 0  ' Slow
+	ElseIf ActualSpeed < 550 Then
+		NewTier = 1  ' Normal
+	ElseIf ActualSpeed < 800 Then
+		NewTier = 2  ' Fast
+	Else
+		NewTier = 3  ' Insane
+	End If
+	
+	' Only update SpeedTier if it changed (edge detection)
+	' This triggers Whenever only once per transition
+	If NewTier <> SpeedTier Then
+		SpeedTier = NewTier
+	End If
+	
+	' Update ball zone (1=left danger, 2=middle, 3=right danger)
+	If bx < 200 Then
+		BallZone = 1  ' Left danger zone
+	ElseIf bx > 952 Then
+		BallZone = 3  ' Right danger zone
+	Else
+		BallZone = 2  ' Safe middle zone
+	End If
+	
 	' Simple AI for Paddle 2 (Right)
 	P2Vy = 0
 	If by > p2y + 50 Then
@@ -170,24 +229,30 @@ Sub _Process(delta)
 	If bx < p1x + 20 And bx + 20 > p1x And by < p1y + 100 And by + 20 > p1y Then
 		BallVelX = Abs(BallVelX) * 1.1
 		BallVelY = BallVelY + (P1Vy * 0.5)
+		RallyCount = RallyCount + 1  ' Increment rally on hit
 	End If
 	
 	' Paddle 2 - using hardcoded size (20x100)
 	If bx < p2x + 20 And bx + 20 > p2x And by < p2y + 100 And by + 20 > p2y Then
 		BallVelX = -Abs(BallVelX) * 1.1
 		BallVelY = BallVelY + (P2Vy * 0.5)
+		RallyCount = RallyCount + 1  ' Increment rally on hit
 	End If
 	
 	' Scoring
 	If bx < 0 Then
 		Score2 = Score2 + 1
 		LabelScore2.Text = Str(Score2)
+		RallyCount = 0  ' Reset rally on score
+		Ball.color = BallOrigColor  ' Reset ball color
 		Call ResetBall
 	End If
 	
 	If bx > 1152 Then
 		Score1 = Score1 + 1
 		LabelScore1.Text = Str(Score1)
+		RallyCount = 0  ' Reset rally on score
+		Ball.color = BallOrigColor  ' Reset ball color
 		Call ResetBall
 	End If
 End Sub
@@ -200,21 +265,27 @@ End Sub
 
 ' Register Whenever sections in a setup sub (called from _Ready)
 Sub SetupWhenever()
-	' React when Player 1 scores - flash their paddle green
+	' === CHANGES Operator - React to any value change ===
 	Whenever Section Player1Scores Score1 Changes OnPlayer1Score
-	
-	' React when Player 2 scores - flash their paddle blue  
 	Whenever Section Player2Scores Score2 Changes OnPlayer2Score
 	
-	' Game point announcements using Exceeds operator
+	' === EXCEEDS Operator - React when value goes above threshold ===
+	' (Good for one-time thresholds like score limits)
 	Whenever Section Player1GamePoint Score1 Exceeds 4 OnPlayer1GamePoint
 	Whenever Section Player2GamePoint Score2 Exceeds 4 OnPlayer2GamePoint
-	
-	' Victory detection
 	Whenever Section Player1Wins Score1 Exceeds 5 OnPlayer1Victory
 	Whenever Section Player2Wins Score2 Exceeds 5 OnPlayer2Victory
 	
-	Print "Whenever sections registered!"
+	' === CHANGES Operator for SpeedTier - React when speed tier changes ===
+	' (We use Changes and check the value in the callback for more control)
+	Whenever Section SpeedTierChanged SpeedTier Changes OnSpeedTierChange
+	
+	' Rally milestones (also using Becomes for exact values)
+	Whenever Section Rally5 RallyCount Becomes 5 OnRally5
+	Whenever Section Rally10 RallyCount Becomes 10 OnRally10
+	Whenever Section Rally15 RallyCount Becomes 15 OnRally15
+	
+	Print "Whenever sections registered! (10 sections)"
 End Sub
 
 ' ============================================================
@@ -251,4 +322,40 @@ Sub OnPlayer2Victory()
 	Print "========================================="
 	Print "   PLAYER 2 WINS!"
 	Print "========================================="
+End Sub
+
+' === SPEED TIER CALLBACK (using Changes for edge detection) ===
+
+Sub OnSpeedTierChange()
+	' Handle speed tier changes based on current tier value
+	If SpeedTier = 0 Then
+		Print "Ball slowing down... (Tier 0)"
+		Ball.color = Color(0.5, 0.5, 1.0, 1.0)  ' Light blue = slow
+	ElseIf SpeedTier = 1 Then
+		Print "Normal speed (Tier 1)"
+		Ball.color = BallOrigColor  ' Back to white
+	ElseIf SpeedTier = 2 Then
+		Print "Ball getting fast! (Tier 2)"
+		Ball.color = Color(1.0, 1.0, 0.0, 1.0)  ' Yellow = fast
+	ElseIf SpeedTier = 3 Then
+		Print "INSANE SPEED! (Tier 3)"
+		Ball.color = Color(1.0, 0.0, 0.0, 1.0)  ' Red = crazy fast
+	End If
+End Sub
+
+' === RALLY CALLBACKS (Becomes) ===
+
+Sub OnRally5()
+	Print "Nice rally! 5 hits!"
+	Ball.color = Color(0.0, 1.0, 1.0, 1.0)  ' Cyan
+End Sub
+
+Sub OnRally10()
+	Print "HOT RALLY! 10 hits!"
+	Ball.color = Color(1.0, 0.5, 0.0, 1.0)  ' Orange
+End Sub
+
+Sub OnRally15()
+	Print "MEGA RALLY! 15 hits! Amazing!"
+	Ball.color = Color(1.0, 0.0, 1.0, 1.0)  ' Magenta
 End Sub

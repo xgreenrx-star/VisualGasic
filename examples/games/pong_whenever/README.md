@@ -28,7 +28,7 @@ Whenever Section Player2Scores Score2 Changes OnPlayer2Score
 
 Sub OnPlayer1Score()
     Print "Player 1 scored! Score: " & Str(Score1)
-    Paddle1.color = Color(0, 1, 0)  ' Bright green flash
+    Paddle1.color = Color(0, 1, 0, 1)  ' Bright green flash
 End Sub
 ```
 These sections trigger automatically whenever either player's score changes, providing visual feedback by flashing the paddle.
@@ -54,6 +54,34 @@ Sub OnPlayer1Victory()
 End Sub
 ```
 Automatically detect and announce when a player wins (first to 6 points).
+
+### 4. Speed Tier Monitoring (Changes with Edge Detection)
+```vb
+' SpeedTier variable only changes at threshold crossings
+Whenever Section SpeedTierChanged SpeedTier Changes OnSpeedTierChange
+
+Sub OnSpeedTierChange()
+    If SpeedTier = 2 Then
+        Print "Ball getting fast!"
+        Ball.color = Color(1.0, 1.0, 0.0, 1.0)  ' Yellow
+    ElseIf SpeedTier = 3 Then
+        Print "INSANE SPEED!"
+        Ball.color = Color(1.0, 0.0, 0.0, 1.0)  ' Red
+    End If
+End Sub
+```
+The ball changes color based on speed tier - normal (white), fast (yellow), insane (red).
+
+### 5. Rally Milestones (Becomes Operator)
+```vb
+Whenever Section Rally5 RallyCount Becomes 5 OnRally5
+
+Sub OnRally5()
+    Print "Nice rally! 5 hits!"
+    Ball.color = Color(0.0, 1.0, 1.0, 1.0)  ' Cyan
+End Sub
+```
+Celebrate long rallies with color changes and announcements.
 
 ## How It Works
 
