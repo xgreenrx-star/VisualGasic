@@ -3,13 +3,33 @@
 
 #include <godot_cpp/classes/script_language_extension.hpp>
 #include "visual_gasic_script.h"
+#include <vector>
 
 using namespace godot;
+
+// Forward declaration
+class VisualGasicInstance;
+
+// Call stack frame for debugging
+struct VGDebugStackFrame {
+    String file;
+    String function;
+    int line;
+    VisualGasicInstance* instance;
+    
+    VGDebugStackFrame() : line(0), instance(nullptr) {}
+    VGDebugStackFrame(const String& f, const String& fn, int l, VisualGasicInstance* i)
+        : file(f), function(fn), line(l), instance(i) {}
+};
 
 class VisualGasicLanguage : public ScriptLanguageExtension {
 	GDCLASS(VisualGasicLanguage, ScriptLanguageExtension);
 
     static VisualGasicLanguage *singleton;
+    
+    // Debug call stack (static for access from instance)
+    static std::vector<VGDebugStackFrame> debug_call_stack;
+    static String debug_error;
 
 protected:
 	static void _bind_methods();
@@ -77,6 +97,13 @@ public:
     virtual void _profiling_start() override;
     virtual void _profiling_stop() override;
     virtual Dictionary _get_global_class_name(const String &p_path) const override;
+    
+    // Static methods for call stack management (called from VisualGasicInstance)
+    static void push_stack_frame(const String& file, const String& function, int line, VisualGasicInstance* instance);
+    static void pop_stack_frame();
+    static void update_stack_frame_line(int line);
+    static void set_debug_error(const String& error);
+    static void clear_debug_error();
 };
 
 #endif // VISUAL_GASIC_LANGUAGE_H

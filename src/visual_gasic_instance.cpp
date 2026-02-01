@@ -27,6 +27,7 @@
 #include "visual_gasic_language.h"
 #include "visual_gasic_parser.h"
 #include "visual_gasic_builtins.h"
+#include "visual_gasic_debugger.h"
 #include <godot_cpp/core/object.hpp>
 #include <godot_cpp/classes/node.hpp>
 #include <godot_cpp/classes/input.hpp>
@@ -6342,6 +6343,11 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         r_ret = Variant();
         return false;
     }
+    
+    // Push debug stack frame for Godot debugger integration
+    String debug_file = script.is_valid() ? script->get_path() : String("<unknown>");
+    String debug_func = func ? func->name : String("<main>");
+    VisualGasicLanguage::push_stack_frame(debug_file, debug_func, 0, this);
 
     const bool profiling_enabled = vg_opcode_profile_enabled();
     const bool is_outermost_profile = profiling_enabled && vg_opcode_profile_depth == 0;
@@ -7963,8 +7969,42 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     debug_state.current_file = script->get_path();
                 }
                 
-                // TODO: Add breakpoint checking here once debugger integration is complete
-                // This is Phase 2 of the debugging implementation
+                // Update the current stack frame line for Godot debugger
+                VisualGasicLanguage::update_stack_frame_line(line_number);
+                
+                // Check for breakpoints using global debugger
+                VisualGasicDebugger* debugger = VisualGasicDebuggerGlobal::get_global_debugger();
+                if (debugger) {
+                    // Build context dictionary for conditional breakpoints
+                    Dictionary context;
+                    context["variables"] = variables;
+                    if (current_sub) {
+                        context["function"] = current_sub->name;
+                    }
+                    
+                    // Check if we should break at this line
+                    if (debugger->should_break_at(debug_state.current_file, line_number, context)) {
+                        debug_state.debug_paused = true;
+                        UtilityFunctions::print_rich("[color=yellow]Breakpoint hit at ", 
+                            debug_state.current_file, ":", line_number, "[/color]");
+                        
+                        // Record execution frame for time-travel debugging
+                        if (current_sub) {
+                            debugger->record_execution_frame(
+                                current_sub->name,
+                                debug_state.current_file,
+                                line_number,
+                                variables
+                            );
+                        }
+                    }
+                    
+                    // Handle step modes
+                    if (debug_state.step_mode == DebugState::STEP_INTO) {
+                        debug_state.debug_paused = true;
+                        debug_state.step_mode = DebugState::STEP_NONE;
+                    }
+                }
                 break;
             }
             default:
@@ -7985,6 +8025,10 @@ cleanup:
     restore_vm();
     finalize_stack_profile();
     finalize_profile();
+    
+    // Pop debug stack frame
+    VisualGasicLanguage::pop_stack_frame();
+    
     if (!success) {
         r_ret = Variant();
         return false;

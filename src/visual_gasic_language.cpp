@@ -2,10 +2,16 @@
 #include "visual_gasic_bracket_completion.h"
 #include "visual_gasic_snippets.h"
 #include "visual_gasic_cbm_completion.h"
+#include "visual_gasic_instance.h"
+#include "visual_gasic_debugger.h"
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/classes/node.hpp>
 
 using namespace godot;
+
+// Static members for debug call stack
+std::vector<VGDebugStackFrame> VisualGasicLanguage::debug_call_stack;
+String VisualGasicLanguage::debug_error;
 
 // Helper to check if a character is valid in an identifier
 static bool is_identifier_char(char32_t c) {
@@ -714,35 +720,75 @@ void VisualGasicLanguage::_thread_exit() {
 }
 
 String VisualGasicLanguage::_debug_get_error() const {
-    return "";
+    return debug_error;
 }
 
 int32_t VisualGasicLanguage::_debug_get_stack_level_count() const {
-    return 0;
+    return (int32_t)debug_call_stack.size();
 }
 
 int32_t VisualGasicLanguage::_debug_get_stack_level_line(int32_t p_level) const {
+    if (p_level >= 0 && p_level < (int32_t)debug_call_stack.size()) {
+        // Stack is stored with most recent at end, but Godot expects level 0 = top
+        int idx = debug_call_stack.size() - 1 - p_level;
+        return debug_call_stack[idx].line;
+    }
     return -1;
 }
 
 String VisualGasicLanguage::_debug_get_stack_level_function(int32_t p_level) const {
+    if (p_level >= 0 && p_level < (int32_t)debug_call_stack.size()) {
+        int idx = debug_call_stack.size() - 1 - p_level;
+        return debug_call_stack[idx].function;
+    }
     return "";
 }
 
 Dictionary VisualGasicLanguage::_debug_get_stack_level_locals(int32_t p_level, int32_t p_max_subitems, int32_t p_max_depth) {
+    if (p_level >= 0 && p_level < (int32_t)debug_call_stack.size()) {
+        int idx = debug_call_stack.size() - 1 - p_level;
+        VisualGasicInstance* instance = debug_call_stack[idx].instance;
+        if (instance) {
+            return instance->get_debug_locals();
+        }
+    }
     return Dictionary();
 }
 
 Dictionary VisualGasicLanguage::_debug_get_stack_level_members(int32_t p_level, int32_t p_max_subitems, int32_t p_max_depth) {
+    // For VB6-style scripts, members are typically the same as globals
+    if (p_level >= 0 && p_level < (int32_t)debug_call_stack.size()) {
+        int idx = debug_call_stack.size() - 1 - p_level;
+        VisualGasicInstance* instance = debug_call_stack[idx].instance;
+        if (instance) {
+            return instance->get_debug_globals();
+        }
+    }
     return Dictionary();
 }
 
 void *VisualGasicLanguage::_debug_get_stack_level_instance(int32_t p_level) {
+    if (p_level >= 0 && p_level < (int32_t)debug_call_stack.size()) {
+        int idx = debug_call_stack.size() - 1 - p_level;
+        VisualGasicInstance* instance = debug_call_stack[idx].instance;
+        if (instance) {
+            return instance->get_owner();
+        }
+    }
     return nullptr;
 }
 
 TypedArray<Dictionary> VisualGasicLanguage::_debug_get_current_stack_info() {
-    return TypedArray<Dictionary>();
+    TypedArray<Dictionary> stack_info;
+    // Iterate from top (most recent) to bottom
+    for (int i = debug_call_stack.size() - 1; i >= 0; i--) {
+        Dictionary frame;
+        frame["file"] = debug_call_stack[i].file;
+        frame["func"] = debug_call_stack[i].function;
+        frame["line"] = debug_call_stack[i].line;
+        stack_info.push_back(frame);
+    }
+    return stack_info;
 }
 
 void VisualGasicLanguage::_frame() {
@@ -750,6 +796,13 @@ void VisualGasicLanguage::_frame() {
 }
 
 Dictionary VisualGasicLanguage::_debug_get_globals(int32_t p_max_subitems, int32_t p_max_depth) {
+    // Return globals from the most recent stack frame's instance
+    if (!debug_call_stack.empty()) {
+        VisualGasicInstance* instance = debug_call_stack.back().instance;
+        if (instance) {
+            return instance->get_debug_globals();
+        }
+    }
     return Dictionary();
 }
 
@@ -764,6 +817,10 @@ void VisualGasicLanguage::_reload_tool_script(const Ref<Script> &p_script, bool 
 }
 
 String VisualGasicLanguage::_debug_get_stack_level_source(int32_t p_level) const {
+    if (p_level >= 0 && p_level < (int32_t)debug_call_stack.size()) {
+        int idx = debug_call_stack.size() - 1 - p_level;
+        return debug_call_stack[idx].file;
+    }
     return "";
 }
 
@@ -808,4 +865,29 @@ bool VisualGasicLanguage::_handles_global_class_type(const String &p_type) const
 
 bool VisualGasicLanguage::_supports_documentation() const {
     return false;
+}
+// === Debug Call Stack Management ===
+
+void VisualGasicLanguage::push_stack_frame(const String& file, const String& function, int line, VisualGasicInstance* instance) {
+    debug_call_stack.push_back(VGDebugStackFrame(file, function, line, instance));
+}
+
+void VisualGasicLanguage::pop_stack_frame() {
+    if (!debug_call_stack.empty()) {
+        debug_call_stack.pop_back();
+    }
+}
+
+void VisualGasicLanguage::update_stack_frame_line(int line) {
+    if (!debug_call_stack.empty()) {
+        debug_call_stack.back().line = line;
+    }
+}
+
+void VisualGasicLanguage::set_debug_error(const String& error) {
+    debug_error = error;
+}
+
+void VisualGasicLanguage::clear_debug_error() {
+    debug_error = "";
 }
