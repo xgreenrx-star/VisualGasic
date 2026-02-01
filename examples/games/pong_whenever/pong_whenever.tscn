@@ -2,58 +2,5 @@
 
 [ext_resource type="Script" path="res://games/pong_whenever/pong_whenever.vg" id="1_pong"]
 
-[node name="PongWhenever" type="Control"]
-layout_mode = 3
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
+[node name="PongWhenever" type="Node2D"]
 script = ExtResource("1_pong")
-
-[node name="Background" type="ColorRect" parent="."]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-color = Color(0.05, 0.05, 0.1, 1)
-
-[node name="CenterLine" type="ColorRect" parent="."]
-layout_mode = 0
-offset_left = 572.0
-offset_right = 578.0
-offset_bottom = 648.0
-color = Color(0.2, 0.2, 0.25, 1)
-
-[node name="TopWall" type="ColorRect" parent="."]
-layout_mode = 0
-offset_right = 1152.0
-offset_bottom = 4.0
-color = Color(0.5, 0.5, 0.5, 1)
-
-[node name="BottomWall" type="ColorRect" parent="."]
-layout_mode = 0
-offset_top = 644.0
-offset_right = 1152.0
-offset_bottom = 648.0
-color = Color(0.5, 0.5, 0.5, 1)
-
-[node name="TitleLabel" type="Label" parent="."]
-layout_mode = 0
-offset_left = 400.0
-offset_top = 8.0
-offset_right = 752.0
-offset_bottom = 35.0
-text = "PONG WITH WHENEVER"
-horizontal_alignment = 1
-
-[node name="InstructionLabel" type="Label" parent="."]
-layout_mode = 0
-offset_left = 350.0
-offset_top = 600.0
-offset_right = 800.0
-offset_bottom = 630.0
-text = "P1: W/S   |   P2: ↑/↓   |   First to 5 wins!"
-horizontal_alignment = 1
