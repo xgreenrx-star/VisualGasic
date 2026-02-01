@@ -1,0 +1,391 @@
+' Pong with Whenever - Reactive Game Programming Demo
+' =====================================================
+' This example demonstrates the Whenever feature for reactive game logic.
+' Use the Immediate Window's Whenever tab to monitor and pause/resume sections!
+'
+' Controls: W/S for Player 1, Up/Down arrows for Player 2
+' Press ESC to quit
+
+Option Explicit
+
+' === Game Objects ===
+Dim Ball As Object
+Dim Paddle1 As Object
+Dim Paddle2 As Object
+Dim LabelScore1 As Object
+Dim LabelScore2 As Object
+Dim LabelWinner As Object
+Dim LabelPowerUp As Object
+
+' === Game State Variables ===
+Dim Score1 As Integer = 0
+Dim Score2 As Integer = 0
+Dim BallSpeed As Single = 300
+Dim RallyCount As Integer = 0
+Dim GameOver As Boolean = False
+Dim WinScore As Integer = 5
+
+' === Ball Physics ===
+Dim BallVelX As Single
+Dim BallVelY As Single
+Dim bx As Single
+Dim by As Single
+
+' === Paddle Positions ===
+Dim p1y As Single = 250
+Dim p2y As Single = 250
+
+' === Power-Up System ===
+Dim PowerUpActive As Boolean = False
+Dim PowerUpTimer As Single = 0
+
+' =====================================================
+' WHENEVER SECTIONS - Reactive Game Events
+' =====================================================
+' These sections automatically trigger when conditions are met.
+' You can monitor them in the Immediate Window's Whenever tab!
+
+' --- Score Monitoring ---
+Whenever Section Player1Scores Score1 Changes OnPlayer1Score
+Whenever Section Player2Scores Score2 Changes OnPlayer2Score
+
+' --- Victory Conditions ---
+Whenever Section Player1Wins Score1 Exceeds 4 OnPlayer1Victory
+Whenever Section Player2Wins Score2 Exceeds 4 OnPlayer2Victory
+
+' --- Rally System (gets exciting after many hits!) ---
+Whenever Section HotRally RallyCount Exceeds 9 OnHotRally
+Whenever Section MegaRally RallyCount Exceeds 19 OnMegaRally
+
+' --- Ball Speed Monitoring ---
+Whenever Section SpeedWarning BallSpeed Exceeds 500 OnBallTooFast
+Whenever Section InsaneSpeed BallSpeed Exceeds 700 OnInsaneSpeed
+
+' --- Power-Up Trigger ---
+Whenever Section PowerUpCheck RallyCount Becomes 5 ActivatePowerUp
+
+' =====================================================
+' GAME INITIALIZATION
+' =====================================================
+
+Sub _Ready()
+    Randomize
+    Print "=== PONG WITH WHENEVER ==="
+    Print "Open Immediate Window -> Whenever tab to monitor game events!"
+    Print "Controls: W/S (Player 1), Up/Down (Player 2)"
+    Print ""
+    
+    ' Initialize game objects
+    Call CreateGameObjects
+    Call ResetBall
+    
+    ' Show status of Whenever sections
+    Print "Active Whenever Sections:"
+    Print WheneverStatus()
+    Print ""
+    Print "Game Ready! First to " & WinScore & " wins!"
+End Sub
+
+Sub CreateGameObjects()
+    ' --- PADDLE 1 (Left - Green) ---
+    Set Paddle1 = CreateNode("ColorRect")
+    AddChild(Paddle1)
+    Paddle1.color = Color(0.2, 0.9, 0.2)
+    Paddle1.size = Vector2(15, 100)
+    Paddle1.position = Vector2(50, p1y)
+    
+    ' --- PADDLE 2 (Right - Blue) ---
+    Set Paddle2 = CreateNode("ColorRect")
+    AddChild(Paddle2)
+    Paddle2.color = Color(0.2, 0.2, 0.9)
+    Paddle2.size = Vector2(15, 100)
+    Paddle2.position = Vector2(1085, p2y)
+    
+    ' --- BALL (White) ---
+    Set Ball = CreateNode("ColorRect")
+    AddChild(Ball)
+    Ball.color = Color(1, 1, 1)
+    Ball.size = Vector2(16, 16)
+    
+    ' --- Score Labels ---
+    Set LabelScore1 = CreateLabel("0", 350, 40)
+    LabelScore1.AddThemeFontSizeOverride("font_size", 48)
+    LabelScore1.AddThemeColorOverride("font_color", Color(0.2, 0.9, 0.2))
+    
+    Set LabelScore2 = CreateLabel("0", 750, 40)
+    LabelScore2.AddThemeFontSizeOverride("font_size", 48)
+    LabelScore2.AddThemeColorOverride("font_color", Color(0.2, 0.2, 0.9))
+    
+    ' --- Winner Label (hidden initially) ---
+    Set LabelWinner = CreateLabel("", 450, 300)
+    LabelWinner.AddThemeFontSizeOverride("font_size", 64)
+    LabelWinner.visible = False
+    
+    ' --- Power-Up Label ---
+    Set LabelPowerUp = CreateLabel("", 500, 550)
+    LabelPowerUp.AddThemeFontSizeOverride("font_size", 24)
+    LabelPowerUp.AddThemeColorOverride("font_color", Color(1, 0.8, 0))
+End Sub
+
+Sub ResetBall()
+    bx = 576
+    by = 324
+    Ball.position = Vector2(bx, by)
+    
+    ' Reset speed after each point
+    BallSpeed = 300
+    RallyCount = 0
+    
+    ' Random direction
+    BallVelX = BallSpeed
+    If Rnd() > 0.5 Then BallVelX = -BallVelX
+    
+    BallVelY = (Rnd() * 150) + 50
+    If Rnd() > 0.5 Then BallVelY = -BallVelY
+    
+    ' Reset ball color
+    Ball.color = Color(1, 1, 1)
+End Sub
+
+' =====================================================
+' MAIN GAME LOOP
+' =====================================================
+
+Sub _Process(delta)
+    If GameOver Then Exit Sub
+    
+    ' Handle input
+    Call HandleInput(delta)
+    
+    ' Move ball
+    Call MoveBall(delta)
+    
+    ' Check collisions
+    Call CheckCollisions(delta)
+    
+    ' Check scoring
+    Call CheckScoring
+    
+    ' Update power-up timer
+    Call UpdatePowerUp(delta)
+End Sub
+
+Sub HandleInput(delta As Single)
+    Dim speed As Single = 400
+    
+    ' Player 1: W/S keys
+    If IsKeyDown("W") Then
+        p1y = p1y - speed * delta
+        If p1y < 0 Then p1y = 0
+    End If
+    If IsKeyDown("S") Then
+        p1y = p1y + speed * delta
+        If p1y > 548 Then p1y = 548
+    End If
+    Paddle1.position = Vector2(50, p1y)
+    
+    ' Player 2: Up/Down arrows
+    If IsKeyDown("Up") Then
+        p2y = p2y - speed * delta
+        If p2y < 0 Then p2y = 0
+    End If
+    If IsKeyDown("Down") Then
+        p2y = p2y + speed * delta
+        If p2y > 548 Then p2y = 548
+    End If
+    Paddle2.position = Vector2(1085, p2y)
+    
+    ' ESC to quit
+    If IsKeyPressed("Escape") Then
+        Print "Game ended by player."
+        GetTree().Quit()
+    End If
+End Sub
+
+Sub MoveBall(delta As Single)
+    bx = bx + (BallVelX * delta)
+    by = by + (BallVelY * delta)
+    Ball.position = Vector2(bx, by)
+End Sub
+
+Sub CheckCollisions(delta As Single)
+    ' Top/Bottom walls
+    If by < 0 Then
+        by = 0
+        BallVelY = Abs(BallVelY)
+        Ball.position = Vector2(bx, by)
+    End If
+    
+    If by > 632 Then
+        by = 632
+        BallVelY = -Abs(BallVelY)
+        Ball.position = Vector2(bx, by)
+    End If
+    
+    ' Paddle 1 collision (left)
+    If bx < 65 And bx > 35 Then
+        If by + 16 > p1y And by < p1y + 100 Then
+            bx = 65
+            BallVelX = Abs(BallVelX)
+            
+            ' Add spin based on where ball hits paddle
+            Dim hitPos As Single = (by - p1y) / 100
+            BallVelY = BallVelY + (hitPos - 0.5) * 200
+            
+            ' Increase speed and rally count
+            Call OnPaddleHit
+        End If
+    End If
+    
+    ' Paddle 2 collision (right)
+    If bx > 1070 And bx < 1100 Then
+        If by + 16 > p2y And by < p2y + 100 Then
+            bx = 1070
+            BallVelX = -Abs(BallVelX)
+            
+            ' Add spin
+            Dim hitPos2 As Single = (by - p2y) / 100
+            BallVelY = BallVelY + (hitPos2 - 0.5) * 200
+            
+            Call OnPaddleHit
+        End If
+    End If
+End Sub
+
+Sub OnPaddleHit()
+    RallyCount = RallyCount + 1
+    
+    ' Gradually increase speed
+    BallSpeed = BallSpeed + 15
+    
+    ' Apply new speed to velocity
+    Dim currentSpeed As Single = Sqr(BallVelX * BallVelX + BallVelY * BallVelY)
+    Dim scale As Single = BallSpeed / currentSpeed
+    BallVelX = BallVelX * scale
+    BallVelY = BallVelY * scale
+End Sub
+
+Sub CheckScoring()
+    ' Ball went past left side - Player 2 scores
+    If bx < -20 Then
+        Score2 = Score2 + 1
+        LabelScore2.Text = Str(Score2)
+        If Not GameOver Then Call ResetBall
+    End If
+    
+    ' Ball went past right side - Player 1 scores
+    If bx > 1170 Then
+        Score1 = Score1 + 1
+        LabelScore1.Text = Str(Score1)
+        If Not GameOver Then Call ResetBall
+    End If
+End Sub
+
+Sub UpdatePowerUp(delta As Single)
+    If PowerUpActive Then
+        PowerUpTimer = PowerUpTimer - delta
+        If PowerUpTimer <= 0 Then
+            PowerUpActive = False
+            LabelPowerUp.text = ""
+            Ball.color = Color(1, 1, 1)
+            Print "Power-up expired!"
+        End If
+    End If
+End Sub
+
+' =====================================================
+' WHENEVER CALLBACKS - Reactive Event Handlers
+' =====================================================
+' These procedures are called automatically by the Whenever system!
+
+Sub OnPlayer1Score()
+    Print "🏓 Player 1 scored! (Score: " & Score1 & ")"
+    ' Flash the paddle
+    Paddle1.color = Color(1, 1, 0)
+    Call ResetPaddleColor1After(0.3)
+End Sub
+
+Sub OnPlayer2Score()
+    Print "🏓 Player 2 scored! (Score: " & Score2 & ")"
+    Paddle2.color = Color(1, 1, 0)
+    Call ResetPaddleColor2After(0.3)
+End Sub
+
+Sub OnPlayer1Victory()
+    If GameOver Then Exit Sub
+    GameOver = True
+    Print "🏆 PLAYER 1 WINS! Final Score: " & Score1 & " - " & Score2
+    LabelWinner.text = "PLAYER 1 WINS!"
+    LabelWinner.AddThemeColorOverride("font_color", Color(0.2, 1, 0.2))
+    LabelWinner.visible = True
+    Ball.visible = False
+    
+    ' Suspend all game sections
+    Suspend Whenever Player1Scores
+    Suspend Whenever Player2Scores
+    Suspend Whenever HotRally
+    Suspend Whenever MegaRally
+End Sub
+
+Sub OnPlayer2Victory()
+    If GameOver Then Exit Sub
+    GameOver = True
+    Print "🏆 PLAYER 2 WINS! Final Score: " & Score1 & " - " & Score2
+    LabelWinner.text = "PLAYER 2 WINS!"
+    LabelWinner.AddThemeColorOverride("font_color", Color(0.2, 0.2, 1))
+    LabelWinner.visible = True
+    Ball.visible = False
+    
+    Suspend Whenever Player1Scores
+    Suspend Whenever Player2Scores
+    Suspend Whenever HotRally
+    Suspend Whenever MegaRally
+End Sub
+
+Sub OnHotRally()
+    Print "🔥 HOT RALLY! " & RallyCount & " hits!"
+    ' Change ball color to orange
+    Ball.color = Color(1, 0.5, 0)
+End Sub
+
+Sub OnMegaRally()
+    Print "💥 MEGA RALLY! " & RallyCount & " hits! INCREDIBLE!"
+    ' Change ball color to red
+    Ball.color = Color(1, 0, 0)
+    ' Screen shake would go here in a full game
+End Sub
+
+Sub OnBallTooFast()
+    Print "⚡ Ball speed warning: " & Int(BallSpeed) & " px/s"
+End Sub
+
+Sub OnInsaneSpeed()
+    Print "🚀 INSANE SPEED! " & Int(BallSpeed) & " px/s - Good luck!"
+    Ball.color = Color(1, 0, 1)  ' Purple for insane speed
+End Sub
+
+Sub ActivatePowerUp()
+    If PowerUpActive Then Exit Sub
+    PowerUpActive = True
+    PowerUpTimer = 5  ' 5 seconds
+    
+    Print "⭐ POWER-UP ACTIVATED! Ball grows for 5 seconds!"
+    Ball.size = Vector2(24, 24)
+    Ball.color = Color(1, 1, 0)
+    LabelPowerUp.text = "⭐ POWER-UP ACTIVE ⭐"
+    
+    ' Reset after timer expires (handled in UpdatePowerUp)
+End Sub
+
+' =====================================================
+' HELPER FUNCTIONS
+' =====================================================
+
+Sub ResetPaddleColor1After(seconds As Single)
+    ' In a real game, use a Timer node
+    Paddle1.color = Color(0.2, 0.9, 0.2)
+End Sub
+
+Sub ResetPaddleColor2After(seconds As Single)
+    Paddle2.color = Color(0.2, 0.2, 0.9)
+End Sub
