@@ -18,6 +18,7 @@
 #include "visual_gasic_comm.h"
 #include "visual_gasic_benchmark.h"
 #include "visual_gasic_test_runner.h"
+#include "visual_gasic_immediate.h"
 
 using namespace godot;
 
@@ -44,6 +45,7 @@ void initialize_visual_gasic_module(ModuleInitializationLevel p_level) {
         ClassDB::register_class<MSComm>();
         ClassDB::register_class<VisualGasicBenchmark>();
         ClassDB::register_class<VisualGasicTestRunner>();
+        ClassDB::register_class<VisualGasicImmediate>();
     
         visual_gasic_language = memnew(VisualGasicLanguage);
         Engine::get_singleton()->register_script_language(visual_gasic_language);

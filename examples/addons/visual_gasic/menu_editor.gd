@@ -13,6 +13,52 @@ var chk_checked: CheckBox
 var chk_enabled: CheckBox
 var chk_visible: CheckBox
 var root: TreeItem
+var target_menu_bar: MenuBar
+
+func set_menu_bar(menu_bar: MenuBar):
+	target_menu_bar = menu_bar
+	# Load existing menu structure
+	call_deferred("_load_existing_menu")
+
+func _load_existing_menu():
+	if not target_menu_bar:
+		return
+	
+	# Clear tree
+	root.clear_custom_bg_color(0)
+	for child in root.get_children():
+		child.free()
+	
+	# Load from MenuBar
+	for i in range(target_menu_bar.get_child_count()):
+		var popup = target_menu_bar.get_child(i)
+		if popup is PopupMenu:
+			var item = tree.create_item(root)
+			item.set_text(0, target_menu_bar.get_menu_title(i))
+			item.set_metadata(0, {
+				"name": popup.name,
+				"checked": false,
+				"enabled": true,
+				"visible": true
+			})
+			_load_popup_items(popup, item)
+
+func _load_popup_items(popup: PopupMenu, parent_item: TreeItem):
+	for i in range(popup.item_count):
+		var item = tree.create_item(parent_item)
+		item.set_text(0, popup.get_item_text(i))
+		item.set_metadata(0, {
+			"name": "mnu" + popup.get_item_text(i).replace(" ", ""),
+			"checked": popup.is_item_checked(i),
+			"enabled": not popup.is_item_disabled(i),
+			"visible": true
+		})
+		
+		var submenu = popup.get_item_submenu(i)
+		if submenu != "":
+			var sub_popup = popup.get_node_or_null(submenu)
+			if sub_popup:
+				_load_popup_items(sub_popup, item)
 
 func _init():
 	title = "Menu Editor"
@@ -174,8 +220,71 @@ func _outdent(): pass
 
 func _on_ok():
 	_update_current_item()
-	# Apply to Editor logic
-	# For now, just print
-	print("Menu Editor OK. Structure saved.")
+	
+	if not target_menu_bar:
+		print("No MenuBar target set")
+		hide()
+		return
+	
+	# Clear existing menus
+	for child in target_menu_bar.get_children():
+		child.queue_free()
+	
+	# Rebuild from tree
+	for child_item in root.get_children():
+		_create_menu_from_item(child_item, target_menu_bar, null)
+	
+	print("Menu Editor: Applied menu structure")
 	hide()
-	menu_applied.emit(null) # Placeholder
+	menu_applied.emit(target_menu_bar)
+
+func _create_menu_from_item(item: TreeItem, menu_bar: MenuBar, parent_popup: PopupMenu):
+	var caption = item.get_text(0)
+	var meta = item.get_metadata(0)
+	var item_name = meta.get("name", caption.replace(" ", "")) if meta else caption.replace(" ", "")
+	
+	if not parent_popup:
+		# Top level - create PopupMenu and add to MenuBar
+		var popup = PopupMenu.new()
+		popup.name = item_name
+		menu_bar.add_child(popup)
+		menu_bar.set_menu_title(menu_bar.get_child_count() - 1, caption)
+		
+		# Add children to this popup
+		for child_item in item.get_children():
+			_add_popup_item(child_item, popup)
+	else:
+		# This is a submenu item
+		_add_popup_item(item, parent_popup)
+
+func _add_popup_item(item: TreeItem, popup: PopupMenu):
+	var caption = item.get_text(0)
+	var meta = item.get_metadata(0)
+	
+	var has_children = item.get_child_count() > 0
+	
+	if has_children:
+		# Create submenu
+		var sub_popup = PopupMenu.new()
+		var item_name = meta.get("name", caption.replace(" ", "")) if meta else caption.replace(" ", "")
+		sub_popup.name = item_name
+		popup.add_child(sub_popup)
+		
+		popup.add_submenu_item(caption, item_name)
+		var idx = popup.item_count - 1
+		
+		if meta:
+			popup.set_item_checked(idx, meta.get("checked", false))
+			popup.set_item_disabled(idx, not meta.get("enabled", true))
+		
+		# Add children
+		for child_item in item.get_children():
+			_add_popup_item(child_item, sub_popup)
+	else:
+		# Regular menu item
+		popup.add_item(caption)
+		var idx = popup.item_count - 1
+		
+		if meta:
+			popup.set_item_checked(idx, meta.get("checked", false))
+			popup.set_item_disabled(idx, not meta.get("enabled", true))

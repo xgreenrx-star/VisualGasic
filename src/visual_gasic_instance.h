@@ -240,4 +240,11 @@ public:
     static const GDExtensionScriptInstanceInfo3 *get_script_instance_info();
 };
 
+// Debug registry for Immediate Window runtime access
+namespace VisualGasicDebug {
+    Array get_all_instances();
+    void register_instance(VisualGasicInstance* instance);
+    void unregister_instance(VisualGasicInstance* instance);
+}
+
 #endif // VISUAL_GASIC_INSTANCE_H

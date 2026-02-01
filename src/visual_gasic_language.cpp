@@ -3,8 +3,14 @@
 #include "visual_gasic_snippets.h"
 #include "visual_gasic_cbm_completion.h"
 #include <godot_cpp/core/class_db.hpp>
+#include <godot_cpp/classes/node.hpp>
 
 using namespace godot;
+
+// Helper to check if a character is valid in an identifier
+static bool is_identifier_char(char32_t c) {
+    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_';
+}
 
 // Helper for Completion
 static Dictionary create_completion_option(String display, int kind, String desc) {
@@ -13,6 +19,9 @@ static Dictionary create_completion_option(String display, int kind, String desc
     d["kind"] = kind;
     d["insert_text"] = display;
     d["location"] = 0; // LOCATION_LOCAL
+    d["font_color"] = Color(1, 1, 1, 1); // White color for completion text
+    d["icon"] = Variant(); // Required by Godot 4.5.1 ScriptLanguageExtension
+    d["default_value"] = Variant(); // Required by Godot 4.5.1
     return d;
 }
 
@@ -250,7 +259,16 @@ Dictionary VisualGasicLanguage::_complete_code(const String &p_code, const Strin
     result["result"] = OK;
     Array options;
     
+    // DEBUG: Print when completion is called
+    print_line("[VG COMPLETION] _complete_code called, code length: " + itos(p_code.length()) + ", owner: " + (p_owner ? p_owner->get_class() : "null"));
+    
     String clean_code = p_code.strip_edges(false, true);
+    
+    // DEBUG: Print last few chars
+    if (clean_code.length() > 0) {
+        int start = MAX(0, (int)clean_code.length() - 10);
+        print_line("[VG COMPLETION] Last 10 chars: '" + clean_code.substr(start) + "'");
+    }
     
     if (!clean_code.is_empty()) {
         char32_t last_char = clean_code[clean_code.length() - 1];
@@ -271,10 +289,14 @@ Dictionary VisualGasicLanguage::_complete_code(const String &p_code, const Strin
                         opt["display"] = String(cbm_completions[0]) + " (CBM: " + last_two.to_upper() + ")";
                         opt["insert_text"] = "\b\b" + String(cbm_completions[0]); // Delete 2 chars, insert expansion
                         opt["location"] = 0;
+                        opt["font_color"] = Color(1, 1, 1, 1);
+                        opt["icon"] = Variant();
+                        opt["default_value"] = Variant();
                         options.push_back(opt);
                         
                         result["options"] = options;
-                        result["forced"] = true;
+                        result["force"] = true;
+                        result["call_hint"] = "";
                         result["result"] = OK;
                         return result;
                     }
@@ -286,11 +308,15 @@ Dictionary VisualGasicLanguage::_complete_code(const String &p_code, const Strin
                         opt["display"] = String(cbm_completions[i]) + " (CBM: " + last_two.to_upper() + ")";
                         opt["insert_text"] = "\b\b" + String(cbm_completions[i]);
                         opt["location"] = 0;
+                        opt["font_color"] = Color(1, 1, 1, 1);
+                        opt["icon"] = Variant();
+                        opt["default_value"] = Variant();
                         options.push_back(opt);
                     }
                     
                     result["options"] = options;
-                    result["forced"] = true;
+                    result["force"] = true;
+                    result["call_hint"] = "";
                     result["result"] = OK;
                     return result;
                 }
@@ -310,10 +336,14 @@ Dictionary VisualGasicLanguage::_complete_code(const String &p_code, const Strin
                 opt["display"] = completion;
                 opt["insert_text"] = "\b" + completion; // \b to delete the {
                 opt["location"] = 0;
+                opt["font_color"] = Color(1, 1, 1, 1);
+                opt["icon"] = Variant();
+                opt["default_value"] = Variant();
                 options.push_back(opt);
                 
                 result["options"] = options;
-                result["forced"] = true;
+                result["force"] = true;
+                result["call_hint"] = "";
                 result["result"] = OK;
                 return result;
             }
@@ -330,10 +360,14 @@ Dictionary VisualGasicLanguage::_complete_code(const String &p_code, const Strin
                 opt["display"] = closing_keyword;
                 opt["insert_text"] = "\b" + closing_keyword;
                 opt["location"] = 0;
+                opt["font_color"] = Color(1, 1, 1, 1);
+                opt["icon"] = Variant();
+                opt["default_value"] = Variant();
                 options.push_back(opt);
                 
                 result["options"] = options;
-                result["forced"] = true;
+                result["force"] = true;
+                result["call_hint"] = "";
                 result["result"] = OK;
                 return result;
             }
@@ -353,10 +387,14 @@ Dictionary VisualGasicLanguage::_complete_code(const String &p_code, const Strin
                     opt["display"] = String(hint["signature"]);
                     opt["insert_text"] = "";  // Don't insert, just show hint
                     opt["location"] = 0;
+                    opt["font_color"] = Color(1, 1, 1, 1);
+                    opt["icon"] = Variant();
+                    opt["default_value"] = Variant();
                     options.push_back(opt);
                     
                     result["options"] = options;
-                    result["forced"] = true;
+                    result["force"] = true;
+                    result["call_hint"] = String(hint["signature"]);
                     result["result"] = OK;
                     return result;
                 }
@@ -366,11 +404,75 @@ Dictionary VisualGasicLanguage::_complete_code(const String &p_code, const Strin
     
     // 4. MEMBER ACCESS COMPLETION
     if (clean_code.ends_with(".")) {
-         options.push_back(create_completion_option("text", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Text Property"));
-         options.push_back(create_completion_option("visible", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Visible Property"));
-         options.push_back(create_completion_option("show", ScriptLanguageExtension::CODE_COMPLETION_KIND_FUNCTION, "Show()"));
+         print_line("[VG COMPLETION] Detected '.' - checking for Me.");
+         // Check if it's "Me." - if so, show form controls
+         String lower = clean_code.to_lower();
+         bool is_me_dot = false;
+         
+         // Check if it ends with "me." - but make sure "me" is a complete word/identifier
+         if (lower.ends_with("me.")) {
+              // Make sure it's not part of a longer identifier like "SomeVariable."
+              // Check if there's nothing before "me" or if what's before is not alphanumeric
+              int me_start = lower.length() - 3; // Position of 'm' in "me."
+              if (me_start == 0 || !is_identifier_char(lower[me_start - 1])) {
+                   is_me_dot = true;
+                   print_line("[VG COMPLETION] IS Me. completion!");
+              }
+         }
+         
+         if (is_me_dot) {
+              // Show form controls/children from owner node
+              print_line("[VG COMPLETION] p_owner: " + String(p_owner ? p_owner->get_class() : "null"));
+              if (p_owner) {
+                   Node *owner_node = Object::cast_to<Node>(p_owner);
+                   print_line("[VG COMPLETION] owner_node: " + String(owner_node ? "valid" : "null"));
+                   if (owner_node) {
+                        // Get all child nodes
+                        TypedArray<Node> children = owner_node->get_children();
+                        for (int i = 0; i < children.size(); i++) {
+                             Node *child = Object::cast_to<Node>(children[i]);
+                             if (child) {
+                                  String child_name = child->get_name();
+                                  String child_type = child->get_class();
+                                  
+                                  Dictionary opt;
+                                  opt["kind"] = ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER;
+                                  opt["display"] = child_name + " : " + child_type;
+                                  opt["insert_text"] = child_name;
+                                  opt["location"] = 0;
+                                  opt["font_color"] = Color(1, 1, 1, 1);
+                                  opt["icon"] = Variant();
+                                  opt["default_value"] = Variant();
+                                  options.push_back(opt);
+                             }
+                        }
+                   }
+              }
+              
+              // Also show common form properties/methods
+              options.push_back(create_completion_option("Text", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Form title"));
+              options.push_back(create_completion_option("size", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Form size"));
+              options.push_back(create_completion_option("position", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Form position"));
+              options.push_back(create_completion_option("Close", ScriptLanguageExtension::CODE_COMPLETION_KIND_FUNCTION, "Close()"));
+              options.push_back(create_completion_option("Show", ScriptLanguageExtension::CODE_COMPLETION_KIND_FUNCTION, "Show()"));
+              options.push_back(create_completion_option("Hide", ScriptLanguageExtension::CODE_COMPLETION_KIND_FUNCTION, "Hide()"));
+              options.push_back(create_completion_option("add_child", ScriptLanguageExtension::CODE_COMPLETION_KIND_FUNCTION, "add_child(node)"));
+              options.push_back(create_completion_option("find_child", ScriptLanguageExtension::CODE_COMPLETION_KIND_FUNCTION, "find_child(name)"));
+              options.push_back(create_completion_option("get_node", ScriptLanguageExtension::CODE_COMPLETION_KIND_FUNCTION, "get_node(path)"));
+         } else {
+              // Generic member access - show common properties
+              options.push_back(create_completion_option("text", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Text Property"));
+              options.push_back(create_completion_option("visible", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Visible Property"));
+              options.push_back(create_completion_option("position", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Position Property"));
+              options.push_back(create_completion_option("size", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Size Property"));
+              options.push_back(create_completion_option("name", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Name Property"));
+              options.push_back(create_completion_option("show", ScriptLanguageExtension::CODE_COMPLETION_KIND_FUNCTION, "show()"));
+              options.push_back(create_completion_option("hide", ScriptLanguageExtension::CODE_COMPLETION_KIND_FUNCTION, "hide()"));
+         }
+         
          result["options"] = options;
-         result["forced"] = false;
+         result["force"] = true;
+         result["call_hint"] = "";
          result["result"] = OK;
          return result;
     }
@@ -397,6 +499,9 @@ Dictionary VisualGasicLanguage::_complete_code(const String &p_code, const Strin
             opt["display"] = String(snippet["trigger"]) + " - " + String(snippet["description"]);
             opt["insert_text"] = String(snippet["insert_text"]);
             opt["location"] = 0;
+            opt["font_color"] = Color(1, 1, 1, 1);
+            opt["icon"] = Variant();
+            opt["default_value"] = Variant();
             options.push_back(opt);
         }
     }
@@ -414,6 +519,9 @@ Dictionary VisualGasicLanguage::_complete_code(const String &p_code, const Strin
             opt["display"] = trigger + " - " + String(snip["description"]);
             opt["insert_text"] = String(snip["insert_text"]);
             opt["location"] = 0;
+            opt["font_color"] = Color(1, 1, 1, 1);
+            opt["icon"] = Variant();
+            opt["default_value"] = Variant();
             options.push_back(opt);
         }
     }
@@ -474,11 +582,17 @@ Dictionary VisualGasicLanguage::_complete_code(const String &p_code, const Strin
              opt["insert_text"] = k;
              opt["completion_text"] = k;
              opt["location"] = 0; // LOCAL?
+             opt["font_color"] = Color(1, 1, 1, 1);
+             opt["icon"] = Variant();
+             opt["default_value"] = Variant();
              options.push_back(opt);
         }
     }
     
+    print_line("[VG COMPLETION] Returning " + itos(options.size()) + " options");
     result["options"] = options;
+    result["force"] = false;
+    result["call_hint"] = "";
     return result;
 }
 

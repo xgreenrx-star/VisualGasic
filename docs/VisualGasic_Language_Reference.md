@@ -4,6 +4,7 @@
 
 ### [Getting Started](#getting-started)
 - [Introduction](#introduction)  
+- [Visual Basic Heritage](#visual-basic-heritage)
 - [Installation](#installation)
 - [Editor Shortcuts](#editor-shortcuts)
 - [Your First VisualGasic Script](#your-first-script)
@@ -73,6 +74,151 @@ Whether you're creating desktop applications, mobile apps, web software, or inte
 - Built-in functions for game and application development
 - Type safety with optional explicit typing
 - Lambda expressions and pattern matching
+
+### Visual Basic Heritage {#visual-basic-heritage}
+
+VisualGasic is built on the foundation of **Visual Basic 6.0** (VB6), one of the most successful programming languages in history. If you have experience with VB6, VBA (Visual Basic for Applications), or any BASIC dialect, you'll feel right at home with VisualGasic.
+
+#### What is BASIC?
+
+BASIC (**B**eginner's **A**ll-purpose **S**ymbolic **I**nstruction **C**ode) was created in 1964 at Dartmouth College to make programming accessible to everyone. Visual Basic, introduced by Microsoft in 1991, added a graphical IDE and drag-and-drop form designer, revolutionizing Windows application development.
+
+#### VB6 Compatibility
+
+VisualGasic supports the complete VB6 syntax, including:
+
+**Variables and Data Types:**
+```vb
+' VB6-style variable declarations
+Dim playerName As String
+Dim score As Integer
+Dim isActive As Boolean
+Dim position As Single
+
+' Type suffixes (classic BASIC style)
+Dim count%          ' Integer
+Dim price#          ' Double
+Dim message$        ' String
+```
+
+**Control Structures:**
+```vb
+' If/Then/Else (VB6 style)
+If score > 100 Then
+    Print "High score!"
+ElseIf score > 50 Then
+    Print "Good job!"
+Else
+    Print "Keep trying!"
+End If
+
+' Select Case (VB6's switch statement)
+Select Case playerClass
+    Case "Warrior"
+        strength = 10
+    Case "Mage"
+        intelligence = 10
+    Case Else
+        charisma = 10
+End Select
+
+' For/Next loops
+For i = 1 To 10
+    Print i
+Next i
+
+' Do/Loop variations
+Do While health > 0
+    TakeDamage()
+Loop
+
+Do
+    ProcessInput()
+Loop Until gameOver
+```
+
+**Subroutines and Functions:**
+```vb
+' Subroutines (no return value)
+Sub UpdateScore(points As Integer)
+    score = score + points
+    UpdateDisplay()
+End Sub
+
+' Functions (return a value)
+Function CalculateDamage(baseAttack As Integer) As Integer
+    Dim damage As Integer
+    damage = baseAttack * Rnd() * 2
+    CalculateDamage = damage   ' VB6 style return
+End Function
+
+' Or use Return statement (modern style)
+Function GetPlayerName() As String
+    Return "Player One"
+End Function
+```
+
+**Built-in VB6 Functions:**
+```vb
+' String functions
+Dim s As String
+s = Left("Hello", 3)        ' Returns "Hel"
+s = Right("Hello", 2)       ' Returns "lo"
+s = Mid("Hello", 2, 3)      ' Returns "ell"
+s = UCase("hello")          ' Returns "HELLO"
+s = LCase("HELLO")          ' Returns "hello"
+s = Trim("  hi  ")          ' Returns "hi"
+x = Len("Hello")            ' Returns 5
+x = InStr("Hello", "l")     ' Returns 3
+
+' Math functions
+x = Abs(-5)                 ' Returns 5
+x = Sqr(16)                 ' Returns 4 (square root)
+x = Int(3.7)                ' Returns 3
+x = Rnd()                   ' Returns random 0-1
+x = Round(3.567, 2)         ' Returns 3.57
+
+' Conversion functions
+s = CStr(42)                ' Convert to string
+x = CInt("42")              ' Convert to integer
+x = CDbl("3.14")            ' Convert to double
+x = Val("123abc")           ' Returns 123
+
+' Date/Time functions
+Print Now                   ' Current date/time
+Print Timer                 ' Seconds since midnight
+Print Year(Now)             ' Current year
+Print Month(Now)            ' Current month
+Print Day(Now)              ' Current day
+```
+
+**Event-Driven Programming:**
+```vb
+' Classic VB6 event handlers
+Private Sub Form_Load()
+    ' Runs when form loads
+    InitializeGame()
+End Sub
+
+Private Sub Command1_Click()
+    ' Runs when button is clicked
+    StartGame()
+End Sub
+
+Private Sub Timer1_Timer()
+    ' Runs on timer interval
+    UpdateGame()
+End Sub
+```
+
+#### Importing VB6 Projects
+
+VisualGasic includes a built-in importer for legacy VB6 projects. Simply use the **Import VB6 Project...** button in the Toolbox to convert:
+- `.vbp` project files
+- `.frm` form files with controls
+- `.bas` module files
+
+Controls are automatically mapped to Godot equivalents, and event handlers are wired up to signals.
 
 **Cross-Platform Development:**
 VisualGasic applications run on all platforms supported by Godot:

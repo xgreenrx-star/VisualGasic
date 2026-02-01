@@ -3,8 +3,10 @@ extends Control
 
 ## Interactive Development Console
 ## Execute code expressions and statements in real-time during development
+## Supports connecting to running game instances for live debugging
 
 var _repl: Object = null
+var _vg_repl: RefCounted = null  # VisualGasicImmediate instance
 var _history: Array[String] = []
 var _history_index: int = -1
 var _output_text: RichTextLabel
@@ -20,10 +22,29 @@ var _current_inspected_object: Object = null
 var _auto_complete_popup: PopupMenu
 var _session_history: Array[String] = []
 
+# Live debugging - instance connection (local in-process)
+var _instance_dropdown: OptionButton
+var _refresh_instances_btn: Button
+var _connected_instance_ptr: int = 0
+var _instance_list: Array = []  # Cached instance list
+
+# Remote debugging via Godot's debugger protocol
+var _debugger_plugin: EditorDebuggerPlugin = null
+var _remote_instances: Array = []
+var _connected_remote_id: int = -1
+var _pending_eval_callback: Callable
+
 func _ready():
 	_setup_ui()
 	_initialize_repl()
 	_show_welcome()
+
+func set_debugger_plugin(plugin: EditorDebuggerPlugin) -> void:
+	_debugger_plugin = plugin
+	if _debugger_plugin:
+		_debugger_plugin.instances_updated.connect(_on_remote_instances_updated)
+		_debugger_plugin.variable_received.connect(_on_remote_variable_received)
+		_debugger_plugin.variables_list_received.connect(_on_remote_variables_received)
 
 func _setup_ui():
 	# Main horizontal split: Console (left) + Panels (right)
@@ -77,6 +98,27 @@ func _setup_ui():
 	var help_button = Button.new()
 	help_button.text = "Help"
 	help_button.pressed.connect(_show_help)
+	toolbar.add_child(help_button)
+	
+	# Instance connection section
+	var separator = VSeparator.new()
+	toolbar.add_child(separator)
+	
+	var instance_label = Label.new()
+	instance_label.text = "Connect to:"
+	toolbar.add_child(instance_label)
+	
+	_instance_dropdown = OptionButton.new()
+	_instance_dropdown.custom_minimum_size = Vector2(200, 0)
+	_instance_dropdown.add_item("(Not Connected)", 0)
+	_instance_dropdown.item_selected.connect(_on_instance_selected)
+	toolbar.add_child(_instance_dropdown)
+	
+	_refresh_instances_btn = Button.new()
+	_refresh_instances_btn.text = "🔄"
+	_refresh_instances_btn.tooltip_text = "Refresh running instances"
+	_refresh_instances_btn.pressed.connect(_refresh_running_instances)
+	toolbar.add_child(_refresh_instances_btn)
 	toolbar.add_child(help_button)
 	
 	# Output area
@@ -216,10 +258,12 @@ func _setup_ui():
 	inspector_panel.add_child(_inspector_tree)
 
 func _initialize_repl():
-	# Try to create REPL instance if available
-	if ClassDB.class_exists("VisualGasicREPL"):
-		# Would need C++ REPL exposed to GDScript
-		pass
+	# Try to create VisualGasicImmediate instance for BASIC code execution
+	if ClassDB.class_exists("VisualGasicImmediate"):
+		_vg_repl = ClassDB.instantiate("VisualGasicImmediate")
+		_append_output("[color=green]✓ VisualGasic REPL initialized[/color]\n")
+	else:
+		_append_output("[color=yellow]⚠ VisualGasicImmediate not available - using basic evaluator[/color]\n")
 	_append_output("[color=gray]Interactive console ready[/color]\n")
 
 func _show_welcome():
@@ -237,6 +281,14 @@ func _show_help():
 	_append_output("  :watch [expr] - Add watch expression\n")
 	_append_output("  :save [file] - Save session to file\n")
 	_append_output("  :load [file] - Load session from file\n")
+	_append_output("\n[b]Runtime Debugging:[/b]\n")
+	_append_output("  :instances  - List running VisualGasic instances\n")
+	_append_output("  :connect N  - Connect to instance N for live debugging\n")
+	_append_output("  :disconnect - Disconnect from running instance\n")
+	_append_output("\n[b]When connected to a running game:[/b]\n")
+	_append_output("  Print Ball_x    - Print variable from running game\n")
+	_append_output("  ? player_y      - Shortcut for Print\n")
+	_append_output("  Ball_x = 100    - Modify variable in running game\n")
 	_append_output("\n[b]Examples:[/b]\n")
 	_append_output("  Print 2 + 2\n")
 	_append_output("  Dim x As Integer = 42\n")
@@ -322,6 +374,12 @@ func _process_command(cmd: String):
 			_show_history()
 		"reset":
 			_reset_console()
+		"instances":
+			_show_running_instances()
+		"connect":
+			_connect_to_instance_by_index(arg)
+		"disconnect":
+			_disconnect_from_instance()
 		"watch":
 			if arg.is_empty():
 				_append_output("[color=red]Usage: :watch [expression][/color]\n")
@@ -365,6 +423,9 @@ func _reset_console():
 	_variables.clear()
 	_watch_expressions.clear()
 	_current_inspected_object = null
+	# Reset VG REPL if available
+	if _vg_repl != null:
+		_vg_repl.reset()
 	_show_welcome()
 	_refresh_variables()
 	_update_watch_expressions()
@@ -372,6 +433,47 @@ func _reset_console():
 	_append_output("[color=green]Console reset complete[/color]\n\n")
 
 func _evaluate_expression(expr: String) -> String:
+	# Check for remote instance connection first
+	if _is_connected_to_remote():
+		return _evaluate_remote(expr)
+	
+	# Use VisualGasicImmediate if available for true BASIC execution
+	if _vg_repl != null:
+		# If connected to a running instance, use evaluate_in_context for runtime access
+		var result: Dictionary
+		if _is_connected_to_instance():
+			result = _vg_repl.evaluate_in_context(expr)
+			if result.get("from_runtime", false):
+				return "[color=lime]" + str(result.get("result", "")) + "[/color] [color=gray](runtime)[/color]"
+			if result.get("modified_runtime", false):
+				return "[color=lime]" + str(result.get("result", "")) + "[/color] [color=gray](runtime modified)[/color]"
+		else:
+			# Not connected - check if this is a Print command referencing a game variable
+			var upper = expr.strip_edges().to_upper()
+			if upper.begins_with("PRINT ") or expr.strip_edges().begins_with("? "):
+				var var_name = ""
+				if expr.strip_edges().begins_with("? "):
+					var_name = expr.strip_edges().substr(2).strip_edges()
+				else:
+					var_name = expr.strip_edges().substr(6).strip_edges()
+				# Check if it's a simple variable name (likely a game variable)
+				if var_name.is_valid_identifier():
+					return "[color=yellow]'" + var_name + "' not found in session.[/color]\n[color=gray]Tip: Connect to a running game instance to access game variables.[/color]"
+			result = _vg_repl.evaluate(expr)
+		
+		if result.get("continue", false):
+			return "[color=gray]...[/color]"
+		if result.get("success", false):
+			var res_text = result.get("result", "")
+			if res_text == "OK":
+				return "[color=green]✓[/color]"
+			if res_text == "" or res_text == "null":
+				return "[color=gray](empty)[/color]"
+			return "[color=cyan]" + str(res_text) + "[/color]"
+		else:
+			return "[color=red]" + result.get("result", "Error") + "[/color]"
+	
+	# Fallback to basic GDScript-based evaluation
 	# Handle Print statements
 	if expr.strip_edges().begins_with("Print "):
 		var value = expr.substr(6).strip_edges()
@@ -761,3 +863,245 @@ func _load_session_from_file(path: String):
 			_append_output("[color=green]Session loaded from: " + path + "[/color]\n")
 	else:
 		_append_output("[color=red]Failed to load session[/color]\n")
+
+
+# === RUNTIME DEBUGGING - INSTANCE CONNECTION ===
+
+func _refresh_running_instances():
+	"""Refresh the list of running VisualGasic instances"""
+	_instance_dropdown.clear()
+	_instance_dropdown.add_item("(Not Connected)", 0)
+	_instance_list.clear()
+	_remote_instances.clear()
+	
+	# First, try remote debugging via debugger plugin
+	if _debugger_plugin and _debugger_plugin.is_session_active():
+		_debugger_plugin.request_instances()
+		_append_output("[color=cyan]Querying remote game process...[/color]\n")
+		return  # Results will come via callback
+	
+	# Fallback to in-process instances (for @tool scripts)
+	if _vg_repl != null:
+		_instance_list = _vg_repl.get_running_instances()
+		
+		for i in range(_instance_list.size()):
+			var info: Dictionary = _instance_list[i]
+			var label = _format_instance_label(info, i)
+			_instance_dropdown.add_item(label, i + 1)
+			
+			if info.get("instance_ptr", 0) == _connected_instance_ptr:
+				_instance_dropdown.select(i + 1)
+	
+	if _instance_list.is_empty():
+		_append_output("[color=yellow]No running VisualGasic instances found.[/color]\n")
+		if _debugger_plugin == null or not _debugger_plugin.is_session_active():
+			_append_output("[color=gray]Tip: Start the game with F5 or F6, then click refresh.[/color]\n")
+	else:
+		_append_output("[color=cyan]Found %d in-process instance(s)[/color]\n" % _instance_list.size())
+
+func _format_instance_label(info: Dictionary, index: int) -> String:
+	var label = ""
+	if info.has("node_name"):
+		label = str(info["node_name"])
+	elif info.has("script_path"):
+		label = info["script_path"].get_file()
+	else:
+		label = "Instance %d" % index
+	
+	if info.has("script_path"):
+		label += " (" + info["script_path"].get_file() + ")"
+	return label
+
+func _on_remote_instances_updated(instances: Array) -> void:
+	"""Called when debugger receives instance list from running game"""
+	_remote_instances = instances
+	_instance_dropdown.clear()
+	_instance_dropdown.add_item("(Not Connected)", 0)
+	
+	for i in range(instances.size()):
+		var info = instances[i]
+		var label = _format_instance_label(info, i)
+		_instance_dropdown.add_item("[Remote] " + label, i + 1)
+		
+		if info.get("id", -1) == _connected_remote_id:
+			_instance_dropdown.select(i + 1)
+	
+	if instances.is_empty():
+		_append_output("[color=yellow]No VisualGasic instances in running game.[/color]\n")
+	else:
+		_append_output("[color=lime]Found %d remote instance(s) in game![/color]\n" % instances.size())
+
+func _on_remote_variable_received(var_name: String, value: Variant) -> void:
+	"""Called when debugger receives a variable value"""
+	if value == null:
+		_append_output("[color=yellow]'" + var_name + "' = null[/color]\n")
+	else:
+		_append_output("[color=lime]" + var_name + " = " + str(value) + "[/color] [color=gray](remote)[/color]\n")
+
+func _on_remote_variables_received(variables: Dictionary) -> void:
+	"""Called when debugger receives all variables from an instance"""
+	if variables.is_empty():
+		_append_output("[color=gray]No variables found in instance[/color]\n")
+	else:
+		_append_output("[b]Remote Instance Variables:[/b]\n")
+		for key in variables.keys():
+			_append_output("  [color=lime]%s[/color] = %s\n" % [key, str(variables[key])])
+
+func _on_instance_selected(index: int):
+	"""Handle instance dropdown selection"""
+	if index == 0:
+		_disconnect_from_instance()
+	else:
+		var list_index = index - 1
+		
+		# Check if we have remote instances first
+		if not _remote_instances.is_empty() and list_index < _remote_instances.size():
+			var info = _remote_instances[list_index]
+			var remote_id = info.get("id", -1)
+			if remote_id >= 0:
+				_connect_to_remote_instance(remote_id)
+				return
+		
+		# Fallback to local instances
+		if list_index >= 0 and list_index < _instance_list.size():
+			var info = _instance_list[list_index]
+			var ptr = info.get("instance_ptr", 0)
+			if ptr != 0:
+				_connect_to_instance(ptr)
+
+func _connect_to_instance(instance_ptr: int):
+	"""Connect to a specific in-process instance by pointer"""
+	if _vg_repl == null:
+		return
+	
+	if _vg_repl.connect_to_instance(instance_ptr):
+		_connected_instance_ptr = instance_ptr
+		_connected_remote_id = -1
+		_append_output("[color=green]✓ Connected to local instance[/color]\n")
+		_show_connected_variables()
+	else:
+		_append_output("[color=red]Failed to connect to instance[/color]\n")
+
+func _connect_to_remote_instance(instance_id: int):
+	"""Connect to a remote game instance via debugger"""
+	_connected_remote_id = instance_id
+	_connected_instance_ptr = 0
+	_append_output("[color=lime]✓ Connected to remote instance #%d[/color]\n" % instance_id)
+	
+	# Request variables from the remote instance
+	if _debugger_plugin:
+		_debugger_plugin.request_all_variables(instance_id)
+
+func _disconnect_from_instance():
+	"""Disconnect from the current instance"""
+	if _vg_repl != null:
+		_vg_repl.disconnect_instance()
+	_connected_instance_ptr = 0
+	_connected_remote_id = -1
+	_instance_dropdown.select(0)
+	_append_output("[color=gray]Disconnected from instance[/color]\n")
+
+func _is_connected_to_remote() -> bool:
+	return _connected_remote_id >= 0
+
+func _show_running_instances():
+	"""Show list of running instances (for :instances command)"""
+	_refresh_running_instances()
+	
+	if _instance_list.is_empty():
+		return
+	
+	_append_output("\n[b]Running VisualGasic Instances:[/b]\n")
+	for i in range(_instance_list.size()):
+		var info = _instance_list[i]
+		var label = "  %d: " % i
+		if info.has("node_name"):
+			label += str(info["node_name"])
+		if info.has("script_path"):
+			label += " [" + info["script_path"].get_file() + "]"
+		if info.has("node_path"):
+			label += " @ " + str(info["node_path"])
+		_append_output(label + "\n")
+	_append_output("[color=gray]Use ':connect N' to connect to instance N[/color]\n\n")
+
+func _connect_to_instance_by_index(arg: String):
+	"""Connect to instance by index (for :connect N command)"""
+	if arg.is_empty():
+		_append_output("[color=red]Usage: :connect N (where N is instance index)[/color]\n")
+		return
+	
+	var index = arg.to_int()
+	
+	# Refresh instance list if empty
+	if _instance_list.is_empty():
+		_refresh_running_instances()
+	
+	if index < 0 or index >= _instance_list.size():
+		_append_output("[color=red]Invalid instance index. Use :instances to see available.[/color]\n")
+		return
+	
+	var info = _instance_list[index]
+	var ptr = info.get("instance_ptr", 0)
+	if ptr != 0:
+		_connect_to_instance(ptr)
+		_instance_dropdown.select(index + 1)
+
+func _show_connected_variables():
+	"""Show variables from the connected instance"""
+	if _vg_repl == null or not _vg_repl.is_instance_connected():
+		return
+	
+	var vars = _vg_repl.get_connected_instance_variables()
+	if vars.is_empty():
+		_append_output("[color=gray]No accessible variables found[/color]\n")
+	else:
+		_append_output("[b]Instance Variables:[/b]\n")
+		for key in vars.keys():
+			var val = vars[key]
+			_append_output("  %s = %s\n" % [key, str(val)])
+		_append_output("\n")
+
+func _is_connected_to_instance() -> bool:
+	"""Check if currently connected to a running instance"""
+	return _vg_repl != null and _vg_repl.is_instance_connected()
+
+func _evaluate_remote(expr: String) -> String:
+	"""Evaluate an expression on the remote game instance"""
+	if not _debugger_plugin or _connected_remote_id < 0:
+		return "[color=red]Not connected to remote instance[/color]"
+	
+	var upper = expr.strip_edges().to_upper()
+	
+	# Handle Print/? queries
+	if upper.begins_with("PRINT ") or expr.strip_edges().begins_with("? "):
+		var var_name = ""
+		if expr.strip_edges().begins_with("? "):
+			var_name = expr.strip_edges().substr(2).strip_edges()
+		else:
+			var_name = expr.strip_edges().substr(6).strip_edges()
+		
+		# Request variable from remote - result comes async
+		_debugger_plugin.request_variable(_connected_remote_id, var_name)
+		return "[color=gray]Requesting " + var_name + "...[/color]"
+	
+	# Handle assignment
+	if "=" in expr and not "==" in expr:
+		var parts = expr.split("=", true, 1)
+		var var_name = parts[0].strip_edges()
+		var value_str = parts[1].strip_edges() if parts.size() > 1 else ""
+		
+		# Parse simple values
+		var value: Variant
+		if value_str.is_valid_int():
+			value = value_str.to_int()
+		elif value_str.is_valid_float():
+			value = value_str.to_float()
+		else:
+			value = value_str
+		
+		_debugger_plugin.set_variable(_connected_remote_id, var_name, value)
+		return "[color=lime]Set " + var_name + " = " + str(value) + "[/color] [color=gray](remote)[/color]"
+	
+	# Generic evaluation
+	_debugger_plugin.request_variable(_connected_remote_id, expr.strip_edges())
+	return "[color=gray]Evaluating...[/color]"

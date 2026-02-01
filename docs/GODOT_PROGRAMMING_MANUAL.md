@@ -72,6 +72,81 @@ VisualGasic brings its modern Gasic syntax and programming model to Godot, allow
 - Maintain readability and simplicity
 - Access all Godot features through Gasic-style code
 
+### Visual Basic 6.0 Foundation
+
+VisualGasic is built on the foundation of **Visual Basic 6.0**, one of the most popular programming languages ever created. If you've used VB6, VBA, or any BASIC dialect, you'll feel right at home.
+
+**Why Visual Basic Syntax?**
+
+BASIC was designed in 1964 to be "beginner-friendly" - using English-like keywords that are easy to read and write. Visual Basic (1991) added the visual form designer and event-driven programming model that revolutionized Windows development.
+
+VisualGasic preserves this philosophy:
+- **Readable code**: `If score > 100 Then` instead of `if (score > 100) {`
+- **Meaningful keywords**: `Sub`, `Function`, `End If`, `Loop`, `Next`
+- **Natural syntax**: `For i = 1 To 10` instead of `for (i = 1; i <= 10; i++)`
+
+**Complete VB6 Compatibility:**
+
+```vb
+' Classic VB6 syntax works perfectly in VisualGasic
+Dim playerName As String
+Dim health As Integer
+Dim isAlive As Boolean
+
+' Control structures
+If health <= 0 Then
+    isAlive = False
+    Print "Game Over!"
+End If
+
+' Loops
+For i = 1 To 10
+    Print "Count: " & i
+Next i
+
+Do While isAlive
+    ProcessGameLoop()
+Loop
+
+' Subroutines and Functions
+Sub TakeDamage(amount As Integer)
+    health = health - amount
+    If health < 0 Then health = 0
+End Sub
+
+Function GetScore() As Integer
+    GetScore = baseScore * multiplier
+End Function
+
+' Built-in VB6 functions
+text = UCase("hello")      ' "HELLO"
+text = Left("Hello", 3)    ' "Hel"
+x = Abs(-42)               ' 42
+x = Sqr(16)                ' 4
+x = Int(3.7)               ' 3
+text = CStr(42)            ' "42"
+```
+
+**Importing Existing VB6 Projects:**
+
+VisualGasic can import your legacy VB6 projects directly:
+- `.vbp` project files → Godot project
+- `.frm` form files → Godot scenes with Control nodes
+- `.bas` modules → VisualGasic scripts
+
+Use **Import VB6 Project...** in the Toolbox to convert existing applications.
+
+### The VisualGasic Development Environment
+
+VisualGasic includes a complete RAD (Rapid Application Development) environment:
+
+- **Integrated Script Editor** with syntax highlighting and IntelliSense
+- **Visual Form Designer** for creating user interfaces
+- **Immediate Window** for testing and debugging
+- **Toolbox** with common controls (Button, Label, TextBox, etc.)
+- **Property Inspector** for editing node properties
+- **Project Explorer** for managing files and resources
+
 ## Performance Best Practices {#performance}
 
 VisualGasic focuses on high performance in hot paths while preserving Gasic-style readability. Below is a benchmark snapshot (Godot 4.5.1 headless). See the full report and methodology in [docs/manual/performance.md](docs/manual/performance.md).

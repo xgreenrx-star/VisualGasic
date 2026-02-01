@@ -4,6 +4,7 @@ extends EditorPlugin
 var toolbox
 var import_plugin
 var immediate_window
+var debugger_plugin: EditorDebuggerPlugin
 
 func _enter_tree():
 	# Store self for static retrieval
@@ -13,10 +14,23 @@ func _enter_tree():
 	import_plugin = preload("res://addons/visual_gasic/frm_import_plugin.gd").new()
 	add_import_plugin(import_plugin)
 	
+	# Debugger Plugin for remote debugging
+	var debugger_script = load("res://addons/visual_gasic/vg_debugger_plugin.gd")
+	if debugger_script:
+		debugger_plugin = debugger_script.new()
+		add_debugger_plugin(debugger_plugin)
+	
+	# Add autoload for game-side debug handler
+	if not ProjectSettings.has_setting("autoload/VGDebugHandler"):
+		add_autoload_singleton("VGDebugHandler", "res://addons/visual_gasic/vg_debug_handler.gd")
+	
 	# Immediate Window - Load dynamically to avoid preload issues
 	var immediate_window_script = load("res://addons/visual_gasic/immediate_window.gd")
 	if immediate_window_script:
 		immediate_window = immediate_window_script.new()
+		# Pass the debugger plugin reference
+		if immediate_window.has_method("set_debugger_plugin"):
+			immediate_window.set_debugger_plugin(debugger_plugin)
 		add_control_to_bottom_panel(immediate_window, "Immediate")
 	else:
 		print("Warning: Could not load immediate_window.gd")
@@ -86,6 +100,10 @@ func _exit_tree():
 	
 	remove_import_plugin(import_plugin)
 	import_plugin = null
+	
+	if debugger_plugin:
+		remove_debugger_plugin(debugger_plugin)
+		debugger_plugin = null
 	
 	remove_tool_menu_item("Import VB6 Form...")
 	remove_tool_menu_item("Import VB6 Project...")
@@ -168,30 +186,17 @@ func _do_import_frm(path):
 	get_editor_interface().open_scene_from_path(save_path)
 
 func _on_new_form():
-	var root = Panel.new()
-	root.name = "Form1"
-	root.custom_minimum_size = Vector2(400, 300)
+	var dlg = load("res://addons/visual_gasic/new_form_dialog.gd").new()
+	get_editor_interface().get_base_control().add_child(dlg)
+	dlg.popup_centered()
 	
-	var packed = PackedScene.new()
-	packed.pack(root)
-	var path = "res://Form1.tscn"
-	var idx = 1
-	while FileAccess.file_exists(path):
-		idx += 1
-		path = "res://Form" + str(idx) + ".tscn"
-		root.name = "Form" + str(idx)
-		
-	ResourceSaver.save(packed, path)
+	# Wait for user to select template
+	var result = await dlg.confirmed
+	var template = dlg.get_selected_template()
+	dlg.queue_free()
 	
-	# Create bas
-	var bas_path = path.replace(".tscn", ".vg")
-	var f = FileAccess.open(bas_path, FileAccess.WRITE)
-	f.store_string("' Code for " + root.name + "\n")
-	f.close()
-	
-	get_editor_interface().open_scene_from_path(path)
-	# Attach script
-	call_deferred("_attach_script_deferred", path, bas_path)
+	# Create the form based on selected template
+	_create_form_from_template(template)
 
 func _attach_script_deferred(scene_path, script_path):
 	var root = get_editor_interface().get_edited_scene_root()
@@ -199,10 +204,244 @@ func _attach_script_deferred(scene_path, script_path):
 		pass # Logic to attach script handled by inspector or manual attach for now. 
 		# We need a proper resource loader for bas to set it effectively.
 
+func _create_form_from_template(template: Dictionary):
+	# Generate unique filename first
+	var path = "res://Form1.tscn"
+	var form_name = "Form1"
+	var idx = 1
+	while FileAccess.file_exists(path):
+		idx += 1
+		form_name = "Form" + str(idx)
+		path = "res://" + form_name + ".tscn"
+	
+	# Create the .vg script file FIRST
+	var vg_path = path.replace(".tscn", ".vg")
+	_create_vg_form_code(vg_path, form_name, template)
+	
+	# Force reimport so the script is available
+	get_editor_interface().get_resource_filesystem().scan()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	
+	# Now create the Window node with the VG script attached
+	var root = Window.new()
+	root.name = form_name
+	root.title = form_name
+	root.position = Vector2i(10,36)  # Align with canvas origin in editor
+	root.size = template.get("size", Vector2(800, 600))
+	
+	# Add a background panel for visual boundaries and editor resize support
+	var bg_panel = Panel.new()
+	bg_panel.name = "_FormBackground"
+	# Don't use PRESET_FULL_RECT - let the panel have its own size for editor resize
+	bg_panel.size = root.size
+	bg_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Attach the form editor helper script for drag-resize support
+	var helper_script = load("res://addons/visual_gasic/form_editor_helper.gd")
+	if helper_script:
+		bg_panel.set_script(helper_script)
+	root.add_child(bg_panel)
+	bg_panel.owner = root
+	
+	# Load and attach the .vg script
+	var vg_script = load(vg_path)
+	if vg_script:
+		root.set_script(vg_script)
+		print("VisualGasic: Attached VG script to form: ", vg_path)
+	else:
+		# Fallback to GDScript base if VG script couldn't load
+		var vg_form_base = load("res://addons/visual_gasic/VGFormBase.gd")
+		root.set_script(vg_form_base)
+		print("VisualGasic: Warning - VG script not found, using VGFormBase.gd")
+	
+	# The form will handle its own lifecycle and window management
+	# User can override Form_Load(), Form_Shown(), etc. in their .vg file
+	
+	# Add standard controls if specified in template
+	if template.get("has_menu", false):
+		var menu_bar = MenuBar.new()
+		menu_bar.name = "MenuBar"
+		menu_bar.anchor_left = 0.0
+		menu_bar.anchor_top = 0.0
+		menu_bar.anchor_right = 1.0
+		menu_bar.anchor_bottom = 0.0
+		menu_bar.offset_bottom = 30
+		
+		root.add_child(menu_bar)
+		menu_bar.owner = root
+		
+		# Add default menus
+		var file_menu = PopupMenu.new()
+		file_menu.name = "mnuFile"
+		file_menu.add_item("New", 0)
+		file_menu.add_item("Open", 1)
+		file_menu.add_item("Save", 2)
+		file_menu.add_separator()
+		file_menu.add_item("Exit", 3)
+		menu_bar.add_child(file_menu)
+		file_menu.owner = root
+		menu_bar.set_menu_title(0, "File")
+		
+		var help_menu = PopupMenu.new()
+		help_menu.name = "mnuHelp"
+		help_menu.add_item("About", 0)
+		menu_bar.add_child(help_menu)
+		help_menu.owner = root
+		menu_bar.set_menu_title(1, "Help")
+	
+	# Add controls from template
+	for control_data in template.get("controls", []):
+		var control = null
+		var ctrl_type = control_data.get("type", "Button")
+		
+		match ctrl_type:
+			"Button":
+				control = Button.new()
+			"Label":
+				control = Label.new()
+			"TextEdit", "LineEdit":
+				control = LineEdit.new()
+		
+		if control:
+			control.name = control_data.get("name", "Control")
+			if control.has_method("set_text"):
+				control.text = control_data.get("text", "")
+			control.position = control_data.get("position", Vector2.ZERO)
+			control.size = control_data.get("size", Vector2(100, 30))
+			root.add_child(control)
+			control.owner = root
+	
+	# form_name already set at the top of the function
+	root.name = form_name
+	
+	# Save scene (VG script is already attached from above)
+	var packed = PackedScene.new()
+	packed.pack(root)
+	ResourceSaver.save(packed, path)
+	print("VisualGasic: Created form at ", path)
+	
+	# Open the scene
+	get_editor_interface().open_scene_from_path(path)
+
+func _create_vg_form_code(path: String, form_name: String, template: Dictionary):
+	var f = FileAccess.open(path, FileAccess.WRITE)
+	var code = """' """ + form_name + """.vg - WinForms-style Form
+' Extends VGFormBase which provides proper Form lifecycle
+Option Explicit
+
+' Form-level variables
+Dim btnOK As Button
+Dim btnCancel As Button
+Dim lblTitle As Label
+
+' InitializeComponent - Called by designer (like WinForms)
+Sub InitializeComponent()
+    ' Set form properties
+    Me.Text = \"""" + form_name + """\"
+    Me.FormBorderStyle = FormBorderStyleEnum.Sizable
+    Me.StartPosition = FormStartPositionEnum.CenterScreen
+    Me.size = Vector2(400, 300)
+    
+    ' Create a title label
+    Set lblTitle = Label.new()
+    lblTitle.name = "lblTitle"
+    lblTitle.text = "Welcome to " + \"""" + form_name + """\"
+    lblTitle.position = Vector2(100, 50)
+    lblTitle.size = Vector2(200, 30)
+    Me.add_child(lblTitle)
+    
+    ' Create OK button
+    Set btnOK = Button.new()
+    btnOK.name = "btnOK"
+    btnOK.text = "OK"
+    btnOK.position = Vector2(200, 220)
+    btnOK.size = Vector2(80, 30)
+    Me.add_child(btnOK)
+    ' Note: Events are auto-wired! VGFormBase will automatically connect
+    ' btnOK.pressed to btnOK_Click() if that method exists
+    
+    ' Create Cancel button
+    Set btnCancel = Button.new()
+    btnCancel.name = "btnCancel"
+    btnCancel.text = "Cancel"
+    btnCancel.position = Vector2(290, 220)
+    btnCancel.size = Vector2(80, 30)
+    Me.add_child(btnCancel)
+    ' Events are auto-wired! No need to call .connect()
+End Sub
+
+' Form_Load - Called before form is displayed (like WinForms Load event)
+Sub Form_Load()
+    Print "Form loading..."
+    InitializeComponent()
+    ' Initialize your data, load settings, etc.
+End Sub
+
+' Form_Shown - Called after form becomes visible
+Sub Form_Shown()
+    Print "Form is now visible"
+End Sub
+
+' Form_Closing - Called when form is about to close (can cancel)
+Sub Form_Closing(evt)
+    ' evt.Cancel = True  ' Uncomment to prevent closing
+    Print "Form closing"
+End Sub
+
+' Form_Closed - Called after form is closed
+Sub Form_Closed()
+    Print "Form closed"
+End Sub
+
+' Form_Resize - Called when form is resized
+Sub Form_Resize()
+    ' Reposition controls if needed
+End Sub
+
+' ====== Event Handlers ======
+' These are automatically wired by VGFormBase based on naming pattern:
+' ControlName_EventType (e.g. btnOK_Click, txtName_Change)
+
+Sub btnOK_Click()
+    Print "OK button clicked!"
+    ' Close the form with OK result
+    Me.DialogResult = DialogResultEnum.OK
+    Me.Close()
+End Sub
+
+Sub btnCancel_Click()
+    Print "Cancel button clicked!"
+    ' Close the form with Cancel result
+    Me.DialogResult = DialogResultEnum.Cancel
+    Me.Close()
+End Sub
+"""
+	f.store_string(code)
+	f.close()
+
+
 func _on_menu_editor():
+	var selected = get_editor_interface().get_selection().get_selected_nodes()
+	if selected.is_empty():
+		push_error("Please select a MenuBar node first")
+		return
+	
+	var menu_bar = selected[0]
+	if not menu_bar is MenuBar:
+		push_error("Selected node must be a MenuBar")
+		return
+	
 	var dlg = load("res://addons/visual_gasic/menu_editor.gd").new()
+	dlg.set_menu_bar(menu_bar)
+	dlg.menu_applied.connect(_on_menu_applied.bind(menu_bar))
 	get_editor_interface().get_base_control().add_child(dlg)
 	dlg.popup_centered()
+
+func _on_menu_applied(menu_bar: MenuBar):
+	# Force editor to update
+	get_editor_interface().get_selection().clear()
+	get_editor_interface().get_selection().add_node(menu_bar)
+	get_editor_interface().edit_node(menu_bar)
 
 func _on_proj_props():
 	var dlg = load("res://addons/visual_gasic/project_properties.gd").new()

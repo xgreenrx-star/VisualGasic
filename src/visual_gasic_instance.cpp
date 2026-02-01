@@ -87,12 +87,61 @@
 #include "visual_gasic_comm.h"
 #include <limits>
 #include <utility>
+#include <mutex>
+#include <set>
 
 // JIT compilation support
 #ifdef __linux__
 #include <sys/mman.h>
 #include <unistd.h>
 #endif
+
+// === IMMEDIATE WINDOW SUPPORT ===
+// Global registry of active VisualGasic instances for debugging/immediate window
+// Must be outside anonymous namespace for external linkage
+static std::mutex vg_debug_instance_registry_mutex;
+static std::set<VisualGasicInstance*> vg_debug_active_instances;
+
+namespace VisualGasicDebug {
+
+void register_instance(VisualGasicInstance* instance) {
+    std::lock_guard<std::mutex> lock(vg_debug_instance_registry_mutex);
+    vg_debug_active_instances.insert(instance);
+}
+
+void unregister_instance(VisualGasicInstance* instance) {
+    std::lock_guard<std::mutex> lock(vg_debug_instance_registry_mutex);
+    vg_debug_active_instances.erase(instance);
+}
+
+Array get_all_instances() {
+    std::lock_guard<std::mutex> lock(vg_debug_instance_registry_mutex);
+    Array result;
+    for (auto* inst : vg_debug_active_instances) {
+        if (inst && inst->get_owner()) {
+            Dictionary info;
+            info["instance_ptr"] = (int64_t)inst;
+            Object* owner = inst->get_owner();
+            if (owner) {
+                info["owner_id"] = owner->get_instance_id();
+                Node* node = Object::cast_to<Node>(owner);
+                if (node) {
+                    info["node_name"] = node->get_name();
+                    info["node_path"] = node->get_path();
+                }
+            }
+            Ref<Script> scr = inst->get_script();
+            if (scr.is_valid()) {
+                info["script_path"] = scr->get_path();
+            }
+            result.push_back(info);
+        }
+    }
+    return result;
+}
+
+} // namespace VisualGasicDebug
+// === END IMMEDIATE WINDOW SUPPORT ===
 
 namespace {
 
@@ -667,6 +716,24 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
     jump_target = -1;
     data_pointer = 0;
     
+    // Register with debug system for Immediate Window access (in-process)
+    VisualGasicDebug::register_instance(this);
+    
+    // Register with remote debug handler autoload (if available)
+    if (owner) {
+        Node* owner_node = Object::cast_to<Node>(owner);
+        if (owner_node) {
+            SceneTree* tree = owner_node->get_tree();
+            if (tree && tree->get_root()) {
+                Node* debug_handler = tree->get_root()->get_node_or_null(NodePath("/root/VGDebugHandler"));
+                if (debug_handler && debug_handler->has_method("register_instance")) {
+                    String script_path = script.is_valid() ? script->get_path() : "";
+                    debug_handler->call("register_instance", owner, script_path);
+                }
+            }
+        }
+    }
+    
     option_compare_text = false;
     if (script.is_valid() && script->ast_root) {
         option_compare_text = script->ast_root->option_compare_text;
@@ -766,8 +833,9 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
         }
     }
 
-    // Auto-Enable Processing
-    if (owner && script.is_valid()) {
+    // Auto-Enable Processing (but NOT in editor mode!)
+    bool in_editor = Engine::get_singleton()->is_editor_hint();
+    if (owner && script.is_valid() && !in_editor) {
         Node* node = Object::cast_to<Node>(owner);
         if (node) {
             // UtilityFunctions::print("Checking process for node: ", node->get_name());
@@ -937,6 +1005,9 @@ void VisualGasicInstance::collect_data_from_block(const Vector<Statement*>& bloc
 }
 
 VisualGasicInstance::~VisualGasicInstance() {
+    // Unregister from debug system
+    VisualGasicDebug::unregister_instance(this);
+    
     for(int i=0; i<runtime_data_nodes.size(); i++) {
         if (runtime_data_nodes[i]) delete runtime_data_nodes[i];
     }
@@ -5126,6 +5197,18 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
     r_found = false;
     if (!script.is_valid() || !script->ast_root) return Variant();
 
+    // Block runtime methods in editor mode
+    if (Engine::get_singleton()->is_editor_hint()) {
+        String method_lower = p_method.to_lower();
+        if (method_lower == "_ready" || method_lower == "_process" || 
+            method_lower == "_physics_process" || method_lower == "_input" ||
+            method_lower == "_unhandled_input" || method_lower == "_enter_tree" ||
+            method_lower == "_exit_tree") {
+            r_found = true; // Pretend we handled it to prevent errors
+            return Variant();
+        }
+    }
+
     SubDefinition *func = nullptr;
     for(int i=0; i<script->ast_root->subs.size(); i++) {
         if (script->ast_root->subs[i]->name.nocasecmp_to(p_method) == 0) {
@@ -5268,6 +5351,13 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
 }
 
 void VisualGasicInstance::call(const StringName &p_method, const Variant *const *p_args, GDExtensionInt p_argcount, Variant *r_return, GDExtensionCallError *r_error) {
+    // Block all script execution in editor mode
+    if (Engine::get_singleton()->is_editor_hint()) {
+        if (r_return) *r_return = Variant();
+        r_error->error = GDEXTENSION_CALL_OK;
+        return;
+    }
+    
     // Adapter
     Array args;
     for(int i=0; i<p_argcount; i++) args.push_back(*p_args[i]);
@@ -5438,6 +5528,11 @@ static void _connect_vb_signals_recursive(Node* node, VisualGasicInstance* insta
 
 void VisualGasicInstance::notification(int32_t p_what) {
     if (p_what == Node::NOTIFICATION_READY) {
+         // Skip all script execution in editor mode
+         if (Engine::get_singleton()->is_editor_hint()) {
+             return;
+         }
+         
          // Lazy Init Processing if needed (e.g. if ast was null in constructor)
          if (owner && script.is_valid()) {
              Node* node = Object::cast_to<Node>(owner);
@@ -5451,18 +5546,23 @@ void VisualGasicInstance::notification(int32_t p_what) {
              }
          }
 
-         if (script.is_valid() && script->has_method("_Ready")) {
+         // Call _Ready but NOT in editor mode (prevents game logic from running in editor)
+         if (script.is_valid() && script->has_method("_Ready") && !Engine::get_singleton()->is_editor_hint()) {
              bool found;
              call_internal("_Ready", Array(), found);
          }
          
          // Run Auto-Wire again for nodes created in _Ready (Dynamic Controls)
-         if (owner) {
+         if (owner && !Engine::get_singleton()->is_editor_hint()) {
              Node* node = Object::cast_to<Node>(owner);
              if (node) _connect_vb_signals_recursive(node, this, node);
          }
     }
     else if (p_what == Node::NOTIFICATION_PROCESS) {
+         // Skip _Process in editor mode
+         if (Engine::get_singleton()->is_editor_hint()) {
+             return;
+         }
          if (script.is_valid() && script->has_method("_Process")) {
              double delta = 0.0;
              if (owner) {
@@ -5478,6 +5578,10 @@ void VisualGasicInstance::notification(int32_t p_what) {
          }
     }
     else if (p_what == Node::NOTIFICATION_PHYSICS_PROCESS) {
+         // Skip _PhysicsProcess in editor mode
+         if (Engine::get_singleton()->is_editor_hint()) {
+             return;
+         }
          if (script.is_valid() && script->has_method("_PhysicsProcess")) {
              double delta = 0.0;
              if (owner) {
