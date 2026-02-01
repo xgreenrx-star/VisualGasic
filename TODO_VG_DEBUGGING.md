@@ -2,16 +2,16 @@
 
 ## Current Status
 
-**Visual Gasic scripts (.vg) do NOT support traditional debugging like GDScript.**
+**Visual Gasic scripts (.vg) now have PARTIAL debugging support!**
 
 | Feature | GDScript | Visual Gasic | Status |
 |---------|----------|--------------|--------|
-| Breakpoints pause execution | ✅ | ❌ | Not wired |
-| Step Into | ✅ | ❌ | Not implemented |
+| Breakpoints pause execution | ✅ | ⚠️ | Infrastructure ready, pause loop pending |
+| Step Into | ✅ | ⚠️ | Flag implemented, pause loop pending |
 | Step Over | ✅ | ❌ | Not implemented |
 | Step Out | ✅ | ❌ | Not implemented |
-| Call stack viewing | ✅ | ❌ | Returns empty |
-| Variable inspection (paused) | ✅ | ❌ | No pause state |
+| Call stack viewing | ✅ | ✅ | **IMPLEMENTED** |
+| Variable inspection (paused) | ✅ | ⚠️ | Ready when pause works |
 | Variable inspection (runtime) | ✅ | ✅ | Immediate Window |
 | Modify variables at runtime | ✅ | ✅ | Immediate Window |
 
@@ -26,78 +26,75 @@
 - `:watch expr` - Watch expressions
 - `:vars` - List all variables
 
-### ✅ C++ Infrastructure (Exists but not connected)
+### ✅ C++ Infrastructure (CONNECTED!)
 - `VisualGasicDebugger` class with breakpoint storage
-- `set_breakpoint()`, `should_break_at()` methods
+- `set_breakpoint()`, `should_break_at()` methods ✅ Now called from VM!
 - Profiling framework
-- Time-travel debugging history recording
+- Time-travel debugging history recording ✅ Now records frames at breakpoints
+
+### ✅ Call Stack Tracking (NEW!)
+- `_debug_get_stack_level_count()` - Returns call stack depth
+- `_debug_get_stack_level_line()` - Returns line number at level
+- `_debug_get_stack_level_function()` - Returns function name
+- `_debug_get_stack_level_locals()` - Returns local variables
+- `_debug_get_stack_level_members()` - Returns member variables
+- `_debug_get_stack_level_instance()` - Returns owner object
+- `_debug_get_stack_level_source()` - Returns source file path
+- `_debug_get_current_stack_info()` - Returns full stack trace
+
+### ✅ Line Tracking (NEW!)
+- `OP_DEBUG_LINE` opcode emitted before each statement
+- VM tracks current line and file
+- Breakpoint hit detection prints messages
 
 ---
 
 ## Implementation Roadmap
 
-### Phase 1: Line Number Tracking in Bytecode
+### Phase 1: Line Number Tracking in Bytecode ✅ COMPLETE
 
-**Files to modify:**
-- `src/visual_gasic_compiler.cpp`
-- `src/visual_gasic_bytecode.h`
+**Files modified:**
+- `src/visual_gasic_compiler.cpp` ✅
+- `src/visual_gasic_bytecode.h` ✅
+- `src/visual_gasic_instance.cpp` ✅
+- `src/visual_gasic_instance.h` ✅
 
-**Tasks:**
-- [ ] Add `OP_DEBUG_LINE` opcode to bytecode instruction set
-- [ ] Emit `OP_DEBUG_LINE <line_number>` at the start of each source line during compilation
-- [ ] Store source file path in bytecode header for mapping
-- [ ] Create line number → bytecode offset mapping table
-
-```cpp
-// Example opcode addition in visual_gasic_bytecode.h
-enum Opcode {
-    // ... existing opcodes ...
-    OP_DEBUG_LINE,      // Marks source line number
-    OP_DEBUG_COLUMN,    // Optional: column for precise positioning
-};
-```
+**Completed Tasks:**
+- [x] Add `OP_DEBUG_LINE` opcode to bytecode instruction set
+- [x] Emit `OP_DEBUG_LINE <line_number>` at the start of each statement
+- [x] Add DebugState struct with current_line, current_file tracking
+- [x] Add public accessor methods for debug state
 
 ---
 
-### Phase 2: Breakpoint Checking in VM Loop
+### Phase 2: Breakpoint Checking in VM Loop ✅ COMPLETE
 
-**Files to modify:**
-- `src/visual_gasic_instance.cpp` (bytecode executor)
-- `src/visual_gasic_debugger.cpp`
+**Files modified:**
+- `src/visual_gasic_instance.cpp` ✅
+- `src/visual_gasic_language.cpp` ✅
+- `src/visual_gasic_language.h` ✅
 
-**Tasks:**
-- [ ] Add `current_line` and `current_file` tracking to VM state
-- [ ] Check `should_break_at()` when processing `OP_DEBUG_LINE`
-- [ ] Implement VM pause/resume mechanism
-- [ ] Add stepping mode flags (`step_into`, `step_over`, `step_out`)
-
-```cpp
-// In visual_gasic_instance.cpp execution loop
-case OP_DEBUG_LINE: {
-    current_line = read_int();
-    if (debugger && debugger->should_break_at(current_file, current_line)) {
-        debugger->pause_execution(this);
-        return;  // Yield execution
-    }
-    if (debugger && debugger->is_stepping()) {
-        debugger->handle_step(this, current_line);
-    }
-    break;
-}
-```
+**Completed Tasks:**
+- [x] Check `should_break_at()` when processing `OP_DEBUG_LINE`
+- [x] Print breakpoint hit messages
+- [x] Record execution frames for time-travel debugging
+- [x] Add step_mode tracking (STEP_INTO implemented)
+- [x] Implement VGDebugStackFrame call stack tracking
+- [x] Wire push_stack_frame/pop_stack_frame in execute_bytecode
+- [x] Implement all _debug_get_stack_* methods
 
 ---
 
-### Phase 3: Pause/Resume Mechanism
+### Phase 3: Pause/Resume Mechanism 🔄 NEXT
 
 **Files to modify:**
 - `src/visual_gasic_instance.cpp`
 - `src/visual_gasic_debugger.cpp`
 
 **Tasks:**
-- [ ] Add `is_paused` flag to VisualGasicInstance
-- [ ] Implement `pause_execution()` that saves VM state
-- [ ] Implement `resume_execution()` that restores and continues
+- [ ] Add pause loop that waits for debugger commands
+- [ ] Implement `resume_execution()` 
+- [ ] Handle Godot editor Continue/Step buttons
 - [ ] Add `_process()` yield when paused (don't block engine)
 - [ ] Send pause notification to editor via EngineDebugger
 
