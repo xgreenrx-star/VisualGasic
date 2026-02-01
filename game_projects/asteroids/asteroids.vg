@@ -1,0 +1,367 @@
+' Asteroids Clone - Classic Space Shooter
+' Made with VisualGasic
+
+Option Explicit
+
+' Game objects
+Dim Ship As Object
+Dim ScoreLabel As Object
+Dim LivesLabel As Object
+Dim GameOverLabel As Object
+
+' Ship state
+Dim ShipX As Single
+Dim ShipY As Single
+Dim ShipAngle As Single
+Dim ShipVelX As Single
+Dim ShipVelY As Single
+Dim ShipLives As Integer
+Dim ShipInvulnerable As Single
+
+' Game state
+Dim Score As Integer
+Dim GameOver As Boolean
+Dim Level As Integer
+
+' Arrays
+ReDim Asteroids(30) As Object
+ReDim AsteroidVelX(30) As Single
+ReDim AsteroidVelY(30) As Single
+ReDim AsteroidSize(30) As Integer
+ReDim Bullets(10) As Object
+ReDim BulletVelX(10) As Single
+ReDim BulletVelY(10) As Single
+ReDim BulletLife(10) As Single
+
+' Timers
+Dim ShootCooldown As Single
+
+' Constants
+Const PI As Single = 3.14159265
+Const ScreenWidth As Single = 800
+Const ScreenHeight As Single = 600
+
+Sub _Ready()
+    ' Initialize ship
+    Ship = GetNode("Ship")
+    ShipX = 400
+    ShipY = 300
+    ShipAngle = 0
+    ShipVelX = 0
+    ShipVelY = 0
+    ShipLives = 3
+    ShipInvulnerable = 0
+    
+    Ship.position = Vector2(ShipX, ShipY)
+    Ship.rotation = ShipAngle
+    Ship.color = Color(0.2, 1, 0.2)
+    Ship.size = Vector2(20, 30)
+    
+    ' Initialize UI
+    ScoreLabel = GetNode("UI/ScoreLabel")
+    LivesLabel = GetNode("UI/LivesLabel")
+    GameOverLabel = GetNode("UI/GameOverLabel")
+    GameOverLabel.visible = False
+    
+    ' Game setup
+    Score = 0
+    GameOver = False
+    Level = 1
+    ShootCooldown = 0
+    
+    ' Initialize asteroids
+    Dim i As Integer
+    For i = 0 To 29
+        Asteroids(i) = GetNode("Asteroids").get_child(i)
+        Asteroids(i).visible = False
+    Next i
+    
+    ' Initialize bullets
+    For i = 0 To 9
+        Bullets(i) = GetNode("Bullets").get_child(i)
+        Bullets(i).visible = False
+        BulletLife(i) = 0
+    Next i
+    
+    ' Spawn initial asteroids
+    Call SpawnLevel()
+    
+    Print "Asteroids Ready! Arrow keys to rotate/thrust, Space to shoot"
+    Set_Process(True)
+End Sub
+
+Sub _Process(delta As Single)
+    If GameOver Then
+        If Input.IsActionJustPressed("ui_accept") Then
+            GetTree().reload_current_scene()
+        End If
+        Exit Sub
+    End If
+    
+    ' Update timers
+    If ShootCooldown > 0 Then
+        ShootCooldown = ShootCooldown - delta
+    End If
+    
+    If ShipInvulnerable > 0 Then
+        ShipInvulnerable = ShipInvulnerable - delta
+        ' Blink ship when invulnerable
+        If CInt(ShipInvulnerable * 10) Mod 2 = 0 Then
+            Ship.color = Color(0.2, 1, 0.2)
+        Else
+            Ship.color = Color(0.5, 0.5, 0.5)
+        End If
+    Else
+        Ship.color = Color(0.2, 1, 0.2)
+    End If
+    
+    ' Ship rotation
+    If Input.IsActionPressed("ui_left") Then
+        ShipAngle = ShipAngle - 5 * delta
+    End If
+    If Input.IsActionPressed("ui_right") Then
+        ShipAngle = ShipAngle + 5 * delta
+    End If
+    
+    ' Ship thrust
+    If Input.IsActionPressed("ui_up") Then
+        ShipVelX = ShipVelX + Sin(ShipAngle) * 200 * delta
+        ShipVelY = ShipVelY - Cos(ShipAngle) * 200 * delta
+    End If
+    
+    ' Apply friction
+    ShipVelX = ShipVelX * 0.99
+    ShipVelY = ShipVelY * 0.99
+    
+    ' Limit max speed
+    Dim speed As Single
+    speed = Sqr(ShipVelX * ShipVelX + ShipVelY * ShipVelY)
+    If speed > 400 Then
+        ShipVelX = ShipVelX * 400 / speed
+        ShipVelY = ShipVelY * 400 / speed
+    End If
+    
+    ' Update ship position
+    ShipX = ShipX + ShipVelX * delta
+    ShipY = ShipY + ShipVelY * delta
+    
+    ' Wrap around screen
+    If ShipX < 0 Then ShipX = ShipX + ScreenWidth
+    If ShipX > ScreenWidth Then ShipX = ShipX - ScreenWidth
+    If ShipY < 0 Then ShipY = ShipY + ScreenHeight
+    If ShipY > ScreenHeight Then ShipY = ShipY - ScreenHeight
+    
+    Ship.position = Vector2(ShipX, ShipY)
+    Ship.rotation = ShipAngle
+    
+    ' Shoot
+    If Input.IsActionPressed("ui_accept") And ShootCooldown <= 0 Then
+        Call ShootBullet()
+        ShootCooldown = 0.2
+    End If
+    
+    ' Update asteroids
+    Dim i As Integer
+    For i = 0 To 29
+        If Asteroids(i).visible Then
+            Dim aPos As Object
+            aPos = Asteroids(i).position
+            Dim ax As Single
+            Dim ay As Single
+            ax = aPos.x + AsteroidVelX(i) * delta
+            ay = aPos.y + AsteroidVelY(i) * delta
+            
+            ' Wrap asteroids
+            If ax < -50 Then ax = ax + ScreenWidth + 100
+            If ax > ScreenWidth + 50 Then ax = ax - ScreenWidth - 100
+            If ay < -50 Then ay = ay + ScreenHeight + 100
+            If ay > ScreenHeight + 50 Then ay = ay - ScreenHeight - 100
+            
+            Asteroids(i).position = Vector2(ax, ay)
+            
+            ' Check collision with ship
+            If ShipInvulnerable <= 0 Then
+                Dim dist As Single
+                dist = Sqr((ax - ShipX) * (ax - ShipX) + (ay - ShipY) * (ay - ShipY))
+                Dim hitDist As Single
+                hitDist = AsteroidSize(i) * 15 + 15
+                If dist < hitDist Then
+                    Call HitShip()
+                End If
+            End If
+        End If
+    Next i
+    
+    ' Update bullets
+    For i = 0 To 9
+        If Bullets(i).visible Then
+            BulletLife(i) = BulletLife(i) - delta
+            If BulletLife(i) <= 0 Then
+                Bullets(i).visible = False
+            Else
+                Dim bPos As Object
+                bPos = Bullets(i).position
+                Dim bx As Single
+                Dim by As Single
+                bx = bPos.x + BulletVelX(i) * delta
+                by = bPos.y + BulletVelY(i) * delta
+                
+                ' Wrap bullets
+                If bx < 0 Then bx = bx + ScreenWidth
+                If bx > ScreenWidth Then bx = bx - ScreenWidth
+                If by < 0 Then by = by + ScreenHeight
+                If by > ScreenHeight Then by = by - ScreenHeight
+                
+                Bullets(i).position = Vector2(bx, by)
+                
+                ' Check collision with asteroids
+                Dim j As Integer
+                For j = 0 To 29
+                    If Asteroids(j).visible Then
+                        Dim aPos2 As Object
+                        aPos2 = Asteroids(j).position
+                        Dim dist2 As Single
+                        dist2 = Sqr((bx - aPos2.x) * (bx - aPos2.x) + (by - aPos2.y) * (by - aPos2.y))
+                        If dist2 < AsteroidSize(j) * 15 Then
+                            Call HitAsteroid(j, bx, by)
+                            Bullets(i).visible = False
+                            Exit For
+                        End If
+                    End If
+                Next j
+            End If
+        End If
+    Next i
+    
+    ' Check if all asteroids destroyed
+    Dim asteroidsLeft As Integer
+    asteroidsLeft = 0
+    For i = 0 To 29
+        If Asteroids(i).visible Then
+            asteroidsLeft = asteroidsLeft + 1
+        End If
+    Next i
+    
+    If asteroidsLeft = 0 Then
+        Level = Level + 1
+        Call SpawnLevel()
+    End If
+    
+    ' Update UI
+    ScoreLabel.text = "Score: " & CStr(Score) & "  Level: " & CStr(Level)
+    LivesLabel.text = "Lives: " & CStr(ShipLives)
+End Sub
+
+Sub SpawnLevel()
+    Dim numAsteroids As Integer
+    numAsteroids = 3 + Level
+    If numAsteroids > 10 Then numAsteroids = 10
+    
+    Dim i As Integer
+    Dim spawned As Integer
+    spawned = 0
+    
+    For i = 0 To 29
+        If spawned >= numAsteroids Then Exit For
+        If Not Asteroids(i).visible Then
+            Asteroids(i).visible = True
+            
+            ' Spawn away from ship
+            Dim ax As Single
+            Dim ay As Single
+            ax = Rnd() * ScreenWidth
+            ay = Rnd() * ScreenHeight
+            
+            Dim dist As Single
+            dist = Sqr((ax - ShipX) * (ax - ShipX) + (ay - ShipY) * (ay - ShipY))
+            If dist < 150 Then
+                ' Too close, try again
+                i = i - 1
+            Else
+                Asteroids(i).position = Vector2(ax, ay)
+                AsteroidSize(i) = 3
+                AsteroidVelX(i) = (Rnd() - 0.5) * 100
+                AsteroidVelY(i) = (Rnd() - 0.5) * 100
+                Asteroids(i).size = Vector2(45, 45)
+                Asteroids(i).color = Color(0.7, 0.7, 0.7)
+                spawned = spawned + 1
+            End If
+        End If
+    Next i
+End Sub
+
+Sub ShootBullet()
+    Dim i As Integer
+    For i = 0 To 9
+        If Not Bullets(i).visible Then
+            Bullets(i).visible = True
+            Bullets(i).position = Vector2(ShipX, ShipY)
+            BulletVelX(i) = Sin(ShipAngle) * 500 + ShipVelX
+            BulletVelY(i) = -Cos(ShipAngle) * 500 + ShipVelY
+            BulletLife(i) = 1.5
+            Bullets(i).color = Color(1, 1, 0)
+            Bullets(i).size = Vector2(4, 4)
+            Exit Sub
+        End If
+    Next i
+End Sub
+
+Sub HitAsteroid(index As Integer, hitX As Single, hitY As Single)
+    Dim size As Integer
+    size = AsteroidSize(index)
+    
+    Score = Score + (4 - size) * 20
+    
+    Asteroids(index).visible = False
+    
+    ' Split into smaller asteroids
+    If size > 1 Then
+        Dim i As Integer
+        Dim splitCount As Integer
+        splitCount = 0
+        
+        For i = 0 To 29
+            If splitCount >= 2 Then Exit For
+            If Not Asteroids(i).visible Then
+                Asteroids(i).visible = True
+                Asteroids(i).position = Vector2(hitX, hitY)
+                AsteroidSize(i) = size - 1
+                
+                ' Set size based on asteroid size
+                If size = 2 Then
+                    Asteroids(i).size = Vector2(30, 30)
+                Else
+                    Asteroids(i).size = Vector2(15, 15)
+                End If
+                
+                Asteroids(i).color = Color(0.7, 0.7, 0.7)
+                
+                ' Random velocity
+                Dim angle As Single
+                angle = Rnd() * 6.28
+                AsteroidVelX(i) = Cos(angle) * (80 + size * 20)
+                AsteroidVelY(i) = Sin(angle) * (80 + size * 20)
+                
+                splitCount = splitCount + 1
+            End If
+        Next i
+    End If
+End Sub
+
+Sub HitShip()
+    ShipLives = ShipLives - 1
+    ShipInvulnerable = 3
+    
+    ' Reset ship position and velocity
+    ShipX = 400
+    ShipY = 300
+    ShipVelX = 0
+    ShipVelY = 0
+    ShipAngle = 0
+    
+    If ShipLives <= 0 Then
+        GameOver = True
+        GameOverLabel.visible = True
+        GameOverLabel.text = "GAME OVER" & vbNewLine & "Score: " & CStr(Score) & vbNewLine & "Level: " & CStr(Level) & vbNewLine & vbNewLine & "Press SPACE to restart"
+    End If
+End Sub

@@ -1,0 +1,66 @@
+' Simplified VGForm test
+Option Explicit
+
+Dim title_bar As Control
+
+Const TITLE_BAR_HEIGHT = 30
+Const BUTTON_SIZE = 24
+
+Sub TestFunction(some_param As Integer)
+    Print some_param
+End Sub
+
+Sub HandleTitleBarInput(evt)
+    Print evt
+End Sub
+
+Sub Form_Load()
+    If Engine.is_editor_hint() Then Exit Sub
+    
+    ' Position at top-left
+    Me.position = Vector2(0, 0)
+    
+    BuildTitleBar()
+    TestArrayIteration()
+    
+    Print "VGForm loaded at position: "
+    Print Me.position
+End Sub
+
+Sub TestArrayIteration()
+    Dim children As Array
+    children = Me.get_children()
+    
+    Dim i As Integer
+    For i = 0 To UBound(children)
+        Dim child As Node
+        Set child = children[i]
+        Print "Child: "
+        Print child
+    Next i
+End Sub
+
+Sub BuildTitleBar()
+    Dim height
+    height = TITLE_BAR_HEIGHT
+    
+    Set title_bar = Panel.new()
+    title_bar.custom_minimum_size = Vector2(0, height)
+    title_bar.set_anchors_preset(Control.PRESET_TOP_WIDE)
+    title_bar.offset_bottom = height
+    
+    Dim style As StyleBoxFlat
+    Set style = StyleBoxFlat.new()
+    style.bg_color = Color(0.1, 0.1, 0.4)
+    title_bar.add_theme_stylebox_override("panel", style)
+    Me.add_child(title_bar)
+    
+    ' Add a close button
+    Dim btn_close As Button
+    Set btn_close = Button.new()
+    btn_close.text = "X"
+    Dim button_x
+    button_x = 100
+    btn_close.position = Vector2(button_x + (24 + 4) * 2, 3)
+    title_bar.add_child(btn_close)
+End Sub

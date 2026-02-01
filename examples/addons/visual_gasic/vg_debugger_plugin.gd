@@ -6,6 +6,7 @@ extends EditorDebuggerPlugin
 signal instances_updated(instances: Array)
 signal variable_received(var_name: String, value: Variant)
 signal variables_list_received(variables: Dictionary)
+signal whenever_sections_received(sections: Array)
 
 var _active_session: EditorDebuggerSession = null
 var _pending_requests: Dictionary = {}
@@ -37,6 +38,12 @@ func _capture(message: String, data: Array, session_id: int) -> bool:
 			# Received all variables from an instance
 			var vars = data[0] if data.size() > 0 else {}
 			variables_list_received.emit(vars)
+			return true
+		
+		"whenever_sections":
+			# Received Whenever sections from an instance
+			var sections = data[0] if data.size() > 0 else []
+			whenever_sections_received.emit(sections)
 			return true
 		
 		"eval_result":
@@ -80,6 +87,14 @@ func request_all_variables(instance_id: int) -> void:
 func set_variable(instance_id: int, var_name: String, value: Variant) -> void:
 	if _active_session:
 		_active_session.send_message("visualgasic:set_variable", [instance_id, var_name, value])
+
+func request_whenever_sections(instance_id: int) -> void:
+	if _active_session:
+		_active_session.send_message("visualgasic:get_whenever_sections", [instance_id])
+
+func set_whenever_active(instance_id: int, section_name: String, active: bool) -> void:
+	if _active_session:
+		_active_session.send_message("visualgasic:set_whenever_active", [instance_id, section_name, active])
 
 func evaluate_code(instance_id: int, code: String, callback: Callable) -> void:
 	if _active_session:

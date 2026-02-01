@@ -1,10 +1,10 @@
 [configuration]
 
 entry_symbol = "visual_gasic_library_init"
+compatibility_minimum = "4.5"
 
 [libraries]
 
-linux.x86_64 = "bin/libvisualgasic.linux.template_debug.x86_64.so"
 linux.editor.x86_64 = "bin/libvisualgasic.linux.template_debug.x86_64.so"
 linux.debug.x86_64 = "bin/libvisualgasic.linux.template_debug.x86_64.so"
 linux.release.x86_64 = "bin/libvisualgasic.linux.template_release.x86_64.so"

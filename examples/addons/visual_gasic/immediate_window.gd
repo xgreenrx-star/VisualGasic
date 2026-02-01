@@ -18,10 +18,12 @@ var _watch_expressions: Array[Dictionary] = []
 var _var_tree: Tree
 var _watch_tree: Tree
 var _inspector_tree: Tree
+var _whenever_tree: Tree  # Whenever sections tree
 var _current_inspected_object: Object = null
 var _auto_complete_popup: PopupMenu
 var _session_history: Array[String] = []
 var _var_context_menu: PopupMenu  # Right-click menu for variables
+var _whenever_context_menu: PopupMenu  # Right-click menu for Whenever
 var _current_script_path: String = ""  # Path of connected instance's script
 
 # Live debugging - instance connection (local in-process)
@@ -40,6 +42,7 @@ var _pending_eval_callback: Callable
 var _auto_refresh_timer: Timer = null
 var _auto_refresh_enabled: bool = true
 var _is_editing: bool = false  # Track if user is currently editing a cell
+var _whenever_sections: Array = []  # Cached Whenever sections from remote
 const AUTO_REFRESH_INTERVAL: float = 0.5  # Update every 500ms
 
 func _ready():
@@ -59,6 +62,7 @@ func _on_auto_refresh_timeout():
 	# Only auto-refresh when connected to a remote instance and not editing
 	if _connected_remote_id >= 0 and _debugger_plugin and _auto_refresh_enabled and not _is_editing:
 		_debugger_plugin.request_all_variables(_connected_remote_id)
+		_debugger_plugin.request_whenever_sections(_connected_remote_id)
 		# Watch expressions will be updated when variables are received
 
 func _on_auto_refresh_toggled(enabled: bool):
@@ -74,6 +78,7 @@ func set_debugger_plugin(plugin: EditorDebuggerPlugin) -> void:
 		_debugger_plugin.instances_updated.connect(_on_remote_instances_updated)
 		_debugger_plugin.variable_received.connect(_on_remote_variable_received)
 		_debugger_plugin.variables_list_received.connect(_on_remote_variables_received)
+		_debugger_plugin.whenever_sections_received.connect(_on_whenever_sections_received)
 
 func _setup_ui():
 	# Main horizontal split: Console (left) + Panels (right)
@@ -311,6 +316,50 @@ func _setup_ui():
 	_inspector_tree.column_titles_visible = true
 	_inspector_tree.item_activated.connect(_on_inspector_item_activated)
 	inspector_panel.add_child(_inspector_tree)
+	
+	# Whenever panel - Monitor reactive Whenever statements
+	var whenever_panel = VBoxContainer.new()
+	whenever_panel.name = "Whenever"
+	right_tabs.add_child(whenever_panel)
+	
+	var whenever_toolbar = HBoxContainer.new()
+	whenever_panel.add_child(whenever_toolbar)
+	
+	var whenever_label = Label.new()
+	whenever_label.text = "Reactive Statements"
+	whenever_toolbar.add_child(whenever_label)
+	
+	var whenever_refresh = Button.new()
+	whenever_refresh.text = "🔄"
+	whenever_refresh.tooltip_text = "Refresh Whenever sections"
+	whenever_refresh.pressed.connect(_refresh_whenever_sections)
+	whenever_toolbar.add_child(whenever_refresh)
+	
+	_whenever_tree = Tree.new()
+	_whenever_tree.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_whenever_tree.columns = 4
+	_whenever_tree.set_column_title(0, "Condition")
+	_whenever_tree.set_column_title(1, "Status")
+	_whenever_tree.set_column_title(2, "Callbacks")
+	_whenever_tree.set_column_title(3, "Scope")
+	_whenever_tree.column_titles_visible = true
+	_whenever_tree.set_column_expand(0, true)
+	_whenever_tree.set_column_expand(1, false)
+	_whenever_tree.set_column_expand(2, true)
+	_whenever_tree.set_column_expand(3, false)
+	_whenever_tree.set_column_custom_minimum_width(1, 80)
+	_whenever_tree.set_column_custom_minimum_width(3, 60)
+	_whenever_tree.gui_input.connect(_on_whenever_tree_gui_input)
+	whenever_panel.add_child(_whenever_tree)
+	
+	# Context menu for Whenever items
+	_whenever_context_menu = PopupMenu.new()
+	_whenever_context_menu.add_item("Pause", 0)
+	_whenever_context_menu.add_item("Resume", 1)
+	_whenever_context_menu.add_separator()
+	_whenever_context_menu.add_item("Go to Definition", 2)
+	_whenever_context_menu.id_pressed.connect(_on_whenever_context_menu_selected)
+	add_child(_whenever_context_menu)
 
 func _initialize_repl():
 	# Try to create VisualGasicImmediate instance for BASIC code execution
@@ -1472,6 +1521,157 @@ func _on_remote_variables_received(variables: Dictionary) -> void:
 	# Also update watch expressions with the new variable values
 	_update_watch_expressions()
 
+func _on_whenever_sections_received(sections: Array) -> void:
+	"""Called when debugger receives Whenever sections from an instance"""
+	_whenever_sections = sections
+	_update_whenever_tree()
+
+func _refresh_whenever_sections():
+	"""Request Whenever sections from the connected remote instance"""
+	if _connected_remote_id >= 0 and _debugger_plugin:
+		_debugger_plugin.request_whenever_sections(_connected_remote_id)
+	else:
+		_append_output("[color=yellow]Not connected to a remote instance[/color]\n")
+
+func _update_whenever_tree():
+	"""Update the Whenever tree with current sections data"""
+	if not _whenever_tree:
+		return
+	
+	_whenever_tree.clear()
+	var root = _whenever_tree.create_item()
+	
+	if _whenever_sections.is_empty():
+		var item = _whenever_tree.create_item(root)
+		item.set_text(0, "(No Whenever statements)")
+		item.set_custom_color(0, Color.GRAY)
+		return
+	
+	for section in _whenever_sections:
+		var item = _whenever_tree.create_item(root)
+		
+		# Build condition string
+		var condition = ""
+		var var_name: String = section.get("variable", "")
+		var op: String = section.get("operator", "")
+		var val = section.get("value", "")
+		var val2 = section.get("value2", "")
+		
+		if not var_name.is_empty():
+			condition = var_name
+			if not op.is_empty():
+				condition += " " + op
+				if op.to_upper() == "BETWEEN":
+					condition += " " + str(val) + " And " + str(val2)
+				elif op.to_upper() != "CHANGES":
+					condition += " " + str(val)
+		else:
+			condition = section.get("name", "Unknown")
+		
+		item.set_text(0, condition)
+		
+		# Status
+		var is_active: bool = section.get("is_active", true)
+		if is_active:
+			item.set_text(1, "✓ Active")
+			item.set_custom_color(1, Color.LIME_GREEN)
+		else:
+			item.set_text(1, "⏸ Paused")
+			item.set_custom_color(1, Color.YELLOW)
+		
+		# Callbacks
+		var callback_names: String = section.get("callback_names", "")
+		if callback_names.is_empty():
+			callback_names = "(none)"
+		item.set_text(2, callback_names)
+		
+		# Scope
+		var scope: String = section.get("scope_type", "global")
+		item.set_text(3, scope)
+		if scope == "local":
+			item.set_custom_color(3, Color.CYAN)
+		
+		# Store section name for context menu
+		item.set_meta("section_name", section.get("name", ""))
+		item.set_meta("is_active", is_active)
+
+func _on_whenever_tree_gui_input(event: InputEvent):
+	"""Handle right-click on Whenever tree"""
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_RIGHT:
+		var item = _whenever_tree.get_item_at_position(event.position)
+		if item and item.has_meta("section_name"):
+			_whenever_tree.set_selected(item, 0)
+			var is_active: bool = item.get_meta("is_active", true)
+			# Update menu items based on state
+			_whenever_context_menu.set_item_disabled(0, not is_active)  # Pause disabled if already paused
+			_whenever_context_menu.set_item_disabled(1, is_active)      # Resume disabled if already active
+			_whenever_context_menu.position = Vector2i(get_screen_position()) + Vector2i(event.position)
+			_whenever_context_menu.popup()
+
+func _on_whenever_context_menu_selected(id: int):
+	"""Handle Whenever context menu selection"""
+	var selected = _whenever_tree.get_selected()
+	if not selected or not selected.has_meta("section_name"):
+		return
+	
+	var section_name: String = selected.get_meta("section_name")
+	
+	match id:
+		0:  # Pause
+			if _connected_remote_id >= 0 and _debugger_plugin:
+				_debugger_plugin.set_whenever_active(_connected_remote_id, section_name, false)
+				_append_output("[color=yellow]Paused Whenever: %s[/color]\n" % section_name)
+		1:  # Resume
+			if _connected_remote_id >= 0 and _debugger_plugin:
+				_debugger_plugin.set_whenever_active(_connected_remote_id, section_name, true)
+				_append_output("[color=lime]Resumed Whenever: %s[/color]\n" % section_name)
+		2:  # Go to Definition
+			_go_to_whenever_definition(section_name)
+
+func _go_to_whenever_definition(section_name: String):
+	"""Navigate to Whenever statement in script"""
+	if _current_script_path.is_empty():
+		_append_output("[color=yellow]No script path available[/color]\n")
+		return
+	
+	# Search for the Whenever statement
+	var file = FileAccess.open(_current_script_path, FileAccess.READ)
+	if not file:
+		_append_output("[color=red]Could not open script: %s[/color]\n" % _current_script_path)
+		return
+	
+	var content = file.get_as_text()
+	file.close()
+	
+	var lines = content.split("\n")
+	var target_line = -1
+	
+	# Search for Whenever with this section name or matching condition
+	for i in range(lines.size()):
+		var line_upper = lines[i].strip_edges().to_upper()
+		if line_upper.begins_with("WHENEVER "):
+			# Check if this line contains the section name or matches the condition
+			if lines[i].containsn(section_name):
+				target_line = i
+				break
+	
+	if target_line >= 0:
+		# Open the script and go to line
+		var script = load(_current_script_path)
+		if script:
+			EditorInterface.edit_resource(script)
+			await get_tree().process_frame
+			var script_editor = EditorInterface.get_script_editor()
+			var current = script_editor.get_current_editor()
+			if current:
+				var code_edit = current.get_base_editor()
+				if code_edit:
+					code_edit.set_caret_line(target_line)
+					code_edit.center_viewport_to_caret()
+					_append_output("[color=lime]Jumped to Whenever at line %d[/color]\n" % (target_line + 1))
+	else:
+		_append_output("[color=yellow]Whenever '%s' not found in script[/color]\n" % section_name)
+
 func _on_instance_selected(index: int):
 	"""Handle instance dropdown selection"""
 	if index == 0:
@@ -1523,9 +1723,10 @@ func _connect_to_remote_instance(instance_id: int):
 	if _auto_refresh_timer:
 		_auto_refresh_timer.start()
 	
-	# Request variables from the remote instance
+	# Request variables and Whenever sections from the remote instance
 	if _debugger_plugin:
 		_debugger_plugin.request_all_variables(instance_id)
+		_debugger_plugin.request_whenever_sections(instance_id)
 
 func _disconnect_from_instance():
 	"""Disconnect from the current instance"""
@@ -1534,11 +1735,15 @@ func _disconnect_from_instance():
 	_connected_instance_ptr = 0
 	_connected_remote_id = -1
 	_current_script_path = ""
+	_whenever_sections = []
 	_instance_dropdown.select(0)
 	
 	# Stop auto-refresh timer
 	if _auto_refresh_timer:
 		_auto_refresh_timer.stop()
+	
+	# Clear the Whenever tree
+	_update_whenever_tree()
 	
 	_append_output("[color=gray]Disconnected from instance[/color]\n")
 

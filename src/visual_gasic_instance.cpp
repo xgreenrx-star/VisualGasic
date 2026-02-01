@@ -719,20 +719,8 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
     // Register with debug system for Immediate Window access (in-process)
     VisualGasicDebug::register_instance(this);
     
-    // Register with remote debug handler autoload (if available)
-    if (owner) {
-        Node* owner_node = Object::cast_to<Node>(owner);
-        if (owner_node) {
-            SceneTree* tree = owner_node->get_tree();
-            if (tree && tree->get_root()) {
-                Node* debug_handler = tree->get_root()->get_node_or_null(NodePath("/root/VGDebugHandler"));
-                if (debug_handler && debug_handler->has_method("register_instance")) {
-                    String script_path = script.is_valid() ? script->get_path() : "";
-                    debug_handler->call("register_instance", owner, script_path);
-                }
-            }
-        }
-    }
+    // Note: Remote debug handler registration happens in notification(NOTIFICATION_READY)
+    // because the node is not in the scene tree during construction
     
     option_compare_text = false;
     if (script.is_valid() && script->ast_root) {
@@ -4277,7 +4265,7 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                      String path = call_args[0];
                      if (owner) {
                           Node *n = Object::cast_to<Node>(owner);
-                          if (n) {
+                          if (n && n->is_inside_tree()) {
                                SceneTree *tree = n->get_tree();
                                if (tree) {
                                     tree->change_scene_to_file(path);
@@ -5358,6 +5346,105 @@ void VisualGasicInstance::call(const StringName &p_method, const Variant *const 
         return;
     }
     
+    // Special debug introspection methods (allowed even in editor for debugging)
+    if (p_method == StringName("_vg_get_all_variables")) {
+        // Return all script variables for debugging
+        Dictionary result;
+        Array keys = variables.keys();
+        for (int i = 0; i < keys.size(); i++) {
+            String key = keys[i];
+            // Skip internal constants starting with "vb"
+            if (!key.begins_with("vb") && key != "Err") {
+                result[key] = variables[key];
+            }
+        }
+        if (r_return) *r_return = result;
+        r_error->error = GDEXTENSION_CALL_OK;
+        return;
+    }
+    
+    if (p_method == StringName("_vg_get_variable")) {
+        if (p_argcount >= 1) {
+            String var_name = *p_args[0];
+            if (variables.has(var_name)) {
+                if (r_return) *r_return = variables[var_name];
+            } else {
+                if (r_return) *r_return = Variant();
+            }
+        } else {
+            if (r_return) *r_return = Variant();
+        }
+        r_error->error = GDEXTENSION_CALL_OK;
+        return;
+    }
+    
+    if (p_method == StringName("_vg_set_variable")) {
+        if (p_argcount >= 2) {
+            String var_name = *p_args[0];
+            Variant value = *p_args[1];
+            variables[var_name] = value;
+            if (r_return) *r_return = true;
+        } else {
+            if (r_return) *r_return = false;
+        }
+        r_error->error = GDEXTENSION_CALL_OK;
+        return;
+    }
+    
+    if (p_method == StringName("_vg_get_whenever_sections")) {
+        // Return all Whenever sections for debugging
+        Array result;
+        for (int i = 0; i < whenever_sections.size(); i++) {
+            const WheneverSection& section = whenever_sections[i];
+            Dictionary info;
+            info["name"] = section.section_name;
+            info["variable"] = section.variable_name;
+            info["operator"] = section.comparison_operator;
+            info["value"] = section.comparison_value;
+            info["value2"] = section.comparison_value2;
+            info["is_active"] = section.is_active;
+            info["last_value"] = section.last_value;
+            info["last_trigger_time"] = (int64_t)section.last_trigger_time;
+            info["scope_type"] = section.scope_type;
+            info["scope_context"] = section.scope_context;
+            info["callbacks"] = section.callback_procedures.size();
+            
+            // Build callback names string
+            String callbacks_str;
+            for (int j = 0; j < section.callback_procedures.size(); j++) {
+                if (j > 0) callbacks_str += ", ";
+                callbacks_str += section.callback_procedures[j];
+            }
+            info["callback_names"] = callbacks_str;
+            
+            result.push_back(info);
+        }
+        if (r_return) *r_return = result;
+        r_error->error = GDEXTENSION_CALL_OK;
+        return;
+    }
+    
+    if (p_method == StringName("_vg_set_whenever_active")) {
+        // Pause/Resume a Whenever section by name
+        if (p_argcount >= 2) {
+            String section_name = *p_args[0];
+            bool active = *p_args[1];
+            for (int i = 0; i < whenever_sections.size(); i++) {
+                if (whenever_sections[i].section_name == section_name) {
+                    whenever_sections.write[i].is_active = active;
+                    if (r_return) *r_return = true;
+                    r_error->error = GDEXTENSION_CALL_OK;
+                    return;
+                }
+            }
+            if (r_return) *r_return = false;
+        } else {
+            if (r_return) *r_return = false;
+        }
+        r_error->error = GDEXTENSION_CALL_OK;
+        return;
+    }
+    
     // Adapter
     Array args;
     for(int i=0; i<p_argcount; i++) args.push_back(*p_args[i]);
@@ -5533,6 +5620,29 @@ void VisualGasicInstance::notification(int32_t p_what) {
              return;
          }
          
+         // Register with remote debug handler now that node is in tree
+         if (owner) {
+             Node* owner_node = Object::cast_to<Node>(owner);
+             if (owner_node && owner_node->is_inside_tree()) {
+                 SceneTree* tree = owner_node->get_tree();
+                 if (tree && tree->get_root()) {
+                     // Autoloads are direct children of root - use just the name
+                     Node* debug_handler = tree->get_root()->get_node_or_null(NodePath("VGDebugHandler"));
+                     if (debug_handler) {
+                         if (debug_handler->has_method("register_instance")) {
+                             String script_path = script.is_valid() ? script->get_path() : "";
+                             UtilityFunctions::print("[VisualGasic] Registering with debug handler: ", script_path);
+                             debug_handler->call("register_instance", owner, script_path);
+                         } else {
+                             UtilityFunctions::print("[VisualGasic] Debug handler found but no register_instance method");
+                         }
+                     } else {
+                         UtilityFunctions::print("[VisualGasic] Debug handler not found at VGDebugHandler");
+                     }
+                 }
+             }
+         }
+         
          // Lazy Init Processing if needed (e.g. if ast was null in constructor)
          if (owner && script.is_valid()) {
              Node* node = Object::cast_to<Node>(owner);
@@ -5670,10 +5780,21 @@ static GDExtensionBool instance_is_placeholder(GDExtensionScriptInstanceDataPtr 
 
 static GDExtensionBool instance_has_method(GDExtensionScriptInstanceDataPtr p_instance, GDExtensionConstStringNamePtr p_name) {
     VisualGasicInstance *instance = (VisualGasicInstance *)p_instance;
+    const StringName &name = *(const StringName *)p_name;
+    
+    // Check for internal debug methods
+    if (name == StringName("_vg_get_all_variables") ||
+        name == StringName("_vg_get_variable") ||
+        name == StringName("_vg_set_variable") ||
+        name == StringName("_vg_get_whenever_sections") ||
+        name == StringName("_vg_set_whenever_active")) {
+        return true;
+    }
+    
     Ref<Script> s = instance->get_script();
     VisualGasicScript *script = Object::cast_to<VisualGasicScript>(s.ptr());
     if (script) {
-        return script->_has_method(*(const StringName *)p_name);
+        return script->_has_method(name);
     }
     return false;
 }
@@ -6418,13 +6539,20 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         bool valid = false;
         Variant::evaluate(op, a, b, result, valid);
         if (!valid) {
-            // Log to file since Godot may truncate console output
-            String debug_msg = vformat("Op:%d TypeA:%d TypeB:%d ValA:%s ValB:%s", (int)op, (int)a.get_type(), (int)b.get_type(), a, b);
-            Ref<FileAccess> f = FileAccess::open("/tmp/vg_invalid_op.log", FileAccess::WRITE);
-            if (f.is_valid()) {
-                f->store_line(debug_msg);
+            // Rate-limit error output to avoid spam
+            static int error_count = 0;
+            static uint64_t last_error_time = 0;
+            uint64_t now = Time::get_singleton()->get_ticks_msec();
+            error_count++;
+            
+            // Only print error once per second max
+            if (now - last_error_time > 1000) {
+                String debug_msg = vformat("Op:%d TypeA:%d TypeB:%d ValA:%s ValB:%s (count: %d)", 
+                    (int)op, (int)a.get_type(), (int)b.get_type(), a, b, error_count);
+                UtilityFunctions::printerr("VisualGasic: invalid operation in bytecode - ", debug_msg);
+                last_error_time = now;
+                error_count = 0;
             }
-            UtilityFunctions::printerr("VisualGasic: invalid operation in bytecode - ", debug_msg);
             return false;
         }
         push_value(result);

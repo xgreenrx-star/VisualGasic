@@ -1,0 +1,349 @@
+' 2D Platformer Game
+' Made with VisualGasic
+
+Option Explicit
+
+' Game objects
+Dim Player As Object
+Dim Camera As Object
+Dim ScoreLabel As Object
+Dim LivesLabel As Object
+Dim GameOverLabel As Object
+
+' Player state
+Dim PlayerX As Single
+Dim PlayerY As Single
+Dim PlayerVelX As Single
+Dim PlayerVelY As Single
+Dim PlayerLives As Integer
+Dim OnGround As Boolean
+Dim PlayerDirection As Integer
+
+' Game state
+Dim Score As Integer
+Dim CoinsCollected As Integer
+Dim TotalCoins As Integer
+Dim GameOver As Boolean
+Dim LevelComplete As Boolean
+
+' Level objects
+ReDim Platforms(30) As Object
+ReDim PlatformX(30) As Single
+ReDim PlatformY(30) As Single
+ReDim PlatformW(30) As Single
+ReDim PlatformH(30) As Single
+
+ReDim Coins(20) As Object
+ReDim CoinX(20) As Single
+ReDim CoinY(20) As Single
+ReDim CoinCollected(20) As Boolean
+
+ReDim Enemies(10) As Object
+ReDim EnemyX(10) As Single
+ReDim EnemyY(10) As Single
+ReDim EnemyVelX(10) As Single
+ReDim EnemyActive(10) As Boolean
+
+' Constants
+Const Gravity As Single = 980
+Const JumpForce As Single = -400
+Const MoveSpeed As Single = 200
+Const MaxFallSpeed As Single = 600
+
+Sub _Ready()
+    ' Initialize player
+    Player = GetNode("Player")
+    PlayerX = 100
+    PlayerY = 400
+    PlayerVelX = 0
+    PlayerVelY = 0
+    PlayerLives = 3
+    OnGround = False
+    PlayerDirection = 1
+    
+    Player.position = Vector2(PlayerX, PlayerY)
+    Player.color = Color(0.2, 0.8, 0.2)
+    Player.size = Vector2(30, 30)
+    
+    ' Initialize camera
+    Camera = GetNode("Camera2D")
+    
+    ' Initialize UI
+    ScoreLabel = GetNode("UI/ScoreLabel")
+    LivesLabel = GetNode("UI/LivesLabel")
+    GameOverLabel = GetNode("UI/GameOverLabel")
+    GameOverLabel.visible = False
+    
+    ' Game setup
+    Score = 0
+    CoinsCollected = 0
+    GameOver = False
+    LevelComplete = False
+    
+    ' Setup platforms
+    Call InitializePlatforms()
+    
+    ' Setup coins
+    Call InitializeCoins()
+    
+    ' Setup enemies
+    Call InitializeEnemies()
+    
+    Print "Platformer Ready! Arrow keys to move, Space to jump"
+    Set_Process(True)
+End Sub
+
+Sub InitializePlatforms()
+    ' Ground
+    Platforms(0) = GetNode("Platforms/Platform1")
+    PlatformX(0) = 0
+    PlatformY(0) = 500
+    PlatformW(0) = 400
+    PlatformH(0) = 40
+    Platforms(0).position = Vector2(PlatformX(0), PlatformY(0))
+    Platforms(0).size = Vector2(PlatformW(0), PlatformH(0))
+    Platforms(0).color = Color(0.4, 0.3, 0.2)
+    
+    ' Platform 2
+    Platforms(1) = GetNode("Platforms/Platform2")
+    PlatformX(1) = 450
+    PlatformY(1) = 450
+    PlatformW(1) = 150
+    PlatformH(1) = 20
+    Platforms(1).position = Vector2(PlatformX(1), PlatformY(1))
+    Platforms(1).size = Vector2(PlatformW(1), PlatformH(1))
+    Platforms(1).color = Color(0.4, 0.3, 0.2)
+    
+    ' Platform 3
+    Platforms(2) = GetNode("Platforms/Platform3")
+    PlatformX(2) = 700
+    PlatformY(2) = 400
+    PlatformW(2) = 150
+    PlatformH(2) = 20
+    Platforms(2).position = Vector2(PlatformX(2), PlatformY(2))
+    Platforms(2).size = Vector2(PlatformW(2), PlatformH(2))
+    Platforms(2).color = Color(0.4, 0.3, 0.2)
+    
+    ' Platform 4
+    Platforms(3) = GetNode("Platforms/Platform4")
+    PlatformX(3) = 900
+    PlatformY(3) = 350
+    PlatformW(3) = 200
+    PlatformH(3) = 20
+    Platforms(3).position = Vector2(PlatformX(3), PlatformY(3))
+    Platforms(3).size = Vector2(PlatformW(3), PlatformH(3))
+    Platforms(3).color = Color(0.4, 0.3, 0.2)
+    
+    ' Platform 5
+    Platforms(4) = GetNode("Platforms/Platform5")
+    PlatformX(4) = 1200
+    PlatformY(4) = 300
+    PlatformW(4) = 150
+    PlatformH(4) = 20
+    Platforms(4).position = Vector2(PlatformX(4), PlatformY(4))
+    Platforms(4).size = Vector2(PlatformW(4), PlatformH(4))
+    Platforms(4).color = Color(0.4, 0.3, 0.2)
+    
+    ' Platform 6 (end platform)
+    Platforms(5) = GetNode("Platforms/Platform6")
+    PlatformX(5) = 1450
+    PlatformY(5) = 400
+    PlatformW(5) = 300
+    PlatformH(5) = 40
+    Platforms(5).position = Vector2(PlatformX(5), PlatformY(5))
+    Platforms(5).size = Vector2(PlatformW(5), PlatformH(5))
+    Platforms(5).color = Color(0.8, 0.6, 0.2)
+End Sub
+
+Sub InitializeCoins()
+    TotalCoins = 10
+    Dim i As Integer
+    
+    ' Coins on platforms
+    CoinX(0) = 250: CoinY(0) = 450
+    CoinX(1) = 520: CoinY(1) = 400
+    CoinX(2) = 770: CoinY(2) = 350
+    CoinX(3) = 980: CoinY(3) = 300
+    CoinX(4) = 1270: CoinY(4) = 250
+    CoinX(5) = 650: CoinY(5) = 200
+    CoinX(6) = 150: CoinY(6) = 380
+    CoinX(7) = 1100: CoinY(7) = 280
+    CoinX(8) = 1580: CoinY(8) = 350
+    CoinX(9) = 1650: CoinY(9) = 350
+    
+    For i = 0 To 9
+        Coins(i) = GetNode("Coins").get_child(i)
+        Coins(i).position = Vector2(CoinX(i), CoinY(i))
+        Coins(i).color = Color(1, 0.8, 0)
+        Coins(i).size = Vector2(15, 15)
+        Coins(i).visible = True
+        CoinCollected(i) = False
+    Next i
+End Sub
+
+Sub InitializeEnemies()
+    EnemyX(0) = 500: EnemyY(0) = 420: EnemyVelX(0) = 50
+    EnemyX(1) = 950: EnemyY(1) = 320: EnemyVelX(1) = -60
+    EnemyX(2) = 1250: EnemyY(2) = 270: EnemyVelX(2) = 40
+    
+    Dim i As Integer
+    For i = 0 To 2
+        Enemies(i) = GetNode("Enemies").get_child(i)
+        Enemies(i).position = Vector2(EnemyX(i), EnemyY(i))
+        Enemies(i).color = Color(1, 0.2, 0.2)
+        Enemies(i).size = Vector2(25, 25)
+        EnemyActive(i) = True
+    Next i
+End Sub
+
+Sub _Process(delta As Single)
+    If GameOver Or LevelComplete Then
+        If Input.IsActionJustPressed("ui_accept") Then
+            GetTree().reload_current_scene()
+        End If
+        Exit Sub
+    End If
+    
+    ' Player input
+    PlayerVelX = 0
+    
+    If Input.IsActionPressed("ui_right") Then
+        PlayerVelX = MoveSpeed
+        PlayerDirection = 1
+    End If
+    If Input.IsActionPressed("ui_left") Then
+        PlayerVelX = -MoveSpeed
+        PlayerDirection = -1
+    End If
+    
+    ' Jump
+    If Input.IsActionJustPressed("ui_accept") And OnGround Then
+        PlayerVelY = JumpForce
+        OnGround = False
+    End If
+    
+    ' Apply gravity
+    If Not OnGround Then
+        PlayerVelY = PlayerVelY + Gravity * delta
+        If PlayerVelY > MaxFallSpeed Then
+            PlayerVelY = MaxFallSpeed
+        End If
+    End If
+    
+    ' Update player position
+    PlayerX = PlayerX + PlayerVelX * delta
+    PlayerY = PlayerY + PlayerVelY * delta
+    
+    ' Check platform collisions
+    OnGround = False
+    Dim i As Integer
+    For i = 0 To 5
+        If Platforms(i) IsNot Nothing Then
+            ' Check if player is above platform and falling
+            If PlayerVelY >= 0 Then
+                If PlayerX + 15 > PlatformX(i) And PlayerX - 15 < PlatformX(i) + PlatformW(i) Then
+                    If PlayerY + 15 >= PlatformY(i) And PlayerY + 15 <= PlatformY(i) + 10 Then
+                        PlayerY = PlatformY(i) - 15
+                        PlayerVelY = 0
+                        OnGround = True
+                    End If
+                End If
+            End If
+        End If
+    Next i
+    
+    ' Fall off screen = lose life
+    If PlayerY > 600 Then
+        Call LoseLife()
+    End If
+    
+    Player.position = Vector2(PlayerX, PlayerY)
+    
+    ' Update camera to follow player
+    Dim camX As Single
+    camX = PlayerX
+    If camX < 480 Then camX = 480
+    If camX > 1320 Then camX = 1320
+    Camera.position = Vector2(camX, 270)
+    
+    ' Check coin collection
+    For i = 0 To 9
+        If Not CoinCollected(i) Then
+            Dim dist As Single
+            dist = Sqr((PlayerX - CoinX(i)) * (PlayerX - CoinX(i)) + (PlayerY - CoinY(i)) * (PlayerY - CoinY(i)))
+            If dist < 20 Then
+                Coins(i).visible = False
+                CoinCollected(i) = True
+                CoinsCollected = CoinsCollected + 1
+                Score = Score + 100
+            End If
+        End If
+    Next i
+    
+    ' Update enemies
+    For i = 0 To 2
+        If EnemyActive(i) Then
+            EnemyX(i) = EnemyX(i) + EnemyVelX(i) * delta
+            Enemies(i).position = Vector2(EnemyX(i), EnemyY(i))
+            
+            ' Bounce enemies at platform edges
+            If i = 0 Then
+                If EnemyX(i) < 450 Or EnemyX(i) > 580 Then
+                    EnemyVelX(i) = -EnemyVelX(i)
+                End If
+            ElseIf i = 1 Then
+                If EnemyX(i) < 900 Or EnemyX(i) > 1080 Then
+                    EnemyVelX(i) = -EnemyVelX(i)
+                End If
+            ElseIf i = 2 Then
+                If EnemyX(i) < 1200 Or EnemyX(i) > 1330 Then
+                    EnemyVelX(i) = -EnemyVelX(i)
+                End If
+            End If
+            
+            ' Check collision with player
+            Dim dist As Single
+            dist = Sqr((PlayerX - EnemyX(i)) * (PlayerX - EnemyX(i)) + (PlayerY - EnemyY(i)) * (PlayerY - EnemyY(i)))
+            If dist < 28 Then
+                ' Check if jumping on enemy
+                If PlayerVelY > 0 And PlayerY < EnemyY(i) Then
+                    ' Defeat enemy
+                    Enemies(i).visible = False
+                    EnemyActive(i) = False
+                    PlayerVelY = JumpForce / 2
+                    Score = Score + 200
+                Else
+                    ' Take damage
+                    Call LoseLife()
+                End If
+            End If
+        End If
+    Next i
+    
+    ' Check if reached end
+    If PlayerX > 1600 And OnGround Then
+        LevelComplete = True
+        GameOverLabel.visible = True
+        GameOverLabel.text = "LEVEL COMPLETE!" & vbNewLine & "Score: " & CStr(Score) & vbNewLine & "Coins: " & CStr(CoinsCollected) & " / " & CStr(TotalCoins) & vbNewLine & vbNewLine & "Press SPACE to play again"
+    End If
+    
+    ' Update UI
+    ScoreLabel.text = "Score: " & CStr(Score)
+    LivesLabel.text = "Lives: " & CStr(PlayerLives) & "   Coins: " & CStr(CoinsCollected) & " / " & CStr(TotalCoins)
+End Sub
+
+Sub LoseLife()
+    PlayerLives = PlayerLives - 1
+    
+    ' Reset position
+    PlayerX = 100
+    PlayerY = 400
+    PlayerVelX = 0
+    PlayerVelY = 0
+    
+    If PlayerLives <= 0 Then
+        GameOver = True
+        GameOverLabel.visible = True
+        GameOverLabel.text = "GAME OVER" & vbNewLine & "Score: " & CStr(Score) & vbNewLine & vbNewLine & "Press SPACE to restart"
+    End If
+End Sub

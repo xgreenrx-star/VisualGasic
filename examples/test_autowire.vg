@@ -1,0 +1,107 @@
+' test_autowire.vg - Test automatic event wiring
+Option Explicit
+
+Dim btnTest As Button
+Dim btnOK As Button
+Dim btnCancel As Button
+Dim lblMessage As Label
+Dim txtName As LineEdit
+Dim clickCount As Integer
+
+Sub InitializeComponent()
+    Me.Text = "Auto-Wire Test"
+    Me.FormBorderStyle = FormBorderStyleEnum.Sizable
+    Me.StartPosition = FormStartPositionEnum.CenterScreen
+    Me.size = Vector2(500, 400)
+    
+    ' Create label for messages
+    Set lblMessage = Label.new()
+    lblMessage.name = "lblMessage"
+    lblMessage.text = "Event wiring test - try clicking buttons or typing"
+    lblMessage.position = Vector2(20, 20)
+    lblMessage.size = Vector2(460, 30)
+    Me.add_child(lblMessage)
+    
+    ' Create text input
+    Set txtName = LineEdit.new()
+    txtName.name = "txtName"
+    txtName.placeholder_text = "Type here to test txtName_Change event"
+    txtName.position = Vector2(20, 70)
+    txtName.size = Vector2(460, 30)
+    Me.add_child(txtName)
+    
+    ' Create test button
+    Set btnTest = Button.new()
+    btnTest.name = "btnTest"
+    btnTest.text = "Test Auto-Wire"
+    btnTest.position = Vector2(20, 120)
+    btnTest.size = Vector2(150, 40)
+    Me.add_child(btnTest)
+    
+    ' Create OK button
+    Set btnOK = Button.new()
+    btnOK.name = "btnOK"
+    btnOK.text = "OK"
+    btnOK.position = Vector2(290, 320)
+    btnOK.size = Vector2(90, 40)
+    Me.add_child(btnOK)
+    
+    ' Create Cancel button
+    Set btnCancel = Button.new()
+    btnCancel.name = "btnCancel"
+    btnCancel.text = "Cancel"
+    btnCancel.position = Vector2(390, 320)
+    btnCancel.size = Vector2(90, 40)
+    Me.add_child(btnCancel)
+End Sub
+
+Sub Form_Load()
+    Print "Form loading - initializing components..."
+    clickCount = 0
+    InitializeComponent()
+End Sub
+
+Sub Form_Shown()
+    Print "Form is now visible"
+    Print "Auto-wiring should connect:"
+    Print "  - btnTest.pressed -> btnTest_Click()"
+    Print "  - btnOK.pressed -> btnOK_Click()"
+    Print "  - btnCancel.pressed -> btnCancel_Click()"
+    Print "  - txtName.text_changed -> txtName_Change()"
+End Sub
+
+' ====== AUTO-WIRED EVENT HANDLERS ======
+' These should be automatically connected by VGFormBase
+
+Sub btnTest_Click()
+    clickCount = clickCount + 1
+    lblMessage.text = "✓ btnTest_Click() fired! Click count: " + Str(clickCount)
+    Print "SUCCESS: btnTest_Click() event was auto-wired correctly!"
+End Sub
+
+Sub btnOK_Click()
+    lblMessage.text = "✓ OK button clicked - auto-wiring works!"
+    Print "SUCCESS: btnOK_Click() event was auto-wired correctly!"
+    Me.DialogResult = DialogResultEnum.OK
+    Me.Close()
+End Sub
+
+Sub btnCancel_Click()
+    lblMessage.text = "✓ Cancel button clicked - auto-wiring works!"
+    Print "SUCCESS: btnCancel_Click() event was auto-wired correctly!"
+    Me.DialogResult = DialogResultEnum.Cancel
+    Me.Close()
+End Sub
+
+Sub txtName_Change(newText)
+    lblMessage.text = "✓ Text changed to: " + newText
+    Print "SUCCESS: txtName_Change() event was auto-wired correctly! Text: " + newText
+End Sub
+
+Sub Form_Closing(evt)
+    Print "Form closing with DialogResult: " + Str(Me.DialogResult)
+End Sub
+
+Sub Form_Closed()
+    Print "Form closed"
+End Sub

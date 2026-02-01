@@ -1,0 +1,55 @@
+' TestForm.vg - Test WinForms-style Form with working event wiring
+Option Explicit
+
+' Form-level variables
+Dim btnTest As Button
+Dim lblMessage As Label
+
+' InitializeComponent - Called by designer
+Sub InitializeComponent()
+    ' Set form properties
+    Me.Text = "Test Form"
+    Me.FormBorderStyle = FormBorderStyleEnum.Sizable
+    Me.StartPosition = FormStartPositionEnum.CenterScreen
+    Me.size = Vector2(400, 300)
+    
+    ' Create label
+    Set lblMessage = Label.new()
+    lblMessage.text = "Click the button to test event wiring"
+    lblMessage.position = Vector2(50, 50)
+    lblMessage.size = Vector2(300, 30)
+    Me.add_child(lblMessage)
+    
+    ' Create button
+    Set btnTest = Button.new()
+    btnTest.text = "Click Me"
+    btnTest.position = Vector2(150, 120)
+    btnTest.size = Vector2(100, 40)
+    Me.add_child(btnTest)
+    
+    ' Wire up the event - THIS IS THE KEY!
+    ' Connect the button's pressed signal to our handler
+    btnTest.pressed.connect(Callable(Me, "btnTest_Click"))
+End Sub
+
+' Form_Load - Called before form is displayed
+Sub Form_Load()
+    Print "Form loading..."
+    InitializeComponent()
+End Sub
+
+' Form_Shown - Called after form becomes visible
+Sub Form_Shown()
+    Print "Form is now visible"
+End Sub
+
+' Button click event handler
+Sub btnTest_Click()
+    Print "Button clicked! Event wiring works!"
+    lblMessage.text = "Success! Button event fired at: " + str(Time.get_ticks_msec())
+End Sub
+
+' Form_Closing - Called when form is about to close
+Sub Form_Closing(evt)
+    Print "Form is closing"
+End Sub

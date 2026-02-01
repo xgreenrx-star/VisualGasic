@@ -37,6 +37,16 @@ func _on_debugger_message(message: String, data: Array) -> bool:
 				_set_variable(data[0], data[1], data[2])
 			return true
 		
+		"get_whenever_sections":
+			if data.size() >= 1:
+				_send_whenever_sections(data[0])
+			return true
+		
+		"set_whenever_active":
+			if data.size() >= 3:
+				_set_whenever_active(data[0], data[1], data[2])
+			return true
+		
 		"evaluate":
 			if data.size() >= 3:
 				_evaluate_code(data[0], data[1], data[2])
@@ -229,3 +239,26 @@ func _evaluate_code(instance_id: int, code: String, request_id: int) -> void:
 					result = {"success": false, "result": "Unknown command: " + code}
 	
 	EngineDebugger.send_message("visualgasic:eval_result", [request_id, result])
+
+func _send_whenever_sections(instance_id: int) -> void:
+	var inst = _get_instance(instance_id)
+	if inst == null:
+		EngineDebugger.send_message("visualgasic:whenever_sections", [[]])
+		return
+	
+	# Use the internal method to get Whenever sections
+	var sections = []
+	if inst.has_method("_vg_get_whenever_sections"):
+		sections = inst.call("_vg_get_whenever_sections")
+	
+	EngineDebugger.send_message("visualgasic:whenever_sections", [sections])
+
+func _set_whenever_active(instance_id: int, section_name: String, active: bool) -> void:
+	var inst = _get_instance(instance_id)
+	if inst == null:
+		return
+	
+	if inst.has_method("_vg_set_whenever_active"):
+		inst.call("_vg_set_whenever_active", section_name, active)
+		# Send updated sections list
+		_send_whenever_sections(instance_id)
