@@ -29,10 +29,11 @@ The window is split into three main sections:
 - **Multi-line input** with syntax highlighting (CodeEdit)
 
 ### Right Panel: Tabs (30%)
-Three tabs for different views:
+Four tabs for different views:
 1. **Variables** - All declared variables with types and values
 2. **Watch** - Monitored expressions that update automatically
 3. **Inspector** - Deep object property and method browser
+4. **Whenever** - Real-time monitoring of all active Whenever sections
 
 ## Features
 
@@ -95,7 +96,36 @@ Or click **➕ Add** button in Watch tab.
 | player_health * 2 | 200 |
 | enemy.position.x | 150.5 |
 
-### 4. Object Inspector
+### 4. Whenever Tab
+
+The **Whenever** tab provides real-time monitoring and control of all active Whenever sections in your running game:
+
+**Display Columns:**
+| Section Name | Condition | Status | Callbacks | Scope |
+|--------------|-----------|--------|-----------|-------|
+| HealthMonitor | health Changes | ✓ Active | UpdateHealthBar | Global |
+| BossRage | bossHealth Below 30 | ⏸ Paused | ActivateBossRage | Local |
+| ComboSystem | hitStreak Becomes 5 | ✓ Active | TriggerCombo, PlaySound | Global |
+
+**Features:**
+- **Real-time updates** - See sections trigger as variables change
+- **Pause/Resume** - Right-click to suspend or resume individual sections
+- **Status indicators** - Active ✓ or Paused ⏸ for each section
+- **Scope display** - Shows if section is Global, Local, or Member-scoped
+- **Go to Definition** - Jump to the section declaration in code
+
+**Right-click Context Menu:**
+- **Pause Section** - Temporarily disable monitoring
+- **Resume Section** - Re-enable a paused section
+- **Go to Definition** - Open code at section declaration
+
+**Use Cases:**
+- Debug reactive game logic without modifying code
+- Temporarily disable features during testing
+- Monitor which sections are triggering and when
+- Verify section registration and callback associations
+
+### 5. Object Inspector
 
 When you execute an expression that returns an object, the Inspector tab activates:
 

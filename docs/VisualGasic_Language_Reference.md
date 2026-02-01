@@ -2099,6 +2099,27 @@ Sub UpdateHealthDisplay()
 End Sub
 ```
 
+#### Implementation Notes
+
+The Whenever system is fully compiled to bytecode for optimal performance:
+
+**Bytecode Opcodes:**
+- `OP_REGISTER_WHENEVER` - Registers a section with packed data Dictionary
+- `OP_SUSPEND_WHENEVER` - Suspends monitoring by section name
+- `OP_RESUME_WHENEVER` - Resumes monitoring of a suspended section
+
+**Runtime Behavior:**
+- Whenever sections are registered during function initialization
+- The runtime monitors watched variables on each frame
+- Conditions are evaluated efficiently using bytecode execution
+- Local sections are automatically cleaned up when their scope ends
+
+**Debugging Support:**
+- All active sections visible in Immediate Window's "Whenever" tab
+- Real-time status updates (Active/Paused)
+- Right-click to pause/resume sections during gameplay
+- Go to Definition to jump to section code
+
 #### Performance and Architecture
 
 The VisualGasic Whenever system provides:

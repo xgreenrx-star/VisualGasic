@@ -252,6 +252,69 @@ End If
 
 ---
 
+### IsKeyDown(key As String|Integer) As Boolean
+VB6-style function to check if a key is pressed. Accepts either key name strings or key codes.
+
+**Syntax:**
+```vb
+Dim pressed = IsKeyDown(key)
+```
+
+**Example:**
+```vb
+' Using key name strings (recommended)
+If IsKeyDown("W") Then
+    velocity.y = -speed
+End If
+
+If IsKeyDown("S") Then
+    velocity.y = speed
+End If
+
+' Using key codes
+If IsKeyDown(32) Then  ' Space
+    Jump()
+End If
+```
+
+**Note:** This is an alias for `IsKeyPressed` that also accepts string key names for easier VB6-style coding.
+
+---
+
+### GetKey(key As String|Integer) As Boolean
+Alias for `IsKeyDown`. Returns true if the specified key is currently pressed.
+
+**Syntax:**
+```vb
+Dim pressed = GetKey(key)
+```
+
+**Example:**
+```vb
+If GetKey("Space") Then
+    Jump()
+End If
+```
+
+---
+
+### IsMouseButtonDown(button As Integer) As Boolean
+VB6-style alias for `IsMouseButtonPressed`. Returns true if the specified mouse button is pressed.
+
+**Syntax:**
+```vb
+Dim pressed = IsMouseButtonDown(button)
+```
+
+**Example:**
+```vb
+If IsMouseButtonDown(1) Then  ' Left click
+    Fire()
+End If
+```
+
+---
+
 ### IsMouseButtonPressed(button As Integer) As Boolean
 Returns true if the specified mouse button is pressed.
 
