@@ -16,6 +16,9 @@ var _request_id: int = 0
 # Key: script_path (String), Value: Array of line numbers (int)
 var _breakpoints: Dictionary = {}
 
+# Timer to poll breakpoints from ScriptEditor (workaround for custom script languages)
+var _breakpoint_poll_timer: Timer = null
+
 func _has_capture(prefix: String) -> bool:
 	return prefix == "visualgasic"
 
@@ -70,13 +73,60 @@ func _setup_session(session_id: int) -> void:
 		_active_session = session
 		# Request initial list of instances
 		session.send_message("visualgasic:get_instances", [])
-		# Send any existing breakpoints to the new session
-		_sync_breakpoints_to_game()
+		
+		# Poll breakpoints from ScriptEditor immediately
+		_poll_breakpoints_from_editor()
+		
+		# Start polling timer - Godot doesn't call _breakpoint_set_in_tree for custom languages
+		if _breakpoint_poll_timer == null:
+			_breakpoint_poll_timer = Timer.new()
+			_breakpoint_poll_timer.wait_time = 0.5
+			_breakpoint_poll_timer.timeout.connect(_poll_breakpoints_from_editor)
+			add_child(_breakpoint_poll_timer)
+		_breakpoint_poll_timer.start()
 
 func _session_stopped() -> void:
 	_active_session = null
 	_pending_requests.clear()
+	if _breakpoint_poll_timer:
+		_breakpoint_poll_timer.stop()
 	instances_updated.emit([])
+
+func _poll_breakpoints_from_editor() -> void:
+	"""Poll breakpoints from ScriptEditor - workaround since _breakpoint_set_in_tree 
+	   isn't called for custom script languages like .vg"""
+	var script_editor = EditorInterface.get_script_editor()
+	if not script_editor:
+		return
+	
+	# get_breakpoints() returns PackedStringArray of "res://path.gd:line" strings
+	var bp_strings = script_editor.get_breakpoints()
+	var new_breakpoints: Dictionary = {}
+	
+	for bp_str in bp_strings:
+		# Parse "res://path/script.vg:123" format
+		var colon_idx = bp_str.rfind(":")
+		if colon_idx == -1:
+			continue
+		
+		var path = bp_str.substr(0, colon_idx)
+		var line_str = bp_str.substr(colon_idx + 1)
+		
+		# Only track .vg scripts
+		if not path.ends_with(".vg"):
+			continue
+		
+		var line = int(line_str)
+		if not new_breakpoints.has(path):
+			new_breakpoints[path] = []
+		if line not in new_breakpoints[path]:
+			new_breakpoints[path].append(line)
+	
+	# Check if breakpoints changed
+	if new_breakpoints != _breakpoints:
+		_breakpoints = new_breakpoints
+		print("[VG Debugger] Breakpoints updated: ", _breakpoints)
+		_sync_breakpoints_to_game()
 
 # ============================================================================
 # BREAKPOINT HANDLING - Required for custom script debugging
