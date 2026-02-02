@@ -23,6 +23,7 @@ func _has_capture(prefix: String) -> bool:
 	return prefix == "visualgasic"
 
 func _capture(message: String, data: Array, session_id: int) -> bool:
+	print("[VG Debugger] _capture called: ", message)
 	if not message.begins_with("visualgasic:"):
 		return false
 	
@@ -68,9 +69,11 @@ func _capture(message: String, data: Array, session_id: int) -> bool:
 	return false
 
 func _setup_session(session_id: int) -> void:
+	print("[VG Debugger] _setup_session called, session_id=", session_id)
 	var session = get_session(session_id)
 	if session:
 		_active_session = session
+		print("[VG Debugger] Session active, sending get_instances")
 		# Request initial list of instances
 		session.send_message("visualgasic:get_instances", [])
 		
@@ -78,11 +81,12 @@ func _setup_session(session_id: int) -> void:
 		_poll_breakpoints_from_editor()
 		
 		# Start polling timer - Godot doesn't call _breakpoint_set_in_tree for custom languages
+		# Note: EditorDebuggerPlugin is RefCounted, not Node, so add timer to editor base
 		if _breakpoint_poll_timer == null:
 			_breakpoint_poll_timer = Timer.new()
 			_breakpoint_poll_timer.wait_time = 0.5
 			_breakpoint_poll_timer.timeout.connect(_poll_breakpoints_from_editor)
-			add_child(_breakpoint_poll_timer)
+			EditorInterface.get_base_control().add_child(_breakpoint_poll_timer)
 		_breakpoint_poll_timer.start()
 
 func _session_stopped() -> void:
