@@ -7977,42 +7977,53 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 
                 // Check for breakpoints using Godot's EngineDebugger (the proper way)
                 EngineDebugger* engine_debugger = EngineDebugger::get_singleton();
-                if (engine_debugger && !script_path.is_empty()) {
+                
+                // Debug trace - only log every 60th line to avoid spam
+                static int debug_trace_counter = 0;
+                if (++debug_trace_counter % 60 == 1) {
+                    UtilityFunctions::print("[VG Trace] Line ", line_number, " in ", script_path,
+                        " | EngineDebugger: ", engine_debugger ? "yes" : "NO",
+                        " | is_active: ", (engine_debugger && engine_debugger->is_active()) ? "yes" : "no");
+                }
+                
+                if (engine_debugger && engine_debugger->is_active() && !script_path.is_empty()) {
                     // Check if there's a breakpoint at this line using Godot's system
-                    if (engine_debugger->is_breakpoint(line_number, StringName(script_path))) {
+                    bool has_bp = engine_debugger->is_breakpoint(line_number, StringName(script_path));
+                    
+                    if (has_bp) {
                         UtilityFunctions::print_rich("[color=yellow][VG Debug] Breakpoint hit at ", 
                             script_path, ":", line_number, "[/color]");
                         
                         // Trigger Godot's script debugger - this will pause and show debugger UI
                         engine_debugger->script_debug(VisualGasicLanguage::get_singleton(), true, false);
                     }
+                }
+                
+                // Also check our internal debugger for conditional breakpoints
+                VisualGasicDebugger* debugger = VisualGasicDebuggerGlobal::get_global_debugger();
+                if (debugger && engine_debugger && engine_debugger->is_active() && !script_path.is_empty()) {
+                    Dictionary context;
+                    context["variables"] = variables;
+                    if (current_sub) {
+                        context["function"] = current_sub->name;
+                    }
                     
-                    // Also check our internal debugger for conditional breakpoints
-                    VisualGasicDebugger* debugger = VisualGasicDebuggerGlobal::get_global_debugger();
-                    if (debugger) {
-                        Dictionary context;
-                        context["variables"] = variables;
+                    if (debugger->should_break_at(script_path, line_number, context)) {
+                        debug_state.debug_paused = true;
+                        UtilityFunctions::print_rich("[color=cyan][VG Debug] Conditional breakpoint at ", 
+                            script_path, ":", line_number, "[/color]");
+                        
                         if (current_sub) {
-                            context["function"] = current_sub->name;
+                            debugger->record_execution_frame(
+                                current_sub->name,
+                                script_path,
+                                line_number,
+                                variables
+                            );
                         }
                         
-                        if (debugger->should_break_at(script_path, line_number, context)) {
-                            debug_state.debug_paused = true;
-                            UtilityFunctions::print_rich("[color=cyan][VG Debug] Conditional breakpoint at ", 
-                                script_path, ":", line_number, "[/color]");
-                            
-                            if (current_sub) {
-                                debugger->record_execution_frame(
-                                    current_sub->name,
-                                    script_path,
-                                    line_number,
-                                    variables
-                                );
-                            }
-                            
-                            // Also trigger Godot's debugger
-                            engine_debugger->script_debug(VisualGasicLanguage::get_singleton(), true, false);
-                        }
+                        // Also trigger Godot's debugger
+                        engine_debugger->script_debug(VisualGasicLanguage::get_singleton(), true, false);
                     }
                 }
                 break;

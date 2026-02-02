@@ -537,6 +537,7 @@ Statement* VisualGasicParser::parse_statement() {
     }
     
     VisualGasicTokenizer::Token t = peek();
+    int statement_line = t.line; // Capture line number for debug support
     // UtilityFunctions::print("ParseStmt Token: ", t.value, " Type: ", t.type);
 
     if (t.type == VisualGasicTokenizer::TOKEN_COMMENT) {
@@ -546,6 +547,12 @@ Statement* VisualGasicParser::parse_statement() {
     
     String val = t.value.operator String().to_lower();
 
+    // Helper lambda to set line number on statement before returning
+    auto set_line = [statement_line](Statement* s) -> Statement* {
+        if (s) s->line = statement_line;
+        return s;
+    };
+
     // Only treat reserved words as statements when the tokenizer classified them as KEYWORD.
     if (t.type == VisualGasicTokenizer::TOKEN_KEYWORD) {
         if (val == "enum") {
@@ -553,83 +560,83 @@ Statement* VisualGasicParser::parse_statement() {
             return nullptr; // Enum is a definition, not a statement
         }
         if (val == "print") {
-            return parse_print();
+            return set_line(parse_print());
         }
-        if (val == "open") return parse_open();
-        if (val == "close") return parse_close();
-        if (val == "seek") return parse_seek();
-        if (val == "kill") return parse_kill();
-        if (val == "name") return parse_name();
-        if (val == "try") return parse_try();
-        if (val == "input") return parse_input(false);
+        if (val == "open") return set_line(parse_open());
+        if (val == "close") return set_line(parse_close());
+        if (val == "seek") return set_line(parse_seek());
+        if (val == "kill") return set_line(parse_kill());
+        if (val == "name") return set_line(parse_name());
+        if (val == "try") return set_line(parse_try());
+        if (val == "input") return set_line(parse_input(false));
         if (val == "line") {
             advance();
             if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("input") == 0) {
-                 return parse_input(true);
+                 return set_line(parse_input(true));
             }
         }
 
         if (val == "var") {
-             return parse_dim(); // Helper alias for Var -> Dim
+             return set_line(parse_dim()); // Helper alias for Var -> Dim
         }
 
-        if (val == "dim") return parse_dim();
+        if (val == "dim") return set_line(parse_dim());
         if (val == "static") {
             DimStatement* ds = parse_dim();
             if (ds) ds->is_static = true;
-            return ds;
+            return set_line(ds);
         }
-        if (val == "const") return parse_const();
+        if (val == "const") return set_line(parse_const());
         if (val == "pass") {
             advance();
-            return static_cast<PassStatement*>(register_node(new PassStatement()));
+            return set_line(static_cast<PassStatement*>(register_node(new PassStatement())));
         }
         if (val == "doevents") {
             advance();
-            return static_cast<DoEventsStatement*>(register_node(new DoEventsStatement()));
+            return set_line(static_cast<DoEventsStatement*>(register_node(new DoEventsStatement())));
         }
-        if (val == "data") return parse_data();
-        if (val == "datafile") return parse_data_file();
-        if (val == "loaddata") return parse_load_data();
-        if (val == "read") return parse_read();
-        if (val == "restore") return parse_restore();
-        if (val == "if") return parse_if();
-        if (val == "for") return parse_for();
-        if (val == "while") return parse_while();
-        if (val == "do") return parse_do();
-        if (val == "select") return parse_select();
-        if (val == "exit") return parse_exit();
-        if (val == "redim") return parse_redim();
-        if (val == "with") return parse_with();
-        if (val == "return") return parse_return();
-        if (val == "continue") return parse_continue();
+        if (val == "data") return set_line(parse_data());
+        if (val == "datafile") return set_line(parse_data_file());
+        if (val == "loaddata") return set_line(parse_load_data());
+        if (val == "read") return set_line(parse_read());
+        if (val == "restore") return set_line(parse_restore());
+        if (val == "if") return set_line(parse_if());
+        if (val == "for") return set_line(parse_for());
+        if (val == "while") return set_line(parse_while());
+        if (val == "do") return set_line(parse_do());
+        if (val == "select") return set_line(parse_select());
+        if (val == "exit") return set_line(parse_exit());
+        if (val == "redim") return set_line(parse_redim());
+        if (val == "with") return set_line(parse_with());
+        if (val == "return") return set_line(parse_return());
+        if (val == "continue") return set_line(parse_continue());
         if (val == "raise") {
-            return parse_raise();
+            return set_line(parse_raise());
         }
         if (val == "whenever") {
-            return parse_whenever();
+            return set_line(parse_whenever());
         }
         
         // Multitasking keywords - async/await/task/parallel
         if (val == "async") {
             advance(); // consume "async"
             if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && (String(peek().value).nocasecmp_to("sub") == 0 || String(peek().value).nocasecmp_to("function") == 0)) {
-                return parse_async_function();
+                return set_line(parse_async_function());
             }
             error("Expected 'Sub' or 'Function' after 'Async'");
             return nullptr;
         }
         if (val == "await") {
-            return parse_await();
+            return set_line(parse_await());
         }
         if (val == "task") {
             advance(); // consume "task"
             String next_val = String(peek().value).to_lower();
             if (next_val == "run") {
                 advance(); // consume "run"
-                return parse_task_run();
+                return set_line(parse_task_run());
             } else if (next_val == "wait" || next_val == "waitall" || next_val == "waitany") {
-                return parse_task_wait();
+                return set_line(parse_task_wait());
             }
             error("Expected 'Run', 'Wait', 'WaitAll', or 'WaitAny' after 'Task'");
             return nullptr;
@@ -639,10 +646,10 @@ Statement* VisualGasicParser::parse_statement() {
             String next_val = String(peek().value).to_lower();
             if (next_val == "for") {
                 advance(); // consume "for"
-                return parse_parallel_for();
+                return set_line(parse_parallel_for());
             } else if (next_val == "section") {
                 advance(); // consume "section"
-                return parse_parallel_section();
+                return set_line(parse_parallel_section());
             }
             error("Expected 'For' or 'Section' after 'Parallel'");
             return nullptr;
@@ -654,11 +661,11 @@ Statement* VisualGasicParser::parse_statement() {
             String next_val = String(peek().value).to_lower();
             if (next_val == "match") {
                 advance(); // consume "match"
-                return parse_pattern_match();
+                return set_line(parse_pattern_match());
             } else {
                 // Regular select case - put token back
                 current_pos--;
-                return parse_select();
+                return set_line(parse_select());
             }
         }
         
@@ -666,7 +673,7 @@ Statement* VisualGasicParser::parse_statement() {
             advance();
             if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("whenever") == 0) {
                 advance(); // consume "whenever"
-                return parse_suspend_whenever();
+                return set_line(parse_suspend_whenever());
             }
             error("Expected 'Whenever' after 'Suspend'");
             return nullptr;
@@ -675,20 +682,20 @@ Statement* VisualGasicParser::parse_statement() {
             advance();
             if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("whenever") == 0) {
                 advance(); // consume "whenever"
-                return parse_resume_whenever();
+                return set_line(parse_resume_whenever());
             }
             error("Expected 'Whenever' after 'Resume'");
             return nullptr;
         }
         if (val == "raiseevent") {
             advance();
-            return parse_raise_event();
+            return set_line(parse_raise_event());
         }
         
         if (val == "set") {
             advance(); // Eat Set
             // Parse assignment: Target = Value
-            return parse_assignment_or_call();
+            return set_line(parse_assignment_or_call());
         }
     }
     if (val == "goto") {
@@ -698,7 +705,7 @@ Statement* VisualGasicParser::parse_statement() {
             advance();
             GotoStatement* g = static_cast<GotoStatement*>(register_node(new GotoStatement()));
             g->label_name = label;
-            return g;
+            return set_line(g);
         }
     }
 
@@ -718,7 +725,7 @@ Statement* VisualGasicParser::parse_statement() {
                      advance();
                      OnErrorStatement* s = static_cast<OnErrorStatement*>(register_node(new OnErrorStatement()));
                      s->mode = OnErrorStatement::RESUME_NEXT;
-                     return s;
+                     return set_line(s);
                  }
              } else if (String(peek().value).nocasecmp_to("Goto") == 0) {
                  advance();
@@ -728,7 +735,7 @@ Statement* VisualGasicParser::parse_statement() {
                      OnErrorStatement* s = static_cast<OnErrorStatement*>(register_node(new OnErrorStatement()));
                      s->mode = OnErrorStatement::GOTO_LABEL;
                      s->label_name = label;
-                     return s;
+                     return set_line(s);
                  }
                  // Handle "0" to disable? VB semantics "On Error Goto 0"
                  if (check(VisualGasicTokenizer::TOKEN_LITERAL_INTEGER)) {
@@ -740,7 +747,7 @@ Statement* VisualGasicParser::parse_statement() {
                            OnErrorStatement* s = static_cast<OnErrorStatement*>(register_node(new OnErrorStatement()));
                            s->mode = OnErrorStatement::GOTO_LABEL;
                            s->label_name = ""; // Empty label means disable
-                           return s;
+                           return set_line(s);
                       }
                  }
              }
@@ -820,7 +827,7 @@ Statement* VisualGasicParser::parse_statement() {
         } else { unregister_node(target); delete target; unregister_node(call_stmt); delete call_stmt; return nullptr; }
 
         call_stmt->arguments = args;
-        return call_stmt;
+        return set_line(call_stmt);
     }
     
     if (t.type == VisualGasicTokenizer::TOKEN_IDENTIFIER) {
@@ -831,19 +838,19 @@ Statement* VisualGasicParser::parse_statement() {
             advance(); // Colon
             LabelStatement* l = static_cast<LabelStatement*>(register_node(new LabelStatement()));
             l->name = label_name;
-            return l;
+            return set_line(l);
         }
 
-        return parse_assignment_or_call();
+        return set_line(parse_assignment_or_call());
     }
 
     if (t.type == VisualGasicTokenizer::TOKEN_KEYWORD && t.value.operator String().nocasecmp_to("me") == 0) {
-        return parse_assignment_or_call();
+        return set_line(parse_assignment_or_call());
     }
     
     // Check for Leading Dot (Implicit With member access)
     if (t.type == VisualGasicTokenizer::TOKEN_OPERATOR && t.value == ".") {
-        return parse_assignment_or_call();
+        return set_line(parse_assignment_or_call());
     }
     
     current_pos++; // Skip unknown
