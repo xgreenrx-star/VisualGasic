@@ -58,6 +58,7 @@
 #include <godot_cpp/classes/gpu_particles3d.hpp>
 #include <godot_cpp/classes/particle_process_material.hpp>
 #include <godot_cpp/classes/multi_mesh_instance3d.hpp>
+#include <godot_cpp/classes/engine_debugger.hpp>
 #include <godot_cpp/classes/multi_mesh.hpp>
 #include <godot_cpp/classes/texture_rect.hpp>
 #include <godot_cpp/classes/sprite3d.hpp>
@@ -7965,44 +7966,53 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 
                 // Update debug state
                 debug_state.current_line = line_number;
+                String script_path;
                 if (script.is_valid()) {
-                    debug_state.current_file = script->get_path();
+                    script_path = script->get_path();
+                    debug_state.current_file = script_path;
                 }
                 
                 // Update the current stack frame line for Godot debugger
                 VisualGasicLanguage::update_stack_frame_line(line_number);
                 
-                // Check for breakpoints using global debugger
-                VisualGasicDebugger* debugger = VisualGasicDebuggerGlobal::get_global_debugger();
-                if (debugger) {
-                    // Build context dictionary for conditional breakpoints
-                    Dictionary context;
-                    context["variables"] = variables;
-                    if (current_sub) {
-                        context["function"] = current_sub->name;
-                    }
-                    
-                    // Check if we should break at this line
-                    if (debugger->should_break_at(debug_state.current_file, line_number, context)) {
-                        debug_state.debug_paused = true;
-                        UtilityFunctions::print_rich("[color=yellow]Breakpoint hit at ", 
-                            debug_state.current_file, ":", line_number, "[/color]");
+                // Check for breakpoints using Godot's EngineDebugger (the proper way)
+                EngineDebugger* engine_debugger = EngineDebugger::get_singleton();
+                if (engine_debugger && !script_path.is_empty()) {
+                    // Check if there's a breakpoint at this line using Godot's system
+                    if (engine_debugger->is_breakpoint(line_number, StringName(script_path))) {
+                        UtilityFunctions::print_rich("[color=yellow][VG Debug] Breakpoint hit at ", 
+                            script_path, ":", line_number, "[/color]");
                         
-                        // Record execution frame for time-travel debugging
-                        if (current_sub) {
-                            debugger->record_execution_frame(
-                                current_sub->name,
-                                debug_state.current_file,
-                                line_number,
-                                variables
-                            );
-                        }
+                        // Trigger Godot's script debugger - this will pause and show debugger UI
+                        engine_debugger->script_debug(VisualGasicLanguage::get_singleton(), true, false);
                     }
                     
-                    // Handle step modes
-                    if (debug_state.step_mode == DebugState::STEP_INTO) {
-                        debug_state.debug_paused = true;
-                        debug_state.step_mode = DebugState::STEP_NONE;
+                    // Also check our internal debugger for conditional breakpoints
+                    VisualGasicDebugger* debugger = VisualGasicDebuggerGlobal::get_global_debugger();
+                    if (debugger) {
+                        Dictionary context;
+                        context["variables"] = variables;
+                        if (current_sub) {
+                            context["function"] = current_sub->name;
+                        }
+                        
+                        if (debugger->should_break_at(script_path, line_number, context)) {
+                            debug_state.debug_paused = true;
+                            UtilityFunctions::print_rich("[color=cyan][VG Debug] Conditional breakpoint at ", 
+                                script_path, ":", line_number, "[/color]");
+                            
+                            if (current_sub) {
+                                debugger->record_execution_frame(
+                                    current_sub->name,
+                                    script_path,
+                                    line_number,
+                                    variables
+                                );
+                            }
+                            
+                            // Also trigger Godot's debugger
+                            engine_debugger->script_debug(VisualGasicLanguage::get_singleton(), true, false);
+                        }
                     }
                 }
                 break;
