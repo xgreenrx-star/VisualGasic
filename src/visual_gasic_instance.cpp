@@ -7975,7 +7975,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 // Update the current stack frame line for Godot debugger
                 VisualGasicLanguage::update_stack_frame_line(line_number);
                 
-                // Check for breakpoints using Godot's EngineDebugger (the proper way)
+                // Check for breakpoints using Godot's EngineDebugger
                 EngineDebugger* engine_debugger = EngineDebugger::get_singleton();
                 
                 // Debug trace - only log every 60th line to avoid spam
@@ -7987,8 +7987,22 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 }
                 
                 if (engine_debugger && engine_debugger->is_active() && !script_path.is_empty()) {
-                    // Check if there's a breakpoint at this line using Godot's system
+                    // First check Godot's built-in breakpoint system
                     bool has_bp = engine_debugger->is_breakpoint(line_number, StringName(script_path));
+                    
+                    // Also check our VGDebugHandler autoload for forwarded breakpoints
+                    if (!has_bp) {
+                        SceneTree* tree = Object::cast_to<SceneTree>(Engine::get_singleton()->get_main_loop());
+                        if (tree) {
+                            Node* root = tree->get_root();
+                            if (root) {
+                                Node* debug_handler = root->get_node_or_null(NodePath("/root/VGDebugHandler"));
+                                if (debug_handler && debug_handler->has_method("has_breakpoint")) {
+                                    has_bp = debug_handler->call("has_breakpoint", script_path, line_number);
+                                }
+                            }
+                        }
+                    }
                     
                     if (has_bp) {
                         UtilityFunctions::print_rich("[color=yellow][VG Debug] Breakpoint hit at ", 
