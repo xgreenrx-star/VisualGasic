@@ -4,21 +4,22 @@
 #include <godot_cpp/classes/script_language_extension.hpp>
 #include "visual_gasic_script.h"
 #include <vector>
+#include <memory>
 
 using namespace godot;
 
 // Forward declaration
 class VisualGasicInstance;
 
-// Call stack frame for debugging
+// Call stack frame for debugging (uses std::string to avoid Godot String static init issues)
 struct VGDebugStackFrame {
-    String file;
-    String function;
+    std::string file;
+    std::string function;
     int line;
     VisualGasicInstance* instance;
     
     VGDebugStackFrame() : line(0), instance(nullptr) {}
-    VGDebugStackFrame(const String& f, const String& fn, int l, VisualGasicInstance* i)
+    VGDebugStackFrame(const std::string& f, const std::string& fn, int l, VisualGasicInstance* i)
         : file(f), function(fn), line(l), instance(i) {}
 };
 
@@ -27,9 +28,12 @@ class VisualGasicLanguage : public ScriptLanguageExtension {
 
     static VisualGasicLanguage *singleton;
     
-    // Debug call stack (static for access from instance)
-    static std::vector<VGDebugStackFrame> debug_call_stack;
-    static String debug_error;
+    // Debug call stack (pointer to avoid static init issues with Godot types)
+    static std::vector<VGDebugStackFrame>* debug_call_stack;
+    static std::string debug_error;
+    
+    // Helper to ensure debug stack is initialized (lazy initialization)
+    static std::vector<VGDebugStackFrame>& get_debug_stack();
 
 protected:
 	static void _bind_methods();
