@@ -18,10 +18,14 @@
 - **Memory Optimization** - Efficient memory management and leak detection
 
 ### **Professional Development Tools**
+- **IntelliSense** - Code completion with 80+ functions, snippets, and Godot types
 - **Interactive REPL** - Live coding with variable inspection and session management
 - **Language Server Protocol** - Intelligent IDE integration with completion and diagnostics
-- **Advanced Debugger** - Time-travel debugging, performance profiling, memory analysis
-- **Package Manager** - Semantic versioning, dependency resolution, registry support
+- **Advanced Debugger** - Breakpoint conditions, call stack, watch window, time-travel debugging
+- **Code Linting** - Static analysis with 10 issue codes (VG001-VG010)
+- **Snippet Manager** - 40+ built-in snippets with custom snippet support
+- **Theme Support** - 5 built-in themes including VB6 Classic
+- **Form Designer** - Grid snapping, alignment tools, F5 preview
 
 ### **Game Development**
 - **Entity Component System** - High-performance ECS with archetype optimization

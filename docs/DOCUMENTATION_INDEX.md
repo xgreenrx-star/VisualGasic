@@ -17,23 +17,65 @@
 - [VB6_FEATURES_IMPLEMENTATION.md](../VB6_FEATURES_IMPLEMENTATION.md) - VB6 feature compatibility
 
 ### Editor Features
+- [ide_tools.md](manual/ide_tools.md) - **Complete IDE tools guide** (Watch Window, Alignment, IntelliSense, Debugging, Linting, Snippets, Themes)
 - [BRACKET_COMPLETION.md](BRACKET_COMPLETION.md) - Smart bracket completion system (type `}` to auto-complete blocks)
 - [BRACKET_COMPLETION_QUICK_REF.md](BRACKET_COMPLETION_QUICK_REF.md) - Quick reference for bracket completion
+- [IMMEDIATE_WINDOW.md](IMMEDIATE_WINDOW.md) - Interactive debugging console
 
 ### Modern Features
 - [MODERN_FEATURES_README.md](../MODERN_FEATURES_README.md) - Overview of modern extensions
 - [MODERN_FEATURES.md](../MODERN_FEATURES.md) - Detailed modern feature documentation
+- [ADVANCED_FEATURES.md](ADVANCED_FEATURES.md) - Advanced language features
 
 ## API Documentation
 
 - [README_DATA.md](../README_DATA.md) - Data types and structures
 - [README_FORMS.md](../README_FORMS.md) - GUI forms and controls
 - [README_HELPERS.md](../README_HELPERS.md) - Helper utilities
+- [WINFORMS_FORM_GUIDE.md](WINFORMS_FORM_GUIDE.md) - WinForms-style form development
+
+## IDE Tools Reference
+
+### Debugging Tools
+| Tool | Description | Location |
+|------|-------------|----------|
+| Watch Window | Color-coded variable watching | Immediate Window > Watch Tab |
+| Call Stack Panel | Visual call stack display | Debugger > Call Stack |
+| Breakpoint Conditions | Conditional breakpoints, hit counts, tracepoints | Right-click breakpoint gutter |
+| Immediate Window | Interactive REPL for debugging | Bottom Panel |
+
+### Code Editing Tools
+| Tool | Description | Location |
+|------|-------------|----------|
+| IntelliSense | Code completion with 80+ functions | Automatic in .vg files |
+| Linter | Static analysis (10 issue codes) | Automatic in .vg files |
+| Snippet Manager | 40+ built-in code snippets | IntelliSense suggestions |
+| Code Formatter | Auto-indent, keyword capitalization | Tools menu |
+| Find All References | Show all usages of a symbol | Right-click identifier |
+| Go to Definition | Jump to declaration (Ctrl+Click/F12) | Any identifier |
+| Rename Refactoring | Scope-aware renaming (Ctrl+R) | Any identifier |
+
+### Form Designer Tools
+| Tool | Description | Location |
+|------|-------------|----------|
+| Snap-to-Grid | Configurable grid snapping | 2D Canvas Toolbar |
+| Alignment Toolbar | Align and distribute controls | 2D Canvas Toolbar |
+| Form Preview | Quick form testing (F5) | 2D Canvas Toolbar |
+| Tab Order Editor | Set focus order | Tools menu |
+| Menu Editor | Visual menu bar designer | Tools menu |
+
+### Project Tools
+| Tool | Description | Location |
+|------|-------------|----------|
+| Recent Projects | Quick access to recent files | Tools > Recent Projects |
+| Object Browser | Browse classes and methods | Tools menu |
+| Project Properties | Game configuration | Tools menu |
+| Theme Manager | 5 built-in syntax themes | Editor Settings |
 
 ## Project Information
 
 ### Status & Performance
-- [ROADMAP.md](../ROADMAP.md) - **Development roadmap and upcoming features**
+- [ROADMAP.md](ROADMAP.md) - **Development roadmap and feature status**
 - [PROJECT_STATUS.md](../PROJECT_STATUS.md) - Current project status
 - [IMPLEMENTATION_STATUS.md](../IMPLEMENTATION_STATUS.md) - Current implementation status
 - [OPTIMIZATION_RESULTS.md](../OPTIMIZATION_RESULTS.md) - Performance optimization results
@@ -48,6 +90,50 @@
 - [FILE_INDEX.md](../FILE_INDEX.md) - Source file organization
 - [COMMUNITY_HUB.md](../COMMUNITY_HUB.md) - Community resources
 
+## Plugin Files Reference
+
+### Core Plugin Files
+| File | Description |
+|------|-------------|
+| `visual_gasic_plugin.gd` | Main editor plugin |
+| `immediate_window.gd` | Interactive debugging console |
+| `vg_debugger_plugin.gd` | Remote debugger integration |
+| `vg_debug_handler.gd` | Game-side debug handler |
+
+### IDE Feature Files
+| File | Description |
+|------|-------------|
+| `vg_intellisense.gd` | Code completion provider |
+| `vg_code_edit.gd` | Custom CodeEdit with VB6 features |
+| `vg_formatter.gd` | Code formatting/beautification |
+| `vg_linter.gd` | Static code analysis |
+| `vg_snippet_manager.gd` | Code snippet management |
+| `vg_theme_manager.gd` | Syntax highlighting themes |
+
+### Navigation & Refactoring Files
+| File | Description |
+|------|-------------|
+| `vg_goto_definition.gd` | Go to definition support |
+| `find_references_panel.gd` | Find all references UI |
+| `code_navigator.gd` | Code structure browser |
+| `vg_recent_projects.gd` | Recent projects tracking |
+| `recent_projects_menu.gd` | Recent projects menu UI |
+
+### Form Designer Files
+| File | Description |
+|------|-------------|
+| `alignment_toolbar.gd` | Alignment and distribution tools |
+| `form_preview_toolbar.gd` | Form preview with F5 |
+| `form_editor_helper.gd` | Grid snapping and resize |
+| `VGFormBase.gd` | WinForms-style form base class |
+
+### Debugging Files
+| File | Description |
+|------|-------------|
+| `call_stack_panel.gd` | Call stack visualization |
+| `vg_breakpoint_conditions.gd` | Conditional breakpoint manager |
+| `breakpoint_condition_dialog.gd` | Breakpoint condition UI |
+
 ## Examples
 
 Located in [examples/](../examples/) directory:
@@ -59,13 +145,8 @@ Located in [examples/](../examples/) directory:
 
 Located in [tests/](../tests/) directory:
 - Unit tests - Individual component tests
-- Integration tests - Full system tests
+- Integration tests - Full system tests (26/26 passing)
 - Benchmarks - Performance benchmarks
-
-## Historical Documentation
-
-Archived documentation (for reference only):
-- [archive/](archive/) - Historical implementation documents, status reports, and superseded documentation
 
 ## Quick Links
 

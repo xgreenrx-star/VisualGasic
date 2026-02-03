@@ -1,8 +1,8 @@
 # VisualGasic for Godot - Complete Programming Manual
 *The definitive guide to using VisualGasic in Godot game development*
 
-Version 2.0  
-Updated: January 2026
+Version 2.1  
+Updated: February 2026
 
 ---
 
@@ -53,6 +53,13 @@ Updated: January 2026
 28. [Export Settings](#export)
 29. [Platform Requirements](#requirements)
 30. [Distribution Strategies](#distribution)
+
+### Part IX: IDE Tools and Productivity (NEW)
+31. [IntelliSense and Code Completion](#intellisense)
+32. [Debugging Tools](#debugging-tools)
+33. [Code Quality and Linting](#linting)
+34. [Snippets and Templates](#snippets)
+35. [Form Designer Tools](#form-designer)
 
 ---
 
@@ -1417,6 +1424,290 @@ End Class
 - **_PhysicsProcess(delta)**: Fixed-rate physics
 - **GetNode()**: Find child nodes
 - **EmitSignal()**: Send signals
+
+---
+
+## Part IX: IDE Tools and Productivity
+
+### Chapter 31: IntelliSense and Code Completion {#intellisense}
+
+VisualGasic provides a comprehensive code completion system that makes coding faster and reduces errors.
+
+#### Automatic Completion
+
+As you type in `.vg` files, IntelliSense automatically suggests:
+
+- **50+ VB6 Keywords**: `Dim`, `Sub`, `Function`, `If`, `For`, `While`, etc.
+- **12 Data Types**: `Integer`, `Long`, `String`, `Boolean`, `Double`, etc.
+- **80+ Built-in Functions**: With signatures and descriptions
+- **30+ Godot Types**: `Node`, `Control`, `Sprite2D`, `CharacterBody2D`, etc.
+
+```vb
+' Type "Pri" and IntelliSense suggests:
+' - Print (output function)
+' - Private (access modifier)
+
+' Type "Dim x As " and see all available types:
+' - Integer, Long, String, Boolean, Double, Single, etc.
+```
+
+#### Code Snippets
+
+Type a snippet prefix and press Tab to expand:
+
+| Prefix | Expands To |
+|--------|------------|
+| `sub` | `Sub ProcedureName()...End Sub` |
+| `func` | `Function FunctionName() As Variant...End Function` |
+| `if` | `If condition Then...End If` |
+| `ife` | `If condition Then...Else...End If` |
+| `for` | `For i = 0 To 10...Next i` |
+| `fore` | `For Each item In collection...Next item` |
+| `sel` | `Select Case expression...End Select` |
+| `try` | `Try...Catch...End Try` |
+| `ready` | `Sub _ready()...End Sub` (Godot) |
+| `proc` | `Sub _process(delta)...End Sub` (Godot) |
+
+---
+
+### Chapter 32: Debugging Tools {#debugging-tools}
+
+VisualGasic includes professional debugging tools for finding and fixing issues.
+
+#### Immediate Window
+
+Access via the bottom panel. Features:
+
+- **REPL**: Execute code interactively during debugging
+- **Variable Inspection**: Type `?variableName` to see values
+- **Expression Evaluation**: Evaluate any expression at runtime
+- **Watch Expressions**: Monitor variables with color-coded changes
+
+```vb
+' In Immediate Window during debugging:
+?playerHealth        ' Shows: 85
+?playerPosition      ' Shows: (120, 340)
+playerHealth = 100   ' Modify variable live
+```
+
+#### Watch Window Features
+
+- **Color-Coded Changes**: Yellow = changed, Green = unchanged
+- **Previous Value Tracking**: See what the value was before
+- **Persistence**: Watch expressions saved between sessions
+- **Context Menu**: Right-click to delete or edit watches
+
+#### Breakpoint Conditions
+
+Right-click on any breakpoint to add conditions:
+
+- **Condition**: `playerHealth < 20` - break only when true
+- **Hit Count**: Break on 5th hit, or every 10th hit
+- **Log Message**: `Player health is {playerHealth}` (tracepoint)
+- **Temporary**: Auto-delete after first hit
+
+#### Call Stack Panel
+
+During a breakpoint pause:
+
+- View the complete call stack
+- Click any frame to navigate to that location
+- Current frame is highlighted
+- Shows function name, file, and line number
+
+---
+
+### Chapter 33: Code Quality and Linting {#linting}
+
+VisualGasic automatically analyzes your code for potential issues.
+
+#### Issue Codes
+
+| Code | Severity | Description |
+|------|----------|-------------|
+| VG001 | Info | Unused variable detected |
+| VG002 | Warning | Variable used without declaration |
+| VG003 | Warning | Unreachable code detected |
+| VG004 | Error | Missing End statement |
+| VG005 | Info | Deprecated syntax used |
+| VG006 | Info | Empty block detected |
+| VG007 | Info | Unused parameter |
+| VG008 | Warning | Variable shadows outer scope |
+| VG009 | Hint | Implicit Variant (no type specified) |
+| VG010 | Warning | Function missing Return |
+
+#### Example Warnings
+
+```vb
+' VG001: Unused variable
+Dim counter As Integer  ' Warning: 'counter' is declared but never used
+
+' VG002: Undefined variable
+total = price * quantity  ' Warning: 'total' is used without declaration
+
+' VG004: Missing End
+If x > 0 Then
+    Print "Positive"
+' Error: 'If' is missing 'End If'
+
+' VG009: Implicit Variant
+Dim value  ' Hint: Variable 'value' has no type - will be Variant
+```
+
+---
+
+### Chapter 34: Snippets and Templates {#snippets}
+
+#### Built-in Snippet Categories
+
+**Control Flow** (if, ife, ifel, sel):
+```vb
+' Type "sel" + Tab:
+Select Case expression
+    Case value1
+        ' code
+    Case value2
+        ' code
+    Case Else
+        ' default
+End Select
+```
+
+**Loops** (for, fors, fore, dow, dou, whi):
+```vb
+' Type "fore" + Tab:
+For Each item In collection
+    ' code
+Next item
+```
+
+**Procedures** (sub, psub, func, pfunc):
+```vb
+' Type "func" + Tab:
+Function FunctionName() As Variant
+    ' code
+    FunctionName = result
+End Function
+```
+
+**Properties** (propg, propl, props, propf):
+```vb
+' Type "propf" + Tab (full property):
+Private m_PropertyName As Variant
+
+Property Get PropertyName() As Variant
+    PropertyName = m_PropertyName
+End Property
+
+Property Let PropertyName(ByVal value As Variant)
+    m_PropertyName = value
+End Property
+```
+
+**Error Handling** (try, tryf, oern):
+```vb
+' Type "tryf" + Tab:
+Try
+    ' code that might fail
+Catch ex As Exception
+    ' handle error
+Finally
+    ' cleanup
+End Try
+```
+
+**Game Development** (ready, proc, input, phys):
+```vb
+' Type "phys" + Tab:
+Sub _physics_process(delta As Single)
+    ' physics logic
+End Sub
+```
+
+#### Creating Custom Snippets
+
+Custom snippets are saved to `user://vg_snippets.cfg`:
+
+```vb
+' Snippet with placeholders:
+' ${1:default} - first tabstop with default value
+' $1 - reference to first tabstop
+
+' Example custom snippet body:
+For ${1:i} = ${2:0} To ${3:10}
+    ${4:' code}
+Next ${1:i}
+```
+
+---
+
+### Chapter 35: Form Designer Tools {#form-designer}
+
+#### Grid Snapping
+
+The 2D canvas toolbar provides grid controls:
+
+- **Grid Toggle**: Enable/disable snapping
+- **Grid Size**: 8px, 16px, 32px (configurable)
+- **Grid Overlay**: Visual grid on the canvas
+
+#### Alignment Toolbar
+
+Select multiple controls and use:
+
+| Button | Action |
+|--------|--------|
+| ⬅ | Align Left |
+| ↔ | Align Center Horizontal |
+| ➡ | Align Right |
+| ⬆ | Align Top |
+| ↕ | Align Middle Vertical |
+| ⬇ | Align Bottom |
+| ⇔ | Distribute Horizontally |
+| ⇕ | Distribute Vertically |
+| = | Make Same Width |
+| ∥ | Make Same Height |
+| ⊞ | Make Same Size (Both) |
+
+#### Form Preview
+
+Press **F5** or click "▶ Preview Form" to:
+
+- Open the current form in a popup window
+- Test buttons, inputs, and interactions
+- Fire Form_Load and Form_Shown events
+- Close to return to editor
+
+#### Rename Refactoring
+
+Press **Ctrl+R** on any identifier to rename:
+
+- **Current Scope**: Rename only in current Sub/Function
+- **Entire Script**: Rename throughout the file  
+- **Everywhere**: Rename in all .vg files in the project
+
+The refactoring is smart:
+- Avoids renaming inside strings and comments
+- Uses word-boundary matching to avoid partial matches
+- Updates all references automatically
+
+---
+
+### Keyboard Shortcuts Reference
+
+| Shortcut | Action |
+|----------|--------|
+| F5 | Preview Form |
+| F12 | Go to Definition |
+| Ctrl+Click | Go to Definition |
+| Ctrl+R | Rename Refactoring |
+| Ctrl+Shift+F | Find All References |
+| Ctrl+Space | Trigger IntelliSense |
+| Ctrl+. | Quick Actions |
+
+---
+
+*End of Manual*
 - **Connect()**: Connect to signals
 
 ### Input Actions (Set in Input Map)
