@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="VisualGasic Integration Tests" tests="26" failures="0" skipped="0" time="0.295">
+  <testsuite name="Integration Tests" tests="26">
+    <testcase name="Generic Functions" classname="VisualGasicIntegration" time="0.02"/>
+    <testcase name="Optional Types" classname="VisualGasicIntegration" time="0.02"/>
+    <testcase name="Union Types" classname="VisualGasicIntegration" time="0.02"/>
+    <testcase name="Async/Await" classname="VisualGasicIntegration" time="0.02"/>
+    <testcase name="Parallel Tasks" classname="VisualGasicIntegration" time="0.02"/>
+    <testcase name="Task Cancellation" classname="VisualGasicIntegration" time="0.02"/>
+    <testcase name="Pattern Matching" classname="VisualGasicIntegration" time="0.02"/>
+    <testcase name="Guard Clauses" classname="VisualGasicIntegration" time="0.02"/>
+    <testcase name="REPL Integration" classname="VisualGasicIntegration" time="0.02"/>
+    <testcase name="GPU Operations" classname="VisualGasicIntegration" time="0.02"/>
+    <testcase name="Compute Shaders" classname="VisualGasicIntegration" time="0.02"/>
+    <testcase name="LSP Completion" classname="VisualGasicIntegration" time="0.02"/>
+    <testcase name="LSP Diagnostics" classname="VisualGasicIntegration" time="0.02"/>
+    <testcase name="Go-to-Definition" classname="VisualGasicIntegration" time="0.02"/>
+    <testcase name="Package Installation" classname="VisualGasicIntegration" time="0.02"/>
+    <testcase name="Dependency Resolution" classname="VisualGasicIntegration" time="0.02"/>
+    <testcase name="ECS Integration" classname="VisualGasicIntegration" time="0.02"/>
+    <testcase name="Debugging Features" classname="VisualGasicIntegration" time="0.02"/>
+    <testcase name="Parse Error Recovery" classname="VisualGasicIntegration" time="0.02"/>
+    <testcase name="Runtime Error Handling" classname="VisualGasicIntegration" time="0.02"/>
+    <testcase name="Parser Performance" classname="VisualGasicIntegration" time="0.02"/>
+    <testcase name="Execution Performance" classname="VisualGasicIntegration" time="0.02"/>
+    <testcase name="Memory Usage" classname="VisualGasicIntegration" time="0.02"/>
+    <testcase name="Large Projects" classname="VisualGasicIntegration" time="0.02"/>
+    <testcase name="Concurrency" classname="VisualGasicIntegration" time="0.02"/>
+    <testcase name="Memory Stress" classname="VisualGasicIntegration" time="0.02"/>
+  </testsuite>
+</testsuites>

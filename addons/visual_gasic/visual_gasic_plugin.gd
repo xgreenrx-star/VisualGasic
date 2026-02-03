@@ -54,6 +54,10 @@ var debugger_plugin: EditorDebuggerPlugin
 ## Alignment toolbar for form designer
 var alignment_toolbar
 
+## Recent projects manager and menu
+var _recent_projects_menu: PopupMenu
+var _recent_projects_manager
+
 ## Context menu for script editor rename refactoring
 var _script_context_menu: PopupMenu
 
@@ -170,6 +174,7 @@ func _enter_tree():
 	
 	_post_init()
 	_setup_script_editor_context_menu()
+	_setup_recent_projects_menu()
 
 	add_tool_menu_item("Import VB6 Form...", Callable(self, "_on_import_vb6_form"))
 	add_tool_menu_item("Import VB6 Project...", Callable(self, "_on_import_vb6_project"))
@@ -213,6 +218,13 @@ func _exit_tree():
 		alignment_toolbar.queue_free()
 		alignment_toolbar = null
 	
+	# Cleanup recent projects menu
+	if _recent_projects_menu:
+		remove_tool_menu_item("Recent Projects")
+		_recent_projects_menu.queue_free()
+		_recent_projects_menu = null
+	_recent_projects_manager = null
+	
 	# Cleanup script editor context menu
 	if _script_editor_check_timer:
 		_script_editor_check_timer.stop()
@@ -248,6 +260,7 @@ func _do_import_vbp(path):
 	if importer:
 		importer.import_project(path)
 		get_editor_interface().get_resource_filesystem().scan() # Refresh FileSystem
+		_add_to_recent_projects(path)  # Track in recent projects
 
 ## Opens a file dialog to select and import a single VB6 form (.frm) file.
 ## The form will be converted to a Godot scene with an attached .vg script.
@@ -296,6 +309,7 @@ func _do_import_frm(path):
 		f.store_string(code)
 		f.close()
 		print("Saved Code to " + bas_path)
+		_add_to_recent_projects(bas_path)  # Track in recent projects
 		
 	get_editor_interface().open_scene_from_path(save_path)
 
@@ -1046,6 +1060,48 @@ func _reparent_node(node: Node, new_parent: Node):
 	# Restore selection
 	get_editor_interface().get_selection().clear()
 	get_editor_interface().get_selection().add_node(node)
+
+# =============================================================================
+# RECENT PROJECTS
+# =============================================================================
+
+## Sets up the recent projects menu in the Tools menu.
+func _setup_recent_projects_menu():
+	"""Setup recent projects tracking and menu"""
+	# Load the recent projects manager
+	var manager_script = load("res://addons/visual_gasic/vg_recent_projects.gd")
+	if manager_script:
+		_recent_projects_manager = manager_script.new()
+	
+	# Create the popup menu
+	var menu_script = load("res://addons/visual_gasic/recent_projects_menu.gd")
+	if menu_script:
+		_recent_projects_menu = menu_script.new()
+		_recent_projects_menu.project_selected.connect(_on_recent_project_selected)
+		get_editor_interface().get_base_control().add_child(_recent_projects_menu)
+		
+		# Add as submenu to Tools menu
+		add_tool_submenu_item("Recent Projects", _recent_projects_menu)
+		print("VisualGasic: Added Recent Projects menu")
+
+## Called when a recent project is selected from the menu.
+func _on_recent_project_selected(path: String) -> void:
+	if path.ends_with(".vbp"):
+		# Import VB6 project
+		_do_import_vbp(path)
+	elif path.ends_with(".vg"):
+		# Open VG script
+		var script = load(path)
+		if script:
+			get_editor_interface().edit_resource(script)
+	elif path.ends_with(".tscn") or path.ends_with(".scn"):
+		# Open scene
+		get_editor_interface().open_scene_from_path(path)
+
+## Adds a project to the recent projects list.
+func _add_to_recent_projects(path: String) -> void:
+	if _recent_projects_manager:
+		_recent_projects_manager.add_project(path)
 
 # =============================================================================
 # SCRIPT EDITOR RENAME REFACTORING
