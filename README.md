@@ -224,7 +224,17 @@ VisualGasic welcomes contributions! Please see our [Contributing Guide](CONTRIBU
 - ✅ **GPU Computing** - 100% (SIMD, compute shaders)
 - ✅ **Development Tools** - 100% (REPL, LSP, debugger, packages)
 - ✅ **ECS Integration** - 100% (High-performance game development)
+- ✅ **Form Templates** - 100% (23 templates: VB6, Game, Platform, Custom)
 - ✅ **Documentation** - 95% (Comprehensive guides and references)
+
+### 🚧 Coming Soon
+
+See [ROADMAP.md](ROADMAP.md) for the full development roadmap:
+- **Watch Window** - Variable monitoring during debugging
+- **Snap-to-Grid** - Form designer alignment tools
+- **IntelliSense** - Code completion for VB6 keywords and controls
+- **Breakpoint Conditions** - Conditional breakpoints with expressions
+- **Call Stack Panel** - Visual debugging navigation
 
 ## 📄 **License**
 

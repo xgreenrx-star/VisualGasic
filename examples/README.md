@@ -1,751 +1,304 @@
-# VisualGasic Example Projects
-*Complete, working examples to learn from and build upon*
+# VisualGasic - Advanced Visual Basic for Godot 4
 
-## 🎮 Game Projects
+[![CI](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml/badge.svg)](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml)
 
-### 1. Pong Game (Beginner)
-*Classic Pong implementation with modern VisualGasic features*
+**World-Class RAD Platform**: Professional Visual Basic language implementation with cutting-edge modern features including multitasking, advanced type system, pattern matching, GPU computing, and comprehensive development tools.
 
-**Files**: `examples/games/pong/`
-- `PongGame.vg` - Main game logic
-- `Paddle.vg` - Player paddle class
-- `Ball.vg` - Ball physics and collision
-- `GameManager.vg` - Score tracking and game states
-- `project.godot` - Godot project configuration
+## 🚀 **Key Features**
 
-**Key Learning Topics**:
-- Basic game loop
-- Input handling
-- Collision detection
-- Score management
-- Simple AI for computer player
+### **Core Language**
+- **Complete Visual Basic 6 Syntax** - Full compatibility with VB6 projects
+- **Advanced Type System** - Generics, optional types, union types, type inference
+- **Pattern Matching** - VB.NET-style Select Match with destructuring
+- **Multitasking** - Native async/await, parallel processing, task coordination
 
-**Complete Source Code:**
+### **High-Performance Computing**
+- **GPU Acceleration** - SIMD vector operations and compute shaders
+- **Parallel Processing** - Automatic GPU/CPU fallback for optimal performance
+- **Memory Optimization** - Efficient memory management and leak detection
 
-**Main Game (PongGame.vg):**
-```vb
-' PongGame.vg - Main game scene
-Extends Control
+### **Professional Development Tools**
+- **Interactive REPL** - Live coding with variable inspection and session management
+- **Language Server Protocol** - Intelligent IDE integration with completion and diagnostics
+- **Advanced Debugger** - Time-travel debugging, performance profiling, memory analysis
+- **Package Manager** - Semantic versioning, dependency resolution, registry support
 
-Option Explicit On
-Option Strict On
+### **Game Development**
+- **Entity Component System** - High-performance ECS with archetype optimization
+- **Godot Integration** - Native scene tree synchronization and node management
+- **Built-in Components** - Transform, Velocity, Render, and custom component support
 
-Public Class PongGame
-    Inherits Control
-    
-    ' Use GameManager to handle all game logic
-    Private gameManager As GameManager
-    
-    Public Overrides Sub _Ready()
-        ' Create and initialize game manager
-        gameManager = New GameManager()
-        AddChild(gameManager)
-        
-        Console.WriteLine("Pong Game Started!")
-        Console.WriteLine("Controls: W/S or Arrow Keys to move paddle")
-        Console.WriteLine("Space to pause, R to restart, ESC to quit")
-    End Sub
-End Class
+## 📁 **Project Structure**
+
+```
+VisualGasic/
+├── src/                          # Core implementation
+│   ├── visual_gasic_*.cpp/.h    # Language core, parser, AST
+│   ├── visual_gasic_repl.*      # Interactive REPL system
+│   ├── visual_gasic_gpu.*       # GPU computing and SIMD
+│   ├── visual_gasic_lsp.*       # Language server protocol
+│   ├── visual_gasic_debugger.*  # Advanced debugging tools
+│   ├── visual_gasic_package.*   # Package management
+│   └── visual_gasic_ecs.*       # Entity component system
+├── docs/                        # Comprehensive documentation
+│   ├── ADVANCED_FEATURES_MANUAL.md  # 200+ line feature guide
+│   ├── BUILTINS.md             # Built-in functions reference
+│   └── *.md                    # Additional documentation
+├── demo/                        # Godot test project
+├── examples/                    # Example VisualGasic projects
+├── tests/                       # Test suite
+├── godot-cpp/                   # Godot C++ bindings (submodule)
+└── addons/visual_gasic/         # Godot plugin files
 ```
 
-**Ball Class (Ball.vg):**
-```vb
-' Ball.vg - Ball physics and collision
-Extends RigidBody2D
+## ⚡ **Quick Start**
 
-Public Class Ball
-    Inherits RigidBody2D
-    
-    Public Property Speed As Single = 300.0
-    Public Property Direction As Vector2 = Vector2(1, 0)
-    Public Event GoalScored(goalSide As String)
-    
-    Public Overrides Sub _PhysicsProcess(delta As Single)
-        ' Check for goals (ball goes off screen)
-        If Position.X < -50 Then
-            RaiseEvent GoalScored("left")
-        ElseIf Position.X > GetViewportRect().Size.X + 50 Then
-            RaiseEvent GoalScored("right")
-        End If
-        
-        ' Keep consistent speed
-        Dim velocity As Vector2 = GetLinearVelocity()
-        If velocity.Length() > 0 Then
-            SetLinearVelocity(velocity.Normalized() * Speed)
-        End If
-    End Sub
-    
-    Public Sub ResetBall()
-        Position = GetViewportRect().Size / 2
-        Dim randomDir As Integer = If(Randf() < 0.5, -1, 1)
-        SetLinearVelocity(Vector2(randomDir, Randf() - 0.5) * Speed)
-    End Sub
-End Class
-```
+### **Prerequisites**
+- **Godot 4.5+** - Download from [godotengine.org](https://godotengine.org)
+- **SCons** - Build system (`pip install scons`)
+- **Git** - For cloning submodules
+- **Modern C++ Compiler** - GCC 9+, Clang 10+, or MSVC 2019+
 
-**Paddle Class (Paddle.vg):**
-```vb
-' Paddle.vg - Player and AI paddle
-Extends CharacterBody2D
+### **Installation**
 
-Public Class Paddle
-    Inherits CharacterBody2D
-    
-    Public Property Speed As Single = 400.0
-    Public Property IsPlayer As Boolean = True
-    Private followSpeed As Single = 200.0
-    
-    Public Overrides Sub _PhysicsProcess(delta As Single)
-        Dim velocity As Vector2 = Vector2.Zero
-        
-        If IsPlayer Then
-            ' Player controls
-            If Input.IsKeyPressed(Key.W) Or Input.IsActionPressed("ui_up") Then
-                velocity.Y = -Speed
-            ElseIf Input.IsKeyPressed(Key.S) Or Input.IsActionPressed("ui_down") Then
-                velocity.Y = Speed
-            End If
-        End If
-        
-        SetVelocity(velocity)
-        MoveAndSlide()
-        ClampToBounds()
-    End Sub
-    
-    Public Sub FollowBall(ballY As Single)
-        ' AI movement
-        Dim difference As Single = ballY - Position.Y
-        If Math.Abs(difference) > 10 Then
-            Dim moveAmount As Single = followSpeed * GetPhysicsProcessDeltaTime()
-            Position = New Vector2(Position.X, Position.Y + Math.Sign(difference) * moveAmount)
-            ClampToBounds()
-        End If
-    End Sub
-    
-    Private Sub ClampToBounds()
-        Dim screenHeight As Single = GetViewportRect().Size.Y
-        Position = New Vector2(Position.X, Math.Max(40, Math.Min(screenHeight - 40, Position.Y)))
-    End Sub
-End Class
-```
-
-### 2. Space Shooter (Intermediate)
-*Top-down space shooter with enemies, power-ups, and particle effects*
-
-**Files**: `examples/games/space_shooter/`
-- `Player.vg` - Player ship with weapons
-- `Enemy.vg` - Enemy AI and behavior
-- `Bullet.vg` - Projectile system
-- `PowerUp.vg` - Collectible upgrades
-- `GameScreen.vg` - Main game scene
-- `UIManager.vg` - HUD and menus
-
-**Key Learning Topics**:
-- Object pooling for bullets
-- Enemy AI patterns
-- Particle systems
-- Power-up system
-- Background scrolling
-- Game state management
-
-### 3. Platformer Adventure (Advanced)
-*2D platformer with multiple levels, collectibles, and animated characters*
-
-**Files**: `examples/games/platformer/`
-- `Player.vg` - Character controller with animations
-- `Level.vg` - Level management and transitions
-- `Enemy.vg` - Various enemy types
-- `Collectible.vg` - Items and power-ups
-- `Platform.vg` - Moving and interactive platforms
-- `GameData.vg` - Save/load system
-
-**Key Learning Topics**:
-- Character state machines
-- Level design and tilemaps
-- Animation systems
-- Save/load functionality
-- Camera following
-- Physics and collision layers
-
-## 💼 Business Applications
-
-### 4. Inventory Manager (Beginner-Intermediate)
-*Complete inventory management system with database integration*
-
-**Files**: `examples/business/inventory_manager/`
-- `MainWindow.vg` - Main application window
-- `Product.vg` - Product data class
-- `Database.vg` - SQLite database operations
-- `Reports.vg` - Inventory reports
-- `ImportExport.vg` - CSV import/export
-
-**Key Learning Topics**:
-- Database design and operations
-- Data binding to UI controls
-- Report generation
-- File operations
-- Input validation
-- CRUD operations
-
-**Code Preview**:
-```vb
-' Product.vg - Product data model
-Option Explicit On
-Option Strict On
-
-Public Class Product
-    Public Property ID As Integer
-    Public Property Name As String
-    Public Property SKU As String
-    Public Property Category As String
-    Public Property Quantity As Integer
-    Public Property UnitPrice As Decimal
-    Public Property ReorderLevel As Integer
-    Public Property Supplier As String
-    Public Property DateAdded As DateTime
-    
-    Public Sub New()
-        DateAdded = DateTime.Now
-    End Sub
-    
-    Public Sub New(name As String, sku As String, category As String, 
-                   quantity As Integer, unitPrice As Decimal)
-        Me.Name = name
-        Me.SKU = sku
-        Me.Category = category
-        Me.Quantity = quantity
-        Me.UnitPrice = unitPrice
-        Me.DateAdded = DateTime.Now
-    End Sub
-    
-    Public ReadOnly Property TotalValue As Decimal
-        Get
-            Return Quantity * UnitPrice
-        End Get
-    End Property
-    
-    Public ReadOnly Property IsLowStock As Boolean
-        Get
-            Return Quantity <= ReorderLevel
-        End Get
-    End Property
-    
-    Public Function ToCSVString() As String
-        Return $"{ID},{Name},{SKU},{Category},{Quantity},{UnitPrice},{ReorderLevel},{Supplier},{DateAdded:yyyy-MM-dd}"
-    End Function
-    
-    Public Shared Function FromCSVString(csvLine As String) As Product
-        Dim parts() As String = csvLine.Split(","c)
-        If parts.Length <> 9 Then
-            Throw New ArgumentException("Invalid CSV format")
-        End If
-        
-        Dim product As New Product()
-        product.ID = Integer.Parse(parts(0))
-        product.Name = parts(1)
-        product.SKU = parts(2)
-        product.Category = parts(3)
-        product.Quantity = Integer.Parse(parts(4))
-        product.UnitPrice = Decimal.Parse(parts(5))
-        product.ReorderLevel = Integer.Parse(parts(6))
-        product.Supplier = parts(7)
-        product.DateAdded = DateTime.Parse(parts(8))
-        
-        Return product
-    End Function
-End Class
-```
-
-### 5. Personal Finance Tracker (Intermediate)
-*Track income, expenses, budgets, and generate financial reports*
-
-**Files**: `examples/business/finance_tracker/`
-- `Transaction.vg` - Financial transaction model
-- `Category.vg` - Expense/income categories
-- `Budget.vg` - Budget planning and tracking
-- `Report.vg` - Financial reports and charts
-- `BankImport.vg` - Import from bank statements
-
-### 6. Student Management System (Advanced)
-*Complete school management with students, courses, grades, and reporting*
-
-**Files**: `examples/business/student_management/`
-- `Student.vg` - Student information
-- `Course.vg` - Course management
-- `Grade.vg` - Grading system
-- `Teacher.vg` - Teacher profiles
-- `Schedule.vg` - Class scheduling
-- `ReportCard.vg` - Report generation
-
-## 🧮 Utility Applications
-
-### 7. Advanced Calculator (Beginner)
-*Scientific calculator with history and programmable functions*
-
-**Files**: `examples/utilities/calculator/`
-- `Calculator.vg` - Main calculator logic
-- `MathEngine.vg` - Mathematical operations
-- `History.vg` - Calculation history
-- `Functions.vg` - Custom functions
-
-**Code Preview**:
-```vb
-' Calculator.vg - Main calculator class
-Option Explicit On
-Option Strict On
-
-Imports System.Math
-
-Public Class Calculator
-    Private currentValue As Double = 0
-    Private previousValue As Double = 0
-    Private operation As String = ""
-    Private history As New List(Of String)
-    Private memoryValue As Double = 0
-    
-    Public Sub Clear()
-        currentValue = 0
-        previousValue = 0
-        operation = ""
-    End Sub
-    
-    Public Sub EnterNumber(number As Double)
-        currentValue = number
-        UpdateDisplay()
-    End Sub
-    
-    Public Sub SetOperation(op As String)
-        If operation <> "" Then
-            Calculate()
-        End If
-        previousValue = currentValue
-        operation = op
-        currentValue = 0
-    End Sub
-    
-    Public Function Calculate() As Double
-        Dim result As Double = 0
-        
-        Select Case operation
-            Case "+"
-                result = previousValue + currentValue
-            Case "-"
-                result = previousValue - currentValue
-            Case "*"
-                result = previousValue * currentValue
-            Case "/"
-                If currentValue = 0 Then
-                    Throw New DivideByZeroException("Cannot divide by zero")
-                End If
-                result = previousValue / currentValue
-            Case "^"
-                result = Pow(previousValue, currentValue)
-            Case "mod"
-                result = previousValue Mod currentValue
-            Case Else
-                result = currentValue
-        End Select
-        
-        ' Add to history
-        If operation <> "" Then
-            history.Add($"{previousValue} {operation} {currentValue} = {result}")
-        End If
-        
-        currentValue = result
-        operation = ""
-        UpdateDisplay()
-        Return result
-    End Function
-    
-    ' Scientific functions
-    Public Function Sin(angle As Double) As Double
-        Return Math.Sin(angle * Math.PI / 180) ' Convert degrees to radians
-    End Function
-    
-    Public Function Cos(angle As Double) As Double
-        Return Math.Cos(angle * Math.PI / 180)
-    End Function
-    
-    Public Function Tan(angle As Double) As Double
-        Return Math.Tan(angle * Math.PI / 180)
-    End Function
-    
-    Public Function Log(value As Double) As Double
-        If value <= 0 Then
-            Throw New ArgumentException("Logarithm of non-positive number")
-        End If
-        Return Math.Log10(value)
-    End Function
-    
-    Public Function Ln(value As Double) As Double
-        If value <= 0 Then
-            Throw New ArgumentException("Natural logarithm of non-positive number")
-        End If
-        Return Math.Log(value)
-    End Function
-    
-    Public Function Sqrt(value As Double) As Double
-        If value < 0 Then
-            Throw New ArgumentException("Square root of negative number")
-        End If
-        Return Math.Sqrt(value)
-    End Function
-    
-    ' Memory functions
-    Public Sub MemoryStore()
-        memoryValue = currentValue
-    End Sub
-    
-    Public Sub MemoryRecall()
-        currentValue = memoryValue
-        UpdateDisplay()
-    End Sub
-    
-    Public Sub MemoryAdd()
-        memoryValue += currentValue
-    End Sub
-    
-    Public Sub MemorySubtract()
-        memoryValue -= currentValue
-    End Sub
-    
-    Public Sub MemoryClear()
-        memoryValue = 0
-    End Sub
-    
-    Public Function GetHistory() As List(Of String)
-        Return New List(Of String)(history)
-    End Function
-    
-    Private Sub UpdateDisplay()
-        ' This would update the UI display
-        ' Implementation depends on UI framework
-    End Sub
-End Class
-```
-
-### 8. File Organizer (Intermediate)
-*Automatically organize files based on type, date, or custom rules*
-
-**Files**: `examples/utilities/file_organizer/`
-- `FileManager.vg` - File operations
-- `Rules.vg` - Organization rules
-- `Monitor.vg` - Folder monitoring
-- `Settings.vg` - Application settings
-
-### 9. Password Manager (Advanced)
-*Secure password storage with encryption and auto-generation*
-
-**Files**: `examples/utilities/password_manager/`
-- `PasswordVault.vg` - Encrypted storage
-- `PasswordGenerator.vg` - Secure generation
-- `Encryption.vg` - AES encryption
-- `SecureForm.vg` - Secure UI components
-
-## 🌐 Web and Network Applications
-
-### 10. Weather App (Intermediate)
-*Get weather data from APIs with forecasts and location services*
-
-**Files**: `examples/web/weather_app/`
-- `WeatherAPI.vg` - API integration
-- `Location.vg` - GPS and location services  
-- `Forecast.vg` - Weather data models
-- `UI.vg` - Weather display interface
-
-### 11. Chat Client (Advanced)
-*Real-time chat application with networking*
-
-**Files**: `examples/web/chat_client/`
-- `ChatClient.vg` - Network client
-- `MessageHandler.vg` - Message processing
-- `UI.vg` - Chat interface
-- `Protocol.vg` - Communication protocol
-
-### 12. RSS Reader (Intermediate)
-*Subscribe to RSS feeds and display articles*
-
-**Files**: `examples/web/rss_reader/`
-- `FeedParser.vg` - RSS/XML parsing
-- `Article.vg` - Article data model
-- `Subscription.vg` - Feed management
-- `UI.vg` - Article display
-
-## 🎨 Creative and Multimedia
-
-### 13. Image Viewer (Beginner-Intermediate)
-*View and organize images with basic editing tools*
-
-**Files**: `examples/multimedia/image_viewer/`
-- `ImageManager.vg` - Image loading and display
-- `Thumbnail.vg` - Thumbnail generation
-- `BasicEdit.vg` - Resize, rotate, crop
-- `Gallery.vg` - Image gallery view
-
-### 14. Music Player (Intermediate)
-*Play music files with playlists and controls*
-
-**Files**: `examples/multimedia/music_player/`
-- `AudioPlayer.vg` - Audio playback
-- `Playlist.vg` - Playlist management
-- `Metadata.vg` - ID3 tag reading
-- `Visualizer.vg` - Audio visualization
-
-### 15. Drawing Application (Advanced)
-*Create digital artwork with brushes, layers, and effects*
-
-**Files**: `examples/multimedia/drawing_app/`
-- `Canvas.vg` - Drawing surface
-- `Brush.vg` - Drawing tools
-- `Layer.vg` - Layer management
-- `Effects.vg` - Image effects
-
-## 📊 Data Analysis and Visualization
-
-### 16. CSV Data Analyzer (Intermediate)
-*Import, analyze, and visualize CSV data*
-
-**Files**: `examples/data/csv_analyzer/`
-- `CSVImporter.vg` - File parsing
-- `DataAnalysis.vg` - Statistical analysis
-- `Charts.vg` - Data visualization
-- `Export.vg` - Report generation
-
-**Code Preview**:
-```vb
-' DataAnalysis.vg - Statistical analysis functions
-Option Explicit On
-Option Strict On
-
-Imports System.Linq
-
-Public Class DataAnalysis
-    Public Shared Function CalculateMean(values As List(Of Double)) As Double
-        If values.Count = 0 Then Return 0
-        Return values.Sum() / values.Count
-    End Function
-    
-    Public Shared Function CalculateMedian(values As List(Of Double)) As Double
-        If values.Count = 0 Then Return 0
-        
-        Dim sorted = values.OrderBy(Function(x) x).ToList()
-        Dim mid As Integer = sorted.Count / 2
-        
-        If sorted.Count Mod 2 = 0 Then
-            Return (sorted(mid - 1) + sorted(mid)) / 2
-        Else
-            Return sorted(mid)
-        End If
-    End Function
-    
-    Public Shared Function CalculateStandardDeviation(values As List(Of Double)) As Double
-        If values.Count <= 1 Then Return 0
-        
-        Dim mean As Double = CalculateMean(values)
-        Dim sumSquaredDifferences As Double = 0
-        
-        For Each value In values
-            sumSquaredDifferences += Math.Pow(value - mean, 2)
-        Next
-        
-        Return Math.Sqrt(sumSquaredDifferences / (values.Count - 1))
-    End Function
-    
-    Public Shared Function FindCorrelation(x As List(Of Double), y As List(Of Double)) As Double
-        If x.Count <> y.Count Or x.Count = 0 Then
-            Throw New ArgumentException("Lists must have the same non-zero length")
-        End If
-        
-        Dim meanX As Double = CalculateMean(x)
-        Dim meanY As Double = CalculateMean(y)
-        
-        Dim numerator As Double = 0
-        Dim sumSquaredX As Double = 0
-        Dim sumSquaredY As Double = 0
-        
-        For i As Integer = 0 To x.Count - 1
-            Dim diffX As Double = x(i) - meanX
-            Dim diffY As Double = y(i) - meanY
-            
-            numerator += diffX * diffY
-            sumSquaredX += diffX * diffX
-            sumSquaredY += diffY * diffY
-        Next
-        
-        Dim denominator As Double = Math.Sqrt(sumSquaredX * sumSquaredY)
-        If denominator = 0 Then Return 0
-        
-        Return numerator / denominator
-    End Function
-End Class
-```
-
-### 17. Database Reporter (Advanced)
-*Connect to databases and generate custom reports*
-
-**Files**: `examples/data/database_reporter/`
-- `DatabaseConnection.vg` - Multi-database support
-- `QueryBuilder.vg` - Dynamic SQL generation
-- `ReportEngine.vg` - Report formatting
-- `Scheduler.vg` - Automated reports
-
-## 🎓 Educational Projects
-
-### 18. Math Tutor (Beginner-Intermediate)
-*Interactive math problems for different skill levels*
-
-**Files**: `examples/educational/math_tutor/`
-- `ProblemGenerator.vg` - Math problem creation
-- `ProgressTracker.vg` - Student progress
-- `Difficulty.vg` - Adaptive difficulty
-- `Rewards.vg` - Achievement system
-
-### 19. Typing Tutor (Intermediate)
-*Learn touch typing with lessons and games*
-
-**Files**: `examples/educational/typing_tutor/`
-- `Lesson.vg` - Typing lessons
-- `WordGame.vg` - Typing games
-- `Statistics.vg` - WPM and accuracy
-- `Keyboard.vg` - Virtual keyboard
-
-### 20. Language Learning Flashcards (Advanced)
-*Spaced repetition flashcard system*
-
-**Files**: `examples/educational/flashcards/`
-- `Card.vg` - Flashcard model
-- `SpacedRepetition.vg` - Learning algorithm
-- `Deck.vg` - Card organization
-- `Progress.vg` - Learning analytics
-
-## 🔧 System Utilities
-
-### 21. System Monitor (Advanced)
-*Monitor CPU, memory, disk, and network usage*
-
-**Files**: `examples/system/monitor/`
-- `SystemInfo.vg` - Hardware information
-- `Performance.vg` - Performance metrics
-- `Alerts.vg` - System alerts
-- `Logging.vg` - Performance logging
-
-### 22. Backup Manager (Intermediate-Advanced)
-*Automated file backup with scheduling*
-
-**Files**: `examples/system/backup_manager/`
-- `BackupEngine.vg` - Backup operations
-- `Schedule.vg` - Backup scheduling
-- `Compression.vg` - File compression
-- `Encryption.vg` - Backup encryption
-
-## 📱 Cross-Platform Applications
-
-### 23. Note Taking App (Intermediate)
-*Rich text notes with synchronization*
-
-**Files**: `examples/cross_platform/notes/`
-- `Note.vg` - Note data model
-- `RichTextEditor.vg` - Text editing
-- `Sync.vg` - Cloud synchronization
-- `Search.vg` - Full-text search
-
-### 24. Todo Manager (Beginner-Intermediate)
-*Task management with categories and reminders*
-
-**Files**: `examples/cross_platform/todo/`
-- `Task.vg` - Task model
-- `Category.vg` - Task categories
-- `Reminder.vg` - Notification system
-- `Export.vg` - Data export
-
-## 🎯 Getting Started with Examples
-
-### How to Use These Examples
-
-1. **Choose Your Level**: Start with beginner projects if you're new to programming
-2. **Download the Code**: Each example includes complete, runnable source code  
-3. **Follow the Tutorial**: Each project has step-by-step instructions
-4. **Modify and Experiment**: Change the code to see how it affects the program
-5. **Build Your Own**: Use the examples as starting points for your own projects
-
-### Running the Examples
+**Quick Install (Recommended):**
 
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/visualgasic-examples.git
-cd visualgasic-examples
+# Linux/macOS
+curl -sSL https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/main/install.sh | bash
 
-# Navigate to any example
-cd examples/games/pong
-
-# Open in VisualGasic IDE
-visualgasic PongGame.vgproj
+# Windows PowerShell
+iwr -useb https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/main/install.ps1 | iex
 ```
 
-### Example Project Structure
+This installs VisualGasic as a project template. Create new projects with VisualGasic already configured!
+
+**Alternative Methods:**
+- **Asset Library**: Search "VisualGasic" in Godot's AssetLib tab (coming soon)
+- **Manual**: Download from [Releases](https://github.com/xgreenrx-star/VisualGasic/releases) and copy to `addons/`
+- **Build from Source**: See [INSTALLATION.md](INSTALLATION.md)
+
+## 🎯 **Usage Examples**
+
+### **Basic VisualGasic Script**
+```vb
+' hello_world.vg
+Sub Main()
+    Print "Hello, VisualGasic World!"
+    
+    ' Advanced type system
+    Dim numbers As List(Of Integer) = {1, 2, 3, 4, 5}
+    
+    ' Pattern matching
+    Select Match numbers.Count
+        Case 0
+            Print "Empty list"
+        Case Is Integer n When n > 3
+            Print "List has " & n & " items"
+        Case Else
+            Print "Small list"
+    End Select
+End Sub
 ```
-example_project/
-├── src/                    # Source code files
-│   ├── Main.vg           # Main application file
-│   ├── Classes/           # Class definitions
-│   └── Forms/             # UI forms (if applicable)
-├── assets/                # Images, sounds, data files
-├── docs/                  # Documentation and tutorials
-│   ├── README.md          # Project overview
-│   ├── TUTORIAL.md        # Step-by-step guide
-│   └── API.md             # Code reference
-├── tests/                 # Unit tests
-├── project.vgproj         # VisualGasic project file
-└── LICENSE                # Project license
+
+### **Async/Await Multitasking**
+```vb
+Async Function LoadDataAsync() As Task(Of String)
+    Await Task.Delay(1000)  ' Simulate network delay
+    Return "Data loaded!"
+End Function
+
+Sub Main()
+    Dim result As String = Await LoadDataAsync()
+    Print result
+End Sub
 ```
 
-### Contributing Examples
+### **GPU Computing**
+```vb
+Imports VisualGasic.GPU
 
-We welcome contributions! To submit your own example:
+Sub PerformVectorMath()
+    Dim a As Vector(Of Single) = {1.0, 2.0, 3.0, 4.0}
+    Dim b As Vector(Of Single) = {2.0, 3.0, 4.0, 5.0}
+    
+    ' GPU-accelerated operations
+    Dim sum = GPU.SIMDAdd(a, b)
+    Print "Result: " & String.Join(", ", sum)
+End Sub
+```
 
-1. **Fork the Repository**: Create your own copy
-2. **Create Your Example**: Follow our structure guidelines
-3. **Write Documentation**: Include clear instructions and comments
-4. **Test Thoroughly**: Ensure your code works correctly
-5. **Submit a Pull Request**: Share your example with the community
+### **Interactive Development**
+```bash
+# Start REPL for live coding
+gasic repl
 
-### Example Categories by Skill Level
+# Package management
+gasic pkg install MathLibrary@^2.1.0
+gasic pkg publish MyAwesomeLib
 
-**🟢 Beginner (0-6 months experience)**
-- Pong Game
-- Advanced Calculator  
-- Inventory Manager
-- Image Viewer
-- Todo Manager
+# Advanced debugging
+gasic debug --time-travel MyProject.vg
+```
 
-**🟡 Intermediate (6+ months experience)**
-- Space Shooter
-- Personal Finance Tracker
-- File Organizer
-- Weather App
-- CSV Data Analyzer
+## 📖 **Documentation**
 
-**🔴 Advanced (1+ years experience)**  
-- Platformer Adventure
-- Student Management System
-- Password Manager
-- Chat Client
-- Drawing Application
+### **Core Documentation**
+- [**Advanced Features Manual**](docs/ADVANCED_FEATURES_MANUAL.md) - Comprehensive 200+ line guide to all advanced features
+- [**Built-in Functions Reference**](docs/BUILTINS.md) - Complete API documentation
+- [**Implementation Status**](docs/ADVANCED_FEATURES.md) - Feature completion and technical details
 
-### Learning Path Recommendations
+### **Getting Started Guides**
+- [**Quick Start Phase 2**](QUICK_START_PHASE_2.md) - Modern development workflow
+- [**Importing VB6 Projects**](IMPORTING_VB6.md) - Migration from Visual Basic 6
+- [**Installation Guide**](INSTALLATION.md) - Detailed setup instructions
 
-1. **Start Here**: Hello World Calculator → Pong Game
-2. **Build Skills**: Inventory Manager → Weather App  
-3. **Add Complexity**: Space Shooter → Drawing Application
-4. **Master Advanced**: Chat Client → System Monitor
+### **Advanced Topics**
+- [**Multitasking Guide**](docs/MULTITASKING.md) - Async/await and parallel programming
+- [**ECS Development**](docs/ECS.md) - Game development with Entity Component System
+- [**GPU Computing**](docs/GPU_COMPUTING.md) - High-performance SIMD operations
+- [**Package Management**](docs/PACKAGE_MANAGEMENT.md) - Dependency resolution and publishing
 
-### Support and Help
+### **Developer Resources**
+- [**Language Reference**](docs/manual/keywords.md) - Complete syntax reference
+- [**IDE Integration**](docs/manual/ide_tools.md) - LSP and development tools
+- [**Performance Guide**](docs/PERFORMANCE.md) - Optimization techniques
+- [**Contributing Guide**](CONTRIBUTING.md) - How to contribute to VisualGasic
 
-- **Documentation**: Each example includes comprehensive docs
-- **Video Tutorials**: Watch step-by-step video guides  
-- **Community Forum**: Get help from other developers
-- **GitHub Issues**: Report bugs or request features
+## 🛠️ **Development Architecture**
+
+### **Core Components**
+- **Language Core** (`visual_gasic_script.cpp`, `visual_gasic_language.cpp`) - Base language implementation
+- **Parser & AST** (`visual_gasic_parser.cpp`, `visual_gasic_ast.h`) - Syntax analysis and tree generation  
+- **Runtime** (`visual_gasic_instance.cpp`) - Execution engine with multitasking support
+- **Advanced Features** - Modular systems for GPU, ECS, debugging, LSP, and package management
+
+### **Extension Points**
+- **Built-in Functions** - Extensible function library via `visual_gasic_builtins.cpp`
+- **Type System** - Generic types, optional types, and union types
+- **Component System** - Custom ECS components and systems
+- **GPU Kernels** - Custom compute shaders and SIMD operations
+
+### **Performance Features**
+- **Archetype-based ECS** - Memory-efficient entity storage
+- **GPU Computing** - Automatic fallback to CPU when needed
+- **JIT Compilation** - Runtime optimization for hot code paths
+- **Memory Profiling** - Built-in leak detection and analysis
+
+## 🧪 **Testing & Bytecode Regression**
+
+Use the regression harness in [Makefile.tests](Makefile.tests) to keep builds, tests, and benchmarks reproducible:
+
+```bash
+make -f Makefile.tests test           # Headless bytecode test suite
+make -f Makefile.tests bench          # Cross-language benchmark harness
+make -f Makefile.tests bytecode-dump  # Deterministic bytecode JSON capture
+make -f Makefile.tests update-bytecode-baseline  # Refresh baseline + changelog entry
+```
+
+`make bytecode-dump` drives [demo/dump_bytecode.gd](demo/dump_bytecode.gd) in headless Godot to emit the JSON file pointed to by `BYTECODE_DUMP_OUTPUT` (defaults to `./bytecode_dump.json`). Customize what gets captured with `BYTECODE_DUMP_ENTRIES` (comma-delimited entry points) and `BYTECODE_DUMP_OUTPUT` (absolute or relative destination). The committed baseline at [tests/bytecode_baseline.json](tests/bytecode_baseline.json) is compared against the freshly generated dump via [scripts/compare_bytecode_dump.py](scripts/compare_bytecode_dump.py); CI fails if the opcode stream changes unexpectedly. When an intentional opcode change lands, refresh the baseline after reviewing the diff:
+
+```bash
+make -f Makefile.tests update-bytecode-baseline
+git add tests/bytecode_baseline.json README_UPDATES.md
+```
+
+The helper script [scripts/update_bytecode_changelog.py](scripts/update_bytecode_changelog.py) drives the changelog entry automatically, listing the entry points captured in the refreshed dump under the "Bytecode Baseline Updates" section of [README_UPDATES.md](README_UPDATES.md). Every CI run now captures release **and** debug Godot builds, compares both against the baseline, uploads the resulting dumps, and posts an inline PR comment containing the diff whenever mismatches occur.
+
+## 🤝 **Contributing**
+
+VisualGasic welcomes contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for:
+- Development setup and coding standards
+- Testing requirements and procedures
+- Documentation guidelines
+- Pull request process
+
+## 📊 **Project Status**
+
+**Current Version**: 2.0.0 (Advanced Features Release)
+
+**Completion Status**:
+- ✅ **Core Language** - 100% (Full VB6 compatibility)
+- ✅ **Advanced Types** - 100% (Generics, optionals, unions)
+- ✅ **Multitasking** - 100% (Async/await, parallel processing)
+- ✅ **GPU Computing** - 100% (SIMD, compute shaders)
+- ✅ **Development Tools** - 100% (REPL, LSP, debugger, packages)
+- ✅ **ECS Integration** - 100% (High-performance game development)
+- ✅ **Form Templates** - 100% (23 templates: VB6, Game, Platform, Custom)
+- ✅ **Documentation** - 95% (Comprehensive guides and references)
+
+### 🚧 Coming Soon
+
+See [ROADMAP.md](ROADMAP.md) for the full development roadmap:
+- **Watch Window** - Variable monitoring during debugging
+- **Snap-to-Grid** - Form designer alignment tools
+- **IntelliSense** - Code completion for VB6 keywords and controls
+- **Breakpoint Conditions** - Conditional breakpoints with expressions
+- **Call Stack Panel** - Visual debugging navigation
+
+## 📄 **License**
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🌟 **Acknowledgments**
+
+- **Godot Engine** - For providing the excellent GDExtension API
+- **Visual Basic Community** - For inspiration and feedback
+- **Contributors** - Everyone who has helped make VisualGasic better
 
 ---
 
-*Ready to start coding? Pick an example that interests you and begin your VisualGasic journey!*
+**VisualGasic** - Where Visual Basic meets modern programming! 🚀
+
+## Immediate Window
+
+VisualGasic includes an **Immediate Window** for interactive code execution during development. Execute expressions, test functions, and debug code in real-time without running your full program.
+
+### Quick Start
+
+1. Open Godot Editor
+2. Click **Immediate** tab at bottom panel
+3. Type expressions and press Enter
+
+### Example Usage
+
+```
+> 2 + 2
+4
+
+> Dim x As Integer = 42
+✓ x = 42
+
+> x * 2
+84
+
+> Print "Hello World"
+Hello World
+```
+
+### Remote Debugging
+
+Connect to running game instances and debug live:
+- **Auto-connect** when single instance is running
+- **Live refresh** toggle for real-time variable updates
+- **Edit values remotely** by double-clicking in Variables tab
+
+### Refactoring Tools
+
+Press **Ctrl+R** on any variable in the script editor:
+- **Rename in Current Scope** - Within the current Sub/Function
+- **Rename in Entire Script** - All occurrences in the file
+- **Rename Everywhere** - Across all .vg files in the project
+
+### Commands
+
+- `:help` - Show available commands
+- `:clear` - Clear output
+- `:vars` - List variables
+- `:history` - Command history
+- `:eval [expr]` - Evaluate expression in paused debug context
+- `:wp add [var]` - Add data breakpoint (break when variable changes)
+- `:wp remove [var]` - Remove data breakpoint
+- `:wp` - List active data breakpoints
+
+See [Immediate Window Documentation](docs/IMMEDIATE_WINDOW.md) for complete guide.
