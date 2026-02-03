@@ -106,14 +106,12 @@ Visual call stack display during debugging:
 
 ---
 
-## 🎯 Upcoming Features
-
-## 🎯 Upcoming Features
+## 🎯 Completed Features (Medium Priority)
 
 ### Medium Priority - Productivity Features
 
 #### 6. Recent Projects List
-**Status**: 📋 Planned  
+**Status**: ✅ Completed  
 **Priority**: Medium  
 **Estimated Effort**: Low
 
@@ -130,10 +128,12 @@ Quick access to recently opened .vbp/.vg projects.
 - Uses `EditorSettings` for persistence
 - Adds menu items dynamically
 
+**Files Created**: `vg_recent_projects.gd`, `recent_projects_menu.gd`
+
 ---
 
 #### 7. Code Formatter / Beautifier
-**Status**: 📋 Planned  
+**Status**: ✅ Completed  
 **Priority**: Medium  
 **Estimated Effort**: Medium
 
@@ -152,10 +152,12 @@ Automatic code formatting for .vg files in VB6 style.
 - Integrates with script editor
 - Respects `.vgformat` config file if present
 
+**Files Created**: `vg_formatter.gd` with FormatOptions class
+
 ---
 
 #### 8. Find All References
-**Status**: 📋 Planned  
+**Status**: ✅ Completed  
 **Priority**: Medium  
 **Estimated Effort**: Medium
 
@@ -172,10 +174,12 @@ Show all usages of a variable, Sub, or Function.
 - Extends rename refactoring infrastructure
 - Uses existing `_find_all_vg_files()` method
 
+**Files Created**: `find_references_panel.gd`
+
 ---
 
 #### 9. Go to Definition
-**Status**: 📋 Planned  
+**Status**: ✅ Completed  
 **Priority**: Medium  
 **Estimated Effort**: Medium
 
