@@ -15,8 +15,10 @@ var _send_button: Button
 var _clear_button: Button
 var _variables: Dictionary = {}
 var _watch_expressions: Array[Dictionary] = []
+var _watch_previous_values: Dictionary = {}  # Track previous values for change highlighting
 var _var_tree: Tree
 var _watch_tree: Tree
+var _watch_context_menu: PopupMenu  # Right-click menu for watch expressions
 var _inspector_tree: Tree
 var _whenever_tree: Tree  # Whenever sections tree
 var _current_inspected_object: Object = null
@@ -87,6 +89,12 @@ func set_debugger_plugin(plugin: EditorDebuggerPlugin) -> void:
 			_debugger_plugin.debug_break_hit.connect(_on_debug_break_hit)
 		if _debugger_plugin.has_signal("debug_state_received"):
 			_debugger_plugin.debug_state_received.connect(_on_debug_state_received)
+		
+		# Connect call stack panel to debugger
+		if _right_tabs:
+			for child in _right_tabs.get_children():
+				if child.has_meta("_call_stack_panel"):
+					child.set_debugger_plugin(_debugger_plugin)
 
 func _setup_ui():
 	# Main horizontal split: Console (left) + Panels (right)
@@ -327,7 +335,21 @@ func _setup_ui():
 	_watch_tree.column_titles_visible = true
 	_watch_tree.item_activated.connect(_on_watch_item_activated)
 	_watch_tree.item_edited.connect(_on_watch_item_edited)
+	_watch_tree.gui_input.connect(_on_watch_tree_gui_input)  # Right-click handling
 	watch_panel.add_child(_watch_tree)
+	
+	# Create context menu for watch expressions
+	_watch_context_menu = PopupMenu.new()
+	_watch_context_menu.add_item("Delete Watch", 0)
+	_watch_context_menu.add_item("Delete All Watches", 1)
+	_watch_context_menu.add_separator()
+	_watch_context_menu.add_item("Copy Value", 2)
+	_watch_context_menu.add_item("Copy Expression", 3)
+	_watch_context_menu.id_pressed.connect(_on_watch_context_menu_selected)
+	add_child(_watch_context_menu)
+	
+	# Load persisted watch expressions
+	_load_watch_expressions()
 	
 	# Inspector panel
 	var inspector_panel = VBoxContainer.new()
@@ -411,6 +433,15 @@ func _setup_ui():
 	_whenever_context_menu.add_item("Go to Definition", 2)
 	_whenever_context_menu.id_pressed.connect(_on_whenever_context_menu_selected)
 	add_child(_whenever_context_menu)
+	
+	# Call Stack panel
+	var call_stack_script = load("res://addons/visual_gasic/call_stack_panel.gd")
+	if call_stack_script:
+		var call_stack_panel = call_stack_script.new()
+		call_stack_panel.name = "Stack"
+		_right_tabs.add_child(call_stack_panel)
+		# Will be connected to debugger plugin in set_debugger_plugin()
+		call_stack_panel.set_meta("_call_stack_panel", true)
 
 func _initialize_repl():
 	# Try to create VisualGasicImmediate instance for BASIC code execution
@@ -1393,6 +1424,7 @@ func _add_watch_expression():
 	dialog.confirmed.connect(func():
 		if not input.text.is_empty():
 			_watch_expressions.append({"expr": input.text, "value": ""})
+			_save_watch_expressions()  # Persist
 			_update_watch_expressions()
 	)
 	add_child(dialog)
@@ -1413,10 +1445,72 @@ func _update_watch_expressions():
 			value = _variables[watch["expr"]]
 		else:
 			value = _eval_simple(watch["expr"])
-		item.set_text(1, str(value))
+		var value_str = str(value)
+		item.set_text(1, value_str)
 		item.set_editable(1, true)  # Make Value column editable
 		item.set_metadata(0, watch["expr"])  # Store expression name for editing
-		watch["value"] = str(value)
+		
+		# Color-code based on value changes
+		var prev_value = _watch_previous_values.get(watch["expr"], "")
+		if prev_value != "" and prev_value != value_str:
+			# Value changed - highlight in yellow
+			item.set_custom_color(1, Color.YELLOW)
+		else:
+			# No change or first time - default green
+			item.set_custom_color(1, Color.LIME_GREEN)
+		
+		_watch_previous_values[watch["expr"]] = value_str
+		watch["value"] = value_str
+
+func _on_watch_tree_gui_input(event: InputEvent):
+	"""Handle right-click on watch tree for context menu"""
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_RIGHT:
+		var selected = _watch_tree.get_selected()
+		if selected:
+			_watch_context_menu.position = Vector2i(get_global_mouse_position())
+			_watch_context_menu.popup()
+
+func _on_watch_context_menu_selected(id: int):
+	"""Handle watch context menu selection"""
+	var selected = _watch_tree.get_selected()
+	match id:
+		0:  # Delete Watch
+			if selected:
+				var expr = selected.get_text(0)
+				_watch_expressions = _watch_expressions.filter(func(w): return w["expr"] != expr)
+				_watch_previous_values.erase(expr)
+				_save_watch_expressions()
+				_update_watch_expressions()
+		1:  # Delete All Watches
+			_watch_expressions.clear()
+			_watch_previous_values.clear()
+			_save_watch_expressions()
+			_update_watch_expressions()
+		2:  # Copy Value
+			if selected:
+				DisplayServer.clipboard_set(selected.get_text(1))
+		3:  # Copy Expression
+			if selected:
+				DisplayServer.clipboard_set(selected.get_text(0))
+
+func _save_watch_expressions():
+	"""Persist watch expressions to user data"""
+	var config = ConfigFile.new()
+	var expressions: Array[String] = []
+	for watch in _watch_expressions:
+		expressions.append(watch["expr"])
+	config.set_value("watch", "expressions", expressions)
+	config.save("user://vg_watch_expressions.cfg")
+
+func _load_watch_expressions():
+	"""Load persisted watch expressions"""
+	var config = ConfigFile.new()
+	if config.load("user://vg_watch_expressions.cfg") == OK:
+		var expressions = config.get_value("watch", "expressions", [])
+		for expr in expressions:
+			_watch_expressions.append({"expr": expr, "value": ""})
+		if not _watch_expressions.is_empty():
+			_update_watch_expressions()
 
 func _on_watch_item_activated():
 	var selected = _watch_tree.get_selected()

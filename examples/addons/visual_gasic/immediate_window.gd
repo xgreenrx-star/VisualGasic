@@ -15,17 +15,17 @@ var _send_button: Button
 var _clear_button: Button
 var _variables: Dictionary = {}
 var _watch_expressions: Array[Dictionary] = []
+var _watch_previous_values: Dictionary = {}  # Track previous values for change highlighting
 var _var_tree: Tree
 var _watch_tree: Tree
+var _watch_context_menu: PopupMenu  # Right-click menu for watch expressions
 var _inspector_tree: Tree
 var _whenever_tree: Tree  # Whenever sections tree
-var _breakpoints_tree: Tree  # Breakpoints panel tree
 var _current_inspected_object: Object = null
 var _auto_complete_popup: PopupMenu
 var _session_history: Array[String] = []
 var _var_context_menu: PopupMenu  # Right-click menu for variables
 var _whenever_context_menu: PopupMenu  # Right-click menu for Whenever
-var _breakpoints_context_menu: PopupMenu  # Right-click menu for breakpoints
 var _current_script_path: String = ""  # Path of connected instance's script
 
 # Live debugging - instance connection (local in-process)
@@ -48,8 +48,6 @@ var _whenever_sections: Array = []  # Cached Whenever sections from remote
 var _debug_status_label: Label = null  # Shows current debug state (paused at line X)
 var _right_tabs: TabContainer = null  # Right panel tabs (Vars, Watch, Props, Whenever)
 var _vars_label: Label = null  # Label showing variable count
-var _call_stack_tree: Tree = null  # Call stack display
-var _call_stack: Array = []  # Current call stack data
 const AUTO_REFRESH_INTERVAL: float = 0.5  # Update every 500ms
 
 func _ready():
@@ -91,8 +89,12 @@ func set_debugger_plugin(plugin: EditorDebuggerPlugin) -> void:
 			_debugger_plugin.debug_break_hit.connect(_on_debug_break_hit)
 		if _debugger_plugin.has_signal("debug_state_received"):
 			_debugger_plugin.debug_state_received.connect(_on_debug_state_received)
-		if _debugger_plugin.has_signal("call_stack_received"):
-			_debugger_plugin.call_stack_received.connect(_on_call_stack_received)
+		
+		# Connect call stack panel to debugger
+		if _right_tabs:
+			for child in _right_tabs.get_children():
+				if child.has_meta("_call_stack_panel"):
+					child.set_debugger_plugin(_debugger_plugin)
 
 func _setup_ui():
 	# Main horizontal split: Console (left) + Panels (right)
@@ -308,29 +310,6 @@ func _setup_ui():
 	_var_context_menu.id_pressed.connect(_on_var_context_menu_selected)
 	add_child(_var_context_menu)
 	
-	# Call Stack panel
-	var stack_panel = VBoxContainer.new()
-	stack_panel.name = "Stack"
-	_right_tabs.add_child(stack_panel)
-	
-	var stack_toolbar = HBoxContainer.new()
-	stack_panel.add_child(stack_toolbar)
-	
-	var stack_label = Label.new()
-	stack_label.text = "Call Stack"
-	stack_toolbar.add_child(stack_label)
-	
-	_call_stack_tree = Tree.new()
-	_call_stack_tree.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_call_stack_tree.columns = 3
-	_call_stack_tree.set_column_title(0, "Function")
-	_call_stack_tree.set_column_title(1, "File")
-	_call_stack_tree.set_column_title(2, "Line")
-	_call_stack_tree.column_titles_visible = true
-	_call_stack_tree.select_mode = Tree.SELECT_ROW
-	_call_stack_tree.item_activated.connect(_on_stack_item_activated)  # Double-click -> navigate
-	stack_panel.add_child(_call_stack_tree)
-	
 	# Watch panel
 	var watch_panel = VBoxContainer.new()
 	watch_panel.name = "Watch"
@@ -356,7 +335,21 @@ func _setup_ui():
 	_watch_tree.column_titles_visible = true
 	_watch_tree.item_activated.connect(_on_watch_item_activated)
 	_watch_tree.item_edited.connect(_on_watch_item_edited)
+	_watch_tree.gui_input.connect(_on_watch_tree_gui_input)  # Right-click handling
 	watch_panel.add_child(_watch_tree)
+	
+	# Create context menu for watch expressions
+	_watch_context_menu = PopupMenu.new()
+	_watch_context_menu.add_item("Delete Watch", 0)
+	_watch_context_menu.add_item("Delete All Watches", 1)
+	_watch_context_menu.add_separator()
+	_watch_context_menu.add_item("Copy Value", 2)
+	_watch_context_menu.add_item("Copy Expression", 3)
+	_watch_context_menu.id_pressed.connect(_on_watch_context_menu_selected)
+	add_child(_watch_context_menu)
+	
+	# Load persisted watch expressions
+	_load_watch_expressions()
 	
 	# Inspector panel
 	var inspector_panel = VBoxContainer.new()
@@ -441,65 +434,14 @@ func _setup_ui():
 	_whenever_context_menu.id_pressed.connect(_on_whenever_context_menu_selected)
 	add_child(_whenever_context_menu)
 	
-	# Breakpoints panel - View and manage breakpoints with conditions
-	var breakpoints_panel = VBoxContainer.new()
-	breakpoints_panel.name = "BP"  # Short for breakpoints
-	_right_tabs.add_child(breakpoints_panel)
-	
-	var bp_toolbar = HBoxContainer.new()
-	breakpoints_panel.add_child(bp_toolbar)
-	
-	var bp_label = Label.new()
-	bp_label.text = "Breakpoints"
-	bp_toolbar.add_child(bp_label)
-	
-	var bp_add_btn = Button.new()
-	bp_add_btn.text = "➕"
-	bp_add_btn.tooltip_text = "Add conditional breakpoint"
-	bp_add_btn.pressed.connect(_show_add_breakpoint_dialog)
-	bp_toolbar.add_child(bp_add_btn)
-	
-	var bp_refresh = Button.new()
-	bp_refresh.text = "🔄"
-	bp_refresh.tooltip_text = "Refresh breakpoints from editor"
-	bp_refresh.pressed.connect(_refresh_breakpoints_display)
-	bp_toolbar.add_child(bp_refresh)
-	
-	var bp_clear_all = Button.new()
-	bp_clear_all.text = "🗑️"
-	bp_clear_all.tooltip_text = "Clear all breakpoints"
-	bp_clear_all.pressed.connect(_clear_all_breakpoints)
-	bp_toolbar.add_child(bp_clear_all)
-	
-	_breakpoints_tree = Tree.new()
-	_breakpoints_tree.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_breakpoints_tree.columns = 4
-	_breakpoints_tree.set_column_title(0, "✓")
-	_breakpoints_tree.set_column_title(1, "File")
-	_breakpoints_tree.set_column_title(2, "Line")
-	_breakpoints_tree.set_column_title(3, "Condition")
-	_breakpoints_tree.column_titles_visible = true
-	_breakpoints_tree.set_column_expand(0, false)
-	_breakpoints_tree.set_column_expand(1, true)
-	_breakpoints_tree.set_column_expand(2, false)
-	_breakpoints_tree.set_column_expand(3, true)
-	_breakpoints_tree.set_column_custom_minimum_width(0, 30)
-	_breakpoints_tree.set_column_custom_minimum_width(2, 50)
-	_breakpoints_tree.item_activated.connect(_on_breakpoint_item_activated)
-	_breakpoints_tree.gui_input.connect(_on_breakpoints_tree_gui_input)
-	breakpoints_panel.add_child(_breakpoints_tree)
-	
-	# Context menu for breakpoints
-	_breakpoints_context_menu = PopupMenu.new()
-	_breakpoints_context_menu.add_item("Go to Line", 0)
-	_breakpoints_context_menu.add_item("Edit Condition...", 1)
-	_breakpoints_context_menu.add_separator()
-	_breakpoints_context_menu.add_item("Enable", 2)
-	_breakpoints_context_menu.add_item("Disable", 3)
-	_breakpoints_context_menu.add_separator()
-	_breakpoints_context_menu.add_item("Remove", 4)
-	_breakpoints_context_menu.id_pressed.connect(_on_breakpoints_context_menu_selected)
-	add_child(_breakpoints_context_menu)
+	# Call Stack panel
+	var call_stack_script = load("res://addons/visual_gasic/call_stack_panel.gd")
+	if call_stack_script:
+		var call_stack_panel = call_stack_script.new()
+		call_stack_panel.name = "Stack"
+		_right_tabs.add_child(call_stack_panel)
+		# Will be connected to debugger plugin in set_debugger_plugin()
+		call_stack_panel.set_meta("_call_stack_panel", true)
 
 func _initialize_repl():
 	# Try to create VisualGasicImmediate instance for BASIC code execution
@@ -529,17 +471,6 @@ func _show_help():
 	_append_output("  :instances  - List running VisualGasic instances\n")
 	_append_output("  :connect N  - Connect to instance N for live debugging\n")
 	_append_output("  :disconnect - Disconnect from running instance\n")
-	_append_output("\n[b]Expression Evaluation:[/b]\n")
-	_append_output("  :eval [expr]  - Evaluate expression in paused debug context\n")
-	_append_output("\n[b]Breakpoints:[/b]\n")
-	_append_output("  :bp         - Show BP tab with all breakpoints\n")
-	_append_output("  :bp add     - Add a conditional breakpoint\n")
-	_append_output("  :bp clear   - Clear all breakpoints\n")
-	_append_output("\n[b]Data Breakpoints (Watchpoints):[/b]\n")
-	_append_output("  :wp [var]   - Add data breakpoint (break when var changes)\n")
-	_append_output("  :wp list    - List all data breakpoints\n")
-	_append_output("  :wp remove [var] - Remove data breakpoint\n")
-	_append_output("  :wp clear   - Clear all data breakpoints\n")
 	_append_output("\n[b]When connected to a running game:[/b]\n")
 	_append_output("  Print Ball_x    - Print variable from running game\n")
 	_append_output("  ? player_y      - Shortcut for Print\n")
@@ -635,12 +566,6 @@ func _process_command(cmd: String):
 			_connect_to_instance_by_index(arg)
 		"disconnect":
 			_disconnect_from_instance()
-		"bp":
-			_handle_breakpoint_command(arg)
-		"eval":
-			_handle_eval_command(arg)
-		"wp", "watchpoint":
-			_handle_watchpoint_command(arg)
 		"watch":
 			if arg.is_empty():
 				_append_output("[color=red]Usage: :watch [expression][/color]\n")
@@ -1499,6 +1424,7 @@ func _add_watch_expression():
 	dialog.confirmed.connect(func():
 		if not input.text.is_empty():
 			_watch_expressions.append({"expr": input.text, "value": ""})
+			_save_watch_expressions()  # Persist
 			_update_watch_expressions()
 	)
 	add_child(dialog)
@@ -1519,10 +1445,72 @@ func _update_watch_expressions():
 			value = _variables[watch["expr"]]
 		else:
 			value = _eval_simple(watch["expr"])
-		item.set_text(1, str(value))
+		var value_str = str(value)
+		item.set_text(1, value_str)
 		item.set_editable(1, true)  # Make Value column editable
 		item.set_metadata(0, watch["expr"])  # Store expression name for editing
-		watch["value"] = str(value)
+		
+		# Color-code based on value changes
+		var prev_value = _watch_previous_values.get(watch["expr"], "")
+		if prev_value != "" and prev_value != value_str:
+			# Value changed - highlight in yellow
+			item.set_custom_color(1, Color.YELLOW)
+		else:
+			# No change or first time - default green
+			item.set_custom_color(1, Color.LIME_GREEN)
+		
+		_watch_previous_values[watch["expr"]] = value_str
+		watch["value"] = value_str
+
+func _on_watch_tree_gui_input(event: InputEvent):
+	"""Handle right-click on watch tree for context menu"""
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_RIGHT:
+		var selected = _watch_tree.get_selected()
+		if selected:
+			_watch_context_menu.position = Vector2i(get_global_mouse_position())
+			_watch_context_menu.popup()
+
+func _on_watch_context_menu_selected(id: int):
+	"""Handle watch context menu selection"""
+	var selected = _watch_tree.get_selected()
+	match id:
+		0:  # Delete Watch
+			if selected:
+				var expr = selected.get_text(0)
+				_watch_expressions = _watch_expressions.filter(func(w): return w["expr"] != expr)
+				_watch_previous_values.erase(expr)
+				_save_watch_expressions()
+				_update_watch_expressions()
+		1:  # Delete All Watches
+			_watch_expressions.clear()
+			_watch_previous_values.clear()
+			_save_watch_expressions()
+			_update_watch_expressions()
+		2:  # Copy Value
+			if selected:
+				DisplayServer.clipboard_set(selected.get_text(1))
+		3:  # Copy Expression
+			if selected:
+				DisplayServer.clipboard_set(selected.get_text(0))
+
+func _save_watch_expressions():
+	"""Persist watch expressions to user data"""
+	var config = ConfigFile.new()
+	var expressions: Array[String] = []
+	for watch in _watch_expressions:
+		expressions.append(watch["expr"])
+	config.set_value("watch", "expressions", expressions)
+	config.save("user://vg_watch_expressions.cfg")
+
+func _load_watch_expressions():
+	"""Load persisted watch expressions"""
+	var config = ConfigFile.new()
+	if config.load("user://vg_watch_expressions.cfg") == OK:
+		var expressions = config.get_value("watch", "expressions", [])
+		for expr in expressions:
+			_watch_expressions.append({"expr": expr, "value": ""})
+		if not _watch_expressions.is_empty():
+			_update_watch_expressions()
 
 func _on_watch_item_activated():
 	var selected = _watch_tree.get_selected()
@@ -2234,539 +2222,3 @@ func _center_editor_on_line(line: int) -> void:
 		code_edit.set_caret_column(0)
 		code_edit.center_viewport_to_caret()
 		code_edit.grab_focus()
-
-# ============================================================================
-# CALL STACK UI
-# ============================================================================
-
-func _on_call_stack_received(stack: Array) -> void:
-	"""Called when call stack is received from debugger."""
-	print("[VG Immediate] Received call stack with ", stack.size(), " frames")
-	_call_stack = stack
-	_update_call_stack_tree()
-	# Switch to Stack tab when we get call stack data
-	if _right_tabs and not stack.is_empty():
-		for i in range(_right_tabs.get_tab_count()):
-			if _right_tabs.get_tab_title(i) == "Stack":
-				_right_tabs.current_tab = i
-				break
-
-func _update_call_stack_tree() -> void:
-	"""Update the call stack tree display."""
-	if not _call_stack_tree:
-		return
-	
-	_call_stack_tree.clear()
-	var root = _call_stack_tree.create_item()
-	
-	if _call_stack.is_empty():
-		var empty_item = _call_stack_tree.create_item(root)
-		empty_item.set_text(0, "(No call stack)")
-		empty_item.set_custom_color(0, Color.GRAY)
-		empty_item.set_selectable(0, false)
-		return
-	
-	# Display stack frames from top (current) to bottom (entry point)
-	for i in range(_call_stack.size()):
-		var frame = _call_stack[i]
-		var item = _call_stack_tree.create_item(root)
-		
-		var func_name = frame.get("function", "<unknown>")
-		var file_path = frame.get("file", "")
-		var line_num = frame.get("line", 0)
-		
-		# Format: function name, filename (without path), line number
-		item.set_text(0, func_name)
-		item.set_text(1, file_path.get_file() if not file_path.is_empty() else "")
-		item.set_text(2, str(line_num) if line_num > 0 else "")
-		
-		# Store full path for navigation
-		item.set_metadata(0, file_path)
-		item.set_metadata(1, line_num)
-		
-		# Highlight current frame (top of stack)
-		if i == 0:
-			item.set_custom_color(0, Color.YELLOW)
-			item.set_custom_color(1, Color.YELLOW)
-			item.set_custom_color(2, Color.YELLOW)
-		else:
-			item.set_custom_color(0, Color.WHITE)
-			item.set_custom_color(1, Color.GRAY)
-			item.set_custom_color(2, Color.CYAN)
-
-func _on_stack_item_activated() -> void:
-	"""Double-click on call stack item: navigate to that location."""
-	var selected = _call_stack_tree.get_selected()
-	if not selected:
-		return
-	
-	var file_path = selected.get_metadata(0)
-	var line_num = selected.get_metadata(1)
-	
-	if file_path is String and not file_path.is_empty() and line_num is int and line_num > 0:
-		_go_to_script_line(file_path, line_num)
-
-# ============================================================================
-# BREAKPOINTS UI
-# ============================================================================
-
-func _handle_breakpoint_command(arg: String) -> void:
-	"""Handle :bp commands."""
-	var sub_cmd = arg.strip_edges().to_lower()
-	
-	match sub_cmd:
-		"":
-			# Just :bp - switch to BP tab and refresh
-			_refresh_breakpoints_display()
-			if _right_tabs:
-				for i in range(_right_tabs.get_tab_count()):
-					if _right_tabs.get_tab_title(i) == "BP":
-						_right_tabs.current_tab = i
-						break
-			_append_output("[color=gray]Breakpoints tab opened. Use :bp add or :bp clear[/color]\n")
-		"add":
-			_show_add_breakpoint_dialog()
-		"clear":
-			_clear_all_breakpoints()
-		"refresh":
-			_refresh_breakpoints_display()
-			_append_output("[color=gray]Breakpoints refreshed[/color]\n")
-		_:
-			_append_output("[color=red]Unknown :bp subcommand: %s[/color]\n" % sub_cmd)
-			_append_output("[color=gray]Usage: :bp [add|clear|refresh][/color]\n")
-
-func _refresh_breakpoints_display() -> void:
-	"""Refresh the breakpoints tree from the editor's ScriptEditor."""
-	if not _breakpoints_tree:
-		return
-	
-	_breakpoints_tree.clear()
-	var root = _breakpoints_tree.create_item()
-	
-	# Get breakpoints from ScriptEditor
-	var script_editor = EditorInterface.get_script_editor()
-	if not script_editor:
-		var empty_item = _breakpoints_tree.create_item(root)
-		empty_item.set_text(1, "(No script editor)")
-		return
-	
-	var bp_strings = script_editor.get_breakpoints()
-	if bp_strings.is_empty():
-		var empty_item = _breakpoints_tree.create_item(root)
-		empty_item.set_text(1, "(No breakpoints set)")
-		empty_item.set_custom_color(1, Color.GRAY)
-		return
-	
-	for bp_str in bp_strings:
-		# Parse "res://path/script.vg:123" format
-		var colon_idx = bp_str.rfind(":")
-		if colon_idx == -1:
-			continue
-		
-		var path = bp_str.substr(0, colon_idx)
-		var line_str = bp_str.substr(colon_idx + 1)
-		
-		# Only show .vg breakpoints
-		if not path.ends_with(".vg"):
-			continue
-		
-		var line = int(line_str)
-		var item = _breakpoints_tree.create_item(root)
-		
-		# Column 0: Enabled checkbox (always true from ScriptEditor)
-		item.set_cell_mode(0, TreeItem.CELL_MODE_CHECK)
-		item.set_checked(0, true)
-		item.set_editable(0, true)
-		
-		# Column 1: Filename
-		item.set_text(1, path.get_file())
-		
-		# Column 2: Line number
-		item.set_text(2, str(line))
-		item.set_custom_color(2, Color.CYAN)
-		
-		# Column 3: Condition (empty for now - could be loaded from conditional BP storage)
-		item.set_text(3, "")
-		item.set_editable(3, true)  # Allow editing conditions
-		
-		# Store metadata for navigation
-		item.set_metadata(0, path)
-		item.set_metadata(1, line)
-
-func _show_add_breakpoint_dialog() -> void:
-	"""Show dialog to add a conditional breakpoint."""
-	var dialog = Window.new()
-	dialog.title = "Add Conditional Breakpoint"
-	dialog.size = Vector2i(450, 200)
-	dialog.transient = true
-	dialog.exclusive = true
-	
-	var vbox = VBoxContainer.new()
-	vbox.anchor_right = 1.0
-	vbox.anchor_bottom = 1.0
-	vbox.offset_left = 10
-	vbox.offset_right = -10
-	vbox.offset_top = 10
-	vbox.offset_bottom = -10
-	dialog.add_child(vbox)
-	
-	# File path input
-	var file_hbox = HBoxContainer.new()
-	vbox.add_child(file_hbox)
-	var file_label = Label.new()
-	file_label.text = "Script:"
-	file_label.custom_minimum_size.x = 80
-	file_hbox.add_child(file_label)
-	var file_input = LineEdit.new()
-	file_input.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	file_input.placeholder_text = "res://path/to/script.vg"
-	# Pre-fill with current script if available
-	if not _current_script_path.is_empty():
-		file_input.text = _current_script_path
-	file_hbox.add_child(file_input)
-	
-	# Line number input
-	var line_hbox = HBoxContainer.new()
-	vbox.add_child(line_hbox)
-	var line_label = Label.new()
-	line_label.text = "Line:"
-	line_label.custom_minimum_size.x = 80
-	line_hbox.add_child(line_label)
-	var line_input = SpinBox.new()
-	line_input.min_value = 1
-	line_input.max_value = 99999
-	line_input.value = 1
-	line_hbox.add_child(line_input)
-	
-	# Condition input
-	var cond_hbox = HBoxContainer.new()
-	vbox.add_child(cond_hbox)
-	var cond_label = Label.new()
-	cond_label.text = "Condition:"
-	cond_label.custom_minimum_size.x = 80
-	cond_hbox.add_child(cond_label)
-	var cond_input = LineEdit.new()
-	cond_input.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	cond_input.placeholder_text = "e.g., x > 10  (leave empty for unconditional)"
-	cond_hbox.add_child(cond_input)
-	
-	# Help text
-	var help = Label.new()
-	help.text = "Condition is evaluated as VB6 expression. Variables from the running script are available."
-	help.add_theme_color_override("font_color", Color.GRAY)
-	help.autowrap_mode = TextServer.AUTOWRAP_WORD
-	vbox.add_child(help)
-	
-	# Buttons
-	var btn_hbox = HBoxContainer.new()
-	btn_hbox.alignment = BoxContainer.ALIGNMENT_END
-	vbox.add_child(btn_hbox)
-	
-	var cancel_btn = Button.new()
-	cancel_btn.text = "Cancel"
-	cancel_btn.pressed.connect(func(): dialog.queue_free())
-	btn_hbox.add_child(cancel_btn)
-	
-	var add_btn = Button.new()
-	add_btn.text = "Add Breakpoint"
-	add_btn.pressed.connect(func():
-		var script_path = file_input.text.strip_edges()
-		var line_num = int(line_input.value)
-		var condition = cond_input.text.strip_edges()
-		
-		if script_path.is_empty():
-			_append_output("[color=red]Error: Script path is required[/color]\n")
-			return
-		
-		_add_conditional_breakpoint(script_path, line_num, condition)
-		dialog.queue_free()
-	)
-	btn_hbox.add_child(add_btn)
-	
-	add_child(dialog)
-	dialog.popup_centered()
-
-func _add_conditional_breakpoint(script_path: String, line: int, condition: String) -> void:
-	"""Add a conditional breakpoint and sync to editor/game."""
-	# First, set the breakpoint in the script editor
-	if ResourceLoader.exists(script_path):
-		var script = load(script_path)
-		if script:
-			# Open the script at the line (this should set a breakpoint marker in editor)
-			EditorInterface.set_main_screen_editor("Script")
-			EditorInterface.edit_script(script, line, 0)
-			
-			# Delay to allow editor to open, then set breakpoint
-			call_deferred("_set_editor_breakpoint", script_path, line)
-	
-	# If conditional, send to C++ debugger
-	if not condition.is_empty() and ClassDB.class_exists("VisualGasicDebugger"):
-		var debugger = ClassDB.instantiate("VisualGasicDebugger")
-		if debugger:
-			debugger.set_breakpoint(script_path, line, condition)
-			_append_output("[color=green]✓ Conditional breakpoint set at %s:%d when '%s'[/color]\n" % [
-				script_path.get_file(), line, condition
-			])
-		else:
-			_append_output("[color=yellow]Set breakpoint at %s:%d (no condition - debugger unavailable)[/color]\n" % [
-				script_path.get_file(), line
-			])
-	else:
-		_append_output("[color=green]✓ Breakpoint set at %s:%d[/color]\n" % [script_path.get_file(), line])
-	
-	# Refresh display
-	_refresh_breakpoints_display()
-
-func _set_editor_breakpoint(script_path: String, line: int) -> void:
-	"""Attempt to set a breakpoint via editor commands."""
-	# This is a placeholder - Godot's ScriptEditor doesn't have a public API to set breakpoints
-	# The user needs to click in the gutter manually, or we rely on the .vg_breakpoints.json file
-	pass
-
-func _clear_all_breakpoints() -> void:
-	"""Clear all .vg breakpoints."""
-	var script_editor = EditorInterface.get_script_editor()
-	if script_editor:
-		# There's no direct API to clear breakpoints, but we can clear our JSON file
-		var file = FileAccess.open("res://.vg_breakpoints.json", FileAccess.WRITE)
-		if file:
-			file.store_string("{}")
-			file.close()
-			_append_output("[color=yellow]Cleared all VG breakpoints from file[/color]\n")
-	
-	# Clear the C++ debugger's conditional breakpoints
-	if ClassDB.class_exists("VisualGasicLanguage"):
-		VisualGasicLanguage.vg_clear_breakpoints()
-	
-	_refresh_breakpoints_display()
-
-func _on_breakpoint_item_activated() -> void:
-	"""Double-click on breakpoint: navigate to that location."""
-	var selected = _breakpoints_tree.get_selected()
-	if not selected:
-		return
-	
-	var file_path = selected.get_metadata(0)
-	var line_num = selected.get_metadata(1)
-	
-	if file_path is String and not file_path.is_empty() and line_num is int and line_num > 0:
-		_go_to_script_line(file_path, line_num)
-
-func _on_breakpoints_tree_gui_input(event: InputEvent) -> void:
-	"""Handle right-click context menu for breakpoints tree."""
-	if event is InputEventMouseButton:
-		if event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
-			var selected = _breakpoints_tree.get_selected()
-			if selected and selected.get_metadata(0):  # Has a valid breakpoint
-				_breakpoints_context_menu.position = Vector2i(get_global_mouse_position())
-				_breakpoints_context_menu.popup()
-
-func _on_breakpoints_context_menu_selected(id: int) -> void:
-	"""Handle breakpoints context menu selection."""
-	var selected = _breakpoints_tree.get_selected()
-	if not selected:
-		return
-	
-	var file_path = selected.get_metadata(0)
-	var line_num = selected.get_metadata(1)
-	
-	match id:
-		0:  # Go to Line
-			if file_path and line_num:
-				_go_to_script_line(file_path, line_num)
-		1:  # Edit Condition
-			_show_edit_condition_dialog(file_path, line_num, selected.get_text(3))
-		2:  # Enable
-			selected.set_checked(0, true)
-			# TODO: Sync enabled state to debugger
-		3:  # Disable
-			selected.set_checked(0, false)
-			# TODO: Sync disabled state to debugger
-		4:  # Remove
-			_remove_breakpoint(file_path, line_num)
-
-func _show_edit_condition_dialog(file_path: String, line: int, current_condition: String) -> void:
-	"""Show dialog to edit a breakpoint condition."""
-	var dialog = AcceptDialog.new()
-	dialog.title = "Edit Breakpoint Condition"
-	
-	var vbox = VBoxContainer.new()
-	dialog.add_child(vbox)
-	
-	var info_label = Label.new()
-	info_label.text = "%s:%d" % [file_path.get_file(), line]
-	info_label.add_theme_color_override("font_color", Color.CYAN)
-	vbox.add_child(info_label)
-	
-	var cond_label = Label.new()
-	cond_label.text = "Condition (leave empty for unconditional):"
-	vbox.add_child(cond_label)
-	
-	var cond_input = LineEdit.new()
-	cond_input.text = current_condition
-	cond_input.placeholder_text = "e.g., counter > 5"
-	vbox.add_child(cond_input)
-	
-	dialog.confirmed.connect(func():
-		var new_condition = cond_input.text.strip_edges()
-		_update_breakpoint_condition(file_path, line, new_condition)
-		dialog.queue_free()
-	)
-	
-	add_child(dialog)
-	dialog.popup_centered(Vector2(350, 120))
-
-func _update_breakpoint_condition(file_path: String, line: int, condition: String) -> void:
-	"""Update the condition for a breakpoint."""
-	if ClassDB.class_exists("VisualGasicDebugger"):
-		var debugger = ClassDB.instantiate("VisualGasicDebugger")
-		if debugger:
-			debugger.set_breakpoint(file_path, line, condition)
-			if condition.is_empty():
-				_append_output("[color=cyan]Removed condition from %s:%d[/color]\n" % [file_path.get_file(), line])
-			else:
-				_append_output("[color=cyan]Updated condition at %s:%d: '%s'[/color]\n" % [file_path.get_file(), line, condition])
-	_refresh_breakpoints_display()
-
-func _remove_breakpoint(file_path: String, line: int) -> void:
-	"""Remove a breakpoint."""
-	# Load current breakpoints from file
-	var bp_dict: Dictionary = {}
-	if FileAccess.file_exists("res://.vg_breakpoints.json"):
-		var file = FileAccess.open("res://.vg_breakpoints.json", FileAccess.READ)
-		if file:
-			var parsed = JSON.parse_string(file.get_as_text())
-			if parsed is Dictionary:
-				bp_dict = parsed
-			file.close()
-	
-	# Remove this breakpoint
-	if bp_dict.has(file_path):
-		var lines = bp_dict[file_path]
-		if lines is Array:
-			lines.erase(line)
-			if lines.is_empty():
-				bp_dict.erase(file_path)
-			else:
-				bp_dict[file_path] = lines
-	
-	# Save updated breakpoints
-	var file = FileAccess.open("res://.vg_breakpoints.json", FileAccess.WRITE)
-	if file:
-		file.store_string(JSON.stringify(bp_dict))
-		file.close()
-	
-	# Also remove from C++ debugger
-	if ClassDB.class_exists("VisualGasicDebugger"):
-		var debugger = ClassDB.instantiate("VisualGasicDebugger")
-		if debugger:
-			debugger.remove_breakpoint(file_path, line)
-	
-	_append_output("[color=yellow]Removed breakpoint at %s:%d[/color]\n" % [file_path.get_file(), line])
-	_refresh_breakpoints_display()
-
-# ============================================================================
-# EXPRESSION EVALUATION IN DEBUG CONTEXT
-# ============================================================================
-
-func _handle_eval_command(arg: String) -> void:
-	"""Handle :eval command - evaluate expression in paused debug context."""
-	if arg.is_empty():
-		_append_output("[color=red]Usage: :eval [expression][/color]\n")
-		_append_output("[color=gray]Evaluates an expression in the context of the paused script.[/color]\n")
-		_append_output("[color=gray]Example: :eval player.health[/color]\n")
-		return
-	
-	# Try to evaluate using the C++ method
-	if ClassDB.class_exists("VisualGasicLanguage"):
-		var result = VisualGasicLanguage.vg_evaluate_expression(arg)
-		if result.begins_with("[Error") or result.begins_with("[Cannot"):
-			_append_output("[color=red]%s[/color]\n" % result)
-		else:
-			_append_output("[color=cyan]%s = %s[/color]\n" % [arg, result])
-	else:
-		_append_output("[color=red]VisualGasicLanguage not available[/color]\n")
-
-# ============================================================================
-# DATA BREAKPOINTS (WATCHPOINTS)
-# ============================================================================
-
-func _handle_watchpoint_command(arg: String) -> void:
-	"""Handle :wp/:watchpoint commands for data breakpoints."""
-	var parts = arg.strip_edges().split(" ", false, 1)
-	var sub_cmd = parts[0].to_lower() if parts.size() > 0 else ""
-	var sub_arg = parts[1].strip_edges() if parts.size() > 1 else ""
-	
-	if sub_cmd.is_empty():
-		_show_watchpoints()
-		return
-	
-	match sub_cmd:
-		"list":
-			_show_watchpoints()
-		"add":
-			if sub_arg.is_empty():
-				_append_output("[color=red]Usage: :wp add [variable_name][/color]\n")
-			else:
-				_add_watchpoint(sub_arg)
-		"remove", "rm", "del":
-			if sub_arg.is_empty():
-				_append_output("[color=red]Usage: :wp remove [variable_name][/color]\n")
-			else:
-				_remove_watchpoint(sub_arg)
-		"clear":
-			_clear_watchpoints()
-		_:
-			# Treat as variable name to add
-			_add_watchpoint(sub_cmd)
-
-func _show_watchpoints() -> void:
-	"""Display all current data breakpoints."""
-	if not ClassDB.class_exists("VisualGasicLanguage"):
-		_append_output("[color=red]VisualGasicLanguage not available[/color]\n")
-		return
-	
-	var watchpoints = VisualGasicLanguage.vg_get_watchpoints()
-	
-	_append_output("\n[b]Data Breakpoints (Watchpoints):[/b]\n")
-	if watchpoints.is_empty():
-		_append_output("[color=gray]  No data breakpoints set[/color]\n")
-		_append_output("[color=gray]  Use :wp [variable] to add one[/color]\n\n")
-	else:
-		for wp in watchpoints:
-			var name = wp.get("name", "?")
-			var has_val = wp.get("has_value", false)
-			if has_val:
-				var last_val = wp.get("last_value", "")
-				_append_output("  🔴 %s (last: %s)\n" % [name, str(last_val)])
-			else:
-				_append_output("  ⚪ %s (not yet read)\n" % name)
-		_append_output("\n")
-
-func _add_watchpoint(variable_name: String) -> void:
-	"""Add a data breakpoint for a variable."""
-	if not ClassDB.class_exists("VisualGasicLanguage"):
-		_append_output("[color=red]VisualGasicLanguage not available[/color]\n")
-		return
-	
-	VisualGasicLanguage.vg_add_watchpoint(variable_name)
-	_append_output("[color=lime]Added data breakpoint: %s[/color]\n" % variable_name)
-	_append_output("[color=gray]Execution will pause when '%s' changes value[/color]\n" % variable_name)
-
-func _remove_watchpoint(variable_name: String) -> void:
-	"""Remove a data breakpoint for a variable."""
-	if not ClassDB.class_exists("VisualGasicLanguage"):
-		_append_output("[color=red]VisualGasicLanguage not available[/color]\n")
-		return
-	
-	VisualGasicLanguage.vg_remove_watchpoint(variable_name)
-	_append_output("[color=yellow]Removed data breakpoint: %s[/color]\n" % variable_name)
-
-func _clear_watchpoints() -> void:
-	"""Clear all data breakpoints."""
-	if not ClassDB.class_exists("VisualGasicLanguage"):
-		_append_output("[color=red]VisualGasicLanguage not available[/color]\n")
-		return
-	
-	VisualGasicLanguage.vg_clear_watchpoints()
-	_append_output("[color=yellow]Cleared all data breakpoints[/color]\n")

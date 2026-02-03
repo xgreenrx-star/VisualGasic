@@ -51,6 +51,9 @@ var immediate_window
 ## Debugger plugin for remote debugging support
 var debugger_plugin: EditorDebuggerPlugin
 
+## Alignment toolbar for form designer
+var alignment_toolbar
+
 ## Context menu for script editor rename refactoring
 var _script_context_menu: PopupMenu
 
@@ -156,6 +159,15 @@ func _enter_tree():
 	add_control_to_dock(EditorPlugin.DOCK_SLOT_LEFT_BL, toolbox)
 	print("Manually added Toolbox (GDScript Wrapper) to Dock Left BL")
 	
+	# Add Alignment Toolbar for form designer
+	var alignment_script = load("res://addons/visual_gasic/alignment_toolbar.gd")
+	if alignment_script:
+		alignment_toolbar = alignment_script.new()
+		alignment_toolbar.name = "VG Alignment"
+		alignment_toolbar.setup(self)
+		add_control_to_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, alignment_toolbar)
+		print("VisualGasic: Added alignment toolbar to canvas editor")
+	
 	_post_init()
 	_setup_script_editor_context_menu()
 
@@ -194,6 +206,12 @@ func _exit_tree():
 		remove_control_from_docks(toolbox)
 		toolbox.queue_free()
 		toolbox = null
+	
+	# Cleanup alignment toolbar
+	if alignment_toolbar:
+		remove_control_from_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, alignment_toolbar)
+		alignment_toolbar.queue_free()
+		alignment_toolbar = null
 	
 	# Cleanup script editor context menu
 	if _script_editor_check_timer:
