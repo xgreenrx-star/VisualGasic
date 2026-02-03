@@ -142,6 +142,85 @@ Array get_all_instances() {
     return result;
 }
 
+VisualGasicInstance* get_instance_by_index(int index) {
+    std::lock_guard<std::mutex> lock(vg_debug_instance_registry_mutex);
+    if (index < 0 || index >= (int)vg_debug_active_instances.size()) {
+        return nullptr;
+    }
+    auto it = vg_debug_active_instances.begin();
+    std::advance(it, index);
+    return *it;
+}
+
+Dictionary get_instance_variables(int index) {
+    VisualGasicInstance* inst = get_instance_by_index(index);
+    if (!inst) {
+        return Dictionary();
+    }
+    
+    // Get all variables from the instance
+    Dictionary raw_vars = inst->get_debug_globals();
+    
+    // Filter and convert to serializable types for debugger protocol
+    Dictionary result;
+    Array keys = raw_vars.keys();
+    for (int i = 0; i < keys.size(); i++) {
+        String key = keys[i];
+        
+        // Skip internal VB constants (vbCrLf, vbNewLine, etc.) and Err object
+        if (key.begins_with("vb") || key == "Err") {
+            continue;
+        }
+        
+        Variant val = raw_vars[key];
+        Variant::Type t = val.get_type();
+        
+        // Convert non-serializable types to string representation
+        if (t == Variant::OBJECT) {
+            Object* obj = val;
+            if (obj) {
+                // Convert to descriptive string
+                Node* node = Object::cast_to<Node>(obj);
+                if (node) {
+                    result[key] = String("<Node: ") + node->get_name() + String(">");
+                } else {
+                    result[key] = String("<") + obj->get_class() + String(">");
+                }
+            } else {
+                result[key] = "Nothing";
+            }
+        } else if (t == Variant::CALLABLE || t == Variant::SIGNAL || t == Variant::RID) {
+            // These types cannot be serialized - skip or convert to string
+            result[key] = String("<") + Variant::get_type_name(t) + String(">");
+        } else {
+            // Primitive types, Vector2, Vector3, Color, Array, Dictionary - these are safe
+            result[key] = val;
+        }
+    }
+    
+    return result;
+}
+
+Array get_whenever_sections(int index) {
+    VisualGasicInstance* inst = get_instance_by_index(index);
+    if (!inst) {
+        return Array();
+    }
+    
+    // Use the public accessor method
+    return inst->get_debug_whenever_sections();
+}
+
+void set_whenever_active(int index, const String& section_name, bool active) {
+    VisualGasicInstance* inst = get_instance_by_index(index);
+    if (!inst) {
+        return;
+    }
+    
+    // Use the public setter method
+    inst->set_whenever_section_active(section_name, active);
+}
+
 } // namespace VisualGasicDebug
 // === END IMMEDIATE WINDOW SUPPORT ===
 
@@ -3285,6 +3364,98 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
 void VisualGasicInstance::execute_statement(Statement* stmt) {
     if (!stmt) return;
     
+    // Check for step debugging and breakpoints (for AST interpreter fallback when bytecode fails)
+    if (stmt->line > 0 && script.is_valid()) {
+        EngineDebugger* engine_debugger = EngineDebugger::get_singleton();
+        String script_path = script->get_path();
+        
+        // Debug: print first time to verify debug check is running
+        static bool first_check = true;
+        if (first_check && !script_path.is_empty()) {
+            first_check = false;
+            UtilityFunctions::print("[VG Debug] execute_statement checking debugger. is_active=", 
+                (engine_debugger ? (engine_debugger->is_active() ? "true" : "false") : "no debugger"),
+                " script=", script_path);
+        }
+        
+        if (engine_debugger && engine_debugger->is_active() && !script_path.is_empty()) {
+            bool should_break = false;
+            
+            // Check step mode first
+            VGStepMode current_step_mode = VisualGasicLanguage::get_step_mode();
+            if (current_step_mode != VG_STEP_NONE) {
+                int current_depth = VisualGasicLanguage::get_current_stack_depth();
+                int target_depth = VisualGasicLanguage::get_step_target_depth();
+                
+                switch (current_step_mode) {
+                    case VG_STEP_INTO:
+                        should_break = true;
+                        break;
+                    case VG_STEP_OVER:
+                        should_break = (current_depth <= target_depth);
+                        break;
+                    case VG_STEP_OUT:
+                        should_break = (current_depth <= target_depth);
+                        break;
+                    default:
+                        break;
+                }
+                
+                if (should_break) {
+                    VisualGasicLanguage::set_step_mode(VG_STEP_NONE);
+                    
+                    // Store breakpoint location before blocking (for editor query)
+                    VisualGasicLanguage::set_current_break_location(script_path, stmt->line);
+                    
+                    // Send break notification directly to editor via EngineDebugger
+                    Array break_data;
+                    break_data.push_back(script_path);
+                    break_data.push_back(stmt->line);
+                    engine_debugger->send_message("visualgasic:break_hit", break_data);
+                    
+                    // Send current variables and call stack for inspection
+                    _send_variables_to_debugger(engine_debugger);
+                    _send_call_stack_to_debugger(engine_debugger);
+                    
+                    // Poll to ensure messages are sent before blocking
+                    engine_debugger->line_poll();
+                    
+                    // Use our custom wait loop instead of script_debug() so we respond to our messages
+                    VisualGasicLanguage::wait_for_debug_command();
+                }
+            }
+            
+            // Check VGDebugHandler for breakpoints (using C++ check to avoid GDScript call during debug)
+            if (!should_break) {
+                bool has_bp = VisualGasicLanguage::has_breakpoint(script_path, stmt->line);
+                
+                if (has_bp) {
+                    // Use printerr to ensure output is flushed immediately
+                    UtilityFunctions::printerr("[VG Debug] BREAKPOINT HIT at ", script_path, ":", stmt->line);
+                    
+                    // Store breakpoint location before blocking (for editor query)
+                    VisualGasicLanguage::set_current_break_location(script_path, stmt->line);
+                    
+                    // Send break notification directly to editor via EngineDebugger
+                    Array break_data;
+                    break_data.push_back(script_path);
+                    break_data.push_back(stmt->line);
+                    engine_debugger->send_message("visualgasic:break_hit", break_data);
+                    
+                    // Send current variables and call stack for inspection
+                    _send_variables_to_debugger(engine_debugger);
+                    _send_call_stack_to_debugger(engine_debugger);
+                    
+                    // Poll to ensure messages are sent before blocking
+                    engine_debugger->line_poll();
+                    
+                    // Use our custom wait loop instead of script_debug() so we respond to our messages
+                    VisualGasicLanguage::wait_for_debug_command();
+                }
+            }
+        }
+    }
+    
     switch (stmt->type) {
         case STMT_PASS: break; // Do nothing
         case STMT_PRINT: {
@@ -5259,6 +5430,11 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
     error_state.has_error = false;
     error_state.label = "";
 
+    // Push call stack frame for debugger
+    String file_path = script.is_valid() ? script->get_path() : "";
+    int start_line = func->statements.size() > 0 ? func->statements[0]->line : 0;
+    VisualGasicLanguage::push_stack_frame(file_path, func->name, start_line, this);
+
     bool used_bytecode = false;
     Variant bytecode_ret;
     Dictionary bytecode_variables_backup;
@@ -5321,6 +5497,9 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
     } else if (used_bytecode) {
         ret = bytecode_ret;
     }
+    
+    // Pop call stack frame for debugger
+    VisualGasicLanguage::pop_stack_frame();
     
     // Restore
     current_sub = prev_sub;
@@ -5612,28 +5791,11 @@ void VisualGasicInstance::notification(int32_t p_what) {
              return;
          }
          
-         // Register with remote debug handler now that node is in tree
-         if (owner) {
-             Node* owner_node = Object::cast_to<Node>(owner);
-             if (owner_node && owner_node->is_inside_tree()) {
-                 SceneTree* tree = owner_node->get_tree();
-                 if (tree && tree->get_root()) {
-                     // Autoloads are direct children of root - use just the name
-                     Node* debug_handler = tree->get_root()->get_node_or_null(NodePath("VGDebugHandler"));
-                     if (debug_handler) {
-                         if (debug_handler->has_method("register_instance")) {
-                             String script_path = script.is_valid() ? script->get_path() : "";
-                             UtilityFunctions::print("[VisualGasic] Registering with debug handler: ", script_path);
-                             debug_handler->call("register_instance", owner, script_path);
-                         } else {
-                             UtilityFunctions::print("[VisualGasic] Debug handler found but no register_instance method");
-                         }
-                     } else {
-                         UtilityFunctions::print("[VisualGasic] Debug handler not found at VGDebugHandler");
-                     }
-                 }
-             }
-         }
+         // NOTE: Instance registration is handled in C++ at construction time
+         // (see VisualGasicDebug::register_instance call in constructor)
+         // We do NOT call the GDScript debug_handler->register_instance() here
+         // because it causes the Godot debugger to break into GDScript during
+         // step debugging of VG scripts.
          
          // Lazy Init Processing if needed (e.g. if ast was null in constructor)
          if (owner && script.is_valid()) {
@@ -5899,6 +6061,17 @@ void VisualGasicInstance::assign_variable(const String& name, Variant val) {
          variables[name] = val;
     }
     
+    // Check for data breakpoint (watchpoint) - after assignment
+    if (VisualGasicLanguage::check_watchpoint(name, val)) {
+        // Watchpoint hit - variable value changed
+        String path = script.is_valid() ? script->get_path() : "unknown";
+        int line = debug_state.current_line > 0 ? debug_state.current_line : 0;
+        VisualGasicLanguage::set_current_break_location(path, line);
+        EngineDebugger::get_singleton()->send_message("visualgasic:watchpoint_hit", 
+            Array::make(name, variables.get(name, Variant()), val, path, line));
+        VisualGasicLanguage::wait_for_debug_command();
+    }
+    
     // Check Whenever sections for this variable
     check_whenever_conditions(name, val);
     
@@ -6093,6 +6266,87 @@ Dictionary VisualGasicInstance::get_debug_locals() const {
     // In a full implementation, we would also track local variables declared with Dim
     // within the function scope, but that requires additional tracking infrastructure
     return locals;
+}
+
+Array VisualGasicInstance::get_debug_whenever_sections() const {
+    // Return all Whenever sections for debugging
+    Array result;
+    for (int i = 0; i < whenever_sections.size(); i++) {
+        const WheneverSection& section = whenever_sections[i];
+        Dictionary info;
+        info["name"] = section.section_name;
+        info["variable"] = section.variable_name;
+        info["operator"] = section.comparison_operator;
+        info["value"] = section.comparison_value;
+        info["value2"] = section.comparison_value2;
+        info["is_active"] = section.is_active;
+        info["last_value"] = section.last_value;
+        info["last_trigger_time"] = (int64_t)section.last_trigger_time;
+        info["scope_type"] = section.scope_type;
+        info["scope_context"] = section.scope_context;
+        info["callbacks"] = section.callback_procedures.size();
+        
+        // Build callback names string
+        String callbacks_str;
+        for (int j = 0; j < section.callback_procedures.size(); j++) {
+            if (j > 0) callbacks_str += ", ";
+            callbacks_str += section.callback_procedures[j];
+        }
+        info["callback_names"] = callbacks_str;
+        
+        result.push_back(info);
+    }
+    return result;
+}
+
+void VisualGasicInstance::set_whenever_section_active(const String& section_name, bool active) {
+    for (int i = 0; i < whenever_sections.size(); i++) {
+        if (whenever_sections[i].section_name == section_name) {
+            whenever_sections.write[i].is_active = active;
+            return;
+        }
+    }
+}
+
+void VisualGasicInstance::_send_variables_to_debugger(EngineDebugger* debugger) {
+    // Send all script variables to the editor for inspection
+    if (!debugger) return;
+    
+    Dictionary vars;
+    Array keys = variables.keys();
+    for (int i = 0; i < keys.size(); i++) {
+        String key = keys[i];
+        // Skip internal constants starting with "vb" and the Err object
+        if (!key.begins_with("vb") && key != "Err") {
+            Variant val = variables[key];
+            // Convert complex types to string representation for display
+            if (val.get_type() == Variant::OBJECT) {
+                Object* obj = val;
+                if (obj) {
+                    vars[key] = String("<") + obj->get_class() + String(">");
+                } else {
+                    vars[key] = "Nothing";
+                }
+            } else {
+                vars[key] = val;
+            }
+        }
+    }
+    
+    Array data;
+    data.push_back(vars);
+    debugger->send_message("visualgasic:variables_list", data);
+}
+
+void VisualGasicInstance::_send_call_stack_to_debugger(EngineDebugger* debugger) {
+    // Send current call stack to the editor
+    if (!debugger) return;
+    
+    Array call_stack = VisualGasicLanguage::get_call_stack_array();
+    
+    Array data;
+    data.push_back(call_stack);
+    debugger->send_message("visualgasic:call_stack", data);
 }
 
 void VisualGasicInstance::assign_to_target(ExpressionNode* target, Variant val) {
@@ -6703,6 +6957,17 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     goto cleanup;
                 }
                 Variant value = pop_value();
+                
+                // Check for data breakpoint (watchpoint)
+                if (VisualGasicLanguage::check_watchpoint(name, value)) {
+                    // Watchpoint hit - variable value changed
+                    int wp_line = debug_state.current_line > 0 ? debug_state.current_line : 0;
+                    VisualGasicLanguage::set_current_break_location(debug_file, wp_line);
+                    EngineDebugger::get_singleton()->send_message("visualgasic:watchpoint_hit", 
+                        Array::make(name, variables.get(name, Variant()), value, debug_file, wp_line));
+                    VisualGasicLanguage::wait_for_debug_command();
+                }
+                
                 variables[name] = value;
                 break;
             }
@@ -7972,44 +8237,93 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     debug_state.current_file = script_path;
                 }
                 
+                // Debug: print once to verify bytecode is running with debug line info
+                static bool first_debug_line = true;
+                if (first_debug_line && !script_path.is_empty()) {
+                    first_debug_line = false;
+                    UtilityFunctions::print("[VG Debug] OP_DEBUG_LINE first hit: ", script_path, ":", line_number);
+                }
+                
                 // Update the current stack frame line for Godot debugger
                 VisualGasicLanguage::update_stack_frame_line(line_number);
                 
-                // Check for breakpoints using Godot's EngineDebugger
+                // Check for step debugging first
                 EngineDebugger* engine_debugger = EngineDebugger::get_singleton();
+                bool should_break = false;
                 
-                // Debug trace - only log every 60th line to avoid spam
-                static int debug_trace_counter = 0;
-                if (++debug_trace_counter % 60 == 1) {
-                    UtilityFunctions::print("[VG Trace] Line ", line_number, " in ", script_path,
-                        " | EngineDebugger: ", engine_debugger ? "yes" : "NO",
-                        " | is_active: ", (engine_debugger && engine_debugger->is_active()) ? "yes" : "no");
+                VGStepMode current_step_mode = VisualGasicLanguage::get_step_mode();
+                if (current_step_mode != VG_STEP_NONE && engine_debugger && engine_debugger->is_active()) {
+                    int current_depth = VisualGasicLanguage::get_current_stack_depth();
+                    int target_depth = VisualGasicLanguage::get_step_target_depth();
+                    
+                    switch (current_step_mode) {
+                        case VG_STEP_INTO:
+                            // Always break on next line
+                            should_break = true;
+                            break;
+                        case VG_STEP_OVER:
+                            // Break if at same or shallower depth
+                            should_break = (current_depth <= target_depth);
+                            break;
+                        case VG_STEP_OUT:
+                            // Break if at shallower depth (returned from function)
+                            should_break = (current_depth <= target_depth);
+                            break;
+                        default:
+                            break;
+                    }
+                    
+                    if (should_break) {
+                        // Clear step mode before breaking
+                        VisualGasicLanguage::set_step_mode(VG_STEP_NONE);
+                        
+                        // Send break notification directly to editor via EngineDebugger
+                        Array break_data;
+                        break_data.push_back(script_path);
+                        break_data.push_back(line_number);
+                        engine_debugger->send_message("visualgasic:break_hit", break_data);
+                        
+                        // Send current variables and call stack for inspection
+                        _send_variables_to_debugger(engine_debugger);
+                        _send_call_stack_to_debugger(engine_debugger);
+                        
+                        // Poll to ensure messages are sent before blocking
+                        engine_debugger->line_poll();
+                        
+                        // Use our custom wait loop instead of script_debug()
+                        VisualGasicLanguage::wait_for_debug_command();
+                    }
                 }
                 
-                if (engine_debugger && engine_debugger->is_active() && !script_path.is_empty()) {
+                // Check for breakpoints using Godot's EngineDebugger
+                if (!should_break && engine_debugger && engine_debugger->is_active() && !script_path.is_empty()) {
                     // First check Godot's built-in breakpoint system
                     bool has_bp = engine_debugger->is_breakpoint(line_number, StringName(script_path));
                     
-                    // Also check our VGDebugHandler autoload for forwarded breakpoints
+                    // Also check our C++ breakpoint storage (loaded from JSON file)
                     if (!has_bp) {
-                        SceneTree* tree = Object::cast_to<SceneTree>(Engine::get_singleton()->get_main_loop());
-                        if (tree) {
-                            Node* root = tree->get_root();
-                            if (root) {
-                                Node* debug_handler = root->get_node_or_null(NodePath("/root/VGDebugHandler"));
-                                if (debug_handler && debug_handler->has_method("has_breakpoint")) {
-                                    has_bp = debug_handler->call("has_breakpoint", script_path, line_number);
-                                }
-                            }
-                        }
+                        has_bp = VisualGasicLanguage::has_breakpoint(script_path, line_number);
                     }
                     
                     if (has_bp) {
-                        UtilityFunctions::print_rich("[color=yellow][VG Debug] Breakpoint hit at ", 
-                            script_path, ":", line_number, "[/color]");
+                        // Store breakpoint location before blocking (for editor query)
+                        VisualGasicLanguage::set_current_break_location(script_path, line_number);
                         
-                        // Trigger Godot's script debugger - this will pause and show debugger UI
-                        engine_debugger->script_debug(VisualGasicLanguage::get_singleton(), true, false);
+                        // Send break notification directly to editor via EngineDebugger
+                        Array break_data;
+                        break_data.push_back(script_path);
+                        break_data.push_back(line_number);
+                        engine_debugger->send_message("visualgasic:break_hit", break_data);
+                        
+                        // Send current variables and call stack for inspection
+                        _send_variables_to_debugger(engine_debugger);
+                        _send_call_stack_to_debugger(engine_debugger);
+                        
+                        // Poll to ensure messages are sent before blocking
+                        engine_debugger->line_poll();
+                        
+                        // Use our custom wait loop instead of script_debug()
+                        VisualGasicLanguage::wait_for_debug_command();
                     }
                 }
                 
@@ -8036,8 +8350,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                             );
                         }
                         
-                        // Also trigger Godot's debugger
-                        engine_debugger->script_debug(VisualGasicLanguage::get_singleton(), true, false);
+                        // Use our custom wait loop
+                        VisualGasicLanguage::wait_for_debug_command();
                     }
                 }
                 break;

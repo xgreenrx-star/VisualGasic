@@ -681,7 +681,8 @@ BytecodeChunk *VisualGasicScript::get_bytecode_for(const String &entry_point) {
     compiled_chunk.local_count = 0;
 
     if (!compiler.compile(ast_root, entry_point, &compiled_chunk)) {
-        UtilityFunctions::printerr("VisualGasic: Failed to compile bytecode for ", entry_point);
+        // Bytecode compilation failed - this is expected for some constructs
+        // (e.g., method calls on objects). AST interpreter will handle it.
         return nullptr;
     }
 

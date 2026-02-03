@@ -286,5 +286,9 @@ Press **Ctrl+R** on any variable in the script editor:
 - `:clear` - Clear output
 - `:vars` - List variables
 - `:history` - Command history
+- `:eval [expr]` - Evaluate expression in paused debug context
+- `:wp add [var]` - Add data breakpoint (break when variable changes)
+- `:wp remove [var]` - Remove data breakpoint
+- `:wp` - List active data breakpoints
 
 See [Immediate Window Documentation](docs/IMMEDIATE_WINDOW.md) for complete guide.

@@ -69,6 +69,16 @@ public:
     
     // Evaluate an expression in the context of the connected instance
     Dictionary evaluate_in_context(const String& code);
+    
+    // === Step Debugging Control ===
+    // These methods control the step debugger state (call global language state)
+    void debug_continue();
+    void debug_step_into();
+    void debug_step_over();
+    void debug_step_out();
+    int get_step_mode();
+    int get_current_debug_line();
+    String get_current_debug_file();
 };
 
 #endif // VISUAL_GASIC_IMMEDIATE_H

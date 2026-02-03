@@ -136,6 +136,56 @@ debugger.update_watch("myVar", some_value);
 auto watches = debugger.get_watches();
 ```
 
+#### Data Breakpoints (Watchpoints) ✅ NEW
+Break execution when a variable's value changes:
+
+```cpp
+// Add watchpoint for a variable
+VisualGasicLanguage::add_watchpoint("player_health");
+VisualGasicLanguage::add_watchpoint("enemy_count");
+
+// List active watchpoints
+Dictionary watchpoints = VisualGasicLanguage::get_watchpoints();
+for (int i = 0; i < watchpoints.size(); i++) {
+    print(watchpoints.keys()[i]);  // Variable name
+}
+
+// Remove specific watchpoint
+VisualGasicLanguage::remove_watchpoint("player_health");
+
+// Clear all watchpoints
+VisualGasicLanguage::clear_watchpoints();
+```
+
+**GDScript (via static methods):**
+```gdscript
+# Add watchpoint
+VisualGasicLanguage.vg_add_watchpoint("player_health")
+
+# Remove watchpoint
+VisualGasicLanguage.vg_remove_watchpoint("player_health")
+
+# Clear all
+VisualGasicLanguage.vg_clear_watchpoints()
+
+# List watchpoints
+var wps = VisualGasicLanguage.vg_get_watchpoints()
+```
+
+#### Expression Evaluation in Debug Context ✅ NEW
+Evaluate expressions using a paused instance's variable context:
+
+```cpp
+// From C++
+String result = VisualGasicLanguage::evaluate_expression_in_context("player_health * 2");
+```
+
+**GDScript:**
+```gdscript
+# Evaluate expression using paused instance context
+var result = VisualGasicLanguage.vg_evaluate_expression("player_health * 2")
+```
+
 #### Features
 - Breakpoints with optional conditions
 - Step Into/Over/Out navigation
@@ -143,6 +193,8 @@ auto watches = debugger.get_watches();
 - Watch variable monitoring
 - Exception tracking
 - Break-on-exception mode
+- **Data breakpoints (watchpoints)** - Break when variable values change
+- **Expression evaluation** - Evaluate in paused context
 
 ### 2. Bytecode Compiler ✅
 **File**: `visual_gasic_bytecode_compiler.h/cpp`

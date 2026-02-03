@@ -1,5 +1,6 @@
 #include "visual_gasic_immediate.h"
 #include "visual_gasic_instance.h"
+#include "visual_gasic_language.h"
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <godot_cpp/classes/node.hpp>
 #include <godot_cpp/classes/object.hpp>
@@ -28,6 +29,15 @@ void VisualGasicImmediate::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_runtime_variable", "name"), &VisualGasicImmediate::get_runtime_variable);
     ClassDB::bind_method(D_METHOD("set_runtime_variable", "name", "value"), &VisualGasicImmediate::set_runtime_variable);
     ClassDB::bind_method(D_METHOD("evaluate_in_context", "code"), &VisualGasicImmediate::evaluate_in_context);
+    
+    // Step debugging methods - bound as instance methods that access global state
+    ClassDB::bind_method(D_METHOD("debug_continue"), &VisualGasicImmediate::debug_continue);
+    ClassDB::bind_method(D_METHOD("debug_step_into"), &VisualGasicImmediate::debug_step_into);
+    ClassDB::bind_method(D_METHOD("debug_step_over"), &VisualGasicImmediate::debug_step_over);
+    ClassDB::bind_method(D_METHOD("debug_step_out"), &VisualGasicImmediate::debug_step_out);
+    ClassDB::bind_method(D_METHOD("get_step_mode"), &VisualGasicImmediate::get_step_mode);
+    ClassDB::bind_method(D_METHOD("get_current_debug_line"), &VisualGasicImmediate::get_current_debug_line);
+    ClassDB::bind_method(D_METHOD("get_current_debug_file"), &VisualGasicImmediate::get_current_debug_file);
 }
 
 VisualGasicImmediate::VisualGasicImmediate() {
@@ -524,4 +534,34 @@ Dictionary VisualGasicImmediate::evaluate_in_context(const String& code) {
     
     // Fall back to regular evaluation
     return evaluate(code);
+}
+
+// === Step Debugging Control ===
+
+void VisualGasicImmediate::debug_continue() {
+    VisualGasicLanguage::debug_continue();
+}
+
+void VisualGasicImmediate::debug_step_into() {
+    VisualGasicLanguage::debug_step_into();
+}
+
+void VisualGasicImmediate::debug_step_over() {
+    VisualGasicLanguage::debug_step_over();
+}
+
+void VisualGasicImmediate::debug_step_out() {
+    VisualGasicLanguage::debug_step_out();
+}
+
+int VisualGasicImmediate::get_step_mode() {
+    return static_cast<int>(VisualGasicLanguage::get_step_mode());
+}
+
+int VisualGasicImmediate::get_current_debug_line() {
+    return VisualGasicLanguage::get_current_debug_line();
+}
+
+String VisualGasicImmediate::get_current_debug_file() {
+    return VisualGasicLanguage::get_current_debug_file();
 }

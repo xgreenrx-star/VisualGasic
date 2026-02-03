@@ -4,6 +4,7 @@
 #include <godot_cpp/classes/script_language_extension.hpp>
 #include "visual_gasic_script.h"
 #include <vector>
+#include <map>
 #include <memory>
 
 using namespace godot;
@@ -23,6 +24,14 @@ struct VGDebugStackFrame {
         : file(f), function(fn), line(l), instance(i) {}
 };
 
+// Step mode for debugging
+enum VGStepMode {
+    VG_STEP_NONE = 0,      // Not stepping, run freely
+    VG_STEP_INTO = 1,      // Break at next line (any depth)
+    VG_STEP_OVER = 2,      // Break at next line at same or shallower depth
+    VG_STEP_OUT = 3        // Break when returning to shallower depth
+};
+
 class VisualGasicLanguage : public ScriptLanguageExtension {
 	GDCLASS(VisualGasicLanguage, ScriptLanguageExtension);
 
@@ -31,6 +40,27 @@ class VisualGasicLanguage : public ScriptLanguageExtension {
     // Debug call stack (pointer to avoid static init issues with Godot types)
     static std::vector<VGDebugStackFrame>* debug_call_stack;
     static std::string debug_error;
+    
+    // Step debugging state (global across all instances)
+    static VGStepMode step_mode;
+    static int step_target_depth;  // For step over/out: the depth to break at
+    static bool waiting_for_continue;  // Flag to control our custom debug wait loop
+    
+    // Current breakpoint location (set before script_debug blocks)
+    static std::string current_break_file;
+    static int current_break_line;
+    
+    // Breakpoints storage (loaded from JSON file, checked in C++ to avoid GDScript call during debug)
+    static std::map<std::string, std::vector<int>> breakpoints;
+    static bool breakpoints_loaded;
+    
+    // Data breakpoints (watchpoints) - break when variable value changes
+    struct Watchpoint {
+        std::string variable_name;
+        Variant last_value;
+        bool has_value;  // True after first read
+    };
+    static std::map<std::string, Watchpoint> watchpoints;
     
     // Helper to ensure debug stack is initialized (lazy initialization)
     static std::vector<VGDebugStackFrame>& get_debug_stack();
@@ -108,6 +138,46 @@ public:
     static void update_stack_frame_line(int line);
     static void set_debug_error(const String& error);
     static void clear_debug_error();
+    
+    // Step debugging control
+    static VGStepMode get_step_mode() { return step_mode; }
+    static void set_step_mode(VGStepMode mode);
+    static int get_step_target_depth() { return step_target_depth; }
+    static void set_step_target_depth(int depth) { step_target_depth = depth; }
+    static int get_current_stack_depth();
+    static void debug_continue();  // Resume execution
+    static void debug_step_into(); // Step to next line
+    static void debug_step_over(); // Step over function calls
+    static void debug_step_out();  // Step out of current function
+    
+    // GDScript-accessible wrapper methods
+    static int get_step_mode_int();
+    static String get_current_debug_file();
+    static int get_current_debug_line();
+    static Array get_call_stack_array();  // Get current call stack for debugger
+    
+    // Set/get current breakpoint location (for editor navigation)
+    static void set_current_break_location(const String& file, int line);
+    static String get_break_file();
+    static int get_break_line();
+    
+    // Custom debug wait function (replaces script_debug for stepping)
+    static void wait_for_debug_command();
+    
+    // Breakpoint management (C++ side - avoid GDScript calls during debug)
+    static void load_breakpoints_from_file();
+    static bool has_breakpoint(const String& script_path, int line);
+    static void clear_breakpoints();
+    
+    // Data breakpoints (watchpoints) - break when variable value changes
+    static void add_watchpoint(const String& variable_name);
+    static void remove_watchpoint(const String& variable_name);
+    static void clear_watchpoints();
+    static Array get_watchpoints();  // Returns list of watched variable names
+    static bool check_watchpoint(const String& variable_name, const Variant& new_value);  // Returns true if value changed
+    
+    // Expression evaluation in debug context
+    static String evaluate_expression_in_context(const String& expression);
 };
 
 #endif // VISUAL_GASIC_LANGUAGE_H

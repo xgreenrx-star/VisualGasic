@@ -11,16 +11,47 @@ var _next_instance_id: int = 1
 var _breakpoints: Dictionary = {}
 
 func _ready() -> void:
-	# Register our message capture with the engine debugger
-	if EngineDebugger.is_active():
-		EngineDebugger.register_message_capture("visualgasic", _on_debugger_message)
-		print("[VisualGasic] Debug handler registered")
+	# Load breakpoints from file FIRST - before any scripts run
+	# This ensures breakpoints work for init code
+	_load_breakpoints_from_file()
+	
+	# NOTE: We do NOT register a message capture here.
+	# C++ (VisualGasicLanguage) registers the "visualgasic" capture and
+	# forwards messages to this script's methods via direct calls.
+	# This avoids the "Capture already registered" error and prevents
+	# GDScript debugger from breaking into this script during step debugging.
+	print("[VisualGasic] Debug handler ready (C++ forwards messages)")
+
+func _load_breakpoints_from_file() -> void:
+	"""Load breakpoints saved by the editor at startup.
+	   This allows breakpoints to work for init code that runs before the debug session connects."""
+	if not FileAccess.file_exists("res://.vg_breakpoints.json"):
+		return
+	var file = FileAccess.open("res://.vg_breakpoints.json", FileAccess.READ)
+	if file:
+		var content = file.get_as_text()
+		file.close()
+		var parsed = JSON.parse_string(content)
+		if parsed is Dictionary:
+			# Convert float line numbers to int (JSON parses numbers as floats)
+			for script_path in parsed:
+				var lines = parsed[script_path]
+				var int_lines: Array[int] = []
+				for line in lines:
+					int_lines.append(int(line))
+				_breakpoints[script_path] = int_lines
 
 func _exit_tree() -> void:
-	if EngineDebugger.is_active():
-		EngineDebugger.unregister_message_capture("visualgasic")
+	# No message capture to unregister - C++ handles it
+	pass
 
 func _on_debugger_message(message: String, data: Array) -> bool:
+	# Skip step debugging commands - they are handled by C++ to avoid GDScript debugger interference
+	if message in ["debug_continue", "debug_step_into", "debug_step_over", "debug_step_out"]:
+		return false  # Let C++ handle these
+	
+	#print("[VGDebugHandler] Received message: ", message)  # Uncomment for debugging
+	
 	match message:
 		"get_instances":
 			_send_instances_list()
@@ -60,6 +91,10 @@ func _on_debugger_message(message: String, data: Array) -> bool:
 			if data.size() >= 3:
 				_evaluate_code(data[0], data[1], data[2])
 			return true
+		
+		"get_debug_state":
+			_send_debug_state()
+			return true
 	
 	return false
 
@@ -70,7 +105,45 @@ func _on_debugger_message(message: String, data: Array) -> bool:
 func _set_breakpoints(breakpoints_dict: Dictionary) -> void:
 	"""Receive breakpoints from the editor debugger plugin."""
 	_breakpoints = breakpoints_dict
-	print("[VGDebug] Received breakpoints: ", _breakpoints)
+
+# ============================================================================
+# STEP DEBUGGING
+# ============================================================================
+
+func _debug_continue() -> void:
+	"""Resume execution after a breakpoint or step."""
+	if ClassDB.class_exists("VisualGasicLanguage"):
+		VisualGasicLanguage.vg_debug_continue()
+
+func _debug_step_into() -> void:
+	"""Step to the next line, entering function calls."""
+	if ClassDB.class_exists("VisualGasicLanguage"):
+		VisualGasicLanguage.vg_debug_step_into()
+
+func _debug_step_over() -> void:
+	"""Step to the next line, stepping over function calls."""
+	if ClassDB.class_exists("VisualGasicLanguage"):
+		VisualGasicLanguage.vg_debug_step_over()
+
+func _debug_step_out() -> void:
+	"""Step out of the current function."""
+	if ClassDB.class_exists("VisualGasicLanguage"):
+		VisualGasicLanguage.vg_debug_step_out()
+
+func _send_debug_state() -> void:
+	"""Send the current debug state to the editor."""
+	var state = {
+		"step_mode": 0,
+		"current_line": 0,
+		"current_file": ""
+	}
+	if ClassDB.class_exists("VisualGasicLanguage"):
+		state["step_mode"] = VisualGasicLanguage.vg_get_step_mode()
+		# Use the stored break location (set before script_debug blocks)
+		state["current_line"] = VisualGasicLanguage.vg_get_break_line()
+		state["current_file"] = VisualGasicLanguage.vg_get_break_file()
+		print("[VGDebugHandler] Sending debug_state: file='", state["current_file"], "' line=", state["current_line"])
+	EngineDebugger.send_message("visualgasic:debug_state", [state])
 
 func has_breakpoint(script_path: String, line: int) -> bool:
 	"""Check if there's a breakpoint at the given location.

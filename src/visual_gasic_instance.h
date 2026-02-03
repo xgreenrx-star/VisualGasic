@@ -8,6 +8,7 @@
 #include <godot_cpp/classes/file_access.hpp>
 #include <godot_cpp/classes/dir_access.hpp>
 #include <godot_cpp/classes/os.hpp>
+#include <godot_cpp/classes/engine_debugger.hpp>
 #include <godot_cpp/templates/hash_map.hpp>
 
 using namespace godot;
@@ -256,6 +257,12 @@ public:
     Dictionary get_debug_locals() const;
     Dictionary get_debug_globals() const { return variables; }
     SubDefinition* get_current_sub() const { return current_sub; }
+    void _send_variables_to_debugger(EngineDebugger* debugger);
+    void _send_call_stack_to_debugger(EngineDebugger* debugger);
+    
+    // Whenever section accessors for debugging
+    Array get_debug_whenever_sections() const;
+    void set_whenever_section_active(const String& section_name, bool active);
 
     static const GDExtensionScriptInstanceInfo3 *get_script_instance_info();
 };
@@ -263,6 +270,10 @@ public:
 // Debug registry for Immediate Window runtime access
 namespace VisualGasicDebug {
     Array get_all_instances();
+    VisualGasicInstance* get_instance_by_index(int index);
+    Dictionary get_instance_variables(int index);
+    Array get_whenever_sections(int index);
+    void set_whenever_active(int index, const String& section_name, bool active);
     void register_instance(VisualGasicInstance* instance);
     void unregister_instance(VisualGasicInstance* instance);
 }

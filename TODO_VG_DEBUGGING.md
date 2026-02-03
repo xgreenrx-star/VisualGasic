@@ -11,9 +11,11 @@
 | Step Over | ✅ | ❌ | Not implemented |
 | Step Out | ✅ | ❌ | Not implemented |
 | Call stack viewing | ✅ | ✅ | **IMPLEMENTED** |
-| Variable inspection (paused) | ✅ | ⚠️ | Ready when pause works |
+| Variable inspection (paused) | ✅ | ✅ | **IMPLEMENTED** via `:eval` |
 | Variable inspection (runtime) | ✅ | ✅ | Immediate Window |
 | Modify variables at runtime | ✅ | ✅ | Immediate Window |
+| Expression evaluation (paused) | ✅ | ✅ | **IMPLEMENTED** via `:eval` |
+| Data breakpoints (watchpoints) | ✅ | ✅ | **IMPLEMENTED** via `:wp` |
 
 ---
 
@@ -25,6 +27,11 @@
 - `variableName = value` - Modify values at runtime
 - `:watch expr` - Watch expressions
 - `:vars` - List all variables
+- `:eval expr` - Evaluate expression in paused debug context (NEW!)
+- `:wp add var` - Add data breakpoint (watchpoint) (NEW!)
+- `:wp remove var` - Remove data breakpoint (NEW!)
+- `:wp clear` - Clear all watchpoints (NEW!)
+- `:wp` - List active watchpoints (NEW!)
 
 ### ✅ C++ Infrastructure (CONNECTED!)
 - `VisualGasicDebugger` class with breakpoint storage

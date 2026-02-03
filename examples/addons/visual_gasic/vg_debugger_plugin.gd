@@ -7,6 +7,9 @@ signal instances_updated(instances: Array)
 signal variable_received(var_name: String, value: Variant)
 signal variables_list_received(variables: Dictionary)
 signal whenever_sections_received(sections: Array)
+signal debug_state_received(state: Dictionary)
+signal debug_break_hit(file: String, line: int)
+signal call_stack_received(stack: Array)
 
 var _active_session: EditorDebuggerSession = null
 var _pending_requests: Dictionary = {}
@@ -20,10 +23,20 @@ var _breakpoints: Dictionary = {}
 var _breakpoint_poll_timer: Timer = null
 
 func _has_capture(prefix: String) -> bool:
+	# Debug: Log all prefixes to see what's coming through
+	if prefix.begins_with("visual"):
+		print("[VG Debugger Plugin] _has_capture called with prefix: ", prefix)
 	return prefix == "visualgasic"
 
+func _goto_script_line(script: Script, line: int) -> void:
+	"""Called by Godot when user clicks on a breakpoint line in the debugger panel."""
+	print("[VG Debugger Plugin] _goto_script_line: ", script.resource_path if script else "null", " line ", line)
+	if script and script.resource_path.ends_with(".vg"):
+		# Navigate to the VG script line
+		_navigate_to_script_line(script.resource_path, line)
+		debug_break_hit.emit(script.resource_path, line)
+
 func _capture(message: String, data: Array, session_id: int) -> bool:
-	print("[VG Debugger] _capture called: ", message)
 	if not message.begins_with("visualgasic:"):
 		return false
 	
@@ -65,17 +78,76 @@ func _capture(message: String, data: Array, session_id: int) -> bool:
 					if callback.is_valid():
 						callback.call(result)
 			return true
+		
+		"debug_state":
+			# Received debug state (step mode, current line/file)
+			var state = data[0] if data.size() > 0 else {}
+			debug_state_received.emit(state)
+			# If we're in a break state and have file/line info, navigate there
+			var current_file = state.get("current_file", "")
+			var current_line = state.get("current_line", 0)
+			if not current_file.is_empty() and current_line > 0:
+				_navigate_to_script_line(current_file, current_line)
+				debug_break_hit.emit(current_file, current_line)
+			return true
+		
+		"break_hit":
+			# Received notification that a breakpoint or step was hit
+			print("[VG Debugger Plugin] Received break_hit: ", data)
+			if data.size() >= 2:
+				# Navigate directly to the script line
+				_navigate_to_script_line(data[0], data[1])
+				debug_break_hit.emit(data[0], data[1])
+				# Request variables so they appear in Immediate Window
+				if _active_session:
+					_active_session.send_message("visualgasic:get_all_variables", [0])
+			return true
+		
+		"watchpoint_hit":
+			# Received notification that a data breakpoint (watchpoint) was triggered
+			# data = [var_name, old_value, new_value, file_path, line]
+			print("[VG Debugger Plugin] Watchpoint hit: ", data)
+			if data.size() >= 5:
+				var var_name = data[0]
+				var old_val = data[1]
+				var new_val = data[2]
+				var file_path = data[3]
+				var line = data[4]
+				# Navigate to the source
+				_navigate_to_script_line(file_path, line)
+				debug_break_hit.emit(file_path, line)
+				# Print watchpoint info in output
+				print("[VG Debugger Plugin] Watchpoint '%s' changed: %s → %s at %s:%d" % [var_name, str(old_val), str(new_val), file_path, line])
+				# Request variables so they appear in Immediate Window
+				if _active_session:
+					_active_session.send_message("visualgasic:get_all_variables", [0])
+			return true
+		
+		"call_stack":
+			# Received call stack from the debugger
+			var stack = data[0] if data.size() > 0 else []
+			print("[VG Debugger Plugin] Received call_stack with ", stack.size(), " frames")
+			call_stack_received.emit(stack)
+			return true
+		
+		"debug_trace":
+			# Trace message from C++ (only shown if needed for debugging)
+			return true
 	
 	return false
 
 func _setup_session(session_id: int) -> void:
-	print("[VG Debugger] _setup_session called, session_id=", session_id)
 	var session = get_session(session_id)
 	if session:
 		_active_session = session
-		print("[VG Debugger] Session active, sending get_instances")
 		# Request initial list of instances
 		session.send_message("visualgasic:get_instances", [])
+		
+		# Connect to session signals for break state
+		if not session.breaked.is_connected(_on_session_breaked):
+			session.breaked.connect(_on_session_breaked)
+		if not session.continued.is_connected(_on_session_continued):
+			session.continued.connect(_on_session_continued)
 		
 		# Poll breakpoints from ScriptEditor immediately
 		_poll_breakpoints_from_editor()
@@ -88,6 +160,16 @@ func _setup_session(session_id: int) -> void:
 			_breakpoint_poll_timer.timeout.connect(_poll_breakpoints_from_editor)
 			EditorInterface.get_base_control().add_child(_breakpoint_poll_timer)
 		_breakpoint_poll_timer.start()
+
+func _on_session_breaked(can_debug: bool) -> void:
+	"""Called when the remote game enters break state."""
+	# When we break, request the current debug state from the game
+	if _active_session:
+		_active_session.send_message("visualgasic:get_debug_state", [])
+
+func _on_session_continued() -> void:
+	"""Called when the remote game continues from break."""
+	pass
 
 func _session_stopped() -> void:
 	_active_session = null
@@ -126,10 +208,10 @@ func _poll_breakpoints_from_editor() -> void:
 		if line not in new_breakpoints[path]:
 			new_breakpoints[path].append(line)
 	
-	# Check if breakpoints changed
-	if new_breakpoints != _breakpoints:
+	# Check if breakpoints changed OR if we have breakpoints and should re-sync
+	# Re-sync periodically because game might not be ready on first sync
+	if new_breakpoints != _breakpoints or not new_breakpoints.is_empty():
 		_breakpoints = new_breakpoints
-		print("[VG Debugger] Breakpoints updated: ", _breakpoints)
 		_sync_breakpoints_to_game()
 
 # ============================================================================
@@ -146,8 +228,6 @@ func _breakpoint_set_in_tree(script: Script, line: int, enabled: bool) -> void:
 	# Only handle .vg scripts
 	if not path.ends_with(".vg"):
 		return
-	
-	print("[VG Debugger] Breakpoint ", "set" if enabled else "cleared", " at ", path, ":", line)
 	
 	# Update our local breakpoint tracking
 	if enabled:
@@ -166,14 +246,22 @@ func _breakpoint_set_in_tree(script: Script, line: int, enabled: bool) -> void:
 
 func _breakpoints_cleared_in_tree() -> void:
 	"""Called by Godot when all breakpoints are cleared."""
-	print("[VG Debugger] All breakpoints cleared")
 	_breakpoints.clear()
 	_sync_breakpoints_to_game()
 
 func _sync_breakpoints_to_game() -> void:
 	"""Send the current breakpoint state to the running game."""
+	# Also save to file so game can load breakpoints at startup (before debug session connects)
+	_save_breakpoints_to_file()
 	if _active_session:
 		_active_session.send_message("visualgasic:set_breakpoints", [_breakpoints])
+
+func _save_breakpoints_to_file() -> void:
+	"""Save breakpoints to a file so game can load them at startup."""
+	var file = FileAccess.open("res://.vg_breakpoints.json", FileAccess.WRITE)
+	if file:
+		file.store_string(JSON.stringify(_breakpoints))
+		file.close()
 
 func request_instances() -> void:
 	if _active_session:
@@ -207,3 +295,91 @@ func evaluate_code(instance_id: int, code: String, callback: Callable) -> void:
 
 func is_session_active() -> bool:
 	return _active_session != null
+
+# ============================================================================
+# STEP DEBUGGING COMMANDS
+# ============================================================================
+
+func debug_continue() -> void:
+	"""Resume execution after a breakpoint or step."""
+	# Write command to file - C++ wait loop polls this
+	_write_debug_command("continue")
+
+func debug_step_into() -> void:
+	"""Step to the next line, entering function calls."""
+	# Write command to file - C++ wait loop polls this
+	_write_debug_command("step_into")
+
+func debug_step_over() -> void:
+	"""Step to the next line, stepping over function calls."""
+	print("[VG Debugger Plugin] debug_step_over called")
+	# Write command to file - C++ wait loop polls this
+	_write_debug_command("step_over")
+
+func debug_step_out() -> void:
+	"""Step out of the current function."""
+	print("[VG Debugger Plugin] debug_step_out called")
+	# Write command to file - C++ wait loop polls this
+	_write_debug_command("step_out")
+
+func _write_debug_command(command: String) -> void:
+	"""Write a debug command to a file that the game's C++ code polls."""
+	var file = FileAccess.open("res://.vg_debug_cmd", FileAccess.WRITE)
+	if file:
+		file.store_string(command)
+		file.close()
+	else:
+		printerr("[VG Debugger Plugin] Failed to write command file!")
+
+func request_debug_state() -> void:
+	"""Request the current debug state from the game."""
+	if _active_session:
+		_active_session.send_message("visualgasic:get_debug_state", [])
+
+# ============================================================================
+# NAVIGATION HELPER
+# ============================================================================
+
+func _navigate_to_script_line(file_path: String, line: int) -> void:
+	"""Navigate the editor to a specific script file and line."""
+	print("[VG Debugger Plugin] Navigating to: ", file_path, " line ", line)
+	if file_path.is_empty() or line <= 0:
+		return
+	
+	# Load the script resource
+	if not ResourceLoader.exists(file_path):
+		print("[VG Debugger Plugin] Script not found: ", file_path)
+		return
+	
+	var script = load(file_path)
+	if not script:
+		print("[VG Debugger Plugin] Failed to load script: ", file_path)
+		return
+	
+	# Switch to Script editor
+	EditorInterface.set_main_screen_editor("Script")
+	
+	# Open the script at the specified line
+	EditorInterface.edit_script(script, line, 0)
+	
+	# Center on line after a delay
+	_deferred_center_on_line.call_deferred(line)
+
+func _deferred_center_on_line(line: int) -> void:
+	"""Center the script editor viewport on the specified line."""
+	var script_editor = EditorInterface.get_script_editor()
+	if not script_editor:
+		return
+	
+	var current_editor = script_editor.get_current_editor()
+	if not current_editor:
+		return
+	
+	var code_edit = current_editor.get_base_editor() as CodeEdit
+	if code_edit:
+		# Line numbers in CodeEdit are 0-based
+		code_edit.set_caret_line(line - 1)
+		code_edit.set_caret_column(0)
+		code_edit.center_viewport_to_caret()
+		code_edit.grab_focus()
+		print("[VG Debugger Plugin] Centered on line ", line)

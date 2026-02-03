@@ -43,6 +43,9 @@ var _auto_refresh_timer: Timer = null
 var _auto_refresh_enabled: bool = true
 var _is_editing: bool = false  # Track if user is currently editing a cell
 var _whenever_sections: Array = []  # Cached Whenever sections from remote
+var _debug_status_label: Label = null  # Shows current debug state (paused at line X)
+var _right_tabs: TabContainer = null  # Right panel tabs (Vars, Watch, Props, Whenever)
+var _vars_label: Label = null  # Label showing variable count
 const AUTO_REFRESH_INTERVAL: float = 0.5  # Update every 500ms
 
 func _ready():
@@ -79,6 +82,11 @@ func set_debugger_plugin(plugin: EditorDebuggerPlugin) -> void:
 		_debugger_plugin.variable_received.connect(_on_remote_variable_received)
 		_debugger_plugin.variables_list_received.connect(_on_remote_variables_received)
 		_debugger_plugin.whenever_sections_received.connect(_on_whenever_sections_received)
+		# Connect step debugging signals
+		if _debugger_plugin.has_signal("debug_break_hit"):
+			_debugger_plugin.debug_break_hit.connect(_on_debug_break_hit)
+		if _debugger_plugin.has_signal("debug_state_received"):
+			_debugger_plugin.debug_state_received.connect(_on_debug_state_received)
 
 func _setup_ui():
 	# Main horizontal split: Console (left) + Panels (right)
@@ -155,6 +163,49 @@ func _setup_ui():
 	toolbar.add_child(_refresh_instances_btn)
 	toolbar.add_child(help_button)
 	
+	# Debug toolbar (Step debugging controls)
+	var debug_toolbar = HBoxContainer.new()
+	console_vbox.add_child(debug_toolbar)
+	
+	var debug_label = Label.new()
+	debug_label.text = "Debug:"
+	debug_toolbar.add_child(debug_label)
+	
+	var btn_continue = Button.new()
+	btn_continue.text = "▶ Continue"
+	btn_continue.tooltip_text = "Resume execution (F5)"
+	btn_continue.pressed.connect(_on_debug_continue)
+	debug_toolbar.add_child(btn_continue)
+	
+	var btn_step_over = Button.new()
+	btn_step_over.text = "⤵ Step Over"
+	btn_step_over.tooltip_text = "Step to next line (F10)"
+	btn_step_over.pressed.connect(_on_debug_step_over)
+	debug_toolbar.add_child(btn_step_over)
+	
+	var btn_step_into = Button.new()
+	btn_step_into.text = "↓ Step Into"
+	btn_step_into.tooltip_text = "Step into function (F11)"
+	btn_step_into.pressed.connect(_on_debug_step_into)
+	debug_toolbar.add_child(btn_step_into)
+	
+	var btn_step_out = Button.new()
+	btn_step_out.text = "↑ Step Out"
+	btn_step_out.tooltip_text = "Step out of function (Shift+F11)"
+	btn_step_out.pressed.connect(_on_debug_step_out)
+	debug_toolbar.add_child(btn_step_out)
+	
+	# Spacer
+	var debug_spacer = Control.new()
+	debug_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	debug_toolbar.add_child(debug_spacer)
+	
+	# Debug status label
+	_debug_status_label = Label.new()
+	_debug_status_label.text = ""
+	_debug_status_label.add_theme_color_override("font_color", Color.YELLOW)
+	debug_toolbar.add_child(_debug_status_label)
+	
 	# Output area
 	_output_text = RichTextLabel.new()
 	_output_text.bbcode_enabled = true
@@ -193,22 +244,22 @@ func _setup_ui():
 	input_hbox.add_child(_send_button)
 	
 	# Right side: Tabbed panels (Variables, Watch, Inspector)
-	var right_tabs = TabContainer.new()
-	right_tabs.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	right_tabs.custom_minimum_size = Vector2(300, 0)
-	main_split.add_child(right_tabs)
+	_right_tabs = TabContainer.new()
+	_right_tabs.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_right_tabs.custom_minimum_size = Vector2(300, 0)
+	main_split.add_child(_right_tabs)
 	
 	# Variables panel
 	var var_panel = VBoxContainer.new()
 	var_panel.name = "Vars"
-	right_tabs.add_child(var_panel)
+	_right_tabs.add_child(var_panel)
 	
 	var var_toolbar = HBoxContainer.new()
 	var_panel.add_child(var_toolbar)
 	
-	var var_label = Label.new()
-	var_label.text = "Session Variables"
-	var_toolbar.add_child(var_label)
+	_vars_label = Label.new()
+	_vars_label.text = "Variables"
+	var_toolbar.add_child(_vars_label)
 	
 	var var_refresh = Button.new()
 	var_refresh.text = "🔄"
@@ -254,7 +305,7 @@ func _setup_ui():
 	# Watch panel
 	var watch_panel = VBoxContainer.new()
 	watch_panel.name = "Watch"
-	right_tabs.add_child(watch_panel)
+	_right_tabs.add_child(watch_panel)
 	
 	var watch_toolbar = HBoxContainer.new()
 	watch_panel.add_child(watch_toolbar)
@@ -281,7 +332,7 @@ func _setup_ui():
 	# Inspector panel
 	var inspector_panel = VBoxContainer.new()
 	inspector_panel.name = "Props"
-	right_tabs.add_child(inspector_panel)
+	_right_tabs.add_child(inspector_panel)
 	
 	var inspector_toolbar = HBoxContainer.new()
 	inspector_panel.add_child(inspector_toolbar)
@@ -320,7 +371,7 @@ func _setup_ui():
 	# Whenever panel - Monitor reactive Whenever statements
 	var whenever_panel = VBoxContainer.new()
 	whenever_panel.name = "Whenever"
-	right_tabs.add_child(whenever_panel)
+	_right_tabs.add_child(whenever_panel)
 	
 	var whenever_toolbar = HBoxContainer.new()
 	whenever_panel.add_child(whenever_toolbar)
@@ -667,6 +718,26 @@ func _on_clear_pressed():
 
 func _input(event: InputEvent):
 	if event is InputEventKey and event.pressed:
+		# Debug keyboard shortcuts (only work when debugger is paused)
+		if _is_debug_session_paused():
+			match event.keycode:
+				KEY_F5:
+					_on_debug_continue()
+					get_viewport().set_input_as_handled()
+					return
+				KEY_F10:
+					_on_debug_step_over()
+					get_viewport().set_input_as_handled()
+					return
+				KEY_F11:
+					if event.shift_pressed:
+						_on_debug_step_out()
+					else:
+						_on_debug_step_into()
+					get_viewport().set_input_as_handled()
+					return
+		
+		# Input field history navigation
 		if _input_field.has_focus():
 			match event.keycode:
 				KEY_UP:
@@ -677,6 +748,15 @@ func _input(event: InputEvent):
 					if not event.shift_pressed:
 						_history_next()
 						accept_event()
+
+func _is_debug_session_paused() -> bool:
+	"""Check if the debugger is active and paused at a breakpoint/step."""
+	if not _debugger_plugin or not _debugger_plugin.is_session_active():
+		return false
+	# Check if we're actually paused (status label contains "Paused")
+	if _debug_status_label and "Paused" in _debug_status_label.text:
+		return true
+	return false
 
 func _history_previous():
 	if _history.is_empty():
@@ -780,17 +860,107 @@ func _refresh_variables():
 
 func _update_variables_tree():
 	_var_tree.clear()
+	var root = _var_tree.create_item()
+	
+	# Update the label with variable count
+	if _vars_label:
+		if _variables.is_empty():
+			_vars_label.text = "Variables"
+		else:
+			_vars_label.text = "Variables (%d)" % _variables.size()
+	
 	if _variables.is_empty():
+		# Show helpful message when no variables
+		var empty_item = _var_tree.create_item(root)
+		empty_item.set_text(0, "(No variables)")
+		empty_item.set_custom_color(0, Color.GRAY)
+		empty_item.set_selectable(0, false)
 		return
 	
-	var root = _var_tree.create_item()
-	for var_name in _variables.keys():
+	# Sort variable names for consistent display
+	var sorted_names = _variables.keys()
+	sorted_names.sort()
+	
+	for var_name in sorted_names:
+		var value = _variables[var_name]
 		var item = _var_tree.create_item(root)
 		item.set_text(0, var_name)
-		item.set_text(1, _get_type_name(_variables[var_name]))
-		item.set_text(2, str(_variables[var_name]))
+		
+		# Get type name and set type color
+		var type_name = _get_type_name(value)
+		item.set_text(1, type_name)
+		item.set_custom_color(1, _get_type_color(type_name))
+		
+		# Format value display based on type
+		var value_str = _format_value_for_display(value)
+		item.set_text(2, value_str)
 		item.set_editable(2, true)  # Make Value column editable
 		item.set_metadata(0, var_name)
+		
+		# Color code the value based on type
+		item.set_custom_color(2, _get_value_color(value))
+
+func _get_type_color(type_name: String) -> Color:
+	"""Return color for type name display"""
+	match type_name.to_lower():
+		"integer", "int":
+			return Color.CYAN
+		"float", "double", "single":
+			return Color.CYAN
+		"string":
+			return Color.ORANGE
+		"boolean", "bool":
+			return Color.MAGENTA
+		"array":
+			return Color.YELLOW
+		"dictionary":
+			return Color.YELLOW
+		"null", "nothing":
+			return Color.GRAY
+		"object":
+			return Color.LIME_GREEN
+		_:
+			return Color.WHITE
+
+func _get_value_color(value) -> Color:
+	"""Return color for value display based on actual value"""
+	if value == null:
+		return Color.GRAY
+	elif value is bool:
+		return Color.LIGHT_CORAL if not value else Color.LIME_GREEN
+	elif value is int or value is float:
+		return Color.AQUA
+	elif value is String:
+		return Color.SANDY_BROWN
+	elif value is Array:
+		return Color.KHAKI
+	elif value is Dictionary:
+		return Color.KHAKI
+	else:
+		return Color.WHITE
+
+func _format_value_for_display(value) -> String:
+	"""Format value for display in tree - truncate long strings/arrays"""
+	if value == null:
+		return "Nothing"
+	elif value is String:
+		if value.length() > 50:
+			return "\"%s...\"" % value.substr(0, 47)
+		return "\"%s\"" % value
+	elif value is Array:
+		if value.size() > 5:
+			var preview = str(value.slice(0, 5))
+			return "%s... (%d items)" % [preview.substr(0, preview.length()-1), value.size()]
+		return str(value)
+	elif value is Dictionary:
+		var keys = value.keys()
+		if keys.size() > 3:
+			return "{%d keys: %s...}" % [keys.size(), ", ".join(keys.slice(0, 3))]
+		return str(value)
+	elif value is bool:
+		return "True" if value else "False"
+	else:
+		return str(value)
 
 func _on_var_item_activated():
 	"""Double-click: Navigate to variable definition in code"""
@@ -1852,3 +2022,109 @@ func _evaluate_remote(expr: String) -> String:
 	# Generic evaluation
 	_debugger_plugin.request_variable(_connected_remote_id, expr.strip_edges())
 	return "[color=gray]Evaluating...[/color]"
+
+# ============================================================================
+# STEP DEBUGGING UI HANDLERS
+# ============================================================================
+
+func _on_debug_continue() -> void:
+	"""Resume execution after a breakpoint or step."""
+	if _debugger_plugin and _debugger_plugin.is_session_active():
+		_debugger_plugin.debug_continue()
+		_update_debug_status("Running...")
+		_append_output("[color=lime]▶ Continuing execution...[/color]\n")
+	else:
+		_append_output("[color=yellow]No active debug session[/color]\n")
+
+func _on_debug_step_over() -> void:
+	"""Step to the next line, stepping over function calls."""
+	if _debugger_plugin and _debugger_plugin.is_session_active():
+		_debugger_plugin.debug_step_over()
+		_update_debug_status("Stepping over...")
+		_append_output("[color=cyan]⤵ Step over[/color]\n")
+	else:
+		_append_output("[color=yellow]No active debug session[/color]\n")
+
+func _on_debug_step_into() -> void:
+	"""Step to the next line, entering function calls."""
+	if _debugger_plugin and _debugger_plugin.is_session_active():
+		_debugger_plugin.debug_step_into()
+		_update_debug_status("Stepping into...")
+		_append_output("[color=cyan]↓ Step into[/color]\n")
+	else:
+		_append_output("[color=yellow]No active debug session[/color]\n")
+
+func _on_debug_step_out() -> void:
+	"""Step out of the current function."""
+	if _debugger_plugin and _debugger_plugin.is_session_active():
+		_debugger_plugin.debug_step_out()
+		_update_debug_status("Stepping out...")
+		_append_output("[color=cyan]↑ Step out[/color]\n")
+	else:
+		_append_output("[color=yellow]No active debug session[/color]\n")
+
+func _update_debug_status(status: String) -> void:
+	"""Update the debug status label."""
+	if _debug_status_label:
+		_debug_status_label.text = status
+
+func _on_debug_break_hit(file: String, line: int) -> void:
+	"""Called when a breakpoint or step is hit."""
+	_update_debug_status("⏸ Paused at %s:%d" % [file.get_file(), line])
+	_append_output("[color=yellow]⏸ Paused at %s line %d[/color]\n" % [file.get_file(), line])
+	# Switch to Variables tab to show current state
+	if _right_tabs:
+		_right_tabs.current_tab = 0  # Vars tab
+	# Navigate to the line in the script editor
+	_go_to_script_line(file, line)
+
+func _on_debug_state_received(state: Dictionary) -> void:
+	"""Called when debug state is received from game."""
+	var step_mode = state.get("step_mode", 0)
+	var current_line = state.get("current_line", 0)
+	var current_file = state.get("current_file", "")
+	
+	if step_mode == 0 and current_line > 0:
+		_update_debug_status("⏸ Line %d" % current_line)
+	elif step_mode == 0:
+		_update_debug_status("")
+
+func _go_to_script_line(file_path: String, line: int) -> void:
+	"""Navigate to a specific line in a script file in the editor."""
+	print("[VG Immediate] _go_to_script_line: ", file_path, " line ", line)
+	if file_path.is_empty() or line <= 0:
+		print("[VG Immediate] Invalid file_path or line")
+		return
+	
+	# Load the script resource
+	if not ResourceLoader.exists(file_path):
+		print("[VG Immediate] Script not found: ", file_path)
+		return
+	
+	var script = load(file_path)
+	if script:
+		print("[VG Immediate] Opening script and navigating to line ", line)
+		# Switch to Script editor first
+		EditorInterface.set_main_screen_editor("Script")
+		# Open script and navigate to line
+		EditorInterface.edit_script(script, line, 0)
+		# Center on line after a short delay
+		call_deferred("_center_editor_on_line", line)
+
+func _center_editor_on_line(line: int) -> void:
+	"""Center the script editor viewport on the specified line."""
+	var script_editor = EditorInterface.get_script_editor()
+	if not script_editor:
+		return
+	
+	var current_editor = script_editor.get_current_editor()
+	if not current_editor:
+		return
+	
+	var code_edit = current_editor.get_base_editor() as CodeEdit
+	if code_edit:
+		# Line numbers in CodeEdit are 0-based
+		code_edit.set_caret_line(line - 1)
+		code_edit.set_caret_column(0)
+		code_edit.center_viewport_to_caret()
+		code_edit.grab_focus()

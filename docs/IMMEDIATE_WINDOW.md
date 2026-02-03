@@ -18,6 +18,8 @@ The Immediate Window is a comprehensive development tool featuring:
 - ✅ **Go to Definition** for variables
 - ✅ **Live refresh** toggle for auto-updating values
 - ✅ **Editable values** - modify variables in-place
+- ✅ **Expression evaluation** - Evaluate expressions in paused debug context
+- ✅ **Data breakpoints (Watchpoints)** - Break when variable values change
 
 ## Interface Layout
 
@@ -256,6 +258,49 @@ Access special commands with `:` prefix:
 | `:watch [expr]` | Add watch expression |
 | `:save [file]` | Save session to file |
 | `:load [file]` | Load session from file |
+| `:eval [expr]` | Evaluate expression in paused debug context |
+| `:wp` or `:watchpoint` | Manage data breakpoints (see below) |
+
+### Watchpoint Commands (Data Breakpoints)
+
+Watchpoints allow you to break execution when a variable's value changes:
+
+| Command | Description |
+|---------|-------------|
+| `:wp` | List all active watchpoints |
+| `:wp add [varname]` | Add watchpoint for a variable |
+| `:wp remove [varname]` | Remove watchpoint for a variable |
+| `:wp clear` | Clear all watchpoints |
+
+**Example:**
+```
+> :wp add player_health
+Watchpoint added: player_health
+
+> :wp
+Active Watchpoints:
+  • player_health
+
+[When player_health changes during execution, the debugger pauses]
+Watchpoint hit: player_health changed from 100 to 75
+```
+
+### Expression Evaluation in Debug Context
+
+When the debugger is paused at a breakpoint, use `:eval` to evaluate expressions using the paused instance's context:
+
+```
+> :eval player_health
+100
+
+> :eval player_health * 2
+200
+
+> :eval player.position.x
+250.5
+```
+
+This reads the actual variable values from the paused script instance, unlike regular expressions which operate on the Immediate Window's local context.
 
 ### Examples:
 ```
@@ -542,6 +587,8 @@ Click methods in Inspector to test them:
 13. **Go to Definition** - Jump to variable declarations
 14. **Live Refresh** - Auto-update variables while game runs
 15. **Editable Values** - Double-click to modify variable values
+16. **Expression Evaluation** - `:eval` to evaluate in paused debug context
+17. **Data Breakpoints (Watchpoints)** - `:wp` to break on variable value changes
 
 ---
 
@@ -691,6 +738,11 @@ Both **Variables** and **Watch** tabs support in-place value editing:
 - `:load file` - Load session
 - `:clear` - Clear output
 - `:reset` - Reset everything
+- `:eval expr` - Evaluate in paused context
+- `:wp add var` - Add data breakpoint
+- `:wp remove var` - Remove data breakpoint
+- `:wp` - List data breakpoints
+- `:wp clear` - Clear all data breakpoints
 
 **Shortcuts:**
 - Ctrl+R: Rename variable (in script editor)
@@ -712,6 +764,11 @@ Both **Variables** and **Watch** tabs support in-place value editing:
 - Rename in Current Scope
 - Rename in Entire Script
 - Rename Everywhere
+
+**Data Breakpoints (Watchpoints):**
+- `:wp add player_health` - Break when player_health changes
+- Triggers debugger pause when watched variable is modified
+- Great for tracking down unexpected state changes
 
 **Made development interactive and powerful!**
 
@@ -744,7 +801,7 @@ False
 - No direct access to scene runtime (use Print to scene nodes)
 - Variables reset on editor restart
 - Complex multi-line structures may require careful formatting
-- No breakpoint integration (separate debugger feature)
+- Expression evaluation (`:eval`) requires an active debug session
 
 ## Troubleshooting
 

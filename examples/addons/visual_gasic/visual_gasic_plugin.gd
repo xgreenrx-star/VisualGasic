@@ -142,6 +142,9 @@ func _enter_tree():
 	if nav:
 		toolbox.add_child(nav)
 		nav.setup(self)
+		# Connect debugger plugin for breakpoint navigation
+		if debugger_plugin and nav.has_method("set_debugger_plugin"):
+			nav.set_debugger_plugin(debugger_plugin)
 
 	# Add Property Inspector
 	var props = loading_inspector()

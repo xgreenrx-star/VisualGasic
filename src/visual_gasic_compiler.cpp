@@ -191,16 +191,13 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
             }
         }
         compile_statement(stmt);
+        if (!compile_ok) {
+            // Unsupported construct - AST interpreter will handle this sub
+            break;
+        }
     }
     current_chunk->local_count = local_slots.size();
     emit_return();
-    
-    if (!compile_ok) {
-        Ref<FileAccess> f = FileAccess::open("/tmp/vg_compile_fail.log", FileAccess::WRITE);
-        if (f.is_valid()) {
-            f->store_line(vformat("Compilation failed for %s", entry_point));
-        }
-    }
     
     return compile_ok;
 }
@@ -2044,6 +2041,7 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
         case STMT_CALL: {
             CallStatement* s = (CallStatement*)stmt;
             if (s->base_object) {
+                // Method calls on objects require AST interpreter fallback
                 if (s->base_object->type != ExpressionNode::ME &&
                     s->base_object->type != ExpressionNode::WITH_CONTEXT) {
                     compile_ok = false;

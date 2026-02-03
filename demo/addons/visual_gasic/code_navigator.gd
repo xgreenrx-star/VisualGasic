@@ -5,6 +5,9 @@ var editor_plugin: EditorPlugin
 var object_list: OptionButton
 var event_list: OptionButton
 var refresh_button: Button
+var _debugger_plugin: EditorDebuggerPlugin = null
+var _current_break_file: String = ""
+var _current_break_line: int = 0
 const REFRESH_TEXT = "Refresh Object List"
 const REFRESH_TEXT_THRESHOLD := 220
 
@@ -59,7 +62,7 @@ func _init():
 	add_child(refresh_button)
 
 func _notification(what):
-	if what == NOTIFICATION_THEME_CHANGED:
+	if what == NOTIFICATION_THEME_CHANGED or what == NOTIFICATION_READY:
 		_set_refresh_icon()
 		_update_refresh_mode()
 	elif what == NOTIFICATION_RESIZED:
@@ -91,7 +94,79 @@ func _update_refresh_mode():
 
 func setup(plugin: EditorPlugin):
 	editor_plugin = plugin
+	
+	# Try to get the debugger plugin from the main plugin
+	if plugin.has_method("get") and plugin.get("debugger_plugin"):
+		set_debugger_plugin(plugin.debugger_plugin)
+	
 	refresh_objects()
+
+func set_debugger_plugin(debugger: EditorDebuggerPlugin) -> void:
+	"""Connect to debugger plugin to receive break notifications."""
+	if _debugger_plugin:
+		# Disconnect old signals
+		if _debugger_plugin.has_signal("debug_break_hit") and _debugger_plugin.debug_break_hit.is_connected(_on_debug_break_hit):
+			_debugger_plugin.debug_break_hit.disconnect(_on_debug_break_hit)
+	
+	_debugger_plugin = debugger
+	if _debugger_plugin and _debugger_plugin.has_signal("debug_break_hit"):
+		_debugger_plugin.debug_break_hit.connect(_on_debug_break_hit)
+
+func _on_debug_break_hit(file: String, line: int) -> void:
+	"""Called when a breakpoint or step is hit - navigate to the line."""
+	_current_break_file = file
+	_current_break_line = line
+	navigate_to_line(file, line)
+
+func navigate_to_line(file_path: String, line: int) -> void:
+	"""Navigate the script editor to a specific file and line."""
+	if not editor_plugin:
+		return
+	
+	if file_path.is_empty() or line <= 0:
+		return
+	
+	# Load the script resource
+	if not ResourceLoader.exists(file_path):
+		print("[CodeNavigator] File not found: ", file_path)
+		return
+	
+	var script = load(file_path)
+	if not script:
+		print("[CodeNavigator] Could not load: ", file_path)
+		return
+	
+	var ed_int = editor_plugin.get_editor_interface()
+	
+	# Switch to Script editor main screen first
+	ed_int.set_main_screen_editor("Script")
+	
+	# Open script in editor and navigate to line
+	ed_int.edit_script(script, line, 0)
+	
+	# Center the viewport on that line after a short delay
+	call_deferred("_center_on_line", line)
+
+func _center_on_line(line: int) -> void:
+	"""Center the code editor viewport on the specified line."""
+	if not editor_plugin:
+		return
+	
+	var script_editor = editor_plugin.get_editor_interface().get_script_editor()
+	if not script_editor:
+		return
+	
+	var current_editor = script_editor.get_current_editor()
+	if not current_editor:
+		return
+	
+	var code_edit = current_editor.get_base_editor() as CodeEdit
+	if code_edit:
+		# Line numbers in CodeEdit are 0-based
+		code_edit.set_caret_line(line - 1)
+		code_edit.set_caret_column(0)
+		code_edit.center_viewport_to_caret()
+		code_edit.grab_focus()
 
 func refresh_objects():
 	if not editor_plugin: 

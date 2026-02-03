@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://stack_test"]
+
+[ext_resource type="Script" path="res://test_call_stack.vg" id="1_vgscript"]
+
+[node name="TestCallStack" type="Node2D"]
+script = ExtResource("1_vgscript")

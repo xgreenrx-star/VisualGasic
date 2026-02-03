@@ -39,6 +39,7 @@ Created 3 production-ready header-only modules:
    - **Auto-connect** when single instance is running
    - Live variable inspection and modification
    - Real-time variable updates with "Live" toggle
+   - **Watchpoint hit notifications** - Break when watched variables change
 
 2. **Immediate Window Enhancements** (`immediate_window.gd`)
    - Variables tab with right-click context menu
@@ -46,6 +47,8 @@ Created 3 production-ready header-only modules:
    - Object inspector with deep drill-down
    - Editable values (double-click to modify)
    - Go to Definition feature
+   - **`:eval` command** - Evaluate expressions in paused debug context
+   - **`:wp` commands** - Data breakpoints (watchpoints) for breaking on variable changes
 
 3. **Rename Refactoring** (`visual_gasic_plugin.gd`, `immediate_window.gd`)
    - **Ctrl+R** shortcut in script editor
@@ -216,13 +219,19 @@ Systematically extract logic from `visual_gasic_instance.cpp` (4900 lines) into 
 - Read/write modes
 - Seek operations
 
-### 2. Advanced Debugging (3-4 hours)
+### 2. Advanced Debugging (3-4 hours) ✅ PARTIALLY COMPLETE
 Implement breakpoint support:
 - Set/remove breakpoints with optional conditions
 - Step Into/Over/Out execution
 - Call stack inspection
-- Watch variable monitoring
+- ✅ **Watch variable monitoring** - Watchpoints (data breakpoints) implemented
+- ✅ **Expression evaluation** - `:eval` command for paused context evaluation
 - Exception tracking
+
+**Implemented Features**:
+- **Data Breakpoints (Watchpoints)**: `:wp add var` breaks when variable value changes
+- **Expression Evaluation**: `:eval expr` evaluates expressions in paused debug context
+- **GDScript bindings**: `vg_add_watchpoint`, `vg_remove_watchpoint`, `vg_clear_watchpoints`, `vg_get_watchpoints`, `vg_evaluate_expression`
 
 **Integration Points**:
 - Editor plugin UI for breakpoint controls

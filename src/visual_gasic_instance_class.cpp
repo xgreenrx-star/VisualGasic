@@ -1,4 +1,5 @@
 #include "visual_gasic_instance.h"
+#include "visual_gasic_language.h"
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <dlfcn.h> // For dynamic library loading on Linux
 
@@ -156,6 +157,12 @@ void VisualGasicInstance::execute_class_method(ClassDefinition* cls, SubDefiniti
     SubDefinition* saved_sub = current_sub;
     current_sub = method;
     
+    // Push call stack frame for debugger
+    String file_path = script.is_valid() ? script->get_path() : "";
+    String full_method_name = cls->name + "." + method->name;
+    int start_line = method->statements.size() > 0 ? method->statements[0]->line : 0;
+    VisualGasicLanguage::push_stack_frame(file_path, full_method_name, start_line, this);
+    
     for (int i = 0; i < method->statements.size(); i++) {
         execute_statement(method->statements[i]);
         
@@ -172,6 +179,9 @@ void VisualGasicInstance::execute_class_method(ClassDefinition* cls, SubDefiniti
             r_ret = variables[method->name];
         }
     }
+    
+    // Pop call stack frame for debugger
+    VisualGasicLanguage::pop_stack_frame();
     
     current_sub = saved_sub;
     
