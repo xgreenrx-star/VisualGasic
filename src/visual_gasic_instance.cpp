@@ -3420,8 +3420,11 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                     // Poll to ensure messages are sent before blocking
                     engine_debugger->line_poll();
                     
-                    // Use our custom wait loop instead of script_debug() so we respond to our messages
-                    VisualGasicLanguage::wait_for_debug_command();
+                    // Use Godot's script_debug() for proper pause/resume
+                    VisualGasicLanguage* lang = VisualGasicLanguage::get_singleton();
+                    if (lang) {
+                        engine_debugger->script_debug(lang, true, false);
+                    }
                 }
             }
             
@@ -3449,8 +3452,11 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                     // Poll to ensure messages are sent before blocking
                     engine_debugger->line_poll();
                     
-                    // Use our custom wait loop instead of script_debug() so we respond to our messages
-                    VisualGasicLanguage::wait_for_debug_command();
+                    // Use Godot's script_debug() for proper pause/resume
+                    VisualGasicLanguage* lang = VisualGasicLanguage::get_singleton();
+                    if (lang) {
+                        engine_debugger->script_debug(lang, true, false);
+                    }
                 }
             }
         }
@@ -6067,9 +6073,14 @@ void VisualGasicInstance::assign_variable(const String& name, Variant val) {
         String path = script.is_valid() ? script->get_path() : "unknown";
         int line = debug_state.current_line > 0 ? debug_state.current_line : 0;
         VisualGasicLanguage::set_current_break_location(path, line);
-        EngineDebugger::get_singleton()->send_message("visualgasic:watchpoint_hit", 
+        EngineDebugger* debugger = EngineDebugger::get_singleton();
+        debugger->send_message("visualgasic:watchpoint_hit", 
             Array::make(name, variables.get(name, Variant()), val, path, line));
-        VisualGasicLanguage::wait_for_debug_command();
+        // Use Godot's script_debug() for proper pause/resume
+        VisualGasicLanguage* lang = VisualGasicLanguage::get_singleton();
+        if (lang) {
+            debugger->script_debug(lang, true, false);
+        }
     }
     
     // Check Whenever sections for this variable
@@ -6963,9 +6974,14 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     // Watchpoint hit - variable value changed
                     int wp_line = debug_state.current_line > 0 ? debug_state.current_line : 0;
                     VisualGasicLanguage::set_current_break_location(debug_file, wp_line);
-                    EngineDebugger::get_singleton()->send_message("visualgasic:watchpoint_hit", 
+                    EngineDebugger* debugger = EngineDebugger::get_singleton();
+                    debugger->send_message("visualgasic:watchpoint_hit", 
                         Array::make(name, variables.get(name, Variant()), value, debug_file, wp_line));
-                    VisualGasicLanguage::wait_for_debug_command();
+                    // Use Godot's script_debug() for proper pause/resume
+                    VisualGasicLanguage* lang = VisualGasicLanguage::get_singleton();
+                    if (lang) {
+                        debugger->script_debug(lang, true, false);
+                    }
                 }
                 
                 variables[name] = value;
@@ -8247,10 +8263,33 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 // Update the current stack frame line for Godot debugger
                 VisualGasicLanguage::update_stack_frame_line(line_number);
                 
-                // Check for step debugging first
+                // Check for step debugging using both our custom step mode AND Godot's built-in stepping
                 EngineDebugger* engine_debugger = EngineDebugger::get_singleton();
                 bool should_break = false;
                 
+                // First check Godot's built-in stepping mechanism (set by debugger panel buttons)
+                if (engine_debugger && engine_debugger->is_active()) {
+                    int lines_left = engine_debugger->get_lines_left();
+                    int godot_depth = engine_debugger->get_depth();
+                    int current_depth = VisualGasicLanguage::get_current_stack_depth();
+                    
+                    // Godot's stepping:
+                    // - Step Into: lines_left = 1, depth = -1 (break on any next line)
+                    // - Step Over: lines_left = 1, depth = current (break at same or shallower depth)
+                    // - Step Out: lines_left = 0, depth = current-1 (break when returning to parent)
+                    if (lines_left > 0) {
+                        if (godot_depth < 0 || current_depth <= godot_depth) {
+                            should_break = true;
+                            // Decrement lines_left to consume this step
+                            engine_debugger->set_lines_left(lines_left - 1);
+                        }
+                    } else if (godot_depth >= 0 && current_depth <= godot_depth) {
+                        // Step out mode: break when returning to shallower depth
+                        should_break = true;
+                    }
+                }
+                
+                // Also check our custom step mode (for file-based debugging fallback)
                 VGStepMode current_step_mode = VisualGasicLanguage::get_step_mode();
                 if (current_step_mode != VG_STEP_NONE && engine_debugger && engine_debugger->is_active()) {
                     int current_depth = VisualGasicLanguage::get_current_stack_depth();
@@ -8290,8 +8329,12 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         // Poll to ensure messages are sent before blocking
                         engine_debugger->line_poll();
                         
-                        // Use our custom wait loop instead of script_debug()
-                        VisualGasicLanguage::wait_for_debug_command();
+                        // Use Godot's built-in script_debug() for proper pause/resume
+                        // This integrates with Godot's debugger panel (Continue, Step buttons)
+                        VisualGasicLanguage* lang = VisualGasicLanguage::get_singleton();
+                        if (lang) {
+                            engine_debugger->script_debug(lang, true, false);
+                        }
                     }
                 }
                 
@@ -8322,8 +8365,12 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         // Poll to ensure messages are sent before blocking
                         engine_debugger->line_poll();
                         
-                        // Use our custom wait loop instead of script_debug()
-                        VisualGasicLanguage::wait_for_debug_command();
+                        // Use Godot's built-in script_debug() for proper pause/resume
+                        // This integrates with Godot's debugger panel (Continue, Step buttons)
+                        VisualGasicLanguage* lang = VisualGasicLanguage::get_singleton();
+                        if (lang) {
+                            engine_debugger->script_debug(lang, true, false);
+                        }
                     }
                 }
                 
@@ -8350,8 +8397,11 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                             );
                         }
                         
-                        // Use our custom wait loop
-                        VisualGasicLanguage::wait_for_debug_command();
+                        // Use Godot's script_debug() for proper pause/resume
+                        VisualGasicLanguage* lang = VisualGasicLanguage::get_singleton();
+                        if (lang) {
+                            engine_debugger->script_debug(lang, true, false);
+                        }
                     }
                 }
                 break;

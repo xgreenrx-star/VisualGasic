@@ -1203,15 +1203,19 @@ void VisualGasicLanguage::debug_step_out() {
     waiting_for_continue = false;  // Signal wait loop to exit
 }
 
-// Custom debug wait loop - uses Godot's script_debug which handles the pause properly
-// The step buttons in Godot's debugger panel will work, but our custom Immediate Window
-// buttons need to trigger Godot's internal mechanisms
+// DEPRECATED: This function is no longer used since Phase 3 implementation.
+// We now use Godot's built-in EngineDebugger::script_debug() which properly integrates
+// with the editor's debugger panel (Continue, Step Into, Step Over, Step Out buttons).
+// Keeping this for reference in case we need fallback file-based debugging.
 void VisualGasicLanguage::wait_for_debug_command() {
     EngineDebugger* debugger = EngineDebugger::get_singleton();
     if (!debugger) {
         UtilityFunctions::printerr("[VisualGasic] No debugger available, continuing execution");
         return;
     }
+    
+    // NOTE: This is now deprecated. Use script_debug() instead.
+    // Keeping for backwards compatibility with file-based debug commands.
     
     // Ensure message capture is registered
     ensure_message_capture_registered();

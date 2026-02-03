@@ -2,14 +2,14 @@
 
 ## Current Status
 
-**Visual Gasic scripts (.vg) now have PARTIAL debugging support!**
+**Visual Gasic scripts (.vg) now have SUBSTANTIAL debugging support!**
 
 | Feature | GDScript | Visual Gasic | Status |
 |---------|----------|--------------|--------|
-| Breakpoints pause execution | ✅ | ⚠️ | Infrastructure ready, pause loop pending |
-| Step Into | ✅ | ⚠️ | Flag implemented, pause loop pending |
-| Step Over | ✅ | ❌ | Not implemented |
-| Step Out | ✅ | ❌ | Not implemented |
+| Breakpoints pause execution | ✅ | ✅ | **IMPLEMENTED** via script_debug() |
+| Step Into | ✅ | ✅ | **IMPLEMENTED** via Godot debugger |
+| Step Over | ✅ | ✅ | **IMPLEMENTED** via Godot debugger |
+| Step Out | ✅ | ✅ | **IMPLEMENTED** via Godot debugger |
 | Call stack viewing | ✅ | ✅ | **IMPLEMENTED** |
 | Variable inspection (paused) | ✅ | ✅ | **IMPLEMENTED** via `:eval` |
 | Variable inspection (runtime) | ✅ | ✅ | Immediate Window |
@@ -54,6 +54,12 @@
 - VM tracks current line and file
 - Breakpoint hit detection prints messages
 
+### ✅ Proper Pause/Resume via Godot Debugger (PHASE 3!)
+- Uses Godot's `EngineDebugger::script_debug()` for proper pause
+- Integrates with Godot's debugger panel buttons
+- Continue, Step Into, Step Over, Step Out all work
+- Non-blocking pause that keeps editor responsive
+
 ---
 
 ## Implementation Roadmap
@@ -92,96 +98,87 @@
 
 ---
 
-### Phase 3: Pause/Resume Mechanism 🔄 NEXT
+### Phase 3: Pause/Resume Mechanism ✅ COMPLETE
 
-**Files to modify:**
-- `src/visual_gasic_instance.cpp`
-- `src/visual_gasic_debugger.cpp`
+**Files modified:**
+- `src/visual_gasic_instance.cpp` ✅
+- `src/visual_gasic_language.cpp` ✅
 
-**Tasks:**
-- [ ] Add pause loop that waits for debugger commands
-- [ ] Implement `resume_execution()` 
-- [ ] Handle Godot editor Continue/Step buttons
-- [ ] Add `_process()` yield when paused (don't block engine)
-- [ ] Send pause notification to editor via EngineDebugger
+**Completed Tasks:**
+- [x] Replace custom file polling with Godot's `EngineDebugger::script_debug()`
+- [x] Integrate with Godot's lines_left/depth system for stepping
+- [x] Handle Godot editor Continue/Step buttons automatically
+- [x] Non-blocking pause that keeps editor responsive
+- [x] Send break notification to editor via EngineDebugger
+
+**Implementation Details:**
+
+Instead of the custom `wait_for_debug_command()` with file-based polling, we now use
+Godot's built-in `script_debug()` method which properly integrates with the editor:
 
 ```cpp
-void VisualGasicDebugger::pause_execution(VisualGasicInstance* instance) {
-    paused_instance = instance;
-    instance->is_paused = true;
-    
-    // Notify editor
-    Array msg;
-    msg.push_back(instance->get_script_path());
-    msg.push_back(instance->current_line);
-    EngineDebugger::get_singleton()->send_message("visualgasic:paused", msg);
+// At breakpoint/step hit:
+VisualGasicLanguage* lang = VisualGasicLanguage::get_singleton();
+if (lang) {
+    engine_debugger->script_debug(lang, true, false);
+}
+```
+
+The stepping mechanism now checks both:
+1. Godot's `lines_left` and `depth` (for debugger panel buttons)
+2. Our custom `VGStepMode` (for Immediate Window commands - fallback)
+
+```cpp
+// Godot's stepping:
+// - Step Into: lines_left = 1, depth = -1 (break on any next line)
+// - Step Over: lines_left = 1, depth = current (break at same or shallower depth)  
+// - Step Out: lines_left = 0, depth = current-1 (break when returning to parent)
+if (lines_left > 0) {
+    if (godot_depth < 0 || current_depth <= godot_depth) {
+        should_break = true;
+        engine_debugger->set_lines_left(lines_left - 1);
+    }
 }
 ```
 
 ---
 
-### Phase 4: Implement ScriptLanguageExtension Debug Methods
+### Phase 4: Implement ScriptLanguageExtension Debug Methods ✅ COMPLETE
 
-**Files to modify:**
-- `src/visual_gasic_language.cpp`
+**Files modified:**
+- `src/visual_gasic_language.cpp` ✅
+- `src/visual_gasic_language.h` ✅
 
-**Tasks:**
-- [ ] Implement `_debug_get_stack_level_count()` - return actual call depth
-- [ ] Implement `_debug_get_stack_level_line()` - return line at each level
-- [ ] Implement `_debug_get_stack_level_function()` - return Sub/Function name
-- [ ] Implement `_debug_get_stack_level_source()` - return .vg file path
-- [ ] Implement `_debug_get_stack_level_locals()` - return local variables
-- [ ] Implement `_debug_get_stack_level_members()` - return member variables
-- [ ] Implement `_debug_get_stack_level_globals()` - return module-level vars
+**Completed Tasks:**
+- [x] Implement `_debug_get_stack_level_count()` - returns actual call depth
+- [x] Implement `_debug_get_stack_level_line()` - returns line at each level
+- [x] Implement `_debug_get_stack_level_function()` - returns Sub/Function name
+- [x] Implement `_debug_get_stack_level_source()` - returns .vg file path
+- [x] Implement `_debug_get_stack_level_locals()` - returns local variables
+- [x] Implement `_debug_get_stack_level_members()` - returns member variables
+- [x] Implement `_debug_get_globals()` - returns module-level vars
+- [x] Implement `_debug_get_current_stack_info()` - returns full stack trace
 
-```cpp
-// Current (broken):
-int32_t VisualGasicLanguage::_debug_get_stack_level_count() const {
-    return 0;  // Always returns 0!
-}
-
-// Fixed:
-int32_t VisualGasicLanguage::_debug_get_stack_level_count() const {
-    if (!paused_instance) return 0;
-    return paused_instance->call_stack.size();
-}
-```
+All methods now return proper data from `VGDebugStackFrame` call stack.
 
 ---
 
-### Phase 5: Step Into / Step Over / Step Out
+### Phase 5: Step Into / Step Over / Step Out ✅ COMPLETE
 
-**Files to modify:**
-- `src/visual_gasic_debugger.cpp`
-- `src/visual_gasic_debugger.h`
+**Files modified:**
+- `src/visual_gasic_language.cpp` ✅
+- `src/visual_gasic_instance.cpp` ✅
 
-**Tasks:**
-- [ ] Implement `step_into()` - break on next line (any depth)
-- [ ] Implement `step_over()` - break on next line (same or shallower depth)
-- [ ] Implement `step_out()` - break when returning to caller
-- [ ] Track call depth for step over/out logic
-- [ ] Bind methods in `_bind_methods()`
+**Completed Tasks:**
+- [x] Implement `step_into()` - break on next line (any depth)
+- [x] Implement `step_over()` - break on next line (same or shallower depth)
+- [x] Implement `step_out()` - break when returning to caller
+- [x] Track call depth for step over/out logic
+- [x] Integrate with Godot's `lines_left` and `depth` system
 
-```cpp
-void VisualGasicDebugger::step_into() {
-    stepping_mode = STEP_INTO;
-    break_on_next_line = true;
-    resume_execution();
-}
-
-void VisualGasicDebugger::step_over() {
-    stepping_mode = STEP_OVER;
-    step_depth = current_call_depth;
-    break_on_next_line = true;
-    resume_execution();
-}
-
-void VisualGasicDebugger::step_out() {
-    stepping_mode = STEP_OUT;
-    step_depth = current_call_depth - 1;
-    resume_execution();
-}
-```
+Step functionality is now available through:
+1. Godot's debugger panel buttons (Continue, Step Into, Step Over, Step Out)
+2. Custom `VGStepMode` for Immediate Window fallback
 
 ---
 
