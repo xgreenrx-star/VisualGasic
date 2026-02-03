@@ -195,7 +195,7 @@ Navigate to Sub/Function/Variable declarations.
 ---
 
 #### 10. Form Preview
-**Status**: 📋 Planned  
+**Status**: ✅ Completed  
 **Priority**: Medium  
 **Estimated Effort**: Medium
 
@@ -213,12 +213,16 @@ Run just the current form without launching the full game.
 - Uses Godot's `EditorInterface.play_custom_scene()`
 - Injects debug handler for Immediate Window support
 
+**Files**:
+- `form_preview_toolbar.gd` - Toolbar with preview buttons
+- F5 keyboard shortcut for quick preview
+
 ---
 
 ### Nice-to-Have - Future Enhancements
 
 #### 11. Linting / Warnings
-**Status**: 📋 Planned  
+**Status**: ✅ Completed  
 **Priority**: Low  
 **Estimated Effort**: Medium
 
@@ -232,10 +236,15 @@ Static analysis for code quality.
 - Severity levels (error, warning, info)
 - Inline squiggles in editor
 
+**Files**:
+- `vg_linter.gd` - VGLinter class with 10 issue codes
+- LintIssue class with severity, code, message, location
+- Check functions for various issues
+
 ---
 
 #### 12. Snippet Manager
-**Status**: 📋 Planned  
+**Status**: ✅ Completed  
 **Priority**: Low  
 **Estimated Effort**: Low
 
@@ -248,10 +257,15 @@ User-defined code snippets with placeholders.
 - Snippet categories
 - Built-in VB6 snippets (For loop, Select Case, etc.)
 
+**Files**:
+- `vg_snippet_manager.gd` - VGSnippetManager class
+- 40+ built-in snippets across 8 categories
+- User snippet persistence in `vg_snippets.cfg`
+
 ---
 
 #### 13. Theme Support
-**Status**: 📋 Planned  
+**Status**: ✅ Completed  
 **Priority**: Low  
 **Estimated Effort**: Low
 
@@ -263,6 +277,12 @@ Visual theme options for the VB6 experience.
 - Light theme
 - Custom color schemes
 - Form designer themes
+
+**Files**:
+- `vg_theme_manager.gd` - VGThemeManager class
+- 5 built-in themes (VB6 Classic, Modern Dark, Modern Light, High Contrast, Solarized)
+- Custom theme save/load/persistence
+- CSS export for documentation
 
 ---
 

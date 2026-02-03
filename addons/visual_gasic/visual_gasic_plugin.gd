@@ -54,6 +54,9 @@ var debugger_plugin: EditorDebuggerPlugin
 ## Alignment toolbar for form designer
 var alignment_toolbar
 
+## Form preview toolbar for quick testing
+var form_preview_toolbar
+
 ## Recent projects manager and menu
 var _recent_projects_menu: PopupMenu
 var _recent_projects_manager
@@ -172,6 +175,15 @@ func _enter_tree():
 		add_control_to_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, alignment_toolbar)
 		print("VisualGasic: Added alignment toolbar to canvas editor")
 	
+	# Add Form Preview Toolbar
+	var preview_script = load("res://addons/visual_gasic/form_preview_toolbar.gd")
+	if preview_script:
+		form_preview_toolbar = preview_script.new()
+		form_preview_toolbar.name = "VG Preview"
+		form_preview_toolbar.setup(self)
+		add_control_to_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, form_preview_toolbar)
+		print("VisualGasic: Added form preview toolbar to canvas editor")
+	
 	_post_init()
 	_setup_script_editor_context_menu()
 	_setup_recent_projects_menu()
@@ -217,6 +229,12 @@ func _exit_tree():
 		remove_control_from_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, alignment_toolbar)
 		alignment_toolbar.queue_free()
 		alignment_toolbar = null
+	
+	# Cleanup form preview toolbar
+	if form_preview_toolbar:
+		remove_control_from_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, form_preview_toolbar)
+		form_preview_toolbar.queue_free()
+		form_preview_toolbar = null
 	
 	# Cleanup recent projects menu
 	if _recent_projects_menu:
