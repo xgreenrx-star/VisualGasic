@@ -1,0 +1,71 @@
+' test_debug_phase3.vg - Phase 3 Debugger Test Script
+' Tests: Breakpoints, Step Into/Over/Out, Watchpoints
+Option Explicit
+
+' Test variables for watchpoints
+Dim counter As Integer
+Dim message As String
+Dim result As Variant
+
+' Main entry point
+Sub Main()
+    Print "=== Phase 3 Debugger Test ==="
+    Print "Testing breakpoints, stepping, and watchpoints"
+    Print ""
+    
+    ' Line 17 - Set breakpoint here to test basic pause
+    counter = 0
+    message = "Starting test"
+    Print message
+    
+    ' Test simple loop with step over
+    For counter = 1 To 5
+        Print "Loop iteration: " & counter
+        ProcessValue counter  ' Step into this to test step into
+    Next counter
+    
+    ' Test function call for step out
+    result = CalculateSum(10, 20)
+    Print "Sum result: " & result
+    
+    ' Test watchpoint - change 'counter' value
+    counter = 100  ' Watchpoint should trigger here if set on 'counter'
+    Print "Counter changed to: " & counter
+    
+    ' Nested function calls for call stack testing
+    result = OuterFunction(5)
+    Print "Outer result: " & result
+    
+    Print ""
+    Print "=== Test Complete ==="
+End Sub
+
+Sub ProcessValue(val As Integer)
+    ' Step into lands here
+    Dim doubled As Integer
+    doubled = val * 2
+    Print "  Processed: " & val & " -> " & doubled
+End Sub
+
+Function CalculateSum(a As Integer, b As Integer) As Integer
+    ' Step into lands here, step out returns to caller
+    Dim temp As Integer
+    temp = a + b
+    CalculateSum = temp
+End Function
+
+Function OuterFunction(n As Integer) As Integer
+    ' Test nested call stack
+    Print "OuterFunction called with: " & n
+    If n > 1 Then
+        OuterFunction = n + InnerFunction(n - 1)
+    Else
+        OuterFunction = 1
+    End If
+End Function
+
+Function InnerFunction(n As Integer) As Integer
+    ' Deep in call stack
+    Print "  InnerFunction called with: " & n
+    InnerFunction = n * 2
+End Function
