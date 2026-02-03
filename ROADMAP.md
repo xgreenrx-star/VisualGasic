@@ -110,89 +110,85 @@ Visual call stack display during debugging:
 
 ## 🎯 Upcoming Features
 
-### Medium Priority - Productivity Features
+### Medium Priority - Productivity Features (Recently Completed)
 
-#### 6. Recent Projects List
-**Status**: 📋 Planned  
+#### 6. Recent Projects List ✅
+**Status**: ✅ Completed  
 **Priority**: Medium  
-**Estimated Effort**: Low
+**Completed**: February 3, 2026
 
 Quick access to recently opened .vbp/.vg projects.
 
-**Features**:
-- "Recent Projects" submenu in Tools menu
-- Stores last 10 projects
-- Pin favorite projects
-- Clear history option
-- Tooltip shows full path
+**Implemented Features**:
+- ✅ "Recent Projects" submenu in Tools menu
+- ✅ Stores last 10 projects via EditorSettings
+- ✅ Pin/unpin favorite projects
+- ✅ Clear recent / Clear all options
+- ✅ Tooltip shows full path
+- ✅ Handles missing files gracefully
 
-**Implementation Notes**:
-- Uses `EditorSettings` for persistence
-- Adds menu items dynamically
+**Files Created**: `vg_recent_projects.gd`, `recent_projects_menu.gd`
 
 ---
 
-#### 7. Code Formatter / Beautifier
-**Status**: 📋 Planned  
+#### 7. Code Formatter / Beautifier ✅
+**Status**: ✅ Completed  
 **Priority**: Medium  
-**Estimated Effort**: Medium
+**Completed**: February 3, 2026
 
 Automatic code formatting for .vg files in VB6 style.
 
-**Features**:
-- Auto-indent based on blocks (Sub/End Sub, If/End If, etc.)
-- Consistent spacing around operators
-- Keyword capitalization (configurable)
-- Blank line normalization
-- Format on save option
-- Format selection only
+**Implemented Features**:
+- ✅ Auto-indent based on blocks (Sub/End Sub, If/End If, etc.)
+- ✅ Consistent spacing around operators
+- ✅ Keyword capitalization (100+ keywords in proper case)
+- ✅ Blank line normalization (configurable max)
+- ✅ Format selection only support
+- ✅ `.vgformat` config file support
+- ✅ FormatOptions class with full customization
 
-**Implementation Notes**:
-- New `vg_formatter.gd` script
-- Integrates with script editor
-- Respects `.vgformat` config file if present
+**Files Created**: `vg_formatter.gd`
 
 ---
 
-#### 8. Find All References
-**Status**: 📋 Planned  
+#### 8. Find All References ✅
+**Status**: ✅ Completed  
 **Priority**: Medium  
-**Estimated Effort**: Medium
+**Completed**: February 3, 2026
 
 Show all usages of a variable, Sub, or Function.
 
-**Features**:
-- Ctrl+Shift+F on identifier
-- Results panel with file:line listings
-- Click to navigate
-- Filter by type (read/write/call)
-- Search across all .vg files
+**Implemented Features**:
+- ✅ Results panel with file:line listings
+- ✅ Click to navigate to reference
+- ✅ Filter by type (Declaration/Read/Write/Call)
+- ✅ Search across all .vg files
+- ✅ Group results by file
+- ✅ Type detection (declaration, read, write, call)
 
-**Implementation Notes**:
-- Extends rename refactoring infrastructure
-- Uses existing `_find_all_vg_files()` method
+**Files Created**: `find_references_panel.gd`
 
 ---
 
-#### 9. Go to Definition
-**Status**: 📋 Planned  
+#### 9. Go to Definition ✅
+**Status**: ✅ Completed  
 **Priority**: Medium  
-**Estimated Effort**: Medium
+**Completed**: February 3, 2026
 
 Navigate to Sub/Function/Variable declarations.
 
-**Features**:
-- Ctrl+Click or F12 on identifier
-- Jump to definition in same or different file
-- Peek Definition (inline preview without leaving current file)
-- Back navigation after jumping
+**Implemented Features**:
+- ✅ Find definition in current file first, then all files
+- ✅ Supports Sub, Function, Property, Class, Variable, Const
+- ✅ Returns file path, line, column, type, signature
+- ✅ Symbol extraction for building indexes
+- ✅ Pattern matching for all VB6 declaration styles
 
-**Implementation Notes**:
-- Parses .vg files for declarations
-- Caches symbol locations for performance
-- Integrates with existing LSP framework
+**Files Created**: `vg_goto_definition.gd`
 
 ---
+
+### Medium Priority - Remaining Features
 
 #### 10. Form Preview
 **Status**: 📋 Planned  
