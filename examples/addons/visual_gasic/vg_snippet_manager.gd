@@ -321,11 +321,17 @@ static func expand_snippet(snippet: Snippet, indent: String = "") -> Dictionary:
 	
 	# Replace placeholders with their default values (for display)
 	# In a real editor, these would become tab stops
-	var final_text = regex.sub(body, func(m):
-		if m.get_group_count() >= 2 and m.get_string(2):
-			return m.get_string(2)  # Return default value
-		return ""
-	, true)
+	var final_text = body
+	var placeholder_match = regex.search(final_text)
+	while placeholder_match:
+		var default_val = ""
+		if placeholder_match.get_group_count() >= 2:
+			var group2 = placeholder_match.get_string(2)
+			if group2:
+				default_val = group2
+		# Replace this placeholder with its default value
+		final_text = final_text.substr(0, placeholder_match.get_start()) + default_val + final_text.substr(placeholder_match.get_end())
+		placeholder_match = regex.search(final_text)
 	
 	return {
 		"text": final_text,

@@ -173,6 +173,9 @@ The **Toolbox** provides quick access to all VisualGasic features:
 - Login Form, Main Form with Menu, Data Entry Form
 - MDI Parent/Child Forms
 
+> **📝 Note: Forms are OS Windows**  
+> Forms are built on Godot's `Window` node, so they appear as **separate operating system windows** - just like VB6. If a Form is your project's main scene, it becomes the main app window. If spawned from another scene, it appears as a popup/dialog. For in-game UIs (HUD, menus), use the **Game Forms** templates which are designed for embedded display. See [WINFORMS_FORM_GUIDE.md](WINFORMS_FORM_GUIDE.md) for details.
+
 ### Visual Form Designer
 
 Create user interfaces by dragging controls onto forms:

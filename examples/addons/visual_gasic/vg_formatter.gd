@@ -266,16 +266,16 @@ static func _capitalize_keywords(line: String) -> String:
 		var regex = RegEx.new()
 		regex.compile("(?i)(?<![A-Za-z0-9_])" + keyword.replace(" ", "\\s+") + "(?![A-Za-z0-9_])")
 		
-		var match = regex.search(result)
-		while match:
-			var start = match.get_start()
-			var end = match.get_end()
+		var regex_match = regex.search(result)
+		while regex_match:
+			var start = regex_match.get_start()
+			var end = regex_match.get_end()
 			
 			# Don't replace inside strings
 			if not _is_in_string(result, start):
 				result = result.substr(0, start) + proper + result.substr(end)
 			
-			match = regex.search(result, start + proper.length())
+			regex_match = regex.search(result, start + proper.length())
 	
 	return result
 

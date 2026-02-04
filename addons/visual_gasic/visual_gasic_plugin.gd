@@ -340,15 +340,21 @@ func _do_import_frm(path):
 func _on_new_form():
 	var dlg = load("res://addons/visual_gasic/new_form_dialog.gd").new()
 	get_editor_interface().get_base_control().add_child(dlg)
+	
+	# Use signal callbacks instead of await for stability
+	dlg.confirmed.connect(func():
+		var template = dlg.get_selected_template()
+		dlg.queue_free()
+		if not template.is_empty():
+			# Use call_deferred to ensure dialog is cleaned up first
+			call_deferred("_create_form_from_template", template)
+	)
+	
+	dlg.canceled.connect(func():
+		dlg.queue_free()
+	)
+	
 	dlg.popup_centered()
-	
-	# Wait for user to select template
-	var result = await dlg.confirmed
-	var template = dlg.get_selected_template()
-	dlg.queue_free()
-	
-	# Create the form based on selected template
-	_create_form_from_template(template)
 
 ## Deferred script attachment helper (called after scene is ready).
 ## @param scene_path: Path to the scene file
@@ -382,10 +388,28 @@ func _create_form_from_template(template: Dictionary):
 	
 	# Force reimport so the script is available
 	get_editor_interface().get_resource_filesystem().scan()
-	await get_tree().process_frame
-	await get_tree().process_frame
 	
-	# Now create the Window node with the VG script attached
+	# Make a deep copy of template to avoid closure issues
+	var template_copy = template.duplicate(true)
+	
+	# Use a Timer node instead of get_tree().create_timer() for stability in editor plugins
+	var timer = Timer.new()
+	timer.wait_time = 0.3
+	timer.one_shot = true
+	timer.timeout.connect(func():
+		timer.queue_free()
+		_finish_form_creation(path, form_name, vg_path, template_copy)
+	)
+	get_editor_interface().get_base_control().add_child(timer)
+	timer.start()
+
+## Completes form creation after filesystem scan.
+## @param path: Scene file path
+## @param form_name: Name of the form
+## @param vg_path: Path to the .vg script file
+## @param template: Template dictionary
+func _finish_form_creation(path: String, form_name: String, vg_path: String, template: Dictionary):
+	# Now create the Window node - DO NOT attach VG script until after all children and owners are set
 	var root = Window.new()
 	root.name = form_name
 	root.title = form_name
@@ -404,17 +428,6 @@ func _create_form_from_template(template: Dictionary):
 		bg_panel.set_script(helper_script)
 	root.add_child(bg_panel)
 	bg_panel.owner = root
-	
-	# Load and attach the .vg script
-	var vg_script = load(vg_path)
-	if vg_script:
-		root.set_script(vg_script)
-		print("VisualGasic: Attached VG script to form: ", vg_path)
-	else:
-		# Fallback to GDScript base if VG script couldn't load
-		var vg_form_base = load("res://addons/visual_gasic/VGFormBase.gd")
-		root.set_script(vg_form_base)
-		print("VisualGasic: Warning - VG script not found, using VGFormBase.gd")
 	
 	# The form will handle its own lifecycle and window management
 	# User can override Form_Load(), Form_Shown(), etc. in their .vg file
@@ -461,22 +474,47 @@ func _create_form_from_template(template: Dictionary):
 				control = Button.new()
 			"Label":
 				control = Label.new()
-			"TextEdit", "LineEdit":
+			"TextEdit":
+				control = TextEdit.new()
+			"LineEdit":
 				control = LineEdit.new()
+			"CheckBox":
+				control = CheckBox.new()
+			"CheckButton":
+				control = CheckButton.new()
+			"ProgressBar":
+				control = ProgressBar.new()
+			"SpinBox":
+				control = SpinBox.new()
+			"HSlider":
+				control = HSlider.new()
+			_:
+				# Default to Button for unknown types
+				control = Button.new()
 		
 		if control:
 			control.name = control_data.get("name", "Control")
-			if control.has_method("set_text"):
+			# Use 'text' property if available (works for Button, Label, LineEdit, etc.)
+			if "text" in control:
 				control.text = control_data.get("text", "")
 			control.position = control_data.get("position", Vector2.ZERO)
 			control.size = control_data.get("size", Vector2(100, 30))
 			root.add_child(control)
 			control.owner = root
 	
-	# form_name already set at the top of the function
-	root.name = form_name
+	# Now attach the VG script AFTER all children are added and owners set
+	# This prevents the script from interfering with owner assignment
+	var vg_script = load(vg_path)
+	if vg_script:
+		root.set_script(vg_script)
+		print("VisualGasic: Attached VG script to form: ", vg_path)
+	else:
+		# Fallback to GDScript base if VG script couldn't load
+		var vg_form_base = load("res://addons/visual_gasic/VGFormBase.gd")
+		root.set_script(vg_form_base)
+		print("VisualGasic: Warning - VG script not found, using VGFormBase.gd")
 	
-	# Save scene (VG script is already attached from above)
+	# Save scene
 	var packed = PackedScene.new()
 	packed.pack(root)
 	ResourceSaver.save(packed, path)
@@ -486,13 +524,26 @@ func _create_form_from_template(template: Dictionary):
 	get_editor_interface().open_scene_from_path(path)
 
 ## Creates the initial .vg script file for a new form.
-## Includes WinForms-style boilerplate with lifecycle events and sample controls.
+## Uses template-specific code if available, otherwise generates default boilerplate.
 ## @param path: Output path for the .vg file
 ## @param form_name: Name of the form (used in comments and default text)
-## @param template: Template dictionary (reserved for future template-specific code)
+## @param template: Template dictionary containing optional "code" key with template-specific code
 func _create_vg_form_code(path: String, form_name: String, template: Dictionary):
 	var f = FileAccess.open(path, FileAccess.WRITE)
-	var code = """' """ + form_name + """.vg - WinForms-style Form
+	
+	# Use template-specific code if available
+	var template_code = template.get("code", "")
+	var code: String
+	
+	if not template_code.is_empty():
+		# Use the template's custom code
+		code = "' " + form_name + ".vg - " + template.get("name", "Form") + "\n"
+		code += "' Generated from Visual Gasic template\n"
+		code += "Option Explicit\n\n"
+		code += template_code
+	else:
+		# Fallback to generic form code
+		code = """' """ + form_name + """.vg - WinForms-style Form
 ' Extends VGFormBase which provides proper Form lifecycle
 Option Explicit
 
@@ -983,6 +1034,8 @@ func _get_navigator():
 ## @param node: The node to check and update
 func _auto_set_text_from_name(node: Node):
 	if not is_instance_valid(node): return
+	# Don't process nodes that aren't fully in the tree yet
+	if not node.is_inside_tree(): return
 	
 	# Only applies to controls with a 'text' property
 	if "text" in node:
@@ -1000,6 +1053,8 @@ func _auto_set_text_from_name(node: Node):
 ## @param node: The node to check
 func _check_nesting(node: Node):
 	if not is_instance_valid(node): return
+	# Don't process nodes that aren't fully in the tree yet (e.g. during drag-drop)
+	if not node.is_inside_tree(): return
 	
 	# CHECK FOR MISSING ROOT (Empty Scene)
 	var root = get_editor_interface().get_edited_scene_root()
