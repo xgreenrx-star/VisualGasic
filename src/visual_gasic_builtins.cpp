@@ -21,6 +21,8 @@
 #include <godot_cpp/classes/tree.hpp>
 #include <godot_cpp/classes/tree_item.hpp>
 #include <godot_cpp/variant/packed_int64_array.hpp>
+#include <godot_cpp/variant/vector2.hpp>
+#include <godot_cpp/variant/vector3.hpp>
 
 using namespace godot;
 
@@ -125,6 +127,22 @@ bool call_builtin(VisualGasicInstance *instance, const String &p_method, const A
         result = le->get_text();
         dialog->queue_free();
         r_ret = result;
+        return true;
+    }
+
+    // Convenience: statement-level AddChild(child) - adds the child to the instance owner
+    if (method.nocasecmp_to("AddChild") == 0) {
+        r_found = true;
+        if (!instance->get_owner()) return true;
+        Node *parent = Object::cast_to<Node>(instance->get_owner());
+        if (!parent) return true;
+        if (p_args.size() >= 1) {
+            Object *child_obj = Object::cast_to<Object>(p_args[0]);
+            if (child_obj) {
+                Node *child = Object::cast_to<Node>(child_obj);
+                if (child) parent->add_child(child);
+            }
+        }
         return true;
     }
 
@@ -430,6 +448,93 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
 
     if (METHOD_IS("lerp") && args.size() == 3) { r_handled = true; double a = args[0]; double b = args[1]; double t = args[2]; return Math::lerp(a,b,t); }
     if (METHOD_IS("clamp") && args.size() == 3) { r_handled = true; double val = args[0]; double mn = args[1]; double mx = args[2]; return Math::clamp(val,mn,mx); }
+
+    // Vector math helpers (works for Vector2 or Vector3 depending on input types)
+    if (METHOD_IS("vec3") && args.size() == 3) { r_handled = true; return Vector3(args[0], args[1], args[2]); }
+    if (METHOD_IS("vec2") && args.size() == 2) { r_handled = true; return Vector2(args[0], args[1]); }
+
+    if (METHOD_IS("vadd") && args.size() == 2) {
+        r_handled = true;
+        Variant a = args[0]; Variant b = args[1];
+        if (a.get_type() == Variant::VECTOR3 && b.get_type() == Variant::VECTOR3) return Vector3(a) + Vector3(b);
+        if (a.get_type() == Variant::VECTOR2 && b.get_type() == Variant::VECTOR2) return Vector2(a) + Vector2(b);
+        return Variant();
+    }
+    if (METHOD_IS("vsub") && args.size() == 2) {
+        r_handled = true;
+        Variant a = args[0]; Variant b = args[1];
+        if (a.get_type() == Variant::VECTOR3 && b.get_type() == Variant::VECTOR3) return Vector3(a) - Vector3(b);
+        if (a.get_type() == Variant::VECTOR2 && b.get_type() == Variant::VECTOR2) return Vector2(a) - Vector2(b);
+        return Variant();
+    }
+    if (METHOD_IS("vmul") && args.size() == 2) {
+        r_handled = true;
+        Variant a = args[0]; Variant b = args[1];
+        if (a.get_type() == Variant::VECTOR3 && b.get_type() == Variant::FLOAT) return Vector3(a) * (double)b;
+        if (a.get_type() == Variant::VECTOR3 && b.get_type() == Variant::INT) return Vector3(a) * (double)(int64_t)b;
+        if (a.get_type() == Variant::VECTOR2 && b.get_type() == Variant::FLOAT) return Vector2(a) * (double)b;
+        if (a.get_type() == Variant::VECTOR2 && b.get_type() == Variant::INT) return Vector2(a) * (double)(int64_t)b;
+        return Variant();
+    }
+    if (METHOD_IS("vdot") && args.size() == 2) {
+        r_handled = true;
+        Variant a = args[0]; Variant b = args[1];
+        if (a.get_type() == Variant::VECTOR3 && b.get_type() == Variant::VECTOR3) return Vector3(a).dot(Vector3(b));
+        if (a.get_type() == Variant::VECTOR2 && b.get_type() == Variant::VECTOR2) return Vector2(a).dot(Vector2(b));
+        return Variant();
+    }
+    if (METHOD_IS("vcross") && args.size() == 2) {
+        r_handled = true;
+        Variant a = args[0]; Variant b = args[1];
+        if (a.get_type() == Variant::VECTOR3 && b.get_type() == Variant::VECTOR3) return Vector3(a).cross(Vector3(b));
+        return Variant();
+    }
+    if (METHOD_IS("vlen") && args.size() == 1) {
+        r_handled = true;
+        Variant a = args[0];
+        if (a.get_type() == Variant::VECTOR3) return Vector3(a).length();
+        if (a.get_type() == Variant::VECTOR2) return Vector2(a).length();
+        return Variant();
+    }
+    if (METHOD_IS("vnormalize") && args.size() == 1) {
+        r_handled = true;
+        Variant a = args[0];
+        if (a.get_type() == Variant::VECTOR3) return Vector3(a).normalized();
+        if (a.get_type() == Variant::VECTOR2) return Vector2(a).normalized();
+        return Variant();
+    }
+    if (METHOD_IS("vdistance") && args.size() == 2) {
+        r_handled = true;
+        Variant a = args[0]; Variant b = args[1];
+        if (a.get_type() == Variant::VECTOR3 && b.get_type() == Variant::VECTOR3) return Vector3(a).distance_to(Vector3(b));
+        if (a.get_type() == Variant::VECTOR2 && b.get_type() == Variant::VECTOR2) return Vector2(a).distance_to(Vector2(b));
+        return Variant();
+    }
+    if (METHOD_IS("vlerp") && args.size() == 3) {
+        r_handled = true;
+        Variant a = args[0]; Variant b = args[1]; double t = args[2];
+        if (a.get_type() == Variant::VECTOR3 && b.get_type() == Variant::VECTOR3) return Vector3(a).lerp(Vector3(b), t);
+        if (a.get_type() == Variant::VECTOR2 && b.get_type() == Variant::VECTOR2) return Vector2(a).lerp(Vector2(b), t);
+        return Variant();
+    }
+
+    // Convenience property setter: SetProp(obj, "prop_name", value)
+    if (METHOD_IS("setprop") && args.size() == 3) {
+        r_handled = true;
+        Variant obj_v = args[0];
+        String prop = args[1];
+        Variant val = args[2];
+        if (obj_v.get_type() == Variant::OBJECT) {
+            Object *o = obj_v;
+            if (o) {
+                o->set(prop, val);
+                if (o->get(prop).get_type() == Variant::NIL) {
+                    o->set(prop.to_snake_case(), val);
+                }
+            }
+        }
+        return Variant();
+    }
 
     // String functions
     if (METHOD_IS("startswith") && args.size() == 2) {

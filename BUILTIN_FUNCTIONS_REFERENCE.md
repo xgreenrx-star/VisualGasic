@@ -231,7 +231,15 @@ These were already implemented and still work:
 - `LOF()`, `Loc()`, `EOF()`, `FreeFile()`, `FileLen()`, `Dir()`
 
 ### Vector Math
-- `Vec3()`, `VAdd()`, `VSub()`, `VDot()`, `VCross()`, `VLen()`, `VNormalize()`
+- `Vec2()`, `Vec3()` - Create vector from components
+- `VAdd()`, `VSub()`, `VMul()` - Vector arithmetic
+- `VDot()`, `VCross()` - Vector products
+- `VLen()`, `VNormalize()` - Vector length and normalization
+- `VDistance()`, `VLerp()` - Distance and interpolation
+
+### Utility
+- `SetProp(obj, property, value)` - Set object property dynamically
+- `AddChild(child)` - Add node as child of current form/script owner
 
 ---
 
@@ -245,9 +253,10 @@ These were already implemented and still work:
 - **File System**: 5 new + 6 existing = **11 total**
 - **Functional**: 6 new (partial) = **6 total**
 - **Math**: 0 new + 11 existing = **11 total**
-- **Vector**: 0 new + 7 existing = **7 total**
+- **Vector**: 12 (Vec2, Vec3, VAdd, VSub, VMul, VDot, VCross, VLen, VNormalize, VDistance, VLerp, SetProp) = **12 total**
+- **Utility**: 2 new (SetProp, AddChild) = **2 total**
 
-**Grand Total**: 44 new functions + 39 existing = **83 builtin functions!**
+**Grand Total**: 44 new functions + 52 existing = **96 builtin functions!**
 
 ---
 
