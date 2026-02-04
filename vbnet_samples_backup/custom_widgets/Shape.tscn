@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://shape_proto"]
+
+[node name="Shape" type="ColorRect"]
+offset_right = 100.0
+offset_bottom = 100.0
+color = Color(1, 0, 0, 1)

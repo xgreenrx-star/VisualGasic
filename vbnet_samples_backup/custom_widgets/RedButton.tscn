@@ -1,0 +1,8 @@
+[gd_scene load_steps=1 format=3 uid="uid://redbutton123"]
+
+[node name="RedButton" type="Button"]
+custom_minimum_size = Vector2(100, 40)
+offset_right = 100.0
+offset_bottom = 40.0
+text = "Red Button"
+modulate = Color(1, 0, 0, 1)

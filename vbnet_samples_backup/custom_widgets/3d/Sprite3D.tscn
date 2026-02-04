@@ -1,0 +1,7 @@
+[gd_scene load_steps=2 format=3 uid="uid://sprite3d_proto"]
+
+[ext_resource type="Texture2D" uid="uid://c6s2e6660655" path="res://icon.svg" id="1_tex"]
+
+[node name="Sprite" type="Sprite3D"]
+texture = ExtResource("1_tex")
+billboard = 1

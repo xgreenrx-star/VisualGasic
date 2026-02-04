@@ -1,0 +1,137 @@
+' Visual Gasic Form with VB6-style window management
+' Provides draggable window, minimize/maximize/close, positioned at 0,0
+
+Option Explicit
+
+' Window controls
+Dim title_bar As Control
+Dim title_label As Label
+Dim btn_minimize As Button
+Dim btn_maximize As Button
+Dim btn_close As Button
+Dim content_area As Control
+Dim menu_bar As MenuBar
+
+' Dragging state
+Dim is_dragging As Boolean
+Dim drag_start_pos As Vector2
+Dim is_maximized As Boolean
+Dim restore_rect As Rect2
+
+' Constants
+Const TITLE_BAR_HEIGHT = 30
+Const BUTTON_SIZE = 24
+
+Sub Form_Load()
+    If Engine.is_editor_hint() Then Exit Sub
+    
+    ' Position at top-left (0, 0)
+    Me.position = Vector2(0, 0)
+    
+    ' Build window chrome
+    BuildTitleBar()
+    SetupContentArea()
+    
+    ' Make sure menu bar is visible
+    EnsureMenuBarVisible()
+End Sub
+
+Sub BuildTitleBar()
+    ' Create custom title bar
+    Set title_bar = Panel.new()
+    title_bar.custom_minimum_size = Vector2(0, TITLE_BAR_HEIGHT)
+    title_bar.set_anchors_preset(Control.PRESET_TOP_WIDE)
+    title_bar.offset_bottom = TITLE_BAR_HEIGHT
+    
+    Dim style As StyleBoxFlat
+    Set style = StyleBoxFlat.new()
+    style.bg_color = Color(0.1, 0.1, 0.4)  ' VB6 blue
+    title_bar.add_theme_stylebox_override("panel", style)
+    Me.add_child(title_bar)
+    title_bar.mouse_filter = Control.MOUSE_FILTER_PASS
+    
+    ' Title label
+    Set title_label = Label.new()
+    title_label.text = Me.title
+    title_label.position = Vector2(8, 5)
+    title_label.add_theme_color_override("font_color", Color.WHITE)
+    title_bar.add_child(title_label)
+    
+    ' Window buttons (right side)
+    Dim button_x As Single
+    button_x = Me.size.x - (BUTTON_SIZE + 4) * 3
+    
+    ' Minimize button
+    Set btn_minimize = Button.new()
+    btn_minimize.text = "─"
+    btn_minimize.custom_minimum_size = Vector2(BUTTON_SIZE, BUTTON_SIZE)
+    btn_minimize.position = Vector2(button_x, 3)
+    title_bar.add_child(btn_minimize)
+    
+    ' Maximize/Restore button
+    Set btn_maximize = Button.new()
+    btn_maximize.text = "□"
+    btn_maximize.custom_minimum_size = Vector2(BUTTON_SIZE, BUTTON_SIZE)
+    btn_maximize.position = Vector2(button_x + BUTTON_SIZE + 4, 3)
+    title_bar.add_child(btn_maximize)
+    
+    ' Close button
+    Set btn_close = Button.new()
+    btn_close.text = "×"
+    btn_close.custom_minimum_size = Vector2(BUTTON_SIZE, BUTTON_SIZE)
+    btn_close.position = Vector2(button_x + (BUTTON_SIZE + 4) * 2, 3)
+    title_bar.add_child(btn_close)
+End Sub
+
+Sub SetupContentArea()
+    ' Move all existing children below title bar
+    Dim children As Array
+    children = Me.get_children()
+    
+    ' Create content container
+    Set content_area = Control.new()
+    content_area.set_anchors_preset(Control.PRESET_FULL_RECT)
+    content_area.offset_top = TITLE_BAR_HEIGHT
+    content_area.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    Me.add_child(content_area)
+    content_area.move_to_front()
+    
+    ' Reparent existing children (except title bar)
+    Dim i As Integer
+    For i = 0 To UBound(children)
+        Dim child As Node
+        Set child = children[i]
+        If child <> title_bar And child <> content_area Then
+            Me.remove_child(child)
+            content_area.add_child(child)
+            ' Adjust position to account for title bar
+            If TypeOf child Is Control Then
+                Dim ctrl As Control
+                Set ctrl = child
+                ctrl.position = ctrl.position - Vector2(0, TITLE_BAR_HEIGHT)
+            End If
+        End If
+    Next i
+End Sub
+
+Sub EnsureMenuBarVisible()
+    ' Find MenuBar if it exists
+    Dim children As Array
+    children = content_area.get_children()
+    
+    Dim i As Integer
+    For i = 0 To UBound(children)
+        Dim child As Node
+        Set child = children[i]
+        If TypeOf child Is MenuBar Then
+            Set menu_bar = child
+            menu_bar.visible = True
+            ' Ensure it's at the top
+            menu_bar.set_anchors_preset(Control.PRESET_TOP_WIDE)
+            menu_bar.offset_top = 0
+            menu_bar.offset_bottom = 30
+            Exit For
+        End If
+    Next i
+End Sub
+

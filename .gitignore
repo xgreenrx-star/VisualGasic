@@ -2,6 +2,7 @@
 .godot/
 demo/.godot/
 *.import
+*.uid
 
 # SCons
 .sconsign.dblite
@@ -11,10 +12,12 @@ bin/
 demo/bin/
 build/
 *.o
+*.os
 *.a
 *.so
 *.dll
 *.dylib
+**/libvisualgasic.*.so
 Godot_v4.5.1-stable_linux.x86_64
 *.zip
 bytecode_dump*.json
@@ -39,3 +42,8 @@ __pycache__/
 
 # VS Code
 .vscode/
+
+# Test artifacts
+integration_test_*.txt
+integration_test_*.json
+integration_test_*.xml

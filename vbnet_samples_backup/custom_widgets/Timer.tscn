@@ -1,0 +1,4 @@
+[gd_scene format=3 uid="uid://timer_proto"]
+
+[node name="Timer" type="Timer"]
+process_callback = 0

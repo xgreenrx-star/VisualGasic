@@ -1,0 +1,634 @@
+' CSVImporter.vg - CSV data import and parsing for CSV Data Analyzer
+Imports System.IO
+Imports System.Collections.Generic
+Imports System.Text
+Imports System.Text.RegularExpressions
+Imports System.Globalization
+Imports System.ComponentModel
+
+Option Explicit On
+Option Strict On
+
+Public Class CSVImporter
+    ' Events
+    Public Event ProgressChanged As EventHandler(Of ProgressChangedEventArgs)
+    Public Event ImportCompleted As EventHandler(Of ImportCompletedEventArgs)
+    Public Event ErrorOccurred As EventHandler(Of ErrorEventArgs)
+    
+    ' Properties
+    Public Property Delimiter As String = ","
+    Public Property TextQualifier As String = """"
+    Public Property HasHeaderRow As Boolean = True
+    Public Property SkipEmptyLines As Boolean = True
+    Public Property TrimValues As Boolean = True
+    Public Property Encoding As Encoding = Encoding.UTF8
+    Public Property Culture As CultureInfo = CultureInfo.InvariantCulture
+    Public Property MaxRowsToProcess As Integer = 0  ' 0 means unlimited
+    Public Property DateFormat As String = "yyyy-MM-dd"
+    Public Property NumberDecimalSeparator As String = "."
+    Public Property HandleQuotedNewlines As Boolean = True
+    
+    ' Data storage
+    Private dataTable As DataTable
+    Private columnInfo As New Dictionary(Of String, ColumnInfo)
+    Private importStats As ImportStatistics
+    
+    Public ReadOnly Property Data As DataTable
+        Get
+            Return dataTable
+        End Get
+    End Property
+    
+    Public ReadOnly Property ColumnInformation As Dictionary(Of String, ColumnInfo)
+        Get
+            Return New Dictionary(Of String, ColumnInfo)(columnInfo)
+        End Get
+    End Property
+    
+    Public ReadOnly Property Statistics As ImportStatistics
+        Get
+            Return importStats
+        End Get
+    End Property
+    
+    ' Column information class
+    Public Class ColumnInfo
+        Public Property Name As String = ""
+        Public Property DataType As Type = GetType(String)
+        Public Property IsNumeric As Boolean = False
+        Public Property IsDate As Boolean = False
+        Public Property IsBoolean As Boolean = False
+        Public Property MinValue As Object = Nothing
+        Public Property MaxValue As Object = Nothing
+        Public Property UniqueValues As Integer = 0
+        Public Property NullCount As Integer = 0
+        Public Property Sample As String = ""
+        
+        Public Overrides Function ToString() As String
+            Return $"{Name} ({DataType.Name})"
+        End Function
+    End Class
+    
+    ' Import statistics class
+    Public Class ImportStatistics
+        Public Property TotalRows As Integer = 0
+        Public Property ProcessedRows As Integer = 0
+        Public Property SkippedRows As Integer = 0
+        Public Property ErrorRows As Integer = 0
+        Public Property Columns As Integer = 0
+        Public Property ImportDuration As TimeSpan = TimeSpan.Zero
+        Public Property FileSize As Long = 0
+        Public Property DataTypes As New Dictionary(Of String, Integer)
+        
+        Public Overrides Function ToString() As String
+            Return $"Processed {ProcessedRows:N0} rows, {Columns} columns in {ImportDuration.TotalSeconds:F2} seconds"
+        End Function
+    End Class
+    
+    ' Event argument classes
+    Public Class ImportCompletedEventArgs
+        Inherits EventArgs
+        
+        Public Property Success As Boolean
+        Public Property Message As String = ""
+        Public Property Statistics As ImportStatistics
+        Public Property Exception As Exception = Nothing
+        
+        Public Sub New(success As Boolean, stats As ImportStatistics, Optional message As String = "", Optional ex As Exception = Nothing)
+            Me.Success = success
+            Me.Statistics = stats
+            Me.Message = message
+            Me.Exception = ex
+        End Sub
+    End Class
+    
+    ' Main import methods
+    Public Function ImportFromFile(filePath As String) As Boolean
+        Try
+            If Not File.Exists(filePath) Then
+                Throw New FileNotFoundException($"File not found: {filePath}")
+            End If
+            
+            Dim fileInfo As New FileInfo(filePath)
+            importStats = New ImportStatistics With {
+                .FileSize = fileInfo.Length
+            }
+            
+            Dim startTime As DateTime = DateTime.Now
+            
+            Using reader As New StreamReader(filePath, Encoding)
+                Dim result As Boolean = ImportFromTextReader(reader)
+                
+                importStats.ImportDuration = DateTime.Now - startTime
+                RaiseEvent ImportCompleted(Me, New ImportCompletedEventArgs(result, importStats, If(result, "Import completed successfully", "Import completed with errors")))
+                
+                Return result
+            End Using
+            
+        Catch ex As Exception
+            RaiseEvent ErrorOccurred(Me, New ErrorEventArgs(ex))
+            RaiseEvent ImportCompleted(Me, New ImportCompletedEventArgs(False, importStats, "Import failed", ex))
+            Return False
+        End Try
+    End Function
+    
+    Public Function ImportFromString(csvData As String) As Boolean
+        Try
+            importStats = New ImportStatistics()
+            Dim startTime As DateTime = DateTime.Now
+            
+            Using reader As New StringReader(csvData)
+                Dim result As Boolean = ImportFromTextReader(reader)
+                
+                importStats.ImportDuration = DateTime.Now - startTime
+                RaiseEvent ImportCompleted(Me, New ImportCompletedEventArgs(result, importStats, If(result, "Import completed successfully", "Import completed with errors")))
+                
+                Return result
+            End Using
+            
+        Catch ex As Exception
+            RaiseEvent ErrorOccurred(Me, New ErrorEventArgs(ex))
+            RaiseEvent ImportCompleted(Me, New ImportCompletedEventArgs(False, importStats, "Import failed", ex))
+            Return False
+        End Try
+    End Function
+    
+    Private Function ImportFromTextReader(reader As TextReader) As Boolean
+        Try
+            dataTable = New DataTable()
+            columnInfo.Clear()
+            
+            Dim lines As New List(Of String)
+            Dim line As String = ""
+            Dim lineNumber As Integer = 0
+            
+            ' Read all lines first to handle quoted newlines
+            While (InlineAssignHelper(line, reader.ReadLine())) IsNot Nothing
+                lineNumber += 1
+                
+                If SkipEmptyLines And String.IsNullOrWhiteSpace(line) Then
+                    importStats.SkippedRows += 1
+                    Continue While
+                End If
+                
+                lines.Add(line)
+                
+                If MaxRowsToProcess > 0 And lines.Count >= MaxRowsToProcess + If(HasHeaderRow, 1, 0) Then
+                    Exit While
+                End If
+            End While
+            
+            importStats.TotalRows = lines.Count
+            
+            If lines.Count = 0 Then
+                Throw New InvalidOperationException("No data found in the CSV")
+            End If
+            
+            ' Handle quoted newlines
+            If HandleQuotedNewlines Then
+                lines = CombineQuotedLines(lines)
+            End If
+            
+            ' Parse header
+            Dim headers As String() = Nothing
+            Dim dataStartIndex As Integer = 0
+            
+            If HasHeaderRow And lines.Count > 0 Then
+                headers = ParseCSVLine(lines(0))
+                dataStartIndex = 1
+                importStats.SkippedRows += 1  ' Header row
+            Else
+                ' Generate column names
+                Dim firstDataLine As String() = ParseCSVLine(lines(0))
+                ReDim headers(firstDataLine.Length - 1)
+                For i As Integer = 0 To firstDataLine.Length - 1
+                    headers(i) = $"Column{i + 1}"
+                Next
+            End If
+            
+            ' Create columns
+            For Each header As String In headers
+                Dim cleanHeader As String = If(TrimValues, header.Trim(), header)
+                If String.IsNullOrEmpty(cleanHeader) Then
+                    cleanHeader = $"Column{dataTable.Columns.Count + 1}"
+                End If
+                
+                ' Ensure unique column names
+                Dim uniqueHeader As String = cleanHeader
+                Dim counter As Integer = 1
+                While dataTable.Columns.Contains(uniqueHeader)
+                    uniqueHeader = $"{cleanHeader}_{counter}"
+                    counter += 1
+                End While
+                
+                dataTable.Columns.Add(uniqueHeader, GetType(String))
+                
+                columnInfo(uniqueHeader) = New ColumnInfo With {
+                    .Name = uniqueHeader,
+                    .DataType = GetType(String)
+                }
+            Next
+            
+            importStats.Columns = dataTable.Columns.Count
+            
+            ' Parse data rows
+            For i As Integer = dataStartIndex To lines.Count - 1
+                Try
+                    Dim values As String() = ParseCSVLine(lines(i))
+                    
+                    If values.Length = 0 And SkipEmptyLines Then
+                        importStats.SkippedRows += 1
+                        Continue For
+                    End If
+                    
+                    ' Resize values array to match columns
+                    If values.Length <> dataTable.Columns.Count Then
+                        ReDim Preserve values(dataTable.Columns.Count - 1)
+                    End If
+                    
+                    ' Process and clean values
+                    For j As Integer = 0 To values.Length - 1
+                        If j < values.Length AndAlso values(j) IsNot Nothing Then
+                            If TrimValues Then
+                                values(j) = values(j).Trim()
+                            End If
+                            
+                            If String.IsNullOrEmpty(values(j)) Then
+                                values(j) = Nothing
+                            End If
+                        Else
+                            values(j) = Nothing
+                        End If
+                    Next
+                    
+                    dataTable.Rows.Add(values)
+                    importStats.ProcessedRows += 1
+                    
+                    ' Report progress
+                    If i Mod 1000 = 0 Then
+                        Dim progressPercentage As Integer = CInt((i / lines.Count) * 100)
+                        RaiseEvent ProgressChanged(Me, New ProgressChangedEventArgs(progressPercentage, $"Processing row {i:N0} of {lines.Count:N0}"))
+                    End If
+                    
+                Catch ex As Exception
+                    importStats.ErrorRows += 1
+                    RaiseEvent ErrorOccurred(Me, New ErrorEventArgs(New Exception($"Error parsing line {i + 1}: {ex.Message}", ex)))
+                End Try
+            Next
+            
+            ' Analyze column data types
+            AnalyzeColumnTypes()
+            
+            Return True
+            
+        Catch ex As Exception
+            Throw New InvalidOperationException($"Failed to import CSV data: {ex.Message}", ex)
+        End Try
+    End Function
+    
+    Private Function CombineQuotedLines(lines As List(Of String)) As List(Of String)
+        Dim combinedLines As New List(Of String)
+        Dim currentLine As New StringBuilder()
+        Dim insideQuotes As Boolean = False
+        
+        For Each line As String In lines
+            If currentLine.Length > 0 Then
+                currentLine.AppendLine()
+            End If
+            
+            currentLine.Append(line)
+            
+            ' Count quotes to determine if we're inside a quoted field
+            Dim quoteCount As Integer = 0
+            Dim i As Integer = 0
+            
+            While i < line.Length
+                If line(i) = TextQualifier(0) Then
+                    ' Check for escaped quotes
+                    If i + 1 < line.Length AndAlso line(i + 1) = TextQualifier(0) Then
+                        i += 2  ' Skip escaped quote
+                        Continue While
+                    End If
+                    quoteCount += 1
+                End If
+                i += 1
+            End While
+            
+            ' If odd number of quotes, we're inside a quoted field
+            If quoteCount Mod 2 = 1 Then
+                insideQuotes = Not insideQuotes
+            End If
+            
+            If Not insideQuotes Then
+                combinedLines.Add(currentLine.ToString())
+                currentLine.Clear()
+            End If
+        Next
+        
+        ' Handle case where file ends with unclosed quotes
+        If currentLine.Length > 0 Then
+            combinedLines.Add(currentLine.ToString())
+        End If
+        
+        Return combinedLines
+    End Function
+    
+    Private Function ParseCSVLine(line As String) As String()
+        If String.IsNullOrEmpty(line) Then
+            Return New String() {}
+        End If
+        
+        Dim values As New List(Of String)
+        Dim currentValue As New StringBuilder()
+        Dim insideQuotes As Boolean = False
+        Dim i As Integer = 0
+        
+        While i < line.Length
+            Dim c As Char = line(i)
+            
+            If c = TextQualifier(0) AndAlso Not insideQuotes Then
+                ' Start of quoted value
+                insideQuotes = True
+            ElseIf c = TextQualifier(0) AndAlso insideQuotes Then
+                ' Check for escaped quote
+                If i + 1 < line.Length AndAlso line(i + 1) = TextQualifier(0) Then
+                    currentValue.Append(c)
+                    i += 1  ' Skip the next quote
+                Else
+                    ' End of quoted value
+                    insideQuotes = False
+                End If
+            ElseIf c = Delimiter(0) AndAlso Not insideQuotes Then
+                ' Field separator
+                values.Add(currentValue.ToString())
+                currentValue.Clear()
+            Else
+                currentValue.Append(c)
+            End If
+            
+            i += 1
+        End While
+        
+        ' Add the last value
+        values.Add(currentValue.ToString())
+        
+        Return values.ToArray()
+    End Function
+    
+    Private Sub AnalyzeColumnTypes()
+        For Each column As DataColumn In dataTable.Columns
+            Dim colInfo As ColumnInfo = columnInfo(column.ColumnName)
+            Dim uniqueValues As New HashSet(Of String)
+            Dim numericCount As Integer = 0
+            Dim dateCount As Integer = 0
+            Dim booleanCount As Integer = 0
+            Dim totalNonNull As Integer = 0
+            
+            Dim minValue As Object = Nothing
+            Dim maxValue As Object = Nothing
+            
+            For Each row As DataRow In dataTable.Rows
+                Dim value As Object = row(column)
+                
+                If value Is Nothing Or IsDBNull(value) Then
+                    colInfo.NullCount += 1
+                    Continue For
+                End If
+                
+                Dim stringValue As String = value.ToString()
+                uniqueValues.Add(stringValue)
+                totalNonNull += 1
+                
+                ' Set sample value
+                If String.IsNullOrEmpty(colInfo.Sample) Then
+                    colInfo.Sample = stringValue
+                End If
+                
+                ' Check for numeric
+                Dim numericValue As Double
+                If Double.TryParse(stringValue, NumberStyles.Any, Culture, numericValue) Then
+                    numericCount += 1
+                    
+                    If minValue Is Nothing Or numericValue < CDbl(minValue) Then
+                        minValue = numericValue
+                    End If
+                    If maxValue Is Nothing Or numericValue > CDbl(maxValue) Then
+                        maxValue = numericValue
+                    End If
+                End If
+                
+                ' Check for date
+                Dim dateValue As DateTime
+                If DateTime.TryParse(stringValue, Culture, DateTimeStyles.None, dateValue) Then
+                    dateCount += 1
+                    
+                    If minValue Is Nothing Or dateValue < CDate(minValue) Then
+                        minValue = dateValue
+                    End If
+                    If maxValue Is Nothing Or dateValue > CDate(maxValue) Then
+                        maxValue = dateValue
+                    End If
+                End If
+                
+                ' Check for boolean
+                Dim booleanValue As Boolean
+                If Boolean.TryParse(stringValue, booleanValue) OrElse
+                   stringValue.Equals("1", StringComparison.OrdinalIgnoreCase) OrElse
+                   stringValue.Equals("0", StringComparison.OrdinalIgnoreCase) OrElse
+                   stringValue.Equals("yes", StringComparison.OrdinalIgnoreCase) OrElse
+                   stringValue.Equals("no", StringComparison.OrdinalIgnoreCase) Then
+                    booleanCount += 1
+                End If
+            Next
+            
+            colInfo.UniqueValues = uniqueValues.Count
+            colInfo.MinValue = minValue
+            colInfo.MaxValue = maxValue
+            
+            ' Determine predominant data type (80% threshold)
+            If totalNonNull > 0 Then
+                Dim numericPercentage As Double = numericCount / totalNonNull
+                Dim datePercentage As Double = dateCount / totalNonNull
+                Dim booleanPercentage As Double = booleanCount / totalNonNull
+                
+                If numericPercentage >= 0.8 Then
+                    colInfo.DataType = GetType(Double)
+                    colInfo.IsNumeric = True
+                    
+                    ' Update statistics
+                    If importStats.DataTypes.ContainsKey("Numeric") Then
+                        importStats.DataTypes("Numeric") += 1
+                    Else
+                        importStats.DataTypes("Numeric") = 1
+                    End If
+                    
+                ElseIf datePercentage >= 0.8 Then
+                    colInfo.DataType = GetType(DateTime)
+                    colInfo.IsDate = True
+                    
+                    If importStats.DataTypes.ContainsKey("Date") Then
+                        importStats.DataTypes("Date") += 1
+                    Else
+                        importStats.DataTypes("Date") = 1
+                    End If
+                    
+                ElseIf booleanPercentage >= 0.8 Then
+                    colInfo.DataType = GetType(Boolean)
+                    colInfo.IsBoolean = True
+                    
+                    If importStats.DataTypes.ContainsKey("Boolean") Then
+                        importStats.DataTypes("Boolean") += 1
+                    Else
+                        importStats.DataTypes("Boolean") = 1
+                    End If
+                    
+                Else
+                    colInfo.DataType = GetType(String)
+                    
+                    If importStats.DataTypes.ContainsKey("Text") Then
+                        importStats.DataTypes("Text") += 1
+                    Else
+                        importStats.DataTypes("Text") = 1
+                    End If
+                End If
+            End If
+        Next
+    End Sub
+    
+    ' Data validation methods
+    Public Function ValidateData() As List(Of String)
+        Dim validationErrors As New List(Of String)
+        
+        If dataTable Is Nothing Or dataTable.Rows.Count = 0 Then
+            validationErrors.Add("No data available for validation")
+            Return validationErrors
+        End If
+        
+        ' Check for duplicate headers
+        Dim headerCounts As New Dictionary(Of String, Integer)
+        For Each column As DataColumn In dataTable.Columns
+            If headerCounts.ContainsKey(column.ColumnName) Then
+                headerCounts(column.ColumnName) += 1
+            Else
+                headerCounts(column.ColumnName) = 1
+            End If
+        Next
+        
+        For Each kvp As KeyValuePair(Of String, Integer) In headerCounts
+            If kvp.Value > 1 Then
+                validationErrors.Add($"Duplicate column name: {kvp.Key}")
+            End If
+        Next
+        
+        ' Check for rows with different number of columns
+        For i As Integer = 0 To dataTable.Rows.Count - 1
+            Dim nonNullCount As Integer = 0
+            For Each item As Object In dataTable.Rows(i).ItemArray
+                If item IsNot Nothing And Not IsDBNull(item) And Not String.IsNullOrEmpty(item.ToString()) Then
+                    nonNullCount += 1
+                End If
+            Next
+            
+            If nonNullCount <> dataTable.Columns.Count Then
+                validationErrors.Add($"Row {i + 1}: Expected {dataTable.Columns.Count} values, found {nonNullCount} non-empty values")
+            End If
+        Next
+        
+        Return validationErrors
+    End Function
+    
+    ' Data preview methods
+    Public Function GetPreview(maxRows As Integer) As DataTable
+        If dataTable Is Nothing Then
+            Return New DataTable()
+        End If
+        
+        Dim preview As DataTable = dataTable.Clone()
+        Dim rowCount As Integer = Math.Min(maxRows, dataTable.Rows.Count)
+        
+        For i As Integer = 0 To rowCount - 1
+            preview.ImportRow(dataTable.Rows(i))
+        Next
+        
+        Return preview
+    End Function
+    
+    Public Function GetColumnSummary() As Dictionary(Of String, Dictionary(Of String, Object))
+        Dim summary As New Dictionary(Of String, Dictionary(Of String, Object))
+        
+        For Each column As DataColumn In dataTable.Columns
+            Dim colInfo As ColumnInfo = columnInfo(column.ColumnName)
+            Dim colSummary As New Dictionary(Of String, Object)
+            
+            colSummary("DataType") = colInfo.DataType.Name
+            colSummary("UniqueValues") = colInfo.UniqueValues
+            colSummary("NullCount") = colInfo.NullCount
+            colSummary("NonNullCount") = dataTable.Rows.Count - colInfo.NullCount
+            colSummary("Sample") = colInfo.Sample
+            
+            If colInfo.MinValue IsNot Nothing Then
+                colSummary("MinValue") = colInfo.MinValue
+            End If
+            If colInfo.MaxValue IsNot Nothing Then
+                colSummary("MaxValue") = colInfo.MaxValue
+            End If
+            
+            summary(column.ColumnName) = colSummary
+        Next
+        
+        Return summary
+    End Function
+    
+    ' Export methods
+    Public Function ExportToDataTable() As DataTable
+        Return If(dataTable, New DataTable())
+    End Function
+    
+    Public Function ExportToDictionary() As List(Of Dictionary(Of String, Object))
+        Dim result As New List(Of Dictionary(Of String, Object))
+        
+        If dataTable Is Nothing Then
+            Return result
+        End If
+        
+        For Each row As DataRow In dataTable.Rows
+            Dim dict As New Dictionary(Of String, Object)
+            For Each column As DataColumn In dataTable.Columns
+                dict(column.ColumnName) = row(column)
+            Next
+            result.Add(dict)
+        Next
+        
+        Return result
+    End Function
+    
+    ' Utility methods
+    Private Shared Function InlineAssignHelper(Of T)(ByRef target As T, value As T) As T
+        target = value
+        Return value
+    End Function
+    
+    Public Sub ClearData()
+        dataTable = Nothing
+        columnInfo.Clear()
+        importStats = New ImportStatistics()
+    End Sub
+    
+    Public Function Clone() As CSVImporter
+        Dim clone As New CSVImporter With {
+            .Delimiter = Me.Delimiter,
+            .TextQualifier = Me.TextQualifier,
+            .HasHeaderRow = Me.HasHeaderRow,
+            .SkipEmptyLines = Me.SkipEmptyLines,
+            .TrimValues = Me.TrimValues,
+            .Encoding = Me.Encoding,
+            .Culture = Me.Culture,
+            .MaxRowsToProcess = Me.MaxRowsToProcess,
+            .DateFormat = Me.DateFormat,
+            .NumberDecimalSeparator = Me.NumberDecimalSeparator,
+            .HandleQuotedNewlines = Me.HandleQuotedNewlines
+        }
+        
+        Return clone
+    End Function
+End Class

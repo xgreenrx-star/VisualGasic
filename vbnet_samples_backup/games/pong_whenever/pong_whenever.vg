@@ -1,0 +1,584 @@
+' Pong Clone in Visual Gasic
+' demonstrating dynamic node creation and basic physics loop
+
+Option Explicit
+
+Dim Ball As Object
+Dim Paddle1 As Object
+Dim Paddle2 As Object
+Dim LabelScore1 As Object
+Dim LabelScore2 As Object
+
+Dim BallVelX As Single
+Dim BallVelY As Single
+Dim Score1 As Integer
+Dim Score2 As Integer
+
+' Position and size tracking variables
+Dim bx As Single
+Dim by As Single
+Dim p1x As Single
+Dim p1y As Single
+Dim p2x As Single
+Dim p2y As Single
+
+' Original paddle colors (for flash reset)
+Dim Paddle1OrigColor As Object
+Dim Paddle2OrigColor As Object
+Dim FlashTimer1 As Single
+Dim FlashTimer2 As Single
+
+' Additional reactive variables
+Dim BallSpeed As Single       ' Current ball speed (for Exceeds demo)
+Dim RallyCount As Integer     ' Hits without scoring (for Becomes demo)
+Dim BallZone As Integer       ' 1=Left danger, 2=Middle, 3=Right danger (for Between demo)
+Dim BallOrigColor As Object   ' For ball color effects
+
+' Speed tier tracking (edge detection)
+Dim SpeedTier As Integer      ' 0=slow, 1=normal, 2=fast, 3=insane
+
+' Match history tracking
+Dim GamesWonP1 As Integer
+Dim GamesWonP2 As Integer
+Dim MatchCount As Integer
+
+' Combo system
+Dim ComboCount As Integer     ' Consecutive hits by same player
+Dim LastHitPlayer As Integer  ' 1 or 2
+
+' Screen shake
+Dim ShakeTimer As Single
+Dim ShakeIntensity As Single
+Dim OrigPosition As Object
+
+' Zone warning flash
+Dim ZoneFlashTimer As Single
+Dim LastZone As Integer
+
+Sub _Ready()
+	Randomize
+	' Setup Screen
+	' Assume 800x600 resolution or similar
+	
+	Score1 = 0
+	Score2 = 0
+	
+	' Create Visual Elements using standard Godot Nodes
+	
+	' --- PADDLE 1 (Left) ---
+	Set Paddle1 = CreateNode("ColorRect")
+	AddChild(Paddle1)
+	Paddle1.color = vbGreen
+	Paddle1.size = Vector2(20, 100)
+	Paddle1.position = Vector2(50, 250)
+	
+	' --- PADDLE 2 (Right) ---
+	Set Paddle2 = CreateNode("ColorRect")
+	AddChild(Paddle2)
+	Paddle2.color = vbBlue
+	Paddle2.size = Vector2(20, 100)
+	Paddle2.position = Vector2(1080, 250)
+	
+	FlashTimer1 = 0
+	FlashTimer2 = 0
+	
+	' --- BALL ---
+	Set Ball = CreateNode("ColorRect")
+	AddChild(Ball)
+	Ball.color = vbWhite
+	Ball.size = Vector2(20, 20)
+	RallyCount = 0
+	BallSpeed = 0
+	BallZone = 2  ' Start in middle
+	SpeedTier = 1  ' Start at normal speed tier
+	
+	' Initialize new feature variables
+	GamesWonP1 = 0
+	GamesWonP2 = 0
+	MatchCount = 0
+	ComboCount = 0
+	LastHitPlayer = 0
+	ShakeTimer = 0
+	ShakeIntensity = 0
+	ZoneFlashTimer = 0
+	LastZone = 2
+	Set OrigPosition = Vector2(0, 0)
+	
+	Call ResetBall
+	
+	' --- UI ---
+	Set LabelScore1 = CreateLabel("0", 300, 50)
+	LabelScore1.AddThemeFontSizeOverride("font_size", 40)
+	
+	Set LabelScore2 = CreateLabel("0", 800, 50)
+	LabelScore2.AddThemeFontSizeOverride("font_size", 40)
+	
+	' Setup Whenever reactive sections
+	Call SetupWhenever
+	
+	Print "Pong Ready!"
+End Sub
+
+Sub ResetBall()
+	bx = 576
+	by = 324
+	Ball.position = Vector2(bx, by)
+	
+	BallVelX = 300
+	If Rnd() > 0.5 Then BallVelX = -BallVelX
+	
+	' Randomize Y start (Ensure non-zero)
+	BallVelY = (Rnd() * 200) + 100
+	If Rnd() > 0.5 Then BallVelY = -BallVelY
+End Sub
+
+Sub _Process(delta)
+	Dim P1Vy As Single
+	Dim P2Vy As Single
+	Dim bPos As Object
+	Dim bSize As Object
+	Dim p1Pos As Object
+	Dim p2Pos As Object
+	
+	' Handle paddle flash reset timers
+	If FlashTimer1 > 0 Then
+		FlashTimer1 = FlashTimer1 - delta
+		If FlashTimer1 <= 0 Then
+			Paddle1.color = vbGreen
+		End If
+	End If
+	If FlashTimer2 > 0 Then
+		FlashTimer2 = FlashTimer2 - delta
+		If FlashTimer2 <= 0 Then
+			Paddle2.color = vbBlue
+		End If
+	End If
+	
+	' Handle screen shake (applied to ball for visual effect)
+	If ShakeTimer > 0 Then
+		ShakeTimer = ShakeTimer - delta
+		' Shake effect is visual-only through ball jitter
+		' (keeping it simple to avoid crashes)
+	End If
+	
+	' Handle zone warning flash
+	If ZoneFlashTimer > 0 Then
+		ZoneFlashTimer = ZoneFlashTimer - delta
+	End If
+	
+	' Get current positions
+	Set bPos = Ball.position
+	Set bSize = Ball.size
+	bx = bPos.x
+	by = bPos.y
+	
+	Set p1Pos = Paddle1.position
+	p1x = p1Pos.x
+	p1y = p1Pos.y
+	
+	Set p2Pos = Paddle2.position
+	p2x = p2Pos.x
+	p2y = p2Pos.y
+	
+	' Move Ball
+	bx = bx + (BallVelX * delta)
+	by = by + (BallVelY * delta)
+	Ball.position = Vector2(bx, by)
+	
+	' Calculate actual ball speed (approximate - sum of abs velocities)
+	Dim ActualSpeed As Single
+	Dim AbsX As Single
+	Dim AbsY As Single
+	If BallVelX < 0 Then
+		AbsX = -BallVelX
+	Else
+		AbsX = BallVelX
+	End If
+	If BallVelY < 0 Then
+		AbsY = -BallVelY
+	Else
+		AbsY = BallVelY
+	End If
+	ActualSpeed = AbsX + AbsY
+	
+	' Update SpeedTier for edge detection (only changes at thresholds)
+	' Thresholds for sum of abs velocities (approximate speed)
+	' Starting: ~450 (300 + 150), Fast: ~600, Insane: ~900
+	Dim NewTier As Integer
+	If ActualSpeed < 300 Then
+		NewTier = 0  ' Slow
+	ElseIf ActualSpeed < 550 Then
+		NewTier = 1  ' Normal
+	ElseIf ActualSpeed < 800 Then
+		NewTier = 2  ' Fast
+	Else
+		NewTier = 3  ' Insane
+	End If
+	
+	' Only update SpeedTier if it changed (edge detection)
+	' This triggers Whenever only once per transition
+	If NewTier <> SpeedTier Then
+		SpeedTier = NewTier
+	End If
+	
+	' Update ball zone (1=left danger, 2=middle, 3=right danger)
+	Dim OldZone As Integer
+	OldZone = BallZone
+	If bx < 200 Then
+		BallZone = 1  ' Left danger zone
+	ElseIf bx > 952 Then
+		BallZone = 3  ' Right danger zone
+	Else
+		BallZone = 2  ' Safe middle zone
+	End If
+	' Trigger zone change for Whenever (only on actual zone transition)
+	If BallZone <> OldZone Then
+		LastZone = BallZone
+	End If
+	
+	' Simple AI for Paddle 2 (Right)
+	P2Vy = 0
+	If by > p2y + 50 Then
+		P2Vy = 200
+	Else
+		P2Vy = -200
+	End If
+	p2y = p2y + (P2Vy * delta)
+	Paddle2.position = Vector2(p2x, p2y)
+	
+	' Player Input for Paddle 1
+	P1Vy = 0
+	If IsKeyDown("S") Then
+		P1Vy = 300
+	End If
+	If IsKeyDown("W") Then
+		P1Vy = -300
+	End If
+	p1y = p1y + (P1Vy * delta)
+	Paddle1.position = Vector2(p1x, p1y)
+	
+	' Screen Collision (Top/Bottom)
+	If by < 0.0 Then
+		by = 0.0
+		BallVelY = Abs(BallVelY)
+		Ball.position = Vector2(bx, by)
+	End If
+
+	If by > 628.0 Then 
+		by = 628.0
+		BallVelY = -Abs(BallVelY)
+		Ball.position = Vector2(bx, by)
+	End If
+	
+	' Paddle Collision (Simple AABB)
+	' Paddle 1 - using hardcoded size (20x100)
+	If bx < p1x + 20 And bx + 20 > p1x And by < p1y + 100 And by + 20 > p1y Then
+		BallVelX = Abs(BallVelX) * 1.1
+		BallVelY = BallVelY + (P1Vy * 0.5)
+		RallyCount = RallyCount + 1  ' Increment rally on hit
+		' Combo tracking
+		If LastHitPlayer = 1 Then
+			ComboCount = ComboCount + 1
+		Else
+			ComboCount = 1
+			LastHitPlayer = 1
+		End If
+		' Screen shake on fast hits
+		If SpeedTier >= 2 Then
+			Call TriggerShake(SpeedTier * 3)
+		End If
+	End If
+	
+	' Paddle 2 - using hardcoded size (20x100)
+	If bx < p2x + 20 And bx + 20 > p2x And by < p2y + 100 And by + 20 > p2y Then
+		BallVelX = -Abs(BallVelX) * 1.1
+		BallVelY = BallVelY + (P2Vy * 0.5)
+		RallyCount = RallyCount + 1  ' Increment rally on hit
+		' Combo tracking
+		If LastHitPlayer = 2 Then
+			ComboCount = ComboCount + 1
+		Else
+			ComboCount = 1
+			LastHitPlayer = 2
+		End If
+		' Screen shake on fast hits
+		If SpeedTier >= 2 Then
+			Call TriggerShake(SpeedTier * 3)
+		End If
+	End If
+	
+	' Scoring
+	If bx < 0 Then
+		Score2 = Score2 + 1
+		LabelScore2.Text = Str(Score2)
+		RallyCount = 0  ' Reset rally on score
+		Ball.color = vbWhite
+		Call ResetBall
+	End If
+	
+	If bx > 1152 Then
+		Score1 = Score1 + 1
+		LabelScore1.Text = Str(Score1)
+		RallyCount = 0  ' Reset rally on score
+		Ball.color = vbWhite
+		Call ResetBall
+	End If
+End Sub
+
+' ============================================================
+' WHENEVER SECTIONS - Reactive Programming Demo
+' These sections run automatically when conditions are met
+' Syntax: Whenever Section <Name> <Variable> <Operator> <Callback>
+' ============================================================
+
+' Register Whenever sections in a setup sub (called from _Ready)
+Sub SetupWhenever()
+	' === CHANGES Operator - React to any value change ===
+	Whenever Section Player1Scores Score1 Changes OnPlayer1Score
+	Whenever Section Player2Scores Score2 Changes OnPlayer2Score
+	
+	' === EXCEEDS Operator - React when value goes above threshold ===
+	' (Good for one-time thresholds like score limits)
+	Whenever Section Player1GamePoint Score1 Exceeds 4 OnPlayer1GamePoint
+	Whenever Section Player2GamePoint Score2 Exceeds 4 OnPlayer2GamePoint
+	Whenever Section Player1Wins Score1 Exceeds 5 OnPlayer1Victory
+	Whenever Section Player2Wins Score2 Exceeds 5 OnPlayer2Victory
+	
+	' === CHANGES Operator for SpeedTier - React when speed tier changes ===
+	' (We use Changes and check the value in the callback for more control)
+	Whenever Section SpeedTierChanged SpeedTier Changes OnSpeedTierChange
+	
+	' Rally milestones (also using Becomes for exact values)
+	Whenever Section Rally5 RallyCount Becomes 5 OnRally5
+	Whenever Section Rally10 RallyCount Becomes 10 OnRally10
+	Whenever Section Rally15 RallyCount Becomes 15 OnRally15
+	
+	' === NEW: Zone warnings - React when ball enters danger zones ===
+	Whenever Section ZoneWarning BallZone Changes OnZoneChange
+	
+	' === NEW: Combo milestones ===
+	Whenever Section Combo3 ComboCount Becomes 3 OnCombo3
+	Whenever Section Combo5 ComboCount Becomes 5 OnCombo5
+	Whenever Section Combo7 ComboCount Becomes 7 OnCombo7
+	
+	' === NEW: Match tracking ===
+	Whenever Section MatchUpdate MatchCount Changes OnMatchComplete
+	
+	Print "Whenever sections registered! (17 sections)"
+End Sub
+
+' ============================================================
+' CALLBACK PROCEDURES - Called when conditions are triggered
+' ============================================================
+
+Sub OnPlayer1Score()
+	Print "Player 1 scored! Score: " & Str(Score1)
+	Paddle1.color = vbGreen
+	FlashTimer1 = 0.3  ' Flash for 0.3 seconds
+	Call PlaySound("score")
+	ComboCount = 0  ' Reset combo on score
+End Sub
+
+Sub OnPlayer2Score()
+	Print "Player 2 scored! Score: " & Str(Score2)
+	Paddle2.color = vbBlue
+	FlashTimer2 = 0.3  ' Flash for 0.3 seconds
+	Call PlaySound("score")
+	ComboCount = 0  ' Reset combo on score
+End Sub
+
+Sub OnPlayer1GamePoint()
+	Print "*** GAME POINT for Player 1! ***"
+	Call PlaySound("game_point")
+	Call TriggerShake(8)
+End Sub
+
+Sub OnPlayer2GamePoint()
+	Print "*** GAME POINT for Player 2! ***"
+	Call PlaySound("game_point")
+	Call TriggerShake(8)
+End Sub
+
+Sub OnPlayer1Victory()
+	Print "========================================="
+	Print "   PLAYER 1 WINS!"
+	Print "========================================="
+	Call PlaySound("victory")
+	Call TriggerShake(15)
+	' Start new game after a delay
+	Call StartNewGame
+End Sub
+
+Sub OnPlayer2Victory()
+	Print "========================================="
+	Print "   PLAYER 2 WINS!"
+	Print "========================================="
+	Call PlaySound("victory")
+	Call TriggerShake(15)
+	' Start new game after a delay
+	Call StartNewGame
+End Sub
+
+' === SPEED TIER CALLBACK (using Changes for edge detection) ===
+
+Sub OnSpeedTierChange()
+	' Handle speed tier changes based on current tier value
+	If SpeedTier = 0 Then
+		Print "Ball slowing down... (Tier 0)"
+		Ball.color = vbCyan
+		Call PlaySound("slow_down")
+	ElseIf SpeedTier = 1 Then
+		Print "Normal speed (Tier 1)"
+		Ball.color = vbWhite
+	ElseIf SpeedTier = 2 Then
+		Print "Ball getting fast! (Tier 2)"
+		Ball.color = vbYellow
+		Call PlaySound("speed_up")
+	ElseIf SpeedTier = 3 Then
+		Print "INSANE SPEED! (Tier 3)"
+		Ball.color = vbRed
+		Call PlaySound("insane_speed")
+		Call TriggerShake(5)
+	End If
+End Sub
+
+' === RALLY CALLBACKS (Becomes) ===
+
+Sub OnRally5()
+	Print "Nice rally! 5 hits!"
+	Ball.color = vbCyan
+	Call PlaySound("rally")
+End Sub
+
+Sub OnRally10()
+	Print "HOT RALLY! 10 hits!"
+	Ball.color = vbYellow
+	Call PlaySound("hot_rally")
+	Call TriggerShake(3)
+End Sub
+
+Sub OnRally15()
+	Print "MEGA RALLY! 15 hits! Amazing!"
+	Ball.color = vbMagenta
+	Call PlaySound("mega_rally")
+End Sub
+
+' ============================================================
+' ZONE WARNING CALLBACKS
+' ============================================================
+
+Sub OnZoneChange()
+	If BallZone = 1 Then
+		' Ball in left danger zone (Player 1's goal at risk)
+		Print "DANGER! Ball approaching Player 1 goal!"
+		Paddle1.color = vbYellow
+		FlashTimer1 = 0.2
+		Call PlaySound("danger_warning")
+	ElseIf BallZone = 3 Then
+		' Ball in right danger zone (Player 2's goal at risk)
+		Print "DANGER! Ball approaching Player 2 goal!"
+		Paddle2.color = vbYellow
+		FlashTimer2 = 0.2
+		Call PlaySound("danger_warning")
+	End If
+End Sub
+
+' ============================================================
+' COMBO CALLBACKS
+' ============================================================
+
+Sub OnCombo3()
+	Print "COMBO x3!"
+	If LastHitPlayer = 1 Then
+		Paddle1.color = vbYellow
+		FlashTimer1 = 0.5
+	Else
+		Paddle2.color = vbYellow
+		FlashTimer2 = 0.5
+	End If
+	Call PlaySound("combo")
+End Sub
+
+Sub OnCombo5()
+	Print "SUPER COMBO x5!!"
+	Call TriggerShake(5)
+	If LastHitPlayer = 1 Then
+		Paddle1.color = vbRed
+		FlashTimer1 = 0.7
+	Else
+		Paddle2.color = vbRed
+		FlashTimer2 = 0.7
+	End If
+	Call PlaySound("super_combo")
+End Sub
+
+Sub OnCombo7()
+	Print "ULTRA COMBO x7!!!"
+	Call TriggerShake(10)
+	If LastHitPlayer = 1 Then
+		Paddle1.color = vbMagenta
+		FlashTimer1 = 1.0
+	Else
+		Paddle2.color = vbMagenta
+		FlashTimer2 = 1.0
+	End If
+	Call PlaySound("ultra_combo")
+End Sub
+
+' ============================================================
+' MATCH HISTORY CALLBACKS
+' ============================================================
+
+Sub OnMatchComplete()
+	Print "========================================="
+	Print "   MATCH " & Str(MatchCount) & " COMPLETE!"
+	Print "   Series: P1 " & Str(GamesWonP1) & " - " & Str(GamesWonP2) & " P2"
+	If GamesWonP1 > GamesWonP2 Then
+		Print "   Player 1 leads the series!"
+	ElseIf GamesWonP2 > GamesWonP1 Then
+		Print "   Player 2 leads the series!"
+	Else
+		Print "   Series is tied!"
+	End If
+	Print "========================================="
+	Call PlaySound("match_complete")
+End Sub
+
+' ============================================================
+' UTILITY FUNCTIONS
+' ============================================================
+
+Sub TriggerShake(intensity)
+	ShakeIntensity = intensity
+	ShakeTimer = 0.15
+	' Visual feedback via paddle glow (safer than position manipulation)
+	Print "[SHAKE] intensity=" & Str(intensity)
+End Sub
+
+Sub PlaySound(soundName)
+	' Placeholder for sound effect
+	' In a real implementation, you'd use AudioStreamPlayer
+	Print "[SFX] " & soundName
+End Sub
+
+Sub StartNewGame()
+	' Record match result and start new game
+	If Score1 > Score2 Then
+		GamesWonP1 = GamesWonP1 + 1
+	Else
+		GamesWonP2 = GamesWonP2 + 1
+	End If
+	MatchCount = MatchCount + 1
+	
+	' Reset scores for new game
+	Score1 = 0
+	Score2 = 0
+	LabelScore1.Text = "0"
+	LabelScore2.Text = "0"
+	RallyCount = 0
+	ComboCount = 0
+	LastHitPlayer = 0
+	SpeedTier = 1
+	Ball.color = vbWhite
+	Call ResetBall
+End Sub

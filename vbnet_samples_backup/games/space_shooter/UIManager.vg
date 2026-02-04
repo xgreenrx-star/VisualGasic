@@ -1,0 +1,458 @@
+' UIManager.vg - HUD and menus for Space Shooter
+Extends CanvasLayer
+
+Option Explicit On
+Option Strict On
+
+Public Class UIManager
+    Inherits CanvasLayer
+    
+    ' UI Elements - HUD
+    Private healthBar As ProgressBar
+    Private healthLabel As Label
+    Private scoreLabel As Label
+    Private livesLabel As Label
+    Private waveLabel As Label
+    Private weaponLevelLabel As Label
+    
+    ' UI Elements - Menus
+    Private pauseMenu As Control
+    Private gameOverMenu As Control
+    Private waveStartPanel As Control
+    Private weaponUpgradePanel As Control
+    
+    ' UI Elements - Effects
+    Private damageOverlay As ColorRect
+    Private fadeOverlay As ColorRect
+    
+    ' State
+    Private currentScore As Integer = 0
+    Private currentLives As Integer = 3
+    Private currentWave As Integer = 1
+    Private currentWeaponLevel As Integer = 1
+    
+    ' Animation timers
+    Private damageFlashTimer As Single = 0.0
+    Private weaponUpgradeTimer As Single = 0.0
+    Private waveStartTimer As Single = 0.0
+    
+    ' Events
+    Public Event GamePaused()
+    Public Event GameResumed()
+    Public Event RestartRequested()
+    Public Event MenuRequested()
+    
+    Public Overrides Sub _Ready()
+        CreateHUD()
+        CreateMenus()
+        CreateEffects()
+        
+        Console.WriteLine("UI Manager initialized")
+    End Sub
+    
+    Private Sub CreateHUD()
+        ' Main HUD container
+        Dim hudContainer As Control = New Control()
+        hudContainer.Name = "HUD"
+        AddChild(hudContainer)
+        
+        ' Health bar
+        healthBar = New ProgressBar()
+        healthBar.Position = Vector2(20, 20)
+        healthBar.Size = Vector2(200, 20)
+        healthBar.MaxValue = 100
+        healthBar.Value = 100
+        healthBar.ShowPercentage = False
+        hudContainer.AddChild(healthBar)
+        
+        ' Health label
+        healthLabel = New Label()
+        healthLabel.Position = Vector2(20, 45)
+        healthLabel.Text = "Health: 100/100"
+        hudContainer.AddChild(healthLabel)
+        
+        ' Score label
+        scoreLabel = New Label()
+        scoreLabel.Position = Vector2(20, 70)
+        scoreLabel.Text = "Score: 0"
+        hudContainer.AddChild(scoreLabel)
+        
+        ' Lives label  
+        livesLabel = New Label()
+        livesLabel.Position = Vector2(20, 95)
+        livesLabel.Text = "Lives: 3"
+        hudContainer.AddChild(livesLabel)
+        
+        ' Wave label
+        waveLabel = New Label()
+        waveLabel.Position = Vector2(GetViewport().GetVisibleRect().Size.X - 150, 20)
+        waveLabel.Text = "Wave: 1"
+        hudContainer.AddChild(waveLabel)
+        
+        ' Weapon level label
+        weaponLevelLabel = New Label()
+        weaponLevelLabel.Position = Vector2(GetViewport().GetVisibleRect().Size.X - 150, 45)
+        weaponLevelLabel.Text = "Weapon: Level 1"
+        hudContainer.AddChild(weaponLevelLabel)
+        
+        ' Style the UI elements
+        StyleHUDElements()
+    End Sub
+    
+    Private Sub StyleHUDElements()
+        ' Health bar colors
+        Dim healthBarStyle As StyleBoxFlat = New StyleBoxFlat()
+        healthBarStyle.BgColor = Color.Red
+        healthBar.AddThemeStyleboxOverride("fill", healthBarStyle)
+        
+        Dim healthBarBg As StyleBoxFlat = New StyleBoxFlat()
+        healthBarBg.BgColor = Color.DarkRed
+        healthBar.AddThemeStyleboxOverride("background", healthBarBg)
+        
+        ' Label colors
+        healthLabel.AddThemeColorOverride("font_color", Color.White)
+        scoreLabel.AddThemeColorOverride("font_color", Color.Yellow)
+        livesLabel.AddThemeColorOverride("font_color", Color.Cyan)
+        waveLabel.AddThemeColorOverride("font_color", Color.White)
+        weaponLevelLabel.AddThemeColorOverride("font_color", Color.Green)
+    End Sub
+    
+    Private Sub CreateMenus()
+        CreatePauseMenu()
+        CreateGameOverMenu()
+        CreateWaveStartPanel()
+        CreateWeaponUpgradePanel()
+    End Sub
+    
+    Private Sub CreatePauseMenu()
+        pauseMenu = New Control()
+        pauseMenu.Name = "PauseMenu"
+        pauseMenu.Visible = False
+        AddChild(pauseMenu)
+        
+        ' Background
+        Dim bg As ColorRect = New ColorRect()
+        bg.Size = GetViewport().GetVisibleRect().Size
+        bg.Color = Color(0, 0, 0, 0.7)  ' Semi-transparent black
+        pauseMenu.AddChild(bg)
+        
+        ' Title
+        Dim title As Label = New Label()
+        title.Text = "GAME PAUSED"
+        title.Position = Vector2(GetViewport().GetVisibleRect().Size.X / 2 - 60, 200)
+        title.AddThemeColorOverride("font_color", Color.White)
+        pauseMenu.AddChild(title)
+        
+        ' Resume button
+        Dim resumeBtn As Button = New Button()
+        resumeBtn.Text = "Resume (ESC)"
+        resumeBtn.Position = Vector2(GetViewport().GetVisibleRect().Size.X / 2 - 75, 250)
+        resumeBtn.Size = Vector2(150, 40)
+        resumeBtn.Connect("pressed", AddressOf OnResumePressed)
+        pauseMenu.AddChild(resumeBtn)
+        
+        ' Restart button
+        Dim restartBtn As Button = New Button()
+        restartBtn.Text = "Restart"
+        restartBtn.Position = Vector2(GetViewport().GetVisibleRect().Size.X / 2 - 75, 300)
+        restartBtn.Size = Vector2(150, 40)
+        restartBtn.Connect("pressed", AddressOf OnRestartPressed)
+        pauseMenu.AddChild(restartBtn)
+        
+        ' Menu button
+        Dim menuBtn As Button = New Button()
+        menuBtn.Text = "Main Menu"
+        menuBtn.Position = Vector2(GetViewport().GetVisibleRect().Size.X / 2 - 75, 350)
+        menuBtn.Size = Vector2(150, 40)
+        menuBtn.Connect("pressed", AddressOf OnMenuPressed)
+        pauseMenu.AddChild(menuBtn)
+    End Sub
+    
+    Private Sub CreateGameOverMenu()
+        gameOverMenu = New Control()
+        gameOverMenu.Name = "GameOverMenu"
+        gameOverMenu.Visible = False
+        AddChild(gameOverMenu)
+        
+        ' Background
+        Dim bg As ColorRect = New ColorRect()
+        bg.Size = GetViewport().GetVisibleRect().Size
+        bg.Color = Color(0.2, 0, 0, 0.8)  ' Dark red tint
+        gameOverMenu.AddChild(bg)
+        
+        ' Title
+        Dim title As Label = New Label()
+        title.Text = "GAME OVER"
+        title.Position = Vector2(GetViewport().GetVisibleRect().Size.X / 2 - 80, 180)
+        title.AddThemeColorOverride("font_color", Color.Red)
+        gameOverMenu.AddChild(title)
+        
+        ' Final score label
+        Dim finalScore As Label = New Label()
+        finalScore.Name = "FinalScore"
+        finalScore.Text = "Final Score: 0"
+        finalScore.Position = Vector2(GetViewport().GetVisibleRect().Size.X / 2 - 70, 220)
+        finalScore.AddThemeColorOverride("font_color", Color.White)
+        gameOverMenu.AddChild(finalScore)
+        
+        ' Play again button
+        Dim playAgainBtn As Button = New Button()
+        playAgainBtn.Text = "Play Again"
+        playAgainBtn.Position = Vector2(GetViewport().GetVisibleRect().Size.X / 2 - 75, 270)
+        playAgainBtn.Size = Vector2(150, 40)
+        playAgainBtn.Connect("pressed", AddressOf OnRestartPressed)
+        gameOverMenu.AddChild(playAgainBtn)
+        
+        ' Main menu button
+        Dim mainMenuBtn As Button = New Button()
+        mainMenuBtn.Text = "Main Menu"
+        mainMenuBtn.Position = Vector2(GetViewport().GetVisibleRect().Size.X / 2 - 75, 320)
+        mainMenuBtn.Size = Vector2(150, 40)
+        mainMenuBtn.Connect("pressed", AddressOf OnMenuPressed)
+        gameOverMenu.AddChild(mainMenuBtn)
+    End Sub
+    
+    Private Sub CreateWaveStartPanel()
+        waveStartPanel = New Control()
+        waveStartPanel.Name = "WaveStartPanel"
+        waveStartPanel.Visible = False
+        AddChild(waveStartPanel)
+        
+        ' Background
+        Dim bg As ColorRect = New ColorRect()
+        bg.Size = Vector2(300, 100)
+        bg.Position = Vector2(GetViewport().GetVisibleRect().Size.X / 2 - 150, GetViewport().GetVisibleRect().Size.Y / 2 - 50)
+        bg.Color = Color(0, 0, 0.3, 0.8)
+        waveStartPanel.AddChild(bg)
+        
+        ' Wave text
+        Dim waveText As Label = New Label()
+        waveText.Name = "WaveText"
+        waveText.Text = "Wave 1"
+        waveText.Position = Vector2(GetViewport().GetVisibleRect().Size.X / 2 - 40, GetViewport().GetVisibleRect().Size.Y / 2 - 20)
+        waveText.AddThemeColorOverride("font_color", Color.White)
+        waveStartPanel.AddChild(waveText)
+        
+        ' Ready text
+        Dim readyText As Label = New Label()
+        readyText.Text = "Get Ready!"
+        readyText.Position = Vector2(GetViewport().GetVisibleRect().Size.X / 2 - 50, GetViewport().GetVisibleRect().Size.Y / 2)
+        readyText.AddThemeColorOverride("font_color", Color.Yellow)
+        waveStartPanel.AddChild(readyText)
+    End Sub
+    
+    Private Sub CreateWeaponUpgradePanel()
+        weaponUpgradePanel = New Control()
+        weaponUpgradePanel.Name = "WeaponUpgradePanel"
+        weaponUpgradePanel.Visible = False
+        AddChild(weaponUpgradePanel)
+        
+        ' Background
+        Dim bg As ColorRect = New ColorRect()
+        bg.Size = Vector2(250, 80)
+        bg.Position = Vector2(GetViewport().GetVisibleRect().Size.X / 2 - 125, 100)
+        bg.Color = Color(0, 0.3, 0, 0.9)
+        weaponUpgradePanel.AddChild(bg)
+        
+        ' Upgrade text
+        Dim upgradeText As Label = New Label()
+        upgradeText.Name = "UpgradeText"
+        upgradeText.Text = "Weapon Upgraded!"
+        upgradeText.Position = Vector2(GetViewport().GetVisibleRect().Size.X / 2 - 80, 120)
+        upgradeText.AddThemeColorOverride("font_color", Color.Green)
+        weaponUpgradePanel.AddChild(upgradeText)
+        
+        ' Level text
+        Dim levelText As Label = New Label()
+        levelText.Name = "LevelText"
+        levelText.Text = "Level 2"
+        levelText.Position = Vector2(GetViewport().GetVisibleRect().Size.X / 2 - 30, 145)
+        levelText.AddThemeColorOverride("font_color", Color.White)
+        weaponUpgradePanel.AddChild(levelText)
+    End Sub
+    
+    Private Sub CreateEffects()
+        ' Damage flash overlay
+        damageOverlay = New ColorRect()
+        damageOverlay.Size = GetViewport().GetVisibleRect().Size
+        damageOverlay.Color = Color(1, 0, 0, 0)  ' Transparent red
+        damageOverlay.Visible = True
+        AddChild(damageOverlay)
+        
+        ' Fade overlay for transitions
+        fadeOverlay = New ColorRect()
+        fadeOverlay.Size = GetViewport().GetVisibleRect().Size
+        fadeOverlay.Color = Color(0, 0, 0, 0)  ' Transparent black
+        fadeOverlay.Visible = True
+        AddChild(fadeOverlay)
+    End Sub
+    
+    Public Overrides Sub _Process(delta As Single)
+        UpdateEffects(delta)
+    End Sub
+    
+    Private Sub UpdateEffects(delta As Single)
+        ' Update damage flash
+        If damageFlashTimer > 0 Then
+            damageFlashTimer -= delta
+            Dim alpha As Single = damageFlashTimer / 0.5  ' 0.5 second flash
+            damageOverlay.Color = Color(1, 0, 0, alpha * 0.3)
+        End If
+        
+        ' Update weapon upgrade display
+        If weaponUpgradeTimer > 0 Then
+            weaponUpgradeTimer -= delta
+            If weaponUpgradeTimer <= 0 Then
+                weaponUpgradePanel.Visible = False
+            End If
+        End If
+        
+        ' Update wave start display
+        If waveStartTimer > 0 Then
+            waveStartTimer -= delta
+            If waveStartTimer <= 0 Then
+                waveStartPanel.Visible = False
+            End If
+        End If
+    End Sub
+    
+    ' Public update methods
+    Public Sub UpdateHealth(healthPercent As Single)
+        If healthBar IsNot Nothing Then
+            healthBar.Value = healthPercent * 100
+        End If
+        
+        If healthLabel IsNot Nothing Then
+            Dim currentHealth As Integer = CInt(healthPercent * 100)
+            healthLabel.Text = $"Health: {currentHealth}/100"
+        End If
+        
+        ' Trigger damage flash if health decreased
+        If healthPercent < 1.0 Then
+            ShowDamageFlash()
+        End If
+    End Sub
+    
+    Public Sub UpdateScore(score As Integer)
+        currentScore = score
+        If scoreLabel IsNot Nothing Then
+            scoreLabel.Text = $"Score: {score:N0}"
+        End If
+    End Sub
+    
+    Public Sub UpdateLives(lives As Integer)
+        currentLives = lives
+        If livesLabel IsNot Nothing Then
+            livesLabel.Text = $"Lives: {lives}"
+        End If
+    End Sub
+    
+    Public Sub UpdateWave(wave As Integer)
+        currentWave = wave
+        If waveLabel IsNot Nothing Then
+            waveLabel.Text = $"Wave: {wave}"
+        End If
+    End Sub
+    
+    Public Sub UpdateWeaponLevel(level As Integer)
+        currentWeaponLevel = level
+        If weaponLevelLabel IsNot Nothing Then
+            weaponLevelLabel.Text = $"Weapon: Level {level}"
+        End If
+    End Sub
+    
+    ' Effect methods
+    Public Sub ShowDamageFlash()
+        damageFlashTimer = 0.5  ' Flash for half a second
+    End Sub
+    
+    Public Sub ShowWaveStart(waveNumber As Integer)
+        If waveStartPanel IsNot Nothing Then
+            waveStartPanel.Visible = True
+            waveStartTimer = 2.0  ' Show for 2 seconds
+            
+            Dim waveText As Label = waveStartPanel.GetNode("WaveText")
+            If waveText IsNot Nothing Then
+                waveText.Text = $"Wave {waveNumber}"
+            End If
+        End If
+    End Sub
+    
+    Public Sub ShowWeaponUpgrade(level As Integer)
+        If weaponUpgradePanel IsNot Nothing Then
+            weaponUpgradePanel.Visible = True
+            weaponUpgradeTimer = 2.0  ' Show for 2 seconds
+            
+            Dim levelText As Label = weaponUpgradePanel.GetNode("LevelText")
+            If levelText IsNot Nothing Then
+                levelText.Text = $"Level {level}"
+            End If
+        End If
+    End Sub
+    
+    Public Sub ShowGameOver(finalScore As Integer)
+        If gameOverMenu IsNot Nothing Then
+            gameOverMenu.Visible = True
+            
+            Dim scoreLabel As Label = gameOverMenu.GetNode("FinalScore")
+            If scoreLabel IsNot Nothing Then
+                scoreLabel.Text = $"Final Score: {finalScore:N0}"
+            End If
+        End If
+    End Sub
+    
+    Public Sub ShowPauseMenu()
+        If pauseMenu IsNot Nothing Then
+            pauseMenu.Visible = True
+        End If
+    End Sub
+    
+    Public Sub HidePauseMenu()
+        If pauseMenu IsNot Nothing Then
+            pauseMenu.Visible = False
+        End If
+    End Sub
+    
+    Public Sub HideGameOverMenu()
+        If gameOverMenu IsNot Nothing Then
+            gameOverMenu.Visible = False
+        End If
+    End Sub
+    
+    ' Fade effects
+    Public Sub FadeIn(duration As Single)
+        Dim tween As Tween = CreateTween()
+        tween.TweenProperty(fadeOverlay, "color", Color(0, 0, 0, 0), duration)
+    End Sub
+    
+    Public Sub FadeOut(duration As Single)
+        Dim tween As Tween = CreateTween()
+        tween.TweenProperty(fadeOverlay, "color", Color(0, 0, 0, 1), duration)
+    End Sub
+    
+    ' Event handlers
+    Private Sub OnResumePressed()
+        HidePauseMenu()
+        RaiseEvent GameResumed()
+    End Sub
+    
+    Private Sub OnRestartPressed()
+        HidePauseMenu()
+        HideGameOverMenu()
+        RaiseEvent RestartRequested()
+    End Sub
+    
+    Private Sub OnMenuPressed()
+        RaiseEvent MenuRequested()
+    End Sub
+    
+    ' Utility methods
+    Public Function IsMenuVisible() As Boolean
+        Return (pauseMenu IsNot Nothing AndAlso pauseMenu.Visible) Or
+               (gameOverMenu IsNot Nothing AndAlso gameOverMenu.Visible)
+    End Function
+    
+    Public Sub SetUIEnabled(enabled As Boolean)
+        Visible = enabled
+    End Sub
+End Class

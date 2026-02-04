@@ -1,0 +1,16 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://custom_widgets/frame.gd" id="1_script"]
+
+[node name="Frame" type="Panel"]
+offset_right = 200.0
+offset_bottom = 150.0
+script = ExtResource("1_script")
+
+[node name="Label" type="Label" parent="."]
+layout_mode = 0
+offset_left = 8.0
+offset_top = -12.0
+offset_right = 60.0
+offset_bottom = 11.0
+text = "Frame"

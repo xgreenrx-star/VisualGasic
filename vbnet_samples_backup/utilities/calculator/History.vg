@@ -1,0 +1,540 @@
+' History.vg - Calculation history management for Advanced Calculator
+Imports System.Collections.Generic
+Imports System.IO
+Imports System.Xml.Serialization
+Imports System.ComponentModel
+
+Option Explicit On
+Option Strict On
+
+<Serializable>
+Public Class CalculationEntry
+    Public Property Expression As String = ""
+    Public Property Result As String = ""
+    Public Property Timestamp As DateTime = DateTime.Now
+    Public Property AngleMode As String = "Degrees"
+    Public Property Category As String = "General"
+    Public Property IsBookmarked As Boolean = False
+    Public Property Notes As String = ""
+    
+    Public Sub New()
+        ' Parameterless constructor for serialization
+    End Sub
+    
+    Public Sub New(expression As String, result As String, Optional category As String = "General")
+        Me.Expression = expression
+        Me.Result = result
+        Me.Category = category
+        Me.Timestamp = DateTime.Now
+    End Sub
+    
+    Public Overrides Function ToString() As String
+        Return $"{Expression} = {Result}"
+    End Function
+    
+    Public Function ToDisplayString() As String
+        Return $"[{Timestamp.ToString("HH:mm:ss")}] {Expression} = {Result}"
+    End Function
+    
+    Public Function ToDetailedString() As String
+        Dim details As String = $"Time: {Timestamp.ToString("yyyy-MM-dd HH:mm:ss")}" & vbCrLf &
+                               $"Expression: {Expression}" & vbCrLf &
+                               $"Result: {Result}" & vbCrLf &
+                               $"Category: {Category}" & vbCrLf &
+                               $"Angle Mode: {AngleMode}"
+        
+        If IsBookmarked Then
+            details &= vbCrLf & "Status: Bookmarked"
+        End If
+        
+        If Not String.IsNullOrEmpty(Notes) Then
+            details &= vbCrLf & $"Notes: {Notes}"
+        End If
+        
+        Return details
+    End Function
+End Class
+
+Public Class History
+    ' Events
+    Public Event HistoryChanged As EventHandler
+    Public Event EntryAdded As EventHandler(Of CalculationEntry)
+    Public Event EntryRemoved As EventHandler(Of CalculationEntry)
+    Public Event HistoryCleared As EventHandler
+    Public Event HistorySaved As EventHandler
+    Public Event HistoryLoaded As EventHandler
+    
+    ' Properties
+    Private entries As New List(Of CalculationEntry)
+    Private maxEntries As Integer = 1000
+    Private currentIndex As Integer = -1
+    Private savedPath As String = ""
+    Private isModified As Boolean = False
+    
+    Public ReadOnly Property Entries As List(Of CalculationEntry)
+        Get
+            Return New List(Of CalculationEntry)(entries)
+        End Get
+    End Property
+    
+    Public Property MaxEntries As Integer
+        Get
+            Return maxEntries
+        End Get
+        Set(value As Integer)
+            If value <= 0 Then
+                Throw New ArgumentException("MaxEntries must be positive")
+            End If
+            maxEntries = value
+            TrimToMaxEntries()
+        End Set
+    End Property
+    
+    Public ReadOnly Property Count As Integer
+        Get
+            Return entries.Count
+        End Get
+    End Property
+    
+    Public ReadOnly Property IsEmpty As Boolean
+        Get
+            Return entries.Count = 0
+        End Get
+    End Property
+    
+    Public Property CurrentIndex As Integer
+        Get
+            Return currentIndex
+        End Get
+        Set(value As Integer)
+            If value >= -1 And value < entries.Count Then
+                currentIndex = value
+            End If
+        End Set
+    End Property
+    
+    Public ReadOnly Property CanNavigateBack As Boolean
+        Get
+            Return currentIndex > 0
+        End Get
+    End Property
+    
+    Public ReadOnly Property CanNavigateForward As Boolean
+        Get
+            Return currentIndex < entries.Count - 1
+        End Get
+    End Property
+    
+    Public ReadOnly Property IsModified As Boolean
+        Get
+            Return isModified
+        End Get
+    End Property
+    
+    ' Add new calculation to history
+    Public Sub AddEntry(expression As String, result As String, Optional category As String = "General", Optional angleMode As String = "Degrees")
+        Dim entry As New CalculationEntry(expression, result, category) With {
+            .AngleMode = angleMode
+        }
+        
+        entries.Add(entry)
+        currentIndex = entries.Count - 1
+        
+        TrimToMaxEntries()
+        isModified = True
+        
+        RaiseEvent EntryAdded(entry)
+        RaiseEvent HistoryChanged(Me, EventArgs.Empty)
+    End Sub
+    
+    Public Sub AddEntry(entry As CalculationEntry)
+        If entry Is Nothing Then
+            Throw New ArgumentNullException("entry")
+        End If
+        
+        entries.Add(entry)
+        currentIndex = entries.Count - 1
+        
+        TrimToMaxEntries()
+        isModified = True
+        
+        RaiseEvent EntryAdded(entry)
+        RaiseEvent HistoryChanged(Me, EventArgs.Empty)
+    End Sub
+    
+    ' Navigation methods
+    Public Function NavigateBack() As CalculationEntry
+        If CanNavigateBack Then
+            currentIndex -= 1
+            Return entries(currentIndex)
+        End If
+        Return Nothing
+    End Function
+    
+    Public Function NavigateForward() As CalculationEntry
+        If CanNavigateForward Then
+            currentIndex += 1
+            Return entries(currentIndex)
+        End If
+        Return Nothing
+    End Function
+    
+    Public Function GetCurrentEntry() As CalculationEntry
+        If currentIndex >= 0 And currentIndex < entries.Count Then
+            Return entries(currentIndex)
+        End If
+        Return Nothing
+    End Function
+    
+    ' Retrieval methods
+    Public Function GetEntry(index As Integer) As CalculationEntry
+        If index >= 0 And index < entries.Count Then
+            Return entries(index)
+        End If
+        Return Nothing
+    End Function
+    
+    Public Function GetLastEntry() As CalculationEntry
+        If entries.Count > 0 Then
+            Return entries(entries.Count - 1)
+        End If
+        Return Nothing
+    End Function
+    
+    Public Function GetLastResult() As String
+        Dim lastEntry As CalculationEntry = GetLastEntry()
+        If lastEntry IsNot Nothing Then
+            Return lastEntry.Result
+        End If
+        Return ""
+    End Function
+    
+    Public Function GetLastExpression() As String
+        Dim lastEntry As CalculationEntry = GetLastEntry()
+        If lastEntry IsNot Nothing Then
+            Return lastEntry.Expression
+        End If
+        Return ""
+    End Function
+    
+    ' Search and filter methods
+    Public Function Search(searchTerm As String, Optional caseSensitive As Boolean = False) As List(Of CalculationEntry)
+        Dim results As New List(Of CalculationEntry)
+        
+        For Each entry As CalculationEntry In entries
+            Dim expressionMatch As Boolean
+            Dim resultMatch As Boolean
+            Dim notesMatch As Boolean
+            
+            If caseSensitive Then
+                expressionMatch = entry.Expression.Contains(searchTerm)
+                resultMatch = entry.Result.Contains(searchTerm)
+                notesMatch = entry.Notes.Contains(searchTerm)
+            Else
+                expressionMatch = entry.Expression.ToLower().Contains(searchTerm.ToLower())
+                resultMatch = entry.Result.ToLower().Contains(searchTerm.ToLower())
+                notesMatch = entry.Notes.ToLower().Contains(searchTerm.ToLower())
+            End If
+            
+            If expressionMatch Or resultMatch Or notesMatch Then
+                results.Add(entry)
+            End If
+        Next
+        
+        Return results
+    End Function
+    
+    Public Function GetEntriesByCategory(category As String) As List(Of CalculationEntry)
+        Return entries.FindAll(Function(e) String.Equals(e.Category, category, StringComparison.OrdinalIgnoreCase))
+    End Function
+    
+    Public Function GetBookmarkedEntries() As List(Of CalculationEntry)
+        Return entries.FindAll(Function(e) e.IsBookmarked)
+    End Function
+    
+    Public Function GetEntriesByDateRange(startDate As DateTime, endDate As DateTime) As List(Of CalculationEntry)
+        Return entries.FindAll(Function(e) e.Timestamp >= startDate And e.Timestamp <= endDate)
+    End Function
+    
+    Public Function GetRecentEntries(count As Integer) As List(Of CalculationEntry)
+        If count <= 0 Then
+            Return New List(Of CalculationEntry)
+        End If
+        
+        Dim startIndex As Integer = Math.Max(0, entries.Count - count)
+        Dim takeCount As Integer = Math.Min(count, entries.Count)
+        
+        Return entries.GetRange(startIndex, takeCount)
+    End Function
+    
+    ' Bookmark management
+    Public Sub BookmarkEntry(index As Integer)
+        If index >= 0 And index < entries.Count Then
+            entries(index).IsBookmarked = True
+            isModified = True
+            RaiseEvent HistoryChanged(Me, EventArgs.Empty)
+        End If
+    End Sub
+    
+    Public Sub UnbookmarkEntry(index As Integer)
+        If index >= 0 And index < entries.Count Then
+            entries(index).IsBookmarked = False
+            isModified = True
+            RaiseEvent HistoryChanged(Me, EventArgs.Empty)
+        End If
+    End Sub
+    
+    Public Sub ToggleBookmark(index As Integer)
+        If index >= 0 And index < entries.Count Then
+            entries(index).IsBookmarked = Not entries(index).IsBookmarked
+            isModified = True
+            RaiseEvent HistoryChanged(Me, EventArgs.Empty)
+        End If
+    End Sub
+    
+    Public Sub AddNoteToEntry(index As Integer, note As String)
+        If index >= 0 And index < entries.Count Then
+            entries(index).Notes = note
+            isModified = True
+            RaiseEvent HistoryChanged(Me, EventArgs.Empty)
+        End If
+    End Sub
+    
+    ' Removal methods
+    Public Sub RemoveEntry(index As Integer)
+        If index >= 0 And index < entries.Count Then
+            Dim removedEntry As CalculationEntry = entries(index)
+            entries.RemoveAt(index)
+            
+            ' Adjust current index
+            If currentIndex >= entries.Count Then
+                currentIndex = entries.Count - 1
+            End If
+            
+            isModified = True
+            RaiseEvent EntryRemoved(removedEntry)
+            RaiseEvent HistoryChanged(Me, EventArgs.Empty)
+        End If
+    End Sub
+    
+    Public Sub RemoveEntriesByCategory(category As String)
+        Dim entriesToRemove As List(Of CalculationEntry) = GetEntriesByCategory(category)
+        
+        For Each entry As CalculationEntry In entriesToRemove
+            Dim index As Integer = entries.IndexOf(entry)
+            If index >= 0 Then
+                RemoveEntry(index)
+            End If
+        Next
+    End Sub
+    
+    Public Sub RemoveOldEntries(cutoffDate As DateTime)
+        Dim entriesToRemove As New List(Of CalculationEntry)
+        
+        For Each entry As CalculationEntry In entries
+            If entry.Timestamp < cutoffDate Then
+                entriesToRemove.Add(entry)
+            End If
+        Next
+        
+        For Each entry As CalculationEntry In entriesToRemove
+            Dim index As Integer = entries.IndexOf(entry)
+            If index >= 0 Then
+                RemoveEntry(index)
+            End If
+        Next
+    End Sub
+    
+    Public Sub Clear()
+        entries.Clear()
+        currentIndex = -1
+        isModified = True
+        
+        RaiseEvent HistoryCleared(Me, EventArgs.Empty)
+        RaiseEvent HistoryChanged(Me, EventArgs.Empty)
+    End Sub
+    
+    ' Statistics
+    Public Function GetStatistics() As Dictionary(Of String, Object)
+        Dim stats As New Dictionary(Of String, Object)
+        
+        stats("TotalEntries") = entries.Count
+        stats("BookmarkedEntries") = GetBookmarkedEntries().Count
+        
+        If entries.Count > 0 Then
+            stats("OldestEntry") = entries.Min(Function(e) e.Timestamp)
+            stats("NewestEntry") = entries.Max(Function(e) e.Timestamp)
+            
+            Dim categories As New Dictionary(Of String, Integer)
+            For Each entry As CalculationEntry In entries
+                If categories.ContainsKey(entry.Category) Then
+                    categories(entry.Category) += 1
+                Else
+                    categories(entry.Category) = 1
+                End If
+            Next
+            stats("Categories") = categories
+            
+            Dim angleModes As New Dictionary(Of String, Integer)
+            For Each entry As CalculationEntry In entries
+                If angleModes.ContainsKey(entry.AngleMode) Then
+                    angleModes(entry.AngleMode) += 1
+                Else
+                    angleModes(entry.AngleMode) = 1
+                End If
+            Next
+            stats("AngleModes") = angleModes
+        End If
+        
+        Return stats
+    End Function
+    
+    ' Persistence methods
+    Public Sub SaveToFile(filePath As String)
+        Try
+            Dim serializer As New XmlSerializer(GetType(List(Of CalculationEntry)))
+            Using writer As New StreamWriter(filePath)
+                serializer.Serialize(writer, entries)
+            End Using
+            
+            savedPath = filePath
+            isModified = False
+            RaiseEvent HistorySaved(Me, EventArgs.Empty)
+            
+        Catch ex As Exception
+            Throw New InvalidOperationException($"Failed to save history to file: {ex.Message}", ex)
+        End Try
+    End Sub
+    
+    Public Sub LoadFromFile(filePath As String)
+        Try
+            If Not File.Exists(filePath) Then
+                Throw New FileNotFoundException($"History file not found: {filePath}")
+            End If
+            
+            Dim serializer As New XmlSerializer(GetType(List(Of CalculationEntry)))
+            Using reader As New StreamReader(filePath)
+                Dim loadedEntries As List(Of CalculationEntry) = DirectCast(serializer.Deserialize(reader), List(Of CalculationEntry))
+                
+                entries.Clear()
+                entries.AddRange(loadedEntries)
+                
+                currentIndex = entries.Count - 1
+                savedPath = filePath
+                isModified = False
+                
+                RaiseEvent HistoryLoaded(Me, EventArgs.Empty)
+                RaiseEvent HistoryChanged(Me, EventArgs.Empty)
+            End Using
+            
+        Catch ex As Exception
+            Throw New InvalidOperationException($"Failed to load history from file: {ex.Message}", ex)
+        End Try
+    End Sub
+    
+    Public Sub SaveToCSV(filePath As String)
+        Try
+            Using writer As New StreamWriter(filePath)
+                ' Write header
+                writer.WriteLine("Timestamp,Expression,Result,Category,AngleMode,Bookmarked,Notes")
+                
+                ' Write entries
+                For Each entry As CalculationEntry In entries
+                    Dim line As String = $"""{entry.Timestamp:yyyy-MM-dd HH:mm:ss}"",""{EscapeCSV(entry.Expression)}"",""{EscapeCSV(entry.Result)}"",""{EscapeCSV(entry.Category)}"",""{entry.AngleMode}"",{entry.IsBookmarked},""{EscapeCSV(entry.Notes)}"""
+                    writer.WriteLine(line)
+                Next
+            End Using
+            
+        Catch ex As Exception
+            Throw New InvalidOperationException($"Failed to save history to CSV: {ex.Message}", ex)
+        End Try
+    End Sub
+    
+    Public Sub ExportToText(filePath As String, Optional includeDetails As Boolean = False)
+        Try
+            Using writer As New StreamWriter(filePath)
+                writer.WriteLine($"Calculator History Export - {DateTime.Now:yyyy-MM-dd HH:mm:ss}")
+                writer.WriteLine($"Total Entries: {entries.Count}")
+                writer.WriteLine(New String("="c, 50))
+                writer.WriteLine()
+                
+                For Each entry As CalculationEntry In entries
+                    If includeDetails Then
+                        writer.WriteLine(entry.ToDetailedString())
+                        writer.WriteLine(New String("-"c, 30))
+                    Else
+                        writer.WriteLine(entry.ToDisplayString())
+                    End If
+                Next
+            End Using
+            
+        Catch ex As Exception
+            Throw New InvalidOperationException($"Failed to export history to text: {ex.Message}", ex)
+        End Try
+    End Sub
+    
+    ' Helper methods
+    Private Sub TrimToMaxEntries()
+        While entries.Count > maxEntries
+            Dim removedEntry As CalculationEntry = entries(0)
+            entries.RemoveAt(0)
+            currentIndex = Math.Max(-1, currentIndex - 1)
+            RaiseEvent EntryRemoved(removedEntry)
+        End While
+    End Sub
+    
+    Private Function EscapeCSV(text As String) As String
+        If String.IsNullOrEmpty(text) Then
+            Return ""
+        End If
+        
+        ' Replace quotes with double quotes and handle commas/newlines
+        Return text.Replace("""", """""")
+    End Function
+    
+    ' Undo/Redo functionality
+    Private undoStack As New Stack(Of List(Of CalculationEntry))
+    Private redoStack As New Stack(Of List(Of CalculationEntry))
+    
+    Public ReadOnly Property CanUndo As Boolean
+        Get
+            Return undoStack.Count > 0
+        End Get
+    End Property
+    
+    Public ReadOnly Property CanRedo As Boolean
+        Get
+            Return redoStack.Count > 0
+        End Get
+    End Property
+    
+    Public Sub SaveState()
+        undoStack.Push(New List(Of CalculationEntry)(entries))
+        redoStack.Clear()
+        
+        ' Limit undo stack size
+        While undoStack.Count > 50
+            undoStack.Pop()
+        End While
+    End Sub
+    
+    Public Sub Undo()
+        If CanUndo Then
+            redoStack.Push(New List(Of CalculationEntry)(entries))
+            entries = undoStack.Pop()
+            currentIndex = entries.Count - 1
+            isModified = True
+            RaiseEvent HistoryChanged(Me, EventArgs.Empty)
+        End If
+    End Sub
+    
+    Public Sub Redo()
+        If CanRedo Then
+            undoStack.Push(New List(Of CalculationEntry)(entries))
+            entries = redoStack.Pop()
+            currentIndex = entries.Count - 1
+            isModified = True
+            RaiseEvent HistoryChanged(Me, EventArgs.Empty)
+        End If
+    End Sub
+End Class
