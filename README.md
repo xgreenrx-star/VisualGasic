@@ -1,6 +1,9 @@
 # VisualGasic - Advanced Visual Basic for Godot 4
 
 [![CI](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml/badge.svg)](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml)
+[![Version](https://img.shields.io/badge/version-2.1.0-blue.svg)](https://github.com/xgreenrx-star/VisualGasic/releases)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Godot](https://img.shields.io/badge/Godot-4.3+-purple.svg)](https://godotengine.org)
 
 **World-Class RAD Platform**: Professional Visual Basic language implementation with cutting-edge modern features including multitasking, advanced type system, pattern matching, GPU computing, and comprehensive development tools.
 
@@ -45,9 +48,10 @@ VisualGasic/
 │   ├── visual_gasic_package.*   # Package management
 │   └── visual_gasic_ecs.*       # Entity component system
 ├── docs/                        # Comprehensive documentation
-│   ├── ADVANCED_FEATURES_MANUAL.md  # 200+ line feature guide
-│   ├── BUILTINS.md             # Built-in functions reference
-│   └── *.md                    # Additional documentation
+│   ├── reference/              # API and syntax references
+│   ├── guides/                 # Getting started and tutorials
+│   ├── development/            # Implementation status and TODOs
+│   └── archive/                # Historical documentation
 ├── demo/                        # Godot test project
 ├── examples/                    # Example VisualGasic projects
 ├── tests/                       # Test suite
@@ -148,14 +152,14 @@ gasic debug --time-travel MyProject.vg
 ## 📖 **Documentation**
 
 ### **Core Documentation**
-- [**Advanced Features Manual**](docs/ADVANCED_FEATURES_MANUAL.md) - Comprehensive 200+ line guide to all advanced features
-- [**Built-in Functions Reference**](docs/BUILTINS.md) - Complete API documentation
-- [**Implementation Status**](docs/ADVANCED_FEATURES.md) - Feature completion and technical details
+- [**Built-in Functions Reference**](docs/reference/BUILTIN_FUNCTIONS_REFERENCE.md) - Complete API documentation (96 functions)
+- [**VB6 Features**](docs/reference/VB6_FEATURES_IMPLEMENTATION.md) - VB6 compatibility reference
+- [**Godot Functions**](docs/reference/GODOT_FUNCTIONS_REFERENCE.md) - Godot integration API
 
 ### **Getting Started Guides**
-- [**Quick Start Phase 2**](QUICK_START_PHASE_2.md) - Modern development workflow
-- [**Importing VB6 Projects**](IMPORTING_VB6.md) - Migration from Visual Basic 6
-- [**Installation Guide**](INSTALLATION.md) - Detailed setup instructions
+- [**Getting Started**](docs/guides/GET_STARTED.md) - Quick start guide
+- [**Importing VB6 Projects**](docs/guides/IMPORTING_VB6.md) - Migration from Visual Basic 6
+- [**Installation Guide**](docs/guides/INSTALLATION.md) - Detailed setup instructions
 
 ### **Advanced Topics**
 - [**Multitasking Guide**](docs/MULTITASKING.md) - Async/await and parallel programming
