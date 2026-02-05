@@ -37,6 +37,10 @@ class VisualGasicToolbox : public PanelContainer {
     Control *tabs; // Using generic Control to avoid header dependency hell if TabContainer isn't included, but we'll include it.
     GridContainer *grid_2d;
     GridContainer *grid_3d;
+    
+    // Track which tools are "default" vs "custom" for selective removal
+    int default_tool_count_2d = 0;
+    int default_tool_count_3d = 0;
 
 protected:
     static void _bind_methods();
@@ -48,6 +52,15 @@ public:
     
     // Updated add_tool to optionally take a scene path and category
     void add_tool(const String &p_name, const String &p_godot_class, const String &p_icon_name, const String &p_scene_path = "", const String &p_category = "2D");
+    
+    // Remove a specific tool by name
+    void remove_tool(const String &p_name);
+    
+    // Clear all custom (non-default) tools
+    void clear_custom_tools();
+    
+    // Mark current tools as "default" (called after initial setup)
+    void mark_defaults();
 };
 
 #endif // VISUAL_GASIC_TOOLBOX_H

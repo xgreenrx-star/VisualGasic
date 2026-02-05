@@ -1,7 +1,12 @@
 #include "visual_gasic_instance.h"
 #include "visual_gasic_language.h"
 #include <godot_cpp/variant/utility_functions.hpp>
-#include <dlfcn.h> // For dynamic library loading on Linux
+
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <dlfcn.h> // For dynamic library loading on Linux/macOS
+#endif
 
 using namespace VisualGasic;
 
@@ -398,21 +403,35 @@ void* VisualGasicInstance::load_library(const String& lib_name) {
         }
     #endif
     
+#ifdef _WIN32
+    HMODULE handle = LoadLibraryA(lib_path.utf8().get_data());
+    if (!handle) {
+        UtilityFunctions::print("Error loading library '", lib_name, "': Windows error ", (int64_t)GetLastError());
+        return nullptr;
+    }
+#else
     void* handle = dlopen(lib_path.utf8().get_data(), RTLD_LAZY);
-    
     if (!handle) {
         UtilityFunctions::print("Error loading library '", lib_name, "': ", dlerror());
         return nullptr;
     }
+#endif
     
     loaded_libraries[lib_name] = (int64_t)handle;
     UtilityFunctions::print("Loaded library: ", lib_name);
-    return handle;
+    return (void*)handle;
 }
 
 void* VisualGasicInstance::get_function_address(void* lib_handle, const String& func_name) {
     if (!lib_handle) return nullptr;
     
+#ifdef _WIN32
+    void* func_ptr = (void*)GetProcAddress((HMODULE)lib_handle, func_name.utf8().get_data());
+    if (!func_ptr) {
+        UtilityFunctions::print("Error finding function '", func_name, "': Windows error ", (int64_t)GetLastError());
+        return nullptr;
+    }
+#else
     dlerror(); // Clear any existing error
     void* func_ptr = dlsym(lib_handle, func_name.utf8().get_data());
     
@@ -421,6 +440,7 @@ void* VisualGasicInstance::get_function_address(void* lib_handle, const String& 
         UtilityFunctions::print("Error finding function '", func_name, "': ", error);
         return nullptr;
     }
+#endif
     
     return func_ptr;
 }

@@ -213,6 +213,37 @@ Quickly generate a new Form scene.
 *   Includes sample code with Form_Load, Form_Shown events.
 *   Saves as `Form1.tscn`, `Form2.tscn`, etc.
 
+**Form Templates**:
+| Category | Templates |
+|----------|-----------|
+| **VB6 Classic** | Blank Form, About Box, Login Form, Splash Screen, Data Entry Form, MDI Parent Form |
+| **Game Forms** | Main Menu, Settings, HUD, Inventory, Dialogue |
+| **Platform** | macOS, Linux, Windows styles |
+| **Custom** | User-saved templates |
+
+### Components Dialog
+**Location**: `Project > Visual Gasic Components...`
+
+A VB6-style dialog for managing optional and custom controls in the Toolbox.
+*   **Optional Components**: Enable/disable advanced controls
+*   **Custom Controls**: Browse and add your own .tscn prototypes
+*   **Persistent Config**: Settings saved to `custom_components.cfg`
+*   **Double-Click Toggle**: Quickly add/remove components
+
+**Built-in Optional Components**:
+| Component | Description |
+|-----------|-------------|
+| StatusBar | Status bar with panels |
+| Toolbar | Button toolbar container |
+| Animation | Sprite animation control |
+| Calendar | Month/date picker calendar |
+| DatePicker | Date selection control |
+| MaskedEdit | Input mask text box |
+| Winsock | Network socket control |
+| UpDown | Spin button control |
+| ListView | Multi-column list view |
+| ImageCombo | Image + text combo box |
+
 ### Rename Refactoring
 **Location**: `Ctrl+R` in any `.vg` script
 

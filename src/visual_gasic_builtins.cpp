@@ -61,7 +61,7 @@ bool call_builtin(VisualGasicInstance *instance, const String &p_method, const A
 
     String method = p_method;
 
-    // Minimal set implemented here; the rest can be added as needed.
+    // MsgBox - VB6-style message box with button options
     if (method.nocasecmp_to("MsgBox") == 0) {
         r_found = true;
         if (!instance->get_owner()) return true;
@@ -75,18 +75,68 @@ bool call_builtin(VisualGasicInstance *instance, const String &p_method, const A
         String title = "VisualGasic";
         if (p_args.size() > 2) title = String(p_args[2]);
 
-        AcceptDialog *dlg = memnew(AcceptDialog);
-        dlg->set_title(title);
-        dlg->set_text(msg);
-        root->add_child(dlg);
-        dlg->popup_centered();
+        // Button type is lowest 4 bits
+        int btn_type = buttons & 0x0F;
+        // Icon type is in bits 4-6 (can be used for future icon support)
+        // int icon_type = buttons & 0x70;
 
-        // Blocking modal loop (not ideal, but mirrors previous behavior)
-        while (dlg->is_visible() && dlg->is_inside_tree()) {
-            DisplayServer::get_singleton()->process_events();
-            OS::get_singleton()->delay_msec(10);
+        int result = 1; // Default vbOK
+
+        if (btn_type == 0) { // vbOKOnly
+            AcceptDialog *dlg = memnew(AcceptDialog);
+            dlg->set_title(title);
+            dlg->set_text(msg);
+            dlg->set_ok_button_text("OK");
+            root->add_child(dlg);
+            dlg->popup_centered();
+            while (dlg->is_visible() && dlg->is_inside_tree()) {
+                DisplayServer::get_singleton()->process_events();
+                OS::get_singleton()->delay_msec(10);
+            }
+            dlg->queue_free();
+            result = 1; // vbOK
+        } else if (btn_type == 1 || btn_type == 4) { // vbOKCancel or vbYesNo
+            ConfirmationDialog *dlg = memnew(ConfirmationDialog);
+            dlg->set_title(title);
+            dlg->set_text(msg);
+            if (btn_type == 4) {
+                dlg->set_ok_button_text("Yes");
+                dlg->set_cancel_button_text("No");
+            } else {
+                dlg->set_ok_button_text("OK");
+                dlg->set_cancel_button_text("Cancel");
+            }
+            dlg->set_meta("_confirmed", false);
+            dlg->connect("confirmed", Callable(dlg, "set_meta").bind("_confirmed", true));
+            root->add_child(dlg);
+            dlg->popup_centered();
+            while (dlg->is_visible() && dlg->is_inside_tree()) {
+                DisplayServer::get_singleton()->process_events();
+                OS::get_singleton()->delay_msec(10);
+            }
+            bool confirmed = dlg->get_meta("_confirmed", false);
+            if (btn_type == 4) {
+                result = confirmed ? 6 : 7; // vbYes or vbNo
+            } else {
+                result = confirmed ? 1 : 2; // vbOK or vbCancel
+            }
+            dlg->queue_free();
+        } else {
+            // Default fallback
+            AcceptDialog *dlg = memnew(AcceptDialog);
+            dlg->set_title(title);
+            dlg->set_text(msg);
+            root->add_child(dlg);
+            dlg->popup_centered();
+            while (dlg->is_visible() && dlg->is_inside_tree()) {
+                DisplayServer::get_singleton()->process_events();
+                OS::get_singleton()->delay_msec(10);
+            }
+            dlg->queue_free();
+            result = 1;
         }
-        dlg->queue_free();
+        
+        r_ret = result;
         return true;
     }
 

@@ -5,6 +5,30 @@ All notable changes to Visual Gasic will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] - 2026-02-05
+
+### Added
+- **Components Dialog**: VB6-style dialog for managing optional and custom controls (Project > Visual Gasic Components...)
+- **12 New Toolbox Controls**: ProgressBar, HSlider, VSlider, SpinBox, Shape, HLine, VLine, RichText, TabStrip, Files, and more
+- **10 Optional Components**: StatusBar, Toolbar, Animation, Calendar, DatePicker, MaskedEdit, Winsock, UpDown, ListView, ImageCombo
+- **Functional Calendar Control**: Full month/date picker with configurable properties and events
+- **2D Game Controls**: Sprite, AnimatedSprite, Tilemap, RigidBody, CharacterBody, Area, Camera
+- **3D Game Controls**: MeshInstance, RigidBody3D, CharacterBody3D, Camera3D, lights, WorldEnvironment, CSGBox
+- **VB6 MsgBox Constants**: Full support for button constants (vbOKOnly, vbYesNo, etc.) and icon constants (vbCritical, vbQuestion, etc.)
+- **Custom Control Support**: Browse and add your own .tscn prototypes to the Toolbox
+- **VB6-Style Properties Panel**: Enhanced inspector with BackColor, ForeColor, Caption, TabIndex, etc.
+- **Controls Reference Documentation**: Complete guide to all 40+ toolbox controls
+
+### Changed
+- **New Form Dialog**: Resized for better usability, shows 5-6 templates at once
+- **Toolbox Organization**: Controls now properly categorized (Standard, Extended, 2D Game, 3D Game, Optional)
+- **Components Persistence**: Custom components saved to `custom_components.cfg`
+
+### Fixed
+- ProgressBar icon not displaying correctly in toolbox
+- VScrollBar default size too small
+- Dock panels not resizing properly (removed forced minimum sizes)
+
 ## [2.1.0] - 2026-02-03
 
 ### Added

@@ -105,6 +105,9 @@ Variant VisualGasicToolButton::_get_drag_data(const Vector2 &at_position) {
 
 void VisualGasicToolbox::_bind_methods() {
     ClassDB::bind_method(D_METHOD("add_tool", "name", "godot_class", "icon_name", "scene_path", "category"), &VisualGasicToolbox::add_tool, DEFVAL(""), DEFVAL("2D"));
+    ClassDB::bind_method(D_METHOD("remove_tool", "name"), &VisualGasicToolbox::remove_tool);
+    ClassDB::bind_method(D_METHOD("clear_custom_tools"), &VisualGasicToolbox::clear_custom_tools);
+    ClassDB::bind_method(D_METHOD("mark_defaults"), &VisualGasicToolbox::mark_defaults);
 }
 
 VisualGasicToolbox::VisualGasicToolbox() {
@@ -112,8 +115,8 @@ VisualGasicToolbox::VisualGasicToolbox() {
     
     set_h_size_flags(Control::SIZE_EXPAND_FILL);
     set_v_size_flags(Control::SIZE_EXPAND_FILL);
-    // Allow the dock to shrink vertically while letting width be controlled by editor layout
-    set_custom_minimum_size(Vector2(0, 300));
+    // Minimal width to allow dock resizing - height requirement for usability
+    set_custom_minimum_size(Vector2(100, 200));
 
     // Create Tabs
     tabs = memnew(TabContainer); 
@@ -147,12 +150,26 @@ VisualGasicToolbox::VisualGasicToolbox() {
     add_tool("CheckBox", "CheckBox", "CheckBox", "res://addons/visual_gasic/prototypes/CheckBox.tscn");
     add_tool("ComboBox", "OptionButton", "OptionButton", "res://addons/visual_gasic/prototypes/OptionButton.tscn");
     add_tool("Frame", "Panel", "Panel", "res://addons/visual_gasic/prototypes/Panel.tscn");
-    add_tool("CommandButton", "Button", "Button", "res://addons/visual_gasic/prototypes/Button.tscn"); 
+    add_tool("GroupBox", "Panel", "Panel", "res://addons/visual_gasic/prototypes/GroupBox.tscn");
     add_tool("ListBox", "ItemList", "ItemList", "res://addons/visual_gasic/prototypes/ItemList.tscn");
+    add_tool("TreeView", "Tree", "Tree", "res://addons/visual_gasic/prototypes/Tree.tscn");
     add_tool("HScroll", "HScrollBar", "HScrollBar", "res://addons/visual_gasic/prototypes/HScrollBar.tscn");
     add_tool("VScroll", "VScrollBar", "VScrollBar", "res://addons/visual_gasic/prototypes/VScrollBar.tscn");
+    add_tool("ProgressBar", "ProgressBar", "ProgressBar", "res://addons/visual_gasic/prototypes/ProgressBar.tscn");
+    add_tool("HSlider", "HSlider", "HSlider", "res://addons/visual_gasic/prototypes/HSlider.tscn");
+    add_tool("VSlider", "VSlider", "VSlider", "res://addons/visual_gasic/prototypes/VSlider.tscn");
+    add_tool("SpinBox", "SpinBox", "SpinBox", "res://addons/visual_gasic/prototypes/SpinBox.tscn");
+    add_tool("Shape", "ColorRect", "ColorRect", "res://addons/visual_gasic/prototypes/ColorRect.tscn");
+    add_tool("HLine", "HSeparator", "HSeparator", "res://addons/visual_gasic/prototypes/HSeparator.tscn");
+    add_tool("VLine", "VSeparator", "VSeparator", "res://addons/visual_gasic/prototypes/VSeparator.tscn");
+    add_tool("RichText", "RichTextLabel", "RichTextLabel", "res://addons/visual_gasic/prototypes/RichTextLabel.tscn");
+    add_tool("TextArea", "TextEdit", "TextEdit", "res://addons/visual_gasic/prototypes/TextEdit.tscn");
+    add_tool("TabStrip", "TabContainer", "TabContainer", "res://addons/visual_gasic/prototypes/TabContainer.tscn");
     add_tool("Timer", "Timer", "Timer", "res://addons/visual_gasic/prototypes/Timer.tscn");
     add_tool("Files", "FileDialog", "FileDialog", "res://addons/visual_gasic/prototypes/FileDialog.tscn"); 
+    
+    // Mark these as default tools (won't be removed by clear_custom_tools)
+    mark_defaults();
 }
 
 VisualGasicToolbox::~VisualGasicToolbox() {
@@ -164,6 +181,7 @@ void VisualGasicToolbox::_notification(int p_what) {
 void VisualGasicToolbox::add_tool(const String &p_name, const String &p_godot_class, const String &p_icon_name, const String &p_scene_path, const String &p_category) {
     VisualGasicToolButton *btn = memnew(VisualGasicToolButton);
     btn->set_tooltip_text(p_name); // Show name on hover only
+    btn->set_name(p_name); // Set node name for lookup
     btn->set_create_class(p_godot_class);
     btn->set_icon_name(p_icon_name);
     if (!p_scene_path.is_empty()) {
@@ -183,6 +201,48 @@ void VisualGasicToolbox::add_tool(const String &p_name, const String &p_godot_cl
     } else {
         grid_2d->add_child(btn);
     }
+}
+
+void VisualGasicToolbox::remove_tool(const String &p_name) {
+    // Search in 2D grid
+    for (int i = 0; i < grid_2d->get_child_count(); i++) {
+        Node *child = grid_2d->get_child(i);
+        if (child->get_name() == p_name) {
+            grid_2d->remove_child(child);
+            child->queue_free();
+            return;
+        }
+    }
+    // Search in 3D grid
+    for (int i = 0; i < grid_3d->get_child_count(); i++) {
+        Node *child = grid_3d->get_child(i);
+        if (child->get_name() == p_name) {
+            grid_3d->remove_child(child);
+            child->queue_free();
+            return;
+        }
+    }
+}
+
+void VisualGasicToolbox::clear_custom_tools() {
+    // Remove tools added after mark_defaults() was called
+    // 2D grid
+    while (grid_2d->get_child_count() > default_tool_count_2d) {
+        Node *child = grid_2d->get_child(grid_2d->get_child_count() - 1);
+        grid_2d->remove_child(child);
+        child->queue_free();
+    }
+    // 3D grid
+    while (grid_3d->get_child_count() > default_tool_count_3d) {
+        Node *child = grid_3d->get_child(grid_3d->get_child_count() - 1);
+        grid_3d->remove_child(child);
+        child->queue_free();
+    }
+}
+
+void VisualGasicToolbox::mark_defaults() {
+    default_tool_count_2d = grid_2d->get_child_count();
+    default_tool_count_3d = grid_3d->get_child_count();
 }
 
 /*

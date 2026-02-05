@@ -118,6 +118,8 @@ func _enter_tree():
 	# TEST: Create a simple Label to verify dock mechanism
 	toolbox = VBoxContainer.new()
 	toolbox.name = "Toolbox"
+	toolbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	toolbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	var label = Label.new()
 	label.text = "Visual Gasic Debug"
 	toolbox.add_child(label)
@@ -159,14 +161,14 @@ func _enter_tree():
 		if debugger_plugin and nav.has_method("set_debugger_plugin"):
 			nav.set_debugger_plugin(debugger_plugin)
 
-	# Add Property Inspector
+	# Setup Dock - Toolbox on left
+	add_control_to_dock(EditorPlugin.DOCK_SLOT_LEFT_BL, toolbox)
+	
+	# Add Property Inspector - on left side below toolbox, stacked as tab
 	var props = loading_inspector()
 	if props:
-		add_control_to_dock(EditorPlugin.DOCK_SLOT_RIGHT_BL, props)
+		add_control_to_dock(EditorPlugin.DOCK_SLOT_LEFT_BR, props)
 		props.setup(self)
-
-	# Setup Dock
-	add_control_to_dock(EditorPlugin.DOCK_SLOT_LEFT_BL, toolbox)
 	print("Manually added Toolbox (GDScript Wrapper) to Dock Left BL")
 	
 	# Add Alignment Toolbar for form designer
@@ -197,6 +199,7 @@ func _enter_tree():
 	add_tool_menu_item("Visual Gasic Project Properties...", Callable(self, "_on_proj_props"))
 	add_tool_menu_item("Visual Gasic Object Browser", Callable(self, "_on_obj_browser"))
 	add_tool_menu_item("Visual Gasic Tab Order", Callable(self, "_on_tab_order"))
+	add_tool_menu_item("Visual Gasic Components...", Callable(self, "_on_components"))
 
 ## Called when the plugin exits the editor tree.
 ## Cleans up all plugin components and disconnects signals.
@@ -216,6 +219,7 @@ func _exit_tree():
 	remove_tool_menu_item("Visual Gasic Project Properties...")
 	remove_tool_menu_item("Visual Gasic Object Browser")
 	remove_tool_menu_item("Visual Gasic Tab Order")
+	remove_tool_menu_item("Visual Gasic Components...")
 	
 	if immediate_window:
 		remove_control_from_bottom_panel(immediate_window)
@@ -592,7 +596,7 @@ func _on_new_form():
 		dlg.queue_free()
 	)
 	
-	dlg.popup_centered()
+	dlg.popup_centered_clamped(Vector2(420, 380))
 
 ## Deferred script attachment helper (called after scene is ready).
 ## @param scene_path: Path to the scene file
@@ -950,6 +954,59 @@ func _on_tab_order():
 	dlg.set_root(target)
 	dlg.popup_centered()
 
+## Opens the Components dialog.
+## Add/remove VB6-style components and custom controls to the toolbox.
+func _on_components():
+	var dlg = load("res://addons/visual_gasic/components_dialog.gd").new()
+	dlg.components_changed.connect(_on_components_changed)
+	get_editor_interface().get_base_control().add_child(dlg)
+	dlg.popup_centered()
+
+## Callback when components are added/removed via the Components dialog.
+## Clears custom tools and reloads only enabled ones.
+func _on_components_changed():
+	# Clear existing custom tools from toolbox
+	var real_toolbox = _get_toolbox_instance()
+	if real_toolbox:
+		real_toolbox.clear_custom_tools()
+	
+	# Re-add the GDScript extended tools (FlexGrid, Form, etc.)
+	_register_extended_tools()
+	
+	# Load enabled components from config
+	_load_custom_components()
+
+## Registers the GDScript-extended tools (not in C++ defaults)
+func _register_extended_tools():
+	register_tool("FlexGrid", "Tree", "Tree", "res://custom_widgets/FlexGrid.tscn")
+	register_tool("Form", "Panel", "Window", "res://custom_widgets/Form.tscn")
+	register_tool("Option", "CheckBox", "CheckBox", "res://custom_widgets/Option.tscn")
+	register_tool("CommonDialog", "Control", "FileDialog", "res://custom_widgets/CommonDialog.tscn")
+	register_tool("ColorBtn", "ColorPickerButton", "ColorPickerButton", "res://custom_widgets/ColorBtn.tscn")
+	register_tool("Video", "VideoStreamPlayer", "VideoStreamPlayer", "res://custom_widgets/Video.tscn")
+	register_tool("Viewport", "SubViewportContainer", "SubViewportContainer", "res://custom_widgets/Viewport.tscn")
+	
+	# 3D Tools
+	var cat3d = "3D"
+	register_tool("Box", "MeshInstance3D", "BoxMesh", "res://custom_widgets/3d/Box.tscn", cat3d)
+	register_tool("Sphere", "MeshInstance3D", "SphereMesh", "res://custom_widgets/3d/Sphere.tscn", cat3d)
+	register_tool("Capsule", "MeshInstance3D", "CapsuleMesh", "res://custom_widgets/3d/Capsule.tscn", cat3d)
+	register_tool("Cylinder", "MeshInstance3D", "CylinderMesh", "res://custom_widgets/3d/Cylinder.tscn", cat3d)
+	register_tool("Light", "OmniLight3D", "OmniLight3D", "res://custom_widgets/3d/Light.tscn", cat3d)
+	register_tool("Camera", "Camera3D", "Camera3D", "res://custom_widgets/3d/Camera.tscn", cat3d)
+	register_tool("Text3D", "Label3D", "Label3D", "res://custom_widgets/3d/Text3D.tscn", cat3d)
+	register_tool("Sprite3D", "Sprite3D", "Sprite3D", "res://custom_widgets/3d/Sprite3D.tscn", cat3d)
+	register_tool("Sound3D", "AudioStreamPlayer3D", "AudioStreamPlayer3D", "res://custom_widgets/3d/Sound3D.tscn", cat3d)
+
+## Loads enabled components from the config file and adds them to the toolbox.
+func _load_custom_components():
+	var ComponentsDialog = load("res://addons/visual_gasic/components_dialog.gd")
+	var enabled = ComponentsDialog.load_enabled_components()
+	
+	for comp in enabled:
+		register_tool(comp["name"], comp["class"], comp.get("icon", "Control"), comp["scene"], comp.get("category", "2D"))
+	
+	print("VisualGasic: Loaded ", enabled.size(), " custom/optional components")
 
 
 # =============================================================================
@@ -979,43 +1036,16 @@ func loading_code_navigator():
 # =============================================================================
 
 ## Post-initialization setup.
-## Registers all toolbox controls and connects editor signals.
+## Registers additional toolbox controls (beyond C++ defaults) and connects editor signals.
+## NOTE: C++ toolbox already provides: Pointer, Picture, Label, TextBox, Button, CheckBox,
+##       ComboBox, Frame, GroupBox, ListBox, TreeView, HScroll, VScroll, ProgressBar,
+##       HSlider, VSlider, SpinBox, Shape, HLine, VLine, RichText, TextArea, TabStrip, Timer, Files
 func _post_init():
-	# Register extended components
-	register_tool("FlexGrid", "Tree", "Tree", "res://custom_widgets/FlexGrid.tscn")
-	register_tool("Shape", "ColorRect", "ColorRect", "res://custom_widgets/Shape.tscn")
-	register_tool("Line", "HSeparator", "HSeparator", "res://custom_widgets/Line.tscn")
-	register_tool("RichText", "RichTextLabel", "RichTextLabel", "res://custom_widgets/RichText.tscn")
-	register_tool("Form", "Panel", "Window", "res://custom_widgets/Form.tscn")
-	register_tool("Timer", "Timer", "Timer", "res://custom_widgets/Timer.tscn")
-	register_tool("ProgressBar", "ProgressBar", "ProgressBar", "res://custom_widgets/ProgressBar.tscn")
-	register_tool("Slider", "HSlider", "HSlider", "res://custom_widgets/Slider.tscn")
-	register_tool("Spinner", "SpinBox", "SpinBox", "res://custom_widgets/Spinner.tscn")
-	register_tool("Tabs", "TabContainer", "TabContainer", "res://custom_widgets/Tabs.tscn")
-	register_tool("Option", "CheckBox", "CheckBox", "res://custom_widgets/Option.tscn")
-	register_tool("Memo", "TextEdit", "TextEdit", "res://custom_widgets/Memo.tscn")
-	register_tool("CommonDialog", "Control", "FileDialog", "res://custom_widgets/CommonDialog.tscn")
-	register_tool("FileDialog", "Control", "FileDialog", "res://custom_widgets/CommonDialog.tscn")
-	register_tool("VSlider", "VSlider", "VSlider", "res://custom_widgets/VSlider.tscn")
-	register_tool("ColorBtn", "ColorPickerButton", "ColorPickerButton", "res://custom_widgets/ColorBtn.tscn")
-	register_tool("Video", "VideoStreamPlayer", "VideoStreamPlayer", "res://custom_widgets/Video.tscn")
-	register_tool("ComboBox", "OptionButton", "OptionButton", "res://custom_widgets/OptionButton.tscn")
-	register_tool("ListBox", "ItemList", "ItemList", "res://custom_widgets/ItemList.tscn")
-	register_tool("Picture", "TextureRect", "TextureRect", "res://custom_widgets/TextureRect.tscn")
-	register_tool("Frame", "Panel", "PanelContainer", "res://custom_widgets/Frame.tscn")
-	register_tool("Viewport", "SubViewportContainer", "SubViewportContainer", "res://custom_widgets/Viewport.tscn")
+	# Register extended components not in C++ toolbox
+	_register_extended_tools()
 	
-	# 3D Tools
-	var cat3d = "3D"
-	register_tool("Box", "MeshInstance3D", "BoxMesh", "res://custom_widgets/3d/Box.tscn", cat3d)
-	register_tool("Sphere", "MeshInstance3D", "SphereMesh", "res://custom_widgets/3d/Sphere.tscn", cat3d)
-	register_tool("Capsule", "MeshInstance3D", "CapsuleMesh", "res://custom_widgets/3d/Capsule.tscn", cat3d)
-	register_tool("Cylinder", "MeshInstance3D", "CylinderMesh", "res://custom_widgets/3d/Cylinder.tscn", cat3d)
-	register_tool("Light", "OmniLight3D", "OmniLight3D", "res://custom_widgets/3d/Light.tscn", cat3d)
-	register_tool("Camera", "Camera3D", "Camera3D", "res://custom_widgets/3d/Camera.tscn", cat3d)
-	register_tool("Text3D", "Label3D", "Label3D", "res://custom_widgets/3d/Text3D.tscn", cat3d)
-	register_tool("Sprite3D", "Sprite3D", "Sprite3D", "res://custom_widgets/3d/Sprite3D.tscn", cat3d)
-	register_tool("Sound3D", "AudioStreamPlayer3D", "AudioStreamPlayer3D", "res://custom_widgets/3d/Sound3D.tscn", cat3d)
+	# Load custom/optional components from Components dialog config
+	_load_custom_components()
 	
 	# Connect to screen change signal
 	main_screen_changed.connect(_on_main_screen_changed)
@@ -1287,7 +1317,7 @@ func setup_toolbox():
 		var real_toolbox = ClassDB.instantiate("VisualGasicToolbox")
 		real_toolbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		real_toolbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		real_toolbox.custom_minimum_size = Vector2(200, 300) 
+		# No minimum size - let the dock be resizable
 		real_toolbox.visible = true
 		toolbox.add_child(real_toolbox)
 	else:

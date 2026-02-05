@@ -11,6 +11,7 @@
 
 ### Core Features
 - [BUILTIN_FUNCTIONS_REFERENCE.md](../BUILTIN_FUNCTIONS_REFERENCE.md) - Built-in functions (Print, Input, MsgBox, etc.)
+- [CONTROLS_REFERENCE.md](reference/CONTROLS_REFERENCE.md) - **Complete toolbox controls reference**
 - [GODOT_FUNCTIONS_REFERENCE.md](../GODOT_FUNCTIONS_REFERENCE.md) - Godot integration functions
 - [GODOT_QUICK_REF.md](../GODOT_QUICK_REF.md) - Quick reference for Godot features
 - [MODERN_SYNTAX_QUICK_REF.md](../MODERN_SYNTAX_QUICK_REF.md) - Modern syntax features
@@ -63,6 +64,17 @@
 | Form Preview | Quick form testing (F5) | 2D Canvas Toolbar |
 | Tab Order Editor | Set focus order | Tools menu |
 | Menu Editor | Visual menu bar designer | Tools menu |
+| Components Dialog | Add/remove optional controls | Project menu |
+| New Form Dialog | Create forms from templates | Toolbox |
+
+### Toolbox Controls
+| Category | Controls |
+|----------|----------|
+| Standard | Label, TextBox, Button, CheckBox, OptionButton, ListBox, ComboBox, PictureBox, Frame, GroupBox, Timer |
+| Extended | ProgressBar, HSlider, VSlider, SpinBox, HScroll, VScroll, Shape, HLine, VLine, RichText, TreeView, TabStrip, Files |
+| 2D Game | Sprite, AnimatedSprite, Tilemap, RigidBody, CharacterBody, Area, Camera |
+| 3D Game | MeshInstance, RigidBody3D, CharacterBody3D, Camera3D, DirectionalLight, SpotLight, OmniLight, WorldEnvironment, CSGBox |
+| Optional | StatusBar, Toolbar, Animation, Calendar, DatePicker, MaskedEdit, Winsock, UpDown, ListView, ImageCombo |
 
 ### Project Tools
 | Tool | Description | Location |
@@ -126,6 +138,15 @@
 | `form_preview_toolbar.gd` | Form preview with F5 |
 | `form_editor_helper.gd` | Grid snapping and resize |
 | `VGFormBase.gd` | WinForms-style form base class |
+| `new_form_dialog.gd` | Form template selection dialog |
+| `components_dialog.gd` | VB6-style Components dialog |
+| `simple_inspector.gd` | VB6-style Properties panel |
+
+### Control Prototypes (prototypes/)
+| File | Description |
+|------|-------------|
+| `Calendar.gd` | Functional calendar control with date selection |
+| `*.tscn` | Scene templates for all toolbox controls |
 
 ### Debugging Files
 | File | Description |

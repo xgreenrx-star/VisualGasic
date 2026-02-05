@@ -24,8 +24,59 @@ File/dir helpers (delegate to `VisualGasicInstance` wrappers):
 - `LOF(fileHandle)`, `Loc(fileHandle)`, `EOF(fileHandle)`, `FreeFile([range])`, `FileLen(path)`, `Dir(...)`, `Randomize()`
 
 Statement-level builtins (examples):
-- `MsgBox(message[, buttons, title])` — shows a dialog
+- `MsgBox(message[, buttons, title])` — shows a dialog with VB6-style button/icon constants
 - `InputBox(prompt[, title, default])` — shows an input dialog and returns the result
+
+### MsgBox Constants
+
+VisualGasic supports all VB6 MsgBox constants:
+
+**Button Constants (additive):**
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `vbOKOnly` | 0 | OK button only (default) |
+| `vbOKCancel` | 1 | OK and Cancel buttons |
+| `vbAbortRetryIgnore` | 2 | Abort, Retry, Ignore buttons |
+| `vbYesNoCancel` | 3 | Yes, No, Cancel buttons |
+| `vbYesNo` | 4 | Yes and No buttons |
+| `vbRetryCancel` | 5 | Retry and Cancel buttons |
+
+**Icon Constants (additive):**
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `vbCritical` | 16 | Critical/Error icon |
+| `vbQuestion` | 32 | Question mark icon |
+| `vbExclamation` | 48 | Warning/Exclamation icon |
+| `vbInformation` | 64 | Information icon |
+
+**Return Values:**
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `vbOK` | 1 | User clicked OK |
+| `vbCancel` | 2 | User clicked Cancel |
+| `vbAbort` | 3 | User clicked Abort |
+| `vbRetry` | 4 | User clicked Retry |
+| `vbIgnore` | 5 | User clicked Ignore |
+| `vbYes` | 6 | User clicked Yes |
+| `vbNo` | 7 | User clicked No |
+
+**Example:**
+```vb
+' Simple message
+MsgBox "Hello World!"
+
+' With buttons and icon
+Dim result As Integer
+result = MsgBox("Save changes?", vbYesNoCancel + vbQuestion, "Confirm")
+
+If result = vbYes Then
+    ' Save...
+ElseIf result = vbNo Then
+    ' Don't save...
+Else
+    ' Cancel
+End If
+```
 
 Base-specific handlers:
 - `Clipboard.GetText()`, `Clipboard.SetText(text)`, `Clipboard.Clear()`

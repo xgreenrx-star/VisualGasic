@@ -1,0 +1,154 @@
+[gd_scene load_steps=4 format=3 uid="uid://c6f7oqdclh341"]
+
+[ext_resource type="Script" uid="uid://kbbnwgj8hxto" path="res://Form39.vg" id="1_266f1"]
+[ext_resource type="Script" uid="uid://6dl0hvqnyiu0" path="res://addons/visual_gasic/menu_bar_helper.gd" id="2_8hti8"]
+[ext_resource type="Script" uid="uid://b8c5jy6r1ytsh" path="res://addons/visual_gasic/form_editor_helper.gd" id="3_kt0x5"]
+[ext_resource type="PackedScene" uid="" path="res://addons/visual_gasic/prototypes/ItemList.tscn" id="4"]
+[ext_resource type="PackedScene" uid="" path="res://addons/visual_gasic/prototypes/Button.tscn" id="5"]
+[ext_resource type="PackedScene" uid="" path="res://addons/visual_gasic/prototypes/ProgressBar.tscn" id="6"]
+[ext_resource type="PackedScene" uid="" path="res://addons/visual_gasic/prototypes/Label.tscn" id="7"]
+[ext_resource type="PackedScene" uid="" path="res://addons/visual_gasic/prototypes/Button.tscn" id="8"]
+[ext_resource type="PackedScene" uid="" path="res://addons/visual_gasic/prototypes/OptionButton.tscn" id="9"]
+[ext_resource type="PackedScene" uid="" path="res://addons/visual_gasic/prototypes/GroupBox.tscn" id="10"]
+[ext_resource type="PackedScene" uid="" path="res://addons/visual_gasic/prototypes/Tree.tscn" id="11"]
+[ext_resource type="PackedScene" uid="" path="res://addons/visual_gasic/prototypes/VScrollBar.tscn" id="12"]
+[ext_resource type="PackedScene" uid="" path="res://addons/visual_gasic/prototypes/HSlider.tscn" id="13"]
+[ext_resource type="PackedScene" uid="" path="res://addons/visual_gasic/prototypes/SpinBox.tscn" id="14"]
+[ext_resource type="PackedScene" uid="" path="res://addons/visual_gasic/prototypes/HSeparator.tscn" id="15"]
+[ext_resource type="PackedScene" uid="" path="res://addons/visual_gasic/prototypes/RichTextLabel.tscn" id="16"]
+[ext_resource type="PackedScene" uid="" path="res://addons/visual_gasic/prototypes/TabContainer.tscn" id="17"]
+[ext_resource type="PackedScene" uid="" path="res://custom_widgets/Form.tscn" id="18"]
+[ext_resource type="PackedScene" uid="" path="res://addons/visual_gasic/prototypes/FileDialog.tscn" id="19"]
+[ext_resource type="PackedScene" uid="" path="res://addons/visual_gasic/prototypes/FileDialog.tscn" id="20"]
+[ext_resource type="PackedScene" uid="" path="res://addons/visual_gasic/prototypes/TextureRect.tscn" id="21"]
+
+[node name="Form39" type="Window"]
+positional_shadow_atlas_quad_0 = null
+positional_shadow_atlas_quad_1 = null
+positional_shadow_atlas_quad_2 = null
+positional_shadow_atlas_quad_3 = null
+title = "Form39"
+position = Vector2i(10, 36)
+size = Vector2i(600, 400)
+unresizable = null
+borderless = null
+always_on_top = null
+transparent = null
+unfocusable = null
+popup_window = null
+extend_to_title = null
+mouse_passthrough = null
+sharp_corners = null
+exclude_from_capture = null
+popup_wm_hint = null
+minimize_disabled = null
+maximize_disabled = null
+script = ExtResource("1_266f1")
+
+[node name="MenuBar" type="MenuBar" parent="."]
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 30.0
+mouse_filter = 2
+script = ExtResource("2_8hti8")
+
+[node name="mnuFile" type="PopupMenu" parent="MenuBar"]
+item_count = 5
+item_0/text = "New"
+item_0/id = 0
+item_1/text = "Open"
+item_1/id = 1
+item_2/text = "Save"
+item_2/id = 2
+item_3/id = -1
+item_3/separator = true
+item_4/text = "Exit"
+item_4/id = 3
+metadata/_menu_name = "File"
+
+[node name="mnuHelp" type="PopupMenu" parent="MenuBar"]
+item_count = 1
+item_0/text = "About"
+item_0/id = 0
+metadata/_menu_name = "Help"
+
+[node name="_FormBackground" type="Panel" parent="."]
+offset_right = 600.0
+offset_bottom = 400.0
+script = ExtResource("3_kt0x5")
+
+[node name="ItemList1" parent="." instance=ExtResource("4")]
+offset_left = 200.0
+offset_top = 112.0
+
+[node name="Button1" parent="." instance=ExtResource("5")]
+offset_left = 224.0
+offset_top = 168.0
+text = "Button1"
+
+[node name="ProgressBar1" parent="." instance=ExtResource("6")]
+offset_left = 144.0
+offset_top = 120.0
+
+[node name="Label1" parent="." instance=ExtResource("7")]
+offset_left = 288.0
+offset_top = 56.0
+text = "Label1"
+
+[node name="Button2" parent="." instance=ExtResource("8")]
+offset_left = 432.0
+offset_top = 112.0
+text = "Button2"
+
+[node name="OptionButton1" parent="." instance=ExtResource("9")]
+offset_left = 488.0
+offset_top = 168.0
+text = "OptionButton1"
+
+[node name="GroupBox1" parent="." instance=ExtResource("10")]
+offset_left = 480.0
+offset_top = 216.0
+
+[node name="Tree1" parent="." instance=ExtResource("11")]
+offset_left = 344.0
+offset_top = 240.0
+
+[node name="VScrollBar1" parent="." instance=ExtResource("12")]
+offset_left = 176.0
+offset_top = 248.0
+
+[node name="HSlider1" parent="." instance=ExtResource("13")]
+offset_left = 48.0
+offset_top = 96.0
+
+[node name="SpinBox1" parent="." instance=ExtResource("14")]
+offset_left = 88.0
+offset_top = 216.0
+
+[node name="HSeparator1" parent="." instance=ExtResource("15")]
+offset_left = 144.0
+offset_top = 304.0
+
+[node name="RichTextLabel1" parent="." instance=ExtResource("16")]
+offset_left = 56.0
+offset_top = 160.0
+
+[node name="TabContainer1" parent="." instance=ExtResource("17")]
+offset_left = 376.0
+offset_top = 72.0
+
+[node name="Form2" parent="." instance=ExtResource("18")]
+offset_left = 464.0
+offset_top = 32.0
+
+[node name="FileDialog1" parent="." instance=ExtResource("19")]
+offset_left = 552.0
+offset_top = 32.0
+
+[node name="FileDialog2" parent="." instance=ExtResource("20")]
+offset_left = 336.0
+offset_top = 120.0
+
+[node name="TextureRect1" parent="." instance=ExtResource("21")]
+offset_left = 200.0
+offset_top = 56.0

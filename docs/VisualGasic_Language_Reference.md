@@ -501,23 +501,66 @@ The **Visual Form Designer** allows you to create user interfaces by dragging an
 4. The form opens in the 2D editor for visual editing
 
 **Adding Controls:**
+- Click a control in the Toolbox, then click on the form to place it
 - Use Godot's scene tree to add Control nodes
 - Available VB6-style controls (mapped to Godot):
 
+**Standard Controls:**
 | VB6 Control | Godot Node | Description |
 |-------------|------------|-------------|
 | Label | Label | Display static text |
-| TextBox | LineEdit / TextEdit | Text input field |
+| TextBox | LineEdit | Single-line text input |
+| TextArea | TextEdit | Multi-line text input |
 | CommandButton | Button | Clickable button |
 | CheckBox | CheckBox | On/off toggle |
 | OptionButton | CheckBox (in group) | Radio button selection |
 | ListBox | ItemList | Scrollable list |
 | ComboBox | OptionButton | Dropdown selection |
 | PictureBox | TextureRect | Image display |
-| Frame | GroupBox / Panel | Container for controls |
+| Frame | Panel | Container border |
+| GroupBox | Panel | Captioned container |
 | Timer | Timer | Timed events |
-| HScrollBar | HScrollBar | Horizontal scrollbar |
-| VScrollBar | VScrollBar | Vertical scrollbar |
+| HScroll | HScrollBar | Horizontal scrollbar |
+| VScroll | VScrollBar | Vertical scrollbar |
+
+**Additional Controls:**
+| VB6 Control | Godot Node | Description |
+|-------------|------------|-------------|
+| ProgressBar | ProgressBar | Progress indicator |
+| HSlider | HSlider | Horizontal slider |
+| VSlider | VSlider | Vertical slider |
+| SpinBox | SpinBox | Numeric up/down |
+| Shape | ColorRect | Colored rectangle |
+| HLine | HSeparator | Horizontal line |
+| VLine | VSeparator | Vertical line |
+| RichText | RichTextLabel | Formatted text display |
+| TreeView | Tree | Hierarchical tree |
+| TabStrip | TabContainer | Tabbed container |
+| Files | FileDialog | File open/save dialog |
+
+**2D Game Controls:**
+| Control | Godot Node | Description |
+|---------|------------|-------------|
+| Sprite | Sprite2D | 2D sprite display |
+| AnimatedSprite | AnimatedSprite2D | Animated sprites |
+| Tilemap | TileMapLayer | Tile-based maps |
+| RigidBody | RigidBody2D | Physics body |
+| CharacterBody | CharacterBody2D | Player character |
+| Area | Area2D | Collision detection |
+| Camera | Camera2D | 2D camera view |
+
+**3D Game Controls:**
+| Control | Godot Node | Description |
+|---------|------------|-------------|
+| MeshInstance | MeshInstance3D | 3D mesh display |
+| RigidBody3D | RigidBody3D | 3D physics body |
+| CharacterBody3D | CharacterBody3D | 3D character |
+| Camera3D | Camera3D | 3D camera |
+| DirectionalLight | DirectionalLight3D | Sun light |
+| SpotLight | SpotLight3D | Spotlight |
+| OmniLight | OmniLight3D | Point light |
+| WorldEnvironment | WorldEnvironment | Sky and fog |
+| CSGBox | CSGBox3D | CSG primitive |
 | DriveListBox | FileDialog | Drive selection |
 | DirListBox | FileDialog | Directory selection |
 | FileListBox | FileDialog | File selection |

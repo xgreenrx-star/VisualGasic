@@ -836,9 +836,28 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
     variables["vbKeyLeft"] = (int)Key::KEY_LEFT;
     variables["vbKeyRight"] = (int)Key::KEY_RIGHT;
     
-    // MsgBox
+    // MsgBox Button Constants (VB6-style)
+    variables["vbOKOnly"] = 0;
+    variables["vbOKCancel"] = 1;
+    variables["vbAbortRetryIgnore"] = 2;
+    variables["vbYesNoCancel"] = 3;
+    variables["vbYesNo"] = 4;
+    variables["vbRetryCancel"] = 5;
+    
+    // MsgBox Icon Constants
+    variables["vbCritical"] = 16;
+    variables["vbQuestion"] = 32;
+    variables["vbExclamation"] = 48;
+    variables["vbInformation"] = 64;
+    
+    // MsgBox Return Values
     variables["vbOK"] = 1;
     variables["vbCancel"] = 2;
+    variables["vbAbort"] = 3;
+    variables["vbRetry"] = 4;
+    variables["vbIgnore"] = 5;
+    variables["vbYes"] = 6;
+    variables["vbNo"] = 7;
     
     // Strings
     variables["vbTab"] = "\t";

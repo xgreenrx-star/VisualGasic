@@ -45,7 +45,9 @@ else:
 # Ensure debug symbols are preserved for template_debug builds (force link debug flags)
 if "template_debug" in env.get("target", "").lower() or env.get("debug_build", False):
     env.Append(LINKFLAGS=["-g"])
-    env.Append(LINKFLAGS=["-rdynamic"])  # ensure symbols exported for backtraces
+    # -rdynamic is Linux-only for backtrace symbol export
+    if env["platform"] != "windows":
+        env.Append(LINKFLAGS=["-rdynamic"])
     # Prevent automatic stripping of the produced shared library in debug builds.
     # Some toolchains or builders may run strip as a separate step; ensure STRIP is empty.
     env['STRIP'] = ''
