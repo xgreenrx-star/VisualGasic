@@ -1,0 +1,58 @@
+[gd_scene load_steps=3 format=3 uid="uid://bk6xkupt4axcv"]
+
+[ext_resource type="Script" uid="uid://jaofjt7rt0b0" path="res://Form9.vg" id="1_125gb"]
+[ext_resource type="Script" uid="uid://b8c5jy6r1ytsh" path="res://addons/visual_gasic/form_editor_helper.gd" id="2_xjyeg"]
+
+[node name="Form9" type="Window"]
+positional_shadow_atlas_quad_0 = null
+positional_shadow_atlas_quad_1 = null
+positional_shadow_atlas_quad_2 = null
+positional_shadow_atlas_quad_3 = null
+title = "Form9"
+position = Vector2i(10, 36)
+size = Vector2i(600, 400)
+unresizable = null
+borderless = null
+always_on_top = null
+transparent = null
+unfocusable = null
+popup_window = null
+extend_to_title = null
+mouse_passthrough = null
+sharp_corners = null
+exclude_from_capture = null
+popup_wm_hint = null
+minimize_disabled = null
+maximize_disabled = null
+script = ExtResource("1_125gb")
+
+[node name="MenuBar" type="MenuBar" parent="."]
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 30.0
+mouse_filter = 1
+
+[node name="mnuFile" type="PopupMenu" parent="MenuBar"]
+item_count = 5
+item_0/text = "New"
+item_0/id = 0
+item_1/text = "Open"
+item_1/id = 1
+item_2/text = "Save"
+item_2/id = 2
+item_3/id = -1
+item_3/separator = true
+item_4/text = "Exit"
+item_4/id = 3
+metadata/_menu_name = "File"
+
+[node name="mnuHelp" type="PopupMenu" parent="MenuBar"]
+item_count = 1
+item_0/text = "About"
+item_0/id = 0
+metadata/_menu_name = "Help"
+
+[node name="_FormBackground" type="Panel" parent="."]
+offset_right = 600.0
+offset_bottom = 400.0
+script = ExtResource("2_xjyeg")

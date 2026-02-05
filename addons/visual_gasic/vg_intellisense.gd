@@ -17,35 +17,60 @@ class_name VGIntelliSense
 
 const VB6_KEYWORDS: Array[String] = [
 	# Declaration
-	"Dim", "Private", "Public", "Static", "Const", "ReDim", "Preserve",
-	"As", "New", "Set", "Let", "Get", "Property", "Type", "Enum", "End Enum",
+	"Dim", "Global", "Private", "Public", "Static", "Const", "ReDim", "Preserve",
+	"As", "New", "Set", "Let", "Get", "Property", "Type", "End Type", "Enum", "End Enum",
 	
 	# Procedures
 	"Sub", "End Sub", "Function", "End Function", "ByVal", "ByRef", "Optional",
-	"ParamArray", "Exit Sub", "Exit Function", "Return",
+	"ParamArray", "Exit Sub", "Exit Function", "Return", "Call",
 	
 	# Control Flow
-	"If", "Then", "Else", "ElseIf", "End If",
+	"If", "Then", "Else", "ElseIf", "Elif", "End If",
 	"Select Case", "Case", "Case Else", "End Select",
 	"For", "To", "Step", "Next", "For Each", "In",
 	"Do", "Loop", "While", "Wend", "Until",
 	"GoTo", "GoSub", "On Error", "Resume", "Resume Next",
-	"Exit For", "Exit Do", "Exit While",
+	"Exit For", "Exit Do", "Exit While", "Continue", "Pass",
 	
 	# Classes/Objects
 	"Class", "End Class", "Me", "MyBase", "MyClass",
 	"Implements", "Interface", "End Interface",
+	"Inherits", "Extends", "With", "End With",
 	"WithEvents", "RaiseEvent", "Event", "Handles",
 	
 	# Operators/Misc
-	"And", "Or", "Not", "Xor", "Mod", "Is", "Like",
+	"And", "Or", "Not", "Xor", "Mod", "Is", "IsNot", "Like",
+	"AndAlso", "OrElse",
 	"True", "False", "Nothing", "Null", "Empty",
 	"Option Explicit", "Option Compare",
 	
-	# Modern Extensions
-	"Async", "Await", "Task", "Whenever", "End Whenever",
-	"Select Match", "Lambda", "Of", "Try", "Catch", "Finally", "End Try",
+	# Error Handling
+	"Try", "Catch", "Finally", "End Try", "Throw",
+	
+	# Modern Extensions - Async/Parallel
+	"Async", "Await", "Task", "Parallel",
+	
+	# Modern Extensions - Pattern Matching
+	"Select Match", "Match", "When", "Where",
+	"TypeOf", "HasValue", "Value",
+	
+	# Modern Extensions - Other
+	"Lambda", "Of", "IIf",
 	"Using", "End Using", "Yield", "Iterator",
+	
+	# Reactive Programming (Whenever)
+	"Whenever", "End Whenever", "Section", "Local",
+	"Changes", "Becomes", "Exceeds", "Below", "Between", "Contains",
+	"Suspend",
+	
+	# File Operations
+	"Open", "Close", "Input", "Output", "Append", "Line",
+	
+	# Data Processing
+	"Data", "Read", "Restore", "DoEvents", "Include",
+	
+	# Collections
+	"Dictionary",
 ]
 
 # =============================================================================

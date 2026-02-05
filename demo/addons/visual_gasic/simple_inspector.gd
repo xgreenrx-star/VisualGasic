@@ -49,6 +49,9 @@ func setup(plugin: EditorPlugin):
 	editor_plugin.get_editor_interface().get_selection().selection_changed.connect(_on_selection_changed)
 
 func _on_selection_changed():
+	# Check if plugin is still valid (can be freed on reload)
+	if not is_instance_valid(editor_plugin):
+		return
 	var sel = editor_plugin.get_editor_interface().get_selection().get_selected_nodes()
 	if sel.size() == 1:
 		update_properties(sel[0])
@@ -81,6 +84,9 @@ func update_properties(node: Node):
 	if node is Control:
 		_add_prop_row("Width", node.size.x)
 		_add_prop_row("Height", node.size.y)
+		# TabStop Mapping
+		var can_focus = (node.focus_mode != Control.FOCUS_NONE)
+		_add_prop_row("TabStop", can_focus)
 		
 	# Specifics
 	if node is BaseButton:
@@ -139,3 +145,8 @@ func _apply_prop(p_name, v):
 		current_node.size.x = v
 	elif p_name == "Height" and current_node is Control:
 		current_node.size.y = v
+	elif p_name == "TabStop" and current_node is Control:
+		if v:
+			current_node.focus_mode = Control.FOCUS_ALL # or FOCUS_CLICK
+		else:
+			current_node.focus_mode = Control.FOCUS_NONE

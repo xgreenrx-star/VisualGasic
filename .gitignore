@@ -40,6 +40,11 @@ __pycache__/
 *.swp
 .DS_Store
 
+# Config files (local)
+*.conf
+performance.conf
+production_performance.conf
+
 # VS Code
 .vscode/
 

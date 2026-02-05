@@ -242,16 +242,16 @@ ModuleNode* VisualGasicParser::parse(const Vector<VisualGasicTokenizer::Token>& 
         current_pos++;
     }
 
-    // If parsing recorded errors, free the partially-built AST and
-    // return nullptr so callers know parsing failed. This ensures the
-    // parser is responsible for cleanup on failure and avoids leaving
-    // dangling allocations for higher layers to clean.
+    // If parsing recorded errors, return nullptr so callers know parsing failed.
+    // NOTE: We intentionally DON'T delete the module or allocated nodes here.
+    // There is a memory corruption issue with the destructor cascade that causes
+    // crashes. Accepting a small memory leak on parse errors is preferable to
+    // crashing the editor. The parser object's destructor will NOT clean up
+    // these nodes either since we clear the lists.
     if (errors.size() > 0) {
-        delete module;
-        // Delete any parser-owned nodes that weren't transferred
-        for (int i = 0; i < allocated_nodes.size(); i++) if (allocated_nodes[i]) delete allocated_nodes[i];
+        // Don't delete module - its destructor causes crashes due to invalid pointers
+        // Just clear tracking lists to prevent double-free attempts
         allocated_nodes.clear();
-        for (int i = 0; i < allocated_expr_nodes.size(); i++) if (allocated_expr_nodes[i]) delete allocated_expr_nodes[i];
         allocated_expr_nodes.clear();
         return nullptr;
     }

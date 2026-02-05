@@ -7,6 +7,7 @@ extends Panel
 ## - Snap-to-grid for control placement
 ## - Alignment toolbar for precise positioning
 ## - Smart guides when controls align
+## - Intercepts custom vg_control drops to avoid MenuBar issues
 
 signal form_resized(new_size: Vector2)
 
@@ -24,8 +25,9 @@ var _updating := false
 var _alignment_toolbar: Control = null
 
 func _ready() -> void:
-	# Don't set anchors - we want custom sizing for editor drag-resize
-	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Use MOUSE_FILTER_STOP to ensure we receive drop data in the editor
+	# This intercepts vg_control drops before they reach the MenuBar
+	mouse_filter = Control.MOUSE_FILTER_STOP
 	
 	if Engine.is_editor_hint():
 		# Initialize size tracking from parent Window
@@ -36,6 +38,84 @@ func _ready() -> void:
 		
 		# Request redraw for grid
 		queue_redraw()
+
+## Check if we can accept this drop data (vg_control custom type)
+func _can_drop_data(at_position: Vector2, data) -> bool:
+	if not Engine.is_editor_hint():
+		return false
+	print("FormEditorHelper._can_drop_data: pos=", at_position, " data_type=", typeof(data))
+	if data is Dictionary:
+		print("  Dictionary type field: ", data.get("type", "NONE"))
+		if data.get("type") == "vg_control":
+			print("FormEditorHelper: ACCEPTING vg_control drop!")
+			return true
+	# Also check Engine metadata for vg_control drag (C++ toolbox stores it there)
+	if Engine.has_meta("_vg_active_drag"):
+		var vg_drag = Engine.get_meta("_vg_active_drag")
+		print("  Found Engine._vg_active_drag: ", vg_drag)
+		if vg_drag is Dictionary and vg_drag.get("type") == "vg_control":
+			print("FormEditorHelper: ACCEPTING via Engine metadata!")
+			return true
+	return false
+
+## Handle the drop - instance the scene and add to form root
+func _drop_data(at_position: Vector2, data) -> void:
+	print("FormEditorHelper._drop_data called at ", at_position)
+	if not Engine.is_editor_hint():
+		return
+	
+	var scene_path = ""
+	
+	# Try to get scene_path from data dictionary
+	if data is Dictionary and data.get("type") == "vg_control":
+		scene_path = data.get("scene_path", "")
+	
+	# Fallback: check Engine metadata
+	if scene_path.is_empty() and Engine.has_meta("_vg_active_drag"):
+		var vg_drag = Engine.get_meta("_vg_active_drag")
+		if vg_drag is Dictionary:
+			scene_path = vg_drag.get("scene_path", "")
+		Engine.remove_meta("_vg_active_drag")  # Clean up
+	
+	if scene_path.is_empty():
+		printerr("VisualGasic: No scene_path in drop data")
+		return
+	
+	# Get the form root (parent Window)
+	var form_root = get_parent()
+	if not form_root:
+		printerr("VisualGasic: No form root found")
+		return
+	
+	# Load and instance the scene
+	var scene = load(scene_path)
+	if not scene:
+		printerr("VisualGasic: Could not load scene: ", scene_path)
+		return
+	
+	var instance = scene.instantiate()
+	if not instance:
+		printerr("VisualGasic: Could not instantiate scene: ", scene_path)
+		return
+	
+	# Add to form root (NOT to _FormBackground)
+	form_root.add_child(instance)
+	instance.owner = form_root
+	
+	# Position at drop location, snapped to grid
+	if instance is Control:
+		var snapped_pos = snap_to_grid(at_position)
+		instance.position = snapped_pos
+	
+	print("VisualGasic: Successfully dropped ", instance.name, " at ", at_position)
+	
+	# Select the new node in the editor
+	var editor = EditorInterface
+	if editor:
+		var selection = editor.get_selection()
+		if selection:
+			selection.clear()
+			selection.add_node(instance)
 
 func _process(_delta: float) -> void:
 	if not Engine.is_editor_hint():

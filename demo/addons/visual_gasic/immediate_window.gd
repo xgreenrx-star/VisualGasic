@@ -15,8 +15,10 @@ var _send_button: Button
 var _clear_button: Button
 var _variables: Dictionary = {}
 var _watch_expressions: Array[Dictionary] = []
+var _watch_previous_values: Dictionary = {}  # Track previous values for change highlighting
 var _var_tree: Tree
 var _watch_tree: Tree
+var _watch_context_menu: PopupMenu  # Right-click menu for watch expressions
 var _inspector_tree: Tree
 var _whenever_tree: Tree  # Whenever sections tree
 var _current_inspected_object: Object = null
@@ -44,6 +46,8 @@ var _auto_refresh_enabled: bool = true
 var _is_editing: bool = false  # Track if user is currently editing a cell
 var _whenever_sections: Array = []  # Cached Whenever sections from remote
 var _debug_status_label: Label = null  # Shows current debug state (paused at line X)
+var _right_tabs: TabContainer = null  # Right panel tabs (Vars, Watch, Props, Whenever)
+var _vars_label: Label = null  # Label showing variable count
 const AUTO_REFRESH_INTERVAL: float = 0.5  # Update every 500ms
 
 func _ready():
@@ -85,6 +89,12 @@ func set_debugger_plugin(plugin: EditorDebuggerPlugin) -> void:
 			_debugger_plugin.debug_break_hit.connect(_on_debug_break_hit)
 		if _debugger_plugin.has_signal("debug_state_received"):
 			_debugger_plugin.debug_state_received.connect(_on_debug_state_received)
+		
+		# Connect call stack panel to debugger
+		if _right_tabs:
+			for child in _right_tabs.get_children():
+				if child.has_meta("_call_stack_panel"):
+					child.set_debugger_plugin(_debugger_plugin)
 
 func _setup_ui():
 	# Main horizontal split: Console (left) + Panels (right)
@@ -159,7 +169,7 @@ func _setup_ui():
 	_refresh_instances_btn.tooltip_text = "Refresh running instances"
 	_refresh_instances_btn.pressed.connect(_refresh_running_instances)
 	toolbar.add_child(_refresh_instances_btn)
-	toolbar.add_child(help_button)
+	# help_button already added above
 	
 	# Debug toolbar (Step debugging controls)
 	var debug_toolbar = HBoxContainer.new()
@@ -242,22 +252,22 @@ func _setup_ui():
 	input_hbox.add_child(_send_button)
 	
 	# Right side: Tabbed panels (Variables, Watch, Inspector)
-	var right_tabs = TabContainer.new()
-	right_tabs.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	right_tabs.custom_minimum_size = Vector2(300, 0)
-	main_split.add_child(right_tabs)
+	_right_tabs = TabContainer.new()
+	_right_tabs.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_right_tabs.custom_minimum_size = Vector2(300, 0)
+	main_split.add_child(_right_tabs)
 	
 	# Variables panel
 	var var_panel = VBoxContainer.new()
 	var_panel.name = "Vars"
-	right_tabs.add_child(var_panel)
+	_right_tabs.add_child(var_panel)
 	
 	var var_toolbar = HBoxContainer.new()
 	var_panel.add_child(var_toolbar)
 	
-	var var_label = Label.new()
-	var_label.text = "Session Variables"
-	var_toolbar.add_child(var_label)
+	_vars_label = Label.new()
+	_vars_label.text = "Variables"
+	var_toolbar.add_child(_vars_label)
 	
 	var var_refresh = Button.new()
 	var_refresh.text = "🔄"
@@ -303,7 +313,7 @@ func _setup_ui():
 	# Watch panel
 	var watch_panel = VBoxContainer.new()
 	watch_panel.name = "Watch"
-	right_tabs.add_child(watch_panel)
+	_right_tabs.add_child(watch_panel)
 	
 	var watch_toolbar = HBoxContainer.new()
 	watch_panel.add_child(watch_toolbar)
@@ -325,12 +335,26 @@ func _setup_ui():
 	_watch_tree.column_titles_visible = true
 	_watch_tree.item_activated.connect(_on_watch_item_activated)
 	_watch_tree.item_edited.connect(_on_watch_item_edited)
+	_watch_tree.gui_input.connect(_on_watch_tree_gui_input)  # Right-click handling
 	watch_panel.add_child(_watch_tree)
+	
+	# Create context menu for watch expressions
+	_watch_context_menu = PopupMenu.new()
+	_watch_context_menu.add_item("Delete Watch", 0)
+	_watch_context_menu.add_item("Delete All Watches", 1)
+	_watch_context_menu.add_separator()
+	_watch_context_menu.add_item("Copy Value", 2)
+	_watch_context_menu.add_item("Copy Expression", 3)
+	_watch_context_menu.id_pressed.connect(_on_watch_context_menu_selected)
+	add_child(_watch_context_menu)
+	
+	# Load persisted watch expressions
+	_load_watch_expressions()
 	
 	# Inspector panel
 	var inspector_panel = VBoxContainer.new()
 	inspector_panel.name = "Props"
-	right_tabs.add_child(inspector_panel)
+	_right_tabs.add_child(inspector_panel)
 	
 	var inspector_toolbar = HBoxContainer.new()
 	inspector_panel.add_child(inspector_toolbar)
@@ -369,7 +393,7 @@ func _setup_ui():
 	# Whenever panel - Monitor reactive Whenever statements
 	var whenever_panel = VBoxContainer.new()
 	whenever_panel.name = "Whenever"
-	right_tabs.add_child(whenever_panel)
+	_right_tabs.add_child(whenever_panel)
 	
 	var whenever_toolbar = HBoxContainer.new()
 	whenever_panel.add_child(whenever_toolbar)
@@ -409,6 +433,15 @@ func _setup_ui():
 	_whenever_context_menu.add_item("Go to Definition", 2)
 	_whenever_context_menu.id_pressed.connect(_on_whenever_context_menu_selected)
 	add_child(_whenever_context_menu)
+	
+	# Call Stack panel
+	var call_stack_script = load("res://addons/visual_gasic/call_stack_panel.gd")
+	if call_stack_script:
+		var call_stack_panel = call_stack_script.new()
+		call_stack_panel.name = "Stack"
+		_right_tabs.add_child(call_stack_panel)
+		# Will be connected to debugger plugin in set_debugger_plugin()
+		call_stack_panel.set_meta("_call_stack_panel", true)
 
 func _initialize_repl():
 	# Try to create VisualGasicImmediate instance for BASIC code execution
@@ -716,6 +749,26 @@ func _on_clear_pressed():
 
 func _input(event: InputEvent):
 	if event is InputEventKey and event.pressed:
+		# Debug keyboard shortcuts (only work when debugger is paused)
+		if _is_debug_session_paused():
+			match event.keycode:
+				KEY_F5:
+					_on_debug_continue()
+					get_viewport().set_input_as_handled()
+					return
+				KEY_F10:
+					_on_debug_step_over()
+					get_viewport().set_input_as_handled()
+					return
+				KEY_F11:
+					if event.shift_pressed:
+						_on_debug_step_out()
+					else:
+						_on_debug_step_into()
+					get_viewport().set_input_as_handled()
+					return
+		
+		# Input field history navigation
 		if _input_field.has_focus():
 			match event.keycode:
 				KEY_UP:
@@ -726,6 +779,15 @@ func _input(event: InputEvent):
 					if not event.shift_pressed:
 						_history_next()
 						accept_event()
+
+func _is_debug_session_paused() -> bool:
+	"""Check if the debugger is active and paused at a breakpoint/step."""
+	if not _debugger_plugin or not _debugger_plugin.is_session_active():
+		return false
+	# Check if we're actually paused (status label contains "Paused")
+	if _debug_status_label and "Paused" in _debug_status_label.text:
+		return true
+	return false
 
 func _history_previous():
 	if _history.is_empty():
@@ -829,17 +891,107 @@ func _refresh_variables():
 
 func _update_variables_tree():
 	_var_tree.clear()
+	var root = _var_tree.create_item()
+	
+	# Update the label with variable count
+	if _vars_label:
+		if _variables.is_empty():
+			_vars_label.text = "Variables"
+		else:
+			_vars_label.text = "Variables (%d)" % _variables.size()
+	
 	if _variables.is_empty():
+		# Show helpful message when no variables
+		var empty_item = _var_tree.create_item(root)
+		empty_item.set_text(0, "(No variables)")
+		empty_item.set_custom_color(0, Color.GRAY)
+		empty_item.set_selectable(0, false)
 		return
 	
-	var root = _var_tree.create_item()
-	for var_name in _variables.keys():
+	# Sort variable names for consistent display
+	var sorted_names = _variables.keys()
+	sorted_names.sort()
+	
+	for var_name in sorted_names:
+		var value = _variables[var_name]
 		var item = _var_tree.create_item(root)
 		item.set_text(0, var_name)
-		item.set_text(1, _get_type_name(_variables[var_name]))
-		item.set_text(2, str(_variables[var_name]))
+		
+		# Get type name and set type color
+		var type_name = _get_type_name(value)
+		item.set_text(1, type_name)
+		item.set_custom_color(1, _get_type_color(type_name))
+		
+		# Format value display based on type
+		var value_str = _format_value_for_display(value)
+		item.set_text(2, value_str)
 		item.set_editable(2, true)  # Make Value column editable
 		item.set_metadata(0, var_name)
+		
+		# Color code the value based on type
+		item.set_custom_color(2, _get_value_color(value))
+
+func _get_type_color(type_name: String) -> Color:
+	"""Return color for type name display"""
+	match type_name.to_lower():
+		"integer", "int":
+			return Color.CYAN
+		"float", "double", "single":
+			return Color.CYAN
+		"string":
+			return Color.ORANGE
+		"boolean", "bool":
+			return Color.MAGENTA
+		"array":
+			return Color.YELLOW
+		"dictionary":
+			return Color.YELLOW
+		"null", "nothing":
+			return Color.GRAY
+		"object":
+			return Color.LIME_GREEN
+		_:
+			return Color.WHITE
+
+func _get_value_color(value) -> Color:
+	"""Return color for value display based on actual value"""
+	if value == null:
+		return Color.GRAY
+	elif value is bool:
+		return Color.LIGHT_CORAL if not value else Color.LIME_GREEN
+	elif value is int or value is float:
+		return Color.AQUA
+	elif value is String:
+		return Color.SANDY_BROWN
+	elif value is Array:
+		return Color.KHAKI
+	elif value is Dictionary:
+		return Color.KHAKI
+	else:
+		return Color.WHITE
+
+func _format_value_for_display(value) -> String:
+	"""Format value for display in tree - truncate long strings/arrays"""
+	if value == null:
+		return "Nothing"
+	elif value is String:
+		if value.length() > 50:
+			return "\"%s...\"" % value.substr(0, 47)
+		return "\"%s\"" % value
+	elif value is Array:
+		if value.size() > 5:
+			var preview = str(value.slice(0, 5))
+			return "%s... (%d items)" % [preview.substr(0, preview.length()-1), value.size()]
+		return str(value)
+	elif value is Dictionary:
+		var keys = value.keys()
+		if keys.size() > 3:
+			return "{%d keys: %s...}" % [keys.size(), ", ".join(keys.slice(0, 3))]
+		return str(value)
+	elif value is bool:
+		return "True" if value else "False"
+	else:
+		return str(value)
 
 func _on_var_item_activated():
 	"""Double-click: Navigate to variable definition in code"""
@@ -1272,6 +1424,7 @@ func _add_watch_expression():
 	dialog.confirmed.connect(func():
 		if not input.text.is_empty():
 			_watch_expressions.append({"expr": input.text, "value": ""})
+			_save_watch_expressions()  # Persist
 			_update_watch_expressions()
 	)
 	add_child(dialog)
@@ -1292,10 +1445,72 @@ func _update_watch_expressions():
 			value = _variables[watch["expr"]]
 		else:
 			value = _eval_simple(watch["expr"])
-		item.set_text(1, str(value))
+		var value_str = str(value)
+		item.set_text(1, value_str)
 		item.set_editable(1, true)  # Make Value column editable
 		item.set_metadata(0, watch["expr"])  # Store expression name for editing
-		watch["value"] = str(value)
+		
+		# Color-code based on value changes
+		var prev_value = _watch_previous_values.get(watch["expr"], "")
+		if prev_value != "" and prev_value != value_str:
+			# Value changed - highlight in yellow
+			item.set_custom_color(1, Color.YELLOW)
+		else:
+			# No change or first time - default green
+			item.set_custom_color(1, Color.LIME_GREEN)
+		
+		_watch_previous_values[watch["expr"]] = value_str
+		watch["value"] = value_str
+
+func _on_watch_tree_gui_input(event: InputEvent):
+	"""Handle right-click on watch tree for context menu"""
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_RIGHT:
+		var selected = _watch_tree.get_selected()
+		if selected:
+			_watch_context_menu.position = Vector2i(get_global_mouse_position())
+			_watch_context_menu.popup()
+
+func _on_watch_context_menu_selected(id: int):
+	"""Handle watch context menu selection"""
+	var selected = _watch_tree.get_selected()
+	match id:
+		0:  # Delete Watch
+			if selected:
+				var expr = selected.get_text(0)
+				_watch_expressions = _watch_expressions.filter(func(w): return w["expr"] != expr)
+				_watch_previous_values.erase(expr)
+				_save_watch_expressions()
+				_update_watch_expressions()
+		1:  # Delete All Watches
+			_watch_expressions.clear()
+			_watch_previous_values.clear()
+			_save_watch_expressions()
+			_update_watch_expressions()
+		2:  # Copy Value
+			if selected:
+				DisplayServer.clipboard_set(selected.get_text(1))
+		3:  # Copy Expression
+			if selected:
+				DisplayServer.clipboard_set(selected.get_text(0))
+
+func _save_watch_expressions():
+	"""Persist watch expressions to user data"""
+	var config = ConfigFile.new()
+	var expressions: Array[String] = []
+	for watch in _watch_expressions:
+		expressions.append(watch["expr"])
+	config.set_value("watch", "expressions", expressions)
+	config.save("user://vg_watch_expressions.cfg")
+
+func _load_watch_expressions():
+	"""Load persisted watch expressions"""
+	var config = ConfigFile.new()
+	if config.load("user://vg_watch_expressions.cfg") == OK:
+		var expressions = config.get_value("watch", "expressions", [])
+		for expr in expressions:
+			_watch_expressions.append({"expr": expr, "value": ""})
+		if not _watch_expressions.is_empty():
+			_update_watch_expressions()
 
 func _on_watch_item_activated():
 	var selected = _watch_tree.get_selected()
@@ -1951,7 +2166,10 @@ func _on_debug_break_hit(file: String, line: int) -> void:
 	"""Called when a breakpoint or step is hit."""
 	_update_debug_status("⏸ Paused at %s:%d" % [file.get_file(), line])
 	_append_output("[color=yellow]⏸ Paused at %s line %d[/color]\n" % [file.get_file(), line])
-	# Optionally navigate to the line in the script editor
+	# Switch to Variables tab to show current state
+	if _right_tabs:
+		_right_tabs.current_tab = 0  # Vars tab
+	# Navigate to the line in the script editor
 	_go_to_script_line(file, line)
 
 func _on_debug_state_received(state: Dictionary) -> void:

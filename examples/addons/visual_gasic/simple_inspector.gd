@@ -49,6 +49,9 @@ func setup(plugin: EditorPlugin):
 	editor_plugin.get_editor_interface().get_selection().selection_changed.connect(_on_selection_changed)
 
 func _on_selection_changed():
+	# Check if plugin is still valid (can be freed on reload)
+	if not is_instance_valid(editor_plugin):
+		return
 	var sel = editor_plugin.get_editor_interface().get_selection().get_selected_nodes()
 	if sel.size() == 1:
 		update_properties(sel[0])

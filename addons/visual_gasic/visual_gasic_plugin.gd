@@ -255,6 +255,10 @@ func _exit_tree():
 		
 	if get_editor_interface().get_selection().selection_changed.is_connected(_on_selection_changed):
 		get_editor_interface().get_selection().selection_changed.disconnect(_on_selection_changed)
+	
+	# Disconnect node_added handler
+	if get_tree().node_added.is_connected(_on_node_added):
+		get_tree().node_added.disconnect(_on_node_added)
 
 # =============================================================================
 # VB6 IMPORT FUNCTIONS
@@ -416,23 +420,7 @@ func _finish_form_creation(path: String, form_name: String, vg_path: String, tem
 	root.position = Vector2i(10,36)  # Align with canvas origin in editor
 	root.size = template.get("size", Vector2(800, 600))
 	
-	# Add a background panel for visual boundaries and editor resize support
-	var bg_panel = Panel.new()
-	bg_panel.name = "_FormBackground"
-	# Don't use PRESET_FULL_RECT - let the panel have its own size for editor resize
-	bg_panel.size = root.size
-	bg_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# Attach the form editor helper script for drag-resize support
-	var helper_script = load("res://addons/visual_gasic/form_editor_helper.gd")
-	if helper_script:
-		bg_panel.set_script(helper_script)
-	root.add_child(bg_panel)
-	bg_panel.owner = root
-	
-	# The form will handle its own lifecycle and window management
-	# User can override Form_Load(), Form_Shown(), etc. in their .vg file
-	
-	# Add standard controls if specified in template
+	# Add MenuBar FIRST if specified - so _FormBackground comes AFTER and intercepts drops
 	if template.get("has_menu", false):
 		var menu_bar = MenuBar.new()
 		menu_bar.name = "MenuBar"
@@ -441,6 +429,8 @@ func _finish_form_creation(path: String, form_name: String, vg_path: String, tem
 		menu_bar.anchor_right = 1.0
 		menu_bar.anchor_bottom = 0.0
 		menu_bar.offset_bottom = 30
+		# Set mouse_filter to PASS so MenuBar doesn't intercept editor drops
+		menu_bar.mouse_filter = Control.MOUSE_FILTER_PASS
 		
 		root.add_child(menu_bar)
 		menu_bar.owner = root
@@ -463,6 +453,23 @@ func _finish_form_creation(path: String, form_name: String, vg_path: String, tem
 		menu_bar.add_child(help_menu)
 		help_menu.owner = root
 		menu_bar.set_menu_title(1, "Help")
+	
+	# Add a background panel AFTER MenuBar for visual boundaries and to intercept editor drops
+	var bg_panel = Panel.new()
+	bg_panel.name = "_FormBackground"
+	# Don't use PRESET_FULL_RECT - let the panel have its own size for editor resize
+	bg_panel.size = root.size
+	# Use MOUSE_FILTER_STOP to intercept drops in the editor viewport
+	bg_panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	# Attach the form editor helper script for drag-resize support
+	var helper_script = load("res://addons/visual_gasic/form_editor_helper.gd")
+	if helper_script:
+		bg_panel.set_script(helper_script)
+	root.add_child(bg_panel)
+	bg_panel.owner = root
+	
+	# The form will handle its own lifecycle and window management
+	# User can override Form_Load(), Form_Shown(), etc. in their .vg file
 	
 	# Add controls from template
 	for control_data in template.get("controls", []):
@@ -779,6 +786,9 @@ func _post_init():
 	
 	# Fix nesting behavior by monitoring selection
 	get_editor_interface().get_selection().selection_changed.connect(_on_selection_changed)
+	
+	# Hook into node_added to catch drops inside MenuBar EARLY (before owner issues)
+	get_tree().node_added.connect(_on_node_added)
 
 	print("VisualGasic: Initialized. Monitoring nesting & double-click events.")
 
@@ -1001,6 +1011,108 @@ func _get_toolbox_instance():
 
 
 # =============================================================================
+# NODE ADDED HANDLER (Early MenuBar detection)
+# =============================================================================
+
+## Called when ANY node is added to the scene tree.
+## This catches drops inside MenuBar BEFORE owner is set, preventing errors.
+## Only redirects user controls (Button, Label, etc.) - NOT PopupMenu or internal nodes.
+## @param node: The node that was added
+func _on_node_added(node: Node):
+	# Only process in editor
+	if not Engine.is_editor_hint():
+		return
+	
+	# Skip invalid nodes
+	if not is_instance_valid(node):
+		return
+	
+	# Skip internal nodes (start with _ or @)
+	var node_name = node.name
+	if node_name.begins_with("_") or node_name.begins_with("@"):
+		return
+	
+	# Skip PopupMenu and its children - these are LEGITIMATE MenuBar children
+	if node is PopupMenu:
+		return
+	
+	# Check if node is inside a PopupMenu (internal components) - skip those
+	var parent = node.get_parent()
+	if not parent:
+		return
+	if parent is PopupMenu:
+		return
+	
+	# Only process common VB6-style controls that could be accidentally dropped
+	var is_user_control = (
+		node is Button or
+		node is Label or
+		node is LineEdit or
+		node is TextEdit or
+		node is CheckBox or
+		node is CheckButton or
+		node is ProgressBar or
+		node is SpinBox or
+		node is HSlider or
+		node is VSlider or
+		node is Panel or
+		node is TextureRect or
+		node is ColorRect
+	)
+	
+	if not is_user_control:
+		return
+	
+	# Walk up to check if parent is inside a MenuBar
+	var check_node = parent
+	var root = get_editor_interface().get_edited_scene_root()
+	if not root:
+		return
+	
+	var is_inside_menubar = false
+	while check_node and check_node != root:
+		if check_node is MenuBar:
+			is_inside_menubar = true
+			break
+		check_node = check_node.get_parent()
+	
+	if is_inside_menubar:
+		# This is a user control dropped inside MenuBar - defer reparenting
+		print("VisualGasic: Redirecting user control from MenuBar: ", node.name)
+		call_deferred("_deferred_reparent_to_root", node, root)
+
+## Deferred reparenting to avoid issues during node_added signal.
+## @param node: The node to reparent
+## @param root: The scene root to reparent to
+func _deferred_reparent_to_root(node: Node, root: Node):
+	if not is_instance_valid(node) or not is_instance_valid(root):
+		return
+	if not node.is_inside_tree():
+		return
+	
+	var parent = node.get_parent()
+	if parent == root:
+		return  # Already at root
+	
+	var global_pos = Vector2.ZERO
+	if node is Control:
+		global_pos = node.global_position
+	
+	print("VisualGasic: Reparenting ", node.name, " from ", parent.name, " to ", root.name)
+	
+	parent.remove_child(node)
+	root.add_child(node)
+	node.owner = root
+	
+	if node is Control and global_pos != Vector2.ZERO:
+		node.global_position = global_pos
+	
+	# Select the reparented node
+	get_editor_interface().get_selection().clear()
+	get_editor_interface().get_selection().add_node(node)
+
+
+# =============================================================================
 # SELECTION & NESTING MANAGEMENT
 # =============================================================================
 
@@ -1081,9 +1193,30 @@ func _check_nesting(node: Node):
 	# 1. Root is always valid
 	if parent == root:
 		is_container = true
+	
+	# 2. Check if parent is inside a MenuBar - these are internal containers, NOT valid
+	var is_inside_menubar = false
+	var check_node = parent
+	while check_node and check_node != root:
+		if check_node is MenuBar:
+			is_inside_menubar = true
+			break
+		check_node = check_node.get_parent()
+	
+	if is_inside_menubar:
+		# This is a MenuBar's internal container - redirect to root
+		print("VisualGasic: Blocked drop inside MenuBar. Reparenting to Root.")
+		_reparent_node(node, root)
+		return
+	
+	# 3. Check if parent is a PopupMenu - these are also not valid drop targets  
+	if parent is PopupMenu:
+		print("VisualGasic: Blocked drop inside PopupMenu. Reparenting to Root.")
+		_reparent_node(node, root)
+		return
 		
-	# 2. explicit Containers
-	elif parent is Panel: is_container = true
+	# 4. explicit Containers (user-created)
+	if parent is Panel: is_container = true
 	elif parent is TabContainer: is_container = true
 	elif parent is ScrollContainer: is_container = true
 	elif parent is VBoxContainer: is_container = true
@@ -1151,9 +1284,7 @@ func _setup_recent_projects_menu():
 	if menu_script:
 		_recent_projects_menu = menu_script.new()
 		_recent_projects_menu.project_selected.connect(_on_recent_project_selected)
-		get_editor_interface().get_base_control().add_child(_recent_projects_menu)
-		
-		# Add as submenu to Tools menu
+		# Note: add_tool_submenu_item handles parenting, don't add to base_control
 		add_tool_submenu_item("Recent Projects", _recent_projects_menu)
 		print("VisualGasic: Added Recent Projects menu")
 

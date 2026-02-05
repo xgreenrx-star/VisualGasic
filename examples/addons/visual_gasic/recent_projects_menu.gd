@@ -119,7 +119,8 @@ func get_manager() -> VGRecentProjects:
 func _gui_input(event: InputEvent) -> void:
 	# Right-click to toggle pin
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_RIGHT:
-		var idx = get_item_at_position(event.position)
+		# Get focused item index - PopupMenu doesn't have get_item_at_position in all versions
+		var idx = get_focused_item()
 		if idx >= 0 and idx < _recent_manager.get_project_count():
 			var projects = _recent_manager.get_all_projects()
 			if idx < projects.size():

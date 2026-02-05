@@ -7,6 +7,7 @@ extends Panel
 ## - Snap-to-grid for control placement
 ## - Alignment toolbar for precise positioning
 ## - Smart guides when controls align
+## - Intercepts custom vg_control drops to avoid MenuBar issues
 
 signal form_resized(new_size: Vector2)
 
@@ -24,8 +25,8 @@ var _updating := false
 var _alignment_toolbar: Control = null
 
 func _ready() -> void:
-	# Don't set anchors - we want custom sizing for editor drag-resize
-	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Use MOUSE_FILTER_PASS to allow receiving drop data while letting clicks through
+	mouse_filter = Control.MOUSE_FILTER_PASS
 	
 	if Engine.is_editor_hint():
 		# Initialize size tracking from parent Window
@@ -36,6 +37,60 @@ func _ready() -> void:
 		
 		# Request redraw for grid
 		queue_redraw()
+
+## Check if we can accept this drop data (vg_control custom type)
+func _can_drop_data(at_position: Vector2, data) -> bool:
+	if not Engine.is_editor_hint():
+		return false
+	if data is Dictionary and data.get("type") == "vg_control":
+		return true
+	return false
+
+## Handle the drop - instance the scene and add to form root
+func _drop_data(at_position: Vector2, data) -> void:
+	if not Engine.is_editor_hint():
+		return
+	if not data is Dictionary or data.get("type") != "vg_control":
+		return
+	
+	var scene_path = data.get("scene_path", "")
+	if scene_path.is_empty():
+		return
+	
+	# Get the form root (parent Window)
+	var form_root = get_parent()
+	if not form_root:
+		return
+	
+	# Load and instance the scene
+	var scene = load(scene_path)
+	if not scene:
+		printerr("VisualGasic: Could not load scene: ", scene_path)
+		return
+	
+	var instance = scene.instantiate()
+	if not instance:
+		printerr("VisualGasic: Could not instantiate scene: ", scene_path)
+		return
+	
+	# Add to form root (NOT to _FormBackground)
+	form_root.add_child(instance)
+	instance.owner = form_root
+	
+	# Position at drop location, snapped to grid
+	if instance is Control:
+		var snapped_pos = snap_to_grid(at_position)
+		instance.position = snapped_pos
+	
+	print("VisualGasic: Dropped ", instance.name, " at ", at_position)
+	
+	# Select the new node in the editor
+	var editor = EditorInterface
+	if editor:
+		var selection = editor.get_selection()
+		if selection:
+			selection.clear()
+			selection.add_node(instance)
 
 func _process(_delta: float) -> void:
 	if not Engine.is_editor_hint():

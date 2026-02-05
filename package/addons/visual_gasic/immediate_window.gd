@@ -169,7 +169,7 @@ func _setup_ui():
 	_refresh_instances_btn.tooltip_text = "Refresh running instances"
 	_refresh_instances_btn.pressed.connect(_refresh_running_instances)
 	toolbar.add_child(_refresh_instances_btn)
-	toolbar.add_child(help_button)
+	# help_button already added above
 	
 	# Debug toolbar (Step debugging controls)
 	var debug_toolbar = HBoxContainer.new()

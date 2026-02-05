@@ -5,6 +5,16 @@
 ### [Getting Started](#getting-started)
 - [Introduction](#introduction)  
 - [Visual Basic Heritage](#visual-basic-heritage)
+- [Importing VB6 Projects](#importing-vb6-projects)
+  - [Supported VB6 Controls](#supported-vb6-controls)
+  - [VB6 Menu Support](#vb6-menu-support)
+  - [Property Mapping](#property-mapping)
+  - [Control Arrays](#control-arrays)
+  - [Code Transformation](#code-transformation)
+  - [VB6 Functions](#vb6-functions)
+  - [VB6 Constants](#vb6-constants)
+  - [Import Report](#import-report)
+  - [Programmatic Import API](#programmatic-import-api)
 - [Installation](#installation)
 - [Editor Shortcuts](#editor-shortcuts)
 - [Your First VisualGasic Script](#your-first-script)
@@ -213,12 +223,216 @@ End Sub
 
 #### Importing VB6 Projects
 
-VisualGasic includes a built-in importer for legacy VB6 projects. Simply use the **Import VB6 Project...** button in the Toolbox to convert:
-- `.vbp` project files
-- `.frm` form files with controls
+VisualGasic includes a comprehensive importer for legacy VB6 projects. Simply use the **Import VB6 Project...** button in the Toolbox to convert:
+- `.vbp` project files (complete projects)
+- `.frm` form files with controls and code
 - `.bas` module files
+- `.cls` class files
 
-Controls are automatically mapped to Godot equivalents, and event handlers are wired up to signals.
+Controls are automatically mapped to Godot equivalents, event handlers are wired up to signals, and code is transformed to VisualGasic syntax.
+
+##### Supported VB6 Controls
+
+The importer supports **60+ VB6 control types** with automatic mapping to Godot nodes:
+
+| VB6 Control | Godot Equivalent |
+|-------------|------------------|
+| CommandButton | Button |
+| TextBox | LineEdit / TextEdit |
+| Label | Label |
+| CheckBox | CheckBox |
+| OptionButton | CheckBox (radio mode) |
+| ComboBox | OptionButton |
+| ListBox | ItemList |
+| PictureBox / Image | TextureRect |
+| Frame | Panel |
+| Timer | Timer |
+| HScrollBar / VScrollBar | HScrollBar / VScrollBar |
+| Shape | ColorRect |
+| Line | Line2D |
+| ProgressBar | ProgressBar |
+| Slider | HSlider |
+| TreeView / ListView | Tree |
+| TabStrip | TabContainer |
+| StatusBar | Panel |
+| Toolbar | HBoxContainer |
+| CommonDialog | FileDialog |
+| RichTextBox | RichTextLabel |
+| DTPicker | SpinBox |
+| Winsock | StreamPeerTCP |
+| Inet | HTTPRequest |
+| MMControl | AudioStreamPlayer |
+| FlexGrid / DataGrid | Tree |
+
+**Third-Party OCX Controls Also Supported:**
+- MSComctlLib controls (comctl32.ocx, mscomctl.ocx)
+- MSComDlg controls (comdlg32.ocx)
+- RichText controls (richtx32.ocx)
+- MSFlexGrid (msflxgrd.ocx)
+- Threed controls (3D panels, buttons)
+- And many more...
+
+##### VB6 Menu Support
+
+VB6 menus are automatically converted:
+- Menu bars become `MenuBar` nodes
+- Menu items become `PopupMenu` entries
+- Separators (`Caption = "-"`) are preserved
+- Shortcuts, Checked, Enabled states are maintained
+- Menu event handlers (`mnuFile_Click`) are wired to signals
+
+##### Property Mapping
+
+The importer handles comprehensive property translation:
+
+**Position & Size:**
+- Left, Top, Width, Height (TWIPS → pixels @ 15:1 ratio)
+- ClientLeft, ClientTop, ClientWidth, ClientHeight
+- ScaleWidth, ScaleHeight
+
+**Text & Appearance:**
+- Caption, Text, Alignment
+- Font properties (Name, Size, Bold, Italic, Underline)
+- ForeColor, BackColor (with system color support)
+- ToolTipText, Tag
+
+**Control-Specific:**
+- MultiLine, ScrollBars, PasswordChar, MaxLength (TextBox)
+- Min, Max, Value, SmallChange, LargeChange (Scrollbars)
+- Interval (Timer)
+- Visible, Enabled, Locked
+
+**Form/Window Properties:**
+- WindowState, StartUpPosition
+- ControlBox, MaxButton, MinButton
+- BorderStyle, Moveable, ShowInTaskbar
+- KeyPreview, Icon
+
+##### Control Arrays
+
+VB6 control arrays (controls with `Index` property) are automatically handled:
+- Controls are renamed with index suffix: `Num(0)` → `Num_0`
+- Code references are transformed: `Num(Index).Caption` → `Num_Index.Caption`
+- Event handlers with Index parameter work correctly
+
+##### Code Transformation
+
+VB6 code is automatically transformed to VisualGasic:
+
+**Automatic Transformations:**
+- `Let x = 5` → `x = 5` (Let keyword removed)
+- `Set obj = New Class` → `obj = New Class` (Set keyword removed)
+- `Debug.Print` → `Print`
+- `Me.Control` → `Control` (implicit self)
+- Type suffixes: `Dim x$` → `Dim x As String`
+
+**Error Handling (with comments):**
+- `On Error GoTo label` → `' On Error GoTo label  ' TODO: Use Try/Catch`
+- `On Error Resume Next` → `' On Error Resume Next  ' TODO: Use Try/Catch`
+
+**Warnings Added:**
+- `GoSub` statements flagged as deprecated
+- Standalone `End` converted to `Exit Sub`
+
+##### VB6 Functions
+
+All standard VB6 functions are supported:
+
+**String Functions:**
+`Len`, `Mid`, `Left`, `Right`, `UCase`, `LCase`, `Trim`, `LTrim`, `RTrim`, `InStr`, `InStrRev`, `Replace`, `Split`, `Join`, `Space`, `String`, `Asc`, `Chr`
+
+**Conversion Functions:**
+`Val`, `Str`, `CStr`, `CInt`, `CLng`, `CDbl`, `CSng`, `CBool`, `CDate`, `Hex`, `Oct`
+
+**Math Functions:**
+`Abs`, `Int`, `Fix`, `Sgn`, `Sqr`, `Log`, `Exp`, `Sin`, `Cos`, `Tan`, `Atn`, `Rnd`, `Round`
+
+**Date/Time Functions:**
+`Now`, `Date`, `Time`, `Timer`, `Year`, `Month`, `Day`, `Hour`, `Minute`, `Second`, `Weekday`, `DateSerial`, `TimeSerial`, `DateAdd`, `DateDiff`
+
+**Type Checking:**
+`IsNumeric`, `IsDate`, `IsEmpty`, `IsNull`, `IsArray`, `IsObject`, `TypeName`, `VarType`
+
+**File Functions:**
+`Dir`, `FileLen`, `EOF`, `LOF`, `FreeFile`
+
+**Miscellaneous:**
+`IIf`, `Choose`, `Switch`, `Format`, `InputBox`, `MsgBox`, `DoEvents`, `Shell`, `Environ`
+
+##### VB6 Constants
+
+All VB6 constants are recognized:
+
+**MsgBox:**
+`vbOKOnly`, `vbOKCancel`, `vbYesNo`, `vbYesNoCancel`, `vbCritical`, `vbQuestion`, `vbExclamation`, `vbInformation`, `vbOK`, `vbCancel`, `vbYes`, `vbNo`
+
+**String:**
+`vbCrLf`, `vbCr`, `vbLf`, `vbTab`, `vbNewLine`, `vbNullChar`, `vbNullString`
+
+**Other:**
+`True`, `False`, `Nothing`, `vbEmpty`, `vbNull`, `vbBinaryCompare`, `vbTextCompare`
+
+##### Import Report
+
+After importing, a detailed report is generated:
+
+```
+============================================================
+VB6 PROJECT IMPORT REPORT
+============================================================
+
+SUMMARY
+----------------------------------------
+Forms Imported:   3
+Modules Imported: 2
+Errors:           0
+Warnings:         1
+
+IMPORTED FORMS
+----------------------------------------
+  [OK] Calculate
+       Scene: res://start_forms/Calculate.tscn
+       Code:  res://mixed/Calculate.vg
+       Control Arrays: ["Num"]
+
+MANUAL STEPS REQUIRED
+----------------------------------------
+1. Review and fix any 'On Error' statements (convert to Try/Catch)
+2. Replace VB6 'End' statements with appropriate exit commands
+3. Check control array access patterns
+4. Update any database/data control references
+5. Review menu shortcut key bindings
+6. Test signal connections for event handlers
+7. Adjust form sizes/positions for Godot coordinate system
+```
+
+##### Programmatic Import API
+
+You can also import VB6 projects programmatically:
+
+```vb
+' Import a complete project
+Dim result As Dictionary = VB6Importer.import_project("C:/Projects/MyApp.vbp")
+If result.success Then
+    Print "Imported " & result.forms.size() & " forms"
+End If
+
+' Import a single form
+Dim formResult As Dictionary = VB6Importer.import_form_file("C:/Projects/MainForm.frm")
+
+' Generate and save import report
+Dim report As String = VB6Importer.generate_import_report(result)
+VB6Importer.save_import_report(report, "MyApp")
+
+' Check if a control type is supported
+If VB6Importer.is_control_supported("MSComctlLib.ProgressBar") Then
+    Print "ProgressBar is supported!"
+End If
+
+' Get Godot equivalent for a VB6 control
+Dim godotType As String = VB6Importer.get_godot_equivalent("VB.CommandButton")
+' Returns: "Button"
+```
 
 **Cross-Platform Development:**
 VisualGasic applications run on all platforms supported by Godot:
@@ -907,7 +1121,10 @@ VisualGasic provides a comprehensive set of keywords for modern game development
 #### **Data Types & Literals**
 - `As` - Type declaration keyword
 - `Type` - Define a custom type/structure
+- `End Type` - End type definition
 - `Nothing` - Null object reference
+- `Null` - Null value (database compatibility)
+- `Empty` - Empty/uninitialized value
 - `True` - Boolean true literal
 - `False` - Boolean false literal
 - `New` - Create new object instance
@@ -920,9 +1137,15 @@ VisualGasic provides a comprehensive set of keywords for modern game development
 - `Else` - Alternative condition
 - `ElseIf` / `Elif` - Additional condition
 - `End` - End block statement
+- `End If` - End If block
 - `Select` - Start select case block
+- `Select Case` - Alternative syntax for Select
+- `Select Match` - Pattern matching select
 - `Case` - Case option in select block
+- `Case Else` - Default case option
+- `End Select` - End Select block
 - `For` - Start counting loop
+- `For Each` - Iterate over collection
 - `To` - Range operator in For loop
 - `Step` - Step increment in For loop
 - `Next` - End For loop
@@ -950,6 +1173,8 @@ VisualGasic provides a comprehensive set of keywords for modern game development
 - `Or` - Logical OR
 - `Not` - Logical NOT
 - `Xor` - Logical XOR
+- `Mod` - Modulo operator
+- `Like` - Pattern matching operator
 - `AndAlso` - Short-circuit AND
 - `OrElse` - Short-circuit OR
 
@@ -957,10 +1182,14 @@ VisualGasic provides a comprehensive set of keywords for modern game development
 - `On` - Error handling setup
 - `Error` - Error keyword
 - `Resume` - Resume after error
+- `Resume Next` - Resume at next statement after error
+- `GoSub` - Call subroutine (legacy)
+- `GoTo` - Jump to label
 - `Try` - Start try block
 - `Catch` - Catch exceptions
 - `Finally` - Finally block
-- `Goto` - Jump to label
+- `End Try` - End try block
+- `Throw` - Throw an exception
 
 #### **File Operations**
 - `Open` - Open file
@@ -971,11 +1200,26 @@ VisualGasic provides a comprehensive set of keywords for modern game development
 - `Line` - Line input/output
 
 #### **Object-Oriented Features**
+- `Class` - Declare a class
+- `End Class` - End class declaration
 - `Inherits` - Class inheritance
 - `Extends` - Extend a class
+- `Interface` - Declare an interface
+- `End Interface` - End interface declaration
+- `Implements` - Implement an interface
+- `Property` - Declare a property
+- `Let` - Property setter (legacy)
+- `Get` - Property getter
 - `Event` - Declare an event
 - `RaiseEvent` - Raise an event
+- `WithEvents` - Declare variable with event handling
+- `Handles` - Event handler binding
 - `with` - With statement (object context)
+- `End With` - End With block
+- `MyBase` - Reference to base class
+- `MyClass` - Reference to current class type
+- `Enum` - Declare an enumeration
+- `End Enum` - End enumeration declaration
 
 #### **Collections & Iteration**
 - `Dictionary` - Dictionary type
@@ -993,9 +1237,28 @@ VisualGasic provides a comprehensive set of keywords for modern game development
 - `Explicit` - Explicit variable declaration
 - `DoEvents` - Process system events
 - `IIf` - Inline If function
+- `Lambda` - Lambda expression keyword
+- `Of` - Type parameter for generics (e.g., `Task(Of String)`)
+
+#### **Async/Parallel Programming (Multitasking)**
+- `Async` - Mark procedure as asynchronous
+- `Await` - Await asynchronous operation
+- `Task` - Task type for async operations
+- `Parallel` - Parallel execution modifier for loops and sections
+
+#### **Pattern Matching & Type Checking**
+- `Match` - Pattern matching keyword (used with `Select Match`)
+- `When` - Guard clause in pattern matching
+- `Where` - Where clause for filtering
+- `Is` - Type comparison operator
+- `IsNot` - Negative type comparison operator
+- `TypeOf` - Get type of object for comparison
+- `HasValue` - Check if nullable/optional has a value
+- `Value` - Access value from nullable/optional type
 
 #### **Reactive Programming (Whenever System)**
 - `Whenever` - Start reactive section declaration
+- `End Whenever` - End reactive section block
 - `Section` - Declare a reactive monitoring section
 - `Local` - Local scope modifier for Whenever sections
 - `Changes` - Trigger on any value change
@@ -1006,6 +1269,12 @@ VisualGasic provides a comprehensive set of keywords for modern game development
 - `Contains` - Trigger when string/array contains value
 - `Suspend` - Temporarily disable reactive section
 - `Resume` - Re-enable suspended reactive section
+
+#### **Modern Features**
+- `Using` - Resource management block
+- `End Using` - End Using block
+- `Yield` - Yield value in iterator
+- `Iterator` - Mark function as iterator
 
 ### **Built-in Functions & Statements**
 
@@ -1547,6 +1816,69 @@ result = Round(3.7)   ' 4 (round to nearest)
 Randomize             ' Initialize random seed
 result = Rnd()        ' Random between 0 and 1
 result = Int(Rnd() * 6) + 1  ' Random 1-6 (dice roll)
+result = RandRange(1, 100)   ' Random between 1 and 100
+
+' Interpolation and clamping
+result = Lerp(0, 100, 0.5)   ' Linear interpolation: 50
+result = Clamp(150, 0, 100)  ' Clamp to range: 100
+```
+
+### Vector Math Functions
+
+```vb
+' Vector construction
+Dim v2 = Vector2(10, 20)      ' Create 2D vector
+Dim v3 = Vector3(1, 2, 3)     ' Create 3D vector
+Dim v2 = Vec2(10, 20)         ' Shorthand for Vector2
+Dim v3 = Vec3(1, 2, 3)        ' Shorthand for Vector3
+
+' Vector arithmetic
+Dim sum = VAdd(v1, v2)        ' Add vectors
+Dim diff = VSub(v1, v2)       ' Subtract vectors
+Dim scaled = VMul(v1, 2.5)    ' Multiply by scalar
+
+' Vector operations
+Dim length = VLen(v1)         ' Get vector length/magnitude
+Dim norm = VNormalize(v1)     ' Get normalized (unit) vector
+Dim dist = VDistance(v1, v2)  ' Distance between two points
+Dim dot = VDot(v1, v2)        ' Dot product
+Dim cross = VCross(v1, v2)    ' Cross product (3D only)
+Dim interp = VLerp(v1, v2, 0.5) ' Linear interpolation between vectors
+```
+
+### Color Functions
+
+```vb
+' Color construction
+Dim c1 = Color(1.0, 0.5, 0.0)       ' RGB (0-1 range)
+Dim c2 = Color(1.0, 0.5, 0.0, 0.8)  ' RGBA with alpha
+Dim c3 = Color8(255, 128, 0)        ' RGB (0-255 range)
+Dim c4 = Color8(255, 128, 0, 200)   ' RGBA (0-255 range)
+
+' Geometry
+Dim rect = Rect2(0, 0, 100, 50)     ' Create rectangle (x, y, width, height)
+```
+
+### Input Functions
+
+```vb
+' Keyboard input
+Dim keyDown = IsKeyDown("A")         ' Check if key is pressed
+Dim keyDown = GetKey(KEY_SPACE)      ' Check key by constant
+
+' Mouse input
+Dim leftClick = IsMouseButtonDown(1) ' Check mouse button (1=left, 2=right)
+```
+
+### String Functions (Extended)
+
+```vb
+' Extended string operations
+Dim starts = StartsWith("Hello", "He")  ' True
+Dim ends = EndsWith("Hello", "lo")      ' True
+Dim padded = PadLeft("42", 5, "0")      ' "00042"
+Dim padded = PadRight("Hi", 5)          ' "Hi   "
+Dim reversed = StrReverse("Hello")      ' "olleH"
 ```
 
 ### Array Functions
@@ -1656,6 +1988,15 @@ Dim lines = ReadLines("data.txt")
 For Each line In lines
     Print line
 Next
+```
+
+### Clipboard Functions
+
+```vb
+' Clipboard operations
+Dim text = Clipboard.GetText()    ' Get text from clipboard
+Clipboard.SetText("Hello!")       ' Copy text to clipboard
+Clipboard.Clear()                 ' Clear clipboard contents
 ```
 
 ### File I/O Functions (Classic VB6 Style)

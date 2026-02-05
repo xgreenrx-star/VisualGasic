@@ -51,6 +51,16 @@ var immediate_window
 ## Debugger plugin for remote debugging support
 var debugger_plugin: EditorDebuggerPlugin
 
+## Alignment toolbar for form designer
+var alignment_toolbar
+
+## Form preview toolbar for quick testing
+var form_preview_toolbar
+
+## Recent projects manager and menu
+var _recent_projects_menu: PopupMenu
+var _recent_projects_manager
+
 ## Context menu for script editor rename refactoring
 var _script_context_menu: PopupMenu
 
@@ -156,8 +166,27 @@ func _enter_tree():
 	add_control_to_dock(EditorPlugin.DOCK_SLOT_LEFT_BL, toolbox)
 	print("Manually added Toolbox (GDScript Wrapper) to Dock Left BL")
 	
+	# Add Alignment Toolbar for form designer
+	var alignment_script = load("res://addons/visual_gasic/alignment_toolbar.gd")
+	if alignment_script:
+		alignment_toolbar = alignment_script.new()
+		alignment_toolbar.name = "VG Alignment"
+		alignment_toolbar.setup(self)
+		add_control_to_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, alignment_toolbar)
+		print("VisualGasic: Added alignment toolbar to canvas editor")
+	
+	# Add Form Preview Toolbar
+	var preview_script = load("res://addons/visual_gasic/form_preview_toolbar.gd")
+	if preview_script:
+		form_preview_toolbar = preview_script.new()
+		form_preview_toolbar.name = "VG Preview"
+		form_preview_toolbar.setup(self)
+		add_control_to_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, form_preview_toolbar)
+		print("VisualGasic: Added form preview toolbar to canvas editor")
+	
 	_post_init()
 	_setup_script_editor_context_menu()
+	_setup_recent_projects_menu()
 
 	add_tool_menu_item("Import VB6 Form...", Callable(self, "_on_import_vb6_form"))
 	add_tool_menu_item("Import VB6 Project...", Callable(self, "_on_import_vb6_project"))
@@ -195,6 +224,25 @@ func _exit_tree():
 		toolbox.queue_free()
 		toolbox = null
 	
+	# Cleanup alignment toolbar
+	if alignment_toolbar:
+		remove_control_from_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, alignment_toolbar)
+		alignment_toolbar.queue_free()
+		alignment_toolbar = null
+	
+	# Cleanup form preview toolbar
+	if form_preview_toolbar:
+		remove_control_from_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, form_preview_toolbar)
+		form_preview_toolbar.queue_free()
+		form_preview_toolbar = null
+	
+	# Cleanup recent projects menu
+	if _recent_projects_menu:
+		remove_tool_menu_item("Recent Projects")
+		_recent_projects_menu.queue_free()
+		_recent_projects_menu = null
+	_recent_projects_manager = null
+	
 	# Cleanup script editor context menu
 	if _script_editor_check_timer:
 		_script_editor_check_timer.stop()
@@ -207,6 +255,10 @@ func _exit_tree():
 		
 	if get_editor_interface().get_selection().selection_changed.is_connected(_on_selection_changed):
 		get_editor_interface().get_selection().selection_changed.disconnect(_on_selection_changed)
+	
+	# Disconnect node_added handler
+	if get_tree().node_added.is_connected(_on_node_added):
+		get_tree().node_added.disconnect(_on_node_added)
 
 # =============================================================================
 # VB6 IMPORT FUNCTIONS
@@ -230,6 +282,7 @@ func _do_import_vbp(path):
 	if importer:
 		importer.import_project(path)
 		get_editor_interface().get_resource_filesystem().scan() # Refresh FileSystem
+		_add_to_recent_projects(path)  # Track in recent projects
 
 ## Opens a file dialog to select and import a single VB6 form (.frm) file.
 ## The form will be converted to a Godot scene with an attached .vg script.
@@ -278,6 +331,7 @@ func _do_import_frm(path):
 		f.store_string(code)
 		f.close()
 		print("Saved Code to " + bas_path)
+		_add_to_recent_projects(bas_path)  # Track in recent projects
 		
 	get_editor_interface().open_scene_from_path(save_path)
 
@@ -290,15 +344,21 @@ func _do_import_frm(path):
 func _on_new_form():
 	var dlg = load("res://addons/visual_gasic/new_form_dialog.gd").new()
 	get_editor_interface().get_base_control().add_child(dlg)
+	
+	# Use signal callbacks instead of await for stability
+	dlg.confirmed.connect(func():
+		var template = dlg.get_selected_template()
+		dlg.queue_free()
+		if not template.is_empty():
+			# Use call_deferred to ensure dialog is cleaned up first
+			call_deferred("_create_form_from_template", template)
+	)
+	
+	dlg.canceled.connect(func():
+		dlg.queue_free()
+	)
+	
 	dlg.popup_centered()
-	
-	# Wait for user to select template
-	var result = await dlg.confirmed
-	var template = dlg.get_selected_template()
-	dlg.queue_free()
-	
-	# Create the form based on selected template
-	_create_form_from_template(template)
 
 ## Deferred script attachment helper (called after scene is ready).
 ## @param scene_path: Path to the scene file
@@ -332,44 +392,35 @@ func _create_form_from_template(template: Dictionary):
 	
 	# Force reimport so the script is available
 	get_editor_interface().get_resource_filesystem().scan()
-	await get_tree().process_frame
-	await get_tree().process_frame
 	
-	# Now create the Window node with the VG script attached
+	# Make a deep copy of template to avoid closure issues
+	var template_copy = template.duplicate(true)
+	
+	# Use a Timer node instead of get_tree().create_timer() for stability in editor plugins
+	var timer = Timer.new()
+	timer.wait_time = 0.3
+	timer.one_shot = true
+	timer.timeout.connect(func():
+		timer.queue_free()
+		_finish_form_creation(path, form_name, vg_path, template_copy)
+	)
+	get_editor_interface().get_base_control().add_child(timer)
+	timer.start()
+
+## Completes form creation after filesystem scan.
+## @param path: Scene file path
+## @param form_name: Name of the form
+## @param vg_path: Path to the .vg script file
+## @param template: Template dictionary
+func _finish_form_creation(path: String, form_name: String, vg_path: String, template: Dictionary):
+	# Now create the Window node - DO NOT attach VG script until after all children and owners are set
 	var root = Window.new()
 	root.name = form_name
 	root.title = form_name
 	root.position = Vector2i(10,36)  # Align with canvas origin in editor
 	root.size = template.get("size", Vector2(800, 600))
 	
-	# Add a background panel for visual boundaries and editor resize support
-	var bg_panel = Panel.new()
-	bg_panel.name = "_FormBackground"
-	# Don't use PRESET_FULL_RECT - let the panel have its own size for editor resize
-	bg_panel.size = root.size
-	bg_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# Attach the form editor helper script for drag-resize support
-	var helper_script = load("res://addons/visual_gasic/form_editor_helper.gd")
-	if helper_script:
-		bg_panel.set_script(helper_script)
-	root.add_child(bg_panel)
-	bg_panel.owner = root
-	
-	# Load and attach the .vg script
-	var vg_script = load(vg_path)
-	if vg_script:
-		root.set_script(vg_script)
-		print("VisualGasic: Attached VG script to form: ", vg_path)
-	else:
-		# Fallback to GDScript base if VG script couldn't load
-		var vg_form_base = load("res://addons/visual_gasic/VGFormBase.gd")
-		root.set_script(vg_form_base)
-		print("VisualGasic: Warning - VG script not found, using VGFormBase.gd")
-	
-	# The form will handle its own lifecycle and window management
-	# User can override Form_Load(), Form_Shown(), etc. in their .vg file
-	
-	# Add standard controls if specified in template
+	# Add MenuBar FIRST if specified - so _FormBackground comes AFTER and intercepts drops
 	if template.get("has_menu", false):
 		var menu_bar = MenuBar.new()
 		menu_bar.name = "MenuBar"
@@ -378,6 +429,8 @@ func _create_form_from_template(template: Dictionary):
 		menu_bar.anchor_right = 1.0
 		menu_bar.anchor_bottom = 0.0
 		menu_bar.offset_bottom = 30
+		# Set mouse_filter to PASS so MenuBar doesn't intercept editor drops
+		menu_bar.mouse_filter = Control.MOUSE_FILTER_PASS
 		
 		root.add_child(menu_bar)
 		menu_bar.owner = root
@@ -401,6 +454,23 @@ func _create_form_from_template(template: Dictionary):
 		help_menu.owner = root
 		menu_bar.set_menu_title(1, "Help")
 	
+	# Add a background panel AFTER MenuBar for visual boundaries and to intercept editor drops
+	var bg_panel = Panel.new()
+	bg_panel.name = "_FormBackground"
+	# Don't use PRESET_FULL_RECT - let the panel have its own size for editor resize
+	bg_panel.size = root.size
+	# Use MOUSE_FILTER_STOP to intercept drops in the editor viewport
+	bg_panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	# Attach the form editor helper script for drag-resize support
+	var helper_script = load("res://addons/visual_gasic/form_editor_helper.gd")
+	if helper_script:
+		bg_panel.set_script(helper_script)
+	root.add_child(bg_panel)
+	bg_panel.owner = root
+	
+	# The form will handle its own lifecycle and window management
+	# User can override Form_Load(), Form_Shown(), etc. in their .vg file
+	
 	# Add controls from template
 	for control_data in template.get("controls", []):
 		var control = null
@@ -411,22 +481,47 @@ func _create_form_from_template(template: Dictionary):
 				control = Button.new()
 			"Label":
 				control = Label.new()
-			"TextEdit", "LineEdit":
+			"TextEdit":
+				control = TextEdit.new()
+			"LineEdit":
 				control = LineEdit.new()
+			"CheckBox":
+				control = CheckBox.new()
+			"CheckButton":
+				control = CheckButton.new()
+			"ProgressBar":
+				control = ProgressBar.new()
+			"SpinBox":
+				control = SpinBox.new()
+			"HSlider":
+				control = HSlider.new()
+			_:
+				# Default to Button for unknown types
+				control = Button.new()
 		
 		if control:
 			control.name = control_data.get("name", "Control")
-			if control.has_method("set_text"):
+			# Use 'text' property if available (works for Button, Label, LineEdit, etc.)
+			if "text" in control:
 				control.text = control_data.get("text", "")
 			control.position = control_data.get("position", Vector2.ZERO)
 			control.size = control_data.get("size", Vector2(100, 30))
 			root.add_child(control)
 			control.owner = root
 	
-	# form_name already set at the top of the function
-	root.name = form_name
+	# Now attach the VG script AFTER all children are added and owners set
+	# This prevents the script from interfering with owner assignment
+	var vg_script = load(vg_path)
+	if vg_script:
+		root.set_script(vg_script)
+		print("VisualGasic: Attached VG script to form: ", vg_path)
+	else:
+		# Fallback to GDScript base if VG script couldn't load
+		var vg_form_base = load("res://addons/visual_gasic/VGFormBase.gd")
+		root.set_script(vg_form_base)
+		print("VisualGasic: Warning - VG script not found, using VGFormBase.gd")
 	
-	# Save scene (VG script is already attached from above)
+	# Save scene
 	var packed = PackedScene.new()
 	packed.pack(root)
 	ResourceSaver.save(packed, path)
@@ -436,13 +531,26 @@ func _create_form_from_template(template: Dictionary):
 	get_editor_interface().open_scene_from_path(path)
 
 ## Creates the initial .vg script file for a new form.
-## Includes WinForms-style boilerplate with lifecycle events and sample controls.
+## Uses template-specific code if available, otherwise generates default boilerplate.
 ## @param path: Output path for the .vg file
 ## @param form_name: Name of the form (used in comments and default text)
-## @param template: Template dictionary (reserved for future template-specific code)
+## @param template: Template dictionary containing optional "code" key with template-specific code
 func _create_vg_form_code(path: String, form_name: String, template: Dictionary):
 	var f = FileAccess.open(path, FileAccess.WRITE)
-	var code = """' """ + form_name + """.vg - WinForms-style Form
+	
+	# Use template-specific code if available
+	var template_code = template.get("code", "")
+	var code: String
+	
+	if not template_code.is_empty():
+		# Use the template's custom code
+		code = "' " + form_name + ".vg - " + template.get("name", "Form") + "\n"
+		code += "' Generated from Visual Gasic template\n"
+		code += "Option Explicit\n\n"
+		code += template_code
+	else:
+		# Fallback to generic form code
+		code = """' """ + form_name + """.vg - WinForms-style Form
 ' Extends VGFormBase which provides proper Form lifecycle
 Option Explicit
 
@@ -678,6 +786,9 @@ func _post_init():
 	
 	# Fix nesting behavior by monitoring selection
 	get_editor_interface().get_selection().selection_changed.connect(_on_selection_changed)
+	
+	# Hook into node_added to catch drops inside MenuBar EARLY (before owner issues)
+	get_tree().node_added.connect(_on_node_added)
 
 	print("VisualGasic: Initialized. Monitoring nesting & double-click events.")
 
@@ -900,6 +1011,108 @@ func _get_toolbox_instance():
 
 
 # =============================================================================
+# NODE ADDED HANDLER (Early MenuBar detection)
+# =============================================================================
+
+## Called when ANY node is added to the scene tree.
+## This catches drops inside MenuBar BEFORE owner is set, preventing errors.
+## Only redirects user controls (Button, Label, etc.) - NOT PopupMenu or internal nodes.
+## @param node: The node that was added
+func _on_node_added(node: Node):
+	# Only process in editor
+	if not Engine.is_editor_hint():
+		return
+	
+	# Skip invalid nodes
+	if not is_instance_valid(node):
+		return
+	
+	# Skip internal nodes (start with _ or @)
+	var node_name = node.name
+	if node_name.begins_with("_") or node_name.begins_with("@"):
+		return
+	
+	# Skip PopupMenu and its children - these are LEGITIMATE MenuBar children
+	if node is PopupMenu:
+		return
+	
+	# Check if node is inside a PopupMenu (internal components) - skip those
+	var parent = node.get_parent()
+	if not parent:
+		return
+	if parent is PopupMenu:
+		return
+	
+	# Only process common VB6-style controls that could be accidentally dropped
+	var is_user_control = (
+		node is Button or
+		node is Label or
+		node is LineEdit or
+		node is TextEdit or
+		node is CheckBox or
+		node is CheckButton or
+		node is ProgressBar or
+		node is SpinBox or
+		node is HSlider or
+		node is VSlider or
+		node is Panel or
+		node is TextureRect or
+		node is ColorRect
+	)
+	
+	if not is_user_control:
+		return
+	
+	# Walk up to check if parent is inside a MenuBar
+	var check_node = parent
+	var root = get_editor_interface().get_edited_scene_root()
+	if not root:
+		return
+	
+	var is_inside_menubar = false
+	while check_node and check_node != root:
+		if check_node is MenuBar:
+			is_inside_menubar = true
+			break
+		check_node = check_node.get_parent()
+	
+	if is_inside_menubar:
+		# This is a user control dropped inside MenuBar - defer reparenting
+		print("VisualGasic: Redirecting user control from MenuBar: ", node.name)
+		call_deferred("_deferred_reparent_to_root", node, root)
+
+## Deferred reparenting to avoid issues during node_added signal.
+## @param node: The node to reparent
+## @param root: The scene root to reparent to
+func _deferred_reparent_to_root(node: Node, root: Node):
+	if not is_instance_valid(node) or not is_instance_valid(root):
+		return
+	if not node.is_inside_tree():
+		return
+	
+	var parent = node.get_parent()
+	if parent == root:
+		return  # Already at root
+	
+	var global_pos = Vector2.ZERO
+	if node is Control:
+		global_pos = node.global_position
+	
+	print("VisualGasic: Reparenting ", node.name, " from ", parent.name, " to ", root.name)
+	
+	parent.remove_child(node)
+	root.add_child(node)
+	node.owner = root
+	
+	if node is Control and global_pos != Vector2.ZERO:
+		node.global_position = global_pos
+	
+	# Select the reparented node
+	get_editor_interface().get_selection().clear()
+	get_editor_interface().get_selection().add_node(node)
+
+
+# =============================================================================
 # SELECTION & NESTING MANAGEMENT
 # =============================================================================
 
@@ -933,6 +1146,8 @@ func _get_navigator():
 ## @param node: The node to check and update
 func _auto_set_text_from_name(node: Node):
 	if not is_instance_valid(node): return
+	# Don't process nodes that aren't fully in the tree yet
+	if not node.is_inside_tree(): return
 	
 	# Only applies to controls with a 'text' property
 	if "text" in node:
@@ -950,6 +1165,8 @@ func _auto_set_text_from_name(node: Node):
 ## @param node: The node to check
 func _check_nesting(node: Node):
 	if not is_instance_valid(node): return
+	# Don't process nodes that aren't fully in the tree yet (e.g. during drag-drop)
+	if not node.is_inside_tree(): return
 	
 	# CHECK FOR MISSING ROOT (Empty Scene)
 	var root = get_editor_interface().get_edited_scene_root()
@@ -976,9 +1193,30 @@ func _check_nesting(node: Node):
 	# 1. Root is always valid
 	if parent == root:
 		is_container = true
+	
+	# 2. Check if parent is inside a MenuBar - these are internal containers, NOT valid
+	var is_inside_menubar = false
+	var check_node = parent
+	while check_node and check_node != root:
+		if check_node is MenuBar:
+			is_inside_menubar = true
+			break
+		check_node = check_node.get_parent()
+	
+	if is_inside_menubar:
+		# This is a MenuBar's internal container - redirect to root
+		print("VisualGasic: Blocked drop inside MenuBar. Reparenting to Root.")
+		_reparent_node(node, root)
+		return
+	
+	# 3. Check if parent is a PopupMenu - these are also not valid drop targets  
+	if parent is PopupMenu:
+		print("VisualGasic: Blocked drop inside PopupMenu. Reparenting to Root.")
+		_reparent_node(node, root)
+		return
 		
-	# 2. explicit Containers
-	elif parent is Panel: is_container = true
+	# 4. explicit Containers (user-created)
+	if parent is Panel: is_container = true
 	elif parent is TabContainer: is_container = true
 	elif parent is ScrollContainer: is_container = true
 	elif parent is VBoxContainer: is_container = true
@@ -1028,6 +1266,46 @@ func _reparent_node(node: Node, new_parent: Node):
 	# Restore selection
 	get_editor_interface().get_selection().clear()
 	get_editor_interface().get_selection().add_node(node)
+
+# =============================================================================
+# RECENT PROJECTS
+# =============================================================================
+
+## Sets up the recent projects menu in the Tools menu.
+func _setup_recent_projects_menu():
+	"""Setup recent projects tracking and menu"""
+	# Load the recent projects manager
+	var manager_script = load("res://addons/visual_gasic/vg_recent_projects.gd")
+	if manager_script:
+		_recent_projects_manager = manager_script.new()
+	
+	# Create the popup menu
+	var menu_script = load("res://addons/visual_gasic/recent_projects_menu.gd")
+	if menu_script:
+		_recent_projects_menu = menu_script.new()
+		_recent_projects_menu.project_selected.connect(_on_recent_project_selected)
+		# Note: add_tool_submenu_item handles parenting, don't add to base_control
+		add_tool_submenu_item("Recent Projects", _recent_projects_menu)
+		print("VisualGasic: Added Recent Projects menu")
+
+## Called when a recent project is selected from the menu.
+func _on_recent_project_selected(path: String) -> void:
+	if path.ends_with(".vbp"):
+		# Import VB6 project
+		_do_import_vbp(path)
+	elif path.ends_with(".vg"):
+		# Open VG script
+		var script = load(path)
+		if script:
+			get_editor_interface().edit_resource(script)
+	elif path.ends_with(".tscn") or path.ends_with(".scn"):
+		# Open scene
+		get_editor_interface().open_scene_from_path(path)
+
+## Adds a project to the recent projects list.
+func _add_to_recent_projects(path: String) -> void:
+	if _recent_projects_manager:
+		_recent_projects_manager.add_project(path)
 
 # =============================================================================
 # SCRIPT EDITOR RENAME REFACTORING

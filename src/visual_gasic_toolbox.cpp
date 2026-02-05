@@ -3,7 +3,9 @@
 #include <godot_cpp/classes/label.hpp>
 #include <godot_cpp/classes/editor_interface.hpp>
 #include <godot_cpp/classes/editor_selection.hpp>
+#include <godot_cpp/classes/editor_plugin.hpp>
 #include <godot_cpp/classes/control.hpp>
+#include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
 
 using namespace godot;
@@ -79,24 +81,21 @@ Variant VisualGasicToolButton::_get_drag_data(const Vector2 &at_position) {
     
     set_drag_preview(c_preview);
 
-    // Prepare Drag Data using FILES (Scenes)
+    // Use custom "vg_control" drag type - Godot's editor will IGNORE this type,
+    // so it won't try to instance the scene itself. Instead, our GDScript plugin
+    // handles the drop via _forward_canvas_gui_input mouse release.
     Dictionary data;
-    data["type"] = "files";
+    data["type"] = "vg_control";
+    String path = scene_path.is_empty() 
+        ? "res://addons/visual_gasic/prototypes/" + create_class_name + ".tscn"
+        : scene_path;
+    data["scene_path"] = path;
+    data["class_name"] = create_class_name;
     
-    // Using PackedStringArray is the strictest, most correct way to pass file paths in Godot
-    PackedStringArray files;
-    String path;
+    UtilityFunctions::print("VisualGasic Drag: ", path);
     
-    if (!scene_path.is_empty()) {
-        path = scene_path;
-    } else {
-        path = "res://addons/visual_gasic/prototypes/" + create_class_name + ".tscn";
-    }
-    
-    files.push_back(path);
-    data["files"] = files;
-    
-    UtilityFunctions::print("VisualGasic Drag (PackedStringArray): ", path);
+    // Store drag data in Engine singleton metadata so GDScript plugin can access it
+    Engine::get_singleton()->set_meta("_vg_active_drag", data);
 
     return data;
 }

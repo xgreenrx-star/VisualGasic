@@ -1,0 +1,114 @@
+[gd_scene load_steps=4 format=3 uid="uid://c2dxwsdblnb1q"]
+
+[ext_resource type="Script" uid="uid://ba6a11t37cg88" path="res://Form38.vg" id="1_8a765"]
+[ext_resource type="Script" uid="uid://6dl0hvqnyiu0" path="res://addons/visual_gasic/menu_bar_helper.gd" id="2_3py2s"]
+[ext_resource type="Script" uid="uid://b8c5jy6r1ytsh" path="res://addons/visual_gasic/form_editor_helper.gd" id="3_4oqn5"]
+[ext_resource type="PackedScene" uid="" path="res://addons/visual_gasic/prototypes/Button.tscn" id="4"]
+[ext_resource type="PackedScene" uid="" path="res://addons/visual_gasic/prototypes/Button.tscn" id="5"]
+[ext_resource type="PackedScene" uid="" path="res://addons/visual_gasic/prototypes/Button.tscn" id="6"]
+[ext_resource type="PackedScene" uid="" path="res://addons/visual_gasic/prototypes/Button.tscn" id="7"]
+[ext_resource type="PackedScene" uid="" path="res://addons/visual_gasic/prototypes/Button.tscn" id="8"]
+[ext_resource type="PackedScene" uid="" path="res://addons/visual_gasic/prototypes/Button.tscn" id="9"]
+[ext_resource type="PackedScene" uid="" path="res://addons/visual_gasic/prototypes/Button.tscn" id="10"]
+[ext_resource type="PackedScene" uid="" path="res://addons/visual_gasic/prototypes/Button.tscn" id="11"]
+[ext_resource type="PackedScene" uid="" path="res://addons/visual_gasic/prototypes/Button.tscn" id="12"]
+[ext_resource type="PackedScene" uid="" path="res://addons/visual_gasic/prototypes/Button.tscn" id="13"]
+
+[node name="Form38" type="Window"]
+positional_shadow_atlas_quad_0 = null
+positional_shadow_atlas_quad_1 = null
+positional_shadow_atlas_quad_2 = null
+positional_shadow_atlas_quad_3 = null
+title = "Form38"
+position = Vector2i(10, 36)
+size = Vector2i(600, 400)
+unresizable = null
+borderless = null
+always_on_top = null
+transparent = null
+unfocusable = null
+popup_window = null
+extend_to_title = null
+mouse_passthrough = null
+sharp_corners = null
+exclude_from_capture = null
+popup_wm_hint = null
+minimize_disabled = null
+maximize_disabled = null
+script = ExtResource("1_8a765")
+
+[node name="MenuBar" type="MenuBar" parent="."]
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 30.0
+mouse_filter = 2
+script = ExtResource("2_3py2s")
+
+[node name="mnuFile" type="PopupMenu" parent="MenuBar"]
+item_count = 5
+item_0/text = "New"
+item_0/id = 0
+item_1/text = "Open"
+item_1/id = 1
+item_2/text = "Save"
+item_2/id = 2
+item_3/id = -1
+item_3/separator = true
+item_4/text = "Exit"
+item_4/id = 3
+metadata/_menu_name = "File"
+
+[node name="mnuHelp" type="PopupMenu" parent="MenuBar"]
+item_count = 1
+item_0/text = "About"
+item_0/id = 0
+metadata/_menu_name = "Help"
+
+[node name="_FormBackground" type="Panel" parent="."]
+offset_right = 600.0
+offset_bottom = 400.0
+script = ExtResource("3_4oqn5")
+
+[node name="Button" parent="." instance=ExtResource("4")]
+offset_left = 232.0
+offset_top = 184.0
+
+[node name="Button2" parent="." instance=ExtResource("5")]
+offset_left = 304.0
+offset_top = 136.0
+
+[node name="Button3" parent="." instance=ExtResource("6")]
+offset_left = 152.0
+offset_top = 80.0
+
+[node name="Button4" parent="." instance=ExtResource("7")]
+offset_left = 168.0
+offset_top = 144.0
+
+[node name="Button5" parent="." instance=ExtResource("8")]
+offset_left = 184.0
+offset_top = 288.0
+
+[node name="Button6" parent="." instance=ExtResource("9")]
+offset_left = 320.0
+offset_top = 328.0
+
+[node name="Button7" parent="." instance=ExtResource("10")]
+offset_left = 448.0
+offset_top = 80.0
+text = "Button7"
+
+[node name="Button8" parent="." instance=ExtResource("11")]
+offset_left = 504.0
+offset_top = 160.0
+text = "Button8"
+
+[node name="Button9" parent="." instance=ExtResource("12")]
+offset_left = 80.0
+offset_top = 208.0
+text = "Button9"
+
+[node name="Button10" parent="." instance=ExtResource("13")]
+offset_left = 320.0
+offset_top = 88.0
+text = "Button10"
