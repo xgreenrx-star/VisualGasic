@@ -48,6 +48,7 @@
 - [Math Functions](#math-functions)
 - [Array Functions](#array-functions)
 - [File I/O Functions](#file-functions)
+- [Classic DATA Statements](#classic-data-statements)
 - [Game and Application Development Functions](#game-functions)
 
 ### [Modern Language Features](#modern-features)
@@ -2065,6 +2066,193 @@ Close             ' Closes all remaining files (1 and 3)
 ' File information
 Dim size As Long = FileLen("data.txt")
 Dim exists As Boolean = (Dir("data.txt") <> "")
+```
+
+### Classic DATA Statements {#classic-data-statements}
+
+**Classic DATA statements are back — and better than ever!**
+
+Remember storing game data, level layouts, and lookup tables right in your code? VisualGasic brings back the beloved `Data`, `Read`, and `Restore` statements from classic BASIC, enhanced with modern features like external data files and labeled data sections.
+
+#### Why DATA Statements?
+
+- **No External Files Needed** — Embed data directly in your code
+- **Instant Access** — No file I/O overhead for small datasets
+- **Self-Documenting** — Data lives alongside the code that uses it
+- **Classic Compatibility** — Works exactly like VB6/QBasic DATA
+- **Modern Enhancements** — Load from external files, use labels for organization
+
+#### Basic DATA and READ
+
+```vb
+' Store data inline
+Data 10, 20, 30, "Hello", 3.14
+
+' Read data into variables
+Dim a, b, c As Integer
+Dim msg As String
+Dim pi As Double
+
+Read a, b, c       ' a=10, b=20, c=30
+Read msg           ' msg="Hello"
+Read pi            ' pi=3.14
+```
+
+#### Game Data Example
+
+```vb
+' Perfect for game level data, enemy stats, item definitions
+Sub LoadEnemyData()
+    Dim name As String
+    Dim hp, attack, defense As Integer
+    
+    ' Read enemy definitions
+    For i = 1 To 3
+        Read name, hp, attack, defense
+        CreateEnemy(name, hp, attack, defense)
+    Next
+End Sub
+
+' Enemy data embedded in code
+Data "Goblin", 30, 10, 5
+Data "Orc", 50, 15, 10
+Data "Dragon", 200, 40, 25
+```
+
+#### Labeled Data Sections
+
+Use labels to organize data and jump to specific sections:
+
+```vb
+' Jump to specific data section
+Restore Level1Data
+Read mapWidth, mapHeight
+
+Restore Level2Data
+Read mapWidth, mapHeight
+
+' Data sections with labels
+Level1Data:
+Data 20, 15, "Forest"
+
+Level2Data:
+Data 30, 20, "Castle"
+
+Level3Data:
+Data 40, 25, "Dungeon"
+```
+
+#### RESTORE Statement
+
+Reset the data pointer to read data again:
+
+```vb
+Data 1, 2, 3
+
+Read a  ' a = 1
+Read b  ' b = 2
+
+Restore    ' Reset to beginning
+
+Read c  ' c = 1 (starts over!)
+
+' Restore to labeled section
+Restore EnemyData
+```
+
+#### DataFile — Load from External Files
+
+Load large datasets from external files at parse time:
+
+```vb
+' Load data from external file
+DataFile "res://data/items.dat"
+
+' items.dat contains:
+' "Sword", 100, 10
+' "Shield", 80, 0, 15
+' "Potion", 25, 0, 0, 50
+
+Dim itemName As String
+Dim price, attack, defense, heal As Integer
+
+Read itemName, price, attack              ' "Sword", 100, 10
+Read itemName, price, attack, defense     ' "Shield", 80, 0, 15
+```
+
+#### LoadData — Runtime File Loading
+
+Load data files dynamically at runtime:
+
+```vb
+' Load data file based on runtime conditions
+Dim difficulty As String = GetDifficulty()
+LoadData "res://data/enemies_" & difficulty & ".dat"
+
+' Now Read from the loaded data
+Read enemyCount
+For i = 1 To enemyCount
+    Read name, hp, damage
+    SpawnEnemy(name, hp, damage)
+Next
+```
+
+#### Classic Use Cases
+
+**Lookup Tables:**
+```vb
+' Month names lookup
+Data "January", "February", "March", "April", "May", "June"
+Data "July", "August", "September", "October", "November", "December"
+
+Dim monthNames(12) As String
+For i = 1 To 12
+    Read monthNames(i)
+Next
+```
+
+**ASCII Art and Text:**
+```vb
+' Store multi-line text/ASCII art
+Data "╔════════════════╗"
+Data "║  GAME OVER!    ║"
+Data "║  Score: %SCORE%║"
+Data "╚════════════════╝"
+
+For i = 1 To 4
+    Read line
+    Print Replace(line, "%SCORE%", CStr(score))
+Next
+```
+
+**Tile Maps:**
+```vb
+' Simple tilemap data
+Data 1,1,1,1,1,1,1,1
+Data 1,0,0,0,0,0,0,1
+Data 1,0,2,0,0,3,0,1
+Data 1,0,0,0,0,0,0,1
+Data 1,1,1,1,1,1,1,1
+
+Dim map(5, 8) As Integer
+For y = 1 To 5
+    For x = 1 To 8
+        Read map(y, x)
+    Next
+Next
+```
+
+**Configuration Data:**
+```vb
+' Game configuration
+Data "Window Title", 1280, 720, True, 60
+
+Dim title As String
+Dim width, height As Integer
+Dim fullscreen As Boolean
+Dim targetFPS As Integer
+
+Read title, width, height, fullscreen, targetFPS
 ```
 
 ### Game and Application Development Functions
