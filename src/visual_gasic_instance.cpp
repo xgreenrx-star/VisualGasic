@@ -7053,6 +7053,43 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     goto cleanup;
                 }
                 break;
+            case OP_MOD:
+                if (!apply_variant_op(Variant::OP_MODULE)) {
+                    success = false;
+                    goto cleanup;
+                }
+                break;
+            case OP_INT_DIVIDE: {
+                if (!ensure_stack(2)) {
+                    success = false;
+                    goto cleanup;
+                }
+                Variant b = pop_value();
+                Variant a = pop_value();
+                int64_t ival_a = to_int(a);
+                int64_t ival_b = to_int(b);
+                if (ival_b == 0) {
+                    UtilityFunctions::printerr("VisualGasic: integer division by zero");
+                    push_value(Variant(0));
+                } else {
+                    push_value(Variant(ival_a / ival_b));
+                }
+                break;
+            }
+            case OP_LIKE: {
+                // VB-style Like pattern matching (simple implementation)
+                if (!ensure_stack(2)) {
+                    success = false;
+                    goto cleanup;
+                }
+                String pattern = String(pop_value());
+                String value = String(pop_value());
+                // Simple implementation: convert VB Like pattern to match
+                // For now, just do exact match; can be extended later
+                bool matches = value.match(pattern);
+                push_value(Variant(matches));
+                break;
+            }
             case OP_NEGATE: {
                 // OP_NEGATE is a unary operation - only pop and push 1 value
                 if (!ensure_stack(1)) {
@@ -7436,6 +7473,17 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 int offset = (hi << 8) | lo;
                 bool condition = to_bool(pop_value());
                 if (!condition) {
+                    vm.ip += offset;
+                }
+                break;
+            }
+            case OP_JUMP_IF_TRUE: {
+                if (vm.ip + 1 >= code_size) { success = false; goto cleanup; }
+                uint8_t hi = code[vm.ip++];
+                uint8_t lo = code[vm.ip++];
+                int offset = (hi << 8) | lo;
+                bool condition = to_bool(pop_value());
+                if (condition) {
                     vm.ip += offset;
                 }
                 break;
@@ -8254,6 +8302,30 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         whenever_sections.write[ws_i].is_active = true;
                         break;
                     }
+                }
+                break;
+            }
+            case OP_RESTORE_DATA: {
+                // Reset DATA pointer based on value on stack
+                // -1 means reset to start, otherwise it's a label name to restore to
+                Variant restore_val = pop_value();
+                if (restore_val.get_type() == Variant::INT && (int64_t)restore_val == -1) {
+                    // Reset to beginning
+                    data_pointer = 0;
+                } else if (restore_val.get_type() == Variant::STRING) {
+                    // Restore to label - find the label in label_to_data_index
+                    String label = restore_val;
+                    if (label_to_data_index.has(label)) {
+                        data_pointer = (int)label_to_data_index[label];
+                    } else if (label_to_data_index.has(label.to_lower())) {
+                        data_pointer = (int)label_to_data_index[label.to_lower()];
+                    } else {
+                        // Label not found - reset to beginning
+                        data_pointer = 0;
+                    }
+                } else {
+                    // Default: reset to beginning
+                    data_pointer = 0;
                 }
                 break;
             }

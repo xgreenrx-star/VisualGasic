@@ -62,6 +62,9 @@ String opcode_name(uint8_t op) {
         OP_NAME_CASE(OP_DIVIDE);
         OP_NAME_CASE(OP_NEGATE);
         OP_NAME_CASE(OP_CONCAT);
+        OP_NAME_CASE(OP_MOD);
+        OP_NAME_CASE(OP_INT_DIVIDE);
+        OP_NAME_CASE(OP_LIKE);
         OP_NAME_CASE(OP_STRING_REPEAT);
         OP_NAME_CASE(OP_STRING_REPEAT_OUTER);
         OP_NAME_CASE(OP_INTEROP_SET_NAME_LEN);
@@ -105,6 +108,7 @@ String opcode_name(uint8_t op) {
         OP_NAME_CASE(OP_XOR);
         OP_NAME_CASE(OP_JUMP);
         OP_NAME_CASE(OP_JUMP_IF_FALSE);
+        OP_NAME_CASE(OP_JUMP_IF_TRUE);
         OP_NAME_CASE(OP_LOOP);
         OP_NAME_CASE(OP_CALL);
         OP_NAME_CASE(OP_CALL_BUILTIN);
@@ -137,6 +141,7 @@ String opcode_name(uint8_t op) {
         OP_NAME_CASE(OP_REGISTER_WHENEVER);
         OP_NAME_CASE(OP_SUSPEND_WHENEVER);
         OP_NAME_CASE(OP_RESUME_WHENEVER);
+        OP_NAME_CASE(OP_RESTORE_DATA);
 #undef OP_NAME_CASE
         default:
             return vformat("OP_UNKNOWN_%d", (int)op);
@@ -181,6 +186,7 @@ int opcode_operand_length(uint8_t op) {
         case OP_ARITH_SUM:
         case OP_JUMP:
         case OP_JUMP_IF_FALSE:
+        case OP_JUMP_IF_TRUE:
         case OP_LOOP:
         case OP_CALL:
         case OP_CALL_BUILTIN:
@@ -268,6 +274,7 @@ String describe_operands(uint8_t op, const Array &operands, const BytecodeChunk 
             break;
         case OP_JUMP:
         case OP_JUMP_IF_FALSE:
+        case OP_JUMP_IF_TRUE:
         case OP_LOOP:
             return describe_jump_target(op, operands, offset);
         case OP_CALL:

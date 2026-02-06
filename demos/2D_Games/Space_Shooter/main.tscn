@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://demo_shooter_main"]
+
+[ext_resource type="Script" path="res://space_shooter.vg" id="1_shooter"]
+
+[node name="Main" type="Node2D"]
+script = ExtResource("1_shooter")

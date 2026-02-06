@@ -27,6 +27,9 @@ enum OpCode {
     OP_DIVIDE,
     OP_NEGATE,
     OP_CONCAT, // &
+    OP_MOD,         // Mod operator
+    OP_INT_DIVIDE,  // \ integer division
+    OP_LIKE,        // Like pattern matching
 
     // Extended numeric ops
     OP_ADD_I64,
@@ -81,6 +84,7 @@ enum OpCode {
     // Flow Control
     OP_JUMP,           // [OP] [OFFSET_16]
     OP_JUMP_IF_FALSE,  // [OP] [OFFSET_16]
+    OP_JUMP_IF_TRUE,   // [OP] [OFFSET_16]
     OP_LOOP,           // [OP] [OFFSET_16] (Jump back)
     
     // Functions
@@ -123,6 +127,9 @@ enum OpCode {
     OP_REGISTER_WHENEVER,   // [OP] [DATA_IDX] - Register a Whenever section (data is a Dictionary constant)
     OP_SUSPEND_WHENEVER,    // [OP] [NAME_IDX] - Suspend a Whenever section by name
     OP_RESUME_WHENEVER,     // [OP] [NAME_IDX] - Resume a Whenever section by name
+
+    // Data/Restore system
+    OP_RESTORE_DATA,        // [OP] - Reset DATA pointer (value on stack: -1 for start, or label name)
 
     // Literals
     OP_NIL,

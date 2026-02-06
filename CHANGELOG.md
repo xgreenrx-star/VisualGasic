@@ -5,6 +5,30 @@ All notable changes to Visual Gasic will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.1] - 2026-02-05
+
+### Added - Native Compiler Enhancements
+- **Select Case Statement**: Full bytecode compilation with multi-value case matching (`Case 1, 2, 3`)
+- **Do Loop Statement**: Complete Do While/Until with pre/post conditions
+- **Return Statement**: Optional return value support for functions
+- **Restore Statement**: DATA pointer manipulation for Read/Data operations
+- **IIf Expression**: Ternary operator compilation (`IIf(condition, trueVal, falseVal)`)
+- **New Binary Operators**: `Is` (object comparison), `Mod`, `Like` (pattern matching), `\\` (integer division)
+- **New Opcodes**: `OP_JUMP_IF_TRUE`, `OP_RESTORE_DATA`, `OP_MOD`, `OP_INT_DIVIDE`, `OP_LIKE`
+
+### Added - Editor Plugin Enhancements
+- **VG IntelliSense Provider**: Full code completion with 70+ keywords, 80+ functions, Godot types
+- **VG Go To Definition**: Navigate to Sub, Function, Variable declarations across .vg files
+- **VG Linter**: Static analysis for unused variables, missing End statements, deprecated syntax
+- **VG Snippet Manager**: 30+ code templates with tab stops (if, for, sub, class, etc.)
+- **VG Theme Manager**: 5 built-in themes (VB6 Classic, Modern Dark/Light, High Contrast, Solarized)
+- **VG Recent Projects**: Track and quickly access recent .vg/.vbp projects
+
+### Fixed
+- Unsupported statement type errors for Select Case, Do Loop, Return, Restore
+- Unsupported binary operator "Is" causing compilation failures
+- Expression type 25 (IIf) not recognized by compiler
+
 ## [2.2.0] - 2026-02-05
 
 ### Added

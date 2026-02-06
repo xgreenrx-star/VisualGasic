@@ -1,0 +1,440 @@
+' ============================================================================
+' CALCULATOR - Classic Four-Function Calculator
+' Written in VisualGasic for Godot 4.5+
+' ============================================================================
+' A faithful recreation of classic calculator apps with full keyboard support
+' ============================================================================
+Attribute VB_Name = "Calculator"
+
+' Display state
+Dim displayText As String
+Dim currentValue As Double
+Dim storedValue As Double
+Dim pendingOperation As String
+Dim clearOnNextDigit As Boolean
+Dim hasDecimalPoint As Boolean
+
+' Memory
+Dim memoryValue As Double
+Dim hasMemory As Boolean
+
+' Button layout (for drawing)
+Const BUTTON_WIDTH As Integer = 70
+Const BUTTON_HEIGHT As Integer = 50
+Const BUTTON_MARGIN As Integer = 5
+Const DISPLAY_HEIGHT As Integer = 80
+
+' ============================================================================
+' INITIALIZATION
+' ============================================================================
+Sub _Ready()
+    Print "Calculator Ready"
+    ClearAll
+End Sub
+
+Sub ClearAll()
+    displayText = "0"
+    currentValue = 0
+    storedValue = 0
+    pendingOperation = ""
+    clearOnNextDigit = True
+    hasDecimalPoint = False
+End Sub
+
+Sub ClearEntry()
+    displayText = "0"
+    currentValue = 0
+    clearOnNextDigit = True
+    hasDecimalPoint = False
+End Sub
+
+' ============================================================================
+' INPUT HANDLING
+' ============================================================================
+Sub _Input(event As Variant)
+    If event Is InputEventKey Then
+        If event.pressed Then
+            HandleKeyPress event.keycode
+        End If
+    End If
+End Sub
+
+Sub HandleKeyPress(keycode As Integer)
+    Select Case keycode
+        ' Number keys (top row)
+        Case KEY_0, KEY_KP_0
+            InputDigit "0"
+        Case KEY_1, KEY_KP_1
+            InputDigit "1"
+        Case KEY_2, KEY_KP_2
+            InputDigit "2"
+        Case KEY_3, KEY_KP_3
+            InputDigit "3"
+        Case KEY_4, KEY_KP_4
+            InputDigit "4"
+        Case KEY_5, KEY_KP_5
+            InputDigit "5"
+        Case KEY_6, KEY_KP_6
+            InputDigit "6"
+        Case KEY_7, KEY_KP_7
+            InputDigit "7"
+        Case KEY_8, KEY_KP_8
+            InputDigit "8"
+        Case KEY_9, KEY_KP_9
+            InputDigit "9"
+        
+        ' Operations
+        Case KEY_PLUS, KEY_KP_ADD
+            InputOperation "+"
+        Case KEY_MINUS, KEY_KP_SUBTRACT
+            InputOperation "-"
+        Case KEY_ASTERISK, KEY_KP_MULTIPLY
+            InputOperation "*"
+        Case KEY_SLASH, KEY_KP_DIVIDE
+            InputOperation "/"
+        
+        ' Equals
+        Case KEY_ENTER, KEY_KP_ENTER, KEY_EQUAL
+            Calculate
+        
+        ' Decimal point
+        Case KEY_PERIOD, KEY_KP_PERIOD
+            InputDecimal
+        
+        ' Clear
+        Case KEY_ESCAPE
+            ClearAll
+        Case KEY_DELETE, KEY_BACKSPACE
+            Backspace
+        
+        ' Percent
+        Case KEY_PERCENT
+            CalculatePercent
+    End Select
+End Sub
+
+Sub InputDigit(digit As String)
+    If clearOnNextDigit Then
+        displayText = digit
+        clearOnNextDigit = False
+    Else
+        If displayText = "0" And digit <> "0" Then
+            displayText = digit
+        ElseIf displayText <> "0" Or hasDecimalPoint Then
+            ' Limit display length
+            If Len(displayText) < 15 Then
+                displayText = displayText & digit
+            End If
+        End If
+    End If
+    currentValue = Val(displayText)
+End Sub
+
+Sub InputDecimal()
+    If clearOnNextDigit Then
+        displayText = "0."
+        clearOnNextDigit = False
+        hasDecimalPoint = True
+    ElseIf Not hasDecimalPoint Then
+        displayText = displayText & "."
+        hasDecimalPoint = True
+    End If
+End Sub
+
+Sub InputOperation(op As String)
+    ' If there's a pending operation, calculate first
+    If pendingOperation <> "" And Not clearOnNextDigit Then
+        Calculate
+    End If
+    
+    storedValue = currentValue
+    pendingOperation = op
+    clearOnNextDigit = True
+    hasDecimalPoint = False
+End Sub
+
+Sub Calculate()
+    If pendingOperation = "" Then Exit Sub
+    
+    Dim result As Double
+    
+    Select Case pendingOperation
+        Case "+"
+            result = storedValue + currentValue
+        Case "-"
+            result = storedValue - currentValue
+        Case "*"
+            result = storedValue * currentValue
+        Case "/"
+            If currentValue = 0 Then
+                displayText = "Error"
+                ClearAll
+                displayText = "Error"
+                Return
+            End If
+            result = storedValue / currentValue
+    End Select
+    
+    currentValue = result
+    displayText = FormatNumber(result)
+    pendingOperation = ""
+    clearOnNextDigit = True
+    hasDecimalPoint = InStr(displayText, ".") > 0
+End Sub
+
+Sub CalculatePercent()
+    If pendingOperation <> "" Then
+        ' Percentage of stored value
+        currentValue = storedValue * (currentValue / 100)
+    Else
+        ' Just divide by 100
+        currentValue = currentValue / 100
+    End If
+    displayText = FormatNumber(currentValue)
+    clearOnNextDigit = True
+End Sub
+
+Sub Backspace()
+    If Not clearOnNextDigit And Len(displayText) > 0 Then
+        Dim lastChar As String
+        lastChar = Right(displayText, 1)
+        
+        If lastChar = "." Then
+            hasDecimalPoint = False
+        End If
+        
+        displayText = Left(displayText, Len(displayText) - 1)
+        
+        If displayText = "" Or displayText = "-" Then
+            displayText = "0"
+            clearOnNextDigit = True
+        End If
+        
+        currentValue = Val(displayText)
+    End If
+End Sub
+
+Function FormatNumber(value As Double) As String
+    ' Format number for display, removing unnecessary decimals
+    Dim result As String
+    result = Str(value)
+    
+    ' Remove trailing zeros after decimal point
+    If InStr(result, ".") > 0 Then
+        Do While Right(result, 1) = "0"
+            result = Left(result, Len(result) - 1)
+        Loop
+        If Right(result, 1) = "." Then
+            result = Left(result, Len(result) - 1)
+        End If
+    End If
+    
+    ' Limit length
+    If Len(result) > 15 Then
+        result = Left(result, 15)
+    End If
+    
+    Return result
+End Function
+
+' ============================================================================
+' MEMORY FUNCTIONS
+' ============================================================================
+Sub MemoryClear()
+    memoryValue = 0
+    hasMemory = False
+End Sub
+
+Sub MemoryRecall()
+    currentValue = memoryValue
+    displayText = FormatNumber(memoryValue)
+    clearOnNextDigit = True
+End Sub
+
+Sub MemoryAdd()
+    memoryValue = memoryValue + currentValue
+    hasMemory = True
+    clearOnNextDigit = True
+End Sub
+
+Sub MemorySubtract()
+    memoryValue = memoryValue - currentValue
+    hasMemory = True
+    clearOnNextDigit = True
+End Sub
+
+' ============================================================================
+' RENDERING
+' ============================================================================
+Sub _Draw()
+    Dim screenWidth As Integer = 320
+    Dim screenHeight As Integer = 480
+    
+    ' Background
+    DrawRect 0, 0, screenWidth, screenHeight, Color("#2D2D2D")
+    
+    ' Display background
+    DrawRect 10, 10, screenWidth - 20, DISPLAY_HEIGHT, Color("#1A1A1A")
+    
+    ' Display text (right-aligned)
+    Dim fontSize As Integer = 32
+    Dim textWidth As Integer = Len(displayText) * 18  ' Approximate
+    DrawString displayText, screenWidth - 20 - textWidth, 45, Color.White, fontSize
+    
+    ' Operation indicator
+    If pendingOperation <> "" Then
+        DrawString pendingOperation, 20, 30, Color("#888888"), 20
+    End If
+    
+    ' Memory indicator
+    If hasMemory Then
+        DrawString "M", 20, 55, Color("#888888"), 16
+    End If
+    
+    ' Draw button grid
+    DrawButtons
+End Sub
+
+Sub DrawButtons()
+    Dim startY As Integer = DISPLAY_HEIGHT + 20
+    Dim startX As Integer = 10
+    
+    ' Button definitions: text, row, col, width (in columns), color
+    ' Row 0: MC, MR, M+, M-
+    DrawButton "MC", startX, startY, 1, Color("#505050")
+    DrawButton "MR", startX + 75, startY, 1, Color("#505050")
+    DrawButton "M+", startX + 150, startY, 1, Color("#505050")
+    DrawButton "M-", startX + 225, startY, 1, Color("#505050")
+    
+    ' Row 1: C, +/-, %, /
+    startY = startY + 55
+    DrawButton "C", startX, startY, 1, Color("#D4D4D2")
+    DrawButton "+/-", startX + 75, startY, 1, Color("#D4D4D2")
+    DrawButton "%", startX + 150, startY, 1, Color("#D4D4D2")
+    DrawButton "/", startX + 225, startY, 1, Color("#FF9F0A")
+    
+    ' Row 2: 7, 8, 9, *
+    startY = startY + 55
+    DrawButton "7", startX, startY, 1, Color("#505050")
+    DrawButton "8", startX + 75, startY, 1, Color("#505050")
+    DrawButton "9", startX + 150, startY, 1, Color("#505050")
+    DrawButton "*", startX + 225, startY, 1, Color("#FF9F0A")
+    
+    ' Row 3: 4, 5, 6, -
+    startY = startY + 55
+    DrawButton "4", startX, startY, 1, Color("#505050")
+    DrawButton "5", startX + 75, startY, 1, Color("#505050")
+    DrawButton "6", startX + 150, startY, 1, Color("#505050")
+    DrawButton "-", startX + 225, startY, 1, Color("#FF9F0A")
+    
+    ' Row 4: 1, 2, 3, +
+    startY = startY + 55
+    DrawButton "1", startX, startY, 1, Color("#505050")
+    DrawButton "2", startX + 75, startY, 1, Color("#505050")
+    DrawButton "3", startX + 150, startY, 1, Color("#505050")
+    DrawButton "+", startX + 225, startY, 1, Color("#FF9F0A")
+    
+    ' Row 5: 0 (wide), ., =
+    startY = startY + 55
+    DrawButtonWide "0", startX, startY, Color("#505050")
+    DrawButton ".", startX + 150, startY, 1, Color("#505050")
+    DrawButton "=", startX + 225, startY, 1, Color("#FF9F0A")
+End Sub
+
+Sub DrawButton(text As String, x As Integer, y As Integer, cols As Integer, bgColor As Variant)
+    Dim width As Integer = BUTTON_WIDTH * cols + BUTTON_MARGIN * (cols - 1)
+    
+    ' Button background (rounded corners simulated)
+    DrawRect x, y, width, BUTTON_HEIGHT, bgColor
+    
+    ' Button text (centered)
+    Dim textX As Integer = x + width / 2 - Len(text) * 8
+    Dim textY As Integer = y + BUTTON_HEIGHT / 2 - 10
+    DrawString text, textX, textY, Color.White, 24
+End Sub
+
+Sub DrawButtonWide(text As String, x As Integer, y As Integer, bgColor As Variant)
+    Dim width As Integer = BUTTON_WIDTH * 2 + BUTTON_MARGIN
+    
+    DrawRect x, y, width, BUTTON_HEIGHT, bgColor
+    
+    Dim textX As Integer = x + 30
+    Dim textY As Integer = y + BUTTON_HEIGHT / 2 - 10
+    DrawString text, textX, textY, Color.White, 24
+End Sub
+
+' ============================================================================
+' MOUSE INPUT (for clicking buttons)
+' ============================================================================
+Sub _UnhandledInput(event As Variant)
+    If event Is InputEventMouseButton Then
+        If event.pressed And event.button_index = MOUSE_BUTTON_LEFT Then
+            HandleMouseClick event.position.x, event.position.y
+        End If
+    End If
+End Sub
+
+Sub HandleMouseClick(mx As Single, my As Single)
+    Dim startY As Integer = DISPLAY_HEIGHT + 20
+    Dim startX As Integer = 10
+    Dim row As Integer
+    Dim col As Integer
+    
+    ' Calculate which row
+    row = Int((my - startY) / 55)
+    col = Int((mx - startX) / 75)
+    
+    If row < 0 Or row > 5 Or col < 0 Or col > 3 Then Exit Sub
+    
+    ' Handle button press based on row/col
+    Select Case row
+        Case 0  ' Memory row
+            Select Case col
+                Case 0: MemoryClear
+                Case 1: MemoryRecall
+                Case 2: MemoryAdd
+                Case 3: MemorySubtract
+            End Select
+        Case 1  ' C, +/-, %, /
+            Select Case col
+                Case 0: ClearAll
+                Case 1: ToggleSign
+                Case 2: CalculatePercent
+                Case 3: InputOperation "/"
+            End Select
+        Case 2  ' 7, 8, 9, *
+            Select Case col
+                Case 0: InputDigit "7"
+                Case 1: InputDigit "8"
+                Case 2: InputDigit "9"
+                Case 3: InputOperation "*"
+            End Select
+        Case 3  ' 4, 5, 6, -
+            Select Case col
+                Case 0: InputDigit "4"
+                Case 1: InputDigit "5"
+                Case 2: InputDigit "6"
+                Case 3: InputOperation "-"
+            End Select
+        Case 4  ' 1, 2, 3, +
+            Select Case col
+                Case 0: InputDigit "1"
+                Case 1: InputDigit "2"
+                Case 2: InputDigit "3"
+                Case 3: InputOperation "+"
+            End Select
+        Case 5  ' 0, ., =
+            Select Case col
+                Case 0, 1: InputDigit "0"
+                Case 2: InputDecimal
+                Case 3: Calculate
+            End Select
+    End Select
+End Sub
+
+Sub ToggleSign()
+    If currentValue <> 0 Then
+        currentValue = -currentValue
+        displayText = FormatNumber(currentValue)
+    End If
+End Sub

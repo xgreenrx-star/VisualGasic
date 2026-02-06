@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://demo_snake_main"]
+
+[ext_resource type="Script" path="res://snake.vg" id="1_snake"]
+
+[node name="Main" type="Node2D"]
+script = ExtResource("1_snake")

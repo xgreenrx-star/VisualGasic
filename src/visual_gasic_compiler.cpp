@@ -2831,6 +2831,157 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             emit_byte((uint8_t)name_idx);
             break;
         }
+        case STMT_SELECT: {
+            // Select Case statement - compile as a series of if-else checks
+            SelectStatement* s = (SelectStatement*)stmt;
+            if (!s->expression) {
+                compile_ok = false;
+                break;
+            }
+            
+            // Compile the select expression once and store in a temp local
+            int select_slot = get_or_add_local(String("__select_") + String::num_int64(temp_local_id++), infer_type(s->expression));
+            compile_expression(s->expression);
+            if (select_slot >= 0) {
+                emit_bytes(OP_SET_LOCAL, (uint8_t)select_slot);
+            }
+            
+            Vector<int> end_jumps;
+            
+            for (int i = 0; i < s->cases.size(); i++) {
+                CaseBlock* cb = s->cases[i];
+                
+                if (cb->is_else) {
+                    // Case Else - just compile the body
+                    for (int j = 0; j < cb->body.size(); j++) {
+                        compile_statement(cb->body[j]);
+                    }
+                } else {
+                    // Regular Case - check each value
+                    Vector<int> case_match_jumps;
+                    
+                    for (int v = 0; v < cb->values.size(); v++) {
+                        // Load the select expression value
+                        if (select_slot >= 0) {
+                            emit_bytes(OP_GET_LOCAL, (uint8_t)select_slot);
+                        }
+                        // Load the case value and compare
+                        compile_expression(cb->values[v]);
+                        emit_byte(OP_EQUAL);
+                        
+                        // If equal, jump to case body
+                        int match_jump = emit_jump(OP_JUMP_IF_TRUE);
+                        case_match_jumps.push_back(match_jump);
+                    }
+                    
+                    // None of the values matched - jump to next case
+                    int skip_case_jump = emit_jump(OP_JUMP);
+                    
+                    // Patch all match jumps to here (the case body)
+                    for (int j = 0; j < case_match_jumps.size(); j++) {
+                        patch_jump(case_match_jumps[j]);
+                    }
+                    
+                    // Compile case body
+                    for (int j = 0; j < cb->body.size(); j++) {
+                        compile_statement(cb->body[j]);
+                    }
+                    
+                    // Jump to end of select after executing case body
+                    int end_jump = emit_jump(OP_JUMP);
+                    end_jumps.push_back(end_jump);
+                    
+                    // Patch the skip jump to continue to next case
+                    patch_jump(skip_case_jump);
+                }
+            }
+            
+            // Patch all end jumps to here
+            for (int i = 0; i < end_jumps.size(); i++) {
+                patch_jump(end_jumps[i]);
+            }
+            break;
+        }
+        case STMT_DO: {
+            // Do...Loop statement with optional While/Until conditions
+            DoStatement* s = (DoStatement*)stmt;
+            
+            int loop_start = current_chunk->code.size();
+            
+            if (!s->is_post_condition && s->condition_type != DoStatement::NONE) {
+                // Pre-condition: Do While/Until ... Loop
+                compile_expression(s->condition);
+                int exit_jump;
+                if (s->condition_type == DoStatement::WHILE) {
+                    exit_jump = emit_jump(OP_JUMP_IF_FALSE);
+                } else { // UNTIL
+                    exit_jump = emit_jump(OP_JUMP_IF_TRUE);
+                }
+                
+                // Compile body
+                for (int i = 0; i < s->body.size(); i++) {
+                    compile_statement(s->body[i]);
+                }
+                
+                emit_loop(loop_start);
+                patch_jump(exit_jump);
+            } else if (s->is_post_condition && s->condition_type != DoStatement::NONE) {
+                // Post-condition: Do ... Loop While/Until
+                
+                // Compile body first
+                for (int i = 0; i < s->body.size(); i++) {
+                    compile_statement(s->body[i]);
+                }
+                
+                // Check condition at the end
+                compile_expression(s->condition);
+                if (s->condition_type == DoStatement::WHILE) {
+                    // Loop While - continue if true
+                    int continue_offset = current_chunk->code.size() - loop_start + 3;
+                    emit_byte(OP_JUMP_IF_TRUE);
+                    emit_byte((uint8_t)((~continue_offset + 1) & 0xFF));
+                    emit_byte((uint8_t)(((~continue_offset + 1) >> 8) & 0xFF));
+                } else { // UNTIL
+                    // Loop Until - continue if false
+                    int continue_offset = current_chunk->code.size() - loop_start + 3;
+                    emit_byte(OP_JUMP_IF_FALSE);
+                    emit_byte((uint8_t)((~continue_offset + 1) & 0xFF));
+                    emit_byte((uint8_t)(((~continue_offset + 1) >> 8) & 0xFF));
+                }
+            } else {
+                // Infinite loop: Do ... Loop (no condition)
+                for (int i = 0; i < s->body.size(); i++) {
+                    compile_statement(s->body[i]);
+                }
+                emit_loop(loop_start);
+            }
+            break;
+        }
+        case STMT_RETURN: {
+            // Return statement (used in functions)
+            ReturnStatement* s = (ReturnStatement*)stmt;
+            if (s->return_value) {
+                compile_expression(s->return_value);
+            } else {
+                emit_constant(Variant()); // Return Null/Nothing if no value
+            }
+            emit_return();
+            break;
+        }
+        case STMT_RESTORE: {
+            // Restore statement for DATA pointer - reset to beginning or to a label
+            RestoreStatement* s = (RestoreStatement*)stmt;
+            if (s->label_name.is_empty()) {
+                // Restore to beginning - emit constant -1 to signal reset
+                emit_constant(Variant((int64_t)-1));
+            } else {
+                // Restore to label - emit the label name for runtime lookup
+                int label_idx = current_chunk->add_constant(s->label_name);
+                emit_bytes(OP_CONSTANT, (uint8_t)label_idx);
+            }
+            emit_byte(OP_RESTORE_DATA);
+            break;
+        }
         default:
              UtilityFunctions::print("Compiler: Unsupported statement type ", stmt->type);
              compile_ok = false;
@@ -2976,6 +3127,10 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                 else if (b->op.nocasecmp_to("And") == 0) emit_byte(OP_AND);
                 else if (b->op.nocasecmp_to("Or") == 0) emit_byte(OP_OR);
                 else if (b->op.nocasecmp_to("Xor") == 0) emit_byte(OP_XOR);
+                else if (b->op.nocasecmp_to("Is") == 0) emit_byte(OP_EQUAL); // Is compares object references
+                else if (b->op.nocasecmp_to("Mod") == 0) emit_byte(OP_MOD);
+                else if (b->op.nocasecmp_to("Like") == 0) emit_byte(OP_LIKE);
+                else if (b->op == "\\") emit_byte(OP_INT_DIVIDE); // Integer division
                 else {
                     UtilityFunctions::print("Compiler: Unsupported binary op ", b->op);
                     compile_ok = false;
@@ -3059,6 +3214,10 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
             else if (b->op.nocasecmp_to("And") == 0) emit_byte(OP_AND);
             else if (b->op.nocasecmp_to("Or") == 0) emit_byte(OP_OR);
             else if (b->op.nocasecmp_to("Xor") == 0) emit_byte(OP_XOR);
+            else if (b->op.nocasecmp_to("Is") == 0) emit_byte(OP_EQUAL); // Is compares object references
+            else if (b->op.nocasecmp_to("Mod") == 0) emit_byte(OP_MOD);
+            else if (b->op.nocasecmp_to("Like") == 0) emit_byte(OP_LIKE);
+            else if (b->op == "\\") emit_byte(OP_INT_DIVIDE); // Integer division
             else {
                 UtilityFunctions::print("Compiler: Unsupported binary op ", b->op);
                 compile_ok = false;
@@ -3170,6 +3329,36 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
              emit_bytes(OP_CALL, (uint8_t)idx);
              emit_byte((uint8_t)call->arguments.size()); // Arg count
              break;
+        }
+        case ExpressionNode::EXPRESSION_IIF: {
+            // IIf(condition, true_value, false_value)
+            IIfNode* iif = (IIfNode*)expr;
+            if (!iif->condition || !iif->true_part || !iif->false_part) {
+                compile_ok = false;
+                break;
+            }
+            
+            // Compile condition
+            compile_expression(iif->condition);
+            
+            // Jump to false part if condition is false
+            int else_jump = emit_jump(OP_JUMP_IF_FALSE);
+            
+            // Compile true part
+            compile_expression(iif->true_part);
+            
+            // Jump over false part
+            int end_jump = emit_jump(OP_JUMP);
+            
+            // Patch else jump to here (false part)
+            patch_jump(else_jump);
+            
+            // Compile false part
+            compile_expression(iif->false_part);
+            
+            // Patch end jump to here
+            patch_jump(end_jump);
+            break;
         }
         default:
              UtilityFunctions::print("Compiler: Unsupported expression type ", expr->type);

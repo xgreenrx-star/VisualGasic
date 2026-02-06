@@ -117,27 +117,29 @@ func _set_breakpoints(breakpoints_dict: Dictionary) -> void:
 
 # ============================================================================
 # STEP DEBUGGING
+# These methods are stubs for future implementation when the native
+# extension exposes debug stepping methods.
 # ============================================================================
 
 func _debug_continue() -> void:
 	"""Resume execution after a breakpoint or step."""
-	if ClassDB.class_exists("VisualGasicLanguage"):
-		VisualGasicLanguage.vg_debug_continue()
+	# Debug stepping not yet implemented in native extension
+	pass
 
 func _debug_step_into() -> void:
 	"""Step to the next line, entering function calls."""
-	if ClassDB.class_exists("VisualGasicLanguage"):
-		VisualGasicLanguage.vg_debug_step_into()
+	# Debug stepping not yet implemented in native extension
+	pass
 
 func _debug_step_over() -> void:
 	"""Step to the next line, stepping over function calls."""
-	if ClassDB.class_exists("VisualGasicLanguage"):
-		VisualGasicLanguage.vg_debug_step_over()
+	# Debug stepping not yet implemented in native extension
+	pass
 
 func _debug_step_out() -> void:
 	"""Step out of the current function."""
-	if ClassDB.class_exists("VisualGasicLanguage"):
-		VisualGasicLanguage.vg_debug_step_out()
+	# Debug stepping not yet implemented in native extension
+	pass
 
 func _send_debug_state() -> void:
 	"""Send the current debug state to the editor."""
@@ -146,12 +148,7 @@ func _send_debug_state() -> void:
 		"current_line": 0,
 		"current_file": ""
 	}
-	if ClassDB.class_exists("VisualGasicLanguage"):
-		state["step_mode"] = VisualGasicLanguage.vg_get_step_mode()
-		# Use the stored break location (set before script_debug blocks)
-		state["current_line"] = VisualGasicLanguage.vg_get_break_line()
-		state["current_file"] = VisualGasicLanguage.vg_get_break_file()
-		print("[VGDebugHandler] Sending debug_state: file='", state["current_file"], "' line=", state["current_line"])
+	# Debug state retrieval not yet implemented in native extension
 	EngineDebugger.send_message("visualgasic:debug_state", [state])
 
 func has_breakpoint(script_path: String, line: int) -> bool:

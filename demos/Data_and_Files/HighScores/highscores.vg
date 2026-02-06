@@ -1,0 +1,197 @@
+' ============================================================================
+' HIGH SCORE TABLE - DATA Statement Demo
+' Written in VisualGasic for Godot 4.5+
+' ============================================================================
+' Demonstrates classic DATA/READ/RESTORE statements for embedding data
+' ============================================================================
+Attribute VB_Name = "HighScoreDemo"
+
+' Score entry structure (using parallel arrays for classic feel)
+Dim playerNames(10) As String
+Dim playerScores(10) As Integer
+Dim playerDates(10) As String
+Dim scoreCount As Integer
+
+' Animation
+Dim blinkTimer As Single
+Dim showCursor As Boolean
+
+' ============================================================================
+' INITIALIZATION
+' ============================================================================
+Sub _Ready()
+    Print "=== HIGH SCORE TABLE DEMO ==="
+    Print "Demonstrating DATA, READ, and RESTORE statements"
+    Print ""
+    
+    LoadDefaultScores
+    PrintScoresToConsole
+End Sub
+
+Sub LoadDefaultScores()
+    ' Use RESTORE to ensure we start at the beginning of data
+    Restore DefaultHighScores
+    
+    scoreCount = 0
+    
+    ' Read scores until we hit "END"
+    Dim playerName As String
+    Dim score As Integer
+    Dim dateStr As String
+    
+    Do
+        Read playerName
+        If playerName = "END" Then Exit Do
+        
+        Read score, dateStr
+        
+        playerNames(scoreCount) = playerName
+        playerScores(scoreCount) = score
+        playerDates(scoreCount) = dateStr
+        scoreCount = scoreCount + 1
+        
+        If scoreCount >= 10 Then Exit Do
+    Loop
+    
+    Print "Loaded " & Str(scoreCount) & " high scores from DATA statements"
+End Sub
+
+Sub PrintScoresToConsole()
+    Print ""
+    Print "=== CURRENT HIGH SCORES ==="
+    
+    Dim i As Integer
+    For i = 0 To scoreCount - 1
+        Print Str(i + 1) & ". " & PadRight(playerNames(i), 10) & " " & _
+              PadLeft(Str(playerScores(i)), 8) & "  " & playerDates(i)
+    Next
+    
+    Print ""
+End Sub
+
+' ============================================================================
+' HELPER FUNCTIONS
+' ============================================================================
+Function PadRight(text As String, length As Integer) As String
+    Dim result As String = text
+    Do While Len(result) < length
+        result = result & " "
+    Loop
+    Return result
+End Function
+
+Function PadLeft(text As String, length As Integer) As String
+    Dim result As String = text
+    Do While Len(result) < length
+        result = " " & result
+    Loop
+    Return result
+End Function
+
+' ============================================================================
+' GAME LOOP
+' ============================================================================
+Sub _Process(delta As Single)
+    ' Blink animation for "INSERT COIN" text
+    blinkTimer = blinkTimer + delta
+    If blinkTimer >= 0.5 Then
+        blinkTimer = 0
+        showCursor = Not showCursor
+    End If
+End Sub
+
+' ============================================================================
+' RENDERING
+' ============================================================================
+Sub _Draw()
+    ' Background - classic arcade blue
+    DrawRect 0, 0, 640, 480, Color("#000033")
+    
+    ' Title with glow effect
+    DrawString "HIGH SCORES", 220, 30, Color("#FFFF00"), 36
+    
+    ' Column headers
+    DrawString "RANK", 80, 90, Color("#888888"), 20
+    DrawString "NAME", 160, 90, Color("#888888"), 20
+    DrawString "SCORE", 320, 90, Color("#888888"), 20
+    DrawString "DATE", 480, 90, Color("#888888"), 20
+    
+    ' Divider line
+    DrawRect 60, 115, 520, 2, Color("#444488")
+    
+    ' Score entries
+    Dim i As Integer
+    Dim y As Integer
+    Dim rankColor As Variant
+    
+    For i = 0 To scoreCount - 1
+        y = 130 + i * 30
+        
+        ' Color based on rank
+        Select Case i
+            Case 0
+                rankColor = Color("#FFD700")  ' Gold
+            Case 1
+                rankColor = Color("#C0C0C0")  ' Silver
+            Case 2
+                rankColor = Color("#CD7F32")  ' Bronze
+            Case Else
+                rankColor = Color("#FFFFFF")  ' White
+        End Select
+        
+        ' Rank
+        DrawString Str(i + 1) & ".", 90, y, rankColor, 24
+        
+        ' Name (with initials style)
+        DrawString playerNames(i), 160, y, rankColor, 24
+        
+        ' Score (right-aligned)
+        DrawString PadLeft(Str(playerScores(i)), 8), 300, y, rankColor, 24
+        
+        ' Date
+        DrawString playerDates(i), 460, y, Color("#888888"), 20
+    Next
+    
+    ' Bottom divider
+    DrawRect 60, 430, 520, 2, Color("#444488")
+    
+    ' Blinking insert coin message
+    If showCursor Then
+        DrawString "INSERT COIN", 250, 450, Color("#00FF00"), 24
+    End If
+    
+    ' Credit display
+    DrawString "CREDITS: 0", 500, 450, Color("#FFFFFF"), 16
+End Sub
+
+' ============================================================================
+' EMBEDDED DATA - Classic BASIC style!
+' ============================================================================
+' This data is compiled into the program - no external files needed!
+' Perfect for default values, level data, item definitions, etc.
+
+DefaultHighScores:
+Data "ACE", 1000000, "2026-01-15"
+Data "MAX", 875000, "2026-01-14"
+Data "ZAP", 750000, "2026-01-13"
+Data "PRO", 625000, "2026-01-12"
+Data "DOC", 500000, "2026-01-11"
+Data "REX", 375000, "2026-01-10"
+Data "KID", 250000, "2026-01-09"
+Data "NEW", 125000, "2026-01-08"
+Data "ONE", 50000, "2026-01-07"
+Data "TRY", 25000, "2026-01-06"
+Data "END", 0, ""
+
+' Additional data sections for demonstration
+EasyDifficulty:
+Data "AAA", 100000, "EASY"
+Data "BBB", 75000, "EASY"
+Data "CCC", 50000, "EASY"
+Data "END", 0, ""
+
+HardDifficulty:
+Data "GOD", 5000000, "HARD"
+Data "PRO", 2500000, "HARD"
+Data "VET", 1000000, "HARD"
+Data "END", 0, ""

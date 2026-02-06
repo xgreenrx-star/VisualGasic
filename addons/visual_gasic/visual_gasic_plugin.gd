@@ -1767,6 +1767,9 @@ func _check_script_editor_for_vg():
 	_current_code_edit = code_edit
 	if not code_edit.gui_input.is_connected(_on_code_edit_gui_input):
 		code_edit.gui_input.connect(_on_code_edit_gui_input)
+	
+	# Apply VisualGasic syntax highlighting
+	_apply_vg_syntax_highlighting(code_edit)
 
 ## Handles keyboard shortcuts in the code editor.
 ## Ctrl+R triggers the rename refactoring dialog for the word under cursor.
@@ -1840,6 +1843,109 @@ func _is_valid_identifier(name: String) -> bool:
 		if not _is_identifier_char(c):
 			return false
 	return true
+
+## Applies VisualGasic syntax highlighting to a CodeEdit.
+## Adds keyword colors for VB6 keywords, types, and modern extensions.
+## @param code_edit: The CodeEdit to apply highlighting to
+func _apply_vg_syntax_highlighting(code_edit: CodeEdit) -> void:
+	var highlighter = CodeHighlighter.new()
+	
+	# VB6 Keywords (blue) - includes modern VisualGasic extensions
+	var keywords = [
+		# Declaration
+		"Dim", "Global", "Private", "Public", "Static", "Const", "ReDim", "Preserve",
+		"As", "New", "Set", "Let", "Get", "Property", "Type", "End Type", "Enum", "End Enum",
+		# Procedures
+		"Sub", "End Sub", "Function", "End Function", "ByVal", "ByRef", "Optional",
+		"ParamArray", "Exit Sub", "Exit Function", "Return", "Call",
+		# Control Flow
+		"If", "Then", "Else", "ElseIf", "Elif", "End If",
+		"Select Case", "Case", "Case Else", "End Select",
+		"For", "To", "Step", "Next", "For Each", "In",
+		"Do", "Loop", "While", "Wend", "Until",
+		"GoTo", "GoSub", "On Error", "Resume", "Resume Next",
+		"Exit For", "Exit Do", "Exit While", "Continue", "Pass",
+		# Classes/Objects
+		"Class", "End Class", "Me", "MyBase", "MyClass",
+		"Implements", "Interface", "End Interface",
+		"Inherits", "Extends", "With", "End With",
+		"WithEvents", "RaiseEvent", "Event", "Handles",
+		# Operators
+		"And", "Or", "Not", "Xor", "Mod", "Is", "IsNot", "Like",
+		"AndAlso", "OrElse",
+		# Literals
+		"True", "False", "Nothing", "Null", "Empty",
+		# Option statements
+		"Option Explicit", "Option Compare",
+		# Error Handling
+		"Try", "Catch", "Finally", "End Try", "Throw",
+		# Modern - Async/Parallel
+		"Async", "Await", "Task", "Parallel", "Lock", "Unlock",
+		# Modern - Pattern Matching  
+		"Select Match", "Match", "When", "Where",
+		"TypeOf", "HasValue", "Value",
+		# Modern - Other
+		"Lambda", "Of", "IIf",
+		"Using", "End Using", "Yield", "Iterator",
+		# Reactive Programming (Whenever) - HIGHLIGHTED!
+		"Whenever", "End Whenever", "Section", "Local",
+		"Changes", "Becomes", "Exceeds", "Below", "Between", "Contains",
+		"Suspend", "Resume",
+		# File Operations
+		"Open", "Close", "Input", "Output", "Append", "Line",
+		# Data Processing
+		"Data", "Read", "Restore", "DoEvents", "Include",
+		# Collections
+		"Dictionary", "Attribute",
+	]
+	
+	for keyword in keywords:
+		highlighter.add_keyword_color(keyword, Color(0.4, 0.6, 1.0))  # Blue
+	
+	# Types (cyan)
+	var types = [
+		"Integer", "Long", "Single", "Double", "String", "Boolean", "Byte",
+		"Date", "Currency", "Variant", "Object", "Any",
+		"List", "Array", "Optional",
+	]
+	for type_name in types:
+		highlighter.add_keyword_color(type_name, Color(0.4, 0.9, 0.9))  # Cyan
+	
+	# Built-in Functions (yellow-orange)
+	var functions = [
+		"Print", "MsgBox", "InputBox", "Debug",
+		"Len", "Left", "Right", "Mid", "Trim", "LTrim", "RTrim",
+		"UCase", "LCase", "InStr", "InStrRev", "Replace", "Split", "Join",
+		"Val", "Str", "CStr", "CInt", "CLng", "CDbl", "CSng", "CBool",
+		"Chr", "Asc", "Space", "String", "Format",
+		"Int", "Fix", "Abs", "Sgn", "Sqr", "Log", "Exp",
+		"Sin", "Cos", "Tan", "Atn", "Rnd", "Randomize",
+		"Now", "Date", "Time", "Timer", "DateAdd", "DateDiff", "DatePart",
+		"Year", "Month", "Day", "Hour", "Minute", "Second",
+		"IsNumeric", "IsDate", "IsArray", "IsEmpty", "IsNull", "IsObject",
+		"UBound", "LBound", "Array", "Erase",
+		"FreeFile", "EOF", "LOF", "FileLen", "FileExists",
+		"Shell", "Environ", "Command", "AppPath",
+		"RGB", "QBColor", "Color",
+		"DrawRect", "DrawLine", "DrawCircle", "DrawString", "DrawSprite",
+		"PlayTone", "PlaySound", "StopSound",
+		"Clamp", "Min", "Max", "Lerp", "Sign",
+	]
+	for func_name in functions:
+		highlighter.add_keyword_color(func_name, Color(0.9, 0.8, 0.4))  # Yellow
+	
+	# Color regions
+	highlighter.add_color_region("\"", "\"", Color(0.9, 0.6, 0.4))  # Strings (orange)
+	highlighter.add_color_region("'", "", Color(0.5, 0.7, 0.5), true)  # Comments (green)
+	highlighter.add_color_region("REM ", "", Color(0.5, 0.7, 0.5), true)  # REM comments
+	
+	# Other colors
+	highlighter.number_color = Color(0.7, 0.9, 0.7)  # Light green
+	highlighter.symbol_color = Color(0.8, 0.8, 0.8)  # Light gray
+	highlighter.function_color = Color(0.9, 0.8, 0.4)  # Yellow
+	highlighter.member_variable_color = Color(0.8, 0.7, 0.9)  # Light purple
+	
+	code_edit.syntax_highlighter = highlighter
 
 ## Handles script editor context menu item selection.
 ## Triggers the appropriate rename dialog based on selected option.

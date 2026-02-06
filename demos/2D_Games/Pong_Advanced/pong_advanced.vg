@@ -1,0 +1,519 @@
+' ============================================================================
+' PONG ADVANCED - Reactive Programming with Whenever
+' Written in VisualGasic for Godot 4.5+
+' ============================================================================
+' This demo showcases the Whenever system for reactive game programming.
+' Instead of checking conditions every frame, we declare reactive rules
+' that automatically trigger when conditions are met.
+' ============================================================================
+Attribute VB_Name = "PongAdvanced"
+
+' Game constants from DATA statement
+Const SCREEN_WIDTH As Integer = 800
+Const SCREEN_HEIGHT As Integer = 600
+Const PADDLE_WIDTH As Integer = 15
+Const PADDLE_HEIGHT As Integer = 80
+Const BALL_SIZE As Integer = 15
+Const PADDLE_SPEED As Single = 400.0
+Const WIN_SCORE As Integer = 5
+
+' Ball state
+Dim ballX As Single
+Dim ballY As Single
+Dim ballVelX As Single
+Dim ballVelY As Single
+Dim ballSpeed As Single
+
+' Paddle positions
+Dim paddle1Y As Single
+Dim paddle2Y As Single
+
+' Score - these are monitored by Whenever sections!
+Dim score1 As Integer
+Dim score2 As Integer
+
+' Game state - also monitored reactively
+Dim gameState As String  ' "playing", "paused", "gameover"
+Dim winner As String
+Dim comboHits As Integer
+Dim lastHitTime As Single
+
+' Visual effects
+Dim screenShakeAmount As Single
+Dim flashColor As Variant
+Dim showComboText As Boolean
+Dim comboTextTimer As Single
+
+' Power-ups (loaded from DATA)
+Dim powerUpActive As Boolean
+Dim powerUpType As String
+Dim powerUpX As Single
+Dim powerUpY As Single
+Dim powerUpTimer As Single
+
+' ============================================================================
+' WHENEVER SECTIONS - Reactive Game Logic
+' ============================================================================
+' These sections automatically trigger when conditions are met.
+' No need to check every frame - VisualGasic monitors for you!
+
+' Score monitoring
+Whenever Section Player1Scores score1 Changes OnPlayer1Score
+Whenever Section Player2Scores score2 Changes OnPlayer2Score
+
+' Win conditions
+Whenever Section Player1Wins score1 Becomes WIN_SCORE DeclareWinner1
+Whenever Section Player2Wins score2 Becomes WIN_SCORE DeclareWinner2
+
+' Combo system - triggers when combo hits threshold
+Whenever Section ComboBonus comboHits Exceeds 3 ActivateComboBonus
+Whenever Section SuperCombo comboHits Exceeds 7 ActivateSuperCombo
+
+' Game state changes
+Whenever Section GameStateChanged gameState Changes OnGameStateChange
+
+' Ball speed escalation
+Whenever Section SpeedWarning ballSpeed Exceeds 600 ShowSpeedWarning
+Whenever Section MaxSpeed ballSpeed Exceeds 800 CapBallSpeed
+
+' Low health warnings (close game)
+Whenever Section CloseGame (score1 >= WIN_SCORE - 1 Or score2 >= WIN_SCORE - 1) ShowMatchPoint
+
+' ============================================================================
+' WHENEVER CALLBACKS
+' ============================================================================
+
+Sub OnPlayer1Score()
+    Print "Player 1 scores! Total: " & Str(score1)
+    TriggerScreenShake 5.0
+    flashColor = Color("#00FF00")
+    PlayScoreSound
+    ResetBall 1
+End Sub
+
+Sub OnPlayer2Score()
+    Print "Player 2 scores! Total: " & Str(score2)
+    TriggerScreenShake 5.0
+    flashColor = Color("#FF0000")
+    PlayScoreSound
+    ResetBall -1
+End Sub
+
+Sub DeclareWinner1()
+    winner = "Player 1"
+    gameState = "gameover"
+    Print "=== PLAYER 1 WINS! ==="
+End Sub
+
+Sub DeclareWinner2()
+    winner = "Player 2"
+    gameState = "gameover"
+    Print "=== PLAYER 2 WINS! ==="
+End Sub
+
+Sub ActivateComboBonus()
+    Print "COMBO x" & Str(comboHits) & "!"
+    showComboText = True
+    comboTextTimer = 2.0
+    ballSpeed = ballSpeed * 1.1
+    TriggerScreenShake 3.0
+End Sub
+
+Sub ActivateSuperCombo()
+    Print "SUPER COMBO! x" & Str(comboHits)
+    showComboText = True
+    comboTextTimer = 3.0
+    SpawnPowerUp
+    TriggerScreenShake 8.0
+End Sub
+
+Sub OnGameStateChange()
+    Print "Game state changed to: " & gameState
+    
+    Select Case gameState
+        Case "playing"
+            Resume Whenever Player1Scores
+            Resume Whenever Player2Scores
+        Case "paused"
+            Suspend Whenever Player1Scores
+            Suspend Whenever Player2Scores
+        Case "gameover"
+            ' Play victory fanfare
+            Print "Game Over! Winner: " & winner
+    End Select
+End Sub
+
+Sub ShowSpeedWarning()
+    Print "WARNING: Ball speed increasing!"
+    flashColor = Color("#FFFF00")
+End Sub
+
+Sub CapBallSpeed()
+    ballSpeed = 800
+    Print "Maximum ball speed reached!"
+End Sub
+
+Sub ShowMatchPoint()
+    Print "MATCH POINT!"
+    TriggerScreenShake 2.0
+End Sub
+
+' ============================================================================
+' INITIALIZATION
+' ============================================================================
+Sub _Ready()
+    Print "=== PONG ADVANCED ==="
+    Print "Demonstrating the Whenever System"
+    Print ""
+    Print "Features:"
+    Print "- Reactive score tracking"
+    Print "- Automatic win detection"
+    Print "- Combo system with thresholds"
+    Print "- Dynamic speed escalation"
+    Print ""
+    
+    LoadPowerUpData
+    StartNewGame
+End Sub
+
+Sub StartNewGame()
+    score1 = 0
+    score2 = 0
+    comboHits = 0
+    winner = ""
+    gameState = "playing"
+    ballSpeed = 300.0
+    powerUpActive = False
+    
+    ResetBall 0
+    ResetPaddles
+End Sub
+
+Sub ResetBall(serveDirection As Integer)
+    ballX = SCREEN_WIDTH / 2
+    ballY = SCREEN_HEIGHT / 2
+    
+    Dim angle As Single
+    angle = (Rnd() - 0.5) * 1.0
+    
+    If serveDirection = 0 Then
+        serveDirection = IIf(Rnd() > 0.5, 1, -1)
+    End If
+    
+    ballVelX = Cos(angle) * ballSpeed * serveDirection
+    ballVelY = Sin(angle) * ballSpeed
+    
+    ' Reset combo on new serve
+    comboHits = 0
+End Sub
+
+Sub ResetPaddles()
+    paddle1Y = (SCREEN_HEIGHT - PADDLE_HEIGHT) / 2
+    paddle2Y = (SCREEN_HEIGHT - PADDLE_HEIGHT) / 2
+End Sub
+
+' ============================================================================
+' POWER-UP SYSTEM (using DATA statements)
+' ============================================================================
+Dim powerUpNames(5) As String
+Dim powerUpColors(5) As Variant
+Dim powerUpCount As Integer
+
+Sub LoadPowerUpData()
+    Restore PowerUpDefinitions
+    powerUpCount = 0
+    
+    Dim pName As String
+    Do
+        Read pName
+        If pName = "END" Then Exit Do
+        
+        powerUpNames(powerUpCount) = pName
+        
+        Dim r, g, b As Integer
+        Read r, g, b
+        powerUpColors(powerUpCount) = Color(r/255.0, g/255.0, b/255.0)
+        
+        powerUpCount = powerUpCount + 1
+    Loop
+    
+    Print "Loaded " & Str(powerUpCount) & " power-up types"
+End Sub
+
+Sub SpawnPowerUp()
+    If powerUpActive Then Exit Sub
+    
+    Dim idx As Integer = Int(Rnd() * powerUpCount)
+    powerUpType = powerUpNames(idx)
+    powerUpX = SCREEN_WIDTH / 2
+    powerUpY = RandRange(100, SCREEN_HEIGHT - 100)
+    powerUpActive = True
+    powerUpTimer = 10.0
+    
+    Print "Power-up spawned: " & powerUpType
+End Sub
+
+Sub CollectPowerUp()
+    Print "Power-up collected: " & powerUpType
+    powerUpActive = False
+    
+    Select Case powerUpType
+        Case "SPEED"
+            ballSpeed = ballSpeed * 1.5
+        Case "SLOW"
+            ballSpeed = ballSpeed * 0.7
+        Case "BIG"
+            ' Would increase paddle size
+        Case "MULTI"
+            ' Would add extra ball
+        Case "SHIELD"
+            ' Would add goal protection
+    End Select
+    
+    TriggerScreenShake 4.0
+End Sub
+
+' Power-up definitions using DATA
+PowerUpDefinitions:
+Data "SPEED", 255, 255, 0
+Data "SLOW", 0, 255, 255
+Data "BIG", 0, 255, 0
+Data "MULTI", 255, 0, 255
+Data "SHIELD", 100, 100, 255
+Data "END", 0, 0, 0
+
+' ============================================================================
+' GAME LOOP
+' ============================================================================
+Sub _Process(delta As Single)
+    ' Handle input for state changes
+    If Input.IsActionJustPressed("ui_accept") Then
+        Select Case gameState
+            Case "gameover"
+                StartNewGame
+            Case "paused"
+                gameState = "playing"
+            Case "playing"
+                ' Nothing - enter doesn't pause
+        End Select
+    End If
+    
+    If Input.IsActionJustPressed("ui_cancel") Then
+        If gameState = "playing" Then
+            gameState = "paused"
+        ElseIf gameState = "paused" Then
+            gameState = "playing"
+        End If
+    End If
+    
+    ' Only update game logic when playing
+    If gameState <> "playing" Then Return
+    
+    UpdatePaddles delta
+    UpdateBall delta
+    UpdatePowerUp delta
+    UpdateEffects delta
+    CheckCollisions
+    CheckScoring
+End Sub
+
+Sub UpdatePaddles(delta As Single)
+    If Input.IsActionPressed("player1_up") Then
+        paddle1Y = paddle1Y - PADDLE_SPEED * delta
+    End If
+    If Input.IsActionPressed("player1_down") Then
+        paddle1Y = paddle1Y + PADDLE_SPEED * delta
+    End If
+    If Input.IsActionPressed("player2_up") Then
+        paddle2Y = paddle2Y - PADDLE_SPEED * delta
+    End If
+    If Input.IsActionPressed("player2_down") Then
+        paddle2Y = paddle2Y + PADDLE_SPEED * delta
+    End If
+    
+    paddle1Y = Clamp(paddle1Y, 0, SCREEN_HEIGHT - PADDLE_HEIGHT)
+    paddle2Y = Clamp(paddle2Y, 0, SCREEN_HEIGHT - PADDLE_HEIGHT)
+End Sub
+
+Sub UpdateBall(delta As Single)
+    ballX = ballX + ballVelX * delta
+    ballY = ballY + ballVelY * delta
+    
+    ' Wall bounce
+    If ballY <= 0 Then
+        ballY = 0
+        ballVelY = Abs(ballVelY)
+    ElseIf ballY >= SCREEN_HEIGHT - BALL_SIZE Then
+        ballY = SCREEN_HEIGHT - BALL_SIZE
+        ballVelY = -Abs(ballVelY)
+    End If
+    
+    lastHitTime = lastHitTime + delta
+End Sub
+
+Sub UpdatePowerUp(delta As Single)
+    If Not powerUpActive Then Exit Sub
+    
+    powerUpTimer = powerUpTimer - delta
+    If powerUpTimer <= 0 Then
+        powerUpActive = False
+        Print "Power-up expired"
+    End If
+End Sub
+
+Sub UpdateEffects(delta As Single)
+    ' Screen shake decay
+    screenShakeAmount = screenShakeAmount * 0.9
+    If screenShakeAmount < 0.1 Then screenShakeAmount = 0
+    
+    ' Flash decay
+    If flashColor IsNot Nothing Then
+        ' Fade to nothing over time
+    End If
+    
+    ' Combo text timer
+    If showComboText Then
+        comboTextTimer = comboTextTimer - delta
+        If comboTextTimer <= 0 Then
+            showComboText = False
+        End If
+    End If
+End Sub
+
+Sub CheckCollisions()
+    Dim paddleLeft As Single = 30
+    Dim paddleRight As Single = SCREEN_WIDTH - 30 - PADDLE_WIDTH
+    
+    ' Ball vs Paddle 1
+    If ballX <= paddleLeft + PADDLE_WIDTH And ballVelX < 0 Then
+        If ballY + BALL_SIZE >= paddle1Y And ballY <= paddle1Y + PADDLE_HEIGHT Then
+            PaddleHit 1, paddle1Y
+        End If
+    End If
+    
+    ' Ball vs Paddle 2
+    If ballX + BALL_SIZE >= paddleRight And ballVelX > 0 Then
+        If ballY + BALL_SIZE >= paddle2Y And ballY <= paddle2Y + PADDLE_HEIGHT Then
+            PaddleHit 2, paddle2Y
+        End If
+    End If
+    
+    ' Ball vs Power-up
+    If powerUpActive Then
+        If Abs(ballX - powerUpX) < 30 And Abs(ballY - powerUpY) < 30 Then
+            CollectPowerUp
+        End If
+    End If
+End Sub
+
+Sub PaddleHit(player As Integer, paddleY As Single)
+    Dim hitPos As Single
+    hitPos = (ballY + BALL_SIZE/2 - paddleY) / PADDLE_HEIGHT
+    Dim angle As Single
+    angle = (hitPos - 0.5) * 1.4
+    
+    ' Increase speed slightly
+    ballSpeed = ballSpeed + 15
+    
+    ' Direction based on which paddle
+    Dim dirX As Integer = IIf(player = 1, 1, -1)
+    ballVelX = Cos(angle) * ballSpeed * dirX
+    ballVelY = Sin(angle) * ballSpeed
+    
+    ' Combo tracking
+    If lastHitTime < 2.0 Then
+        comboHits = comboHits + 1
+    Else
+        comboHits = 1
+    End If
+    lastHitTime = 0
+    
+    TriggerScreenShake 2.0
+    Print "Rally: " & Str(comboHits)
+End Sub
+
+Sub CheckScoring()
+    ' These assignments will trigger the Whenever sections!
+    If ballX < -BALL_SIZE Then
+        score2 = score2 + 1  ' Triggers Whenever Section Player2Scores
+    End If
+    
+    If ballX > SCREEN_WIDTH Then
+        score1 = score1 + 1  ' Triggers Whenever Section Player1Scores
+    End If
+End Sub
+
+Sub TriggerScreenShake(amount As Single)
+    screenShakeAmount = amount
+End Sub
+
+Sub PlayScoreSound()
+    ' PlaySound "res://sounds/score.wav"
+    Print "[Sound: Score]"
+End Sub
+
+' ============================================================================
+' RENDERING
+' ============================================================================
+Sub _Draw()
+    ' Apply screen shake offset
+    Dim shakeX As Single = (Rnd() - 0.5) * screenShakeAmount * 2
+    Dim shakeY As Single = (Rnd() - 0.5) * screenShakeAmount * 2
+    
+    ' Background
+    DrawRect 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Color("#000022")
+    
+    ' Center line
+    Dim i As Integer
+    For i = 0 To SCREEN_HEIGHT Step 30
+        DrawRect SCREEN_WIDTH/2 - 2 + shakeX, i + shakeY, 4, 15, Color("#333366")
+    Next
+    
+    ' Paddles
+    Dim paddleLeft As Single = 30
+    Dim paddleRight As Single = SCREEN_WIDTH - 30 - PADDLE_WIDTH
+    DrawRect paddleLeft + shakeX, paddle1Y + shakeY, PADDLE_WIDTH, PADDLE_HEIGHT, Color("#00FF88")
+    DrawRect paddleRight + shakeX, paddle2Y + shakeY, PADDLE_WIDTH, PADDLE_HEIGHT, Color("#FF8800")
+    
+    ' Ball with trail effect
+    DrawRect ballX + shakeX, ballY + shakeY, BALL_SIZE, BALL_SIZE, Color.White
+    
+    ' Power-up
+    If powerUpActive Then
+        Dim pulseSize As Single = 20 + Sin(powerUpTimer * 5) * 5
+        Dim idx As Integer
+        For idx = 0 To powerUpCount - 1
+            If powerUpNames(idx) = powerUpType Then
+                DrawCircle powerUpX + shakeX, powerUpY + shakeY, pulseSize, powerUpColors(idx)
+                Exit For
+            End If
+        Next
+    End If
+    
+    ' Score display
+    DrawString Str(score1), SCREEN_WIDTH/4, 30, Color("#00FF88"), 48
+    DrawString Str(score2), 3 * SCREEN_WIDTH/4, 30, Color("#FF8800"), 48
+    
+    ' Combo display
+    If showComboText Then
+        Dim comboColor As Variant = IIf(comboHits > 7, Color("#FF00FF"), Color("#FFFF00"))
+        DrawString "COMBO x" & Str(comboHits), SCREEN_WIDTH/2 - 60, SCREEN_HEIGHT/2 - 50, comboColor, 32
+    End If
+    
+    ' Ball speed indicator
+    DrawString "Speed: " & Str(Int(ballSpeed)), 10, SCREEN_HEIGHT - 30, Color("#666666"), 16
+    
+    ' Game state overlays
+    Select Case gameState
+        Case "paused"
+            DrawRect 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Color(0, 0, 0, 0.7)
+            DrawString "PAUSED", SCREEN_WIDTH/2 - 60, SCREEN_HEIGHT/2 - 20, Color.Yellow, 36
+            DrawString "Press ESC to resume", SCREEN_WIDTH/2 - 90, SCREEN_HEIGHT/2 + 30, Color.Gray, 20
+            
+        Case "gameover"
+            DrawRect 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Color(0, 0, 0, 0.8)
+            DrawString winner & " WINS!", SCREEN_WIDTH/2 - 100, SCREEN_HEIGHT/2 - 40, Color("#FFD700"), 48
+            DrawString "Final Score: " & Str(score1) & " - " & Str(score2), SCREEN_WIDTH/2 - 80, SCREEN_HEIGHT/2 + 20, Color.White, 24
+            DrawString "Press ENTER to play again", SCREEN_WIDTH/2 - 110, SCREEN_HEIGHT/2 + 60, Color.Gray, 20
+    End Select
+End Sub

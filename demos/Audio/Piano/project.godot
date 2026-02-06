@@ -1,0 +1,19 @@
+; Engine configuration file.
+
+config_version=5
+
+[application]
+
+config/name="Piano Keyboard - Audio Demo"
+config/description="PlayTone and audio demonstration"
+run/main_scene="res://main.tscn"
+config/features=PackedStringArray("4.5", "Forward Plus")
+
+[display]
+
+window/size/viewport_width=800
+window/size/viewport_height=400
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/visual_gasic/plugin.cfg")

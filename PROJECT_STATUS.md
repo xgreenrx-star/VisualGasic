@@ -1,7 +1,7 @@
 # VisualGasic Project Status
 
-**Version**: 1.0 (Performance Optimized)  
-**Last Updated**: January 29, 2026
+**Version**: 2.2.1 (Native Compiler Enhanced)  
+**Last Updated**: February 5, 2026
 
 ## Overview
 
@@ -75,6 +75,7 @@ All documentation is organized in [docs/DOCUMENTATION_INDEX.md](docs/DOCUMENTATI
 - ✅ Godot integration
 - ✅ Form designer
 - ✅ Performance optimization
+- ✅ **Native compiler: Select Case, Do Loop, IIf, Mod, Like, Is**
 
 ### Testing: ✅ Comprehensive
 - ✅ Unit tests for all features
@@ -88,6 +89,23 @@ All documentation is organized in [docs/DOCUMENTATION_INDEX.md](docs/DOCUMENTATI
 - ✅ Migration guides
 - ✅ Examples
 
+## Recent Updates (v2.2.1)
+
+### Native Compiler Enhancements
+- **Select Case**: Full bytecode compilation with multi-value case matching
+- **Do Loop**: Do While/Until with pre/post conditions  
+- **IIf Expression**: Ternary operator (\`IIf(cond, true, false)\`)
+- **New Operators**: \`Is\`, \`Mod\`, \`Like\`, \`\\\` (integer division)
+- **New Opcodes**: OP_JUMP_IF_TRUE, OP_RESTORE_DATA, OP_MOD, OP_INT_DIVIDE, OP_LIKE
+
+### Editor Plugin Features
+- IntelliSense with 70+ keywords, 80+ functions
+- Go To Definition across all .vg files
+- Static code linter with 10 issue types
+- 30+ code snippets with tab stops
+- 5 syntax highlighting themes
+- Recent projects tracking
+
 ## Development
 
 ### Contributing
@@ -97,7 +115,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines
 See [FILE_INDEX.md](FILE_INDEX.md) for source structure
 
 ### Build System
-```bash
+\`\`\`bash
 # Build release version
 scons platform=linux target=template_release
 
@@ -106,28 +124,31 @@ scons platform=linux target=template_release
 
 # Run benchmarks
 godot --headless --script demo/run_benchmarks.gd
-```
+\`\`\`
 
 ## Future Plans
 
 See [ROADMAP.md](ROADMAP.md) for the complete development roadmap including:
 
-### Coming Soon
+### ✅ Completed (v2.2.1)
 - **Watch Window** - Monitor variables during debugging
 - **Snap-to-Grid & Alignment Tools** - Professional form designer enhancements
 - **IntelliSense / Autocomplete** - Code completion for VB6 keywords and controls
 - **Breakpoint Conditions** - Conditional breakpoints and hit counts
 - **Call Stack Panel** - Visual call stack during debugging
+- **Recent Projects list**
+- **Code Formatter / Beautifier**
+- **Find All References**
+- **Go to Definition**
+- **Form Preview mode**
+- **Linting and warnings**
+- **Snippet Manager**
+- **Theme Support (Classic VB6 gray)**
 
 ### Planned Features
-- Recent Projects list
-- Code Formatter / Beautifier
-- Find All References
-- Go to Definition
-- Form Preview mode
-- Linting and warnings
-- Snippet Manager
-- Theme Support (Classic VB6 gray)
+- JIT compilation for hot paths
+- Dictionary operation optimization
+- WebSocket/networking controls
 
 See also [TODO_FUTURE_OPTIMIZATIONS.md](TODO_FUTURE_OPTIMIZATIONS.md) for:
 - Potential dictionary optimization (specialized types)

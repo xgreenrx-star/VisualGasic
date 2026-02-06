@@ -1,0 +1,352 @@
+' ============================================================================
+' MATRIX SCREENSAVER - Graphics Drawing Demo
+' Written in VisualGasic for Godot 4.5+
+' ============================================================================
+' Demonstrates all drawing primitives:
+' - DrawRect, DrawLine, DrawCircle, DrawText
+' - Color manipulation
+' - Animation techniques
+' - DATA statements for character sets
+' ============================================================================
+Attribute VB_Name = "MatrixScreensaver"
+
+Const SCREEN_WIDTH As Integer = 800
+Const SCREEN_HEIGHT As Integer = 600
+Const NUM_COLUMNS As Integer = 40
+Const CHAR_WIDTH As Integer = 20
+Const CHAR_HEIGHT As Integer = 20
+
+' Matrix rain columns
+Dim columnY(NUM_COLUMNS) As Single      ' Current Y position
+Dim columnSpeed(NUM_COLUMNS) As Single  ' Fall speed
+Dim columnLength(NUM_COLUMNS) As Integer ' Trail length
+Dim columnChars(NUM_COLUMNS, 30) As String ' Characters in trail
+
+' Character set (loaded from DATA)
+Dim matrixChars(100) As String
+Dim charCount As Integer
+
+' Mode switching
+Dim currentMode As Integer
+Dim modeTimer As Single
+Const MODE_DURATION As Single = 10.0
+
+' Geometric animation vars
+Dim shapeAngle As Single
+Dim pulseValue As Single
+Dim spiralAngle As Single
+
+' ============================================================================
+' INITIALIZATION
+' ============================================================================
+Sub _Ready()
+    Print "=== MATRIX SCREENSAVER ==="
+    Print "Graphics Drawing Demo"
+    Print ""
+    Print "Modes: Matrix Rain, Geometric Shapes, Spiral, Starfield"
+    Print "Press SPACE to switch modes"
+    
+    LoadMatrixCharacters
+    InitColumns
+    currentMode = 0
+    modeTimer = MODE_DURATION
+End Sub
+
+Sub LoadMatrixCharacters()
+    Restore MatrixCharacterSet
+    charCount = 0
+    
+    Dim ch As String
+    Do
+        Read ch
+        If ch = "END" Then Exit Do
+        matrixChars(charCount) = ch
+        charCount = charCount + 1
+    Loop
+    
+    Print "Loaded " & Str(charCount) & " matrix characters"
+End Sub
+
+Sub InitColumns()
+    Dim i As Integer
+    For i = 0 To NUM_COLUMNS - 1
+        ResetColumn i
+        ' Stagger initial positions
+        columnY(i) = -Rnd() * SCREEN_HEIGHT
+    Next
+End Sub
+
+Sub ResetColumn(idx As Integer)
+    columnY(idx) = -Rnd() * 200
+    columnSpeed(idx) = 100 + Rnd() * 300
+    columnLength(idx) = 10 + Int(Rnd() * 20)
+    
+    ' Fill with random characters
+    Dim j As Integer
+    For j = 0 To 29
+        columnChars(idx, j) = matrixChars(Int(Rnd() * charCount))
+    Next
+End Sub
+
+' ============================================================================
+' MATRIX CHARACTERS (using DATA)
+' ============================================================================
+MatrixCharacterSet:
+' Japanese-inspired characters and symbols
+Data "ア", "イ", "ウ", "エ", "オ"
+Data "カ", "キ", "ク", "ケ", "コ"
+Data "サ", "シ", "ス", "セ", "ソ"
+Data "タ", "チ", "ツ", "テ", "ト"
+Data "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"
+Data "A", "B", "C", "D", "E", "F"
+Data "$", "#", "@", "&", "*", "+", "=", "<", ">"
+Data "END"
+
+' ============================================================================
+' UPDATE
+' ============================================================================
+Sub _Process(delta As Single)
+    ' Mode switching
+    If Input.IsActionJustPressed("ui_accept") Then
+        currentMode = (currentMode + 1) Mod 4
+        modeTimer = MODE_DURATION
+        Print "Switched to mode: " & Str(currentMode)
+    End If
+    
+    ' Auto mode switch
+    modeTimer = modeTimer - delta
+    If modeTimer <= 0 Then
+        currentMode = (currentMode + 1) Mod 4
+        modeTimer = MODE_DURATION
+    End If
+    
+    ' Update animations based on mode
+    Select Case currentMode
+        Case 0  ' Matrix rain
+            UpdateMatrixRain delta
+        Case 1  ' Geometric shapes
+            UpdateGeometric delta
+        Case 2  ' Spiral
+            UpdateSpiral delta
+        Case 3  ' Starfield
+            UpdateStarfield delta
+    End Select
+    
+    ' Common animations
+    pulseValue = pulseValue + delta * 2
+    shapeAngle = shapeAngle + delta * 0.5
+    spiralAngle = spiralAngle + delta * 3
+End Sub
+
+Sub UpdateMatrixRain(delta As Single)
+    Dim i As Integer
+    For i = 0 To NUM_COLUMNS - 1
+        columnY(i) = columnY(i) + columnSpeed(i) * delta
+        
+        ' Occasionally change a character
+        If Rnd() < 0.1 Then
+            Dim randIdx As Integer = Int(Rnd() * columnLength(i))
+            columnChars(i, randIdx) = matrixChars(Int(Rnd() * charCount))
+        End If
+        
+        ' Reset if off screen
+        If columnY(i) - columnLength(i) * CHAR_HEIGHT > SCREEN_HEIGHT Then
+            ResetColumn i
+        End If
+    Next
+End Sub
+
+Sub UpdateGeometric(delta As Single)
+    ' Handled in draw
+End Sub
+
+Sub UpdateSpiral(delta As Single)
+    ' Handled in draw
+End Sub
+
+Sub UpdateStarfield(delta As Single)
+    ' Reuse column data for stars
+    Dim i As Integer
+    For i = 0 To NUM_COLUMNS - 1
+        columnY(i) = columnY(i) + columnSpeed(i) * delta
+        If columnY(i) > SCREEN_HEIGHT Then
+            columnY(i) = 0
+            columnSpeed(i) = 50 + Rnd() * 400
+        End If
+    Next
+End Sub
+
+' ============================================================================
+' DRAWING
+' ============================================================================
+Sub _Draw()
+    ' Black background
+    DrawRect 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Color.Black
+    
+    Select Case currentMode
+        Case 0
+            DrawMatrixRain
+        Case 1
+            DrawGeometric
+        Case 2
+            DrawSpiral
+        Case 3
+            DrawStarfield
+    End Select
+    
+    ' Mode indicator
+    Dim modeName As String
+    Select Case currentMode
+        Case 0: modeName = "Matrix Rain"
+        Case 1: modeName = "Geometric"
+        Case 2: modeName = "Spiral"
+        Case 3: modeName = "Starfield"
+    End Select
+    
+    DrawString modeName, 10, SCREEN_HEIGHT - 30, Color("#333333"), 16
+    DrawString "Press SPACE to switch", SCREEN_WIDTH - 180, SCREEN_HEIGHT - 30, Color("#333333"), 14
+End Sub
+
+Sub DrawMatrixRain()
+    Dim i, j As Integer
+    Dim x, y As Single
+    
+    For i = 0 To NUM_COLUMNS - 1
+        x = i * CHAR_WIDTH + 10
+        
+        For j = 0 To columnLength(i) - 1
+            y = columnY(i) - j * CHAR_HEIGHT
+            
+            If y >= 0 And y < SCREEN_HEIGHT Then
+                ' Calculate fade based on position in trail
+                Dim fade As Single = 1.0 - (j / columnLength(i))
+                
+                ' First character is bright white/green
+                Dim charColor As Variant
+                If j = 0 Then
+                    charColor = Color(0.9, 1.0, 0.9)
+                Else
+                    ' Green fade
+                    charColor = Color(0, fade * 0.8, 0)
+                End If
+                
+                DrawString columnChars(i, j), x, y, charColor, 18
+            End If
+        Next
+    Next
+End Sub
+
+Sub DrawGeometric()
+    Dim cx As Single = SCREEN_WIDTH / 2
+    Dim cy As Single = SCREEN_HEIGHT / 2
+    
+    ' Pulsing circles
+    Dim i As Integer
+    For i = 1 To 10
+        Dim radius As Single = i * 30 + Sin(pulseValue + i * 0.5) * 20
+        Dim alpha As Single = 0.8 - i * 0.07
+        Dim hue As Single = (shapeAngle + i * 0.1) Mod 1.0
+        
+        ' HSV to RGB approximation
+        Dim r As Single = Abs(Sin(hue * 6.28))
+        Dim g As Single = Abs(Sin((hue + 0.33) * 6.28))
+        Dim b As Single = Abs(Sin((hue + 0.66) * 6.28))
+        
+        DrawCircle cx, cy, radius, Color(r * alpha, g * alpha, b * alpha)
+    Next
+    
+    ' Rotating lines
+    For i = 0 To 11
+        Dim angle As Single = shapeAngle + i * (3.14159 / 6)
+        Dim x1 As Single = cx + Cos(angle) * 50
+        Dim y1 As Single = cy + Sin(angle) * 50
+        Dim x2 As Single = cx + Cos(angle) * 250
+        Dim y2 As Single = cy + Sin(angle) * 250
+        
+        DrawLine x1, y1, x2, y2, Color(0.5, 0.5, 1.0, 0.6)
+    Next
+    
+    ' Rotating rectangles
+    For i = 0 To 3
+        Dim rectAngle As Single = shapeAngle * 2 + i * 1.57
+        Dim rectSize As Single = 100 + Sin(pulseValue) * 30
+        Dim rx As Single = cx + Cos(rectAngle) * 150 - rectSize/2
+        Dim ry As Single = cy + Sin(rectAngle) * 150 - rectSize/2
+        
+        Dim rectColor As Variant = Color(1.0 - i*0.2, i*0.3, 0.5, 0.5)
+        DrawRect rx, ry, rectSize, rectSize, rectColor
+    Next
+End Sub
+
+Sub DrawSpiral()
+    Dim cx As Single = SCREEN_WIDTH / 2
+    Dim cy As Single = SCREEN_HEIGHT / 2
+    
+    ' Draw spiral of dots
+    Dim i As Integer
+    Dim angle As Single
+    Dim radius As Single
+    
+    For i = 0 To 500
+        angle = spiralAngle + i * 0.1
+        radius = i * 0.5
+        
+        Dim x As Single = cx + Cos(angle) * radius
+        Dim y As Single = cy + Sin(angle) * radius
+        
+        ' Skip if off screen
+        If x < 0 Or x > SCREEN_WIDTH Or y < 0 Or y > SCREEN_HEIGHT Then
+            Continue For
+        End If
+        
+        ' Color based on position
+        Dim t As Single = i / 500.0
+        Dim r As Single = Sin(t * 3.14) * 0.5 + 0.5
+        Dim g As Single = Sin(t * 3.14 + 1) * 0.5 + 0.5
+        Dim b As Single = Sin(t * 3.14 + 2) * 0.5 + 0.5
+        
+        Dim dotSize As Single = 2 + Sin(angle * 2 + pulseValue) * 2
+        DrawCircle x, y, dotSize, Color(r, g, b)
+    Next
+    
+    ' Center glow
+    For i = 5 To 1 Step -1
+        Dim glowAlpha As Single = 0.2 - i * 0.03
+        DrawCircle cx, cy, i * 20 + Sin(pulseValue) * 10, Color(0.5, 0.8, 1.0, glowAlpha)
+    Next
+End Sub
+
+Sub DrawStarfield()
+    Dim cx As Single = SCREEN_WIDTH / 2
+    Dim cy As Single = SCREEN_HEIGHT / 2
+    
+    ' Draw stars streaming from center
+    Dim i As Integer
+    For i = 0 To NUM_COLUMNS - 1
+        ' Use column data as star data
+        Dim angle As Single = (i / NUM_COLUMNS) * 6.28
+        Dim dist As Single = columnY(i) * 2
+        
+        Dim x As Single = cx + Cos(angle) * dist
+        Dim y As Single = cy + Sin(angle) * dist
+        
+        ' Star size grows with distance
+        Dim starSize As Single = 1 + dist / 200
+        
+        ' Brightness based on speed
+        Dim brightness As Single = columnSpeed(i) / 450
+        
+        ' Draw star with trail
+        Dim trailLen As Single = columnSpeed(i) / 50
+        Dim x2 As Single = cx + Cos(angle) * (dist - trailLen)
+        Dim y2 As Single = cy + Sin(angle) * (dist - trailLen)
+        
+        DrawLine x2, y2, x, y, Color(brightness, brightness, brightness)
+        DrawCircle x, y, starSize, Color.White
+    Next
+    
+    ' Warp speed text
+    If Sin(pulseValue * 2) > 0.8 Then
+        DrawString "WARP SPEED", cx - 80, cy - 200, Color(0.5, 0.5, 1.0, 0.5), 28
+    End If
+End Sub
