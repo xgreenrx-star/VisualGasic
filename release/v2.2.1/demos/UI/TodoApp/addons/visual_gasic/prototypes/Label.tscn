@@ -1,0 +1,8 @@
+[gd_scene format=3]
+
+[node name="Label" type="Label"]
+custom_minimum_size = Vector2(100, 16)
+offset_right = 100.0
+offset_bottom = 16.0
+text = "Label"
+vertical_alignment = 1

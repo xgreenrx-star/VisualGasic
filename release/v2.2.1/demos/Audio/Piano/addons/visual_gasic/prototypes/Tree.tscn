@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[node name="Tree" type="Tree"]
+custom_minimum_size = Vector2(150, 150)
+offset_right = 150.0
+offset_bottom = 150.0

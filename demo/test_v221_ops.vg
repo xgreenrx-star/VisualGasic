@@ -1,0 +1,41 @@
+' Comprehensive v2.2.1 Operator Tests
+Sub Main()
+    Print "=== v2.2.1 Operator Tests ==="
+    
+    ' Test Mod
+    Dim modResult As Integer
+    modResult = 17 Mod 5
+    Print "17 Mod 5 = " & modResult & " (expected: 2)"
+    
+    ' Test Integer Division
+    Dim intDivResult As Integer
+    intDivResult = 17 \ 5
+    Print "17 \ 5 = " & intDivResult & " (expected: 3)"
+    
+    ' Test IIf
+    Dim iifResult As Integer
+    iifResult = IIf(True, 100, 200)
+    Print "IIf(True, 100, 200) = " & iifResult & " (expected: 100)"
+    
+    iifResult = IIf(False, 100, 200)
+    Print "IIf(False, 100, 200) = " & iifResult & " (expected: 200)"
+    
+    ' Test Like
+    Dim likeResult As Boolean
+    likeResult = "Hello" Like "H*"
+    Print "'Hello' Like 'H*' = " & likeResult & " (expected: True)"
+    
+    likeResult = "Hello" Like "X*"
+    Print "'Hello' Like 'X*' = " & likeResult & " (expected: False)"
+    
+    ' Test arithmetic combos
+    Dim combo As Integer
+    combo = (10 + 5) Mod 3
+    Print "(10 + 5) Mod 3 = " & combo & " (expected: 0)"
+    
+    combo = 20 \ 3 + 1
+    Print "20 \ 3 + 1 = " & combo & " (expected: 7)"
+    
+    Print ""
+    Print "=== All tests complete! ==="
+End Sub

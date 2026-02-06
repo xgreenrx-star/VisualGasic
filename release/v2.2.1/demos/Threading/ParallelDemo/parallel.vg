@@ -1,0 +1,537 @@
+' ============================================================================
+' PARALLEL PROCESSING DEMO - Multitasking Demo
+' Written in VisualGasic for Godot 4.5+
+' ============================================================================
+' Demonstrates:
+' - Parallel For loops
+' - Task.Run for async operations
+' - Await for task completion
+' - Thread-safe operations
+' - Visual comparison: Serial vs Parallel
+' ============================================================================
+Attribute VB_Name = "ParallelDemo"
+
+Const SCREEN_WIDTH As Integer = 800
+Const SCREEN_HEIGHT As Integer = 600
+
+' Particle systems for visual demonstration
+Const MAX_PARTICLES As Integer = 500
+
+Type Particle
+    X As Single
+    Y As Single
+    VelX As Single
+    VelY As Single
+    Color As Variant
+    Life As Single
+    Size As Single
+    Active As Boolean
+End Type
+
+Dim particles(MAX_PARTICLES) As Particle
+
+' Work simulation
+Const WORK_ITEMS As Integer = 100
+Dim workResults(WORK_ITEMS) As Integer
+Dim serialTime As Single
+Dim parallelTime As Single
+Dim isProcessing As Boolean
+Dim processingMode As String    ' "serial" or "parallel"
+Dim workProgress As Integer
+Dim workComplete As Boolean
+
+' Prime number calculation demo
+Dim primeResults(1000) As Integer
+Dim primeCount As Integer
+Dim primeLimit As Integer = 10000
+
+' Task tracking
+Dim activeTasks As Integer
+Dim completedTasks As Integer
+Dim totalTasks As Integer
+
+' UI state
+Dim selectedDemo As Integer     ' 0=Particles, 1=WorkLoad, 2=Primes
+Dim demoNames(3) As String
+
+' Whenever for task monitoring
+Whenever Section TaskMonitor
+    Whenever completedTasks Changes
+        Dim pct As Integer = Int(completedTasks / Max(totalTasks, 1) * 100)
+        Print "Task progress: " & Str(pct) & "% (" & Str(completedTasks) & "/" & Str(totalTasks) & ")"
+    End Whenever
+    
+    Whenever activeTasks Becomes 0
+        If totalTasks > 0 Then
+            Print "✓ All tasks completed!"
+            workComplete = True
+        End If
+    End Whenever
+End Whenever Section
+
+' ============================================================================
+' INITIALIZATION
+' ============================================================================
+Sub _Ready()
+    Print "=== PARALLEL PROCESSING DEMO ==="
+    Print "Demonstrates VisualGasic's Multitasking Features"
+    Print ""
+    Print "1 = Particle Physics Demo"
+    Print "2 = Work Load Comparison"
+    Print "3 = Prime Number Calculation"
+    Print ""
+    
+    demoNames(0) = "Particle Physics"
+    demoNames(1) = "Work Load Comparison"
+    demoNames(2) = "Prime Calculation"
+    
+    InitializeParticles
+    selectedDemo = 0
+End Sub
+
+Sub InitializeParticles()
+    Dim i As Integer
+    For i = 0 To MAX_PARTICLES - 1
+        ResetParticle i
+    Next
+End Sub
+
+Sub ResetParticle(index As Integer)
+    particles(index).X = Rnd() * SCREEN_WIDTH
+    particles(index).Y = Rnd() * SCREEN_HEIGHT
+    particles(index).VelX = (Rnd() - 0.5) * 200
+    particles(index).VelY = (Rnd() - 0.5) * 200
+    particles(index).Life = Rnd() * 3 + 1
+    particles(index).Size = Rnd() * 8 + 2
+    particles(index).Active = True
+    
+    ' Random color
+    particles(index).Color = Color(Rnd(), Rnd(), Rnd())
+End Sub
+
+' ============================================================================
+' PARTICLE PHYSICS - Parallel Update
+' ============================================================================
+Sub UpdateParticlesSerial(delta As Single)
+    ' Traditional serial loop
+    Dim i As Integer
+    For i = 0 To MAX_PARTICLES - 1
+        UpdateSingleParticle i, delta
+    Next
+End Sub
+
+Sub UpdateParticlesParallel(delta As Single)
+    ' Parallel For loop - distributes work across threads
+    Parallel For i As Integer = 0 To MAX_PARTICLES - 1
+        UpdateSingleParticle i, delta
+    Next
+End Sub
+
+Sub UpdateSingleParticle(index As Integer, delta As Single)
+    If Not particles(index).Active Then Exit Sub
+    
+    ' Physics update
+    particles(index).X = particles(index).X + particles(index).VelX * delta
+    particles(index).Y = particles(index).Y + particles(index).VelY * delta
+    
+    ' Gravity
+    particles(index).VelY = particles(index).VelY + 150 * delta
+    
+    ' Bounce off walls
+    If particles(index).X < 0 Or particles(index).X > SCREEN_WIDTH Then
+        particles(index).VelX = -particles(index).VelX * 0.8
+        particles(index).X = Clamp(particles(index).X, 0, SCREEN_WIDTH)
+    End If
+    
+    If particles(index).Y < 0 Or particles(index).Y > SCREEN_HEIGHT Then
+        particles(index).VelY = -particles(index).VelY * 0.8
+        particles(index).Y = Clamp(particles(index).Y, 0, SCREEN_HEIGHT)
+    End If
+    
+    ' Life decay
+    particles(index).Life = particles(index).Life - delta
+    If particles(index).Life <= 0 Then
+        ResetParticle index
+    End If
+End Sub
+
+' ============================================================================
+' WORK LOAD COMPARISON
+' ============================================================================
+Sub RunSerialWorkLoad()
+    isProcessing = True
+    processingMode = "serial"
+    workProgress = 0
+    workComplete = False
+    totalTasks = WORK_ITEMS
+    completedTasks = 0
+    activeTasks = WORK_ITEMS
+    
+    Dim startTime As Single = Time()
+    
+    ' Serial processing
+    Dim i As Integer
+    For i = 0 To WORK_ITEMS - 1
+        workResults(i) = SimulateHeavyWork(i)
+        workProgress = i + 1
+        completedTasks = completedTasks + 1
+        activeTasks = activeTasks - 1
+    Next
+    
+    serialTime = (Time() - startTime) / 1000.0
+    
+    isProcessing = False
+    Print "Serial completed in " & Format(serialTime, "0.000") & " seconds"
+End Sub
+
+Sub RunParallelWorkLoad()
+    isProcessing = True
+    processingMode = "parallel"
+    workProgress = 0
+    workComplete = False
+    totalTasks = WORK_ITEMS
+    completedTasks = 0
+    activeTasks = WORK_ITEMS
+    
+    Dim startTime As Single = Time()
+    
+    ' Parallel processing - automatically distributes across CPU cores
+    Parallel For i As Integer = 0 To WORK_ITEMS - 1
+        workResults(i) = SimulateHeavyWork(i)
+        
+        ' Thread-safe increment
+        Lock
+            workProgress = workProgress + 1
+            completedTasks = completedTasks + 1
+            activeTasks = activeTasks - 1
+        Unlock
+    Next
+    
+    parallelTime = (Time() - startTime) / 1000.0
+    
+    isProcessing = False
+    Print "Parallel completed in " & Format(parallelTime, "0.000") & " seconds"
+    
+    ' Calculate speedup
+    If parallelTime > 0 Then
+        Dim speedup As Single = serialTime / parallelTime
+        Print "Speedup: " & Format(speedup, "0.00") & "x faster"
+    End If
+End Sub
+
+Function SimulateHeavyWork(index As Integer) As Integer
+    ' Simulate CPU-intensive work
+    Dim result As Integer = 0
+    Dim j As Integer
+    
+    For j = 1 To 10000
+        result = result + (j * index) Mod 997
+    Next
+    
+    Return result
+End Function
+
+' ============================================================================
+' PRIME NUMBER CALCULATION
+' ============================================================================
+Sub CalculatePrimesSerial()
+    isProcessing = True
+    processingMode = "serial"
+    primeCount = 0
+    totalTasks = primeLimit
+    completedTasks = 0
+    
+    Dim startTime As Single = Time()
+    
+    Dim n As Integer
+    For n = 2 To primeLimit
+        If IsPrime(n) Then
+            primeResults(primeCount) = n
+            primeCount = primeCount + 1
+        End If
+        completedTasks = n
+    Next
+    
+    serialTime = (Time() - startTime) / 1000.0
+    isProcessing = False
+    
+    Print "Serial: Found " & Str(primeCount) & " primes in " & Format(serialTime, "0.000") & "s"
+End Sub
+
+Sub CalculatePrimesParallel()
+    isProcessing = True
+    processingMode = "parallel"
+    primeCount = 0
+    totalTasks = primeLimit
+    completedTasks = 0
+    
+    Dim startTime As Single = Time()
+    
+    ' Create tasks for batches of numbers
+    Dim batchSize As Integer = 100
+    Dim numBatches As Integer = primeLimit / batchSize
+    
+    Parallel For batch As Integer = 0 To numBatches - 1
+        Dim startN As Integer = batch * batchSize + 2
+        Dim endN As Integer = Min((batch + 1) * batchSize + 1, primeLimit)
+        
+        Dim n As Integer
+        For n = startN To endN
+            If IsPrime(n) Then
+                Lock
+                    primeResults(primeCount) = n
+                    primeCount = primeCount + 1
+                Unlock
+            End If
+        Next
+        
+        Lock
+            completedTasks = completedTasks + batchSize
+        Unlock
+    Next
+    
+    parallelTime = (Time() - startTime) / 1000.0
+    isProcessing = False
+    
+    Print "Parallel: Found " & Str(primeCount) & " primes in " & Format(parallelTime, "0.000") & "s"
+End Sub
+
+Function IsPrime(n As Integer) As Boolean
+    If n < 2 Then Return False
+    If n = 2 Then Return True
+    If n Mod 2 = 0 Then Return False
+    
+    Dim i As Integer
+    For i = 3 To Int(Sqr(n)) Step 2
+        If n Mod i = 0 Then Return False
+    Next
+    
+    Return True
+End Function
+
+' ============================================================================
+' ASYNC TASK EXAMPLE
+' ============================================================================
+Sub RunAsyncTask()
+    Print "Starting async task..."
+    
+    ' Task.Run executes code asynchronously
+    Task.Run Sub()
+        Dim i As Integer
+        For i = 1 To 5
+            Print "Async work step " & Str(i)
+            Sleep 500  ' Simulate work
+        Next
+        Print "Async task completed!"
+    End Sub
+    
+    Print "Main thread continues immediately..."
+End Sub
+
+Sub RunAwaitedTask()
+    Print "Starting awaited task..."
+    
+    ' Await waits for the task to complete
+    Dim result As Integer = Await Task.Run(Function()
+        Dim sum As Integer = 0
+        Dim i As Integer
+        For i = 1 To 1000000
+            sum = sum + i
+        Next
+        Return sum
+    End Function)
+    
+    Print "Awaited result: " & Str(result)
+End Sub
+
+' ============================================================================
+' INPUT HANDLING
+' ============================================================================
+Sub _Process(delta As Single)
+    HandleInput
+    
+    Select Case selectedDemo
+        Case 0
+            ' Toggle between serial and parallel with Space
+            If Input.IsKeyPressed(KEY_SPACE) Then
+                UpdateParticlesParallel delta
+            Else
+                UpdateParticlesSerial delta
+            End If
+    End Select
+End Sub
+
+Sub HandleInput()
+    ' Demo selection
+    If Input.IsActionJustPressed("ui_accept") Then
+        Select Case selectedDemo
+            Case 1  ' Work Load
+                If Not isProcessing Then
+                    If serialTime = 0 Then
+                        RunSerialWorkLoad
+                    Else
+                        RunParallelWorkLoad
+                    End If
+                End If
+            Case 2  ' Primes
+                If Not isProcessing Then
+                    If serialTime = 0 Then
+                        CalculatePrimesSerial
+                    Else
+                        CalculatePrimesParallel
+                    End If
+                End If
+        End Select
+    End If
+    
+    ' Switch demos
+    If Input.IsKeyPressed(KEY_1) Then
+        selectedDemo = 0
+        serialTime = 0
+        parallelTime = 0
+    End If
+    If Input.IsKeyPressed(KEY_2) Then
+        selectedDemo = 1
+        serialTime = 0
+        parallelTime = 0
+    End If
+    If Input.IsKeyPressed(KEY_3) Then
+        selectedDemo = 2
+        serialTime = 0
+        parallelTime = 0
+    End If
+    
+    ' Async demos
+    If Input.IsKeyPressed(KEY_A) Then RunAsyncTask
+    If Input.IsKeyPressed(KEY_W) Then RunAwaitedTask
+    
+    ' Reset particles
+    If Input.IsKeyPressed(KEY_R) Then InitializeParticles
+End Sub
+
+' ============================================================================
+' RENDERING
+' ============================================================================
+Sub _Draw()
+    ' Background
+    DrawRect 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Color("#0a0a1a")
+    
+    ' Header
+    DrawRect 0, 0, SCREEN_WIDTH, 60, Color("#1a1a3e")
+    DrawString "⚡ PARALLEL PROCESSING DEMO", 20, 10, Color.White, 24
+    DrawString "Demo: " & demoNames(selectedDemo) & " | Press 1/2/3 to switch", 20, 40, Color("#888888"), 14
+    
+    Select Case selectedDemo
+        Case 0
+            DrawParticleDemo
+        Case 1
+            DrawWorkLoadDemo
+        Case 2
+            DrawPrimeDemo
+    End Select
+    
+    ' Footer with instructions
+    DrawRect 0, SCREEN_HEIGHT - 40, SCREEN_WIDTH, 40, Color("#1a1a3e")
+    DrawString "A=Async Task | W=Awaited Task | R=Reset | Enter=Run Test", 20, SCREEN_HEIGHT - 28, Color("#666666"), 14
+End Sub
+
+Sub DrawParticleDemo()
+    ' Draw all particles
+    Dim i As Integer
+    For i = 0 To MAX_PARTICLES - 1
+        If particles(i).Active Then
+            Dim alpha As Single = Min(particles(i).Life, 1.0)
+            Dim pColor As Variant = particles(i).Color
+            ' Fade out
+            pColor.a = alpha
+            
+            DrawCircle Int(particles(i).X), Int(particles(i).Y), Int(particles(i).Size), pColor
+        End If
+    Next
+    
+    ' Info
+    DrawString "Hold SPACE for Parallel update, release for Serial", 20, 80, Color.Yellow, 16
+    DrawString "Particles: " & Str(MAX_PARTICLES), 20, 110, Color.White, 14
+End Sub
+
+Sub DrawWorkLoadDemo()
+    DrawString "WORK LOAD COMPARISON", 20, 80, Color.Yellow, 20
+    DrawString "Simulates " & Str(WORK_ITEMS) & " CPU-intensive tasks", 20, 110, Color("#888888"), 14
+    
+    ' Progress bar
+    If isProcessing Then
+        DrawString processingMode & " processing...", 20, 150, Color.White, 16
+        
+        Dim barWidth As Integer = 400
+        DrawRect 20, 180, barWidth, 30, Color("#333333")
+        
+        Dim progress As Single = workProgress / WORK_ITEMS
+        DrawRect 20, 180, Int(barWidth * progress), 30, Color("#4CAF50")
+        
+        DrawString Str(Int(progress * 100)) & "%", 430, 185, Color.White, 16
+    Else
+        ' Results
+        If serialTime > 0 Then
+            DrawString "Serial Time: " & Format(serialTime, "0.000") & " seconds", 20, 160, Color.Red, 18
+        End If
+        
+        If parallelTime > 0 Then
+            DrawString "Parallel Time: " & Format(parallelTime, "0.000") & " seconds", 20, 190, Color.Green, 18
+            
+            Dim speedup As Single = serialTime / parallelTime
+            DrawString "Speedup: " & Format(speedup, "0.00") & "x faster!", 20, 220, Color.Cyan, 20
+            
+            ' Visual comparison bars
+            Dim maxBarWidth As Integer = 500
+            Dim serialBarWidth As Integer = maxBarWidth
+            Dim parallelBarWidth As Integer = Int(maxBarWidth * (parallelTime / serialTime))
+            
+            DrawString "Serial:", 20, 270, Color.Red, 14
+            DrawRect 100, 268, serialBarWidth, 20, Color.Red
+            
+            DrawString "Parallel:", 20, 300, Color.Green, 14
+            DrawRect 100, 298, parallelBarWidth, 20, Color.Green
+        Else
+            DrawString "Press ENTER to run Serial test first", 20, 160, Color.White, 16
+        End If
+    End If
+End Sub
+
+Sub DrawPrimeDemo()
+    DrawString "PRIME NUMBER CALCULATION", 20, 80, Color.Yellow, 20
+    DrawString "Finding primes up to " & Str(primeLimit), 20, 110, Color("#888888"), 14
+    
+    If isProcessing Then
+        DrawString processingMode & " calculating...", 20, 150, Color.White, 16
+        
+        Dim barWidth As Integer = 400
+        DrawRect 20, 180, barWidth, 30, Color("#333333")
+        
+        Dim progress As Single = completedTasks / primeLimit
+        DrawRect 20, 180, Int(barWidth * progress), 30, Color("#9C27B0")
+        
+        DrawString Str(Int(progress * 100)) & "%", 430, 185, Color.White, 16
+    Else
+        If serialTime > 0 Then
+            DrawString "Serial: " & Str(primeCount) & " primes in " & Format(serialTime, "0.000") & "s", 20, 160, Color.Red, 18
+        End If
+        
+        If parallelTime > 0 Then
+            DrawString "Parallel: " & Str(primeCount) & " primes in " & Format(parallelTime, "0.000") & "s", 20, 190, Color.Green, 18
+            
+            Dim speedup As Single = serialTime / parallelTime
+            DrawString "Speedup: " & Format(speedup, "0.00") & "x faster!", 20, 220, Color.Cyan, 20
+            
+            ' Show some primes
+            DrawString "First 10 primes found:", 20, 270, Color.White, 14
+            Dim primeStr As String = ""
+            Dim i As Integer
+            For i = 0 To Min(9, primeCount - 1)
+                primeStr = primeStr & Str(primeResults(i)) & " "
+            Next
+            DrawString primeStr, 20, 295, Color.Yellow, 16
+        Else
+            DrawString "Press ENTER to run Serial test first", 20, 160, Color.White, 16
+        End If
+    End If
+End Sub

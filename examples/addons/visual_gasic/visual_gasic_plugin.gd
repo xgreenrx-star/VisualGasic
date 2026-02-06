@@ -161,14 +161,14 @@ func _enter_tree():
 		if debugger_plugin and nav.has_method("set_debugger_plugin"):
 			nav.set_debugger_plugin(debugger_plugin)
 
-	# Setup Dock - Toolbox on left
-	add_control_to_dock(EditorPlugin.DOCK_SLOT_LEFT_BL, toolbox)
-	
-	# Add Property Inspector - on left side below toolbox, stacked as tab
+	# Add Property Inspector
 	var props = loading_inspector()
 	if props:
-		add_control_to_dock(EditorPlugin.DOCK_SLOT_LEFT_BR, props)
+		add_control_to_dock(EditorPlugin.DOCK_SLOT_RIGHT_BL, props)
 		props.setup(self)
+
+	# Setup Dock
+	add_control_to_dock(EditorPlugin.DOCK_SLOT_LEFT_BL, toolbox)
 	print("Manually added Toolbox (GDScript Wrapper) to Dock Left BL")
 	
 	# Add Alignment Toolbar for form designer
@@ -596,7 +596,7 @@ func _on_new_form():
 		dlg.queue_free()
 	)
 	
-	dlg.popup_centered_clamped(Vector2(420, 380))
+	dlg.popup_centered()
 
 ## Deferred script attachment helper (called after scene is ready).
 ## @param scene_path: Path to the scene file
@@ -1767,6 +1767,12 @@ func _check_script_editor_for_vg():
 	_current_code_edit = code_edit
 	if not code_edit.gui_input.is_connected(_on_code_edit_gui_input):
 		code_edit.gui_input.connect(_on_code_edit_gui_input)
+	
+	# NOTE: Do NOT apply a custom CodeHighlighter to .vg files!
+	# Godot's script editor uses the ScriptLanguageExtension's built-in
+	# highlighting methods (_get_comment_delimiters, _get_string_delimiters).
+	# Assigning a CodeHighlighter conflicts with this and causes crash.
+	# The C++ extension handles syntax highlighting natively.
 
 ## Handles keyboard shortcuts in the code editor.
 ## Ctrl+R triggers the rename refactoring dialog for the word under cursor.
@@ -1840,6 +1846,16 @@ func _is_valid_identifier(name: String) -> bool:
 		if not _is_identifier_char(c):
 			return false
 	return true
+
+## Applies VisualGasic syntax highlighting to a CodeEdit.
+## NOTE: This function is DISABLED because assigning a CodeHighlighter
+## to a CodeEdit editing a ScriptLanguageExtension script causes Godot to crash.
+## The C++ extension provides highlighting via _get_comment_delimiters() etc.
+## @param code_edit: The CodeEdit to apply highlighting to
+func _apply_vg_syntax_highlighting(_code_edit: CodeEdit) -> void:
+	# DISABLED - causes Godot crash (signal 11)
+	# Godot's script editor already uses VisualGasicLanguage's built-in methods
+	pass
 
 ## Handles script editor context menu item selection.
 ## Triggers the appropriate rename dialog based on selected option.

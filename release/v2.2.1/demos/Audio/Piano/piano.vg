@@ -1,0 +1,405 @@
+' ============================================================================
+' PIANO KEYBOARD - Audio Demo
+' Written in VisualGasic for Godot 4.5+
+' ============================================================================
+' Demonstrates:
+' - PlayTone for generating musical notes
+' - DATA statements for note frequencies
+' - Keyboard input mapping
+' - For Each iteration
+' - Dictionary for key mapping
+' ============================================================================
+Attribute VB_Name = "PianoKeyboard"
+
+Const SCREEN_WIDTH As Integer = 800
+Const SCREEN_HEIGHT As Integer = 400
+Const WHITE_KEY_WIDTH As Integer = 50
+Const WHITE_KEY_HEIGHT As Integer = 200
+Const BLACK_KEY_WIDTH As Integer = 30
+Const BLACK_KEY_HEIGHT As Integer = 120
+
+' Note data (loaded from DATA)
+Dim noteNames(20) As String
+Dim noteFrequencies(20) As Single
+Dim noteKeys(20) As String       ' Keyboard key to press
+Dim noteIsBlack(20) As Boolean
+Dim noteCount As Integer
+
+' Currently playing notes
+Dim activeNotes(20) As Boolean
+Dim noteTimers(20) As Single
+
+' Visual feedback
+Dim keyPressed(20) As Boolean
+Dim keyGlow(20) As Single
+
+' Recorded song
+Dim recordedNotes(500) As Integer
+Dim recordedTimes(500) As Single
+Dim recordLength As Integer
+Dim isRecording As Boolean
+Dim isPlaying As Boolean
+Dim playbackTime As Single
+Dim playbackIndex As Integer
+Dim recordStartTime As Single
+
+' Demo songs (from DATA)
+Dim demoSongNotes(100) As Integer
+Dim demoSongTimes(100) As Single
+Dim demoSongLength As Integer
+
+' ============================================================================
+' INITIALIZATION
+' ============================================================================
+Sub _Ready()
+    Print "=== PIANO KEYBOARD ==="
+    Print "Audio Demo with PlayTone"
+    Print ""
+    Print "Keys: A-L for white keys, W-P for black keys"
+    Print "R = Record, P = Playback, D = Demo Song"
+    Print ""
+    
+    LoadNoteData
+    LoadDemoSong
+End Sub
+
+Sub LoadNoteData()
+    Restore NoteData
+    noteCount = 0
+    
+    Dim nName As String
+    Do
+        Read nName
+        If nName = "END" Then Exit Do
+        
+        noteNames(noteCount) = nName
+        
+        Dim freq As Single
+        Dim key As String
+        Dim isBlack As Integer
+        
+        Read freq, key, isBlack
+        
+        noteFrequencies(noteCount) = freq
+        noteKeys(noteCount) = key
+        noteIsBlack(noteCount) = (isBlack = 1)
+        
+        noteCount = noteCount + 1
+    Loop
+    
+    Print "Loaded " & Str(noteCount) & " piano keys"
+End Sub
+
+Sub LoadDemoSong()
+    Restore DemoSongData
+    demoSongLength = 0
+    
+    Dim noteIdx As Integer
+    Do
+        Read noteIdx
+        If noteIdx = -1 Then Exit Do
+        
+        demoSongNotes(demoSongLength) = noteIdx
+        Read demoSongTimes(demoSongLength)
+        
+        demoSongLength = demoSongLength + 1
+    Loop
+    
+    Print "Demo song loaded: " & Str(demoSongLength) & " notes"
+End Sub
+
+' ============================================================================
+' NOTE DATA (frequencies in Hz)
+' ============================================================================
+NoteData:
+' Name, Frequency, Keyboard Key, IsBlack (0/1)
+Data "C4", 261.63, "A", 0
+Data "C#4", 277.18, "W", 1
+Data "D4", 293.66, "S", 0
+Data "D#4", 311.13, "E", 1
+Data "E4", 329.63, "D", 0
+Data "F4", 349.23, "F", 0
+Data "F#4", 369.99, "T", 1
+Data "G4", 392.00, "G", 0
+Data "G#4", 415.30, "Y", 1
+Data "A4", 440.00, "H", 0
+Data "A#4", 466.16, "U", 1
+Data "B4", 493.88, "J", 0
+Data "C5", 523.25, "K", 0
+Data "C#5", 554.37, "O", 1
+Data "D5", 587.33, "L", 0
+Data "END", 0, "", 0
+
+' Demo song: "Mary Had a Little Lamb"
+DemoSongData:
+' NoteIndex, TimeOffset (seconds)
+Data 4, 0.0
+Data 2, 0.4
+Data 0, 0.8
+Data 2, 1.2
+Data 4, 1.6
+Data 4, 2.0
+Data 4, 2.4
+Data 2, 3.2
+Data 2, 3.6
+Data 2, 4.0
+Data 4, 4.8
+Data 7, 5.2
+Data 7, 5.6
+Data 4, 6.4
+Data 2, 6.8
+Data 0, 7.2
+Data 2, 7.6
+Data 4, 8.0
+Data 4, 8.4
+Data 4, 8.8
+Data 4, 9.2
+Data 2, 9.6
+Data 2, 10.0
+Data 4, 10.4
+Data 2, 10.8
+Data 0, 11.2
+Data -1, 0
+
+' ============================================================================
+' UPDATE
+' ============================================================================
+Sub _Process(delta As Single)
+    HandleKeyboardInput
+    UpdatePlayback delta
+    UpdateVisuals delta
+End Sub
+
+Sub HandleKeyboardInput()
+    ' Check each note's assigned key
+    Dim i As Integer
+    For i = 0 To noteCount - 1
+        Dim keyCode As Integer = GetKeyCode(noteKeys(i))
+        
+        If Input.IsKeyPressed(keyCode) Then
+            If Not keyPressed(i) Then
+                PlayNote i
+                keyPressed(i) = True
+            End If
+        Else
+            If keyPressed(i) Then
+                StopNote i
+                keyPressed(i) = False
+            End If
+        End If
+    Next
+    
+    ' Recording controls
+    If Input.IsActionJustPressed("ui_text_submit") Then  ' R key
+        ToggleRecording
+    End If
+    
+    ' Playback controls
+    If Input.IsKeyPressed(KEY_P) Then
+        If Not isPlaying And recordLength > 0 Then
+            StartPlayback False
+        End If
+    End If
+    
+    ' Demo song
+    If Input.IsKeyPressed(KEY_D) Then
+        If Not isPlaying Then
+            StartPlayback True
+        End If
+    End If
+End Sub
+
+Function GetKeyCode(key As String) As Integer
+    ' Map letter to key code
+    Select Case key
+        Case "A": Return KEY_A
+        Case "S": Return KEY_S
+        Case "D": Return KEY_D
+        Case "F": Return KEY_F
+        Case "G": Return KEY_G
+        Case "H": Return KEY_H
+        Case "J": Return KEY_J
+        Case "K": Return KEY_K
+        Case "L": Return KEY_L
+        Case "W": Return KEY_W
+        Case "E": Return KEY_E
+        Case "T": Return KEY_T
+        Case "Y": Return KEY_Y
+        Case "U": Return KEY_U
+        Case "O": Return KEY_O
+        Case "P": Return KEY_P
+        Case Else: Return 0
+    End Select
+End Function
+
+Sub PlayNote(noteIndex As Integer)
+    If noteIndex < 0 Or noteIndex >= noteCount Then Exit Sub
+    
+    Dim freq As Single = noteFrequencies(noteIndex)
+    PlayTone freq, 0.5, 300  ' frequency, volume, duration(ms)
+    
+    activeNotes(noteIndex) = True
+    keyGlow(noteIndex) = 1.0
+    
+    Print "Playing: " & noteNames(noteIndex) & " (" & Str(Int(freq)) & " Hz)"
+    
+    ' Record if recording
+    If isRecording Then
+        recordedNotes(recordLength) = noteIndex
+        recordedTimes(recordLength) = (Time() - recordStartTime) / 1000.0
+        recordLength = recordLength + 1
+    End If
+End Sub
+
+Sub StopNote(noteIndex As Integer)
+    activeNotes(noteIndex) = False
+End Sub
+
+Sub ToggleRecording()
+    If isRecording Then
+        isRecording = False
+        Print "Recording stopped: " & Str(recordLength) & " notes"
+    Else
+        isRecording = True
+        recordLength = 0
+        recordStartTime = Time()
+        Print "Recording started..."
+    End If
+End Sub
+
+Sub StartPlayback(useDemo As Boolean)
+    isPlaying = True
+    playbackTime = 0
+    playbackIndex = 0
+    
+    If useDemo Then
+        Print "Playing demo song..."
+    Else
+        Print "Playing recorded song..."
+    End If
+End Sub
+
+Sub UpdatePlayback(delta As Single)
+    If Not isPlaying Then Exit Sub
+    
+    playbackTime = playbackTime + delta
+    
+    ' Get current song data
+    Dim notes() As Integer
+    Dim times() As Single
+    Dim length As Integer
+    
+    ' Simplified - just use demo song
+    ' Check if it's time to play the next note
+    Do While playbackIndex < demoSongLength
+        If playbackTime >= demoSongTimes(playbackIndex) Then
+            PlayNote demoSongNotes(playbackIndex)
+            playbackIndex = playbackIndex + 1
+        Else
+            Exit Do
+        End If
+    Loop
+    
+    ' End playback
+    If playbackIndex >= demoSongLength Then
+        isPlaying = False
+        Print "Playback finished"
+    End If
+End Sub
+
+Sub UpdateVisuals(delta As Single)
+    Dim i As Integer
+    For i = 0 To noteCount - 1
+        ' Fade key glow
+        If keyGlow(i) > 0 Then
+            keyGlow(i) = keyGlow(i) - delta * 3
+            If keyGlow(i) < 0 Then keyGlow(i) = 0
+        End If
+    Next
+End Sub
+
+' ============================================================================
+' RENDERING
+' ============================================================================
+Sub _Draw()
+    ' Background
+    DrawRect 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Color("#222222")
+    
+    ' Draw white keys first
+    Dim whiteKeyIndex As Integer = 0
+    Dim i As Integer
+    For i = 0 To noteCount - 1
+        If Not noteIsBlack(i) Then
+            Dim x As Integer = whiteKeyIndex * WHITE_KEY_WIDTH + 50
+            Dim y As Integer = 100
+            
+            ' Key color
+            Dim keyColor As Variant
+            If keyPressed(i) Or keyGlow(i) > 0 Then
+                Dim glow As Single = Choose(keyPressed(i), 1.0, keyGlow(i))
+                keyColor = Color(1.0, 1.0 - glow * 0.3, 1.0 - glow * 0.5)
+            Else
+                keyColor = Color.White
+            End If
+            
+            ' Draw key
+            DrawRect x, y, WHITE_KEY_WIDTH - 2, WHITE_KEY_HEIGHT, keyColor
+            DrawRect x, y, WHITE_KEY_WIDTH - 2, WHITE_KEY_HEIGHT, Color.Black  ' Border
+            
+            ' Key label
+            DrawString noteKeys(i), x + 18, y + WHITE_KEY_HEIGHT - 30, Color("#666666"), 16
+            DrawString noteNames(i), x + 10, y + WHITE_KEY_HEIGHT - 50, Color("#999999"), 12
+            
+            whiteKeyIndex = whiteKeyIndex + 1
+        End If
+    Next
+    
+    ' Draw black keys on top
+    whiteKeyIndex = 0
+    Dim prevWasBlack As Boolean = False
+    For i = 0 To noteCount - 1
+        If Not noteIsBlack(i) Then
+            whiteKeyIndex = whiteKeyIndex + 1
+            prevWasBlack = False
+        Else
+            ' Position black key between white keys
+            Dim x As Integer = (whiteKeyIndex - 1) * WHITE_KEY_WIDTH + 50 + WHITE_KEY_WIDTH - BLACK_KEY_WIDTH / 2
+            Dim y As Integer = 100
+            
+            ' Key color
+            Dim keyColor As Variant
+            If keyPressed(i) Or keyGlow(i) > 0 Then
+                Dim glow As Single = Choose(keyPressed(i), 1.0, keyGlow(i))
+                keyColor = Color(glow * 0.3, glow * 0.3, glow * 0.5)
+            Else
+                keyColor = Color("#111111")
+            End If
+            
+            DrawRect x, y, BLACK_KEY_WIDTH, BLACK_KEY_HEIGHT, keyColor
+            
+            ' Key label
+            DrawString noteKeys(i), x + 8, y + BLACK_KEY_HEIGHT - 25, Color("#888888"), 14
+            
+            prevWasBlack = True
+        End If
+    Next
+    
+    ' Instructions
+    DrawString "Piano Keyboard - Press keys A-L (white) and W-P (black)", 50, 20, Color.White, 20
+    DrawString "R = Record | P = Play Recording | D = Demo Song", 50, 50, Color("#888888"), 16
+    
+    ' Status
+    Dim statusText As String
+    If isRecording Then
+        statusText = "RECORDING... (" & Str(recordLength) & " notes)"
+        DrawString statusText, 50, SCREEN_HEIGHT - 50, Color.Red, 20
+    ElseIf isPlaying Then
+        statusText = "PLAYING..."
+        DrawString statusText, 50, SCREEN_HEIGHT - 50, Color.Green, 20
+    End If
+    
+    ' Recording indicator
+    If recordLength > 0 And Not isRecording And Not isPlaying Then
+        DrawString "Recording: " & Str(recordLength) & " notes (press P to play)", 50, SCREEN_HEIGHT - 50, Color.Cyan, 16
+    End If
+End Sub

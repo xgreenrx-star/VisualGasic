@@ -1,0 +1,639 @@
+' ============================================================================
+' SNAKE - Classic Game with Modern Features
+' Written in VisualGasic for Godot 4.5+
+' ============================================================================
+' Demonstrates:
+' - DATA statements for level layouts and food types
+' - Whenever system for game state monitoring
+' - For Each for iterating snake body
+' - Dictionary for quick collision lookup
+' ============================================================================
+Attribute VB_Name = "SnakeGame"
+
+Const GRID_WIDTH As Integer = 32
+Const GRID_HEIGHT As Integer = 24
+Const CELL_SIZE As Integer = 20
+
+' Snake body (using dynamic array)
+Dim snakeX(500) As Integer
+Dim snakeY(500) As Integer
+Dim snakeLength As Integer
+
+' Direction
+Dim dirX As Integer
+Dim dirY As Integer
+Dim nextDirX As Integer
+Dim nextDirY As Integer
+
+' Food
+Dim foodX As Integer
+Dim foodY As Integer
+Dim foodType As Integer
+Dim foodTimer As Single
+
+' Power-ups
+Dim powerUpX As Integer
+Dim powerUpY As Integer
+Dim powerUpActive As Boolean
+Dim powerUpType As String
+
+' Game state (monitored by Whenever)
+Dim score As Integer
+Dim level As Integer
+Dim gameState As String  ' "playing", "paused", "gameover", "levelcomplete"
+Dim moveTimer As Single
+Dim moveInterval As Single
+
+' Level data
+Dim wallX(100) As Integer
+Dim wallY(100) As Integer
+Dim wallCount As Integer
+
+' Food types (from DATA)
+Dim foodNames(10) As String
+Dim foodPoints(10) As Integer
+Dim foodColors(10) As Variant
+Dim foodCount As Integer
+
+' Level themes
+Dim levelNames(10) As String
+Dim levelSpeeds(10) As Single
+Dim levelTargets(10) As Integer
+Dim totalLevels As Integer
+
+' Speed boost state
+Dim speedBoostTimer As Single
+Dim isSpeedBoosted As Boolean
+
+' ============================================================================
+' WHENEVER SECTIONS - Reactive Game Monitoring
+' ============================================================================
+
+' Score milestones
+Whenever Section ScoreMilestone score Exceeds 1000 ShowMilestoneBonus
+Whenever Section ScoreMilestone2 score Exceeds 5000 ShowSuperBonus
+
+' Level completion
+Whenever Section LevelComplete score Exceeds GetLevelTarget() AdvanceLevel
+
+' Game state changes
+Whenever Section GameStateChange gameState Changes OnStateChange
+
+' Length achievements
+Whenever Section LongSnake snakeLength Exceeds 20 ShowLengthAchievement
+
+' Speed monitoring
+Whenever Section SpeedBoostEnd speedBoostTimer Below 0 EndSpeedBoost
+
+' ============================================================================
+' WHENEVER CALLBACKS
+' ============================================================================
+
+Function GetLevelTarget() As Integer
+    If level <= totalLevels Then
+        Return levelTargets(level - 1)
+    Else
+        Return 99999
+    End If
+End Function
+
+Sub ShowMilestoneBonus()
+    Print "1000 POINTS! Bonus power-up spawned!"
+    SpawnPowerUp
+End Sub
+
+Sub ShowSuperBonus()
+    Print "5000 POINTS! SUPER BONUS!"
+    score = score + 500
+End Sub
+
+Sub AdvanceLevel()
+    If level < totalLevels Then
+        gameState = "levelcomplete"
+        Print "Level " & Str(level) & " Complete!"
+    Else
+        Print "YOU WIN! All levels completed!"
+        gameState = "gameover"
+    End If
+End Sub
+
+Sub OnStateChange()
+    Print "Game state: " & gameState
+    
+    Select Case gameState
+        Case "playing"
+            Resume Whenever ScoreMilestone
+            Resume Whenever LevelComplete
+        Case "paused", "gameover"
+            Suspend Whenever ScoreMilestone
+            Suspend Whenever LevelComplete
+    End Select
+End Sub
+
+Sub ShowLengthAchievement()
+    Print "ACHIEVEMENT: Snake length 20+!"
+End Sub
+
+Sub EndSpeedBoost()
+    If isSpeedBoosted Then
+        isSpeedBoosted = False
+        moveInterval = levelSpeeds(level - 1)
+        Print "Speed boost ended"
+    End If
+End Sub
+
+' ============================================================================
+' INITIALIZATION
+' ============================================================================
+Sub _Ready()
+    Print "=== SNAKE ==="
+    Print "DATA Statements & Whenever Demo"
+    Print ""
+    Print "Controls: WASD or Arrow Keys"
+    Print ""
+    
+    LoadFoodTypes
+    LoadLevelData
+    StartGame
+End Sub
+
+Sub LoadFoodTypes()
+    Restore FoodTypeData
+    foodCount = 0
+    
+    Dim fName As String
+    Do
+        Read fName
+        If fName = "END" Then Exit Do
+        
+        foodNames(foodCount) = fName
+        
+        Dim pts As Integer
+        Dim r, g, b As Integer
+        Read pts, r, g, b
+        
+        foodPoints(foodCount) = pts
+        foodColors(foodCount) = Color(r/255.0, g/255.0, b/255.0)
+        
+        foodCount = foodCount + 1
+    Loop
+    
+    Print "Loaded " & Str(foodCount) & " food types"
+End Sub
+
+Sub LoadLevelData()
+    Restore LevelData
+    totalLevels = 0
+    
+    Dim lName As String
+    Do
+        Read lName
+        If lName = "END" Then Exit Do
+        
+        levelNames(totalLevels) = lName
+        Read levelSpeeds(totalLevels)
+        Read levelTargets(totalLevels)
+        
+        totalLevels = totalLevels + 1
+    Loop
+    
+    Print "Loaded " & Str(totalLevels) & " levels"
+End Sub
+
+Sub StartGame()
+    level = 1
+    score = 0
+    gameState = "playing"
+    
+    StartLevel
+End Sub
+
+Sub StartLevel()
+    ' Reset snake
+    snakeLength = 3
+    snakeX(0) = GRID_WIDTH / 2
+    snakeY(0) = GRID_HEIGHT / 2
+    snakeX(1) = snakeX(0) - 1
+    snakeY(1) = snakeY(0)
+    snakeX(2) = snakeX(0) - 2
+    snakeY(2) = snakeY(0)
+    
+    dirX = 1
+    dirY = 0
+    nextDirX = 1
+    nextDirY = 0
+    
+    ' Set speed for level
+    moveInterval = levelSpeeds(level - 1)
+    moveTimer = 0
+    
+    ' Load walls for this level
+    LoadLevelWalls
+    
+    ' Spawn food
+    SpawnFood
+    
+    powerUpActive = False
+    isSpeedBoosted = False
+    speedBoostTimer = 0
+    
+    Print "Level " & Str(level) & ": " & levelNames(level - 1)
+    Print "Target: " & Str(levelTargets(level - 1)) & " points"
+End Sub
+
+Sub LoadLevelWalls()
+    wallCount = 0
+    
+    ' Select wall layout based on level
+    Select Case level
+        Case 1
+            ' No walls - beginner level
+        Case 2
+            ' Border walls
+            Restore Level2Walls
+            ReadWalls
+        Case 3
+            ' Cross pattern
+            Restore Level3Walls
+            ReadWalls
+        Case 4
+            ' Maze-like
+            Restore Level4Walls
+            ReadWalls
+        Case Else
+            ' Random walls for higher levels
+            Dim i As Integer
+            For i = 0 To level * 2
+                wallX(wallCount) = Int(Rnd() * (GRID_WIDTH - 4)) + 2
+                wallY(wallCount) = Int(Rnd() * (GRID_HEIGHT - 4)) + 2
+                wallCount = wallCount + 1
+            Next
+    End Select
+End Sub
+
+Sub ReadWalls()
+    Dim wx, wy As Integer
+    Do
+        Read wx
+        If wx = -1 Then Exit Do
+        Read wy
+        wallX(wallCount) = wx
+        wallY(wallCount) = wy
+        wallCount = wallCount + 1
+    Loop
+End Sub
+
+Sub SpawnFood()
+    Do
+        foodX = Int(Rnd() * GRID_WIDTH)
+        foodY = Int(Rnd() * GRID_HEIGHT)
+    Loop While IsOccupied(foodX, foodY)
+    
+    foodType = Int(Rnd() * foodCount)
+    foodTimer = 0
+End Sub
+
+Sub SpawnPowerUp()
+    If powerUpActive Then Exit Sub
+    
+    Do
+        powerUpX = Int(Rnd() * GRID_WIDTH)
+        powerUpY = Int(Rnd() * GRID_HEIGHT)
+    Loop While IsOccupied(powerUpX, powerUpY)
+    
+    ' Random power-up type
+    Dim types(3) As String
+    types(0) = "SPEED"
+    types(1) = "SLOW"
+    types(2) = "SHRINK"
+    types(3) = "POINTS"
+    powerUpType = types(Int(Rnd() * 4))
+    
+    powerUpActive = True
+    Print "Power-up spawned: " & powerUpType
+End Sub
+
+Function IsOccupied(x As Integer, y As Integer) As Boolean
+    ' Check snake body
+    Dim i As Integer
+    For i = 0 To snakeLength - 1
+        If snakeX(i) = x And snakeY(i) = y Then Return True
+    Next
+    
+    ' Check walls
+    For i = 0 To wallCount - 1
+        If wallX(i) = x And wallY(i) = y Then Return True
+    Next
+    
+    ' Check food
+    If x = foodX And y = foodY Then Return True
+    
+    Return False
+End Function
+
+' ============================================================================
+' DATA - Food Types
+' ============================================================================
+FoodTypeData:
+' Name, Points, R, G, B
+Data "Apple", 10, 255, 0, 0
+Data "Cherry", 20, 255, 0, 100
+Data "Banana", 15, 255, 255, 0
+Data "Grape", 25, 128, 0, 255
+Data "Orange", 30, 255, 165, 0
+Data "Melon", 50, 0, 255, 128
+Data "END", 0, 0, 0, 0
+
+' ============================================================================
+' DATA - Level Definitions
+' ============================================================================
+LevelData:
+' Name, MoveInterval, TargetScore
+Data "Grassland", 0.15, 500
+Data "Forest", 0.12, 1000
+Data "Desert", 0.10, 2000
+Data "Mountains", 0.08, 3500
+Data "Ice Cave", 0.06, 5000
+Data "END", 0, 0
+
+' ============================================================================
+' DATA - Level Wall Layouts
+' ============================================================================
+Level2Walls:
+' Simple border pillars
+Data 5, 5
+Data 5, 18
+Data 26, 5
+Data 26, 18
+Data -1, 0
+
+Level3Walls:
+' Cross pattern
+Data 16, 8
+Data 16, 9
+Data 16, 10
+Data 16, 14
+Data 16, 15
+Data 16, 16
+Data 12, 12
+Data 13, 12
+Data 14, 12
+Data 18, 12
+Data 19, 12
+Data 20, 12
+Data -1, 0
+
+Level4Walls:
+' Maze sections
+Data 8, 4, 8, 5, 8, 6, 8, 7, 8, 8
+Data 24, 16, 24, 17, 24, 18, 24, 19, 24, 20
+Data 12, 12, 13, 12, 14, 12, 15, 12
+Data 18, 12, 19, 12, 20, 12, 21, 12
+Data -1, 0
+
+' ============================================================================
+' GAME LOOP
+' ============================================================================
+Sub _Process(delta As Single)
+    ' Handle input in all states
+    HandleInput
+    
+    ' Update speed boost timer
+    If isSpeedBoosted Then
+        speedBoostTimer = speedBoostTimer - delta
+    End If
+    
+    Select Case gameState
+        Case "playing"
+            moveTimer = moveTimer + delta
+            If moveTimer >= moveInterval Then
+                MoveSnake
+                moveTimer = 0
+            End If
+            
+            ' Animate food
+            foodTimer = foodTimer + delta
+            
+        Case "levelcomplete"
+            If Input.IsActionJustPressed("ui_accept") Then
+                level = level + 1
+                StartLevel
+                gameState = "playing"
+            End If
+            
+        Case "gameover"
+            If Input.IsActionJustPressed("ui_accept") Then
+                StartGame
+            End If
+    End Select
+End Sub
+
+Sub HandleInput()
+    ' Queue direction change (prevents 180 turns)
+    If Input.IsActionJustPressed("up") And dirY <> 1 Then
+        nextDirX = 0
+        nextDirY = -1
+    ElseIf Input.IsActionJustPressed("down") And dirY <> -1 Then
+        nextDirX = 0
+        nextDirY = 1
+    ElseIf Input.IsActionJustPressed("left") And dirX <> 1 Then
+        nextDirX = -1
+        nextDirY = 0
+    ElseIf Input.IsActionJustPressed("right") And dirX <> -1 Then
+        nextDirX = 1
+        nextDirY = 0
+    End If
+    
+    ' Pause
+    If Input.IsActionJustPressed("ui_cancel") Then
+        If gameState = "playing" Then
+            gameState = "paused"
+        ElseIf gameState = "paused" Then
+            gameState = "playing"
+        End If
+    End If
+End Sub
+
+Sub MoveSnake()
+    ' Apply queued direction
+    dirX = nextDirX
+    dirY = nextDirY
+    
+    ' Calculate new head position
+    Dim newX As Integer = snakeX(0) + dirX
+    Dim newY As Integer = snakeY(0) + dirY
+    
+    ' Wrap around screen
+    If newX < 0 Then newX = GRID_WIDTH - 1
+    If newX >= GRID_WIDTH Then newX = 0
+    If newY < 0 Then newY = GRID_HEIGHT - 1
+    If newY >= GRID_HEIGHT Then newY = 0
+    
+    ' Check wall collision
+    Dim i As Integer
+    For i = 0 To wallCount - 1
+        If wallX(i) = newX And wallY(i) = newY Then
+            GameOver "Hit a wall!"
+            Return
+        End If
+    Next
+    
+    ' Check self collision
+    For i = 0 To snakeLength - 1
+        If snakeX(i) = newX And snakeY(i) = newY Then
+            GameOver "Ate yourself!"
+            Return
+        End If
+    Next
+    
+    ' Check food collision
+    Dim ateFood As Boolean = False
+    If newX = foodX And newY = foodY Then
+        score = score + foodPoints(foodType)
+        snakeLength = snakeLength + 1
+        ateFood = True
+        SpawnFood
+        Print "Ate " & foodNames(foodType) & "! +" & Str(foodPoints(foodType))
+    End If
+    
+    ' Check power-up collision
+    If powerUpActive And newX = powerUpX And newY = powerUpY Then
+        CollectPowerUp
+    End If
+    
+    ' Move body (shift all segments)
+    For i = snakeLength - 1 To 1 Step -1
+        snakeX(i) = snakeX(i - 1)
+        snakeY(i) = snakeY(i - 1)
+    Next
+    
+    ' Set new head
+    snakeX(0) = newX
+    snakeY(0) = newY
+End Sub
+
+Sub CollectPowerUp()
+    powerUpActive = False
+    
+    Select Case powerUpType
+        Case "SPEED"
+            isSpeedBoosted = True
+            moveInterval = moveInterval * 0.5
+            speedBoostTimer = 5.0
+            Print "SPEED BOOST!"
+        Case "SLOW"
+            moveInterval = moveInterval * 1.5
+            Print "SLOWED DOWN!"
+        Case "SHRINK"
+            If snakeLength > 3 Then
+                snakeLength = snakeLength - 3
+                Print "SHRINK! Length -3"
+            End If
+        Case "POINTS"
+            score = score + 100
+            Print "BONUS POINTS +100!"
+    End Select
+End Sub
+
+Sub GameOver(reason As String)
+    gameState = "gameover"
+    Print "GAME OVER: " & reason
+    Print "Final Score: " & Str(score)
+End Sub
+
+' ============================================================================
+' RENDERING
+' ============================================================================
+Sub _Draw()
+    ' Background based on level
+    Dim bgColor As Variant
+    Select Case level
+        Case 1: bgColor = Color("#1a3300")  ' Grassland
+        Case 2: bgColor = Color("#003300")  ' Forest
+        Case 3: bgColor = Color("#332200")  ' Desert
+        Case 4: bgColor = Color("#222233")  ' Mountains
+        Case 5: bgColor = Color("#003344")  ' Ice Cave
+        Case Else: bgColor = Color("#111111")
+    End Select
+    DrawRect 0, 0, GRID_WIDTH * CELL_SIZE, GRID_HEIGHT * CELL_SIZE, bgColor
+    
+    ' Draw grid (subtle)
+    Dim x, y As Integer
+    For x = 0 To GRID_WIDTH
+        DrawLine x * CELL_SIZE, 0, x * CELL_SIZE, GRID_HEIGHT * CELL_SIZE, Color(1, 1, 1, 0.05)
+    Next
+    For y = 0 To GRID_HEIGHT
+        DrawLine 0, y * CELL_SIZE, GRID_WIDTH * CELL_SIZE, y * CELL_SIZE, Color(1, 1, 1, 0.05)
+    Next
+    
+    ' Draw walls
+    Dim i As Integer
+    For i = 0 To wallCount - 1
+        DrawRect wallX(i) * CELL_SIZE, wallY(i) * CELL_SIZE, CELL_SIZE, CELL_SIZE, Color("#666666")
+    Next
+    
+    ' Draw food (pulsing)
+    Dim foodPulse As Single = 1.0 + Sin(foodTimer * 5) * 0.2
+    Dim foodDrawSize As Integer = Int(CELL_SIZE * foodPulse)
+    Dim foodOffset As Integer = (CELL_SIZE - foodDrawSize) / 2
+    DrawRect foodX * CELL_SIZE + foodOffset, foodY * CELL_SIZE + foodOffset, foodDrawSize, foodDrawSize, foodColors(foodType)
+    
+    ' Draw power-up
+    If powerUpActive Then
+        Dim puPulse As Single = 1.0 + Sin(foodTimer * 8) * 0.3
+        Dim puColor As Variant
+        Select Case powerUpType
+            Case "SPEED": puColor = Color("#FFFF00")
+            Case "SLOW": puColor = Color("#00FFFF")
+            Case "SHRINK": puColor = Color("#FF00FF")
+            Case "POINTS": puColor = Color("#FFD700")
+        End Select
+        DrawCircle powerUpX * CELL_SIZE + CELL_SIZE/2, powerUpY * CELL_SIZE + CELL_SIZE/2, CELL_SIZE/2 * puPulse, puColor
+    End If
+    
+    ' Draw snake
+    For i = 0 To snakeLength - 1
+        Dim segColor As Variant
+        If i = 0 Then
+            segColor = Color("#00FF00")  ' Head is bright green
+        Else
+            ' Body fades slightly
+            Dim fade As Single = 1.0 - (i / snakeLength) * 0.5
+            segColor = Color(0, fade * 0.8, 0)
+        End If
+        
+        DrawRect snakeX(i) * CELL_SIZE + 1, snakeY(i) * CELL_SIZE + 1, CELL_SIZE - 2, CELL_SIZE - 2, segColor
+    Next
+    
+    ' Speed boost indicator
+    If isSpeedBoosted Then
+        DrawString "SPEED BOOST: " & Str(Int(speedBoostTimer)) & "s", 10, GRID_HEIGHT * CELL_SIZE + 25, Color.Yellow, 16
+    End If
+    
+    ' HUD
+    DrawRect 0, GRID_HEIGHT * CELL_SIZE, GRID_WIDTH * CELL_SIZE, 50, Color("#222222")
+    DrawString "Level: " & Str(level) & " - " & levelNames(level - 1), 10, GRID_HEIGHT * CELL_SIZE + 5, Color.White, 18
+    DrawString "Score: " & Str(score) & " / " & Str(levelTargets(level - 1)), 10, GRID_HEIGHT * CELL_SIZE + 28, Color.Cyan, 16
+    DrawString "Length: " & Str(snakeLength), GRID_WIDTH * CELL_SIZE - 100, GRID_HEIGHT * CELL_SIZE + 15, Color.Green, 16
+    
+    ' Game state overlays
+    If gameState = "paused" Then
+        DrawRect 0, 0, GRID_WIDTH * CELL_SIZE, GRID_HEIGHT * CELL_SIZE, Color(0, 0, 0, 0.7)
+        DrawString "PAUSED", GRID_WIDTH * CELL_SIZE / 2 - 60, GRID_HEIGHT * CELL_SIZE / 2 - 20, Color.Yellow, 36
+        DrawString "Press ESC to continue", GRID_WIDTH * CELL_SIZE / 2 - 90, GRID_HEIGHT * CELL_SIZE / 2 + 30, Color.Gray, 18
+    End If
+    
+    If gameState = "gameover" Then
+        DrawRect 0, 0, GRID_WIDTH * CELL_SIZE, GRID_HEIGHT * CELL_SIZE, Color(0, 0, 0, 0.8)
+        DrawString "GAME OVER", GRID_WIDTH * CELL_SIZE / 2 - 90, GRID_HEIGHT * CELL_SIZE / 2 - 40, Color.Red, 40
+        DrawString "Final Score: " & Str(score), GRID_WIDTH * CELL_SIZE / 2 - 70, GRID_HEIGHT * CELL_SIZE / 2 + 10, Color.White, 24
+        DrawString "Press ENTER to restart", GRID_WIDTH * CELL_SIZE / 2 - 100, GRID_HEIGHT * CELL_SIZE / 2 + 50, Color.Gray, 18
+    End If
+    
+    If gameState = "levelcomplete" Then
+        DrawRect 0, 0, GRID_WIDTH * CELL_SIZE, GRID_HEIGHT * CELL_SIZE, Color(0, 0, 0.2, 0.8)
+        DrawString "LEVEL COMPLETE!", GRID_WIDTH * CELL_SIZE / 2 - 120, GRID_HEIGHT * CELL_SIZE / 2 - 40, Color("#FFD700"), 36
+        DrawString "Score: " & Str(score), GRID_WIDTH * CELL_SIZE / 2 - 50, GRID_HEIGHT * CELL_SIZE / 2 + 10, Color.White, 24
+        DrawString "Press ENTER for next level", GRID_WIDTH * CELL_SIZE / 2 - 115, GRID_HEIGHT * CELL_SIZE / 2 + 50, Color.Cyan, 18
+    End If
+End Sub

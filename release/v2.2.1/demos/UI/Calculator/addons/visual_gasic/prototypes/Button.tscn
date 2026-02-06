@@ -1,0 +1,8 @@
+[gd_scene format=3]
+
+[node name="Button" type="Button"]
+custom_minimum_size = Vector2(75, 23)
+offset_right = 75.0
+offset_bottom = 23.0
+focus_mode = 2
+text = "Button"

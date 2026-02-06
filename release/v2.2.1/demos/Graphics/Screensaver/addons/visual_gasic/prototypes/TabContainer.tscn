@@ -1,0 +1,13 @@
+[gd_scene format=3]
+
+[node name="TabContainer" type="TabContainer"]
+custom_minimum_size = Vector2(250, 150)
+offset_right = 250.0
+offset_bottom = 150.0
+
+[node name="Tab1" type="Panel" parent="."]
+layout_mode = 2
+
+[node name="Tab2" type="Panel" parent="."]
+visible = false
+layout_mode = 2

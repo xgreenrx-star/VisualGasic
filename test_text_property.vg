@@ -1,0 +1,26 @@
+' Test .text property access on controls
+' This tests both lowercase .text and VB6-style .Text
+Option Explicit
+
+Sub Form_Load()
+    ' Test 1: Set text using lowercase .text
+    me.LineEdit1.text = "Hello World"
+    Print "Set text via .text: " & me.LineEdit1.text
+    
+    ' Test 2: Set text using VB6-style .Text 
+    me.LineEdit1.Text = "Hello VB6"
+    Print "Set text via .Text: " & me.LineEdit1.Text
+    
+    ' Test 3: Read text with VB6-style comparison
+    If me.LineEdit1.Text = "Hello VB6" Then
+        Print "SUCCESS: .Text property works correctly!"
+    Else
+        Print "FAIL: .Text property did not match"
+    End If
+    
+    ' Test 4: Label Caption (should also work)
+    me.Label1.Caption = "Test Caption"
+    Print "Label Caption: " & me.Label1.Caption
+    
+    Print "All text property tests completed!"
+End Sub
