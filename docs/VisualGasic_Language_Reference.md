@@ -2082,8 +2082,8 @@ TypeName(42)                 ' "Int"
 ```vb
 ' Parse JSON string to object
 Dim json = '{"name":"Bob","age":25}'
-Dim data = JsonParse(json)
-Print data["name"]           ' "Bob"
+Dim jsonData = JsonParse(json)
+Print jsonData["name"]       ' "Bob"
 
 ' Convert object to JSON string
 Dim person = {"name": "Alice", "age": 30}
@@ -2815,10 +2815,10 @@ Create responsive applications with non-blocking asynchronous operations using f
 ' Async function declaration
 Async Function LoadPlayerDataAsync() As Task(Of PlayerData)
     ' Non-blocking database query
-    Dim data = Await DatabaseQuery("SELECT * FROM players WHERE id = ?", playerId)
+    Dim result = Await DatabaseQuery("SELECT * FROM players WHERE id = ?", playerId)
     
-    ' Process data asynchronously
-    Dim processed = Await ProcessPlayerStats(data)
+    ' Process result asynchronously
+    Dim processed = Await ProcessPlayerStats(result)
     
     ' Async validation
     Dim validated = Await ValidatePlayerData(processed)
@@ -3028,10 +3028,10 @@ Async Function RobustAsyncOperation() As Task(Of String)
         Dim configTask = LoadConfigAsync()
         
         ' Wait with timeout
-        Dim data = Await dataTask.WithTimeout(5000)
+        Dim result = Await dataTask.WithTimeout(5000)
         Dim config = Await configTask.WithTimeout(3000)
         
-        Return ProcessDataAndConfig(data, config)
+        Return ProcessResultAndConfig(result, config)
         
     Catch timeoutEx As TimeoutException
         Print "Operation timed out: " & timeoutEx.Message
