@@ -17,7 +17,7 @@
   - [Programmatic Import API](#programmatic-import-api)
 - [Installation](#installation)
 - [Editor Shortcuts](#editor-shortcuts)
-- [Your First VisualGasic Script](#your-first-script)
+- [Your First Script](#your-first-script)
 
 ### [Language Basics](#language-basics)
 - [Syntax Overview](#syntax-overview)
@@ -35,26 +35,26 @@
 - [Subroutines (Sub)](#subroutines)
 - [Functions](#functions)
 - [Parameters](#parameters)
-- [Scope and Lifetime](#scope)
+- [Scope and Lifetime](#scope-and-lifetime)
 
-### [Object-Oriented Features](#object-oriented)
-- [Classes and Types](#classes)
+### [Object-Oriented Features](#object-oriented-features)
+- [Classes and Types](#classes-and-types)
 - [Inheritance](#inheritance)
 - [Interfaces](#interfaces)
-- [Properties and Methods](#properties-methods)
+- [Properties and Methods](#properties-and-methods)
 
 ### [Built-in Functions](#built-in-functions)
 - [String Functions](#string-functions)
 - [Math Functions](#math-functions)
 - [Array Functions](#array-functions)
-- [File I/O Functions](#file-functions)
+- [File I/O Functions](#file-io-functions-classic-vb6-style)
 - [Classic DATA Statements](#classic-data-statements)
-- [Game and Application Development Functions](#game-functions)
+- [Game and Application Development Functions](#game-and-application-development-functions)
 
-### [Modern Language Features](#modern-features)
+### [Modern Language Features](#modern-language-features)
 - [Lambda Expressions](#lambda-expressions)
 - [Pattern Matching](#pattern-matching)
-- [Null-Safe Operations](#null-safe)
+- [Null-Safe Operations](#null-safe-operations)
 - [Type Inference](#type-inference)
 - [Event-Driven Programming with Whenever](#event-driven-programming-with-whenever)
 - [Multitasking and Concurrency](#multitasking-and-concurrency)
@@ -1734,6 +1734,43 @@ CreateEnemy("Goblin")           ' Uses defaults
 CreateEnemy("Dragon", 50, True) ' All parameters specified
 ```
 
+### Scope and Lifetime
+
+```vb
+' Module-level (Global) scope
+Dim globalCounter As Integer = 0  ' Accessible throughout the module
+
+Sub IncrementCounter()
+    globalCounter = globalCounter + 1  ' Can access module-level variable
+End Sub
+
+' Procedure-level (Local) scope
+Sub ProcessData()
+    Dim localVar As Integer = 10  ' Only accessible within this Sub
+    
+    ' Block-level scope
+    For i = 1 To 5
+        Dim blockVar As Integer = i * 2  ' Only accessible within For loop
+    Next
+    
+    ' blockVar is not accessible here
+End Sub
+
+' Static variables (persist between calls)
+Sub CountCalls()
+    Static callCount As Integer = 0  ' Initialized once, value persists
+    callCount = callCount + 1
+    Print "This function has been called " & callCount & " times"
+End Sub
+```
+
+**Scope Rules:**
+- `Dim` inside a procedure → Local scope
+- `Dim` at module level → Module scope
+- `Public` → Accessible from other modules
+- `Private` → Only accessible within the module
+- `Static` → Local variable that retains value between calls
+
 ---
 
 ## Object-Oriented Features
@@ -1811,6 +1848,52 @@ Class Enemy Implements IDamageable
         Return health > 0
     End Function
 End Class
+```
+
+### Properties and Methods
+
+```vb
+' Properties with Get/Set
+Class Player
+    Private _health As Integer
+    Private _name As String
+    
+    ' Read-write property
+    Property Health As Integer
+        Get
+            Return _health
+        End Get
+        Set(value As Integer)
+            _health = Clamp(value, 0, 100)  ' Validate on set
+        End Set
+    End Property
+    
+    ' Read-only property
+    ReadOnly Property Name As String
+        Get
+            Return _name
+        End Get
+    End Property
+    
+    ' Auto-implemented property (simple)
+    Property Score As Integer  ' Automatically creates backing field
+    
+    ' Methods
+    Sub TakeDamage(amount As Integer)
+        Health = Health - amount
+        If Health <= 0 Then Die()
+    End Sub
+    
+    Function IsAlive() As Boolean
+        Return Health > 0
+    End Function
+End Class
+
+' Using properties
+Dim player As New Player()
+player.Health = 100       ' Calls Set
+Print player.Health       ' Calls Get
+player.Score = 500        ' Auto property
 ```
 
 ---
@@ -2043,7 +2126,7 @@ Clipboard.SetText("Hello!")       ' Copy text to clipboard
 Clipboard.Clear()                 ' Clear clipboard contents
 ```
 
-### File I/O Functions (Classic VB6 Style)
+### File I/O Functions (Classic VB6 Style) {#file-io-functions-classic-vb6-style}
 
 ```vb
 ' File operations
@@ -2255,7 +2338,7 @@ Dim targetFPS As Integer
 Read title, width, height, fullscreen, targetFPS
 ```
 
-### Game and Application Development Functions
+### Game and Application Development Functions {#game-and-application-development-functions}
 
 ```vb
 ' Audio (games and multimedia applications)
