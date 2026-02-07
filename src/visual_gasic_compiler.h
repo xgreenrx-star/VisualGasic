@@ -43,6 +43,7 @@ private:
     Vector<String> loop_bound_vars;
     int temp_local_id = 0;
     SubDefinition* current_sub = nullptr;
+    ModuleNode* current_module = nullptr;
 
     void emit_byte(uint8_t byte);
     void emit_bytes(uint8_t byte1, uint8_t byte2);

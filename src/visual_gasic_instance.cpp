@@ -3251,14 +3251,28 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
              return String(l) + String(r);
         }
 
-        if (op == "**") {
-             // Power
+        if (op == "**" || op == "^") {
+             // Power/Exponent
              return UtilityFunctions::pow(l, r);
         }
         if (op == "//") {
              // Floor Division
              double val = (double)l / (double)r;
              return floor(val);
+        }
+        if (op == "\\") {
+             // Integer Division (VB style)
+             int64_t li = (int64_t)l;
+             int64_t ri = (int64_t)r;
+             if (ri == 0) return 0;
+             return li / ri;
+        }
+        if (op.nocasecmp_to("Mod") == 0) {
+             // Modulo
+             int64_t li = (int64_t)l;
+             int64_t ri = (int64_t)r;
+             if (ri == 0) return 0;
+             return li % ri;
         }
         
         if (op.nocasecmp_to("And") == 0) return l.booleanize() && r.booleanize();
@@ -4880,6 +4894,33 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                 bool found = false;
                 call_internal(s->method_name, call_args, found);
                 
+                // Handle ByRef parameter write-back
+                if (found && script.is_valid() && script->ast_root) {
+                    SubDefinition *called_func = nullptr;
+                    for (int i = 0; i < script->ast_root->subs.size(); i++) {
+                        if (script->ast_root->subs[i]->name.nocasecmp_to(s->method_name) == 0) {
+                            called_func = script->ast_root->subs[i];
+                            break;
+                        }
+                    }
+                    
+                    if (called_func) {
+                        int max_params = called_func->parameters.size();
+                        int arg_count = s->arguments.size();
+                        for (int i = 0; i < max_params && i < arg_count; i++) {
+                            const Parameter& param = called_func->parameters[i];
+                            // If ByRef (not ByVal), and the argument was a variable, write back
+                            if (param.is_by_ref && s->arguments[i]->type == ExpressionNode::VARIABLE) {
+                                String caller_var_name = ((VariableNode*)s->arguments[i])->name;
+                                // Get the parameter's current value from the function's scope
+                                if (variables.has(param.name)) {
+                                    variables[caller_var_name] = variables[param.name];
+                                }
+                            }
+                        }
+                    }
+                }
+                
                 if (!found) {
                     if (owner) {
                         if (owner->has_method(s->method_name)) {
@@ -5082,11 +5123,27 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                 } else {
                     for(int j=0; j<block->values.size(); j++) {
                         Variant c = evaluate_expression(block->values[j]);
-                        bool valid; Variant res;
-                        Variant::evaluate(Variant::OP_EQUAL, val, c, res, valid);
-                        if (res.booleanize()) {
-                            match = true;
-                            break;
+                        
+                        // Check if this is a range (X To Y)
+                        if (j < block->range_ends.size() && block->range_ends[j] != nullptr) {
+                            Variant range_end = evaluate_expression(block->range_ends[j]);
+                            // val >= c AND val <= range_end
+                            bool valid1, valid2;
+                            Variant res1, res2;
+                            Variant::evaluate(Variant::OP_GREATER_EQUAL, val, c, res1, valid1);
+                            Variant::evaluate(Variant::OP_LESS_EQUAL, val, range_end, res2, valid2);
+                            if (res1.booleanize() && res2.booleanize()) {
+                                match = true;
+                                break;
+                            }
+                        } else {
+                            // Simple value match
+                            bool valid; Variant res;
+                            Variant::evaluate(Variant::OP_EQUAL, val, c, res, valid);
+                            if (res.booleanize()) {
+                                match = true;
+                                break;
+                            }
                         }
                     }
                 }
@@ -7074,6 +7131,17 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 } else {
                     push_value(Variant(ival_a / ival_b));
                 }
+                break;
+            }
+            case OP_POWER: {
+                if (!ensure_stack(2)) {
+                    success = false;
+                    goto cleanup;
+                }
+                Variant b = pop_value();
+                Variant a = pop_value();
+                double val = UtilityFunctions::pow((double)a, (double)b);
+                push_value(Variant(val));
                 break;
             }
             case OP_LIKE: {

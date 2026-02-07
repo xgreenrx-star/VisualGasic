@@ -111,12 +111,31 @@ void VisualGasicInstance::_execute_statement_impl(Statement* stmt) {
 			bool matched = false;
 			for (CaseBlock* c : sel->cases) {
 				bool case_match = false;
-				if (c->values.size() == 0) case_match = true;
-				else {
+				if (c->is_else) {
+					case_match = true;
+				} else if (c->values.size() == 0) {
+					case_match = true;
+				} else {
 					for (int i = 0; i < c->values.size(); ++i) {
-						if (_evaluate_expression_impl(c->values[i]) == val) {
-							case_match = true;
-							break;
+						Variant case_val = _evaluate_expression_impl(c->values[i]);
+						// Check if this is a range (X To Y)
+						if (i < c->range_ends.size() && c->range_ends[i] != nullptr) {
+							Variant range_end = _evaluate_expression_impl(c->range_ends[i]);
+							// val >= case_val AND val <= range_end
+							bool valid1, valid2;
+							Variant res1, res2;
+							Variant::evaluate(Variant::OP_GREATER_EQUAL, val, case_val, res1, valid1);
+							Variant::evaluate(Variant::OP_LESS_EQUAL, val, range_end, res2, valid2);
+							if (res1.booleanize() && res2.booleanize()) {
+								case_match = true;
+								break;
+							}
+						} else {
+							// Simple value match
+							if (case_val == val) {
+								case_match = true;
+								break;
+							}
 						}
 					}
 				}

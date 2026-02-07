@@ -75,6 +75,7 @@ Vector<VisualGasicTokenizer::Token> VisualGasicTokenizer::tokenize(const String 
     keywords.push_back("Or");
     keywords.push_back("Not");
     keywords.push_back("Xor");
+    keywords.push_back("Mod");  // Modulo operator
     keywords.push_back("On");
     keywords.push_back("Error");
     keywords.push_back("Resume");
@@ -391,6 +392,8 @@ Vector<VisualGasicTokenizer::Token> VisualGasicTokenizer::tokenize(const String 
             case '.': t.type = TOKEN_OPERATOR; t.value = "."; break;
             case '=': t.type = TOKEN_OPERATOR; t.value = "="; break;
             case '#': t.type = TOKEN_OPERATOR; t.value = "#"; break;
+            case '\\': t.type = TOKEN_OPERATOR; t.value = "\\"; break; // Integer division
+            case '^': t.type = TOKEN_OPERATOR; t.value = "^"; break;   // Exponentiation
             case '>': 
                 if (current + 1 < length && p_source_code[current+1] == '=') {
                     t.type = TOKEN_OPERATOR; t.value = ">="; current++;

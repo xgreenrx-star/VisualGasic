@@ -1034,25 +1034,39 @@ ExpressionNode* VisualGasicParser::parse_addition() {
 ExpressionNode* VisualGasicParser::parse_term() {
     ExpressionNode* expr = parse_unary();
     
-    while (check(VisualGasicTokenizer::TOKEN_OPERATOR)) {
-        String op = peek().value;
-        if (op == "*" || op == "/" || op == "//") {
-            advance();
-            ExpressionNode* right = parse_unary();
-            BinaryOpNode* bin = static_cast<BinaryOpNode*>(register_node(new BinaryOpNode()));
-            if (expr) {
-                ExpressionNode* ldup = expr->duplicate();
-                if (ldup) bin->left = register_node(ldup); else bin->left = expr;
-            } else bin->left = nullptr;
-            if (right) {
-                ExpressionNode* rdup = right->duplicate();
-                if (rdup) bin->right = register_node(rdup); else bin->right = right;
-            } else bin->right = nullptr;
-            bin->op = op;
-            expr = bin;
-        } else {
-            break;
+    while (true) {
+        String op;
+        bool is_operator = false;
+        
+        // Check for operator tokens: *, /, //, \, or Mod keyword
+        if (check(VisualGasicTokenizer::TOKEN_OPERATOR)) {
+            String peek_val = peek().value;
+            if (peek_val == "*" || peek_val == "/" || peek_val == "//" || peek_val == "\\") {
+                op = peek_val;
+                is_operator = true;
+            }
+        } else if ((check(VisualGasicTokenizer::TOKEN_KEYWORD) || check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) && 
+                   String(peek().value).nocasecmp_to("Mod") == 0) {
+            // Check for Mod keyword (case insensitive)
+            op = "Mod";
+            is_operator = true;
         }
+        
+        if (!is_operator) break;
+        
+        advance();
+        ExpressionNode* right = parse_unary();
+        BinaryOpNode* bin = static_cast<BinaryOpNode*>(register_node(new BinaryOpNode()));
+        if (expr) {
+            ExpressionNode* ldup = expr->duplicate();
+            if (ldup) bin->left = register_node(ldup); else bin->left = expr;
+        } else bin->left = nullptr;
+        if (right) {
+            ExpressionNode* rdup = right->duplicate();
+            if (rdup) bin->right = register_node(rdup); else bin->right = right;
+        } else bin->right = nullptr;
+        bin->op = op;
+        expr = bin;
     }
     return expr;
 }
@@ -1060,7 +1074,9 @@ ExpressionNode* VisualGasicParser::parse_term() {
 ExpressionNode* VisualGasicParser::parse_exponentiation() {
     ExpressionNode* expr = parse_factor();
     
-    if (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().value == "**") {
+    // Handle both ** (Python style) and ^ (VB style) exponentiation
+    if (check(VisualGasicTokenizer::TOKEN_OPERATOR) && (peek().value == "**" || peek().value == "^")) {
+        String op = peek().value;
         advance();
         ExpressionNode* right = parse_exponentiation(); // Right Associative
         BinaryOpNode* bin = static_cast<BinaryOpNode*>(register_node(new BinaryOpNode()));
@@ -1072,7 +1088,7 @@ ExpressionNode* VisualGasicParser::parse_exponentiation() {
             ExpressionNode* rdup = right->duplicate();
             if (rdup) bin->right = register_node(rdup); else bin->right = right;
         } else bin->right = nullptr;
-        bin->op = "**";
+        bin->op = op;
         return bin;
     }
     return expr;
@@ -1960,11 +1976,29 @@ SelectStatement* VisualGasicParser::parse_select() {
                 advance();
                 block->is_else = true;
             } else {
-                // Parse values: Case 1, 2, 3
+                // Parse values: Case 1, 2, 3 or Case 1 To 10
                 do {
                     {
-                        ExpressionNode* _tmp = parse_expression();
-                        if (_tmp) { block->values.push_back(_tmp); unregister_node(_tmp); }
+                        ExpressionNode* _tmp = parse_factor(); // Parse just the value, not full expression with operators
+                        if (_tmp) { 
+                            block->values.push_back(_tmp); 
+                            unregister_node(_tmp);
+                            
+                            // Check for "To" (range)
+                            if ((check(VisualGasicTokenizer::TOKEN_KEYWORD) || check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) && 
+                                String(peek().value).nocasecmp_to("To") == 0) {
+                                advance(); // consume "To"
+                                ExpressionNode* range_end = parse_factor();
+                                if (range_end) {
+                                    block->range_ends.push_back(range_end);
+                                    unregister_node(range_end);
+                                } else {
+                                    block->range_ends.push_back(nullptr);
+                                }
+                            } else {
+                                block->range_ends.push_back(nullptr);
+                            }
+                        }
                     }
                     if (match(VisualGasicTokenizer::TOKEN_COMMA)) continue;
                     break;

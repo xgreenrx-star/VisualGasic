@@ -243,9 +243,26 @@ Variant VisualGasicExpressionEvaluator::evaluate(ExpressionNode* expr, Context& 
         if (op == "**") {
             return UtilityFunctions::pow(l, r);
         }
+        if (op == "^") {
+            return UtilityFunctions::pow(l, r);
+        }
         if (op == "//") {
             double val = (double)l / (double)r;
             return floor(val);
+        }
+        if (op == "\\") {
+            // Integer division
+            int64_t li = (int64_t)l;
+            int64_t ri = (int64_t)r;
+            if (ri == 0) return 0; // Avoid division by zero
+            return li / ri;
+        }
+        if (op.nocasecmp_to("Mod") == 0) {
+            // Modulo operator
+            int64_t li = (int64_t)l;
+            int64_t ri = (int64_t)r;
+            if (ri == 0) return 0; // Avoid division by zero
+            return li % ri;
         }
         if (op.nocasecmp_to("And") == 0) return l.booleanize() && r.booleanize();
         if (op.nocasecmp_to("Or") == 0) return l.booleanize() || r.booleanize();

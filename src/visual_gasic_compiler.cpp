@@ -76,6 +76,7 @@ void VisualGasicCompiler::emit_loop(int loop_start) {
 
 bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point, BytecodeChunk* chunk) {
     current_chunk = chunk;
+    current_module = module;
     compile_ok = true;
     array_vars.clear();
     dictionary_vars.clear();
@@ -1627,6 +1628,7 @@ Variant VisualGasicCompiler::eval_constant_expr(ExpressionNode* expr) const {
         Variant v = eval_constant_expr(u->operand);
         if (u->op == "-") return -((double)v);
         if (u->op == "+") return (double)v;
+        if (u->op.nocasecmp_to("Not") == 0) return !vg_variant_truthy(v);
         return v;
     }
     if (expr->type == ExpressionNode::BINARY_OP) {
@@ -1653,6 +1655,22 @@ Variant VisualGasicCompiler::eval_constant_expr(ExpressionNode* expr) const {
             bool right = vg_variant_truthy(c);
             valid = true;
             res = (left && !right) || (!left && right);
+        }
+        else if (b->op.nocasecmp_to("Mod") == 0) {
+            valid = true;
+            int64_t ai = (int64_t)a;
+            int64_t ci = (int64_t)c;
+            res = ci != 0 ? (ai % ci) : 0;
+        }
+        else if (b->op == "\\" || b->op == "\\\\") {
+            valid = true;
+            int64_t ai = (int64_t)a;
+            int64_t ci = (int64_t)c;
+            res = ci != 0 ? (ai / ci) : 0;
+        }
+        else if (b->op == "^" || b->op == "**") {
+            valid = true;
+            res = UtilityFunctions::pow((double)a, (double)c);
         }
         if (valid) return res;
     }
@@ -1716,6 +1734,13 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
         }
         case STMT_DIM: {
             DimStatement* s = (DimStatement*)stmt;
+            
+            // Static variables are not supported in bytecode - fall back to interpreter
+            if (s->is_static) {
+                compile_ok = false;
+                break;
+            }
+            
             if (s->initializer) {
                 // Initializers with casting are not supported in bytecode yet.
                 compile_ok = false;
@@ -2048,6 +2073,25 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                     break;
                 }
             }
+            
+            // Check if calling a function with ByRef parameters (requires interpreter for write-back)
+            if (current_module) {
+                for (int i = 0; i < current_module->subs.size(); i++) {
+                    if (current_module->subs[i]->name.nocasecmp_to(s->method_name) == 0) {
+                        SubDefinition* target_func = current_module->subs[i];
+                        for (int j = 0; j < target_func->parameters.size(); j++) {
+                            if (target_func->parameters[j].is_by_ref) {
+                                // Has ByRef parameter - fall back to interpreter
+                                compile_ok = false;
+                                break;
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+            if (!compile_ok) break;
+            
             for (int i = 0; i < s->arguments.size(); i++) {
                 compile_expression(s->arguments[i]);
             }
@@ -2702,6 +2746,26 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             loop_bound_vars.remove_at(loop_bound_vars.size() - 1);
             break;
         }
+        case STMT_WHILE: {
+            WhileStatement* s = (WhileStatement*)stmt;
+            if (!s->condition) {
+                compile_ok = false;
+                break;
+            }
+            
+            int loop_start = current_chunk->code.size();
+            
+            compile_expression(s->condition);
+            int exit_jump = emit_jump(OP_JUMP_IF_FALSE);
+            
+            for (int i = 0; i < s->body.size(); i++) {
+                compile_statement(s->body[i]);
+            }
+            
+            emit_loop(loop_start);
+            patch_jump(exit_jump);
+            break;
+        }
         case STMT_IF: {
             IfStatement* s = (IfStatement*)stmt;
             if (!s->condition) {
@@ -2832,7 +2896,13 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             break;
         }
         case STMT_SELECT: {
-            // Select Case statement - compile as a series of if-else checks
+            // Select Case statement - temporarily fall back to interpreter
+            // TODO: Fix bytecode compilation for Select Case with ranges
+            compile_ok = false;
+            break;
+            
+            // Disabled for now - original bytecode compiler code:
+            #if 0
             SelectStatement* s = (SelectStatement*)stmt;
             if (!s->expression) {
                 compile_ok = false;
@@ -2857,21 +2927,49 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                         compile_statement(cb->body[j]);
                     }
                 } else {
-                    // Regular Case - check each value
+                    // Regular Case - check each value (may include ranges)
                     Vector<int> case_match_jumps;
                     
                     for (int v = 0; v < cb->values.size(); v++) {
-                        // Load the select expression value
-                        if (select_slot >= 0) {
-                            emit_bytes(OP_GET_LOCAL, (uint8_t)select_slot);
-                        }
-                        // Load the case value and compare
-                        compile_expression(cb->values[v]);
-                        emit_byte(OP_EQUAL);
+                        // Check if this is a range (X To Y)
+                        bool has_range = (v < cb->range_ends.size() && cb->range_ends[v] != nullptr);
                         
-                        // If equal, jump to case body
-                        int match_jump = emit_jump(OP_JUMP_IF_TRUE);
-                        case_match_jumps.push_back(match_jump);
+                        if (has_range) {
+                            // Range check: select_value >= low AND select_value <= high
+                            // Load select value
+                            if (select_slot >= 0) {
+                                emit_bytes(OP_GET_LOCAL, (uint8_t)select_slot);
+                            }
+                            // Compare >= low
+                            compile_expression(cb->values[v]);
+                            emit_byte(OP_GREATER_EQUAL);
+                            int ge_check = emit_jump(OP_JUMP_IF_FALSE);
+                            
+                            // Compare <= high
+                            if (select_slot >= 0) {
+                                emit_bytes(OP_GET_LOCAL, (uint8_t)select_slot);
+                            }
+                            compile_expression(cb->range_ends[v]);
+                            emit_byte(OP_LESS_EQUAL);
+                            int le_match = emit_jump(OP_JUMP_IF_TRUE);
+                            case_match_jumps.push_back(le_match);
+                            
+                            // Patch the >= false check to continue to next value
+                            patch_jump(ge_check);
+                        } else {
+                            // Simple value check
+                            // Load the select expression value
+                            if (select_slot >= 0) {
+                                emit_bytes(OP_GET_LOCAL, (uint8_t)select_slot);
+                            }
+                            // Load the case value and compare
+                            compile_expression(cb->values[v]);
+                            emit_byte(OP_EQUAL);
+                            
+                            // If equal, jump to case body
+                            int match_jump = emit_jump(OP_JUMP_IF_TRUE);
+                            case_match_jumps.push_back(match_jump);
+                        }
                     }
                     
                     // None of the values matched - jump to next case
@@ -2900,6 +2998,7 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             for (int i = 0; i < end_jumps.size(); i++) {
                 patch_jump(end_jumps[i]);
             }
+            #endif
             break;
         }
         case STMT_DO: {
@@ -3131,6 +3230,7 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                 else if (b->op.nocasecmp_to("Mod") == 0) emit_byte(OP_MOD);
                 else if (b->op.nocasecmp_to("Like") == 0) emit_byte(OP_LIKE);
                 else if (b->op == "\\") emit_byte(OP_INT_DIVIDE); // Integer division
+                else if (b->op == "^" || b->op == "**") emit_byte(OP_POWER); // Exponentiation
                 else {
                     UtilityFunctions::print("Compiler: Unsupported binary op ", b->op);
                     compile_ok = false;
@@ -3218,6 +3318,7 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
             else if (b->op.nocasecmp_to("Mod") == 0) emit_byte(OP_MOD);
             else if (b->op.nocasecmp_to("Like") == 0) emit_byte(OP_LIKE);
             else if (b->op == "\\") emit_byte(OP_INT_DIVIDE); // Integer division
+            else if (b->op == "^" || b->op == "**") emit_byte(OP_POWER); // Exponentiation
             else {
                 UtilityFunctions::print("Compiler: Unsupported binary op ", b->op);
                 compile_ok = false;

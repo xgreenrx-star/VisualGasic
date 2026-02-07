@@ -504,12 +504,14 @@ struct OnErrorStatement : public Statement {
 
 struct CaseBlock : public ASTNode {
     Vector<ExpressionNode*> values; // Empty for Case Else? Or specific flag?
+    Vector<ExpressionNode*> range_ends; // If non-null at index i, values[i] To range_ends[i] is a range
     bool is_else;
     Vector<Statement*> body;
     
     CaseBlock() : is_else(false) {}
     ~CaseBlock() {
         for(int i=0; i<values.size(); i++) if(values[i]) delete values[i];
+        for(int i=0; i<range_ends.size(); i++) if(range_ends[i]) delete range_ends[i];
         for(int i=0; i<body.size(); i++) if(body[i]) delete body[i];
     }
 };

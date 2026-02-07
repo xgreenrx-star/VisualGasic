@@ -29,6 +29,7 @@ enum OpCode {
     OP_CONCAT, // &
     OP_MOD,         // Mod operator
     OP_INT_DIVIDE,  // \ integer division
+    OP_POWER,       // ^ or ** exponentiation
     OP_LIKE,        // Like pattern matching
 
     // Extended numeric ops

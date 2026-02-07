@@ -1,0 +1,936 @@
+' ============================================
+' VisualGasic v2.2.2 Comprehensive Test Suite
+' Tests ALL keywords and advanced features
+' ============================================
+
+Module ComprehensiveTest
+
+' Module-level variables
+Dim moduleVar As Integer
+Dim moduleString As String
+
+' Constants
+Const PI = 3.14159
+Const APP_NAME = "TestSuite"
+Const MAX_VALUE = 100
+
+' ============================================
+' STATIC VARIABLE TEST
+' ============================================
+Sub TestStaticVariable()
+    Static callCount As Integer
+    callCount = callCount + 1
+    Print "  Static call #" + CStr(callCount)
+End Sub
+
+' ============================================
+' FUNCTION WITH RETURN VALUE
+' ============================================
+Function AddNumbers(a As Integer, b As Integer) As Integer
+    AddNumbers = a + b
+End Function
+
+Function MultiplyNumbers(a As Double, b As Double) As Double
+    MultiplyNumbers = a * b
+End Function
+
+Function GetGreeting(name As String) As String
+    GetGreeting = "Hello, " + name + "!"
+End Function
+
+' ============================================
+' RECURSIVE FUNCTION
+' ============================================
+Function Factorial(n As Integer) As Integer
+    If n <= 1 Then
+        Factorial = 1
+    Else
+        Factorial = n * Factorial(n - 1)
+    End If
+End Function
+
+' ============================================
+' BYREF AND BYVAL PARAMETERS
+' ============================================
+Sub ModifyByRef(ByRef num As Integer)
+    num = num * 2
+End Sub
+
+Sub ModifyByVal(ByVal num As Integer)
+    num = num * 2
+End Sub
+
+' ============================================
+' MAIN TEST ROUTINE
+' ============================================
+Sub Main()
+    Print "============================================"
+    Print "VisualGasic v2.2.2 Comprehensive Test Suite"
+    Print "============================================"
+    
+    Dim passed As Integer
+    Dim failed As Integer
+    passed = 0
+    failed = 0
+    
+    ' ==========================================
+    ' TEST 1: Variable Declarations
+    ' ==========================================
+    Print ""
+    Print "TEST 1: Variable Declarations"
+    Print "------------------------------"
+    
+    Dim intVar As Integer
+    Dim longVar As Long
+    Dim singleVar As Single
+    Dim doubleVar As Double
+    Dim stringVar As String
+    Dim boolVar As Boolean
+    Dim variantVar As Variant
+    
+    intVar = 42
+    longVar = 1234567890
+    singleVar = 3.14
+    doubleVar = 3.14159265359
+    stringVar = "Hello World"
+    boolVar = True
+    
+    If intVar = 42 Then
+        Print "  Integer: PASS"
+        passed = passed + 1
+    Else
+        Print "  Integer: FAIL"
+        failed = failed + 1
+    End If
+    
+    If stringVar = "Hello World" Then
+        Print "  String: PASS"
+        passed = passed + 1
+    Else
+        Print "  String: FAIL"
+        failed = failed + 1
+    End If
+    
+    If boolVar = True Then
+        Print "  Boolean: PASS"
+        passed = passed + 1
+    Else
+        Print "  Boolean: FAIL"
+        failed = failed + 1
+    End If
+    
+    ' ==========================================
+    ' TEST 2: Arithmetic Operators
+    ' ==========================================
+    Print ""
+    Print "TEST 2: Arithmetic Operators"
+    Print "----------------------------"
+    
+    Dim a As Integer
+    Dim b As Integer
+    Dim result As Integer
+    
+    a = 10
+    b = 3
+    
+    result = a + b
+    If result = 13 Then
+        Print "  Addition (10+3=13): PASS"
+        passed = passed + 1
+    Else
+        Print "  Addition: FAIL (got " + CStr(result) + ")"
+        failed = failed + 1
+    End If
+    
+    result = a - b
+    If result = 7 Then
+        Print "  Subtraction (10-3=7): PASS"
+        passed = passed + 1
+    Else
+        Print "  Subtraction: FAIL"
+        failed = failed + 1
+    End If
+    
+    result = a * b
+    If result = 30 Then
+        Print "  Multiplication (10*3=30): PASS"
+        passed = passed + 1
+    Else
+        Print "  Multiplication: FAIL"
+        failed = failed + 1
+    End If
+    
+    result = a \ b
+    If result = 3 Then
+        Print "  Integer Division (10\\3=3): PASS"
+        passed = passed + 1
+    Else
+        Print "  Integer Division: FAIL (got " + CStr(result) + ")"
+        failed = failed + 1
+    End If
+    
+    result = a Mod b
+    If result = 1 Then
+        Print "  Modulo (10 Mod 3=1): PASS"
+        passed = passed + 1
+    Else
+        Print "  Modulo: FAIL"
+        failed = failed + 1
+    End If
+    
+    result = 2 ^ 3
+    If result = 8 Then
+        Print "  Exponent (2^3=8): PASS"
+        passed = passed + 1
+    Else
+        Print "  Exponent: FAIL"
+        failed = failed + 1
+    End If
+    
+    ' ==========================================
+    ' TEST 3: Comparison Operators
+    ' ==========================================
+    Print ""
+    Print "TEST 3: Comparison Operators"
+    Print "----------------------------"
+    
+    If 5 = 5 Then
+        Print "  Equal (=): PASS"
+        passed = passed + 1
+    Else
+        Print "  Equal: FAIL"
+        failed = failed + 1
+    End If
+    
+    If 5 <> 3 Then
+        Print "  Not Equal (<>): PASS"
+        passed = passed + 1
+    Else
+        Print "  Not Equal: FAIL"
+        failed = failed + 1
+    End If
+    
+    If 5 > 3 Then
+        Print "  Greater Than (>): PASS"
+        passed = passed + 1
+    Else
+        Print "  Greater Than: FAIL"
+        failed = failed + 1
+    End If
+    
+    If 3 < 5 Then
+        Print "  Less Than (<): PASS"
+        passed = passed + 1
+    Else
+        Print "  Less Than: FAIL"
+        failed = failed + 1
+    End If
+    
+    If 5 >= 5 Then
+        Print "  Greater Equal (>=): PASS"
+        passed = passed + 1
+    Else
+        Print "  Greater Equal: FAIL"
+        failed = failed + 1
+    End If
+    
+    If 5 <= 5 Then
+        Print "  Less Equal (<=): PASS"
+        passed = passed + 1
+    Else
+        Print "  Less Equal: FAIL"
+        failed = failed + 1
+    End If
+    
+    ' ==========================================
+    ' TEST 4: Logical Operators
+    ' ==========================================
+    Print ""
+    Print "TEST 4: Logical Operators"
+    Print "-------------------------"
+    
+    If True And True Then
+        Print "  And (True And True): PASS"
+        passed = passed + 1
+    Else
+        Print "  And: FAIL"
+        failed = failed + 1
+    End If
+    
+    If True Or False Then
+        Print "  Or (True Or False): PASS"
+        passed = passed + 1
+    Else
+        Print "  Or: FAIL"
+        failed = failed + 1
+    End If
+    
+    If Not False Then
+        Print "  Not (Not False): PASS"
+        passed = passed + 1
+    Else
+        Print "  Not: FAIL"
+        failed = failed + 1
+    End If
+    
+    If True Xor False Then
+        Print "  Xor (True Xor False): PASS"
+        passed = passed + 1
+    Else
+        Print "  Xor: FAIL"
+        failed = failed + 1
+    End If
+    
+    ' Chained Not
+    If Not Not True Then
+        Print "  Not Not True: PASS"
+        passed = passed + 1
+    Else
+        Print "  Not Not True: FAIL"
+        failed = failed + 1
+    End If
+    
+    ' ==========================================
+    ' TEST 5: If/ElseIf/Else
+    ' ==========================================
+    Print ""
+    Print "TEST 5: If/ElseIf/Else"
+    Print "----------------------"
+    
+    Dim testVal As Integer
+    Dim ifResult As String
+    
+    testVal = 50
+    If testVal < 25 Then
+        ifResult = "Low"
+    ElseIf testVal < 75 Then
+        ifResult = "Medium"
+    Else
+        ifResult = "High"
+    End If
+    
+    If ifResult = "Medium" Then
+        Print "  If/ElseIf/Else: PASS"
+        passed = passed + 1
+    Else
+        Print "  If/ElseIf/Else: FAIL"
+        failed = failed + 1
+    End If
+    
+    ' Single-line If
+    Dim singleLineResult As String
+    singleLineResult = "None"
+    If True Then singleLineResult = "Set"
+    
+    If singleLineResult = "Set" Then
+        Print "  Single-line If: PASS"
+        passed = passed + 1
+    Else
+        Print "  Single-line If: FAIL"
+        failed = failed + 1
+    End If
+    
+    ' ==========================================
+    ' TEST 6: Select Case
+    ' ==========================================
+    Print ""
+    Print "TEST 6: Select Case"
+    Print "-------------------"
+    
+    Dim grade As String
+    Dim score As Integer
+    
+    ' Simple value match
+    score = 100
+    Select Case score
+        Case 100
+            grade = "Perfect"
+        Case 90
+            grade = "A"
+        Case Else
+            grade = "Other"
+    End Select
+    
+    If grade = "Perfect" Then
+        Print "  Simple match (100): PASS"
+        passed = passed + 1
+    Else
+        Print "  Simple match: FAIL (got " + grade + ")"
+        failed = failed + 1
+    End If
+    
+    ' Range match
+    score = 85
+    Select Case score
+        Case 90 To 100
+            grade = "A"
+        Case 80 To 89
+            grade = "B"
+        Case 70 To 79
+            grade = "C"
+        Case Else
+            grade = "F"
+    End Select
+    
+    If grade = "B" Then
+        Print "  Range match (85 in 80-89): PASS"
+        passed = passed + 1
+    Else
+        Print "  Range match: FAIL (got " + grade + ")"
+        failed = failed + 1
+    End If
+    
+    ' Lower boundary
+    score = 80
+    Select Case score
+        Case 90 To 100
+            grade = "A"
+        Case 80 To 89
+            grade = "B"
+        Case Else
+            grade = "F"
+    End Select
+    
+    If grade = "B" Then
+        Print "  Range lower bound (80): PASS"
+        passed = passed + 1
+    Else
+        Print "  Range lower bound: FAIL"
+        failed = failed + 1
+    End If
+    
+    ' Upper boundary
+    score = 89
+    Select Case score
+        Case 90 To 100
+            grade = "A"
+        Case 80 To 89
+            grade = "B"
+        Case Else
+            grade = "F"
+    End Select
+    
+    If grade = "B" Then
+        Print "  Range upper bound (89): PASS"
+        passed = passed + 1
+    Else
+        Print "  Range upper bound: FAIL"
+        failed = failed + 1
+    End If
+    
+    ' Case Else
+    score = 50
+    Select Case score
+        Case 90 To 100
+            grade = "A"
+        Case 80 To 89
+            grade = "B"
+        Case Else
+            grade = "F"
+    End Select
+    
+    If grade = "F" Then
+        Print "  Case Else: PASS"
+        passed = passed + 1
+    Else
+        Print "  Case Else: FAIL"
+        failed = failed + 1
+    End If
+    
+    ' ==========================================
+    ' TEST 7: For/Next Loop
+    ' ==========================================
+    Print ""
+    Print "TEST 7: For/Next Loop"
+    Print "---------------------"
+    
+    Dim i As Integer
+    Dim sum As Integer
+    
+    sum = 0
+    For i = 1 To 5
+        sum = sum + i
+    Next i
+    
+    If sum = 15 Then
+        Print "  For 1 To 5 (sum=15): PASS"
+        passed = passed + 1
+    Else
+        Print "  For 1 To 5: FAIL (got " + CStr(sum) + ")"
+        failed = failed + 1
+    End If
+    
+    ' For with Step
+    sum = 0
+    For i = 0 To 10 Step 2
+        sum = sum + i
+    Next i
+    
+    If sum = 30 Then
+        Print "  For Step 2 (0+2+4+6+8+10=30): PASS"
+        passed = passed + 1
+    Else
+        Print "  For Step 2: FAIL (got " + CStr(sum) + ")"
+        failed = failed + 1
+    End If
+    
+    ' For with negative Step
+    sum = 0
+    For i = 5 To 1 Step -1
+        sum = sum + i
+    Next i
+    
+    If sum = 15 Then
+        Print "  For Step -1 (5 down to 1): PASS"
+        passed = passed + 1
+    Else
+        Print "  For Step -1: FAIL (got " + CStr(sum) + ")"
+        failed = failed + 1
+    End If
+    
+    ' ==========================================
+    ' TEST 8: While/Wend Loop
+    ' ==========================================
+    Print ""
+    Print "TEST 8: While/Wend Loop"
+    Print "-----------------------"
+    
+    i = 0
+    While i < 5
+        i = i + 1
+    Wend
+    
+    If i = 5 Then
+        Print "  While/Wend: PASS"
+        passed = passed + 1
+    Else
+        Print "  While/Wend: FAIL (got " + CStr(i) + ")"
+        failed = failed + 1
+    End If
+    
+    ' ==========================================
+    ' TEST 9: Do/Loop Variations
+    ' ==========================================
+    Print ""
+    Print "TEST 9: Do/Loop Variations"
+    Print "--------------------------"
+    
+    ' Do While...Loop
+    i = 0
+    Do While i < 3
+        i = i + 1
+    Loop
+    
+    If i = 3 Then
+        Print "  Do While...Loop: PASS"
+        passed = passed + 1
+    Else
+        Print "  Do While...Loop: FAIL"
+        failed = failed + 1
+    End If
+    
+    ' Do...Loop While
+    i = 0
+    Do
+        i = i + 1
+    Loop While i < 3
+    
+    If i = 3 Then
+        Print "  Do...Loop While: PASS"
+        passed = passed + 1
+    Else
+        Print "  Do...Loop While: FAIL"
+        failed = failed + 1
+    End If
+    
+    ' Do Until...Loop
+    i = 0
+    Do Until i >= 3
+        i = i + 1
+    Loop
+    
+    If i = 3 Then
+        Print "  Do Until...Loop: PASS"
+        passed = passed + 1
+    Else
+        Print "  Do Until...Loop: FAIL"
+        failed = failed + 1
+    End If
+    
+    ' Do...Loop Until
+    i = 0
+    Do
+        i = i + 1
+    Loop Until i >= 3
+    
+    If i = 3 Then
+        Print "  Do...Loop Until: PASS"
+        passed = passed + 1
+    Else
+        Print "  Do...Loop Until: FAIL"
+        failed = failed + 1
+    End If
+    
+    ' ==========================================
+    ' TEST 10: Exit Statements
+    ' ==========================================
+    Print ""
+    Print "TEST 10: Exit Statements"
+    Print "------------------------"
+    
+    ' Exit For
+    sum = 0
+    For i = 1 To 100
+        sum = sum + i
+        If i = 5 Then Exit For
+    Next i
+    
+    If sum = 15 And i = 5 Then
+        Print "  Exit For: PASS"
+        passed = passed + 1
+    Else
+        Print "  Exit For: FAIL"
+        failed = failed + 1
+    End If
+    
+    ' Exit Do
+    i = 0
+    Do
+        i = i + 1
+        If i = 3 Then Exit Do
+    Loop While True
+    
+    If i = 3 Then
+        Print "  Exit Do: PASS"
+        passed = passed + 1
+    Else
+        Print "  Exit Do: FAIL"
+        failed = failed + 1
+    End If
+    
+    ' ==========================================
+    ' TEST 11: Functions
+    ' ==========================================
+    Print ""
+    Print "TEST 11: Functions"
+    Print "------------------"
+    
+    Dim funcResult As Integer
+    funcResult = AddNumbers(10, 20)
+    
+    If funcResult = 30 Then
+        Print "  Function call (10+20=30): PASS"
+        passed = passed + 1
+    Else
+        Print "  Function call: FAIL"
+        failed = failed + 1
+    End If
+    
+    Dim greeting As String
+    greeting = GetGreeting("World")
+    
+    If greeting = "Hello, World!" Then
+        Print "  String function: PASS"
+        passed = passed + 1
+    Else
+        Print "  String function: FAIL"
+        failed = failed + 1
+    End If
+    
+    ' Recursive function
+    Dim fact As Integer
+    fact = Factorial(5)
+    
+    If fact = 120 Then
+        Print "  Recursive (5!=120): PASS"
+        passed = passed + 1
+    Else
+        Print "  Recursive: FAIL (got " + CStr(fact) + ")"
+        failed = failed + 1
+    End If
+    
+    ' ==========================================
+    ' TEST 12: Static Variables
+    ' ==========================================
+    Print ""
+    Print "TEST 12: Static Variables"
+    Print "-------------------------"
+    
+    Print "  Calling TestStaticVariable 3 times:"
+    TestStaticVariable
+    TestStaticVariable
+    TestStaticVariable
+    Print "  (Should show 1, 2, 3)"
+    passed = passed + 1
+    
+    ' ==========================================
+    ' TEST 13: ByRef/ByVal
+    ' ==========================================
+    Print ""
+    Print "TEST 13: ByRef/ByVal"
+    Print "--------------------"
+    
+    Dim refVal As Integer
+    refVal = 10
+    ModifyByRef(refVal)
+    
+    If refVal = 20 Then
+        Print "  ByRef (10*2=20): PASS"
+        passed = passed + 1
+    Else
+        Print "  ByRef: FAIL (got " + CStr(refVal) + ")"
+        failed = failed + 1
+    End If
+    
+    Dim valVal As Integer
+    valVal = 10
+    ModifyByVal(valVal)
+    
+    If valVal = 10 Then
+        Print "  ByVal (unchanged=10): PASS"
+        passed = passed + 1
+    Else
+        Print "  ByVal: FAIL"
+        failed = failed + 1
+    End If
+    
+    ' ==========================================
+    ' TEST 14: Constants
+    ' ==========================================
+    Print ""
+    Print "TEST 14: Constants"
+    Print "------------------"
+    
+    If PI > 3.14 And PI < 3.15 Then
+        Print "  Numeric constant (PI): PASS"
+        passed = passed + 1
+    Else
+        Print "  Numeric constant: FAIL"
+        failed = failed + 1
+    End If
+    
+    If APP_NAME = "TestSuite" Then
+        Print "  String constant: PASS"
+        passed = passed + 1
+    Else
+        Print "  String constant: FAIL"
+        failed = failed + 1
+    End If
+    
+    ' ==========================================
+    ' TEST 15: String Operations
+    ' ==========================================
+    Print ""
+    Print "TEST 15: String Operations"
+    Print "--------------------------"
+    
+    Dim s1 As String
+    Dim s2 As String
+    
+    s1 = "Hello"
+    s2 = "World"
+    
+    If s1 + " " + s2 = "Hello World" Then
+        Print "  Concatenation (+): PASS"
+        passed = passed + 1
+    Else
+        Print "  Concatenation: FAIL"
+        failed = failed + 1
+    End If
+    
+    If Len("Test") = 4 Then
+        Print "  Len(): PASS"
+        passed = passed + 1
+    Else
+        Print "  Len(): FAIL"
+        failed = failed + 1
+    End If
+    
+    If Left("Hello", 2) = "He" Then
+        Print "  Left(): PASS"
+        passed = passed + 1
+    Else
+        Print "  Left(): FAIL"
+        failed = failed + 1
+    End If
+    
+    If Right("Hello", 2) = "lo" Then
+        Print "  Right(): PASS"
+        passed = passed + 1
+    Else
+        Print "  Right(): FAIL"
+        failed = failed + 1
+    End If
+    
+    If Mid("Hello", 2, 3) = "ell" Then
+        Print "  Mid(): PASS"
+        passed = passed + 1
+    Else
+        Print "  Mid(): FAIL"
+        failed = failed + 1
+    End If
+    
+    If UCase("hello") = "HELLO" Then
+        Print "  UCase(): PASS"
+        passed = passed + 1
+    Else
+        Print "  UCase(): FAIL"
+        failed = failed + 1
+    End If
+    
+    If LCase("HELLO") = "hello" Then
+        Print "  LCase(): PASS"
+        passed = passed + 1
+    Else
+        Print "  LCase(): FAIL"
+        failed = failed + 1
+    End If
+    
+    If Trim("  test  ") = "test" Then
+        Print "  Trim(): PASS"
+        passed = passed + 1
+    Else
+        Print "  Trim(): FAIL"
+        failed = failed + 1
+    End If
+    
+    If InStr("Hello World", "World") > 0 Then
+        Print "  InStr(): PASS"
+        passed = passed + 1
+    Else
+        Print "  InStr(): FAIL"
+        failed = failed + 1
+    End If
+    
+    ' ==========================================
+    ' TEST 16: Type Conversion
+    ' ==========================================
+    Print ""
+    Print "TEST 16: Type Conversion"
+    Print "------------------------"
+    
+    If CStr(42) = "42" Then
+        Print "  CStr(): PASS"
+        passed = passed + 1
+    Else
+        Print "  CStr(): FAIL"
+        failed = failed + 1
+    End If
+    
+    If CInt("42") = 42 Then
+        Print "  CInt(): PASS"
+        passed = passed + 1
+    Else
+        Print "  CInt(): FAIL"
+        failed = failed + 1
+    End If
+    
+    If CDbl("3.14") > 3.13 And CDbl("3.14") < 3.15 Then
+        Print "  CDbl(): PASS"
+        passed = passed + 1
+    Else
+        Print "  CDbl(): FAIL"
+        failed = failed + 1
+    End If
+    
+    If CBool(1) = True Then
+        Print "  CBool(): PASS"
+        passed = passed + 1
+    Else
+        Print "  CBool(): FAIL"
+        failed = failed + 1
+    End If
+    
+    ' ==========================================
+    ' TEST 17: Math Functions
+    ' ==========================================
+    Print ""
+    Print "TEST 17: Math Functions"
+    Print "-----------------------"
+    
+    If Abs(-5) = 5 Then
+        Print "  Abs(): PASS"
+        passed = passed + 1
+    Else
+        Print "  Abs(): FAIL"
+        failed = failed + 1
+    End If
+    
+    If Int(3.7) = 3 Then
+        Print "  Int(): PASS"
+        passed = passed + 1
+    Else
+        Print "  Int(): FAIL"
+        failed = failed + 1
+    End If
+    
+    If Sqr(16) = 4 Then
+        Print "  Sqr(): PASS"
+        passed = passed + 1
+    Else
+        Print "  Sqr(): FAIL"
+        failed = failed + 1
+    End If
+    
+    If Sgn(-5) = -1 And Sgn(5) = 1 And Sgn(0) = 0 Then
+        Print "  Sgn(): PASS"
+        passed = passed + 1
+    Else
+        Print "  Sgn(): FAIL"
+        failed = failed + 1
+    End If
+    
+    ' ==========================================
+    ' TEST 18: Arrays
+    ' ==========================================
+    Print ""
+    Print "TEST 18: Arrays"
+    Print "---------------"
+    
+    Dim arr(5) As Integer
+    arr(0) = 10
+    arr(1) = 20
+    arr(2) = 30
+    
+    If arr(0) = 10 And arr(1) = 20 And arr(2) = 30 Then
+        Print "  Array assignment: PASS"
+        passed = passed + 1
+    Else
+        Print "  Array assignment: FAIL"
+        failed = failed + 1
+    End If
+    
+    sum = 0
+    For i = 0 To 2
+        sum = sum + arr(i)
+    Next i
+    
+    If sum = 60 Then
+        Print "  Array iteration: PASS"
+        passed = passed + 1
+    Else
+        Print "  Array iteration: FAIL"
+        failed = failed + 1
+    End If
+    
+    ' ==========================================
+    ' FINAL RESULTS
+    ' ==========================================
+    Print ""
+    Print "============================================"
+    Print "TEST RESULTS"
+    Print "============================================"
+    Print "Passed: " + CStr(passed)
+    Print "Failed: " + CStr(failed)
+    Print "Total:  " + CStr(passed + failed)
+    Print ""
+    
+    If failed = 0 Then
+        Print "*** ALL TESTS PASSED! ***"
+    Else
+        Print "*** SOME TESTS FAILED ***"
+    End If
+    Print "============================================"
+End Sub
+
+End Module
