@@ -1450,6 +1450,18 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
              String snake = name.to_snake_case();
              ret = owner->get(snake);
              if (ret.get_type() != Variant::NIL) return ret;
+             
+             // Search for child controls by name (VB6 style - controls are accessible by name)
+             Node* owner_node = Object::cast_to<Node>(owner);
+             if (owner_node) {
+                 Node *found = owner_node->find_child(name, true, false);
+                 if (found) {
+                     print_line("[VG] Found child control '" + name + "' of type: " + found->get_class());
+                     return found;
+                 } else {
+                     print_line("[VG] Child control '" + name + "' NOT FOUND in owner: " + owner_node->get_name());
+                 }
+             }
         }
 
         // Check Autoloads (Globals)
@@ -1504,6 +1516,7 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
              if (obj) {
                   if (obj->is_class("Node")) {
                       if (prop_name == "Caption") prop_name = "text";
+                      else if (prop_name == "Text") prop_name = "text";  // LineEdit, Label, Button, etc.
                       
                       if (obj->is_class("Timer")) {
                           if (prop_name == "Interval") {
@@ -6445,7 +6458,7 @@ void VisualGasicInstance::assign_to_target(ExpressionNode* target, Variant val) 
          MemberAccessNode* ma = (MemberAccessNode*)target;
          Variant base = evaluate_expression(ma->base_object);
          
-         // UtilityFunctions::print("Assignment to Member: ", ma->member_name, " Base Type: ", base.get_type());
+         print_line("[VG] Member Assignment: base type=" + itos(base.get_type()) + ", member=" + ma->member_name + ", val=" + String(val));
 
          if (base.get_type() == Variant::DICTIONARY) {
              Dictionary dict = base;
@@ -6486,6 +6499,7 @@ void VisualGasicInstance::assign_to_target(ExpressionNode* target, Variant val) 
 
                  if (obj->is_class("Node")) {
                       if (prop_name == "Caption") prop_name = "text";
+                      else if (prop_name == "Text") prop_name = "text";  // LineEdit, Label, Button, etc.
                       else if (prop_name == "Tag") prop_name = "meta"; // Use meta for Tag? Or separate? 
                       
                       // Timer Compatibility
@@ -7028,6 +7042,18 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 Variant name_var = read_constant(idx);
                 String name = name_var;
                 Variant val = variables.get(name, Variant());
+                
+                // If not found in variables, search for child control by name (VB6 style)
+                if (val.get_type() == Variant::NIL && owner) {
+                    Node* owner_node = Object::cast_to<Node>(owner);
+                    if (owner_node) {
+                        Node *found = owner_node->find_child(name, true, false);
+                        if (found) {
+                            val = found;
+                        }
+                    }
+                }
+                
                 push_value(val);
                 break;
             }
@@ -7069,7 +7095,26 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     goto cleanup;
                 }
                 uint8_t slot = code[vm.ip++];
-                push_value(read_local(slot));
+                Variant val = read_local(slot);
+                
+                // If local is NIL, check if it's actually a control name (VB6 style)
+                if (val.get_type() == Variant::NIL && owner) {
+                    String local_name;
+                    if (slot < chunk->local_names.size()) {
+                        local_name = chunk->local_names[slot];
+                    }
+                    if (!local_name.is_empty()) {
+                        Node* owner_node = Object::cast_to<Node>(owner);
+                        if (owner_node) {
+                            Node *found = owner_node->find_child(local_name, true, false);
+                            if (found) {
+                                val = found;
+                            }
+                        }
+                    }
+                }
+                
+                push_value(val);
                 break;
             }
             case OP_SET_LOCAL: {
@@ -8055,6 +8100,66 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 } else if (base.get_type() == Variant::OBJECT) {
                     Object *obj = base;
                     if (obj) {
+                        // VB6 Property Aliasing for common properties (READ)
+                        String prop_name = cache.primary_string;
+                        bool handled = false;
+                        
+                        // Text/Caption properties
+                        if (prop_name == "Text" || prop_name == "Caption") {
+                            result = obj->get("text");
+                            handled = true;
+                        }
+                        // Visibility
+                        else if (prop_name == "Visible") {
+                            result = obj->get("visible");
+                            handled = true;
+                        }
+                        // Enabled (invert Godot's "disabled")
+                        else if (prop_name == "Enabled") {
+                            result = !(bool)obj->get("disabled");
+                            handled = true;
+                        }
+                        // Position properties
+                        else if (prop_name == "Left") {
+                            Control* ctrl = Object::cast_to<Control>(obj);
+                            if (ctrl) {
+                                result = ctrl->get_position().x;
+                                handled = true;
+                            }
+                        }
+                        else if (prop_name == "Top") {
+                            Control* ctrl = Object::cast_to<Control>(obj);
+                            if (ctrl) {
+                                result = ctrl->get_position().y;
+                                handled = true;
+                            }
+                        }
+                        // Size properties
+                        else if (prop_name == "Width") {
+                            Control* ctrl = Object::cast_to<Control>(obj);
+                            if (ctrl) {
+                                result = ctrl->get_size().x;
+                                handled = true;
+                            }
+                        }
+                        else if (prop_name == "Height") {
+                            Control* ctrl = Object::cast_to<Control>(obj);
+                            if (ctrl) {
+                                result = ctrl->get_size().y;
+                                handled = true;
+                            }
+                        }
+                        // Value property
+                        else if (prop_name == "Value") {
+                            result = obj->get("value");
+                            handled = true;
+                        }
+                        
+                        if (handled) {
+                            push_value(result);
+                            break;
+                        }
+                        
                         StringName class_name = StringName(obj->get_class());
                         MemberNameCacheEntry::AccessPreference *class_pref = resolve_class_preference(cache, class_name);
                         auto try_primary = [&]() -> bool {
@@ -8146,6 +8251,86 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 } else if (base.get_type() == Variant::OBJECT) {
                     Object *obj = base;
                     if (obj) {
+                        // VB6 Property Aliasing for common properties
+                        String prop_name = cache.primary_string;
+                        String godot_prop;
+                        
+                        // Text/Caption properties
+                        if (prop_name == "Text" || prop_name == "Caption") {
+                            godot_prop = "text";
+                        }
+                        // Visibility
+                        else if (prop_name == "Visible") {
+                            godot_prop = "visible";
+                        }
+                        // Enabled/Disabled
+                        else if (prop_name == "Enabled") {
+                            godot_prop = "disabled";
+                            // Invert the boolean for Godot's "disabled" property
+                            value = !(bool)value;
+                        }
+                        // Position properties
+                        else if (prop_name == "Left") {
+                            Node* node = Object::cast_to<Node>(obj);
+                            Control* ctrl = Object::cast_to<Control>(obj);
+                            if (ctrl) {
+                                Vector2 pos = ctrl->get_position();
+                                pos.x = (real_t)(double)value;
+                                ctrl->set_position(pos);
+                                push_value(base);
+                                break;
+                            }
+                        }
+                        else if (prop_name == "Top") {
+                            Control* ctrl = Object::cast_to<Control>(obj);
+                            if (ctrl) {
+                                Vector2 pos = ctrl->get_position();
+                                pos.y = (real_t)(double)value;
+                                ctrl->set_position(pos);
+                                push_value(base);
+                                break;
+                            }
+                        }
+                        // Size properties
+                        else if (prop_name == "Width") {
+                            Control* ctrl = Object::cast_to<Control>(obj);
+                            if (ctrl) {
+                                Vector2 sz = ctrl->get_size();
+                                sz.x = (real_t)(double)value;
+                                ctrl->set_size(sz);
+                                push_value(base);
+                                break;
+                            }
+                        }
+                        else if (prop_name == "Height") {
+                            Control* ctrl = Object::cast_to<Control>(obj);
+                            if (ctrl) {
+                                Vector2 sz = ctrl->get_size();
+                                sz.y = (real_t)(double)value;
+                                ctrl->set_size(sz);
+                                push_value(base);
+                                break;
+                            }
+                        }
+                        // Value property (for sliders, spinboxes, progress bars)
+                        else if (prop_name == "Value") {
+                            godot_prop = "value";
+                        }
+                        // BackColor → modulate or self_modulate
+                        else if (prop_name == "BackColor") {
+                            godot_prop = "self_modulate";
+                        }
+                        // ForeColor → modulate for labels
+                        else if (prop_name == "ForeColor") {
+                            godot_prop = "self_modulate";
+                        }
+                        
+                        if (!godot_prop.is_empty()) {
+                            obj->set(godot_prop, value);
+                            push_value(base);
+                            break;
+                        }
+                        
                         StringName class_name = StringName(obj->get_class());
                         MemberNameCacheEntry::AccessPreference *class_pref = resolve_class_preference(cache, class_name);
                         

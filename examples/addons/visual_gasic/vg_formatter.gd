@@ -81,31 +81,34 @@ const DEDENT_BEFORE_KEYWORDS: Array[String] = [
 
 const VB6_KEYWORDS_PROPER_CASE: Dictionary = {
 	# Declaration
-	"dim": "Dim", "private": "Private", "public": "Public", "static": "Static",
+	"dim": "Dim", "global": "Global", "private": "Private", "public": "Public", "static": "Static",
 	"const": "Const", "redim": "ReDim", "preserve": "Preserve",
 	"as": "As", "new": "New", "set": "Set", "let": "Let", "get": "Get",
-	"property": "Property", "type": "Type", "enum": "Enum",
+	"property": "Property", "type": "Type", "end type": "End Type", "enum": "Enum", "end enum": "End Enum",
 	
 	# Procedures
 	"sub": "Sub", "function": "Function", "byval": "ByVal", "byref": "ByRef",
-	"optional": "Optional", "paramarray": "ParamArray", "return": "Return",
+	"optional": "Optional", "paramarray": "ParamArray", "return": "Return", "call": "Call",
 	"end sub": "End Sub", "end function": "End Function",
 	"exit sub": "Exit Sub", "exit function": "Exit Function",
 	
 	# Control Flow
-	"if": "If", "then": "Then", "else": "Else", "elseif": "ElseIf", "end if": "End If",
-	"select case": "Select Case", "case": "Case", "case else": "Case Else",
+	"if": "If", "then": "Then", "else": "Else", "elseif": "ElseIf", "elif": "Elif", "end if": "End If",
+	"select case": "Select Case", "select match": "Select Match", "case": "Case", "case else": "Case Else",
 	"end select": "End Select",
 	"for": "For", "to": "To", "step": "Step", "next": "Next",
 	"for each": "For Each", "in": "In",
 	"do": "Do", "loop": "Loop", "while": "While", "wend": "Wend", "until": "Until",
 	"exit for": "Exit For", "exit do": "Exit Do", "exit while": "Exit While",
+	"continue": "Continue", "pass": "Pass",
 	"goto": "GoTo", "gosub": "GoSub", "on error": "On Error",
 	"resume": "Resume", "resume next": "Resume Next",
 	
 	# OOP
 	"class": "Class", "end class": "End Class", "me": "Me",
-	"implements": "Implements", "interface": "Interface",
+	"mybase": "MyBase", "myclass": "MyClass",
+	"implements": "Implements", "interface": "Interface", "end interface": "End Interface",
+	"inherits": "Inherits", "extends": "Extends",
 	"withevents": "WithEvents", "raiseevent": "RaiseEvent",
 	"event": "Event", "handles": "Handles",
 	
@@ -113,20 +116,43 @@ const VB6_KEYWORDS_PROPER_CASE: Dictionary = {
 	"try": "Try", "catch": "Catch", "finally": "Finally", "end try": "End Try",
 	"throw": "Throw",
 	
-	# Modern
-	"async": "Async", "await": "Await", "task": "Task",
+	# Modern - Async/Parallel
+	"async": "Async", "await": "Await", "task": "Task", "parallel": "Parallel",
+	
+	# Modern - Pattern Matching
+	"match": "Match", "when": "When", "where": "Where",
+	"typeof": "TypeOf", "hasvalue": "HasValue", "value": "Value",
+	
+	# Modern - Whenever/Reactive
 	"whenever": "Whenever", "end whenever": "End Whenever",
+	"section": "Section", "local": "Local",
+	"changes": "Changes", "becomes": "Becomes", "exceeds": "Exceeds",
+	"below": "Below", "between": "Between", "contains": "Contains",
+	"suspend": "Suspend",
+	
+	# Modern - Other
 	"with": "With", "end with": "End With",
 	"using": "Using", "end using": "End Using",
 	"yield": "Yield", "iterator": "Iterator",
+	"lambda": "Lambda", "of": "Of", "iif": "IIf",
 	
 	# Operators
 	"and": "And", "or": "Or", "not": "Not", "xor": "Xor", "mod": "Mod",
-	"is": "Is", "like": "Like",
+	"is": "Is", "isnot": "IsNot", "like": "Like",
+	"andalso": "AndAlso", "orelse": "OrElse",
 	
 	# Literals
 	"true": "True", "false": "False", "nothing": "Nothing",
 	"null": "Null", "empty": "Empty",
+	
+	# File Operations
+	"open": "Open", "close": "Close", "input": "Input", "output": "Output",
+	"append": "Append", "line": "Line",
+	
+	# Data/Other
+	"data": "Data", "read": "Read", "restore": "Restore",
+	"doevents": "DoEvents", "include": "Include",
+	"dictionary": "Dictionary",
 	
 	# Options
 	"option explicit": "Option Explicit", "option compare": "Option Compare",

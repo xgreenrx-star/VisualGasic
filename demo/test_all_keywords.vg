@@ -1,0 +1,426 @@
+' VisualGasic v2.2.2 Comprehensive Keyword Test
+' Tests all VB6/VB.NET keywords supported by the language
+
+Option Explicit
+
+Dim passCount As Integer
+Dim failCount As Integer
+Dim testName As String
+
+Sub Main()
+    passCount = 0
+    failCount = 0
+    
+    Print "=============================================="
+    Print "  VisualGasic Comprehensive Keyword Tests"
+    Print "=============================================="
+    Print ""
+    
+    ' Core Keywords
+    TestDim
+    TestSubFunction
+    TestIfThenElse
+    TestForNext
+    TestWhileWend
+    TestDoLoop
+    TestSelectCase
+    TestPrint
+    TestCall
+    TestLogicalOperators
+    TestExitStatement
+    TestConstants
+    TestArrays
+    TestDataTypes
+    TestOptionalParams
+    TestStaticVars
+    TestWithStatement
+    TestForEach
+    
+    Print ""
+    Print "=============================================="
+    Print "  FINAL RESULTS: " & passCount & " PASS, " & failCount & " FAIL"
+    Print "=============================================="
+End Sub
+
+Sub TestDim()
+    Print "--- Dim (Variable Declaration) ---"
+    Dim x As Integer
+    x = 42
+    If x = 42 Then
+        Print "  Dim As Integer: PASS"
+        passCount = passCount + 1
+    Else
+        Print "  Dim As Integer: FAIL"
+        failCount = failCount + 1
+    End If
+End Sub
+
+Sub TestSubFunction()
+    Print "--- Sub/Function/End ---"
+    Dim result As Integer
+    result = TestHelper(5, 3)
+    If result = 8 Then
+        Print "  Function call and return: PASS"
+        passCount = passCount + 1
+    Else
+        Print "  Function call: FAIL (got " & result & ")"
+        failCount = failCount + 1
+    End If
+End Sub
+
+Function TestHelper(a As Integer, b As Integer) As Integer
+    TestHelper = a + b
+End Function
+
+Sub TestIfThenElse()
+    Print "--- If/Then/Else/ElseIf/End If ---"
+    Dim x As Integer
+    x = 50
+    
+    ' Simple If
+    If x > 0 Then
+        Print "  If Then: PASS"
+        passCount = passCount + 1
+    End If
+    
+    ' If Else
+    If x < 0 Then
+        Print "  If Else: FAIL"
+        failCount = failCount + 1
+    Else
+        Print "  If Else branch: PASS"
+        passCount = passCount + 1
+    End If
+    
+    ' ElseIf
+    If x < 25 Then
+        Print "  ElseIf: FAIL (wrong branch)"
+        failCount = failCount + 1
+    ElseIf x < 75 Then
+        Print "  ElseIf branch: PASS"
+        passCount = passCount + 1
+    Else
+        Print "  ElseIf: FAIL (wrong branch)"
+        failCount = failCount + 1
+    End If
+End Sub
+
+Sub TestForNext()
+    Print "--- For/To/Step/Next ---"
+    Dim i As Integer
+    Dim sum As Integer
+    
+    ' Basic For
+    sum = 0
+    For i = 1 To 5
+        sum = sum + i
+    Next
+    If sum = 15 Then
+        Print "  For To Next: PASS"
+        passCount = passCount + 1
+    Else
+        Print "  For To Next: FAIL (got " & sum & ")"
+        failCount = failCount + 1
+    End If
+    
+    ' For with Step
+    sum = 0
+    For i = 2 To 10 Step 2
+        sum = sum + i
+    Next
+    If sum = 30 Then
+        Print "  For Step: PASS"
+        passCount = passCount + 1
+    Else
+        Print "  For Step: FAIL (got " & sum & ", expected 30)"
+        failCount = failCount + 1
+    End If
+End Sub
+
+Sub TestWhileWend()
+    Print "--- While/Wend ---"
+    Dim i As Integer
+    Dim count As Integer
+    i = 0
+    count = 0
+    
+    While i < 5
+        count = count + 1
+        i = i + 1
+    Wend
+    
+    If count = 5 Then
+        Print "  While Wend: PASS"
+        passCount = passCount + 1
+    Else
+        Print "  While Wend: FAIL (got " & count & ")"
+        failCount = failCount + 1
+    End If
+End Sub
+
+Sub TestDoLoop()
+    Print "--- Do/Loop/While/Until ---"
+    Dim i As Integer
+    Dim count As Integer
+    
+    ' Do While Loop
+    i = 0
+    count = 0
+    Do While i < 3
+        count = count + 1
+        i = i + 1
+    Loop
+    If count = 3 Then
+        Print "  Do While Loop: PASS"
+        passCount = passCount + 1
+    Else
+        Print "  Do While Loop: FAIL"
+        failCount = failCount + 1
+    End If
+    
+    ' Do Loop Until
+    i = 0
+    count = 0
+    Do
+        count = count + 1
+        i = i + 1
+    Loop Until i >= 3
+    If count = 3 Then
+        Print "  Do Loop Until: PASS"
+        passCount = passCount + 1
+    Else
+        Print "  Do Loop Until: FAIL"
+        failCount = failCount + 1
+    End If
+End Sub
+
+Sub TestSelectCase()
+    Print "--- Select/Case/End Select ---"
+    ' Note: Select Case has known issues with ranges
+    Dim x As Integer
+    x = 2
+    
+    Select Case x
+        Case 1
+            Print "  Select Case: FAIL (matched 1)"
+            failCount = failCount + 1
+        Case 2
+            Print "  Select Case exact match: PASS"
+            passCount = passCount + 1
+        Case 3
+            Print "  Select Case: FAIL (matched 3)"
+            failCount = failCount + 1
+        Case Else
+            Print "  Select Case: FAIL (matched Else)"
+            failCount = failCount + 1
+    End Select
+End Sub
+
+Sub TestPrint()
+    Print "--- Print ---"
+    Print "  Print statement: PASS"
+    passCount = passCount + 1
+End Sub
+
+Sub TestCall()
+    Print "--- Call ---"
+    Call HelperSub()
+End Sub
+
+Sub HelperSub()
+    Print "  Call statement: PASS"
+    passCount = passCount + 1
+End Sub
+
+Sub TestLogicalOperators()
+    Print "--- And/Or/Not/Xor ---"
+    
+    ' And
+    If True And True Then
+        Print "  And operator: PASS"
+        passCount = passCount + 1
+    Else
+        Print "  And operator: FAIL"
+        failCount = failCount + 1
+    End If
+    
+    ' Or
+    If True Or False Then
+        Print "  Or operator: PASS"
+        passCount = passCount + 1
+    Else
+        Print "  Or operator: FAIL"
+        failCount = failCount + 1
+    End If
+    
+    ' Not
+    If Not False Then
+        Print "  Not operator: PASS"
+        passCount = passCount + 1
+    Else
+        Print "  Not operator: FAIL"
+        failCount = failCount + 1
+    End If
+End Sub
+
+Sub TestExitStatement()
+    Print "--- Exit ---"
+    Dim i As Integer
+    Dim count As Integer
+    count = 0
+    
+    For i = 1 To 100
+        count = count + 1
+        If i = 5 Then
+            Exit For
+        End If
+    Next
+    
+    If count = 5 Then
+        Print "  Exit For: PASS"
+        passCount = passCount + 1
+    Else
+        Print "  Exit For: FAIL (got " & count & ")"
+        failCount = failCount + 1
+    End If
+End Sub
+
+Sub TestConstants()
+    Print "--- True/False/Const ---"
+    
+    Dim b As Boolean
+    b = True
+    If b = True Then
+        Print "  True constant: PASS"
+        passCount = passCount + 1
+    Else
+        Print "  True constant: FAIL"
+        failCount = failCount + 1
+    End If
+    
+    b = False
+    If b = False Then
+        Print "  False constant: PASS"
+        passCount = passCount + 1
+    Else
+        Print "  False constant: FAIL"
+        failCount = failCount + 1
+    End If
+End Sub
+
+Sub TestArrays()
+    Print "--- Arrays (Dim/Redim) ---"
+    
+    Dim arr(5) As Integer
+    arr(0) = 100
+    arr(4) = 400
+    
+    If arr(0) = 100 Then
+        Print "  Array access [0]: PASS"
+        passCount = passCount + 1
+    Else
+        Print "  Array access: FAIL"
+        failCount = failCount + 1
+    End If
+    
+    If arr(4) = 400 Then
+        Print "  Array access [4]: PASS"
+        passCount = passCount + 1
+    Else
+        Print "  Array access: FAIL"
+        failCount = failCount + 1
+    End If
+End Sub
+
+Sub TestDataTypes()
+    Print "--- As (Data Types) ---"
+    
+    Dim i As Integer
+    Dim s As String
+    Dim b As Boolean
+    Dim d As Double
+    
+    i = 42
+    s = "test"
+    b = True
+    d = 3.14
+    
+    If i = 42 Then
+        Print "  As Integer: PASS"
+        passCount = passCount + 1
+    Else
+        Print "  As Integer: FAIL"
+        failCount = failCount + 1
+    End If
+    
+    If s = "test" Then
+        Print "  As String: PASS"
+        passCount = passCount + 1
+    Else
+        Print "  As String: FAIL"
+        failCount = failCount + 1
+    End If
+    
+    If b = True Then
+        Print "  As Boolean: PASS"
+        passCount = passCount + 1
+    Else
+        Print "  As Boolean: FAIL"
+        failCount = failCount + 1
+    End If
+End Sub
+
+Sub TestOptionalParams()
+    Print "--- Optional/ByVal/ByRef ---"
+    
+    Dim result As Integer
+    result = OptionalFunc(10)
+    If result = 15 Then
+        Print "  Optional parameter: PASS"
+        passCount = passCount + 1
+    Else
+        Print "  Optional parameter: FAIL (got " & result & ")"
+        failCount = failCount + 1
+    End If
+End Sub
+
+Function OptionalFunc(x As Integer, Optional y As Integer = 5) As Integer
+    OptionalFunc = x + y
+End Function
+
+Sub TestStaticVars()
+    Print "--- Static ---"
+    
+    Dim result1 As Integer
+    Dim result2 As Integer
+    
+    result1 = StaticCounter()
+    result2 = StaticCounter()
+    
+    ' Static should retain value between calls
+    If result2 > result1 Then
+        Print "  Static variable: PASS"
+        passCount = passCount + 1
+    Else
+        Print "  Static variable: FAIL"
+        failCount = failCount + 1
+    End If
+End Sub
+
+Function StaticCounter() As Integer
+    Static count As Integer
+    count = count + 1
+    StaticCounter = count
+End Function
+
+Sub TestWithStatement()
+    Print "--- With/End With ---"
+    ' With statement test - may need object support
+    Print "  With statement: SKIPPED (needs object)"
+End Sub
+
+Sub TestForEach()
+    Print "--- For Each/In ---"
+    ' For Each test - may need collection support
+    Print "  For Each: SKIPPED (needs collection)"
+End Sub

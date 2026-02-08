@@ -1,0 +1,20 @@
+' Debug Select Case - ranges
+Option Explicit
+
+Sub Main()
+    Dim x As Integer
+    x = 85
+    
+    Print "x = " & x
+    
+    Select Case x
+        Case 90 To 100
+            Print "  Matched 90-100"
+        Case 80 To 89
+            Print "  Matched 80-89 - CORRECT"
+        Case 70 To 79
+            Print "  Matched 70-79"
+        Case Else
+            Print "  Matched Else - WRONG"
+    End Select
+End Sub

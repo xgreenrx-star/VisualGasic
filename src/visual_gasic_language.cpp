@@ -16,6 +16,7 @@
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <godot_cpp/variant/callable_method_pointer.hpp>
 #include <map>
+#include <functional>
 
 using namespace godot;
 
@@ -483,21 +484,212 @@ bool VisualGasicLanguage::_overrides_external_editor() {
     return false;
 }
 
+// Helper: Recursively find a control by name (case-insensitive)
+Node* VisualGasicLanguage::_find_control_recursive(Node* node, const String& name) const {
+    if (!node) return nullptr;
+    
+    for (int i = 0; i < node->get_child_count(); i++) {
+        Node *child = node->get_child(i);
+        if (child->get_name().to_lower() == name.to_lower()) {
+            return child;
+        }
+        Node *result = _find_control_recursive(child, name);
+        if (result) return result;
+    }
+    return nullptr;
+}
+
+// Helper: Add child controls to completion options
+void VisualGasicLanguage::_add_child_controls_to_completion(Node* owner, Array& options, const String& filter) const {
+    if (!owner) return;
+    
+    std::function<void(Node*)> add_children = [&](Node* node) {
+        for (int i = 0; i < node->get_child_count(); i++) {
+            Node *child = node->get_child(i);
+            String child_name = child->get_name();
+            String child_type = child->get_class();
+            
+            // Skip internal nodes
+            if (child_name.begins_with("_")) continue;
+            
+            // Filter by prefix if provided
+            if (!filter.is_empty() && !child_name.to_lower().begins_with(filter.to_lower())) continue;
+            
+            Dictionary opt;
+            opt["kind"] = ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER;
+            opt["display"] = child_name + " : " + child_type;
+            opt["insert_text"] = child_name;
+            opt["location"] = 0;
+            opt["font_color"] = Color(1, 1, 1, 1);
+            opt["icon"] = Variant();
+            opt["default_value"] = Variant();
+            options.push_back(opt);
+            
+            // Recurse into children
+            add_children(child);
+        }
+    };
+    add_children(owner);
+}
+
+// Helper: Add form properties to completion
+void VisualGasicLanguage::_add_form_properties_to_completion(Array& options, const String& filter) const {
+    auto add_opt = [&](const String& name, int kind, const String& hint) {
+        if (!filter.is_empty() && !name.to_lower().begins_with(filter.to_lower())) return;
+        options.push_back(create_completion_option(name, kind, hint));
+    };
+    
+    add_opt("Text", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Form title");
+    add_opt("Size", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Form size");
+    add_opt("Position", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Form position");
+    add_opt("Close", ScriptLanguageExtension::CODE_COMPLETION_KIND_FUNCTION, "Close()");
+    add_opt("Show", ScriptLanguageExtension::CODE_COMPLETION_KIND_FUNCTION, "Show()");
+    add_opt("Hide", ScriptLanguageExtension::CODE_COMPLETION_KIND_FUNCTION, "Hide()");
+}
+
+// Helper: Add control-specific properties to completion
+void VisualGasicLanguage::_add_control_properties_to_completion(const String& control_class, Array& options, const String& filter) const {
+    auto add_opt = [&](const String& name, int kind, const String& hint) {
+        if (!filter.is_empty() && !name.to_lower().begins_with(filter.to_lower())) return;
+        options.push_back(create_completion_option(name, kind, hint));
+    };
+    
+    if (control_class == "LineEdit") {
+        add_opt("Text", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Text content");
+        add_opt("MaxLength", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Maximum characters");
+        add_opt("PlaceholderText", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Placeholder text");
+        add_opt("Enabled", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Enable/disable");
+        add_opt("Visible", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Show/hide");
+        add_opt("ReadOnly", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Read-only mode");
+        add_opt("SelectAll", ScriptLanguageExtension::CODE_COMPLETION_KIND_FUNCTION, "Select all text");
+        add_opt("Clear", ScriptLanguageExtension::CODE_COMPLETION_KIND_FUNCTION, "Clear text");
+    } else if (control_class == "Button") {
+        add_opt("Text", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Button caption");
+        add_opt("Enabled", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Enable/disable");
+        add_opt("Visible", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Show/hide");
+        add_opt("Flat", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Flat style");
+    } else if (control_class == "Label") {
+        add_opt("Text", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Label text");
+        add_opt("Visible", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Show/hide");
+    } else if (control_class == "CheckBox" || control_class == "CheckButton") {
+        add_opt("Text", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Caption");
+        add_opt("Checked", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Checked state");
+        add_opt("Enabled", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Enable/disable");
+        add_opt("Visible", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Show/hide");
+    } else if (control_class == "OptionButton") {
+        add_opt("Selected", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Selected index");
+        add_opt("Text", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Selected text");
+        add_opt("AddItem", ScriptLanguageExtension::CODE_COMPLETION_KIND_FUNCTION, "Add item");
+        add_opt("Clear", ScriptLanguageExtension::CODE_COMPLETION_KIND_FUNCTION, "Clear items");
+    } else if (control_class == "TextEdit") {
+        add_opt("Text", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Text content");
+        add_opt("Visible", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Show/hide");
+        add_opt("ReadOnly", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Read-only mode");
+        add_opt("SelectAll", ScriptLanguageExtension::CODE_COMPLETION_KIND_FUNCTION, "Select all");
+        add_opt("Clear", ScriptLanguageExtension::CODE_COMPLETION_KIND_FUNCTION, "Clear text");
+    } else if (control_class == "ProgressBar" || control_class == "HSlider" || control_class == "VSlider") {
+        add_opt("Value", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Current value");
+        add_opt("MinValue", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Minimum");
+        add_opt("MaxValue", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Maximum");
+        add_opt("Visible", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Show/hide");
+    } else if (control_class == "Timer") {
+        add_opt("WaitTime", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Interval");
+        add_opt("Start", ScriptLanguageExtension::CODE_COMPLETION_KIND_FUNCTION, "Start timer");
+        add_opt("Stop", ScriptLanguageExtension::CODE_COMPLETION_KIND_FUNCTION, "Stop timer");
+    } else {
+        // Generic control properties
+        add_opt("Text", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Text property");
+        add_opt("Visible", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Show/hide");
+        add_opt("Enabled", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Enable/disable");
+        add_opt("Position", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Position");
+        add_opt("Size", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Size");
+        add_opt("Name", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Name");
+        add_opt("Show", ScriptLanguageExtension::CODE_COMPLETION_KIND_FUNCTION, "Show()");
+        add_opt("Hide", ScriptLanguageExtension::CODE_COMPLETION_KIND_FUNCTION, "Hide()");
+    }
+}
+
 Dictionary VisualGasicLanguage::_complete_code(const String &p_code, const String &p_path, Object *p_owner) const {
     Dictionary result;
     result["result"] = OK;
     Array options;
     
-    // DEBUG: Print when completion is called
+    // Show what code we received for debugging
     print_line("[VG COMPLETION] _complete_code called, code length: " + itos(p_code.length()) + ", owner: " + (p_owner ? p_owner->get_class() : "null"));
     
-    String clean_code = p_code.strip_edges(false, true);
+    // Show last 40 characters of the code to see where we are
+    String code_tail = p_code.length() > 40 ? p_code.substr(p_code.length() - 40) : p_code;
+    code_tail = code_tail.replace("\n", "\\n").replace("\t", "\\t");
+    print_line("[VG COMPLETION] Code tail (last 40): '" + code_tail + "'");
     
-    // DEBUG: Print last few chars
-    if (clean_code.length() > 0) {
-        int start = MAX(0, (int)clean_code.length() - 10);
-        print_line("[VG COMPLETION] Last 10 chars: '" + clean_code.substr(start) + "'");
+    // Find the last dot in the code - that's likely where completion was triggered
+    int last_dot = p_code.rfind(".");
+    print_line("[VG COMPLETION] Last dot position: " + itos(last_dot) + " (code length: " + itos(p_code.length()) + ")");
+    
+    if (last_dot != -1) {
+        // Extract the identifier before the dot
+        String identifier = "";
+        for (int i = last_dot - 1; i >= 0; i--) {
+            char32_t c = p_code[i];
+            if (is_identifier_char(c)) {
+                identifier = String::chr(c) + identifier;
+            } else {
+                break;
+            }
+        }
+        
+        // Check what's after the dot (partial property name being typed)
+        String after_dot = "";
+        for (int i = last_dot + 1; i < p_code.length(); i++) {
+            char32_t c = p_code[i];
+            if (is_identifier_char(c)) {
+                after_dot += String::chr(c);
+            } else {
+                break;
+            }
+        }
+        
+        print_line("[VG COMPLETION] Found identifier: '" + identifier + "', after dot: '" + after_dot + "'");
+        
+        // Check if it's Me.
+        if (identifier.to_lower() == "me") {
+            // Show form controls
+            if (p_owner) {
+                Node *owner_node = Object::cast_to<Node>(p_owner);
+                if (owner_node) {
+                    _add_child_controls_to_completion(owner_node, options, after_dot);
+                }
+            }
+            // Add common form properties
+            _add_form_properties_to_completion(options, after_dot);
+        } else if (!identifier.is_empty()) {
+            // Try to find this control in the form
+            String control_class = "";
+            if (p_owner) {
+                Node *owner_node = Object::cast_to<Node>(p_owner);
+                if (owner_node) {
+                    Node *found = _find_control_recursive(owner_node, identifier);
+                    if (found) {
+                        control_class = found->get_class();
+                        print_line("[VG COMPLETION] Found control '" + identifier + "' of type: " + control_class);
+                    }
+                }
+            }
+            
+            // Add control-specific or generic properties
+            _add_control_properties_to_completion(control_class, options, after_dot);
+        }
+        
+        if (options.size() > 0) {
+            result["options"] = options;
+            result["force"] = true;
+            result["call_hint"] = "";
+            return result;
+        }
     }
+    
+    // Fall through to general completion
+    String clean_code = p_code.strip_edges(false, true);
     
     if (!clean_code.is_empty()) {
         char32_t last_char = clean_code[clean_code.length() - 1];
@@ -631,81 +823,6 @@ Dictionary VisualGasicLanguage::_complete_code(const String &p_code, const Strin
         }
     }
     
-    // 4. MEMBER ACCESS COMPLETION
-    if (clean_code.ends_with(".")) {
-         print_line("[VG COMPLETION] Detected '.' - checking for Me.");
-         // Check if it's "Me." - if so, show form controls
-         String lower = clean_code.to_lower();
-         bool is_me_dot = false;
-         
-         // Check if it ends with "me." - but make sure "me" is a complete word/identifier
-         if (lower.ends_with("me.")) {
-              // Make sure it's not part of a longer identifier like "SomeVariable."
-              // Check if there's nothing before "me" or if what's before is not alphanumeric
-              int me_start = lower.length() - 3; // Position of 'm' in "me."
-              if (me_start == 0 || !is_identifier_char(lower[me_start - 1])) {
-                   is_me_dot = true;
-                   print_line("[VG COMPLETION] IS Me. completion!");
-              }
-         }
-         
-         if (is_me_dot) {
-              // Show form controls/children from owner node
-              print_line("[VG COMPLETION] p_owner: " + String(p_owner ? p_owner->get_class() : "null"));
-              if (p_owner) {
-                   Node *owner_node = Object::cast_to<Node>(p_owner);
-                   print_line("[VG COMPLETION] owner_node: " + String(owner_node ? "valid" : "null"));
-                   if (owner_node) {
-                        // Get all child nodes
-                        TypedArray<Node> children = owner_node->get_children();
-                        for (int i = 0; i < children.size(); i++) {
-                             Node *child = Object::cast_to<Node>(children[i]);
-                             if (child) {
-                                  String child_name = child->get_name();
-                                  String child_type = child->get_class();
-                                  
-                                  Dictionary opt;
-                                  opt["kind"] = ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER;
-                                  opt["display"] = child_name + " : " + child_type;
-                                  opt["insert_text"] = child_name;
-                                  opt["location"] = 0;
-                                  opt["font_color"] = Color(1, 1, 1, 1);
-                                  opt["icon"] = Variant();
-                                  opt["default_value"] = Variant();
-                                  options.push_back(opt);
-                             }
-                        }
-                   }
-              }
-              
-              // Also show common form properties/methods
-              options.push_back(create_completion_option("Text", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Form title"));
-              options.push_back(create_completion_option("size", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Form size"));
-              options.push_back(create_completion_option("position", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Form position"));
-              options.push_back(create_completion_option("Close", ScriptLanguageExtension::CODE_COMPLETION_KIND_FUNCTION, "Close()"));
-              options.push_back(create_completion_option("Show", ScriptLanguageExtension::CODE_COMPLETION_KIND_FUNCTION, "Show()"));
-              options.push_back(create_completion_option("Hide", ScriptLanguageExtension::CODE_COMPLETION_KIND_FUNCTION, "Hide()"));
-              options.push_back(create_completion_option("add_child", ScriptLanguageExtension::CODE_COMPLETION_KIND_FUNCTION, "add_child(node)"));
-              options.push_back(create_completion_option("find_child", ScriptLanguageExtension::CODE_COMPLETION_KIND_FUNCTION, "find_child(name)"));
-              options.push_back(create_completion_option("get_node", ScriptLanguageExtension::CODE_COMPLETION_KIND_FUNCTION, "get_node(path)"));
-         } else {
-              // Generic member access - show common properties
-              options.push_back(create_completion_option("text", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Text Property"));
-              options.push_back(create_completion_option("visible", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Visible Property"));
-              options.push_back(create_completion_option("position", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Position Property"));
-              options.push_back(create_completion_option("size", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Size Property"));
-              options.push_back(create_completion_option("name", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Name Property"));
-              options.push_back(create_completion_option("show", ScriptLanguageExtension::CODE_COMPLETION_KIND_FUNCTION, "show()"));
-              options.push_back(create_completion_option("hide", ScriptLanguageExtension::CODE_COMPLETION_KIND_FUNCTION, "hide()"));
-         }
-         
-         result["options"] = options;
-         result["force"] = true;
-         result["call_hint"] = "";
-         result["result"] = OK;
-         return result;
-    }
-    
     // 5. SNIPPET COMPLETION
     // Check if user typed a snippet trigger
     int len = p_code.length();
@@ -822,6 +939,7 @@ Dictionary VisualGasicLanguage::_complete_code(const String &p_code, const Strin
     result["options"] = options;
     result["force"] = false;
     result["call_hint"] = "";
+    result["result"] = OK;  // Required by Godot API
     return result;
 }
 

@@ -114,32 +114,25 @@ func set_debugger_plugin(debugger: EditorDebuggerPlugin) -> void:
 
 func _on_debug_break_hit(file: String, line: int) -> void:
 	"""Called when a breakpoint or step is hit - navigate to the line."""
-	print("[CodeNav] _on_debug_break_hit: file=", file, " line=", line)
 	_current_break_file = file
 	_current_break_line = line
 	navigate_to_line(file, line)
 
 func navigate_to_line(file_path: String, line: int) -> void:
 	"""Navigate the script editor to a specific file and line."""
-	print("[CodeNav] navigate_to_line: file=", file_path, " line=", line)
 	if not editor_plugin:
-		print("[CodeNav] No editor_plugin!")
 		return
 	
 	if file_path.is_empty() or line <= 0:
-		print("[CodeNav] Invalid file_path or line")
 		return
 	
 	# Load the script resource
 	if not ResourceLoader.exists(file_path):
-		print("[CodeNav] File not found: ", file_path)
 		return
 	
 	var script = load(file_path)
 	if not script:
-		print("[CodeNav] Could not load: ", file_path)
 		return
-	print("[CodeNav] Loaded script, switching to Script editor")
 	var ed_int = editor_plugin.get_editor_interface()
 	
 	# Switch to Script editor main screen first

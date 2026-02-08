@@ -98,6 +98,13 @@ public:
     virtual String _make_function(const String &p_class_name, const String &p_function_name, const PackedStringArray &p_function_args) const override;
     virtual Error _open_in_external_editor(const Ref<Script> &p_script, int32_t p_line, int32_t p_col) override;
     virtual bool _overrides_external_editor() override;
+    
+    // Completion helpers
+    Node* _find_control_recursive(Node* node, const String& name) const;
+    void _add_child_controls_to_completion(Node* owner, Array& options, const String& filter) const;
+    void _add_form_properties_to_completion(Array& options, const String& filter) const;
+    void _add_control_properties_to_completion(const String& control_class, Array& options, const String& filter) const;
+    
     virtual Dictionary _complete_code(const String &p_code, const String &p_path, Object *p_owner) const override;
     virtual Dictionary _lookup_code(const String &p_code, const String &p_symbol, const String &p_path, Object *p_owner) const override;
     virtual String _auto_indent_code(const String &p_code, int32_t p_from_line, int32_t p_to_line) const override;

@@ -1,16 +1,17 @@
-[gd_scene load_steps=4 format=3 uid="uid://bsbti5p232mum"]
+[gd_scene load_steps=6 format=3 uid="uid://bsbti5p232mum"]
 
 [ext_resource type="Script" uid="uid://dvqsotentbelb" path="res://Form42.vg" id="1_3tyy4"]
 [ext_resource type="Script" uid="uid://6dl0hvqnyiu0" path="res://addons/visual_gasic/menu_bar_helper.gd" id="2_7pbj8"]
 [ext_resource type="Script" uid="uid://b8c5jy6r1ytsh" path="res://addons/visual_gasic/form_editor_helper.gd" id="3_aqadg"]
-[ext_resource type="PackedScene" uid="" path="res://addons/visual_gasic/prototypes/Button.tscn" id="4"]
-[ext_resource type="PackedScene" uid="" path="res://addons/visual_gasic/prototypes/Button.tscn" id="5"]
+[ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/Button.tscn" id="5"]
+[ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/LineEdit.tscn" id="7"]
 
 [node name="Form42" type="Window"]
 positional_shadow_atlas_quad_0 = null
 positional_shadow_atlas_quad_1 = null
 positional_shadow_atlas_quad_2 = null
 positional_shadow_atlas_quad_3 = null
+oversampling_override = 1.0
 title = "Form42"
 position = Vector2i(10, 36)
 size = Vector2i(600, 400)
@@ -59,9 +60,10 @@ metadata/_menu_name = "Help"
 [node name="_FormBackground" type="Panel" parent="."]
 offset_right = 600.0
 offset_bottom = 400.0
+mouse_filter = 1
 script = ExtResource("3_aqadg")
 
-[node name="Button1" parent="." instance=ExtResource("4")]
+[node name="Button1" parent="." instance=ExtResource("5")]
 offset_left = 200.0
 offset_top = 128.0
 text = "Button1"
@@ -70,3 +72,11 @@ text = "Button1"
 offset_left = 168.0
 offset_top = 216.0
 text = "Button2"
+
+[node name="txtTest" parent="." instance=ExtResource("7")]
+offset_left = 272.0
+offset_top = 64.0
+
+[node name="LineEdit2" parent="." instance=ExtResource("7")]
+offset_left = 152.0
+offset_top = 176.0

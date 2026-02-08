@@ -9,7 +9,6 @@ signal variables_list_received(variables: Dictionary)
 signal whenever_sections_received(sections: Array)
 signal debug_state_received(state: Dictionary)
 signal debug_break_hit(file: String, line: int)
-signal call_stack_received(stack: Array)
 
 var _active_session: EditorDebuggerSession = null
 var _pending_requests: Dictionary = {}
@@ -37,6 +36,10 @@ func _goto_script_line(script: Script, line: int) -> void:
 		debug_break_hit.emit(script.resource_path, line)
 
 func _capture(message: String, data: Array, session_id: int) -> bool:
+	# Debug: Log all messages to see what's coming through
+	if message.begins_with("visualgasic"):
+		print("[VG Debugger Plugin] _capture received: ", message, " data size: ", data.size())
+	
 	if not message.begins_with("visualgasic:"):
 		return false
 	
@@ -82,56 +85,25 @@ func _capture(message: String, data: Array, session_id: int) -> bool:
 		"debug_state":
 			# Received debug state (step mode, current line/file)
 			var state = data[0] if data.size() > 0 else {}
+			print("[VG Debugger Plugin] debug_state received: ", state)
 			debug_state_received.emit(state)
 			# If we're in a break state and have file/line info, navigate there
 			var current_file = state.get("current_file", "")
 			var current_line = state.get("current_line", 0)
+			print("[VG Debugger Plugin] debug_state file: '", current_file, "' line: ", current_line)
 			if not current_file.is_empty() and current_line > 0:
+				print("[VG Debugger Plugin] Navigating from debug_state...")
 				_navigate_to_script_line(current_file, current_line)
 				debug_break_hit.emit(current_file, current_line)
 			return true
 		
 		"break_hit":
 			# Received notification that a breakpoint or step was hit
-			print("[VG Debugger Plugin] Received break_hit: ", data)
 			if data.size() >= 2:
+				print("[VG Debugger Plugin] Received break_hit: ", data[0], ":", data[1])
 				# Navigate directly to the script line
 				_navigate_to_script_line(data[0], data[1])
 				debug_break_hit.emit(data[0], data[1])
-				# Request variables so they appear in Immediate Window
-				if _active_session:
-					_active_session.send_message("visualgasic:get_all_variables", [0])
-			return true
-		
-		"watchpoint_hit":
-			# Received notification that a data breakpoint (watchpoint) was triggered
-			# data = [var_name, old_value, new_value, file_path, line]
-			print("[VG Debugger Plugin] Watchpoint hit: ", data)
-			if data.size() >= 5:
-				var var_name = data[0]
-				var old_val = data[1]
-				var new_val = data[2]
-				var file_path = data[3]
-				var line = data[4]
-				# Navigate to the source
-				_navigate_to_script_line(file_path, line)
-				debug_break_hit.emit(file_path, line)
-				# Print watchpoint info in output
-				print("[VG Debugger Plugin] Watchpoint '%s' changed: %s → %s at %s:%d" % [var_name, str(old_val), str(new_val), file_path, line])
-				# Request variables so they appear in Immediate Window
-				if _active_session:
-					_active_session.send_message("visualgasic:get_all_variables", [0])
-			return true
-		
-		"call_stack":
-			# Received call stack from the debugger
-			var stack = data[0] if data.size() > 0 else []
-			print("[VG Debugger Plugin] Received call_stack with ", stack.size(), " frames")
-			call_stack_received.emit(stack)
-			return true
-		
-		"debug_trace":
-			# Trace message from C++ (only shown if needed for debugging)
 			return true
 	
 	return false
@@ -302,34 +274,23 @@ func is_session_active() -> bool:
 
 func debug_continue() -> void:
 	"""Resume execution after a breakpoint or step."""
-	# Write command to file - C++ wait loop polls this
-	_write_debug_command("continue")
+	if _active_session:
+		_active_session.send_message("visualgasic:debug_continue", [])
 
 func debug_step_into() -> void:
 	"""Step to the next line, entering function calls."""
-	# Write command to file - C++ wait loop polls this
-	_write_debug_command("step_into")
+	if _active_session:
+		_active_session.send_message("visualgasic:debug_step_into", [])
 
 func debug_step_over() -> void:
 	"""Step to the next line, stepping over function calls."""
-	print("[VG Debugger Plugin] debug_step_over called")
-	# Write command to file - C++ wait loop polls this
-	_write_debug_command("step_over")
+	if _active_session:
+		_active_session.send_message("visualgasic:debug_step_over", [])
 
 func debug_step_out() -> void:
 	"""Step out of the current function."""
-	print("[VG Debugger Plugin] debug_step_out called")
-	# Write command to file - C++ wait loop polls this
-	_write_debug_command("step_out")
-
-func _write_debug_command(command: String) -> void:
-	"""Write a debug command to a file that the game's C++ code polls."""
-	var file = FileAccess.open("res://.vg_debug_cmd", FileAccess.WRITE)
-	if file:
-		file.store_string(command)
-		file.close()
-	else:
-		printerr("[VG Debugger Plugin] Failed to write command file!")
+	if _active_session:
+		_active_session.send_message("visualgasic:debug_step_out", [])
 
 func request_debug_state() -> void:
 	"""Request the current debug state from the game."""

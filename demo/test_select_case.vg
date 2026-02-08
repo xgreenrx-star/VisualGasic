@@ -1,0 +1,44 @@
+' Simple Select Case test
+Option Explicit
+
+Sub Main()
+    Dim x As Integer
+    
+    ' Test direct value match
+    x = 2
+    Print "Testing x = 2:"
+    Select Case x
+        Case 1
+            Print "  Matched 1"
+        Case 2
+            Print "  Matched 2 (PASS)"
+        Case 3
+            Print "  Matched 3"
+        Case Else
+            Print "  Matched Else"
+    End Select
+    
+    ' Test range
+    x = 85
+    Print "Testing x = 85 with ranges:"
+    Select Case x
+        Case 90 To 100
+            Print "  Matched 90-100"
+        Case 80 To 89
+            Print "  Matched 80-89 (PASS)"
+        Case 70 To 79
+            Print "  Matched 70-79"
+        Case Else
+            Print "  Matched Else (FAIL)"
+    End Select
+    
+    ' Simpler range test
+    x = 5
+    Print "Testing x = 5 with range 1-10:"
+    Select Case x
+        Case 1 To 10
+            Print "  Matched 1-10 (PASS)"
+        Case Else
+            Print "  Matched Else (FAIL)"
+    End Select
+End Sub

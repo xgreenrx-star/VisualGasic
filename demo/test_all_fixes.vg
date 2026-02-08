@@ -1,0 +1,136 @@
+' Comprehensive test for all 4 fixed issues
+' Issue 1: Select Case matching (including ranges)
+' Issue 2: Not operator
+' Issue 3: Static variables
+' Issue 4: While/Wend loop
+
+Module TestAllFixes
+
+' Test Issue 3: Static variable
+Sub IncrementCounter()
+    Static counter As Integer
+    counter = counter + 1
+    Print "  Static counter value: " + CStr(counter)
+End Sub
+
+Sub Main()
+    Print "========================================"
+    Print "Testing All 4 Fixed Issues"
+    Print "========================================"
+    
+    ' Issue 1: Select Case matching
+    Print ""
+    Print "Issue 1: Select Case Matching"
+    Print "-----------------------------"
+    
+    Dim grade As String
+    Dim score As Integer
+    
+    ' Simple value match
+    score = 100
+    Select Case score
+        Case 100
+            grade = "Perfect"
+        Case 90
+            grade = "A"
+        Case Else
+            grade = "Unknown"
+    End Select
+    Print "  Score 100 = " + grade + " (expected: Perfect)"
+    
+    ' Range match
+    score = 85
+    Select Case score
+        Case 90 To 100
+            grade = "A"
+        Case 80 To 89
+            grade = "B"
+        Case 70 To 79
+            grade = "C"
+        Case Else
+            grade = "F"
+    End Select
+    Print "  Score 85 = " + grade + " (expected: B)"
+    
+    ' Boundary test
+    score = 90
+    Select Case score
+        Case 90 To 100
+            grade = "A"
+        Case 80 To 89
+            grade = "B"
+        Case Else
+            grade = "F"
+    End Select
+    Print "  Score 90 = " + grade + " (expected: A)"
+    
+    ' Issue 2: Not operator
+    Print ""
+    Print "Issue 2: Not Operator"
+    Print "---------------------"
+    
+    Dim flag As Boolean
+    flag = True
+    If Not flag Then
+        Print "  Not True = True (WRONG)"
+    Else
+        Print "  Not True = False (CORRECT)"
+    End If
+    
+    flag = False
+    If Not flag Then
+        Print "  Not False = True (CORRECT)"
+    Else
+        Print "  Not False = False (WRONG)"
+    End If
+    
+    ' Chained Not
+    If Not Not True Then
+        Print "  Not Not True = True (CORRECT)"
+    Else
+        Print "  Not Not True = False (WRONG)"
+    End If
+    
+    ' Issue 3: Static variables
+    Print ""
+    Print "Issue 3: Static Variables"
+    Print "-------------------------"
+    
+    Print "  Calling IncrementCounter 3 times:"
+    IncrementCounter
+    IncrementCounter
+    IncrementCounter
+    Print "  (Expected: 1, 2, 3)"
+    
+    ' Issue 4: While/Wend Loop
+    Print ""
+    Print "Issue 4: While/Wend Loop"
+    Print "------------------------"
+    
+    Dim i As Integer
+    i = 0
+    While i < 5
+        i = i + 1
+    Wend
+    Print "  While loop count: " + CStr(i) + " (expected: 5)"
+    
+    ' Also test Do While/Until
+    i = 0
+    Do While i < 3
+        i = i + 1
+    Loop
+    Print "  Do While loop count: " + CStr(i) + " (expected: 3)"
+    
+    i = 0
+    Do
+        i = i + 1
+    Loop Until i >= 3
+    Print "  Do Until loop count: " + CStr(i) + " (expected: 3)"
+    
+    Print ""
+    Print "========================================"
+    Print "All Tests Complete"
+    Print "========================================"
+End Sub
+
+End Module

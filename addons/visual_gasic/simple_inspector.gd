@@ -7,6 +7,9 @@ extends VBoxContainer
 var editor_plugin: EditorPlugin
 var property_grid: GridContainer
 var current_node: Node
+var rename_dialog: ConfirmationDialog
+var old_name_for_rename: String = ""
+var new_name_for_rename: String = ""
 
 # VB6-like property categories
 const CATEGORY_APPEARANCE = "Appearance"
@@ -61,7 +64,8 @@ func update_properties(node: Node):
 	current_node = node
 	
 	# ===== (Name) - Always first, like VB6 =====
-	_add_prop_row("(Name)", node.name, "name")
+	# Convert StringName to String for proper LineEdit handling
+	_add_prop_row("(Name)", String(node.name), "name")
 	
 	# ===== Appearance Properties =====
 	_add_section_header("Appearance")
@@ -438,7 +442,7 @@ func _apply_prop(prop_key: String, value):
 	
 	match prop_key:
 		"name":
-			current_node.name = value
+			_handle_rename(String(current_node.name), str(value))
 		"text":
 			if "text" in current_node:
 				current_node.text = value
@@ -780,3 +784,375 @@ func _apply_pivot_preset(preset: int):
 			current_node.pivot_offset = Vector2(size.x / 2, size.y)
 		8:  # Bottom-Right
 			current_node.pivot_offset = Vector2(size.x, size.y)
+
+## Handle control rename with optional script refactoring
+func _handle_rename(old_name: String, new_name: String):
+	if not current_node or old_name == new_name or new_name.is_empty():
+		return
+	
+	# Validate the new name is not already in use
+	var duplicate_node = _find_control_by_name(new_name)
+	if duplicate_node and duplicate_node != current_node:
+		_show_duplicate_name_error(new_name)
+		# Refresh to restore original name in inspector
+		update_properties(current_node)
+		return
+	
+	# Validate the name is a valid identifier
+	if not _is_valid_control_name(new_name):
+		_show_invalid_name_error(new_name)
+		update_properties(current_node)
+		return
+	
+	# Store names for potential refactoring
+	old_name_for_rename = old_name
+	new_name_for_rename = new_name
+	
+	# Find associated .vg scripts that might reference this control
+	var scripts_with_refs = _find_scripts_referencing_control(old_name)
+	
+	if scripts_with_refs.size() > 0:
+		# Show dialog asking if user wants to update scripts
+		_show_rename_refactor_dialog(old_name, new_name, scripts_with_refs)
+	else:
+		# No scripts reference this control, just rename directly
+		current_node.name = new_name
+		print("VisualGasic: Renamed '", old_name, "' to '", new_name, "'")
+
+## Find a control by name in the current form
+func _find_control_by_name(control_name: String) -> Node:
+	if not editor_plugin or not is_instance_valid(editor_plugin):
+		return null
+	
+	var edited_scene = editor_plugin.get_editor_interface().get_edited_scene_root()
+	if not edited_scene:
+		return null
+	
+	# Check the root itself
+	if edited_scene.name == control_name:
+		return edited_scene
+	
+	# Search all descendants (case-insensitive like VB6)
+	return _find_node_by_name_recursive(edited_scene, control_name)
+
+func _find_node_by_name_recursive(node: Node, target_name: String) -> Node:
+	for child in node.get_children():
+		if child.name.nocasecmp_to(target_name) == 0:
+			return child
+		var found = _find_node_by_name_recursive(child, target_name)
+		if found:
+			return found
+	return null
+
+## Validate that a control name is a valid VB identifier
+func _is_valid_control_name(name: String) -> bool:
+	if name.is_empty():
+		return false
+	
+	# Must start with a letter
+	var first_char = name[0]
+	if not (first_char >= 'A' and first_char <= 'Z') and not (first_char >= 'a' and first_char <= 'z'):
+		return false
+	
+	# Rest must be letters, digits, or underscores
+	for i in range(1, name.length()):
+		var c = name[i]
+		var is_letter = (c >= 'A' and c <= 'Z') or (c >= 'a' and c <= 'z')
+		var is_digit = c >= '0' and c <= '9'
+		var is_underscore = c == '_'
+		if not is_letter and not is_digit and not is_underscore:
+			return false
+	
+	# Check for reserved VB keywords
+	var reserved = ["Sub", "Function", "Dim", "If", "Then", "Else", "End", "For", "Next", 
+		"Do", "Loop", "While", "Wend", "Select", "Case", "Me", "True", "False", "Nothing",
+		"And", "Or", "Not", "Mod", "New", "As", "ByRef", "ByVal", "Private", "Public"]
+	for keyword in reserved:
+		if name.nocasecmp_to(keyword) == 0:
+			return false
+	
+	return true
+
+## Show error dialog for duplicate name
+func _show_duplicate_name_error(name: String):
+	var dialog = AcceptDialog.new()
+	dialog.title = "Duplicate Name"
+	dialog.dialog_text = "A control named '" + name + "' already exists on this form.\n\nPlease choose a different name."
+	dialog.ok_button_text = "OK"
+	
+	editor_plugin.get_editor_interface().get_base_control().add_child(dialog)
+	dialog.popup_centered(Vector2(350, 120))
+	
+	# Auto cleanup
+	dialog.confirmed.connect(func(): dialog.queue_free())
+	dialog.canceled.connect(func(): dialog.queue_free())
+
+## Show error dialog for invalid name
+func _show_invalid_name_error(name: String):
+	var dialog = AcceptDialog.new()
+	dialog.title = "Invalid Name"
+	dialog.dialog_text = "'" + name + "' is not a valid control name.\n\nControl names must:\n• Start with a letter (A-Z)\n• Contain only letters, numbers, and underscores\n• Not be a reserved keyword"
+	dialog.ok_button_text = "OK"
+	
+	editor_plugin.get_editor_interface().get_base_control().add_child(dialog)
+	dialog.popup_centered(Vector2(380, 160))
+	
+	# Auto cleanup
+	dialog.confirmed.connect(func(): dialog.queue_free())
+	dialog.canceled.connect(func(): dialog.queue_free())
+
+## Find all .vg scripts that reference a control name
+func _find_scripts_referencing_control(control_name: String) -> Array:
+	var scripts_found: Array = []
+	
+	if not editor_plugin or not is_instance_valid(editor_plugin):
+		return scripts_found
+	
+	# Get the root of the current scene
+	var edited_scene = editor_plugin.get_editor_interface().get_edited_scene_root()
+	if not edited_scene:
+		return scripts_found
+	
+	# Cache of open editor buffers: script_path -> source text
+	var open_editor_sources: Dictionary = {}
+	
+	# FIRST: Check ALL open scripts in the script editor (may have unsaved changes!)
+	var script_editor = editor_plugin.get_editor_interface().get_script_editor()
+	if script_editor:
+		# Get list of open scripts
+		var open_scripts = script_editor.get_open_scripts()
+		var open_editors = script_editor.get_open_script_editors()
+		
+		# Match scripts to their editors by index
+		for i in range(min(open_scripts.size(), open_editors.size())):
+			var script = open_scripts[i]
+			var editor_base = open_editors[i]
+			
+			if script and script.resource_path.ends_with(".vg"):
+				var code_edit = _find_code_edit(editor_base)
+				if code_edit:
+					var source = code_edit.text
+					var script_path = script.resource_path
+					open_editor_sources[script_path] = source
+					if _source_references_control(source, control_name):
+						if not script_path in scripts_found:
+							scripts_found.append(script_path)
+							print("VisualGasic: Found reference in open editor: ", script_path.get_file())
+	
+	# Search for .vg scripts in the scene's directory
+	var scene_path = edited_scene.scene_file_path
+	if not scene_path.is_empty():
+		var base_dir = scene_path.get_base_dir()
+		var dir = DirAccess.open(base_dir)
+		if dir:
+			dir.list_dir_begin()
+			var file_name = dir.get_next()
+			while file_name != "":
+				if file_name.ends_with(".vg"):
+					var full_path = base_dir.path_join(file_name)
+					if not full_path in scripts_found:
+						# Check if we already have this in open editors
+						if full_path in open_editor_sources:
+							# Already checked above
+							pass
+						else:
+							# Read from disk
+							var f = FileAccess.open(full_path, FileAccess.READ)
+							if f:
+								var source = f.get_as_text()
+								f.close()
+								if _source_references_control(source, control_name):
+									scripts_found.append(full_path)
+				file_name = dir.get_next()
+			dir.list_dir_end()
+	
+	print("VisualGasic: Total scripts with references: ", scripts_found.size())
+	return scripts_found
+
+## Find CodeEdit widget inside a script editor base
+func _find_code_edit(node: Node) -> CodeEdit:
+	if node is CodeEdit:
+		return node
+	for child in node.get_children():
+		var found = _find_code_edit(child)
+		if found:
+			return found
+	return null
+
+## Check if source code references a control name
+func _source_references_control(source: String, control_name: String) -> bool:
+	if source.is_empty():
+		return false
+	
+	# Check for common VB patterns that reference controls:
+	# - ControlName.Property
+	# - ControlName_Event()
+	# - Me.ControlName
+	# - Controls("ControlName")
+	
+	var patterns = [
+		control_name + ".",          # Property access
+		control_name + "_",          # Event handler (e.g., Button1_Click)
+		"Me." + control_name,        # Me.ControlName
+		"\"" + control_name + "\"",  # String literal reference
+	]
+	
+	for pattern in patterns:
+		var pos = source.findn(pattern)
+		if pos >= 0:  # Case-insensitive search
+			return true
+	
+	return false
+
+## Show confirmation dialog for rename refactoring
+func _show_rename_refactor_dialog(old_name: String, new_name: String, scripts: Array):
+	if rename_dialog and is_instance_valid(rename_dialog):
+		rename_dialog.queue_free()
+	
+	rename_dialog = ConfirmationDialog.new()
+	rename_dialog.title = "Rename Control"
+	rename_dialog.dialog_text = "The following scripts reference '" + old_name + "':\n\n"
+	
+	for script_path in scripts:
+		rename_dialog.dialog_text += "  • " + script_path.get_file() + "\n"
+	
+	rename_dialog.dialog_text += "\nRename '" + old_name + "' to '" + new_name + "'?"
+	
+	rename_dialog.ok_button_text = "Rename + Update Scripts"
+	rename_dialog.cancel_button_text = "Cancel"
+	
+	# Add a third button for "Rename Only"
+	rename_dialog.add_button("Rename Only", true, "rename_only")
+	
+	rename_dialog.confirmed.connect(_on_refactor_confirmed.bind(scripts))
+	rename_dialog.canceled.connect(_on_refactor_cancelled)
+	rename_dialog.custom_action.connect(_on_rename_only)
+	
+	# Add to editor
+	editor_plugin.get_editor_interface().get_base_control().add_child(rename_dialog)
+	rename_dialog.popup_centered(Vector2(400, 200))
+
+## User confirmed: rename AND update scripts
+func _on_refactor_confirmed(scripts: Array):
+	if not current_node:
+		return
+	
+	var old_name = old_name_for_rename
+	var new_name = new_name_for_rename
+	
+	# Update all scripts
+	var updated_count = 0
+	for script_path in scripts:
+		if _update_script_references(script_path, old_name, new_name):
+			updated_count += 1
+	
+	# Now rename the control
+	current_node.name = new_name
+	
+	print("VisualGasic: Renamed '", old_name, "' to '", new_name, "' and updated ", updated_count, " script(s)")
+	
+	# Refresh properties display
+	update_properties(current_node)
+	
+	_cleanup_rename_dialog()
+
+## User chose "Rename Only" - rename without updating scripts
+func _on_rename_only(action: String):
+	if action == "rename_only" and current_node:
+		current_node.name = new_name_for_rename
+		print("VisualGasic: Renamed '", old_name_for_rename, "' to '", new_name_for_rename, "' (scripts not updated)")
+		update_properties(current_node)
+	_cleanup_rename_dialog()
+
+## User cancelled - don't rename at all
+func _on_refactor_cancelled():
+	print("VisualGasic: Rename cancelled")
+	if current_node:
+		update_properties(current_node)
+	_cleanup_rename_dialog()
+
+func _cleanup_rename_dialog():
+	if rename_dialog and is_instance_valid(rename_dialog):
+		rename_dialog.queue_free()
+		rename_dialog = null
+	old_name_for_rename = ""
+	new_name_for_rename = ""
+
+## Update references in a script file (or open editor buffer)
+func _update_script_references(script_path: String, old_name: String, new_name: String) -> bool:
+	# First, check if this script is currently open in the editor
+	var script_editor = editor_plugin.get_editor_interface().get_script_editor() if editor_plugin else null
+	var code_edit: CodeEdit = null
+	var source: String = ""
+	var is_open_in_editor := false
+	
+	if script_editor:
+		# Get parallel arrays of scripts and editors
+		var open_scripts = script_editor.get_open_scripts()
+		var open_editors = script_editor.get_open_script_editors()
+		
+		for i in range(min(open_scripts.size(), open_editors.size())):
+			var script = open_scripts[i]
+			var editor_base = open_editors[i]
+			if script and script.resource_path == script_path:
+				# Found it - get the CodeEdit
+				code_edit = _find_code_edit(editor_base)
+				if code_edit:
+					source = code_edit.text
+					is_open_in_editor = true
+					break
+	
+	# If not open in editor, read from disk
+	if not is_open_in_editor:
+		var f = FileAccess.open(script_path, FileAccess.READ)
+		if not f:
+			push_error("VisualGasic: Could not open " + script_path + " for reading")
+			return false
+		source = f.get_as_text()
+		f.close()
+	
+	var original_source = source
+	
+	# Replace patterns using regex for proper word boundary matching
+	var regex = RegEx.new()
+	
+	# Pattern 1: ControlName. (property access)
+	regex.compile("(?i)\\b" + old_name + "\\.")
+	source = regex.sub(source, new_name + ".", true)
+	
+	# Pattern 2: ControlName_ (event handlers like Button1_Click)
+	regex.compile("(?i)\\b" + old_name + "_")
+	source = regex.sub(source, new_name + "_", true)
+	
+	# Pattern 3: Me.ControlName (but not Me.ControlNameOther)
+	regex.compile("(?i)Me\\." + old_name + "\\b")
+	source = regex.sub(source, "Me." + new_name, true)
+	
+	# Pattern 4: "ControlName" string literals
+	regex.compile("(?i)\"" + old_name + "\"")
+	source = regex.sub(source, "\"" + new_name + "\"", true)
+	
+	if source == original_source:
+		print("VisualGasic: No changes needed in ", script_path.get_file())
+		return false  # No changes made
+	
+	# Apply the changes
+	if is_open_in_editor and code_edit:
+		# Update the editor buffer directly
+		code_edit.text = source
+		print("VisualGasic: Updated editor buffer for ", script_path.get_file())
+	else:
+		# Write to disk
+		var f = FileAccess.open(script_path, FileAccess.WRITE)
+		if not f:
+			push_error("VisualGasic: Could not open " + script_path + " for writing")
+			return false
+		f.store_string(source)
+		f.close()
+		print("VisualGasic: Updated file on disk: ", script_path.get_file())
+		
+		# Signal editor to reload
+		if editor_plugin and is_instance_valid(editor_plugin):
+			editor_plugin.get_editor_interface().get_resource_filesystem().scan()
+	
+	return true

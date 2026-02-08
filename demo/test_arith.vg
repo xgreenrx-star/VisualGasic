@@ -1,0 +1,30 @@
+' Test arithmetic operators
+Module TestArithmetic
+
+Sub Main()
+    Print "Testing Mod and Power"
+    
+    ' Test Mod directly in Print
+    Print "17 Mod 5 = " + CStr(17 Mod 5)
+    
+    ' Test power
+    Print "3 ^ 2 = " + CStr(3 ^ 2)
+    
+    ' Test with variables
+    Dim a As Integer
+    Dim b As Integer
+    a = 17
+    b = 5
+    Print "a Mod b = " + CStr(a Mod b)
+    
+    a = 3
+    b = 2
+    Print "a ^ b = " + CStr(a ^ b)
+    
+    ' Test integer division
+    Print "17 \\ 5 = " + CStr(17 \ 5)
+    
+    Print "Done"
+End Sub
+
+End Module

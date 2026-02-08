@@ -28,3 +28,8 @@ End Sub
 Sub mnuHelp_About_Click()
 	MsgBox "My Application v1.0", vbInformation, "About"
 End Sub
+
+Sub Button1_Click()
+	txtTest.Text="Hello World"
+	Print "Button1 Click"
+End Sub

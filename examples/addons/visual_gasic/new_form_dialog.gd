@@ -39,21 +39,13 @@ var _template_lists: Dictionary = {}  # category -> ItemList
 
 func _ready():
 	title = "New Form"
-	min_size = Vector2(420, 380)
-	max_size = Vector2(550, 500)
-	size = Vector2(420, 380)
+	size = Vector2(600, 400)
 	ok_button_text = "Create"
 	
 	_setup_ui()
 	_init_all_templates()
 	_load_custom_templates()
 	_populate_lists()
-	
-	# Force the dialog to respect our size after setup
-	call_deferred("_force_size")
-
-func _force_size():
-	size = Vector2(420, 380)
 
 # =============================================================================
 # UI SETUP
@@ -79,7 +71,7 @@ func _setup_ui():
 	
 	# Tab container for categories
 	_tab_container = TabContainer.new()
-	_tab_container.custom_minimum_size = Vector2(0, 180)
+	_tab_container.custom_minimum_size = Vector2(0, 280)
 	_tab_container.tab_changed.connect(_on_tab_changed)
 	vbox.add_child(_tab_container)
 	
@@ -134,7 +126,7 @@ func _setup_ui():
 	vbox.add_child(lbl_desc_title)
 	
 	_description_label = RichTextLabel.new()
-	_description_label.custom_minimum_size = Vector2(0, 40)
+	_description_label.custom_minimum_size = Vector2(0, 100)
 	_description_label.bbcode_enabled = true
 	_description_label.scroll_active = false
 	_description_label.fit_content = true

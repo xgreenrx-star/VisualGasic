@@ -15,12 +15,10 @@ func _ready() -> void:
 	# This ensures breakpoints work for init code
 	_load_breakpoints_from_file()
 	
-	# NOTE: We do NOT register a message capture here.
-	# C++ (VisualGasicLanguage) registers the "visualgasic" capture and
-	# forwards messages to this script's methods via direct calls.
-	# This avoids the "Capture already registered" error and prevents
-	# GDScript debugger from breaking into this script during step debugging.
-	print("[VisualGasic] Debug handler ready (C++ forwards messages)")
+	# Register our message capture with the engine debugger
+	if EngineDebugger.is_active():
+		EngineDebugger.register_message_capture("visualgasic", _on_debugger_message)
+		print("[VisualGasic] Debug handler registered")
 
 func _load_breakpoints_from_file() -> void:
 	"""Load breakpoints saved by the editor at startup.
@@ -42,16 +40,10 @@ func _load_breakpoints_from_file() -> void:
 				_breakpoints[script_path] = int_lines
 
 func _exit_tree() -> void:
-	# No message capture to unregister - C++ handles it
-	pass
+	if EngineDebugger.is_active():
+		EngineDebugger.unregister_message_capture("visualgasic")
 
 func _on_debugger_message(message: String, data: Array) -> bool:
-	# Skip step debugging commands - they are handled by C++ to avoid GDScript debugger interference
-	if message in ["debug_continue", "debug_step_into", "debug_step_over", "debug_step_out"]:
-		return false  # Let C++ handle these
-	
-	#print("[VGDebugHandler] Received message: ", message)  # Uncomment for debugging
-	
 	match message:
 		"get_instances":
 			_send_instances_list()
@@ -92,6 +84,23 @@ func _on_debugger_message(message: String, data: Array) -> bool:
 				_evaluate_code(data[0], data[1], data[2])
 			return true
 		
+		# Step debugging commands
+		"debug_continue":
+			_debug_continue()
+			return true
+		
+		"debug_step_into":
+			_debug_step_into()
+			return true
+		
+		"debug_step_over":
+			_debug_step_over()
+			return true
+		
+		"debug_step_out":
+			_debug_step_out()
+			return true
+		
 		"get_debug_state":
 			_send_debug_state()
 			return true
@@ -108,27 +117,29 @@ func _set_breakpoints(breakpoints_dict: Dictionary) -> void:
 
 # ============================================================================
 # STEP DEBUGGING
+# These methods are stubs for future implementation when the native
+# extension exposes debug stepping methods.
 # ============================================================================
 
 func _debug_continue() -> void:
 	"""Resume execution after a breakpoint or step."""
-	if ClassDB.class_exists("VisualGasicLanguage"):
-		VisualGasicLanguage.vg_debug_continue()
+	# Debug stepping not yet implemented in native extension
+	pass
 
 func _debug_step_into() -> void:
 	"""Step to the next line, entering function calls."""
-	if ClassDB.class_exists("VisualGasicLanguage"):
-		VisualGasicLanguage.vg_debug_step_into()
+	# Debug stepping not yet implemented in native extension
+	pass
 
 func _debug_step_over() -> void:
 	"""Step to the next line, stepping over function calls."""
-	if ClassDB.class_exists("VisualGasicLanguage"):
-		VisualGasicLanguage.vg_debug_step_over()
+	# Debug stepping not yet implemented in native extension
+	pass
 
 func _debug_step_out() -> void:
 	"""Step out of the current function."""
-	if ClassDB.class_exists("VisualGasicLanguage"):
-		VisualGasicLanguage.vg_debug_step_out()
+	# Debug stepping not yet implemented in native extension
+	pass
 
 func _send_debug_state() -> void:
 	"""Send the current debug state to the editor."""
@@ -137,12 +148,7 @@ func _send_debug_state() -> void:
 		"current_line": 0,
 		"current_file": ""
 	}
-	if ClassDB.class_exists("VisualGasicLanguage"):
-		state["step_mode"] = VisualGasicLanguage.vg_get_step_mode()
-		# Use the stored break location (set before script_debug blocks)
-		state["current_line"] = VisualGasicLanguage.vg_get_break_line()
-		state["current_file"] = VisualGasicLanguage.vg_get_break_file()
-		print("[VGDebugHandler] Sending debug_state: file='", state["current_file"], "' line=", state["current_line"])
+	# Debug state retrieval not yet implemented in native extension
 	EngineDebugger.send_message("visualgasic:debug_state", [state])
 
 func has_breakpoint(script_path: String, line: int) -> bool:

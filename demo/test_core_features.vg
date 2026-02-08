@@ -1,0 +1,457 @@
+' VisualGasic v2.2.2 Core Feature Test
+' Tests confirmed working features
+
+Option Explicit
+
+Dim passCount As Integer
+Dim failCount As Integer
+
+Sub Main()
+    passCount = 0
+    failCount = 0
+    
+    Print "=========================================="
+    Print "  VisualGasic v2.2.2 Core Feature Tests"
+    Print "=========================================="
+    Print ""
+    
+    TestVariables
+    TestArithmetic
+    TestComparisons
+    TestIfThenElse
+    TestForLoops
+    TestWhileLoops
+    TestDoLoops
+    TestStringFunctions
+    TestMathFunctions
+    TestFunctionCalls
+    TestArrays
+    
+    Print ""
+    Print "=========================================="
+    Print "  RESULTS: " & passCount & " PASS, " & failCount & " FAIL"
+    Print "=========================================="
+End Sub
+
+Sub TestVariables()
+    Print "--- Variable Declarations ---"
+    
+    Dim i As Integer
+    Dim s As String
+    Dim b As Boolean
+    Dim d As Double
+    
+    i = 42
+    s = "test"
+    b = True
+    d = 3.14
+    
+    If i = 42 Then
+        Print "  Integer assignment: PASS"
+        passCount = passCount + 1
+    Else
+        Print "  Integer assignment: FAIL"
+        failCount = failCount + 1
+    End If
+    
+    If s = "test" Then
+        Print "  String assignment: PASS"
+        passCount = passCount + 1
+    Else
+        Print "  String assignment: FAIL"
+        failCount = failCount + 1
+    End If
+    
+    If b = True Then
+        Print "  Boolean assignment: PASS"
+        passCount = passCount + 1
+    Else
+        Print "  Boolean assignment: FAIL"
+        failCount = failCount + 1
+    End If
+    
+    Print ""
+End Sub
+
+Sub TestArithmetic()
+    Print "--- Arithmetic Operations ---"
+    
+    Dim result As Integer
+    
+    result = 10 + 5
+    If result = 15 Then
+        Print "  Addition (10+5=15): PASS"
+        passCount = passCount + 1
+    Else
+        Print "  Addition: FAIL (got " & result & ")"
+        failCount = failCount + 1
+    End If
+    
+    result = 10 - 5
+    If result = 5 Then
+        Print "  Subtraction (10-5=5): PASS"
+        passCount = passCount + 1
+    Else
+        Print "  Subtraction: FAIL (got " & result & ")"
+        failCount = failCount + 1
+    End If
+    
+    result = 10 * 5
+    If result = 50 Then
+        Print "  Multiplication (10*5=50): PASS"
+        passCount = passCount + 1
+    Else
+        Print "  Multiplication: FAIL (got " & result & ")"
+        failCount = failCount + 1
+    End If
+    
+    result = 10 / 2
+    If result = 5 Then
+        Print "  Division (10/2=5): PASS"
+        passCount = passCount + 1
+    Else
+        Print "  Division: FAIL (got " & result & ")"
+        failCount = failCount + 1
+    End If
+    
+    Print ""
+End Sub
+
+Sub TestComparisons()
+    Print "--- Comparison Operators ---"
+    
+    If 10 > 5 Then
+        Print "  Greater than (10>5): PASS"
+        passCount = passCount + 1
+    Else
+        Print "  Greater than: FAIL"
+        failCount = failCount + 1
+    End If
+    
+    If 5 < 10 Then
+        Print "  Less than (5<10): PASS"
+        passCount = passCount + 1
+    Else
+        Print "  Less than: FAIL"
+        failCount = failCount + 1
+    End If
+    
+    If 5 = 5 Then
+        Print "  Equal (5=5): PASS"
+        passCount = passCount + 1
+    Else
+        Print "  Equal: FAIL"
+        failCount = failCount + 1
+    End If
+    
+    If 5 <> 10 Then
+        Print "  Not Equal (5<>10): PASS"
+        passCount = passCount + 1
+    Else
+        Print "  Not Equal: FAIL"
+        failCount = failCount + 1
+    End If
+    
+    If 10 >= 10 Then
+        Print "  Greater/Equal (10>=10): PASS"
+        passCount = passCount + 1
+    Else
+        Print "  Greater/Equal: FAIL"
+        failCount = failCount + 1
+    End If
+    
+    If 5 <= 10 Then
+        Print "  Less/Equal (5<=10): PASS"
+        passCount = passCount + 1
+    Else
+        Print "  Less/Equal: FAIL"
+        failCount = failCount + 1
+    End If
+    
+    Print ""
+End Sub
+
+Sub TestIfThenElse()
+    Print "--- If/Then/Else ---"
+    
+    Dim x As Integer
+    x = 10
+    
+    If x = 10 Then
+        Print "  Simple If: PASS"
+        passCount = passCount + 1
+    Else
+        Print "  Simple If: FAIL"
+        failCount = failCount + 1
+    End If
+    
+    If x = 5 Then
+        Print "  If/Else: FAIL"
+        failCount = failCount + 1
+    Else
+        Print "  If/Else branch: PASS"
+        passCount = passCount + 1
+    End If
+    
+    If x > 5 Then
+        If x < 20 Then
+            Print "  Nested If: PASS"
+            passCount = passCount + 1
+        End If
+    End If
+    
+    Print ""
+End Sub
+
+Sub TestForLoops()
+    Print "--- For Loops ---"
+    
+    Dim i As Integer
+    Dim sum As Integer
+    sum = 0
+    
+    For i = 1 To 5
+        sum = sum + i
+    Next
+    
+    If sum = 15 Then
+        Print "  For 1 To 5 sum: PASS"
+        passCount = passCount + 1
+    Else
+        Print "  For loop: FAIL (got " & sum & ")"
+        failCount = failCount + 1
+    End If
+    
+    ' Test with Step
+    sum = 0
+    For i = 0 To 10 Step 2
+        sum = sum + i
+    Next
+    
+    If sum = 30 Then
+        Print "  For Step 2 (0,2,4,6,8,10): PASS"
+        passCount = passCount + 1
+    Else
+        Print "  For Step: FAIL (got " & sum & ", expected 30)"
+        failCount = failCount + 1
+    End If
+    
+    Print ""
+End Sub
+
+Sub TestWhileLoops()
+    Print "--- While/Wend Loops ---"
+    
+    Dim i As Integer
+    Dim count As Integer
+    i = 0
+    count = 0
+    
+    While i < 5
+        count = count + 1
+        i = i + 1
+    Wend
+    
+    If count = 5 Then
+        Print "  While loop count: PASS"
+        passCount = passCount + 1
+    Else
+        Print "  While loop: FAIL (got " & count & ")"
+        failCount = failCount + 1
+    End If
+    
+    Print ""
+End Sub
+
+Sub TestDoLoops()
+    Print "--- Do/Loop ---"
+    
+    Dim i As Integer
+    Dim count As Integer
+    i = 0
+    count = 0
+    
+    Do While i < 3
+        count = count + 1
+        i = i + 1
+    Loop
+    
+    If count = 3 Then
+        Print "  Do While: PASS"
+        passCount = passCount + 1
+    Else
+        Print "  Do While: FAIL (got " & count & ")"
+        failCount = failCount + 1
+    End If
+    
+    i = 0
+    count = 0
+    Do
+        count = count + 1
+        i = i + 1
+    Loop Until i >= 3
+    
+    If count = 3 Then
+        Print "  Do Until: PASS"
+        passCount = passCount + 1
+    Else
+        Print "  Do Until: FAIL (got " & count & ")"
+        failCount = failCount + 1
+    End If
+    
+    Print ""
+End Sub
+
+Sub TestStringFunctions()
+    Print "--- String Functions ---"
+    
+    Dim s As String
+    s = "Hello World"
+    
+    If Len(s) = 11 Then
+        Print "  Len('Hello World'): PASS"
+        passCount = passCount + 1
+    Else
+        Print "  Len: FAIL (got " & Len(s) & ")"
+        failCount = failCount + 1
+    End If
+    
+    If Left(s, 5) = "Hello" Then
+        Print "  Left(s, 5): PASS"
+        passCount = passCount + 1
+    Else
+        Print "  Left: FAIL (got " & Left(s, 5) & ")"
+        failCount = failCount + 1
+    End If
+    
+    If Right(s, 5) = "World" Then
+        Print "  Right(s, 5): PASS"
+        passCount = passCount + 1
+    Else
+        Print "  Right: FAIL (got " & Right(s, 5) & ")"
+        failCount = failCount + 1
+    End If
+    
+    If Mid(s, 7, 5) = "World" Then
+        Print "  Mid(s, 7, 5): PASS"
+        passCount = passCount + 1
+    Else
+        Print "  Mid: FAIL (got " & Mid(s, 7, 5) & ")"
+        failCount = failCount + 1
+    End If
+    
+    If UCase(s) = "HELLO WORLD" Then
+        Print "  UCase: PASS"
+        passCount = passCount + 1
+    Else
+        Print "  UCase: FAIL"
+        failCount = failCount + 1
+    End If
+    
+    If LCase(s) = "hello world" Then
+        Print "  LCase: PASS"
+        passCount = passCount + 1
+    Else
+        Print "  LCase: FAIL"
+        failCount = failCount + 1
+    End If
+    
+    Print ""
+End Sub
+
+Sub TestMathFunctions()
+    Print "--- Math Functions ---"
+    
+    If Abs(-5) = 5 Then
+        Print "  Abs(-5): PASS"
+        passCount = passCount + 1
+    Else
+        Print "  Abs: FAIL"
+        failCount = failCount + 1
+    End If
+    
+    If Int(3.7) = 3 Then
+        Print "  Int(3.7): PASS"
+        passCount = passCount + 1
+    Else
+        Print "  Int: FAIL (got " & Int(3.7) & ")"
+        failCount = failCount + 1
+    End If
+    
+    If Sqr(16) = 4 Then
+        Print "  Sqr(16): PASS"
+        passCount = passCount + 1
+    Else
+        Print "  Sqr: FAIL"
+        failCount = failCount + 1
+    End If
+    
+    Print ""
+End Sub
+
+Sub TestFunctionCalls()
+    Print "--- Function Calls ---"
+    
+    Dim result As Integer
+    result = AddTwo(3, 4)
+    
+    If result = 7 Then
+        Print "  Function call: PASS"
+        passCount = passCount + 1
+    Else
+        Print "  Function call: FAIL (got " & result & ")"
+        failCount = failCount + 1
+    End If
+    
+    result = Factorial(5)
+    If result = 120 Then
+        Print "  Recursive function: PASS"
+        passCount = passCount + 1
+    Else
+        Print "  Recursive: FAIL (got " & result & ")"
+        failCount = failCount + 1
+    End If
+    
+    Print ""
+End Sub
+
+Sub TestArrays()
+    Print "--- Arrays ---"
+    
+    Dim arr(5) As Integer
+    Dim i As Integer
+    
+    For i = 0 To 4
+        arr(i) = i * 10
+    Next
+    
+    If arr(0) = 0 Then
+        Print "  Array index 0: PASS"
+        passCount = passCount + 1
+    Else
+        Print "  Array[0]: FAIL"
+        failCount = failCount + 1
+    End If
+    
+    If arr(3) = 30 Then
+        Print "  Array index 3: PASS"
+        passCount = passCount + 1
+    Else
+        Print "  Array[3]: FAIL (got " & arr(3) & ")"
+        failCount = failCount + 1
+    End If
+    
+    Print ""
+End Sub
+
+Function AddTwo(a As Integer, b As Integer) As Integer
+    AddTwo = a + b
+End Function
+
+Function Factorial(n As Integer) As Integer
+    If n <= 1 Then
+        Factorial = 1
+    Else
+        Factorial = n * Factorial(n - 1)
+    End If
+End Function

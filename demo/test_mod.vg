@@ -1,0 +1,21 @@
+' Test Mod operator
+Option Explicit
+
+Sub Main()
+    Dim a As Integer
+    Dim b As Integer
+    Dim result As Integer
+    
+    a = 10
+    b = 3
+    
+    Print "Testing Mod operator:"
+    result = a Mod b
+    Print "  10 Mod 3 = " & result & " (expected 1)"
+    
+    result = 17 Mod 5
+    Print "  17 Mod 5 = " & result & " (expected 2)"
+    
+    result = 100 Mod 7
+    Print "  100 Mod 7 = " & result & " (expected 2)"
+End Sub

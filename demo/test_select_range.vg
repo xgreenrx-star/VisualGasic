@@ -1,0 +1,89 @@
+' Test Select Case with ranges - full test
+Module TestSelectRange
+
+Sub Main()
+    Print "Testing Select Case with Ranges"
+    Print "================================"
+    
+    Dim grade As String
+    Dim score As Integer
+    
+    ' Test simple value match
+    score = 100
+    Select Case score
+        Case 100
+            grade = "Perfect"
+        Case 90
+            grade = "A"
+        Case Else
+            grade = "Unknown"
+    End Select
+    Print "Test 1 - Score 100 simple: " + grade + " (expected Perfect)"
+    
+    ' Test range matching with variable
+    score = 85
+    Select Case score
+        Case 90 To 100
+            grade = "A"
+        Case 80 To 89
+            grade = "B"
+        Case 70 To 79
+            grade = "C"
+        Case Else
+            grade = "F"
+    End Select
+    Print "Test 2 - Score 85 range: " + grade + " (expected B)"
+    
+    ' Test boundary - lower edge of range
+    score = 80
+    Select Case score
+        Case 90 To 100
+            grade = "A"
+        Case 80 To 89
+            grade = "B"
+        Case Else
+            grade = "F"
+    End Select
+    Print "Test 3 - Score 80 (low bound): " + grade + " (expected B)"
+    
+    ' Test boundary - upper edge of range
+    score = 89
+    Select Case score
+        Case 90 To 100
+            grade = "A"
+        Case 80 To 89
+            grade = "B"
+        Case Else
+            grade = "F"
+    End Select
+    Print "Test 4 - Score 89 (high bound): " + grade + " (expected B)"
+    
+    ' Test falling through to Else
+    score = 50
+    Select Case score
+        Case 90 To 100
+            grade = "A"
+        Case 80 To 89
+            grade = "B"
+        Case Else
+            grade = "F"
+    End Select
+    Print "Test 5 - Score 50 (else): " + grade + " (expected F)"
+    
+    ' Test boundary at 90
+    score = 90
+    Select Case score
+        Case 90 To 100
+            grade = "A"
+        Case 80 To 89
+            grade = "B"
+        Case Else
+            grade = "F"
+    End Select
+    Print "Test 6 - Score 90 (boundary): " + grade + " (expected A)"
+    
+    Print "================================"
+    Print "All Select Case Tests Complete"
+End Sub
+
+End Module

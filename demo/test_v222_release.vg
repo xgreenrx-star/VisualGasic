@@ -1,0 +1,112 @@
+' VisualGasic v2.2.2 Release Test Suite
+' Tests core functionality after bugfix
+
+Option Explicit
+
+' Test 1: Variable declarations
+Dim testInt As Integer
+Dim testStr As String
+Dim testBool As Boolean
+Dim testDouble As Double
+
+Sub Main()
+    Print "=== VisualGasic v2.2.2 Release Tests ==="
+    Print ""
+    
+    ' Test basic assignments
+    testInt = 42
+    testStr = "Hello World"
+    testBool = True
+    testDouble = 3.14159
+    
+    Print "Test 1 - Basic Variables:"
+    Print "  Integer: " & testInt
+    Print "  String: " & testStr
+    Print "  Boolean: " & testBool
+    Print "  Double: " & testDouble
+    Print ""
+    
+    ' Test arithmetic
+    Dim a As Integer
+    Dim b As Integer
+    Dim result As Integer
+    a = 10
+    b = 5
+    
+    Print "Test 2 - Arithmetic:"
+    result = a + b
+    Print "  10 + 5 = " & result
+    result = a - b
+    Print "  10 - 5 = " & result
+    result = a * b
+    Print "  10 * 5 = " & result
+    result = a / b
+    Print "  10 / 5 = " & result
+    result = a Mod 3
+    Print "  10 Mod 3 = " & result
+    Print ""
+    
+    ' Test control flow
+    Print "Test 3 - If/Then/Else:"
+    If a > b Then
+        Print "  10 > 5: PASS"
+    Else
+        Print "  10 > 5: FAIL"
+    End If
+    
+    If testBool Then
+        Print "  Boolean True check: PASS"
+    End If
+    Print ""
+    
+    ' Test For loop
+    Print "Test 4 - For Loop:"
+    Dim i As Integer
+    Dim sum As Integer
+    sum = 0
+    For i = 1 To 5
+        sum = sum + i
+    Next
+    Print "  Sum of 1-5 = " & sum & " (expected 15)"
+    Print ""
+    
+    ' Test string functions
+    Print "Test 5 - String Functions:"
+    Dim s As String
+    s = "VisualGasic"
+    Print "  Len('VisualGasic') = " & Len(s)
+    Print "  Left('VisualGasic', 6) = " & Left(s, 6)
+    Print "  Right('VisualGasic', 5) = " & Right(s, 5)
+    Print "  Mid('VisualGasic', 7, 5) = " & Mid(s, 7, 5)
+    Print "  UCase('VisualGasic') = " & UCase(s)
+    Print ""
+    
+    ' Test function call
+    Print "Test 6 - Function Call:"
+    Dim funcResult As Integer
+    funcResult = AddNumbers(7, 8)
+    Print "  AddNumbers(7, 8) = " & funcResult
+    Print ""
+    
+    ' Test Select Case
+    Print "Test 7 - Select Case:"
+    Dim grade As Integer
+    grade = 85
+    Select Case grade
+        Case 90 To 100
+            Print "  Grade 85: A"
+        Case 80 To 89
+            Print "  Grade 85: B (PASS)"
+        Case 70 To 79
+            Print "  Grade 85: C"
+        Case Else
+            Print "  Grade 85: F"
+    End Select
+    Print ""
+    
+    Print "=== All Tests Complete ==="
+End Sub
+
+Function AddNumbers(x As Integer, y As Integer) As Integer
+    AddNumbers = x + y
+End Function
