@@ -1,0 +1,65 @@
+' Test type checking functions
+Module TestTypeChecking
+
+Sub Main()
+    Print "=== Type Checking Functions Tests ==="
+    
+    ' Test IsDate
+    Print ""
+    Print "--- IsDate ---"
+    Dim dateStr1 As String
+    Dim dateStr2 As String
+    Dim notDate As String
+    dateStr1 = "1/15/2024"
+    dateStr2 = "2024-01-15"
+    notDate = "Hello"
+    
+    Print "IsDate(dateStr1 '1/15/2024') = " & IsDate(dateStr1)
+    Print "IsDate(dateStr2 '2024-01-15') = " & IsDate(dateStr2)
+    Print "IsDate(notDate 'Hello') = " & IsDate(notDate)
+    Print "IsDate(123) = " & IsDate(123)
+    Print "IsDate(empty string) = " & IsDate("")
+    
+    ' Test IsEmpty
+    Print ""
+    Print "--- IsEmpty ---"
+    Dim emptyVar As Variant
+    Print "IsEmpty(uninitialized Variant) = " & IsEmpty(emptyVar)
+    emptyVar = 0
+    Print "IsEmpty(0) = " & IsEmpty(emptyVar)
+    emptyVar = ""
+    Print "IsEmpty(empty string) = " & IsEmpty(emptyVar)
+    emptyVar = "Hello"
+    Print "IsEmpty('Hello') = " & IsEmpty(emptyVar)
+    
+    ' Test IsNull
+    Print ""
+    Print "--- IsNull ---"
+    Dim nullVar As Variant
+    Print "IsNull(uninitialized) = " & IsNull(nullVar)
+    nullVar = Nothing
+    Print "IsNull(Nothing) = " & IsNull(nullVar)
+    nullVar = 0
+    Print "IsNull(0) = " & IsNull(nullVar)
+    nullVar = ""
+    Print "IsNull(empty string) = " & IsNull(nullVar)
+    
+    ' Test IsObject
+    Print ""
+    Print "--- IsObject ---"
+    Dim obj As Object
+    Print "IsObject(uninitialized obj) = " & IsObject(obj)
+    Print "IsObject(123) = " & IsObject(123)
+    Dim str As String
+    str = "text"
+    Print "IsObject(string) = " & IsObject(str)
+    
+    ' Test with arrays
+    Dim arr(5) As Integer
+    Print "IsObject(array) = " & IsObject(arr)
+    
+    Print ""
+    Print "=== Tests Complete ==="
+End Sub
+
+End Module

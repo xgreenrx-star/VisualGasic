@@ -202,8 +202,43 @@ Variant VisualGasicExpressionEvaluator::evaluate(ExpressionNode* expr, Context& 
         return Variant();
     }
     if (expr->type == ExpressionNode::EXPRESSION_CALL) {
-        // Only a minimal stub for now; full port would require more context
-        // In production, this would handle method calls, built-ins, etc.
+        CallExpression* call = (CallExpression*)expr;
+        
+        // Check if it is an array access (variable with parentheses)
+        if (!call->base_object && ctx.variables.has(call->method_name)) {
+            Variant v = ctx.variables[call->method_name];
+            
+            if (v.get_type() == Variant::ARRAY) {
+                // Multidimensional array read
+                Variant current = v;
+                for (int i = 0; i < call->arguments.size(); i++) {
+                    if (current.get_type() != Variant::ARRAY) {
+                        return Variant();
+                    }
+                    Array arr = current;
+                    Variant idx_var = evaluate(call->arguments[i], ctx);
+                    int idx = (int)idx_var;
+                    if (idx >= 0 && idx < arr.size()) {
+                        current = arr[idx];
+                    } else {
+                        UtilityFunctions::print("Array subscript out of range");
+                        return Variant();
+                    }
+                }
+                return current;
+            }
+            
+            if (v.get_type() == Variant::DICTIONARY) {
+                Dictionary d = v;
+                if (call->arguments.size() == 1) {
+                    Variant key = evaluate(call->arguments[0], ctx);
+                    if (d.has(key)) return d[key];
+                }
+                return Variant();
+            }
+        }
+        
+        // For other EXPRESSION_CALL nodes, return null (these should be handled by the main evaluator)
         return Variant();
     }
     if (expr->type == ExpressionNode::UNARY_OP) {

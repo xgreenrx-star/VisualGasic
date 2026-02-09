@@ -1,0 +1,51 @@
+' Test CByte and CDate conversion functions
+Option Explicit
+
+Sub Main()
+    Dim b As Integer
+    Dim d As Double
+    
+    ' Test CByte
+    Print "=== CByte Tests ==="
+    
+    ' Normal conversion
+    b = CByte(100)
+    Print "CByte(100) = " & CStr(b) & " (expected: 100)"
+    
+    b = CByte(255)
+    Print "CByte(255) = " & CStr(b) & " (expected: 255)"
+    
+    b = CByte(0)
+    Print "CByte(0) = " & CStr(b) & " (expected: 0)"
+    
+    ' Rounding
+    b = CByte(100.7)
+    Print "CByte(100.7) = " & CStr(b) & " (expected: 100 or 101)"
+    
+    ' Clamping - below 0
+    b = CByte(-5)
+    Print "CByte(-5) = " & CStr(b) & " (expected: 0, clamped)"
+    
+    ' Clamping - above 255
+    b = CByte(300)
+    Print "CByte(300) = " & CStr(b) & " (expected: 255, clamped)"
+    
+    ' Test CDate
+    Print ""
+    Print "=== CDate Tests ==="
+    
+    ' Parse ISO date string
+    d = CDate("2026-02-08")
+    Print "CDate('2026-02-08') = " & CStr(d) & " (Unix timestamp)"
+    
+    ' Parse with time
+    d = CDate("2026-02-08T12:30:00")
+    Print "CDate('2026-02-08T12:30:00') = " & CStr(d) & " (Unix timestamp)"
+    
+    ' Number passthrough
+    d = CDate(1707350400)
+    Print "CDate(1707350400) = " & CStr(d) & " (expected: 1707350400)"
+    
+    Print ""
+    Print "CByte and CDate test complete!"
+End Sub

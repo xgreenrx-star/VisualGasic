@@ -1,0 +1,373 @@
+' Test all VB6 Control Types
+' Tests that each control type can be accessed and properties can be read/written
+' Uses CreateNode() to create Godot controls programmatically
+
+Dim passCount As Integer
+Dim failCount As Integer
+
+Sub Main()
+    Print "=== VB6 Control Types Test ==="
+    Print ""
+    
+    passCount = 0
+    failCount = 0
+    
+    ' Test Button
+    TestButton
+    
+    ' Test Label
+    TestLabel
+    
+    ' Test TextBox (LineEdit)
+    TestTextBox
+    
+    ' Test TextArea (TextEdit)
+    TestTextArea
+    
+    ' Test CheckBox
+    TestCheckBox
+    
+    ' Test OptionButton (ComboBox in Godot)
+    TestComboBox
+    
+    ' Test ListBox (ItemList)
+    TestListBox
+    
+    ' Test HScrollBar/VScrollBar (HSlider/VSlider)
+    TestScrollBars
+    
+    ' Test ProgressBar
+    TestProgressBar
+    
+    ' Test Timer
+    TestTimer
+    
+    ' Test PictureBox (TextureRect)
+    TestPictureBox
+    
+    ' Test Frame/GroupBox (Panel)
+    TestFrame
+    
+    Print ""
+    Print "=== Control Types Test Complete ==="
+    Print "Passed: " & passCount
+    Print "Failed: " & failCount
+End Sub
+
+Sub TestButton()
+    Print "--- Button (Godot: Button) ---"
+    
+    ' Create Button using CreateNode
+    Dim btn As Object
+    Set btn = CreateNode("Button")
+    
+    ' Test Caption/Text
+    btn.Text = "Click Me"
+    AssertEqual btn.Text, "Click Me", "Button.Text set/get"
+    
+    ' Test Caption alias
+    btn.Caption = "Press Here"
+    AssertEqual btn.Caption, "Press Here", "Button.Caption alias"
+    
+    ' Test Visible
+    btn.Visible = False
+    AssertEqual btn.Visible, False, "Button.Visible = False"
+    btn.Visible = True
+    AssertEqual btn.Visible, True, "Button.Visible = True"
+    
+    ' Test Enabled
+    btn.Enabled = False
+    AssertEqual btn.Enabled, False, "Button.Enabled = False"
+    btn.Enabled = True
+    AssertEqual btn.Enabled, True, "Button.Enabled = True"
+    
+    ' Test Position
+    btn.Left = 50
+    btn.Top = 100
+    AssertEqual btn.Left, 50, "Button.Left"
+    AssertEqual btn.Top, 100, "Button.Top"
+    
+    ' Test Size
+    btn.Width = 200
+    btn.Height = 40
+    AssertEqual btn.Width, 200, "Button.Width"
+    AssertEqual btn.Height, 40, "Button.Height"
+    
+    btn.queue_free()
+    Print ""
+End Sub
+
+Sub TestLabel()
+    Print "--- Label (Godot: Label) ---"
+    
+    Dim lbl As Object
+    Set lbl = CreateNode("Label")
+    
+    ' Test Caption
+    lbl.Caption = "Hello World"
+    AssertEqual lbl.Caption, "Hello World", "Label.Caption"
+    
+    ' Test Text alias
+    lbl.Text = "Goodbye World"
+    AssertEqual lbl.Text, "Goodbye World", "Label.Text alias"
+    
+    ' Test Visible
+    lbl.Visible = False
+    AssertEqual lbl.Visible, False, "Label.Visible"
+    
+    lbl.queue_free()
+    Print ""
+End Sub
+
+Sub TestTextBox()
+    Print "--- TextBox (Godot: LineEdit) ---"
+    
+    Dim txt As Object
+    Set txt = CreateNode("LineEdit")
+    
+    ' Test Text
+    txt.Text = "Hello"
+    AssertEqual txt.Text, "Hello", "TextBox.Text"
+    
+    ' Test Enabled
+    txt.Enabled = False
+    AssertEqual txt.Enabled, False, "TextBox.Enabled"
+    txt.Enabled = True
+    
+    ' Test size
+    txt.Width = 150
+    txt.Height = 30
+    AssertEqual txt.Width, 150, "TextBox.Width"
+    AssertEqual txt.Height, 30, "TextBox.Height"
+    
+    txt.queue_free()
+    Print ""
+End Sub
+
+Sub TestTextArea()
+    Print "--- TextArea (Godot: TextEdit) ---"
+    
+    Dim txt As Object
+    Set txt = CreateNode("TextEdit")
+    
+    ' Test Text
+    txt.Text = "Line 1" & vbCrLf & "Line 2"
+    AssertEqual Left(txt.Text, 6), "Line 1", "TextArea.Text"
+    
+    ' Test Visible
+    txt.Visible = True
+    AssertEqual txt.Visible, True, "TextArea.Visible"
+    
+    txt.queue_free()
+    Print ""
+End Sub
+
+Sub TestCheckBox()
+    Print "--- CheckBox (Godot: CheckBox) ---"
+    
+    Dim chk As Object
+    Set chk = CreateNode("CheckBox")
+    
+    ' Test Caption
+    chk.Caption = "Enable Feature"
+    AssertEqual chk.Caption, "Enable Feature", "CheckBox.Caption"
+    
+    ' Test Value (mapped to button_pressed)
+    chk.button_pressed = True
+    AssertEqual chk.button_pressed, True, "CheckBox.button_pressed"
+    
+    ' Test Enabled
+    chk.Enabled = False
+    AssertEqual chk.Enabled, False, "CheckBox.Enabled"
+    
+    chk.queue_free()
+    Print ""
+End Sub
+
+Sub TestComboBox()
+    Print "--- ComboBox (Godot: OptionButton) ---"
+    
+    Dim cmb As Object
+    Set cmb = CreateNode("OptionButton")
+    
+    ' Add items
+    cmb.add_item("Item 1")
+    cmb.add_item("Item 2")
+    cmb.add_item("Item 3")
+    
+    ' Test item count
+    AssertEqual cmb.item_count, 3, "ComboBox.item_count"
+    
+    ' Test selected
+    cmb.selected = 1
+    AssertEqual cmb.selected, 1, "ComboBox.selected"
+    
+    ' Test Visible
+    cmb.Visible = True
+    AssertEqual cmb.Visible, True, "ComboBox.Visible"
+    
+    cmb.queue_free()
+    Print ""
+End Sub
+
+Sub TestListBox()
+    Print "--- ListBox (Godot: ItemList) ---"
+    
+    Dim lst As Object
+    Set lst = CreateNode("ItemList")
+    
+    ' Add items
+    lst.add_item("Apple")
+    lst.add_item("Banana")
+    lst.add_item("Cherry")
+    
+    ' Test item count
+    AssertEqual lst.item_count, 3, "ListBox.item_count"
+    
+    ' Test get item text
+    AssertEqual lst.get_item_text(0), "Apple", "ListBox.get_item_text(0)"
+    AssertEqual lst.get_item_text(1), "Banana", "ListBox.get_item_text(1)"
+    
+    ' Test Visible
+    lst.Visible = True
+    AssertEqual lst.Visible, True, "ListBox.Visible"
+    
+    lst.queue_free()
+    Print ""
+End Sub
+
+Sub TestScrollBars()
+    Print "--- HScrollBar/VScrollBar (Godot: HSlider/VSlider) ---"
+    
+    ' Test HSlider (HScrollBar)
+    Dim hscroll As Object
+    Set hscroll = CreateNode("HSlider")
+    
+    hscroll.Value = 50
+    AssertEqual hscroll.Value, 50, "HScrollBar.Value"
+    
+    hscroll.min_value = 0
+    hscroll.max_value = 100
+    AssertEqual hscroll.min_value, 0, "HScrollBar.min_value"
+    AssertEqual hscroll.max_value, 100, "HScrollBar.max_value"
+    
+    hscroll.queue_free()
+    
+    ' Test VSlider (VScrollBar)
+    Dim vscroll As Object
+    Set vscroll = CreateNode("VSlider")
+    
+    vscroll.Value = 75
+    AssertEqual vscroll.Value, 75, "VScrollBar.Value"
+    
+    vscroll.queue_free()
+    Print ""
+End Sub
+
+Sub TestProgressBar()
+    Print "--- ProgressBar (Godot: ProgressBar) ---"
+    
+    Dim pbar As Object
+    Set pbar = CreateNode("ProgressBar")
+    
+    ' Test Value
+    pbar.Value = 50
+    AssertEqual pbar.Value, 50, "ProgressBar.Value"
+    
+    ' Test min/max
+    pbar.min_value = 0
+    pbar.max_value = 100
+    AssertEqual pbar.min_value, 0, "ProgressBar.min_value"
+    AssertEqual pbar.max_value, 100, "ProgressBar.max_value"
+    
+    ' Test Visible
+    pbar.Visible = True
+    AssertEqual pbar.Visible, True, "ProgressBar.Visible"
+    
+    pbar.queue_free()
+    Print ""
+End Sub
+
+Sub TestTimer()
+    Print "--- Timer (Godot: Timer) ---"
+    
+    Dim tmr As Object
+    Set tmr = CreateNode("Timer")
+    
+    ' Test wait_time (VB6: Interval)
+    tmr.wait_time = 1.5
+    AssertEqual tmr.wait_time, 1.5, "Timer.wait_time"
+    
+    ' Test one_shot
+    tmr.one_shot = True
+    AssertEqual tmr.one_shot, True, "Timer.one_shot"
+    
+    ' Test autostart
+    tmr.autostart = False
+    AssertEqual tmr.autostart, False, "Timer.autostart"
+    
+    tmr.queue_free()
+    Print ""
+End Sub
+
+Sub TestPictureBox()
+    Print "--- PictureBox (Godot: TextureRect) ---"
+    
+    Dim pic As Object
+    Set pic = CreateNode("TextureRect")
+    
+    ' Test Visible
+    pic.Visible = True
+    AssertEqual pic.Visible, True, "PictureBox.Visible"
+    
+    ' Test position
+    pic.Left = 10
+    pic.Top = 20
+    AssertEqual pic.Left, 10, "PictureBox.Left"
+    AssertEqual pic.Top, 20, "PictureBox.Top"
+    
+    ' Test size
+    pic.Width = 100
+    pic.Height = 100
+    AssertEqual pic.Width, 100, "PictureBox.Width"
+    AssertEqual pic.Height, 100, "PictureBox.Height"
+    
+    pic.queue_free()
+    Print ""
+End Sub
+
+Sub TestFrame()
+    Print "--- Frame/GroupBox (Godot: Panel) ---"
+    
+    Dim frm As Object
+    Set frm = CreateNode("Panel")
+    
+    ' Test Visible
+    frm.Visible = True
+    AssertEqual frm.Visible, True, "Frame.Visible"
+    
+    ' Test position
+    frm.Left = 50
+    frm.Top = 50
+    AssertEqual frm.Left, 50, "Frame.Left"
+    AssertEqual frm.Top, 50, "Frame.Top"
+    
+    ' Test size
+    frm.Width = 200
+    frm.Height = 150
+    AssertEqual frm.Width, 200, "Frame.Width"
+    AssertEqual frm.Height, 150, "Frame.Height"
+    
+    frm.queue_free()
+    Print ""
+End Sub
+
+Sub AssertEqual(actual, expected, testName As String)
+    If actual = expected Then
+        Print "[PASS] " & testName
+        passCount = passCount + 1
+    Else
+        Print "[FAIL] " & testName & " - Expected: " & expected & ", Got: " & actual
+        failCount = failCount + 1
+    End If
+End Sub

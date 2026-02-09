@@ -18,6 +18,7 @@
 #include <godot_cpp/classes/display_server.hpp>
 #include <godot_cpp/classes/os.hpp>
 #include <godot_cpp/classes/input.hpp>
+#include <godot_cpp/classes/time.hpp>
 #include <godot_cpp/classes/tree.hpp>
 #include <godot_cpp/classes/tree_item.hpp>
 #include <godot_cpp/variant/packed_int64_array.hpp>
@@ -255,7 +256,9 @@ Variant call_builtin_expr(VisualGasicInstance *instance, CallExpression *call, b
     if (name == "Str" && args.size() == 1) { r_handled = true; return variant_to_cstr(args[0]); }
     if (name.nocasecmp_to("CStr") == 0 && args.size() == 1) { r_handled = true; return variant_to_cstr(args[0]); }
     if (name == "Val" && args.size() == 1) { r_handled = true; String s = args[0]; if (s.is_valid_float()) return s.to_float(); if (s.is_valid_int()) return s.to_int(); return 0.0; }
+    if (METHOD_IS("strcomp") && args.size() >= 2) { r_handled = true; String s1 = args[0]; String s2 = args[1]; int mode = (args.size() >= 3) ? (int)args[2] : 0; int cmp = (mode == 1) ? s1.nocasecmp_to(s2) : s1.casecmp_to(s2); if (cmp < 0) return (int64_t)-1; if (cmp > 0) return (int64_t)1; return (int64_t)0; }
     if (METHOD_IS("instr") && args.size() == 2) { r_handled = true; String s1 = args[0]; String s2 = args[1]; int pos = s1.find(s2); if (pos==-1) return 0; return pos+1; }
+    if (METHOD_IS("instrrev") && args.size() >= 2) { r_handled = true; String s1 = args[0]; String s2 = args[1]; int start = (args.size() >= 3) ? (int)args[2] - 1 : s1.length() - 1; if (start < 0 || start >= s1.length()) start = s1.length() - 1; int pos = s1.rfind(s2, start); if (pos == -1) return 0; return pos + 1; }
     if (METHOD_IS("replace") && args.size() == 3) { r_handled = true; return String(args[0]).replace(String(args[1]), String(args[2])); }
     if (METHOD_IS("trim") && args.size() == 1) { r_handled = true; return String(args[0]).strip_edges(); }
     if (METHOD_IS("ltrim") && args.size() == 1) { r_handled = true; return String(args[0]).strip_edges(true,false); }
@@ -402,6 +405,19 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
         if (arg <= 0) return 0.0;
         return UtilityFunctions::randf();
     }
+    if (METHOD_IS("randomize") && args.size() == 0) {
+        r_handled = true;
+        // Use current time as seed
+        UtilityFunctions::randomize();
+        return Variant();
+    }
+    if (METHOD_IS("randomize") && args.size() == 1) {
+        r_handled = true;
+        // Use provided seed value
+        int64_t seed_val = (int64_t)args[0];
+        UtilityFunctions::seed(seed_val);
+        return Variant();
+    }
 
     if (METHOD_IS("benchfileiofast") && args.size() == 2) {
         r_handled = true;
@@ -453,6 +469,32 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
     if (METHOD_IS("str") && args.size() == 1) { r_handled = true; return variant_to_cstr(args[0]); }
     if (METHOD_IS("cstr") && args.size() == 1) { r_handled = true; return variant_to_cstr(args[0]); }
     if (METHOD_IS("val") && args.size() == 1) { r_handled = true; String s = args[0]; if (s.is_valid_float()) return s.to_float(); if (s.is_valid_int()) return s.to_int(); return 0.0; }
+    if (METHOD_IS("strcomp") && args.size() >= 2) { r_handled = true; String s1 = args[0]; String s2 = args[1]; int mode = (args.size() >= 3) ? (int)args[2] : 0; int cmp = (mode == 1) ? s1.nocasecmp_to(s2) : s1.casecmp_to(s2); if (cmp < 0) return (int64_t)-1; if (cmp > 0) return (int64_t)1; return (int64_t)0; }
+    if (METHOD_IS("instr") && args.size() == 2) { r_handled = true; String s1 = args[0]; String s2 = args[1]; int pos = s1.find(s2); if (pos==-1) return 0; return pos+1; }
+    if (METHOD_IS("instrrev") && args.size() >= 2) { r_handled = true; String s1 = args[0]; String s2 = args[1]; int start = (args.size() >= 3) ? (int)args[2] - 1 : s1.length() - 1; if (start < 0 || start >= s1.length()) start = s1.length() - 1; int pos = s1.rfind(s2, start); if (pos == -1) return 0; return pos + 1; }
+    if (METHOD_IS("replace") && args.size() == 3) { r_handled = true; return String(args[0]).replace(String(args[1]), String(args[2])); }
+    if (METHOD_IS("trim") && args.size() == 1) { r_handled = true; return String(args[0]).strip_edges(); }
+    if (METHOD_IS("ltrim") && args.size() == 1) { r_handled = true; return String(args[0]).strip_edges(true,false); }
+    if (METHOD_IS("rtrim") && args.size() == 1) { r_handled = true; return String(args[0]).strip_edges(false,true); }
+    if (METHOD_IS("strreverse") && args.size() == 1) { r_handled = true; String s = args[0]; String res=""; for(int i=s.length()-1;i>=0;i--) res += s[i]; return res; }
+    if (METHOD_IS("hex") && args.size() == 1) { r_handled = true; int64_t val = (int64_t)args[0]; return String::num_int64(val,16).to_upper(); }
+    if (METHOD_IS("oct") && args.size() == 1) { r_handled = true; int64_t val = (int64_t)args[0]; return String::num_int64(val,8); }
+    if (METHOD_IS("split") && args.size() >= 2) { r_handled = true; return String(args[0]).split(String(args[1])); }
+    if (METHOD_IS("join") && args.size() == 2) {
+        r_handled = true;
+        Variant v = args[0];
+        if (v.get_type() == Variant::PACKED_STRING_ARRAY) {
+            PackedStringArray psa = v;
+            return String(args[1]).join(psa);
+        }
+        if (v.get_type() == Variant::ARRAY) {
+            Array arr = v;
+            PackedStringArray psa;
+            for (int i=0;i<arr.size();i++) psa.push_back((String)arr[i]);
+            return String(args[1]).join(psa);
+        }
+        return String();
+    }
 
     // Math Library
     if (METHOD_IS("sin") && args.size() == 1) { r_handled = true; return UtilityFunctions::sin(args[0]); }
@@ -470,6 +512,8 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
     if (METHOD_IS("sgn") && args.size() == 1) { r_handled = true; double d = (double)args[0]; if (d>0) return (int64_t)1; if (d<0) return (int64_t)-1; return (int64_t)0; }
     if (METHOD_IS("int") && args.size() == 1) { r_handled = true; if (args[0].get_type() == Variant::INT) return (int64_t)args[0]; return UtilityFunctions::floor(args[0]); }
     if (METHOD_IS("rnd") && (args.size() == 0 || args.size() == 1)) { r_handled = true; return UtilityFunctions::randf(); }
+    if (METHOD_IS("randomize") && args.size() == 0) { r_handled = true; UtilityFunctions::randomize(); return Variant(); }
+    if (METHOD_IS("randomize") && args.size() == 1) { r_handled = true; UtilityFunctions::seed((int64_t)args[0]); return Variant(); }
     if (METHOD_IS("fix") && args.size() == 1) { r_handled = true; double v = (double)args[0]; return v < 0 ? ceil(v) : floor(v); }
 
     if (METHOD_IS("round") && args.size() >= 1) {
@@ -495,6 +539,25 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
     if (METHOD_IS("csng") && args.size() == 1) { r_handled = true; return (double)args[0]; }
     if (METHOD_IS("cdbl") && args.size() == 1) { r_handled = true; return (double)args[0]; }
     if (METHOD_IS("cbool") && args.size() == 1) { r_handled = true; return (bool)args[0]; }
+    if (METHOD_IS("cbyte") && args.size() == 1) { r_handled = true; int64_t v = (int64_t)args[0]; if (v < 0) v = 0; if (v > 255) v = 255; return v; }
+    if (METHOD_IS("cdate") && args.size() == 1) {
+        r_handled = true;
+        // VB6 CDate converts various inputs to a date serial number
+        // In Godot, we'll use Unix timestamp as the date representation
+        Variant arg = args[0];
+        if (arg.get_type() == Variant::STRING) {
+            // Try to parse date string - for now return current time if parsing fails
+            String s = arg;
+            // Simple ISO format parsing: "YYYY-MM-DD" or similar
+            Dictionary dt = Time::get_singleton()->get_datetime_dict_from_datetime_string(s, false);
+            if (dt.size() > 0) {
+                return Time::get_singleton()->get_unix_time_from_datetime_dict(dt);
+            }
+            return Time::get_singleton()->get_unix_time_from_system();
+        }
+        // If it's already a number, treat it as a Unix timestamp
+        return (double)arg;
+    }
 
     if (METHOD_IS("lerp") && args.size() == 3) { r_handled = true; double a = args[0]; double b = args[1]; double t = args[2]; return Math::lerp(a,b,t); }
     if (METHOD_IS("clamp") && args.size() == 3) { r_handled = true; double val = args[0]; double mn = args[1]; double mx = args[2]; return Math::clamp(val,mn,mx); }
@@ -1025,6 +1088,755 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
         return Variant::get_type_name(args[0].get_type());
     }
     
+    // VB6 type checking functions
+    if (METHOD_IS("isnumeric") && args.size() == 1) {
+        r_handled = true;
+        Variant v = args[0];
+        if (v.get_type() == Variant::INT || v.get_type() == Variant::FLOAT) return true;
+        if (v.get_type() == Variant::STRING) {
+            String s = String(v).strip_edges();
+            if (s.is_empty()) return false;
+            return s.is_valid_float() || s.is_valid_int();
+        }
+        return false;
+    }
+    
+    // IsDate - checks if value can be converted to a date
+    if (METHOD_IS("isdate") && args.size() == 1) {
+        r_handled = true;
+        Variant v = args[0];
+        // In VB6, IsDate returns True if the expression can be converted to a date
+        if (v.get_type() == Variant::NIL) return false;
+        if (v.get_type() == Variant::STRING) {
+            String s = String(v).strip_edges();
+            if (s.is_empty()) return false;
+            // Try to parse common date formats
+            // VB6 accepts formats like "1/1/2000", "January 1, 2000", "2000-01-01"
+            // For simplicity, check if it contains date-like patterns
+            // Godot doesn't have built-in date parsing, so we'll do basic checks
+            if (s.contains("/") || s.contains("-")) {
+                // Check for numeric date pattern like 1/1/2000 or 2000-01-01
+                PackedStringArray parts;
+                if (s.contains("/")) parts = s.split("/");
+                else parts = s.split("-");
+                if (parts.size() >= 3) {
+                    bool all_numeric = true;
+                    for (int i = 0; i < parts.size() && i < 3; i++) {
+                        if (!parts[i].strip_edges().is_valid_int()) {
+                            all_numeric = false;
+                            break;
+                        }
+                    }
+                    return all_numeric;
+                }
+            }
+            return false;
+        }
+        // Godot doesn't have a native Date type, but INT/FLOAT could be Unix timestamps
+        if (v.get_type() == Variant::INT || v.get_type() == Variant::FLOAT) {
+            // Consider numbers as potentially valid date serials (VB6 stores dates as doubles)
+            return true;
+        }
+        return false;
+    }
+    
+    // IsEmpty - checks if variable is uninitialized (Empty in VB6)
+    if (METHOD_IS("isempty") && args.size() == 1) {
+        r_handled = true;
+        Variant v = args[0];
+        // In VB6, Empty is the uninitialized state of a Variant
+        // It's different from Null - Empty means "no value assigned yet"
+        if (v.get_type() == Variant::NIL) return true;
+        // Empty string is also considered "empty" in VB6 context
+        if (v.get_type() == Variant::STRING && String(v).is_empty()) return true;
+        // Zero numeric values are NOT empty in VB6 (0 is a value)
+        return false;
+    }
+    
+    // IsNull - checks if value is Null
+    if (METHOD_IS("isnull") && args.size() == 1) {
+        r_handled = true;
+        Variant v = args[0];
+        // In VB6, Null represents "no valid data" - distinct from Empty
+        // In Godot/VisualGasic, NIL is the closest equivalent
+        return v.get_type() == Variant::NIL;
+    }
+    
+    // IsObject - checks if value is an object reference
+    if (METHOD_IS("isobject") && args.size() == 1) {
+        r_handled = true;
+        Variant v = args[0];
+        // Returns True if the expression represents an Object variable
+        return v.get_type() == Variant::OBJECT || v.get_type() == Variant::DICTIONARY;
+    }
+    
+    if (METHOD_IS("vartype") && args.size() == 1) {
+        r_handled = true;
+        // VB6 VarType constants: vbEmpty=0, vbNull=1, vbInteger=2, vbLong=3, vbSingle=4, vbDouble=5, vbString=8, vbObject=9, vbBoolean=11, vbVariant=12, vbArray=8192
+        Variant::Type t = args[0].get_type();
+        switch (t) {
+            case Variant::NIL: return 1;  // vbNull
+            case Variant::BOOL: return 11;  // vbBoolean
+            case Variant::INT: return 3;  // vbLong
+            case Variant::FLOAT: return 5;  // vbDouble
+            case Variant::STRING: return 8;  // vbString
+            case Variant::OBJECT: return 9;  // vbObject
+            case Variant::ARRAY: return 8192 + 12;  // vbArray + vbVariant
+            case Variant::DICTIONARY: return 9;  // vbObject (closest match)
+            default: return 0;  // vbEmpty
+        }
+    }
+    
+    // ============================================
+    // Date/Time Functions (VB6 compatible)
+    // ============================================
+    
+    // Now - returns current date/time as a string (VB6 compatible format)
+    if (METHOD_IS("now") && args.size() == 0) {
+        r_handled = true;
+        Dictionary datetime = Time::get_singleton()->get_datetime_dict_from_system();
+        int year = (int)datetime["year"];
+        int month = (int)datetime["month"];
+        int day = (int)datetime["day"];
+        int hour = (int)datetime["hour"];
+        int minute = (int)datetime["minute"];
+        int second = (int)datetime["second"];
+        // Format: MM/DD/YYYY HH:MM:SS AM/PM (VB6 style)
+        String ampm = hour >= 12 ? "PM" : "AM";
+        int hour12 = hour % 12;
+        if (hour12 == 0) hour12 = 12;
+        return String::num_int64(month) + "/" + String::num_int64(day) + "/" + String::num_int64(year) + " " +
+               String::num_int64(hour12) + ":" + (minute < 10 ? "0" : "") + String::num_int64(minute) + ":" + 
+               (second < 10 ? "0" : "") + String::num_int64(second) + " " + ampm;
+    }
+    
+    // Date - returns current date as string
+    if (METHOD_IS("date") && args.size() == 0) {
+        r_handled = true;
+        Dictionary datetime = Time::get_singleton()->get_datetime_dict_from_system();
+        int year = (int)datetime["year"];
+        int month = (int)datetime["month"];
+        int day = (int)datetime["day"];
+        return String::num_int64(month) + "/" + String::num_int64(day) + "/" + String::num_int64(year);
+    }
+    
+    // Time - returns current time as string
+    if (METHOD_IS("time") && args.size() == 0) {
+        r_handled = true;
+        Dictionary datetime = Time::get_singleton()->get_datetime_dict_from_system();
+        int hour = (int)datetime["hour"];
+        int minute = (int)datetime["minute"];
+        int second = (int)datetime["second"];
+        String ampm = hour >= 12 ? "PM" : "AM";
+        int hour12 = hour % 12;
+        if (hour12 == 0) hour12 = 12;
+        return String::num_int64(hour12) + ":" + (minute < 10 ? "0" : "") + String::num_int64(minute) + ":" + 
+               (second < 10 ? "0" : "") + String::num_int64(second) + " " + ampm;
+    }
+    
+    // Year(date) - extracts year from date string or serial
+    if (METHOD_IS("year") && args.size() == 1) {
+        r_handled = true;
+        Variant v = args[0];
+        if (v.get_type() == Variant::STRING) {
+            String s = String(v);
+            // Try to parse MM/DD/YYYY or YYYY-MM-DD
+            if (s.contains("/")) {
+                PackedStringArray parts = s.split("/");
+                if (parts.size() >= 3) return (int64_t)parts[2].to_int();
+            } else if (s.contains("-")) {
+                PackedStringArray parts = s.split("-");
+                if (parts.size() >= 1) return (int64_t)parts[0].to_int();
+            }
+        } else if (v.get_type() == Variant::INT || v.get_type() == Variant::FLOAT) {
+            // Treat as Unix timestamp
+            int64_t ts = (int64_t)v;
+            Dictionary datetime = Time::get_singleton()->get_datetime_dict_from_unix_time(ts);
+            return (int64_t)(int)datetime["year"];
+        }
+        return 0;
+    }
+    
+    // Month(date) - extracts month from date string or serial
+    if (METHOD_IS("month") && args.size() == 1) {
+        r_handled = true;
+        Variant v = args[0];
+        if (v.get_type() == Variant::STRING) {
+            String s = String(v);
+            if (s.contains("/")) {
+                PackedStringArray parts = s.split("/");
+                if (parts.size() >= 1) return (int64_t)parts[0].to_int();
+            } else if (s.contains("-")) {
+                PackedStringArray parts = s.split("-");
+                if (parts.size() >= 2) return (int64_t)parts[1].to_int();
+            }
+        } else if (v.get_type() == Variant::INT || v.get_type() == Variant::FLOAT) {
+            int64_t ts = (int64_t)v;
+            Dictionary datetime = Time::get_singleton()->get_datetime_dict_from_unix_time(ts);
+            return (int64_t)(int)datetime["month"];
+        }
+        return 0;
+    }
+    
+    // Day(date) - extracts day from date string or serial
+    if (METHOD_IS("day") && args.size() == 1) {
+        r_handled = true;
+        Variant v = args[0];
+        if (v.get_type() == Variant::STRING) {
+            String s = String(v);
+            if (s.contains("/")) {
+                PackedStringArray parts = s.split("/");
+                if (parts.size() >= 2) return (int64_t)parts[1].to_int();
+            } else if (s.contains("-")) {
+                PackedStringArray parts = s.split("-");
+                if (parts.size() >= 3) return (int64_t)parts[2].to_int();
+            }
+        } else if (v.get_type() == Variant::INT || v.get_type() == Variant::FLOAT) {
+            int64_t ts = (int64_t)v;
+            Dictionary datetime = Time::get_singleton()->get_datetime_dict_from_unix_time(ts);
+            return (int64_t)(int)datetime["day"];
+        }
+        return 0;
+    }
+    
+    // Hour(time) - extracts hour from time string or serial
+    if (METHOD_IS("hour") && args.size() == 1) {
+        r_handled = true;
+        Variant v = args[0];
+        if (v.get_type() == Variant::STRING) {
+            String s = String(v);
+            String time_part = s;
+            bool is_pm = s.to_upper().contains("PM");
+            bool is_am = s.to_upper().contains("AM");
+            
+            // Handle date/time combo like "6/15/2024 2:30:45 PM"
+            if (s.contains("/") && s.contains(" ")) {
+                PackedStringArray dt_parts = s.split(" ");
+                if (dt_parts.size() >= 2) {
+                    // Skip the date part, get time portion
+                    time_part = "";
+                    for (int i = 1; i < dt_parts.size(); i++) {
+                        if (dt_parts[i].contains(":")) {
+                            time_part = dt_parts[i];
+                            break;
+                        }
+                    }
+                }
+            }
+            // Handle standalone time with AM/PM like "3:45:30 PM"
+            else if (s.contains(":") && s.contains(" ")) {
+                time_part = s.split(" ")[0];  // Get the time portion before AM/PM
+            }
+            
+            // Parse HH:MM:SS
+            if (time_part.contains(":")) {
+                PackedStringArray parts = time_part.split(":");
+                if (parts.size() >= 1) {
+                    int h = parts[0].to_int();
+                    // Check for AM/PM
+                    if (is_pm && h != 12) h += 12;
+                    else if (is_am && h == 12) h = 0;
+                    return (int64_t)h;
+                }
+            }
+        } else if (v.get_type() == Variant::INT || v.get_type() == Variant::FLOAT) {
+            int64_t ts = (int64_t)v;
+            Dictionary datetime = Time::get_singleton()->get_datetime_dict_from_unix_time(ts);
+            return (int64_t)(int)datetime["hour"];
+        }
+        return 0;
+    }
+    
+    // Minute(time) - extracts minute from time string or serial
+    if (METHOD_IS("minute") && args.size() == 1) {
+        r_handled = true;
+        Variant v = args[0];
+        if (v.get_type() == Variant::STRING) {
+            String s = String(v);
+            String time_part = s;
+            
+            // Handle date/time combo
+            if (s.contains("/") && s.contains(" ")) {
+                PackedStringArray dt_parts = s.split(" ");
+                for (int i = 1; i < dt_parts.size(); i++) {
+                    if (dt_parts[i].contains(":")) {
+                        time_part = dt_parts[i];
+                        break;
+                    }
+                }
+            }
+            // Handle standalone time with AM/PM
+            else if (s.contains(":") && s.contains(" ")) {
+                time_part = s.split(" ")[0];
+            }
+            
+            if (time_part.contains(":")) {
+                PackedStringArray parts = time_part.split(":");
+                if (parts.size() >= 2) return (int64_t)parts[1].to_int();
+            }
+        } else if (v.get_type() == Variant::INT || v.get_type() == Variant::FLOAT) {
+            int64_t ts = (int64_t)v;
+            Dictionary datetime = Time::get_singleton()->get_datetime_dict_from_unix_time(ts);
+            return (int64_t)(int)datetime["minute"];
+        }
+        return 0;
+    }
+    
+    // Second(time) - extracts second from time string or serial
+    if (METHOD_IS("second") && args.size() == 1) {
+        r_handled = true;
+        Variant v = args[0];
+        if (v.get_type() == Variant::STRING) {
+            String s = String(v);
+            String time_part = s;
+            
+            // Handle date/time combo
+            if (s.contains("/") && s.contains(" ")) {
+                PackedStringArray dt_parts = s.split(" ");
+                for (int i = 1; i < dt_parts.size(); i++) {
+                    if (dt_parts[i].contains(":")) {
+                        time_part = dt_parts[i];
+                        break;
+                    }
+                }
+            }
+            // Handle standalone time with AM/PM
+            else if (s.contains(":") && s.contains(" ")) {
+                time_part = s.split(" ")[0];
+            }
+            
+            if (time_part.contains(":")) {
+                PackedStringArray parts = time_part.split(":");
+                if (parts.size() >= 3) {
+                    return (int64_t)parts[2].to_int();
+                }
+            }
+        } else if (v.get_type() == Variant::INT || v.get_type() == Variant::FLOAT) {
+            int64_t ts = (int64_t)v;
+            Dictionary datetime = Time::get_singleton()->get_datetime_dict_from_unix_time(ts);
+            return (int64_t)(int)datetime["second"];
+        }
+        return 0;
+    }
+    
+    // DateSerial(year, month, day) - creates a date from components
+    if (METHOD_IS("dateserial") && args.size() == 3) {
+        r_handled = true;
+        int year = (int)args[0];
+        int month = (int)args[1];
+        int day = (int)args[2];
+        // Return as MM/DD/YYYY string (VB6 format)
+        return String::num_int64(month) + "/" + String::num_int64(day) + "/" + String::num_int64(year);
+    }
+    
+    // TimeSerial(hour, minute, second) - creates a time from components
+    if (METHOD_IS("timeserial") && args.size() == 3) {
+        r_handled = true;
+        int hour = (int)args[0];
+        int minute = (int)args[1];
+        int second = (int)args[2];
+        String ampm = hour >= 12 ? "PM" : "AM";
+        int hour12 = hour % 12;
+        if (hour12 == 0) hour12 = 12;
+        return String::num_int64(hour12) + ":" + (minute < 10 ? "0" : "") + String::num_int64(minute) + ":" + 
+               (second < 10 ? "0" : "") + String::num_int64(second) + " " + ampm;
+    }
+    
+    // DateAdd(interval, number, date) - adds interval to date
+    // Intervals: "yyyy" (year), "m" (month), "d" (day), "h" (hour), "n" (minute), "s" (second)
+    if (METHOD_IS("dateadd") && args.size() == 3) {
+        r_handled = true;
+        String interval = String(args[0]).to_lower();
+        int number = (int)args[1];
+        String date_str = String(args[2]);
+        
+        // Parse the date
+        int year = 0, month = 0, day = 0, hour = 0, minute = 0, second = 0;
+        bool has_time = date_str.contains(":");
+        
+        // Parse date portion
+        String date_part = date_str;
+        String time_part = "";
+        if (has_time && date_str.contains(" ")) {
+            PackedStringArray dt_parts = date_str.split(" ");
+            date_part = dt_parts[0];
+            if (dt_parts.size() >= 2) time_part = dt_parts[1];
+        }
+        
+        if (date_part.contains("/")) {
+            PackedStringArray parts = date_part.split("/");
+            if (parts.size() >= 3) {
+                month = parts[0].to_int();
+                day = parts[1].to_int();
+                year = parts[2].to_int();
+            }
+        } else if (date_part.contains("-")) {
+            PackedStringArray parts = date_part.split("-");
+            if (parts.size() >= 3) {
+                year = parts[0].to_int();
+                month = parts[1].to_int();
+                day = parts[2].to_int();
+            }
+        }
+        
+        // Parse time if present
+        if (!time_part.is_empty() && time_part.contains(":")) {
+            PackedStringArray parts = time_part.split(":");
+            if (parts.size() >= 1) hour = parts[0].to_int();
+            if (parts.size() >= 2) minute = parts[1].to_int();
+            if (parts.size() >= 3) {
+                String sec_str = parts[2];
+                if (sec_str.contains(" ")) sec_str = sec_str.split(" ")[0];
+                second = sec_str.to_int();
+            }
+            // Handle AM/PM
+            if (time_part.to_upper().contains("PM") && hour != 12) hour += 12;
+            else if (time_part.to_upper().contains("AM") && hour == 12) hour = 0;
+        }
+        
+        // Apply the interval
+        if (interval == "yyyy" || interval == "y") year += number;
+        else if (interval == "m") month += number;
+        else if (interval == "d") day += number;
+        else if (interval == "h") hour += number;
+        else if (interval == "n") minute += number;
+        else if (interval == "s") second += number;
+        
+        // Normalize using Godot's time functions
+        Dictionary dt;
+        dt["year"] = year;
+        dt["month"] = month;
+        dt["day"] = day;
+        dt["hour"] = hour;
+        dt["minute"] = minute;
+        dt["second"] = second;
+        int64_t unix_ts = Time::get_singleton()->get_unix_time_from_datetime_dict(dt);
+        Dictionary result = Time::get_singleton()->get_datetime_dict_from_unix_time(unix_ts);
+        
+        year = (int)result["year"];
+        month = (int)result["month"];
+        day = (int)result["day"];
+        hour = (int)result["hour"];
+        minute = (int)result["minute"];
+        second = (int)result["second"];
+        
+        if (has_time) {
+            String ampm = hour >= 12 ? "PM" : "AM";
+            int hour12 = hour % 12;
+            if (hour12 == 0) hour12 = 12;
+            return String::num_int64(month) + "/" + String::num_int64(day) + "/" + String::num_int64(year) + " " +
+                   String::num_int64(hour12) + ":" + (minute < 10 ? "0" : "") + String::num_int64(minute) + ":" + 
+                   (second < 10 ? "0" : "") + String::num_int64(second) + " " + ampm;
+        }
+        return String::num_int64(month) + "/" + String::num_int64(day) + "/" + String::num_int64(year);
+    }
+    
+    // DateDiff(interval, date1, date2) - returns difference between dates
+    if (METHOD_IS("datediff") && args.size() == 3) {
+        r_handled = true;
+        String interval = String(args[0]).to_lower();
+        String date1_str = String(args[1]);
+        String date2_str = String(args[2]);
+        
+        // Helper lambda to parse date to unix timestamp
+        auto parse_to_unix = [](const String& ds) -> int64_t {
+            int year = 0, month = 1, day = 1, hour = 0, minute = 0, second = 0;
+            String date_part = ds;
+            String time_part = "";
+            if (ds.contains(" ")) {
+                PackedStringArray dt_parts = ds.split(" ");
+                date_part = dt_parts[0];
+                if (dt_parts.size() >= 2) time_part = dt_parts[1];
+            }
+            
+            if (date_part.contains("/")) {
+                PackedStringArray parts = date_part.split("/");
+                if (parts.size() >= 3) {
+                    month = parts[0].to_int();
+                    day = parts[1].to_int();
+                    year = parts[2].to_int();
+                }
+            } else if (date_part.contains("-")) {
+                PackedStringArray parts = date_part.split("-");
+                if (parts.size() >= 3) {
+                    year = parts[0].to_int();
+                    month = parts[1].to_int();
+                    day = parts[2].to_int();
+                }
+            }
+            
+            if (!time_part.is_empty() && time_part.contains(":")) {
+                PackedStringArray parts = time_part.split(":");
+                if (parts.size() >= 1) hour = parts[0].to_int();
+                if (parts.size() >= 2) minute = parts[1].to_int();
+                if (parts.size() >= 3) {
+                    String sec_str = parts[2];
+                    if (sec_str.contains(" ")) sec_str = sec_str.split(" ")[0];
+                    second = sec_str.to_int();
+                }
+                if (time_part.to_upper().contains("PM") && hour != 12) hour += 12;
+                else if (time_part.to_upper().contains("AM") && hour == 12) hour = 0;
+            }
+            
+            Dictionary dt;
+            dt["year"] = year;
+            dt["month"] = month;
+            dt["day"] = day;
+            dt["hour"] = hour;
+            dt["minute"] = minute;
+            dt["second"] = second;
+            return Time::get_singleton()->get_unix_time_from_datetime_dict(dt);
+        };
+        
+        int64_t ts1 = parse_to_unix(date1_str);
+        int64_t ts2 = parse_to_unix(date2_str);
+        int64_t diff_seconds = ts2 - ts1;
+        
+        if (interval == "s") return diff_seconds;
+        if (interval == "n") return diff_seconds / 60;
+        if (interval == "h") return diff_seconds / 3600;
+        if (interval == "d") return diff_seconds / 86400;
+        if (interval == "m") return diff_seconds / (86400 * 30);  // Approximate
+        if (interval == "yyyy" || interval == "y") return diff_seconds / (86400 * 365);  // Approximate
+        
+        return diff_seconds;
+    }
+    
+    // DatePart(interval, date) - extracts part of a date
+    if (METHOD_IS("datepart") && args.size() == 2) {
+        r_handled = true;
+        String interval = String(args[0]).to_lower();
+        String date_str = String(args[1]);
+        
+        int year = 0, month = 0, day = 0, hour = 0, minute = 0, second = 0;
+        String date_part = date_str;
+        String time_part = "";
+        if (date_str.contains(" ")) {
+            PackedStringArray dt_parts = date_str.split(" ");
+            date_part = dt_parts[0];
+            if (dt_parts.size() >= 2) time_part = dt_parts[1];
+        }
+        
+        if (date_part.contains("/")) {
+            PackedStringArray parts = date_part.split("/");
+            if (parts.size() >= 3) {
+                month = parts[0].to_int();
+                day = parts[1].to_int();
+                year = parts[2].to_int();
+            }
+        } else if (date_part.contains("-")) {
+            PackedStringArray parts = date_part.split("-");
+            if (parts.size() >= 3) {
+                year = parts[0].to_int();
+                month = parts[1].to_int();
+                day = parts[2].to_int();
+            }
+        }
+        
+        if (!time_part.is_empty() && time_part.contains(":")) {
+            PackedStringArray parts = time_part.split(":");
+            if (parts.size() >= 1) hour = parts[0].to_int();
+            if (parts.size() >= 2) minute = parts[1].to_int();
+            if (parts.size() >= 3) {
+                String sec_str = parts[2];
+                if (sec_str.contains(" ")) sec_str = sec_str.split(" ")[0];
+                second = sec_str.to_int();
+            }
+            if (time_part.to_upper().contains("PM") && hour != 12) hour += 12;
+            else if (time_part.to_upper().contains("AM") && hour == 12) hour = 0;
+        }
+        
+        if (interval == "yyyy" || interval == "y") return (int64_t)year;
+        if (interval == "m") return (int64_t)month;
+        if (interval == "d") return (int64_t)day;
+        if (interval == "h") return (int64_t)hour;
+        if (interval == "n") return (int64_t)minute;
+        if (interval == "s") return (int64_t)second;
+        
+        return 0;
+    }
+    
+    // Format(value, format) - formats a value according to format string
+    if (METHOD_IS("format") && args.size() >= 1) {
+        r_handled = true;
+        Variant value = args[0];
+        String fmt = args.size() > 1 ? String(args[1]) : "";
+        
+        // Date/Time formatting
+        if (value.get_type() == Variant::STRING && (String(value).contains("/") || String(value).contains(":"))) {
+            String date_str = String(value);
+            int year = 0, month = 0, day = 0, hour = 0, minute = 0, second = 0;
+            bool has_am_pm = date_str.to_upper().contains("AM") || date_str.to_upper().contains("PM");
+            bool is_pm = date_str.to_upper().contains("PM");
+            
+            String date_part = "";
+            String time_part = "";
+            
+            // Check if it's just a time string (no date, but has colons) like "3:45:30 PM"
+            if (!date_str.contains("/") && date_str.contains(":")) {
+                // It's a time-only string
+                if (date_str.contains(" ")) {
+                    time_part = date_str.split(" ")[0];  // Get "3:45:30" from "3:45:30 PM"
+                } else {
+                    time_part = date_str;
+                }
+            }
+            // Date and possibly time
+            else if (date_str.contains(" ") && date_str.contains("/")) {
+                PackedStringArray dt_parts = date_str.split(" ");
+                date_part = dt_parts[0];
+                // Find the time portion (part with colons)
+                for (int i = 1; i < dt_parts.size(); i++) {
+                    if (dt_parts[i].contains(":")) {
+                        time_part = dt_parts[i];
+                        break;
+                    }
+                }
+            } else {
+                date_part = date_str;
+            }
+            
+            if (!date_part.is_empty() && date_part.contains("/")) {
+                PackedStringArray parts = date_part.split("/");
+                if (parts.size() >= 3) {
+                    month = parts[0].to_int();
+                    day = parts[1].to_int();
+                    year = parts[2].to_int();
+                }
+            }
+            
+            if (!time_part.is_empty() && time_part.contains(":")) {
+                PackedStringArray parts = time_part.split(":");
+                if (parts.size() >= 1) hour = parts[0].to_int();
+                if (parts.size() >= 2) minute = parts[1].to_int();
+                if (parts.size() >= 3) {
+                    String sec_str = parts[2];
+                    if (sec_str.contains(" ")) sec_str = sec_str.split(" ")[0];
+                    second = sec_str.to_int();
+                }
+                if (is_pm && hour != 12) hour += 12;
+                else if (has_am_pm && !is_pm && hour == 12) hour = 0;
+            }
+            
+            // Common VB6 format strings
+            if (fmt.nocasecmp_to("Short Date") == 0) {
+                return String::num_int64(month) + "/" + String::num_int64(day) + "/" + String::num_int64(year);
+            }
+            if (fmt.nocasecmp_to("Long Date") == 0) {
+                static const char* months[] = {"", "January", "February", "March", "April", "May", "June",
+                                               "July", "August", "September", "October", "November", "December"};
+                if (month >= 1 && month <= 12) {
+                    return String(months[month]) + " " + String::num_int64(day) + ", " + String::num_int64(year);
+                }
+            }
+            if (fmt.nocasecmp_to("Short Time") == 0) {
+                String ampm = hour >= 12 ? "PM" : "AM";
+                int hour12 = hour % 12;
+                if (hour12 == 0) hour12 = 12;
+                return String::num_int64(hour12) + ":" + (minute < 10 ? "0" : "") + String::num_int64(minute) + " " + ampm;
+            }
+            if (fmt.nocasecmp_to("Long Time") == 0) {
+                String ampm = hour >= 12 ? "PM" : "AM";
+                int hour12 = hour % 12;
+                if (hour12 == 0) hour12 = 12;
+                return String::num_int64(hour12) + ":" + (minute < 10 ? "0" : "") + String::num_int64(minute) + ":" +
+                       (second < 10 ? "0" : "") + String::num_int64(second) + " " + ampm;
+            }
+            
+            // Custom format - basic substitution
+            String result = fmt;
+            result = result.replace("yyyy", String::num_int64(year));
+            result = result.replace("yy", String::num_int64(year % 100).pad_zeros(2));
+            result = result.replace("mm", String::num_int64(month).pad_zeros(2));
+            result = result.replace("m", String::num_int64(month));
+            result = result.replace("dd", String::num_int64(day).pad_zeros(2));
+            result = result.replace("d", String::num_int64(day));
+            result = result.replace("hh", String::num_int64(hour).pad_zeros(2));
+            result = result.replace("h", String::num_int64(hour));
+            result = result.replace("nn", String::num_int64(minute).pad_zeros(2));
+            result = result.replace("n", String::num_int64(minute));
+            result = result.replace("ss", String::num_int64(second).pad_zeros(2));
+            result = result.replace("s", String::num_int64(second));
+            return result;
+        }
+        
+        // Number formatting
+        if (value.get_type() == Variant::INT || value.get_type() == Variant::FLOAT) {
+            double num = (double)value;
+            
+            if (fmt.nocasecmp_to("Currency") == 0 || fmt == "$") {
+                // Format as currency
+                bool negative = num < 0;
+                num = Math::abs(num);
+                String formatted = String::num(num, 2);
+                // Add thousand separators
+                int dot_pos = formatted.find(".");
+                if (dot_pos == -1) dot_pos = formatted.length();
+                String integer_part = formatted.substr(0, dot_pos);
+                String decimal_part = dot_pos < formatted.length() ? formatted.substr(dot_pos) : "";
+                String with_commas = "";
+                int count = 0;
+                for (int i = integer_part.length() - 1; i >= 0; i--) {
+                    if (count > 0 && count % 3 == 0) with_commas = "," + with_commas;
+                    with_commas = String::chr(integer_part[i]) + with_commas;
+                    count++;
+                }
+                return (negative ? "($" : "$") + with_commas + decimal_part + (negative ? ")" : "");
+            }
+            if (fmt.nocasecmp_to("Percent") == 0 || fmt == "%") {
+                return String::num(num * 100, 2) + "%";
+            }
+            if (fmt.nocasecmp_to("Scientific") == 0) {
+                return String::num_scientific(num);
+            }
+            if (fmt.nocasecmp_to("Fixed") == 0) {
+                return String::num(num, 2);
+            }
+            if (fmt.nocasecmp_to("Standard") == 0) {
+                // Add thousand separators
+                bool negative = num < 0;
+                num = Math::abs(num);
+                String formatted = String::num(num, 2);
+                int dot_pos = formatted.find(".");
+                if (dot_pos == -1) dot_pos = formatted.length();
+                String integer_part = formatted.substr(0, dot_pos);
+                String decimal_part = dot_pos < formatted.length() ? formatted.substr(dot_pos) : "";
+                String with_commas = "";
+                int count = 0;
+                for (int i = integer_part.length() - 1; i >= 0; i--) {
+                    if (count > 0 && count % 3 == 0) with_commas = "," + with_commas;
+                    with_commas = String::chr(integer_part[i]) + with_commas;
+                    count++;
+                }
+                return (negative ? "-" : "") + with_commas + decimal_part;
+            }
+            
+            // Check for decimal format like "0.00" or "#,##0.00"
+            if (fmt.contains(".")) {
+                int decimals = fmt.length() - fmt.find(".") - 1;
+                return String::num(num, decimals);
+            }
+            
+            return String::num(num);
+        }
+        
+        // Default: convert to string
+        return String(value);
+    }
+    
+    // Conversion functions
+    if (METHOD_IS("oct") && args.size() == 1) {
+        r_handled = true;
+        int64_t val = (int64_t)args[0];
+        return String::num_int64(val, 8);
+    }
+    
+    if (METHOD_IS("hex") && args.size() == 1) {
+        r_handled = true;
+        int64_t val = (int64_t)args[0];
+        return String::num_int64(val, 16).to_upper();
+    }
+    
     // JSON functions
     if (METHOD_IS("jsonstringify") && args.size() >= 1) {
         r_handled = true;
@@ -1254,6 +2066,20 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
         r_handled = true;
         return Variant::get_type_name(args[0].get_type());
     }
+
+    // Array Helpers (duplicated here for bytecode access)
+    if (METHOD_IS("ubound") && args.size() >= 1) {
+        r_handled = true;
+        Variant v = args[0];
+        if (v.get_type() == Variant::ARRAY) return ((Array)v).size() - 1;
+        if (v.get_type() == Variant::PACKED_STRING_ARRAY) return ((PackedStringArray)v).size() - 1;
+        if (v.get_type() == Variant::PACKED_INT32_ARRAY) return ((PackedInt32Array)v).size() - 1;
+        if (v.get_type() == Variant::PACKED_FLOAT32_ARRAY) return ((PackedFloat32Array)v).size() - 1;
+        if (v.get_type() == Variant::PACKED_INT64_ARRAY) return ((PackedInt64Array)v).size() - 1;
+        if (v.get_type() == Variant::PACKED_FLOAT64_ARRAY) return ((PackedFloat64Array)v).size() - 1;
+        return -1;
+    }
+    if (METHOD_IS("lbound") && args.size() >= 1) { r_handled = true; return 0; }
 
 #undef METHOD_IS
     return Variant();

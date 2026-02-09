@@ -132,6 +132,11 @@ enum OpCode {
     // Data/Restore system
     OP_RESTORE_DATA,        // [OP] - Reset DATA pointer (value on stack: -1 for start, or label name)
 
+    // Error Handling
+    OP_ON_ERROR_RESUME_NEXT, // [OP] - Enable On Error Resume Next
+    OP_ON_ERROR_GOTO,        // [OP] [LABEL_IDX] - Set On Error Goto label
+    OP_ON_ERROR_GOTO_0,      // [OP] - Disable error handling (On Error Goto 0)
+
     // Literals
     OP_NIL,
     OP_TRUE,

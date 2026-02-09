@@ -142,6 +142,9 @@ String opcode_name(uint8_t op) {
         OP_NAME_CASE(OP_SUSPEND_WHENEVER);
         OP_NAME_CASE(OP_RESUME_WHENEVER);
         OP_NAME_CASE(OP_RESTORE_DATA);
+        OP_NAME_CASE(OP_ON_ERROR_RESUME_NEXT);
+        OP_NAME_CASE(OP_ON_ERROR_GOTO);
+        OP_NAME_CASE(OP_ON_ERROR_GOTO_0);
 #undef OP_NAME_CASE
         default:
             return vformat("OP_UNKNOWN_%d", (int)op);
@@ -179,6 +182,7 @@ int opcode_operand_length(uint8_t op) {
         case OP_REGISTER_WHENEVER:
         case OP_SUSPEND_WHENEVER:
         case OP_RESUME_WHENEVER:
+        case OP_ON_ERROR_GOTO:
             return 1;
         case OP_CONSTANT_LONG:
         case OP_ADD_LOCAL_I64_CONST:

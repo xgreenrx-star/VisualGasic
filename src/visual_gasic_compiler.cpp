@@ -23,6 +23,153 @@ bool vg_variant_truthy(const Variant &value) {
             return value != Variant();
     }
 }
+
+// VB6-style Like pattern matching for compile-time constant folding
+bool vb_like_match(const String& value, const String& pattern) {
+    int v_len = value.length();
+    int p_len = pattern.length();
+    int v_idx = 0;
+    int p_idx = 0;
+    
+    // Star tracking for backtracking
+    int star_p_idx = -1;
+    int star_v_idx = -1;
+    
+    while (v_idx < v_len) {
+        if (p_idx < p_len) {
+            char32_t p_char = pattern[p_idx];
+            
+            // ? matches any single character
+            if (p_char == '?') {
+                v_idx++;
+                p_idx++;
+                continue;
+            }
+            
+            // # matches any single digit
+            if (p_char == '#') {
+                char32_t v_char = value[v_idx];
+                if (v_char >= '0' && v_char <= '9') {
+                    v_idx++;
+                    p_idx++;
+                    continue;
+                } else {
+                    // No match, try backtracking
+                    if (star_p_idx >= 0) {
+                        p_idx = star_p_idx + 1;
+                        star_v_idx++;
+                        v_idx = star_v_idx;
+                        continue;
+                    }
+                    return false;
+                }
+            }
+            
+            // * matches zero or more characters
+            if (p_char == '*') {
+                star_p_idx = p_idx;
+                star_v_idx = v_idx;
+                p_idx++;
+                continue;
+            }
+            
+            // [charlist] or [!charlist]
+            if (p_char == '[') {
+                p_idx++;
+                bool negate = false;
+                if (p_idx < p_len && pattern[p_idx] == '!') {
+                    negate = true;
+                    p_idx++;
+                }
+                
+                // Find the closing bracket
+                int bracket_start = p_idx;
+                while (p_idx < p_len && pattern[p_idx] != ']') {
+                    p_idx++;
+                }
+                
+                if (p_idx >= p_len) {
+                    // No closing bracket found - treat as literal
+                    if (star_p_idx >= 0) {
+                        p_idx = star_p_idx + 1;
+                        star_v_idx++;
+                        v_idx = star_v_idx;
+                        continue;
+                    }
+                    return false;
+                }
+                
+                // Extract charlist
+                String charlist = pattern.substr(bracket_start, p_idx - bracket_start);
+                p_idx++; // Skip ]
+                
+                char32_t v_char = value[v_idx];
+                bool found = false;
+                
+                // Check charlist (handles ranges like a-z)
+                for (int i = 0; i < charlist.length(); i++) {
+                    if (i + 2 < charlist.length() && charlist[i + 1] == '-') {
+                        // Range like a-z
+                        char32_t range_start = charlist[i];
+                        char32_t range_end = charlist[i + 2];
+                        if (v_char >= range_start && v_char <= range_end) {
+                            found = true;
+                            break;
+                        }
+                        i += 2; // Skip the range
+                    } else {
+                        if (charlist[i] == v_char) {
+                            found = true;
+                            break;
+                        }
+                    }
+                }
+                
+                bool matches = negate ? !found : found;
+                if (matches) {
+                    v_idx++;
+                    continue;
+                } else {
+                    if (star_p_idx >= 0) {
+                        p_idx = star_p_idx + 1;
+                        star_v_idx++;
+                        v_idx = star_v_idx;
+                        continue;
+                    }
+                    return false;
+                }
+            }
+            
+            // Literal character match (case-insensitive by default in VB6)
+            char32_t v_char = value[v_idx];
+            char32_t p_lower = (p_char >= 'A' && p_char <= 'Z') ? p_char + 32 : p_char;
+            char32_t v_lower = (v_char >= 'A' && v_char <= 'Z') ? v_char + 32 : v_char;
+            
+            if (p_lower == v_lower) {
+                v_idx++;
+                p_idx++;
+                continue;
+            }
+        }
+        
+        // No match at current position, try backtracking from last *
+        if (star_p_idx >= 0) {
+            p_idx = star_p_idx + 1;
+            star_v_idx++;
+            v_idx = star_v_idx;
+            continue;
+        }
+        
+        return false;
+    }
+    
+    // Consume any remaining * in pattern
+    while (p_idx < p_len && pattern[p_idx] == '*') {
+        p_idx++;
+    }
+    
+    return p_idx == p_len;
+}
 }
 
 VisualGasicCompiler::VisualGasicCompiler() : current_chunk(nullptr), current_line(0), compile_ok(true) {
@@ -115,6 +262,16 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
 
     for (int i = 0; i < sub->parameters.size(); i++) {
         non_local_names.insert(sub->parameters[i].name.to_lower());
+        // Register ParamArray parameters as array variables for proper subscript handling
+        if (sub->parameters[i].is_param_array) {
+            array_vars.insert(sub->parameters[i].name.to_lower());
+        }
+    }
+
+    // Mark module-level variables as non-local so they use OP_SET_GLOBAL
+    // This ensures global Variant variables can change types correctly
+    for (int i = 0; i < module->variables.size(); i++) {
+        non_local_names.insert(module->variables[i]->name.to_lower());
     }
 
     if (current_sub && current_sub->name.nocasecmp_to("BenchFileIO") == 0 && sub->parameters.size() >= 2) {
@@ -1672,6 +1829,11 @@ Variant VisualGasicCompiler::eval_constant_expr(ExpressionNode* expr) const {
             valid = true;
             res = UtilityFunctions::pow((double)a, (double)c);
         }
+        else if (b->op.nocasecmp_to("Like") == 0) {
+            // VB6-style Like pattern matching at compile time
+            valid = true;
+            res = vb_like_match(String(a), String(c));
+        }
         if (valid) return res;
     }
     return Variant();
@@ -1757,6 +1919,21 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                 compile_expression(s->array_sizes[0]);
                 emit_constant(Variant((int64_t)1));
                 emit_byte(OP_ADD);
+                String t = s->type_name.to_lower();
+                if (t == "integer" || t == "long") emit_byte(OP_NEW_ARRAY_I64);
+                else emit_byte(OP_NEW_ARRAY);
+
+                int slot = get_or_add_local(s->variable_name, VT_UNKNOWN);
+                if (slot >= 0) emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
+                else {
+                    int idx = current_chunk->add_constant(s->variable_name);
+                    emit_bytes(OP_SET_GLOBAL, (uint8_t)idx);
+                }
+                break;
+            } else if (s->is_dynamic_array) {
+                // Dynamic array with empty parentheses: Dim arr() As Integer
+                // Initialize as empty array to be resized with ReDim later
+                emit_constant(Variant((int64_t)0));
                 String t = s->type_name.to_lower();
                 if (t == "integer" || t == "long") emit_byte(OP_NEW_ARRAY_I64);
                 else emit_byte(OP_NEW_ARRAY);
@@ -2074,14 +2251,24 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                 }
             }
             
-            // Check if calling a function with ByRef parameters (requires interpreter for write-back)
+            // Check if calling a function with ByRef parameters AND variable arguments
+            // that could be written back (requires interpreter for write-back)
+            // Also check for ParamArray which needs interpreter
             if (current_module) {
                 for (int i = 0; i < current_module->subs.size(); i++) {
                     if (current_module->subs[i]->name.nocasecmp_to(s->method_name) == 0) {
                         SubDefinition* target_func = current_module->subs[i];
                         for (int j = 0; j < target_func->parameters.size(); j++) {
-                            if (target_func->parameters[j].is_by_ref) {
-                                // Has ByRef parameter - fall back to interpreter
+                            // ParamArray requires interpreter
+                            if (target_func->parameters[j].is_param_array) {
+                                compile_ok = false;
+                                break;
+                            }
+                            if (target_func->parameters[j].is_by_ref && 
+                                j < s->arguments.size() &&
+                                s->arguments[j] &&
+                                s->arguments[j]->type == ExpressionNode::VARIABLE) {
+                                // Has ByRef parameter with variable argument - need interpreter for write-back
                                 compile_ok = false;
                                 break;
                             }
@@ -3081,6 +3268,21 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             emit_byte(OP_RESTORE_DATA);
             break;
         }
+        case STMT_ON_ERROR: {
+            // On Error handling
+            OnErrorStatement* s = (OnErrorStatement*)stmt;
+            if (s->mode == OnErrorStatement::RESUME_NEXT) {
+                emit_byte(OP_ON_ERROR_RESUME_NEXT);
+            } else if (s->label_name.is_empty()) {
+                // On Error Goto 0 - disable error handling
+                emit_byte(OP_ON_ERROR_GOTO_0);
+            } else {
+                // On Error Goto <label>
+                int label_idx = current_chunk->add_constant(s->label_name);
+                emit_bytes(OP_ON_ERROR_GOTO, (uint8_t)label_idx);
+            }
+            break;
+        }
         default:
              UtilityFunctions::print("Compiler: Unsupported statement type ", stmt->type);
              compile_ok = false;
@@ -3121,6 +3323,13 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                 break;
             }
             compile_ok = false;
+            break;
+        }
+        case ExpressionNode::ME: {
+            // "Me" keyword - compile as OP_GET_GLOBAL with "Me" constant
+            // Runtime will resolve this to owner
+            int idx = current_chunk->add_constant(String("Me"));
+            emit_bytes(OP_GET_GLOBAL, (uint8_t)idx);
             break;
         }
         case ExpressionNode::VARIABLE: {

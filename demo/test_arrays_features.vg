@@ -1,0 +1,32 @@
+' Test array and variable features
+Option Explicit
+
+Sub Main()
+    ' Test 1: Multi-dimensional array
+    Print "=== Test 1: Multi-dimensional Arrays ==="
+    Dim grid(3, 3) As Integer
+    grid(0, 0) = 1
+    grid(1, 1) = 5
+    grid(2, 2) = 9
+    Print "grid(0,0) = " & CStr(grid(0, 0)) & " (expected: 1)"
+    Print "grid(1,1) = " & CStr(grid(1, 1)) & " (expected: 5)"
+    Print "grid(2,2) = " & CStr(grid(2, 2)) & " (expected: 9)"
+    
+    ' Test 2: ReDim Preserve
+    Print ""
+    Print "=== Test 2: ReDim Preserve ==="
+    Dim arr() As Integer
+    ReDim arr(3)
+    arr(0) = 10
+    arr(1) = 20
+    arr(2) = 30
+    Print "Before Preserve: arr(0)=" & CStr(arr(0)) & ", arr(1)=" & CStr(arr(1)) & ", arr(2)=" & CStr(arr(2))
+    
+    ReDim Preserve arr(5)
+    Print "After Preserve to 5: arr(0)=" & CStr(arr(0)) & ", arr(1)=" & CStr(arr(1)) & ", arr(2)=" & CStr(arr(2))
+    arr(4) = 50
+    Print "arr(4) = " & CStr(arr(4)) & " (expected: 50)"
+    
+    Print ""
+    Print "Array tests complete!"
+End Sub

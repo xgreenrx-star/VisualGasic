@@ -1,0 +1,22 @@
+Sub Main()
+    Print "Testing Exit Do..."
+    
+    Dim i As Integer
+    Dim count As Integer
+    count = 0
+    i = 1
+    
+    Do While i <= 100
+        count = count + 1
+        If i = 5 Then Exit Do
+        i = i + 1
+    Loop
+    
+    Print "Exited loop at count=" & count & " i=" & i
+    
+    If count = 5 And i = 5 Then
+        Print "[PASS] Exit Do works!"
+    Else
+        Print "[FAIL] Exit Do did not work correctly"
+    End If
+End Sub

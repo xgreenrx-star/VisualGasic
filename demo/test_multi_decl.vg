@@ -1,0 +1,46 @@
+' Test multiple declarations
+Option Explicit
+
+Sub Main()
+    Print "=== Test 1: VB6-style Dim a, b, c As Integer ==="
+    ' In VB6, only c is Integer, a and b are Variant
+    Dim a, b, c As Integer
+    Print "Initial values:"
+    Print "  a=" & a & " (" & TypeName(a) & ")"
+    Print "  b=" & b & " (" & TypeName(b) & ")"
+    Print "  c=" & c & " (" & TypeName(c) & ")"
+    
+    a = 1
+    b = 2
+    c = 3
+    Print "After assignment:"
+    Print "  a=" & a & ", b=" & b & ", c=" & c
+    
+    Print ""
+    Print "=== Test 2: Each variable has own type ==="
+    Dim x As Integer, y As String, z As Double
+    Print "Initial values:"
+    Print "  x=" & x & " (" & TypeName(x) & ")"
+    Print "  y=[" & y & "] (" & TypeName(y) & ")"
+    Print "  z=" & z & " (" & TypeName(z) & ")"
+    
+    x = 10
+    y = "hello"
+    z = 3.14159
+    Print "After assignment:"
+    Print "  x=" & x & ", y=[" & y & "], z=" & z
+    
+    Print ""
+    Print "=== Test 3: Mixed arrays and scalars ==="
+    Dim i As Integer, arr(5) As Integer, s As String
+    i = 42
+    arr(0) = 100
+    arr(1) = 200
+    s = "test"
+    Print "  i=" & i
+    Print "  arr(0)=" & arr(0) & ", arr(1)=" & arr(1)
+    Print "  s=[" & s & "]"
+    
+    Print ""
+    Print "All tests passed!"
+End Sub

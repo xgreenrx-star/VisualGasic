@@ -1,0 +1,24 @@
+' Test ReDim Preserve error handling
+Option Explicit
+
+Sub Main()
+    Print "=== Test: ReDim Preserve Error Cases ==="
+    
+    ' Test 1: Try to change first dimension (should fail)
+    Print ""
+    Print "Test 1: Changing first dimension (should fail)"
+    Dim grid(2, 3) As Integer
+    grid(0, 0) = 1
+    On Error Resume Next
+    ReDim Preserve grid(5, 3)  ' Should fail - first dimension changed
+    If Err.Number <> 0 Then
+        Print "  Correctly caught error: " & Err.Description
+        Err.Clear
+    Else
+        Print "  ERROR: Should have failed!"
+    End If
+    On Error GoTo 0
+    
+    Print ""
+    Print "Test complete!"
+End Sub

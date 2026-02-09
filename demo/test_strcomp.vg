@@ -1,0 +1,40 @@
+' Test StrComp function
+Option Explicit
+
+Sub Main()
+    Dim result As Long
+    
+    ' Test equal strings
+    result = StrComp("Hello", "Hello")
+    Print "StrComp('Hello', 'Hello') = " & CStr(result) & " (expected: 0)"
+    
+    ' Test s1 < s2
+    result = StrComp("Apple", "Banana")
+    Print "StrComp('Apple', 'Banana') = " & CStr(result) & " (expected: -1)"
+    
+    ' Test s1 > s2
+    result = StrComp("Zebra", "Apple")
+    Print "StrComp('Zebra', 'Apple') = " & CStr(result) & " (expected: 1)"
+    
+    ' Test case sensitivity - default binary compare (mode 0) is case-sensitive
+    result = StrComp("hello", "HELLO")
+    Print "StrComp('hello', 'HELLO') = " & CStr(result) & " (expected: non-zero, binary/case-sensitive)"
+    
+    ' Test case insensitive (mode 1 = text compare)
+    result = StrComp("hello", "HELLO", 1)
+    Print "StrComp('hello', 'HELLO', 1) = " & CStr(result) & " (expected: 0, text/case-insensitive)"
+    
+    ' Test empty strings
+    result = StrComp("", "")
+    Print "StrComp('', '') = " & CStr(result) & " (expected: 0)"
+    
+    ' Test empty vs non-empty
+    result = StrComp("", "A")
+    Print "StrComp('', 'A') = " & CStr(result) & " (expected: -1)"
+    
+    result = StrComp("A", "")
+    Print "StrComp('A', '') = " & CStr(result) & " (expected: 1)"
+    
+    Print ""
+    Print "StrComp test complete!"
+End Sub

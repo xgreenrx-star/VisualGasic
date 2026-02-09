@@ -1,25 +1,99 @@
+' Test Date/Time functions
+Module TestDateTime
+
 Sub Main()
-    Print "=== Date/Time Test ==="
+    Print "=== Date/Time Functions Tests ==="
     
-
-    d = Now()
-    Print "Now dictionary: "
-    Print d
+    ' Test Now, Date, Time
+    Print ""
+    Print "--- Current Date/Time ---"
+    Print "Now() = " & Now()
+    Print "Date() = " & Date()
+    Print "Time() = " & Time()
     
-    Print "Year: " & Year(d) 
-    Print "Month: " & Month(d)
-    Print "Day: " & Day(d)
-    Print "Time: " & Hour(d) & ":" & Minute(d) & ":" & Second(d)
+    ' Test Year, Month, Day with string dates
+    Print ""
+    Print "--- Extract Date Components ---"
+    Dim testDate As String
+    testDate = "2/15/2024"
+    Print "Test date: " & testDate
+    Print "Year(testDate) = " & Year(testDate)
+    Print "Month(testDate) = " & Month(testDate)
+    Print "Day(testDate) = " & Day(testDate)
     
-    Print "Timer (s): " & Timer()
+    ' Test with ISO format
+    Dim isoDate As String
+    isoDate = "2024-12-25"
+    Print ""
+    Print "ISO date: " & isoDate
+    Print "Year(isoDate) = " & Year(isoDate)
+    Print "Month(isoDate) = " & Month(isoDate)
+    Print "Day(isoDate) = " & Day(isoDate)
     
-
-    t0 = Timer()
-    ' Busy wait roughly
-
-    For i = 1 To 10000
-    Next
-    Print "Delta: " & (Timer() - t0)
+    ' Test Hour, Minute, Second
+    Print ""
+    Print "--- Extract Time Components ---"
+    Dim testTime As String
+    testTime = "3:45:30 PM"
+    Print "Test time: " & testTime
+    Print "Hour(testTime) = " & Hour(testTime)
+    Print "Minute(testTime) = " & Minute(testTime)
+    Print "Second(testTime) = " & Second(testTime)
     
-    Print "=== Date/Time Test Complete ==="
+    ' Test DateSerial and TimeSerial
+    Print ""
+    Print "--- DateSerial / TimeSerial ---"
+    Print "DateSerial(2024, 7, 4) = " & DateSerial(2024, 7, 4)
+    Print "TimeSerial(14, 30, 0) = " & TimeSerial(14, 30, 0)
+    
+    ' Test DateAdd
+    Print ""
+    Print "--- DateAdd ---"
+    Dim baseDate As String
+    baseDate = "1/15/2024"
+    Print "Base date: " & baseDate
+    Print "DateAdd('d', 10, baseDate) = " & DateAdd("d", 10, baseDate)
+    Print "DateAdd('m', 2, baseDate) = " & DateAdd("m", 2, baseDate)
+    Print "DateAdd('yyyy', 1, baseDate) = " & DateAdd("yyyy", 1, baseDate)
+    
+    ' Test DateDiff
+    Print ""
+    Print "--- DateDiff ---"
+    Dim date1 As String
+    Dim date2 As String
+    date1 = "1/1/2024"
+    date2 = "1/15/2024"
+    Print "date1: " & date1
+    Print "date2: " & date2
+    Print "DateDiff('d', date1, date2) = " & DateDiff("d", date1, date2)
+    
+    ' Test DatePart
+    Print ""
+    Print "--- DatePart ---"
+    Dim fullDateTime As String
+    fullDateTime = "6/15/2024 2:30:45 PM"
+    Print "Full date/time: " & fullDateTime
+    Print "DatePart('yyyy', fullDateTime) = " & DatePart("yyyy", fullDateTime)
+    Print "DatePart('m', fullDateTime) = " & DatePart("m", fullDateTime)
+    Print "DatePart('d', fullDateTime) = " & DatePart("d", fullDateTime)
+    Print "DatePart('h', fullDateTime) = " & DatePart("h", fullDateTime)
+    Print "DatePart('n', fullDateTime) = " & DatePart("n", fullDateTime)
+    Print "DatePart('s', fullDateTime) = " & DatePart("s", fullDateTime)
+    
+    ' Test Format
+    Print ""
+    Print "--- Format ---"
+    Print "Format(testDate, 'Short Date') = " & Format(testDate, "Short Date")
+    Print "Format(testDate, 'Long Date') = " & Format(testDate, "Long Date")
+    Print "Format(testTime, 'Short Time') = " & Format(testTime, "Short Time")
+    Print "Format(testTime, 'Long Time') = " & Format(testTime, "Long Time")
+    Print "Format(1234.56, 'Currency') = " & Format(1234.56, "Currency")
+    Print "Format(0.75, 'Percent') = " & Format(0.75, "Percent")
+    Print "Format(12345.678, 'Standard') = " & Format(12345.678, "Standard")
+    Print "Format(12345.678, 'Fixed') = " & Format(12345.678, "Fixed")
+    
+    Print ""
+    Print "=== Tests Complete ==="
 End Sub
+
+End Module

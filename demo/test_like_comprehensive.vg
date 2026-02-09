@@ -1,0 +1,88 @@
+' Test Like operator - comprehensive VB6 patterns
+Module TestLikeComprehensive
+
+Sub Main()
+    Print "=== Like Operator Comprehensive Tests ==="
+    
+    ' ? - Single character
+    Print ""
+    Print "--- ? (single character) ---"
+    Dim result As Boolean
+    result = "cat" Like "c?t"
+    Print "cat Like c?t = " & result   ' True
+    result = "cart" Like "c?t"
+    Print "cart Like c?t = " & result  ' False (too many chars)
+    
+    ' * - Zero or more characters
+    Print ""
+    Print "--- * (zero or more) ---"
+    result = "Hello World" Like "Hello*"
+    Print "Hello World Like Hello* = " & result  ' True
+    result = "Hello" Like "Hello*"
+    Print "Hello Like Hello* = " & result        ' True (zero chars)
+    result = "Hello World" Like "*World"
+    Print "Hello World Like *World = " & result  ' True
+    result = "test" Like "*es*"
+    Print "test Like *es* = " & result           ' True
+    
+    ' # - Single digit
+    Print ""
+    Print "--- # (single digit) ---"
+    result = "A5B" Like "A#B"
+    Print "A5B Like A#B = " & result      ' True
+    result = "A12B" Like "A#B"
+    Print "A12B Like A#B = " & result     ' False (two digits)
+    result = "ABC" Like "A#B"
+    Print "ABC Like A#B = " & result      ' False (not a digit)
+    
+    ' [charlist] - Character in list
+    Print ""
+    Print "--- [charlist] ---"
+    result = "cat" Like "[abc]at"
+    Print "cat Like [abc]at = " & result   ' True
+    result = "bat" Like "[abc]at"
+    Print "bat Like [abc]at = " & result   ' True
+    result = "fat" Like "[abc]at"
+    Print "fat Like [abc]at = " & result   ' False
+    
+    ' [a-z] - Character range
+    Print ""
+    Print "--- [a-z] (range) ---"
+    result = "cat" Like "[a-z]at"
+    Print "cat Like [a-z]at = " & result   ' True
+    result = "Cat" Like "[a-z]at"
+    Print "Cat Like [a-z]at = " & result   ' True (case-insensitive)
+    result = "5at" Like "[a-z]at"
+    Print "5at Like [a-z]at = " & result   ' False
+    
+    ' [!charlist] - Character NOT in list
+    Print ""
+    Print "--- [!charlist] (negation) ---"
+    result = "fat" Like "[!abc]at"
+    Print "fat Like [!abc]at = " & result  ' True
+    result = "cat" Like "[!abc]at"
+    Print "cat Like [!abc]at = " & result  ' False
+    
+    ' Complex patterns
+    Print ""
+    Print "--- Complex patterns ---"
+    result = "file123.txt" Like "file###.txt"
+    Print "file123.txt Like file###.txt = " & result  ' True
+    result = "file12.txt" Like "file###.txt"
+    Print "file12.txt Like file###.txt = " & result   ' False
+    result = "hello_world_test" Like "*_*_*"
+    Print "hello_world_test Like *_*_* = " & result   ' True
+    
+    ' Case insensitivity
+    Print ""
+    Print "--- Case insensitivity ---"
+    result = "HELLO" Like "hello"
+    Print "HELLO Like hello = " & result   ' True
+    result = "Hello" Like "HELLO"
+    Print "Hello Like HELLO = " & result   ' True
+    
+    Print ""
+    Print "=== Tests Complete ==="
+End Sub
+
+End Module

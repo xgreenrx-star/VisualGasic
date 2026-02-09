@@ -1,0 +1,23 @@
+' Simple test for Me keyword
+Sub _Ready()
+    Print "Testing Me keyword..."
+    
+    ' Direct Me.name test
+    Dim directName As String
+    directName = Me.name
+    Print "Direct Me.name: '" & directName & "'"
+    
+    ' Direct Me.get_class() test
+    Dim directClass As String
+    directClass = Me.get_class()
+    Print "Direct Me.get_class(): " & directClass
+    
+    ' Assign to variable and test again
+    Dim selfRef As Object
+    Set selfRef = Me
+    Dim viaVarName As String
+    viaVarName = selfRef.name
+    Print "Via variable selfRef.name: '" & viaVarName & "'"
+    
+    Print "Done!"
+End Sub

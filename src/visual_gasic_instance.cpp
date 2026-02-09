@@ -500,6 +500,159 @@ static void opcode_profile_dump() {
     }
 }
 
+// VB6-style Like pattern matching
+// Pattern characters:
+//   ? - matches any single character
+//   * - matches zero or more characters
+//   # - matches any single digit (0-9)
+//   [charlist] - matches any single character in charlist
+//   [!charlist] - matches any single character NOT in charlist
+static bool vb_like_match(const String& value, const String& pattern) {
+    int v_len = value.length();
+    int p_len = pattern.length();
+    int v_idx = 0;
+    int p_idx = 0;
+    
+    // Star tracking for backtracking
+    int star_p_idx = -1;
+    int star_v_idx = -1;
+    
+    while (v_idx < v_len) {
+        if (p_idx < p_len) {
+            char32_t p_char = pattern[p_idx];
+            
+            // ? matches any single character
+            if (p_char == '?') {
+                v_idx++;
+                p_idx++;
+                continue;
+            }
+            
+            // # matches any single digit
+            if (p_char == '#') {
+                char32_t v_char = value[v_idx];
+                if (v_char >= '0' && v_char <= '9') {
+                    v_idx++;
+                    p_idx++;
+                    continue;
+                } else {
+                    // No match, try backtracking
+                    if (star_p_idx >= 0) {
+                        p_idx = star_p_idx + 1;
+                        star_v_idx++;
+                        v_idx = star_v_idx;
+                        continue;
+                    }
+                    return false;
+                }
+            }
+            
+            // * matches zero or more characters
+            if (p_char == '*') {
+                star_p_idx = p_idx;
+                star_v_idx = v_idx;
+                p_idx++;
+                continue;
+            }
+            
+            // [charlist] or [!charlist]
+            if (p_char == '[') {
+                p_idx++;
+                bool negate = false;
+                if (p_idx < p_len && pattern[p_idx] == '!') {
+                    negate = true;
+                    p_idx++;
+                }
+                
+                // Find the closing bracket
+                int bracket_start = p_idx;
+                while (p_idx < p_len && pattern[p_idx] != ']') {
+                    p_idx++;
+                }
+                
+                if (p_idx >= p_len) {
+                    // No closing bracket found - treat as literal
+                    if (star_p_idx >= 0) {
+                        p_idx = star_p_idx + 1;
+                        star_v_idx++;
+                        v_idx = star_v_idx;
+                        continue;
+                    }
+                    return false;
+                }
+                
+                // Extract charlist
+                String charlist = pattern.substr(bracket_start, p_idx - bracket_start);
+                p_idx++; // Skip ]
+                
+                char32_t v_char = value[v_idx];
+                bool found = false;
+                
+                // Check charlist (handles ranges like a-z)
+                for (int i = 0; i < charlist.length(); i++) {
+                    if (i + 2 < charlist.length() && charlist[i + 1] == '-') {
+                        // Range like a-z
+                        char32_t range_start = charlist[i];
+                        char32_t range_end = charlist[i + 2];
+                        if (v_char >= range_start && v_char <= range_end) {
+                            found = true;
+                            break;
+                        }
+                        i += 2; // Skip the range
+                    } else {
+                        if (charlist[i] == v_char) {
+                            found = true;
+                            break;
+                        }
+                    }
+                }
+                
+                bool matches = negate ? !found : found;
+                if (matches) {
+                    v_idx++;
+                    continue;
+                } else {
+                    if (star_p_idx >= 0) {
+                        p_idx = star_p_idx + 1;
+                        star_v_idx++;
+                        v_idx = star_v_idx;
+                        continue;
+                    }
+                    return false;
+                }
+            }
+            
+            // Literal character match (case-insensitive by default in VB6)
+            char32_t v_char = value[v_idx];
+            char32_t p_lower = (p_char >= 'A' && p_char <= 'Z') ? p_char + 32 : p_char;
+            char32_t v_lower = (v_char >= 'A' && v_char <= 'Z') ? v_char + 32 : v_char;
+            
+            if (p_lower == v_lower) {
+                v_idx++;
+                p_idx++;
+                continue;
+            }
+        }
+        
+        // No match at current position, try backtracking from last *
+        if (star_p_idx >= 0) {
+            p_idx = star_p_idx + 1;
+            star_v_idx++;
+            v_idx = star_v_idx;
+            continue;
+        }
+        
+        return false;
+    }
+    
+    // Consume any remaining * in pattern
+    while (p_idx < p_len && pattern[p_idx] == '*') {
+        p_idx++;
+    }
+    
+    return p_idx == p_len;
+}
+
 static bool vg_stack_profile_enabled() {
     static bool initialized = false;
     static bool enabled = false;
@@ -836,6 +989,79 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
     variables["vbKeyLeft"] = (int)Key::KEY_LEFT;
     variables["vbKeyRight"] = (int)Key::KEY_RIGHT;
     
+    // Godot-style Key Constants (for Input.IsKeyPressed)
+    variables["KEY_NONE"] = (int)Key::KEY_NONE;
+    variables["KEY_SPACE"] = (int)Key::KEY_SPACE;
+    variables["KEY_ENTER"] = (int)Key::KEY_ENTER;
+    variables["KEY_ESCAPE"] = (int)Key::KEY_ESCAPE;
+    variables["KEY_TAB"] = (int)Key::KEY_TAB;
+    variables["KEY_BACKSPACE"] = (int)Key::KEY_BACKSPACE;
+    variables["KEY_DELETE"] = (int)Key::KEY_DELETE;
+    variables["KEY_INSERT"] = (int)Key::KEY_INSERT;
+    variables["KEY_HOME"] = (int)Key::KEY_HOME;
+    variables["KEY_END"] = (int)Key::KEY_END;
+    variables["KEY_PAGEUP"] = (int)Key::KEY_PAGEUP;
+    variables["KEY_PAGEDOWN"] = (int)Key::KEY_PAGEDOWN;
+    variables["KEY_UP"] = (int)Key::KEY_UP;
+    variables["KEY_DOWN"] = (int)Key::KEY_DOWN;
+    variables["KEY_LEFT"] = (int)Key::KEY_LEFT;
+    variables["KEY_RIGHT"] = (int)Key::KEY_RIGHT;
+    variables["KEY_SHIFT"] = (int)Key::KEY_SHIFT;
+    variables["KEY_CTRL"] = (int)Key::KEY_CTRL;
+    variables["KEY_ALT"] = (int)Key::KEY_ALT;
+    variables["KEY_CAPSLOCK"] = (int)Key::KEY_CAPSLOCK;
+    // Letter keys A-Z
+    variables["KEY_A"] = (int)Key::KEY_A;
+    variables["KEY_B"] = (int)Key::KEY_B;
+    variables["KEY_C"] = (int)Key::KEY_C;
+    variables["KEY_D"] = (int)Key::KEY_D;
+    variables["KEY_E"] = (int)Key::KEY_E;
+    variables["KEY_F"] = (int)Key::KEY_F;
+    variables["KEY_G"] = (int)Key::KEY_G;
+    variables["KEY_H"] = (int)Key::KEY_H;
+    variables["KEY_I"] = (int)Key::KEY_I;
+    variables["KEY_J"] = (int)Key::KEY_J;
+    variables["KEY_K"] = (int)Key::KEY_K;
+    variables["KEY_L"] = (int)Key::KEY_L;
+    variables["KEY_M"] = (int)Key::KEY_M;
+    variables["KEY_N"] = (int)Key::KEY_N;
+    variables["KEY_O"] = (int)Key::KEY_O;
+    variables["KEY_P"] = (int)Key::KEY_P;
+    variables["KEY_Q"] = (int)Key::KEY_Q;
+    variables["KEY_R"] = (int)Key::KEY_R;
+    variables["KEY_S"] = (int)Key::KEY_S;
+    variables["KEY_T"] = (int)Key::KEY_T;
+    variables["KEY_U"] = (int)Key::KEY_U;
+    variables["KEY_V"] = (int)Key::KEY_V;
+    variables["KEY_W"] = (int)Key::KEY_W;
+    variables["KEY_X"] = (int)Key::KEY_X;
+    variables["KEY_Y"] = (int)Key::KEY_Y;
+    variables["KEY_Z"] = (int)Key::KEY_Z;
+    // Number keys 0-9
+    variables["KEY_0"] = (int)Key::KEY_0;
+    variables["KEY_1"] = (int)Key::KEY_1;
+    variables["KEY_2"] = (int)Key::KEY_2;
+    variables["KEY_3"] = (int)Key::KEY_3;
+    variables["KEY_4"] = (int)Key::KEY_4;
+    variables["KEY_5"] = (int)Key::KEY_5;
+    variables["KEY_6"] = (int)Key::KEY_6;
+    variables["KEY_7"] = (int)Key::KEY_7;
+    variables["KEY_8"] = (int)Key::KEY_8;
+    variables["KEY_9"] = (int)Key::KEY_9;
+    // Function keys F1-F12
+    variables["KEY_F1"] = (int)Key::KEY_F1;
+    variables["KEY_F2"] = (int)Key::KEY_F2;
+    variables["KEY_F3"] = (int)Key::KEY_F3;
+    variables["KEY_F4"] = (int)Key::KEY_F4;
+    variables["KEY_F5"] = (int)Key::KEY_F5;
+    variables["KEY_F6"] = (int)Key::KEY_F6;
+    variables["KEY_F7"] = (int)Key::KEY_F7;
+    variables["KEY_F8"] = (int)Key::KEY_F8;
+    variables["KEY_F9"] = (int)Key::KEY_F9;
+    variables["KEY_F10"] = (int)Key::KEY_F10;
+    variables["KEY_F11"] = (int)Key::KEY_F11;
+    variables["KEY_F12"] = (int)Key::KEY_F12;
+    
     // MsgBox Button Constants (VB6-style)
     variables["vbOKOnly"] = 0;
     variables["vbOKCancel"] = 1;
@@ -916,6 +1142,12 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
                 }
                 else if (stmt->type == STMT_CONST) {
                      execute_statement(stmt);
+                }
+                else if (stmt->type == STMT_WHENEVER_SECTION) {
+                     // Execute module-level Whenever Section declarations
+                     execute_statement(stmt);
+                     WheneverSectionStatement* ws = (WheneverSectionStatement*)stmt;
+                     UtilityFunctions::print("Registered Whenever Section: ", ws->section_name);
                 }
             }
         }
@@ -1421,6 +1653,13 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
     if (expr->type == ExpressionNode::VARIABLE) {
         String name = ((VariableNode*)expr)->name;
         
+        // VB6 "Me" keyword - returns the owner object (self reference)
+        if (name.nocasecmp_to("Me") == 0) {
+            if (owner) return owner;
+            raise_error("'Me' keyword used but no owner object available");
+            return Variant();
+        }
+        
         if (name.nocasecmp_to("FreeFile") == 0) {
              for(int i=1; i<=255; i++) {
                  if (!open_files.has(i)) return i;
@@ -1435,7 +1674,16 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
             return Engine::get_singleton();
         }
         
-        if (variables.has(name)) return variables[name];
+        // Input singleton for Input.IsActionPressed(), etc.
+        if (name.nocasecmp_to("Input") == 0) {
+            return Input::get_singleton();
+        }
+        
+        if (variables.has(name)) {
+            if (name.nocasecmp_to("wheneverTriggered") == 0) {
+            }
+            return variables[name];
+        }
         
         // Debug
         // UtilityFunctions::print("Variable not found in map: ", name);
@@ -1552,6 +1800,20 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
                           if (prop_name == "Height") return Object::cast_to<Control>(obj)->get_size().y;
                           if (prop_name == "Visible") return Object::cast_to<Control>(obj)->is_visible();
                           
+                          // VB6 Enabled property - maps to Godot's disabled (inverted) or editable
+                          if (prop_name == "Enabled") {
+                              Variant disabled_val = obj->get("disabled");
+                              if (disabled_val.get_type() == Variant::BOOL) {
+                                  return !(bool)disabled_val;
+                              }
+                              // Fallback for LineEdit/TextEdit which use editable
+                              Variant editable_val = obj->get("editable");
+                              if (editable_val.get_type() == Variant::BOOL) {
+                                  return (bool)editable_val;
+                              }
+                              return true; // Default to enabled
+                          }
+                          
                           if (obj->is_class("Tree")) {
                                if (prop_name == "Rows") {
                                    Tree *t = Object::cast_to<Tree>(obj);
@@ -1564,7 +1826,6 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
                       }
                   }
              }
-
              if (obj) {
                  Variant val = obj->get(prop_name);
                  if (val.get_type() != Variant::NIL) return val;
@@ -1906,6 +2167,24 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
         if (call->method_name.nocasecmp_to("CreateNode") == 0) {
              // Debug 
              // UtilityFunctions::print("DEBUG: Handling Call: ", call->method_name);
+        }
+        
+        // GetNode("path") - Godot node path lookup
+        if (call->method_name.nocasecmp_to("GetNode") == 0 && call_args.size() == 1) {
+            String path = call_args[0];
+            if (owner) {
+                Node *n = Object::cast_to<Node>(owner);
+                if (n && n->is_inside_tree()) {
+                    if (path.begins_with("/root/") || path.begins_with("/")) {
+                        // Absolute path from scene root
+                        return n->get_node_or_null(NodePath(path));
+                    } else {
+                        // Relative path from owner
+                        return n->get_node_or_null(NodePath(path));
+                    }
+                }
+            }
+            return Variant();
         }
 
         if (call->method_name.nocasecmp_to("Vector2") == 0 && call_args.size() == 2) {
@@ -3189,6 +3468,50 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
              // Or display server
              return DisplayServer::get_singleton()->mouse_get_position(); 
         }
+        
+        // ============================================
+        // Game-Specific Keyword Functions
+        // ============================================
+        
+        // Whenever system functions
+        if (call->method_name.nocasecmp_to("ActiveWheneverCount") == 0 && call_args.size() == 0) {
+            return get_active_whenever_count();
+        }
+        if (call->method_name.nocasecmp_to("WheneverStatus") == 0 && call_args.size() == 0) {
+            return get_whenever_status();
+        }
+        
+        // Keyboard input functions
+        if (call->method_name.nocasecmp_to("Inkey") == 0 && call_args.size() == 0) {
+            // Return last key pressed (empty string if none)
+            // Check Input for any key by scanning common keys
+            // For now, just return empty - real implementation would track last key
+            return String("");
+        }
+        
+        // Mouse input functions
+        if (call->method_name.nocasecmp_to("MouseClick") == 0 && call_args.size() == 0) {
+            // Return mouse button state as bitmask
+            int state = 0;
+            if (Input::get_singleton()->is_mouse_button_pressed(MOUSE_BUTTON_LEFT)) state |= 1;
+            if (Input::get_singleton()->is_mouse_button_pressed(MOUSE_BUTTON_RIGHT)) state |= 2;
+            if (Input::get_singleton()->is_mouse_button_pressed(MOUSE_BUTTON_MIDDLE)) state |= 4;
+            return state;
+        }
+        if (call->method_name.nocasecmp_to("MouseX") == 0 && call_args.size() == 0) {
+            if (owner) {
+                Node *n = Object::cast_to<Node>(owner);
+                if (n && n->get_viewport()) return n->get_viewport()->get_mouse_position().x;
+            }
+            return 0.0;
+        }
+        if (call->method_name.nocasecmp_to("MouseY") == 0 && call_args.size() == 0) {
+            if (owner) {
+                Node *n = Object::cast_to<Node>(owner);
+                if (n && n->get_viewport()) return n->get_viewport()->get_mouse_position().y;
+            }
+            return 0.0;
+        }
 
         if (call->method_name.nocasecmp_to("Array") == 0) {
             return call_args;
@@ -3277,14 +3600,20 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
              // Integer Division (VB style)
              int64_t li = (int64_t)l;
              int64_t ri = (int64_t)r;
-             if (ri == 0) return 0;
+             if (ri == 0) {
+                 raise_error("Division by zero", 11);
+                 return 0;
+             }
              return li / ri;
         }
         if (op.nocasecmp_to("Mod") == 0) {
              // Modulo
              int64_t li = (int64_t)l;
              int64_t ri = (int64_t)r;
-             if (ri == 0) return 0;
+             if (ri == 0) {
+                 raise_error("Division by zero", 11);
+                 return 0;
+             }
              return li % ri;
         }
         
@@ -3307,12 +3636,32 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
              Variant::evaluate(Variant::OP_EQUAL, l, r, res, valid);
              return res;
         }
+        if (op.nocasecmp_to("Like") == 0) {
+            // VB6-style Like pattern matching
+            // Pattern characters:
+            //   ? - matches any single character
+            //   * - matches zero or more characters
+            //   # - matches any single digit (0-9)
+            //   [charlist] - matches any single character in charlist
+            //   [!charlist] - matches any single character NOT in charlist
+            String value = String(l);
+            String pattern = String(r);
+            return vb_like_match(value, pattern);
+        }
         
         Variant::Operator v_op = Variant::OP_ADD;
         if (op == "+") v_op = Variant::OP_ADD;
         else if (op == "-") v_op = Variant::OP_SUBTRACT;
         else if (op == "*") v_op = Variant::OP_MULTIPLY;
-        else if (op == "/") v_op = Variant::OP_DIVIDE;
+        else if (op == "/") {
+            // Check for division by zero
+            double divisor = (double)r;
+            if (divisor == 0.0) {
+                raise_error("Division by zero", 11);
+                return 0.0;
+            }
+            return (double)l / divisor;
+        }
         else if (op == "=") {
              if (option_compare_text && l.get_type() == Variant::STRING && r.get_type() == Variant::STRING) {
                  return String(l).nocasecmp_to(String(r)) == 0;
@@ -3576,6 +3925,10 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                 
                 variables[s->variable_name] = ArrayBuilder::create(dims, 0, s->type_name, struct_prototypes);
 
+            } else if (s->is_dynamic_array) {
+                // Dynamic array with empty parentheses: Dim arr() As Integer
+                // Initialize as empty array, to be resized with ReDim later
+                variables[s->variable_name] = Array();
             } else {
                 if (s->initializer) {
                      Variant val = evaluate_expression(s->initializer);
@@ -5137,8 +5490,35 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                     for(int j=0; j<block->values.size(); j++) {
                         Variant c = evaluate_expression(block->values[j]);
                         
+                        // Check for comparison operator (Case Is > value)
+                        if (j < block->comparison_ops.size() && !block->comparison_ops[j].is_empty()) {
+                            String comp_op = block->comparison_ops[j];
+                            bool valid;
+                            Variant res;
+                            
+                            if (comp_op == ">") {
+                                Variant::evaluate(Variant::OP_GREATER, val, c, res, valid);
+                            } else if (comp_op == "<") {
+                                Variant::evaluate(Variant::OP_LESS, val, c, res, valid);
+                            } else if (comp_op == ">=") {
+                                Variant::evaluate(Variant::OP_GREATER_EQUAL, val, c, res, valid);
+                            } else if (comp_op == "<=") {
+                                Variant::evaluate(Variant::OP_LESS_EQUAL, val, c, res, valid);
+                            } else if (comp_op == "<>") {
+                                Variant::evaluate(Variant::OP_NOT_EQUAL, val, c, res, valid);
+                            } else if (comp_op == "=") {
+                                Variant::evaluate(Variant::OP_EQUAL, val, c, res, valid);
+                            } else {
+                                valid = false;
+                            }
+                            
+                            if (valid && res.booleanize()) {
+                                match = true;
+                                break;
+                            }
+                        }
                         // Check if this is a range (X To Y)
-                        if (j < block->range_ends.size() && block->range_ends[j] != nullptr) {
+                        else if (j < block->range_ends.size() && block->range_ends[j] != nullptr) {
                             Variant range_end = evaluate_expression(block->range_ends[j]);
                             // val >= c AND val <= range_end
                             bool valid1, valid2;
@@ -5279,17 +5659,95 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                     break;
                 }
                 
-                // Only support 1D preserve for now (or recursion later?)
-                // Support multi-dim preserve of LAST dimension is standard only.
+                // VB6 rule: ReDim Preserve can only change the LAST dimension
                 if (dims.size() == 1) {
+                    // 1D array - simple resize
                     Array arr = v;
                     arr.resize(dims[0]);
-                    // Godot fills new with null. We might want defaults if we knew the type.
-                    // But we don't track type metadata in Variant well.
-                    // Assume user handles nulls or we accept nulls as 0/"" in future ops.
                     variables[s->variable_name] = arr;
                 } else {
-                    raise_error("ReDim Preserve only supported for 1D arrays currently");
+                    // Multi-dimensional array: only the last dimension can change
+                    // Validate that the existing array has the same number of dimensions
+                    Array existing_arr = v;
+                    
+                    // Helper lambda to get dimensions of a nested array
+                    auto get_array_dims = [](Array arr) -> Vector<int> {
+                        Vector<int> result;
+                        Array current = arr;
+                        while (current.size() > 0) {
+                            result.push_back(current.size());
+                            if (current[0].get_type() == Variant::ARRAY) {
+                                current = current[0];
+                            } else {
+                                break;
+                            }
+                        }
+                        if (result.size() == 0 && arr.size() > 0) {
+                            result.push_back(arr.size());
+                        }
+                        return result;
+                    };
+                    
+                    Vector<int> old_dims = get_array_dims(existing_arr);
+                    
+                    if (old_dims.size() != dims.size()) {
+                        raise_error("ReDim Preserve cannot change number of dimensions");
+                        break;
+                    }
+                    
+                    // Check that all dimensions except the last one match
+                    for (int i = 0; i < dims.size() - 1; i++) {
+                        if (old_dims[i] != dims[i]) {
+                            raise_error("ReDim Preserve can only change the last dimension");
+                            break;
+                        }
+                    }
+                    
+                    if (error_state.has_error) break;
+                    
+                    // Resize the last dimension of each innermost array
+                    // For 2D arr(a, b): arr is outer (size a+1), arr[i] are inner (resize to b+1)
+                    // For 3D arr(a, b, c): arr[i] are middle, arr[i][j] are inner (resize to c+1)
+                    
+                    int new_last_dim_size = dims[dims.size() - 1];
+                    int num_dims = dims.size();
+                    
+                    // Recursive helper to resize innermost arrays
+                    // depth_from_leaf: 0 = current array is the innermost, 1 = children are innermost, etc.
+                    struct PreserveResizer {
+                        static void resize_at_depth(Array& arr, int current_depth, int leaf_depth, int new_size) {
+                            // leaf_depth is where the innermost arrays are (num_dims - 2)
+                            // For 2D (num_dims=2): leaf_depth=0, so at depth 0 we resize arr[i]
+                            // For 3D (num_dims=3): leaf_depth=1, so at depth 1 we resize arr[i][j]
+                            
+                            if (current_depth == leaf_depth) {
+                                // The elements of this array are the innermost arrays to resize
+                                for (int i = 0; i < arr.size(); i++) {
+                                    if (arr[i].get_type() == Variant::ARRAY) {
+                                        Array inner = arr[i];
+                                        inner.resize(new_size);
+                                        arr[i] = inner;
+                                    }
+                                }
+                            } else if (current_depth < leaf_depth) {
+                                // Go deeper
+                                for (int i = 0; i < arr.size(); i++) {
+                                    if (arr[i].get_type() == Variant::ARRAY) {
+                                        Array inner = arr[i];
+                                        resize_at_depth(inner, current_depth + 1, leaf_depth, new_size);
+                                        arr[i] = inner;
+                                    }
+                                }
+                            }
+                        }
+                    };
+                    
+                    // For 2D (num_dims=2), leaf_depth = 0
+                    // For 3D (num_dims=3), leaf_depth = 1
+                    int leaf_depth = num_dims - 2;
+                    PreserveResizer::resize_at_depth(existing_arr, 0, leaf_depth, new_last_dim_size);
+                    
+                    variables[s->variable_name] = existing_arr;
                 }
             } else {
                  // Clone ArrayBuilder logic
@@ -5479,6 +5937,7 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
         Parameter& param = func->parameters.write[i];
         
         if (param.is_param_array) {
+            // ParamArray collects all remaining arguments into an array
             Array rest;
             for(int k=i; k<p_args.size(); k++) {
                 rest.push_back(p_args[k]);
@@ -5538,9 +5997,13 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
     if (script.is_valid()) {
         BytecodeChunk *chunk = script->get_bytecode_for(func->name);
         if (chunk) {
+            if (func->name.nocasecmp_to("OnHealthChange") == 0 || func->name.nocasecmp_to("OnScoreHigh") == 0) {
+            }
             bytecode_variables_backup = variables.duplicate(true);
             has_backup = true;
             used_bytecode = execute_bytecode(chunk, func, bytecode_ret);
+            if (func->name.nocasecmp_to("OnHealthChange") == 0 || func->name.nocasecmp_to("OnScoreHigh") == 0) {
+            }
             if (!used_bytecode && has_backup) {
                 variables = bytecode_variables_backup;
                 error_state = bytecode_error_backup;
@@ -5830,12 +6293,18 @@ static void _connect_vb_signals_recursive(Node* node, VisualGasicInstance* insta
     } else if (node->is_class("TextEdit")) {
         evt_name = "Change";
         signal_name = "text_changed";
-    } else if (node->is_class("HSlider") || node->is_class("VSlider")) {
+    } else if (node->is_class("HSlider") || node->is_class("VSlider") || node->is_class("HScrollBar") || node->is_class("VScrollBar")) {
         evt_name = "Change";
         signal_name = "value_changed";
     } else if (node->is_class("Timer")) {
         evt_name = "Timer";
         signal_name = "timeout";
+    } else if (node->is_class("ItemList")) {
+        evt_name = "Click";
+        signal_name = "item_selected";
+    } else if (node->is_class("OptionButton")) {
+        evt_name = "Click";
+        signal_name = "item_selected";
     }
     
     if (!evt_name.is_empty()) {
@@ -5896,25 +6365,46 @@ void VisualGasicInstance::notification(int32_t p_what) {
          if (owner && script.is_valid()) {
              Node* node = Object::cast_to<Node>(owner);
              if (node) {
-                 if (!node->is_processing() && script->has_method("_Process")) node->set_process(true);
-                 if (!node->is_physics_processing() && script->has_method("_PhysicsProcess")) node->set_physics_process(true);
-                 if (!node->is_processing_input() && script->has_method("_Input")) node->set_process_input(true);
+                 if (!node->is_processing() && script->_has_method("_Process")) node->set_process(true);
+                 if (!node->is_physics_processing() && script->_has_method("_PhysicsProcess")) node->set_physics_process(true);
+                 if (!node->is_processing_input() && script->_has_method("_Input")) node->set_process_input(true);
                  
                  // Run Auto-Wire for Signals
                  _connect_vb_signals_recursive(node, this, node);
              }
          }
+         
+         // Call Form_Load (VB6 form load event) if present
+         if (script.is_valid()) {
+             bool has_form_load = script->_has_method("Form_Load");
+             if (has_form_load && !Engine::get_singleton()->is_editor_hint()) {
+                 bool found;
+                 call_internal("Form_Load", Array(), found);
+             }
+         }
 
          // Call _Ready but NOT in editor mode (prevents game logic from running in editor)
-         if (script.is_valid() && script->has_method("_Ready") && !Engine::get_singleton()->is_editor_hint()) {
+         if (script.is_valid() && script->_has_method("_Ready") && !Engine::get_singleton()->is_editor_hint()) {
              bool found;
              call_internal("_Ready", Array(), found);
          }
          
-         // Run Auto-Wire again for nodes created in _Ready (Dynamic Controls)
+         // Run Auto-Wire again for nodes created in _Ready/Form_Load (Dynamic Controls)
          if (owner && !Engine::get_singleton()->is_editor_hint()) {
              Node* node = Object::cast_to<Node>(owner);
              if (node) _connect_vb_signals_recursive(node, this, node);
+         }
+    }
+    else if (p_what == Node::NOTIFICATION_EXIT_TREE) {
+         // Skip in editor mode
+         if (Engine::get_singleton()->is_editor_hint()) {
+             return;
+         }
+         
+         // Call Form_Unload (VB6 form unload event) if present
+         if (script.is_valid() && script->_has_method("Form_Unload")) {
+             bool found;
+             call_internal("Form_Unload", Array(), found);
          }
     }
     else if (p_what == Node::NOTIFICATION_PROCESS) {
@@ -5922,7 +6412,7 @@ void VisualGasicInstance::notification(int32_t p_what) {
          if (Engine::get_singleton()->is_editor_hint()) {
              return;
          }
-         if (script.is_valid() && script->has_method("_Process")) {
+         if (script.is_valid() && script->_has_method("_Process")) {
              double delta = 0.0;
              if (owner) {
                  Node* node = Object::cast_to<Node>(owner);
@@ -5941,7 +6431,7 @@ void VisualGasicInstance::notification(int32_t p_what) {
          if (Engine::get_singleton()->is_editor_hint()) {
              return;
          }
-         if (script.is_valid() && script->has_method("_PhysicsProcess")) {
+         if (script.is_valid() && script->_has_method("_PhysicsProcess")) {
              double delta = 0.0;
              if (owner) {
                  Node* node = Object::cast_to<Node>(owner);
@@ -5957,7 +6447,7 @@ void VisualGasicInstance::notification(int32_t p_what) {
     }
     // Handle Drawing
     else if (p_what == CanvasItem::NOTIFICATION_DRAW) {
-         if (script.is_valid() && script->has_method("OnDraw")) {
+         if (script.is_valid() && script->_has_method("OnDraw")) {
              bool found;
              Array args;
              call_internal("OnDraw", args, found);
@@ -6129,6 +6619,8 @@ void VisualGasicInstance::assign_variable(const String& name, Variant val) {
     }
 
     if (variables.has(name)) {
+         if (name.nocasecmp_to("wheneverTriggered") == 0) {
+         }
          Variant::Type target_type = variables[name].get_type();
          if (target_type == Variant::INT) {
              variables[name] = (int64_t)val;
@@ -6144,6 +6636,8 @@ void VisualGasicInstance::assign_variable(const String& name, Variant val) {
          }
          else {
              variables[name] = val;
+         }
+         if (name.nocasecmp_to("wheneverTriggered") == 0) {
          }
     } else if (owner) {
          Variant current = owner->get(name);
@@ -6183,7 +6677,8 @@ void VisualGasicInstance::check_whenever_conditions(const String& variable_name,
     for (int i = 0; i < whenever_sections.size(); i++) {
         WheneverSection& section = whenever_sections.write[i];
         
-        if (!section.is_active || section.variable_name != variable_name) {
+        // Case-insensitive comparison for VB6 compatibility
+        if (!section.is_active || section.variable_name.nocasecmp_to(variable_name) != 0) {
             continue;
         }
         
@@ -6237,6 +6732,7 @@ void VisualGasicInstance::check_whenever_conditions(const String& variable_name,
             
             // Update last value for future comparisons
             section.last_value = new_value;
+            
             
             // Call all callback procedures
             Array empty_args;
@@ -6457,8 +6953,6 @@ void VisualGasicInstance::assign_to_target(ExpressionNode* target, Variant val) 
     else if (target->type == ExpressionNode::MEMBER_ACCESS) {
          MemberAccessNode* ma = (MemberAccessNode*)target;
          Variant base = evaluate_expression(ma->base_object);
-         
-         print_line("[VG] Member Assignment: base type=" + itos(base.get_type()) + ", member=" + ma->member_name + ", val=" + String(val));
 
          if (base.get_type() == Variant::DICTIONARY) {
              Dictionary dict = base;
@@ -6544,6 +7038,21 @@ void VisualGasicInstance::assign_to_target(ExpressionNode* target, Variant val) 
                            if (prop_name == "Width") { c->set_size(Vector2((double)val, c->get_size().y)); return; }
                            if (prop_name == "Height") { c->set_size(Vector2(c->get_size().x, (double)val)); return; }
                            if (prop_name == "Visible") { c->set_visible((bool)val); return; }
+                           
+                           // VB6 Enabled property - maps to Godot's disabled (inverted) or editable
+                           if (prop_name == "Enabled") {
+                               Variant test_disabled = obj->get("disabled");
+                               if (test_disabled.get_type() == Variant::BOOL) {
+                                   obj->set("disabled", !(bool)val);
+                                   return;
+                               }
+                               // Fallback for LineEdit/TextEdit which use editable
+                               Variant test_editable = obj->get("editable");
+                               if (test_editable.get_type() == Variant::BOOL) {
+                                   obj->set("editable", (bool)val);
+                                   return;
+                               }
+                           }
                       }
                  }
              }
@@ -6579,49 +7088,98 @@ void VisualGasicInstance::assign_to_target(ExpressionNode* target, Variant val) 
     } 
     else if (target->type == ExpressionNode::ARRAY_ACCESS) {
          ArrayAccessNode* aa = (ArrayAccessNode*)target;
+         
+         // Get the variable name from the base
+         String var_name;
+         if (aa->base->type == ExpressionNode::VARIABLE) {
+             var_name = ((VariableNode*)aa->base)->name;
+         }
+         
          Variant base = evaluate_expression(aa->base);
 
          if (base.get_type() == Variant::DICTIONARY) {
              if (aa->indices.size() > 0) {
                  Dictionary d = base;
                  Variant key = evaluate_expression(aa->indices[0]);
-                 d[key] = val; // Dictionary copy? Or ref? 
-                 // Dictionaries are passed by reference in Godot 4 usually, but Variant operator= might copy?
-                 // Wait, Dictionary IS ref counted.
-                 // But simply d[key] = val modifies d locally.
-                 // Does it modify the original variable?
-                 // If 'base' comes from 'evaluate_expression', it handles returning the variant.
-                 // If base is a variable, we hold a ref.
-                 // So modifying d modifies the underlying dictionary.
+                 d[key] = val;
+                 // Write back the dictionary to the variable
+                 if (!var_name.is_empty()) {
+                     assign_variable(var_name, d);
+                 }
                  return;
              }
          }
 
-         Variant container = base;
-         bool fail = false;
-         
-         for(int i=0; i<aa->indices.size() - 1; i++) {
-             if (container.get_type() != Variant::ARRAY) { fail=true; break; }
-             Array arr = container;
-             int idx = evaluate_expression(aa->indices[i]);
-             if (idx >= 0 && idx < arr.size()) {
-                 container = arr[idx];
-             } else {
-                 raise_error("Array subscript out of range");
-                 fail = true; break;
-             }
+         if (base.get_type() != Variant::ARRAY) {
+             raise_error("Expected Array for index access");
+             return;
          }
-         
-         if (!fail && container.get_type() == Variant::ARRAY) {
-              Array arr = container;
-              int idx = evaluate_expression(aa->indices[aa->indices.size()-1]);
-              if (idx >= 0 && idx < arr.size()) {
-                  arr[idx] = val;
-              } else {
-                  raise_error("Array subscript out of range");
-              }
-         } else if (!fail) {
-              raise_error("Expected Array for index access");
+
+         // Evaluate all indices upfront
+         Vector<int64_t> indices;
+         indices.resize(aa->indices.size());
+         for (int i = 0; i < aa->indices.size(); i++) {
+             indices.write[i] = (int64_t)evaluate_expression(aa->indices[i]);
+         }
+
+         // Simple 1D case
+         if (indices.size() == 1) {
+             Array arr = base;
+             int idx = (int)indices[0];
+             if (idx < 0 || idx >= arr.size()) {
+                 raise_error("Array subscript out of range");
+                 return;
+             }
+             arr[idx] = val;
+             if (!var_name.is_empty()) {
+                 assign_variable(var_name, arr);
+             }
+             return;
+         }
+
+         // Multi-dimensional case: need to properly propagate changes back
+         Vector<Array> arr_stack;
+         Vector<int> idx_stack;
+         Array root_arr = base;
+         arr_stack.push_back(root_arr);
+
+         // Navigate to the target, building a stack of arrays
+         for (int i = 0; i < indices.size() - 1; i++) {
+             int idx = (int)indices[i];
+             Array current = arr_stack[arr_stack.size() - 1];
+             if (idx < 0 || idx >= current.size()) {
+                 raise_error("Array subscript out of range");
+                 return;
+             }
+             if (current[idx].get_type() != Variant::ARRAY) {
+                 raise_error("Array assignment base must be an array");
+                 return;
+             }
+             idx_stack.push_back(idx);
+             arr_stack.push_back(current[idx]);
+         }
+
+         // Set the value in the innermost array
+         Array innermost = arr_stack[arr_stack.size() - 1];
+         int last_idx = (int)indices[indices.size() - 1];
+         if (last_idx < 0 || last_idx >= innermost.size()) {
+             raise_error("Array subscript out of range");
+             return;
+         }
+         innermost[last_idx] = val;
+         // CRITICAL: Store the modified innermost back into arr_stack
+         arr_stack.write[arr_stack.size() - 1] = innermost;
+
+         // Propagate changes back up the stack
+         for (int i = arr_stack.size() - 2; i >= 0; i--) {
+             Array parent = arr_stack[i];
+             int parent_idx = idx_stack[i];
+             parent[parent_idx] = arr_stack[i + 1];
+             arr_stack.write[i] = parent;
+         }
+
+         if (!var_name.is_empty()) {
+             assign_variable(var_name, arr_stack[0]);
          }
     }
     else if (target->type == ExpressionNode::EXPRESSION_CALL) {
@@ -6656,33 +7214,61 @@ void VisualGasicInstance::assign_to_target(ExpressionNode* target, Variant val) 
                  indices.write[i] = (int64_t)evaluate_expression(call->arguments[i]);
              }
 
-             Variant current = container;
-             for (int i = 0; i < indices.size() - 1; i++) {
-                 if (current.get_type() != Variant::ARRAY) {
-                     raise_error("Array assignment base must be an array");
-                     return;
-                 }
-                 Array arr = current;
-                 int idx = (int)indices[i];
+             // For multi-dimensional arrays, we need to track the path of arrays
+             // so we can rebuild and reassign the entire structure
+             if (indices.size() == 1) {
+                 // Simple 1D case
+                 Array arr = container;
+                 int idx = (int)indices[0];
                  if (idx < 0 || idx >= arr.size()) {
                      raise_error("Array subscript out of range");
                      return;
                  }
-                 current = arr[idx];
-             }
-
-             if (current.get_type() != Variant::ARRAY) {
-                 raise_error("Array assignment target is not an array");
+                 arr[idx] = val;
+                 assign_variable(name, arr);
                  return;
              }
-             Array arr = current;
+
+             // Multi-dimensional case: need to properly propagate changes back
+             Vector<Array> arr_stack;
+             Vector<int> idx_stack;
+             Array root_arr = container;
+             arr_stack.push_back(root_arr);
+
+             // Navigate to the target, building a stack of arrays
+             for (int i = 0; i < indices.size() - 1; i++) {
+                 int idx = (int)indices[i];
+                 Array current = arr_stack[arr_stack.size() - 1];
+                 if (idx < 0 || idx >= current.size()) {
+                     raise_error("Array subscript out of range");
+                     return;
+                 }
+                 if (current[idx].get_type() != Variant::ARRAY) {
+                     raise_error("Array assignment base must be an array");
+                     return;
+                 }
+                 idx_stack.push_back(idx);
+                 arr_stack.push_back(current[idx]);
+             }
+
+             // Set the value in the innermost array
+             Array innermost = arr_stack[arr_stack.size() - 1];
              int last_idx = (int)indices[indices.size() - 1];
-             if (last_idx < 0 || last_idx >= arr.size()) {
+             if (last_idx < 0 || last_idx >= innermost.size()) {
                  raise_error("Array subscript out of range");
                  return;
              }
-             arr[last_idx] = val;
-             assign_variable(name, container);
+             innermost[last_idx] = val;
+
+             // Propagate changes back up the stack
+             for (int i = arr_stack.size() - 2; i >= 0; i--) {
+                 Array parent = arr_stack[i];
+                 int parent_idx = idx_stack[i];
+                 parent[parent_idx] = arr_stack[i + 1];
+                 arr_stack.write[i] = parent;
+             }
+
+             assign_variable(name, arr_stack[0]);
              return;
          }
          String err = "Unsupported array assignment base";
@@ -6773,12 +7359,25 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         locals.write[slot] = value;
         String name = get_local_name(slot);
         if (!name.is_empty()) {
+            if (name.nocasecmp_to("wheneverTriggered") == 0) {
+            }
             variables[name] = value;
         }
     };
 
     auto read_local = [&](int slot) -> Variant {
         if (slot >= 0 && slot < locals.size()) {
+            // For global/module-level variables, always read from variables dictionary
+            // to ensure we get updates made by callbacks or other nested calls
+            String name = get_local_name(slot);
+            if (name.nocasecmp_to("wheneverTriggered") == 0) {
+            }
+            if (!name.is_empty() && variables.has(name)) {
+                Variant current = variables[name];
+                // Also update locals cache
+                locals.write[slot] = current;
+                return current;
+            }
             return locals[slot];
         }
         return Variant();
@@ -7041,7 +7640,28 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 uint8_t idx = code[vm.ip++];
                 Variant name_var = read_constant(idx);
                 String name = name_var;
+                
+                // Handle special keywords first
+                // "Me" - returns owner (self reference)
+                if (name.nocasecmp_to("Me") == 0) {
+                    push_value(owner ? Variant(owner) : Variant());
+                    break;
+                }
+                // "Input" singleton
+                if (name.nocasecmp_to("Input") == 0) {
+                    push_value(Variant(Input::get_singleton()));
+                    break;
+                }
+                // "Godot" (Engine) singleton
+                if (name.nocasecmp_to("Godot") == 0) {
+                    push_value(Variant(Engine::get_singleton()));
+                    break;
+                }
+                
                 Variant val = variables.get(name, Variant());
+                
+                if (name.nocasecmp_to("wheneverTriggered") == 0) {
+                }
                 
                 // If not found in variables, search for child control by name (VB6 style)
                 if (val.get_type() == Variant::NIL && owner) {
@@ -7087,6 +7707,9 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 }
                 
                 variables[name] = value;
+                
+                if (name.nocasecmp_to("wheneverTriggered") == 0) {
+                }
                 break;
             }
             case OP_GET_LOCAL: {
@@ -7149,18 +7772,56 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     goto cleanup;
                 }
                 break;
-            case OP_DIVIDE:
-                if (!apply_variant_op(Variant::OP_DIVIDE)) {
+            case OP_DIVIDE: {
+                if (!ensure_stack(2)) {
                     success = false;
                     goto cleanup;
                 }
-                break;
-            case OP_MOD:
-                if (!apply_variant_op(Variant::OP_MODULE)) {
+                Variant b = pop_value();
+                Variant a = pop_value();
+                // Check for division by zero
+                double divisor = (double)b;
+                if (divisor == 0.0) {
+                    raise_error("Division by zero", 11);
+                    if (error_state.mode == ErrorState::RESUME_NEXT) {
+                        error_state.has_error = false;
+                        push_value(Variant(0.0));
+                        break;
+                    } else if (error_state.mode == ErrorState::GOTO_LABEL && !error_state.label.is_empty()) {
+                        // Need to jump to error handler - for now fallback to interpreter
+                        success = false;
+                        goto cleanup;
+                    }
                     success = false;
                     goto cleanup;
                 }
+                push_value(Variant((double)a / divisor));
                 break;
+            }
+            case OP_MOD: {
+                if (!ensure_stack(2)) {
+                    success = false;
+                    goto cleanup;
+                }
+                Variant b = pop_value();
+                Variant a = pop_value();
+                int64_t ival_b = to_int(b);
+                if (ival_b == 0) {
+                    raise_error("Division by zero", 11);
+                    if (error_state.mode == ErrorState::RESUME_NEXT) {
+                        error_state.has_error = false;
+                        push_value(Variant((int64_t)0));
+                        break;
+                    } else if (error_state.mode == ErrorState::GOTO_LABEL && !error_state.label.is_empty()) {
+                        success = false;
+                        goto cleanup;
+                    }
+                    success = false;
+                    goto cleanup;
+                }
+                push_value(Variant(to_int(a) % ival_b));
+                break;
+            }
             case OP_INT_DIVIDE: {
                 if (!ensure_stack(2)) {
                     success = false;
@@ -7171,8 +7832,17 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 int64_t ival_a = to_int(a);
                 int64_t ival_b = to_int(b);
                 if (ival_b == 0) {
-                    UtilityFunctions::printerr("VisualGasic: integer division by zero");
-                    push_value(Variant(0));
+                    raise_error("Division by zero", 11);
+                    if (error_state.mode == ErrorState::RESUME_NEXT) {
+                        error_state.has_error = false;
+                        push_value(Variant((int64_t)0));
+                        break;
+                    } else if (error_state.mode == ErrorState::GOTO_LABEL && !error_state.label.is_empty()) {
+                        success = false;
+                        goto cleanup;
+                    }
+                    success = false;
+                    goto cleanup;
                 } else {
                     push_value(Variant(ival_a / ival_b));
                 }
@@ -7190,16 +7860,15 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 break;
             }
             case OP_LIKE: {
-                // VB-style Like pattern matching (simple implementation)
+                // VB-style Like pattern matching
                 if (!ensure_stack(2)) {
                     success = false;
                     goto cleanup;
                 }
                 String pattern = String(pop_value());
                 String value = String(pop_value());
-                // Simple implementation: convert VB Like pattern to match
-                // For now, just do exact match; can be extended later
-                bool matches = value.match(pattern);
+                // Use full VB6 Like pattern matching
+                bool matches = vb_like_match(value, pattern);
                 push_value(Variant(matches));
                 break;
             }
@@ -8065,6 +8734,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 }
                 MemberNameCacheEntry &cache = ensure_member_cache_entry(member_idx);
                 Variant base = pop_value();
+                
                 Variant result;
                 if (base.get_type() == Variant::DICTIONARY) {
                     const Dictionary *dict = VariantInternal::get_dictionary(&base);
@@ -8116,7 +8786,21 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         }
                         // Enabled (invert Godot's "disabled")
                         else if (prop_name == "Enabled") {
-                            result = !(bool)obj->get("disabled");
+                            // Try to get disabled property using StringName
+                            StringName disabled_sn = StringName("disabled");
+                            Variant disabled_val = obj->get(disabled_sn);
+                            if (disabled_val.get_type() == Variant::BOOL) {
+                                result = !(bool)disabled_val;
+                            } else {
+                                // Fallback: try editable property for LineEdit, etc.
+                                StringName editable_sn = StringName("editable");
+                                Variant editable_val = obj->get(editable_sn);
+                                if (editable_val.get_type() == Variant::BOOL) {
+                                    result = (bool)editable_val;
+                                } else {
+                                    result = true; // Default to enabled
+                                }
+                            }
                             handled = true;
                         }
                         // Position properties
@@ -8265,9 +8949,21 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         }
                         // Enabled/Disabled
                         else if (prop_name == "Enabled") {
-                            godot_prop = "disabled";
-                            // Invert the boolean for Godot's "disabled" property
-                            value = !(bool)value;
+                            // Check if object has "disabled" property (Button, CheckBox, etc.)
+                            // or "editable" property (LineEdit, TextEdit)
+                            Variant test_disabled = obj->get("disabled");
+                            if (test_disabled.get_type() == Variant::BOOL) {
+                                godot_prop = "disabled";
+                                // Invert the boolean for Godot's "disabled" property
+                                value = !(bool)value;
+                            } else {
+                                // Try editable for LineEdit/TextEdit
+                                Variant test_editable = obj->get("editable");
+                                if (test_editable.get_type() == Variant::BOOL) {
+                                    godot_prop = "editable";
+                                    // editable is not inverted (Enabled=True means editable=True)
+                                }
+                            }
                         }
                         // Position properties
                         else if (prop_name == "Left") {
@@ -8580,6 +9276,26 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     // Default: reset to beginning
                     data_pointer = 0;
                 }
+                break;
+            }
+            case OP_ON_ERROR_RESUME_NEXT: {
+                // Enable On Error Resume Next mode
+                error_state.mode = ErrorState::RESUME_NEXT;
+                break;
+            }
+            case OP_ON_ERROR_GOTO: {
+                // Set On Error Goto label
+                if (vm.ip >= code_size) { success = false; goto cleanup; }
+                uint8_t label_idx = code[vm.ip++];
+                String label_name = read_constant(label_idx);
+                error_state.mode = ErrorState::GOTO_LABEL;
+                error_state.label = label_name;
+                break;
+            }
+            case OP_ON_ERROR_GOTO_0: {
+                // Disable error handling (On Error Goto 0)
+                error_state.mode = ErrorState::NONE;
+                error_state.label = "";
                 break;
             }
             case OP_DEBUG_LINE: {

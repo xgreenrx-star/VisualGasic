@@ -1,0 +1,77 @@
+' Additional feature tests
+
+Dim TestCount As Integer
+Dim PassCount As Integer
+
+Sub Main()
+    TestCount = 0
+    PassCount = 0
+    
+    Print "=== Additional Feature Tests ==="
+    Print ""
+    
+    TestNow
+    TestMisc
+    TestMoreLoops
+    
+    Print ""
+    Print "Tests: " & PassCount & "/" & TestCount & " passed"
+End Sub
+
+Sub Assert(cond As Boolean, name As String)
+    TestCount = TestCount + 1
+    If cond Then
+        PassCount = PassCount + 1
+        Print "[PASS] " & name
+    Else
+        Print "[FAIL] " & name
+    End If
+End Sub
+
+Sub TestNow()
+    Print ""
+    Print "--- Date/Time ---"
+    Dim n As Variant
+    n = Now
+    Assert n > 0, "Now returns value > 0"
+End Sub
+
+Sub TestMisc()
+    Print ""
+    Print "--- Misc Functions ---"
+    
+    Dim s As String
+    s = LTrim("  hello")
+    Assert s = "hello", "LTrim('  hello')"
+    
+    s = RTrim("hello  ")
+    Assert s = "hello", "RTrim('hello  ')"
+    
+    Dim arr As Variant
+    arr = Array(1, 2, 3, 4, 5)
+    Assert IsArray(arr), "Array() creates array"
+End Sub
+
+Sub TestMoreLoops()
+    Print ""
+    Print "--- More Loops ---"
+    
+    Dim i As Integer
+    Dim result As Integer
+    
+    result = 0
+    i = 1
+    Do
+        result = result + i
+        i = i + 1
+    Loop While i <= 3
+    Assert result = 6, "Do...Loop While (1+2+3=6)"
+    
+    result = 0
+    i = 1
+    Do
+        result = result + i
+        i = i + 1
+    Loop Until i > 3
+    Assert result = 6, "Do...Loop Until (1+2+3=6)"
+End Sub

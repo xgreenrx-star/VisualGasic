@@ -155,6 +155,7 @@ Vector<VisualGasicTokenizer::Token> VisualGasicTokenizer::tokenize(const String 
     keywords.push_back("When");
     keywords.push_back("Is");
     keywords.push_back("IsNot");
+    keywords.push_back("Like");
     keywords.push_back("TypeOf");
     keywords.push_back("HasValue");
     keywords.push_back("Value");

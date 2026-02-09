@@ -5,6 +5,39 @@ All notable changes to Visual Gasic will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.4] - 2026-02-08
+
+### Added - Game-Specific Keywords (Section 4.2 Complete)
+- **Whenever Event System**: Reactive programming with `Whenever Section Changes(var)` and `Whenever Section Exceeds(var, threshold)`
+- **Whenever Control**: `Suspend Whenever`, `Resume Whenever`, `ActiveWheneverCount()`, `WheneverStatus()`
+- **Sprite Support**: `CreateNode("Sprite2D")`, `CreateNode("AnimatedSprite2D")`
+- **Sound Support**: `CreateNode("AudioStreamPlayer")`, `PlaySound()`
+- **Collision Detection**: `HasCollided()`, `CreateTrigger()`, `GetCollisionCount()`
+- **Keyboard Input**: `IsKeyDown()`, `Inkey()`, all `KEY_*` constants
+- **Mouse Input**: `IsMouseButtonDown()`, `GetMouseX()`, `GetMouseY()`, `MouseClick()`
+
+### Added - Godot Integration (Section 4.1 Complete)
+- Full `Input` singleton access: `Input.IsActionPressed()`, `Input.IsActionJustPressed()`, `Input.IsKeyPressed()`, `Input.GetMousePosition()`
+- Verified: `Me.name`, `Me.position`, `Me.visible`, `Me.modulate` property access
+- Verified: `Me.get_class()`, `Me.has_method()`, `Me.queue_redraw()` method calls
+- Verified: `GetNode()`, `Connect()`, `_Process()`, `_Ready()`, `GetDelta()`
+
+### Fixed
+- Module-level `Whenever Section` declarations now register correctly during initialization
+- `Dim` statements with initializers now execute at module level (e.g., `Dim x As Integer = 5`)
+- Case-insensitive variable comparison in Whenever condition checking
+- Bytecode `read_local` now re-syncs with `variables` dictionary for proper callback behavior
+
+## [2.2.3] - 2026-02-07
+
+### Added - VB6-Style Control Property Access
+- Direct control manipulation: `txtTest.Text = "Hello"`, `lblStatus.Caption = "Ready"`
+- VB6 property aliasing: Text, Caption, Visible, Enabled, Left, Top, Width, Height, Value
+
+### Fixed
+- `OP_GET_LOCAL` now searches for child controls when local slot is NIL
+- `OP_GET_GLOBAL` also searches for child controls when variable not found
+
 ## [2.2.1] - 2026-02-05
 
 ### Added - Native Compiler Enhancements

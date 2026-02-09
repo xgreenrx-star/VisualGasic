@@ -1,0 +1,58 @@
+' Test InStrRev and Replace string functions
+Option Explicit
+
+Sub Main()
+    Dim s As String
+    Dim result As Long
+    
+    ' Test InStr (forward search)
+    s = "Hello World Hello"
+    result = InStr(s, "Hello")
+    Print "InStr('Hello World Hello', 'Hello') = " & CStr(result) & " (expected: 1)"
+    
+    ' Test InStrRev (reverse search)
+    result = InStrRev(s, "Hello")
+    Print "InStrRev('Hello World Hello', 'Hello') = " & CStr(result) & " (expected: 13)"
+    
+    ' Test InStrRev with start position
+    result = InStrRev(s, "o", 10)
+    Print "InStrRev('Hello World Hello', 'o', 10) = " & CStr(result) & " (expected: 8)"
+    
+    ' Test InStrRev not found
+    result = InStrRev(s, "xyz")
+    Print "InStrRev('Hello World Hello', 'xyz') = " & CStr(result) & " (expected: 0)"
+    
+    ' Test Replace
+    Dim replaced As String
+    replaced = Replace("Hello World", "World", "VB6")
+    Print "Replace('Hello World', 'World', 'VB6') = '" & replaced & "' (expected: 'Hello VB6')"
+    
+    ' Test Replace multiple occurrences
+    replaced = Replace("aaa", "a", "b")
+    Print "Replace('aaa', 'a', 'b') = '" & replaced & "' (expected: 'bbb')"
+    
+    ' Test Replace no match
+    replaced = Replace("Hello", "xyz", "ABC")
+    Print "Replace('Hello', 'xyz', 'ABC') = '" & replaced & "' (expected: 'Hello')"
+    
+    ' Test Split
+    Dim arr As Variant
+    arr = Split("a,b,c", ",")
+    Print "Split('a,b,c', ',') = Array with " & CStr(UBound(arr) + 1) & " elements (expected: 3)"
+    Print "  arr(0) = '" & arr(0) & "'"
+    Print "  arr(1) = '" & arr(1) & "'"
+    Print "  arr(2) = '" & arr(2) & "'"
+    
+    ' Test Join
+    Dim joined As String
+    joined = Join(arr, "-")
+    Print "Join(arr, '-') = '" & joined & "' (expected: 'a-b-c')"
+    
+    ' Test StrReverse
+    Dim rev As String
+    rev = StrReverse("Hello")
+    Print "StrReverse('Hello') = '" & rev & "' (expected: 'olleH')"
+    
+    Print ""
+    Print "All string function tests complete!"
+End Sub

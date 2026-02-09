@@ -1,0 +1,94 @@
+' Test Event Handlers - VB6 Style
+' This module demonstrates all supported VB6-style events
+Module TestEvents
+
+Public EventsTriggered As Integer
+
+Sub Main()
+    Print "=== VB6-Style Event Handler Test ==="
+    Print ""
+    Print "Supported Event Handlers:"
+    Print "  Form_Load     - Called when form/node enters tree"
+    Print "  Form_Unload   - Called when form/node exits tree"
+    Print "  Button1_Click - Called when Button1.pressed signal fires"
+    Print "  Text1_Change  - Called when LineEdit text changes"
+    Print "  Timer1_Timer  - Called when Timer1.timeout fires"
+    Print "  List1_Click   - Called when ItemList item selected"
+    Print ""
+    Print "EventsTriggered so far: " & EventsTriggered
+End Sub
+
+' =============================================
+' VB6 Form Lifecycle Events
+' =============================================
+
+' Form_Load - Called automatically when the script's node enters the scene tree
+' This is equivalent to VB6's Form_Load or WinForms' Form.Load event
+Sub Form_Load()
+    EventsTriggered = EventsTriggered + 1
+    Print "[FORM_LOAD] Form initialized! (Event #" & EventsTriggered & ")"
+End Sub
+
+' Form_Unload - Called automatically when the script's node exits the scene tree
+' This is equivalent to VB6's Form_Unload or WinForms' Form.Closed event
+Sub Form_Unload()
+    EventsTriggered = EventsTriggered + 1
+    Print "[FORM_UNLOAD] Form closing! (Event #" & EventsTriggered & ")"
+End Sub
+
+' =============================================
+' Control Event Handlers (Auto-Wired)
+' =============================================
+
+' Button Click - Auto-wired to Button.pressed signal
+' Naming pattern: ControlName_Click
+Sub Button1_Click()
+    EventsTriggered = EventsTriggered + 1
+    Print "[BUTTON_CLICK] Button1 was clicked! (Event #" & EventsTriggered & ")"
+End Sub
+
+Sub btnSave_Click()
+    EventsTriggered = EventsTriggered + 1
+    Print "[BUTTON_CLICK] btnSave was clicked! (Event #" & EventsTriggered & ")"
+End Sub
+
+' TextBox Change - Auto-wired to LineEdit.text_changed signal
+' Naming pattern: ControlName_Change
+' The signal passes the new text as a parameter
+Sub Text1_Change(newText)
+    EventsTriggered = EventsTriggered + 1
+    Print "[TEXT_CHANGE] Text1 changed to: '" & newText & "' (Event #" & EventsTriggered & ")"
+End Sub
+
+Sub txtName_Change(newText)
+    EventsTriggered = EventsTriggered + 1
+    Print "[TEXT_CHANGE] txtName changed to: '" & newText & "' (Event #" & EventsTriggered & ")"
+End Sub
+
+' Timer Event - Auto-wired to Timer.timeout signal
+' Naming pattern: ControlName_Timer
+Sub Timer1_Timer()
+    EventsTriggered = EventsTriggered + 1
+    Print "[TIMER] Timer1 fired! (Event #" & EventsTriggered & ")"
+End Sub
+
+' List Click - Auto-wired to ItemList.item_selected signal
+' Naming pattern: ControlName_Click
+' The signal passes the selected index as a parameter
+Sub List1_Click(index)
+    EventsTriggered = EventsTriggered + 1
+    Print "[LIST_CLICK] List1 item " & index & " selected! (Event #" & EventsTriggered & ")"
+End Sub
+
+Sub lstItems_Click(index)
+    EventsTriggered = EventsTriggered + 1
+    Print "[LIST_CLICK] lstItems item " & index & " selected! (Event #" & EventsTriggered & ")"
+End Sub
+
+' Slider/ScrollBar Change - Auto-wired to value_changed signal
+Sub Slider1_Change(newValue)
+    EventsTriggered = EventsTriggered + 1
+    Print "[SLIDER_CHANGE] Slider1 value: " & newValue & " (Event #" & EventsTriggered & ")"
+End Sub
+
+End Module

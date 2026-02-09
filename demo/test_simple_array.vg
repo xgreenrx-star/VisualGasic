@@ -1,0 +1,7 @@
+Sub Main()
+    Dim arr(5) As Integer
+    arr(0) = 10
+    arr(1) = 20
+    Print "arr(0) = " & CStr(arr(0))
+    Print "arr(1) = " & CStr(arr(1))
+End Sub

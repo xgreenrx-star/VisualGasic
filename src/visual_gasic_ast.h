@@ -320,8 +320,9 @@ struct DimStatement : public Statement {
     String type_name; // "" for Variant/Object, or name of UDT
     ExpressionNode* initializer;
     bool is_static;
+    bool is_dynamic_array; // True for Dim arr() As Integer (empty parentheses)
     
-    DimStatement() : Statement(STMT_DIM) { initializer = nullptr; is_static = false; }
+    DimStatement() : Statement(STMT_DIM) { initializer = nullptr; is_static = false; is_dynamic_array = false; }
     virtual ~DimStatement() { 
         for(int i=0; i<array_sizes.size(); i++) {
              if (array_sizes[i]) delete array_sizes[i];
@@ -505,6 +506,7 @@ struct OnErrorStatement : public Statement {
 struct CaseBlock : public ASTNode {
     Vector<ExpressionNode*> values; // Empty for Case Else? Or specific flag?
     Vector<ExpressionNode*> range_ends; // If non-null at index i, values[i] To range_ends[i] is a range
+    Vector<String> comparison_ops; // If non-empty at index i, "Case Is > value" style (e.g., ">", "<", ">=", "<=", "<>")
     bool is_else;
     Vector<Statement*> body;
     

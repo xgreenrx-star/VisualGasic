@@ -1,0 +1,130 @@
+' Test Select Case with Is operator
+Module TestCaseIs
+
+Sub Main()
+    Print "=== Select Case with Is Operator Tests ==="
+    
+    ' Test Case Is > value
+    Print ""
+    Print "--- Case Is > (greater than) ---"
+    TestGreater 50
+    TestGreater 100
+    TestGreater 150
+    
+    ' Test Case Is < value
+    Print ""
+    Print "--- Case Is < (less than) ---"
+    TestLess 50
+    TestLess 100
+    TestLess 150
+    
+    ' Test Case Is >= value
+    Print ""
+    Print "--- Case Is >= (greater or equal) ---"
+    TestGreaterEqual 99
+    TestGreaterEqual 100
+    TestGreaterEqual 101
+    
+    ' Test Case Is <= value
+    Print ""
+    Print "--- Case Is <= (less or equal) ---"
+    TestLessEqual 99
+    TestLessEqual 100
+    TestLessEqual 101
+    
+    ' Test Case Is <> value
+    Print ""
+    Print "--- Case Is <> (not equal) ---"
+    TestNotEqual 99
+    TestNotEqual 100
+    TestNotEqual 101
+    
+    ' Test mixed cases
+    Print ""
+    Print "--- Mixed Case conditions ---"
+    TestMixed 5
+    TestMixed 50
+    TestMixed 100
+    TestMixed 150
+    TestMixed 500
+    TestMixed 1500
+    
+    Print ""
+    Print "=== Tests Complete ==="
+End Sub
+
+Sub TestGreater(x As Integer)
+    Dim result As String
+    Select Case x
+        Case Is > 100
+            result = "Greater than 100"
+        Case Else
+            result = "100 or less"
+    End Select
+    Print "TestGreater(" & x & ") = " & result
+End Sub
+
+Sub TestLess(x As Integer)
+    Dim result As String
+    Select Case x
+        Case Is < 100
+            result = "Less than 100"
+        Case Else
+            result = "100 or more"
+    End Select
+    Print "TestLess(" & x & ") = " & result
+End Sub
+
+Sub TestGreaterEqual(x As Integer)
+    Dim result As String
+    Select Case x
+        Case Is >= 100
+            result = "100 or more"
+        Case Else
+            result = "Less than 100"
+    End Select
+    Print "TestGreaterEqual(" & x & ") = " & result
+End Sub
+
+Sub TestLessEqual(x As Integer)
+    Dim result As String
+    Select Case x
+        Case Is <= 100
+            result = "100 or less"
+        Case Else
+            result = "Greater than 100"
+    End Select
+    Print "TestLessEqual(" & x & ") = " & result
+End Sub
+
+Sub TestNotEqual(x As Integer)
+    Dim result As String
+    Select Case x
+        Case Is <> 100
+            result = "Not 100"
+        Case Else
+            result = "Exactly 100"
+    End Select
+    Print "TestNotEqual(" & x & ") = " & result
+End Sub
+
+Sub TestMixed(x As Integer)
+    Dim result As String
+    Select Case x
+        Case 1 To 10
+            result = "1-10 (small)"
+        Case Is < 100
+            result = "11-99 (medium-small)"
+        Case 100
+            result = "Exactly 100"
+        Case Is <= 200
+            result = "101-200 (medium)"
+        Case Is > 1000
+            result = "Over 1000 (huge)"
+        Case Else
+            result = "201-1000 (large)"
+    End Select
+    Print "TestMixed(" & x & ") = " & result
+End Sub
+
+End Module

@@ -1,0 +1,31 @@
+' Test Exit Sub/Function
+
+Sub Main()
+    Print "Testing Exit Sub/Function..."
+    Print ""
+    
+    TestExitSub
+    Print "After TestExitSub (should see this)"
+    
+    Dim result As Integer
+    result = TestExitFunction(5)
+    Print "TestExitFunction(5) = " & result
+    
+    Print ""
+    Print "All Exit tests complete!"
+End Sub
+
+Sub TestExitSub()
+    Print "In TestExitSub"
+    Print "About to Exit Sub"
+    Exit Sub
+    Print "This should NOT print"
+End Sub
+
+Function TestExitFunction(n As Integer) As Integer
+    If n < 10 Then
+        TestExitFunction = 100
+        Exit Function
+    End If
+    TestExitFunction = 0
+End Function

@@ -1,0 +1,59 @@
+' Test Is operator - object comparison
+Module TestIsOperator
+
+Sub Main()
+    Print "=== Is Operator Tests ==="
+    
+    ' Is Nothing tests
+    Print ""
+    Print "--- Is Nothing ---"
+    Dim obj As Object
+    If obj Is Nothing Then
+        Print "PASS: Uninitialized object Is Nothing"
+    Else
+        Print "FAIL: Uninitialized object should be Nothing"
+    End If
+    
+    Dim obj2 As Object = Nothing
+    If obj2 Is Nothing Then
+        Print "PASS: Explicit Nothing Is Nothing"
+    Else
+        Print "FAIL: Explicit Nothing should be Nothing"
+    End If
+    
+    ' Two Nothing objects are equal
+    Print ""
+    Print "--- Is between objects ---"
+    If obj Is obj2 Then
+        Print "PASS: Two Nothing objects are same"
+    Else
+        Print "FAIL: Two Nothing objects should be same"
+    End If
+    
+    ' Not Is tests
+    If Not obj Is Nothing Then
+        Print "FAIL: Not Is Nothing check failed"
+    Else
+        Print "PASS: Not Is Nothing works correctly"
+    End If
+    
+    ' Using Is in expressions
+    Print ""
+    Print "--- Is in expressions ---"
+    Dim isNil As Boolean
+    isNil = obj Is Nothing
+    Print "Result of 'obj Is Nothing': " & isNil
+    
+    ' Compare variable to itself
+    Dim self As Object
+    If self Is self Then
+        Print "PASS: Object is same as itself"
+    Else
+        Print "FAIL: Object should be same as itself"
+    End If
+    
+    Print ""
+    Print "=== Is Operator Tests Complete ==="
+End Sub
+
+End Module

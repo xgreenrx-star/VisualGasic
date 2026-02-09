@@ -1,0 +1,11 @@
+Option NoCompile
+
+Sub Main()
+    Dim grid(3, 3) As Integer
+    Print "Setting grid(0,0) = 1"
+    grid(0, 0) = 1
+    Print "Setting grid(1,1) = 5"
+    grid(1, 1) = 5
+    Print "grid(0,0) = " & CStr(grid(0, 0))
+    Print "grid(1,1) = " & CStr(grid(1, 1))
+End Sub

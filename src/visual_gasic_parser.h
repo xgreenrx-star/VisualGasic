@@ -27,6 +27,9 @@ public:
     Vector<ParsingError> errors;
     int error_count;
     static const int MAX_ERRORS = 100;  // Stop parsing after this many errors
+    
+    // Pending statements from multi-declaration parsing (e.g., Dim a, b, c As Integer)
+    Vector<Statement*> pending_statements;
 
     VisualGasicParser();
     ~VisualGasicParser();

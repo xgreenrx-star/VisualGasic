@@ -1,0 +1,215 @@
+@tool
+extends SceneTree
+
+func _init():
+	var vg = VisualGasicScript.new()
+	vg.source_code = """
+' Test Is and Like operators
+Option Explicit
+
+Sub Main()
+    Print "=== Testing Is Operator ==="
+    TestIsOperator
+    Print ""
+    Print "=== Testing Like Operator ==="
+    TestLikeOperator
+    Print ""
+    Print "All tests completed!"
+End Sub
+
+Sub TestIsOperator()
+    Dim obj1 As Object
+    Dim obj2 As Object
+    
+    ' Both are Nil - should be True
+    If obj1 Is obj2 Then
+        Print "PASS: Two Nil objects are same (Is)"
+    Else
+        Print "FAIL: Two Nil objects should be same"
+    End If
+    
+    ' Is Nothing test
+    If obj1 Is Nothing Then
+        Print "PASS: Nil Is Nothing"
+    Else
+        Print "FAIL: Nil should be Nothing"
+    End If
+End Sub
+
+Sub TestLikeOperator()
+    Dim result As Boolean
+    
+    ' Test ? - single character
+    result = "cat" Like "c?t"
+    If result Then
+        Print "PASS: 'cat' Like 'c?t'"
+    Else
+        Print "FAIL: 'cat' Like 'c?t' should be True"
+    End If
+    
+    result = "ct" Like "c?t"
+    If Not result Then
+        Print "PASS: 'ct' Like 'c?t' = False (correctly)"
+    Else
+        Print "FAIL: 'ct' Like 'c?t' should be False"
+    End If
+    
+    ' Test * - zero or more characters
+    result = "Hello World" Like "Hello*"
+    If result Then
+        Print "PASS: 'Hello World' Like 'Hello*'"
+    Else
+        Print "FAIL: 'Hello World' Like 'Hello*' should be True"
+    End If
+    
+    result = "Hello" Like "Hello*"
+    If result Then
+        Print "PASS: 'Hello' Like 'Hello*' (zero chars)"
+    Else
+        Print "FAIL: 'Hello' Like 'Hello*' should be True"
+    End If
+    
+    result = "test.txt" Like "*.txt"
+    If result Then
+        Print "PASS: 'test.txt' Like '*.txt'"
+    Else
+        Print "FAIL: 'test.txt' Like '*.txt' should be True"
+    End If
+    
+    result = "Hello World" Like "*World"
+    If result Then
+        Print "PASS: 'Hello World' Like '*World'"
+    Else
+        Print "FAIL: 'Hello World' Like '*World' should be True"
+    End If
+    
+    result = "abcdef" Like "a*d*f"
+    If result Then
+        Print "PASS: 'abcdef' Like 'a*d*f'"
+    Else
+        Print "FAIL: 'abcdef' Like 'a*d*f' should be True"
+    End If
+    
+    ' Test # - single digit
+    result = "Room 5" Like "Room #"
+    If result Then
+        Print "PASS: 'Room 5' Like 'Room #'"
+    Else
+        Print "FAIL: 'Room 5' Like 'Room #' should be True"
+    End If
+    
+    result = "Room A" Like "Room #"
+    If Not result Then
+        Print "PASS: 'Room A' Like 'Room #' = False (correctly)"
+    Else
+        Print "FAIL: 'Room A' Like 'Room #' should be False"
+    End If
+    
+    result = "2024" Like "####"
+    If result Then
+        Print "PASS: '2024' Like '####'"
+    Else
+        Print "FAIL: '2024' Like '####' should be True"
+    End If
+    
+    ' Test [charlist] - any character in list
+    result = "bat" Like "[bc]at"
+    If result Then
+        Print "PASS: 'bat' Like '[bc]at'"
+    Else
+        Print "FAIL: 'bat' Like '[bc]at' should be True"
+    End If
+    
+    result = "cat" Like "[bc]at"
+    If result Then
+        Print "PASS: 'cat' Like '[bc]at'"
+    Else
+        Print "FAIL: 'cat' Like '[bc]at' should be True"
+    End If
+    
+    result = "hat" Like "[bc]at"
+    If Not result Then
+        Print "PASS: 'hat' Like '[bc]at' = False (correctly)"
+    Else
+        Print "FAIL: 'hat' Like '[bc]at' should be False"
+    End If
+    
+    ' Test [!charlist] - any character NOT in list
+    result = "hat" Like "[!bc]at"
+    If result Then
+        Print "PASS: 'hat' Like '[!bc]at'"
+    Else
+        Print "FAIL: 'hat' Like '[!bc]at' should be True"
+    End If
+    
+    result = "bat" Like "[!bc]at"
+    If Not result Then
+        Print "PASS: 'bat' Like '[!bc]at' = False (correctly)"
+    Else
+        Print "FAIL: 'bat' Like '[!bc]at' should be False"
+    End If
+    
+    ' Test [a-z] - range
+    result = "can" Like "[a-z]an"
+    If result Then
+        Print "PASS: 'can' Like '[a-z]an'"
+    Else
+        Print "FAIL: 'can' Like '[a-z]an' should be True"
+    End If
+    
+    result = "1an" Like "[a-z]an"
+    If Not result Then
+        Print "PASS: '1an' Like '[a-z]an' = False (correctly)"
+    Else
+        Print "FAIL: '1an' Like '[a-z]an' should be False"
+    End If
+    
+    ' Test exact match
+    result = "Hello" Like "Hello"
+    If result Then
+        Print "PASS: 'Hello' Like 'Hello' (exact)"
+    Else
+        Print "FAIL: 'Hello' Like 'Hello' should be True"
+    End If
+    
+    result = "Hello" Like "Goodbye"
+    If Not result Then
+        Print "PASS: 'Hello' Like 'Goodbye' = False (correctly)"
+    Else
+        Print "FAIL: 'Hello' Like 'Goodbye' should be False"
+    End If
+    
+    ' Test case insensitivity
+    result = "HELLO" Like "hello"
+    If result Then
+        Print "PASS: 'HELLO' Like 'hello' (case insensitive)"
+    Else
+        Print "FAIL: 'HELLO' Like 'hello' should be True (VB6 default)"
+    End If
+    
+    ' Combined patterns
+    result = "File123.txt" Like "File###.txt"
+    If result Then
+        Print "PASS: 'File123.txt' Like 'File###.txt'"
+    Else
+        Print "FAIL: 'File123.txt' Like 'File###.txt' should be True"
+    End If
+    
+    result = "Document_A.doc" Like "Document_?.doc"
+    If result Then
+        Print "PASS: 'Document_A.doc' Like 'Document_?.doc'"
+    Else
+        Print "FAIL: 'Document_A.doc' Like 'Document_?.doc' should be True"
+    End If
+End Sub
+
+Main
+"""
+	print("--- Is and Like Operator Tests ---")
+	var result = vg.reload()
+	print("Compile result: ", result)
+	if result == OK:
+		var instance = vg.create_instance()
+		instance.execute()
+	print("--- End of Tests ---")
+	quit()

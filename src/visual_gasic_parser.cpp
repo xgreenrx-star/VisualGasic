@@ -130,6 +130,16 @@ ModuleNode* VisualGasicParser::parse(const Vector<VisualGasicTokenizer::Token>& 
             continue;
         }
 
+        // Whenever Section at module level - must be registered as global statement
+        if (t.type == VisualGasicTokenizer::TOKEN_KEYWORD && String(t.value).to_lower() == "whenever") {
+            WheneverSectionStatement* ws = parse_whenever();
+            if (ws) {
+                module->global_statements.push_back(ws);
+                unregister_node(ws);
+            }
+            continue;
+        }
+
         if ((t.type == VisualGasicTokenizer::TOKEN_IDENTIFIER || t.type == VisualGasicTokenizer::TOKEN_KEYWORD) && (t.value == "Sub" || t.value == "Function")) {
             SubDefinition* sub = parse_sub();
             if (sub) {
@@ -171,8 +181,16 @@ ModuleNode* VisualGasicParser::parse(const Vector<VisualGasicTokenizer::Token>& 
                  
                  module->variables.push_back(v);
                  unregister_node(v);
-                        unregister_node(dim);
-                        delete dim; // Don't need the statement wrapper
+                 
+                 // If DimStatement has an initializer, also add it to global_statements
+                 // so the initialization expression gets executed
+                 if (dim->initializer) {
+                     module->global_statements.push_back(dim);
+                     unregister_node(dim);
+                 } else {
+                     unregister_node(dim);
+                     delete dim; // Don't need the statement wrapper if no initializer
+                 }
              }
              continue;
         }
@@ -360,6 +378,14 @@ SubDefinition* VisualGasicParser::parse_sub() {
                      param.name = peek().value;
                      advance();
                      
+                     // Handle () after ParamArray parameter name (e.g., ParamArray items())
+                     if (param.is_param_array && check(VisualGasicTokenizer::TOKEN_PAREN_OPEN)) {
+                         advance(); // Eat (
+                         if (check(VisualGasicTokenizer::TOKEN_PAREN_CLOSE)) {
+                             advance(); // Eat )
+                         }
+                     }
+                     
                      // Handle "As Type"
                      if (peek().type == VisualGasicTokenizer::TOKEN_KEYWORD && String(peek().value).nocasecmp_to("As") == 0) {
                           advance(); // Eat 'As'
@@ -436,6 +462,14 @@ SubDefinition* VisualGasicParser::parse_sub() {
         if (stmt) {
             sub->statements.push_back(stmt);
             unregister_node(stmt);
+            
+            // Handle any pending statements from multi-declaration (Dim a, b, c As Integer)
+            while (!pending_statements.is_empty()) {
+                Statement* pending = pending_statements[0];
+                pending_statements.remove_at(0);
+                sub->statements.push_back(pending);
+                // Note: already unregistered in parse_dim
+            }
         } else {
             current_pos++; // Skip unknown token to avoid infinite loop
         }
@@ -580,7 +614,14 @@ Statement* VisualGasicParser::parse_statement() {
              return set_line(parse_dim()); // Helper alias for Var -> Dim
         }
 
-        if (val == "dim") return set_line(parse_dim());
+        // Handle Dim with possible comma-separated declarations
+        // Dim a, b, c As Integer - VB6 style: only c is Integer, a and b are Variant
+        // Dim x As Integer, y As String - each has its own type
+        if (val == "dim") {
+            // We need to handle this specially to return all the DimStatements
+            // Use the pending_dim_statements vector to store extras
+            return set_line(parse_dim());
+        }
         if (val == "static") {
             DimStatement* ds = parse_dim();
             if (ds) ds->is_static = true;
@@ -1000,6 +1041,24 @@ ExpressionNode* VisualGasicParser::parse_comparison() {
             continue;
         }
         
+        // Like operator for pattern matching
+        if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("Like") == 0) {
+            advance();
+            ExpressionNode* right = parse_addition();
+            BinaryOpNode* bin = static_cast<BinaryOpNode*>(register_node(new BinaryOpNode()));
+            if (expr) {
+                ExpressionNode* ldup = expr->duplicate();
+                if (ldup) bin->left = register_node(ldup); else bin->left = expr;
+            } else bin->left = nullptr;
+            if (right) {
+                ExpressionNode* rdup = right->duplicate();
+                if (rdup) bin->right = register_node(rdup); else bin->right = right;
+            } else bin->right = nullptr;
+            bin->op = "Like";
+            expr = bin;
+            continue;
+        }
+        
         break;
     }
     return expr;
@@ -1243,7 +1302,45 @@ ExpressionNode* VisualGasicParser::parse_factor() {
         }
         if (k.nocasecmp_to("Me") == 0) {
             advance();
-            return static_cast<MeNode*>(register_node(new MeNode()));
+            ExpressionNode* left = static_cast<MeNode*>(register_node(new MeNode()));
+            
+            // Handle member access chain after Me (Me.name, Me.prop, etc.)
+            while (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().value == ".") {
+                advance(); // Eat .
+                if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER) || check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
+                    MemberAccessNode* member = static_cast<MemberAccessNode*>(register_node(new MemberAccessNode()));
+                    member->base_object = left;
+                    member->member_name = peek().value;
+                    advance();
+                    left = member;
+                    
+                    // Check for method call syntax Me.Method(Args)
+                    if (check(VisualGasicTokenizer::TOKEN_PAREN_OPEN)) {
+                        advance(); // Eat (
+                        CallExpression* call = static_cast<CallExpression*>(register_node(new CallExpression()));
+                        call->base_object = member->base_object;
+                        call->method_name = member->member_name;
+                        member->base_object = nullptr; unregister_node(member); delete member;
+                        
+                        if (!check(VisualGasicTokenizer::TOKEN_PAREN_CLOSE)) {
+                            while (true) {
+                                ExpressionNode* expr = parse_expression();
+                                if (expr) { call->arguments.push_back(expr); unregister_node(expr); }
+                                if (match(VisualGasicTokenizer::TOKEN_COMMA)) continue;
+                                break;
+                            }
+                        }
+                        if (!match(VisualGasicTokenizer::TOKEN_PAREN_CLOSE)) {
+                            UtilityFunctions::print("Parser Error: Expected ) after method call");
+                        }
+                        left = call;
+                    }
+                } else {
+                    UtilityFunctions::print("Parser Error: Expected member name after .");
+                    break;
+                }
+            }
+            return left;
         }
         if (k.nocasecmp_to("Super") == 0 || k.nocasecmp_to("MyBase") == 0) {
             advance();
@@ -1328,56 +1425,6 @@ ExpressionNode* VisualGasicParser::parse_factor() {
         return node; 
     }
 
-    // Check for Me
-    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("Me") == 0) {
-        advance();
-        ExpressionNode* left = static_cast<ExpressionNode*>(register_node(new ExpressionNode()));
-        left->type = ExpressionNode::ME;
-        
-        // Handle member access
-        while (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().value == ".") {
-            advance(); // Eat .
-            if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER) || check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
-                MemberAccessNode* member = static_cast<MemberAccessNode*>(register_node(new MemberAccessNode()));
-                member->base_object = left;
-                member->member_name = peek().value;
-                advance();
-                left = member;
-            } else {
-                UtilityFunctions::print("Parser Error: Expected member name after .");
-            }
-        }
-        
-        if (check(VisualGasicTokenizer::TOKEN_PAREN_OPEN)) {
-            advance();
-            CallExpression* call = static_cast<CallExpression*>(register_node(new CallExpression()));
-            if (left->type == ExpressionNode::MEMBER_ACCESS) {
-                MemberAccessNode* ma = (MemberAccessNode*)left;
-                call->base_object = ma->base_object;
-                call->method_name = ma->member_name;
-                ma->base_object = nullptr; unregister_node(ma); delete ma;
-            } else {
-                 // Me(...) call? Invalid?
-                 // delete left; 
-                 // error("Invalid call target"); return nullptr;
-                 // Maybe allow Me() if it means something? No.
-            }
-            // Args
-             if (!check(VisualGasicTokenizer::TOKEN_PAREN_CLOSE)) {
-                while (true) {
-                    ExpressionNode* expr = parse_expression();
-                    if (expr) { call->arguments.push_back(expr); unregister_node(expr); }
-                    if (match(VisualGasicTokenizer::TOKEN_COMMA)) continue;
-                    break;
-                }
-            }
-            if (!match(VisualGasicTokenizer::TOKEN_PAREN_CLOSE)) UtilityFunctions::print("Expected )");
-            left = call;
-        }
-        
-        return left;
-    }
-
     // Check for New
     if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("New") == 0) {
         advance();
@@ -1456,8 +1503,13 @@ ExpressionNode* VisualGasicParser::parse_factor() {
         
         ExpressionNode* left = nullptr;
 
+        // Check if this is "Me" keyword - should create ME type node
+        if (name.nocasecmp_to("Me") == 0) {
+            left = static_cast<ExpressionNode*>(register_node(new ExpressionNode()));
+            left->type = ExpressionNode::ME;
+        }
         // Function Call? "Func(x)"
-        if (check(VisualGasicTokenizer::TOKEN_PAREN_OPEN)) {
+        else if (check(VisualGasicTokenizer::TOKEN_PAREN_OPEN)) {
             advance(); // Eat (
             CallExpression* call = static_cast<CallExpression*>(register_node(new CallExpression()));
             call->method_name = name;
@@ -1583,66 +1635,78 @@ DimStatement* VisualGasicParser::parse_dim() {
         return nullptr;
     }
     
-    DimStatement* stmt = static_cast<DimStatement*>(register_node(new DimStatement()));
-    stmt->variable_name = peek().value;
-    advance();
-    
-    // Check for Array declaration: Dim A(10) or Dim A(5, 5)
-    if (match(VisualGasicTokenizer::TOKEN_PAREN_OPEN)) {
-        do {
-            {
-                ExpressionNode* _tmp = parse_expression();
-                if (_tmp) { stmt->array_sizes.push_back(_tmp); unregister_node(_tmp); }
-                else {
-                    // Expression parse failed, skip to closing paren or newline
-                    while (!is_at_end() && peek().type != VisualGasicTokenizer::TOKEN_PAREN_CLOSE && peek().type != VisualGasicTokenizer::TOKEN_NEWLINE) {
-                        advance();
-                    }
-                    break;
-                }
-            }
-            if (check(VisualGasicTokenizer::TOKEN_COMMA)) {
+    // Helper to parse a single variable declaration (name, optional array bounds, optional type, optional initializer)
+    // Returns nullptr on error
+    auto parse_single_var = [this]() -> DimStatement* {
+        if (!check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
+            return nullptr;
+        }
+        
+        DimStatement* stmt = static_cast<DimStatement*>(register_node(new DimStatement()));
+        stmt->variable_name = peek().value;
+        advance();
+        
+        // Check for Array declaration: A(10), A(5, 5), or A() for dynamic arrays
+        if (match(VisualGasicTokenizer::TOKEN_PAREN_OPEN)) {
+            if (check(VisualGasicTokenizer::TOKEN_PAREN_CLOSE)) {
+                stmt->is_dynamic_array = true;
                 advance();
             } else {
-                break;
+                do {
+                    ExpressionNode* _tmp = parse_expression();
+                    if (_tmp) { stmt->array_sizes.push_back(_tmp); unregister_node(_tmp); }
+                    else break;
+                    if (check(VisualGasicTokenizer::TOKEN_COMMA)) advance();
+                    else break;
+                } while (!is_at_end() && !check(VisualGasicTokenizer::TOKEN_PAREN_CLOSE));
+                if (!match(VisualGasicTokenizer::TOKEN_PAREN_CLOSE)) {
+                    UtilityFunctions::print("Parser Error: Expected ) in array declaration");
+                }
             }
-        } while (!is_at_end() && !check(VisualGasicTokenizer::TOKEN_PAREN_CLOSE));
-
-        if (!match(VisualGasicTokenizer::TOKEN_PAREN_CLOSE)) {
-             UtilityFunctions::print("Parser Error: Expected ) in array declaration");
         }
-    }
-    
-    // Optional: As Type
-    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("As") == 0) {
-        advance(); // Eat As
-        if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER) || check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
-             stmt->type_name = peek().value;
-             advance();
-        } else {
-             UtilityFunctions::print("Parser Error: Expected type name after As");
+        
+        // Optional: As Type
+        if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("As") == 0) {
+            advance(); // Eat As
+            if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER) || check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
+                stmt->type_name = peek().value;
+                advance();
+            } else {
+                UtilityFunctions::print("Parser Error: Expected type name after As");
+            }
         }
-    }
-
-    // Optional: = Initializer
-    if (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().value == "=") {
-        advance(); // Eat =
-        {
+        
+        // Optional: = Initializer
+        if (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().value == "=") {
+            advance(); // Eat =
             ExpressionNode* _tmp = parse_expression();
             if (_tmp) {
                 stmt->initializer = _tmp;
                 unregister_node(_tmp);
-            } else {
-                // Expression parse failed, skip to newline
-                UtilityFunctions::print("Parser Error: Failed to parse initializer expression");
-                while (!is_at_end() && peek().type != VisualGasicTokenizer::TOKEN_NEWLINE) {
-                    advance();
-                }
             }
+        }
+        
+        return stmt;
+    };
+    
+    // Parse first variable
+    DimStatement* first_stmt = parse_single_var();
+    if (!first_stmt) return nullptr;
+    
+    // Check for comma-separated additional declarations
+    // VB6 style: Dim a, b, c As Integer - only c is Integer, a and b are Variant
+    // VB.NET style: Dim a As Integer, b As String - each has own type
+    while (check(VisualGasicTokenizer::TOKEN_COMMA)) {
+        advance(); // Eat comma
+        
+        DimStatement* extra = parse_single_var();
+        if (extra) {
+            pending_statements.push_back(extra);
+            unregister_node(extra);
         }
     }
     
-    return stmt;
+    return first_stmt;
 }
 
 IfStatement* VisualGasicParser::parse_if() {
@@ -1976,16 +2040,35 @@ SelectStatement* VisualGasicParser::parse_select() {
                 advance();
                 block->is_else = true;
             } else {
-                // Parse values: Case 1, 2, 3 or Case 1 To 10
+                // Parse values: Case 1, 2, 3 or Case 1 To 10 or Case Is > 100
                 do {
+                    // Check for "Is" keyword (Case Is > 100)
+                    String comp_op = "";
+                    if ((check(VisualGasicTokenizer::TOKEN_KEYWORD) || check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) && 
+                        String(peek().value).nocasecmp_to("Is") == 0) {
+                        advance(); // consume "Is"
+                        
+                        // Next should be a comparison operator
+                        VisualGasicTokenizer::Token op_tok = peek();
+                        if (op_tok.type == VisualGasicTokenizer::TOKEN_OPERATOR) {
+                            String op = String(op_tok.value);
+                            if (op == ">" || op == "<" || op == ">=" || op == "<=" || op == "<>" || op == "=") {
+                                comp_op = op;
+                                advance(); // consume operator
+                            }
+                        }
+                    }
+                    
                     {
                         ExpressionNode* _tmp = parse_factor(); // Parse just the value, not full expression with operators
                         if (_tmp) { 
                             block->values.push_back(_tmp); 
                             unregister_node(_tmp);
+                            block->comparison_ops.push_back(comp_op);
                             
-                            // Check for "To" (range)
-                            if ((check(VisualGasicTokenizer::TOKEN_KEYWORD) || check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) && 
+                            // Check for "To" (range) - only valid if not using Is comparison
+                            if (comp_op.is_empty() &&
+                                (check(VisualGasicTokenizer::TOKEN_KEYWORD) || check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) && 
                                 String(peek().value).nocasecmp_to("To") == 0) {
                                 advance(); // consume "To"
                                 ExpressionNode* range_end = parse_factor();

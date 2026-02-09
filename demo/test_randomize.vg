@@ -1,0 +1,58 @@
+' Test Randomize statement
+Option Explicit
+
+Sub Main()
+    Dim i As Integer
+    Dim r1 As Double
+    Dim r2 As Double
+    
+    ' Test 1: Randomize with seed - same seed should give same sequence
+    Print "Test 1: Same seed gives same sequence"
+    Randomize 12345
+    r1 = Rnd()
+    Randomize 12345
+    r2 = Rnd()
+    Print "  Seed 12345, first call: " & CStr(r1)
+    Print "  Seed 12345, first call: " & CStr(r2)
+    If r1 = r2 Then
+        Print "  [PASS] Same seed produces same first value"
+    Else
+        Print "  [FAIL] Values differ: " & CStr(r1) & " vs " & CStr(r2)
+    End If
+    
+    ' Test 2: Different seeds give different values (usually)
+    Print ""
+    Print "Test 2: Different seeds"
+    Randomize 11111
+    r1 = Rnd()
+    Randomize 99999
+    r2 = Rnd()
+    Print "  Seed 11111: " & CStr(r1)
+    Print "  Seed 99999: " & CStr(r2)
+    If r1 <> r2 Then
+        Print "  [PASS] Different seeds produce different values"
+    Else
+        Print "  [INFO] Values happen to match (unlikely but possible)"
+    End If
+    
+    ' Test 3: Randomize without argument (uses timer)
+    Print ""
+    Print "Test 3: Randomize without seed (uses system time)"
+    Randomize
+    Print "  Random values after Randomize:"
+    For i = 1 To 5
+        Print "    Rnd() = " & CStr(Rnd())
+    Next i
+    
+    ' Test 4: Verify Rnd() still works after seeding
+    Print ""
+    Print "Test 4: Multiple Rnd() calls after seeding"
+    Randomize 42
+    Print "  After Randomize 42:"
+    For i = 1 To 3
+        Print "    Call " & CStr(i) & ": " & CStr(Rnd())
+    Next i
+    
+    Print ""
+    Print "Randomize test complete!"
+End Sub

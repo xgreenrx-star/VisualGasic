@@ -1,0 +1,25 @@
+' Simple Like test
+Option Explicit
+
+Sub Main()
+    Dim s As String
+    Dim p As String
+    Dim result As Boolean
+    
+    s = "cat"
+    p = "c?t"
+    result = s Like p
+    Print "'" & s & "' Like '" & p & "' = " & result
+    
+    s = "Hello World"
+    p = "Hello*"
+    result = s Like p
+    Print "'" & s & "' Like '" & p & "' = " & result
+    
+    s = "test.txt"
+    p = "*.txt"
+    result = s Like p
+    Print "'" & s & "' Like '" & p & "' = " & result
+    
+    Print "Done"
+End Sub
