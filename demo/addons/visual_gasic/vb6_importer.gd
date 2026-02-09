@@ -1024,9 +1024,9 @@ static func import_class(path: String) -> Dictionary:
 		return result
 	
 	# Transform the code, wrapping in a Class block
-	var class_name = result.name
-	var transformed = "Class " + class_name + "\n"
-	transformed += _transform_vb6_code(content, class_name, {})
+	var cls_name = result.name
+	var transformed = "Class " + cls_name + "\n"
+	transformed += _transform_vb6_code(content, cls_name, {})
 	transformed += "End Class\n"
 	
 	# Save

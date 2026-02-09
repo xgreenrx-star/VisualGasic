@@ -59,6 +59,7 @@ enum StatementType {
     STMT_PARALLEL_SECTION,
     STMT_PATTERN_MATCH,
     STMT_DECLARE,  // FFI/DLL declarations
+    STMT_WRITE,    // Write # statement
     STMT_UNKNOWN
 };
 
@@ -248,6 +249,16 @@ struct PrintStatement : public Statement {
     virtual ~PrintStatement() { 
         if(expression) delete expression; 
         if(file_number) delete file_number;
+    }
+};
+
+struct WriteStatement : public Statement {
+    ExpressionNode* file_number;
+    Vector<ExpressionNode*> expressions; // Comma-separated values
+    WriteStatement() : Statement(STMT_WRITE), file_number(nullptr) {}
+    virtual ~WriteStatement() {
+        if(file_number) delete file_number;
+        for(int i=0; i<expressions.size(); i++) if(expressions[i]) delete expressions[i];
     }
 };
 

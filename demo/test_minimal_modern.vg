@@ -1,0 +1,44 @@
+' Minimal struct test
+Type Point
+    X As Integer
+    Y As Integer
+End Type
+
+Sub Main()
+    Print "=== Minimal Modern Features ==="
+
+    ' Test 1: Struct
+    Dim P As Point
+    P.X = 10
+    P.Y = 20
+    Print "Struct: P.X=" & P.X & " P.Y=" & P.Y
+
+    ' Test 2: Dictionary
+    Dim d As Dictionary
+    d("name") = "Alice"
+    d("age") = 30
+    Print "Dict: name=" & d("name") & " count=" & d.Count
+
+    ' Test 3: Dictionary Add/Exists
+    d.Add "city", "NYC"
+    Print "Dict.Exists(city)=" & d.Exists("city")
+    Print "Dict.Item(city)=" & d.Item("city")
+
+    ' Test 4: For Each on Dictionary
+    Dim result As String
+    result = ""
+    Dim k
+    For Each k In d
+        result = result & k & ";"
+    Next
+    Print "ForEach keys: " & result
+
+    ' Test 5: String interpolation
+    Dim name As String
+    name = "World"
+    Dim msg As String
+    msg = $"Hello {name}!"
+    Print "Interpolation: " & msg
+
+    Print "=== Done ==="
+End Sub

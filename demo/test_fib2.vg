@@ -1,0 +1,19 @@
+Sub Main()
+    Dim r As Double
+    r = Fib(5)
+    Print "Fib(5)=" & r
+    r = Fib(10)
+    Print "Fib(10)=" & r
+End Sub
+
+Function Fib(n As Double) As Double
+    If n <= 1 Then
+        Fib = n
+    Else
+        Dim a As Double
+        Dim b As Double
+        a = Fib(n - 1)
+        b = Fib(n - 2)
+        Fib = a + b
+    End If
+End Function

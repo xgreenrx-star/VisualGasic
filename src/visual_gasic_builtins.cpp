@@ -2212,13 +2212,50 @@ bool call_builtin_for_base_variant(VisualGasicInstance *instance, const Variant 
             r_ret = Variant();
             return true;
         }
+        // VB6 Scripting.Dictionary methods
+        if (p_method.nocasecmp_to("Add") == 0 && p_args.size() >= 2) {
+            d[p_args[0]] = p_args[1];
+            r_ret = Variant();
+            return true;
+        }
+        if (p_method.nocasecmp_to("Remove") == 0 && p_args.size() >= 1) {
+            d.erase(p_args[0]);
+            r_ret = Variant();
+            return true;
+        }
+        if (p_method.nocasecmp_to("Exists") == 0 && p_args.size() >= 1) {
+            r_ret = d.has(p_args[0]);
+            return true;
+        }
+        if (p_method.nocasecmp_to("Item") == 0 && p_args.size() >= 1) {
+            r_ret = d.has(p_args[0]) ? d[p_args[0]] : Variant();
+            return true;
+        }
+        if (p_method.nocasecmp_to("Keys") == 0) {
+            r_ret = d.keys();
+            return true;
+        }
+        if (p_method.nocasecmp_to("Items") == 0 || p_method.nocasecmp_to("Values") == 0) {
+            r_ret = d.values();
+            return true;
+        }
+        if (p_method.nocasecmp_to("Count") == 0) {
+            r_ret = d.size();
+            return true;
+        }
+        if (p_method.nocasecmp_to("RemoveAll") == 0) {
+            d.clear();
+            r_ret = Variant();
+            return true;
+        }
         if (p_method == "Raise") {
             if (p_args.size() >= 1) d["Number"] = p_args[0];
             if (p_args.size() >= 2) d["Source"] = p_args[1];
             if (p_args.size() >= 3) d["Description"] = p_args[2];
             String msg = d.has("Description") ? (String)d["Description"] : "Runtime Error";
             int code = d.has("Number") ? (int)d["Number"] : 0;
-            instance->raise_runtime_error(msg, code);
+            String source = d.has("Source") ? (String)d["Source"] : "";
+            instance->raise_runtime_error(msg, code, source);
             r_ret = Variant();
             return true;
         }

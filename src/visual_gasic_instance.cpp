@@ -1356,7 +1356,7 @@ Variant VisualGasicInstance::file_loc(int file_num) {
 Variant VisualGasicInstance::file_eof(int file_num) {
     if (open_files.has(file_num)) {
         Ref<FileAccess> fa = open_files[file_num];
-        if (fa.is_valid()) return fa->eof_reached();
+        if (fa.is_valid()) return fa->get_position() >= fa->get_length();
     }
     return true;
 }
@@ -1410,8 +1410,8 @@ void VisualGasicInstance::randomize_seed() {
     UtilityFunctions::randomize();
 }
 
-void VisualGasicInstance::raise_runtime_error(const String &p_msg, int p_code) {
-    raise_error(p_msg, p_code);
+void VisualGasicInstance::raise_runtime_error(const String &p_msg, int p_code, const String &p_source) {
+    raise_error(p_msg, p_code, p_source);
 }
 
 bool VisualGasicInstance::set(const StringName &p_name, const Variant &p_value) {
@@ -1742,6 +1742,10 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
          
          if (base.get_type() == Variant::DICTIONARY) {
              Dictionary d = base;
+             // VB6 Scripting.Dictionary property-style access
+             if (ma->member_name.nocasecmp_to("Count") == 0) return d.size();
+             if (ma->member_name.nocasecmp_to("Keys") == 0) return d.keys();
+             if (ma->member_name.nocasecmp_to("Items") == 0) return d.values();
              if (d.has(ma->member_name)) return d[ma->member_name];
          }
          
@@ -1880,7 +1884,7 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
                  if (idx >= 0 && idx < arr.size()) {
                      container = arr[idx];
                  } else {
-                     raise_error("Subscript out of range");
+                     raise_error("Subscript out of range", 9);
                      return Variant();
                  }
              }
@@ -2288,7 +2292,7 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
                     if (idx >= 0 && idx < arr.size()) {
                         current = arr[idx];
                     } else {
-                        raise_error("Array subscript out of range");
+                        raise_error("Array subscript out of range", 9);
                         return Variant();
                     }
                 }
@@ -2302,7 +2306,7 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
                       bool oob = false;
                       Variant res = v.get_indexed(idx, valid, oob);
                       if (oob) {
-                          raise_error("Array subscript out of range");
+                          raise_error("Array subscript out of range", 9);
                           return Variant();
                       }
                       if (valid) return res;
@@ -2595,7 +2599,7 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
             int file_num = (int)call_args[0];
             if (open_files.has(file_num)) {
                  Ref<FileAccess> fa = open_files[file_num];
-                 return fa->eof_reached();
+                 return fa->get_position() >= fa->get_length();
             }
             return true; 
         }
@@ -3854,6 +3858,64 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                     }
                 }
             }
+            
+            // Also check conditional breakpoints via VisualGasicDebugger (AST path)
+            if (!should_break) {
+                VisualGasicDebugger* debugger = VisualGasicDebuggerGlobal::get_global_debugger();
+                if (debugger) {
+                    Dictionary context;
+                    context["variables"] = variables;
+                    if (current_sub) {
+                        context["function"] = current_sub->name;
+                    }
+                    
+                    if (debugger->should_break_at(script_path, stmt->line, context)) {
+                        debug_state.debug_paused = true;
+                        UtilityFunctions::print_rich("[color=cyan][VG Debug] Conditional breakpoint at ",
+                            script_path, ":", stmt->line, "[/color]");
+                        
+                        if (current_sub) {
+                            debugger->record_execution_frame(
+                                current_sub->name,
+                                script_path,
+                                stmt->line,
+                                variables
+                            );
+                        }
+                        
+                        // Send variables and call stack for inspection
+                        _send_variables_to_debugger(engine_debugger);
+                        _send_call_stack_to_debugger(engine_debugger);
+                        
+                        // Use Godot's script_debug() for proper pause/resume
+                        VisualGasicLanguage* lang = VisualGasicLanguage::get_singleton();
+                        if (lang) {
+                            engine_debugger->script_debug(lang, true, false);
+                        }
+                    }
+                }
+            }
+            
+            // Check for pause request (Break/Pause button)
+            if (!should_break && VisualGasicLanguage::is_break_requested()) {
+                VisualGasicLanguage::clear_break_request();
+                
+                VisualGasicLanguage::set_current_break_location(script_path, stmt->line);
+                
+                Array break_data;
+                break_data.push_back(script_path);
+                break_data.push_back(stmt->line);
+                engine_debugger->send_message("visualgasic:break_hit", break_data);
+                
+                _send_variables_to_debugger(engine_debugger);
+                _send_call_stack_to_debugger(engine_debugger);
+                engine_debugger->line_poll();
+                
+                VisualGasicLanguage* lang = VisualGasicLanguage::get_singleton();
+                if (lang) {
+                    engine_debugger->script_debug(lang, true, false);
+                }
+            }
         }
     }
     
@@ -3872,6 +3934,31 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                 }
             } else {
                 UtilityFunctions::print(val);
+            }
+            break;
+        }
+        case STMT_WRITE: {
+            WriteStatement* s = (WriteStatement*)stmt;
+            if (s->file_number) {
+                int fn = evaluate_expression(s->file_number);
+                if (open_files.has(fn)) {
+                    Ref<FileAccess> fa = open_files[fn];
+                    String line;
+                    for (int i = 0; i < s->expressions.size(); i++) {
+                        if (i > 0) line += ",";
+                        Variant val = evaluate_expression(s->expressions[i]);
+                        if (val.get_type() == Variant::STRING) {
+                            line += "\"" + String(val) + "\"";
+                        } else if (val.get_type() == Variant::BOOL) {
+                            line += ((bool)val) ? "#TRUE#" : "#FALSE#";
+                        } else {
+                            line += String(val);
+                        }
+                    }
+                    fa->store_line(line);
+                } else {
+                    raise_error("Bad File Name or Number");
+                }
             }
             break;
         }
@@ -3950,6 +4037,7 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                         else if (t == "single" || t == "double") variables[s->variable_name] = 0.0;
                         else if (t == "string") variables[s->variable_name] = "";
                         else if (t == "boolean") variables[s->variable_name] = false;
+                        else if (t == "dictionary") variables[s->variable_name] = Dictionary();
                         else variables[s->variable_name] = Variant();
                     }
                 } else {
@@ -4047,6 +4135,26 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                      }
                      if (error_state.mode != ErrorState::NONE) break;
                  }
+             } else if (col.get_type() == Variant::DICTIONARY) {
+                 Dictionary dict = col;
+                 Array keys = dict.keys();
+                 for(int i=0; i<keys.size(); i++) {
+                     assign_variable(s->variable_name, keys[i]);
+                     
+                     for(int b=0; b<s->body.size(); b++) {
+                         execute_statement(s->body[b]);
+                         if (error_state.has_error) break;
+                         if (error_state.mode == ErrorState::EXIT_FOR) break;
+                         if (error_state.mode != ErrorState::NONE) break;
+                     }
+                     
+                     if (error_state.has_error) break;
+                     if (error_state.mode == ErrorState::EXIT_FOR) {
+                         error_state.mode = ErrorState::NONE;
+                         break;
+                     }
+                     if (error_state.mode != ErrorState::NONE) break;
+                 }
              } else {
                  raise_error("For Each requires an Array (other types not supported yet)");
              }
@@ -4065,7 +4173,7 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
             assign_variable(var, start);
             
             int safety = 0;
-            while (safety < 1000) {
+            while (safety < 10000000) {
                  Variant current = variables[var];
                  // UtilityFunctions::print("  Loop iter: ", current);
 
@@ -4491,7 +4599,7 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                      if (FileAccess::file_exists(path)) {
                          DirAccess::remove_absolute(path);
                      } else {
-                         raise_error("File not found: " + path);
+                         raise_error("File not found: " + path, 53);
                      }
                      break;
                 }
@@ -5929,6 +6037,51 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
     int prev_jump = jump_target;
     ErrorState prev_error = error_state;
     
+    // Save local variables for recursion support
+    // Only save variables the function will define: params, return var, and Dim'd locals
+    Dictionary saved_locals;
+    // Save parameters
+    for(int i=0; i<func->parameters.size(); i++) {
+        String pname = func->parameters[i].name;
+        if (variables.has(pname)) saved_locals[pname] = variables[pname];
+    }
+    // Save function return variable
+    if (func->type == SubDefinition::TYPE_FUNCTION) {
+        if (variables.has(func->name)) saved_locals[func->name] = variables[func->name];
+    }
+    // Recursively scan for Dim'd variables in all nested blocks
+    struct DimScanner {
+        static void scan(const Vector<Statement*>& stmts, Dictionary& vars, const Dictionary& all_vars) {
+            for(int i=0; i<stmts.size(); i++) {
+                if (!stmts[i]) continue;
+                if (stmts[i]->type == STMT_DIM) {
+                    DimStatement* ds = (DimStatement*)stmts[i];
+                    if (all_vars.has(ds->variable_name))
+                        vars[ds->variable_name] = all_vars[ds->variable_name];
+                } else if (stmts[i]->type == STMT_IF) {
+                    IfStatement* ifs = (IfStatement*)stmts[i];
+                    scan(ifs->then_branch, vars, all_vars);
+                    scan(ifs->else_branch, vars, all_vars);
+                } else if (stmts[i]->type == STMT_FOR) {
+                    ForStatement* fs = (ForStatement*)stmts[i];
+                    if (all_vars.has(fs->variable_name))
+                        vars[fs->variable_name] = all_vars[fs->variable_name];
+                    scan(fs->body, vars, all_vars);
+                } else if (stmts[i]->type == STMT_WHILE) {
+                    scan(((WhileStatement*)stmts[i])->body, vars, all_vars);
+                } else if (stmts[i]->type == STMT_DO) {
+                    scan(((DoStatement*)stmts[i])->body, vars, all_vars);
+                } else if (stmts[i]->type == STMT_FOR_EACH) {
+                    ForEachStatement* fes = (ForEachStatement*)stmts[i];
+                    if (all_vars.has(fes->variable_name))
+                        vars[fes->variable_name] = all_vars[fes->variable_name];
+                    scan(fes->body, vars, all_vars);
+                }
+            }
+        }
+    };
+    DimScanner::scan(func->statements, saved_locals, variables);
+    
     // Arguments
     int max_params = func->parameters.size();
     // Use larger size if params exist, or args exist.
@@ -5997,13 +6150,9 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
     if (script.is_valid()) {
         BytecodeChunk *chunk = script->get_bytecode_for(func->name);
         if (chunk) {
-            if (func->name.nocasecmp_to("OnHealthChange") == 0 || func->name.nocasecmp_to("OnScoreHigh") == 0) {
-            }
             bytecode_variables_backup = variables.duplicate(true);
             has_backup = true;
             used_bytecode = execute_bytecode(chunk, func, bytecode_ret);
-            if (func->name.nocasecmp_to("OnHealthChange") == 0 || func->name.nocasecmp_to("OnScoreHigh") == 0) {
-            }
             if (!used_bytecode && has_backup) {
                 variables = bytecode_variables_backup;
                 error_state = bytecode_error_backup;
@@ -6063,6 +6212,12 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
     current_sub = prev_sub;
     jump_target = prev_jump;
     error_state = prev_error;
+    
+    // Restore saved local variables for recursion support
+    Array saved_keys = saved_locals.keys();
+    for(int i=0; i<saved_keys.size(); i++) {
+        variables[saved_keys[i]] = saved_locals[saved_keys[i]];
+    }
     
     return ret;
 }
@@ -6250,7 +6405,7 @@ void VisualGasicInstance::call(const StringName &p_method, const Variant *const 
     }
 }
 
-void VisualGasicInstance::raise_error(String msg, int code) {
+void VisualGasicInstance::raise_error(String msg, int code, const String &source) {
     // Update Err Object
     if (variables.has("Err")) {
         Variant v = variables["Err"];
@@ -6258,7 +6413,10 @@ void VisualGasicInstance::raise_error(String msg, int code) {
              Dictionary err = v;
              err["Number"] = code;
              err["Description"] = msg;
-             err["Source"] = "VisualGasic Runtime";
+             // Use caller-provided source if given, otherwise default
+             err["Source"] = source.is_empty() ? String("VisualGasic Runtime") : source;
+             // Write back to ensure the HashMap entry is updated
+             variables["Err"] = err;
         }
     }
 
@@ -6846,21 +7004,27 @@ void VisualGasicInstance::exit_scope(const String& scope_name) {
 
 Dictionary VisualGasicInstance::get_debug_locals() const {
     // Return current local variables for debugger
-    // If we're in bytecode execution, this returns variables from the current scope
-    // For now, return all variables - a more sophisticated implementation would
-    // track the local stack frame separately with a call stack
+    // Includes both function parameters and locally Dim'd variables
     Dictionary locals;
     if (current_sub) {
-        // Filter to only parameters defined in current function
+        // Include parameters defined in current function
         for (int i = 0; i < current_sub->parameters.size(); i++) {
             String param_name = current_sub->parameters[i].name;
             if (variables.has(param_name)) {
                 locals[param_name] = variables[param_name];
             }
         }
+        // Include local variables declared with Dim in the function body
+        for (int i = 0; i < current_sub->statements.size(); i++) {
+            Statement* s = current_sub->statements[i];
+            if (s && s->type == STMT_DIM) {
+                DimStatement* dim = static_cast<DimStatement*>(s);
+                if (variables.has(dim->variable_name)) {
+                    locals[dim->variable_name] = variables[dim->variable_name];
+                }
+            }
+        }
     }
-    // In a full implementation, we would also track local variables declared with Dim
-    // within the function scope, but that requires additional tracking infrastructure
     return locals;
 }
 
@@ -7127,7 +7291,7 @@ void VisualGasicInstance::assign_to_target(ExpressionNode* target, Variant val) 
              Array arr = base;
              int idx = (int)indices[0];
              if (idx < 0 || idx >= arr.size()) {
-                 raise_error("Array subscript out of range");
+                 raise_error("Array subscript out of range", 9);
                  return;
              }
              arr[idx] = val;
@@ -7148,7 +7312,7 @@ void VisualGasicInstance::assign_to_target(ExpressionNode* target, Variant val) 
              int idx = (int)indices[i];
              Array current = arr_stack[arr_stack.size() - 1];
              if (idx < 0 || idx >= current.size()) {
-                 raise_error("Array subscript out of range");
+                 raise_error("Array subscript out of range", 9);
                  return;
              }
              if (current[idx].get_type() != Variant::ARRAY) {
@@ -7163,7 +7327,7 @@ void VisualGasicInstance::assign_to_target(ExpressionNode* target, Variant val) 
          Array innermost = arr_stack[arr_stack.size() - 1];
          int last_idx = (int)indices[indices.size() - 1];
          if (last_idx < 0 || last_idx >= innermost.size()) {
-             raise_error("Array subscript out of range");
+             raise_error("Array subscript out of range", 9);
              return;
          }
          innermost[last_idx] = val;
@@ -7221,7 +7385,7 @@ void VisualGasicInstance::assign_to_target(ExpressionNode* target, Variant val) 
                  Array arr = container;
                  int idx = (int)indices[0];
                  if (idx < 0 || idx >= arr.size()) {
-                     raise_error("Array subscript out of range");
+                     raise_error("Array subscript out of range", 9);
                      return;
                  }
                  arr[idx] = val;
@@ -7240,7 +7404,7 @@ void VisualGasicInstance::assign_to_target(ExpressionNode* target, Variant val) 
                  int idx = (int)indices[i];
                  Array current = arr_stack[arr_stack.size() - 1];
                  if (idx < 0 || idx >= current.size()) {
-                     raise_error("Array subscript out of range");
+                     raise_error("Array subscript out of range", 9);
                      return;
                  }
                  if (current[idx].get_type() != Variant::ARRAY) {
@@ -7255,7 +7419,7 @@ void VisualGasicInstance::assign_to_target(ExpressionNode* target, Variant val) 
              Array innermost = arr_stack[arr_stack.size() - 1];
              int last_idx = (int)indices[indices.size() - 1];
              if (last_idx < 0 || last_idx >= innermost.size()) {
-                 raise_error("Array subscript out of range");
+                 raise_error("Array subscript out of range", 9);
                  return;
              }
              innermost[last_idx] = val;
@@ -8379,7 +8543,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         if (op == OP_GET_ARRAY_UNCHECKED) {
                             result = Variant();
                         } else {
-                            raise_error("Array subscript out of range");
+                            raise_error("Array subscript out of range", 9);
                             success = false;
                             goto cleanup;
                         }
@@ -8422,7 +8586,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         push_value(Variant());
                         break;
                     }
-                    raise_error("Array subscript out of range");
+                    raise_error("Array subscript out of range", 9);
                     success = false;
                     goto cleanup;
                 }
@@ -8485,7 +8649,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         if (op == OP_SET_ARRAY_UNCHECKED) {
                             ok = false;
                         } else {
-                            raise_error("Array subscript out of range");
+                            raise_error("Array subscript out of range", 9);
                             success = false;
                             goto cleanup;
                         }
@@ -8531,7 +8695,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         push_value(base);
                         break;
                     }
-                    raise_error("Array subscript out of range");
+                    raise_error("Array subscript out of range", 9);
                     success = false;
                     goto cleanup;
                 }
@@ -9462,6 +9626,28 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         if (lang) {
                             engine_debugger->script_debug(lang, true, false);
                         }
+                    }
+                }
+                
+                // Check for pause request (Break/Pause button) in bytecode path
+                if (!should_break && engine_debugger && engine_debugger->is_active() && !script_path.is_empty()
+                    && VisualGasicLanguage::is_break_requested()) {
+                    VisualGasicLanguage::clear_break_request();
+                    
+                    VisualGasicLanguage::set_current_break_location(script_path, line_number);
+                    
+                    Array break_data;
+                    break_data.push_back(script_path);
+                    break_data.push_back(line_number);
+                    engine_debugger->send_message("visualgasic:break_hit", break_data);
+                    
+                    _send_variables_to_debugger(engine_debugger);
+                    _send_call_stack_to_debugger(engine_debugger);
+                    engine_debugger->line_poll();
+                    
+                    VisualGasicLanguage* lang = VisualGasicLanguage::get_singleton();
+                    if (lang) {
+                        engine_debugger->script_debug(lang, true, false);
                     }
                 }
                 break;

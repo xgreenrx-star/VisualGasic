@@ -1,0 +1,15 @@
+Type Point
+    X As Integer
+    Y As Integer
+End Type
+
+Sub Main
+    Dim P As Point
+    Print "P before: " & TypeName(P)
+    
+    P.X = 10
+    P.Y = 20
+    
+    Print "P.X = " & P.X
+    Print "P.Y = " & P.Y
+End Sub

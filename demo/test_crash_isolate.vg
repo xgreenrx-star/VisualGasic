@@ -1,0 +1,9 @@
+' Test isolating crash
+Sub Main()
+    Print "start"
+    Dim w As String
+    w = "World"
+    Print $"Hello {w}!"
+    Print $"2 + 3 = {2 + 3}"
+    Print "end"
+End Sub

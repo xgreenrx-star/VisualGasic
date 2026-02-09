@@ -159,6 +159,7 @@ Vector<VisualGasicTokenizer::Token> VisualGasicTokenizer::tokenize(const String 
     keywords.push_back("TypeOf");
     keywords.push_back("HasValue");
     keywords.push_back("Value");
+    keywords.push_back("Write");
 
     while (current < length) {
         char32_t c = p_source_code[current];

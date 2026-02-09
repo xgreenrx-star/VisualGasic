@@ -614,17 +614,8 @@ Dictionary VisualGasicLanguage::_complete_code(const String &p_code, const Strin
     result["result"] = OK;
     Array options;
     
-    // Show what code we received for debugging
-    print_line("[VG COMPLETION] _complete_code called, code length: " + itos(p_code.length()) + ", owner: " + (p_owner ? p_owner->get_class() : "null"));
-    
-    // Show last 40 characters of the code to see where we are
-    String code_tail = p_code.length() > 40 ? p_code.substr(p_code.length() - 40) : p_code;
-    code_tail = code_tail.replace("\n", "\\n").replace("\t", "\\t");
-    print_line("[VG COMPLETION] Code tail (last 40): '" + code_tail + "'");
-    
     // Find the last dot in the code - that's likely where completion was triggered
     int last_dot = p_code.rfind(".");
-    print_line("[VG COMPLETION] Last dot position: " + itos(last_dot) + " (code length: " + itos(p_code.length()) + ")");
     
     if (last_dot != -1) {
         // Extract the identifier before the dot
@@ -649,8 +640,6 @@ Dictionary VisualGasicLanguage::_complete_code(const String &p_code, const Strin
             }
         }
         
-        print_line("[VG COMPLETION] Found identifier: '" + identifier + "', after dot: '" + after_dot + "'");
-        
         // Check if it's Me.
         if (identifier.to_lower() == "me") {
             // Show form controls
@@ -671,7 +660,6 @@ Dictionary VisualGasicLanguage::_complete_code(const String &p_code, const Strin
                     Node *found = _find_control_recursive(owner_node, identifier);
                     if (found) {
                         control_class = found->get_class();
-                        print_line("[VG COMPLETION] Found control '" + identifier + "' of type: " + control_class);
                     }
                 }
             }
@@ -935,7 +923,6 @@ Dictionary VisualGasicLanguage::_complete_code(const String &p_code, const Strin
         }
     }
     
-    print_line("[VG COMPLETION] Returning " + itos(options.size()) + " options");
     result["options"] = options;
     result["force"] = false;
     result["call_hint"] = "";
@@ -1011,6 +998,9 @@ void VisualGasicLanguage::_bind_methods() {
     ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_clear_watchpoints"), &VisualGasicLanguage::clear_watchpoints);
     ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_get_watchpoints"), &VisualGasicLanguage::get_watchpoints);
     
+    // Pause / Break request
+    ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_request_break"), &VisualGasicLanguage::request_break);
+    
     // Expression evaluation in debug context
     ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_evaluate_expression", "expression"), &VisualGasicLanguage::evaluate_expression_in_context);
 }
@@ -1024,42 +1014,81 @@ String VisualGasicLanguage::format_source_code(const String &p_code) const {
         String line = lines[i].strip_edges();
         String line_lower = line.to_lower();
         
-        // Indent Check for NEXT line
+        // Skip empty lines (preserve them without indentation)
+        if (line.is_empty()) {
+            if (i > 0) indented_code += "\n";
+            continue;
+        }
+        
+        // --- DEDENT BEFORE writing the line ---
+        // "Else", "ElseIf", "Case" dedent then re-indent
+        if (line_lower.begins_with("else") ||
+            line_lower.begins_with("elseif") ||
+            line_lower.begins_with("case ") ||
+            line_lower == "case else") {
+            if (current_indent > 0) current_indent--;
+        }
+        
+        // Closing keywords dedent
+        if (line_lower.begins_with("end sub") ||
+            line_lower.begins_with("end function") ||
+            line_lower.begins_with("end property") ||
+            line_lower.begins_with("end class") ||
+            line_lower.begins_with("end if") ||
+            line_lower.begins_with("end select") ||
+            line_lower.begins_with("end type") ||
+            line_lower.begins_with("end enum") ||
+            line_lower.begins_with("end with") ||
+            line_lower.begins_with("end whenever") ||
+            line_lower.begins_with("end try") ||
+            line_lower == "next" || line_lower.begins_with("next ") ||
+            line_lower == "wend" ||
+            line_lower == "loop" || line_lower.begins_with("loop ")) {
+            if (current_indent > 0) current_indent--;
+        }
+        
+        // --- Write the indented line ---
+        if (i > 0) indented_code += "\n";
+        for (int t = 0; t < current_indent; t++) {
+            indented_code += "\t";
+        }
+        indented_code += line;
+        
+        // --- INDENT AFTER writing the line (for the next line) ---
+        // Detect single-line If (If x Then y — no indent)
         bool is_single_line_if = false;
-        if (line_lower.begins_with("if") && line_lower.contains(" then ")) {
+        if (line_lower.begins_with("if ") && line_lower.contains(" then ")) {
             int then_pos = line_lower.find(" then ");
             String after_then = line_lower.substr(then_pos + 6).strip_edges();
             if (!after_then.is_empty() && !after_then.begins_with("'")) {
-                 is_single_line_if = true;
+                is_single_line_if = true;
             }
         }
         
         if (!is_single_line_if) {
             if (line_lower.begins_with("sub ") ||
                 line_lower.begins_with("function ") ||
+                line_lower.begins_with("property ") ||
+                line_lower.begins_with("class ") ||
                 line_lower.begins_with("for ") ||
                 line_lower.begins_with("while ") ||
-                line_lower.begins_with("do") || 
+                line_lower.begins_with("do") ||
                 line_lower.begins_with("select case ") ||
                 line_lower.begins_with("with ") ||
+                line_lower.begins_with("type ") ||
+                line_lower.begins_with("enum ") ||
+                line_lower.begins_with("whenever ") ||
+                line_lower.begins_with("try") ||
                 (line_lower.begins_with("if ") && line_lower.ends_with(" then")) ||
                 line_lower.begins_with("else") ||
                 line_lower.begins_with("elseif") ||
-                line_lower.begins_with("case ")) {
-                
-                if (line_lower.begins_with("do")) {
-                    current_indent++;
-                }
-                else if (line_lower.begins_with("loop")) {
-                    // no-op
-                } 
-                else {
-                    current_indent++;
-                }
+                line_lower.begins_with("case ") ||
+                line_lower == "case else") {
+                current_indent++;
             }
         }
     }
-    return indented_code.strip_edges(false, true);
+    return indented_code;
 }
 
 String VisualGasicLanguage::_auto_indent_code(const String &p_code, int32_t p_from_line, int32_t p_to_line) const {
@@ -1212,6 +1241,14 @@ PackedStringArray VisualGasicLanguage::_get_doc_comment_delimiters() const {
     PackedStringArray delimiters;
     delimiters.push_back("''"); // Tooltip delimiter
     return delimiters;
+}
+
+PackedStringArray VisualGasicLanguage::_get_code_region_tags() const {
+    PackedStringArray tags;
+    // VB6-style code region markers: '#Region "name"' and '#End Region'
+    tags.push_back("#Region");
+    tags.push_back("#End Region");
+    return tags;
 }
 
 PackedStringArray VisualGasicLanguage::_get_recognized_extensions() const {
@@ -1585,6 +1622,25 @@ bool VisualGasicLanguage::check_watchpoint(const String& variable_name, const Va
     }
     
     return false;
+}
+
+// ============================================================================
+// PAUSE / BREAK REQUEST
+// ============================================================================
+
+bool VisualGasicLanguage::break_requested = false;
+
+void VisualGasicLanguage::request_break() {
+    break_requested = true;
+    UtilityFunctions::print("[VG Debug] Break requested - will pause at next statement");
+}
+
+bool VisualGasicLanguage::is_break_requested() {
+    return break_requested;
+}
+
+void VisualGasicLanguage::clear_break_request() {
+    break_requested = false;
 }
 
 // ============================================================================

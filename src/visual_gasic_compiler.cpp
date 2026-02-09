@@ -1914,6 +1914,29 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                     compile_ok = false;
                     break;
                 }
+                
+                // Check if it's an array of user-defined struct type
+                if (!s->type_name.is_empty()) {
+                    String t = s->type_name.to_lower();
+                    if (t != "integer" && t != "long" && t != "single" && t != "double" 
+                        && t != "string" && t != "boolean" && t != "variant") {
+                        // Could be a struct type - check
+                        bool is_struct = false;
+                        if (current_module) {
+                            for (int i = 0; i < current_module->structs.size(); i++) {
+                                if (current_module->structs[i]->name.nocasecmp_to(s->type_name) == 0) {
+                                    is_struct = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if (is_struct) {
+                            // Arrays of structs require runtime handling - fall back to interpreter
+                            compile_ok = false;
+                            break;
+                        }
+                    }
+                }
 
                 // size = expr + 1 (VB arrays are 0..N)
                 compile_expression(s->array_sizes[0]);
@@ -1958,7 +1981,24 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                         dictionary_vars.insert(lower);
                         trusted_dictionary_vars.insert(lower);
                     }
-                    else init_val = Variant();
+                    else {
+                        // Check if it's a user-defined struct type
+                        bool is_struct = false;
+                        if (current_module) {
+                            for (int i = 0; i < current_module->structs.size(); i++) {
+                                if (current_module->structs[i]->name.nocasecmp_to(s->type_name) == 0) {
+                                    is_struct = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if (is_struct) {
+                            // Structs require runtime prototype instantiation - fall back to interpreter
+                            compile_ok = false;
+                            break;
+                        }
+                        init_val = Variant();
+                    }
                 } else {
                     init_val = Variant();
                 }

@@ -142,6 +142,11 @@ func _enter_tree():
 	btn_new_form.pressed.connect(_on_new_form)
 	toolbox.add_child(btn_new_form)
 	
+	var btn_new_module = Button.new()
+	btn_new_module.text = "New Module"
+	btn_new_module.pressed.connect(_on_new_module)
+	toolbox.add_child(btn_new_module)
+	
 	setup_toolbox()
 
 	# HACK: If C++ toolbox is used, stick the buttons inside it or above it?
@@ -193,6 +198,7 @@ func _enter_tree():
 	_setup_script_editor_context_menu()
 	_setup_recent_projects_menu()
 
+	add_tool_menu_item("New Module...", Callable(self, "_on_new_module"))
 	add_tool_menu_item("Import VB6 Form...", Callable(self, "_on_import_vb6_form"))
 	add_tool_menu_item("Import VB6 Project...", Callable(self, "_on_import_vb6_project"))
 	add_tool_menu_item("Visual Gasic Menu Editor", Callable(self, "_on_menu_editor"))
@@ -886,6 +892,300 @@ End Sub
 """
 	f.store_string(code)
 	f.close()
+
+# =============================================================================
+# MODULE CREATION
+# =============================================================================
+
+## Opens a dialog to create a new Visual Gasic module (.vg code file).
+## Modules are standalone code files without a form — like VB6 .bas modules.
+func _on_new_module():
+	var dlg = AcceptDialog.new()
+	dlg.title = "New Module"
+	dlg.dialog_text = "Enter a name for the new module:"
+	dlg.ok_button_text = "Create"
+	
+	var vbox = VBoxContainer.new()
+	
+	var name_label = Label.new()
+	name_label.text = "Module Name:"
+	vbox.add_child(name_label)
+	
+	var name_edit = LineEdit.new()
+	name_edit.text = "Module1"
+	name_edit.placeholder_text = "Module1"
+	name_edit.select_all_on_focus = true
+	vbox.add_child(name_edit)
+	
+	var sep = HSeparator.new()
+	vbox.add_child(sep)
+	
+	var type_label = Label.new()
+	type_label.text = "Module Type:"
+	vbox.add_child(type_label)
+	
+	var type_option = OptionButton.new()
+	type_option.add_item("Standard Module (.bas style)")
+	type_option.add_item("Class Module")
+	type_option.add_item("Game Module")
+	type_option.add_item("Utility Module")
+	vbox.add_child(type_option)
+	
+	dlg.add_child(vbox)
+	dlg.min_size = Vector2i(350, 200)
+	
+	get_editor_interface().get_base_control().add_child(dlg)
+	
+	dlg.confirmed.connect(func():
+		var module_name = name_edit.text.strip_edges()
+		var module_type = type_option.selected
+		dlg.queue_free()
+		if not module_name.is_empty():
+			_create_new_module(module_name, module_type)
+	)
+	
+	dlg.canceled.connect(func():
+		dlg.queue_free()
+	)
+	
+	dlg.popup_centered()
+	name_edit.grab_focus()
+
+## Creates a new .vg module file with boilerplate code.
+## @param module_name: Name for the module (without extension)
+## @param module_type: 0=Standard, 1=Class, 2=Game, 3=Utility
+func _create_new_module(module_name: String, module_type: int):
+	# Generate unique filename
+	var path = "res://" + module_name + ".vg"
+	var idx = 1
+	while FileAccess.file_exists(path):
+		idx += 1
+		module_name = module_name.rstrip("0123456789") + str(idx)
+		path = "res://" + module_name + ".vg"
+	
+	var code = _generate_module_code(module_name, module_type)
+	
+	var f = FileAccess.open(path, FileAccess.WRITE)
+	if not f:
+		push_error("VisualGasic: Could not create module file: " + path)
+		return
+	f.store_string(code)
+	f.close()
+	
+	print("VisualGasic: Created module at ", path)
+	
+	# Refresh filesystem and open the script
+	get_editor_interface().get_resource_filesystem().scan()
+	
+	# Defer opening to allow filesystem scan
+	var timer = Timer.new()
+	timer.wait_time = 0.3
+	timer.one_shot = true
+	timer.timeout.connect(func():
+		timer.queue_free()
+		var script = load(path)
+		if script:
+			get_editor_interface().edit_resource(script)
+			print("VisualGasic: Opened module for editing: ", path)
+		_add_to_recent_projects(path)
+	)
+	get_editor_interface().get_base_control().add_child(timer)
+	timer.start()
+
+## Generates boilerplate code for a new module.
+## @param module_name: Name of the module
+## @param module_type: 0=Standard, 1=Class, 2=Game, 3=Utility
+func _generate_module_code(module_name: String, module_type: int) -> String:
+	match module_type:
+		0:  # Standard Module (.bas style)
+			return """' %s.vg - Standard Module
+' A standard code module (like VB6 .bas files)
+' Contains reusable functions and subroutines
+Option Explicit
+
+' Module-level variables
+Dim initialized As Boolean
+
+' ====== Public Functions ======
+
+Sub Main()
+    ' Entry point for the module
+    Print "%s module loaded"
+    initialized = True
+End Sub
+
+Function GetModuleName() As String
+    GetModuleName = "%s"
+End Function
+
+' ====== Helper Functions ======
+
+' Add your module functions below
+
+""" % [module_name, module_name, module_name]
+		1:  # Class Module
+			return """' %s.vg - Class Module
+' A class-style module with initialization and cleanup
+Option Explicit
+
+' Private module data
+Dim m_name As String
+Dim m_initialized As Boolean
+
+' ====== Lifecycle ======
+
+Sub Class_Initialize()
+    ' Called when module is first loaded
+    m_name = "%s"
+    m_initialized = True
+    Print m_name & " initialized"
+End Sub
+
+Sub Class_Terminate()
+    ' Called when module is unloaded
+    m_initialized = False
+    Print m_name & " terminated"
+End Sub
+
+' ====== Properties ======
+
+Function GetName() As String
+    GetName = m_name
+End Function
+
+Function IsInitialized() As Boolean
+    IsInitialized = m_initialized
+End Function
+
+' ====== Methods ======
+
+' Add your class methods below
+
+""" % [module_name, module_name]
+		2:  # Game Module
+			return """' %s.vg - Game Module
+' Game logic module with state management
+Option Explicit
+
+' Game state variables
+Dim score As Integer
+Dim lives As Integer
+Dim level As Integer
+Dim gameRunning As Boolean
+
+' ====== Game Lifecycle ======
+
+Sub Game_Init()
+    score = 0
+    lives = 3
+    level = 1
+    gameRunning = True
+    Print "Game initialized - Level " & level
+End Sub
+
+Sub Game_Update()
+    ' Called each frame - put game logic here
+    If Not gameRunning Then Exit Sub
+    
+    ' Check for input
+    If Input.IsActionJustPressed("ui_accept") Then
+        score = score + 10
+        Print "Score: " & score
+    End If
+End Sub
+
+Sub Game_Reset()
+    Game_Init()
+    Print "Game reset!"
+End Sub
+
+' ====== Score Management ======
+
+Function GetScore() As Integer
+    GetScore = score
+End Function
+
+Sub AddScore(points As Integer)
+    score = score + points
+    
+    ' Level up every 100 points
+    If score >= level * 100 Then
+        level = level + 1
+        Print "Level Up! Now at level " & level
+    End If
+End Sub
+
+Sub LoseLife()
+    lives = lives - 1
+    Print "Lives remaining: " & lives
+    If lives <= 0 Then
+        gameRunning = False
+        Print "Game Over! Final Score: " & score
+    End If
+End Sub
+
+""" % [module_name]
+		3:  # Utility Module
+			return """' %s.vg - Utility Module
+' Common utility functions
+Option Explicit
+
+' ====== String Utilities ======
+
+Function PadLeft(s As String, totalWidth As Integer, padChar As String) As String
+    Dim result As String
+    result = s
+    Do While Len(result) < totalWidth
+        result = padChar & result
+    Loop
+    PadLeft = result
+End Function
+
+Function PadRight(s As String, totalWidth As Integer, padChar As String) As String
+    Dim result As String
+    result = s
+    Do While Len(result) < totalWidth
+        result = result & padChar
+    Loop
+    PadRight = result
+End Function
+
+' ====== Math Utilities ======
+
+Function Clamp(value As Double, minVal As Double, maxVal As Double) As Double
+    If value < minVal Then
+        Clamp = minVal
+    ElseIf value > maxVal Then
+        Clamp = maxVal
+    Else
+        Clamp = value
+    End If
+End Function
+
+Function Lerp(a As Double, b As Double, t As Double) As Double
+    Lerp = a + (b - a) * t
+End Function
+
+Function RandRange(minVal As Integer, maxVal As Integer) As Integer
+    RandRange = Int(Rnd() * (maxVal - minVal + 1)) + minVal
+End Function
+
+' ====== Array Utilities ======
+
+Function ArrayContains(arr() As Variant, value As Variant) As Boolean
+    Dim i As Integer
+    For i = LBound(arr) To UBound(arr)
+        If arr(i) = value Then
+            ArrayContains = True
+            Exit Function
+        End If
+    Next i
+    ArrayContains = False
+End Function
+
+""" % [module_name]
+		_:
+			return "' %s.vg\nOption Explicit\n\nSub Main()\n    ' Your code here\nEnd Sub\n" % [module_name]
 
 # =============================================================================
 # EDITOR DIALOGS

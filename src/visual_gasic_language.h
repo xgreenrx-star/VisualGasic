@@ -62,6 +62,9 @@ class VisualGasicLanguage : public ScriptLanguageExtension {
     };
     static std::map<std::string, Watchpoint> watchpoints;
     
+    // Pause/Break request flag (atomic-safe: only set by editor thread, cleared by script thread)
+    static bool break_requested;
+    
     // Helper to ensure debug stack is initialized (lazy initialization)
     static std::vector<VGDebugStackFrame>& get_debug_stack();
 
@@ -131,6 +134,7 @@ public:
     virtual void _reload_tool_script(const Ref<Script> &p_script, bool p_soft_reload) override;
     virtual String _debug_get_stack_level_source(int32_t p_level) const override;
     virtual PackedStringArray _get_doc_comment_delimiters() const override;
+    PackedStringArray _get_code_region_tags() const;
     virtual PackedStringArray _get_recognized_extensions() const override;
     virtual TypedArray<Dictionary> _get_public_functions() const override;
     virtual Dictionary _get_public_constants() const override;
@@ -182,6 +186,11 @@ public:
     static void clear_watchpoints();
     static Array get_watchpoints();  // Returns list of watched variable names
     static bool check_watchpoint(const String& variable_name, const Variant& new_value);  // Returns true if value changed
+    
+    // Pause/Break request - allows pausing a running program without pre-set breakpoints
+    static void request_break();     // Called from UI/editor to request a break
+    static bool is_break_requested();
+    static void clear_break_request();
     
     // Expression evaluation in debug context
     static String evaluate_expression_in_context(const String& expression);

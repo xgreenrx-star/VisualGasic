@@ -117,6 +117,12 @@ private:
     // State Inspection
     Dictionary variable_watch_list;
     Array state_change_listeners;
+    
+    // Debug log entries
+    Array debug_log_entries;
+    
+    // Pending variable value changes from debugger
+    Dictionary pending_variable_changes;
 
 public:
     VisualGasicDebugger();

@@ -1,0 +1,334 @@
+' Regression Test Suite for VisualGasic
+' Verifies core features haven't broken
+Sub Main()
+    Print "=== Regression Test Suite ==="
+    Print ""
+    Dim passCount As Integer
+    Dim failCount As Integer
+    passCount = 0
+    failCount = 0
+
+    ' --- Basic Arithmetic ---
+    Print "--- Basic Arithmetic ---"
+
+    Dim a As Integer
+    a = 10 + 5
+    If a = 15 Then
+        Print "PASS: 10 + 5 = 15"
+        passCount = passCount + 1
+    Else
+        Print "FAIL: 10 + 5 = " & a
+        failCount = failCount + 1
+    End If
+
+    a = 20 - 7
+    If a = 13 Then
+        Print "PASS: 20 - 7 = 13"
+        passCount = passCount + 1
+    Else
+        Print "FAIL: 20 - 7 = " & a
+        failCount = failCount + 1
+    End If
+
+    a = 6 * 8
+    If a = 48 Then
+        Print "PASS: 6 * 8 = 48"
+        passCount = passCount + 1
+    Else
+        Print "FAIL: 6 * 8 = " & a
+        failCount = failCount + 1
+    End If
+
+    Dim d As Double
+    d = 15 / 4
+    If d = 3.75 Then
+        Print "PASS: 15 / 4 = 3.75"
+        passCount = passCount + 1
+    Else
+        Print "FAIL: 15 / 4 = " & d
+        failCount = failCount + 1
+    End If
+
+    a = 17 Mod 5
+    If a = 2 Then
+        Print "PASS: 17 Mod 5 = 2"
+        passCount = passCount + 1
+    Else
+        Print "FAIL: 17 Mod 5 = " & a
+        failCount = failCount + 1
+    End If
+
+    d = 2 ^ 10
+    If d = 1024 Then
+        Print "PASS: 2 ^ 10 = 1024"
+        passCount = passCount + 1
+    Else
+        Print "FAIL: 2 ^ 10 = " & d
+        failCount = failCount + 1
+    End If
+
+    ' Order of operations
+    a = 2 + 3 * 4
+    If a = 14 Then
+        Print "PASS: 2 + 3 * 4 = 14 (order of ops)"
+        passCount = passCount + 1
+    Else
+        Print "FAIL: 2 + 3 * 4 = " & a
+        failCount = failCount + 1
+    End If
+
+    ' --- String Operations ---
+    Print ""
+    Print "--- String Operations ---"
+
+    Dim s As String
+    s = "Hello" & " " & "World"
+    If s = "Hello World" Then
+        Print "PASS: String concat"
+        passCount = passCount + 1
+    Else
+        Print "FAIL: String concat = '" & s & "'"
+        failCount = failCount + 1
+    End If
+
+    If Len(s) = 11 Then
+        Print "PASS: Len = 11"
+        passCount = passCount + 1
+    Else
+        Print "FAIL: Len = " & Len(s)
+        failCount = failCount + 1
+    End If
+
+    If Left(s, 5) = "Hello" Then
+        Print "PASS: Left"
+        passCount = passCount + 1
+    Else
+        Print "FAIL: Left = '" & Left(s, 5) & "'"
+        failCount = failCount + 1
+    End If
+
+    If Right(s, 5) = "World" Then
+        Print "PASS: Right"
+        passCount = passCount + 1
+    Else
+        Print "FAIL: Right = '" & Right(s, 5) & "'"
+        failCount = failCount + 1
+    End If
+
+    If Mid(s, 7, 5) = "World" Then
+        Print "PASS: Mid"
+        passCount = passCount + 1
+    Else
+        Print "FAIL: Mid = '" & Mid(s, 7, 5) & "'"
+        failCount = failCount + 1
+    End If
+
+    If UCase(s) = "HELLO WORLD" Then
+        Print "PASS: UCase"
+        passCount = passCount + 1
+    Else
+        Print "FAIL: UCase = '" & UCase(s) & "'"
+        failCount = failCount + 1
+    End If
+
+    If LCase(s) = "hello world" Then
+        Print "PASS: LCase"
+        passCount = passCount + 1
+    Else
+        Print "FAIL: LCase = '" & LCase(s) & "'"
+        failCount = failCount + 1
+    End If
+
+    If InStr(s, "World") > 0 Then
+        Print "PASS: InStr found 'World'"
+        passCount = passCount + 1
+    Else
+        Print "FAIL: InStr did not find 'World'"
+        failCount = failCount + 1
+    End If
+
+    If Trim("  hello  ") = "hello" Then
+        Print "PASS: Trim"
+        passCount = passCount + 1
+    Else
+        Print "FAIL: Trim = '" & Trim("  hello  ") & "'"
+        failCount = failCount + 1
+    End If
+
+    If Replace(s, "World", "VG") = "Hello VG" Then
+        Print "PASS: Replace"
+        passCount = passCount + 1
+    Else
+        Print "FAIL: Replace = '" & Replace(s, "World", "VG") & "'"
+        failCount = failCount + 1
+    End If
+
+    ' --- Control Flow ---
+    Print ""
+    Print "--- Control Flow ---"
+
+    ' If/Else
+    Dim x As Integer
+    x = 10
+    If x > 5 Then
+        Print "PASS: If/Then"
+        passCount = passCount + 1
+    Else
+        Print "FAIL: If/Then"
+        failCount = failCount + 1
+    End If
+
+    ' Select Case
+    Dim result As String
+    Select Case x
+        Case 1 To 5
+            result = "low"
+        Case 10
+            result = "ten"
+        Case Else
+            result = "other"
+    End Select
+    If result = "ten" Then
+        Print "PASS: Select Case"
+        passCount = passCount + 1
+    Else
+        Print "FAIL: Select Case = '" & result & "'"
+        failCount = failCount + 1
+    End If
+
+    ' For loop
+    Dim total As Integer
+    total = 0
+    Dim i As Integer
+    For i = 1 To 10
+        total = total + i
+    Next i
+    If total = 55 Then
+        Print "PASS: For loop sum 1-10 = 55"
+        passCount = passCount + 1
+    Else
+        Print "FAIL: For loop sum = " & total
+        failCount = failCount + 1
+    End If
+
+    ' Do While loop
+    total = 0
+    i = 1
+    Do While i <= 5
+        total = total + i
+        i = i + 1
+    Loop
+    If total = 15 Then
+        Print "PASS: Do While loop"
+        passCount = passCount + 1
+    Else
+        Print "FAIL: Do While loop total = " & total
+        failCount = failCount + 1
+    End If
+
+    ' For Each
+    Dim arr(4) As Integer
+    arr(0) = 10
+    arr(1) = 20
+    arr(2) = 30
+    arr(3) = 40
+    arr(4) = 50
+    total = 0
+    Dim item As Variant
+    For Each item In arr
+        total = total + item
+    Next
+    If total = 150 Then
+        Print "PASS: For Each"
+        passCount = passCount + 1
+    Else
+        Print "FAIL: For Each total = " & total
+        failCount = failCount + 1
+    End If
+
+    ' --- Functions ---
+    Print ""
+    Print "--- Functions ---"
+
+    If Factorial(5) = 120 Then
+        Print "PASS: Factorial(5) = 120"
+        passCount = passCount + 1
+    Else
+        Print "FAIL: Factorial(5) = " & Factorial(5)
+        failCount = failCount + 1
+    End If
+
+    If Abs(-42) = 42 Then
+        Print "PASS: Abs(-42) = 42"
+        passCount = passCount + 1
+    Else
+        Print "FAIL: Abs(-42) = " & Abs(-42)
+        failCount = failCount + 1
+    End If
+
+    If Int(3.7) = 3 Then
+        Print "PASS: Int(3.7) = 3"
+        passCount = passCount + 1
+    Else
+        Print "FAIL: Int(3.7) = " & Int(3.7)
+        failCount = failCount + 1
+    End If
+
+    If Sqr(144) = 12 Then
+        Print "PASS: Sqr(144) = 12"
+        passCount = passCount + 1
+    Else
+        Print "FAIL: Sqr(144) = " & Sqr(144)
+        failCount = failCount + 1
+    End If
+
+    ' --- Error Handling ---
+    Print ""
+    Print "--- Error Handling ---"
+
+    On Error Resume Next
+    Dim z As Integer
+    z = 1 / 0
+    If Err.Number = 11 Then
+        Print "PASS: Div by zero err=" & Err.Number
+        passCount = passCount + 1
+    Else
+        Print "FAIL: Div by zero err=" & Err.Number
+        failCount = failCount + 1
+    End If
+    Err.Clear
+
+    ' --- File I/O Quick Check ---
+    Print ""
+    Print "--- File I/O ---"
+
+    Open "/tmp/vg_regression_test.txt" For Output As #1
+    Print #1, "regression test"
+    Close #1
+
+    Dim line1 As String
+    Open "/tmp/vg_regression_test.txt" For Input As #1
+    Line Input #1, line1
+    Close #1
+
+    If line1 = "regression test" Then
+        Print "PASS: File I/O write+read"
+        passCount = passCount + 1
+    Else
+        Print "FAIL: File I/O read = '" & line1 & "'"
+        failCount = failCount + 1
+    End If
+
+    Print ""
+    Print "REGRESSION_PASS: " & passCount
+    Print "REGRESSION_FAIL: " & failCount
+    Print "DONE: Regression tests complete"
+End Sub
+
+Function Factorial(n As Integer) As Double
+    If n <= 1 Then
+        Factorial = 1
+    Else
+        Factorial = n * Factorial(n - 1)
+    End If
+End Function

@@ -1,0 +1,50 @@
+' Test struct only
+Type Point
+    X As Integer
+    Y As Integer
+End Type
+
+Sub Main()
+    Print "=== Struct Test ==="
+    Dim P As Point
+    P.X = 10
+    P.Y = 20
+    Print "P.X = " & P.X
+    Print "P.Y = " & P.Y
+    
+    ' Dictionary test
+    Print "=== Dict Test ==="
+    Dim d As Dictionary
+    d("key1") = "val1"
+    d.Add "key2", "val2"
+    Print "Count = " & d.Count
+    Print "Exists key1 = " & d.Exists("key1")
+    Print "Item key2 = " & d.Item("key2")
+    
+    d.Remove "key2"
+    Print "After remove, count = " & d.Count
+
+    ' Keys property
+    Dim k
+    k = d.Keys
+    Print "Keys type = " & TypeName(k)
+
+    ' For Each on dict
+    Print "=== ForEach Dict ==="
+    Dim colors As Dictionary
+    colors("r") = "Red"
+    colors("g") = "Green"
+    Dim key
+    For Each key In colors
+        Print "Key: " & key & " = " & colors(key)
+    Next
+
+    ' String interpolation
+    Print "=== Interpolation ==="
+    Dim w As String
+    w = "World"
+    Print $"Hello {w}!"
+    Print $"2+3={2+3}"
+
+    Print "=== All Done ==="
+End Sub

@@ -161,7 +161,7 @@ class VisualGasicInstance {
     // Internal helper implementations moved out into separate translation units
     Variant _evaluate_expression_impl(ExpressionNode* expr);
     void _execute_statement_impl(Statement* stmt);
-    void raise_error(String msg, int code = 5);
+    void raise_error(String msg, int code = 5, const String &source = "");
     Variant *get_cached_fast_dict_key(const Variant &key_source);
     Variant *insert_fast_dict_key_entry(const StringName &key_name, const Variant &key_source, uint32_t initial_hits);
     void prune_fast_dict_cache_if_needed();
@@ -182,7 +182,7 @@ public:
     Variant file_dir(const Array &args);
     void randomize_seed();
     // Allow builtins to raise runtime errors via instance wrapper
-    void raise_runtime_error(const String &p_msg, int p_code = 5);
+    void raise_runtime_error(const String &p_msg, int p_code = 5, const String &p_source = "");
     
     // Whenever system utilities
     String get_whenever_status() const;

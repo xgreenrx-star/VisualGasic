@@ -5,6 +5,38 @@ All notable changes to Visual Gasic will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0] - 2026-02-09
+
+### Added - Comprehensive Test Infrastructure
+- **Performance Test Suite** (`test_performance.vg`): Loop 1M iterations, string concat 1K, array 1K, dictionary 1K, Fibonacci(20) recursion, Factorial(12)
+- **Regression Test Suite** (`test_regression.vg`): 28 automated tests covering arithmetic (7), strings (10), control flow (5), functions (4), error handling (1), file I/O (1)
+- **Test Checklist** (`VG_TEST_CHECKLIST.md`): Comprehensive 9-section checklist with 264 test items, 251 passing (95.1% completion), 243+ automated tests
+
+### Added - Editor Plugin Features
+- **VG IntelliSense Provider**: Full code completion with 70+ keywords, 80+ functions, Godot types, snippet templates
+- **VG Go To Definition**: Navigate to Sub/Function/Variable/Class definitions across .vg files
+- **VG Linter**: Static analysis - unused variables, missing End statements, deprecated syntax, empty blocks, implicit variants
+- **VG Snippet Manager**: 30+ code templates with tab stops and categories (Control Flow, Loops, Procedures, etc.)
+- **VG Theme Manager**: 5 built-in themes (VB6 Classic, Modern Dark/Light, High Contrast, Solarized Dark)
+- **VG Code Formatter**: Auto-indent, keyword capitalization, operator spacing, format on save
+- **VG Recent Projects**: Track and quickly access recent .vg/.vbp projects with pin support
+
+### Added - Language Features
+- **Write # Statement**: Full VB6-compatible `Write #` for comma-delimited output with quoted strings
+- **Error Code Standardization**: `raise_error()` now passes source parameter through all error paths
+
+### Fixed - Critical Bugs
+- **For Loop Safety Limit**: Increased from 1,000 to 10,000,000 — loops were silently capping at 1K iterations
+- **Recursive Function Variable Scoping**: Functions now properly save/restore local variables (Dim'd vars, For loop vars, parameters, return var) using DimScanner — fixes corruption in recursive calls like Fibonacci
+- **EOF Off-by-One Error**: Changed from `eof_reached()` to `get_position() >= get_length()` — fixes premature EOF detection
+- **Array Bounds Error Code**: Now correctly raises error code 9 (Subscript out of range) instead of generic error
+- **File Not Found Error Code**: Now correctly raises error code 53 instead of generic error
+- **Error Source Passthrough**: `raise_error()` properly propagates source parameter in all 3 code paths
+
+### Changed
+- Minimum For loop safety limit now 10,000,000 (was 1,000)
+- DimScanner-based selective save/restore for function calls (efficient variable isolation)
+
 ## [2.2.4] - 2026-02-08
 
 ### Added - Game-Specific Keywords (Section 4.2 Complete)

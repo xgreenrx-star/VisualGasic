@@ -61,6 +61,7 @@ private:
     Statement* parse_assignment_or_call();
     
     PrintStatement* parse_print();
+    WriteStatement* parse_write();
     DataStatement* parse_data();
     DataStatement* parse_data_file();
     LoadDataStatement* parse_load_data();

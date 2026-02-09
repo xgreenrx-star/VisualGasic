@@ -1,0 +1,214 @@
+' test_error_handling.vg - Comprehensive error handling tests
+Option Explicit
+
+' =============================================
+' TEST 6.2: Runtime Errors
+' =============================================
+
+Sub TestDivisionByZero()
+    On Error Resume Next
+    Dim x As Integer
+    Dim y As Integer
+    y = 0
+    x = 10 / y
+    Print "DIV_ZERO_ERR=" & Err.Number
+    Print "DIV_ZERO_DESC=" & Err.Description
+    Err.Clear
+    On Error GoTo 0
+End Sub
+
+Sub TestIntegerDivisionByZero()
+    On Error Resume Next
+    Dim x As Integer
+    Dim y As Integer
+    y = 0
+    x = 10 \ y
+    Print "INTDIV_ZERO_ERR=" & Err.Number
+    Print "INTDIV_ZERO_DESC=" & Err.Description
+    Err.Clear
+    On Error GoTo 0
+End Sub
+
+Sub TestModByZero()
+    On Error Resume Next
+    Dim x As Integer
+    x = 10 Mod 0
+    Print "MOD_ZERO_ERR=" & Err.Number
+    Print "MOD_ZERO_DESC=" & Err.Description
+    Err.Clear
+    On Error GoTo 0
+End Sub
+
+Sub TestArrayOutOfBounds()
+    On Error Resume Next
+    Dim arr(5) As Integer
+    arr(0) = 1
+    Dim x As Integer
+    x = arr(99)
+    Print "BOUNDS_ERR=" & Err.Number
+    Print "BOUNDS_DESC=" & Err.Description
+    Err.Clear
+    On Error GoTo 0
+End Sub
+
+Sub TestFileNotFound()
+    On Error Resume Next
+    Kill "C:\nonexistent_file_xyz_12345.tmp"
+    Print "FILENOTFOUND_ERR=" & Err.Number
+    Print "FILENOTFOUND_DESC=" & Err.Description
+    Err.Clear
+    On Error GoTo 0
+End Sub
+
+' =============================================
+' TEST 6.3: Error Handling Constructs
+' =============================================
+
+Sub TestOnErrorResumeNext()
+    On Error Resume Next
+    Dim x As Integer
+    x = 10 / 0
+    Print "RESUME_NEXT_CONTINUED=true"
+    Print "RESUME_NEXT_ERR=" & Err.Number
+    Err.Clear
+    On Error GoTo 0
+End Sub
+
+Sub TestOnErrorGoTo()
+    On Error GoTo ErrorHandler
+    Dim x As Integer
+    x = 10 / 0
+    Print "GOTO_SHOULD_NOT_REACH=true"
+    GoTo EndOfSub
+ErrorHandler:
+    Print "GOTO_HANDLER_REACHED=true"
+    Print "GOTO_ERR=" & Err.Number
+    Print "GOTO_DESC=" & Err.Description
+EndOfSub:
+End Sub
+
+Sub TestOnErrorGoToZero()
+    On Error Resume Next
+    Dim x As Integer
+    x = 10 / 0
+    Print "GOTO0_BEFORE_ERR=" & Err.Number
+    Err.Clear
+    On Error GoTo 0
+    Print "GOTO0_DISABLED=true"
+End Sub
+
+Sub TestErrNumber()
+    On Error Resume Next
+    Dim x As Integer
+    x = 10 / 0
+    Print "ERR_NUMBER=" & Err.Number
+    Err.Clear
+    On Error GoTo 0
+End Sub
+
+Sub TestErrDescription()
+    On Error Resume Next
+    Dim x As Integer
+    x = 10 / 0
+    Print "ERR_DESCRIPTION=" & Err.Description
+    Err.Clear
+    On Error GoTo 0
+End Sub
+
+Sub TestErrClear()
+    On Error Resume Next
+    Dim x As Integer
+    x = 10 / 0
+    Print "ERR_BEFORE_CLEAR=" & Err.Number
+    Err.Clear
+    Print "ERR_AFTER_CLEAR=" & Err.Number
+    On Error GoTo 0
+End Sub
+
+Sub TestErrRaise()
+    On Error Resume Next
+    Err.Raise 9999, "TestModule", "Custom error message"
+    Print "ERR_RAISE_NUM=" & Err.Number
+    Print "ERR_RAISE_DESC=" & Err.Description
+    Err.Clear
+    On Error GoTo 0
+End Sub
+
+Sub TestMultipleErrors()
+    On Error Resume Next
+    
+    ' First error
+    Dim x As Integer
+    x = 10 / 0
+    Print "MULTI_ERR1=" & Err.Number
+    Err.Clear
+    
+    ' Second error (different)
+    Dim arr(3) As Integer
+    Dim y As Integer
+    y = arr(99)
+    Print "MULTI_ERR2=" & Err.Number
+    Err.Clear
+    
+    On Error GoTo 0
+End Sub
+
+Sub TestGoToWithResume()
+    On Error GoTo Handler
+    Dim x As Integer
+    x = 10 / 0
+    Print "GOTORESUME_SHOULD_NOT_REACH=true"
+    GoTo Done
+Handler:
+    Print "GOTORESUME_HANDLER=true"
+    Print "GOTORESUME_ERR=" & Err.Number
+Done:
+    Print "GOTORESUME_DONE=true"
+End Sub
+
+' =============================================
+' MAIN - Run all tests
+' =============================================
+Sub Main()
+    Print "=== Error Handling Tests ==="
+    
+    Print "--- Division by Zero ---"
+    TestDivisionByZero
+    TestIntegerDivisionByZero
+    TestModByZero
+    
+    Print "--- Array Out of Bounds ---"
+    TestArrayOutOfBounds
+    
+    Print "--- File Not Found ---"
+    TestFileNotFound
+    
+    Print "--- On Error Resume Next ---"
+    TestOnErrorResumeNext
+    
+    Print "--- On Error GoTo ---"
+    TestOnErrorGoTo
+    
+    Print "--- On Error GoTo 0 ---"
+    TestOnErrorGoToZero
+    
+    Print "--- Err.Number ---"
+    TestErrNumber
+    
+    Print "--- Err.Description ---"
+    TestErrDescription
+    
+    Print "--- Err.Clear ---"
+    TestErrClear
+    
+    Print "--- Err.Raise ---"
+    TestErrRaise
+    
+    Print "--- Multiple Errors ---"
+    TestMultipleErrors
+    
+    Print "--- GoTo with Handler ---"
+    TestGoToWithResume
+    
+    Print "=== All Error Tests Complete ==="
+End Sub

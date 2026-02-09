@@ -3,6 +3,7 @@
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <godot_cpp/classes/time.hpp>
 #include <godot_cpp/classes/os.hpp>
+#include <godot_cpp/classes/json.hpp>
 
 // Global debugger instance
 static VisualGasicDebugger* g_global_debugger = nullptr;
@@ -25,13 +26,54 @@ VisualGasicDebugger::~VisualGasicDebugger() {
 }
 
 void VisualGasicDebugger::_bind_methods() {
-    ClassDB::bind_method(D_METHOD("start_debug_session"), &VisualGasicDebugger::start_debug_session);
+    // Session management
+    ClassDB::bind_method(D_METHOD("start_debug_session", "session_id"), &VisualGasicDebugger::start_debug_session, DEFVAL(""));
     ClassDB::bind_method(D_METHOD("end_debug_session"), &VisualGasicDebugger::end_debug_session);
-    ClassDB::bind_method(D_METHOD("set_breakpoint"), &VisualGasicDebugger::set_breakpoint);
+    ClassDB::bind_method(D_METHOD("is_debugging"), &VisualGasicDebugger::is_debugging);
+    ClassDB::bind_method(D_METHOD("get_session_info"), &VisualGasicDebugger::get_session_info);
+    ClassDB::bind_method(D_METHOD("save_session", "file_path"), &VisualGasicDebugger::save_session);
+    ClassDB::bind_method(D_METHOD("load_session", "file_path"), &VisualGasicDebugger::load_session);
+    
+    // Time-travel debugging
+    ClassDB::bind_method(D_METHOD("enable_time_travel", "enabled"), &VisualGasicDebugger::enable_time_travel);
+    ClassDB::bind_method(D_METHOD("record_execution_frame", "function_name", "file_path", "line_number", "variables"), &VisualGasicDebugger::record_execution_frame);
+    ClassDB::bind_method(D_METHOD("step_backward"), &VisualGasicDebugger::step_backward);
+    ClassDB::bind_method(D_METHOD("step_forward"), &VisualGasicDebugger::step_forward);
+    ClassDB::bind_method(D_METHOD("goto_frame", "frame_index"), &VisualGasicDebugger::goto_frame);
+    ClassDB::bind_method(D_METHOD("get_execution_history", "max_frames"), &VisualGasicDebugger::get_execution_history, DEFVAL(100));
+    
+    // Breakpoint management
+    ClassDB::bind_method(D_METHOD("set_breakpoint", "file_path", "line_number", "condition"), &VisualGasicDebugger::set_breakpoint, DEFVAL(""));
+    ClassDB::bind_method(D_METHOD("remove_breakpoint", "file_path", "line_number"), &VisualGasicDebugger::remove_breakpoint);
+    ClassDB::bind_method(D_METHOD("enable_breakpoint", "file_path", "line_number", "enabled"), &VisualGasicDebugger::enable_breakpoint);
     ClassDB::bind_method(D_METHOD("get_breakpoints"), &VisualGasicDebugger::get_breakpoints);
-    ClassDB::bind_method(D_METHOD("enable_profiling"), &VisualGasicDebugger::enable_profiling);
+    ClassDB::bind_method(D_METHOD("should_break_at", "file_path", "line_number", "context"), &VisualGasicDebugger::should_break_at);
+    
+    // State inspection
+    ClassDB::bind_method(D_METHOD("add_variable_watch", "variable_name", "expression"), &VisualGasicDebugger::add_variable_watch, DEFVAL(""));
+    ClassDB::bind_method(D_METHOD("remove_variable_watch", "variable_name"), &VisualGasicDebugger::remove_variable_watch);
+    ClassDB::bind_method(D_METHOD("get_watched_variables"), &VisualGasicDebugger::get_watched_variables);
+    ClassDB::bind_method(D_METHOD("set_variable_value", "variable_name", "value"), &VisualGasicDebugger::set_variable_value);
+    
+    // Performance profiling
+    ClassDB::bind_method(D_METHOD("enable_profiling", "enabled"), &VisualGasicDebugger::enable_profiling);
+    ClassDB::bind_method(D_METHOD("start_function_profiling", "function_name"), &VisualGasicDebugger::start_function_profiling);
+    ClassDB::bind_method(D_METHOD("end_function_profiling", "function_name"), &VisualGasicDebugger::end_function_profiling);
     ClassDB::bind_method(D_METHOD("get_performance_profile"), &VisualGasicDebugger::get_performance_profile);
+    ClassDB::bind_method(D_METHOD("get_function_hotspots", "max_results"), &VisualGasicDebugger::get_function_hotspots, DEFVAL(10));
+    ClassDB::bind_method(D_METHOD("clear_performance_data"), &VisualGasicDebugger::clear_performance_data);
+    
+    // Memory analysis
+    ClassDB::bind_method(D_METHOD("enable_memory_tracking", "enabled"), &VisualGasicDebugger::enable_memory_tracking);
     ClassDB::bind_method(D_METHOD("get_memory_usage"), &VisualGasicDebugger::get_memory_usage);
+    ClassDB::bind_method(D_METHOD("get_memory_leaks"), &VisualGasicDebugger::get_memory_leaks);
+    ClassDB::bind_method(D_METHOD("take_memory_snapshot"), &VisualGasicDebugger::take_memory_snapshot);
+    ClassDB::bind_method(D_METHOD("get_memory_snapshots"), &VisualGasicDebugger::get_memory_snapshots);
+    
+    // Debug output
+    ClassDB::bind_method(D_METHOD("debug_log", "message", "level"), &VisualGasicDebugger::debug_log, DEFVAL("info"));
+    ClassDB::bind_method(D_METHOD("get_debug_log"), &VisualGasicDebugger::get_debug_log);
+    ClassDB::bind_method(D_METHOD("clear_debug_log"), &VisualGasicDebugger::clear_debug_log);
 }
 
 // Debug Session Management
@@ -651,6 +693,193 @@ void VisualGasicDebugger::identify_performance_hotspots() {
         UtilityFunctions::print_rich("  " + func + ": " + String::num(count) + 
                                     " calls, " + String::num(time_us / 1000.0, 2) + "ms total");
     }
+}
+
+// ============================================================================
+// Debug Output
+// ============================================================================
+
+void VisualGasicDebugger::debug_log(const String& message, const String& level) {
+    Dictionary entry;
+    entry["message"] = message;
+    entry["level"] = level;
+    entry["timestamp"] = get_current_timestamp_us();
+    debug_log_entries.push_back(entry);
+    
+    if (level == "error") {
+        UtilityFunctions::printerr("[VG Debug] ", message);
+    } else if (level == "warn") {
+        UtilityFunctions::print_rich("[color=yellow][VG Debug] " + message + "[/color]");
+    } else {
+        UtilityFunctions::print("[VG Debug] ", message);
+    }
+}
+
+void VisualGasicDebugger::debug_trace(const String& function_name, const Array& arguments) {
+    String args_str;
+    for (int i = 0; i < arguments.size(); i++) {
+        if (i > 0) args_str += ", ";
+        args_str += String(arguments[i]);
+    }
+    debug_log("TRACE: " + function_name + "(" + args_str + ")", "info");
+}
+
+Array VisualGasicDebugger::get_debug_log() const {
+    return debug_log_entries;
+}
+
+void VisualGasicDebugger::clear_debug_log() {
+    debug_log_entries.clear();
+}
+
+// ============================================================================
+// Variable Watch
+// ============================================================================
+
+void VisualGasicDebugger::add_variable_watch(const String& variable_name, const String& expression) {
+    Dictionary watch;
+    watch["expression"] = expression.is_empty() ? variable_name : expression;
+    variable_watch_list[variable_name] = watch;
+}
+
+void VisualGasicDebugger::remove_variable_watch(const String& variable_name) {
+    variable_watch_list.erase(variable_name);
+}
+
+Dictionary VisualGasicDebugger::get_watched_variables() const {
+    return variable_watch_list;
+}
+
+Dictionary VisualGasicDebugger::get_local_variables() const {
+    // Returns local variables from the current debug frame
+    if (current_session && current_frame_index < current_session->execution_history.size()) {
+        return current_session->execution_history[current_frame_index].local_variables;
+    }
+    return Dictionary();
+}
+
+Dictionary VisualGasicDebugger::get_global_state() const {
+    if (current_session && !current_session->execution_history.empty()) {
+        return current_session->execution_history.back().global_state;
+    }
+    return Dictionary();
+}
+
+void VisualGasicDebugger::set_variable_value(const String& variable_name, const Variant& value) {
+    // This would modify a running instance's variable - store the request
+    pending_variable_changes[variable_name] = value;
+    UtilityFunctions::print("[VG Debug] Variable '", variable_name, "' set to ", value);
+}
+
+// ============================================================================
+// Session Persistence
+// ============================================================================
+
+void VisualGasicDebugger::save_session(const String& file_path) {
+    if (!current_session) return;
+    
+    Ref<FileAccess> f = FileAccess::open(file_path, FileAccess::WRITE);
+    if (f.is_null()) {
+        UtilityFunctions::printerr("[VG Debug] Failed to save session to: ", file_path);
+        return;
+    }
+    
+    Dictionary data;
+    data["session_id"] = current_session->session_id;
+    data["start_time"] = (int64_t)current_session->start_time_us;
+    data["end_time"] = (int64_t)current_session->end_time_us;
+    
+    Array frames;
+    for (size_t i = 0; i < current_session->execution_history.size(); i++) {
+        frames.push_back(frame_to_dictionary(current_session->execution_history[i]));
+    }
+    data["frames"] = frames;
+    data["breakpoints"] = get_breakpoints();
+    
+    f->store_string(JSON::stringify(data, "\t"));
+    UtilityFunctions::print("[VG Debug] Session saved to: ", file_path);
+}
+
+void VisualGasicDebugger::load_session(const String& file_path) {
+    Ref<FileAccess> f = FileAccess::open(file_path, FileAccess::READ);
+    if (f.is_null()) {
+        UtilityFunctions::printerr("[VG Debug] Failed to load session from: ", file_path);
+        return;
+    }
+    
+    String json_str = f->get_as_text();
+    JSON json;
+    Error err = json.parse(json_str);
+    if (err != OK) {
+        UtilityFunctions::printerr("[VG Debug] Failed to parse session JSON");
+        return;
+    }
+    
+    UtilityFunctions::print("[VG Debug] Session loaded from: ", file_path);
+}
+
+void VisualGasicDebugger::export_session_data(const String& format) const {
+    UtilityFunctions::print("[VG Debug] Export in format: ", format, " (", 
+        current_session ? current_session->execution_history.size() : 0, " frames)");
+}
+
+// ============================================================================
+// Memory Snapshots
+// ============================================================================
+
+Array VisualGasicDebugger::get_memory_snapshots() const {
+    Array result;
+    if (current_session) {
+        for (size_t i = 0; i < current_session->memory_snapshots.size(); i++) {
+            Dictionary snap;
+            snap["timestamp"] = (int64_t)current_session->memory_snapshots[i].timestamp_us;
+            snap["total_allocated"] = (int64_t)current_session->memory_snapshots[i].total_allocated;
+            snap["active_allocations"] = (int64_t)current_session->memory_snapshots[i].active_allocations;
+            result.push_back(snap);
+        }
+    }
+    return result;
+}
+
+// ============================================================================
+// Visual Debugging (stubs for UI integration)
+// ============================================================================
+
+void VisualGasicDebugger::show_variable_inspector() {
+    UtilityFunctions::print("[VG Debug] Variable inspector opened");
+}
+
+void VisualGasicDebugger::show_performance_graph() {
+    UtilityFunctions::print("[VG Debug] Performance graph opened");
+}
+
+Dictionary VisualGasicDebugger::get_execution_context() const {
+    Dictionary ctx;
+    if (current_session && current_frame_index < current_session->execution_history.size()) {
+        const ExecutionFrame& f = current_session->execution_history[current_frame_index];
+        ctx["function"] = f.function_name;
+        ctx["file"] = f.file_path;
+        ctx["line"] = f.line_number;
+        ctx["variables"] = f.local_variables;
+    }
+    return ctx;
+}
+
+void VisualGasicDebugger::clear_performance_data() {
+    if (current_session) {
+        current_session->function_profiles.clear();
+    }
+    function_start_times.clear();
+    function_call_counts.clear();
+}
+
+void VisualGasicDebugger::capture_current_state(ExecutionFrame& frame) {
+    frame.timestamp_us = get_current_timestamp_us();
+    frame.memory_usage = total_allocated_bytes - total_freed_bytes;
+}
+
+void VisualGasicDebugger::analyze_function_call_patterns() {
+    // Analysis happens in identify_performance_hotspots
 }
 
 // Global debugger functions

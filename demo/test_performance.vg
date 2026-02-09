@@ -1,0 +1,134 @@
+' Performance Test Suite for VisualGasic
+' Tests: loop speed, string concat, array access, dictionary access, recursion
+Sub Main()
+    Print "=== Performance Test Suite ==="
+    Print ""
+
+    ' Test 1: Loop 1,000,000 iterations
+    Dim t1 As Double
+    Dim t2 As Double
+    t1 = Timer()
+    Dim loopCount As Double
+    loopCount = 1000000
+    Dim j As Double
+    Dim sum As Double
+    sum = 0
+    For j = 1 To loopCount
+        sum = sum + 1
+    Next j
+    t2 = Timer()
+    Dim loopTime As Double
+    loopTime = t2 - t1
+    If sum = 1000000 Then
+        Print "PASS: Loop 1M iterations correct sum=" & sum
+    Else
+        Print "FAIL: Loop 1M sum=" & sum & " expected 1000000"
+    End If
+    If loopTime < 1.0 Then
+        Print "PASS: Loop 1M time=" & loopTime & "s (< 1s)"
+    Else
+        Print "INFO: Loop 1M time=" & loopTime & "s (>= 1s, interpreter overhead expected)"
+    End If
+    Print "PERF_LOOP: " & loopTime & "s"
+
+    ' Test 2: String concatenation in loop
+    t1 = Timer()
+    Dim s As String
+    s = ""
+    For j = 1 To 1000
+        s = s & "x"
+    Next j
+    t2 = Timer()
+    Dim strTime As Double
+    strTime = t2 - t1
+    If Len(s) = 1000 Then
+        Print "PASS: String concat 1K chars, len=" & Len(s)
+    Else
+        Print "FAIL: String concat len=" & Len(s) & " expected 1000"
+    End If
+    Print "PERF_STRING: " & strTime & "s"
+
+    ' Test 3: Array access performance
+    Dim arr(1000) As Integer
+    t1 = Timer()
+    For j = 0 To 999
+        arr(j) = j * 2
+    Next j
+    Dim arrSum As Integer
+    arrSum = 0
+    For j = 0 To 999
+        arrSum = arrSum + arr(j)
+    Next j
+    t2 = Timer()
+    Dim arrTime As Double
+    arrTime = t2 - t1
+    If arrSum = 999000 Then
+        Print "PASS: Array access 1K elements, sum=" & arrSum
+    Else
+        Print "FAIL: Array sum=" & arrSum & " expected 999000"
+    End If
+    Print "PERF_ARRAY: " & arrTime & "s"
+
+    ' Test 4: Dictionary access performance
+    Dim d As Dictionary
+    t1 = Timer()
+    For j = 1 To 1000
+        d.Add "key" & j, j * 3
+    Next j
+    Dim dictSum As Integer
+    dictSum = 0
+    For j = 1 To 1000
+        dictSum = dictSum + d.Item("key" & j)
+    Next j
+    t2 = Timer()
+    Dim dictTime As Double
+    dictTime = t2 - t1
+    If dictSum = 1501500 Then
+        Print "PASS: Dictionary 1K entries, sum=" & dictSum
+    Else
+        Print "FAIL: Dictionary sum=" & dictSum & " expected 1501500"
+    End If
+    Print "PERF_DICT: " & dictTime & "s"
+
+    ' Test 5: Recursive function calls
+    t1 = Timer()
+    Dim fibResult As Double
+    fibResult = Fibonacci(20)
+    t2 = Timer()
+    Dim recTime As Double
+    recTime = t2 - t1
+    If fibResult = 6765 Then
+        Print "PASS: Fibonacci(20)=" & fibResult
+    Else
+        Print "FAIL: Fibonacci(20)=" & fibResult & " expected 6765"
+    End If
+    Print "PERF_RECURSE: " & recTime & "s"
+
+    ' Test 6: Factorial recursion depth
+    Dim factResult As Double
+    factResult = Factorial(12)
+    If factResult = 479001600 Then
+        Print "PASS: Factorial(12)=" & factResult
+    Else
+        Print "FAIL: Factorial(12)=" & factResult & " expected 479001600"
+    End If
+
+    Print ""
+    Print "DONE: Performance tests complete"
+End Sub
+
+Function Fibonacci(n As Double) As Double
+    If n <= 1 Then
+        Fibonacci = n
+    Else
+        Fibonacci = Fibonacci(n - 1) + Fibonacci(n - 2)
+    End If
+End Function
+
+Function Factorial(n As Integer) As Double
+    If n <= 1 Then
+        Factorial = 1
+    Else
+        Factorial = n * Factorial(n - 1)
+    End If
+End Function

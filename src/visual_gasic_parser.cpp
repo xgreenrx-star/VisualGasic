@@ -602,6 +602,7 @@ Statement* VisualGasicParser::parse_statement() {
         if (val == "kill") return set_line(parse_kill());
         if (val == "name") return set_line(parse_name());
         if (val == "try") return set_line(parse_try());
+        if (val == "write") return set_line(parse_write());
         if (val == "input") return set_line(parse_input(false));
         if (val == "line") {
             advance();
@@ -1255,21 +1256,24 @@ ExpressionNode* VisualGasicParser::parse_factor() {
              Vector<VisualGasicTokenizer::Token> sub_tokens = sub_tok.tokenize(expr_str);
              VisualGasicParser sub_parser;
              sub_parser.tokens = sub_tokens;
-             // We deliberately do not pass full module context here as it's a lightweight parse
-             // But if expr uses constants, it might fail? 
-             // Variable names are just identifiers, resolved at runtime, so it's fine.
              
              ExpressionNode* sub_expr = sub_parser.parse_expression();
              if (sub_expr) {
-                  // Duplicate the sub-parser expression into this parser's ownership
-                  ExpressionNode* transferred = nullptr;
-                  ExpressionNode* d = sub_expr->duplicate();
-                  if (d) transferred = register_node(d); else transferred = sub_expr;
-                  if (!root) root = transferred;
+                  // Transfer all expression nodes from sub_parser to this parser
+                  // to prevent use-after-free when sub_parser destructor runs
+                  for (int si = 0; si < sub_parser.allocated_expr_nodes.size(); si++) {
+                      register_node(sub_parser.allocated_expr_nodes[si]);
+                  }
+                  sub_parser.allocated_expr_nodes.clear();
+                  for (int si = 0; si < sub_parser.allocated_nodes.size(); si++) {
+                      register_node(sub_parser.allocated_nodes[si]);
+                  }
+                  sub_parser.allocated_nodes.clear();
+                  
+                  if (!root) root = sub_expr;
                   else {
                       BinaryOpNode* bin = static_cast<BinaryOpNode*>(register_node(new BinaryOpNode()));
-                      // root is owned by this parser; transferred is duplicated/registered above
-                      bin->left = root; bin->right = transferred; bin->op = "&";
+                      bin->left = root; bin->right = sub_expr; bin->op = "&";
                       root = bin;
                   }
              }
@@ -2615,6 +2619,39 @@ PrintStatement* VisualGasicParser::parse_print() {
         }
     }
     
+    return stmt;
+}
+
+WriteStatement* VisualGasicParser::parse_write() {
+    advance(); // Eat Write
+    WriteStatement* stmt = static_cast<WriteStatement*>(register_node(new WriteStatement()));
+
+    // Expect #N
+    if (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().value == "#") {
+        advance(); // Eat #
+        {
+            ExpressionNode* _tmp = parse_expression();
+            stmt->file_number = _tmp;
+            unregister_node(_tmp);
+        }
+        if (check(VisualGasicTokenizer::TOKEN_COMMA)) {
+            advance();
+        }
+    }
+
+    // Parse comma-separated expressions
+    while (!check(VisualGasicTokenizer::TOKEN_NEWLINE) && !check(VisualGasicTokenizer::TOKEN_EOF) && !check(VisualGasicTokenizer::TOKEN_COLON)) {
+        {
+            ExpressionNode* _tmp = parse_expression();
+            if (_tmp) { stmt->expressions.push_back(_tmp); unregister_node(_tmp); }
+        }
+        if (check(VisualGasicTokenizer::TOKEN_COMMA)) {
+            advance();
+            continue;
+        }
+        break;
+    }
+
     return stmt;
 }
 

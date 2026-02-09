@@ -1,0 +1,147 @@
+' Test File I/O: Open For Output, Print #, Close
+Sub Main()
+    Dim f As Integer
+    f = FreeFile()
+    Print "TEST_FREEFILE: f=" & f
+    If f >= 1 And f <= 255 Then
+        Print "PASS: FreeFile returns valid number"
+    Else
+        Print "FAIL: FreeFile returned " & f
+    End If
+
+    ' Test Open For Output
+    Open "/tmp/vg_test_output.txt" For Output As #1
+    Print #1, "Hello World"
+    Print #1, "Line Two"
+    Print #1, "42"
+    Close #1
+    Print "PASS: Open For Output + Print # + Close completed"
+
+    ' Test Open For Input and Input #
+    Dim line1 As String
+    Dim line2 As String
+    Dim line3 As String
+    Open "/tmp/vg_test_output.txt" For Input As #1
+    Line Input #1, line1
+    Line Input #1, line2
+    Line Input #1, line3
+    Close #1
+
+    If line1 = "Hello World" Then
+        Print "PASS: Line Input #1 read correct: " & line1
+    Else
+        Print "FAIL: Line Input #1 expected 'Hello World' got '" & line1 & "'"
+    End If
+
+    If line2 = "Line Two" Then
+        Print "PASS: Line Input #2 read correct"
+    Else
+        Print "FAIL: Line Input #2 expected 'Line Two' got '" & line2 & "'"
+    End If
+
+    If line3 = "42" Then
+        Print "PASS: Line Input #3 read correct"
+    Else
+        Print "FAIL: Line Input #3 expected '42' got '" & line3 & "'"
+    End If
+
+    ' Test EOF
+    Open "/tmp/vg_test_output.txt" For Input As #2
+    Dim count As Integer
+    count = 0
+    Do While Not EOF(2)
+        Dim tmp As String
+        Line Input #2, tmp
+        count = count + 1
+    Loop
+    Close #2
+    If count = 3 Then
+        Print "PASS: EOF loop read 3 lines"
+    Else
+        Print "FAIL: EOF loop read " & count & " lines, expected 3"
+    End If
+
+    ' Test Open For Append
+    Open "/tmp/vg_test_output.txt" For Append As #1
+    Print #1, "Appended Line"
+    Close #1
+
+    ' Verify append worked
+    Open "/tmp/vg_test_output.txt" For Input As #1
+    Dim acount As Integer
+    acount = 0
+    Do While Not EOF(1)
+        Dim atmp As String
+        Line Input #1, atmp
+        acount = acount + 1
+    Loop
+    Close #1
+    If acount = 4 Then
+        Print "PASS: Append added line (4 total)"
+    Else
+        Print "FAIL: After append expected 4 lines, got " & acount
+    End If
+
+    ' Test Input # with CSV data
+    Open "/tmp/vg_test_csv.txt" For Output As #1
+    Print #1, "Alice,30,True"
+    Print #1, "Bob,25,False"
+    Close #1
+
+    Dim name1 As String
+    Dim age1 As Variant
+    Dim flag1 As String
+    Open "/tmp/vg_test_csv.txt" For Input As #1
+    Input #1, name1, age1, flag1
+    Close #1
+    If name1 = "Alice" Then
+        Print "PASS: Input # parsed CSV name: " & name1
+    Else
+        Print "FAIL: Input # CSV name expected 'Alice' got '" & name1 & "'"
+    End If
+    If age1 = 30 Then
+        Print "PASS: Input # parsed CSV age: " & age1
+    Else
+        Print "FAIL: Input # CSV age expected 30 got " & age1
+    End If
+
+    ' Test FreeFile returns different number when file is open
+    Open "/tmp/vg_test_output.txt" For Input As #1
+    Dim f2 As Integer
+    f2 = FreeFile()
+    Close #1
+    If f2 > 1 Then
+        Print "PASS: FreeFile returned " & f2 & " while #1 open"
+    Else
+        Print "FAIL: FreeFile returned " & f2 & " while #1 open"
+    End If
+
+    ' Test Write #
+    Open "/tmp/vg_test_write.txt" For Output As #1
+    Write #1, "Alice", 30, "Engineer"
+    Write #1, "Bob", 25, "Designer"
+    Close #1
+
+    ' Verify Write # output (should be comma-delimited with quoted strings)
+    Open "/tmp/vg_test_write.txt" For Input As #1
+    Dim wline1 As String
+    Dim wline2 As String
+    Line Input #1, wline1
+    Line Input #1, wline2
+    Close #1
+
+    ' VB6 Write # format: "Alice",30,"Engineer"
+    If InStr(wline1, "Alice") > 0 And InStr(wline1, ",") > 0 Then
+        Print "PASS: Write # formatted correctly: " & wline1
+    Else
+        Print "FAIL: Write # format unexpected, got: " & wline1
+    End If
+
+    If InStr(wline1, "30") > 0 Then
+        Print "PASS: Write # included numeric value"
+    Else
+        Print "FAIL: Write # missing numeric value in: " & wline1
+    End If
+
+    Print "DONE: File I/O tests complete"
+End Sub
