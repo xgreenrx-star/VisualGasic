@@ -176,6 +176,14 @@ func _dock_vb6_panels():
 	# Hide standard Godot docks that clutter the VG layout
 	_hide_godot_docks()
 
+	# Ensure dock splits give the right dock adequate width (deferred
+	# so the editor has finished its layout pass after docking).
+	# Run twice: once deferred (next frame) and again after a short delay
+	# to catch any post-layout adjustments by the editor.
+	call_deferred("_ensure_dock_widths")
+	var timer = get_tree().create_timer(0.5)
+	timer.timeout.connect(_ensure_dock_widths)
+
 ## Remove Visual Gasic panels from the editor docks.
 func _undock_vb6_panels():
 	if not editor_plugin:
@@ -218,8 +226,8 @@ func _hide_godot_docks():
 
 	var fs_dock = EditorInterface.get_file_system_dock()
 
-	var hide_titles := ["Scene", "Import", "FileSystem"]
-	var hide_classes := ["SceneTreeDock", "ImportDock", "FileSystemDock"]
+	var hide_titles := ["Scene", "Import", "FileSystem", "Inspector", "Node", "History"]
+	var hide_classes := ["SceneTreeDock", "ImportDock", "FileSystemDock", "EditorInspector", "NodeDock"]
 
 	for tc_node in base.find_children("*", "TabContainer", true, false):
 		var tc = tc_node as TabContainer
@@ -275,3 +283,74 @@ func _select_tab_for(control: Control):
 
 func is_vb6_mode() -> bool:
 	return _vb6_mode
+
+# =============================================================================
+# DOCK WIDTH ENFORCEMENT
+# =============================================================================
+
+## Minimum pixel width we want for the right dock area.
+const RIGHT_DOCK_MIN_WIDTH := 270
+## Minimum pixel width we want for the left dock area.
+const LEFT_DOCK_MIN_WIDTH := 200
+
+## Walk up from a docked panel to find a named DockSplitContainer.
+## Returns null if not found.
+func _find_ancestor_by_name(control: Control, target_name: String) -> Control:
+	var node = control.get_parent()
+	var depth := 0
+	while node and depth < 15:
+		if str(node.name) == target_name:
+			return node as Control
+		node = node.get_parent()
+		depth += 1
+	return null
+
+## Ensure the editor's dock HSplitContainers give adequate width to
+## both the left and right dock areas.  This compensates for saved
+## editor layout data that may have collapsed dock splits from earlier
+## sessions (e.g. when all tabs were hidden and the splitter shrank).
+func _ensure_dock_widths():
+	# Use Properties (right-lower dock) as anchor to find the right dock splits
+	var right_panel = _properties_inspector if _properties_inspector and is_instance_valid(_properties_inspector) else _project_explorer
+	if not right_panel or not is_instance_valid(right_panel):
+		return
+
+	# ----- Right dock: find DockHSplitRight (contains the right dock area) -----
+	var right_hsplit = _find_ancestor_by_name(right_panel, "DockHSplitRight")
+	if right_hsplit:
+		# If the right dock area is too narrow, force its minimum size
+		if right_hsplit.size.x < RIGHT_DOCK_MIN_WIDTH:
+			right_hsplit.custom_minimum_size.x = RIGHT_DOCK_MIN_WIDTH
+
+	# ----- Main center/right split: find DockHSplitMain -----
+	var main_hsplit = _find_ancestor_by_name(right_panel, "DockHSplitMain")
+	if main_hsplit and main_hsplit is SplitContainer:
+		var hsc = main_hsplit as SplitContainer
+		# The right dock is the LAST visible child of DockHSplitMain.
+		# If it's narrower than our minimum, push the split left.
+		var right_child: Control = null
+		for ci in range(hsc.get_child_count() - 1, -1, -1):
+			var ch = hsc.get_child(ci)
+			if ch is Control and ch.visible:
+				right_child = ch as Control
+				break
+		if right_child and right_child.size.x < RIGHT_DOCK_MIN_WIDTH:
+			# Negative split_offset moves the dragger LEFT → more space for right
+			var deficit = RIGHT_DOCK_MIN_WIDTH - int(right_child.size.x)
+			hsc.split_offset -= deficit
+			# Also set minimum on the right child so it can't collapse again
+			right_child.custom_minimum_size.x = RIGHT_DOCK_MIN_WIDTH
+
+	# ----- Left dock: find DockHSplitLeftL (outermost left split) -----
+	var left_panel = _toolbox if _toolbox and is_instance_valid(_toolbox) else null
+	if left_panel:
+		var left_hsplit = _find_ancestor_by_name(left_panel, "DockHSplitLeftL")
+		if left_hsplit and left_hsplit is SplitContainer:
+			var hsc = left_hsplit as SplitContainer
+			# Left dock is the first child
+			if hsc.get_child_count() > 0:
+				var left_child = hsc.get_child(0)
+				if left_child is Control and left_child.size.x < LEFT_DOCK_MIN_WIDTH:
+					var deficit = LEFT_DOCK_MIN_WIDTH - int(left_child.size.x)
+					hsc.split_offset += deficit
+					left_child.custom_minimum_size.x = LEFT_DOCK_MIN_WIDTH

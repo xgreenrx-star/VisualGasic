@@ -14,6 +14,10 @@ config/name="VisualGasic Demo"
 config/features=PackedStringArray("4.5", "Forward Plus")
 config/icon="res://icon.svg"
 
+[autoload]
+
+VGDebugHandler="*res://addons/visual_gasic/vg_debug_handler.gd"
+
 [dotnet]
 
 project/assembly_name="VisualGasic Demo"
@@ -21,4 +25,3 @@ project/assembly_name="VisualGasic Demo"
 [editor_plugins]
 
 enabled=PackedStringArray("res://addons/visual_gasic/plugin.cfg")
-
