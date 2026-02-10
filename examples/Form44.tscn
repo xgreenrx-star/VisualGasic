@@ -1,0 +1,32 @@
+[gd_scene load_steps=3 format=3 uid="uid://b2gxq1v7uj37q"]
+
+[ext_resource type="Script" uid="uid://bsa6rnpau876n" path="res://Form44.vg" id="1_jgg1m"]
+[ext_resource type="Script" uid="uid://dpmjycbb7xr6m" path="res://addons/visual_gasic/form_editor_helper.gd" id="2_tm4uf"]
+
+[node name="Form44" type="Window"]
+positional_shadow_atlas_quad_0 = null
+positional_shadow_atlas_quad_1 = null
+positional_shadow_atlas_quad_2 = null
+positional_shadow_atlas_quad_3 = null
+title = "Form44"
+position = Vector2i(10, 36)
+size = Vector2i(600, 400)
+unresizable = null
+borderless = null
+always_on_top = null
+transparent = null
+unfocusable = null
+popup_window = null
+extend_to_title = null
+mouse_passthrough = null
+sharp_corners = null
+exclude_from_capture = null
+popup_wm_hint = null
+minimize_disabled = null
+maximize_disabled = null
+script = ExtResource("1_jgg1m")
+
+[node name="_FormBackground" type="Panel" parent="."]
+offset_right = 600.0
+offset_bottom = 400.0
+script = ExtResource("2_tm4uf")

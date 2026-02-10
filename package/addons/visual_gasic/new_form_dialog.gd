@@ -39,7 +39,8 @@ var _template_lists: Dictionary = {}  # category -> ItemList
 
 func _ready():
 	title = "New Form"
-	size = Vector2(600, 550)
+	size = Vector2(600, 400)
+	max_size = Vector2(800, 500)
 	ok_button_text = "Create"
 	
 	_setup_ui()
@@ -71,7 +72,8 @@ func _setup_ui():
 	
 	# Tab container for categories
 	_tab_container = TabContainer.new()
-	_tab_container.custom_minimum_size = Vector2(0, 280)
+	_tab_container.custom_minimum_size = Vector2(0, 200)
+	_tab_container.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_tab_container.tab_changed.connect(_on_tab_changed)
 	vbox.add_child(_tab_container)
 	
@@ -126,10 +128,10 @@ func _setup_ui():
 	vbox.add_child(lbl_desc_title)
 	
 	_description_label = RichTextLabel.new()
-	_description_label.custom_minimum_size = Vector2(0, 100)
+	_description_label.custom_minimum_size = Vector2(0, 60)
 	_description_label.bbcode_enabled = true
-	_description_label.scroll_active = false
-	_description_label.fit_content = true
+	_description_label.scroll_active = true
+	_description_label.fit_content = false
 	vbox.add_child(_description_label)
 
 # =============================================================================
@@ -752,34 +754,34 @@ Sub btnLogin_Click()
 	Dim username As String
 	Dim password As String
 	
-	username = txtUsername.Text
-	password = txtPassword.Text
+	username = txtUsername.text
+	password = txtPassword.text
 	
 	If username = "" Then
-		MsgBox "Please enter a username", vbExclamation, "Login"
+		Print "Please enter a username"
 		txtUsername.grab_focus()
 		Exit Sub
 	End If
 	
-	' TODO: Validate credentials
+	' Validate credentials
 	If ValidateLogin(username, password) Then
-		Me.DialogResult = DialogResultEnum.OK
-		Me.Close()
+		Print "Login successful!"
+		Me.hide()
 	Else
-		MsgBox "Invalid username or password", vbExclamation, "Login Failed"
-		txtPassword.Text = ""
+		Print "Invalid username or password"
+		txtPassword.text = ""
 		txtPassword.grab_focus()
 	End If
 End Sub
 
-Function ValidateLogin(user As String, pass As String) As Boolean
-	' TODO: Implement your authentication logic
-	ValidateLogin = (user = "admin" And pass = "password")
+Function ValidateLogin(user As String, passwd As String) As Boolean
+	' Implement your authentication logic here
+	ValidateLogin = (user = "admin" And passwd = "password")
 End Function
 
 Sub btnCancel_Click()
-	Me.DialogResult = DialogResultEnum.Cancel
-	Me.Close()
+	Print "Login cancelled"
+	Me.hide()
 End Sub
 """
 
