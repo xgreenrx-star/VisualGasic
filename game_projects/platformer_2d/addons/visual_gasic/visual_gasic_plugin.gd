@@ -334,7 +334,7 @@ func _exit_tree():
 	# Cleanup recent projects menu
 	if is_instance_valid(_recent_projects_menu):
 		remove_tool_menu_item("Recent Projects")
-		_recent_projects_menu.queue_free()
+		# Note: remove_tool_menu_item frees the popup internally
 		_recent_projects_menu = null
 	_recent_projects_manager = null
 	

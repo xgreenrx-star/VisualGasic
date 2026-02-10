@@ -172,9 +172,11 @@ func _refresh_object_dropdown():
 	
 	for i in _all_form_nodes.size():
 		var node = _all_form_nodes[i]
-		var label = str(node.name) + "  " + node.get_class()
+		if not is_instance_valid(node):
+			continue
+		var label = str(node.name) + "  " + str(node.get_class())
 		_object_dropdown.add_item(label)
-		_object_dropdown.set_item_metadata(i, node)
+		_object_dropdown.set_item_metadata(_object_dropdown.item_count - 1, node)
 	
 	# Select the current_node in the dropdown
 	_select_current_in_dropdown()

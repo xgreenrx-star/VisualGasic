@@ -206,8 +206,9 @@ func _undock_vb6_panels():
 ## Hide the standard Godot docks (FileSystem, Scene, Import) in VG mode.
 ## Uses tab titles for matching (reliable) and stores control references
 ## for restoration (immune to tab index shifts from docking/undocking).
-## When ALL tabs in a TabContainer become hidden, the container itself
-## is hidden so it doesn't leave a blank panel.
+## NOTE: We only hide individual TABS, never the TabContainer itself,
+## because hiding the container collapses the HSplitContainer and
+## pushes the opposite dock to the screen edge.
 func _hide_godot_docks():
 	_hidden_godot_tabs.clear()
 
@@ -220,14 +221,10 @@ func _hide_godot_docks():
 	var hide_titles := ["Scene", "Import", "FileSystem"]
 	var hide_classes := ["SceneTreeDock", "ImportDock", "FileSystemDock"]
 
-	# Track which TabContainers we touched so we can check if fully empty
-	var modified_containers: Array[TabContainer] = []
-
 	for tc_node in base.find_children("*", "TabContainer", true, false):
 		var tc = tc_node as TabContainer
 		if not tc:
 			continue
-		var touched := false
 		for i in tc.get_tab_count():
 			if tc.is_tab_hidden(i):
 				continue
@@ -243,33 +240,9 @@ func _hide_godot_docks():
 			if should_hide:
 				tc.set_tab_hidden(i, true)
 				_hidden_godot_tabs.append({"type": "tab", "container": tc, "control": child})
-				touched = true
-		if touched:
-			modified_containers.append(tc)
-
-	# If ALL tabs in a container are now hidden, hide the container itself
-	# so it doesn't leave a blank panel occupying space.
-	for tc in modified_containers:
-		var all_hidden := true
-		for i in tc.get_tab_count():
-			if not tc.is_tab_hidden(i):
-				all_hidden = false
-				break
-		if all_hidden and tc.visible:
-			tc.visible = false
-			_hidden_godot_tabs.append({"type": "container", "container": tc})
 
 ## Restore all Godot docks that were hidden by _hide_godot_docks().
-## Restores container visibility first, then individual tabs.
 func _show_godot_docks():
-	# Pass 1: restore hidden containers so their tabs become accessible
-	for tab_info in _hidden_godot_tabs:
-		if tab_info["type"] == "container":
-			var tc = tab_info["container"] as TabContainer
-			if is_instance_valid(tc):
-				tc.visible = true
-
-	# Pass 2: unhide individual tabs
 	for tab_info in _hidden_godot_tabs:
 		if tab_info["type"] == "tab":
 			var tc = tab_info["container"] as TabContainer
