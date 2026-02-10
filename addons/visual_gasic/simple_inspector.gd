@@ -3,6 +3,7 @@ extends VBoxContainer
 
 # VB6-Style Property Inspector for Visual Gasic
 # Shows properties similar to VB6's Properties Window
+# Features: Object dropdown, Alphabetic/Categorized toggle, Description area
 
 var editor_plugin: EditorPlugin
 var property_grid: GridContainer
@@ -11,6 +12,21 @@ var rename_dialog: ConfirmationDialog
 var old_name_for_rename: String = ""
 var new_name_for_rename: String = ""
 
+# === VB6 UI: Object dropdown ===
+var _object_dropdown: OptionButton
+var _all_form_nodes: Array = []
+
+# === VB6 UI: Alphabetic / Categorized toggle ===
+var _view_mode: int = 1  # 0 = Alphabetic, 1 = Categorized
+var _alpha_btn: Button
+var _cat_btn: Button
+# Store property data for alphabetic re-sort
+var _property_entries: Array = []  # Array of {label, value, prop_key, type, category}
+
+# === VB6 UI: Property description area ===
+var _description_label: RichTextLabel
+var _selected_prop_key: String = ""
+
 # VB6-like property categories
 const CATEGORY_APPEARANCE = "Appearance"
 const CATEGORY_BEHAVIOR = "Behavior"
@@ -18,20 +34,91 @@ const CATEGORY_FONT = "Font"
 const CATEGORY_POSITION = "Position"
 const CATEGORY_MISC = "Misc"
 
+# Property help descriptions (VB6-style)
+const PROPERTY_DESCRIPTIONS: Dictionary = {
+	"name": "Returns the name used in code to identify a control.",
+	"text": "Returns/sets the text contained in the control.",
+	"visible": "Returns/sets whether the control is visible at runtime.",
+	"enabled": "Returns/sets a value that determines whether the control can respond to user-generated events.",
+	"left": "Returns/sets the distance between the internal left edge of the control and the left edge of its container.",
+	"top": "Returns/sets the distance between the internal top edge of the control and the top edge of its container.",
+	"width": "Returns/sets the width of the control.",
+	"height": "Returns/sets the height of the control.",
+	"backcolor": "Returns/sets the background color used to display text and graphics in a control.",
+	"forecolor": "Returns/sets the foreground color used to display text and graphics in a control.",
+	"font_size": "Returns/sets the size of the font used in the control.",
+	"tooltip_text": "Returns/sets the text displayed when the user pauses the mouse pointer over a control.",
+	"tag": "Stores any extra data needed for your program. A general-purpose string.",
+	"tabstop": "Returns/sets whether the user can use TAB to give the focus to a control.",
+	"flat": "Returns/sets whether a Button appears 3D (raised) or flat.",
+	"alignment": "Returns/sets the alignment of text in a Label control (Left, Center, Right).",
+	"autosize": "Returns/sets whether a Label automatically resizes to fit its contents.",
+	"wordwrap": "Returns/sets whether a Label wraps text to the next line.",
+	"locked": "Returns/sets whether the control's content can be edited by the user.",
+	"max_length": "Returns/sets the maximum number of characters a user can enter in the TextBox.",
+	"secret": "Returns/sets whether the TextBox displays password characters instead of text.",
+	"placeholder_text": "Returns/sets the grayed-out text displayed when the TextBox is empty.",
+	"button_pressed": "Returns/sets the current state of a CheckBox or OptionButton.",
+	"default": "Returns/sets whether a command button is the default button for a form.",
+	"cancel": "Returns/sets whether a command button is the Cancel button for a form.",
+	"opacity": "Returns/sets the opacity level of the control (0-100%).",
+	"rotation": "Returns/sets the rotation angle of the control in degrees.",
+	"scale_x": "Returns/sets the horizontal scale factor of the control.",
+	"scale_y": "Returns/sets the vertical scale factor of the control.",
+	"min_width": "Returns/sets the minimum width constraint for responsive layout.",
+	"min_height": "Returns/sets the minimum height constraint for responsive layout.",
+	"clip_contents": "Returns/sets whether child controls are clipped to the control boundary.",
+	"anchor": "Returns/sets how the control is anchored to its parent for responsive layout.",
+	"pivot": "Returns/sets the rotation/scale pivot point of the control.",
+	"cursor": "Returns/sets the type of mouse pointer displayed when over the control.",
+	"range_value": "Returns/sets the current value of a scrollbar, slider, or progress bar.",
+	"range_min": "Returns/sets the minimum value of a scrollbar, slider, or progress bar.",
+	"range_max": "Returns/sets the maximum value of a scrollbar, slider, or progress bar.",
+	"range_step": "Returns/sets the increment amount for scrollbar or slider changes.",
+	"show_percentage": "Returns/sets whether the ProgressBar displays its value as a percentage.",
+	"spinbox_prefix": "Returns/sets the text displayed before the SpinBox value.",
+	"spinbox_suffix": "Returns/sets the text displayed after the SpinBox value.",
+}
+
 func _init():
 	name = "Properties"
 	size_flags_vertical = SIZE_EXPAND_FILL
 	size_flags_horizontal = SIZE_EXPAND_FILL
 	custom_minimum_size = Vector2(150, 100)  # Reduced for better dock resizing
 	
-	var title = Label.new()
-	title.text = "Properties"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	var style = StyleBoxFlat.new()
-	style.bg_color = Color(0.1, 0.1, 0.4) # VB6 Title Bar Blue
-	title.add_theme_stylebox_override("normal", style)
-	add_child(title)
+	# === 1. Object Dropdown (VB6-style, at the very top) ===
+	_object_dropdown = OptionButton.new()
+	_object_dropdown.size_flags_horizontal = SIZE_EXPAND_FILL
+	_object_dropdown.clip_text = true
+	_object_dropdown.custom_minimum_size.y = 24
+	_object_dropdown.item_selected.connect(_on_object_dropdown_selected)
+	add_child(_object_dropdown)
 	
+	# === 2. Alphabetic / Categorized toggle buttons ===
+	var tab_bar = HBoxContainer.new()
+	tab_bar.size_flags_horizontal = SIZE_EXPAND_FILL
+	
+	_alpha_btn = Button.new()
+	_alpha_btn.text = "A-Z"
+	_alpha_btn.tooltip_text = "Alphabetic"
+	_alpha_btn.size_flags_horizontal = SIZE_EXPAND_FILL
+	_alpha_btn.toggle_mode = true
+	_alpha_btn.button_pressed = false
+	_alpha_btn.pressed.connect(_on_alphabetic_pressed)
+	tab_bar.add_child(_alpha_btn)
+	
+	_cat_btn = Button.new()
+	_cat_btn.text = "≡"
+	_cat_btn.tooltip_text = "Categorized"
+	_cat_btn.size_flags_horizontal = SIZE_EXPAND_FILL
+	_cat_btn.toggle_mode = true
+	_cat_btn.button_pressed = true
+	_cat_btn.pressed.connect(_on_categorized_pressed)
+	tab_bar.add_child(_cat_btn)
+	
+	add_child(tab_bar)
+	
+	# === 3. Property grid (scrollable) ===
 	var scroll = ScrollContainer.new()
 	scroll.size_flags_vertical = SIZE_EXPAND_FILL
 	add_child(scroll)
@@ -40,10 +127,102 @@ func _init():
 	property_grid.columns = 2
 	property_grid.size_flags_horizontal = SIZE_EXPAND_FILL
 	scroll.add_child(property_grid)
+	
+	# === 4. Description area at the bottom ===
+	var desc_sep = HSeparator.new()
+	add_child(desc_sep)
+	
+	_description_label = RichTextLabel.new()
+	_description_label.custom_minimum_size = Vector2(0, 48)
+	_description_label.size_flags_horizontal = SIZE_EXPAND_FILL
+	_description_label.fit_content = false
+	_description_label.scroll_active = true
+	_description_label.bbcode_enabled = false
+	_description_label.text = ""
+	var desc_style = StyleBoxFlat.new()
+	desc_style.bg_color = Color(0.15, 0.15, 0.18)
+	desc_style.content_margin_left = 4
+	desc_style.content_margin_right = 4
+	desc_style.content_margin_top = 2
+	desc_style.content_margin_bottom = 2
+	_description_label.add_theme_stylebox_override("normal", desc_style)
+	_description_label.add_theme_font_size_override("normal_font_size", 11)
+	add_child(_description_label)
 
 func setup(plugin: EditorPlugin):
 	editor_plugin = plugin
 	editor_plugin.get_editor_interface().get_selection().selection_changed.connect(_on_selection_changed)
+
+# === Object Dropdown Management ===
+
+func _refresh_object_dropdown():
+	"""Rebuild the object dropdown with all controls in the current form."""
+	_object_dropdown.clear()
+	_all_form_nodes.clear()
+	
+	if not editor_plugin or not is_instance_valid(editor_plugin):
+		return
+	
+	var root = editor_plugin.get_editor_interface().get_edited_scene_root()
+	if not root:
+		_object_dropdown.add_item("(No Form)")
+		return
+	
+	_collect_nodes_recursive(root)
+	
+	for i in _all_form_nodes.size():
+		var node = _all_form_nodes[i]
+		var label = node.name + "  " + node.get_class()
+		_object_dropdown.add_item(label)
+		_object_dropdown.set_item_metadata(i, node)
+	
+	# Select the current_node in the dropdown
+	_select_current_in_dropdown()
+
+func _collect_nodes_recursive(node: Node):
+	_all_form_nodes.append(node)
+	for child in node.get_children():
+		# Skip internal children like _FormBackground
+		if not String(child.name).begins_with("_"):
+			_collect_nodes_recursive(child)
+
+func _select_current_in_dropdown():
+	if not current_node:
+		return
+	for i in _all_form_nodes.size():
+		if _all_form_nodes[i] == current_node:
+			_object_dropdown.select(i)
+			return
+
+func _on_object_dropdown_selected(idx: int):
+	if idx < 0 or idx >= _all_form_nodes.size():
+		return
+	var node = _all_form_nodes[idx]
+	if not is_instance_valid(node):
+		return
+	# Select it in the editor
+	if editor_plugin and is_instance_valid(editor_plugin):
+		var selection = editor_plugin.get_editor_interface().get_selection()
+		selection.clear()
+		selection.add_node(node)
+
+# === Alphabetic / Categorized Toggle ===
+
+func _on_alphabetic_pressed():
+	_view_mode = 0
+	_alpha_btn.button_pressed = true
+	_cat_btn.button_pressed = false
+	if current_node:
+		update_properties(current_node)
+
+func _on_categorized_pressed():
+	_view_mode = 1
+	_alpha_btn.button_pressed = false
+	_cat_btn.button_pressed = true
+	if current_node:
+		update_properties(current_node)
+
+# === Selection Changed ===
 
 func _on_selection_changed():
 	if not is_instance_valid(editor_plugin):
@@ -56,156 +235,195 @@ func _on_selection_changed():
 
 func clear_properties():
 	current_node = null
+	_property_entries.clear()
 	for c in property_grid.get_children():
 		c.queue_free()
+	_description_label.text = ""
+	_refresh_object_dropdown()
+
+# === Description Area ===
+
+func _show_description(prop_key: String):
+	_selected_prop_key = prop_key
+	var desc = PROPERTY_DESCRIPTIONS.get(prop_key, "")
+	if desc.is_empty():
+		_description_label.text = prop_key
+	else:
+		_description_label.text = desc
 
 func update_properties(node: Node):
-	clear_properties()
+	_property_entries.clear()
+	for c in property_grid.get_children():
+		c.queue_free()
 	current_node = node
+	_refresh_object_dropdown()
+	_description_label.text = ""
 	
+	# Collect all property entries first
+	_collect_properties(node)
+	
+	# Render based on view mode
+	if _view_mode == 0:
+		_render_alphabetic()
+	else:
+		_render_categorized()
+
+func _collect_properties(node: Node):
+	"""Collect all property entries into _property_entries array."""
 	# ===== (Name) - Always first, like VB6 =====
-	# Convert StringName to String for proper LineEdit handling
-	_add_prop_row("(Name)", String(node.name), "name")
+	_property_entries.append({"label": "(Name)", "value": String(node.name), "prop_key": "name", "type": "string", "category": ""})
 	
 	# ===== Appearance Properties =====
-	_add_section_header("Appearance")
-	
 	if "text" in node:
-		_add_prop_row("Caption", node.text, "text")
+		_property_entries.append({"label": "Caption", "value": node.text, "prop_key": "text", "type": "string", "category": CATEGORY_APPEARANCE})
 	
 	if node is Control:
-		# BackColor - use theme stylebox override for actual background color
 		var back_color = _get_back_color(node)
-		_add_color_row("BackColor", back_color, "backcolor")
-		# ForeColor - use theme color override for text color
+		_property_entries.append({"label": "BackColor", "value": back_color, "prop_key": "backcolor", "type": "color", "category": CATEGORY_APPEARANCE})
 		var fore_color = _get_fore_color(node)
-		_add_color_row("ForeColor", fore_color, "forecolor")
+		_property_entries.append({"label": "ForeColor", "value": fore_color, "prop_key": "forecolor", "type": "color", "category": CATEGORY_APPEARANCE})
 	
 	if node is BaseButton:
-		# Flat - like VB6's Style property (0=Standard, 1=Graphical)
 		if "flat" in node:
-			_add_prop_row("Flat", node.flat, "flat")
+			_property_entries.append({"label": "Flat", "value": node.flat, "prop_key": "flat", "type": "bool", "category": CATEGORY_APPEARANCE})
 	
 	if node is Label:
-		# Alignment - like VB6's Alignment property
-		_add_alignment_row("Alignment", node.horizontal_alignment)
-		# AutoSize equivalent
-		_add_prop_row("AutoSize", node.autowrap_mode == TextServer.AUTOWRAP_OFF, "autosize")
-		# WordWrap
-		_add_prop_row("WordWrap", node.autowrap_mode != TextServer.AUTOWRAP_OFF, "wordwrap")
+		_property_entries.append({"label": "Alignment", "value": node.horizontal_alignment, "prop_key": "alignment", "type": "alignment", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "AutoSize", "value": node.autowrap_mode == TextServer.AUTOWRAP_OFF, "prop_key": "autosize", "type": "bool", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "WordWrap", "value": node.autowrap_mode != TextServer.AUTOWRAP_OFF, "prop_key": "wordwrap", "type": "bool", "category": CATEGORY_APPEARANCE})
 	
 	if node is LineEdit:
-		# Text property
-		_add_prop_row("Text", node.text, "text")
-		# MaxLength - like VB6's MaxLength
-		_add_prop_row("MaxLength", node.max_length, "max_length")
-		# PasswordChar equivalent
-		_add_prop_row("PasswordMode", node.secret, "secret")
-		# ReadOnly - like VB6's Locked
-		_add_prop_row("Locked", !node.editable, "locked")
-		# PlaceholderText (not in VB6, but useful)
-		_add_prop_row("PlaceholderText", node.placeholder_text, "placeholder_text")
+		_property_entries.append({"label": "Text", "value": node.text, "prop_key": "text", "type": "string", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "MaxLength", "value": node.max_length, "prop_key": "max_length", "type": "number", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "PasswordMode", "value": node.secret, "prop_key": "secret", "type": "bool", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "Locked", "value": !node.editable, "prop_key": "locked", "type": "bool", "category": CATEGORY_BEHAVIOR})
+		_property_entries.append({"label": "PlaceholderText", "value": node.placeholder_text, "prop_key": "placeholder_text", "type": "string", "category": CATEGORY_APPEARANCE})
 	
-	# ProgressBar/Slider specific
 	if node is ProgressBar:
-		_add_prop_row("Value", node.value, "range_value")
-		_add_prop_row("Min", node.min_value, "range_min")
-		_add_prop_row("Max", node.max_value, "range_max")
-		_add_prop_row("ShowPercent", node.show_percentage, "show_percentage")
+		_property_entries.append({"label": "Value", "value": node.value, "prop_key": "range_value", "type": "number", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "Min", "value": node.min_value, "prop_key": "range_min", "type": "number", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "Max", "value": node.max_value, "prop_key": "range_max", "type": "number", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "ShowPercent", "value": node.show_percentage, "prop_key": "show_percentage", "type": "bool", "category": CATEGORY_APPEARANCE})
 	
 	if node is Slider:
-		_add_prop_row("Value", node.value, "range_value")
-		_add_prop_row("Min", node.min_value, "range_min")
-		_add_prop_row("Max", node.max_value, "range_max")
-		_add_prop_row("Step", node.step, "range_step")
+		_property_entries.append({"label": "Value", "value": node.value, "prop_key": "range_value", "type": "number", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "Min", "value": node.min_value, "prop_key": "range_min", "type": "number", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "Max", "value": node.max_value, "prop_key": "range_max", "type": "number", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "Step", "value": node.step, "prop_key": "range_step", "type": "number", "category": CATEGORY_APPEARANCE})
 	
 	if node is SpinBox:
-		_add_prop_row("Value", node.value, "range_value")
-		_add_prop_row("Min", node.min_value, "range_min")
-		_add_prop_row("Max", node.max_value, "range_max")
-		_add_prop_row("Step", node.step, "range_step")
-		_add_prop_row("Prefix", node.prefix, "spinbox_prefix")
-		_add_prop_row("Suffix", node.suffix, "spinbox_suffix")
+		_property_entries.append({"label": "Value", "value": node.value, "prop_key": "range_value", "type": "number", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "Min", "value": node.min_value, "prop_key": "range_min", "type": "number", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "Max", "value": node.max_value, "prop_key": "range_max", "type": "number", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "Step", "value": node.step, "prop_key": "range_step", "type": "number", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "Prefix", "value": node.prefix, "prop_key": "spinbox_prefix", "type": "string", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "Suffix", "value": node.suffix, "prop_key": "spinbox_suffix", "type": "string", "category": CATEGORY_APPEARANCE})
 	
 	# ===== Behavior Properties =====
-	_add_section_header("Behavior")
-	
 	if node is Control:
-		_add_prop_row("Enabled", _get_enabled(node), "enabled")
-		_add_prop_row("Visible", node.visible, "visible")
-		_add_prop_row("TabStop", node.focus_mode != Control.FOCUS_NONE, "tabstop")
+		_property_entries.append({"label": "Enabled", "value": _get_enabled(node), "prop_key": "enabled", "type": "bool", "category": CATEGORY_BEHAVIOR})
+		_property_entries.append({"label": "Visible", "value": node.visible, "prop_key": "visible", "type": "bool", "category": CATEGORY_BEHAVIOR})
+		_property_entries.append({"label": "TabStop", "value": node.focus_mode != Control.FOCUS_NONE, "prop_key": "tabstop", "type": "bool", "category": CATEGORY_BEHAVIOR})
 	
 	if node is BaseButton:
-		# Default - like VB6's Default property (Enter key activates)
-		if "shortcut_in_tooltip" in node:
-			# Check if it's set as default button
-			var is_default = node.has_meta("vb_default") and node.get_meta("vb_default")
-			_add_prop_row("Default", is_default, "default")
-		# Cancel - like VB6's Cancel property (Escape key activates)
+		var is_default = node.has_meta("vb_default") and node.get_meta("vb_default")
+		_property_entries.append({"label": "Default", "value": is_default, "prop_key": "default", "type": "bool", "category": CATEGORY_BEHAVIOR})
 		var is_cancel = node.has_meta("vb_cancel") and node.get_meta("vb_cancel")
-		_add_prop_row("Cancel", is_cancel, "cancel")
+		_property_entries.append({"label": "Cancel", "value": is_cancel, "prop_key": "cancel", "type": "bool", "category": CATEGORY_BEHAVIOR})
 	
 	if node is CheckBox or node is CheckButton:
-		_add_prop_row("Value", node.button_pressed, "button_pressed")
+		_property_entries.append({"label": "Value", "value": node.button_pressed, "prop_key": "button_pressed", "type": "bool", "category": CATEGORY_BEHAVIOR})
 	
 	# ===== Font Properties =====
-	_add_section_header("Font")
-	
 	if node is Control:
 		var font_size = node.get_theme_font_size("font_size") if node.has_theme_font_size("font_size") else 14
-		_add_prop_row("FontSize", font_size, "font_size")
+		_property_entries.append({"label": "FontSize", "value": font_size, "prop_key": "font_size", "type": "number", "category": CATEGORY_FONT})
 	
 	# ===== Position Properties =====
-	_add_section_header("Position")
-	
 	if node is Control or node is Node2D:
-		_add_prop_row("Left", int(node.position.x), "left")
-		_add_prop_row("Top", int(node.position.y), "top")
+		_property_entries.append({"label": "Left", "value": int(node.position.x), "prop_key": "left", "type": "number", "category": CATEGORY_POSITION})
+		_property_entries.append({"label": "Top", "value": int(node.position.y), "prop_key": "top", "type": "number", "category": CATEGORY_POSITION})
 		
 	if node is Control:
-		_add_prop_row("Width", int(node.size.x), "width")
-		_add_prop_row("Height", int(node.size.y), "height")
+		_property_entries.append({"label": "Width", "value": int(node.size.x), "prop_key": "width", "type": "number", "category": CATEGORY_POSITION})
+		_property_entries.append({"label": "Height", "value": int(node.size.y), "prop_key": "height", "type": "number", "category": CATEGORY_POSITION})
 	
-	# ===== Modern/Layout Properties =====
-	_add_section_header("Layout")
-	
+	# ===== Layout Properties =====
 	if node is Control:
-		# Anchors for responsive design
-		_add_anchor_row("Anchor", node)
-		# Size constraints
-		_add_prop_row("MinWidth", int(node.custom_minimum_size.x), "min_width")
-		_add_prop_row("MinHeight", int(node.custom_minimum_size.y), "min_height")
-		# Clip content
-		_add_prop_row("ClipContent", node.clip_contents, "clip_contents")
+		_property_entries.append({"label": "Anchor", "value": node, "prop_key": "anchor", "type": "anchor", "category": "Layout"})
+		_property_entries.append({"label": "MinWidth", "value": int(node.custom_minimum_size.x), "prop_key": "min_width", "type": "number", "category": "Layout"})
+		_property_entries.append({"label": "MinHeight", "value": int(node.custom_minimum_size.y), "prop_key": "min_height", "type": "number", "category": "Layout"})
+		_property_entries.append({"label": "ClipContent", "value": node.clip_contents, "prop_key": "clip_contents", "type": "bool", "category": "Layout"})
 	
 	# ===== Effects Properties =====
-	_add_section_header("Effects")
-	
 	if node is Control or node is Node2D:
-		# Opacity - modern transparency control
-		_add_slider_row("Opacity", int(node.modulate.a * 100), "opacity")
-		# Rotation in degrees
-		_add_prop_row("Rotation", int(rad_to_deg(node.rotation)), "rotation")
-		# Scale
-		_add_prop_row("ScaleX", node.scale.x, "scale_x")
-		_add_prop_row("ScaleY", node.scale.y, "scale_y")
+		_property_entries.append({"label": "Opacity", "value": int(node.modulate.a * 100), "prop_key": "opacity", "type": "slider", "category": "Effects"})
+		_property_entries.append({"label": "Rotation", "value": int(rad_to_deg(node.rotation)), "prop_key": "rotation", "type": "number", "category": "Effects"})
+		_property_entries.append({"label": "ScaleX", "value": node.scale.x, "prop_key": "scale_x", "type": "number", "category": "Effects"})
+		_property_entries.append({"label": "ScaleY", "value": node.scale.y, "prop_key": "scale_y", "type": "number", "category": "Effects"})
 	
 	if node is Control:
-		# Pivot point for rotation/scale
-		_add_pivot_row("Pivot", node.pivot_offset, node.size)
+		_property_entries.append({"label": "Pivot", "value": {"pivot": node.pivot_offset, "size": node.size}, "prop_key": "pivot", "type": "pivot", "category": "Effects"})
 	
 	# ===== Misc Properties =====
-	_add_section_header("Misc")
-	
 	if node is Control:
-		# ToolTipText - like VB6's ToolTipText
-		_add_prop_row("ToolTipText", node.tooltip_text, "tooltip_text")
-		# MousePointer equivalent
-		_add_cursor_row("MousePointer", node.mouse_default_cursor_shape)
+		_property_entries.append({"label": "ToolTipText", "value": node.tooltip_text, "prop_key": "tooltip_text", "type": "string", "category": CATEGORY_MISC})
+		_property_entries.append({"label": "MousePointer", "value": node.mouse_default_cursor_shape, "prop_key": "cursor", "type": "cursor", "category": CATEGORY_MISC})
 	
-	# Tag - custom user data (VB6's Tag property)
 	var tag_value = node.get_meta("vb_tag", "") if node.has_meta("vb_tag") else ""
-	_add_prop_row("Tag", str(tag_value), "tag")
+	_property_entries.append({"label": "Tag", "value": str(tag_value), "prop_key": "tag", "type": "string", "category": CATEGORY_MISC})
+
+func _render_categorized():
+	"""Render properties grouped by category with section headers."""
+	# (Name) is always first
+	for entry in _property_entries:
+		if entry["category"] == "":
+			_render_property_entry(entry)
+	
+	# Group by category
+	var categories_order = [CATEGORY_APPEARANCE, CATEGORY_BEHAVIOR, CATEGORY_FONT, CATEGORY_POSITION, "Layout", "Effects", CATEGORY_MISC]
+	for cat in categories_order:
+		var cat_entries = _property_entries.filter(func(e): return e["category"] == cat)
+		if cat_entries.size() > 0:
+			_add_section_header(cat)
+			for entry in cat_entries:
+				_render_property_entry(entry)
+
+func _render_alphabetic():
+	"""Render all properties sorted alphabetically (no section headers)."""
+	# (Name) is always first
+	for entry in _property_entries:
+		if entry["category"] == "":
+			_render_property_entry(entry)
+	
+	# Sort remaining entries alphabetically
+	var sorted_entries = _property_entries.filter(func(e): return e["category"] != "")
+	sorted_entries.sort_custom(func(a, b): return a["label"].to_lower() < b["label"].to_lower())
+	for entry in sorted_entries:
+		_render_property_entry(entry)
+
+func _render_property_entry(entry: Dictionary):
+	"""Render a single property entry to the grid."""
+	var prop_key = entry["prop_key"]
+	var label_text = entry["label"]
+	var value = entry["value"]
+	var type = entry["type"]
+	
+	match type:
+		"color":
+			_add_color_row(label_text, value, prop_key)
+		"alignment":
+			_add_alignment_row(label_text, value)
+		"cursor":
+			_add_cursor_row(label_text, value)
+		"slider":
+			_add_slider_row(label_text, value, prop_key)
+		"anchor":
+			_add_anchor_row(label_text, value)
+		"pivot":
+			_add_pivot_row(label_text, value["pivot"], value["size"])
+		_:
+			_add_prop_row(label_text, value, prop_key)
 
 func _add_section_header(title: String):
 	var sep = HSeparator.new()
@@ -221,12 +439,18 @@ func _add_prop_row(label_text: String, value, prop_key: String):
 	var lbl = Label.new()
 	lbl.text = label_text
 	lbl.custom_minimum_size.x = 70  # Reduced for narrower panels
+	lbl.mouse_filter = Control.MOUSE_FILTER_STOP
+	lbl.gui_input.connect(func(event):
+		if event is InputEventMouseButton and event.pressed:
+			_show_description(prop_key)
+	)
 	property_grid.add_child(lbl)
 	
 	if value is bool:
 		var chk = CheckBox.new()
 		chk.button_pressed = value
 		chk.toggled.connect(func(v): _apply_prop(prop_key, v))
+		chk.focus_entered.connect(func(): _show_description(prop_key))
 		property_grid.add_child(chk)
 	elif value is String:
 		var txt = LineEdit.new()
@@ -234,6 +458,7 @@ func _add_prop_row(label_text: String, value, prop_key: String):
 		txt.size_flags_horizontal = SIZE_EXPAND_FILL
 		txt.text_submitted.connect(func(v): _apply_prop(prop_key, v))
 		txt.focus_exited.connect(func(): _apply_prop(prop_key, txt.text))
+		txt.focus_entered.connect(func(): _show_description(prop_key))
 		property_grid.add_child(txt)
 	elif value is float or value is int:
 		var spin = SpinBox.new()
@@ -244,6 +469,7 @@ func _add_prop_row(label_text: String, value, prop_key: String):
 		spin.min_value = -10000
 		spin.size_flags_horizontal = SIZE_EXPAND_FILL
 		spin.value_changed.connect(func(v): _apply_prop(prop_key, v))
+		spin.get_line_edit().focus_entered.connect(func(): _show_description(prop_key))
 		property_grid.add_child(spin)
 	else:
 		var placeholder = Label.new()

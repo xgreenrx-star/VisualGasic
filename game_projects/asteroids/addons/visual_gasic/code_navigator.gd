@@ -173,6 +173,11 @@ func refresh_objects():
 			object_list.add_item("(No Scene Open)")
 		return
 		
+	# Add (General) entry — VB6-style module-level declarations
+	var general_idx = object_list.item_count
+	object_list.add_item("(General)")
+	object_list.set_item_metadata(general_idx, "(General)")
+	
 	# Add Objects recursively
 	_add_node_recursive(root)
 	
@@ -207,6 +212,12 @@ func _add_node_recursive(node: Node):
 func _on_object_selected(idx):
 	event_list.clear()
 	var meta = object_list.get_item_metadata(idx)
+	
+	# Handle (General) selection — show Declarations event
+	if meta is String and meta == "(General)":
+		event_list.add_item("(Declarations)")
+		return
+	
 	if not is_instance_valid(meta):
 		# Object might have been deleted
 		return
@@ -239,6 +250,12 @@ func _on_event_selected(idx):
 	if obj_idx < 0: return
 	
 	var meta = object_list.get_item_metadata(obj_idx)
+	
+	# Handle (General)/(Declarations) — navigate to top of file
+	if meta is String and meta == "(General)" and event_name == "(Declarations)":
+		_navigate_to_declarations()
+		return
+	
 	if not is_instance_valid(meta):
 		# Object deleted, refresh list
 		refresh_objects()
@@ -248,6 +265,49 @@ func _on_event_selected(idx):
 	if not node: return
 	
 	_navigate_to_handler(node, event_name)
+
+func _navigate_to_declarations():
+	"""Navigate to the top of the .vg file (module-level declarations)."""
+	if not editor_plugin:
+		return
+	var root = editor_plugin.get_editor_interface().get_edited_scene_root()
+	if not root:
+		return
+	var scene_path = root.scene_file_path
+	if scene_path.is_empty():
+		return
+	var bas_path = scene_path.get_basename() + ".vg"
+	if not FileAccess.file_exists(bas_path):
+		return
+	
+	# Open and go to the top
+	var res = load(bas_path)
+	if not res:
+		return
+	var ed_int = editor_plugin.get_editor_interface()
+	ed_int.edit_resource(res)
+	
+	var script_editor = ed_int.get_script_editor()
+	var current_editor = script_editor.get_current_editor()
+	if current_editor:
+		var code_edit = current_editor.get_base_editor()
+		if code_edit:
+			# Find the first line that is NOT inside a Sub/Function — i.e. the declarations area
+			var text = code_edit.text
+			var lines = text.split("\n")
+			var target_line = 0
+			# Find first non-empty, non-comment line in the declarations area (before first Sub/Function)
+			for i in lines.size():
+				var stripped = lines[i].strip_edges().to_lower()
+				if stripped.begins_with("sub ") or stripped.begins_with("function ") or \
+				   stripped.begins_with("private sub") or stripped.begins_with("public sub") or \
+				   stripped.begins_with("private function") or stripped.begins_with("public function"):
+					break
+				target_line = i
+			code_edit.set_caret_line(target_line)
+			code_edit.set_caret_column(0)
+			code_edit.center_viewport_to_caret()
+			code_edit.grab_focus()
 
 func _navigate_to_handler(node: Node, event: String):
 	if not editor_plugin: return

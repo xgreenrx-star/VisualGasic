@@ -88,6 +88,12 @@ var _project_explorer = null
 ## VB6-style Properties Inspector (managed by layout manager)
 var _properties_inspector = null
 
+## VB6-style Color Palette toolbar for quick ForeColor/BackColor picking
+var _color_palette = null
+
+## VB6-style Data Tips — hover over variables during debugging
+var _data_tips = null
+
 # =============================================================================
 # PLUGIN LIFECYCLE
 # =============================================================================
@@ -150,6 +156,7 @@ func _enter_tree():
 	toolbox.add_child(btn_new_module)
 	
 	setup_toolbox()
+	_setup_toolbox_context_menu()
 
 	# HACK: If C++ toolbox is used, stick the buttons inside it or above it?
 	# setup_toolbox adds a child. We want our buttons to persist.
@@ -192,6 +199,23 @@ func _enter_tree():
 		form_preview_toolbar.setup(self)
 		add_control_to_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, form_preview_toolbar)
 		print("VisualGasic: Added form preview toolbar to canvas editor")
+	
+	# Add VB6-style Color Palette toolbar
+	var color_palette_script = load("res://addons/visual_gasic/color_palette_toolbar.gd")
+	if color_palette_script:
+		_color_palette = color_palette_script.new()
+		_color_palette.name = "VG Color Palette"
+		_color_palette.setup(self)
+		add_control_to_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _color_palette)
+		print("VisualGasic: Added VB6 color palette to canvas editor")
+	
+	# Add VB6-style Data Tips (hover variable values during debugging)
+	var data_tips_script = load("res://addons/visual_gasic/vg_data_tips.gd")
+	if data_tips_script:
+		_data_tips = data_tips_script.new()
+		add_child(_data_tips)
+		_data_tips.setup(self)
+		print("VisualGasic: Data Tips initialized")
 	
 	# Create VB6 Project Explorer (right-upper dock in VB6 mode)
 	var proj_explorer_script = load("res://addons/visual_gasic/vb6_project_explorer.gd")
@@ -272,6 +296,18 @@ func _exit_tree():
 		remove_control_from_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, form_preview_toolbar)
 		form_preview_toolbar.queue_free()
 		form_preview_toolbar = null
+	
+	# Cleanup Color Palette toolbar
+	if is_instance_valid(_color_palette):
+		remove_control_from_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _color_palette)
+		_color_palette.queue_free()
+		_color_palette = null
+	
+	# Cleanup Data Tips
+	if is_instance_valid(_data_tips):
+		_data_tips.cleanup()
+		_data_tips.queue_free()
+		_data_tips = null
 	
 	# Cleanup VB6 Layout Manager (undocks panels it manages)
 	if is_instance_valid(_layout_manager):
@@ -1676,6 +1712,31 @@ func setup_toolbox():
 		
 	# Fallback/Additional Logic if needed
 	pass
+
+## Sets up a right-click context menu on the Toolbox with "Components..." shortcut.
+## This mirrors VB6's toolbox behavior where right-clicking opens the Components dialog.
+func _setup_toolbox_context_menu():
+	if not toolbox:
+		return
+	
+	var popup = PopupMenu.new()
+	popup.name = "ToolboxContextMenu"
+	popup.add_item("Components...", 0)
+	popup.add_separator()
+	popup.add_item("Add Tab...", 1)
+	popup.id_pressed.connect(func(id):
+		match id:
+			0: _on_components()
+			1: pass  # Future: Add custom toolbox tab
+	)
+	toolbox.add_child(popup)
+	
+	# Connect right-click on the toolbox container
+	toolbox.gui_input.connect(func(event):
+		if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_RIGHT:
+			popup.position = Vector2i(DisplayServer.mouse_get_position())
+			popup.popup()
+	)
 
 ## Registers a tool in the toolbox control palette.
 ## @param name: Display name in the toolbox (e.g., "Button", "TextEdit")

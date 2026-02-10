@@ -76,6 +76,9 @@ var _code_navigator = null
 ## The VBoxContainer we injected the navigator into (script editor internal)
 var _nav_injected_parent = null
 
+## Tracks if a vg_control drag was in progress (for detecting drag end)
+var _vg_drag_active: bool = false
+
 ## VB6 Layout Manager — toolbar toggle for VB6/Godot IDE modes
 var _layout_manager = null
 
@@ -84,6 +87,12 @@ var _project_explorer = null
 
 ## VB6-style Properties Inspector (managed by layout manager)
 var _properties_inspector = null
+
+## VB6-style Color Palette toolbar for quick ForeColor/BackColor picking
+var _color_palette = null
+
+## VB6-style Data Tips — hover over variables during debugging
+var _data_tips = null
 
 # =============================================================================
 # PLUGIN LIFECYCLE
@@ -130,6 +139,8 @@ func _enter_tree():
 	# TEST: Create a simple Label to verify dock mechanism
 	toolbox = VBoxContainer.new()
 	toolbox.name = "Toolbox"
+	toolbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	toolbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	var label = Label.new()
 	label.text = "Visual Gasic Debug"
 	toolbox.add_child(label)
@@ -139,12 +150,19 @@ func _enter_tree():
 	btn_new_form.pressed.connect(_on_new_form)
 	toolbox.add_child(btn_new_form)
 	
+	var btn_new_module = Button.new()
+	btn_new_module.text = "New Module"
+	btn_new_module.pressed.connect(_on_new_module)
+	toolbox.add_child(btn_new_module)
+	
 	setup_toolbox()
+	_setup_toolbox_context_menu()
 
 	# HACK: If C++ toolbox is used, stick the buttons inside it or above it?
 	# setup_toolbox adds a child. We want our buttons to persist.
 	# But C++ toolbox might take up all space.
 	# Let's Move buttons to TOP if setup_toolbox added below.
+	
 	# Create Code Navigator (will be injected above the code editor, VB6-style)
 	_code_navigator = loading_code_navigator()
 	if _code_navigator:
@@ -182,6 +200,23 @@ func _enter_tree():
 		add_control_to_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, form_preview_toolbar)
 		print("VisualGasic: Added form preview toolbar to canvas editor")
 	
+	# Add VB6-style Color Palette toolbar
+	var color_palette_script = load("res://addons/visual_gasic/color_palette_toolbar.gd")
+	if color_palette_script:
+		_color_palette = color_palette_script.new()
+		_color_palette.name = "VG Color Palette"
+		_color_palette.setup(self)
+		add_control_to_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _color_palette)
+		print("VisualGasic: Added VB6 color palette to canvas editor")
+	
+	# Add VB6-style Data Tips (hover variable values during debugging)
+	var data_tips_script = load("res://addons/visual_gasic/vg_data_tips.gd")
+	if data_tips_script:
+		_data_tips = data_tips_script.new()
+		add_child(_data_tips)
+		_data_tips.setup(self)
+		print("VisualGasic: Data Tips initialized")
+	
 	# Create VB6 Project Explorer (right-upper dock in VB6 mode)
 	var proj_explorer_script = load("res://addons/visual_gasic/vb6_project_explorer.gd")
 	if proj_explorer_script:
@@ -201,12 +236,14 @@ func _enter_tree():
 	_setup_script_editor_context_menu()
 	_setup_recent_projects_menu()
 
+	add_tool_menu_item("New Module...", Callable(self, "_on_new_module"))
 	add_tool_menu_item("Import VB6 Form...", Callable(self, "_on_import_vb6_form"))
 	add_tool_menu_item("Import VB6 Project...", Callable(self, "_on_import_vb6_project"))
 	add_tool_menu_item("Visual Gasic Menu Editor", Callable(self, "_on_menu_editor"))
 	add_tool_menu_item("Visual Gasic Project Properties...", Callable(self, "_on_proj_props"))
 	add_tool_menu_item("Visual Gasic Object Browser", Callable(self, "_on_obj_browser"))
 	add_tool_menu_item("Visual Gasic Tab Order", Callable(self, "_on_tab_order"))
+	add_tool_menu_item("Visual Gasic Components...", Callable(self, "_on_components"))
 
 ## Called when the plugin exits the editor tree.
 ## Cleans up all plugin components and disconnects signals.
@@ -226,6 +263,7 @@ func _exit_tree():
 	remove_tool_menu_item("Visual Gasic Project Properties...")
 	remove_tool_menu_item("Visual Gasic Object Browser")
 	remove_tool_menu_item("Visual Gasic Tab Order")
+	remove_tool_menu_item("Visual Gasic Components...")
 	
 	if is_instance_valid(immediate_window):
 		remove_control_from_bottom_panel(immediate_window)
@@ -259,7 +297,19 @@ func _exit_tree():
 		form_preview_toolbar.queue_free()
 		form_preview_toolbar = null
 	
-	# Cleanup VB6 Layout Manager
+	# Cleanup Color Palette toolbar
+	if is_instance_valid(_color_palette):
+		remove_control_from_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _color_palette)
+		_color_palette.queue_free()
+		_color_palette = null
+	
+	# Cleanup Data Tips
+	if is_instance_valid(_data_tips):
+		_data_tips.cleanup()
+		_data_tips.queue_free()
+		_data_tips = null
+	
+	# Cleanup VB6 Layout Manager (undocks panels it manages)
 	if is_instance_valid(_layout_manager):
 		_layout_manager.cleanup()
 		remove_control_from_container(EditorPlugin.CONTAINER_TOOLBAR, _layout_manager)
@@ -303,6 +353,237 @@ func _exit_tree():
 	# Disconnect node_added handler
 	if get_tree().node_added.is_connected(_on_node_added):
 		get_tree().node_added.disconnect(_on_node_added)
+
+## Called every frame. Detects vg_control drag end and handles drop.
+## Since _forward_canvas_gui_input doesn't receive mouse release during drag,
+## we detect when dragging stops and handle the drop here.
+func _process(_delta: float) -> void:
+	# Check if we have an active vg_control drag
+	var has_vg_drag = Engine.has_meta("_vg_active_drag")
+	
+	# Check if system is still dragging
+	var viewport = get_viewport()
+	var is_dragging = viewport and viewport.gui_is_dragging()
+	
+	# Detect drag start
+	if has_vg_drag and not _vg_drag_active:
+		_vg_drag_active = true
+	
+	# Detect drag end: was dragging, now stopped, still have drag data
+	if _vg_drag_active and not is_dragging and has_vg_drag:
+		_vg_drag_active = false
+		
+		var drag_data = Engine.get_meta("_vg_active_drag")
+		Engine.remove_meta("_vg_active_drag")
+		
+		# Capture mouse position NOW before the delay (so position is accurate)
+		if drag_data is Dictionary and drag_data.get("type") == "vg_control":
+			var editor_viewport = get_editor_interface().get_editor_viewport_2d()
+			var scene_root = get_editor_interface().get_edited_scene_root()
+			if editor_viewport and scene_root:
+				var mouse_pos = editor_viewport.get_mouse_position()
+				var canvas_xform = editor_viewport.get_canvas_transform()
+				var world_pos = canvas_xform.affine_inverse() * mouse_pos
+				
+				# Adjust for form's position on canvas (for Window nodes)
+				var form_offset = Vector2.ZERO
+				if scene_root is Window:
+					form_offset = Vector2(scene_root.position)
+				elif scene_root is Control:
+					form_offset = scene_root.position
+				
+				var local_pos = world_pos - form_offset
+				drag_data["drop_position"] = local_pos.snapped(Vector2(8, 8))
+			
+			# Use a timer to give Godot time to fully process the drag end
+			var timer = get_tree().create_timer(0.05)  # 50ms delay
+			timer.timeout.connect(_handle_vg_drop_delayed.bind(drag_data))
+
+## Handles vg_control drop after a short delay for editor stability.
+func _handle_vg_drop_delayed(drag_data: Dictionary) -> void:
+	var scene_path = drag_data.get("scene_path", "")
+	if scene_path.is_empty():
+		printerr("VisualGasic: Empty scene_path in drag data")
+		return
+	
+	# Get fresh reference to scene root
+	var root = get_editor_interface().get_edited_scene_root()
+	if not root or not is_instance_valid(root):
+		printerr("VisualGasic: No valid scene root for drop")
+		return
+	
+	# Get the scene file path
+	var edited_scene_path = root.scene_file_path
+	if edited_scene_path.is_empty():
+		printerr("VisualGasic: Scene has no file path")
+		return
+	
+	# Use the pre-captured drop position (captured at moment of drop, not after delay)
+	var drop_pos: Vector2 = drag_data.get("drop_position", Vector2.ZERO)
+	if drop_pos == Vector2.ZERO:
+		# Fallback to current mouse position if not captured
+		var editor_viewport = get_editor_interface().get_editor_viewport_2d()
+		if editor_viewport:
+			var mouse_pos = editor_viewport.get_mouse_position()
+			var canvas_xform = editor_viewport.get_canvas_transform()
+			var world_pos = canvas_xform.affine_inverse() * mouse_pos
+			drop_pos = world_pos.snapped(Vector2(8, 8))
+	
+	# Get control class name from scene path
+	var control_name = scene_path.get_file().get_basename()
+	
+	# Read the current scene file
+	var file = FileAccess.open(edited_scene_path, FileAccess.READ)
+	if not file:
+		printerr("VisualGasic: Could not open scene file: ", edited_scene_path)
+		return
+	var scene_text = file.get_as_text()
+	file.close()
+	
+	# Find how many ext_resources there are to determine next ID
+	var ext_res_count = scene_text.count("[ext_resource")
+	var new_ext_id = ext_res_count + 1
+	
+	# Find existing nodes with same base name to generate unique name (always numbered)
+	var existing_count = scene_text.count("[node name=\"" + control_name)
+	var node_name = control_name + str(existing_count + 1)
+	
+	# Build the new ext_resource line
+	var ext_resource_line = "[ext_resource type=\"PackedScene\" uid=\"\" path=\"" + scene_path + "\" id=\"" + str(new_ext_id) + "\"]\n"
+	
+	# Build the new node line
+	var node_line = "\n[node name=\"" + node_name + "\" parent=\".\" instance=ExtResource(\"" + str(new_ext_id) + "\")]\n"
+	node_line += "offset_left = " + str(int(drop_pos.x)) + ".0\n"
+	node_line += "offset_top = " + str(int(drop_pos.y)) + ".0\n"
+	# Set button/label text to match the node name
+	if control_name in ["Button", "Label", "CheckBox", "OptionButton"]:
+		node_line += "text = \"" + node_name + "\"\n"
+	
+	# Insert ext_resource after the last ext_resource line
+	var last_ext_pos = scene_text.rfind("[ext_resource")
+	if last_ext_pos >= 0:
+		var end_of_line = scene_text.find("\n", last_ext_pos)
+		scene_text = scene_text.insert(end_of_line + 1, ext_resource_line)
+	
+	# Append node at the end
+	scene_text += node_line
+	
+	# Write back
+	file = FileAccess.open(edited_scene_path, FileAccess.WRITE)
+	if not file:
+		printerr("VisualGasic: Could not write scene file: ", edited_scene_path)
+		return
+	file.store_string(scene_text)
+	file.close()
+	
+	# Reload the scene in the editor
+	get_editor_interface().reload_scene_from_path(edited_scene_path)
+	
+	# Select the new node after a short delay (to let the scene fully reload)
+	var select_timer = get_tree().create_timer(0.1)
+	select_timer.timeout.connect(_select_node_by_name.bind(node_name))
+	
+	print("VisualGasic: Dropped ", node_name, " at ", drop_pos)
+
+## Selects a node by name after scene reload
+func _select_node_by_name(node_name: String) -> void:
+	var root = get_editor_interface().get_edited_scene_root()
+	if not root:
+		return
+	
+	var node = root.find_child(node_name, true, false)
+	if node:
+		get_editor_interface().get_selection().clear()
+		get_editor_interface().get_selection().add_node(node)
+		# Force the editor to focus on this node - this updates the Scene Tree display
+		get_editor_interface().edit_node(node)
+
+## Deferred handler for vg_control drop - runs on next frame for cleaner context
+func _handle_vg_drag_end_deferred():
+	_handle_vg_drag_end()
+	Engine.remove_meta("_vg_active_drag")
+
+## Handles the end of a vg_control drag operation.
+## Gets mouse position and creates the control at that location.
+func _handle_vg_drag_end():
+	if not Engine.has_meta("_vg_active_drag"):
+		return
+	
+	var drag_data = Engine.get_meta("_vg_active_drag")
+	if not drag_data is Dictionary:
+		return
+	
+	var scene_path = drag_data.get("scene_path", "")
+	if scene_path.is_empty():
+		printerr("VisualGasic: No scene_path in drag data")
+		return
+	
+	var root = get_editor_interface().get_edited_scene_root()
+	print("VisualGasic: get_edited_scene_root() returned: ", root, " type: ", typeof(root))
+	if root:
+		print("VisualGasic: root.name=", root.name, " root.get_class()=", root.get_class())
+	if not root:
+		printerr("VisualGasic: No scene root for drop")
+		return
+	
+	# Check if root is actually valid and in the scene tree
+	if not is_instance_valid(root):
+		printerr("VisualGasic: Scene root is not valid")
+		return
+	
+	print("VisualGasic: root valid, is_inside_tree=", root.is_inside_tree())
+	
+	# Get mouse position in the 2D canvas
+	var viewport = get_editor_interface().get_editor_viewport_2d()
+	if not viewport:
+		printerr("VisualGasic: Could not get editor viewport")
+		return
+	
+	# Get the global mouse position and transform to canvas coordinates
+	var mouse_pos = viewport.get_mouse_position()
+	
+	# Adjust for canvas transform (zoom/pan)
+	var canvas_transform = viewport.get_canvas_transform()
+	var world_pos = canvas_transform.affine_inverse() * mouse_pos
+	
+	# Load and instance the scene
+	var scene = load(scene_path)
+	if not scene:
+		printerr("VisualGasic: Could not load scene: ", scene_path)
+		return
+	
+	print("VisualGasic: Scene loaded, instantiating...")
+	var instance = scene.instantiate()
+	if not instance:
+		printerr("VisualGasic: Could not instantiate: ", scene_path)
+		return
+	
+	print("VisualGasic: Calling add_child...")
+	# Use EditorUndoRedoManager for proper editor integration
+	var undo_redo = get_undo_redo()
+	undo_redo.create_action("Add " + instance.name)
+	undo_redo.add_do_method(root, "add_child", instance, true)
+	undo_redo.add_do_property(instance, "owner", root)
+	undo_redo.add_do_reference(instance)
+	undo_redo.add_undo_method(root, "remove_child", instance)
+	undo_redo.commit_action()
+	
+	print("VisualGasic: UndoRedo action committed")
+	
+	# Position the control
+	if instance is Control:
+		# Adjust for form's position if it's a Window
+		var offset = Vector2.ZERO
+		if root is Window:
+			offset = Vector2(root.position)
+		instance.position = world_pos - offset
+		# Snap to 8px grid
+		instance.position = instance.position.snapped(Vector2(8, 8))
+	
+	print("VisualGasic: Dropped ", instance.name, " at ", instance.position)
+	
+	# Select the newly created node - use call_deferred to avoid conflicts
+	call_deferred("_select_dropped_node", instance)
 
 # =============================================================================
 # VB6 IMPORT FUNCTIONS
@@ -473,8 +754,13 @@ func _finish_form_creation(path: String, form_name: String, vg_path: String, tem
 		menu_bar.anchor_right = 1.0
 		menu_bar.anchor_bottom = 0.0
 		menu_bar.offset_bottom = 30
-		# Set mouse_filter to PASS so MenuBar doesn't intercept editor drops
-		menu_bar.mouse_filter = Control.MOUSE_FILTER_PASS
+		# Set mouse_filter to IGNORE in editor so MenuBar doesn't intercept drops
+		# The helper script will restore STOP at runtime for normal menu interaction
+		menu_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		# Also attach the menu bar helper script to restore mouse_filter at runtime
+		var menu_helper_script = load("res://addons/visual_gasic/menu_bar_helper.gd")
+		if menu_helper_script:
+			menu_bar.set_script(menu_helper_script)
 		
 		root.add_child(menu_bar)
 		menu_bar.owner = root
@@ -689,6 +975,300 @@ End Sub
 	f.close()
 
 # =============================================================================
+# MODULE CREATION
+# =============================================================================
+
+## Opens a dialog to create a new Visual Gasic module (.vg code file).
+## Modules are standalone code files without a form — like VB6 .bas modules.
+func _on_new_module():
+	var dlg = AcceptDialog.new()
+	dlg.title = "New Module"
+	dlg.dialog_text = "Enter a name for the new module:"
+	dlg.ok_button_text = "Create"
+	
+	var vbox = VBoxContainer.new()
+	
+	var name_label = Label.new()
+	name_label.text = "Module Name:"
+	vbox.add_child(name_label)
+	
+	var name_edit = LineEdit.new()
+	name_edit.text = "Module1"
+	name_edit.placeholder_text = "Module1"
+	name_edit.select_all_on_focus = true
+	vbox.add_child(name_edit)
+	
+	var sep = HSeparator.new()
+	vbox.add_child(sep)
+	
+	var type_label = Label.new()
+	type_label.text = "Module Type:"
+	vbox.add_child(type_label)
+	
+	var type_option = OptionButton.new()
+	type_option.add_item("Standard Module (.bas style)")
+	type_option.add_item("Class Module")
+	type_option.add_item("Game Module")
+	type_option.add_item("Utility Module")
+	vbox.add_child(type_option)
+	
+	dlg.add_child(vbox)
+	dlg.min_size = Vector2i(350, 200)
+	
+	get_editor_interface().get_base_control().add_child(dlg)
+	
+	dlg.confirmed.connect(func():
+		var module_name = name_edit.text.strip_edges()
+		var module_type = type_option.selected
+		dlg.queue_free()
+		if not module_name.is_empty():
+			_create_new_module(module_name, module_type)
+	)
+	
+	dlg.canceled.connect(func():
+		dlg.queue_free()
+	)
+	
+	dlg.popup_centered()
+	name_edit.grab_focus()
+
+## Creates a new .vg module file with boilerplate code.
+## @param module_name: Name for the module (without extension)
+## @param module_type: 0=Standard, 1=Class, 2=Game, 3=Utility
+func _create_new_module(module_name: String, module_type: int):
+	# Generate unique filename
+	var path = "res://" + module_name + ".vg"
+	var idx = 1
+	while FileAccess.file_exists(path):
+		idx += 1
+		module_name = module_name.rstrip("0123456789") + str(idx)
+		path = "res://" + module_name + ".vg"
+	
+	var code = _generate_module_code(module_name, module_type)
+	
+	var f = FileAccess.open(path, FileAccess.WRITE)
+	if not f:
+		push_error("VisualGasic: Could not create module file: " + path)
+		return
+	f.store_string(code)
+	f.close()
+	
+	print("VisualGasic: Created module at ", path)
+	
+	# Refresh filesystem and open the script
+	get_editor_interface().get_resource_filesystem().scan()
+	
+	# Defer opening to allow filesystem scan
+	var timer = Timer.new()
+	timer.wait_time = 0.3
+	timer.one_shot = true
+	timer.timeout.connect(func():
+		timer.queue_free()
+		var script = load(path)
+		if script:
+			get_editor_interface().edit_resource(script)
+			print("VisualGasic: Opened module for editing: ", path)
+		_add_to_recent_projects(path)
+	)
+	get_editor_interface().get_base_control().add_child(timer)
+	timer.start()
+
+## Generates boilerplate code for a new module.
+## @param module_name: Name of the module
+## @param module_type: 0=Standard, 1=Class, 2=Game, 3=Utility
+func _generate_module_code(module_name: String, module_type: int) -> String:
+	match module_type:
+		0:  # Standard Module (.bas style)
+			return """' %s.vg - Standard Module
+' A standard code module (like VB6 .bas files)
+' Contains reusable functions and subroutines
+Option Explicit
+
+' Module-level variables
+Dim initialized As Boolean
+
+' ====== Public Functions ======
+
+Sub Main()
+    ' Entry point for the module
+    Print "%s module loaded"
+    initialized = True
+End Sub
+
+Function GetModuleName() As String
+    GetModuleName = "%s"
+End Function
+
+' ====== Helper Functions ======
+
+' Add your module functions below
+
+""" % [module_name, module_name, module_name]
+		1:  # Class Module
+			return """' %s.vg - Class Module
+' A class-style module with initialization and cleanup
+Option Explicit
+
+' Private module data
+Dim m_name As String
+Dim m_initialized As Boolean
+
+' ====== Lifecycle ======
+
+Sub Class_Initialize()
+    ' Called when module is first loaded
+    m_name = "%s"
+    m_initialized = True
+    Print m_name & " initialized"
+End Sub
+
+Sub Class_Terminate()
+    ' Called when module is unloaded
+    m_initialized = False
+    Print m_name & " terminated"
+End Sub
+
+' ====== Properties ======
+
+Function GetName() As String
+    GetName = m_name
+End Function
+
+Function IsInitialized() As Boolean
+    IsInitialized = m_initialized
+End Function
+
+' ====== Methods ======
+
+' Add your class methods below
+
+""" % [module_name, module_name]
+		2:  # Game Module
+			return """' %s.vg - Game Module
+' Game logic module with state management
+Option Explicit
+
+' Game state variables
+Dim score As Integer
+Dim lives As Integer
+Dim level As Integer
+Dim gameRunning As Boolean
+
+' ====== Game Lifecycle ======
+
+Sub Game_Init()
+    score = 0
+    lives = 3
+    level = 1
+    gameRunning = True
+    Print "Game initialized - Level " & level
+End Sub
+
+Sub Game_Update()
+    ' Called each frame - put game logic here
+    If Not gameRunning Then Exit Sub
+    
+    ' Check for input
+    If Input.IsActionJustPressed("ui_accept") Then
+        score = score + 10
+        Print "Score: " & score
+    End If
+End Sub
+
+Sub Game_Reset()
+    Game_Init()
+    Print "Game reset!"
+End Sub
+
+' ====== Score Management ======
+
+Function GetScore() As Integer
+    GetScore = score
+End Function
+
+Sub AddScore(points As Integer)
+    score = score + points
+    
+    ' Level up every 100 points
+    If score >= level * 100 Then
+        level = level + 1
+        Print "Level Up! Now at level " & level
+    End If
+End Sub
+
+Sub LoseLife()
+    lives = lives - 1
+    Print "Lives remaining: " & lives
+    If lives <= 0 Then
+        gameRunning = False
+        Print "Game Over! Final Score: " & score
+    End If
+End Sub
+
+""" % [module_name]
+		3:  # Utility Module
+			return """' %s.vg - Utility Module
+' Common utility functions
+Option Explicit
+
+' ====== String Utilities ======
+
+Function PadLeft(s As String, totalWidth As Integer, padChar As String) As String
+    Dim result As String
+    result = s
+    Do While Len(result) < totalWidth
+        result = padChar & result
+    Loop
+    PadLeft = result
+End Function
+
+Function PadRight(s As String, totalWidth As Integer, padChar As String) As String
+    Dim result As String
+    result = s
+    Do While Len(result) < totalWidth
+        result = result & padChar
+    Loop
+    PadRight = result
+End Function
+
+' ====== Math Utilities ======
+
+Function Clamp(value As Double, minVal As Double, maxVal As Double) As Double
+    If value < minVal Then
+        Clamp = minVal
+    ElseIf value > maxVal Then
+        Clamp = maxVal
+    Else
+        Clamp = value
+    End If
+End Function
+
+Function Lerp(a As Double, b As Double, t As Double) As Double
+    Lerp = a + (b - a) * t
+End Function
+
+Function RandRange(minVal As Integer, maxVal As Integer) As Integer
+    RandRange = Int(Rnd() * (maxVal - minVal + 1)) + minVal
+End Function
+
+' ====== Array Utilities ======
+
+Function ArrayContains(arr() As Variant, value As Variant) As Boolean
+    Dim i As Integer
+    For i = LBound(arr) To UBound(arr)
+        If arr(i) = value Then
+            ArrayContains = True
+            Exit Function
+        End If
+    Next i
+    ArrayContains = False
+End Function
+
+""" % [module_name]
+		_:
+			return "' %s.vg\nOption Explicit\n\nSub Main()\n    ' Your code here\nEnd Sub\n" % [module_name]
+
+# =============================================================================
 # EDITOR DIALOGS
 # =============================================================================
 
@@ -755,6 +1335,59 @@ func _on_tab_order():
 	dlg.set_root(target)
 	dlg.popup_centered()
 
+## Opens the Components dialog.
+## Add/remove VB6-style components and custom controls to the toolbox.
+func _on_components():
+	var dlg = load("res://addons/visual_gasic/components_dialog.gd").new()
+	dlg.components_changed.connect(_on_components_changed)
+	get_editor_interface().get_base_control().add_child(dlg)
+	dlg.popup_centered()
+
+## Callback when components are added/removed via the Components dialog.
+## Clears custom tools and reloads only enabled ones.
+func _on_components_changed():
+	# Clear existing custom tools from toolbox
+	var real_toolbox = _get_toolbox_instance()
+	if real_toolbox:
+		real_toolbox.clear_custom_tools()
+	
+	# Re-add the GDScript extended tools (FlexGrid, Form, etc.)
+	_register_extended_tools()
+	
+	# Load enabled components from config
+	_load_custom_components()
+
+## Registers the GDScript-extended tools (not in C++ defaults)
+func _register_extended_tools():
+	register_tool("FlexGrid", "Tree", "Tree", "res://custom_widgets/FlexGrid.tscn")
+	register_tool("Form", "Panel", "Window", "res://custom_widgets/Form.tscn")
+	register_tool("Option", "CheckBox", "CheckBox", "res://custom_widgets/Option.tscn")
+	register_tool("CommonDialog", "Control", "FileDialog", "res://custom_widgets/CommonDialog.tscn")
+	register_tool("ColorBtn", "ColorPickerButton", "ColorPickerButton", "res://custom_widgets/ColorBtn.tscn")
+	register_tool("Video", "VideoStreamPlayer", "VideoStreamPlayer", "res://custom_widgets/Video.tscn")
+	register_tool("Viewport", "SubViewportContainer", "SubViewportContainer", "res://custom_widgets/Viewport.tscn")
+	
+	# 3D Tools
+	var cat3d = "3D"
+	register_tool("Box", "MeshInstance3D", "BoxMesh", "res://custom_widgets/3d/Box.tscn", cat3d)
+	register_tool("Sphere", "MeshInstance3D", "SphereMesh", "res://custom_widgets/3d/Sphere.tscn", cat3d)
+	register_tool("Capsule", "MeshInstance3D", "CapsuleMesh", "res://custom_widgets/3d/Capsule.tscn", cat3d)
+	register_tool("Cylinder", "MeshInstance3D", "CylinderMesh", "res://custom_widgets/3d/Cylinder.tscn", cat3d)
+	register_tool("Light", "OmniLight3D", "OmniLight3D", "res://custom_widgets/3d/Light.tscn", cat3d)
+	register_tool("Camera", "Camera3D", "Camera3D", "res://custom_widgets/3d/Camera.tscn", cat3d)
+	register_tool("Text3D", "Label3D", "Label3D", "res://custom_widgets/3d/Text3D.tscn", cat3d)
+	register_tool("Sprite3D", "Sprite3D", "Sprite3D", "res://custom_widgets/3d/Sprite3D.tscn", cat3d)
+	register_tool("Sound3D", "AudioStreamPlayer3D", "AudioStreamPlayer3D", "res://custom_widgets/3d/Sound3D.tscn", cat3d)
+
+## Loads enabled components from the config file and adds them to the toolbox.
+func _load_custom_components():
+	var ComponentsDialog = load("res://addons/visual_gasic/components_dialog.gd")
+	var enabled = ComponentsDialog.load_enabled_components()
+	
+	for comp in enabled:
+		register_tool(comp["name"], comp["class"], comp.get("icon", "Control"), comp["scene"], comp.get("category", "2D"))
+	
+	print("VisualGasic: Loaded ", enabled.size(), " custom/optional components")
 
 
 # =============================================================================
@@ -784,43 +1417,16 @@ func loading_code_navigator():
 # =============================================================================
 
 ## Post-initialization setup.
-## Registers all toolbox controls and connects editor signals.
+## Registers additional toolbox controls (beyond C++ defaults) and connects editor signals.
+## NOTE: C++ toolbox already provides: Pointer, Picture, Label, TextBox, Button, CheckBox,
+##       ComboBox, Frame, GroupBox, ListBox, TreeView, HScroll, VScroll, ProgressBar,
+##       HSlider, VSlider, SpinBox, Shape, HLine, VLine, RichText, TextArea, TabStrip, Timer, Files
 func _post_init():
-	# Register extended components
-	register_tool("FlexGrid", "Tree", "Tree", "res://custom_widgets/FlexGrid.tscn")
-	register_tool("Shape", "ColorRect", "ColorRect", "res://custom_widgets/Shape.tscn")
-	register_tool("Line", "HSeparator", "HSeparator", "res://custom_widgets/Line.tscn")
-	register_tool("RichText", "RichTextLabel", "RichTextLabel", "res://custom_widgets/RichText.tscn")
-	register_tool("Form", "Panel", "Window", "res://custom_widgets/Form.tscn")
-	register_tool("Timer", "Timer", "Timer", "res://custom_widgets/Timer.tscn")
-	register_tool("ProgressBar", "ProgressBar", "ProgressBar", "res://custom_widgets/ProgressBar.tscn")
-	register_tool("Slider", "HSlider", "HSlider", "res://custom_widgets/Slider.tscn")
-	register_tool("Spinner", "SpinBox", "SpinBox", "res://custom_widgets/Spinner.tscn")
-	register_tool("Tabs", "TabContainer", "TabContainer", "res://custom_widgets/Tabs.tscn")
-	register_tool("Option", "CheckBox", "CheckBox", "res://custom_widgets/Option.tscn")
-	register_tool("Memo", "TextEdit", "TextEdit", "res://custom_widgets/Memo.tscn")
-	register_tool("CommonDialog", "Control", "FileDialog", "res://custom_widgets/CommonDialog.tscn")
-	register_tool("FileDialog", "Control", "FileDialog", "res://custom_widgets/CommonDialog.tscn")
-	register_tool("VSlider", "VSlider", "VSlider", "res://custom_widgets/VSlider.tscn")
-	register_tool("ColorBtn", "ColorPickerButton", "ColorPickerButton", "res://custom_widgets/ColorBtn.tscn")
-	register_tool("Video", "VideoStreamPlayer", "VideoStreamPlayer", "res://custom_widgets/Video.tscn")
-	register_tool("ComboBox", "OptionButton", "OptionButton", "res://custom_widgets/OptionButton.tscn")
-	register_tool("ListBox", "ItemList", "ItemList", "res://custom_widgets/ItemList.tscn")
-	register_tool("Picture", "TextureRect", "TextureRect", "res://custom_widgets/TextureRect.tscn")
-	register_tool("Frame", "Panel", "PanelContainer", "res://custom_widgets/Frame.tscn")
-	register_tool("Viewport", "SubViewportContainer", "SubViewportContainer", "res://custom_widgets/Viewport.tscn")
+	# Register extended components not in C++ toolbox
+	_register_extended_tools()
 	
-	# 3D Tools
-	var cat3d = "3D"
-	register_tool("Box", "MeshInstance3D", "BoxMesh", "res://custom_widgets/3d/Box.tscn", cat3d)
-	register_tool("Sphere", "MeshInstance3D", "SphereMesh", "res://custom_widgets/3d/Sphere.tscn", cat3d)
-	register_tool("Capsule", "MeshInstance3D", "CapsuleMesh", "res://custom_widgets/3d/Capsule.tscn", cat3d)
-	register_tool("Cylinder", "MeshInstance3D", "CylinderMesh", "res://custom_widgets/3d/Cylinder.tscn", cat3d)
-	register_tool("Light", "OmniLight3D", "OmniLight3D", "res://custom_widgets/3d/Light.tscn", cat3d)
-	register_tool("Camera", "Camera3D", "Camera3D", "res://custom_widgets/3d/Camera.tscn", cat3d)
-	register_tool("Text3D", "Label3D", "Label3D", "res://custom_widgets/3d/Text3D.tscn", cat3d)
-	register_tool("Sprite3D", "Sprite3D", "Sprite3D", "res://custom_widgets/3d/Sprite3D.tscn", cat3d)
-	register_tool("Sound3D", "AudioStreamPlayer3D", "AudioStreamPlayer3D", "res://custom_widgets/3d/Sound3D.tscn", cat3d)
+	# Load custom/optional components from Components dialog config
+	_load_custom_components()
 	
 	# Connect to screen change signal
 	main_screen_changed.connect(_on_main_screen_changed)
@@ -831,7 +1437,7 @@ func _post_init():
 	# Fix nesting behavior by monitoring selection
 	get_editor_interface().get_selection().selection_changed.connect(_on_selection_changed)
 	
-	# Hook into node_added to catch drops inside MenuBar EARLY (before owner issues)
+	# Hook into node_added to catch drops inside MenuBar and reparent them
 	get_tree().node_added.connect(_on_node_added)
 
 	print("VisualGasic: Initialized. Monitoring nesting & double-click events.")
@@ -844,6 +1450,10 @@ func _on_scene_changed(scene_root: Node):
 	var nav = _get_navigator()
 	if nav:
 		nav.refresh_objects()
+	
+	# Disable mouse input on any MenuBars in the scene (prevents drop interception)
+	if scene_root:
+		_disable_menubar_mouse_in_editor(scene_root)
 
 ## Determines if this plugin handles input for the given object.
 ## Returns true for Control and Node2D nodes to enable double-click event generation.
@@ -853,20 +1463,88 @@ func _handles(object):
 	# Handle input for any Control or Node2D being edited
 	return object is Control or object is Node2D
 
-## Intercepts canvas GUI input for double-click event handler generation.
-## Double-clicking a control in the 2D view opens/creates the .vg script
-## and generates an appropriate event handler (e.g., Button_Click).
+## Intercepts canvas GUI input for:
+## 1. Custom vg_control drag-drop handling (avoids MenuBar issues)
+## 2. Double-click event handler generation
 ## @param event: The input event
 ## @returns: true if event was consumed
 func _forward_canvas_gui_input(event):
-	if event is InputEventMouseButton and event.double_click:
-		# Support both Left (Standard) and Right (User Request) double clicks
-		if event.button_index == MOUSE_BUTTON_LEFT or event.button_index == MOUSE_BUTTON_RIGHT:
-			var sel = get_editor_interface().get_selection().get_selected_nodes()
-			if sel.size() == 1:
-				_generate_event_handler(sel[0])
-				return true # Consume event
+	# Handle mouse button events for vg_control drag-drop
+	if event is InputEventMouseButton:
+		if event.button_index == MOUSE_BUTTON_LEFT:
+			if not event.pressed:
+				# Mouse released - check if we have active vg_control drag from C++ toolbox
+				# The C++ toolbox stores drag data in Engine singleton metadata
+				if Engine.has_meta("_vg_active_drag"):
+					var drag_data = Engine.get_meta("_vg_active_drag")
+					if drag_data is Dictionary and drag_data.get("type") == "vg_control":
+						var result = _handle_vg_control_drop(event.position, drag_data)
+						Engine.remove_meta("_vg_active_drag")
+						if result:
+							return true
+		
+		# Double-click handling for event generation
+		if event.double_click:
+			if event.button_index == MOUSE_BUTTON_LEFT or event.button_index == MOUSE_BUTTON_RIGHT:
+				var sel = get_editor_interface().get_selection().get_selected_nodes()
+				if sel.size() == 1:
+					_generate_event_handler(sel[0])
+					return true
+	
 	return false
+
+## Handles dropping a vg_control onto the 2D canvas.
+## Instances the scene and adds it to the form root (NOT the control under cursor).
+## @param canvas_pos: The position in the canvas where drop occurred
+## @param drag_data: The drag data dictionary from C++ toolbox
+## @returns: true if drop was handled
+func _handle_vg_control_drop(canvas_pos: Vector2, drag_data: Dictionary) -> bool:
+	print("VisualGasic: _handle_vg_control_drop called at ", canvas_pos)
+	var scene_path = drag_data.get("scene_path", "")
+	if scene_path.is_empty():
+		printerr("VisualGasic: Empty scene_path in drag data")
+		return false
+	
+	var root = get_editor_interface().get_edited_scene_root()
+	print("VisualGasic: Scene root = ", root)
+	if not root:
+		printerr("VisualGasic: No scene root for drop")
+		return false
+	
+	# Load and instance the scene
+	var scene = load(scene_path)
+	if not scene:
+		printerr("VisualGasic: Could not load scene: ", scene_path)
+		return false
+	
+	var instance = scene.instantiate()
+	if not instance:
+		printerr("VisualGasic: Could not instantiate: ", scene_path)
+		return false
+	
+	print("VisualGasic: Adding ", instance.name, " to ", root.name)
+	# Add to form root (always, regardless of what's under cursor)
+	root.add_child(instance, true)  # force_readable_name = true
+	instance.owner = root
+	
+	# Position the control at drop location
+	# Transform from viewport coords to canvas coords
+	if instance is Control:
+		var viewport = get_editor_interface().get_editor_viewport_2d()
+		if viewport:
+			var canvas_xform = viewport.get_canvas_transform()
+			var world_pos = canvas_xform.affine_inverse() * canvas_pos
+			instance.position = world_pos.snapped(Vector2(8, 8))
+		else:
+			instance.position = canvas_pos.snapped(Vector2(8, 8))
+	
+	# Select the newly created node
+	var selection = get_editor_interface().get_selection()
+	selection.clear()
+	selection.add_node(instance)
+	
+	print("VisualGasic: Successfully dropped ", instance.name, " at ", instance.position)
+	return true
 
 ## Generates an event handler for the given node.
 ## Creates or opens the .vg script and inserts a Sub based on node type:
@@ -1024,7 +1702,7 @@ func setup_toolbox():
 		var real_toolbox = ClassDB.instantiate("VisualGasicToolbox")
 		real_toolbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		real_toolbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		real_toolbox.custom_minimum_size = Vector2(200, 300) 
+		# No minimum size - let the dock be resizable
 		real_toolbox.visible = true
 		toolbox.add_child(real_toolbox)
 	else:
@@ -1034,6 +1712,31 @@ func setup_toolbox():
 		
 	# Fallback/Additional Logic if needed
 	pass
+
+## Sets up a right-click context menu on the Toolbox with "Components..." shortcut.
+## This mirrors VB6's toolbox behavior where right-clicking opens the Components dialog.
+func _setup_toolbox_context_menu():
+	if not toolbox:
+		return
+	
+	var popup = PopupMenu.new()
+	popup.name = "ToolboxContextMenu"
+	popup.add_item("Components...", 0)
+	popup.add_separator()
+	popup.add_item("Add Tab...", 1)
+	popup.id_pressed.connect(func(id):
+		match id:
+			0: _on_components()
+			1: pass  # Future: Add custom toolbox tab
+	)
+	toolbox.add_child(popup)
+	
+	# Connect right-click on the toolbox container
+	toolbox.gui_input.connect(func(event):
+		if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_RIGHT:
+			popup.position = Vector2i(DisplayServer.mouse_get_position())
+			popup.popup()
+	)
 
 ## Registers a tool in the toolbox control palette.
 ## @param name: Display name in the toolbox (e.g., "Button", "TextEdit")
@@ -1057,6 +1760,34 @@ func _get_toolbox_instance():
 				return c
 	return null
 
+## Disables mouse input on all MenuBars in a scene tree.
+## This prevents MenuBars from intercepting editor drag-drop operations.
+## Called when a scene is opened for editing.
+## @param root: The root node to search from
+func _disable_menubar_mouse_in_editor(root: Node):
+	if not root:
+		return
+	# Find all MenuBars in the scene
+	_find_and_disable_menubars(root)
+
+## Recursively finds MenuBars and disables their mouse input.
+## @param node: Current node to check
+func _find_and_disable_menubars(node: Node):
+	if node is MenuBar:
+		# Disable mouse input on MenuBar and all its children
+		_set_mouse_filter_recursive(node, Control.MOUSE_FILTER_IGNORE)
+	# Check children
+	for child in node.get_children():
+		_find_and_disable_menubars(child)
+
+## Recursively sets mouse_filter on a Control and all its Control children.
+## @param node: The node to modify
+## @param filter: The mouse filter to set
+func _set_mouse_filter_recursive(node: Node, filter: Control.MouseFilter):
+	if node is Control:
+		node.mouse_filter = filter
+	for child in node.get_children():
+		_set_mouse_filter_recursive(child, filter)
 
 # =============================================================================
 # NODE ADDED HANDLER (Early MenuBar detection)
@@ -1125,9 +1856,46 @@ func _on_node_added(node: Node):
 		check_node = check_node.get_parent()
 	
 	if is_inside_menubar:
-		# This is a user control dropped inside MenuBar - defer reparenting
+		# This is a user control dropped inside MenuBar - reparent IMMEDIATELY
+		# We MUST do this before the editor tries to set owner, which would fail
 		print("VisualGasic: Redirecting user control from MenuBar: ", node.name)
-		call_deferred("_deferred_reparent_to_root", node, root)
+		_immediate_reparent_to_root(node, root)
+
+## Immediate reparenting for nodes dropped in wrong places like MenuBar.
+## Must be called synchronously during node_added to prevent owner errors.
+## @param node: The node to reparent
+## @param root: The scene root to reparent to
+func _immediate_reparent_to_root(node: Node, root: Node):
+	if not is_instance_valid(node) or not is_instance_valid(root):
+		return
+	
+	var parent = node.get_parent()
+	if not parent or parent == root:
+		return  # Already at root or no parent
+	
+	var node_pos = Vector2.ZERO
+	if node is Control:
+		node_pos = node.position
+	
+	print("VisualGasic: Reparenting ", node.name, " from ", parent.name, " to ", root.name)
+	
+	# Remove from bad parent and add to root
+	parent.remove_child(node)
+	root.add_child(node)
+	node.owner = root
+	
+	# Restore position (relative to root now)
+	if node is Control:
+		node.position = node_pos
+	
+	# Select the reparented node on next frame
+	call_deferred("_select_node", node)
+
+## Selects a node in the editor (deferred to avoid conflicts)
+func _select_node(node: Node):
+	if is_instance_valid(node):
+		get_editor_interface().get_selection().clear()
+		get_editor_interface().get_selection().add_node(node)
 
 ## Deferred reparenting to avoid issues during node_added signal.
 ## @param node: The node to reparent
@@ -1328,9 +2096,7 @@ func _setup_recent_projects_menu():
 	if menu_script:
 		_recent_projects_menu = menu_script.new()
 		_recent_projects_menu.project_selected.connect(_on_recent_project_selected)
-		get_editor_interface().get_base_control().add_child(_recent_projects_menu)
-		
-		# Add as submenu to Tools menu
+		# Note: add_tool_submenu_item handles parenting, don't add to base_control
 		add_tool_submenu_item("Recent Projects", _recent_projects_menu)
 		print("VisualGasic: Added Recent Projects menu")
 
@@ -1412,11 +2178,15 @@ func _check_script_editor_for_vg():
 	
 	# --- Inject Code Navigator above the code editor (VB6-style) ---
 	if _code_navigator and is_instance_valid(_code_navigator):
+		# Find the VBoxContainer parent of the CodeEdit — this is the
+		# script editor's internal layout that holds the code area.
 		var code_parent = code_edit.get_parent()
 		if code_parent and code_parent != _nav_injected_parent:
+			# Reparent navigator to the new script tab's container
 			if _code_navigator.get_parent():
 				_code_navigator.get_parent().remove_child(_code_navigator)
 			code_parent.add_child(_code_navigator)
+			# Move to index 0 so it appears ABOVE the CodeEdit
 			code_parent.move_child(_code_navigator, 0)
 			_nav_injected_parent = code_parent
 		_code_navigator.visible = true
@@ -1432,6 +2202,12 @@ func _check_script_editor_for_vg():
 	# Refresh navigator for the new script
 	if _code_navigator:
 		_code_navigator.refresh_objects()
+	
+	# NOTE: Do NOT apply a custom CodeHighlighter to .vg files!
+	# Godot's script editor uses the ScriptLanguageExtension's built-in
+	# highlighting methods (_get_comment_delimiters, _get_string_delimiters).
+	# Assigning a CodeHighlighter conflicts with this and causes crash.
+	# The C++ extension handles syntax highlighting natively.
 
 ## Handles keyboard shortcuts in the code editor.
 ## Ctrl+R triggers the rename refactoring dialog for the word under cursor.
@@ -1505,6 +2281,16 @@ func _is_valid_identifier(name: String) -> bool:
 		if not _is_identifier_char(c):
 			return false
 	return true
+
+## Applies VisualGasic syntax highlighting to a CodeEdit.
+## NOTE: This function is DISABLED because assigning a CodeHighlighter
+## to a CodeEdit editing a ScriptLanguageExtension script causes Godot to crash.
+## The C++ extension provides highlighting via _get_comment_delimiters() etc.
+## @param code_edit: The CodeEdit to apply highlighting to
+func _apply_vg_syntax_highlighting(_code_edit: CodeEdit) -> void:
+	# DISABLED - causes Godot crash (signal 11)
+	# Godot's script editor already uses VisualGasicLanguage's built-in methods
+	pass
 
 ## Handles script editor context menu item selection.
 ## Triggers the appropriate rename dialog based on selected option.
