@@ -27,6 +27,45 @@ var _known_controls: Array[String] = []
 var _known_variables: Array[String] = []
 var _completion_active: bool = false
 var _last_word: String = ""
+var _prev_caret_line: int = -1  # Track line changes for auto-capitalize
+
+# VB6 keywords with correct casing (for auto-capitalize on line leave)
+const VB6_KEYWORD_CASING: Dictionary = {
+	"dim": "Dim", "sub": "Sub", "function": "Function", "end": "End",
+	"if": "If", "then": "Then", "else": "Else", "elseif": "ElseIf",
+	"select": "Select", "case": "Case", "for": "For", "to": "To",
+	"step": "Step", "next": "Next", "each": "Each", "in": "In",
+	"do": "Do", "loop": "Loop", "while": "While", "wend": "Wend",
+	"until": "Until", "with": "With", "exit": "Exit", "goto": "GoTo",
+	"gosub": "GoSub", "call": "Call", "return": "Return",
+	"and": "And", "or": "Or", "not": "Not", "xor": "Xor",
+	"mod": "Mod", "is": "Is", "like": "Like", "as": "As",
+	"new": "New", "set": "Set", "let": "Let", "get": "Get",
+	"private": "Private", "public": "Public", "static": "Static",
+	"const": "Const", "redim": "ReDim", "preserve": "Preserve",
+	"byval": "ByVal", "byref": "ByRef", "optional": "Optional",
+	"paramarray": "ParamArray", "property": "Property",
+	"true": "True", "false": "False", "nothing": "Nothing",
+	"null": "Null", "empty": "Empty", "me": "Me",
+	"on": "On", "error": "Error", "resume": "Resume",
+	"print": "Print", "debug": "Debug",
+	"try": "Try", "catch": "Catch", "finally": "Finally",
+	"throw": "Throw", "raise": "Raise",
+	"type": "Type", "enum": "Enum", "struct": "Struct",
+	"class": "Class", "inherits": "Inherits", "implements": "Implements",
+	"whenever": "Whenever", "section": "Section",
+	"suspend": "Suspend", "local": "Local",
+	"option": "Option", "explicit": "Explicit",
+	"open": "Open", "close": "Close", "input": "Input",
+	"output": "Output", "append": "Append", "line": "Line",
+	"write": "Write", "read": "Read",
+	"doevents": "DoEvents", "erase": "Erase",
+	"integer": "Integer", "long": "Long", "single": "Single",
+	"double": "Double", "string": "String", "boolean": "Boolean",
+	"byte": "Byte", "date": "Date", "variant": "Variant",
+	"object": "Object", "dictionary": "Dictionary",
+	"iif": "IIf",
+}
 
 # Auto-indent settings
 var _indent_triggers: Array[String] = [
@@ -117,6 +156,7 @@ func _setup_auto_indent() -> void:
 func _connect_signals() -> void:
 	text_changed.connect(_on_text_changed)
 	code_completion_requested.connect(_on_code_completion_requested)
+	caret_changed.connect(_on_caret_changed)
 
 # =============================================================================
 # CODE COMPLETION
@@ -360,3 +400,130 @@ func _show_parameter_hint() -> void:
 			return
 	
 	tooltip_text = ""
+
+# =============================================================================
+# AUTO-CAPITALIZE KEYWORDS ON LINE LEAVE
+# =============================================================================
+
+func _on_caret_changed() -> void:
+	var current_line = get_caret_line()
+	if _prev_caret_line >= 0 and _prev_caret_line != current_line:
+		# Caret moved to a different line — capitalize keywords on the previous line
+		_auto_capitalize_line(_prev_caret_line)
+	_prev_caret_line = current_line
+
+func _auto_capitalize_line(line_idx: int) -> void:
+	if line_idx < 0 or line_idx >= get_line_count():
+		return
+	var line_text: String = get_line(line_idx)
+	if line_text.strip_edges().is_empty():
+		return
+	
+	# Skip comment lines (don't touch content after ')
+	var stripped = line_text.strip_edges()
+	if stripped.begins_with("'") or stripped.to_upper().begins_with("REM "):
+		return
+	
+	# Walk through the line replacing keywords with correct casing
+	var new_line: String = ""
+	var i: int = 0
+	var in_string: bool = false
+	var in_comment: bool = false
+	var line_len: int = line_text.length()
+	
+	while i < line_len:
+		var ch: String = line_text[i]
+		
+		# Toggle string mode
+		if ch == "\"" and not in_comment:
+			in_string = not in_string
+			new_line += ch
+			i += 1
+			continue
+		
+		# Enter comment mode
+		if ch == "'" and not in_string:
+			# Append rest of line as-is
+			new_line += line_text.substr(i)
+			break
+		
+		# Inside a string literal — pass through unchanged
+		if in_string:
+			new_line += ch
+			i += 1
+			continue
+		
+		# Collect a word (identifier)
+		if _is_ident_char(ch):
+			var word_start: int = i
+			while i < line_len and _is_ident_char(line_text[i]):
+				i += 1
+			var word: String = line_text.substr(word_start, i - word_start)
+			var lower_word: String = word.to_lower()
+			
+			# Check if it's a VB6 keyword
+			if VB6_KEYWORD_CASING.has(lower_word):
+				new_line += VB6_KEYWORD_CASING[lower_word]
+			else:
+				# Also check builtin functions for proper casing
+				var matched_builtin: bool = false
+				for func_info in VGIntelliSense.BUILTIN_FUNCTIONS:
+					if func_info["name"].to_lower() == lower_word:
+						new_line += func_info["name"]
+						matched_builtin = true
+						break
+				if not matched_builtin:
+					new_line += word  # Keep original casing
+		else:
+			new_line += ch
+			i += 1
+	
+	# Only update the line if it actually changed
+	if new_line != line_text:
+		# Save caret position — we're editing a line the caret is NOT on
+		set_line(line_idx, new_line)
+
+func _is_ident_char(ch: String) -> bool:
+	var code: int = ch.unicode_at(0)
+	return (code >= 65 and code <= 90) or (code >= 97 and code <= 122) \
+		or (code >= 48 and code <= 57) or ch == "_"
+
+# =============================================================================
+# PROCEDURE SEPARATOR LINES
+# =============================================================================
+
+# Regex patterns for procedure boundaries
+var _proc_separator_regex: RegEx = null
+
+func _ready_separators() -> void:
+	_proc_separator_regex = RegEx.new()
+	# Match Sub, Function, Property declarations (with optional access modifier)
+	_proc_separator_regex.compile("^\\s*(?:(?:Public|Private|Static)\\s+)?(?:Sub|Function|Property)\\s+")
+
+func _draw() -> void:
+	if _proc_separator_regex == null:
+		_ready_separators()
+	
+	# Draw thin gray separator lines above each procedure declaration
+	var first_visible: int = get_first_visible_line()
+	var last_visible: int = first_visible + get_visible_line_count() + 1
+	last_visible = mini(last_visible, get_line_count())
+	
+	var separator_color: Color = Color(0.35, 0.35, 0.4, 0.6)
+	var line_width: float = 1.0
+	
+	for line_idx in range(first_visible, last_visible):
+		var line_text: String = get_line(line_idx)
+		if _proc_separator_regex.search(line_text):
+			# Don't draw separator above the very first line
+			if line_idx == 0:
+				continue
+			# Get the Y position for the top of this line
+			var line_pos: Vector2i = get_line_column_at_pos(Vector2(0, 0))
+			# Calculate Y offset relative to the editor viewport
+			var row_height: float = get_line_height()
+			var y_offset: float = (line_idx - first_visible) * row_height
+			# Draw the separator line across the full width
+			var from_x: float = get_gutter_width() if has_method("get_gutter_width") else 48.0
+			var to_x: float = size.x
+			draw_line(Vector2(from_x, y_offset), Vector2(to_x, y_offset), separator_color, line_width)

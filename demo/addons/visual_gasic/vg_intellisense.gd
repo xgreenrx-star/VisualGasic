@@ -93,7 +93,7 @@ const BUILTIN_FUNCTIONS: Array[Dictionary] = [
 	{"name": "Print", "signature": "Print(text As String)", "description": "Outputs text to the console"},
 	{"name": "MsgBox", "signature": "MsgBox(prompt As String, [buttons], [title]) As Integer", "description": "Displays a message dialog"},
 	{"name": "InputBox", "signature": "InputBox(prompt As String, [title], [default]) As String", "description": "Shows input dialog"},
-	{"name": "Debug.Print", "signature": "Debug.Print(text As String)", "description": "Outputs to debug console"},
+	{"name": "Debug.Print", "signature": "Debug.Print(text As String)", "description": "Outputs to the Immediate Window"},
 	
 	# String Functions
 	{"name": "Len", "signature": "Len(str As String) As Integer", "description": "Returns string length"},
@@ -185,6 +185,9 @@ const BUILTIN_FUNCTIONS: Array[Dictionary] = [
 	{"name": "RmDir", "signature": "RmDir path As String", "description": "Removes directory"},
 	{"name": "ChDir", "signature": "ChDir path As String", "description": "Changes current directory"},
 	{"name": "CurDir", "signature": "CurDir() As String", "description": "Returns current directory"},
+	
+	# Color Functions
+	{"name": "RGB", "signature": "RGB(red As Integer, green As Integer, blue As Integer) As Color", "description": "Creates color from 0-255 RGB values"},
 	
 	# Godot Integration
 	{"name": "get_node", "signature": "get_node(path As String) As Node", "description": "Gets node by path"},

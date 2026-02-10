@@ -164,6 +164,7 @@ void SnippetHelper::initialize_parameter_hints() {
     (*parameter_hints)["DrawLine"] = "DrawLine(x1 As Double, y1 As Double, x2 As Double, y2 As Double, color As Color)";
     (*parameter_hints)["DrawRect"] = "DrawRect(x As Double, y As Double, width As Double, height As Double, color As Color)";
     (*parameter_hints)["DrawCircle"] = "DrawCircle(x As Double, y As Double, radius As Double, color As Color)";
+    (*parameter_hints)["RGB"] = "RGB(red As Integer, green As Integer, blue As Integer) As Color";
     (*parameter_hints)["PlaySound"] = "PlaySound(soundPath As String, volume As Double)";
     (*parameter_hints)["SetTitle"] = "SetTitle(title As String)";
     (*parameter_hints)["ChangeScene"] = "ChangeScene(scenePath As String)";

@@ -1,0 +1,70 @@
+' Form43.vg - Inventory Screen
+' Generated from Visual Gasic template
+Option Explicit
+
+' Inventory Screen
+Dim inventory As Array
+Dim selectedSlot As Integer
+
+Sub Form_Load()
+	selectedSlot = -1
+	LoadInventory()
+	PopulateGrid()
+End Sub
+
+Sub LoadInventory()
+	' TODO: Load from player data
+	inventory = []
+End Sub
+
+Sub PopulateGrid()
+	' Create inventory slots
+	Dim i As Integer
+	For i = 0 To 19
+		Dim slot As Button
+		Set slot = Button.new()
+		slot.custom_minimum_size = Vector2(64, 64)
+		slot.name = "Slot" & i
+		slot.pressed.connect(AddressOf OnSlotClick, [i])
+		' Add to a grid container (you'll need to create one)
+		
+		If i < inventory.size() Then
+			slot.text = inventory[i].name
+		End If
+	Next i
+End Sub
+
+Sub OnSlotClick(slotIndex As Integer)
+	selectedSlot = slotIndex
+	If slotIndex < inventory.size() Then
+		Dim item As Dictionary
+		item = inventory[slotIndex]
+		lblItemName.Text = item.name
+		lblItemDesc.Text = item.description
+	Else
+		lblItemName.Text = "Empty Slot"
+		lblItemDesc.Text = ""
+	End If
+End Sub
+
+Sub btnUse_Click()
+	If selectedSlot < 0 Or selectedSlot >= inventory.size() Then Exit Sub
+	
+	Dim item As Dictionary
+	item = inventory[selectedSlot]
+	' TODO: Use item logic
+	Print "Using " & item.name
+End Sub
+
+Sub btnDrop_Click()
+	If selectedSlot < 0 Or selectedSlot >= inventory.size() Then Exit Sub
+	
+	inventory.remove_at(selectedSlot)
+	PopulateGrid()
+	lblItemName.Text = "Select an item"
+	lblItemDesc.Text = ""
+End Sub
+
+Sub btnClose_Click()
+	queue_free()
+End Sub

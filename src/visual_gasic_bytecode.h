@@ -96,6 +96,7 @@ enum OpCode {
 
     // Advanced
     OP_PRINT,          // [OP] - Print TOS
+    OP_DEBUG_PRINT,    // [OP] - Debug.Print TOS → Immediate Window via debugger protocol
     OP_NEW_ARRAY,      // [OP] [SIZE]
     OP_NEW_ARRAY_I64,  // [OP] [SIZE]
     OP_NEW_DICT,       // [OP]

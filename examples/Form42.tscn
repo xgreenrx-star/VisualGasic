@@ -76,7 +76,11 @@ text = "Button2"
 [node name="txtTest" parent="." instance=ExtResource("7")]
 offset_left = 272.0
 offset_top = 64.0
+offset_right = 453.0
+offset_bottom = 95.0
 
 [node name="LineEdit2" parent="." instance=ExtResource("7")]
 offset_left = 152.0
 offset_top = 176.0
+offset_right = 333.0
+offset_bottom = 207.0

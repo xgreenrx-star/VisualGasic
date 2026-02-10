@@ -41,6 +41,7 @@ public:
 
 private:
     void error(const String& message);
+    void synchronize(); // Error recovery: skip to next statement boundary
 
     SubDefinition* parse_sub();
     StructDefinition* parse_struct();

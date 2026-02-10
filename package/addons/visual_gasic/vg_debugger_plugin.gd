@@ -9,6 +9,7 @@ signal variables_list_received(variables: Dictionary)
 signal whenever_sections_received(sections: Array)
 signal debug_state_received(state: Dictionary)
 signal debug_break_hit(file: String, line: int)
+signal debug_print_received(text: String)
 
 var _active_session: EditorDebuggerSession = null
 var _pending_requests: Dictionary = {}
@@ -104,6 +105,12 @@ func _capture(message: String, data: Array, session_id: int) -> bool:
 				# Navigate directly to the script line
 				_navigate_to_script_line(data[0], data[1])
 				debug_break_hit.emit(data[0], data[1])
+			return true
+		
+		"debug_print":
+			# Debug.Print output → route to Immediate Window
+			if data.size() >= 1:
+				debug_print_received.emit(String(data[0]))
 			return true
 	
 	return false

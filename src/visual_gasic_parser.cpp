@@ -68,10 +68,40 @@ void VisualGasicParser::error(const String& message) {
     errors.push_back(err);
     error_count++;
     
+    // Print the error for debugging
+    UtilityFunctions::print("Parser Error: ", message);
+    
     // If we've hit too many errors, the parser state is likely corrupted
-    // Print a warning to help debug
     if (error_count >= MAX_ERRORS) {
         UtilityFunctions::printerr("Parser Error: Too many errors (", error_count, "), stopping parse to prevent crash");
+    }
+}
+
+// Error recovery: skip tokens until we reach a statement boundary
+// (newline, EOF, or a keyword that starts a new statement)
+void VisualGasicParser::synchronize() {
+    while (!is_at_end()) {
+        // Stop at newline — next line is a new statement
+        if (check(VisualGasicTokenizer::TOKEN_NEWLINE)) {
+            advance();
+            return;
+        }
+        if (check(VisualGasicTokenizer::TOKEN_EOF)) return;
+        
+        // Stop at keywords that start statements
+        if (check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
+            String kw = String(peek().value).to_lower();
+            if (kw == "sub" || kw == "function" || kw == "dim" || kw == "if" ||
+                kw == "for" || kw == "do" || kw == "while" || kw == "select" ||
+                kw == "end" || kw == "exit" || kw == "return" || kw == "print" ||
+                kw == "set" || kw == "let" || kw == "call" || kw == "on" ||
+                kw == "goto" || kw == "gosub" || kw == "redim" || kw == "erase" ||
+                kw == "open" || kw == "close" || kw == "type" || kw == "enum" ||
+                kw == "const" || kw == "public" || kw == "private" || kw == "static") {
+                return;
+            }
+        }
+        advance();
     }
 }
 
@@ -256,8 +286,13 @@ ModuleNode* VisualGasicParser::parse(const Vector<VisualGasicTokenizer::Token>& 
             continue;
         }
 
-        // Skip unknown
-        current_pos++;
+        // Skip unknown — use synchronize to find next valid statement boundary
+        if (peek().type == VisualGasicTokenizer::TOKEN_ERROR) {
+            error("Unexpected character at module level: " + String(peek().value));
+            synchronize();
+        } else {
+            current_pos++;
+        }
     }
 
     // If parsing recorded errors, return nullptr so callers know parsing failed.
@@ -448,6 +483,13 @@ SubDefinition* VisualGasicParser::parse_sub() {
     while (!is_at_end() && error_count < MAX_ERRORS) {
         VisualGasicTokenizer::Token t = peek();
 
+        // Skip error tokens in Sub/Function body to prevent crashes
+        if (t.type == VisualGasicTokenizer::TOKEN_ERROR) {
+            error("Unexpected character in " + String(is_function ? "Function" : "Sub") + " " + name + ": " + String(t.value));
+            synchronize();
+            continue;
+        }
+
         if ((t.type == VisualGasicTokenizer::TOKEN_IDENTIFIER || t.type == VisualGasicTokenizer::TOKEN_KEYWORD) && t.value == "End") {
            VisualGasicTokenizer::Token next = peek(1);
            String end_type = next.value;
@@ -566,7 +608,17 @@ EventDefinition* VisualGasicParser::parse_event() {
 }
 
 Statement* VisualGasicParser::parse_statement() {
+    // Bail early if too many errors — prevents cascade crashes
+    if (error_count >= MAX_ERRORS) return nullptr;
+
     if (check(VisualGasicTokenizer::TOKEN_NEWLINE) || check(VisualGasicTokenizer::TOKEN_EOF)) {
+        return nullptr;
+    }
+
+    // Skip TOKEN_ERROR tokens that slipped past _reload() — prevents segfault
+    if (peek().type == VisualGasicTokenizer::TOKEN_ERROR) {
+        error("Unexpected character: " + String(peek().value));
+        synchronize();
         return nullptr;
     }
     
@@ -873,6 +925,23 @@ Statement* VisualGasicParser::parse_statement() {
     }
     
     if (t.type == VisualGasicTokenizer::TOKEN_IDENTIFIER) {
+        // Handle Debug.Print → routes output to Immediate Window
+        if (t.value.operator String().nocasecmp_to("Debug") == 0 
+            && current_pos + 2 < tokens.size()
+            && tokens[current_pos + 1].type == VisualGasicTokenizer::TOKEN_OPERATOR
+            && tokens[current_pos + 1].value == "."
+            && tokens[current_pos + 2].value.operator String().nocasecmp_to("Print") == 0) {
+            advance(); // consume "Debug"
+            advance(); // consume "."
+            advance(); // consume "Print"
+            PrintStatement* ps = parse_print();
+            if (ps) {
+                ps->is_debug = true;
+                ps->line = statement_line;
+            }
+            return ps;
+        }
+        
         // Check for Label: Identifier followed by Colon
         if (current_pos + 1 < tokens.size() && tokens[current_pos + 1].type == VisualGasicTokenizer::TOKEN_COLON) {
             String label_name = t.value;

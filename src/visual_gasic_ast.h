@@ -245,7 +245,8 @@ struct Statement : public ASTNode {
 struct PrintStatement : public Statement {
     ExpressionNode* expression;
     ExpressionNode* file_number; // Optional, formatted as #N
-    PrintStatement() : Statement(STMT_PRINT), expression(nullptr), file_number(nullptr) {}
+    bool is_debug;  // True for Debug.Print — routes to Immediate Window
+    PrintStatement() : Statement(STMT_PRINT), expression(nullptr), file_number(nullptr), is_debug(false) {}
     virtual ~PrintStatement() { 
         if(expression) delete expression; 
         if(file_number) delete file_number;

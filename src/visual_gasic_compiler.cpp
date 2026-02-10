@@ -1890,7 +1890,7 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             PrintStatement* s = (PrintStatement*)stmt;
             if (s->expression) {
                 compile_expression(s->expression);
-                emit_byte(OP_PRINT);
+                emit_byte(s->is_debug ? OP_DEBUG_PRINT : OP_PRINT);
             }
             break;
         }

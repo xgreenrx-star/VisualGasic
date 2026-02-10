@@ -89,6 +89,9 @@ func set_debugger_plugin(plugin: EditorDebuggerPlugin) -> void:
 			_debugger_plugin.debug_break_hit.connect(_on_debug_break_hit)
 		if _debugger_plugin.has_signal("debug_state_received"):
 			_debugger_plugin.debug_state_received.connect(_on_debug_state_received)
+		# Connect Debug.Print output routing
+		if _debugger_plugin.has_signal("debug_print_received"):
+			_debugger_plugin.debug_print_received.connect(_on_debug_print_received)
 		
 		# Connect call stack panel to debugger
 		if _right_tabs:
@@ -2171,6 +2174,10 @@ func _on_debug_break_hit(file: String, line: int) -> void:
 		_right_tabs.current_tab = 0  # Vars tab
 	# Navigate to the line in the script editor
 	_go_to_script_line(file, line)
+
+func _on_debug_print_received(text: String) -> void:
+	"""Called when a Debug.Print statement is executed in the running game."""
+	_append_output("[color=cyan][Debug] " + text + "[/color]\n")
 
 func _on_debug_state_received(state: Dictionary) -> void:
 	"""Called when debug state is received from game."""

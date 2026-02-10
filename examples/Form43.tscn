@@ -1,0 +1,73 @@
+[gd_scene load_steps=3 format=3 uid="uid://bw5gex8b6oklx"]
+
+[ext_resource type="Script" uid="uid://c08tpx8tfolnk" path="res://Form43.vg" id="1_il51y"]
+[ext_resource type="Script" uid="uid://b8c5jy6r1ytsh" path="res://addons/visual_gasic/form_editor_helper.gd" id="2_tvtj0"]
+
+[node name="Form43" type="Window"]
+positional_shadow_atlas_quad_0 = null
+positional_shadow_atlas_quad_1 = null
+positional_shadow_atlas_quad_2 = null
+positional_shadow_atlas_quad_3 = null
+title = "Form43"
+position = Vector2i(10, 36)
+size = Vector2i(800, 600)
+unresizable = null
+borderless = null
+always_on_top = null
+transparent = null
+unfocusable = null
+popup_window = null
+extend_to_title = null
+mouse_passthrough = null
+sharp_corners = null
+exclude_from_capture = null
+popup_wm_hint = null
+minimize_disabled = null
+maximize_disabled = null
+script = ExtResource("1_il51y")
+
+[node name="_FormBackground" type="Panel" parent="."]
+offset_right = 800.0
+offset_bottom = 600.0
+script = ExtResource("2_tvtj0")
+
+[node name="lblTitle" type="Label" parent="."]
+offset_left = 20.0
+offset_top = 20.0
+offset_right = 220.0
+offset_bottom = 50.0
+text = "Inventory"
+
+[node name="lblItemName" type="Label" parent="."]
+offset_left = 540.0
+offset_top = 60.0
+offset_right = 780.0
+offset_bottom = 90.0
+text = "Select an item"
+
+[node name="lblItemDesc" type="Label" parent="."]
+offset_left = 540.0
+offset_top = 100.0
+offset_right = 780.0
+offset_bottom = 300.0
+
+[node name="btnUse" type="Button" parent="."]
+offset_left = 540.0
+offset_top = 320.0
+offset_right = 650.0
+offset_bottom = 360.0
+text = "Use"
+
+[node name="btnDrop" type="Button" parent="."]
+offset_left = 670.0
+offset_top = 320.0
+offset_right = 780.0
+offset_bottom = 360.0
+text = "Drop"
+
+[node name="btnClose" type="Button" parent="."]
+offset_left = 600.0
+offset_top = 540.0
+offset_right = 720.0
+offset_bottom = 580.0
+text = "Close"

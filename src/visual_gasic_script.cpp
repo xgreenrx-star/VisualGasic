@@ -115,6 +115,7 @@ String opcode_name(uint8_t op) {
         OP_NAME_CASE(OP_RETURN);
         OP_NAME_CASE(OP_RETURN_VALUE);
         OP_NAME_CASE(OP_PRINT);
+        OP_NAME_CASE(OP_DEBUG_PRINT);
         OP_NAME_CASE(OP_NEW_ARRAY);
         OP_NAME_CASE(OP_NEW_ARRAY_I64);
         OP_NAME_CASE(OP_NEW_DICT);
@@ -458,11 +459,15 @@ Error VisualGasicScript::_reload(bool p_keep_state) {
     // Reload logic: Validate tokens
     String processed_code = resolve_includes("", source_code);
     Vector<VisualGasicTokenizer::Token> tokens = tokenizer.tokenize(processed_code);
-    if (tokens.size() > 0 && tokens[tokens.size()-1].type == VisualGasicTokenizer::TOKEN_ERROR) {
-        String err_msg = tokens[tokens.size()-1].value;
-        UtilityFunctions::print("Script Reload Error (Token): ", err_msg);
-        last_reload_had_error = true;
-        return ERR_PARSE_ERROR;
+    // Scan ALL tokens for errors (not just the last — error tokens in the middle
+    // can cause the parser to enter an invalid state and crash)
+    for (int i = 0; i < tokens.size(); i++) {
+        if (tokens[i].type == VisualGasicTokenizer::TOKEN_ERROR) {
+            String err_msg = tokens[i].value;
+            UtilityFunctions::print("Script Reload Error (Token): ", err_msg);
+            last_reload_had_error = true;
+            return ERR_PARSE_ERROR;
+        }
     }
     
     // Re-parse

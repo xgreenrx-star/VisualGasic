@@ -3932,6 +3932,15 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                 } else {
                      raise_error("Bad File Name or Number");
                 }
+            } else if (s->is_debug) {
+                // Debug.Print → route to Immediate Window via debugger protocol
+                UtilityFunctions::print(val);  // Also print to Output console
+                EngineDebugger* engine_debugger = EngineDebugger::get_singleton();
+                if (engine_debugger && engine_debugger->is_active()) {
+                    Array data;
+                    data.push_back(String(val));
+                    engine_debugger->send_message("visualgasic:debug_print", data);
+                }
             } else {
                 UtilityFunctions::print(val);
             }
@@ -8494,6 +8503,29 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                             if (dbg && dbg->has_method("append_text")) {
                                 dbg->call("append_text", String(val) + "\n");
                             }
+                        }
+                    }
+                }
+                break;
+            }
+            case OP_DEBUG_PRINT: {
+                // Debug.Print → route to Immediate Window via debugger protocol
+                if (!ensure_stack(1)) { success = false; goto cleanup; }
+                Variant val = pop_value();
+                UtilityFunctions::print(val);  // Also print to Output console
+                EngineDebugger* engine_debugger = EngineDebugger::get_singleton();
+                if (engine_debugger && engine_debugger->is_active()) {
+                    Array data;
+                    data.push_back(String(val));
+                    engine_debugger->send_message("visualgasic:debug_print", data);
+                }
+                // Also try scene tree approach as fallback
+                if (owner) {
+                    Node *owner_node = Object::cast_to<Node>(owner);
+                    if (owner_node && owner_node->is_inside_tree()) {
+                        Node *console = owner_node->get_tree()->get_root()->find_child("ImmediateWindow", true, false);
+                        if (console && console->has_method("append_text")) {
+                            console->call("append_text", "[Debug] " + String(val) + "\n");
                         }
                     }
                 }

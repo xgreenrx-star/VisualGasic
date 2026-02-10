@@ -360,6 +360,12 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
         if (args.size() == 4) return Color((int)args[0] / 255.0f, (int)args[1] / 255.0f, (int)args[2] / 255.0f, (int)args[3] / 255.0f);
         return Color();
     }
+    // RGB() - VB6-style color function (0-255 per channel)
+    if (METHOD_IS("rgb")) {
+        r_handled = true;
+        if (args.size() == 3) return Color((int)args[0] / 255.0f, (int)args[1] / 255.0f, (int)args[2] / 255.0f);
+        return Color();
+    }
     if (METHOD_IS("rect2")) {
         r_handled = true;
         if (args.size() == 4) return Rect2((real_t)(double)args[0], (real_t)(double)args[1], (real_t)(double)args[2], (real_t)(double)args[3]);
