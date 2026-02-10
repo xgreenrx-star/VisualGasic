@@ -84,7 +84,7 @@ func _init():
 	name = "Properties"
 	size_flags_vertical = SIZE_EXPAND_FILL
 	size_flags_horizontal = SIZE_EXPAND_FILL
-	custom_minimum_size = Vector2(220, 200)  # Wide enough to show property grid; resizable via dock splitter
+	custom_minimum_size = Vector2(180, 100)  # Reasonable min for dock; Godot handles resize via dock splitters
 	
 	# === 1. Object Dropdown (VB6-style, at the very top) ===
 	_object_dropdown = OptionButton.new()
@@ -172,7 +172,7 @@ func _refresh_object_dropdown():
 	
 	for i in _all_form_nodes.size():
 		var node = _all_form_nodes[i]
-		var label = node.name + "  " + node.get_class()
+		var label = str(node.name) + "  " + node.get_class()
 		_object_dropdown.add_item(label)
 		_object_dropdown.set_item_metadata(i, node)
 	
