@@ -84,7 +84,7 @@ func _init():
 	name = "Properties"
 	size_flags_vertical = SIZE_EXPAND_FILL
 	size_flags_horizontal = SIZE_EXPAND_FILL
-	custom_minimum_size = Vector2(150, 100)  # Reduced for better dock resizing
+	custom_minimum_size = Vector2(220, 200)  # Wide enough to show property grid; resizable via dock splitter
 	
 	# === 1. Object Dropdown (VB6-style, at the very top) ===
 	_object_dropdown = OptionButton.new()

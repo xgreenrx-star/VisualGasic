@@ -176,6 +176,9 @@ func _dock_vb6_panels():
 	# Hide standard Godot docks that clutter the VG layout
 	_hide_godot_docks()
 
+	# Adjust dock split widths so panels aren't squished (deferred so layout is settled)
+	call_deferred("_adjust_dock_widths")
+
 ## Remove Visual Gasic panels from the editor docks.
 func _undock_vb6_panels():
 	if not editor_plugin:
@@ -198,6 +201,71 @@ func _undock_vb6_panels():
 		editor_plugin.remove_control_from_docks(_properties_inspector)
 		_properties_inspector.visible = false
 		_properties_docked = false
+
+# =============================================================================
+# DOCK WIDTH ADJUSTMENT
+# =============================================================================
+
+## Desired pixel widths for the VB6 dock panels.
+const LEFT_DOCK_WIDTH := 230
+const RIGHT_DOCK_WIDTH := 280
+
+## After docking, walk up the node tree from each panel to find the parent
+## HSplitContainer and adjust its split_offset so panels aren't squished.
+## Must be called deferred (after the editor has finished layout).
+func _adjust_dock_widths():
+	# --- Left dock (Toolbox) ---
+	if _toolbox and is_instance_valid(_toolbox):
+		var hsplit = _find_dock_hsplit(_toolbox)
+		if hsplit:
+			# Toolbox is in the FIRST child of this HSplitContainer.
+			# A positive split_offset pushes the divider right → more room for left child.
+			var first_child = hsplit.get_child(0) if hsplit.get_child_count() > 0 else null
+			if first_child:
+				var current_w = first_child.size.x
+				if current_w < LEFT_DOCK_WIDTH:
+					hsplit.split_offset += (LEFT_DOCK_WIDTH - int(current_w))
+
+	# --- Right dock (Properties / Project Explorer) ---
+	var right_panel = _properties_inspector if (_properties_inspector and is_instance_valid(_properties_inspector)) else _project_explorer
+	if right_panel and is_instance_valid(right_panel):
+		var hsplit = _find_dock_hsplit(right_panel)
+		if hsplit:
+			# Right panels are in the SECOND (last) child of the HSplitContainer.
+			var last_child = hsplit.get_child(hsplit.get_child_count() - 1) if hsplit.get_child_count() > 1 else null
+			if last_child:
+				var current_w = last_child.size.x
+				if current_w < RIGHT_DOCK_WIDTH:
+					hsplit.split_offset -= (RIGHT_DOCK_WIDTH - int(current_w))
+
+	# Ensure the split dragger handles are visible (not collapsed)
+	_ensure_draggers_visible()
+
+## Walk up from a docked control to find the HSplitContainer that governs
+## the dock column width.  Stops at the first HSplitContainer that has at
+## least two children (the split between dock area and center/other docks).
+func _find_dock_hsplit(control: Control) -> HSplitContainer:
+	var node = control.get_parent()
+	while node:
+		if node is HSplitContainer and node.get_child_count() >= 2:
+			return node
+		node = node.get_parent()
+	return null
+
+## Make sure all HSplitContainer dragger handles in the main editor are
+## visible so the user can drag to resize panels.
+func _ensure_draggers_visible():
+	var base = EditorInterface.get_base_control()
+	if not base:
+		return
+	for split_node in base.find_children("*", "HSplitContainer", true, false):
+		var hsplit = split_node as HSplitContainer
+		if hsplit:
+			hsplit.dragger_visibility = SplitContainer.DRAGGER_VISIBLE
+	for split_node in base.find_children("*", "VSplitContainer", true, false):
+		var vsplit = split_node as VSplitContainer
+		if vsplit:
+			vsplit.dragger_visibility = SplitContainer.DRAGGER_VISIBLE
 
 # =============================================================================
 # GODOT DOCK VISIBILITY

@@ -141,6 +141,7 @@ func _enter_tree():
 	toolbox.name = "Toolbox"
 	toolbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	toolbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	toolbox.custom_minimum_size = Vector2(200, 200)  # Ensure dock gets proper width
 	var label = Label.new()
 	label.text = "Visual Gasic Debug"
 	toolbox.add_child(label)
@@ -1702,7 +1703,7 @@ func setup_toolbox():
 		var real_toolbox = ClassDB.instantiate("VisualGasicToolbox")
 		real_toolbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		real_toolbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		# No minimum size - let the dock be resizable
+		real_toolbox.custom_minimum_size = Vector2(200, 200)  # Override C++ default (100px) to prevent squishing
 		real_toolbox.visible = true
 		toolbox.add_child(real_toolbox)
 	else:

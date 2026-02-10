@@ -41,7 +41,7 @@ func _init():
 	name = "Project"
 	size_flags_vertical = SIZE_EXPAND_FILL
 	size_flags_horizontal = SIZE_EXPAND_FILL
-	custom_minimum_size = Vector2(150, 100)
+	custom_minimum_size = Vector2(220, 200)  # Wide enough for project tree; resizable via dock splitter
 
 	# --- Title Bar (VB6-style dark blue) ---
 	var title = Label.new()
