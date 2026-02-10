@@ -70,8 +70,23 @@ var _current_code_edit: CodeEdit
 ## Timer to periodically check for .vg files in script editor
 var _script_editor_check_timer: Timer
 
+## Code Navigator bar (VB6-style Object/Event dropdowns above code editor)
+var _code_navigator = null
+
+## The VBoxContainer we injected the navigator into (script editor internal)
+var _nav_injected_parent = null
+
 ## Tracks if a vg_control drag was in progress (for detecting drag end)
 var _vg_drag_active: bool = false
+
+## VB6 Layout Manager — toolbar toggle for VB6/Godot IDE modes
+var _layout_manager = null
+
+## VB6-style Project Explorer panel (tree of Forms/Modules)
+var _project_explorer = null
+
+## VB6-style Properties Inspector (managed by layout manager)
+var _properties_inspector = null
 
 # =============================================================================
 # PLUGIN LIFECYCLE
@@ -124,23 +139,15 @@ func _enter_tree():
 	label.text = "Visual Gasic Debug"
 	toolbox.add_child(label)
 	
-	# Import Buttons
-	var btn_import_proj = Button.new()
-	btn_import_proj.text = "Import VB6 Project..."
-	btn_import_proj.pressed.connect(_on_import_vb6_project)
-	toolbox.add_child(btn_import_proj)
-	
-	var btn_import_form = Button.new()
-	btn_import_form.text = "Import VB6 Form..."
-	btn_import_form.pressed.connect(_on_import_vb6_form)
-	toolbox.add_child(btn_import_form)
-	
-	toolbox.add_child(HSeparator.new())
-	
 	var btn_new_form = Button.new()
 	btn_new_form.text = "New Form"
 	btn_new_form.pressed.connect(_on_new_form)
 	toolbox.add_child(btn_new_form)
+	
+	var btn_new_module = Button.new()
+	btn_new_module.text = "New Module"
+	btn_new_module.pressed.connect(_on_new_module)
+	toolbox.add_child(btn_new_module)
 	
 	setup_toolbox()
 
@@ -148,28 +155,25 @@ func _enter_tree():
 	# setup_toolbox adds a child. We want our buttons to persist.
 	# But C++ toolbox might take up all space.
 	# Let's Move buttons to TOP if setup_toolbox added below.
-	if toolbox.get_child_count() > 3:
-		toolbox.move_child(btn_import_proj, 0)
-		toolbox.move_child(btn_import_form, 1)
 	
-	# Add Code Navigator
-	var nav = loading_code_navigator()
-	if nav:
-		toolbox.add_child(nav)
-		nav.setup(self)
+	# Create Code Navigator (will be injected above the code editor, VB6-style)
+	_code_navigator = loading_code_navigator()
+	if _code_navigator:
+		_code_navigator.setup(self)
 		# Connect debugger plugin for breakpoint navigation
-		if debugger_plugin and nav.has_method("set_debugger_plugin"):
-			nav.set_debugger_plugin(debugger_plugin)
+		if debugger_plugin and _code_navigator.has_method("set_debugger_plugin"):
+			_code_navigator.set_debugger_plugin(debugger_plugin)
+		# Hide until injected into script editor
+		_code_navigator.visible = false
 
-	# Add Property Inspector
-	var props = loading_inspector()
-	if props:
-		add_control_to_dock(EditorPlugin.DOCK_SLOT_RIGHT_BL, props)
-		props.setup(self)
+	# Create Property Inspector (docking controlled by VB6 Layout Manager)
+	_properties_inspector = loading_inspector()
+	if _properties_inspector:
+		_properties_inspector.setup(self)
+		_properties_inspector.visible = false  # Hidden until VB6 mode
 
-	# Setup Dock
-	add_control_to_dock(EditorPlugin.DOCK_SLOT_LEFT_BL, toolbox)
-	print("Manually added Toolbox (GDScript Wrapper) to Dock Left BL")
+	# Toolbox created but NOT docked — docking controlled by Layout Manager
+	toolbox.visible = false  # Hidden until Visual Gasic mode
 	
 	# Add Alignment Toolbar for form designer
 	var alignment_script = load("res://addons/visual_gasic/alignment_toolbar.gd")
@@ -189,10 +193,26 @@ func _enter_tree():
 		add_control_to_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, form_preview_toolbar)
 		print("VisualGasic: Added form preview toolbar to canvas editor")
 	
+	# Create VB6 Project Explorer (right-upper dock in VB6 mode)
+	var proj_explorer_script = load("res://addons/visual_gasic/vb6_project_explorer.gd")
+	if proj_explorer_script:
+		_project_explorer = proj_explorer_script.new()
+		_project_explorer.setup(self)
+		_project_explorer.visible = false  # Hidden until VB6 mode is activated
+
+	# Create VB6 Layout Manager toggle (goes in the canvas editor toolbar)
+	var layout_mgr_script = load("res://addons/visual_gasic/vb6_layout_manager.gd")
+	if layout_mgr_script:
+		_layout_manager = layout_mgr_script.new()
+		_layout_manager.setup(self, toolbox, _project_explorer, _properties_inspector)
+		add_control_to_container(EditorPlugin.CONTAINER_TOOLBAR, _layout_manager)
+		print("VisualGasic: Added Visual Gasic/Godot layout toggle to main toolbar")
+
 	_post_init()
 	_setup_script_editor_context_menu()
 	_setup_recent_projects_menu()
 
+	add_tool_menu_item("New Module...", Callable(self, "_on_new_module"))
 	add_tool_menu_item("Import VB6 Form...", Callable(self, "_on_import_vb6_form"))
 	add_tool_menu_item("Import VB6 Project...", Callable(self, "_on_import_vb6_project"))
 	add_tool_menu_item("Visual Gasic Menu Editor", Callable(self, "_on_menu_editor"))
@@ -221,42 +241,73 @@ func _exit_tree():
 	remove_tool_menu_item("Visual Gasic Tab Order")
 	remove_tool_menu_item("Visual Gasic Components...")
 	
-	if immediate_window:
+	if is_instance_valid(immediate_window):
 		remove_control_from_bottom_panel(immediate_window)
 		immediate_window.queue_free()
 		immediate_window = null
 	
-	if toolbox:
-		remove_control_from_docks(toolbox)
+	# Cleanup Code Navigator (injected above code editor)
+	if is_instance_valid(_code_navigator):
+		if _code_navigator.get_parent():
+			_code_navigator.get_parent().remove_child(_code_navigator)
+		_code_navigator.queue_free()
+		_code_navigator = null
+	_nav_injected_parent = null
+
+	# Cleanup Toolbox (may already be undocked by layout manager)
+	if is_instance_valid(toolbox):
+		if toolbox.get_parent():
+			toolbox.get_parent().remove_child(toolbox)
 		toolbox.queue_free()
 		toolbox = null
 	
 	# Cleanup alignment toolbar
-	if alignment_toolbar:
+	if is_instance_valid(alignment_toolbar):
 		remove_control_from_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, alignment_toolbar)
 		alignment_toolbar.queue_free()
 		alignment_toolbar = null
 	
 	# Cleanup form preview toolbar
-	if form_preview_toolbar:
+	if is_instance_valid(form_preview_toolbar):
 		remove_control_from_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, form_preview_toolbar)
 		form_preview_toolbar.queue_free()
 		form_preview_toolbar = null
 	
+	# Cleanup VB6 Layout Manager (undocks panels it manages)
+	if is_instance_valid(_layout_manager):
+		_layout_manager.cleanup()
+		remove_control_from_container(EditorPlugin.CONTAINER_TOOLBAR, _layout_manager)
+		_layout_manager.queue_free()
+		_layout_manager = null
+
+	# Cleanup Project Explorer (may already be undocked by layout manager)
+	if is_instance_valid(_project_explorer):
+		if _project_explorer.get_parent():
+			_project_explorer.get_parent().remove_child(_project_explorer)
+		_project_explorer.queue_free()
+		_project_explorer = null
+
+	# Cleanup Properties Inspector (may already be undocked by layout manager)
+	if is_instance_valid(_properties_inspector):
+		if _properties_inspector.get_parent():
+			_properties_inspector.get_parent().remove_child(_properties_inspector)
+		_properties_inspector.queue_free()
+		_properties_inspector = null
+
 	# Cleanup recent projects menu
-	if _recent_projects_menu:
+	if is_instance_valid(_recent_projects_menu):
 		remove_tool_menu_item("Recent Projects")
 		_recent_projects_menu.queue_free()
 		_recent_projects_menu = null
 	_recent_projects_manager = null
 	
 	# Cleanup script editor context menu
-	if _script_editor_check_timer:
+	if is_instance_valid(_script_editor_check_timer):
 		_script_editor_check_timer.stop()
 		_script_editor_check_timer.queue_free()
 		_script_editor_check_timer = null
 	
-	if _script_context_menu:
+	if is_instance_valid(_script_context_menu):
 		_script_context_menu.queue_free()
 		_script_context_menu = null
 		
@@ -888,6 +939,300 @@ End Sub
 	f.close()
 
 # =============================================================================
+# MODULE CREATION
+# =============================================================================
+
+## Opens a dialog to create a new Visual Gasic module (.vg code file).
+## Modules are standalone code files without a form — like VB6 .bas modules.
+func _on_new_module():
+	var dlg = AcceptDialog.new()
+	dlg.title = "New Module"
+	dlg.dialog_text = "Enter a name for the new module:"
+	dlg.ok_button_text = "Create"
+	
+	var vbox = VBoxContainer.new()
+	
+	var name_label = Label.new()
+	name_label.text = "Module Name:"
+	vbox.add_child(name_label)
+	
+	var name_edit = LineEdit.new()
+	name_edit.text = "Module1"
+	name_edit.placeholder_text = "Module1"
+	name_edit.select_all_on_focus = true
+	vbox.add_child(name_edit)
+	
+	var sep = HSeparator.new()
+	vbox.add_child(sep)
+	
+	var type_label = Label.new()
+	type_label.text = "Module Type:"
+	vbox.add_child(type_label)
+	
+	var type_option = OptionButton.new()
+	type_option.add_item("Standard Module (.bas style)")
+	type_option.add_item("Class Module")
+	type_option.add_item("Game Module")
+	type_option.add_item("Utility Module")
+	vbox.add_child(type_option)
+	
+	dlg.add_child(vbox)
+	dlg.min_size = Vector2i(350, 200)
+	
+	get_editor_interface().get_base_control().add_child(dlg)
+	
+	dlg.confirmed.connect(func():
+		var module_name = name_edit.text.strip_edges()
+		var module_type = type_option.selected
+		dlg.queue_free()
+		if not module_name.is_empty():
+			_create_new_module(module_name, module_type)
+	)
+	
+	dlg.canceled.connect(func():
+		dlg.queue_free()
+	)
+	
+	dlg.popup_centered()
+	name_edit.grab_focus()
+
+## Creates a new .vg module file with boilerplate code.
+## @param module_name: Name for the module (without extension)
+## @param module_type: 0=Standard, 1=Class, 2=Game, 3=Utility
+func _create_new_module(module_name: String, module_type: int):
+	# Generate unique filename
+	var path = "res://" + module_name + ".vg"
+	var idx = 1
+	while FileAccess.file_exists(path):
+		idx += 1
+		module_name = module_name.rstrip("0123456789") + str(idx)
+		path = "res://" + module_name + ".vg"
+	
+	var code = _generate_module_code(module_name, module_type)
+	
+	var f = FileAccess.open(path, FileAccess.WRITE)
+	if not f:
+		push_error("VisualGasic: Could not create module file: " + path)
+		return
+	f.store_string(code)
+	f.close()
+	
+	print("VisualGasic: Created module at ", path)
+	
+	# Refresh filesystem and open the script
+	get_editor_interface().get_resource_filesystem().scan()
+	
+	# Defer opening to allow filesystem scan
+	var timer = Timer.new()
+	timer.wait_time = 0.3
+	timer.one_shot = true
+	timer.timeout.connect(func():
+		timer.queue_free()
+		var script = load(path)
+		if script:
+			get_editor_interface().edit_resource(script)
+			print("VisualGasic: Opened module for editing: ", path)
+		_add_to_recent_projects(path)
+	)
+	get_editor_interface().get_base_control().add_child(timer)
+	timer.start()
+
+## Generates boilerplate code for a new module.
+## @param module_name: Name of the module
+## @param module_type: 0=Standard, 1=Class, 2=Game, 3=Utility
+func _generate_module_code(module_name: String, module_type: int) -> String:
+	match module_type:
+		0:  # Standard Module (.bas style)
+			return """' %s.vg - Standard Module
+' A standard code module (like VB6 .bas files)
+' Contains reusable functions and subroutines
+Option Explicit
+
+' Module-level variables
+Dim initialized As Boolean
+
+' ====== Public Functions ======
+
+Sub Main()
+    ' Entry point for the module
+    Print "%s module loaded"
+    initialized = True
+End Sub
+
+Function GetModuleName() As String
+    GetModuleName = "%s"
+End Function
+
+' ====== Helper Functions ======
+
+' Add your module functions below
+
+""" % [module_name, module_name, module_name]
+		1:  # Class Module
+			return """' %s.vg - Class Module
+' A class-style module with initialization and cleanup
+Option Explicit
+
+' Private module data
+Dim m_name As String
+Dim m_initialized As Boolean
+
+' ====== Lifecycle ======
+
+Sub Class_Initialize()
+    ' Called when module is first loaded
+    m_name = "%s"
+    m_initialized = True
+    Print m_name & " initialized"
+End Sub
+
+Sub Class_Terminate()
+    ' Called when module is unloaded
+    m_initialized = False
+    Print m_name & " terminated"
+End Sub
+
+' ====== Properties ======
+
+Function GetName() As String
+    GetName = m_name
+End Function
+
+Function IsInitialized() As Boolean
+    IsInitialized = m_initialized
+End Function
+
+' ====== Methods ======
+
+' Add your class methods below
+
+""" % [module_name, module_name]
+		2:  # Game Module
+			return """' %s.vg - Game Module
+' Game logic module with state management
+Option Explicit
+
+' Game state variables
+Dim score As Integer
+Dim lives As Integer
+Dim level As Integer
+Dim gameRunning As Boolean
+
+' ====== Game Lifecycle ======
+
+Sub Game_Init()
+    score = 0
+    lives = 3
+    level = 1
+    gameRunning = True
+    Print "Game initialized - Level " & level
+End Sub
+
+Sub Game_Update()
+    ' Called each frame - put game logic here
+    If Not gameRunning Then Exit Sub
+    
+    ' Check for input
+    If Input.IsActionJustPressed("ui_accept") Then
+        score = score + 10
+        Print "Score: " & score
+    End If
+End Sub
+
+Sub Game_Reset()
+    Game_Init()
+    Print "Game reset!"
+End Sub
+
+' ====== Score Management ======
+
+Function GetScore() As Integer
+    GetScore = score
+End Function
+
+Sub AddScore(points As Integer)
+    score = score + points
+    
+    ' Level up every 100 points
+    If score >= level * 100 Then
+        level = level + 1
+        Print "Level Up! Now at level " & level
+    End If
+End Sub
+
+Sub LoseLife()
+    lives = lives - 1
+    Print "Lives remaining: " & lives
+    If lives <= 0 Then
+        gameRunning = False
+        Print "Game Over! Final Score: " & score
+    End If
+End Sub
+
+""" % [module_name]
+		3:  # Utility Module
+			return """' %s.vg - Utility Module
+' Common utility functions
+Option Explicit
+
+' ====== String Utilities ======
+
+Function PadLeft(s As String, totalWidth As Integer, padChar As String) As String
+    Dim result As String
+    result = s
+    Do While Len(result) < totalWidth
+        result = padChar & result
+    Loop
+    PadLeft = result
+End Function
+
+Function PadRight(s As String, totalWidth As Integer, padChar As String) As String
+    Dim result As String
+    result = s
+    Do While Len(result) < totalWidth
+        result = result & padChar
+    Loop
+    PadRight = result
+End Function
+
+' ====== Math Utilities ======
+
+Function Clamp(value As Double, minVal As Double, maxVal As Double) As Double
+    If value < minVal Then
+        Clamp = minVal
+    ElseIf value > maxVal Then
+        Clamp = maxVal
+    Else
+        Clamp = value
+    End If
+End Function
+
+Function Lerp(a As Double, b As Double, t As Double) As Double
+    Lerp = a + (b - a) * t
+End Function
+
+Function RandRange(minVal As Integer, maxVal As Integer) As Integer
+    RandRange = Int(Rnd() * (maxVal - minVal + 1)) + minVal
+End Function
+
+' ====== Array Utilities ======
+
+Function ArrayContains(arr() As Variant, value As Variant) As Boolean
+    Dim i As Integer
+    For i = LBound(arr) To UBound(arr)
+        If arr(i) = value Then
+            ArrayContains = True
+            Exit Function
+        End If
+    Next i
+    ArrayContains = False
+End Function
+
+""" % [module_name]
+		_:
+			return "' %s.vg\nOption Explicit\n\nSub Main()\n    ' Your code here\nEnd Sub\n" % [module_name]
+
+# =============================================================================
 # EDITOR DIALOGS
 # =============================================================================
 
@@ -1309,6 +1654,10 @@ func _on_main_screen_changed(screen_name: String):
 	if nav:
 		nav.refresh_objects()
 
+	# Refresh Project Explorer on screen change
+	if _project_explorer and is_instance_valid(_project_explorer) and _project_explorer.visible:
+		_project_explorer.refresh()
+
 ## Sets up the toolbox control palette.
 ## Instantiates the C++ VisualGasicToolbox class if available,
 ## otherwise shows an error message.
@@ -1538,14 +1887,10 @@ func _on_selection_changed():
 		# For now, just a button, but can call nav.refresh_objects() if hierarchy changed?
 		pass
 
-## Gets the Code Navigator instance from the toolbox.
+## Gets the Code Navigator instance.
 ## @returns: The navigator panel or null
 func _get_navigator():
-	if toolbox:
-		for c in toolbox.get_children():
-			if c.name == "Code Navigator":
-				return c
-	return null
+	return _code_navigator
 
 ## Automatically sets control's text property to match its name.
 ## Only applies when text is a default value like "Button" or "Label".
@@ -1738,7 +2083,8 @@ func _setup_script_editor_context_menu():
 	_script_editor_check_timer.start()
 
 ## Periodically checks if a .vg file is being edited in the script editor.
-## If found, hooks into the CodeEdit for keyboard shortcut handling.
+## If found, hooks into the CodeEdit for keyboard shortcut handling and
+## injects the Code Navigator bar above the code editor (VB6-style).
 func _check_script_editor_for_vg():
 	"""Check if a .vg file is being edited and hook into its CodeEdit"""
 	var script_editor = get_editor_interface().get_script_editor()
@@ -1747,11 +2093,17 @@ func _check_script_editor_for_vg():
 	
 	var current_script = script_editor.get_current_script()
 	if not current_script:
+		# No script open — hide navigator
+		if _code_navigator:
+			_code_navigator.visible = false
 		return
 	
 	var script_path = current_script.resource_path
 	if not script_path.ends_with(".vg"):
 		_current_code_edit = null
+		# Not a .vg file — hide navigator
+		if _code_navigator:
+			_code_navigator.visible = false
 		return
 	
 	# Get the CodeEdit for this script
@@ -1760,13 +2112,35 @@ func _check_script_editor_for_vg():
 		return
 	
 	var code_edit = current_editor.get_base_editor() as CodeEdit
-	if not code_edit or code_edit == _current_code_edit:
+	if not code_edit:
 		return
 	
-	# New CodeEdit - hook into it
+	# --- Inject Code Navigator above the code editor (VB6-style) ---
+	if _code_navigator and is_instance_valid(_code_navigator):
+		# Find the VBoxContainer parent of the CodeEdit — this is the
+		# script editor's internal layout that holds the code area.
+		var code_parent = code_edit.get_parent()
+		if code_parent and code_parent != _nav_injected_parent:
+			# Reparent navigator to the new script tab's container
+			if _code_navigator.get_parent():
+				_code_navigator.get_parent().remove_child(_code_navigator)
+			code_parent.add_child(_code_navigator)
+			# Move to index 0 so it appears ABOVE the CodeEdit
+			code_parent.move_child(_code_navigator, 0)
+			_nav_injected_parent = code_parent
+		_code_navigator.visible = true
+	
+	if code_edit == _current_code_edit:
+		return
+	
+	# New CodeEdit — hook into it
 	_current_code_edit = code_edit
 	if not code_edit.gui_input.is_connected(_on_code_edit_gui_input):
 		code_edit.gui_input.connect(_on_code_edit_gui_input)
+	
+	# Refresh navigator for the new script
+	if _code_navigator:
+		_code_navigator.refresh_objects()
 	
 	# NOTE: Do NOT apply a custom CodeHighlighter to .vg files!
 	# Godot's script editor uses the ScriptLanguageExtension's built-in

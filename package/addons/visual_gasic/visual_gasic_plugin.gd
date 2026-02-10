@@ -70,6 +70,21 @@ var _current_code_edit: CodeEdit
 ## Timer to periodically check for .vg files in script editor
 var _script_editor_check_timer: Timer
 
+## Code Navigator bar (VB6-style Object/Event dropdowns above code editor)
+var _code_navigator = null
+
+## The VBoxContainer we injected the navigator into (script editor internal)
+var _nav_injected_parent = null
+
+## VB6 Layout Manager — toolbar toggle for VB6/Godot IDE modes
+var _layout_manager = null
+
+## VB6-style Project Explorer panel (tree of Forms/Modules)
+var _project_explorer = null
+
+## VB6-style Properties Inspector (managed by layout manager)
+var _properties_inspector = null
+
 # =============================================================================
 # PLUGIN LIFECYCLE
 # =============================================================================
@@ -119,19 +134,6 @@ func _enter_tree():
 	label.text = "Visual Gasic Debug"
 	toolbox.add_child(label)
 	
-	# Import Buttons
-	var btn_import_proj = Button.new()
-	btn_import_proj.text = "Import VB6 Project..."
-	btn_import_proj.pressed.connect(_on_import_vb6_project)
-	toolbox.add_child(btn_import_proj)
-	
-	var btn_import_form = Button.new()
-	btn_import_form.text = "Import VB6 Form..."
-	btn_import_form.pressed.connect(_on_import_vb6_form)
-	toolbox.add_child(btn_import_form)
-	
-	toolbox.add_child(HSeparator.new())
-	
 	var btn_new_form = Button.new()
 	btn_new_form.text = "New Form"
 	btn_new_form.pressed.connect(_on_new_form)
@@ -143,28 +145,24 @@ func _enter_tree():
 	# setup_toolbox adds a child. We want our buttons to persist.
 	# But C++ toolbox might take up all space.
 	# Let's Move buttons to TOP if setup_toolbox added below.
-	if toolbox.get_child_count() > 3:
-		toolbox.move_child(btn_import_proj, 0)
-		toolbox.move_child(btn_import_form, 1)
-	
-	# Add Code Navigator
-	var nav = loading_code_navigator()
-	if nav:
-		toolbox.add_child(nav)
-		nav.setup(self)
+	# Create Code Navigator (will be injected above the code editor, VB6-style)
+	_code_navigator = loading_code_navigator()
+	if _code_navigator:
+		_code_navigator.setup(self)
 		# Connect debugger plugin for breakpoint navigation
-		if debugger_plugin and nav.has_method("set_debugger_plugin"):
-			nav.set_debugger_plugin(debugger_plugin)
+		if debugger_plugin and _code_navigator.has_method("set_debugger_plugin"):
+			_code_navigator.set_debugger_plugin(debugger_plugin)
+		# Hide until injected into script editor
+		_code_navigator.visible = false
 
-	# Add Property Inspector
-	var props = loading_inspector()
-	if props:
-		add_control_to_dock(EditorPlugin.DOCK_SLOT_RIGHT_BL, props)
-		props.setup(self)
+	# Create Property Inspector (docking controlled by VB6 Layout Manager)
+	_properties_inspector = loading_inspector()
+	if _properties_inspector:
+		_properties_inspector.setup(self)
+		_properties_inspector.visible = false  # Hidden until VB6 mode
 
-	# Setup Dock
-	add_control_to_dock(EditorPlugin.DOCK_SLOT_LEFT_BL, toolbox)
-	print("Manually added Toolbox (GDScript Wrapper) to Dock Left BL")
+	# Toolbox created but NOT docked — docking controlled by Layout Manager
+	toolbox.visible = false  # Hidden until Visual Gasic mode
 	
 	# Add Alignment Toolbar for form designer
 	var alignment_script = load("res://addons/visual_gasic/alignment_toolbar.gd")
@@ -184,6 +182,21 @@ func _enter_tree():
 		add_control_to_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, form_preview_toolbar)
 		print("VisualGasic: Added form preview toolbar to canvas editor")
 	
+	# Create VB6 Project Explorer (right-upper dock in VB6 mode)
+	var proj_explorer_script = load("res://addons/visual_gasic/vb6_project_explorer.gd")
+	if proj_explorer_script:
+		_project_explorer = proj_explorer_script.new()
+		_project_explorer.setup(self)
+		_project_explorer.visible = false  # Hidden until VB6 mode is activated
+
+	# Create VB6 Layout Manager toggle (goes in the canvas editor toolbar)
+	var layout_mgr_script = load("res://addons/visual_gasic/vb6_layout_manager.gd")
+	if layout_mgr_script:
+		_layout_manager = layout_mgr_script.new()
+		_layout_manager.setup(self, toolbox, _project_explorer, _properties_inspector)
+		add_control_to_container(EditorPlugin.CONTAINER_TOOLBAR, _layout_manager)
+		print("VisualGasic: Added Visual Gasic/Godot layout toggle to main toolbar")
+
 	_post_init()
 	_setup_script_editor_context_menu()
 	_setup_recent_projects_menu()
@@ -214,42 +227,73 @@ func _exit_tree():
 	remove_tool_menu_item("Visual Gasic Object Browser")
 	remove_tool_menu_item("Visual Gasic Tab Order")
 	
-	if immediate_window:
+	if is_instance_valid(immediate_window):
 		remove_control_from_bottom_panel(immediate_window)
 		immediate_window.queue_free()
 		immediate_window = null
 	
-	if toolbox:
-		remove_control_from_docks(toolbox)
+	# Cleanup Code Navigator (injected above code editor)
+	if is_instance_valid(_code_navigator):
+		if _code_navigator.get_parent():
+			_code_navigator.get_parent().remove_child(_code_navigator)
+		_code_navigator.queue_free()
+		_code_navigator = null
+	_nav_injected_parent = null
+
+	# Cleanup Toolbox (may already be undocked by layout manager)
+	if is_instance_valid(toolbox):
+		if toolbox.get_parent():
+			toolbox.get_parent().remove_child(toolbox)
 		toolbox.queue_free()
 		toolbox = null
 	
 	# Cleanup alignment toolbar
-	if alignment_toolbar:
+	if is_instance_valid(alignment_toolbar):
 		remove_control_from_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, alignment_toolbar)
 		alignment_toolbar.queue_free()
 		alignment_toolbar = null
 	
 	# Cleanup form preview toolbar
-	if form_preview_toolbar:
+	if is_instance_valid(form_preview_toolbar):
 		remove_control_from_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, form_preview_toolbar)
 		form_preview_toolbar.queue_free()
 		form_preview_toolbar = null
 	
+	# Cleanup VB6 Layout Manager
+	if is_instance_valid(_layout_manager):
+		_layout_manager.cleanup()
+		remove_control_from_container(EditorPlugin.CONTAINER_TOOLBAR, _layout_manager)
+		_layout_manager.queue_free()
+		_layout_manager = null
+
+	# Cleanup Project Explorer (may already be undocked by layout manager)
+	if is_instance_valid(_project_explorer):
+		if _project_explorer.get_parent():
+			_project_explorer.get_parent().remove_child(_project_explorer)
+		_project_explorer.queue_free()
+		_project_explorer = null
+
+	# Cleanup Properties Inspector (may already be undocked by layout manager)
+	if is_instance_valid(_properties_inspector):
+		if _properties_inspector.get_parent():
+			_properties_inspector.get_parent().remove_child(_properties_inspector)
+		_properties_inspector.queue_free()
+		_properties_inspector = null
+
 	# Cleanup recent projects menu
-	if _recent_projects_menu:
+	if is_instance_valid(_recent_projects_menu):
 		remove_tool_menu_item("Recent Projects")
 		_recent_projects_menu.queue_free()
 		_recent_projects_menu = null
 	_recent_projects_manager = null
 	
 	# Cleanup script editor context menu
-	if _script_editor_check_timer:
+	if is_instance_valid(_script_editor_check_timer):
 		_script_editor_check_timer.stop()
 		_script_editor_check_timer.queue_free()
 		_script_editor_check_timer = null
 	
-	if _script_context_menu:
+	if is_instance_valid(_script_context_menu):
 		_script_context_menu.queue_free()
 		_script_context_menu = null
 		
@@ -968,6 +1012,10 @@ func _on_main_screen_changed(screen_name: String):
 	if nav:
 		nav.refresh_objects()
 
+	# Refresh Project Explorer on screen change
+	if _project_explorer and is_instance_valid(_project_explorer) and _project_explorer.visible:
+		_project_explorer.refresh()
+
 ## Sets up the toolbox control palette.
 ## Instantiates the C++ VisualGasicToolbox class if available,
 ## otherwise shows an error message.
@@ -1132,14 +1180,10 @@ func _on_selection_changed():
 		# For now, just a button, but can call nav.refresh_objects() if hierarchy changed?
 		pass
 
-## Gets the Code Navigator instance from the toolbox.
+## Gets the Code Navigator instance.
 ## @returns: The navigator panel or null
 func _get_navigator():
-	if toolbox:
-		for c in toolbox.get_children():
-			if c.name == "Code Navigator":
-				return c
-	return null
+	return _code_navigator
 
 ## Automatically sets control's text property to match its name.
 ## Only applies when text is a default value like "Button" or "Label".
@@ -1332,7 +1376,8 @@ func _setup_script_editor_context_menu():
 	_script_editor_check_timer.start()
 
 ## Periodically checks if a .vg file is being edited in the script editor.
-## If found, hooks into the CodeEdit for keyboard shortcut handling.
+## If found, hooks into the CodeEdit for keyboard shortcut handling and
+## injects the Code Navigator bar above the code editor (VB6-style).
 func _check_script_editor_for_vg():
 	"""Check if a .vg file is being edited and hook into its CodeEdit"""
 	var script_editor = get_editor_interface().get_script_editor()
@@ -1341,11 +1386,17 @@ func _check_script_editor_for_vg():
 	
 	var current_script = script_editor.get_current_script()
 	if not current_script:
+		# No script open — hide navigator
+		if _code_navigator:
+			_code_navigator.visible = false
 		return
 	
 	var script_path = current_script.resource_path
 	if not script_path.ends_with(".vg"):
 		_current_code_edit = null
+		# Not a .vg file — hide navigator
+		if _code_navigator:
+			_code_navigator.visible = false
 		return
 	
 	# Get the CodeEdit for this script
@@ -1354,13 +1405,31 @@ func _check_script_editor_for_vg():
 		return
 	
 	var code_edit = current_editor.get_base_editor() as CodeEdit
-	if not code_edit or code_edit == _current_code_edit:
+	if not code_edit:
 		return
 	
-	# New CodeEdit - hook into it
+	# --- Inject Code Navigator above the code editor (VB6-style) ---
+	if _code_navigator and is_instance_valid(_code_navigator):
+		var code_parent = code_edit.get_parent()
+		if code_parent and code_parent != _nav_injected_parent:
+			if _code_navigator.get_parent():
+				_code_navigator.get_parent().remove_child(_code_navigator)
+			code_parent.add_child(_code_navigator)
+			code_parent.move_child(_code_navigator, 0)
+			_nav_injected_parent = code_parent
+		_code_navigator.visible = true
+	
+	if code_edit == _current_code_edit:
+		return
+	
+	# New CodeEdit — hook into it
 	_current_code_edit = code_edit
 	if not code_edit.gui_input.is_connected(_on_code_edit_gui_input):
 		code_edit.gui_input.connect(_on_code_edit_gui_input)
+	
+	# Refresh navigator for the new script
+	if _code_navigator:
+		_code_navigator.refresh_objects()
 
 ## Handles keyboard shortcuts in the code editor.
 ## Ctrl+R triggers the rename refactoring dialog for the word under cursor.

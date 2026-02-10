@@ -26,3 +26,7 @@ project/assembly_name="VisualGasic Demo"
 [editor_plugins]
 
 enabled=PackedStringArray("res://addons/visual_gasic/plugin.cfg")
+
+[visual_gasic]
+
+layout/vb6_mode=false

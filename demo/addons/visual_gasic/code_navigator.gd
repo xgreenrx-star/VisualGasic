@@ -1,19 +1,23 @@
 @tool
-extends VBoxContainer
+extends HBoxContainer
+## Code Navigator — VB6-style Object/Event dropdowns above the code editor.
+## In VB6, this bar sits directly above the code window with two dropdowns:
+##   [Object ▼]  |  [Event ▼]
+## Selecting an object populates the event list; selecting an event navigates
+## to (or creates) the corresponding Sub handler in the .vg script.
 
 var editor_plugin: EditorPlugin
 var object_list: OptionButton
 var event_list: OptionButton
 var refresh_button: Button
+var _separator: VSeparator
 var _debugger_plugin: EditorDebuggerPlugin = null
 var _current_break_file: String = ""
 var _current_break_line: int = 0
-const REFRESH_TEXT = "Refresh Object List"
-const REFRESH_TEXT_THRESHOLD := 220
 
 # Standard VB6 Events
 const EVENTS_COMMON = ["Click", "DblClick", "MouseDown", "MouseUp", "MouseMove", "KeyDown", "KeyUp", "KeyPress"]
-const EVENTS_BUTTON = ["Click", "MouseDown", "MouseUp", "MouseMove", "KeyDown", "KeyUp", "KeyPress"] # Buttons often don't DoubleClick easily
+const EVENTS_BUTTON = ["Click", "MouseDown", "MouseUp", "MouseMove", "KeyDown", "KeyUp", "KeyPress"]
 const EVENTS_TEXT = ["Change", "Click", "MouseDown", "MouseUp", "MouseMove", "KeyDown", "KeyUp", "KeyPress"]
 const EVENTS_TIMER = ["Timer"]
 const EVENTS_SCROLL = ["Change", "Scroll"]
@@ -21,52 +25,41 @@ const EVENTS_FORM = ["Load", "Unload", "Click", "MouseDown", "MouseUp", "MouseMo
 
 func _init():
 	name = "Code Navigator"
-	custom_minimum_size = Vector2(0, 80)
+	# Horizontal bar that spans the full width above the code editor
+	size_flags_horizontal = SIZE_EXPAND_FILL
+	custom_minimum_size = Vector2(0, 30)
 	
-	# Object Row
-	var hbox_obj = HBoxContainer.new()
-	var lbl_obj = Label.new()
-	lbl_obj.text = "Object:"
-	lbl_obj.custom_minimum_size.x = 50
+	# --- Object Dropdown (left half) ---
 	object_list = OptionButton.new()
 	object_list.size_flags_horizontal = SIZE_EXPAND_FILL
+	object_list.custom_minimum_size.x = 120
+	object_list.clip_text = true
 	object_list.item_selected.connect(_on_object_selected)
+	add_child(object_list)
 	
-	hbox_obj.add_child(lbl_obj)
-	hbox_obj.add_child(object_list)
-	add_child(hbox_obj)
+	# --- Vertical Separator (VB6-style divider between the two dropdowns) ---
+	_separator = VSeparator.new()
+	add_child(_separator)
 	
-	# Event Row
-	var hbox_evt = HBoxContainer.new()
-	var lbl_evt = Label.new()
-	lbl_evt.text = "Event:"
-	lbl_evt.custom_minimum_size.x = 50
+	# --- Event Dropdown (right half) ---
 	event_list = OptionButton.new()
 	event_list.size_flags_horizontal = SIZE_EXPAND_FILL
+	event_list.custom_minimum_size.x = 120
+	event_list.clip_text = true
 	event_list.item_selected.connect(_on_event_selected)
+	add_child(event_list)
 	
-	hbox_evt.add_child(lbl_evt)
-	hbox_evt.add_child(event_list)
-	add_child(hbox_evt)
-	
-	# Refresh Button (Optional, but useful)
+	# --- Refresh Button (compact icon button) ---
 	refresh_button = Button.new()
-	refresh_button.tooltip_text = REFRESH_TEXT
-	refresh_button.size_flags_horizontal = SIZE_SHRINK_CENTER
+	refresh_button.tooltip_text = "Refresh Object List"
 	refresh_button.custom_minimum_size = Vector2(28, 28)
-	refresh_button.clip_text = true
-	refresh_button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	refresh_button.pressed.connect(refresh_objects)
 	_set_refresh_icon()
-	_update_refresh_mode()
 	add_child(refresh_button)
 
 func _notification(what):
 	if what == NOTIFICATION_THEME_CHANGED or what == NOTIFICATION_READY:
 		_set_refresh_icon()
-		_update_refresh_mode()
-	elif what == NOTIFICATION_RESIZED:
-		_update_refresh_mode()
 
 func _set_refresh_icon():
 	if not refresh_button:
@@ -76,21 +69,6 @@ func _set_refresh_icon():
 		refresh_button.icon = icon
 	else:
 		refresh_button.icon = null
-
-func _update_refresh_mode():
-	if not refresh_button:
-		return
-	var available_width = get_size().x
-	if available_width >= REFRESH_TEXT_THRESHOLD:
-		refresh_button.text = REFRESH_TEXT
-		refresh_button.size_flags_horizontal = SIZE_EXPAND_FILL
-		refresh_button.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
-		refresh_button.expand_icon = false
-	else:
-		refresh_button.text = ""
-		refresh_button.size_flags_horizontal = SIZE_SHRINK_CENTER
-		refresh_button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		refresh_button.expand_icon = true
 
 func setup(plugin: EditorPlugin):
 	editor_plugin = plugin
@@ -128,14 +106,11 @@ func navigate_to_line(file_path: String, line: int) -> void:
 	
 	# Load the script resource
 	if not ResourceLoader.exists(file_path):
-		print("[CodeNavigator] File not found: ", file_path)
 		return
 	
 	var script = load(file_path)
 	if not script:
-		print("[CodeNavigator] Could not load: ", file_path)
 		return
-	
 	var ed_int = editor_plugin.get_editor_interface()
 	
 	# Switch to Script editor main screen first

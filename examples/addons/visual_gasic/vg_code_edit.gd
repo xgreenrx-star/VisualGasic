@@ -106,6 +106,13 @@ func _setup_auto_indent() -> void:
 	indent_size = 4
 	indent_use_spaces = false  # VB6 traditionally uses tabs
 	auto_brace_completion_enabled = true
+	
+	# Enable line numbers in the gutter
+	gutters_draw_line_numbers = true
+	
+	# Enable code folding (indent-based) — property names vary by Godot version
+	set("line_folding_enabled", true)
+	set("gutters_draw_folding", true)
 
 func _connect_signals() -> void:
 	text_changed.connect(_on_text_changed)

@@ -5,6 +5,27 @@ var toolbox
 var import_plugin
 var immediate_window
 
+## Code Navigator bar (VB6-style Object/Event dropdowns above code editor)
+var _code_navigator = null
+
+## The VBoxContainer we injected the navigator into (script editor internal)
+var _nav_injected_parent = null
+
+## VB6 Layout Manager — toolbar toggle for VB6/Godot IDE modes
+var _layout_manager = null
+
+## VB6-style Project Explorer panel (tree of Forms/Modules)
+var _project_explorer = null
+
+## VB6-style Properties Inspector (managed by layout manager)
+var _properties_inspector = null
+
+## Currently active CodeEdit in the script editor (for .vg files)
+var _current_code_edit: CodeEdit
+
+## Timer to periodically check for .vg files in script editor
+var _script_editor_check_timer: Timer
+
 func _enter_tree():
 	# Store self for static retrieval
 	get_editor_interface().get_base_control().set_meta("visual_gasic_plugin_instance", self)
@@ -28,19 +49,6 @@ func _enter_tree():
 	label.text = "Visual Gasic Debug"
 	toolbox.add_child(label)
 	
-	# Import Buttons
-	var btn_import_proj = Button.new()
-	btn_import_proj.text = "Import VB6 Project..."
-	btn_import_proj.pressed.connect(_on_import_vb6_project)
-	toolbox.add_child(btn_import_proj)
-	
-	var btn_import_form = Button.new()
-	btn_import_form.text = "Import VB6 Form..."
-	btn_import_form.pressed.connect(_on_import_vb6_form)
-	toolbox.add_child(btn_import_form)
-	
-	toolbox.add_child(HSeparator.new())
-	
 	var btn_new_form = Button.new()
 	btn_new_form.text = "New Form"
 	btn_new_form.pressed.connect(_on_new_form)
@@ -52,27 +60,39 @@ func _enter_tree():
 	# setup_toolbox adds a child. We want our buttons to persist.
 	# But C++ toolbox might take up all space.
 	# Let's Move buttons to TOP if setup_toolbox added below.
-	if toolbox.get_child_count() > 3:
-		toolbox.move_child(btn_import_proj, 0)
-		toolbox.move_child(btn_import_form, 1)
-	
-	# Add Code Navigator
-	var nav = loading_code_navigator()
-	if nav:
-		toolbox.add_child(nav)
-		nav.setup(self)
+	# Create Code Navigator (will be injected above the code editor, VB6-style)
+	_code_navigator = loading_code_navigator()
+	if _code_navigator:
+		_code_navigator.setup(self)
+		# Hide until injected into script editor
+		_code_navigator.visible = false
 
-	# Add Property Inspector
-	var props = loading_inspector()
-	if props:
-		add_control_to_dock(EditorPlugin.DOCK_SLOT_RIGHT_BL, props)
-		props.setup(self)
+	# Create Property Inspector (docking controlled by VB6 Layout Manager)
+	_properties_inspector = loading_inspector()
+	if _properties_inspector:
+		_properties_inspector.setup(self)
+		_properties_inspector.visible = false  # Hidden until VB6 mode
 
-	# Setup Dock
-	add_control_to_dock(EditorPlugin.DOCK_SLOT_LEFT_BL, toolbox)
-	print("Manually added Toolbox (GDScript Wrapper) to Dock Left BL")
+	# Toolbox created but NOT docked — docking controlled by Layout Manager
+	toolbox.visible = false  # Hidden until Visual Gasic mode
 	
+	# Create VB6 Project Explorer (right-upper dock in VB6 mode)
+	var proj_explorer_script = load("res://addons/visual_gasic/vb6_project_explorer.gd")
+	if proj_explorer_script:
+		_project_explorer = proj_explorer_script.new()
+		_project_explorer.setup(self)
+		_project_explorer.visible = false  # Hidden until VB6 mode is activated
+
+	# Create VB6 Layout Manager toggle (goes in the main editor toolbar)
+	var layout_mgr_script = load("res://addons/visual_gasic/vb6_layout_manager.gd")
+	if layout_mgr_script:
+		_layout_manager = layout_mgr_script.new()
+		_layout_manager.setup(self, toolbox, _project_explorer, _properties_inspector)
+		add_control_to_container(EditorPlugin.CONTAINER_TOOLBAR, _layout_manager)
+		print("VisualGasic: Added Visual Gasic/Godot layout toggle to main toolbar")
+
 	_post_init()
+	_setup_script_editor_check()
 
 	add_tool_menu_item("Import VB6 Form...", Callable(self, "_on_import_vb6_form"))
 	add_tool_menu_item("Import VB6 Project...", Callable(self, "_on_import_vb6_project"))
@@ -94,16 +114,53 @@ func _exit_tree():
 	remove_tool_menu_item("Visual Gasic Object Browser")
 	remove_tool_menu_item("Visual Gasic Tab Order")
 	
-	if immediate_window:
+	if is_instance_valid(immediate_window):
 		remove_control_from_bottom_panel(immediate_window)
 		immediate_window.queue_free()
 		immediate_window = null
 	
-	if toolbox:
-		remove_control_from_docks(toolbox)
+	# Cleanup Code Navigator (injected above code editor)
+	if is_instance_valid(_code_navigator):
+		if _code_navigator.get_parent():
+			_code_navigator.get_parent().remove_child(_code_navigator)
+		_code_navigator.queue_free()
+		_code_navigator = null
+	_nav_injected_parent = null
+
+	# Cleanup script editor check timer
+	if is_instance_valid(_script_editor_check_timer):
+		_script_editor_check_timer.stop()
+		_script_editor_check_timer.queue_free()
+		_script_editor_check_timer = null
+
+	# Cleanup Toolbox (may already be undocked by layout manager)
+	if is_instance_valid(toolbox):
+		if toolbox.get_parent():
+			toolbox.get_parent().remove_child(toolbox)
 		toolbox.queue_free()
 		toolbox = null
-		
+
+	# Cleanup VB6 Layout Manager
+	if is_instance_valid(_layout_manager):
+		_layout_manager.cleanup()
+		remove_control_from_container(EditorPlugin.CONTAINER_TOOLBAR, _layout_manager)
+		_layout_manager.queue_free()
+		_layout_manager = null
+
+	# Cleanup Project Explorer (may already be undocked by layout manager)
+	if is_instance_valid(_project_explorer):
+		if _project_explorer.get_parent():
+			_project_explorer.get_parent().remove_child(_project_explorer)
+		_project_explorer.queue_free()
+		_project_explorer = null
+
+	# Cleanup Properties Inspector (may already be undocked by layout manager)
+	if is_instance_valid(_properties_inspector):
+		if _properties_inspector.get_parent():
+			_properties_inspector.get_parent().remove_child(_properties_inspector)
+		_properties_inspector.queue_free()
+		_properties_inspector = null
+
 	if get_editor_interface().get_selection().selection_changed.is_connected(_on_selection_changed):
 		get_editor_interface().get_selection().selection_changed.disconnect(_on_selection_changed)
 
@@ -490,11 +547,7 @@ func _on_selection_changed():
 		pass
 		
 func _get_navigator():
-	if toolbox:
-		for c in toolbox.get_children():
-			if c.name == "Code Navigator":
-				return c
-	return null
+	return _code_navigator
 
 func _auto_set_text_from_name(node: Node):
 	if not is_instance_valid(node): return
@@ -584,3 +637,60 @@ func _reparent_node(node: Node, new_parent: Node):
 	# Restore selection
 	get_editor_interface().get_selection().clear()
 	get_editor_interface().get_selection().add_node(node)
+
+# =============================================================================
+# SCRIPT EDITOR CHECK (VB6-style Code Navigator injection)
+# =============================================================================
+
+func _setup_script_editor_check():
+	_script_editor_check_timer = Timer.new()
+	_script_editor_check_timer.wait_time = 0.5
+	_script_editor_check_timer.timeout.connect(_check_script_editor_for_vg)
+	get_editor_interface().get_base_control().add_child(_script_editor_check_timer)
+	_script_editor_check_timer.start()
+
+func _check_script_editor_for_vg():
+	var script_editor = get_editor_interface().get_script_editor()
+	if not script_editor:
+		return
+	
+	var current_script = script_editor.get_current_script()
+	if not current_script:
+		if _code_navigator:
+			_code_navigator.visible = false
+		return
+	
+	var script_path = current_script.resource_path
+	if not script_path.ends_with(".vg"):
+		_current_code_edit = null
+		if _code_navigator:
+			_code_navigator.visible = false
+		return
+	
+	var current_editor = script_editor.get_current_editor()
+	if not current_editor:
+		return
+	
+	var code_edit = current_editor.get_base_editor() as CodeEdit
+	if not code_edit:
+		return
+	
+	# Inject Code Navigator above the code editor (VB6-style)
+	if _code_navigator and is_instance_valid(_code_navigator):
+		var code_parent = code_edit.get_parent()
+		if code_parent and code_parent != _nav_injected_parent:
+			if _code_navigator.get_parent():
+				_code_navigator.get_parent().remove_child(_code_navigator)
+			code_parent.add_child(_code_navigator)
+			code_parent.move_child(_code_navigator, 0)
+			_nav_injected_parent = code_parent
+		_code_navigator.visible = true
+	
+	if code_edit == _current_code_edit:
+		return
+	
+	_current_code_edit = code_edit
+	
+	# Refresh navigator for the new script
+	if _code_navigator:
+		_code_navigator.refresh_objects()

@@ -329,6 +329,11 @@ static func get_syntax_colors() -> Dictionary:
 static func apply_to_code_edit(code_edit: CodeEdit) -> void:
 	var theme = get_current_theme()
 	
+	# Ensure line numbers and code folding are enabled
+	code_edit.gutters_draw_line_numbers = true
+	code_edit.set("line_folding_enabled", true)
+	code_edit.set("gutters_draw_folding", true)
+	
 	# Background and text
 	code_edit.add_theme_color_override("background_color", theme.background_color)
 	code_edit.add_theme_color_override("font_color", theme.text_color)

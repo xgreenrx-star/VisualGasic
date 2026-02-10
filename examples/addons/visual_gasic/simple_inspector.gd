@@ -913,71 +913,74 @@ func _find_scripts_referencing_control(control_name: String) -> Array:
 	if not edited_scene:
 		return scripts_found
 	
-	# Cache of open editor buffers: script_path -> source text
-	var open_editor_sources: Dictionary = {}
+	# IMPORTANT: Check scripts attached to nodes in the scene tree
+	# This is where form scripts are typically attached
+	_find_scripts_in_node_tree(edited_scene, control_name, scripts_found)
 	
-	# FIRST: Check ALL open scripts in the script editor (may have unsaved changes!)
+	# Search for .vg scripts in the scene's directory and check for references
+	var scene_path = edited_scene.scene_file_path
+	if scene_path.is_empty():
+		return scripts_found
+	
+	var base_dir = scene_path.get_base_dir()
+	
+	# Also check open script editors
 	var script_editor = editor_plugin.get_editor_interface().get_script_editor()
 	if script_editor:
-		# Get list of open scripts
 		var open_scripts = script_editor.get_open_scripts()
-		var open_editors = script_editor.get_open_script_editors()
-		
-		# Match scripts to their editors by index
-		for i in range(min(open_scripts.size(), open_editors.size())):
-			var script = open_scripts[i]
-			var editor_base = open_editors[i]
-			
+		for script in open_scripts:
 			if script and script.resource_path.ends_with(".vg"):
-				var code_edit = _find_code_edit(editor_base)
-				if code_edit:
-					var source = code_edit.text
-					var script_path = script.resource_path
-					open_editor_sources[script_path] = source
-					if _source_references_control(source, control_name):
-						if not script_path in scripts_found:
-							scripts_found.append(script_path)
-							print("VisualGasic: Found reference in open editor: ", script_path.get_file())
+				var source = script.source_code if "source_code" in script else ""
+				if source.is_empty() and FileAccess.file_exists(script.resource_path):
+					var f = FileAccess.open(script.resource_path, FileAccess.READ)
+					if f:
+						source = f.get_as_text()
+						f.close()
+				if _source_references_control(source, control_name):
+					if not script.resource_path in scripts_found:
+						scripts_found.append(script.resource_path)
 	
-	# Search for .vg scripts in the scene's directory
-	var scene_path = edited_scene.scene_file_path
-	if not scene_path.is_empty():
-		var base_dir = scene_path.get_base_dir()
-		var dir = DirAccess.open(base_dir)
-		if dir:
-			dir.list_dir_begin()
-			var file_name = dir.get_next()
-			while file_name != "":
-				if file_name.ends_with(".vg"):
-					var full_path = base_dir.path_join(file_name)
-					if not full_path in scripts_found:
-						# Check if we already have this in open editors
-						if full_path in open_editor_sources:
-							# Already checked above
-							pass
-						else:
-							# Read from disk
-							var f = FileAccess.open(full_path, FileAccess.READ)
-							if f:
-								var source = f.get_as_text()
-								f.close()
-								if _source_references_control(source, control_name):
-									scripts_found.append(full_path)
-				file_name = dir.get_next()
-			dir.list_dir_end()
+	# Also scan directory for .vg files
+	var dir = DirAccess.open(base_dir)
+	if dir:
+		dir.list_dir_begin()
+		var file_name = dir.get_next()
+		while file_name != "":
+			if file_name.ends_with(".vg"):
+				var full_path = base_dir.path_join(file_name)
+				if not full_path in scripts_found:
+					var f = FileAccess.open(full_path, FileAccess.READ)
+					if f:
+						var source = f.get_as_text()
+						f.close()
+						if _source_references_control(source, control_name):
+							scripts_found.append(full_path)
+			file_name = dir.get_next()
+		dir.list_dir_end()
 	
-	print("VisualGasic: Total scripts with references: ", scripts_found.size())
 	return scripts_found
 
-## Find CodeEdit widget inside a script editor base
-func _find_code_edit(node: Node) -> CodeEdit:
-	if node is CodeEdit:
-		return node
+## Recursively find scripts attached to nodes in the scene tree
+func _find_scripts_in_node_tree(node: Node, control_name: String, scripts_found: Array):
+	# Check if this node has a script attached
+	var script = node.get_script()
+	if script and script.resource_path.ends_with(".vg"):
+		var source = ""
+		if "source_code" in script and not script.source_code.is_empty():
+			source = script.source_code
+		elif FileAccess.file_exists(script.resource_path):
+			var f = FileAccess.open(script.resource_path, FileAccess.READ)
+			if f:
+				source = f.get_as_text()
+				f.close()
+		
+		if _source_references_control(source, control_name):
+			if not script.resource_path in scripts_found:
+				scripts_found.append(script.resource_path)
+	
+	# Recursively check children
 	for child in node.get_children():
-		var found = _find_code_edit(child)
-		if found:
-			return found
-	return null
+		_find_scripts_in_node_tree(child, control_name, scripts_found)
 
 ## Check if source code references a control name
 func _source_references_control(source: String, control_name: String) -> bool:
@@ -998,8 +1001,7 @@ func _source_references_control(source: String, control_name: String) -> bool:
 	]
 	
 	for pattern in patterns:
-		var pos = source.findn(pattern)
-		if pos >= 0:  # Case-insensitive search
+		if source.findn(pattern) >= 0:  # Case-insensitive search
 			return true
 	
 	return false
@@ -1010,27 +1012,28 @@ func _show_rename_refactor_dialog(old_name: String, new_name: String, scripts: A
 		rename_dialog.queue_free()
 	
 	rename_dialog = ConfirmationDialog.new()
-	rename_dialog.title = "Rename Control"
+	rename_dialog.title = "Update Script References?"
 	rename_dialog.dialog_text = "The following scripts reference '" + old_name + "':\n\n"
 	
 	for script_path in scripts:
 		rename_dialog.dialog_text += "  • " + script_path.get_file() + "\n"
 	
-	rename_dialog.dialog_text += "\nRename '" + old_name + "' to '" + new_name + "'?"
+	rename_dialog.dialog_text += "\nDo you want to update these references to '" + new_name + "'?\n"
+	rename_dialog.dialog_text += "(Click 'Cancel' to rename without updating scripts)"
 	
-	rename_dialog.ok_button_text = "Rename + Update Scripts"
-	rename_dialog.cancel_button_text = "Cancel"
+	rename_dialog.ok_button_text = "Update Scripts"
+	rename_dialog.cancel_button_text = "Rename Only"
 	
-	# Add a third button for "Rename Only"
-	rename_dialog.add_button("Rename Only", true, "rename_only")
+	# Add a third button for "Don't Rename"
+	rename_dialog.add_button("Don't Rename", true, "cancel_rename")
 	
 	rename_dialog.confirmed.connect(_on_refactor_confirmed.bind(scripts))
-	rename_dialog.canceled.connect(_on_refactor_cancelled)
-	rename_dialog.custom_action.connect(_on_rename_only)
+	rename_dialog.canceled.connect(_on_refactor_skipped)
+	rename_dialog.custom_action.connect(_on_refactor_cancelled)
 	
 	# Add to editor
 	editor_plugin.get_editor_interface().get_base_control().add_child(rename_dialog)
-	rename_dialog.popup_centered(Vector2(400, 200))
+	rename_dialog.popup_centered(Vector2(450, 250))
 
 ## User confirmed: rename AND update scripts
 func _on_refactor_confirmed(scripts: Array):
@@ -1056,19 +1059,26 @@ func _on_refactor_confirmed(scripts: Array):
 	
 	_cleanup_rename_dialog()
 
-## User chose "Rename Only" - rename without updating scripts
-func _on_rename_only(action: String):
-	if action == "rename_only" and current_node:
-		current_node.name = new_name_for_rename
-		print("VisualGasic: Renamed '", old_name_for_rename, "' to '", new_name_for_rename, "' (scripts not updated)")
-		update_properties(current_node)
+## User chose to rename without updating scripts
+func _on_refactor_skipped():
+	if not current_node:
+		return
+	
+	current_node.name = new_name_for_rename
+	print("VisualGasic: Renamed '", old_name_for_rename, "' to '", new_name_for_rename, "' (scripts not updated)")
+	
+	# Refresh properties display
+	update_properties(current_node)
+	
 	_cleanup_rename_dialog()
 
-## User cancelled - don't rename at all
-func _on_refactor_cancelled():
-	print("VisualGasic: Rename cancelled")
-	if current_node:
-		update_properties(current_node)
+## User cancelled the rename entirely
+func _on_refactor_cancelled(action: String):
+	if action == "cancel_rename":
+		print("VisualGasic: Rename cancelled")
+		# Refresh to restore original name in inspector
+		if current_node:
+			update_properties(current_node)
 	_cleanup_rename_dialog()
 
 func _cleanup_rename_dialog():
@@ -1078,42 +1088,20 @@ func _cleanup_rename_dialog():
 	old_name_for_rename = ""
 	new_name_for_rename = ""
 
-## Update references in a script file (or open editor buffer)
+## Update references in a script file
 func _update_script_references(script_path: String, old_name: String, new_name: String) -> bool:
-	# First, check if this script is currently open in the editor
-	var script_editor = editor_plugin.get_editor_interface().get_script_editor() if editor_plugin else null
-	var code_edit: CodeEdit = null
-	var source: String = ""
-	var is_open_in_editor := false
+	var f = FileAccess.open(script_path, FileAccess.READ)
+	if not f:
+		push_error("VisualGasic: Could not open " + script_path + " for reading")
+		return false
 	
-	if script_editor:
-		# Get parallel arrays of scripts and editors
-		var open_scripts = script_editor.get_open_scripts()
-		var open_editors = script_editor.get_open_script_editors()
-		
-		for i in range(min(open_scripts.size(), open_editors.size())):
-			var script = open_scripts[i]
-			var editor_base = open_editors[i]
-			if script and script.resource_path == script_path:
-				# Found it - get the CodeEdit
-				code_edit = _find_code_edit(editor_base)
-				if code_edit:
-					source = code_edit.text
-					is_open_in_editor = true
-					break
-	
-	# If not open in editor, read from disk
-	if not is_open_in_editor:
-		var f = FileAccess.open(script_path, FileAccess.READ)
-		if not f:
-			push_error("VisualGasic: Could not open " + script_path + " for reading")
-			return false
-		source = f.get_as_text()
-		f.close()
+	var source = f.get_as_text()
+	f.close()
 	
 	var original_source = source
 	
-	# Replace patterns using regex for proper word boundary matching
+	# Replace patterns (case-insensitive replacement is tricky, so we do multiple passes)
+	# Use regex for proper word boundary matching
 	var regex = RegEx.new()
 	
 	# Pattern 1: ControlName. (property access)
@@ -1133,26 +1121,24 @@ func _update_script_references(script_path: String, old_name: String, new_name: 
 	source = regex.sub(source, "\"" + new_name + "\"", true)
 	
 	if source == original_source:
-		print("VisualGasic: No changes needed in ", script_path.get_file())
 		return false  # No changes made
 	
-	# Apply the changes
-	if is_open_in_editor and code_edit:
-		# Update the editor buffer directly
-		code_edit.text = source
-		print("VisualGasic: Updated editor buffer for ", script_path.get_file())
-	else:
-		# Write to disk
-		var f = FileAccess.open(script_path, FileAccess.WRITE)
-		if not f:
-			push_error("VisualGasic: Could not open " + script_path + " for writing")
-			return false
-		f.store_string(source)
-		f.close()
-		print("VisualGasic: Updated file on disk: ", script_path.get_file())
-		
-		# Signal editor to reload
-		if editor_plugin and is_instance_valid(editor_plugin):
+	# Write updated content
+	f = FileAccess.open(script_path, FileAccess.WRITE)
+	if not f:
+		push_error("VisualGasic: Could not open " + script_path + " for writing")
+		return false
+	
+	f.store_string(source)
+	f.close()
+	
+	print("VisualGasic: Updated references in ", script_path.get_file())
+	
+	# Try to reload the script in the editor
+	if editor_plugin and is_instance_valid(editor_plugin):
+		var script_editor = editor_plugin.get_editor_interface().get_script_editor()
+		if script_editor:
+			# Signal editor to reload
 			editor_plugin.get_editor_interface().get_resource_filesystem().scan()
 	
 	return true

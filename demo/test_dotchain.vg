@@ -1,0 +1,28 @@
+' Test complex property paths
+Sub Main()
+    ' Test 1: Simple two-level dot (already works)
+    Dim d As Dictionary
+    d("Font") = "Arial"
+    Print "Dict.Font=" & d("Font")
+
+    ' Test 2: Nested dictionary (Font as sub-dictionary)
+    Dim ctrl As Dictionary
+    Dim font As Dictionary
+    font("Size") = 12
+    font("Name") = "Courier"
+    ctrl("Font") = font
+    
+    ' Read nested: ctrl.Font.Size
+    Print "ctrl.Font.Size=" & ctrl("Font")("Size")
+    
+    ' Test 3: Try dot-chain style
+    Print "ctrl.Font=" & TypeName(ctrl.Font)
+    Print "ctrl.Font.Size=" & ctrl.Font.Size
+    Print "ctrl.Font.Name=" & ctrl.Font.Name
+    
+    ' Test 4: Assignment through dot chain
+    ctrl.Font.Size = 24
+    Print "After assign ctrl.Font.Size=" & ctrl.Font.Size
+    
+    Print "DONE"
+End Sub
