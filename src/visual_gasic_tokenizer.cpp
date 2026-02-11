@@ -160,6 +160,8 @@ Vector<VisualGasicTokenizer::Token> VisualGasicTokenizer::tokenize(const String 
     keywords.push_back("HasValue");
     keywords.push_back("Value");
     keywords.push_back("Write");
+    keywords.push_back("Erase");
+    keywords.push_back("Lambda");
 
     while (current < length) {
         char32_t c = p_source_code[current];
@@ -417,6 +419,15 @@ Vector<VisualGasicTokenizer::Token> VisualGasicTokenizer::tokenize(const String 
                     t.type = TOKEN_OPERATOR; t.value = "!="; current++;
                 } else {
                     t.type = TOKEN_OPERATOR; t.value = "!";
+                }
+                break;
+            case '?':
+                if (current + 1 < length && p_source_code[current+1] == '?') {
+                    t.type = TOKEN_OPERATOR; t.value = "??"; current++;
+                } else if (current + 1 < length && p_source_code[current+1] == '.') {
+                    t.type = TOKEN_OPERATOR; t.value = "?."; current++;
+                } else {
+                    t.type = TOKEN_OPERATOR; t.value = "?";
                 }
                 break;
             default:

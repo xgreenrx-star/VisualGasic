@@ -77,6 +77,7 @@ private:
     InputStatement* parse_input(bool is_line);
     ExitStatement* parse_exit();
     ReDimStatement* parse_redim();
+    EraseStatement* parse_erase();
     WithStatement* parse_with();
     RaiseStatement* parse_raise();
     WheneverSectionStatement* parse_whenever();
@@ -104,6 +105,7 @@ private:
 
     // Expression parsing
     ExpressionNode* parse_expression(); // Pythonic If-Else
+    ExpressionNode* parse_null_coalesce(); // ?? operator
     ExpressionNode* parse_logical_or(); // OR
     ExpressionNode* parse_and();        // AND
     ExpressionNode* parse_not();        // NOT
@@ -113,6 +115,7 @@ private:
     ExpressionNode* parse_exponentiation(); // ** (Power)
     ExpressionNode* parse_unary();
     ExpressionNode* parse_factor();     // ( ) Lit Var Call unary-
+    ExpressionNode* parse_lambda();     // Lambda(x) => expr or Function(x) ... End Function
 
     // Parser-owned allocations tracking: register nodes created during
     // parsing so the parser can free them on failure. On successful

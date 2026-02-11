@@ -1856,6 +1856,49 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
          
          if (base.get_type() == Variant::DICTIONARY) {
              Dictionary d = base;
+             // Check if this is a lambda invocation
+             if (d.has("__vg_lambda") && (bool)d["__vg_lambda"]) {
+                 LambdaNode* lam = (LambdaNode*)(uint64_t)d["__vg_ast_ptr"];
+                 if (lam) {
+                     Array call_args;
+                     for (int i = 0; i < aa->indices.size(); i++) {
+                         call_args.push_back(evaluate_expression(aa->indices[i]));
+                     }
+                     HashMap<String, Variant> saved_vars;
+                     Array param_names = d["__vg_params"];
+                     for (int i = 0; i < param_names.size(); i++) {
+                         String pname = param_names[i];
+                         if (variables.has(pname)) saved_vars[pname] = variables[pname];
+                         if (i < call_args.size()) {
+                             variables[pname] = call_args[i];
+                         } else {
+                             variables[pname] = Variant();
+                         }
+                     }
+                     Variant lambda_result;
+                     if (lam->is_arrow && lam->body_expression) {
+                         lambda_result = evaluate_expression(lam->body_expression);
+                     } else {
+                         for (int i = 0; i < lam->body_statements.size(); i++) {
+                             execute_statement(lam->body_statements[i]);
+                             if (variables.has("__vg_return_value")) {
+                                 lambda_result = variables["__vg_return_value"];
+                                 variables.erase("__vg_return_value");
+                                 break;
+                             }
+                         }
+                     }
+                     for (int i = 0; i < param_names.size(); i++) {
+                         String pname = param_names[i];
+                         if (saved_vars.has(pname)) {
+                             variables[pname] = saved_vars[pname];
+                         } else {
+                             variables.erase(pname);
+                         }
+                     }
+                     return lambda_result;
+                 }
+             }
              if (aa->indices.size() > 0) {
                  // Check for null index expression
                  if (!aa->indices[0]) {
@@ -2149,6 +2192,49 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
          return Variant();
     }
 
+    // Lambda expression: return a callable Dictionary wrapping the AST node
+    if (expr->type == ExpressionNode::LAMBDA) {
+        LambdaNode* lam = (LambdaNode*)expr;
+        Dictionary lambda_obj;
+        lambda_obj["__vg_lambda"] = true;
+        lambda_obj["__vg_is_arrow"] = lam->is_arrow;
+        Array param_names;
+        for (int i = 0; i < lam->parameters.size(); i++) {
+            param_names.push_back(lam->parameters[i].name);
+        }
+        lambda_obj["__vg_params"] = param_names;
+        lambda_obj["__vg_ast_ptr"] = (uint64_t)lam;
+        return lambda_obj;
+    }
+
+    // Optional chaining ?. — returns Nil if base is null
+    if (expr->type == ExpressionNode::OPTIONAL_ACCESS) {
+        OptionalAccessExpression* oa = (OptionalAccessExpression*)expr;
+        Variant base = evaluate_expression(oa->object_expression);
+        if (base.get_type() == Variant::NIL) return Variant();
+        // Behave like normal member access
+        if (base.get_type() == Variant::DICTIONARY) {
+            Dictionary d = base;
+            if (d.has(oa->member_name)) return d[oa->member_name];
+            return Variant();
+        }
+        bool valid = false;
+        Variant ret = base.get_named(oa->member_name, valid);
+        if (valid) return ret;
+        ret = base.get_named(oa->member_name.to_lower(), valid);
+        if (valid) return ret;
+        if (base.get_type() == Variant::OBJECT) {
+            Object* obj = base;
+            if (obj) {
+                Variant val = obj->get(oa->member_name);
+                if (val.get_type() != Variant::NIL) return val;
+                val = obj->get(oa->member_name.to_snake_case());
+                if (val.get_type() != Variant::NIL) return val;
+            }
+        }
+        return Variant();
+    }
+
     if (expr->type == ExpressionNode::EXPRESSION_CALL) {
         CallExpression* call = (CallExpression*)expr;
         
@@ -2313,6 +2399,47 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
                  }
             } else if (v.get_type() == Variant::DICTIONARY) {
                 Dictionary d = v;
+                // Lambda invocation: myLambda(args...)
+                if (d.has("__vg_lambda") && (bool)d["__vg_lambda"]) {
+                    LambdaNode* lam = (LambdaNode*)(uint64_t)d["__vg_ast_ptr"];
+                    if (lam) {
+                        // Bind arguments to parameter names in a local scope
+                        HashMap<String, Variant> saved_vars;
+                        Array param_names = d["__vg_params"];
+                        for (int i = 0; i < param_names.size(); i++) {
+                            String pname = param_names[i];
+                            if (variables.has(pname)) saved_vars[pname] = variables[pname];
+                            if (i < call_args.size()) {
+                                variables[pname] = call_args[i];
+                            } else {
+                                variables[pname] = Variant();
+                            }
+                        }
+                        Variant lambda_result;
+                        if (lam->is_arrow && lam->body_expression) {
+                            lambda_result = evaluate_expression(lam->body_expression);
+                        } else {
+                            for (int i = 0; i < lam->body_statements.size(); i++) {
+                                execute_statement(lam->body_statements[i]);
+                                if (variables.has("__vg_return_value")) {
+                                    lambda_result = variables["__vg_return_value"];
+                                    variables.erase("__vg_return_value");
+                                    break;
+                                }
+                            }
+                        }
+                        // Restore saved variables
+                        for (int i = 0; i < param_names.size(); i++) {
+                            String pname = param_names[i];
+                            if (saved_vars.has(pname)) {
+                                variables[pname] = saved_vars[pname];
+                            } else {
+                                variables.erase(pname);
+                            }
+                        }
+                        return lambda_result;
+                    }
+                }
                 if (call_args.size() == 1) {
                     Variant key = call_args[0];
                     if (d.has(key)) return d[key];
@@ -3578,6 +3705,12 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
              Variant l = evaluate_expression(bin->left);
              if (l.booleanize()) return true;
              return evaluate_expression(bin->right).booleanize();
+        }
+        // Null coalescing operator ??
+        if (bin->op == "??") {
+             Variant l = evaluate_expression(bin->left);
+             if (l.get_type() != Variant::NIL) return l;
+             return evaluate_expression(bin->right);
         }
 
         Variant l = evaluate_expression(bin->left);
@@ -5893,6 +6026,21 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                 // Assuming Variant arrays (nulls) unless we track variable types separately.
                 // For now, type_name is empty.
                 variables[s->variable_name] = LocalArrayBuilder::create(dims, 0, "", struct_prototypes);
+            }
+            break;
+        }
+        case STMT_ERASE: {
+            EraseStatement* es = (EraseStatement*)stmt;
+            if (variables.has(es->variable_name)) {
+                Variant cur = variables[es->variable_name];
+                if (cur.get_type() == Variant::ARRAY) {
+                    variables[es->variable_name] = Array();
+                } else if (cur.get_type() == Variant::DICTIONARY) {
+                    variables[es->variable_name] = Dictionary();
+                } else {
+                    // For numeric/string types, reset to default
+                    variables[es->variable_name] = Variant();
+                }
             }
             break;
         }

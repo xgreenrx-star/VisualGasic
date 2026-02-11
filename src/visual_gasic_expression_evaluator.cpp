@@ -172,6 +172,50 @@ Variant VisualGasicExpressionEvaluator::evaluate(ExpressionNode* expr, Context& 
         }
         return Variant();
     }
+    // Optional chaining  ?.  —  returns Nil if base is null instead of error
+    if (expr->type == ExpressionNode::OPTIONAL_ACCESS) {
+        OptionalAccessExpression* oa = (OptionalAccessExpression*)expr;
+        Variant base = evaluate(oa->object_expression, ctx);
+        if (base.get_type() == Variant::NIL) return Variant();  // Short-circuit: null?.anything == null
+        // Otherwise behave like normal member access
+        if (base.get_type() == Variant::DICTIONARY) {
+            Dictionary d = base;
+            if (d.has(oa->member_name)) return d[oa->member_name];
+            return Variant();
+        }
+        bool valid = false;
+        Variant ret = base.get_named(oa->member_name, valid);
+        if (valid) return ret;
+        ret = base.get_named(oa->member_name.to_lower(), valid);
+        if (valid) return ret;
+        if (base.get_type() == Variant::OBJECT) {
+            Object* obj = base;
+            if (obj) {
+                Variant val = obj->get(oa->member_name);
+                if (val.get_type() != Variant::NIL) return val;
+                val = obj->get(oa->member_name.to_snake_case());
+                if (val.get_type() != Variant::NIL) return val;
+            }
+        }
+        return Variant();
+    }
+    // Lambda expression —  package as a callable Dictionary
+    if (expr->type == ExpressionNode::LAMBDA) {
+        // Return a Dictionary that wraps the lambda definition for the runtime to invoke
+        LambdaNode* lam = (LambdaNode*)expr;
+        Dictionary lambda_obj;
+        lambda_obj["__vg_lambda"] = true;
+        lambda_obj["__vg_is_arrow"] = lam->is_arrow;
+        // Store parameter names
+        Array param_names;
+        for (int i = 0; i < lam->parameters.size(); i++) {
+            param_names.push_back(lam->parameters[i].name);
+        }
+        lambda_obj["__vg_params"] = param_names;
+        // Store pointer to the AST node for later execution (as integer)
+        lambda_obj["__vg_ast_ptr"] = (uint64_t)lam;
+        return lambda_obj;
+    }
     if (expr->type == ExpressionNode::ARRAY_ACCESS) {
         ArrayAccessNode* aa = (ArrayAccessNode*)expr;
         Variant base = evaluate(aa->base, ctx);
@@ -266,6 +310,12 @@ Variant VisualGasicExpressionEvaluator::evaluate(ExpressionNode* expr, Context& 
             Variant l = evaluate(bin->left, ctx);
             if (l.booleanize()) return true;
             return evaluate(bin->right, ctx).booleanize();
+        }
+        // Null coalescing operator ??  —  short-circuit: skip right if left is non-null
+        if (bin->op == "??") {
+            Variant l = evaluate(bin->left, ctx);
+            if (l.get_type() != Variant::NIL) return l;
+            return evaluate(bin->right, ctx);
         }
         Variant l = evaluate(bin->left, ctx);
         Variant r = evaluate(bin->right, ctx);

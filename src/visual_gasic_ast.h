@@ -60,6 +60,7 @@ enum StatementType {
     STMT_PATTERN_MATCH,
     STMT_DECLARE,  // FFI/DLL declarations
     STMT_WRITE,    // Write # statement
+    STMT_ERASE,    // Erase array statement
     STMT_UNKNOWN
 };
 
@@ -69,7 +70,7 @@ struct ASTNode {
 
 // Expression Nodes
 struct ExpressionNode {
-    enum Type { LITERAL, VARIABLE, BINARY_OP, UNARY_OP, EXPRESSION_CALL, MEMBER_ACCESS, ARRAY_ACCESS, ME, SUPER, NEW, WITH_CONTEXT, EXPRESSION_IIF, MATCH_EXPRESSION, OPTIONAL_ACCESS, TYPE_CHECK } type;
+    enum Type { LITERAL, VARIABLE, BINARY_OP, UNARY_OP, EXPRESSION_CALL, MEMBER_ACCESS, ARRAY_ACCESS, ME, SUPER, NEW, WITH_CONTEXT, EXPRESSION_IIF, MATCH_EXPRESSION, OPTIONAL_ACCESS, TYPE_CHECK, LAMBDA } type;
     virtual ~ExpressionNode() {}
     
     virtual ExpressionNode* duplicate() {
@@ -324,6 +325,11 @@ struct ReDimStatement : public Statement {
     ~ReDimStatement() {
         for(int i=0; i<array_sizes.size(); i++) if(array_sizes[i]) delete array_sizes[i];
     }
+};
+
+struct EraseStatement : public Statement {
+    String variable_name;
+    EraseStatement() : Statement(STMT_ERASE) {}
 };
 
 struct DimStatement : public Statement {
@@ -896,6 +902,25 @@ struct OptionalAccessExpression : ExpressionNode {
         object_expression = nullptr;
     }
     ~OptionalAccessExpression() { if(object_expression) delete object_expression; }
+};
+
+// Lambda Expression Node
+struct LambdaNode : public ExpressionNode {
+    Vector<Parameter> parameters;
+    ExpressionNode* body_expression;  // For arrow syntax: Lambda(x) => x * 2
+    Vector<Statement*> body_statements;  // For block syntax: Function(x) ... End Function
+    String return_type;
+    bool is_arrow;  // True for => syntax, false for block
+    
+    LambdaNode() { type = LAMBDA; body_expression = nullptr; is_arrow = true; }
+    virtual ~LambdaNode() {
+        if (body_expression) delete body_expression;
+        for (int i = 0; i < body_statements.size(); i++) if (body_statements[i]) delete body_statements[i];
+    }
+    virtual ExpressionNode* duplicate() override {
+        // Lambdas are not duplicated (complex ownership) - return null
+        return nullptr;
+    }
 };
 
 // Type Check Expression

@@ -436,6 +436,10 @@ void VisualGasicCompiler::collect_locals(Statement* stmt) {
             }
             break;
         }
+        case STMT_ERASE: {
+            // Erase falls back to interpreter for now
+            break;
+        }
         case STMT_FOR: {
         case STMT_ASSIGNMENT: {
             AssignmentStatement *s = (AssignmentStatement *)stmt;
@@ -3046,6 +3050,11 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                 int idx = current_chunk->add_constant(s->variable_name);
                 emit_bytes(OP_SET_GLOBAL, (uint8_t)idx);
             }
+            break;
+        }
+        case STMT_ERASE: {
+            // Fall back to interpreter for Erase
+            compile_ok = false;
             break;
         }
         case STMT_EXIT: {

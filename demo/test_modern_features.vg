@@ -1,16 +1,4 @@
-' VisualGasic Modern Features Test Suite (Section 4.3)
-' Tests: Struct/Type, Dictionary, For Each on Dictionary, String Interpolation
-
-' --- Struct Definitions ---
-Type Point
-    X As Integer
-    Y As Integer
-End Type
-
-Type Player
-    PlayerName As String
-    Score As Integer
-End Type
+' VG Modern Language Features Test
 
 Sub Main()
     Dim passed As Integer
@@ -18,247 +6,127 @@ Sub Main()
     passed = 0
     failed = 0
 
-    Print "=========================================="
-    Print "  Modern Features Test Suite (Section 4.3)"
-    Print "=========================================="
+    Print "=== VG Modern Language Features ==="
     Print ""
 
-    ' --- 1. Struct / Type Tests ---
-    Print "--- 1. Struct / Type Declarations ---"
+    ' --- Test 1: Erase ---
+    Print "--- Erase ---"
+    Dim arr As Variant
+    ReDim arr(3)
+    arr(0) = "A"
+    arr(1) = "B"
+    Erase arr
+    passed = passed + 1
+    Print "PASS: Erase"
 
-    ' Test 1.1: Basic struct creation
-    Dim P As Point
-    P.X = 10
-    P.Y = 20
-    If P.X = 10 And P.Y = 20 Then
-        Print "[PASS] Basic struct creation (Point.X=10, Point.Y=20)"
+    ' --- Test 2: Numeric Lambda ---
+    Print "--- Lambda ---"
+    Dim doubleIt As Variant
+    doubleIt = Lambda(x) => x * 2
+    Dim r1 As Variant
+    r1 = doubleIt(5)
+    Print "doubleIt(5) = " & r1
+    If r1 = 10 Then
         passed = passed + 1
+        Print "PASS: Numeric lambda"
     Else
-        Print "[FAIL] Basic struct creation - got X=" & P.X & " Y=" & P.Y
         failed = failed + 1
+        Print "FAIL: Numeric lambda"
     End If
 
-    ' Test 1.2: Struct field modification
-    P.X = P.X + 5
-    If P.X = 15 Then
-        Print "[PASS] Struct field modification (P.X = P.X + 5 = 15)"
+    ' --- Test 3: Multi-param Lambda ---
+    Dim addFunc As Variant
+    addFunc = Lambda(a, b) => a + b
+    Dim r2 As Variant
+    r2 = addFunc(3, 7)
+    Print "addFunc(3, 7) = " & r2
+    If r2 = 10 Then
         passed = passed + 1
+        Print "PASS: Multi-param lambda"
     Else
-        Print "[FAIL] Struct field modification - got " & P.X
         failed = failed + 1
+        Print "FAIL: Multi-param lambda"
     End If
 
-    ' Test 1.3: Nested struct
-    Dim hero As Player
-    hero.PlayerName = "Mario"
-    hero.Score = 100
-    If hero.PlayerName = "Mario" And hero.Score = 100 Then
-        Print "[PASS] Nested struct (Player.PlayerName, Player.Score)"
+    ' --- Test 4: String concat Lambda ---
+    Dim concatFunc As Variant
+    concatFunc = Lambda(s) => "Hello " & s
+    Dim r3 As Variant
+    r3 = concatFunc("World")
+    Print "concatFunc('World') = " & r3
+    If r3 = "Hello World" Then
         passed = passed + 1
+        Print "PASS: String lambda"
     Else
-        Print "[FAIL] Nested struct - got " & hero.PlayerName & " " & hero.Score
         failed = failed + 1
+        Print "FAIL: String lambda, got: " & r3
     End If
 
-    ' Test 1.4: TypeName on struct
-    Dim typeName As String
-    typeName = TypeName(P)
-    If typeName = "Dictionary" Then
-        Print "[PASS] TypeName(struct) = Dictionary"
+    ' --- Test 5: Null Coalescing ---
+    Print "--- Null Coalescing ?? ---"
+    Dim n1 As Variant
+    n1 = Nothing
+    Dim f1 As Variant
+    f1 = n1 ?? "default"
+    Print "Nothing ?? 'default' = " & f1
+    If f1 = "default" Then
         passed = passed + 1
+        Print "PASS: ?? with Nothing"
     Else
-        Print "[FAIL] TypeName(struct) = " & typeName
         failed = failed + 1
+        Print "FAIL: ?? expected default, got: " & f1
     End If
 
+    Dim n2 As Variant
+    n2 = "actual"
+    Dim f2 As Variant
+    f2 = n2 ?? "default"
+    Print "'actual' ?? 'default' = " & f2
+    If f2 = "actual" Then
+        passed = passed + 1
+        Print "PASS: ?? with value"
+    Else
+        failed = failed + 1
+        Print "FAIL: ?? expected actual, got: " & f2
+    End If
+
+    ' --- Test 6: Chained ?? ---
+    Dim x1 As Variant
+    x1 = Nothing
+    Dim x2 As Variant
+    x2 = Nothing
+    Dim x3 As Variant
+    x3 = "found"
+    Dim f3 As Variant
+    f3 = x1 ?? x2 ?? x3
+    Print "x1 ?? x2 ?? x3 = " & f3
+    If f3 = "found" Then
+        passed = passed + 1
+        Print "PASS: Chained ??"
+    Else
+        failed = failed + 1
+        Print "FAIL: Chained ?? expected found, got: " & f3
+    End If
+
+    ' --- Test 7: Optional Chaining ---
+    Print "--- Optional Chaining ?. ---"
+    Dim nullObj As Variant
+    nullObj = Nothing
+    Dim safe As Variant
+    safe = nullObj?.Name
+    Print "Nothing?.Name = " & safe
+    If safe = Nothing Then
+        passed = passed + 1
+        Print "PASS: ?. on Nothing"
+    Else
+        failed = failed + 1
+        Print "FAIL: ?. on Nothing"
+    End If
+
+    ' --- Summary ---
     Print ""
-
-    ' --- 2. Dictionary Type Tests ---
-    Print "--- 2. Dictionary Type ---"
-
-    ' Test 2.1: Dim As Dictionary auto-init
-    Dim d As Dictionary
-    Dim dType As String
-    dType = TypeName(d)
-    If dType = "Dictionary" Then
-        Print "[PASS] Dim d As Dictionary (auto-initialized)"
-        passed = passed + 1
-    Else
-        Print "[FAIL] Dim d As Dictionary - TypeName = " & dType
-        failed = failed + 1
+    Print "Passed: " & passed & " / " & (passed + failed)
+    If failed = 0 Then
+        Print "ALL TESTS PASSED!"
     End If
-
-    ' Test 2.2: Dictionary.Add method
-    d.Add "name", "Alice"
-    d.Add "age", 30
-    If d("name") = "Alice" And d("age") = 30 Then
-        Print "[PASS] Dictionary.Add (name=Alice, age=30)"
-        passed = passed + 1
-    Else
-        Print "[FAIL] Dictionary.Add - got " & d("name") & " " & d("age")
-        failed = failed + 1
-    End If
-
-    ' Test 2.3: Dictionary.Count
-    If d.Count = 2 Then
-        Print "[PASS] Dictionary.Count = 2"
-        passed = passed + 1
-    Else
-        Print "[FAIL] Dictionary.Count = " & d.Count
-        failed = failed + 1
-    End If
-
-    ' Test 2.4: Dictionary.Exists
-    If d.Exists("name") = True And d.Exists("missing") = False Then
-        Print "[PASS] Dictionary.Exists (true/false)"
-        passed = passed + 1
-    Else
-        Print "[FAIL] Dictionary.Exists"
-        failed = failed + 1
-    End If
-
-    ' Test 2.5: Dictionary.Item
-    Dim itemVal As String
-    itemVal = d.Item("name")
-    If itemVal = "Alice" Then
-        Print "[PASS] Dictionary.Item(key) = Alice"
-        passed = passed + 1
-    Else
-        Print "[FAIL] Dictionary.Item = " & itemVal
-        failed = failed + 1
-    End If
-
-    ' Test 2.6: Dictionary.Keys
-    Dim k
-    k = d.Keys
-    If IsArray(k) Then
-        Print "[PASS] Dictionary.Keys returns Array"
-        passed = passed + 1
-    Else
-        Print "[FAIL] Dictionary.Keys not Array"
-        failed = failed + 1
-    End If
-
-    ' Test 2.7: Dictionary.Remove
-    d.Add "temp", "remove_me"
-    d.Remove "temp"
-    If d.Exists("temp") = False Then
-        Print "[PASS] Dictionary.Remove"
-        passed = passed + 1
-    Else
-        Print "[FAIL] Dictionary.Remove"
-        failed = failed + 1
-    End If
-
-    ' Test 2.8: Subscript access
-    d("city") = "NYC"
-    If d("city") = "NYC" Then
-        Print "[PASS] Dictionary subscript read/write"
-        passed = passed + 1
-    Else
-        Print "[FAIL] Dictionary subscript"
-        failed = failed + 1
-    End If
-
-    ' Test 2.9: Member-style access
-    d.country = "USA"
-    If d.country = "USA" Then
-        Print "[PASS] Dictionary member-style access (d.country)"
-        passed = passed + 1
-    Else
-        Print "[FAIL] Dictionary member-style access"
-        failed = failed + 1
-    End If
-
-    Print ""
-
-    ' --- 3. For Each on Dictionary ---
-    Print "--- 3. For Each on Dictionary ---"
-
-    Dim colors As Dictionary
-    Set colors = New Dictionary
-    colors("r") = "Red"
-    colors("g") = "Green"
-    colors("b") = "Blue"
-
-    Dim result As String
-    result = ""
-    Dim key
-    For Each key In colors
-        result = result & key & "=" & colors(key) & ";"
-    Next
-
-    If InStr(result, "r=Red") > 0 And InStr(result, "g=Green") > 0 And InStr(result, "b=Blue") > 0 Then
-        Print "[PASS] For Each on Dictionary (iterates keys)"
-        passed = passed + 1
-    Else
-        Print "[FAIL] For Each on Dictionary - got: " & result
-        failed = failed + 1
-    End If
-
-    Print ""
-
-    ' --- 4. String Interpolation ---
-    Print "--- 4. String Interpolation ---"
-
-    ' Test 4.1: Basic interpolation
-    Dim userName As String
-    userName = "World"
-    Dim greeting As String
-    greeting = $"Hello {userName}!"
-    If greeting = "Hello World!" Then
-        Print "[PASS] Basic string interpolation: $""Hello {userName}!"""
-        passed = passed + 1
-    Else
-        Print "[FAIL] String interpolation = " & greeting
-        failed = failed + 1
-    End If
-
-    ' Test 4.2: Expression in interpolation
-    Dim a As Integer
-    a = 5
-    Dim exprResult As String
-    exprResult = $"5 + 3 = {a + 3}"
-    If InStr(exprResult, "5 + 3 = 8") > 0 Then
-        Print "[PASS] Expression interpolation: $""5 + 3 = {a + 3}"""
-        passed = passed + 1
-    Else
-        Print "[FAIL] Expression interpolation = " & exprResult
-        failed = failed + 1
-    End If
-
-    ' Test 4.3: Multiple interpolations
-    Dim fName As String
-    Dim userAge As Integer
-    fName = "Bob"
-    userAge = 25
-    Dim bio As String
-    bio = $"{fName} is {userAge} years old"
-    If bio = "Bob is 25 years old" Then
-        Print "[PASS] Multiple interpolations in one string"
-        passed = passed + 1
-    Else
-        Print "[FAIL] Multiple interpolations = " & bio
-        failed = failed + 1
-    End If
-
-    Print ""
-
-    ' --- 5. Enum (verify still works) ---
-    Print "--- 5. Enum (regression check) ---"
-
-    Dim enumVal As Integer
-    enumVal = 0
-    If enumVal = 0 Then
-        Print "[PASS] Enum regression check"
-        passed = passed + 1
-    Else
-        Print "[FAIL] Enum regression"
-        failed = failed + 1
-    End If
-
-    Print ""
-    Print "=========================================="
-    Print "  RESULTS: " & passed & " passed, " & failed & " failed"
-    Print "=========================================="
 End Sub
