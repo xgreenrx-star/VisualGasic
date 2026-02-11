@@ -22,37 +22,30 @@ func _ready() -> void:
 	_build_ui()
 
 func _build_ui() -> void:
-	# Preview button
+	# Compact button text — total width target: ~200px (was ~400px)
 	_preview_button = Button.new()
-	_preview_button.text = "▶ Preview Form"
-	_preview_button.tooltip_text = "Preview the current form (F5)"
+	_preview_button.text = "▶ Preview"
+	_preview_button.tooltip_text = "Preview current form (F5)"
 	_preview_button.pressed.connect(_on_preview_pressed)
 	add_child(_preview_button)
 	
-	# Separator
-	add_child(VSeparator.new())
-	
-	# Preview with debug
 	_debug_button = Button.new()
-	_debug_button.text = "🐛 Preview + Debug"
-	_debug_button.tooltip_text = "Preview with Immediate Window connected"
+	_debug_button.text = "Preview+Debug"
+	_debug_button.tooltip_text = "Preview with Immediate Window (Shift+F5)"
 	_debug_button.pressed.connect(_on_preview_debug_pressed)
 	add_child(_debug_button)
 	
-	# Separator
 	add_child(VSeparator.new())
 	
-	# Build project button
 	_build_button = Button.new()
-	_build_button.text = "🔨 Build"
-	_build_button.tooltip_text = "Validate all .vg files in the project"
+	_build_button.text = "Build"
+	_build_button.tooltip_text = "Validate all .vg files"
 	_build_button.pressed.connect(_on_build_pressed)
 	add_child(_build_button)
 	
-	# Run project button
 	_run_project_button = Button.new()
 	_run_project_button.text = "▶ Run Project"
-	_run_project_button.tooltip_text = "Run project main scene (Ctrl+F5)"
+	_run_project_button.tooltip_text = "Run main scene (Ctrl+F5)"
 	_run_project_button.pressed.connect(_on_run_project_pressed)
 	add_child(_run_project_button)
 

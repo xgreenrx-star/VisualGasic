@@ -115,7 +115,6 @@ VisualGasicToolbox::VisualGasicToolbox() {
     
     set_h_size_flags(Control::SIZE_EXPAND_FILL);
     set_v_size_flags(Control::SIZE_EXPAND_FILL);
-    // Minimal width to allow dock resizing - height requirement for usability
     set_custom_minimum_size(Vector2(100, 200));
 
     // Create Tabs

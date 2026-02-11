@@ -57,64 +57,59 @@ var _current_backcolor: Color = Color.WHITE
 
 func _init():
 	name = "VG Color Palette"
-	custom_minimum_size = Vector2(0, 28)
+	custom_minimum_size = Vector2(0, 24)
 	
-	# Fore/Back color preview squares (overlapping, like VB6)
+	# Fore/Back color preview (compact)
 	var preview_container = Control.new()
-	preview_container.custom_minimum_size = Vector2(36, 24)
+	preview_container.custom_minimum_size = Vector2(28, 22)
 	
 	_back_preview = ColorRect.new()
 	_back_preview.color = _current_backcolor
-	_back_preview.position = Vector2(8, 4)
-	_back_preview.size = Vector2(16, 16)
+	_back_preview.position = Vector2(6, 4)
+	_back_preview.size = Vector2(14, 14)
 	_back_preview.tooltip_text = "BackColor"
 	preview_container.add_child(_back_preview)
 	
 	_fore_preview = ColorRect.new()
 	_fore_preview.color = _current_forecolor
 	_fore_preview.position = Vector2(0, 0)
-	_fore_preview.size = Vector2(16, 16)
+	_fore_preview.size = Vector2(14, 14)
 	_fore_preview.tooltip_text = "ForeColor"
 	preview_container.add_child(_fore_preview)
 	
 	add_child(preview_container)
 	
-	# Separator
-	var sep = VSeparator.new()
-	add_child(sep)
-	
-	# Palette grid (2 rows × 16 columns)
+	# Compact palette grid — 16 columns × 2 rows, tiny swatches
 	var palette_grid = GridContainer.new()
 	palette_grid.columns = 16
+	palette_grid.add_theme_constant_override("h_separation", 0)
+	palette_grid.add_theme_constant_override("v_separation", 0)
 	
-	# Row 1: Standard VB6 colors
+	# Row 1: Standard VB6 16 colors
 	for color in VB6_COLORS:
 		var swatch = _create_swatch(color)
 		palette_grid.add_child(swatch)
 	
-	# Row 2: Extended colors
+	# Row 2: Extended 16 colors
 	for color in VB6_EXTENDED:
 		var swatch = _create_swatch(color)
 		palette_grid.add_child(swatch)
 	
 	add_child(palette_grid)
 	
-	# Custom color picker button
-	var sep2 = VSeparator.new()
-	add_child(sep2)
-	
+	# Custom color button
 	var custom_btn = Button.new()
 	custom_btn.text = "..."
 	custom_btn.tooltip_text = "Custom Color"
-	custom_btn.custom_minimum_size = Vector2(24, 24)
+	custom_btn.custom_minimum_size = Vector2(20, 20)
 	custom_btn.pressed.connect(_on_custom_color)
 	add_child(custom_btn)
 
 func _create_swatch(color: Color) -> Button:
 	"""Create a tiny clickable color swatch."""
 	var btn = Button.new()
-	btn.custom_minimum_size = Vector2(14, 10)
-	btn.size = Vector2(14, 10)
+	btn.custom_minimum_size = Vector2(10, 10)
+	btn.size = Vector2(10, 10)
 	btn.flat = true
 	btn.tooltip_text = "Left=ForeColor  Right=BackColor\n#" + color.to_html(false).to_upper()
 	

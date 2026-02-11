@@ -84,7 +84,7 @@ func _init():
 	name = "Properties"
 	size_flags_vertical = SIZE_EXPAND_FILL
 	size_flags_horizontal = SIZE_EXPAND_FILL
-	custom_minimum_size = Vector2(180, 100)  # Reasonable min for dock; Godot handles resize via dock splitters
+	custom_minimum_size = Vector2(150, 100)  # Reduced for better dock resizing
 	
 	# === 1. Object Dropdown (VB6-style, at the very top) ===
 	_object_dropdown = OptionButton.new()

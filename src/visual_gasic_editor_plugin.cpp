@@ -792,7 +792,7 @@ void VisualGasicEditorPlugin::_enter_tree() {
 
 void VisualGasicEditorPlugin::_exit_tree() {
     if (toolbox) {
-        remove_control_from_docks(toolbox);
+        remove_control_from_bottom_panel(toolbox);
         memdelete(toolbox);
         toolbox = nullptr;
     }

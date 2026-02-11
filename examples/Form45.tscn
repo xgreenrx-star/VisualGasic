@@ -1,0 +1,38 @@
+[gd_scene load_steps=3 format=3 uid="uid://pta428bfnfuf"]
+
+[ext_resource type="Script" uid="uid://ddhjngfsehw1o" path="res://Form45.vg" id="1_3oqkp"]
+[ext_resource type="Script" uid="uid://dpmjycbb7xr6m" path="res://addons/visual_gasic/form_editor_helper.gd" id="2_g28p4"]
+[ext_resource type="PackedScene" uid="" path="res://addons/visual_gasic/prototypes/Button.tscn" id="3"]
+
+[node name="Form45" type="Window"]
+positional_shadow_atlas_quad_0 = null
+positional_shadow_atlas_quad_1 = null
+positional_shadow_atlas_quad_2 = null
+positional_shadow_atlas_quad_3 = null
+title = "Form45"
+position = Vector2i(10, 36)
+size = Vector2i(400, 300)
+unresizable = null
+borderless = null
+always_on_top = null
+transparent = null
+unfocusable = null
+popup_window = null
+extend_to_title = null
+mouse_passthrough = null
+sharp_corners = null
+exclude_from_capture = null
+popup_wm_hint = null
+minimize_disabled = null
+maximize_disabled = null
+script = ExtResource("1_3oqkp")
+
+[node name="_FormBackground" type="Panel" parent="."]
+offset_right = 400.0
+offset_bottom = 300.0
+script = ExtResource("2_g28p4")
+
+[node name="Button1" parent="." instance=ExtResource("3")]
+offset_left = 112.0
+offset_top = 88.0
+text = "Button1"

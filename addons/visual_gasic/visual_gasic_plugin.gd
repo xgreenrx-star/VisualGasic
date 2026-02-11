@@ -82,6 +82,9 @@ var _vg_drag_active: bool = false
 ## VB6 Layout Manager — toolbar toggle for VB6/Godot IDE modes
 var _layout_manager = null
 
+## VB6 mode toggle button in main toolbar (near 2D/3D/Script)
+var _vb6_toggle_button: Button = null
+
 ## VB6-style Project Explorer panel (tree of Forms/Modules)
 var _project_explorer = null
 
@@ -90,6 +93,15 @@ var _properties_inspector = null
 
 ## VB6-style Color Palette toolbar for quick ForeColor/BackColor picking
 var _color_palette = null
+
+## VB6 Main Screen control (registered as editor tab alongside 2D/3D/Script)
+var _vb6_main_screen = null
+
+## Tracks whether VG panels are currently in Godot docks
+var _vg_panels_docked: bool = false
+
+## Tracks whether VG toolbars are currently in the 2D canvas editor menu
+var _vg_toolbars_in_container: bool = false
 
 ## VB6-style Data Tips — hover over variables during debugging
 var _data_tips = null
@@ -141,7 +153,6 @@ func _enter_tree():
 	toolbox.name = "Toolbox"
 	toolbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	toolbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	toolbox.custom_minimum_size = Vector2(180, 100)  # Reasonable min for dock
 	var label = Label.new()
 	label.text = "Visual Gasic Debug"
 	toolbox.add_child(label)
@@ -174,14 +185,18 @@ func _enter_tree():
 		# Hide until injected into script editor
 		_code_navigator.visible = false
 
-	# Create Property Inspector (docking controlled by VB6 Layout Manager)
+	# Create Property Inspector (NOT docked yet — will be docked on VB6 mode toggle)
 	_properties_inspector = loading_inspector()
 	if _properties_inspector:
 		_properties_inspector.setup(self)
-		_properties_inspector.visible = false  # Hidden until VB6 mode
+		add_child(_properties_inspector)  # Keep in scene tree for _ready()
+		_properties_inspector.visible = false
+		print("VisualGasic: Properties Inspector created (will dock in VB6 mode)")
 
-	# Toolbox created but NOT docked — docking controlled by Layout Manager
-	toolbox.visible = false  # Hidden until Visual Gasic mode
+	# Toolbox NOT docked yet — will be docked on VB6 mode toggle
+	add_child(toolbox)  # Keep in scene tree so C++ VisualGasicToolbox builds its UI
+	toolbox.visible = false
+	print("VisualGasic: Toolbox created (will dock in VB6 mode)")
 	
 	# Add Alignment Toolbar for form designer
 	var alignment_script = load("res://addons/visual_gasic/alignment_toolbar.gd")
@@ -189,8 +204,9 @@ func _enter_tree():
 		alignment_toolbar = alignment_script.new()
 		alignment_toolbar.name = "VG Alignment"
 		alignment_toolbar.setup(self)
-		add_control_to_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, alignment_toolbar)
-		print("VisualGasic: Added alignment toolbar to canvas editor")
+		add_child(alignment_toolbar)  # NOT in container yet — added on VB6 mode toggle
+		alignment_toolbar.visible = false
+		print("VisualGasic: Alignment toolbar created (will add to 2D bar in VB6 mode)")
 	
 	# Add Form Preview Toolbar
 	var preview_script = load("res://addons/visual_gasic/form_preview_toolbar.gd")
@@ -198,8 +214,9 @@ func _enter_tree():
 		form_preview_toolbar = preview_script.new()
 		form_preview_toolbar.name = "VG Preview"
 		form_preview_toolbar.setup(self)
-		add_control_to_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, form_preview_toolbar)
-		print("VisualGasic: Added form preview toolbar to canvas editor")
+		add_child(form_preview_toolbar)  # NOT in container yet — added on VB6 mode toggle
+		form_preview_toolbar.visible = false
+		print("VisualGasic: Preview toolbar created (will add to 2D bar in VB6 mode)")
 	
 	# Add VB6-style Color Palette toolbar
 	var color_palette_script = load("res://addons/visual_gasic/color_palette_toolbar.gd")
@@ -207,8 +224,9 @@ func _enter_tree():
 		_color_palette = color_palette_script.new()
 		_color_palette.name = "VG Color Palette"
 		_color_palette.setup(self)
-		add_control_to_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _color_palette)
-		print("VisualGasic: Added VB6 color palette to canvas editor")
+		add_child(_color_palette)  # NOT in container yet — added on VB6 mode toggle
+		_color_palette.visible = false
+		print("VisualGasic: Color palette created (will add to 2D bar in VB6 mode)")
 	
 	# Add VB6-style Data Tips (hover variable values during debugging)
 	var data_tips_script = load("res://addons/visual_gasic/vg_data_tips.gd")
@@ -223,15 +241,43 @@ func _enter_tree():
 	if proj_explorer_script:
 		_project_explorer = proj_explorer_script.new()
 		_project_explorer.setup(self)
-		_project_explorer.visible = false  # Hidden until VB6 mode is activated
+		add_child(_project_explorer)  # Keep in scene tree for _ready()
+		_project_explorer.visible = false
+		print("VisualGasic: Project Explorer created (will dock in VB6 mode)")
 
-	# Create VB6 Layout Manager toggle (goes in the canvas editor toolbar)
+	# NOTE: No VB6 main screen tab. The form designer IS the 2D viewport.
+	# VB6 mode = 2D viewport + VG dock panels + VG toolbars.
+	# Toggled via Project > Tools > Toggle VG IDE Layout.
+
+	# Create VB6 Layout Manager
 	var layout_mgr_script = load("res://addons/visual_gasic/vb6_layout_manager.gd")
 	if layout_mgr_script:
 		_layout_manager = layout_mgr_script.new()
-		_layout_manager.setup(self, toolbox, _project_explorer, _properties_inspector)
-		add_control_to_container(EditorPlugin.CONTAINER_TOOLBAR, _layout_manager)
-		print("VisualGasic: Added Visual Gasic/Godot layout toggle to main toolbar")
+		_layout_manager.setup(self, toolbox, _project_explorer, _properties_inspector, [alignment_toolbar, _color_palette, form_preview_toolbar])
+		add_child(_layout_manager)
+		add_tool_menu_item("Toggle VG IDE Layout", Callable(self, "_on_toggle_vb6_layout"))
+		_layout_manager.layout_changed.connect(_on_vb6_mode_changed)
+		print("VisualGasic: Added 'Toggle VG IDE Layout' to Project > Tools menu")
+	
+	# Add "Form Designer" button next to AssetLib in main screen bar.
+	# It behaves like 2D/3D/Script — click activates, clicking others deactivates.
+	_vb6_toggle_button = Button.new()
+	_vb6_toggle_button.text = "Form Designer"
+	_vb6_toggle_button.toggle_mode = true  # So it can show pressed state like siblings
+	_vb6_toggle_button.tooltip_text = "Form Designer — VB6-style IDE with toolbox, properties & alignment toolbars"
+	_vb6_toggle_button.flat = true
+	_vb6_toggle_button.focus_mode = Control.FOCUS_NONE
+	_vb6_toggle_button.pressed.connect(_on_form_designer_pressed)
+	# Find the main screen button bar (parent of 2D/3D/Script/AssetLib)
+	var _main_screen_bar = _find_main_screen_bar()
+	if _main_screen_bar:
+		_main_screen_bar.add_child(_vb6_toggle_button)
+		print("VisualGasic: Added 'Form Designer' to main screen bar")
+	else:
+		add_control_to_container(EditorPlugin.CONTAINER_TOOLBAR, _vb6_toggle_button)
+		print("VisualGasic: Added 'Form Designer' to toolbar (fallback)")
+	# Style after in tree so sibling theme lookups work
+	call_deferred("_style_form_designer_button")
 
 	_post_init()
 	_setup_script_editor_context_menu()
@@ -246,6 +292,103 @@ func _enter_tree():
 	add_tool_menu_item("Visual Gasic Tab Order", Callable(self, "_on_tab_order"))
 	add_tool_menu_item("Visual Gasic Components...", Callable(self, "_on_components"))
 
+# =============================================================================
+# DOCK MANAGEMENT — called by layout manager on mode toggle
+# =============================================================================
+
+## Moves VG panels from plugin children into Godot dock slots.
+## Called when entering VB6 mode.
+func dock_vg_panels():
+	if _vg_panels_docked:
+		return
+	# Remove from plugin children first
+	if is_instance_valid(toolbox) and toolbox.get_parent() == self:
+		remove_child(toolbox)
+	if is_instance_valid(_project_explorer) and _project_explorer.get_parent() == self:
+		remove_child(_project_explorer)
+	if is_instance_valid(_properties_inspector) and _properties_inspector.get_parent() == self:
+		remove_child(_properties_inspector)
+	# Add to Godot docks
+	if is_instance_valid(toolbox):
+		add_control_to_dock(EditorPlugin.DOCK_SLOT_LEFT_BL, toolbox)
+		toolbox.visible = true
+	if is_instance_valid(_project_explorer):
+		add_control_to_dock(EditorPlugin.DOCK_SLOT_RIGHT_UL, _project_explorer)
+		_project_explorer.visible = true
+	if is_instance_valid(_properties_inspector):
+		add_control_to_dock(EditorPlugin.DOCK_SLOT_RIGHT_BL, _properties_inspector)
+		_properties_inspector.visible = true
+	_vg_panels_docked = true
+	print("VisualGasic: VG panels added to docks")
+
+## Removes VG panels from Godot docks back to plugin children.
+## Called when exiting VB6 mode. Docks return to clean Godot state.
+func undock_vg_panels():
+	if not _vg_panels_docked:
+		return
+	if is_instance_valid(toolbox):
+		remove_control_from_docks(toolbox)
+		add_child(toolbox)
+		toolbox.visible = false
+	if is_instance_valid(_project_explorer):
+		remove_control_from_docks(_project_explorer)
+		add_child(_project_explorer)
+		_project_explorer.visible = false
+	if is_instance_valid(_properties_inspector):
+		remove_control_from_docks(_properties_inspector)
+		add_child(_properties_inspector)
+		_properties_inspector.visible = false
+	_vg_panels_docked = false
+	print("VisualGasic: VG panels removed from docks (Godot mode)")
+
+## Moves VG toolbars from plugin children into 2D canvas editor menu bar.
+## Called when entering VB6 mode.
+func dock_vg_toolbars():
+	if _vg_toolbars_in_container:
+		return
+	for tb in [alignment_toolbar, form_preview_toolbar, _color_palette]:
+		if is_instance_valid(tb):
+			if tb.get_parent() == self:
+				remove_child(tb)
+			add_control_to_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, tb)
+			tb.visible = true
+	_vg_toolbars_in_container = true
+	print("VisualGasic: VG toolbars added to 2D canvas bar")
+
+## Removes VG toolbars from 2D canvas editor menu bar back to plugin children.
+## Called when exiting VB6 mode. 2D toolbar returns to clean Godot state.
+func undock_vg_toolbars():
+	if not _vg_toolbars_in_container:
+		return
+	for tb in [alignment_toolbar, form_preview_toolbar, _color_palette]:
+		if is_instance_valid(tb):
+			remove_control_from_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, tb)
+			add_child(tb)
+			tb.visible = false
+	_vg_toolbars_in_container = false
+	print("VisualGasic: VG toolbars removed from 2D canvas bar (Godot mode)")
+
+# =============================================================================
+# MAIN SCREEN PLUGIN OVERRIDES
+# =============================================================================
+
+## No VB6 main screen tab. The form designer IS the Godot 2D viewport.
+## VB6 mode = 2D viewport + VG dock panels (Toolbox, Properties, Project Explorer)
+##         + VG toolbars (Alignment, Preview, Color Palette).
+## Toggled via Project > Tools > Toggle VG IDE Layout.
+func _has_main_screen() -> bool:
+	return false
+
+## Called by the editor after restoring saved window layout.
+func _set_window_layout(config: ConfigFile):
+	if is_instance_valid(_layout_manager):
+		_layout_manager.on_window_layout_restored(config)
+
+## Called by the editor when saving window layout.
+func _get_window_layout(config: ConfigFile):
+	if is_instance_valid(_layout_manager):
+		_layout_manager.on_window_layout_saving(config)
+
 ## Called when the plugin exits the editor tree.
 ## Cleans up all plugin components and disconnects signals.
 func _exit_tree():
@@ -258,6 +401,15 @@ func _exit_tree():
 		remove_debugger_plugin(debugger_plugin)
 		debugger_plugin = null
 	
+	# Remove Form Designer toggle button
+	if is_instance_valid(_vb6_toggle_button):
+		if _vb6_toggle_button.get_parent():
+			_vb6_toggle_button.get_parent().remove_child(_vb6_toggle_button)
+		_vb6_toggle_button.queue_free()
+		_vb6_toggle_button = null
+	
+	remove_tool_menu_item("Toggle VG IDE Layout")
+	remove_tool_menu_item("New Module...")
 	remove_tool_menu_item("Import VB6 Form...")
 	remove_tool_menu_item("Import VB6 Project...")
 	remove_tool_menu_item("Visual Gasic Menu Editor")
@@ -278,29 +430,31 @@ func _exit_tree():
 		_code_navigator.queue_free()
 		_code_navigator = null
 	_nav_injected_parent = null
-
-	# Cleanup Toolbox (may already be undocked by layout manager)
-	if is_instance_valid(toolbox):
-		if toolbox.get_parent():
-			toolbox.get_parent().remove_child(toolbox)
-		toolbox.queue_free()
-		toolbox = null
 	
 	# Cleanup alignment toolbar
 	if is_instance_valid(alignment_toolbar):
-		remove_control_from_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, alignment_toolbar)
+		if _vg_toolbars_in_container:
+			remove_control_from_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, alignment_toolbar)
+		elif alignment_toolbar.get_parent() == self:
+			remove_child(alignment_toolbar)
 		alignment_toolbar.queue_free()
 		alignment_toolbar = null
 	
 	# Cleanup form preview toolbar
 	if is_instance_valid(form_preview_toolbar):
-		remove_control_from_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, form_preview_toolbar)
+		if _vg_toolbars_in_container:
+			remove_control_from_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, form_preview_toolbar)
+		elif form_preview_toolbar.get_parent() == self:
+			remove_child(form_preview_toolbar)
 		form_preview_toolbar.queue_free()
 		form_preview_toolbar = null
 	
 	# Cleanup Color Palette toolbar
 	if is_instance_valid(_color_palette):
-		remove_control_from_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _color_palette)
+		if _vg_toolbars_in_container:
+			remove_control_from_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _color_palette)
+		elif _color_palette.get_parent() == self:
+			remove_child(_color_palette)
 		_color_palette.queue_free()
 		_color_palette = null
 	
@@ -310,26 +464,39 @@ func _exit_tree():
 		_data_tips.queue_free()
 		_data_tips = null
 	
-	# Cleanup VB6 Layout Manager (undocks panels it manages)
+	# Cleanup VB6 Layout Manager (detaches panels from main screen)
 	if is_instance_valid(_layout_manager):
 		_layout_manager.cleanup()
-		remove_control_from_container(EditorPlugin.CONTAINER_TOOLBAR, _layout_manager)
+		remove_child(_layout_manager)
 		_layout_manager.queue_free()
 		_layout_manager = null
 
-	# Cleanup Project Explorer (may already be undocked by layout manager)
+	# Cleanup VG panels — may be in docks or as plugin children
+	if _vg_panels_docked:
+		if is_instance_valid(toolbox):
+			remove_control_from_docks(toolbox)
+		if is_instance_valid(_project_explorer):
+			remove_control_from_docks(_project_explorer)
+		if is_instance_valid(_properties_inspector):
+			remove_control_from_docks(_properties_inspector)
+	else:
+		if is_instance_valid(toolbox) and toolbox.get_parent() == self:
+			remove_child(toolbox)
+		if is_instance_valid(_project_explorer) and _project_explorer.get_parent() == self:
+			remove_child(_project_explorer)
+		if is_instance_valid(_properties_inspector) and _properties_inspector.get_parent() == self:
+			remove_child(_properties_inspector)
+	if is_instance_valid(toolbox):
+		toolbox.queue_free()
+		toolbox = null
 	if is_instance_valid(_project_explorer):
-		if _project_explorer.get_parent():
-			_project_explorer.get_parent().remove_child(_project_explorer)
 		_project_explorer.queue_free()
 		_project_explorer = null
-
-	# Cleanup Properties Inspector (may already be undocked by layout manager)
 	if is_instance_valid(_properties_inspector):
-		if _properties_inspector.get_parent():
-			_properties_inspector.get_parent().remove_child(_properties_inspector)
 		_properties_inspector.queue_free()
 		_properties_inspector = null
+
+	# (No VB6 main screen tab to clean up — form designer is the 2D viewport)
 
 	# Cleanup recent projects menu
 	if is_instance_valid(_recent_projects_menu):
@@ -974,6 +1141,110 @@ End Sub
 """
 	f.store_string(code)
 	f.close()
+
+# =============================================================================
+# VB6 LAYOUT TOGGLE
+# =============================================================================
+
+## Called when the user clicks the "Form Designer" button in the main screen bar.
+## Activates VB6 mode (just like clicking 2D/3D/Script activates that screen).
+## With toggle_mode=true, the button toggles its own pressed state before this fires.
+func _on_form_designer_pressed():
+	if not is_instance_valid(_layout_manager):
+		return
+	if _vb6_toggle_button.button_pressed:
+		# Button was just pressed ON - activate Form Designer
+		if not _layout_manager.is_vb6_mode():
+			_layout_manager.toggle()  # Activate
+		else:
+			# Already active - just ensure we are on 2D
+			_layout_manager.switching_internally = true
+			EditorInterface.set_main_screen_editor("2D")
+			_layout_manager.switching_internally = false
+		_update_main_screen_buttons(true)
+	else:
+		# Button was just pressed OFF - deactivate and go to 2D
+		if _layout_manager.is_vb6_mode():
+			_layout_manager._deactivate_vb6_mode()
+		_layout_manager.switching_internally = true
+		EditorInterface.set_main_screen_editor("2D")
+		_layout_manager.switching_internally = false
+		_update_main_screen_buttons(false)
+
+## Called from Project > Tools > Toggle VG IDE Layout menu item.
+func _on_toggle_vb6_layout():
+	if is_instance_valid(_layout_manager):
+		_layout_manager.toggle()
+	else:
+		push_warning("VisualGasic: Layout manager not available")
+
+## Updates the Form Designer button pressed state when mode changes.
+func _on_vb6_mode_changed(is_vb6: bool) -> void:
+	_update_main_screen_buttons(is_vb6)
+
+## Syncs pressed/unpressed state of our button and the sibling main screen buttons.
+func _update_main_screen_buttons(form_designer_active: bool) -> void:
+	if not is_instance_valid(_vb6_toggle_button):
+		return
+	_vb6_toggle_button.set_pressed_no_signal(form_designer_active)
+	if form_designer_active:
+		# Unpress all sibling main screen buttons (2D, 3D, Script, etc.)
+		var bar = _vb6_toggle_button.get_parent()
+		if bar:
+			for child in bar.get_children():
+				if child is Button and child != _vb6_toggle_button and child.toggle_mode:
+					child.set_pressed_no_signal(false)
+
+## Finds the HBoxContainer holding the main screen buttons (2D, 3D, Script, AssetLib).
+func _find_main_screen_bar() -> HBoxContainer:
+	var base = get_editor_interface().get_base_control()
+	return _search_main_screen_bar(base)
+
+func _search_main_screen_bar(node: Node) -> HBoxContainer:
+	if node is HBoxContainer:
+		for child in node.get_children():
+			if child is Button and child.text == "AssetLib":
+				return node
+	for child in node.get_children():
+		var result = _search_main_screen_bar(child)
+		if result:
+			return result
+	return null
+
+## Applies icon + font styling to the Form Designer button.
+## Copies the exact font from a sibling button so it matches perfectly,
+## then adds a subtle gold tint so it stands out.
+func _style_form_designer_button() -> void:
+	if not is_instance_valid(_vb6_toggle_button):
+		return
+	
+	# Copy font + font size from a sibling button (e.g. AssetLib) for exact match
+	var bar = _vb6_toggle_button.get_parent()
+	if bar:
+		for child in bar.get_children():
+			if child is Button and child != _vb6_toggle_button and child.text != "":
+				var font = child.get_theme_font("font")
+				var font_size = child.get_theme_font_size("font_size")
+				if font:
+					_vb6_toggle_button.add_theme_font_override("font", font)
+				if font_size > 0:
+					_vb6_toggle_button.add_theme_font_size_override("font_size", font_size)
+				break
+	
+	# Get editor icon (Window = form shape)
+	var theme = get_editor_interface().get_base_control().get_theme()
+	if theme:
+		var icon = theme.get_icon("Window", "EditorIcons")
+		if not icon:
+			icon = theme.get_icon("Control", "EditorIcons")
+		if icon:
+			_vb6_toggle_button.icon = icon
+	
+	# Gold tint to stand out
+	_vb6_toggle_button.add_theme_color_override("font_color", Color(0.95, 0.82, 0.2))
+	_vb6_toggle_button.add_theme_color_override("font_hover_color", Color(1.0, 0.9, 0.3))
+	_vb6_toggle_button.add_theme_color_override("font_pressed_color", Color(1.0, 1.0, 0.5))
+	_vb6_toggle_button.add_theme_color_override("font_focus_color", Color(1.0, 1.0, 0.5))
 
 # =============================================================================
 # MODULE CREATION
@@ -1669,8 +1940,17 @@ func _poll_for_inject(path: String, obj: String, event: String, attempts: int):
 
 ## Called when the main editor screen changes (2D, 3D, Script, AssetLib).
 ## Switches toolbox tab to match the current view.
+## Also: if Form Designer mode is active and user clicked a different screen,
+## deactivate Form Designer (like switching away from any main screen).
 ## @param screen_name: Name of the screen ("2D", "3D", "Script", etc.)
 func _on_main_screen_changed(screen_name: String):
+	# Auto-deactivate Form Designer when user switches to another screen.
+	# Guard: don't deactivate if WE triggered the screen change (e.g. activating VB6 → 2D).
+	if is_instance_valid(_layout_manager) and _layout_manager.is_vb6_mode():
+		if not _layout_manager.switching_internally:
+			_layout_manager._deactivate_vb6_mode()
+			_update_main_screen_buttons(false)
+	
 	var real_toolbox = _get_toolbox_instance()
 	if real_toolbox:
 		var tabs = null
@@ -1703,7 +1983,7 @@ func setup_toolbox():
 		var real_toolbox = ClassDB.instantiate("VisualGasicToolbox")
 		real_toolbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		real_toolbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		real_toolbox.custom_minimum_size = Vector2(180, 100)  # Override C++ default (100px) — not too large
+		# No minimum size - let the dock be resizable
 		real_toolbox.visible = true
 		toolbox.add_child(real_toolbox)
 	else:
