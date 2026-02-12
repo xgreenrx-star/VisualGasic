@@ -10,6 +10,7 @@
 #include <godot_cpp/classes/os.hpp>
 #include <godot_cpp/classes/engine_debugger.hpp>
 #include <godot_cpp/templates/hash_map.hpp>
+#include "vg_fast_dict.h"
 
 using namespace godot;
 using namespace VisualGasic;
@@ -70,6 +71,13 @@ class VisualGasicInstance {
     StringName fast_dict_last_key_name;
     uint32_t fast_dict_last_key_hits = 0;
 
+    // Sole-owner VGFastStringDict pool (indexed by local slot)
+    // When the compiler proves a dictionary has sole ownership, it uses
+    // this pool instead of Godot's Dictionary.  Max 16 per function call.
+    static constexpr int VGDICT_POOL_MAX = 16;
+    VGFastStringDict vgdict_pool[VGDICT_POOL_MAX];
+    bool vgdict_slot_active[VGDICT_POOL_MAX] = {};
+
     // Whenever system tracking
     struct WheneverSection {
         String section_name;
@@ -94,6 +102,11 @@ class VisualGasicInstance {
     };
     Vector<WheneverSection> whenever_sections;
     Vector<String> scope_stack;  // Track current scope hierarchy
+
+    // Fast-path flag: when false, bytecode GET_LOCAL/SET_LOCAL skip the
+    // variables[] Dictionary sync entirely.  Set to true only when
+    // whenever_sections is non-empty (callbacks need the Dictionary).
+    bool needs_var_sync = false;
 
     // Multitasking system
     struct TaskInfo {

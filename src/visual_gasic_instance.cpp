@@ -411,6 +411,7 @@ enum class OpcodeProfileKind {
     SetDict,
     NewArray,
     NewDict,
+    SumVGDictAll,
     COUNT
 };
 
@@ -429,6 +430,7 @@ static OpcodeProfileEntry vg_opcode_profiles[(int)OpcodeProfileKind::COUNT] = {
     {"OP_SET_DICT", 0, 0},
     {"OP_NEW_ARRAY", 0, 0},
     {"OP_NEW_DICT", 0, 0},
+    {"OP_SUM_VGDICT_ALL", 0, 0},
 };
 
 static thread_local int vg_opcode_profile_depth = 0;
@@ -5590,6 +5592,7 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
             }
             
             whenever_sections.push_back(section);
+            needs_var_sync = true;  // Enable variable sync for bytecode VM
             break;
         }
         case STMT_SUSPEND_WHENEVER: {
@@ -7749,24 +7752,28 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
             return;
         }
         locals.write[slot] = value;
-        String name = get_local_name(slot);
-        if (!name.is_empty()) {
-            if (name.nocasecmp_to("wheneverTriggered") == 0) {
+        // Fast path: skip the expensive variables[] Dictionary sync
+        // when no Whenever callbacks need it (v2.4.1 optimisation)
+        if (needs_var_sync) {
+            String name = get_local_name(slot);
+            if (!name.is_empty()) {
+                variables[name] = value;
             }
-            variables[name] = value;
         }
     };
 
     auto read_local = [&](int slot) -> Variant {
         if (slot >= 0 && slot < locals.size()) {
-            // For global/module-level variables, always read from variables dictionary
-            // to ensure we get updates made by callbacks or other nested calls
-            String name = get_local_name(slot);
-            if (name.nocasecmp_to("wheneverTriggered") == 0) {
+            // Fast path: when no Whenever sections exist, skip the
+            // expensive variables[] HashMap lookup entirely (v2.4.1)
+            if (!needs_var_sync) {
+                return locals[slot];
             }
+            // Slow path: read from variables dictionary to pick up
+            // changes made by Whenever callbacks or nested calls
+            String name = get_local_name(slot);
             if (!name.is_empty() && variables.has(name)) {
                 Variant current = variables[name];
-                // Also update locals cache
                 locals.write[slot] = current;
                 return current;
             }
@@ -9040,6 +9047,77 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 // Note: No need to sync to variables HashMap - COW ensures both point to same data
                 break;
             }
+            // ── VGFastStringDict opcodes (sole-owner fast path) ──────────
+            case OP_NEW_VGDICT: {
+                PROFILE_OPCODE(NewDict);
+                if (vm.ip >= code_size) { success = false; goto cleanup; }
+                uint8_t slot = code[vm.ip++];
+                if (slot >= VGDICT_POOL_MAX) {
+                    raise_error("OP_NEW_VGDICT: slot out of range");
+                    success = false;
+                    goto cleanup;
+                }
+                vgdict_pool[slot].clear();
+                vgdict_slot_active[slot] = true;
+                // Also put a placeholder in locals[] so the rest of the VM
+                // doesn't trip on an uninitialised slot (e.g. variable sync at cleanup)
+                if (slot < locals.size()) {
+                    locals.write[slot] = Dictionary();  // placeholder
+                }
+                break;
+            }
+            case OP_GET_VGDICT_LOCAL: {
+                PROFILE_OPCODE(GetDict);
+                if (vm.ip >= code_size) { success = false; goto cleanup; }
+                uint8_t slot = code[vm.ip++];
+                if (vm.stack.size() <= stack_base) { success = false; goto cleanup; }
+                if (slot >= VGDICT_POOL_MAX || !vgdict_slot_active[slot]) {
+                    raise_error("OP_GET_VGDICT_LOCAL: invalid VGDict slot");
+                    success = false;
+                    goto cleanup;
+                }
+                {
+                    // Access key directly on TOS without copy, then replace TOS with result
+                    int top = vm.stack.size() - 1;
+                    const Variant &key_ref = vm.stack[top];
+                    Variant *vptr = nullptr;
+                    if (key_ref.get_type() == Variant::STRING) {
+                        vptr = vgdict_pool[slot].getptr(key_ref);
+                    } else {
+                        String skey = key_ref;
+                        vptr = vgdict_pool[slot].getptr(skey);
+                    }
+                    // Replace TOS in-place (avoids pop+push Variant copy)
+                    vm.stack[top] = vptr ? *vptr : Variant();
+                }
+                break;
+            }
+            case OP_SET_VGDICT_LOCAL: {
+                PROFILE_OPCODE(SetDict);
+                if (vm.ip >= code_size) { success = false; goto cleanup; }
+                uint8_t slot = code[vm.ip++];
+                if (vm.stack.size() < stack_base + 2) { success = false; goto cleanup; }
+                if (slot >= VGDICT_POOL_MAX || !vgdict_slot_active[slot]) {
+                    raise_error("OP_SET_VGDICT_LOCAL: invalid VGDict slot");
+                    success = false;
+                    goto cleanup;
+                }
+                {
+                    int top = vm.stack.size() - 1;
+                    // Stack: [..., key, value]  (value is TOS)
+                    const Variant &val_ref = vm.stack[top];
+                    const Variant &key_ref = vm.stack[top - 1];
+                    if (key_ref.get_type() == Variant::STRING) {
+                        vgdict_pool[slot].set(key_ref, val_ref);
+                    } else {
+                        String skey = key_ref;
+                        vgdict_pool[slot].set(skey, val_ref);
+                    }
+                    // Pop both key and value
+                    vm.stack.resize(top - 1);
+                }
+                break;
+            }
             case OP_SUM_ARRAY_I64: {
                 if (!ensure_stack(1)) { success = false; goto cleanup; }
                 Variant arr_var = pop_value();
@@ -9067,6 +9145,29 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     }
                 }
                 push_value(sum);
+                break;
+            }
+            case OP_SUM_VGDICT_ALL_I64: {
+                PROFILE_OPCODE(SumVGDictAll);
+                if (vm.ip >= code_size) { success = false; goto cleanup; }
+                uint8_t slot = code[vm.ip++];
+                if (slot >= VGDICT_POOL_MAX || !vgdict_slot_active[slot]) {
+                    raise_error("OP_SUM_VGDICT_ALL_I64: invalid VGDict slot");
+                    success = false;
+                    goto cleanup;
+                }
+                {
+                    int64_t sum = 0;
+                    VGFastStringDict &d = vgdict_pool[slot];
+                    if (d.table) {
+                        for (uint32_t i = 0; i < d.capacity; i++) {
+                            if (d.table[i].occupied) {
+                                sum += to_int(d.table[i].value);
+                            }
+                        }
+                    }
+                    push_value(sum);
+                }
                 break;
             }
             case OP_ARRAY_FILL_I64_SEQ: {
@@ -9911,6 +10012,30 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
     }
 
 cleanup:
+    // Materialize any active VGFastStringDict pools back into locals[]
+    // so that cleanup/return-value logic sees a proper Godot Dictionary.
+    for (int i = 0; i < VGDICT_POOL_MAX; i++) {
+        if (vgdict_slot_active[i]) {
+            if (i < locals.size()) {
+                locals.write[i] = vgdict_pool[i].to_godot_dict();
+            }
+            vgdict_pool[i].clear();
+            vgdict_slot_active[i] = false;
+        }
+    }
+
+    // When fast-path was active (needs_var_sync == false), locals were NOT
+    // written to the variables[] Dictionary during execution.  Flush them
+    // now so that the caller / AST interpreter can read the final values.
+    if (!needs_var_sync) {
+        for (int i = 0; i < locals.size() && i < chunk->local_names.size(); i++) {
+            const String &name = chunk->local_names[i];
+            if (!name.is_empty()) {
+                variables[name] = locals[i];
+            }
+        }
+    }
+
     if (success) {
         if (has_explicit_return) {
             result_snapshot = explicit_return;

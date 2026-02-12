@@ -53,6 +53,7 @@ enum OpCode {
     OP_BRANCH_SUM,
     OP_SUM_ARRAY_I64,
     OP_SUM_DICT_I64,
+    OP_SUM_VGDICT_ALL_I64,       // [OP] [SLOT_IDX] - sum all int64 values in VGFastStringDict pool slot
     OP_ARRAY_FILL_I64_SEQ,
     OP_ALLOC_FILL_I64,
     OP_ALLOC_FILL_I64_OFFSET,
@@ -120,6 +121,9 @@ enum OpCode {
     OP_DICT_KEYS,                // [OP] - Get dictionary keys array (dict on stack)
     OP_DICT_VALUES,              // [OP] - Get dictionary values array (dict on stack)
     OP_DICT_ERASE,               // [OP] - Erase key from dict (dict, key on stack, pushes dict back)
+    OP_NEW_VGDICT,               // [OP] [SLOT_IDX] - Create a VGFastStringDict in local slot (sole-owner fast path)
+    OP_GET_VGDICT_LOCAL,         // [OP] [SLOT_IDX] - Get from VGFastStringDict local (key on stack, pushes value)
+    OP_SET_VGDICT_LOCAL,         // [OP] [SLOT_IDX] - Set in VGFastStringDict local (key+value on stack)
     OP_ARRAY_FILL_I64_OFFSET,
     OP_GET_MEMBER,     // [OP] [NAME_IDX]
     OP_SET_MEMBER,     // [OP] [NAME_IDX]

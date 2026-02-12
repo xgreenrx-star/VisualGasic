@@ -33,6 +33,7 @@ private:
     HashSet<String> array_vars;
     HashSet<String> dictionary_vars;
     HashSet<String> trusted_dictionary_vars;
+    HashSet<String> sole_owner_dict_vars;  // Dicts proven to have sole ownership → use VGFastStringDict
     HashMap<String, ValueType> array_types;
     HashMap<String, String> array_bound_vars;
     HashSet<String> typed_locals;
@@ -67,6 +68,9 @@ private:
     bool is_fast_array_var(const String &name) const;
     bool is_dictionary_var(const String &name) const;
     bool is_trusted_dictionary_var(const String &name) const;
+    bool is_sole_owner_dict_var(const String &name) const;
+    void _check_dict_escapes(Statement* stmt, HashSet<String> &escaped) const;
+    void _check_expr_escapes(ExpressionNode* expr, HashSet<String> &escaped) const;
     String extract_bound_var(ExpressionNode* expr) const;
     bool is_loop_string_concat(ForStatement* f, String &target_name, String &literal_value) const;
     bool is_loop_array_fill(ForStatement* f, String &arr_var) const;
@@ -78,6 +82,8 @@ private:
     bool is_simple_arith_loop(ForStatement* f, String &sum_var, int64_t &k, int64_t &c) const;
     bool is_nested_branch_loop(ForStatement* outer, String &sum_var, String &flag_var) const;
     bool is_nested_string_concat(ForStatement* outer, String &target_name, String &literal_value, ForStatement* &inner_out) const;
+    bool is_nested_dict_keys_sum(ForStatement* outer, String &sum_var, String &dict_var, String &keys_var, String &iter_var) const;
+    bool is_nested_dict_keys_set_sum(ForStatement* outer, String &sum_var, String &dict_var, String &keys_var, String &iter_var) const;
     bool is_constant_expr(ExpressionNode* expr) const;
     Variant eval_constant_expr(ExpressionNode* expr) const;
     ValueType infer_type(ExpressionNode* expr) const;
