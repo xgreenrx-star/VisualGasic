@@ -10,7 +10,7 @@ This page summarizes the built‑in benchmark suite results for Visual Gasic ver
 - Build: Visual Gasic GDExtension (release)
 - Date: 2026‑01‑26
 
-## Latest Results - 2026‑01‑28 (elapsed time in microseconds, lower is faster)
+## Latest Results - 2026‑02‑12 (elapsed time in microseconds, lower is faster)\n\n### Dictionary Optimization Update\n\n| Test | Visual Gasic | GDScript | Speedup |\n|---|---:|---:|---:|\n| DictFastGet | 5,402 | 28,027 | **5.2× faster** |\n| DictFastSet | 8,582 | 18,472 | **2.2× faster** |\n| Arithmetic | 1,408 | 5,232 | 3.7× faster |\n| ArraySum | 493 | 4,441 | 9.0× faster |\n| Branching | 147 | 6,731 | 45.8× faster |\n| AllocationsFast | 2,666 | 10,659 | 4.0× faster |\n| FileIO | 499 | 903 | 1.8× faster |\n\nDictFastGet and DictFastSet were previously 3.9× and 12.2× *slower* than GDScript. Loop fusion, VGFastStringDict, and sole-ownership escape analysis brought them to 5.2× and 2.2× *faster*.\n\n## Latest Results - 2026‑01‑28 (elapsed time in microseconds, lower is faster)
 
 | Test | Visual Gasic | C++ | GDScript | Fastest |
 |---|---:|---:|---:|---|

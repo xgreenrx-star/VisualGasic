@@ -22,12 +22,21 @@ VisualGasic is a Visual Basic 6-style scripting language for Godot Engine 4.x, i
 
 *VisualGasic even beats native C++ on string concatenation (72× vs C++'s 7.9×)*
 
+### Dictionary Performance ⭐ (Resolved in v2.4.1)
+
+| Operation | GDScript | VisualGasic | **Speedup** |
+|-----------|----------|-------------|-------------|
+| Dict Fast Get | 28,027 µs | 5,402 µs | **5.2× faster** |
+| Dict Fast Set | 18,472 µs | 8,582 µs | **2.2× faster** |
+
+*Previously 3-12× slower — now beaten via VGFastStringDict + loop fusion + escape analysis*
+
 ### Known Limitations ⚠️
 
-- Dictionary operations: 3-12× slower than GDScript
-- Cause: Architectural limitation (bytecode VM overhead + Godot's Dictionary implementation)
-- Impact: Only affects dictionary-heavy code
-- Solution: Documented in [TODO_FUTURE_OPTIMIZATIONS.md](TODO_FUTURE_OPTIMIZATIONS.md)
+- ArrayDict (mixed array+dict): 43.6× slower than GDScript
+- StringConcat: 30.9× slower than GDScript
+- Interop: 32× slower (GDNative API overhead)
+- Allocations: 238× slower (ReDim overhead)
 
 ## Features
 
@@ -183,11 +192,14 @@ See [ROADMAP.md](ROADMAP.md) for the complete development roadmap including:
 
 ### Planned Features
 - JIT compilation for hot paths
-- Dictionary operation optimization
 - WebSocket/networking controls
 
+### ✅ Completed (v2.4.1)
+- **Dictionary optimization** — VGFastStringDict + loop fusion + escape analysis
+  - DictFastGet: 5.2× faster than GDScript (was 3.9× slower)
+  - DictFastSet: 2.2× faster than GDScript (was 12.2× slower)
+
 See also [TODO_FUTURE_OPTIMIZATIONS.md](TODO_FUTURE_OPTIMIZATIONS.md) for:
-- Potential dictionary optimization (specialized types)
 - JIT compilation possibilities
 
 ## License

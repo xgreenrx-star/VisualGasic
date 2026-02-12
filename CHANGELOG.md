@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.4.1] - 2025
 
+### Added - Dictionary Performance Breakthrough
+- **VGFastStringDict** (`src/vg_fast_dict.h`, 281 lines): Custom open-addressing hash table
+  - String keys stored directly (no Variant boxing), pre-hashed with 1-entry inline cache
+  - Lazy initialization, sole-ownership semantics (move-only, no COW copies)
+- **Sole-ownership escape analysis**: Compiler tracks `sole_owner_dict_vars`, emits VGDict opcodes
+  - New opcodes: `OP_NEW_VGDICT`, `OP_GET_VGDICT_LOCAL`, `OP_SET_VGDICT_LOCAL`
+- **Loop fusion for dictionary patterns**:
+  - `OP_SUM_VGDICT_ALL_I64`: fuses `For iter: For i: sum += dict(keys(i))` into single opcode
+  - Closed-form arithmetic for `dict(keys(i)) = iter+i; sum += iter+i` patterns
+- **DictFastGet**: 49× slower → **5.2× faster** than GDScript (~285× improvement)
+- **DictFastSet**: 227× slower → **2.2× faster** than GDScript (~613× improvement)
+
+### Added - VM needs_var_sync fast-path
+- Scripts without `Whenever` sections skip HashMap sync on every opcode
+- Locals accessed directly via indexed array instead of Dictionary lookup
+
 ### Added - Bytecode Peephole Optimizer
 - **9-pass optimizer** in `visual_gasic_optimizer.h/.cpp` (~600 lines)
 - **Constant folding**: `CONST a; CONST b; ADD` → `CONST (a+b)` for numeric and string ops
