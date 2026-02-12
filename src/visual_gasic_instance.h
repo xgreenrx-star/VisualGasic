@@ -241,6 +241,13 @@ public:
     void call_property_let(const String& prop_name, const Array& args, const Variant& value);
     void call_property_set(const String& prop_name, const Array& args, const Variant& value);
     
+    // Inheritance helpers
+    ClassDefinition* get_class_def(const String& class_name);
+    void collect_class_hierarchy(ClassDefinition* cls, Vector<ClassDefinition*>& chain);
+    SubDefinition* find_method_in_hierarchy(ClassDefinition* cls, const String& method_name);
+    PropertyDefinition* find_property_in_hierarchy(ClassDefinition* cls, const String& prop_name, PropertyDefinition::PropertyType ptype);
+    void init_members_from_hierarchy(ClassDefinition* cls, Dictionary& obj_data);
+    
     // FFI/DLL Support
     void* load_library(const String& lib_name);
     void* get_function_address(void* lib_handle, const String& func_name);

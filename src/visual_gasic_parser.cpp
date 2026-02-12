@@ -2733,8 +2733,11 @@ ClassDefinition* VisualGasicParser::parse_class() {
     cls->name = peek().value;
     advance();
 
+    // Skip newlines before checking for Inherits
+    while (check(VisualGasicTokenizer::TOKEN_NEWLINE)) advance();
+
     // Optional: Inherits BaseClass
-    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("inherits") == 0) {
+    if ((check(VisualGasicTokenizer::TOKEN_KEYWORD) || check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) && String(peek().value).nocasecmp_to("inherits") == 0) {
         advance(); // Eat Inherits
         if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
             cls->base_class = peek().value;

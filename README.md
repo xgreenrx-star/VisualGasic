@@ -1,7 +1,7 @@
 # VisualGasic - Advanced Visual Basic for Godot 4
 
 [![CI](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml/badge.svg)](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/badge/version-2.4.0-blue.svg)](https://github.com/xgreenrx-star/VisualGasic/releases)
+[![Version](https://img.shields.io/badge/version-2.4.1-blue.svg)](https://github.com/xgreenrx-star/VisualGasic/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Godot](https://img.shields.io/badge/Godot-4.3+-purple.svg)](https://godotengine.org)
 
@@ -12,6 +12,7 @@
 ### **Core Language**
 - **Complete Visual Basic 6 Syntax** - Full compatibility with VB6 projects
 - **Classes & Objects** - `Class...End Class`, `New`, `Property Get/Let/Set`, `Class_Initialize`
+- **Class Inheritance** - `Inherits`, `MyBase`, `MustOverride`, `Overrides`, multi-level chains
 - **Lambda Expressions** - `Lambda`, `Fn`, `Function`, `Sub` with optional `=>` arrow
 - **Block Lambdas** - Multi-statement `Function(x) ... Return ... End Function`
 - **Functional Programming** - `Map`, `Filter`, `Reduce`, `Any`, `All`, `Find`
@@ -51,6 +52,8 @@ VisualGasic/
 │   ├── visual_gasic_gpu.*       # GPU computing and SIMD
 │   ├── visual_gasic_lsp.*       # Language server protocol
 │   ├── visual_gasic_debugger.*  # Advanced debugging tools
+│   ├── visual_gasic_linter.*    # Static analysis & warnings
+│   ├── visual_gasic_optimizer.* # Bytecode peephole optimizer
 │   ├── visual_gasic_package.*   # Package management
 │   └── visual_gasic_ecs.*       # Entity component system
 ├── docs/                        # Comprehensive documentation
@@ -197,6 +200,7 @@ gasic debug --time-travel MyProject.vg
 - **Archetype-based ECS** - Memory-efficient entity storage
 - **GPU Computing** - Automatic fallback to CPU when needed
 - **JIT Compilation** - Runtime optimization for hot code paths
+- **Bytecode Optimizer** - 9-pass peephole optimizer (constant folding, dead code elimination, jump threading, strength reduction)
 - **Memory Profiling** - Built-in leak detection and analysis
 
 ## 🧪 **Testing & Bytecode Regression**
@@ -229,17 +233,19 @@ VisualGasic welcomes contributions! Please see our [Contributing Guide](CONTRIBU
 
 ## 📊 **Project Status**
 
-**Current Version**: 2.0.0 (Advanced Features Release)
+**Current Version**: 2.4.1 (Optimizer & Tooling Release)
 
 **Completion Status**:
-- ✅ **Core Language** - 100% (Full VB6 compatibility)
+- ✅ **Core Language** - 100% (Full VB6 compatibility + class inheritance)
 - ✅ **Advanced Types** - 100% (Generics, optionals, unions)
 - ✅ **Multitasking** - 100% (Async/await, parallel processing)
 - ✅ **GPU Computing** - 100% (SIMD, compute shaders)
-- ✅ **Development Tools** - 100% (REPL, LSP, debugger, packages)
+- ✅ **Development Tools** - 100% (REPL, LSP, debugger, linter, snippet browser, theme picker)
+- ✅ **Bytecode Optimizer** - 100% (9-pass peephole optimizer)
 - ✅ **ECS Integration** - 100% (High-performance game development)
 - ✅ **Form Templates** - 100% (23 templates: VB6, Game, Platform, Custom)
-- ✅ **Documentation** - 95% (Comprehensive guides and references)
+- ✅ **Game Demos** - 100% (Galactic Defender tower defense showcase)
+- ✅ **Documentation** - 100% (Comprehensive guides and references)
 
 ### 🚧 Coming Soon
 

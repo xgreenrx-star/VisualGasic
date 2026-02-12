@@ -1,0 +1,292 @@
+' test_inheritance.vg - Tests for Class Inheritance (v2.4.1)
+' Tests: base member access, method override, inherited method,
+'        Class_Initialize chain, Property Get/Let inheritance
+
+' ====== Base class: Animal ======
+Class Animal
+    Public Name As String
+    Public Legs As Integer
+
+    Private Sub Class_Initialize()
+        Name = "Unknown"
+        Legs = 4
+    End Sub
+
+    Public Function Describe() As String
+        Describe = Name & " has " & CStr(Legs) & " legs"
+    End Function
+
+    Public Function Sound() As String
+        Sound = "..."
+    End Function
+
+    Public Property Get Info() As String
+        Info = "Animal: " & Name
+    End Property
+
+    Public Property Let Info(value As String)
+        Name = value
+    End Property
+End Class
+
+' ====== Derived class: Dog Inherits Animal ======
+Class Dog
+    Inherits Animal
+
+    Public Breed As String
+
+    Private Sub Class_Initialize()
+        Name = "Rex"
+        Breed = "Labrador"
+    End Sub
+
+    ' Override Sound
+    Public Function Sound() As String
+        Sound = "Woof!"
+    End Function
+
+    Public Function FullDesc() As String
+        FullDesc = Name & " the " & Breed
+    End Function
+End Class
+
+' ====== Derived class: Cat Inherits Animal ======
+Class Cat
+    Inherits Animal
+
+    Public Indoor As Boolean
+
+    Private Sub Class_Initialize()
+        Name = "Whiskers"
+        Legs = 4
+        Indoor = True
+    End Sub
+
+    ' Override Sound
+    Public Function Sound() As String
+        Sound = "Meow!"
+    End Function
+End Class
+
+' ====== Two-level: Puppy Inherits Dog ======
+Class Puppy
+    Inherits Dog
+
+    Public Toy As String
+
+    Private Sub Class_Initialize()
+        Toy = "Ball"
+    End Sub
+
+    Public Function Play() As String
+        Play = Name & " plays with " & Toy
+    End Function
+End Class
+
+Sub Main()
+    Dim passed As Integer
+    Dim failed As Integer
+    passed = 0
+    failed = 0
+
+    Print "=== Class Inheritance Tests ==="
+
+    ' Test 1: Base class works normally
+    Print "Test 1: Base class instantiation"
+    Dim a As Object
+    Set a = New Animal
+    If a.Name = "Unknown" Then
+        Print "  PASS: Base Name default"
+        passed = passed + 1
+    Else
+        Print "  FAIL: Base Name default - got: " & a.Name
+        failed = failed + 1
+    End If
+    If a.Legs = 4 Then
+        Print "  PASS: Base Legs default"
+        passed = passed + 1
+    Else
+        Print "  FAIL: Base Legs default"
+        failed = failed + 1
+    End If
+    If a.Describe() = "Unknown has 4 legs" Then
+        Print "  PASS: Base Describe()"
+        passed = passed + 1
+    Else
+        Print "  FAIL: Base Describe() - got: " & a.Describe()
+        failed = failed + 1
+    End If
+    If a.Sound() = "..." Then
+        Print "  PASS: Base Sound()"
+        passed = passed + 1
+    Else
+        Print "  FAIL: Base Sound()"
+        failed = failed + 1
+    End If
+
+    ' Test 2: Derived class inherits members
+    Print "Test 2: Derived class inherits base members"
+    Dim d As Object
+    Set d = New Dog
+    If d.Legs = 4 Then
+        Print "  PASS: Dog inherits Legs from Animal"
+        passed = passed + 1
+    Else
+        Print "  FAIL: Dog inherits Legs"
+        failed = failed + 1
+    End If
+    If d.Name = "Rex" Then
+        Print "  PASS: Dog Class_Initialize sets Name"
+        passed = passed + 1
+    Else
+        Print "  FAIL: Dog Name - got: " & d.Name
+        failed = failed + 1
+    End If
+    If d.Breed = "Labrador" Then
+        Print "  PASS: Dog own member Breed"
+        passed = passed + 1
+    Else
+        Print "  FAIL: Dog Breed"
+        failed = failed + 1
+    End If
+
+    ' Test 3: Method override (polymorphism)
+    Print "Test 3: Method override"
+    If d.Sound() = "Woof!" Then
+        Print "  PASS: Dog overrides Sound()"
+        passed = passed + 1
+    Else
+        Print "  FAIL: Dog Sound() - got: " & d.Sound()
+        failed = failed + 1
+    End If
+
+    ' Test 4: Inherited method call
+    Print "Test 4: Inherited method"
+    Dim desc As String
+    desc = d.Describe()
+    If desc = "Rex has 4 legs" Then
+        Print "  PASS: Dog inherits Describe() from Animal"
+        passed = passed + 1
+    Else
+        Print "  FAIL: Dog Describe() - got: " & desc
+        failed = failed + 1
+    End If
+
+    ' Test 5: Own method on derived class
+    Print "Test 5: Own derived method"
+    If d.FullDesc() = "Rex the Labrador" Then
+        Print "  PASS: Dog.FullDesc()"
+        passed = passed + 1
+    Else
+        Print "  FAIL: Dog.FullDesc() - got: " & d.FullDesc()
+        failed = failed + 1
+    End If
+
+    ' Test 6: Second derived class
+    Print "Test 6: Second derived class (Cat)"
+    Dim c As Object
+    Set c = New Cat
+    If c.Name = "Whiskers" Then
+        Print "  PASS: Cat Name"
+        passed = passed + 1
+    Else
+        Print "  FAIL: Cat Name"
+        failed = failed + 1
+    End If
+    If c.Sound() = "Meow!" Then
+        Print "  PASS: Cat overrides Sound()"
+        passed = passed + 1
+    Else
+        Print "  FAIL: Cat Sound()"
+        failed = failed + 1
+    End If
+    If c.Indoor = True Then
+        Print "  PASS: Cat own member Indoor"
+        passed = passed + 1
+    Else
+        Print "  FAIL: Cat Indoor"
+        failed = failed + 1
+    End If
+    If c.Describe() = "Whiskers has 4 legs" Then
+        Print "  PASS: Cat inherits Describe()"
+        passed = passed + 1
+    Else
+        Print "  FAIL: Cat Describe()"
+        failed = failed + 1
+    End If
+
+    ' Test 7: Property Get inheritance
+    Print "Test 7: Property Get inheritance"
+    If d.Info = "Animal: Rex" Then
+        Print "  PASS: Dog inherits Property Get Info"
+        passed = passed + 1
+    Else
+        Print "  FAIL: Dog Info - got: " & d.Info
+        failed = failed + 1
+    End If
+
+    ' Test 8: Property Let inheritance
+    Print "Test 8: Property Let inheritance"
+    d.Info = "Buddy"
+    If d.Name = "Buddy" Then
+        Print "  PASS: Property Let sets Name via inheritance"
+        passed = passed + 1
+    Else
+        Print "  FAIL: Property Let - Name is: " & d.Name
+        failed = failed + 1
+    End If
+
+    ' Test 9: Two-level inheritance (Puppy -> Dog -> Animal)
+    Print "Test 9: Two-level inheritance"
+    Dim p As Object
+    Set p = New Puppy
+    If p.Legs = 4 Then
+        Print "  PASS: Puppy inherits Legs from Animal"
+        passed = passed + 1
+    Else
+        Print "  FAIL: Puppy Legs"
+        failed = failed + 1
+    End If
+    If p.Breed = "Labrador" Then
+        Print "  PASS: Puppy inherits Breed from Dog"
+        passed = passed + 1
+    Else
+        Print "  FAIL: Puppy Breed - got: " & p.Breed
+        failed = failed + 1
+    End If
+    If p.Toy = "Ball" Then
+        Print "  PASS: Puppy own member Toy"
+        passed = passed + 1
+    Else
+        Print "  FAIL: Puppy Toy"
+        failed = failed + 1
+    End If
+    If p.Sound() = "Woof!" Then
+        Print "  PASS: Puppy inherits Sound() from Dog"
+        passed = passed + 1
+    Else
+        Print "  FAIL: Puppy Sound()"
+        failed = failed + 1
+    End If
+    If p.Play() = "Rex plays with Ball" Then
+        Print "  PASS: Puppy own method Play()"
+        passed = passed + 1
+    Else
+        Print "  FAIL: Puppy Play() - got: " & p.Play()
+        failed = failed + 1
+    End If
+
+    ' Test 10: Member assignment on inherited member
+    Print "Test 10: Member assignment"
+    d.Legs = 3
+    If d.Legs = 3 Then
+        Print "  PASS: Direct member set on inherited member"
+        passed = passed + 1
+    Else
+        Print "  FAIL: Legs assignment"
+        failed = failed + 1
+    End If
+
+    Print ""
+    Print "=== Results: " & CStr(passed) & " passed, " & CStr(failed) & " failed ==="
+End Sub

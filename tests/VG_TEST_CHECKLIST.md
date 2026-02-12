@@ -75,7 +75,7 @@ This checklist covers VB6 compatibility and all VisualGasic features.
 - ✅ Return value via function name: `MyFunc = result` (recursive factorial works)
 
 ### 1.5 Classes and Objects
-> **Status:** ✅ Full class support implemented in v2.4.0. Parser (`parse_class()`, `parse_property()`) + runtime bridges (EXPR_NEW, member access, method dispatch). 7/7 tests pass (`demo/test_classes.vg`).
+> **Status:** ✅ Full class support with inheritance implemented in v2.4.1. Parser (`parse_class()`, `parse_property()`) + runtime bridges (EXPR_NEW, member access, method dispatch, inheritance chain). 7/7 class tests + 22/22 inheritance tests pass.
 
 - ✅ `Class` declaration — `Class ClassName ... End Class` with members, methods, properties, events
 - ✅ `Property Get` — `Property Get PropName() As Type ... End Property`
@@ -87,7 +87,7 @@ This checklist covers VB6 compatibility and all VisualGasic features.
 - ✅ `Set obj = New ClassName` — Also supported via `Dim obj = New ClassName`
 - ✅ `Set obj = Nothing` — (Object lifecycle via Godot Variant)
 - ✅ `Me` keyword — Self-reference inside class methods (`Me.Name`, `Me.Count`)
-- ⚠️ Class inheritance — `Inherits BaseClass` syntax parsed, runtime pending
+- ✅ Class inheritance — `Inherits BaseClass` with member/method/property resolution across parent chain (22/22 tests pass, `demo/test_inheritance.vg`)
 
 ---
 
@@ -421,7 +421,7 @@ After each release, verify these don't break:
 | 1.2 | Operators | 9 | 9 | All arithmetic, logical, `Is`, `Like` ✅ |
 | 1.3 | Control Flow | 24 | 24 | All If/Select/For/Do/While/Exit/GoTo/OnError ✅ |
 | 1.4 | Procedures | 11 | 11 | Sub, Function, ByVal, ByRef, Optional, ParamArray, Call ✅ |
-| 1.5 | Classes & Objects | 10 | 11 | Class, Property, New, Me, Public/Private ✅ (inheritance pending) |
+| 1.5 | Classes & Objects | 11 | 11 | Class, Property, New, Me, Public/Private, Inheritance ✅ |
 | 2.1 | String Functions | 24 | 24 | All 24 VB6 string functions ✅ |
 | 2.2 | Math Functions | 12 | 12 | Abs thru Randomize ✅ |
 | 2.3 | Conversion Functions | 9 | 9 | CInt, CLng, CDbl, CSng, CBool, CByte, CDate, Hex, Oct ✅ |
@@ -450,14 +450,13 @@ After each release, verify these don't break:
 | Metric | Count |
 |--------|-------|
 | **Total checklist items** | 268 |
-| **Passed ✅** | 267 |
-| **Not implemented** | 1 |
+| **Passed ✅** | 268 |
+| **Not implemented** | 0 |
 | **Failed** | 0 |
 | **Pass rate (of implemented)** | **100%** |
-| **Overall completion** | **99.6%** |
+| **Overall completion** | **100%** |
 
-**Not yet implemented (1 item):**
-- 1.5 Class inheritance: `Inherits BaseClass` syntax parsed, runtime method overriding pending
+**All 268 checklist items implemented and passing! ✅**
 
 ### Automated Test Counts
 
@@ -467,6 +466,7 @@ After each release, verify these don't break:
 | Block lambda tests (v2.4.0) | 6 | 6 pass, 0 fail |
 | Functional programming tests (v2.4.0) | 11 | 11 pass, 0 fail |
 | Classes & objects tests (v2.4.0) | 7 | 7 pass, 0 fail |
+| Class inheritance tests (v2.4.1) | 22 | 22 pass, 0 fail |
 | Error handling tests (§6) | 54 | 54 pass, 0 fail |
 | File I/O tests (§7) | 10 | 10 pass, 0 fail |
 | Performance tests (§8) | 6 | 6 pass, 0 fail |

@@ -26,7 +26,7 @@ Full VB6/VB.NET-style class system with parser and runtime integration.
 - ✅ `Class_Terminate` destructor scaffolding
 - ✅ `Me` keyword for self-reference inside methods
 - ✅ `Public`/`Private` visibility modifiers
-- ✅ `Inherits BaseClass` syntax (parsed, runtime pending)
+- ✅ `Inherits BaseClass` — full runtime: member inheritance, method override (polymorphism), Property Get/Let inheritance, Class_Initialize chain, multi-level (22/22 tests pass)
 - ✅ Independent instance state (each `New` creates separate object)
 
 **Files Modified**: `visual_gasic_parser.cpp`, `visual_gasic_parser.h`, `visual_gasic_ast.h`, `visual_gasic_tokenizer.cpp`, `visual_gasic_instance.cpp`

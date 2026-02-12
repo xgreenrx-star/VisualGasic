@@ -2,6 +2,7 @@
 #include "visual_gasic_language.h"
 #include "visual_gasic_instance.h"
 #include "visual_gasic_compiler.h"
+#include "visual_gasic_optimizer.h"
 #include <godot_cpp/godot.hpp>
 #include <godot_cpp/classes/resource_loader.hpp>
 
@@ -700,6 +701,24 @@ BytecodeChunk *VisualGasicScript::get_bytecode_for(const String &entry_point) {
         // Bytecode compilation failed - this is expected for some constructs
         // (e.g., method calls on objects). AST interpreter will handle it.
         return nullptr;
+    }
+
+    // Run the bytecode peephole optimizer (v2.4.1)
+    {
+        int bytes_before = compiled_chunk.code.size();
+        auto opt_stats = VisualGasicOptimizer::optimize(&compiled_chunk, false);
+        if (opt_stats.total() > 0) {
+            UtilityFunctions::print("[VG Optimizer] ", entry_point, ": ",
+                bytes_before, " → ", opt_stats.total_bytes_after,
+                " bytes (", opt_stats.total(), " transforms: ",
+                opt_stats.constant_fold, " const-fold, ",
+                opt_stats.dead_pop, " dead-pop, ",
+                opt_stats.dead_code, " dead-code, ",
+                opt_stats.jump_thread, " jump-thread, ",
+                opt_stats.identity_ops, " identity, ",
+                opt_stats.double_negation, " double-neg, ",
+                opt_stats.strength_reduction, " strength-red)");
+        }
     }
 
     CompiledEntry entry;

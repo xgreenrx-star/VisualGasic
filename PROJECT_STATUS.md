@@ -1,7 +1,7 @@
 # VisualGasic Project Status
 
-**Version**: 2.4.0 (Classes & Objects, Functional Programming)  
-**Last Updated**: February 12, 2026
+**Version**: 2.4.1 (Optimizer & Tooling)  
+**Last Updated**: 2025
 
 ## Overview
 

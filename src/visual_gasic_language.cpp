@@ -4,6 +4,7 @@
 #include "visual_gasic_cbm_completion.h"
 #include "visual_gasic_instance.h"
 #include "visual_gasic_debugger.h"
+#include "visual_gasic_linter.h"
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/classes/node.hpp>
 #include <godot_cpp/classes/window.hpp>
@@ -435,6 +436,16 @@ Dictionary VisualGasicLanguage::_validate(const String &p_script, const String &
                  }
                  result["valid"] = false;
              }
+
+             // Run linter for warnings (only if parse succeeded and warnings requested)
+             if (p_validate_warnings && parser.errors.size() == 0 && root) {
+                 VisualGasicLinter linter;
+                 Array lint_warnings = linter.analyze(root);
+                 for (int i = 0; i < lint_warnings.size(); i++) {
+                     ((Array)result["warnings"]).push_back(lint_warnings[i]);
+                 }
+             }
+
              if (root) delete root;
         }
     }

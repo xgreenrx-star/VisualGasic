@@ -11,6 +11,86 @@
 using namespace VisualGasic;
 
 // Class instantiation and management
+
+// --- Inheritance helpers ---
+
+ClassDefinition* VisualGasicInstance::get_class_def(const String& class_name) {
+    if (class_registry.has(class_name)) {
+        return (ClassDefinition*)((int64_t)class_registry[class_name]);
+    }
+    return nullptr;
+}
+
+// Build the inheritance chain: [Derived, Parent, Grandparent, ...]
+void VisualGasicInstance::collect_class_hierarchy(ClassDefinition* cls, Vector<ClassDefinition*>& chain) {
+    ClassDefinition* cur = cls;
+    int guard = 0;
+    while (cur && guard < 20) { // Limit depth to avoid infinite loops
+        chain.push_back(cur);
+        if (!cur->base_class.is_empty()) {
+            cur = get_class_def(cur->base_class);
+        } else {
+            cur = nullptr;
+        }
+        guard++;
+    }
+}
+
+// Walk inheritance chain (derived first) to find a method
+SubDefinition* VisualGasicInstance::find_method_in_hierarchy(ClassDefinition* cls, const String& method_name) {
+    Vector<ClassDefinition*> chain;
+    collect_class_hierarchy(cls, chain);
+    for (int c = 0; c < chain.size(); c++) {
+        for (int i = 0; i < chain[c]->methods.size(); i++) {
+            if (chain[c]->methods[i]->name.nocasecmp_to(method_name) == 0) {
+                return chain[c]->methods[i];
+            }
+        }
+    }
+    return nullptr;
+}
+
+// Walk inheritance chain to find a property accessor
+PropertyDefinition* VisualGasicInstance::find_property_in_hierarchy(ClassDefinition* cls, const String& prop_name, PropertyDefinition::PropertyType ptype) {
+    Vector<ClassDefinition*> chain;
+    collect_class_hierarchy(cls, chain);
+    for (int c = 0; c < chain.size(); c++) {
+        for (int i = 0; i < chain[c]->properties.size(); i++) {
+            PropertyDefinition* p = chain[c]->properties[i];
+            if (p && p->name.nocasecmp_to(prop_name) == 0 && p->property_type == ptype) {
+                return p;
+            }
+        }
+    }
+    return nullptr;
+}
+
+// Initialize members from entire hierarchy (base first, then derived overrides)
+void VisualGasicInstance::init_members_from_hierarchy(ClassDefinition* cls, Dictionary& obj_data) {
+    Vector<ClassDefinition*> chain;
+    collect_class_hierarchy(cls, chain);
+    // Walk bottom-up (base class first) so all members get created
+    for (int c = chain.size() - 1; c >= 0; c--) {
+        ClassDefinition* cur = chain[c];
+        for (int i = 0; i < cur->members.size(); i++) {
+            VariableDefinition* member = cur->members[i];
+            if (member->default_value) {
+                obj_data[member->name] = evaluate_expression(member->default_value);
+            } else {
+                if (member->type.nocasecmp_to("Integer") == 0 || member->type.nocasecmp_to("Long") == 0) {
+                    obj_data[member->name] = 0;
+                } else if (member->type.nocasecmp_to("String") == 0) {
+                    obj_data[member->name] = "";
+                } else if (member->type.nocasecmp_to("Boolean") == 0) {
+                    obj_data[member->name] = false;
+                } else {
+                    obj_data[member->name] = Variant();
+                }
+            }
+        }
+    }
+}
+
 Variant VisualGasicInstance::instantiate_class(const String& class_name, const Array& args) {
     if (!class_registry.has(class_name)) {
         UtilityFunctions::print("Error: Class '", class_name, "' not defined");
@@ -25,33 +105,21 @@ Variant VisualGasicInstance::instantiate_class(const String& class_name, const A
     obj_data["__class__"] = class_name;
     obj_data["__id__"] = obj_id;
     
-    // Initialize member variables with defaults
-    for (int i = 0; i < cls->members.size(); i++) {
-        VariableDefinition* member = cls->members[i];
-        if (member->default_value) {
-            obj_data[member->name] = evaluate_expression(member->default_value);
-        } else {
-            // Default initialization based on type
-            if (member->type.nocasecmp_to("Integer") == 0 || member->type.nocasecmp_to("Long") == 0) {
-                obj_data[member->name] = 0;
-            } else if (member->type.nocasecmp_to("String") == 0) {
-                obj_data[member->name] = "";
-            } else if (member->type.nocasecmp_to("Boolean") == 0) {
-                obj_data[member->name] = false;
-            } else if (member->type.nocasecmp_to("Variant") == 0) {
-                obj_data[member->name] = Variant();
-            } else {
-                obj_data[member->name] = Variant();
-            }
-        }
-    }
+    // Initialize member variables from entire hierarchy (base → derived)
+    init_members_from_hierarchy(cls, obj_data);
     
     object_instances[obj_id] = obj_data;
     
-    // Call Class_Initialize if it exists
-    if (cls->class_initialize) {
-        Variant ret;
-        execute_class_method(cls, cls->class_initialize, obj_id, args, ret);
+    // Call Class_Initialize chain: base first, derived last
+    Vector<ClassDefinition*> chain;
+    collect_class_hierarchy(cls, chain);
+    for (int c = chain.size() - 1; c >= 0; c--) {
+        if (chain[c]->class_initialize) {
+            // Only pass args to the most-derived Class_Initialize
+            Array init_args = (c == 0) ? args : Array();
+            Variant ret;
+            execute_class_method(chain[c], chain[c]->class_initialize, obj_id, init_args, ret);
+        }
     }
     
     // Return object ID wrapped in Variant
@@ -64,12 +132,66 @@ bool VisualGasicInstance::get_object_member(int obj_id, const String& member_nam
     }
     
     Dictionary obj_data = object_instances[obj_id];
+    
+    // Direct member lookup (covers own + inherited members since init_members_from_hierarchy merges them)
     if (obj_data.has(member_name)) {
         r_ret = obj_data[member_name];
         return true;
     }
     
-    // Check for property getter
+    // Check for class-scoped Property Get (with inheritance)
+    String class_name = obj_data.get("__class__", "");
+    ClassDefinition* cls = get_class_def(class_name);
+    if (cls) {
+        PropertyDefinition* prop = find_property_in_hierarchy(cls, member_name, PropertyDefinition::PROP_GET);
+        if (prop) {
+            // Execute property getter in object context
+            Dictionary saved_vars = variables.duplicate();
+            
+            // Load object members into scope
+            Array keys = obj_data.keys();
+            for (int i = 0; i < keys.size(); i++) {
+                String key = keys[i];
+                if (!key.begins_with("__")) {
+                    variables[key] = obj_data[key];
+                }
+            }
+            
+            // Execute property body
+            for (int i = 0; i < prop->body.size(); i++) {
+                execute_statement(prop->body[i]);
+                if (error_state.mode == ErrorState::EXIT_SUB) {
+                    error_state.mode = ErrorState::NONE;
+                    break;
+                }
+            }
+            
+            // Get return value
+            if (variables.has(member_name)) {
+                r_ret = variables[member_name];
+            }
+            
+            // Write back modified members
+            if (cls) {
+                Vector<ClassDefinition*> chain;
+                collect_class_hierarchy(cls, chain);
+                for (int c = 0; c < chain.size(); c++) {
+                    for (int m = 0; m < chain[c]->members.size(); m++) {
+                        String mname = chain[c]->members[m]->name;
+                        if (variables.has(mname)) {
+                            obj_data[mname] = variables[mname];
+                        }
+                    }
+                }
+                object_instances[obj_id] = obj_data;
+            }
+            
+            variables = saved_vars;
+            return true;
+        }
+    }
+    
+    // Fallback: module-level property
     PropertyDefinition::PropertyType prop_type;
     if (is_property_accessor(member_name, prop_type)) {
         if (prop_type == PropertyDefinition::PROP_GET) {
@@ -89,7 +211,60 @@ void VisualGasicInstance::set_object_member(int obj_id, const String& member_nam
     
     Dictionary obj_data = object_instances[obj_id];
     
-    // Check for property setter
+    // Check for class-scoped Property Let/Set (with inheritance)
+    String class_name = obj_data.get("__class__", "");
+    ClassDefinition* cls = get_class_def(class_name);
+    if (cls) {
+        PropertyDefinition* prop = find_property_in_hierarchy(cls, member_name, PropertyDefinition::PROP_LET);
+        if (!prop) {
+            prop = find_property_in_hierarchy(cls, member_name, PropertyDefinition::PROP_SET);
+        }
+        if (prop) {
+            // Execute property setter in object context
+            Dictionary saved_vars = variables.duplicate();
+            
+            // Load object members into scope
+            Array keys = obj_data.keys();
+            for (int i = 0; i < keys.size(); i++) {
+                String key = keys[i];
+                if (!key.begins_with("__")) {
+                    variables[key] = obj_data[key];
+                }
+            }
+            
+            // Set the value parameter (last parameter in Property Let/Set)
+            if (prop->parameters.size() > 0) {
+                variables[prop->parameters[prop->parameters.size() - 1].name] = value;
+            }
+            
+            // Execute property body
+            for (int i = 0; i < prop->body.size(); i++) {
+                execute_statement(prop->body[i]);
+                if (error_state.mode == ErrorState::EXIT_SUB) {
+                    error_state.mode = ErrorState::NONE;
+                    break;
+                }
+            }
+            
+            // Write back modified members from hierarchy
+            Vector<ClassDefinition*> chain;
+            collect_class_hierarchy(cls, chain);
+            for (int c = 0; c < chain.size(); c++) {
+                for (int m = 0; m < chain[c]->members.size(); m++) {
+                    String mname = chain[c]->members[m]->name;
+                    if (variables.has(mname)) {
+                        obj_data[mname] = variables[mname];
+                    }
+                }
+            }
+            object_instances[obj_id] = obj_data;
+            
+            variables = saved_vars;
+            return;
+        }
+    }
+    
+    // Fallback: module-level property
     PropertyDefinition::PropertyType prop_type;
     if (is_property_accessor(member_name, prop_type)) {
         if (prop_type == PropertyDefinition::PROP_LET || prop_type == PropertyDefinition::PROP_SET) {
@@ -98,8 +273,9 @@ void VisualGasicInstance::set_object_member(int obj_id, const String& member_nam
         }
     }
     
+    // Direct member assignment
     obj_data[member_name] = value;
-    object_instances[obj_id] = obj_data; // Update stored object
+    object_instances[obj_id] = obj_data;
 }
 
 Variant VisualGasicInstance::call_object_method(int obj_id, const String& method_name, const Array& args) {
@@ -117,16 +293,15 @@ Variant VisualGasicInstance::call_object_method(int obj_id, const String& method
     
     ClassDefinition* cls = (ClassDefinition*)((int64_t)class_registry[class_name]);
     
-    // Find method in class
-    for (int i = 0; i < cls->methods.size(); i++) {
-        if (cls->methods[i]->name.nocasecmp_to(method_name) == 0) {
-            Variant ret;
-            execute_class_method(cls, cls->methods[i], obj_id, args, ret);
-            return ret;
-        }
+    // Find method in class hierarchy (derived-first for polymorphism)
+    SubDefinition* method = find_method_in_hierarchy(cls, method_name);
+    if (method) {
+        Variant ret;
+        execute_class_method(cls, method, obj_id, args, ret);
+        return ret;
     }
     
-    UtilityFunctions::print("Error: Method '", method_name, "' not found in class '", class_name, "'");
+    UtilityFunctions::print("Error: Method '", method_name, "' not found in class '", class_name, "' hierarchy");
     return Variant();
 }
 
@@ -190,7 +365,7 @@ void VisualGasicInstance::execute_class_method(ClassDefinition* cls, SubDefiniti
     
     current_sub = saved_sub;
     
-    // Save modified members back to object
+    // Save modified members back to object (entire inheritance hierarchy)
     if (object_instances.has(obj_id)) {
         Dictionary obj_data = object_instances[obj_id];
         String class_name = obj_data["__class__"];
@@ -198,10 +373,14 @@ void VisualGasicInstance::execute_class_method(ClassDefinition* cls, SubDefiniti
         if (class_registry.has(class_name)) {
             ClassDefinition* cls_def = (ClassDefinition*)((int64_t)class_registry[class_name]);
             
-            for (int i = 0; i < cls_def->members.size(); i++) {
-                String member_name = cls_def->members[i]->name;
-                if (variables.has(member_name)) {
-                    obj_data[member_name] = variables[member_name];
+            Vector<ClassDefinition*> chain;
+            collect_class_hierarchy(cls_def, chain);
+            for (int c = 0; c < chain.size(); c++) {
+                for (int i = 0; i < chain[c]->members.size(); i++) {
+                    String member_name = chain[c]->members[i]->name;
+                    if (variables.has(member_name)) {
+                        obj_data[member_name] = variables[member_name];
+                    }
                 }
             }
             

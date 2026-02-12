@@ -5,6 +5,67 @@ All notable changes to Visual Gasic will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.1] - 2025
+
+### Added - Bytecode Peephole Optimizer
+- **9-pass optimizer** in `visual_gasic_optimizer.h/.cpp` (~600 lines)
+- **Constant folding**: `CONST a; CONST b; ADD` → `CONST (a+b)` for numeric and string ops
+- **Dead pop elimination**: `PUSH x; POP` sequences removed
+- **Redundant load/store**: `GET_LOCAL x; POP` and `GET_GLOBAL x; POP` eliminated
+- **Dead code elimination**: unreachable bytes after `JUMP`/`RETURN` stripped
+- **Jump threading**: `JUMP → JUMP` chains shortened (up to 10 hops)
+- **Identity operations**: `+0`, `-0`, `*1`, `/1` eliminated
+- **Double negation**: `NOT NOT` and `NEGATE NEGATE` removed
+- **Strength reduction**: `x * -1` → `NEGATE`
+- **Debug line stripping**: `OP_DEBUG_LINE` removal for release builds
+- Fixed-point iteration (max 8 passes), NOP-based patching with jump-aware compaction
+- Integrated into `VisualGasicScript::get_bytecode_for()` — runs automatically after compilation
+
+### Added - Static Analysis & Linting
+- **6 warning types** in `visual_gasic_linter.h/.cpp` (~530 lines)
+- `WARN_UNUSED_VARIABLE` (100), `WARN_UNUSED_SUB` (101), `WARN_EMPTY_SUB` (102)
+- `WARN_SHADOWED_VARIABLE` (103), `WARN_UNREACHABLE_CODE` (104), `WARN_UNUSED_PARAMETER` (106)
+- 3-phase analysis: collect definitions → collect references → run checks
+- Full AST walk: classes, properties, lambdas, Whenever sections, ForEach
+- Integrated into Godot's `_validate()` pipeline for real-time warnings in editor
+- Skips Godot callbacks (`_Ready`, `_Process`, `_Draw`, etc.) to avoid false positives
+
+### Added - Snippet Browser UI
+- **3-pane dialog** accessible via `Project > Tools > VG: Snippet Browser`
+- 32+ built-in snippets from VGSnippetManager (categories, triggers, descriptions)
+- Real-time search filtering by name and description
+- Custom snippet creation with `${1:placeholder}` tab-stop support
+- Insert at caret position in current `.vg` editor
+
+### Added - Theme Picker UI
+- **2-pane dialog** accessible via `Project > Tools > VG: Theme Picker`
+- 5 built-in themes: VB6 Classic, Dark Modern, Monokai, Solarized, High Contrast
+- Live preview with 40+ line VG code sample
+- Auto-apply: themes automatically applied when opening `.vg` files
+- Connected to VGThemeManager for persistence
+
+### Added - Class Inheritance (Runtime)
+- **`Inherits`** keyword for single inheritance between classes
+- **`MyBase.Method()`** for calling parent methods
+- **`Overrides`** keyword for method overriding with dispatch
+- **`MustOverride`** for abstract method declarations
+- Multi-level inheritance chains (3+ levels, e.g. Entity → Tower → Blaster)
+- Property inheritance with override support
+- 22/22 inheritance tests passing
+
+### Added - Galactic Defender Game Demo
+- **~1,600 line** tower defense game in `demos/2D_Games/Galactic_Defender/`
+- 13 classes with 3-level inheritance chains
+- 7 Whenever sections, 4 Lambdas, Parallel For, Dictionary stats
+- DATA/READ wave definitions (12 waves + boss battles)
+- Full software renderer with `_Draw()` — towers, enemies, projectiles, particles, HUD
+- Standalone playable project (960×640)
+
+### Changed
+- Plugin now wires VGSnippetManager and VGThemeManager into tool menu
+- Optimizer logs transformations when optimizations occur
+- README updated to v2.4.1 with new features documented
+
 ## [2.4.0] - 2026-02-12
 
 ### Added - Classes & Objects
