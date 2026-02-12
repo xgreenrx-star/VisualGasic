@@ -96,7 +96,7 @@ Dim arr = 1..10
 | `??` | Null-coalescing | `x ?? y` | Returns x if not null, else y |
 | `?.` | Elvis | `obj?.prop` | Safe navigation, returns null if obj is null |
 | `..` | Range | `1..10` | Creates array [1,2,3,4,5,6,7,8,9,10] |
-| `=>` | Lambda arrow | `(a,b) => a+b` | Lambda expression (partial support) |
+| `=>` | Lambda arrow | `(a,b) => a+b` | Lambda expression (optional) |
 | `[...]` | Array literal | `[1, 2, 3]` | Creates array inline |
 | `{...}` | Dict literal | `{"key": val}` | Creates dictionary inline |
 
@@ -106,8 +106,15 @@ Dim arr = 1..10
 
 | Keyword | Purpose | Example |
 |---------|---------|---------|
-| `Lambda` | Anonymous function | `Lambda(x) => x * 2` |
-| `Using` | Resource management | `Using f = Open(...) ... End Using` |
+| `Lambda` | Anonymous function | `Lambda(x) => x * 2` || `Fn` | Lambda shorthand | `Fn(x) x * x` |
+| `Function` | Lambda (VB.NET style) | `Function(x) x * 3` |
+| `Erase` | Clear/reset array | `Erase myArray` || `Using` | Resource management | `Using f = Open(...) ... End Using` |
+| `Class` | Define a class | `Class Person ... End Class` |
+| `New` | Create instance | `Dim p = New Person` |
+| `Property` | Property accessor | `Property Get/Let/Set` |
+| `Map` | Transform array | `Map(arr, Fn(x) x*2)` |
+| `Filter` | Filter array | `Filter(arr, Fn(x) x>0)` |
+| `Reduce` | Fold array | `Reduce(arr, Fn(a,b) a+b, 0)` |
 | `Int32` | 32-bit integer type | `Dim x As Int32` |
 | `Int64` | 64-bit integer type | `Dim big As Int64` |
 | `Float32` | Single-precision float | `Dim f As Float32` |
@@ -160,8 +167,42 @@ Using file = FileAccess.Open("data.txt")
     Print file.GetAsText()
 End Using
 
-' Lambda (metadata only) ⚠️
+' Lambda Expressions ✅
 Dim add = Lambda(a, b) => a + b
+Dim square = Fn(x) x * x
+Dim triple = Function(x) x * 3
+
+' Block Lambdas ✅
+Dim compute = Function(a, b)
+    Dim result = a * b + a
+    Return result
+End Function
+
+' Functional Programming ✅
+Dim doubled = Map([1,2,3], Fn(x) x * 2)    ' [2, 4, 6]
+Dim evens = Filter([1,2,3,4], Fn(x) x Mod 2 = 0)  ' [2, 4]
+Dim sum = Reduce([1,2,3], Fn(a,b) a + b, 0)  ' 6
+Dim hasEven = Any([1,2,3], Fn(x) x Mod 2 = 0)  ' True
+Dim allPos = All([1,2,3], Fn(x) x > 0)  ' True
+Dim first = Find([1,2,3], Fn(x) x > 1)  ' 2
+
+' Short-Circuit IIf ✅
+Dim result = IIf(x <> 0, 100 / x, 0)  ' Safe!
+
+' Classes & Objects ✅
+Class Person
+    Public Name As String
+    Sub Greet()
+        Print "Hello, I'm " & Me.Name
+    End Sub
+End Class
+Dim p = New Person
+p.Name = "Alice"
+p.Greet()
+
+' Erase ✅
+Dim data = [1, 2, 3]
+Erase data
 
 ' Modern Types (keywords only) ⚠️
 Dim count As Int32
@@ -202,6 +243,18 @@ Dim price As Float32
 - Generating sequences
 - Loop iteration ranges
 - Array slicing operations
+
+### Use Classes When:
+- Encapsulating related data and behavior
+- Creating reusable object templates
+- Managing state per-instance
+- Building game entities with custom logic
+
+### Use Functional Builtins When:
+- Transforming arrays (Map)
+- Filtering data (Filter)
+- Aggregating values (Reduce)
+- Checking conditions (Any/All/Find)
 
 ---
 

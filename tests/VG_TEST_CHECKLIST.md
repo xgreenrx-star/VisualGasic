@@ -1,7 +1,7 @@
 # VisualGasic Test Checklist
 
-**Version:** v2.3.0  
-**Last Updated:** February 9, 2026
+**Version:** v2.4.0  
+**Last Updated:** February 12, 2026
 
 This checklist covers VB6 compatibility and all VisualGasic features.
 
@@ -75,19 +75,19 @@ This checklist covers VB6 compatibility and all VisualGasic features.
 - ✅ Return value via function name: `MyFunc = result` (recursive factorial works)
 
 ### 1.5 Classes and Objects
-> **Note:** Full class support planned for v3.0. Current workaround: use `Type`/`Struct` for data structures and Godot nodes for objects.
+> **Status:** ✅ Full class support implemented in v2.4.0. Parser (`parse_class()`, `parse_property()`) + runtime bridges (EXPR_NEW, member access, method dispatch). 7/7 tests pass (`demo/test_classes.vg`).
 
-- [ ] `Class` declaration (VG extension)
-- [ ] `Property Get`
-- [ ] `Property Let`
-- [ ] `Property Set`
-- [ ] `Public` members (✅ works for module variables)
-- [ ] `Private` members (✅ works for module variables)
-- [ ] `New` keyword for object creation
-- [ ] `Set obj = New ClassName`
-- [ ] `Set obj = Nothing`
-- [ ] `Me` keyword
-- [ ] Class inheritance (VG extension)
+- ✅ `Class` declaration — `Class ClassName ... End Class` with members, methods, properties, events
+- ✅ `Property Get` — `Property Get PropName() As Type ... End Property`
+- ✅ `Property Let` — `Property Let PropName(value As Type) ... End Property`
+- ✅ `Property Set` — `Property Set PropName(value As Type) ... End Property` (parsed, same runtime as Let)
+- ✅ `Public` members — `Public Name As String` in class body
+- ✅ `Private` members — `Private mData As Integer` in class body
+- ✅ `New` keyword for object creation — `Dim obj = New ClassName`
+- ✅ `Set obj = New ClassName` — Also supported via `Dim obj = New ClassName`
+- ✅ `Set obj = Nothing` — (Object lifecycle via Godot Variant)
+- ✅ `Me` keyword — Self-reference inside class methods (`Me.Name`, `Me.Count`)
+- ⚠️ Class inheritance — `Inherits BaseClass` syntax parsed, runtime pending
 
 ---
 
@@ -149,7 +149,7 @@ This checklist covers VB6 compatibility and all VisualGasic features.
 - ✅ `LBound(array)` - Lower bound
 - ✅ `UBound(array)` - Upper bound
 - ✅ `IsArray(var)` - Check if array
-- [ ] `Erase array` - Clear array
+- ✅ `Erase array` - Clear/reset array (v2.3.2)
 
 ### 2.5 Type Checking Functions
 - ✅ `IsNumeric(value)`
@@ -281,7 +281,10 @@ All control types are implemented and can be:
 - ✅ `Struct` / `Type` declarations (bytecode falls back to AST interpreter for struct types)
 - ✅ `Dictionary` type (`Dim d As Dictionary`, `.Add`, `.Remove`, `.Exists`, `.Item`, `.Keys`, `.Items`, `.Count`, `.RemoveAll`)
 - ✅ `For Each` on Dictionary (iterates over keys)
-- [ ] Lambda expressions (deferred to future version - VB6 doesn't have lambdas)
+- ✅ Lambda expressions: `Lambda(x) => expr`, `Fn(x) expr`, `Function(x) expr`, `Sub(x) stmt` (v2.3.2/v2.3.3)
+- ✅ Block lambdas: `Function(x) ... Return ... End Function`, `Sub(x) ... End Sub` (v2.4.0)
+- ✅ Functional programming: `Map`, `Filter`, `Reduce`, `Any`, `All`, `Find` with lambda callbacks (v2.4.0)
+- ✅ Classes & Objects: `Class...End Class`, `New`, `Property Get/Let/Set`, `Me`, `Class_Initialize` (v2.4.0)
 - ✅ String interpolation: `$"Hello {name}"` (supports expressions: `$"sum={a + b}"`)
 
 ---
@@ -408,7 +411,7 @@ After each release, verify these don't break:
 
 ## Test Results Template
 
-**Test Run Date:** February 9, 2026 (v2.2.3+, full audit Sections 1-9)
+**Test Run Date:** February 12, 2026 (v2.4.0, full audit Sections 1-9 + v2.4.0 features)
 
 ### Section-by-Section Results
 
@@ -418,11 +421,11 @@ After each release, verify these don't break:
 | 1.2 | Operators | 9 | 9 | All arithmetic, logical, `Is`, `Like` ✅ |
 | 1.3 | Control Flow | 24 | 24 | All If/Select/For/Do/While/Exit/GoTo/OnError ✅ |
 | 1.4 | Procedures | 11 | 11 | Sub, Function, ByVal, ByRef, Optional, ParamArray, Call ✅ |
-| 1.5 | Classes & Objects | 0 | 11 | Planned for v3.0 (use Type/Struct workaround) |
+| 1.5 | Classes & Objects | 10 | 11 | Class, Property, New, Me, Public/Private ✅ (inheritance pending) |
 | 2.1 | String Functions | 24 | 24 | All 24 VB6 string functions ✅ |
 | 2.2 | Math Functions | 12 | 12 | Abs thru Randomize ✅ |
 | 2.3 | Conversion Functions | 9 | 9 | CInt, CLng, CDbl, CSng, CBool, CByte, CDate, Hex, Oct ✅ |
-| 2.4 | Array Functions | 4 | 5 | `Erase` not yet implemented |
+| 2.4 | Array Functions | 5 | 5 | All array functions including `Erase` ✅ |
 | 2.5 | Type Checking | 7 | 7 | IsNumeric, IsDate, IsEmpty, IsNull, IsObject, TypeName, VarType ✅ |
 | 2.6 | Date/Time Functions | 15 | 15 | Now, Date, Time, DateAdd, DateDiff, DatePart, Format, etc. ✅ |
 | 3.1 | Control Properties | 10 | 10 | All VB6 property aliases work ✅ |
@@ -431,7 +434,7 @@ After each release, verify these don't break:
 | 3.4 | Form Designer (IDE) | 7 | 7 | Toolbox, resize, alignment, properties, rename refactoring ✅ |
 | 4.1 | Godot Integration | 7 | 7 | Node properties, methods, GetNode, signals, Input ✅ |
 | 4.2 | Game Keywords | 6 | 6 | Whenever, Sprite, Sound, Collides, KeyDown, MouseClick ✅ |
-| 4.3 | Modern Features | 5 | 6 | Enum, Struct, Dictionary, ForEach, $"interpolation" ✅ (Lambda deferred) |
+| 4.3 | Modern Features | 10 | 10 | +Block lambdas, +Map/Filter/Reduce/Any/All/Find, +Classes ✅ |
 | 5.1 | Code Editor | 10 | 10 | Syntax highlight, autocomplete, Go To Def, formatting ✅ |
 | 5.2 | Debugger | 11 | 11 | Breakpoints, step in/over/out, watch, call stack, immediate ✅ |
 | 5.3 | Project Management | 6 | 6 | New form/module, import .frm/.vbp, recent projects, Build/Run ✅ |
@@ -446,30 +449,31 @@ After each release, verify these don't break:
 
 | Metric | Count |
 |--------|-------|
-| **Total checklist items** | 264 |
-| **Passed ✅** | 251 |
-| **Not implemented** | 13 |
+| **Total checklist items** | 268 |
+| **Passed ✅** | 267 |
+| **Not implemented** | 1 |
 | **Failed** | 0 |
 | **Pass rate (of implemented)** | **100%** |
-| **Overall completion** | **95.1%** |
+| **Overall completion** | **99.6%** |
 
-**Not yet implemented (13 items):**
-- 1.5 Classes & Objects: 11 items (Class, Property Get/Let/Set, New, Me, inheritance — planned for v3.0)
-- 2.4 `Erase array` — Clear array (1 item)
-- 4.3 Lambda expressions — Deferred (VB6 doesn't have lambdas) (1 item)
+**Not yet implemented (1 item):**
+- 1.5 Class inheritance: `Inherits BaseClass` syntax parsed, runtime method overriding pending
 
 ### Automated Test Counts
 
 | Test Suite | Tests | Result |
 |-----------|-------|--------|
 | Core language suite (v2.2.3) | 73 | 73 pass, 0 fail |
+| Block lambda tests (v2.4.0) | 6 | 6 pass, 0 fail |
+| Functional programming tests (v2.4.0) | 11 | 11 pass, 0 fail |
+| Classes & objects tests (v2.4.0) | 7 | 7 pass, 0 fail |
 | Error handling tests (§6) | 54 | 54 pass, 0 fail |
 | File I/O tests (§7) | 10 | 10 pass, 0 fail |
 | Performance tests (§8) | 6 | 6 pass, 0 fail |
 | Regression tests (§9) | 28 | 28 pass, 0 fail |
 | Build verification (§9) | 3 | 3 pass, 0 fail |
 | Code infrastructure verification | 69+ | All verified via source audit |
-| **Total automated** | **243+** | **0 failures** |
+| **Total automated** | **267+** | **0 failures** |
 
 ### Key Findings
 - ✅ Core VB6 language features are solid — 100% of implemented features pass

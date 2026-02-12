@@ -2,7 +2,7 @@
 
 ## 🎉 New Modern Syntax Features!
 
-VisualGasic now includes **7 fully implemented** modern language features that make your code more concise, safer, and easier to read - while maintaining 100% backward compatibility with VB6!
+VisualGasic now includes **13 fully implemented** modern language features that make your code more concise, safer, and easier to read - while maintaining 100% backward compatibility with VB6!
 
 ## Quick Examples
 
@@ -89,6 +89,60 @@ Print "Hello, " & name & "! You are " & age & " years old."
 Print $"Hello, {name}! You are {age} years old."
 ```
 
+### Lambda Expressions ✅
+```vb
+' Classic arrow
+Dim add = Lambda(a, b) => a + b
+
+' Fn shorthand (recommended)
+Dim square = Fn(x) x * x
+
+' VB.NET-style Function
+Dim triple = Function(x) x * 3
+```
+
+### Erase Statement ✅
+```vb
+' Clear an array
+Dim arr = [1, 2, 3, 4, 5]
+Erase arr  ' Array is now empty/reset
+```
+
+### Block Lambdas ✅
+```vb
+' Multi-statement lambda with Return
+Dim compute = Function(a, b)
+    Dim result = a * b + a
+    Return result
+End Function
+Print compute(4, 5)  ' 24
+```
+
+### Functional Programming ✅
+```vb
+' Transform, filter, reduce arrays with lambdas
+Dim nums = [1, 2, 3, 4, 5]
+Dim doubled = Map(nums, Fn(x) x * 2)    ' [2, 4, 6, 8, 10]
+Dim evens = Filter(nums, Fn(x) x Mod 2 = 0)  ' [2, 4]
+Dim sum = Reduce(nums, Fn(a, b) a + b, 0)     ' 15
+```
+
+### Classes & Objects ✅
+```vb
+' Full VB-style class system
+Class Person
+    Public Name As String
+    Public Age As Integer
+    Sub Greet()
+        Print "Hello, I'm " & Me.Name
+    End Sub
+End Class
+
+Dim p = New Person
+p.Name = "Alice"
+p.Greet()  ' "Hello, I'm Alice"
+```
+
 ## Full Documentation
 
 📚 **Comprehensive Guides Available:**
@@ -121,7 +175,11 @@ examples/test_modern_working.bas
 | Range Operator `..` | ✅ Complete | [Details](MODERN_FEATURES.md#5-range-operator-) |
 | Using Statement | ✅ Complete | [Details](MODERN_FEATURES.md#7-using-statement) |
 | String Interpolation | ✅ Complete | [Details](MODERN_FEATURES.md#1-string-interpolation) |
-| Lambda Expressions | ⚠️ Partial | [Details](MODERN_FEATURES.md#4-lambda-expressions) |
+| Lambda Expressions | ✅ Complete | [Details](MODERN_FEATURES.md#4-lambda-expressions) |
+| Block Lambdas | ✅ Complete | [Details](MODERN_FEATURES.md#4b-block-lambdas-multi-statement-bodies) |
+| Functional Programming | ✅ Complete | [Details](MODERN_FEATURES.md#4c-functional-programming-builtins) |
+| Short-Circuit IIf | ✅ Complete | [Details](MODERN_FEATURES.md#10-short-circuit-iif) |
+| Classes & Objects | ✅ Complete | [Details](MODERN_FEATURES.md#14-classes--objects) |
 | Modern Type Aliases | ⚠️ Keywords only | [Details](MODERN_FEATURES.md#6-modern-type-aliases) |
 
 ## Why Use Modern Features?

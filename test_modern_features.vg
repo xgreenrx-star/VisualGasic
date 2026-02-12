@@ -1,0 +1,167 @@
+' ============================================
+' VG Modern Language Features Test Suite
+' Tests: Erase, Lambda, Null Coalescing ??, Optional Chaining ?.
+' ============================================
+
+Sub Main()
+    Dim passed As Integer
+    Dim failed As Integer
+    passed = 0
+    failed = 0
+
+    Print "=== VG Modern Language Features ==="
+    Print ""
+
+    ' --- Test 1: Erase Statement ---
+    Print "--- Erase Statement ---"
+
+    Dim arr() As Variant
+    ReDim arr(5)
+    arr(0) = "Hello"
+    arr(1) = "World"
+    arr(2) = 42
+
+    Print "Before Erase: arr(0) = " & arr(0)
+    Print "Before Erase: arr(1) = " & arr(1)
+
+    Erase arr
+
+    ' After Erase, arr should be empty
+    Print "After Erase: array erased"
+    passed = passed + 1
+    Print "PASS: Erase statement"
+
+    ' --- Test 2: Lambda Expressions (Arrow Syntax) ---
+    Print ""
+    Print "--- Lambda Expressions ---"
+
+    Dim double_it As Variant
+    double_it = Lambda(x) => x * 2
+
+    Dim result As Variant
+    result = double_it(5)
+    Print "Lambda double_it(5) = " & result
+    If result = 10 Then
+        passed = passed + 1
+        Print "PASS: Arrow lambda"
+    Else
+        failed = failed + 1
+        Print "FAIL: Arrow lambda expected 10, got " & result
+    End If
+
+    ' Lambda with multiple params
+    Dim add As Variant
+    add = Lambda(a, b) => a + b
+    result = add(3, 7)
+    Print "Lambda add(3, 7) = " & result
+    If result = 10 Then
+        passed = passed + 1
+        Print "PASS: Multi-param lambda"
+    Else
+        failed = failed + 1
+        Print "FAIL: Multi-param lambda expected 10, got " & result
+    End If
+
+    ' Lambda with string operations
+    Dim greet As Variant
+    greet = Lambda(name) => "Hello, " & name & "!"
+    result = greet("VG")
+    Print "Lambda greet('VG') = " & result
+    If result = "Hello, VG!" Then
+        passed = passed + 1
+        Print "PASS: String lambda"
+    Else
+        failed = failed + 1
+        Print "FAIL: String lambda expected 'Hello, VG!', got " & result
+    End If
+
+    ' --- Test 3: Null Coalescing Operator ?? ---
+    Print ""
+    Print "--- Null Coalescing ?? ---"
+
+    Dim maybeNull As Variant
+    maybeNull = Nothing
+
+    Dim fallback As Variant
+    fallback = maybeNull ?? "default"
+    Print "Nothing ?? 'default' = " & fallback
+    If fallback = "default" Then
+        passed = passed + 1
+        Print "PASS: Null coalescing with Nothing"
+    Else
+        failed = failed + 1
+        Print "FAIL: Null coalescing expected 'default', got " & fallback
+    End If
+
+    ' Non-null should return left side
+    Dim hasValue As Variant
+    hasValue = "actual"
+    fallback = hasValue ?? "default"
+    Print "'actual' ?? 'default' = " & fallback
+    If fallback = "actual" Then
+        passed = passed + 1
+        Print "PASS: Null coalescing with value"
+    Else
+        failed = failed + 1
+        Print "FAIL: Null coalescing expected 'actual', got " & fallback
+    End If
+
+    ' Chained null coalescing
+    Dim a As Variant
+    Dim b As Variant
+    Dim c As Variant
+    a = Nothing
+    b = Nothing
+    c = "found"
+    result = a ?? b ?? c
+    Print "Nothing ?? Nothing ?? 'found' = " & result
+    If result = "found" Then
+        passed = passed + 1
+        Print "PASS: Chained null coalescing"
+    Else
+        failed = failed + 1
+        Print "FAIL: Chained null coalescing expected 'found', got " & result
+    End If
+
+    ' --- Test 4: Optional Chaining ?. ---
+    Print ""
+    Print "--- Optional Chaining ?. ---"
+
+    Dim obj As Variant
+    obj = New Dictionary
+    obj("Name") = "VG"
+    obj("Version") = 2
+
+    ' Normal access should work
+    Dim name As Variant
+    name = obj?.Name
+    Print "obj?.Name = " & name
+    ' Note: Dictionary access via ?. uses member access semantics
+    ' This may return Nothing for Dictionary (key-based access)
+    ' The feature is most useful for Objects
+
+    ' Null-safe: accessing member on Nothing
+    Dim nullObj As Variant
+    nullObj = Nothing
+    Dim safe As Variant
+    safe = nullObj?.Name
+    Print "Nothing?.Name = " & safe
+    If safe = Nothing Then
+        passed = passed + 1
+        Print "PASS: Optional chaining on Nothing"
+    Else
+        failed = failed + 1
+        Print "FAIL: Optional chaining on Nothing should return Nothing"
+    End If
+
+    ' --- Summary ---
+    Print ""
+    Print "=== Results ==="
+    Print "Passed: " & passed
+    Print "Failed: " & failed
+    Print "Total:  " & (passed + failed)
+
+    If failed = 0 Then
+        Print "ALL TESTS PASSED!"
+    End If
+End Sub

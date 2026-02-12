@@ -1,0 +1,136 @@
+Sub Main()
+    Dim passed As Integer
+    Dim failed As Integer
+    passed = 0
+    failed = 0
+
+    Print "=== Classes & Objects Tests ==="
+
+    ' Test 1: Basic class with members
+    Dim p As Object
+    Set p = New Person
+    p.Name = "Alice"
+    p.Age = 30
+    If p.Name = "Alice" And p.Age = 30 Then
+        Print "[PASS] Basic class members: " & p.Name & ", " & p.Age
+        passed = passed + 1
+    Else
+        Print "[FAIL] Basic class members: got " & p.Name & ", " & p.Age
+        failed = failed + 1
+    End If
+
+    ' Test 2: Class method
+    Dim greeting As String
+    greeting = p.Greet()
+    If greeting = "Hello, I'm Alice" Then
+        Print "[PASS] Class method: " & greeting
+        passed = passed + 1
+    Else
+        Print "[FAIL] Class method: got " & greeting
+        failed = failed + 1
+    End If
+
+    ' Test 3: Multiple instances
+    Dim p2 As Object
+    Set p2 = New Person
+    p2.Name = "Bob"
+    p2.Age = 25
+    If p.Name = "Alice" And p2.Name = "Bob" Then
+        Print "[PASS] Multiple instances are independent"
+        passed = passed + 1
+    Else
+        Print "[FAIL] Multiple instances: p=" & p.Name & " p2=" & p2.Name
+        failed = failed + 1
+    End If
+
+    ' Test 4: Class with function
+    Dim calc As Object
+    Set calc = New Calculator
+    Dim result As Integer
+    result = calc.Add(10, 20)
+    If result = 30 Then
+        Print "[PASS] Calculator.Add(10, 20) = " & result
+        passed = passed + 1
+    Else
+        Print "[FAIL] Calculator.Add: expected 30, got " & result
+        failed = failed + 1
+    End If
+
+    ' Test 5: Method modifying state
+    calc.Total = 0
+    calc.Accumulate(5)
+    calc.Accumulate(10)
+    calc.Accumulate(15)
+    If calc.Total = 30 Then
+        Print "[PASS] Accumulate state: Total = " & calc.Total
+        passed = passed + 1
+    Else
+        Print "[FAIL] Accumulate state: expected 30, got " & calc.Total
+        failed = failed + 1
+    End If
+
+    ' Test 6: Class_Initialize
+    Dim counter As Object
+    Set counter = New Counter
+    If counter.Count = 0 Then
+        Print "[PASS] Class_Initialize sets defaults"
+        passed = passed + 1
+    Else
+        Print "[FAIL] Class_Initialize: expected 0, got " & counter.Count
+        failed = failed + 1
+    End If
+
+    ' Test 7: Method with Return
+    counter.Increment()
+    counter.Increment()
+    counter.Increment()
+    Dim val As Integer
+    val = counter.GetCount()
+    If val = 3 Then
+        Print "[PASS] Counter after 3 increments: " & val
+        passed = passed + 1
+    Else
+        Print "[FAIL] Counter.GetCount: expected 3, got " & val
+        failed = failed + 1
+    End If
+
+    Print ""
+    Print "=== Results: " & passed & " passed, " & failed & " failed ==="
+End Sub
+
+Class Person
+    Dim Name As String
+    Dim Age As Integer
+
+    Function Greet() As String
+        Greet = "Hello, I'm " & Name
+    End Function
+End Class
+
+Class Calculator
+    Dim Total As Integer
+
+    Function Add(a As Integer, b As Integer) As Integer
+        Add = a + b
+    End Function
+
+    Sub Accumulate(value As Integer)
+        Total = Total + value
+    End Sub
+End Class
+
+Class Counter
+    Dim Count As Integer
+
+    Sub Class_Initialize()
+        Count = 0
+    End Sub
+
+    Sub Increment()
+        Count = Count + 1
+    End Sub
+
+    Function GetCount() As Integer
+        GetCount = Count
+    End Function
+End Class

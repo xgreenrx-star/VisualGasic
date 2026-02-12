@@ -2087,6 +2087,99 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
     }
     if (METHOD_IS("lbound") && args.size() >= 1) { r_handled = true; return 0; }
 
+    // ── Functional Programming: Map, Filter, Reduce, Any, All, Find ──
+    if (METHOD_IS("map") && args.size() == 2) {
+        r_handled = true;
+        Array source = args[0];
+        Dictionary lambda = args[1];
+        Array result;
+        for (int i = 0; i < source.size(); i++) {
+            Array call_args;
+            call_args.push_back(source[i]);
+            result.push_back(instance->invoke_lambda(lambda, call_args));
+        }
+        return result;
+    }
+
+    if (METHOD_IS("filter") && args.size() == 2) {
+        r_handled = true;
+        Array source = args[0];
+        Dictionary lambda = args[1];
+        Array result;
+        for (int i = 0; i < source.size(); i++) {
+            Array call_args;
+            call_args.push_back(source[i]);
+            Variant v = instance->invoke_lambda(lambda, call_args);
+            if ((bool)v) {
+                result.push_back(source[i]);
+            }
+        }
+        return result;
+    }
+
+    if (METHOD_IS("reduce") && args.size() >= 2) {
+        r_handled = true;
+        Array source = args[0];
+        Dictionary lambda = args[1];
+        Variant accumulator;
+        int start_idx = 0;
+        if (args.size() >= 3) {
+            accumulator = args[2];
+        } else if (source.size() > 0) {
+            accumulator = source[0];
+            start_idx = 1;
+        }
+        for (int i = start_idx; i < source.size(); i++) {
+            Array call_args;
+            call_args.push_back(accumulator);
+            call_args.push_back(source[i]);
+            accumulator = instance->invoke_lambda(lambda, call_args);
+        }
+        return accumulator;
+    }
+
+    if (METHOD_IS("any") && args.size() == 2) {
+        r_handled = true;
+        Array source = args[0];
+        Dictionary lambda = args[1];
+        for (int i = 0; i < source.size(); i++) {
+            Array call_args;
+            call_args.push_back(source[i]);
+            if ((bool)instance->invoke_lambda(lambda, call_args)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    if (METHOD_IS("all") && args.size() == 2) {
+        r_handled = true;
+        Array source = args[0];
+        Dictionary lambda = args[1];
+        for (int i = 0; i < source.size(); i++) {
+            Array call_args;
+            call_args.push_back(source[i]);
+            if (!(bool)instance->invoke_lambda(lambda, call_args)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    if (METHOD_IS("find") && args.size() == 2) {
+        r_handled = true;
+        Array source = args[0];
+        Dictionary lambda = args[1];
+        for (int i = 0; i < source.size(); i++) {
+            Array call_args;
+            call_args.push_back(source[i]);
+            if ((bool)instance->invoke_lambda(lambda, call_args)) {
+                return source[i];
+            }
+        }
+        return Variant(); // Nothing if not found
+    }
+
 #undef METHOD_IS
     return Variant();
 }

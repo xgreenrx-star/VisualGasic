@@ -1,0 +1,153 @@
+Sub Main()
+    Dim passed As Integer
+    Dim failed As Integer
+    passed = 0
+    failed = 0
+
+    Print "=== Functional Programming Tests ==="
+
+    ' Setup test data
+    Dim nums As Array
+    nums = Array(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+
+    ' Test 1: Map - double each element
+    Dim doubled As Array
+    doubled = Map(nums, Fn(x) => x * 2)
+    If doubled(0) = 2 And doubled(4) = 10 And doubled(9) = 20 Then
+        Print "[PASS] Map: doubled correctly"
+        passed = passed + 1
+    Else
+        Print "[FAIL] Map: got " & doubled(0) & ", " & doubled(4) & ", " & doubled(9)
+        failed = failed + 1
+    End If
+
+    ' Test 2: Filter - even numbers only
+    Dim evens As Array
+    evens = Filter(nums, Fn(x) => x Mod 2 = 0)
+    If UBound(evens) = 4 And evens(0) = 2 And evens(4) = 10 Then
+        Print "[PASS] Filter: 5 even numbers found"
+        passed = passed + 1
+    Else
+        Print "[FAIL] Filter: count=" & (UBound(evens) + 1) & " first=" & evens(0)
+        failed = failed + 1
+    End If
+
+    ' Test 3: Reduce - sum all
+    Dim total As Integer
+    total = Reduce(nums, Fn(acc, x) => acc + x, 0)
+    If total = 55 Then
+        Print "[PASS] Reduce: sum = " & total
+        passed = passed + 1
+    Else
+        Print "[FAIL] Reduce: expected 55, got " & total
+        failed = failed + 1
+    End If
+
+    ' Test 4: Reduce without initial value (uses first element)
+    Dim product As Integer
+    Dim small As Array
+    small = Array(2, 3, 4)
+    product = Reduce(small, Fn(acc, x) => acc * x)
+    If product = 24 Then
+        Print "[PASS] Reduce (no init): product = " & product
+        passed = passed + 1
+    Else
+        Print "[FAIL] Reduce (no init): expected 24, got " & product
+        failed = failed + 1
+    End If
+
+    ' Test 5: Any - check if any element > 5
+    Dim hasLarge As Boolean
+    hasLarge = Any(nums, Fn(x) => x > 5)
+    If hasLarge Then
+        Print "[PASS] Any: found element > 5"
+        passed = passed + 1
+    Else
+        Print "[FAIL] Any: expected True"
+        failed = failed + 1
+    End If
+
+    ' Test 6: Any - should be false
+    Dim hasNeg As Boolean
+    hasNeg = Any(nums, Fn(x) => x < 0)
+    If Not hasNeg Then
+        Print "[PASS] Any: no negative elements"
+        passed = passed + 1
+    Else
+        Print "[FAIL] Any: expected False"
+        failed = failed + 1
+    End If
+
+    ' Test 7: All - check if all positive
+    Dim allPos As Boolean
+    allPos = All(nums, Fn(x) => x > 0)
+    If allPos Then
+        Print "[PASS] All: all elements positive"
+        passed = passed + 1
+    Else
+        Print "[FAIL] All: expected True"
+        failed = failed + 1
+    End If
+
+    ' Test 8: All - should be false
+    Dim allSmall As Boolean
+    allSmall = All(nums, Fn(x) => x < 5)
+    If Not allSmall Then
+        Print "[PASS] All: not all elements < 5"
+        passed = passed + 1
+    Else
+        Print "[FAIL] All: expected False"
+        failed = failed + 1
+    End If
+
+    ' Test 9: Find - first even
+    Dim firstEven As Integer
+    firstEven = Find(nums, Fn(x) => x Mod 2 = 0)
+    If firstEven = 2 Then
+        Print "[PASS] Find: first even = " & firstEven
+        passed = passed + 1
+    Else
+        Print "[FAIL] Find: expected 2, got " & firstEven
+        failed = failed + 1
+    End If
+
+    ' Test 10: Map with block lambda
+    Dim labelFn = Function(n)
+        If n = 1 Then
+            Return "one"
+        ElseIf n = 2 Then
+            Return "two"
+        Else
+            Return "other"
+        End If
+    End Function
+    Dim testArr As Array
+    testArr = Array(1, 2, 3)
+    Dim labels As Array
+    labels = Map(testArr, labelFn)
+    If labels(0) = "one" And labels(1) = "two" And labels(2) = "other" Then
+        Print "[PASS] Map with block lambda"
+        passed = passed + 1
+    Else
+        Print "[FAIL] Map with block lambda: " & labels(0) & ", " & labels(1) & ", " & labels(2)
+        failed = failed + 1
+    End If
+
+    ' Test 11: Chaining - sum of squares of evens
+    Dim sumSqEven As Integer
+    Dim evenNums As Array
+    evenNums = Filter(nums, Fn(x) => x Mod 2 = 0)
+    Dim squares As Array
+    squares = Map(evenNums, Fn(x) => x * x)
+    sumSqEven = Reduce(squares, Fn(acc, x) => acc + x, 0)
+    If sumSqEven = 220 Then
+        Print "[PASS] Chain Filter->Map->Reduce: " & sumSqEven
+        passed = passed + 1
+    Else
+        Print "[FAIL] Chain: expected 220, got " & sumSqEven
+        failed = failed + 1
+    End If
+
+    Print ""
+    Print "=== Results: " & passed & " passed, " & failed & " failed ==="
+End Sub

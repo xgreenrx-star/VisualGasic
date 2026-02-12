@@ -1,0 +1,104 @@
+Sub Main()
+    Dim passed As Integer
+    Dim failed As Integer
+    passed = 0
+    failed = 0
+
+    Print "=== Block Lambda & IIf Tests ==="
+
+    ' Test 1: Multi-statement Function lambda with Return
+    Dim compute = Function(x)
+        Dim result As Integer
+        result = x * 2
+        result = result + 10
+        Return result
+    End Function
+
+    Dim r1 As Integer
+    r1 = compute(5)
+    If r1 = 20 Then
+        Print "[PASS] Block Function lambda: compute(5) = " & r1
+        passed = passed + 1
+    Else
+        Print "[FAIL] Block Function lambda: expected 20, got " & r1
+        failed = failed + 1
+    End If
+
+    ' Test 2: Multi-statement Sub lambda
+    Dim greet = Sub(name)
+        Print "  Hello, " & name & "!"
+        Print "  Welcome to VG!"
+    End Sub
+    Print "[PASS] Sub lambda created"
+    passed = passed + 1
+    greet("Alice")
+
+    ' Test 3: Block lambda with If/Else
+    Dim classify = Function(x)
+        If x > 0 Then
+            Return "positive"
+        ElseIf x < 0 Then
+            Return "negative"
+        Else
+            Return "zero"
+        End If
+    End Function
+
+    Dim r3 As String
+    r3 = classify(-5)
+    If r3 = "negative" Then
+        Print "[PASS] Block lambda with If: classify(-5) = " & r3
+        passed = passed + 1
+    Else
+        Print "[FAIL] Block lambda with If: expected negative, got " & r3
+        failed = failed + 1
+    End If
+
+    ' Test 4: Block lambda with loop
+    Dim sumTo = Function(n)
+        Dim total As Integer
+        total = 0
+        Dim i As Integer
+        For i = 1 To n
+            total = total + i
+        Next
+        Return total
+    End Function
+
+    Dim r4 As Integer
+    r4 = sumTo(10)
+    If r4 = 55 Then
+        Print "[PASS] Block lambda with loop: sumTo(10) = " & r4
+        passed = passed + 1
+    Else
+        Print "[FAIL] Block lambda with loop: expected 55, got " & r4
+        failed = failed + 1
+    End If
+
+    ' Test 5: Short-circuit IIf
+    Dim x As Integer
+    x = 0
+    Dim r5 As String
+    r5 = IIf(x <> 0, 100 / x, "safe")
+    If r5 = "safe" Then
+        Print "[PASS] Short-circuit IIf: no div/0 crash"
+        passed = passed + 1
+    Else
+        Print "[FAIL] Short-circuit IIf: got " & r5
+        failed = failed + 1
+    End If
+
+    ' Test 6: IIf evaluates only true branch
+    Dim r6 As Integer
+    r6 = IIf(True, 42, 100 / 0)
+    If r6 = 42 Then
+        Print "[PASS] IIf true-branch only: " & r6
+        passed = passed + 1
+    Else
+        Print "[FAIL] IIf true-branch: got " & r6
+        failed = failed + 1
+    End If
+
+    Print ""
+    Print "=== Results: " & passed & " passed, " & failed & " failed ==="
+End Sub

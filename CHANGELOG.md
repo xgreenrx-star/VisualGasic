@@ -5,6 +5,76 @@ All notable changes to Visual Gasic will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.0] - 2026-02-12
+
+### Added - Classes & Objects
+- **`Class...End Class`**: Full VB6/VB.NET-style class definitions with members, methods, and events
+- **`Property Get/Let/Set`**: Accessor properties with parameters and bodies
+- **`New` Keyword**: `Dim obj = New ClassName` instantiates class instances with unique object IDs
+- **`Class_Initialize`**: Constructor-style initialization method runs on `New`
+- **`Class_Terminate`**: Destructor method (scaffolding)
+- **Inheritance Keyword**: `Inherits BaseClass` syntax parsed (runtime pending)
+- **Member Visibility**: `Public`/`Private` member and method declarations
+- **Independent Instances**: Each `New` creates a separate object with its own state
+
+### Added - Functional Programming Builtins
+- **`Map(array, lambda)`**: Transform each element — `Map([1,2,3], Fn(x) x*2)` → `[2,4,6]`
+- **`Filter(array, lambda)`**: Keep matching elements — `Filter([1,2,3,4], Fn(x) x>2)` → `[3,4]`
+- **`Reduce(array, lambda [, init])`**: Fold to single value — `Reduce([1,2,3], Fn(a,b) a+b, 0)` → `6`
+- **`Any(array, lambda)`**: Check if any element matches — `Any([1,2,3], Fn(x) x>2)` → `True`
+- **`All(array, lambda)`**: Check if all elements match — `All([2,4,6], Fn(x) x Mod 2 = 0)` → `True`
+- **`Find(array, lambda)`**: First matching element — `Find([1,2,3], Fn(x) x>1)` → `2`
+
+### Added - Block Lambda (Multi-Statement) Support
+- **Block `Function` Lambdas**: Multi-line lambda bodies with `Return` keyword
+- **Block `Sub` Lambdas**: Multi-line statement lambdas invocable via `Call` or direct invocation
+- **`invoke_lambda()`**: Consolidated lambda invocation with synthetic `SubDefinition` context
+- **`Return` in Lambdas**: Block lambdas use `Return value` to return values (VB-style function-name assignment not required)
+
+### Fixed - Runtime
+- **Block Lambda Return Values**: `STMT_RETURN` now correctly captures return values in lambda context via synthetic `current_sub`
+- **STMT_CALL Lambda Invocation**: `greet("Alice")` now works when `greet` is a lambda variable
+- **Builtin Dispatch from Interpreter**: `call_builtin_expr_evaluated()` now called from interpreter's `CallExpression` handler (was only called from bytecode VM)
+- **Parameter Keyword Names**: Parser now accepts keywords like `value`, `get`, `let` as parameter names
+
+### Added - Tests
+- `demo/test_block_lambda.vg`: 6 tests for block lambdas, Sub lambdas, IIf short-circuit
+- `demo/test_functional.vg`: 11 tests for Map/Filter/Reduce/Any/All/Find with arrow and block lambdas
+- `demo/test_classes.vg`: 7 tests for class members, methods, instances, initialize, state mutation
+
+## [2.3.3] - 2026-02-11
+
+### Added - Lambda Syntax Improvements
+- **`Fn` Keyword**: Short-form lambda keyword — `Fn(x) x * 2`
+- **`Function` Without Arrow**: VB.NET-style lambdas — `Function(x) x * 3`
+- **`Sub` Lambdas**: Statement lambdas — `Sub(x) Print x`
+- **Optional `=>`**: Arrow is now optional for all lambda keywords
+- **Formatter Auto-Replace**: `Lambda(x) => expr` automatically normalized to `Function(x) expr`
+
+### Added - 8 Lambda Syntax Tests
+- `demo/test_lambda_syntax.vg`: Covers all 4 lambda forms, multi-param, mixed operators, combo with `??`
+
+## [2.3.2] - 2026-02-10
+
+### Added - Lambda Expressions & Erase Statement
+- **Lambda Expressions**: Full runtime support — `Lambda(x) => x * 2` creates callable anonymous functions
+- **Lambda Runtime**: Dictionary wrapper with `__vg_lambda` marker, `__vg_params`, `__vg_ast_ptr`
+- **Lambda Invocation**: Save/restore variable scoping for proper execution
+- **`Erase` Statement**: Clear/reset arrays to default values — `Erase myArray`
+
+### Added - Null Safety Operators
+- **Null-Coalescing `??`**: `value ?? "default"` — returns left if not null, else right
+- **Null-Safe Navigation `?.`**: `obj?.Property?.Value` — returns null instead of error if base is null
+
+## [2.3.1] - 2026-02-09
+
+### Added - Modern Language Features
+- **String Interpolation**: `$"Hello {name}"` with expression support
+- **Range Operator**: `1..10` creates array of integers
+- **Array Literals**: `[1, 2, 3]` inline array creation
+- **Dictionary Literals**: `{"key": value}` inline dictionary creation
+- **Using Statement**: `Using f = Open(...) ... End Using` for resource management
+
 ## [2.3.0] - 2026-02-09
 
 ### Added - Comprehensive Test Infrastructure

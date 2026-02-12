@@ -158,10 +158,15 @@ Vector<VisualGasicTokenizer::Token> VisualGasicTokenizer::tokenize(const String 
     keywords.push_back("Like");
     keywords.push_back("TypeOf");
     keywords.push_back("HasValue");
-    keywords.push_back("Value");
     keywords.push_back("Write");
     keywords.push_back("Erase");
     keywords.push_back("Lambda");
+    keywords.push_back("Fn");
+    keywords.push_back("Class");
+    keywords.push_back("Property");
+    keywords.push_back("Get");
+    keywords.push_back("Let");
+    keywords.push_back("Implements");
 
     while (current < length) {
         char32_t c = p_source_code[current];

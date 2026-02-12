@@ -1,13 +1,73 @@
 # Visual Gasic Development Roadmap
 
-**Last Updated**: February 3, 2026  
-**Current Version**: 2.1.0 (Debugging & IntelliSense Release)
+**Last Updated**: February 12, 2026  
+**Current Version**: 2.4.0 (Classes & Objects, Functional Programming Release)
 
 This document outlines the planned improvements and features for Visual Gasic. Items are prioritized by impact and development effort.
 
 ---
 
 ## ✅ Recently Completed Features
+
+### v2.4.0 — Classes & Objects, Functional Programming
+
+#### Classes & Objects ✅
+**Status**: ✅ Completed  
+**Priority**: High  
+**Completed**: February 12, 2026
+
+Full VB6/VB.NET-style class system with parser and runtime integration.
+
+**Implemented Features**:
+- ✅ `Class...End Class` blocks with members, methods, properties, events
+- ✅ `Property Get/Let/Set` accessor definitions
+- ✅ `New ClassName` instantiation with unique object IDs
+- ✅ `Class_Initialize` constructor (auto-called on `New`)
+- ✅ `Class_Terminate` destructor scaffolding
+- ✅ `Me` keyword for self-reference inside methods
+- ✅ `Public`/`Private` visibility modifiers
+- ✅ `Inherits BaseClass` syntax (parsed, runtime pending)
+- ✅ Independent instance state (each `New` creates separate object)
+
+**Files Modified**: `visual_gasic_parser.cpp`, `visual_gasic_parser.h`, `visual_gasic_ast.h`, `visual_gasic_tokenizer.cpp`, `visual_gasic_instance.cpp`
+
+---
+
+#### Functional Programming Builtins ✅
+**Status**: ✅ Completed  
+**Priority**: High  
+**Completed**: February 12, 2026
+
+Higher-order array functions using lambda callbacks.
+
+**Implemented Functions**:
+- ✅ `Map(array, lambda)` — Transform each element
+- ✅ `Filter(array, lambda)` — Select matching elements
+- ✅ `Reduce(array, lambda [, init])` — Fold to single value
+- ✅ `Any(array, lambda)` — Check if any match
+- ✅ `All(array, lambda)` — Check if all match
+- ✅ `Find(array, lambda)` — First matching element
+
+**Files Modified**: `visual_gasic_builtins.cpp`, `visual_gasic_instance.cpp`
+
+---
+
+#### Block Lambda (Multi-Statement) Runtime ✅
+**Status**: ✅ Completed  
+**Priority**: High  
+**Completed**: February 12, 2026
+
+Multi-statement lambda bodies with Return keyword.
+
+**Implemented Features**:
+- ✅ Block `Function` lambdas with `Return value`
+- ✅ Block `Sub` lambdas with multi-statement bodies
+- ✅ `invoke_lambda()` consolidated method with synthetic `SubDefinition`
+- ✅ Proper variable scoping and EXIT_SUB handling
+
+**Files Modified**: `visual_gasic_instance.cpp`, `visual_gasic_instance.h`
+
+---
 
 ### High Priority - Enhanced Developer Experience
 

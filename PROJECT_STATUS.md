@@ -1,7 +1,7 @@
 # VisualGasic Project Status
 
-**Version**: 2.2.1 (Native Compiler Enhanced)  
-**Last Updated**: February 5, 2026
+**Version**: 2.4.0 (Classes & Objects, Functional Programming)  
+**Last Updated**: February 12, 2026
 
 ## Overview
 
@@ -89,7 +89,32 @@ All documentation is organized in [docs/DOCUMENTATION_INDEX.md](docs/DOCUMENTATI
 - ✅ Migration guides
 - ✅ Examples
 
-## Recent Updates (v2.2.1)
+## Recent Updates (v2.4.0)
+
+### Classes & Objects
+- **Class Definitions**: `Class...End Class` with members, methods, properties
+- **Object Instantiation**: `Dim obj = New ClassName` with independent state
+- **Property Accessors**: `Property Get/Let/Set` with parameters
+- **Constructor**: `Class_Initialize` runs on `New`
+- **Member Visibility**: `Public`/`Private` modifiers
+
+### Functional Programming
+- **Map/Filter/Reduce**: Higher-order array functions with lambda callbacks
+- **Any/All/Find**: Predicate-based array queries
+- **Chaining**: Pipeline operations (Filter → Map → Reduce)
+
+### Block Lambdas
+- **Multi-Statement Bodies**: `Function(x) ... Return ... End Function`
+- **Sub Lambdas**: Statement blocks invocable via direct call
+- **invoke_lambda()**: Consolidated runtime with proper scoping
+
+### Previous Updates (v2.3.x)
+- Lambda expressions (`Lambda`, `Fn`, `Function`, `Sub` with optional `=>`)
+- Null safety (`??`, `?.`)
+- String interpolation (`$"Hello {name}"`)
+- Array/Dictionary literals, Range operator, Using statement
+
+### Previous Updates (v2.2.1)
 
 ### Native Compiler Enhancements
 - **Select Case**: Full bytecode compilation with multi-value case matching
@@ -129,6 +154,17 @@ godot --headless --script demo/run_benchmarks.gd
 ## Future Plans
 
 See [ROADMAP.md](ROADMAP.md) for the complete development roadmap including:
+
+### ✅ Completed (v2.4.0)
+- **Classes & Objects** - Full VB-style class system
+- **Functional Programming** - Map/Filter/Reduce/Any/All/Find
+- **Block Lambdas** - Multi-statement lambda bodies
+
+### ✅ Completed (v2.3.x)
+- **Lambda Expressions** - All 4 syntax forms
+- **Null Safety** - `??` and `?.` operators
+- **String Interpolation** - `$"Hello {name}"`
+- **Erase Statement** - Array reset
 
 ### ✅ Completed (v2.2.1)
 - **Watch Window** - Monitor variables during debugging

@@ -264,6 +264,9 @@ public:
     Array get_debug_whenever_sections() const;
     void set_whenever_section_active(const String& section_name, bool active);
 
+    // Lambda invocation helper (used by builtins for Map/Filter/Reduce etc.)
+    Variant invoke_lambda(const Dictionary& lambda_dict, const Array& args);
+
     static const GDExtensionScriptInstanceInfo3 *get_script_instance_info();
 };
 

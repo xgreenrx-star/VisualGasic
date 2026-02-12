@@ -46,6 +46,8 @@ private:
     SubDefinition* parse_sub();
     StructDefinition* parse_struct();
     EventDefinition* parse_event();
+    ClassDefinition* parse_class();
+    PropertyDefinition* parse_property();
     Statement* parse_statement();
     
     // Detailed statement parsers

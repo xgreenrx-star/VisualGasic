@@ -186,20 +186,100 @@ End If
 
 ---
 
-## Functional Programming Functions (6) ⚠️
+## Functional Programming Functions (6) ✅
 
-**Note**: These require lambda callable support (currently placeholder implementations)
+**Status**: ✅ Fully implemented. Lambda expressions required — use `Lambda`, `Fn`, `Function`, or `Sub` keywords.
 
+### Map — Transform Each Element
 ```vb
-Map(array, lambda)              ' Transform: Map([1,2,3], Lambda(x) => x*2) → [2,4,6]
-Filter(array, lambda)           ' Filter: Filter([1,2,3,4], Lambda(x) => x>2) → [3,4]
-Reduce(array, lambda, init)     ' Reduce: Reduce([1,2,3], Lambda(a,b) => a+b, 0) → 6
-Any(array, lambda)              ' Check if any match condition
-All(array, lambda)              ' Check if all match condition
-Find(array, lambda)             ' Find first matching element
+Map(array, lambda)              ' Transform: Map([1,2,3], Fn(x) x*2) → [2,4,6]
 ```
 
-**Status**: Parser ready, runtime execution pending full lambda callable support.
+**Examples:**
+```vb
+Dim nums = [1, 2, 3, 4, 5]
+Dim doubled = Map(nums, Fn(x) x * 2)       ' [2, 4, 6, 8, 10]
+Dim labels = Map(nums, Fn(x) "Item " & CStr(x))  ' ["Item 1", "Item 2", ...]
+
+' With block lambda
+Dim result = Map(nums, Function(x)
+    Dim label = "Val: " & CStr(x * 10)
+    Return label
+End Function)
+```
+
+### Filter — Select Matching Elements
+```vb
+Filter(array, lambda)           ' Filter: Filter([1,2,3,4], Fn(x) x>2) → [3,4]
+```
+
+**Examples:**
+```vb
+Dim nums = [1, 2, 3, 4, 5, 6, 7, 8]
+Dim evens = Filter(nums, Fn(x) x Mod 2 = 0)    ' [2, 4, 6, 8]
+Dim big = Filter(nums, Fn(x) x > 5)             ' [6, 7, 8]
+```
+
+### Reduce — Fold to Single Value
+```vb
+Reduce(array, lambda, init)     ' With initial: Reduce([1,2,3], Fn(a,b) a+b, 0) → 6
+Reduce(array, lambda)           ' Without initial: uses first element as accumulator
+```
+
+**Examples:**
+```vb
+Dim nums = [1, 2, 3, 4, 5]
+Dim sum = Reduce(nums, Fn(a, b) a + b, 0)        ' 15
+Dim product = Reduce(nums, Fn(a, b) a * b)        ' 120 (no init, uses 1 as start)
+Dim maxVal = Reduce(nums, Fn(a, b) IIf(a > b, a, b))  ' 5
+```
+
+### Any — Check If Any Match
+```vb
+Any(array, lambda)              ' True if any element matches predicate
+```
+
+**Examples:**
+```vb
+Dim nums = [1, 2, 3, 4, 5]
+Dim hasEven = Any(nums, Fn(x) x Mod 2 = 0)     ' True
+Dim hasHuge = Any(nums, Fn(x) x > 100)          ' False
+```
+
+### All — Check If All Match
+```vb
+All(array, lambda)              ' True if all elements match predicate
+```
+
+**Examples:**
+```vb
+Dim evens = [2, 4, 6, 8]
+Dim allEven = All(evens, Fn(x) x Mod 2 = 0)    ' True
+
+Dim mixed = [1, 2, 3]
+Dim allEvenMixed = All(mixed, Fn(x) x Mod 2 = 0)  ' False
+```
+
+### Find — First Matching Element
+```vb
+Find(array, lambda)             ' Returns first element matching predicate, or Null
+```
+
+**Examples:**
+```vb
+Dim nums = [1, 2, 3, 4, 5]
+Dim firstBig = Find(nums, Fn(x) x > 3)          ' 4
+Dim firstHuge = Find(nums, Fn(x) x > 100)       ' Null
+```
+
+### Chaining Functional Operations
+```vb
+' Pipeline: filter → map → reduce
+Dim data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+Dim evens = Filter(data, Fn(x) x Mod 2 = 0)     ' [2, 4, 6, 8, 10]
+Dim doubled = Map(evens, Fn(x) x * 2)            ' [4, 8, 12, 16, 20]
+Dim total = Reduce(doubled, Fn(a, b) a + b, 0)   ' 60
+```
 
 ---
 
@@ -251,7 +331,7 @@ These were already implemented and still work:
 - **Type Checking**: 6 new = **6 total**
 - **JSON**: 2 new = **2 total**
 - **File System**: 5 new + 6 existing = **11 total**
-- **Functional**: 6 new (partial) = **6 total**
+- **Functional**: 6 new = **6 total** ✅
 - **Math**: 0 new + 11 existing = **11 total**
 - **Vector**: 12 (Vec2, Vec3, VAdd, VSub, VMul, VDot, VCross, VLen, VNormalize, VDistance, VLerp, SetProp) = **12 total**
 - **Utility**: 2 new (SetProp, AddChild) = **2 total**

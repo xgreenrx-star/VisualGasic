@@ -1271,6 +1271,11 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
              struct_prototypes[name] = builder.get_proto(name);
         }
 
+        // Register Class definitions
+        for(int i=0; i<script->ast_root->class_defs.size(); i++) {
+            register_class(script->ast_root->class_defs[i]);
+        }
+
         // Initialize Data Segments
         scan_data_sections(script->ast_root);
     }
@@ -1641,6 +1646,15 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
             }
         }
         
+        // Check VG class definitions
+        if (class_registry.has(n->class_name)) {
+            Array args_arr;
+            for (int i = 0; i < n->args.size(); i++) {
+                args_arr.push_back(evaluate_expression(n->args[i]));
+            }
+            return instantiate_class(n->class_name, args_arr);
+        }
+
         // Try Godot ClassDB
         if (ClassDB::class_exists(n->class_name)) {
              Object* obj = ClassDB::instantiate(n->class_name);
@@ -1740,6 +1754,17 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
          
          Variant base = evaluate_expression(ma->base_object);
          
+         // VG class instance (object ID is an integer)
+         if (base.get_type() == Variant::INT) {
+             int obj_id = (int)base;
+             if (object_instances.has(obj_id)) {
+                 Variant ret;
+                 if (get_object_member(obj_id, ma->member_name, ret)) {
+                     return ret;
+                 }
+             }
+         }
+
          if (base.get_type() == Variant::DICTIONARY) {
              Dictionary d = base;
              // VB6 Scripting.Dictionary property-style access
@@ -1858,46 +1883,11 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
              Dictionary d = base;
              // Check if this is a lambda invocation
              if (d.has("__vg_lambda") && (bool)d["__vg_lambda"]) {
-                 LambdaNode* lam = (LambdaNode*)(uint64_t)d["__vg_ast_ptr"];
-                 if (lam) {
-                     Array call_args;
-                     for (int i = 0; i < aa->indices.size(); i++) {
-                         call_args.push_back(evaluate_expression(aa->indices[i]));
-                     }
-                     HashMap<String, Variant> saved_vars;
-                     Array param_names = d["__vg_params"];
-                     for (int i = 0; i < param_names.size(); i++) {
-                         String pname = param_names[i];
-                         if (variables.has(pname)) saved_vars[pname] = variables[pname];
-                         if (i < call_args.size()) {
-                             variables[pname] = call_args[i];
-                         } else {
-                             variables[pname] = Variant();
-                         }
-                     }
-                     Variant lambda_result;
-                     if (lam->is_arrow && lam->body_expression) {
-                         lambda_result = evaluate_expression(lam->body_expression);
-                     } else {
-                         for (int i = 0; i < lam->body_statements.size(); i++) {
-                             execute_statement(lam->body_statements[i]);
-                             if (variables.has("__vg_return_value")) {
-                                 lambda_result = variables["__vg_return_value"];
-                                 variables.erase("__vg_return_value");
-                                 break;
-                             }
-                         }
-                     }
-                     for (int i = 0; i < param_names.size(); i++) {
-                         String pname = param_names[i];
-                         if (saved_vars.has(pname)) {
-                             variables[pname] = saved_vars[pname];
-                         } else {
-                             variables.erase(pname);
-                         }
-                     }
-                     return lambda_result;
+                 Array call_args;
+                 for (int i = 0; i < aa->indices.size(); i++) {
+                     call_args.push_back(evaluate_expression(aa->indices[i]));
                  }
+                 return invoke_lambda(d, call_args);
              }
              if (aa->indices.size() > 0) {
                  // Check for null index expression
@@ -2254,6 +2244,15 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
             }
             call_args.push_back(evaluate_expression(call->arguments[i]));
         }
+
+        // Dispatch to expression-level builtins with evaluated arguments
+        // (Map, Filter, Reduce, Any, All, Find, string helpers, etc.)
+        {
+            bool _ev_handled = false;
+            Variant _ev_res = VisualGasicBuiltins::call_builtin_expr_evaluated(this, call->method_name, call_args, _ev_handled);
+            if (_ev_handled) return _ev_res;
+        }
+
         if (call->method_name.nocasecmp_to("CreateNode") == 0) {
              // Debug 
              // UtilityFunctions::print("DEBUG: Handling Call: ", call->method_name);
@@ -2310,6 +2309,14 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
             Variant br;
             if (VisualGasicBuiltins::call_builtin_for_base_variant(this, base, call->method_name, call_args, br)) {
                 return br;
+            }
+
+            // VG class instance method call (object ID is an integer)
+            if (base.get_type() == Variant::INT) {
+                int obj_id = (int)base;
+                if (object_instances.has(obj_id)) {
+                    return call_object_method(obj_id, call->method_name, call_args);
+                }
             }
 
             // Fallback: object method call (try direct, snake_case, or callp fallback)
@@ -2401,44 +2408,7 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
                 Dictionary d = v;
                 // Lambda invocation: myLambda(args...)
                 if (d.has("__vg_lambda") && (bool)d["__vg_lambda"]) {
-                    LambdaNode* lam = (LambdaNode*)(uint64_t)d["__vg_ast_ptr"];
-                    if (lam) {
-                        // Bind arguments to parameter names in a local scope
-                        HashMap<String, Variant> saved_vars;
-                        Array param_names = d["__vg_params"];
-                        for (int i = 0; i < param_names.size(); i++) {
-                            String pname = param_names[i];
-                            if (variables.has(pname)) saved_vars[pname] = variables[pname];
-                            if (i < call_args.size()) {
-                                variables[pname] = call_args[i];
-                            } else {
-                                variables[pname] = Variant();
-                            }
-                        }
-                        Variant lambda_result;
-                        if (lam->is_arrow && lam->body_expression) {
-                            lambda_result = evaluate_expression(lam->body_expression);
-                        } else {
-                            for (int i = 0; i < lam->body_statements.size(); i++) {
-                                execute_statement(lam->body_statements[i]);
-                                if (variables.has("__vg_return_value")) {
-                                    lambda_result = variables["__vg_return_value"];
-                                    variables.erase("__vg_return_value");
-                                    break;
-                                }
-                            }
-                        }
-                        // Restore saved variables
-                        for (int i = 0; i < param_names.size(); i++) {
-                            String pname = param_names[i];
-                            if (saved_vars.has(pname)) {
-                                variables[pname] = saved_vars[pname];
-                            } else {
-                                variables.erase(pname);
-                            }
-                        }
-                        return lambda_result;
-                    }
+                    return invoke_lambda(d, call_args);
                 }
                 if (call_args.size() == 1) {
                     Variant key = call_args[0];
@@ -4536,6 +4506,15 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                         }
                     }
                 
+                    // VG class instance method call (object ID is an integer)
+                    if (base.get_type() == Variant::INT) {
+                        int obj_id = (int)base;
+                        if (object_instances.has(obj_id)) {
+                            call_object_method(obj_id, s->method_name, call_args);
+                            break;
+                        }
+                    }
+
                     if (base.get_type() == Variant::OBJECT) {
                         Object* obj = base;
                     if (obj) {
@@ -5538,14 +5517,27 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                 }
                 
                 if (!found) {
-                    if (owner) {
-                        if (owner->has_method(s->method_name)) {
-                             owner->callv(s->method_name, call_args);
-                        } else {
-                             UtilityFunctions::print("Runtime Error: Object does not have method ", s->method_name);
+                    // Check if it's a lambda variable being called
+                    if (variables.has(s->method_name)) {
+                        Variant var_val = variables[s->method_name];
+                        if (var_val.get_type() == Variant::DICTIONARY) {
+                            Dictionary d = var_val;
+                            if (d.has("__vg_lambda") && (bool)d["__vg_lambda"]) {
+                                invoke_lambda(d, call_args);
+                                found = true;
+                            }
                         }
-                    } else {
-                         raise_error("No owner for method call");
+                    }
+                    if (!found) {
+                        if (owner) {
+                            if (owner->has_method(s->method_name)) {
+                                 owner->callv(s->method_name, call_args);
+                            } else {
+                                 UtilityFunctions::print("Runtime Error: Object does not have method ", s->method_name);
+                            }
+                        } else {
+                             raise_error("No owner for method call");
+                        }
                     }
                 }
             }
@@ -7225,6 +7217,76 @@ void VisualGasicInstance::set_whenever_section_active(const String& section_name
     }
 }
 
+Variant VisualGasicInstance::invoke_lambda(const Dictionary& lambda_dict, const Array& call_args) {
+    if (!lambda_dict.has("__vg_lambda") || !(bool)lambda_dict["__vg_lambda"]) {
+        return Variant();
+    }
+    LambdaNode* lam = (LambdaNode*)(uint64_t)lambda_dict["__vg_ast_ptr"];
+    if (!lam) return Variant();
+
+    // Save and bind parameters
+    HashMap<String, Variant> saved_vars;
+    Array param_names = lambda_dict["__vg_params"];
+    for (int i = 0; i < param_names.size(); i++) {
+        String pname = param_names[i];
+        if (variables.has(pname)) saved_vars[pname] = variables[pname];
+        if (i < call_args.size()) {
+            variables[pname] = call_args[i];
+        } else {
+            variables[pname] = Variant();
+        }
+    }
+
+    Variant lambda_result;
+    if (lam->is_arrow && lam->body_expression) {
+        lambda_result = evaluate_expression(lam->body_expression);
+    } else {
+        // Block lambda: save current_sub, set synthetic context for Return statement
+        SubDefinition* prev_sub = current_sub;
+        ErrorState prev_error = error_state;
+        // Create a temporary sub definition for block lambda context
+        SubDefinition lambda_sub;
+        lambda_sub.name = "__lambda";
+        lambda_sub.type = SubDefinition::TYPE_FUNCTION;
+        current_sub = &lambda_sub;
+        variables["__lambda"] = Variant(); // Initialize return variable
+
+        for (int i = 0; i < lam->body_statements.size(); i++) {
+            execute_statement(lam->body_statements[i]);
+            // Check for Return statement (sets EXIT_SUB)
+            if (error_state.has_error && error_state.mode == ErrorState::EXIT_SUB) {
+                break;
+            }
+            if (variables.has("__vg_return_value")) {
+                lambda_result = variables["__vg_return_value"];
+                variables.erase("__vg_return_value");
+                break;
+            }
+        }
+        // Get return value: Return X sets variables["__lambda"]
+        if (variables.has("__lambda") && variables["__lambda"].get_type() != Variant::NIL) {
+            lambda_result = variables["__lambda"];
+        }
+        variables.erase("__lambda");
+        // Clear EXIT_SUB state (not a real error for lambdas)
+        if (error_state.has_error && error_state.mode == ErrorState::EXIT_SUB) {
+            error_state = prev_error;
+        }
+        current_sub = prev_sub;
+    }
+
+    // Restore saved variables
+    for (int i = 0; i < param_names.size(); i++) {
+        String pname = param_names[i];
+        if (saved_vars.has(pname)) {
+            variables[pname] = saved_vars[pname];
+        } else {
+            variables.erase(pname);
+        }
+    }
+    return lambda_result;
+}
+
 void VisualGasicInstance::_send_variables_to_debugger(EngineDebugger* debugger) {
     // Send all script variables to the editor for inspection
     if (!debugger) return;
@@ -7274,6 +7336,15 @@ void VisualGasicInstance::assign_to_target(ExpressionNode* target, Variant val) 
     else if (target->type == ExpressionNode::MEMBER_ACCESS) {
          MemberAccessNode* ma = (MemberAccessNode*)target;
          Variant base = evaluate_expression(ma->base_object);
+
+         // VG class instance member assignment (object ID is an integer)
+         if (base.get_type() == Variant::INT) {
+             int obj_id = (int)base;
+             if (object_instances.has(obj_id)) {
+                 set_object_member(obj_id, ma->member_name, val);
+                 return;
+             }
+         }
 
          if (base.get_type() == Variant::DICTIONARY) {
              Dictionary dict = base;

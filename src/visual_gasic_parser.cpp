@@ -188,6 +188,16 @@ ModuleNode* VisualGasicParser::parse(const Vector<VisualGasicTokenizer::Token>& 
             continue;
         }
 
+        // Class Definition
+        if (t.type == VisualGasicTokenizer::TOKEN_KEYWORD && String(t.value).nocasecmp_to("class") == 0) {
+            ClassDefinition* cls = parse_class();
+            if (cls) {
+                module->class_defs.push_back(cls);
+                unregister_node(cls);
+            }
+            continue;
+        }
+
         // Variable Declaration (Dim, Public, Private)
         String val = String(t.value).to_lower();
         if (t.type == VisualGasicTokenizer::TOKEN_KEYWORD && (val == "public" || val == "private" || val == "dim")) {
@@ -409,7 +419,7 @@ SubDefinition* VisualGasicParser::parse_sub() {
                      }
                  }
 
-                 if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
+                 if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER) || check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
                      param.name = peek().value;
                      advance();
                      
@@ -1522,15 +1532,14 @@ ExpressionNode* VisualGasicParser::parse_factor() {
         return node; 
     }
 
-    // Check for Lambda expression: Lambda(params) => expr  OR  Function(params) expr End Function
+    // Check for Lambda expression: Lambda/Fn/Function/Sub(params) [=>] expr
     if (check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
         String kv = peek().value;
-        if (kv.nocasecmp_to("Lambda") == 0 || kv.nocasecmp_to("Function") == 0) {
-            // Peek ahead: if followed by '(' this is a lambda expression, not a regular Function declaration
-            bool is_function_keyword = kv.nocasecmp_to("Function") == 0;
-            // For 'Function' as lambda, we need to verify we're in expression context
-            // (i.e., there's a '(' right after). For 'Lambda', it's always a lambda.
-            if (!is_function_keyword || (current_pos + 1 < tokens.size() && tokens[current_pos + 1].type == VisualGasicTokenizer::TOKEN_PAREN_OPEN)) {
+        if (kv.nocasecmp_to("Lambda") == 0 || kv.nocasecmp_to("Fn") == 0 ||
+            kv.nocasecmp_to("Function") == 0 || kv.nocasecmp_to("Sub") == 0) {
+            // For Function/Sub as lambda, verify '(' follows to distinguish from declarations
+            bool needs_paren_check = (kv.nocasecmp_to("Function") == 0 || kv.nocasecmp_to("Sub") == 0);
+            if (!needs_paren_check || (current_pos + 1 < tokens.size() && tokens[current_pos + 1].type == VisualGasicTokenizer::TOKEN_PAREN_OPEN)) {
                 ExpressionNode* lam = parse_lambda();
                 if (lam) return lam;
             }
@@ -2709,6 +2718,228 @@ StructDefinition* VisualGasicParser::parse_struct() {
     }
     
     return def;
+}
+
+// ── Class ... End Class ──
+ClassDefinition* VisualGasicParser::parse_class() {
+    advance(); // Eat 'Class'
+
+    if (!check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
+        error("Expected class name after 'Class'");
+        return nullptr;
+    }
+
+    ClassDefinition* cls = static_cast<ClassDefinition*>(register_node(new ClassDefinition()));
+    cls->name = peek().value;
+    advance();
+
+    // Optional: Inherits BaseClass
+    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("inherits") == 0) {
+        advance(); // Eat Inherits
+        if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
+            cls->base_class = peek().value;
+            advance();
+        }
+    }
+
+    // Skip newlines
+    while (check(VisualGasicTokenizer::TOKEN_NEWLINE)) advance();
+
+    // Parse class body
+    while (!is_at_end() && error_count < MAX_ERRORS) {
+        VisualGasicTokenizer::Token t = peek();
+
+        // Skip newlines
+        if (t.type == VisualGasicTokenizer::TOKEN_NEWLINE) { advance(); continue; }
+
+        // End Class
+        if ((t.type == VisualGasicTokenizer::TOKEN_KEYWORD || t.type == VisualGasicTokenizer::TOKEN_IDENTIFIER) &&
+            String(t.value).nocasecmp_to("end") == 0) {
+            VisualGasicTokenizer::Token next = peek(1);
+            if (String(next.value).nocasecmp_to("class") == 0) {
+                current_pos += 2; // Eat End Class
+                break;
+            }
+        }
+
+        String val = String(t.value).to_lower();
+
+        // Visibility modifier — peek ahead to see what it applies to
+        bool is_public_member = true;
+        if (t.type == VisualGasicTokenizer::TOKEN_KEYWORD && (val == "public" || val == "private")) {
+            is_public_member = (val == "public");
+            advance(); // Eat Public/Private
+            t = peek();
+            val = String(t.value).to_lower();
+        }
+
+        // Sub / Function → method
+        if ((t.type == VisualGasicTokenizer::TOKEN_KEYWORD || t.type == VisualGasicTokenizer::TOKEN_IDENTIFIER) &&
+            (val == "sub" || val == "function")) {
+            SubDefinition* method = parse_sub();
+            if (method) {
+                // Check for Class_Initialize / Class_Terminate
+                if (method->name.nocasecmp_to("Class_Initialize") == 0) {
+                    cls->class_initialize = method;
+                } else if (method->name.nocasecmp_to("Class_Terminate") == 0) {
+                    cls->class_terminate = method;
+                }
+                cls->methods.push_back(method);
+                unregister_node(method);
+            }
+            continue;
+        }
+
+        // Property Get/Let/Set
+        if (t.type == VisualGasicTokenizer::TOKEN_KEYWORD && val == "property") {
+            PropertyDefinition* prop = parse_property();
+            if (prop) {
+                cls->properties.push_back(prop);
+                unregister_node(prop);
+            }
+            continue;
+        }
+
+        // Dim / member variable
+        if (t.type == VisualGasicTokenizer::TOKEN_KEYWORD && val == "dim") {
+            DimStatement* dim = parse_dim();
+            if (dim) {
+                VariableDefinition* v = static_cast<VariableDefinition*>(register_node(new VariableDefinition()));
+                v->name = dim->variable_name;
+                v->type = dim->type_name;
+                v->visibility = is_public_member ? VIS_PUBLIC : VIS_PRIVATE;
+                cls->members.push_back(v);
+                unregister_node(v);
+                unregister_node(dim);
+                delete dim;
+            }
+            continue;
+        }
+
+        // Bare identifier with As → member field (no Dim prefix, VB6 style)
+        if (t.type == VisualGasicTokenizer::TOKEN_IDENTIFIER) {
+            String member_name = t.value;
+            advance();
+            String member_type = "Variant";
+            if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("as") == 0) {
+                advance(); // Eat As
+                if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER) || check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
+                    member_type = peek().value;
+                    advance();
+                }
+            }
+            VariableDefinition* v = static_cast<VariableDefinition*>(register_node(new VariableDefinition()));
+            v->name = member_name;
+            v->type = member_type;
+            v->visibility = is_public_member ? VIS_PUBLIC : VIS_PRIVATE;
+            cls->members.push_back(v);
+            unregister_node(v);
+            continue;
+        }
+
+        // Event declaration
+        if (t.type == VisualGasicTokenizer::TOKEN_KEYWORD && val == "event") {
+            EventDefinition* evt = parse_event();
+            if (evt) {
+                cls->events.push_back(evt);
+                unregister_node(evt);
+            }
+            continue;
+        }
+
+        // Unknown token — skip
+        advance();
+    }
+
+    return cls;
+}
+
+// ── Property Get/Let/Set ... End Property ──
+PropertyDefinition* VisualGasicParser::parse_property() {
+    advance(); // Eat 'Property'
+
+    PropertyDefinition* prop = static_cast<PropertyDefinition*>(register_node(new PropertyDefinition()));
+
+    // Get / Let / Set
+    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) || check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
+        String accessor = String(peek().value).to_lower();
+        advance();
+        if (accessor == "get") {
+            prop->property_type = PropertyDefinition::PROP_GET;
+        } else if (accessor == "let") {
+            prop->property_type = PropertyDefinition::PROP_LET;
+        } else if (accessor == "set") {
+            prop->property_type = PropertyDefinition::PROP_SET;
+        } else {
+            error("Expected Get, Let, or Set after Property");
+            return prop;
+        }
+    }
+
+    // Property name
+    if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
+        prop->name = peek().value;
+        advance();
+    }
+
+    // Parameters (for Property Let/Set: includes the value parameter)
+    if (check(VisualGasicTokenizer::TOKEN_PAREN_OPEN)) {
+        advance(); // Eat (
+        while (!check(VisualGasicTokenizer::TOKEN_PAREN_CLOSE) && !is_at_end()) {
+            Parameter param;
+            if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
+                param.name = peek().value;
+                advance();
+                if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("as") == 0) {
+                    advance();
+                    if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER) || check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
+                        param.type_hint = peek().value;
+                        advance();
+                    }
+                }
+                prop->parameters.push_back(param);
+            }
+            if (!match(VisualGasicTokenizer::TOKEN_COMMA)) break;
+        }
+        if (check(VisualGasicTokenizer::TOKEN_PAREN_CLOSE)) advance(); // Eat )
+    }
+
+    // Return type for Property Get
+    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("as") == 0) {
+        advance(); // Eat As
+        if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER) || check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
+            prop->return_type = peek().value;
+            advance();
+        }
+    }
+
+    // Skip to newline
+    while (!is_at_end() && peek().type != VisualGasicTokenizer::TOKEN_NEWLINE) advance();
+
+    // Parse body until End Property
+    while (!is_at_end() && error_count < MAX_ERRORS) {
+        VisualGasicTokenizer::Token t = peek();
+
+        if (t.type == VisualGasicTokenizer::TOKEN_NEWLINE) { advance(); continue; }
+
+        // End Property
+        if ((t.type == VisualGasicTokenizer::TOKEN_KEYWORD || t.type == VisualGasicTokenizer::TOKEN_IDENTIFIER) &&
+            String(t.value).nocasecmp_to("end") == 0) {
+            VisualGasicTokenizer::Token next = peek(1);
+            if (String(next.value).nocasecmp_to("property") == 0) {
+                current_pos += 2; // Eat End Property
+                break;
+            }
+        }
+
+        Statement* stmt = parse_statement();
+        if (stmt) {
+            prop->body.push_back(stmt);
+            unregister_node(stmt);
+        }
+    }
+
+    return prop;
 }
 
 PrintStatement* VisualGasicParser::parse_print() {
@@ -4037,11 +4268,10 @@ SubDefinition* VisualGasicParser::parse_generic_function() {
 //   2. Block syntax:  Function(x, y) ... End Function
 ExpressionNode* VisualGasicParser::parse_lambda() {
     String kw = peek().value;
-    bool is_arrow_style = kw.nocasecmp_to("Lambda") == 0;
-    advance(); // Eat Lambda or Function
+    bool is_sub_lambda = kw.nocasecmp_to("Sub") == 0;
+    advance(); // Eat Lambda/Fn/Function/Sub
     
     LambdaNode* lam = static_cast<LambdaNode*>(register_node(new LambdaNode()));
-    lam->is_arrow = is_arrow_style;
     
     // Parse parameter list: (param1, param2, ...)
     if (check(VisualGasicTokenizer::TOKEN_PAREN_OPEN)) {
@@ -4097,18 +4327,47 @@ ExpressionNode* VisualGasicParser::parse_lambda() {
         }
     }
     
+    // Determine style: arrow (inline expression) vs block (multi-statement)
+    // Arrow if: => present, OR no newline follows (inline expression body)
+    // Block if: newline follows with no => (expects End Function / End Sub)
+    bool has_arrow = (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().value == "=") &&
+                     (current_pos + 1 < tokens.size() && tokens[current_pos + 1].value == ">");
+    bool has_newline = check(VisualGasicTokenizer::TOKEN_NEWLINE);
+    bool is_arrow_style = has_arrow || !has_newline;
+    lam->is_arrow = is_arrow_style;
+    
     if (is_arrow_style) {
-        // Arrow syntax: Lambda(x) => expression
-        // Look for => or just parse the expression after params
-        if (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().value == "=") {
+        // Arrow/inline syntax: any keyword with => expr, or inline expr without =>
+        // Consume => if present
+        if (has_arrow) {
             advance(); // Eat =
-            if (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().value == ">") {
-                advance(); // Eat >  (together => )
-            }
+            advance(); // Eat >
         }
         
         lam->body_expression = parse_expression();
         if (lam->body_expression) unregister_node(lam->body_expression);
+    } else if (is_sub_lambda) {
+        // Block Sub lambda: Sub(params) ... End Sub  (newline already confirmed)
+        while (check(VisualGasicTokenizer::TOKEN_NEWLINE)) advance();
+        while (!is_at_end()) {
+            if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("End") == 0) {
+                if (current_pos + 1 < tokens.size()) {
+                    String next_val = tokens[current_pos + 1].value;
+                    if (next_val.nocasecmp_to("Sub") == 0) {
+                        advance(); // Eat End
+                        advance(); // Eat Sub
+                        break;
+                    }
+                }
+            }
+            Statement* s = parse_statement();
+            if (s) { lam->body_statements.push_back(s); unregister_node(s); }
+            else {
+                if (check(VisualGasicTokenizer::TOKEN_NEWLINE)) advance();
+                else if (!is_at_end()) advance();
+            }
+        }
+        lam->is_arrow = false;
     } else {
         // Block syntax: Function(params) ... End Function
         // Skip optional newline

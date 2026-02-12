@@ -1,0 +1,100 @@
+' Test: All Lambda Syntax Forms
+' VisualGasic v2.3.3 - BASIC-like lambda improvements
+
+Dim passed As Integer = 0
+Dim failed As Integer = 0
+Dim total As Integer = 8
+
+' --- Test 1: Classic Lambda with arrow ---
+Dim double1 = Lambda(x) => x * 2
+Dim result1 = double1(5)
+If result1 = 10 Then
+    Print "PASS: Lambda(x) => x * 2 = " & result1
+    passed = passed + 1
+Else
+    Print "FAIL: Lambda(x) => x * 2 expected 10, got " & result1
+    failed = failed + 1
+End If
+
+' --- Test 2: Fn shorthand (DEF FN nostalgia) ---
+Dim square = Fn(x) => x * x
+Dim result2 = square(7)
+If result2 = 49 Then
+    Print "PASS: Fn(x) => x * x = " & result2
+    passed = passed + 1
+Else
+    Print "FAIL: Fn(x) => x * x expected 49, got " & result2
+    failed = failed + 1
+End If
+
+' --- Test 3: Function without arrow (VB.NET style) ---
+Dim triple = Function(x) x * 3
+Dim result3 = triple(4)
+If result3 = 12 Then
+    Print "PASS: Function(x) x * 3 = " & result3
+    passed = passed + 1
+Else
+    Print "FAIL: Function(x) x * 3 expected 12, got " & result3
+    failed = failed + 1
+End If
+
+' --- Test 4: Fn without arrow ---
+Dim half = Fn(x) x / 2
+Dim result4 = half(20)
+If result4 = 10 Then
+    Print "PASS: Fn(x) x / 2 = " & result4
+    passed = passed + 1
+Else
+    Print "FAIL: Fn(x) x / 2 expected 10, got " & result4
+    failed = failed + 1
+End If
+
+' --- Test 5: Multi-param lambda ---
+Dim add = Lambda(a, b) => a + b
+Dim result5 = add(3, 7)
+If result5 = 10 Then
+    Print "PASS: Lambda(a, b) => a + b = " & result5
+    passed = passed + 1
+Else
+    Print "FAIL: Lambda(a, b) => a + b expected 10, got " & result5
+    failed = failed + 1
+End If
+
+' --- Test 6: Multi-param Fn without arrow ---
+Dim multiply = Fn(a, b) a * b
+Dim result6 = multiply(6, 8)
+If result6 = 48 Then
+    Print "PASS: Fn(a, b) a * b = " & result6
+    passed = passed + 1
+Else
+    Print "FAIL: Fn(a, b) a * b expected 48, got " & result6
+    failed = failed + 1
+End If
+
+' --- Test 7: Function with arrow (both should work) ---
+Dim negate = Function(x) => -x
+Dim result7 = negate(42)
+If result7 = -42 Then
+    Print "PASS: Function(x) => -x = " & result7
+    passed = passed + 1
+Else
+    Print "FAIL: Function(x) => -x expected -42, got " & result7
+    failed = failed + 1
+End If
+
+' --- Test 8: Lambda combined with ?? operator ---
+Dim safeMul = Lambda(x) => x * 10
+Dim val8 = safeMul(3) ?? 0
+If val8 = 30 Then
+    Print "PASS: Lambda with ?? = " & val8
+    passed = passed + 1
+Else
+    Print "FAIL: Lambda with ?? expected 30, got " & val8
+    failed = failed + 1
+End If
+
+Print ""
+Print "=== Lambda Syntax Tests: " & passed & "/" & total & " passed ==="
+If failed = 0 Then
+    Print "ALL TESTS PASSED!"
+End If

@@ -1,7 +1,7 @@
 # VisualGasic - Advanced Visual Basic for Godot 4
 
 [![CI](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml/badge.svg)](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/badge/version-2.3.0-blue.svg)](https://github.com/xgreenrx-star/VisualGasic/releases)
+[![Version](https://img.shields.io/badge/version-2.4.0-blue.svg)](https://github.com/xgreenrx-star/VisualGasic/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Godot](https://img.shields.io/badge/Godot-4.3+-purple.svg)](https://godotengine.org)
 
@@ -11,6 +11,12 @@
 
 ### **Core Language**
 - **Complete Visual Basic 6 Syntax** - Full compatibility with VB6 projects
+- **Classes & Objects** - `Class...End Class`, `New`, `Property Get/Let/Set`, `Class_Initialize`
+- **Lambda Expressions** - `Lambda`, `Fn`, `Function`, `Sub` with optional `=>` arrow
+- **Block Lambdas** - Multi-statement `Function(x) ... Return ... End Function`
+- **Functional Programming** - `Map`, `Filter`, `Reduce`, `Any`, `All`, `Find`
+- **Null Safety** - `??` null-coalescing and `?.` null-safe navigation
+- **Erase Statement** - Clear/reset arrays with `Erase arr`
 - **Advanced Type System** - Generics, optional types, union types, type inference
 - **Pattern Matching** - VB.NET-style Select Match with destructuring
 - **Multitasking** - Native async/await, parallel processing, task coordination

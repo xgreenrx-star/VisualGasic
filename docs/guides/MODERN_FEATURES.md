@@ -95,30 +95,207 @@ End If
 
 ## 4. Lambda Expressions
 
-**Status**: ✅ Parser implemented, runtime metadata support  
-**Syntax**: `Lambda(param1, param2) => expression`
+**Status**: ✅ Fully implemented (parser, runtime, invocation)  
+**Syntax**: Multiple forms supported
 
-Creates anonymous functions that can be passed as values.
+Creates anonymous functions that can be passed as values and invoked at runtime.
+
+### Syntax Forms
 
 ```vb
-' Lambda expression
+' Classic arrow syntax
 Dim add = Lambda(a, b) => a + b
 
-' Can be stored and passed around
-Dim multiply = Lambda(x, y) => x * y
+' Fn shorthand (recommended for concise lambdas)
+Dim square = Fn(x) x * x
+
+' VB.NET-style Function (no arrow needed)
+Dim triple = Function(x) x * 3
+
+' Function with arrow (also valid)
+Dim negate = Function(x) => -x
+
+' Sub lambda for statements
+Dim greet = Sub(name) Print "Hello " & name
+
+' Multi-parameter
+Dim multiply = Fn(a, b) a * b
 ```
 
-**Current Limitations**:
-- Lambda parsing is complete
-- Runtime returns metadata dictionary (type, params) for inspection
-- Full callable execution requires additional runtime infrastructure
-- Expression-only lambdas (no multi-statement bodies)
+### Usage with Null-Coalescing
+
+```vb
+' Combine with ?? operator
+Dim fallback = Lambda(x) => x ?? 0
+```
+
+### Formatter Auto-Replace
+
+The VG code formatter automatically normalizes lambda syntax:
+- `Lambda(x) => expr` → `Function(x) expr`
+- `Fn(x) => expr` → `Function(x) expr`
+- `Lambda(x) expr` → `Function(x) expr`
 
 **Implementation Details**:
-- `Lambda` keyword added to tokenizer
-- `=>` arrow operator tokenized
-- Parser creates `LambdaNode` with parameter names and expression
-- AST structure defined for expression-only lambdas
+- `Lambda`, `Fn`, `Function`, `Sub` keywords trigger lambda parsing
+- `=>` arrow operator is optional — parser detects style dynamically
+- Runtime creates Dictionary wrapper with `__vg_lambda` marker, `__vg_params`, `__vg_ast_ptr`
+- Invocation uses save/restore variable scoping for proper execution
+- Expression-only lambdas (single expression body)
+- Block lambdas with multi-statement bodies (see Section 4b)
+
+## 4b. Block Lambdas (Multi-Statement Bodies)
+
+**Status**: ✅ Fully implemented  
+**Syntax**: `Function(params) ... Return value ... End Function` or `Sub(params) ... End Sub`
+
+Block lambdas allow multi-statement lambda bodies, including control flow, loops, and the `Return` keyword.
+
+### Block Function Lambda (returns value)
+```vb
+Dim compute = Function(a, b)
+    Dim result As Integer
+    result = a * b
+    result = result + a
+    Return result
+End Function
+
+Print compute(4, 5)  ' 24
+```
+
+### Block Sub Lambda (no return value)
+```vb
+Dim greet = Sub(name)
+    Dim msg As String
+    msg = "Hello " & name & "!"
+    Print msg
+End Sub
+
+greet("Alice")  ' prints "Hello Alice!"
+```
+
+### Block Lambda with Control Flow
+```vb
+Dim classify = Function(n)
+    If n > 0 Then
+        Return "positive"
+    ElseIf n < 0 Then
+        Return "negative"
+    Else
+        Return "zero"
+    End If
+End Function
+```
+
+### Block Lambda with Loops
+```vb
+Dim sumTo = Function(n)
+    Dim total As Integer
+    total = 0
+    Dim i As Integer
+    For i = 1 To n
+        total = total + i
+    Next
+    Return total
+End Function
+
+Print sumTo(10)  ' 55
+```
+
+**Implementation Details**:
+- Parser stores `body_statements` (Vector of statements) for block lambdas
+- `invoke_lambda()` creates a synthetic `SubDefinition` with name `"__lambda"` as `current_sub`
+- `STMT_RETURN` sets `variables["__lambda"]` with the return value
+- After execution, `variables["__lambda"]` is captured as the return value
+- EXIT_SUB flag is properly cleared after lambda invocation
+
+## 4c. Functional Programming Builtins
+
+**Status**: ✅ Fully implemented (6 functions)  
+**Requires**: Lambda expressions (Section 4)
+
+Higher-order functions for working with arrays using lambda callbacks.
+
+### Map — Transform Elements
+```vb
+Dim nums = [1, 2, 3, 4, 5]
+Dim doubled = Map(nums, Fn(x) x * 2)
+' Result: [2, 4, 6, 8, 10]
+```
+
+### Filter — Select Matching Elements
+```vb
+Dim nums = [1, 2, 3, 4, 5, 6]
+Dim evens = Filter(nums, Fn(x) x Mod 2 = 0)
+' Result: [2, 4, 6]
+```
+
+### Reduce — Fold to Single Value
+```vb
+Dim nums = [1, 2, 3, 4, 5]
+
+' With initial value
+Dim sum = Reduce(nums, Fn(a, b) a + b, 0)
+' Result: 15
+
+' Without initial value (uses first element)
+Dim product = Reduce(nums, Fn(a, b) a * b)
+' Result: 120
+```
+
+### Any — Check If Any Match
+```vb
+Dim nums = [1, 2, 3, 4, 5]
+Dim hasEven = Any(nums, Fn(x) x Mod 2 = 0)
+' Result: True
+
+Dim allSmall = Any(nums, Fn(x) x > 100)
+' Result: False
+```
+
+### All — Check If All Match
+```vb
+Dim nums = [2, 4, 6, 8]
+Dim allEven = All(nums, Fn(x) x Mod 2 = 0)
+' Result: True
+
+Dim mixed = [1, 2, 3]
+Dim allEvenMixed = All(mixed, Fn(x) x Mod 2 = 0)
+' Result: False
+```
+
+### Find — First Matching Element
+```vb
+Dim nums = [1, 2, 3, 4, 5]
+Dim firstBig = Find(nums, Fn(x) x > 3)
+' Result: 4
+```
+
+### Chaining
+```vb
+' Filter, transform, then reduce
+Dim data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+Dim evens = Filter(data, Fn(x) x Mod 2 = 0)
+Dim doubled = Map(evens, Fn(x) x * 2)
+Dim total = Reduce(doubled, Fn(a, b) a + b, 0)
+' total = 60 (evens: 2,4,6,8,10 → doubled: 4,8,12,16,20 → sum: 60)
+```
+
+### Using Block Lambdas with Functional Builtins
+```vb
+Dim result = Map([1, 2, 3], Function(x)
+    Dim label As String
+    label = "Item #" & CStr(x)
+    Return label
+End Function)
+' Result: ["Item #1", "Item #2", "Item #3"]
+```
+
+**Implementation Details**:
+- All 6 functions implemented as builtins in `visual_gasic_builtins.cpp`
+- Each takes an Array and a lambda Dictionary, calls `instance->invoke_lambda()`
+- Reduce supports optional initial value (2 or 3 arguments)
+- Works with all lambda forms: `Fn`, `Lambda`, `Function`, `Sub`, block lambdas
 
 ## 5. Range Operator (..)
 
@@ -277,22 +454,24 @@ person("city") = "NYC"
 
 ## 10. Short-Circuit IIf
 
-**Status**: ⚠️ Planned optimization  
-**Current**: IIf evaluates both branches  
-**Goal**: Only evaluate the needed branch
+**Status**: ✅ Fully implemented  
+**Syntax**: `IIf(condition, true_value, false_value)`
+
+IIf evaluates only the branch that matches the condition (short-circuit evaluation), making it safe to use with potentially dangerous expressions.
 
 ```vb
-' VB6 IIf evaluates BOTH branches (inefficient/dangerous):
-result = IIf(x <> 0, 100 / x, 0)  ' Crashes if x=0!
+' Safe - only evaluates 100/x when x<>0
+Dim x As Integer = 0
+result = IIf(x <> 0, 100 / x, 0)  ' Returns 0, does NOT crash
 
-' Modern short-circuit (planned):
-result = IIf(x <> 0, 100 / x, 0)  ' Safe - only evaluates 100/x if x<>0
+' Safe - only evaluates the true branch
+result = IIf(True, "yes", 1/0)  ' Returns "yes", no division error
 ```
 
-**Implementation Status**:
-- IIf currently implemented as `IIfNode` in AST
-- Runtime evaluates condition first
-- Optimization needed to skip unused branch evaluation
+**Implementation Details**:
+- IIf is implemented via dedicated `IIfNode` AST node (not a function call)
+- Runtime evaluates condition first, then only evaluates the matching branch
+- This differs from classic VB6 where IIf is a function that evaluates both branches
 
 ## 11. Pattern Matching Select Case
 
@@ -352,6 +531,114 @@ End Sub
 
 ---
 
+## 14. Classes & Objects
+
+**Status**: ✅ Fully implemented (parser + runtime)  
+**Syntax**: `Class ClassName ... End Class`
+
+Full VB6/VB.NET-style class definitions with members, methods, properties, and events.
+
+### Basic Class
+```vb
+Class Person
+    Public Name As String
+    Public Age As Integer
+
+    Sub Greet()
+        Print "Hello, I'm " & Me.Name
+    End Sub
+End Class
+
+Dim p = New Person
+p.Name = "Alice"
+p.Age = 30
+p.Greet()  ' "Hello, I'm Alice"
+```
+
+### Class with Constructor
+```vb
+Class Counter
+    Public Count As Integer
+
+    Sub Class_Initialize()
+        Me.Count = 0
+    End Sub
+
+    Sub Increment()
+        Me.Count = Me.Count + 1
+    End Sub
+
+    Function GetCount() As Integer
+        Return Me.Count
+    End Function
+End Class
+
+Dim c = New Counter  ' Count = 0 (from Class_Initialize)
+c.Increment()
+c.Increment()
+c.Increment()
+Print c.GetCount()  ' 3
+```
+
+### Multiple Independent Instances
+```vb
+Class Calculator
+    Public Total As Integer
+
+    Sub Accumulate(value As Integer)
+        Me.Total = Me.Total + value
+    End Sub
+
+    Function Add(a As Integer, b As Integer) As Integer
+        Return a + b
+    End Function
+End Class
+
+Dim c1 = New Calculator
+Dim c2 = New Calculator
+c1.Accumulate(10)
+c2.Accumulate(50)
+Print c1.Total  ' 10
+Print c2.Total  ' 50 — independent state
+```
+
+### Property Accessors
+```vb
+Class Temperature
+    Private mDegrees As Double
+
+    Property Get Degrees() As Double
+        Degrees = mDegrees
+    End Property
+
+    Property Let Degrees(value As Double)
+        If value < -273.15 Then
+            Print "Invalid temperature"
+        Else
+            mDegrees = value
+        End If
+    End Property
+End Class
+```
+
+### Class Features
+- `Public`/`Private` member visibility
+- `Sub`/`Function` methods
+- `Property Get`/`Let`/`Set` accessors
+- `Class_Initialize` (auto-called on `New`)
+- `Class_Terminate` (destructor scaffolding)
+- `Me` keyword for self-reference
+- `Inherits BaseClass` syntax (parsed, runtime pending)
+
+**Implementation Details**:
+- Parser: `parse_class()` handles full Class...End Class blocks
+- Runtime: `register_class()` stores `ClassDefinition*` in `class_registry`
+- `New ClassName`: `EXPR_NEW` checks `class_registry` before Godot ClassDB
+- Instances stored in `object_instances` Dictionary keyed by integer `obj_id`
+- Member access/assignment and method dispatch check integer obj_id for VG objects
+
+---
+
 ## Summary Table
 
 | Feature | Status | Parser | Runtime | Notes |
@@ -359,13 +646,16 @@ End Sub
 | String Interpolation ($"...") | ✅ Ready | ✅ | ✅ | Fully functional |
 | Null-Coalescing (??) | ✅ Complete | ✅ | ✅ | Production ready |
 | Elvis Operator (?.) | ✅ Complete | ✅ | ✅ | Null-safe navigation |
-| Lambda Expressions | ⚠️ Partial | ✅ | ⚠️ | Metadata only |
+| Lambda Expressions | ✅ Complete | ✅ | ✅ | All 4 syntax forms |
+| Block Lambdas | ✅ Complete | ✅ | ✅ | Multi-statement bodies |
+| Functional Builtins | ✅ Complete | ✅ | ✅ | Map/Filter/Reduce/Any/All/Find |
 | Range Operator (..) | ✅ Complete | ✅ | ✅ | Creates arrays |
 | Modern Type Aliases | ⚠️ Keywords only | ⚠️ | ⚠️ | Needs mapping |
 | Using Statement | ✅ Complete | ✅ | ✅ | Auto-dispose |
 | Array Literals [...] | ✅ Complete | ✅ | ✅ | Production ready |
 | Dict Literals {...} | ✅ Complete | ✅ | ✅ | Production ready |
-| Short-Circuit IIf | ⚠️ Planned | ✅ | ⚠️ | Needs optimization |
+| Short-Circuit IIf | ✅ Complete | ✅ | ✅ | Safe branch eval |
+| Classes & Objects | ✅ Complete | ✅ | ✅ | Full OOP support |
 | Pattern Matching | 🔜 Planned | 🔜 | 🔜 | Future feature |
 | Spread Operator | 🔜 Planned | 🔜 | 🔜 | Future feature |
 | Async/Await | 🔜 Planned | 🔜 | 🔜 | Complex feature |
@@ -388,17 +678,17 @@ All modern features are **additive** - existing VB6 code continues to work witho
 
 ## Future Enhancements
 
-1. **Lambda callable support**: Full closure implementation for passing and invoking lambdas
-2. **Type inference**: `Dim x = 42` infers Int32 type
-3. **Enhanced pattern matching**: Destructuring, exhaustiveness checking
-4. **Async/Await**: Full coroutine support for async operations
-5. **Null safety annotations**: Optional `?` suffix on types
-6. **Collection builders**: LINQ-style operations on arrays/dictionaries
+1. **Type inference**: `Dim x = 42` infers Int32 type
+2. **Enhanced pattern matching**: Destructuring, exhaustiveness checking
+3. **Async/Await**: Full coroutine support for async operations
+4. **Null safety annotations**: Optional `?` suffix on types
+5. **Collection builders**: LINQ-style operations on arrays/dictionaries
+6. **Inheritance runtime**: `Inherits BaseClass` with method overriding and `MyBase` calls
 
 ---
 
-**Last Updated**: January 2025  
-**VisualGasic Version**: 4.5.1
+**Last Updated**: February 2026  
+**VisualGasic Version**: 2.4.0
 
 ---
 

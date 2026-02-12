@@ -12,6 +12,7 @@ namespace VisualGasic {
 // Forward declarations
 struct ExpressionNode;
 struct PropertyDefinition;
+struct ClassDefinition;
 
 enum StatementType {
     STMT_PRINT,
@@ -719,6 +720,7 @@ struct ModuleNode {
     Vector<ConstStatement*> constants; // Module level constants
     Vector<Statement*> global_statements; // For Data and Labels at module level
     Vector<PropertyDefinition*> properties; // Module level properties (owned by ClassDefinitions)
+    Vector<ClassDefinition*> class_defs; // Class definitions
     
     ModuleNode() { option_explicit = false; option_compare_text = false; }
 
@@ -730,6 +732,7 @@ struct ModuleNode {
         for(int i=0; i<variables.size(); i++) if(variables[i]) delete variables[i];
         for(int i=0; i<constants.size(); i++) if(constants[i]) delete constants[i];
         for(int i=0; i<global_statements.size(); i++) if(global_statements[i]) delete global_statements[i];
+        for(int i=0; i<class_defs.size(); i++) if(class_defs[i]) delete class_defs[i];
         // Note: properties are managed separately to avoid incomplete type issues with forward declaration
     }
 };
