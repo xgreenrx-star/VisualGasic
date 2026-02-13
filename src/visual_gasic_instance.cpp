@@ -5589,8 +5589,15 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                                int font_size = 16;
                                if (call_args.size() > 4) font_size = (int)call_args[4];
                                Ref<Font> font = ThemeDB::get_singleton()->get_fallback_font();
-                               // Godot's draw_string y is baseline, offset down by font_size for top-left origin
-                               ci->draw_string(font, Vector2(x, y + font_size), text, HorizontalAlignment::HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, col);
+                               if (font.is_null()) {
+                                   // Try control's theme font
+                                   Control *ctrl = Object::cast_to<Control>(owner);
+                                   if (ctrl) font = ctrl->get_theme_default_font();
+                               }
+                               if (font.is_valid()) {
+                                   // Godot's draw_string y is baseline, offset down by font_size for top-left origin
+                                   ci->draw_string(font, Vector2(x, y + font_size), text, HorizontalAlignment::HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, col);
+                               }
                           }
                      }
                      break;
