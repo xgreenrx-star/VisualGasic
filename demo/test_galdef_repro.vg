@@ -1,0 +1,93 @@
+' Test member assignment in contexts matching Galactic Defender
+' Tests: ByRef, reading e.x in expressions, e.x = e.x + expr
+
+Class Enemy
+    Public x As Single
+    Public y As Single
+    Public alive As Boolean
+    Public health As Single
+    Public speed As Single
+    Public pathIndex As Integer
+    Public maxHealth As Single
+    
+    Function EffectiveSpeed() As Single
+        EffectiveSpeed = speed
+    End Function
+
+    Sub Class_Initialize()
+        x = 100
+        y = 200
+        alive = True
+        health = 50
+        maxHealth = 50
+        speed = 60
+        pathIndex = 0
+    End Sub
+End Class
+
+Class Scout
+    Inherits Enemy
+    Sub Class_Initialize()
+        health = 30
+        maxHealth = 30
+        speed = 80
+    End Sub
+End Class
+
+Dim enemies(10) As Variant
+Dim enemyCount As Integer
+
+Sub Main()
+    Print "=== Galactic Defender Member Assign Repro ==="
+
+    ' Test 1: SpawnNextEnemy-like pattern
+    Print "Test 1: Select Case + member assign..."
+    Dim eName As String = "Scout"
+    Dim e As Variant
+    Select Case eName
+        Case "Scout": e = New Scout
+        Case Else: e = New Enemy
+    End Select
+    
+    Dim waveScale As Single = 1.1
+    e.health = e.health * waveScale
+    e.maxHealth = e.maxHealth * waveScale
+    e.x = 50.0
+    e.y = 60.0
+    e.pathIndex = 0
+    
+    enemies(0) = e
+    enemyCount = 1
+    Print "  e.x=" & Str(e.x) & " e.y=" & Str(e.y) & " health=" & Str(e.health)
+    Print "  Test 1 PASSED"
+    
+    ' Test 2: MoveAlongPath-like pattern (ByRef + compound assign)
+    Print "Test 2: ByRef member modify..."
+    Call TestMoveByRef(enemies(0))
+    Print "  After move: x=" & Str(enemies(0).x) & " y=" & Str(enemies(0).y)
+    Print "  Test 2 PASSED"
+    
+    ' Test 3: Compound expression  e.x = e.x + expr
+    Print "Test 3: Compound expression assign..."
+    Dim e2 As Variant = New Enemy
+    e2.x = 10.0
+    e2.x = e2.x + 5.0
+    Print "  e2.x after +5 = " & Str(e2.x)
+    e2.y = e2.y + 3.0
+    Print "  e2.y after +3 = " & Str(e2.y)
+    Print "  Test 3 PASSED"
+    
+    Print "=== All Tests PASSED ==="
+End Sub
+
+Sub TestMoveByRef(ByRef e As Variant)
+    Dim dx As Single = 100.0 - e.x
+    Dim dy As Single = 100.0 - e.y
+    Dim dist As Single = Sqr(dx * dx + dy * dy)
+    
+    If dist > 0 Then
+        Dim spd As Single = 10.0
+        e.x = e.x + (dx / dist) * spd
+        e.y = e.y + (dy / dist) * spd
+    End If
+End Sub

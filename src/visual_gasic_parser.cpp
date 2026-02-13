@@ -2221,7 +2221,11 @@ SelectStatement* VisualGasicParser::parse_select() {
                 } while (!is_at_end());
             }
             
-            match(VisualGasicTokenizer::TOKEN_NEWLINE);
+            // Accept either newline or colon after Case values
+            // Colon enables inline syntax: Case "Scout": e = New Scout
+            if (!match(VisualGasicTokenizer::TOKEN_NEWLINE)) {
+                match(VisualGasicTokenizer::TOKEN_COLON);
+            }
             
             // Parse Body until next Case or End Select
             while (!is_at_end()) {
@@ -2235,9 +2239,13 @@ SelectStatement* VisualGasicParser::parse_select() {
                 Statement* s = parse_statement();
                 if (s) { block->body.push_back(s); unregister_node(s); }
                 else {
-                    if (check(VisualGasicTokenizer::TOKEN_NEWLINE)) advance();
-                    else break; // Avoid infinite loop or move next
+                    if (check(VisualGasicTokenizer::TOKEN_NEWLINE)) { advance(); continue; }
+                    // Colon separates multiple statements on one line (inline Case)
+                    if (check(VisualGasicTokenizer::TOKEN_COLON)) { advance(); continue; }
+                    break; // Avoid infinite loop
                 }
+                // After parsing a statement, also consume colon separators for multi-statement inline Cases
+                while (check(VisualGasicTokenizer::TOKEN_COLON)) advance();
             }
             stmt->cases.push_back(block);
             unregister_node(block);
