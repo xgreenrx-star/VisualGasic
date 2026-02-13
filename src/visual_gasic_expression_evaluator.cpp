@@ -1,5 +1,6 @@
 #include "visual_gasic_expression_evaluator.h"
 #include "visual_gasic_instance.h"
+#include "visual_gasic_builtins.h"
 
 #include <godot_cpp/classes/node.hpp>
 #include <godot_cpp/classes/node2d.hpp>
@@ -293,6 +294,28 @@ Variant VisualGasicExpressionEvaluator::evaluate(ExpressionNode* expr, Context& 
             }
         }
         
+        // For other EXPRESSION_CALL nodes with base_object, evaluate the base and dispatch
+        if (call->base_object) {
+            Variant base = evaluate(call->base_object, ctx);
+            // Evaluate arguments
+            Array args;
+            for (int i = 0; i < call->arguments.size(); i++) {
+                args.push_back(evaluate(call->arguments[i], ctx));
+            }
+            // Dispatch to builtin handler (handles Dictionary.Item, .Count, .Keys, etc.)
+            Variant ret;
+            if (ctx.instance && VisualGasicBuiltins::call_builtin_for_base_variant(ctx.instance, base, call->method_name, args, ret)) {
+                return ret;
+            }
+            // Fallback: try Godot method call on object
+            if (base.get_type() == Variant::OBJECT) {
+                Object* obj = base;
+                if (obj && obj->has_method(call->method_name)) {
+                    return obj->callv(call->method_name, args);
+                }
+            }
+        }
+
         // For other EXPRESSION_CALL nodes, return null (these should be handled by the main evaluator)
         return Variant();
     }

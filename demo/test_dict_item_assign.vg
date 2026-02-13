@@ -1,0 +1,38 @@
+' Test Dictionary.Item("key") = value assignment pattern
+Dim stats As Dictionary
+
+Sub Main()
+    Print "=== Dictionary.Item Assignment Test ==="
+    
+    ' Create dictionary with VB6 pattern
+    Set stats = New Dictionary
+    stats.Add "enemies_killed", 0
+    stats.Add "gold_earned", 0
+    stats.Add "towers_built", 0
+    
+    ' Test 1: Read via Item
+    Print "Test 1: Read via Item..."
+    Dim val As Variant = stats.Item("enemies_killed")
+    Print "  enemies_killed = " & Str(val)
+    Print "  Test 1 PASSED"
+    
+    ' Test 2: Direct dict key write (should work)
+    Print "Test 2: Direct dict key write..."
+    stats("enemies_killed") = 5
+    Print "  enemies_killed = " & Str(stats.Item("enemies_killed"))
+    Print "  Test 2"
+    
+    ' Test 3: Write via Item (the failing pattern)
+    Print "Test 3: Write via Item..."
+    stats.Item("towers_built") = 10
+    Print "  towers_built = " & Str(stats.Item("towers_built"))
+    Print "  Test 3"
+    
+    ' Test 4: Compound Item assign
+    Print "Test 4: Compound Item += ..."
+    stats.Item("gold_earned") = stats.Item("gold_earned") + 50
+    Print "  gold_earned = " & Str(stats.Item("gold_earned"))
+    Print "  Test 4"
+    
+    Print "=== Done ==="
+End Sub

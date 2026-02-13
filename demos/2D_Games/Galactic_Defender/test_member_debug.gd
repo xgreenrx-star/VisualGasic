@@ -4,7 +4,7 @@ var frame := 0
 var node : Node2D
 
 func _init():
-	print("=== Galactic Defender Combat Member Test ===")
+	print("=== Galactic Defender Combat Full Test ===")
 	
 	var vg = VisualGasicScript.new()
 	vg.source_code = FileAccess.open("res://galactic_defender.vg", FileAccess.READ).get_as_text()
@@ -16,17 +16,39 @@ func _init():
 	
 	await process_frame
 	
-	# Trigger combat: call StartNextWave then SpawnNextEnemy manually
+	# Trigger combat: call StartNextWave then SpawnNextEnemy multiple times
 	print("--- Starting wave ---")
 	node.call("StartNextWave")
-	
 	await process_frame
 	
-	# Now spawner should be active, call SpawnNextEnemy directly
-	print("--- Spawning enemy ---")
-	node.call("SpawnNextEnemy")
+	# Spawn several enemies
+	for i in range(4):
+		print("--- Spawning enemy ", i, " ---")
+		node.call("SpawnNextEnemy")
+		await process_frame
 	
+	# Update enemies (movement)
+	print("--- UpdateEnemies ---")
+	node.call("UpdateEnemies", 0.016)
 	await process_frame
 	
-	print("[OK] No member assignment errors!")
+	# Update towers
+	print("--- UpdateTowers ---")
+	node.call("UpdateTowers", 0.016)
+	await process_frame
+	
+	# Place a tower then fire
+	print("--- PlaceTower(5,5) ---")
+	node.call("PlaceTower", 5, 5)
+	await process_frame
+	
+	# More updates to trigger projectile logic
+	for i in range(5):
+		node.call("UpdateTowers", 0.016)
+		node.call("UpdateEnemies", 0.016)
+		node.call("UpdateProjectiles", 0.016)
+		await process_frame
+
+	print("[OK] Combat test complete - no array index errors!")
+	node.queue_free()
 	quit(0)

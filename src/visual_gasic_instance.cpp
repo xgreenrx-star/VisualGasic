@@ -7597,6 +7597,27 @@ void VisualGasicInstance::assign_to_target(ExpressionNode* target, Variant val) 
          
          Variant base = evaluate_expression(aa->base);
 
+         // VB6 Dictionary.Item("key") = value pattern
+         // Parser sees this as ArrayAccess(MemberAccess(dict, "Item"), [key])
+         // We need to detect this and treat it as dict[key] = value
+         if (base.get_type() == Variant::NIL && aa->base->type == ExpressionNode::MEMBER_ACCESS) {
+             MemberAccessNode* ma = (MemberAccessNode*)aa->base;
+             if (ma->member_name.nocasecmp_to("Item") == 0 && aa->indices.size() > 0) {
+                 Variant dict_base = evaluate_expression(ma->base_object);
+                 if (dict_base.get_type() == Variant::DICTIONARY) {
+                     Dictionary d = dict_base;
+                     Variant key = evaluate_expression(aa->indices[0]);
+                     d[key] = val;
+                     // Write back the dictionary to the source variable
+                     if (ma->base_object->type == ExpressionNode::VARIABLE) {
+                         String vn = ((VariableNode*)ma->base_object)->name;
+                         assign_variable(vn, d);
+                     }
+                     return;
+                 }
+             }
+         }
+
          if (base.get_type() == Variant::DICTIONARY) {
              if (aa->indices.size() > 0) {
                  Dictionary d = base;
