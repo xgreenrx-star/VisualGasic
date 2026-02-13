@@ -6855,6 +6855,12 @@ void VisualGasicInstance::notification(int32_t p_what) {
              
              bool found;
              call_internal("_Process", args, found);
+             
+             // Trigger redraw if script has a draw method
+             if (owner && (script->_has_method("_Draw") || script->_has_method("OnDraw"))) {
+                 CanvasItem *ci = Object::cast_to<CanvasItem>(owner);
+                 if (ci) ci->queue_redraw();
+             }
          }
     }
     else if (p_what == Node::NOTIFICATION_PHYSICS_PROCESS) {
@@ -6878,10 +6884,14 @@ void VisualGasicInstance::notification(int32_t p_what) {
     }
     // Handle Drawing
     else if (p_what == CanvasItem::NOTIFICATION_DRAW) {
-         if (script.is_valid() && script->_has_method("OnDraw")) {
+         if (script.is_valid()) {
              bool found;
              Array args;
-             call_internal("OnDraw", args, found);
+             if (script->_has_method("_Draw")) {
+                 call_internal("_Draw", args, found);
+             } else if (script->_has_method("OnDraw")) {
+                 call_internal("OnDraw", args, found);
+             }
          }
     }
 }
