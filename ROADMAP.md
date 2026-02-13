@@ -1,7 +1,7 @@
 # Visual Gasic Development Roadmap
 
-**Last Updated**: February 12, 2026  
-**Current Version**: 2.4.0 (Classes & Objects, Functional Programming Release)
+**Last Updated**: June 2025  
+**Current Version**: 2.4.2 (Benchmark Fusion Fixes)
 
 This document outlines the planned improvements and features for Visual Gasic. Items are prioritized by impact and development effort.
 
@@ -271,54 +271,60 @@ Run just the current form without launching the full game.
 
 ---
 
-### Nice-to-Have - Future Enhancements
+### Nice-to-Have - Future Enhancements (Recently Completed)
 
-#### 11. Linting / Warnings
-**Status**: 📋 Planned  
+#### 11. Linting / Warnings ✅
+**Status**: ✅ Completed  
 **Priority**: Low  
-**Estimated Effort**: Medium
+**Completed**: February 2026
 
 Static analysis for code quality.
 
-**Features**:
-- Unused variable detection
-- Unreachable code warnings
-- Undefined variable usage
-- Deprecated syntax warnings
-- Severity levels (error, warning, info)
-- Inline squiggles in editor
+**Implemented Features**:
+- ✅ Unused variable detection
+- ✅ Unreachable code warnings
+- ✅ Undefined variable usage
+- ✅ Deprecated syntax warnings
+- ✅ Severity levels (error, warning, info)
+- ✅ Inline squiggles in editor (via Godot `_validate()` pipeline)
+- ✅ Unused subs/parameters, empty blocks, shadowed variables
 
 ---
 
-#### 12. Snippet Manager
-**Status**: 📋 Planned  
+#### 12. Snippet Manager ✅
+**Status**: ✅ Completed  
 **Priority**: Low  
-**Estimated Effort**: Low
+**Completed**: February 2026
 
 User-defined code snippets with placeholders.
 
-**Features**:
-- Create custom snippets
-- Tabstop placeholders
-- Import/export snippets
-- Snippet categories
-- Built-in VB6 snippets (For loop, Select Case, etc.)
+**Implemented Features**:
+- ✅ 30+ built-in snippets across 8 categories
+- ✅ Create custom snippets
+- ✅ Tabstop placeholders
+- ✅ Import/export snippets via ConfigFile
+- ✅ Snippet categories (Control Flow, Loops, Procedures, Properties, etc.)
+- ✅ Built-in VB6 snippets (For loop, Select Case, etc.)
+- ✅ Snippet Browser UI with search, preview, and insert
 
 ---
 
-#### 13. Theme Support
-**Status**: 📋 Planned  
+#### 13. Theme Support ✅
+**Status**: ✅ Completed  
 **Priority**: Low  
-**Estimated Effort**: Low
+**Completed**: February 2026
 
 Visual theme options for the VB6 experience.
 
-**Features**:
-- Classic VB6 gray theme
-- Modern dark theme
-- Light theme
-- Custom color schemes
-- Form designer themes
+**Implemented Features**:
+- ✅ Classic VB6 blue theme
+- ✅ Modern dark theme
+- ✅ Modern light theme
+- ✅ High Contrast and Solarized Dark themes
+- ✅ Custom color schemes (23 configurable properties)
+- ✅ Font settings (name, size, bold keywords)
+- ✅ Theme Picker UI with live preview
+- ✅ Persistence via user config files
 
 ---
 

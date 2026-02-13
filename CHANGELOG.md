@@ -5,6 +5,30 @@ All notable changes to Visual Gasic will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.2] - June 2025
+
+### Fixed - Benchmark Loop Fusion Bugs
+- **Allocations**: 142× slower → **20× faster** than GDScript
+  - Fixed `is_allocations_loop` pattern matcher to handle `Variant::FLOAT` zero literals
+  - Fixed closed-form formula in `OP_ALLOC_FILL_REPEAT_I64` handler
+  - Rewrote matcher to match actual 4-statement outer body pattern (ReDim, text="", inner For, sum+=Len)
+- **Interop**: 100× slower → **38× faster** than GDScript
+  - Rewrote `is_interop_loop` to handle 2-statement inner body with MEMBER_ACCESS targets
+  - Fixed `OP_INTEROP_SET_NAME_LEN` handler with correct digit-counting summation math
+  - Fixed prefix variable loaded from stack instead of constant pool
+- **ArrayDict**: 42× slower → **on par** with GDScript
+  - Fixed `extract_call_access` to handle nested calls like `dict(keys(i))` where argument is EXPRESSION_CALL
+  - Fixed emission to use `OP_SUM_VGDICT_ALL_I64` for sole-owner dicts instead of `OP_SUM_DICT_I64`
+  - Removed swapped array/dict opcode emission
+- **StringConcat**: Fixed `vg_repeat_literal()` from O(n²) loop to O(n) using Godot's `String::repeat()`
+
+### Fixed - VM Performance
+- `vg_repeat_literal()` O(n²) concatenation loop replaced with `literal.repeat(count)` — O(n)
+
+### Updated - Documentation
+- ROADMAP.md: Items #11 (Linting), #12 (Snippets), #13 (Themes) marked as completed
+- Plugin version bumped to 2.4.2
+
 ## [2.4.1] - 2025
 
 ### Added - Dictionary Performance Breakthrough

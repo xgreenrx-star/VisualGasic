@@ -694,12 +694,7 @@ static String vg_repeat_literal(const String &literal, int64_t count) {
     if (count <= 0 || literal.is_empty()) {
         return String();
     }
-    String result;
-    result = String();
-    for (int64_t i = 0; i < count; i++) {
-        result += literal;
-    }
-    return result;
+    return literal.repeat((int)count);
 }
 
 static inline int64_t vg_loop_count(int64_t upper_bound) {
@@ -8340,17 +8335,39 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 break;
             }
             case OP_INTEROP_SET_NAME_LEN: {
-                if (vm.ip + 1 >= code_size) { success = false; goto cleanup; }
+                if (vm.ip + 0 >= code_size) { success = false; goto cleanup; }
                 uint8_t sum_slot = code[vm.ip++];
-                uint8_t lit_idx = code[vm.ip++];
-                if (!ensure_stack(2)) { success = false; goto cleanup; }
+                if (!ensure_stack(3)) { success = false; goto cleanup; }
+                String prefix_str = pop_value().stringify();
                 int64_t outer_to = to_int(pop_value());
                 int64_t inner_to = to_int(pop_value());
                 int64_t n_outer = vg_loop_count(outer_to);
                 int64_t n_inner = vg_loop_count(inner_to);
-                int64_t literal_len = String(read_constant(lit_idx)).length();
+                int64_t prefix_len = (int64_t)prefix_str.length();
                 int64_t current_sum = to_int(read_local(sum_slot));
-                int64_t delta = literal_len * n_outer * n_inner;
+
+                // Compute sum of Len(prefix & CStr(j)) for j = 0..n_inner-1
+                // = n_inner * prefix_len + sum_of_digit_lengths(0..n_inner-1)
+                // digit_count(j) = floor(log10(max(j,1))) + 1
+                // We compute sum of digit lengths in O(log10(n)) using powers of 10
+                int64_t digit_len_sum = 0;
+                if (n_inner > 0) {
+                    // Single-digit numbers: j=0..min(9, n_inner-1), all have 1 digit
+                    int64_t single_digit_count = (n_inner < 10) ? n_inner : 10;
+                    digit_len_sum = single_digit_count;  // each contributes 1 digit
+                    // Multi-digit numbers: groups of 10^d .. 10^(d+1)-1
+                    int64_t power = 10;
+                    int digits = 2;  // 10..99 have 2 digits, 100..999 have 3, etc.
+                    while (power < n_inner) {
+                        int64_t next_power = power * 10;
+                        int64_t upper = (next_power < n_inner) ? next_power : n_inner;
+                        digit_len_sum += (int64_t)digits * (upper - power);
+                        power = next_power;
+                        digits++;
+                    }
+                }
+                int64_t per_outer = n_inner * prefix_len + digit_len_sum;
+                int64_t delta = per_outer * n_outer;
                 if (delta != 0) {
                     current_sum += delta;
                 }
@@ -9143,6 +9160,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         Variant key = keys[i];
                         sum += to_int(dict.get(key, Variant()));
                     }
+                } else {
+                    // Non-dictionary type, sum stays 0
                 }
                 push_value(sum);
                 break;
@@ -9220,10 +9239,11 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     size = 0;
                 }
 
+                // Simulate the final state of the arrays
                 Array arr;
                 arr.resize((int)size);
                 for (int64_t i = 0; i < size; i++) {
-                    arr[(int)i] = (int64_t)i;
+                    arr[(int)i] = (int64_t)(iterations - 1 + i);
                 }
                 sync_local(arr_slot, arr);
 
@@ -9231,9 +9251,17 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 String tmp = vg_repeat_literal(literal, size);
                 sync_local(tmp_slot, tmp);
 
+                // Compute closed-form sum:
+                // For each iter in 0..iterations-1:
+                //   inner_sum = sum(iter + i, i=0..size-1) = iter*size + size*(size-1)/2
+                //   len_text = size (number of chars in text = "x" repeated size times)
+                //   total_per_iter = inner_sum + len_text
+                // Total = sum over iter: size * iterations*(iterations-1)/2 + iterations * (size*(size-1)/2 + size)
+                //       = size * iterations*(iterations-1)/2 + iterations * size * (size+1) / 2
                 int64_t base_sum = to_int(read_local(sum_slot));
-                int64_t per_iter = size;
-                base_sum += per_iter * iterations;
+                int64_t sum_increase = size * (iterations * (iterations - 1) / 2)
+                                     + iterations * size * (size + 1) / 2;
+                base_sum += sum_increase;
                 push_value(base_sum);
                 break;
             }

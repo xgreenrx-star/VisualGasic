@@ -1,7 +1,7 @@
 # VisualGasic Project Status
 
-**Version**: 2.4.1 (Optimizer & Tooling)  
-**Last Updated**: 2025
+**Version**: 2.4.2 (Benchmark Fusion Fixes)  
+**Last Updated**: June 2025
 
 ## Overview
 

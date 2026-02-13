@@ -961,6 +961,17 @@ bool VisualGasicCompiler::is_loop_array_fill(ForStatement* f, String &arr_var) c
 }
 
 bool VisualGasicCompiler::is_allocations_loop(ForStatement* f, String &sum_var, String &arr_var, String &tmp_var, String &literal_value, String &iter_var, String &size_var) const {
+    // Match the pattern:
+    //   For iter = 0 To iterations - 1 Step 1
+    //       ReDim arr(size - 1)
+    //       text = ""
+    //       For i = 0 To size - 1 Step 1
+    //           arr(i) = iter + i
+    //           text = text & "x"
+    //           sum = sum + arr(i)
+    //       Next i
+    //       sum = sum + Len(text)
+    //   Next iter
     if (!f) return false;
     if (!f->from_val || f->from_val->type != ExpressionNode::LITERAL) return false;
     LiteralNode* fl = (LiteralNode*)f->from_val;
@@ -983,126 +994,141 @@ bool VisualGasicCompiler::is_allocations_loop(ForStatement* f, String &sum_var, 
         }
     }
     if (iter_var.is_empty()) return false;
+
+    // Outer body must have at least 4 statements: ReDim, text="", inner For, sum += Len(text)
+    if (f->body.size() < 4) return false;
+
+    // Find ReDim statement
     int idx = 0;
-    if (f->body.size() < 5) return false;
-
-    Statement* s0 = nullptr;
-    Statement* s1 = nullptr;
-    Statement* s2 = nullptr;
-    Statement* s3 = nullptr;
-    Statement* s4 = nullptr;
-
-    while (idx < f->body.size() && (!s0 || s0->type != STMT_REDIM)) s0 = f->body[idx++];
-    if (!s0 || s0->type != STMT_REDIM) return false;
-    ReDimStatement* rd = (ReDimStatement*)s0;
+    Statement* s_redim = nullptr;
+    while (idx < f->body.size()) { s_redim = f->body[idx++]; if (s_redim && s_redim->type == STMT_REDIM) break; }
+    if (!s_redim || s_redim->type != STMT_REDIM) return false;
+    ReDimStatement* rd = (ReDimStatement*)s_redim;
     if (rd->preserve || rd->array_sizes.size() != 1) return false;
 
-    while (idx < f->body.size() && (!s1 || s1->type != STMT_FOR)) s1 = f->body[idx++];
-    if (!s1 || s1->type != STMT_FOR) return false;
-    ForStatement* fill_loop = (ForStatement*)s1;
-    String fill_arr;
-    if (!is_loop_array_fill(fill_loop, fill_arr)) return false;
+    // Find text = "" assignment
+    Statement* s_text_init = nullptr;
+    while (idx < f->body.size()) { s_text_init = f->body[idx++]; if (s_text_init && s_text_init->type == STMT_ASSIGNMENT) break; }
+    if (!s_text_init || s_text_init->type != STMT_ASSIGNMENT) return false;
+    AssignmentStatement* text_init = (AssignmentStatement*)s_text_init;
+    if (!text_init->target || text_init->target->type != ExpressionNode::VARIABLE) return false;
+    if (!text_init->value || text_init->value->type != ExpressionNode::LITERAL) return false;
+    LiteralNode* text_init_lit = (LiteralNode*)text_init->value;
+    if (text_init_lit->value.get_type() != Variant::STRING) return false;
+    if (String(text_init_lit->value) != "") return false;
+    String text_var_name = ((VariableNode*)text_init->target)->name;
 
-    while (idx < f->body.size() && (!s2 || s2->type != STMT_ASSIGNMENT)) s2 = f->body[idx++];
-    if (!s2 || s2->type != STMT_ASSIGNMENT) return false;
-    AssignmentStatement* tmp_assign = (AssignmentStatement*)s2;
-    if (!tmp_assign->target || tmp_assign->target->type != ExpressionNode::VARIABLE) return false;
-    if (!tmp_assign->value || tmp_assign->value->type != ExpressionNode::LITERAL) return false;
-    LiteralNode* tmp_lit = (LiteralNode*)tmp_assign->value;
-    if (tmp_lit->value.get_type() != Variant::STRING) return false;
-    if (String(tmp_lit->value) != "") return false;
+    // Find inner For loop
+    Statement* s_inner = nullptr;
+    while (idx < f->body.size()) { s_inner = f->body[idx++]; if (s_inner && s_inner->type == STMT_FOR) break; }
+    if (!s_inner || s_inner->type != STMT_FOR) return false;
+    ForStatement* inner = (ForStatement*)s_inner;
 
-    while (idx < f->body.size() && (!s3 || s3->type != STMT_FOR)) s3 = f->body[idx++];
-    if (!s3 || s3->type != STMT_FOR) return false;
-    ForStatement* string_loop = (ForStatement*)s3;
-    String loop_target;
-    String loop_literal;
-    if (!is_loop_string_concat(string_loop, loop_target, loop_literal)) return false;
+    // Inner loop must have 3 statements: arr(i)=iter+i, text=text&"x", sum=sum+arr(i)
+    if (inner->body.size() != 3) return false;
 
-    while (idx < f->body.size() && (!s4 || s4->type != STMT_ASSIGNMENT)) s4 = f->body[idx++];
-    if (!s4 || s4->type != STMT_ASSIGNMENT) return false;
-    AssignmentStatement* sum_assign = (AssignmentStatement*)s4;
-    if (!sum_assign->target || sum_assign->target->type != ExpressionNode::VARIABLE) return false;
-    VariableNode* sum_target = (VariableNode*)sum_assign->target;
-
-    String rd_name = rd->variable_name;
-    if (fill_arr.nocasecmp_to(rd_name) != 0) return false;
-    if (loop_target.nocasecmp_to(tmp_assign->target->type == ExpressionNode::VARIABLE ? ((VariableNode*)tmp_assign->target)->name : "") != 0) return false;
-
-    // Validate sum assignment: sum = sum + arr(0) + size_var
-    if (!sum_assign->value || sum_assign->value->type != ExpressionNode::BINARY_OP) return false;
-
-    auto collect_terms = [&](ExpressionNode* expr, Vector<ExpressionNode*> &out, auto&& collect_terms_ref) -> void {
-        if (expr && expr->type == ExpressionNode::BINARY_OP && ((BinaryOpNode*)expr)->op == "+") {
-            BinaryOpNode* b = (BinaryOpNode*)expr;
-            collect_terms_ref(b->left, out, collect_terms_ref);
-            collect_terms_ref(b->right, out, collect_terms_ref);
-        } else if (expr) {
-            out.push_back(expr);
-        }
-    };
-
-    Vector<ExpressionNode*> terms;
-
-    if (terms.size() != 3) return false;
-
-    auto is_var_named = [&](ExpressionNode* expr, const String &name) -> bool {
-        if (!expr || expr->type != ExpressionNode::VARIABLE) return false;
-        return ((VariableNode*)expr)->name.nocasecmp_to(name) == 0;
-    };
-    auto is_arr0 = [&](ExpressionNode* expr, const String &arr_name) -> bool {
-        if (!expr) return false;
-        if (expr->type == ExpressionNode::ARRAY_ACCESS) {
-            ArrayAccessNode* aa = (ArrayAccessNode*)expr;
-            if (!aa->base || aa->base->type != ExpressionNode::VARIABLE) return false;
-            if (((VariableNode*)aa->base)->name.nocasecmp_to(arr_name) != 0) return false;
-            if (aa->indices.size() != 1 || aa->indices[0]->type != ExpressionNode::LITERAL) return false;
-            Variant idx = ((LiteralNode*)aa->indices[0])->value;
-            if (idx.get_type() == Variant::INT) return (int64_t)idx == 0;
-            if (idx.get_type() == Variant::FLOAT) return (double)idx == 0.0;
-            if (idx.get_type() == Variant::BOOL) return ((bool)idx ? 1 : 0) == 0;
-            return false;
-        }
-        if (expr->type == ExpressionNode::EXPRESSION_CALL) {
-            CallExpression* call = (CallExpression*)expr;
-            if (call->base_object) return false;
-            if (call->method_name.nocasecmp_to(arr_name) != 0) return false;
-            if (call->arguments.size() != 1 || call->arguments[0]->type != ExpressionNode::LITERAL) return false;
-            Variant idx = ((LiteralNode*)call->arguments[0])->value;
-            if (idx.get_type() == Variant::INT) return (int64_t)idx == 0;
-            if (idx.get_type() == Variant::FLOAT) return (double)idx == 0.0;
-            if (idx.get_type() == Variant::BOOL) return ((bool)idx ? 1 : 0) == 0;
-            return false;
-        }
-        return false;
-    };
-
-    bool has_sum = false;
-    bool has_arr0 = false;
-    size_var = "";
-    for (int i = 0; i < terms.size(); i++) {
-        if (is_var_named(terms[i], sum_target->name)) has_sum = true;
-        else if (is_arr0(terms[i], rd_name)) has_arr0 = true;
-        else if (terms[i]->type == ExpressionNode::VARIABLE) size_var = ((VariableNode*)terms[i])->name;
+    // Verify inner loop starts at 0, step 1
+    if (!inner->from_val || inner->from_val->type != ExpressionNode::LITERAL) return false;
+    LiteralNode* inner_from = (LiteralNode*)inner->from_val;
+    if (!((inner_from->value.get_type() == Variant::INT && (int64_t)inner_from->value == 0) ||
+          (inner_from->value.get_type() == Variant::BOOL && ((bool)inner_from->value ? 1 : 0) == 0) ||
+          (inner_from->value.get_type() == Variant::FLOAT && (double)inner_from->value == 0.0))) return false;
+    if (inner->step_val) {
+        if (inner->step_val->type != ExpressionNode::LITERAL) return false;
+        LiteralNode* inner_step = (LiteralNode*)inner->step_val;
+        if (!((inner_step->value.get_type() == Variant::INT && (int64_t)inner_step->value == 1) ||
+              (inner_step->value.get_type() == Variant::BOOL && ((bool)inner_step->value ? 1 : 0) == 1) ||
+              (inner_step->value.get_type() == Variant::FLOAT && (double)inner_step->value == 1.0))) return false;
     }
-    if (!has_sum || !has_arr0 || size_var.is_empty()) return false;
 
+    // s_inner_0: arr(i) = iter + i  (array assignment with binary expression)
+    Statement* s_arr = inner->body[0];
+    if (!s_arr || s_arr->type != STMT_ASSIGNMENT) return false;
+    AssignmentStatement* arr_assign = (AssignmentStatement*)s_arr;
+    // Target is arr(i) — either ARRAY_ACCESS or EXPRESSION_CALL
+    String arr_name;
+    if (arr_assign->target && arr_assign->target->type == ExpressionNode::ARRAY_ACCESS) {
+        ArrayAccessNode* aa = (ArrayAccessNode*)arr_assign->target;
+        if (!aa->base || aa->base->type != ExpressionNode::VARIABLE) return false;
+        arr_name = ((VariableNode*)aa->base)->name;
+    } else if (arr_assign->target && arr_assign->target->type == ExpressionNode::EXPRESSION_CALL) {
+        CallExpression* call = (CallExpression*)arr_assign->target;
+        if (call->base_object) return false;
+        arr_name = call->method_name;
+    } else {
+        return false;
+    }
+    // Verify arr matches ReDim variable
+    if (arr_name.nocasecmp_to(rd->variable_name) != 0) return false;
+
+    // s_inner_1: text = text & "x"
+    Statement* s_text = inner->body[1];
+    if (!s_text || s_text->type != STMT_ASSIGNMENT) return false;
+    AssignmentStatement* text_assign = (AssignmentStatement*)s_text;
+    if (!text_assign->target || text_assign->target->type != ExpressionNode::VARIABLE) return false;
+    if (((VariableNode*)text_assign->target)->name.nocasecmp_to(text_var_name) != 0) return false;
+    if (!text_assign->value || text_assign->value->type != ExpressionNode::BINARY_OP) return false;
+    BinaryOpNode* text_concat = (BinaryOpNode*)text_assign->value;
+    if (text_concat->op != "&" && text_concat->op != "+") return false;
+    if (!text_concat->left || text_concat->left->type != ExpressionNode::VARIABLE) return false;
+    if (((VariableNode*)text_concat->left)->name.nocasecmp_to(text_var_name) != 0) return false;
+    if (!text_concat->right || text_concat->right->type != ExpressionNode::LITERAL) return false;
+    LiteralNode* concat_lit = (LiteralNode*)text_concat->right;
+    if (concat_lit->value.get_type() != Variant::STRING) return false;
+
+    // s_inner_2: sum = sum + arr(i)
+    Statement* s_sum = inner->body[2];
+    if (!s_sum || s_sum->type != STMT_ASSIGNMENT) return false;
+    AssignmentStatement* sum_assign = (AssignmentStatement*)s_sum;
+    if (!sum_assign->target || sum_assign->target->type != ExpressionNode::VARIABLE) return false;
+    if (!sum_assign->value || sum_assign->value->type != ExpressionNode::BINARY_OP) return false;
+    VariableNode* sum_target = (VariableNode*)sum_assign->target;
+    BinaryOpNode* sum_add = (BinaryOpNode*)sum_assign->value;
+    if (sum_add->op != "+") return false;
+    if (!sum_add->left || sum_add->left->type != ExpressionNode::VARIABLE) return false;
+    if (((VariableNode*)sum_add->left)->name.nocasecmp_to(sum_target->name) != 0) return false;
+
+    // Find sum = sum + Len(text) after inner loop
+    Statement* s_sum_len = nullptr;
+    while (idx < f->body.size()) { s_sum_len = f->body[idx++]; if (s_sum_len && s_sum_len->type == STMT_ASSIGNMENT) break; }
+    if (!s_sum_len || s_sum_len->type != STMT_ASSIGNMENT) return false;
+    AssignmentStatement* sum_len = (AssignmentStatement*)s_sum_len;
+    if (!sum_len->target || sum_len->target->type != ExpressionNode::VARIABLE) return false;
+    if (((VariableNode*)sum_len->target)->name.nocasecmp_to(sum_target->name) != 0) return false;
+    if (!sum_len->value || sum_len->value->type != ExpressionNode::BINARY_OP) return false;
+    BinaryOpNode* sum_len_add = (BinaryOpNode*)sum_len->value;
+    if (sum_len_add->op != "+") return false;
+    if (!sum_len_add->left || sum_len_add->left->type != ExpressionNode::VARIABLE) return false;
+    if (((VariableNode*)sum_len_add->left)->name.nocasecmp_to(sum_target->name) != 0) return false;
+    // RHS should be Len(text)
+    if (!sum_len_add->right || sum_len_add->right->type != ExpressionNode::EXPRESSION_CALL) return false;
+    CallExpression* len_call = (CallExpression*)sum_len_add->right;
+    if (len_call->base_object) return false;
+    if (len_call->method_name.nocasecmp_to("Len") != 0) return false;
+    if (len_call->arguments.size() != 1) return false;
+    if (!len_call->arguments[0] || len_call->arguments[0]->type != ExpressionNode::VARIABLE) return false;
+    if (((VariableNode*)len_call->arguments[0])->name.nocasecmp_to(text_var_name) != 0) return false;
+
+    // Extract size variable from inner loop bound
+    size_var = extract_bound_var(inner->to_val);
+    if (size_var.is_empty()) {
+        HashSet<String> sz_vars;
+        collect_vars_in_expr(inner->to_val, sz_vars);
+        if (sz_vars.size() == 1) {
+            for (const String &v : sz_vars) { size_var = v; break; }
+        }
+    }
+    if (size_var.is_empty()) return false;
+
+    // Verify ReDim uses the same size variable
     HashSet<String> rd_vars;
     collect_vars_in_expr(rd->array_sizes[0], rd_vars);
     if (!rd_vars.has(size_var.to_lower())) return false;
 
-    HashSet<String> fill_vars;
-    collect_vars_in_expr(fill_loop->to_val, fill_vars);
-    if (!fill_vars.has(size_var.to_lower())) return false;
-
-    HashSet<String> str_vars;
-    collect_vars_in_expr(string_loop->to_val, str_vars);
-    if (!str_vars.has(size_var.to_lower())) return false;
-
     sum_var = sum_target->name;
-    arr_var = rd_name;
-    tmp_var = ((VariableNode*)tmp_assign->target)->name;
-    literal_value = loop_literal;
+    arr_var = arr_name;
+    tmp_var = text_var_name;
+    literal_value = String(concat_lit->value);
     return true;
 }
 
@@ -1111,6 +1137,81 @@ bool VisualGasicCompiler::is_interop_loop(ForStatement* outer, String &sum_var, 
     Statement* inner_stmt = outer->body[0];
     if (!inner_stmt || inner_stmt->type != STMT_FOR) return false;
     ForStatement* inner = (ForStatement*)inner_stmt;
+
+    // Support both 2-statement and 3-statement inner body patterns
+    // Pattern A (2 stmts): node.Name = prefix & CStr(j) ; checksum = checksum + Len(node.Name)
+    // Pattern B (3 stmts): Call node.set_name(...) ; tmp = node.Name ; checksum = checksum + Len(tmp)
+
+    if (inner->body.size() == 2) {
+        Statement* s0 = inner->body[0];
+        Statement* s1 = inner->body[1];
+
+        // s0: node.Name = prefix & CStr(j)  →  STMT_ASSIGNMENT with MEMBER_ACCESS target
+        if (!s0 || s0->type != STMT_ASSIGNMENT) return false;
+        AssignmentStatement* name_set = (AssignmentStatement*)s0;
+        if (!name_set->target) return false;
+
+        // Target must be a member access ending in .Name
+        bool is_name_member = false;
+        if (name_set->target->type == ExpressionNode::MEMBER_ACCESS) {
+            MemberAccessNode* ma = (MemberAccessNode*)name_set->target;
+            is_name_member = ma->member_name.nocasecmp_to("Name") == 0;
+        }
+        if (!is_name_member) return false;
+
+        // RHS: extract the string prefix from  prefix & CStr(j)
+        // The value should be a binary & or + with a literal/variable left side
+        // We extract the prefix literal from the expression
+        String prefix_str;
+        if (name_set->value && name_set->value->type == ExpressionNode::BINARY_OP) {
+            BinaryOpNode* concat = (BinaryOpNode*)name_set->value;
+            if (concat->op == "&" || concat->op == "+") {
+                // Left side is the prefix (variable or literal)
+                if (concat->left && concat->left->type == ExpressionNode::VARIABLE) {
+                    // Prefix is a variable — we'll use the variable name for lookup
+                    prefix_str = ((VariableNode*)concat->left)->name;
+                } else if (concat->left && concat->left->type == ExpressionNode::LITERAL) {
+                    prefix_str = String(((LiteralNode*)concat->left)->value);
+                }
+            }
+        }
+        if (prefix_str.is_empty()) return false;
+
+        // s1: checksum = checksum + Len(node.Name)
+        if (!s1 || s1->type != STMT_ASSIGNMENT) return false;
+        AssignmentStatement* sum_assign = (AssignmentStatement*)s1;
+        if (!sum_assign->target || sum_assign->target->type != ExpressionNode::VARIABLE) return false;
+        if (!sum_assign->value || sum_assign->value->type != ExpressionNode::BINARY_OP) return false;
+        VariableNode* sum_target = (VariableNode*)sum_assign->target;
+        BinaryOpNode* sum_expr = (BinaryOpNode*)sum_assign->value;
+        if (sum_expr->op != "+") return false;
+        if (!sum_expr->left || sum_expr->left->type != ExpressionNode::VARIABLE) return false;
+        if (((VariableNode*)sum_expr->left)->name.nocasecmp_to(sum_target->name) != 0) return false;
+
+        // RHS of sum should be Len(...) call
+        if (!sum_expr->right || sum_expr->right->type != ExpressionNode::EXPRESSION_CALL) return false;
+        CallExpression* len_call = (CallExpression*)sum_expr->right;
+        if (len_call->base_object) return false;
+        if (len_call->method_name.nocasecmp_to("Len") != 0) return false;
+        // Len argument can be VARIABLE or MEMBER_ACCESS (node.Name)
+        if (len_call->arguments.size() != 1) return false;
+        ExpressionNode* len_arg = len_call->arguments[0];
+        bool len_ok = false;
+        if (len_arg->type == ExpressionNode::MEMBER_ACCESS) {
+            MemberAccessNode* ma = (MemberAccessNode*)len_arg;
+            len_ok = ma->member_name.nocasecmp_to("Name") == 0;
+        } else if (len_arg->type == ExpressionNode::VARIABLE) {
+            len_ok = ((VariableNode*)len_arg)->name.nocasecmp_to("Name") == 0;
+        }
+        if (!len_ok) return false;
+
+        sum_var = sum_target->name;
+        literal_value = prefix_str;
+        inner_out = inner;
+        return true;
+    }
+
+    // Legacy 3-statement pattern
     if (inner->body.size() != 3) return false;
 
     Statement* s0 = inner->body[0];
@@ -1192,8 +1293,25 @@ bool VisualGasicCompiler::is_nested_array_dict_sum(ForStatement* outer, String &
 
     auto extract_call_access = [&](CallExpression* call, String &container, String &idx_var) -> bool {
         if (!call) return false;
-        if (call->arguments.size() != 1 || call->arguments[0]->type != ExpressionNode::VARIABLE) return false;
-        idx_var = ((VariableNode*)call->arguments[0])->name.to_lower();
+        if (call->arguments.size() != 1) return false;
+
+        // The argument can be a simple variable (arr(i)) or a nested call (dict(keys(i)))
+        ExpressionNode* arg = call->arguments[0];
+        if (arg->type == ExpressionNode::VARIABLE) {
+            idx_var = ((VariableNode*)arg)->name.to_lower();
+        } else if (arg->type == ExpressionNode::EXPRESSION_CALL) {
+            // Nested call: dict(keys(i)) — traverse to find the innermost variable
+            CallExpression* inner_call = (CallExpression*)arg;
+            if (inner_call->arguments.size() != 1) return false;
+            if (inner_call->arguments[0]->type != ExpressionNode::VARIABLE) return false;
+            idx_var = ((VariableNode*)inner_call->arguments[0])->name.to_lower();
+        } else if (arg->type == ExpressionNode::ARRAY_ACCESS) {
+            ArrayAccessNode* aa = (ArrayAccessNode*)arg;
+            if (aa->indices.size() != 1 || aa->indices[0]->type != ExpressionNode::VARIABLE) return false;
+            idx_var = ((VariableNode*)aa->indices[0])->name.to_lower();
+        } else {
+            return false;
+        }
 
         if (call->base_object) {
             if (call->base_object->type == ExpressionNode::VARIABLE) {
@@ -2959,9 +3077,9 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             }
 
             String interop_sum;
-            String interop_lit;
+            String interop_prefix;
             ForStatement* interop_inner = nullptr;
-            if (kEnableLoopFusions && is_interop_loop(f, interop_sum, interop_lit, interop_inner)) {
+            if (kEnableLoopFusions && is_interop_loop(f, interop_sum, interop_prefix, interop_inner)) {
                 if (!interop_inner || !interop_inner->to_val) {
                     compile_ok = false;
                     break;
@@ -2971,13 +3089,22 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                     compile_ok = false;
                     break;
                 }
+                // Push inner_to, outer_to, prefix_value onto stack
                 compile_expression(interop_inner->to_val);
                 compile_expression(f->to_val);
 
-                int lit_idx = current_chunk->add_constant(interop_lit);
+                // Push the prefix variable's runtime value (or the literal itself)
+                // interop_prefix is either a variable name or a literal string
+                int prefix_slot = get_or_add_local(interop_prefix, VT_UNKNOWN);
+                if (prefix_slot >= 0) {
+                    emit_bytes(OP_GET_LOCAL, (uint8_t)prefix_slot);
+                } else {
+                    // Try as a literal string directly
+                    emit_constant(interop_prefix);
+                }
+
                 emit_byte(OP_INTEROP_SET_NAME_LEN);
                 emit_byte((uint8_t)sum_slot);
-                emit_byte((uint8_t)lit_idx);
 
                 emit_bytes(OP_SET_LOCAL, (uint8_t)sum_slot);
                 break;
@@ -3356,10 +3483,20 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                     if (!b->right || b->right->type != ExpressionNode::EXPRESSION_CALL) return false;
                     CallExpression* call = (CallExpression*)b->right;
                     if (call->base_object) return false;
-                    if (call->arguments.size() != 1 || call->arguments[0]->type != ExpressionNode::VARIABLE) return false;
+                    if (call->arguments.size() != 1) return false;
+                    // Support both direct variable and nested call (e.g., dict(keys(i)))
+                    ExpressionNode* arg = call->arguments[0];
+                    if (arg->type == ExpressionNode::VARIABLE) {
+                        idx_name = ((VariableNode*)arg)->name.to_lower();
+                    } else if (arg->type == ExpressionNode::EXPRESSION_CALL) {
+                        CallExpression* nested = (CallExpression*)arg;
+                        if (nested->arguments.size() != 1 || nested->arguments[0]->type != ExpressionNode::VARIABLE) return false;
+                        idx_name = ((VariableNode*)nested->arguments[0])->name.to_lower();
+                    } else {
+                        return false;
+                    }
                     sum_name = s->name;
                     container_name = call->method_name;
-                    idx_name = ((VariableNode*)call->arguments[0])->name.to_lower();
                     return true;
                 };
 
@@ -3381,30 +3518,22 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                 matched_array_dict = try_match_simple_array_dict(sum_var, arr_var, dict_var, iter_var);
             }
             if (matched_array_dict) {
-                // sum = sum + (sum(arr) + sum(dict)) * iterations
+                // sum = sum + (sum_array(arr) + sum_dict(dict)) * iterations
                 VariableNode arr_node;
                 arr_node.name = arr_var;
                 compile_expression(&arr_node);
                 emit_byte(OP_SUM_ARRAY_I64);
 
-                VariableNode arr_node_dict;
-                arr_node_dict.name = arr_var;
-                compile_expression(&arr_node_dict);
-                emit_byte(OP_SUM_DICT_I64);
-
-                emit_byte(OP_ADD_I64);
-
-                VariableNode dict_node;
-                dict_node.name = dict_var;
-                compile_expression(&dict_node);
-                emit_byte(OP_SUM_DICT_I64);
-
-                VariableNode dict_node_arr;
-                dict_node_arr.name = dict_var;
-                compile_expression(&dict_node_arr);
-                emit_byte(OP_SUM_ARRAY_I64);
-
-                emit_byte(OP_ADD_I64);
+                // Check if dict is a sole-owner VGDict or regular Dictionary
+                int dict_slot = get_or_add_local(dict_var, VT_UNKNOWN);
+                if (is_sole_owner_dict_var(dict_var) && dict_slot >= 0 && dict_slot < 16) {
+                    emit_bytes(OP_SUM_VGDICT_ALL_I64, (uint8_t)dict_slot);
+                } else {
+                    VariableNode dict_node;
+                    dict_node.name = dict_var;
+                    compile_expression(&dict_node);
+                    emit_byte(OP_SUM_DICT_I64);
+                }
 
                 emit_byte(OP_ADD_I64);
 
