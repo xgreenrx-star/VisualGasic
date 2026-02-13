@@ -1484,6 +1484,63 @@ void VisualGasicInstance::dispatch_builtin_call(const String &p_method, const Ar
         r_found = handled;
         return;
     }
+    
+    // Drawing commands — require owner to be a CanvasItem
+    if (owner) {
+        CanvasItem *ci = Object::cast_to<CanvasItem>(owner);
+        if (ci) {
+            if (p_method.nocasecmp_to("DrawString") == 0 && p_args.size() >= 4) {
+                String text = p_args[0];
+                float x = p_args[1];
+                float y = p_args[2];
+                Color col = p_args[3];
+                int font_size = 16;
+                if (p_args.size() > 4) font_size = (int)p_args[4];
+                Ref<Font> font = ThemeDB::get_singleton()->get_fallback_font();
+                ci->draw_string(font, Vector2(x, y + font_size), text, HorizontalAlignment::HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, col);
+                r_found = true;
+                return;
+            }
+            if (p_method.nocasecmp_to("DrawText") == 0 && p_args.size() >= 2) {
+                Vector2 pos = p_args[0];
+                String text = p_args[1];
+                Color col = Color(1,1,1,1);
+                if (p_args.size() > 2) col = p_args[2];
+                Ref<Font> font = ThemeDB::get_singleton()->get_fallback_font();
+                ci->draw_string(font, pos, text, HorizontalAlignment::HORIZONTAL_ALIGNMENT_LEFT, -1, 16, col);
+                r_found = true;
+                return;
+            }
+            if (p_method.nocasecmp_to("DrawLine") == 0 && p_args.size() >= 4) {
+                float x1 = p_args[0], y1 = p_args[1], x2 = p_args[2], y2 = p_args[3];
+                Color col = Color(1,1,1,1);
+                float width = 1.0;
+                if (p_args.size() > 4) col = p_args[4];
+                if (p_args.size() > 5) width = p_args[5];
+                ci->draw_line(Vector2(x1, y1), Vector2(x2, y2), col, width);
+                r_found = true;
+                return;
+            }
+            if (p_method.nocasecmp_to("DrawRect") == 0 && p_args.size() >= 4) {
+                float x = p_args[0], y = p_args[1], w = p_args[2], h = p_args[3];
+                Color col = Color(1,1,1,1);
+                bool filled = true;
+                if (p_args.size() > 4) col = p_args[4];
+                if (p_args.size() > 5) filled = (bool)p_args[5];
+                ci->draw_rect(Rect2(x, y, w, h), col, filled);
+                r_found = true;
+                return;
+            }
+            if (p_method.nocasecmp_to("DrawCircle") == 0 && p_args.size() >= 3) {
+                float x = p_args[0], y = p_args[1], radius = p_args[2];
+                Color col = Color(1,1,1,1);
+                if (p_args.size() > 3) col = p_args[3];
+                ci->draw_circle(Vector2(x, y), radius, col);
+                r_found = true;
+                return;
+            }
+        }
+    }
     r_found = false;
 }
 
@@ -4131,10 +4188,23 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                                  a[i] = create(d, depth+1, type_name, prototypes);
                              }
                          } else {
-                             // Leaf
+                             // Leaf — initialize with correct typed default
                              if (!type_name.is_empty() && prototypes.has(type_name)) {
                                  for(int i=0; i<size; i++) {
                                      a[i] = ((Dictionary)prototypes[type_name]).duplicate(true);
+                                 }
+                             } else if (!type_name.is_empty()) {
+                                 String tn = type_name.to_lower();
+                                 Variant def_val;
+                                 if (tn == "integer" || tn == "long" || tn == "int") def_val = (int64_t)0;
+                                 else if (tn == "single" || tn == "double" || tn == "float") def_val = 0.0;
+                                 else if (tn == "string") def_val = String("");
+                                 else if (tn == "boolean" || tn == "bool") def_val = false;
+                                 // Only fill if we have a non-null default
+                                 if (def_val.get_type() != Variant::NIL) {
+                                     for(int i=0; i<size; i++) {
+                                         a[i] = def_val;
+                                     }
                                  }
                              }
                          }
@@ -5484,22 +5554,27 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                                String text = call_args[1];
                                Color col = Color(1,1,1,1);
                                if (call_args.size() > 2) col = call_args[2];
-                               
-                               // Get Default Font?
-                               // ThemeDB does not exist in 4.x GDExtension bindings yet sometimes?
-                               // Or maybe use Label's default font.
-                               // Let's rely on CanvasItem default font logic which requires a font to be passed.
-                               // Use ThemeDB::get_singleton()->get_fallback_font()
-                               Ref<Font> font;
-                               // We need to support loading font or uses default.
-                               // For now, let's skip font arg and use a simple debug approach.
-                               // If we can't get a font, we can't draw string easily in GDExtension without creating one.
-                               // Actually, let's try to load a default font if user didn't provide one?
-                               // Or just expose "LoadFont".
-                               
-                               // For this iteration, let's assume we need a font to draw string properly or it might fail/print nothing.
-                               // But wait, Debug draw usually works.
-                               ci->draw_string(Ref<Font>(), pos, text, HorizontalAlignment::HORIZONTAL_ALIGNMENT_LEFT, -1, 16, col);
+                               Ref<Font> font = ThemeDB::get_singleton()->get_fallback_font();
+                               ci->draw_string(font, pos, text, HorizontalAlignment::HORIZONTAL_ALIGNMENT_LEFT, -1, 16, col);
+                          }
+                     }
+                     break;
+                }
+
+                // DrawString text, x, y, color, [fontSize]
+                if (s->method_name.nocasecmp_to("DrawString") == 0 && call_args.size() >= 4) {
+                     if (owner) {
+                          CanvasItem *ci = Object::cast_to<CanvasItem>(owner);
+                          if (ci) {
+                               String text = call_args[0];
+                               float x = call_args[1];
+                               float y = call_args[2];
+                               Color col = call_args[3];
+                               int font_size = 16;
+                               if (call_args.size() > 4) font_size = (int)call_args[4];
+                               Ref<Font> font = ThemeDB::get_singleton()->get_fallback_font();
+                               // Godot's draw_string y is baseline, offset down by font_size for top-left origin
+                               ci->draw_string(font, Vector2(x, y + font_size), text, HorizontalAlignment::HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, col);
                           }
                      }
                      break;
