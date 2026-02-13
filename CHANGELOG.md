@@ -5,6 +5,23 @@ All notable changes to Visual Gasic will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5] - February 2026
+
+### Fixed - StringConcat Performance Breakthrough 🚀
+- **StringConcat**: 169,112 µs → **85 µs** (1,990× improvement) — now **62× faster than GDScript**, **8× faster than C++**
+  - Removed `variables.duplicate(true)` deep-copy from `call_internal()` — was copying the entire variables Dictionary (hundreds of entries including all VB6 constants) on every function call
+  - Gated `locals→variables` flush on `success` in `execute_bytecode()` cleanup — on failure the Dictionary stays clean, eliminating the need for rollback copies
+  - Replaced runtime DimScanner AST walk with pre-computed `BytecodeChunk::local_names` — O(locals) instead of O(AST nodes) per function call
+  - Reused the `get_bytecode_for()` lookup from local-save to avoid a redundant hash-table probe
+
+### Fixed - Bytecode Optimizer Bug
+- **OP_STRING_REPEAT_OUTER**: Instruction size was 2 in the peephole optimizer, should be 3 (`[OP] [slot] [lit_idx]`). The wrong size caused the optimizer to misparse bytecode after fused string operations, accidentally deleting a `GET_LOCAL` instruction needed by `Len(s)`, which made bytecode fail silently and fall back to the AST interpreter for the entire function.
+- **OP_STRING_REPEAT**: Instruction size was 2 in the peephole optimizer, should be 1 (stack-only, no operand bytes).
+
+### Performance - All 11 Benchmarks Faster Than GDScript
+- Visual Gasic now beats GDScript on **every** benchmark in the suite
+- Top performers: Branching 65.6×, StringConcat 62×, Interop 35.4×, Allocations 19.1×
+
 ## [2.4.2] - June 2025
 
 ### Fixed - Benchmark Loop Fusion Bugs

@@ -15,30 +15,30 @@
 
 ## Performance Snapshot
 
-VisualGasic targets high performance in tight loops and engine interop while keeping Gasic-style ergonomics. Below is a snapshot from the built‑in benchmark suite (Godot 4.5.1 headless). Full results and methodology are in [docs/manual/performance.md](docs/manual/performance.md).
+VisualGasic targets high performance in tight loops and engine interop while keeping Gasic-style ergonomics. Below is a snapshot from the built‑in benchmark suite (Godot 4.5.1 headless, v2.5). All 11 benchmarks faster than GDScript. Full results and methodology are in [docs/manual/performance.md](docs/manual/performance.md).
 
 ```mermaid
 xychart-beta
     title "StringConcat (us)"
     x-axis ["Visual Gasic","C++","GDScript"]
     y-axis "Elapsed (us)" 0 --> 6000
-    bar [19,676,5460]
+    bar [85,688,5278]
 ```
 
 ```mermaid
 xychart-beta
     title "ArrayDict (us)"
     x-axis ["Visual Gasic","C++","GDScript"]
-    y-axis "Elapsed (us)" 0 --> 16000
-    bar [2325,9298,14373]
+    y-axis "Elapsed (us)" 0 --> 12000
+    bar [10180,4086,10833]
 ```
 
 ```mermaid
 xychart-beta
     title "FileIO (us)"
     x-axis ["Visual Gasic","C++","GDScript"]
-    y-axis "Elapsed (us)" 0 --> 300
-    bar [195,168,264]
+    y-axis "Elapsed (us)" 0 --> 1200
+    bar [635,410,1040]
 ```
 
 ## Advanced Type System

@@ -6196,38 +6196,54 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
     if (func->type == SubDefinition::TYPE_FUNCTION) {
         if (variables.has(func->name)) saved_locals[func->name] = variables[func->name];
     }
-    // Recursively scan for Dim'd variables in all nested blocks
-    struct DimScanner {
-        static void scan(const Vector<Statement*>& stmts, Dictionary& vars, const Dictionary& all_vars) {
-            for(int i=0; i<stmts.size(); i++) {
-                if (!stmts[i]) continue;
-                if (stmts[i]->type == STMT_DIM) {
-                    DimStatement* ds = (DimStatement*)stmts[i];
-                    if (all_vars.has(ds->variable_name))
-                        vars[ds->variable_name] = all_vars[ds->variable_name];
-                } else if (stmts[i]->type == STMT_IF) {
-                    IfStatement* ifs = (IfStatement*)stmts[i];
-                    scan(ifs->then_branch, vars, all_vars);
-                    scan(ifs->else_branch, vars, all_vars);
-                } else if (stmts[i]->type == STMT_FOR) {
-                    ForStatement* fs = (ForStatement*)stmts[i];
-                    if (all_vars.has(fs->variable_name))
-                        vars[fs->variable_name] = all_vars[fs->variable_name];
-                    scan(fs->body, vars, all_vars);
-                } else if (stmts[i]->type == STMT_WHILE) {
-                    scan(((WhileStatement*)stmts[i])->body, vars, all_vars);
-                } else if (stmts[i]->type == STMT_DO) {
-                    scan(((DoStatement*)stmts[i])->body, vars, all_vars);
-                } else if (stmts[i]->type == STMT_FOR_EACH) {
-                    ForEachStatement* fes = (ForEachStatement*)stmts[i];
-                    if (all_vars.has(fes->variable_name))
-                        vars[fes->variable_name] = all_vars[fes->variable_name];
-                    scan(fes->body, vars, all_vars);
-                }
+
+    // v2.5: Use pre-computed local_names from bytecode instead of walking
+    // the AST at runtime.  The compiler already collects every Dim/For/
+    // ForEach variable name into BytecodeChunk::local_names, so we can
+    // just iterate that flat vector — O(locals) instead of O(AST nodes).
+    BytecodeChunk *chunk_for_locals = script.is_valid() ? script->get_bytecode_for(func->name) : nullptr;
+    if (chunk_for_locals) {
+        for (int i = 0; i < chunk_for_locals->local_names.size(); i++) {
+            const String &lname = chunk_for_locals->local_names[i];
+            if (!lname.is_empty() && variables.has(lname)) {
+                saved_locals[lname] = variables[lname];
             }
         }
-    };
-    DimScanner::scan(func->statements, saved_locals, variables);
+    } else {
+        // Fallback: AST-only path (no bytecode compiled for this function).
+        // Recursively scan for Dim'd variables in all nested blocks.
+        struct DimScanner {
+            static void scan(const Vector<Statement*>& stmts, Dictionary& vars, const Dictionary& all_vars) {
+                for(int i=0; i<stmts.size(); i++) {
+                    if (!stmts[i]) continue;
+                    if (stmts[i]->type == STMT_DIM) {
+                        DimStatement* ds = (DimStatement*)stmts[i];
+                        if (all_vars.has(ds->variable_name))
+                            vars[ds->variable_name] = all_vars[ds->variable_name];
+                    } else if (stmts[i]->type == STMT_IF) {
+                        IfStatement* ifs = (IfStatement*)stmts[i];
+                        scan(ifs->then_branch, vars, all_vars);
+                        scan(ifs->else_branch, vars, all_vars);
+                    } else if (stmts[i]->type == STMT_FOR) {
+                        ForStatement* fs = (ForStatement*)stmts[i];
+                        if (all_vars.has(fs->variable_name))
+                            vars[fs->variable_name] = all_vars[fs->variable_name];
+                        scan(fs->body, vars, all_vars);
+                    } else if (stmts[i]->type == STMT_WHILE) {
+                        scan(((WhileStatement*)stmts[i])->body, vars, all_vars);
+                    } else if (stmts[i]->type == STMT_DO) {
+                        scan(((DoStatement*)stmts[i])->body, vars, all_vars);
+                    } else if (stmts[i]->type == STMT_FOR_EACH) {
+                        ForEachStatement* fes = (ForEachStatement*)stmts[i];
+                        if (all_vars.has(fes->variable_name))
+                            vars[fes->variable_name] = all_vars[fes->variable_name];
+                        scan(fes->body, vars, all_vars);
+                    }
+                }
+            }
+        };
+        DimScanner::scan(func->statements, saved_locals, variables);
+    }
     
     // Arguments
     int max_params = func->parameters.size();
@@ -6291,19 +6307,15 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
 
     bool used_bytecode = false;
     Variant bytecode_ret;
-    Dictionary bytecode_variables_backup;
     ErrorState bytecode_error_backup = error_state;
-    bool has_backup = false;
-    if (script.is_valid()) {
-        BytecodeChunk *chunk = script->get_bytecode_for(func->name);
-        if (chunk) {
-            bytecode_variables_backup = variables.duplicate(true);
-            has_backup = true;
-            used_bytecode = execute_bytecode(chunk, func, bytecode_ret);
-            if (!used_bytecode && has_backup) {
-                variables = bytecode_variables_backup;
-                error_state = bytecode_error_backup;
-            }
+    if (chunk_for_locals) {
+        // v2.5: No more variables.duplicate(true) deep copy!
+        // execute_bytecode() now only flushes locals→variables on
+        // success, so on failure the dictionary stays clean and the
+        // AST fallback can re-execute without a rollback copy.
+        used_bytecode = execute_bytecode(chunk_for_locals, func, bytecode_ret);
+        if (!used_bytecode) {
+            error_state = bytecode_error_backup;
         }
     }
 
@@ -10055,7 +10067,11 @@ cleanup:
     // When fast-path was active (needs_var_sync == false), locals were NOT
     // written to the variables[] Dictionary during execution.  Flush them
     // now so that the caller / AST interpreter can read the final values.
-    if (!needs_var_sync) {
+    // IMPORTANT: Only flush on success.  On failure the AST fallback will
+    // re-execute the function from scratch, so we must leave variables[]
+    // untouched.  This eliminates the need for variables.duplicate(true)
+    // in call_internal() — the single biggest performance bottleneck.
+    if (success && !needs_var_sync) {
         for (int i = 0; i < locals.size() && i < chunk->local_names.size(); i++) {
             const String &name = chunk->local_names[i];
             if (!name.is_empty()) {

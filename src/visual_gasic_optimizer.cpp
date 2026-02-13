@@ -38,6 +38,7 @@ int VisualGasicOptimizer::instruction_size(const Vector<uint8_t>& code, int ip) 
         case OP_ON_ERROR_RESUME_NEXT: case OP_ON_ERROR_GOTO_0:
         case OP_NIL: case OP_TRUE: case OP_FALSE:
         case OP_NOP:
+        case OP_STRING_REPEAT:   // stack-only: pops 2, pushes 1
             return 1;
 
         // 2-byte instructions (opcode + 1 operand)
@@ -50,7 +51,6 @@ int VisualGasicOptimizer::instruction_size(const Vector<uint8_t>& code, int ip) 
         case OP_ON_ERROR_GOTO:
         case OP_INC_LOCAL_I64:
         case OP_SUM_ARRAY_I64: case OP_SUM_DICT_I64:
-        case OP_STRING_REPEAT: case OP_STRING_REPEAT_OUTER:
             return 2;
 
         // 3-byte instructions (opcode + 2 operands)
@@ -68,6 +68,7 @@ int VisualGasicOptimizer::instruction_size(const Vector<uint8_t>& code, int ip) 
         case OP_ADD_LOCAL_I64_CONST: case OP_SUB_LOCAL_I64_CONST:
         case OP_ARITH_SUM: case OP_BRANCH_SUM:
         case OP_INTEROP_SET_NAME_LEN:
+        case OP_STRING_REPEAT_OUTER: // [OP] [SLOT] [LIT_IDX]
         case OP_DEBUG_LINE:
             return 3;
 

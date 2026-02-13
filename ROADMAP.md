@@ -1,7 +1,7 @@
 # Visual Gasic Development Roadmap
 
-**Last Updated**: June 2025  
-**Current Version**: 2.4.2 (Benchmark Fusion Fixes)
+**Last Updated**: February 2026  
+**Current Version**: 2.5 (StringConcat Breakthrough)
 
 This document outlines the planned improvements and features for Visual Gasic. Items are prioritized by impact and development effort.
 

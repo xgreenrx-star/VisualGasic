@@ -233,7 +233,7 @@ VisualGasic welcomes contributions! Please see our [Contributing Guide](CONTRIBU
 
 ## 📊 **Project Status**
 
-**Current Version**: 2.4.2 (Performance & Correctness Release)
+**Current Version**: 2.5 (StringConcat Breakthrough)
 
 **Completion Status**:
 - ✅ **Core Language** - 100% (Full VB6 compatibility + class inheritance)
@@ -246,12 +246,11 @@ VisualGasic welcomes contributions! Please see our [Contributing Guide](CONTRIBU
 - ✅ **Form Templates** - 100% (23 templates: VB6, Game, Platform, Custom)
 - ✅ **Game Demos** - 100% (Galactic Defender tower defense showcase)
 - ✅ **Documentation** - 100% (Comprehensive guides and references)
-- ✅ **Performance** - 10/11 benchmarks faster than GDScript (up to 47× faster)
+- ✅ **Performance** - 11/11 benchmarks faster than GDScript (up to 65× faster)
 
 ### 🚧 Coming Soon
 
 See [ROADMAP.md](ROADMAP.md) for the full development roadmap:
-- **StringConcat Optimization** - Eliminate deep-copy overhead in VG function calls
 - **Form Preview** - Run individual forms without launching the full game
 - **Asset Library** - Publish to Godot Asset Library
 

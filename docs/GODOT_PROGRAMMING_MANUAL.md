@@ -301,14 +301,14 @@ Access via **Project > Tools**:
 
 ## Performance Best Practices {#performance}
 
-VisualGasic focuses on high performance in hot paths while preserving Gasic-style readability. Below is a benchmark snapshot (Godot 4.5.1 headless). See the full report and methodology in [docs/manual/performance.md](docs/manual/performance.md).
+VisualGasic focuses on high performance in hot paths while preserving Gasic-style readability. Below is a benchmark snapshot (Godot 4.5.1 headless, v2.5). All 11 benchmarks faster than GDScript. See the full report and methodology in [docs/manual/performance.md](docs/manual/performance.md).
 
 ```mermaid
 xychart-beta
     title "Branching (us)"
     x-axis ["Visual Gasic","C++","GDScript"]
-    y-axis "Elapsed (us)" 0 --> 7000
-    bar [142,212,6726]
+    y-axis "Elapsed (us)" 0 --> 8000
+    bar [108,221,7083]
 ```
 
 ```mermaid
@@ -316,7 +316,7 @@ xychart-beta
     title "Interop (us)"
     x-axis ["Visual Gasic","C++","GDScript"]
     y-axis "Elapsed (us)" 0 --> 9000
-    bar [209,7720,8368]
+    bar [238,7626,8427]
 ```
 
 ```mermaid
@@ -324,7 +324,7 @@ xychart-beta
     title "Allocations (us)"
     x-axis ["Visual Gasic","C++","GDScript"]
     y-axis "Elapsed (us)" 0 --> 8000
-    bar [368,878,7101]
+    bar [363,886,6921]
 ```
 
 ### Your First VisualGasic Godot Script
