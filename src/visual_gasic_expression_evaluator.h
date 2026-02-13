@@ -14,6 +14,9 @@
 using namespace godot;
 using namespace VisualGasic;
 
+// Forward declaration
+class VisualGasicInstance;
+
 class VisualGasicExpressionEvaluator {
 public:
     // Context struct to provide access to variables, owner, etc.
@@ -25,7 +28,7 @@ public:
         String& dir_pattern;
         bool& option_compare_text;
         Vector<Variant>& with_stack;
-        // Add more as needed
+        VisualGasicInstance* instance; // For VG class instance member access
     };
 
     static Variant evaluate(ExpressionNode* expr, Context& ctx);

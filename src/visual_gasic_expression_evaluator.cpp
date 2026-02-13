@@ -1,4 +1,5 @@
 #include "visual_gasic_expression_evaluator.h"
+#include "visual_gasic_instance.h"
 
 #include <godot_cpp/classes/node.hpp>
 #include <godot_cpp/classes/node2d.hpp>
@@ -103,6 +104,16 @@ Variant VisualGasicExpressionEvaluator::evaluate(ExpressionNode* expr, Context& 
     if (expr->type == ExpressionNode::MEMBER_ACCESS) {
         MemberAccessNode* ma = (MemberAccessNode*)expr;
         Variant base = evaluate(ma->base_object, ctx);
+        
+        // VG class instance (object ID is an integer)
+        if (base.get_type() == Variant::INT && ctx.instance) {
+            int obj_id = (int)base;
+            Variant ret;
+            if (ctx.instance->get_object_member(obj_id, ma->member_name, ret)) {
+                return ret;
+            }
+        }
+        
         if (base.get_type() == Variant::DICTIONARY) {
             Dictionary d = base;
             if (d.has(ma->member_name)) return d[ma->member_name];

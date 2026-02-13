@@ -9390,6 +9390,15 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 Variant base = pop_value();
                 
                 Variant result;
+                // VG class instance (object ID is an integer)
+                if (base.get_type() == Variant::INT) {
+                    int obj_id = (int)base;
+                    if (object_instances.has(obj_id)) {
+                        get_object_member(obj_id, cache.primary_string, result);
+                        push_value(result);
+                        break;
+                    }
+                }
                 if (base.get_type() == Variant::DICTIONARY) {
                     const Dictionary *dict = VariantInternal::get_dictionary(&base);
                     result = dict->get(cache.primary_string, Variant());
@@ -9560,6 +9569,15 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 MemberNameCacheEntry &cache = ensure_member_cache_entry(member_idx);
                 Variant value = pop_value();
                 Variant base = pop_value();
+                // VG class instance (object ID is an integer)
+                if (base.get_type() == Variant::INT) {
+                    int obj_id = (int)base;
+                    if (object_instances.has(obj_id)) {
+                        set_object_member(obj_id, cache.primary_string, value);
+                        push_value(base);  // Push base back (object ID unchanged)
+                        break;
+                    }
+                }
                 if (base.get_type() == Variant::DICTIONARY) {
                     Dictionary *dict = VariantInternal::get_dictionary(&base);
                     (*dict)[cache.primary_string] = value;

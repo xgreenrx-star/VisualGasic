@@ -1,0 +1,68 @@
+' Test member assignment on VG class instances
+' This reproduces the "Member assignment failed" error
+
+Class Enemy
+    Public x As Single
+    Public y As Single
+    Public alive As Boolean
+    Public health As Integer
+
+    Sub Class_Initialize()
+        x = 0
+        y = 0
+        alive = True
+        health = 100
+    End Sub
+End Class
+
+Sub Main()
+    Print "=== Member Assignment Test ==="
+
+    ' Test 1: Direct New (no Select Case)
+    Print "Test 1: Direct New..."
+    Dim e1 As Variant = New Enemy
+    Print "  e1 type created, setting x..."
+    e1.x = 42.5
+    Dim readback As Variant = e1.x
+    Print "  readback = " & CStr(readback)
+    Dim rx As Variant = e1.x
+    Print "  rx = " & CStr(rx)
+    e1.y = 99.0
+    Print "  e1.y = " & Str(e1.y)
+    Print "  Test 1 PASSED"
+
+    ' Test 2: New inside Select Case (this is what Galactic Defender does)
+    Print "Test 2: New inside Select Case..."
+    Dim eName As String = "Scout"
+    Dim e2 As Variant
+    Select Case eName
+        Case "Scout"
+            e2 = New Enemy
+        Case Else
+            e2 = New Enemy
+    End Select
+    Print "  e2 created via Select Case, setting x..."
+    e2.x = 100.0
+    Print "  e2.x = " & Str(e2.x)
+    e2.y = 200.0
+    Print "  e2.y = " & Str(e2.y)
+    Print "  Test 2 PASSED"
+
+    ' Test 3: Store in array and access member
+    Print "Test 3: Array element member access..."
+    Dim enemies(10) As Variant
+    enemies(0) = New Enemy
+    enemies(0).x = 50.0
+    Print "  enemies(0).x = " & Str(enemies(0).x)
+    Print "  Test 3 PASSED"
+
+    ' Test 4: Read from array into local var, modify, write back
+    Print "Test 4: Array element copy and modify..."
+    Dim e3 As Variant = enemies(0)
+    e3.x = 75.0
+    enemies(0) = e3
+    Print "  enemies(0).x = " & Str(enemies(0).x)
+    Print "  Test 4 PASSED"
+
+    Print "=== All Tests PASSED ==="
+End Sub
