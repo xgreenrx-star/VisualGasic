@@ -1829,6 +1829,14 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
              return Variant();
          }
          
+         // Color.White, Color.Red, etc. — named color constants
+         if (ma->base_object->type == ExpressionNode::VARIABLE) {
+             String base_name = ((VariableNode*)ma->base_object)->name;
+             if (base_name == "Color") {
+                 return Color::named(ma->member_name);
+             }
+         }
+         
          Variant base = evaluate_expression(ma->base_object);
          
          // VG class instance (object ID is an integer)
@@ -2743,12 +2751,20 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
         if (call->method_name == "Rect2" && call_args.size() == 4) {
             return Rect2(call_args[0], call_args[1], call_args[2], call_args[3]);
         }
-        if (call->method_name == "Color" && call_args.size() >= 3) {
-            float r = call_args[0];
-            float g = call_args[1];
-            float b = call_args[2];
-            float a = call_args.size() > 3 ? (float)call_args[3] : 1.0f;
-            return Color(r, g, b, a);
+        if (call->method_name == "Color") {
+            if (call_args.size() == 1 && call_args[0].get_type() == Variant::STRING) {
+                String s = call_args[0];
+                if (s.begins_with("#")) return Color::html(s);
+                return Color::named(s);
+            }
+            if (call_args.size() >= 3) {
+                float r = call_args[0];
+                float g = call_args[1];
+                float b = call_args[2];
+                float a = call_args.size() > 3 ? (float)call_args[3] : 1.0f;
+                return Color(r, g, b, a);
+            }
+            return Color();
         }
 
         // Math Library

@@ -63,10 +63,14 @@ Array VisualGasicLinter::analyze(const ModuleNode* root) {
     Array result;
     for (int i = 0; i < warnings.size(); i++) {
         Dictionary w;
-        w["line"] = warnings[i].line;
-        w["column"] = warnings[i].column;
+        w["start_line"] = warnings[i].line;
+        w["end_line"] = warnings[i].line;
+        w["leftmost_column"] = warnings[i].column;
+        w["rightmost_column"] = warnings[i].column;
         w["message"] = warnings[i].message;
         w["code"] = warnings[i].code;
+        w["string_code"] = warnings[i].code;
+        w["severity"] = 1; // WARNING
         result.push_back(w);
     }
     return result;

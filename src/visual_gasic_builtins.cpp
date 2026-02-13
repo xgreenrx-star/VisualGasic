@@ -350,6 +350,15 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
     if (METHOD_IS("color")) {
         r_handled = true;
         if (args.size() == 0) return Color();
+        if (args.size() == 1) {
+            // Color("#hex") or Color("named")
+            if (args[0].get_type() == Variant::STRING) {
+                String s = args[0];
+                if (s.begins_with("#")) return Color::html(s);
+                return Color::named(s);
+            }
+            return Color();
+        }
         if (args.size() == 3) return Color((float)(double)args[0], (float)(double)args[1], (float)(double)args[2]);
         if (args.size() == 4) return Color((float)(double)args[0], (float)(double)args[1], (float)(double)args[2], (float)(double)args[3]);
         return Color();

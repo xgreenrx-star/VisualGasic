@@ -104,6 +104,15 @@ Variant VisualGasicExpressionEvaluator::evaluate(ExpressionNode* expr, Context& 
     }
     if (expr->type == ExpressionNode::MEMBER_ACCESS) {
         MemberAccessNode* ma = (MemberAccessNode*)expr;
+        
+        // Color.White, Color.Red, etc. — named color constants
+        if (ma->base_object->type == ExpressionNode::VARIABLE) {
+            String base_name = ((VariableNode*)ma->base_object)->name;
+            if (base_name == "Color") {
+                return Color::named(ma->member_name);
+            }
+        }
+        
         Variant base = evaluate(ma->base_object, ctx);
         
         // VG class instance (object ID is an integer)
