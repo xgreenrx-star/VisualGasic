@@ -1116,6 +1116,14 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
             
             for(int i=0; i<vs->ast_root->variables.size(); i++) {
                  VariableDefinition *v = vs->ast_root->variables[i];
+                 
+                 // Skip array declarations — they are handled by the
+                 // DimStatement in global_statements which correctly evaluates
+                 // constant expressions like MAX_PARTICLES for array sizes.
+                 if (v->array_sizes.size() > 0) {
+                     continue;
+                 }
+                 
                  // Initialize to Correct Type
                  String t = v->type.to_lower();
                  if (t == "integer" || t == "long") variables[v->name] = (int)0;
@@ -1125,6 +1133,21 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
                  else variables[v->name] = Variant(); // Init to Empty (Nil)
                  
                  UtilityFunctions::print("Initialized Global Var: ", v->name);
+            }
+            
+            // Initialize constants FIRST so that array Dim sizes
+            // (e.g. Dim arr(MAX_PARTICLES)) can reference them
+            for(int ci=0; ci<vs->ast_root->constants.size(); ci++) {
+                ConstStatement* c = vs->ast_root->constants[ci];
+                Variant val = evaluate_expression(c->value);
+                variables[c->name] = val;
+            }
+            // Initialize enums early too (they are effectively constants)
+            for(int ei=0; ei<vs->ast_root->enums.size(); ei++) {
+                EnumDefinition* ed = vs->ast_root->enums[ei];
+                for(int em=0; em<ed->values.size(); em++) {
+                    variables[ed->values[em].name] = ed->values[em].value;
+                }
             }
             
             // Also execute global statements (like Dims not captured in definitions, or Options)

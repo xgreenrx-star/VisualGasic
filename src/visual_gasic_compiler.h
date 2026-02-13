@@ -42,6 +42,10 @@ private:
     HashMap<String, int> expr_cache;
     Vector<String> loop_vars;
     Vector<String> loop_bound_vars;
+    // Stack of pending exit-jump addresses for Exit For / Exit Do.
+    // Each entry is a list of jump offsets that must be patched to
+    // point past the enclosing loop once it finishes compiling.
+    Vector<Vector<int>> loop_exit_jumps;
     int temp_local_id = 0;
     SubDefinition* current_sub = nullptr;
     ModuleNode* current_module = nullptr;

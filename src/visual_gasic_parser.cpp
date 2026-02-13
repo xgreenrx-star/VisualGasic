@@ -222,9 +222,10 @@ ModuleNode* VisualGasicParser::parse(const Vector<VisualGasicTokenizer::Token>& 
                  module->variables.push_back(v);
                  unregister_node(v);
                  
-                 // If DimStatement has an initializer, also add it to global_statements
-                 // so the initialization expression gets executed
-                 if (dim->initializer) {
+                 // If DimStatement has an initializer or array sizes, also add it to global_statements
+                 // so the initialization expression gets executed at runtime
+                 // (array sizes may reference constants like MAX_PARTICLES that need evaluation)
+                 if (dim->initializer || dim->array_sizes.size() > 0) {
                      module->global_statements.push_back(dim);
                      unregister_node(dim);
                  } else {

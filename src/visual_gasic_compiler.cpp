@@ -273,6 +273,15 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
     // This ensures global Variant variables can change types correctly
     for (int i = 0; i < module->variables.size(); i++) {
         non_local_names.insert(module->variables[i]->name.to_lower());
+        // Register global arrays / dictionaries so the compiler can
+        // distinguish  foo(i)  as an array access vs. a function call.
+        if (module->variables[i]->array_sizes.size() > 0) {
+            array_vars.insert(module->variables[i]->name.to_lower());
+        }
+        String vtype = module->variables[i]->type.to_lower();
+        if (vtype == "dictionary") {
+            dictionary_vars.insert(module->variables[i]->name.to_lower());
+        }
     }
 
     if (current_sub && current_sub->name.nocasecmp_to("BenchFileIO") == 0 && sub->parameters.size() >= 2) {
@@ -3562,6 +3571,7 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             String loop_bound = extract_bound_var(f->to_val);
             loop_vars.push_back(f->variable_name);
             loop_bound_vars.push_back(loop_bound);
+            loop_exit_jumps.push_back(Vector<int>());
 
             ValueType declared_type = get_local_type(f->variable_name);
             ValueType init_type = declared_type != VT_UNKNOWN ? declared_type : infer_type(f->from_val);
@@ -3755,6 +3765,14 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
 
             emit_loop(loop_start);
             patch_jump(exit_jump);
+            // Patch any Exit For jumps collected during this loop body
+            if (!loop_exit_jumps.is_empty()) {
+                const Vector<int> &exits = loop_exit_jumps[loop_exit_jumps.size() - 1];
+                for (int ei = 0; ei < exits.size(); ei++) {
+                    patch_jump(exits[ei]);
+                }
+                loop_exit_jumps.remove_at(loop_exit_jumps.size() - 1);
+            }
             loop_vars.remove_at(loop_vars.size() - 1);
             loop_bound_vars.remove_at(loop_bound_vars.size() - 1);
             break;
@@ -3766,6 +3784,7 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                 break;
             }
             
+            loop_exit_jumps.push_back(Vector<int>());
             int loop_start = current_chunk->code.size();
             
             compile_expression(s->condition);
@@ -3777,6 +3796,13 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             
             emit_loop(loop_start);
             patch_jump(exit_jump);
+            if (!loop_exit_jumps.is_empty()) {
+                const Vector<int> &exits = loop_exit_jumps[loop_exit_jumps.size() - 1];
+                for (int ei = 0; ei < exits.size(); ei++) {
+                    patch_jump(exits[ei]);
+                }
+                loop_exit_jumps.remove_at(loop_exit_jumps.size() - 1);
+            }
             break;
         }
         case STMT_IF: {
@@ -3843,6 +3869,12 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             ExitStatement *s = (ExitStatement *)stmt;
             if (s->exit_type == ExitStatement::EXIT_FUNCTION || s->exit_type == ExitStatement::EXIT_SUB) {
                 emit_return();
+            } else if ((s->exit_type == ExitStatement::EXIT_FOR || s->exit_type == ExitStatement::EXIT_DO) &&
+                       !loop_exit_jumps.is_empty()) {
+                // Emit an unconditional jump; the address will be patched
+                // when the enclosing loop finishes compiling.
+                int jump_addr = emit_jump(OP_JUMP);
+                loop_exit_jumps.write[loop_exit_jumps.size() - 1].push_back(jump_addr);
             } else {
                 UtilityFunctions::print("Compiler: Unsupported exit type", s->exit_type);
                 compile_ok = false;
@@ -4023,6 +4055,7 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             // Do...Loop statement with optional While/Until conditions
             DoStatement* s = (DoStatement*)stmt;
             
+            loop_exit_jumps.push_back(Vector<int>());
             int loop_start = current_chunk->code.size();
             
             if (!s->is_post_condition && s->condition_type != DoStatement::NONE) {
@@ -4072,6 +4105,14 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                 }
                 emit_loop(loop_start);
             }
+            // Patch any Exit Do jumps collected during this loop body
+            if (!loop_exit_jumps.is_empty()) {
+                const Vector<int> &exits = loop_exit_jumps[loop_exit_jumps.size() - 1];
+                for (int ei = 0; ei < exits.size(); ei++) {
+                    patch_jump(exits[ei]);
+                }
+                loop_exit_jumps.remove_at(loop_exit_jumps.size() - 1);
+            }
             break;
         }
         case STMT_RETURN: {
@@ -4111,6 +4152,133 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                 // On Error Goto <label>
                 int label_idx = current_chunk->add_constant(s->label_name);
                 emit_bytes(OP_ON_ERROR_GOTO, (uint8_t)label_idx);
+            }
+            break;
+        }
+        case STMT_PARALLEL_FOR: {
+            // Compile Parallel For as a regular sequential For loop.
+            // The AST interpreter uses threads, but bytecode runs it serially
+            // for simplicity and correctness.
+            ParallelForStatement* pf = (ParallelForStatement*)stmt;
+            if (!pf->start_expr || !pf->end_expr) {
+                compile_ok = false;
+                break;
+            }
+
+            loop_exit_jumps.push_back(Vector<int>());
+
+            ValueType declared_type = get_local_type(pf->variable_name);
+            ValueType init_type = declared_type != VT_UNKNOWN ? declared_type : infer_type(pf->start_expr);
+            int var_slot = get_or_add_local(pf->variable_name, init_type);
+            ValueType loop_type = declared_type != VT_UNKNOWN ? declared_type : init_type;
+
+            compile_expression(pf->start_expr);
+            if (var_slot >= 0) {
+                emit_bytes(OP_SET_LOCAL, (uint8_t)var_slot);
+            } else {
+                int var_idx = current_chunk->add_constant(pf->variable_name);
+                emit_bytes(OP_SET_GLOBAL, (uint8_t)var_idx);
+            }
+
+            int to_slot = -1;
+            if (is_constant_expr(pf->end_expr)) {
+                to_slot = get_or_add_local(String("__const_to_") + String::num_int64(temp_local_id++), infer_type(pf->end_expr));
+                emit_constant(eval_constant_expr(pf->end_expr));
+                if (to_slot >= 0) {
+                    emit_bytes(OP_SET_LOCAL, (uint8_t)to_slot);
+                }
+            }
+
+            int step_slot = -1;
+            bool has_step_const = false;
+            bool step_const_is_integral = false;
+            bool step_const_is_one = false;
+            int64_t step_const_int = 0;
+            ValueType step_expr_type = pf->step_expr ? infer_type(pf->step_expr) : loop_type;
+            if (!pf->step_expr) {
+                has_step_const = true;
+                step_const_is_integral = true;
+                step_const_is_one = true;
+                step_const_int = 1;
+            }
+
+            int loop_start = current_chunk->code.size();
+
+            if (var_slot >= 0) {
+                emit_bytes(OP_GET_LOCAL, (uint8_t)var_slot);
+            } else {
+                int var_idx = current_chunk->add_constant(pf->variable_name);
+                emit_bytes(OP_GET_GLOBAL, (uint8_t)var_idx);
+            }
+
+            if (to_slot >= 0) {
+                emit_bytes(OP_GET_LOCAL, (uint8_t)to_slot);
+            } else {
+                compile_expression(pf->end_expr);
+            }
+            ValueType to_type = infer_type(pf->end_expr);
+            bool use_int_compare = (loop_type == VT_INT && to_type != VT_FLOAT);
+            emit_byte(use_int_compare ? OP_LESS_EQUAL_I64 : OP_LESS_EQUAL);
+            int exit_jump = emit_jump(OP_JUMP_IF_FALSE);
+
+            for (int i = 0; i < pf->body.size(); i++) {
+                compile_statement(pf->body[i]);
+            }
+
+            bool inc_local_fast = (var_slot >= 0 && has_step_const && step_const_is_one && loop_type == VT_INT);
+
+            if (inc_local_fast) {
+                emit_byte(OP_INC_LOCAL_I64);
+                emit_byte((uint8_t)var_slot);
+            } else {
+                if (var_slot >= 0) {
+                    emit_bytes(OP_GET_LOCAL, (uint8_t)var_slot);
+                } else {
+                    int var_idx = current_chunk->add_constant(pf->variable_name);
+                    emit_bytes(OP_GET_GLOBAL, (uint8_t)var_idx);
+                }
+
+                if (step_slot >= 0) {
+                    emit_bytes(OP_GET_LOCAL, (uint8_t)step_slot);
+                } else if (pf->step_expr) {
+                    compile_expression(pf->step_expr);
+                } else {
+                    emit_constant(Variant((int64_t)1));
+                }
+
+                bool step_requires_float = false;
+                if (loop_type == VT_FLOAT) {
+                    step_requires_float = true;
+                } else if (!has_step_const && step_expr_type == VT_FLOAT) {
+                    step_requires_float = true;
+                } else if (has_step_const && !step_const_is_integral) {
+                    step_requires_float = true;
+                }
+                if (loop_type == VT_INT && !step_requires_float) {
+                    emit_byte(OP_ADD_I64);
+                } else if (step_requires_float) {
+                    emit_byte(OP_ADD_F64);
+                } else {
+                    emit_byte(OP_ADD);
+                }
+
+                if (var_slot >= 0) {
+                    emit_bytes(OP_SET_LOCAL, (uint8_t)var_slot);
+                } else {
+                    int var_idx = current_chunk->add_constant(pf->variable_name);
+                    emit_bytes(OP_SET_GLOBAL, (uint8_t)var_idx);
+                }
+            }
+
+            emit_loop(loop_start);
+            patch_jump(exit_jump);
+            // Patch any Exit For jumps collected during this loop body
+            if (!loop_exit_jumps.is_empty()) {
+                const Vector<int> &exits = loop_exit_jumps[loop_exit_jumps.size() - 1];
+                for (int ei = 0; ei < exits.size(); ei++) {
+                    patch_jump(exits[ei]);
+                }
+                loop_exit_jumps.remove_at(loop_exit_jumps.size() - 1);
             }
             break;
         }
