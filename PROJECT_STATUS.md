@@ -9,34 +9,29 @@ VisualGasic is a Visual Basic 6-style scripting language for Godot Engine 4.x, i
 
 ## Performance
 
-### Exceptional Performance vs GDScript ⭐
+### Benchmark Results (v2.4.2) ⭐
 
-| Operation | GDScript | VisualGasic | **Speedup** |
-|-----------|----------|-------------|-------------|
-| Arithmetic | 5,190 µs | 164 µs | **31.6× faster** |
-| Array Operations | 4,325 µs | 84 µs | **51.5× faster** |
-| String Operations | 5,422 µs | 75 µs | **72.3× faster** |
-| Control Flow | 6,777 µs | 45 µs | **150.6× faster** |
-| Memory Allocation | 10,604 µs | 1,123 µs | **9.4× faster** |
-| File I/O | 910 µs | 452 µs | **2.0× faster** |
+10 of 11 benchmarks faster than GDScript. All checksums verified.
 
-*VisualGasic even beats native C++ on string concatenation (72× vs C++'s 7.9×)*
+| Benchmark | GDScript | VisualGasic | C++ | **VG vs GDScript** |
+|-----------|----------|-------------|-----|-------------------|
+| Arithmetic | 5,197 µs | 1,470 µs | 145 µs | **3.5× faster** |
+| ArraySum | 4,513 µs | 411 µs | 467 µs | **11.0× faster** |
+| Branching | 6,726 µs | 142 µs | 212 µs | **47.4× faster** |
+| Interop | 8,368 µs | 209 µs | 7,720 µs | **40.0× faster** |
+| Allocations | 7,101 µs | 368 µs | 878 µs | **19.3× faster** |
+| ArrayDict | 10,810 µs | 10,281 µs | 4,169 µs | **1.05× faster** |
+| DictFastGet | 27,862 µs | 5,392 µs | — | **5.2× faster** |
+| DictFastSet | 18,636 µs | 7,451 µs | — | **2.5× faster** |
+| AllocationsFast | 10,651 µs | 2,705 µs | 2,206 µs | **3.9× faster** |
+| FileIO | 907 µs | 492 µs | 407 µs | **1.8× faster** |
+| StringConcat | 5,412 µs | 169,112 µs | 719 µs | 31× slower ⚠️ |
 
-### Dictionary Performance ⭐ (Resolved in v2.4.1)
-
-| Operation | GDScript | VisualGasic | **Speedup** |
-|-----------|----------|-------------|-------------|
-| Dict Fast Get | 28,027 µs | 5,402 µs | **5.2× faster** |
-| Dict Fast Set | 18,472 µs | 8,582 µs | **2.2× faster** |
-
-*Previously 3-12× slower — now beaten via VGFastStringDict + loop fusion + escape analysis*
+*Interop and Allocations were previously 32× and 238× slower — now 40× and 19× faster via loop fusion rewrites*
 
 ### Known Limitations ⚠️
 
-- ArrayDict (mixed array+dict): 43.6× slower than GDScript
-- StringConcat: 30.9× slower than GDScript
-- Interop: 32× slower (GDNative API overhead)
-- Allocations: 238× slower (ReDim overhead)
+- StringConcat: 31× slower than GDScript (fusion fires correctly but `variables.duplicate(true)` deep-copy overhead in `call_internal()` dominates — tracked for v2.5)
 
 ## Features
 

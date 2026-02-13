@@ -1,7 +1,7 @@
 # VisualGasic - Advanced Visual Basic for Godot 4
 
 [![CI](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml/badge.svg)](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/badge/version-2.4.1-blue.svg)](https://github.com/xgreenrx-star/VisualGasic/releases)
+[![Version](https://img.shields.io/badge/version-2.4.2-blue.svg)](https://github.com/xgreenrx-star/VisualGasic/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Godot](https://img.shields.io/badge/Godot-4.3+-purple.svg)](https://godotengine.org)
 
@@ -233,7 +233,7 @@ VisualGasic welcomes contributions! Please see our [Contributing Guide](CONTRIBU
 
 ## 📊 **Project Status**
 
-**Current Version**: 2.4.1 (Optimizer & Tooling Release)
+**Current Version**: 2.4.2 (Performance & Correctness Release)
 
 **Completion Status**:
 - ✅ **Core Language** - 100% (Full VB6 compatibility + class inheritance)
@@ -246,15 +246,14 @@ VisualGasic welcomes contributions! Please see our [Contributing Guide](CONTRIBU
 - ✅ **Form Templates** - 100% (23 templates: VB6, Game, Platform, Custom)
 - ✅ **Game Demos** - 100% (Galactic Defender tower defense showcase)
 - ✅ **Documentation** - 100% (Comprehensive guides and references)
+- ✅ **Performance** - 10/11 benchmarks faster than GDScript (up to 47× faster)
 
 ### 🚧 Coming Soon
 
 See [ROADMAP.md](ROADMAP.md) for the full development roadmap:
-- **Watch Window** - Variable monitoring during debugging
-- **Snap-to-Grid** - Form designer alignment tools
-- **IntelliSense** - Code completion for VB6 keywords and controls
-- **Breakpoint Conditions** - Conditional breakpoints with expressions
-- **Call Stack Panel** - Visual debugging navigation
+- **StringConcat Optimization** - Eliminate deep-copy overhead in VG function calls
+- **Form Preview** - Run individual forms without launching the full game
+- **Asset Library** - Publish to Godot Asset Library
 
 ## 📄 **License**
 

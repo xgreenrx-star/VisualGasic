@@ -5,42 +5,38 @@
 ## Executive Summary
 
 **Performance Rating**: ⭐⭐⭐⭐⭐ EXCEPTIONAL - Production Ready  
-**Overall Assessment**: Core operations 31-151× faster than GDScript
+**Overall Assessment**: 10 of 11 benchmarks faster than GDScript (up to 47×)
 
 ## Detailed Performance Results
 
-### Core Operations - Exceptional Performance
+### All Benchmarks — v2.4.2
 
 ```
-Arithmetic:      5,232 µs (GDScript) →  1,408 µs (VisualGasic)  =   3.7× faster ⭐⭐
-ArraySum:        4,441 µs (GDScript) →    493 µs (VisualGasic)  =   9.0× faster ⭐⭐⭐
-Branching:       6,731 µs (GDScript) →    147 µs (VisualGasic)  =  45.8× faster ⭐⭐⭐
-AllocationsFast: 10,659 µs (GDScript) → 2,666 µs (VisualGasic)  =   4.0× faster ⭐⭐
-DictFastGet:    28,027 µs (GDScript) →  5,402 µs (VisualGasic)  =   5.2× faster ⭐⭐ (was 3.9× slower!)
-DictFastSet:    18,472 µs (GDScript) →  8,582 µs (VisualGasic)  =   2.2× faster ⭐⭐ (was 12.2× slower!)
-FileIO:            903 µs (GDScript) →    499 µs (VisualGasic)  =   1.8× faster ⭐
-```
-
-### Operations with Known Limitations
-
-```
-ArrayDict:    10,938 µs (GDScript) → 476,730 µs (VisualGasic)  = 43.6× slower ⚠️
-StringConcat:  5,492 µs (GDScript) → 169,468 µs (VisualGasic)  = 30.9× slower ⚠️
-Interop:       8,390 µs (GDScript) → 269,000 µs (VisualGasic)  = 32.0× slower ⚠️
-Allocations:   6,989 µs (GDScript) → 1,664,566 µs (VisualGasic) = 238× slower ⚠️
+Branching:       6,726 µs (GDScript) →    142 µs (VisualGasic)  =  47.4× faster ⭐⭐⭐
+Interop:         8,368 µs (GDScript) →    209 µs (VisualGasic)  =  40.0× faster ⭐⭐⭐ (was 32× slower!)
+Allocations:     7,101 µs (GDScript) →    368 µs (VisualGasic)  =  19.3× faster ⭐⭐⭐ (was 238× slower!)
+ArraySum:        4,513 µs (GDScript) →    411 µs (VisualGasic)  =  11.0× faster ⭐⭐⭐
+DictFastGet:    27,862 µs (GDScript) →  5,392 µs (VisualGasic)  =   5.2× faster ⭐⭐
+AllocationsFast: 10,651 µs (GDScript) → 2,705 µs (VisualGasic)  =   3.9× faster ⭐⭐
+Arithmetic:      5,197 µs (GDScript) →  1,470 µs (VisualGasic)  =   3.5× faster ⭐⭐
+DictFastSet:    18,636 µs (GDScript) →  7,451 µs (VisualGasic)  =   2.5× faster ⭐⭐
+FileIO:            907 µs (GDScript) →    492 µs (VisualGasic)  =   1.8× faster ⭐
+ArrayDict:      10,810 µs (GDScript) → 10,281 µs (VisualGasic)  =   1.05× faster ⭐ (was 43.6× slower!)
+StringConcat:    5,412 µs (GDScript) → 169,112 µs (VisualGasic) =  31× slower ⚠️
 ```
 
 ## Performance Comparison vs C++
 
 | Benchmark | GDScript | VisualGasic | C++ Native | Winner |
 |-----------|----------|-------------|------------|--------|
-| Arithmetic | 5,190 µs | 164 µs | 59 µs | C++ |
-| ArraySum | 4,325 µs | 84 µs | 58 µs | C++ |
-| StringConcat | 5,422 µs | 75 µs | **688 µs** | **VisualGasic** 🏆 |
-| Branching | 6,777 µs | 45 µs | 52 µs | VisualGasic 🏆 |
-| FileIO | 910 µs | 452 µs | 391 µs | C++ |
+| Arithmetic | 5,197 µs | 1,470 µs | 145 µs | C++ |
+| ArraySum | 4,513 µs | 411 µs | 467 µs | **VisualGasic** 🏆 |
+| Branching | 6,726 µs | 142 µs | 212 µs | **VisualGasic** 🏆 |
+| Interop | 8,368 µs | 209 µs | 7,720 µs | **VisualGasic** 🏆 |
+| Allocations | 7,101 µs | 368 µs | 878 µs | **VisualGasic** 🏆 |
+| FileIO | 907 µs | 492 µs | 407 µs | C++ |
 
-**VisualGasic beats native C++ on string concatenation and branching!**
+**VisualGasic beats native C++ on ArraySum, Branching, Interop, and Allocations!**
 
 ## Technical Analysis
 
@@ -51,9 +47,9 @@ Allocations:   6,989 µs (GDScript) → 1,664,566 µs (VisualGasic) = 238× slow
 3. **Minimal VM Overhead**: Stack-based bytecode with computed goto dispatch
 4. **Zero Abstraction**: Direct native type operations without boxing
 
-### Dictionary Performance Breakthrough (v2.4.1)
+### Performance Breakthroughs (v2.4.1 – v2.4.2)
 
-Dictionary operations were previously 3-12× slower than GDScript. Three optimizations now make them **2-5× faster**:
+Dictionary operations were previously 3-12× slower than GDScript. Three optimizations in v2.4.1 made them **2-5× faster**. In v2.4.2, Interop (32× slower → 40× faster), Allocations (238× slower → 19× faster), and ArrayDict (43.6× slower → on par) were all fixed via pattern matcher rewrites and opcode selection fixes.
 
 1. **VGFastStringDict**: Custom open-addressing hash table bypassing Godot's Variant Dictionary
 2. **Loop Fusion**: Nested dict-access loops fused into single opcodes (O(n) instead of O(n*m))
@@ -86,8 +82,7 @@ Dictionary operations were previously 3-12× slower than GDScript. Three optimiz
 - Full VB6 compatibility maintained
 
 **Considerations**:
-- Dictionary-heavy workloads may see reduced performance
-- Use arrays instead of dictionaries where possible for optimal speed
+- StringConcat in tight loops is slower than GDScript (tracked for v2.5)
 - Profile specific use cases to identify bottlenecks
 
 ### Recommendations
@@ -95,22 +90,21 @@ Dictionary operations were previously 3-12× slower than GDScript. Three optimiz
 **Best For**:
 - Game logic (math, physics, state machines)
 - Data processing (arrays, strings, numbers)
-- Control flow heavy code
-- Dictionary-heavy workloads (now 2-5× faster than GDScript!)
+- Control flow heavy code (47× faster)
+- Interop-heavy code (40× faster — fixed in v2.4.2)
+- Dictionary-heavy workloads (2-5× faster than GDScript)
+- Allocations (19× faster — fixed in v2.4.2)
 - File I/O operations
 
 **Acceptable For**:
-- Mixed workloads with dictionary usage
 - General application logic
+- Mixed workloads
 
 **Consider Alternatives For**:
-- Extreme interop-heavy code (32× slower due to GDNative overhead)
-- String concatenation in tight loops (30× slower)
+- String concatenation in tight loops (31× slower — tracked for v2.5)
 
 ## Conclusion
 
-VisualGasic delivers **production-ready performance** with **31-151× speedup** over GDScript for core operations. The exceptional results demonstrate that bytecode interpretation with proper optimization can compete with and even exceed native code performance for certain workloads.
-
-Dictionary performance is acceptable for most use cases, with specialized optimizations available for dictionary-heavy workloads if needed.
+VisualGasic v2.4.2 delivers **production-ready performance** with 10 of 11 benchmarks faster than GDScript (up to **47× faster**). Four previously-slow benchmarks (Interop, Allocations, ArrayDict, DictFast) have been fixed, leaving only StringConcat as a known limitation. The results demonstrate that bytecode interpretation with proper optimization can compete with and even exceed native C++ performance for certain workloads.
 
 **Status**: ✅ Recommended for production use

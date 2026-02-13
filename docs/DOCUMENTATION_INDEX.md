@@ -92,9 +92,17 @@
 - [IMPLEMENTATION_STATUS.md](../IMPLEMENTATION_STATUS.md) - Current implementation status
 - [OPTIMIZATION_RESULTS.md](../OPTIMIZATION_RESULTS.md) - Performance optimization results
 - [PERFORMANCE_REPORT.md](../PERFORMANCE_REPORT.md) - Comprehensive performance analysis
+- [performance.md](manual/performance.md) - Benchmark results with charts (v2.4.2)
 - [TEST_RESULTS.md](../TEST_RESULTS.md) - Test suite results
 - [TODO_FUTURE_OPTIMIZATIONS.md](../TODO_FUTURE_OPTIMIZATIONS.md) - Future optimization opportunities
 - [TODO_VG_DEBUGGING.md](../TODO_VG_DEBUGGING.md) - Debugging system implementation
+
+### Release Notes
+- [CHANGELOG.md](../CHANGELOG.md) - Full change log
+- [RELEASE_NOTES_v2.3.0.md](../RELEASE_NOTES_v2.3.0.md) - v2.3.0 release notes
+- [RELEASE_NOTES_v2.4.0.md](../RELEASE_NOTES_v2.4.0.md) - v2.4.0 release notes
+- [RELEASE_NOTES_v2.4.1.md](../RELEASE_NOTES_v2.4.1.md) - v2.4.1 release notes
+- [RELEASE_NOTES_v2.4.2.md](../RELEASE_NOTES_v2.4.2.md) - v2.4.2 release notes
 
 ### Development
 - [CONTRIBUTING.md](../CONTRIBUTING.md) - Contribution guidelines

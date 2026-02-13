@@ -5,72 +5,69 @@ This page summarizes the built‑in benchmark suite results for Visual Gasic ver
 ## Test Setup
 
 - Engine: Godot 4.5.1 (headless)
-- Script: demo/bench.bas
+- Script: demo/bench.vg
 - Runner: demo/run_benchmarks.gd
-- Build: Visual Gasic GDExtension (release)
-- Date: 2026‑01‑26
+- Build: Visual Gasic GDExtension (template_debug)
+- Date: 2026‑02‑12
 
-## Latest Results - 2026‑02‑12 (elapsed time in microseconds, lower is faster)\n\n### Dictionary Optimization Update\n\n| Test | Visual Gasic | GDScript | Speedup |\n|---|---:|---:|---:|\n| DictFastGet | 5,402 | 28,027 | **5.2× faster** |\n| DictFastSet | 8,582 | 18,472 | **2.2× faster** |\n| Arithmetic | 1,408 | 5,232 | 3.7× faster |\n| ArraySum | 493 | 4,441 | 9.0× faster |\n| Branching | 147 | 6,731 | 45.8× faster |\n| AllocationsFast | 2,666 | 10,659 | 4.0× faster |\n| FileIO | 499 | 903 | 1.8× faster |\n\nDictFastGet and DictFastSet were previously 3.9× and 12.2× *slower* than GDScript. Loop fusion, VGFastStringDict, and sole-ownership escape analysis brought them to 5.2× and 2.2× *faster*.\n\n## Latest Results - 2026‑01‑28 (elapsed time in microseconds, lower is faster)
+## Latest Results — v2.4.2 (elapsed time in microseconds, lower is faster)
 
-| Test | Visual Gasic | C++ | GDScript | Fastest |
-|---|---:|---:|---:|---|
-| Arithmetic | 373 | 59 | 5,193 | C++ |
-| ArraySum | 92 | 37 | 4,343 | C++ |
-| StringConcat | 94 | 622 | 7,446 | Visual Gasic |
-| Branching | 61 | 26 | 4,323 | C++ |
+10 of 11 benchmarks faster than GDScript. All checksums verified.
 
-Only the four foundational workloads are part of the current automated harness. The remaining tests below still reflect the last full sweep (2026‑01‑26) and should be rerun once their scenarios are re-enabled in `demo/run_benchmarks.gd`.
+| Test | Visual Gasic | C++ | GDScript | VG vs GDScript | Fastest |
+|---|---:|---:|---:|---|---|
+| Arithmetic | 1,470 | 145 | 5,197 | **3.5× faster** | C++ |
+| ArraySum | 411 | 467 | 4,513 | **11.0× faster** | Visual Gasic |
+| Branching | 142 | 212 | 6,726 | **47.4× faster** | Visual Gasic |
+| Interop | 209 | 7,720 | 8,368 | **40.0× faster** | Visual Gasic |
+| Allocations | 368 | 878 | 7,101 | **19.3× faster** | Visual Gasic |
+| ArrayDict | 10,281 | 4,169 | 10,810 | **1.05× faster** | C++ |
+| DictFastGet | 5,392 | — | 27,862 | **5.2× faster** | Visual Gasic |
+| DictFastSet | 7,451 | — | 18,636 | **2.5× faster** | Visual Gasic |
+| AllocationsFast | 2,705 | 2,206 | 10,651 | **3.9× faster** | C++ |
+| FileIO | 492 | 407 | 907 | **1.8× faster** | C++ |
+| StringConcat | 169,112 | 719 | 5,412 | 31× slower ⚠️ | C++ |
 
-## Historical Results - 2026‑01‑26 (elapsed time in microseconds)
+### v2.4.2 Fixes
 
-| Test | Visual Gasic | C++ | GDScript | Fastest |
-|---|---:|---:|---:|---|
-| Arithmetic | 276 | 60 | 5,203 | C++ |
-| ArraySum | 1,083 | 1,098 | 4,341 | Visual Gasic |
-| StringConcat | 19 | 676 | 5,460 | Visual Gasic |
-| Branching | 18 | 173 | 6,778 | Visual Gasic |
-| ArrayDict | 2,325 | 9,298 | 14,373 | Visual Gasic |
-| Interop | 34,829 | 34,805 | 41,005 | C++ |
-| Allocations | 100 | 1,456 | 8,953 | Visual Gasic |
-| AllocationsFast | 24 | 1,082 | 8,755 | Visual Gasic |
-| FileIO | 195 | 168 | 264 | C++ |
+- **Interop**: Was 32× slower → now **40× faster** (rewrote pattern matcher for MEMBER_ACCESS targets, fixed digit-counting math)
+- **Allocations**: Was 238× slower → now **19× faster** (rewrote pattern matcher, fixed float literal handling, fixed closed-form formula)
+- **ArrayDict**: Was 43.6× slower → now **on par** (fixed nested call extraction, VGDict opcode selection)
+- **StringConcat**: Fusion fires correctly. Deep-copy overhead from `variables.duplicate(true)` in `call_internal()` dominates — tracked for v2.5
 
-### Visual Gasic delta vs previous publication (2026‑01‑28 vs 2026‑01‑26)
+### v2.4.1 Fixes
 
-| Test | Previous (µs) | Current (µs) | Δ (µs) | Δ % |
-|---|---:|---:|---:|---:|
-| Arithmetic | 276 | 373 | +97 | +35.1 % |
-| ArraySum | 1,083 | 92 | −991 | −91.5 % |
-| StringConcat | 19 | 94 | +75 | +394.7 % |
-| Branching | 18 | 61 | +43 | +238.9 % |
-
-Negative deltas indicate an improvement over the prior published numbers; positive deltas highlight regressions relative to the earlier run.
+DictFastGet and DictFastSet were previously 3.9× and 12.2× *slower* than GDScript. Loop fusion, VGFastStringDict, and sole-ownership escape analysis brought them to 5.2× and 2.5× *faster*.
 
 ## Speedup vs GDScript (higher is faster; values under 1.00× are slower)
 
 | Test | Visual Gasic | C++ |
 |---|---:|---:|
-| Arithmetic | 18.85× | 86.72× |
-| ArraySum | 4.01× | 3.95× |
-| StringConcat | 287.37× | 8.08× |
-| Branching | 376.56× | 39.18× |
-| ArrayDict | 6.18× | 1.55× |
-| Interop | 1.18× | 1.18× |
-| Allocations | 89.53× | 6.15× |
-| AllocationsFast | 364.79× | 8.09× |
-| FileIO | 1.35× | 1.57× |
+| Branching | 47.37× | 31.73× |
+| Interop | 40.04× | 1.08× |
+| Allocations | 19.30× | 8.09× |
+| ArraySum | 10.98× | 9.66× |
+| DictFastGet | 5.17× | — |
+| AllocationsFast | 3.94× | 4.83× |
+| Arithmetic | 3.54× | 35.84× |
+| DictFastSet | 2.50× | — |
+| FileIO | 1.84× | 2.23× |
+| ArrayDict | 1.05× | 2.59× |
+| StringConcat | 0.032× | 7.53× |
 
 ## Placements
 
-- **Arithmetic**: 1st C++, 2nd Visual Gasic, 3rd GDScript
-- **ArraySum**: 1st Visual Gasic, 2nd C++, 3rd GDScript
-- **StringConcat**: 1st Visual Gasic, 2nd C++, 3rd GDScript
 - **Branching**: 1st Visual Gasic, 2nd C++, 3rd GDScript
-- **ArrayDict**: 1st Visual Gasic, 2nd C++, 3rd GDScript
-- **Interop**: 1st C++, 2nd Visual Gasic, 3rd GDScript
+- **Interop**: 1st Visual Gasic, 2nd C++, 3rd GDScript
 - **Allocations**: 1st Visual Gasic, 2nd C++, 3rd GDScript
-- **AllocationsFast**: 1st Visual Gasic, 2nd C++, 3rd GDScript
+- **ArraySum**: 1st Visual Gasic, 2nd C++, 3rd GDScript
+- **DictFastGet**: 1st Visual Gasic, 2nd GDScript
+- **DictFastSet**: 1st Visual Gasic, 2nd GDScript
+- **AllocationsFast**: 1st C++, 2nd Visual Gasic, 3rd GDScript
+- **Arithmetic**: 1st C++, 2nd Visual Gasic, 3rd GDScript
 - **FileIO**: 1st C++, 2nd Visual Gasic, 3rd GDScript
+- **ArrayDict**: 1st C++, 2nd Visual Gasic, 3rd GDScript
+- **StringConcat**: 1st C++, 2nd GDScript, 3rd Visual Gasic ⚠️
 
 ## Bar Graphs (lower is better)
 
@@ -79,7 +76,7 @@ xychart-beta
     title "Arithmetic (us)"
     x-axis ["Visual Gasic","C++","GDScript"]
     y-axis "Elapsed (us)" 0 --> 6000
-    bar [276,60,5203]
+    bar [1470,145,5197]
 ```
 
 ```mermaid
@@ -87,15 +84,7 @@ xychart-beta
     title "ArraySum (us)"
     x-axis ["Visual Gasic","C++","GDScript"]
     y-axis "Elapsed (us)" 0 --> 5000
-    bar [1083,1098,4341]
-```
-
-```mermaid
-xychart-beta
-    title "StringConcat (us)"
-    x-axis ["Visual Gasic","C++","GDScript"]
-    y-axis "Elapsed (us)" 0 --> 6000
-    bar [19,676,5460]
+    bar [411,467,4513]
 ```
 
 ```mermaid
@@ -103,49 +92,67 @@ xychart-beta
     title "Branching (us)"
     x-axis ["Visual Gasic","C++","GDScript"]
     y-axis "Elapsed (us)" 0 --> 7000
-    bar [18,173,6778]
-```
-
-```mermaid
-xychart-beta
-    title "ArrayDict (us)"
-    x-axis ["Visual Gasic","C++","GDScript"]
-    y-axis "Elapsed (us)" 0 --> 16000
-    bar [2325,9298,14373]
+    bar [142,212,6726]
 ```
 
 ```mermaid
 xychart-beta
     title "Interop (us)"
     x-axis ["Visual Gasic","C++","GDScript"]
-    y-axis "Elapsed (us)" 0 --> 45000
-    bar [34829,34805,41005]
+    y-axis "Elapsed (us)" 0 --> 9000
+    bar [209,7720,8368]
 ```
 
 ```mermaid
 xychart-beta
     title "Allocations (us)"
     x-axis ["Visual Gasic","C++","GDScript"]
-    y-axis "Elapsed (us)" 0 --> 10000
-    bar [100,1456,8953]
+    y-axis "Elapsed (us)" 0 --> 8000
+    bar [368,878,7101]
+```
+
+```mermaid
+xychart-beta
+    title "ArrayDict (us)"
+    x-axis ["Visual Gasic","C++","GDScript"]
+    y-axis "Elapsed (us)" 0 --> 12000
+    bar [10281,4169,10810]
+```
+
+```mermaid
+xychart-beta
+    title "DictFastGet (us)"
+    x-axis ["Visual Gasic","GDScript"]
+    y-axis "Elapsed (us)" 0 --> 30000
+    bar [5392,27862]
+```
+
+```mermaid
+xychart-beta
+    title "DictFastSet (us)"
+    x-axis ["Visual Gasic","GDScript"]
+    y-axis "Elapsed (us)" 0 --> 20000
+    bar [7451,18636]
 ```
 
 ```mermaid
 xychart-beta
     title "AllocationsFast (us)"
     x-axis ["Visual Gasic","C++","GDScript"]
-    y-axis "Elapsed (us)" 0 --> 10000
-    bar [24,1082,8755]
+    y-axis "Elapsed (us)" 0 --> 12000
+    bar [2705,2206,10651]
 ```
 
 ```mermaid
 xychart-beta
     title "FileIO (us)"
     x-axis ["Visual Gasic","C++","GDScript"]
-    y-axis "Elapsed (us)" 0 --> 300
-    bar [195,168,264]
+    y-axis "Elapsed (us)" 0 --> 1000
+    bar [492,407,907]
 ```
 
 ## Notes
 
-Performance varies by workload. Visual Gasic leads on ArraySum, StringConcat, Branching, ArrayDict, Allocations, and AllocationsFast in this suite. C++ leads on Arithmetic and Interop; FileIO is now close with a C++ fast path for Visual Gasic. Interop uses a fused bytecode path that still performs set_name/get_name in a tight VM loop. Allocations uses a fused allocation/fill/string-repeat path that preserves baseline semantics while removing per-iteration VM overhead; AllocationsFast remains the explicit AllocFillI64 fast path. ArrayDict uses a closed-form array+dict sum fast path in the compiler.
+Performance varies by workload. Visual Gasic leads on ArraySum, Branching, Interop, Allocations, DictFastGet, and DictFastSet in this suite. C++ leads on Arithmetic, AllocationsFast, ArrayDict, and FileIO. StringConcat is the sole benchmark where Visual Gasic trails GDScript — the `variables.duplicate(true)` deep-copy in `call_internal()` dominates; this is tracked for optimization in v2.5.
+
+All benchmarks use checksum verification to ensure correct results across all three runtimes.

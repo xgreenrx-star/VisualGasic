@@ -1,7 +1,7 @@
 # VisualGasic for Godot - Complete Programming Manual
 *The definitive guide to using VisualGasic in Godot game development*
 
-Version 2.1  
+Version 2.4.2  
 Updated: February 2026
 
 ---
@@ -305,26 +305,26 @@ VisualGasic focuses on high performance in hot paths while preserving Gasic-styl
 
 ```mermaid
 xychart-beta
-    title "StringConcat (us)"
+    title "Branching (us)"
     x-axis ["Visual Gasic","C++","GDScript"]
-    y-axis "Elapsed (us)" 0 --> 6000
-    bar [19,676,5460]
+    y-axis "Elapsed (us)" 0 --> 7000
+    bar [142,212,6726]
 ```
 
 ```mermaid
 xychart-beta
-    title "ArrayDict (us)"
+    title "Interop (us)"
     x-axis ["Visual Gasic","C++","GDScript"]
-    y-axis "Elapsed (us)" 0 --> 16000
-    bar [2325,9298,14373]
+    y-axis "Elapsed (us)" 0 --> 9000
+    bar [209,7720,8368]
 ```
 
 ```mermaid
 xychart-beta
-    title "FileIO (us)"
+    title "Allocations (us)"
     x-axis ["Visual Gasic","C++","GDScript"]
-    y-axis "Elapsed (us)" 0 --> 300
-    bar [195,168,264]
+    y-axis "Elapsed (us)" 0 --> 8000
+    bar [368,878,7101]
 ```
 
 ### Your First VisualGasic Godot Script
