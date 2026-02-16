@@ -1,7 +1,7 @@
 # Visual Gasic Development Roadmap
 
 **Last Updated**: February 2026  
-**Current Version**: 2.5 (StringConcat Breakthrough)
+**Current Version**: 2.6.0 (Custom Icons, IntelliSense Update, Profiler UI)
 
 This document outlines the planned improvements and features for Visual Gasic. Items are prioritized by impact and development effort.
 
@@ -250,24 +250,80 @@ Navigate to Sub/Function/Variable declarations.
 
 ### Medium Priority - Remaining Features
 
-#### 10. Form Preview
-**Status**: 📋 Planned  
+#### 10. Form Preview ✅
+**Status**: ✅ Completed  
 **Priority**: Medium  
-**Estimated Effort**: Medium
+**Completed**: February 2026
 
 Run just the current form without launching the full game.
 
-**Features**:
-- "Preview Form" button in toolbar
-- Opens form in popup window
-- Fires Form_Load, Form_Shown events
-- Interactive - buttons, inputs work
-- Close returns to editor
+**Implemented Features**:
+- ✅ "Preview Form" button in toolbar
+- ✅ Opens form in popup window
+- ✅ Fires Form_Load, Form_Shown events
+- ✅ Interactive - buttons, inputs work
+- ✅ Close returns to editor
+- ✅ Uses `EditorInterface.play_custom_scene()`
 
-**Implementation Notes**:
-- Creates temporary scene with form
-- Uses Godot's `EditorInterface.play_custom_scene()`
-- Injects debug handler for Immediate Window support
+---
+
+### v2.6.0 — Custom Icons, IntelliSense Update, Profiler UI
+
+#### 14. Custom .vg File Icons ✅
+**Status**: ✅ Completed  
+**Priority**: Medium  
+**Completed**: February 2026
+
+Custom file icons for .vg files in the Godot FileSystem dock.
+
+**Implemented Features**:
+- ✅ Blue file icon with "VG" text for .vg scripts
+- ✅ Purple variant for plugin icon
+- ✅ SVG-based, scales cleanly at all sizes
+- ✅ Registered via editor theme integration
+
+**Files Created**: `vg_file_icon.svg`, `vg_plugin_icon.svg`
+
+---
+
+#### 15. IntelliSense for New Builtins ✅
+**Status**: ✅ Completed  
+**Priority**: Medium  
+**Completed**: February 2026
+
+Updated autocomplete for all v2.5.0 built-in functions.
+
+**Implemented Features**:
+- ✅ `Stop` added to VB6 keywords for syntax highlighting
+- ✅ `Weekday`, `WeekdayName`, `MonthName` in Date/Time functions
+- ✅ `QBColor` in Color functions
+- ✅ `Environ`, `Beep` in new System Functions section
+- ✅ Full signature and description for each entry
+
+**Files Modified**: `vg_intellisense.gd`
+
+---
+
+#### 16. Integrated Profiler UI ✅
+**Status**: ✅ Completed  
+**Priority**: Medium  
+**Completed**: February 2026
+
+Bytecode-level performance analysis panel in the editor.
+
+**Implemented Features**:
+- ✅ "VG Profiler" bottom panel in editor
+- ✅ Functions tab: sortable tree (Name, Category, Calls, Total/Avg/Min/Max ms)
+- ✅ Counters tab: performance counter display (Name, Value, Updates, Unit)
+- ✅ Start/Stop toggle, Refresh, Clear, Export buttons
+- ✅ Hot-path coloring (Red ≥50ms, Orange ≥10ms, Yellow ≥1ms, Green <1ms)
+- ✅ Auto-refresh timer (2s interval while profiling)
+- ✅ JSON export to `user://vg_profile_export.json`
+- ✅ C++ profiler bindings via `_vg_profiler_*` instance methods
+- ✅ Debug protocol: `visualgasic:profiler_start/stop/get_data/clear`
+
+**Files Created**: `vg_profiler_panel.gd`  
+**Files Modified**: `vg_debugger_plugin.gd`, `vg_debug_handler.gd`, `visual_gasic_plugin.gd`, `visual_gasic_instance.cpp`, `visual_gasic_profiler.cpp`
 
 ---
 
@@ -377,6 +433,9 @@ Visual theme options for the VB6 experience.
 | Linting | Low | Medium | 11 |
 | Snippet Manager | Low | Low | 12 |
 | Theme Support | Low | Low | 13 |
+| Custom .vg File Icons | Medium | Low | 14 |
+| IntelliSense Builtins Update | Medium | Low | 15 |
+| Integrated Profiler UI | High | Medium | 16 |
 
 ---
 
@@ -393,7 +452,9 @@ Each feature has implementation notes that describe:
 
 ## 📝 Version History
 
-- **v2.0.0** (Current) - Advanced Features Release
+- **v2.6.0** (Current) - Custom .vg Icons, IntelliSense Update, Profiler UI
+- **v2.5.0** - Computed Gotos, 11 New Builtins, Stop Statement, Conditional Breakpoints, 12 Demo Projects
+- **v2.0.0** - Advanced Features Release
 - **v1.5.0** - Immediate Window and debugging
 - **v1.0.0** - Initial release with VB6 compatibility
 

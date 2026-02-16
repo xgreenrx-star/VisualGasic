@@ -1,6 +1,6 @@
 # VisualGasic Project Status
 
-**Version**: 2.5.0 (Computed Gotos + 11 New Builtins)  
+**Version**: 2.6.0 (Custom Icons + IntelliSense Update + Profiler UI)  
 **Last Updated**: February 2026
 
 ## Overview

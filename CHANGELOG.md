@@ -5,6 +5,36 @@ All notable changes to Visual Gasic will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.6.0] - February 2026
+
+### Added - Custom .vg File Icons
+- Blue file icon with "VG" text for `.vg` scripts in the Godot FileSystem dock
+- Purple variant for plugin icon
+- SVG-based icons that scale cleanly at all sizes
+- Registered automatically via editor theme integration on plugin load
+
+### Added - IntelliSense for New Builtins
+- `Stop` keyword added to syntax highlighting keywords
+- `Weekday(date)`, `WeekdayName(day, [abbrev])`, `MonthName(month, [abbrev])` in autocomplete
+- `QBColor(index)` added to Color Functions
+- `Environ(var)` and `Beep` added to new System Functions section
+- Full signatures and descriptions for all new entries
+
+### Added - Integrated Profiler UI
+- **VG Profiler** bottom panel in the Godot editor for bytecode-level performance analysis
+- **Functions tab**: sortable tree with 7 columns (Name, Category, Calls, Total ms, Avg ms, Min ms, Max ms)
+- **Counters tab**: performance counter display (Name, Value, Updates, Unit)
+- Start/Stop profiling toggle with auto-refresh timer (2-second interval)
+- Hot-path coloring: Red (≥50ms), Orange (≥10ms), Yellow (≥1ms), Green (<1ms)
+- JSON export to `user://vg_profile_export.json`
+- C++ profiler bindings via `_vg_profiler_enable/get_report/clear` instance methods
+- Debug protocol: `visualgasic:profiler_start/stop/get_data/clear` messages
+
+### Fixed
+- Added missing `VisualGasicProfiler::reset_memory_pool()` implementation in C++
+
+---
+
 ## [2.5.0] - February 2026
 
 ### Added - Computed-Goto Threaded Dispatch (VM)

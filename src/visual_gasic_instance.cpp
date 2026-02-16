@@ -28,6 +28,7 @@
 #include "visual_gasic_parser.h"
 #include "visual_gasic_builtins.h"
 #include "visual_gasic_debugger.h"
+#include "visual_gasic_profiler.h"
 #include <godot_cpp/core/object.hpp>
 #include <godot_cpp/classes/node.hpp>
 #include <godot_cpp/classes/input.hpp>
@@ -6816,6 +6817,31 @@ void VisualGasicInstance::call(const StringName &p_method, const Variant *const 
         return;
     }
     
+    // Profiler methods — delegate to the global VisualGasicProfiler singleton
+    if (p_method == StringName("_vg_profiler_enable")) {
+        bool enable = (p_argcount >= 1) ? (bool)(*p_args[0]) : true;
+        VisualGasicProfiler::getInstance().enable_profiling(enable);
+        if (r_return) *r_return = true;
+        r_error->error = GDEXTENSION_CALL_OK;
+        return;
+    }
+    
+    if (p_method == StringName("_vg_profiler_get_report")) {
+        if (r_return) *r_return = VisualGasicProfiler::getInstance().get_performance_report();
+        r_error->error = GDEXTENSION_CALL_OK;
+        return;
+    }
+    
+    if (p_method == StringName("_vg_profiler_clear")) {
+        // Reset accumulated profiler data
+        VisualGasicProfiler::getInstance().enable_profiling(false);
+        VisualGasicProfiler::getInstance().reset_memory_pool();
+        VisualGasicProfiler::getInstance().enable_profiling(true);
+        if (r_return) *r_return = true;
+        r_error->error = GDEXTENSION_CALL_OK;
+        return;
+    }
+    
     // Adapter
     Array args;
     for(int i=0; i<p_argcount; i++) args.push_back(*p_args[i]);
@@ -7207,7 +7233,10 @@ static GDExtensionBool instance_has_method(GDExtensionScriptInstanceDataPtr p_in
         name == StringName("_vg_get_variable") ||
         name == StringName("_vg_set_variable") ||
         name == StringName("_vg_get_whenever_sections") ||
-        name == StringName("_vg_set_whenever_active")) {
+        name == StringName("_vg_set_whenever_active") ||
+        name == StringName("_vg_profiler_enable") ||
+        name == StringName("_vg_profiler_get_report") ||
+        name == StringName("_vg_profiler_clear")) {
         return true;
     }
     

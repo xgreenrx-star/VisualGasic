@@ -104,6 +104,22 @@ func _on_debugger_message(message: String, data: Array) -> bool:
 		"get_debug_state":
 			_send_debug_state()
 			return true
+		
+		"profiler_start":
+			_profiler_start()
+			return true
+		
+		"profiler_stop":
+			_profiler_stop()
+			return true
+		
+		"profiler_get_data":
+			_profiler_send_data()
+			return true
+		
+		"profiler_clear":
+			_profiler_clear()
+			return true
 	
 	return false
 
@@ -372,3 +388,45 @@ func _set_whenever_active(instance_id: int, section_name: String, active: bool) 
 		inst.call("_vg_set_whenever_active", section_name, active)
 		# Send updated sections list
 		_send_whenever_sections(instance_id)
+
+# ============================================================================
+# PROFILER COMMANDS
+# ============================================================================
+
+func _profiler_start() -> void:
+	"""Enable C++ profiler and start collecting data."""
+	# Call the C++ VisualGasicProfiler singleton
+	for inst_id in _registered_instances:
+		var inst = _get_instance(inst_id)
+		if inst and inst.has_method("_vg_profiler_enable"):
+			inst.call("_vg_profiler_enable", true)
+	print("[VisualGasic] Profiler started")
+
+func _profiler_stop() -> void:
+	"""Disable C++ profiler."""
+	for inst_id in _registered_instances:
+		var inst = _get_instance(inst_id)
+		if inst and inst.has_method("_vg_profiler_enable"):
+			inst.call("_vg_profiler_enable", false)
+	print("[VisualGasic] Profiler stopped")
+
+func _profiler_send_data() -> void:
+	"""Collect profiler report from C++ and send to editor."""
+	var report: Dictionary = {}
+	for inst_id in _registered_instances:
+		var inst = _get_instance(inst_id)
+		if inst and inst.has_method("_vg_profiler_get_report"):
+			report = inst.call("_vg_profiler_get_report")
+			break  # One report covers the global profiler
+	if report.is_empty():
+		# Build a minimal empty report so the editor panel still updates
+		report = {"profiles": {}, "counters": {}}
+	EngineDebugger.send_message("visualgasic:profiler_data", [report])
+
+func _profiler_clear() -> void:
+	"""Reset C++ profiler counters."""
+	for inst_id in _registered_instances:
+		var inst = _get_instance(inst_id)
+		if inst and inst.has_method("_vg_profiler_clear"):
+			inst.call("_vg_profiler_clear")
+	print("[VisualGasic] Profiler counters cleared")

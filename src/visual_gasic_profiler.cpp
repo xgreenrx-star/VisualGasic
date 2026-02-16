@@ -121,6 +121,12 @@ void VisualGasicProfiler::set_counter(const std::string& name, double value) {
     }
 }
 
+void VisualGasicProfiler::reset_memory_pool() {
+    if (memory_pool_) {
+        memory_pool_->reset();
+    }
+}
+
 Dictionary VisualGasicProfiler::get_performance_report() {
     Dictionary report;
     Dictionary profile_data;

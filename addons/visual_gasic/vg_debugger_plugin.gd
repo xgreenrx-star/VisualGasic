@@ -10,6 +10,7 @@ signal whenever_sections_received(sections: Array)
 signal debug_state_received(state: Dictionary)
 signal debug_break_hit(file: String, line: int)
 signal debug_print_received(text: String)
+signal profiler_data_received(report: Dictionary)
 
 var _active_session: EditorDebuggerSession = null
 var _pending_requests: Dictionary = {}
@@ -113,6 +114,12 @@ func _capture(message: String, data: Array, session_id: int) -> bool:
 			# Debug.Print output → route to Immediate Window
 			if data.size() >= 1:
 				debug_print_received.emit(String(data[0]))
+			return true
+		
+		"profiler_data":
+			# Profiler report from running game
+			if data.size() >= 1:
+				profiler_data_received.emit(data[0])
 			return true
 	
 	return false
@@ -305,6 +312,11 @@ func request_debug_state() -> void:
 	"""Request the current debug state from the game."""
 	if _active_session:
 		_active_session.send_message("visualgasic:get_debug_state", [])
+
+func send_profiler_command(command: String) -> void:
+	"""Send a profiler command (start/stop/get_data/clear) to the running game."""
+	if _active_session:
+		_active_session.send_message("visualgasic:profiler_" + command, [])
 
 # ============================================================================
 # NAVIGATION HELPER

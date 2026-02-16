@@ -112,6 +112,9 @@ var _snippet_browser = null
 ## Theme Picker dialog (v2.4.1)
 var _theme_picker = null
 
+## Profiler Panel (v2.6.0) — bottom panel for bytecode profiling
+var _profiler_panel = null
+
 # =============================================================================
 # PLUGIN LIFECYCLE
 # =============================================================================
@@ -259,6 +262,18 @@ func _enter_tree():
 		_theme_picker.vg_theme_changed.connect(_on_theme_changed)
 		add_tool_menu_item("VG: Theme Picker", Callable(self, "_on_open_theme_picker"))
 		print("VisualGasic: Theme Picker created")
+	
+	# Create Profiler Panel (v2.6.0) — bottom panel for bytecode profiling
+	var profiler_script = load("res://addons/visual_gasic/vg_profiler_panel.gd")
+	if profiler_script:
+		_profiler_panel = profiler_script.new()
+		if _profiler_panel.has_method("set_debugger_plugin"):
+			_profiler_panel.set_debugger_plugin(debugger_plugin)
+		add_control_to_bottom_panel(_profiler_panel, "VG Profiler")
+		print("VisualGasic: Profiler Panel created (bottom panel)")
+	
+	# Register custom .vg file icon in the editor theme
+	call_deferred("_register_vg_file_icon")
 	
 	# Create VB6 Project Explorer (right-upper dock in VB6 mode)
 	var proj_explorer_script = load("res://addons/visual_gasic/vb6_project_explorer.gd")
@@ -448,6 +463,12 @@ func _exit_tree():
 		remove_control_from_bottom_panel(immediate_window)
 		immediate_window.queue_free()
 		immediate_window = null
+	
+	# Cleanup Profiler Panel
+	if is_instance_valid(_profiler_panel):
+		remove_control_from_bottom_panel(_profiler_panel)
+		_profiler_panel.queue_free()
+		_profiler_panel = null
 	
 	# Cleanup Code Navigator (injected above code editor)
 	if is_instance_valid(_code_navigator):
@@ -1296,6 +1317,22 @@ func _style_form_designer_button() -> void:
 	_vb6_toggle_button.add_theme_color_override("font_hover_color", Color(1.0, 0.9, 0.3))
 	_vb6_toggle_button.add_theme_color_override("font_pressed_color", Color(1.0, 1.0, 0.5))
 	_vb6_toggle_button.add_theme_color_override("font_focus_color", Color(1.0, 1.0, 0.5))
+
+func _register_vg_file_icon() -> void:
+	"""Register the custom .vg file icon so it appears in the FileSystem dock."""
+	var icon_path := "res://addons/visual_gasic/vg_file_icon.svg"
+	if not ResourceLoader.exists(icon_path):
+		return
+	var icon_texture: Texture2D = load(icon_path)
+	if icon_texture == null:
+		return
+	# Inject into the editor theme so the FileSystem dock picks it up
+	var theme := get_editor_interface().get_base_control().get_theme()
+	if theme:
+		# Godot maps file extension icons via "res://path.ext" → icon lookup
+		# The most reliable way is overriding the GDExtension script icon
+		theme.set_icon("VisualGasicScript", "EditorIcons", icon_texture)
+		print("VisualGasic: Registered .vg file icon")
 
 # =============================================================================
 # MODULE CREATION
