@@ -478,5 +478,6 @@ End Function
 
 ## See Also
 
-- [MODERN_FEATURES.md](MODERN_FEATURES.md) - Modern syntax features
-- [examples/test_new_builtins.vg](examples/test_new_builtins.vg) - Comprehensive test examples
+- [Modern Features Guide](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/guides/MODERN_FEATURES.md) - Modern syntax features
+- [VisualGasic Language Reference](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/VisualGasic_Language_Reference.md) - Complete language manual
+- [test_new_builtins.vg](https://github.com/xgreenrx-star/VisualGasic/blob/main/test_proj/test_suite/test_new_builtins.vg) - Comprehensive test examples

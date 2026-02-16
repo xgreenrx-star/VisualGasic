@@ -158,37 +158,37 @@ This is the first release to **bundle demo projects** directly. Each demo is a s
 ## 📸 Screenshots
 
 ### VB6-Style IDE Layout
-![VB6 IDE Layout](docs/screenshots/vb6_ide_layout.png)
+![VB6 IDE Layout](https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/v2.5.0/docs/screenshots/vb6_ide_layout.png)
 
 ### Pong
-![Pong Demo](docs/screenshots/pong_demo.png)
+![Pong Demo](https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/v2.5.0/docs/screenshots/pong_demo.png)
 
 ### Snake
-![Snake Demo](docs/screenshots/snake_demo.png)
+![Snake Demo](https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/v2.5.0/docs/screenshots/snake_demo.png)
 
 ### Space Shooter
-![Space Shooter](docs/screenshots/space_shooter_demo.png)
+![Space Shooter](https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/v2.5.0/docs/screenshots/space_shooter_demo.png)
 
 ### Galactic Defender
-![Galactic Defender](docs/screenshots/galactic_defender_demo.png)
+![Galactic Defender](https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/v2.5.0/docs/screenshots/galactic_defender_demo.png)
 
 ### Calculator
-![Calculator](docs/screenshots/calculator_demo.png)
+![Calculator](https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/v2.5.0/docs/screenshots/calculator_demo.png)
 
 ### Piano
-![Piano](docs/screenshots/piano_demo.png)
+![Piano](https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/v2.5.0/docs/screenshots/piano_demo.png)
 
 ### High Scores
-![High Scores](docs/screenshots/highscores_demo.png)
+![High Scores](https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/v2.5.0/docs/screenshots/highscores_demo.png)
 
 ### Todo App
-![Todo App](docs/screenshots/todoapp_demo.png)
+![Todo App](https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/v2.5.0/docs/screenshots/todoapp_demo.png)
 
 ### Screensaver
-![Screensaver](docs/screenshots/screensaver_demo.png)
+![Screensaver](https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/v2.5.0/docs/screenshots/screensaver_demo.png)
 
 ### Parallel Demo
-![Parallel Demo](docs/screenshots/parallel_demo.png)
+![Parallel Demo](https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/v2.5.0/docs/screenshots/parallel_demo.png)
 
 ---
 
@@ -215,7 +215,15 @@ This is the first release to **bundle demo projects** directly. Each demo is a s
 
 ---
 
-## Documentation Updates
+## 📚 Documentation Updates
+
+### Full Manuals
+
+- **[VisualGasic Language Reference](https://github.com/xgreenrx-star/VisualGasic/blob/v2.5.0/docs/VisualGasic_Language_Reference.md)** — Complete language manual (3,200+ lines): syntax, control flow, classes, inheritance, lambdas, multitasking, Godot integration, and all built-in functions
+- **[Built-in Functions Programmer's Reference](https://github.com/xgreenrx-star/VisualGasic/blob/v2.5.0/docs/reference/BUILTIN_FUNCTIONS_REFERENCE.md)** — Quick-reference for all 108 built-in functions with signatures, return types, and examples
+- **[Godot Programming Manual](https://github.com/xgreenrx-star/VisualGasic/blob/v2.5.0/docs/GODOT_PROGRAMMING_MANUAL.md)** — Guide for using VisualGasic with the Godot engine: nodes, scenes, signals, _Process/_Draw, exports
+
+### What Changed
 
 - **Language Reference**: Added Date/Time, System, File System, and Debugging sections
 - **Builtin Functions Reference**: Added 12 new function entries (Weekday, WeekdayName, MonthName, QBColor, Environ, Beep, MkDir, RmDir, ChDir, CurDir, FileCopy, Stop)
