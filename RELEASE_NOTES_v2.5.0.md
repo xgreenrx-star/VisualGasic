@@ -198,17 +198,38 @@ This is the first release to **bundle demo projects** directly. Each demo is a s
 
 ## 📦 Release Assets
 
-| File | Platform | Contents |
-|------|----------|----------|
-| `VisualGasic_v2.5.0_linux_x86_64.zip` | Linux | Editor + debug + release `.so`, addon, demos, docs |
-| `VisualGasic_v2.5.0_windows_x86_64.zip` | Windows | Editor + debug + release `.dll`, addon, demos, docs |
+| File | Platform | Size | Contents |
+|------|----------|------|----------|
+| `VisualGasic_v2.5.0_linux_x86_64.zip` | Linux | ~83 MB | Editor + debug + release `.so`, addon, demos, docs |
+| `VisualGasic_v2.5.0_windows_x86_64.zip` | Windows | ~90 MB | Editor + debug + release `.dll`, addon, demos, docs |
 
-### Installation
+> **Note:** The addon binaries are stored once in `addons/visual_gasic/bin/` and shared across all demo projects via symlinks, keeping the zip slim.
+
+### Installation (Plugin Only)
 
 1. Download the zip for your platform
-2. Extract into your Godot project root
-3. Enable the plugin: `Project > Project Settings > Plugins > VisualGasic`
+2. Copy the `addons/` folder into your Godot project root
+3. Enable the plugin: **Project → Project Settings → Plugins → VisualGasic**
 4. Create `.vg` files and start coding!
+
+### Running the Demo Projects
+
+The demos reference a single shared copy of the addon via symlinks. After extracting the zip, run the setup script to wire them up:
+
+**Linux / macOS:**
+```bash
+cd VisualGasic_v2.5.0
+chmod +x demos/setup_demos.sh
+demos/setup_demos.sh
+```
+
+**Windows (run as Administrator):**
+```batch
+cd VisualGasic_v2.5.0
+demos\setup_demos.bat
+```
+
+Then open any demo's `project.godot` in Godot 4.5+ and hit **F5** to play.
 
 ---
 
