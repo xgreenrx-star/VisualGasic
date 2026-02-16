@@ -726,7 +726,18 @@ Statement* VisualGasicParser::parse_statement() {
         if (val == "for") return set_line(parse_for());
         if (val == "while") return set_line(parse_while());
         if (val == "do") return set_line(parse_do());
-        if (val == "select") return set_line(parse_select());
+        if (val == "select") {
+            // Peek ahead: "Select Match" → pattern matching, "Select Case" → normal select
+            if (peek(1).type == VisualGasicTokenizer::TOKEN_KEYWORD || peek(1).type == VisualGasicTokenizer::TOKEN_IDENTIFIER) {
+                String next_kw = String(peek(1).value).to_lower();
+                if (next_kw == "match") {
+                    advance(); // consume "select"
+                    advance(); // consume "match"
+                    return set_line(parse_pattern_match());
+                }
+            }
+            return set_line(parse_select());
+        }
         if (val == "exit") return set_line(parse_exit());
         if (val == "redim") return set_line(parse_redim());
         if (val == "erase") return set_line(parse_erase());
