@@ -2411,7 +2411,9 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
         {
             bool _bg_handled = false;
             Variant _bg_res = VisualGasicBuiltins::call_builtin_expr(this, call, _bg_handled);
-            if (_bg_handled) return _bg_res;
+            if (_bg_handled) {
+                return _bg_res;
+            }
         }
 
         Array call_args;
@@ -2502,9 +2504,13 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
             if (base.get_type() == Variant::OBJECT) {
                 Object* obj = base;
                 if (obj) {
-                    if (obj->has_method(call->method_name)) return obj->callv(call->method_name, call_args);
+                    if (obj->has_method(call->method_name)) {
+                        return obj->callv(call->method_name, call_args);
+                    }
                     String snake = call->method_name.to_snake_case();
-                    if (obj->has_method(snake)) return obj->callv(snake, call_args);
+                    if (obj->has_method(snake)) {
+                        return obj->callv(snake, call_args);
+                    }
                 }
             }
 
@@ -9462,9 +9468,22 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     bool found = false;
                     call_ret = call_internal(method, args, found);
                     if (!found) {
-                        bool stmt_found = false;
-                        dispatch_builtin_call(method, args, stmt_found);
-                        call_ret = Variant();
+                        // Check for lambda variable invocation (e.g. Collides(...), Distance(...))
+                        if (variables.has(method)) {
+                            Variant v = variables[method];
+                            if (v.get_type() == Variant::DICTIONARY) {
+                                Dictionary d = v;
+                                if (d.has("__vg_lambda") && (bool)d["__vg_lambda"]) {
+                                    call_ret = invoke_lambda(d, args);
+                                    found = true;
+                                }
+                            }
+                        }
+                        if (!found) {
+                            bool stmt_found = false;
+                            dispatch_builtin_call(method, args, stmt_found);
+                            call_ret = Variant();
+                        }
                     }
                 }
                 push_value(call_ret);
