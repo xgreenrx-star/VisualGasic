@@ -1,0 +1,107 @@
+' Test: ByRef and ByVal Parameter Passing
+' Tests that ByRef modifies caller variable and ByVal does not
+Attribute VB_Name = "TestByRefByVal"
+
+Sub _Ready()
+	' --- ByRef modifies caller variable (default) ---
+	Dim x As Integer = 10
+	IncrementByRef x
+	If x = 11 Then
+		Print "PASS: byref_modifies_caller"
+	Else
+		Print "FAIL: byref_modifies_caller: expected 11, got " & Str(x)
+	End If
+	
+	' --- ByVal does NOT modify caller variable ---
+	x = 10
+	IncrementByVal x
+	If x = 10 Then
+		Print "PASS: byval_no_modify"
+	Else
+		Print "FAIL: byval_no_modify: expected 10, got " & Str(x)
+	End If
+	
+	' --- Multiple ByRef params ---
+	Dim a As Integer = 5
+	Dim b As Integer = 3
+	SwapValues a, b
+	If a = 3 And b = 5 Then
+		Print "PASS: byref_swap"
+	Else
+		Print "FAIL: byref_swap: a=" & Str(a) & ", b=" & Str(b)
+	End If
+	
+	' --- ByRef with string ---
+	Dim s As String = "hello"
+	AppendWorld s
+	If s = "hello world" Then
+		Print "PASS: byref_string"
+	Else
+		Print "FAIL: byref_string: got " & s
+	End If
+	
+	' --- ByRef in loop (variable updated each iteration) ---
+	Dim total As Integer = 0
+	Dim i As Integer
+	For i = 1 To 5
+		AddToTotal total, i
+	Next
+	If total = 15 Then
+		Print "PASS: byref_in_loop"
+	Else
+		Print "FAIL: byref_in_loop: expected 15, got " & Str(total)
+	End If
+	
+	' --- Mixed ByRef and ByVal ---
+	a = 10
+	b = 20
+	MixedParams a, b
+	If a = 100 And b = 20 Then
+		Print "PASS: mixed_byref_byval"
+	Else
+		Print "FAIL: mixed_byref_byval: a=" & Str(a) & ", b=" & Str(b)
+	End If
+	
+	' --- ByRef with function return (caller sees modified arg) ---
+	Dim val As Integer = 5
+	Dim result As Integer = DoubleAndReturn(val)
+	If result = 10 And val = 10 Then
+		Print "PASS: byref_with_function"
+	Else
+		Print "FAIL: byref_with_function: result=" & Str(result) & ", val=" & Str(val)
+	End If
+	
+	Print "TEST_COMPLETE"
+End Sub
+
+Sub IncrementByRef(n As Integer)
+	n = n + 1
+End Sub
+
+Sub IncrementByVal(ByVal n As Integer)
+	n = n + 1
+End Sub
+
+Sub SwapValues(a As Integer, b As Integer)
+	Dim temp As Integer = a
+	a = b
+	b = temp
+End Sub
+
+Sub AppendWorld(s As String)
+	s = s & " world"
+End Sub
+
+Sub AddToTotal(total As Integer, amount As Integer)
+	total = total + amount
+End Sub
+
+Sub MixedParams(x As Integer, ByVal y As Integer)
+	x = 100
+	y = 200
+End Sub
+
+Function DoubleAndReturn(n As Integer) As Integer
+	n = n * 2
+	Return n
+End Function

@@ -163,6 +163,7 @@ Vector<VisualGasicTokenizer::Token> VisualGasicTokenizer::tokenize(const String 
     keywords.push_back("Lambda");
     keywords.push_back("Fn");
     keywords.push_back("Class");
+    keywords.push_back("Enum");
     keywords.push_back("Property");
     keywords.push_back("Get");
     keywords.push_back("Let");

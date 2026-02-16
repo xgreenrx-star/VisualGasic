@@ -477,7 +477,6 @@ void VisualGasicCompiler::collect_locals(Statement* stmt) {
             // Erase falls back to interpreter for now
             break;
         }
-        case STMT_FOR: {
         case STMT_ASSIGNMENT: {
             AssignmentStatement *s = (AssignmentStatement *)stmt;
             if (s->target && s->target->type == ExpressionNode::VARIABLE && s->value && s->value->type == ExpressionNode::NEW) {
@@ -488,6 +487,7 @@ void VisualGasicCompiler::collect_locals(Statement* stmt) {
             }
             break;
         }
+        case STMT_FOR: {
             ForStatement* f = (ForStatement*)stmt;
             get_or_add_local(f->variable_name, VT_UNKNOWN);
             for (int i = 0; i < f->body.size(); i++) {
@@ -2650,7 +2650,9 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
              AssignmentStatement* s = (AssignmentStatement*)stmt;
              if (s->target && s->target->type == ExpressionNode::VARIABLE) {
                  String name = ((VariableNode*)s->target)->name.to_lower();
-                 if (!used_vars.has(name) && is_pure_expr(s->value)) {
+                 // Only apply DCE to function-local variables, never to globals.
+                 // Global writes affect other functions and must be preserved.
+                 if (!non_local_names.has(name) && !used_vars.has(name) && is_pure_expr(s->value)) {
                      break; // DCE
                  }
              }
@@ -4120,10 +4122,10 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             ReturnStatement* s = (ReturnStatement*)stmt;
             if (s->return_value) {
                 compile_expression(s->return_value);
+                emit_byte(OP_RETURN_VALUE);
             } else {
-                emit_constant(Variant()); // Return Null/Nothing if no value
+                emit_return(); // bare OP_RETURN (no value)
             }
-            emit_return();
             break;
         }
         case STMT_RESTORE: {
@@ -4138,6 +4140,57 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                 emit_bytes(OP_CONSTANT, (uint8_t)label_idx);
             }
             emit_byte(OP_RESTORE_DATA);
+            break;
+        }
+        case STMT_READ: {
+            // Read statement - read values from DATA segments into target variables
+            ReadStatement* s = (ReadStatement*)stmt;
+            for (int ri = 0; ri < s->targets.size(); ri++) {
+                ExpressionNode* target = s->targets[ri];
+                // Push next DATA value onto stack
+                emit_byte(OP_READ_DATA);
+                // Store into target variable
+                if (target->type == ExpressionNode::VARIABLE) {
+                    VariableNode* tv = (VariableNode*)target;
+                    int slot = get_or_add_local(tv->name, VT_UNKNOWN);
+                    if (slot >= 0) {
+                        emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
+                    } else {
+                        int idx = current_chunk->add_constant(tv->name);
+                        emit_bytes(OP_SET_GLOBAL, (uint8_t)idx);
+                    }
+                } else if (target->type == ExpressionNode::ARRAY_ACCESS) {
+                    ArrayAccessNode* aa = (ArrayAccessNode*)target;
+                    if (aa->indices.size() == 1 && aa->base->type == ExpressionNode::VARIABLE) {
+                        VariableNode* v = (VariableNode*)aa->base;
+                        // Stack: [value]
+                        // Need: [array, index, value] for OP_SET_ARRAY
+                        // So compile base and index, but value is already on stack.
+                        // Rearrange: store value to temp, push array+index+value
+                        int temp_slot = get_or_add_local("__read_tmp_" + String::num_int64(temp_local_id++), VT_UNKNOWN);
+                        if (temp_slot >= 0) {
+                            emit_bytes(OP_SET_LOCAL, (uint8_t)temp_slot); // save value
+                            compile_expression(aa->base);                // push array
+                            compile_expression(aa->indices[0]);          // push index
+                            emit_bytes(OP_GET_LOCAL, (uint8_t)temp_slot); // push value
+                            emit_byte(OP_SET_ARRAY);
+                            emit_byte(1);
+                            int arr_slot = get_or_add_local(v->name, VT_UNKNOWN);
+                            if (arr_slot >= 0) emit_bytes(OP_SET_LOCAL, (uint8_t)arr_slot);
+                            else {
+                                int idx = current_chunk->add_constant(v->name);
+                                emit_bytes(OP_SET_GLOBAL, (uint8_t)idx);
+                            }
+                        } else {
+                            compile_ok = false;
+                        }
+                    } else {
+                        compile_ok = false;
+                    }
+                } else {
+                    compile_ok = false;
+                }
+            }
             break;
         }
         case STMT_ON_ERROR: {
@@ -4280,6 +4333,11 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                 }
                 loop_exit_jumps.remove_at(loop_exit_jumps.size() - 1);
             }
+            break;
+        }
+        case STMT_STOP: {
+            // VB6 Stop statement — emit OP_STOP to trigger debugger break
+            emit_byte(OP_STOP);
             break;
         }
         default:

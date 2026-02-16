@@ -1,0 +1,64 @@
+' Test: IIf, Choose, Switch
+' Tests conditional expression functions
+Attribute VB_Name = "TestConditionalFuncs"
+
+Sub _Ready()
+	' --- IIf true ---
+	Dim r As String = IIf(True, "yes", "no")
+	If r = "yes" Then
+		Print "PASS: iif_true"
+	Else
+		Print "FAIL: iif_true: got " & r
+	End If
+	
+	' --- IIf false ---
+	r = IIf(False, "yes", "no")
+	If r = "no" Then
+		Print "PASS: iif_false"
+	Else
+		Print "FAIL: iif_false: got " & r
+	End If
+	
+	' --- IIf with expression ---
+	Dim x As Integer = 10
+	Dim label As String = IIf(x > 5, "big", "small")
+	If label = "big" Then
+		Print "PASS: iif_expression"
+	Else
+		Print "FAIL: iif_expression: got " & label
+	End If
+	
+	' --- IIf with numbers ---
+	Dim max As Integer = IIf(10 > 20, 10, 20)
+	If max = 20 Then
+		Print "PASS: iif_numbers"
+	Else
+		Print "FAIL: iif_numbers: got " & Str(max)
+	End If
+	
+	' --- Choose ---
+	Dim ch As Variant = Choose(2, "A", "B", "C")
+	If ch = "B" Then
+		Print "PASS: choose"
+	Else
+		Print "FAIL: choose: got " & ch
+	End If
+	
+	' --- Choose first ---
+	ch = Choose(1, "X", "Y", "Z")
+	If ch = "X" Then
+		Print "PASS: choose_first"
+	Else
+		Print "FAIL: choose_first: got " & ch
+	End If
+	
+	' --- Choose last ---
+	ch = Choose(3, "X", "Y", "Z")
+	If ch = "Z" Then
+		Print "PASS: choose_last"
+	Else
+		Print "FAIL: choose_last: got " & ch
+	End If
+	
+	Print "TEST_COMPLETE"
+End Sub

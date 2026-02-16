@@ -1,0 +1,274 @@
+Attribute VB_Name = "PianoPlaybackDiag"
+
+' Exact copy of Piano's relevant subs with heavy diagnostics
+' Tests both demo song and recorded playback
+
+Dim noteNames(20) As String
+Dim noteFrequencies(20) As Single
+Dim noteKeys(20) As String
+Dim noteIsBlack(20) As Boolean
+Dim noteCount As Integer
+
+Dim activeNotes(20) As Boolean
+Dim keyPressed(20) As Boolean
+Dim keyGlow(20) As Single
+
+Dim recordedNotes(500) As Integer
+Dim recordedTimes(500) As Single
+Dim recordLength As Integer
+Dim isRecording As Boolean
+Dim isPlaying As Boolean
+Dim isPlayingDemo As Boolean
+Dim playbackTime As Single
+Dim playbackIndex As Integer
+Dim recordStartTime As Single
+
+Dim demoSongNotes(100) As Integer
+Dim demoSongTimes(100) As Single
+Dim demoSongLength As Integer
+
+Dim testPhase As Integer
+Dim frameNum As Integer
+Dim totalPlayed As Integer
+
+Sub _Ready()
+    LoadNoteData
+    LoadDemoSong
+    testPhase = 0
+    frameNum = 0
+    totalPlayed = 0
+    
+    ' Start demo song immediately
+    Print "=== STARTING DEMO SONG TEST ==="
+    StartPlayback True
+End Sub
+
+Sub LoadNoteData()
+    Restore NoteData
+    noteCount = 0
+    
+    Dim nName As String
+    Do
+        Read nName
+        If nName = "END" Then Exit Do
+        noteNames(noteCount) = nName
+        
+        Dim freq As Single
+        Dim key As String
+        Dim isBlack As Integer
+        Read freq, key, isBlack
+        
+        noteFrequencies(noteCount) = freq
+        noteKeys(noteCount) = key
+        noteIsBlack(noteCount) = (isBlack = 1)
+        noteCount = noteCount + 1
+    Loop
+    Print "Loaded " & Str(noteCount) & " piano keys"
+End Sub
+
+Sub LoadDemoSong()
+    Restore DemoSongData
+    demoSongLength = 0
+    
+    Dim noteIdx As Integer
+    Do
+        Read noteIdx
+        If noteIdx = -1 Then Exit Do
+        demoSongNotes(demoSongLength) = noteIdx
+        Read demoSongTimes(demoSongLength)
+        demoSongLength = demoSongLength + 1
+    Loop
+    Print "Demo song loaded: " & Str(demoSongLength) & " notes"
+End Sub
+
+NoteData:
+Data "C4", 261.63, "A", 0
+Data "C#4", 277.18, "W", 1
+Data "D4", 293.66, "S", 0
+Data "D#4", 311.13, "E", 1
+Data "E4", 329.63, "D", 0
+Data "F4", 349.23, "F", 0
+Data "F#4", 369.99, "T", 1
+Data "G4", 392.00, "G", 0
+Data "G#4", 415.30, "Y", 1
+Data "A4", 440.00, "H", 0
+Data "A#4", 466.16, "U", 1
+Data "B4", 493.88, "J", 0
+Data "C5", 523.25, "K", 0
+Data "C#5", 554.37, "O", 1
+Data "D5", 587.33, "L", 0
+Data "END", 0, "", 0
+
+DemoSongData:
+Data 4, 0.0
+Data 2, 0.4
+Data 0, 0.8
+Data 2, 1.2
+Data 4, 1.6
+Data 4, 2.0
+Data 4, 2.4
+Data 2, 3.2
+Data 2, 3.6
+Data 2, 4.0
+Data 4, 4.8
+Data 7, 5.2
+Data 7, 5.6
+Data 4, 6.4
+Data 2, 6.8
+Data 0, 7.2
+Data 2, 7.6
+Data 4, 8.0
+Data 4, 8.4
+Data 4, 8.8
+Data 4, 9.2
+Data 2, 9.6
+Data 2, 10.0
+Data 4, 10.4
+Data 2, 10.8
+Data 0, 11.2
+Data -1, 0
+
+Sub PlayNote(noteIndex As Integer)
+    If noteIndex < 0 Or noteIndex >= noteCount Then Exit Sub
+    Dim freq As Single = noteFrequencies(noteIndex)
+    PlayTone freq, 300
+    activeNotes(noteIndex) = True
+    keyGlow(noteIndex) = 1.0
+    totalPlayed = totalPlayed + 1
+    Print "Playing: " & noteNames(noteIndex) & " (" & Str(Int(freq)) & " Hz) [#" & Str(totalPlayed) & "]"
+End Sub
+
+Sub StopNote(noteIndex As Integer)
+    activeNotes(noteIndex) = False
+End Sub
+
+Sub StartPlayback(useDemo As Boolean)
+    isPlaying = True
+    isPlayingDemo = useDemo
+    playbackTime = 0
+    playbackIndex = 0
+    
+    If useDemo Then
+        Print "Playing demo song (" & Str(demoSongLength) & " notes)..."
+    Else
+        Print "Playing recording (" & Str(recordLength) & " notes)..."
+    End If
+End Sub
+
+Sub UpdatePlayback(delta As Single)
+    If Not isPlaying Then Exit Sub
+    
+    playbackTime = playbackTime + delta
+    
+    If isPlayingDemo Then
+        Do While playbackIndex < demoSongLength
+            If playbackTime >= demoSongTimes(playbackIndex) Then
+                PlayNote demoSongNotes(playbackIndex)
+                playbackIndex = playbackIndex + 1
+            Else
+                Exit Do
+            End If
+        Loop
+        If playbackIndex >= demoSongLength Then
+            isPlaying = False
+            Print "Demo song finished! Played " & Str(totalPlayed) & " notes total"
+        End If
+    Else
+        Do While playbackIndex < recordLength
+            If playbackTime >= recordedTimes(playbackIndex) Then
+                PlayNote recordedNotes(playbackIndex)
+                playbackIndex = playbackIndex + 1
+            Else
+                Exit Do
+            End If
+        Loop
+        If playbackIndex >= recordLength Then
+            isPlaying = False
+            Print "Recording playback finished! Played " & Str(totalPlayed) & " notes"
+        End If
+    End If
+End Sub
+
+Sub HandleKeyboardInput()
+    Dim i As Integer
+    For i = 0 To noteCount - 1
+        Dim keyCode As Integer = GetKeyCode(noteKeys(i))
+        If Input.IsKeyPressed(keyCode) Then
+            If Not keyPressed(i) Then
+                PlayNote i
+                keyPressed(i) = True
+            End If
+        Else
+            If keyPressed(i) Then
+                StopNote i
+                keyPressed(i) = False
+            End If
+        End If
+    Next
+End Sub
+
+Function GetKeyCode(key As String) As Integer
+    Select Case key
+        Case "A": Return KEY_A
+        Case "S": Return KEY_S
+        Case "D": Return KEY_D
+        Case "F": Return KEY_F
+        Case "G": Return KEY_G
+        Case "H": Return KEY_H
+        Case "J": Return KEY_J
+        Case "K": Return KEY_K
+        Case "L": Return KEY_L
+        Case "W": Return KEY_W
+        Case "E": Return KEY_E
+        Case "T": Return KEY_T
+        Case "Y": Return KEY_Y
+        Case "U": Return KEY_U
+        Case "O": Return KEY_O
+        Case Else: Return 0
+    End Select
+End Function
+
+Sub UpdateVisuals(delta As Single)
+    Dim i As Integer
+    For i = 0 To noteCount - 1
+        If keyGlow(i) > 0 Then
+            keyGlow(i) = keyGlow(i) - delta * 3
+            If keyGlow(i) < 0 Then keyGlow(i) = 0
+        End If
+    Next
+End Sub
+
+Sub _Process(delta As Single)
+    frameNum = frameNum + 1
+    HandleKeyboardInput
+    UpdatePlayback delta
+    UpdateVisuals delta
+    
+    ' Log every 2 seconds
+    If frameNum Mod 120 = 0 Then
+        Print "[Frame " & Str(frameNum) & "] isPlaying=" & Str(isPlaying) & " pIdx=" & Str(playbackIndex) & " pTime=" & Str(playbackTime)
+    End If
+    
+    ' Timeout check
+    If frameNum > 2000 And isPlaying Then
+        Print "FAIL: Still playing after 2000 frames!"
+        Print "  playbackTime=" & Str(playbackTime) & " playbackIndex=" & Str(playbackIndex)
+        If isPlayingDemo Then
+            Print "  demoSongLength=" & Str(demoSongLength)
+            If playbackIndex < demoSongLength Then
+                Print "  Next target time=" & Str(demoSongTimes(playbackIndex))
+            End If
+        Else
+            Print "  recordLength=" & Str(recordLength)
+        End If
+        isPlaying = False
+    End If
+    
+    If frameNum = 2001 Then
+        If totalPlayed >= demoSongLength Then
+            Print "PASS: All " & Str(totalPlayed) & " notes played"
+        Else
+            Print "FAIL: Only " & Str(totalPlayed) & "/" & Str(demoSongLength) & " notes played"
+        End If
+    End If
+End Sub

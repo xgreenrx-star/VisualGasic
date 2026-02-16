@@ -1,0 +1,95 @@
+' Test: Arrays
+' Tests fixed arrays, dynamic arrays, ReDim, ReDim Preserve, multi-dimensional
+Attribute VB_Name = "TestArrays"
+
+Sub _Ready()
+	' --- Fixed size array ---
+	Dim arr(5) As Integer
+	arr(0) = 10
+	arr(1) = 20
+	arr(2) = 30
+	If arr(0) = 10 And arr(1) = 20 And arr(2) = 30 Then
+		Print "PASS: fixed_array_assign"
+	Else
+		Print "FAIL: fixed_array_assign"
+	End If
+	
+	' --- UBound ---
+	If UBound(arr) = 5 Then
+		Print "PASS: ubound"
+	Else
+		Print "FAIL: ubound: expected 5, got " & Str(UBound(arr))
+	End If
+	
+	' --- LBound ---
+	If LBound(arr) = 0 Then
+		Print "PASS: lbound"
+	Else
+		Print "FAIL: lbound: expected 0, got " & Str(LBound(arr))
+	End If
+	
+	' --- Dynamic array + ReDim ---
+	Dim dyn() As Integer
+	ReDim dyn(3)
+	dyn(0) = 1
+	dyn(1) = 2
+	dyn(2) = 3
+	dyn(3) = 4
+	If dyn(3) = 4 Then
+		Print "PASS: redim_basic"
+	Else
+		Print "FAIL: redim_basic"
+	End If
+	
+	' --- ReDim Preserve ---
+	ReDim Preserve dyn(5)
+	If dyn(0) = 1 And dyn(1) = 2 And dyn(3) = 4 Then
+		Print "PASS: redim_preserve"
+	Else
+		Print "FAIL: redim_preserve: data lost"
+	End If
+	
+	' --- Array iteration ---
+	Dim sum As Integer = 0
+	Dim i As Integer
+	For i = 0 To 3
+		sum = sum + dyn(i)
+	Next
+	If sum = 10 Then
+		Print "PASS: array_iteration"
+	Else
+		Print "FAIL: array_iteration: expected 10, got " & Str(sum)
+	End If
+	
+	' --- String array ---
+	Dim names(3) As String
+	names(0) = "Alice"
+	names(1) = "Bob"
+	names(2) = "Carol"
+	If names(1) = "Bob" Then
+		Print "PASS: string_array"
+	Else
+		Print "FAIL: string_array"
+	End If
+	
+	' --- Multi-dimensional array ---
+	Dim grid(3, 3) As Integer
+	grid(0, 0) = 1
+	grid(1, 1) = 5
+	grid(2, 2) = 9
+	If grid(0, 0) = 1 And grid(1, 1) = 5 And grid(2, 2) = 9 Then
+		Print "PASS: multidim_array"
+	Else
+		Print "FAIL: multidim_array"
+	End If
+	
+	' --- Erase ---
+	Erase arr
+	If UBound(arr) = -1 Then
+		Print "PASS: erase_array"
+	Else
+		Print "FAIL: erase_array: UBound after erase = " & Str(UBound(arr))
+	End If
+	
+	Print "TEST_COMPLETE"
+End Sub

@@ -1,0 +1,57 @@
+' Test: Process and Timer
+' MAX_FRAMES: 180
+' Tests _Process callback, GetDelta, Timer, frame counting
+Attribute VB_Name = "TestProcess"
+
+Dim frameCount As Integer
+Dim totalTime As Single
+Dim startTimer As Single
+Dim testsRun As Boolean
+
+Sub _Ready()
+	frameCount = 0
+	totalTime = 0
+	startTimer = Timer()
+	testsRun = False
+End Sub
+
+Sub _Process(delta As Single)
+	frameCount = frameCount + 1
+	totalTime = totalTime + delta
+	
+	' Run tests after 30 frames to accumulate data
+	If frameCount = 30 And Not testsRun Then
+		testsRun = True
+		
+		' --- _Process called ---
+		If frameCount = 30 Then
+			Print "PASS: process_called"
+		Else
+			Print "FAIL: process_called"
+		End If
+		
+		' --- Delta is positive ---
+		If delta > 0 Then
+			Print "PASS: delta_positive"
+		Else
+			Print "FAIL: delta_positive: delta = " & Str(delta)
+		End If
+		
+		' --- Timer returns increasing value ---
+		Dim now As Single = Timer()
+		If now >= startTimer Then
+			Print "PASS: timer_increases"
+		Else
+			Print "FAIL: timer_increases"
+		End If
+		
+		' --- Total time accumulated ---
+		If totalTime > 0 Then
+			Print "PASS: time_accumulated"
+		Else
+			Print "FAIL: time_accumulated"
+		End If
+		
+		Print "TEST_COMPLETE"
+	End If
+End Sub

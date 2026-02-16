@@ -1,0 +1,52 @@
+' Test: Continue statement
+' Tests Continue For, Continue Do
+Attribute VB_Name = "TestContinue"
+
+Sub _Ready()
+	' --- Continue For (skip even numbers) ---
+	Dim sum As Integer = 0
+	Dim i As Integer
+	For i = 1 To 10
+		If i Mod 2 = 0 Then Continue For
+		sum = sum + i
+	Next
+	' Odd numbers 1-10: 1+3+5+7+9 = 25
+	If sum = 25 Then
+		Print "PASS: continue_for"
+	Else
+		Print "FAIL: continue_for: expected 25, got " & Str(sum)
+	End If
+	
+	' --- Continue Do ---
+	sum = 0
+	i = 0
+	Do While i < 10
+		i = i + 1
+		If i Mod 2 = 0 Then Continue Do
+		sum = sum + i
+	Loop
+	If sum = 25 Then
+		Print "PASS: continue_do"
+	Else
+		Print "FAIL: continue_do: expected 25, got " & Str(sum)
+	End If
+	
+	' --- Continue For in nested loop (only inner loop affected) ---
+	Dim count As Integer = 0
+	Dim j As Integer
+	For i = 1 To 3
+		For j = 1 To 3
+			If j = 2 Then Continue For
+			count = count + 1
+		Next
+	Next
+	' Each outer iteration: j=1 counted, j=2 skipped, j=3 counted = 2
+	' 3 outer * 2 = 6
+	If count = 6 Then
+		Print "PASS: continue_nested"
+	Else
+		Print "FAIL: continue_nested: expected 6, got " & Str(count)
+	End If
+	
+	Print "TEST_COMPLETE"
+End Sub

@@ -1,0 +1,32 @@
+Attribute VB_Name = "TestSimplePlayback"
+
+Dim counter As Integer
+Dim isActive As Boolean
+Dim frameCount As Integer
+
+Sub _Ready()
+    counter = 42
+    isActive = True
+    frameCount = 0
+    Print "_Ready done: counter=" & Str(counter) & " isActive=" & Str(isActive)
+End Sub
+
+Sub _Process(delta As Single)
+    frameCount = frameCount + 1
+    ' Force AST fallback with Read
+    Restore TestData
+    Dim dummy As Integer
+    Read dummy
+    Print "Frame " & Str(frameCount) & ": counter=" & Str(counter) & " isActive=" & Str(isActive)
+    CheckState
+    If frameCount >= 5 Then
+        Print "DONE"
+    End If
+End Sub
+
+Sub CheckState()
+    Print "  CheckState: counter=" & Str(counter) & " isActive=" & Str(isActive)
+End Sub
+
+TestData:
+Data 1

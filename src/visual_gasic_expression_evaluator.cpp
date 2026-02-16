@@ -325,7 +325,11 @@ Variant VisualGasicExpressionEvaluator::evaluate(ExpressionNode* expr, Context& 
             }
         }
 
-        // For other EXPRESSION_CALL nodes, return null (these should be handled by the main evaluator)
+        // For other EXPRESSION_CALL nodes, delegate to the full evaluator
+        // which handles builtins (Int, Str, Mid, etc.) and user-defined functions.
+        if (ctx.instance) {
+            return ctx.instance->evaluate_expression_full(expr);
+        }
         return Variant();
     }
     if (expr->type == ExpressionNode::UNARY_OP) {

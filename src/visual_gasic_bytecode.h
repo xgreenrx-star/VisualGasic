@@ -136,6 +136,7 @@ enum OpCode {
 
     // Data/Restore system
     OP_RESTORE_DATA,        // [OP] - Reset DATA pointer (value on stack: -1 for start, or label name)
+    OP_READ_DATA,           // [OP] - Read next value from DATA segments, push to stack
 
     // Error Handling
     OP_ON_ERROR_RESUME_NEXT, // [OP] - Enable On Error Resume Next
@@ -149,6 +150,9 @@ enum OpCode {
     
     // Debug Support
     OP_DEBUG_LINE,     // [OP] [LINE_LO] [LINE_HI] - Track current source line for debugging
+    OP_STOP,           // [OP] - VB6 Stop statement: trigger debugger break
+
+    OP_COUNT_          // Sentinel — must be last (used by computed-goto table)
 };
 
 struct BytecodeChunk {

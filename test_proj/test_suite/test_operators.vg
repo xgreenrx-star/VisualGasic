@@ -1,0 +1,166 @@
+' Test: Operators
+' Tests arithmetic, comparison, logical, string concat, integer division, mod, exponent
+Attribute VB_Name = "TestOperators"
+
+Sub _Ready()
+	' --- Addition ---
+	Dim a As Integer = 10
+	Dim b As Integer = 3
+	If a + b = 13 Then
+		Print "PASS: addition"
+	Else
+		Print "FAIL: addition"
+	End If
+	
+	' --- Subtraction ---
+	If a - b = 7 Then
+		Print "PASS: subtraction"
+	Else
+		Print "FAIL: subtraction"
+	End If
+	
+	' --- Multiplication ---
+	If a * b = 30 Then
+		Print "PASS: multiplication"
+	Else
+		Print "FAIL: multiplication"
+	End If
+	
+	' --- Division ---
+	Dim d As Double = 10.0 / 3.0
+	If d > 3.33 And d < 3.34 Then
+		Print "PASS: division"
+	Else
+		Print "FAIL: division: got " & Str(d)
+	End If
+	
+	' --- Integer division ---
+	If 10 \ 3 = 3 Then
+		Print "PASS: integer_division"
+	Else
+		Print "FAIL: integer_division: got " & Str(10 \ 3)
+	End If
+	
+	' --- Mod ---
+	If 10 Mod 3 = 1 Then
+		Print "PASS: mod"
+	Else
+		Print "FAIL: mod: got " & Str(10 Mod 3)
+	End If
+	
+	' --- Exponent ---
+	If 2 ^ 10 = 1024 Then
+		Print "PASS: exponent"
+	Else
+		Print "FAIL: exponent: got " & Str(2 ^ 10)
+	End If
+	
+	' --- String concatenation (&) ---
+	Dim s As String = "Hello" & " " & "World"
+	If s = "Hello World" Then
+		Print "PASS: string_concat"
+	Else
+		Print "FAIL: string_concat: got " & s
+	End If
+	
+	' --- Comparison operators ---
+	If 5 > 3 Then
+		Print "PASS: greater_than"
+	Else
+		Print "FAIL: greater_than"
+	End If
+	
+	If 3 < 5 Then
+		Print "PASS: less_than"
+	Else
+		Print "FAIL: less_than"
+	End If
+	
+	If 5 >= 5 Then
+		Print "PASS: greater_equal"
+	Else
+		Print "FAIL: greater_equal"
+	End If
+	
+	If 5 <= 5 Then
+		Print "PASS: less_equal"
+	Else
+		Print "FAIL: less_equal"
+	End If
+	
+	If 5 <> 3 Then
+		Print "PASS: not_equal"
+	Else
+		Print "FAIL: not_equal"
+	End If
+	
+	If 5 = 5 Then
+		Print "PASS: equal"
+	Else
+		Print "FAIL: equal"
+	End If
+	
+	' --- Logical And ---
+	If True And True Then
+		Print "PASS: logical_and"
+	Else
+		Print "FAIL: logical_and"
+	End If
+	
+	If Not (True And False) Then
+		Print "PASS: logical_and_false"
+	Else
+		Print "FAIL: logical_and_false"
+	End If
+	
+	' --- Logical Or ---
+	If True Or False Then
+		Print "PASS: logical_or"
+	Else
+		Print "FAIL: logical_or"
+	End If
+	
+	' --- Logical Not ---
+	If Not False Then
+		Print "PASS: logical_not"
+	Else
+		Print "FAIL: logical_not"
+	End If
+	
+	' --- Logical Xor ---
+	If True Xor False Then
+		Print "PASS: logical_xor_true"
+	Else
+		Print "FAIL: logical_xor_true"
+	End If
+	
+	If Not (True Xor True) Then
+		Print "PASS: logical_xor_false"
+	Else
+		Print "FAIL: logical_xor_false"
+	End If
+	
+	' --- Unary minus ---
+	Dim neg As Integer = -42
+	If neg = -42 Then
+		Print "PASS: unary_minus"
+	Else
+		Print "FAIL: unary_minus"
+	End If
+	
+	' --- Operator precedence (multiply before add) ---
+	If 2 + 3 * 4 = 14 Then
+		Print "PASS: precedence_mul_add"
+	Else
+		Print "FAIL: precedence_mul_add: got " & Str(2 + 3 * 4)
+	End If
+	
+	' --- Parentheses override precedence ---
+	If (2 + 3) * 4 = 20 Then
+		Print "PASS: parentheses"
+	Else
+		Print "FAIL: parentheses: got " & Str((2 + 3) * 4)
+	End If
+	
+	Print "TEST_COMPLETE"
+End Sub

@@ -29,6 +29,19 @@ using namespace godot;
 
 namespace VisualGasicBuiltins {
 
+// Static working directory for ChDir/CurDir (shared across all instances).
+// We CANNOT use godot::String at file scope because its constructor runs
+// during .so static-init before the Godot memory allocator is ready,
+// which segfaults in the editor build.  Use a raw pointer + lazy init.
+static String *s_current_working_dir = nullptr;
+
+static String &get_cwd() {
+    if (!s_current_working_dir) {
+        s_current_working_dir = memnew(String("res://"));
+    }
+    return *s_current_working_dir;
+}
+
 static String variant_to_cstr(const Variant &src) {
     switch (src.get_type()) {
         case Variant::INT:
@@ -306,6 +319,66 @@ Variant call_builtin_expr(VisualGasicInstance *instance, CallExpression *call, b
     if (METHOD_IS("dir")) { r_handled = true; return instance->file_dir(args); }
     if (METHOD_IS("randomize")) { r_handled = true; instance->randomize_seed(); return Variant(); }
 
+    // ---- VB6 File/Directory Management ----
+    if (METHOD_IS("mkdir") && args.size() >= 1) {
+        r_handled = true;
+        String path = String(args[0]);
+        Ref<DirAccess> dir = DirAccess::open("res://");
+        if (dir.is_valid()) {
+            Error err = dir->make_dir_recursive(path);
+            if (err != OK) {
+                UtilityFunctions::printerr("MkDir: Failed to create directory '", path, "'");
+            }
+        }
+        return Variant();
+    }
+    if (METHOD_IS("rmdir") && args.size() >= 1) {
+        r_handled = true;
+        String path = String(args[0]);
+        Ref<DirAccess> dir = DirAccess::open("res://");
+        if (dir.is_valid()) {
+            Error err = dir->remove(path);
+            if (err != OK) {
+                UtilityFunctions::printerr("RmDir: Failed to remove directory '", path, "'");
+            }
+        }
+        return Variant();
+    }
+    if (METHOD_IS("chdir") && args.size() >= 1) {
+        r_handled = true;
+        String path = String(args[0]);
+        Ref<DirAccess> dir = DirAccess::open(path);
+        if (dir.is_valid()) {
+            get_cwd() = path;
+        } else {
+            UtilityFunctions::printerr("ChDir: Invalid path '", path, "'");
+        }
+        return Variant();
+    }
+    if (METHOD_IS("curdir") || METHOD_IS("curdir$")) {
+        r_handled = true;
+        return get_cwd();
+    }
+    if (METHOD_IS("filecopy") && args.size() >= 2) {
+        r_handled = true;
+        String src = String(args[0]);
+        String dst = String(args[1]);
+        Ref<DirAccess> dir = DirAccess::open("res://");
+        if (dir.is_valid()) {
+            Error err = dir->copy(src, dst);
+            if (err != OK) {
+                UtilityFunctions::printerr("FileCopy: Failed to copy '", src, "' to '", dst, "'");
+            }
+        }
+        return Variant();
+    }
+    if (METHOD_IS("beep")) {
+        r_handled = true;
+        // Beep is a no-op in Godot (no system beep API), but we acknowledge the call
+        UtilityFunctions::print("[VG] Beep");
+        return Variant();
+    }
+
     // If not handled here, leave r_handled false so caller can fallback
 #undef METHOD_IS
     return Variant();
@@ -512,20 +585,20 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
     }
 
     // Math Library
-    if (METHOD_IS("sin") && args.size() == 1) { r_handled = true; return UtilityFunctions::sin(args[0]); }
-    if (METHOD_IS("cos") && args.size() == 1) { r_handled = true; return UtilityFunctions::cos(args[0]); }
-    if (METHOD_IS("tan") && args.size() == 1) { r_handled = true; return UtilityFunctions::tan(args[0]); }
-    if (METHOD_IS("log") && args.size() == 1) { r_handled = true; return UtilityFunctions::log(args[0]); }
-    if (METHOD_IS("exp") && args.size() == 1) { r_handled = true; return UtilityFunctions::exp(args[0]); }
-    if (METHOD_IS("atn") && args.size() == 1) { r_handled = true; return UtilityFunctions::atan(args[0]); }
-    if (METHOD_IS("sqr") && args.size() == 1) { r_handled = true; return UtilityFunctions::sqrt(args[0]); }
+    if (METHOD_IS("sin") && args.size() == 1) { r_handled = true; return ::sin((double)args[0]); }
+    if (METHOD_IS("cos") && args.size() == 1) { r_handled = true; return ::cos((double)args[0]); }
+    if (METHOD_IS("tan") && args.size() == 1) { r_handled = true; return ::tan((double)args[0]); }
+    if (METHOD_IS("log") && args.size() == 1) { r_handled = true; return ::log((double)args[0]); }
+    if (METHOD_IS("exp") && args.size() == 1) { r_handled = true; return ::exp((double)args[0]); }
+    if (METHOD_IS("atn") && args.size() == 1) { r_handled = true; return ::atan((double)args[0]); }
+    if (METHOD_IS("sqr") && args.size() == 1) { r_handled = true; return ::sqrt((double)args[0]); }
     if (METHOD_IS("abs") && args.size() == 1) { 
         r_handled = true; 
         if (args[0].get_type() == Variant::INT) { int64_t v = (int64_t)args[0]; return v < 0 ? -v : v; }
-        return UtilityFunctions::abs(args[0]); 
+        return ::fabs((double)args[0]); 
     }
     if (METHOD_IS("sgn") && args.size() == 1) { r_handled = true; double d = (double)args[0]; if (d>0) return (int64_t)1; if (d<0) return (int64_t)-1; return (int64_t)0; }
-    if (METHOD_IS("int") && args.size() == 1) { r_handled = true; if (args[0].get_type() == Variant::INT) return (int64_t)args[0]; return UtilityFunctions::floor(args[0]); }
+    if (METHOD_IS("int") && args.size() == 1) { r_handled = true; if (args[0].get_type() == Variant::INT) return (int64_t)args[0]; return (int64_t)floor((double)args[0]); }
     if (METHOD_IS("rnd") && (args.size() == 0 || args.size() == 1)) { r_handled = true; return UtilityFunctions::randf(); }
     if (METHOD_IS("randomize") && args.size() == 0) { r_handled = true; UtilityFunctions::randomize(); return Variant(); }
     if (METHOD_IS("randomize") && args.size() == 1) { r_handled = true; UtilityFunctions::seed((int64_t)args[0]); return Variant(); }
@@ -576,6 +649,46 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
 
     if (METHOD_IS("lerp") && args.size() == 3) { r_handled = true; double a = args[0]; double b = args[1]; double t = args[2]; return Math::lerp(a,b,t); }
     if (METHOD_IS("clamp") && args.size() == 3) { r_handled = true; double val = args[0]; double mn = args[1]; double mx = args[2]; return Math::clamp(val,mn,mx); }
+
+    // Min/Max functions
+    if (METHOD_IS("min") && args.size() == 2) { r_handled = true; double a = (double)args[0]; double b = (double)args[1]; return a < b ? a : b; }
+    if (METHOD_IS("max") && args.size() == 2) { r_handled = true; double a = (double)args[0]; double b = (double)args[1]; return a > b ? a : b; }
+
+    // IIf(condition, trueValue, falseValue) - Immediate If
+    if (METHOD_IS("iif") && args.size() == 3) {
+        r_handled = true;
+        bool cond = (bool)args[0];
+        return cond ? args[1] : args[2];
+    }
+
+    // Choose(index, val1, val2, ...) - 1-based index selection
+    // Also handles boolean first arg: Choose(True, a, b) -> a, Choose(False, a, b) -> b
+    if (METHOD_IS("choose") && args.size() >= 2) {
+        r_handled = true;
+        Variant first = args[0];
+        // If first arg is boolean, treat as IIf(cond, args[1], args[2])
+        if (first.get_type() == Variant::BOOL) {
+            bool cond = (bool)first;
+            if (cond && args.size() >= 2) return args[1];
+            if (!cond && args.size() >= 3) return args[2];
+            return Variant();
+        }
+        // Standard VB6 Choose: 1-based index into remaining args
+        int64_t idx = (int64_t)first;
+        if (idx >= 1 && idx <= (int64_t)(args.size() - 1)) {
+            return args[idx]; // args[1] = first choice, args[2] = second, etc.
+        }
+        return Variant(); // Out of range returns Null
+    }
+
+    // Switch(expr1, val1, expr2, val2, ...) - returns val for first true expr
+    if (METHOD_IS("switch") && args.size() >= 2) {
+        r_handled = true;
+        for (int i = 0; i + 1 < args.size(); i += 2) {
+            if ((bool)args[i]) return args[i + 1];
+        }
+        return Variant();
+    }
 
     // Vector math helpers (works for Vector2 or Vector3 depending on input types)
     if (METHOD_IS("vec3") && args.size() == 3) { r_handled = true; return Vector3(args[0], args[1], args[2]); }
@@ -995,11 +1108,11 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
         
         Array range;
         if (step > 0) {
-            for (int i = start; i < end; i += step) {
+            for (int i = start; i <= end; i += step) {
                 range.append(i);
             }
         } else if (step < 0) {
-            for (int i = start; i > end; i += step) {
+            for (int i = start; i >= end; i += step) {
                 range.append(i);
             }
         }
@@ -1100,7 +1213,18 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
     
     if (METHOD_IS("typename") && args.size() == 1) {
         r_handled = true;
-        return Variant::get_type_name(args[0].get_type());
+        Variant::Type t = args[0].get_type();
+        switch (t) {
+            case Variant::INT: return "Integer";
+            case Variant::FLOAT: return "Double";
+            case Variant::STRING: return "String";
+            case Variant::BOOL: return "Boolean";
+            case Variant::ARRAY: return "Array";
+            case Variant::DICTIONARY: return "Dictionary";
+            case Variant::OBJECT: return "Object";
+            case Variant::NIL: return "Nothing";
+            default: return Variant::get_type_name(t);
+        }
     }
     
     // VB6 type checking functions
@@ -1670,7 +1794,51 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
         
         return 0;
     }
-    
+
+    // Weekday(date, [firstDayOfWeek]) — returns 1..7 (Sunday=1 by default, VB6 convention)
+    if (METHOD_IS("weekday") && args.size() >= 1) {
+        r_handled = true;
+        String date_str = String(args[0]);
+        int first_dow = (args.size() >= 2) ? (int)args[1] : 1; // 1 = vbSunday
+        // Parse MM/DD/YYYY
+        PackedStringArray parts = date_str.split("/");
+        if (parts.size() >= 3) {
+            int m = parts[0].to_int(), d = parts[1].to_int(), y = parts[2].to_int();
+            // Tomohiko Sakamoto's algorithm — returns 0=Sunday..6=Saturday
+            static int t[] = {0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4};
+            if (m < 3) y -= 1;
+            int dow = (y + y/4 - y/100 + y/400 + t[m-1] + d) % 7; // 0=Sun
+            // VB6: Sunday=1 with offset by firstDayOfWeek
+            int result = ((dow - (first_dow - 1) + 7) % 7) + 1;
+            return result;
+        }
+        return 1; // default Sunday
+    }
+
+    // WeekdayName(weekday, [abbreviate], [firstDayOfWeek])
+    if (METHOD_IS("weekdayname") && args.size() >= 1) {
+        r_handled = true;
+        int wd = (int)args[0]; // 1-based (1=Sunday in VB6 default)
+        bool abbr = (args.size() >= 2) ? (bool)args[1] : false;
+        const char* names_full[] = {"Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"};
+        const char* names_abbr[] = {"Sun","Mon","Tue","Wed","Thu","Fri","Sat"};
+        int idx = ((wd - 1) % 7 + 7) % 7;
+        return String(abbr ? names_abbr[idx] : names_full[idx]);
+    }
+
+    // MonthName(month, [abbreviate])
+    if (METHOD_IS("monthname") && args.size() >= 1) {
+        r_handled = true;
+        int m = (int)args[0]; // 1-based
+        bool abbr = (args.size() >= 2) ? (bool)args[1] : false;
+        const char* names_full[] = {"January","February","March","April","May","June",
+                                    "July","August","September","October","November","December"};
+        const char* names_abbr[] = {"Jan","Feb","Mar","Apr","May","Jun",
+                                    "Jul","Aug","Sep","Oct","Nov","Dec"};
+        if (m < 1 || m > 12) return String("");
+        return String(abbr ? names_abbr[m-1] : names_full[m-1]);
+    }
+
     // Format(value, format) - formats a value according to format string
     if (METHOD_IS("format") && args.size() >= 1) {
         r_handled = true;
@@ -1962,11 +2130,11 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
         
         Array range;
         if (step > 0) {
-            for (int i = start; i < end; i += step) {
+            for (int i = start; i <= end; i += step) {
                 range.append(i);
             }
         } else if (step < 0) {
-            for (int i = start; i > end; i += step) {
+            for (int i = start; i >= end; i += step) {
                 range.append(i);
             }
         }
@@ -2079,7 +2247,18 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
     
     if (METHOD_IS("typename") && args.size() == 1) {
         r_handled = true;
-        return Variant::get_type_name(args[0].get_type());
+        Variant::Type t = args[0].get_type();
+        switch (t) {
+            case Variant::INT: return "Integer";
+            case Variant::FLOAT: return "Double";
+            case Variant::STRING: return "String";
+            case Variant::BOOL: return "Boolean";
+            case Variant::ARRAY: return "Array";
+            case Variant::DICTIONARY: return "Dictionary";
+            case Variant::OBJECT: return "Object";
+            case Variant::NIL: return "Nothing";
+            default: return Variant::get_type_name(t);
+        }
     }
 
     // Array Helpers (duplicated here for bytecode access)
@@ -2187,6 +2366,38 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
             }
         }
         return Variant(); // Nothing if not found
+    }
+
+    // ---- QBColor(colorNumber) — VB6/QBasic 16-color palette ----
+    if (METHOD_IS("qbcolor") && args.size() >= 1) {
+        r_handled = true;
+        int c = (int)args[0];
+        // Standard QBasic 16-color palette → 0xRRGGBB
+        static const int qb_palette[16] = {
+            0x000000, 0x000080, 0x008000, 0x008080,
+            0x800000, 0x800080, 0x808000, 0xC0C0C0,
+            0x808080, 0x0000FF, 0x00FF00, 0x00FFFF,
+            0xFF0000, 0xFF00FF, 0xFFFF00, 0xFFFFFF
+        };
+        if (c >= 0 && c < 16) return (int64_t)qb_palette[c];
+        return (int64_t)0;
+    }
+
+    // ---- Environ(name) / Environ$(name) — read environment variable ----
+    if ((METHOD_IS("environ") || METHOD_IS("environ$")) && args.size() >= 1) {
+        r_handled = true;
+        String var_name = String(args[0]);
+        // Use Godot's OS.get_environment()
+        if (OS::get_singleton()) {
+            return OS::get_singleton()->get_environment(var_name);
+        }
+        return String("");
+    }
+
+    // ---- CurDir / CurDir$() — return current working directory ----
+    if (METHOD_IS("curdir") || METHOD_IS("curdir$")) {
+        r_handled = true;
+        return get_cwd();
     }
 
 #undef METHOD_IS

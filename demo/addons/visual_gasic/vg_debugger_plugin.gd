@@ -30,11 +30,14 @@ func _has_capture(prefix: String) -> bool:
 
 func _goto_script_line(script: Script, line: int) -> void:
 	"""Called by Godot when user clicks on a breakpoint line in the debugger panel."""
-	print("[VG Debugger Plugin] _goto_script_line: ", script.resource_path if script else "null", " line ", line)
+	# Godot passes 0-based line (it subtracts 1 from _debug_get_stack_level_line internally).
+	# Our _navigate_to_script_line expects 1-based, so convert here.
+	var one_based_line := line + 1
+	print("[VG Debugger Plugin] _goto_script_line: ", script.resource_path if script else "null", " line ", line, " -> 1-based ", one_based_line)
 	if script and script.resource_path.ends_with(".vg"):
-		# Navigate to the VG script line
-		_navigate_to_script_line(script.resource_path, line)
-		debug_break_hit.emit(script.resource_path, line)
+
+		_navigate_to_script_line(script.resource_path, one_based_line)
+		debug_break_hit.emit(script.resource_path, one_based_line)
 
 func _capture(message: String, data: Array, session_id: int) -> bool:
 	# Debug: Log all messages to see what's coming through

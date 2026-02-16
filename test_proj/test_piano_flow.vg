@@ -1,0 +1,193 @@
+Attribute VB_Name = "TestPianoFlow"
+
+' Simplified piano test: test record/playback/demo song flow
+Dim noteNames(20) As String
+Dim noteFrequencies(20) As Single
+Dim noteCount As Integer
+Dim activeNotes(20) As Boolean
+Dim keyPressed(20) As Boolean
+
+Dim recordedNotes(500) As Integer
+Dim recordedTimes(500) As Single
+Dim recordLength As Integer
+Dim isRecording As Boolean
+Dim isPlaying As Boolean
+Dim isPlayingDemo As Boolean
+Dim playbackTime As Single
+Dim playbackIndex As Integer
+Dim recordStartTime As Single
+
+Dim demoSongNotes(100) As Integer
+Dim demoSongTimes(100) As Single
+Dim demoSongLength As Integer
+
+Dim frameCount As Integer
+Dim testPhase As Integer
+
+Sub _Ready()
+    ' Set up 5 notes
+    noteCount = 5
+    noteNames(0) = "C4"
+    noteNames(1) = "D4"
+    noteNames(2) = "E4"
+    noteNames(3) = "F4"
+    noteNames(4) = "G4"
+    noteFrequencies(0) = 261.63
+    noteFrequencies(1) = 293.66
+    noteFrequencies(2) = 329.63
+    noteFrequencies(3) = 349.23
+    noteFrequencies(4) = 392.00
+    
+    ' Load demo song
+    demoSongNotes(0) = 4
+    demoSongTimes(0) = 0.0
+    demoSongNotes(1) = 2
+    demoSongTimes(1) = 0.05
+    demoSongNotes(2) = 0
+    demoSongTimes(2) = 0.1
+    demoSongNotes(3) = 2
+    demoSongTimes(3) = 0.15
+    demoSongNotes(4) = 4
+    demoSongTimes(4) = 0.2
+    demoSongLength = 5
+    
+    frameCount = 0
+    testPhase = 0
+    
+    Print "=== Piano Flow Test ==="
+    Print "noteCount=" & Str(noteCount) & " demoSongLength=" & Str(demoSongLength)
+End Sub
+
+Sub _Process(delta As Single)
+    frameCount = frameCount + 1
+    
+    ' Phase 0: Start demo playback on frame 5
+    If testPhase = 0 And frameCount = 5 Then
+        Print ""
+        Print "--- Phase 1: Demo Song Playback ---"
+        StartPlayback True
+        Print "After StartPlayback: isPlaying=" & Str(isPlaying) & " isPlayingDemo=" & Str(isPlayingDemo)
+        Print "  playbackTime=" & Str(playbackTime) & " playbackIndex=" & Str(playbackIndex)
+        testPhase = 1
+    End If
+    
+    ' Phase 1: Update playback
+    If testPhase = 1 Then
+        UpdatePlayback delta
+        If Not isPlaying Then
+            Print "Demo playback complete! Played " & Str(playbackIndex) & " notes"
+            testPhase = 2
+        End If
+    End If
+    
+    ' Phase 2: Test recording (simulate)
+    If testPhase = 2 And frameCount > 50 Then
+        Print ""
+        Print "--- Phase 2: Recording ---"
+        ToggleRecording
+        ' Simulate recording 3 notes
+        SimulateRecord 0, 0.0
+        SimulateRecord 2, 0.1
+        SimulateRecord 4, 0.2
+        ToggleRecording
+        Print "Recorded " & Str(recordLength) & " notes"
+        testPhase = 3
+    End If
+    
+    ' Phase 3: Play back recording
+    If testPhase = 3 And frameCount > 55 Then
+        Print ""
+        Print "--- Phase 3: Recording Playback ---"
+        StartPlayback False
+        Print "After StartPlayback: isPlaying=" & Str(isPlaying) & " isPlayingDemo=" & Str(isPlayingDemo)
+        testPhase = 4
+    End If
+    
+    ' Phase 4: Update recording playback
+    If testPhase = 4 Then
+        UpdatePlayback delta
+        If Not isPlaying Then
+            Print "Recording playback complete! Played " & Str(playbackIndex) & " notes"
+            testPhase = 5
+        End If
+    End If
+    
+    If testPhase = 5 Then
+        Print ""
+        Print "=== ALL TESTS PASSED ==="
+        testPhase = 6
+    End If
+    
+    If frameCount >= 200 Then
+        Print "DONE (frame " & Str(frameCount) & " phase " & Str(testPhase) & ")"
+    End If
+End Sub
+
+Sub SimulateRecord(noteIdx As Integer, timeOff As Single)
+    recordedNotes(recordLength) = noteIdx
+    recordedTimes(recordLength) = timeOff
+    recordLength = recordLength + 1
+End Sub
+
+Sub StartPlayback(useDemo As Boolean)
+    isPlaying = True
+    isPlayingDemo = useDemo
+    playbackTime = 0
+    playbackIndex = 0
+    
+    If useDemo Then
+        Print "Playing demo song (" & Str(demoSongLength) & " notes)..."
+    Else
+        Print "Playing recording (" & Str(recordLength) & " notes)..."
+    End If
+End Sub
+
+Sub ToggleRecording()
+    If isRecording Then
+        isRecording = False
+        Print "Recording stopped: " & Str(recordLength) & " notes"
+    Else
+        isRecording = True
+        recordLength = 0
+        recordStartTime = 0
+        Print "Recording started..."
+    End If
+End Sub
+
+Sub UpdatePlayback(delta As Single)
+    If Not isPlaying Then Exit Sub
+    
+    playbackTime = playbackTime + delta
+    
+    If isPlayingDemo Then
+        Do While playbackIndex < demoSongLength
+            If playbackTime >= demoSongTimes(playbackIndex) Then
+                PlayNote demoSongNotes(playbackIndex)
+                playbackIndex = playbackIndex + 1
+            Else
+                Exit Do
+            End If
+        Loop
+        If playbackIndex >= demoSongLength Then
+            isPlaying = False
+        End If
+    Else
+        Do While playbackIndex < recordLength
+            If playbackTime >= recordedTimes(playbackIndex) Then
+                PlayNote recordedNotes(playbackIndex)
+                playbackIndex = playbackIndex + 1
+            Else
+                Exit Do
+            End If
+        Loop
+        If playbackIndex >= recordLength Then
+            isPlaying = False
+        End If
+    End If
+End Sub
+
+Sub PlayNote(noteIndex As Integer)
+    If noteIndex < 0 Or noteIndex >= noteCount Then Exit Sub
+    Print "  -> Play: " & noteNames(noteIndex) & " (" & Str(Int(noteFrequencies(noteIndex))) & " Hz)"
+    activeNotes(noteIndex) = True
+End Sub

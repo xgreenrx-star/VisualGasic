@@ -1,0 +1,55 @@
+' Test: For Each Loop
+' Tests For Each with arrays and collection iteration
+Attribute VB_Name = "TestForEach"
+
+Sub _Ready()
+	' --- For Each with integer array ---
+	Dim arr(4) As Integer
+	arr(0) = 10
+	arr(1) = 20
+	arr(2) = 30
+	arr(3) = 40
+	arr(4) = 50
+	
+	Dim sum As Integer = 0
+	Dim item As Variant
+	For Each item In arr
+		sum = sum + item
+	Next
+	If sum = 150 Then
+		Print "PASS: foreach_int_array"
+	Else
+		Print "FAIL: foreach_int_array: expected 150, got " & Str(sum)
+	End If
+	
+	' --- For Each with string array ---
+	Dim names(2) As String
+	names(0) = "Alice"
+	names(1) = "Bob"
+	names(2) = "Carol"
+	
+	Dim result As String = ""
+	Dim name As Variant
+	For Each name In names
+		If result <> "" Then result = result & ","
+		result = result & name
+	Next
+	If result = "Alice,Bob,Carol" Then
+		Print "PASS: foreach_string_array"
+	Else
+		Print "FAIL: foreach_string_array: got " & result
+	End If
+	
+	' --- For Each count ---
+	Dim count As Integer = 0
+	For Each item In arr
+		count = count + 1
+	Next
+	If count = 5 Then
+		Print "PASS: foreach_count"
+	Else
+		Print "FAIL: foreach_count: expected 5, got " & Str(count)
+	End If
+	
+	Print "TEST_COMPLETE"
+End Sub

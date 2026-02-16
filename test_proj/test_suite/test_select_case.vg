@@ -1,0 +1,136 @@
+' Test: Select Case
+' Tests basic, ranges, Is comparisons, Case Else, multiple values
+Attribute VB_Name = "TestSelectCase"
+
+Sub _Ready()
+	' --- Basic Select Case ---
+	Dim x As Integer = 3
+	Dim result As String = ""
+	
+	Select Case x
+		Case 1
+			result = "one"
+		Case 2
+			result = "two"
+		Case 3
+			result = "three"
+		Case Else
+			result = "other"
+	End Select
+	If result = "three" Then
+		Print "PASS: select_basic"
+	Else
+		Print "FAIL: select_basic: got " & result
+	End If
+	
+	' --- Case Else ---
+	x = 99
+	Select Case x
+		Case 1
+			result = "one"
+		Case 2
+			result = "two"
+		Case Else
+			result = "else"
+	End Select
+	If result = "else" Then
+		Print "PASS: select_case_else"
+	Else
+		Print "FAIL: select_case_else"
+	End If
+	
+	' --- Case with range (To) ---
+	x = 15
+	Select Case x
+		Case 1 To 10
+			result = "low"
+		Case 11 To 20
+			result = "mid"
+		Case 21 To 30
+			result = "high"
+		Case Else
+			result = "other"
+	End Select
+	If result = "mid" Then
+		Print "PASS: select_range"
+	Else
+		Print "FAIL: select_range: got " & result
+	End If
+	
+	' --- Case with Is > ---
+	x = 150
+	Select Case x
+		Case Is < 50
+			result = "small"
+		Case Is < 100
+			result = "medium"
+		Case Is >= 100
+			result = "large"
+	End Select
+	If result = "large" Then
+		Print "PASS: select_is_comparison"
+	Else
+		Print "FAIL: select_is_comparison: got " & result
+	End If
+	
+	' --- Case with multiple values ---
+	x = 7
+	Select Case x
+		Case 1, 3, 5, 7, 9
+			result = "odd"
+		Case 2, 4, 6, 8, 10
+			result = "even"
+		Case Else
+			result = "other"
+	End Select
+	If result = "odd" Then
+		Print "PASS: select_multiple_values"
+	Else
+		Print "FAIL: select_multiple_values: got " & result
+	End If
+	
+	' --- Select Case with strings ---
+	Dim s As String = "hello"
+	Select Case s
+		Case "hi"
+			result = "greeting1"
+		Case "hello"
+			result = "greeting2"
+		Case "hey"
+			result = "greeting3"
+		Case Else
+			result = "unknown"
+	End Select
+	If result = "greeting2" Then
+		Print "PASS: select_string"
+	Else
+		Print "FAIL: select_string: got " & result
+	End If
+	
+	' --- Nested Select ---
+	x = 2
+	Dim y As Integer = 3
+	Dim nested As String = ""
+	Select Case x
+		Case 1
+			nested = "a"
+		Case 2
+			Select Case y
+				Case 1
+					nested = "b1"
+				Case 3
+					nested = "b3"
+				Case Else
+					nested = "bx"
+			End Select
+		Case Else
+			nested = "c"
+	End Select
+	If nested = "b3" Then
+		Print "PASS: select_nested"
+	Else
+		Print "FAIL: select_nested: got " & nested
+	End If
+	
+	Print "TEST_COMPLETE"
+End Sub

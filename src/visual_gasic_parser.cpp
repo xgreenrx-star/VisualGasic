@@ -198,6 +198,12 @@ ModuleNode* VisualGasicParser::parse(const Vector<VisualGasicTokenizer::Token>& 
             continue;
         }
 
+        // Enum Definition (module-level)
+        if (t.type == VisualGasicTokenizer::TOKEN_KEYWORD && String(t.value).nocasecmp_to("enum") == 0) {
+            parse_enum();
+            continue;
+        }
+
         // Variable Declaration (Dim, Public, Private)
         String val = String(t.value).to_lower();
         if (t.type == VisualGasicTokenizer::TOKEN_KEYWORD && (val == "public" || val == "private" || val == "dim")) {
@@ -700,6 +706,10 @@ Statement* VisualGasicParser::parse_statement() {
             advance();
             return set_line(static_cast<DoEventsStatement*>(register_node(new DoEventsStatement())));
         }
+        if (val == "stop") {
+            advance();
+            return set_line(static_cast<StopStatement*>(register_node(new StopStatement())));
+        }
         if (val == "data") return set_line(parse_data());
         if (val == "datafile") return set_line(parse_data_file());
         if (val == "loaddata") return set_line(parse_load_data());
@@ -737,6 +747,10 @@ Statement* VisualGasicParser::parse_statement() {
         }
         if (val == "task") {
             advance(); // consume "task"
+            // Handle both "Task Run" and "Task.Run" syntax
+            if (check(VisualGasicTokenizer::TOKEN_OPERATOR) && String(peek().value) == ".") {
+                advance(); // consume "."
+            }
             String next_val = String(peek().value).to_lower();
             if (next_val == "run") {
                 advance(); // consume "run"
@@ -3964,6 +3978,10 @@ TaskWaitStatement* VisualGasicParser::parse_task_wait() {
             }
         }
         match(VisualGasicTokenizer::TOKEN_PAREN_CLOSE);
+    } else if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
+        // Support bare identifier: Task Wait SumTask
+        wait_stmt->task_names.push_back(peek().value);
+        advance();
     }
     
     return wait_stmt;
@@ -3979,6 +3997,14 @@ ParallelForStatement* VisualGasicParser::parse_parallel_for() {
     }
     par_for->variable_name = peek().value;
     advance();
+    
+    // Handle optional "As Type" declaration (e.g., Parallel For i As Integer = 0 To N)
+    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("As") == 0) {
+        advance(); // Eat "As"
+        if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER) || check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
+            advance(); // Eat type name (Integer, String, etc.)
+        }
+    }
     
     // = (comes as TOKEN_OPERATOR)
     if (!match(VisualGasicTokenizer::TOKEN_OPERATOR)) {

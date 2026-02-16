@@ -1136,10 +1136,14 @@ int32_t VisualGasicLanguage::_debug_get_stack_level_line(int32_t p_level) const 
         // Stack is stored with most recent at end, but Godot expects level 0 = top
         int idx = stack.size() - 1 - p_level;
         // For the top frame (level 0), use stored breakpoint line if available (more accurate during debug breaks)
+        int result;
         if (p_level == 0 && current_break_line > 0) {
-            return current_break_line;
+            result = current_break_line;
+        } else {
+            result = stack[idx].line;
         }
-        return stack[idx].line;
+        // Godot expects 1-based lines here; _text_editor_stack_goto does -1 internally
+        return result;
     }
     return -1;
 }

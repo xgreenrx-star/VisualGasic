@@ -1,0 +1,98 @@
+Attribute VB_Name = "TestDebounce"
+
+' Replicate EXACT Piano debounce pattern with arrays + sub calls
+Dim noteKeys(20) As String
+Dim keyPressed(20) As Boolean
+Dim noteCount As Integer
+Dim playCount As Integer
+Dim frameCount As Integer
+Dim simulatedKeyDown As Boolean
+
+Sub _Ready()
+    noteCount = 5
+    noteKeys(0) = "A"
+    noteKeys(1) = "S"
+    noteKeys(2) = "D"
+    noteKeys(3) = "F"
+    noteKeys(4) = "G"
+    playCount = 0
+    frameCount = 0
+    simulatedKeyDown = True   ' Simulate holding a key from the start
+    Print "=== Debounce Test ==="
+    Print "noteCount=" & Str(noteCount)
+End Sub
+
+Sub _Process(delta As Single)
+    frameCount = frameCount + 1
+    HandleKeyboardInput
+    
+    ' Release key on frame 10, re-press on frame 15
+    If frameCount = 10 Then
+        simulatedKeyDown = False
+        Print "--- Key released at frame 10 ---"
+    End If
+    If frameCount = 15 Then
+        simulatedKeyDown = True
+        Print "--- Key pressed again at frame 15 ---"
+    End If
+    If frameCount = 20 Then
+        simulatedKeyDown = False
+        Print "--- Key released at frame 20 ---"
+    End If
+    
+    If frameCount = 25 Then
+        Print ""
+        Print "RESULT: playCount=" & Str(playCount) & " (expected 2)"
+        If playCount = 2 Then
+            Print "PASS"
+        Else
+            Print "FAIL - debounce broken!"
+        End If
+    End If
+End Sub
+
+Sub HandleKeyboardInput()
+    ' Check key for note index 0 (same pattern as Piano)
+    Dim i As Integer
+    For i = 0 To noteCount - 1
+        Dim keyCode As Integer = GetKeyCode(noteKeys(i))
+        Dim isDown As Boolean = False
+        
+        ' Simulate: only key index 0 is "pressed"
+        If i = 0 Then
+            isDown = simulatedKeyDown
+        End If
+        
+        If isDown Then
+            If Not keyPressed(i) Then
+                PlayNote i
+                keyPressed(i) = True
+            End If
+        Else
+            If keyPressed(i) Then
+                StopNote i
+                keyPressed(i) = False
+            End If
+        End If
+    Next
+End Sub
+
+Function GetKeyCode(key As String) As Integer
+    Select Case key
+        Case "A": Return 65
+        Case "S": Return 83
+        Case "D": Return 68
+        Case "F": Return 70
+        Case "G": Return 71
+        Case Else: Return 0
+    End Select
+End Function
+
+Sub PlayNote(noteIndex As Integer)
+    playCount = playCount + 1
+    Print "  PlayNote(" & Str(noteIndex) & ") called! playCount=" & Str(playCount) & " frame=" & Str(frameCount)
+End Sub
+
+Sub StopNote(noteIndex As Integer)
+    Print "  StopNote(" & Str(noteIndex) & ") called, frame=" & Str(frameCount)
+End Sub

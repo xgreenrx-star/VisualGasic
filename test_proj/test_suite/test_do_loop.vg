@@ -1,0 +1,114 @@
+' Test: Do/Loop and While/Wend
+' Tests Do While, Do Until, Do/Loop While, Do/Loop Until, While/Wend, Exit Do
+Attribute VB_Name = "TestDoLoop"
+
+Sub _Ready()
+	' --- Do While...Loop ---
+	Dim i As Integer = 0
+	Dim sum As Integer = 0
+	Do While i < 5
+		sum = sum + i
+		i = i + 1
+	Loop
+	If sum = 10 Then
+		Print "PASS: do_while"
+	Else
+		Print "FAIL: do_while: expected 10, got " & Str(sum)
+	End If
+	
+	' --- Do Until...Loop ---
+	i = 0
+	sum = 0
+	Do Until i >= 5
+		sum = sum + i
+		i = i + 1
+	Loop
+	If sum = 10 Then
+		Print "PASS: do_until"
+	Else
+		Print "FAIL: do_until: expected 10, got " & Str(sum)
+	End If
+	
+	' --- Do...Loop While (post-condition) ---
+	i = 0
+	sum = 0
+	Do
+		sum = sum + i
+		i = i + 1
+	Loop While i < 5
+	If sum = 10 Then
+		Print "PASS: do_loop_while"
+	Else
+		Print "FAIL: do_loop_while: expected 10, got " & Str(sum)
+	End If
+	
+	' --- Do...Loop Until (post-condition) ---
+	i = 0
+	sum = 0
+	Do
+		sum = sum + i
+		i = i + 1
+	Loop Until i >= 5
+	If sum = 10 Then
+		Print "PASS: do_loop_until"
+	Else
+		Print "FAIL: do_loop_until: expected 10, got " & Str(sum)
+	End If
+	
+	' --- Do...Loop While executes at least once ---
+	Dim ran As Boolean = False
+	Do
+		ran = True
+	Loop While False
+	If ran Then
+		Print "PASS: do_loop_while_runs_once"
+	Else
+		Print "FAIL: do_loop_while_runs_once"
+	End If
+	
+	' --- Exit Do ---
+	sum = 0
+	i = 0
+	Do While True
+		If i >= 5 Then Exit Do
+		sum = sum + i
+		i = i + 1
+	Loop
+	If sum = 10 Then
+		Print "PASS: exit_do"
+	Else
+		Print "FAIL: exit_do: expected 10, got " & Str(sum)
+	End If
+	
+	' --- While...Wend ---
+	i = 0
+	sum = 0
+	While i < 5
+		sum = sum + i
+		i = i + 1
+	Wend
+	If sum = 10 Then
+		Print "PASS: while_wend"
+	Else
+		Print "FAIL: while_wend: expected 10, got " & Str(sum)
+	End If
+	
+	' --- Nested Do loops ---
+	sum = 0
+	i = 0
+	Do While i < 3
+		Dim j As Integer = 0
+		Do While j < 3
+			sum = sum + 1
+			j = j + 1
+		Loop
+		i = i + 1
+	Loop
+	If sum = 9 Then
+		Print "PASS: nested_do"
+	Else
+		Print "FAIL: nested_do: expected 9, got " & Str(sum)
+	End If
+	
+	Print "TEST_COMPLETE"
+End Sub

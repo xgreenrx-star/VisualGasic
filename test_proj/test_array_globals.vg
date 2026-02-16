@@ -1,0 +1,44 @@
+Attribute VB_Name = "TestArrayGlobals"
+
+Dim myArray(10) As Integer
+Dim myLength As Integer
+Dim simpleVar As Integer
+Dim frameCount As Integer
+Dim isPlaying As Boolean
+Dim playbackIndex As Integer
+Dim playbackTime As Single
+
+Sub _Ready()
+    simpleVar = 99
+    myArray(0) = 10
+    myArray(1) = 20
+    myArray(2) = 30
+    myLength = 3
+    isPlaying = True
+    playbackIndex = 0
+    playbackTime = 0
+    Print "_Ready: simpleVar=" & Str(simpleVar) & " myLength=" & Str(myLength) & " isPlaying=" & Str(isPlaying)
+End Sub
+
+Sub _Process(delta As Single)
+    frameCount = frameCount + 1
+    UpdatePlayback delta
+    If frameCount >= 5 Then
+        Print "DONE"
+    End If
+End Sub
+
+Sub UpdatePlayback(delta As Single)
+    If Not isPlaying Then Exit Sub
+    playbackTime = playbackTime + delta
+    Print "  UpdatePlayback: isPlaying=" & Str(isPlaying) & " myLength=" & Str(myLength) & " idx=" & Str(playbackIndex)
+    Do While playbackIndex < myLength
+        Print "    Playing note " & Str(myArray(playbackIndex))
+        playbackIndex = playbackIndex + 1
+        Exit Do
+    Loop
+    If playbackIndex >= myLength Then
+        isPlaying = False
+        Print "  Playback finished!"
+    End If
+End Sub

@@ -1,0 +1,90 @@
+' Test: Enum
+' Tests Enum declaration, usage, auto-values, explicit values
+Attribute VB_Name = "TestEnum"
+
+Enum Color
+	Red
+	Green
+	Blue
+End Enum
+
+Enum Priority
+	Low = 1
+	Medium = 5
+	High = 10
+End Enum
+
+Sub _Ready()
+	' --- Enum auto values (0, 1, 2) ---
+	If Red = 0 Then
+		Print "PASS: enum_first_value"
+	Else
+		Print "FAIL: enum_first_value: got " & Str(Red)
+	End If
+	
+	If Green = 1 Then
+		Print "PASS: enum_second_value"
+	Else
+		Print "FAIL: enum_second_value: got " & Str(Green)
+	End If
+	
+	If Blue = 2 Then
+		Print "PASS: enum_third_value"
+	Else
+		Print "FAIL: enum_third_value: got " & Str(Blue)
+	End If
+	
+	' --- Enum explicit values ---
+	If Low = 1 Then
+		Print "PASS: enum_explicit_low"
+	Else
+		Print "FAIL: enum_explicit_low: got " & Str(Low)
+	End If
+	
+	If Medium = 5 Then
+		Print "PASS: enum_explicit_medium"
+	Else
+		Print "FAIL: enum_explicit_medium: got " & Str(Medium)
+	End If
+	
+	If High = 10 Then
+		Print "PASS: enum_explicit_high"
+	Else
+		Print "FAIL: enum_explicit_high: got " & Str(High)
+	End If
+	
+	' --- Enum in variable ---
+	Dim c As Integer = Green
+	If c = 1 Then
+		Print "PASS: enum_variable"
+	Else
+		Print "FAIL: enum_variable: got " & Str(c)
+	End If
+	
+	' --- Enum in condition ---
+	Dim p As Integer = High
+	If p > Medium Then
+		Print "PASS: enum_comparison"
+	Else
+		Print "FAIL: enum_comparison"
+	End If
+	
+	' --- Enum in Select Case ---
+	Dim result As String = ""
+	Dim myColor As Integer = Blue
+	Select Case myColor
+		Case Red
+			result = "red"
+		Case Green
+			result = "green"
+		Case Blue
+			result = "blue"
+	End Select
+	If result = "blue" Then
+		Print "PASS: enum_select_case"
+	Else
+		Print "FAIL: enum_select_case: got " & result
+	End If
+	
+	Print "TEST_COMPLETE"
+End Sub

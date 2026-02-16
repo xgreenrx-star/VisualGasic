@@ -1,0 +1,130 @@
+' Test: Sub and Function
+' Tests Sub calls, Function return values, recursion, function name assignment
+Attribute VB_Name = "TestSubFunction"
+
+Dim testResult As String
+
+Sub _Ready()
+	' --- Basic Sub call ---
+	testResult = ""
+	BasicSub
+	If testResult = "called" Then
+		Print "PASS: basic_sub"
+	Else
+		Print "FAIL: basic_sub: got " & testResult
+	End If
+	
+	' --- Sub with parameters ---
+	testResult = ""
+	SubWithParams "hello", 42
+	If testResult = "hello42" Then
+		Print "PASS: sub_with_params"
+	Else
+		Print "FAIL: sub_with_params: got " & testResult
+	End If
+	
+	' --- Basic Function ---
+	Dim r As Integer = AddTwo(3, 4)
+	If r = 7 Then
+		Print "PASS: basic_function"
+	Else
+		Print "FAIL: basic_function: expected 7, got " & Str(r)
+	End If
+	
+	' --- Function with return type ---
+	Dim s As String = Greet("World")
+	If s = "Hello, World!" Then
+		Print "PASS: function_return_string"
+	Else
+		Print "FAIL: function_return_string: got " & s
+	End If
+	
+	' --- Recursive function (factorial) ---
+	Dim fact As Integer = Factorial(5)
+	If fact = 120 Then
+		Print "PASS: recursive_factorial"
+	Else
+		Print "FAIL: recursive_factorial: expected 120, got " & Str(fact)
+	End If
+	
+	' --- Function name assignment (VB6 style) ---
+	Dim maxVal As Integer = MaxOf(10, 20)
+	If maxVal = 20 Then
+		Print "PASS: function_name_assignment"
+	Else
+		Print "FAIL: function_name_assignment: got " & Str(maxVal)
+	End If
+	
+	' --- Exit Sub ---
+	testResult = ""
+	ExitEarlySub 5
+	If testResult = "entered" Then
+		Print "PASS: exit_sub"
+	Else
+		Print "FAIL: exit_sub: got " & testResult
+	End If
+	
+	' --- Exit Function ---
+	Dim ef As Integer = ExitEarlyFunc(True)
+	If ef = 42 Then
+		Print "PASS: exit_function"
+	Else
+		Print "FAIL: exit_function: got " & Str(ef)
+	End If
+	
+	' --- Nested function calls ---
+	Dim nested As Integer = AddTwo(AddTwo(1, 2), AddTwo(3, 4))
+	If nested = 10 Then
+		Print "PASS: nested_function_calls"
+	Else
+		Print "FAIL: nested_function_calls: got " & Str(nested)
+	End If
+	
+	Print "TEST_COMPLETE"
+End Sub
+
+Sub BasicSub()
+	testResult = "called"
+End Sub
+
+Sub SubWithParams(msg As String, num As Integer)
+	testResult = msg & Str(num)
+End Sub
+
+Function AddTwo(a As Integer, b As Integer) As Integer
+	Return a + b
+End Function
+
+Function Greet(name As String) As String
+	Return "Hello, " & name & "!"
+End Function
+
+Function Factorial(n As Integer) As Integer
+	If n <= 1 Then
+		Factorial = 1
+	Else
+		Factorial = n * Factorial(n - 1)
+	End If
+End Function
+
+Function MaxOf(a As Integer, b As Integer) As Integer
+	If a > b Then
+		MaxOf = a
+	Else
+		MaxOf = b
+	End If
+End Function
+
+Sub ExitEarlySub(x As Integer)
+	testResult = "entered"
+	If x > 0 Then Exit Sub
+	testResult = "should_not_reach"
+End Sub
+
+Function ExitEarlyFunc(flag As Boolean) As Integer
+	If flag Then
+		ExitEarlyFunc = 42
+		Exit Function
+	End If
+	ExitEarlyFunc = 0
+End Function

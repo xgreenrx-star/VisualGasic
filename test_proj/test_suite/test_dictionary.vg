@@ -1,0 +1,73 @@
+' Test: Dictionary
+' Tests dictionary creation, key/value access, methods
+Attribute VB_Name = "TestDictionary"
+
+Sub _Ready()
+	' --- Create dictionary ---
+	Dim d As Dictionary
+	Set d = New Dictionary
+	
+	' --- Add entries ---
+	d.Add "name", "Alice"
+	d.Add "age", 30
+	
+	' --- Count ---
+	If d.Count() = 2 Then
+		Print "PASS: dict_count"
+	Else
+		Print "FAIL: dict_count: got " & Str(d.Count())
+	End If
+	
+	' --- Get value ---
+	If d("name") = "Alice" Then
+		Print "PASS: dict_get_value"
+	Else
+		Print "FAIL: dict_get_value: got " & d("name")
+	End If
+	
+	If d("age") = 30 Then
+		Print "PASS: dict_get_number"
+	Else
+		Print "FAIL: dict_get_number"
+	End If
+	
+	' --- Exists ---
+	If d.Exists("name") Then
+		Print "PASS: dict_exists_true"
+	Else
+		Print "FAIL: dict_exists_true"
+	End If
+	
+	If Not d.Exists("missing") Then
+		Print "PASS: dict_exists_false"
+	Else
+		Print "FAIL: dict_exists_false"
+	End If
+	
+	' --- Update value ---
+	d("age") = 31
+	If d("age") = 31 Then
+		Print "PASS: dict_update"
+	Else
+		Print "FAIL: dict_update"
+	End If
+	
+	' --- Remove ---
+	d.Remove "age"
+	If d.Count() = 1 Then
+		Print "PASS: dict_remove"
+	Else
+		Print "FAIL: dict_remove: count = " & Str(d.Count())
+	End If
+	
+	' --- Keys ---
+	d.Add "city", "NYC"
+	Dim keys As Variant = d.Keys()
+	If UBound(keys) >= 1 Then
+		Print "PASS: dict_keys"
+	Else
+		Print "FAIL: dict_keys"
+	End If
+	
+	Print "TEST_COMPLETE"
+End Sub

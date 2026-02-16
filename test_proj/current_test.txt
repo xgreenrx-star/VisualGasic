@@ -1,0 +1,1 @@
+res://test_suite/test_variant_debug.vg

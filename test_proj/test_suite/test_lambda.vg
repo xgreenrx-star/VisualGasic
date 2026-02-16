@@ -1,0 +1,56 @@
+' Test: Lambda Expressions
+' Tests arrow lambda, Fn lambda, lambda with Map/Filter
+Attribute VB_Name = "TestLambda"
+
+Sub _Ready()
+	' --- Arrow lambda ---
+	Dim double_it As Variant = Lambda(x) => x * 2
+	Dim r As Integer = double_it(5)
+	If r = 10 Then
+		Print "PASS: arrow_lambda"
+	Else
+		Print "FAIL: arrow_lambda: got " & Str(r)
+	End If
+	
+	' --- Lambda with string ---
+	Dim greet As Variant = Lambda(name) => "Hello, " & name
+	Dim g As String = greet("World")
+	If g = "Hello, World" Then
+		Print "PASS: lambda_string"
+	Else
+		Print "FAIL: lambda_string: got " & g
+	End If
+	
+	' --- Fn lambda ---
+	Dim add_fn As Variant = Fn(a, b) => a + b
+	If add_fn(3, 4) = 7 Then
+		Print "PASS: fn_lambda"
+	Else
+		Print "FAIL: fn_lambda: got " & Str(add_fn(3, 4))
+	End If
+	
+	' --- Lambda with Map ---
+	Dim arr(4) As Integer
+	arr(0) = 1
+	arr(1) = 2
+	arr(2) = 3
+	arr(3) = 4
+	arr(4) = 5
+	
+	Dim doubled As Variant = Map(arr, Lambda(x) => x * 2)
+	If doubled(0) = 2 And doubled(2) = 6 And doubled(4) = 10 Then
+		Print "PASS: lambda_map"
+	Else
+		Print "FAIL: lambda_map"
+	End If
+	
+	' --- Lambda with Filter ---
+	Dim evens As Variant = Filter(arr, Lambda(x) => x Mod 2 = 0)
+	If UBound(evens) = 1 And evens(0) = 2 And evens(1) = 4 Then
+		Print "PASS: lambda_filter"
+	Else
+		Print "FAIL: lambda_filter: count = " & Str(UBound(evens) + 1)
+	End If
+	
+	Print "TEST_COMPLETE"
+End Sub

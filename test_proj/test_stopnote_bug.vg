@@ -1,0 +1,33 @@
+' Test: nested bytecode calls and variable persistence
+Dim activeNotes(24) As Boolean
+
+Sub StopNote(noteIndex As Integer)
+    activeNotes(noteIndex) = False
+End Sub
+
+Sub Wrapper(idx As Integer)
+    StopNote idx
+End Sub
+
+Sub ASTWrapper(idx As Integer)
+    ' Input.IsKeyPressed forces AST fallback
+    Dim dummy As Integer = Input.IsKeyPressed(65)
+    StopNote idx
+End Sub
+
+Sub _Ready()
+    ' Test 1: Direct call
+    activeNotes(0) = True
+    StopNote 0
+    Print "Test1 direct: " & Str(activeNotes(0))
+    
+    ' Test 2: Via bytecode wrapper
+    activeNotes(1) = True
+    Wrapper 1
+    Print "Test2 bytecode wrapper: " & Str(activeNotes(1))
+    
+    ' Test 3: Via AST wrapper (forced by Input.IsKeyPressed)
+    activeNotes(2) = True
+    ASTWrapper 2
+    Print "Test3 AST wrapper: " & Str(activeNotes(2))
+End Sub

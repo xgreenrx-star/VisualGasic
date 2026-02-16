@@ -1,0 +1,87 @@
+' test_new_builtins.vg — Verify newly added VB6 builtins
+' Tests: Weekday, WeekdayName, MonthName, QBColor, Environ, CurDir, Beep
+Attribute VB_Name = "TestNewBuiltins"
+
+Sub _Ready()
+    ' --- Weekday: July 4, 2025 is a Friday → 6 (Sun=1) ---
+    Dim wd As Integer
+    wd = Weekday("7/4/2025")
+    If wd = 6 Then
+        Print "PASS: Weekday Friday"
+    Else
+        Print "FAIL: Weekday Friday: got " & wd & ", expected 6"
+    End If
+
+    ' --- WeekdayName ---
+    Dim wdn As String
+    wdn = WeekdayName(6)
+    If wdn = "Friday" Then
+        Print "PASS: WeekdayName full"
+    Else
+        Print "FAIL: WeekdayName full: got " & wdn
+    End If
+
+    wdn = WeekdayName(1, True)
+    If wdn = "Sun" Then
+        Print "PASS: WeekdayName abbrev"
+    Else
+        Print "FAIL: WeekdayName abbrev: got " & wdn
+    End If
+
+    ' --- MonthName ---
+    Dim mn As String
+    mn = MonthName(1)
+    If mn = "January" Then
+        Print "PASS: MonthName full"
+    Else
+        Print "FAIL: MonthName full: got " & mn
+    End If
+
+    mn = MonthName(12, True)
+    If mn = "Dec" Then
+        Print "PASS: MonthName abbrev"
+    Else
+        Print "FAIL: MonthName abbrev: got " & mn
+    End If
+
+    ' --- QBColor ---
+    If QBColor(0) = 0 Then
+        Print "PASS: QBColor black"
+    Else
+        Print "FAIL: QBColor black: got " & QBColor(0)
+    End If
+
+    If QBColor(15) = 16777215 Then
+        Print "PASS: QBColor white"
+    Else
+        Print "FAIL: QBColor white: got " & QBColor(15)
+    End If
+
+    If QBColor(4) = 8388608 Then
+        Print "PASS: QBColor red"
+    Else
+        Print "FAIL: QBColor red: got " & QBColor(4)
+    End If
+
+    ' --- CurDir ---
+    Dim cd As String
+    cd = CurDir()
+    If cd = "res://" Then
+        Print "PASS: CurDir default"
+    Else
+        Print "FAIL: CurDir default: got " & cd
+    End If
+
+    ' --- Environ (PATH should exist on Linux) ---
+    Dim envVal As String
+    envVal = Environ("PATH")
+    If Len(envVal) > 0 Then
+        Print "PASS: Environ PATH"
+    Else
+        Print "FAIL: Environ PATH: returned empty"
+    End If
+
+    ' --- Beep (just ensure it doesn't crash) ---
+    Beep
+    Print "PASS: Beep no crash"
+End Sub

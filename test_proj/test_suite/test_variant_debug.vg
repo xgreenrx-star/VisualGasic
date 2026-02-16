@@ -1,0 +1,19 @@
+Attribute VB_Name = "TestVariantDebug"
+Sub _Ready()
+    Dim v As Variant
+    v = 100
+    If v = 100 Then
+        Print "PASS: variant_numeric"
+    Else
+        Print "FAIL: variant_numeric"
+    End If
+
+    v = "world"
+    Print "v is now: [" & v & "] type=" & TypeName(v)
+    If v = "world" Then
+        Print "PASS: variant_string"
+    Else
+        Print "FAIL: variant_string v=[" & v & "]"
+    End If
+    Print "TEST_COMPLETE"
+End Sub

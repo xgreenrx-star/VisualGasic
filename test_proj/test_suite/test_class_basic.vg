@@ -1,0 +1,115 @@
+' Test: Class/OOP basics
+' Tests Class declaration, New, members, methods, Me
+Attribute VB_Name = "TestClassBasic"
+
+Class Counter
+	Public count As Integer
+	
+	Sub Class_Initialize()
+		count = 0
+	End Sub
+	
+	Sub Increment()
+		Me.count = Me.count + 1
+	End Sub
+	
+	Sub Add(amount As Integer)
+		count = count + amount
+	End Sub
+	
+	Function GetCount() As Integer
+		Return count
+	End Function
+	
+	Function ToString() As String
+		Return "Counter(" & Str(count) & ")"
+	End Function
+End Class
+
+Class Person
+	Public Name As String
+	Public Age As Integer
+	
+	Sub Class_Initialize()
+		Name = "Unknown"
+		Age = 0
+	End Sub
+	
+	Function Greet() As String
+		Return "Hello, I'm " & Name & ", age " & Str(Age)
+	End Function
+End Class
+
+Sub _Ready()
+	' --- New object ---
+	Dim c = New Counter
+	If c.count = 0 Then
+		Print "PASS: class_new"
+	Else
+		Print "FAIL: class_new: count = " & Str(c.count)
+	End If
+	
+	' --- Method call ---
+	c.Increment
+	If c.count = 1 Then
+		Print "PASS: class_method"
+	Else
+		Print "FAIL: class_method: count = " & Str(c.count)
+	End If
+	
+	' --- Method with param ---
+	c.Add 10
+	If c.count = 11 Then
+		Print "PASS: class_method_param"
+	Else
+		Print "FAIL: class_method_param: count = " & Str(c.count)
+	End If
+	
+	' --- Function return ---
+	Dim val As Integer = c.GetCount()
+	If val = 11 Then
+		Print "PASS: class_function"
+	Else
+		Print "FAIL: class_function: got " & Str(val)
+	End If
+	
+	' --- ToString ---
+	Dim s As String = c.ToString()
+	If s = "Counter(11)" Then
+		Print "PASS: class_tostring"
+	Else
+		Print "FAIL: class_tostring: got " & s
+	End If
+	
+	' --- Member assignment ---
+	Dim p = New Person
+	p.Name = "Alice"
+	p.Age = 30
+	If p.Name = "Alice" And p.Age = 30 Then
+		Print "PASS: class_member_assign"
+	Else
+		Print "FAIL: class_member_assign"
+	End If
+	
+	' --- Multiple instances ---
+	Dim c2 = New Counter
+	c2.Add 5
+	If c.count = 11 And c2.count = 5 Then
+		Print "PASS: class_multiple_instances"
+	Else
+		Print "FAIL: class_multiple_instances: c=" & Str(c.count) & " c2=" & Str(c2.count)
+	End If
+	
+	' --- Me keyword (tested via Increment which uses Me.count) ---
+	Dim c3 = New Counter
+	c3.Increment
+	c3.Increment
+	c3.Increment
+	If c3.GetCount() = 3 Then
+		Print "PASS: class_me_keyword"
+	Else
+		Print "FAIL: class_me_keyword: got " & Str(c3.GetCount())
+	End If
+	
+	Print "TEST_COMPLETE"
+End Sub

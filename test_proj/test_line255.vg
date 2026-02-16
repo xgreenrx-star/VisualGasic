@@ -1,0 +1,260 @@
+Attribute VB_Name = "TestLine255"
+
+Dim activeNotes(20) As Boolean
+Dim frameCount As Integer
+
+Sub _Ready()
+    frameCount = 0
+    Dim i As Integer
+    For i = 0 To 19
+        activeNotes(i) = True
+    Next
+    Print "Line 255 bug test ready"
+End Sub
+
+Sub _Process(delta As Single)
+    frameCount = frameCount + 1
+    Restore TestData
+    Dim dummy As Integer
+    Read dummy
+    activeNotes(3) = True
+    StopNote 3
+    Print "Frame " & Str(frameCount) & ": activeNotes(3) = " & Str(activeNotes(3))
+    If frameCount >= 5 Then
+        Print "DONE"
+    End If
+End Sub
+
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+' padding line
+Sub StopNote(noteIndex As Integer)
+    activeNotes(noteIndex) = False
+End Sub
+
+TestData:
+Data 42
+Data -1

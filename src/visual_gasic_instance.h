@@ -25,6 +25,15 @@ class VisualGasicInstance {
     String dir_pattern; 
     bool option_compare_text;
 
+    // Guard against double _Ready in GDExtension lifecycle
+    bool ready_executed = false;
+
+    // Suppress Whenever triggers during module-level initialization
+    bool whenever_init_suppress = false;
+
+    // Re-entrancy guard: prevent Whenever callbacks from recursively triggering more Whenever checks
+    bool whenever_evaluating = false;
+
     // VM State
     VMState vm;
     Vector<Variant> with_stack;
@@ -93,8 +102,9 @@ class VisualGasicInstance {
         uint64_t debounce_ms;       // Minimum time between triggers
         String scope_type;          // "global", "local", "member"
         String scope_context;       // Sub/Function name or Class name
+        bool last_condition_result;  // For edge detection on expression conditions and Exceeds/Below
         
-        WheneverSection() : condition_expression(nullptr), is_active(true), last_trigger_time(0), debounce_ms(0), scope_type("global") {}
+        WheneverSection() : condition_expression(nullptr), is_active(true), last_trigger_time(0), debounce_ms(0), scope_type("global"), last_condition_result(false) {}
         
         ~WheneverSection() {
             // Note: condition_expression will be cleaned up by AST, don't delete here
@@ -185,6 +195,9 @@ public:
 
     // Public helper for other modules (builtins) to evaluate expression nodes
     Variant evaluate_expression_for_builtins(ExpressionNode* expr);
+
+    // Full expression evaluation including builtins (for fallback from lightweight evaluator)
+    Variant evaluate_expression_full(ExpressionNode* expr);
 
     // File/Directory helpers exposed for builtins (refined names)
     Variant file_lof(int file_num);

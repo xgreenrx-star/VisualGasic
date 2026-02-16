@@ -34,53 +34,61 @@ int VisualGasicOptimizer::instruction_size(const Vector<uint8_t>& code, int ip) 
         case OP_NEW_DICT:
         case OP_DICT_HAS_KEY: case OP_DICT_SIZE: case OP_DICT_CLEAR_INPLACE:
         case OP_DICT_KEYS: case OP_DICT_VALUES: case OP_DICT_ERASE:
-        case OP_RESTORE_DATA:
+        case OP_RESTORE_DATA: case OP_READ_DATA:
         case OP_ON_ERROR_RESUME_NEXT: case OP_ON_ERROR_GOTO_0:
         case OP_NIL: case OP_TRUE: case OP_FALSE:
         case OP_NOP:
         case OP_STRING_REPEAT:   // stack-only: pops 2, pushes 1
+        case OP_NEW_ARRAY: case OP_NEW_ARRAY_I64:                     // stack-only: pops size
+        case OP_SUM_ARRAY_I64: case OP_SUM_DICT_I64:                  // stack-only: pops collection
+        case OP_ALLOC_FILL_I64: case OP_ARRAY_FILL_I64_SEQ:           // stack-only: pops count
             return 1;
 
         // 2-byte instructions (opcode + 1 operand)
         case OP_CONSTANT:
         case OP_GET_GLOBAL: case OP_SET_GLOBAL:
         case OP_GET_LOCAL: case OP_SET_LOCAL:
-        case OP_NEW_ARRAY: case OP_NEW_ARRAY_I64:
         case OP_GET_MEMBER: case OP_SET_MEMBER:
         case OP_REGISTER_WHENEVER: case OP_SUSPEND_WHENEVER: case OP_RESUME_WHENEVER:
         case OP_ON_ERROR_GOTO:
         case OP_INC_LOCAL_I64:
-        case OP_SUM_ARRAY_I64: case OP_SUM_DICT_I64:
+        case OP_ADD_I64_CONST: case OP_SUB_I64_CONST:                 // [OP] [CONST_IDX]
+        case OP_ADD_LOCAL_I64_STACK: case OP_SUB_LOCAL_I64_STACK:      // [OP] [LOCAL_SLOT]
+        case OP_BRANCH_SUM:                                            // [OP] [FLAG_SLOT]
+        case OP_GET_ARRAY: case OP_SET_ARRAY:                         // [OP] [ARG_COUNT]
+        case OP_GET_ARRAY_UNCHECKED: case OP_SET_ARRAY_UNCHECKED:
+        case OP_GET_ARRAY_FAST: case OP_SET_ARRAY_FAST:
+        case OP_GET_ARRAY_FAST_UNCHECKED: case OP_SET_ARRAY_FAST_UNCHECKED:
+        case OP_GET_DICT_FAST: case OP_SET_DICT_FAST:
+        case OP_GET_DICT_TRUSTED: case OP_SET_DICT_TRUSTED:
+        case OP_INTEROP_SET_NAME_LEN:                                 // [OP] [1 operand]
+        case OP_MUL_I64_CONST:                                        // [OP] [CONST_IDX]
+        case OP_SUM_VGDICT_ALL_I64:                                   // [OP] [SLOT_IDX]
+        case OP_NEW_VGDICT:                                           // [OP] [SLOT_IDX]
+        case OP_GET_VGDICT_LOCAL:                                     // [OP] [SLOT_IDX]
+        case OP_SET_VGDICT_LOCAL:                                     // [OP] [SLOT_IDX]
             return 2;
 
         // 3-byte instructions (opcode + 2 operands)
         case OP_CONSTANT_LONG:
         case OP_JUMP: case OP_JUMP_IF_FALSE: case OP_JUMP_IF_TRUE: case OP_LOOP:
         case OP_CALL: case OP_CALL_BUILTIN:
-        case OP_GET_ARRAY: case OP_SET_ARRAY:
-        case OP_GET_ARRAY_UNCHECKED: case OP_SET_ARRAY_UNCHECKED:
-        case OP_GET_ARRAY_FAST: case OP_SET_ARRAY_FAST:
-        case OP_GET_ARRAY_FAST_UNCHECKED: case OP_SET_ARRAY_FAST_UNCHECKED:
-        case OP_GET_DICT_FAST: case OP_SET_DICT_FAST:
-        case OP_GET_DICT_TRUSTED: case OP_SET_DICT_TRUSTED:
-        case OP_ADD_I64_CONST: case OP_SUB_I64_CONST:
-        case OP_ADD_LOCAL_I64_STACK: case OP_SUB_LOCAL_I64_STACK:
         case OP_ADD_LOCAL_I64_CONST: case OP_SUB_LOCAL_I64_CONST:
-        case OP_ARITH_SUM: case OP_BRANCH_SUM:
-        case OP_INTEROP_SET_NAME_LEN:
+        case OP_ARITH_SUM:
         case OP_STRING_REPEAT_OUTER: // [OP] [SLOT] [LIT_IDX]
         case OP_DEBUG_LINE:
+        case OP_SET_DICT_LOCAL: case OP_SET_DICT_GLOBAL:              // [OP] [IDX] [ARG_COUNT]
             return 3;
 
-        // 4-byte instructions
-        case OP_SET_DICT_LOCAL: case OP_SET_DICT_GLOBAL:
-        case OP_ARRAY_FILL_I64_SEQ:
-        case OP_ALLOC_FILL_I64:
+        // 4-byte instructions (opcode + 3 operands)
         case OP_ALLOC_FILL_I64_OFFSET:
-        case OP_ALLOC_FILL_REPEAT_I64:
         case OP_ARRAY_FILL_I64_OFFSET:
         case OP_ACCUM_I64_MULADD_CONST:
             return 4;
+
+        // 7-byte instructions (opcode + 6 operands)
+        case OP_ALLOC_FILL_REPEAT_I64:
+            return 7;
 
         default:
             // Unknown opcode — assume 1 byte (safest)
@@ -222,23 +230,44 @@ void VisualGasicOptimizer::erase_bytes(BytecodeChunk* chunk, int start, int coun
 }
 
 void VisualGasicOptimizer::compact(BytecodeChunk* chunk) {
-    // Count NOPs to remove
+    // Count NOP instructions to remove.
+    // IMPORTANT: iterate instruction-by-instruction, not byte-by-byte!
+    // Operand bytes can legitimately be 0xFF (e.g., OP_DEBUG_LINE for line 255)
+    // and must NOT be confused with OP_NOP instructions.
     int nop_count = 0;
-    for (int i = 0; i < chunk->code.size(); i++) {
-        if (chunk->code[i] == OP_NOP) nop_count++;
+    {
+        int i = 0;
+        while (i < chunk->code.size()) {
+            if (chunk->code[i] == OP_NOP) {
+                nop_count++;
+                i++; // OP_NOP is always 1 byte
+            } else {
+                i += instruction_size(chunk->code, i);
+            }
+        }
     }
     if (nop_count == 0) return;
 
-    // Build position mapping
+    // Build position mapping (instruction-aware).
+    // For real instructions, map ALL bytes (opcode + operands) to their new positions.
+    // For NOP bytes, mark as removed (-1).
     Vector<int> old_to_new;
     old_to_new.resize(chunk->code.size() + 1);
     int shift = 0;
-    for (int i = 0; i < chunk->code.size(); i++) {
-        if (chunk->code[i] == OP_NOP) {
-            old_to_new.write[i] = -1;
-            shift++;
-        } else {
-            old_to_new.write[i] = i - shift;
+    {
+        int i = 0;
+        while (i < chunk->code.size()) {
+            if (chunk->code[i] == OP_NOP) {
+                old_to_new.write[i] = -1;
+                shift++;
+                i++;
+            } else {
+                int sz = instruction_size(chunk->code, i);
+                for (int b = 0; b < sz && (i + b) < chunk->code.size(); b++) {
+                    old_to_new.write[i + b] = (i + b) - shift;
+                }
+                i += sz;
+            }
         }
     }
     old_to_new.write[chunk->code.size()] = chunk->code.size() - shift;
@@ -289,13 +318,24 @@ void VisualGasicOptimizer::compact(BytecodeChunk* chunk) {
         ip += instruction_size(chunk->code, ip);
     }
 
-    // Remove NOPs
+    // Remove NOP instructions (instruction-aware).
+    // Only skip bytes whose opcode is OP_NOP; keep all bytes of real instructions
+    // even if an operand byte happens to be 0xFF.
     Vector<uint8_t> new_code;
     Vector<int> new_lines;
-    for (int i = 0; i < chunk->code.size(); i++) {
-        if (chunk->code[i] != OP_NOP) {
-            new_code.push_back(chunk->code[i]);
-            new_lines.push_back((i < chunk->lines.size()) ? chunk->lines[i] : 0);
+    {
+        int i = 0;
+        while (i < chunk->code.size()) {
+            if (chunk->code[i] == OP_NOP) {
+                i++; // skip this NOP byte
+            } else {
+                int sz = instruction_size(chunk->code, i);
+                for (int b = 0; b < sz && (i + b) < chunk->code.size(); b++) {
+                    new_code.push_back(chunk->code[i + b]);
+                    new_lines.push_back(((i + b) < chunk->lines.size()) ? chunk->lines[i + b] : 0);
+                }
+                i += sz;
+            }
         }
     }
     chunk->code = new_code;

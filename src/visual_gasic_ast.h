@@ -62,6 +62,7 @@ enum StatementType {
     STMT_DECLARE,  // FFI/DLL declarations
     STMT_WRITE,    // Write # statement
     STMT_ERASE,    // Erase array statement
+    STMT_STOP,     // VB6 Stop statement (debugger break)
     STMT_UNKNOWN
 };
 
@@ -671,6 +672,10 @@ struct RaiseStatement : public Statement {
 
 struct PassStatement : public Statement { 
     PassStatement() : Statement(STMT_PASS) {} 
+};
+
+struct StopStatement : public Statement {
+    StopStatement() : Statement(STMT_STOP) {}
 };
 
 struct WheneverSectionStatement : public Statement {

@@ -1,0 +1,98 @@
+' Test: For/Next Loops
+' Tests basic for, step, negative step, exit for, nested for
+Attribute VB_Name = "TestForLoop"
+
+Sub _Ready()
+	' --- Basic For loop ---
+	Dim sum As Integer = 0
+	Dim i As Integer
+	For i = 1 To 5
+		sum = sum + i
+	Next
+	If sum = 15 Then
+		Print "PASS: for_basic"
+	Else
+		Print "FAIL: for_basic: expected 15, got " & Str(sum)
+	End If
+	
+	' --- For with Step ---
+	sum = 0
+	For i = 0 To 10 Step 2
+		sum = sum + i
+	Next
+	If sum = 30 Then
+		Print "PASS: for_step"
+	Else
+		Print "FAIL: for_step: expected 30, got " & Str(sum)
+	End If
+	
+	' --- For with negative Step ---
+	sum = 0
+	For i = 5 To 1 Step -1
+		sum = sum + i
+	Next
+	If sum = 15 Then
+		Print "PASS: for_negative_step"
+	Else
+		Print "FAIL: for_negative_step: expected 15, got " & Str(sum)
+	End If
+	
+	' --- Exit For ---
+	sum = 0
+	For i = 1 To 100
+		If i > 5 Then Exit For
+		sum = sum + i
+	Next
+	If sum = 15 Then
+		Print "PASS: exit_for"
+	Else
+		Print "FAIL: exit_for: expected 15, got " & Str(sum)
+	End If
+	
+	' --- Loop variable value after loop ---
+	For i = 1 To 5
+	Next
+	If i = 6 Then
+		Print "PASS: for_var_after_loop"
+	Else
+		Print "FAIL: for_var_after_loop: expected 6, got " & Str(i)
+	End If
+	
+	' --- Nested For ---
+	sum = 0
+	Dim j As Integer
+	For i = 1 To 3
+		For j = 1 To 3
+			sum = sum + 1
+		Next
+	Next
+	If sum = 9 Then
+		Print "PASS: nested_for"
+	Else
+		Print "FAIL: nested_for: expected 9, got " & Str(sum)
+	End If
+	
+	' --- For with zero iterations (start > end, positive step) ---
+	sum = 0
+	For i = 10 To 5
+		sum = sum + 1
+	Next
+	If sum = 0 Then
+		Print "PASS: for_zero_iterations"
+	Else
+		Print "FAIL: for_zero_iterations: expected 0, got " & Str(sum)
+	End If
+	
+	' --- For with step 3 ---
+	Dim count As Integer = 0
+	For i = 1 To 10 Step 3
+		count = count + 1
+	Next
+	If count = 4 Then
+		Print "PASS: for_step_3"
+	Else
+		Print "FAIL: for_step_3: expected 4, got " & Str(count)
+	End If
+	
+	Print "TEST_COMPLETE"
+End Sub

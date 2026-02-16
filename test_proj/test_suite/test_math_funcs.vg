@@ -1,0 +1,134 @@
+' Test: Math Functions
+' Tests Abs, Int, Fix, Sqr, Round, Sgn, Sin, Cos, Log, Exp, Rnd
+Attribute VB_Name = "TestMathFuncs"
+
+Sub _Ready()
+	' --- Abs positive ---
+	If Abs(5) = 5 Then
+		Print "PASS: abs_positive"
+	Else
+		Print "FAIL: abs_positive"
+	End If
+	
+	' --- Abs negative ---
+	If Abs(-5) = 5 Then
+		Print "PASS: abs_negative"
+	Else
+		Print "FAIL: abs_negative: got " & Str(Abs(-5))
+	End If
+	
+	' --- Int (floor) ---
+	If Int(3.7) = 3 Then
+		Print "PASS: int_positive"
+	Else
+		Print "FAIL: int_positive: got " & Str(Int(3.7))
+	End If
+	
+	If Int(-3.7) = -4 Then
+		Print "PASS: int_negative"
+	Else
+		Print "FAIL: int_negative: expected -4, got " & Str(Int(-3.7))
+	End If
+	
+	' --- Fix (truncate) ---
+	If Fix(3.7) = 3 Then
+		Print "PASS: fix_positive"
+	Else
+		Print "FAIL: fix_positive: got " & Str(Fix(3.7))
+	End If
+	
+	If Fix(-3.7) = -3 Then
+		Print "PASS: fix_negative"
+	Else
+		Print "FAIL: fix_negative: expected -3, got " & Str(Fix(-3.7))
+	End If
+	
+	' --- Sqr ---
+	Dim sq As Double = Sqr(16)
+	If sq = 4 Then
+		Print "PASS: sqr"
+	Else
+		Print "FAIL: sqr: got " & Str(sq)
+	End If
+	
+	' --- Round ---
+	If Round(3.5) = 4 Then
+		Print "PASS: round_up"
+	Else
+		Print "FAIL: round_up: got " & Str(Round(3.5))
+	End If
+	
+	If Round(3.4) = 3 Then
+		Print "PASS: round_down"
+	Else
+		Print "FAIL: round_down: got " & Str(Round(3.4))
+	End If
+	
+	' --- Sgn ---
+	If Sgn(10) = 1 Then
+		Print "PASS: sgn_positive"
+	Else
+		Print "FAIL: sgn_positive"
+	End If
+	
+	If Sgn(-10) = -1 Then
+		Print "PASS: sgn_negative"
+	Else
+		Print "FAIL: sgn_negative"
+	End If
+	
+	If Sgn(0) = 0 Then
+		Print "PASS: sgn_zero"
+	Else
+		Print "FAIL: sgn_zero"
+	End If
+	
+	' --- Sin/Cos (sin(0)=0, cos(0)=1) ---
+	Dim sinVal As Double = Sin(0)
+	If sinVal > -0.01 And sinVal < 0.01 Then
+		Print "PASS: sin_zero"
+	Else
+		Print "FAIL: sin_zero: got " & Str(sinVal)
+	End If
+	
+	Dim cosVal As Double = Cos(0)
+	If cosVal > 0.99 And cosVal < 1.01 Then
+		Print "PASS: cos_zero"
+	Else
+		Print "FAIL: cos_zero: got " & Str(cosVal)
+	End If
+	
+	' --- Log (natural log of e ≈ 1) ---
+	Dim logVal As Double = Log(Exp(1))
+	If logVal > 0.99 And logVal < 1.01 Then
+		Print "PASS: log_exp"
+	Else
+		Print "FAIL: log_exp: got " & Str(logVal)
+	End If
+	
+	' --- Exp ---
+	Dim expVal As Double = Exp(0)
+	If expVal > 0.99 And expVal < 1.01 Then
+		Print "PASS: exp_zero"
+	Else
+		Print "FAIL: exp_zero: got " & Str(expVal)
+	End If
+	
+	' --- Rnd (should be between 0 and 1) ---
+	Randomize
+	Dim r As Double = Rnd()
+	If r >= 0 And r < 1 Then
+		Print "PASS: rnd_range"
+	Else
+		Print "FAIL: rnd_range: got " & Str(r)
+	End If
+	
+	' --- Exponent operator ---
+	If 3 ^ 3 = 27 Then
+		Print "PASS: exponent_op"
+	Else
+		Print "FAIL: exponent_op"
+	End If
+	
+	Print "TEST_COMPLETE"
+End Sub

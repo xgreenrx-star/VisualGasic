@@ -1,0 +1,60 @@
+Attribute VB_Name = "TestStopNote"
+
+' Globals mimicking Piano
+Dim activeNotes(20) As Boolean
+Dim noteCount As Integer
+Dim keyPressed(20) As Boolean
+Dim frameCount As Integer
+
+Sub _Ready()
+    noteCount = 15
+    frameCount = 0
+    
+    ' Initialize arrays
+    Dim i As Integer
+    For i = 0 To 19
+        activeNotes(i) = False
+        keyPressed(i) = False
+    Next
+    
+    Print "Piano StopNote bug test ready"
+End Sub
+
+' _Process compiles to bytecode (simple calls only)
+Sub _Process(delta As Single)
+    frameCount = frameCount + 1
+    
+    ' This Sub contains a Read statement, so it CANNOT compile to bytecode
+    ' and MUST fall back to AST - just like HandleKeyboardInput with Input.IsKeyPressed
+    HandleInput
+    
+    If frameCount >= 3 Then
+        Print "Test complete after " & Str(frameCount) & " frames"
+    End If
+End Sub
+
+' This function contains a Read statement so it forces AST fallback
+Sub HandleInput()
+    ' The Read statement makes this function incompilable to bytecode
+    ' (STMT_READ = type 25, "Unsupported statement type")
+    ' This simulates HandleKeyboardInput which uses Input.IsKeyPressed
+
+    Dim dummy As Integer
+    ' Force AST fallback by having a construct that can't compile
+    Restore TestData
+    Read dummy
+    
+    ' Now call StopNote from AST context - this is the bug trigger
+    activeNotes(3) = True
+    StopNote 3
+    Print "Frame " & Str(frameCount) & ": activeNotes(3) after StopNote = " & Str(activeNotes(3))
+End Sub
+
+Sub StopNote(noteIndex As Integer)
+    activeNotes(noteIndex) = False
+End Sub
+
+' Data for the Read statement
+TestData:
+Data 42
+Data -1

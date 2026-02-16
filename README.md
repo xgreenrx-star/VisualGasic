@@ -1,9 +1,9 @@
 # VisualGasic - Advanced Visual Basic for Godot 4
 
 [![CI](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml/badge.svg)](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/badge/version-2.4.2-blue.svg)](https://github.com/xgreenrx-star/VisualGasic/releases)
+[![Version](https://img.shields.io/badge/version-2.5.0-blue.svg)](https://github.com/xgreenrx-star/VisualGasic/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Godot](https://img.shields.io/badge/Godot-4.3+-purple.svg)](https://godotengine.org)
+[![Godot](https://img.shields.io/badge/Godot-4.5+-purple.svg)](https://godotengine.org)
 
 **World-Class RAD Platform**: Professional Visual Basic language implementation with cutting-edge modern features including multitasking, advanced type system, pattern matching, GPU computing, and comprehensive development tools.
 
@@ -31,7 +31,7 @@
 - **IntelliSense** - Code completion with 80+ functions, snippets, and Godot types
 - **Interactive REPL** - Live coding with variable inspection and session management
 - **Language Server Protocol** - Intelligent IDE integration with completion and diagnostics
-- **Advanced Debugger** - Breakpoint conditions, call stack, watch window, time-travel debugging
+- **Advanced Debugger** - Conditional breakpoint expressions, Stop statement, call stack, watch window, time-travel debugging
 - **Code Linting** - Static analysis with 10 issue codes (VG001-VG010)
 - **Snippet Manager** - 40+ built-in snippets with custom snippet support
 - **Theme Support** - 5 built-in themes including VB6 Classic
@@ -158,10 +158,30 @@ gasic pkg publish MyAwesomeLib
 gasic debug --time-travel MyProject.vg
 ```
 
+## 🎮 **Demo Projects (Included in Release)**
+
+VisualGasic ships with **12 playable demo projects** — open any of them in Godot and hit F5:
+
+| Demo | Type | Description |
+|------|------|-------------|
+| Pong | 2D Game | Classic 2-player Pong with AI paddle |
+| Pong Advanced | 2D Game | Enhanced Pong with particles and power-ups |
+| Snake | 2D Game | Classic Snake with score tracking |
+| Space Shooter | 2D Game | Scrolling shooter with enemies and explosions |
+| Galactic Defender | 2D Game | Tower defense with 13 classes, 3-level inheritance |
+| Calculator | UI App | VB6-style calculator with full keyboard support |
+| Todo App | UI App | CRUD todo list with file persistence |
+| Piano | Audio | Playable piano keyboard with tone generation |
+| Screensaver | Graphics | Animated bouncing shapes screensaver |
+| High Scores | Data | File I/O with DATA/READ statements |
+| Parallel Demo | Threading | Async/Await and Parallel For demonstration |
+
+See the [demos/](demos/) directory for source code.
+
 ## 📖 **Documentation**
 
 ### **Core Documentation**
-- [**Built-in Functions Reference**](docs/reference/BUILTIN_FUNCTIONS_REFERENCE.md) - Complete API documentation (96 functions)
+- [**Built-in Functions Reference**](docs/reference/BUILTIN_FUNCTIONS_REFERENCE.md) - Complete API documentation (108 functions)
 - [**VB6 Features**](docs/reference/VB6_FEATURES_IMPLEMENTATION.md) - VB6 compatibility reference
 - [**Godot Functions**](docs/reference/GODOT_FUNCTIONS_REFERENCE.md) - Godot integration API
 
@@ -200,7 +220,7 @@ gasic debug --time-travel MyProject.vg
 - **Archetype-based ECS** - Memory-efficient entity storage
 - **GPU Computing** - Automatic fallback to CPU when needed
 - **JIT Compilation** - Runtime optimization for hot code paths
-- **Bytecode Optimizer** - 9-pass peephole optimizer (constant folding, dead code elimination, jump threading, strength reduction)
+- **Bytecode Optimizer** - 9-pass peephole optimizer with computed-goto threaded dispatch (~20% faster VM)
 - **Memory Profiling** - Built-in leak detection and analysis
 
 ## 🧪 **Testing & Bytecode Regression**
@@ -233,7 +253,7 @@ VisualGasic welcomes contributions! Please see our [Contributing Guide](CONTRIBU
 
 ## 📊 **Project Status**
 
-**Current Version**: 2.5 (StringConcat Breakthrough)
+**Current Version**: 2.5.0 (Computed Gotos + 11 New Builtins)
 
 **Completion Status**:
 - ✅ **Core Language** - 100% (Full VB6 compatibility + class inheritance)
@@ -244,7 +264,7 @@ VisualGasic welcomes contributions! Please see our [Contributing Guide](CONTRIBU
 - ✅ **Bytecode Optimizer** - 100% (9-pass peephole optimizer)
 - ✅ **ECS Integration** - 100% (High-performance game development)
 - ✅ **Form Templates** - 100% (23 templates: VB6, Game, Platform, Custom)
-- ✅ **Game Demos** - 100% (Galactic Defender tower defense showcase)
+- ✅ **Game Demos** - 100% (12 demos: Pong, Snake, Space Shooter, Galactic Defender, Calculator, Piano, and more)
 - ✅ **Documentation** - 100% (Comprehensive guides and references)
 - ✅ **Performance** - 11/11 benchmarks faster than GDScript (up to 65× faster)
 

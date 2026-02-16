@@ -1150,9 +1150,75 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
                 }
             }
             
+            // Build struct prototypes BEFORE global Dims so that
+            // `Dim particles(N) As Particle` can find the prototype.
+            {
+                struct ProtoBuilder {
+                     ModuleNode* module;
+                     Dictionary cache;
+                     Vector<String> processing;
+                     
+                     Variant get_proto(String name) {
+                         if (cache.has(name)) return cache[name];
+                         
+                         StructDefinition* def = nullptr;
+                         for(int i=0; i<module->structs.size(); i++) {
+                             if (module->structs[i]->name.nocasecmp_to(name) == 0) {
+                                 def = module->structs[i];
+                                 break;
+                             }
+                         }
+                         
+                         if (!def) return Variant(); 
+                         
+                         if (processing.has(name)) {
+                              UtilityFunctions::print("Error: Recursive struct definition in ", name);
+                              return Variant();
+                         }
+                         
+                         processing.push_back(name);
+                         
+                         Dictionary dict;
+                         for(int i=0; i<def->members.size(); i++) {
+                             String mname = def->members[i].name;
+                             String mtype = def->members[i].type;
+
+                             if (mtype.nocasecmp_to("Integer") == 0 || mtype.nocasecmp_to("Long") == 0) dict[mname] = 0;
+                             else if (mtype.nocasecmp_to("String") == 0) dict[mname] = "";
+                             else if (mtype.nocasecmp_to("Single") == 0 || mtype.nocasecmp_to("Double") == 0) dict[mname] = 0.0;
+                             else if (mtype.nocasecmp_to("Boolean") == 0) dict[mname] = false;
+                             else if (mtype.nocasecmp_to("Variant") == 0) dict[mname] = Variant();
+                             else {
+                                 Variant sub = get_proto(mtype);
+                                 if (sub.get_type() == Variant::DICTIONARY) {
+                                     dict[mname] = ((Dictionary)sub).duplicate(true);
+                                 } else {
+                                     dict[mname] = Variant(); 
+                                 }
+                             }
+                         }
+                         
+                         processing.erase(name);
+                         cache[name] = dict;
+                         return dict;
+                     }
+                };
+                
+                ProtoBuilder builder;
+                builder.module = vs->ast_root;
+                
+                for(int si=0; si<vs->ast_root->structs.size(); si++) {
+                     String name = vs->ast_root->structs[si]->name;
+                     struct_prototypes[name] = builder.get_proto(name);
+                }
+            }
+
             // Also execute global statements (like Dims not captured in definitions, or Options)
             // Warning: Don't execute imperative code here if untrusted? 
             // Basic usually has static declarative section.
+            // Suppress Whenever triggers during module init to prevent
+            // false callback fires before _Ready has run.
+            whenever_init_suppress = true;
             for(int i=0; i<vs->ast_root->global_statements.size(); i++) {
                 Statement *stmt = vs->ast_root->global_statements[i];
                 if (stmt->type == STMT_DIM) {
@@ -1170,6 +1236,7 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
                      UtilityFunctions::print("Registered Whenever Section: ", ws->section_name);
                 }
             }
+            whenever_init_suppress = false;
         }
     }
 
@@ -1207,89 +1274,10 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
         }
     }
 
-    // Initialize Struct Prototypes
+    // Initialize remaining script resources (classes, data segments)
+    // Note: Struct prototypes, constants, and enums are already initialized
+    // in the first block above (before global Dims execute).
     if (script.is_valid() && script->ast_root != nullptr) {
-        
-        // Initialize Global Constants
-        for(int i=0; i<script->ast_root->constants.size(); i++) {
-            ConstStatement* c = script->ast_root->constants[i];
-            Variant val = evaluate_expression(c->value);
-            variables[c->name] = val;
-        }
-
-        // Initialize Enums (as global constants)
-        for(int i=0; i<script->ast_root->enums.size(); i++) {
-             EnumDefinition* ed = script->ast_root->enums[i];
-             // Register each member as global variable (constant)
-             // We could also do EnumName_Member or just Member
-             // For now, simple Member name (traditional Basic)
-             for(int m=0; m<ed->values.size(); m++) {
-                 variables[ed->values[m].name] = ed->values[m].value;
-                 // Also register EnumName.Member?
-                 // That would require a Dictionary for the enum itself?
-                 // Let's do both if helpful, or just flat for now.
-                 // Flat is safer for now.
-             }
-        }
-
-        struct ProtoBuilder {
-             ModuleNode* module;
-             Dictionary cache;
-             Vector<String> processing;
-             
-             Variant get_proto(String name) {
-                 if (cache.has(name)) return cache[name];
-                 
-                 StructDefinition* def = nullptr;
-                 for(int i=0; i<module->structs.size(); i++) {
-                     if (module->structs[i]->name.nocasecmp_to(name) == 0) {
-                         def = module->structs[i];
-                         break;
-                     }
-                 }
-                 
-                 if (!def) return Variant(); 
-                 
-                 if (processing.has(name)) {
-                      UtilityFunctions::print("Error: Recursive struct definition in ", name);
-                      return Variant();
-                 }
-                 
-                 processing.push_back(name);
-                 
-                 Dictionary dict;
-                 for(int i=0; i<def->members.size(); i++) {
-                     String mname = def->members[i].name;
-                     String mtype = def->members[i].type;
-                     
-                     // UtilityFunctions::print("ProtoBuilder: Processing member ", mname, " of type ", mtype);
-
-                     if (mtype.nocasecmp_to("Integer") == 0 || mtype.nocasecmp_to("Long") == 0) dict[mname] = 0;
-                     else if (mtype.nocasecmp_to("String") == 0) dict[mname] = "";
-                     else if (mtype.nocasecmp_to("Single") == 0 || mtype.nocasecmp_to("Double") == 0) dict[mname] = 0.0;
-                     else {
-                         Variant sub = get_proto(mtype);
-                         if (sub.get_type() == Variant::DICTIONARY) {
-                             dict[mname] = ((Dictionary)sub).duplicate(true);
-                         } else {
-                             dict[mname] = Variant(); 
-                         }
-                     }
-                 }
-                 
-                 processing.erase(name);
-                 cache[name] = dict;
-                 return dict;
-             }
-        };
-        
-        ProtoBuilder builder;
-        builder.module = script->ast_root;
-        
-        for(int i=0; i<script->ast_root->structs.size(); i++) {
-             String name = script->ast_root->structs[i]->name;
-             struct_prototypes[name] = builder.get_proto(name);
-        }
 
         // Register Class definitions
         for(int i=0; i<script->ast_root->class_defs.size(); i++) {
@@ -1360,6 +1348,10 @@ VisualGasicInstance::~VisualGasicInstance() {
 
 Variant VisualGasicInstance::evaluate_expression_for_builtins(ExpressionNode* expr) {
     return _evaluate_expression_impl(expr);
+}
+
+Variant VisualGasicInstance::evaluate_expression_full(ExpressionNode* expr) {
+    return evaluate_expression(expr);
 }
 
 Variant VisualGasicInstance::file_lof(int file_num) {
@@ -1541,6 +1533,105 @@ void VisualGasicInstance::dispatch_builtin_call(const String &p_method, const Ar
             }
         }
     }
+
+    // Audio commands — require owner to be a Node
+    if (owner) {
+        Node *n = Object::cast_to<Node>(owner);
+        if (n) {
+            if (p_method.nocasecmp_to("PlaySound") == 0 && p_args.size() == 1) {
+                String path = p_args[0];
+                Ref<AudioStream> stream = ResourceLoader::get_singleton()->load(path);
+                if (stream.is_valid()) {
+                    AudioStreamPlayer *p = memnew(AudioStreamPlayer);
+                    p->set_stream(stream);
+                    p->set_autoplay(true);
+                    p->connect("finished", Callable(p, "queue_free"));
+                    n->add_child(p);
+                }
+                r_found = true;
+                return;
+            }
+
+            if (p_method.nocasecmp_to("PlayTone") == 0 && p_args.size() >= 2) {
+                double freq = (double)p_args[0];
+                double dur_ms = (double)p_args[1];
+                int waveform = 0; // Sine default
+                if (p_args.size() >= 3) waveform = (int)p_args[2];
+
+                Ref<AudioStreamWAV> stream;
+                stream.instantiate();
+
+                int mix_rate = 44100;
+                stream->set_mix_rate(mix_rate);
+                stream->set_format(AudioStreamWAV::FORMAT_16_BITS);
+                stream->set_stereo(false);
+
+                int samples = (int)(dur_ms * mix_rate / 1000.0);
+                if (samples > 0) {
+                    PackedByteArray data;
+                    data.resize(samples * 2);
+
+                    // Envelope: 5ms fade-in, 30ms fade-out to prevent click/pop
+                    int fade_in_samples = (int)(0.005 * mix_rate);
+                    int fade_out_samples = (int)(0.030 * mix_rate);
+                    if (fade_in_samples > samples / 2) fade_in_samples = samples / 2;
+                    if (fade_out_samples > samples / 2) fade_out_samples = samples / 2;
+
+                    for (int i = 0; i < samples; ++i) {
+                        double t = (double)i / mix_rate;
+                        double val = 0.0;
+                        const double PI = 3.14159265358979323846;
+
+                        switch (waveform) {
+                            case 1: val = (sin(2.0 * PI * freq * t) > 0) ? 1.0 : -1.0; break;
+                            case 2: val = 2.0 * (t * freq - floor(t * freq + 0.5)); break;
+                            case 3: val = ((double)rand() / RAND_MAX) * 2.0 - 1.0; break;
+                            default: val = sin(2.0 * PI * freq * t); break;
+                        }
+
+                        // Apply envelope
+                        double envelope = 1.0;
+                        if (i < fade_in_samples) {
+                            envelope = (double)i / fade_in_samples;
+                        } else if (i >= samples - fade_out_samples) {
+                            envelope = (double)(samples - 1 - i) / fade_out_samples;
+                        }
+                        val *= 0.2 * envelope;
+                        int16_t sample_int = (int16_t)(val * 32767.0);
+                        data[i * 2] = (uint8_t)(sample_int & 0xFF);
+                        data[i * 2 + 1] = (uint8_t)((sample_int >> 8) & 0xFF);
+                    }
+                    stream->set_data(data);
+                }
+
+                // Polyphony limiter: stop oldest PlayTone players if too many active
+                const int MAX_TONE_VOICES = 4;
+                Vector<AudioStreamPlayer *> active_tones;
+                for (int ci = 0; ci < n->get_child_count(); ci++) {
+                    AudioStreamPlayer *asp = Object::cast_to<AudioStreamPlayer>(n->get_child(ci));
+                    if (asp && asp->has_meta("__playtone__")) {
+                        active_tones.push_back(asp);
+                    }
+                }
+                while (active_tones.size() >= MAX_TONE_VOICES) {
+                    active_tones[0]->stop();
+                    active_tones[0]->queue_free();
+                    active_tones.remove_at(0);
+                }
+
+                AudioStreamPlayer *p = memnew(AudioStreamPlayer);
+                p->set_stream(stream);
+                p->set_autoplay(true);
+                p->set_meta("__playtone__", true);
+                p->connect("finished", Callable(p, "queue_free"));
+                n->add_child(p);
+
+                r_found = true;
+                return;
+            }
+        }
+    }
+
     r_found = false;
 }
 
@@ -2143,6 +2234,8 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
              if (func_name == "Int" && call_args.size() == 1) return floor((double)call_args[0]);
              if (func_name == "Abs" && call_args.size() == 1) return abs((double)call_args[0]);
              if (func_name == "Rnd" && (call_args.size() == 0 || call_args.size() == 1)) return UtilityFunctions::randf();
+             if (func_name.nocasecmp_to("Min") == 0 && call_args.size() == 2) { double a = (double)call_args[0]; double b = (double)call_args[1]; return a < b ? a : b; }
+             if (func_name.nocasecmp_to("Max") == 0 && call_args.size() == 2) { double a = (double)call_args[0]; double b = (double)call_args[1]; return a > b ? a : b; }
              
              // Formatting
              if (func_name == "Format" && call_args.size() == 2) {
@@ -2474,7 +2567,9 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
                         return Variant();
                     }
                 }
-                if (!fail) return current;
+                if (!fail) {
+                    return current;
+                }
             } else if (is_packed) {
                  // Single dimension access for Packed Arrays usually
                  if (call_args.size() == 1) {
@@ -2784,6 +2879,8 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
         }
         if (call->method_name == "Int" && call_args.size() == 1) return UtilityFunctions::floor(call_args[0]); // Int usually floors
         if (call->method_name == "Rnd") return UtilityFunctions::randf(); // 0..1
+        if (call->method_name.nocasecmp_to("Min") == 0 && call_args.size() == 2) { double a = (double)call_args[0]; double b = (double)call_args[1]; return a < b ? a : b; }
+        if (call->method_name.nocasecmp_to("Max") == 0 && call_args.size() == 2) { double a = (double)call_args[0]; double b = (double)call_args[1]; return a > b ? a : b; }
         
         if (call->method_name.nocasecmp_to("EOF") == 0 && call_args.size() == 1) {
             int file_num = (int)call_args[0];
@@ -3714,7 +3811,36 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
         // Try Internal Call
         bool found = false;
         Variant v_ret = call_internal(call->method_name, call_args, found);
-        if (found) return v_ret;
+        if (found) {
+            // ByRef parameter write-back for expression-level function calls.
+            // When a function with ByRef params is called as an expression
+            // (e.g. result = DoubleAndReturn(val)), we need to write back
+            // modified parameter values to the caller's variables.
+            if (script.is_valid() && script->ast_root) {
+                SubDefinition *called_func = nullptr;
+                for (int i = 0; i < script->ast_root->subs.size(); i++) {
+                    if (script->ast_root->subs[i]->name.nocasecmp_to(call->method_name) == 0) {
+                        called_func = script->ast_root->subs[i];
+                        break;
+                    }
+                }
+                if (called_func) {
+                    int max_params = called_func->parameters.size();
+                    int arg_count = call->arguments.size();
+                    for (int i = 0; i < max_params && i < arg_count; i++) {
+                        const Parameter& param = called_func->parameters[i];
+                        if (param.is_by_ref && call->arguments[i] && call->arguments[i]->type == ExpressionNode::VARIABLE) {
+                            String caller_var_name = ((VariableNode*)call->arguments[i])->name;
+                            if (variables.has(param.name)) {
+                                Variant byref_val = variables[param.name];
+                                assign_variable(caller_var_name, byref_val);
+                            }
+                        }
+                    }
+                }
+            }
+            return v_ret;
+        }
 
         if (owner) {
              if (owner->has_method(call->method_name)) {
@@ -3964,15 +4090,6 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
         EngineDebugger* engine_debugger = EngineDebugger::get_singleton();
         String script_path = script->get_path();
         
-        // Debug: print first time to verify debug check is running
-        static bool first_check = true;
-        if (first_check && !script_path.is_empty()) {
-            first_check = false;
-            UtilityFunctions::print("[VG Debug] execute_statement checking debugger. is_active=", 
-                (engine_debugger ? (engine_debugger->is_active() ? "true" : "false") : "no debugger"),
-                " script=", script_path);
-        }
-        
         if (engine_debugger && engine_debugger->is_active() && !script_path.is_empty()) {
             bool should_break = false;
             
@@ -4028,9 +4145,6 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                 bool has_bp = VisualGasicLanguage::has_breakpoint(script_path, stmt->line);
                 
                 if (has_bp) {
-                    // Use printerr to ensure output is flushed immediately
-                    UtilityFunctions::printerr("[VG Debug] BREAKPOINT HIT at ", script_path, ":", stmt->line);
-                    
                     // Store breakpoint location before blocking (for editor query)
                     VisualGasicLanguage::set_current_break_location(script_path, stmt->line);
                     
@@ -4117,6 +4231,32 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
     
     switch (stmt->type) {
         case STMT_PASS: break; // Do nothing
+        case STMT_STOP: {
+            // VB6 Stop statement: pause execution like a breakpoint
+            EngineDebugger* stop_dbg = EngineDebugger::get_singleton();
+            if (stop_dbg && stop_dbg->is_active()) {
+                String stop_path;
+                if (script.is_valid()) {
+                    stop_path = script->get_path();
+                }
+                int stop_line = stmt->line;
+                VisualGasicLanguage::set_current_break_location(stop_path, stop_line);
+                Array break_data;
+                break_data.push_back(stop_path);
+                break_data.push_back(stop_line);
+                stop_dbg->send_message("visualgasic:break_hit", break_data);
+                _send_variables_to_debugger(stop_dbg);
+                _send_call_stack_to_debugger(stop_dbg);
+                stop_dbg->line_poll();
+                VisualGasicLanguage* lang = VisualGasicLanguage::get_singleton();
+                if (lang) {
+                    stop_dbg->script_debug(lang, true, false);
+                }
+            } else {
+                UtilityFunctions::print("[VG] Stop statement hit (no debugger attached)");
+            }
+            break;
+        }
         case STMT_PRINT: {
             PrintStatement* s = (PrintStatement*)stmt;
             Variant val = evaluate_expression(s->expression);
@@ -4232,8 +4372,14 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
 
             } else if (s->is_dynamic_array) {
                 // Dynamic array with empty parentheses: Dim arr() As Integer
-                // Initialize as empty array, to be resized with ReDim later
-                variables[s->variable_name] = Array();
+                if (s->initializer) {
+                    // Dynamic array with initializer: Dim arr() As String = Split(...)
+                    Variant val = evaluate_expression(s->initializer);
+                    variables[s->variable_name] = val;
+                } else {
+                    // Initialize as empty array, to be resized with ReDim later
+                    variables[s->variable_name] = Array();
+                }
             } else {
                 if (s->initializer) {
                      Variant val = evaluate_expression(s->initializer);
@@ -5341,6 +5487,12 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                         PackedByteArray data;
                         data.resize(samples * 2); // 16-bit = 2 bytes
 
+                        // Envelope: 5ms fade-in, 30ms fade-out to prevent click/pop
+                        int fade_in_samples = (int)(0.005 * mix_rate);
+                        int fade_out_samples = (int)(0.030 * mix_rate);
+                        if (fade_in_samples > samples / 2) fade_in_samples = samples / 2;
+                        if (fade_out_samples > samples / 2) fade_out_samples = samples / 2;
+
                         for (int i = 0; i < samples; ++i) {
                             double t = (double)i / mix_rate;
                             double val = 0.0;
@@ -5362,7 +5514,14 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                                     break;
                             }
                             
-                            val *= 0.5; // Avoid clipping
+                            // Apply envelope
+                            double envelope = 1.0;
+                            if (i < fade_in_samples) {
+                                envelope = (double)i / fade_in_samples;
+                            } else if (i >= samples - fade_out_samples) {
+                                envelope = (double)(samples - 1 - i) / fade_out_samples;
+                            }
+                            val *= 0.2 * envelope; // Safe for polyphonic mixing
 
                             int16_t sample_int = (int16_t)(val * 32767.0);
                             data[i * 2] = (uint8_t)(sample_int & 0xFF);
@@ -5374,9 +5533,25 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                     if (owner) {
                          Node *n = Object::cast_to<Node>(owner);
                          if (n) {
+                              // Polyphony limiter: stop oldest PlayTone players if too many active
+                              const int MAX_TONE_VOICES = 4;
+                              Vector<AudioStreamPlayer *> active_tones;
+                              for (int ci2 = 0; ci2 < n->get_child_count(); ci2++) {
+                                  AudioStreamPlayer *asp = Object::cast_to<AudioStreamPlayer>(n->get_child(ci2));
+                                  if (asp && asp->has_meta("__playtone__")) {
+                                      active_tones.push_back(asp);
+                                  }
+                              }
+                              while (active_tones.size() >= MAX_TONE_VOICES) {
+                                  active_tones[0]->stop();
+                                  active_tones[0]->queue_free();
+                                  active_tones.remove_at(0);
+                              }
+
                               AudioStreamPlayer *p = memnew(AudioStreamPlayer);
                               p->set_stream(stream);
                               p->set_autoplay(true);
+                              p->set_meta("__playtone__", true);
                               p->connect("finished", Callable(p, "queue_free"));
                               n->add_child(p);
                          }
@@ -5627,7 +5802,10 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                                 String caller_var_name = ((VariableNode*)s->arguments[i])->name;
                                 // Get the parameter's current value from the function's scope
                                 if (variables.has(param.name)) {
-                                    variables[caller_var_name] = variables[param.name];
+                                    // Capture value before write to avoid Godot Dictionary
+                                    // self-reference issue when caller_var_name == param.name
+                                    Variant byref_val = variables[param.name];
+                                    variables[caller_var_name] = byref_val;
                                 }
                             }
                         }
@@ -5728,6 +5906,12 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
             for (int i = 0; i < whenever_sections.size(); i++) {
                 if (whenever_sections[i].section_name == s->section_name) {
                     whenever_sections.write[i].is_active = true;
+                    // Sync last_value to current variable value to prevent
+                    // stale state from before suspension causing false triggers
+                    String var_name = whenever_sections[i].variable_name;
+                    if (variables.has(var_name)) {
+                        whenever_sections.write[i].last_value = variables[var_name];
+                    }
                     break;
                 }
             }
@@ -6476,10 +6660,10 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
     
     Variant ret = Variant();
     if (func->type == SubDefinition::TYPE_FUNCTION) {
-        if (variables.has(func->name)) {
-            ret = variables[func->name];
-        } else if (used_bytecode) {
+        if (used_bytecode) {
             ret = bytecode_ret;
+        } else if (variables.has(func->name)) {
+            ret = variables[func->name];
         }
     } else if (used_bytecode) {
         ret = bytecode_ret;
@@ -6488,6 +6672,23 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
     // Pop call stack frame for debugger
     VisualGasicLanguage::pop_stack_frame();
     
+    // Capture ByRef parameter values BEFORE restoring locals.
+    // The local-restore step below overwrites variables[param.name]
+    // with the pre-call snapshot, which would clobber the post-execution
+    // value that the caller's STMT_CALL handler needs for ByRef write-back.
+    // Example: HandleKeyboardInput calls PlayNote(i) where i=12.
+    //   call_internal saves noteIndex=<old>, sets noteIndex=12, executes,
+    //   then restores noteIndex=<old>.  Without this capture, the caller's
+    //   ByRef write-back reads the stale <old> value and clobbers i.
+    Vector<Pair<String, Variant>> byref_captures;
+    if (func) {
+        for (int i = 0; i < func->parameters.size(); i++) {
+            if (func->parameters[i].is_by_ref && variables.has(func->parameters[i].name)) {
+                byref_captures.push_back({func->parameters[i].name, variables[func->parameters[i].name]});
+            }
+        }
+    }
+
     // Restore
     current_sub = prev_sub;
     jump_target = prev_jump;
@@ -6497,6 +6698,12 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
     Array saved_keys = saved_locals.keys();
     for(int i=0; i<saved_keys.size(); i++) {
         variables[saved_keys[i]] = saved_locals[saved_keys[i]];
+    }
+
+    // Re-apply captured ByRef parameter values so the caller's
+    // STMT_CALL ByRef write-back reads the correct post-execution values.
+    for (int i = 0; i < byref_captures.size(); i++) {
+        variables[byref_captures[i].first] = byref_captures[i].second;
     }
     
     return ret;
@@ -6675,6 +6882,26 @@ void VisualGasicInstance::call(const StringName &p_method, const Variant *const 
     }
 
     bool found = false;
+
+    // Guard: _Ready is handled exclusively by notification(NOTIFICATION_READY)
+    // which also runs Form_Load and auto-wire signals.  Block the duplicate
+    // ScriptInstance::call("_ready") from Godot engine to prevent double init.
+    // Similarly guard _process, _physics_process, _draw, and _input which are
+    // already dispatched by our notification() handler.  Without these guards,
+    // Godot's virtual-method dispatch calls them a SECOND time via call(),
+    // causing double execution per frame (double delta accumulation, double
+    // input handling, etc.).
+    {
+        String guard_method = String(p_method).to_lower();
+        if (guard_method == "_ready" || guard_method == "_process" ||
+            guard_method == "_physics_process" || guard_method == "_draw" ||
+            guard_method == "_input" || guard_method == "_unhandled_input") {
+            if (r_return) *r_return = Variant();
+            r_error->error = GDEXTENSION_CALL_OK;
+            return;
+        }
+    }
+
     Variant ret = call_internal(String(p_method), args, found);
     
     if (found) {
@@ -6792,6 +7019,12 @@ void VisualGasicInstance::notification(int32_t p_what) {
          if (Engine::get_singleton()->is_editor_hint()) {
              return;
          }
+
+         // Guard against double _Ready calls from GDExtension lifecycle
+         if (ready_executed) {
+             return;
+         }
+         ready_executed = true;
          
          // NOTE: Instance registration is handled in C++ at construction time
          // (see VisualGasicDebug::register_instance call in constructor)
@@ -7070,19 +7303,36 @@ void VisualGasicInstance::assign_variable(const String& name, Variant val) {
          if (name.nocasecmp_to("wheneverTriggered") == 0) {
          }
          Variant::Type target_type = variables[name].get_type();
-         if (target_type == Variant::INT) {
-             variables[name] = (int64_t)val;
+         Variant::Type source_type = val.get_type();
+         
+         // Only coerce when the source and target are in compatible
+         // numeric/bool/string families.  Assigning a String to a
+         // numeric Variant (e.g. Dim v As Variant / v = 100 / v = "hi")
+         // must NOT force the string through (double) — that silently
+         // produces 0.0 and clobbers the value.  VB6 Variants are
+         // truly polymorphic and accept any type.
+         bool coerce = false;
+         if (target_type == Variant::INT && (source_type == Variant::INT || source_type == Variant::FLOAT || source_type == Variant::BOOL)) {
+             coerce = true;
+         } else if (target_type == Variant::FLOAT && (source_type == Variant::INT || source_type == Variant::FLOAT || source_type == Variant::BOOL)) {
+             coerce = true;
+         } else if (target_type == Variant::STRING && source_type == Variant::STRING) {
+             coerce = true;
+         } else if (target_type == Variant::BOOL && (source_type == Variant::BOOL || source_type == Variant::INT)) {
+             coerce = true;
          }
-         else if (target_type == Variant::FLOAT) {
-             variables[name] = (double)val;
-         }
-         else if (target_type == Variant::STRING) {
-             variables[name] = (String)val;
-         }
-         else if (target_type == Variant::BOOL) {
-             variables[name] = (bool)val;
-         }
-         else {
+         
+         if (coerce) {
+             if (target_type == Variant::INT) {
+                 variables[name] = (int64_t)val;
+             } else if (target_type == Variant::FLOAT) {
+                 variables[name] = (double)val;
+             } else if (target_type == Variant::STRING) {
+                 variables[name] = (String)val;
+             } else if (target_type == Variant::BOOL) {
+                 variables[name] = (bool)val;
+             }
+         } else {
              variables[name] = val;
          }
          if (name.nocasecmp_to("wheneverTriggered") == 0) {
@@ -7122,6 +7372,13 @@ void VisualGasicInstance::assign_variable(const String& name, Variant val) {
 }
 
 void VisualGasicInstance::check_whenever_conditions(const String& variable_name, const Variant& new_value) {
+    // Suppress during module-level initialization to prevent false triggers
+    if (whenever_init_suppress) return;
+
+    // Re-entrancy guard: if we're already evaluating Whenever callbacks,
+    // don't re-enter (prevents infinite recursion when callbacks assign variables)
+    if (whenever_evaluating) return;
+
     for (int i = 0; i < whenever_sections.size(); i++) {
         WheneverSection& section = whenever_sections.write[i];
         
@@ -7137,33 +7394,51 @@ void VisualGasicInstance::check_whenever_conditions(const String& variable_name,
             condition_met = (section.last_value != new_value);
         }
         else if (section.comparison_operator.to_lower() == "becomes") {
-            // Trigger if value becomes the specified value
-            condition_met = (new_value == section.comparison_value);
+            // Trigger only on TRANSITION to the target value
+            // (value was NOT the target before, and now IS the target)
+            condition_met = (new_value == section.comparison_value && section.last_value != section.comparison_value);
         }
         else if (section.comparison_operator.to_lower() == "exceeds") {
-            // Trigger if value exceeds the specified value
+            // Trigger only on TRANSITION: value was NOT above threshold, now IS above
             double new_num = (double)new_value;
+            double old_num = (double)section.last_value;
             double threshold = (double)section.comparison_value;
-            condition_met = (new_num > threshold);
+            bool now_exceeds = (new_num > threshold);
+            bool was_exceeding = (section.last_value.get_type() != Variant::NIL && old_num > threshold);
+            condition_met = (now_exceeds && !was_exceeding);
         }
         else if (section.comparison_operator.to_lower() == "below") {
-            // Trigger if value is below the specified value
+            // Trigger only on TRANSITION: value was NOT below threshold, now IS below
             double new_num = (double)new_value;
+            double old_num = (double)section.last_value;
             double threshold = (double)section.comparison_value;
-            condition_met = (new_num < threshold);
+            bool now_below = (new_num < threshold);
+            bool was_below = (section.last_value.get_type() != Variant::NIL && old_num < threshold);
+            condition_met = (now_below && !was_below);
         }
         else if (section.comparison_operator.to_lower() == "between") {
-            // Trigger if value is between two specified values
+            // Trigger only on TRANSITION into the range
             double new_num = (double)new_value;
             double min_val = (double)section.comparison_value;
             double max_val = (double)section.comparison_value2;
-            condition_met = (new_num >= min_val && new_num <= max_val);
+            bool now_between = (new_num >= min_val && new_num <= max_val);
+            bool was_between = false;
+            if (section.last_value.get_type() != Variant::NIL) {
+                double old_num = (double)section.last_value;
+                was_between = (old_num >= min_val && old_num <= max_val);
+            }
+            condition_met = (now_between && !was_between);
         }
         else if (section.comparison_operator.to_lower() == "contains") {
-            // Trigger if string/array contains the specified value
+            // Trigger only on TRANSITION to containing the value
             String haystack = String(new_value);
             String needle = String(section.comparison_value);
-            condition_met = haystack.contains(needle);
+            bool now_contains = haystack.contains(needle);
+            bool was_containing = false;
+            if (section.last_value.get_type() != Variant::NIL) {
+                was_containing = String(section.last_value).contains(needle);
+            }
+            condition_met = (now_contains && !was_containing);
         }
         
         if (condition_met) {
@@ -7181,6 +7456,8 @@ void VisualGasicInstance::check_whenever_conditions(const String& variable_name,
             // Update last value for future comparisons
             section.last_value = new_value;
             
+            // Set re-entrancy guard before calling callbacks
+            whenever_evaluating = true;
             
             // Call all callback procedures
             Array empty_args;
@@ -7192,6 +7469,9 @@ void VisualGasicInstance::check_whenever_conditions(const String& variable_name,
                     UtilityFunctions::print("Warning: Whenever callback procedure '", section.callback_procedures[j], "' not found");
                 }
             }
+            
+            // Release re-entrancy guard
+            whenever_evaluating = false;
         } else {
             // Update last value even if condition wasn't met (for "changes" tracking)
             section.last_value = new_value;
@@ -7200,6 +7480,12 @@ void VisualGasicInstance::check_whenever_conditions(const String& variable_name,
 }
 
 void VisualGasicInstance::check_expression_conditions() {
+    // Suppress during module-level initialization
+    if (whenever_init_suppress) return;
+
+    // Re-entrancy guard: prevent infinite recursion when callbacks assign variables
+    if (whenever_evaluating) return;
+
     for (int i = 0; i < whenever_sections.size(); i++) {
         WheneverSection& section = whenever_sections.write[i];
         
@@ -7215,11 +7501,18 @@ void VisualGasicInstance::check_expression_conditions() {
         
         // Evaluate the complex expression
         Variant result = evaluate_expression(section.condition_expression);
-        bool condition_met = (bool)result;
+        bool condition_now = (bool)result;
         
-        if (condition_met) {
+        // Edge detection: only fire on false -> true transition
+        bool was_true = section.last_condition_result;
+        section.last_condition_result = condition_now;
+        
+        if (condition_now && !was_true) {
             // Update last trigger time
             section.last_trigger_time = current_time;
+            
+            // Set re-entrancy guard before calling callbacks
+            whenever_evaluating = true;
             
             // Call all callback procedures
             Array empty_args;
@@ -7231,6 +7524,9 @@ void VisualGasicInstance::check_expression_conditions() {
                     UtilityFunctions::print("Warning: Whenever callback procedure '", section.callback_procedures[j], "' not found");
                 }
             }
+            
+            // Release re-entrancy guard
+            whenever_evaluating = false;
         }
     }
 }
@@ -8029,7 +8325,23 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
             if (stack_profile_enabled) {
                 stack_profile_sample.underflow_count++;
             }
-            UtilityFunctions::printerr("VisualGasic: bytecode stack underflow");
+            UtilityFunctions::printerr("VisualGasic: bytecode stack underflow in ",
+                func ? func->name : "<null>", " need=", count,
+                " have=", (int64_t)(vm.stack.size() - stack_base),
+                " ip=", vm.ip, " last_op=", (int)current_opcode,
+                " code_size=", (int)chunk->code.size());
+            // Dump full bytecode for diagnosis
+            String dump = "  [DUMP] bytecode for " + (func ? func->name : String("<null>")) + ": ";
+            for (int di = 0; di < chunk->code.size() && di < 64; di++) {
+                dump += String::num_int64(chunk->code[di]) + " ";
+            }
+            UtilityFunctions::printerr(dump);
+            // Dump constants
+            String cdump = "  [DUMP] constants: ";
+            for (int ci = 0; ci < chunk->constants.size() && ci < 16; ci++) {
+                cdump += "[" + String::num_int64(ci) + "]=" + String(chunk->constants[ci]) + " ";
+            }
+            UtilityFunctions::printerr(cdump);
             return false;
         }
         return true;
@@ -8091,6 +8403,77 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
     Variant result_snapshot;
     Variant explicit_return;
     bool has_explicit_return = false;
+
+    // Snapshot global variables that this function may write via OP_SET_GLOBAL.
+    // If bytecode execution fails and the AST fallback re-runs the function,
+    // we need to rollback globals to prevent double-mutation (e.g. wave += 1
+    // executed in bytecode, then again in AST fallback → wave += 2).
+    Dictionary saved_globals;
+    {
+        int scan_ip = 0;
+        while (scan_ip < code_size) {
+            uint8_t scan_op = code[scan_ip++];
+            if (scan_op == OP_SET_GLOBAL && scan_ip < code_size) {
+                uint8_t idx = code[scan_ip];
+                if (idx < chunk->constants.size()) {
+                    String gname = chunk->constants[idx];
+                    if (!saved_globals.has(gname) && variables.has(gname)) {
+                        saved_globals[gname] = variables[gname];
+                    }
+                }
+                scan_ip++; // skip the name index byte
+            } else {
+                // Skip operand bytes for multi-byte opcodes so the scan
+                // doesn't misinterpret data bytes as OP_SET_GLOBAL.
+                switch (scan_op) {
+                    // 2-byte opcodes (1 operand)
+                    case OP_CONSTANT: case OP_GET_GLOBAL: case OP_GET_LOCAL:
+                    case OP_SET_LOCAL:
+                    case OP_GET_MEMBER: case OP_SET_MEMBER:
+                    case OP_REGISTER_WHENEVER: case OP_SUSPEND_WHENEVER: case OP_RESUME_WHENEVER:
+                    case OP_ON_ERROR_GOTO:
+                    case OP_INC_LOCAL_I64:
+                    case OP_ADD_I64_CONST: case OP_SUB_I64_CONST:
+                    case OP_ADD_LOCAL_I64_STACK: case OP_SUB_LOCAL_I64_STACK:
+                    case OP_BRANCH_SUM:
+                    case OP_GET_ARRAY: case OP_SET_ARRAY:
+                    case OP_GET_ARRAY_UNCHECKED: case OP_SET_ARRAY_UNCHECKED:
+                    case OP_GET_ARRAY_FAST: case OP_SET_ARRAY_FAST:
+                    case OP_GET_ARRAY_FAST_UNCHECKED: case OP_SET_ARRAY_FAST_UNCHECKED:
+                    case OP_GET_DICT_FAST: case OP_SET_DICT_FAST:
+                    case OP_GET_DICT_TRUSTED: case OP_SET_DICT_TRUSTED:
+                    case OP_INTEROP_SET_NAME_LEN:
+                    case OP_MUL_I64_CONST:
+                    case OP_SUM_VGDICT_ALL_I64:
+                    case OP_NEW_VGDICT: case OP_GET_VGDICT_LOCAL: case OP_SET_VGDICT_LOCAL:
+                        scan_ip += 1; break;
+                    // 3-byte opcodes (2 operands)
+                    case OP_CONSTANT_LONG:
+                    case OP_JUMP: case OP_JUMP_IF_FALSE: case OP_JUMP_IF_TRUE:
+                    case OP_LOOP:
+                    case OP_CALL:
+                    case OP_CALL_BUILTIN:
+                    case OP_ADD_LOCAL_I64_CONST: case OP_SUB_LOCAL_I64_CONST:
+                    case OP_ARITH_SUM:
+                    case OP_STRING_REPEAT_OUTER:
+                    case OP_DEBUG_LINE:
+                    case OP_SET_DICT_LOCAL: case OP_SET_DICT_GLOBAL:
+                        scan_ip += 2; break;
+                    // 4-byte opcodes (3 operands)
+                    case OP_ALLOC_FILL_I64_OFFSET:
+                    case OP_ARRAY_FILL_I64_OFFSET:
+                    case OP_ACCUM_I64_MULADD_CONST:
+                        scan_ip += 3; break;
+                    // 7-byte opcodes (6 operands)
+                    case OP_ALLOC_FILL_REPEAT_I64:
+                        scan_ip += 6; break;
+                    default:
+                        // 1-byte opcodes (no operands) — nothing to skip
+                        break;
+                }
+            }
+        }
+    }
 
     auto read_constant = [&](int idx) -> Variant {
         if (idx >= 0 && idx < chunk->constants.size()) {
@@ -8159,12 +8542,168 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         return &entry.class_preferences.write[entry.class_preferences.size() - 1].preference;
     };
 
+    // -------- Computed-goto threaded dispatch (GCC/Clang) --------
+    // We prefix each `case` label with a goto-label, and on GCC/Clang
+    // the end of each handler jumps directly to the next opcode's label
+    // via an indirect goto through a static dispatch table.  This avoids
+    // the branch-predictor overhead of the switch and the while-loop
+    // back-edge, giving ~15-25% faster opcode throughput.
+    // MSVC falls back to the classic while+switch.
+
+#if defined(__GNUC__) || defined(__clang__)
+#define VG_USE_COMPUTED_GOTO 1
+#else
+#define VG_USE_COMPUTED_GOTO 0
+#endif
+
+#if VG_USE_COMPUTED_GOTO
+    // Dispatch table: maps each opcode byte to the address of its handler label.
+    // Initialised once (static + init flag) so the && address-of-label expressions
+    // are only evaluated on the first call.
+    static const void* dispatch_table[256];
+    static bool dispatch_table_init = false;
+    if (!dispatch_table_init) {
+        for (int _i = 0; _i < 256; _i++) dispatch_table[_i] = &&vg_op_default;
+        dispatch_table[OP_CONSTANT]       = &&vg_op_constant;
+        dispatch_table[OP_CONSTANT_LONG]  = &&vg_op_constant_long;
+        dispatch_table[OP_POP]            = &&vg_op_pop;
+        dispatch_table[OP_GET_GLOBAL]     = &&vg_op_get_global;
+        dispatch_table[OP_SET_GLOBAL]     = &&vg_op_set_global;
+        dispatch_table[OP_GET_LOCAL]      = &&vg_op_get_local;
+        dispatch_table[OP_SET_LOCAL]      = &&vg_op_set_local;
+        dispatch_table[OP_ADD]            = &&vg_op_add;
+        dispatch_table[OP_SUBTRACT]       = &&vg_op_subtract;
+        dispatch_table[OP_MULTIPLY]       = &&vg_op_multiply;
+        dispatch_table[OP_DIVIDE]         = &&vg_op_divide;
+        dispatch_table[OP_NEGATE]         = &&vg_op_negate;
+        dispatch_table[OP_CONCAT]         = &&vg_op_concat;
+        dispatch_table[OP_MOD]            = &&vg_op_mod;
+        dispatch_table[OP_INT_DIVIDE]     = &&vg_op_int_divide;
+        dispatch_table[OP_POWER]          = &&vg_op_power;
+        dispatch_table[OP_LIKE]           = &&vg_op_like;
+        dispatch_table[OP_ADD_I64]        = &&vg_op_add_i64;
+        dispatch_table[OP_ADD_I64_CONST]  = &&vg_op_add_i64_const;
+        dispatch_table[OP_SUB_I64]        = &&vg_op_sub_i64;
+        dispatch_table[OP_SUB_I64_CONST]  = &&vg_op_sub_i64_const;
+        dispatch_table[OP_MUL_I64]        = &&vg_op_mul_i64;
+        dispatch_table[OP_MUL_I64_CONST]  = &&vg_op_mul_i64_const;
+        dispatch_table[OP_ADD_F64]        = &&vg_op_add_f64;
+        dispatch_table[OP_SUB_F64]        = &&vg_op_sub_f64;
+        dispatch_table[OP_MUL_F64]        = &&vg_op_mul_f64;
+        dispatch_table[OP_DIV_F64]        = &&vg_op_div_f64;
+        dispatch_table[OP_ADD_LOCAL_I64_STACK]  = &&vg_op_add_local_i64_stack;
+        dispatch_table[OP_SUB_LOCAL_I64_STACK]  = &&vg_op_sub_local_i64_stack;
+        dispatch_table[OP_ADD_LOCAL_I64_CONST]  = &&vg_op_add_local_i64_const;
+        dispatch_table[OP_SUB_LOCAL_I64_CONST]  = &&vg_op_sub_local_i64_const;
+        dispatch_table[OP_INC_LOCAL_I64]  = &&vg_op_inc_local_i64;
+        dispatch_table[OP_ARITH_SUM]      = &&vg_op_arith_sum;
+        dispatch_table[OP_BRANCH_SUM]     = &&vg_op_branch_sum;
+        dispatch_table[OP_SUM_ARRAY_I64]  = &&vg_op_sum_array_i64;
+        dispatch_table[OP_SUM_DICT_I64]   = &&vg_op_sum_dict_i64;
+        dispatch_table[OP_SUM_VGDICT_ALL_I64] = &&vg_op_sum_vgdict_all_i64;
+        dispatch_table[OP_ARRAY_FILL_I64_SEQ]  = &&vg_op_array_fill_i64_seq;
+        dispatch_table[OP_ALLOC_FILL_I64]      = &&vg_op_alloc_fill_i64;
+        dispatch_table[OP_ALLOC_FILL_REPEAT_I64] = &&vg_op_alloc_fill_repeat_i64;
+        dispatch_table[OP_STRING_REPEAT]       = &&vg_op_string_repeat;
+        dispatch_table[OP_STRING_REPEAT_OUTER] = &&vg_op_string_repeat_outer;
+        dispatch_table[OP_ABS]            = &&vg_op_abs;
+        dispatch_table[OP_SGN]            = &&vg_op_sgn;
+        dispatch_table[OP_LEN]            = &&vg_op_len;
+        dispatch_table[OP_EQUAL]          = &&vg_op_equal;
+        dispatch_table[OP_NOT_EQUAL]      = &&vg_op_not_equal;
+        dispatch_table[OP_GREATER]        = &&vg_op_greater;
+        dispatch_table[OP_LESS]           = &&vg_op_less;
+        dispatch_table[OP_GREATER_EQUAL]  = &&vg_op_greater_equal;
+        dispatch_table[OP_LESS_EQUAL]     = &&vg_op_less_equal;
+        dispatch_table[OP_EQUAL_I64]      = &&vg_op_equal_i64;
+        dispatch_table[OP_NOT_EQUAL_I64]  = &&vg_op_not_equal_i64;
+        dispatch_table[OP_LESS_EQUAL_I64] = &&vg_op_less_equal_i64;
+        dispatch_table[OP_NOT]            = &&vg_op_not;
+        dispatch_table[OP_AND]            = &&vg_op_and;
+        dispatch_table[OP_OR]             = &&vg_op_or;
+        dispatch_table[OP_XOR]            = &&vg_op_xor;
+        dispatch_table[OP_JUMP]           = &&vg_op_jump;
+        dispatch_table[OP_JUMP_IF_FALSE]  = &&vg_op_jump_if_false;
+        dispatch_table[OP_JUMP_IF_TRUE]   = &&vg_op_jump_if_true;
+        dispatch_table[OP_LOOP]           = &&vg_op_loop;
+        dispatch_table[OP_CALL]           = &&vg_op_call;
+        dispatch_table[OP_RETURN]         = &&vg_op_return;
+        dispatch_table[OP_RETURN_VALUE]   = &&vg_op_return_value;
+        dispatch_table[OP_PRINT]          = &&vg_op_print;
+        dispatch_table[OP_DEBUG_PRINT]    = &&vg_op_debug_print;
+        dispatch_table[OP_NEW_ARRAY]      = &&vg_op_new_array;
+        dispatch_table[OP_NEW_ARRAY_I64]  = &&vg_op_new_array_i64;
+        dispatch_table[OP_NEW_DICT]       = &&vg_op_new_dict;
+        dispatch_table[OP_GET_ARRAY]      = &&vg_op_get_array;
+        dispatch_table[OP_SET_ARRAY]      = &&vg_op_set_array;
+        dispatch_table[OP_GET_ARRAY_UNCHECKED]  = &&vg_op_get_array_unchecked;
+        dispatch_table[OP_SET_ARRAY_UNCHECKED]  = &&vg_op_set_array_unchecked;
+        dispatch_table[OP_GET_ARRAY_FAST]       = &&vg_op_get_array_fast;
+        dispatch_table[OP_SET_ARRAY_FAST]       = &&vg_op_set_array_fast;
+        dispatch_table[OP_GET_ARRAY_FAST_UNCHECKED] = &&vg_op_get_array_fast_unchecked;
+        dispatch_table[OP_SET_ARRAY_FAST_UNCHECKED] = &&vg_op_set_array_fast_unchecked;
+        dispatch_table[OP_GET_DICT_FAST]        = &&vg_op_get_dict_fast;
+        dispatch_table[OP_SET_DICT_FAST]        = &&vg_op_set_dict_fast;
+        dispatch_table[OP_GET_DICT_TRUSTED]     = &&vg_op_get_dict_trusted;
+        dispatch_table[OP_SET_DICT_TRUSTED]     = &&vg_op_set_dict_trusted;
+        dispatch_table[OP_SET_DICT_LOCAL]       = &&vg_op_set_dict_local;
+        dispatch_table[OP_SET_DICT_GLOBAL]      = &&vg_op_set_dict_global;
+        dispatch_table[OP_DICT_HAS_KEY]         = &&vg_op_dict_has_key;
+        dispatch_table[OP_DICT_SIZE]            = &&vg_op_dict_size;
+        dispatch_table[OP_DICT_CLEAR_INPLACE]   = &&vg_op_dict_clear_inplace;
+        dispatch_table[OP_DICT_KEYS]            = &&vg_op_dict_keys;
+        dispatch_table[OP_DICT_VALUES]          = &&vg_op_dict_values;
+        dispatch_table[OP_DICT_ERASE]           = &&vg_op_dict_erase;
+        dispatch_table[OP_NEW_VGDICT]           = &&vg_op_new_vgdict;
+        dispatch_table[OP_GET_VGDICT_LOCAL]     = &&vg_op_get_vgdict_local;
+        dispatch_table[OP_SET_VGDICT_LOCAL]     = &&vg_op_set_vgdict_local;
+        dispatch_table[OP_GET_MEMBER]    = &&vg_op_get_member;
+        dispatch_table[OP_SET_MEMBER]    = &&vg_op_set_member;
+        dispatch_table[OP_INTEROP_SET_NAME_LEN] = &&vg_op_interop_set_name_len;
+        dispatch_table[OP_REGISTER_WHENEVER]    = &&vg_op_register_whenever;
+        dispatch_table[OP_SUSPEND_WHENEVER]     = &&vg_op_suspend_whenever;
+        dispatch_table[OP_RESUME_WHENEVER]      = &&vg_op_resume_whenever;
+        dispatch_table[OP_RESTORE_DATA]         = &&vg_op_restore_data;
+        dispatch_table[OP_READ_DATA]            = &&vg_op_read_data;
+        dispatch_table[OP_ON_ERROR_RESUME_NEXT] = &&vg_op_on_error_resume_next;
+        dispatch_table[OP_ON_ERROR_GOTO]        = &&vg_op_on_error_goto;
+        dispatch_table[OP_ON_ERROR_GOTO_0]      = &&vg_op_on_error_goto_0;
+        dispatch_table[OP_NIL]            = &&vg_op_nil;
+        dispatch_table[OP_TRUE]           = &&vg_op_true;
+        dispatch_table[OP_FALSE]          = &&vg_op_false;
+        dispatch_table[OP_DEBUG_LINE]     = &&vg_op_debug_line;
+        dispatch_table[OP_STOP]           = &&vg_op_stop;
+        dispatch_table_init = true;
+    }
+
+    // VG_CASE(label, opcode):  on GCC/Clang emits `label: case opcode:`
+    //                          on MSVC emits `case opcode:` only.
+    // VG_BREAK:  on GCC/Clang fetches next opcode + goto *dispatch_table[op]
+    //            on MSVC is plain `break`.
+#define VG_CASE(label, opcode)  label: case opcode
+#define VG_BREAK                                    \
+    do {                                            \
+        if (vm.ip >= code_size) goto cleanup;       \
+        last_opcode_offset = vm.ip;                 \
+        op = code[vm.ip++];                         \
+        current_opcode = op;                        \
+        goto *dispatch_table[op];                   \
+    } while (0)
+
+#else  // !VG_USE_COMPUTED_GOTO  (MSVC fallback)
+#define VG_CASE(label, opcode)  case opcode
+#define VG_BREAK  break
+#endif // VG_USE_COMPUTED_GOTO
+
     while (vm.ip < code_size) {
         last_opcode_offset = vm.ip;
         uint8_t op = code[vm.ip++];
         current_opcode = op;
+#if VG_USE_COMPUTED_GOTO
+        goto *dispatch_table[op];  // skip the switch on GCC/Clang
+#endif
         switch (op) {
-            case OP_CONSTANT: {
+            VG_CASE(vg_op_constant, OP_CONSTANT): {
                 if (vm.ip >= code_size) {
                     success = false;
                     goto cleanup;
@@ -8173,7 +8712,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 push_value(read_constant(idx));
                 break;
             }
-            case OP_CONSTANT_LONG: {
+            VG_CASE(vg_op_constant_long, OP_CONSTANT_LONG): {
                 if (vm.ip + 1 >= code_size) {
                     success = false;
                     goto cleanup;
@@ -8184,13 +8723,13 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 push_value(read_constant(idx));
                 break;
             }
-            case OP_POP: {
+            VG_CASE(vg_op_pop, OP_POP): {
                 if (vm.stack.size() > stack_base) {
                     vm.stack.pop_back();
                 }
                 break;
             }
-            case OP_GET_GLOBAL: {
+            VG_CASE(vg_op_get_global, OP_GET_GLOBAL): {
                 if (vm.ip >= code_size) {
                     success = false;
                     goto cleanup;
@@ -8235,7 +8774,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 push_value(val);
                 break;
             }
-            case OP_SET_GLOBAL: {
+            VG_CASE(vg_op_set_global, OP_SET_GLOBAL): {
                 if (vm.ip >= code_size) {
                     success = false;
                     goto cleanup;
@@ -8264,13 +8803,31 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     }
                 }
                 
-                variables[name] = value;
-                
-                if (name.nocasecmp_to("wheneverTriggered") == 0) {
+                // Type-preservation matching assign_variable() behavior
+                if (variables.has(name)) {
+                    Variant::Type target_type = variables[name].get_type();
+                    if (target_type == Variant::INT) {
+                        variables[name] = (int64_t)value;
+                    } else if (target_type == Variant::FLOAT) {
+                        variables[name] = (double)value;
+                    } else if (target_type == Variant::STRING) {
+                        variables[name] = (String)value;
+                    } else if (target_type == Variant::BOOL) {
+                        variables[name] = (bool)value;
+                    } else {
+                        variables[name] = value;
+                    }
+                } else {
+                    variables[name] = value;
                 }
+                
+                // Trigger Whenever system (must match assign_variable behavior)
+                check_whenever_conditions(name, variables[name]);
+                check_expression_conditions();
+                
                 break;
             }
-            case OP_GET_LOCAL: {
+            VG_CASE(vg_op_get_local, OP_GET_LOCAL): {
                 if (vm.ip >= code_size) {
                     success = false;
                     goto cleanup;
@@ -8298,7 +8855,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 push_value(val);
                 break;
             }
-            case OP_SET_LOCAL: {
+            VG_CASE(vg_op_set_local, OP_SET_LOCAL): {
                 if (vm.ip >= code_size) {
                     success = false;
                     goto cleanup;
@@ -8312,25 +8869,25 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 sync_local(slot, value);
                 break;
             }
-            case OP_ADD:
+            VG_CASE(vg_op_add, OP_ADD):
                 if (!apply_variant_op(Variant::OP_ADD)) {
                     success = false;
                     goto cleanup;
                 }
                 break;
-            case OP_SUBTRACT:
+            VG_CASE(vg_op_subtract, OP_SUBTRACT):
                 if (!apply_variant_op(Variant::OP_SUBTRACT)) {
                     success = false;
                     goto cleanup;
                 }
                 break;
-            case OP_MULTIPLY:
+            VG_CASE(vg_op_multiply, OP_MULTIPLY):
                 if (!apply_variant_op(Variant::OP_MULTIPLY)) {
                     success = false;
                     goto cleanup;
                 }
                 break;
-            case OP_DIVIDE: {
+            VG_CASE(vg_op_divide, OP_DIVIDE): {
                 if (!ensure_stack(2)) {
                     success = false;
                     goto cleanup;
@@ -8356,7 +8913,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 push_value(Variant((double)a / divisor));
                 break;
             }
-            case OP_MOD: {
+            VG_CASE(vg_op_mod, OP_MOD): {
                 if (!ensure_stack(2)) {
                     success = false;
                     goto cleanup;
@@ -8380,7 +8937,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 push_value(Variant(to_int(a) % ival_b));
                 break;
             }
-            case OP_INT_DIVIDE: {
+            VG_CASE(vg_op_int_divide, OP_INT_DIVIDE): {
                 if (!ensure_stack(2)) {
                     success = false;
                     goto cleanup;
@@ -8406,7 +8963,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 }
                 break;
             }
-            case OP_POWER: {
+            VG_CASE(vg_op_power, OP_POWER): {
                 if (!ensure_stack(2)) {
                     success = false;
                     goto cleanup;
@@ -8417,7 +8974,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 push_value(Variant(val));
                 break;
             }
-            case OP_LIKE: {
+            VG_CASE(vg_op_like, OP_LIKE): {
                 // VB-style Like pattern matching
                 if (!ensure_stack(2)) {
                     success = false;
@@ -8430,7 +8987,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 push_value(Variant(matches));
                 break;
             }
-            case OP_NEGATE: {
+            VG_CASE(vg_op_negate, OP_NEGATE): {
                 // OP_NEGATE is a unary operation - only pop and push 1 value
                 if (!ensure_stack(1)) {
                     success = false;
@@ -8448,7 +9005,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 push_value(result);
                 break;
             }
-            case OP_CONCAT: {
+            VG_CASE(vg_op_concat, OP_CONCAT): {
                 if (!ensure_stack(2)) {
                     success = false;
                     goto cleanup;
@@ -8463,7 +9020,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 }
                 break;
             }
-            case OP_STRING_REPEAT: {
+            VG_CASE(vg_op_string_repeat, OP_STRING_REPEAT): {
                 if (!ensure_stack(2)) {
                     success = false;
                     goto cleanup;
@@ -8473,7 +9030,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 push_value(vg_repeat_literal(literal, count));
                 break;
             }
-            case OP_STRING_REPEAT_OUTER: {
+            VG_CASE(vg_op_string_repeat_outer, OP_STRING_REPEAT_OUTER): {
                 if (vm.ip + 1 >= code_size) { success = false; goto cleanup; }
                 uint8_t slot = code[vm.ip++];
                 uint8_t lit_idx = code[vm.ip++];
@@ -8498,7 +9055,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 sync_local(slot, result);
                 break;
             }
-            case OP_INTEROP_SET_NAME_LEN: {
+            VG_CASE(vg_op_interop_set_name_len, OP_INTEROP_SET_NAME_LEN): {
                 if (vm.ip + 0 >= code_size) { success = false; goto cleanup; }
                 uint8_t sum_slot = code[vm.ip++];
                 if (!ensure_stack(3)) { success = false; goto cleanup; }
@@ -8538,7 +9095,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 push_value(current_sum);
                 break;
             }
-            case OP_ADD_I64: {
+            VG_CASE(vg_op_add_i64, OP_ADD_I64): {
                 if (!ensure_stack(2)) {
                     success = false;
                     goto cleanup;
@@ -8548,7 +9105,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 push_value((int64_t)(a + b));
                 break;
             }
-            case OP_SUB_I64: {
+            VG_CASE(vg_op_sub_i64, OP_SUB_I64): {
                 if (!ensure_stack(2)) {
                     success = false;
                     goto cleanup;
@@ -8558,7 +9115,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 push_value((int64_t)(a - b));
                 break;
             }
-            case OP_MUL_I64: {
+            VG_CASE(vg_op_mul_i64, OP_MUL_I64): {
                 if (!ensure_stack(2)) {
                     success = false;
                     goto cleanup;
@@ -8568,7 +9125,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 push_value((int64_t)(a * b));
                 break;
             }
-            case OP_ADD_F64: {
+            VG_CASE(vg_op_add_f64, OP_ADD_F64): {
                 if (!ensure_stack(2)) {
                     success = false;
                     goto cleanup;
@@ -8578,7 +9135,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 push_value(a + b);
                 break;
             }
-            case OP_SUB_F64: {
+            VG_CASE(vg_op_sub_f64, OP_SUB_F64): {
                 if (!ensure_stack(2)) {
                     success = false;
                     goto cleanup;
@@ -8588,7 +9145,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 push_value(a - b);
                 break;
             }
-            case OP_MUL_F64: {
+            VG_CASE(vg_op_mul_f64, OP_MUL_F64): {
                 if (!ensure_stack(2)) {
                     success = false;
                     goto cleanup;
@@ -8598,7 +9155,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 push_value(a * b);
                 break;
             }
-            case OP_DIV_F64: {
+            VG_CASE(vg_op_div_f64, OP_DIV_F64): {
                 if (!ensure_stack(2)) {
                     success = false;
                     goto cleanup;
@@ -8608,7 +9165,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 push_value(a / b);
                 break;
             }
-            case OP_ADD_I64_CONST: {
+            VG_CASE(vg_op_add_i64_const, OP_ADD_I64_CONST): {
                 if (vm.ip >= code_size) { success = false; goto cleanup; }
                 uint8_t idx = code[vm.ip++];
                 if (!ensure_stack(2)) { success = false; goto cleanup; }
@@ -8618,7 +9175,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 push_value((int64_t)(a + c));
                 break;
             }
-            case OP_SUB_I64_CONST: {
+            VG_CASE(vg_op_sub_i64_const, OP_SUB_I64_CONST): {
                 if (vm.ip >= code_size) { success = false; goto cleanup; }
                 uint8_t idx = code[vm.ip++];
                 if (!ensure_stack(2)) { success = false; goto cleanup; }
@@ -8628,7 +9185,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 push_value((int64_t)(a - c));
                 break;
             }
-            case OP_MUL_I64_CONST: {
+            VG_CASE(vg_op_mul_i64_const, OP_MUL_I64_CONST): {
                 if (vm.ip >= code_size) { success = false; goto cleanup; }
                 uint8_t idx = code[vm.ip++];
                 if (!ensure_stack(2)) { success = false; goto cleanup; }
@@ -8638,7 +9195,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 push_value((int64_t)(a * c));
                 break;
             }
-            case OP_ADD_LOCAL_I64_STACK: {
+            VG_CASE(vg_op_add_local_i64_stack, OP_ADD_LOCAL_I64_STACK): {
                 if (vm.ip >= code_size) { success = false; goto cleanup; }
                 uint8_t slot = code[vm.ip++];
                 int64_t delta = to_int(pop_value());
@@ -8646,7 +9203,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 sync_local(slot, (int64_t)(base + delta));
                 break;
             }
-            case OP_SUB_LOCAL_I64_STACK: {
+            VG_CASE(vg_op_sub_local_i64_stack, OP_SUB_LOCAL_I64_STACK): {
                 if (vm.ip >= code_size) { success = false; goto cleanup; }
                 uint8_t slot = code[vm.ip++];
                 int64_t delta = to_int(pop_value());
@@ -8654,7 +9211,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 sync_local(slot, (int64_t)(base - delta));
                 break;
             }
-            case OP_ADD_LOCAL_I64_CONST: {
+            VG_CASE(vg_op_add_local_i64_const, OP_ADD_LOCAL_I64_CONST): {
                 if (vm.ip >= code_size) { success = false; goto cleanup; }
                 uint8_t slot = code[vm.ip++];
                 if (vm.ip >= code_size) { success = false; goto cleanup; }
@@ -8663,7 +9220,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 sync_local(slot, (int64_t)(base + to_int(read_constant(idx))));
                 break;
             }
-            case OP_SUB_LOCAL_I64_CONST: {
+            VG_CASE(vg_op_sub_local_i64_const, OP_SUB_LOCAL_I64_CONST): {
                 if (vm.ip >= code_size) { success = false; goto cleanup; }
                 uint8_t slot = code[vm.ip++];
                 if (vm.ip >= code_size) { success = false; goto cleanup; }
@@ -8672,14 +9229,14 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 sync_local(slot, (int64_t)(base - to_int(read_constant(idx))));
                 break;
             }
-            case OP_INC_LOCAL_I64: {
+            VG_CASE(vg_op_inc_local_i64, OP_INC_LOCAL_I64): {
                 if (vm.ip >= code_size) { success = false; goto cleanup; }
                 uint8_t slot = code[vm.ip++];
                 int64_t base = to_int(read_local(slot));
                 sync_local(slot, (int64_t)(base + 1));
                 break;
             }
-            case OP_ARITH_SUM: {
+            VG_CASE(vg_op_arith_sum, OP_ARITH_SUM): {
                 if (vm.ip >= code_size) { success = false; goto cleanup; }
                 uint8_t k_idx = code[vm.ip++];
                 if (vm.ip >= code_size) { success = false; goto cleanup; }
@@ -8705,7 +9262,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 push_value(result_sum);
                 break;
             }
-            case OP_BRANCH_SUM: {
+            VG_CASE(vg_op_branch_sum, OP_BRANCH_SUM): {
                 if (vm.ip >= code_size) { success = false; goto cleanup; }
                 uint8_t flag_slot = code[vm.ip++];
                 if (!ensure_stack(3)) { success = false; goto cleanup; }
@@ -8733,7 +9290,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 push_value(result_sum);
                 break;
             }
-            case OP_LEN: {
+            VG_CASE(vg_op_len, OP_LEN): {
                 if (!ensure_stack(1)) { success = false; goto cleanup; }
                 Variant value = pop_value();
                 int64_t length = 0;
@@ -8755,72 +9312,72 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 push_value(length);
                 break;
             }
-            case OP_EQUAL:
+            VG_CASE(vg_op_equal, OP_EQUAL):
                 if (!apply_variant_op(Variant::OP_EQUAL)) { success = false; goto cleanup; }
                 break;
-            case OP_NOT_EQUAL:
+            VG_CASE(vg_op_not_equal, OP_NOT_EQUAL):
                 if (!apply_variant_op(Variant::OP_NOT_EQUAL)) { success = false; goto cleanup; }
                 break;
-            case OP_GREATER:
+            VG_CASE(vg_op_greater, OP_GREATER):
                 if (!apply_variant_op(Variant::OP_GREATER)) { success = false; goto cleanup; }
                 break;
-            case OP_LESS:
+            VG_CASE(vg_op_less, OP_LESS):
                 if (!apply_variant_op(Variant::OP_LESS)) { success = false; goto cleanup; }
                 break;
-            case OP_GREATER_EQUAL:
+            VG_CASE(vg_op_greater_equal, OP_GREATER_EQUAL):
                 if (!apply_variant_op(Variant::OP_GREATER_EQUAL)) { success = false; goto cleanup; }
                 break;
-            case OP_LESS_EQUAL:
+            VG_CASE(vg_op_less_equal, OP_LESS_EQUAL):
                 if (!apply_variant_op(Variant::OP_LESS_EQUAL)) { success = false; goto cleanup; }
                 break;
-            case OP_EQUAL_I64: {
+            VG_CASE(vg_op_equal_i64, OP_EQUAL_I64): {
                 if (!ensure_stack(2)) { success = false; goto cleanup; }
                 int64_t b = to_int(pop_value());
                 int64_t a = to_int(pop_value());
                 push_value(a == b);
                 break;
             }
-            case OP_NOT_EQUAL_I64: {
+            VG_CASE(vg_op_not_equal_i64, OP_NOT_EQUAL_I64): {
                 if (!ensure_stack(2)) { success = false; goto cleanup; }
                 int64_t b = to_int(pop_value());
                 int64_t a = to_int(pop_value());
                 push_value(a != b);
                 break;
             }
-            case OP_LESS_EQUAL_I64: {
+            VG_CASE(vg_op_less_equal_i64, OP_LESS_EQUAL_I64): {
                 if (!ensure_stack(2)) { success = false; goto cleanup; }
                 int64_t b = to_int(pop_value());
                 int64_t a = to_int(pop_value());
                 push_value(a <= b);
                 break;
             }
-            case OP_NOT: {
+            VG_CASE(vg_op_not, OP_NOT): {
                 if (!ensure_stack(1)) { success = false; goto cleanup; }
                 push_value(!to_bool(pop_value()));
                 break;
             }
-            case OP_AND: {
+            VG_CASE(vg_op_and, OP_AND): {
                 if (!ensure_stack(2)) { success = false; goto cleanup; }
                 bool b = to_bool(pop_value());
                 bool a = to_bool(pop_value());
                 push_value(a && b);
                 break;
             }
-            case OP_OR: {
+            VG_CASE(vg_op_or, OP_OR): {
                 if (!ensure_stack(2)) { success = false; goto cleanup; }
                 bool b = to_bool(pop_value());
                 bool a = to_bool(pop_value());
                 push_value(a || b);
                 break;
             }
-            case OP_XOR: {
+            VG_CASE(vg_op_xor, OP_XOR): {
                 if (!ensure_stack(2)) { success = false; goto cleanup; }
                 bool b = to_bool(pop_value());
                 bool a = to_bool(pop_value());
                 push_value((a && !b) || (!a && b));
                 break;
             }
-            case OP_JUMP: {
+            VG_CASE(vg_op_jump, OP_JUMP): {
                 if (vm.ip + 1 >= code_size) { success = false; goto cleanup; }
                 uint8_t hi = code[vm.ip++];
                 uint8_t lo = code[vm.ip++];
@@ -8828,7 +9385,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 vm.ip += offset;
                 break;
             }
-            case OP_JUMP_IF_FALSE: {
+            VG_CASE(vg_op_jump_if_false, OP_JUMP_IF_FALSE): {
                 if (vm.ip + 1 >= code_size) { success = false; goto cleanup; }
                 uint8_t hi = code[vm.ip++];
                 uint8_t lo = code[vm.ip++];
@@ -8839,7 +9396,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 }
                 break;
             }
-            case OP_JUMP_IF_TRUE: {
+            VG_CASE(vg_op_jump_if_true, OP_JUMP_IF_TRUE): {
                 if (vm.ip + 1 >= code_size) { success = false; goto cleanup; }
                 uint8_t hi = code[vm.ip++];
                 uint8_t lo = code[vm.ip++];
@@ -8850,7 +9407,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 }
                 break;
             }
-            case OP_LOOP: {
+            VG_CASE(vg_op_loop, OP_LOOP): {
                 if (vm.ip + 1 >= code_size) { success = false; goto cleanup; }
                 uint8_t hi = code[vm.ip++];
                 uint8_t lo = code[vm.ip++];
@@ -8858,7 +9415,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 vm.ip -= offset;
                 break;
             }
-            case OP_CALL: {
+            VG_CASE(vg_op_call, OP_CALL): {
                 if (vm.ip >= code_size) { success = false; goto cleanup; }
                 uint8_t name_idx = code[vm.ip++];
                 if (vm.ip >= code_size) { success = false; goto cleanup; }
@@ -8884,18 +9441,18 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 push_value(call_ret);
                 break;
             }
-            case OP_RETURN: {
+            VG_CASE(vg_op_return, OP_RETURN): {
                 vm.ip = code_size;
                 break;
             }
-            case OP_RETURN_VALUE: {
+            VG_CASE(vg_op_return_value, OP_RETURN_VALUE): {
                 if (!ensure_stack(1)) { success = false; goto cleanup; }
                 explicit_return = pop_value();
                 has_explicit_return = true;
                 vm.ip = code_size;
                 break;
             }
-            case OP_PRINT: {
+            VG_CASE(vg_op_print, OP_PRINT): {
                 if (!ensure_stack(1)) { success = false; goto cleanup; }
                 Variant val = pop_value();
                 UtilityFunctions::print(val);
@@ -8915,7 +9472,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 }
                 break;
             }
-            case OP_DEBUG_PRINT: {
+            VG_CASE(vg_op_debug_print, OP_DEBUG_PRINT): {
                 // Debug.Print → route to Immediate Window via debugger protocol
                 if (!ensure_stack(1)) { success = false; goto cleanup; }
                 Variant val = pop_value();
@@ -8938,8 +9495,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 }
                 break;
             }
-            case OP_NEW_ARRAY:
-            case OP_NEW_ARRAY_I64: {
+            VG_CASE(vg_op_new_array, OP_NEW_ARRAY):
+            VG_CASE(vg_op_new_array_i64, OP_NEW_ARRAY_I64): {
                 PROFILE_OPCODE(NewArray);
                 if (!ensure_stack(1)) { success = false; goto cleanup; }
                 int64_t length = to_int(pop_value());
@@ -8956,14 +9513,14 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 push_value(arr);
                 break;
             }
-            case OP_NEW_DICT: {
+            VG_CASE(vg_op_new_dict, OP_NEW_DICT): {
                 PROFILE_OPCODE(NewDict);
                 Dictionary dict;
                 push_value(dict);
                 break;
             }
-            case OP_GET_ARRAY:
-            case OP_GET_ARRAY_UNCHECKED: {
+            VG_CASE(vg_op_get_array, OP_GET_ARRAY):
+            VG_CASE(vg_op_get_array_unchecked, OP_GET_ARRAY_UNCHECKED): {
                 PROFILE_OPCODE(GetArray);
                 if (vm.ip >= code_size) { success = false; goto cleanup; }
                 uint8_t arg_count = code[vm.ip++];
@@ -9000,8 +9557,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 push_value(result);
                 break;
             }
-            case OP_GET_ARRAY_FAST:
-            case OP_GET_ARRAY_FAST_UNCHECKED: {
+            VG_CASE(vg_op_get_array_fast, OP_GET_ARRAY_FAST):
+            VG_CASE(vg_op_get_array_fast_unchecked, OP_GET_ARRAY_FAST_UNCHECKED): {
                 PROFILE_OPCODE(GetArray);
                 if (vm.ip >= code_size) { success = false; goto cleanup; }
                 uint8_t arg_count = code[vm.ip++];
@@ -9032,8 +9589,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 push_value((*arr_ptr)[idx]);
                 break;
             }
-            case OP_GET_DICT_FAST:
-            case OP_GET_DICT_TRUSTED: {
+            VG_CASE(vg_op_get_dict_fast, OP_GET_DICT_FAST):
+            VG_CASE(vg_op_get_dict_trusted, OP_GET_DICT_TRUSTED): {
                 PROFILE_OPCODE(GetDict);
                 if (vm.ip >= code_size) { success = false; goto cleanup; }
                 uint8_t arg_count = code[vm.ip++];
@@ -9066,8 +9623,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 push_value(dict_ptr->get(key_var, Variant()));
                 break;
             }
-            case OP_SET_ARRAY:
-            case OP_SET_ARRAY_UNCHECKED: {
+            VG_CASE(vg_op_set_array, OP_SET_ARRAY):
+            VG_CASE(vg_op_set_array_unchecked, OP_SET_ARRAY_UNCHECKED): {
                 PROFILE_OPCODE(SetArray);
                 if (vm.ip >= code_size) { success = false; goto cleanup; }
                 uint8_t arg_count = code[vm.ip++];
@@ -9108,8 +9665,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 push_value(updated);
                 break;
             }
-            case OP_SET_ARRAY_FAST:
-            case OP_SET_ARRAY_FAST_UNCHECKED: {
+            VG_CASE(vg_op_set_array_fast, OP_SET_ARRAY_FAST):
+            VG_CASE(vg_op_set_array_fast_unchecked, OP_SET_ARRAY_FAST_UNCHECKED): {
                 PROFILE_OPCODE(SetArray);
                 if (vm.ip >= code_size) { success = false; goto cleanup; }
                 uint8_t arg_count = code[vm.ip++];
@@ -9142,8 +9699,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 push_value(base);
                 break;
             }
-            case OP_SET_DICT_FAST:
-            case OP_SET_DICT_TRUSTED: {
+            VG_CASE(vg_op_set_dict_fast, OP_SET_DICT_FAST):
+            VG_CASE(vg_op_set_dict_trusted, OP_SET_DICT_TRUSTED): {
                 PROFILE_OPCODE(SetDict);
                 if (vm.ip >= code_size) { success = false; goto cleanup; }
                 uint8_t arg_count = code[vm.ip++];
@@ -9178,8 +9735,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 push_value(base);
                 break;
             }
-            case OP_SET_DICT_LOCAL:
-            case OP_SET_DICT_GLOBAL: {
+            VG_CASE(vg_op_set_dict_local, OP_SET_DICT_LOCAL):
+            VG_CASE(vg_op_set_dict_global, OP_SET_DICT_GLOBAL): {
                 PROFILE_OPCODE(SetDict);
                 if (vm.ip >= code_size) { success = false; goto cleanup; }
                 uint8_t slot_or_idx = code[vm.ip++];
@@ -9229,7 +9786,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 break;
             }
             // ── VGFastStringDict opcodes (sole-owner fast path) ──────────
-            case OP_NEW_VGDICT: {
+            VG_CASE(vg_op_new_vgdict, OP_NEW_VGDICT): {
                 PROFILE_OPCODE(NewDict);
                 if (vm.ip >= code_size) { success = false; goto cleanup; }
                 uint8_t slot = code[vm.ip++];
@@ -9247,7 +9804,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 }
                 break;
             }
-            case OP_GET_VGDICT_LOCAL: {
+            VG_CASE(vg_op_get_vgdict_local, OP_GET_VGDICT_LOCAL): {
                 PROFILE_OPCODE(GetDict);
                 if (vm.ip >= code_size) { success = false; goto cleanup; }
                 uint8_t slot = code[vm.ip++];
@@ -9273,7 +9830,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 }
                 break;
             }
-            case OP_SET_VGDICT_LOCAL: {
+            VG_CASE(vg_op_set_vgdict_local, OP_SET_VGDICT_LOCAL): {
                 PROFILE_OPCODE(SetDict);
                 if (vm.ip >= code_size) { success = false; goto cleanup; }
                 uint8_t slot = code[vm.ip++];
@@ -9299,7 +9856,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 }
                 break;
             }
-            case OP_SUM_ARRAY_I64: {
+            VG_CASE(vg_op_sum_array_i64, OP_SUM_ARRAY_I64): {
                 if (!ensure_stack(1)) { success = false; goto cleanup; }
                 Variant arr_var = pop_value();
                 int64_t sum = 0;
@@ -9313,7 +9870,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 push_value(sum);
                 break;
             }
-            case OP_SUM_DICT_I64: {
+            VG_CASE(vg_op_sum_dict_i64, OP_SUM_DICT_I64): {
                 if (!ensure_stack(1)) { success = false; goto cleanup; }
                 Variant dict_var = pop_value();
                 int64_t sum = 0;
@@ -9330,7 +9887,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 push_value(sum);
                 break;
             }
-            case OP_SUM_VGDICT_ALL_I64: {
+            VG_CASE(vg_op_sum_vgdict_all_i64, OP_SUM_VGDICT_ALL_I64): {
                 PROFILE_OPCODE(SumVGDictAll);
                 if (vm.ip >= code_size) { success = false; goto cleanup; }
                 uint8_t slot = code[vm.ip++];
@@ -9353,7 +9910,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 }
                 break;
             }
-            case OP_ARRAY_FILL_I64_SEQ: {
+            VG_CASE(vg_op_array_fill_i64_seq, OP_ARRAY_FILL_I64_SEQ): {
                 if (!ensure_stack(2)) { success = false; goto cleanup; }
                 int64_t count = to_int(pop_value());
                 Variant arr_var = pop_value();
@@ -9371,7 +9928,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 push_value(arr);
                 break;
             }
-            case OP_ALLOC_FILL_I64: {
+            VG_CASE(vg_op_alloc_fill_i64, OP_ALLOC_FILL_I64): {
                 if (!ensure_stack(1)) { success = false; goto cleanup; }
                 int64_t count = to_int(pop_value());
                 if (count < 0) {
@@ -9385,7 +9942,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 push_value(arr);
                 break;
             }
-            case OP_ALLOC_FILL_REPEAT_I64: {
+            VG_CASE(vg_op_alloc_fill_repeat_i64, OP_ALLOC_FILL_REPEAT_I64): {
                 if (vm.ip + 5 >= code_size) { success = false; goto cleanup; }
                 uint8_t sum_slot = code[vm.ip++];
                 uint8_t arr_slot = code[vm.ip++];
@@ -9429,7 +9986,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 push_value(base_sum);
                 break;
             }
-            case OP_GET_MEMBER: {
+            VG_CASE(vg_op_get_member, OP_GET_MEMBER): {
                 PROFILE_OPCODE(GetMember);
                 if (vm.ip >= code_size) { success = false; goto cleanup; }
                 uint8_t idx = code[vm.ip++];
@@ -9609,7 +10166,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 push_value(result);
                 break;
             }
-            case OP_SET_MEMBER: {
+            VG_CASE(vg_op_set_member, OP_SET_MEMBER): {
                 PROFILE_OPCODE(SetMember);
                 if (vm.ip >= code_size) { success = false; goto cleanup; }
                 uint8_t idx = code[vm.ip++];
@@ -9791,16 +10348,16 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 }
                 break;
             }
-            case OP_NIL:
+            VG_CASE(vg_op_nil, OP_NIL):
                 push_value(Variant());
                 break;
-            case OP_TRUE:
+            VG_CASE(vg_op_true, OP_TRUE):
                 push_value(true);
                 break;
-            case OP_FALSE:
+            VG_CASE(vg_op_false, OP_FALSE):
                 push_value(false);
                 break;
-            case OP_ABS: {
+            VG_CASE(vg_op_abs, OP_ABS): {
                 if (!ensure_stack(1)) { success = false; goto cleanup; }
                 Variant value = pop_value();
                 if (value.get_type() == Variant::INT) {
@@ -9810,14 +10367,14 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 }
                 break;
             }
-            case OP_SGN: {
+            VG_CASE(vg_op_sgn, OP_SGN): {
                 if (!ensure_stack(1)) { success = false; goto cleanup; }
                 double v = to_double(pop_value());
                 int64_t sign = (v > 0.0) - (v < 0.0);
                 push_value(sign);
                 break;
             }
-            case OP_DICT_HAS_KEY: {
+            VG_CASE(vg_op_dict_has_key, OP_DICT_HAS_KEY): {
                 if (!ensure_stack(2)) { success = false; goto cleanup; }
                 Variant key = pop_value();
                 Variant dict_var = pop_value();
@@ -9829,7 +10386,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 push_value(result);
                 break;
             }
-            case OP_DICT_SIZE: {
+            VG_CASE(vg_op_dict_size, OP_DICT_SIZE): {
                 if (!ensure_stack(1)) { success = false; goto cleanup; }
                 Variant dict_var = pop_value();
                 int64_t size = 0;
@@ -9840,7 +10397,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 push_value(size);
                 break;
             }
-            case OP_DICT_CLEAR_INPLACE: {
+            VG_CASE(vg_op_dict_clear_inplace, OP_DICT_CLEAR_INPLACE): {
                 if (!ensure_stack(1)) { success = false; goto cleanup; }
                 Variant dict_var = pop_value();
                 if (dict_var.get_type() == Variant::DICTIONARY) {
@@ -9850,7 +10407,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 push_value(dict_var);
                 break;
             }
-            case OP_DICT_KEYS: {
+            VG_CASE(vg_op_dict_keys, OP_DICT_KEYS): {
                 if (!ensure_stack(1)) { success = false; goto cleanup; }
                 Variant dict_var = pop_value();
                 Array keys;
@@ -9861,7 +10418,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 push_value(keys);
                 break;
             }
-            case OP_DICT_VALUES: {
+            VG_CASE(vg_op_dict_values, OP_DICT_VALUES): {
                 if (!ensure_stack(1)) { success = false; goto cleanup; }
                 Variant dict_var = pop_value();
                 Array values;
@@ -9872,7 +10429,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 push_value(values);
                 break;
             }
-            case OP_DICT_ERASE: {
+            VG_CASE(vg_op_dict_erase, OP_DICT_ERASE): {
                 if (!ensure_stack(2)) { success = false; goto cleanup; }
                 Variant key = pop_value();
                 Variant dict_var = pop_value();
@@ -9883,7 +10440,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 push_value(dict_var);
                 break;
             }
-            case OP_REGISTER_WHENEVER: {
+            VG_CASE(vg_op_register_whenever, OP_REGISTER_WHENEVER): {
                 // Register a Whenever section from compiled bytecode
                 if (vm.ip >= code_size) { success = false; goto cleanup; }
                 uint8_t data_idx = code[vm.ip++];
@@ -9954,7 +10511,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 whenever_sections.push_back(section);
                 break;
             }
-            case OP_SUSPEND_WHENEVER: {
+            VG_CASE(vg_op_suspend_whenever, OP_SUSPEND_WHENEVER): {
                 if (vm.ip >= code_size) { success = false; goto cleanup; }
                 uint8_t name_idx = code[vm.ip++];
                 String section_name = read_constant(name_idx);
@@ -9967,7 +10524,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 }
                 break;
             }
-            case OP_RESUME_WHENEVER: {
+            VG_CASE(vg_op_resume_whenever, OP_RESUME_WHENEVER): {
                 if (vm.ip >= code_size) { success = false; goto cleanup; }
                 uint8_t name_idx = code[vm.ip++];
                 String section_name = read_constant(name_idx);
@@ -9975,12 +10532,18 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 for (int ws_i = 0; ws_i < whenever_sections.size(); ws_i++) {
                     if (whenever_sections[ws_i].section_name == section_name) {
                         whenever_sections.write[ws_i].is_active = true;
+                        // Sync last_value to current variable value to prevent
+                        // stale state from before suspension causing false triggers
+                        String var_name = whenever_sections[ws_i].variable_name;
+                        if (variables.has(var_name)) {
+                            whenever_sections.write[ws_i].last_value = variables[var_name];
+                        }
                         break;
                     }
                 }
                 break;
             }
-            case OP_RESTORE_DATA: {
+            VG_CASE(vg_op_restore_data, OP_RESTORE_DATA): {
                 // Reset DATA pointer based on value on stack
                 // -1 means reset to start, otherwise it's a label name to restore to
                 Variant restore_val = pop_value();
@@ -10004,12 +10567,24 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 }
                 break;
             }
-            case OP_ON_ERROR_RESUME_NEXT: {
+            VG_CASE(vg_op_read_data, OP_READ_DATA): {
+                // Read the next value from DATA segments and push onto stack
+                if (data_pointer >= data_segments.size()) {
+                    raise_error("Out of Data");
+                    push_value(Variant()); // push nil on error
+                } else {
+                    Variant val = evaluate_expression(data_segments[data_pointer]);
+                    data_pointer++;
+                    push_value(val);
+                }
+                break;
+            }
+            VG_CASE(vg_op_on_error_resume_next, OP_ON_ERROR_RESUME_NEXT): {
                 // Enable On Error Resume Next mode
                 error_state.mode = ErrorState::RESUME_NEXT;
                 break;
             }
-            case OP_ON_ERROR_GOTO: {
+            VG_CASE(vg_op_on_error_goto, OP_ON_ERROR_GOTO): {
                 // Set On Error Goto label
                 if (vm.ip >= code_size) { success = false; goto cleanup; }
                 uint8_t label_idx = code[vm.ip++];
@@ -10018,13 +10593,13 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 error_state.label = label_name;
                 break;
             }
-            case OP_ON_ERROR_GOTO_0: {
+            VG_CASE(vg_op_on_error_goto_0, OP_ON_ERROR_GOTO_0): {
                 // Disable error handling (On Error Goto 0)
                 error_state.mode = ErrorState::NONE;
                 error_state.label = "";
                 break;
             }
-            case OP_DEBUG_LINE: {
+            VG_CASE(vg_op_debug_line, OP_DEBUG_LINE): {
                 // Read the line number (16-bit)
                 if (vm.ip + 1 >= code_size) { success = false; goto cleanup; }
                 uint8_t line_lo = code[vm.ip++];
@@ -10037,13 +10612,6 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 if (script.is_valid()) {
                     script_path = script->get_path();
                     debug_state.current_file = script_path;
-                }
-                
-                // Debug: print once to verify bytecode is running with debug line info
-                static bool first_debug_line = true;
-                if (first_debug_line && !script_path.is_empty()) {
-                    first_debug_line = false;
-                    UtilityFunctions::print("[VG Debug] OP_DEBUG_LINE first hit: ", script_path, ":", line_number);
                 }
                 
                 // Update the current stack frame line for Godot debugger
@@ -10127,7 +10695,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 // Check for breakpoints using Godot's EngineDebugger
                 if (!should_break && engine_debugger && engine_debugger->is_active() && !script_path.is_empty()) {
                     // First check Godot's built-in breakpoint system
-                    bool has_bp = engine_debugger->is_breakpoint(line_number, StringName(script_path));
+                    bool godot_bp = engine_debugger->is_breakpoint(line_number, StringName(script_path));
+                    bool has_bp = godot_bp;
                     
                     // Also check our C++ breakpoint storage (loaded from JSON file)
                     if (!has_bp) {
@@ -10214,12 +10783,44 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 }
                 break;
             }
-            default:
+            VG_CASE(vg_op_stop, OP_STOP): {
+                // VB6 Stop statement: pause execution like a breakpoint
+                EngineDebugger* stop_debugger = EngineDebugger::get_singleton();
+                if (stop_debugger && stop_debugger->is_active()) {
+                    String stop_path;
+                    if (script.is_valid()) {
+                        stop_path = script->get_path();
+                    }
+                    int stop_line = debug_state.current_line;
+                    VisualGasicLanguage::set_current_break_location(stop_path, stop_line);
+                    Array break_data;
+                    break_data.push_back(stop_path);
+                    break_data.push_back(stop_line);
+                    stop_debugger->send_message("visualgasic:break_hit", break_data);
+                    _send_variables_to_debugger(stop_debugger);
+                    _send_call_stack_to_debugger(stop_debugger);
+                    stop_debugger->line_poll();
+                    VisualGasicLanguage* lang = VisualGasicLanguage::get_singleton();
+                    if (lang) {
+                        stop_debugger->script_debug(lang, true, false);
+                    }
+                } else {
+                    UtilityFunctions::print("[VG] Stop statement hit (no debugger attached)");
+                }
+                break;
+            }
+            vg_op_default: default:
                 UtilityFunctions::printerr("VisualGasic: unsupported opcode ", (int)op);
                 success = false;
                 goto cleanup;
         }
     }
+
+#undef VG_CASE
+#undef VG_BREAK
+#if VG_USE_COMPUTED_GOTO
+#undef VG_USE_COMPUTED_GOTO
+#endif
 
 cleanup:
     // Materialize any active VGFastStringDict pools back into locals[]
@@ -10250,9 +10851,27 @@ cleanup:
         }
     }
 
+    // On failure, rollback global variables that OP_SET_GLOBAL wrote directly
+    // to variables[].  Without this, the AST fallback would re-execute the
+    // entire function, causing globals to be double-mutated (e.g. wave += 1
+    // runs in bytecode, then again in AST → wave += 2).
+    if (!success && saved_globals.size() > 0) {
+        Array gkeys = saved_globals.keys();
+        for (int i = 0; i < gkeys.size(); i++) {
+            variables[gkeys[i]] = saved_globals[gkeys[i]];
+        }
+    }
+
     if (success) {
         if (has_explicit_return) {
             result_snapshot = explicit_return;
+            // Bug fix: Also write to variables[func->name] so that
+            // call_internal's return-value lookup sees it. Otherwise
+            // the default-initialized value (0/"") wins over the
+            // actual Return value.
+            if (func && func->type == SubDefinition::TYPE_FUNCTION) {
+                variables[func->name] = explicit_return;
+            }
         } else if (vm.stack.size() > stack_base) {
             result_snapshot = vm.stack[vm.stack.size() - 1];
         }
@@ -10270,7 +10889,9 @@ cleanup:
     }
 
     if (func && func->type == SubDefinition::TYPE_FUNCTION) {
-        if (variables.has(func->name)) {
+        if (has_explicit_return) {
+            r_ret = result_snapshot;
+        } else if (variables.has(func->name)) {
             r_ret = variables[func->name];
         } else {
             r_ret = result_snapshot;
@@ -10330,10 +10951,13 @@ void VisualGasicInstance::execute_task_run(TaskRunStatement* task) {
     task_info.is_background = task->is_background;
     task_info.is_completed = false;
     
-    // Add task to WorkerThreadPool (requires Godot 4.1+)
-    // For now, execute synchronously as fallback
-    if (Engine::get_singleton()->is_in_physics_frame()) {
-        // Execute task body in background
+    // Execute task body synchronously as fallback
+    // (True async via WorkerThreadPool is planned for a future release)
+    // The previous guard `is_in_physics_frame()` prevented execution when
+    // called from _Process (idle frame), which is the common case for
+    // input-driven task launches.  Remove the guard so the body always runs.
+    {
+        // Execute task body
         for (int i = 0; i < task->task_body.size(); i++) {
             execute_statement(task->task_body[i]);
             if (error_state.has_error || error_state.mode != ErrorState::NONE) {

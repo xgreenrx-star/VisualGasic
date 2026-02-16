@@ -1,6 +1,6 @@
 # VisualGasic Project Status
 
-**Version**: 2.5 (StringConcat Breakthrough)  
+**Version**: 2.5.0 (Computed Gotos + 11 New Builtins)  
 **Last Updated**: February 2026
 
 ## Overview

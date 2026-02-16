@@ -1,0 +1,56 @@
+' Test: Constants
+' Tests Const declaration, usage in expressions
+Attribute VB_Name = "TestConstants"
+
+Const MAX_SIZE As Integer = 100
+Const PI_VAL As Double = 3.14159
+Const GREETING As String = "Hello"
+
+Sub _Ready()
+	' --- Integer const ---
+	If MAX_SIZE = 100 Then
+		Print "PASS: const_integer"
+	Else
+		Print "FAIL: const_integer: got " & Str(MAX_SIZE)
+	End If
+	
+	' --- Double const ---
+	If PI_VAL > 3.14 And PI_VAL < 3.15 Then
+		Print "PASS: const_double"
+	Else
+		Print "FAIL: const_double"
+	End If
+	
+	' --- String const ---
+	If GREETING = "Hello" Then
+		Print "PASS: const_string"
+	Else
+		Print "FAIL: const_string"
+	End If
+	
+	' --- Const in expression ---
+	Dim area As Double = PI_VAL * 10 * 10
+	If area > 314 And area < 315 Then
+		Print "PASS: const_in_expression"
+	Else
+		Print "FAIL: const_in_expression: got " & Str(area)
+	End If
+	
+	' --- Const in condition ---
+	Dim x As Integer = 50
+	If x < MAX_SIZE Then
+		Print "PASS: const_in_condition"
+	Else
+		Print "FAIL: const_in_condition"
+	End If
+	
+	' --- Local const ---
+	Const LOCAL_VAL As Integer = 42
+	If LOCAL_VAL = 42 Then
+		Print "PASS: local_const"
+	Else
+		Print "FAIL: local_const"
+	End If
+	
+	Print "TEST_COMPLETE"
+End Sub

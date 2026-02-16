@@ -1,0 +1,15 @@
+Attribute VB_Name = "TestProcessCount"
+
+Dim processCount As Integer
+
+Sub _Ready()
+    processCount = 0
+    Print "=== Process Count Test ==="
+End Sub
+
+Sub _Process(delta As Single)
+    processCount = processCount + 1
+    If processCount <= 15 Then
+        Print "Process #" & Str(processCount) & " delta=" & Str(delta)
+    End If
+End Sub

@@ -1,0 +1,179 @@
+' Test: String Functions
+' Tests Len, Left, Right, Mid, UCase, LCase, Trim, InStr, Replace, Split, Join, Asc, Chr
+Attribute VB_Name = "TestStringFuncs"
+
+Sub _Ready()
+	' --- Len ---
+	If Len("Hello") = 5 Then
+		Print "PASS: len"
+	Else
+		Print "FAIL: len: got " & Str(Len("Hello"))
+	End If
+	
+	' --- Len empty ---
+	If Len("") = 0 Then
+		Print "PASS: len_empty"
+	Else
+		Print "FAIL: len_empty"
+	End If
+	
+	' --- Left ---
+	If Left("Hello World", 5) = "Hello" Then
+		Print "PASS: left"
+	Else
+		Print "FAIL: left: got " & Left("Hello World", 5)
+	End If
+	
+	' --- Right ---
+	If Right("Hello World", 5) = "World" Then
+		Print "PASS: right"
+	Else
+		Print "FAIL: right: got " & Right("Hello World", 5)
+	End If
+	
+	' --- Mid ---
+	If Mid("Hello World", 7, 5) = "World" Then
+		Print "PASS: mid"
+	Else
+		Print "FAIL: mid: got " & Mid("Hello World", 7, 5)
+	End If
+	
+	' --- UCase ---
+	If UCase("hello") = "HELLO" Then
+		Print "PASS: ucase"
+	Else
+		Print "FAIL: ucase: got " & UCase("hello")
+	End If
+	
+	' --- LCase ---
+	If LCase("HELLO") = "hello" Then
+		Print "PASS: lcase"
+	Else
+		Print "FAIL: lcase: got " & LCase("HELLO")
+	End If
+	
+	' --- Trim ---
+	If Trim("  hello  ") = "hello" Then
+		Print "PASS: trim"
+	Else
+		Print "FAIL: trim: got [" & Trim("  hello  ") & "]"
+	End If
+	
+	' --- LTrim ---
+	If LTrim("  hello") = "hello" Then
+		Print "PASS: ltrim"
+	Else
+		Print "FAIL: ltrim"
+	End If
+	
+	' --- RTrim ---
+	If RTrim("hello  ") = "hello" Then
+		Print "PASS: rtrim"
+	Else
+		Print "FAIL: rtrim"
+	End If
+	
+	' --- InStr ---
+	Dim pos As Integer = InStr("Hello World", "World")
+	If pos = 7 Then
+		Print "PASS: instr"
+	Else
+		Print "FAIL: instr: expected 7, got " & Str(pos)
+	End If
+	
+	' --- InStr not found ---
+	If InStr("Hello", "XYZ") = 0 Then
+		Print "PASS: instr_not_found"
+	Else
+		Print "FAIL: instr_not_found"
+	End If
+	
+	' --- Replace ---
+	Dim replaced As String = Replace("Hello World", "World", "VB6")
+	If replaced = "Hello VB6" Then
+		Print "PASS: replace"
+	Else
+		Print "FAIL: replace: got " & replaced
+	End If
+	
+	' --- Split ---
+	Dim parts As Variant = Split("a,b,c", ",")
+	If UBound(parts) = 2 Then
+		If parts(0) = "a" And parts(1) = "b" And parts(2) = "c" Then
+			Print "PASS: split"
+		Else
+			Print "FAIL: split: wrong values"
+		End If
+	Else
+		Print "FAIL: split: expected UBound 2, got " & Str(UBound(parts))
+	End If
+	
+	' --- Join ---
+	Dim joined As String = Join(parts, "-")
+	If joined = "a-b-c" Then
+		Print "PASS: join"
+	Else
+		Print "FAIL: join: got " & joined
+	End If
+	
+	' --- Asc ---
+	If Asc("A") = 65 Then
+		Print "PASS: asc"
+	Else
+		Print "FAIL: asc: got " & Str(Asc("A"))
+	End If
+	
+	' --- Chr ---
+	If Chr(65) = "A" Then
+		Print "PASS: chr"
+	Else
+		Print "FAIL: chr: got " & Chr(65)
+	End If
+	
+	' --- Str (number to string) ---
+	Dim ns As String = Str(42)
+	If ns = "42" Then
+		Print "PASS: str"
+	Else
+		Print "FAIL: str: got [" & ns & "]"
+	End If
+	
+	' --- Val (string to number) ---
+	Dim nv As Double = Val("3.14")
+	If nv > 3.13 And nv < 3.15 Then
+		Print "PASS: val"
+	Else
+		Print "FAIL: val: got " & Str(nv)
+	End If
+	
+	' --- String concatenation with & ---
+	Dim full As String = "A" & "B" & "C"
+	If full = "ABC" Then
+		Print "PASS: concat_ampersand"
+	Else
+		Print "FAIL: concat_ampersand"
+	End If
+	
+	' --- Space ---
+	If Len(Space(5)) = 5 Then
+		Print "PASS: space"
+	Else
+		Print "FAIL: space"
+	End If
+	
+	' --- StrReverse ---
+	If StrReverse("Hello") = "olleH" Then
+		Print "PASS: strreverse"
+	Else
+		Print "FAIL: strreverse: got " & StrReverse("Hello")
+	End If
+	
+	' --- Hex ---
+	If Hex(255) = "FF" Then
+		Print "PASS: hex"
+	Else
+		Print "FAIL: hex: got " & Hex(255)
+	End If
+	
+	Print "TEST_COMPLETE"
+End Sub

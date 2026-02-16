@@ -1,0 +1,125 @@
+' Test: Type Conversion and Type Checking
+' Tests CInt, CLng, CDbl, CStr, CBool, Val, Str, IsNumeric, IsArray, TypeName
+Attribute VB_Name = "TestTypeConversion"
+
+Sub _Ready()
+	' --- CInt ---
+	Dim ci As Integer = CInt(3.7)
+	If ci = 4 Then
+		Print "PASS: cint"
+	Else
+		Print "FAIL: cint: expected 4, got " & Str(ci)
+	End If
+	
+	' --- CStr ---
+	Dim cs As String = CStr(42)
+	If cs = "42" Then
+		Print "PASS: cstr"
+	Else
+		Print "FAIL: cstr: got " & cs
+	End If
+	
+	' --- CDbl ---
+	Dim cd As Double = CDbl("3.14")
+	If cd > 3.13 And cd < 3.15 Then
+		Print "PASS: cdbl"
+	Else
+		Print "FAIL: cdbl: got " & Str(cd)
+	End If
+	
+	' --- CBool True ---
+	Dim cb As Boolean = CBool(1)
+	If cb = True Then
+		Print "PASS: cbool_true"
+	Else
+		Print "FAIL: cbool_true"
+	End If
+	
+	' --- CBool False ---
+	cb = CBool(0)
+	If cb = False Then
+		Print "PASS: cbool_false"
+	Else
+		Print "FAIL: cbool_false"
+	End If
+	
+	' --- Val ---
+	Dim v As Double = Val("123.45")
+	If v > 123.44 And v < 123.46 Then
+		Print "PASS: val"
+	Else
+		Print "FAIL: val: got " & Str(v)
+	End If
+	
+	' --- Val with non-numeric ---
+	Dim v2 As Double = Val("abc")
+	If v2 = 0 Then
+		Print "PASS: val_nonnumeric"
+	Else
+		Print "FAIL: val_nonnumeric: got " & Str(v2)
+	End If
+	
+	' --- IsNumeric ---
+	If IsNumeric(42) Then
+		Print "PASS: isnumeric_int"
+	Else
+		Print "FAIL: isnumeric_int"
+	End If
+	
+	If IsNumeric("3.14") Then
+		Print "PASS: isnumeric_string"
+	Else
+		Print "FAIL: isnumeric_string"
+	End If
+	
+	If Not IsNumeric("abc") Then
+		Print "PASS: isnumeric_false"
+	Else
+		Print "FAIL: isnumeric_false"
+	End If
+	
+	' --- IsArray ---
+	Dim arr(3) As Integer
+	If IsArray(arr) Then
+		Print "PASS: isarray_true"
+	Else
+		Print "FAIL: isarray_true"
+	End If
+	
+	If Not IsArray(42) Then
+		Print "PASS: isarray_false"
+	Else
+		Print "FAIL: isarray_false"
+	End If
+	
+	' --- TypeName ---
+	Dim tn As String = TypeName(42)
+	If tn = "Integer" Or tn = "int" Or tn = "Long" Or tn = "Double" Then
+		Print "PASS: typename_int"
+	Else
+		Print "FAIL: typename_int: got " & tn
+	End If
+	
+	tn = TypeName("hello")
+	If tn = "String" Then
+		Print "PASS: typename_string"
+	Else
+		Print "FAIL: typename_string: got " & tn
+	End If
+	
+	' --- Hex ---
+	If Hex(255) = "FF" Then
+		Print "PASS: hex"
+	Else
+		Print "FAIL: hex: got " & Hex(255)
+	End If
+	
+	' --- Oct ---
+	If Oct(8) = "10" Then
+		Print "PASS: oct"
+	Else
+		Print "FAIL: oct: got " & Oct(8)
+	End If
+	
+	Print "TEST_COMPLETE"
+End Sub

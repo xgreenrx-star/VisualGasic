@@ -1,0 +1,60 @@
+' Test: GoTo and Labels
+' Tests GoTo, labels, forward jumps, backward avoidance
+Attribute VB_Name = "TestGoto"
+
+Dim testResult As String
+
+Sub _Ready()
+	' --- Forward GoTo ---
+	testResult = ""
+	TestForwardGoto
+	If testResult = "jumped" Then
+		Print "PASS: goto_forward"
+	Else
+		Print "FAIL: goto_forward: got " & testResult
+	End If
+	
+	' --- GoTo skips code ---
+	testResult = ""
+	TestGotoSkip
+	If testResult = "after" Then
+		Print "PASS: goto_skip"
+	Else
+		Print "FAIL: goto_skip: got " & testResult
+	End If
+	
+	' --- GoTo in error handler ---
+	testResult = ""
+	TestErrorGoto
+	If testResult = "handled" Then
+		Print "PASS: goto_error_handler"
+	Else
+		Print "FAIL: goto_error_handler: got " & testResult
+	End If
+	
+	Print "TEST_COMPLETE"
+End Sub
+
+Sub TestForwardGoto()
+	GoTo target
+	testResult = "skipped"
+	Exit Sub
+target:
+	testResult = "jumped"
+End Sub
+
+Sub TestGotoSkip()
+	GoTo skipPoint
+	testResult = "before"
+skipPoint:
+	testResult = "after"
+End Sub
+
+Sub TestErrorGoto()
+	On Error GoTo ErrorHandler
+	Dim x As Integer = 1 / 0
+	testResult = "no_error"
+	Exit Sub
+ErrorHandler:
+	testResult = "handled"
+End Sub

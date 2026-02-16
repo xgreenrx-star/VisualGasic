@@ -1,0 +1,85 @@
+Attribute VB_Name = "TestPlaybackTiming"
+
+Dim demoSongNotes(100) As Integer
+Dim demoSongTimes(100) As Single
+Dim demoSongLength As Integer
+
+Sub _Ready()
+    LoadDemoSong
+    Print "Loaded " & Str(demoSongLength) & " notes"
+    
+    Dim i As Integer
+    For i = 0 To demoSongLength - 1
+        Print "  Note[" & Str(i) & "] = idx:" & Str(demoSongNotes(i)) & " time:" & Str(demoSongTimes(i))
+    Next i
+    
+    ' Simulate playback at 60fps
+    Dim playbackTime As Single
+    Dim playbackIndex As Integer
+    playbackTime = 0
+    playbackIndex = 0
+    Dim frame As Integer
+    
+    For frame = 0 To 300
+        playbackTime = playbackTime + 0.0167
+        
+        Do While playbackIndex < demoSongLength
+            If playbackTime >= demoSongTimes(playbackIndex) Then
+                Print "Frame " & Str(frame) & " (t=" & Str(playbackTime) & "): Play note " & Str(demoSongNotes(playbackIndex))
+                playbackIndex = playbackIndex + 1
+            Else
+                Exit Do
+            End If
+        Loop
+        
+        If playbackIndex >= demoSongLength Then
+            Print "All notes played at frame " & Str(frame)
+            Exit For
+        End If
+    Next frame
+End Sub
+
+Sub LoadDemoSong()
+    Restore DemoSongData
+    demoSongLength = 0
+    
+    Dim noteIdx As Integer
+    Do
+        Read noteIdx
+        If noteIdx = -1 Then Exit Do
+        
+        demoSongNotes(demoSongLength) = noteIdx
+        Read demoSongTimes(demoSongLength)
+        
+        demoSongLength = demoSongLength + 1
+    Loop
+End Sub
+
+DemoSongData:
+Data 4, 0.0
+Data 2, 0.4
+Data 0, 0.8
+Data 2, 1.2
+Data 4, 1.6
+Data 4, 2.0
+Data 4, 2.4
+Data 2, 3.2
+Data 2, 3.6
+Data 2, 4.0
+Data 4, 4.8
+Data 7, 5.2
+Data 7, 5.6
+Data 4, 6.4
+Data 2, 6.8
+Data 0, 7.2
+Data 2, 7.6
+Data 4, 8.0
+Data 4, 8.4
+Data 4, 8.8
+Data 4, 9.2
+Data 2, 9.6
+Data 2, 10.0
+Data 4, 10.4
+Data 2, 10.8
+Data 0, 11.2
+Data -1, 0

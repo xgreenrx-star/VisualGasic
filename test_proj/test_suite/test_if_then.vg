@@ -1,0 +1,111 @@
+' Test: If/Then/Else/ElseIf
+' Tests all conditional branching forms
+Attribute VB_Name = "TestIfThen"
+
+Sub _Ready()
+	' --- Simple If ---
+	Dim x As Integer = 10
+	Dim result As String = ""
+	
+	If x > 5 Then
+		result = "greater"
+	End If
+	If result = "greater" Then
+		Print "PASS: simple_if"
+	Else
+		Print "FAIL: simple_if"
+	End If
+	
+	' --- If/Else ---
+	If x > 20 Then
+		result = "big"
+	Else
+		result = "small"
+	End If
+	If result = "small" Then
+		Print "PASS: if_else"
+	Else
+		Print "FAIL: if_else"
+	End If
+	
+	' --- If/ElseIf/Else ---
+	x = 50
+	If x < 10 Then
+		result = "low"
+	ElseIf x < 30 Then
+		result = "medium"
+	ElseIf x < 70 Then
+		result = "high"
+	Else
+		result = "very_high"
+	End If
+	If result = "high" Then
+		Print "PASS: if_elseif_else"
+	Else
+		Print "FAIL: if_elseif_else: got " & result
+	End If
+	
+	' --- Nested If ---
+	x = 15
+	Dim nested As String = ""
+	If x > 10 Then
+		If x < 20 Then
+			nested = "teen"
+		End If
+	End If
+	If nested = "teen" Then
+		Print "PASS: nested_if"
+	Else
+		Print "FAIL: nested_if"
+	End If
+	
+	' --- If with compound condition ---
+	x = 25
+	If x > 20 And x < 30 Then
+		Print "PASS: compound_condition"
+	Else
+		Print "FAIL: compound_condition"
+	End If
+	
+	' --- If with Or ---
+	x = 5
+	If x = 5 Or x = 10 Then
+		Print "PASS: or_condition"
+	Else
+		Print "FAIL: or_condition"
+	End If
+	
+	' --- If with Not ---
+	If Not (x = 99) Then
+		Print "PASS: not_condition"
+	Else
+		Print "FAIL: not_condition"
+	End If
+	
+	' --- ElseIf falls through correctly ---
+	x = 100
+	If x < 10 Then
+		result = "A"
+	ElseIf x < 20 Then
+		result = "B"
+	ElseIf x < 50 Then
+		result = "C"
+	Else
+		result = "D"
+	End If
+	If result = "D" Then
+		Print "PASS: elseif_fallthrough"
+	Else
+		Print "FAIL: elseif_fallthrough: got " & result
+	End If
+	
+	' --- Boolean variable in condition ---
+	Dim flag As Boolean = True
+	If flag Then
+		Print "PASS: bool_in_condition"
+	Else
+		Print "FAIL: bool_in_condition"
+	End If
+	
+	Print "TEST_COMPLETE"
+End Sub

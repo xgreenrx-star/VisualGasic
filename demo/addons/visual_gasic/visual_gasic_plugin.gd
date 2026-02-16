@@ -106,6 +106,12 @@ var _vg_toolbars_in_container: bool = false
 ## VB6-style Data Tips — hover over variables during debugging
 var _data_tips = null
 
+## Snippet Browser dialog (v2.4.1)
+var _snippet_browser = null
+
+## Theme Picker dialog (v2.4.1)
+var _theme_picker = null
+
 # =============================================================================
 # PLUGIN LIFECYCLE
 # =============================================================================
@@ -235,6 +241,24 @@ func _enter_tree():
 		add_child(_data_tips)
 		_data_tips.setup(self)
 		print("VisualGasic: Data Tips initialized")
+	
+	# Create Snippet Browser (v2.4.1)
+	var snippet_browser_script = load("res://addons/visual_gasic/vg_snippet_browser.gd")
+	if snippet_browser_script:
+		_snippet_browser = snippet_browser_script.new()
+		add_child(_snippet_browser)
+		_snippet_browser.snippet_insert_requested.connect(_on_snippet_insert)
+		add_tool_menu_item("VG: Snippet Browser", Callable(self, "_on_open_snippet_browser"))
+		print("VisualGasic: Snippet Browser created")
+	
+	# Create Theme Picker (v2.4.1)
+	var theme_picker_script = load("res://addons/visual_gasic/vg_theme_picker.gd")
+	if theme_picker_script:
+		_theme_picker = theme_picker_script.new()
+		add_child(_theme_picker)
+		_theme_picker.vg_theme_changed.connect(_on_theme_changed)
+		add_tool_menu_item("VG: Theme Picker", Callable(self, "_on_open_theme_picker"))
+		print("VisualGasic: Theme Picker created")
 	
 	# Create VB6 Project Explorer (right-upper dock in VB6 mode)
 	var proj_explorer_script = load("res://addons/visual_gasic/vb6_project_explorer.gd")
@@ -417,6 +441,8 @@ func _exit_tree():
 	remove_tool_menu_item("Visual Gasic Object Browser")
 	remove_tool_menu_item("Visual Gasic Tab Order")
 	remove_tool_menu_item("Visual Gasic Components...")
+	remove_tool_menu_item("VG: Snippet Browser")
+	remove_tool_menu_item("VG: Theme Picker")
 	
 	if is_instance_valid(immediate_window):
 		remove_control_from_bottom_panel(immediate_window)
@@ -1177,6 +1203,31 @@ func _on_toggle_vb6_layout():
 		_layout_manager.toggle()
 	else:
 		push_warning("VisualGasic: Layout manager not available")
+
+## Opens the Snippet Browser dialog (v2.4.1)
+func _on_open_snippet_browser():
+	if _snippet_browser:
+		_snippet_browser.popup_centered()
+
+## Inserts a snippet at the current cursor position in the code editor
+func _on_snippet_insert(text: String):
+	if _current_code_edit and is_instance_valid(_current_code_edit):
+		var line = _current_code_edit.get_caret_line()
+		var col = _current_code_edit.get_caret_column()
+		_current_code_edit.insert_text_at_caret(text)
+
+## Opens the Theme Picker dialog (v2.4.1)
+func _on_open_theme_picker():
+	if _theme_picker:
+		_theme_picker.popup_centered()
+
+## Applies a new theme to the active code editor (v2.4.1)
+func _on_theme_changed(theme_name: String):
+	var VGThemeManager = load("res://addons/visual_gasic/vg_theme_manager.gd")
+	if VGThemeManager and _current_code_edit and is_instance_valid(_current_code_edit):
+		VGThemeManager.apply_to_code_edit(_current_code_edit)
+		print("VisualGasic: Applied theme '", theme_name, "'")
+
 
 ## Updates the Form Designer button pressed state when mode changes.
 func _on_vb6_mode_changed(is_vb6: bool) -> void:
@@ -2483,6 +2534,11 @@ func _check_script_editor_for_vg():
 	# Refresh navigator for the new script
 	if _code_navigator:
 		_code_navigator.refresh_objects()
+	
+	# Apply VGThemeManager theme to the code editor (v2.4.1)
+	var VGThemeManager = load("res://addons/visual_gasic/vg_theme_manager.gd")
+	if VGThemeManager:
+		VGThemeManager.apply_to_code_edit(code_edit)
 	
 	# NOTE: Do NOT apply a custom CodeHighlighter to .vg files!
 	# Godot's script editor uses the ScriptLanguageExtension's built-in

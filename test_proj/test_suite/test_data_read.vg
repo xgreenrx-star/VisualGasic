@@ -1,0 +1,101 @@
+' Test: Data/Read/Restore
+' Tests inline DATA statements, Read, Restore, labels
+Attribute VB_Name = "TestDataRead"
+
+Sub _Ready()
+	' --- Basic Data/Read ---
+	Restore TestData
+	
+	Dim a As Integer
+	Dim b As Integer
+	Dim c As Integer
+	Read a, b, c
+	
+	If a = 10 And b = 20 And c = 30 Then
+		Print "PASS: data_read_basic"
+	Else
+		Print "FAIL: data_read_basic: got " & Str(a) & "," & Str(b) & "," & Str(c)
+	End If
+	
+	' --- Read continues from where we left off ---
+	Dim d As Integer
+	Read d
+	If d = 40 Then
+		Print "PASS: data_read_continue"
+	Else
+		Print "FAIL: data_read_continue: got " & Str(d)
+	End If
+	
+	' --- Restore resets pointer ---
+	Restore TestData
+	Dim a2 As Integer
+	Read a2
+	If a2 = 10 Then
+		Print "PASS: restore_reset"
+	Else
+		Print "FAIL: restore_reset: got " & Str(a2)
+	End If
+	
+	' --- Read strings from Data ---
+	Restore StringData
+	Dim s1 As String
+	Dim s2 As String
+	Dim s3 As String
+	Read s1, s2, s3
+	If s1 = "Alice" And s2 = "Bob" And s3 = "Carol" Then
+		Print "PASS: data_read_strings"
+	Else
+		Print "FAIL: data_read_strings: got " & s1 & "," & s2 & "," & s3
+	End If
+	
+	' --- Read mixed types ---
+	Restore MixedData
+	Dim name As String
+	Dim age As Integer
+	Dim score As Single
+	Read name, age, score
+	If name = "Test" And age = 25 Then
+		Print "PASS: data_read_mixed"
+	Else
+		Print "FAIL: data_read_mixed: got " & name & "," & Str(age)
+	End If
+	
+	' --- Read in loop ---
+	Restore LoopData
+	Dim sum As Integer = 0
+	Dim val As Integer
+	Dim i As Integer
+	For i = 1 To 5
+		Read val
+		sum = sum + val
+	Next
+	If sum = 15 Then
+		Print "PASS: data_read_loop"
+	Else
+		Print "FAIL: data_read_loop: expected 15, got " & Str(sum)
+	End If
+	
+	' --- Restore to named label ---
+	Restore StringData
+	Dim check As String
+	Read check
+	If check = "Alice" Then
+		Print "PASS: restore_named_label"
+	Else
+		Print "FAIL: restore_named_label: got " & check
+	End If
+	
+	Print "TEST_COMPLETE"
+End Sub
+
+TestData:
+Data 10, 20, 30, 40, 50
+
+StringData:
+Data "Alice", "Bob", "Carol"
+
+MixedData:
+Data "Test", 25, 3.14
+
+LoopData:
+Data 1, 2, 3, 4, 5

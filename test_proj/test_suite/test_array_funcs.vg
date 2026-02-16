@@ -1,0 +1,79 @@
+' Test: Array Functions (Push, Sort, IndexOf, etc.)
+' Tests array utility builtins
+Attribute VB_Name = "TestArrayFuncs"
+
+Sub _Ready()
+	' --- Push ---
+	Dim arr(2) As Integer
+	arr(0) = 10
+	arr(1) = 20
+	arr(2) = 30
+	Dim bigger As Variant = Push(arr, 40)
+	If UBound(bigger) = 3 And bigger(3) = 40 Then
+		Print "PASS: push"
+	Else
+		Print "FAIL: push"
+	End If
+	
+	' --- Sort (ascending) ---
+	Dim unsorted(4) As Integer
+	unsorted(0) = 5
+	unsorted(1) = 3
+	unsorted(2) = 8
+	unsorted(3) = 1
+	unsorted(4) = 4
+	
+	Dim sorted As Variant = Sort(unsorted)
+	If sorted(0) = 1 And sorted(1) = 3 And sorted(2) = 4 And sorted(3) = 5 And sorted(4) = 8 Then
+		Print "PASS: sort"
+	Else
+		Print "FAIL: sort"
+	End If
+	
+	' --- Reverse ---
+	Dim rev As Variant = Reverse(sorted)
+	If rev(0) = 8 And rev(4) = 1 Then
+		Print "PASS: reverse"
+	Else
+		Print "FAIL: reverse"
+	End If
+	
+	' --- IndexOf ---
+	Dim idx As Integer = IndexOf(sorted, 4)
+	If idx = 2 Then
+		Print "PASS: indexof"
+	Else
+		Print "FAIL: indexof: expected 2, got " & Str(idx)
+	End If
+	
+	' --- IndexOf not found ---
+	idx = IndexOf(sorted, 99)
+	If idx = -1 Then
+		Print "PASS: indexof_notfound"
+	Else
+		Print "FAIL: indexof_notfound: got " & Str(idx)
+	End If
+	
+	' --- Contains (via IndexOf) ---
+	If IndexOf(sorted, 5) >= 0 Then
+		Print "PASS: contains_true"
+	Else
+		Print "FAIL: contains_true"
+	End If
+	
+	If IndexOf(sorted, 99) < 0 Then
+		Print "PASS: contains_false"
+	Else
+		Print "FAIL: contains_false"
+	End If
+	
+	' --- Range ---
+	Dim rng As Variant = Range(1, 5)
+	If UBound(rng) = 4 And rng(0) = 1 And rng(4) = 5 Then
+		Print "PASS: range"
+	Else
+		Print "FAIL: range"
+	End If
+	
+	Print "TEST_COMPLETE"
+End Sub

@@ -23,6 +23,7 @@ class VisualGasicScript : public ScriptExtension {
         String original_name;
         String name_lower;
         BytecodeChunk chunk;
+        bool compile_failed = false;  // Cache compilation failures to avoid re-trying
     };
     // Use std::list instead of std::vector to avoid pointer invalidation when adding new entries
     // This is critical because execute_bytecode holds a pointer to a chunk while nested calls

@@ -517,12 +517,174 @@ String VisualGasicDebugger::generate_session_id() const {
 }
 
 bool VisualGasicDebugger::evaluate_breakpoint_condition(const String& condition, const Dictionary& context) {
-    // Simplified condition evaluation
-    if (condition == "true") return true;
-    if (condition == "false") return false;
-    
-    // Could implement full expression evaluation here
-    return true; // Default to breaking
+    // Simple expression evaluator for conditional breakpoints.
+    // Supports:  variable comparisons (x > 5, counter == 10, name = "hi")
+    //            boolean literals (true / false)
+    //            logical And / Or / Not
+    //            nested variable lookup from context["variables"]
+
+    if (condition.strip_edges().is_empty()) return true;
+    String cond = condition.strip_edges();
+
+    // Literal booleans
+    if (cond.to_lower() == "true") return true;
+    if (cond.to_lower() == "false") return false;
+
+    // Get the variables dictionary from context
+    Dictionary vars;
+    if (context.has("variables")) {
+        vars = context["variables"];
+    }
+
+    // Helper: resolve a token to a Variant value
+    // - If it's a variable name found in vars, return its value.
+    // - If it looks like a number, parse it.
+    // - If it's a quoted string, unquote it.
+    // - "true"/"false" → bool.
+    auto resolve_token = [&](const String& tok) -> Variant {
+        String t = tok.strip_edges();
+        if (t.is_empty()) return Variant();
+
+        // Quoted string literal
+        if ((t.begins_with("\"") && t.ends_with("\"")) ||
+            (t.begins_with("'") && t.ends_with("'"))) {
+            return t.substr(1, t.length() - 2);
+        }
+
+        // Boolean literals
+        if (t.to_lower() == "true") return true;
+        if (t.to_lower() == "false") return false;
+        if (t.to_lower() == "nothing" || t.to_lower() == "null") return Variant();
+
+        // Variable lookup (case-insensitive)
+        if (vars.size() > 0) {
+            // Try exact match first
+            if (vars.has(t)) return vars[t];
+            // Case-insensitive search
+            Array keys = vars.keys();
+            for (int i = 0; i < keys.size(); i++) {
+                if (String(keys[i]).to_lower() == t.to_lower()) {
+                    return vars[keys[i]];
+                }
+            }
+        }
+
+        // Number literal
+        if (t.is_valid_int()) return t.to_int();
+        if (t.is_valid_float()) return t.to_float();
+
+        return t; // Return as string if nothing else matches
+    };
+
+    // Try to find a logical operator (And / Or) — split on the first one found
+    // Process Or first (lower precedence), then And
+    {
+        // Find " Or " (case-insensitive, word boundary via spaces)
+        int or_pos = cond.to_lower().find(" or ");
+        if (or_pos >= 0) {
+            String left = cond.substr(0, or_pos);
+            String right = cond.substr(or_pos + 4);
+            return evaluate_breakpoint_condition(left, context) ||
+                   evaluate_breakpoint_condition(right, context);
+        }
+        int and_pos = cond.to_lower().find(" and ");
+        if (and_pos >= 0) {
+            String left = cond.substr(0, and_pos);
+            String right = cond.substr(and_pos + 5);
+            return evaluate_breakpoint_condition(left, context) &&
+                   evaluate_breakpoint_condition(right, context);
+        }
+        // "Not " prefix
+        if (cond.to_lower().begins_with("not ")) {
+            String inner = cond.substr(4);
+            return !evaluate_breakpoint_condition(inner, context);
+        }
+    }
+
+    // Try to find a comparison operator
+    // Order matters: check two-char operators before single-char ones.
+    struct { const char* op; int len; } operators[] = {
+        {"<>", 2}, {"!=", 2}, {">=", 2}, {"<=", 2}, {"==", 2},
+        {"=", 1}, {">", 1}, {"<", 1}
+    };
+
+    for (auto& op_info : operators) {
+        String op_str = op_info.op;
+        int pos = -1;
+
+        // Skip operators inside string literals
+        bool in_string = false;
+        char string_char = 0;
+        for (int i = 0; i < cond.length() - op_info.len + 1; i++) {
+            char32_t ch = cond[i];
+            if (!in_string && (ch == '"' || ch == '\'')) {
+                in_string = true;
+                string_char = ch;
+            } else if (in_string && ch == string_char) {
+                in_string = false;
+            } else if (!in_string && cond.substr(i, op_info.len) == op_str) {
+                // For single-char operators, ensure we're not part of a two-char operator
+                if (op_info.len == 1) {
+                    if (op_str == "=" && i > 0 && (cond[i-1] == '<' || cond[i-1] == '>' || cond[i-1] == '!' || cond[i-1] == '=')) continue;
+                    if (op_str == "=" && i + 1 < cond.length() && cond[i+1] == '=') continue;
+                    if (op_str == ">" && i + 1 < cond.length() && cond[i+1] == '=') continue;
+                    if (op_str == "<" && i + 1 < cond.length() && (cond[i+1] == '=' || cond[i+1] == '>')) continue;
+                }
+                pos = i;
+                break;
+            }
+        }
+
+        if (pos >= 0) {
+            String left_str = cond.substr(0, pos).strip_edges();
+            String right_str = cond.substr(pos + op_info.len).strip_edges();
+            Variant left_val = resolve_token(left_str);
+            Variant right_val = resolve_token(right_str);
+            Variant cmp_result;
+            bool cmp_valid = false;
+
+            if (op_str == "=" || op_str == "==") {
+                // Type-flexible comparison
+                if (left_val.get_type() == Variant::STRING || right_val.get_type() == Variant::STRING) {
+                    return String(left_val).to_lower() == String(right_val).to_lower();
+                }
+                Variant::evaluate(Variant::OP_EQUAL, left_val, right_val, cmp_result, cmp_valid);
+                return cmp_valid && (bool)cmp_result;
+            }
+            if (op_str == "<>" || op_str == "!=") {
+                if (left_val.get_type() == Variant::STRING || right_val.get_type() == Variant::STRING) {
+                    return String(left_val).to_lower() != String(right_val).to_lower();
+                }
+                Variant::evaluate(Variant::OP_NOT_EQUAL, left_val, right_val, cmp_result, cmp_valid);
+                return cmp_valid && (bool)cmp_result;
+            }
+            if (op_str == ">") {
+                Variant::evaluate(Variant::OP_GREATER, left_val, right_val, cmp_result, cmp_valid);
+                return cmp_valid && (bool)cmp_result;
+            }
+            if (op_str == "<") {
+                Variant::evaluate(Variant::OP_LESS, left_val, right_val, cmp_result, cmp_valid);
+                return cmp_valid && (bool)cmp_result;
+            }
+            if (op_str == ">=") {
+                Variant::evaluate(Variant::OP_GREATER_EQUAL, left_val, right_val, cmp_result, cmp_valid);
+                return cmp_valid && (bool)cmp_result;
+            }
+            if (op_str == "<=") {
+                Variant::evaluate(Variant::OP_LESS_EQUAL, left_val, right_val, cmp_result, cmp_valid);
+                return cmp_valid && (bool)cmp_result;
+            }
+        }
+    }
+
+    // No operator found: treat the whole condition as a single value.
+    // A variable name that resolves to a truthy value → true.
+    Variant val = resolve_token(cond);
+    if (val.get_type() == Variant::BOOL) return (bool)val;
+    if (val.get_type() == Variant::INT) return (int64_t)val != 0;
+    if (val.get_type() == Variant::FLOAT) return (double)val != 0.0;
+    if (val.get_type() == Variant::STRING) return !((String)val).is_empty();
+    return val.booleanize();
 }
 
 void VisualGasicDebugger::update_function_profile(const String& function_name, uint64_t execution_time_us) {

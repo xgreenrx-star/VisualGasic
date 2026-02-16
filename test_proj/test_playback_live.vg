@@ -1,0 +1,99 @@
+Attribute VB_Name = "TestPlaybackLive"
+
+' Mimics the actual Piano playback logic in a live _Process loop
+
+Dim noteNames(5) As String
+Dim noteFreqs(5) As Single
+Dim noteCount As Integer
+
+Dim demoNotes(10) As Integer
+Dim demoTimes(10) As Single
+Dim demoLength As Integer
+
+Dim isPlaying As Boolean
+Dim isPlayingDemo As Boolean
+Dim playbackTime As Single
+Dim playbackIndex As Integer
+Dim playCount As Integer
+Dim frameCount As Integer
+
+Sub _Ready()
+    noteCount = 3
+    noteNames(0) = "C4"
+    noteNames(1) = "D4"
+    noteNames(2) = "E4"
+    noteFreqs(0) = 261.63
+    noteFreqs(1) = 293.66
+    noteFreqs(2) = 329.63
+    
+    ' Demo song: 3 notes with delays
+    demoLength = 3
+    demoNotes(0) = 0
+    demoTimes(0) = 0.0
+    demoNotes(1) = 1
+    demoTimes(1) = 0.5
+    demoNotes(2) = 2
+    demoTimes(2) = 1.0
+    
+    isPlaying = False
+    playCount = 0
+    frameCount = 0
+    
+    ' Start playback immediately
+    StartPlayback True
+End Sub
+
+Sub PlayNote(noteIndex As Integer)
+    If noteIndex < 0 Or noteIndex >= noteCount Then Exit Sub
+    Dim freq As Single = noteFreqs(noteIndex)
+    playCount = playCount + 1
+    Print "  [PlayNote] idx=" & Str(noteIndex) & " name=" & noteNames(noteIndex) & " freq=" & Str(freq) & " (play#" & Str(playCount) & ")"
+End Sub
+
+Sub StartPlayback(useDemo As Boolean)
+    isPlaying = True
+    isPlayingDemo = useDemo
+    playbackTime = 0
+    playbackIndex = 0
+    Print "[StartPlayback] isPlaying=" & Str(isPlaying) & " demo=" & Str(useDemo)
+End Sub
+
+Sub UpdatePlayback(delta As Single)
+    If Not isPlaying Then Exit Sub
+    
+    playbackTime = playbackTime + delta
+    
+    If isPlayingDemo Then
+        Do While playbackIndex < demoLength
+            If playbackTime >= demoTimes(playbackIndex) Then
+                Print "  [Update] t=" & Str(playbackTime) & " firing note " & Str(playbackIndex)
+                PlayNote demoNotes(playbackIndex)
+                playbackIndex = playbackIndex + 1
+            Else
+                Exit Do
+            End If
+        Loop
+        If playbackIndex >= demoLength Then
+            isPlaying = False
+            Print "[Update] Demo finished! playCount=" & Str(playCount)
+        End If
+    End If
+End Sub
+
+Sub _Process(delta As Single)
+    frameCount = frameCount + 1
+    
+    If frameCount <= 3 Or (frameCount Mod 30 = 0) Then
+        Print "[Frame " & Str(frameCount) & "] delta=" & Str(delta) & " isPlaying=" & Str(isPlaying) & " pIdx=" & Str(playbackIndex) & " pTime=" & Str(playbackTime)
+    End If
+    
+    UpdatePlayback delta
+    
+    If frameCount > 200 Then
+        If isPlaying Then
+            Print "FAIL: Still playing after 200 frames! pIdx=" & Str(playbackIndex) & " pTime=" & Str(playbackTime)
+        Else
+            Print "PASS: Playback completed. playCount=" & Str(playCount)
+        End If
+    End If
+End Sub

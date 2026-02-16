@@ -1,0 +1,120 @@
+' Test: Variables and Data Types
+' Tests Dim, types, assignment, implicit declaration, Variant
+Attribute VB_Name = "TestVariables"
+
+Sub _Ready()
+	' --- Integer ---
+	Dim i As Integer
+	i = 42
+	If i = 42 Then
+		Print "PASS: dim_integer"
+	Else
+		Print "FAIL: dim_integer: expected 42, got " & Str(i)
+	End If
+	
+	' --- String ---
+	Dim s As String
+	s = "hello"
+	If s = "hello" Then
+		Print "PASS: dim_string"
+	Else
+		Print "FAIL: dim_string: expected hello, got " & s
+	End If
+	
+	' --- Double ---
+	Dim d As Double
+	d = 3.14
+	If d > 3.13 And d < 3.15 Then
+		Print "PASS: dim_double"
+	Else
+		Print "FAIL: dim_double: expected 3.14, got " & Str(d)
+	End If
+	
+	' --- Boolean ---
+	Dim b As Boolean
+	b = True
+	If b = True Then
+		Print "PASS: dim_boolean_true"
+	Else
+		Print "FAIL: dim_boolean_true"
+	End If
+	
+	b = False
+	If b = False Then
+		Print "PASS: dim_boolean_false"
+	Else
+		Print "FAIL: dim_boolean_false"
+	End If
+	
+	' --- Variant (numeric) ---
+	Dim v As Variant
+	v = 100
+	If v = 100 Then
+		Print "PASS: variant_numeric"
+	Else
+		Print "FAIL: variant_numeric"
+	End If
+	
+	' --- Variant (string) ---
+	v = "world"
+	If v = "world" Then
+		Print "PASS: variant_string"
+	Else
+		Print "FAIL: variant_string"
+	End If
+	
+	' --- Dim with initializer ---
+	Dim x As Integer = 99
+	If x = 99 Then
+		Print "PASS: dim_with_init"
+	Else
+		Print "FAIL: dim_with_init"
+	End If
+	
+	' --- Implicit variable (no Dim) ---
+	myVar = 77
+	If myVar = 77 Then
+		Print "PASS: implicit_variable"
+	Else
+		Print "FAIL: implicit_variable"
+	End If
+	
+	' --- Single ---
+	Dim f As Single
+	f = 1.5
+	If f > 1.4 And f < 1.6 Then
+		Print "PASS: dim_single"
+	Else
+		Print "FAIL: dim_single"
+	End If
+	
+	' --- Long ---
+	Dim lng As Long
+	lng = 100000
+	If lng = 100000 Then
+		Print "PASS: dim_long"
+	Else
+		Print "FAIL: dim_long"
+	End If
+	
+	' --- Nothing ---
+	Dim obj As Object
+	If obj = Nothing Then
+		Print "PASS: object_nothing"
+	Else
+		Print "FAIL: object_nothing"
+	End If
+	
+	' --- Assignment chaining ---
+	Dim a As Integer
+	Dim c As Integer
+	a = 10
+	c = a + 5
+	If c = 15 Then
+		Print "PASS: assignment_expression"
+	Else
+		Print "FAIL: assignment_expression"
+	End If
+	
+	Print "TEST_COMPLETE"
+End Sub

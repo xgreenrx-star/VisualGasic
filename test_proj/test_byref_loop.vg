@@ -1,0 +1,45 @@
+' Test: ByRef parameter restore does NOT clobber caller's loop variable
+' Bug: call_internal saved/restored locals INCLUDING ByRef params,
+'       so the caller's STMT_CALL ByRef write-back read stale values.
+' Expected: For loop visits indices 0,1,2,3,4 in order.
+
+Dim results(4) As Integer
+Dim resultCount As Integer
+
+Sub SetValue(index As Integer)
+    ' This sub receives index ByRef (default in VB6).
+    ' The bug: after return, the caller's For variable 'i' would get
+    ' overwritten with whatever 'index' was before the call.
+    results(index) = index * 10
+End Sub
+
+Sub _Ready()
+    resultCount = 0
+
+    For i = 0 To 4
+        SetValue i
+        resultCount = resultCount + 1
+    Next i
+
+    ' Verify each result was set correctly
+    Dim allCorrect As Integer
+    allCorrect = 1
+
+    If results(0) <> 0 Then allCorrect = 0
+    If results(1) <> 10 Then allCorrect = 0
+    If results(2) <> 20 Then allCorrect = 0
+    If results(3) <> 30 Then allCorrect = 0
+    If results(4) <> 40 Then allCorrect = 0
+
+    If resultCount <> 5 Then allCorrect = 0
+
+    If allCorrect = 1 Then
+        Print "PASS: ByRef loop variable not clobbered"
+        Print "  results: " & results(0) & "," & results(1) & "," & results(2) & "," & results(3) & "," & results(4)
+        Print "  iterations: " & resultCount
+    Else
+        Print "FAIL: ByRef clobbered loop variable!"
+        Print "  results: " & results(0) & "," & results(1) & "," & results(2) & "," & results(3) & "," & results(4)
+        Print "  iterations: " & resultCount & " (expected 5)"
+    End If
+End Sub

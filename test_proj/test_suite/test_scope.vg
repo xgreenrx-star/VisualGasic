@@ -1,0 +1,85 @@
+' Test: Global Variables and Scope
+' Tests global vs local scope, variable shadowing
+Attribute VB_Name = "TestScope"
+
+Dim globalVar As Integer
+Dim sharedVar As String
+
+Sub _Ready()
+	' --- Global variable assignment ---
+	globalVar = 42
+	If globalVar = 42 Then
+		Print "PASS: global_assign"
+	Else
+		Print "FAIL: global_assign"
+	End If
+	
+	' --- Global modified by sub ---
+	SetGlobal 100
+	If globalVar = 100 Then
+		Print "PASS: global_modified_by_sub"
+	Else
+		Print "FAIL: global_modified_by_sub: got " & Str(globalVar)
+	End If
+	
+	' --- Local variable scope ---
+	TestLocalScope
+	' globalVar should NOT have been modified by local 'x' in sub
+	If globalVar = 100 Then
+		Print "PASS: local_scope"
+	Else
+		Print "FAIL: local_scope: globalVar = " & Str(globalVar)
+	End If
+	
+	' --- Global string modified by function ---
+	sharedVar = "original"
+	AppendToShared " appended"
+	If sharedVar = "original appended" Then
+		Print "PASS: global_string_modified"
+	Else
+		Print "FAIL: global_string_modified: got " & sharedVar
+	End If
+	
+	' --- Shadowing: local hides global ---
+	globalVar = 999
+	Dim shadowResult As Integer = GetShadowed()
+	If shadowResult = 77 And globalVar = 999 Then
+		Print "PASS: variable_shadowing"
+	Else
+		Print "FAIL: variable_shadowing: result=" & Str(shadowResult) & " global=" & Str(globalVar)
+	End If
+	
+	' --- Nested sub calls all see same global ---
+	globalVar = 0
+	IncrementGlobal
+	IncrementGlobal
+	IncrementGlobal
+	If globalVar = 3 Then
+		Print "PASS: global_multiple_calls"
+	Else
+		Print "FAIL: global_multiple_calls: got " & Str(globalVar)
+	End If
+	
+	Print "TEST_COMPLETE"
+End Sub
+
+Sub SetGlobal(val As Integer)
+	globalVar = val
+End Sub
+
+Sub TestLocalScope()
+	Dim x As Integer = 55  ' Local variable, should not affect globalVar
+End Sub
+
+Sub AppendToShared(suffix As String)
+	sharedVar = sharedVar & suffix
+End Sub
+
+Function GetShadowed() As Integer
+	Dim globalVar As Integer = 77  ' Shadows the global
+	Return globalVar
+End Function
+
+Sub IncrementGlobal()
+	globalVar = globalVar + 1
+End Sub

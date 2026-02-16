@@ -1,0 +1,12 @@
+{
+	"name": "Platformer HUD",
+	"description": "[b]Platformer HUD Template[/b]\nA side-scrolling platformer game HUD with:\n• Health hearts display\n• Coin counter\n• Level indicator\n• Timer display",
+	"size": "Vector2(1280, 720)",
+	"is_hud": true,
+	"controls": [
+		{"type": "Label", "name": "lblCoins", "text": "x 0", "position": "Vector2(60, 20)", "size": "Vector2(100, 30)"},
+		{"type": "Label", "name": "lblLevel", "text": "World 1-1", "position": "Vector2(560, 20)", "size": "Vector2(160, 30)"},
+		{"type": "Label", "name": "lblTime", "text": "TIME: 300", "position": "Vector2(1100, 20)", "size": "Vector2(150, 30)}"}
+	],
+	"code": "' Platformer HUD\nDim coins As Integer\nDim timeLeft As Integer\nDim maxHearts As Integer\nDim currentHearts As Integer\n\nSub Form_Load()\n    coins = 0\n    timeLeft = 300\n    maxHearts = 3\n    currentHearts = 3\n    UpdateDisplay()\nEnd Sub\n\nSub UpdateDisplay()\n    lblCoins.Text = \"x \" & coins\n    lblTime.Text = \"TIME: \" & timeLeft\nEnd Sub\n\nSub AddCoin()\n    coins = coins + 1\n    UpdateDisplay()\n    If coins >= 100 Then\n        coins = 0\n        ' Extra life!\n    End If\nEnd Sub"
+}

@@ -1,0 +1,46 @@
+' Test: Optional Parameters
+' Tests Optional keyword with default values
+Attribute VB_Name = "TestOptionalParams"
+
+Sub _Ready()
+	' --- Call with all args ---
+	Dim r As String = FormatMsg("Hello", "World", "!")
+	If r = "Hello World!" Then
+		Print "PASS: optional_all_args"
+	Else
+		Print "FAIL: optional_all_args: got " & r
+	End If
+	
+	' --- Call with default suffix ---
+	r = FormatMsg("Hello", "World")
+	If r = "Hello World." Then
+		Print "PASS: optional_default_arg"
+	Else
+		Print "FAIL: optional_default_arg: got " & r
+	End If
+	
+	' --- Optional integer ---
+	Dim sum As Integer = AddNums(10, 20)
+	If sum = 30 Then
+		Print "PASS: optional_int_default"
+	Else
+		Print "FAIL: optional_int_default: got " & Str(sum)
+	End If
+	
+	sum = AddNums(10, 20, 30)
+	If sum = 60 Then
+		Print "PASS: optional_int_provided"
+	Else
+		Print "FAIL: optional_int_provided: got " & Str(sum)
+	End If
+	
+	Print "TEST_COMPLETE"
+End Sub
+
+Function FormatMsg(prefix As String, body As String, Optional suffix As String = ".") As String
+	Return prefix & " " & body & suffix
+End Function
+
+Function AddNums(a As Integer, b As Integer, Optional c As Integer = 0) As Integer
+	Return a + b + c
+End Function
