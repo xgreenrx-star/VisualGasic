@@ -445,8 +445,9 @@ Sub SpawnWave()
                 enemyY(slot) = -50 - Int(i / 10) * 60  ' Negative Y = above viewport
                 
                 ' Cycle through the type pattern (Mod wraps index around)
-                Dim typeIdx As Integer = i Mod UBound(types) + 1
-                Dim typeName As String = Trim(types(typeIdx - 1))
+                ' UBound(types) + 1 = number of elements; Mod cycles 0..count-1
+                Dim typeIdx As Integer = i Mod (UBound(types) + 1)
+                Dim typeName As String = Trim(types(typeIdx))
                 
                 ' Linear search to resolve type name → type index
                 Dim t As Integer
