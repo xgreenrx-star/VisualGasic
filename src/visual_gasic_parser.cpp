@@ -107,7 +107,14 @@ void VisualGasicParser::synchronize() {
 
 // Reimplementing correct logic
 ModuleNode* VisualGasicParser::parse(const Vector<VisualGasicTokenizer::Token>& p_tokens) {
-    tokens = p_tokens;
+    // Strip comment tokens so inline comments (e.g. "InitializePriorities ' setup")
+    // don't confuse any parser path — comments are purely decorative.
+    tokens.clear();
+    for (int i = 0; i < p_tokens.size(); i++) {
+        if (p_tokens[i].type != VisualGasicTokenizer::TOKEN_COMMENT) {
+            tokens.push_back(p_tokens[i]);
+        }
+    }
     errors.clear();
     error_count = 0;
     current_pos = 0;
