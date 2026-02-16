@@ -160,32 +160,29 @@ This is the first release to **bundle demo projects** directly. Each demo is a s
 ### VB6-Style IDE Layout
 ![VB6 IDE Layout](https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/v2.5.0/docs/screenshots/vb6_ide_layout.png)
 
+### VB6 Theme Selector
+![VB6 Theme Selector](https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/v2.5.0/docs/screenshots/vb6_theme_selector.png)
+
+### Immediate Window
+![Immediate Window](https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/v2.5.0/docs/screenshots/immediate_window.png)
+
 ### Pong
 ![Pong Demo](https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/v2.5.0/docs/screenshots/pong_demo.png)
-
-### Snake
-![Snake Demo](https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/v2.5.0/docs/screenshots/snake_demo.png)
-
-### Space Shooter
-![Space Shooter](https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/v2.5.0/docs/screenshots/space_shooter_demo.png)
 
 ### Galactic Defender
 ![Galactic Defender](https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/v2.5.0/docs/screenshots/galactic_defender_demo.png)
 
-### Calculator
-![Calculator](https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/v2.5.0/docs/screenshots/calculator_demo.png)
-
 ### Piano
-![Piano](https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/v2.5.0/docs/screenshots/piano_demo.png)
+![Piano — View 1](https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/v2.5.0/docs/screenshots/piano_demo_1.png)
 
-### High Scores
-![High Scores](https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/v2.5.0/docs/screenshots/highscores_demo.png)
-
-### Todo App
-![Todo App](https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/v2.5.0/docs/screenshots/todoapp_demo.png)
+![Piano — View 2](https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/v2.5.0/docs/screenshots/piano_demo_2.png)
 
 ### Screensaver
-![Screensaver](https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/v2.5.0/docs/screenshots/screensaver_demo.png)
+![Screensaver — View 1](https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/v2.5.0/docs/screenshots/screensaver_demo_1.png)
+
+![Screensaver — View 2](https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/v2.5.0/docs/screenshots/screensaver_demo_2.png)
+
+![Screensaver — View 3](https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/v2.5.0/docs/screenshots/screensaver_demo_3.png)
 
 ### Parallel Demo
 ![Parallel Demo](https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/v2.5.0/docs/screenshots/parallel_demo.png)
