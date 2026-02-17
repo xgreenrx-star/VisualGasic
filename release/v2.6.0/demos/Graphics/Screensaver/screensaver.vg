@@ -1,0 +1,499 @@
+' ============================================================================
+' MATRIX SCREENSAVER - Graphics Drawing Demo
+' Written in VisualGasic for Godot 4.5+
+' ============================================================================
+' Demonstrates all drawing primitives:
+' - DrawRect, DrawLine, DrawCircle, DrawText
+' - Color manipulation
+' - Animation techniques
+' - DATA statements for character sets
+' ============================================================================
+' VB6 idiom: Attribute VB_Name sets the module/class name seen by the engine.
+' In VisualGasic this maps to the Godot node name registered via GDExtension.
+Attribute VB_Name = "MatrixScreensaver"
+
+' --------------------------------------------------------------------------
+' Screen & grid constants
+' SCREEN_WIDTH / SCREEN_HEIGHT define the logical drawing area (pixels).
+' NUM_COLUMNS is how many vertical "streams" of characters the matrix rain uses.
+' CHAR_WIDTH / CHAR_HEIGHT set the cell size for each character in the grid.
+' --------------------------------------------------------------------------
+Const SCREEN_WIDTH As Integer = 800
+Const SCREEN_HEIGHT As Integer = 600
+Const NUM_COLUMNS As Integer = 40
+Const CHAR_WIDTH As Integer = 20
+Const CHAR_HEIGHT As Integer = 20
+
+' --------------------------------------------------------------------------
+' Matrix rain column state arrays
+' Each column is an independent vertical stream of characters that falls down
+' the screen at its own speed, like the iconic "Matrix" digital rain effect.
+' --------------------------------------------------------------------------
+Dim columnY(NUM_COLUMNS) As Single      ' Y pixel position of the head (leading char) of each column
+Dim columnSpeed(NUM_COLUMNS) As Single  ' Pixels-per-second fall speed (randomised per column)
+Dim columnLength(NUM_COLUMNS) As Integer ' Number of characters in this column's trailing tail
+Dim columnChars(NUM_COLUMNS, 30) As String ' 2D array — column × slot — holds the character to render
+' VisualGasic syntax: Dim array(rows, cols) As Type  declares a 2D VB6-style array.
+
+' --------------------------------------------------------------------------
+' Character palette — populated at startup via DATA / Read / Restore.
+' matrixChars() holds each glyph; charCount tracks how many were loaded.
+' DATA/Read/Restore is a classic VB6 pattern: DATA embeds literal values in
+' the source, Restore sets the read cursor to a label, and Read pulls the
+' next value. VisualGasic preserves this idiom.
+' --------------------------------------------------------------------------
+Dim matrixChars(100) As String   ' Buffer for up to 100 glyphs
+Dim charCount As Integer          ' Actual number of glyphs loaded from DATA
+
+' --------------------------------------------------------------------------
+' Mode switching — the screensaver cycles through 4 visual modes:
+'   0 = Matrix Rain   1 = Geometric Shapes   2 = Spiral   3 = Starfield
+' Modes advance automatically every MODE_DURATION seconds, or instantly
+' when the player presses SPACE (mapped to Godot's "ui_accept" action).
+' --------------------------------------------------------------------------
+Dim currentMode As Integer         ' Index of the active visual mode (0-3)
+Dim modeTimer As Single            ' Countdown (seconds) until auto-switch
+Const MODE_DURATION As Single = 10.0  ' Seconds each mode displays before auto-advance
+
+' --------------------------------------------------------------------------
+' Shared animation accumulators — incremented every frame in _Process().
+' They drive rotation, pulsing, and spiral winding across multiple modes.
+' --------------------------------------------------------------------------
+Dim shapeAngle As Single    ' Slowly-rotating angle used by geometric shapes (radians)
+Dim pulseValue As Single    ' Faster oscillator — drives pulsing/glow effects via Sin()
+Dim spiralAngle As Single   ' Fast-rotating angle that winds the parametric spiral
+
+' ============================================================================
+' INITIALIZATION
+' ============================================================================
+' _Ready() is called once by Godot when the node enters the scene tree.
+' It is the VisualGasic equivalent of Godot's _ready() virtual method.
+Sub _Ready()
+	' Print banner to Godot's Output console (VB6 Print maps to print())
+	Print "=== MATRIX SCREENSAVER ==="
+	Print "Graphics Drawing Demo"
+	Print ""
+	Print "Modes: Matrix Rain, Geometric Shapes, Spiral, Starfield"
+	Print "Press SPACE to switch modes"
+	
+	' Populate the matrixChars() array from the DATA block below
+	LoadMatrixCharacters
+	' Randomise every column's Y position, speed, trail length, and characters
+	InitColumns
+	' Start on mode 0 (Matrix Rain) with a full countdown
+	currentMode = 0
+	modeTimer = MODE_DURATION
+End Sub
+
+' Reads glyphs from the DATA section into the matrixChars() array.
+' Uses three classic VB6 / VisualGasic keywords:
+'   Restore <label>  — move the DATA read cursor to a labelled DATA block
+'   Read <var>       — fetch the next datum into a variable
+'   Exit Do          — break out of the Do…Loop when sentinel "END" is hit
+Sub LoadMatrixCharacters()
+	Restore MatrixCharacterSet        ' Point the read cursor to the label below
+	charCount = 0
+	
+	Dim ch As String                   ' Temporary variable for each datum
+	Do
+		Read ch                         ' Pull next comma-separated value from DATA
+		If ch = "END" Then Exit Do      ' Sentinel value signals end of list
+		matrixChars(charCount) = ch     ' Store glyph in the palette array
+		charCount = charCount + 1
+	Loop
+	
+	' Str() converts an integer to a string; & is VB6 string concatenation
+	Print "Loaded " & Str(charCount) & " matrix characters"
+End Sub
+
+' Sets every column to a random state, then offsets its Y so they don't
+' all start falling from the same row at the same time.
+Sub InitColumns()
+	Dim i As Integer
+	For i = 0 To NUM_COLUMNS - 1
+		ResetColumn i
+		' Stagger: push the head above the screen by a random amount so
+		' columns trickle in over several frames instead of appearing at once
+		columnY(i) = -Rnd() * SCREEN_HEIGHT   ' Rnd() returns 0.0–1.0
+	Next
+End Sub
+
+' Re-initialise one column — called when a column scrolls off the bottom.
+' idx is the column index (0 to NUM_COLUMNS-1).
+Sub ResetColumn(idx As Integer)
+	columnY(idx) = -Rnd() * 200              ' Start just above the top edge
+	columnSpeed(idx) = 100 + Rnd() * 300     ' 100–400 pixels/sec (variety)
+	columnLength(idx) = 10 + Int(Rnd() * 20) ' Trail of 10–29 characters
+	
+	' Fill every slot in this column's trail with a random glyph
+	' Int() truncates to integer; Rnd()*charCount picks a random palette index
+	Dim j As Integer
+	For j = 0 To 29
+		columnChars(idx, j) = matrixChars(Int(Rnd() * charCount))
+	Next
+End Sub
+
+' ============================================================================
+' MATRIX CHARACTERS (using DATA)
+' ============================================================================
+' --------------------------------------------------------------------------
+' DATA block — a VB6 feature preserved in VisualGasic.
+' The label "MatrixCharacterSet:" lets Restore position the read cursor here.
+' Each Data line supplies comma-separated string literals that Read pulls
+' one at a time. The final "END" acts as a sentinel so the read loop knows
+' when to stop (there is no built-in EOF for DATA).
+' --------------------------------------------------------------------------
+MatrixCharacterSet:
+' Katakana glyphs (ア–ト) give the iconic Matrix look
+Data "ア", "イ", "ウ", "エ", "オ"
+Data "カ", "キ", "ク", "ケ", "コ"
+Data "サ", "シ", "ス", "セ", "ソ"
+Data "タ", "チ", "ツ", "テ", "ト"
+' Decimal digits and hex letters — mixed in for a "code" feel
+Data "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"
+Data "A", "B", "C", "D", "E", "F"
+' Miscellaneous symbols
+Data "$", "#", "@", "&", "*", "+", "=", "<", ">"
+' Sentinel — signals LoadMatrixCharacters to stop reading
+Data "END"
+
+' ============================================================================
+' UPDATE
+' ============================================================================
+' _Process(delta) is called every frame by Godot (like _process in GDScript).
+' delta is the elapsed time in seconds since the last frame — used for
+' frame-rate-independent animation.
+Sub _Process(delta As Single)
+	' --- Manual mode switch via SPACE / Enter ---
+	' Input.IsActionJustPressed() is Godot's input API, accessed directly from
+	' VisualGasic. "ui_accept" is the built-in Godot action mapped to Space/Enter.
+	If Input.IsActionJustPressed("ui_accept") Then
+		currentMode = (currentMode + 1) Mod 4  ' Wrap 0→1→2→3→0 using Mod
+		modeTimer = MODE_DURATION               ' Reset countdown after manual switch
+		Print "Switched to mode: " & Str(currentMode)
+	End If
+	
+	' --- Automatic mode switch every MODE_DURATION seconds ---
+	modeTimer = modeTimer - delta
+	If modeTimer <= 0 Then
+		currentMode = (currentMode + 1) Mod 4
+		modeTimer = MODE_DURATION
+	End If
+	
+	' --- Dispatch per-mode update logic ---
+	' Select Case … End Select is the VB6 equivalent of switch/case.
+	' VisualGasic compiles it to efficient branch tables in Godot.
+	Select Case currentMode
+		Case 0  ' Matrix rain — advance column positions
+			UpdateMatrixRain delta
+		Case 1  ' Geometric shapes — (all work done in _Draw)
+			UpdateGeometric delta
+		Case 2  ' Spiral — (all work done in _Draw)
+			UpdateSpiral delta
+		Case 3  ' Starfield — move stars outward
+			UpdateStarfield delta
+	End Select
+	
+	' --- Shared animation accumulators (used by multiple modes) ---
+	pulseValue = pulseValue + delta * 2     ' ~2 rad/s — drives Sin() oscillations
+	shapeAngle = shapeAngle + delta * 0.5   ' ~0.5 rad/s — slow rotation for geometry
+	spiralAngle = spiralAngle + delta * 3   ' ~3 rad/s — fast winding for the spiral
+End Sub
+
+' Advance every matrix-rain column by its own speed.
+' Also randomly mutate characters to create the "shifting glyph" look.
+Sub UpdateMatrixRain(delta As Single)
+	Dim i As Integer
+	For i = 0 To NUM_COLUMNS - 1
+		' Move the column head downward: distance = speed × time
+		columnY(i) = columnY(i) + columnSpeed(i) * delta
+		
+		' 10 % chance per frame to swap one random glyph in the trail,
+		' producing the characteristic "flickering" effect.
+		If Rnd() < 0.1 Then
+			Dim randIdx As Integer = Int(Rnd() * columnLength(i))
+			columnChars(i, randIdx) = matrixChars(Int(Rnd() * charCount))
+		End If
+		
+		' Once the entire trail has scrolled below the visible area, recycle
+		' the column with fresh random parameters.
+		If columnY(i) - columnLength(i) * CHAR_HEIGHT > SCREEN_HEIGHT Then
+			ResetColumn i
+		End If
+	Next
+End Sub
+
+' Geometric mode needs no per-frame state update; everything is computed
+' procedurally inside DrawGeometric() from the shared accumulators.
+Sub UpdateGeometric(delta As Single)
+	' Handled in draw
+End Sub
+
+' Spiral mode likewise derives its visuals purely from spiralAngle and
+' pulseValue, so no separate state to advance here.
+Sub UpdateSpiral(delta As Single)
+	' Handled in draw
+End Sub
+
+' Starfield reuses the columnY / columnSpeed arrays as radial distance &
+' speed for each "star". This avoids extra arrays — a common VB6 trick
+' where you repurpose existing storage in different modes.
+Sub UpdateStarfield(delta As Single)
+	Dim i As Integer
+	For i = 0 To NUM_COLUMNS - 1
+		' Increase radial distance from center at the star's own speed
+		columnY(i) = columnY(i) + columnSpeed(i) * delta
+		' Once the star has travelled beyond the screen, reset it to the
+		' center and give it a new random speed (50–450 px/s)
+		If columnY(i) > SCREEN_HEIGHT Then
+			columnY(i) = 0
+			columnSpeed(i) = 50 + Rnd() * 400
+		End If
+	Next
+End Sub
+
+' ============================================================================
+' DRAWING
+' ============================================================================
+' _Draw() is called every frame by Godot's rendering pipeline (maps to
+' GDScript's _draw()). All DrawRect/DrawCircle/DrawLine/DrawString calls
+' must happen inside this callback — they are immediate-mode drawing
+' primitives that paint directly onto the node's canvas.
+Sub _Draw()
+	' Clear the screen by filling a full-screen rectangle with solid black.
+	' DrawRect x, y, width, height, color
+	' Color.Black is a built-in Godot colour constant.
+	DrawRect 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Color.Black
+	
+	' Dispatch to the active mode's draw routine via Select Case
+	Select Case currentMode
+		Case 0
+			DrawMatrixRain
+		Case 1
+			DrawGeometric
+		Case 2
+			DrawSpiral
+		Case 3
+			DrawStarfield
+	End Select
+	
+	' --- HUD overlay: show current mode name at bottom-left ---
+	' Single-line Select Case using colon syntax (VB6 shorthand)
+	Dim modeName As String
+	Select Case currentMode
+		Case 0: modeName = "Matrix Rain"
+		Case 1: modeName = "Geometric"
+		Case 2: modeName = "Spiral"
+		Case 3: modeName = "Starfield"
+	End Select
+	
+	' DrawString text, x, y, color, fontSize
+	' Color("#333333") constructs a colour from a hex string — dark grey so
+	' the HUD is subtle and doesn't distract from the animation.
+	DrawString modeName, 10, SCREEN_HEIGHT - 30, Color("#333333"), 16
+	DrawString "Press SPACE to switch", SCREEN_WIDTH - 180, SCREEN_HEIGHT - 30, Color("#333333"), 14
+End Sub
+
+' Render every visible character in every column's trailing tail.
+' Algorithm:
+'   For each column i, walk backwards from the head (j=0) to the tail.
+'   The head glyph is near-white; subsequent glyphs fade to darker green,
+'   creating the signature "digital rain" gradient.
+Sub DrawMatrixRain()
+	Dim i, j As Integer        ' i = column index, j = position within trail
+	Dim x, y As Single         ' Pixel coordinates for each glyph
+	
+	For i = 0 To NUM_COLUMNS - 1
+		' Horizontal position: evenly spaced columns, 10 px left margin
+		x = i * CHAR_WIDTH + 10
+		
+		For j = 0 To columnLength(i) - 1
+			' j=0 is the leading (bottom) character; higher j = further up
+			y = columnY(i) - j * CHAR_HEIGHT
+			
+			' Cull characters outside the visible screen area
+			If y >= 0 And y < SCREEN_HEIGHT Then
+				' fade: 1.0 at the head → 0.0 at the tail tip
+				Dim fade As Single = 1.0 - (j / columnLength(i))
+				
+				' Color(r, g, b) — the 3-argument constructor (alpha defaults 1.0)
+				Dim charColor As Variant   ' Variant holds the Color value
+				If j = 0 Then
+					' Head char: bright white-green highlight
+					charColor = Color(0.9, 1.0, 0.9)
+				Else
+					' Trail chars: pure green channel scaled by fade,
+					' capped at 0.8 so the brightest trail char < head
+					charColor = Color(0, fade * 0.8, 0)
+				End If
+				
+				' DrawString text, x, y, color, fontSize
+				DrawString columnChars(i, j), x, y, charColor, 18
+			End If
+		Next
+	Next
+End Sub
+
+' Draws three layers of geometric shapes centred on the screen:
+'   1) Concentric pulsing circles with HSV-like colour cycling
+'   2) 12 rotating radial lines (clock-hand pattern)
+'   3) 4 rotating rectangles orbiting the centre
+Sub DrawGeometric()
+	' Screen centre — used as the origin for all shapes
+	Dim cx As Single = SCREEN_WIDTH / 2
+	Dim cy As Single = SCREEN_HEIGHT / 2
+	
+	' --- Layer 1: Pulsing circles ---
+	' 10 concentric rings whose radii oscillate via Sin(), producing a
+	' breathing / pulsing effect.
+	Dim i As Integer
+	For i = 1 To 10
+		' Base radius grows with i; Sin() adds ±20 px oscillation.
+		' Phase-shifting by i*0.5 makes each ring pulse at a slightly
+		' different time, creating a wave-like ripple.
+		Dim radius As Single = i * 30 + Sin(pulseValue + i * 0.5) * 20
+		' Outer rings are more transparent (alpha decreases with i)
+		Dim alpha As Single = 0.8 - i * 0.07
+		' hue rotates slowly (shapeAngle) and each ring is offset by 0.1
+		' Mod 1.0 wraps the hue into [0, 1) — cheap HSV-like cycling
+		Dim hue As Single = (shapeAngle + i * 0.1) Mod 1.0
+		
+		' Quick HSV→RGB approximation: three sine waves 120° apart.
+		' Abs() keeps values positive; 6.28 ≈ 2π maps hue 0–1 to a full cycle.
+		Dim r As Single = Abs(Sin(hue * 6.28))
+		Dim g As Single = Abs(Sin((hue + 0.33) * 6.28))   ' +120°
+		Dim b As Single = Abs(Sin((hue + 0.66) * 6.28))   ' +240°
+		
+		' DrawCircle centreX, centreY, radius, color
+		' Multiply RGB by alpha to pre-multiply and fade outer rings.
+		DrawCircle cx, cy, radius, Color(r * alpha, g * alpha, b * alpha)
+	Next
+	
+	' --- Layer 2: 12 rotating radial lines ---
+	' Evenly spaced at 30° (π/6) intervals, rotating as shapeAngle grows.
+	For i = 0 To 11
+		Dim angle As Single = shapeAngle + i * (3.14159 / 6)  ' 30° per step
+		' Inner endpoint 50 px from centre, outer endpoint 250 px
+		Dim x1 As Single = cx + Cos(angle) * 50
+		Dim y1 As Single = cy + Sin(angle) * 50
+		Dim x2 As Single = cx + Cos(angle) * 250
+		Dim y2 As Single = cy + Sin(angle) * 250
+		
+		' DrawLine x1, y1, x2, y2, color
+		' Color(r, g, b, a) — 4-argument constructor with explicit alpha (0.6)
+		DrawLine x1, y1, x2, y2, Color(0.5, 0.5, 1.0, 0.6)
+	Next
+	
+	' --- Layer 3: 4 rotating rectangles ---
+	' Orbit 150 px from centre, 90° apart (1.57 ≈ π/2), rotating at 2× speed.
+	For i = 0 To 3
+		Dim rectAngle As Single = shapeAngle * 2 + i * 1.57  ' Faster spin
+		' Rectangle size breathes with Sin(pulseValue): 70–130 px
+		Dim rectSize As Single = 100 + Sin(pulseValue) * 30
+		' Position the top-left corner so the rect is centred on the orbit point
+		Dim rx As Single = cx + Cos(rectAngle) * 150 - rectSize/2
+		Dim ry As Single = cy + Sin(rectAngle) * 150 - rectSize/2
+		
+		' Each rectangle gets a different tint; alpha 0.5 for translucency
+		Dim rectColor As Variant = Color(1.0 - i*0.2, i*0.3, 0.5, 0.5)
+		' DrawRect x, y, width, height, color
+		DrawRect rx, ry, rectSize, rectSize, rectColor
+	Next
+End Sub
+
+' Parametric spiral of 501 colour-cycling dots radiating from the centre.
+' The spiral winds outward as i increases; spiralAngle makes it rotate.
+Sub DrawSpiral()
+	Dim cx As Single = SCREEN_WIDTH / 2   ' Centre X
+	Dim cy As Single = SCREEN_HEIGHT / 2  ' Centre Y
+	
+	' --- Main spiral body: 501 small circles ---
+	Dim i As Integer
+	Dim angle As Single   ' Polar angle for each dot
+	Dim radius As Single  ' Polar radius for each dot
+	
+	For i = 0 To 500
+		' spiralAngle offsets the whole spiral (rotation).
+		' i * 0.1 spaces consecutive dots 0.1 rad apart in angle.
+		angle = spiralAngle + i * 0.1
+		' Radius grows linearly → Archimedean spiral (r = a + bθ)
+		radius = i * 0.5
+		
+		' Convert polar (angle, radius) to Cartesian pixel coords
+		Dim x As Single = cx + Cos(angle) * radius
+		Dim y As Single = cy + Sin(angle) * radius
+		
+		' Off-screen culling — Continue For skips the rest of this
+		' iteration and jumps to the next i (VB6-style loop control).
+		If x < 0 Or x > SCREEN_WIDTH Or y < 0 Or y > SCREEN_HEIGHT Then
+			Continue For
+		End If
+		
+		' t normalises i to [0, 1] for smooth colour interpolation.
+		' Three phase-shifted sine waves produce a rainbow-like cycle.
+		Dim t As Single = i / 500.0
+		Dim r As Single = Sin(t * 3.14) * 0.5 + 0.5        ' Red channel
+		Dim g As Single = Sin(t * 3.14 + 1) * 0.5 + 0.5    ' Green channel (+1 rad offset)
+		Dim b As Single = Sin(t * 3.14 + 2) * 0.5 + 0.5    ' Blue channel (+2 rad offset)
+		
+		' Dot radius oscillates 0–4 px via Sin(), adding organic motion
+		Dim dotSize As Single = 2 + Sin(angle * 2 + pulseValue) * 2
+		DrawCircle x, y, dotSize, Color(r, g, b)
+	Next
+	
+	' --- Centre glow: 5 translucent circles drawn largest first ---
+	' Step -1 is VB6 syntax for a decrementing For loop.
+	' Outer circles have lower alpha → soft halo effect.
+	For i = 5 To 1 Step -1
+		Dim glowAlpha As Single = 0.2 - i * 0.03   ' Fades from 0.05 to 0.17
+		' Radius breathes with Sin(pulseValue) — ±10 px wobble
+		DrawCircle cx, cy, i * 20 + Sin(pulseValue) * 10, Color(0.5, 0.8, 1.0, glowAlpha)
+	Next
+End Sub
+
+' Classic starfield / warp-speed effect.
+' Stars radiate outward from the screen centre; each star is one of the
+' NUM_COLUMNS "slots", reusing columnY as radial distance and columnSpeed
+' as velocity (see UpdateStarfield).
+Sub DrawStarfield()
+	Dim cx As Single = SCREEN_WIDTH / 2   ' Vanishing-point X
+	Dim cy As Single = SCREEN_HEIGHT / 2  ' Vanishing-point Y
+	
+	Dim i As Integer
+	For i = 0 To NUM_COLUMNS - 1
+		' Each star gets a fixed angle evenly distributed around the circle.
+		' 6.28 ≈ 2π so the stars fan out in all directions.
+		Dim angle As Single = (i / NUM_COLUMNS) * 6.28
+		' columnY holds radial distance; ×2 scales it to cover the screen
+		Dim dist As Single = columnY(i) * 2
+		
+		' Convert polar → Cartesian for the star's head position
+		Dim x As Single = cx + Cos(angle) * dist
+		Dim y As Single = cy + Sin(angle) * dist
+		
+		' Farther stars appear larger — perspective cue
+		Dim starSize As Single = 1 + dist / 200
+		
+		' Faster stars are brighter; normalise speed into ~[0, 1]
+		Dim brightness As Single = columnSpeed(i) / 450
+		
+		' --- Star trail ---
+		' The trail is a short line segment pointing back toward the centre.
+		' trailLen ∝ speed, so fast stars streak more.
+		Dim trailLen As Single = columnSpeed(i) / 50
+		Dim x2 As Single = cx + Cos(angle) * (dist - trailLen)
+		Dim y2 As Single = cy + Sin(angle) * (dist - trailLen)
+		
+		' DrawLine draws the streak; greyscale colour from brightness
+		DrawLine x2, y2, x, y, Color(brightness, brightness, brightness)
+		' Dot at the head of the streak — Color.White is a Godot constant
+		DrawCircle x, y, starSize, Color.White
+	Next
+	
+	' --- Flashing "WARP SPEED" text ---
+	' Appears only when Sin(pulseValue*2) > 0.8, which is true for a brief
+	' window each cycle — creating an intermittent flash.
+	If Sin(pulseValue * 2) > 0.8 Then
+		DrawString "WARP SPEED", cx - 80, cy - 200, Color(0.5, 0.5, 1.0, 0.5), 28
+	End If
+End Sub

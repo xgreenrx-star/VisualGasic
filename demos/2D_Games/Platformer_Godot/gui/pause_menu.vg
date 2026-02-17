@@ -24,9 +24,9 @@ Dim coinsCounter As Object          ' CoinsCounter (Panel) - coin display
 ' INITIALIZATION
 ' ============================================================================
 Sub _Ready()
-    ' Get node references
+    ' Get node references — use full relative paths from owner
     centerCont = GetNode("ColorRect/CenterContainer")
-    resumeButton = centerCont.GetNode("VBoxContainer/ResumeButton")
+    resumeButton = GetNode("ColorRect/CenterContainer/VBoxContainer/ResumeButton")
     coinsCounter = GetNode("ColorRect/CoinsCounter")
 
     ' Start hidden
@@ -37,7 +37,7 @@ End Sub
 ' OPEN / CLOSE - Show and hide the pause menu
 ' ============================================================================
 ' Opens the pause menu with a fade-in animation.
-Sub open()
+Sub OpenMenu()
     Me.Show()
     resumeButton.GrabFocus()
 
@@ -46,19 +46,20 @@ Sub open()
 
     ' Fade in using a tween on the modulate alpha
     Dim tween As Object
-    tween = Me.CreateTween()
-    tween.TweenProperty(Me, "modulate:a", 1.0, FADE_IN_DURATION)
+    tween = CreateTween()
+    TweenProperty Me, "modulate:a", 1.0, FADE_IN_DURATION
 End Sub
 
 ' Closes the pause menu with a fade-out animation.
-Sub close()
-    Me.GetTree().paused = False
+Sub CloseMenu()
+    Dim tree As Object
+    tree = Me.GetTree()
+    tree.paused = False
 
-    ' Fade out
-    Dim tween As Object
-    tween = Me.CreateTween()
-    tween.TweenProperty(Me, "modulate:a", 0.0, FADE_OUT_DURATION)
-    tween.TweenCallback(Me.Callable("hide"))
+    ' Fade out then hide
+    TweenProperty Me, "modulate:a", 0.0, FADE_OUT_DURATION
+    ' Hide after the fade completes
+    Me.Hide()
 End Sub
 
 ' ============================================================================
@@ -76,7 +77,7 @@ End Sub
 ' Connected in pause_menu.tscn via:
 '   [connection signal="pressed" from="...ResumeButton" to="." method="_on_resume_button_pressed"]
 Sub _on_resume_button_pressed()
-    close
+    CloseMenu
 End Sub
 
 ' Called when Quit button is pressed.

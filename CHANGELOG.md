@@ -5,6 +5,35 @@ All notable changes to Visual Gasic will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.6.1] - February 2026
+
+### Fixed - Bytecode VM Missing Builtins (Platformer Demo)
+- **`IsOnFloor(body)`** added to bytecode `OP_CALL` handler — was only in AST evaluator, causing bytecode-compiled functions (like `GetNewAnimation`) to always return "falling" because `IsOnFloor(Me)` silently returned nil
+- **`IsOnWall(body)`** added to bytecode `OP_CALL` — CharacterBody2D/3D wall detection
+- **`GetAxis("neg", "pos")`** added to bytecode `OP_CALL` — Input axis queries
+- **`IsActionPressed` / `IsActionJustPressed` / `IsActionJustReleased`** added to bytecode `OP_CALL` — Input action queries
+- **`GetNode(path)` with base_object** — `sprite.GetNode("Gun")` now resolves relative to the base node, not always the owner
+- **`Load(path)`** added to bytecode `OP_CALL` — `ResourceLoader::load()` for PackedScene/Texture
+- **`CreateTween()`** added to bytecode `OP_CALL` — tween creation on owner node
+- **`Vector2(x, y)`** added to bytecode `OP_CALL` — constructor in bytecode path
+
+### Fixed - Signal Handler Dispatch
+- Signal callbacks with snake_case names (e.g. `_on_body_entered`) were not found because `godot_snake_to_vg_pascal()` converts to `_OnBodyEntered` (14 chars) which doesn't match the 18-char original. Now falls back to the original method name when PascalCase lookup fails.
+
+### Fixed - Me.Method() Silently Dropped in Bytecode
+- Compiler previously allowed `Me.X()` and `With.X()` base_object calls through STMT_CALL, generating plain `OP_CALL` without base context — `Me.Hide()`, `Me.AddToGroup()`, `Me.RemoveFromGroup()` silently did nothing. Compiler now correctly rejects ALL base_object calls to fall back to the AST interpreter which handles them properly.
+
+### Fixed - Object Method Call Error Reporting
+- Base_object method calls that fail (null reference or missing method) now raise descriptive runtime errors instead of silently returning nil
+- Expression evaluator fast-path now tries snake_case conversion for Godot method dispatch and delegates to full evaluator on failure
+
+### Improved - Godot-native Platformer Demo
+- Animation system uses local tracking variable instead of `animPlayer.current_animation` property access (avoids empty-string comparison issue with non-looping animations)
+- Enemy animation tracking uses same pattern for consistency
+- All 8 scripts (player, enemy, gun, bullet, coin, pause_menu, game, game_singleplayer) parse with 0 errors and run with 0 runtime errors
+
+---
+
 ## [2.6.0] - February 2026
 
 ### Added - Custom .vg File Icons

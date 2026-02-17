@@ -1,6 +1,6 @@
 # VisualGasic Project Status
 
-**Version**: 2.6.0 (Custom Icons + IntelliSense Update + Profiler UI)  
+**Version**: 2.6.1 (Bytecode Builtins Fix + Signal Handler + Platformer Demo)  
 **Last Updated**: February 2026
 
 ## Overview

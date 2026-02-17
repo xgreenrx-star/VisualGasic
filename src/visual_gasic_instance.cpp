@@ -2474,17 +2474,20 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
         // GetNode("path") - Godot node path lookup
         if (call->method_name.nocasecmp_to("GetNode") == 0 && call_args.size() == 1) {
             String path = call_args[0];
-            if (owner) {
-                Node *n = Object::cast_to<Node>(owner);
-                if (n && n->is_inside_tree()) {
-                    if (path.begins_with("/root/") || path.begins_with("/")) {
-                        // Absolute path from scene root
-                        return n->get_node_or_null(NodePath(path));
-                    } else {
-                        // Relative path from owner
-                        return n->get_node_or_null(NodePath(path));
-                    }
+            // When called with a base object (e.g. child.GetNode("Camera")),
+            // resolve relative to the base object, not the owner
+            Node *resolve_from = nullptr;
+            if (call->base_object) {
+                Variant base = evaluate_expression(call->base_object);
+                if (base.get_type() == Variant::OBJECT) {
+                    resolve_from = Object::cast_to<Node>(base);
                 }
+            }
+            if (!resolve_from && owner) {
+                resolve_from = Object::cast_to<Node>(owner);
+            }
+            if (resolve_from && resolve_from->is_inside_tree()) {
+                return resolve_from->get_node_or_null(NodePath(path));
             }
             return Variant();
         }
@@ -2519,6 +2522,7 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
             }
 
             Variant base = evaluate_expression(call->base_object);
+
             Variant br;
             if (VisualGasicBuiltins::call_builtin_for_base_variant(this, base, call->method_name, call_args, br)) {
                 return br;
@@ -2581,6 +2585,18 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
                      return res;
                  }
              }
+
+            // If we got here, the base_object was evaluated but the method
+            // could not be dispatched — either base was Nil (null object
+            // reference) or the object didn't have the requested method.
+            if (base.get_type() == Variant::NIL) {
+                String base_name = (call->base_object->type == ExpressionNode::VARIABLE)
+                    ? ((VariableNode*)call->base_object)->name : String("<expression>");
+                raise_error("Object variable '" + base_name + "' is Nothing (null) — cannot call ." + call->method_name);
+            } else {
+                raise_error("Object does not support method '" + call->method_name + "'");
+            }
+            return Variant();
         }
 
         // Check if it is an array access
@@ -7019,7 +7035,16 @@ void VisualGasicInstance::call(const StringName &p_method, const Variant *const 
     // e.g. "_unhandled_input" → "_UnhandledInput"
     String vg_method = godot_snake_to_vg_pascal(String(p_method));
     Variant ret = call_internal(vg_method, args, found);
-    
+
+    // If PascalCase lookup failed, try the original method name.
+    // Signal handler callbacks (e.g. "_on_body_entered") are written in
+    // snake_case WITH underscores in the VG source.  The PascalCase
+    // conversion strips internal underscores ("_OnBodyEntered") which
+    // won't match the actual sub name.
+    if (!found && vg_method != String(p_method)) {
+        ret = call_internal(String(p_method), args, found);
+    }
+
     if (found) {
         if (r_return) *r_return = ret;
         r_error->error = GDEXTENSION_CALL_OK;
@@ -9564,6 +9589,99 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 String method = read_constant(name_idx);
                 bool handled = false;
                 Variant call_ret = VisualGasicBuiltins::call_builtin_expr_evaluated(this, method, args, handled);
+
+                // GetNode("path") — Godot node path lookup (bytecode path)
+                if (!handled && method.nocasecmp_to("GetNode") == 0 && args.size() == 1) {
+                    String path = args[0];
+                    Node *resolve_from = nullptr;
+                    if (owner) {
+                        resolve_from = Object::cast_to<Node>(owner);
+                    }
+                    if (resolve_from && resolve_from->is_inside_tree()) {
+                        call_ret = resolve_from->get_node_or_null(NodePath(path));
+                    } else {
+                        call_ret = Variant();
+                    }
+                    handled = true;
+                }
+
+                // Vector2(x, y) — convenience constructor
+                if (!handled && method.nocasecmp_to("Vector2") == 0 && args.size() == 2) {
+                    call_ret = Vector2(args[0], args[1]);
+                    handled = true;
+                }
+
+                // Load("path") — load a resource (PackedScene, Texture, etc.)
+                if (!handled && method.nocasecmp_to("Load") == 0 && args.size() == 1) {
+                    call_ret = ResourceLoader::get_singleton()->load(args[0]);
+                    handled = true;
+                }
+
+                // CreateTween() — create a Tween on the owner node
+                if (!handled && method.nocasecmp_to("CreateTween") == 0 && args.size() == 0) {
+                    if (owner) {
+                        Node *n = Object::cast_to<Node>(owner);
+                        if (n) {
+                            call_ret = n->create_tween();
+                        } else {
+                            call_ret = Variant();
+                        }
+                    } else {
+                        call_ret = Variant();
+                    }
+                    handled = true;
+                }
+
+                // IsOnFloor(body) — CharacterBody2D/3D floor check
+                if (!handled && method.nocasecmp_to("IsOnFloor") == 0 && args.size() == 1) {
+                    Object *o = args[0];
+                    if (o) {
+                        CharacterBody2D *cb2 = Object::cast_to<CharacterBody2D>(o);
+                        if (cb2) { call_ret = cb2->is_on_floor(); }
+                        else {
+                            CharacterBody3D *cb3 = Object::cast_to<CharacterBody3D>(o);
+                            if (cb3) { call_ret = cb3->is_on_floor(); }
+                            else { call_ret = false; }
+                        }
+                    } else { call_ret = false; }
+                    handled = true;
+                }
+
+                // IsOnWall(body) — CharacterBody2D/3D wall check
+                if (!handled && method.nocasecmp_to("IsOnWall") == 0 && args.size() == 1) {
+                    Object *o = args[0];
+                    if (o) {
+                        CharacterBody2D *cb2 = Object::cast_to<CharacterBody2D>(o);
+                        if (cb2) { call_ret = cb2->is_on_wall(); }
+                        else {
+                            CharacterBody3D *cb3 = Object::cast_to<CharacterBody3D>(o);
+                            if (cb3) { call_ret = cb3->is_on_wall(); }
+                            else { call_ret = false; }
+                        }
+                    } else { call_ret = false; }
+                    handled = true;
+                }
+
+                // GetAxis("negative", "positive") — Input axis
+                if (!handled && method.nocasecmp_to("GetAxis") == 0 && args.size() == 2) {
+                    call_ret = Input::get_singleton()->get_axis(args[0], args[1]);
+                    handled = true;
+                }
+
+                // IsActionPressed / IsActionJustPressed / IsActionJustReleased
+                if (!handled && method.nocasecmp_to("IsActionPressed") == 0 && args.size() == 1) {
+                    call_ret = Input::get_singleton()->is_action_pressed(String(args[0]));
+                    handled = true;
+                }
+                if (!handled && method.nocasecmp_to("IsActionJustPressed") == 0 && args.size() == 1) {
+                    call_ret = Input::get_singleton()->is_action_just_pressed(String(args[0]));
+                    handled = true;
+                }
+                if (!handled && method.nocasecmp_to("IsActionJustReleased") == 0 && args.size() == 1) {
+                    call_ret = Input::get_singleton()->is_action_just_released(String(args[0]));
+                    handled = true;
+                }
+
                 if (!handled) {
                     bool found = false;
                     call_ret = call_internal(method, args, found);

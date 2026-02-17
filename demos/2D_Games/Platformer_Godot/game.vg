@@ -31,33 +31,36 @@ End Sub
 ' This ensures UI buttons don't accidentally trigger game-level input.
 Sub _UnhandledInput(event As Object)
     ' --- Fullscreen toggle (F11 or Alt+Enter) ---
-    If event.IsActionPressed("toggle_fullscreen") Then
+    If IsActionJustPressed("toggle_fullscreen") Then
         ' Toggle between windowed and fullscreen modes
-        ' DisplayServer is a Godot singleton accessible via callv
-        Dim ds As Object
-        ds = Me.GetNode("/root").GetViewport().GetWindow()
+        Dim vp As Object
+        vp = Me.GetViewport()
+        Dim win As Object
+        win = vp.GetWindow()
         Dim currentMode As Integer
-        currentMode = ds.mode
+        currentMode = win.mode
         ' Window.MODE_FULLSCREEN = 3, MODE_WINDOWED = 0
         If currentMode = 3 Or currentMode = 4 Then
-            ds.mode = 0     ' Switch to windowed
+            win.mode = 0     ' Switch to windowed
         Else
-            ds.mode = 3     ' Switch to fullscreen
+            win.mode = 3     ' Switch to fullscreen
         End If
-        Me.GetViewport().SetInputAsHandled()
+        vp.SetInputAsHandled()
         Exit Sub
     End If
 
     ' --- Pause toggle (Escape) ---
-    If event.IsActionPressed("toggle_pause") Then
+    If IsActionJustPressed("toggle_pause") Then
         Dim tree As Object
         tree = Me.GetTree()
         tree.paused = Not tree.paused
         If tree.paused Then
-            pauseMenu.open()
+            pauseMenu.OpenMenu()
         Else
-            pauseMenu.close()
+            pauseMenu.CloseMenu()
         End If
-        Me.GetViewport().SetInputAsHandled()
+        Dim vp2 As Object
+        vp2 = Me.GetViewport()
+        vp2.SetInputAsHandled()
     End If
 End Sub

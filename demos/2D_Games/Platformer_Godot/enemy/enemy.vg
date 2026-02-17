@@ -35,6 +35,7 @@ Dim animPlayer As Object                ' AnimationPlayer - idle/walk/destroy
 ' --- Cached velocity ---
 Dim vx As Single
 Dim vy As Single
+Dim currentAnim As String               ' Tracks current animation to avoid re-triggering
 
 ' ============================================================================
 ' INITIALIZATION
@@ -100,7 +101,8 @@ Sub _PhysicsProcess(delta As Single)
     ' --- Play appropriate animation ---
     Dim anim As String
     anim = GetNewAnimation()
-    If anim <> animPlayer.current_animation Then
+    If anim <> currentAnim Then
+        currentAnim = anim
         animPlayer.Play(anim)
     End If
 End Sub

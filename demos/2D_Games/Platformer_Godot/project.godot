@@ -1,6 +1,10 @@
 ; Engine configuration file.
-; Converted from official Godot 2D Platformer demo for VisualGasic
-; Original: godotengine/godot-demo-projects (MIT License)
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
 
 config_version=5
 
@@ -19,6 +23,7 @@ config/icon="res://icon.webp"
 [autoload]
 
 Music="*res://music.tscn"
+VGDebugHandler="*res://addons/visual_gasic/vg_debug_handler.gd"
 
 [display]
 

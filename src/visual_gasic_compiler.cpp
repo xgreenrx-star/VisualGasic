@@ -2943,12 +2943,11 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
         case STMT_CALL: {
             CallStatement* s = (CallStatement*)stmt;
             if (s->base_object) {
-                // Method calls on objects require AST interpreter fallback
-                if (s->base_object->type != ExpressionNode::ME &&
-                    s->base_object->type != ExpressionNode::WITH_CONTEXT) {
-                    compile_ok = false;
-                    break;
-                }
+                // Method calls on objects (including Me.X()) require AST interpreter
+                // fallback. The bytecode OP_CALL has no concept of a base object,
+                // so Me.Hide(), Me.AddToGroup() etc. would silently do nothing.
+                compile_ok = false;
+                break;
             }
             
             // Check if calling a function with ByRef parameters AND variable arguments

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+  <!-- File shape -->
+  <path d="M3 1h7l3 3v11H3z" fill="#8b5cf6" stroke="#5b21b6" stroke-width="0.5"/>
+  <!-- Fold corner -->
+  <path d="M10 1v3h3" fill="#a78bfa" stroke="#5b21b6" stroke-width="0.5"/>
+  <!-- VG text -->
+  <text x="8" y="11.5" font-family="Arial,sans-serif" font-size="6" font-weight="bold" fill="white" text-anchor="middle">VG</text>
+</svg>

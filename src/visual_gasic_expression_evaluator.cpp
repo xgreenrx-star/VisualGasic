@@ -316,13 +316,25 @@ Variant VisualGasicExpressionEvaluator::evaluate(ExpressionNode* expr, Context& 
             if (ctx.instance && VisualGasicBuiltins::call_builtin_for_base_variant(ctx.instance, base, call->method_name, args, ret)) {
                 return ret;
             }
-            // Fallback: try Godot method call on object
+            // Fallback: try Godot method call on object (with snake_case conversion)
             if (base.get_type() == Variant::OBJECT) {
                 Object* obj = base;
-                if (obj && obj->has_method(call->method_name)) {
-                    return obj->callv(call->method_name, args);
+                if (obj) {
+                    if (obj->has_method(call->method_name)) {
+                        return obj->callv(call->method_name, args);
+                    }
+                    String snake = call->method_name.to_snake_case();
+                    if (obj->has_method(snake)) {
+                        return obj->callv(snake, args);
+                    }
                 }
             }
+            // base_object was set but method could not be dispatched —
+            // delegate to the full evaluator which has detailed error reporting
+            if (ctx.instance) {
+                return ctx.instance->evaluate_expression_full(expr);
+            }
+            return Variant();
         }
 
         // For other EXPRESSION_CALL nodes, delegate to the full evaluator
