@@ -105,9 +105,7 @@ Sub PrintScoresToConsole()
 	For i = 0 To scoreCount - 1
 		' Str() converts Integer to String; PadRight pads the name to 10
 		' chars so columns stay aligned; PadLeft right-justifies the score.
-		' The underscore _ is VB6's line-continuation character.
-		Print Str(i + 1) & ". " & PadRight(playerNames(i), 10) & " " & _
-			  PadLeft(Str(playerScores(i)), 8) & "  " & playerDates(i)
+		Print Str(i + 1) & ". " & PadRight(playerNames(i), 10) & " " & PadLeft(Str(playerScores(i)), 8) & "  " & playerDates(i)
 	Next
 	
 	Print ""

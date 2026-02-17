@@ -152,6 +152,9 @@ enum OpCode {
     OP_DEBUG_LINE,     // [OP] [LINE_LO] [LINE_HI] - Track current source line for debugging
     OP_STOP,           // [OP] - VB6 Stop statement: trigger debugger break
 
+    // Type-checking
+    OP_IS_CLASS,       // [OP] - Pop class-name string + object, push bool (obj.is_class(name))
+
     OP_COUNT_          // Sentinel — must be last (used by computed-goto table)
 };
 

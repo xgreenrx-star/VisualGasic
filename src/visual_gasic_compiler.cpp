@@ -2,6 +2,7 @@
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <godot_cpp/core/math.hpp>
 #include <godot_cpp/classes/file_access.hpp>
+#include <godot_cpp/core/class_db.hpp>
 
 namespace {
 constexpr bool kEnableLoopFusions = true;
@@ -4405,6 +4406,19 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
             if (is_constant_expr(b)) {
                 emit_constant(eval_constant_expr(b));
                 break;
+            }
+
+            // Special handling: "Is" operator with Godot class name → type-check
+            // e.g. "ev Is InputEventKey" → OP_IS_CLASS
+            if (b->op.nocasecmp_to("Is") == 0 && b->right &&
+                b->right->type == ExpressionNode::VARIABLE) {
+                String class_name = ((VariableNode*)b->right)->name;
+                if (ClassDB::class_exists(class_name)) {
+                    compile_expression(b->left);             // push object
+                    emit_constant(class_name);               // push class name string
+                    emit_byte(OP_IS_CLASS);                  // type-check
+                    break;
+                }
             }
 
             if ((b->left->type == ExpressionNode::VARIABLE || b->left->type == ExpressionNode::LITERAL) &&

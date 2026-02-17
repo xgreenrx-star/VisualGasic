@@ -545,10 +545,36 @@ bool VisualGasicScript::_has_method(const StringName &p_method) const {
     }
     if (p_method == StringName("_OnSignal")) return true;
     if (!ast_root) return false;
+    
+    String method_str = String(p_method);
     for(int i=0; i<ast_root->subs.size(); i++) {
-        // UtilityFunctions::print("HasMethod Check: ", ast_root->subs[i]->name, " vs ", p_method);
-        if (ast_root->subs[i]->name.nocasecmp_to(String(p_method)) == 0) return true;
+        if (ast_root->subs[i]->name.nocasecmp_to(method_str) == 0) return true;
     }
+    
+    // Godot uses snake_case for virtual methods (e.g. "_unhandled_input")
+    // while VG subs use PascalCase ("_UnhandledInput").  nocasecmp_to fails
+    // for multi-word names because the underscores differ.
+    // Convert snake_case → PascalCase and try again.
+    if (method_str.begins_with("_") && method_str.length() >= 2 && method_str.find("_", 1) >= 0) {
+        String pascal = "_";
+        bool cap_next = true;
+        for (int i = 1; i < method_str.length(); i++) {
+            char32_t c = method_str[i];
+            if (c == '_') {
+                cap_next = true;
+            } else {
+                if (cap_next) {
+                    if (c >= 'a' && c <= 'z') c = c - 'a' + 'A';
+                    cap_next = false;
+                }
+                pascal += String::chr(c);
+            }
+        }
+        for(int i=0; i<ast_root->subs.size(); i++) {
+            if (ast_root->subs[i]->name.nocasecmp_to(pascal) == 0) return true;
+        }
+    }
+    
     return false;
 }
 

@@ -1059,6 +1059,35 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
     variables["KEY_F10"] = (int)Key::KEY_F10;
     variables["KEY_F11"] = (int)Key::KEY_F11;
     variables["KEY_F12"] = (int)Key::KEY_F12;
+    // Symbol / punctuation keys
+    variables["KEY_PLUS"] = (int)Key::KEY_PLUS;
+    variables["KEY_MINUS"] = (int)Key::KEY_MINUS;
+    variables["KEY_ASTERISK"] = (int)Key::KEY_ASTERISK;
+    variables["KEY_SLASH"] = (int)Key::KEY_SLASH;
+    variables["KEY_PERIOD"] = (int)Key::KEY_PERIOD;
+    variables["KEY_EQUAL"] = (int)Key::KEY_EQUAL;
+    variables["KEY_PERCENT"] = (int)Key::KEY_PERCENT;
+    // Numeric keypad keys
+    variables["KEY_KP_0"] = (int)Key::KEY_KP_0;
+    variables["KEY_KP_1"] = (int)Key::KEY_KP_1;
+    variables["KEY_KP_2"] = (int)Key::KEY_KP_2;
+    variables["KEY_KP_3"] = (int)Key::KEY_KP_3;
+    variables["KEY_KP_4"] = (int)Key::KEY_KP_4;
+    variables["KEY_KP_5"] = (int)Key::KEY_KP_5;
+    variables["KEY_KP_6"] = (int)Key::KEY_KP_6;
+    variables["KEY_KP_7"] = (int)Key::KEY_KP_7;
+    variables["KEY_KP_8"] = (int)Key::KEY_KP_8;
+    variables["KEY_KP_9"] = (int)Key::KEY_KP_9;
+    variables["KEY_KP_ENTER"] = (int)Key::KEY_KP_ENTER;
+    variables["KEY_KP_ADD"] = (int)Key::KEY_KP_ADD;
+    variables["KEY_KP_SUBTRACT"] = (int)Key::KEY_KP_SUBTRACT;
+    variables["KEY_KP_MULTIPLY"] = (int)Key::KEY_KP_MULTIPLY;
+    variables["KEY_KP_DIVIDE"] = (int)Key::KEY_KP_DIVIDE;
+    variables["KEY_KP_PERIOD"] = (int)Key::KEY_KP_PERIOD;
+    // Mouse button constants
+    variables["MOUSE_BUTTON_LEFT"] = (int)MouseButton::MOUSE_BUTTON_LEFT;
+    variables["MOUSE_BUTTON_RIGHT"] = (int)MouseButton::MOUSE_BUTTON_RIGHT;
+    variables["MOUSE_BUTTON_MIDDLE"] = (int)MouseButton::MOUSE_BUTTON_MIDDLE;
     
     // MsgBox Button Constants (VB6-style)
     variables["vbOKOnly"] = 0;
@@ -1252,6 +1281,7 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
              bool has_process = false;
              bool has_physics = false;
              bool has_input = false;
+             bool has_unhandled_input = false;
              
              VisualGasicScript *vs = Object::cast_to<VisualGasicScript>(script.ptr());
              if (vs && vs->ast_root) {
@@ -1260,6 +1290,7 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
                      if (n.nocasecmp_to("_Process") == 0) has_process = true;
                      if (n.nocasecmp_to("_PhysicsProcess") == 0) has_physics = true;
                      if (n.nocasecmp_to("_Input") == 0) has_input = true;
+                     if (n.nocasecmp_to("_UnhandledInput") == 0) has_unhandled_input = true;
                  }
              }
 
@@ -1270,6 +1301,7 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
              
              if (has_physics) node->set_physics_process(true);
              if (has_input) node->set_process_input(true);
+             if (has_unhandled_input) node->set_process_unhandled_input(true);
         } else {
              UtilityFunctions::print("VisualGasic: Owner is NOT a Node");
         }
@@ -3954,16 +3986,36 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
         if (op.nocasecmp_to("Or") == 0) return l.booleanize() || r.booleanize();
         if (op.nocasecmp_to("Xor") == 0) return l.booleanize() != r.booleanize();
         if (op.nocasecmp_to("Is") == 0) {
-             // Reference Comparison or Null check
-             // In Godot, equality works for nulls.
-             // But if we want Reference Identity, we check if they are same object.
-             // If operands are Objects, compare pointers (Object::cast_to<Object>?)
-             // Variant operator == on Objects compares IDs usually.
+             // VB6-style "Is" operator: type-check OR reference comparison.
              
-             // VB strict 'Is' means reference equality.
-             // Variant::OP_EQUAL does deep compare for Dictionary/Array?
-             // No, Dictionary/Array are by reference in Godot Variant.
-             // So == should be fine.
+             // Type-check: left is Object, right side is a Godot class name
+             if (l.get_type() == Variant::OBJECT && r.get_type() == Variant::NIL) {
+                 // Right side evaluated to null — check if the AST node was a class name
+                 if (bin->right && bin->right->type == ExpressionNode::VARIABLE) {
+                     String class_name = ((VariableNode*)bin->right)->name;
+                     if (ClassDB::class_exists(class_name)) {
+                         Object* obj = Object::cast_to<Object>(l);
+                         if (obj) return obj->is_class(class_name);
+                         return false;
+                     }
+                 }
+             }
+             if (l.get_type() == Variant::OBJECT && r.get_type() == Variant::STRING) {
+                 // Right side resolved to a class name string
+                 String class_name = String(r);
+                 if (ClassDB::class_exists(class_name)) {
+                     Object* obj = Object::cast_to<Object>(l);
+                     if (obj) return obj->is_class(class_name);
+                     return false;
+                 }
+             }
+             
+             // Null check: obj Is Nothing
+             if (r.get_type() == Variant::NIL) {
+                 return l.get_type() == Variant::NIL;
+             }
+             
+             // Reference equality fallback
              bool valid;
              Variant res;
              Variant::evaluate(Variant::OP_EQUAL, l, r, res, valid);
@@ -6464,6 +6516,35 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
     }
 }
 
+// Convert Godot snake_case virtual method names to VG PascalCase.
+// e.g. "_unhandled_input" → "_UnhandledInput", "_physics_process" → "_PhysicsProcess"
+// Single-word methods like "_input" → "_Input" also work (though nocasecmp_to
+// already handles those, this keeps the conversion uniform).
+static String godot_snake_to_vg_pascal(const String& method) {
+    // Only convert methods starting with underscore (Godot virtuals)
+    if (!method.begins_with("_") || method.length() < 2) return method;
+    // Check if there are any underscores after the leading one
+    // (if not, it's already single-word like "_input" — no conversion needed)
+    if (method.find("_", 1) < 0) return method;
+    
+    String result = "_";
+    bool cap_next = true;
+    for (int i = 1; i < method.length(); i++) {
+        char32_t c = method[i];
+        if (c == '_') {
+            cap_next = true;
+        } else {
+            if (cap_next) {
+                // Capitalize: convert to uppercase
+                if (c >= 'a' && c <= 'z') c = c - 'a' + 'A';
+                cap_next = false;
+            }
+            result += String::chr(c);
+        }
+    }
+    return result;
+}
+
 Variant VisualGasicInstance::call_internal(const String& p_method, const Array& p_args, bool &r_found) {
     r_found = false;
     if (!script.is_valid() || !script->ast_root) return Variant();
@@ -6918,27 +6999,44 @@ void VisualGasicInstance::call(const StringName &p_method, const Variant *const 
     // Guard: _Ready is handled exclusively by notification(NOTIFICATION_READY)
     // which also runs Form_Load and auto-wire signals.  Block the duplicate
     // ScriptInstance::call("_ready") from Godot engine to prevent double init.
-    // Similarly guard _process, _physics_process, _draw, and _input which are
+    // Similarly guard _process, _physics_process, and _draw which are
     // already dispatched by our notification() handler.  Without these guards,
     // Godot's virtual-method dispatch calls them a SECOND time via call(),
-    // causing double execution per frame (double delta accumulation, double
-    // input handling, etc.).
+    // causing double execution per frame.
+    // NOTE: _input and _unhandled_input are NOT dispatched via notification —
+    // they arrive exclusively through call(), so they must NOT be guarded here.
     {
         String guard_method = String(p_method).to_lower();
         if (guard_method == "_ready" || guard_method == "_process" ||
-            guard_method == "_physics_process" || guard_method == "_draw" ||
-            guard_method == "_input" || guard_method == "_unhandled_input") {
+            guard_method == "_physics_process" || guard_method == "_draw") {
             if (r_return) *r_return = Variant();
             r_error->error = GDEXTENSION_CALL_OK;
             return;
         }
     }
 
-    Variant ret = call_internal(String(p_method), args, found);
+    // Convert Godot snake_case to VG PascalCase for multi-word virtuals
+    // e.g. "_unhandled_input" → "_UnhandledInput"
+    String vg_method = godot_snake_to_vg_pascal(String(p_method));
+    Variant ret = call_internal(vg_method, args, found);
     
     if (found) {
         if (r_return) *r_return = ret;
         r_error->error = GDEXTENSION_CALL_OK;
+        
+        // After handling input events, trigger a redraw so visual changes
+        // (e.g. updated display text) are painted on the next frame.
+        // Without this, scripts that use _Draw() but not _Process() would
+        // never repaint after user interaction.
+        if (owner && script.is_valid()) {
+            String ml = String(p_method).to_lower();
+            if (ml.find("input") >= 0) {
+                if (script->_has_method("_Draw") || script->_has_method("OnDraw")) {
+                    CanvasItem *ci = Object::cast_to<CanvasItem>(owner);
+                    if (ci) ci->queue_redraw();
+                }
+            }
+        }
     } else {
         r_error->error = GDEXTENSION_CALL_ERROR_INVALID_METHOD;
     }
@@ -7071,6 +7169,7 @@ void VisualGasicInstance::notification(int32_t p_what) {
                  if (!node->is_processing() && script->_has_method("_Process")) node->set_process(true);
                  if (!node->is_physics_processing() && script->_has_method("_PhysicsProcess")) node->set_physics_process(true);
                  if (!node->is_processing_input() && script->_has_method("_Input")) node->set_process_input(true);
+                 if (!node->is_processing_unhandled_input() && script->_has_method("_UnhandledInput")) node->set_process_unhandled_input(true);
                  
                  // Run Auto-Wire for Signals
                  _connect_vb_signals_recursive(node, this, node);
@@ -8708,6 +8807,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         dispatch_table[OP_FALSE]          = &&vg_op_false;
         dispatch_table[OP_DEBUG_LINE]     = &&vg_op_debug_line;
         dispatch_table[OP_STOP]           = &&vg_op_stop;
+        dispatch_table[OP_IS_CLASS]       = &&vg_op_is_class;
         dispatch_table_init = true;
     }
 
@@ -10856,6 +10956,20 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     UtilityFunctions::print("[VG] Stop statement hit (no debugger attached)");
                 }
                 break;
+            }
+            VG_CASE(vg_op_is_class, OP_IS_CLASS): {
+                // Type-check: pop class-name (String) and object, push bool
+                // Implements VB6 "obj Is ClassName" pattern
+                if (!ensure_stack(2)) { success = false; goto cleanup; }
+                Variant class_v = pop_value(); // class name (String)
+                Variant obj_v   = pop_value(); // object
+                bool result = false;
+                if (obj_v.get_type() == Variant::OBJECT && class_v.get_type() == Variant::STRING) {
+                    Object* obj = Object::cast_to<Object>(obj_v);
+                    if (obj) result = obj->is_class(String(class_v));
+                }
+                push_value(result);
+                VG_BREAK;
             }
             vg_op_default: default:
                 UtilityFunctions::printerr("VisualGasic: unsupported opcode ", (int)op);
