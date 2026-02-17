@@ -35,6 +35,23 @@
 - [README_HELPERS.md](../README_HELPERS.md) - Helper utilities
 - [WINFORMS_FORM_GUIDE.md](WINFORMS_FORM_GUIDE.md) - WinForms-style form development
 
+## Tutorials
+
+- [Your First 2D Game](tutorials/your_first_2d_game.md) - Dodge the Creeps-style introduction
+- [Building a 2D Platformer](tutorials/2d_platformer.md) - Complete platformer walkthrough (gravity, tile-based levels, enemies, camera)
+
+## Game Demo Projects
+
+| Demo | Location | Key Features |
+|------|----------|-------------|
+| **Pixel Platformer** | `demos/2D_Games/Platformer/` | Gravity, jumping, tile-based DATA levels, enemies, coins, scrolling camera |
+| **Space Shooter** | `demos/2D_Games/Space_Shooter/` | Parallel For, Lambdas, DATA waves, Select Match |
+| **Snake** | `demos/2D_Games/Snake/` | Grid movement, body growth, food spawning |
+| **Pong** | `demos/2D_Games/Pong/` | Two-player input, ball physics, scoring |
+| **Pong Advanced** | `demos/2D_Games/Pong_Advanced/` | AI opponent, power-ups |
+| **Galactic Defender** | `demos/2D_Games/Galactic_Defender/` | Full game project with scenes |
+| **Calculator** | `demos/UI/Calculator/` | Input handling, `Is` type-checking, _Draw() UI |
+
 ## IDE Tools Reference
 
 ### Debugging Tools

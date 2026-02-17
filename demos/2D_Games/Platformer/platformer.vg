@@ -1,0 +1,1277 @@
+' ============================================================================
+' PIXEL PLATFORMER - 2D Platformer Demo
+' Written in VisualGasic for Godot 4.5+
+' ============================================================================
+' Demonstrates:
+' - Gravity, jumping, and ground collision (manual CharacterBody-style physics)
+' - Tile-based level design loaded from DATA statements
+' - Animated player sprite (drawn with primitives)
+' - Patrolling enemies with stomp-to-kill mechanic
+' - Collectible coins with bob animation
+' - Scrolling camera that follows the player
+' - HUD overlay with score, lives, and level indicator
+' - Multiple levels with increasing difficulty
+' - Game state management (title → play → death → game over → victory)
+' ============================================================================
+' Based on the official Godot 2D Platformer demo concepts.
+' Converted to VisualGasic to showcase Godot engine integration
+' with VB6-style BASIC syntax.
+' ============================================================================
+Attribute VB_Name = "Platformer"
+
+' --- Screen constants ---
+Const SCREEN_WIDTH As Integer = 640
+Const SCREEN_HEIGHT As Integer = 480
+
+' --- Physics constants ---
+Const GRAVITY As Single = 1800.0        ' Gravity acceleration (px/sec²)
+Const JUMP_VELOCITY As Single = -620.0  ' Initial jump speed (negative = upward)
+Const WALK_SPEED As Single = 250.0      ' Horizontal movement speed (px/sec)
+Const TERMINAL_VELOCITY As Single = 900.0  ' Max fall speed (px/sec)
+Const COYOTE_TIME As Single = 0.08      ' Seconds after leaving edge where jump still works
+Const JUMP_BUFFER As Single = 0.1       ' Seconds before landing where jump input is remembered
+
+' --- Tile & level constants ---
+Const TILE_SIZE As Integer = 32         ' Each tile is 32×32 pixels
+Const MAX_LEVEL_WIDTH As Integer = 80   ' Max tiles per row
+Const MAX_LEVEL_HEIGHT As Integer = 20  ' Max rows per level
+Const MAX_COINS As Integer = 50         ' Max collectible coins per level
+Const MAX_ENEMIES As Integer = 20       ' Max patrolling enemies per level
+
+' --- Player state ---
+Dim playerX As Single       ' Player X position (left edge, world coords)
+Dim playerY As Single       ' Player Y position (top edge, world coords)
+Dim playerVX As Single      ' Horizontal velocity (px/sec)
+Dim playerVY As Single      ' Vertical velocity (px/sec; positive = downward)
+Dim playerWidth As Integer  ' Player hitbox width (pixels)
+Dim playerHeight As Integer ' Player hitbox height (pixels)
+Dim playerOnGround As Boolean   ' True if player is standing on a solid tile
+Dim playerFacing As Integer     ' 1 = facing right, -1 = facing left
+Dim playerLives As Integer      ' Remaining lives
+Dim playerScore As Integer      ' Accumulated score across all levels
+Dim playerDead As Boolean       ' True during death animation
+Dim deathTimer As Single        ' Countdown during death sequence
+Dim coyoteTimer As Single       ' Time remaining for coyote-time jump
+Dim jumpBufferTimer As Single   ' Time remaining for buffered jump
+Dim animTimer As Single         ' Animation timer for walk cycle
+Dim doubleJumpReady As Boolean  ' True if player can still double-jump in this airborne phase
+Dim playerInvincible As Boolean ' Brief invincibility after taking damage
+Dim invincibleTimer As Single   ' Countdown for invincibility frames
+
+' --- Camera state ---
+Dim cameraX As Single       ' Camera X offset (world coords of left screen edge)
+Dim cameraY As Single       ' Camera Y offset (world coords of top screen edge)
+
+' --- Level data ---
+' The level is stored as a 2D grid of characters loaded from DATA statements.
+' '#' = solid   '.' = empty   'C' = coin   'E' = enemy   'P' = player start
+' 'M' = moving platform start  'S' = spike (instant kill)
+Dim levelGrid(MAX_LEVEL_WIDTH, MAX_LEVEL_HEIGHT) As String
+Dim levelWidth As Integer   ' Actual width of current level (tiles)
+Dim levelHeight As Integer  ' Actual height of current level (rows)
+Dim currentLevel As Integer ' Current level number (1-based)
+Dim totalLevels As Integer  ' Total number of levels available
+Dim levelComplete As Boolean ' True when player reaches the exit flag
+
+' --- Coin entity arrays ---
+Dim coinX(MAX_COINS) As Single      ' Coin X position (world coords, center)
+Dim coinY(MAX_COINS) As Single      ' Coin Y position (world coords, center)
+Dim coinActive(MAX_COINS) As Boolean ' True if coin hasn't been collected yet
+Dim coinCount As Integer             ' Number of coins placed in current level
+Dim coinsCollected As Integer        ' How many coins collected in current level
+
+' --- Enemy entity arrays ---
+Dim enemyX(MAX_ENEMIES) As Single       ' Enemy X position (world coords, left edge)
+Dim enemyY(MAX_ENEMIES) As Single       ' Enemy Y position (world coords, top edge)
+Dim enemyVX(MAX_ENEMIES) As Single      ' Enemy horizontal velocity (patrol direction)
+Dim enemyActive(MAX_ENEMIES) As Boolean ' True if enemy is alive
+Dim enemyWidth As Integer               ' Enemy hitbox width
+Dim enemyHeight As Integer              ' Enemy hitbox height
+Dim enemyCount As Integer               ' Number of enemies in current level
+Dim enemyAnimTimer(MAX_ENEMIES) As Single ' Per-enemy animation timer
+
+' --- Moving platforms ---
+Const MAX_PLATFORMS As Integer = 10
+Dim platX(MAX_PLATFORMS) As Single       ' Platform X (world coords)
+Dim platY(MAX_PLATFORMS) As Single       ' Platform Y (world coords)
+Dim platStartX(MAX_PLATFORMS) As Single  ' Starting X for oscillation
+Dim platStartY(MAX_PLATFORMS) As Single  ' Starting Y for oscillation
+Dim platDirX(MAX_PLATFORMS) As Single    ' Movement direction X (0 or 1)
+Dim platDirY(MAX_PLATFORMS) As Single    ' Movement direction Y (0 or 1)
+Dim platActive(MAX_PLATFORMS) As Boolean
+Dim platCount As Integer
+Dim platTimer As Single                  ' Shared oscillation timer
+
+' --- Particle effects ---
+Const MAX_PARTICLES As Integer = 60
+Dim partX(MAX_PARTICLES) As Single
+Dim partY(MAX_PARTICLES) As Single
+Dim partVX(MAX_PARTICLES) As Single
+Dim partVY(MAX_PARTICLES) As Single
+Dim partLife(MAX_PARTICLES) As Single
+Dim partColor(MAX_PARTICLES) As Variant
+
+' --- Game state ---
+Dim gameState As String     ' "TITLE", "PLAYING", "DEAD", "GAMEOVER", "VICTORY"
+Dim stateTimer As Single    ' General-purpose timer for state transitions
+Dim totalTime As Single     ' Total play time in seconds (for speedrun display)
+
+' --- Background decoration ---
+Const MAX_CLOUDS As Integer = 8
+Dim cloudX(MAX_CLOUDS) As Single
+Dim cloudY(MAX_CLOUDS) As Single
+Dim cloudWidth(MAX_CLOUDS) As Single
+Dim cloudSpeed(MAX_CLOUDS) As Single
+
+' ============================================================================
+' INITIALIZATION
+' ============================================================================
+
+Sub _Ready()
+    Print "=== PIXEL PLATFORMER ==="
+    Print "A 2D Platformer Demo for VisualGasic"
+    Print ""
+    Print "Controls:"
+    Print "  A/D or Left/Right = Move"
+    Print "  Space or W or Up  = Jump"
+    Print "  Escape            = Pause/Title"
+    Print ""
+
+    playerWidth = 24
+    playerHeight = 32
+    enemyWidth = 28
+    enemyHeight = 24
+    totalLevels = 3
+
+    InitClouds
+    gameState = "TITLE"
+    stateTimer = 0
+End Sub
+
+Sub InitClouds()
+    Dim i As Integer
+    For i = 0 To MAX_CLOUDS - 1
+        cloudX(i) = Rnd() * (SCREEN_WIDTH + 200) - 100
+        cloudY(i) = 20 + Rnd() * 160
+        cloudWidth(i) = 60 + Rnd() * 80
+        cloudSpeed(i) = 8 + Rnd() * 15
+    Next
+End Sub
+
+Sub StartNewGame()
+    playerLives = 3
+    playerScore = 0
+    currentLevel = 1
+    totalTime = 0
+    LoadLevel currentLevel
+    gameState = "PLAYING"
+End Sub
+
+' ============================================================================
+' LEVEL LOADING FROM DATA STATEMENTS
+' ============================================================================
+' Each level is defined as a series of DATA strings — one string per tile row.
+' This is the classic BASIC approach to level design: embed the map directly
+' in the source code using human-readable ASCII art.
+
+Sub LoadLevel(levelNum As Integer)
+    ' Reset all entity arrays
+    Dim i As Integer
+    For i = 0 To MAX_COINS - 1
+        coinActive(i) = False
+    Next
+    For i = 0 To MAX_ENEMIES - 1
+        enemyActive(i) = False
+    Next
+    For i = 0 To MAX_PLATFORMS - 1
+        platActive(i) = False
+    Next
+    For i = 0 To MAX_PARTICLES - 1
+        partLife(i) = 0
+    Next
+    coinCount = 0
+    coinsCollected = 0
+    enemyCount = 0
+    platCount = 0
+    levelComplete = False
+    platTimer = 0
+
+    ' Select which DATA label to Restore based on level number
+    Select Case levelNum
+        Case 1
+            Restore Level1Data
+        Case 2
+            Restore Level2Data
+        Case 3
+            Restore Level3Data
+        Case Else
+            Restore Level1Data
+    End Select
+
+    ' Read level dimensions
+    Read levelWidth
+    Read levelHeight
+
+    ' Read each row of the level grid
+    Dim row As Integer
+    Dim col As Integer
+    Dim rowStr As String
+
+    For row = 0 To levelHeight - 1
+        Read rowStr
+        For col = 0 To levelWidth - 1
+            Dim ch As String
+            If col < Len(rowStr) Then
+                ch = Mid(rowStr, col + 1, 1)
+            Else
+                ch = "."
+            End If
+
+            ' Process special tiles and place entities
+            Select Case ch
+                Case "P"
+                    ' Player start position
+                    playerX = col * TILE_SIZE
+                    playerY = row * TILE_SIZE - playerHeight + TILE_SIZE
+                    playerVX = 0
+                    playerVY = 0
+                    playerOnGround = False
+                    playerFacing = 1
+                    playerDead = False
+                    coyoteTimer = 0
+                    jumpBufferTimer = 0
+                    doubleJumpReady = False
+                    playerInvincible = False
+                    invincibleTimer = 0
+                    animTimer = 0
+                    levelGrid(col, row) = "."  ' Player start tile is walkable
+
+                Case "C"
+                    ' Place a coin entity
+                    If coinCount < MAX_COINS Then
+                        coinX(coinCount) = col * TILE_SIZE + TILE_SIZE / 2
+                        coinY(coinCount) = row * TILE_SIZE + TILE_SIZE / 2
+                        coinActive(coinCount) = True
+                        coinCount = coinCount + 1
+                    End If
+                    levelGrid(col, row) = "."  ' Coin tile is walkable
+
+                Case "E"
+                    ' Place an enemy entity
+                    If enemyCount < MAX_ENEMIES Then
+                        enemyX(enemyCount) = col * TILE_SIZE
+                        enemyY(enemyCount) = row * TILE_SIZE + TILE_SIZE - enemyHeight
+                        enemyVX(enemyCount) = 60  ' Patrol speed (px/sec), positive = right
+                        enemyActive(enemyCount) = True
+                        enemyAnimTimer(enemyCount) = Rnd() * 6.28
+                        enemyCount = enemyCount + 1
+                    End If
+                    levelGrid(col, row) = "."  ' Enemy tile is walkable
+
+                Case "M"
+                    ' Moving platform
+                    If platCount < MAX_PLATFORMS Then
+                        platX(platCount) = col * TILE_SIZE
+                        platY(platCount) = row * TILE_SIZE
+                        platStartX(platCount) = col * TILE_SIZE
+                        platStartY(platCount) = row * TILE_SIZE
+                        platDirX(platCount) = 1  ' Horizontal movement
+                        platDirY(platCount) = 0
+                        platActive(platCount) = True
+                        platCount = platCount + 1
+                    End If
+                    levelGrid(col, row) = "."  ' Moving platform tile handled separately
+
+                Case Else
+                    levelGrid(col, row) = ch
+            End Select
+        Next
+    Next
+
+    ' Initialize camera to player position
+    cameraX = playerX - SCREEN_WIDTH / 2
+    cameraY = playerY - SCREEN_HEIGHT / 2
+    ClampCamera
+
+    Print "Level " & Str(levelNum) & " loaded: " & Str(levelWidth) & "x" & Str(levelHeight)
+    Print "Coins: " & Str(coinCount) & "  Enemies: " & Str(enemyCount)
+End Sub
+
+Sub ClampCamera()
+    ' Keep camera within level bounds
+    Dim maxCamX As Single = levelWidth * TILE_SIZE - SCREEN_WIDTH
+    Dim maxCamY As Single = levelHeight * TILE_SIZE - SCREEN_HEIGHT
+    If cameraX < 0 Then cameraX = 0
+    If cameraY < 0 Then cameraY = 0
+    If maxCamX > 0 And cameraX > maxCamX Then cameraX = maxCamX
+    If maxCamY > 0 And cameraY > maxCamY Then cameraY = maxCamY
+End Sub
+
+' ============================================================================
+' LEVEL DATA
+' ============================================================================
+' Legend:
+'   # = solid ground/wall     . = empty air
+'   P = player start          C = coin
+'   E = enemy patrol          F = finish/exit flag
+'   S = spikes (instant kill) M = moving platform
+'   = = brick platform        ^ = one-way platform (jump through from below)
+
+Level1Data:
+' Level 1: "Green Hills" - Easy introduction
+' Teaches: basic movement, jumping, coins, first enemy encounter
+Data 60, 18
+Data ".......................................................#####"
+Data "............................................................"
+Data "............................................................"
+Data "...........................................C................."
+Data "..............C..C..C...............######.................."
+Data ".............########..........C..........................."
+Data "............................................................"
+Data "..C.............................####.......C..C..C.........."
+Data ".####............C..C.....E.............=======..........F.."
+Data ".......C......=======...####...C....................########"
+Data "....=====.......................####....C..C..E............."
+Data "....................E.....C..C..........========............."
+Data "P.........C....######...=====......................................"
+Data "##...C..#####..........................................................#"
+Data "##..###........E.......C..C..C...........E..........C..C.C......####"
+Data "##.......######...#########...######...######..#########...##"
+Data "###############...#########...######...######..#########...##"
+Data "###############SSS#########SSS######SSS######SS#########SS##"
+
+Level2Data:
+' Level 2: "Underground Cavern" - Medium difficulty
+' Teaches: vertical platforming, moving platforms, tighter jumps
+Data 60, 20
+Data "############################################################"
+Data "#..........................................................#"
+Data "#....C..C..C...............................C..C..C.........#"
+Data "#...========...............................========........#"
+Data "#..........................................................#"
+Data "#.......................C..C................................#"
+Data "#..........E..........=====...........C.C.C................#"
+Data "#........######....................=========...........F...#"
+Data "#...............................................E......###.#"
+Data "#..C..C.......................E..........########..........#"
+Data "#.=====..........C..C....######...........................#"
+Data "#..............=======....................................#"
+Data "#.......................................C..C..C............#"
+Data "#..........E...............................====........C..#"
+Data "#P......######..........C.C..........E.............====...#"
+Data "#...................=======.......######...................#"
+Data "###...........................................................#"
+Data "###..####..SSS..####..SSS..####..SSS..####..SSS..####..###"
+Data "#####..............................................####..###"
+Data "############################################################"
+
+Level3Data:
+' Level 3: "Sky Fortress" - Hard difficulty
+' Teaches: precision jumping, many enemies, speed
+Data 70, 18
+Data ".........................................................................."
+Data ".........................................................................."
+Data "....C.C.C..........C.C.C..........C.C.C..........C.C.C..................."
+Data "...=======........=======........=======........=======......F............"
+Data "..................................................E........###..........."
+Data ".........................................................................."
+Data "......E..........E.......C.C...........E....C.C........E..........####..."
+Data "....####.......####...=====..........####.=====......####................"
+Data ".........................................................................."
+Data "..C.C.............C.C..........C.C.............C.C.......C.C............."
+Data ".=====..........=====.........=====..........=====.....=====...####......"
+Data ".........................................................................."
+Data ".............E..........E..........E..........E.........................."
+Data "P.......######....######....######....######.....#####..................."
+Data "##.C.C..........................................................................C.C.##"
+Data "########..SSS..########..SSS..########..SSS..########..SSS..######"
+Data "########..SSS..########..SSS..########..SSS..########..SSS..######"
+Data "######################################################################"
+
+
+' ============================================================================
+' GAME LOOP
+' ============================================================================
+
+Sub _Process(delta As Single)
+    stateTimer = stateTimer + delta
+
+    Select Case gameState
+        Case "TITLE"
+            UpdateClouds delta
+            ' Press jump or enter to start
+            If Input.IsActionJustPressed("jump") Or Input.IsActionJustPressed("ui_accept") Then
+                StartNewGame
+            End If
+
+        Case "PLAYING"
+            totalTime = totalTime + delta
+            UpdatePlayer delta
+            UpdateEnemies delta
+            UpdatePlatforms delta
+            UpdateParticles delta
+            UpdateClouds delta
+            UpdateCamera delta
+            CheckCoinPickups
+            CheckLevelComplete
+
+        Case "DEAD"
+            UpdateParticles delta
+            deathTimer = deathTimer - delta
+            If deathTimer <= 0 Then
+                If playerLives > 0 Then
+                    LoadLevel currentLevel
+                    gameState = "PLAYING"
+                Else
+                    gameState = "GAMEOVER"
+                    stateTimer = 0
+                End If
+            End If
+
+        Case "GAMEOVER"
+            UpdateParticles delta
+            UpdateClouds delta
+            If stateTimer > 1.5 And Input.IsActionJustPressed("jump") Then
+                gameState = "TITLE"
+                stateTimer = 0
+            End If
+
+        Case "VICTORY"
+            UpdateParticles delta
+            UpdateClouds delta
+            If stateTimer > 1.5 And Input.IsActionJustPressed("jump") Then
+                gameState = "TITLE"
+                stateTimer = 0
+            End If
+    End Select
+End Sub
+
+' ============================================================================
+' PLAYER PHYSICS & INPUT
+' ============================================================================
+
+Sub UpdatePlayer(delta As Single)
+    If playerDead Then Return
+
+    ' --- Horizontal input ---
+    Dim moveDir As Single = 0
+    If Input.IsActionPressed("move_left") Then
+        moveDir = -1
+        playerFacing = -1
+    End If
+    If Input.IsActionPressed("move_right") Then
+        moveDir = 1
+        playerFacing = 1
+    End If
+
+    ' Accelerate / decelerate horizontally
+    If moveDir <> 0 Then
+        playerVX = moveDir * WALK_SPEED
+        animTimer = animTimer + delta * 10  ' Advance walk animation
+    Else
+        ' Apply friction to slow down
+        playerVX = playerVX * 0.8
+        If Abs(playerVX) < 10 Then playerVX = 0
+    End If
+
+    ' --- Coyote time: allow jumping briefly after walking off an edge ---
+    If playerOnGround Then
+        coyoteTimer = COYOTE_TIME
+        doubleJumpReady = True
+    Else
+        coyoteTimer = coyoteTimer - delta
+    End If
+
+    ' --- Jump buffer: remember jump press briefly before landing ---
+    If Input.IsActionJustPressed("jump") Then
+        jumpBufferTimer = JUMP_BUFFER
+    Else
+        jumpBufferTimer = jumpBufferTimer - delta
+    End If
+
+    ' --- Execute jump ---
+    If jumpBufferTimer > 0 Then
+        If coyoteTimer > 0 Then
+            ' Normal jump (or coyote jump)
+            playerVY = JUMP_VELOCITY
+            playerOnGround = False
+            coyoteTimer = 0
+            jumpBufferTimer = 0
+            SpawnJumpDust
+        ElseIf doubleJumpReady And Not playerOnGround Then
+            ' Double jump (air jump)
+            playerVY = JUMP_VELOCITY * 0.85  ' Slightly weaker
+            doubleJumpReady = False
+            jumpBufferTimer = 0
+            SpawnJumpDust
+        End If
+    End If
+
+    ' --- Variable jump height: release early to cut jump short ---
+    If Input.IsActionJustReleased("jump") And playerVY < 0 Then
+        playerVY = playerVY * 0.5
+    End If
+
+    ' --- Apply gravity ---
+    playerVY = playerVY + GRAVITY * delta
+    If playerVY > TERMINAL_VELOCITY Then playerVY = TERMINAL_VELOCITY
+
+    ' --- Move and collide ---
+    MovePlayer delta
+
+    ' --- Check for falling into pit ---
+    If playerY > levelHeight * TILE_SIZE + 100 Then
+        KillPlayer
+    End If
+
+    ' --- Check for spike collision ---
+    CheckSpikeCollision
+
+    ' --- Invincibility timer ---
+    If playerInvincible Then
+        invincibleTimer = invincibleTimer - delta
+        If invincibleTimer <= 0 Then
+            playerInvincible = False
+        End If
+    End If
+End Sub
+
+' Move the player with tile-based collision detection.
+' Uses the "move then check" approach: move along each axis separately,
+' then resolve overlaps by pushing the player out of solid tiles.
+Sub MovePlayer(delta As Single)
+    ' --- Horizontal movement ---
+    playerX = playerX + playerVX * delta
+
+    ' Check horizontal tile collisions
+    ResolveHorizontalCollision
+
+    ' --- Vertical movement ---
+    playerY = playerY + playerVY * delta
+
+    ' Check vertical tile collisions
+    Dim wasOnGround As Boolean = playerOnGround
+    ResolveVerticalCollision
+
+    ' If just left the ground (and didn't jump), start coyote timer
+    If wasOnGround And Not playerOnGround And playerVY >= 0 Then
+        coyoteTimer = COYOTE_TIME
+    End If
+End Sub
+
+Sub ResolveHorizontalCollision()
+    ' Check tiles that the player's hitbox overlaps
+    Dim tileLeft As Integer = Int(playerX / TILE_SIZE)
+    Dim tileRight As Integer = Int((playerX + playerWidth - 1) / TILE_SIZE)
+    Dim tileTop As Integer = Int(playerY / TILE_SIZE)
+    Dim tileBottom As Integer = Int((playerY + playerHeight - 1) / TILE_SIZE)
+
+    Dim row As Integer
+    Dim col As Integer
+    For row = tileTop To tileBottom
+        For col = tileLeft To tileRight
+            If IsSolidTile(col, row) Then
+                If playerVX > 0 Then
+                    ' Moving right — push left
+                    playerX = col * TILE_SIZE - playerWidth
+                ElseIf playerVX < 0 Then
+                    ' Moving left — push right
+                    playerX = (col + 1) * TILE_SIZE
+                End If
+                playerVX = 0
+            End If
+        Next
+    Next
+End Sub
+
+Sub ResolveVerticalCollision()
+    playerOnGround = False
+
+    Dim tileLeft As Integer = Int(playerX / TILE_SIZE)
+    Dim tileRight As Integer = Int((playerX + playerWidth - 1) / TILE_SIZE)
+    Dim tileTop As Integer = Int(playerY / TILE_SIZE)
+    Dim tileBottom As Integer = Int((playerY + playerHeight - 1) / TILE_SIZE)
+
+    Dim row As Integer
+    Dim col As Integer
+    For row = tileTop To tileBottom
+        For col = tileLeft To tileRight
+            If IsSolidTile(col, row) Then
+                If playerVY > 0 Then
+                    ' Falling down — land on top of tile
+                    playerY = row * TILE_SIZE - playerHeight
+                    playerVY = 0
+                    playerOnGround = True
+                ElseIf playerVY < 0 Then
+                    ' Jumping up — bonk head on bottom of tile
+                    playerY = (row + 1) * TILE_SIZE
+                    playerVY = 0
+                End If
+            End If
+        Next
+    Next
+
+    ' Also check moving platforms for landing
+    Dim i As Integer
+    For i = 0 To platCount - 1
+        If platActive(i) Then
+            ' Check if player's feet overlap the platform top
+            Dim pBottom As Single = playerY + playerHeight
+            If pBottom >= platY(i) And pBottom <= platY(i) + 10 Then
+                If playerX + playerWidth > platX(i) And playerX < platX(i) + TILE_SIZE * 3 Then
+                    If playerVY >= 0 Then
+                        playerY = platY(i) - playerHeight
+                        playerVY = 0
+                        playerOnGround = True
+                    End If
+                End If
+            End If
+        End If
+    Next
+End Sub
+
+Function IsSolidTile(col As Integer, row As Integer) As Boolean
+    If col < 0 Or col >= levelWidth Or row < 0 Or row >= levelHeight Then
+        IsSolidTile = False
+        Return
+    End If
+    Dim tile As String = levelGrid(col, row)
+    IsSolidTile = (tile = "#" Or tile = "=" Or tile = "^")
+End Function
+
+Function IsSpikeTile(col As Integer, row As Integer) As Boolean
+    If col < 0 Or col >= levelWidth Or row < 0 Or row >= levelHeight Then
+        IsSpikeTile = False
+        Return
+    End If
+    IsSpikeTile = (levelGrid(col, row) = "S")
+End Function
+
+Sub CheckSpikeCollision()
+    Dim tileLeft As Integer = Int((playerX + 4) / TILE_SIZE)
+    Dim tileRight As Integer = Int((playerX + playerWidth - 4) / TILE_SIZE)
+    Dim tileBottom As Integer = Int((playerY + playerHeight - 2) / TILE_SIZE)
+
+    Dim col As Integer
+    For col = tileLeft To tileRight
+        If IsSpikeTile(col, tileBottom) Then
+            KillPlayer
+            Return
+        End If
+    Next
+End Sub
+
+Sub KillPlayer()
+    If playerDead Then Return
+    If playerInvincible Then Return
+
+    playerDead = True
+    playerLives = playerLives - 1
+    deathTimer = 1.5
+    gameState = "DEAD"
+
+    ' Death particle burst
+    SpawnParticleBurst playerX + playerWidth / 2, playerY + playerHeight / 2, Color("#FF4444"), 15
+    SpawnParticleBurst playerX + playerWidth / 2, playerY + playerHeight / 2, Color("#FFAA44"), 10
+
+    Print "Player died! Lives: " & Str(playerLives)
+End Sub
+
+' ============================================================================
+' ENEMY AI
+' ============================================================================
+
+Sub UpdateEnemies(delta As Single)
+    Dim i As Integer
+    For i = 0 To MAX_ENEMIES - 1
+        If enemyActive(i) Then
+            enemyAnimTimer(i) = enemyAnimTimer(i) + delta * 5
+
+            ' Move horizontally (patrol)
+            enemyX(i) = enemyX(i) + enemyVX(i) * delta
+
+            ' Check for walls or edges ahead
+            Dim checkCol As Integer
+            Dim footRow As Integer = Int((enemyY(i) + enemyHeight) / TILE_SIZE)
+
+            If enemyVX(i) > 0 Then
+                ' Moving right — check wall ahead and floor beneath right edge
+                checkCol = Int((enemyX(i) + enemyWidth) / TILE_SIZE)
+                If IsSolidTile(checkCol, Int(enemyY(i) / TILE_SIZE + 0.5)) Then
+                    enemyVX(i) = -Abs(enemyVX(i))  ' Turn left
+                    enemyX(i) = checkCol * TILE_SIZE - enemyWidth
+                ElseIf Not IsSolidTile(checkCol, footRow) Then
+                    enemyVX(i) = -Abs(enemyVX(i))  ' Turn at edge
+                End If
+            Else
+                ' Moving left — check wall ahead and floor beneath left edge
+                checkCol = Int(enemyX(i) / TILE_SIZE)
+                If IsSolidTile(checkCol, Int(enemyY(i) / TILE_SIZE + 0.5)) Then
+                    enemyVX(i) = Abs(enemyVX(i))  ' Turn right
+                    enemyX(i) = (checkCol + 1) * TILE_SIZE
+                ElseIf Not IsSolidTile(checkCol, footRow) Then
+                    enemyVX(i) = Abs(enemyVX(i))  ' Turn at edge
+                End If
+            End If
+
+            ' Check collision with player
+            If Not playerDead And Not playerInvincible Then
+                If RectsOverlap(playerX, playerY, playerWidth, playerHeight, enemyX(i), enemyY(i), enemyWidth, enemyHeight) Then
+                    ' Determine if player is stomping (falling onto enemy from above)
+                    If playerVY > 0 And playerY + playerHeight - 8 < enemyY(i) + enemyHeight / 2 Then
+                        ' Stomp kill!
+                        StompEnemy i
+                    Else
+                        ' Player takes damage
+                        HitPlayer i
+                    End If
+                End If
+            End If
+        End If
+    Next
+End Sub
+
+Function RectsOverlap(x1 As Single, y1 As Single, w1 As Integer, h1 As Integer, x2 As Single, y2 As Single, w2 As Integer, h2 As Integer) As Boolean
+    RectsOverlap = Not (x1 + w1 <= x2 Or x2 + w2 <= x1 Or y1 + h1 <= y2 Or y2 + h2 <= y1)
+End Function
+
+Sub StompEnemy(idx As Integer)
+    ' Bounce player upward off the enemy's head
+    playerVY = JUMP_VELOCITY * 0.6
+    doubleJumpReady = True  ' Restore double jump after stomp
+
+    ' Destroy enemy
+    enemyActive(idx) = False
+    playerScore = playerScore + 200
+
+    ' Spawn squish particles
+    SpawnParticleBurst enemyX(idx) + enemyWidth / 2, enemyY(idx) + enemyHeight / 2, Color("#88FF88"), 8
+    Print "Enemy stomped! +" & Str(200) & " points"
+End Sub
+
+Sub HitPlayer(enemyIdx As Integer)
+    ' Knock player back away from enemy
+    Dim knockDir As Single
+    If playerX < enemyX(enemyIdx) Then
+        knockDir = -1
+    Else
+        knockDir = 1
+    End If
+    playerVX = knockDir * 300
+    playerVY = -350  ' Bounce up
+
+    playerInvincible = True
+    invincibleTimer = 1.5
+
+    SpawnParticleBurst playerX + playerWidth / 2, playerY + playerHeight / 2, Color("#FF8844"), 8
+End Sub
+
+' ============================================================================
+' MOVING PLATFORMS
+' ============================================================================
+
+Sub UpdatePlatforms(delta As Single)
+    platTimer = platTimer + delta
+    Dim i As Integer
+    For i = 0 To platCount - 1
+        If platActive(i) Then
+            ' Oscillate: Sin(timer) moves ±64 pixels from start position
+            platX(i) = platStartX(i) + Sin(platTimer * 1.2) * 64 * platDirX(i)
+            platY(i) = platStartY(i) + Sin(platTimer * 0.8) * 32 * platDirY(i)
+        End If
+    Next
+End Sub
+
+' ============================================================================
+' COIN COLLECTION
+' ============================================================================
+
+Sub CheckCoinPickups()
+    If playerDead Then Return
+
+    Dim px As Single = playerX + playerWidth / 2   ' Player center X
+    Dim py As Single = playerY + playerHeight / 2  ' Player center Y
+
+    Dim i As Integer
+    For i = 0 To coinCount - 1
+        If coinActive(i) Then
+            ' Simple distance check (circle collision)
+            Dim dx As Single = px - coinX(i)
+            Dim dy As Single = py - coinY(i)
+            If dx * dx + dy * dy < 600 Then  ' ~24px radius
+                coinActive(i) = False
+                coinsCollected = coinsCollected + 1
+                playerScore = playerScore + 50
+
+                ' Sparkle particles
+                SpawnParticleBurst coinX(i), coinY(i), Color("#FFD700"), 6
+            End If
+        End If
+    Next
+End Sub
+
+' ============================================================================
+' LEVEL COMPLETION
+' ============================================================================
+
+Sub CheckLevelComplete()
+    If playerDead Or levelComplete Then Return
+
+    ' Check if player is touching an 'F' (finish flag) tile
+    Dim tileLeft As Integer = Int(playerX / TILE_SIZE)
+    Dim tileRight As Integer = Int((playerX + playerWidth - 1) / TILE_SIZE)
+    Dim tileTop As Integer = Int(playerY / TILE_SIZE)
+    Dim tileBottom As Integer = Int((playerY + playerHeight - 1) / TILE_SIZE)
+
+    Dim row As Integer
+    Dim col As Integer
+    For row = tileTop To tileBottom
+        For col = tileLeft To tileRight
+            If col >= 0 And col < levelWidth And row >= 0 And row < levelHeight Then
+                If levelGrid(col, row) = "F" Then
+                    levelComplete = True
+                    ' Bonus for collecting all coins
+                    If coinsCollected = coinCount Then
+                        playerScore = playerScore + 1000
+                        Print "All coins collected! +1000 bonus!"
+                    End If
+
+                    ' Victory particles
+                    SpawnParticleBurst playerX + playerWidth / 2, playerY, Color("#FFD700"), 20
+                    SpawnParticleBurst playerX + playerWidth / 2, playerY, Color("#44FF44"), 15
+
+                    currentLevel = currentLevel + 1
+                    If currentLevel > totalLevels Then
+                        gameState = "VICTORY"
+                        stateTimer = 0
+                        Print "ALL LEVELS COMPLETE! Final Score: " & Str(playerScore)
+                    Else
+                        ' Load next level after brief delay
+                        LoadLevel currentLevel
+                        Print "Level " & Str(currentLevel) & " starting!"
+                    End If
+                    Return
+                End If
+            End If
+        Next
+    Next
+End Sub
+
+' ============================================================================
+' CAMERA
+' ============================================================================
+
+Sub UpdateCamera(delta As Single)
+    ' Smooth camera follow (lerp toward player position)
+    Dim targetX As Single = playerX - SCREEN_WIDTH / 2 + playerWidth / 2
+    Dim targetY As Single = playerY - SCREEN_HEIGHT / 2 + playerHeight / 2
+
+    ' Camera leads slightly in the direction the player is moving
+    targetX = targetX + playerVX * 0.15
+
+    cameraX = cameraX + (targetX - cameraX) * 5 * delta
+    cameraY = cameraY + (targetY - cameraY) * 5 * delta
+
+    ClampCamera
+End Sub
+
+' ============================================================================
+' PARTICLE EFFECTS
+' ============================================================================
+
+Sub SpawnParticleBurst(x As Single, y As Single, col As Variant, count As Integer)
+    Dim i As Integer
+    Dim spawned As Integer = 0
+    For i = 0 To MAX_PARTICLES - 1
+        If partLife(i) <= 0 Then
+            partX(i) = x
+            partY(i) = y
+            partVX(i) = (Rnd() - 0.5) * 250
+            partVY(i) = (Rnd() - 0.5) * 250 - 100  ' Bias upward
+            partLife(i) = 0.3 + Rnd() * 0.5
+            partColor(i) = col
+            spawned = spawned + 1
+            If spawned >= count Then Exit For
+        End If
+    Next
+End Sub
+
+Sub SpawnJumpDust()
+    SpawnParticleBurst playerX + playerWidth / 2, playerY + playerHeight, Color("#AAAAAA"), 4
+End Sub
+
+Sub UpdateParticles(delta As Single)
+    Dim i As Integer
+    For i = 0 To MAX_PARTICLES - 1
+        If partLife(i) > 0 Then
+            partX(i) = partX(i) + partVX(i) * delta
+            partY(i) = partY(i) + partVY(i) * delta
+            partVY(i) = partVY(i) + 400 * delta  ' Gravity on particles
+            partLife(i) = partLife(i) - delta
+        End If
+    Next
+End Sub
+
+Sub UpdateClouds(delta As Single)
+    Dim i As Integer
+    For i = 0 To MAX_CLOUDS - 1
+        cloudX(i) = cloudX(i) + cloudSpeed(i) * delta
+        If cloudX(i) > SCREEN_WIDTH + 150 Then
+            cloudX(i) = -cloudWidth(i) - 20
+            cloudY(i) = 20 + Rnd() * 160
+        End If
+    Next
+End Sub
+
+' ============================================================================
+' RENDERING
+' ============================================================================
+
+Sub _Draw()
+    Select Case gameState
+        Case "TITLE"
+            DrawTitleScreen
+        Case "PLAYING"
+            DrawGame
+            DrawHUD
+        Case "DEAD"
+            DrawGame
+            DrawDeathOverlay
+        Case "GAMEOVER"
+            DrawGameOverScreen
+        Case "VICTORY"
+            DrawVictoryScreen
+    End Select
+End Sub
+
+' --- Title Screen ---
+Sub DrawTitleScreen()
+    ' Sky gradient background
+    DrawRect 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Color("#4488CC")
+    DrawRect 0, SCREEN_HEIGHT * 0.6, SCREEN_WIDTH, SCREEN_HEIGHT * 0.4, Color("#88BB44")
+
+    ' Clouds
+    DrawClouds
+
+    ' Ground detail
+    DrawRect 0, SCREEN_HEIGHT * 0.6 - 4, SCREEN_WIDTH, 8, Color("#66AA33")
+
+    ' Title text
+    Dim bounce As Single = Sin(stateTimer * 2) * 8
+    DrawString "PIXEL PLATFORMER", SCREEN_WIDTH / 2 - 155, 80 + bounce, Color.White, 40
+    DrawString "PIXEL PLATFORMER", SCREEN_WIDTH / 2 - 157, 78 + bounce, Color("#224466"), 40
+
+    ' Subtitle
+    DrawString "A VisualGasic Demo", SCREEN_WIDTH / 2 - 95, 140, Color("#DDDDDD"), 22
+
+    ' Animated player character on title
+    Dim titlePlayerX As Single = SCREEN_WIDTH / 2 - 12
+    Dim titlePlayerY As Single = SCREEN_HEIGHT * 0.6 - 40 + Sin(stateTimer * 3) * 4
+    DrawPlayerSprite titlePlayerX, titlePlayerY, 1, stateTimer * 8
+
+    ' Instructions
+    Dim flashAlpha As Single = 0.5 + Sin(stateTimer * 4) * 0.5
+    If flashAlpha > 0.3 Then
+        DrawString "Press SPACE or ENTER to Start", SCREEN_WIDTH / 2 - 150, SCREEN_HEIGHT - 120, Color.White, 22
+    End If
+
+    DrawString "Controls: Arrow Keys / WASD + SPACE", SCREEN_WIDTH / 2 - 165, SCREEN_HEIGHT - 70, Color("#AADDFF"), 18
+    DrawString "Based on Godot 2D Platformer Demo", SCREEN_WIDTH / 2 - 155, SCREEN_HEIGHT - 40, Color("#88AACC"), 16
+End Sub
+
+' --- Main game rendering ---
+Sub DrawGame()
+    ' Sky background
+    DrawRect 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Color("#4488CC")
+
+    ' Background clouds (parallax — slower than camera)
+    DrawClouds
+
+    ' Draw the tile map
+    DrawTileMap
+
+    ' Draw moving platforms
+    DrawMovingPlatforms
+
+    ' Draw coins (animated bob)
+    DrawCoins
+
+    ' Draw enemies
+    DrawEnemies
+
+    ' Draw particles
+    DrawParticlesLayer
+
+    ' Draw player (on top of entities)
+    If Not playerDead Then
+        Dim drawX As Single = playerX - cameraX
+        Dim drawY As Single = playerY - cameraY
+
+        ' Invincibility blink
+        If playerInvincible Then
+            Dim blink As Single = Sin(invincibleTimer * 20)
+            If blink < 0 Then Return  ' Skip drawing every other "frame" for blink effect
+        End If
+
+        DrawPlayerSprite drawX, drawY, playerFacing, animTimer
+    End If
+End Sub
+
+Sub DrawTileMap()
+    ' Only draw tiles visible on screen (culling)
+    Dim startCol As Integer = Int(cameraX / TILE_SIZE) - 1
+    Dim endCol As Integer = Int((cameraX + SCREEN_WIDTH) / TILE_SIZE) + 1
+    Dim startRow As Integer = Int(cameraY / TILE_SIZE) - 1
+    Dim endRow As Integer = Int((cameraY + SCREEN_HEIGHT) / TILE_SIZE) + 1
+
+    If startCol < 0 Then startCol = 0
+    If startRow < 0 Then startRow = 0
+    If endCol >= levelWidth Then endCol = levelWidth - 1
+    If endRow >= levelHeight Then endRow = levelHeight - 1
+
+    Dim row As Integer
+    Dim col As Integer
+    For row = startRow To endRow
+        For col = startCol To endCol
+            Dim tile As String = levelGrid(col, row)
+            Dim tx As Single = col * TILE_SIZE - cameraX
+            Dim ty As Single = row * TILE_SIZE - cameraY
+
+            Select Case tile
+                Case "#"
+                    ' Solid ground — brown with darker outline
+                    DrawRect tx, ty, TILE_SIZE, TILE_SIZE, Color("#5C4033")
+                    DrawRect tx + 2, ty + 2, TILE_SIZE - 4, TILE_SIZE - 4, Color("#7B5B3A")
+                    ' Brick detail lines
+                    DrawRect tx, ty + TILE_SIZE / 2 - 1, TILE_SIZE, 2, Color("#5C4033")
+                    DrawRect tx + TILE_SIZE / 2, ty, 2, TILE_SIZE / 2, Color("#5C4033")
+
+                Case "="
+                    ' Brick platform — lighter brown
+                    DrawRect tx, ty, TILE_SIZE, TILE_SIZE, Color("#AA7744")
+                    DrawRect tx + 1, ty + 1, TILE_SIZE - 2, TILE_SIZE - 2, Color("#CC9955")
+                    DrawRect tx, ty + TILE_SIZE / 2, TILE_SIZE, 1, Color("#AA7744")
+
+                Case "^"
+                    ' One-way platform — thin bar at top
+                    DrawRect tx, ty, TILE_SIZE, 8, Color("#66BB66")
+                    DrawRect tx + 2, ty + 2, TILE_SIZE - 4, 4, Color("#88DD88")
+
+                Case "S"
+                    ' Spikes — red triangular danger
+                    DrawRect tx, ty, TILE_SIZE, TILE_SIZE, Color("#331111")
+                    ' Draw spike triangles as small rectangles (approximate)
+                    DrawRect tx + 4, ty + 8, 6, TILE_SIZE - 8, Color("#CC2222")
+                    DrawRect tx + 6, ty + 4, 2, 4, Color("#FF4444")
+                    DrawRect tx + 18, ty + 8, 6, TILE_SIZE - 8, Color("#CC2222")
+                    DrawRect tx + 20, ty + 4, 2, 4, Color("#FF4444")
+
+                Case "F"
+                    ' Finish flag — green pole with waving flag
+                    DrawRect tx + 14, ty, 4, TILE_SIZE, Color("#888888")   ' Pole
+                    ' Waving flag (animated)
+                    Dim flagWave As Single = Sin(stateTimer * 5) * 3
+                    DrawRect tx + 18, ty + 2 + flagWave, 12, 8, Color("#44FF44")
+                    DrawRect tx + 18, ty + 6 + flagWave, 12, 4, Color("#22CC22")
+            End Select
+        Next
+    Next
+End Sub
+
+Sub DrawMovingPlatforms()
+    Dim i As Integer
+    For i = 0 To platCount - 1
+        If platActive(i) Then
+            Dim px As Single = platX(i) - cameraX
+            Dim py As Single = platY(i) - cameraY
+            ' Draw a 3-tile-wide platform
+            DrawRect px, py, TILE_SIZE * 3, 12, Color("#668844")
+            DrawRect px + 2, py + 2, TILE_SIZE * 3 - 4, 8, Color("#88AA66")
+        End If
+    Next
+End Sub
+
+Sub DrawCoins()
+    Dim i As Integer
+    For i = 0 To coinCount - 1
+        If coinActive(i) Then
+            Dim cx As Single = coinX(i) - cameraX
+            Dim cy As Single = coinY(i) - cameraY + Sin(stateTimer * 4 + i) * 4  ' Bob animation
+
+            ' Gold coin with shine
+            DrawCircle cx, cy, 10, Color("#FFD700")
+            DrawCircle cx, cy, 7, Color("#FFEE55")
+            ' Dollar sign or "C" center
+            DrawCircle cx, cy, 3, Color("#DAA520")
+        End If
+    Next
+End Sub
+
+Sub DrawEnemies()
+    Dim i As Integer
+    For i = 0 To MAX_ENEMIES - 1
+        If enemyActive(i) Then
+            Dim ex As Single = enemyX(i) - cameraX
+            Dim ey As Single = enemyY(i) - cameraY
+
+            ' Enemy body (red blob with eyes)
+            Dim squish As Single = 1 + Sin(enemyAnimTimer(i)) * 0.1
+            Dim bodyW As Single = enemyWidth * squish
+            Dim bodyH As Single = enemyHeight / squish
+
+            DrawRect ex + (enemyWidth - bodyW) / 2, ey + enemyHeight - bodyH, bodyW, bodyH, Color("#DD3333")
+            DrawRect ex + (enemyWidth - bodyW) / 2 + 2, ey + enemyHeight - bodyH + 2, bodyW - 4, bodyH - 4, Color("#FF5555")
+
+            ' Eyes
+            Dim eyeDir As Single
+            If enemyVX(i) > 0 Then eyeDir = 2 Else eyeDir = -2
+            DrawCircle ex + enemyWidth / 2 - 5 + eyeDir, ey + enemyHeight - bodyH + 8, 4, Color.White
+            DrawCircle ex + enemyWidth / 2 + 5 + eyeDir, ey + enemyHeight - bodyH + 8, 4, Color.White
+            DrawCircle ex + enemyWidth / 2 - 4 + eyeDir, ey + enemyHeight - bodyH + 9, 2, Color("#222222")
+            DrawCircle ex + enemyWidth / 2 + 6 + eyeDir, ey + enemyHeight - bodyH + 9, 2, Color("#222222")
+        End If
+    Next
+End Sub
+
+Sub DrawPlayerSprite(x As Single, y As Single, facing As Integer, anim As Single)
+    ' --- Player character drawn with primitives ---
+    ' Body
+    DrawRect x + 4, y + 8, 16, 16, Color("#3366CC")    ' Torso (blue)
+    DrawRect x + 6, y + 10, 12, 12, Color("#4488EE")   ' Torso highlight
+
+    ' Head
+    DrawCircle x + 12, y + 6, 8, Color("#FFCC88")       ' Face
+    DrawCircle x + 12, y + 6, 6, Color("#FFE0AA")       ' Face highlight
+
+    ' Eyes
+    Dim eyeOff As Single = facing * 2
+    DrawCircle x + 10 + eyeOff, y + 5, 2, Color.White
+    DrawCircle x + 14 + eyeOff, y + 5, 2, Color.White
+    DrawCircle x + 10.5 + eyeOff, y + 5.5, 1, Color("#222222")
+    DrawCircle x + 14.5 + eyeOff, y + 5.5, 1, Color("#222222")
+
+    ' Hat / Hair
+    DrawRect x + 3, y - 1, 18, 5, Color("#CC3333")     ' Red cap
+    If facing > 0 Then
+        DrawRect x + 16, y, 6, 3, Color("#CC3333")      ' Cap brim (right)
+    Else
+        DrawRect x + 2, y, 6, 3, Color("#CC3333")       ' Cap brim (left)
+    End If
+
+    ' Legs (animate walk cycle)
+    Dim legOffset As Single = Sin(anim) * 4
+    If Abs(playerVX) < 10 And playerOnGround Then legOffset = 0  ' Standing still
+
+    DrawRect x + 5, y + 24, 5, 8 + legOffset, Color("#3355AA")   ' Left leg
+    DrawRect x + 14, y + 24, 5, 8 - legOffset, Color("#3355AA")  ' Right leg
+
+    ' Shoes
+    DrawRect x + 4, y + 31 + legOffset, 7, 3, Color("#553322")
+    DrawRect x + 13, y + 31 - legOffset, 7, 3, Color("#553322")
+End Sub
+
+Sub DrawParticlesLayer()
+    Dim i As Integer
+    For i = 0 To MAX_PARTICLES - 1
+        If partLife(i) > 0 Then
+            Dim px As Single = partX(i) - cameraX
+            Dim py As Single = partY(i) - cameraY
+            Dim size As Single = partLife(i) * 6
+            If size < 1 Then size = 1
+            DrawCircle px, py, size, partColor(i)
+        End If
+    Next
+End Sub
+
+Sub DrawClouds()
+    Dim i As Integer
+    For i = 0 To MAX_CLOUDS - 1
+        Dim cx As Single = cloudX(i)
+        Dim cy As Single = cloudY(i)
+        Dim cw As Single = cloudWidth(i)
+        ' Cloud: overlapping white ellipses approximated with rounded rects
+        DrawCircle cx + cw * 0.3, cy, cw * 0.2, Color(1, 1, 1, 0.3)
+        DrawCircle cx + cw * 0.5, cy - 5, cw * 0.25, Color(1, 1, 1, 0.3)
+        DrawCircle cx + cw * 0.7, cy, cw * 0.18, Color(1, 1, 1, 0.3)
+    Next
+End Sub
+
+' --- HUD Overlay ---
+Sub DrawHUD()
+    ' Semi-transparent bar at top
+    DrawRect 0, 0, SCREEN_WIDTH, 36, Color(0, 0, 0, 0.4)
+
+    ' Score
+    DrawString "SCORE: " & Str(playerScore), 10, 8, Color("#FFD700"), 20
+
+    ' Coins
+    DrawString "COINS: " & Str(coinsCollected) & "/" & Str(coinCount), 200, 8, Color("#FFEE55"), 20
+
+    ' Lives (hearts)
+    DrawString "LIVES: " & String(playerLives, Chr(9829)), SCREEN_WIDTH - 160, 8, Color("#FF4444"), 20
+
+    ' Level indicator
+    DrawString "LEVEL " & Str(currentLevel), SCREEN_WIDTH / 2 - 30, 8, Color.White, 20
+
+    ' Timer
+    Dim mins As Integer = Int(totalTime / 60)
+    Dim secs As Integer = Int(totalTime) Mod 60
+    Dim timeStr As String = Str(mins) & ":" & Right("0" & Str(secs), 2)
+    DrawString timeStr, SCREEN_WIDTH - 60, 8, Color("#AADDFF"), 18
+End Sub
+
+' --- Death Overlay ---
+Sub DrawDeathOverlay()
+    DrawRect 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Color(0.4, 0, 0, 0.3)
+    DrawString "OUCH!", SCREEN_WIDTH / 2 - 50, SCREEN_HEIGHT / 2 - 20, Color.Red, 36
+End Sub
+
+' --- Game Over Screen ---
+Sub DrawGameOverScreen()
+    DrawRect 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Color("#221122")
+    DrawClouds
+
+    DrawString "GAME OVER", SCREEN_WIDTH / 2 - 110, 120, Color.Red, 44
+    DrawString "Final Score: " & Str(playerScore), SCREEN_WIDTH / 2 - 90, 200, Color.White, 26
+    DrawString "Coins Collected: " & Str(coinsCollected), SCREEN_WIDTH / 2 - 100, 240, Color("#FFD700"), 22
+
+    Dim mins As Integer = Int(totalTime / 60)
+    Dim secs As Integer = Int(totalTime) Mod 60
+    DrawString "Time: " & Str(mins) & ":" & Right("0" & Str(secs), 2), SCREEN_WIDTH / 2 - 50, 280, Color("#AADDFF"), 22
+
+    If stateTimer > 1.5 Then
+        Dim flash As Single = 0.5 + Sin(stateTimer * 4) * 0.5
+        If flash > 0.3 Then
+            DrawString "Press SPACE to Continue", SCREEN_WIDTH / 2 - 120, SCREEN_HEIGHT - 80, Color.White, 22
+        End If
+    End If
+End Sub
+
+' --- Victory Screen ---
+Sub DrawVictoryScreen()
+    DrawRect 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Color("#112233")
+    DrawClouds
+
+    Dim bounce As Single = Sin(stateTimer * 3) * 6
+    DrawString "VICTORY!", SCREEN_WIDTH / 2 - 90, 80 + bounce, Color("#FFD700"), 48
+
+    DrawString "All Levels Cleared!", SCREEN_WIDTH / 2 - 100, 160, Color("#44FF44"), 26
+    DrawString "Final Score: " & Str(playerScore), SCREEN_WIDTH / 2 - 90, 220, Color.White, 26
+    DrawString "Coins: " & Str(coinsCollected) & "/" & Str(coinCount), SCREEN_WIDTH / 2 - 60, 260, Color("#FFD700"), 22
+
+    Dim mins As Integer = Int(totalTime / 60)
+    Dim secs As Integer = Int(totalTime) Mod 60
+    DrawString "Time: " & Str(mins) & ":" & Right("0" & Str(secs), 2), SCREEN_WIDTH / 2 - 50, 300, Color("#AADDFF"), 22
+
+    ' Draw celebratory player
+    Dim px As Single = SCREEN_WIDTH / 2 - 12
+    Dim py As Single = 340 + Sin(stateTimer * 5) * 8
+    DrawPlayerSprite px, py, 1, stateTimer * 12
+
+    If stateTimer > 1.5 Then
+        Dim flash As Single = 0.5 + Sin(stateTimer * 4) * 0.5
+        If flash > 0.3 Then
+            DrawString "Press SPACE to Return to Title", SCREEN_WIDTH / 2 - 150, SCREEN_HEIGHT - 80, Color.White, 22
+        End If
+    End If
+End Sub

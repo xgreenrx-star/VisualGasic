@@ -1710,6 +1710,25 @@ The refactoring is smart:
 
 ---
 
+## Included Demo Projects
+
+VisualGasic ships with several complete game demos in the `demos/` folder. Each
+demonstrates different Godot engine integration patterns:
+
+| Demo | Location | Features Shown |
+|------|----------|---------------|
+| **Pixel Platformer** | `demos/2D_Games/Platformer/` | Gravity, jumping, tile-based levels (DATA statements), enemies with stomp mechanic, coins, scrolling camera, HUD, 3 levels. Based on the official Godot 2D Platformer demo. |
+| **Space Shooter** | `demos/2D_Games/Space_Shooter/` | Parallel For loops, Lambda expressions, DATA-driven enemy waves, object pools, Select Match pattern matching. |
+| **Snake** | `demos/2D_Games/Snake/` | Grid-based movement, growing body, food spawning, game-over detection. |
+| **Pong** | `demos/2D_Games/Pong/` | Two-player input, ball physics, score tracking. |
+| **Pong Advanced** | `demos/2D_Games/Pong_Advanced/` | AI opponent, power-ups, enhanced graphics. |
+| **Calculator** | `demos/UI/Calculator/` | `_Input()` / `_UnhandledInput()`, `Is` operator type-checking, `_Draw()` UI, keyboard and mouse handling. |
+
+> **Tutorial**: For a step-by-step walkthrough of the Platformer demo's architecture,
+> see [Building a 2D Platformer](tutorials/2d_platformer.md).
+
+---
+
 *End of Manual*
 - **Connect()**: Connect to signals
 
