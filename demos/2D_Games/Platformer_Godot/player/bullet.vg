@@ -1,0 +1,50 @@
+' ============================================================================
+' BULLET - Projectile fired by the player's gun
+' Converted from official Godot 2D Platformer demo
+' ============================================================================
+' Attached to a RigidBody2D node in bullet.tscn.
+' The bullet flies until it hits something (via contact_monitor).
+' On contact with an enemy, it calls destroy() on the enemy.
+' A Timer in the scene auto-destroys bullets after a timeout.
+'
+' Note: The original GDScript used "body is Enemy" type checking.
+' Since VG doesn't support class_name type checks, we use Godot's
+' group system instead: enemies are in the "enemies" group.
+' ============================================================================
+Attribute VB_Name = "Bullet"
+
+' --- Node references ---
+Dim animPlayer As Object        ' AnimationPlayer - destroy animation
+
+' ============================================================================
+' INITIALIZATION
+' ============================================================================
+Sub _Ready()
+    animPlayer = GetNode("AnimationPlayer")
+End Sub
+
+' ============================================================================
+' SELF-DESTRUCT - Play destroy animation then queue_free (via animation)
+' ============================================================================
+' Called by the Timer timeout signal and can be called externally.
+' The "destroy" animation in the scene ends with a queue_free() method track.
+Sub destroy()
+    animPlayer.Play("destroy")
+End Sub
+
+' ============================================================================
+' COLLISION HANDLER - Called when bullet contacts a physics body
+' ============================================================================
+' Connected via signal in bullet.tscn:
+'   [connection signal="body_entered" from="." to="." method="_on_body_entered"]
+'
+' VG's call_internal uses case-insensitive matching, so this Sub name
+' matches the snake_case method name in the .tscn signal connection.
+Sub _on_body_entered(body As Object)
+    ' Check if the body is an enemy using Godot's group system
+    ' (replaces "body is Enemy" type check from GDScript)
+    If body.IsInGroup("enemies") Then
+        ' Call the enemy's destroy method
+        body.destroy()
+    End If
+End Sub

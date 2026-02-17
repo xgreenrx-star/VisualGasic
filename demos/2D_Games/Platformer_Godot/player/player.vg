@@ -1,0 +1,205 @@
+' ============================================================================
+' PLAYER CHARACTER - Godot 2D Platformer (VisualGasic Conversion)
+' Converted from the official Godot demo: godotengine/godot-demo-projects
+' ============================================================================
+' Demonstrates VisualGasic driving a real Godot CharacterBody2D with:
+'   - _PhysicsProcess for frame-rate-independent physics
+'   - SetVelocity / MoveAndSlide / IsOnFloor builtins
+'   - Input.GetAxis for smooth analog-style movement
+'   - GetNode for accessing child nodes at runtime
+'   - Method calls on Godot objects via PascalCase -> snake_case dispatch
+' ============================================================================
+' Original GDScript: class_name Player extends CharacterBody2D
+' This script attaches to a CharacterBody2D node in player.tscn
+' ============================================================================
+Attribute VB_Name = "Player"
+
+' --- Movement constants ---
+Const WALK_SPEED As Single = 300.0
+Const ACCELERATION_SPEED As Single = 1800.0    ' WALK_SPEED * 6.0
+Const JUMP_VELOCITY As Single = -725.0
+Const TERMINAL_VELOCITY As Single = 700.0
+Const GRAVITY As Single = 2100.0    ' Matches project.godot physics/2d/default_gravity
+
+' --- Node references (set in _Ready via GetNode) ---
+Dim platformDetector As Object      ' RayCast2D - detects one-way platforms
+Dim animPlayer As Object            ' AnimationPlayer - robot sprite animations
+Dim shootTimer As Object            ' Timer - weapon animation cooldown
+Dim sprite As Object                ' Sprite2D - the robot spritesheet
+Dim jumpSound As Object             ' AudioStreamPlayer2D - jump SFX
+Dim gun As Object                   ' Marker2D (gun.vg) - shoots bullets
+Dim camera As Object                ' Camera2D - follows the player
+
+' --- Player state ---
+Dim doubleJumpCharged As Boolean    ' True when double-jump is available
+Dim vx As Single                    ' Velocity X (cached for read/modify/write)
+Dim vy As Single                    ' Velocity Y (cached for read/modify/write)
+
+' ============================================================================
+' INITIALIZATION
+' ============================================================================
+Sub _Ready()
+    ' Get references to child nodes — equivalent to GDScript @onready vars.
+    ' GetNode uses Godot NodePath strings (same paths as $NodePath syntax).
+    platformDetector = GetNode("PlatformDetector")
+    animPlayer = GetNode("AnimationPlayer")
+    shootTimer = GetNode("ShootAnimation")
+    sprite = GetNode("Sprite2D")
+    jumpSound = GetNode("Jump")
+    gun = sprite.GetNode("Gun")
+    camera = GetNode("Camera")
+
+    ' Initialize velocity
+    vx = 0.0
+    vy = 0.0
+    doubleJumpCharged = False
+
+    ' Add to "players" group so other scripts can identify us
+    Me.AddToGroup("players")
+End Sub
+
+' ============================================================================
+' PHYSICS UPDATE - Called every physics tick (120 Hz from project.godot)
+' ============================================================================
+' _PhysicsProcess maps to Godot's _physics_process virtual method.
+' Uses the physics delta for deterministic movement independent of frame rate.
+' This is where CharacterBody2D movement should happen (not _Process).
+Sub _PhysicsProcess(delta As Single)
+    ' --- Read current velocity ---
+    ' We cache vx/vy locally, modify them, then write back with SetVelocity.
+    ' This avoids issues with Variant sub-property assignment chains.
+    vx = Me.velocity.x
+    vy = Me.velocity.y
+
+    ' --- Charge double jump when on floor ---
+    If IsOnFloor(Me) Then
+        doubleJumpCharged = True
+    End If
+
+    ' --- Jump input ---
+    If IsActionJustPressed("jump") Then
+        TryJump
+    ElseIf IsActionJustReleased("jump") And vy < 0.0 Then
+        ' Player released jump early — reduce upward momentum for variable jump height
+        vy = vy * 0.6
+    End If
+
+    ' --- Apply gravity (fall acceleration capped at terminal velocity) ---
+    vy = vy + GRAVITY * delta
+    If vy > TERMINAL_VELOCITY Then vy = TERMINAL_VELOCITY
+
+    ' --- Horizontal movement ---
+    ' GetAxis returns -1..+1 based on move_left/move_right input strength.
+    ' Multiplied by WALK_SPEED gives the target velocity.
+    Dim direction As Single
+    direction = GetAxis("move_left", "move_right") * WALK_SPEED
+
+    ' Smooth acceleration toward target direction (replaces move_toward)
+    Dim step As Single
+    step = ACCELERATION_SPEED * delta
+    If vx < direction Then
+        vx = vx + step
+        If vx > direction Then vx = direction
+    ElseIf vx > direction Then
+        vx = vx - step
+        If vx < direction Then vx = direction
+    End If
+
+    ' --- Flip sprite to face movement direction ---
+    If Abs(vx) > 0.1 Then
+        If vx > 0.0 Then
+            sprite.scale = Vector2(1.0, 1.0)
+        Else
+            sprite.scale = Vector2(-1.0, 1.0)
+        End If
+    End If
+
+    ' --- One-way platform handling ---
+    ' When standing on a one-way platform, disable floor stop on slope
+    ' so the player can walk off edges smoothly.
+    If platformDetector.IsColliding() Then
+        Me.floor_stop_on_slope = False
+    Else
+        Me.floor_stop_on_slope = True
+    End If
+
+    ' --- Apply velocity and move ---
+    ' SetVelocity writes to CharacterBody2D.velocity (both x and y)
+    ' MoveAndSlide executes the physics movement with collision response
+    SetVelocity Me, vx, vy
+    MoveAndSlide Me
+
+    ' --- Shooting ---
+    Dim isShooting As Boolean
+    isShooting = False
+    If IsActionJustPressed("shoot") Then
+        ' Gun.Shoot returns True if a bullet was fired (not on cooldown)
+        Dim gunScale As Single
+        gunScale = sprite.scale.x
+        isShooting = gun.Shoot(gunScale)
+    End If
+
+    ' --- Animation selection ---
+    Dim anim As String
+    anim = GetNewAnimation(isShooting)
+
+    ' Only change animation if different from current, and shoot timer allows it
+    If anim <> animPlayer.current_animation And shootTimer.IsStopped() Then
+        If isShooting Then
+            shootTimer.Start()
+        End If
+        animPlayer.Play(anim)
+    End If
+End Sub
+
+' ============================================================================
+' ANIMATION SELECTION
+' ============================================================================
+' Determines which animation to play based on movement state.
+' The robot spritesheet has separate weapon variants for each state.
+Function GetNewAnimation(isShooting As Boolean) As String
+    Dim animNew As String
+
+    If IsOnFloor(Me) Then
+        If Abs(vx) > 0.1 Then
+            animNew = "run"
+        Else
+            animNew = "idle"
+        End If
+    Else
+        If vy > 0.0 Then
+            animNew = "falling"
+        Else
+            animNew = "jumping"
+        End If
+    End If
+
+    ' Append "_weapon" suffix when shooting
+    If isShooting Then
+        animNew = animNew & "_weapon"
+    End If
+
+    GetNewAnimation = animNew
+End Function
+
+' ============================================================================
+' JUMP MECHANICS
+' ============================================================================
+' Supports floor jump and double jump with different pitch SFX.
+Sub TryJump()
+    If IsOnFloor(Me) Then
+        ' Normal jump from floor
+        jumpSound.pitch_scale = 1.0
+    ElseIf doubleJumpCharged Then
+        ' Double jump in mid-air — gives horizontal speed boost
+        doubleJumpCharged = False
+        vx = vx * 2.5
+        jumpSound.pitch_scale = 1.5
+    Else
+        ' Can't jump — not on floor and no double jump
+        Exit Sub
+    End If
+
+    vy = JUMP_VELOCITY
+    jumpSound.Play()
+End Sub

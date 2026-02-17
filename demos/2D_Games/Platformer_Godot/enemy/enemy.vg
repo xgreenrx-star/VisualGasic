@@ -1,0 +1,131 @@
+' ============================================================================
+' ENEMY - Patrol AI for the Bug Enemy
+' Converted from official Godot 2D Platformer demo
+' ============================================================================
+' Attached to a CharacterBody2D node in enemy.tscn.
+' The bug walks back and forth on platforms, reversing direction when:
+'   - It hits a wall (is_on_wall)
+'   - It reaches the edge of a platform (RayCast2D floor detectors)
+'
+' When destroyed by a bullet, it plays a death animation and queue_free's.
+'
+' Original GDScript: class_name Enemy extends CharacterBody2D
+' Uses enum State { WALKING, DEAD } — replaced with VG constants.
+' ============================================================================
+Attribute VB_Name = "Enemy"
+
+' --- State constants (replaces GDScript enum) ---
+Const STATE_WALKING As Integer = 0
+Const STATE_DEAD As Integer = 1
+
+' --- Movement ---
+Const WALK_SPEED As Single = 22.0
+Const GRAVITY As Single = 2100.0        ' Matches project.godot setting
+
+' --- Current state ---
+Dim currentState As Integer
+
+' --- Node references ---
+Dim platformDetector As Object          ' RayCast2D - detects platform beneath
+Dim floorDetectorLeft As Object         ' RayCast2D - left edge detection
+Dim floorDetectorRight As Object        ' RayCast2D - right edge detection
+Dim sprite As Object                    ' Sprite2D - the bug spritesheet
+Dim animPlayer As Object                ' AnimationPlayer - idle/walk/destroy
+
+' --- Cached velocity ---
+Dim vx As Single
+Dim vy As Single
+
+' ============================================================================
+' INITIALIZATION
+' ============================================================================
+Sub _Ready()
+    ' Get references to child nodes
+    platformDetector = GetNode("PlatformDetector")
+    floorDetectorLeft = GetNode("FloorDetectorLeft")
+    floorDetectorRight = GetNode("FloorDetectorRight")
+    sprite = GetNode("Sprite2D")
+    animPlayer = GetNode("AnimationPlayer")
+
+    ' Start in walking state
+    currentState = STATE_WALKING
+    vx = 0.0
+    vy = 0.0
+
+    ' Add to "enemies" group so bullets can identify us
+    Me.AddToGroup("enemies")
+End Sub
+
+' ============================================================================
+' PHYSICS UPDATE
+' ============================================================================
+Sub _PhysicsProcess(delta As Single)
+    ' Read current velocity
+    vx = Me.velocity.x
+    vy = Me.velocity.y
+
+    ' --- Start moving if stationary and alive ---
+    If currentState = STATE_WALKING Then
+        If Abs(vx) < 0.01 And Abs(vy) < 0.01 Then
+            vx = WALK_SPEED
+        End If
+    End If
+
+    ' --- Apply gravity ---
+    vy = vy + GRAVITY * delta
+
+    ' --- Platform edge detection (reverse at edges) ---
+    If Not floorDetectorLeft.IsColliding() Then
+        vx = WALK_SPEED         ' Turn right when left edge detected
+    ElseIf Not floorDetectorRight.IsColliding() Then
+        vx = -WALK_SPEED        ' Turn left when right edge detected
+    End If
+
+    ' --- Wall reversal ---
+    If Me.IsOnWall() Then
+        vx = -vx
+    End If
+
+    ' --- Apply velocity and move ---
+    SetVelocity Me, vx, vy
+    MoveAndSlide Me
+
+    ' --- Update sprite direction ---
+    If vx > 0.0 Then
+        sprite.scale = Vector2(0.8, 0.8)
+    ElseIf vx < 0.0 Then
+        sprite.scale = Vector2(-0.8, 0.8)
+    End If
+
+    ' --- Play appropriate animation ---
+    Dim anim As String
+    anim = GetNewAnimation()
+    If anim <> animPlayer.current_animation Then
+        animPlayer.Play(anim)
+    End If
+End Sub
+
+' ============================================================================
+' DESTROY - Called by bullet.vg when shot
+' ============================================================================
+Sub destroy()
+    currentState = STATE_DEAD
+    SetVelocity Me, 0.0, 0.0
+    vx = 0.0
+    vy = 0.0
+End Sub
+
+' ============================================================================
+' ANIMATION SELECTION
+' ============================================================================
+Function GetNewAnimation() As String
+    If currentState = STATE_WALKING Then
+        If Abs(vx) < 0.01 Then
+            GetNewAnimation = "idle"
+        Else
+            GetNewAnimation = "walk"
+        End If
+    Else
+        GetNewAnimation = "destroy"
+    End If
+End Function
