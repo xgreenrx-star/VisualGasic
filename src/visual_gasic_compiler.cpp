@@ -5174,6 +5174,38 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                 compile_ok = false;
                 break;
             }
+            // ── obj.method(args) pattern ──
+            // The parser chains  obj.method(args)  as:
+            //   ArrayAccessNode { base=MemberAccessNode{obj, method}, indices=[args] }
+            // We must emit OP_METHOD_CALL instead of OP_GET_MEMBER + OP_GET_ARRAY
+            // because "method" is a callable, not an indexable property.
+            if (aa->base && aa->base->type == ExpressionNode::MEMBER_ACCESS) {
+                MemberAccessNode* ma = (MemberAccessNode*)aa->base;
+                // ClassName.new(args) — emit OP_NEW_OBJECT
+                if (ma->base_object && ma->base_object->type == ExpressionNode::VARIABLE &&
+                    ma->member_name.nocasecmp_to("new") == 0) {
+                    String var_name = ((VariableNode*)ma->base_object)->name;
+                    if (ClassDB::class_exists(var_name)) {
+                        for (int i = 0; i < aa->indices.size(); i++) {
+                            compile_expression(aa->indices[i]);
+                        }
+                        int name_idx = current_chunk->add_constant(var_name);
+                        emit_byte(OP_NEW_OBJECT);
+                        emit_byte((uint8_t)name_idx);
+                        emit_byte((uint8_t)aa->indices.size());
+                        break;
+                    }
+                }
+                // General obj.method(args) — emit OP_METHOD_CALL
+                compile_expression(ma->base_object);
+                for (int i = 0; i < aa->indices.size(); i++) {
+                    compile_expression(aa->indices[i]);
+                }
+                int midx = current_chunk->add_constant(ma->member_name);
+                emit_bytes(OP_METHOD_CALL, (uint8_t)midx);
+                emit_byte((uint8_t)aa->indices.size());
+                break;
+            }
             // ── Sole-owner VGDict GET fast path ──
             if (aa->base && aa->base->type == ExpressionNode::VARIABLE &&
                 is_sole_owner_dict_var(((VariableNode*)aa->base)->name)) {
