@@ -29,6 +29,8 @@ chmod +x setup_symlinks.sh
 | Demo | Description | Features Demonstrated |
 |------|-------------|----------------------|
 | **Screensaver/** | Retro-style screensaver | DrawRect, DrawLine, DrawCircle, DrawString, Color functions |
+| **Screen_Space_Shaders/** | 11 full-screen 2D shader effects | ShaderMaterial, ResourceLoader, Select Case, animated _Draw scene |
+| **Sky_Shaders/** | Volumetric clouds + physical sky (3D) | MeshInstance3D, StandardMaterial3D, _Input mouselook, shader parameters |
 
 ### 🔊 Audio
 
@@ -126,7 +128,9 @@ demos/
 │   └── Snake/
 ├── 3D_Games/          (coming soon)
 ├── Graphics/
-│   └── Screensaver/
+│   ├── Screensaver/
+│   ├── Screen_Space_Shaders/
+│   └── Sky_Shaders/
 ├── Audio/
 │   └── Piano/
 ├── UI/

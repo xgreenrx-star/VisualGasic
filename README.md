@@ -164,7 +164,7 @@ gasic debug --time-travel MyProject.vg
 
 ## 🎮 **Demo Projects (Included in Release)**
 
-VisualGasic ships with **12 playable demo projects** — open any of them in Godot and hit F5:
+VisualGasic ships with **14 playable demo projects** — open any of them in Godot and hit F5:
 
 | Demo | Type | Description |
 |------|------|-------------|
@@ -177,6 +177,8 @@ VisualGasic ships with **12 playable demo projects** — open any of them in God
 | Todo App | UI App | CRUD todo list with file persistence |
 | Piano | Audio | Playable piano keyboard with tone generation |
 | Screensaver | Graphics | Animated bouncing shapes screensaver |
+| Screen Space Shaders | Graphics | 11 full-screen 2D shader effects (whirl, blur, CRT, etc.) |
+| Sky Shaders | Graphics | Volumetric clouds + Rayleigh/Mie sky (3D) |
 | High Scores | Data | File I/O with DATA/READ statements |
 | Parallel Demo | Threading | Async/Await and Parallel For demonstration |
 

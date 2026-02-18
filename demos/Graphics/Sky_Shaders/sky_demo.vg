@@ -1,0 +1,311 @@
+' ============================================================================
+' SKY SHADERS - 3D Volumetric Clouds Demo
+' Written in VisualGasic for Godot 4.5+
+' ============================================================================
+' Port of the official Godot 3D Sky Shaders demo.
+'
+' Features:
+'   - Physical sky with Rayleigh & Mie atmospheric scattering
+'   - Procedural volumetric clouds (GPU shader)
+'   - Day/night cycle with animated sun position
+'   - Camera mouselook with mouse capture
+'   - 11×11 grid of spheres with varying roughness & metallic
+'   - Cloud coverage and density controls
+'   - FOV zoom with mouse wheel
+'
+' Original: 2 GDScript files (main.gd ~120 lines, spheres.gd ~20 lines)
+' VG port:  1 unified file with full functionality
+' ============================================================================
+Attribute VB_Name = "SkyShaders"
+
+' --- Constants ---
+Const MOUSE_SENSITIVITY As Single = 0.001
+Const SPHERE_GRID_SIZE As Integer = 11
+Const PI As Single = 3.14159265
+
+' --- Camera state ---
+Dim desiredFov As Single
+Dim cameraYaw As Single
+Dim cameraPitch As Single
+Dim mouseCaptured As Boolean
+
+' --- Day/night cycle ---
+Dim dayTime As Single        ' 0.0 to 24.0
+Dim timeSpeed As Single      ' Animation speed multiplier
+Dim paused As Boolean
+
+' --- Cloud parameters ---
+Dim cloudCoverage As Single
+Dim cloudDensity As Single
+
+' --- UI state ---
+Dim showGUI As Boolean
+Dim showSpheres As Boolean
+Dim spheresNode As Object
+
+' ============================================================================
+' INITIALIZATION
+' ============================================================================
+Sub _Ready()
+    Print "=== 3D SKY SHADERS ==="
+    Print "Volumetric Clouds + Physical Sky (VisualGasic)"
+    Print ""
+    Print "Controls:"
+    Print "  Mouse         - Look around (when captured)"
+    Print "  Escape        - Toggle mouse capture"
+    Print "  H             - Toggle help panel"
+    Print "  S             - Toggle material spheres"
+    Print "  [ / ]         - Slow down / speed up day cycle"
+    Print "  Scroll wheel  - Zoom (FOV)"
+    Print "  Arrow keys    - Adjust cloud coverage/density"
+    Print ""
+
+    ' Initialize state
+    desiredFov = 75.0
+    cameraYaw = 0.0
+    cameraPitch = 0.0
+    mouseCaptured = True
+    dayTime = 8.0
+    timeSpeed = 1.0
+    paused = False
+    cloudCoverage = 0.25
+    cloudDensity = 0.05
+    showGUI = True
+    showSpheres = True
+
+    ' Capture mouse
+    Input.MouseMode = Input.MOUSE_MODE_CAPTURED
+
+    ' Create the material sphere grid
+    CreateSpheres
+
+    ' Set initial sky shader parameters
+    UpdateSkyShader
+
+    Print "Sky shader loaded. Day/night cycle running."
+End Sub
+
+' ============================================================================
+' CREATE MATERIAL SPHERES
+' (Port of spheres.gd @tool script)
+' ============================================================================
+Sub CreateSpheres()
+    ' Get the Spheres node from the scene tree
+    Set spheresNode = GetNode("Spheres")
+    If spheresNode Is Nothing Then
+        Print "Warning: Spheres node not found"
+        Exit Sub
+    End If
+
+    ' Create 11x11 grid of spheres with varying roughness and metallic
+    Dim r As Integer, m As Integer
+    For r = 0 To SPHERE_GRID_SIZE - 1
+        For m = 0 To SPHERE_GRID_SIZE - 1
+            Dim sphere As Object
+            Set sphere = MeshInstance3D.New()
+
+            Dim mesh As Object
+            Set mesh = SphereMesh.New()
+            sphere.Mesh = mesh
+
+            ' Center the spheres around the node origin
+            Dim posX As Single, posZ As Single
+            posX = CSng(r) - 5.0
+            posZ = CSng(m) - 5.0
+            sphere.Position = Vector3(posX, 0.0, posZ)
+
+            ' Create material with varying roughness and metallic
+            Dim mat As Object
+            Set mat = StandardMaterial3D.New()
+            mat.AlbedoColor = Color(0.5, 0.5, 0.5)
+            mat.Roughness = CSng(r) * 0.1
+            mat.Metallic = CSng(m) * 0.1
+            sphere.MaterialOverride = mat
+
+            spheresNode.AddChild(sphere)
+        Next m
+    Next r
+
+    Print "Created " & CStr(SPHERE_GRID_SIZE * SPHERE_GRID_SIZE) & " material spheres"
+End Sub
+
+' ============================================================================
+' PROCESS — Camera FOV lerp + Day/Night cycle
+' ============================================================================
+Sub _Process(delta As Single)
+    ' Smooth FOV interpolation
+    Dim cam As Object
+    Set cam = GetNode("YawCamera/Camera3D")
+    If Not cam Is Nothing Then
+        Dim currentFov As Single
+        currentFov = cam.Fov
+        cam.Fov = currentFov + (desiredFov - currentFov) * (1.0 - Exp(-delta * 10.0))
+    End If
+
+    ' Day/night cycle
+    If Not paused Then
+        dayTime = dayTime + delta * timeSpeed * 0.1
+        If dayTime >= 24.0 Then dayTime = dayTime - 24.0
+
+        ' Update sun direction based on time of day
+        UpdateSunPosition
+
+        ' Update cloud time offset
+        UpdateSkyShader
+    End If
+End Sub
+
+' ============================================================================
+' UPDATE SUN POSITION
+' ============================================================================
+Sub UpdateSunPosition()
+    Dim sun As Object
+    Set sun = GetNode("DirectionalLight3D")
+    If sun Is Nothing Then Exit Sub
+
+    ' Map dayTime (0-24) to sun angle
+    ' 0/24 = midnight (sun below horizon), 12 = noon (sun overhead)
+    Dim sunAngle As Single
+    sunAngle = (dayTime / 24.0) * 360.0 - 90.0
+
+    ' Convert to radians and set rotation
+    Dim radAngle As Single
+    radAngle = sunAngle * PI / 180.0
+    sun.RotationDegrees = Vector3(sunAngle, -30.0, 0.0)
+End Sub
+
+' ============================================================================
+' UPDATE SKY SHADER PARAMETERS
+' ============================================================================
+Sub UpdateSkyShader()
+    Dim env As Object
+    Set env = GetNode("WorldEnvironment")
+    If env Is Nothing Then Exit Sub
+
+    Dim skyMat As Object
+    Set skyMat = env.Environment.Sky.SkyMaterial
+
+    If Not skyMat Is Nothing Then
+        skyMat.SetShaderParameter "cloud_coverage", cloudCoverage
+        skyMat.SetShaderParameter "cloud_density", cloudDensity
+        skyMat.SetShaderParameter "cloud_time_offset", dayTime
+    End If
+End Sub
+
+' ============================================================================
+' INPUT HANDLING
+' (Port of main.gd _input)
+' ============================================================================
+Sub _Input(inputEvent As Object)
+    ' Toggle GUI
+    If inputEvent.IsActionPressed("toggle_gui") Then
+        showGUI = Not showGUI
+        Dim panel As Object
+        Set panel = GetNode("HUD")
+        If Not panel Is Nothing Then panel.Visible = showGUI
+    End If
+
+    ' Toggle spheres
+    If inputEvent.IsActionPressed("toggle_spheres") Then
+        showSpheres = Not showSpheres
+        If Not spheresNode Is Nothing Then
+            spheresNode.Visible = showSpheres
+        End If
+        If showSpheres Then
+            Print "Spheres: ON"
+        Else
+            Print "Spheres: OFF"
+        End If
+    End If
+
+    ' Toggle mouse capture
+    If inputEvent.IsActionPressed("toggle_mouse_capture") Then
+        If Input.MouseMode = Input.MOUSE_MODE_CAPTURED Then
+            Input.MouseMode = Input.MOUSE_MODE_VISIBLE
+            mouseCaptured = False
+        Else
+            Input.MouseMode = Input.MOUSE_MODE_CAPTURED
+            mouseCaptured = True
+        End If
+    End If
+
+    ' Mouselook
+    If mouseCaptured And TypeOf(inputEvent) = "InputEventMouseMotion" Then
+        Dim relX As Single, relY As Single
+        relX = inputEvent.ScreenRelative.x
+        relY = inputEvent.ScreenRelative.y
+
+        cameraPitch = cameraPitch - relY * MOUSE_SENSITIVITY
+        ' Clamp pitch to prevent flipping
+        If cameraPitch > 1.5708 Then cameraPitch = 1.5708
+        If cameraPitch < -1.5708 Then cameraPitch = -1.5708
+        cameraYaw = cameraYaw - relX * MOUSE_SENSITIVITY
+
+        ' Apply rotation to camera yaw node
+        Dim yawCam As Object
+        Set yawCam = GetNode("YawCamera")
+        If Not yawCam Is Nothing Then
+            yawCam.RotationDegrees = Vector3(cameraPitch * 180.0 / PI, cameraYaw * 180.0 / PI, 0.0)
+        End If
+    End If
+
+    ' FOV zoom — increase
+    If inputEvent.IsActionPressed("increase_camera_fov") Then
+        desiredFov = desiredFov + 5.0
+        If desiredFov > 120.0 Then desiredFov = 120.0
+    End If
+
+    ' FOV zoom — decrease
+    If inputEvent.IsActionPressed("decrease_camera_fov") Then
+        desiredFov = desiredFov - 5.0
+        If desiredFov < 20.0 Then desiredFov = 20.0
+    End If
+
+    ' Day/night speed controls
+    If inputEvent.IsActionPressed("speed_down") Then
+        timeSpeed = timeSpeed * 0.5
+        If timeSpeed < 0.05 Then
+            timeSpeed = 0.0
+            paused = True
+            Print "Day cycle: PAUSED"
+        Else
+            Print "Day cycle speed: " & CStr(timeSpeed * 10.0) & "x"
+        End If
+    End If
+
+    If inputEvent.IsActionPressed("speed_up") Then
+        If paused Then
+            paused = False
+            timeSpeed = 0.1
+        Else
+            timeSpeed = timeSpeed * 2.0
+            If timeSpeed > 12.8 Then timeSpeed = 12.8
+        End If
+        Print "Day cycle speed: " & CStr(timeSpeed * 10.0) & "x"
+    End If
+
+    ' Cloud controls (arrow keys)
+    If Input.IsActionJustPressed("ui_right") Then
+        cloudCoverage = cloudCoverage + 0.05
+        If cloudCoverage > 0.99 Then cloudCoverage = 0.99
+        Print "Cloud coverage: " & CStr(CInt(cloudCoverage * 100)) & "%"
+    End If
+
+    If Input.IsActionJustPressed("ui_left") Then
+        cloudCoverage = cloudCoverage - 0.05
+        If cloudCoverage < 0.0 Then cloudCoverage = 0.0
+        Print "Cloud coverage: " & CStr(CInt(cloudCoverage * 100)) & "%"
+    End If
+
+    If Input.IsActionJustPressed("ui_up") Then
+        cloudDensity = cloudDensity + 0.05
+        If cloudDensity > 0.99 Then cloudDensity = 0.99
+        Print "Cloud density: " & CStr(CInt(cloudDensity * 100)) & "%"
+    End If
+
+    If Input.IsActionJustPressed("ui_down") Then
+        cloudDensity = cloudDensity - 0.05
+        If cloudDensity < 0.01 Then cloudDensity = 0.01
+        Print "Cloud density: " & CStr(CInt(cloudDensity * 100)) & "%"
+    End If
+End Sub
