@@ -2519,6 +2519,17 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
                 if (VisualGasicBuiltins::call_builtin_for_base_variable(this, var_name, call->method_name, call_args, br)) {
                     return br;
                 }
+                // ClassName.new() — GDScript-style static constructor
+                // e.g. Label.new(), MeshInstance3D.new(), StandardMaterial3D.new()
+                if (call->method_name.nocasecmp_to("new") == 0 && ClassDB::class_exists(var_name)) {
+                    if (ClassDB::can_instantiate(var_name)) {
+                        Object *obj = ClassDB::instantiate(var_name);
+                        if (obj) {
+                            return obj;
+                        }
+                    }
+                    return Variant();
+                }
             }
 
             Variant base = evaluate_expression(call->base_object);

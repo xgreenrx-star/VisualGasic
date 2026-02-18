@@ -1,0 +1,37 @@
+Attribute VB_Name = "TestClassNew"
+
+Sub Main()
+    ' Test ClassName.new() syntax (GDScript-style constructor)
+    
+    ' Test 1: Label.new()
+    Dim lbl
+    lbl = Label.new()
+    Print "Label.new() = " & TypeName(lbl)
+    
+    ' Test 2: Node2D.new()
+    Dim n2d
+    n2d = Node2D.new()
+    Print "Node2D.new() = " & TypeName(n2d)
+    
+    ' Test 3: MeshInstance3D.new()
+    Dim mi
+    mi = MeshInstance3D.new()
+    Print "MeshInstance3D.new() = " & TypeName(mi)
+    
+    ' Test 4: SphereMesh.new()
+    Dim sm
+    sm = SphereMesh.new()
+    Print "SphereMesh.new() = " & TypeName(sm)
+    
+    ' Test 5: StandardMaterial3D.new()
+    Dim mat
+    mat = StandardMaterial3D.new()
+    Print "StandardMaterial3D.new() = " & TypeName(mat)
+    
+    ' Test 6: Timer.new()
+    Dim t
+    t = Timer.new()
+    Print "Timer.new() = " & TypeName(t)
+    
+    Print "All ClassName.new() tests passed!"
+End Sub

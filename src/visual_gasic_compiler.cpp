@@ -3157,6 +3157,22 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
         case STMT_CALL: {
             CallStatement* s = (CallStatement*)stmt;
             if (s->base_object) {
+                // ClassName.new() — emit OP_NEW_OBJECT instead of method call
+                if (s->base_object->type == ExpressionNode::VARIABLE &&
+                    s->method_name.nocasecmp_to("new") == 0) {
+                    String var_name = ((VariableNode*)s->base_object)->name;
+                    if (ClassDB::class_exists(var_name)) {
+                        for (int i = 0; i < s->arguments.size(); i++) {
+                            compile_expression(s->arguments[i]);
+                        }
+                        int name_idx = current_chunk->add_constant(var_name);
+                        emit_byte(OP_NEW_OBJECT);
+                        emit_byte((uint8_t)name_idx);
+                        emit_byte((uint8_t)s->arguments.size());
+                        emit_byte(OP_POP); // discard return value (statement context)
+                        break;
+                    }
+                }
                 // Method call on object — compile base + args, emit OP_METHOD_CALL
                 compile_expression(s->base_object);
                 for (int i = 0; i < s->arguments.size(); i++) {
@@ -5210,6 +5226,22 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
         case ExpressionNode::EXPRESSION_CALL: {
              CallExpression* call = (CallExpression*)expr;
              if (call->base_object) {
+                 // ClassName.new() — emit OP_NEW_OBJECT instead of method call
+                 if (call->base_object->type == ExpressionNode::VARIABLE &&
+                     call->method_name.nocasecmp_to("new") == 0) {
+                     String var_name = ((VariableNode*)call->base_object)->name;
+                     if (ClassDB::class_exists(var_name)) {
+                         for (int i = 0; i < call->arguments.size(); i++) {
+                             compile_expression(call->arguments[i]);
+                         }
+                         int name_idx = current_chunk->add_constant(var_name);
+                         emit_byte(OP_NEW_OBJECT);
+                         emit_byte((uint8_t)name_idx);
+                         emit_byte((uint8_t)call->arguments.size());
+                         // Return value stays on stack (expression context)
+                         break;
+                     }
+                 }
                  // Method call on object — compile base + args, emit OP_METHOD_CALL
                  compile_expression(call->base_object);
                  for (int i = 0; i < call->arguments.size(); i++) {
