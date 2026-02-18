@@ -1234,10 +1234,10 @@ ExpressionNode* VisualGasicParser::parse_term() {
         String op;
         bool is_operator = false;
         
-        // Check for operator tokens: *, /, //, \, or Mod keyword
+        // Check for operator tokens: *, /, //, \, %, or Mod keyword
         if (check(VisualGasicTokenizer::TOKEN_OPERATOR)) {
             String peek_val = peek().value;
-            if (peek_val == "*" || peek_val == "/" || peek_val == "//" || peek_val == "\\") {
+            if (peek_val == "*" || peek_val == "/" || peek_val == "//" || peek_val == "\\" || peek_val == "%") {
                 op = peek_val;
                 is_operator = true;
             }

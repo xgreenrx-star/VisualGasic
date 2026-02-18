@@ -399,6 +399,7 @@ Vector<VisualGasicTokenizer::Token> VisualGasicTokenizer::tokenize(const String 
                 }
                 break;
             case '&': t.type = TOKEN_OPERATOR; t.value = "&"; break;
+            case '%': t.type = TOKEN_OPERATOR; t.value = "%"; break; // GDScript-style format / modulo
             case ':': t.type = TOKEN_COLON;    t.value = ":"; break;
             case '.': t.type = TOKEN_OPERATOR; t.value = "."; break;
             case '=': t.type = TOKEN_OPERATOR; t.value = "="; break;

@@ -5070,7 +5070,7 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                 else if (b->op.nocasecmp_to("Or") == 0) emit_byte(OP_OR);
                 else if (b->op.nocasecmp_to("Xor") == 0) emit_byte(OP_XOR);
                 else if (b->op.nocasecmp_to("Is") == 0) emit_byte(OP_EQUAL); // Is compares object references
-                else if (b->op.nocasecmp_to("Mod") == 0) emit_byte(OP_MOD);
+                else if (b->op.nocasecmp_to("Mod") == 0 || b->op == "%") emit_byte(OP_MOD);
                 else if (b->op.nocasecmp_to("Like") == 0) emit_byte(OP_LIKE);
                 else if (b->op == "\\") emit_byte(OP_INT_DIVIDE); // Integer division
                 else if (b->op == "^" || b->op == "**") emit_byte(OP_POWER); // Exponentiation
@@ -5158,7 +5158,7 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
             else if (b->op.nocasecmp_to("Or") == 0) emit_byte(OP_OR);
             else if (b->op.nocasecmp_to("Xor") == 0) emit_byte(OP_XOR);
             else if (b->op.nocasecmp_to("Is") == 0) emit_byte(OP_EQUAL); // Is compares object references
-            else if (b->op.nocasecmp_to("Mod") == 0) emit_byte(OP_MOD);
+            else if (b->op.nocasecmp_to("Mod") == 0 || b->op == "%") emit_byte(OP_MOD);
             else if (b->op.nocasecmp_to("Like") == 0) emit_byte(OP_LIKE);
             else if (b->op == "\\") emit_byte(OP_INT_DIVIDE); // Integer division
             else if (b->op == "^" || b->op == "**") emit_byte(OP_POWER); // Exponentiation

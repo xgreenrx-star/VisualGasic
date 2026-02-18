@@ -3998,7 +3998,18 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
              }
              return li / ri;
         }
-        if (op.nocasecmp_to("Mod") == 0) {
+        if (op.nocasecmp_to("Mod") == 0 || op == "%") {
+             // GDScript-style string format: "fmt" % value
+             if (l.get_type() == Variant::STRING) {
+                 String fmt = l;
+                 if (r.get_type() == Variant::ARRAY) {
+                     return fmt % r;
+                 } else {
+                     Array arr;
+                     arr.push_back(r);
+                     return fmt % arr;
+                 }
+             }
              // Modulo
              int64_t li = (int64_t)l;
              int64_t ri = (int64_t)r;
@@ -9205,6 +9216,20 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 }
                 Variant b = pop_value();
                 Variant a = pop_value();
+                // GDScript-style string format: "fmt" % value
+                if (a.get_type() == Variant::STRING) {
+                    String fmt = a;
+                    // Godot's String::operator% expects Array for multiple placeholders
+                    // or single Variant. Wrap non-Array values in Array for consistency.
+                    if (b.get_type() == Variant::ARRAY) {
+                        push_value(Variant(fmt % b));
+                    } else {
+                        Array arr;
+                        arr.push_back(b);
+                        push_value(Variant(fmt % arr));
+                    }
+                    break;
+                }
                 int64_t ival_b = to_int(b);
                 if (ival_b == 0) {
                     raise_error("Division by zero", 11);
