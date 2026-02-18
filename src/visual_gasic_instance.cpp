@@ -1088,6 +1088,18 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
     variables["MOUSE_BUTTON_LEFT"] = (int)MouseButton::MOUSE_BUTTON_LEFT;
     variables["MOUSE_BUTTON_RIGHT"] = (int)MouseButton::MOUSE_BUTTON_RIGHT;
     variables["MOUSE_BUTTON_MIDDLE"] = (int)MouseButton::MOUSE_BUTTON_MIDDLE;
+    variables["MOUSE_BUTTON_WHEEL_UP"] = (int)MouseButton::MOUSE_BUTTON_WHEEL_UP;
+    variables["MOUSE_BUTTON_WHEEL_DOWN"] = (int)MouseButton::MOUSE_BUTTON_WHEEL_DOWN;
+    variables["MOUSE_BUTTON_WHEEL_LEFT"] = (int)MouseButton::MOUSE_BUTTON_WHEEL_LEFT;
+    variables["MOUSE_BUTTON_WHEEL_RIGHT"] = (int)MouseButton::MOUSE_BUTTON_WHEEL_RIGHT;
+    variables["MOUSE_BUTTON_XBUTTON1"] = (int)MouseButton::MOUSE_BUTTON_XBUTTON1;
+    variables["MOUSE_BUTTON_XBUTTON2"] = (int)MouseButton::MOUSE_BUTTON_XBUTTON2;
+    // Input mouse mode constants (also accessible via Input.MOUSE_MODE_xxx)
+    variables["MOUSE_MODE_VISIBLE"] = (int)Input::MOUSE_MODE_VISIBLE;
+    variables["MOUSE_MODE_HIDDEN"] = (int)Input::MOUSE_MODE_HIDDEN;
+    variables["MOUSE_MODE_CAPTURED"] = (int)Input::MOUSE_MODE_CAPTURED;
+    variables["MOUSE_MODE_CONFINED"] = (int)Input::MOUSE_MODE_CONFINED;
+    variables["MOUSE_MODE_CONFINED_HIDDEN"] = (int)Input::MOUSE_MODE_CONFINED_HIDDEN;
     
     // MsgBox Button Constants (VB6-style)
     variables["vbOKOnly"] = 0;
@@ -10629,6 +10641,14 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                                     try_snake();
                                 }
                                 break;
+                        }
+                        // Fallback: if result is still NIL, try class integer constants
+                        // This handles ClassName.ENUM_VALUE (e.g. Input.MOUSE_MODE_CAPTURED)
+                        if (result.get_type() == Variant::NIL && obj) {
+                            StringName cn = obj->get_class();
+                            if (ClassDB::class_has_integer_constant(cn, cache.primary_string)) {
+                                result = (int)ClassDB::class_get_integer_constant(cn, cache.primary_string);
+                            }
                         }
                     }
                 }

@@ -5271,6 +5271,17 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
         }
         case ExpressionNode::MEMBER_ACCESS: {
             MemberAccessNode* ma = (MemberAccessNode*)expr;
+            // Check if this is ClassName.CONSTANT (Godot class enum constant)
+            if (ma->base_object && ma->base_object->type == ExpressionNode::VARIABLE) {
+                String class_name = ((VariableNode*)ma->base_object)->name;
+                if (ClassDB::class_exists(class_name) &&
+                    ClassDB::class_has_integer_constant(class_name, ma->member_name)) {
+                    int64_t val = ClassDB::class_get_integer_constant(class_name, ma->member_name);
+                    int cidx = current_chunk->add_constant(Variant((int)val));
+                    emit_bytes(OP_CONSTANT, (uint8_t)cidx);
+                    break;
+                }
+            }
             compile_expression(ma->base_object);
             int idx = current_chunk->add_constant(ma->member_name);
             emit_bytes(OP_GET_MEMBER, (uint8_t)idx);
