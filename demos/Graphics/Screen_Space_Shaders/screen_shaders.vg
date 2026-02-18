@@ -4,6 +4,8 @@
 ' Demonstrates full-screen 2D shader post-processing effects:
 '   Vignette, Blur, Pixelize, Whirl, Sepia, Negative,
 '   Contrasted, Normalized, BCS, Mirage, Old Film
+'
+' Press H to toggle help overlay
 
 Attribute VB_Name = "ScreenShaders"
 
@@ -11,6 +13,7 @@ Dim effect As OptionButton
 Dim effects As Control
 Dim picture As OptionButton
 Dim pictures As Control
+Dim helpLabel As Label
 
 Sub _Ready()
     Print "=== Screen Space Shaders Demo ==="
@@ -18,16 +21,30 @@ Sub _Ready()
     effects = GetNode("Effects")
     picture = GetNode("Picture")
     pictures = GetNode("Pictures")
+    helpLabel = GetNode("Help")
 
     Dim c As Node
     For Each c In pictures.get_children()
-        picture.add_item("PIC: " & String(c.get_name()))
+        picture.add_item("PIC: " & str(c.name))
     Next
 
     For Each c In effects.get_children()
-        effect.add_item("FX: " & String(c.get_name()))
+        effect.add_item("FX: " & str(c.name))
     Next
+
+    ' Select first items by default
+    picture.selected = 0
+    effect.selected = 0
+
     Print "Loaded " & str(picture.item_count) & " pictures and " & str(effect.item_count) & " effects"
+End Sub
+
+Sub _Input(ev As InputEvent)
+    If ev Is InputEventKey And ev.pressed Then
+        If ev.keycode = KEY_H Then
+            helpLabel.visible = Not helpLabel.visible
+        End If
+    End If
 End Sub
 
 Sub _on_picture_item_selected(id As Integer)

@@ -333,5 +333,29 @@ size_flags_vertical = 2
 metadata/_edit_layout_mode = 0
 metadata/_edit_use_custom_anchors = false
 
+[node name="Help" type="Label" parent="."]
+layout_mode = 0
+anchor_left = 0.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 10.0
+offset_top = -110.0
+offset_right = -10.0
+offset_bottom = -10.0
+grow_horizontal = 2
+grow_vertical = 0
+text = "Screen Space Shaders — VisualGasic Demo
+
+Use the PIC dropdown to switch background pictures
+Use the FX dropdown to apply shader effects
+
+Press H to toggle this help"
+theme_override_colors/font_color = Color(1, 1, 1, 0.9)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.8)
+theme_override_constants/shadow_offset_x = 2
+theme_override_constants/shadow_offset_y = 2
+theme_override_font_sizes/font_size = 18
+
 [connection signal="item_selected" from="Picture" to="." method="_on_picture_item_selected"]
 [connection signal="item_selected" from="Effect" to="." method="_on_effect_item_selected"]
