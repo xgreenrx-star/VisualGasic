@@ -1,0 +1,142 @@
+' Sky Shaders Demo - VisualGasic port of Godot 3D Sky Shaders demo
+' Ported from: https://github.com/godotengine/godot-demo-projects/tree/master/3d/sky_shaders
+'
+' Controls:
+'   Mouse         - Look around (when captured)
+'   Escape/Ctrl   - Toggle mouse capture
+'   F1            - Toggle GUI panel
+'   F2            - Toggle spheres
+'   Scroll wheel  - Adjust camera FOV
+
+Class SkyDemo Extends Node3D
+
+    Const MOUSE_SENSITIVITY As Single = 0.001
+
+    Dim desired_fov As Single
+
+    Sub _ready()
+        desired_fov = GetNode("YawCamera/Camera3D").fov
+        Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+    End Sub
+
+    Sub _process(delta As Single)
+        ' Make the slider follow the day/night cycle
+        GetNode("Panel/MarginContainer/VBoxContainer/TimeOfDay/HSlider").value = GetNode("AnimationPlayer").current_animation_position
+
+        GetNode("WorldEnvironment").environment.sky.sky_material.set_shader_parameter("cloud_time_offset", GetNode("AnimationPlayer").current_animation_position)
+
+        GetNode("YawCamera/Camera3D").fov = lerpf(GetNode("YawCamera/Camera3D").fov, desired_fov, 1.0 - exp(-delta * 10.0))
+    End Sub
+
+    Sub _input(input_event As InputEvent)
+        If input_event.is_action_pressed("toggle_gui") Then
+            GetNode("Panel").visible = Not GetNode("Panel").visible
+            GetNode("Help").visible = Not GetNode("Help").visible
+        End If
+
+        If input_event.is_action_pressed("toggle_spheres") Then
+            GetNode("Spheres").visible = Not GetNode("Spheres").visible
+        End If
+
+        If input_event.is_action_pressed("toggle_mouse_capture") Then
+            If Input.mouse_mode = Input.MOUSE_MODE_CAPTURED Then
+                Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+            Else
+                Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+            End If
+        End If
+
+        If Input.mouse_mode = Input.MOUSE_MODE_CAPTURED And TypeOf input_event Is InputEventMouseMotion Then
+            ' Mouselook
+            Dim relative_motion As Vector2 = input_event.screen_relative
+            GetNode("YawCamera").rotation.x = clampf(GetNode("YawCamera").rotation.x - relative_motion.y * MOUSE_SENSITIVITY, -TAU * 0.25, TAU * 0.25)
+            GetNode("YawCamera").rotation.y = GetNode("YawCamera").rotation.y - relative_motion.x * MOUSE_SENSITIVITY
+        End If
+
+        ' Mouse wheel camera FOV adjust
+        If input_event.is_action_pressed("increase_camera_fov") Or Input.is_mouse_button_pressed(MOUSE_BUTTON_WHEEL_DOWN) Then
+            desired_fov = clampf(desired_fov + 5.0, 20.0, 120.0)
+        End If
+        If input_event.is_action_pressed("decrease_camera_fov") Or Input.is_mouse_button_pressed(MOUSE_BUTTON_WHEEL_UP) Then
+            desired_fov = clampf(desired_fov - 5.0, 20.0, 120.0)
+        End If
+    End Sub
+
+    Sub _on_time_of_day_value_changed(value As Single)
+        ' Update time of day
+        GetNode("AnimationPlayer").seek(value)
+        GetNode("Panel/MarginContainer/VBoxContainer/TimeOfDay/Value").text = str(value).pad_decimals(2)
+    End Sub
+
+    Sub _on_speed_minus_pressed()
+        ' Allow minimum value to be zero so pause can be reached
+        GetNode("AnimationPlayer").speed_scale = clampf(GetNode("AnimationPlayer").speed_scale * 0.5, 0.0, 12.8)
+        If GetNode("AnimationPlayer").speed_scale < 0.0499 Then
+            ' Going below 0.5x speed; pause
+            GetNode("AnimationPlayer").speed_scale = 0.0
+        End If
+        update_speed_label()
+    End Sub
+
+    Sub _on_speed_plus_pressed()
+        GetNode("AnimationPlayer").speed_scale = clampf(GetNode("AnimationPlayer").speed_scale * 2.0, 0.05, 12.8)
+        If is_zero_approx(GetNode("AnimationPlayer").speed_scale) Then
+            ' Currently paused; resume playback
+            GetNode("AnimationPlayer").speed_scale = 0.1
+        End If
+        update_speed_label()
+    End Sub
+
+    Sub update_speed_label()
+        ' The default speed scale is internally 0.1, so multiply displayed value by 10
+        If is_zero_approx(GetNode("AnimationPlayer").speed_scale) Then
+            GetNode("Panel/MarginContainer/VBoxContainer/TimeOfDay/CurrentSpeed").text = "Pause"
+        Else
+            GetNode("Panel/MarginContainer/VBoxContainer/TimeOfDay/CurrentSpeed").text = "%.2fx" % (GetNode("AnimationPlayer").speed_scale * 10)
+        End If
+    End Sub
+
+    Sub _on_cloud_coverage_value_changed(value As Single)
+        GetNode("WorldEnvironment").environment.sky.sky_material.set_shader_parameter("cloud_coverage", value)
+        GetNode("Panel/MarginContainer/VBoxContainer/Clouds/CoverageValue").text = "%d%%" % (value * 100)
+    End Sub
+
+    Sub _on_cloud_density_value_changed(value As Single)
+        GetNode("WorldEnvironment").environment.sky.sky_material.set_shader_parameter("cloud_density", value)
+        GetNode("Panel/MarginContainer/VBoxContainer/Clouds/DensityValue").text = "%d%%" % (value * 100)
+    End Sub
+
+    Sub _on_process_mode_item_selected(index As Integer)
+        Select Case index
+            Case 0
+                GetNode("WorldEnvironment").environment.sky.process_mode = Sky.PROCESS_MODE_QUALITY
+                GetNode("Panel/MarginContainer/VBoxContainer/RadianceSize").visible = True
+                ' Reset radiance size as the engine forces it to 256 after switching to Real-Time
+                _on_radiance_size_item_selected(GetNode("Panel/MarginContainer/VBoxContainer/RadianceSize/OptionButton").selected)
+            Case 1
+                GetNode("WorldEnvironment").environment.sky.process_mode = Sky.PROCESS_MODE_INCREMENTAL
+                GetNode("Panel/MarginContainer/VBoxContainer/RadianceSize").visible = True
+                _on_radiance_size_item_selected(GetNode("Panel/MarginContainer/VBoxContainer/RadianceSize/OptionButton").selected)
+            Case 2
+                GetNode("WorldEnvironment").environment.sky.process_mode = Sky.PROCESS_MODE_REALTIME
+                ' Radiance size is forced to 256 by the engine in Real-Time mode
+                GetNode("Panel/MarginContainer/VBoxContainer/RadianceSize").visible = False
+        End Select
+    End Sub
+
+    Sub _on_radiance_size_item_selected(index As Integer)
+        Select Case index
+            Case 0
+                GetNode("WorldEnvironment").environment.sky.radiance_size = Sky.RADIANCE_SIZE_32
+            Case 1
+                GetNode("WorldEnvironment").environment.sky.radiance_size = Sky.RADIANCE_SIZE_64
+            Case 2
+                GetNode("WorldEnvironment").environment.sky.radiance_size = Sky.RADIANCE_SIZE_128
+            Case 3
+                GetNode("WorldEnvironment").environment.sky.radiance_size = Sky.RADIANCE_SIZE_256
+            Case 4
+                GetNode("WorldEnvironment").environment.sky.radiance_size = Sky.RADIANCE_SIZE_512
+        End Select
+    End Sub
+
+End Class

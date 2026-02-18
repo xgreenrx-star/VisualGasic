@@ -1,7 +1,7 @@
 shader_type canvas_item;
 
 uniform sampler2D screen_texture : hint_screen_texture, filter_linear_mipmap;
-uniform float frequency = 60.0;
+uniform float frequency = 60;
 uniform float depth = 0.005;
 
 void fragment() {

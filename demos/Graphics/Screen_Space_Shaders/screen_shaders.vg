@@ -1,439 +1,53 @@
-' ============================================================================
-' SCREEN SPACE SHADERS - 2D Shader Effects Demo
-' Written in VisualGasic for Godot 4.5+
-' ============================================================================
+' Screen Space Shaders Demo - VisualGasic port of Godot 2D Screen Space Shaders demo
+' Ported from: https://github.com/godotengine/godot-demo-projects/tree/master/2d/screen_space_shaders
+'
 ' Demonstrates full-screen 2D shader post-processing effects:
-' - Whirl (spiral distortion)
-' - Blur (gaussian-style mipmap blur)
-' - Pixelize (retro mosaic effect)
-' - Sepia (vintage photo tint)
-' - Negative (color inversion)
-' - Mirage (animated heat-wave distortion)
-' - BCS (Brightness / Contrast / Saturation)
-' - Normalized / Contrasted (mathematical color transforms)
-' - Chromatic Aberration (RGB channel split — modern game FX)
-' - CRT Scanlines (retro TV barrel distortion + scanlines)
-' ============================================================================
-' Based on the official Godot 2D Screen Space Shaders demo.
-' The shaders are .gdshader files (GPU code); this VG script draws an
-' animated scene underneath and provides the keyboard/UI to switch effects.
-' ============================================================================
-Attribute VB_Name = "ScreenShaders"
+'   Vignette, Blur, Pixelize, Whirl, Sepia, Negative,
+'   Contrasted, Normalized, BCS, Mirage, Old Film
 
-' --- Screen constants ---
-Const SCREEN_WIDTH As Integer = 1152
-Const SCREEN_HEIGHT As Integer = 648
+Class ScreenShaders Extends Control
 
-' --- Effect list ---
-Const NUM_EFFECTS As Integer = 11
-Dim effectNames(NUM_EFFECTS) As String
-Dim currentEffect As Integer
+    Dim effect As OptionButton
+    Dim effects As Control
+    Dim picture As OptionButton
+    Dim pictures As Control
 
-' --- Scene animation ---
-' We draw an animated scene (bouncing shapes, gradient sky, floating text)
-' so the shader effects have something interesting to process.
-Dim animTimer As Single
-Dim ballX(20) As Single
-Dim ballY(20) As Single
-Dim ballVX(20) As Single
-Dim ballVY(20) As Single
-Dim ballRadius(20) As Single
-Dim ballR(20) As Single
-Dim ballG(20) As Single
-Dim ballB(20) As Single
-Const NUM_BALLS As Integer = 15
+    Sub _ready()
+        effect = GetNode("Effect")
+        effects = GetNode("Effects")
+        picture = GetNode("Picture")
+        pictures = GetNode("Pictures")
 
-' --- Landscape scene state ---
-Dim cloudX(10) As Single
-Dim cloudSpeed(10) As Single
-Const NUM_CLOUDS As Integer = 8
-Dim wavePhase As Single
-Dim treeSwayPhase As Single
+        Dim c As Node
+        For Each c In pictures.get_children()
+            picture.add_item("PIC: " & String(c.get_name()))
+        Next
 
-' --- HUD ---
-Dim showHelp As Boolean
+        For Each c In effects.get_children()
+            effect.add_item("FX: " & String(c.get_name()))
+        Next
+    End Sub
 
-' ============================================================================
-' INITIALIZATION
-' ============================================================================
-Sub _Ready()
-    Print "=== SCREEN SPACE SHADERS ==="
-    Print "2D Shader Effects Demo (VisualGasic)"
-    Print ""
-    Print "LEFT/RIGHT arrows or A/D to cycle effects"
-    Print "H to toggle help overlay"
-    Print ""
+    Sub _on_picture_item_selected(id As Integer)
+        Dim c As Integer
+        For c = 0 To pictures.get_child_count() - 1
+            If id = c Then
+                pictures.get_child(c).show()
+            Else
+                pictures.get_child(c).hide()
+            End If
+        Next
+    End Sub
 
-    ' Set up effect names
-    effectNames(0) = "None (Original)"
-    effectNames(1) = "Whirl"
-    effectNames(2) = "Blur"
-    effectNames(3) = "Pixelize"
-    effectNames(4) = "Sepia"
-    effectNames(5) = "Negative"
-    effectNames(6) = "Mirage"
-    effectNames(7) = "BCS (Bright/Contrast/Sat)"
-    effectNames(8) = "Normalized"
-    effectNames(9) = "Chromatic Aberration"
-    effectNames(10) = "CRT Scanlines"
+    Sub _on_effect_item_selected(id As Integer)
+        Dim c As Integer
+        For c = 0 To effects.get_child_count() - 1
+            If id = c Then
+                effects.get_child(c).show()
+            Else
+                effects.get_child(c).hide()
+            End If
+        Next
+    End Sub
 
-    currentEffect = 0
-    showHelp = True
-    animTimer = 0.0
-    wavePhase = 0.0
-    treeSwayPhase = 0.0
-
-    ' Initialize bouncing balls
-    Dim i As Integer
-    For i = 0 To NUM_BALLS - 1
-        ballX(i) = Rnd() * SCREEN_WIDTH
-        ballY(i) = Rnd() * SCREEN_HEIGHT * 0.6 + 50
-        ballVX(i) = (Rnd() - 0.5) * 300.0
-        ballVY(i) = (Rnd() - 0.5) * 200.0
-        ballRadius(i) = 12.0 + Rnd() * 30.0
-        ballR(i) = 0.3 + Rnd() * 0.7
-        ballG(i) = 0.3 + Rnd() * 0.7
-        ballB(i) = 0.3 + Rnd() * 0.7
-    Next i
-
-    ' Initialize clouds
-    For i = 0 To NUM_CLOUDS - 1
-        cloudX(i) = Rnd() * (SCREEN_WIDTH + 200) - 100
-        cloudSpeed(i) = 15.0 + Rnd() * 40.0
-    Next i
-
-    Print "Loaded " & CStr(NUM_EFFECTS) & " shader effects."
-End Sub
-
-' ============================================================================
-' INPUT HANDLING
-' ============================================================================
-Sub _Process(delta As Single)
-    ' --- Handle input ---
-    If Input.IsActionJustPressed("ui_right") Then
-        currentEffect = currentEffect + 1
-        If currentEffect >= NUM_EFFECTS Then currentEffect = 0
-        Print "Effect: " & effectNames(currentEffect)
-        ApplyEffect
-    End If
-
-    If Input.IsActionJustPressed("ui_left") Then
-        currentEffect = currentEffect - 1
-        If currentEffect < 0 Then currentEffect = NUM_EFFECTS - 1
-        Print "Effect: " & effectNames(currentEffect)
-        ApplyEffect
-    End If
-
-    If Input.IsActionJustPressed("ui_accept") Then
-        showHelp = Not showHelp
-    End If
-
-    ' --- Update animation ---
-    animTimer = animTimer + delta
-    wavePhase = wavePhase + delta * 2.0
-    treeSwayPhase = treeSwayPhase + delta * 1.5
-
-    ' Update bouncing balls
-    Dim i As Integer
-    For i = 0 To NUM_BALLS - 1
-        ballX(i) = ballX(i) + ballVX(i) * delta
-        ballY(i) = ballY(i) + ballVY(i) * delta
-
-        ' Bounce off edges
-        If ballX(i) < ballRadius(i) Then
-            ballX(i) = ballRadius(i)
-            ballVX(i) = Abs(ballVX(i))
-        End If
-        If ballX(i) > SCREEN_WIDTH - ballRadius(i) Then
-            ballX(i) = SCREEN_WIDTH - ballRadius(i)
-            ballVX(i) = -Abs(ballVX(i))
-        End If
-        If ballY(i) < ballRadius(i) + 50 Then
-            ballY(i) = ballRadius(i) + 50
-            ballVY(i) = Abs(ballVY(i))
-        End If
-        If ballY(i) > SCREEN_HEIGHT - 180 Then
-            ballY(i) = SCREEN_HEIGHT - 180
-            ballVY(i) = -Abs(ballVY(i))
-        End If
-    Next i
-
-    ' Update clouds
-    For i = 0 To NUM_CLOUDS - 1
-        cloudX(i) = cloudX(i) + cloudSpeed(i) * delta
-        If cloudX(i) > SCREEN_WIDTH + 150 Then
-            cloudX(i) = -150.0
-            cloudSpeed(i) = 15.0 + Rnd() * 40.0
-        End If
-    Next i
-End Sub
-
-' ============================================================================
-' APPLY SHADER EFFECT
-' ============================================================================
-Sub ApplyEffect()
-    ' Get the CanvasLayer child named "EffectLayer" and set its shader
-    ' The effect rect is at path EffectLayer/EffectRect in the scene tree
-    Dim effectRect As Object
-    Set effectRect = GetNode("EffectLayer/EffectRect")
-
-    If effectRect Is Nothing Then
-        Print "Warning: EffectRect not found"
-        Exit Sub
-    End If
-
-    Select Case currentEffect
-        Case 0  ' None
-            effectRect.Visible = False
-        Case 1  ' Whirl
-            effectRect.Visible = True
-            SetShader effectRect, "res://shaders/whirl.gdshader"
-        Case 2  ' Blur
-            effectRect.Visible = True
-            SetShader effectRect, "res://shaders/blur.gdshader"
-        Case 3  ' Pixelize
-            effectRect.Visible = True
-            SetShader effectRect, "res://shaders/pixelize.gdshader"
-        Case 4  ' Sepia
-            effectRect.Visible = True
-            SetShader effectRect, "res://shaders/sepia.gdshader"
-        Case 5  ' Negative
-            effectRect.Visible = True
-            SetShader effectRect, "res://shaders/negative.gdshader"
-        Case 6  ' Mirage
-            effectRect.Visible = True
-            SetShader effectRect, "res://shaders/mirage.gdshader"
-        Case 7  ' BCS
-            effectRect.Visible = True
-            SetShader effectRect, "res://shaders/BCS.gdshader"
-        Case 8  ' Normalized
-            effectRect.Visible = True
-            SetShader effectRect, "res://shaders/normalized.gdshader"
-        Case 9  ' Chromatic Aberration
-            effectRect.Visible = True
-            SetShader effectRect, "res://shaders/chromatic_aberration.gdshader"
-        Case 10 ' CRT Scanlines
-            effectRect.Visible = True
-            SetShader effectRect, "res://shaders/crt_scanlines.gdshader"
-    End Select
-End Sub
-
-' Helper: load a shader and apply it as a ShaderMaterial on a ColorRect
-Sub SetShader(rect As Object, shaderPath As String)
-    Dim mat As Object
-    Set mat = ShaderMaterial.New()
-    Dim shd As Object
-    Set shd = ResourceLoader.Load(shaderPath)
-    mat.Shader = shd
-    rect.Material = mat
-End Sub
-
-' ============================================================================
-' DRAWING — Animated Scene
-' ============================================================================
-Sub _Draw()
-    ' ---- SKY GRADIENT ----
-    DrawSkyGradient
-
-    ' ---- SUN ----
-    DrawSun
-
-    ' ---- CLOUDS ----
-    DrawClouds
-
-    ' ---- MOUNTAINS ----
-    DrawMountains
-
-    ' ---- WATER / GROUND ----
-    DrawWater
-
-    ' ---- TREES ----
-    DrawTrees
-
-    ' ---- BOUNCING BALLS ----
-    DrawBalls
-
-    ' ---- HUD ----
-    DrawHUD
-
-    ' ---- HELP OVERLAY ----
-    If showHelp Then DrawHelp
-End Sub
-
-' --- Sky: vertical gradient from deep blue to orange-pink ---
-Sub DrawSkyGradient()
-    Dim y As Integer
-    Dim t As Single
-    Dim r As Single, g As Single, b As Single
-    Dim skyHeight As Integer
-    skyHeight = SCREEN_HEIGHT - 150
-
-    For y = 0 To skyHeight Step 4
-        t = CSng(y) / CSng(skyHeight)
-        ' Top: deep blue (0.1, 0.15, 0.5)  Bottom: warm orange (1.0, 0.6, 0.3)
-        r = 0.1 + t * 0.9
-        g = 0.15 + t * 0.45
-        b = 0.5 - t * 0.2
-        DrawRect 0, y, SCREEN_WIDTH, 4, Color(r, g, b)
-    Next y
-End Sub
-
-' --- Animated sun with glow ---
-Sub DrawSun()
-    Dim sunX As Single, sunY As Single
-    Dim pulse As Single
-    sunX = SCREEN_WIDTH * 0.75
-    sunY = 120.0 + Sin(animTimer * 0.3) * 20.0
-    pulse = 1.0 + Sin(animTimer * 2.0) * 0.15
-
-    ' Outer glow rings
-    DrawCircle sunX, sunY, 80 * pulse, Color(1.0, 0.9, 0.3, 0.08)
-    DrawCircle sunX, sunY, 60 * pulse, Color(1.0, 0.85, 0.2, 0.15)
-    DrawCircle sunX, sunY, 45 * pulse, Color(1.0, 0.8, 0.1, 0.3)
-
-    ' Sun body
-    DrawCircle sunX, sunY, 35, Color(1.0, 0.95, 0.6)
-End Sub
-
-' --- Floating clouds ---
-Sub DrawClouds()
-    Dim i As Integer
-    Dim cx As Single, cy As Single
-    For i = 0 To NUM_CLOUDS - 1
-        cx = cloudX(i)
-        cy = 60.0 + CSng(i) * 35.0 + Sin(animTimer + CSng(i)) * 8.0
-        Dim a As Single
-        a = 0.5 + 0.3 * (CSng(i) / CSng(NUM_CLOUDS))
-
-        ' Cloud body (overlapping circles)
-        DrawCircle cx, cy, 30, Color(1.0, 1.0, 1.0, a)
-        DrawCircle cx + 25, cy - 5, 25, Color(1.0, 1.0, 1.0, a)
-        DrawCircle cx - 20, cy + 3, 22, Color(1.0, 1.0, 1.0, a)
-        DrawCircle cx + 10, cy + 8, 20, Color(0.95, 0.95, 1.0, a * 0.8)
-    Next i
-End Sub
-
-' --- Layered mountain silhouettes ---
-Sub DrawMountains()
-    Dim baseY As Integer
-    baseY = SCREEN_HEIGHT - 150
-
-    ' Far mountains (darker, smaller)
-    Dim x As Integer
-    For x = 0 To SCREEN_WIDTH Step 3
-        Dim h1 As Single
-        h1 = Sin(CSng(x) * 0.008) * 60.0 + Sin(CSng(x) * 0.02) * 25.0 + 40.0
-        DrawRect x, baseY - CInt(h1), 3, CInt(h1), Color(0.25, 0.2, 0.35, 0.8)
-    Next x
-
-    ' Near mountains (lighter, taller)
-    For x = 0 To SCREEN_WIDTH Step 3
-        Dim h2 As Single
-        h2 = Sin(CSng(x) * 0.005 + 1.5) * 80.0 + Sin(CSng(x) * 0.015 + 0.7) * 35.0 + 30.0
-        DrawRect x, baseY - CInt(h2) + 30, 3, CInt(h2), Color(0.3, 0.35, 0.25, 0.7)
-    Next x
-End Sub
-
-' --- Animated water with wave effect ---
-Sub DrawWater()
-    Dim waterTop As Integer
-    waterTop = SCREEN_HEIGHT - 150
-
-    ' Water base
-    DrawRect 0, waterTop, SCREEN_WIDTH, 150, Color(0.1, 0.25, 0.5)
-
-    ' Animated wave lines
-    Dim row As Integer
-    For row = 0 To 6
-        Dim x As Integer
-        Dim wy As Single
-        For x = 0 To SCREEN_WIDTH Step 4
-            wy = CSng(waterTop + 15 + row * 18) + Sin(CSng(x) * 0.03 + wavePhase + CSng(row) * 0.8) * 5.0
-            Dim brightness As Single
-            brightness = 0.3 + 0.15 * Sin(CSng(x) * 0.02 + wavePhase * 1.3 + CSng(row))
-            DrawRect x, CInt(wy), 4, 2, Color(brightness, brightness + 0.2, brightness + 0.5, 0.4)
-        Next x
-    Next row
-End Sub
-
-' --- Simple trees with wind sway ---
-Sub DrawTrees()
-    Dim baseY As Integer
-    baseY = SCREEN_HEIGHT - 150
-
-    Dim i As Integer
-    For i = 0 To 7
-        Dim tx As Single
-        tx = 60.0 + CSng(i) * 140.0
-        Dim sway As Single
-        sway = Sin(treeSwayPhase + CSng(i) * 1.2) * 4.0
-
-        ' Trunk
-        DrawRect CInt(tx) - 4, baseY - 60, 8, 60, Color(0.4, 0.25, 0.1)
-
-        ' Canopy (layered circles)
-        DrawCircle tx + sway, CSng(baseY - 70), 25.0, Color(0.15, 0.45, 0.1, 0.9)
-        DrawCircle tx + sway - 10, CSng(baseY - 60), 20.0, Color(0.2, 0.5, 0.15, 0.85)
-        DrawCircle tx + sway + 12, CSng(baseY - 55), 18.0, Color(0.18, 0.48, 0.12, 0.8)
-    Next i
-End Sub
-
-' --- Bouncing colorful balls ---
-Sub DrawBalls()
-    Dim i As Integer
-    For i = 0 To NUM_BALLS - 1
-        ' Shadow
-        DrawCircle ballX(i) + 3, ballY(i) + 3, ballRadius(i), Color(0.0, 0.0, 0.0, 0.2)
-        ' Ball body
-        DrawCircle ballX(i), ballY(i), ballRadius(i), Color(ballR(i), ballG(i), ballB(i), 0.85)
-        ' Highlight
-        DrawCircle ballX(i) - ballRadius(i) * 0.25, ballY(i) - ballRadius(i) * 0.25, ballRadius(i) * 0.35, Color(1.0, 1.0, 1.0, 0.4)
-    Next i
-End Sub
-
-' --- HUD: current effect name + instructions ---
-Sub DrawHUD()
-    ' Semi-transparent bar at top
-    DrawRect 0, 0, SCREEN_WIDTH, 44, Color(0.0, 0.0, 0.0, 0.6)
-
-    ' Effect name
-    DrawString "EFFECT: " & effectNames(currentEffect), 16, 8, Color(1.0, 1.0, 0.3), 22
-    DrawString "[" & CStr(currentEffect + 1) & "/" & CStr(NUM_EFFECTS) & "]", SCREEN_WIDTH - 100, 12, Color(0.7, 0.7, 0.7), 16
-
-    ' Bottom bar
-    DrawRect 0, SCREEN_HEIGHT - 28, SCREEN_WIDTH, 28, Color(0.0, 0.0, 0.0, 0.5)
-    DrawString "LEFT/RIGHT: Cycle Effects   |   SPACE: Toggle Help   |   VisualGasic Shader Demo", 16, SCREEN_HEIGHT - 22, Color(0.6, 0.6, 0.6), 14
-End Sub
-
-' --- Help overlay ---
-Sub DrawHelp()
-    ' Darken background
-    DrawRect SCREEN_WIDTH / 2 - 260, 60, 520, 380, Color(0.0, 0.0, 0.0, 0.75)
-    DrawRect SCREEN_WIDTH / 2 - 258, 62, 516, 376, Color(0.15, 0.15, 0.25, 0.9)
-
-    Dim cx As Integer
-    cx = SCREEN_WIDTH / 2 - 240
-
-    DrawString "SCREEN SPACE SHADERS", cx, 80, Color(1.0, 0.9, 0.3), 24
-    DrawString "VisualGasic Shader Demo", cx, 110, Color(0.7, 0.7, 0.8), 16
-
-    DrawString "Available Effects:", cx, 150, Color(0.9, 0.9, 1.0), 18
-    Dim i As Integer
-    For i = 0 To NUM_EFFECTS - 1
-        Dim col As Object
-        If i = currentEffect Then
-            Set col = Color(1.0, 1.0, 0.3)
-        Else
-            Set col = Color(0.7, 0.7, 0.7)
-        End If
-        Dim marker As String
-        If i = currentEffect Then
-            marker = " > "
-        Else
-            marker = "   "
-        End If
-        DrawString marker & CStr(i + 1) & ". " & effectNames(i), cx, 175 + i * 20, col, 14
-    Next i
-
-    DrawString "Press SPACE to close this help", cx, 410, Color(0.5, 0.5, 0.6), 13
-End Sub
+End Class
