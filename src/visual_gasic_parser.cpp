@@ -679,7 +679,14 @@ Statement* VisualGasicParser::parse_statement() {
         if (val == "name") return set_line(parse_name());
         if (val == "try") return set_line(parse_try());
         if (val == "write") return set_line(parse_write());
-        if (val == "input") return set_line(parse_input(false));
+        if (val == "input") {
+            // Check if this is Godot's Input singleton (Input.xxx) rather than VB Input statement
+            if (current_pos + 1 < tokens.size() && tokens[current_pos + 1].type == VisualGasicTokenizer::TOKEN_OPERATOR && tokens[current_pos + 1].value == ".") {
+                // Input.property or Input.method() — treat as identifier, fall through to assignment/call
+                return set_line(parse_assignment_or_call());
+            }
+            return set_line(parse_input(false));
+        }
         if (val == "line") {
             advance();
             if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("input") == 0) {

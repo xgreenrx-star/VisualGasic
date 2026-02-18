@@ -648,7 +648,10 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
     }
 
     if (METHOD_IS("lerp") && args.size() == 3) { r_handled = true; double a = args[0]; double b = args[1]; double t = args[2]; return Math::lerp(a,b,t); }
+    if (METHOD_IS("lerpf") && args.size() == 3) { r_handled = true; double a = args[0]; double b = args[1]; double t = args[2]; return Math::lerp(a,b,t); }
     if (METHOD_IS("clamp") && args.size() == 3) { r_handled = true; double val = args[0]; double mn = args[1]; double mx = args[2]; return Math::clamp(val,mn,mx); }
+    if (METHOD_IS("clampf") && args.size() == 3) { r_handled = true; double val = args[0]; double mn = args[1]; double mx = args[2]; return Math::clamp(val,mn,mx); }
+    if (METHOD_IS("is_zero_approx") && args.size() == 1) { r_handled = true; return Math::is_zero_approx((double)args[0]); }
 
     // Min/Max functions
     if (METHOD_IS("min") && args.size() == 2) { r_handled = true; double a = (double)args[0]; double b = (double)args[1]; return a < b ? a : b; }

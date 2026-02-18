@@ -5170,10 +5170,6 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
         }
         case ExpressionNode::ARRAY_ACCESS: {
             ArrayAccessNode* aa = (ArrayAccessNode*)expr;
-            if (aa->indices.size() != 1) {
-                compile_ok = false;
-                break;
-            }
             // ── obj.method(args) pattern ──
             // The parser chains  obj.method(args)  as:
             //   ArrayAccessNode { base=MemberAccessNode{obj, method}, indices=[args] }
@@ -5204,6 +5200,31 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                 int midx = current_chunk->add_constant(ma->member_name);
                 emit_bytes(OP_METHOD_CALL, (uint8_t)midx);
                 emit_byte((uint8_t)aa->indices.size());
+                break;
+            }
+            // ── Function call pattern ──
+            // parse_assignment_or_call creates ArrayAccessNode for func(args)
+            // when the base is a VariableNode that is NOT a known array/dict.
+            // Emit OP_CALL instead of OP_GET_ARRAY.
+            if (aa->base && aa->base->type == ExpressionNode::VARIABLE) {
+                String var_name = ((VariableNode*)aa->base)->name;
+                bool is_array = is_fast_array_var(var_name) || array_vars.has(var_name.to_lower());
+                bool is_dict = is_dictionary_var(var_name);
+                bool is_local = local_slots.has(var_name.to_lower());
+                if (!is_array && !is_dict && !is_local) {
+                    // Not a known array/dict/local variable — treat as function call
+                    for (int i = 0; i < aa->indices.size(); i++) {
+                        compile_expression(aa->indices[i]);
+                    }
+                    int idx = current_chunk->add_constant(var_name);
+                    emit_bytes(OP_CALL, (uint8_t)idx);
+                    emit_byte((uint8_t)aa->indices.size());
+                    break;
+                }
+            }
+            // ── True array/dict access ──
+            if (aa->indices.size() != 1) {
+                compile_ok = false;
                 break;
             }
             // ── Sole-owner VGDict GET fast path ──
