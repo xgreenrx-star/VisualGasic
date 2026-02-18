@@ -1,7 +1,7 @@
 # VisualGasic - Advanced Visual Basic for Godot 4
 
 [![CI](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml/badge.svg)](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/badge/version-2.5.0-blue.svg)](https://github.com/xgreenrx-star/VisualGasic/releases)
+[![Version](https://img.shields.io/badge/version-2.6.1-blue.svg)](https://github.com/xgreenrx-star/VisualGasic/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Godot](https://img.shields.io/badge/Godot-4.5+-purple.svg)](https://godotengine.org)
 
@@ -16,8 +16,12 @@
 - **Lambda Expressions** - `Lambda`, `Fn`, `Function`, `Sub` with optional `=>` arrow
 - **Block Lambdas** - Multi-statement `Function(x) ... Return ... End Function`
 - **Functional Programming** - `Map`, `Filter`, `Reduce`, `Any`, `All`, `Find`
-- **Null Safety** - `??` null-coalescing and `?.` null-safe navigation
+- **Null Safety** - `??` null-coalescing and `?.` optional access
 - **Erase Statement** - Clear/reset arrays with `Erase arr`
+- **ReDim Preserve** - Resize arrays while keeping existing data
+- **Try/Catch/Finally** - Structured exception handling
+- **Select Case** - Multi-value, range, and comparison matching
+- **For Each** - Collection iteration for arrays and dictionaries
 - **Advanced Type System** - Generics, optional types, union types, type inference
 - **Pattern Matching** - VB.NET-style Select Match with destructuring
 - **Multitasking** - Native async/await, parallel processing, task coordination
@@ -253,7 +257,7 @@ VisualGasic welcomes contributions! Please see our [Contributing Guide](CONTRIBU
 
 ## 📊 **Project Status**
 
-**Current Version**: 2.5.0 (Computed Gotos + 11 New Builtins)
+**Current Version**: 2.6.1 (Bytecode Compiler Batches 1-4 — 39 Tests)
 
 **Completion Status**:
 - ✅ **Core Language** - 100% (Full VB6 compatibility + class inheritance)
@@ -266,7 +270,7 @@ VisualGasic welcomes contributions! Please see our [Contributing Guide](CONTRIBU
 - ✅ **Form Templates** - 100% (23 templates: VB6, Game, Platform, Custom)
 - ✅ **Game Demos** - 100% (12 demos: Pong, Snake, Space Shooter, Galactic Defender, Calculator, Piano, and more)
 - ✅ **Documentation** - 100% (Comprehensive guides and references)
-- ✅ **Performance** - 11/11 benchmarks faster than GDScript (up to 65× faster)
+- ✅ **Performance** - 11/11 benchmarks faster than GDScript (up to 104× faster) — VG wins 6/11 vs C++
 
 ### 🚧 Coming Soon
 

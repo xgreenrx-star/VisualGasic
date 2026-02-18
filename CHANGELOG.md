@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.6.1] - February 2026
 
+### Added - Bytecode Compiler Batches 1-4 (39 Tests)
+Compiled 28 previously-unhandled statement/expression types to native bytecode, eliminating AST interpreter fallback ("function poisoning") for functions using these constructs.
+
+- **Batch 1** (10 tests): Select Case (multi-value, range, comparison, string, Case Else), For Each (Array, Dictionary, Exit For), Object method calls via `OP_METHOD_CALL`
+- **Batch 2** (11 tests): With...End With (`OP_PUSH_WITH`/`OP_POP_WITH`/`OP_GET_WITH`), Continue For/Do, GoTo (forward + backward), Try/Catch/Finally (`OP_SETUP_TRY`/`OP_POP_TRY`/`OP_THROW`)
+- **Batch 3** (7 tests): Erase statement, TypeOf...Is (`OP_IS_CLASS`), Optional?.Access (`OP_DUP` + nil-check pattern), Lambda expressions (Dictionary-wrapped closures)
+- **Batch 4** (11 tests): ReDim Preserve (`OP_ARRAY_RESIZE`), Super expression, New with args (`OP_NEW_OBJECT` — structs, classes, ClassDB), Pass statement (`STMT_PASS` no-op)
+
+New opcodes: `OP_METHOD_CALL`, `OP_ITER_ARRAY`, `OP_DICT_KEYS_CALL`, `OP_PUSH_WITH`, `OP_POP_WITH`, `OP_GET_WITH`, `OP_SETUP_TRY`, `OP_POP_TRY`, `OP_THROW`, `OP_IS_CLASS`, `OP_DUP`, `OP_ARRAY_RESIZE`, `OP_NEW_OBJECT`
+
+DCE updated: `collect_used_vars_expr`, `collect_vars_in_expr`, `collect_used_vars_stmt`, `collect_assigned_vars_stmt` extended for all new expression/statement types. VGDict escape analysis handles `OPTIONAL_ACCESS` and `MEMBER_ACCESS`. Optimizer `instruction_size()` registered for all new opcodes.
+
+### Performance - Updated Benchmarks (v2.6.1 vs v2.5.0)
+- DictFastGet: 5.4× → **13.2×** faster than GDScript
+- DictFastSet: 2.6× → **7.9×** faster than GDScript
+- Allocations: 19× → **53×** faster than GDScript (5× faster than C++)
+- Branching: 65× → **104×** faster than GDScript
+- ArrayDict: 1.06× → **3.1×** faster than GDScript (now beats C++)
+- Interop: 35× → **84×** faster than GDScript (69× faster than C++)
+- Geometric mean: **18.9×** faster than GDScript, **1.51×** faster than C++ overall
+- VG wins **6 of 11** benchmarks outright (was 0 in v2.4.2)
+
 ### Fixed - Bytecode VM Missing Builtins (Platformer Demo)
 - **`IsOnFloor(body)`** added to bytecode `OP_CALL` handler — was only in AST evaluator, causing bytecode-compiled functions (like `GetNewAnimation`) to always return "falling" because `IsOnFloor(Me)` silently returned nil
 - **`IsOnWall(body)`** added to bytecode `OP_CALL` — CharacterBody2D/3D wall detection

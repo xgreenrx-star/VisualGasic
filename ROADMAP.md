@@ -1,7 +1,7 @@
 # Visual Gasic Development Roadmap
 
 **Last Updated**: February 2026  
-**Current Version**: 2.6.0 (Custom Icons, IntelliSense Update, Profiler UI)
+**Current Version**: 2.6.1 (Bytecode Compiler Batches 1-4, Updated Benchmarks)
 
 This document outlines the planned improvements and features for Visual Gasic. Items are prioritized by impact and development effort.
 
@@ -452,7 +452,8 @@ Each feature has implementation notes that describe:
 
 ## 📝 Version History
 
-- **v2.6.0** (Current) - Custom .vg Icons, IntelliSense Update, Profiler UI
+- **v2.6.1** (Current) - Bytecode Compiler Batches 1-4 (39 tests), Updated Benchmarks (18.9× geo mean vs GDScript)
+- **v2.6.0** - Custom .vg Icons, IntelliSense Update, Profiler UI
 - **v2.5.0** - Computed Gotos, 11 New Builtins, Stop Statement, Conditional Breakpoints, 12 Demo Projects
 - **v2.0.0** - Advanced Features Release
 - **v1.5.0** - Immediate Window and debugging

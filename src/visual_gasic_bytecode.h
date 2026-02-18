@@ -155,6 +155,32 @@ enum OpCode {
     // Type-checking
     OP_IS_CLASS,       // [OP] - Pop class-name string + object, push bool (obj.is_class(name))
 
+    // Object method calls
+    OP_METHOD_CALL,    // [OP] [METHOD_NAME_IDX] [ARG_COUNT] - Pop base object + args, call method, push result
+
+    // For Each iteration helpers
+    OP_ITER_ARRAY,     // [OP] [SLOT_IDX] [IDX_SLOT] - Push arr[idx], used in For Each loop body
+    OP_DICT_KEYS_CALL, // [OP] - Pop dict, push its keys() array
+
+    // With...End With support
+    OP_PUSH_WITH,      // [OP] - Pop TOS, push onto With context stack
+    OP_POP_WITH,       // [OP] - Pop the With context stack
+    OP_GET_WITH,       // [OP] - Push current With context onto value stack
+
+    // Try/Catch/Finally exception handling
+    OP_SETUP_TRY,      // [OP] [OFFSET_16] - Set up exception handler (offset to catch block)
+    OP_POP_TRY,        // [OP] - Remove current exception handler
+    OP_THROW,          // [OP] - Throw exception (error_code + message on stack)
+
+    // Stack manipulation
+    OP_DUP,            // [OP] - Duplicate top-of-stack
+
+    // ReDim Preserve — resize array in-place
+    OP_ARRAY_RESIZE,   // [OP] - Pop new_size, pop array, resize array, push result
+
+    // New object instantiation
+    OP_NEW_OBJECT,     // [OP] [CLASS_NAME_IDX] [ARG_COUNT] - Pop args, instantiate class, push result
+
     OP_COUNT_          // Sentinel — must be last (used by computed-goto table)
 };
 

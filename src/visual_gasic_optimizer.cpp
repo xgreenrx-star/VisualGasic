@@ -42,6 +42,13 @@ int VisualGasicOptimizer::instruction_size(const Vector<uint8_t>& code, int ip) 
         case OP_NEW_ARRAY: case OP_NEW_ARRAY_I64:                     // stack-only: pops size
         case OP_SUM_ARRAY_I64: case OP_SUM_DICT_I64:                  // stack-only: pops collection
         case OP_ALLOC_FILL_I64: case OP_ARRAY_FILL_I64_SEQ:           // stack-only: pops count
+        case OP_STOP:
+        case OP_IS_CLASS:
+        case OP_DICT_KEYS_CALL:
+        case OP_PUSH_WITH: case OP_POP_WITH: case OP_GET_WITH:
+        case OP_POP_TRY: case OP_THROW:
+        case OP_DUP:
+        case OP_ARRAY_RESIZE:
             return 1;
 
         // 2-byte instructions (opcode + 1 operand)
@@ -72,7 +79,11 @@ int VisualGasicOptimizer::instruction_size(const Vector<uint8_t>& code, int ip) 
         // 3-byte instructions (opcode + 2 operands)
         case OP_CONSTANT_LONG:
         case OP_JUMP: case OP_JUMP_IF_FALSE: case OP_JUMP_IF_TRUE: case OP_LOOP:
+        case OP_SETUP_TRY:                                            // [OP] [OFFSET_16]
         case OP_CALL: case OP_CALL_BUILTIN:
+        case OP_METHOD_CALL:                                          // [OP] [NAME_IDX] [ARG_COUNT]
+        case OP_NEW_OBJECT:                                           // [OP] [CLASS_NAME_IDX] [ARG_COUNT]
+        case OP_ITER_ARRAY:                                           // [OP] [SLOT_IDX] [IDX_SLOT]
         case OP_ADD_LOCAL_I64_CONST: case OP_SUB_LOCAL_I64_CONST:
         case OP_ARITH_SUM:
         case OP_STRING_REPEAT_OUTER: // [OP] [SLOT] [LIT_IDX]
@@ -112,7 +123,7 @@ bool VisualGasicOptimizer::is_push_one(uint8_t op) {
 }
 
 bool VisualGasicOptimizer::is_unconditional_exit(uint8_t op) {
-    return op == OP_JUMP || op == OP_RETURN || op == OP_RETURN_VALUE;
+    return op == OP_JUMP || op == OP_RETURN || op == OP_RETURN_VALUE || op == OP_THROW;
 }
 
 int VisualGasicOptimizer::resolve_jump(const Vector<uint8_t>& code, int ip) {
@@ -173,7 +184,7 @@ void VisualGasicOptimizer::erase_bytes(BytecodeChunk* chunk, int start, int coun
     // Fix all jump targets BEFORE removing bytes
     for (int ip = 0; ip < chunk->code.size();) {
         uint8_t op = chunk->code[ip];
-        if (op == OP_JUMP || op == OP_JUMP_IF_FALSE || op == OP_JUMP_IF_TRUE || op == OP_LOOP) {
+        if (op == OP_JUMP || op == OP_JUMP_IF_FALSE || op == OP_JUMP_IF_TRUE || op == OP_LOOP || op == OP_SETUP_TRY) {
             if (ip < start || ip >= start + count) {
                 int target = resolve_jump(chunk->code, ip);
                 if (target >= 0 && target <= chunk->code.size()) {
@@ -279,7 +290,7 @@ void VisualGasicOptimizer::compact(BytecodeChunk* chunk) {
             ip++;
             continue;
         }
-        if (op == OP_JUMP || op == OP_JUMP_IF_FALSE || op == OP_JUMP_IF_TRUE || op == OP_LOOP) {
+        if (op == OP_JUMP || op == OP_JUMP_IF_FALSE || op == OP_JUMP_IF_TRUE || op == OP_LOOP || op == OP_SETUP_TRY) {
             int target = resolve_jump(chunk->code, ip);
             int new_ip = old_to_new[ip];
             int new_target;
@@ -585,7 +596,7 @@ bool VisualGasicOptimizer::pass_dead_code_elimination(BytecodeChunk* chunk, Stat
     HashSet<int> jump_targets;
     for (int ip = 0; ip < code.size();) {
         uint8_t op = code[ip];
-        if (op == OP_JUMP || op == OP_JUMP_IF_FALSE || op == OP_JUMP_IF_TRUE || op == OP_LOOP) {
+        if (op == OP_JUMP || op == OP_JUMP_IF_FALSE || op == OP_JUMP_IF_TRUE || op == OP_LOOP || op == OP_SETUP_TRY) {
             int target = resolve_jump(code, ip);
             if (target >= 0 && target < code.size()) {
                 jump_targets.insert(target);

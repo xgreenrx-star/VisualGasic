@@ -1,0 +1,116 @@
+' Test: Erase, TypeOf...Is, Optional?.Access, Lambda
+' All tests use Print with PASS/FAIL prefix for automated checking.
+
+Sub TestErase()
+    Print "--- Erase ---"
+    
+    ' Test 1: Erase an array (ReDim'd)
+    Dim arr(5) As Integer
+    arr(0) = 10
+    arr(1) = 20
+    arr(2) = 30
+    
+    Dim beforeLen As Integer
+    beforeLen = Len(arr)
+    
+    Erase arr
+    
+    Dim afterLen As Integer
+    afterLen = Len(arr)
+    
+    If beforeLen = 6 And afterLen = 0 Then
+        Print "PASS: Erase array resets to empty"
+    Else
+        Print "FAIL: Erase array, before=" & CStr(beforeLen) & " after=" & CStr(afterLen)
+    End If
+    
+    ' Test 2: Erase a plain variable (non-array)
+    Dim x As Integer
+    x = 42
+    Erase x
+    
+    ' After erase, x should be Nil/Nothing
+    If x = Nothing Then
+        Print "PASS: Erase plain variable resets to default"
+    Else
+        Print "FAIL: Erase plain variable, got: " & CStr(x)
+    End If
+End Sub
+
+Sub TestOptionalAccess()
+    Print "--- Optional?.Access ---"
+    
+    ' Test 1: Optional access on a valid Dictionary
+    Dim d As Dictionary
+    Set d = New Dictionary
+    d("name") = "Bob"
+    
+    Dim result As String
+    result = d?.name
+    
+    If result = "Bob" Then
+        Print "PASS: Optional access on valid dict"
+    Else
+        Print "FAIL: Optional access on valid dict, got: " & result
+    End If
+    
+    ' Test 2: Optional access on Nothing (Nil)
+    Dim obj As Variant
+    obj = Nothing
+    
+    Dim val As Variant
+    val = obj?.name
+    
+    If val = Nothing Then
+        Print "PASS: Optional access on Nothing returns Nil"
+    Else
+        Print "FAIL: Optional access on Nothing, got: " & CStr(val)
+    End If
+    
+    ' Test 3: Optional access numeric member
+    Dim d2 As Dictionary
+    Set d2 = New Dictionary
+    d2("score") = 99
+    
+    Dim s As Variant
+    s = d2?.score
+    
+    If s = 99 Then
+        Print "PASS: Optional access numeric member"
+    Else
+        Print "FAIL: Optional access numeric, got: " & CStr(s)
+    End If
+End Sub
+
+Sub TestLambda()
+    Print "--- Lambda ---"
+    
+    ' Test 1: Arrow lambda creation and basic check
+    Dim doubler As Variant
+    doubler = Lambda(x) => x * 2
+    
+    ' Lambda should be a Dictionary with __vg_lambda = true
+    If TypeName(doubler) = "Dictionary" Then
+        Print "PASS: Lambda creates Dictionary wrapper"
+    Else
+        Print "FAIL: Lambda type, got: " & TypeName(doubler)
+    End If
+    
+    ' Test 2: Lambda stores parameters
+    Dim adder As Variant
+    adder = Lambda(a, b) => a + b
+    
+    If TypeName(adder) = "Dictionary" Then
+        Print "PASS: Multi-param lambda created"
+    Else
+        Print "FAIL: Multi-param lambda, got: " & TypeName(adder)
+    End If
+End Sub
+
+Sub Main()
+    TestErase
+    TestOptionalAccess
+    TestLambda
+    
+    Print "--- Batch 3 Complete ---"
+End Sub

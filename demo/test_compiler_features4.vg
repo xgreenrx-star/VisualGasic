@@ -1,0 +1,182 @@
+' Batch 4: ReDim Preserve, Super, New with args, Pass
+' All tests use Print with PASS/FAIL prefix for automated checking.
+
+Class Animal
+    Dim Species As String
+    Dim Legs As Integer
+
+    Sub Class_Initialize()
+        Species = "Unknown"
+        Legs = 4
+    End Sub
+
+    Function Describe() As String
+        Describe = Species & " has " & CStr(Legs) & " legs"
+    End Function
+End Class
+
+Class Dog
+    Inherits Animal
+
+    Sub Class_Initialize()
+        Species = "Dog"
+        Legs = 4
+    End Sub
+
+    Function Speak() As String
+        Speak = "Woof!"
+    End Function
+End Class
+
+Type Point2D
+    X As Integer
+    Y As Integer
+End Type
+
+Sub TestReDimPreserve()
+    Print "--- ReDim Preserve ---"
+
+    ' Test 1: Basic ReDim Preserve grows array and keeps old data
+    Dim arr(2) As Integer
+    arr(0) = 10
+    arr(1) = 20
+    arr(2) = 30
+
+    ReDim Preserve arr(4)
+
+    If arr(0) = 10 And arr(1) = 20 And arr(2) = 30 Then
+        Print "PASS: ReDim Preserve keeps existing values"
+    Else
+        Print "FAIL: ReDim Preserve lost values: " & CStr(arr(0)) & "," & CStr(arr(1)) & "," & CStr(arr(2))
+    End If
+
+    ' Test 2: ReDim Preserve increases length
+    Dim newLen As Integer
+    newLen = Len(arr)
+    If newLen = 5 Then
+        Print "PASS: ReDim Preserve new length = 5"
+    Else
+        Print "FAIL: ReDim Preserve length = " & CStr(newLen) & ", expected 5"
+    End If
+
+    ' Test 3: ReDim Preserve new slots are default (Nothing for generic arrays)
+    If arr(3) = Nothing And arr(4) = Nothing Then
+        Print "PASS: ReDim Preserve new slots are default"
+    Else
+        Print "FAIL: ReDim Preserve new slots: arr(3)=" & CStr(arr(3)) & " arr(4)=" & CStr(arr(4))
+    End If
+
+    ' Test 4: Plain ReDim (non-preserve) still works — creates new empty array
+    Dim arr2(3) As Integer
+    arr2(0) = 99
+    ReDim arr2(1)
+    Dim arr2Len As Integer
+    arr2Len = Len(arr2)
+    If arr2Len = 2 Then
+        Print "PASS: Plain ReDim creates new array with correct length"
+    Else
+        Print "FAIL: Plain ReDim length = " & CStr(arr2Len) & ", expected 2"
+    End If
+End Sub
+
+Sub TestNewClass()
+    Print "--- New with Class ---"
+
+    ' Test 5: New class (no explicit args — uses Class_Initialize)
+    Dim a As Object
+    Set a = New Animal
+    If a.Species = "Unknown" And a.Legs = 4 Then
+        Print "PASS: New Animal initializes defaults"
+    Else
+        Print "FAIL: New Animal: species=" & a.Species & " legs=" & CStr(a.Legs)
+    End If
+
+    ' Test 6: New derived class
+    Dim d As Object
+    Set d = New Dog
+    If d.Species = "Dog" And d.Legs = 4 Then
+        Print "PASS: New Dog initializes correctly"
+    Else
+        Print "FAIL: New Dog: species=" & d.Species & " legs=" & CStr(d.Legs)
+    End If
+
+    ' Test 7: Method call on new object
+    Dim result As String
+    result = d.Speak()
+    If result = "Woof!" Then
+        Print "PASS: Method on New object works"
+    Else
+        Print "FAIL: Dog.Speak returned: " & result
+    End If
+End Sub
+
+Sub TestNewStruct()
+    Print "--- New Struct ---"
+
+    ' Test 8: New struct creates dict with correct keys
+    Dim pt As Point2D
+    pt.X = 42
+    pt.Y = 99
+    If pt.X = 42 And pt.Y = 99 Then
+        Print "PASS: Struct member assignment works"
+    Else
+        Print "FAIL: Struct pt.X=" & CStr(pt.X) & " pt.Y=" & CStr(pt.Y)
+    End If
+End Sub
+
+Sub TestNewDict()
+    Print "--- New Dictionary (bytecoded) ---"
+
+    ' Test 9: New Dictionary still works in bytecode
+    Dim d As Object
+    Set d = New Dictionary
+    d.Add "key", "value"
+    If d.Item("key") = "value" Then
+        Print "PASS: New Dictionary works in bytecode"
+    Else
+        Print "FAIL: New Dictionary item mismatch"
+    End If
+End Sub
+
+Sub TestPass()
+    Print "--- Pass Statement ---"
+
+    ' Test 10: Pass is a no-op — function still compiles and runs
+    Dim x As Integer
+    x = 1
+    Pass
+    x = x + 1
+    Pass
+    If x = 2 Then
+        Print "PASS: Pass statement is no-op"
+    Else
+        Print "FAIL: Pass affected execution, x=" & CStr(x)
+    End If
+End Sub
+
+Sub TestPassInLoop()
+    Print "--- Pass in Loop ---"
+
+    ' Test 11: Pass inside a loop body
+    Dim total As Integer
+    total = 0
+    Dim i As Integer
+    For i = 1 To 3
+        Pass
+        total = total + i
+    Next i
+    If total = 6 Then
+        Print "PASS: Pass in loop body doesn't break loop"
+    Else
+        Print "FAIL: Pass in loop, total=" & CStr(total) & " expected 6"
+    End If
+End Sub
+
+Sub Main()
+    TestReDimPreserve
+    TestNewClass
+    TestNewStruct
+    TestNewDict
+    TestPass
+    TestPassInLoop
+End Sub

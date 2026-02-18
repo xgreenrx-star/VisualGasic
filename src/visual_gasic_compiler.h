@@ -46,6 +46,13 @@ private:
     // Each entry is a list of jump offsets that must be patched to
     // point past the enclosing loop once it finishes compiling.
     Vector<Vector<int>> loop_exit_jumps;
+    // Stack of bytecode offsets where Continue should jump to (the
+    // increment/re-test point of each enclosing loop).
+    Vector<int> loop_continue_targets;
+    // GoTo label support: label_name → bytecode offset (filled in first pass)
+    HashMap<String, int> label_positions;
+    // Forward GoTo jumps that need patching: label_name → list of jump offsets
+    HashMap<String, Vector<int>> goto_forward_jumps;
     int temp_local_id = 0;
     SubDefinition* current_sub = nullptr;
     ModuleNode* current_module = nullptr;

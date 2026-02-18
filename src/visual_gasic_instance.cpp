@@ -8605,6 +8605,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     case OP_MUL_I64_CONST:
                     case OP_SUM_VGDICT_ALL_I64:
                     case OP_NEW_VGDICT: case OP_GET_VGDICT_LOCAL: case OP_SET_VGDICT_LOCAL:
+                    case OP_ITER_ARRAY:
                         scan_ip += 1; break;
                     // 3-byte opcodes (2 operands)
                     case OP_CONSTANT_LONG:
@@ -8612,6 +8613,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     case OP_LOOP:
                     case OP_CALL:
                     case OP_CALL_BUILTIN:
+                    case OP_METHOD_CALL:
+                    case OP_SETUP_TRY:
                     case OP_ADD_LOCAL_I64_CONST: case OP_SUB_LOCAL_I64_CONST:
                     case OP_ARITH_SUM:
                     case OP_STRING_REPEAT_OUTER:
@@ -8833,6 +8836,18 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         dispatch_table[OP_DEBUG_LINE]     = &&vg_op_debug_line;
         dispatch_table[OP_STOP]           = &&vg_op_stop;
         dispatch_table[OP_IS_CLASS]       = &&vg_op_is_class;
+        dispatch_table[OP_METHOD_CALL]    = &&vg_op_method_call;
+        dispatch_table[OP_ITER_ARRAY]     = &&vg_op_iter_array;
+        dispatch_table[OP_DICT_KEYS_CALL] = &&vg_op_dict_keys_call;
+        dispatch_table[OP_PUSH_WITH]      = &&vg_op_push_with;
+        dispatch_table[OP_POP_WITH]       = &&vg_op_pop_with;
+        dispatch_table[OP_GET_WITH]       = &&vg_op_get_with;
+        dispatch_table[OP_SETUP_TRY]      = &&vg_op_setup_try;
+        dispatch_table[OP_POP_TRY]        = &&vg_op_pop_try;
+        dispatch_table[OP_THROW]          = &&vg_op_throw;
+        dispatch_table[OP_DUP]            = &&vg_op_dup;
+        dispatch_table[OP_ARRAY_RESIZE]   = &&vg_op_array_resize;
+        dispatch_table[OP_NEW_OBJECT]     = &&vg_op_new_object;
         dispatch_table_init = true;
     }
 
@@ -8889,6 +8904,100 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 }
                 break;
             }
+            VG_CASE(vg_op_dup, OP_DUP): {
+                if (!ensure_stack(1)) { success = false; goto cleanup; }
+                push_value(vm.stack[vm.stack.size() - 1]);
+                break;
+            }
+            VG_CASE(vg_op_array_resize, OP_ARRAY_RESIZE): {
+                // Stack: [... array new_size]  →  [... resized_array]
+                if (!ensure_stack(2)) { success = false; goto cleanup; }
+                Variant new_size_v = pop_value();
+                Variant arr_v = pop_value();
+                int new_size = (int)(int64_t)new_size_v;
+                if (arr_v.get_type() == Variant::ARRAY) {
+                    Array arr = arr_v;
+                    arr.resize(new_size);
+                    push_value(arr);
+                } else if (arr_v.get_type() == Variant::PACKED_INT64_ARRAY) {
+                    PackedInt64Array arr = arr_v;
+                    arr.resize(new_size);
+                    push_value(arr);
+                } else if (arr_v.get_type() == Variant::PACKED_FLOAT64_ARRAY) {
+                    PackedFloat64Array arr = arr_v;
+                    arr.resize(new_size);
+                    push_value(arr);
+                } else {
+                    // Not an array — create a new one
+                    Array arr;
+                    arr.resize(new_size);
+                    push_value(arr);
+                }
+                break;
+            }
+            VG_CASE(vg_op_new_object, OP_NEW_OBJECT): {
+                // [OP] [CLASS_NAME_IDX] [ARG_COUNT]
+                if (vm.ip + 1 >= code_size) { success = false; goto cleanup; }
+                uint8_t name_idx = code[vm.ip++];
+                uint8_t arg_count = code[vm.ip++];
+                String class_name = read_constant(name_idx);
+
+                // Pop args (pushed left-to-right, so collect in reverse)
+                Array args_arr;
+                args_arr.resize(arg_count);
+                for (int i = arg_count - 1; i >= 0; i--) {
+                    args_arr[i] = pop_value();
+                }
+
+                // MemoryBlock → PackedByteArray
+                if (class_name.nocasecmp_to("MemoryBlock") == 0) {
+                    int sz = 0;
+                    if (arg_count > 0) sz = (int)(int64_t)args_arr[0];
+                    PackedByteArray pba;
+                    pba.resize(sz);
+                    push_value(pba);
+                    break;
+                }
+                // Dictionary (with args — shouldn't normally happen, but be safe)
+                if (class_name.nocasecmp_to("Dictionary") == 0) {
+                    push_value(Dictionary());
+                    break;
+                }
+                // Struct definitions
+                if (script.is_valid() && script->ast_root) {
+                    bool found_struct = false;
+                    for (int i = 0; i < script->ast_root->structs.size(); i++) {
+                        if (script->ast_root->structs[i]->name.nocasecmp_to(class_name) == 0) {
+                            Dictionary d;
+                            StructDefinition* def = script->ast_root->structs[i];
+                            for (int m = 0; m < def->members.size(); m++) {
+                                d[def->members[m].name] = Variant();
+                            }
+                            push_value(d);
+                            found_struct = true;
+                            break;
+                        }
+                    }
+                    if (found_struct) break;
+                }
+                // VG class definitions
+                if (class_registry.has(class_name)) {
+                    Variant result = instantiate_class(class_name, args_arr);
+                    push_value(result);
+                    break;
+                }
+                // Godot ClassDB
+                if (ClassDB::class_exists(class_name)) {
+                    Object* obj = ClassDB::instantiate(class_name);
+                    if (obj) {
+                        push_value(obj);
+                        break;
+                    }
+                }
+                // Unknown class — push Nil
+                push_value(Variant());
+                break;
+            }
             VG_CASE(vg_op_get_global, OP_GET_GLOBAL): {
                 if (vm.ip >= code_size) {
                     success = false;
@@ -8901,6 +9010,11 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 // Handle special keywords first
                 // "Me" - returns owner (self reference)
                 if (name.nocasecmp_to("Me") == 0) {
+                    push_value(owner ? Variant(owner) : Variant());
+                    break;
+                }
+                // "Super" - returns owner (parent-class method dispatch is handled at call site)
+                if (name.nocasecmp_to("Super") == 0) {
                     push_value(owner ? Variant(owner) : Variant());
                     break;
                 }
@@ -9472,9 +9586,10 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 push_value(length);
                 break;
             }
-            VG_CASE(vg_op_equal, OP_EQUAL):
+            VG_CASE(vg_op_equal, OP_EQUAL): {
                 if (!apply_variant_op(Variant::OP_EQUAL)) { success = false; goto cleanup; }
                 break;
+            }
             VG_CASE(vg_op_not_equal, OP_NOT_EQUAL):
                 if (!apply_variant_op(Variant::OP_NOT_EQUAL)) { success = false; goto cleanup; }
                 break;
@@ -9659,6 +9774,58 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                             else { call_ret = false; }
                         }
                     } else { call_ret = false; }
+                    handled = true;
+                }
+
+                // MoveAndSlide(body) — CharacterBody2D/3D move and slide
+                if (!handled && method.nocasecmp_to("MoveAndSlide") == 0 && args.size() >= 1) {
+                    Object *o = args[0];
+                    if (o) {
+                        CharacterBody2D *cb2 = Object::cast_to<CharacterBody2D>(o);
+                        if (cb2) { cb2->move_and_slide(); }
+                        else {
+                            CharacterBody3D *cb3 = Object::cast_to<CharacterBody3D>(o);
+                            if (cb3) { cb3->move_and_slide(); }
+                        }
+                    }
+                    call_ret = Variant();
+                    handled = true;
+                }
+
+                // SetVelocity(body, x, y [, z]) — set velocity on CharacterBody/RigidBody 2D/3D
+                if (!handled && method.nocasecmp_to("SetVelocity") == 0 && args.size() >= 3) {
+                    Object *o = args[0];
+                    if (o) {
+                        double x = args[1];
+                        double y = args[2];
+                        if (o->is_class("CharacterBody2D")) {
+                            Object::cast_to<CharacterBody2D>(o)->set_velocity(Vector2(x, y));
+                        } else if (o->is_class("CharacterBody3D")) {
+                            double z = (args.size() >= 4) ? (double)args[3] : 0.0;
+                            Object::cast_to<CharacterBody3D>(o)->set_velocity(Vector3(x, y, z));
+                        } else if (o->is_class("RigidBody2D")) {
+                            Object::cast_to<RigidBody2D>(o)->set_linear_velocity(Vector2(x, y));
+                        } else if (o->is_class("RigidBody3D")) {
+                            double z = (args.size() >= 4) ? (double)args[3] : 0.0;
+                            Object::cast_to<RigidBody3D>(o)->set_linear_velocity(Vector3(x, y, z));
+                        }
+                    }
+                    call_ret = Variant();
+                    handled = true;
+                }
+
+                // GetCollisionCount(body) — CharacterBody2D/3D slide collision count
+                if (!handled && method.nocasecmp_to("GetCollisionCount") == 0 && args.size() == 1) {
+                    Object *o = args[0];
+                    if (o) {
+                        CharacterBody2D *cb2 = Object::cast_to<CharacterBody2D>(o);
+                        if (cb2) { call_ret = cb2->get_slide_collision_count(); }
+                        else {
+                            CharacterBody3D *cb3 = Object::cast_to<CharacterBody3D>(o);
+                            if (cb3) { call_ret = cb3->get_slide_collision_count(); }
+                            else { call_ret = (int64_t)0; }
+                        }
+                    } else { call_ret = (int64_t)0; }
                     handled = true;
                 }
 
@@ -11087,6 +11254,267 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     if (obj) result = obj->is_class(String(class_v));
                 }
                 push_value(result);
+                VG_BREAK;
+            }
+            VG_CASE(vg_op_method_call, OP_METHOD_CALL): {
+                // Object method call: base_object.Method(args...)
+                // Stack layout (top→bottom): argN, ..., arg1, base_object
+                // Operands: [METHOD_NAME_IDX] [ARG_COUNT]
+                if (vm.ip + 1 >= code_size) { success = false; goto cleanup; }
+                uint8_t name_idx = code[vm.ip++];
+                uint8_t arg_count = code[vm.ip++];
+                if (!ensure_stack(arg_count + 1)) { success = false; goto cleanup; }
+
+                // Pop arguments (reverse order)
+                Array args;
+                args.resize(arg_count);
+                for (int i = arg_count - 1; i >= 0; i--) {
+                    args[i] = pop_value();
+                }
+                // Pop the base object
+                Variant base = pop_value();
+                String method = read_constant(name_idx);
+
+                Variant call_ret;
+                bool handled = false;
+
+                // --- Check builtin-for-base-variable dispatchers ---
+                {
+                    Variant br;
+                    if (VisualGasicBuiltins::call_builtin_for_base_variant(this, base, method, args, br)) {
+                        call_ret = br;
+                        handled = true;
+                    }
+                }
+
+                // --- VG class instance method call (object ID stored as int) ---
+                if (!handled && base.get_type() == Variant::INT) {
+                    int obj_id = (int)base;
+                    if (object_instances.has(obj_id)) {
+                        call_ret = call_object_method(obj_id, method, args);
+                        handled = true;
+                    }
+                }
+
+                // --- Godot Object method call ---
+                if (!handled && base.get_type() == Variant::OBJECT) {
+                    Object* obj = Object::cast_to<Object>(base);
+                    if (obj) {
+                        if (obj->has_method(method)) {
+                            call_ret = obj->callv(method, args);
+                            handled = true;
+                        } else {
+                            String snake = method.to_snake_case();
+                            if (obj->has_method(snake)) {
+                                call_ret = obj->callv(snake, args);
+                                handled = true;
+                            }
+                        }
+                    }
+                }
+
+                // --- Variant method call (structs like Vector2, Rect2, etc.) ---
+                if (!handled && base.get_type() != Variant::OBJECT && base.get_type() != Variant::NIL) {
+                    String method_to_call;
+                    if (base.has_method(method)) {
+                        method_to_call = method;
+                    } else {
+                        String snake = method.to_snake_case();
+                        if (base.has_method(snake)) {
+                            method_to_call = snake;
+                        }
+                    }
+                    if (!method_to_call.is_empty()) {
+                        GDExtensionCallError err;
+                        Variant res;
+                        Vector<Variant> args_store;
+                        args_store.resize(args.size());
+                        Variant *args_w = args_store.ptrw();
+                        Vector<const Variant*> arg_ptrs;
+                        arg_ptrs.resize(args.size());
+                        const Variant **ptrs_w = arg_ptrs.ptrw();
+                        for (int i = 0; i < args.size(); i++) {
+                            args_w[i] = args[i];
+                            ptrs_w[i] = &args_w[i];
+                        }
+                        base.callp(method_to_call, ptrs_w, args.size(), res, err);
+                        call_ret = res;
+                        handled = true;
+                    }
+                }
+
+                if (!handled) {
+                    // Last resort: call_internal with the method name
+                    // (some builtins might only exist in the statement path)
+                    bool stmt_found = false;
+                    dispatch_builtin_call(method, args, stmt_found);
+                    call_ret = Variant();
+                }
+
+                push_value(call_ret);
+                VG_BREAK;
+            }
+            VG_CASE(vg_op_iter_array, OP_ITER_ARRAY): {
+                // Push arr[idx] for For Each loop body (currently unused —
+                // For Each uses OP_GET_ARRAY instead, but reserved for future
+                // optimization with fused iteration).
+                if (vm.ip + 1 >= code_size) { success = false; goto cleanup; }
+                uint8_t arr_slot = code[vm.ip++];
+                uint8_t idx_slot = code[vm.ip++];
+                if (arr_slot >= locals.size() || idx_slot >= locals.size()) {
+                    success = false; goto cleanup;
+                }
+                Variant &arr_v = locals.write[arr_slot];
+                int64_t idx = (int64_t)locals[idx_slot];
+                if (arr_v.get_type() == Variant::ARRAY) {
+                    Array a = arr_v;
+                    if (idx >= 0 && idx < a.size()) {
+                        push_value(a[idx]);
+                    } else {
+                        push_value(Variant());
+                    }
+                } else {
+                    push_value(Variant());
+                }
+                VG_BREAK;
+            }
+            VG_CASE(vg_op_dict_keys_call, OP_DICT_KEYS_CALL): {
+                // If TOS is a Dictionary, replace it with its keys() array.
+                // If it's already an Array, leave it as-is.
+                // This supports For Each on both Arrays and Dictionaries.
+                if (!ensure_stack(1)) { success = false; goto cleanup; }
+                Variant &top = vm.stack.back();
+                if (top.get_type() == Variant::DICTIONARY) {
+                    Dictionary dict = top;
+                    if (!dict.is_empty()) {
+                        top = dict.keys();
+                    } else {
+                        // Empty Dictionary placeholder — check VGDict pool.
+                        // The For Each collection was likely loaded from a local slot
+                        // that uses sole-owner VGDict optimization. Reconstruct keys.
+                        Array keys;
+                        // Scan backward in bytecode for the source local slot
+                        // Pattern: OP_GET_LOCAL(1) slot(1) | OP_DICT_KEYS_CALL(1)
+                        // vm.ip currently points past OP_DICT_KEYS_CALL:
+                        //   vm.ip - 1 = OP_DICT_KEYS_CALL
+                        //   vm.ip - 2 = slot byte
+                        //   vm.ip - 3 = OP_GET_LOCAL
+                        int dkc_pos = (int)vm.ip - 1;
+                        if (dkc_pos >= 2 && code[dkc_pos - 2] == OP_GET_LOCAL) {
+                            uint8_t slot = code[dkc_pos - 1];
+                            if (slot < VGDICT_POOL_MAX && vgdict_slot_active[slot]) {
+                                keys = vgdict_pool[slot].keys();
+                            }
+                        }
+                        if (keys.size() > 0) {
+                            top = keys;
+                        } else {
+                            top = dict.keys(); // empty array
+                        }
+                    }
+                }
+                // If it's an Array (or anything else), leave unchanged.
+                VG_BREAK;
+            }
+            VG_CASE(vg_op_push_with, OP_PUSH_WITH): {
+                // Pop TOS and push onto the With context stack.
+                if (!ensure_stack(1)) { success = false; goto cleanup; }
+                Variant val = pop_value();
+                // Handle VGDict sole-owner optimization: if the value is an
+                // empty Dictionary placeholder, check if it came from a VGDict slot
+                // and materialize the real dictionary.
+                if (val.get_type() == Variant::DICTIONARY) {
+                    Dictionary d = val;
+                    if (d.is_empty()) {
+                        // Check preceding bytecode for OP_GET_LOCAL pattern
+                        int pw_pos = (int)vm.ip - 1; // OP_PUSH_WITH position
+                        if (pw_pos >= 2 && code[pw_pos - 2] == OP_GET_LOCAL) {
+                            uint8_t slot = code[pw_pos - 1];
+                            if (slot < VGDICT_POOL_MAX && vgdict_slot_active[slot]) {
+                                val = vgdict_pool[slot].to_godot_dict();
+                            }
+                        }
+                    }
+                }
+                with_stack.push_back(val);
+                VG_BREAK;
+            }
+            VG_CASE(vg_op_pop_with, OP_POP_WITH): {
+                // Pop the With context stack.
+                if (!with_stack.is_empty()) {
+                    with_stack.remove_at(with_stack.size() - 1);
+                }
+                VG_BREAK;
+            }
+            VG_CASE(vg_op_get_with, OP_GET_WITH): {
+                // Push the current With context object onto the value stack.
+                if (with_stack.is_empty()) {
+                    UtilityFunctions::printerr("VisualGasic: OP_GET_WITH outside With block");
+                    push_value(Variant());
+                } else {
+                    push_value(with_stack[with_stack.size() - 1]);
+                }
+                VG_BREAK;
+            }
+            VG_CASE(vg_op_setup_try, OP_SETUP_TRY): {
+                // Set up an exception handler: [OP] [OFFSET_16]
+                // The offset points to the catch block. If OP_THROW fires
+                // while this handler is active, it jumps to catch_ip.
+                if (vm.ip + 1 >= code_size) { success = false; goto cleanup; }
+                uint8_t hi = code[vm.ip++];
+                uint8_t lo = code[vm.ip++];
+                int offset = (hi << 8) | lo;
+                int catch_ip = (int)vm.ip + offset;
+                
+                // Store handler via error_state (single-handler approach).
+                // OP_POP_TRY clears it; OP_THROW checks it.
+                error_state.mode = ErrorState::GOTO_LABEL;
+                error_state.label = String::num_int64(catch_ip);
+                error_state.has_error = false;
+                VG_BREAK;
+            }
+            VG_CASE(vg_op_pop_try, OP_POP_TRY): {
+                // No error occurred in try block — remove the exception handler.
+                if (error_state.mode == ErrorState::GOTO_LABEL) {
+                    error_state.mode = ErrorState::NONE;
+                    error_state.label = "";
+                }
+                VG_BREAK;
+            }
+            VG_CASE(vg_op_throw, OP_THROW): {
+                // Throw an exception: stack has [error_code, message]
+                if (!ensure_stack(2)) { success = false; goto cleanup; }
+                Variant msg_v = pop_value();
+                Variant code_v = pop_value();
+                String msg = (String)msg_v;
+                int err_code = (int)code_v;
+                
+                // Check if there's an active try handler
+                if (error_state.mode == ErrorState::GOTO_LABEL && !error_state.label.is_empty()) {
+                    int catch_ip = error_state.label.to_int();
+                    // Build exception dictionary (matching interpreter behavior)
+                    Dictionary ex;
+                    ex["Description"] = msg;
+                    ex["Number"] = err_code;
+                    ex["Source"] = "VisualGasic";
+                    push_value(ex);
+                    // Jump to catch block
+                    error_state.mode = ErrorState::NONE;
+                    error_state.label = "";
+                    error_state.has_error = false;
+                    vm.ip = catch_ip;
+                } else if (error_state.mode == ErrorState::RESUME_NEXT) {
+                    // On Error Resume Next — swallow the error
+                    error_state.has_error = false;
+                } else {
+                    // No handler — report runtime error and stop
+                    UtilityFunctions::printerr("VisualGasic: Unhandled exception: ", msg, " (code ", err_code, ")");
+                    error_state.has_error = true;
+                    error_state.message = msg;
+                    error_state.code = err_code;
+                    success = false;
+                    goto cleanup;
+                }
                 VG_BREAK;
             }
             vg_op_default: default:

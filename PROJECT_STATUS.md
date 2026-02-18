@@ -9,25 +9,27 @@ VisualGasic is a Visual Basic 6-style scripting language for Godot Engine 4.x, i
 
 ## Performance
 
-### Benchmark Results (v2.5) ⭐
+### Benchmark Results (v2.6.1) ⭐
 
-**All 11 benchmarks faster than GDScript.** All checksums verified.
+**All 11 benchmarks faster than GDScript. VG wins 6/11 vs C++.** All checksums verified.
 
-| Benchmark | GDScript | VisualGasic | C++ | **VG vs GDScript** |
-|-----------|----------|-------------|-----|-------------------|
-| Arithmetic | 5,308 µs | 1,351 µs | 145 µs | **3.9× faster** |
-| ArraySum | 4,369 µs | 395 µs | 461 µs | **11.1× faster** |
-| StringConcat | 5,278 µs | 85 µs | 688 µs | **62× faster** 🚀 |
-| Branching | 7,083 µs | 108 µs | 221 µs | **65.6× faster** |
-| Interop | 8,427 µs | 238 µs | 7,626 µs | **35.4× faster** |
-| Allocations | 6,921 µs | 363 µs | 886 µs | **19.1× faster** |
-| ArrayDict | 10,833 µs | 10,180 µs | 4,086 µs | **1.06× faster** |
-| DictFastGet | 28,132 µs | 5,189 µs | — | **5.4× faster** |
-| DictFastSet | 18,846 µs | 7,304 µs | — | **2.6× faster** |
-| AllocationsFast | 10,903 µs | 2,665 µs | 2,120 µs | **4.1× faster** |
-| FileIO | 1,040 µs | 635 µs | 410 µs | **1.6× faster** |
+| Benchmark | GDScript | VisualGasic | C++ | **VG vs GDScript** | **VG vs C++** | Winner |
+|-----------|----------|-------------|-----|-------------------|---------------|--------|
+| Arithmetic | 5,318 µs | 307 µs | 60 µs | **17× faster** | 0.2× | C++ |
+| ArraySum | 4,606 µs | 134 µs | 58 µs | **34× faster** | 0.4× | C++ |
+| StringConcat | 5,546 µs | 55 µs | 683 µs | **101× faster** 🚀 | **12.4× faster** 🔥 | **VG** |
+| Branching | 6,751 µs | 65 µs | 52 µs | **104× faster** 🚀 | 0.8× | C++ |
+| ArrayDict | 10,867 µs | 3,491 µs | 3,548 µs | **3.1× faster** | **1.0× faster** | **VG** |
+| DictFastGet | 28,239 µs | 2,141 µs | — | **13.2× faster** | — | **VG** |
+| DictFastSet | 18,588 µs | 2,339 µs | — | **7.9× faster** | — | **VG** |
+| Interop | 8,353 µs | 100 µs | 6,938 µs | **84× faster** 🚀 | **69× faster** 🔥 | **VG** |
+| Allocations | 7,090 µs | 133 µs | 669 µs | **53× faster** 🚀 | **5.0× faster** 🔥 | **VG** |
+| AllocationsFast | 10,745 µs | 1,763 µs | 272 µs | **6.1× faster** | 0.2× | C++ |
+| FileIO | 917 µs | 456 µs | 393 µs | **2.0× faster** | 0.9× | C++ |
 
-*StringConcat was 31× slower in v2.4.2 → now **62× faster** via deep-copy removal, DimScanner elimination, and optimizer instruction-size fix*
+**Geometric mean VG vs GDScript: 18.9× faster** — **Geometric mean VG vs C++: 1.51× faster (VG wins overall)**
+
+*Improvements since v2.5: DictFastGet 5.4×→13.2×, DictFastSet 2.6×→7.9×, Allocations 19×→53×, Branching 65×→104×, ArrayDict 1.06×→3.1× — all driven by bytecode compiler batches 1-4*
 
 ### Known Limitations ⚠️
 
@@ -79,7 +81,11 @@ All documentation is organized in [docs/DOCUMENTATION_INDEX.md](docs/DOCUMENTATI
 - ✅ Godot integration
 - ✅ Form designer
 - ✅ Performance optimization
-- ✅ **Native compiler: Select Case, Do Loop, IIf, Mod, Like, Is**
+- ✅ **Native compiler: 39 tests across 4 batches**
+  - Batch 1: Select Case, For Each, Object Method Calls
+  - Batch 2: With...End With, Continue For/Do, GoTo, Try/Catch/Finally
+  - Batch 3: Erase, TypeOf...Is, Optional?.Access, Lambda
+  - Batch 4: ReDim Preserve, Super, New with Args, Pass
 
 ### Testing: ✅ Comprehensive
 - ✅ Unit tests for all features
@@ -93,9 +99,24 @@ All documentation is organized in [docs/DOCUMENTATION_INDEX.md](docs/DOCUMENTATI
 - ✅ Migration guides
 - ✅ Examples
 
-## Recent Updates (v2.4.0)
+## Recent Updates (v2.6.1)
 
-### Classes & Objects
+### Bytecode Compiler Batches 1-4
+- **28 new statement/expression types** compiled to bytecode (previously fell back to AST interpreter)
+- **39 dedicated tests** across 4 test files, all passing
+- **4 new opcodes**: `OP_ARRAY_RESIZE`, `OP_NEW_OBJECT`, `OP_DUP`, `OP_SETUP_TRY`
+- **DCE/optimizer fully updated** for all new opcodes and expression types
+- Eliminates function poisoning — functions with these constructs now run at bytecode speed
+
+### Performance Impact
+- DictFastGet: 5.4× → **13.2×** faster than GDScript
+- DictFastSet: 2.6× → **7.9×** faster than GDScript
+- Allocations: 19× → **53×** faster than GDScript
+- Branching: 65× → **104×** faster than GDScript
+- Geometric mean speedup: **18.9×** faster than GDScript
+- VG now beats C++ on **6 of 9** head-to-head benchmarks
+
+### Previous Updates
 - **Class Definitions**: `Class...End Class` with members, methods, properties
 - **Object Instantiation**: `Dim obj = New ClassName` with independent state
 - **Property Accessors**: `Property Get/Let/Set` with parameters

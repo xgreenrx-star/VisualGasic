@@ -475,7 +475,9 @@ void VisualGasicCompiler::collect_locals(Statement* stmt) {
             break;
         }
         case STMT_ERASE: {
-            // Erase falls back to interpreter for now
+            EraseStatement* es = (EraseStatement*)stmt;
+            // Ensure the variable has a local slot
+            get_or_add_local(es->variable_name, VT_UNKNOWN);
             break;
         }
         case STMT_ASSIGNMENT: {
@@ -563,6 +565,43 @@ void VisualGasicCompiler::collect_used_vars_expr(ExpressionNode* expr) {
             for (int i = 0; i < c->arguments.size(); i++) collect_used_vars_expr(c->arguments[i]);
             break;
         }
+        case ExpressionNode::MEMBER_ACCESS: {
+            MemberAccessNode* ma = (MemberAccessNode*)expr;
+            if (ma->base_object) collect_used_vars_expr(ma->base_object);
+            break;
+        }
+        case ExpressionNode::OPTIONAL_ACCESS: {
+            OptionalAccessExpression* oa = (OptionalAccessExpression*)expr;
+            if (oa->object_expression) collect_used_vars_expr(oa->object_expression);
+            break;
+        }
+        case ExpressionNode::TYPE_CHECK: {
+            TypeCheckExpression* tc = (TypeCheckExpression*)expr;
+            if (tc->expression) collect_used_vars_expr(tc->expression);
+            break;
+        }
+        case ExpressionNode::EXPRESSION_IIF: {
+            IIfNode* iif = (IIfNode*)expr;
+            if (iif->condition) collect_used_vars_expr(iif->condition);
+            if (iif->true_part) collect_used_vars_expr(iif->true_part);
+            if (iif->false_part) collect_used_vars_expr(iif->false_part);
+            break;
+        }
+        case ExpressionNode::LAMBDA: {
+            LambdaNode* lam = (LambdaNode*)expr;
+            if (lam->body_expression) collect_used_vars_expr(lam->body_expression);
+            for (int i = 0; i < lam->body_statements.size(); i++) {
+                collect_used_vars_stmt(lam->body_statements[i]);
+            }
+            break;
+        }
+        case ExpressionNode::NEW: {
+            NewNode* nn = (NewNode*)expr;
+            for (int i = 0; i < nn->args.size(); i++) {
+                collect_used_vars_expr(nn->args[i]);
+            }
+            break;
+        }
         default:
             break;
     }
@@ -597,6 +636,40 @@ void VisualGasicCompiler::collect_vars_in_expr(ExpressionNode* expr, HashSet<Str
             CallExpression* c = (CallExpression*)expr;
             if (c->base_object) collect_vars_in_expr(c->base_object, out);
             for (int i = 0; i < c->arguments.size(); i++) collect_vars_in_expr(c->arguments[i], out);
+            break;
+        }
+        case ExpressionNode::MEMBER_ACCESS: {
+            MemberAccessNode* ma = (MemberAccessNode*)expr;
+            if (ma->base_object) collect_vars_in_expr(ma->base_object, out);
+            break;
+        }
+        case ExpressionNode::OPTIONAL_ACCESS: {
+            OptionalAccessExpression* oa = (OptionalAccessExpression*)expr;
+            if (oa->object_expression) collect_vars_in_expr(oa->object_expression, out);
+            break;
+        }
+        case ExpressionNode::TYPE_CHECK: {
+            TypeCheckExpression* tc = (TypeCheckExpression*)expr;
+            if (tc->expression) collect_vars_in_expr(tc->expression, out);
+            break;
+        }
+        case ExpressionNode::EXPRESSION_IIF: {
+            IIfNode* iif = (IIfNode*)expr;
+            if (iif->condition) collect_vars_in_expr(iif->condition, out);
+            if (iif->true_part) collect_vars_in_expr(iif->true_part, out);
+            if (iif->false_part) collect_vars_in_expr(iif->false_part, out);
+            break;
+        }
+        case ExpressionNode::LAMBDA: {
+            LambdaNode* lam = (LambdaNode*)expr;
+            if (lam->body_expression) collect_vars_in_expr(lam->body_expression, out);
+            break;
+        }
+        case ExpressionNode::NEW: {
+            NewNode* nn = (NewNode*)expr;
+            for (int i = 0; i < nn->args.size(); i++) {
+                collect_vars_in_expr(nn->args[i], out);
+            }
             break;
         }
         default:
@@ -645,6 +718,35 @@ void VisualGasicCompiler::collect_assigned_vars_stmt(Statement* stmt, HashSet<St
             for (int i = 0; i < s->body.size(); i++) collect_assigned_vars_stmt(s->body[i], out);
             break;
         }
+        case STMT_SELECT: {
+            SelectStatement* s = (SelectStatement*)stmt;
+            for (int i = 0; i < s->cases.size(); i++) {
+                for (int j = 0; j < s->cases[i]->body.size(); j++) collect_assigned_vars_stmt(s->cases[i]->body[j], out);
+            }
+            break;
+        }
+        case STMT_WITH: {
+            WithStatement* s = (WithStatement*)stmt;
+            for (int i = 0; i < s->body.size(); i++) collect_assigned_vars_stmt(s->body[i], out);
+            break;
+        }
+        case STMT_TRY: {
+            TryStatement* s = (TryStatement*)stmt;
+            for (int i = 0; i < s->try_block.size(); i++) collect_assigned_vars_stmt(s->try_block[i], out);
+            for (int i = 0; i < s->catch_block.size(); i++) collect_assigned_vars_stmt(s->catch_block[i], out);
+            for (int i = 0; i < s->finally_block.size(); i++) collect_assigned_vars_stmt(s->finally_block[i], out);
+            break;
+        }
+        case STMT_ERASE: {
+            EraseStatement* es = (EraseStatement*)stmt;
+            out.insert(es->variable_name.to_lower());
+            break;
+        }
+        case STMT_REDIM: {
+            ReDimStatement* rs = (ReDimStatement*)stmt;
+            out.insert(rs->variable_name.to_lower());
+            break;
+        }
         default:
             break;
     }
@@ -688,6 +790,76 @@ void VisualGasicCompiler::collect_used_vars_stmt(Statement* stmt) {
         case STMT_PRINT: {
             PrintStatement* s = (PrintStatement*)stmt;
             collect_used_vars_expr(s->expression);
+            break;
+        }
+        case STMT_SELECT: {
+            SelectStatement* s = (SelectStatement*)stmt;
+            collect_used_vars_expr(s->expression);
+            for (int i = 0; i < s->cases.size(); i++) {
+                CaseBlock* cb = s->cases[i];
+                for (int v = 0; v < cb->values.size(); v++) {
+                    collect_used_vars_expr(cb->values[v]);
+                    if (v < cb->range_ends.size() && cb->range_ends[v]) {
+                        collect_used_vars_expr(cb->range_ends[v]);
+                    }
+                }
+                for (int j = 0; j < cb->body.size(); j++) {
+                    collect_used_vars_stmt(cb->body[j]);
+                }
+            }
+            break;
+        }
+        case STMT_FOR_EACH: {
+            ForEachStatement* s = (ForEachStatement*)stmt;
+            collect_used_vars_expr(s->collection);
+            for (int i = 0; i < s->body.size(); i++) {
+                collect_used_vars_stmt(s->body[i]);
+            }
+            break;
+        }
+        case STMT_CALL: {
+            CallStatement* s = (CallStatement*)stmt;
+            if (s->base_object) collect_used_vars_expr(s->base_object);
+            for (int i = 0; i < s->arguments.size(); i++) {
+                collect_used_vars_expr(s->arguments[i]);
+            }
+            break;
+        }
+        case STMT_WITH: {
+            WithStatement* s = (WithStatement*)stmt;
+            collect_used_vars_expr(s->expression);
+            for (int i = 0; i < s->body.size(); i++) {
+                collect_used_vars_stmt(s->body[i]);
+            }
+            break;
+        }
+        case STMT_TRY: {
+            TryStatement* s = (TryStatement*)stmt;
+            for (int i = 0; i < s->try_block.size(); i++) collect_used_vars_stmt(s->try_block[i]);
+            for (int i = 0; i < s->catch_block.size(); i++) collect_used_vars_stmt(s->catch_block[i]);
+            for (int i = 0; i < s->finally_block.size(); i++) collect_used_vars_stmt(s->finally_block[i]);
+            break;
+        }
+        case STMT_RAISE: {
+            RaiseStatement* s = (RaiseStatement*)stmt;
+            if (s->code) collect_used_vars_expr(s->code);
+            if (s->msg) collect_used_vars_expr(s->msg);
+            break;
+        }
+        case STMT_ERASE: {
+            EraseStatement* es = (EraseStatement*)stmt;
+            used_vars.insert(es->variable_name.to_lower());
+            break;
+        }
+        case STMT_REDIM: {
+            ReDimStatement* rs = (ReDimStatement*)stmt;
+            // The array being resized is used (read if preserve, always written)
+            if (rs->preserve) {
+                used_vars.insert(rs->variable_name.to_lower());
+            }
+            for (int i = 0; i < rs->array_sizes.size(); i++) {
+                collect_used_vars_expr(rs->array_sizes[i]);
+            }
             break;
         }
         default:
@@ -780,6 +952,31 @@ void VisualGasicCompiler::_check_expr_escapes(ExpressionNode* expr, HashSet<Stri
                 }
                 _check_expr_escapes(arg, escaped);
             }
+            break;
+        }
+        case ExpressionNode::OPTIONAL_ACCESS: {
+            // Optional?.Access uses OP_GET_MEMBER which needs a real Dictionary,
+            // not a VGDict integer ID. Mark the base variable as escaping.
+            OptionalAccessExpression* oa = (OptionalAccessExpression*)expr;
+            if (oa->object_expression && oa->object_expression->type == ExpressionNode::VARIABLE) {
+                String name = ((VariableNode*)oa->object_expression)->name.to_lower();
+                if (sole_owner_dict_vars.has(name)) {
+                    escaped.insert(name);
+                }
+            }
+            if (oa->object_expression) _check_expr_escapes(oa->object_expression, escaped);
+            break;
+        }
+        case ExpressionNode::MEMBER_ACCESS: {
+            // Member access also uses OP_GET_MEMBER — mark base as escaping
+            MemberAccessNode* ma = (MemberAccessNode*)expr;
+            if (ma->base_object && ma->base_object->type == ExpressionNode::VARIABLE) {
+                String name = ((VariableNode*)ma->base_object)->name.to_lower();
+                if (sole_owner_dict_vars.has(name)) {
+                    escaped.insert(name);
+                }
+            }
+            if (ma->base_object) _check_expr_escapes(ma->base_object, escaped);
             break;
         }
         default:
@@ -2536,7 +2733,24 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             }
             
             if (s->initializer) {
-                // Initializers with casting are not supported in bytecode yet.
+                // Handle simple initializers that we can compile
+                if (s->initializer->type == ExpressionNode::NEW) {
+                    NewNode* n = (NewNode*)s->initializer;
+                    if (n->class_name.nocasecmp_to("Dictionary") == 0 && n->args.size() == 0) {
+                        // Dim d As New Dictionary → OP_NEW_DICT + store
+                        emit_byte(OP_NEW_DICT);
+                        int slot = get_or_add_local(s->variable_name, VT_UNKNOWN);
+                        if (slot >= 0) {
+                            dictionary_vars.insert(s->variable_name.to_lower());
+                            emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
+                        } else {
+                            int idx = current_chunk->add_constant(s->variable_name);
+                            emit_bytes(OP_SET_GLOBAL, (uint8_t)idx);
+                        }
+                        break;
+                    }
+                }
+                // Other initializers with casting are not supported in bytecode yet.
                 compile_ok = false;
                 break;
             }
@@ -2943,10 +3157,15 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
         case STMT_CALL: {
             CallStatement* s = (CallStatement*)stmt;
             if (s->base_object) {
-                // Method calls on objects (including Me.X()) require AST interpreter
-                // fallback. The bytecode OP_CALL has no concept of a base object,
-                // so Me.Hide(), Me.AddToGroup() etc. would silently do nothing.
-                compile_ok = false;
+                // Method call on object — compile base + args, emit OP_METHOD_CALL
+                compile_expression(s->base_object);
+                for (int i = 0; i < s->arguments.size(); i++) {
+                    compile_expression(s->arguments[i]);
+                }
+                int idx = current_chunk->add_constant(s->method_name);
+                emit_bytes(OP_METHOD_CALL, (uint8_t)idx);
+                emit_byte((uint8_t)s->arguments.size());
+                emit_byte(OP_POP); // discard return value (statement context)
                 break;
             }
             
@@ -3574,6 +3793,7 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             loop_vars.push_back(f->variable_name);
             loop_bound_vars.push_back(loop_bound);
             loop_exit_jumps.push_back(Vector<int>());
+            loop_continue_targets.push_back(-1); // placeholder, updated after body
 
             ValueType declared_type = get_local_type(f->variable_name);
             ValueType init_type = declared_type != VT_UNKNOWN ? declared_type : infer_type(f->from_val);
@@ -3716,6 +3936,12 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
 
             compile_statement_list(f->body);
 
+            // Continue For target: the increment point
+            int continue_target = current_chunk->code.size();
+            if (!loop_continue_targets.is_empty()) {
+                loop_continue_targets.write[loop_continue_targets.size() - 1] = continue_target;
+            }
+
             bool inc_local_fast = (var_slot >= 0 && has_step_const && step_const_is_one && loop_type == VT_INT);
 
             if (inc_local_fast) {
@@ -3775,6 +4001,9 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                 }
                 loop_exit_jumps.remove_at(loop_exit_jumps.size() - 1);
             }
+            if (!loop_continue_targets.is_empty()) {
+                loop_continue_targets.remove_at(loop_continue_targets.size() - 1);
+            }
             loop_vars.remove_at(loop_vars.size() - 1);
             loop_bound_vars.remove_at(loop_bound_vars.size() - 1);
             break;
@@ -3787,7 +4016,10 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             }
             
             loop_exit_jumps.push_back(Vector<int>());
+            loop_continue_targets.push_back(-1); // will be set to loop_start
             int loop_start = current_chunk->code.size();
+            // Continue While jumps back to condition check
+            loop_continue_targets.write[loop_continue_targets.size() - 1] = loop_start;
             
             compile_expression(s->condition);
             int exit_jump = emit_jump(OP_JUMP_IF_FALSE);
@@ -3804,6 +4036,9 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                     patch_jump(exits[ei]);
                 }
                 loop_exit_jumps.remove_at(loop_exit_jumps.size() - 1);
+            }
+            if (!loop_continue_targets.is_empty()) {
+                loop_continue_targets.remove_at(loop_continue_targets.size() - 1);
             }
             break;
         }
@@ -3837,34 +4072,80 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
         }
         case STMT_REDIM: {
             ReDimStatement* s = (ReDimStatement*)stmt;
-            if (s->preserve) {
-                compile_ok = false;
-                break;
-            }
             if (s->array_sizes.size() != 1) {
+                // Multi-dimensional ReDim not yet supported in bytecode
                 compile_ok = false;
                 break;
             }
 
-            // size = expr + 1 (VB arrays are 0..N)
-            compile_expression(s->array_sizes[0]);
-            emit_constant(Variant((int64_t)1));
-            emit_byte(OP_ADD);
-            String key = s->variable_name.to_lower();
-            if (array_types.has(key) && array_types[key] == VT_INT) emit_byte(OP_NEW_ARRAY_I64);
-            else emit_byte(OP_NEW_ARRAY);
+            if (s->preserve) {
+                // ReDim Preserve: resize existing array in-place
+                // Push current array value
+                String key = s->variable_name.to_lower();
+                int slot = get_or_add_local(s->variable_name, VT_UNKNOWN);
+                if (slot >= 0) {
+                    emit_bytes(OP_GET_LOCAL, (uint8_t)slot);
+                } else {
+                    int gidx = current_chunk->add_constant(s->variable_name);
+                    emit_bytes(OP_GET_GLOBAL, (uint8_t)gidx);
+                }
 
-            int slot = get_or_add_local(s->variable_name, VT_UNKNOWN);
-            if (slot >= 0) emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
-            else {
-                int idx = current_chunk->add_constant(s->variable_name);
-                emit_bytes(OP_SET_GLOBAL, (uint8_t)idx);
+                // Push new size = expr + 1 (VB arrays are 0..N)
+                compile_expression(s->array_sizes[0]);
+                emit_constant(Variant((int64_t)1));
+                emit_byte(OP_ADD);
+
+                // Resize array
+                emit_byte(OP_ARRAY_RESIZE);
+
+                // Store result back
+                if (slot >= 0) {
+                    emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
+                } else {
+                    int gidx = current_chunk->add_constant(s->variable_name);
+                    emit_bytes(OP_SET_GLOBAL, (uint8_t)gidx);
+                }
+            } else {
+                // Non-preserve: create brand new array
+                // size = expr + 1 (VB arrays are 0..N)
+                compile_expression(s->array_sizes[0]);
+                emit_constant(Variant((int64_t)1));
+                emit_byte(OP_ADD);
+                String key = s->variable_name.to_lower();
+                if (array_types.has(key) && array_types[key] == VT_INT) emit_byte(OP_NEW_ARRAY_I64);
+                else emit_byte(OP_NEW_ARRAY);
+
+                int slot = get_or_add_local(s->variable_name, VT_UNKNOWN);
+                if (slot >= 0) emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
+                else {
+                    int idx = current_chunk->add_constant(s->variable_name);
+                    emit_bytes(OP_SET_GLOBAL, (uint8_t)idx);
+                }
             }
             break;
         }
         case STMT_ERASE: {
-            // Fall back to interpreter for Erase
-            compile_ok = false;
+            EraseStatement* es = (EraseStatement*)stmt;
+            // Reset variable to its default value based on tracked type
+            String key = es->variable_name.to_lower();
+            if (array_vars.has(key)) {
+                // Array variable → reset to empty Array
+                emit_constant(Variant((int64_t)0));
+                emit_byte(OP_NEW_ARRAY);
+            } else if (dictionary_vars.has(key)) {
+                // Dictionary variable → reset to empty Dictionary
+                emit_byte(OP_NEW_DICT);
+            } else {
+                // Unknown type → reset to Nil (default Variant)
+                emit_byte(OP_NIL);
+            }
+            int slot = get_or_add_local(es->variable_name, VT_UNKNOWN);
+            if (slot >= 0) {
+                emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
+            } else {
+                int idx = current_chunk->add_constant(es->variable_name);
+                emit_bytes(OP_SET_GLOBAL, (uint8_t)idx);
+            }
             break;
         }
         case STMT_EXIT: {
@@ -3948,13 +4229,6 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             break;
         }
         case STMT_SELECT: {
-            // Select Case statement - temporarily fall back to interpreter
-            // TODO: Fix bytecode compilation for Select Case with ranges
-            compile_ok = false;
-            break;
-            
-            // Disabled for now - original bytecode compiler code:
-            #if 0
             SelectStatement* s = (SelectStatement*)stmt;
             if (!s->expression) {
                 compile_ok = false;
@@ -3979,25 +4253,39 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                         compile_statement(cb->body[j]);
                     }
                 } else {
-                    // Regular Case - check each value (may include ranges)
+                    // Regular Case - check each value (may include ranges and comparison ops)
                     Vector<int> case_match_jumps;
                     
                     for (int v = 0; v < cb->values.size(); v++) {
-                        // Check if this is a range (X To Y)
+                        bool has_comp_op = (v < cb->comparison_ops.size() && !cb->comparison_ops[v].is_empty());
                         bool has_range = (v < cb->range_ends.size() && cb->range_ends[v] != nullptr);
                         
-                        if (has_range) {
-                            // Range check: select_value >= low AND select_value <= high
-                            // Load select value
+                        if (has_comp_op) {
+                            // Case Is > value, Case Is <= value, etc.
                             if (select_slot >= 0) {
                                 emit_bytes(OP_GET_LOCAL, (uint8_t)select_slot);
                             }
-                            // Compare >= low
+                            compile_expression(cb->values[v]);
+                            String comp_op = cb->comparison_ops[v];
+                            if (comp_op == ">") emit_byte(OP_GREATER);
+                            else if (comp_op == "<") emit_byte(OP_LESS);
+                            else if (comp_op == ">=") emit_byte(OP_GREATER_EQUAL);
+                            else if (comp_op == "<=") emit_byte(OP_LESS_EQUAL);
+                            else if (comp_op == "<>") emit_byte(OP_NOT_EQUAL);
+                            else if (comp_op == "=") emit_byte(OP_EQUAL);
+                            else { compile_ok = false; break; }
+                            int match_jump = emit_jump(OP_JUMP_IF_TRUE);
+                            case_match_jumps.push_back(match_jump);
+                        } else if (has_range) {
+                            // Range check: select_value >= low AND select_value <= high
+                            if (select_slot >= 0) {
+                                emit_bytes(OP_GET_LOCAL, (uint8_t)select_slot);
+                            }
                             compile_expression(cb->values[v]);
                             emit_byte(OP_GREATER_EQUAL);
-                            int ge_check = emit_jump(OP_JUMP_IF_FALSE);
+                            int ge_fail = emit_jump(OP_JUMP_IF_FALSE);
                             
-                            // Compare <= high
+                            // >= passed, now check <= high
                             if (select_slot >= 0) {
                                 emit_bytes(OP_GET_LOCAL, (uint8_t)select_slot);
                             }
@@ -4006,23 +4294,20 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                             int le_match = emit_jump(OP_JUMP_IF_TRUE);
                             case_match_jumps.push_back(le_match);
                             
-                            // Patch the >= false check to continue to next value
-                            patch_jump(ge_check);
+                            // >= failed — skip to next value check
+                            patch_jump(ge_fail);
                         } else {
                             // Simple value check
-                            // Load the select expression value
                             if (select_slot >= 0) {
                                 emit_bytes(OP_GET_LOCAL, (uint8_t)select_slot);
                             }
-                            // Load the case value and compare
                             compile_expression(cb->values[v]);
                             emit_byte(OP_EQUAL);
-                            
-                            // If equal, jump to case body
                             int match_jump = emit_jump(OP_JUMP_IF_TRUE);
                             case_match_jumps.push_back(match_jump);
                         }
                     }
+                    if (!compile_ok) break;
                     
                     // None of the values matched - jump to next case
                     int skip_case_jump = emit_jump(OP_JUMP);
@@ -4050,7 +4335,6 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             for (int i = 0; i < end_jumps.size(); i++) {
                 patch_jump(end_jumps[i]);
             }
-            #endif
             break;
         }
         case STMT_DO: {
@@ -4058,10 +4342,13 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             DoStatement* s = (DoStatement*)stmt;
             
             loop_exit_jumps.push_back(Vector<int>());
+            loop_continue_targets.push_back(-1); // placeholder
             int loop_start = current_chunk->code.size();
             
             if (!s->is_post_condition && s->condition_type != DoStatement::NONE) {
                 // Pre-condition: Do While/Until ... Loop
+                // Continue Do jumps to loop_start (re-test condition)
+                loop_continue_targets.write[loop_continue_targets.size() - 1] = loop_start;
                 compile_expression(s->condition);
                 int exit_jump;
                 if (s->condition_type == DoStatement::WHILE) {
@@ -4085,6 +4372,9 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                     compile_statement(s->body[i]);
                 }
                 
+                // Continue Do target: right before the condition check
+                loop_continue_targets.write[loop_continue_targets.size() - 1] = current_chunk->code.size();
+
                 // Check condition at the end
                 compile_expression(s->condition);
                 if (s->condition_type == DoStatement::WHILE) {
@@ -4102,6 +4392,8 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                 }
             } else {
                 // Infinite loop: Do ... Loop (no condition)
+                // Continue Do jumps back to loop_start
+                loop_continue_targets.write[loop_continue_targets.size() - 1] = loop_start;
                 for (int i = 0; i < s->body.size(); i++) {
                     compile_statement(s->body[i]);
                 }
@@ -4114,6 +4406,9 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                     patch_jump(exits[ei]);
                 }
                 loop_exit_jumps.remove_at(loop_exit_jumps.size() - 1);
+            }
+            if (!loop_continue_targets.is_empty()) {
+                loop_continue_targets.remove_at(loop_continue_targets.size() - 1);
             }
             break;
         }
@@ -4340,6 +4635,245 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             emit_byte(OP_STOP);
             break;
         }
+        case STMT_FOR_EACH: {
+            // For Each var In collection ... Next
+            ForEachStatement* s = (ForEachStatement*)stmt;
+            if (!s->collection) {
+                compile_ok = false;
+                break;
+            }
+
+            // We need: a slot for the collection (as an array), a slot for the
+            // index counter, and a slot for the iteration variable.
+            int coll_slot = get_or_add_local(String("__foreach_coll_") + String::num_int64(temp_local_id), VT_UNKNOWN);
+            int idx_slot  = get_or_add_local(String("__foreach_idx_")  + String::num_int64(temp_local_id), VT_INT);
+            int var_slot   = get_or_add_local(s->variable_name, VT_UNKNOWN);
+            temp_local_id++;
+            if (coll_slot < 0 || idx_slot < 0) {
+                compile_ok = false;
+                break;
+            }
+
+            // Compile the collection expression.
+            compile_expression(s->collection);
+
+            // If the collection is a Dictionary we need its keys() array.
+            // We can't know the type statically, so emit OP_DICT_KEYS_CALL
+            // which will convert dict→keys at runtime (passes arrays through).
+            emit_byte(OP_DICT_KEYS_CALL);
+
+            // Store the (possibly converted) array in coll_slot.
+            emit_bytes(OP_SET_LOCAL, (uint8_t)coll_slot);
+
+            // Initialise index = 0
+            emit_constant((int64_t)0);
+            emit_bytes(OP_SET_LOCAL, (uint8_t)idx_slot);
+
+            // Push Exit For jump list
+            loop_exit_jumps.push_back(Vector<int>());
+            loop_continue_targets.push_back(-1); // placeholder
+
+            // --- loop header ---
+            int loop_start = current_chunk->code.size();
+
+            // if idx >= Len(coll) then exit
+            emit_bytes(OP_GET_LOCAL, (uint8_t)idx_slot);
+            emit_bytes(OP_GET_LOCAL, (uint8_t)coll_slot);
+            emit_byte(OP_LEN);
+            emit_byte(OP_GREATER_EQUAL);  // idx >= len → done
+            int exit_jump = emit_jump(OP_JUMP_IF_TRUE);
+
+            // var = coll(idx)  →  push coll, push idx, OP_GET_ARRAY 1
+            emit_bytes(OP_GET_LOCAL, (uint8_t)coll_slot);
+            emit_bytes(OP_GET_LOCAL, (uint8_t)idx_slot);
+            emit_byte(OP_GET_ARRAY);
+            emit_byte(1);
+            if (var_slot >= 0) {
+                emit_bytes(OP_SET_LOCAL, (uint8_t)var_slot);
+            } else {
+                int name_idx = current_chunk->add_constant(s->variable_name);
+                emit_bytes(OP_SET_GLOBAL, (uint8_t)name_idx);
+            }
+
+            // --- loop body ---
+            for (int i = 0; i < s->body.size(); i++) {
+                compile_statement(s->body[i]);
+            }
+
+            // Continue For target: the increment point
+            if (!loop_continue_targets.is_empty()) {
+                loop_continue_targets.write[loop_continue_targets.size() - 1] = current_chunk->code.size();
+            }
+
+            // idx = idx + 1
+            if (idx_slot >= 0 && idx_slot < 256) {
+                emit_bytes(OP_INC_LOCAL_I64, (uint8_t)idx_slot);
+            } else {
+                emit_bytes(OP_GET_LOCAL, (uint8_t)idx_slot);
+                emit_constant((int64_t)1);
+                emit_byte(OP_ADD_I64);
+                emit_bytes(OP_SET_LOCAL, (uint8_t)idx_slot);
+            }
+
+            // Jump back to loop header
+            emit_loop(loop_start);
+
+            // --- loop exit ---
+            patch_jump(exit_jump);
+
+            // Patch Exit For jumps
+            const Vector<int> &exits = loop_exit_jumps[loop_exit_jumps.size() - 1];
+            for (int ei = 0; ei < exits.size(); ei++) {
+                patch_jump(exits[ei]);
+            }
+            loop_exit_jumps.remove_at(loop_exit_jumps.size() - 1);
+            if (!loop_continue_targets.is_empty()) {
+                loop_continue_targets.remove_at(loop_continue_targets.size() - 1);
+            }
+            break;
+        }
+        case STMT_WITH: {
+            // With expression ... End With
+            WithStatement* s = (WithStatement*)stmt;
+            if (!s->expression) {
+                compile_ok = false;
+                break;
+            }
+            // Evaluate the With expression and push onto With context stack
+            compile_expression(s->expression);
+            emit_byte(OP_PUSH_WITH);
+            
+            // Compile the body statements
+            for (int i = 0; i < s->body.size(); i++) {
+                compile_statement(s->body[i]);
+            }
+            
+            // Pop the With context stack
+            emit_byte(OP_POP_WITH);
+            break;
+        }
+        case STMT_CONTINUE: {
+            // Continue For / Continue Do / Continue While
+            ContinueStatement* cont = (ContinueStatement*)stmt;
+            if (loop_continue_targets.is_empty()) {
+                compile_ok = false;
+                break;
+            }
+            int target = loop_continue_targets[loop_continue_targets.size() - 1];
+            if (target < 0) {
+                // Target not yet known (shouldn't happen since body is compiled first for For)
+                compile_ok = false;
+                break;
+            }
+            emit_loop(target);
+            break;
+        }
+        case STMT_LABEL: {
+            // Label: — record the bytecode offset for GoTo resolution
+            LabelStatement* s = (LabelStatement*)stmt;
+            label_positions[s->name.to_lower()] = current_chunk->code.size();
+            // Patch any forward GoTo jumps that targeted this label
+            String key = s->name.to_lower();
+            if (goto_forward_jumps.has(key)) {
+                const Vector<int> &jumps = goto_forward_jumps[key];
+                for (int i = 0; i < jumps.size(); i++) {
+                    patch_jump(jumps[i]);
+                }
+                goto_forward_jumps.erase(key);
+            }
+            break;
+        }
+        case STMT_GOTO: {
+            // GoTo label
+            GotoStatement* s = (GotoStatement*)stmt;
+            String key = s->label_name.to_lower();
+            if (label_positions.has(key)) {
+                // Backward jump — label already seen
+                emit_loop(label_positions[key]);
+            } else {
+                // Forward jump — emit a placeholder, patch when label is found
+                int jump_addr = emit_jump(OP_JUMP);
+                if (!goto_forward_jumps.has(key)) {
+                    goto_forward_jumps[key] = Vector<int>();
+                }
+                goto_forward_jumps[key].push_back(jump_addr);
+            }
+            break;
+        }
+        case STMT_TRY: {
+            // Try ... Catch [ex] ... Finally ... End Try
+            TryStatement* s = (TryStatement*)stmt;
+            
+            // Allocate a local for the catch variable if provided
+            int catch_var_slot = -1;
+            if (!s->catch_var_name.is_empty()) {
+                catch_var_slot = get_or_add_local(s->catch_var_name, VT_UNKNOWN);
+                // The catch variable will hold a Dictionary — register it
+                // so the compiler recognizes ex("Number") as a dict access.
+                dictionary_vars.insert(s->catch_var_name.to_lower());
+            }
+            
+            // OP_SETUP_TRY [offset_16] — offset to the catch handler
+            int setup_try = emit_jump(OP_SETUP_TRY);
+            
+            // --- Try block ---
+            for (int i = 0; i < s->try_block.size(); i++) {
+                compile_statement(s->try_block[i]);
+            }
+            
+            // No error: pop the exception handler and jump past catch
+            emit_byte(OP_POP_TRY);
+            int jump_to_finally = emit_jump(OP_JUMP);
+            
+            // --- Catch block (exception handler target) ---
+            patch_jump(setup_try);
+            
+            // At this point the VM has stored the error in a Dictionary.
+            // If there's a catch variable, store it.
+            if (catch_var_slot >= 0) {
+                // The VM pushes the exception dict on the stack before jumping here
+                emit_bytes(OP_SET_LOCAL, (uint8_t)catch_var_slot);
+            } else {
+                // Pop the exception dict (not needed)
+                emit_byte(OP_POP);
+            }
+            
+            for (int i = 0; i < s->catch_block.size(); i++) {
+                compile_statement(s->catch_block[i]);
+            }
+            
+            // --- Finally block ---
+            patch_jump(jump_to_finally);
+            
+            for (int i = 0; i < s->finally_block.size(); i++) {
+                compile_statement(s->finally_block[i]);
+            }
+            break;
+        }
+        case STMT_RAISE: {
+            // Raise / Throw — push error_code and message, emit OP_THROW
+            RaiseStatement* s = (RaiseStatement*)stmt;
+            if (s->code) {
+                compile_expression(s->code);
+            } else {
+                emit_constant((int64_t)0);
+            }
+            if (s->msg) {
+                compile_expression(s->msg);
+            } else {
+                emit_constant(String("Application error"));
+            }
+            emit_byte(OP_THROW);
+            break;
+        }
+        case STMT_CONST: {
+            // Const declarations are no-ops at runtime (values inlined at parse time)
+            break;
+        }
+        case STMT_PASS: {
+            // Pass statement — intentional no-op
+            break;
+        }
         default:
              UtilityFunctions::print("Compiler: Unsupported statement type ", stmt->type);
              compile_ok = false;
@@ -4379,13 +4913,27 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                 emit_byte(OP_NEW_DICT);
                 break;
             }
-            compile_ok = false;
+            // General New: compile args, then OP_NEW_OBJECT with class name + arg count
+            for (int i = 0; i < n->args.size(); i++) {
+                compile_expression(n->args[i]);
+            }
+            int name_idx = current_chunk->add_constant(String(n->class_name));
+            emit_byte(OP_NEW_OBJECT);
+            emit_byte((uint8_t)name_idx);
+            emit_byte((uint8_t)n->args.size());
             break;
         }
         case ExpressionNode::ME: {
             // "Me" keyword - compile as OP_GET_GLOBAL with "Me" constant
             // Runtime will resolve this to owner
             int idx = current_chunk->add_constant(String("Me"));
+            emit_bytes(OP_GET_GLOBAL, (uint8_t)idx);
+            break;
+        }
+        case ExpressionNode::SUPER: {
+            // "Super" keyword — compile same pattern as "Me"
+            // Runtime OP_GET_GLOBAL resolves "Super" to owner (parent class dispatch handled by method call)
+            int idx = current_chunk->add_constant(String("Super"));
             emit_bytes(OP_GET_GLOBAL, (uint8_t)idx);
             break;
         }
@@ -4662,8 +5210,15 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
         case ExpressionNode::EXPRESSION_CALL: {
              CallExpression* call = (CallExpression*)expr;
              if (call->base_object) {
-                 // Method calls on objects are not supported in bytecode yet.
-                 compile_ok = false;
+                 // Method call on object — compile base + args, emit OP_METHOD_CALL
+                 compile_expression(call->base_object);
+                 for (int i = 0; i < call->arguments.size(); i++) {
+                     compile_expression(call->arguments[i]);
+                 }
+                 int midx = current_chunk->add_constant(call->method_name);
+                 emit_bytes(OP_METHOD_CALL, (uint8_t)midx);
+                 emit_byte((uint8_t)call->arguments.size());
+                 // Return value stays on stack (expression context)
                  break;
              }
 
@@ -4757,6 +5312,65 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
             
             // Patch end jump to here
             patch_jump(end_jump);
+            break;
+        }
+        case ExpressionNode::WITH_CONTEXT: {
+            // Push the current With context object onto the value stack
+            emit_byte(OP_GET_WITH);
+            break;
+        }
+        case ExpressionNode::TYPE_CHECK: {
+            // TypeOf expr Is ClassName → compile expr, push class name, OP_IS_CLASS
+            TypeCheckExpression* tc = (TypeCheckExpression*)expr;
+            if (!tc->expression || !tc->check_type) {
+                compile_ok = false;
+                break;
+            }
+            compile_expression(tc->expression);
+            emit_constant(tc->check_type->base_type);
+            emit_byte(OP_IS_CLASS);
+            break;
+        }
+        case ExpressionNode::OPTIONAL_ACCESS: {
+            // obj?.member → if obj is Nil, push Nil; else push obj.member
+            OptionalAccessExpression* oa = (OptionalAccessExpression*)expr;
+            if (!oa->object_expression) {
+                emit_byte(OP_NIL);
+                break;
+            }
+            // Compile the base object
+            compile_expression(oa->object_expression);
+            // Duplicate it so we can test for nil and still use it
+            emit_byte(OP_DUP);
+            // If falsy (nil/nothing), jump to the nil path
+            int nil_jump = emit_jump(OP_JUMP_IF_FALSE);
+            // Not nil: do member access (base is still on stack from DUP)
+            {
+                int name_idx = current_chunk->add_constant(oa->member_name);
+                emit_bytes(OP_GET_MEMBER, (uint8_t)name_idx);
+            }
+            int end_jump = emit_jump(OP_JUMP);
+            // Nil path: pop the duplicated nil value, push nil result
+            patch_jump(nil_jump);
+            emit_byte(OP_POP); // pop the duplicated nil value
+            emit_byte(OP_NIL);
+            patch_jump(end_jump);
+            break;
+        }
+        case ExpressionNode::LAMBDA: {
+            // Emit a constant Dictionary wrapper like the AST interpreter:
+            // { __vg_lambda: true, __vg_is_arrow: bool, __vg_params: Array, __vg_ast_ptr: uint64_t }
+            LambdaNode* lam = (LambdaNode*)expr;
+            Dictionary lambda_obj;
+            lambda_obj["__vg_lambda"] = true;
+            lambda_obj["__vg_is_arrow"] = lam->is_arrow;
+            Array param_names;
+            for (int i = 0; i < lam->parameters.size(); i++) {
+                param_names.push_back(lam->parameters[i].name);
+            }
+            lambda_obj["__vg_params"] = param_names;
+            lambda_obj["__vg_ast_ptr"] = (uint64_t)lam;
+            emit_constant(Variant(lambda_obj));
             break;
         }
         default:
