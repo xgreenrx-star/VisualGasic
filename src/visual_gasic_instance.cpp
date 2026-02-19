@@ -1913,6 +1913,12 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
             return Input::get_singleton();
         }
         
+        // General Godot singleton resolution (Engine, OS, Time, etc.)
+        if (Engine::get_singleton()->has_singleton(name)) {
+            Object *singleton = Engine::get_singleton()->get_singleton(name);
+            if (singleton) return Variant(singleton);
+        }
+        
         if (variables.has(name)) {
             if (name.nocasecmp_to("wheneverTriggered") == 0) {
             }
@@ -9113,6 +9119,17 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 if (name.nocasecmp_to("wheneverTriggered") == 0) {
                 }
                 
+                // If not found in variables, try Godot engine singletons
+                if (val.get_type() == Variant::NIL) {
+                    if (Engine::get_singleton()->has_singleton(name)) {
+                        Object *singleton = Engine::get_singleton()->get_singleton(name);
+                        if (singleton) {
+                            push_value(Variant(singleton));
+                            break;
+                        }
+                    }
+                }
+                
                 // If not found in variables, search for child control by name (VB6 style)
                 if (val.get_type() == Variant::NIL && owner) {
                     Node* owner_node = Object::cast_to<Node>(owner);
@@ -11460,6 +11477,12 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 }
 
                 if (!handled) {
+                    // Method call on Null / Nothing — raise error
+                    if (base.get_type() == Variant::NIL) {
+                        raise_error("Method call on Null object: ." + method);
+                        push_value(Variant());
+                        VG_BREAK;
+                    }
                     // Last resort: call_internal with the method name
                     // (some builtins might only exist in the statement path)
                     bool stmt_found = false;
