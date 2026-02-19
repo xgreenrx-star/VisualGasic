@@ -5314,12 +5314,20 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
             // Check if this is ClassName.CONSTANT (Godot class enum constant)
             if (ma->base_object && ma->base_object->type == ExpressionNode::VARIABLE) {
                 String class_name = ((VariableNode*)ma->base_object)->name;
-                if (ClassDB::class_exists(class_name) &&
-                    ClassDB::class_has_integer_constant(class_name, ma->member_name)) {
-                    int64_t val = ClassDB::class_get_integer_constant(class_name, ma->member_name);
-                    int cidx = current_chunk->add_constant(Variant((int)val));
-                    emit_bytes(OP_CONSTANT, (uint8_t)cidx);
-                    break;
+                if (ClassDB::class_exists(class_name)) {
+                    // Try member name as-is first, then UPPER_CASE.
+                    // The tokenizer normalises keywords like READ → "Read",
+                    // but Godot enum constants are ALL_CAPS ("READ").
+                    String mname = ma->member_name;
+                    if (!ClassDB::class_has_integer_constant(class_name, mname)) {
+                        mname = mname.to_upper();
+                    }
+                    if (ClassDB::class_has_integer_constant(class_name, mname)) {
+                        int64_t val = ClassDB::class_get_integer_constant(class_name, mname);
+                        int cidx = current_chunk->add_constant(Variant((int)val));
+                        emit_bytes(OP_CONSTANT, (uint8_t)cidx);
+                        break;
+                    }
                 }
             }
             compile_expression(ma->base_object);

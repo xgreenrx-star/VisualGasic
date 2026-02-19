@@ -1982,9 +1982,16 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
                  return Color::named(ma->member_name);
              }
              // Godot class enum constants: Input.MOUSE_MODE_CAPTURED, Sky.PROCESS_MODE_QUALITY, etc.
-             if (ClassDB::class_exists(base_name) &&
-                 ClassDB::class_has_integer_constant(base_name, ma->member_name)) {
-                 return (int)ClassDB::class_get_integer_constant(base_name, ma->member_name);
+             // Try as-is first, then UPPER_CASE (tokenizer normalises keywords
+             // like READ → "Read" but Godot constants are ALL_CAPS).
+             if (ClassDB::class_exists(base_name)) {
+                 String mname = ma->member_name;
+                 if (!ClassDB::class_has_integer_constant(base_name, mname)) {
+                     mname = mname.to_upper();
+                 }
+                 if (ClassDB::class_has_integer_constant(base_name, mname)) {
+                     return (int)ClassDB::class_get_integer_constant(base_name, mname);
+                 }
              }
          }
          
@@ -2100,9 +2107,14 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
                  if (val.get_type() != Variant::NIL) return val;
                  
                  // Fallback: class integer constants (e.g. Input.MOUSE_MODE_CAPTURED)
+                 // Try as-is first, then UPPER_CASE (tokenizer normalises keywords).
                  StringName cn = obj->get_class();
-                 if (ClassDB::class_has_integer_constant(cn, ma->member_name)) {
-                     return (int)ClassDB::class_get_integer_constant(cn, ma->member_name);
+                 String mname2 = ma->member_name;
+                 if (!ClassDB::class_has_integer_constant(cn, mname2)) {
+                     mname2 = mname2.to_upper();
+                 }
+                 if (ClassDB::class_has_integer_constant(cn, StringName(mname2))) {
+                     return (int)ClassDB::class_get_integer_constant(cn, StringName(mname2));
                  }
              }
          }
@@ -10721,10 +10733,16 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         }
                         // Fallback: if result is still NIL, try class integer constants
                         // This handles ClassName.ENUM_VALUE (e.g. Input.MOUSE_MODE_CAPTURED)
+                        // Try as-is first, then UPPER_CASE (tokenizer normalises keywords
+                        // like READ → "Read" but Godot constants are ALL_CAPS).
                         if (result.get_type() == Variant::NIL && obj) {
                             StringName cn = obj->get_class();
-                            if (ClassDB::class_has_integer_constant(cn, cache.primary_string)) {
-                                result = (int)ClassDB::class_get_integer_constant(cn, cache.primary_string);
+                            StringName mname = cache.primary_string;
+                            if (!ClassDB::class_has_integer_constant(cn, mname)) {
+                                mname = String(mname).to_upper();
+                            }
+                            if (ClassDB::class_has_integer_constant(cn, mname)) {
+                                result = (int)ClassDB::class_get_integer_constant(cn, mname);
                             }
                         }
                     }
