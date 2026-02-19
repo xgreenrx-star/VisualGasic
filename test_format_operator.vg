@@ -1,0 +1,22 @@
+' Test % format operator support
+Attribute VB_Name = "FormatTest"
+
+Sub _Ready()
+    ' Test GDScript-style string format
+    Dim speed As Single = 1.5
+    Dim label As String = "%.2fx" % (speed * 10)
+    Print "Speed label: " & label
+
+    ' Test integer modulo with % (same as Mod)
+    Dim remainder As Integer = 17 % 5
+    Print "17 %% 5 = " & str(remainder)
+
+    ' Test percent display format  
+    Dim coverage As Single = 0.75
+    Dim pct As String = "%d%%" % (coverage * 100)
+    Print "Coverage: " & pct
+
+    ' Test Mod still works
+    Dim modResult As Integer = 10 Mod 3
+    Print "10 Mod 3 = " & str(modResult)
+End Sub

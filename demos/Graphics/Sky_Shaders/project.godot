@@ -30,6 +30,10 @@ window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 window/vsync/use_vsync=false
 
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/visual_gasic/plugin.cfg")
+
 [input]
 
 toggle_mouse_capture={
@@ -64,7 +68,3 @@ decrease_camera_fov={
 anti_aliasing/quality/msaa_3d=2
 anti_aliasing/quality/use_debanding=true
 vram_compression/import_etc2=false
-
-[editor_plugins]
-
-enabled=PackedStringArray("res://addons/visual_gasic/plugin.cfg")

@@ -1265,17 +1265,12 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
                 Statement *stmt = vs->ast_root->global_statements[i];
                 if (stmt->type == STMT_DIM) {
                      execute_statement(stmt);
-                     DimStatement* ds = (DimStatement*)stmt;
-                     UtilityFunctions::print("Executed Global Dim: ", ds->variable_name);
                 }
                 else if (stmt->type == STMT_CONST) {
                      execute_statement(stmt);
                 }
                 else if (stmt->type == STMT_WHENEVER_SECTION) {
-                     // Execute module-level Whenever Section declarations
                      execute_statement(stmt);
-                     WheneverSectionStatement* ws = (WheneverSectionStatement*)stmt;
-                     UtilityFunctions::print("Registered Whenever Section: ", ws->section_name);
                 }
             }
             whenever_init_suppress = false;
@@ -1931,10 +1926,7 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
              if (owner_node) {
                  Node *found = owner_node->find_child(name, true, false);
                  if (found) {
-                     print_line("[VG] Found child control '" + name + "' of type: " + found->get_class());
                      return found;
-                 } else {
-                     print_line("[VG] Child control '" + name + "' NOT FOUND in owner: " + owner_node->get_name());
                  }
              }
         }
@@ -3991,6 +3983,53 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
              return evaluate_expression(bin->right);
         }
 
+        // "Is" operator — handle BEFORE evaluating right side to avoid
+        // noisy variable lookups when the right side is a Godot class name
+        // (e.g. TypeOf input_event Is InputEventMouseMotion).
+        if (bin->op.nocasecmp_to("Is") == 0) {
+             Variant l = evaluate_expression(bin->left);
+             
+             // Check if right side is a known Godot class name — skip variable evaluation
+             if (bin->right && bin->right->type == ExpressionNode::VARIABLE) {
+                 String class_name = ((VariableNode*)bin->right)->name;
+                 if (ClassDB::class_exists(class_name)) {
+                     if (l.get_type() == Variant::OBJECT) {
+                         Object* obj = Object::cast_to<Object>(l);
+                         if (obj) return obj->is_class(class_name);
+                     }
+                     return false;
+                 }
+                 // "Nothing" keyword — null check
+                 if (class_name.nocasecmp_to("Nothing") == 0) {
+                     return l.get_type() == Variant::NIL;
+                 }
+             }
+             
+             // Normal evaluation for non-class-name right side
+             Variant r = evaluate_expression(bin->right);
+             
+             // Null check: obj Is Nothing
+             if (r.get_type() == Variant::NIL) {
+                 return l.get_type() == Variant::NIL;
+             }
+             
+             // String class name (from variable that resolved to a string)
+             if (l.get_type() == Variant::OBJECT && r.get_type() == Variant::STRING) {
+                 String class_name = String(r);
+                 if (ClassDB::class_exists(class_name)) {
+                     Object* obj = Object::cast_to<Object>(l);
+                     if (obj) return obj->is_class(class_name);
+                     return false;
+                 }
+             }
+             
+             // Reference equality fallback
+             bool valid;
+             Variant res;
+             Variant::evaluate(Variant::OP_EQUAL, l, r, res, valid);
+             return res;
+        }
+
         Variant l = evaluate_expression(bin->left);
         Variant r = evaluate_expression(bin->right);
         
@@ -4046,42 +4085,6 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
         if (op.nocasecmp_to("And") == 0) return l.booleanize() && r.booleanize();
         if (op.nocasecmp_to("Or") == 0) return l.booleanize() || r.booleanize();
         if (op.nocasecmp_to("Xor") == 0) return l.booleanize() != r.booleanize();
-        if (op.nocasecmp_to("Is") == 0) {
-             // VB6-style "Is" operator: type-check OR reference comparison.
-             
-             // Type-check: left is Object, right side is a Godot class name
-             if (l.get_type() == Variant::OBJECT && r.get_type() == Variant::NIL) {
-                 // Right side evaluated to null — check if the AST node was a class name
-                 if (bin->right && bin->right->type == ExpressionNode::VARIABLE) {
-                     String class_name = ((VariableNode*)bin->right)->name;
-                     if (ClassDB::class_exists(class_name)) {
-                         Object* obj = Object::cast_to<Object>(l);
-                         if (obj) return obj->is_class(class_name);
-                         return false;
-                     }
-                 }
-             }
-             if (l.get_type() == Variant::OBJECT && r.get_type() == Variant::STRING) {
-                 // Right side resolved to a class name string
-                 String class_name = String(r);
-                 if (ClassDB::class_exists(class_name)) {
-                     Object* obj = Object::cast_to<Object>(l);
-                     if (obj) return obj->is_class(class_name);
-                     return false;
-                 }
-             }
-             
-             // Null check: obj Is Nothing
-             if (r.get_type() == Variant::NIL) {
-                 return l.get_type() == Variant::NIL;
-             }
-             
-             // Reference equality fallback
-             bool valid;
-             Variant res;
-             Variant::evaluate(Variant::OP_EQUAL, l, r, res, valid);
-             return res;
-        }
         if (op.nocasecmp_to("Like") == 0) {
             // VB6-style Like pattern matching
             // Pattern characters:
@@ -7238,7 +7241,9 @@ void VisualGasicInstance::notification(int32_t p_what) {
              if (node) {
                  if (!node->is_processing() && script->_has_method("_Process")) node->set_process(true);
                  if (!node->is_physics_processing() && script->_has_method("_PhysicsProcess")) node->set_physics_process(true);
-                 if (!node->is_processing_input() && script->_has_method("_Input")) node->set_process_input(true);
+                 if (!node->is_processing_input() && script->_has_method("_Input")) {
+                     node->set_process_input(true);
+                 }
                  if (!node->is_processing_unhandled_input() && script->_has_method("_UnhandledInput")) node->set_process_unhandled_input(true);
                  
                  // Run Auto-Wire for Signals
