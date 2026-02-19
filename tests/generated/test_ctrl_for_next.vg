@@ -1,0 +1,17 @@
+Attribute VB_Name = "TestForNext"
+Sub RunTest()
+    Dim total As Integer = 0
+    Dim i As Integer
+    For i = 1 To 10
+        total = total + i
+    Next
+    Dim total2 As Integer = 0
+    For i = 0 To 10 Step 2
+        total2 = total2 + i
+    Next
+    If total = 55 And total2 = 30 Then
+        Print "PASS:ctrl_for_next"
+    Else
+        Print "FAIL:ctrl_for_next total=" & str(total) & " total2=" & str(total2)
+    End If
+End Sub

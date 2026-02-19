@@ -1,0 +1,13 @@
+Attribute VB_Name = "TestArraySet"
+Sub RunTest()
+    Dim arr As Array
+    arr.append(0)
+    arr.append(0)
+    arr[0] = 42
+    arr[1] = 99
+    If arr[0] = 42 And arr[1] = 99 Then
+        Print "PASS:array_set"
+    Else
+        Print "FAIL:array_set"
+    End If
+End Sub

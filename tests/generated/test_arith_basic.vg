@@ -1,0 +1,17 @@
+Attribute VB_Name = "TestArithBasic"
+Sub RunTest()
+    Dim a As Integer = 10
+    Dim b As Integer = 3
+    Dim r1 As Integer = a + b   ' 13
+    Dim r2 As Integer = a - b   ' 7
+    Dim r3 As Integer = a * b   ' 30
+    Dim r4 As Single = a / b    ' 3.333...
+    Dim r5 As Integer = a \ b   ' 3 (int divide)
+    Dim r6 As Integer = a Mod b ' 1
+    Dim r7 As Single = 2 ^ 10   ' 1024
+    If r1 = 13 And r2 = 7 And r3 = 30 And r5 = 3 And r6 = 1 And r7 = 1024 Then
+        Print "PASS:arith_basic"
+    Else
+        Print "FAIL:arith_basic r1=" & str(r1) & " r2=" & str(r2) & " r3=" & str(r3) & " r5=" & str(r5) & " r6=" & str(r6) & " r7=" & str(r7)
+    End If
+End Sub

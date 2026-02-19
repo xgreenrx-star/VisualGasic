@@ -1,0 +1,17 @@
+Attribute VB_Name = "TestCompareOps"
+Sub RunTest()
+    Dim pass_count As Integer = 0
+    If 5 = 5 Then pass_count = pass_count + 1
+    If 5 <> 6 Then pass_count = pass_count + 1
+    If 5 < 6 Then pass_count = pass_count + 1
+    If 6 > 5 Then pass_count = pass_count + 1
+    If 5 <= 5 Then pass_count = pass_count + 1
+    If 5 <= 6 Then pass_count = pass_count + 1
+    If 6 >= 6 Then pass_count = pass_count + 1
+    If 6 >= 5 Then pass_count = pass_count + 1
+    If pass_count = 8 Then
+        Print "PASS:compare_ops"
+    Else
+        Print "FAIL:compare_ops count=" & str(pass_count)
+    End If
+End Sub

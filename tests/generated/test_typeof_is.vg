@@ -1,0 +1,12 @@
+Attribute VB_Name = "TestTypeOfIs"
+Sub RunTest()
+    Dim n As Node2D = Node2D.new()
+    Dim is_node As Boolean = TypeOf n Is Node2D
+    Dim is_node_base As Boolean = TypeOf n Is Node
+    If is_node And is_node_base Then
+        Print "PASS:typeof_is"
+    Else
+        Print "FAIL:typeof_is is_node=" & str(is_node) & " is_base=" & str(is_node_base)
+    End If
+    n.free()
+End Sub

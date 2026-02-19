@@ -1,0 +1,10 @@
+Attribute VB_Name = "TestRefCountedNew"
+Sub RunTest()
+    Dim mesh As SphereMesh = SphereMesh.new()
+    If mesh <> Null Then
+        mesh.radius = 2.0
+        Print "PASS:obj_refcounted_new"
+    Else
+        Print "FAIL:obj_refcounted_new null"
+    End If
+End Sub

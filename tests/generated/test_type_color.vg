@@ -1,0 +1,9 @@
+Attribute VB_Name = "TestColor"
+Sub RunTest()
+    Dim c As Color = Color(0.5, 0.5, 0.5)
+    If c.r = 0.5 And c.g = 0.5 And c.b = 0.5 Then
+        Print "PASS:type_color"
+    Else
+        Print "FAIL:type_color"
+    End If
+End Sub

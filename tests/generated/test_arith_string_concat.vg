@@ -1,0 +1,12 @@
+Attribute VB_Name = "TestStringConcat"
+Sub RunTest()
+    Dim s1 As String = "Hello"
+    Dim s2 As String = " World"
+    Dim r1 As String = s1 & s2
+    Dim r2 As String = s1 + s2
+    If r1 = "Hello World" And r2 = "Hello World" Then
+        Print "PASS:arith_string_concat"
+    Else
+        Print "FAIL:arith_string_concat"
+    End If
+End Sub

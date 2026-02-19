@@ -1,0 +1,15 @@
+Attribute VB_Name = "TestLogicOps"
+Sub RunTest()
+    Dim pass_count As Integer = 0
+    If True And True Then pass_count = pass_count + 1
+    If Not (True And False) Then pass_count = pass_count + 1
+    If True Or False Then pass_count = pass_count + 1
+    If Not False Then pass_count = pass_count + 1
+    If True Xor False Then pass_count = pass_count + 1
+    If Not (True Xor True) Then pass_count = pass_count + 1
+    If pass_count = 6 Then
+        Print "PASS:logic_ops"
+    Else
+        Print "FAIL:logic_ops count=" & str(pass_count)
+    End If
+End Sub

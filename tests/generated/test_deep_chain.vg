@@ -1,0 +1,11 @@
+Attribute VB_Name = "TestDeepChain"
+Sub RunTest()
+    Dim mesh As SphereMesh = SphereMesh.new()
+    mesh.radius = 5.0
+    Dim r As Single = mesh.radius
+    If r = 5.0 Then
+        Print "PASS:deep_chain"
+    Else
+        Print "FAIL:deep_chain radius=" & str(r)
+    End If
+End Sub

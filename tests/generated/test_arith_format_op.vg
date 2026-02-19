@@ -1,0 +1,10 @@
+Attribute VB_Name = "TestFormatOp"
+Sub RunTest()
+    Dim result As String = "Value: %d" % 42
+    Dim result2 As String = "%.2f" % 3.14159
+    If result = "Value: 42" Then
+        Print "PASS:arith_format_op"
+    Else
+        Print "FAIL:arith_format_op result=" & result
+    End If
+End Sub

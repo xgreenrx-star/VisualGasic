@@ -1,0 +1,11 @@
+Attribute VB_Name = "TestDimInitializer"
+Sub RunTest()
+    Dim x As Integer = 42
+    Dim s As String = "hello"
+    Dim v As Vector2 = Vector2(1, 2)
+    If x = 42 And s = "hello" And v.x = 1 And v.y = 2 Then
+        Print "PASS:dim_initializer"
+    Else
+        Print "FAIL:dim_initializer"
+    End If
+End Sub

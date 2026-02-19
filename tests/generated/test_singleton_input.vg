@@ -1,0 +1,7 @@
+Attribute VB_Name = "TestSingletonInput"
+Sub RunTest()
+    ' Just verify Input is accessible and has a known property
+    Dim mode As Integer = Input.mouse_mode
+    ' Default mode is MOUSE_MODE_VISIBLE = 0
+    Print "PASS:singleton_input"
+End Sub

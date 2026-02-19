@@ -1,0 +1,15 @@
+Attribute VB_Name = "TestNodeNew"
+Sub RunTest()
+    Dim n As Node2D = Node2D.new()
+    If n <> Null Then
+        n.name = "TestChild"
+        If n.name = "TestChild" Then
+            Print "PASS:obj_node_new"
+        Else
+            Print "FAIL:obj_node_new name mismatch"
+        End If
+        n.free()
+    Else
+        Print "FAIL:obj_node_new null"
+    End If
+End Sub

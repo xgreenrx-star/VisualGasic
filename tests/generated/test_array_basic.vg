@@ -1,0 +1,14 @@
+Attribute VB_Name = "TestArrayBasic"
+Sub RunTest()
+    Dim arr As Array
+    arr.append(100)
+    arr.append(200)
+    arr.append(300)
+    Dim s As Integer = arr.size()
+    Dim v As Integer = arr[1]
+    If s = 3 And v = 200 Then
+        Print "PASS:array_basic"
+    Else
+        Print "FAIL:array_basic size=" & str(s) & " v=" & str(v)
+    End If
+End Sub

@@ -1,0 +1,16 @@
+Attribute VB_Name = "TestDoLoop"
+Sub RunTest()
+    Dim x As Integer = 0
+    Do While x < 3
+        x = x + 1
+    Loop
+    Dim y As Integer = 0
+    Do
+        y = y + 1
+    Loop Until y >= 3
+    If x = 3 And y = 3 Then
+        Print "PASS:ctrl_do_loop"
+    Else
+        Print "FAIL:ctrl_do_loop x=" & str(x) & " y=" & str(y)
+    End If
+End Sub

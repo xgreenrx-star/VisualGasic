@@ -1,0 +1,12 @@
+Attribute VB_Name = "TestStringMethods"
+Sub RunTest()
+    Dim s As String = "Hello"
+    Dim l As Integer = s.length()
+    Dim u As String = s.to_upper()
+    Dim lo As String = s.to_lower()
+    If l = 5 And u = "HELLO" And lo = "hello" Then
+        Print "PASS:string_methods"
+    Else
+        Print "FAIL:string_methods l=" & str(l) & " u=" & u & " lo=" & lo
+    End If
+End Sub

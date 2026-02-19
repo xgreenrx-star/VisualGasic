@@ -1,0 +1,12 @@
+Attribute VB_Name = "TestArithNegate"
+Sub RunTest()
+    Dim a As Integer = 42
+    Dim b As Single = 3.14
+    Dim c As Integer = -a
+    Dim d As Single = -b
+    If c = -42 And d < -3.13 And d > -3.15 Then
+        Print "PASS:arith_negate"
+    Else
+        Print "FAIL:arith_negate c=" & str(c) & " d=" & str(d)
+    End If
+End Sub

@@ -1,0 +1,8 @@
+Attribute VB_Name = "TestIsZeroApprox"
+Sub RunTest()
+    If is_zero_approx(0.0) And Not is_zero_approx(1.0) Then
+        Print "PASS:builtin_is_zero_approx"
+    Else
+        Print "FAIL:builtin_is_zero_approx"
+    End If
+End Sub

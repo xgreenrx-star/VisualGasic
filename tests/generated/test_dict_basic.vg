@@ -1,0 +1,11 @@
+Attribute VB_Name = "TestDictBasic"
+Sub RunTest()
+    Dim d As New Dictionary
+    d["name"] = "test"
+    d["value"] = 42
+    If d["name"] = "test" And d["value"] = 42 Then
+        Print "PASS:dict_basic"
+    Else
+        Print "FAIL:dict_basic"
+    End If
+End Sub

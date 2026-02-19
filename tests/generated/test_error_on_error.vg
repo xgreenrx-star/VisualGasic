@@ -1,0 +1,10 @@
+Attribute VB_Name = "TestOnError"
+Sub RunTest()
+    On Error Resume Next
+    Dim x As Integer = 1 / 0
+    If Err.Number <> 0 Then
+        Print "PASS:error_on_error"
+    Else
+        Print "FAIL:error_on_error no error caught"
+    End If
+End Sub

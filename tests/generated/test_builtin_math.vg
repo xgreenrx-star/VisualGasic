@@ -1,0 +1,17 @@
+Attribute VB_Name = "TestBuiltinMath"
+Sub RunTest()
+    Dim pass_count As Integer = 0
+    Dim r1 As Single = lerpf(0.0, 10.0, 0.5)
+    If r1 > 4.9 And r1 < 5.1 Then pass_count = pass_count + 1
+    Dim r2 As Single = clampf(15.0, 0.0, 10.0)
+    If r2 = 10.0 Then pass_count = pass_count + 1
+    Dim r3 As Single = Abs(-42)
+    If r3 = 42 Then pass_count = pass_count + 1
+    Dim r4 As Integer = Sgn(-5)
+    If r4 = -1 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:builtin_math"
+    Else
+        Print "FAIL:builtin_math count=" & str(pass_count)
+    End If
+End Sub

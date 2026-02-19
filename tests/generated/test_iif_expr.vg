@@ -1,0 +1,10 @@
+Attribute VB_Name = "TestIIf"
+Sub RunTest()
+    Dim x As Integer = 10
+    Dim result As String = IIf(x > 5, "big", "small")
+    If result = "big" Then
+        Print "PASS:iif_expr"
+    Else
+        Print "FAIL:iif_expr result=" & result
+    End If
+End Sub

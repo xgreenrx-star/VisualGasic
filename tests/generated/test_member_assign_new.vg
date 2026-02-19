@@ -1,0 +1,11 @@
+Attribute VB_Name = "TestMemberAssignNew"
+Sub RunTest()
+    Dim mat As StandardMaterial3D = StandardMaterial3D.new()
+    mat.roughness = 0.5
+    mat.metallic = 0.8
+    If mat.roughness = 0.5 And mat.metallic > 0.79 Then
+        Print "PASS:member_assign_new"
+    Else
+        Print "FAIL:member_assign_new"
+    End If
+End Sub

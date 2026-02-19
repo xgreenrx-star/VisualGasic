@@ -1,0 +1,22 @@
+Attribute VB_Name = "TestSelectCase"
+Sub RunTest()
+    Dim results As String = ""
+    Dim i As Integer
+    For i = 0 To 3
+        Select Case i
+            Case 0
+                results = results & "zero "
+            Case 1
+                results = results & "one "
+            Case 2
+                results = results & "two "
+            Case Else
+                results = results & "other "
+        End Select
+    Next
+    If results = "zero one two other " Then
+        Print "PASS:ctrl_select_case"
+    Else
+        Print "FAIL:ctrl_select_case results=" & results
+    End If
+End Sub

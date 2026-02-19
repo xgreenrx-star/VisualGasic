@@ -1,0 +1,17 @@
+Attribute VB_Name = "TestIfElseIf"
+Sub RunTest()
+    Dim x As Integer = 5
+    Dim result As String = ""
+    If x = 1 Then
+        result = "one"
+    ElseIf x = 5 Then
+        result = "five"
+    Else
+        result = "other"
+    End If
+    If result = "five" Then
+        Print "PASS:ctrl_if_elseif"
+    Else
+        Print "FAIL:ctrl_if_elseif result=" & result
+    End If
+End Sub

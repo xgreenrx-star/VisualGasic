@@ -1,0 +1,9 @@
+Attribute VB_Name = "TestEnumKeys"
+Sub RunTest()
+    Dim k As Integer = KEY_ESCAPE
+    If k = 4194305 Then
+        Print "PASS:enum_key_constants"
+    Else
+        Print "FAIL:enum_key_constants k=" & str(k)
+    End If
+End Sub

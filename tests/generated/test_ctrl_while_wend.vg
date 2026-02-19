@@ -1,0 +1,14 @@
+Attribute VB_Name = "TestWhileWend"
+Sub RunTest()
+    Dim x As Integer = 0
+    Dim total As Integer = 0
+    While x < 5
+        total = total + x
+        x = x + 1
+    Wend
+    If total = 10 Then
+        Print "PASS:ctrl_while_wend"
+    Else
+        Print "FAIL:ctrl_while_wend total=" & str(total)
+    End If
+End Sub

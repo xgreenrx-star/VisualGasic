@@ -1,0 +1,10 @@
+Attribute VB_Name = "TestMaterialNew"
+Sub RunTest()
+    Dim mat As StandardMaterial3D = StandardMaterial3D.new()
+    If mat <> Null Then
+        mat.albedo_color = Color(1, 0, 0)
+        Print "PASS:obj_material_new"
+    Else
+        Print "FAIL:obj_material_new null"
+    End If
+End Sub

@@ -1,0 +1,13 @@
+Attribute VB_Name = "TestWithBlock"
+Sub RunTest()
+    Dim d As New Dictionary
+    With d
+        .set("name", "test")
+        .set("value", 42)
+    End With
+    If d["name"] = "test" And d["value"] = 42 Then
+        Print "PASS:with_block"
+    Else
+        Print "FAIL:with_block"
+    End If
+End Sub

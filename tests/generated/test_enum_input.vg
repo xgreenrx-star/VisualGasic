@@ -1,0 +1,9 @@
+Attribute VB_Name = "TestEnumInput"
+Sub RunTest()
+    Dim mode As Integer = Input.MOUSE_MODE_CAPTURED
+    If mode = 2 Then
+        Print "PASS:enum_input"
+    Else
+        Print "FAIL:enum_input mode=" & str(mode)
+    End If
+End Sub

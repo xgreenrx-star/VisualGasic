@@ -1,0 +1,17 @@
+Attribute VB_Name = "TestRecursive"
+Function Factorial(n As Integer) As Integer
+    If n <= 1 Then
+        Factorial = 1
+    Else
+        Factorial = n * Factorial(n - 1)
+    End If
+End Function
+
+Sub RunTest()
+    Dim result As Integer = Factorial(6)
+    If result = 720 Then
+        Print "PASS:func_recursive"
+    Else
+        Print "FAIL:func_recursive result=" & str(result)
+    End If
+End Sub

@@ -1,0 +1,9 @@
+Attribute VB_Name = "TestPadDecimals"
+Sub RunTest()
+    Dim s As String = str(3.14159).pad_decimals(2)
+    If s = "3.14" Then
+        Print "PASS:string_pad_decimals"
+    Else
+        Print "FAIL:string_pad_decimals s=" & s
+    End If
+End Sub

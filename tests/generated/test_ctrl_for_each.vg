@@ -1,0 +1,17 @@
+Attribute VB_Name = "TestForEach"
+Sub RunTest()
+    Dim arr As Array
+    arr.append(10)
+    arr.append(20)
+    arr.append(30)
+    Dim total As Integer = 0
+    Dim item As Variant
+    For Each item In arr
+        total = total + item
+    Next
+    If total = 60 Then
+        Print "PASS:ctrl_for_each"
+    Else
+        Print "FAIL:ctrl_for_each total=" & str(total)
+    End If
+End Sub

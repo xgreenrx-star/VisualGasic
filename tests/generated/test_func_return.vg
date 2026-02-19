@@ -1,0 +1,13 @@
+Attribute VB_Name = "TestFuncReturn"
+Function AddTwo(a As Integer, b As Integer) As Integer
+    AddTwo = a + b
+End Function
+
+Sub RunTest()
+    Dim result As Integer = AddTwo(17, 25)
+    If result = 42 Then
+        Print "PASS:func_return"
+    Else
+        Print "FAIL:func_return result=" & str(result)
+    End If
+End Sub
