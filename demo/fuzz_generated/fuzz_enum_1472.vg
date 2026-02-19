@@ -1,0 +1,152 @@
+Attribute VB_Name = "fuzz_enum_1472"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_DRAW_ORDER_INDEX As Integer = GPUParticles3D.DRAW_ORDER_INDEX
+    If v_DRAW_ORDER_INDEX = 0 Then pass_count = pass_count + 1
+    Dim v_DRAW_ORDER_LIFETIME As Integer = GPUParticles3D.DRAW_ORDER_LIFETIME
+    If v_DRAW_ORDER_LIFETIME = 1 Then pass_count = pass_count + 1
+    Dim v_DRAW_ORDER_REVERSE_LIFETIME As Integer = GPUParticles3D.DRAW_ORDER_REVERSE_LIFETIME
+    If v_DRAW_ORDER_REVERSE_LIFETIME = 2 Then pass_count = pass_count + 1
+    Dim v_DRAW_ORDER_VIEW_DEPTH As Integer = GPUParticles3D.DRAW_ORDER_VIEW_DEPTH
+    If v_DRAW_ORDER_VIEW_DEPTH = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_GPUParticles3D_DrawOrder"
+    Else
+        Print "FAIL:enum_GPUParticles3D_DrawOrder count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_GPUParticles3D_DrawOrder err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_EMIT_FLAG_POSITION As Integer = GPUParticles3D.EMIT_FLAG_POSITION
+    If v_EMIT_FLAG_POSITION = 1 Then pass_count = pass_count + 1
+    Dim v_EMIT_FLAG_ROTATION_SCALE As Integer = GPUParticles3D.EMIT_FLAG_ROTATION_SCALE
+    If v_EMIT_FLAG_ROTATION_SCALE = 2 Then pass_count = pass_count + 1
+    Dim v_EMIT_FLAG_VELOCITY As Integer = GPUParticles3D.EMIT_FLAG_VELOCITY
+    If v_EMIT_FLAG_VELOCITY = 4 Then pass_count = pass_count + 1
+    Dim v_EMIT_FLAG_COLOR As Integer = GPUParticles3D.EMIT_FLAG_COLOR
+    If v_EMIT_FLAG_COLOR = 8 Then pass_count = pass_count + 1
+    Dim v_EMIT_FLAG_CUSTOM As Integer = GPUParticles3D.EMIT_FLAG_CUSTOM
+    If v_EMIT_FLAG_CUSTOM = 16 Then pass_count = pass_count + 1
+    If pass_count = 5 Then
+        Print "PASS:enum_GPUParticles3D_EmitFlags"
+    Else
+        Print "FAIL:enum_GPUParticles3D_EmitFlags count=" & str(pass_count) & "/5"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_GPUParticles3D_EmitFlags err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_TRANSFORM_ALIGN_DISABLED As Integer = GPUParticles3D.TRANSFORM_ALIGN_DISABLED
+    If v_TRANSFORM_ALIGN_DISABLED = 0 Then pass_count = pass_count + 1
+    Dim v_TRANSFORM_ALIGN_Z_BILLBOARD As Integer = GPUParticles3D.TRANSFORM_ALIGN_Z_BILLBOARD
+    If v_TRANSFORM_ALIGN_Z_BILLBOARD = 1 Then pass_count = pass_count + 1
+    Dim v_TRANSFORM_ALIGN_Y_TO_VELOCITY As Integer = GPUParticles3D.TRANSFORM_ALIGN_Y_TO_VELOCITY
+    If v_TRANSFORM_ALIGN_Y_TO_VELOCITY = 2 Then pass_count = pass_count + 1
+    Dim v_TRANSFORM_ALIGN_Z_BILLBOARD_Y_TO_VELOCITY As Integer = GPUParticles3D.TRANSFORM_ALIGN_Z_BILLBOARD_Y_TO_VELOCITY
+    If v_TRANSFORM_ALIGN_Z_BILLBOARD_Y_TO_VELOCITY = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_GPUParticles3D_TransformAlign"
+    Else
+        Print "FAIL:enum_GPUParticles3D_TransformAlign count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_GPUParticles3D_TransformAlign err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_RESOLUTION_256 As Integer = GPUParticlesCollisionHeightField3D.RESOLUTION_256
+    If v_RESOLUTION_256 = 0 Then pass_count = pass_count + 1
+    Dim v_RESOLUTION_512 As Integer = GPUParticlesCollisionHeightField3D.RESOLUTION_512
+    If v_RESOLUTION_512 = 1 Then pass_count = pass_count + 1
+    Dim v_RESOLUTION_1024 As Integer = GPUParticlesCollisionHeightField3D.RESOLUTION_1024
+    If v_RESOLUTION_1024 = 2 Then pass_count = pass_count + 1
+    Dim v_RESOLUTION_2048 As Integer = GPUParticlesCollisionHeightField3D.RESOLUTION_2048
+    If v_RESOLUTION_2048 = 3 Then pass_count = pass_count + 1
+    Dim v_RESOLUTION_4096 As Integer = GPUParticlesCollisionHeightField3D.RESOLUTION_4096
+    If v_RESOLUTION_4096 = 4 Then pass_count = pass_count + 1
+    Dim v_RESOLUTION_8192 As Integer = GPUParticlesCollisionHeightField3D.RESOLUTION_8192
+    If v_RESOLUTION_8192 = 5 Then pass_count = pass_count + 1
+    Dim v_RESOLUTION_MAX As Integer = GPUParticlesCollisionHeightField3D.RESOLUTION_MAX
+    If v_RESOLUTION_MAX = 6 Then pass_count = pass_count + 1
+    If pass_count = 7 Then
+        Print "PASS:enum_GPUParticlesCollisionHeightField3D_Resolution"
+    Else
+        Print "FAIL:enum_GPUParticlesCollisionHeightField3D_Resolution count=" & str(pass_count) & "/7"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_GPUParticlesCollisionHeightField3D_Resolution err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_UPDATE_MODE_WHEN_MOVED As Integer = GPUParticlesCollisionHeightField3D.UPDATE_MODE_WHEN_MOVED
+    If v_UPDATE_MODE_WHEN_MOVED = 0 Then pass_count = pass_count + 1
+    Dim v_UPDATE_MODE_ALWAYS As Integer = GPUParticlesCollisionHeightField3D.UPDATE_MODE_ALWAYS
+    If v_UPDATE_MODE_ALWAYS = 1 Then pass_count = pass_count + 1
+    If pass_count = 2 Then
+        Print "PASS:enum_GPUParticlesCollisionHeightField3D_UpdateMode"
+    Else
+        Print "FAIL:enum_GPUParticlesCollisionHeightField3D_UpdateMode count=" & str(pass_count) & "/2"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_GPUParticlesCollisionHeightField3D_UpdateMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_RESOLUTION_16 As Integer = GPUParticlesCollisionSDF3D.RESOLUTION_16
+    If v_RESOLUTION_16 = 0 Then pass_count = pass_count + 1
+    Dim v_RESOLUTION_32 As Integer = GPUParticlesCollisionSDF3D.RESOLUTION_32
+    If v_RESOLUTION_32 = 1 Then pass_count = pass_count + 1
+    Dim v_RESOLUTION_64 As Integer = GPUParticlesCollisionSDF3D.RESOLUTION_64
+    If v_RESOLUTION_64 = 2 Then pass_count = pass_count + 1
+    Dim v_RESOLUTION_128 As Integer = GPUParticlesCollisionSDF3D.RESOLUTION_128
+    If v_RESOLUTION_128 = 3 Then pass_count = pass_count + 1
+    Dim v_RESOLUTION_256 As Integer = GPUParticlesCollisionSDF3D.RESOLUTION_256
+    If v_RESOLUTION_256 = 4 Then pass_count = pass_count + 1
+    Dim v_RESOLUTION_512 As Integer = GPUParticlesCollisionSDF3D.RESOLUTION_512
+    If v_RESOLUTION_512 = 5 Then pass_count = pass_count + 1
+    Dim v_RESOLUTION_MAX As Integer = GPUParticlesCollisionSDF3D.RESOLUTION_MAX
+    If v_RESOLUTION_MAX = 6 Then pass_count = pass_count + 1
+    If pass_count = 7 Then
+        Print "PASS:enum_GPUParticlesCollisionSDF3D_Resolution"
+    Else
+        Print "FAIL:enum_GPUParticlesCollisionSDF3D_Resolution count=" & str(pass_count) & "/7"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_GPUParticlesCollisionSDF3D_Resolution err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

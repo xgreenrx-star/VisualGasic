@@ -1,0 +1,154 @@
+Attribute VB_Name = "fuzz_inst_620"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeComment = VisualShaderNodeComment.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeComment"
+    Else
+        Print "FAIL:inst_VisualShaderNodeComment returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeComment err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeCompare = VisualShaderNodeCompare.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeCompare"
+    Else
+        Print "FAIL:inst_VisualShaderNodeCompare returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeCompare err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeCubemap = VisualShaderNodeCubemap.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeCubemap"
+    Else
+        Print "FAIL:inst_VisualShaderNodeCubemap returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeCubemap err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeCubemapParameter = VisualShaderNodeCubemapParameter.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeCubemapParameter"
+    Else
+        Print "FAIL:inst_VisualShaderNodeCubemapParameter returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeCubemapParameter err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeCurveTexture = VisualShaderNodeCurveTexture.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeCurveTexture"
+    Else
+        Print "FAIL:inst_VisualShaderNodeCurveTexture returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeCurveTexture err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeCurveXYZTexture = VisualShaderNodeCurveXYZTexture.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeCurveXYZTexture"
+    Else
+        Print "FAIL:inst_VisualShaderNodeCurveXYZTexture returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeCurveXYZTexture err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeCustom = VisualShaderNodeCustom.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeCustom"
+    Else
+        Print "FAIL:inst_VisualShaderNodeCustom returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeCustom err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeDerivativeFunc = VisualShaderNodeDerivativeFunc.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeDerivativeFunc"
+    Else
+        Print "FAIL:inst_VisualShaderNodeDerivativeFunc returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeDerivativeFunc err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeDeterminant = VisualShaderNodeDeterminant.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeDeterminant"
+    Else
+        Print "FAIL:inst_VisualShaderNodeDeterminant returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeDeterminant err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeDistanceFade = VisualShaderNodeDistanceFade.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeDistanceFade"
+    Else
+        Print "FAIL:inst_VisualShaderNodeDistanceFade returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeDistanceFade err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

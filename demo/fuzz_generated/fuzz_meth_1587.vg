@@ -1,0 +1,172 @@
+Attribute VB_Name = "fuzz_meth_1587"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As TextureRect = TextureRect.new()
+    If obj = Null Then
+        Print "SKIP:meth_TextureRect (null)"
+        Exit Sub
+    End If
+    Dim r_get_texture As Variant = obj.get_texture()
+    Print "PASS:meth_TextureRect_get_texture"
+    Dim r_get_expand_mode As Variant = obj.get_expand_mode()
+    Print "PASS:meth_TextureRect_get_expand_mode"
+    Dim r_is_flipped_h As Variant = obj.is_flipped_h()
+    Print "PASS:meth_TextureRect_is_flipped_h"
+    Dim r_is_flipped_v As Variant = obj.is_flipped_v()
+    Print "PASS:meth_TextureRect_is_flipped_v"
+    Dim r_get_stretch_mode As Variant = obj.get_stretch_mode()
+    Print "PASS:meth_TextureRect_get_stretch_mode"
+    Dim r_get_combined_minimum_size As Variant = obj.get_combined_minimum_size()
+    Print "PASS:meth_TextureRect_get_combined_minimum_size"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_TextureRect err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As VFlowContainer = VFlowContainer.new()
+    If obj = Null Then
+        Print "SKIP:meth_VFlowContainer (null)"
+        Exit Sub
+    End If
+    Dim r_get_line_count As Variant = obj.get_line_count()
+    Print "PASS:meth_VFlowContainer_get_line_count"
+    Dim r_get_alignment As Variant = obj.get_alignment()
+    Print "PASS:meth_VFlowContainer_get_alignment"
+    Dim r_get_last_wrap_alignment As Variant = obj.get_last_wrap_alignment()
+    Print "PASS:meth_VFlowContainer_get_last_wrap_alignment"
+    Dim r_is_vertical As Variant = obj.is_vertical()
+    Print "PASS:meth_VFlowContainer_is_vertical"
+    Dim r_is_reverse_fill As Variant = obj.is_reverse_fill()
+    Print "PASS:meth_VFlowContainer_is_reverse_fill"
+    Dim r_get_combined_minimum_size As Variant = obj.get_combined_minimum_size()
+    Print "PASS:meth_VFlowContainer_get_combined_minimum_size"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_VFlowContainer err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As AspectRatioContainer = AspectRatioContainer.new()
+    If obj = Null Then
+        Print "SKIP:meth_AspectRatioContainer (null)"
+        Exit Sub
+    End If
+    Dim r_get_ratio As Variant = obj.get_ratio()
+    Print "PASS:meth_AspectRatioContainer_get_ratio"
+    Dim r_get_stretch_mode As Variant = obj.get_stretch_mode()
+    Print "PASS:meth_AspectRatioContainer_get_stretch_mode"
+    Dim r_get_alignment_horizontal As Variant = obj.get_alignment_horizontal()
+    Print "PASS:meth_AspectRatioContainer_get_alignment_horizontal"
+    Dim r_get_alignment_vertical As Variant = obj.get_alignment_vertical()
+    Print "PASS:meth_AspectRatioContainer_get_alignment_vertical"
+    Dim r_get_combined_minimum_size As Variant = obj.get_combined_minimum_size()
+    Print "PASS:meth_AspectRatioContainer_get_combined_minimum_size"
+    Dim r_get_begin As Variant = obj.get_begin()
+    Print "PASS:meth_AspectRatioContainer_get_begin"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_AspectRatioContainer err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As ReferenceRect = ReferenceRect.new()
+    If obj = Null Then
+        Print "SKIP:meth_ReferenceRect (null)"
+        Exit Sub
+    End If
+    Dim r_get_border_color As Variant = obj.get_border_color()
+    Print "PASS:meth_ReferenceRect_get_border_color"
+    Dim r_get_border_width As Variant = obj.get_border_width()
+    Print "PASS:meth_ReferenceRect_get_border_width"
+    Dim r_get_editor_only As Variant = obj.get_editor_only()
+    Print "PASS:meth_ReferenceRect_get_editor_only"
+    Dim r_get_combined_minimum_size As Variant = obj.get_combined_minimum_size()
+    Print "PASS:meth_ReferenceRect_get_combined_minimum_size"
+    Dim r_get_begin As Variant = obj.get_begin()
+    Print "PASS:meth_ReferenceRect_get_begin"
+    Dim r_get_end As Variant = obj.get_end()
+    Print "PASS:meth_ReferenceRect_get_end"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_ReferenceRect err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As SubViewportContainer = SubViewportContainer.new()
+    If obj = Null Then
+        Print "SKIP:meth_SubViewportContainer (null)"
+        Exit Sub
+    End If
+    Dim r_is_stretch_enabled As Variant = obj.is_stretch_enabled()
+    Print "PASS:meth_SubViewportContainer_is_stretch_enabled"
+    Dim r_get_stretch_shrink As Variant = obj.get_stretch_shrink()
+    Print "PASS:meth_SubViewportContainer_get_stretch_shrink"
+    Dim r_is_mouse_target_enabled As Variant = obj.is_mouse_target_enabled()
+    Print "PASS:meth_SubViewportContainer_is_mouse_target_enabled"
+    Dim r_get_combined_minimum_size As Variant = obj.get_combined_minimum_size()
+    Print "PASS:meth_SubViewportContainer_get_combined_minimum_size"
+    Dim r_get_begin As Variant = obj.get_begin()
+    Print "PASS:meth_SubViewportContainer_get_begin"
+    Dim r_get_end As Variant = obj.get_end()
+    Print "PASS:meth_SubViewportContainer_get_end"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_SubViewportContainer err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As BoxContainer = BoxContainer.new()
+    If obj = Null Then
+        Print "SKIP:meth_BoxContainer (null)"
+        Exit Sub
+    End If
+    Dim r_get_alignment As Variant = obj.get_alignment()
+    Print "PASS:meth_BoxContainer_get_alignment"
+    Dim r_is_vertical As Variant = obj.is_vertical()
+    Print "PASS:meth_BoxContainer_is_vertical"
+    Dim r_get_combined_minimum_size As Variant = obj.get_combined_minimum_size()
+    Print "PASS:meth_BoxContainer_get_combined_minimum_size"
+    Dim r_get_begin As Variant = obj.get_begin()
+    Print "PASS:meth_BoxContainer_get_begin"
+    Dim r_get_end As Variant = obj.get_end()
+    Print "PASS:meth_BoxContainer_get_end"
+    Dim r_get_position As Variant = obj.get_position()
+    Print "PASS:meth_BoxContainer_get_position"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_BoxContainer err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

@@ -1,0 +1,163 @@
+Attribute VB_Name = "fuzz_prop_760"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As CPUParticles3D = CPUParticles3D.new()
+    If obj = Null Then
+        Print "SKIP:prop_CPUParticles3D_amount (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.amount
+    Print "PASS:prop_CPUParticles3D_amount"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_CPUParticles3D_amount err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As CPUParticles3D = CPUParticles3D.new()
+    If obj = Null Then
+        Print "SKIP:prop_CPUParticles3D_lifetime (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.lifetime
+    Print "PASS:prop_CPUParticles3D_lifetime"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_CPUParticles3D_lifetime err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As CPUParticles3D = CPUParticles3D.new()
+    If obj = Null Then
+        Print "SKIP:prop_CPUParticles3D_one_shot (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.one_shot
+    Print "PASS:prop_CPUParticles3D_one_shot"
+    obj.one_shot = True
+    Dim val2 As Variant = obj.one_shot
+    Print "PASS:propset_CPUParticles3D_one_shot"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_CPUParticles3D_one_shot err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As CPUParticles3D = CPUParticles3D.new()
+    If obj = Null Then
+        Print "SKIP:prop_CPUParticles3D_preprocess (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.preprocess
+    Print "PASS:prop_CPUParticles3D_preprocess"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_CPUParticles3D_preprocess err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As TextEdit = TextEdit.new()
+    If obj = Null Then
+        Print "SKIP:prop_TextEdit_text (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.text
+    Print "PASS:prop_TextEdit_text"
+    obj.text = "test_string"
+    Dim val2 As Variant = obj.text
+    Print "PASS:propset_TextEdit_text"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_TextEdit_text err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As TextEdit = TextEdit.new()
+    If obj = Null Then
+        Print "SKIP:prop_TextEdit_placeholder_text (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.placeholder_text
+    Print "PASS:prop_TextEdit_placeholder_text"
+    obj.placeholder_text = "test_string"
+    Dim val2 As Variant = obj.placeholder_text
+    Print "PASS:propset_TextEdit_placeholder_text"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_TextEdit_placeholder_text err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As TextEdit = TextEdit.new()
+    If obj = Null Then
+        Print "SKIP:prop_TextEdit_editable (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.editable
+    Print "PASS:prop_TextEdit_editable"
+    obj.editable = True
+    Dim val2 As Variant = obj.editable
+    Print "PASS:propset_TextEdit_editable"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_TextEdit_editable err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As TextEdit = TextEdit.new()
+    If obj = Null Then
+        Print "SKIP:prop_TextEdit_context_menu_enabled (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.context_menu_enabled
+    Print "PASS:prop_TextEdit_context_menu_enabled"
+    obj.context_menu_enabled = True
+    Dim val2 As Variant = obj.context_menu_enabled
+    Print "PASS:propset_TextEdit_context_menu_enabled"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_TextEdit_context_menu_enabled err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+End Sub

@@ -1,0 +1,160 @@
+Attribute VB_Name = "fuzz_inst_250"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As HFlowContainer = HFlowContainer.new()
+    If obj <> Null Then
+        Print "PASS:inst_HFlowContainer"
+        obj.free()
+    Else
+        Print "FAIL:inst_HFlowContainer returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_HFlowContainer err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As HMACContext = HMACContext.new()
+    If obj <> Null Then
+        Print "PASS:inst_HMACContext"
+    Else
+        Print "FAIL:inst_HMACContext returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_HMACContext err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As HScrollBar = HScrollBar.new()
+    If obj <> Null Then
+        Print "PASS:inst_HScrollBar"
+        obj.free()
+    Else
+        Print "FAIL:inst_HScrollBar returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_HScrollBar err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As HSeparator = HSeparator.new()
+    If obj <> Null Then
+        Print "PASS:inst_HSeparator"
+        obj.free()
+    Else
+        Print "FAIL:inst_HSeparator returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_HSeparator err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As HSlider = HSlider.new()
+    If obj <> Null Then
+        Print "PASS:inst_HSlider"
+        obj.free()
+    Else
+        Print "FAIL:inst_HSlider returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_HSlider err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As HSplitContainer = HSplitContainer.new()
+    If obj <> Null Then
+        Print "PASS:inst_HSplitContainer"
+        obj.free()
+    Else
+        Print "FAIL:inst_HSplitContainer returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_HSplitContainer err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As HTTPClient = HTTPClient.new()
+    If obj <> Null Then
+        Print "PASS:inst_HTTPClient"
+    Else
+        Print "FAIL:inst_HTTPClient returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_HTTPClient err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As HTTPRequest = HTTPRequest.new()
+    If obj <> Null Then
+        Print "PASS:inst_HTTPRequest"
+        obj.free()
+    Else
+        Print "FAIL:inst_HTTPRequest returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_HTTPRequest err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As HashingContext = HashingContext.new()
+    If obj <> Null Then
+        Print "PASS:inst_HashingContext"
+    Else
+        Print "FAIL:inst_HashingContext returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_HashingContext err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As HeightMapShape3D = HeightMapShape3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_HeightMapShape3D"
+    Else
+        Print "FAIL:inst_HeightMapShape3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_HeightMapShape3D err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

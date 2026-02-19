@@ -1,0 +1,162 @@
+Attribute VB_Name = "fuzz_enum_1481"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_ORIGIN_FROM_SELF As Integer = LookAtModifier3D.ORIGIN_FROM_SELF
+    If v_ORIGIN_FROM_SELF = 0 Then pass_count = pass_count + 1
+    Dim v_ORIGIN_FROM_SPECIFIC_BONE As Integer = LookAtModifier3D.ORIGIN_FROM_SPECIFIC_BONE
+    If v_ORIGIN_FROM_SPECIFIC_BONE = 1 Then pass_count = pass_count + 1
+    Dim v_ORIGIN_FROM_EXTERNAL_NODE As Integer = LookAtModifier3D.ORIGIN_FROM_EXTERNAL_NODE
+    If v_ORIGIN_FROM_EXTERNAL_NODE = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_LookAtModifier3D_OriginFrom"
+    Else
+        Print "FAIL:enum_LookAtModifier3D_OriginFrom count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_LookAtModifier3D_OriginFrom err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_PRIMITIVE_POINTS As Integer = Mesh.PRIMITIVE_POINTS
+    If v_PRIMITIVE_POINTS = 0 Then pass_count = pass_count + 1
+    Dim v_PRIMITIVE_LINES As Integer = Mesh.PRIMITIVE_LINES
+    If v_PRIMITIVE_LINES = 1 Then pass_count = pass_count + 1
+    Dim v_PRIMITIVE_LINE_STRIP As Integer = Mesh.PRIMITIVE_LINE_STRIP
+    If v_PRIMITIVE_LINE_STRIP = 2 Then pass_count = pass_count + 1
+    Dim v_PRIMITIVE_TRIANGLES As Integer = Mesh.PRIMITIVE_TRIANGLES
+    If v_PRIMITIVE_TRIANGLES = 3 Then pass_count = pass_count + 1
+    Dim v_PRIMITIVE_TRIANGLE_STRIP As Integer = Mesh.PRIMITIVE_TRIANGLE_STRIP
+    If v_PRIMITIVE_TRIANGLE_STRIP = 4 Then pass_count = pass_count + 1
+    If pass_count = 5 Then
+        Print "PASS:enum_Mesh_PrimitiveType"
+    Else
+        Print "FAIL:enum_Mesh_PrimitiveType count=" & str(pass_count) & "/5"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Mesh_PrimitiveType err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_ARRAY_VERTEX As Integer = Mesh.ARRAY_VERTEX
+    If v_ARRAY_VERTEX = 0 Then pass_count = pass_count + 1
+    Dim v_ARRAY_NORMAL As Integer = Mesh.ARRAY_NORMAL
+    If v_ARRAY_NORMAL = 1 Then pass_count = pass_count + 1
+    Dim v_ARRAY_TANGENT As Integer = Mesh.ARRAY_TANGENT
+    If v_ARRAY_TANGENT = 2 Then pass_count = pass_count + 1
+    Dim v_ARRAY_COLOR As Integer = Mesh.ARRAY_COLOR
+    If v_ARRAY_COLOR = 3 Then pass_count = pass_count + 1
+    Dim v_ARRAY_TEX_UV As Integer = Mesh.ARRAY_TEX_UV
+    If v_ARRAY_TEX_UV = 4 Then pass_count = pass_count + 1
+    Dim v_ARRAY_TEX_UV2 As Integer = Mesh.ARRAY_TEX_UV2
+    If v_ARRAY_TEX_UV2 = 5 Then pass_count = pass_count + 1
+    Dim v_ARRAY_CUSTOM0 As Integer = Mesh.ARRAY_CUSTOM0
+    If v_ARRAY_CUSTOM0 = 6 Then pass_count = pass_count + 1
+    Dim v_ARRAY_CUSTOM1 As Integer = Mesh.ARRAY_CUSTOM1
+    If v_ARRAY_CUSTOM1 = 7 Then pass_count = pass_count + 1
+    If pass_count = 8 Then
+        Print "PASS:enum_Mesh_ArrayType"
+    Else
+        Print "FAIL:enum_Mesh_ArrayType count=" & str(pass_count) & "/8"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Mesh_ArrayType err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_ARRAY_CUSTOM_RGBA8_UNORM As Integer = Mesh.ARRAY_CUSTOM_RGBA8_UNORM
+    If v_ARRAY_CUSTOM_RGBA8_UNORM = 0 Then pass_count = pass_count + 1
+    Dim v_ARRAY_CUSTOM_RGBA8_SNORM As Integer = Mesh.ARRAY_CUSTOM_RGBA8_SNORM
+    If v_ARRAY_CUSTOM_RGBA8_SNORM = 1 Then pass_count = pass_count + 1
+    Dim v_ARRAY_CUSTOM_RG_HALF As Integer = Mesh.ARRAY_CUSTOM_RG_HALF
+    If v_ARRAY_CUSTOM_RG_HALF = 2 Then pass_count = pass_count + 1
+    Dim v_ARRAY_CUSTOM_RGBA_HALF As Integer = Mesh.ARRAY_CUSTOM_RGBA_HALF
+    If v_ARRAY_CUSTOM_RGBA_HALF = 3 Then pass_count = pass_count + 1
+    Dim v_ARRAY_CUSTOM_R_FLOAT As Integer = Mesh.ARRAY_CUSTOM_R_FLOAT
+    If v_ARRAY_CUSTOM_R_FLOAT = 4 Then pass_count = pass_count + 1
+    Dim v_ARRAY_CUSTOM_RG_FLOAT As Integer = Mesh.ARRAY_CUSTOM_RG_FLOAT
+    If v_ARRAY_CUSTOM_RG_FLOAT = 5 Then pass_count = pass_count + 1
+    Dim v_ARRAY_CUSTOM_RGB_FLOAT As Integer = Mesh.ARRAY_CUSTOM_RGB_FLOAT
+    If v_ARRAY_CUSTOM_RGB_FLOAT = 6 Then pass_count = pass_count + 1
+    Dim v_ARRAY_CUSTOM_RGBA_FLOAT As Integer = Mesh.ARRAY_CUSTOM_RGBA_FLOAT
+    If v_ARRAY_CUSTOM_RGBA_FLOAT = 7 Then pass_count = pass_count + 1
+    If pass_count = 8 Then
+        Print "PASS:enum_Mesh_ArrayCustomFormat"
+    Else
+        Print "FAIL:enum_Mesh_ArrayCustomFormat count=" & str(pass_count) & "/8"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Mesh_ArrayCustomFormat err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_ARRAY_FORMAT_VERTEX As Integer = Mesh.ARRAY_FORMAT_VERTEX
+    If v_ARRAY_FORMAT_VERTEX = 1 Then pass_count = pass_count + 1
+    Dim v_ARRAY_FORMAT_NORMAL As Integer = Mesh.ARRAY_FORMAT_NORMAL
+    If v_ARRAY_FORMAT_NORMAL = 2 Then pass_count = pass_count + 1
+    Dim v_ARRAY_FORMAT_TANGENT As Integer = Mesh.ARRAY_FORMAT_TANGENT
+    If v_ARRAY_FORMAT_TANGENT = 4 Then pass_count = pass_count + 1
+    Dim v_ARRAY_FORMAT_COLOR As Integer = Mesh.ARRAY_FORMAT_COLOR
+    If v_ARRAY_FORMAT_COLOR = 8 Then pass_count = pass_count + 1
+    Dim v_ARRAY_FORMAT_TEX_UV As Integer = Mesh.ARRAY_FORMAT_TEX_UV
+    If v_ARRAY_FORMAT_TEX_UV = 16 Then pass_count = pass_count + 1
+    Dim v_ARRAY_FORMAT_TEX_UV2 As Integer = Mesh.ARRAY_FORMAT_TEX_UV2
+    If v_ARRAY_FORMAT_TEX_UV2 = 32 Then pass_count = pass_count + 1
+    Dim v_ARRAY_FORMAT_CUSTOM0 As Integer = Mesh.ARRAY_FORMAT_CUSTOM0
+    If v_ARRAY_FORMAT_CUSTOM0 = 64 Then pass_count = pass_count + 1
+    Dim v_ARRAY_FORMAT_CUSTOM1 As Integer = Mesh.ARRAY_FORMAT_CUSTOM1
+    If v_ARRAY_FORMAT_CUSTOM1 = 128 Then pass_count = pass_count + 1
+    If pass_count = 8 Then
+        Print "PASS:enum_Mesh_ArrayFormat"
+    Else
+        Print "FAIL:enum_Mesh_ArrayFormat count=" & str(pass_count) & "/8"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Mesh_ArrayFormat err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_BLEND_SHAPE_MODE_NORMALIZED As Integer = Mesh.BLEND_SHAPE_MODE_NORMALIZED
+    If v_BLEND_SHAPE_MODE_NORMALIZED = 0 Then pass_count = pass_count + 1
+    Dim v_BLEND_SHAPE_MODE_RELATIVE As Integer = Mesh.BLEND_SHAPE_MODE_RELATIVE
+    If v_BLEND_SHAPE_MODE_RELATIVE = 1 Then pass_count = pass_count + 1
+    If pass_count = 2 Then
+        Print "PASS:enum_Mesh_BlendShapeMode"
+    Else
+        Print "FAIL:enum_Mesh_BlendShapeMode count=" & str(pass_count) & "/2"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Mesh_BlendShapeMode err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

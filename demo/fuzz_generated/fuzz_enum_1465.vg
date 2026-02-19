@@ -1,0 +1,136 @@
+Attribute VB_Name = "fuzz_enum_1465"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_TANGENT_FREE As Integer = Curve.TANGENT_FREE
+    If v_TANGENT_FREE = 0 Then pass_count = pass_count + 1
+    Dim v_TANGENT_LINEAR As Integer = Curve.TANGENT_LINEAR
+    If v_TANGENT_LINEAR = 1 Then pass_count = pass_count + 1
+    Dim v_TANGENT_MODE_COUNT As Integer = Curve.TANGENT_MODE_COUNT
+    If v_TANGENT_MODE_COUNT = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_Curve_TangentMode"
+    Else
+        Print "FAIL:enum_Curve_TangentMode count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Curve_TangentMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_TEXTURE_MODE_RGB As Integer = CurveTexture.TEXTURE_MODE_RGB
+    If v_TEXTURE_MODE_RGB = 0 Then pass_count = pass_count + 1
+    Dim v_TEXTURE_MODE_RED As Integer = CurveTexture.TEXTURE_MODE_RED
+    If v_TEXTURE_MODE_RED = 1 Then pass_count = pass_count + 1
+    If pass_count = 2 Then
+        Print "PASS:enum_CurveTexture_TextureMode"
+    Else
+        Print "FAIL:enum_CurveTexture_TextureMode count=" & str(pass_count) & "/2"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_CurveTexture_TextureMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_TEXTURE_ALBEDO As Integer = Decal.TEXTURE_ALBEDO
+    If v_TEXTURE_ALBEDO = 0 Then pass_count = pass_count + 1
+    Dim v_TEXTURE_NORMAL As Integer = Decal.TEXTURE_NORMAL
+    If v_TEXTURE_NORMAL = 1 Then pass_count = pass_count + 1
+    Dim v_TEXTURE_ORM As Integer = Decal.TEXTURE_ORM
+    If v_TEXTURE_ORM = 2 Then pass_count = pass_count + 1
+    Dim v_TEXTURE_EMISSION As Integer = Decal.TEXTURE_EMISSION
+    If v_TEXTURE_EMISSION = 3 Then pass_count = pass_count + 1
+    Dim v_TEXTURE_MAX As Integer = Decal.TEXTURE_MAX
+    If v_TEXTURE_MAX = 4 Then pass_count = pass_count + 1
+    If pass_count = 5 Then
+        Print "PASS:enum_Decal_DecalTexture"
+    Else
+        Print "FAIL:enum_Decal_DecalTexture count=" & str(pass_count) & "/5"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Decal_DecalTexture err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_SHADOW_ORTHOGONAL As Integer = DirectionalLight3D.SHADOW_ORTHOGONAL
+    If v_SHADOW_ORTHOGONAL = 0 Then pass_count = pass_count + 1
+    Dim v_SHADOW_PARALLEL_2_SPLITS As Integer = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
+    If v_SHADOW_PARALLEL_2_SPLITS = 1 Then pass_count = pass_count + 1
+    Dim v_SHADOW_PARALLEL_4_SPLITS As Integer = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
+    If v_SHADOW_PARALLEL_4_SPLITS = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_DirectionalLight3D_ShadowMode"
+    Else
+        Print "FAIL:enum_DirectionalLight3D_ShadowMode count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_DirectionalLight3D_ShadowMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_SKY_MODE_LIGHT_AND_SKY As Integer = DirectionalLight3D.SKY_MODE_LIGHT_AND_SKY
+    If v_SKY_MODE_LIGHT_AND_SKY = 0 Then pass_count = pass_count + 1
+    Dim v_SKY_MODE_LIGHT_ONLY As Integer = DirectionalLight3D.SKY_MODE_LIGHT_ONLY
+    If v_SKY_MODE_LIGHT_ONLY = 1 Then pass_count = pass_count + 1
+    Dim v_SKY_MODE_SKY_ONLY As Integer = DirectionalLight3D.SKY_MODE_SKY_ONLY
+    If v_SKY_MODE_SKY_ONLY = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_DirectionalLight3D_SkyMode"
+    Else
+        Print "FAIL:enum_DirectionalLight3D_SkyMode count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_DirectionalLight3D_SkyMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_COMPRESS_NONE As Integer = ENetConnection.COMPRESS_NONE
+    If v_COMPRESS_NONE = 0 Then pass_count = pass_count + 1
+    Dim v_COMPRESS_RANGE_CODER As Integer = ENetConnection.COMPRESS_RANGE_CODER
+    If v_COMPRESS_RANGE_CODER = 1 Then pass_count = pass_count + 1
+    Dim v_COMPRESS_FASTLZ As Integer = ENetConnection.COMPRESS_FASTLZ
+    If v_COMPRESS_FASTLZ = 2 Then pass_count = pass_count + 1
+    Dim v_COMPRESS_ZLIB As Integer = ENetConnection.COMPRESS_ZLIB
+    If v_COMPRESS_ZLIB = 3 Then pass_count = pass_count + 1
+    Dim v_COMPRESS_ZSTD As Integer = ENetConnection.COMPRESS_ZSTD
+    If v_COMPRESS_ZSTD = 4 Then pass_count = pass_count + 1
+    If pass_count = 5 Then
+        Print "PASS:enum_ENetConnection_CompressionMode"
+    Else
+        Print "FAIL:enum_ENetConnection_CompressionMode count=" & str(pass_count) & "/5"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_ENetConnection_CompressionMode err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

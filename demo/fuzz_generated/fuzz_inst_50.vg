@@ -1,0 +1,154 @@
+Attribute VB_Name = "fuzz_inst_50"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As AtlasTexture = AtlasTexture.new()
+    If obj <> Null Then
+        Print "PASS:inst_AtlasTexture"
+    Else
+        Print "FAIL:inst_AtlasTexture returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AtlasTexture err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As AudioBusLayout = AudioBusLayout.new()
+    If obj <> Null Then
+        Print "PASS:inst_AudioBusLayout"
+    Else
+        Print "FAIL:inst_AudioBusLayout returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AudioBusLayout err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As AudioEffect = AudioEffect.new()
+    If obj <> Null Then
+        Print "PASS:inst_AudioEffect"
+    Else
+        Print "FAIL:inst_AudioEffect returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AudioEffect err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As AudioEffectAmplify = AudioEffectAmplify.new()
+    If obj <> Null Then
+        Print "PASS:inst_AudioEffectAmplify"
+    Else
+        Print "FAIL:inst_AudioEffectAmplify returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AudioEffectAmplify err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As AudioEffectBandLimitFilter = AudioEffectBandLimitFilter.new()
+    If obj <> Null Then
+        Print "PASS:inst_AudioEffectBandLimitFilter"
+    Else
+        Print "FAIL:inst_AudioEffectBandLimitFilter returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AudioEffectBandLimitFilter err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As AudioEffectBandPassFilter = AudioEffectBandPassFilter.new()
+    If obj <> Null Then
+        Print "PASS:inst_AudioEffectBandPassFilter"
+    Else
+        Print "FAIL:inst_AudioEffectBandPassFilter returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AudioEffectBandPassFilter err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As AudioEffectCapture = AudioEffectCapture.new()
+    If obj <> Null Then
+        Print "PASS:inst_AudioEffectCapture"
+    Else
+        Print "FAIL:inst_AudioEffectCapture returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AudioEffectCapture err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As AudioEffectChorus = AudioEffectChorus.new()
+    If obj <> Null Then
+        Print "PASS:inst_AudioEffectChorus"
+    Else
+        Print "FAIL:inst_AudioEffectChorus returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AudioEffectChorus err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As AudioEffectCompressor = AudioEffectCompressor.new()
+    If obj <> Null Then
+        Print "PASS:inst_AudioEffectCompressor"
+    Else
+        Print "FAIL:inst_AudioEffectCompressor returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AudioEffectCompressor err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As AudioEffectDelay = AudioEffectDelay.new()
+    If obj <> Null Then
+        Print "PASS:inst_AudioEffectDelay"
+    Else
+        Print "FAIL:inst_AudioEffectDelay returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AudioEffectDelay err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

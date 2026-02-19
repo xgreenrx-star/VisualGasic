@@ -1,0 +1,282 @@
+Attribute VB_Name = "fuzz_typeof_1716"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As SphereMesh = SphereMesh.new()
+    If obj = Null Then
+        Print "SKIP:typeof_SphereMesh (null)"
+        Exit Sub
+    End If
+    Dim tn As String = str(TypeOf(obj))
+    Print "PASS:typeof_SphereMesh type=" & tn
+    If Err.Number <> 0 Then
+        Print "ERROR:typeof_SphereMesh err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As Label = Label.new()
+    If obj = Null Then
+        Print "SKIP:typeof_Label (null)"
+        Exit Sub
+    End If
+    Dim tn As String = str(TypeOf(obj))
+    Print "PASS:typeof_Label type=" & tn
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:typeof_Label err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As Timer = Timer.new()
+    If obj = Null Then
+        Print "SKIP:typeof_Timer (null)"
+        Exit Sub
+    End If
+    Dim tn As String = str(TypeOf(obj))
+    Print "PASS:typeof_Timer type=" & tn
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:typeof_Timer err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As Camera3D = Camera3D.new()
+    If obj = Null Then
+        Print "SKIP:typeof_Camera3D (null)"
+        Exit Sub
+    End If
+    Dim tn As String = str(TypeOf(obj))
+    Print "PASS:typeof_Camera3D type=" & tn
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:typeof_Camera3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As StandardMaterial3D = StandardMaterial3D.new()
+    If obj = Null Then
+        Print "SKIP:typeof_StandardMaterial3D (null)"
+        Exit Sub
+    End If
+    Dim tn As String = str(TypeOf(obj))
+    Print "PASS:typeof_StandardMaterial3D type=" & tn
+    If Err.Number <> 0 Then
+        Print "ERROR:typeof_StandardMaterial3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As Area2D = Area2D.new()
+    If obj = Null Then
+        Print "SKIP:typeof_Area2D (null)"
+        Exit Sub
+    End If
+    Dim tn As String = str(TypeOf(obj))
+    Print "PASS:typeof_Area2D type=" & tn
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:typeof_Area2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As Sprite2D = Sprite2D.new()
+    If obj = Null Then
+        Print "SKIP:typeof_Sprite2D (null)"
+        Exit Sub
+    End If
+    Dim tn As String = str(TypeOf(obj))
+    Print "PASS:typeof_Sprite2D type=" & tn
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:typeof_Sprite2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As RigidBody3D = RigidBody3D.new()
+    If obj = Null Then
+        Print "SKIP:typeof_RigidBody3D (null)"
+        Exit Sub
+    End If
+    Dim tn As String = str(TypeOf(obj))
+    Print "PASS:typeof_RigidBody3D type=" & tn
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:typeof_RigidBody3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As AudioStreamPlayer = AudioStreamPlayer.new()
+    If obj = Null Then
+        Print "SKIP:typeof_AudioStreamPlayer (null)"
+        Exit Sub
+    End If
+    Dim tn As String = str(TypeOf(obj))
+    Print "PASS:typeof_AudioStreamPlayer type=" & tn
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:typeof_AudioStreamPlayer err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As AnimatedSprite2D = AnimatedSprite2D.new()
+    If obj = Null Then
+        Print "SKIP:typeof_AnimatedSprite2D (null)"
+        Exit Sub
+    End If
+    Dim tn As String = str(TypeOf(obj))
+    Print "PASS:typeof_AnimatedSprite2D type=" & tn
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:typeof_AnimatedSprite2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest10()
+    On Error Resume Next
+    Dim obj As BoxMesh = BoxMesh.new()
+    If obj = Null Then
+        Print "SKIP:typeof_BoxMesh (null)"
+        Exit Sub
+    End If
+    Dim tn As String = str(TypeOf(obj))
+    Print "PASS:typeof_BoxMesh type=" & tn
+    If Err.Number <> 0 Then
+        Print "ERROR:typeof_BoxMesh err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest11()
+    On Error Resume Next
+    Dim obj As Button = Button.new()
+    If obj = Null Then
+        Print "SKIP:typeof_Button (null)"
+        Exit Sub
+    End If
+    Dim tn As String = str(TypeOf(obj))
+    Print "PASS:typeof_Button type=" & tn
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:typeof_Button err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest12()
+    On Error Resume Next
+    Dim obj As LineEdit = LineEdit.new()
+    If obj = Null Then
+        Print "SKIP:typeof_LineEdit (null)"
+        Exit Sub
+    End If
+    Dim tn As String = str(TypeOf(obj))
+    Print "PASS:typeof_LineEdit type=" & tn
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:typeof_LineEdit err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest13()
+    On Error Resume Next
+    Dim obj As Tree = Tree.new()
+    If obj = Null Then
+        Print "SKIP:typeof_Tree (null)"
+        Exit Sub
+    End If
+    Dim tn As String = str(TypeOf(obj))
+    Print "PASS:typeof_Tree type=" & tn
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:typeof_Tree err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest14()
+    On Error Resume Next
+    Dim obj As Gradient = Gradient.new()
+    If obj = Null Then
+        Print "SKIP:typeof_Gradient (null)"
+        Exit Sub
+    End If
+    Dim tn As String = str(TypeOf(obj))
+    Print "PASS:typeof_Gradient type=" & tn
+    If Err.Number <> 0 Then
+        Print "ERROR:typeof_Gradient err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest15()
+    On Error Resume Next
+    Dim obj As Image = Image.new()
+    If obj = Null Then
+        Print "SKIP:typeof_Image (null)"
+        Exit Sub
+    End If
+    Dim tn As String = str(TypeOf(obj))
+    Print "PASS:typeof_Image type=" & tn
+    If Err.Number <> 0 Then
+        Print "ERROR:typeof_Image err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+    RunTest10()
+    RunTest11()
+    RunTest12()
+    RunTest13()
+    RunTest14()
+    RunTest15()
+End Sub

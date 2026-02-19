@@ -1,0 +1,169 @@
+Attribute VB_Name = "fuzz_prop_784"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As RichTextLabel = RichTextLabel.new()
+    If obj = Null Then
+        Print "SKIP:prop_RichTextLabel_bbcode_enabled (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.bbcode_enabled
+    Print "PASS:prop_RichTextLabel_bbcode_enabled"
+    obj.bbcode_enabled = True
+    Dim val2 As Variant = obj.bbcode_enabled
+    Print "PASS:propset_RichTextLabel_bbcode_enabled"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_RichTextLabel_bbcode_enabled err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As RichTextLabel = RichTextLabel.new()
+    If obj = Null Then
+        Print "SKIP:prop_RichTextLabel_text (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.text
+    Print "PASS:prop_RichTextLabel_text"
+    obj.text = "test_string"
+    Dim val2 As Variant = obj.text
+    Print "PASS:propset_RichTextLabel_text"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_RichTextLabel_text err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As RichTextLabel = RichTextLabel.new()
+    If obj = Null Then
+        Print "SKIP:prop_RichTextLabel_fit_content (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.fit_content
+    Print "PASS:prop_RichTextLabel_fit_content"
+    obj.fit_content = True
+    Dim val2 As Variant = obj.fit_content
+    Print "PASS:propset_RichTextLabel_fit_content"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_RichTextLabel_fit_content err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As RichTextLabel = RichTextLabel.new()
+    If obj = Null Then
+        Print "SKIP:prop_RichTextLabel_scroll_active (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.scroll_active
+    Print "PASS:prop_RichTextLabel_scroll_active"
+    obj.scroll_active = True
+    Dim val2 As Variant = obj.scroll_active
+    Print "PASS:propset_RichTextLabel_scroll_active"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_RichTextLabel_scroll_active err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As RichTextLabel = RichTextLabel.new()
+    If obj = Null Then
+        Print "SKIP:prop_RichTextLabel_scroll_following (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.scroll_following
+    Print "PASS:prop_RichTextLabel_scroll_following"
+    obj.scroll_following = True
+    Dim val2 As Variant = obj.scroll_following
+    Print "PASS:propset_RichTextLabel_scroll_following"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_RichTextLabel_scroll_following err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As OptionButton = OptionButton.new()
+    If obj = Null Then
+        Print "SKIP:prop_OptionButton_selected (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.selected
+    Print "PASS:prop_OptionButton_selected"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_OptionButton_selected err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As OptionButton = OptionButton.new()
+    If obj = Null Then
+        Print "SKIP:prop_OptionButton_fit_to_longest_item (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.fit_to_longest_item
+    Print "PASS:prop_OptionButton_fit_to_longest_item"
+    obj.fit_to_longest_item = True
+    Dim val2 As Variant = obj.fit_to_longest_item
+    Print "PASS:propset_OptionButton_fit_to_longest_item"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_OptionButton_fit_to_longest_item err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As OptionButton = OptionButton.new()
+    If obj = Null Then
+        Print "SKIP:prop_OptionButton_allow_reselect (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.allow_reselect
+    Print "PASS:prop_OptionButton_allow_reselect"
+    obj.allow_reselect = True
+    Dim val2 As Variant = obj.allow_reselect
+    Print "PASS:propset_OptionButton_allow_reselect"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_OptionButton_allow_reselect err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+End Sub

@@ -1,0 +1,160 @@
+Attribute VB_Name = "fuzz_inst_120"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As CSGMesh3D = CSGMesh3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_CSGMesh3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_CSGMesh3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_CSGMesh3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As CSGPolygon3D = CSGPolygon3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_CSGPolygon3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_CSGPolygon3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_CSGPolygon3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As CSGSphere3D = CSGSphere3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_CSGSphere3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_CSGSphere3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_CSGSphere3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As CSGTorus3D = CSGTorus3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_CSGTorus3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_CSGTorus3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_CSGTorus3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As Camera2D = Camera2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_Camera2D"
+        obj.free()
+    Else
+        Print "FAIL:inst_Camera2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_Camera2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As Camera3D = Camera3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_Camera3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_Camera3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_Camera3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As CameraAttributes = CameraAttributes.new()
+    If obj <> Null Then
+        Print "PASS:inst_CameraAttributes"
+    Else
+        Print "FAIL:inst_CameraAttributes returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_CameraAttributes err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As CameraAttributesPhysical = CameraAttributesPhysical.new()
+    If obj <> Null Then
+        Print "PASS:inst_CameraAttributesPhysical"
+    Else
+        Print "FAIL:inst_CameraAttributesPhysical returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_CameraAttributesPhysical err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As CameraAttributesPractical = CameraAttributesPractical.new()
+    If obj <> Null Then
+        Print "PASS:inst_CameraAttributesPractical"
+    Else
+        Print "FAIL:inst_CameraAttributesPractical returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_CameraAttributesPractical err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As CameraFeed = CameraFeed.new()
+    If obj <> Null Then
+        Print "PASS:inst_CameraFeed"
+    Else
+        Print "FAIL:inst_CameraFeed returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_CameraFeed err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

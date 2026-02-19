@@ -1,0 +1,136 @@
+Attribute VB_Name = "fuzz_enum_1453"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_TRANSITION_FROM_TIME_IMMEDIATE As Integer = AudioStreamInteractive.TRANSITION_FROM_TIME_IMMEDIATE
+    If v_TRANSITION_FROM_TIME_IMMEDIATE = 0 Then pass_count = pass_count + 1
+    Dim v_TRANSITION_FROM_TIME_NEXT_BEAT As Integer = AudioStreamInteractive.TRANSITION_FROM_TIME_NEXT_BEAT
+    If v_TRANSITION_FROM_TIME_NEXT_BEAT = 1 Then pass_count = pass_count + 1
+    Dim v_TRANSITION_FROM_TIME_NEXT_BAR As Integer = AudioStreamInteractive.TRANSITION_FROM_TIME_NEXT_BAR
+    If v_TRANSITION_FROM_TIME_NEXT_BAR = 2 Then pass_count = pass_count + 1
+    Dim v_TRANSITION_FROM_TIME_END As Integer = AudioStreamInteractive.TRANSITION_FROM_TIME_END
+    If v_TRANSITION_FROM_TIME_END = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_AudioStreamInteractive_TransitionFromTime"
+    Else
+        Print "FAIL:enum_AudioStreamInteractive_TransitionFromTime count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_AudioStreamInteractive_TransitionFromTime err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_TRANSITION_TO_TIME_SAME_POSITION As Integer = AudioStreamInteractive.TRANSITION_TO_TIME_SAME_POSITION
+    If v_TRANSITION_TO_TIME_SAME_POSITION = 0 Then pass_count = pass_count + 1
+    Dim v_TRANSITION_TO_TIME_START As Integer = AudioStreamInteractive.TRANSITION_TO_TIME_START
+    If v_TRANSITION_TO_TIME_START = 1 Then pass_count = pass_count + 1
+    If pass_count = 2 Then
+        Print "PASS:enum_AudioStreamInteractive_TransitionToTime"
+    Else
+        Print "FAIL:enum_AudioStreamInteractive_TransitionToTime count=" & str(pass_count) & "/2"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_AudioStreamInteractive_TransitionToTime err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_FADE_DISABLED As Integer = AudioStreamInteractive.FADE_DISABLED
+    If v_FADE_DISABLED = 0 Then pass_count = pass_count + 1
+    Dim v_FADE_IN As Integer = AudioStreamInteractive.FADE_IN
+    If v_FADE_IN = 1 Then pass_count = pass_count + 1
+    Dim v_FADE_OUT As Integer = AudioStreamInteractive.FADE_OUT
+    If v_FADE_OUT = 2 Then pass_count = pass_count + 1
+    Dim v_FADE_CROSS As Integer = AudioStreamInteractive.FADE_CROSS
+    If v_FADE_CROSS = 3 Then pass_count = pass_count + 1
+    Dim v_FADE_AUTOMATIC As Integer = AudioStreamInteractive.FADE_AUTOMATIC
+    If v_FADE_AUTOMATIC = 4 Then pass_count = pass_count + 1
+    If pass_count = 5 Then
+        Print "PASS:enum_AudioStreamInteractive_FadeMode"
+    Else
+        Print "FAIL:enum_AudioStreamInteractive_FadeMode count=" & str(pass_count) & "/5"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_AudioStreamInteractive_FadeMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_AUTO_ADVANCE_DISABLED As Integer = AudioStreamInteractive.AUTO_ADVANCE_DISABLED
+    If v_AUTO_ADVANCE_DISABLED = 0 Then pass_count = pass_count + 1
+    Dim v_AUTO_ADVANCE_ENABLED As Integer = AudioStreamInteractive.AUTO_ADVANCE_ENABLED
+    If v_AUTO_ADVANCE_ENABLED = 1 Then pass_count = pass_count + 1
+    Dim v_AUTO_ADVANCE_RETURN_TO_HOLD As Integer = AudioStreamInteractive.AUTO_ADVANCE_RETURN_TO_HOLD
+    If v_AUTO_ADVANCE_RETURN_TO_HOLD = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_AudioStreamInteractive_AutoAdvanceMode"
+    Else
+        Print "FAIL:enum_AudioStreamInteractive_AutoAdvanceMode count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_AudioStreamInteractive_AutoAdvanceMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_MIX_TARGET_STEREO As Integer = AudioStreamPlayer.MIX_TARGET_STEREO
+    If v_MIX_TARGET_STEREO = 0 Then pass_count = pass_count + 1
+    Dim v_MIX_TARGET_SURROUND As Integer = AudioStreamPlayer.MIX_TARGET_SURROUND
+    If v_MIX_TARGET_SURROUND = 1 Then pass_count = pass_count + 1
+    Dim v_MIX_TARGET_CENTER As Integer = AudioStreamPlayer.MIX_TARGET_CENTER
+    If v_MIX_TARGET_CENTER = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_AudioStreamPlayer_MixTarget"
+    Else
+        Print "FAIL:enum_AudioStreamPlayer_MixTarget count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_AudioStreamPlayer_MixTarget err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_ATTENUATION_INVERSE_DISTANCE As Integer = AudioStreamPlayer3D.ATTENUATION_INVERSE_DISTANCE
+    If v_ATTENUATION_INVERSE_DISTANCE = 0 Then pass_count = pass_count + 1
+    Dim v_ATTENUATION_INVERSE_SQUARE_DISTANCE As Integer = AudioStreamPlayer3D.ATTENUATION_INVERSE_SQUARE_DISTANCE
+    If v_ATTENUATION_INVERSE_SQUARE_DISTANCE = 1 Then pass_count = pass_count + 1
+    Dim v_ATTENUATION_LOGARITHMIC As Integer = AudioStreamPlayer3D.ATTENUATION_LOGARITHMIC
+    If v_ATTENUATION_LOGARITHMIC = 2 Then pass_count = pass_count + 1
+    Dim v_ATTENUATION_DISABLED As Integer = AudioStreamPlayer3D.ATTENUATION_DISABLED
+    If v_ATTENUATION_DISABLED = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_AudioStreamPlayer3D_AttenuationModel"
+    Else
+        Print "FAIL:enum_AudioStreamPlayer3D_AttenuationModel count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_AudioStreamPlayer3D_AttenuationModel err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

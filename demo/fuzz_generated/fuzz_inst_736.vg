@@ -1,0 +1,95 @@
+Attribute VB_Name = "fuzz_inst_736"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As XROrigin3D = XROrigin3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_XROrigin3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_XROrigin3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_XROrigin3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As XRPose = XRPose.new()
+    If obj <> Null Then
+        Print "PASS:inst_XRPose"
+    Else
+        Print "FAIL:inst_XRPose returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_XRPose err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As XRPositionalTracker = XRPositionalTracker.new()
+    If obj <> Null Then
+        Print "PASS:inst_XRPositionalTracker"
+    Else
+        Print "FAIL:inst_XRPositionalTracker returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_XRPositionalTracker err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As XRVRS = XRVRS.new()
+    If obj <> Null Then
+        Print "PASS:inst_XRVRS"
+    Else
+        Print "FAIL:inst_XRVRS returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_XRVRS err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As ZIPPacker = ZIPPacker.new()
+    If obj <> Null Then
+        Print "PASS:inst_ZIPPacker"
+    Else
+        Print "FAIL:inst_ZIPPacker returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_ZIPPacker err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As ZIPReader = ZIPReader.new()
+    If obj <> Null Then
+        Print "PASS:inst_ZIPReader"
+    Else
+        Print "FAIL:inst_ZIPReader returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_ZIPReader err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

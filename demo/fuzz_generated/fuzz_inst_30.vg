@@ -1,0 +1,154 @@
+Attribute VB_Name = "fuzz_inst_30"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As AnimationNodeBlendTree = AnimationNodeBlendTree.new()
+    If obj <> Null Then
+        Print "PASS:inst_AnimationNodeBlendTree"
+    Else
+        Print "FAIL:inst_AnimationNodeBlendTree returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AnimationNodeBlendTree err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As AnimationNodeExtension = AnimationNodeExtension.new()
+    If obj <> Null Then
+        Print "PASS:inst_AnimationNodeExtension"
+    Else
+        Print "FAIL:inst_AnimationNodeExtension returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AnimationNodeExtension err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As AnimationNodeOneShot = AnimationNodeOneShot.new()
+    If obj <> Null Then
+        Print "PASS:inst_AnimationNodeOneShot"
+    Else
+        Print "FAIL:inst_AnimationNodeOneShot returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AnimationNodeOneShot err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As AnimationNodeOutput = AnimationNodeOutput.new()
+    If obj <> Null Then
+        Print "PASS:inst_AnimationNodeOutput"
+    Else
+        Print "FAIL:inst_AnimationNodeOutput returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AnimationNodeOutput err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As AnimationNodeStateMachine = AnimationNodeStateMachine.new()
+    If obj <> Null Then
+        Print "PASS:inst_AnimationNodeStateMachine"
+    Else
+        Print "FAIL:inst_AnimationNodeStateMachine returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AnimationNodeStateMachine err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As AnimationNodeStateMachinePlayback = AnimationNodeStateMachinePlayback.new()
+    If obj <> Null Then
+        Print "PASS:inst_AnimationNodeStateMachinePlayback"
+    Else
+        Print "FAIL:inst_AnimationNodeStateMachinePlayback returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AnimationNodeStateMachinePlayback err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As AnimationNodeStateMachineTransition = AnimationNodeStateMachineTransition.new()
+    If obj <> Null Then
+        Print "PASS:inst_AnimationNodeStateMachineTransition"
+    Else
+        Print "FAIL:inst_AnimationNodeStateMachineTransition returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AnimationNodeStateMachineTransition err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As AnimationNodeSub2 = AnimationNodeSub2.new()
+    If obj <> Null Then
+        Print "PASS:inst_AnimationNodeSub2"
+    Else
+        Print "FAIL:inst_AnimationNodeSub2 returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AnimationNodeSub2 err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As AnimationNodeSync = AnimationNodeSync.new()
+    If obj <> Null Then
+        Print "PASS:inst_AnimationNodeSync"
+    Else
+        Print "FAIL:inst_AnimationNodeSync returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AnimationNodeSync err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As AnimationNodeTimeScale = AnimationNodeTimeScale.new()
+    If obj <> Null Then
+        Print "PASS:inst_AnimationNodeTimeScale"
+    Else
+        Print "FAIL:inst_AnimationNodeTimeScale returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AnimationNodeTimeScale err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

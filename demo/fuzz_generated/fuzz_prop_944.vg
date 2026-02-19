@@ -1,0 +1,160 @@
+Attribute VB_Name = "fuzz_prop_944"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As ScrollContainer = ScrollContainer.new()
+    If obj = Null Then
+        Print "SKIP:prop_ScrollContainer_follow_focus (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.follow_focus
+    Print "PASS:prop_ScrollContainer_follow_focus"
+    obj.follow_focus = True
+    Dim val2 As Variant = obj.follow_focus
+    Print "PASS:propset_ScrollContainer_follow_focus"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_ScrollContainer_follow_focus err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As ScrollContainer = ScrollContainer.new()
+    If obj = Null Then
+        Print "SKIP:prop_ScrollContainer_draw_focus_border (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.draw_focus_border
+    Print "PASS:prop_ScrollContainer_draw_focus_border"
+    obj.draw_focus_border = True
+    Dim val2 As Variant = obj.draw_focus_border
+    Print "PASS:propset_ScrollContainer_draw_focus_border"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_ScrollContainer_draw_focus_border err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As ScrollContainer = ScrollContainer.new()
+    If obj = Null Then
+        Print "SKIP:prop_ScrollContainer_scroll_horizontal (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.scroll_horizontal
+    Print "PASS:prop_ScrollContainer_scroll_horizontal"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_ScrollContainer_scroll_horizontal err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As ScrollContainer = ScrollContainer.new()
+    If obj = Null Then
+        Print "SKIP:prop_ScrollContainer_scroll_vertical (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.scroll_vertical
+    Print "PASS:prop_ScrollContainer_scroll_vertical"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_ScrollContainer_scroll_vertical err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As ScrollContainer = ScrollContainer.new()
+    If obj = Null Then
+        Print "SKIP:prop_ScrollContainer_scroll_horizontal_custom_step (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.scroll_horizontal_custom_step
+    Print "PASS:prop_ScrollContainer_scroll_horizontal_custom_step"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_ScrollContainer_scroll_horizontal_custom_step err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As FoldableContainer = FoldableContainer.new()
+    If obj = Null Then
+        Print "SKIP:prop_FoldableContainer_folded (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.folded
+    Print "PASS:prop_FoldableContainer_folded"
+    obj.folded = True
+    Dim val2 As Variant = obj.folded
+    Print "PASS:propset_FoldableContainer_folded"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_FoldableContainer_folded err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As FoldableContainer = FoldableContainer.new()
+    If obj = Null Then
+        Print "SKIP:prop_FoldableContainer_title (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.title
+    Print "PASS:prop_FoldableContainer_title"
+    obj.title = "test_string"
+    Dim val2 As Variant = obj.title
+    Print "PASS:propset_FoldableContainer_title"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_FoldableContainer_title err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As FoldableContainer = FoldableContainer.new()
+    If obj = Null Then
+        Print "SKIP:prop_FoldableContainer_title_alignment (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.title_alignment
+    Print "PASS:prop_FoldableContainer_title_alignment"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_FoldableContainer_title_alignment err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+End Sub

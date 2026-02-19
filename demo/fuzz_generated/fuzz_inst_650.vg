@@ -1,0 +1,154 @@
+Attribute VB_Name = "fuzz_inst_650"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeOuterProduct = VisualShaderNodeOuterProduct.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeOuterProduct"
+    Else
+        Print "FAIL:inst_VisualShaderNodeOuterProduct returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeOuterProduct err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeParameterRef = VisualShaderNodeParameterRef.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeParameterRef"
+    Else
+        Print "FAIL:inst_VisualShaderNodeParameterRef returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeParameterRef err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeParticleAccelerator = VisualShaderNodeParticleAccelerator.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeParticleAccelerator"
+    Else
+        Print "FAIL:inst_VisualShaderNodeParticleAccelerator returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeParticleAccelerator err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeParticleBoxEmitter = VisualShaderNodeParticleBoxEmitter.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeParticleBoxEmitter"
+    Else
+        Print "FAIL:inst_VisualShaderNodeParticleBoxEmitter returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeParticleBoxEmitter err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeParticleConeVelocity = VisualShaderNodeParticleConeVelocity.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeParticleConeVelocity"
+    Else
+        Print "FAIL:inst_VisualShaderNodeParticleConeVelocity returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeParticleConeVelocity err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeParticleEmit = VisualShaderNodeParticleEmit.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeParticleEmit"
+    Else
+        Print "FAIL:inst_VisualShaderNodeParticleEmit returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeParticleEmit err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeParticleMeshEmitter = VisualShaderNodeParticleMeshEmitter.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeParticleMeshEmitter"
+    Else
+        Print "FAIL:inst_VisualShaderNodeParticleMeshEmitter returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeParticleMeshEmitter err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeParticleMultiplyByAxisAngle = VisualShaderNodeParticleMultiplyByAxisAngle.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeParticleMultiplyByAxisAngle"
+    Else
+        Print "FAIL:inst_VisualShaderNodeParticleMultiplyByAxisAngle returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeParticleMultiplyByAxisAngle err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeParticleOutput = VisualShaderNodeParticleOutput.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeParticleOutput"
+    Else
+        Print "FAIL:inst_VisualShaderNodeParticleOutput returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeParticleOutput err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeParticleRandomness = VisualShaderNodeParticleRandomness.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeParticleRandomness"
+    Else
+        Print "FAIL:inst_VisualShaderNodeParticleRandomness returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeParticleRandomness err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

@@ -1,0 +1,169 @@
+Attribute VB_Name = "fuzz_prop_960"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As GraphElement = GraphElement.new()
+    If obj = Null Then
+        Print "SKIP:prop_GraphElement_resizable (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.resizable
+    Print "PASS:prop_GraphElement_resizable"
+    obj.resizable = True
+    Dim val2 As Variant = obj.resizable
+    Print "PASS:propset_GraphElement_resizable"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_GraphElement_resizable err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As GraphElement = GraphElement.new()
+    If obj = Null Then
+        Print "SKIP:prop_GraphElement_draggable (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.draggable
+    Print "PASS:prop_GraphElement_draggable"
+    obj.draggable = True
+    Dim val2 As Variant = obj.draggable
+    Print "PASS:propset_GraphElement_draggable"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_GraphElement_draggable err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As GraphElement = GraphElement.new()
+    If obj = Null Then
+        Print "SKIP:prop_GraphElement_selectable (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.selectable
+    Print "PASS:prop_GraphElement_selectable"
+    obj.selectable = True
+    Dim val2 As Variant = obj.selectable
+    Print "PASS:propset_GraphElement_selectable"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_GraphElement_selectable err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As GraphElement = GraphElement.new()
+    If obj = Null Then
+        Print "SKIP:prop_GraphElement_selected (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.selected
+    Print "PASS:prop_GraphElement_selected"
+    obj.selected = True
+    Dim val2 As Variant = obj.selected
+    Print "PASS:propset_GraphElement_selected"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_GraphElement_selected err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As MenuBar = MenuBar.new()
+    If obj = Null Then
+        Print "SKIP:prop_MenuBar_flat (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.flat
+    Print "PASS:prop_MenuBar_flat"
+    obj.flat = True
+    Dim val2 As Variant = obj.flat
+    Print "PASS:propset_MenuBar_flat"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_MenuBar_flat err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As MenuBar = MenuBar.new()
+    If obj = Null Then
+        Print "SKIP:prop_MenuBar_start_index (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.start_index
+    Print "PASS:prop_MenuBar_start_index"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_MenuBar_start_index err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As MenuBar = MenuBar.new()
+    If obj = Null Then
+        Print "SKIP:prop_MenuBar_switch_on_hover (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.switch_on_hover
+    Print "PASS:prop_MenuBar_switch_on_hover"
+    obj.switch_on_hover = True
+    Dim val2 As Variant = obj.switch_on_hover
+    Print "PASS:propset_MenuBar_switch_on_hover"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_MenuBar_switch_on_hover err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As MenuBar = MenuBar.new()
+    If obj = Null Then
+        Print "SKIP:prop_MenuBar_prefer_global_menu (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.prefer_global_menu
+    Print "PASS:prop_MenuBar_prefer_global_menu"
+    obj.prefer_global_menu = True
+    Dim val2 As Variant = obj.prefer_global_menu
+    Print "PASS:propset_MenuBar_prefer_global_menu"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_MenuBar_prefer_global_menu err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+End Sub

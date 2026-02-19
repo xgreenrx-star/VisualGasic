@@ -1,0 +1,154 @@
+Attribute VB_Name = "fuzz_enum_1490"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_PARTICLE_FLAG_ALIGN_Y_TO_VELOCITY As Integer = ParticleProcessMaterial.PARTICLE_FLAG_ALIGN_Y_TO_VELOCITY
+    If v_PARTICLE_FLAG_ALIGN_Y_TO_VELOCITY = 0 Then pass_count = pass_count + 1
+    Dim v_PARTICLE_FLAG_ROTATE_Y As Integer = ParticleProcessMaterial.PARTICLE_FLAG_ROTATE_Y
+    If v_PARTICLE_FLAG_ROTATE_Y = 1 Then pass_count = pass_count + 1
+    Dim v_PARTICLE_FLAG_DISABLE_Z As Integer = ParticleProcessMaterial.PARTICLE_FLAG_DISABLE_Z
+    If v_PARTICLE_FLAG_DISABLE_Z = 2 Then pass_count = pass_count + 1
+    Dim v_PARTICLE_FLAG_DAMPING_AS_FRICTION As Integer = ParticleProcessMaterial.PARTICLE_FLAG_DAMPING_AS_FRICTION
+    If v_PARTICLE_FLAG_DAMPING_AS_FRICTION = 3 Then pass_count = pass_count + 1
+    Dim v_PARTICLE_FLAG_MAX As Integer = ParticleProcessMaterial.PARTICLE_FLAG_MAX
+    If v_PARTICLE_FLAG_MAX = 4 Then pass_count = pass_count + 1
+    If pass_count = 5 Then
+        Print "PASS:enum_ParticleProcessMaterial_ParticleFlags"
+    Else
+        Print "FAIL:enum_ParticleProcessMaterial_ParticleFlags count=" & str(pass_count) & "/5"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_ParticleProcessMaterial_ParticleFlags err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_EMISSION_SHAPE_POINT As Integer = ParticleProcessMaterial.EMISSION_SHAPE_POINT
+    If v_EMISSION_SHAPE_POINT = 0 Then pass_count = pass_count + 1
+    Dim v_EMISSION_SHAPE_SPHERE As Integer = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+    If v_EMISSION_SHAPE_SPHERE = 1 Then pass_count = pass_count + 1
+    Dim v_EMISSION_SHAPE_SPHERE_SURFACE As Integer = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE_SURFACE
+    If v_EMISSION_SHAPE_SPHERE_SURFACE = 2 Then pass_count = pass_count + 1
+    Dim v_EMISSION_SHAPE_BOX As Integer = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+    If v_EMISSION_SHAPE_BOX = 3 Then pass_count = pass_count + 1
+    Dim v_EMISSION_SHAPE_POINTS As Integer = ParticleProcessMaterial.EMISSION_SHAPE_POINTS
+    If v_EMISSION_SHAPE_POINTS = 4 Then pass_count = pass_count + 1
+    Dim v_EMISSION_SHAPE_DIRECTED_POINTS As Integer = ParticleProcessMaterial.EMISSION_SHAPE_DIRECTED_POINTS
+    If v_EMISSION_SHAPE_DIRECTED_POINTS = 5 Then pass_count = pass_count + 1
+    Dim v_EMISSION_SHAPE_RING As Integer = ParticleProcessMaterial.EMISSION_SHAPE_RING
+    If v_EMISSION_SHAPE_RING = 6 Then pass_count = pass_count + 1
+    Dim v_EMISSION_SHAPE_MAX As Integer = ParticleProcessMaterial.EMISSION_SHAPE_MAX
+    If v_EMISSION_SHAPE_MAX = 7 Then pass_count = pass_count + 1
+    If pass_count = 8 Then
+        Print "PASS:enum_ParticleProcessMaterial_EmissionShape"
+    Else
+        Print "FAIL:enum_ParticleProcessMaterial_EmissionShape count=" & str(pass_count) & "/8"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_ParticleProcessMaterial_EmissionShape err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_SUB_EMITTER_DISABLED As Integer = ParticleProcessMaterial.SUB_EMITTER_DISABLED
+    If v_SUB_EMITTER_DISABLED = 0 Then pass_count = pass_count + 1
+    Dim v_SUB_EMITTER_CONSTANT As Integer = ParticleProcessMaterial.SUB_EMITTER_CONSTANT
+    If v_SUB_EMITTER_CONSTANT = 1 Then pass_count = pass_count + 1
+    Dim v_SUB_EMITTER_AT_END As Integer = ParticleProcessMaterial.SUB_EMITTER_AT_END
+    If v_SUB_EMITTER_AT_END = 2 Then pass_count = pass_count + 1
+    Dim v_SUB_EMITTER_AT_COLLISION As Integer = ParticleProcessMaterial.SUB_EMITTER_AT_COLLISION
+    If v_SUB_EMITTER_AT_COLLISION = 3 Then pass_count = pass_count + 1
+    Dim v_SUB_EMITTER_AT_START As Integer = ParticleProcessMaterial.SUB_EMITTER_AT_START
+    If v_SUB_EMITTER_AT_START = 4 Then pass_count = pass_count + 1
+    Dim v_SUB_EMITTER_MAX As Integer = ParticleProcessMaterial.SUB_EMITTER_MAX
+    If v_SUB_EMITTER_MAX = 5 Then pass_count = pass_count + 1
+    If pass_count = 6 Then
+        Print "PASS:enum_ParticleProcessMaterial_SubEmitterMode"
+    Else
+        Print "FAIL:enum_ParticleProcessMaterial_SubEmitterMode count=" & str(pass_count) & "/6"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_ParticleProcessMaterial_SubEmitterMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_COLLISION_DISABLED As Integer = ParticleProcessMaterial.COLLISION_DISABLED
+    If v_COLLISION_DISABLED = 0 Then pass_count = pass_count + 1
+    Dim v_COLLISION_RIGID As Integer = ParticleProcessMaterial.COLLISION_RIGID
+    If v_COLLISION_RIGID = 1 Then pass_count = pass_count + 1
+    Dim v_COLLISION_HIDE_ON_CONTACT As Integer = ParticleProcessMaterial.COLLISION_HIDE_ON_CONTACT
+    If v_COLLISION_HIDE_ON_CONTACT = 2 Then pass_count = pass_count + 1
+    Dim v_COLLISION_MAX As Integer = ParticleProcessMaterial.COLLISION_MAX
+    If v_COLLISION_MAX = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_ParticleProcessMaterial_CollisionMode"
+    Else
+        Print "FAIL:enum_ParticleProcessMaterial_CollisionMode count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_ParticleProcessMaterial_CollisionMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_ROTATION_NONE As Integer = PathFollow3D.ROTATION_NONE
+    If v_ROTATION_NONE = 0 Then pass_count = pass_count + 1
+    Dim v_ROTATION_Y As Integer = PathFollow3D.ROTATION_Y
+    If v_ROTATION_Y = 1 Then pass_count = pass_count + 1
+    Dim v_ROTATION_XY As Integer = PathFollow3D.ROTATION_XY
+    If v_ROTATION_XY = 2 Then pass_count = pass_count + 1
+    Dim v_ROTATION_XYZ As Integer = PathFollow3D.ROTATION_XYZ
+    If v_ROTATION_XYZ = 3 Then pass_count = pass_count + 1
+    Dim v_ROTATION_ORIENTED As Integer = PathFollow3D.ROTATION_ORIENTED
+    If v_ROTATION_ORIENTED = 4 Then pass_count = pass_count + 1
+    If pass_count = 5 Then
+        Print "PASS:enum_PathFollow3D_RotationMode"
+    Else
+        Print "FAIL:enum_PathFollow3D_RotationMode count=" & str(pass_count) & "/5"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_PathFollow3D_RotationMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_DAMP_MODE_COMBINE As Integer = PhysicalBone3D.DAMP_MODE_COMBINE
+    If v_DAMP_MODE_COMBINE = 0 Then pass_count = pass_count + 1
+    Dim v_DAMP_MODE_REPLACE As Integer = PhysicalBone3D.DAMP_MODE_REPLACE
+    If v_DAMP_MODE_REPLACE = 1 Then pass_count = pass_count + 1
+    If pass_count = 2 Then
+        Print "PASS:enum_PhysicalBone3D_DampMode"
+    Else
+        Print "FAIL:enum_PhysicalBone3D_DampMode count=" & str(pass_count) & "/2"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_PhysicalBone3D_DampMode err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

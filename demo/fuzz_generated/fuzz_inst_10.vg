@@ -1,0 +1,159 @@
+Attribute VB_Name = "fuzz_inst_10"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As AESContext = AESContext.new()
+    If obj <> Null Then
+        Print "PASS:inst_AESContext"
+    Else
+        Print "FAIL:inst_AESContext returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AESContext err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As AStar2D = AStar2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_AStar2D"
+    Else
+        Print "FAIL:inst_AStar2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AStar2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As AStar3D = AStar3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_AStar3D"
+    Else
+        Print "FAIL:inst_AStar3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AStar3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As AStarGrid2D = AStarGrid2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_AStarGrid2D"
+    Else
+        Print "FAIL:inst_AStarGrid2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AStarGrid2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As AimModifier3D = AimModifier3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_AimModifier3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_AimModifier3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AimModifier3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As AnimatableBody2D = AnimatableBody2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_AnimatableBody2D"
+        obj.free()
+    Else
+        Print "FAIL:inst_AnimatableBody2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AnimatableBody2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As AnimatableBody3D = AnimatableBody3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_AnimatableBody3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_AnimatableBody3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AnimatableBody3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As AnimatedSprite2D = AnimatedSprite2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_AnimatedSprite2D"
+        obj.free()
+    Else
+        Print "FAIL:inst_AnimatedSprite2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AnimatedSprite2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As AnimatedSprite3D = AnimatedSprite3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_AnimatedSprite3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_AnimatedSprite3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AnimatedSprite3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As AnimatedTexture = AnimatedTexture.new()
+    If obj <> Null Then
+        Print "PASS:inst_AnimatedTexture"
+    Else
+        Print "FAIL:inst_AnimatedTexture returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AnimatedTexture err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

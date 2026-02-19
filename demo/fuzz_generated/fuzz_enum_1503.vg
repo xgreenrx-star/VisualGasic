@@ -1,0 +1,150 @@
+Attribute VB_Name = "fuzz_enum_1503"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_HINTING_NONE As Integer = TextServer.HINTING_NONE
+    If v_HINTING_NONE = 0 Then pass_count = pass_count + 1
+    Dim v_HINTING_LIGHT As Integer = TextServer.HINTING_LIGHT
+    If v_HINTING_LIGHT = 1 Then pass_count = pass_count + 1
+    Dim v_HINTING_NORMAL As Integer = TextServer.HINTING_NORMAL
+    If v_HINTING_NORMAL = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_TextServer_Hinting"
+    Else
+        Print "FAIL:enum_TextServer_Hinting count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_TextServer_Hinting err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_SUBPIXEL_POSITIONING_DISABLED As Integer = TextServer.SUBPIXEL_POSITIONING_DISABLED
+    If v_SUBPIXEL_POSITIONING_DISABLED = 0 Then pass_count = pass_count + 1
+    Dim v_SUBPIXEL_POSITIONING_AUTO As Integer = TextServer.SUBPIXEL_POSITIONING_AUTO
+    If v_SUBPIXEL_POSITIONING_AUTO = 1 Then pass_count = pass_count + 1
+    Dim v_SUBPIXEL_POSITIONING_ONE_HALF As Integer = TextServer.SUBPIXEL_POSITIONING_ONE_HALF
+    If v_SUBPIXEL_POSITIONING_ONE_HALF = 2 Then pass_count = pass_count + 1
+    Dim v_SUBPIXEL_POSITIONING_ONE_QUARTER As Integer = TextServer.SUBPIXEL_POSITIONING_ONE_QUARTER
+    If v_SUBPIXEL_POSITIONING_ONE_QUARTER = 3 Then pass_count = pass_count + 1
+    Dim v_SUBPIXEL_POSITIONING_ONE_HALF_MAX_SIZE As Integer = TextServer.SUBPIXEL_POSITIONING_ONE_HALF_MAX_SIZE
+    If v_SUBPIXEL_POSITIONING_ONE_HALF_MAX_SIZE = 20 Then pass_count = pass_count + 1
+    Dim v_SUBPIXEL_POSITIONING_ONE_QUARTER_MAX_SIZE As Integer = TextServer.SUBPIXEL_POSITIONING_ONE_QUARTER_MAX_SIZE
+    If v_SUBPIXEL_POSITIONING_ONE_QUARTER_MAX_SIZE = 16 Then pass_count = pass_count + 1
+    If pass_count = 6 Then
+        Print "PASS:enum_TextServer_SubpixelPositioning"
+    Else
+        Print "FAIL:enum_TextServer_SubpixelPositioning count=" & str(pass_count) & "/6"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_TextServer_SubpixelPositioning err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_FEATURE_SIMPLE_LAYOUT As Integer = TextServer.FEATURE_SIMPLE_LAYOUT
+    If v_FEATURE_SIMPLE_LAYOUT = 1 Then pass_count = pass_count + 1
+    Dim v_FEATURE_BIDI_LAYOUT As Integer = TextServer.FEATURE_BIDI_LAYOUT
+    If v_FEATURE_BIDI_LAYOUT = 2 Then pass_count = pass_count + 1
+    Dim v_FEATURE_VERTICAL_LAYOUT As Integer = TextServer.FEATURE_VERTICAL_LAYOUT
+    If v_FEATURE_VERTICAL_LAYOUT = 4 Then pass_count = pass_count + 1
+    Dim v_FEATURE_SHAPING As Integer = TextServer.FEATURE_SHAPING
+    If v_FEATURE_SHAPING = 8 Then pass_count = pass_count + 1
+    Dim v_FEATURE_KASHIDA_JUSTIFICATION As Integer = TextServer.FEATURE_KASHIDA_JUSTIFICATION
+    If v_FEATURE_KASHIDA_JUSTIFICATION = 16 Then pass_count = pass_count + 1
+    Dim v_FEATURE_BREAK_ITERATORS As Integer = TextServer.FEATURE_BREAK_ITERATORS
+    If v_FEATURE_BREAK_ITERATORS = 32 Then pass_count = pass_count + 1
+    Dim v_FEATURE_FONT_BITMAP As Integer = TextServer.FEATURE_FONT_BITMAP
+    If v_FEATURE_FONT_BITMAP = 64 Then pass_count = pass_count + 1
+    Dim v_FEATURE_FONT_DYNAMIC As Integer = TextServer.FEATURE_FONT_DYNAMIC
+    If v_FEATURE_FONT_DYNAMIC = 128 Then pass_count = pass_count + 1
+    If pass_count = 8 Then
+        Print "PASS:enum_TextServer_Feature"
+    Else
+        Print "FAIL:enum_TextServer_Feature count=" & str(pass_count) & "/8"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_TextServer_Feature err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_CONTOUR_CURVE_TAG_ON As Integer = TextServer.CONTOUR_CURVE_TAG_ON
+    If v_CONTOUR_CURVE_TAG_ON = 1 Then pass_count = pass_count + 1
+    Dim v_CONTOUR_CURVE_TAG_OFF_CONIC As Integer = TextServer.CONTOUR_CURVE_TAG_OFF_CONIC
+    If v_CONTOUR_CURVE_TAG_OFF_CONIC = 0 Then pass_count = pass_count + 1
+    Dim v_CONTOUR_CURVE_TAG_OFF_CUBIC As Integer = TextServer.CONTOUR_CURVE_TAG_OFF_CUBIC
+    If v_CONTOUR_CURVE_TAG_OFF_CUBIC = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_TextServer_ContourPointTag"
+    Else
+        Print "FAIL:enum_TextServer_ContourPointTag count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_TextServer_ContourPointTag err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_SPACING_GLYPH As Integer = TextServer.SPACING_GLYPH
+    If v_SPACING_GLYPH = 0 Then pass_count = pass_count + 1
+    Dim v_SPACING_SPACE As Integer = TextServer.SPACING_SPACE
+    If v_SPACING_SPACE = 1 Then pass_count = pass_count + 1
+    Dim v_SPACING_TOP As Integer = TextServer.SPACING_TOP
+    If v_SPACING_TOP = 2 Then pass_count = pass_count + 1
+    Dim v_SPACING_BOTTOM As Integer = TextServer.SPACING_BOTTOM
+    If v_SPACING_BOTTOM = 3 Then pass_count = pass_count + 1
+    Dim v_SPACING_MAX As Integer = TextServer.SPACING_MAX
+    If v_SPACING_MAX = 4 Then pass_count = pass_count + 1
+    If pass_count = 5 Then
+        Print "PASS:enum_TextServer_SpacingType"
+    Else
+        Print "FAIL:enum_TextServer_SpacingType count=" & str(pass_count) & "/5"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_TextServer_SpacingType err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_FONT_BOLD As Integer = TextServer.FONT_BOLD
+    If v_FONT_BOLD = 1 Then pass_count = pass_count + 1
+    Dim v_FONT_ITALIC As Integer = TextServer.FONT_ITALIC
+    If v_FONT_ITALIC = 2 Then pass_count = pass_count + 1
+    Dim v_FONT_FIXED_WIDTH As Integer = TextServer.FONT_FIXED_WIDTH
+    If v_FONT_FIXED_WIDTH = 4 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_TextServer_FontStyle"
+    Else
+        Print "FAIL:enum_TextServer_FontStyle count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_TextServer_FontStyle err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

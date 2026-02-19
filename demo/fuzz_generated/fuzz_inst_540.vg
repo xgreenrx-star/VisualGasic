@@ -1,0 +1,156 @@
+Attribute VB_Name = "fuzz_inst_540"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As StyleBoxEmpty = StyleBoxEmpty.new()
+    If obj <> Null Then
+        Print "PASS:inst_StyleBoxEmpty"
+    Else
+        Print "FAIL:inst_StyleBoxEmpty returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_StyleBoxEmpty err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As StyleBoxFlat = StyleBoxFlat.new()
+    If obj <> Null Then
+        Print "PASS:inst_StyleBoxFlat"
+    Else
+        Print "FAIL:inst_StyleBoxFlat returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_StyleBoxFlat err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As StyleBoxLine = StyleBoxLine.new()
+    If obj <> Null Then
+        Print "PASS:inst_StyleBoxLine"
+    Else
+        Print "FAIL:inst_StyleBoxLine returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_StyleBoxLine err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As StyleBoxTexture = StyleBoxTexture.new()
+    If obj <> Null Then
+        Print "PASS:inst_StyleBoxTexture"
+    Else
+        Print "FAIL:inst_StyleBoxTexture returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_StyleBoxTexture err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As SubViewport = SubViewport.new()
+    If obj <> Null Then
+        Print "PASS:inst_SubViewport"
+        obj.free()
+    Else
+        Print "FAIL:inst_SubViewport returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_SubViewport err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As SubViewportContainer = SubViewportContainer.new()
+    If obj <> Null Then
+        Print "PASS:inst_SubViewportContainer"
+        obj.free()
+    Else
+        Print "FAIL:inst_SubViewportContainer returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_SubViewportContainer err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As SurfaceTool = SurfaceTool.new()
+    If obj <> Null Then
+        Print "PASS:inst_SurfaceTool"
+    Else
+        Print "FAIL:inst_SurfaceTool returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_SurfaceTool err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As SyntaxHighlighter = SyntaxHighlighter.new()
+    If obj <> Null Then
+        Print "PASS:inst_SyntaxHighlighter"
+    Else
+        Print "FAIL:inst_SyntaxHighlighter returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_SyntaxHighlighter err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As SystemFont = SystemFont.new()
+    If obj <> Null Then
+        Print "PASS:inst_SystemFont"
+    Else
+        Print "FAIL:inst_SystemFont returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_SystemFont err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As TCPServer = TCPServer.new()
+    If obj <> Null Then
+        Print "PASS:inst_TCPServer"
+    Else
+        Print "FAIL:inst_TCPServer returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_TCPServer err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

@@ -1,0 +1,154 @@
+Attribute VB_Name = "fuzz_enum_1471"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_COMPONENT_TYPE_NONE As Integer = GLTFAccessor.COMPONENT_TYPE_NONE
+    If v_COMPONENT_TYPE_NONE = 0 Then pass_count = pass_count + 1
+    Dim v_COMPONENT_TYPE_SIGNED_BYTE As Integer = GLTFAccessor.COMPONENT_TYPE_SIGNED_BYTE
+    If v_COMPONENT_TYPE_SIGNED_BYTE = 5120 Then pass_count = pass_count + 1
+    Dim v_COMPONENT_TYPE_UNSIGNED_BYTE As Integer = GLTFAccessor.COMPONENT_TYPE_UNSIGNED_BYTE
+    If v_COMPONENT_TYPE_UNSIGNED_BYTE = 5121 Then pass_count = pass_count + 1
+    Dim v_COMPONENT_TYPE_SIGNED_SHORT As Integer = GLTFAccessor.COMPONENT_TYPE_SIGNED_SHORT
+    If v_COMPONENT_TYPE_SIGNED_SHORT = 5122 Then pass_count = pass_count + 1
+    Dim v_COMPONENT_TYPE_UNSIGNED_SHORT As Integer = GLTFAccessor.COMPONENT_TYPE_UNSIGNED_SHORT
+    If v_COMPONENT_TYPE_UNSIGNED_SHORT = 5123 Then pass_count = pass_count + 1
+    Dim v_COMPONENT_TYPE_SIGNED_INT As Integer = GLTFAccessor.COMPONENT_TYPE_SIGNED_INT
+    If v_COMPONENT_TYPE_SIGNED_INT = 5124 Then pass_count = pass_count + 1
+    Dim v_COMPONENT_TYPE_UNSIGNED_INT As Integer = GLTFAccessor.COMPONENT_TYPE_UNSIGNED_INT
+    If v_COMPONENT_TYPE_UNSIGNED_INT = 5125 Then pass_count = pass_count + 1
+    Dim v_COMPONENT_TYPE_SINGLE_FLOAT As Integer = GLTFAccessor.COMPONENT_TYPE_SINGLE_FLOAT
+    If v_COMPONENT_TYPE_SINGLE_FLOAT = 5126 Then pass_count = pass_count + 1
+    If pass_count = 8 Then
+        Print "PASS:enum_GLTFAccessor_GLTFComponentType"
+    Else
+        Print "FAIL:enum_GLTFAccessor_GLTFComponentType count=" & str(pass_count) & "/8"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_GLTFAccessor_GLTFComponentType err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_ROOT_NODE_MODE_SINGLE_ROOT As Integer = GLTFDocument.ROOT_NODE_MODE_SINGLE_ROOT
+    If v_ROOT_NODE_MODE_SINGLE_ROOT = 0 Then pass_count = pass_count + 1
+    Dim v_ROOT_NODE_MODE_KEEP_ROOT As Integer = GLTFDocument.ROOT_NODE_MODE_KEEP_ROOT
+    If v_ROOT_NODE_MODE_KEEP_ROOT = 1 Then pass_count = pass_count + 1
+    Dim v_ROOT_NODE_MODE_MULTI_ROOT As Integer = GLTFDocument.ROOT_NODE_MODE_MULTI_ROOT
+    If v_ROOT_NODE_MODE_MULTI_ROOT = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_GLTFDocument_RootNodeMode"
+    Else
+        Print "FAIL:enum_GLTFDocument_RootNodeMode count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_GLTFDocument_RootNodeMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_VISIBILITY_MODE_INCLUDE_REQUIRED As Integer = GLTFDocument.VISIBILITY_MODE_INCLUDE_REQUIRED
+    If v_VISIBILITY_MODE_INCLUDE_REQUIRED = 0 Then pass_count = pass_count + 1
+    Dim v_VISIBILITY_MODE_INCLUDE_OPTIONAL As Integer = GLTFDocument.VISIBILITY_MODE_INCLUDE_OPTIONAL
+    If v_VISIBILITY_MODE_INCLUDE_OPTIONAL = 1 Then pass_count = pass_count + 1
+    Dim v_VISIBILITY_MODE_EXCLUDE As Integer = GLTFDocument.VISIBILITY_MODE_EXCLUDE
+    If v_VISIBILITY_MODE_EXCLUDE = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_GLTFDocument_VisibilityMode"
+    Else
+        Print "FAIL:enum_GLTFDocument_VisibilityMode count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_GLTFDocument_VisibilityMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_GLTF_OBJECT_MODEL_TYPE_UNKNOWN As Integer = GLTFObjectModelProperty.GLTF_OBJECT_MODEL_TYPE_UNKNOWN
+    If v_GLTF_OBJECT_MODEL_TYPE_UNKNOWN = 0 Then pass_count = pass_count + 1
+    Dim v_GLTF_OBJECT_MODEL_TYPE_BOOL As Integer = GLTFObjectModelProperty.GLTF_OBJECT_MODEL_TYPE_BOOL
+    If v_GLTF_OBJECT_MODEL_TYPE_BOOL = 1 Then pass_count = pass_count + 1
+    Dim v_GLTF_OBJECT_MODEL_TYPE_FLOAT As Integer = GLTFObjectModelProperty.GLTF_OBJECT_MODEL_TYPE_FLOAT
+    If v_GLTF_OBJECT_MODEL_TYPE_FLOAT = 2 Then pass_count = pass_count + 1
+    Dim v_GLTF_OBJECT_MODEL_TYPE_FLOAT_ARRAY As Integer = GLTFObjectModelProperty.GLTF_OBJECT_MODEL_TYPE_FLOAT_ARRAY
+    If v_GLTF_OBJECT_MODEL_TYPE_FLOAT_ARRAY = 3 Then pass_count = pass_count + 1
+    Dim v_GLTF_OBJECT_MODEL_TYPE_FLOAT2 As Integer = GLTFObjectModelProperty.GLTF_OBJECT_MODEL_TYPE_FLOAT2
+    If v_GLTF_OBJECT_MODEL_TYPE_FLOAT2 = 4 Then pass_count = pass_count + 1
+    Dim v_GLTF_OBJECT_MODEL_TYPE_FLOAT3 As Integer = GLTFObjectModelProperty.GLTF_OBJECT_MODEL_TYPE_FLOAT3
+    If v_GLTF_OBJECT_MODEL_TYPE_FLOAT3 = 5 Then pass_count = pass_count + 1
+    Dim v_GLTF_OBJECT_MODEL_TYPE_FLOAT4 As Integer = GLTFObjectModelProperty.GLTF_OBJECT_MODEL_TYPE_FLOAT4
+    If v_GLTF_OBJECT_MODEL_TYPE_FLOAT4 = 6 Then pass_count = pass_count + 1
+    Dim v_GLTF_OBJECT_MODEL_TYPE_FLOAT2X2 As Integer = GLTFObjectModelProperty.GLTF_OBJECT_MODEL_TYPE_FLOAT2X2
+    If v_GLTF_OBJECT_MODEL_TYPE_FLOAT2X2 = 7 Then pass_count = pass_count + 1
+    If pass_count = 8 Then
+        Print "PASS:enum_GLTFObjectModelProperty_GLTFObjectModelType"
+    Else
+        Print "FAIL:enum_GLTFObjectModelProperty_GLTFObjectModelType count=" & str(pass_count) & "/8"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_GLTFObjectModelProperty_GLTFObjectModelType err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_DRAW_ORDER_INDEX As Integer = GPUParticles2D.DRAW_ORDER_INDEX
+    If v_DRAW_ORDER_INDEX = 0 Then pass_count = pass_count + 1
+    Dim v_DRAW_ORDER_LIFETIME As Integer = GPUParticles2D.DRAW_ORDER_LIFETIME
+    If v_DRAW_ORDER_LIFETIME = 1 Then pass_count = pass_count + 1
+    Dim v_DRAW_ORDER_REVERSE_LIFETIME As Integer = GPUParticles2D.DRAW_ORDER_REVERSE_LIFETIME
+    If v_DRAW_ORDER_REVERSE_LIFETIME = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_GPUParticles2D_DrawOrder"
+    Else
+        Print "FAIL:enum_GPUParticles2D_DrawOrder count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_GPUParticles2D_DrawOrder err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_EMIT_FLAG_POSITION As Integer = GPUParticles2D.EMIT_FLAG_POSITION
+    If v_EMIT_FLAG_POSITION = 1 Then pass_count = pass_count + 1
+    Dim v_EMIT_FLAG_ROTATION_SCALE As Integer = GPUParticles2D.EMIT_FLAG_ROTATION_SCALE
+    If v_EMIT_FLAG_ROTATION_SCALE = 2 Then pass_count = pass_count + 1
+    Dim v_EMIT_FLAG_VELOCITY As Integer = GPUParticles2D.EMIT_FLAG_VELOCITY
+    If v_EMIT_FLAG_VELOCITY = 4 Then pass_count = pass_count + 1
+    Dim v_EMIT_FLAG_COLOR As Integer = GPUParticles2D.EMIT_FLAG_COLOR
+    If v_EMIT_FLAG_COLOR = 8 Then pass_count = pass_count + 1
+    Dim v_EMIT_FLAG_CUSTOM As Integer = GPUParticles2D.EMIT_FLAG_CUSTOM
+    If v_EMIT_FLAG_CUSTOM = 16 Then pass_count = pass_count + 1
+    If pass_count = 5 Then
+        Print "PASS:enum_GPUParticles2D_EmitFlags"
+    Else
+        Print "FAIL:enum_GPUParticles2D_EmitFlags count=" & str(pass_count) & "/5"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_GPUParticles2D_EmitFlags err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

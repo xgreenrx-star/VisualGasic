@@ -1,0 +1,172 @@
+Attribute VB_Name = "fuzz_meth_1611"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As Sprite3D = Sprite3D.new()
+    If obj = Null Then
+        Print "SKIP:meth_Sprite3D (null)"
+        Exit Sub
+    End If
+    Dim r_get_texture As Variant = obj.get_texture()
+    Print "PASS:meth_Sprite3D_get_texture"
+    Dim r_is_region_enabled As Variant = obj.is_region_enabled()
+    Print "PASS:meth_Sprite3D_is_region_enabled"
+    Dim r_get_region_rect As Variant = obj.get_region_rect()
+    Print "PASS:meth_Sprite3D_get_region_rect"
+    Dim r_get_frame As Variant = obj.get_frame()
+    Print "PASS:meth_Sprite3D_get_frame"
+    Dim r_get_frame_coords As Variant = obj.get_frame_coords()
+    Print "PASS:meth_Sprite3D_get_frame_coords"
+    Dim r_get_vframes As Variant = obj.get_vframes()
+    Print "PASS:meth_Sprite3D_get_vframes"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_Sprite3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As RigidBody2D = RigidBody2D.new()
+    If obj = Null Then
+        Print "SKIP:meth_RigidBody2D (null)"
+        Exit Sub
+    End If
+    Dim r_get_mass As Variant = obj.get_mass()
+    Print "PASS:meth_RigidBody2D_get_mass"
+    Dim r_get_inertia As Variant = obj.get_inertia()
+    Print "PASS:meth_RigidBody2D_get_inertia"
+    Dim r_get_center_of_mass_mode As Variant = obj.get_center_of_mass_mode()
+    Print "PASS:meth_RigidBody2D_get_center_of_mass_mode"
+    Dim r_get_center_of_mass As Variant = obj.get_center_of_mass()
+    Print "PASS:meth_RigidBody2D_get_center_of_mass"
+    Dim r_get_physics_material_override As Variant = obj.get_physics_material_override()
+    Print "PASS:meth_RigidBody2D_get_physics_material_override"
+    Dim r_get_gravity_scale As Variant = obj.get_gravity_scale()
+    Print "PASS:meth_RigidBody2D_get_gravity_scale"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_RigidBody2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As CPUParticles2D = CPUParticles2D.new()
+    If obj = Null Then
+        Print "SKIP:meth_CPUParticles2D (null)"
+        Exit Sub
+    End If
+    Dim r_is_emitting As Variant = obj.is_emitting()
+    Print "PASS:meth_CPUParticles2D_is_emitting"
+    Dim r_get_amount As Variant = obj.get_amount()
+    Print "PASS:meth_CPUParticles2D_get_amount"
+    Dim r_get_lifetime As Variant = obj.get_lifetime()
+    Print "PASS:meth_CPUParticles2D_get_lifetime"
+    Dim r_get_one_shot As Variant = obj.get_one_shot()
+    Print "PASS:meth_CPUParticles2D_get_one_shot"
+    Dim r_get_pre_process_time As Variant = obj.get_pre_process_time()
+    Print "PASS:meth_CPUParticles2D_get_pre_process_time"
+    Dim r_get_explosiveness_ratio As Variant = obj.get_explosiveness_ratio()
+    Print "PASS:meth_CPUParticles2D_get_explosiveness_ratio"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_CPUParticles2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As SoftBody3D = SoftBody3D.new()
+    If obj = Null Then
+        Print "SKIP:meth_SoftBody3D (null)"
+        Exit Sub
+    End If
+    Dim r_get_physics_rid As Variant = obj.get_physics_rid()
+    Print "PASS:meth_SoftBody3D_get_physics_rid"
+    Dim r_get_collision_mask As Variant = obj.get_collision_mask()
+    Print "PASS:meth_SoftBody3D_get_collision_mask"
+    Dim r_get_collision_layer As Variant = obj.get_collision_layer()
+    Print "PASS:meth_SoftBody3D_get_collision_layer"
+    Dim r_get_parent_collision_ignore As Variant = obj.get_parent_collision_ignore()
+    Print "PASS:meth_SoftBody3D_get_parent_collision_ignore"
+    Dim r_get_disable_mode As Variant = obj.get_disable_mode()
+    Print "PASS:meth_SoftBody3D_get_disable_mode"
+    Dim r_get_collision_exceptions As Variant = obj.get_collision_exceptions()
+    Print "PASS:meth_SoftBody3D_get_collision_exceptions"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_SoftBody3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As CSGCylinder3D = CSGCylinder3D.new()
+    If obj = Null Then
+        Print "SKIP:meth_CSGCylinder3D (null)"
+        Exit Sub
+    End If
+    Dim r_get_radius As Variant = obj.get_radius()
+    Print "PASS:meth_CSGCylinder3D_get_radius"
+    Dim r_get_height As Variant = obj.get_height()
+    Print "PASS:meth_CSGCylinder3D_get_height"
+    Dim r_get_sides As Variant = obj.get_sides()
+    Print "PASS:meth_CSGCylinder3D_get_sides"
+    Dim r_is_cone As Variant = obj.is_cone()
+    Print "PASS:meth_CSGCylinder3D_is_cone"
+    Dim r_get_material As Variant = obj.get_material()
+    Print "PASS:meth_CSGCylinder3D_get_material"
+    Dim r_get_smooth_faces As Variant = obj.get_smooth_faces()
+    Print "PASS:meth_CSGCylinder3D_get_smooth_faces"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_CSGCylinder3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As CSGTorus3D = CSGTorus3D.new()
+    If obj = Null Then
+        Print "SKIP:meth_CSGTorus3D (null)"
+        Exit Sub
+    End If
+    Dim r_get_inner_radius As Variant = obj.get_inner_radius()
+    Print "PASS:meth_CSGTorus3D_get_inner_radius"
+    Dim r_get_outer_radius As Variant = obj.get_outer_radius()
+    Print "PASS:meth_CSGTorus3D_get_outer_radius"
+    Dim r_get_sides As Variant = obj.get_sides()
+    Print "PASS:meth_CSGTorus3D_get_sides"
+    Dim r_get_ring_sides As Variant = obj.get_ring_sides()
+    Print "PASS:meth_CSGTorus3D_get_ring_sides"
+    Dim r_get_material As Variant = obj.get_material()
+    Print "PASS:meth_CSGTorus3D_get_material"
+    Dim r_get_smooth_faces As Variant = obj.get_smooth_faces()
+    Print "PASS:meth_CSGTorus3D_get_smooth_faces"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_CSGTorus3D err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

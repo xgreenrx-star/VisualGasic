@@ -1,0 +1,154 @@
+Attribute VB_Name = "fuzz_enum_1507"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_SELECT_SINGLE As Integer = Tree.SELECT_SINGLE
+    If v_SELECT_SINGLE = 0 Then pass_count = pass_count + 1
+    Dim v_SELECT_ROW As Integer = Tree.SELECT_ROW
+    If v_SELECT_ROW = 1 Then pass_count = pass_count + 1
+    Dim v_SELECT_MULTI As Integer = Tree.SELECT_MULTI
+    If v_SELECT_MULTI = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_Tree_SelectMode"
+    Else
+        Print "FAIL:enum_Tree_SelectMode count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Tree_SelectMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_DROP_MODE_DISABLED As Integer = Tree.DROP_MODE_DISABLED
+    If v_DROP_MODE_DISABLED = 0 Then pass_count = pass_count + 1
+    Dim v_DROP_MODE_ON_ITEM As Integer = Tree.DROP_MODE_ON_ITEM
+    If v_DROP_MODE_ON_ITEM = 1 Then pass_count = pass_count + 1
+    Dim v_DROP_MODE_INBETWEEN As Integer = Tree.DROP_MODE_INBETWEEN
+    If v_DROP_MODE_INBETWEEN = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_Tree_DropModeFlags"
+    Else
+        Print "FAIL:enum_Tree_DropModeFlags count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Tree_DropModeFlags err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_CELL_MODE_STRING As Integer = TreeItem.CELL_MODE_STRING
+    If v_CELL_MODE_STRING = 0 Then pass_count = pass_count + 1
+    Dim v_CELL_MODE_CHECK As Integer = TreeItem.CELL_MODE_CHECK
+    If v_CELL_MODE_CHECK = 1 Then pass_count = pass_count + 1
+    Dim v_CELL_MODE_RANGE As Integer = TreeItem.CELL_MODE_RANGE
+    If v_CELL_MODE_RANGE = 2 Then pass_count = pass_count + 1
+    Dim v_CELL_MODE_ICON As Integer = TreeItem.CELL_MODE_ICON
+    If v_CELL_MODE_ICON = 3 Then pass_count = pass_count + 1
+    Dim v_CELL_MODE_CUSTOM As Integer = TreeItem.CELL_MODE_CUSTOM
+    If v_CELL_MODE_CUSTOM = 4 Then pass_count = pass_count + 1
+    If pass_count = 5 Then
+        Print "PASS:enum_TreeItem_TreeCellMode"
+    Else
+        Print "FAIL:enum_TreeItem_TreeCellMode count=" & str(pass_count) & "/5"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_TreeItem_TreeCellMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_UPNP_RESULT_SUCCESS As Integer = UPNP.UPNP_RESULT_SUCCESS
+    If v_UPNP_RESULT_SUCCESS = 0 Then pass_count = pass_count + 1
+    Dim v_UPNP_RESULT_NOT_AUTHORIZED As Integer = UPNP.UPNP_RESULT_NOT_AUTHORIZED
+    If v_UPNP_RESULT_NOT_AUTHORIZED = 1 Then pass_count = pass_count + 1
+    Dim v_UPNP_RESULT_PORT_MAPPING_NOT_FOUND As Integer = UPNP.UPNP_RESULT_PORT_MAPPING_NOT_FOUND
+    If v_UPNP_RESULT_PORT_MAPPING_NOT_FOUND = 2 Then pass_count = pass_count + 1
+    Dim v_UPNP_RESULT_INCONSISTENT_PARAMETERS As Integer = UPNP.UPNP_RESULT_INCONSISTENT_PARAMETERS
+    If v_UPNP_RESULT_INCONSISTENT_PARAMETERS = 3 Then pass_count = pass_count + 1
+    Dim v_UPNP_RESULT_NO_SUCH_ENTRY_IN_ARRAY As Integer = UPNP.UPNP_RESULT_NO_SUCH_ENTRY_IN_ARRAY
+    If v_UPNP_RESULT_NO_SUCH_ENTRY_IN_ARRAY = 4 Then pass_count = pass_count + 1
+    Dim v_UPNP_RESULT_ACTION_FAILED As Integer = UPNP.UPNP_RESULT_ACTION_FAILED
+    If v_UPNP_RESULT_ACTION_FAILED = 5 Then pass_count = pass_count + 1
+    Dim v_UPNP_RESULT_SRC_IP_WILDCARD_NOT_PERMITTED As Integer = UPNP.UPNP_RESULT_SRC_IP_WILDCARD_NOT_PERMITTED
+    If v_UPNP_RESULT_SRC_IP_WILDCARD_NOT_PERMITTED = 6 Then pass_count = pass_count + 1
+    Dim v_UPNP_RESULT_EXT_PORT_WILDCARD_NOT_PERMITTED As Integer = UPNP.UPNP_RESULT_EXT_PORT_WILDCARD_NOT_PERMITTED
+    If v_UPNP_RESULT_EXT_PORT_WILDCARD_NOT_PERMITTED = 7 Then pass_count = pass_count + 1
+    If pass_count = 8 Then
+        Print "PASS:enum_UPNP_UPNPResult"
+    Else
+        Print "FAIL:enum_UPNP_UPNPResult count=" & str(pass_count) & "/8"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_UPNP_UPNPResult err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_IGD_STATUS_OK As Integer = UPNPDevice.IGD_STATUS_OK
+    If v_IGD_STATUS_OK = 0 Then pass_count = pass_count + 1
+    Dim v_IGD_STATUS_HTTP_ERROR As Integer = UPNPDevice.IGD_STATUS_HTTP_ERROR
+    If v_IGD_STATUS_HTTP_ERROR = 1 Then pass_count = pass_count + 1
+    Dim v_IGD_STATUS_HTTP_EMPTY As Integer = UPNPDevice.IGD_STATUS_HTTP_EMPTY
+    If v_IGD_STATUS_HTTP_EMPTY = 2 Then pass_count = pass_count + 1
+    Dim v_IGD_STATUS_NO_URLS As Integer = UPNPDevice.IGD_STATUS_NO_URLS
+    If v_IGD_STATUS_NO_URLS = 3 Then pass_count = pass_count + 1
+    Dim v_IGD_STATUS_NO_IGD As Integer = UPNPDevice.IGD_STATUS_NO_IGD
+    If v_IGD_STATUS_NO_IGD = 4 Then pass_count = pass_count + 1
+    Dim v_IGD_STATUS_DISCONNECTED As Integer = UPNPDevice.IGD_STATUS_DISCONNECTED
+    If v_IGD_STATUS_DISCONNECTED = 5 Then pass_count = pass_count + 1
+    Dim v_IGD_STATUS_UNKNOWN_DEVICE As Integer = UPNPDevice.IGD_STATUS_UNKNOWN_DEVICE
+    If v_IGD_STATUS_UNKNOWN_DEVICE = 6 Then pass_count = pass_count + 1
+    Dim v_IGD_STATUS_INVALID_CONTROL As Integer = UPNPDevice.IGD_STATUS_INVALID_CONTROL
+    If v_IGD_STATUS_INVALID_CONTROL = 7 Then pass_count = pass_count + 1
+    If pass_count = 8 Then
+        Print "PASS:enum_UPNPDevice_IGDStatus"
+    Else
+        Print "FAIL:enum_UPNPDevice_IGDStatus count=" & str(pass_count) & "/8"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_UPNPDevice_IGDStatus err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_MERGE_DISABLE As Integer = UndoRedo.MERGE_DISABLE
+    If v_MERGE_DISABLE = 0 Then pass_count = pass_count + 1
+    Dim v_MERGE_ENDS As Integer = UndoRedo.MERGE_ENDS
+    If v_MERGE_ENDS = 1 Then pass_count = pass_count + 1
+    Dim v_MERGE_ALL As Integer = UndoRedo.MERGE_ALL
+    If v_MERGE_ALL = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_UndoRedo_MergeMode"
+    Else
+        Print "FAIL:enum_UndoRedo_MergeMode count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_UndoRedo_MergeMode err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

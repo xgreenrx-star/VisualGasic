@@ -1,0 +1,160 @@
+Attribute VB_Name = "fuzz_inst_300"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As LookAtModifier3D = LookAtModifier3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_LookAtModifier3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_LookAtModifier3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_LookAtModifier3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As MarginContainer = MarginContainer.new()
+    If obj <> Null Then
+        Print "PASS:inst_MarginContainer"
+        obj.free()
+    Else
+        Print "FAIL:inst_MarginContainer returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_MarginContainer err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As Marker2D = Marker2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_Marker2D"
+        obj.free()
+    Else
+        Print "FAIL:inst_Marker2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_Marker2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As Marker3D = Marker3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_Marker3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_Marker3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_Marker3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As Material = Material.new()
+    If obj <> Null Then
+        Print "PASS:inst_Material"
+    Else
+        Print "FAIL:inst_Material returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_Material err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As MenuBar = MenuBar.new()
+    If obj <> Null Then
+        Print "PASS:inst_MenuBar"
+        obj.free()
+    Else
+        Print "FAIL:inst_MenuBar returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_MenuBar err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As MenuButton = MenuButton.new()
+    If obj <> Null Then
+        Print "PASS:inst_MenuButton"
+        obj.free()
+    Else
+        Print "FAIL:inst_MenuButton returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_MenuButton err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As Mesh = Mesh.new()
+    If obj <> Null Then
+        Print "PASS:inst_Mesh"
+    Else
+        Print "FAIL:inst_Mesh returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_Mesh err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As MeshConvexDecompositionSettings = MeshConvexDecompositionSettings.new()
+    If obj <> Null Then
+        Print "PASS:inst_MeshConvexDecompositionSettings"
+    Else
+        Print "FAIL:inst_MeshConvexDecompositionSettings returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_MeshConvexDecompositionSettings err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As MeshDataTool = MeshDataTool.new()
+    If obj <> Null Then
+        Print "PASS:inst_MeshDataTool"
+    Else
+        Print "FAIL:inst_MeshDataTool returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_MeshDataTool err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

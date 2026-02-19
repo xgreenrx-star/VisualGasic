@@ -1,0 +1,172 @@
+Attribute VB_Name = "fuzz_meth_1599"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As HSeparator = HSeparator.new()
+    If obj = Null Then
+        Print "SKIP:meth_HSeparator (null)"
+        Exit Sub
+    End If
+    Dim r_get_combined_minimum_size As Variant = obj.get_combined_minimum_size()
+    Print "PASS:meth_HSeparator_get_combined_minimum_size"
+    Dim r_get_begin As Variant = obj.get_begin()
+    Print "PASS:meth_HSeparator_get_begin"
+    Dim r_get_end As Variant = obj.get_end()
+    Print "PASS:meth_HSeparator_get_end"
+    Dim r_get_position As Variant = obj.get_position()
+    Print "PASS:meth_HSeparator_get_position"
+    Dim r_get_size As Variant = obj.get_size()
+    Print "PASS:meth_HSeparator_get_size"
+    Dim r_get_rotation As Variant = obj.get_rotation()
+    Print "PASS:meth_HSeparator_get_rotation"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_HSeparator err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As MarginContainer = MarginContainer.new()
+    If obj = Null Then
+        Print "SKIP:meth_MarginContainer (null)"
+        Exit Sub
+    End If
+    Dim r_get_combined_minimum_size As Variant = obj.get_combined_minimum_size()
+    Print "PASS:meth_MarginContainer_get_combined_minimum_size"
+    Dim r_get_begin As Variant = obj.get_begin()
+    Print "PASS:meth_MarginContainer_get_begin"
+    Dim r_get_end As Variant = obj.get_end()
+    Print "PASS:meth_MarginContainer_get_end"
+    Dim r_get_position As Variant = obj.get_position()
+    Print "PASS:meth_MarginContainer_get_position"
+    Dim r_get_size As Variant = obj.get_size()
+    Print "PASS:meth_MarginContainer_get_size"
+    Dim r_get_rotation As Variant = obj.get_rotation()
+    Print "PASS:meth_MarginContainer_get_rotation"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_MarginContainer err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As Panel = Panel.new()
+    If obj = Null Then
+        Print "SKIP:meth_Panel (null)"
+        Exit Sub
+    End If
+    Dim r_get_combined_minimum_size As Variant = obj.get_combined_minimum_size()
+    Print "PASS:meth_Panel_get_combined_minimum_size"
+    Dim r_get_begin As Variant = obj.get_begin()
+    Print "PASS:meth_Panel_get_begin"
+    Dim r_get_end As Variant = obj.get_end()
+    Print "PASS:meth_Panel_get_end"
+    Dim r_get_position As Variant = obj.get_position()
+    Print "PASS:meth_Panel_get_position"
+    Dim r_get_size As Variant = obj.get_size()
+    Print "PASS:meth_Panel_get_size"
+    Dim r_get_rotation As Variant = obj.get_rotation()
+    Print "PASS:meth_Panel_get_rotation"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_Panel err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As PanelContainer = PanelContainer.new()
+    If obj = Null Then
+        Print "SKIP:meth_PanelContainer (null)"
+        Exit Sub
+    End If
+    Dim r_get_combined_minimum_size As Variant = obj.get_combined_minimum_size()
+    Print "PASS:meth_PanelContainer_get_combined_minimum_size"
+    Dim r_get_begin As Variant = obj.get_begin()
+    Print "PASS:meth_PanelContainer_get_begin"
+    Dim r_get_end As Variant = obj.get_end()
+    Print "PASS:meth_PanelContainer_get_end"
+    Dim r_get_position As Variant = obj.get_position()
+    Print "PASS:meth_PanelContainer_get_position"
+    Dim r_get_size As Variant = obj.get_size()
+    Print "PASS:meth_PanelContainer_get_size"
+    Dim r_get_rotation As Variant = obj.get_rotation()
+    Print "PASS:meth_PanelContainer_get_rotation"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_PanelContainer err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As VSeparator = VSeparator.new()
+    If obj = Null Then
+        Print "SKIP:meth_VSeparator (null)"
+        Exit Sub
+    End If
+    Dim r_get_combined_minimum_size As Variant = obj.get_combined_minimum_size()
+    Print "PASS:meth_VSeparator_get_combined_minimum_size"
+    Dim r_get_begin As Variant = obj.get_begin()
+    Print "PASS:meth_VSeparator_get_begin"
+    Dim r_get_end As Variant = obj.get_end()
+    Print "PASS:meth_VSeparator_get_end"
+    Dim r_get_position As Variant = obj.get_position()
+    Print "PASS:meth_VSeparator_get_position"
+    Dim r_get_size As Variant = obj.get_size()
+    Print "PASS:meth_VSeparator_get_size"
+    Dim r_get_rotation As Variant = obj.get_rotation()
+    Print "PASS:meth_VSeparator_get_rotation"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_VSeparator err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As Label3D = Label3D.new()
+    If obj = Null Then
+        Print "SKIP:meth_Label3D (null)"
+        Exit Sub
+    End If
+    Dim r_get_horizontal_alignment As Variant = obj.get_horizontal_alignment()
+    Print "PASS:meth_Label3D_get_horizontal_alignment"
+    Dim r_get_vertical_alignment As Variant = obj.get_vertical_alignment()
+    Print "PASS:meth_Label3D_get_vertical_alignment"
+    Dim r_get_modulate As Variant = obj.get_modulate()
+    Print "PASS:meth_Label3D_get_modulate"
+    Dim r_get_outline_modulate As Variant = obj.get_outline_modulate()
+    Print "PASS:meth_Label3D_get_outline_modulate"
+    Dim r_get_text As Variant = obj.get_text()
+    Print "PASS:meth_Label3D_get_text"
+    Dim r_get_text_direction As Variant = obj.get_text_direction()
+    Print "PASS:meth_Label3D_get_text_direction"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_Label3D err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

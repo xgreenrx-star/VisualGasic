@@ -1,0 +1,134 @@
+Attribute VB_Name = "fuzz_enum_1506"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_TILE_OFFSET_AXIS_HORIZONTAL As Integer = TileSet.TILE_OFFSET_AXIS_HORIZONTAL
+    If v_TILE_OFFSET_AXIS_HORIZONTAL = 0 Then pass_count = pass_count + 1
+    Dim v_TILE_OFFSET_AXIS_VERTICAL As Integer = TileSet.TILE_OFFSET_AXIS_VERTICAL
+    If v_TILE_OFFSET_AXIS_VERTICAL = 1 Then pass_count = pass_count + 1
+    If pass_count = 2 Then
+        Print "PASS:enum_TileSet_TileOffsetAxis"
+    Else
+        Print "FAIL:enum_TileSet_TileOffsetAxis count=" & str(pass_count) & "/2"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_TileSet_TileOffsetAxis err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_CELL_NEIGHBOR_RIGHT_SIDE As Integer = TileSet.CELL_NEIGHBOR_RIGHT_SIDE
+    If v_CELL_NEIGHBOR_RIGHT_SIDE = 0 Then pass_count = pass_count + 1
+    Dim v_CELL_NEIGHBOR_RIGHT_CORNER As Integer = TileSet.CELL_NEIGHBOR_RIGHT_CORNER
+    If v_CELL_NEIGHBOR_RIGHT_CORNER = 1 Then pass_count = pass_count + 1
+    Dim v_CELL_NEIGHBOR_BOTTOM_RIGHT_SIDE As Integer = TileSet.CELL_NEIGHBOR_BOTTOM_RIGHT_SIDE
+    If v_CELL_NEIGHBOR_BOTTOM_RIGHT_SIDE = 2 Then pass_count = pass_count + 1
+    Dim v_CELL_NEIGHBOR_BOTTOM_RIGHT_CORNER As Integer = TileSet.CELL_NEIGHBOR_BOTTOM_RIGHT_CORNER
+    If v_CELL_NEIGHBOR_BOTTOM_RIGHT_CORNER = 3 Then pass_count = pass_count + 1
+    Dim v_CELL_NEIGHBOR_BOTTOM_SIDE As Integer = TileSet.CELL_NEIGHBOR_BOTTOM_SIDE
+    If v_CELL_NEIGHBOR_BOTTOM_SIDE = 4 Then pass_count = pass_count + 1
+    Dim v_CELL_NEIGHBOR_BOTTOM_CORNER As Integer = TileSet.CELL_NEIGHBOR_BOTTOM_CORNER
+    If v_CELL_NEIGHBOR_BOTTOM_CORNER = 5 Then pass_count = pass_count + 1
+    Dim v_CELL_NEIGHBOR_BOTTOM_LEFT_SIDE As Integer = TileSet.CELL_NEIGHBOR_BOTTOM_LEFT_SIDE
+    If v_CELL_NEIGHBOR_BOTTOM_LEFT_SIDE = 6 Then pass_count = pass_count + 1
+    Dim v_CELL_NEIGHBOR_BOTTOM_LEFT_CORNER As Integer = TileSet.CELL_NEIGHBOR_BOTTOM_LEFT_CORNER
+    If v_CELL_NEIGHBOR_BOTTOM_LEFT_CORNER = 7 Then pass_count = pass_count + 1
+    If pass_count = 8 Then
+        Print "PASS:enum_TileSet_CellNeighbor"
+    Else
+        Print "FAIL:enum_TileSet_CellNeighbor count=" & str(pass_count) & "/8"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_TileSet_CellNeighbor err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_TERRAIN_MODE_MATCH_CORNERS_AND_SIDES As Integer = TileSet.TERRAIN_MODE_MATCH_CORNERS_AND_SIDES
+    If v_TERRAIN_MODE_MATCH_CORNERS_AND_SIDES = 0 Then pass_count = pass_count + 1
+    Dim v_TERRAIN_MODE_MATCH_CORNERS As Integer = TileSet.TERRAIN_MODE_MATCH_CORNERS
+    If v_TERRAIN_MODE_MATCH_CORNERS = 1 Then pass_count = pass_count + 1
+    Dim v_TERRAIN_MODE_MATCH_SIDES As Integer = TileSet.TERRAIN_MODE_MATCH_SIDES
+    If v_TERRAIN_MODE_MATCH_SIDES = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_TileSet_TerrainMode"
+    Else
+        Print "FAIL:enum_TileSet_TerrainMode count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_TileSet_TerrainMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_TILE_ANIMATION_MODE_DEFAULT As Integer = TileSetAtlasSource.TILE_ANIMATION_MODE_DEFAULT
+    If v_TILE_ANIMATION_MODE_DEFAULT = 0 Then pass_count = pass_count + 1
+    Dim v_TILE_ANIMATION_MODE_RANDOM_START_TIMES As Integer = TileSetAtlasSource.TILE_ANIMATION_MODE_RANDOM_START_TIMES
+    If v_TILE_ANIMATION_MODE_RANDOM_START_TIMES = 1 Then pass_count = pass_count + 1
+    Dim v_TILE_ANIMATION_MODE_MAX As Integer = TileSetAtlasSource.TILE_ANIMATION_MODE_MAX
+    If v_TILE_ANIMATION_MODE_MAX = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_TileSetAtlasSource_TileAnimationMode"
+    Else
+        Print "FAIL:enum_TileSetAtlasSource_TileAnimationMode count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_TileSetAtlasSource_TileAnimationMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_TIMER_PROCESS_PHYSICS As Integer = Timer.TIMER_PROCESS_PHYSICS
+    If v_TIMER_PROCESS_PHYSICS = 0 Then pass_count = pass_count + 1
+    Dim v_TIMER_PROCESS_IDLE As Integer = Timer.TIMER_PROCESS_IDLE
+    If v_TIMER_PROCESS_IDLE = 1 Then pass_count = pass_count + 1
+    If pass_count = 2 Then
+        Print "PASS:enum_Timer_TimerProcessCallback"
+    Else
+        Print "FAIL:enum_Timer_TimerProcessCallback count=" & str(pass_count) & "/2"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Timer_TimerProcessCallback err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_VISIBILITY_ALWAYS As Integer = TouchScreenButton.VISIBILITY_ALWAYS
+    If v_VISIBILITY_ALWAYS = 0 Then pass_count = pass_count + 1
+    Dim v_VISIBILITY_TOUCHSCREEN_ONLY As Integer = TouchScreenButton.VISIBILITY_TOUCHSCREEN_ONLY
+    If v_VISIBILITY_TOUCHSCREEN_ONLY = 1 Then pass_count = pass_count + 1
+    If pass_count = 2 Then
+        Print "PASS:enum_TouchScreenButton_VisibilityMode"
+    Else
+        Print "FAIL:enum_TouchScreenButton_VisibilityMode count=" & str(pass_count) & "/2"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_TouchScreenButton_VisibilityMode err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

@@ -1,0 +1,134 @@
+Attribute VB_Name = "fuzz_enum_1492"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_AMBIENT_DISABLED As Integer = ReflectionProbe.AMBIENT_DISABLED
+    If v_AMBIENT_DISABLED = 0 Then pass_count = pass_count + 1
+    Dim v_AMBIENT_ENVIRONMENT As Integer = ReflectionProbe.AMBIENT_ENVIRONMENT
+    If v_AMBIENT_ENVIRONMENT = 1 Then pass_count = pass_count + 1
+    Dim v_AMBIENT_COLOR As Integer = ReflectionProbe.AMBIENT_COLOR
+    If v_AMBIENT_COLOR = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_ReflectionProbe_AmbientMode"
+    Else
+        Print "FAIL:enum_ReflectionProbe_AmbientMode count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_ReflectionProbe_AmbientMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_CACHE_MODE_IGNORE As Integer = ResourceFormatLoader.CACHE_MODE_IGNORE
+    If v_CACHE_MODE_IGNORE = 0 Then pass_count = pass_count + 1
+    Dim v_CACHE_MODE_REUSE As Integer = ResourceFormatLoader.CACHE_MODE_REUSE
+    If v_CACHE_MODE_REUSE = 1 Then pass_count = pass_count + 1
+    Dim v_CACHE_MODE_REPLACE As Integer = ResourceFormatLoader.CACHE_MODE_REPLACE
+    If v_CACHE_MODE_REPLACE = 2 Then pass_count = pass_count + 1
+    Dim v_CACHE_MODE_IGNORE_DEEP As Integer = ResourceFormatLoader.CACHE_MODE_IGNORE_DEEP
+    If v_CACHE_MODE_IGNORE_DEEP = 3 Then pass_count = pass_count + 1
+    Dim v_CACHE_MODE_REPLACE_DEEP As Integer = ResourceFormatLoader.CACHE_MODE_REPLACE_DEEP
+    If v_CACHE_MODE_REPLACE_DEEP = 4 Then pass_count = pass_count + 1
+    If pass_count = 5 Then
+        Print "PASS:enum_ResourceFormatLoader_CacheMode"
+    Else
+        Print "FAIL:enum_ResourceFormatLoader_CacheMode count=" & str(pass_count) & "/5"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_ResourceFormatLoader_CacheMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_IMPORT_ORDER_DEFAULT As Integer = ResourceImporter.IMPORT_ORDER_DEFAULT
+    If v_IMPORT_ORDER_DEFAULT = 0 Then pass_count = pass_count + 1
+    Dim v_IMPORT_ORDER_SCENE As Integer = ResourceImporter.IMPORT_ORDER_SCENE
+    If v_IMPORT_ORDER_SCENE = 100 Then pass_count = pass_count + 1
+    If pass_count = 2 Then
+        Print "PASS:enum_ResourceImporter_ImportOrder"
+    Else
+        Print "FAIL:enum_ResourceImporter_ImportOrder count=" & str(pass_count) & "/2"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_ResourceImporter_ImportOrder err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_TRANSFORM_FLAG_POSITION As Integer = RetargetModifier3D.TRANSFORM_FLAG_POSITION
+    If v_TRANSFORM_FLAG_POSITION = 1 Then pass_count = pass_count + 1
+    Dim v_TRANSFORM_FLAG_ROTATION As Integer = RetargetModifier3D.TRANSFORM_FLAG_ROTATION
+    If v_TRANSFORM_FLAG_ROTATION = 2 Then pass_count = pass_count + 1
+    Dim v_TRANSFORM_FLAG_SCALE As Integer = RetargetModifier3D.TRANSFORM_FLAG_SCALE
+    If v_TRANSFORM_FLAG_SCALE = 4 Then pass_count = pass_count + 1
+    Dim v_TRANSFORM_FLAG_ALL As Integer = RetargetModifier3D.TRANSFORM_FLAG_ALL
+    If v_TRANSFORM_FLAG_ALL = 7 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_RetargetModifier3D_TransformFlag"
+    Else
+        Print "FAIL:enum_RetargetModifier3D_TransformFlag count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_RetargetModifier3D_TransformFlag err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_SHAPE_FLAT As Integer = RibbonTrailMesh.SHAPE_FLAT
+    If v_SHAPE_FLAT = 0 Then pass_count = pass_count + 1
+    Dim v_SHAPE_CROSS As Integer = RibbonTrailMesh.SHAPE_CROSS
+    If v_SHAPE_CROSS = 1 Then pass_count = pass_count + 1
+    If pass_count = 2 Then
+        Print "PASS:enum_RibbonTrailMesh_Shape"
+    Else
+        Print "FAIL:enum_RibbonTrailMesh_Shape count=" & str(pass_count) & "/2"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_RibbonTrailMesh_Shape err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_LIST_NUMBERS As Integer = RichTextLabel.LIST_NUMBERS
+    If v_LIST_NUMBERS = 0 Then pass_count = pass_count + 1
+    Dim v_LIST_LETTERS As Integer = RichTextLabel.LIST_LETTERS
+    If v_LIST_LETTERS = 1 Then pass_count = pass_count + 1
+    Dim v_LIST_ROMAN As Integer = RichTextLabel.LIST_ROMAN
+    If v_LIST_ROMAN = 2 Then pass_count = pass_count + 1
+    Dim v_LIST_DOTS As Integer = RichTextLabel.LIST_DOTS
+    If v_LIST_DOTS = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_RichTextLabel_ListType"
+    Else
+        Print "FAIL:enum_RichTextLabel_ListType count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_RichTextLabel_ListType err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

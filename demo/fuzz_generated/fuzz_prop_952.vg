@@ -1,0 +1,157 @@
+Attribute VB_Name = "fuzz_prop_952"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As FoldableContainer = FoldableContainer.new()
+    If obj = Null Then
+        Print "SKIP:prop_FoldableContainer_title_position (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.title_position
+    Print "PASS:prop_FoldableContainer_title_position"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_FoldableContainer_title_position err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As FoldableContainer = FoldableContainer.new()
+    If obj = Null Then
+        Print "SKIP:prop_FoldableContainer_title_text_overrun_behavior (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.title_text_overrun_behavior
+    Print "PASS:prop_FoldableContainer_title_text_overrun_behavior"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_FoldableContainer_title_text_overrun_behavior err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As GraphNode = GraphNode.new()
+    If obj = Null Then
+        Print "SKIP:prop_GraphNode_title (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.title
+    Print "PASS:prop_GraphNode_title"
+    obj.title = "test_string"
+    Dim val2 As Variant = obj.title
+    Print "PASS:propset_GraphNode_title"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_GraphNode_title err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As GraphNode = GraphNode.new()
+    If obj = Null Then
+        Print "SKIP:prop_GraphNode_ignore_invalid_connection_type (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.ignore_invalid_connection_type
+    Print "PASS:prop_GraphNode_ignore_invalid_connection_type"
+    obj.ignore_invalid_connection_type = True
+    Dim val2 As Variant = obj.ignore_invalid_connection_type
+    Print "PASS:propset_GraphNode_ignore_invalid_connection_type"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_GraphNode_ignore_invalid_connection_type err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As GraphNode = GraphNode.new()
+    If obj = Null Then
+        Print "SKIP:prop_GraphNode_slots_focus_mode (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.slots_focus_mode
+    Print "PASS:prop_GraphNode_slots_focus_mode"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_GraphNode_slots_focus_mode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As GraphNode = GraphNode.new()
+    If obj = Null Then
+        Print "SKIP:prop_GraphNode_position_offset (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.position_offset
+    Print "PASS:prop_GraphNode_position_offset"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_GraphNode_position_offset err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As GraphNode = GraphNode.new()
+    If obj = Null Then
+        Print "SKIP:prop_GraphNode_resizable (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.resizable
+    Print "PASS:prop_GraphNode_resizable"
+    obj.resizable = True
+    Dim val2 As Variant = obj.resizable
+    Print "PASS:propset_GraphNode_resizable"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_GraphNode_resizable err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As GraphElement = GraphElement.new()
+    If obj = Null Then
+        Print "SKIP:prop_GraphElement_position_offset (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.position_offset
+    Print "PASS:prop_GraphElement_position_offset"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_GraphElement_position_offset err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+End Sub

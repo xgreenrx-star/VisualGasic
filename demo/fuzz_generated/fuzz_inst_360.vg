@@ -1,0 +1,157 @@
+Attribute VB_Name = "fuzz_inst_360"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As OpenXRCompositionLayerEquirect = OpenXRCompositionLayerEquirect.new()
+    If obj <> Null Then
+        Print "PASS:inst_OpenXRCompositionLayerEquirect"
+        obj.free()
+    Else
+        Print "FAIL:inst_OpenXRCompositionLayerEquirect returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_OpenXRCompositionLayerEquirect err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As OpenXRCompositionLayerQuad = OpenXRCompositionLayerQuad.new()
+    If obj <> Null Then
+        Print "PASS:inst_OpenXRCompositionLayerQuad"
+        obj.free()
+    Else
+        Print "FAIL:inst_OpenXRCompositionLayerQuad returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_OpenXRCompositionLayerQuad err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As OpenXRDpadBindingModifier = OpenXRDpadBindingModifier.new()
+    If obj <> Null Then
+        Print "PASS:inst_OpenXRDpadBindingModifier"
+    Else
+        Print "FAIL:inst_OpenXRDpadBindingModifier returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_OpenXRDpadBindingModifier err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As OpenXRExtensionWrapper = OpenXRExtensionWrapper.new()
+    If obj <> Null Then
+        Print "PASS:inst_OpenXRExtensionWrapper"
+    Else
+        Print "FAIL:inst_OpenXRExtensionWrapper returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_OpenXRExtensionWrapper err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As OpenXRExtensionWrapperExtension = OpenXRExtensionWrapperExtension.new()
+    If obj <> Null Then
+        Print "PASS:inst_OpenXRExtensionWrapperExtension"
+    Else
+        Print "FAIL:inst_OpenXRExtensionWrapperExtension returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_OpenXRExtensionWrapperExtension err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As OpenXRFutureExtension = OpenXRFutureExtension.new()
+    If obj <> Null Then
+        Print "PASS:inst_OpenXRFutureExtension"
+    Else
+        Print "FAIL:inst_OpenXRFutureExtension returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_OpenXRFutureExtension err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As OpenXRHand = OpenXRHand.new()
+    If obj <> Null Then
+        Print "PASS:inst_OpenXRHand"
+        obj.free()
+    Else
+        Print "FAIL:inst_OpenXRHand returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_OpenXRHand err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As OpenXRHapticVibration = OpenXRHapticVibration.new()
+    If obj <> Null Then
+        Print "PASS:inst_OpenXRHapticVibration"
+    Else
+        Print "FAIL:inst_OpenXRHapticVibration returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_OpenXRHapticVibration err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As OpenXRIPBinding = OpenXRIPBinding.new()
+    If obj <> Null Then
+        Print "PASS:inst_OpenXRIPBinding"
+    Else
+        Print "FAIL:inst_OpenXRIPBinding returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_OpenXRIPBinding err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As OpenXRIPBindingModifier = OpenXRIPBindingModifier.new()
+    If obj <> Null Then
+        Print "PASS:inst_OpenXRIPBindingModifier"
+    Else
+        Print "FAIL:inst_OpenXRIPBindingModifier returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_OpenXRIPBindingModifier err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

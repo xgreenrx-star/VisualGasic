@@ -1,0 +1,144 @@
+Attribute VB_Name = "fuzz_enum_1452"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_FILTER_6DB As Integer = AudioEffectFilter.FILTER_6DB
+    If v_FILTER_6DB = 0 Then pass_count = pass_count + 1
+    Dim v_FILTER_12DB As Integer = AudioEffectFilter.FILTER_12DB
+    If v_FILTER_12DB = 1 Then pass_count = pass_count + 1
+    Dim v_FILTER_18DB As Integer = AudioEffectFilter.FILTER_18DB
+    If v_FILTER_18DB = 2 Then pass_count = pass_count + 1
+    Dim v_FILTER_24DB As Integer = AudioEffectFilter.FILTER_24DB
+    If v_FILTER_24DB = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_AudioEffectFilter_FilterDB"
+    Else
+        Print "FAIL:enum_AudioEffectFilter_FilterDB count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_AudioEffectFilter_FilterDB err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_FFT_SIZE_256 As Integer = AudioEffectPitchShift.FFT_SIZE_256
+    If v_FFT_SIZE_256 = 0 Then pass_count = pass_count + 1
+    Dim v_FFT_SIZE_512 As Integer = AudioEffectPitchShift.FFT_SIZE_512
+    If v_FFT_SIZE_512 = 1 Then pass_count = pass_count + 1
+    Dim v_FFT_SIZE_1024 As Integer = AudioEffectPitchShift.FFT_SIZE_1024
+    If v_FFT_SIZE_1024 = 2 Then pass_count = pass_count + 1
+    Dim v_FFT_SIZE_2048 As Integer = AudioEffectPitchShift.FFT_SIZE_2048
+    If v_FFT_SIZE_2048 = 3 Then pass_count = pass_count + 1
+    Dim v_FFT_SIZE_4096 As Integer = AudioEffectPitchShift.FFT_SIZE_4096
+    If v_FFT_SIZE_4096 = 4 Then pass_count = pass_count + 1
+    Dim v_FFT_SIZE_MAX As Integer = AudioEffectPitchShift.FFT_SIZE_MAX
+    If v_FFT_SIZE_MAX = 5 Then pass_count = pass_count + 1
+    If pass_count = 6 Then
+        Print "PASS:enum_AudioEffectPitchShift_FFTSize"
+    Else
+        Print "FAIL:enum_AudioEffectPitchShift_FFTSize count=" & str(pass_count) & "/6"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_AudioEffectPitchShift_FFTSize err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_FFT_SIZE_256 As Integer = AudioEffectSpectrumAnalyzer.FFT_SIZE_256
+    If v_FFT_SIZE_256 = 0 Then pass_count = pass_count + 1
+    Dim v_FFT_SIZE_512 As Integer = AudioEffectSpectrumAnalyzer.FFT_SIZE_512
+    If v_FFT_SIZE_512 = 1 Then pass_count = pass_count + 1
+    Dim v_FFT_SIZE_1024 As Integer = AudioEffectSpectrumAnalyzer.FFT_SIZE_1024
+    If v_FFT_SIZE_1024 = 2 Then pass_count = pass_count + 1
+    Dim v_FFT_SIZE_2048 As Integer = AudioEffectSpectrumAnalyzer.FFT_SIZE_2048
+    If v_FFT_SIZE_2048 = 3 Then pass_count = pass_count + 1
+    Dim v_FFT_SIZE_4096 As Integer = AudioEffectSpectrumAnalyzer.FFT_SIZE_4096
+    If v_FFT_SIZE_4096 = 4 Then pass_count = pass_count + 1
+    Dim v_FFT_SIZE_MAX As Integer = AudioEffectSpectrumAnalyzer.FFT_SIZE_MAX
+    If v_FFT_SIZE_MAX = 5 Then pass_count = pass_count + 1
+    If pass_count = 6 Then
+        Print "PASS:enum_AudioEffectSpectrumAnalyzer_FFTSize"
+    Else
+        Print "FAIL:enum_AudioEffectSpectrumAnalyzer_FFTSize count=" & str(pass_count) & "/6"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_AudioEffectSpectrumAnalyzer_FFTSize err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_MAGNITUDE_AVERAGE As Integer = AudioEffectSpectrumAnalyzerInstance.MAGNITUDE_AVERAGE
+    If v_MAGNITUDE_AVERAGE = 0 Then pass_count = pass_count + 1
+    Dim v_MAGNITUDE_MAX As Integer = AudioEffectSpectrumAnalyzerInstance.MAGNITUDE_MAX
+    If v_MAGNITUDE_MAX = 1 Then pass_count = pass_count + 1
+    If pass_count = 2 Then
+        Print "PASS:enum_AudioEffectSpectrumAnalyzerInstance_MagnitudeMode"
+    Else
+        Print "FAIL:enum_AudioEffectSpectrumAnalyzerInstance_MagnitudeMode count=" & str(pass_count) & "/2"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_AudioEffectSpectrumAnalyzerInstance_MagnitudeMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_DOPPLER_TRACKING_DISABLED As Integer = AudioListener3D.DOPPLER_TRACKING_DISABLED
+    If v_DOPPLER_TRACKING_DISABLED = 0 Then pass_count = pass_count + 1
+    Dim v_DOPPLER_TRACKING_IDLE_STEP As Integer = AudioListener3D.DOPPLER_TRACKING_IDLE_STEP
+    If v_DOPPLER_TRACKING_IDLE_STEP = 1 Then pass_count = pass_count + 1
+    Dim v_DOPPLER_TRACKING_PHYSICS_STEP As Integer = AudioListener3D.DOPPLER_TRACKING_PHYSICS_STEP
+    If v_DOPPLER_TRACKING_PHYSICS_STEP = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_AudioListener3D_DopplerTracking"
+    Else
+        Print "FAIL:enum_AudioListener3D_DopplerTracking count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_AudioListener3D_DopplerTracking err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_MIX_RATE_OUTPUT As Integer = AudioStreamGenerator.MIX_RATE_OUTPUT
+    If v_MIX_RATE_OUTPUT = 0 Then pass_count = pass_count + 1
+    Dim v_MIX_RATE_INPUT As Integer = AudioStreamGenerator.MIX_RATE_INPUT
+    If v_MIX_RATE_INPUT = 1 Then pass_count = pass_count + 1
+    Dim v_MIX_RATE_CUSTOM As Integer = AudioStreamGenerator.MIX_RATE_CUSTOM
+    If v_MIX_RATE_CUSTOM = 2 Then pass_count = pass_count + 1
+    Dim v_MIX_RATE_MAX As Integer = AudioStreamGenerator.MIX_RATE_MAX
+    If v_MIX_RATE_MAX = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_AudioStreamGenerator_AudioStreamGeneratorMixRate"
+    Else
+        Print "FAIL:enum_AudioStreamGenerator_AudioStreamGeneratorMixRate count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_AudioStreamGenerator_AudioStreamGeneratorMixRate err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

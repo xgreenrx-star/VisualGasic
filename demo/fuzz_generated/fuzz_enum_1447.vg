@@ -1,0 +1,158 @@
+Attribute VB_Name = "fuzz_enum_1447"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_MODE_ECB_ENCRYPT As Integer = AESContext.MODE_ECB_ENCRYPT
+    If v_MODE_ECB_ENCRYPT = 0 Then pass_count = pass_count + 1
+    Dim v_MODE_ECB_DECRYPT As Integer = AESContext.MODE_ECB_DECRYPT
+    If v_MODE_ECB_DECRYPT = 1 Then pass_count = pass_count + 1
+    Dim v_MODE_CBC_ENCRYPT As Integer = AESContext.MODE_CBC_ENCRYPT
+    If v_MODE_CBC_ENCRYPT = 2 Then pass_count = pass_count + 1
+    Dim v_MODE_CBC_DECRYPT As Integer = AESContext.MODE_CBC_DECRYPT
+    If v_MODE_CBC_DECRYPT = 3 Then pass_count = pass_count + 1
+    Dim v_MODE_MAX As Integer = AESContext.MODE_MAX
+    If v_MODE_MAX = 4 Then pass_count = pass_count + 1
+    If pass_count = 5 Then
+        Print "PASS:enum_AESContext_Mode"
+    Else
+        Print "FAIL:enum_AESContext_Mode count=" & str(pass_count) & "/5"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_AESContext_Mode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_HEURISTIC_EUCLIDEAN As Integer = AStarGrid2D.HEURISTIC_EUCLIDEAN
+    If v_HEURISTIC_EUCLIDEAN = 0 Then pass_count = pass_count + 1
+    Dim v_HEURISTIC_MANHATTAN As Integer = AStarGrid2D.HEURISTIC_MANHATTAN
+    If v_HEURISTIC_MANHATTAN = 1 Then pass_count = pass_count + 1
+    Dim v_HEURISTIC_OCTILE As Integer = AStarGrid2D.HEURISTIC_OCTILE
+    If v_HEURISTIC_OCTILE = 2 Then pass_count = pass_count + 1
+    Dim v_HEURISTIC_CHEBYSHEV As Integer = AStarGrid2D.HEURISTIC_CHEBYSHEV
+    If v_HEURISTIC_CHEBYSHEV = 3 Then pass_count = pass_count + 1
+    Dim v_HEURISTIC_MAX As Integer = AStarGrid2D.HEURISTIC_MAX
+    If v_HEURISTIC_MAX = 4 Then pass_count = pass_count + 1
+    If pass_count = 5 Then
+        Print "PASS:enum_AStarGrid2D_Heuristic"
+    Else
+        Print "FAIL:enum_AStarGrid2D_Heuristic count=" & str(pass_count) & "/5"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_AStarGrid2D_Heuristic err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_DIAGONAL_MODE_ALWAYS As Integer = AStarGrid2D.DIAGONAL_MODE_ALWAYS
+    If v_DIAGONAL_MODE_ALWAYS = 0 Then pass_count = pass_count + 1
+    Dim v_DIAGONAL_MODE_NEVER As Integer = AStarGrid2D.DIAGONAL_MODE_NEVER
+    If v_DIAGONAL_MODE_NEVER = 1 Then pass_count = pass_count + 1
+    Dim v_DIAGONAL_MODE_AT_LEAST_ONE_WALKABLE As Integer = AStarGrid2D.DIAGONAL_MODE_AT_LEAST_ONE_WALKABLE
+    If v_DIAGONAL_MODE_AT_LEAST_ONE_WALKABLE = 2 Then pass_count = pass_count + 1
+    Dim v_DIAGONAL_MODE_ONLY_IF_NO_OBSTACLES As Integer = AStarGrid2D.DIAGONAL_MODE_ONLY_IF_NO_OBSTACLES
+    If v_DIAGONAL_MODE_ONLY_IF_NO_OBSTACLES = 3 Then pass_count = pass_count + 1
+    Dim v_DIAGONAL_MODE_MAX As Integer = AStarGrid2D.DIAGONAL_MODE_MAX
+    If v_DIAGONAL_MODE_MAX = 4 Then pass_count = pass_count + 1
+    If pass_count = 5 Then
+        Print "PASS:enum_AStarGrid2D_DiagonalMode"
+    Else
+        Print "FAIL:enum_AStarGrid2D_DiagonalMode count=" & str(pass_count) & "/5"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_AStarGrid2D_DiagonalMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_CELL_SHAPE_SQUARE As Integer = AStarGrid2D.CELL_SHAPE_SQUARE
+    If v_CELL_SHAPE_SQUARE = 0 Then pass_count = pass_count + 1
+    Dim v_CELL_SHAPE_ISOMETRIC_RIGHT As Integer = AStarGrid2D.CELL_SHAPE_ISOMETRIC_RIGHT
+    If v_CELL_SHAPE_ISOMETRIC_RIGHT = 1 Then pass_count = pass_count + 1
+    Dim v_CELL_SHAPE_ISOMETRIC_DOWN As Integer = AStarGrid2D.CELL_SHAPE_ISOMETRIC_DOWN
+    If v_CELL_SHAPE_ISOMETRIC_DOWN = 2 Then pass_count = pass_count + 1
+    Dim v_CELL_SHAPE_MAX As Integer = AStarGrid2D.CELL_SHAPE_MAX
+    If v_CELL_SHAPE_MAX = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_AStarGrid2D_CellShape"
+    Else
+        Print "FAIL:enum_AStarGrid2D_CellShape count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_AStarGrid2D_CellShape err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_TYPE_VALUE As Integer = Animation.TYPE_VALUE
+    If v_TYPE_VALUE = 0 Then pass_count = pass_count + 1
+    Dim v_TYPE_POSITION_3D As Integer = Animation.TYPE_POSITION_3D
+    If v_TYPE_POSITION_3D = 1 Then pass_count = pass_count + 1
+    Dim v_TYPE_ROTATION_3D As Integer = Animation.TYPE_ROTATION_3D
+    If v_TYPE_ROTATION_3D = 2 Then pass_count = pass_count + 1
+    Dim v_TYPE_SCALE_3D As Integer = Animation.TYPE_SCALE_3D
+    If v_TYPE_SCALE_3D = 3 Then pass_count = pass_count + 1
+    Dim v_TYPE_BLEND_SHAPE As Integer = Animation.TYPE_BLEND_SHAPE
+    If v_TYPE_BLEND_SHAPE = 4 Then pass_count = pass_count + 1
+    Dim v_TYPE_METHOD As Integer = Animation.TYPE_METHOD
+    If v_TYPE_METHOD = 5 Then pass_count = pass_count + 1
+    Dim v_TYPE_BEZIER As Integer = Animation.TYPE_BEZIER
+    If v_TYPE_BEZIER = 6 Then pass_count = pass_count + 1
+    Dim v_TYPE_AUDIO As Integer = Animation.TYPE_AUDIO
+    If v_TYPE_AUDIO = 7 Then pass_count = pass_count + 1
+    If pass_count = 8 Then
+        Print "PASS:enum_Animation_TrackType"
+    Else
+        Print "FAIL:enum_Animation_TrackType count=" & str(pass_count) & "/8"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Animation_TrackType err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_INTERPOLATION_NEAREST As Integer = Animation.INTERPOLATION_NEAREST
+    If v_INTERPOLATION_NEAREST = 0 Then pass_count = pass_count + 1
+    Dim v_INTERPOLATION_LINEAR As Integer = Animation.INTERPOLATION_LINEAR
+    If v_INTERPOLATION_LINEAR = 1 Then pass_count = pass_count + 1
+    Dim v_INTERPOLATION_CUBIC As Integer = Animation.INTERPOLATION_CUBIC
+    If v_INTERPOLATION_CUBIC = 2 Then pass_count = pass_count + 1
+    Dim v_INTERPOLATION_LINEAR_ANGLE As Integer = Animation.INTERPOLATION_LINEAR_ANGLE
+    If v_INTERPOLATION_LINEAR_ANGLE = 3 Then pass_count = pass_count + 1
+    Dim v_INTERPOLATION_CUBIC_ANGLE As Integer = Animation.INTERPOLATION_CUBIC_ANGLE
+    If v_INTERPOLATION_CUBIC_ANGLE = 4 Then pass_count = pass_count + 1
+    If pass_count = 5 Then
+        Print "PASS:enum_Animation_InterpolationType"
+    Else
+        Print "FAIL:enum_Animation_InterpolationType count=" & str(pass_count) & "/5"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Animation_InterpolationType err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

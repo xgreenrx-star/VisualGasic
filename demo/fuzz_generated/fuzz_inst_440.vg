@@ -1,0 +1,154 @@
+Attribute VB_Name = "fuzz_inst_440"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As RDPipelineMultisampleState = RDPipelineMultisampleState.new()
+    If obj <> Null Then
+        Print "PASS:inst_RDPipelineMultisampleState"
+    Else
+        Print "FAIL:inst_RDPipelineMultisampleState returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_RDPipelineMultisampleState err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As RDPipelineRasterizationState = RDPipelineRasterizationState.new()
+    If obj <> Null Then
+        Print "PASS:inst_RDPipelineRasterizationState"
+    Else
+        Print "FAIL:inst_RDPipelineRasterizationState returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_RDPipelineRasterizationState err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As RDPipelineSpecializationConstant = RDPipelineSpecializationConstant.new()
+    If obj <> Null Then
+        Print "PASS:inst_RDPipelineSpecializationConstant"
+    Else
+        Print "FAIL:inst_RDPipelineSpecializationConstant returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_RDPipelineSpecializationConstant err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As RDSamplerState = RDSamplerState.new()
+    If obj <> Null Then
+        Print "PASS:inst_RDSamplerState"
+    Else
+        Print "FAIL:inst_RDSamplerState returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_RDSamplerState err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As RDShaderFile = RDShaderFile.new()
+    If obj <> Null Then
+        Print "PASS:inst_RDShaderFile"
+    Else
+        Print "FAIL:inst_RDShaderFile returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_RDShaderFile err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As RDShaderSPIRV = RDShaderSPIRV.new()
+    If obj <> Null Then
+        Print "PASS:inst_RDShaderSPIRV"
+    Else
+        Print "FAIL:inst_RDShaderSPIRV returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_RDShaderSPIRV err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As RDShaderSource = RDShaderSource.new()
+    If obj <> Null Then
+        Print "PASS:inst_RDShaderSource"
+    Else
+        Print "FAIL:inst_RDShaderSource returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_RDShaderSource err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As RDTextureFormat = RDTextureFormat.new()
+    If obj <> Null Then
+        Print "PASS:inst_RDTextureFormat"
+    Else
+        Print "FAIL:inst_RDTextureFormat returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_RDTextureFormat err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As RDTextureView = RDTextureView.new()
+    If obj <> Null Then
+        Print "PASS:inst_RDTextureView"
+    Else
+        Print "FAIL:inst_RDTextureView returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_RDTextureView err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As RDUniform = RDUniform.new()
+    If obj <> Null Then
+        Print "PASS:inst_RDUniform"
+    Else
+        Print "FAIL:inst_RDUniform returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_RDUniform err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

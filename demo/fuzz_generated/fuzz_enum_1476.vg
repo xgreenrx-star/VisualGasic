@@ -1,0 +1,156 @@
+Attribute VB_Name = "fuzz_enum_1476"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_FLAG_USE_LIMIT As Integer = HingeJoint3D.FLAG_USE_LIMIT
+    If v_FLAG_USE_LIMIT = 0 Then pass_count = pass_count + 1
+    Dim v_FLAG_ENABLE_MOTOR As Integer = HingeJoint3D.FLAG_ENABLE_MOTOR
+    If v_FLAG_ENABLE_MOTOR = 1 Then pass_count = pass_count + 1
+    Dim v_FLAG_MAX As Integer = HingeJoint3D.FLAG_MAX
+    If v_FLAG_MAX = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_HingeJoint3D_Flag"
+    Else
+        Print "FAIL:enum_HingeJoint3D_Flag count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_HingeJoint3D_Flag err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_FORMAT_L8 As Integer = Image.FORMAT_L8
+    If v_FORMAT_L8 = 0 Then pass_count = pass_count + 1
+    Dim v_FORMAT_LA8 As Integer = Image.FORMAT_LA8
+    If v_FORMAT_LA8 = 1 Then pass_count = pass_count + 1
+    Dim v_FORMAT_R8 As Integer = Image.FORMAT_R8
+    If v_FORMAT_R8 = 2 Then pass_count = pass_count + 1
+    Dim v_FORMAT_RG8 As Integer = Image.FORMAT_RG8
+    If v_FORMAT_RG8 = 3 Then pass_count = pass_count + 1
+    Dim v_FORMAT_RGB8 As Integer = Image.FORMAT_RGB8
+    If v_FORMAT_RGB8 = 4 Then pass_count = pass_count + 1
+    Dim v_FORMAT_RGBA8 As Integer = Image.FORMAT_RGBA8
+    If v_FORMAT_RGBA8 = 5 Then pass_count = pass_count + 1
+    Dim v_FORMAT_RGBA4444 As Integer = Image.FORMAT_RGBA4444
+    If v_FORMAT_RGBA4444 = 6 Then pass_count = pass_count + 1
+    Dim v_FORMAT_RGB565 As Integer = Image.FORMAT_RGB565
+    If v_FORMAT_RGB565 = 7 Then pass_count = pass_count + 1
+    If pass_count = 8 Then
+        Print "PASS:enum_Image_Format"
+    Else
+        Print "FAIL:enum_Image_Format count=" & str(pass_count) & "/8"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Image_Format err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_INTERPOLATE_NEAREST As Integer = Image.INTERPOLATE_NEAREST
+    If v_INTERPOLATE_NEAREST = 0 Then pass_count = pass_count + 1
+    Dim v_INTERPOLATE_BILINEAR As Integer = Image.INTERPOLATE_BILINEAR
+    If v_INTERPOLATE_BILINEAR = 1 Then pass_count = pass_count + 1
+    Dim v_INTERPOLATE_CUBIC As Integer = Image.INTERPOLATE_CUBIC
+    If v_INTERPOLATE_CUBIC = 2 Then pass_count = pass_count + 1
+    Dim v_INTERPOLATE_TRILINEAR As Integer = Image.INTERPOLATE_TRILINEAR
+    If v_INTERPOLATE_TRILINEAR = 3 Then pass_count = pass_count + 1
+    Dim v_INTERPOLATE_LANCZOS As Integer = Image.INTERPOLATE_LANCZOS
+    If v_INTERPOLATE_LANCZOS = 4 Then pass_count = pass_count + 1
+    If pass_count = 5 Then
+        Print "PASS:enum_Image_Interpolation"
+    Else
+        Print "FAIL:enum_Image_Interpolation count=" & str(pass_count) & "/5"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Image_Interpolation err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_ALPHA_NONE As Integer = Image.ALPHA_NONE
+    If v_ALPHA_NONE = 0 Then pass_count = pass_count + 1
+    Dim v_ALPHA_BIT As Integer = Image.ALPHA_BIT
+    If v_ALPHA_BIT = 1 Then pass_count = pass_count + 1
+    Dim v_ALPHA_BLEND As Integer = Image.ALPHA_BLEND
+    If v_ALPHA_BLEND = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_Image_AlphaMode"
+    Else
+        Print "FAIL:enum_Image_AlphaMode count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Image_AlphaMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_COMPRESS_S3TC As Integer = Image.COMPRESS_S3TC
+    If v_COMPRESS_S3TC = 0 Then pass_count = pass_count + 1
+    Dim v_COMPRESS_ETC As Integer = Image.COMPRESS_ETC
+    If v_COMPRESS_ETC = 1 Then pass_count = pass_count + 1
+    Dim v_COMPRESS_ETC2 As Integer = Image.COMPRESS_ETC2
+    If v_COMPRESS_ETC2 = 2 Then pass_count = pass_count + 1
+    Dim v_COMPRESS_BPTC As Integer = Image.COMPRESS_BPTC
+    If v_COMPRESS_BPTC = 3 Then pass_count = pass_count + 1
+    Dim v_COMPRESS_ASTC As Integer = Image.COMPRESS_ASTC
+    If v_COMPRESS_ASTC = 4 Then pass_count = pass_count + 1
+    Dim v_COMPRESS_MAX As Integer = Image.COMPRESS_MAX
+    If v_COMPRESS_MAX = 5 Then pass_count = pass_count + 1
+    If pass_count = 6 Then
+        Print "PASS:enum_Image_CompressMode"
+    Else
+        Print "FAIL:enum_Image_CompressMode count=" & str(pass_count) & "/6"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Image_CompressMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_USED_CHANNELS_L As Integer = Image.USED_CHANNELS_L
+    If v_USED_CHANNELS_L = 0 Then pass_count = pass_count + 1
+    Dim v_USED_CHANNELS_LA As Integer = Image.USED_CHANNELS_LA
+    If v_USED_CHANNELS_LA = 1 Then pass_count = pass_count + 1
+    Dim v_USED_CHANNELS_R As Integer = Image.USED_CHANNELS_R
+    If v_USED_CHANNELS_R = 2 Then pass_count = pass_count + 1
+    Dim v_USED_CHANNELS_RG As Integer = Image.USED_CHANNELS_RG
+    If v_USED_CHANNELS_RG = 3 Then pass_count = pass_count + 1
+    Dim v_USED_CHANNELS_RGB As Integer = Image.USED_CHANNELS_RGB
+    If v_USED_CHANNELS_RGB = 4 Then pass_count = pass_count + 1
+    Dim v_USED_CHANNELS_RGBA As Integer = Image.USED_CHANNELS_RGBA
+    If v_USED_CHANNELS_RGBA = 5 Then pass_count = pass_count + 1
+    If pass_count = 6 Then
+        Print "PASS:enum_Image_UsedChannels"
+    Else
+        Print "FAIL:enum_Image_UsedChannels count=" & str(pass_count) & "/6"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Image_UsedChannels err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

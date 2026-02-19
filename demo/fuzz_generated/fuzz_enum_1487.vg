@@ -1,0 +1,140 @@
+Attribute VB_Name = "fuzz_enum_1487"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_RESULT_RUNNING As Integer = OpenXRFutureResult.RESULT_RUNNING
+    If v_RESULT_RUNNING = 0 Then pass_count = pass_count + 1
+    Dim v_RESULT_FINISHED As Integer = OpenXRFutureResult.RESULT_FINISHED
+    If v_RESULT_FINISHED = 1 Then pass_count = pass_count + 1
+    Dim v_RESULT_CANCELLED As Integer = OpenXRFutureResult.RESULT_CANCELLED
+    If v_RESULT_CANCELLED = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_OpenXRFutureResult_ResultStatus"
+    Else
+        Print "FAIL:enum_OpenXRFutureResult_ResultStatus count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_OpenXRFutureResult_ResultStatus err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_HAND_LEFT As Integer = OpenXRHand.HAND_LEFT
+    If v_HAND_LEFT = 0 Then pass_count = pass_count + 1
+    Dim v_HAND_RIGHT As Integer = OpenXRHand.HAND_RIGHT
+    If v_HAND_RIGHT = 1 Then pass_count = pass_count + 1
+    Dim v_HAND_MAX As Integer = OpenXRHand.HAND_MAX
+    If v_HAND_MAX = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_OpenXRHand_Hands"
+    Else
+        Print "FAIL:enum_OpenXRHand_Hands count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_OpenXRHand_Hands err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_MOTION_RANGE_UNOBSTRUCTED As Integer = OpenXRHand.MOTION_RANGE_UNOBSTRUCTED
+    If v_MOTION_RANGE_UNOBSTRUCTED = 0 Then pass_count = pass_count + 1
+    Dim v_MOTION_RANGE_CONFORM_TO_CONTROLLER As Integer = OpenXRHand.MOTION_RANGE_CONFORM_TO_CONTROLLER
+    If v_MOTION_RANGE_CONFORM_TO_CONTROLLER = 1 Then pass_count = pass_count + 1
+    Dim v_MOTION_RANGE_MAX As Integer = OpenXRHand.MOTION_RANGE_MAX
+    If v_MOTION_RANGE_MAX = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_OpenXRHand_MotionRange"
+    Else
+        Print "FAIL:enum_OpenXRHand_MotionRange count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_OpenXRHand_MotionRange err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_SKELETON_RIG_OPENXR As Integer = OpenXRHand.SKELETON_RIG_OPENXR
+    If v_SKELETON_RIG_OPENXR = 0 Then pass_count = pass_count + 1
+    Dim v_SKELETON_RIG_HUMANOID As Integer = OpenXRHand.SKELETON_RIG_HUMANOID
+    If v_SKELETON_RIG_HUMANOID = 1 Then pass_count = pass_count + 1
+    Dim v_SKELETON_RIG_MAX As Integer = OpenXRHand.SKELETON_RIG_MAX
+    If v_SKELETON_RIG_MAX = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_OpenXRHand_SkeletonRig"
+    Else
+        Print "FAIL:enum_OpenXRHand_SkeletonRig count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_OpenXRHand_SkeletonRig err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_BONE_UPDATE_FULL As Integer = OpenXRHand.BONE_UPDATE_FULL
+    If v_BONE_UPDATE_FULL = 0 Then pass_count = pass_count + 1
+    Dim v_BONE_UPDATE_ROTATION_ONLY As Integer = OpenXRHand.BONE_UPDATE_ROTATION_ONLY
+    If v_BONE_UPDATE_ROTATION_ONLY = 1 Then pass_count = pass_count + 1
+    Dim v_BONE_UPDATE_MAX As Integer = OpenXRHand.BONE_UPDATE_MAX
+    If v_BONE_UPDATE_MAX = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_OpenXRHand_BoneUpdate"
+    Else
+        Print "FAIL:enum_OpenXRHand_BoneUpdate count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_OpenXRHand_BoneUpdate err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_SESSION_STATE_UNKNOWN As Integer = OpenXRInterface.SESSION_STATE_UNKNOWN
+    If v_SESSION_STATE_UNKNOWN = 0 Then pass_count = pass_count + 1
+    Dim v_SESSION_STATE_IDLE As Integer = OpenXRInterface.SESSION_STATE_IDLE
+    If v_SESSION_STATE_IDLE = 1 Then pass_count = pass_count + 1
+    Dim v_SESSION_STATE_READY As Integer = OpenXRInterface.SESSION_STATE_READY
+    If v_SESSION_STATE_READY = 2 Then pass_count = pass_count + 1
+    Dim v_SESSION_STATE_SYNCHRONIZED As Integer = OpenXRInterface.SESSION_STATE_SYNCHRONIZED
+    If v_SESSION_STATE_SYNCHRONIZED = 3 Then pass_count = pass_count + 1
+    Dim v_SESSION_STATE_VISIBLE As Integer = OpenXRInterface.SESSION_STATE_VISIBLE
+    If v_SESSION_STATE_VISIBLE = 4 Then pass_count = pass_count + 1
+    Dim v_SESSION_STATE_FOCUSED As Integer = OpenXRInterface.SESSION_STATE_FOCUSED
+    If v_SESSION_STATE_FOCUSED = 5 Then pass_count = pass_count + 1
+    Dim v_SESSION_STATE_STOPPING As Integer = OpenXRInterface.SESSION_STATE_STOPPING
+    If v_SESSION_STATE_STOPPING = 6 Then pass_count = pass_count + 1
+    Dim v_SESSION_STATE_LOSS_PENDING As Integer = OpenXRInterface.SESSION_STATE_LOSS_PENDING
+    If v_SESSION_STATE_LOSS_PENDING = 7 Then pass_count = pass_count + 1
+    If pass_count = 8 Then
+        Print "PASS:enum_OpenXRInterface_SessionState"
+    Else
+        Print "FAIL:enum_OpenXRInterface_SessionState count=" & str(pass_count) & "/8"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_OpenXRInterface_SessionState err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

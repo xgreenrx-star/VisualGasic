@@ -1,0 +1,163 @@
+Attribute VB_Name = "fuzz_prop_856"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As LinkButton = LinkButton.new()
+    If obj = Null Then
+        Print "SKIP:prop_LinkButton_uri (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.uri
+    Print "PASS:prop_LinkButton_uri"
+    obj.uri = "test_string"
+    Dim val2 As Variant = obj.uri
+    Print "PASS:propset_LinkButton_uri"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_LinkButton_uri err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As LinkButton = LinkButton.new()
+    If obj = Null Then
+        Print "SKIP:prop_LinkButton_language (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.language
+    Print "PASS:prop_LinkButton_language"
+    obj.language = "test_string"
+    Dim val2 As Variant = obj.language
+    Print "PASS:propset_LinkButton_language"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_LinkButton_language err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As LinkButton = LinkButton.new()
+    If obj = Null Then
+        Print "SKIP:prop_LinkButton_structured_text_bidi_override (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.structured_text_bidi_override
+    Print "PASS:prop_LinkButton_structured_text_bidi_override"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_LinkButton_structured_text_bidi_override err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As HSlider = HSlider.new()
+    If obj = Null Then
+        Print "SKIP:prop_HSlider_editable (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.editable
+    Print "PASS:prop_HSlider_editable"
+    obj.editable = True
+    Dim val2 As Variant = obj.editable
+    Print "PASS:propset_HSlider_editable"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_HSlider_editable err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As HSlider = HSlider.new()
+    If obj = Null Then
+        Print "SKIP:prop_HSlider_scrollable (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.scrollable
+    Print "PASS:prop_HSlider_scrollable"
+    obj.scrollable = True
+    Dim val2 As Variant = obj.scrollable
+    Print "PASS:propset_HSlider_scrollable"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_HSlider_scrollable err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As HSlider = HSlider.new()
+    If obj = Null Then
+        Print "SKIP:prop_HSlider_tick_count (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.tick_count
+    Print "PASS:prop_HSlider_tick_count"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_HSlider_tick_count err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As HSlider = HSlider.new()
+    If obj = Null Then
+        Print "SKIP:prop_HSlider_ticks_on_borders (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.ticks_on_borders
+    Print "PASS:prop_HSlider_ticks_on_borders"
+    obj.ticks_on_borders = True
+    Dim val2 As Variant = obj.ticks_on_borders
+    Print "PASS:propset_HSlider_ticks_on_borders"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_HSlider_ticks_on_borders err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As HSlider = HSlider.new()
+    If obj = Null Then
+        Print "SKIP:prop_HSlider_ticks_position (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.ticks_position
+    Print "PASS:prop_HSlider_ticks_position"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_HSlider_ticks_position err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+End Sub

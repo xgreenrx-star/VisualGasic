@@ -1,0 +1,154 @@
+Attribute VB_Name = "fuzz_prop_904"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As TabContainer = TabContainer.new()
+    If obj = Null Then
+        Print "SKIP:prop_TabContainer_tab_alignment (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.tab_alignment
+    Print "PASS:prop_TabContainer_tab_alignment"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_TabContainer_tab_alignment err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As TabContainer = TabContainer.new()
+    If obj = Null Then
+        Print "SKIP:prop_TabContainer_current_tab (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.current_tab
+    Print "PASS:prop_TabContainer_current_tab"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_TabContainer_current_tab err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As TabContainer = TabContainer.new()
+    If obj = Null Then
+        Print "SKIP:prop_TabContainer_tabs_position (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.tabs_position
+    Print "PASS:prop_TabContainer_tabs_position"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_TabContainer_tabs_position err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As TabContainer = TabContainer.new()
+    If obj = Null Then
+        Print "SKIP:prop_TabContainer_clip_tabs (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.clip_tabs
+    Print "PASS:prop_TabContainer_clip_tabs"
+    obj.clip_tabs = True
+    Dim val2 As Variant = obj.clip_tabs
+    Print "PASS:propset_TabContainer_clip_tabs"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_TabContainer_clip_tabs err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As TabContainer = TabContainer.new()
+    If obj = Null Then
+        Print "SKIP:prop_TabContainer_tabs_visible (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.tabs_visible
+    Print "PASS:prop_TabContainer_tabs_visible"
+    obj.tabs_visible = True
+    Dim val2 As Variant = obj.tabs_visible
+    Print "PASS:propset_TabContainer_tabs_visible"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_TabContainer_tabs_visible err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As VScrollBar = VScrollBar.new()
+    If obj = Null Then
+        Print "SKIP:prop_VScrollBar_custom_step (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.custom_step
+    Print "PASS:prop_VScrollBar_custom_step"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_VScrollBar_custom_step err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As VScrollBar = VScrollBar.new()
+    If obj = Null Then
+        Print "SKIP:prop_VScrollBar_min_value (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.min_value
+    Print "PASS:prop_VScrollBar_min_value"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_VScrollBar_min_value err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As VScrollBar = VScrollBar.new()
+    If obj = Null Then
+        Print "SKIP:prop_VScrollBar_max_value (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.max_value
+    Print "PASS:prop_VScrollBar_max_value"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_VScrollBar_max_value err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+End Sub

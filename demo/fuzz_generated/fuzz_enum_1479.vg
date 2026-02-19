@@ -1,0 +1,148 @@
+Attribute VB_Name = "fuzz_enum_1479"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_BAKE_QUALITY_LOW As Integer = LightmapGI.BAKE_QUALITY_LOW
+    If v_BAKE_QUALITY_LOW = 0 Then pass_count = pass_count + 1
+    Dim v_BAKE_QUALITY_MEDIUM As Integer = LightmapGI.BAKE_QUALITY_MEDIUM
+    If v_BAKE_QUALITY_MEDIUM = 1 Then pass_count = pass_count + 1
+    Dim v_BAKE_QUALITY_HIGH As Integer = LightmapGI.BAKE_QUALITY_HIGH
+    If v_BAKE_QUALITY_HIGH = 2 Then pass_count = pass_count + 1
+    Dim v_BAKE_QUALITY_ULTRA As Integer = LightmapGI.BAKE_QUALITY_ULTRA
+    If v_BAKE_QUALITY_ULTRA = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_LightmapGI_BakeQuality"
+    Else
+        Print "FAIL:enum_LightmapGI_BakeQuality count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_LightmapGI_BakeQuality err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_GENERATE_PROBES_DISABLED As Integer = LightmapGI.GENERATE_PROBES_DISABLED
+    If v_GENERATE_PROBES_DISABLED = 0 Then pass_count = pass_count + 1
+    Dim v_GENERATE_PROBES_SUBDIV_4 As Integer = LightmapGI.GENERATE_PROBES_SUBDIV_4
+    If v_GENERATE_PROBES_SUBDIV_4 = 1 Then pass_count = pass_count + 1
+    Dim v_GENERATE_PROBES_SUBDIV_8 As Integer = LightmapGI.GENERATE_PROBES_SUBDIV_8
+    If v_GENERATE_PROBES_SUBDIV_8 = 2 Then pass_count = pass_count + 1
+    Dim v_GENERATE_PROBES_SUBDIV_16 As Integer = LightmapGI.GENERATE_PROBES_SUBDIV_16
+    If v_GENERATE_PROBES_SUBDIV_16 = 3 Then pass_count = pass_count + 1
+    Dim v_GENERATE_PROBES_SUBDIV_32 As Integer = LightmapGI.GENERATE_PROBES_SUBDIV_32
+    If v_GENERATE_PROBES_SUBDIV_32 = 4 Then pass_count = pass_count + 1
+    If pass_count = 5 Then
+        Print "PASS:enum_LightmapGI_GenerateProbes"
+    Else
+        Print "FAIL:enum_LightmapGI_GenerateProbes count=" & str(pass_count) & "/5"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_LightmapGI_GenerateProbes err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_BAKE_ERROR_OK As Integer = LightmapGI.BAKE_ERROR_OK
+    If v_BAKE_ERROR_OK = 0 Then pass_count = pass_count + 1
+    Dim v_BAKE_ERROR_NO_SCENE_ROOT As Integer = LightmapGI.BAKE_ERROR_NO_SCENE_ROOT
+    If v_BAKE_ERROR_NO_SCENE_ROOT = 1 Then pass_count = pass_count + 1
+    Dim v_BAKE_ERROR_FOREIGN_DATA As Integer = LightmapGI.BAKE_ERROR_FOREIGN_DATA
+    If v_BAKE_ERROR_FOREIGN_DATA = 2 Then pass_count = pass_count + 1
+    Dim v_BAKE_ERROR_NO_LIGHTMAPPER As Integer = LightmapGI.BAKE_ERROR_NO_LIGHTMAPPER
+    If v_BAKE_ERROR_NO_LIGHTMAPPER = 3 Then pass_count = pass_count + 1
+    Dim v_BAKE_ERROR_NO_SAVE_PATH As Integer = LightmapGI.BAKE_ERROR_NO_SAVE_PATH
+    If v_BAKE_ERROR_NO_SAVE_PATH = 4 Then pass_count = pass_count + 1
+    Dim v_BAKE_ERROR_NO_MESHES As Integer = LightmapGI.BAKE_ERROR_NO_MESHES
+    If v_BAKE_ERROR_NO_MESHES = 5 Then pass_count = pass_count + 1
+    Dim v_BAKE_ERROR_MESHES_INVALID As Integer = LightmapGI.BAKE_ERROR_MESHES_INVALID
+    If v_BAKE_ERROR_MESHES_INVALID = 6 Then pass_count = pass_count + 1
+    Dim v_BAKE_ERROR_CANT_CREATE_IMAGE As Integer = LightmapGI.BAKE_ERROR_CANT_CREATE_IMAGE
+    If v_BAKE_ERROR_CANT_CREATE_IMAGE = 7 Then pass_count = pass_count + 1
+    If pass_count = 8 Then
+        Print "PASS:enum_LightmapGI_BakeError"
+    Else
+        Print "FAIL:enum_LightmapGI_BakeError count=" & str(pass_count) & "/8"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_LightmapGI_BakeError err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_ENVIRONMENT_MODE_DISABLED As Integer = LightmapGI.ENVIRONMENT_MODE_DISABLED
+    If v_ENVIRONMENT_MODE_DISABLED = 0 Then pass_count = pass_count + 1
+    Dim v_ENVIRONMENT_MODE_SCENE As Integer = LightmapGI.ENVIRONMENT_MODE_SCENE
+    If v_ENVIRONMENT_MODE_SCENE = 1 Then pass_count = pass_count + 1
+    Dim v_ENVIRONMENT_MODE_CUSTOM_SKY As Integer = LightmapGI.ENVIRONMENT_MODE_CUSTOM_SKY
+    If v_ENVIRONMENT_MODE_CUSTOM_SKY = 2 Then pass_count = pass_count + 1
+    Dim v_ENVIRONMENT_MODE_CUSTOM_COLOR As Integer = LightmapGI.ENVIRONMENT_MODE_CUSTOM_COLOR
+    If v_ENVIRONMENT_MODE_CUSTOM_COLOR = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_LightmapGI_EnvironmentMode"
+    Else
+        Print "FAIL:enum_LightmapGI_EnvironmentMode count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_LightmapGI_EnvironmentMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_SHADOWMASK_MODE_NONE As Integer = LightmapGIData.SHADOWMASK_MODE_NONE
+    If v_SHADOWMASK_MODE_NONE = 0 Then pass_count = pass_count + 1
+    Dim v_SHADOWMASK_MODE_REPLACE As Integer = LightmapGIData.SHADOWMASK_MODE_REPLACE
+    If v_SHADOWMASK_MODE_REPLACE = 1 Then pass_count = pass_count + 1
+    Dim v_SHADOWMASK_MODE_OVERLAY As Integer = LightmapGIData.SHADOWMASK_MODE_OVERLAY
+    If v_SHADOWMASK_MODE_OVERLAY = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_LightmapGIData_ShadowmaskMode"
+    Else
+        Print "FAIL:enum_LightmapGIData_ShadowmaskMode count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_LightmapGIData_ShadowmaskMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_LINE_JOINT_SHARP As Integer = Line2D.LINE_JOINT_SHARP
+    If v_LINE_JOINT_SHARP = 0 Then pass_count = pass_count + 1
+    Dim v_LINE_JOINT_BEVEL As Integer = Line2D.LINE_JOINT_BEVEL
+    If v_LINE_JOINT_BEVEL = 1 Then pass_count = pass_count + 1
+    Dim v_LINE_JOINT_ROUND As Integer = Line2D.LINE_JOINT_ROUND
+    If v_LINE_JOINT_ROUND = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_Line2D_LineJointMode"
+    Else
+        Print "FAIL:enum_Line2D_LineJointMode count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Line2D_LineJointMode err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

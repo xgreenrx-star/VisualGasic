@@ -1,0 +1,154 @@
+Attribute VB_Name = "fuzz_inst_640"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeIf = VisualShaderNodeIf.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeIf"
+    Else
+        Print "FAIL:inst_VisualShaderNodeIf returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeIf err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeInput = VisualShaderNodeInput.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeInput"
+    Else
+        Print "FAIL:inst_VisualShaderNodeInput returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeInput err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeIntConstant = VisualShaderNodeIntConstant.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeIntConstant"
+    Else
+        Print "FAIL:inst_VisualShaderNodeIntConstant returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeIntConstant err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeIntFunc = VisualShaderNodeIntFunc.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeIntFunc"
+    Else
+        Print "FAIL:inst_VisualShaderNodeIntFunc returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeIntFunc err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeIntOp = VisualShaderNodeIntOp.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeIntOp"
+    Else
+        Print "FAIL:inst_VisualShaderNodeIntOp returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeIntOp err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeIntParameter = VisualShaderNodeIntParameter.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeIntParameter"
+    Else
+        Print "FAIL:inst_VisualShaderNodeIntParameter returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeIntParameter err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeIs = VisualShaderNodeIs.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeIs"
+    Else
+        Print "FAIL:inst_VisualShaderNodeIs returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeIs err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeLinearSceneDepth = VisualShaderNodeLinearSceneDepth.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeLinearSceneDepth"
+    Else
+        Print "FAIL:inst_VisualShaderNodeLinearSceneDepth returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeLinearSceneDepth err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeMix = VisualShaderNodeMix.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeMix"
+    Else
+        Print "FAIL:inst_VisualShaderNodeMix returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeMix err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeMultiplyAdd = VisualShaderNodeMultiplyAdd.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeMultiplyAdd"
+    Else
+        Print "FAIL:inst_VisualShaderNodeMultiplyAdd returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeMultiplyAdd err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

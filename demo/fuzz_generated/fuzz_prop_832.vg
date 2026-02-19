@@ -1,0 +1,147 @@
+Attribute VB_Name = "fuzz_prop_832"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As Environment = Environment.new()
+    If obj = Null Then
+        Print "SKIP:prop_Environment_background_intensity (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.background_intensity
+    Print "PASS:prop_Environment_background_intensity"
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_Environment_background_intensity err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As Environment = Environment.new()
+    If obj = Null Then
+        Print "SKIP:prop_Environment_background_canvas_max_layer (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.background_canvas_max_layer
+    Print "PASS:prop_Environment_background_canvas_max_layer"
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_Environment_background_canvas_max_layer err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As Label = Label.new()
+    If obj = Null Then
+        Print "SKIP:prop_Label_text (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.text
+    Print "PASS:prop_Label_text"
+    obj.text = "test_string"
+    Dim val2 As Variant = obj.text
+    Print "PASS:propset_Label_text"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_Label_text err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As Label = Label.new()
+    If obj = Null Then
+        Print "SKIP:prop_Label_label_settings (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.label_settings
+    Print "PASS:prop_Label_label_settings"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_Label_label_settings err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As Label = Label.new()
+    If obj = Null Then
+        Print "SKIP:prop_Label_horizontal_alignment (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.horizontal_alignment
+    Print "PASS:prop_Label_horizontal_alignment"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_Label_horizontal_alignment err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As Label = Label.new()
+    If obj = Null Then
+        Print "SKIP:prop_Label_vertical_alignment (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.vertical_alignment
+    Print "PASS:prop_Label_vertical_alignment"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_Label_vertical_alignment err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As Label = Label.new()
+    If obj = Null Then
+        Print "SKIP:prop_Label_autowrap_mode (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.autowrap_mode
+    Print "PASS:prop_Label_autowrap_mode"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_Label_autowrap_mode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As TextureButton = TextureButton.new()
+    If obj = Null Then
+        Print "SKIP:prop_TextureButton_texture_normal (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.texture_normal
+    Print "PASS:prop_TextureButton_texture_normal"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_TextureButton_texture_normal err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+End Sub

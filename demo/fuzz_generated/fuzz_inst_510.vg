@@ -1,0 +1,158 @@
+Attribute VB_Name = "fuzz_inst_510"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As SkeletonProfileHumanoid = SkeletonProfileHumanoid.new()
+    If obj <> Null Then
+        Print "PASS:inst_SkeletonProfileHumanoid"
+    Else
+        Print "FAIL:inst_SkeletonProfileHumanoid returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_SkeletonProfileHumanoid err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As Skin = Skin.new()
+    If obj <> Null Then
+        Print "PASS:inst_Skin"
+    Else
+        Print "FAIL:inst_Skin returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_Skin err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As Sky = Sky.new()
+    If obj <> Null Then
+        Print "PASS:inst_Sky"
+    Else
+        Print "FAIL:inst_Sky returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_Sky err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As SliderJoint3D = SliderJoint3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_SliderJoint3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_SliderJoint3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_SliderJoint3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As SoftBody3D = SoftBody3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_SoftBody3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_SoftBody3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_SoftBody3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As SphereMesh = SphereMesh.new()
+    If obj <> Null Then
+        Print "PASS:inst_SphereMesh"
+    Else
+        Print "FAIL:inst_SphereMesh returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_SphereMesh err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As SphereOccluder3D = SphereOccluder3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_SphereOccluder3D"
+    Else
+        Print "FAIL:inst_SphereOccluder3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_SphereOccluder3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As SphereShape3D = SphereShape3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_SphereShape3D"
+    Else
+        Print "FAIL:inst_SphereShape3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_SphereShape3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As SpinBox = SpinBox.new()
+    If obj <> Null Then
+        Print "PASS:inst_SpinBox"
+        obj.free()
+    Else
+        Print "FAIL:inst_SpinBox returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_SpinBox err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As SplitContainer = SplitContainer.new()
+    If obj <> Null Then
+        Print "PASS:inst_SplitContainer"
+        obj.free()
+    Else
+        Print "FAIL:inst_SplitContainer returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_SplitContainer err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

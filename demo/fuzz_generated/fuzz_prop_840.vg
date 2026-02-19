@@ -1,0 +1,157 @@
+Attribute VB_Name = "fuzz_prop_840"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As TextureButton = TextureButton.new()
+    If obj = Null Then
+        Print "SKIP:prop_TextureButton_texture_pressed (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.texture_pressed
+    Print "PASS:prop_TextureButton_texture_pressed"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_TextureButton_texture_pressed err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As TextureButton = TextureButton.new()
+    If obj = Null Then
+        Print "SKIP:prop_TextureButton_texture_hover (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.texture_hover
+    Print "PASS:prop_TextureButton_texture_hover"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_TextureButton_texture_hover err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As TextureButton = TextureButton.new()
+    If obj = Null Then
+        Print "SKIP:prop_TextureButton_texture_disabled (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.texture_disabled
+    Print "PASS:prop_TextureButton_texture_disabled"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_TextureButton_texture_disabled err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As TextureButton = TextureButton.new()
+    If obj = Null Then
+        Print "SKIP:prop_TextureButton_texture_focused (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.texture_focused
+    Print "PASS:prop_TextureButton_texture_focused"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_TextureButton_texture_focused err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As SpinBox = SpinBox.new()
+    If obj = Null Then
+        Print "SKIP:prop_SpinBox_alignment (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.alignment
+    Print "PASS:prop_SpinBox_alignment"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_SpinBox_alignment err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As SpinBox = SpinBox.new()
+    If obj = Null Then
+        Print "SKIP:prop_SpinBox_editable (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.editable
+    Print "PASS:prop_SpinBox_editable"
+    obj.editable = True
+    Dim val2 As Variant = obj.editable
+    Print "PASS:propset_SpinBox_editable"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_SpinBox_editable err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As SpinBox = SpinBox.new()
+    If obj = Null Then
+        Print "SKIP:prop_SpinBox_update_on_text_changed (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.update_on_text_changed
+    Print "PASS:prop_SpinBox_update_on_text_changed"
+    obj.update_on_text_changed = True
+    Dim val2 As Variant = obj.update_on_text_changed
+    Print "PASS:propset_SpinBox_update_on_text_changed"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_SpinBox_update_on_text_changed err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As SpinBox = SpinBox.new()
+    If obj = Null Then
+        Print "SKIP:prop_SpinBox_prefix (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.prefix
+    Print "PASS:prop_SpinBox_prefix"
+    obj.prefix = "test_string"
+    Dim val2 As Variant = obj.prefix
+    Print "PASS:propset_SpinBox_prefix"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_SpinBox_prefix err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+End Sub

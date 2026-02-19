@@ -1,0 +1,150 @@
+Attribute VB_Name = "fuzz_enum_1496"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_MODIFIER_CALLBACK_MODE_PROCESS_PHYSICS As Integer = Skeleton3D.MODIFIER_CALLBACK_MODE_PROCESS_PHYSICS
+    If v_MODIFIER_CALLBACK_MODE_PROCESS_PHYSICS = 0 Then pass_count = pass_count + 1
+    Dim v_MODIFIER_CALLBACK_MODE_PROCESS_IDLE As Integer = Skeleton3D.MODIFIER_CALLBACK_MODE_PROCESS_IDLE
+    If v_MODIFIER_CALLBACK_MODE_PROCESS_IDLE = 1 Then pass_count = pass_count + 1
+    Dim v_MODIFIER_CALLBACK_MODE_PROCESS_MANUAL As Integer = Skeleton3D.MODIFIER_CALLBACK_MODE_PROCESS_MANUAL
+    If v_MODIFIER_CALLBACK_MODE_PROCESS_MANUAL = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_Skeleton3D_ModifierCallbackModeProcess"
+    Else
+        Print "FAIL:enum_Skeleton3D_ModifierCallbackModeProcess count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Skeleton3D_ModifierCallbackModeProcess err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_BONE_AXIS_PLUS_X As Integer = SkeletonModifier3D.BONE_AXIS_PLUS_X
+    If v_BONE_AXIS_PLUS_X = 0 Then pass_count = pass_count + 1
+    Dim v_BONE_AXIS_MINUS_X As Integer = SkeletonModifier3D.BONE_AXIS_MINUS_X
+    If v_BONE_AXIS_MINUS_X = 1 Then pass_count = pass_count + 1
+    Dim v_BONE_AXIS_PLUS_Y As Integer = SkeletonModifier3D.BONE_AXIS_PLUS_Y
+    If v_BONE_AXIS_PLUS_Y = 2 Then pass_count = pass_count + 1
+    Dim v_BONE_AXIS_MINUS_Y As Integer = SkeletonModifier3D.BONE_AXIS_MINUS_Y
+    If v_BONE_AXIS_MINUS_Y = 3 Then pass_count = pass_count + 1
+    Dim v_BONE_AXIS_PLUS_Z As Integer = SkeletonModifier3D.BONE_AXIS_PLUS_Z
+    If v_BONE_AXIS_PLUS_Z = 4 Then pass_count = pass_count + 1
+    Dim v_BONE_AXIS_MINUS_Z As Integer = SkeletonModifier3D.BONE_AXIS_MINUS_Z
+    If v_BONE_AXIS_MINUS_Z = 5 Then pass_count = pass_count + 1
+    If pass_count = 6 Then
+        Print "PASS:enum_SkeletonModifier3D_BoneAxis"
+    Else
+        Print "FAIL:enum_SkeletonModifier3D_BoneAxis count=" & str(pass_count) & "/6"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_SkeletonModifier3D_BoneAxis err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_TAIL_DIRECTION_AVERAGE_CHILDREN As Integer = SkeletonProfile.TAIL_DIRECTION_AVERAGE_CHILDREN
+    If v_TAIL_DIRECTION_AVERAGE_CHILDREN = 0 Then pass_count = pass_count + 1
+    Dim v_TAIL_DIRECTION_SPECIFIC_CHILD As Integer = SkeletonProfile.TAIL_DIRECTION_SPECIFIC_CHILD
+    If v_TAIL_DIRECTION_SPECIFIC_CHILD = 1 Then pass_count = pass_count + 1
+    Dim v_TAIL_DIRECTION_END As Integer = SkeletonProfile.TAIL_DIRECTION_END
+    If v_TAIL_DIRECTION_END = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_SkeletonProfile_TailDirection"
+    Else
+        Print "FAIL:enum_SkeletonProfile_TailDirection count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_SkeletonProfile_TailDirection err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_RADIANCE_SIZE_32 As Integer = Sky.RADIANCE_SIZE_32
+    If v_RADIANCE_SIZE_32 = 0 Then pass_count = pass_count + 1
+    Dim v_RADIANCE_SIZE_64 As Integer = Sky.RADIANCE_SIZE_64
+    If v_RADIANCE_SIZE_64 = 1 Then pass_count = pass_count + 1
+    Dim v_RADIANCE_SIZE_128 As Integer = Sky.RADIANCE_SIZE_128
+    If v_RADIANCE_SIZE_128 = 2 Then pass_count = pass_count + 1
+    Dim v_RADIANCE_SIZE_256 As Integer = Sky.RADIANCE_SIZE_256
+    If v_RADIANCE_SIZE_256 = 3 Then pass_count = pass_count + 1
+    Dim v_RADIANCE_SIZE_512 As Integer = Sky.RADIANCE_SIZE_512
+    If v_RADIANCE_SIZE_512 = 4 Then pass_count = pass_count + 1
+    Dim v_RADIANCE_SIZE_1024 As Integer = Sky.RADIANCE_SIZE_1024
+    If v_RADIANCE_SIZE_1024 = 5 Then pass_count = pass_count + 1
+    Dim v_RADIANCE_SIZE_2048 As Integer = Sky.RADIANCE_SIZE_2048
+    If v_RADIANCE_SIZE_2048 = 6 Then pass_count = pass_count + 1
+    Dim v_RADIANCE_SIZE_MAX As Integer = Sky.RADIANCE_SIZE_MAX
+    If v_RADIANCE_SIZE_MAX = 7 Then pass_count = pass_count + 1
+    If pass_count = 8 Then
+        Print "PASS:enum_Sky_RadianceSize"
+    Else
+        Print "FAIL:enum_Sky_RadianceSize count=" & str(pass_count) & "/8"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Sky_RadianceSize err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_PROCESS_MODE_AUTOMATIC As Integer = Sky.PROCESS_MODE_AUTOMATIC
+    If v_PROCESS_MODE_AUTOMATIC = 0 Then pass_count = pass_count + 1
+    Dim v_PROCESS_MODE_QUALITY As Integer = Sky.PROCESS_MODE_QUALITY
+    If v_PROCESS_MODE_QUALITY = 1 Then pass_count = pass_count + 1
+    Dim v_PROCESS_MODE_INCREMENTAL As Integer = Sky.PROCESS_MODE_INCREMENTAL
+    If v_PROCESS_MODE_INCREMENTAL = 2 Then pass_count = pass_count + 1
+    Dim v_PROCESS_MODE_REALTIME As Integer = Sky.PROCESS_MODE_REALTIME
+    If v_PROCESS_MODE_REALTIME = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_Sky_ProcessMode"
+    Else
+        Print "FAIL:enum_Sky_ProcessMode count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Sky_ProcessMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_TICK_POSITION_BOTTOM_RIGHT As Integer = Slider.TICK_POSITION_BOTTOM_RIGHT
+    If v_TICK_POSITION_BOTTOM_RIGHT = 0 Then pass_count = pass_count + 1
+    Dim v_TICK_POSITION_TOP_LEFT As Integer = Slider.TICK_POSITION_TOP_LEFT
+    If v_TICK_POSITION_TOP_LEFT = 1 Then pass_count = pass_count + 1
+    Dim v_TICK_POSITION_BOTH As Integer = Slider.TICK_POSITION_BOTH
+    If v_TICK_POSITION_BOTH = 2 Then pass_count = pass_count + 1
+    Dim v_TICK_POSITION_CENTER As Integer = Slider.TICK_POSITION_CENTER
+    If v_TICK_POSITION_CENTER = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_Slider_TickPosition"
+    Else
+        Print "FAIL:enum_Slider_TickPosition count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Slider_TickPosition err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

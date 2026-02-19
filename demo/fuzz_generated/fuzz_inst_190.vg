@@ -1,0 +1,154 @@
+Attribute VB_Name = "fuzz_inst_190"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As ENetMultiplayerPeer = ENetMultiplayerPeer.new()
+    If obj <> Null Then
+        Print "PASS:inst_ENetMultiplayerPeer"
+    Else
+        Print "FAIL:inst_ENetMultiplayerPeer returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_ENetMultiplayerPeer err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As EncodedObjectAsID = EncodedObjectAsID.new()
+    If obj <> Null Then
+        Print "PASS:inst_EncodedObjectAsID"
+    Else
+        Print "FAIL:inst_EncodedObjectAsID returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_EncodedObjectAsID err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As EngineDebugger = EngineDebugger.new()
+    If obj <> Null Then
+        Print "PASS:inst_EngineDebugger"
+    Else
+        Print "FAIL:inst_EngineDebugger returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_EngineDebugger err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As EngineProfiler = EngineProfiler.new()
+    If obj <> Null Then
+        Print "PASS:inst_EngineProfiler"
+    Else
+        Print "FAIL:inst_EngineProfiler returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_EngineProfiler err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As Environment = Environment.new()
+    If obj <> Null Then
+        Print "PASS:inst_Environment"
+    Else
+        Print "FAIL:inst_Environment returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_Environment err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As Expression = Expression.new()
+    If obj <> Null Then
+        Print "PASS:inst_Expression"
+    Else
+        Print "FAIL:inst_Expression returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_Expression err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As ExternalTexture = ExternalTexture.new()
+    If obj <> Null Then
+        Print "PASS:inst_ExternalTexture"
+    Else
+        Print "FAIL:inst_ExternalTexture returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_ExternalTexture err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As FBXDocument = FBXDocument.new()
+    If obj <> Null Then
+        Print "PASS:inst_FBXDocument"
+    Else
+        Print "FAIL:inst_FBXDocument returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_FBXDocument err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As FBXState = FBXState.new()
+    If obj <> Null Then
+        Print "PASS:inst_FBXState"
+    Else
+        Print "FAIL:inst_FBXState returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_FBXState err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As FastNoiseLite = FastNoiseLite.new()
+    If obj <> Null Then
+        Print "PASS:inst_FastNoiseLite"
+    Else
+        Print "FAIL:inst_FastNoiseLite returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_FastNoiseLite err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

@@ -1,0 +1,180 @@
+Attribute VB_Name = "fuzz_enum_1475"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_METHOD_GET As Integer = HTTPClient.METHOD_GET
+    If v_METHOD_GET = 0 Then pass_count = pass_count + 1
+    Dim v_METHOD_HEAD As Integer = HTTPClient.METHOD_HEAD
+    If v_METHOD_HEAD = 1 Then pass_count = pass_count + 1
+    Dim v_METHOD_POST As Integer = HTTPClient.METHOD_POST
+    If v_METHOD_POST = 2 Then pass_count = pass_count + 1
+    Dim v_METHOD_PUT As Integer = HTTPClient.METHOD_PUT
+    If v_METHOD_PUT = 3 Then pass_count = pass_count + 1
+    Dim v_METHOD_DELETE As Integer = HTTPClient.METHOD_DELETE
+    If v_METHOD_DELETE = 4 Then pass_count = pass_count + 1
+    Dim v_METHOD_OPTIONS As Integer = HTTPClient.METHOD_OPTIONS
+    If v_METHOD_OPTIONS = 5 Then pass_count = pass_count + 1
+    Dim v_METHOD_TRACE As Integer = HTTPClient.METHOD_TRACE
+    If v_METHOD_TRACE = 6 Then pass_count = pass_count + 1
+    Dim v_METHOD_CONNECT As Integer = HTTPClient.METHOD_CONNECT
+    If v_METHOD_CONNECT = 7 Then pass_count = pass_count + 1
+    If pass_count = 8 Then
+        Print "PASS:enum_HTTPClient_Method"
+    Else
+        Print "FAIL:enum_HTTPClient_Method count=" & str(pass_count) & "/8"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_HTTPClient_Method err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_STATUS_DISCONNECTED As Integer = HTTPClient.STATUS_DISCONNECTED
+    If v_STATUS_DISCONNECTED = 0 Then pass_count = pass_count + 1
+    Dim v_STATUS_RESOLVING As Integer = HTTPClient.STATUS_RESOLVING
+    If v_STATUS_RESOLVING = 1 Then pass_count = pass_count + 1
+    Dim v_STATUS_CANT_RESOLVE As Integer = HTTPClient.STATUS_CANT_RESOLVE
+    If v_STATUS_CANT_RESOLVE = 2 Then pass_count = pass_count + 1
+    Dim v_STATUS_CONNECTING As Integer = HTTPClient.STATUS_CONNECTING
+    If v_STATUS_CONNECTING = 3 Then pass_count = pass_count + 1
+    Dim v_STATUS_CANT_CONNECT As Integer = HTTPClient.STATUS_CANT_CONNECT
+    If v_STATUS_CANT_CONNECT = 4 Then pass_count = pass_count + 1
+    Dim v_STATUS_CONNECTED As Integer = HTTPClient.STATUS_CONNECTED
+    If v_STATUS_CONNECTED = 5 Then pass_count = pass_count + 1
+    Dim v_STATUS_REQUESTING As Integer = HTTPClient.STATUS_REQUESTING
+    If v_STATUS_REQUESTING = 6 Then pass_count = pass_count + 1
+    Dim v_STATUS_BODY As Integer = HTTPClient.STATUS_BODY
+    If v_STATUS_BODY = 7 Then pass_count = pass_count + 1
+    If pass_count = 8 Then
+        Print "PASS:enum_HTTPClient_Status"
+    Else
+        Print "FAIL:enum_HTTPClient_Status count=" & str(pass_count) & "/8"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_HTTPClient_Status err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_RESPONSE_CONTINUE As Integer = HTTPClient.RESPONSE_CONTINUE
+    If v_RESPONSE_CONTINUE = 100 Then pass_count = pass_count + 1
+    Dim v_RESPONSE_SWITCHING_PROTOCOLS As Integer = HTTPClient.RESPONSE_SWITCHING_PROTOCOLS
+    If v_RESPONSE_SWITCHING_PROTOCOLS = 101 Then pass_count = pass_count + 1
+    Dim v_RESPONSE_PROCESSING As Integer = HTTPClient.RESPONSE_PROCESSING
+    If v_RESPONSE_PROCESSING = 102 Then pass_count = pass_count + 1
+    Dim v_RESPONSE_OK As Integer = HTTPClient.RESPONSE_OK
+    If v_RESPONSE_OK = 200 Then pass_count = pass_count + 1
+    Dim v_RESPONSE_CREATED As Integer = HTTPClient.RESPONSE_CREATED
+    If v_RESPONSE_CREATED = 201 Then pass_count = pass_count + 1
+    Dim v_RESPONSE_ACCEPTED As Integer = HTTPClient.RESPONSE_ACCEPTED
+    If v_RESPONSE_ACCEPTED = 202 Then pass_count = pass_count + 1
+    Dim v_RESPONSE_NON_AUTHORITATIVE_INFORMATION As Integer = HTTPClient.RESPONSE_NON_AUTHORITATIVE_INFORMATION
+    If v_RESPONSE_NON_AUTHORITATIVE_INFORMATION = 203 Then pass_count = pass_count + 1
+    Dim v_RESPONSE_NO_CONTENT As Integer = HTTPClient.RESPONSE_NO_CONTENT
+    If v_RESPONSE_NO_CONTENT = 204 Then pass_count = pass_count + 1
+    If pass_count = 8 Then
+        Print "PASS:enum_HTTPClient_ResponseCode"
+    Else
+        Print "FAIL:enum_HTTPClient_ResponseCode count=" & str(pass_count) & "/8"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_HTTPClient_ResponseCode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_RESULT_SUCCESS As Integer = HTTPRequest.RESULT_SUCCESS
+    If v_RESULT_SUCCESS = 0 Then pass_count = pass_count + 1
+    Dim v_RESULT_CHUNKED_BODY_SIZE_MISMATCH As Integer = HTTPRequest.RESULT_CHUNKED_BODY_SIZE_MISMATCH
+    If v_RESULT_CHUNKED_BODY_SIZE_MISMATCH = 1 Then pass_count = pass_count + 1
+    Dim v_RESULT_CANT_CONNECT As Integer = HTTPRequest.RESULT_CANT_CONNECT
+    If v_RESULT_CANT_CONNECT = 2 Then pass_count = pass_count + 1
+    Dim v_RESULT_CANT_RESOLVE As Integer = HTTPRequest.RESULT_CANT_RESOLVE
+    If v_RESULT_CANT_RESOLVE = 3 Then pass_count = pass_count + 1
+    Dim v_RESULT_CONNECTION_ERROR As Integer = HTTPRequest.RESULT_CONNECTION_ERROR
+    If v_RESULT_CONNECTION_ERROR = 4 Then pass_count = pass_count + 1
+    Dim v_RESULT_TLS_HANDSHAKE_ERROR As Integer = HTTPRequest.RESULT_TLS_HANDSHAKE_ERROR
+    If v_RESULT_TLS_HANDSHAKE_ERROR = 5 Then pass_count = pass_count + 1
+    Dim v_RESULT_NO_RESPONSE As Integer = HTTPRequest.RESULT_NO_RESPONSE
+    If v_RESULT_NO_RESPONSE = 6 Then pass_count = pass_count + 1
+    Dim v_RESULT_BODY_SIZE_LIMIT_EXCEEDED As Integer = HTTPRequest.RESULT_BODY_SIZE_LIMIT_EXCEEDED
+    If v_RESULT_BODY_SIZE_LIMIT_EXCEEDED = 7 Then pass_count = pass_count + 1
+    If pass_count = 8 Then
+        Print "PASS:enum_HTTPRequest_Result"
+    Else
+        Print "FAIL:enum_HTTPRequest_Result count=" & str(pass_count) & "/8"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_HTTPRequest_Result err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_HASH_MD5 As Integer = HashingContext.HASH_MD5
+    If v_HASH_MD5 = 0 Then pass_count = pass_count + 1
+    Dim v_HASH_SHA1 As Integer = HashingContext.HASH_SHA1
+    If v_HASH_SHA1 = 1 Then pass_count = pass_count + 1
+    Dim v_HASH_SHA256 As Integer = HashingContext.HASH_SHA256
+    If v_HASH_SHA256 = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_HashingContext_HashType"
+    Else
+        Print "FAIL:enum_HashingContext_HashType count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_HashingContext_HashType err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_PARAM_BIAS As Integer = HingeJoint3D.PARAM_BIAS
+    If v_PARAM_BIAS = 0 Then pass_count = pass_count + 1
+    Dim v_PARAM_LIMIT_UPPER As Integer = HingeJoint3D.PARAM_LIMIT_UPPER
+    If v_PARAM_LIMIT_UPPER = 1 Then pass_count = pass_count + 1
+    Dim v_PARAM_LIMIT_LOWER As Integer = HingeJoint3D.PARAM_LIMIT_LOWER
+    If v_PARAM_LIMIT_LOWER = 2 Then pass_count = pass_count + 1
+    Dim v_PARAM_LIMIT_BIAS As Integer = HingeJoint3D.PARAM_LIMIT_BIAS
+    If v_PARAM_LIMIT_BIAS = 3 Then pass_count = pass_count + 1
+    Dim v_PARAM_LIMIT_SOFTNESS As Integer = HingeJoint3D.PARAM_LIMIT_SOFTNESS
+    If v_PARAM_LIMIT_SOFTNESS = 4 Then pass_count = pass_count + 1
+    Dim v_PARAM_LIMIT_RELAXATION As Integer = HingeJoint3D.PARAM_LIMIT_RELAXATION
+    If v_PARAM_LIMIT_RELAXATION = 5 Then pass_count = pass_count + 1
+    Dim v_PARAM_MOTOR_TARGET_VELOCITY As Integer = HingeJoint3D.PARAM_MOTOR_TARGET_VELOCITY
+    If v_PARAM_MOTOR_TARGET_VELOCITY = 6 Then pass_count = pass_count + 1
+    Dim v_PARAM_MOTOR_MAX_IMPULSE As Integer = HingeJoint3D.PARAM_MOTOR_MAX_IMPULSE
+    If v_PARAM_MOTOR_MAX_IMPULSE = 7 Then pass_count = pass_count + 1
+    If pass_count = 8 Then
+        Print "PASS:enum_HingeJoint3D_Param"
+    Else
+        Print "FAIL:enum_HingeJoint3D_Param count=" & str(pass_count) & "/8"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_HingeJoint3D_Param err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

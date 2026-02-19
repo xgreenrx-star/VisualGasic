@@ -1,0 +1,154 @@
+Attribute VB_Name = "fuzz_inst_680"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeTextureParameterTriplanar = VisualShaderNodeTextureParameterTriplanar.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeTextureParameterTriplanar"
+    Else
+        Print "FAIL:inst_VisualShaderNodeTextureParameterTriplanar returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeTextureParameterTriplanar err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeTextureSDF = VisualShaderNodeTextureSDF.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeTextureSDF"
+    Else
+        Print "FAIL:inst_VisualShaderNodeTextureSDF returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeTextureSDF err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeTextureSDFNormal = VisualShaderNodeTextureSDFNormal.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeTextureSDFNormal"
+    Else
+        Print "FAIL:inst_VisualShaderNodeTextureSDFNormal returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeTextureSDFNormal err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeTransformCompose = VisualShaderNodeTransformCompose.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeTransformCompose"
+    Else
+        Print "FAIL:inst_VisualShaderNodeTransformCompose returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeTransformCompose err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeTransformConstant = VisualShaderNodeTransformConstant.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeTransformConstant"
+    Else
+        Print "FAIL:inst_VisualShaderNodeTransformConstant returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeTransformConstant err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeTransformDecompose = VisualShaderNodeTransformDecompose.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeTransformDecompose"
+    Else
+        Print "FAIL:inst_VisualShaderNodeTransformDecompose returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeTransformDecompose err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeTransformFunc = VisualShaderNodeTransformFunc.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeTransformFunc"
+    Else
+        Print "FAIL:inst_VisualShaderNodeTransformFunc returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeTransformFunc err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeTransformOp = VisualShaderNodeTransformOp.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeTransformOp"
+    Else
+        Print "FAIL:inst_VisualShaderNodeTransformOp returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeTransformOp err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeTransformParameter = VisualShaderNodeTransformParameter.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeTransformParameter"
+    Else
+        Print "FAIL:inst_VisualShaderNodeTransformParameter returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeTransformParameter err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeTransformVecMult = VisualShaderNodeTransformVecMult.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeTransformVecMult"
+    Else
+        Print "FAIL:inst_VisualShaderNodeTransformVecMult returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeTransformVecMult err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

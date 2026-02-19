@@ -1,0 +1,156 @@
+Attribute VB_Name = "fuzz_inst_220"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As GLTFPhysicsBody = GLTFPhysicsBody.new()
+    If obj <> Null Then
+        Print "PASS:inst_GLTFPhysicsBody"
+    Else
+        Print "FAIL:inst_GLTFPhysicsBody returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_GLTFPhysicsBody err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As GLTFPhysicsShape = GLTFPhysicsShape.new()
+    If obj <> Null Then
+        Print "PASS:inst_GLTFPhysicsShape"
+    Else
+        Print "FAIL:inst_GLTFPhysicsShape returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_GLTFPhysicsShape err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As GLTFSkeleton = GLTFSkeleton.new()
+    If obj <> Null Then
+        Print "PASS:inst_GLTFSkeleton"
+    Else
+        Print "FAIL:inst_GLTFSkeleton returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_GLTFSkeleton err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As GLTFSkin = GLTFSkin.new()
+    If obj <> Null Then
+        Print "PASS:inst_GLTFSkin"
+    Else
+        Print "FAIL:inst_GLTFSkin returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_GLTFSkin err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As GLTFSpecGloss = GLTFSpecGloss.new()
+    If obj <> Null Then
+        Print "PASS:inst_GLTFSpecGloss"
+    Else
+        Print "FAIL:inst_GLTFSpecGloss returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_GLTFSpecGloss err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As GLTFState = GLTFState.new()
+    If obj <> Null Then
+        Print "PASS:inst_GLTFState"
+    Else
+        Print "FAIL:inst_GLTFState returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_GLTFState err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As GLTFTexture = GLTFTexture.new()
+    If obj <> Null Then
+        Print "PASS:inst_GLTFTexture"
+    Else
+        Print "FAIL:inst_GLTFTexture returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_GLTFTexture err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As GLTFTextureSampler = GLTFTextureSampler.new()
+    If obj <> Null Then
+        Print "PASS:inst_GLTFTextureSampler"
+    Else
+        Print "FAIL:inst_GLTFTextureSampler returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_GLTFTextureSampler err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As GPUParticles2D = GPUParticles2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_GPUParticles2D"
+        obj.free()
+    Else
+        Print "FAIL:inst_GPUParticles2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_GPUParticles2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As GPUParticles3D = GPUParticles3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_GPUParticles3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_GPUParticles3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_GPUParticles3D err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

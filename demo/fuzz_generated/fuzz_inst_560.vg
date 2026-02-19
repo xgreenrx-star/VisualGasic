@@ -1,0 +1,155 @@
+Attribute VB_Name = "fuzz_inst_560"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As Texture2D = Texture2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_Texture2D"
+    Else
+        Print "FAIL:inst_Texture2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_Texture2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As Texture2DArray = Texture2DArray.new()
+    If obj <> Null Then
+        Print "PASS:inst_Texture2DArray"
+    Else
+        Print "FAIL:inst_Texture2DArray returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_Texture2DArray err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As Texture2DArrayRD = Texture2DArrayRD.new()
+    If obj <> Null Then
+        Print "PASS:inst_Texture2DArrayRD"
+    Else
+        Print "FAIL:inst_Texture2DArrayRD returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_Texture2DArrayRD err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As Texture2DRD = Texture2DRD.new()
+    If obj <> Null Then
+        Print "PASS:inst_Texture2DRD"
+    Else
+        Print "FAIL:inst_Texture2DRD returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_Texture2DRD err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As Texture3D = Texture3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_Texture3D"
+    Else
+        Print "FAIL:inst_Texture3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_Texture3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As Texture3DRD = Texture3DRD.new()
+    If obj <> Null Then
+        Print "PASS:inst_Texture3DRD"
+    Else
+        Print "FAIL:inst_Texture3DRD returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_Texture3DRD err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As TextureButton = TextureButton.new()
+    If obj <> Null Then
+        Print "PASS:inst_TextureButton"
+        obj.free()
+    Else
+        Print "FAIL:inst_TextureButton returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_TextureButton err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As TextureCubemapArrayRD = TextureCubemapArrayRD.new()
+    If obj <> Null Then
+        Print "PASS:inst_TextureCubemapArrayRD"
+    Else
+        Print "FAIL:inst_TextureCubemapArrayRD returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_TextureCubemapArrayRD err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As TextureCubemapRD = TextureCubemapRD.new()
+    If obj <> Null Then
+        Print "PASS:inst_TextureCubemapRD"
+    Else
+        Print "FAIL:inst_TextureCubemapRD returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_TextureCubemapRD err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As TextureLayered = TextureLayered.new()
+    If obj <> Null Then
+        Print "PASS:inst_TextureLayered"
+    Else
+        Print "FAIL:inst_TextureLayered returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_TextureLayered err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

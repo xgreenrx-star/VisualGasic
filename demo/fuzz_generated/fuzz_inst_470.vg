@@ -1,0 +1,160 @@
+Attribute VB_Name = "fuzz_inst_470"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As ResourceFormatSaver = ResourceFormatSaver.new()
+    If obj <> Null Then
+        Print "PASS:inst_ResourceFormatSaver"
+    Else
+        Print "FAIL:inst_ResourceFormatSaver returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_ResourceFormatSaver err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As ResourcePreloader = ResourcePreloader.new()
+    If obj <> Null Then
+        Print "PASS:inst_ResourcePreloader"
+        obj.free()
+    Else
+        Print "FAIL:inst_ResourcePreloader returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_ResourcePreloader err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As RetargetModifier3D = RetargetModifier3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_RetargetModifier3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_RetargetModifier3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_RetargetModifier3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As RibbonTrailMesh = RibbonTrailMesh.new()
+    If obj <> Null Then
+        Print "PASS:inst_RibbonTrailMesh"
+    Else
+        Print "FAIL:inst_RibbonTrailMesh returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_RibbonTrailMesh err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As RichTextEffect = RichTextEffect.new()
+    If obj <> Null Then
+        Print "PASS:inst_RichTextEffect"
+    Else
+        Print "FAIL:inst_RichTextEffect returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_RichTextEffect err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As RichTextLabel = RichTextLabel.new()
+    If obj <> Null Then
+        Print "PASS:inst_RichTextLabel"
+        obj.free()
+    Else
+        Print "FAIL:inst_RichTextLabel returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_RichTextLabel err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As RigidBody2D = RigidBody2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_RigidBody2D"
+        obj.free()
+    Else
+        Print "FAIL:inst_RigidBody2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_RigidBody2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As RigidBody3D = RigidBody3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_RigidBody3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_RigidBody3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_RigidBody3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As RootMotionView = RootMotionView.new()
+    If obj <> Null Then
+        Print "PASS:inst_RootMotionView"
+        obj.free()
+    Else
+        Print "FAIL:inst_RootMotionView returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_RootMotionView err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As SceneMultiplayer = SceneMultiplayer.new()
+    If obj <> Null Then
+        Print "PASS:inst_SceneMultiplayer"
+    Else
+        Print "FAIL:inst_SceneMultiplayer returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_SceneMultiplayer err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

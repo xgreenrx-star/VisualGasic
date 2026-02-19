@@ -1,0 +1,162 @@
+Attribute VB_Name = "fuzz_inst_240"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As GradientTexture1D = GradientTexture1D.new()
+    If obj <> Null Then
+        Print "PASS:inst_GradientTexture1D"
+    Else
+        Print "FAIL:inst_GradientTexture1D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_GradientTexture1D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As GradientTexture2D = GradientTexture2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_GradientTexture2D"
+    Else
+        Print "FAIL:inst_GradientTexture2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_GradientTexture2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As GraphEdit = GraphEdit.new()
+    If obj <> Null Then
+        Print "PASS:inst_GraphEdit"
+        obj.free()
+    Else
+        Print "FAIL:inst_GraphEdit returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_GraphEdit err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As GraphElement = GraphElement.new()
+    If obj <> Null Then
+        Print "PASS:inst_GraphElement"
+        obj.free()
+    Else
+        Print "FAIL:inst_GraphElement returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_GraphElement err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As GraphFrame = GraphFrame.new()
+    If obj <> Null Then
+        Print "PASS:inst_GraphFrame"
+        obj.free()
+    Else
+        Print "FAIL:inst_GraphFrame returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_GraphFrame err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As GraphNode = GraphNode.new()
+    If obj <> Null Then
+        Print "PASS:inst_GraphNode"
+        obj.free()
+    Else
+        Print "FAIL:inst_GraphNode returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_GraphNode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As GridContainer = GridContainer.new()
+    If obj <> Null Then
+        Print "PASS:inst_GridContainer"
+        obj.free()
+    Else
+        Print "FAIL:inst_GridContainer returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_GridContainer err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As GridMap = GridMap.new()
+    If obj <> Null Then
+        Print "PASS:inst_GridMap"
+        obj.free()
+    Else
+        Print "FAIL:inst_GridMap returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_GridMap err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As GrooveJoint2D = GrooveJoint2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_GrooveJoint2D"
+        obj.free()
+    Else
+        Print "FAIL:inst_GrooveJoint2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_GrooveJoint2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As HBoxContainer = HBoxContainer.new()
+    If obj <> Null Then
+        Print "PASS:inst_HBoxContainer"
+        obj.free()
+    Else
+        Print "FAIL:inst_HBoxContainer returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_HBoxContainer err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

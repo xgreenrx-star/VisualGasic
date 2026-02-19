@@ -1,0 +1,157 @@
+Attribute VB_Name = "fuzz_prop_936"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As VSplitContainer = VSplitContainer.new()
+    If obj = Null Then
+        Print "SKIP:prop_VSplitContainer_dragging_enabled (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.dragging_enabled
+    Print "PASS:prop_VSplitContainer_dragging_enabled"
+    obj.dragging_enabled = True
+    Dim val2 As Variant = obj.dragging_enabled
+    Print "PASS:propset_VSplitContainer_dragging_enabled"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_VSplitContainer_dragging_enabled err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As VSplitContainer = VSplitContainer.new()
+    If obj = Null Then
+        Print "SKIP:prop_VSplitContainer_dragger_visibility (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.dragger_visibility
+    Print "PASS:prop_VSplitContainer_dragger_visibility"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_VSplitContainer_dragger_visibility err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As VSplitContainer = VSplitContainer.new()
+    If obj = Null Then
+        Print "SKIP:prop_VSplitContainer_vertical (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.vertical
+    Print "PASS:prop_VSplitContainer_vertical"
+    obj.vertical = True
+    Dim val2 As Variant = obj.vertical
+    Print "PASS:propset_VSplitContainer_vertical"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_VSplitContainer_vertical err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As NinePatchRect = NinePatchRect.new()
+    If obj = Null Then
+        Print "SKIP:prop_NinePatchRect_texture (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.texture
+    Print "PASS:prop_NinePatchRect_texture"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_NinePatchRect_texture err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As NinePatchRect = NinePatchRect.new()
+    If obj = Null Then
+        Print "SKIP:prop_NinePatchRect_draw_center (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.draw_center
+    Print "PASS:prop_NinePatchRect_draw_center"
+    obj.draw_center = True
+    Dim val2 As Variant = obj.draw_center
+    Print "PASS:propset_NinePatchRect_draw_center"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_NinePatchRect_draw_center err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As NinePatchRect = NinePatchRect.new()
+    If obj = Null Then
+        Print "SKIP:prop_NinePatchRect_region_rect (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.region_rect
+    Print "PASS:prop_NinePatchRect_region_rect"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_NinePatchRect_region_rect err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As NinePatchRect = NinePatchRect.new()
+    If obj = Null Then
+        Print "SKIP:prop_NinePatchRect_patch_margin_left (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.patch_margin_left
+    Print "PASS:prop_NinePatchRect_patch_margin_left"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_NinePatchRect_patch_margin_left err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As NinePatchRect = NinePatchRect.new()
+    If obj = Null Then
+        Print "SKIP:prop_NinePatchRect_patch_margin_top (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.patch_margin_top
+    Print "PASS:prop_NinePatchRect_patch_margin_top"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_NinePatchRect_patch_margin_top err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+End Sub

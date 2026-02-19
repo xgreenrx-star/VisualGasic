@@ -1,0 +1,144 @@
+Attribute VB_Name = "fuzz_enum_1510"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_VRS_DISABLED As Integer = Viewport.VRS_DISABLED
+    If v_VRS_DISABLED = 0 Then pass_count = pass_count + 1
+    Dim v_VRS_TEXTURE As Integer = Viewport.VRS_TEXTURE
+    If v_VRS_TEXTURE = 1 Then pass_count = pass_count + 1
+    Dim v_VRS_XR As Integer = Viewport.VRS_XR
+    If v_VRS_XR = 2 Then pass_count = pass_count + 1
+    Dim v_VRS_MAX As Integer = Viewport.VRS_MAX
+    If v_VRS_MAX = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_Viewport_VRSMode"
+    Else
+        Print "FAIL:enum_Viewport_VRSMode count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Viewport_VRSMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_VRS_UPDATE_DISABLED As Integer = Viewport.VRS_UPDATE_DISABLED
+    If v_VRS_UPDATE_DISABLED = 0 Then pass_count = pass_count + 1
+    Dim v_VRS_UPDATE_ONCE As Integer = Viewport.VRS_UPDATE_ONCE
+    If v_VRS_UPDATE_ONCE = 1 Then pass_count = pass_count + 1
+    Dim v_VRS_UPDATE_ALWAYS As Integer = Viewport.VRS_UPDATE_ALWAYS
+    If v_VRS_UPDATE_ALWAYS = 2 Then pass_count = pass_count + 1
+    Dim v_VRS_UPDATE_MAX As Integer = Viewport.VRS_UPDATE_MAX
+    If v_VRS_UPDATE_MAX = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_Viewport_VRSUpdateMode"
+    Else
+        Print "FAIL:enum_Viewport_VRSUpdateMode count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Viewport_VRSUpdateMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_ENABLE_MODE_INHERIT As Integer = VisibleOnScreenEnabler2D.ENABLE_MODE_INHERIT
+    If v_ENABLE_MODE_INHERIT = 0 Then pass_count = pass_count + 1
+    Dim v_ENABLE_MODE_ALWAYS As Integer = VisibleOnScreenEnabler2D.ENABLE_MODE_ALWAYS
+    If v_ENABLE_MODE_ALWAYS = 1 Then pass_count = pass_count + 1
+    Dim v_ENABLE_MODE_WHEN_PAUSED As Integer = VisibleOnScreenEnabler2D.ENABLE_MODE_WHEN_PAUSED
+    If v_ENABLE_MODE_WHEN_PAUSED = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_VisibleOnScreenEnabler2D_EnableMode"
+    Else
+        Print "FAIL:enum_VisibleOnScreenEnabler2D_EnableMode count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_VisibleOnScreenEnabler2D_EnableMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_ENABLE_MODE_INHERIT As Integer = VisibleOnScreenEnabler3D.ENABLE_MODE_INHERIT
+    If v_ENABLE_MODE_INHERIT = 0 Then pass_count = pass_count + 1
+    Dim v_ENABLE_MODE_ALWAYS As Integer = VisibleOnScreenEnabler3D.ENABLE_MODE_ALWAYS
+    If v_ENABLE_MODE_ALWAYS = 1 Then pass_count = pass_count + 1
+    Dim v_ENABLE_MODE_WHEN_PAUSED As Integer = VisibleOnScreenEnabler3D.ENABLE_MODE_WHEN_PAUSED
+    If v_ENABLE_MODE_WHEN_PAUSED = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_VisibleOnScreenEnabler3D_EnableMode"
+    Else
+        Print "FAIL:enum_VisibleOnScreenEnabler3D_EnableMode count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_VisibleOnScreenEnabler3D_EnableMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_TYPE_VERTEX As Integer = VisualShader.TYPE_VERTEX
+    If v_TYPE_VERTEX = 0 Then pass_count = pass_count + 1
+    Dim v_TYPE_FRAGMENT As Integer = VisualShader.TYPE_FRAGMENT
+    If v_TYPE_FRAGMENT = 1 Then pass_count = pass_count + 1
+    Dim v_TYPE_LIGHT As Integer = VisualShader.TYPE_LIGHT
+    If v_TYPE_LIGHT = 2 Then pass_count = pass_count + 1
+    Dim v_TYPE_START As Integer = VisualShader.TYPE_START
+    If v_TYPE_START = 3 Then pass_count = pass_count + 1
+    Dim v_TYPE_PROCESS As Integer = VisualShader.TYPE_PROCESS
+    If v_TYPE_PROCESS = 4 Then pass_count = pass_count + 1
+    Dim v_TYPE_COLLIDE As Integer = VisualShader.TYPE_COLLIDE
+    If v_TYPE_COLLIDE = 5 Then pass_count = pass_count + 1
+    Dim v_TYPE_START_CUSTOM As Integer = VisualShader.TYPE_START_CUSTOM
+    If v_TYPE_START_CUSTOM = 6 Then pass_count = pass_count + 1
+    Dim v_TYPE_PROCESS_CUSTOM As Integer = VisualShader.TYPE_PROCESS_CUSTOM
+    If v_TYPE_PROCESS_CUSTOM = 7 Then pass_count = pass_count + 1
+    If pass_count = 8 Then
+        Print "PASS:enum_VisualShader_Type"
+    Else
+        Print "FAIL:enum_VisualShader_Type count=" & str(pass_count) & "/8"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_VisualShader_Type err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_VARYING_MODE_VERTEX_TO_FRAG_LIGHT As Integer = VisualShader.VARYING_MODE_VERTEX_TO_FRAG_LIGHT
+    If v_VARYING_MODE_VERTEX_TO_FRAG_LIGHT = 0 Then pass_count = pass_count + 1
+    Dim v_VARYING_MODE_FRAG_TO_LIGHT As Integer = VisualShader.VARYING_MODE_FRAG_TO_LIGHT
+    If v_VARYING_MODE_FRAG_TO_LIGHT = 1 Then pass_count = pass_count + 1
+    Dim v_VARYING_MODE_MAX As Integer = VisualShader.VARYING_MODE_MAX
+    If v_VARYING_MODE_MAX = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_VisualShader_VaryingMode"
+    Else
+        Print "FAIL:enum_VisualShader_VaryingMode count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_VisualShader_VaryingMode err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

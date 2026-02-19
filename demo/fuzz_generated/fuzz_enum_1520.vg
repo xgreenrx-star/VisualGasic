@@ -1,0 +1,140 @@
+Attribute VB_Name = "fuzz_enum_1520"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_WRITE_MODE_TEXT As Integer = WebSocketPeer.WRITE_MODE_TEXT
+    If v_WRITE_MODE_TEXT = 0 Then pass_count = pass_count + 1
+    Dim v_WRITE_MODE_BINARY As Integer = WebSocketPeer.WRITE_MODE_BINARY
+    If v_WRITE_MODE_BINARY = 1 Then pass_count = pass_count + 1
+    If pass_count = 2 Then
+        Print "PASS:enum_WebSocketPeer_WriteMode"
+    Else
+        Print "FAIL:enum_WebSocketPeer_WriteMode count=" & str(pass_count) & "/2"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_WebSocketPeer_WriteMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_STATE_CONNECTING As Integer = WebSocketPeer.STATE_CONNECTING
+    If v_STATE_CONNECTING = 0 Then pass_count = pass_count + 1
+    Dim v_STATE_OPEN As Integer = WebSocketPeer.STATE_OPEN
+    If v_STATE_OPEN = 1 Then pass_count = pass_count + 1
+    Dim v_STATE_CLOSING As Integer = WebSocketPeer.STATE_CLOSING
+    If v_STATE_CLOSING = 2 Then pass_count = pass_count + 1
+    Dim v_STATE_CLOSED As Integer = WebSocketPeer.STATE_CLOSED
+    If v_STATE_CLOSED = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_WebSocketPeer_State"
+    Else
+        Print "FAIL:enum_WebSocketPeer_State count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_WebSocketPeer_State err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_TARGET_RAY_MODE_UNKNOWN As Integer = WebXRInterface.TARGET_RAY_MODE_UNKNOWN
+    If v_TARGET_RAY_MODE_UNKNOWN = 0 Then pass_count = pass_count + 1
+    Dim v_TARGET_RAY_MODE_GAZE As Integer = WebXRInterface.TARGET_RAY_MODE_GAZE
+    If v_TARGET_RAY_MODE_GAZE = 1 Then pass_count = pass_count + 1
+    Dim v_TARGET_RAY_MODE_TRACKED_POINTER As Integer = WebXRInterface.TARGET_RAY_MODE_TRACKED_POINTER
+    If v_TARGET_RAY_MODE_TRACKED_POINTER = 2 Then pass_count = pass_count + 1
+    Dim v_TARGET_RAY_MODE_SCREEN As Integer = WebXRInterface.TARGET_RAY_MODE_SCREEN
+    If v_TARGET_RAY_MODE_SCREEN = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_WebXRInterface_TargetRayMode"
+    Else
+        Print "FAIL:enum_WebXRInterface_TargetRayMode count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_WebXRInterface_TargetRayMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_NODE_NONE As Integer = XMLParser.NODE_NONE
+    If v_NODE_NONE = 0 Then pass_count = pass_count + 1
+    Dim v_NODE_ELEMENT As Integer = XMLParser.NODE_ELEMENT
+    If v_NODE_ELEMENT = 1 Then pass_count = pass_count + 1
+    Dim v_NODE_ELEMENT_END As Integer = XMLParser.NODE_ELEMENT_END
+    If v_NODE_ELEMENT_END = 2 Then pass_count = pass_count + 1
+    Dim v_NODE_TEXT As Integer = XMLParser.NODE_TEXT
+    If v_NODE_TEXT = 3 Then pass_count = pass_count + 1
+    Dim v_NODE_COMMENT As Integer = XMLParser.NODE_COMMENT
+    If v_NODE_COMMENT = 4 Then pass_count = pass_count + 1
+    Dim v_NODE_CDATA As Integer = XMLParser.NODE_CDATA
+    If v_NODE_CDATA = 5 Then pass_count = pass_count + 1
+    Dim v_NODE_UNKNOWN As Integer = XMLParser.NODE_UNKNOWN
+    If v_NODE_UNKNOWN = 6 Then pass_count = pass_count + 1
+    If pass_count = 7 Then
+        Print "PASS:enum_XMLParser_NodeType"
+    Else
+        Print "FAIL:enum_XMLParser_NodeType count=" & str(pass_count) & "/7"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_XMLParser_NodeType err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_BODY_UPDATE_UPPER_BODY As Integer = XRBodyModifier3D.BODY_UPDATE_UPPER_BODY
+    If v_BODY_UPDATE_UPPER_BODY = 1 Then pass_count = pass_count + 1
+    Dim v_BODY_UPDATE_LOWER_BODY As Integer = XRBodyModifier3D.BODY_UPDATE_LOWER_BODY
+    If v_BODY_UPDATE_LOWER_BODY = 2 Then pass_count = pass_count + 1
+    Dim v_BODY_UPDATE_HANDS As Integer = XRBodyModifier3D.BODY_UPDATE_HANDS
+    If v_BODY_UPDATE_HANDS = 4 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_XRBodyModifier3D_BodyUpdate"
+    Else
+        Print "FAIL:enum_XRBodyModifier3D_BodyUpdate count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_XRBodyModifier3D_BodyUpdate err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_BONE_UPDATE_FULL As Integer = XRBodyModifier3D.BONE_UPDATE_FULL
+    If v_BONE_UPDATE_FULL = 0 Then pass_count = pass_count + 1
+    Dim v_BONE_UPDATE_ROTATION_ONLY As Integer = XRBodyModifier3D.BONE_UPDATE_ROTATION_ONLY
+    If v_BONE_UPDATE_ROTATION_ONLY = 1 Then pass_count = pass_count + 1
+    Dim v_BONE_UPDATE_MAX As Integer = XRBodyModifier3D.BONE_UPDATE_MAX
+    If v_BONE_UPDATE_MAX = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_XRBodyModifier3D_BoneUpdate"
+    Else
+        Print "FAIL:enum_XRBodyModifier3D_BoneUpdate count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_XRBodyModifier3D_BoneUpdate err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

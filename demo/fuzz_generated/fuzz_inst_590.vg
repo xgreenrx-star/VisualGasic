@@ -1,0 +1,161 @@
+Attribute VB_Name = "fuzz_inst_590"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As UPNPDevice = UPNPDevice.new()
+    If obj <> Null Then
+        Print "PASS:inst_UPNPDevice"
+    Else
+        Print "FAIL:inst_UPNPDevice returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_UPNPDevice err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As UndoRedo = UndoRedo.new()
+    If obj <> Null Then
+        Print "PASS:inst_UndoRedo"
+    Else
+        Print "FAIL:inst_UndoRedo returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_UndoRedo err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As UniformSetCacheRD = UniformSetCacheRD.new()
+    If obj <> Null Then
+        Print "PASS:inst_UniformSetCacheRD"
+    Else
+        Print "FAIL:inst_UniformSetCacheRD returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_UniformSetCacheRD err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As VBoxContainer = VBoxContainer.new()
+    If obj <> Null Then
+        Print "PASS:inst_VBoxContainer"
+        obj.free()
+    Else
+        Print "FAIL:inst_VBoxContainer returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VBoxContainer err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As VFlowContainer = VFlowContainer.new()
+    If obj <> Null Then
+        Print "PASS:inst_VFlowContainer"
+        obj.free()
+    Else
+        Print "FAIL:inst_VFlowContainer returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VFlowContainer err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As VScrollBar = VScrollBar.new()
+    If obj <> Null Then
+        Print "PASS:inst_VScrollBar"
+        obj.free()
+    Else
+        Print "FAIL:inst_VScrollBar returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VScrollBar err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As VSeparator = VSeparator.new()
+    If obj <> Null Then
+        Print "PASS:inst_VSeparator"
+        obj.free()
+    Else
+        Print "FAIL:inst_VSeparator returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VSeparator err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As VSlider = VSlider.new()
+    If obj <> Null Then
+        Print "PASS:inst_VSlider"
+        obj.free()
+    Else
+        Print "FAIL:inst_VSlider returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VSlider err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As VSplitContainer = VSplitContainer.new()
+    If obj <> Null Then
+        Print "PASS:inst_VSplitContainer"
+        obj.free()
+    Else
+        Print "FAIL:inst_VSplitContainer returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VSplitContainer err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As VehicleBody3D = VehicleBody3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_VehicleBody3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_VehicleBody3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VehicleBody3D err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

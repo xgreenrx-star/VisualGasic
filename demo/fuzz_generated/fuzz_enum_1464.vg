@@ -1,0 +1,154 @@
+Attribute VB_Name = "fuzz_enum_1464"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_SHAPE_HSV_RECTANGLE As Integer = ColorPicker.SHAPE_HSV_RECTANGLE
+    If v_SHAPE_HSV_RECTANGLE = 0 Then pass_count = pass_count + 1
+    Dim v_SHAPE_HSV_WHEEL As Integer = ColorPicker.SHAPE_HSV_WHEEL
+    If v_SHAPE_HSV_WHEEL = 1 Then pass_count = pass_count + 1
+    Dim v_SHAPE_VHS_CIRCLE As Integer = ColorPicker.SHAPE_VHS_CIRCLE
+    If v_SHAPE_VHS_CIRCLE = 2 Then pass_count = pass_count + 1
+    Dim v_SHAPE_OKHSL_CIRCLE As Integer = ColorPicker.SHAPE_OKHSL_CIRCLE
+    If v_SHAPE_OKHSL_CIRCLE = 3 Then pass_count = pass_count + 1
+    Dim v_SHAPE_NONE As Integer = ColorPicker.SHAPE_NONE
+    If v_SHAPE_NONE = 4 Then pass_count = pass_count + 1
+    Dim v_SHAPE_OK_HS_RECTANGLE As Integer = ColorPicker.SHAPE_OK_HS_RECTANGLE
+    If v_SHAPE_OK_HS_RECTANGLE = 5 Then pass_count = pass_count + 1
+    Dim v_SHAPE_OK_HL_RECTANGLE As Integer = ColorPicker.SHAPE_OK_HL_RECTANGLE
+    If v_SHAPE_OK_HL_RECTANGLE = 6 Then pass_count = pass_count + 1
+    If pass_count = 7 Then
+        Print "PASS:enum_ColorPicker_PickerShapeType"
+    Else
+        Print "FAIL:enum_ColorPicker_PickerShapeType count=" & str(pass_count) & "/7"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_ColorPicker_PickerShapeType err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_EFFECT_CALLBACK_TYPE_PRE_OPAQUE As Integer = CompositorEffect.EFFECT_CALLBACK_TYPE_PRE_OPAQUE
+    If v_EFFECT_CALLBACK_TYPE_PRE_OPAQUE = 0 Then pass_count = pass_count + 1
+    Dim v_EFFECT_CALLBACK_TYPE_POST_OPAQUE As Integer = CompositorEffect.EFFECT_CALLBACK_TYPE_POST_OPAQUE
+    If v_EFFECT_CALLBACK_TYPE_POST_OPAQUE = 1 Then pass_count = pass_count + 1
+    Dim v_EFFECT_CALLBACK_TYPE_POST_SKY As Integer = CompositorEffect.EFFECT_CALLBACK_TYPE_POST_SKY
+    If v_EFFECT_CALLBACK_TYPE_POST_SKY = 2 Then pass_count = pass_count + 1
+    Dim v_EFFECT_CALLBACK_TYPE_PRE_TRANSPARENT As Integer = CompositorEffect.EFFECT_CALLBACK_TYPE_PRE_TRANSPARENT
+    If v_EFFECT_CALLBACK_TYPE_PRE_TRANSPARENT = 3 Then pass_count = pass_count + 1
+    Dim v_EFFECT_CALLBACK_TYPE_POST_TRANSPARENT As Integer = CompositorEffect.EFFECT_CALLBACK_TYPE_POST_TRANSPARENT
+    If v_EFFECT_CALLBACK_TYPE_POST_TRANSPARENT = 4 Then pass_count = pass_count + 1
+    Dim v_EFFECT_CALLBACK_TYPE_MAX As Integer = CompositorEffect.EFFECT_CALLBACK_TYPE_MAX
+    If v_EFFECT_CALLBACK_TYPE_MAX = 5 Then pass_count = pass_count + 1
+    If pass_count = 6 Then
+        Print "PASS:enum_CompositorEffect_EffectCallbackType"
+    Else
+        Print "FAIL:enum_CompositorEffect_EffectCallbackType count=" & str(pass_count) & "/6"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_CompositorEffect_EffectCallbackType err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_PARAM_SWING_SPAN As Integer = ConeTwistJoint3D.PARAM_SWING_SPAN
+    If v_PARAM_SWING_SPAN = 0 Then pass_count = pass_count + 1
+    Dim v_PARAM_TWIST_SPAN As Integer = ConeTwistJoint3D.PARAM_TWIST_SPAN
+    If v_PARAM_TWIST_SPAN = 1 Then pass_count = pass_count + 1
+    Dim v_PARAM_BIAS As Integer = ConeTwistJoint3D.PARAM_BIAS
+    If v_PARAM_BIAS = 2 Then pass_count = pass_count + 1
+    Dim v_PARAM_SOFTNESS As Integer = ConeTwistJoint3D.PARAM_SOFTNESS
+    If v_PARAM_SOFTNESS = 3 Then pass_count = pass_count + 1
+    Dim v_PARAM_RELAXATION As Integer = ConeTwistJoint3D.PARAM_RELAXATION
+    If v_PARAM_RELAXATION = 4 Then pass_count = pass_count + 1
+    Dim v_PARAM_MAX As Integer = ConeTwistJoint3D.PARAM_MAX
+    If v_PARAM_MAX = 5 Then pass_count = pass_count + 1
+    If pass_count = 6 Then
+        Print "PASS:enum_ConeTwistJoint3D_Param"
+    Else
+        Print "FAIL:enum_ConeTwistJoint3D_Param count=" & str(pass_count) & "/6"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_ConeTwistJoint3D_Param err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_TRANSFORM_MODE_POSITION As Integer = ConvertTransformModifier3D.TRANSFORM_MODE_POSITION
+    If v_TRANSFORM_MODE_POSITION = 0 Then pass_count = pass_count + 1
+    Dim v_TRANSFORM_MODE_ROTATION As Integer = ConvertTransformModifier3D.TRANSFORM_MODE_ROTATION
+    If v_TRANSFORM_MODE_ROTATION = 1 Then pass_count = pass_count + 1
+    Dim v_TRANSFORM_MODE_SCALE As Integer = ConvertTransformModifier3D.TRANSFORM_MODE_SCALE
+    If v_TRANSFORM_MODE_SCALE = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_ConvertTransformModifier3D_TransformMode"
+    Else
+        Print "FAIL:enum_ConvertTransformModifier3D_TransformMode count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_ConvertTransformModifier3D_TransformMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_TRANSFORM_FLAG_POSITION As Integer = CopyTransformModifier3D.TRANSFORM_FLAG_POSITION
+    If v_TRANSFORM_FLAG_POSITION = 1 Then pass_count = pass_count + 1
+    Dim v_TRANSFORM_FLAG_ROTATION As Integer = CopyTransformModifier3D.TRANSFORM_FLAG_ROTATION
+    If v_TRANSFORM_FLAG_ROTATION = 2 Then pass_count = pass_count + 1
+    Dim v_TRANSFORM_FLAG_SCALE As Integer = CopyTransformModifier3D.TRANSFORM_FLAG_SCALE
+    If v_TRANSFORM_FLAG_SCALE = 4 Then pass_count = pass_count + 1
+    Dim v_TRANSFORM_FLAG_ALL As Integer = CopyTransformModifier3D.TRANSFORM_FLAG_ALL
+    If v_TRANSFORM_FLAG_ALL = 7 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_CopyTransformModifier3D_TransformFlag"
+    Else
+        Print "FAIL:enum_CopyTransformModifier3D_TransformFlag count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_CopyTransformModifier3D_TransformFlag err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_AXIS_FLAG_X As Integer = CopyTransformModifier3D.AXIS_FLAG_X
+    If v_AXIS_FLAG_X = 1 Then pass_count = pass_count + 1
+    Dim v_AXIS_FLAG_Y As Integer = CopyTransformModifier3D.AXIS_FLAG_Y
+    If v_AXIS_FLAG_Y = 2 Then pass_count = pass_count + 1
+    Dim v_AXIS_FLAG_Z As Integer = CopyTransformModifier3D.AXIS_FLAG_Z
+    If v_AXIS_FLAG_Z = 4 Then pass_count = pass_count + 1
+    Dim v_AXIS_FLAG_ALL As Integer = CopyTransformModifier3D.AXIS_FLAG_ALL
+    If v_AXIS_FLAG_ALL = 7 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_CopyTransformModifier3D_AxisFlag"
+    Else
+        Print "FAIL:enum_CopyTransformModifier3D_AxisFlag count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_CopyTransformModifier3D_AxisFlag err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

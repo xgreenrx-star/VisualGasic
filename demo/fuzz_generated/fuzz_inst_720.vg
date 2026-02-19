@@ -1,0 +1,157 @@
+Attribute VB_Name = "fuzz_inst_720"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As WebSocketPeer = WebSocketPeer.new()
+    If obj <> Null Then
+        Print "PASS:inst_WebSocketPeer"
+    Else
+        Print "FAIL:inst_WebSocketPeer returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_WebSocketPeer err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As World2D = World2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_World2D"
+    Else
+        Print "FAIL:inst_World2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_World2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As World3D = World3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_World3D"
+    Else
+        Print "FAIL:inst_World3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_World3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As WorldBoundaryShape2D = WorldBoundaryShape2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_WorldBoundaryShape2D"
+    Else
+        Print "FAIL:inst_WorldBoundaryShape2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_WorldBoundaryShape2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As WorldBoundaryShape3D = WorldBoundaryShape3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_WorldBoundaryShape3D"
+    Else
+        Print "FAIL:inst_WorldBoundaryShape3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_WorldBoundaryShape3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As WorldEnvironment = WorldEnvironment.new()
+    If obj <> Null Then
+        Print "PASS:inst_WorldEnvironment"
+        obj.free()
+    Else
+        Print "FAIL:inst_WorldEnvironment returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_WorldEnvironment err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As X509Certificate = X509Certificate.new()
+    If obj <> Null Then
+        Print "PASS:inst_X509Certificate"
+    Else
+        Print "FAIL:inst_X509Certificate returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_X509Certificate err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As XMLParser = XMLParser.new()
+    If obj <> Null Then
+        Print "PASS:inst_XMLParser"
+    Else
+        Print "FAIL:inst_XMLParser returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_XMLParser err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As XRAnchor3D = XRAnchor3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_XRAnchor3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_XRAnchor3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_XRAnchor3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As XRBodyModifier3D = XRBodyModifier3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_XRBodyModifier3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_XRBodyModifier3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_XRBodyModifier3D err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

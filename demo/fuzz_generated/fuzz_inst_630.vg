@@ -1,0 +1,154 @@
+Attribute VB_Name = "fuzz_inst_630"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeDotProduct = VisualShaderNodeDotProduct.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeDotProduct"
+    Else
+        Print "FAIL:inst_VisualShaderNodeDotProduct returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeDotProduct err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeExpression = VisualShaderNodeExpression.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeExpression"
+    Else
+        Print "FAIL:inst_VisualShaderNodeExpression returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeExpression err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeFaceForward = VisualShaderNodeFaceForward.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeFaceForward"
+    Else
+        Print "FAIL:inst_VisualShaderNodeFaceForward returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeFaceForward err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeFloatConstant = VisualShaderNodeFloatConstant.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeFloatConstant"
+    Else
+        Print "FAIL:inst_VisualShaderNodeFloatConstant returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeFloatConstant err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeFloatFunc = VisualShaderNodeFloatFunc.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeFloatFunc"
+    Else
+        Print "FAIL:inst_VisualShaderNodeFloatFunc returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeFloatFunc err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeFloatOp = VisualShaderNodeFloatOp.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeFloatOp"
+    Else
+        Print "FAIL:inst_VisualShaderNodeFloatOp returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeFloatOp err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeFloatParameter = VisualShaderNodeFloatParameter.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeFloatParameter"
+    Else
+        Print "FAIL:inst_VisualShaderNodeFloatParameter returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeFloatParameter err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeFrame = VisualShaderNodeFrame.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeFrame"
+    Else
+        Print "FAIL:inst_VisualShaderNodeFrame returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeFrame err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeFresnel = VisualShaderNodeFresnel.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeFresnel"
+    Else
+        Print "FAIL:inst_VisualShaderNodeFresnel returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeFresnel err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeGlobalExpression = VisualShaderNodeGlobalExpression.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeGlobalExpression"
+    Else
+        Print "FAIL:inst_VisualShaderNodeGlobalExpression returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeGlobalExpression err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

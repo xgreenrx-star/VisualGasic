@@ -1,0 +1,130 @@
+Attribute VB_Name = "fuzz_enum_1462"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_BLEND_MODE_MIX As Integer = CanvasItemMaterial.BLEND_MODE_MIX
+    If v_BLEND_MODE_MIX = 0 Then pass_count = pass_count + 1
+    Dim v_BLEND_MODE_ADD As Integer = CanvasItemMaterial.BLEND_MODE_ADD
+    If v_BLEND_MODE_ADD = 1 Then pass_count = pass_count + 1
+    Dim v_BLEND_MODE_SUB As Integer = CanvasItemMaterial.BLEND_MODE_SUB
+    If v_BLEND_MODE_SUB = 2 Then pass_count = pass_count + 1
+    Dim v_BLEND_MODE_MUL As Integer = CanvasItemMaterial.BLEND_MODE_MUL
+    If v_BLEND_MODE_MUL = 3 Then pass_count = pass_count + 1
+    Dim v_BLEND_MODE_PREMULT_ALPHA As Integer = CanvasItemMaterial.BLEND_MODE_PREMULT_ALPHA
+    If v_BLEND_MODE_PREMULT_ALPHA = 4 Then pass_count = pass_count + 1
+    If pass_count = 5 Then
+        Print "PASS:enum_CanvasItemMaterial_BlendMode"
+    Else
+        Print "FAIL:enum_CanvasItemMaterial_BlendMode count=" & str(pass_count) & "/5"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_CanvasItemMaterial_BlendMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_LIGHT_MODE_NORMAL As Integer = CanvasItemMaterial.LIGHT_MODE_NORMAL
+    If v_LIGHT_MODE_NORMAL = 0 Then pass_count = pass_count + 1
+    Dim v_LIGHT_MODE_UNSHADED As Integer = CanvasItemMaterial.LIGHT_MODE_UNSHADED
+    If v_LIGHT_MODE_UNSHADED = 1 Then pass_count = pass_count + 1
+    Dim v_LIGHT_MODE_LIGHT_ONLY As Integer = CanvasItemMaterial.LIGHT_MODE_LIGHT_ONLY
+    If v_LIGHT_MODE_LIGHT_ONLY = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_CanvasItemMaterial_LightMode"
+    Else
+        Print "FAIL:enum_CanvasItemMaterial_LightMode count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_CanvasItemMaterial_LightMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_MOTION_MODE_GROUNDED As Integer = CharacterBody2D.MOTION_MODE_GROUNDED
+    If v_MOTION_MODE_GROUNDED = 0 Then pass_count = pass_count + 1
+    Dim v_MOTION_MODE_FLOATING As Integer = CharacterBody2D.MOTION_MODE_FLOATING
+    If v_MOTION_MODE_FLOATING = 1 Then pass_count = pass_count + 1
+    If pass_count = 2 Then
+        Print "PASS:enum_CharacterBody2D_MotionMode"
+    Else
+        Print "FAIL:enum_CharacterBody2D_MotionMode count=" & str(pass_count) & "/2"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_CharacterBody2D_MotionMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_PLATFORM_ON_LEAVE_ADD_VELOCITY As Integer = CharacterBody2D.PLATFORM_ON_LEAVE_ADD_VELOCITY
+    If v_PLATFORM_ON_LEAVE_ADD_VELOCITY = 0 Then pass_count = pass_count + 1
+    Dim v_PLATFORM_ON_LEAVE_ADD_UPWARD_VELOCITY As Integer = CharacterBody2D.PLATFORM_ON_LEAVE_ADD_UPWARD_VELOCITY
+    If v_PLATFORM_ON_LEAVE_ADD_UPWARD_VELOCITY = 1 Then pass_count = pass_count + 1
+    Dim v_PLATFORM_ON_LEAVE_DO_NOTHING As Integer = CharacterBody2D.PLATFORM_ON_LEAVE_DO_NOTHING
+    If v_PLATFORM_ON_LEAVE_DO_NOTHING = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_CharacterBody2D_PlatformOnLeave"
+    Else
+        Print "FAIL:enum_CharacterBody2D_PlatformOnLeave count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_CharacterBody2D_PlatformOnLeave err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_MOTION_MODE_GROUNDED As Integer = CharacterBody3D.MOTION_MODE_GROUNDED
+    If v_MOTION_MODE_GROUNDED = 0 Then pass_count = pass_count + 1
+    Dim v_MOTION_MODE_FLOATING As Integer = CharacterBody3D.MOTION_MODE_FLOATING
+    If v_MOTION_MODE_FLOATING = 1 Then pass_count = pass_count + 1
+    If pass_count = 2 Then
+        Print "PASS:enum_CharacterBody3D_MotionMode"
+    Else
+        Print "FAIL:enum_CharacterBody3D_MotionMode count=" & str(pass_count) & "/2"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_CharacterBody3D_MotionMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_PLATFORM_ON_LEAVE_ADD_VELOCITY As Integer = CharacterBody3D.PLATFORM_ON_LEAVE_ADD_VELOCITY
+    If v_PLATFORM_ON_LEAVE_ADD_VELOCITY = 0 Then pass_count = pass_count + 1
+    Dim v_PLATFORM_ON_LEAVE_ADD_UPWARD_VELOCITY As Integer = CharacterBody3D.PLATFORM_ON_LEAVE_ADD_UPWARD_VELOCITY
+    If v_PLATFORM_ON_LEAVE_ADD_UPWARD_VELOCITY = 1 Then pass_count = pass_count + 1
+    Dim v_PLATFORM_ON_LEAVE_DO_NOTHING As Integer = CharacterBody3D.PLATFORM_ON_LEAVE_DO_NOTHING
+    If v_PLATFORM_ON_LEAVE_DO_NOTHING = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_CharacterBody3D_PlatformOnLeave"
+    Else
+        Print "FAIL:enum_CharacterBody3D_PlatformOnLeave count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_CharacterBody3D_PlatformOnLeave err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

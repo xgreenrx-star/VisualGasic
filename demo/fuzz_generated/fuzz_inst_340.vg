@@ -1,0 +1,158 @@
+Attribute VB_Name = "fuzz_inst_340"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As NavigationPolygon = NavigationPolygon.new()
+    If obj <> Null Then
+        Print "PASS:inst_NavigationPolygon"
+    Else
+        Print "FAIL:inst_NavigationPolygon returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_NavigationPolygon err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As NavigationRegion2D = NavigationRegion2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_NavigationRegion2D"
+        obj.free()
+    Else
+        Print "FAIL:inst_NavigationRegion2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_NavigationRegion2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As NavigationRegion3D = NavigationRegion3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_NavigationRegion3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_NavigationRegion3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_NavigationRegion3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As NinePatchRect = NinePatchRect.new()
+    If obj <> Null Then
+        Print "PASS:inst_NinePatchRect"
+        obj.free()
+    Else
+        Print "FAIL:inst_NinePatchRect returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_NinePatchRect err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As NoiseTexture2D = NoiseTexture2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_NoiseTexture2D"
+    Else
+        Print "FAIL:inst_NoiseTexture2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_NoiseTexture2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As NoiseTexture3D = NoiseTexture3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_NoiseTexture3D"
+    Else
+        Print "FAIL:inst_NoiseTexture3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_NoiseTexture3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As ORMMaterial3D = ORMMaterial3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_ORMMaterial3D"
+    Else
+        Print "FAIL:inst_ORMMaterial3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_ORMMaterial3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As OccluderInstance3D = OccluderInstance3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_OccluderInstance3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_OccluderInstance3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_OccluderInstance3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As OccluderPolygon2D = OccluderPolygon2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_OccluderPolygon2D"
+    Else
+        Print "FAIL:inst_OccluderPolygon2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_OccluderPolygon2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As OfflineMultiplayerPeer = OfflineMultiplayerPeer.new()
+    If obj <> Null Then
+        Print "PASS:inst_OfflineMultiplayerPeer"
+    Else
+        Print "FAIL:inst_OfflineMultiplayerPeer returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_OfflineMultiplayerPeer err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

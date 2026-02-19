@@ -1,0 +1,157 @@
+Attribute VB_Name = "fuzz_prop_776"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As LineEdit = LineEdit.new()
+    If obj = Null Then
+        Print "SKIP:prop_LineEdit_alignment (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.alignment
+    Print "PASS:prop_LineEdit_alignment"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_LineEdit_alignment err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As LineEdit = LineEdit.new()
+    If obj = Null Then
+        Print "SKIP:prop_LineEdit_max_length (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.max_length
+    Print "PASS:prop_LineEdit_max_length"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_LineEdit_max_length err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As LineEdit = LineEdit.new()
+    If obj = Null Then
+        Print "SKIP:prop_LineEdit_editable (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.editable
+    Print "PASS:prop_LineEdit_editable"
+    obj.editable = True
+    Dim val2 As Variant = obj.editable
+    Print "PASS:propset_LineEdit_editable"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_LineEdit_editable err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As CPUParticles2D = CPUParticles2D.new()
+    If obj = Null Then
+        Print "SKIP:prop_CPUParticles2D_emitting (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.emitting
+    Print "PASS:prop_CPUParticles2D_emitting"
+    obj.emitting = True
+    Dim val2 As Variant = obj.emitting
+    Print "PASS:propset_CPUParticles2D_emitting"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_CPUParticles2D_emitting err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As CPUParticles2D = CPUParticles2D.new()
+    If obj = Null Then
+        Print "SKIP:prop_CPUParticles2D_amount (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.amount
+    Print "PASS:prop_CPUParticles2D_amount"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_CPUParticles2D_amount err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As CPUParticles2D = CPUParticles2D.new()
+    If obj = Null Then
+        Print "SKIP:prop_CPUParticles2D_texture (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.texture
+    Print "PASS:prop_CPUParticles2D_texture"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_CPUParticles2D_texture err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As CPUParticles2D = CPUParticles2D.new()
+    If obj = Null Then
+        Print "SKIP:prop_CPUParticles2D_lifetime (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.lifetime
+    Print "PASS:prop_CPUParticles2D_lifetime"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_CPUParticles2D_lifetime err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As CPUParticles2D = CPUParticles2D.new()
+    If obj = Null Then
+        Print "SKIP:prop_CPUParticles2D_one_shot (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.one_shot
+    Print "PASS:prop_CPUParticles2D_one_shot"
+    obj.one_shot = True
+    Dim val2 As Variant = obj.one_shot
+    Print "PASS:propset_CPUParticles2D_one_shot"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_CPUParticles2D_one_shot err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+End Sub

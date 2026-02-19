@@ -1,0 +1,157 @@
+Attribute VB_Name = "fuzz_inst_550"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As TabBar = TabBar.new()
+    If obj <> Null Then
+        Print "PASS:inst_TabBar"
+        obj.free()
+    Else
+        Print "FAIL:inst_TabBar returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_TabBar err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As TabContainer = TabContainer.new()
+    If obj <> Null Then
+        Print "PASS:inst_TabContainer"
+        obj.free()
+    Else
+        Print "FAIL:inst_TabContainer returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_TabContainer err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As TextEdit = TextEdit.new()
+    If obj <> Null Then
+        Print "PASS:inst_TextEdit"
+        obj.free()
+    Else
+        Print "FAIL:inst_TextEdit returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_TextEdit err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As TextLine = TextLine.new()
+    If obj <> Null Then
+        Print "PASS:inst_TextLine"
+    Else
+        Print "FAIL:inst_TextLine returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_TextLine err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As TextMesh = TextMesh.new()
+    If obj <> Null Then
+        Print "PASS:inst_TextMesh"
+    Else
+        Print "FAIL:inst_TextMesh returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_TextMesh err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As TextParagraph = TextParagraph.new()
+    If obj <> Null Then
+        Print "PASS:inst_TextParagraph"
+    Else
+        Print "FAIL:inst_TextParagraph returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_TextParagraph err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As TextServerAdvanced = TextServerAdvanced.new()
+    If obj <> Null Then
+        Print "PASS:inst_TextServerAdvanced"
+    Else
+        Print "FAIL:inst_TextServerAdvanced returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_TextServerAdvanced err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As TextServerDummy = TextServerDummy.new()
+    If obj <> Null Then
+        Print "PASS:inst_TextServerDummy"
+    Else
+        Print "FAIL:inst_TextServerDummy returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_TextServerDummy err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As TextServerExtension = TextServerExtension.new()
+    If obj <> Null Then
+        Print "PASS:inst_TextServerExtension"
+    Else
+        Print "FAIL:inst_TextServerExtension returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_TextServerExtension err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As Texture = Texture.new()
+    If obj <> Null Then
+        Print "PASS:inst_Texture"
+    Else
+        Print "FAIL:inst_Texture returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_Texture err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

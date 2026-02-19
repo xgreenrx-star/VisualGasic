@@ -1,0 +1,159 @@
+Attribute VB_Name = "fuzz_inst_150"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As CollisionShape2D = CollisionShape2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_CollisionShape2D"
+        obj.free()
+    Else
+        Print "FAIL:inst_CollisionShape2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_CollisionShape2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As CollisionShape3D = CollisionShape3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_CollisionShape3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_CollisionShape3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_CollisionShape3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As ColorPalette = ColorPalette.new()
+    If obj <> Null Then
+        Print "PASS:inst_ColorPalette"
+    Else
+        Print "FAIL:inst_ColorPalette returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_ColorPalette err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As ColorPicker = ColorPicker.new()
+    If obj <> Null Then
+        Print "PASS:inst_ColorPicker"
+        obj.free()
+    Else
+        Print "FAIL:inst_ColorPicker returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_ColorPicker err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As ColorPickerButton = ColorPickerButton.new()
+    If obj <> Null Then
+        Print "PASS:inst_ColorPickerButton"
+        obj.free()
+    Else
+        Print "FAIL:inst_ColorPickerButton returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_ColorPickerButton err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As ColorRect = ColorRect.new()
+    If obj <> Null Then
+        Print "PASS:inst_ColorRect"
+        obj.free()
+    Else
+        Print "FAIL:inst_ColorRect returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_ColorRect err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As Compositor = Compositor.new()
+    If obj <> Null Then
+        Print "PASS:inst_Compositor"
+    Else
+        Print "FAIL:inst_Compositor returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_Compositor err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As CompositorEffect = CompositorEffect.new()
+    If obj <> Null Then
+        Print "PASS:inst_CompositorEffect"
+    Else
+        Print "FAIL:inst_CompositorEffect returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_CompositorEffect err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As CompressedCubemap = CompressedCubemap.new()
+    If obj <> Null Then
+        Print "PASS:inst_CompressedCubemap"
+    Else
+        Print "FAIL:inst_CompressedCubemap returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_CompressedCubemap err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As CompressedCubemapArray = CompressedCubemapArray.new()
+    If obj <> Null Then
+        Print "PASS:inst_CompressedCubemapArray"
+    Else
+        Print "FAIL:inst_CompressedCubemapArray returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_CompressedCubemapArray err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

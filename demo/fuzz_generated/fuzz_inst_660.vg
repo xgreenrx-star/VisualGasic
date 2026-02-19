@@ -1,0 +1,154 @@
+Attribute VB_Name = "fuzz_inst_660"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeParticleRingEmitter = VisualShaderNodeParticleRingEmitter.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeParticleRingEmitter"
+    Else
+        Print "FAIL:inst_VisualShaderNodeParticleRingEmitter returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeParticleRingEmitter err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeParticleSphereEmitter = VisualShaderNodeParticleSphereEmitter.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeParticleSphereEmitter"
+    Else
+        Print "FAIL:inst_VisualShaderNodeParticleSphereEmitter returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeParticleSphereEmitter err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeProximityFade = VisualShaderNodeProximityFade.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeProximityFade"
+    Else
+        Print "FAIL:inst_VisualShaderNodeProximityFade returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeProximityFade err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeRandomRange = VisualShaderNodeRandomRange.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeRandomRange"
+    Else
+        Print "FAIL:inst_VisualShaderNodeRandomRange returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeRandomRange err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeRemap = VisualShaderNodeRemap.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeRemap"
+    Else
+        Print "FAIL:inst_VisualShaderNodeRemap returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeRemap err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeReroute = VisualShaderNodeReroute.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeReroute"
+    Else
+        Print "FAIL:inst_VisualShaderNodeReroute returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeReroute err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeRotationByAxis = VisualShaderNodeRotationByAxis.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeRotationByAxis"
+    Else
+        Print "FAIL:inst_VisualShaderNodeRotationByAxis returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeRotationByAxis err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeSDFRaymarch = VisualShaderNodeSDFRaymarch.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeSDFRaymarch"
+    Else
+        Print "FAIL:inst_VisualShaderNodeSDFRaymarch returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeSDFRaymarch err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeSDFToScreenUV = VisualShaderNodeSDFToScreenUV.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeSDFToScreenUV"
+    Else
+        Print "FAIL:inst_VisualShaderNodeSDFToScreenUV returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeSDFToScreenUV err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeScreenNormalWorldSpace = VisualShaderNodeScreenNormalWorldSpace.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeScreenNormalWorldSpace"
+    Else
+        Print "FAIL:inst_VisualShaderNodeScreenNormalWorldSpace returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeScreenNormalWorldSpace err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

@@ -1,0 +1,164 @@
+Attribute VB_Name = "fuzz_enum_1495"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_SCRIPT_NAME_CASING_AUTO As Integer = ScriptLanguage.SCRIPT_NAME_CASING_AUTO
+    If v_SCRIPT_NAME_CASING_AUTO = 0 Then pass_count = pass_count + 1
+    Dim v_SCRIPT_NAME_CASING_PASCAL_CASE As Integer = ScriptLanguage.SCRIPT_NAME_CASING_PASCAL_CASE
+    If v_SCRIPT_NAME_CASING_PASCAL_CASE = 1 Then pass_count = pass_count + 1
+    Dim v_SCRIPT_NAME_CASING_SNAKE_CASE As Integer = ScriptLanguage.SCRIPT_NAME_CASING_SNAKE_CASE
+    If v_SCRIPT_NAME_CASING_SNAKE_CASE = 2 Then pass_count = pass_count + 1
+    Dim v_SCRIPT_NAME_CASING_KEBAB_CASE As Integer = ScriptLanguage.SCRIPT_NAME_CASING_KEBAB_CASE
+    If v_SCRIPT_NAME_CASING_KEBAB_CASE = 3 Then pass_count = pass_count + 1
+    Dim v_SCRIPT_NAME_CASING_CAMEL_CASE As Integer = ScriptLanguage.SCRIPT_NAME_CASING_CAMEL_CASE
+    If v_SCRIPT_NAME_CASING_CAMEL_CASE = 4 Then pass_count = pass_count + 1
+    If pass_count = 5 Then
+        Print "PASS:enum_ScriptLanguage_ScriptNameCasing"
+    Else
+        Print "FAIL:enum_ScriptLanguage_ScriptNameCasing count=" & str(pass_count) & "/5"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_ScriptLanguage_ScriptNameCasing err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_LOOKUP_RESULT_SCRIPT_LOCATION As Integer = ScriptLanguageExtension.LOOKUP_RESULT_SCRIPT_LOCATION
+    If v_LOOKUP_RESULT_SCRIPT_LOCATION = 0 Then pass_count = pass_count + 1
+    Dim v_LOOKUP_RESULT_CLASS As Integer = ScriptLanguageExtension.LOOKUP_RESULT_CLASS
+    If v_LOOKUP_RESULT_CLASS = 1 Then pass_count = pass_count + 1
+    Dim v_LOOKUP_RESULT_CLASS_CONSTANT As Integer = ScriptLanguageExtension.LOOKUP_RESULT_CLASS_CONSTANT
+    If v_LOOKUP_RESULT_CLASS_CONSTANT = 2 Then pass_count = pass_count + 1
+    Dim v_LOOKUP_RESULT_CLASS_PROPERTY As Integer = ScriptLanguageExtension.LOOKUP_RESULT_CLASS_PROPERTY
+    If v_LOOKUP_RESULT_CLASS_PROPERTY = 3 Then pass_count = pass_count + 1
+    Dim v_LOOKUP_RESULT_CLASS_METHOD As Integer = ScriptLanguageExtension.LOOKUP_RESULT_CLASS_METHOD
+    If v_LOOKUP_RESULT_CLASS_METHOD = 4 Then pass_count = pass_count + 1
+    Dim v_LOOKUP_RESULT_CLASS_SIGNAL As Integer = ScriptLanguageExtension.LOOKUP_RESULT_CLASS_SIGNAL
+    If v_LOOKUP_RESULT_CLASS_SIGNAL = 5 Then pass_count = pass_count + 1
+    Dim v_LOOKUP_RESULT_CLASS_ENUM As Integer = ScriptLanguageExtension.LOOKUP_RESULT_CLASS_ENUM
+    If v_LOOKUP_RESULT_CLASS_ENUM = 6 Then pass_count = pass_count + 1
+    Dim v_LOOKUP_RESULT_CLASS_TBD_GLOBALSCOPE As Integer = ScriptLanguageExtension.LOOKUP_RESULT_CLASS_TBD_GLOBALSCOPE
+    If v_LOOKUP_RESULT_CLASS_TBD_GLOBALSCOPE = 7 Then pass_count = pass_count + 1
+    If pass_count = 8 Then
+        Print "PASS:enum_ScriptLanguageExtension_LookupResultType"
+    Else
+        Print "FAIL:enum_ScriptLanguageExtension_LookupResultType count=" & str(pass_count) & "/8"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_ScriptLanguageExtension_LookupResultType err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_LOCATION_LOCAL As Integer = ScriptLanguageExtension.LOCATION_LOCAL
+    If v_LOCATION_LOCAL = 0 Then pass_count = pass_count + 1
+    Dim v_LOCATION_PARENT_MASK As Integer = ScriptLanguageExtension.LOCATION_PARENT_MASK
+    If v_LOCATION_PARENT_MASK = 256 Then pass_count = pass_count + 1
+    Dim v_LOCATION_OTHER_USER_CODE As Integer = ScriptLanguageExtension.LOCATION_OTHER_USER_CODE
+    If v_LOCATION_OTHER_USER_CODE = 512 Then pass_count = pass_count + 1
+    Dim v_LOCATION_OTHER As Integer = ScriptLanguageExtension.LOCATION_OTHER
+    If v_LOCATION_OTHER = 1024 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_ScriptLanguageExtension_CodeCompletionLocation"
+    Else
+        Print "FAIL:enum_ScriptLanguageExtension_CodeCompletionLocation count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_ScriptLanguageExtension_CodeCompletionLocation err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_CODE_COMPLETION_KIND_CLASS As Integer = ScriptLanguageExtension.CODE_COMPLETION_KIND_CLASS
+    If v_CODE_COMPLETION_KIND_CLASS = 0 Then pass_count = pass_count + 1
+    Dim v_CODE_COMPLETION_KIND_FUNCTION As Integer = ScriptLanguageExtension.CODE_COMPLETION_KIND_FUNCTION
+    If v_CODE_COMPLETION_KIND_FUNCTION = 1 Then pass_count = pass_count + 1
+    Dim v_CODE_COMPLETION_KIND_SIGNAL As Integer = ScriptLanguageExtension.CODE_COMPLETION_KIND_SIGNAL
+    If v_CODE_COMPLETION_KIND_SIGNAL = 2 Then pass_count = pass_count + 1
+    Dim v_CODE_COMPLETION_KIND_VARIABLE As Integer = ScriptLanguageExtension.CODE_COMPLETION_KIND_VARIABLE
+    If v_CODE_COMPLETION_KIND_VARIABLE = 3 Then pass_count = pass_count + 1
+    Dim v_CODE_COMPLETION_KIND_MEMBER As Integer = ScriptLanguageExtension.CODE_COMPLETION_KIND_MEMBER
+    If v_CODE_COMPLETION_KIND_MEMBER = 4 Then pass_count = pass_count + 1
+    Dim v_CODE_COMPLETION_KIND_ENUM As Integer = ScriptLanguageExtension.CODE_COMPLETION_KIND_ENUM
+    If v_CODE_COMPLETION_KIND_ENUM = 5 Then pass_count = pass_count + 1
+    Dim v_CODE_COMPLETION_KIND_CONSTANT As Integer = ScriptLanguageExtension.CODE_COMPLETION_KIND_CONSTANT
+    If v_CODE_COMPLETION_KIND_CONSTANT = 6 Then pass_count = pass_count + 1
+    Dim v_CODE_COMPLETION_KIND_NODE_PATH As Integer = ScriptLanguageExtension.CODE_COMPLETION_KIND_NODE_PATH
+    If v_CODE_COMPLETION_KIND_NODE_PATH = 7 Then pass_count = pass_count + 1
+    If pass_count = 8 Then
+        Print "PASS:enum_ScriptLanguageExtension_CodeCompletionKind"
+    Else
+        Print "FAIL:enum_ScriptLanguageExtension_CodeCompletionKind count=" & str(pass_count) & "/8"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_ScriptLanguageExtension_CodeCompletionKind err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_SCROLL_MODE_DISABLED As Integer = ScrollContainer.SCROLL_MODE_DISABLED
+    If v_SCROLL_MODE_DISABLED = 0 Then pass_count = pass_count + 1
+    Dim v_SCROLL_MODE_AUTO As Integer = ScrollContainer.SCROLL_MODE_AUTO
+    If v_SCROLL_MODE_AUTO = 1 Then pass_count = pass_count + 1
+    Dim v_SCROLL_MODE_SHOW_ALWAYS As Integer = ScrollContainer.SCROLL_MODE_SHOW_ALWAYS
+    If v_SCROLL_MODE_SHOW_ALWAYS = 2 Then pass_count = pass_count + 1
+    Dim v_SCROLL_MODE_SHOW_NEVER As Integer = ScrollContainer.SCROLL_MODE_SHOW_NEVER
+    If v_SCROLL_MODE_SHOW_NEVER = 3 Then pass_count = pass_count + 1
+    Dim v_SCROLL_MODE_RESERVE As Integer = ScrollContainer.SCROLL_MODE_RESERVE
+    If v_SCROLL_MODE_RESERVE = 4 Then pass_count = pass_count + 1
+    If pass_count = 5 Then
+        Print "PASS:enum_ScrollContainer_ScrollMode"
+    Else
+        Print "FAIL:enum_ScrollContainer_ScrollMode count=" & str(pass_count) & "/5"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_ScrollContainer_ScrollMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_MODE_SPATIAL As Integer = Shader.MODE_SPATIAL
+    If v_MODE_SPATIAL = 0 Then pass_count = pass_count + 1
+    Dim v_MODE_CANVAS_ITEM As Integer = Shader.MODE_CANVAS_ITEM
+    If v_MODE_CANVAS_ITEM = 1 Then pass_count = pass_count + 1
+    Dim v_MODE_PARTICLES As Integer = Shader.MODE_PARTICLES
+    If v_MODE_PARTICLES = 2 Then pass_count = pass_count + 1
+    Dim v_MODE_SKY As Integer = Shader.MODE_SKY
+    If v_MODE_SKY = 3 Then pass_count = pass_count + 1
+    Dim v_MODE_FOG As Integer = Shader.MODE_FOG
+    If v_MODE_FOG = 4 Then pass_count = pass_count + 1
+    If pass_count = 5 Then
+        Print "PASS:enum_Shader_Mode"
+    Else
+        Print "FAIL:enum_Shader_Mode count=" & str(pass_count) & "/5"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Shader_Mode err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

@@ -1,0 +1,160 @@
+Attribute VB_Name = "fuzz_prop_976"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As AspectRatioContainer = AspectRatioContainer.new()
+    If obj = Null Then
+        Print "SKIP:prop_AspectRatioContainer_alignment_horizontal (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.alignment_horizontal
+    Print "PASS:prop_AspectRatioContainer_alignment_horizontal"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_AspectRatioContainer_alignment_horizontal err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As AspectRatioContainer = AspectRatioContainer.new()
+    If obj = Null Then
+        Print "SKIP:prop_AspectRatioContainer_alignment_vertical (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.alignment_vertical
+    Print "PASS:prop_AspectRatioContainer_alignment_vertical"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_AspectRatioContainer_alignment_vertical err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As AspectRatioContainer = AspectRatioContainer.new()
+    If obj = Null Then
+        Print "SKIP:prop_AspectRatioContainer_clip_contents (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.clip_contents
+    Print "PASS:prop_AspectRatioContainer_clip_contents"
+    obj.clip_contents = True
+    Dim val2 As Variant = obj.clip_contents
+    Print "PASS:propset_AspectRatioContainer_clip_contents"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_AspectRatioContainer_clip_contents err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As FlowContainer = FlowContainer.new()
+    If obj = Null Then
+        Print "SKIP:prop_FlowContainer_alignment (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.alignment
+    Print "PASS:prop_FlowContainer_alignment"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_FlowContainer_alignment err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As FlowContainer = FlowContainer.new()
+    If obj = Null Then
+        Print "SKIP:prop_FlowContainer_last_wrap_alignment (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.last_wrap_alignment
+    Print "PASS:prop_FlowContainer_last_wrap_alignment"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_FlowContainer_last_wrap_alignment err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As FlowContainer = FlowContainer.new()
+    If obj = Null Then
+        Print "SKIP:prop_FlowContainer_vertical (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.vertical
+    Print "PASS:prop_FlowContainer_vertical"
+    obj.vertical = True
+    Dim val2 As Variant = obj.vertical
+    Print "PASS:propset_FlowContainer_vertical"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_FlowContainer_vertical err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As FlowContainer = FlowContainer.new()
+    If obj = Null Then
+        Print "SKIP:prop_FlowContainer_reverse_fill (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.reverse_fill
+    Print "PASS:prop_FlowContainer_reverse_fill"
+    obj.reverse_fill = True
+    Dim val2 As Variant = obj.reverse_fill
+    Print "PASS:propset_FlowContainer_reverse_fill"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_FlowContainer_reverse_fill err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As FlowContainer = FlowContainer.new()
+    If obj = Null Then
+        Print "SKIP:prop_FlowContainer_clip_contents (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.clip_contents
+    Print "PASS:prop_FlowContainer_clip_contents"
+    obj.clip_contents = True
+    Dim val2 As Variant = obj.clip_contents
+    Print "PASS:propset_FlowContainer_clip_contents"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_FlowContainer_clip_contents err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+End Sub

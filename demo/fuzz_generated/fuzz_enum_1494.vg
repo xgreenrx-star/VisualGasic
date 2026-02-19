@@ -1,0 +1,126 @@
+Attribute VB_Name = "fuzz_enum_1494"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_CCD_MODE_DISABLED As Integer = RigidBody2D.CCD_MODE_DISABLED
+    If v_CCD_MODE_DISABLED = 0 Then pass_count = pass_count + 1
+    Dim v_CCD_MODE_CAST_RAY As Integer = RigidBody2D.CCD_MODE_CAST_RAY
+    If v_CCD_MODE_CAST_RAY = 1 Then pass_count = pass_count + 1
+    Dim v_CCD_MODE_CAST_SHAPE As Integer = RigidBody2D.CCD_MODE_CAST_SHAPE
+    If v_CCD_MODE_CAST_SHAPE = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_RigidBody2D_CCDMode"
+    Else
+        Print "FAIL:enum_RigidBody2D_CCDMode count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_RigidBody2D_CCDMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_FREEZE_MODE_STATIC As Integer = RigidBody3D.FREEZE_MODE_STATIC
+    If v_FREEZE_MODE_STATIC = 0 Then pass_count = pass_count + 1
+    Dim v_FREEZE_MODE_KINEMATIC As Integer = RigidBody3D.FREEZE_MODE_KINEMATIC
+    If v_FREEZE_MODE_KINEMATIC = 1 Then pass_count = pass_count + 1
+    If pass_count = 2 Then
+        Print "PASS:enum_RigidBody3D_FreezeMode"
+    Else
+        Print "FAIL:enum_RigidBody3D_FreezeMode count=" & str(pass_count) & "/2"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_RigidBody3D_FreezeMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_CENTER_OF_MASS_MODE_AUTO As Integer = RigidBody3D.CENTER_OF_MASS_MODE_AUTO
+    If v_CENTER_OF_MASS_MODE_AUTO = 0 Then pass_count = pass_count + 1
+    Dim v_CENTER_OF_MASS_MODE_CUSTOM As Integer = RigidBody3D.CENTER_OF_MASS_MODE_CUSTOM
+    If v_CENTER_OF_MASS_MODE_CUSTOM = 1 Then pass_count = pass_count + 1
+    If pass_count = 2 Then
+        Print "PASS:enum_RigidBody3D_CenterOfMassMode"
+    Else
+        Print "FAIL:enum_RigidBody3D_CenterOfMassMode count=" & str(pass_count) & "/2"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_RigidBody3D_CenterOfMassMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_DAMP_MODE_COMBINE As Integer = RigidBody3D.DAMP_MODE_COMBINE
+    If v_DAMP_MODE_COMBINE = 0 Then pass_count = pass_count + 1
+    Dim v_DAMP_MODE_REPLACE As Integer = RigidBody3D.DAMP_MODE_REPLACE
+    If v_DAMP_MODE_REPLACE = 1 Then pass_count = pass_count + 1
+    If pass_count = 2 Then
+        Print "PASS:enum_RigidBody3D_DampMode"
+    Else
+        Print "FAIL:enum_RigidBody3D_DampMode count=" & str(pass_count) & "/2"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_RigidBody3D_DampMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_REPLICATION_MODE_NEVER As Integer = SceneReplicationConfig.REPLICATION_MODE_NEVER
+    If v_REPLICATION_MODE_NEVER = 0 Then pass_count = pass_count + 1
+    Dim v_REPLICATION_MODE_ALWAYS As Integer = SceneReplicationConfig.REPLICATION_MODE_ALWAYS
+    If v_REPLICATION_MODE_ALWAYS = 1 Then pass_count = pass_count + 1
+    Dim v_REPLICATION_MODE_ON_CHANGE As Integer = SceneReplicationConfig.REPLICATION_MODE_ON_CHANGE
+    If v_REPLICATION_MODE_ON_CHANGE = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_SceneReplicationConfig_ReplicationMode"
+    Else
+        Print "FAIL:enum_SceneReplicationConfig_ReplicationMode count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_SceneReplicationConfig_ReplicationMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_GEN_EDIT_STATE_DISABLED As Integer = SceneState.GEN_EDIT_STATE_DISABLED
+    If v_GEN_EDIT_STATE_DISABLED = 0 Then pass_count = pass_count + 1
+    Dim v_GEN_EDIT_STATE_INSTANCE As Integer = SceneState.GEN_EDIT_STATE_INSTANCE
+    If v_GEN_EDIT_STATE_INSTANCE = 1 Then pass_count = pass_count + 1
+    Dim v_GEN_EDIT_STATE_MAIN As Integer = SceneState.GEN_EDIT_STATE_MAIN
+    If v_GEN_EDIT_STATE_MAIN = 2 Then pass_count = pass_count + 1
+    Dim v_GEN_EDIT_STATE_MAIN_INHERITED As Integer = SceneState.GEN_EDIT_STATE_MAIN_INHERITED
+    If v_GEN_EDIT_STATE_MAIN_INHERITED = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_SceneState_GenEditState"
+    Else
+        Print "FAIL:enum_SceneState_GenEditState count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_SceneState_GenEditState err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

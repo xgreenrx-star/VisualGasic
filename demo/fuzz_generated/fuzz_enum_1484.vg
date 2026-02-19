@@ -1,0 +1,130 @@
+Attribute VB_Name = "fuzz_enum_1484"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_PATH_METADATA_INCLUDE_NONE As Integer = NavigationPathQueryParameters2D.PATH_METADATA_INCLUDE_NONE
+    If v_PATH_METADATA_INCLUDE_NONE = 0 Then pass_count = pass_count + 1
+    Dim v_PATH_METADATA_INCLUDE_TYPES As Integer = NavigationPathQueryParameters2D.PATH_METADATA_INCLUDE_TYPES
+    If v_PATH_METADATA_INCLUDE_TYPES = 1 Then pass_count = pass_count + 1
+    Dim v_PATH_METADATA_INCLUDE_RIDS As Integer = NavigationPathQueryParameters2D.PATH_METADATA_INCLUDE_RIDS
+    If v_PATH_METADATA_INCLUDE_RIDS = 2 Then pass_count = pass_count + 1
+    Dim v_PATH_METADATA_INCLUDE_OWNERS As Integer = NavigationPathQueryParameters2D.PATH_METADATA_INCLUDE_OWNERS
+    If v_PATH_METADATA_INCLUDE_OWNERS = 4 Then pass_count = pass_count + 1
+    Dim v_PATH_METADATA_INCLUDE_ALL As Integer = NavigationPathQueryParameters2D.PATH_METADATA_INCLUDE_ALL
+    If v_PATH_METADATA_INCLUDE_ALL = 7 Then pass_count = pass_count + 1
+    If pass_count = 5 Then
+        Print "PASS:enum_NavigationPathQueryParameters2D_PathMetadataFlags"
+    Else
+        Print "FAIL:enum_NavigationPathQueryParameters2D_PathMetadataFlags count=" & str(pass_count) & "/5"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_NavigationPathQueryParameters2D_PathMetadataFlags err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_PATHFINDING_ALGORITHM_ASTAR As Integer = NavigationPathQueryParameters3D.PATHFINDING_ALGORITHM_ASTAR
+    If v_PATHFINDING_ALGORITHM_ASTAR = 0 Then pass_count = pass_count + 1
+    If pass_count = 1 Then
+        Print "PASS:enum_NavigationPathQueryParameters3D_PathfindingAlgorithm"
+    Else
+        Print "FAIL:enum_NavigationPathQueryParameters3D_PathfindingAlgorithm count=" & str(pass_count) & "/1"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_NavigationPathQueryParameters3D_PathfindingAlgorithm err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_PATH_POSTPROCESSING_CORRIDORFUNNEL As Integer = NavigationPathQueryParameters3D.PATH_POSTPROCESSING_CORRIDORFUNNEL
+    If v_PATH_POSTPROCESSING_CORRIDORFUNNEL = 0 Then pass_count = pass_count + 1
+    Dim v_PATH_POSTPROCESSING_EDGECENTERED As Integer = NavigationPathQueryParameters3D.PATH_POSTPROCESSING_EDGECENTERED
+    If v_PATH_POSTPROCESSING_EDGECENTERED = 1 Then pass_count = pass_count + 1
+    Dim v_PATH_POSTPROCESSING_NONE As Integer = NavigationPathQueryParameters3D.PATH_POSTPROCESSING_NONE
+    If v_PATH_POSTPROCESSING_NONE = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_NavigationPathQueryParameters3D_PathPostProcessing"
+    Else
+        Print "FAIL:enum_NavigationPathQueryParameters3D_PathPostProcessing count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_NavigationPathQueryParameters3D_PathPostProcessing err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_PATH_METADATA_INCLUDE_NONE As Integer = NavigationPathQueryParameters3D.PATH_METADATA_INCLUDE_NONE
+    If v_PATH_METADATA_INCLUDE_NONE = 0 Then pass_count = pass_count + 1
+    Dim v_PATH_METADATA_INCLUDE_TYPES As Integer = NavigationPathQueryParameters3D.PATH_METADATA_INCLUDE_TYPES
+    If v_PATH_METADATA_INCLUDE_TYPES = 1 Then pass_count = pass_count + 1
+    Dim v_PATH_METADATA_INCLUDE_RIDS As Integer = NavigationPathQueryParameters3D.PATH_METADATA_INCLUDE_RIDS
+    If v_PATH_METADATA_INCLUDE_RIDS = 2 Then pass_count = pass_count + 1
+    Dim v_PATH_METADATA_INCLUDE_OWNERS As Integer = NavigationPathQueryParameters3D.PATH_METADATA_INCLUDE_OWNERS
+    If v_PATH_METADATA_INCLUDE_OWNERS = 4 Then pass_count = pass_count + 1
+    Dim v_PATH_METADATA_INCLUDE_ALL As Integer = NavigationPathQueryParameters3D.PATH_METADATA_INCLUDE_ALL
+    If v_PATH_METADATA_INCLUDE_ALL = 7 Then pass_count = pass_count + 1
+    If pass_count = 5 Then
+        Print "PASS:enum_NavigationPathQueryParameters3D_PathMetadataFlags"
+    Else
+        Print "FAIL:enum_NavigationPathQueryParameters3D_PathMetadataFlags count=" & str(pass_count) & "/5"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_NavigationPathQueryParameters3D_PathMetadataFlags err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_PATH_SEGMENT_TYPE_REGION As Integer = NavigationPathQueryResult2D.PATH_SEGMENT_TYPE_REGION
+    If v_PATH_SEGMENT_TYPE_REGION = 0 Then pass_count = pass_count + 1
+    Dim v_PATH_SEGMENT_TYPE_LINK As Integer = NavigationPathQueryResult2D.PATH_SEGMENT_TYPE_LINK
+    If v_PATH_SEGMENT_TYPE_LINK = 1 Then pass_count = pass_count + 1
+    If pass_count = 2 Then
+        Print "PASS:enum_NavigationPathQueryResult2D_PathSegmentType"
+    Else
+        Print "FAIL:enum_NavigationPathQueryResult2D_PathSegmentType count=" & str(pass_count) & "/2"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_NavigationPathQueryResult2D_PathSegmentType err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_PATH_SEGMENT_TYPE_REGION As Integer = NavigationPathQueryResult3D.PATH_SEGMENT_TYPE_REGION
+    If v_PATH_SEGMENT_TYPE_REGION = 0 Then pass_count = pass_count + 1
+    Dim v_PATH_SEGMENT_TYPE_LINK As Integer = NavigationPathQueryResult3D.PATH_SEGMENT_TYPE_LINK
+    If v_PATH_SEGMENT_TYPE_LINK = 1 Then pass_count = pass_count + 1
+    If pass_count = 2 Then
+        Print "PASS:enum_NavigationPathQueryResult3D_PathSegmentType"
+    Else
+        Print "FAIL:enum_NavigationPathQueryResult3D_PathSegmentType count=" & str(pass_count) & "/2"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_NavigationPathQueryResult3D_PathSegmentType err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

@@ -1,0 +1,160 @@
+Attribute VB_Name = "fuzz_prop_984"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As HFlowContainer = HFlowContainer.new()
+    If obj = Null Then
+        Print "SKIP:prop_HFlowContainer_alignment (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.alignment
+    Print "PASS:prop_HFlowContainer_alignment"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_HFlowContainer_alignment err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As HFlowContainer = HFlowContainer.new()
+    If obj = Null Then
+        Print "SKIP:prop_HFlowContainer_last_wrap_alignment (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.last_wrap_alignment
+    Print "PASS:prop_HFlowContainer_last_wrap_alignment"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_HFlowContainer_last_wrap_alignment err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As HFlowContainer = HFlowContainer.new()
+    If obj = Null Then
+        Print "SKIP:prop_HFlowContainer_vertical (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.vertical
+    Print "PASS:prop_HFlowContainer_vertical"
+    obj.vertical = True
+    Dim val2 As Variant = obj.vertical
+    Print "PASS:propset_HFlowContainer_vertical"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_HFlowContainer_vertical err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As HFlowContainer = HFlowContainer.new()
+    If obj = Null Then
+        Print "SKIP:prop_HFlowContainer_reverse_fill (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.reverse_fill
+    Print "PASS:prop_HFlowContainer_reverse_fill"
+    obj.reverse_fill = True
+    Dim val2 As Variant = obj.reverse_fill
+    Print "PASS:propset_HFlowContainer_reverse_fill"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_HFlowContainer_reverse_fill err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As HFlowContainer = HFlowContainer.new()
+    If obj = Null Then
+        Print "SKIP:prop_HFlowContainer_clip_contents (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.clip_contents
+    Print "PASS:prop_HFlowContainer_clip_contents"
+    obj.clip_contents = True
+    Dim val2 As Variant = obj.clip_contents
+    Print "PASS:propset_HFlowContainer_clip_contents"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_HFlowContainer_clip_contents err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As VFlowContainer = VFlowContainer.new()
+    If obj = Null Then
+        Print "SKIP:prop_VFlowContainer_alignment (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.alignment
+    Print "PASS:prop_VFlowContainer_alignment"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_VFlowContainer_alignment err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As VFlowContainer = VFlowContainer.new()
+    If obj = Null Then
+        Print "SKIP:prop_VFlowContainer_last_wrap_alignment (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.last_wrap_alignment
+    Print "PASS:prop_VFlowContainer_last_wrap_alignment"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_VFlowContainer_last_wrap_alignment err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As VFlowContainer = VFlowContainer.new()
+    If obj = Null Then
+        Print "SKIP:prop_VFlowContainer_vertical (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.vertical
+    Print "PASS:prop_VFlowContainer_vertical"
+    obj.vertical = True
+    Dim val2 As Variant = obj.vertical
+    Print "PASS:propset_VFlowContainer_vertical"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_VFlowContainer_vertical err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+End Sub

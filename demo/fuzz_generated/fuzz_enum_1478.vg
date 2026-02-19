@@ -1,0 +1,146 @@
+Attribute VB_Name = "fuzz_enum_1478"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_FLAG_SHADED As Integer = Label3D.FLAG_SHADED
+    If v_FLAG_SHADED = 0 Then pass_count = pass_count + 1
+    Dim v_FLAG_DOUBLE_SIDED As Integer = Label3D.FLAG_DOUBLE_SIDED
+    If v_FLAG_DOUBLE_SIDED = 1 Then pass_count = pass_count + 1
+    Dim v_FLAG_DISABLE_DEPTH_TEST As Integer = Label3D.FLAG_DISABLE_DEPTH_TEST
+    If v_FLAG_DISABLE_DEPTH_TEST = 2 Then pass_count = pass_count + 1
+    Dim v_FLAG_FIXED_SIZE As Integer = Label3D.FLAG_FIXED_SIZE
+    If v_FLAG_FIXED_SIZE = 3 Then pass_count = pass_count + 1
+    Dim v_FLAG_MAX As Integer = Label3D.FLAG_MAX
+    If v_FLAG_MAX = 4 Then pass_count = pass_count + 1
+    If pass_count = 5 Then
+        Print "PASS:enum_Label3D_DrawFlags"
+    Else
+        Print "FAIL:enum_Label3D_DrawFlags count=" & str(pass_count) & "/5"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Label3D_DrawFlags err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_ALPHA_CUT_DISABLED As Integer = Label3D.ALPHA_CUT_DISABLED
+    If v_ALPHA_CUT_DISABLED = 0 Then pass_count = pass_count + 1
+    Dim v_ALPHA_CUT_DISCARD As Integer = Label3D.ALPHA_CUT_DISCARD
+    If v_ALPHA_CUT_DISCARD = 1 Then pass_count = pass_count + 1
+    Dim v_ALPHA_CUT_OPAQUE_PREPASS As Integer = Label3D.ALPHA_CUT_OPAQUE_PREPASS
+    If v_ALPHA_CUT_OPAQUE_PREPASS = 2 Then pass_count = pass_count + 1
+    Dim v_ALPHA_CUT_HASH As Integer = Label3D.ALPHA_CUT_HASH
+    If v_ALPHA_CUT_HASH = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_Label3D_AlphaCutMode"
+    Else
+        Print "FAIL:enum_Label3D_AlphaCutMode count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Label3D_AlphaCutMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_SHADOW_FILTER_NONE As Integer = Light2D.SHADOW_FILTER_NONE
+    If v_SHADOW_FILTER_NONE = 0 Then pass_count = pass_count + 1
+    Dim v_SHADOW_FILTER_PCF5 As Integer = Light2D.SHADOW_FILTER_PCF5
+    If v_SHADOW_FILTER_PCF5 = 1 Then pass_count = pass_count + 1
+    Dim v_SHADOW_FILTER_PCF13 As Integer = Light2D.SHADOW_FILTER_PCF13
+    If v_SHADOW_FILTER_PCF13 = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_Light2D_ShadowFilter"
+    Else
+        Print "FAIL:enum_Light2D_ShadowFilter count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Light2D_ShadowFilter err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_BLEND_MODE_ADD As Integer = Light2D.BLEND_MODE_ADD
+    If v_BLEND_MODE_ADD = 0 Then pass_count = pass_count + 1
+    Dim v_BLEND_MODE_SUB As Integer = Light2D.BLEND_MODE_SUB
+    If v_BLEND_MODE_SUB = 1 Then pass_count = pass_count + 1
+    Dim v_BLEND_MODE_MIX As Integer = Light2D.BLEND_MODE_MIX
+    If v_BLEND_MODE_MIX = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_Light2D_BlendMode"
+    Else
+        Print "FAIL:enum_Light2D_BlendMode count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Light2D_BlendMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_PARAM_ENERGY As Integer = Light3D.PARAM_ENERGY
+    If v_PARAM_ENERGY = 0 Then pass_count = pass_count + 1
+    Dim v_PARAM_INDIRECT_ENERGY As Integer = Light3D.PARAM_INDIRECT_ENERGY
+    If v_PARAM_INDIRECT_ENERGY = 1 Then pass_count = pass_count + 1
+    Dim v_PARAM_VOLUMETRIC_FOG_ENERGY As Integer = Light3D.PARAM_VOLUMETRIC_FOG_ENERGY
+    If v_PARAM_VOLUMETRIC_FOG_ENERGY = 2 Then pass_count = pass_count + 1
+    Dim v_PARAM_SPECULAR As Integer = Light3D.PARAM_SPECULAR
+    If v_PARAM_SPECULAR = 3 Then pass_count = pass_count + 1
+    Dim v_PARAM_RANGE As Integer = Light3D.PARAM_RANGE
+    If v_PARAM_RANGE = 4 Then pass_count = pass_count + 1
+    Dim v_PARAM_SIZE As Integer = Light3D.PARAM_SIZE
+    If v_PARAM_SIZE = 5 Then pass_count = pass_count + 1
+    Dim v_PARAM_ATTENUATION As Integer = Light3D.PARAM_ATTENUATION
+    If v_PARAM_ATTENUATION = 6 Then pass_count = pass_count + 1
+    Dim v_PARAM_SPOT_ANGLE As Integer = Light3D.PARAM_SPOT_ANGLE
+    If v_PARAM_SPOT_ANGLE = 7 Then pass_count = pass_count + 1
+    If pass_count = 8 Then
+        Print "PASS:enum_Light3D_Param"
+    Else
+        Print "FAIL:enum_Light3D_Param count=" & str(pass_count) & "/8"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Light3D_Param err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_BAKE_DISABLED As Integer = Light3D.BAKE_DISABLED
+    If v_BAKE_DISABLED = 0 Then pass_count = pass_count + 1
+    Dim v_BAKE_STATIC As Integer = Light3D.BAKE_STATIC
+    If v_BAKE_STATIC = 1 Then pass_count = pass_count + 1
+    Dim v_BAKE_DYNAMIC As Integer = Light3D.BAKE_DYNAMIC
+    If v_BAKE_DYNAMIC = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_Light3D_BakeMode"
+    Else
+        Print "FAIL:enum_Light3D_BakeMode count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Light3D_BakeMode err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

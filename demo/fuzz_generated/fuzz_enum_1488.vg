@@ -1,0 +1,144 @@
+Attribute VB_Name = "fuzz_enum_1488"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_HAND_LEFT As Integer = OpenXRInterface.HAND_LEFT
+    If v_HAND_LEFT = 0 Then pass_count = pass_count + 1
+    Dim v_HAND_RIGHT As Integer = OpenXRInterface.HAND_RIGHT
+    If v_HAND_RIGHT = 1 Then pass_count = pass_count + 1
+    Dim v_HAND_MAX As Integer = OpenXRInterface.HAND_MAX
+    If v_HAND_MAX = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_OpenXRInterface_Hand"
+    Else
+        Print "FAIL:enum_OpenXRInterface_Hand count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_OpenXRInterface_Hand err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_HAND_MOTION_RANGE_UNOBSTRUCTED As Integer = OpenXRInterface.HAND_MOTION_RANGE_UNOBSTRUCTED
+    If v_HAND_MOTION_RANGE_UNOBSTRUCTED = 0 Then pass_count = pass_count + 1
+    Dim v_HAND_MOTION_RANGE_CONFORM_TO_CONTROLLER As Integer = OpenXRInterface.HAND_MOTION_RANGE_CONFORM_TO_CONTROLLER
+    If v_HAND_MOTION_RANGE_CONFORM_TO_CONTROLLER = 1 Then pass_count = pass_count + 1
+    Dim v_HAND_MOTION_RANGE_MAX As Integer = OpenXRInterface.HAND_MOTION_RANGE_MAX
+    If v_HAND_MOTION_RANGE_MAX = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_OpenXRInterface_HandMotionRange"
+    Else
+        Print "FAIL:enum_OpenXRInterface_HandMotionRange count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_OpenXRInterface_HandMotionRange err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_HAND_TRACKED_SOURCE_UNKNOWN As Integer = OpenXRInterface.HAND_TRACKED_SOURCE_UNKNOWN
+    If v_HAND_TRACKED_SOURCE_UNKNOWN = 0 Then pass_count = pass_count + 1
+    Dim v_HAND_TRACKED_SOURCE_UNOBSTRUCTED As Integer = OpenXRInterface.HAND_TRACKED_SOURCE_UNOBSTRUCTED
+    If v_HAND_TRACKED_SOURCE_UNOBSTRUCTED = 1 Then pass_count = pass_count + 1
+    Dim v_HAND_TRACKED_SOURCE_CONTROLLER As Integer = OpenXRInterface.HAND_TRACKED_SOURCE_CONTROLLER
+    If v_HAND_TRACKED_SOURCE_CONTROLLER = 2 Then pass_count = pass_count + 1
+    Dim v_HAND_TRACKED_SOURCE_MAX As Integer = OpenXRInterface.HAND_TRACKED_SOURCE_MAX
+    If v_HAND_TRACKED_SOURCE_MAX = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_OpenXRInterface_HandTrackedSource"
+    Else
+        Print "FAIL:enum_OpenXRInterface_HandTrackedSource count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_OpenXRInterface_HandTrackedSource err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_HAND_JOINT_PALM As Integer = OpenXRInterface.HAND_JOINT_PALM
+    If v_HAND_JOINT_PALM = 0 Then pass_count = pass_count + 1
+    Dim v_HAND_JOINT_WRIST As Integer = OpenXRInterface.HAND_JOINT_WRIST
+    If v_HAND_JOINT_WRIST = 1 Then pass_count = pass_count + 1
+    Dim v_HAND_JOINT_THUMB_METACARPAL As Integer = OpenXRInterface.HAND_JOINT_THUMB_METACARPAL
+    If v_HAND_JOINT_THUMB_METACARPAL = 2 Then pass_count = pass_count + 1
+    Dim v_HAND_JOINT_THUMB_PROXIMAL As Integer = OpenXRInterface.HAND_JOINT_THUMB_PROXIMAL
+    If v_HAND_JOINT_THUMB_PROXIMAL = 3 Then pass_count = pass_count + 1
+    Dim v_HAND_JOINT_THUMB_DISTAL As Integer = OpenXRInterface.HAND_JOINT_THUMB_DISTAL
+    If v_HAND_JOINT_THUMB_DISTAL = 4 Then pass_count = pass_count + 1
+    Dim v_HAND_JOINT_THUMB_TIP As Integer = OpenXRInterface.HAND_JOINT_THUMB_TIP
+    If v_HAND_JOINT_THUMB_TIP = 5 Then pass_count = pass_count + 1
+    Dim v_HAND_JOINT_INDEX_METACARPAL As Integer = OpenXRInterface.HAND_JOINT_INDEX_METACARPAL
+    If v_HAND_JOINT_INDEX_METACARPAL = 6 Then pass_count = pass_count + 1
+    Dim v_HAND_JOINT_INDEX_PROXIMAL As Integer = OpenXRInterface.HAND_JOINT_INDEX_PROXIMAL
+    If v_HAND_JOINT_INDEX_PROXIMAL = 7 Then pass_count = pass_count + 1
+    If pass_count = 8 Then
+        Print "PASS:enum_OpenXRInterface_HandJoints"
+    Else
+        Print "FAIL:enum_OpenXRInterface_HandJoints count=" & str(pass_count) & "/8"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_OpenXRInterface_HandJoints err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_PERF_SETTINGS_LEVEL_POWER_SAVINGS As Integer = OpenXRInterface.PERF_SETTINGS_LEVEL_POWER_SAVINGS
+    If v_PERF_SETTINGS_LEVEL_POWER_SAVINGS = 0 Then pass_count = pass_count + 1
+    Dim v_PERF_SETTINGS_LEVEL_SUSTAINED_LOW As Integer = OpenXRInterface.PERF_SETTINGS_LEVEL_SUSTAINED_LOW
+    If v_PERF_SETTINGS_LEVEL_SUSTAINED_LOW = 1 Then pass_count = pass_count + 1
+    Dim v_PERF_SETTINGS_LEVEL_SUSTAINED_HIGH As Integer = OpenXRInterface.PERF_SETTINGS_LEVEL_SUSTAINED_HIGH
+    If v_PERF_SETTINGS_LEVEL_SUSTAINED_HIGH = 2 Then pass_count = pass_count + 1
+    Dim v_PERF_SETTINGS_LEVEL_BOOST As Integer = OpenXRInterface.PERF_SETTINGS_LEVEL_BOOST
+    If v_PERF_SETTINGS_LEVEL_BOOST = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_OpenXRInterface_PerfSettingsLevel"
+    Else
+        Print "FAIL:enum_OpenXRInterface_PerfSettingsLevel count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_OpenXRInterface_PerfSettingsLevel err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_PERF_SETTINGS_SUB_DOMAIN_COMPOSITING As Integer = OpenXRInterface.PERF_SETTINGS_SUB_DOMAIN_COMPOSITING
+    If v_PERF_SETTINGS_SUB_DOMAIN_COMPOSITING = 0 Then pass_count = pass_count + 1
+    Dim v_PERF_SETTINGS_SUB_DOMAIN_RENDERING As Integer = OpenXRInterface.PERF_SETTINGS_SUB_DOMAIN_RENDERING
+    If v_PERF_SETTINGS_SUB_DOMAIN_RENDERING = 1 Then pass_count = pass_count + 1
+    Dim v_PERF_SETTINGS_SUB_DOMAIN_THERMAL As Integer = OpenXRInterface.PERF_SETTINGS_SUB_DOMAIN_THERMAL
+    If v_PERF_SETTINGS_SUB_DOMAIN_THERMAL = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_OpenXRInterface_PerfSettingsSubDomain"
+    Else
+        Print "FAIL:enum_OpenXRInterface_PerfSettingsSubDomain count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_OpenXRInterface_PerfSettingsSubDomain err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

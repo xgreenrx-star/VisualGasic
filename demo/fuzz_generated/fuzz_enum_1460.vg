@@ -1,0 +1,136 @@
+Attribute VB_Name = "fuzz_enum_1460"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_EMISSION_SHAPE_POINT As Integer = CPUParticles3D.EMISSION_SHAPE_POINT
+    If v_EMISSION_SHAPE_POINT = 0 Then pass_count = pass_count + 1
+    Dim v_EMISSION_SHAPE_SPHERE As Integer = CPUParticles3D.EMISSION_SHAPE_SPHERE
+    If v_EMISSION_SHAPE_SPHERE = 1 Then pass_count = pass_count + 1
+    Dim v_EMISSION_SHAPE_SPHERE_SURFACE As Integer = CPUParticles3D.EMISSION_SHAPE_SPHERE_SURFACE
+    If v_EMISSION_SHAPE_SPHERE_SURFACE = 2 Then pass_count = pass_count + 1
+    Dim v_EMISSION_SHAPE_BOX As Integer = CPUParticles3D.EMISSION_SHAPE_BOX
+    If v_EMISSION_SHAPE_BOX = 3 Then pass_count = pass_count + 1
+    Dim v_EMISSION_SHAPE_POINTS As Integer = CPUParticles3D.EMISSION_SHAPE_POINTS
+    If v_EMISSION_SHAPE_POINTS = 4 Then pass_count = pass_count + 1
+    Dim v_EMISSION_SHAPE_DIRECTED_POINTS As Integer = CPUParticles3D.EMISSION_SHAPE_DIRECTED_POINTS
+    If v_EMISSION_SHAPE_DIRECTED_POINTS = 5 Then pass_count = pass_count + 1
+    Dim v_EMISSION_SHAPE_RING As Integer = CPUParticles3D.EMISSION_SHAPE_RING
+    If v_EMISSION_SHAPE_RING = 6 Then pass_count = pass_count + 1
+    Dim v_EMISSION_SHAPE_MAX As Integer = CPUParticles3D.EMISSION_SHAPE_MAX
+    If v_EMISSION_SHAPE_MAX = 7 Then pass_count = pass_count + 1
+    If pass_count = 8 Then
+        Print "PASS:enum_CPUParticles3D_EmissionShape"
+    Else
+        Print "FAIL:enum_CPUParticles3D_EmissionShape count=" & str(pass_count) & "/8"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_CPUParticles3D_EmissionShape err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_MODE_DEPTH As Integer = CSGPolygon3D.MODE_DEPTH
+    If v_MODE_DEPTH = 0 Then pass_count = pass_count + 1
+    Dim v_MODE_SPIN As Integer = CSGPolygon3D.MODE_SPIN
+    If v_MODE_SPIN = 1 Then pass_count = pass_count + 1
+    Dim v_MODE_PATH As Integer = CSGPolygon3D.MODE_PATH
+    If v_MODE_PATH = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_CSGPolygon3D_Mode"
+    Else
+        Print "FAIL:enum_CSGPolygon3D_Mode count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_CSGPolygon3D_Mode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_PATH_ROTATION_POLYGON As Integer = CSGPolygon3D.PATH_ROTATION_POLYGON
+    If v_PATH_ROTATION_POLYGON = 0 Then pass_count = pass_count + 1
+    Dim v_PATH_ROTATION_PATH As Integer = CSGPolygon3D.PATH_ROTATION_PATH
+    If v_PATH_ROTATION_PATH = 1 Then pass_count = pass_count + 1
+    Dim v_PATH_ROTATION_PATH_FOLLOW As Integer = CSGPolygon3D.PATH_ROTATION_PATH_FOLLOW
+    If v_PATH_ROTATION_PATH_FOLLOW = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_CSGPolygon3D_PathRotation"
+    Else
+        Print "FAIL:enum_CSGPolygon3D_PathRotation count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_CSGPolygon3D_PathRotation err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_PATH_INTERVAL_DISTANCE As Integer = CSGPolygon3D.PATH_INTERVAL_DISTANCE
+    If v_PATH_INTERVAL_DISTANCE = 0 Then pass_count = pass_count + 1
+    Dim v_PATH_INTERVAL_SUBDIVIDE As Integer = CSGPolygon3D.PATH_INTERVAL_SUBDIVIDE
+    If v_PATH_INTERVAL_SUBDIVIDE = 1 Then pass_count = pass_count + 1
+    If pass_count = 2 Then
+        Print "PASS:enum_CSGPolygon3D_PathIntervalType"
+    Else
+        Print "FAIL:enum_CSGPolygon3D_PathIntervalType count=" & str(pass_count) & "/2"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_CSGPolygon3D_PathIntervalType err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_OPERATION_UNION As Integer = CSGShape3D.OPERATION_UNION
+    If v_OPERATION_UNION = 0 Then pass_count = pass_count + 1
+    Dim v_OPERATION_INTERSECTION As Integer = CSGShape3D.OPERATION_INTERSECTION
+    If v_OPERATION_INTERSECTION = 1 Then pass_count = pass_count + 1
+    Dim v_OPERATION_SUBTRACTION As Integer = CSGShape3D.OPERATION_SUBTRACTION
+    If v_OPERATION_SUBTRACTION = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_CSGShape3D_Operation"
+    Else
+        Print "FAIL:enum_CSGShape3D_Operation count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_CSGShape3D_Operation err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_ANCHOR_MODE_FIXED_TOP_LEFT As Integer = Camera2D.ANCHOR_MODE_FIXED_TOP_LEFT
+    If v_ANCHOR_MODE_FIXED_TOP_LEFT = 0 Then pass_count = pass_count + 1
+    Dim v_ANCHOR_MODE_DRAG_CENTER As Integer = Camera2D.ANCHOR_MODE_DRAG_CENTER
+    If v_ANCHOR_MODE_DRAG_CENTER = 1 Then pass_count = pass_count + 1
+    If pass_count = 2 Then
+        Print "PASS:enum_Camera2D_AnchorMode"
+    Else
+        Print "FAIL:enum_Camera2D_AnchorMode count=" & str(pass_count) & "/2"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Camera2D_AnchorMode err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

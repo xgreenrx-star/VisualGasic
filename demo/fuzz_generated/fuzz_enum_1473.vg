@@ -1,0 +1,154 @@
+Attribute VB_Name = "fuzz_enum_1473"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_PARAM_LINEAR_LOWER_LIMIT As Integer = Generic6DOFJoint3D.PARAM_LINEAR_LOWER_LIMIT
+    If v_PARAM_LINEAR_LOWER_LIMIT = 0 Then pass_count = pass_count + 1
+    Dim v_PARAM_LINEAR_UPPER_LIMIT As Integer = Generic6DOFJoint3D.PARAM_LINEAR_UPPER_LIMIT
+    If v_PARAM_LINEAR_UPPER_LIMIT = 1 Then pass_count = pass_count + 1
+    Dim v_PARAM_LINEAR_LIMIT_SOFTNESS As Integer = Generic6DOFJoint3D.PARAM_LINEAR_LIMIT_SOFTNESS
+    If v_PARAM_LINEAR_LIMIT_SOFTNESS = 2 Then pass_count = pass_count + 1
+    Dim v_PARAM_LINEAR_RESTITUTION As Integer = Generic6DOFJoint3D.PARAM_LINEAR_RESTITUTION
+    If v_PARAM_LINEAR_RESTITUTION = 3 Then pass_count = pass_count + 1
+    Dim v_PARAM_LINEAR_DAMPING As Integer = Generic6DOFJoint3D.PARAM_LINEAR_DAMPING
+    If v_PARAM_LINEAR_DAMPING = 4 Then pass_count = pass_count + 1
+    Dim v_PARAM_LINEAR_MOTOR_TARGET_VELOCITY As Integer = Generic6DOFJoint3D.PARAM_LINEAR_MOTOR_TARGET_VELOCITY
+    If v_PARAM_LINEAR_MOTOR_TARGET_VELOCITY = 5 Then pass_count = pass_count + 1
+    Dim v_PARAM_LINEAR_MOTOR_FORCE_LIMIT As Integer = Generic6DOFJoint3D.PARAM_LINEAR_MOTOR_FORCE_LIMIT
+    If v_PARAM_LINEAR_MOTOR_FORCE_LIMIT = 6 Then pass_count = pass_count + 1
+    Dim v_PARAM_LINEAR_SPRING_STIFFNESS As Integer = Generic6DOFJoint3D.PARAM_LINEAR_SPRING_STIFFNESS
+    If v_PARAM_LINEAR_SPRING_STIFFNESS = 7 Then pass_count = pass_count + 1
+    If pass_count = 8 Then
+        Print "PASS:enum_Generic6DOFJoint3D_Param"
+    Else
+        Print "FAIL:enum_Generic6DOFJoint3D_Param count=" & str(pass_count) & "/8"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Generic6DOFJoint3D_Param err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_FLAG_ENABLE_LINEAR_LIMIT As Integer = Generic6DOFJoint3D.FLAG_ENABLE_LINEAR_LIMIT
+    If v_FLAG_ENABLE_LINEAR_LIMIT = 0 Then pass_count = pass_count + 1
+    Dim v_FLAG_ENABLE_ANGULAR_LIMIT As Integer = Generic6DOFJoint3D.FLAG_ENABLE_ANGULAR_LIMIT
+    If v_FLAG_ENABLE_ANGULAR_LIMIT = 1 Then pass_count = pass_count + 1
+    Dim v_FLAG_ENABLE_LINEAR_SPRING As Integer = Generic6DOFJoint3D.FLAG_ENABLE_LINEAR_SPRING
+    If v_FLAG_ENABLE_LINEAR_SPRING = 3 Then pass_count = pass_count + 1
+    Dim v_FLAG_ENABLE_ANGULAR_SPRING As Integer = Generic6DOFJoint3D.FLAG_ENABLE_ANGULAR_SPRING
+    If v_FLAG_ENABLE_ANGULAR_SPRING = 2 Then pass_count = pass_count + 1
+    Dim v_FLAG_ENABLE_MOTOR As Integer = Generic6DOFJoint3D.FLAG_ENABLE_MOTOR
+    If v_FLAG_ENABLE_MOTOR = 4 Then pass_count = pass_count + 1
+    Dim v_FLAG_ENABLE_LINEAR_MOTOR As Integer = Generic6DOFJoint3D.FLAG_ENABLE_LINEAR_MOTOR
+    If v_FLAG_ENABLE_LINEAR_MOTOR = 5 Then pass_count = pass_count + 1
+    Dim v_FLAG_MAX As Integer = Generic6DOFJoint3D.FLAG_MAX
+    If v_FLAG_MAX = 6 Then pass_count = pass_count + 1
+    If pass_count = 7 Then
+        Print "PASS:enum_Generic6DOFJoint3D_Flag"
+    Else
+        Print "FAIL:enum_Generic6DOFJoint3D_Flag count=" & str(pass_count) & "/7"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Generic6DOFJoint3D_Flag err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_SHADOW_CASTING_SETTING_OFF As Integer = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    If v_SHADOW_CASTING_SETTING_OFF = 0 Then pass_count = pass_count + 1
+    Dim v_SHADOW_CASTING_SETTING_ON As Integer = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+    If v_SHADOW_CASTING_SETTING_ON = 1 Then pass_count = pass_count + 1
+    Dim v_SHADOW_CASTING_SETTING_DOUBLE_SIDED As Integer = GeometryInstance3D.SHADOW_CASTING_SETTING_DOUBLE_SIDED
+    If v_SHADOW_CASTING_SETTING_DOUBLE_SIDED = 2 Then pass_count = pass_count + 1
+    Dim v_SHADOW_CASTING_SETTING_SHADOWS_ONLY As Integer = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
+    If v_SHADOW_CASTING_SETTING_SHADOWS_ONLY = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_GeometryInstance3D_ShadowCastingSetting"
+    Else
+        Print "FAIL:enum_GeometryInstance3D_ShadowCastingSetting count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_GeometryInstance3D_ShadowCastingSetting err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_GI_MODE_DISABLED As Integer = GeometryInstance3D.GI_MODE_DISABLED
+    If v_GI_MODE_DISABLED = 0 Then pass_count = pass_count + 1
+    Dim v_GI_MODE_STATIC As Integer = GeometryInstance3D.GI_MODE_STATIC
+    If v_GI_MODE_STATIC = 1 Then pass_count = pass_count + 1
+    Dim v_GI_MODE_DYNAMIC As Integer = GeometryInstance3D.GI_MODE_DYNAMIC
+    If v_GI_MODE_DYNAMIC = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_GeometryInstance3D_GIMode"
+    Else
+        Print "FAIL:enum_GeometryInstance3D_GIMode count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_GeometryInstance3D_GIMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_LIGHTMAP_SCALE_1X As Integer = GeometryInstance3D.LIGHTMAP_SCALE_1X
+    If v_LIGHTMAP_SCALE_1X = 0 Then pass_count = pass_count + 1
+    Dim v_LIGHTMAP_SCALE_2X As Integer = GeometryInstance3D.LIGHTMAP_SCALE_2X
+    If v_LIGHTMAP_SCALE_2X = 1 Then pass_count = pass_count + 1
+    Dim v_LIGHTMAP_SCALE_4X As Integer = GeometryInstance3D.LIGHTMAP_SCALE_4X
+    If v_LIGHTMAP_SCALE_4X = 2 Then pass_count = pass_count + 1
+    Dim v_LIGHTMAP_SCALE_8X As Integer = GeometryInstance3D.LIGHTMAP_SCALE_8X
+    If v_LIGHTMAP_SCALE_8X = 3 Then pass_count = pass_count + 1
+    Dim v_LIGHTMAP_SCALE_MAX As Integer = GeometryInstance3D.LIGHTMAP_SCALE_MAX
+    If v_LIGHTMAP_SCALE_MAX = 4 Then pass_count = pass_count + 1
+    If pass_count = 5 Then
+        Print "PASS:enum_GeometryInstance3D_LightmapScale"
+    Else
+        Print "FAIL:enum_GeometryInstance3D_LightmapScale count=" & str(pass_count) & "/5"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_GeometryInstance3D_LightmapScale err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_VISIBILITY_RANGE_FADE_DISABLED As Integer = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
+    If v_VISIBILITY_RANGE_FADE_DISABLED = 0 Then pass_count = pass_count + 1
+    Dim v_VISIBILITY_RANGE_FADE_SELF As Integer = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
+    If v_VISIBILITY_RANGE_FADE_SELF = 1 Then pass_count = pass_count + 1
+    Dim v_VISIBILITY_RANGE_FADE_DEPENDENCIES As Integer = GeometryInstance3D.VISIBILITY_RANGE_FADE_DEPENDENCIES
+    If v_VISIBILITY_RANGE_FADE_DEPENDENCIES = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_GeometryInstance3D_VisibilityRangeFadeMode"
+    Else
+        Print "FAIL:enum_GeometryInstance3D_VisibilityRangeFadeMode count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_GeometryInstance3D_VisibilityRangeFadeMode err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

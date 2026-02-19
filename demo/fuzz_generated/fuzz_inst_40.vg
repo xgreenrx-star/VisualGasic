@@ -1,0 +1,159 @@
+Attribute VB_Name = "fuzz_inst_40"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As AnimationNodeTimeSeek = AnimationNodeTimeSeek.new()
+    If obj <> Null Then
+        Print "PASS:inst_AnimationNodeTimeSeek"
+    Else
+        Print "FAIL:inst_AnimationNodeTimeSeek returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AnimationNodeTimeSeek err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As AnimationNodeTransition = AnimationNodeTransition.new()
+    If obj <> Null Then
+        Print "PASS:inst_AnimationNodeTransition"
+    Else
+        Print "FAIL:inst_AnimationNodeTransition returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AnimationNodeTransition err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As AnimationPlayer = AnimationPlayer.new()
+    If obj <> Null Then
+        Print "PASS:inst_AnimationPlayer"
+        obj.free()
+    Else
+        Print "FAIL:inst_AnimationPlayer returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AnimationPlayer err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As AnimationRootNode = AnimationRootNode.new()
+    If obj <> Null Then
+        Print "PASS:inst_AnimationRootNode"
+    Else
+        Print "FAIL:inst_AnimationRootNode returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AnimationRootNode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As AnimationTree = AnimationTree.new()
+    If obj <> Null Then
+        Print "PASS:inst_AnimationTree"
+        obj.free()
+    Else
+        Print "FAIL:inst_AnimationTree returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AnimationTree err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As Area2D = Area2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_Area2D"
+        obj.free()
+    Else
+        Print "FAIL:inst_Area2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_Area2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As Area3D = Area3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_Area3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_Area3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_Area3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As ArrayMesh = ArrayMesh.new()
+    If obj <> Null Then
+        Print "PASS:inst_ArrayMesh"
+    Else
+        Print "FAIL:inst_ArrayMesh returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_ArrayMesh err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As ArrayOccluder3D = ArrayOccluder3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_ArrayOccluder3D"
+    Else
+        Print "FAIL:inst_ArrayOccluder3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_ArrayOccluder3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As AspectRatioContainer = AspectRatioContainer.new()
+    If obj <> Null Then
+        Print "PASS:inst_AspectRatioContainer"
+        obj.free()
+    Else
+        Print "FAIL:inst_AspectRatioContainer returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AspectRatioContainer err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

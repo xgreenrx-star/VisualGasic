@@ -1,0 +1,160 @@
+Attribute VB_Name = "fuzz_inst_290"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As LabelSettings = LabelSettings.new()
+    If obj <> Null Then
+        Print "PASS:inst_LabelSettings"
+    Else
+        Print "FAIL:inst_LabelSettings returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_LabelSettings err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As LightOccluder2D = LightOccluder2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_LightOccluder2D"
+        obj.free()
+    Else
+        Print "FAIL:inst_LightOccluder2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_LightOccluder2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As LightmapGI = LightmapGI.new()
+    If obj <> Null Then
+        Print "PASS:inst_LightmapGI"
+        obj.free()
+    Else
+        Print "FAIL:inst_LightmapGI returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_LightmapGI err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As LightmapGIData = LightmapGIData.new()
+    If obj <> Null Then
+        Print "PASS:inst_LightmapGIData"
+    Else
+        Print "FAIL:inst_LightmapGIData returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_LightmapGIData err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As LightmapProbe = LightmapProbe.new()
+    If obj <> Null Then
+        Print "PASS:inst_LightmapProbe"
+        obj.free()
+    Else
+        Print "FAIL:inst_LightmapProbe returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_LightmapProbe err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As LightmapperRD = LightmapperRD.new()
+    If obj <> Null Then
+        Print "PASS:inst_LightmapperRD"
+    Else
+        Print "FAIL:inst_LightmapperRD returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_LightmapperRD err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As Line2D = Line2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_Line2D"
+        obj.free()
+    Else
+        Print "FAIL:inst_Line2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_Line2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As LineEdit = LineEdit.new()
+    If obj <> Null Then
+        Print "PASS:inst_LineEdit"
+        obj.free()
+    Else
+        Print "FAIL:inst_LineEdit returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_LineEdit err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As LinkButton = LinkButton.new()
+    If obj <> Null Then
+        Print "PASS:inst_LinkButton"
+        obj.free()
+    Else
+        Print "FAIL:inst_LinkButton returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_LinkButton err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As Logger = Logger.new()
+    If obj <> Null Then
+        Print "PASS:inst_Logger"
+    Else
+        Print "FAIL:inst_Logger returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_Logger err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

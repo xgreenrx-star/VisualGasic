@@ -1,0 +1,144 @@
+Attribute VB_Name = "fuzz_enum_1469"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_FRACTAL_NONE As Integer = FastNoiseLite.FRACTAL_NONE
+    If v_FRACTAL_NONE = 0 Then pass_count = pass_count + 1
+    Dim v_FRACTAL_FBM As Integer = FastNoiseLite.FRACTAL_FBM
+    If v_FRACTAL_FBM = 1 Then pass_count = pass_count + 1
+    Dim v_FRACTAL_RIDGED As Integer = FastNoiseLite.FRACTAL_RIDGED
+    If v_FRACTAL_RIDGED = 2 Then pass_count = pass_count + 1
+    Dim v_FRACTAL_PING_PONG As Integer = FastNoiseLite.FRACTAL_PING_PONG
+    If v_FRACTAL_PING_PONG = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_FastNoiseLite_FractalType"
+    Else
+        Print "FAIL:enum_FastNoiseLite_FractalType count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_FastNoiseLite_FractalType err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_DISTANCE_EUCLIDEAN As Integer = FastNoiseLite.DISTANCE_EUCLIDEAN
+    If v_DISTANCE_EUCLIDEAN = 0 Then pass_count = pass_count + 1
+    Dim v_DISTANCE_EUCLIDEAN_SQUARED As Integer = FastNoiseLite.DISTANCE_EUCLIDEAN_SQUARED
+    If v_DISTANCE_EUCLIDEAN_SQUARED = 1 Then pass_count = pass_count + 1
+    Dim v_DISTANCE_MANHATTAN As Integer = FastNoiseLite.DISTANCE_MANHATTAN
+    If v_DISTANCE_MANHATTAN = 2 Then pass_count = pass_count + 1
+    Dim v_DISTANCE_HYBRID As Integer = FastNoiseLite.DISTANCE_HYBRID
+    If v_DISTANCE_HYBRID = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_FastNoiseLite_CellularDistanceFunction"
+    Else
+        Print "FAIL:enum_FastNoiseLite_CellularDistanceFunction count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_FastNoiseLite_CellularDistanceFunction err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_RETURN_CELL_VALUE As Integer = FastNoiseLite.RETURN_CELL_VALUE
+    If v_RETURN_CELL_VALUE = 0 Then pass_count = pass_count + 1
+    Dim v_RETURN_DISTANCE As Integer = FastNoiseLite.RETURN_DISTANCE
+    If v_RETURN_DISTANCE = 1 Then pass_count = pass_count + 1
+    Dim v_RETURN_DISTANCE2 As Integer = FastNoiseLite.RETURN_DISTANCE2
+    If v_RETURN_DISTANCE2 = 2 Then pass_count = pass_count + 1
+    Dim v_RETURN_DISTANCE2_ADD As Integer = FastNoiseLite.RETURN_DISTANCE2_ADD
+    If v_RETURN_DISTANCE2_ADD = 3 Then pass_count = pass_count + 1
+    Dim v_RETURN_DISTANCE2_SUB As Integer = FastNoiseLite.RETURN_DISTANCE2_SUB
+    If v_RETURN_DISTANCE2_SUB = 4 Then pass_count = pass_count + 1
+    Dim v_RETURN_DISTANCE2_MUL As Integer = FastNoiseLite.RETURN_DISTANCE2_MUL
+    If v_RETURN_DISTANCE2_MUL = 5 Then pass_count = pass_count + 1
+    Dim v_RETURN_DISTANCE2_DIV As Integer = FastNoiseLite.RETURN_DISTANCE2_DIV
+    If v_RETURN_DISTANCE2_DIV = 6 Then pass_count = pass_count + 1
+    If pass_count = 7 Then
+        Print "PASS:enum_FastNoiseLite_CellularReturnType"
+    Else
+        Print "FAIL:enum_FastNoiseLite_CellularReturnType count=" & str(pass_count) & "/7"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_FastNoiseLite_CellularReturnType err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_DOMAIN_WARP_SIMPLEX As Integer = FastNoiseLite.DOMAIN_WARP_SIMPLEX
+    If v_DOMAIN_WARP_SIMPLEX = 0 Then pass_count = pass_count + 1
+    Dim v_DOMAIN_WARP_SIMPLEX_REDUCED As Integer = FastNoiseLite.DOMAIN_WARP_SIMPLEX_REDUCED
+    If v_DOMAIN_WARP_SIMPLEX_REDUCED = 1 Then pass_count = pass_count + 1
+    Dim v_DOMAIN_WARP_BASIC_GRID As Integer = FastNoiseLite.DOMAIN_WARP_BASIC_GRID
+    If v_DOMAIN_WARP_BASIC_GRID = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_FastNoiseLite_DomainWarpType"
+    Else
+        Print "FAIL:enum_FastNoiseLite_DomainWarpType count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_FastNoiseLite_DomainWarpType err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_DOMAIN_WARP_FRACTAL_NONE As Integer = FastNoiseLite.DOMAIN_WARP_FRACTAL_NONE
+    If v_DOMAIN_WARP_FRACTAL_NONE = 0 Then pass_count = pass_count + 1
+    Dim v_DOMAIN_WARP_FRACTAL_PROGRESSIVE As Integer = FastNoiseLite.DOMAIN_WARP_FRACTAL_PROGRESSIVE
+    If v_DOMAIN_WARP_FRACTAL_PROGRESSIVE = 1 Then pass_count = pass_count + 1
+    Dim v_DOMAIN_WARP_FRACTAL_INDEPENDENT As Integer = FastNoiseLite.DOMAIN_WARP_FRACTAL_INDEPENDENT
+    If v_DOMAIN_WARP_FRACTAL_INDEPENDENT = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_FastNoiseLite_DomainWarpFractalType"
+    Else
+        Print "FAIL:enum_FastNoiseLite_DomainWarpFractalType count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_FastNoiseLite_DomainWarpFractalType err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_READ As Integer = FileAccess.READ
+    If v_READ = 1 Then pass_count = pass_count + 1
+    Dim v_WRITE As Integer = FileAccess.WRITE
+    If v_WRITE = 2 Then pass_count = pass_count + 1
+    Dim v_READ_WRITE As Integer = FileAccess.READ_WRITE
+    If v_READ_WRITE = 3 Then pass_count = pass_count + 1
+    Dim v_WRITE_READ As Integer = FileAccess.WRITE_READ
+    If v_WRITE_READ = 7 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_FileAccess_ModeFlags"
+    Else
+        Print "FAIL:enum_FileAccess_ModeFlags count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_FileAccess_ModeFlags err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

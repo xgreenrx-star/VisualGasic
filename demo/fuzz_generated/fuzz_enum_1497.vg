@@ -1,0 +1,150 @@
+Attribute VB_Name = "fuzz_enum_1497"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_PARAM_LINEAR_LIMIT_UPPER As Integer = SliderJoint3D.PARAM_LINEAR_LIMIT_UPPER
+    If v_PARAM_LINEAR_LIMIT_UPPER = 0 Then pass_count = pass_count + 1
+    Dim v_PARAM_LINEAR_LIMIT_LOWER As Integer = SliderJoint3D.PARAM_LINEAR_LIMIT_LOWER
+    If v_PARAM_LINEAR_LIMIT_LOWER = 1 Then pass_count = pass_count + 1
+    Dim v_PARAM_LINEAR_LIMIT_SOFTNESS As Integer = SliderJoint3D.PARAM_LINEAR_LIMIT_SOFTNESS
+    If v_PARAM_LINEAR_LIMIT_SOFTNESS = 2 Then pass_count = pass_count + 1
+    Dim v_PARAM_LINEAR_LIMIT_RESTITUTION As Integer = SliderJoint3D.PARAM_LINEAR_LIMIT_RESTITUTION
+    If v_PARAM_LINEAR_LIMIT_RESTITUTION = 3 Then pass_count = pass_count + 1
+    Dim v_PARAM_LINEAR_LIMIT_DAMPING As Integer = SliderJoint3D.PARAM_LINEAR_LIMIT_DAMPING
+    If v_PARAM_LINEAR_LIMIT_DAMPING = 4 Then pass_count = pass_count + 1
+    Dim v_PARAM_LINEAR_MOTION_SOFTNESS As Integer = SliderJoint3D.PARAM_LINEAR_MOTION_SOFTNESS
+    If v_PARAM_LINEAR_MOTION_SOFTNESS = 5 Then pass_count = pass_count + 1
+    Dim v_PARAM_LINEAR_MOTION_RESTITUTION As Integer = SliderJoint3D.PARAM_LINEAR_MOTION_RESTITUTION
+    If v_PARAM_LINEAR_MOTION_RESTITUTION = 6 Then pass_count = pass_count + 1
+    Dim v_PARAM_LINEAR_MOTION_DAMPING As Integer = SliderJoint3D.PARAM_LINEAR_MOTION_DAMPING
+    If v_PARAM_LINEAR_MOTION_DAMPING = 7 Then pass_count = pass_count + 1
+    If pass_count = 8 Then
+        Print "PASS:enum_SliderJoint3D_Param"
+    Else
+        Print "FAIL:enum_SliderJoint3D_Param count=" & str(pass_count) & "/8"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_SliderJoint3D_Param err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_DISABLE_MODE_REMOVE As Integer = SoftBody3D.DISABLE_MODE_REMOVE
+    If v_DISABLE_MODE_REMOVE = 0 Then pass_count = pass_count + 1
+    Dim v_DISABLE_MODE_KEEP_ACTIVE As Integer = SoftBody3D.DISABLE_MODE_KEEP_ACTIVE
+    If v_DISABLE_MODE_KEEP_ACTIVE = 1 Then pass_count = pass_count + 1
+    If pass_count = 2 Then
+        Print "PASS:enum_SoftBody3D_DisableMode"
+    Else
+        Print "FAIL:enum_SoftBody3D_DisableMode count=" & str(pass_count) & "/2"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_SoftBody3D_DisableMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_DRAGGER_VISIBLE As Integer = SplitContainer.DRAGGER_VISIBLE
+    If v_DRAGGER_VISIBLE = 0 Then pass_count = pass_count + 1
+    Dim v_DRAGGER_HIDDEN As Integer = SplitContainer.DRAGGER_HIDDEN
+    If v_DRAGGER_HIDDEN = 1 Then pass_count = pass_count + 1
+    Dim v_DRAGGER_HIDDEN_COLLAPSED As Integer = SplitContainer.DRAGGER_HIDDEN_COLLAPSED
+    If v_DRAGGER_HIDDEN_COLLAPSED = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_SplitContainer_DraggerVisibility"
+    Else
+        Print "FAIL:enum_SplitContainer_DraggerVisibility count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_SplitContainer_DraggerVisibility err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_BONE_DIRECTION_PLUS_X As Integer = SpringBoneSimulator3D.BONE_DIRECTION_PLUS_X
+    If v_BONE_DIRECTION_PLUS_X = 0 Then pass_count = pass_count + 1
+    Dim v_BONE_DIRECTION_MINUS_X As Integer = SpringBoneSimulator3D.BONE_DIRECTION_MINUS_X
+    If v_BONE_DIRECTION_MINUS_X = 1 Then pass_count = pass_count + 1
+    Dim v_BONE_DIRECTION_PLUS_Y As Integer = SpringBoneSimulator3D.BONE_DIRECTION_PLUS_Y
+    If v_BONE_DIRECTION_PLUS_Y = 2 Then pass_count = pass_count + 1
+    Dim v_BONE_DIRECTION_MINUS_Y As Integer = SpringBoneSimulator3D.BONE_DIRECTION_MINUS_Y
+    If v_BONE_DIRECTION_MINUS_Y = 3 Then pass_count = pass_count + 1
+    Dim v_BONE_DIRECTION_PLUS_Z As Integer = SpringBoneSimulator3D.BONE_DIRECTION_PLUS_Z
+    If v_BONE_DIRECTION_PLUS_Z = 4 Then pass_count = pass_count + 1
+    Dim v_BONE_DIRECTION_MINUS_Z As Integer = SpringBoneSimulator3D.BONE_DIRECTION_MINUS_Z
+    If v_BONE_DIRECTION_MINUS_Z = 5 Then pass_count = pass_count + 1
+    Dim v_BONE_DIRECTION_FROM_PARENT As Integer = SpringBoneSimulator3D.BONE_DIRECTION_FROM_PARENT
+    If v_BONE_DIRECTION_FROM_PARENT = 6 Then pass_count = pass_count + 1
+    If pass_count = 7 Then
+        Print "PASS:enum_SpringBoneSimulator3D_BoneDirection"
+    Else
+        Print "FAIL:enum_SpringBoneSimulator3D_BoneDirection count=" & str(pass_count) & "/7"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_SpringBoneSimulator3D_BoneDirection err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_CENTER_FROM_WORLD_ORIGIN As Integer = SpringBoneSimulator3D.CENTER_FROM_WORLD_ORIGIN
+    If v_CENTER_FROM_WORLD_ORIGIN = 0 Then pass_count = pass_count + 1
+    Dim v_CENTER_FROM_NODE As Integer = SpringBoneSimulator3D.CENTER_FROM_NODE
+    If v_CENTER_FROM_NODE = 1 Then pass_count = pass_count + 1
+    Dim v_CENTER_FROM_BONE As Integer = SpringBoneSimulator3D.CENTER_FROM_BONE
+    If v_CENTER_FROM_BONE = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_SpringBoneSimulator3D_CenterFrom"
+    Else
+        Print "FAIL:enum_SpringBoneSimulator3D_CenterFrom count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_SpringBoneSimulator3D_CenterFrom err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_ROTATION_AXIS_X As Integer = SpringBoneSimulator3D.ROTATION_AXIS_X
+    If v_ROTATION_AXIS_X = 0 Then pass_count = pass_count + 1
+    Dim v_ROTATION_AXIS_Y As Integer = SpringBoneSimulator3D.ROTATION_AXIS_Y
+    If v_ROTATION_AXIS_Y = 1 Then pass_count = pass_count + 1
+    Dim v_ROTATION_AXIS_Z As Integer = SpringBoneSimulator3D.ROTATION_AXIS_Z
+    If v_ROTATION_AXIS_Z = 2 Then pass_count = pass_count + 1
+    Dim v_ROTATION_AXIS_ALL As Integer = SpringBoneSimulator3D.ROTATION_AXIS_ALL
+    If v_ROTATION_AXIS_ALL = 3 Then pass_count = pass_count + 1
+    Dim v_ROTATION_AXIS_CUSTOM As Integer = SpringBoneSimulator3D.ROTATION_AXIS_CUSTOM
+    If v_ROTATION_AXIS_CUSTOM = 4 Then pass_count = pass_count + 1
+    If pass_count = 5 Then
+        Print "PASS:enum_SpringBoneSimulator3D_RotationAxis"
+    Else
+        Print "FAIL:enum_SpringBoneSimulator3D_RotationAxis count=" & str(pass_count) & "/5"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_SpringBoneSimulator3D_RotationAxis err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

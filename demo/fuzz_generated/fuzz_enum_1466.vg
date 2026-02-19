@@ -1,0 +1,162 @@
+Attribute VB_Name = "fuzz_enum_1466"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_EVENT_ERROR As Integer = ENetConnection.EVENT_ERROR
+    If v_EVENT_ERROR = -1 Then pass_count = pass_count + 1
+    Dim v_EVENT_NONE As Integer = ENetConnection.EVENT_NONE
+    If v_EVENT_NONE = 0 Then pass_count = pass_count + 1
+    Dim v_EVENT_CONNECT As Integer = ENetConnection.EVENT_CONNECT
+    If v_EVENT_CONNECT = 1 Then pass_count = pass_count + 1
+    Dim v_EVENT_DISCONNECT As Integer = ENetConnection.EVENT_DISCONNECT
+    If v_EVENT_DISCONNECT = 2 Then pass_count = pass_count + 1
+    Dim v_EVENT_RECEIVE As Integer = ENetConnection.EVENT_RECEIVE
+    If v_EVENT_RECEIVE = 3 Then pass_count = pass_count + 1
+    If pass_count = 5 Then
+        Print "PASS:enum_ENetConnection_EventType"
+    Else
+        Print "FAIL:enum_ENetConnection_EventType count=" & str(pass_count) & "/5"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_ENetConnection_EventType err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_HOST_TOTAL_SENT_DATA As Integer = ENetConnection.HOST_TOTAL_SENT_DATA
+    If v_HOST_TOTAL_SENT_DATA = 0 Then pass_count = pass_count + 1
+    Dim v_HOST_TOTAL_SENT_PACKETS As Integer = ENetConnection.HOST_TOTAL_SENT_PACKETS
+    If v_HOST_TOTAL_SENT_PACKETS = 1 Then pass_count = pass_count + 1
+    Dim v_HOST_TOTAL_RECEIVED_DATA As Integer = ENetConnection.HOST_TOTAL_RECEIVED_DATA
+    If v_HOST_TOTAL_RECEIVED_DATA = 2 Then pass_count = pass_count + 1
+    Dim v_HOST_TOTAL_RECEIVED_PACKETS As Integer = ENetConnection.HOST_TOTAL_RECEIVED_PACKETS
+    If v_HOST_TOTAL_RECEIVED_PACKETS = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_ENetConnection_HostStatistic"
+    Else
+        Print "FAIL:enum_ENetConnection_HostStatistic count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_ENetConnection_HostStatistic err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_STATE_DISCONNECTED As Integer = ENetPacketPeer.STATE_DISCONNECTED
+    If v_STATE_DISCONNECTED = 0 Then pass_count = pass_count + 1
+    Dim v_STATE_CONNECTING As Integer = ENetPacketPeer.STATE_CONNECTING
+    If v_STATE_CONNECTING = 1 Then pass_count = pass_count + 1
+    Dim v_STATE_ACKNOWLEDGING_CONNECT As Integer = ENetPacketPeer.STATE_ACKNOWLEDGING_CONNECT
+    If v_STATE_ACKNOWLEDGING_CONNECT = 2 Then pass_count = pass_count + 1
+    Dim v_STATE_CONNECTION_PENDING As Integer = ENetPacketPeer.STATE_CONNECTION_PENDING
+    If v_STATE_CONNECTION_PENDING = 3 Then pass_count = pass_count + 1
+    Dim v_STATE_CONNECTION_SUCCEEDED As Integer = ENetPacketPeer.STATE_CONNECTION_SUCCEEDED
+    If v_STATE_CONNECTION_SUCCEEDED = 4 Then pass_count = pass_count + 1
+    Dim v_STATE_CONNECTED As Integer = ENetPacketPeer.STATE_CONNECTED
+    If v_STATE_CONNECTED = 5 Then pass_count = pass_count + 1
+    Dim v_STATE_DISCONNECT_LATER As Integer = ENetPacketPeer.STATE_DISCONNECT_LATER
+    If v_STATE_DISCONNECT_LATER = 6 Then pass_count = pass_count + 1
+    Dim v_STATE_DISCONNECTING As Integer = ENetPacketPeer.STATE_DISCONNECTING
+    If v_STATE_DISCONNECTING = 7 Then pass_count = pass_count + 1
+    If pass_count = 8 Then
+        Print "PASS:enum_ENetPacketPeer_PeerState"
+    Else
+        Print "FAIL:enum_ENetPacketPeer_PeerState count=" & str(pass_count) & "/8"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_ENetPacketPeer_PeerState err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_PEER_PACKET_LOSS As Integer = ENetPacketPeer.PEER_PACKET_LOSS
+    If v_PEER_PACKET_LOSS = 0 Then pass_count = pass_count + 1
+    Dim v_PEER_PACKET_LOSS_VARIANCE As Integer = ENetPacketPeer.PEER_PACKET_LOSS_VARIANCE
+    If v_PEER_PACKET_LOSS_VARIANCE = 1 Then pass_count = pass_count + 1
+    Dim v_PEER_PACKET_LOSS_EPOCH As Integer = ENetPacketPeer.PEER_PACKET_LOSS_EPOCH
+    If v_PEER_PACKET_LOSS_EPOCH = 2 Then pass_count = pass_count + 1
+    Dim v_PEER_ROUND_TRIP_TIME As Integer = ENetPacketPeer.PEER_ROUND_TRIP_TIME
+    If v_PEER_ROUND_TRIP_TIME = 3 Then pass_count = pass_count + 1
+    Dim v_PEER_ROUND_TRIP_TIME_VARIANCE As Integer = ENetPacketPeer.PEER_ROUND_TRIP_TIME_VARIANCE
+    If v_PEER_ROUND_TRIP_TIME_VARIANCE = 4 Then pass_count = pass_count + 1
+    Dim v_PEER_LAST_ROUND_TRIP_TIME As Integer = ENetPacketPeer.PEER_LAST_ROUND_TRIP_TIME
+    If v_PEER_LAST_ROUND_TRIP_TIME = 5 Then pass_count = pass_count + 1
+    Dim v_PEER_LAST_ROUND_TRIP_TIME_VARIANCE As Integer = ENetPacketPeer.PEER_LAST_ROUND_TRIP_TIME_VARIANCE
+    If v_PEER_LAST_ROUND_TRIP_TIME_VARIANCE = 6 Then pass_count = pass_count + 1
+    Dim v_PEER_PACKET_THROTTLE As Integer = ENetPacketPeer.PEER_PACKET_THROTTLE
+    If v_PEER_PACKET_THROTTLE = 7 Then pass_count = pass_count + 1
+    If pass_count = 8 Then
+        Print "PASS:enum_ENetPacketPeer_PeerStatistic"
+    Else
+        Print "FAIL:enum_ENetPacketPeer_PeerStatistic count=" & str(pass_count) & "/8"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_ENetPacketPeer_PeerStatistic err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_EXPORT_MESSAGE_NONE As Integer = EditorExportPlatform.EXPORT_MESSAGE_NONE
+    If v_EXPORT_MESSAGE_NONE = 0 Then pass_count = pass_count + 1
+    Dim v_EXPORT_MESSAGE_INFO As Integer = EditorExportPlatform.EXPORT_MESSAGE_INFO
+    If v_EXPORT_MESSAGE_INFO = 1 Then pass_count = pass_count + 1
+    Dim v_EXPORT_MESSAGE_WARNING As Integer = EditorExportPlatform.EXPORT_MESSAGE_WARNING
+    If v_EXPORT_MESSAGE_WARNING = 2 Then pass_count = pass_count + 1
+    Dim v_EXPORT_MESSAGE_ERROR As Integer = EditorExportPlatform.EXPORT_MESSAGE_ERROR
+    If v_EXPORT_MESSAGE_ERROR = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_EditorExportPlatform_ExportMessageType"
+    Else
+        Print "FAIL:enum_EditorExportPlatform_ExportMessageType count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_EditorExportPlatform_ExportMessageType err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_DEBUG_FLAG_DUMB_CLIENT As Integer = EditorExportPlatform.DEBUG_FLAG_DUMB_CLIENT
+    If v_DEBUG_FLAG_DUMB_CLIENT = 1 Then pass_count = pass_count + 1
+    Dim v_DEBUG_FLAG_REMOTE_DEBUG As Integer = EditorExportPlatform.DEBUG_FLAG_REMOTE_DEBUG
+    If v_DEBUG_FLAG_REMOTE_DEBUG = 2 Then pass_count = pass_count + 1
+    Dim v_DEBUG_FLAG_REMOTE_DEBUG_LOCALHOST As Integer = EditorExportPlatform.DEBUG_FLAG_REMOTE_DEBUG_LOCALHOST
+    If v_DEBUG_FLAG_REMOTE_DEBUG_LOCALHOST = 4 Then pass_count = pass_count + 1
+    Dim v_DEBUG_FLAG_VIEW_COLLISIONS As Integer = EditorExportPlatform.DEBUG_FLAG_VIEW_COLLISIONS
+    If v_DEBUG_FLAG_VIEW_COLLISIONS = 8 Then pass_count = pass_count + 1
+    Dim v_DEBUG_FLAG_VIEW_NAVIGATION As Integer = EditorExportPlatform.DEBUG_FLAG_VIEW_NAVIGATION
+    If v_DEBUG_FLAG_VIEW_NAVIGATION = 16 Then pass_count = pass_count + 1
+    If pass_count = 5 Then
+        Print "PASS:enum_EditorExportPlatform_DebugFlags"
+    Else
+        Print "FAIL:enum_EditorExportPlatform_DebugFlags count=" & str(pass_count) & "/5"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_EditorExportPlatform_DebugFlags err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

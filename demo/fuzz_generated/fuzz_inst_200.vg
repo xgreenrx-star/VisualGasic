@@ -1,0 +1,157 @@
+Attribute VB_Name = "fuzz_inst_200"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As FlowContainer = FlowContainer.new()
+    If obj <> Null Then
+        Print "PASS:inst_FlowContainer"
+        obj.free()
+    Else
+        Print "FAIL:inst_FlowContainer returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_FlowContainer err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As FogMaterial = FogMaterial.new()
+    If obj <> Null Then
+        Print "PASS:inst_FogMaterial"
+    Else
+        Print "FAIL:inst_FogMaterial returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_FogMaterial err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As FogVolume = FogVolume.new()
+    If obj <> Null Then
+        Print "PASS:inst_FogVolume"
+        obj.free()
+    Else
+        Print "FAIL:inst_FogVolume returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_FogVolume err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As FoldableContainer = FoldableContainer.new()
+    If obj <> Null Then
+        Print "PASS:inst_FoldableContainer"
+        obj.free()
+    Else
+        Print "FAIL:inst_FoldableContainer returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_FoldableContainer err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As FoldableGroup = FoldableGroup.new()
+    If obj <> Null Then
+        Print "PASS:inst_FoldableGroup"
+    Else
+        Print "FAIL:inst_FoldableGroup returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_FoldableGroup err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As FontFile = FontFile.new()
+    If obj <> Null Then
+        Print "PASS:inst_FontFile"
+    Else
+        Print "FAIL:inst_FontFile returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_FontFile err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As FontVariation = FontVariation.new()
+    If obj <> Null Then
+        Print "PASS:inst_FontVariation"
+    Else
+        Print "FAIL:inst_FontVariation returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_FontVariation err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As FramebufferCacheRD = FramebufferCacheRD.new()
+    If obj <> Null Then
+        Print "PASS:inst_FramebufferCacheRD"
+    Else
+        Print "FAIL:inst_FramebufferCacheRD returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_FramebufferCacheRD err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As GDScript = GDScript.new()
+    If obj <> Null Then
+        Print "PASS:inst_GDScript"
+    Else
+        Print "FAIL:inst_GDScript returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_GDScript err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As GLTFAccessor = GLTFAccessor.new()
+    If obj <> Null Then
+        Print "PASS:inst_GLTFAccessor"
+    Else
+        Print "FAIL:inst_GLTFAccessor returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_GLTFAccessor err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

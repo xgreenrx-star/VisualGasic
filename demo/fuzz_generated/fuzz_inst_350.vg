@@ -1,0 +1,156 @@
+Attribute VB_Name = "fuzz_inst_350"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As OggPacketSequence = OggPacketSequence.new()
+    If obj <> Null Then
+        Print "PASS:inst_OggPacketSequence"
+    Else
+        Print "FAIL:inst_OggPacketSequence returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_OggPacketSequence err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As OggPacketSequencePlayback = OggPacketSequencePlayback.new()
+    If obj <> Null Then
+        Print "PASS:inst_OggPacketSequencePlayback"
+    Else
+        Print "FAIL:inst_OggPacketSequencePlayback returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_OggPacketSequencePlayback err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As OmniLight3D = OmniLight3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_OmniLight3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_OmniLight3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_OmniLight3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As OpenXRAPIExtension = OpenXRAPIExtension.new()
+    If obj <> Null Then
+        Print "PASS:inst_OpenXRAPIExtension"
+    Else
+        Print "FAIL:inst_OpenXRAPIExtension returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_OpenXRAPIExtension err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As OpenXRAction = OpenXRAction.new()
+    If obj <> Null Then
+        Print "PASS:inst_OpenXRAction"
+    Else
+        Print "FAIL:inst_OpenXRAction returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_OpenXRAction err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As OpenXRActionBindingModifier = OpenXRActionBindingModifier.new()
+    If obj <> Null Then
+        Print "PASS:inst_OpenXRActionBindingModifier"
+    Else
+        Print "FAIL:inst_OpenXRActionBindingModifier returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_OpenXRActionBindingModifier err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As OpenXRActionMap = OpenXRActionMap.new()
+    If obj <> Null Then
+        Print "PASS:inst_OpenXRActionMap"
+    Else
+        Print "FAIL:inst_OpenXRActionMap returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_OpenXRActionMap err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As OpenXRActionSet = OpenXRActionSet.new()
+    If obj <> Null Then
+        Print "PASS:inst_OpenXRActionSet"
+    Else
+        Print "FAIL:inst_OpenXRActionSet returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_OpenXRActionSet err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As OpenXRAnalogThresholdModifier = OpenXRAnalogThresholdModifier.new()
+    If obj <> Null Then
+        Print "PASS:inst_OpenXRAnalogThresholdModifier"
+    Else
+        Print "FAIL:inst_OpenXRAnalogThresholdModifier returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_OpenXRAnalogThresholdModifier err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As OpenXRCompositionLayerCylinder = OpenXRCompositionLayerCylinder.new()
+    If obj <> Null Then
+        Print "PASS:inst_OpenXRCompositionLayerCylinder"
+        obj.free()
+    Else
+        Print "FAIL:inst_OpenXRCompositionLayerCylinder returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_OpenXRCompositionLayerCylinder err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

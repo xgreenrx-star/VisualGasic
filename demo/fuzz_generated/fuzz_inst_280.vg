@@ -1,0 +1,157 @@
+Attribute VB_Name = "fuzz_inst_280"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As ItemList = ItemList.new()
+    If obj <> Null Then
+        Print "PASS:inst_ItemList"
+        obj.free()
+    Else
+        Print "FAIL:inst_ItemList returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_ItemList err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As JNISingleton = JNISingleton.new()
+    If obj <> Null Then
+        Print "PASS:inst_JNISingleton"
+    Else
+        Print "FAIL:inst_JNISingleton returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_JNISingleton err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As JSON = JSON.new()
+    If obj <> Null Then
+        Print "PASS:inst_JSON"
+    Else
+        Print "FAIL:inst_JSON returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_JSON err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As JSONRPC = JSONRPC.new()
+    If obj <> Null Then
+        Print "PASS:inst_JSONRPC"
+    Else
+        Print "FAIL:inst_JSONRPC returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_JSONRPC err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As JavaClass = JavaClass.new()
+    If obj <> Null Then
+        Print "PASS:inst_JavaClass"
+    Else
+        Print "FAIL:inst_JavaClass returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_JavaClass err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As JavaObject = JavaObject.new()
+    If obj <> Null Then
+        Print "PASS:inst_JavaObject"
+    Else
+        Print "FAIL:inst_JavaObject returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_JavaObject err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As KinematicCollision2D = KinematicCollision2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_KinematicCollision2D"
+    Else
+        Print "FAIL:inst_KinematicCollision2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_KinematicCollision2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As KinematicCollision3D = KinematicCollision3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_KinematicCollision3D"
+    Else
+        Print "FAIL:inst_KinematicCollision3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_KinematicCollision3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As Label = Label.new()
+    If obj <> Null Then
+        Print "PASS:inst_Label"
+        obj.free()
+    Else
+        Print "FAIL:inst_Label returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_Label err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As Label3D = Label3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_Label3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_Label3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_Label3D err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

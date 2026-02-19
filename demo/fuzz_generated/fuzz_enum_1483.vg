@@ -1,0 +1,132 @@
+Attribute VB_Name = "fuzz_enum_1483"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_VISIBILITY_PROCESS_IDLE As Integer = MultiplayerSynchronizer.VISIBILITY_PROCESS_IDLE
+    If v_VISIBILITY_PROCESS_IDLE = 0 Then pass_count = pass_count + 1
+    Dim v_VISIBILITY_PROCESS_PHYSICS As Integer = MultiplayerSynchronizer.VISIBILITY_PROCESS_PHYSICS
+    If v_VISIBILITY_PROCESS_PHYSICS = 1 Then pass_count = pass_count + 1
+    Dim v_VISIBILITY_PROCESS_NONE As Integer = MultiplayerSynchronizer.VISIBILITY_PROCESS_NONE
+    If v_VISIBILITY_PROCESS_NONE = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_MultiplayerSynchronizer_VisibilityUpdateMode"
+    Else
+        Print "FAIL:enum_MultiplayerSynchronizer_VisibilityUpdateMode count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_MultiplayerSynchronizer_VisibilityUpdateMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_SAMPLE_PARTITION_WATERSHED As Integer = NavigationMesh.SAMPLE_PARTITION_WATERSHED
+    If v_SAMPLE_PARTITION_WATERSHED = 0 Then pass_count = pass_count + 1
+    Dim v_SAMPLE_PARTITION_MONOTONE As Integer = NavigationMesh.SAMPLE_PARTITION_MONOTONE
+    If v_SAMPLE_PARTITION_MONOTONE = 1 Then pass_count = pass_count + 1
+    Dim v_SAMPLE_PARTITION_LAYERS As Integer = NavigationMesh.SAMPLE_PARTITION_LAYERS
+    If v_SAMPLE_PARTITION_LAYERS = 2 Then pass_count = pass_count + 1
+    Dim v_SAMPLE_PARTITION_MAX As Integer = NavigationMesh.SAMPLE_PARTITION_MAX
+    If v_SAMPLE_PARTITION_MAX = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_NavigationMesh_SamplePartitionType"
+    Else
+        Print "FAIL:enum_NavigationMesh_SamplePartitionType count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_NavigationMesh_SamplePartitionType err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_PARSED_GEOMETRY_MESH_INSTANCES As Integer = NavigationMesh.PARSED_GEOMETRY_MESH_INSTANCES
+    If v_PARSED_GEOMETRY_MESH_INSTANCES = 0 Then pass_count = pass_count + 1
+    Dim v_PARSED_GEOMETRY_STATIC_COLLIDERS As Integer = NavigationMesh.PARSED_GEOMETRY_STATIC_COLLIDERS
+    If v_PARSED_GEOMETRY_STATIC_COLLIDERS = 1 Then pass_count = pass_count + 1
+    Dim v_PARSED_GEOMETRY_BOTH As Integer = NavigationMesh.PARSED_GEOMETRY_BOTH
+    If v_PARSED_GEOMETRY_BOTH = 2 Then pass_count = pass_count + 1
+    Dim v_PARSED_GEOMETRY_MAX As Integer = NavigationMesh.PARSED_GEOMETRY_MAX
+    If v_PARSED_GEOMETRY_MAX = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_NavigationMesh_ParsedGeometryType"
+    Else
+        Print "FAIL:enum_NavigationMesh_ParsedGeometryType count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_NavigationMesh_ParsedGeometryType err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_SOURCE_GEOMETRY_ROOT_NODE_CHILDREN As Integer = NavigationMesh.SOURCE_GEOMETRY_ROOT_NODE_CHILDREN
+    If v_SOURCE_GEOMETRY_ROOT_NODE_CHILDREN = 0 Then pass_count = pass_count + 1
+    Dim v_SOURCE_GEOMETRY_GROUPS_WITH_CHILDREN As Integer = NavigationMesh.SOURCE_GEOMETRY_GROUPS_WITH_CHILDREN
+    If v_SOURCE_GEOMETRY_GROUPS_WITH_CHILDREN = 1 Then pass_count = pass_count + 1
+    Dim v_SOURCE_GEOMETRY_GROUPS_EXPLICIT As Integer = NavigationMesh.SOURCE_GEOMETRY_GROUPS_EXPLICIT
+    If v_SOURCE_GEOMETRY_GROUPS_EXPLICIT = 2 Then pass_count = pass_count + 1
+    Dim v_SOURCE_GEOMETRY_MAX As Integer = NavigationMesh.SOURCE_GEOMETRY_MAX
+    If v_SOURCE_GEOMETRY_MAX = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_NavigationMesh_SourceGeometryMode"
+    Else
+        Print "FAIL:enum_NavigationMesh_SourceGeometryMode count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_NavigationMesh_SourceGeometryMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_PATHFINDING_ALGORITHM_ASTAR As Integer = NavigationPathQueryParameters2D.PATHFINDING_ALGORITHM_ASTAR
+    If v_PATHFINDING_ALGORITHM_ASTAR = 0 Then pass_count = pass_count + 1
+    If pass_count = 1 Then
+        Print "PASS:enum_NavigationPathQueryParameters2D_PathfindingAlgorithm"
+    Else
+        Print "FAIL:enum_NavigationPathQueryParameters2D_PathfindingAlgorithm count=" & str(pass_count) & "/1"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_NavigationPathQueryParameters2D_PathfindingAlgorithm err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_PATH_POSTPROCESSING_CORRIDORFUNNEL As Integer = NavigationPathQueryParameters2D.PATH_POSTPROCESSING_CORRIDORFUNNEL
+    If v_PATH_POSTPROCESSING_CORRIDORFUNNEL = 0 Then pass_count = pass_count + 1
+    Dim v_PATH_POSTPROCESSING_EDGECENTERED As Integer = NavigationPathQueryParameters2D.PATH_POSTPROCESSING_EDGECENTERED
+    If v_PATH_POSTPROCESSING_EDGECENTERED = 1 Then pass_count = pass_count + 1
+    Dim v_PATH_POSTPROCESSING_NONE As Integer = NavigationPathQueryParameters2D.PATH_POSTPROCESSING_NONE
+    If v_PATH_POSTPROCESSING_NONE = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_NavigationPathQueryParameters2D_PathPostProcessing"
+    Else
+        Print "FAIL:enum_NavigationPathQueryParameters2D_PathPostProcessing count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_NavigationPathQueryParameters2D_PathPostProcessing err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

@@ -1,0 +1,156 @@
+Attribute VB_Name = "fuzz_inst_330"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As NavigationMesh = NavigationMesh.new()
+    If obj <> Null Then
+        Print "PASS:inst_NavigationMesh"
+    Else
+        Print "FAIL:inst_NavigationMesh returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_NavigationMesh err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As NavigationMeshGenerator = NavigationMeshGenerator.new()
+    If obj <> Null Then
+        Print "PASS:inst_NavigationMeshGenerator"
+    Else
+        Print "FAIL:inst_NavigationMeshGenerator returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_NavigationMeshGenerator err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As NavigationMeshSourceGeometryData2D = NavigationMeshSourceGeometryData2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_NavigationMeshSourceGeometryData2D"
+    Else
+        Print "FAIL:inst_NavigationMeshSourceGeometryData2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_NavigationMeshSourceGeometryData2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As NavigationMeshSourceGeometryData3D = NavigationMeshSourceGeometryData3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_NavigationMeshSourceGeometryData3D"
+    Else
+        Print "FAIL:inst_NavigationMeshSourceGeometryData3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_NavigationMeshSourceGeometryData3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As NavigationObstacle2D = NavigationObstacle2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_NavigationObstacle2D"
+        obj.free()
+    Else
+        Print "FAIL:inst_NavigationObstacle2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_NavigationObstacle2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As NavigationObstacle3D = NavigationObstacle3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_NavigationObstacle3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_NavigationObstacle3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_NavigationObstacle3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As NavigationPathQueryParameters2D = NavigationPathQueryParameters2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_NavigationPathQueryParameters2D"
+    Else
+        Print "FAIL:inst_NavigationPathQueryParameters2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_NavigationPathQueryParameters2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As NavigationPathQueryParameters3D = NavigationPathQueryParameters3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_NavigationPathQueryParameters3D"
+    Else
+        Print "FAIL:inst_NavigationPathQueryParameters3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_NavigationPathQueryParameters3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As NavigationPathQueryResult2D = NavigationPathQueryResult2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_NavigationPathQueryResult2D"
+    Else
+        Print "FAIL:inst_NavigationPathQueryResult2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_NavigationPathQueryResult2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As NavigationPathQueryResult3D = NavigationPathQueryResult3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_NavigationPathQueryResult3D"
+    Else
+        Print "FAIL:inst_NavigationPathQueryResult3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_NavigationPathQueryResult3D err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

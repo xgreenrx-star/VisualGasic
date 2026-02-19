@@ -1,0 +1,138 @@
+Attribute VB_Name = "fuzz_enum_1454"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_DOPPLER_TRACKING_DISABLED As Integer = AudioStreamPlayer3D.DOPPLER_TRACKING_DISABLED
+    If v_DOPPLER_TRACKING_DISABLED = 0 Then pass_count = pass_count + 1
+    Dim v_DOPPLER_TRACKING_IDLE_STEP As Integer = AudioStreamPlayer3D.DOPPLER_TRACKING_IDLE_STEP
+    If v_DOPPLER_TRACKING_IDLE_STEP = 1 Then pass_count = pass_count + 1
+    Dim v_DOPPLER_TRACKING_PHYSICS_STEP As Integer = AudioStreamPlayer3D.DOPPLER_TRACKING_PHYSICS_STEP
+    If v_DOPPLER_TRACKING_PHYSICS_STEP = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_AudioStreamPlayer3D_DopplerTracking"
+    Else
+        Print "FAIL:enum_AudioStreamPlayer3D_DopplerTracking count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_AudioStreamPlayer3D_DopplerTracking err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_PLAYBACK_RANDOM_NO_REPEATS As Integer = AudioStreamRandomizer.PLAYBACK_RANDOM_NO_REPEATS
+    If v_PLAYBACK_RANDOM_NO_REPEATS = 0 Then pass_count = pass_count + 1
+    Dim v_PLAYBACK_RANDOM As Integer = AudioStreamRandomizer.PLAYBACK_RANDOM
+    If v_PLAYBACK_RANDOM = 1 Then pass_count = pass_count + 1
+    Dim v_PLAYBACK_SEQUENTIAL As Integer = AudioStreamRandomizer.PLAYBACK_SEQUENTIAL
+    If v_PLAYBACK_SEQUENTIAL = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_AudioStreamRandomizer_PlaybackMode"
+    Else
+        Print "FAIL:enum_AudioStreamRandomizer_PlaybackMode count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_AudioStreamRandomizer_PlaybackMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_FORMAT_8_BITS As Integer = AudioStreamWAV.FORMAT_8_BITS
+    If v_FORMAT_8_BITS = 0 Then pass_count = pass_count + 1
+    Dim v_FORMAT_16_BITS As Integer = AudioStreamWAV.FORMAT_16_BITS
+    If v_FORMAT_16_BITS = 1 Then pass_count = pass_count + 1
+    Dim v_FORMAT_IMA_ADPCM As Integer = AudioStreamWAV.FORMAT_IMA_ADPCM
+    If v_FORMAT_IMA_ADPCM = 2 Then pass_count = pass_count + 1
+    Dim v_FORMAT_QOA As Integer = AudioStreamWAV.FORMAT_QOA
+    If v_FORMAT_QOA = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_AudioStreamWAV_Format"
+    Else
+        Print "FAIL:enum_AudioStreamWAV_Format count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_AudioStreamWAV_Format err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_LOOP_DISABLED As Integer = AudioStreamWAV.LOOP_DISABLED
+    If v_LOOP_DISABLED = 0 Then pass_count = pass_count + 1
+    Dim v_LOOP_FORWARD As Integer = AudioStreamWAV.LOOP_FORWARD
+    If v_LOOP_FORWARD = 1 Then pass_count = pass_count + 1
+    Dim v_LOOP_PINGPONG As Integer = AudioStreamWAV.LOOP_PINGPONG
+    If v_LOOP_PINGPONG = 2 Then pass_count = pass_count + 1
+    Dim v_LOOP_BACKWARD As Integer = AudioStreamWAV.LOOP_BACKWARD
+    If v_LOOP_BACKWARD = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_AudioStreamWAV_LoopMode"
+    Else
+        Print "FAIL:enum_AudioStreamWAV_LoopMode count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_AudioStreamWAV_LoopMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_COPY_MODE_DISABLED As Integer = BackBufferCopy.COPY_MODE_DISABLED
+    If v_COPY_MODE_DISABLED = 0 Then pass_count = pass_count + 1
+    Dim v_COPY_MODE_RECT As Integer = BackBufferCopy.COPY_MODE_RECT
+    If v_COPY_MODE_RECT = 1 Then pass_count = pass_count + 1
+    Dim v_COPY_MODE_VIEWPORT As Integer = BackBufferCopy.COPY_MODE_VIEWPORT
+    If v_COPY_MODE_VIEWPORT = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_BackBufferCopy_CopyMode"
+    Else
+        Print "FAIL:enum_BackBufferCopy_CopyMode count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_BackBufferCopy_CopyMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_DRAW_NORMAL As Integer = BaseButton.DRAW_NORMAL
+    If v_DRAW_NORMAL = 0 Then pass_count = pass_count + 1
+    Dim v_DRAW_PRESSED As Integer = BaseButton.DRAW_PRESSED
+    If v_DRAW_PRESSED = 1 Then pass_count = pass_count + 1
+    Dim v_DRAW_HOVER As Integer = BaseButton.DRAW_HOVER
+    If v_DRAW_HOVER = 2 Then pass_count = pass_count + 1
+    Dim v_DRAW_DISABLED As Integer = BaseButton.DRAW_DISABLED
+    If v_DRAW_DISABLED = 3 Then pass_count = pass_count + 1
+    Dim v_DRAW_HOVER_PRESSED As Integer = BaseButton.DRAW_HOVER_PRESSED
+    If v_DRAW_HOVER_PRESSED = 4 Then pass_count = pass_count + 1
+    If pass_count = 5 Then
+        Print "PASS:enum_BaseButton_DrawMode"
+    Else
+        Print "FAIL:enum_BaseButton_DrawMode count=" & str(pass_count) & "/5"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_BaseButton_DrawMode err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

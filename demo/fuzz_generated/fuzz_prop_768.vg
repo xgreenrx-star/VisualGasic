@@ -1,0 +1,159 @@
+Attribute VB_Name = "fuzz_prop_768"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As TextEdit = TextEdit.new()
+    If obj = Null Then
+        Print "SKIP:prop_TextEdit_emoji_menu_enabled (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.emoji_menu_enabled
+    Print "PASS:prop_TextEdit_emoji_menu_enabled"
+    obj.emoji_menu_enabled = True
+    Dim val2 As Variant = obj.emoji_menu_enabled
+    Print "PASS:propset_TextEdit_emoji_menu_enabled"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_TextEdit_emoji_menu_enabled err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As ParticleProcessMaterial = ParticleProcessMaterial.new()
+    If obj = Null Then
+        Print "SKIP:prop_ParticleProcessMaterial_lifetime_randomness (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.lifetime_randomness
+    Print "PASS:prop_ParticleProcessMaterial_lifetime_randomness"
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_ParticleProcessMaterial_lifetime_randomness err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As ParticleProcessMaterial = ParticleProcessMaterial.new()
+    If obj = Null Then
+        Print "SKIP:prop_ParticleProcessMaterial_particle_flag_align_y (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.particle_flag_align_y
+    Print "PASS:prop_ParticleProcessMaterial_particle_flag_align_y"
+    obj.particle_flag_align_y = True
+    Dim val2 As Variant = obj.particle_flag_align_y
+    Print "PASS:propset_ParticleProcessMaterial_particle_flag_align_y"
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_ParticleProcessMaterial_particle_flag_align_y err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As ParticleProcessMaterial = ParticleProcessMaterial.new()
+    If obj = Null Then
+        Print "SKIP:prop_ParticleProcessMaterial_particle_flag_rotate_y (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.particle_flag_rotate_y
+    Print "PASS:prop_ParticleProcessMaterial_particle_flag_rotate_y"
+    obj.particle_flag_rotate_y = True
+    Dim val2 As Variant = obj.particle_flag_rotate_y
+    Print "PASS:propset_ParticleProcessMaterial_particle_flag_rotate_y"
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_ParticleProcessMaterial_particle_flag_rotate_y err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As ParticleProcessMaterial = ParticleProcessMaterial.new()
+    If obj = Null Then
+        Print "SKIP:prop_ParticleProcessMaterial_particle_flag_disable_z (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.particle_flag_disable_z
+    Print "PASS:prop_ParticleProcessMaterial_particle_flag_disable_z"
+    obj.particle_flag_disable_z = True
+    Dim val2 As Variant = obj.particle_flag_disable_z
+    Print "PASS:propset_ParticleProcessMaterial_particle_flag_disable_z"
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_ParticleProcessMaterial_particle_flag_disable_z err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As ParticleProcessMaterial = ParticleProcessMaterial.new()
+    If obj = Null Then
+        Print "SKIP:prop_ParticleProcessMaterial_particle_flag_damping_as_friction (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.particle_flag_damping_as_friction
+    Print "PASS:prop_ParticleProcessMaterial_particle_flag_damping_as_friction"
+    obj.particle_flag_damping_as_friction = True
+    Dim val2 As Variant = obj.particle_flag_damping_as_friction
+    Print "PASS:propset_ParticleProcessMaterial_particle_flag_damping_as_friction"
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_ParticleProcessMaterial_particle_flag_damping_as_friction err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As LineEdit = LineEdit.new()
+    If obj = Null Then
+        Print "SKIP:prop_LineEdit_text (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.text
+    Print "PASS:prop_LineEdit_text"
+    obj.text = "test_string"
+    Dim val2 As Variant = obj.text
+    Print "PASS:propset_LineEdit_text"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_LineEdit_text err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As LineEdit = LineEdit.new()
+    If obj = Null Then
+        Print "SKIP:prop_LineEdit_placeholder_text (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.placeholder_text
+    Print "PASS:prop_LineEdit_placeholder_text"
+    obj.placeholder_text = "test_string"
+    Dim val2 As Variant = obj.placeholder_text
+    Print "PASS:propset_LineEdit_placeholder_text"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_LineEdit_placeholder_text err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+End Sub

@@ -1,0 +1,172 @@
+Attribute VB_Name = "fuzz_meth_1593"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As HBoxContainer = HBoxContainer.new()
+    If obj = Null Then
+        Print "SKIP:meth_HBoxContainer (null)"
+        Exit Sub
+    End If
+    Dim r_get_alignment As Variant = obj.get_alignment()
+    Print "PASS:meth_HBoxContainer_get_alignment"
+    Dim r_is_vertical As Variant = obj.is_vertical()
+    Print "PASS:meth_HBoxContainer_is_vertical"
+    Dim r_get_combined_minimum_size As Variant = obj.get_combined_minimum_size()
+    Print "PASS:meth_HBoxContainer_get_combined_minimum_size"
+    Dim r_get_begin As Variant = obj.get_begin()
+    Print "PASS:meth_HBoxContainer_get_begin"
+    Dim r_get_end As Variant = obj.get_end()
+    Print "PASS:meth_HBoxContainer_get_end"
+    Dim r_get_position As Variant = obj.get_position()
+    Print "PASS:meth_HBoxContainer_get_position"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_HBoxContainer err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As VBoxContainer = VBoxContainer.new()
+    If obj = Null Then
+        Print "SKIP:meth_VBoxContainer (null)"
+        Exit Sub
+    End If
+    Dim r_get_alignment As Variant = obj.get_alignment()
+    Print "PASS:meth_VBoxContainer_get_alignment"
+    Dim r_is_vertical As Variant = obj.is_vertical()
+    Print "PASS:meth_VBoxContainer_is_vertical"
+    Dim r_get_combined_minimum_size As Variant = obj.get_combined_minimum_size()
+    Print "PASS:meth_VBoxContainer_get_combined_minimum_size"
+    Dim r_get_begin As Variant = obj.get_begin()
+    Print "PASS:meth_VBoxContainer_get_begin"
+    Dim r_get_end As Variant = obj.get_end()
+    Print "PASS:meth_VBoxContainer_get_end"
+    Dim r_get_position As Variant = obj.get_position()
+    Print "PASS:meth_VBoxContainer_get_position"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_VBoxContainer err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As CenterContainer = CenterContainer.new()
+    If obj = Null Then
+        Print "SKIP:meth_CenterContainer (null)"
+        Exit Sub
+    End If
+    Dim r_is_using_top_left As Variant = obj.is_using_top_left()
+    Print "PASS:meth_CenterContainer_is_using_top_left"
+    Dim r_get_combined_minimum_size As Variant = obj.get_combined_minimum_size()
+    Print "PASS:meth_CenterContainer_get_combined_minimum_size"
+    Dim r_get_begin As Variant = obj.get_begin()
+    Print "PASS:meth_CenterContainer_get_begin"
+    Dim r_get_end As Variant = obj.get_end()
+    Print "PASS:meth_CenterContainer_get_end"
+    Dim r_get_position As Variant = obj.get_position()
+    Print "PASS:meth_CenterContainer_get_position"
+    Dim r_get_size As Variant = obj.get_size()
+    Print "PASS:meth_CenterContainer_get_size"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_CenterContainer err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As ColorRect = ColorRect.new()
+    If obj = Null Then
+        Print "SKIP:meth_ColorRect (null)"
+        Exit Sub
+    End If
+    Dim r_get_color As Variant = obj.get_color()
+    Print "PASS:meth_ColorRect_get_color"
+    Dim r_get_combined_minimum_size As Variant = obj.get_combined_minimum_size()
+    Print "PASS:meth_ColorRect_get_combined_minimum_size"
+    Dim r_get_begin As Variant = obj.get_begin()
+    Print "PASS:meth_ColorRect_get_begin"
+    Dim r_get_end As Variant = obj.get_end()
+    Print "PASS:meth_ColorRect_get_end"
+    Dim r_get_position As Variant = obj.get_position()
+    Print "PASS:meth_ColorRect_get_position"
+    Dim r_get_size As Variant = obj.get_size()
+    Print "PASS:meth_ColorRect_get_size"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_ColorRect err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As GridContainer = GridContainer.new()
+    If obj = Null Then
+        Print "SKIP:meth_GridContainer (null)"
+        Exit Sub
+    End If
+    Dim r_get_columns As Variant = obj.get_columns()
+    Print "PASS:meth_GridContainer_get_columns"
+    Dim r_get_combined_minimum_size As Variant = obj.get_combined_minimum_size()
+    Print "PASS:meth_GridContainer_get_combined_minimum_size"
+    Dim r_get_begin As Variant = obj.get_begin()
+    Print "PASS:meth_GridContainer_get_begin"
+    Dim r_get_end As Variant = obj.get_end()
+    Print "PASS:meth_GridContainer_get_end"
+    Dim r_get_position As Variant = obj.get_position()
+    Print "PASS:meth_GridContainer_get_position"
+    Dim r_get_size As Variant = obj.get_size()
+    Print "PASS:meth_GridContainer_get_size"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_GridContainer err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As Container = Container.new()
+    If obj = Null Then
+        Print "SKIP:meth_Container (null)"
+        Exit Sub
+    End If
+    Dim r_get_combined_minimum_size As Variant = obj.get_combined_minimum_size()
+    Print "PASS:meth_Container_get_combined_minimum_size"
+    Dim r_get_begin As Variant = obj.get_begin()
+    Print "PASS:meth_Container_get_begin"
+    Dim r_get_end As Variant = obj.get_end()
+    Print "PASS:meth_Container_get_end"
+    Dim r_get_position As Variant = obj.get_position()
+    Print "PASS:meth_Container_get_position"
+    Dim r_get_size As Variant = obj.get_size()
+    Print "PASS:meth_Container_get_size"
+    Dim r_get_rotation As Variant = obj.get_rotation()
+    Print "PASS:meth_Container_get_rotation"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_Container err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

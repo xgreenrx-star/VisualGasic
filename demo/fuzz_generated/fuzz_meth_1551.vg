@@ -1,0 +1,172 @@
+Attribute VB_Name = "fuzz_meth_1551"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As MenuButton = MenuButton.new()
+    If obj = Null Then
+        Print "SKIP:meth_MenuButton (null)"
+        Exit Sub
+    End If
+    Dim r_get_popup As Variant = obj.get_popup()
+    Print "PASS:meth_MenuButton_get_popup"
+    Dim r_is_switch_on_hover As Variant = obj.is_switch_on_hover()
+    Print "PASS:meth_MenuButton_is_switch_on_hover"
+    Dim r_get_item_count As Variant = obj.get_item_count()
+    Print "PASS:meth_MenuButton_get_item_count"
+    Dim r_get_text As Variant = obj.get_text()
+    Print "PASS:meth_MenuButton_get_text"
+    Dim r_get_text_overrun_behavior As Variant = obj.get_text_overrun_behavior()
+    Print "PASS:meth_MenuButton_get_text_overrun_behavior"
+    Dim r_get_autowrap_mode As Variant = obj.get_autowrap_mode()
+    Print "PASS:meth_MenuButton_get_autowrap_mode"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_MenuButton err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As GraphEdit = GraphEdit.new()
+    If obj = Null Then
+        Print "SKIP:meth_GraphEdit (null)"
+        Exit Sub
+    End If
+    Dim r_get_connection_list As Variant = obj.get_connection_list()
+    Print "PASS:meth_GraphEdit_get_connection_list"
+    Dim r_get_scroll_offset As Variant = obj.get_scroll_offset()
+    Print "PASS:meth_GraphEdit_get_scroll_offset"
+    Dim r_get_panning_scheme As Variant = obj.get_panning_scheme()
+    Print "PASS:meth_GraphEdit_get_panning_scheme"
+    Dim r_get_zoom As Variant = obj.get_zoom()
+    Print "PASS:meth_GraphEdit_get_zoom"
+    Dim r_get_zoom_min As Variant = obj.get_zoom_min()
+    Print "PASS:meth_GraphEdit_get_zoom_min"
+    Dim r_get_zoom_max As Variant = obj.get_zoom_max()
+    Print "PASS:meth_GraphEdit_get_zoom_max"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_GraphEdit err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As Button = Button.new()
+    If obj = Null Then
+        Print "SKIP:meth_Button (null)"
+        Exit Sub
+    End If
+    Dim r_get_text As Variant = obj.get_text()
+    Print "PASS:meth_Button_get_text"
+    Dim r_get_text_overrun_behavior As Variant = obj.get_text_overrun_behavior()
+    Print "PASS:meth_Button_get_text_overrun_behavior"
+    Dim r_get_autowrap_mode As Variant = obj.get_autowrap_mode()
+    Print "PASS:meth_Button_get_autowrap_mode"
+    Dim r_get_autowrap_trim_flags As Variant = obj.get_autowrap_trim_flags()
+    Print "PASS:meth_Button_get_autowrap_trim_flags"
+    Dim r_get_text_direction As Variant = obj.get_text_direction()
+    Print "PASS:meth_Button_get_text_direction"
+    Dim r_get_language As Variant = obj.get_language()
+    Print "PASS:meth_Button_get_language"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_Button err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As CheckBox = CheckBox.new()
+    If obj = Null Then
+        Print "SKIP:meth_CheckBox (null)"
+        Exit Sub
+    End If
+    Dim r_get_text As Variant = obj.get_text()
+    Print "PASS:meth_CheckBox_get_text"
+    Dim r_get_text_overrun_behavior As Variant = obj.get_text_overrun_behavior()
+    Print "PASS:meth_CheckBox_get_text_overrun_behavior"
+    Dim r_get_autowrap_mode As Variant = obj.get_autowrap_mode()
+    Print "PASS:meth_CheckBox_get_autowrap_mode"
+    Dim r_get_autowrap_trim_flags As Variant = obj.get_autowrap_trim_flags()
+    Print "PASS:meth_CheckBox_get_autowrap_trim_flags"
+    Dim r_get_text_direction As Variant = obj.get_text_direction()
+    Print "PASS:meth_CheckBox_get_text_direction"
+    Dim r_get_language As Variant = obj.get_language()
+    Print "PASS:meth_CheckBox_get_language"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_CheckBox err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As CheckButton = CheckButton.new()
+    If obj = Null Then
+        Print "SKIP:meth_CheckButton (null)"
+        Exit Sub
+    End If
+    Dim r_get_text As Variant = obj.get_text()
+    Print "PASS:meth_CheckButton_get_text"
+    Dim r_get_text_overrun_behavior As Variant = obj.get_text_overrun_behavior()
+    Print "PASS:meth_CheckButton_get_text_overrun_behavior"
+    Dim r_get_autowrap_mode As Variant = obj.get_autowrap_mode()
+    Print "PASS:meth_CheckButton_get_autowrap_mode"
+    Dim r_get_autowrap_trim_flags As Variant = obj.get_autowrap_trim_flags()
+    Print "PASS:meth_CheckButton_get_autowrap_trim_flags"
+    Dim r_get_text_direction As Variant = obj.get_text_direction()
+    Print "PASS:meth_CheckButton_get_text_direction"
+    Dim r_get_language As Variant = obj.get_language()
+    Print "PASS:meth_CheckButton_get_language"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_CheckButton err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As Label = Label.new()
+    If obj = Null Then
+        Print "SKIP:meth_Label (null)"
+        Exit Sub
+    End If
+    Dim r_get_horizontal_alignment As Variant = obj.get_horizontal_alignment()
+    Print "PASS:meth_Label_get_horizontal_alignment"
+    Dim r_get_vertical_alignment As Variant = obj.get_vertical_alignment()
+    Print "PASS:meth_Label_get_vertical_alignment"
+    Dim r_get_text As Variant = obj.get_text()
+    Print "PASS:meth_Label_get_text"
+    Dim r_get_label_settings As Variant = obj.get_label_settings()
+    Print "PASS:meth_Label_get_label_settings"
+    Dim r_get_text_direction As Variant = obj.get_text_direction()
+    Print "PASS:meth_Label_get_text_direction"
+    Dim r_get_language As Variant = obj.get_language()
+    Print "PASS:meth_Label_get_language"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_Label err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

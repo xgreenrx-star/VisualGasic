@@ -1,0 +1,162 @@
+Attribute VB_Name = "fuzz_enum_1459"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_PARAM_INITIAL_LINEAR_VELOCITY As Integer = CPUParticles2D.PARAM_INITIAL_LINEAR_VELOCITY
+    If v_PARAM_INITIAL_LINEAR_VELOCITY = 0 Then pass_count = pass_count + 1
+    Dim v_PARAM_ANGULAR_VELOCITY As Integer = CPUParticles2D.PARAM_ANGULAR_VELOCITY
+    If v_PARAM_ANGULAR_VELOCITY = 1 Then pass_count = pass_count + 1
+    Dim v_PARAM_ORBIT_VELOCITY As Integer = CPUParticles2D.PARAM_ORBIT_VELOCITY
+    If v_PARAM_ORBIT_VELOCITY = 2 Then pass_count = pass_count + 1
+    Dim v_PARAM_LINEAR_ACCEL As Integer = CPUParticles2D.PARAM_LINEAR_ACCEL
+    If v_PARAM_LINEAR_ACCEL = 3 Then pass_count = pass_count + 1
+    Dim v_PARAM_RADIAL_ACCEL As Integer = CPUParticles2D.PARAM_RADIAL_ACCEL
+    If v_PARAM_RADIAL_ACCEL = 4 Then pass_count = pass_count + 1
+    Dim v_PARAM_TANGENTIAL_ACCEL As Integer = CPUParticles2D.PARAM_TANGENTIAL_ACCEL
+    If v_PARAM_TANGENTIAL_ACCEL = 5 Then pass_count = pass_count + 1
+    Dim v_PARAM_DAMPING As Integer = CPUParticles2D.PARAM_DAMPING
+    If v_PARAM_DAMPING = 6 Then pass_count = pass_count + 1
+    Dim v_PARAM_ANGLE As Integer = CPUParticles2D.PARAM_ANGLE
+    If v_PARAM_ANGLE = 7 Then pass_count = pass_count + 1
+    If pass_count = 8 Then
+        Print "PASS:enum_CPUParticles2D_Parameter"
+    Else
+        Print "FAIL:enum_CPUParticles2D_Parameter count=" & str(pass_count) & "/8"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_CPUParticles2D_Parameter err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_PARTICLE_FLAG_ALIGN_Y_TO_VELOCITY As Integer = CPUParticles2D.PARTICLE_FLAG_ALIGN_Y_TO_VELOCITY
+    If v_PARTICLE_FLAG_ALIGN_Y_TO_VELOCITY = 0 Then pass_count = pass_count + 1
+    Dim v_PARTICLE_FLAG_ROTATE_Y As Integer = CPUParticles2D.PARTICLE_FLAG_ROTATE_Y
+    If v_PARTICLE_FLAG_ROTATE_Y = 1 Then pass_count = pass_count + 1
+    Dim v_PARTICLE_FLAG_DISABLE_Z As Integer = CPUParticles2D.PARTICLE_FLAG_DISABLE_Z
+    If v_PARTICLE_FLAG_DISABLE_Z = 2 Then pass_count = pass_count + 1
+    Dim v_PARTICLE_FLAG_MAX As Integer = CPUParticles2D.PARTICLE_FLAG_MAX
+    If v_PARTICLE_FLAG_MAX = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_CPUParticles2D_ParticleFlags"
+    Else
+        Print "FAIL:enum_CPUParticles2D_ParticleFlags count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_CPUParticles2D_ParticleFlags err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_EMISSION_SHAPE_POINT As Integer = CPUParticles2D.EMISSION_SHAPE_POINT
+    If v_EMISSION_SHAPE_POINT = 0 Then pass_count = pass_count + 1
+    Dim v_EMISSION_SHAPE_SPHERE As Integer = CPUParticles2D.EMISSION_SHAPE_SPHERE
+    If v_EMISSION_SHAPE_SPHERE = 1 Then pass_count = pass_count + 1
+    Dim v_EMISSION_SHAPE_SPHERE_SURFACE As Integer = CPUParticles2D.EMISSION_SHAPE_SPHERE_SURFACE
+    If v_EMISSION_SHAPE_SPHERE_SURFACE = 2 Then pass_count = pass_count + 1
+    Dim v_EMISSION_SHAPE_RECTANGLE As Integer = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
+    If v_EMISSION_SHAPE_RECTANGLE = 3 Then pass_count = pass_count + 1
+    Dim v_EMISSION_SHAPE_POINTS As Integer = CPUParticles2D.EMISSION_SHAPE_POINTS
+    If v_EMISSION_SHAPE_POINTS = 4 Then pass_count = pass_count + 1
+    Dim v_EMISSION_SHAPE_DIRECTED_POINTS As Integer = CPUParticles2D.EMISSION_SHAPE_DIRECTED_POINTS
+    If v_EMISSION_SHAPE_DIRECTED_POINTS = 5 Then pass_count = pass_count + 1
+    Dim v_EMISSION_SHAPE_MAX As Integer = CPUParticles2D.EMISSION_SHAPE_MAX
+    If v_EMISSION_SHAPE_MAX = 6 Then pass_count = pass_count + 1
+    If pass_count = 7 Then
+        Print "PASS:enum_CPUParticles2D_EmissionShape"
+    Else
+        Print "FAIL:enum_CPUParticles2D_EmissionShape count=" & str(pass_count) & "/7"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_CPUParticles2D_EmissionShape err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_DRAW_ORDER_INDEX As Integer = CPUParticles3D.DRAW_ORDER_INDEX
+    If v_DRAW_ORDER_INDEX = 0 Then pass_count = pass_count + 1
+    Dim v_DRAW_ORDER_LIFETIME As Integer = CPUParticles3D.DRAW_ORDER_LIFETIME
+    If v_DRAW_ORDER_LIFETIME = 1 Then pass_count = pass_count + 1
+    Dim v_DRAW_ORDER_VIEW_DEPTH As Integer = CPUParticles3D.DRAW_ORDER_VIEW_DEPTH
+    If v_DRAW_ORDER_VIEW_DEPTH = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_CPUParticles3D_DrawOrder"
+    Else
+        Print "FAIL:enum_CPUParticles3D_DrawOrder count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_CPUParticles3D_DrawOrder err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_PARAM_INITIAL_LINEAR_VELOCITY As Integer = CPUParticles3D.PARAM_INITIAL_LINEAR_VELOCITY
+    If v_PARAM_INITIAL_LINEAR_VELOCITY = 0 Then pass_count = pass_count + 1
+    Dim v_PARAM_ANGULAR_VELOCITY As Integer = CPUParticles3D.PARAM_ANGULAR_VELOCITY
+    If v_PARAM_ANGULAR_VELOCITY = 1 Then pass_count = pass_count + 1
+    Dim v_PARAM_ORBIT_VELOCITY As Integer = CPUParticles3D.PARAM_ORBIT_VELOCITY
+    If v_PARAM_ORBIT_VELOCITY = 2 Then pass_count = pass_count + 1
+    Dim v_PARAM_LINEAR_ACCEL As Integer = CPUParticles3D.PARAM_LINEAR_ACCEL
+    If v_PARAM_LINEAR_ACCEL = 3 Then pass_count = pass_count + 1
+    Dim v_PARAM_RADIAL_ACCEL As Integer = CPUParticles3D.PARAM_RADIAL_ACCEL
+    If v_PARAM_RADIAL_ACCEL = 4 Then pass_count = pass_count + 1
+    Dim v_PARAM_TANGENTIAL_ACCEL As Integer = CPUParticles3D.PARAM_TANGENTIAL_ACCEL
+    If v_PARAM_TANGENTIAL_ACCEL = 5 Then pass_count = pass_count + 1
+    Dim v_PARAM_DAMPING As Integer = CPUParticles3D.PARAM_DAMPING
+    If v_PARAM_DAMPING = 6 Then pass_count = pass_count + 1
+    Dim v_PARAM_ANGLE As Integer = CPUParticles3D.PARAM_ANGLE
+    If v_PARAM_ANGLE = 7 Then pass_count = pass_count + 1
+    If pass_count = 8 Then
+        Print "PASS:enum_CPUParticles3D_Parameter"
+    Else
+        Print "FAIL:enum_CPUParticles3D_Parameter count=" & str(pass_count) & "/8"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_CPUParticles3D_Parameter err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_PARTICLE_FLAG_ALIGN_Y_TO_VELOCITY As Integer = CPUParticles3D.PARTICLE_FLAG_ALIGN_Y_TO_VELOCITY
+    If v_PARTICLE_FLAG_ALIGN_Y_TO_VELOCITY = 0 Then pass_count = pass_count + 1
+    Dim v_PARTICLE_FLAG_ROTATE_Y As Integer = CPUParticles3D.PARTICLE_FLAG_ROTATE_Y
+    If v_PARTICLE_FLAG_ROTATE_Y = 1 Then pass_count = pass_count + 1
+    Dim v_PARTICLE_FLAG_DISABLE_Z As Integer = CPUParticles3D.PARTICLE_FLAG_DISABLE_Z
+    If v_PARTICLE_FLAG_DISABLE_Z = 2 Then pass_count = pass_count + 1
+    Dim v_PARTICLE_FLAG_MAX As Integer = CPUParticles3D.PARTICLE_FLAG_MAX
+    If v_PARTICLE_FLAG_MAX = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_CPUParticles3D_ParticleFlags"
+    Else
+        Print "FAIL:enum_CPUParticles3D_ParticleFlags count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_CPUParticles3D_ParticleFlags err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

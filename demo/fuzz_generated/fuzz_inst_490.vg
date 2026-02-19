@@ -1,0 +1,159 @@
+Attribute VB_Name = "fuzz_inst_490"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As ShaderInclude = ShaderInclude.new()
+    If obj <> Null Then
+        Print "PASS:inst_ShaderInclude"
+    Else
+        Print "FAIL:inst_ShaderInclude returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_ShaderInclude err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As ShaderIncludeDB = ShaderIncludeDB.new()
+    If obj <> Null Then
+        Print "PASS:inst_ShaderIncludeDB"
+    Else
+        Print "FAIL:inst_ShaderIncludeDB returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_ShaderIncludeDB err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As ShaderMaterial = ShaderMaterial.new()
+    If obj <> Null Then
+        Print "PASS:inst_ShaderMaterial"
+    Else
+        Print "FAIL:inst_ShaderMaterial returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_ShaderMaterial err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As ShapeCast2D = ShapeCast2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_ShapeCast2D"
+        obj.free()
+    Else
+        Print "FAIL:inst_ShapeCast2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_ShapeCast2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As ShapeCast3D = ShapeCast3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_ShapeCast3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_ShapeCast3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_ShapeCast3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As Shortcut = Shortcut.new()
+    If obj <> Null Then
+        Print "PASS:inst_Shortcut"
+    Else
+        Print "FAIL:inst_Shortcut returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_Shortcut err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As Skeleton2D = Skeleton2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_Skeleton2D"
+        obj.free()
+    Else
+        Print "FAIL:inst_Skeleton2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_Skeleton2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As Skeleton3D = Skeleton3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_Skeleton3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_Skeleton3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_Skeleton3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As SkeletonIK3D = SkeletonIK3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_SkeletonIK3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_SkeletonIK3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_SkeletonIK3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As SkeletonModification2D = SkeletonModification2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_SkeletonModification2D"
+    Else
+        Print "FAIL:inst_SkeletonModification2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_SkeletonModification2D err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

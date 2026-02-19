@@ -1,0 +1,148 @@
+Attribute VB_Name = "fuzz_setter_1643"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As GPUParticles2D = GPUParticles2D.new()
+    If obj = Null Then
+        Print "SKIP:setter_GPUParticles2D (null)"
+        Exit Sub
+    End If
+    obj.set_emitting(True)
+    Print "PASS:setter_GPUParticles2D_set_emitting"
+    obj.set_lifetime(1.0)
+    Print "PASS:setter_GPUParticles2D_set_lifetime"
+    obj.set_one_shot(True)
+    Print "PASS:setter_GPUParticles2D_set_one_shot"
+    obj.set_pre_process_time(1.0)
+    Print "PASS:setter_GPUParticles2D_set_pre_process_time"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:setter_GPUParticles2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As SpringBoneSimulator3D = SpringBoneSimulator3D.new()
+    If obj = Null Then
+        Print "SKIP:setter_SpringBoneSimulator3D (null)"
+        Exit Sub
+    End If
+    obj.get_root_bone_name(0)
+    Print "PASS:setter_SpringBoneSimulator3D_get_root_bone_name"
+    obj.get_root_bone(0)
+    Print "PASS:setter_SpringBoneSimulator3D_get_root_bone"
+    obj.get_end_bone_name(0)
+    Print "PASS:setter_SpringBoneSimulator3D_get_end_bone_name"
+    obj.get_end_bone(0)
+    Print "PASS:setter_SpringBoneSimulator3D_get_end_bone"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:setter_SpringBoneSimulator3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As SoftBody3D = SoftBody3D.new()
+    If obj = Null Then
+        Print "SKIP:setter_SoftBody3D (null)"
+        Exit Sub
+    End If
+    obj.set_collision_mask(0)
+    Print "PASS:setter_SoftBody3D_set_collision_mask"
+    obj.set_collision_layer(0)
+    Print "PASS:setter_SoftBody3D_set_collision_layer"
+    obj.get_collision_mask_value(0)
+    Print "PASS:setter_SoftBody3D_get_collision_mask_value"
+    obj.get_collision_layer_value(0)
+    Print "PASS:setter_SoftBody3D_get_collision_layer_value"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:setter_SoftBody3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As SpinBox = SpinBox.new()
+    If obj = Null Then
+        Print "SKIP:setter_SpinBox (null)"
+        Exit Sub
+    End If
+    obj.set_suffix("test")
+    Print "PASS:setter_SpinBox_set_suffix"
+    obj.set_prefix("test")
+    Print "PASS:setter_SpinBox_set_prefix"
+    obj.set_editable(True)
+    Print "PASS:setter_SpinBox_set_editable"
+    obj.set_custom_arrow_step(1.0)
+    Print "PASS:setter_SpinBox_set_custom_arrow_step"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:setter_SpinBox err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As VehicleBody3D = VehicleBody3D.new()
+    If obj = Null Then
+        Print "SKIP:setter_VehicleBody3D (null)"
+        Exit Sub
+    End If
+    obj.set_engine_force(1.0)
+    Print "PASS:setter_VehicleBody3D_set_engine_force"
+    obj.set_brake(1.0)
+    Print "PASS:setter_VehicleBody3D_set_brake"
+    obj.set_steering(1.0)
+    Print "PASS:setter_VehicleBody3D_set_steering"
+    obj.set_mass(1.0)
+    Print "PASS:setter_VehicleBody3D_set_mass"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:setter_VehicleBody3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As Area3D = Area3D.new()
+    If obj = Null Then
+        Print "SKIP:setter_Area3D (null)"
+        Exit Sub
+    End If
+    obj.set_gravity_is_point(True)
+    Print "PASS:setter_Area3D_set_gravity_is_point"
+    obj.set_gravity_point_unit_distance(1.0)
+    Print "PASS:setter_Area3D_set_gravity_point_unit_distance"
+    obj.set_gravity(1.0)
+    Print "PASS:setter_Area3D_set_gravity"
+    obj.set_angular_damp(1.0)
+    Print "PASS:setter_Area3D_set_angular_damp"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:setter_Area3D err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

@@ -1,0 +1,163 @@
+Attribute VB_Name = "fuzz_inst_520"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As SpotLight3D = SpotLight3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_SpotLight3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_SpotLight3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_SpotLight3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As SpringArm3D = SpringArm3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_SpringArm3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_SpringArm3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_SpringArm3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As SpringBoneCollision3D = SpringBoneCollision3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_SpringBoneCollision3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_SpringBoneCollision3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_SpringBoneCollision3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As SpringBoneCollisionCapsule3D = SpringBoneCollisionCapsule3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_SpringBoneCollisionCapsule3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_SpringBoneCollisionCapsule3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_SpringBoneCollisionCapsule3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As SpringBoneCollisionPlane3D = SpringBoneCollisionPlane3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_SpringBoneCollisionPlane3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_SpringBoneCollisionPlane3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_SpringBoneCollisionPlane3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As SpringBoneCollisionSphere3D = SpringBoneCollisionSphere3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_SpringBoneCollisionSphere3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_SpringBoneCollisionSphere3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_SpringBoneCollisionSphere3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As SpringBoneSimulator3D = SpringBoneSimulator3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_SpringBoneSimulator3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_SpringBoneSimulator3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_SpringBoneSimulator3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As Sprite2D = Sprite2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_Sprite2D"
+        obj.free()
+    Else
+        Print "FAIL:inst_Sprite2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_Sprite2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As Sprite3D = Sprite3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_Sprite3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_Sprite3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_Sprite3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As SpriteFrames = SpriteFrames.new()
+    If obj <> Null Then
+        Print "PASS:inst_SpriteFrames"
+    Else
+        Print "FAIL:inst_SpriteFrames returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_SpriteFrames err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

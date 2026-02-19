@@ -1,0 +1,148 @@
+Attribute VB_Name = "fuzz_setter_1631"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As RigidBody2D = RigidBody2D.new()
+    If obj = Null Then
+        Print "SKIP:setter_RigidBody2D (null)"
+        Exit Sub
+    End If
+    obj.set_mass(1.0)
+    Print "PASS:setter_RigidBody2D_set_mass"
+    obj.set_inertia(1.0)
+    Print "PASS:setter_RigidBody2D_set_inertia"
+    obj.set_gravity_scale(1.0)
+    Print "PASS:setter_RigidBody2D_set_gravity_scale"
+    obj.set_linear_damp(1.0)
+    Print "PASS:setter_RigidBody2D_set_linear_damp"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:setter_RigidBody2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As ItemList = ItemList.new()
+    If obj = Null Then
+        Print "SKIP:setter_ItemList (null)"
+        Exit Sub
+    End If
+    obj.get_item_text_direction(0)
+    Print "PASS:setter_ItemList_get_item_text_direction"
+    obj.get_item_language(0)
+    Print "PASS:setter_ItemList_get_item_language"
+    obj.get_item_auto_translate_mode(0)
+    Print "PASS:setter_ItemList_get_item_auto_translate_mode"
+    obj.is_item_icon_transposed(0)
+    Print "PASS:setter_ItemList_is_item_icon_transposed"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:setter_ItemList err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As OptionButton = OptionButton.new()
+    If obj = Null Then
+        Print "SKIP:setter_OptionButton (null)"
+        Exit Sub
+    End If
+    obj.get_item_id(0)
+    Print "PASS:setter_OptionButton_get_item_id"
+    obj.get_item_index(0)
+    Print "PASS:setter_OptionButton_get_item_index"
+    obj.get_item_metadata(0)
+    Print "PASS:setter_OptionButton_get_item_metadata"
+    obj.get_item_tooltip(0)
+    Print "PASS:setter_OptionButton_get_item_tooltip"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:setter_OptionButton err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As CharacterBody2D = CharacterBody2D.new()
+    If obj = Null Then
+        Print "SKIP:setter_CharacterBody2D (null)"
+        Exit Sub
+    End If
+    obj.set_safe_margin(1.0)
+    Print "PASS:setter_CharacterBody2D_set_safe_margin"
+    obj.set_floor_stop_on_slope_enabled(True)
+    Print "PASS:setter_CharacterBody2D_set_floor_stop_on_slope_enabled"
+    obj.set_floor_constant_speed_enabled(True)
+    Print "PASS:setter_CharacterBody2D_set_floor_constant_speed_enabled"
+    obj.set_floor_block_on_wall_enabled(True)
+    Print "PASS:setter_CharacterBody2D_set_floor_block_on_wall_enabled"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:setter_CharacterBody2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As GraphNode = GraphNode.new()
+    If obj = Null Then
+        Print "SKIP:setter_GraphNode (null)"
+        Exit Sub
+    End If
+    obj.set_title("test")
+    Print "PASS:setter_GraphNode_set_title"
+    obj.clear_slot(0)
+    Print "PASS:setter_GraphNode_clear_slot"
+    obj.is_slot_enabled_left(0)
+    Print "PASS:setter_GraphNode_is_slot_enabled_left"
+    obj.get_slot_type_left(0)
+    Print "PASS:setter_GraphNode_get_slot_type_left"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:setter_GraphNode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As CPUParticles3D = CPUParticles3D.new()
+    If obj = Null Then
+        Print "SKIP:setter_CPUParticles3D (null)"
+        Exit Sub
+    End If
+    obj.set_emitting(True)
+    Print "PASS:setter_CPUParticles3D_set_emitting"
+    obj.set_lifetime(1.0)
+    Print "PASS:setter_CPUParticles3D_set_lifetime"
+    obj.set_one_shot(True)
+    Print "PASS:setter_CPUParticles3D_set_one_shot"
+    obj.set_pre_process_time(1.0)
+    Print "PASS:setter_CPUParticles3D_set_pre_process_time"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:setter_CPUParticles3D err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

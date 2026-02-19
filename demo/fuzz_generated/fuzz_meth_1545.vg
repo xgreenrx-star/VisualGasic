@@ -1,0 +1,172 @@
+Attribute VB_Name = "fuzz_meth_1545"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As CodeEdit = CodeEdit.new()
+    If obj = Null Then
+        Print "SKIP:meth_CodeEdit (null)"
+        Exit Sub
+    End If
+    Dim r_get_indent_size As Variant = obj.get_indent_size()
+    Print "PASS:meth_CodeEdit_get_indent_size"
+    Dim r_is_indent_using_spaces As Variant = obj.is_indent_using_spaces()
+    Print "PASS:meth_CodeEdit_is_indent_using_spaces"
+    Dim r_is_auto_indent_enabled As Variant = obj.is_auto_indent_enabled()
+    Print "PASS:meth_CodeEdit_is_auto_indent_enabled"
+    Dim r_get_auto_indent_prefixes As Variant = obj.get_auto_indent_prefixes()
+    Print "PASS:meth_CodeEdit_get_auto_indent_prefixes"
+    Dim r_is_auto_brace_completion_enabled As Variant = obj.is_auto_brace_completion_enabled()
+    Print "PASS:meth_CodeEdit_is_auto_brace_completion_enabled"
+    Dim r_is_highlight_matching_braces_enabled As Variant = obj.is_highlight_matching_braces_enabled()
+    Print "PASS:meth_CodeEdit_is_highlight_matching_braces_enabled"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_CodeEdit err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As TextEdit = TextEdit.new()
+    If obj = Null Then
+        Print "SKIP:meth_TextEdit (null)"
+        Exit Sub
+    End If
+    Dim r_has_ime_text As Variant = obj.has_ime_text()
+    Print "PASS:meth_TextEdit_has_ime_text"
+    Dim r_is_editable As Variant = obj.is_editable()
+    Print "PASS:meth_TextEdit_is_editable"
+    Dim r_get_text_direction As Variant = obj.get_text_direction()
+    Print "PASS:meth_TextEdit_get_text_direction"
+    Dim r_get_language As Variant = obj.get_language()
+    Print "PASS:meth_TextEdit_get_language"
+    Dim r_get_structured_text_bidi_override As Variant = obj.get_structured_text_bidi_override()
+    Print "PASS:meth_TextEdit_get_structured_text_bidi_override"
+    Dim r_get_structured_text_bidi_override_options As Variant = obj.get_structured_text_bidi_override_options()
+    Print "PASS:meth_TextEdit_get_structured_text_bidi_override_options"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_TextEdit err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As RichTextLabel = RichTextLabel.new()
+    If obj = Null Then
+        Print "SKIP:meth_RichTextLabel (null)"
+        Exit Sub
+    End If
+    Dim r_get_parsed_text As Variant = obj.get_parsed_text()
+    Print "PASS:meth_RichTextLabel_get_parsed_text"
+    Dim r_get_structured_text_bidi_override As Variant = obj.get_structured_text_bidi_override()
+    Print "PASS:meth_RichTextLabel_get_structured_text_bidi_override"
+    Dim r_get_structured_text_bidi_override_options As Variant = obj.get_structured_text_bidi_override_options()
+    Print "PASS:meth_RichTextLabel_get_structured_text_bidi_override_options"
+    Dim r_get_text_direction As Variant = obj.get_text_direction()
+    Print "PASS:meth_RichTextLabel_get_text_direction"
+    Dim r_get_language As Variant = obj.get_language()
+    Print "PASS:meth_RichTextLabel_get_language"
+    Dim r_get_horizontal_alignment As Variant = obj.get_horizontal_alignment()
+    Print "PASS:meth_RichTextLabel_get_horizontal_alignment"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_RichTextLabel err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As LineEdit = LineEdit.new()
+    If obj = Null Then
+        Print "SKIP:meth_LineEdit (null)"
+        Exit Sub
+    End If
+    Dim r_has_ime_text As Variant = obj.has_ime_text()
+    Print "PASS:meth_LineEdit_has_ime_text"
+    Dim r_get_horizontal_alignment As Variant = obj.get_horizontal_alignment()
+    Print "PASS:meth_LineEdit_get_horizontal_alignment"
+    Dim r_is_editing As Variant = obj.is_editing()
+    Print "PASS:meth_LineEdit_is_editing"
+    Dim r_is_editing_kept_on_text_submit As Variant = obj.is_editing_kept_on_text_submit()
+    Print "PASS:meth_LineEdit_is_editing_kept_on_text_submit"
+    Dim r_has_undo As Variant = obj.has_undo()
+    Print "PASS:meth_LineEdit_has_undo"
+    Dim r_has_redo As Variant = obj.has_redo()
+    Print "PASS:meth_LineEdit_has_redo"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_LineEdit err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As OptionButton = OptionButton.new()
+    If obj = Null Then
+        Print "SKIP:meth_OptionButton (null)"
+        Exit Sub
+    End If
+    Dim r_get_selected_id As Variant = obj.get_selected_id()
+    Print "PASS:meth_OptionButton_get_selected_id"
+    Dim r_get_selected_metadata As Variant = obj.get_selected_metadata()
+    Print "PASS:meth_OptionButton_get_selected_metadata"
+    Dim r_get_popup As Variant = obj.get_popup()
+    Print "PASS:meth_OptionButton_get_popup"
+    Dim r_get_item_count As Variant = obj.get_item_count()
+    Print "PASS:meth_OptionButton_get_item_count"
+    Dim r_has_selectable_items As Variant = obj.has_selectable_items()
+    Print "PASS:meth_OptionButton_has_selectable_items"
+    Dim r_is_fit_to_longest_item As Variant = obj.is_fit_to_longest_item()
+    Print "PASS:meth_OptionButton_is_fit_to_longest_item"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_OptionButton err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As ColorPickerButton = ColorPickerButton.new()
+    If obj = Null Then
+        Print "SKIP:meth_ColorPickerButton (null)"
+        Exit Sub
+    End If
+    Dim r_get_pick_color As Variant = obj.get_pick_color()
+    Print "PASS:meth_ColorPickerButton_get_pick_color"
+    Dim r_get_picker As Variant = obj.get_picker()
+    Print "PASS:meth_ColorPickerButton_get_picker"
+    Dim r_get_popup As Variant = obj.get_popup()
+    Print "PASS:meth_ColorPickerButton_get_popup"
+    Dim r_is_editing_alpha As Variant = obj.is_editing_alpha()
+    Print "PASS:meth_ColorPickerButton_is_editing_alpha"
+    Dim r_is_editing_intensity As Variant = obj.is_editing_intensity()
+    Print "PASS:meth_ColorPickerButton_is_editing_intensity"
+    Dim r_get_text As Variant = obj.get_text()
+    Print "PASS:meth_ColorPickerButton_get_text"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_ColorPickerButton err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

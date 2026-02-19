@@ -1,0 +1,154 @@
+Attribute VB_Name = "fuzz_inst_210"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As GLTFAnimation = GLTFAnimation.new()
+    If obj <> Null Then
+        Print "PASS:inst_GLTFAnimation"
+    Else
+        Print "FAIL:inst_GLTFAnimation returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_GLTFAnimation err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As GLTFBufferView = GLTFBufferView.new()
+    If obj <> Null Then
+        Print "PASS:inst_GLTFBufferView"
+    Else
+        Print "FAIL:inst_GLTFBufferView returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_GLTFBufferView err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As GLTFCamera = GLTFCamera.new()
+    If obj <> Null Then
+        Print "PASS:inst_GLTFCamera"
+    Else
+        Print "FAIL:inst_GLTFCamera returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_GLTFCamera err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As GLTFDocument = GLTFDocument.new()
+    If obj <> Null Then
+        Print "PASS:inst_GLTFDocument"
+    Else
+        Print "FAIL:inst_GLTFDocument returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_GLTFDocument err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As GLTFDocumentExtension = GLTFDocumentExtension.new()
+    If obj <> Null Then
+        Print "PASS:inst_GLTFDocumentExtension"
+    Else
+        Print "FAIL:inst_GLTFDocumentExtension returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_GLTFDocumentExtension err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As GLTFDocumentExtensionConvertImporterMesh = GLTFDocumentExtensionConvertImporterMesh.new()
+    If obj <> Null Then
+        Print "PASS:inst_GLTFDocumentExtensionConvertImporterMesh"
+    Else
+        Print "FAIL:inst_GLTFDocumentExtensionConvertImporterMesh returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_GLTFDocumentExtensionConvertImporterMesh err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As GLTFLight = GLTFLight.new()
+    If obj <> Null Then
+        Print "PASS:inst_GLTFLight"
+    Else
+        Print "FAIL:inst_GLTFLight returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_GLTFLight err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As GLTFMesh = GLTFMesh.new()
+    If obj <> Null Then
+        Print "PASS:inst_GLTFMesh"
+    Else
+        Print "FAIL:inst_GLTFMesh returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_GLTFMesh err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As GLTFNode = GLTFNode.new()
+    If obj <> Null Then
+        Print "PASS:inst_GLTFNode"
+    Else
+        Print "FAIL:inst_GLTFNode returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_GLTFNode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As GLTFObjectModelProperty = GLTFObjectModelProperty.new()
+    If obj <> Null Then
+        Print "PASS:inst_GLTFObjectModelProperty"
+    Else
+        Print "FAIL:inst_GLTFObjectModelProperty returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_GLTFObjectModelProperty err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

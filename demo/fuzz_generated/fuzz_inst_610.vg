@@ -1,0 +1,155 @@
+Attribute VB_Name = "fuzz_inst_610"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As VisualInstance3D = VisualInstance3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualInstance3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_VisualInstance3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualInstance3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As VisualShader = VisualShader.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShader"
+    Else
+        Print "FAIL:inst_VisualShader returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShader err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeBillboard = VisualShaderNodeBillboard.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeBillboard"
+    Else
+        Print "FAIL:inst_VisualShaderNodeBillboard returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeBillboard err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeBooleanConstant = VisualShaderNodeBooleanConstant.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeBooleanConstant"
+    Else
+        Print "FAIL:inst_VisualShaderNodeBooleanConstant returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeBooleanConstant err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeBooleanParameter = VisualShaderNodeBooleanParameter.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeBooleanParameter"
+    Else
+        Print "FAIL:inst_VisualShaderNodeBooleanParameter returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeBooleanParameter err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeClamp = VisualShaderNodeClamp.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeClamp"
+    Else
+        Print "FAIL:inst_VisualShaderNodeClamp returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeClamp err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeColorConstant = VisualShaderNodeColorConstant.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeColorConstant"
+    Else
+        Print "FAIL:inst_VisualShaderNodeColorConstant returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeColorConstant err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeColorFunc = VisualShaderNodeColorFunc.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeColorFunc"
+    Else
+        Print "FAIL:inst_VisualShaderNodeColorFunc returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeColorFunc err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeColorOp = VisualShaderNodeColorOp.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeColorOp"
+    Else
+        Print "FAIL:inst_VisualShaderNodeColorOp returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeColorOp err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeColorParameter = VisualShaderNodeColorParameter.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeColorParameter"
+    Else
+        Print "FAIL:inst_VisualShaderNodeColorParameter returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeColorParameter err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

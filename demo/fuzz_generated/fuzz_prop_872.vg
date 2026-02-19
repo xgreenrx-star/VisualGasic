@@ -1,0 +1,160 @@
+Attribute VB_Name = "fuzz_prop_872"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As ColorPicker = ColorPicker.new()
+    If obj = Null Then
+        Print "SKIP:prop_ColorPicker_color_mode (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.color_mode
+    Print "PASS:prop_ColorPicker_color_mode"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_ColorPicker_color_mode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As ColorPicker = ColorPicker.new()
+    If obj = Null Then
+        Print "SKIP:prop_ColorPicker_deferred_mode (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.deferred_mode
+    Print "PASS:prop_ColorPicker_deferred_mode"
+    obj.deferred_mode = True
+    Dim val2 As Variant = obj.deferred_mode
+    Print "PASS:propset_ColorPicker_deferred_mode"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_ColorPicker_deferred_mode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As ProgressBar = ProgressBar.new()
+    If obj = Null Then
+        Print "SKIP:prop_ProgressBar_fill_mode (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.fill_mode
+    Print "PASS:prop_ProgressBar_fill_mode"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_ProgressBar_fill_mode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As ProgressBar = ProgressBar.new()
+    If obj = Null Then
+        Print "SKIP:prop_ProgressBar_show_percentage (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.show_percentage
+    Print "PASS:prop_ProgressBar_show_percentage"
+    obj.show_percentage = True
+    Dim val2 As Variant = obj.show_percentage
+    Print "PASS:propset_ProgressBar_show_percentage"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_ProgressBar_show_percentage err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As ProgressBar = ProgressBar.new()
+    If obj = Null Then
+        Print "SKIP:prop_ProgressBar_indeterminate (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.indeterminate
+    Print "PASS:prop_ProgressBar_indeterminate"
+    obj.indeterminate = True
+    Dim val2 As Variant = obj.indeterminate
+    Print "PASS:propset_ProgressBar_indeterminate"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_ProgressBar_indeterminate err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As ProgressBar = ProgressBar.new()
+    If obj = Null Then
+        Print "SKIP:prop_ProgressBar_editor_preview_indeterminate (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.editor_preview_indeterminate
+    Print "PASS:prop_ProgressBar_editor_preview_indeterminate"
+    obj.editor_preview_indeterminate = True
+    Dim val2 As Variant = obj.editor_preview_indeterminate
+    Print "PASS:propset_ProgressBar_editor_preview_indeterminate"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_ProgressBar_editor_preview_indeterminate err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As ProgressBar = ProgressBar.new()
+    If obj = Null Then
+        Print "SKIP:prop_ProgressBar_min_value (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.min_value
+    Print "PASS:prop_ProgressBar_min_value"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_ProgressBar_min_value err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As TabBar = TabBar.new()
+    If obj = Null Then
+        Print "SKIP:prop_TabBar_current_tab (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.current_tab
+    Print "PASS:prop_TabBar_current_tab"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_TabBar_current_tab err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+End Sub

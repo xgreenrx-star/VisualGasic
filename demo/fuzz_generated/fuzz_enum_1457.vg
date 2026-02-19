@@ -1,0 +1,146 @@
+Attribute VB_Name = "fuzz_enum_1457"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_FLAG_DISABLE_DEPTH_TEST As Integer = BaseMaterial3D.FLAG_DISABLE_DEPTH_TEST
+    If v_FLAG_DISABLE_DEPTH_TEST = 0 Then pass_count = pass_count + 1
+    Dim v_FLAG_ALBEDO_FROM_VERTEX_COLOR As Integer = BaseMaterial3D.FLAG_ALBEDO_FROM_VERTEX_COLOR
+    If v_FLAG_ALBEDO_FROM_VERTEX_COLOR = 1 Then pass_count = pass_count + 1
+    Dim v_FLAG_SRGB_VERTEX_COLOR As Integer = BaseMaterial3D.FLAG_SRGB_VERTEX_COLOR
+    If v_FLAG_SRGB_VERTEX_COLOR = 2 Then pass_count = pass_count + 1
+    Dim v_FLAG_USE_POINT_SIZE As Integer = BaseMaterial3D.FLAG_USE_POINT_SIZE
+    If v_FLAG_USE_POINT_SIZE = 3 Then pass_count = pass_count + 1
+    Dim v_FLAG_FIXED_SIZE As Integer = BaseMaterial3D.FLAG_FIXED_SIZE
+    If v_FLAG_FIXED_SIZE = 4 Then pass_count = pass_count + 1
+    Dim v_FLAG_BILLBOARD_KEEP_SCALE As Integer = BaseMaterial3D.FLAG_BILLBOARD_KEEP_SCALE
+    If v_FLAG_BILLBOARD_KEEP_SCALE = 5 Then pass_count = pass_count + 1
+    Dim v_FLAG_UV1_USE_TRIPLANAR As Integer = BaseMaterial3D.FLAG_UV1_USE_TRIPLANAR
+    If v_FLAG_UV1_USE_TRIPLANAR = 6 Then pass_count = pass_count + 1
+    Dim v_FLAG_UV2_USE_TRIPLANAR As Integer = BaseMaterial3D.FLAG_UV2_USE_TRIPLANAR
+    If v_FLAG_UV2_USE_TRIPLANAR = 7 Then pass_count = pass_count + 1
+    If pass_count = 8 Then
+        Print "PASS:enum_BaseMaterial3D_Flags"
+    Else
+        Print "FAIL:enum_BaseMaterial3D_Flags count=" & str(pass_count) & "/8"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_BaseMaterial3D_Flags err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_DIFFUSE_BURLEY As Integer = BaseMaterial3D.DIFFUSE_BURLEY
+    If v_DIFFUSE_BURLEY = 0 Then pass_count = pass_count + 1
+    Dim v_DIFFUSE_LAMBERT As Integer = BaseMaterial3D.DIFFUSE_LAMBERT
+    If v_DIFFUSE_LAMBERT = 1 Then pass_count = pass_count + 1
+    Dim v_DIFFUSE_LAMBERT_WRAP As Integer = BaseMaterial3D.DIFFUSE_LAMBERT_WRAP
+    If v_DIFFUSE_LAMBERT_WRAP = 2 Then pass_count = pass_count + 1
+    Dim v_DIFFUSE_TOON As Integer = BaseMaterial3D.DIFFUSE_TOON
+    If v_DIFFUSE_TOON = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_BaseMaterial3D_DiffuseMode"
+    Else
+        Print "FAIL:enum_BaseMaterial3D_DiffuseMode count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_BaseMaterial3D_DiffuseMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_SPECULAR_SCHLICK_GGX As Integer = BaseMaterial3D.SPECULAR_SCHLICK_GGX
+    If v_SPECULAR_SCHLICK_GGX = 0 Then pass_count = pass_count + 1
+    Dim v_SPECULAR_TOON As Integer = BaseMaterial3D.SPECULAR_TOON
+    If v_SPECULAR_TOON = 1 Then pass_count = pass_count + 1
+    Dim v_SPECULAR_DISABLED As Integer = BaseMaterial3D.SPECULAR_DISABLED
+    If v_SPECULAR_DISABLED = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_BaseMaterial3D_SpecularMode"
+    Else
+        Print "FAIL:enum_BaseMaterial3D_SpecularMode count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_BaseMaterial3D_SpecularMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_BILLBOARD_DISABLED As Integer = BaseMaterial3D.BILLBOARD_DISABLED
+    If v_BILLBOARD_DISABLED = 0 Then pass_count = pass_count + 1
+    Dim v_BILLBOARD_ENABLED As Integer = BaseMaterial3D.BILLBOARD_ENABLED
+    If v_BILLBOARD_ENABLED = 1 Then pass_count = pass_count + 1
+    Dim v_BILLBOARD_FIXED_Y As Integer = BaseMaterial3D.BILLBOARD_FIXED_Y
+    If v_BILLBOARD_FIXED_Y = 2 Then pass_count = pass_count + 1
+    Dim v_BILLBOARD_PARTICLES As Integer = BaseMaterial3D.BILLBOARD_PARTICLES
+    If v_BILLBOARD_PARTICLES = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_BaseMaterial3D_BillboardMode"
+    Else
+        Print "FAIL:enum_BaseMaterial3D_BillboardMode count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_BaseMaterial3D_BillboardMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_TEXTURE_CHANNEL_RED As Integer = BaseMaterial3D.TEXTURE_CHANNEL_RED
+    If v_TEXTURE_CHANNEL_RED = 0 Then pass_count = pass_count + 1
+    Dim v_TEXTURE_CHANNEL_GREEN As Integer = BaseMaterial3D.TEXTURE_CHANNEL_GREEN
+    If v_TEXTURE_CHANNEL_GREEN = 1 Then pass_count = pass_count + 1
+    Dim v_TEXTURE_CHANNEL_BLUE As Integer = BaseMaterial3D.TEXTURE_CHANNEL_BLUE
+    If v_TEXTURE_CHANNEL_BLUE = 2 Then pass_count = pass_count + 1
+    Dim v_TEXTURE_CHANNEL_ALPHA As Integer = BaseMaterial3D.TEXTURE_CHANNEL_ALPHA
+    If v_TEXTURE_CHANNEL_ALPHA = 3 Then pass_count = pass_count + 1
+    Dim v_TEXTURE_CHANNEL_GRAYSCALE As Integer = BaseMaterial3D.TEXTURE_CHANNEL_GRAYSCALE
+    If v_TEXTURE_CHANNEL_GRAYSCALE = 4 Then pass_count = pass_count + 1
+    If pass_count = 5 Then
+        Print "PASS:enum_BaseMaterial3D_TextureChannel"
+    Else
+        Print "FAIL:enum_BaseMaterial3D_TextureChannel count=" & str(pass_count) & "/5"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_BaseMaterial3D_TextureChannel err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_EMISSION_OP_ADD As Integer = BaseMaterial3D.EMISSION_OP_ADD
+    If v_EMISSION_OP_ADD = 0 Then pass_count = pass_count + 1
+    Dim v_EMISSION_OP_MULTIPLY As Integer = BaseMaterial3D.EMISSION_OP_MULTIPLY
+    If v_EMISSION_OP_MULTIPLY = 1 Then pass_count = pass_count + 1
+    If pass_count = 2 Then
+        Print "PASS:enum_BaseMaterial3D_EmissionOperator"
+    Else
+        Print "FAIL:enum_BaseMaterial3D_EmissionOperator count=" & str(pass_count) & "/2"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_BaseMaterial3D_EmissionOperator err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

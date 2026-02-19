@@ -1,0 +1,170 @@
+Attribute VB_Name = "fuzz_meth_1617"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As CSGSphere3D = CSGSphere3D.new()
+    If obj = Null Then
+        Print "SKIP:meth_CSGSphere3D (null)"
+        Exit Sub
+    End If
+    Dim r_get_radius As Variant = obj.get_radius()
+    Print "PASS:meth_CSGSphere3D_get_radius"
+    Dim r_get_radial_segments As Variant = obj.get_radial_segments()
+    Print "PASS:meth_CSGSphere3D_get_radial_segments"
+    Dim r_get_rings As Variant = obj.get_rings()
+    Print "PASS:meth_CSGSphere3D_get_rings"
+    Dim r_get_smooth_faces As Variant = obj.get_smooth_faces()
+    Print "PASS:meth_CSGSphere3D_get_smooth_faces"
+    Dim r_get_material As Variant = obj.get_material()
+    Print "PASS:meth_CSGSphere3D_get_material"
+    Dim r_get_flip_faces As Variant = obj.get_flip_faces()
+    Print "PASS:meth_CSGSphere3D_get_flip_faces"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_CSGSphere3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As GPUParticles2D = GPUParticles2D.new()
+    If obj = Null Then
+        Print "SKIP:meth_GPUParticles2D (null)"
+        Exit Sub
+    End If
+    Dim r_is_emitting As Variant = obj.is_emitting()
+    Print "PASS:meth_GPUParticles2D_is_emitting"
+    Dim r_get_amount As Variant = obj.get_amount()
+    Print "PASS:meth_GPUParticles2D_get_amount"
+    Dim r_get_lifetime As Variant = obj.get_lifetime()
+    Print "PASS:meth_GPUParticles2D_get_lifetime"
+    Dim r_get_one_shot As Variant = obj.get_one_shot()
+    Print "PASS:meth_GPUParticles2D_get_one_shot"
+    Dim r_get_pre_process_time As Variant = obj.get_pre_process_time()
+    Print "PASS:meth_GPUParticles2D_get_pre_process_time"
+    Dim r_get_explosiveness_ratio As Variant = obj.get_explosiveness_ratio()
+    Print "PASS:meth_GPUParticles2D_get_explosiveness_ratio"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_GPUParticles2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As Area2D = Area2D.new()
+    If obj = Null Then
+        Print "SKIP:meth_Area2D (null)"
+        Exit Sub
+    End If
+    Dim r_get_gravity_space_override_mode As Variant = obj.get_gravity_space_override_mode()
+    Print "PASS:meth_Area2D_get_gravity_space_override_mode"
+    Dim r_is_gravity_a_point As Variant = obj.is_gravity_a_point()
+    Print "PASS:meth_Area2D_is_gravity_a_point"
+    Dim r_get_gravity_point_unit_distance As Variant = obj.get_gravity_point_unit_distance()
+    Print "PASS:meth_Area2D_get_gravity_point_unit_distance"
+    Dim r_get_gravity_point_center As Variant = obj.get_gravity_point_center()
+    Print "PASS:meth_Area2D_get_gravity_point_center"
+    Dim r_get_gravity_direction As Variant = obj.get_gravity_direction()
+    Print "PASS:meth_Area2D_get_gravity_direction"
+    Dim r_get_gravity As Variant = obj.get_gravity()
+    Print "PASS:meth_Area2D_get_gravity"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_Area2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As Environment = Environment.new()
+    If obj = Null Then
+        Print "SKIP:meth_Environment (null)"
+        Exit Sub
+    End If
+    Dim r_get_background As Variant = obj.get_background()
+    Print "PASS:meth_Environment_get_background"
+    Dim r_get_sky As Variant = obj.get_sky()
+    Print "PASS:meth_Environment_get_sky"
+    Dim r_get_sky_custom_fov As Variant = obj.get_sky_custom_fov()
+    Print "PASS:meth_Environment_get_sky_custom_fov"
+    Dim r_get_sky_rotation As Variant = obj.get_sky_rotation()
+    Print "PASS:meth_Environment_get_sky_rotation"
+    Dim r_get_bg_color As Variant = obj.get_bg_color()
+    Print "PASS:meth_Environment_get_bg_color"
+    Dim r_get_bg_energy_multiplier As Variant = obj.get_bg_energy_multiplier()
+    Print "PASS:meth_Environment_get_bg_energy_multiplier"
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_Environment err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As VehicleBody3D = VehicleBody3D.new()
+    If obj = Null Then
+        Print "SKIP:meth_VehicleBody3D (null)"
+        Exit Sub
+    End If
+    Dim r_get_engine_force As Variant = obj.get_engine_force()
+    Print "PASS:meth_VehicleBody3D_get_engine_force"
+    Dim r_get_brake As Variant = obj.get_brake()
+    Print "PASS:meth_VehicleBody3D_get_brake"
+    Dim r_get_steering As Variant = obj.get_steering()
+    Print "PASS:meth_VehicleBody3D_get_steering"
+    Dim r_get_mass As Variant = obj.get_mass()
+    Print "PASS:meth_VehicleBody3D_get_mass"
+    Dim r_get_inertia As Variant = obj.get_inertia()
+    Print "PASS:meth_VehicleBody3D_get_inertia"
+    Dim r_get_center_of_mass_mode As Variant = obj.get_center_of_mass_mode()
+    Print "PASS:meth_VehicleBody3D_get_center_of_mass_mode"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_VehicleBody3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As CSGBox3D = CSGBox3D.new()
+    If obj = Null Then
+        Print "SKIP:meth_CSGBox3D (null)"
+        Exit Sub
+    End If
+    Dim r_get_size As Variant = obj.get_size()
+    Print "PASS:meth_CSGBox3D_get_size"
+    Dim r_get_material As Variant = obj.get_material()
+    Print "PASS:meth_CSGBox3D_get_material"
+    Dim r_get_flip_faces As Variant = obj.get_flip_faces()
+    Print "PASS:meth_CSGBox3D_get_flip_faces"
+    Dim r_is_root_shape As Variant = obj.is_root_shape()
+    Print "PASS:meth_CSGBox3D_is_root_shape"
+    Dim r_get_operation As Variant = obj.get_operation()
+    Print "PASS:meth_CSGBox3D_get_operation"
+    Dim r_get_snap As Variant = obj.get_snap()
+    Print "PASS:meth_CSGBox3D_get_snap"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_CSGBox3D err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

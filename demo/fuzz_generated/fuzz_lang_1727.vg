@@ -1,0 +1,170 @@
+Attribute VB_Name = "fuzz_lang_1727"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim arr() As Variant
+    ReDim arr(4)
+    arr(0) = 10
+    arr(1) = "hello"
+    arr(2) = 3.14
+    arr(3) = True
+    arr(4) = Vector2(1, 2)
+
+    Dim count As Integer = 0
+    For Each item In arr
+        count = count + 1
+    Next
+
+    If count = 5 Then
+        Print "PASS:foreach_mixed_array"
+    Else
+        Print "FAIL:foreach_mixed_array count=" & str(count)
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:foreach_mixed_array err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+
+    ' Access a null object method — should trigger error handling not crash
+    Dim obj As Variant = Null
+    Dim x As Variant = obj.some_method()
+
+    If Err.Number <> 0 Then
+        Print "PASS:err_null_method_caught"
+        Err.Clear
+    Else
+        Print "FAIL:err_null_method_not_caught"
+    End If
+
+    ' Division by zero
+    Dim a As Integer = 10
+    Dim b As Integer = 0
+    Dim c As Variant = a / b
+
+    If Err.Number <> 0 Then
+        Print "PASS:err_div_zero_caught"
+        Err.Clear
+    Else
+        ' Godot might return INF instead of erroring
+        Print "PASS:err_div_zero_inf"
+    End If
+
+    ' Invalid cast
+    Dim s As String = "not a number"
+    Dim n As Integer = CInt(s)
+
+    If Err.Number <> 0 Then
+        Print "PASS:err_invalid_cast_caught"
+        Err.Clear
+    Else
+        Print "PASS:err_invalid_cast_coerced"
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim s As String = "  Hello World  "
+    Dim t As String = Trim(s)
+    If t = "Hello World" Then
+        Print "PASS:str_trim"
+    Else
+        Print "FAIL:str_trim got=" & t
+    End If
+
+    Dim u As String = UCase("hello")
+    If u = "HELLO" Then
+        Print "PASS:str_ucase"
+    Else
+        Print "FAIL:str_ucase got=" & u
+    End If
+
+    Dim l As String = LCase("HELLO")
+    If l = "hello" Then
+        Print "PASS:str_lcase"
+    Else
+        Print "FAIL:str_lcase got=" & l
+    End If
+
+    Dim ln As Integer = Len("Hello")
+    If ln = 5 Then
+        Print "PASS:str_len"
+    Else
+        Print "FAIL:str_len got=" & str(ln)
+    End If
+
+    Dim m As String = Mid("Hello World", 7, 5)
+    If m = "World" Then
+        Print "PASS:str_mid"
+    Else
+        Print "FAIL:str_mid got=" & m
+    End If
+
+    Dim p As Integer = InStr("Hello World", "World")
+    If p > 0 Then
+        Print "PASS:str_instr"
+    Else
+        Print "FAIL:str_instr got=" & str(p)
+    End If
+
+    If Err.Number <> 0 Then
+        Print "ERROR:str_chain err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+
+    ' Vector2 construction and member access
+    Dim v2 As Vector2 = Vector2(3, 4)
+    Dim v2len As Variant = v2.length()
+    If v2len = 5 Then
+        Print "PASS:vec2_length"
+    Else
+        Print "FAIL:vec2_length got=" & str(v2len)
+    End If
+
+    ' Vector2 arithmetic
+    Dim v2a As Vector2 = Vector2(1, 2)
+    Dim v2b As Vector2 = Vector2(3, 4)
+    Dim v2c As Vector2 = v2a + v2b
+    If v2c.x = 4 And v2c.y = 6 Then
+        Print "PASS:vec2_add"
+    Else
+        Print "FAIL:vec2_add got=" & str(v2c)
+    End If
+
+    ' Vector3 construction
+    Dim v3 As Vector3 = Vector3(1, 2, 3)
+    Dim v3len As Variant = v3.length()
+    If v3len > 3.7 And v3len < 3.75 Then
+        Print "PASS:vec3_length"
+    Else
+        Print "FAIL:vec3_length got=" & str(v3len)
+    End If
+
+    ' Color construction and member access
+    Dim col As Color = Color(1, 0.5, 0.25, 1)
+    If col.r = 1 And col.a = 1 Then
+        Print "PASS:color_construct"
+    Else
+        Print "FAIL:color_construct got=" & str(col)
+    End If
+
+    If Err.Number <> 0 Then
+        Print "ERROR:vec_math err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+End Sub

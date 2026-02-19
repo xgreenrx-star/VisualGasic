@@ -1,0 +1,113 @@
+Attribute VB_Name = "fuzz_enum_1523"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_XR_VRS_TEXTURE_FORMAT_UNIFIED As Integer = XRInterface.XR_VRS_TEXTURE_FORMAT_UNIFIED
+    If v_XR_VRS_TEXTURE_FORMAT_UNIFIED = 0 Then pass_count = pass_count + 1
+    Dim v_XR_VRS_TEXTURE_FORMAT_FRAGMENT_SHADING_RATE As Integer = XRInterface.XR_VRS_TEXTURE_FORMAT_FRAGMENT_SHADING_RATE
+    If v_XR_VRS_TEXTURE_FORMAT_FRAGMENT_SHADING_RATE = 1 Then pass_count = pass_count + 1
+    Dim v_XR_VRS_TEXTURE_FORMAT_FRAGMENT_DENSITY_MAP As Integer = XRInterface.XR_VRS_TEXTURE_FORMAT_FRAGMENT_DENSITY_MAP
+    If v_XR_VRS_TEXTURE_FORMAT_FRAGMENT_DENSITY_MAP = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_XRInterface_VRSTextureFormat"
+    Else
+        Print "FAIL:enum_XRInterface_VRSTextureFormat count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_XRInterface_VRSTextureFormat err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_XR_TRACKING_CONFIDENCE_NONE As Integer = XRPose.XR_TRACKING_CONFIDENCE_NONE
+    If v_XR_TRACKING_CONFIDENCE_NONE = 0 Then pass_count = pass_count + 1
+    Dim v_XR_TRACKING_CONFIDENCE_LOW As Integer = XRPose.XR_TRACKING_CONFIDENCE_LOW
+    If v_XR_TRACKING_CONFIDENCE_LOW = 1 Then pass_count = pass_count + 1
+    Dim v_XR_TRACKING_CONFIDENCE_HIGH As Integer = XRPose.XR_TRACKING_CONFIDENCE_HIGH
+    If v_XR_TRACKING_CONFIDENCE_HIGH = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_XRPose_TrackingConfidence"
+    Else
+        Print "FAIL:enum_XRPose_TrackingConfidence count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_XRPose_TrackingConfidence err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_TRACKER_HAND_UNKNOWN As Integer = XRPositionalTracker.TRACKER_HAND_UNKNOWN
+    If v_TRACKER_HAND_UNKNOWN = 0 Then pass_count = pass_count + 1
+    Dim v_TRACKER_HAND_LEFT As Integer = XRPositionalTracker.TRACKER_HAND_LEFT
+    If v_TRACKER_HAND_LEFT = 1 Then pass_count = pass_count + 1
+    Dim v_TRACKER_HAND_RIGHT As Integer = XRPositionalTracker.TRACKER_HAND_RIGHT
+    If v_TRACKER_HAND_RIGHT = 2 Then pass_count = pass_count + 1
+    Dim v_TRACKER_HAND_MAX As Integer = XRPositionalTracker.TRACKER_HAND_MAX
+    If v_TRACKER_HAND_MAX = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_XRPositionalTracker_TrackerHand"
+    Else
+        Print "FAIL:enum_XRPositionalTracker_TrackerHand count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_XRPositionalTracker_TrackerHand err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_APPEND_CREATE As Integer = ZIPPacker.APPEND_CREATE
+    If v_APPEND_CREATE = 0 Then pass_count = pass_count + 1
+    Dim v_APPEND_CREATEAFTER As Integer = ZIPPacker.APPEND_CREATEAFTER
+    If v_APPEND_CREATEAFTER = 1 Then pass_count = pass_count + 1
+    Dim v_APPEND_ADDINZIP As Integer = ZIPPacker.APPEND_ADDINZIP
+    If v_APPEND_ADDINZIP = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_ZIPPacker_ZipAppend"
+    Else
+        Print "FAIL:enum_ZIPPacker_ZipAppend count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_ZIPPacker_ZipAppend err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_COMPRESSION_DEFAULT As Integer = ZIPPacker.COMPRESSION_DEFAULT
+    If v_COMPRESSION_DEFAULT = -1 Then pass_count = pass_count + 1
+    Dim v_COMPRESSION_NONE As Integer = ZIPPacker.COMPRESSION_NONE
+    If v_COMPRESSION_NONE = 0 Then pass_count = pass_count + 1
+    Dim v_COMPRESSION_FAST As Integer = ZIPPacker.COMPRESSION_FAST
+    If v_COMPRESSION_FAST = 1 Then pass_count = pass_count + 1
+    Dim v_COMPRESSION_BEST As Integer = ZIPPacker.COMPRESSION_BEST
+    If v_COMPRESSION_BEST = 9 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_ZIPPacker_CompressionLevel"
+    Else
+        Print "FAIL:enum_ZIPPacker_CompressionLevel count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_ZIPPacker_CompressionLevel err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+End Sub

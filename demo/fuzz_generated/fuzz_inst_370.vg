@@ -1,0 +1,158 @@
+Attribute VB_Name = "fuzz_inst_370"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As OpenXRInteractionProfile = OpenXRInteractionProfile.new()
+    If obj <> Null Then
+        Print "PASS:inst_OpenXRInteractionProfile"
+    Else
+        Print "FAIL:inst_OpenXRInteractionProfile returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_OpenXRInteractionProfile err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As OpenXRInteractionProfileMetadata = OpenXRInteractionProfileMetadata.new()
+    If obj <> Null Then
+        Print "PASS:inst_OpenXRInteractionProfileMetadata"
+    Else
+        Print "FAIL:inst_OpenXRInteractionProfileMetadata returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_OpenXRInteractionProfileMetadata err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As OpenXRInterface = OpenXRInterface.new()
+    If obj <> Null Then
+        Print "PASS:inst_OpenXRInterface"
+    Else
+        Print "FAIL:inst_OpenXRInterface returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_OpenXRInterface err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As OpenXRRenderModel = OpenXRRenderModel.new()
+    If obj <> Null Then
+        Print "PASS:inst_OpenXRRenderModel"
+        obj.free()
+    Else
+        Print "FAIL:inst_OpenXRRenderModel returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_OpenXRRenderModel err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As OpenXRRenderModelExtension = OpenXRRenderModelExtension.new()
+    If obj <> Null Then
+        Print "PASS:inst_OpenXRRenderModelExtension"
+    Else
+        Print "FAIL:inst_OpenXRRenderModelExtension returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_OpenXRRenderModelExtension err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As OpenXRRenderModelManager = OpenXRRenderModelManager.new()
+    If obj <> Null Then
+        Print "PASS:inst_OpenXRRenderModelManager"
+        obj.free()
+    Else
+        Print "FAIL:inst_OpenXRRenderModelManager returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_OpenXRRenderModelManager err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As OpenXRVisibilityMask = OpenXRVisibilityMask.new()
+    If obj <> Null Then
+        Print "PASS:inst_OpenXRVisibilityMask"
+        obj.free()
+    Else
+        Print "FAIL:inst_OpenXRVisibilityMask returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_OpenXRVisibilityMask err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As OptimizedTranslation = OptimizedTranslation.new()
+    If obj <> Null Then
+        Print "PASS:inst_OptimizedTranslation"
+    Else
+        Print "FAIL:inst_OptimizedTranslation returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_OptimizedTranslation err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As OptionButton = OptionButton.new()
+    If obj <> Null Then
+        Print "PASS:inst_OptionButton"
+        obj.free()
+    Else
+        Print "FAIL:inst_OptionButton returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_OptionButton err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As PCKPacker = PCKPacker.new()
+    If obj <> Null Then
+        Print "PASS:inst_PCKPacker"
+    Else
+        Print "FAIL:inst_PCKPacker returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_PCKPacker err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

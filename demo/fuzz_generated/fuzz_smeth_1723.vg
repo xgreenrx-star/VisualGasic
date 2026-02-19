@@ -1,0 +1,109 @@
+Attribute VB_Name = "fuzz_smeth_1723"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim r_get_frames_per_second As Variant = Engine.get_frames_per_second()
+    Print "PASS:smeth_Engine_get_frames_per_second"
+    Dim r_get_physics_ticks_per_second As Variant = Engine.get_physics_ticks_per_second()
+    Print "PASS:smeth_Engine_get_physics_ticks_per_second"
+    Dim r_is_editor_hint As Variant = Engine.is_editor_hint()
+    Print "PASS:smeth_Engine_is_editor_hint"
+    Dim r_get_physics_interpolation_fraction As Variant = Engine.get_physics_interpolation_fraction()
+    Print "PASS:smeth_Engine_get_physics_interpolation_fraction"
+    If Err.Number <> 0 Then
+        Print "ERROR:smeth_Engine err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim r_get_name As Variant = OS.get_name()
+    Print "PASS:smeth_OS_get_name"
+    Dim r_get_processor_count As Variant = OS.get_processor_count()
+    Print "PASS:smeth_OS_get_processor_count"
+    Dim r_get_processor_name As Variant = OS.get_processor_name()
+    Print "PASS:smeth_OS_get_processor_name"
+    Dim r_get_static_memory_usage As Variant = OS.get_static_memory_usage()
+    Print "PASS:smeth_OS_get_static_memory_usage"
+    Dim r_is_debug_build As Variant = OS.is_debug_build()
+    Print "PASS:smeth_OS_is_debug_build"
+    If Err.Number <> 0 Then
+        Print "ERROR:smeth_OS err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim r_get_ticks_msec As Variant = Time.get_ticks_msec()
+    Print "PASS:smeth_Time_get_ticks_msec"
+    Dim r_get_ticks_usec As Variant = Time.get_ticks_usec()
+    Print "PASS:smeth_Time_get_ticks_usec"
+    Dim r_get_unix_time_from_system As Variant = Time.get_unix_time_from_system()
+    Print "PASS:smeth_Time_get_unix_time_from_system"
+    If Err.Number <> 0 Then
+        Print "ERROR:smeth_Time err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim r_get_mouse_mode As Variant = Input.get_mouse_mode()
+    Print "PASS:smeth_Input_get_mouse_mode"
+    Dim r_get_connected_joypads As Variant = Input.get_connected_joypads()
+    Print "PASS:smeth_Input_get_connected_joypads"
+    Dim r_is_using_accumulated_input As Variant = Input.is_using_accumulated_input()
+    Print "PASS:smeth_Input_is_using_accumulated_input"
+    If Err.Number <> 0 Then
+        Print "ERROR:smeth_Input err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    If Err.Number <> 0 Then
+        Print "ERROR:smeth_ResourceLoader err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim r_get_name As Variant = DisplayServer.get_name()
+    Print "PASS:smeth_DisplayServer_get_name"
+    Dim r_tts_is_speaking As Variant = DisplayServer.tts_is_speaking()
+    Print "PASS:smeth_DisplayServer_tts_is_speaking"
+    Dim r_tts_is_paused As Variant = DisplayServer.tts_is_paused()
+    Print "PASS:smeth_DisplayServer_tts_is_paused"
+    If Err.Number <> 0 Then
+        Print "ERROR:smeth_DisplayServer err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim r_get_bus_count As Variant = AudioServer.get_bus_count()
+    Print "PASS:smeth_AudioServer_get_bus_count"
+    Dim r_get_mix_rate As Variant = AudioServer.get_mix_rate()
+    Print "PASS:smeth_AudioServer_get_mix_rate"
+    Dim r_get_playback_speed_scale As Variant = AudioServer.get_playback_speed_scale()
+    Print "PASS:smeth_AudioServer_get_playback_speed_scale"
+    If Err.Number <> 0 Then
+        Print "ERROR:smeth_AudioServer err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+End Sub

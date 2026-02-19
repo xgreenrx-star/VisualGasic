@@ -1,0 +1,151 @@
+Attribute VB_Name = "fuzz_prop_896"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As GraphFrame = GraphFrame.new()
+    If obj = Null Then
+        Print "SKIP:prop_GraphFrame_autoshrink_margin (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.autoshrink_margin
+    Print "PASS:prop_GraphFrame_autoshrink_margin"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_GraphFrame_autoshrink_margin err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As GraphFrame = GraphFrame.new()
+    If obj = Null Then
+        Print "SKIP:prop_GraphFrame_drag_margin (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.drag_margin
+    Print "PASS:prop_GraphFrame_drag_margin"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_GraphFrame_drag_margin err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As GraphFrame = GraphFrame.new()
+    If obj = Null Then
+        Print "SKIP:prop_GraphFrame_tint_color_enabled (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.tint_color_enabled
+    Print "PASS:prop_GraphFrame_tint_color_enabled"
+    obj.tint_color_enabled = True
+    Dim val2 As Variant = obj.tint_color_enabled
+    Print "PASS:propset_GraphFrame_tint_color_enabled"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_GraphFrame_tint_color_enabled err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As HScrollBar = HScrollBar.new()
+    If obj = Null Then
+        Print "SKIP:prop_HScrollBar_custom_step (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.custom_step
+    Print "PASS:prop_HScrollBar_custom_step"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_HScrollBar_custom_step err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As HScrollBar = HScrollBar.new()
+    If obj = Null Then
+        Print "SKIP:prop_HScrollBar_min_value (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.min_value
+    Print "PASS:prop_HScrollBar_min_value"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_HScrollBar_min_value err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As HScrollBar = HScrollBar.new()
+    If obj = Null Then
+        Print "SKIP:prop_HScrollBar_max_value (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.max_value
+    Print "PASS:prop_HScrollBar_max_value"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_HScrollBar_max_value err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As HScrollBar = HScrollBar.new()
+    If obj = Null Then
+        Print "SKIP:prop_HScrollBar_step (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.step
+    Print "PASS:prop_HScrollBar_step"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_HScrollBar_step err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As HScrollBar = HScrollBar.new()
+    If obj = Null Then
+        Print "SKIP:prop_HScrollBar_page (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.page
+    Print "PASS:prop_HScrollBar_page"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_HScrollBar_page err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+End Sub

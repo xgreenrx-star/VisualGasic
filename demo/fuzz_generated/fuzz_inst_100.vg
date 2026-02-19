@@ -1,0 +1,160 @@
+Attribute VB_Name = "fuzz_inst_100"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As AudioStreamSynchronized = AudioStreamSynchronized.new()
+    If obj <> Null Then
+        Print "PASS:inst_AudioStreamSynchronized"
+    Else
+        Print "FAIL:inst_AudioStreamSynchronized returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AudioStreamSynchronized err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As AudioStreamWAV = AudioStreamWAV.new()
+    If obj <> Null Then
+        Print "PASS:inst_AudioStreamWAV"
+    Else
+        Print "FAIL:inst_AudioStreamWAV returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AudioStreamWAV err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As BackBufferCopy = BackBufferCopy.new()
+    If obj <> Null Then
+        Print "PASS:inst_BackBufferCopy"
+        obj.free()
+    Else
+        Print "FAIL:inst_BackBufferCopy returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_BackBufferCopy err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As BaseButton = BaseButton.new()
+    If obj <> Null Then
+        Print "PASS:inst_BaseButton"
+        obj.free()
+    Else
+        Print "FAIL:inst_BaseButton returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_BaseButton err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As BitMap = BitMap.new()
+    If obj <> Null Then
+        Print "PASS:inst_BitMap"
+    Else
+        Print "FAIL:inst_BitMap returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_BitMap err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As Bone2D = Bone2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_Bone2D"
+        obj.free()
+    Else
+        Print "FAIL:inst_Bone2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_Bone2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As BoneAttachment3D = BoneAttachment3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_BoneAttachment3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_BoneAttachment3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_BoneAttachment3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As BoneConstraint3D = BoneConstraint3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_BoneConstraint3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_BoneConstraint3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_BoneConstraint3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As BoneMap = BoneMap.new()
+    If obj <> Null Then
+        Print "PASS:inst_BoneMap"
+    Else
+        Print "FAIL:inst_BoneMap returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_BoneMap err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As BoxContainer = BoxContainer.new()
+    If obj <> Null Then
+        Print "PASS:inst_BoxContainer"
+        obj.free()
+    Else
+        Print "FAIL:inst_BoxContainer returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_BoxContainer err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

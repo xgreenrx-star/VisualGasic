@@ -1,0 +1,172 @@
+Attribute VB_Name = "fuzz_meth_1581"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As MenuBar = MenuBar.new()
+    If obj = Null Then
+        Print "SKIP:meth_MenuBar (null)"
+        Exit Sub
+    End If
+    Dim r_is_switch_on_hover As Variant = obj.is_switch_on_hover()
+    Print "PASS:meth_MenuBar_is_switch_on_hover"
+    Dim r_is_prefer_global_menu As Variant = obj.is_prefer_global_menu()
+    Print "PASS:meth_MenuBar_is_prefer_global_menu"
+    Dim r_is_native_menu As Variant = obj.is_native_menu()
+    Print "PASS:meth_MenuBar_is_native_menu"
+    Dim r_get_menu_count As Variant = obj.get_menu_count()
+    Print "PASS:meth_MenuBar_get_menu_count"
+    Dim r_get_text_direction As Variant = obj.get_text_direction()
+    Print "PASS:meth_MenuBar_get_text_direction"
+    Dim r_get_language As Variant = obj.get_language()
+    Print "PASS:meth_MenuBar_get_language"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_MenuBar err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As CPUParticles3D = CPUParticles3D.new()
+    If obj = Null Then
+        Print "SKIP:meth_CPUParticles3D (null)"
+        Exit Sub
+    End If
+    Dim r_is_emitting As Variant = obj.is_emitting()
+    Print "PASS:meth_CPUParticles3D_is_emitting"
+    Dim r_get_amount As Variant = obj.get_amount()
+    Print "PASS:meth_CPUParticles3D_get_amount"
+    Dim r_get_lifetime As Variant = obj.get_lifetime()
+    Print "PASS:meth_CPUParticles3D_get_lifetime"
+    Dim r_get_one_shot As Variant = obj.get_one_shot()
+    Print "PASS:meth_CPUParticles3D_get_one_shot"
+    Dim r_get_pre_process_time As Variant = obj.get_pre_process_time()
+    Print "PASS:meth_CPUParticles3D_get_pre_process_time"
+    Dim r_get_explosiveness_ratio As Variant = obj.get_explosiveness_ratio()
+    Print "PASS:meth_CPUParticles3D_get_explosiveness_ratio"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_CPUParticles3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As FlowContainer = FlowContainer.new()
+    If obj = Null Then
+        Print "SKIP:meth_FlowContainer (null)"
+        Exit Sub
+    End If
+    Dim r_get_line_count As Variant = obj.get_line_count()
+    Print "PASS:meth_FlowContainer_get_line_count"
+    Dim r_get_alignment As Variant = obj.get_alignment()
+    Print "PASS:meth_FlowContainer_get_alignment"
+    Dim r_get_last_wrap_alignment As Variant = obj.get_last_wrap_alignment()
+    Print "PASS:meth_FlowContainer_get_last_wrap_alignment"
+    Dim r_is_vertical As Variant = obj.is_vertical()
+    Print "PASS:meth_FlowContainer_is_vertical"
+    Dim r_is_reverse_fill As Variant = obj.is_reverse_fill()
+    Print "PASS:meth_FlowContainer_is_reverse_fill"
+    Dim r_get_combined_minimum_size As Variant = obj.get_combined_minimum_size()
+    Print "PASS:meth_FlowContainer_get_combined_minimum_size"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_FlowContainer err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As GraphElement = GraphElement.new()
+    If obj = Null Then
+        Print "SKIP:meth_GraphElement (null)"
+        Exit Sub
+    End If
+    Dim r_is_resizable As Variant = obj.is_resizable()
+    Print "PASS:meth_GraphElement_is_resizable"
+    Dim r_is_draggable As Variant = obj.is_draggable()
+    Print "PASS:meth_GraphElement_is_draggable"
+    Dim r_is_selectable As Variant = obj.is_selectable()
+    Print "PASS:meth_GraphElement_is_selectable"
+    Dim r_is_selected As Variant = obj.is_selected()
+    Print "PASS:meth_GraphElement_is_selected"
+    Dim r_get_position_offset As Variant = obj.get_position_offset()
+    Print "PASS:meth_GraphElement_get_position_offset"
+    Dim r_get_combined_minimum_size As Variant = obj.get_combined_minimum_size()
+    Print "PASS:meth_GraphElement_get_combined_minimum_size"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_GraphElement err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As HFlowContainer = HFlowContainer.new()
+    If obj = Null Then
+        Print "SKIP:meth_HFlowContainer (null)"
+        Exit Sub
+    End If
+    Dim r_get_line_count As Variant = obj.get_line_count()
+    Print "PASS:meth_HFlowContainer_get_line_count"
+    Dim r_get_alignment As Variant = obj.get_alignment()
+    Print "PASS:meth_HFlowContainer_get_alignment"
+    Dim r_get_last_wrap_alignment As Variant = obj.get_last_wrap_alignment()
+    Print "PASS:meth_HFlowContainer_get_last_wrap_alignment"
+    Dim r_is_vertical As Variant = obj.is_vertical()
+    Print "PASS:meth_HFlowContainer_is_vertical"
+    Dim r_is_reverse_fill As Variant = obj.is_reverse_fill()
+    Print "PASS:meth_HFlowContainer_is_reverse_fill"
+    Dim r_get_combined_minimum_size As Variant = obj.get_combined_minimum_size()
+    Print "PASS:meth_HFlowContainer_get_combined_minimum_size"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_HFlowContainer err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As NinePatchRect = NinePatchRect.new()
+    If obj = Null Then
+        Print "SKIP:meth_NinePatchRect (null)"
+        Exit Sub
+    End If
+    Dim r_get_texture As Variant = obj.get_texture()
+    Print "PASS:meth_NinePatchRect_get_texture"
+    Dim r_get_region_rect As Variant = obj.get_region_rect()
+    Print "PASS:meth_NinePatchRect_get_region_rect"
+    Dim r_is_draw_center_enabled As Variant = obj.is_draw_center_enabled()
+    Print "PASS:meth_NinePatchRect_is_draw_center_enabled"
+    Dim r_get_h_axis_stretch_mode As Variant = obj.get_h_axis_stretch_mode()
+    Print "PASS:meth_NinePatchRect_get_h_axis_stretch_mode"
+    Dim r_get_v_axis_stretch_mode As Variant = obj.get_v_axis_stretch_mode()
+    Print "PASS:meth_NinePatchRect_get_v_axis_stretch_mode"
+    Dim r_get_combined_minimum_size As Variant = obj.get_combined_minimum_size()
+    Print "PASS:meth_NinePatchRect_get_combined_minimum_size"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_NinePatchRect err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

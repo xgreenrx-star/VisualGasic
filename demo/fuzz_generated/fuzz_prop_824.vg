@@ -1,0 +1,148 @@
+Attribute VB_Name = "fuzz_prop_824"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As CheckButton = CheckButton.new()
+    If obj = Null Then
+        Print "SKIP:prop_CheckButton_text (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.text
+    Print "PASS:prop_CheckButton_text"
+    obj.text = "test_string"
+    Dim val2 As Variant = obj.text
+    Print "PASS:propset_CheckButton_text"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_CheckButton_text err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As CheckButton = CheckButton.new()
+    If obj = Null Then
+        Print "SKIP:prop_CheckButton_icon (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.icon
+    Print "PASS:prop_CheckButton_icon"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_CheckButton_icon err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As CheckButton = CheckButton.new()
+    If obj = Null Then
+        Print "SKIP:prop_CheckButton_flat (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.flat
+    Print "PASS:prop_CheckButton_flat"
+    obj.flat = True
+    Dim val2 As Variant = obj.flat
+    Print "PASS:propset_CheckButton_flat"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_CheckButton_flat err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As CheckButton = CheckButton.new()
+    If obj = Null Then
+        Print "SKIP:prop_CheckButton_alignment (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.alignment
+    Print "PASS:prop_CheckButton_alignment"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_CheckButton_alignment err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As CheckButton = CheckButton.new()
+    If obj = Null Then
+        Print "SKIP:prop_CheckButton_text_overrun_behavior (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.text_overrun_behavior
+    Print "PASS:prop_CheckButton_text_overrun_behavior"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_CheckButton_text_overrun_behavior err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As Environment = Environment.new()
+    If obj = Null Then
+        Print "SKIP:prop_Environment_background_mode (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.background_mode
+    Print "PASS:prop_Environment_background_mode"
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_Environment_background_mode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As Environment = Environment.new()
+    If obj = Null Then
+        Print "SKIP:prop_Environment_background_color (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.background_color
+    Print "PASS:prop_Environment_background_color"
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_Environment_background_color err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As Environment = Environment.new()
+    If obj = Null Then
+        Print "SKIP:prop_Environment_background_energy_multiplier (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.background_energy_multiplier
+    Print "PASS:prop_Environment_background_energy_multiplier"
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_Environment_background_energy_multiplier err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+End Sub

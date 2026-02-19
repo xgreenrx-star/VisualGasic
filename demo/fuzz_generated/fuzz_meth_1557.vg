@@ -1,0 +1,172 @@
+Attribute VB_Name = "fuzz_meth_1557"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As TextureButton = TextureButton.new()
+    If obj = Null Then
+        Print "SKIP:meth_TextureButton (null)"
+        Exit Sub
+    End If
+    Dim r_is_flipped_h As Variant = obj.is_flipped_h()
+    Print "PASS:meth_TextureButton_is_flipped_h"
+    Dim r_is_flipped_v As Variant = obj.is_flipped_v()
+    Print "PASS:meth_TextureButton_is_flipped_v"
+    Dim r_get_texture_normal As Variant = obj.get_texture_normal()
+    Print "PASS:meth_TextureButton_get_texture_normal"
+    Dim r_get_texture_pressed As Variant = obj.get_texture_pressed()
+    Print "PASS:meth_TextureButton_get_texture_pressed"
+    Dim r_get_texture_hover As Variant = obj.get_texture_hover()
+    Print "PASS:meth_TextureButton_get_texture_hover"
+    Dim r_get_texture_disabled As Variant = obj.get_texture_disabled()
+    Print "PASS:meth_TextureButton_get_texture_disabled"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_TextureButton err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As TextureProgressBar = TextureProgressBar.new()
+    If obj = Null Then
+        Print "SKIP:meth_TextureProgressBar (null)"
+        Exit Sub
+    End If
+    Dim r_get_under_texture As Variant = obj.get_under_texture()
+    Print "PASS:meth_TextureProgressBar_get_under_texture"
+    Dim r_get_progress_texture As Variant = obj.get_progress_texture()
+    Print "PASS:meth_TextureProgressBar_get_progress_texture"
+    Dim r_get_over_texture As Variant = obj.get_over_texture()
+    Print "PASS:meth_TextureProgressBar_get_over_texture"
+    Dim r_get_fill_mode As Variant = obj.get_fill_mode()
+    Print "PASS:meth_TextureProgressBar_get_fill_mode"
+    Dim r_get_tint_under As Variant = obj.get_tint_under()
+    Print "PASS:meth_TextureProgressBar_get_tint_under"
+    Dim r_get_tint_progress As Variant = obj.get_tint_progress()
+    Print "PASS:meth_TextureProgressBar_get_tint_progress"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_TextureProgressBar err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As ItemList = ItemList.new()
+    If obj = Null Then
+        Print "SKIP:meth_ItemList (null)"
+        Exit Sub
+    End If
+    Dim r_get_selected_items As Variant = obj.get_selected_items()
+    Print "PASS:meth_ItemList_get_selected_items"
+    Dim r_get_item_count As Variant = obj.get_item_count()
+    Print "PASS:meth_ItemList_get_item_count"
+    Dim r_get_fixed_column_width As Variant = obj.get_fixed_column_width()
+    Print "PASS:meth_ItemList_get_fixed_column_width"
+    Dim r_is_same_column_width As Variant = obj.is_same_column_width()
+    Print "PASS:meth_ItemList_is_same_column_width"
+    Dim r_get_max_text_lines As Variant = obj.get_max_text_lines()
+    Print "PASS:meth_ItemList_get_max_text_lines"
+    Dim r_get_max_columns As Variant = obj.get_max_columns()
+    Print "PASS:meth_ItemList_get_max_columns"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_ItemList err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As Tree = Tree.new()
+    If obj = Null Then
+        Print "SKIP:meth_Tree (null)"
+        Exit Sub
+    End If
+    Dim r_get_root As Variant = obj.get_root()
+    Print "PASS:meth_Tree_get_root"
+    Dim r_is_root_hidden As Variant = obj.is_root_hidden()
+    Print "PASS:meth_Tree_is_root_hidden"
+    Dim r_get_selected_column As Variant = obj.get_selected_column()
+    Print "PASS:meth_Tree_get_selected_column"
+    Dim r_get_pressed_button As Variant = obj.get_pressed_button()
+    Print "PASS:meth_Tree_get_pressed_button"
+    Dim r_get_select_mode As Variant = obj.get_select_mode()
+    Print "PASS:meth_Tree_get_select_mode"
+    Dim r_get_columns As Variant = obj.get_columns()
+    Print "PASS:meth_Tree_get_columns"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_Tree err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As LinkButton = LinkButton.new()
+    If obj = Null Then
+        Print "SKIP:meth_LinkButton (null)"
+        Exit Sub
+    End If
+    Dim r_get_text As Variant = obj.get_text()
+    Print "PASS:meth_LinkButton_get_text"
+    Dim r_get_text_direction As Variant = obj.get_text_direction()
+    Print "PASS:meth_LinkButton_get_text_direction"
+    Dim r_get_language As Variant = obj.get_language()
+    Print "PASS:meth_LinkButton_get_language"
+    Dim r_get_uri As Variant = obj.get_uri()
+    Print "PASS:meth_LinkButton_get_uri"
+    Dim r_get_underline_mode As Variant = obj.get_underline_mode()
+    Print "PASS:meth_LinkButton_get_underline_mode"
+    Dim r_get_structured_text_bidi_override As Variant = obj.get_structured_text_bidi_override()
+    Print "PASS:meth_LinkButton_get_structured_text_bidi_override"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_LinkButton err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As SpinBox = SpinBox.new()
+    If obj = Null Then
+        Print "SKIP:meth_SpinBox (null)"
+        Exit Sub
+    End If
+    Dim r_get_horizontal_alignment As Variant = obj.get_horizontal_alignment()
+    Print "PASS:meth_SpinBox_get_horizontal_alignment"
+    Dim r_get_suffix As Variant = obj.get_suffix()
+    Print "PASS:meth_SpinBox_get_suffix"
+    Dim r_get_prefix As Variant = obj.get_prefix()
+    Print "PASS:meth_SpinBox_get_prefix"
+    Dim r_get_custom_arrow_step As Variant = obj.get_custom_arrow_step()
+    Print "PASS:meth_SpinBox_get_custom_arrow_step"
+    Dim r_is_editable As Variant = obj.is_editable()
+    Print "PASS:meth_SpinBox_is_editable"
+    Dim r_get_update_on_text_changed As Variant = obj.get_update_on_text_changed()
+    Print "PASS:meth_SpinBox_get_update_on_text_changed"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_SpinBox err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

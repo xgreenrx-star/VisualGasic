@@ -1,0 +1,157 @@
+Attribute VB_Name = "fuzz_prop_920"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As HSplitContainer = HSplitContainer.new()
+    If obj = Null Then
+        Print "SKIP:prop_HSplitContainer_collapsed (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.collapsed
+    Print "PASS:prop_HSplitContainer_collapsed"
+    obj.collapsed = True
+    Dim val2 As Variant = obj.collapsed
+    Print "PASS:propset_HSplitContainer_collapsed"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_HSplitContainer_collapsed err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As HSplitContainer = HSplitContainer.new()
+    If obj = Null Then
+        Print "SKIP:prop_HSplitContainer_dragging_enabled (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.dragging_enabled
+    Print "PASS:prop_HSplitContainer_dragging_enabled"
+    obj.dragging_enabled = True
+    Dim val2 As Variant = obj.dragging_enabled
+    Print "PASS:propset_HSplitContainer_dragging_enabled"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_HSplitContainer_dragging_enabled err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As HSplitContainer = HSplitContainer.new()
+    If obj = Null Then
+        Print "SKIP:prop_HSplitContainer_dragger_visibility (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.dragger_visibility
+    Print "PASS:prop_HSplitContainer_dragger_visibility"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_HSplitContainer_dragger_visibility err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As HSplitContainer = HSplitContainer.new()
+    If obj = Null Then
+        Print "SKIP:prop_HSplitContainer_vertical (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.vertical
+    Print "PASS:prop_HSplitContainer_vertical"
+    obj.vertical = True
+    Dim val2 As Variant = obj.vertical
+    Print "PASS:propset_HSplitContainer_vertical"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_HSplitContainer_vertical err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As Range = Range.new()
+    If obj = Null Then
+        Print "SKIP:prop_Range_min_value (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.min_value
+    Print "PASS:prop_Range_min_value"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_Range_min_value err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As Range = Range.new()
+    If obj = Null Then
+        Print "SKIP:prop_Range_max_value (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.max_value
+    Print "PASS:prop_Range_max_value"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_Range_max_value err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As Range = Range.new()
+    If obj = Null Then
+        Print "SKIP:prop_Range_step (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.step
+    Print "PASS:prop_Range_step"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_Range_step err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As Range = Range.new()
+    If obj = Null Then
+        Print "SKIP:prop_Range_page (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.page
+    Print "PASS:prop_Range_page"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_Range_page err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+End Sub

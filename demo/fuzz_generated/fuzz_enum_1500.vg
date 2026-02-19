@@ -1,0 +1,142 @@
+Attribute VB_Name = "fuzz_enum_1500"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_MENU_CUT As Integer = TextEdit.MENU_CUT
+    If v_MENU_CUT = 0 Then pass_count = pass_count + 1
+    Dim v_MENU_COPY As Integer = TextEdit.MENU_COPY
+    If v_MENU_COPY = 1 Then pass_count = pass_count + 1
+    Dim v_MENU_PASTE As Integer = TextEdit.MENU_PASTE
+    If v_MENU_PASTE = 2 Then pass_count = pass_count + 1
+    Dim v_MENU_CLEAR As Integer = TextEdit.MENU_CLEAR
+    If v_MENU_CLEAR = 3 Then pass_count = pass_count + 1
+    Dim v_MENU_SELECT_ALL As Integer = TextEdit.MENU_SELECT_ALL
+    If v_MENU_SELECT_ALL = 4 Then pass_count = pass_count + 1
+    Dim v_MENU_UNDO As Integer = TextEdit.MENU_UNDO
+    If v_MENU_UNDO = 5 Then pass_count = pass_count + 1
+    Dim v_MENU_REDO As Integer = TextEdit.MENU_REDO
+    If v_MENU_REDO = 6 Then pass_count = pass_count + 1
+    Dim v_MENU_SUBMENU_TEXT_DIR As Integer = TextEdit.MENU_SUBMENU_TEXT_DIR
+    If v_MENU_SUBMENU_TEXT_DIR = 7 Then pass_count = pass_count + 1
+    If pass_count = 8 Then
+        Print "PASS:enum_TextEdit_MenuItems"
+    Else
+        Print "FAIL:enum_TextEdit_MenuItems count=" & str(pass_count) & "/8"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_TextEdit_MenuItems err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_ACTION_NONE As Integer = TextEdit.ACTION_NONE
+    If v_ACTION_NONE = 0 Then pass_count = pass_count + 1
+    Dim v_ACTION_TYPING As Integer = TextEdit.ACTION_TYPING
+    If v_ACTION_TYPING = 1 Then pass_count = pass_count + 1
+    Dim v_ACTION_BACKSPACE As Integer = TextEdit.ACTION_BACKSPACE
+    If v_ACTION_BACKSPACE = 2 Then pass_count = pass_count + 1
+    Dim v_ACTION_DELETE As Integer = TextEdit.ACTION_DELETE
+    If v_ACTION_DELETE = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_TextEdit_EditAction"
+    Else
+        Print "FAIL:enum_TextEdit_EditAction count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_TextEdit_EditAction err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_SEARCH_MATCH_CASE As Integer = TextEdit.SEARCH_MATCH_CASE
+    If v_SEARCH_MATCH_CASE = 1 Then pass_count = pass_count + 1
+    Dim v_SEARCH_WHOLE_WORDS As Integer = TextEdit.SEARCH_WHOLE_WORDS
+    If v_SEARCH_WHOLE_WORDS = 2 Then pass_count = pass_count + 1
+    Dim v_SEARCH_BACKWARDS As Integer = TextEdit.SEARCH_BACKWARDS
+    If v_SEARCH_BACKWARDS = 4 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_TextEdit_SearchFlags"
+    Else
+        Print "FAIL:enum_TextEdit_SearchFlags count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_TextEdit_SearchFlags err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_CARET_TYPE_LINE As Integer = TextEdit.CARET_TYPE_LINE
+    If v_CARET_TYPE_LINE = 0 Then pass_count = pass_count + 1
+    Dim v_CARET_TYPE_BLOCK As Integer = TextEdit.CARET_TYPE_BLOCK
+    If v_CARET_TYPE_BLOCK = 1 Then pass_count = pass_count + 1
+    If pass_count = 2 Then
+        Print "PASS:enum_TextEdit_CaretType"
+    Else
+        Print "FAIL:enum_TextEdit_CaretType count=" & str(pass_count) & "/2"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_TextEdit_CaretType err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_SELECTION_MODE_NONE As Integer = TextEdit.SELECTION_MODE_NONE
+    If v_SELECTION_MODE_NONE = 0 Then pass_count = pass_count + 1
+    Dim v_SELECTION_MODE_SHIFT As Integer = TextEdit.SELECTION_MODE_SHIFT
+    If v_SELECTION_MODE_SHIFT = 1 Then pass_count = pass_count + 1
+    Dim v_SELECTION_MODE_POINTER As Integer = TextEdit.SELECTION_MODE_POINTER
+    If v_SELECTION_MODE_POINTER = 2 Then pass_count = pass_count + 1
+    Dim v_SELECTION_MODE_WORD As Integer = TextEdit.SELECTION_MODE_WORD
+    If v_SELECTION_MODE_WORD = 3 Then pass_count = pass_count + 1
+    Dim v_SELECTION_MODE_LINE As Integer = TextEdit.SELECTION_MODE_LINE
+    If v_SELECTION_MODE_LINE = 4 Then pass_count = pass_count + 1
+    If pass_count = 5 Then
+        Print "PASS:enum_TextEdit_SelectionMode"
+    Else
+        Print "FAIL:enum_TextEdit_SelectionMode count=" & str(pass_count) & "/5"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_TextEdit_SelectionMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_LINE_WRAPPING_NONE As Integer = TextEdit.LINE_WRAPPING_NONE
+    If v_LINE_WRAPPING_NONE = 0 Then pass_count = pass_count + 1
+    Dim v_LINE_WRAPPING_BOUNDARY As Integer = TextEdit.LINE_WRAPPING_BOUNDARY
+    If v_LINE_WRAPPING_BOUNDARY = 1 Then pass_count = pass_count + 1
+    If pass_count = 2 Then
+        Print "PASS:enum_TextEdit_LineWrappingMode"
+    Else
+        Print "FAIL:enum_TextEdit_LineWrappingMode count=" & str(pass_count) & "/2"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_TextEdit_LineWrappingMode err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

@@ -1,0 +1,154 @@
+Attribute VB_Name = "fuzz_enum_1509"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_RENDER_INFO_TYPE_VISIBLE As Integer = Viewport.RENDER_INFO_TYPE_VISIBLE
+    If v_RENDER_INFO_TYPE_VISIBLE = 0 Then pass_count = pass_count + 1
+    Dim v_RENDER_INFO_TYPE_SHADOW As Integer = Viewport.RENDER_INFO_TYPE_SHADOW
+    If v_RENDER_INFO_TYPE_SHADOW = 1 Then pass_count = pass_count + 1
+    Dim v_RENDER_INFO_TYPE_CANVAS As Integer = Viewport.RENDER_INFO_TYPE_CANVAS
+    If v_RENDER_INFO_TYPE_CANVAS = 2 Then pass_count = pass_count + 1
+    Dim v_RENDER_INFO_TYPE_MAX As Integer = Viewport.RENDER_INFO_TYPE_MAX
+    If v_RENDER_INFO_TYPE_MAX = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_Viewport_RenderInfoType"
+    Else
+        Print "FAIL:enum_Viewport_RenderInfoType count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Viewport_RenderInfoType err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_DEBUG_DRAW_DISABLED As Integer = Viewport.DEBUG_DRAW_DISABLED
+    If v_DEBUG_DRAW_DISABLED = 0 Then pass_count = pass_count + 1
+    Dim v_DEBUG_DRAW_UNSHADED As Integer = Viewport.DEBUG_DRAW_UNSHADED
+    If v_DEBUG_DRAW_UNSHADED = 1 Then pass_count = pass_count + 1
+    Dim v_DEBUG_DRAW_LIGHTING As Integer = Viewport.DEBUG_DRAW_LIGHTING
+    If v_DEBUG_DRAW_LIGHTING = 2 Then pass_count = pass_count + 1
+    Dim v_DEBUG_DRAW_OVERDRAW As Integer = Viewport.DEBUG_DRAW_OVERDRAW
+    If v_DEBUG_DRAW_OVERDRAW = 3 Then pass_count = pass_count + 1
+    Dim v_DEBUG_DRAW_WIREFRAME As Integer = Viewport.DEBUG_DRAW_WIREFRAME
+    If v_DEBUG_DRAW_WIREFRAME = 4 Then pass_count = pass_count + 1
+    Dim v_DEBUG_DRAW_NORMAL_BUFFER As Integer = Viewport.DEBUG_DRAW_NORMAL_BUFFER
+    If v_DEBUG_DRAW_NORMAL_BUFFER = 5 Then pass_count = pass_count + 1
+    Dim v_DEBUG_DRAW_VOXEL_GI_ALBEDO As Integer = Viewport.DEBUG_DRAW_VOXEL_GI_ALBEDO
+    If v_DEBUG_DRAW_VOXEL_GI_ALBEDO = 6 Then pass_count = pass_count + 1
+    Dim v_DEBUG_DRAW_VOXEL_GI_LIGHTING As Integer = Viewport.DEBUG_DRAW_VOXEL_GI_LIGHTING
+    If v_DEBUG_DRAW_VOXEL_GI_LIGHTING = 7 Then pass_count = pass_count + 1
+    If pass_count = 8 Then
+        Print "PASS:enum_Viewport_DebugDraw"
+    Else
+        Print "FAIL:enum_Viewport_DebugDraw count=" & str(pass_count) & "/8"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Viewport_DebugDraw err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_NEAREST As Integer = Viewport.DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_NEAREST
+    If v_DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_NEAREST = 0 Then pass_count = pass_count + 1
+    Dim v_DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_LINEAR As Integer = Viewport.DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_LINEAR
+    If v_DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_LINEAR = 1 Then pass_count = pass_count + 1
+    Dim v_DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_LINEAR_WITH_MIPMAPS As Integer = Viewport.DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+    If v_DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_LINEAR_WITH_MIPMAPS = 2 Then pass_count = pass_count + 1
+    Dim v_DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_NEAREST_WITH_MIPMAPS As Integer = Viewport.DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_NEAREST_WITH_MIPMAPS
+    If v_DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_NEAREST_WITH_MIPMAPS = 3 Then pass_count = pass_count + 1
+    Dim v_DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_MAX As Integer = Viewport.DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_MAX
+    If v_DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_MAX = 4 Then pass_count = pass_count + 1
+    If pass_count = 5 Then
+        Print "PASS:enum_Viewport_DefaultCanvasItemTextureFilter"
+    Else
+        Print "FAIL:enum_Viewport_DefaultCanvasItemTextureFilter count=" & str(pass_count) & "/5"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Viewport_DefaultCanvasItemTextureFilter err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_DEFAULT_CANVAS_ITEM_TEXTURE_REPEAT_DISABLED As Integer = Viewport.DEFAULT_CANVAS_ITEM_TEXTURE_REPEAT_DISABLED
+    If v_DEFAULT_CANVAS_ITEM_TEXTURE_REPEAT_DISABLED = 0 Then pass_count = pass_count + 1
+    Dim v_DEFAULT_CANVAS_ITEM_TEXTURE_REPEAT_ENABLED As Integer = Viewport.DEFAULT_CANVAS_ITEM_TEXTURE_REPEAT_ENABLED
+    If v_DEFAULT_CANVAS_ITEM_TEXTURE_REPEAT_ENABLED = 1 Then pass_count = pass_count + 1
+    Dim v_DEFAULT_CANVAS_ITEM_TEXTURE_REPEAT_MIRROR As Integer = Viewport.DEFAULT_CANVAS_ITEM_TEXTURE_REPEAT_MIRROR
+    If v_DEFAULT_CANVAS_ITEM_TEXTURE_REPEAT_MIRROR = 2 Then pass_count = pass_count + 1
+    Dim v_DEFAULT_CANVAS_ITEM_TEXTURE_REPEAT_MAX As Integer = Viewport.DEFAULT_CANVAS_ITEM_TEXTURE_REPEAT_MAX
+    If v_DEFAULT_CANVAS_ITEM_TEXTURE_REPEAT_MAX = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_Viewport_DefaultCanvasItemTextureRepeat"
+    Else
+        Print "FAIL:enum_Viewport_DefaultCanvasItemTextureRepeat count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Viewport_DefaultCanvasItemTextureRepeat err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_SDF_OVERSIZE_100_PERCENT As Integer = Viewport.SDF_OVERSIZE_100_PERCENT
+    If v_SDF_OVERSIZE_100_PERCENT = 0 Then pass_count = pass_count + 1
+    Dim v_SDF_OVERSIZE_120_PERCENT As Integer = Viewport.SDF_OVERSIZE_120_PERCENT
+    If v_SDF_OVERSIZE_120_PERCENT = 1 Then pass_count = pass_count + 1
+    Dim v_SDF_OVERSIZE_150_PERCENT As Integer = Viewport.SDF_OVERSIZE_150_PERCENT
+    If v_SDF_OVERSIZE_150_PERCENT = 2 Then pass_count = pass_count + 1
+    Dim v_SDF_OVERSIZE_200_PERCENT As Integer = Viewport.SDF_OVERSIZE_200_PERCENT
+    If v_SDF_OVERSIZE_200_PERCENT = 3 Then pass_count = pass_count + 1
+    Dim v_SDF_OVERSIZE_MAX As Integer = Viewport.SDF_OVERSIZE_MAX
+    If v_SDF_OVERSIZE_MAX = 4 Then pass_count = pass_count + 1
+    If pass_count = 5 Then
+        Print "PASS:enum_Viewport_SDFOversize"
+    Else
+        Print "FAIL:enum_Viewport_SDFOversize count=" & str(pass_count) & "/5"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Viewport_SDFOversize err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_SDF_SCALE_100_PERCENT As Integer = Viewport.SDF_SCALE_100_PERCENT
+    If v_SDF_SCALE_100_PERCENT = 0 Then pass_count = pass_count + 1
+    Dim v_SDF_SCALE_50_PERCENT As Integer = Viewport.SDF_SCALE_50_PERCENT
+    If v_SDF_SCALE_50_PERCENT = 1 Then pass_count = pass_count + 1
+    Dim v_SDF_SCALE_25_PERCENT As Integer = Viewport.SDF_SCALE_25_PERCENT
+    If v_SDF_SCALE_25_PERCENT = 2 Then pass_count = pass_count + 1
+    Dim v_SDF_SCALE_MAX As Integer = Viewport.SDF_SCALE_MAX
+    If v_SDF_SCALE_MAX = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_Viewport_SDFScale"
+    Else
+        Print "FAIL:enum_Viewport_SDFScale count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Viewport_SDFScale err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

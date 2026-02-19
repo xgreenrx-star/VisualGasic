@@ -1,0 +1,144 @@
+Attribute VB_Name = "fuzz_enum_1451"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_ANIMATION_PROCESS_PHYSICS As Integer = AnimationTree.ANIMATION_PROCESS_PHYSICS
+    If v_ANIMATION_PROCESS_PHYSICS = 0 Then pass_count = pass_count + 1
+    Dim v_ANIMATION_PROCESS_IDLE As Integer = AnimationTree.ANIMATION_PROCESS_IDLE
+    If v_ANIMATION_PROCESS_IDLE = 1 Then pass_count = pass_count + 1
+    Dim v_ANIMATION_PROCESS_MANUAL As Integer = AnimationTree.ANIMATION_PROCESS_MANUAL
+    If v_ANIMATION_PROCESS_MANUAL = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_AnimationTree_AnimationProcessCallback"
+    Else
+        Print "FAIL:enum_AnimationTree_AnimationProcessCallback count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_AnimationTree_AnimationProcessCallback err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_SPACE_OVERRIDE_DISABLED As Integer = Area2D.SPACE_OVERRIDE_DISABLED
+    If v_SPACE_OVERRIDE_DISABLED = 0 Then pass_count = pass_count + 1
+    Dim v_SPACE_OVERRIDE_COMBINE As Integer = Area2D.SPACE_OVERRIDE_COMBINE
+    If v_SPACE_OVERRIDE_COMBINE = 1 Then pass_count = pass_count + 1
+    Dim v_SPACE_OVERRIDE_COMBINE_REPLACE As Integer = Area2D.SPACE_OVERRIDE_COMBINE_REPLACE
+    If v_SPACE_OVERRIDE_COMBINE_REPLACE = 2 Then pass_count = pass_count + 1
+    Dim v_SPACE_OVERRIDE_REPLACE As Integer = Area2D.SPACE_OVERRIDE_REPLACE
+    If v_SPACE_OVERRIDE_REPLACE = 3 Then pass_count = pass_count + 1
+    Dim v_SPACE_OVERRIDE_REPLACE_COMBINE As Integer = Area2D.SPACE_OVERRIDE_REPLACE_COMBINE
+    If v_SPACE_OVERRIDE_REPLACE_COMBINE = 4 Then pass_count = pass_count + 1
+    If pass_count = 5 Then
+        Print "PASS:enum_Area2D_SpaceOverride"
+    Else
+        Print "FAIL:enum_Area2D_SpaceOverride count=" & str(pass_count) & "/5"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Area2D_SpaceOverride err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_SPACE_OVERRIDE_DISABLED As Integer = Area3D.SPACE_OVERRIDE_DISABLED
+    If v_SPACE_OVERRIDE_DISABLED = 0 Then pass_count = pass_count + 1
+    Dim v_SPACE_OVERRIDE_COMBINE As Integer = Area3D.SPACE_OVERRIDE_COMBINE
+    If v_SPACE_OVERRIDE_COMBINE = 1 Then pass_count = pass_count + 1
+    Dim v_SPACE_OVERRIDE_COMBINE_REPLACE As Integer = Area3D.SPACE_OVERRIDE_COMBINE_REPLACE
+    If v_SPACE_OVERRIDE_COMBINE_REPLACE = 2 Then pass_count = pass_count + 1
+    Dim v_SPACE_OVERRIDE_REPLACE As Integer = Area3D.SPACE_OVERRIDE_REPLACE
+    If v_SPACE_OVERRIDE_REPLACE = 3 Then pass_count = pass_count + 1
+    Dim v_SPACE_OVERRIDE_REPLACE_COMBINE As Integer = Area3D.SPACE_OVERRIDE_REPLACE_COMBINE
+    If v_SPACE_OVERRIDE_REPLACE_COMBINE = 4 Then pass_count = pass_count + 1
+    If pass_count = 5 Then
+        Print "PASS:enum_Area3D_SpaceOverride"
+    Else
+        Print "FAIL:enum_Area3D_SpaceOverride count=" & str(pass_count) & "/5"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Area3D_SpaceOverride err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_STRETCH_WIDTH_CONTROLS_HEIGHT As Integer = AspectRatioContainer.STRETCH_WIDTH_CONTROLS_HEIGHT
+    If v_STRETCH_WIDTH_CONTROLS_HEIGHT = 0 Then pass_count = pass_count + 1
+    Dim v_STRETCH_HEIGHT_CONTROLS_WIDTH As Integer = AspectRatioContainer.STRETCH_HEIGHT_CONTROLS_WIDTH
+    If v_STRETCH_HEIGHT_CONTROLS_WIDTH = 1 Then pass_count = pass_count + 1
+    Dim v_STRETCH_FIT As Integer = AspectRatioContainer.STRETCH_FIT
+    If v_STRETCH_FIT = 2 Then pass_count = pass_count + 1
+    Dim v_STRETCH_COVER As Integer = AspectRatioContainer.STRETCH_COVER
+    If v_STRETCH_COVER = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_AspectRatioContainer_StretchMode"
+    Else
+        Print "FAIL:enum_AspectRatioContainer_StretchMode count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_AspectRatioContainer_StretchMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_ALIGNMENT_BEGIN As Integer = AspectRatioContainer.ALIGNMENT_BEGIN
+    If v_ALIGNMENT_BEGIN = 0 Then pass_count = pass_count + 1
+    Dim v_ALIGNMENT_CENTER As Integer = AspectRatioContainer.ALIGNMENT_CENTER
+    If v_ALIGNMENT_CENTER = 1 Then pass_count = pass_count + 1
+    Dim v_ALIGNMENT_END As Integer = AspectRatioContainer.ALIGNMENT_END
+    If v_ALIGNMENT_END = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_AspectRatioContainer_AlignmentMode"
+    Else
+        Print "FAIL:enum_AspectRatioContainer_AlignmentMode count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_AspectRatioContainer_AlignmentMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_MODE_CLIP As Integer = AudioEffectDistortion.MODE_CLIP
+    If v_MODE_CLIP = 0 Then pass_count = pass_count + 1
+    Dim v_MODE_ATAN As Integer = AudioEffectDistortion.MODE_ATAN
+    If v_MODE_ATAN = 1 Then pass_count = pass_count + 1
+    Dim v_MODE_LOFI As Integer = AudioEffectDistortion.MODE_LOFI
+    If v_MODE_LOFI = 2 Then pass_count = pass_count + 1
+    Dim v_MODE_OVERDRIVE As Integer = AudioEffectDistortion.MODE_OVERDRIVE
+    If v_MODE_OVERDRIVE = 3 Then pass_count = pass_count + 1
+    Dim v_MODE_WAVESHAPE As Integer = AudioEffectDistortion.MODE_WAVESHAPE
+    If v_MODE_WAVESHAPE = 4 Then pass_count = pass_count + 1
+    If pass_count = 5 Then
+        Print "PASS:enum_AudioEffectDistortion_Mode"
+    Else
+        Print "FAIL:enum_AudioEffectDistortion_Mode count=" & str(pass_count) & "/5"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_AudioEffectDistortion_Mode err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

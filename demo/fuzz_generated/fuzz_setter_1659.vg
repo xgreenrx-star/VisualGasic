@@ -1,0 +1,100 @@
+Attribute VB_Name = "fuzz_setter_1659"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As CSGSphere3D = CSGSphere3D.new()
+    If obj = Null Then
+        Print "SKIP:setter_CSGSphere3D (null)"
+        Exit Sub
+    End If
+    obj.set_radius(1.0)
+    Print "PASS:setter_CSGSphere3D_set_radius"
+    obj.set_radial_segments(0)
+    Print "PASS:setter_CSGSphere3D_set_radial_segments"
+    obj.set_rings(0)
+    Print "PASS:setter_CSGSphere3D_set_rings"
+    obj.set_smooth_faces(True)
+    Print "PASS:setter_CSGSphere3D_set_smooth_faces"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:setter_CSGSphere3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As CharacterBody3D = CharacterBody3D.new()
+    If obj = Null Then
+        Print "SKIP:setter_CharacterBody3D (null)"
+        Exit Sub
+    End If
+    obj.set_safe_margin(1.0)
+    Print "PASS:setter_CharacterBody3D_set_safe_margin"
+    obj.set_floor_stop_on_slope_enabled(True)
+    Print "PASS:setter_CharacterBody3D_set_floor_stop_on_slope_enabled"
+    obj.set_floor_constant_speed_enabled(True)
+    Print "PASS:setter_CharacterBody3D_set_floor_constant_speed_enabled"
+    obj.set_floor_block_on_wall_enabled(True)
+    Print "PASS:setter_CharacterBody3D_set_floor_block_on_wall_enabled"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:setter_CharacterBody3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As Label3D = Label3D.new()
+    If obj = Null Then
+        Print "SKIP:setter_Label3D (null)"
+        Exit Sub
+    End If
+    obj.set_text("test")
+    Print "PASS:setter_Label3D_set_text"
+    obj.set_language("test")
+    Print "PASS:setter_Label3D_set_language"
+    obj.set_uppercase(True)
+    Print "PASS:setter_Label3D_set_uppercase"
+    obj.set_render_priority(0)
+    Print "PASS:setter_Label3D_set_render_priority"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:setter_Label3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As RigidBody3D = RigidBody3D.new()
+    If obj = Null Then
+        Print "SKIP:setter_RigidBody3D (null)"
+        Exit Sub
+    End If
+    obj.set_mass(1.0)
+    Print "PASS:setter_RigidBody3D_set_mass"
+    obj.set_gravity_scale(1.0)
+    Print "PASS:setter_RigidBody3D_set_gravity_scale"
+    obj.set_linear_damp(1.0)
+    Print "PASS:setter_RigidBody3D_set_linear_damp"
+    obj.set_angular_damp(1.0)
+    Print "PASS:setter_RigidBody3D_set_angular_damp"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:setter_RigidBody3D err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+End Sub

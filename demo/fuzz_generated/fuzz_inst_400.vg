@@ -1,0 +1,154 @@
+Attribute VB_Name = "fuzz_inst_400"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As PhysicalSkyMaterial = PhysicalSkyMaterial.new()
+    If obj <> Null Then
+        Print "PASS:inst_PhysicalSkyMaterial"
+    Else
+        Print "FAIL:inst_PhysicalSkyMaterial returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_PhysicalSkyMaterial err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As PhysicsDirectBodyState2DExtension = PhysicsDirectBodyState2DExtension.new()
+    If obj <> Null Then
+        Print "PASS:inst_PhysicsDirectBodyState2DExtension"
+    Else
+        Print "FAIL:inst_PhysicsDirectBodyState2DExtension returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_PhysicsDirectBodyState2DExtension err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As PhysicsDirectBodyState3DExtension = PhysicsDirectBodyState3DExtension.new()
+    If obj <> Null Then
+        Print "PASS:inst_PhysicsDirectBodyState3DExtension"
+    Else
+        Print "FAIL:inst_PhysicsDirectBodyState3DExtension returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_PhysicsDirectBodyState3DExtension err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As PhysicsDirectSpaceState2DExtension = PhysicsDirectSpaceState2DExtension.new()
+    If obj <> Null Then
+        Print "PASS:inst_PhysicsDirectSpaceState2DExtension"
+    Else
+        Print "FAIL:inst_PhysicsDirectSpaceState2DExtension returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_PhysicsDirectSpaceState2DExtension err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As PhysicsDirectSpaceState3DExtension = PhysicsDirectSpaceState3DExtension.new()
+    If obj <> Null Then
+        Print "PASS:inst_PhysicsDirectSpaceState3DExtension"
+    Else
+        Print "FAIL:inst_PhysicsDirectSpaceState3DExtension returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_PhysicsDirectSpaceState3DExtension err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As PhysicsMaterial = PhysicsMaterial.new()
+    If obj <> Null Then
+        Print "PASS:inst_PhysicsMaterial"
+    Else
+        Print "FAIL:inst_PhysicsMaterial returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_PhysicsMaterial err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As PhysicsPointQueryParameters2D = PhysicsPointQueryParameters2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_PhysicsPointQueryParameters2D"
+    Else
+        Print "FAIL:inst_PhysicsPointQueryParameters2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_PhysicsPointQueryParameters2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As PhysicsPointQueryParameters3D = PhysicsPointQueryParameters3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_PhysicsPointQueryParameters3D"
+    Else
+        Print "FAIL:inst_PhysicsPointQueryParameters3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_PhysicsPointQueryParameters3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As PhysicsRayQueryParameters2D = PhysicsRayQueryParameters2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_PhysicsRayQueryParameters2D"
+    Else
+        Print "FAIL:inst_PhysicsRayQueryParameters2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_PhysicsRayQueryParameters2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_PhysicsRayQueryParameters3D"
+    Else
+        Print "FAIL:inst_PhysicsRayQueryParameters3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_PhysicsRayQueryParameters3D err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

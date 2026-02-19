@@ -1,0 +1,163 @@
+Attribute VB_Name = "fuzz_prop_800"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As ColorPickerButton = ColorPickerButton.new()
+    If obj = Null Then
+        Print "SKIP:prop_ColorPickerButton_edit_alpha (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.edit_alpha
+    Print "PASS:prop_ColorPickerButton_edit_alpha"
+    obj.edit_alpha = True
+    Dim val2 As Variant = obj.edit_alpha
+    Print "PASS:propset_ColorPickerButton_edit_alpha"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_ColorPickerButton_edit_alpha err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As ColorPickerButton = ColorPickerButton.new()
+    If obj = Null Then
+        Print "SKIP:prop_ColorPickerButton_edit_intensity (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.edit_intensity
+    Print "PASS:prop_ColorPickerButton_edit_intensity"
+    obj.edit_intensity = True
+    Dim val2 As Variant = obj.edit_intensity
+    Print "PASS:propset_ColorPickerButton_edit_intensity"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_ColorPickerButton_edit_intensity err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As ColorPickerButton = ColorPickerButton.new()
+    If obj = Null Then
+        Print "SKIP:prop_ColorPickerButton_text (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.text
+    Print "PASS:prop_ColorPickerButton_text"
+    obj.text = "test_string"
+    Dim val2 As Variant = obj.text
+    Print "PASS:propset_ColorPickerButton_text"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_ColorPickerButton_text err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As ColorPickerButton = ColorPickerButton.new()
+    If obj = Null Then
+        Print "SKIP:prop_ColorPickerButton_icon (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.icon
+    Print "PASS:prop_ColorPickerButton_icon"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_ColorPickerButton_icon err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As GraphEdit = GraphEdit.new()
+    If obj = Null Then
+        Print "SKIP:prop_GraphEdit_scroll_offset (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.scroll_offset
+    Print "PASS:prop_GraphEdit_scroll_offset"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_GraphEdit_scroll_offset err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As GraphEdit = GraphEdit.new()
+    If obj = Null Then
+        Print "SKIP:prop_GraphEdit_show_grid (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.show_grid
+    Print "PASS:prop_GraphEdit_show_grid"
+    obj.show_grid = True
+    Dim val2 As Variant = obj.show_grid
+    Print "PASS:propset_GraphEdit_show_grid"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_GraphEdit_show_grid err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As GraphEdit = GraphEdit.new()
+    If obj = Null Then
+        Print "SKIP:prop_GraphEdit_grid_pattern (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.grid_pattern
+    Print "PASS:prop_GraphEdit_grid_pattern"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_GraphEdit_grid_pattern err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As GraphEdit = GraphEdit.new()
+    If obj = Null Then
+        Print "SKIP:prop_GraphEdit_snapping_enabled (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.snapping_enabled
+    Print "PASS:prop_GraphEdit_snapping_enabled"
+    obj.snapping_enabled = True
+    Dim val2 As Variant = obj.snapping_enabled
+    Print "PASS:propset_GraphEdit_snapping_enabled"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_GraphEdit_snapping_enabled err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+End Sub

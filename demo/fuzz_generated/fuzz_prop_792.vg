@@ -1,0 +1,154 @@
+Attribute VB_Name = "fuzz_prop_792"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As OptionButton = OptionButton.new()
+    If obj = Null Then
+        Print "SKIP:prop_OptionButton_item_count (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.item_count
+    Print "PASS:prop_OptionButton_item_count"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_OptionButton_item_count err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As OptionButton = OptionButton.new()
+    If obj = Null Then
+        Print "SKIP:prop_OptionButton_text (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.text
+    Print "PASS:prop_OptionButton_text"
+    obj.text = "test_string"
+    Dim val2 As Variant = obj.text
+    Print "PASS:propset_OptionButton_text"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_OptionButton_text err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As TextureProgressBar = TextureProgressBar.new()
+    If obj = Null Then
+        Print "SKIP:prop_TextureProgressBar_fill_mode (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.fill_mode
+    Print "PASS:prop_TextureProgressBar_fill_mode"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_TextureProgressBar_fill_mode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As TextureProgressBar = TextureProgressBar.new()
+    If obj = Null Then
+        Print "SKIP:prop_TextureProgressBar_radial_initial_angle (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.radial_initial_angle
+    Print "PASS:prop_TextureProgressBar_radial_initial_angle"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_TextureProgressBar_radial_initial_angle err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As TextureProgressBar = TextureProgressBar.new()
+    If obj = Null Then
+        Print "SKIP:prop_TextureProgressBar_radial_fill_degrees (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.radial_fill_degrees
+    Print "PASS:prop_TextureProgressBar_radial_fill_degrees"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_TextureProgressBar_radial_fill_degrees err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As TextureProgressBar = TextureProgressBar.new()
+    If obj = Null Then
+        Print "SKIP:prop_TextureProgressBar_radial_center_offset (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.radial_center_offset
+    Print "PASS:prop_TextureProgressBar_radial_center_offset"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_TextureProgressBar_radial_center_offset err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As TextureProgressBar = TextureProgressBar.new()
+    If obj = Null Then
+        Print "SKIP:prop_TextureProgressBar_nine_patch_stretch (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.nine_patch_stretch
+    Print "PASS:prop_TextureProgressBar_nine_patch_stretch"
+    obj.nine_patch_stretch = True
+    Dim val2 As Variant = obj.nine_patch_stretch
+    Print "PASS:propset_TextureProgressBar_nine_patch_stretch"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_TextureProgressBar_nine_patch_stretch err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As ColorPickerButton = ColorPickerButton.new()
+    If obj = Null Then
+        Print "SKIP:prop_ColorPickerButton_color (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.color
+    Print "PASS:prop_ColorPickerButton_color"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_ColorPickerButton_color err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+End Sub

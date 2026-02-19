@@ -1,0 +1,144 @@
+Attribute VB_Name = "fuzz_enum_1491"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_JOINT_TYPE_NONE As Integer = PhysicalBone3D.JOINT_TYPE_NONE
+    If v_JOINT_TYPE_NONE = 0 Then pass_count = pass_count + 1
+    Dim v_JOINT_TYPE_PIN As Integer = PhysicalBone3D.JOINT_TYPE_PIN
+    If v_JOINT_TYPE_PIN = 1 Then pass_count = pass_count + 1
+    Dim v_JOINT_TYPE_CONE As Integer = PhysicalBone3D.JOINT_TYPE_CONE
+    If v_JOINT_TYPE_CONE = 2 Then pass_count = pass_count + 1
+    Dim v_JOINT_TYPE_HINGE As Integer = PhysicalBone3D.JOINT_TYPE_HINGE
+    If v_JOINT_TYPE_HINGE = 3 Then pass_count = pass_count + 1
+    Dim v_JOINT_TYPE_SLIDER As Integer = PhysicalBone3D.JOINT_TYPE_SLIDER
+    If v_JOINT_TYPE_SLIDER = 4 Then pass_count = pass_count + 1
+    Dim v_JOINT_TYPE_6DOF As Integer = PhysicalBone3D.JOINT_TYPE_6DOF
+    If v_JOINT_TYPE_6DOF = 5 Then pass_count = pass_count + 1
+    If pass_count = 6 Then
+        Print "PASS:enum_PhysicalBone3D_JointType"
+    Else
+        Print "FAIL:enum_PhysicalBone3D_JointType count=" & str(pass_count) & "/6"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_PhysicalBone3D_JointType err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_PARAM_BIAS As Integer = PinJoint3D.PARAM_BIAS
+    If v_PARAM_BIAS = 0 Then pass_count = pass_count + 1
+    Dim v_PARAM_DAMPING As Integer = PinJoint3D.PARAM_DAMPING
+    If v_PARAM_DAMPING = 1 Then pass_count = pass_count + 1
+    Dim v_PARAM_IMPULSE_CLAMP As Integer = PinJoint3D.PARAM_IMPULSE_CLAMP
+    If v_PARAM_IMPULSE_CLAMP = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_PinJoint3D_Param"
+    Else
+        Print "FAIL:enum_PinJoint3D_Param count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_PinJoint3D_Param err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_FACE_X As Integer = PlaneMesh.FACE_X
+    If v_FACE_X = 0 Then pass_count = pass_count + 1
+    Dim v_FACE_Y As Integer = PlaneMesh.FACE_Y
+    If v_FACE_Y = 1 Then pass_count = pass_count + 1
+    Dim v_FACE_Z As Integer = PlaneMesh.FACE_Z
+    If v_FACE_Z = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_PlaneMesh_Orientation"
+    Else
+        Print "FAIL:enum_PlaneMesh_Orientation count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_PlaneMesh_Orientation err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_COMPRESSION_MODE_LOSSLESS As Integer = PortableCompressedTexture2D.COMPRESSION_MODE_LOSSLESS
+    If v_COMPRESSION_MODE_LOSSLESS = 0 Then pass_count = pass_count + 1
+    Dim v_COMPRESSION_MODE_LOSSY As Integer = PortableCompressedTexture2D.COMPRESSION_MODE_LOSSY
+    If v_COMPRESSION_MODE_LOSSY = 1 Then pass_count = pass_count + 1
+    Dim v_COMPRESSION_MODE_BASIS_UNIVERSAL As Integer = PortableCompressedTexture2D.COMPRESSION_MODE_BASIS_UNIVERSAL
+    If v_COMPRESSION_MODE_BASIS_UNIVERSAL = 2 Then pass_count = pass_count + 1
+    Dim v_COMPRESSION_MODE_S3TC As Integer = PortableCompressedTexture2D.COMPRESSION_MODE_S3TC
+    If v_COMPRESSION_MODE_S3TC = 3 Then pass_count = pass_count + 1
+    Dim v_COMPRESSION_MODE_ETC2 As Integer = PortableCompressedTexture2D.COMPRESSION_MODE_ETC2
+    If v_COMPRESSION_MODE_ETC2 = 4 Then pass_count = pass_count + 1
+    Dim v_COMPRESSION_MODE_BPTC As Integer = PortableCompressedTexture2D.COMPRESSION_MODE_BPTC
+    If v_COMPRESSION_MODE_BPTC = 5 Then pass_count = pass_count + 1
+    Dim v_COMPRESSION_MODE_ASTC As Integer = PortableCompressedTexture2D.COMPRESSION_MODE_ASTC
+    If v_COMPRESSION_MODE_ASTC = 6 Then pass_count = pass_count + 1
+    If pass_count = 7 Then
+        Print "PASS:enum_PortableCompressedTexture2D_CompressionMode"
+    Else
+        Print "FAIL:enum_PortableCompressedTexture2D_CompressionMode count=" & str(pass_count) & "/7"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_PortableCompressedTexture2D_CompressionMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_FILL_BEGIN_TO_END As Integer = ProgressBar.FILL_BEGIN_TO_END
+    If v_FILL_BEGIN_TO_END = 0 Then pass_count = pass_count + 1
+    Dim v_FILL_END_TO_BEGIN As Integer = ProgressBar.FILL_END_TO_BEGIN
+    If v_FILL_END_TO_BEGIN = 1 Then pass_count = pass_count + 1
+    Dim v_FILL_TOP_TO_BOTTOM As Integer = ProgressBar.FILL_TOP_TO_BOTTOM
+    If v_FILL_TOP_TO_BOTTOM = 2 Then pass_count = pass_count + 1
+    Dim v_FILL_BOTTOM_TO_TOP As Integer = ProgressBar.FILL_BOTTOM_TO_TOP
+    If v_FILL_BOTTOM_TO_TOP = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_ProgressBar_FillMode"
+    Else
+        Print "FAIL:enum_ProgressBar_FillMode count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_ProgressBar_FillMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_UPDATE_ONCE As Integer = ReflectionProbe.UPDATE_ONCE
+    If v_UPDATE_ONCE = 0 Then pass_count = pass_count + 1
+    Dim v_UPDATE_ALWAYS As Integer = ReflectionProbe.UPDATE_ALWAYS
+    If v_UPDATE_ALWAYS = 1 Then pass_count = pass_count + 1
+    If pass_count = 2 Then
+        Print "PASS:enum_ReflectionProbe_UpdateMode"
+    Else
+        Print "FAIL:enum_ReflectionProbe_UpdateMode count=" & str(pass_count) & "/2"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_ReflectionProbe_UpdateMode err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

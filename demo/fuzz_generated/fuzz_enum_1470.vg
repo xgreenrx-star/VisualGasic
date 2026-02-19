@@ -1,0 +1,152 @@
+Attribute VB_Name = "fuzz_enum_1470"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_COMPRESSION_FASTLZ As Integer = FileAccess.COMPRESSION_FASTLZ
+    If v_COMPRESSION_FASTLZ = 0 Then pass_count = pass_count + 1
+    Dim v_COMPRESSION_DEFLATE As Integer = FileAccess.COMPRESSION_DEFLATE
+    If v_COMPRESSION_DEFLATE = 1 Then pass_count = pass_count + 1
+    Dim v_COMPRESSION_ZSTD As Integer = FileAccess.COMPRESSION_ZSTD
+    If v_COMPRESSION_ZSTD = 2 Then pass_count = pass_count + 1
+    Dim v_COMPRESSION_GZIP As Integer = FileAccess.COMPRESSION_GZIP
+    If v_COMPRESSION_GZIP = 3 Then pass_count = pass_count + 1
+    Dim v_COMPRESSION_BROTLI As Integer = FileAccess.COMPRESSION_BROTLI
+    If v_COMPRESSION_BROTLI = 4 Then pass_count = pass_count + 1
+    If pass_count = 5 Then
+        Print "PASS:enum_FileAccess_CompressionMode"
+    Else
+        Print "FAIL:enum_FileAccess_CompressionMode count=" & str(pass_count) & "/5"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_FileAccess_CompressionMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_UNIX_READ_OWNER As Integer = FileAccess.UNIX_READ_OWNER
+    If v_UNIX_READ_OWNER = 256 Then pass_count = pass_count + 1
+    Dim v_UNIX_WRITE_OWNER As Integer = FileAccess.UNIX_WRITE_OWNER
+    If v_UNIX_WRITE_OWNER = 128 Then pass_count = pass_count + 1
+    Dim v_UNIX_EXECUTE_OWNER As Integer = FileAccess.UNIX_EXECUTE_OWNER
+    If v_UNIX_EXECUTE_OWNER = 64 Then pass_count = pass_count + 1
+    Dim v_UNIX_READ_GROUP As Integer = FileAccess.UNIX_READ_GROUP
+    If v_UNIX_READ_GROUP = 32 Then pass_count = pass_count + 1
+    Dim v_UNIX_WRITE_GROUP As Integer = FileAccess.UNIX_WRITE_GROUP
+    If v_UNIX_WRITE_GROUP = 16 Then pass_count = pass_count + 1
+    Dim v_UNIX_EXECUTE_GROUP As Integer = FileAccess.UNIX_EXECUTE_GROUP
+    If v_UNIX_EXECUTE_GROUP = 8 Then pass_count = pass_count + 1
+    Dim v_UNIX_READ_OTHER As Integer = FileAccess.UNIX_READ_OTHER
+    If v_UNIX_READ_OTHER = 4 Then pass_count = pass_count + 1
+    Dim v_UNIX_WRITE_OTHER As Integer = FileAccess.UNIX_WRITE_OTHER
+    If v_UNIX_WRITE_OTHER = 2 Then pass_count = pass_count + 1
+    If pass_count = 8 Then
+        Print "PASS:enum_FileAccess_UnixPermissionFlags"
+    Else
+        Print "FAIL:enum_FileAccess_UnixPermissionFlags count=" & str(pass_count) & "/8"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_FileAccess_UnixPermissionFlags err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_ALIGNMENT_BEGIN As Integer = FlowContainer.ALIGNMENT_BEGIN
+    If v_ALIGNMENT_BEGIN = 0 Then pass_count = pass_count + 1
+    Dim v_ALIGNMENT_CENTER As Integer = FlowContainer.ALIGNMENT_CENTER
+    If v_ALIGNMENT_CENTER = 1 Then pass_count = pass_count + 1
+    Dim v_ALIGNMENT_END As Integer = FlowContainer.ALIGNMENT_END
+    If v_ALIGNMENT_END = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_FlowContainer_AlignmentMode"
+    Else
+        Print "FAIL:enum_FlowContainer_AlignmentMode count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_FlowContainer_AlignmentMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_LAST_WRAP_ALIGNMENT_INHERIT As Integer = FlowContainer.LAST_WRAP_ALIGNMENT_INHERIT
+    If v_LAST_WRAP_ALIGNMENT_INHERIT = 0 Then pass_count = pass_count + 1
+    Dim v_LAST_WRAP_ALIGNMENT_BEGIN As Integer = FlowContainer.LAST_WRAP_ALIGNMENT_BEGIN
+    If v_LAST_WRAP_ALIGNMENT_BEGIN = 1 Then pass_count = pass_count + 1
+    Dim v_LAST_WRAP_ALIGNMENT_CENTER As Integer = FlowContainer.LAST_WRAP_ALIGNMENT_CENTER
+    If v_LAST_WRAP_ALIGNMENT_CENTER = 2 Then pass_count = pass_count + 1
+    Dim v_LAST_WRAP_ALIGNMENT_END As Integer = FlowContainer.LAST_WRAP_ALIGNMENT_END
+    If v_LAST_WRAP_ALIGNMENT_END = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_FlowContainer_LastWrapAlignmentMode"
+    Else
+        Print "FAIL:enum_FlowContainer_LastWrapAlignmentMode count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_FlowContainer_LastWrapAlignmentMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_POSITION_TOP As Integer = FoldableContainer.POSITION_TOP
+    If v_POSITION_TOP = 0 Then pass_count = pass_count + 1
+    Dim v_POSITION_BOTTOM As Integer = FoldableContainer.POSITION_BOTTOM
+    If v_POSITION_BOTTOM = 1 Then pass_count = pass_count + 1
+    If pass_count = 2 Then
+        Print "PASS:enum_FoldableContainer_TitlePosition"
+    Else
+        Print "FAIL:enum_FoldableContainer_TitlePosition count=" & str(pass_count) & "/2"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_FoldableContainer_TitlePosition err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_TYPE_SCALAR As Integer = GLTFAccessor.TYPE_SCALAR
+    If v_TYPE_SCALAR = 0 Then pass_count = pass_count + 1
+    Dim v_TYPE_VEC2 As Integer = GLTFAccessor.TYPE_VEC2
+    If v_TYPE_VEC2 = 1 Then pass_count = pass_count + 1
+    Dim v_TYPE_VEC3 As Integer = GLTFAccessor.TYPE_VEC3
+    If v_TYPE_VEC3 = 2 Then pass_count = pass_count + 1
+    Dim v_TYPE_VEC4 As Integer = GLTFAccessor.TYPE_VEC4
+    If v_TYPE_VEC4 = 3 Then pass_count = pass_count + 1
+    Dim v_TYPE_MAT2 As Integer = GLTFAccessor.TYPE_MAT2
+    If v_TYPE_MAT2 = 4 Then pass_count = pass_count + 1
+    Dim v_TYPE_MAT3 As Integer = GLTFAccessor.TYPE_MAT3
+    If v_TYPE_MAT3 = 5 Then pass_count = pass_count + 1
+    Dim v_TYPE_MAT4 As Integer = GLTFAccessor.TYPE_MAT4
+    If v_TYPE_MAT4 = 6 Then pass_count = pass_count + 1
+    If pass_count = 7 Then
+        Print "PASS:enum_GLTFAccessor_GLTFAccessorType"
+    Else
+        Print "FAIL:enum_GLTFAccessor_GLTFAccessorType count=" & str(pass_count) & "/7"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_GLTFAccessor_GLTFAccessorType err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

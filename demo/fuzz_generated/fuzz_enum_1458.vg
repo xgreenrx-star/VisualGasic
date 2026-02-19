@@ -1,0 +1,140 @@
+Attribute VB_Name = "fuzz_enum_1458"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_DISTANCE_FADE_DISABLED As Integer = BaseMaterial3D.DISTANCE_FADE_DISABLED
+    If v_DISTANCE_FADE_DISABLED = 0 Then pass_count = pass_count + 1
+    Dim v_DISTANCE_FADE_PIXEL_ALPHA As Integer = BaseMaterial3D.DISTANCE_FADE_PIXEL_ALPHA
+    If v_DISTANCE_FADE_PIXEL_ALPHA = 1 Then pass_count = pass_count + 1
+    Dim v_DISTANCE_FADE_PIXEL_DITHER As Integer = BaseMaterial3D.DISTANCE_FADE_PIXEL_DITHER
+    If v_DISTANCE_FADE_PIXEL_DITHER = 2 Then pass_count = pass_count + 1
+    Dim v_DISTANCE_FADE_OBJECT_DITHER As Integer = BaseMaterial3D.DISTANCE_FADE_OBJECT_DITHER
+    If v_DISTANCE_FADE_OBJECT_DITHER = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_BaseMaterial3D_DistanceFadeMode"
+    Else
+        Print "FAIL:enum_BaseMaterial3D_DistanceFadeMode count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_BaseMaterial3D_DistanceFadeMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_STENCIL_MODE_DISABLED As Integer = BaseMaterial3D.STENCIL_MODE_DISABLED
+    If v_STENCIL_MODE_DISABLED = 0 Then pass_count = pass_count + 1
+    Dim v_STENCIL_MODE_OUTLINE As Integer = BaseMaterial3D.STENCIL_MODE_OUTLINE
+    If v_STENCIL_MODE_OUTLINE = 1 Then pass_count = pass_count + 1
+    Dim v_STENCIL_MODE_XRAY As Integer = BaseMaterial3D.STENCIL_MODE_XRAY
+    If v_STENCIL_MODE_XRAY = 2 Then pass_count = pass_count + 1
+    Dim v_STENCIL_MODE_CUSTOM As Integer = BaseMaterial3D.STENCIL_MODE_CUSTOM
+    If v_STENCIL_MODE_CUSTOM = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_BaseMaterial3D_StencilMode"
+    Else
+        Print "FAIL:enum_BaseMaterial3D_StencilMode count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_BaseMaterial3D_StencilMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_STENCIL_FLAG_READ As Integer = BaseMaterial3D.STENCIL_FLAG_READ
+    If v_STENCIL_FLAG_READ = 1 Then pass_count = pass_count + 1
+    Dim v_STENCIL_FLAG_WRITE As Integer = BaseMaterial3D.STENCIL_FLAG_WRITE
+    If v_STENCIL_FLAG_WRITE = 2 Then pass_count = pass_count + 1
+    Dim v_STENCIL_FLAG_WRITE_DEPTH_FAIL As Integer = BaseMaterial3D.STENCIL_FLAG_WRITE_DEPTH_FAIL
+    If v_STENCIL_FLAG_WRITE_DEPTH_FAIL = 4 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_BaseMaterial3D_StencilFlags"
+    Else
+        Print "FAIL:enum_BaseMaterial3D_StencilFlags count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_BaseMaterial3D_StencilFlags err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_STENCIL_COMPARE_ALWAYS As Integer = BaseMaterial3D.STENCIL_COMPARE_ALWAYS
+    If v_STENCIL_COMPARE_ALWAYS = 0 Then pass_count = pass_count + 1
+    Dim v_STENCIL_COMPARE_LESS As Integer = BaseMaterial3D.STENCIL_COMPARE_LESS
+    If v_STENCIL_COMPARE_LESS = 1 Then pass_count = pass_count + 1
+    Dim v_STENCIL_COMPARE_EQUAL As Integer = BaseMaterial3D.STENCIL_COMPARE_EQUAL
+    If v_STENCIL_COMPARE_EQUAL = 2 Then pass_count = pass_count + 1
+    Dim v_STENCIL_COMPARE_LESS_OR_EQUAL As Integer = BaseMaterial3D.STENCIL_COMPARE_LESS_OR_EQUAL
+    If v_STENCIL_COMPARE_LESS_OR_EQUAL = 3 Then pass_count = pass_count + 1
+    Dim v_STENCIL_COMPARE_GREATER As Integer = BaseMaterial3D.STENCIL_COMPARE_GREATER
+    If v_STENCIL_COMPARE_GREATER = 4 Then pass_count = pass_count + 1
+    Dim v_STENCIL_COMPARE_NOT_EQUAL As Integer = BaseMaterial3D.STENCIL_COMPARE_NOT_EQUAL
+    If v_STENCIL_COMPARE_NOT_EQUAL = 5 Then pass_count = pass_count + 1
+    Dim v_STENCIL_COMPARE_GREATER_OR_EQUAL As Integer = BaseMaterial3D.STENCIL_COMPARE_GREATER_OR_EQUAL
+    If v_STENCIL_COMPARE_GREATER_OR_EQUAL = 6 Then pass_count = pass_count + 1
+    If pass_count = 7 Then
+        Print "PASS:enum_BaseMaterial3D_StencilCompare"
+    Else
+        Print "FAIL:enum_BaseMaterial3D_StencilCompare count=" & str(pass_count) & "/7"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_BaseMaterial3D_StencilCompare err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_ALIGNMENT_BEGIN As Integer = BoxContainer.ALIGNMENT_BEGIN
+    If v_ALIGNMENT_BEGIN = 0 Then pass_count = pass_count + 1
+    Dim v_ALIGNMENT_CENTER As Integer = BoxContainer.ALIGNMENT_CENTER
+    If v_ALIGNMENT_CENTER = 1 Then pass_count = pass_count + 1
+    Dim v_ALIGNMENT_END As Integer = BoxContainer.ALIGNMENT_END
+    If v_ALIGNMENT_END = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_BoxContainer_AlignmentMode"
+    Else
+        Print "FAIL:enum_BoxContainer_AlignmentMode count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_BoxContainer_AlignmentMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_DRAW_ORDER_INDEX As Integer = CPUParticles2D.DRAW_ORDER_INDEX
+    If v_DRAW_ORDER_INDEX = 0 Then pass_count = pass_count + 1
+    Dim v_DRAW_ORDER_LIFETIME As Integer = CPUParticles2D.DRAW_ORDER_LIFETIME
+    If v_DRAW_ORDER_LIFETIME = 1 Then pass_count = pass_count + 1
+    If pass_count = 2 Then
+        Print "PASS:enum_CPUParticles2D_DrawOrder"
+    Else
+        Print "FAIL:enum_CPUParticles2D_DrawOrder count=" & str(pass_count) & "/2"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_CPUParticles2D_DrawOrder err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

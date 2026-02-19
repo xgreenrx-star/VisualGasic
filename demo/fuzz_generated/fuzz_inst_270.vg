@@ -1,0 +1,154 @@
+Attribute VB_Name = "fuzz_inst_270"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As InputEventJoypadMotion = InputEventJoypadMotion.new()
+    If obj <> Null Then
+        Print "PASS:inst_InputEventJoypadMotion"
+    Else
+        Print "FAIL:inst_InputEventJoypadMotion returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_InputEventJoypadMotion err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As InputEventKey = InputEventKey.new()
+    If obj <> Null Then
+        Print "PASS:inst_InputEventKey"
+    Else
+        Print "FAIL:inst_InputEventKey returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_InputEventKey err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As InputEventMIDI = InputEventMIDI.new()
+    If obj <> Null Then
+        Print "PASS:inst_InputEventMIDI"
+    Else
+        Print "FAIL:inst_InputEventMIDI returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_InputEventMIDI err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As InputEventMagnifyGesture = InputEventMagnifyGesture.new()
+    If obj <> Null Then
+        Print "PASS:inst_InputEventMagnifyGesture"
+    Else
+        Print "FAIL:inst_InputEventMagnifyGesture returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_InputEventMagnifyGesture err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As InputEventMouseButton = InputEventMouseButton.new()
+    If obj <> Null Then
+        Print "PASS:inst_InputEventMouseButton"
+    Else
+        Print "FAIL:inst_InputEventMouseButton returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_InputEventMouseButton err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As InputEventMouseMotion = InputEventMouseMotion.new()
+    If obj <> Null Then
+        Print "PASS:inst_InputEventMouseMotion"
+    Else
+        Print "FAIL:inst_InputEventMouseMotion returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_InputEventMouseMotion err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As InputEventPanGesture = InputEventPanGesture.new()
+    If obj <> Null Then
+        Print "PASS:inst_InputEventPanGesture"
+    Else
+        Print "FAIL:inst_InputEventPanGesture returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_InputEventPanGesture err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As InputEventScreenDrag = InputEventScreenDrag.new()
+    If obj <> Null Then
+        Print "PASS:inst_InputEventScreenDrag"
+    Else
+        Print "FAIL:inst_InputEventScreenDrag returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_InputEventScreenDrag err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As InputEventScreenTouch = InputEventScreenTouch.new()
+    If obj <> Null Then
+        Print "PASS:inst_InputEventScreenTouch"
+    Else
+        Print "FAIL:inst_InputEventScreenTouch returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_InputEventScreenTouch err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As InputEventShortcut = InputEventShortcut.new()
+    If obj <> Null Then
+        Print "PASS:inst_InputEventShortcut"
+    Else
+        Print "FAIL:inst_InputEventShortcut returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_InputEventShortcut err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

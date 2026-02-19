@@ -1,0 +1,160 @@
+Attribute VB_Name = "fuzz_enum_1508"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_SHADOW_ATLAS_QUADRANT_SUBDIV_DISABLED As Integer = Viewport.SHADOW_ATLAS_QUADRANT_SUBDIV_DISABLED
+    If v_SHADOW_ATLAS_QUADRANT_SUBDIV_DISABLED = 0 Then pass_count = pass_count + 1
+    Dim v_SHADOW_ATLAS_QUADRANT_SUBDIV_1 As Integer = Viewport.SHADOW_ATLAS_QUADRANT_SUBDIV_1
+    If v_SHADOW_ATLAS_QUADRANT_SUBDIV_1 = 1 Then pass_count = pass_count + 1
+    Dim v_SHADOW_ATLAS_QUADRANT_SUBDIV_4 As Integer = Viewport.SHADOW_ATLAS_QUADRANT_SUBDIV_4
+    If v_SHADOW_ATLAS_QUADRANT_SUBDIV_4 = 2 Then pass_count = pass_count + 1
+    Dim v_SHADOW_ATLAS_QUADRANT_SUBDIV_16 As Integer = Viewport.SHADOW_ATLAS_QUADRANT_SUBDIV_16
+    If v_SHADOW_ATLAS_QUADRANT_SUBDIV_16 = 3 Then pass_count = pass_count + 1
+    Dim v_SHADOW_ATLAS_QUADRANT_SUBDIV_64 As Integer = Viewport.SHADOW_ATLAS_QUADRANT_SUBDIV_64
+    If v_SHADOW_ATLAS_QUADRANT_SUBDIV_64 = 4 Then pass_count = pass_count + 1
+    Dim v_SHADOW_ATLAS_QUADRANT_SUBDIV_256 As Integer = Viewport.SHADOW_ATLAS_QUADRANT_SUBDIV_256
+    If v_SHADOW_ATLAS_QUADRANT_SUBDIV_256 = 5 Then pass_count = pass_count + 1
+    Dim v_SHADOW_ATLAS_QUADRANT_SUBDIV_1024 As Integer = Viewport.SHADOW_ATLAS_QUADRANT_SUBDIV_1024
+    If v_SHADOW_ATLAS_QUADRANT_SUBDIV_1024 = 6 Then pass_count = pass_count + 1
+    Dim v_SHADOW_ATLAS_QUADRANT_SUBDIV_MAX As Integer = Viewport.SHADOW_ATLAS_QUADRANT_SUBDIV_MAX
+    If v_SHADOW_ATLAS_QUADRANT_SUBDIV_MAX = 7 Then pass_count = pass_count + 1
+    If pass_count = 8 Then
+        Print "PASS:enum_Viewport_PositionalShadowAtlasQuadrantSubdiv"
+    Else
+        Print "FAIL:enum_Viewport_PositionalShadowAtlasQuadrantSubdiv count=" & str(pass_count) & "/8"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Viewport_PositionalShadowAtlasQuadrantSubdiv err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_SCALING_3D_MODE_BILINEAR As Integer = Viewport.SCALING_3D_MODE_BILINEAR
+    If v_SCALING_3D_MODE_BILINEAR = 0 Then pass_count = pass_count + 1
+    Dim v_SCALING_3D_MODE_FSR As Integer = Viewport.SCALING_3D_MODE_FSR
+    If v_SCALING_3D_MODE_FSR = 1 Then pass_count = pass_count + 1
+    Dim v_SCALING_3D_MODE_FSR2 As Integer = Viewport.SCALING_3D_MODE_FSR2
+    If v_SCALING_3D_MODE_FSR2 = 2 Then pass_count = pass_count + 1
+    Dim v_SCALING_3D_MODE_METALFX_SPATIAL As Integer = Viewport.SCALING_3D_MODE_METALFX_SPATIAL
+    If v_SCALING_3D_MODE_METALFX_SPATIAL = 3 Then pass_count = pass_count + 1
+    Dim v_SCALING_3D_MODE_METALFX_TEMPORAL As Integer = Viewport.SCALING_3D_MODE_METALFX_TEMPORAL
+    If v_SCALING_3D_MODE_METALFX_TEMPORAL = 4 Then pass_count = pass_count + 1
+    Dim v_SCALING_3D_MODE_MAX As Integer = Viewport.SCALING_3D_MODE_MAX
+    If v_SCALING_3D_MODE_MAX = 5 Then pass_count = pass_count + 1
+    If pass_count = 6 Then
+        Print "PASS:enum_Viewport_Scaling3DMode"
+    Else
+        Print "FAIL:enum_Viewport_Scaling3DMode count=" & str(pass_count) & "/6"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Viewport_Scaling3DMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_MSAA_DISABLED As Integer = Viewport.MSAA_DISABLED
+    If v_MSAA_DISABLED = 0 Then pass_count = pass_count + 1
+    Dim v_MSAA_2X As Integer = Viewport.MSAA_2X
+    If v_MSAA_2X = 1 Then pass_count = pass_count + 1
+    Dim v_MSAA_4X As Integer = Viewport.MSAA_4X
+    If v_MSAA_4X = 2 Then pass_count = pass_count + 1
+    Dim v_MSAA_8X As Integer = Viewport.MSAA_8X
+    If v_MSAA_8X = 3 Then pass_count = pass_count + 1
+    Dim v_MSAA_MAX As Integer = Viewport.MSAA_MAX
+    If v_MSAA_MAX = 4 Then pass_count = pass_count + 1
+    If pass_count = 5 Then
+        Print "PASS:enum_Viewport_MSAA"
+    Else
+        Print "FAIL:enum_Viewport_MSAA count=" & str(pass_count) & "/5"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Viewport_MSAA err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_ANISOTROPY_DISABLED As Integer = Viewport.ANISOTROPY_DISABLED
+    If v_ANISOTROPY_DISABLED = 0 Then pass_count = pass_count + 1
+    Dim v_ANISOTROPY_2X As Integer = Viewport.ANISOTROPY_2X
+    If v_ANISOTROPY_2X = 1 Then pass_count = pass_count + 1
+    Dim v_ANISOTROPY_4X As Integer = Viewport.ANISOTROPY_4X
+    If v_ANISOTROPY_4X = 2 Then pass_count = pass_count + 1
+    Dim v_ANISOTROPY_8X As Integer = Viewport.ANISOTROPY_8X
+    If v_ANISOTROPY_8X = 3 Then pass_count = pass_count + 1
+    Dim v_ANISOTROPY_16X As Integer = Viewport.ANISOTROPY_16X
+    If v_ANISOTROPY_16X = 4 Then pass_count = pass_count + 1
+    Dim v_ANISOTROPY_MAX As Integer = Viewport.ANISOTROPY_MAX
+    If v_ANISOTROPY_MAX = 5 Then pass_count = pass_count + 1
+    If pass_count = 6 Then
+        Print "PASS:enum_Viewport_AnisotropicFiltering"
+    Else
+        Print "FAIL:enum_Viewport_AnisotropicFiltering count=" & str(pass_count) & "/6"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Viewport_AnisotropicFiltering err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_SCREEN_SPACE_AA_DISABLED As Integer = Viewport.SCREEN_SPACE_AA_DISABLED
+    If v_SCREEN_SPACE_AA_DISABLED = 0 Then pass_count = pass_count + 1
+    Dim v_SCREEN_SPACE_AA_FXAA As Integer = Viewport.SCREEN_SPACE_AA_FXAA
+    If v_SCREEN_SPACE_AA_FXAA = 1 Then pass_count = pass_count + 1
+    Dim v_SCREEN_SPACE_AA_SMAA As Integer = Viewport.SCREEN_SPACE_AA_SMAA
+    If v_SCREEN_SPACE_AA_SMAA = 2 Then pass_count = pass_count + 1
+    Dim v_SCREEN_SPACE_AA_MAX As Integer = Viewport.SCREEN_SPACE_AA_MAX
+    If v_SCREEN_SPACE_AA_MAX = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_Viewport_ScreenSpaceAA"
+    Else
+        Print "FAIL:enum_Viewport_ScreenSpaceAA count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Viewport_ScreenSpaceAA err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_RENDER_INFO_OBJECTS_IN_FRAME As Integer = Viewport.RENDER_INFO_OBJECTS_IN_FRAME
+    If v_RENDER_INFO_OBJECTS_IN_FRAME = 0 Then pass_count = pass_count + 1
+    Dim v_RENDER_INFO_PRIMITIVES_IN_FRAME As Integer = Viewport.RENDER_INFO_PRIMITIVES_IN_FRAME
+    If v_RENDER_INFO_PRIMITIVES_IN_FRAME = 1 Then pass_count = pass_count + 1
+    Dim v_RENDER_INFO_DRAW_CALLS_IN_FRAME As Integer = Viewport.RENDER_INFO_DRAW_CALLS_IN_FRAME
+    If v_RENDER_INFO_DRAW_CALLS_IN_FRAME = 2 Then pass_count = pass_count + 1
+    Dim v_RENDER_INFO_MAX As Integer = Viewport.RENDER_INFO_MAX
+    If v_RENDER_INFO_MAX = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_Viewport_RenderInfo"
+    Else
+        Print "FAIL:enum_Viewport_RenderInfo count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Viewport_RenderInfo err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

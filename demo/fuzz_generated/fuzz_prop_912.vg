@@ -1,0 +1,157 @@
+Attribute VB_Name = "fuzz_prop_912"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As VScrollBar = VScrollBar.new()
+    If obj = Null Then
+        Print "SKIP:prop_VScrollBar_step (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.step
+    Print "PASS:prop_VScrollBar_step"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_VScrollBar_step err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As VScrollBar = VScrollBar.new()
+    If obj = Null Then
+        Print "SKIP:prop_VScrollBar_page (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.page
+    Print "PASS:prop_VScrollBar_page"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_VScrollBar_page err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As BaseButton = BaseButton.new()
+    If obj = Null Then
+        Print "SKIP:prop_BaseButton_disabled (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.disabled
+    Print "PASS:prop_BaseButton_disabled"
+    obj.disabled = True
+    Dim val2 As Variant = obj.disabled
+    Print "PASS:propset_BaseButton_disabled"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_BaseButton_disabled err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As BaseButton = BaseButton.new()
+    If obj = Null Then
+        Print "SKIP:prop_BaseButton_toggle_mode (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.toggle_mode
+    Print "PASS:prop_BaseButton_toggle_mode"
+    obj.toggle_mode = True
+    Dim val2 As Variant = obj.toggle_mode
+    Print "PASS:propset_BaseButton_toggle_mode"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_BaseButton_toggle_mode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As BaseButton = BaseButton.new()
+    If obj = Null Then
+        Print "SKIP:prop_BaseButton_button_pressed (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.button_pressed
+    Print "PASS:prop_BaseButton_button_pressed"
+    obj.button_pressed = True
+    Dim val2 As Variant = obj.button_pressed
+    Print "PASS:propset_BaseButton_button_pressed"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_BaseButton_button_pressed err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As BaseButton = BaseButton.new()
+    If obj = Null Then
+        Print "SKIP:prop_BaseButton_action_mode (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.action_mode
+    Print "PASS:prop_BaseButton_action_mode"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_BaseButton_action_mode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As BaseButton = BaseButton.new()
+    If obj = Null Then
+        Print "SKIP:prop_BaseButton_button_mask (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.button_mask
+    Print "PASS:prop_BaseButton_button_mask"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_BaseButton_button_mask err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As HSplitContainer = HSplitContainer.new()
+    If obj = Null Then
+        Print "SKIP:prop_HSplitContainer_split_offset (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.split_offset
+    Print "PASS:prop_HSplitContainer_split_offset"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_HSplitContainer_split_offset err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+End Sub

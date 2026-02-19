@@ -1,0 +1,172 @@
+Attribute VB_Name = "fuzz_meth_1605"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As CSGPolygon3D = CSGPolygon3D.new()
+    If obj = Null Then
+        Print "SKIP:meth_CSGPolygon3D (null)"
+        Exit Sub
+    End If
+    Dim r_get_polygon As Variant = obj.get_polygon()
+    Print "PASS:meth_CSGPolygon3D_get_polygon"
+    Dim r_get_mode As Variant = obj.get_mode()
+    Print "PASS:meth_CSGPolygon3D_get_mode"
+    Dim r_get_depth As Variant = obj.get_depth()
+    Print "PASS:meth_CSGPolygon3D_get_depth"
+    Dim r_get_spin_degrees As Variant = obj.get_spin_degrees()
+    Print "PASS:meth_CSGPolygon3D_get_spin_degrees"
+    Dim r_get_spin_sides As Variant = obj.get_spin_sides()
+    Print "PASS:meth_CSGPolygon3D_get_spin_sides"
+    Dim r_get_path_node As Variant = obj.get_path_node()
+    Print "PASS:meth_CSGPolygon3D_get_path_node"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_CSGPolygon3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As PhysicalBone2D = PhysicalBone2D.new()
+    If obj = Null Then
+        Print "SKIP:meth_PhysicalBone2D (null)"
+        Exit Sub
+    End If
+    Dim r_get_joint As Variant = obj.get_joint()
+    Print "PASS:meth_PhysicalBone2D_get_joint"
+    Dim r_get_auto_configure_joint As Variant = obj.get_auto_configure_joint()
+    Print "PASS:meth_PhysicalBone2D_get_auto_configure_joint"
+    Dim r_get_simulate_physics As Variant = obj.get_simulate_physics()
+    Print "PASS:meth_PhysicalBone2D_get_simulate_physics"
+    Dim r_is_simulating_physics As Variant = obj.is_simulating_physics()
+    Print "PASS:meth_PhysicalBone2D_is_simulating_physics"
+    Dim r_get_bone2d_nodepath As Variant = obj.get_bone2d_nodepath()
+    Print "PASS:meth_PhysicalBone2D_get_bone2d_nodepath"
+    Dim r_get_bone2d_index As Variant = obj.get_bone2d_index()
+    Print "PASS:meth_PhysicalBone2D_get_bone2d_index"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_PhysicalBone2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As GPUParticles3D = GPUParticles3D.new()
+    If obj = Null Then
+        Print "SKIP:meth_GPUParticles3D (null)"
+        Exit Sub
+    End If
+    Dim r_is_emitting As Variant = obj.is_emitting()
+    Print "PASS:meth_GPUParticles3D_is_emitting"
+    Dim r_get_amount As Variant = obj.get_amount()
+    Print "PASS:meth_GPUParticles3D_get_amount"
+    Dim r_get_lifetime As Variant = obj.get_lifetime()
+    Print "PASS:meth_GPUParticles3D_get_lifetime"
+    Dim r_get_one_shot As Variant = obj.get_one_shot()
+    Print "PASS:meth_GPUParticles3D_get_one_shot"
+    Dim r_get_pre_process_time As Variant = obj.get_pre_process_time()
+    Print "PASS:meth_GPUParticles3D_get_pre_process_time"
+    Dim r_get_explosiveness_ratio As Variant = obj.get_explosiveness_ratio()
+    Print "PASS:meth_GPUParticles3D_get_explosiveness_ratio"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_GPUParticles3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As SubViewport = SubViewport.new()
+    If obj = Null Then
+        Print "SKIP:meth_SubViewport (null)"
+        Exit Sub
+    End If
+    Dim r_get_size As Variant = obj.get_size()
+    Print "PASS:meth_SubViewport_get_size"
+    Dim r_get_size_2d_override As Variant = obj.get_size_2d_override()
+    Print "PASS:meth_SubViewport_get_size_2d_override"
+    Dim r_is_size_2d_override_stretch_enabled As Variant = obj.is_size_2d_override_stretch_enabled()
+    Print "PASS:meth_SubViewport_is_size_2d_override_stretch_enabled"
+    Dim r_get_update_mode As Variant = obj.get_update_mode()
+    Print "PASS:meth_SubViewport_get_update_mode"
+    Dim r_get_clear_mode As Variant = obj.get_clear_mode()
+    Print "PASS:meth_SubViewport_get_clear_mode"
+    Dim r_find_world_2d As Variant = obj.find_world_2d()
+    Print "PASS:meth_SubViewport_find_world_2d"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_SubViewport err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As AnimatedSprite3D = AnimatedSprite3D.new()
+    If obj = Null Then
+        Print "SKIP:meth_AnimatedSprite3D (null)"
+        Exit Sub
+    End If
+    Dim r_get_sprite_frames As Variant = obj.get_sprite_frames()
+    Print "PASS:meth_AnimatedSprite3D_get_sprite_frames"
+    Dim r_get_animation As Variant = obj.get_animation()
+    Print "PASS:meth_AnimatedSprite3D_get_animation"
+    Dim r_get_autoplay As Variant = obj.get_autoplay()
+    Print "PASS:meth_AnimatedSprite3D_get_autoplay"
+    Dim r_is_playing As Variant = obj.is_playing()
+    Print "PASS:meth_AnimatedSprite3D_is_playing"
+    Dim r_get_frame As Variant = obj.get_frame()
+    Print "PASS:meth_AnimatedSprite3D_get_frame"
+    Dim r_get_frame_progress As Variant = obj.get_frame_progress()
+    Print "PASS:meth_AnimatedSprite3D_get_frame_progress"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_AnimatedSprite3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As CharacterBody2D = CharacterBody2D.new()
+    If obj = Null Then
+        Print "SKIP:meth_CharacterBody2D (null)"
+        Exit Sub
+    End If
+    Dim r_get_velocity As Variant = obj.get_velocity()
+    Print "PASS:meth_CharacterBody2D_get_velocity"
+    Dim r_get_safe_margin As Variant = obj.get_safe_margin()
+    Print "PASS:meth_CharacterBody2D_get_safe_margin"
+    Dim r_is_floor_stop_on_slope_enabled As Variant = obj.is_floor_stop_on_slope_enabled()
+    Print "PASS:meth_CharacterBody2D_is_floor_stop_on_slope_enabled"
+    Dim r_is_floor_constant_speed_enabled As Variant = obj.is_floor_constant_speed_enabled()
+    Print "PASS:meth_CharacterBody2D_is_floor_constant_speed_enabled"
+    Dim r_is_floor_block_on_wall_enabled As Variant = obj.is_floor_block_on_wall_enabled()
+    Print "PASS:meth_CharacterBody2D_is_floor_block_on_wall_enabled"
+    Dim r_is_slide_on_ceiling_enabled As Variant = obj.is_slide_on_ceiling_enabled()
+    Print "PASS:meth_CharacterBody2D_is_slide_on_ceiling_enabled"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_CharacterBody2D err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

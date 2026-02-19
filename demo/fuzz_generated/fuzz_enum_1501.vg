@@ -1,0 +1,146 @@
+Attribute VB_Name = "fuzz_enum_1501"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_GUTTER_TYPE_STRING As Integer = TextEdit.GUTTER_TYPE_STRING
+    If v_GUTTER_TYPE_STRING = 0 Then pass_count = pass_count + 1
+    Dim v_GUTTER_TYPE_ICON As Integer = TextEdit.GUTTER_TYPE_ICON
+    If v_GUTTER_TYPE_ICON = 1 Then pass_count = pass_count + 1
+    Dim v_GUTTER_TYPE_CUSTOM As Integer = TextEdit.GUTTER_TYPE_CUSTOM
+    If v_GUTTER_TYPE_CUSTOM = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_TextEdit_GutterType"
+    Else
+        Print "FAIL:enum_TextEdit_GutterType count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_TextEdit_GutterType err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_FONT_ANTIALIASING_NONE As Integer = TextServer.FONT_ANTIALIASING_NONE
+    If v_FONT_ANTIALIASING_NONE = 0 Then pass_count = pass_count + 1
+    Dim v_FONT_ANTIALIASING_GRAY As Integer = TextServer.FONT_ANTIALIASING_GRAY
+    If v_FONT_ANTIALIASING_GRAY = 1 Then pass_count = pass_count + 1
+    Dim v_FONT_ANTIALIASING_LCD As Integer = TextServer.FONT_ANTIALIASING_LCD
+    If v_FONT_ANTIALIASING_LCD = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_TextServer_FontAntialiasing"
+    Else
+        Print "FAIL:enum_TextServer_FontAntialiasing count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_TextServer_FontAntialiasing err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_FONT_LCD_SUBPIXEL_LAYOUT_NONE As Integer = TextServer.FONT_LCD_SUBPIXEL_LAYOUT_NONE
+    If v_FONT_LCD_SUBPIXEL_LAYOUT_NONE = 0 Then pass_count = pass_count + 1
+    Dim v_FONT_LCD_SUBPIXEL_LAYOUT_HRGB As Integer = TextServer.FONT_LCD_SUBPIXEL_LAYOUT_HRGB
+    If v_FONT_LCD_SUBPIXEL_LAYOUT_HRGB = 1 Then pass_count = pass_count + 1
+    Dim v_FONT_LCD_SUBPIXEL_LAYOUT_HBGR As Integer = TextServer.FONT_LCD_SUBPIXEL_LAYOUT_HBGR
+    If v_FONT_LCD_SUBPIXEL_LAYOUT_HBGR = 2 Then pass_count = pass_count + 1
+    Dim v_FONT_LCD_SUBPIXEL_LAYOUT_VRGB As Integer = TextServer.FONT_LCD_SUBPIXEL_LAYOUT_VRGB
+    If v_FONT_LCD_SUBPIXEL_LAYOUT_VRGB = 3 Then pass_count = pass_count + 1
+    Dim v_FONT_LCD_SUBPIXEL_LAYOUT_VBGR As Integer = TextServer.FONT_LCD_SUBPIXEL_LAYOUT_VBGR
+    If v_FONT_LCD_SUBPIXEL_LAYOUT_VBGR = 4 Then pass_count = pass_count + 1
+    Dim v_FONT_LCD_SUBPIXEL_LAYOUT_MAX As Integer = TextServer.FONT_LCD_SUBPIXEL_LAYOUT_MAX
+    If v_FONT_LCD_SUBPIXEL_LAYOUT_MAX = 5 Then pass_count = pass_count + 1
+    If pass_count = 6 Then
+        Print "PASS:enum_TextServer_FontLCDSubpixelLayout"
+    Else
+        Print "FAIL:enum_TextServer_FontLCDSubpixelLayout count=" & str(pass_count) & "/6"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_TextServer_FontLCDSubpixelLayout err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_DIRECTION_AUTO As Integer = TextServer.DIRECTION_AUTO
+    If v_DIRECTION_AUTO = 0 Then pass_count = pass_count + 1
+    Dim v_DIRECTION_LTR As Integer = TextServer.DIRECTION_LTR
+    If v_DIRECTION_LTR = 1 Then pass_count = pass_count + 1
+    Dim v_DIRECTION_RTL As Integer = TextServer.DIRECTION_RTL
+    If v_DIRECTION_RTL = 2 Then pass_count = pass_count + 1
+    Dim v_DIRECTION_INHERITED As Integer = TextServer.DIRECTION_INHERITED
+    If v_DIRECTION_INHERITED = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_TextServer_Direction"
+    Else
+        Print "FAIL:enum_TextServer_Direction count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_TextServer_Direction err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_ORIENTATION_HORIZONTAL As Integer = TextServer.ORIENTATION_HORIZONTAL
+    If v_ORIENTATION_HORIZONTAL = 0 Then pass_count = pass_count + 1
+    Dim v_ORIENTATION_VERTICAL As Integer = TextServer.ORIENTATION_VERTICAL
+    If v_ORIENTATION_VERTICAL = 1 Then pass_count = pass_count + 1
+    If pass_count = 2 Then
+        Print "PASS:enum_TextServer_Orientation"
+    Else
+        Print "FAIL:enum_TextServer_Orientation count=" & str(pass_count) & "/2"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_TextServer_Orientation err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_JUSTIFICATION_NONE As Integer = TextServer.JUSTIFICATION_NONE
+    If v_JUSTIFICATION_NONE = 0 Then pass_count = pass_count + 1
+    Dim v_JUSTIFICATION_KASHIDA As Integer = TextServer.JUSTIFICATION_KASHIDA
+    If v_JUSTIFICATION_KASHIDA = 1 Then pass_count = pass_count + 1
+    Dim v_JUSTIFICATION_WORD_BOUND As Integer = TextServer.JUSTIFICATION_WORD_BOUND
+    If v_JUSTIFICATION_WORD_BOUND = 2 Then pass_count = pass_count + 1
+    Dim v_JUSTIFICATION_TRIM_EDGE_SPACES As Integer = TextServer.JUSTIFICATION_TRIM_EDGE_SPACES
+    If v_JUSTIFICATION_TRIM_EDGE_SPACES = 4 Then pass_count = pass_count + 1
+    Dim v_JUSTIFICATION_AFTER_LAST_TAB As Integer = TextServer.JUSTIFICATION_AFTER_LAST_TAB
+    If v_JUSTIFICATION_AFTER_LAST_TAB = 8 Then pass_count = pass_count + 1
+    Dim v_JUSTIFICATION_CONSTRAIN_ELLIPSIS As Integer = TextServer.JUSTIFICATION_CONSTRAIN_ELLIPSIS
+    If v_JUSTIFICATION_CONSTRAIN_ELLIPSIS = 16 Then pass_count = pass_count + 1
+    Dim v_JUSTIFICATION_SKIP_LAST_LINE As Integer = TextServer.JUSTIFICATION_SKIP_LAST_LINE
+    If v_JUSTIFICATION_SKIP_LAST_LINE = 32 Then pass_count = pass_count + 1
+    Dim v_JUSTIFICATION_SKIP_LAST_LINE_WITH_VISIBLE_CHARS As Integer = TextServer.JUSTIFICATION_SKIP_LAST_LINE_WITH_VISIBLE_CHARS
+    If v_JUSTIFICATION_SKIP_LAST_LINE_WITH_VISIBLE_CHARS = 64 Then pass_count = pass_count + 1
+    If pass_count = 8 Then
+        Print "PASS:enum_TextServer_JustificationFlag"
+    Else
+        Print "FAIL:enum_TextServer_JustificationFlag count=" & str(pass_count) & "/8"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_TextServer_JustificationFlag err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

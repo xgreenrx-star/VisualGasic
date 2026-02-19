@@ -1,0 +1,134 @@
+Attribute VB_Name = "fuzz_enum_1493"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_MENU_COPY As Integer = RichTextLabel.MENU_COPY
+    If v_MENU_COPY = 0 Then pass_count = pass_count + 1
+    Dim v_MENU_SELECT_ALL As Integer = RichTextLabel.MENU_SELECT_ALL
+    If v_MENU_SELECT_ALL = 1 Then pass_count = pass_count + 1
+    Dim v_MENU_MAX As Integer = RichTextLabel.MENU_MAX
+    If v_MENU_MAX = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_RichTextLabel_MenuItems"
+    Else
+        Print "FAIL:enum_RichTextLabel_MenuItems count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_RichTextLabel_MenuItems err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_META_UNDERLINE_NEVER As Integer = RichTextLabel.META_UNDERLINE_NEVER
+    If v_META_UNDERLINE_NEVER = 0 Then pass_count = pass_count + 1
+    Dim v_META_UNDERLINE_ALWAYS As Integer = RichTextLabel.META_UNDERLINE_ALWAYS
+    If v_META_UNDERLINE_ALWAYS = 1 Then pass_count = pass_count + 1
+    Dim v_META_UNDERLINE_ON_HOVER As Integer = RichTextLabel.META_UNDERLINE_ON_HOVER
+    If v_META_UNDERLINE_ON_HOVER = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_RichTextLabel_MetaUnderline"
+    Else
+        Print "FAIL:enum_RichTextLabel_MetaUnderline count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_RichTextLabel_MetaUnderline err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_UPDATE_TEXTURE As Integer = RichTextLabel.UPDATE_TEXTURE
+    If v_UPDATE_TEXTURE = 1 Then pass_count = pass_count + 1
+    Dim v_UPDATE_SIZE As Integer = RichTextLabel.UPDATE_SIZE
+    If v_UPDATE_SIZE = 2 Then pass_count = pass_count + 1
+    Dim v_UPDATE_COLOR As Integer = RichTextLabel.UPDATE_COLOR
+    If v_UPDATE_COLOR = 4 Then pass_count = pass_count + 1
+    Dim v_UPDATE_ALIGNMENT As Integer = RichTextLabel.UPDATE_ALIGNMENT
+    If v_UPDATE_ALIGNMENT = 8 Then pass_count = pass_count + 1
+    Dim v_UPDATE_REGION As Integer = RichTextLabel.UPDATE_REGION
+    If v_UPDATE_REGION = 16 Then pass_count = pass_count + 1
+    Dim v_UPDATE_PAD As Integer = RichTextLabel.UPDATE_PAD
+    If v_UPDATE_PAD = 32 Then pass_count = pass_count + 1
+    Dim v_UPDATE_TOOLTIP As Integer = RichTextLabel.UPDATE_TOOLTIP
+    If v_UPDATE_TOOLTIP = 64 Then pass_count = pass_count + 1
+    Dim v_UPDATE_WIDTH_IN_PERCENT As Integer = RichTextLabel.UPDATE_WIDTH_IN_PERCENT
+    If v_UPDATE_WIDTH_IN_PERCENT = 128 Then pass_count = pass_count + 1
+    If pass_count = 8 Then
+        Print "PASS:enum_RichTextLabel_ImageUpdateMask"
+    Else
+        Print "FAIL:enum_RichTextLabel_ImageUpdateMask count=" & str(pass_count) & "/8"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_RichTextLabel_ImageUpdateMask err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_FREEZE_MODE_STATIC As Integer = RigidBody2D.FREEZE_MODE_STATIC
+    If v_FREEZE_MODE_STATIC = 0 Then pass_count = pass_count + 1
+    Dim v_FREEZE_MODE_KINEMATIC As Integer = RigidBody2D.FREEZE_MODE_KINEMATIC
+    If v_FREEZE_MODE_KINEMATIC = 1 Then pass_count = pass_count + 1
+    If pass_count = 2 Then
+        Print "PASS:enum_RigidBody2D_FreezeMode"
+    Else
+        Print "FAIL:enum_RigidBody2D_FreezeMode count=" & str(pass_count) & "/2"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_RigidBody2D_FreezeMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_CENTER_OF_MASS_MODE_AUTO As Integer = RigidBody2D.CENTER_OF_MASS_MODE_AUTO
+    If v_CENTER_OF_MASS_MODE_AUTO = 0 Then pass_count = pass_count + 1
+    Dim v_CENTER_OF_MASS_MODE_CUSTOM As Integer = RigidBody2D.CENTER_OF_MASS_MODE_CUSTOM
+    If v_CENTER_OF_MASS_MODE_CUSTOM = 1 Then pass_count = pass_count + 1
+    If pass_count = 2 Then
+        Print "PASS:enum_RigidBody2D_CenterOfMassMode"
+    Else
+        Print "FAIL:enum_RigidBody2D_CenterOfMassMode count=" & str(pass_count) & "/2"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_RigidBody2D_CenterOfMassMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_DAMP_MODE_COMBINE As Integer = RigidBody2D.DAMP_MODE_COMBINE
+    If v_DAMP_MODE_COMBINE = 0 Then pass_count = pass_count + 1
+    Dim v_DAMP_MODE_REPLACE As Integer = RigidBody2D.DAMP_MODE_REPLACE
+    If v_DAMP_MODE_REPLACE = 1 Then pass_count = pass_count + 1
+    If pass_count = 2 Then
+        Print "PASS:enum_RigidBody2D_DampMode"
+    Else
+        Print "FAIL:enum_RigidBody2D_DampMode count=" & str(pass_count) & "/2"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_RigidBody2D_DampMode err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

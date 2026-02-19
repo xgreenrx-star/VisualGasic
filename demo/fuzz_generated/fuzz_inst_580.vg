@@ -1,0 +1,157 @@
+Attribute VB_Name = "fuzz_inst_580"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As Timer = Timer.new()
+    If obj <> Null Then
+        Print "PASS:inst_Timer"
+        obj.free()
+    Else
+        Print "FAIL:inst_Timer returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_Timer err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As TorusMesh = TorusMesh.new()
+    If obj <> Null Then
+        Print "PASS:inst_TorusMesh"
+    Else
+        Print "FAIL:inst_TorusMesh returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_TorusMesh err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As TouchScreenButton = TouchScreenButton.new()
+    If obj <> Null Then
+        Print "PASS:inst_TouchScreenButton"
+        obj.free()
+    Else
+        Print "FAIL:inst_TouchScreenButton returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_TouchScreenButton err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As Translation = Translation.new()
+    If obj <> Null Then
+        Print "PASS:inst_Translation"
+    Else
+        Print "FAIL:inst_Translation returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_Translation err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As TranslationDomain = TranslationDomain.new()
+    If obj <> Null Then
+        Print "PASS:inst_TranslationDomain"
+    Else
+        Print "FAIL:inst_TranslationDomain returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_TranslationDomain err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As Tree = Tree.new()
+    If obj <> Null Then
+        Print "PASS:inst_Tree"
+        obj.free()
+    Else
+        Print "FAIL:inst_Tree returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_Tree err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As TriangleMesh = TriangleMesh.new()
+    If obj <> Null Then
+        Print "PASS:inst_TriangleMesh"
+    Else
+        Print "FAIL:inst_TriangleMesh returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_TriangleMesh err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As TubeTrailMesh = TubeTrailMesh.new()
+    If obj <> Null Then
+        Print "PASS:inst_TubeTrailMesh"
+    Else
+        Print "FAIL:inst_TubeTrailMesh returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_TubeTrailMesh err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As UDPServer = UDPServer.new()
+    If obj <> Null Then
+        Print "PASS:inst_UDPServer"
+    Else
+        Print "FAIL:inst_UDPServer returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_UDPServer err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As UPNP = UPNP.new()
+    If obj <> Null Then
+        Print "PASS:inst_UPNP"
+    Else
+        Print "FAIL:inst_UPNP returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_UPNP err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

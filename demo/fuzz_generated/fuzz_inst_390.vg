@@ -1,0 +1,163 @@
+Attribute VB_Name = "fuzz_inst_390"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As ParallaxBackground = ParallaxBackground.new()
+    If obj <> Null Then
+        Print "PASS:inst_ParallaxBackground"
+        obj.free()
+    Else
+        Print "FAIL:inst_ParallaxBackground returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_ParallaxBackground err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As ParallaxLayer = ParallaxLayer.new()
+    If obj <> Null Then
+        Print "PASS:inst_ParallaxLayer"
+        obj.free()
+    Else
+        Print "FAIL:inst_ParallaxLayer returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_ParallaxLayer err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As ParticleProcessMaterial = ParticleProcessMaterial.new()
+    If obj <> Null Then
+        Print "PASS:inst_ParticleProcessMaterial"
+    Else
+        Print "FAIL:inst_ParticleProcessMaterial returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_ParticleProcessMaterial err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As Path2D = Path2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_Path2D"
+        obj.free()
+    Else
+        Print "FAIL:inst_Path2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_Path2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As Path3D = Path3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_Path3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_Path3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_Path3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As PathFollow2D = PathFollow2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_PathFollow2D"
+        obj.free()
+    Else
+        Print "FAIL:inst_PathFollow2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_PathFollow2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As PathFollow3D = PathFollow3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_PathFollow3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_PathFollow3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_PathFollow3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As PhysicalBone2D = PhysicalBone2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_PhysicalBone2D"
+        obj.free()
+    Else
+        Print "FAIL:inst_PhysicalBone2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_PhysicalBone2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As PhysicalBone3D = PhysicalBone3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_PhysicalBone3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_PhysicalBone3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_PhysicalBone3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As PhysicalBoneSimulator3D = PhysicalBoneSimulator3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_PhysicalBoneSimulator3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_PhysicalBoneSimulator3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_PhysicalBoneSimulator3D err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

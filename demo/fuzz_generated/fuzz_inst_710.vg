@@ -1,0 +1,155 @@
+Attribute VB_Name = "fuzz_inst_710"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeVectorRefract = VisualShaderNodeVectorRefract.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeVectorRefract"
+    Else
+        Print "FAIL:inst_VisualShaderNodeVectorRefract returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeVectorRefract err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeWorldPositionFromDepth = VisualShaderNodeWorldPositionFromDepth.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeWorldPositionFromDepth"
+    Else
+        Print "FAIL:inst_VisualShaderNodeWorldPositionFromDepth returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeWorldPositionFromDepth err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As VoxelGI = VoxelGI.new()
+    If obj <> Null Then
+        Print "PASS:inst_VoxelGI"
+        obj.free()
+    Else
+        Print "FAIL:inst_VoxelGI returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VoxelGI err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As VoxelGIData = VoxelGIData.new()
+    If obj <> Null Then
+        Print "PASS:inst_VoxelGIData"
+    Else
+        Print "FAIL:inst_VoxelGIData returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VoxelGIData err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As WeakRef = WeakRef.new()
+    If obj <> Null Then
+        Print "PASS:inst_WeakRef"
+    Else
+        Print "FAIL:inst_WeakRef returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_WeakRef err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As WebRTCDataChannelExtension = WebRTCDataChannelExtension.new()
+    If obj <> Null Then
+        Print "PASS:inst_WebRTCDataChannelExtension"
+    Else
+        Print "FAIL:inst_WebRTCDataChannelExtension returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_WebRTCDataChannelExtension err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As WebRTCMultiplayerPeer = WebRTCMultiplayerPeer.new()
+    If obj <> Null Then
+        Print "PASS:inst_WebRTCMultiplayerPeer"
+    Else
+        Print "FAIL:inst_WebRTCMultiplayerPeer returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_WebRTCMultiplayerPeer err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As WebRTCPeerConnection = WebRTCPeerConnection.new()
+    If obj <> Null Then
+        Print "PASS:inst_WebRTCPeerConnection"
+    Else
+        Print "FAIL:inst_WebRTCPeerConnection returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_WebRTCPeerConnection err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As WebRTCPeerConnectionExtension = WebRTCPeerConnectionExtension.new()
+    If obj <> Null Then
+        Print "PASS:inst_WebRTCPeerConnectionExtension"
+    Else
+        Print "FAIL:inst_WebRTCPeerConnectionExtension returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_WebRTCPeerConnectionExtension err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As WebSocketMultiplayerPeer = WebSocketMultiplayerPeer.new()
+    If obj <> Null Then
+        Print "PASS:inst_WebSocketMultiplayerPeer"
+    Else
+        Print "FAIL:inst_WebSocketMultiplayerPeer returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_WebSocketMultiplayerPeer err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

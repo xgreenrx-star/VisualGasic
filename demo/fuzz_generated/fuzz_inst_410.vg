@@ -1,0 +1,156 @@
+Attribute VB_Name = "fuzz_inst_410"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As PhysicsServer2DManager = PhysicsServer2DManager.new()
+    If obj <> Null Then
+        Print "PASS:inst_PhysicsServer2DManager"
+    Else
+        Print "FAIL:inst_PhysicsServer2DManager returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_PhysicsServer2DManager err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As PhysicsServer3DManager = PhysicsServer3DManager.new()
+    If obj <> Null Then
+        Print "PASS:inst_PhysicsServer3DManager"
+    Else
+        Print "FAIL:inst_PhysicsServer3DManager returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_PhysicsServer3DManager err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As PhysicsServer3DRenderingServerHandler = PhysicsServer3DRenderingServerHandler.new()
+    If obj <> Null Then
+        Print "PASS:inst_PhysicsServer3DRenderingServerHandler"
+    Else
+        Print "FAIL:inst_PhysicsServer3DRenderingServerHandler returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_PhysicsServer3DRenderingServerHandler err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As PinJoint2D = PinJoint2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_PinJoint2D"
+        obj.free()
+    Else
+        Print "FAIL:inst_PinJoint2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_PinJoint2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As PinJoint3D = PinJoint3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_PinJoint3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_PinJoint3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_PinJoint3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As PlaceholderCubemap = PlaceholderCubemap.new()
+    If obj <> Null Then
+        Print "PASS:inst_PlaceholderCubemap"
+    Else
+        Print "FAIL:inst_PlaceholderCubemap returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_PlaceholderCubemap err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As PlaceholderCubemapArray = PlaceholderCubemapArray.new()
+    If obj <> Null Then
+        Print "PASS:inst_PlaceholderCubemapArray"
+    Else
+        Print "FAIL:inst_PlaceholderCubemapArray returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_PlaceholderCubemapArray err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As PlaceholderMaterial = PlaceholderMaterial.new()
+    If obj <> Null Then
+        Print "PASS:inst_PlaceholderMaterial"
+    Else
+        Print "FAIL:inst_PlaceholderMaterial returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_PlaceholderMaterial err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As PlaceholderMesh = PlaceholderMesh.new()
+    If obj <> Null Then
+        Print "PASS:inst_PlaceholderMesh"
+    Else
+        Print "FAIL:inst_PlaceholderMesh returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_PlaceholderMesh err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As PlaceholderTexture2D = PlaceholderTexture2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_PlaceholderTexture2D"
+    Else
+        Print "FAIL:inst_PlaceholderTexture2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_PlaceholderTexture2D err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

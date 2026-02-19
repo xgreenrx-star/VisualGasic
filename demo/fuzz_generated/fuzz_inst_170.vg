@@ -1,0 +1,155 @@
+Attribute VB_Name = "fuzz_inst_170"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As ConvexPolygonShape3D = ConvexPolygonShape3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_ConvexPolygonShape3D"
+    Else
+        Print "FAIL:inst_ConvexPolygonShape3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_ConvexPolygonShape3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As CopyTransformModifier3D = CopyTransformModifier3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_CopyTransformModifier3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_CopyTransformModifier3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_CopyTransformModifier3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As Crypto = Crypto.new()
+    If obj <> Null Then
+        Print "PASS:inst_Crypto"
+    Else
+        Print "FAIL:inst_Crypto returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_Crypto err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As CryptoKey = CryptoKey.new()
+    If obj <> Null Then
+        Print "PASS:inst_CryptoKey"
+    Else
+        Print "FAIL:inst_CryptoKey returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_CryptoKey err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As Cubemap = Cubemap.new()
+    If obj <> Null Then
+        Print "PASS:inst_Cubemap"
+    Else
+        Print "FAIL:inst_Cubemap returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_Cubemap err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As CubemapArray = CubemapArray.new()
+    If obj <> Null Then
+        Print "PASS:inst_CubemapArray"
+    Else
+        Print "FAIL:inst_CubemapArray returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_CubemapArray err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As Curve = Curve.new()
+    If obj <> Null Then
+        Print "PASS:inst_Curve"
+    Else
+        Print "FAIL:inst_Curve returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_Curve err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As Curve2D = Curve2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_Curve2D"
+    Else
+        Print "FAIL:inst_Curve2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_Curve2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As Curve3D = Curve3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_Curve3D"
+    Else
+        Print "FAIL:inst_Curve3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_Curve3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As CurveTexture = CurveTexture.new()
+    If obj <> Null Then
+        Print "PASS:inst_CurveTexture"
+    Else
+        Print "FAIL:inst_CurveTexture returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_CurveTexture err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

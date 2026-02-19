@@ -1,0 +1,154 @@
+Attribute VB_Name = "fuzz_inst_60"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As AudioEffectDistortion = AudioEffectDistortion.new()
+    If obj <> Null Then
+        Print "PASS:inst_AudioEffectDistortion"
+    Else
+        Print "FAIL:inst_AudioEffectDistortion returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AudioEffectDistortion err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As AudioEffectEQ = AudioEffectEQ.new()
+    If obj <> Null Then
+        Print "PASS:inst_AudioEffectEQ"
+    Else
+        Print "FAIL:inst_AudioEffectEQ returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AudioEffectEQ err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As AudioEffectEQ10 = AudioEffectEQ10.new()
+    If obj <> Null Then
+        Print "PASS:inst_AudioEffectEQ10"
+    Else
+        Print "FAIL:inst_AudioEffectEQ10 returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AudioEffectEQ10 err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As AudioEffectEQ21 = AudioEffectEQ21.new()
+    If obj <> Null Then
+        Print "PASS:inst_AudioEffectEQ21"
+    Else
+        Print "FAIL:inst_AudioEffectEQ21 returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AudioEffectEQ21 err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As AudioEffectEQ6 = AudioEffectEQ6.new()
+    If obj <> Null Then
+        Print "PASS:inst_AudioEffectEQ6"
+    Else
+        Print "FAIL:inst_AudioEffectEQ6 returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AudioEffectEQ6 err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As AudioEffectFilter = AudioEffectFilter.new()
+    If obj <> Null Then
+        Print "PASS:inst_AudioEffectFilter"
+    Else
+        Print "FAIL:inst_AudioEffectFilter returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AudioEffectFilter err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As AudioEffectHardLimiter = AudioEffectHardLimiter.new()
+    If obj <> Null Then
+        Print "PASS:inst_AudioEffectHardLimiter"
+    Else
+        Print "FAIL:inst_AudioEffectHardLimiter returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AudioEffectHardLimiter err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As AudioEffectHighPassFilter = AudioEffectHighPassFilter.new()
+    If obj <> Null Then
+        Print "PASS:inst_AudioEffectHighPassFilter"
+    Else
+        Print "FAIL:inst_AudioEffectHighPassFilter returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AudioEffectHighPassFilter err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As AudioEffectHighShelfFilter = AudioEffectHighShelfFilter.new()
+    If obj <> Null Then
+        Print "PASS:inst_AudioEffectHighShelfFilter"
+    Else
+        Print "FAIL:inst_AudioEffectHighShelfFilter returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AudioEffectHighShelfFilter err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As AudioEffectInstance = AudioEffectInstance.new()
+    If obj <> Null Then
+        Print "PASS:inst_AudioEffectInstance"
+    Else
+        Print "FAIL:inst_AudioEffectInstance returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AudioEffectInstance err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

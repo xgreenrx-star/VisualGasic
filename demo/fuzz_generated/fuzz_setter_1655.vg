@@ -1,0 +1,148 @@
+Attribute VB_Name = "fuzz_setter_1655"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As AnimatableBody2D = AnimatableBody2D.new()
+    If obj = Null Then
+        Print "SKIP:setter_AnimatableBody2D (null)"
+        Exit Sub
+    End If
+    obj.set_sync_to_physics(True)
+    Print "PASS:setter_AnimatableBody2D_set_sync_to_physics"
+    obj.set_constant_angular_velocity(1.0)
+    Print "PASS:setter_AnimatableBody2D_set_constant_angular_velocity"
+    obj.set_collision_layer(0)
+    Print "PASS:setter_AnimatableBody2D_set_collision_layer"
+    obj.set_collision_mask(0)
+    Print "PASS:setter_AnimatableBody2D_set_collision_mask"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:setter_AnimatableBody2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As CSGCylinder3D = CSGCylinder3D.new()
+    If obj = Null Then
+        Print "SKIP:setter_CSGCylinder3D (null)"
+        Exit Sub
+    End If
+    obj.set_radius(1.0)
+    Print "PASS:setter_CSGCylinder3D_set_radius"
+    obj.set_height(1.0)
+    Print "PASS:setter_CSGCylinder3D_set_height"
+    obj.set_sides(0)
+    Print "PASS:setter_CSGCylinder3D_set_sides"
+    obj.set_cone(True)
+    Print "PASS:setter_CSGCylinder3D_set_cone"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:setter_CSGCylinder3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As CSGTorus3D = CSGTorus3D.new()
+    If obj = Null Then
+        Print "SKIP:setter_CSGTorus3D (null)"
+        Exit Sub
+    End If
+    obj.set_inner_radius(1.0)
+    Print "PASS:setter_CSGTorus3D_set_inner_radius"
+    obj.set_outer_radius(1.0)
+    Print "PASS:setter_CSGTorus3D_set_outer_radius"
+    obj.set_sides(0)
+    Print "PASS:setter_CSGTorus3D_set_sides"
+    obj.set_ring_sides(0)
+    Print "PASS:setter_CSGTorus3D_set_ring_sides"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:setter_CSGTorus3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As ColorPickerButton = ColorPickerButton.new()
+    If obj = Null Then
+        Print "SKIP:setter_ColorPickerButton (null)"
+        Exit Sub
+    End If
+    obj.set_edit_alpha(True)
+    Print "PASS:setter_ColorPickerButton_set_edit_alpha"
+    obj.set_edit_intensity(True)
+    Print "PASS:setter_ColorPickerButton_set_edit_intensity"
+    obj.set_text("test")
+    Print "PASS:setter_ColorPickerButton_set_text"
+    obj.set_language("test")
+    Print "PASS:setter_ColorPickerButton_set_language"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:setter_ColorPickerButton err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As TabContainer = TabContainer.new()
+    If obj = Null Then
+        Print "SKIP:setter_TabContainer (null)"
+        Exit Sub
+    End If
+    obj.get_tab_control(0)
+    Print "PASS:setter_TabContainer_get_tab_control"
+    obj.set_clip_tabs(True)
+    Print "PASS:setter_TabContainer_set_clip_tabs"
+    obj.set_tabs_visible(True)
+    Print "PASS:setter_TabContainer_set_tabs_visible"
+    obj.set_all_tabs_in_front(True)
+    Print "PASS:setter_TabContainer_set_all_tabs_in_front"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:setter_TabContainer err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As TileMap = TileMap.new()
+    If obj = Null Then
+        Print "SKIP:setter_TileMap (null)"
+        Exit Sub
+    End If
+    obj.get_navigation_map(0)
+    Print "PASS:setter_TileMap_get_navigation_map"
+    obj.force_update(0)
+    Print "PASS:setter_TileMap_force_update"
+    obj.set_rendering_quadrant_size(0)
+    Print "PASS:setter_TileMap_set_rendering_quadrant_size"
+    obj.add_layer(0)
+    Print "PASS:setter_TileMap_add_layer"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:setter_TileMap err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

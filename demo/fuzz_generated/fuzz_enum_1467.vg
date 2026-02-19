@@ -1,0 +1,146 @@
+Attribute VB_Name = "fuzz_enum_1467"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_EXPORT_ALL_RESOURCES As Integer = EditorExportPreset.EXPORT_ALL_RESOURCES
+    If v_EXPORT_ALL_RESOURCES = 0 Then pass_count = pass_count + 1
+    Dim v_EXPORT_SELECTED_SCENES As Integer = EditorExportPreset.EXPORT_SELECTED_SCENES
+    If v_EXPORT_SELECTED_SCENES = 1 Then pass_count = pass_count + 1
+    Dim v_EXPORT_SELECTED_RESOURCES As Integer = EditorExportPreset.EXPORT_SELECTED_RESOURCES
+    If v_EXPORT_SELECTED_RESOURCES = 2 Then pass_count = pass_count + 1
+    Dim v_EXCLUDE_SELECTED_RESOURCES As Integer = EditorExportPreset.EXCLUDE_SELECTED_RESOURCES
+    If v_EXCLUDE_SELECTED_RESOURCES = 3 Then pass_count = pass_count + 1
+    Dim v_EXPORT_CUSTOMIZED As Integer = EditorExportPreset.EXPORT_CUSTOMIZED
+    If v_EXPORT_CUSTOMIZED = 4 Then pass_count = pass_count + 1
+    If pass_count = 5 Then
+        Print "PASS:enum_EditorExportPreset_ExportFilter"
+    Else
+        Print "FAIL:enum_EditorExportPreset_ExportFilter count=" & str(pass_count) & "/5"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_EditorExportPreset_ExportFilter err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_MODE_FILE_NOT_CUSTOMIZED As Integer = EditorExportPreset.MODE_FILE_NOT_CUSTOMIZED
+    If v_MODE_FILE_NOT_CUSTOMIZED = 0 Then pass_count = pass_count + 1
+    Dim v_MODE_FILE_STRIP As Integer = EditorExportPreset.MODE_FILE_STRIP
+    If v_MODE_FILE_STRIP = 1 Then pass_count = pass_count + 1
+    Dim v_MODE_FILE_KEEP As Integer = EditorExportPreset.MODE_FILE_KEEP
+    If v_MODE_FILE_KEEP = 2 Then pass_count = pass_count + 1
+    Dim v_MODE_FILE_REMOVE As Integer = EditorExportPreset.MODE_FILE_REMOVE
+    If v_MODE_FILE_REMOVE = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_EditorExportPreset_FileExportMode"
+    Else
+        Print "FAIL:enum_EditorExportPreset_FileExportMode count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_EditorExportPreset_FileExportMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_MODE_SCRIPT_TEXT As Integer = EditorExportPreset.MODE_SCRIPT_TEXT
+    If v_MODE_SCRIPT_TEXT = 0 Then pass_count = pass_count + 1
+    Dim v_MODE_SCRIPT_BINARY_TOKENS As Integer = EditorExportPreset.MODE_SCRIPT_BINARY_TOKENS
+    If v_MODE_SCRIPT_BINARY_TOKENS = 1 Then pass_count = pass_count + 1
+    Dim v_MODE_SCRIPT_BINARY_TOKENS_COMPRESSED As Integer = EditorExportPreset.MODE_SCRIPT_BINARY_TOKENS_COMPRESSED
+    If v_MODE_SCRIPT_BINARY_TOKENS_COMPRESSED = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_EditorExportPreset_ScriptExportMode"
+    Else
+        Print "FAIL:enum_EditorExportPreset_ScriptExportMode count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_EditorExportPreset_ScriptExportMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_SEVERITY_INFO As Integer = EditorToaster.SEVERITY_INFO
+    If v_SEVERITY_INFO = 0 Then pass_count = pass_count + 1
+    Dim v_SEVERITY_WARNING As Integer = EditorToaster.SEVERITY_WARNING
+    If v_SEVERITY_WARNING = 1 Then pass_count = pass_count + 1
+    Dim v_SEVERITY_ERROR As Integer = EditorToaster.SEVERITY_ERROR
+    If v_SEVERITY_ERROR = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_EditorToaster_Severity"
+    Else
+        Print "FAIL:enum_EditorToaster_Severity count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_EditorToaster_Severity err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_BG_CLEAR_COLOR As Integer = Environment.BG_CLEAR_COLOR
+    If v_BG_CLEAR_COLOR = 0 Then pass_count = pass_count + 1
+    Dim v_BG_COLOR As Integer = Environment.BG_COLOR
+    If v_BG_COLOR = 1 Then pass_count = pass_count + 1
+    Dim v_BG_SKY As Integer = Environment.BG_SKY
+    If v_BG_SKY = 2 Then pass_count = pass_count + 1
+    Dim v_BG_CANVAS As Integer = Environment.BG_CANVAS
+    If v_BG_CANVAS = 3 Then pass_count = pass_count + 1
+    Dim v_BG_KEEP As Integer = Environment.BG_KEEP
+    If v_BG_KEEP = 4 Then pass_count = pass_count + 1
+    Dim v_BG_CAMERA_FEED As Integer = Environment.BG_CAMERA_FEED
+    If v_BG_CAMERA_FEED = 5 Then pass_count = pass_count + 1
+    Dim v_BG_MAX As Integer = Environment.BG_MAX
+    If v_BG_MAX = 6 Then pass_count = pass_count + 1
+    If pass_count = 7 Then
+        Print "PASS:enum_Environment_BGMode"
+    Else
+        Print "FAIL:enum_Environment_BGMode count=" & str(pass_count) & "/7"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Environment_BGMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_AMBIENT_SOURCE_BG As Integer = Environment.AMBIENT_SOURCE_BG
+    If v_AMBIENT_SOURCE_BG = 0 Then pass_count = pass_count + 1
+    Dim v_AMBIENT_SOURCE_DISABLED As Integer = Environment.AMBIENT_SOURCE_DISABLED
+    If v_AMBIENT_SOURCE_DISABLED = 1 Then pass_count = pass_count + 1
+    Dim v_AMBIENT_SOURCE_COLOR As Integer = Environment.AMBIENT_SOURCE_COLOR
+    If v_AMBIENT_SOURCE_COLOR = 2 Then pass_count = pass_count + 1
+    Dim v_AMBIENT_SOURCE_SKY As Integer = Environment.AMBIENT_SOURCE_SKY
+    If v_AMBIENT_SOURCE_SKY = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_Environment_AmbientSource"
+    Else
+        Print "FAIL:enum_Environment_AmbientSource count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Environment_AmbientSource err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

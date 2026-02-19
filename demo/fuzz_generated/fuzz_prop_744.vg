@@ -1,0 +1,154 @@
+Attribute VB_Name = "fuzz_prop_744"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As CodeEdit = CodeEdit.new()
+    If obj = Null Then
+        Print "SKIP:prop_CodeEdit_symbol_lookup_on_click (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.symbol_lookup_on_click
+    Print "PASS:prop_CodeEdit_symbol_lookup_on_click"
+    obj.symbol_lookup_on_click = True
+    Dim val2 As Variant = obj.symbol_lookup_on_click
+    Print "PASS:propset_CodeEdit_symbol_lookup_on_click"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_CodeEdit_symbol_lookup_on_click err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As CodeEdit = CodeEdit.new()
+    If obj = Null Then
+        Print "SKIP:prop_CodeEdit_symbol_tooltip_on_hover (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.symbol_tooltip_on_hover
+    Print "PASS:prop_CodeEdit_symbol_tooltip_on_hover"
+    obj.symbol_tooltip_on_hover = True
+    Dim val2 As Variant = obj.symbol_tooltip_on_hover
+    Print "PASS:propset_CodeEdit_symbol_tooltip_on_hover"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_CodeEdit_symbol_tooltip_on_hover err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As CodeEdit = CodeEdit.new()
+    If obj = Null Then
+        Print "SKIP:prop_CodeEdit_line_folding (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.line_folding
+    Print "PASS:prop_CodeEdit_line_folding"
+    obj.line_folding = True
+    Dim val2 As Variant = obj.line_folding
+    Print "PASS:propset_CodeEdit_line_folding"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_CodeEdit_line_folding err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As CodeEdit = CodeEdit.new()
+    If obj = Null Then
+        Print "SKIP:prop_CodeEdit_line_length_guidelines (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.line_length_guidelines
+    Print "PASS:prop_CodeEdit_line_length_guidelines"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_CodeEdit_line_length_guidelines err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As CodeEdit = CodeEdit.new()
+    If obj = Null Then
+        Print "SKIP:prop_CodeEdit_gutters_draw_breakpoints_gutter (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.gutters_draw_breakpoints_gutter
+    Print "PASS:prop_CodeEdit_gutters_draw_breakpoints_gutter"
+    obj.gutters_draw_breakpoints_gutter = True
+    Dim val2 As Variant = obj.gutters_draw_breakpoints_gutter
+    Print "PASS:propset_CodeEdit_gutters_draw_breakpoints_gutter"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_CodeEdit_gutters_draw_breakpoints_gutter err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As ORMMaterial3D = ORMMaterial3D.new()
+    If obj = Null Then
+        Print "SKIP:prop_ORMMaterial3D_transparency (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.transparency
+    Print "PASS:prop_ORMMaterial3D_transparency"
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_ORMMaterial3D_transparency err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As ORMMaterial3D = ORMMaterial3D.new()
+    If obj = Null Then
+        Print "SKIP:prop_ORMMaterial3D_alpha_scissor_threshold (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.alpha_scissor_threshold
+    Print "PASS:prop_ORMMaterial3D_alpha_scissor_threshold"
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_ORMMaterial3D_alpha_scissor_threshold err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As ORMMaterial3D = ORMMaterial3D.new()
+    If obj = Null Then
+        Print "SKIP:prop_ORMMaterial3D_alpha_hash_scale (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.alpha_hash_scale
+    Print "PASS:prop_ORMMaterial3D_alpha_hash_scale"
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_ORMMaterial3D_alpha_hash_scale err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+End Sub

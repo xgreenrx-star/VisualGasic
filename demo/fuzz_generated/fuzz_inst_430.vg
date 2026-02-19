@@ -1,0 +1,155 @@
+Attribute VB_Name = "fuzz_inst_430"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As PrismMesh = PrismMesh.new()
+    If obj <> Null Then
+        Print "PASS:inst_PrismMesh"
+    Else
+        Print "FAIL:inst_PrismMesh returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_PrismMesh err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As ProceduralSkyMaterial = ProceduralSkyMaterial.new()
+    If obj <> Null Then
+        Print "PASS:inst_ProceduralSkyMaterial"
+    Else
+        Print "FAIL:inst_ProceduralSkyMaterial returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_ProceduralSkyMaterial err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As ProgressBar = ProgressBar.new()
+    If obj <> Null Then
+        Print "PASS:inst_ProgressBar"
+        obj.free()
+    Else
+        Print "FAIL:inst_ProgressBar returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_ProgressBar err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As QuadMesh = QuadMesh.new()
+    If obj <> Null Then
+        Print "PASS:inst_QuadMesh"
+    Else
+        Print "FAIL:inst_QuadMesh returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_QuadMesh err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As QuadOccluder3D = QuadOccluder3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_QuadOccluder3D"
+    Else
+        Print "FAIL:inst_QuadOccluder3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_QuadOccluder3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As RDAttachmentFormat = RDAttachmentFormat.new()
+    If obj <> Null Then
+        Print "PASS:inst_RDAttachmentFormat"
+    Else
+        Print "FAIL:inst_RDAttachmentFormat returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_RDAttachmentFormat err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As RDFramebufferPass = RDFramebufferPass.new()
+    If obj <> Null Then
+        Print "PASS:inst_RDFramebufferPass"
+    Else
+        Print "FAIL:inst_RDFramebufferPass returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_RDFramebufferPass err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As RDPipelineColorBlendState = RDPipelineColorBlendState.new()
+    If obj <> Null Then
+        Print "PASS:inst_RDPipelineColorBlendState"
+    Else
+        Print "FAIL:inst_RDPipelineColorBlendState returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_RDPipelineColorBlendState err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As RDPipelineColorBlendStateAttachment = RDPipelineColorBlendStateAttachment.new()
+    If obj <> Null Then
+        Print "PASS:inst_RDPipelineColorBlendStateAttachment"
+    Else
+        Print "FAIL:inst_RDPipelineColorBlendStateAttachment returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_RDPipelineColorBlendStateAttachment err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As RDPipelineDepthStencilState = RDPipelineDepthStencilState.new()
+    If obj <> Null Then
+        Print "PASS:inst_RDPipelineDepthStencilState"
+    Else
+        Print "FAIL:inst_RDPipelineDepthStencilState returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_RDPipelineDepthStencilState err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

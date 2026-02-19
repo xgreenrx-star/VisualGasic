@@ -1,0 +1,160 @@
+Attribute VB_Name = "fuzz_inst_600"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As VehicleWheel3D = VehicleWheel3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_VehicleWheel3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_VehicleWheel3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VehicleWheel3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As VideoStream = VideoStream.new()
+    If obj <> Null Then
+        Print "PASS:inst_VideoStream"
+    Else
+        Print "FAIL:inst_VideoStream returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VideoStream err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As VideoStreamPlayback = VideoStreamPlayback.new()
+    If obj <> Null Then
+        Print "PASS:inst_VideoStreamPlayback"
+    Else
+        Print "FAIL:inst_VideoStreamPlayback returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VideoStreamPlayback err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As VideoStreamPlayer = VideoStreamPlayer.new()
+    If obj <> Null Then
+        Print "PASS:inst_VideoStreamPlayer"
+        obj.free()
+    Else
+        Print "FAIL:inst_VideoStreamPlayer returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VideoStreamPlayer err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As VideoStreamTheora = VideoStreamTheora.new()
+    If obj <> Null Then
+        Print "PASS:inst_VideoStreamTheora"
+    Else
+        Print "FAIL:inst_VideoStreamTheora returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VideoStreamTheora err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As ViewportTexture = ViewportTexture.new()
+    If obj <> Null Then
+        Print "PASS:inst_ViewportTexture"
+    Else
+        Print "FAIL:inst_ViewportTexture returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_ViewportTexture err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As VisibleOnScreenEnabler2D = VisibleOnScreenEnabler2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisibleOnScreenEnabler2D"
+        obj.free()
+    Else
+        Print "FAIL:inst_VisibleOnScreenEnabler2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisibleOnScreenEnabler2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As VisibleOnScreenEnabler3D = VisibleOnScreenEnabler3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisibleOnScreenEnabler3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_VisibleOnScreenEnabler3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisibleOnScreenEnabler3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As VisibleOnScreenNotifier2D = VisibleOnScreenNotifier2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisibleOnScreenNotifier2D"
+        obj.free()
+    Else
+        Print "FAIL:inst_VisibleOnScreenNotifier2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisibleOnScreenNotifier2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As VisibleOnScreenNotifier3D = VisibleOnScreenNotifier3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisibleOnScreenNotifier3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_VisibleOnScreenNotifier3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisibleOnScreenNotifier3D err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

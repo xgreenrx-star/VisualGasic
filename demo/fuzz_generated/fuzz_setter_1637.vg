@@ -1,0 +1,148 @@
+Attribute VB_Name = "fuzz_setter_1637"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As GraphEdit = GraphEdit.new()
+    If obj = Null Then
+        Print "SKIP:setter_GraphEdit (null)"
+        Exit Sub
+    End If
+    obj.add_valid_right_disconnect_type(0)
+    Print "PASS:setter_GraphEdit_add_valid_right_disconnect_type"
+    obj.remove_valid_right_disconnect_type(0)
+    Print "PASS:setter_GraphEdit_remove_valid_right_disconnect_type"
+    obj.add_valid_left_disconnect_type(0)
+    Print "PASS:setter_GraphEdit_add_valid_left_disconnect_type"
+    obj.remove_valid_left_disconnect_type(0)
+    Print "PASS:setter_GraphEdit_remove_valid_left_disconnect_type"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:setter_GraphEdit err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As GPUParticles3D = GPUParticles3D.new()
+    If obj = Null Then
+        Print "SKIP:setter_GPUParticles3D (null)"
+        Exit Sub
+    End If
+    obj.set_emitting(True)
+    Print "PASS:setter_GPUParticles3D_set_emitting"
+    obj.set_lifetime(1.0)
+    Print "PASS:setter_GPUParticles3D_set_lifetime"
+    obj.set_one_shot(True)
+    Print "PASS:setter_GPUParticles3D_set_one_shot"
+    obj.set_pre_process_time(1.0)
+    Print "PASS:setter_GPUParticles3D_set_pre_process_time"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:setter_GPUParticles3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As Area2D = Area2D.new()
+    If obj = Null Then
+        Print "SKIP:setter_Area2D (null)"
+        Exit Sub
+    End If
+    obj.set_gravity_is_point(True)
+    Print "PASS:setter_Area2D_set_gravity_is_point"
+    obj.set_gravity_point_unit_distance(1.0)
+    Print "PASS:setter_Area2D_set_gravity_point_unit_distance"
+    obj.set_gravity(1.0)
+    Print "PASS:setter_Area2D_set_gravity"
+    obj.set_linear_damp(1.0)
+    Print "PASS:setter_Area2D_set_linear_damp"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:setter_Area2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As TabBar = TabBar.new()
+    If obj = Null Then
+        Print "SKIP:setter_TabBar (null)"
+        Exit Sub
+    End If
+    obj.set_tab_count(0)
+    Print "PASS:setter_TabBar_set_tab_count"
+    obj.get_tab_tooltip(0)
+    Print "PASS:setter_TabBar_get_tab_tooltip"
+    obj.get_tab_text_direction(0)
+    Print "PASS:setter_TabBar_get_tab_text_direction"
+    obj.get_tab_language(0)
+    Print "PASS:setter_TabBar_get_tab_language"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:setter_TabBar err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As Tree = Tree.new()
+    If obj = Null Then
+        Print "SKIP:setter_Tree (null)"
+        Exit Sub
+    End If
+    obj.is_column_expanding(0)
+    Print "PASS:setter_Tree_is_column_expanding"
+    obj.is_column_clipping_content(0)
+    Print "PASS:setter_Tree_is_column_clipping_content"
+    obj.get_column_expand_ratio(0)
+    Print "PASS:setter_Tree_get_column_expand_ratio"
+    obj.get_column_width(0)
+    Print "PASS:setter_Tree_get_column_width"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:setter_Tree err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As CSGPolygon3D = CSGPolygon3D.new()
+    If obj = Null Then
+        Print "SKIP:setter_CSGPolygon3D (null)"
+        Exit Sub
+    End If
+    obj.set_depth(1.0)
+    Print "PASS:setter_CSGPolygon3D_set_depth"
+    obj.set_spin_degrees(1.0)
+    Print "PASS:setter_CSGPolygon3D_set_spin_degrees"
+    obj.set_spin_sides(0)
+    Print "PASS:setter_CSGPolygon3D_set_spin_sides"
+    obj.set_path_interval(1.0)
+    Print "PASS:setter_CSGPolygon3D_set_path_interval"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:setter_CSGPolygon3D err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

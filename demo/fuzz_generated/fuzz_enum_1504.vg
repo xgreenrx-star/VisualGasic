@@ -1,0 +1,162 @@
+Attribute VB_Name = "fuzz_enum_1504"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_STRUCTURED_TEXT_DEFAULT As Integer = TextServer.STRUCTURED_TEXT_DEFAULT
+    If v_STRUCTURED_TEXT_DEFAULT = 0 Then pass_count = pass_count + 1
+    Dim v_STRUCTURED_TEXT_URI As Integer = TextServer.STRUCTURED_TEXT_URI
+    If v_STRUCTURED_TEXT_URI = 1 Then pass_count = pass_count + 1
+    Dim v_STRUCTURED_TEXT_FILE As Integer = TextServer.STRUCTURED_TEXT_FILE
+    If v_STRUCTURED_TEXT_FILE = 2 Then pass_count = pass_count + 1
+    Dim v_STRUCTURED_TEXT_EMAIL As Integer = TextServer.STRUCTURED_TEXT_EMAIL
+    If v_STRUCTURED_TEXT_EMAIL = 3 Then pass_count = pass_count + 1
+    Dim v_STRUCTURED_TEXT_LIST As Integer = TextServer.STRUCTURED_TEXT_LIST
+    If v_STRUCTURED_TEXT_LIST = 4 Then pass_count = pass_count + 1
+    Dim v_STRUCTURED_TEXT_GDSCRIPT As Integer = TextServer.STRUCTURED_TEXT_GDSCRIPT
+    If v_STRUCTURED_TEXT_GDSCRIPT = 5 Then pass_count = pass_count + 1
+    Dim v_STRUCTURED_TEXT_CUSTOM As Integer = TextServer.STRUCTURED_TEXT_CUSTOM
+    If v_STRUCTURED_TEXT_CUSTOM = 6 Then pass_count = pass_count + 1
+    If pass_count = 7 Then
+        Print "PASS:enum_TextServer_StructuredTextParser"
+    Else
+        Print "FAIL:enum_TextServer_StructuredTextParser count=" & str(pass_count) & "/7"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_TextServer_StructuredTextParser err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_FIXED_SIZE_SCALE_DISABLE As Integer = TextServer.FIXED_SIZE_SCALE_DISABLE
+    If v_FIXED_SIZE_SCALE_DISABLE = 0 Then pass_count = pass_count + 1
+    Dim v_FIXED_SIZE_SCALE_INTEGER_ONLY As Integer = TextServer.FIXED_SIZE_SCALE_INTEGER_ONLY
+    If v_FIXED_SIZE_SCALE_INTEGER_ONLY = 1 Then pass_count = pass_count + 1
+    Dim v_FIXED_SIZE_SCALE_ENABLED As Integer = TextServer.FIXED_SIZE_SCALE_ENABLED
+    If v_FIXED_SIZE_SCALE_ENABLED = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_TextServer_FixedSizeScaleMode"
+    Else
+        Print "FAIL:enum_TextServer_FixedSizeScaleMode count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_TextServer_FixedSizeScaleMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_STRETCH_SCALE As Integer = TextureButton.STRETCH_SCALE
+    If v_STRETCH_SCALE = 0 Then pass_count = pass_count + 1
+    Dim v_STRETCH_TILE As Integer = TextureButton.STRETCH_TILE
+    If v_STRETCH_TILE = 1 Then pass_count = pass_count + 1
+    Dim v_STRETCH_KEEP As Integer = TextureButton.STRETCH_KEEP
+    If v_STRETCH_KEEP = 2 Then pass_count = pass_count + 1
+    Dim v_STRETCH_KEEP_CENTERED As Integer = TextureButton.STRETCH_KEEP_CENTERED
+    If v_STRETCH_KEEP_CENTERED = 3 Then pass_count = pass_count + 1
+    Dim v_STRETCH_KEEP_ASPECT As Integer = TextureButton.STRETCH_KEEP_ASPECT
+    If v_STRETCH_KEEP_ASPECT = 4 Then pass_count = pass_count + 1
+    Dim v_STRETCH_KEEP_ASPECT_CENTERED As Integer = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
+    If v_STRETCH_KEEP_ASPECT_CENTERED = 5 Then pass_count = pass_count + 1
+    Dim v_STRETCH_KEEP_ASPECT_COVERED As Integer = TextureButton.STRETCH_KEEP_ASPECT_COVERED
+    If v_STRETCH_KEEP_ASPECT_COVERED = 6 Then pass_count = pass_count + 1
+    If pass_count = 7 Then
+        Print "PASS:enum_TextureButton_StretchMode"
+    Else
+        Print "FAIL:enum_TextureButton_StretchMode count=" & str(pass_count) & "/7"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_TextureButton_StretchMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_LAYERED_TYPE_2D_ARRAY As Integer = TextureLayered.LAYERED_TYPE_2D_ARRAY
+    If v_LAYERED_TYPE_2D_ARRAY = 0 Then pass_count = pass_count + 1
+    Dim v_LAYERED_TYPE_CUBEMAP As Integer = TextureLayered.LAYERED_TYPE_CUBEMAP
+    If v_LAYERED_TYPE_CUBEMAP = 1 Then pass_count = pass_count + 1
+    Dim v_LAYERED_TYPE_CUBEMAP_ARRAY As Integer = TextureLayered.LAYERED_TYPE_CUBEMAP_ARRAY
+    If v_LAYERED_TYPE_CUBEMAP_ARRAY = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_TextureLayered_LayeredType"
+    Else
+        Print "FAIL:enum_TextureLayered_LayeredType count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_TextureLayered_LayeredType err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_FILL_LEFT_TO_RIGHT As Integer = TextureProgressBar.FILL_LEFT_TO_RIGHT
+    If v_FILL_LEFT_TO_RIGHT = 0 Then pass_count = pass_count + 1
+    Dim v_FILL_RIGHT_TO_LEFT As Integer = TextureProgressBar.FILL_RIGHT_TO_LEFT
+    If v_FILL_RIGHT_TO_LEFT = 1 Then pass_count = pass_count + 1
+    Dim v_FILL_TOP_TO_BOTTOM As Integer = TextureProgressBar.FILL_TOP_TO_BOTTOM
+    If v_FILL_TOP_TO_BOTTOM = 2 Then pass_count = pass_count + 1
+    Dim v_FILL_BOTTOM_TO_TOP As Integer = TextureProgressBar.FILL_BOTTOM_TO_TOP
+    If v_FILL_BOTTOM_TO_TOP = 3 Then pass_count = pass_count + 1
+    Dim v_FILL_CLOCKWISE As Integer = TextureProgressBar.FILL_CLOCKWISE
+    If v_FILL_CLOCKWISE = 4 Then pass_count = pass_count + 1
+    Dim v_FILL_COUNTER_CLOCKWISE As Integer = TextureProgressBar.FILL_COUNTER_CLOCKWISE
+    If v_FILL_COUNTER_CLOCKWISE = 5 Then pass_count = pass_count + 1
+    Dim v_FILL_BILINEAR_LEFT_AND_RIGHT As Integer = TextureProgressBar.FILL_BILINEAR_LEFT_AND_RIGHT
+    If v_FILL_BILINEAR_LEFT_AND_RIGHT = 6 Then pass_count = pass_count + 1
+    Dim v_FILL_BILINEAR_TOP_AND_BOTTOM As Integer = TextureProgressBar.FILL_BILINEAR_TOP_AND_BOTTOM
+    If v_FILL_BILINEAR_TOP_AND_BOTTOM = 7 Then pass_count = pass_count + 1
+    If pass_count = 8 Then
+        Print "PASS:enum_TextureProgressBar_FillMode"
+    Else
+        Print "FAIL:enum_TextureProgressBar_FillMode count=" & str(pass_count) & "/8"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_TextureProgressBar_FillMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_EXPAND_KEEP_SIZE As Integer = TextureRect.EXPAND_KEEP_SIZE
+    If v_EXPAND_KEEP_SIZE = 0 Then pass_count = pass_count + 1
+    Dim v_EXPAND_IGNORE_SIZE As Integer = TextureRect.EXPAND_IGNORE_SIZE
+    If v_EXPAND_IGNORE_SIZE = 1 Then pass_count = pass_count + 1
+    Dim v_EXPAND_FIT_WIDTH As Integer = TextureRect.EXPAND_FIT_WIDTH
+    If v_EXPAND_FIT_WIDTH = 2 Then pass_count = pass_count + 1
+    Dim v_EXPAND_FIT_WIDTH_PROPORTIONAL As Integer = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
+    If v_EXPAND_FIT_WIDTH_PROPORTIONAL = 3 Then pass_count = pass_count + 1
+    Dim v_EXPAND_FIT_HEIGHT As Integer = TextureRect.EXPAND_FIT_HEIGHT
+    If v_EXPAND_FIT_HEIGHT = 4 Then pass_count = pass_count + 1
+    Dim v_EXPAND_FIT_HEIGHT_PROPORTIONAL As Integer = TextureRect.EXPAND_FIT_HEIGHT_PROPORTIONAL
+    If v_EXPAND_FIT_HEIGHT_PROPORTIONAL = 5 Then pass_count = pass_count + 1
+    If pass_count = 6 Then
+        Print "PASS:enum_TextureRect_ExpandMode"
+    Else
+        Print "FAIL:enum_TextureRect_ExpandMode count=" & str(pass_count) & "/6"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_TextureRect_ExpandMode err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

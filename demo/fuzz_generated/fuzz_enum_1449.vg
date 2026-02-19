@@ -1,0 +1,132 @@
+Attribute VB_Name = "fuzz_enum_1449"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_ANIMATION_CALLBACK_MODE_DISCRETE_DOMINANT As Integer = AnimationMixer.ANIMATION_CALLBACK_MODE_DISCRETE_DOMINANT
+    If v_ANIMATION_CALLBACK_MODE_DISCRETE_DOMINANT = 0 Then pass_count = pass_count + 1
+    Dim v_ANIMATION_CALLBACK_MODE_DISCRETE_RECESSIVE As Integer = AnimationMixer.ANIMATION_CALLBACK_MODE_DISCRETE_RECESSIVE
+    If v_ANIMATION_CALLBACK_MODE_DISCRETE_RECESSIVE = 1 Then pass_count = pass_count + 1
+    Dim v_ANIMATION_CALLBACK_MODE_DISCRETE_FORCE_CONTINUOUS As Integer = AnimationMixer.ANIMATION_CALLBACK_MODE_DISCRETE_FORCE_CONTINUOUS
+    If v_ANIMATION_CALLBACK_MODE_DISCRETE_FORCE_CONTINUOUS = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_AnimationMixer_AnimationCallbackModeDiscrete"
+    Else
+        Print "FAIL:enum_AnimationMixer_AnimationCallbackModeDiscrete count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_AnimationMixer_AnimationCallbackModeDiscrete err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_FILTER_IGNORE As Integer = AnimationNode.FILTER_IGNORE
+    If v_FILTER_IGNORE = 0 Then pass_count = pass_count + 1
+    Dim v_FILTER_PASS As Integer = AnimationNode.FILTER_PASS
+    If v_FILTER_PASS = 1 Then pass_count = pass_count + 1
+    Dim v_FILTER_STOP As Integer = AnimationNode.FILTER_STOP
+    If v_FILTER_STOP = 2 Then pass_count = pass_count + 1
+    Dim v_FILTER_BLEND As Integer = AnimationNode.FILTER_BLEND
+    If v_FILTER_BLEND = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_AnimationNode_FilterAction"
+    Else
+        Print "FAIL:enum_AnimationNode_FilterAction count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_AnimationNode_FilterAction err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_PLAY_MODE_FORWARD As Integer = AnimationNodeAnimation.PLAY_MODE_FORWARD
+    If v_PLAY_MODE_FORWARD = 0 Then pass_count = pass_count + 1
+    Dim v_PLAY_MODE_BACKWARD As Integer = AnimationNodeAnimation.PLAY_MODE_BACKWARD
+    If v_PLAY_MODE_BACKWARD = 1 Then pass_count = pass_count + 1
+    If pass_count = 2 Then
+        Print "PASS:enum_AnimationNodeAnimation_PlayMode"
+    Else
+        Print "FAIL:enum_AnimationNodeAnimation_PlayMode count=" & str(pass_count) & "/2"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_AnimationNodeAnimation_PlayMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_BLEND_MODE_INTERPOLATED As Integer = AnimationNodeBlendSpace1D.BLEND_MODE_INTERPOLATED
+    If v_BLEND_MODE_INTERPOLATED = 0 Then pass_count = pass_count + 1
+    Dim v_BLEND_MODE_DISCRETE As Integer = AnimationNodeBlendSpace1D.BLEND_MODE_DISCRETE
+    If v_BLEND_MODE_DISCRETE = 1 Then pass_count = pass_count + 1
+    Dim v_BLEND_MODE_DISCRETE_CARRY As Integer = AnimationNodeBlendSpace1D.BLEND_MODE_DISCRETE_CARRY
+    If v_BLEND_MODE_DISCRETE_CARRY = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_AnimationNodeBlendSpace1D_BlendMode"
+    Else
+        Print "FAIL:enum_AnimationNodeBlendSpace1D_BlendMode count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_AnimationNodeBlendSpace1D_BlendMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_BLEND_MODE_INTERPOLATED As Integer = AnimationNodeBlendSpace2D.BLEND_MODE_INTERPOLATED
+    If v_BLEND_MODE_INTERPOLATED = 0 Then pass_count = pass_count + 1
+    Dim v_BLEND_MODE_DISCRETE As Integer = AnimationNodeBlendSpace2D.BLEND_MODE_DISCRETE
+    If v_BLEND_MODE_DISCRETE = 1 Then pass_count = pass_count + 1
+    Dim v_BLEND_MODE_DISCRETE_CARRY As Integer = AnimationNodeBlendSpace2D.BLEND_MODE_DISCRETE_CARRY
+    If v_BLEND_MODE_DISCRETE_CARRY = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_AnimationNodeBlendSpace2D_BlendMode"
+    Else
+        Print "FAIL:enum_AnimationNodeBlendSpace2D_BlendMode count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_AnimationNodeBlendSpace2D_BlendMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_ONE_SHOT_REQUEST_NONE As Integer = AnimationNodeOneShot.ONE_SHOT_REQUEST_NONE
+    If v_ONE_SHOT_REQUEST_NONE = 0 Then pass_count = pass_count + 1
+    Dim v_ONE_SHOT_REQUEST_FIRE As Integer = AnimationNodeOneShot.ONE_SHOT_REQUEST_FIRE
+    If v_ONE_SHOT_REQUEST_FIRE = 1 Then pass_count = pass_count + 1
+    Dim v_ONE_SHOT_REQUEST_ABORT As Integer = AnimationNodeOneShot.ONE_SHOT_REQUEST_ABORT
+    If v_ONE_SHOT_REQUEST_ABORT = 2 Then pass_count = pass_count + 1
+    Dim v_ONE_SHOT_REQUEST_FADE_OUT As Integer = AnimationNodeOneShot.ONE_SHOT_REQUEST_FADE_OUT
+    If v_ONE_SHOT_REQUEST_FADE_OUT = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_AnimationNodeOneShot_OneShotRequest"
+    Else
+        Print "FAIL:enum_AnimationNodeOneShot_OneShotRequest count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_AnimationNodeOneShot_OneShotRequest err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

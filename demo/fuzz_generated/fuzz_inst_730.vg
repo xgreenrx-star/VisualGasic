@@ -1,0 +1,159 @@
+Attribute VB_Name = "fuzz_inst_730"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As XRBodyTracker = XRBodyTracker.new()
+    If obj <> Null Then
+        Print "PASS:inst_XRBodyTracker"
+    Else
+        Print "FAIL:inst_XRBodyTracker returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_XRBodyTracker err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As XRCamera3D = XRCamera3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_XRCamera3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_XRCamera3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_XRCamera3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As XRController3D = XRController3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_XRController3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_XRController3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_XRController3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As XRControllerTracker = XRControllerTracker.new()
+    If obj <> Null Then
+        Print "PASS:inst_XRControllerTracker"
+    Else
+        Print "FAIL:inst_XRControllerTracker returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_XRControllerTracker err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As XRFaceModifier3D = XRFaceModifier3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_XRFaceModifier3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_XRFaceModifier3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_XRFaceModifier3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As XRFaceTracker = XRFaceTracker.new()
+    If obj <> Null Then
+        Print "PASS:inst_XRFaceTracker"
+    Else
+        Print "FAIL:inst_XRFaceTracker returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_XRFaceTracker err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As XRHandModifier3D = XRHandModifier3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_XRHandModifier3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_XRHandModifier3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_XRHandModifier3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As XRHandTracker = XRHandTracker.new()
+    If obj <> Null Then
+        Print "PASS:inst_XRHandTracker"
+    Else
+        Print "FAIL:inst_XRHandTracker returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_XRHandTracker err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As XRInterfaceExtension = XRInterfaceExtension.new()
+    If obj <> Null Then
+        Print "PASS:inst_XRInterfaceExtension"
+    Else
+        Print "FAIL:inst_XRInterfaceExtension returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_XRInterfaceExtension err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As XRNode3D = XRNode3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_XRNode3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_XRNode3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_XRNode3D err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

@@ -1,0 +1,146 @@
+Attribute VB_Name = "fuzz_setter_1625"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As CodeEdit = CodeEdit.new()
+    If obj = Null Then
+        Print "SKIP:setter_CodeEdit (null)"
+        Exit Sub
+    End If
+    obj.set_indent_using_spaces(True)
+    Print "PASS:setter_CodeEdit_set_indent_using_spaces"
+    obj.set_auto_indent_enabled(True)
+    Print "PASS:setter_CodeEdit_set_auto_indent_enabled"
+    obj.set_auto_brace_completion_enabled(True)
+    Print "PASS:setter_CodeEdit_set_auto_brace_completion_enabled"
+    obj.set_highlight_matching_braces_enabled(True)
+    Print "PASS:setter_CodeEdit_set_highlight_matching_braces_enabled"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:setter_CodeEdit err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As TextEdit = TextEdit.new()
+    If obj = Null Then
+        Print "SKIP:setter_TextEdit (null)"
+        Exit Sub
+    End If
+    obj.set_editable(True)
+    Print "PASS:setter_TextEdit_set_editable"
+    obj.set_language("test")
+    Print "PASS:setter_TextEdit_set_language"
+    obj.set_indent_wrapped_lines(True)
+    Print "PASS:setter_TextEdit_set_indent_wrapped_lines"
+    obj.set_tab_input_mode(True)
+    Print "PASS:setter_TextEdit_set_tab_input_mode"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:setter_TextEdit err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As Environment = Environment.new()
+    If obj = Null Then
+        Print "SKIP:setter_Environment (null)"
+        Exit Sub
+    End If
+    obj.set_sky_custom_fov(1.0)
+    Print "PASS:setter_Environment_set_sky_custom_fov"
+    obj.set_bg_energy_multiplier(1.0)
+    Print "PASS:setter_Environment_set_bg_energy_multiplier"
+    obj.set_bg_intensity(1.0)
+    Print "PASS:setter_Environment_set_bg_intensity"
+    obj.set_canvas_max_layer(0)
+    Print "PASS:setter_Environment_set_canvas_max_layer"
+    If Err.Number <> 0 Then
+        Print "ERROR:setter_Environment err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As RichTextLabel = RichTextLabel.new()
+    If obj = Null Then
+        Print "SKIP:setter_RichTextLabel (null)"
+        Exit Sub
+    End If
+    obj.add_text("test")
+    Print "PASS:setter_RichTextLabel_add_text"
+    obj.set_text("test")
+    Print "PASS:setter_RichTextLabel_set_text"
+    obj.invalidate_paragraph(0)
+    Print "PASS:setter_RichTextLabel_invalidate_paragraph"
+    obj.push_font_size(0)
+    Print "PASS:setter_RichTextLabel_push_font_size"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:setter_RichTextLabel err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As PhysicalBone2D = PhysicalBone2D.new()
+    If obj = Null Then
+        Print "SKIP:setter_PhysicalBone2D (null)"
+        Exit Sub
+    End If
+    obj.set_auto_configure_joint(True)
+    Print "PASS:setter_PhysicalBone2D_set_auto_configure_joint"
+    obj.set_simulate_physics(True)
+    Print "PASS:setter_PhysicalBone2D_set_simulate_physics"
+    obj.set_bone2d_index(0)
+    Print "PASS:setter_PhysicalBone2D_set_bone2d_index"
+    obj.set_follow_bone_when_simulating(True)
+    Print "PASS:setter_PhysicalBone2D_set_follow_bone_when_simulating"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:setter_PhysicalBone2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As LineEdit = LineEdit.new()
+    If obj = Null Then
+        Print "SKIP:setter_LineEdit (null)"
+        Exit Sub
+    End If
+    obj.set_keep_editing_on_text_submit(True)
+    Print "PASS:setter_LineEdit_set_keep_editing_on_text_submit"
+    obj.set_text("test")
+    Print "PASS:setter_LineEdit_set_text"
+    obj.set_draw_control_chars(True)
+    Print "PASS:setter_LineEdit_set_draw_control_chars"
+    obj.set_language("test")
+    Print "PASS:setter_LineEdit_set_language"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:setter_LineEdit err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

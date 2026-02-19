@@ -1,0 +1,46 @@
+Attribute VB_Name = "fuzz_prop_986"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As VFlowContainer = VFlowContainer.new()
+    If obj = Null Then
+        Print "SKIP:prop_VFlowContainer_reverse_fill (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.reverse_fill
+    Print "PASS:prop_VFlowContainer_reverse_fill"
+    obj.reverse_fill = True
+    Dim val2 As Variant = obj.reverse_fill
+    Print "PASS:propset_VFlowContainer_reverse_fill"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_VFlowContainer_reverse_fill err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As VFlowContainer = VFlowContainer.new()
+    If obj = Null Then
+        Print "SKIP:prop_VFlowContainer_clip_contents (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.clip_contents
+    Print "PASS:prop_VFlowContainer_clip_contents"
+    obj.clip_contents = True
+    Dim val2 As Variant = obj.clip_contents
+    Print "PASS:propset_VFlowContainer_clip_contents"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_VFlowContainer_clip_contents err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+End Sub

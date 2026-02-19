@@ -1,0 +1,130 @@
+Attribute VB_Name = "fuzz_enum_1477"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_COMPRESS_SOURCE_GENERIC As Integer = Image.COMPRESS_SOURCE_GENERIC
+    If v_COMPRESS_SOURCE_GENERIC = 0 Then pass_count = pass_count + 1
+    Dim v_COMPRESS_SOURCE_SRGB As Integer = Image.COMPRESS_SOURCE_SRGB
+    If v_COMPRESS_SOURCE_SRGB = 1 Then pass_count = pass_count + 1
+    Dim v_COMPRESS_SOURCE_NORMAL As Integer = Image.COMPRESS_SOURCE_NORMAL
+    If v_COMPRESS_SOURCE_NORMAL = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_Image_CompressSource"
+    Else
+        Print "FAIL:enum_Image_CompressSource count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Image_CompressSource err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_ASTC_FORMAT_4x4 As Integer = Image.ASTC_FORMAT_4x4
+    If v_ASTC_FORMAT_4x4 = 0 Then pass_count = pass_count + 1
+    Dim v_ASTC_FORMAT_8x8 As Integer = Image.ASTC_FORMAT_8x8
+    If v_ASTC_FORMAT_8x8 = 1 Then pass_count = pass_count + 1
+    If pass_count = 2 Then
+        Print "PASS:enum_Image_ASTCFormat"
+    Else
+        Print "FAIL:enum_Image_ASTCFormat count=" & str(pass_count) & "/2"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Image_ASTCFormat err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_FLAG_NONE As Integer = ImageFormatLoader.FLAG_NONE
+    If v_FLAG_NONE = 0 Then pass_count = pass_count + 1
+    Dim v_FLAG_FORCE_LINEAR As Integer = ImageFormatLoader.FLAG_FORCE_LINEAR
+    If v_FLAG_FORCE_LINEAR = 1 Then pass_count = pass_count + 1
+    Dim v_FLAG_CONVERT_COLORS As Integer = ImageFormatLoader.FLAG_CONVERT_COLORS
+    If v_FLAG_CONVERT_COLORS = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_ImageFormatLoader_LoaderFlags"
+    Else
+        Print "FAIL:enum_ImageFormatLoader_LoaderFlags count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_ImageFormatLoader_LoaderFlags err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_ICON_MODE_TOP As Integer = ItemList.ICON_MODE_TOP
+    If v_ICON_MODE_TOP = 0 Then pass_count = pass_count + 1
+    Dim v_ICON_MODE_LEFT As Integer = ItemList.ICON_MODE_LEFT
+    If v_ICON_MODE_LEFT = 1 Then pass_count = pass_count + 1
+    If pass_count = 2 Then
+        Print "PASS:enum_ItemList_IconMode"
+    Else
+        Print "FAIL:enum_ItemList_IconMode count=" & str(pass_count) & "/2"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_ItemList_IconMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_SELECT_SINGLE As Integer = ItemList.SELECT_SINGLE
+    If v_SELECT_SINGLE = 0 Then pass_count = pass_count + 1
+    Dim v_SELECT_MULTI As Integer = ItemList.SELECT_MULTI
+    If v_SELECT_MULTI = 1 Then pass_count = pass_count + 1
+    Dim v_SELECT_TOGGLE As Integer = ItemList.SELECT_TOGGLE
+    If v_SELECT_TOGGLE = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_ItemList_SelectMode"
+    Else
+        Print "FAIL:enum_ItemList_SelectMode count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_ItemList_SelectMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_PARSE_ERROR As Integer = JSONRPC.PARSE_ERROR
+    If v_PARSE_ERROR = -32700 Then pass_count = pass_count + 1
+    Dim v_INVALID_REQUEST As Integer = JSONRPC.INVALID_REQUEST
+    If v_INVALID_REQUEST = -32600 Then pass_count = pass_count + 1
+    Dim v_METHOD_NOT_FOUND As Integer = JSONRPC.METHOD_NOT_FOUND
+    If v_METHOD_NOT_FOUND = -32601 Then pass_count = pass_count + 1
+    Dim v_INVALID_PARAMS As Integer = JSONRPC.INVALID_PARAMS
+    If v_INVALID_PARAMS = -32602 Then pass_count = pass_count + 1
+    Dim v_INTERNAL_ERROR As Integer = JSONRPC.INTERNAL_ERROR
+    If v_INTERNAL_ERROR = -32603 Then pass_count = pass_count + 1
+    If pass_count = 5 Then
+        Print "PASS:enum_JSONRPC_ErrorCode"
+    Else
+        Print "FAIL:enum_JSONRPC_ErrorCode count=" & str(pass_count) & "/5"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_JSONRPC_ErrorCode err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

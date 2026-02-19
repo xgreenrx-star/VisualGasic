@@ -1,0 +1,157 @@
+Attribute VB_Name = "fuzz_prop_888"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As Tree = Tree.new()
+    If obj = Null Then
+        Print "SKIP:prop_Tree_allow_search (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.allow_search
+    Print "PASS:prop_Tree_allow_search"
+    obj.allow_search = True
+    Dim val2 As Variant = obj.allow_search
+    Print "PASS:propset_Tree_allow_search"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_Tree_allow_search err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As VideoStreamPlayer = VideoStreamPlayer.new()
+    If obj = Null Then
+        Print "SKIP:prop_VideoStreamPlayer_audio_track (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.audio_track
+    Print "PASS:prop_VideoStreamPlayer_audio_track"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_VideoStreamPlayer_audio_track err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As VideoStreamPlayer = VideoStreamPlayer.new()
+    If obj = Null Then
+        Print "SKIP:prop_VideoStreamPlayer_stream (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.stream
+    Print "PASS:prop_VideoStreamPlayer_stream"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_VideoStreamPlayer_stream err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As VideoStreamPlayer = VideoStreamPlayer.new()
+    If obj = Null Then
+        Print "SKIP:prop_VideoStreamPlayer_volume_db (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.volume_db
+    Print "PASS:prop_VideoStreamPlayer_volume_db"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_VideoStreamPlayer_volume_db err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As VideoStreamPlayer = VideoStreamPlayer.new()
+    If obj = Null Then
+        Print "SKIP:prop_VideoStreamPlayer_volume (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.volume
+    Print "PASS:prop_VideoStreamPlayer_volume"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_VideoStreamPlayer_volume err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As VideoStreamPlayer = VideoStreamPlayer.new()
+    If obj = Null Then
+        Print "SKIP:prop_VideoStreamPlayer_speed_scale (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.speed_scale
+    Print "PASS:prop_VideoStreamPlayer_speed_scale"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_VideoStreamPlayer_speed_scale err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As GraphFrame = GraphFrame.new()
+    If obj = Null Then
+        Print "SKIP:prop_GraphFrame_title (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.title
+    Print "PASS:prop_GraphFrame_title"
+    obj.title = "test_string"
+    Dim val2 As Variant = obj.title
+    Print "PASS:propset_GraphFrame_title"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_GraphFrame_title err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As GraphFrame = GraphFrame.new()
+    If obj = Null Then
+        Print "SKIP:prop_GraphFrame_autoshrink_enabled (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.autoshrink_enabled
+    Print "PASS:prop_GraphFrame_autoshrink_enabled"
+    obj.autoshrink_enabled = True
+    Dim val2 As Variant = obj.autoshrink_enabled
+    Print "PASS:propset_GraphFrame_autoshrink_enabled"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_GraphFrame_autoshrink_enabled err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+End Sub

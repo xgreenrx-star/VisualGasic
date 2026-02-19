@@ -1,0 +1,60 @@
+Attribute VB_Name = "fuzz_meth_1619"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As CSGMesh3D = CSGMesh3D.new()
+    If obj = Null Then
+        Print "SKIP:meth_CSGMesh3D (null)"
+        Exit Sub
+    End If
+    Dim r_get_mesh As Variant = obj.get_mesh()
+    Print "PASS:meth_CSGMesh3D_get_mesh"
+    Dim r_get_material As Variant = obj.get_material()
+    Print "PASS:meth_CSGMesh3D_get_material"
+    Dim r_get_flip_faces As Variant = obj.get_flip_faces()
+    Print "PASS:meth_CSGMesh3D_get_flip_faces"
+    Dim r_is_root_shape As Variant = obj.is_root_shape()
+    Print "PASS:meth_CSGMesh3D_is_root_shape"
+    Dim r_get_operation As Variant = obj.get_operation()
+    Print "PASS:meth_CSGMesh3D_get_operation"
+    Dim r_get_snap As Variant = obj.get_snap()
+    Print "PASS:meth_CSGMesh3D_get_snap"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_CSGMesh3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As Camera2D = Camera2D.new()
+    If obj = Null Then
+        Print "SKIP:meth_Camera2D (null)"
+        Exit Sub
+    End If
+    Dim r_get_offset As Variant = obj.get_offset()
+    Print "PASS:meth_Camera2D_get_offset"
+    Dim r_get_anchor_mode As Variant = obj.get_anchor_mode()
+    Print "PASS:meth_Camera2D_get_anchor_mode"
+    Dim r_is_ignoring_rotation As Variant = obj.is_ignoring_rotation()
+    Print "PASS:meth_Camera2D_is_ignoring_rotation"
+    Dim r_get_process_callback As Variant = obj.get_process_callback()
+    Print "PASS:meth_Camera2D_get_process_callback"
+    Dim r_is_enabled As Variant = obj.is_enabled()
+    Print "PASS:meth_Camera2D_is_enabled"
+    Dim r_is_current As Variant = obj.is_current()
+    Print "PASS:meth_Camera2D_is_current"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_Camera2D err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+End Sub

@@ -1,0 +1,157 @@
+Attribute VB_Name = "fuzz_prop_968"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As MenuBar = MenuBar.new()
+    If obj = Null Then
+        Print "SKIP:prop_MenuBar_language (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.language
+    Print "PASS:prop_MenuBar_language"
+    obj.language = "test_string"
+    Dim val2 As Variant = obj.language
+    Print "PASS:propset_MenuBar_language"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_MenuBar_language err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As TextureRect = TextureRect.new()
+    If obj = Null Then
+        Print "SKIP:prop_TextureRect_texture (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.texture
+    Print "PASS:prop_TextureRect_texture"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_TextureRect_texture err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As TextureRect = TextureRect.new()
+    If obj = Null Then
+        Print "SKIP:prop_TextureRect_expand_mode (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.expand_mode
+    Print "PASS:prop_TextureRect_expand_mode"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_TextureRect_expand_mode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As TextureRect = TextureRect.new()
+    If obj = Null Then
+        Print "SKIP:prop_TextureRect_stretch_mode (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.stretch_mode
+    Print "PASS:prop_TextureRect_stretch_mode"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_TextureRect_stretch_mode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As TextureRect = TextureRect.new()
+    If obj = Null Then
+        Print "SKIP:prop_TextureRect_flip_h (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.flip_h
+    Print "PASS:prop_TextureRect_flip_h"
+    obj.flip_h = True
+    Dim val2 As Variant = obj.flip_h
+    Print "PASS:propset_TextureRect_flip_h"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_TextureRect_flip_h err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As TextureRect = TextureRect.new()
+    If obj = Null Then
+        Print "SKIP:prop_TextureRect_flip_v (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.flip_v
+    Print "PASS:prop_TextureRect_flip_v"
+    obj.flip_v = True
+    Dim val2 As Variant = obj.flip_v
+    Print "PASS:propset_TextureRect_flip_v"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_TextureRect_flip_v err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As AspectRatioContainer = AspectRatioContainer.new()
+    If obj = Null Then
+        Print "SKIP:prop_AspectRatioContainer_ratio (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.ratio
+    Print "PASS:prop_AspectRatioContainer_ratio"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_AspectRatioContainer_ratio err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As AspectRatioContainer = AspectRatioContainer.new()
+    If obj = Null Then
+        Print "SKIP:prop_AspectRatioContainer_stretch_mode (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.stretch_mode
+    Print "PASS:prop_AspectRatioContainer_stretch_mode"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_AspectRatioContainer_stretch_mode err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+End Sub

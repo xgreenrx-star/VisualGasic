@@ -1,0 +1,154 @@
+Attribute VB_Name = "fuzz_enum_1505"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_STRETCH_SCALE As Integer = TextureRect.STRETCH_SCALE
+    If v_STRETCH_SCALE = 0 Then pass_count = pass_count + 1
+    Dim v_STRETCH_TILE As Integer = TextureRect.STRETCH_TILE
+    If v_STRETCH_TILE = 1 Then pass_count = pass_count + 1
+    Dim v_STRETCH_KEEP As Integer = TextureRect.STRETCH_KEEP
+    If v_STRETCH_KEEP = 2 Then pass_count = pass_count + 1
+    Dim v_STRETCH_KEEP_CENTERED As Integer = TextureRect.STRETCH_KEEP_CENTERED
+    If v_STRETCH_KEEP_CENTERED = 3 Then pass_count = pass_count + 1
+    Dim v_STRETCH_KEEP_ASPECT As Integer = TextureRect.STRETCH_KEEP_ASPECT
+    If v_STRETCH_KEEP_ASPECT = 4 Then pass_count = pass_count + 1
+    Dim v_STRETCH_KEEP_ASPECT_CENTERED As Integer = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+    If v_STRETCH_KEEP_ASPECT_CENTERED = 5 Then pass_count = pass_count + 1
+    Dim v_STRETCH_KEEP_ASPECT_COVERED As Integer = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+    If v_STRETCH_KEEP_ASPECT_COVERED = 6 Then pass_count = pass_count + 1
+    If pass_count = 7 Then
+        Print "PASS:enum_TextureRect_StretchMode"
+    Else
+        Print "FAIL:enum_TextureRect_StretchMode count=" & str(pass_count) & "/7"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_TextureRect_StretchMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_DATA_TYPE_COLOR As Integer = Theme.DATA_TYPE_COLOR
+    If v_DATA_TYPE_COLOR = 0 Then pass_count = pass_count + 1
+    Dim v_DATA_TYPE_CONSTANT As Integer = Theme.DATA_TYPE_CONSTANT
+    If v_DATA_TYPE_CONSTANT = 1 Then pass_count = pass_count + 1
+    Dim v_DATA_TYPE_FONT As Integer = Theme.DATA_TYPE_FONT
+    If v_DATA_TYPE_FONT = 2 Then pass_count = pass_count + 1
+    Dim v_DATA_TYPE_FONT_SIZE As Integer = Theme.DATA_TYPE_FONT_SIZE
+    If v_DATA_TYPE_FONT_SIZE = 3 Then pass_count = pass_count + 1
+    Dim v_DATA_TYPE_ICON As Integer = Theme.DATA_TYPE_ICON
+    If v_DATA_TYPE_ICON = 4 Then pass_count = pass_count + 1
+    Dim v_DATA_TYPE_STYLEBOX As Integer = Theme.DATA_TYPE_STYLEBOX
+    If v_DATA_TYPE_STYLEBOX = 5 Then pass_count = pass_count + 1
+    Dim v_DATA_TYPE_MAX As Integer = Theme.DATA_TYPE_MAX
+    If v_DATA_TYPE_MAX = 6 Then pass_count = pass_count + 1
+    If pass_count = 7 Then
+        Print "PASS:enum_Theme_DataType"
+    Else
+        Print "FAIL:enum_Theme_DataType count=" & str(pass_count) & "/7"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Theme_DataType err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_VISIBILITY_MODE_DEFAULT As Integer = TileMap.VISIBILITY_MODE_DEFAULT
+    If v_VISIBILITY_MODE_DEFAULT = 0 Then pass_count = pass_count + 1
+    Dim v_VISIBILITY_MODE_FORCE_HIDE As Integer = TileMap.VISIBILITY_MODE_FORCE_HIDE
+    If v_VISIBILITY_MODE_FORCE_HIDE = 2 Then pass_count = pass_count + 1
+    Dim v_VISIBILITY_MODE_FORCE_SHOW As Integer = TileMap.VISIBILITY_MODE_FORCE_SHOW
+    If v_VISIBILITY_MODE_FORCE_SHOW = 1 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_TileMap_VisibilityMode"
+    Else
+        Print "FAIL:enum_TileMap_VisibilityMode count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_TileMap_VisibilityMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_DEBUG_VISIBILITY_MODE_DEFAULT As Integer = TileMapLayer.DEBUG_VISIBILITY_MODE_DEFAULT
+    If v_DEBUG_VISIBILITY_MODE_DEFAULT = 0 Then pass_count = pass_count + 1
+    Dim v_DEBUG_VISIBILITY_MODE_FORCE_HIDE As Integer = TileMapLayer.DEBUG_VISIBILITY_MODE_FORCE_HIDE
+    If v_DEBUG_VISIBILITY_MODE_FORCE_HIDE = 2 Then pass_count = pass_count + 1
+    Dim v_DEBUG_VISIBILITY_MODE_FORCE_SHOW As Integer = TileMapLayer.DEBUG_VISIBILITY_MODE_FORCE_SHOW
+    If v_DEBUG_VISIBILITY_MODE_FORCE_SHOW = 1 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_TileMapLayer_DebugVisibilityMode"
+    Else
+        Print "FAIL:enum_TileMapLayer_DebugVisibilityMode count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_TileMapLayer_DebugVisibilityMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_TILE_SHAPE_SQUARE As Integer = TileSet.TILE_SHAPE_SQUARE
+    If v_TILE_SHAPE_SQUARE = 0 Then pass_count = pass_count + 1
+    Dim v_TILE_SHAPE_ISOMETRIC As Integer = TileSet.TILE_SHAPE_ISOMETRIC
+    If v_TILE_SHAPE_ISOMETRIC = 1 Then pass_count = pass_count + 1
+    Dim v_TILE_SHAPE_HALF_OFFSET_SQUARE As Integer = TileSet.TILE_SHAPE_HALF_OFFSET_SQUARE
+    If v_TILE_SHAPE_HALF_OFFSET_SQUARE = 2 Then pass_count = pass_count + 1
+    Dim v_TILE_SHAPE_HEXAGON As Integer = TileSet.TILE_SHAPE_HEXAGON
+    If v_TILE_SHAPE_HEXAGON = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_TileSet_TileShape"
+    Else
+        Print "FAIL:enum_TileSet_TileShape count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_TileSet_TileShape err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_TILE_LAYOUT_STACKED As Integer = TileSet.TILE_LAYOUT_STACKED
+    If v_TILE_LAYOUT_STACKED = 0 Then pass_count = pass_count + 1
+    Dim v_TILE_LAYOUT_STACKED_OFFSET As Integer = TileSet.TILE_LAYOUT_STACKED_OFFSET
+    If v_TILE_LAYOUT_STACKED_OFFSET = 1 Then pass_count = pass_count + 1
+    Dim v_TILE_LAYOUT_STAIRS_RIGHT As Integer = TileSet.TILE_LAYOUT_STAIRS_RIGHT
+    If v_TILE_LAYOUT_STAIRS_RIGHT = 2 Then pass_count = pass_count + 1
+    Dim v_TILE_LAYOUT_STAIRS_DOWN As Integer = TileSet.TILE_LAYOUT_STAIRS_DOWN
+    If v_TILE_LAYOUT_STAIRS_DOWN = 3 Then pass_count = pass_count + 1
+    Dim v_TILE_LAYOUT_DIAMOND_RIGHT As Integer = TileSet.TILE_LAYOUT_DIAMOND_RIGHT
+    If v_TILE_LAYOUT_DIAMOND_RIGHT = 4 Then pass_count = pass_count + 1
+    Dim v_TILE_LAYOUT_DIAMOND_DOWN As Integer = TileSet.TILE_LAYOUT_DIAMOND_DOWN
+    If v_TILE_LAYOUT_DIAMOND_DOWN = 5 Then pass_count = pass_count + 1
+    If pass_count = 6 Then
+        Print "PASS:enum_TileSet_TileLayout"
+    Else
+        Print "FAIL:enum_TileSet_TileLayout count=" & str(pass_count) & "/6"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_TileSet_TileLayout err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

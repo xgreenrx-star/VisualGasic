@@ -1,0 +1,207 @@
+Attribute VB_Name = "fuzz_with_1700"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As SphereMesh = SphereMesh.new()
+    If obj = Null Then
+        Print "SKIP:with_SphereMesh (null)"
+        Exit Sub
+    End If
+    With obj
+        Dim v_radius As Variant = .radius
+        Dim v_height As Variant = .height
+        Dim v_radial_segments As Variant = .radial_segments
+    End With
+    Print "PASS:with_SphereMesh"
+    If Err.Number <> 0 Then
+        Print "ERROR:with_SphereMesh err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As BoxMesh = BoxMesh.new()
+    If obj = Null Then
+        Print "SKIP:with_BoxMesh (null)"
+        Exit Sub
+    End If
+    With obj
+        Dim v_size As Variant = .size
+    End With
+    Print "PASS:with_BoxMesh"
+    If Err.Number <> 0 Then
+        Print "ERROR:with_BoxMesh err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As StandardMaterial3D = StandardMaterial3D.new()
+    If obj = Null Then
+        Print "SKIP:with_StandardMaterial3D (null)"
+        Exit Sub
+    End If
+    With obj
+        Dim v_albedo_color As Variant = .albedo_color
+        Dim v_metallic As Variant = .metallic
+        Dim v_roughness As Variant = .roughness
+    End With
+    Print "PASS:with_StandardMaterial3D"
+    If Err.Number <> 0 Then
+        Print "ERROR:with_StandardMaterial3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As Label = Label.new()
+    If obj = Null Then
+        Print "SKIP:with_Label (null)"
+        Exit Sub
+    End If
+    With obj
+        Dim v_text As Variant = .text
+        Dim v_visible_characters As Variant = .visible_characters
+    End With
+    Print "PASS:with_Label"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:with_Label err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As Timer = Timer.new()
+    If obj = Null Then
+        Print "SKIP:with_Timer (null)"
+        Exit Sub
+    End If
+    With obj
+        Dim v_wait_time As Variant = .wait_time
+        Dim v_one_shot As Variant = .one_shot
+        Dim v_autostart As Variant = .autostart
+    End With
+    Print "PASS:with_Timer"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:with_Timer err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As AnimatedTexture = AnimatedTexture.new()
+    If obj = Null Then
+        Print "SKIP:with_AnimatedTexture (null)"
+        Exit Sub
+    End If
+    With obj
+        Dim v_frames As Variant = .frames
+        Dim v_speed_scale As Variant = .speed_scale
+    End With
+    Print "PASS:with_AnimatedTexture"
+    If Err.Number <> 0 Then
+        Print "ERROR:with_AnimatedTexture err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As Gradient = Gradient.new()
+    If obj = Null Then
+        Print "SKIP:with_Gradient (null)"
+        Exit Sub
+    End If
+    With obj
+        Dim v_interpolation_mode As Variant = .interpolation_mode
+    End With
+    Print "PASS:with_Gradient"
+    If Err.Number <> 0 Then
+        Print "ERROR:with_Gradient err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As Camera3D = Camera3D.new()
+    If obj = Null Then
+        Print "SKIP:with_Camera3D (null)"
+        Exit Sub
+    End If
+    With obj
+        Dim v_fov As Variant = .fov
+        Dim v_near As Variant = .near
+        Dim v_far As Variant = .far
+    End With
+    Print "PASS:with_Camera3D"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:with_Camera3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As RichTextLabel = RichTextLabel.new()
+    If obj = Null Then
+        Print "SKIP:with_RichTextLabel (null)"
+        Exit Sub
+    End If
+    With obj
+        Dim v_bbcode_enabled As Variant = .bbcode_enabled
+        Dim v_scroll_active As Variant = .scroll_active
+    End With
+    Print "PASS:with_RichTextLabel"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:with_RichTextLabel err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As ProgressBar = ProgressBar.new()
+    If obj = Null Then
+        Print "SKIP:with_ProgressBar (null)"
+        Exit Sub
+    End If
+    With obj
+        Dim v_value As Variant = .value
+        Dim v_min_value As Variant = .min_value
+        Dim v_max_value As Variant = .max_value
+    End With
+    Print "PASS:with_ProgressBar"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:with_ProgressBar err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

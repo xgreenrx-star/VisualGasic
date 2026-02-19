@@ -1,0 +1,157 @@
+Attribute VB_Name = "fuzz_inst_530"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As StandardMaterial3D = StandardMaterial3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_StandardMaterial3D"
+    Else
+        Print "FAIL:inst_StandardMaterial3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_StandardMaterial3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As StaticBody2D = StaticBody2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_StaticBody2D"
+        obj.free()
+    Else
+        Print "FAIL:inst_StaticBody2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_StaticBody2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As StaticBody3D = StaticBody3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_StaticBody3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_StaticBody3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_StaticBody3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As StatusIndicator = StatusIndicator.new()
+    If obj <> Null Then
+        Print "PASS:inst_StatusIndicator"
+        obj.free()
+    Else
+        Print "FAIL:inst_StatusIndicator returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_StatusIndicator err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As StreamPeerBuffer = StreamPeerBuffer.new()
+    If obj <> Null Then
+        Print "PASS:inst_StreamPeerBuffer"
+    Else
+        Print "FAIL:inst_StreamPeerBuffer returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_StreamPeerBuffer err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As StreamPeerExtension = StreamPeerExtension.new()
+    If obj <> Null Then
+        Print "PASS:inst_StreamPeerExtension"
+    Else
+        Print "FAIL:inst_StreamPeerExtension returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_StreamPeerExtension err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As StreamPeerGZIP = StreamPeerGZIP.new()
+    If obj <> Null Then
+        Print "PASS:inst_StreamPeerGZIP"
+    Else
+        Print "FAIL:inst_StreamPeerGZIP returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_StreamPeerGZIP err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As StreamPeerTCP = StreamPeerTCP.new()
+    If obj <> Null Then
+        Print "PASS:inst_StreamPeerTCP"
+    Else
+        Print "FAIL:inst_StreamPeerTCP returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_StreamPeerTCP err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As StreamPeerTLS = StreamPeerTLS.new()
+    If obj <> Null Then
+        Print "PASS:inst_StreamPeerTLS"
+    Else
+        Print "FAIL:inst_StreamPeerTLS returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_StreamPeerTLS err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As StyleBox = StyleBox.new()
+    If obj <> Null Then
+        Print "PASS:inst_StyleBox"
+    Else
+        Print "FAIL:inst_StyleBox returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_StyleBox err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

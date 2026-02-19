@@ -1,0 +1,163 @@
+Attribute VB_Name = "fuzz_prop_848"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As SpinBox = SpinBox.new()
+    If obj = Null Then
+        Print "SKIP:prop_SpinBox_suffix (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.suffix
+    Print "PASS:prop_SpinBox_suffix"
+    obj.suffix = "test_string"
+    Dim val2 As Variant = obj.suffix
+    Print "PASS:propset_SpinBox_suffix"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_SpinBox_suffix err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As ItemList = ItemList.new()
+    If obj = Null Then
+        Print "SKIP:prop_ItemList_select_mode (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.select_mode
+    Print "PASS:prop_ItemList_select_mode"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_ItemList_select_mode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As ItemList = ItemList.new()
+    If obj = Null Then
+        Print "SKIP:prop_ItemList_allow_reselect (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.allow_reselect
+    Print "PASS:prop_ItemList_allow_reselect"
+    obj.allow_reselect = True
+    Dim val2 As Variant = obj.allow_reselect
+    Print "PASS:propset_ItemList_allow_reselect"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_ItemList_allow_reselect err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As ItemList = ItemList.new()
+    If obj = Null Then
+        Print "SKIP:prop_ItemList_allow_rmb_select (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.allow_rmb_select
+    Print "PASS:prop_ItemList_allow_rmb_select"
+    obj.allow_rmb_select = True
+    Dim val2 As Variant = obj.allow_rmb_select
+    Print "PASS:propset_ItemList_allow_rmb_select"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_ItemList_allow_rmb_select err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As ItemList = ItemList.new()
+    If obj = Null Then
+        Print "SKIP:prop_ItemList_allow_search (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.allow_search
+    Print "PASS:prop_ItemList_allow_search"
+    obj.allow_search = True
+    Dim val2 As Variant = obj.allow_search
+    Print "PASS:propset_ItemList_allow_search"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_ItemList_allow_search err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As ItemList = ItemList.new()
+    If obj = Null Then
+        Print "SKIP:prop_ItemList_max_text_lines (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.max_text_lines
+    Print "PASS:prop_ItemList_max_text_lines"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_ItemList_max_text_lines err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As LinkButton = LinkButton.new()
+    If obj = Null Then
+        Print "SKIP:prop_LinkButton_text (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.text
+    Print "PASS:prop_LinkButton_text"
+    obj.text = "test_string"
+    Dim val2 As Variant = obj.text
+    Print "PASS:propset_LinkButton_text"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_LinkButton_text err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As LinkButton = LinkButton.new()
+    If obj = Null Then
+        Print "SKIP:prop_LinkButton_underline (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.underline
+    Print "PASS:prop_LinkButton_underline"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_LinkButton_underline err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+End Sub

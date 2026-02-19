@@ -1,0 +1,126 @@
+Attribute VB_Name = "fuzz_enum_1474"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_GRADIENT_INTERPOLATE_LINEAR As Integer = Gradient.GRADIENT_INTERPOLATE_LINEAR
+    If v_GRADIENT_INTERPOLATE_LINEAR = 0 Then pass_count = pass_count + 1
+    Dim v_GRADIENT_INTERPOLATE_CONSTANT As Integer = Gradient.GRADIENT_INTERPOLATE_CONSTANT
+    If v_GRADIENT_INTERPOLATE_CONSTANT = 1 Then pass_count = pass_count + 1
+    Dim v_GRADIENT_INTERPOLATE_CUBIC As Integer = Gradient.GRADIENT_INTERPOLATE_CUBIC
+    If v_GRADIENT_INTERPOLATE_CUBIC = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_Gradient_InterpolationMode"
+    Else
+        Print "FAIL:enum_Gradient_InterpolationMode count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Gradient_InterpolationMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_GRADIENT_COLOR_SPACE_SRGB As Integer = Gradient.GRADIENT_COLOR_SPACE_SRGB
+    If v_GRADIENT_COLOR_SPACE_SRGB = 0 Then pass_count = pass_count + 1
+    Dim v_GRADIENT_COLOR_SPACE_LINEAR_SRGB As Integer = Gradient.GRADIENT_COLOR_SPACE_LINEAR_SRGB
+    If v_GRADIENT_COLOR_SPACE_LINEAR_SRGB = 1 Then pass_count = pass_count + 1
+    Dim v_GRADIENT_COLOR_SPACE_OKLAB As Integer = Gradient.GRADIENT_COLOR_SPACE_OKLAB
+    If v_GRADIENT_COLOR_SPACE_OKLAB = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_Gradient_ColorSpace"
+    Else
+        Print "FAIL:enum_Gradient_ColorSpace count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Gradient_ColorSpace err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_FILL_LINEAR As Integer = GradientTexture2D.FILL_LINEAR
+    If v_FILL_LINEAR = 0 Then pass_count = pass_count + 1
+    Dim v_FILL_RADIAL As Integer = GradientTexture2D.FILL_RADIAL
+    If v_FILL_RADIAL = 1 Then pass_count = pass_count + 1
+    Dim v_FILL_SQUARE As Integer = GradientTexture2D.FILL_SQUARE
+    If v_FILL_SQUARE = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_GradientTexture2D_Fill"
+    Else
+        Print "FAIL:enum_GradientTexture2D_Fill count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_GradientTexture2D_Fill err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_REPEAT_NONE As Integer = GradientTexture2D.REPEAT_NONE
+    If v_REPEAT_NONE = 0 Then pass_count = pass_count + 1
+    Dim v_REPEAT As Integer = GradientTexture2D.REPEAT
+    If v_REPEAT = 1 Then pass_count = pass_count + 1
+    Dim v_REPEAT_MIRROR As Integer = GradientTexture2D.REPEAT_MIRROR
+    If v_REPEAT_MIRROR = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_GradientTexture2D_Repeat"
+    Else
+        Print "FAIL:enum_GradientTexture2D_Repeat count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_GradientTexture2D_Repeat err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_SCROLL_ZOOMS As Integer = GraphEdit.SCROLL_ZOOMS
+    If v_SCROLL_ZOOMS = 0 Then pass_count = pass_count + 1
+    Dim v_SCROLL_PANS As Integer = GraphEdit.SCROLL_PANS
+    If v_SCROLL_PANS = 1 Then pass_count = pass_count + 1
+    If pass_count = 2 Then
+        Print "PASS:enum_GraphEdit_PanningScheme"
+    Else
+        Print "FAIL:enum_GraphEdit_PanningScheme count=" & str(pass_count) & "/2"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_GraphEdit_PanningScheme err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_GRID_PATTERN_LINES As Integer = GraphEdit.GRID_PATTERN_LINES
+    If v_GRID_PATTERN_LINES = 0 Then pass_count = pass_count + 1
+    Dim v_GRID_PATTERN_DOTS As Integer = GraphEdit.GRID_PATTERN_DOTS
+    If v_GRID_PATTERN_DOTS = 1 Then pass_count = pass_count + 1
+    If pass_count = 2 Then
+        Print "PASS:enum_GraphEdit_GridPattern"
+    Else
+        Print "FAIL:enum_GraphEdit_GridPattern count=" & str(pass_count) & "/2"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_GraphEdit_GridPattern err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

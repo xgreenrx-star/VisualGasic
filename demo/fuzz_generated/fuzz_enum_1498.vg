@@ -1,0 +1,144 @@
+Attribute VB_Name = "fuzz_enum_1498"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_FLAG_TRANSPARENT As Integer = SpriteBase3D.FLAG_TRANSPARENT
+    If v_FLAG_TRANSPARENT = 0 Then pass_count = pass_count + 1
+    Dim v_FLAG_SHADED As Integer = SpriteBase3D.FLAG_SHADED
+    If v_FLAG_SHADED = 1 Then pass_count = pass_count + 1
+    Dim v_FLAG_DOUBLE_SIDED As Integer = SpriteBase3D.FLAG_DOUBLE_SIDED
+    If v_FLAG_DOUBLE_SIDED = 2 Then pass_count = pass_count + 1
+    Dim v_FLAG_DISABLE_DEPTH_TEST As Integer = SpriteBase3D.FLAG_DISABLE_DEPTH_TEST
+    If v_FLAG_DISABLE_DEPTH_TEST = 3 Then pass_count = pass_count + 1
+    Dim v_FLAG_FIXED_SIZE As Integer = SpriteBase3D.FLAG_FIXED_SIZE
+    If v_FLAG_FIXED_SIZE = 4 Then pass_count = pass_count + 1
+    Dim v_FLAG_MAX As Integer = SpriteBase3D.FLAG_MAX
+    If v_FLAG_MAX = 5 Then pass_count = pass_count + 1
+    If pass_count = 6 Then
+        Print "PASS:enum_SpriteBase3D_DrawFlags"
+    Else
+        Print "FAIL:enum_SpriteBase3D_DrawFlags count=" & str(pass_count) & "/6"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_SpriteBase3D_DrawFlags err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_ALPHA_CUT_DISABLED As Integer = SpriteBase3D.ALPHA_CUT_DISABLED
+    If v_ALPHA_CUT_DISABLED = 0 Then pass_count = pass_count + 1
+    Dim v_ALPHA_CUT_DISCARD As Integer = SpriteBase3D.ALPHA_CUT_DISCARD
+    If v_ALPHA_CUT_DISCARD = 1 Then pass_count = pass_count + 1
+    Dim v_ALPHA_CUT_OPAQUE_PREPASS As Integer = SpriteBase3D.ALPHA_CUT_OPAQUE_PREPASS
+    If v_ALPHA_CUT_OPAQUE_PREPASS = 2 Then pass_count = pass_count + 1
+    Dim v_ALPHA_CUT_HASH As Integer = SpriteBase3D.ALPHA_CUT_HASH
+    If v_ALPHA_CUT_HASH = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_SpriteBase3D_AlphaCutMode"
+    Else
+        Print "FAIL:enum_SpriteBase3D_AlphaCutMode count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_SpriteBase3D_AlphaCutMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_STATUS_NONE As Integer = StreamPeerTCP.STATUS_NONE
+    If v_STATUS_NONE = 0 Then pass_count = pass_count + 1
+    Dim v_STATUS_CONNECTING As Integer = StreamPeerTCP.STATUS_CONNECTING
+    If v_STATUS_CONNECTING = 1 Then pass_count = pass_count + 1
+    Dim v_STATUS_CONNECTED As Integer = StreamPeerTCP.STATUS_CONNECTED
+    If v_STATUS_CONNECTED = 2 Then pass_count = pass_count + 1
+    Dim v_STATUS_ERROR As Integer = StreamPeerTCP.STATUS_ERROR
+    If v_STATUS_ERROR = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_StreamPeerTCP_Status"
+    Else
+        Print "FAIL:enum_StreamPeerTCP_Status count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_StreamPeerTCP_Status err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_STATUS_DISCONNECTED As Integer = StreamPeerTLS.STATUS_DISCONNECTED
+    If v_STATUS_DISCONNECTED = 0 Then pass_count = pass_count + 1
+    Dim v_STATUS_HANDSHAKING As Integer = StreamPeerTLS.STATUS_HANDSHAKING
+    If v_STATUS_HANDSHAKING = 1 Then pass_count = pass_count + 1
+    Dim v_STATUS_CONNECTED As Integer = StreamPeerTLS.STATUS_CONNECTED
+    If v_STATUS_CONNECTED = 2 Then pass_count = pass_count + 1
+    Dim v_STATUS_ERROR As Integer = StreamPeerTLS.STATUS_ERROR
+    If v_STATUS_ERROR = 3 Then pass_count = pass_count + 1
+    Dim v_STATUS_ERROR_HOSTNAME_MISMATCH As Integer = StreamPeerTLS.STATUS_ERROR_HOSTNAME_MISMATCH
+    If v_STATUS_ERROR_HOSTNAME_MISMATCH = 4 Then pass_count = pass_count + 1
+    If pass_count = 5 Then
+        Print "PASS:enum_StreamPeerTLS_Status"
+    Else
+        Print "FAIL:enum_StreamPeerTLS_Status count=" & str(pass_count) & "/5"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_StreamPeerTLS_Status err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_AXIS_STRETCH_MODE_STRETCH As Integer = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
+    If v_AXIS_STRETCH_MODE_STRETCH = 0 Then pass_count = pass_count + 1
+    Dim v_AXIS_STRETCH_MODE_TILE As Integer = StyleBoxTexture.AXIS_STRETCH_MODE_TILE
+    If v_AXIS_STRETCH_MODE_TILE = 1 Then pass_count = pass_count + 1
+    Dim v_AXIS_STRETCH_MODE_TILE_FIT As Integer = StyleBoxTexture.AXIS_STRETCH_MODE_TILE_FIT
+    If v_AXIS_STRETCH_MODE_TILE_FIT = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_StyleBoxTexture_AxisStretchMode"
+    Else
+        Print "FAIL:enum_StyleBoxTexture_AxisStretchMode count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_StyleBoxTexture_AxisStretchMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_CLEAR_MODE_ALWAYS As Integer = SubViewport.CLEAR_MODE_ALWAYS
+    If v_CLEAR_MODE_ALWAYS = 0 Then pass_count = pass_count + 1
+    Dim v_CLEAR_MODE_NEVER As Integer = SubViewport.CLEAR_MODE_NEVER
+    If v_CLEAR_MODE_NEVER = 1 Then pass_count = pass_count + 1
+    Dim v_CLEAR_MODE_ONCE As Integer = SubViewport.CLEAR_MODE_ONCE
+    If v_CLEAR_MODE_ONCE = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_SubViewport_ClearMode"
+    Else
+        Print "FAIL:enum_SubViewport_ClearMode count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_SubViewport_ClearMode err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

@@ -1,0 +1,142 @@
+Attribute VB_Name = "fuzz_enum_1468"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_REFLECTION_SOURCE_BG As Integer = Environment.REFLECTION_SOURCE_BG
+    If v_REFLECTION_SOURCE_BG = 0 Then pass_count = pass_count + 1
+    Dim v_REFLECTION_SOURCE_DISABLED As Integer = Environment.REFLECTION_SOURCE_DISABLED
+    If v_REFLECTION_SOURCE_DISABLED = 1 Then pass_count = pass_count + 1
+    Dim v_REFLECTION_SOURCE_SKY As Integer = Environment.REFLECTION_SOURCE_SKY
+    If v_REFLECTION_SOURCE_SKY = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_Environment_ReflectionSource"
+    Else
+        Print "FAIL:enum_Environment_ReflectionSource count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Environment_ReflectionSource err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_TONE_MAPPER_LINEAR As Integer = Environment.TONE_MAPPER_LINEAR
+    If v_TONE_MAPPER_LINEAR = 0 Then pass_count = pass_count + 1
+    Dim v_TONE_MAPPER_REINHARDT As Integer = Environment.TONE_MAPPER_REINHARDT
+    If v_TONE_MAPPER_REINHARDT = 1 Then pass_count = pass_count + 1
+    Dim v_TONE_MAPPER_FILMIC As Integer = Environment.TONE_MAPPER_FILMIC
+    If v_TONE_MAPPER_FILMIC = 2 Then pass_count = pass_count + 1
+    Dim v_TONE_MAPPER_ACES As Integer = Environment.TONE_MAPPER_ACES
+    If v_TONE_MAPPER_ACES = 3 Then pass_count = pass_count + 1
+    Dim v_TONE_MAPPER_AGX As Integer = Environment.TONE_MAPPER_AGX
+    If v_TONE_MAPPER_AGX = 4 Then pass_count = pass_count + 1
+    If pass_count = 5 Then
+        Print "PASS:enum_Environment_ToneMapper"
+    Else
+        Print "FAIL:enum_Environment_ToneMapper count=" & str(pass_count) & "/5"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Environment_ToneMapper err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_GLOW_BLEND_MODE_ADDITIVE As Integer = Environment.GLOW_BLEND_MODE_ADDITIVE
+    If v_GLOW_BLEND_MODE_ADDITIVE = 0 Then pass_count = pass_count + 1
+    Dim v_GLOW_BLEND_MODE_SCREEN As Integer = Environment.GLOW_BLEND_MODE_SCREEN
+    If v_GLOW_BLEND_MODE_SCREEN = 1 Then pass_count = pass_count + 1
+    Dim v_GLOW_BLEND_MODE_SOFTLIGHT As Integer = Environment.GLOW_BLEND_MODE_SOFTLIGHT
+    If v_GLOW_BLEND_MODE_SOFTLIGHT = 2 Then pass_count = pass_count + 1
+    Dim v_GLOW_BLEND_MODE_REPLACE As Integer = Environment.GLOW_BLEND_MODE_REPLACE
+    If v_GLOW_BLEND_MODE_REPLACE = 3 Then pass_count = pass_count + 1
+    Dim v_GLOW_BLEND_MODE_MIX As Integer = Environment.GLOW_BLEND_MODE_MIX
+    If v_GLOW_BLEND_MODE_MIX = 4 Then pass_count = pass_count + 1
+    If pass_count = 5 Then
+        Print "PASS:enum_Environment_GlowBlendMode"
+    Else
+        Print "FAIL:enum_Environment_GlowBlendMode count=" & str(pass_count) & "/5"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Environment_GlowBlendMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_FOG_MODE_EXPONENTIAL As Integer = Environment.FOG_MODE_EXPONENTIAL
+    If v_FOG_MODE_EXPONENTIAL = 0 Then pass_count = pass_count + 1
+    Dim v_FOG_MODE_DEPTH As Integer = Environment.FOG_MODE_DEPTH
+    If v_FOG_MODE_DEPTH = 1 Then pass_count = pass_count + 1
+    If pass_count = 2 Then
+        Print "PASS:enum_Environment_FogMode"
+    Else
+        Print "FAIL:enum_Environment_FogMode count=" & str(pass_count) & "/2"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Environment_FogMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_SDFGI_Y_SCALE_50_PERCENT As Integer = Environment.SDFGI_Y_SCALE_50_PERCENT
+    If v_SDFGI_Y_SCALE_50_PERCENT = 0 Then pass_count = pass_count + 1
+    Dim v_SDFGI_Y_SCALE_75_PERCENT As Integer = Environment.SDFGI_Y_SCALE_75_PERCENT
+    If v_SDFGI_Y_SCALE_75_PERCENT = 1 Then pass_count = pass_count + 1
+    Dim v_SDFGI_Y_SCALE_100_PERCENT As Integer = Environment.SDFGI_Y_SCALE_100_PERCENT
+    If v_SDFGI_Y_SCALE_100_PERCENT = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_Environment_SDFGIYScale"
+    Else
+        Print "FAIL:enum_Environment_SDFGIYScale count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Environment_SDFGIYScale err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_TYPE_VALUE As Integer = FastNoiseLite.TYPE_VALUE
+    If v_TYPE_VALUE = 5 Then pass_count = pass_count + 1
+    Dim v_TYPE_VALUE_CUBIC As Integer = FastNoiseLite.TYPE_VALUE_CUBIC
+    If v_TYPE_VALUE_CUBIC = 4 Then pass_count = pass_count + 1
+    Dim v_TYPE_PERLIN As Integer = FastNoiseLite.TYPE_PERLIN
+    If v_TYPE_PERLIN = 3 Then pass_count = pass_count + 1
+    Dim v_TYPE_CELLULAR As Integer = FastNoiseLite.TYPE_CELLULAR
+    If v_TYPE_CELLULAR = 2 Then pass_count = pass_count + 1
+    Dim v_TYPE_SIMPLEX As Integer = FastNoiseLite.TYPE_SIMPLEX
+    If v_TYPE_SIMPLEX = 0 Then pass_count = pass_count + 1
+    Dim v_TYPE_SIMPLEX_SMOOTH As Integer = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+    If v_TYPE_SIMPLEX_SMOOTH = 1 Then pass_count = pass_count + 1
+    If pass_count = 6 Then
+        Print "PASS:enum_FastNoiseLite_NoiseType"
+    Else
+        Print "FAIL:enum_FastNoiseLite_NoiseType count=" & str(pass_count) & "/6"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_FastNoiseLite_NoiseType err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

@@ -1,0 +1,146 @@
+Attribute VB_Name = "fuzz_enum_1519"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_SUBDIV_64 As Integer = VoxelGI.SUBDIV_64
+    If v_SUBDIV_64 = 0 Then pass_count = pass_count + 1
+    Dim v_SUBDIV_128 As Integer = VoxelGI.SUBDIV_128
+    If v_SUBDIV_128 = 1 Then pass_count = pass_count + 1
+    Dim v_SUBDIV_256 As Integer = VoxelGI.SUBDIV_256
+    If v_SUBDIV_256 = 2 Then pass_count = pass_count + 1
+    Dim v_SUBDIV_512 As Integer = VoxelGI.SUBDIV_512
+    If v_SUBDIV_512 = 3 Then pass_count = pass_count + 1
+    Dim v_SUBDIV_MAX As Integer = VoxelGI.SUBDIV_MAX
+    If v_SUBDIV_MAX = 4 Then pass_count = pass_count + 1
+    If pass_count = 5 Then
+        Print "PASS:enum_VoxelGI_Subdiv"
+    Else
+        Print "FAIL:enum_VoxelGI_Subdiv count=" & str(pass_count) & "/5"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_VoxelGI_Subdiv err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_WRITE_MODE_TEXT As Integer = WebRTCDataChannel.WRITE_MODE_TEXT
+    If v_WRITE_MODE_TEXT = 0 Then pass_count = pass_count + 1
+    Dim v_WRITE_MODE_BINARY As Integer = WebRTCDataChannel.WRITE_MODE_BINARY
+    If v_WRITE_MODE_BINARY = 1 Then pass_count = pass_count + 1
+    If pass_count = 2 Then
+        Print "PASS:enum_WebRTCDataChannel_WriteMode"
+    Else
+        Print "FAIL:enum_WebRTCDataChannel_WriteMode count=" & str(pass_count) & "/2"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_WebRTCDataChannel_WriteMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_STATE_CONNECTING As Integer = WebRTCDataChannel.STATE_CONNECTING
+    If v_STATE_CONNECTING = 0 Then pass_count = pass_count + 1
+    Dim v_STATE_OPEN As Integer = WebRTCDataChannel.STATE_OPEN
+    If v_STATE_OPEN = 1 Then pass_count = pass_count + 1
+    Dim v_STATE_CLOSING As Integer = WebRTCDataChannel.STATE_CLOSING
+    If v_STATE_CLOSING = 2 Then pass_count = pass_count + 1
+    Dim v_STATE_CLOSED As Integer = WebRTCDataChannel.STATE_CLOSED
+    If v_STATE_CLOSED = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_WebRTCDataChannel_ChannelState"
+    Else
+        Print "FAIL:enum_WebRTCDataChannel_ChannelState count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_WebRTCDataChannel_ChannelState err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_STATE_NEW As Integer = WebRTCPeerConnection.STATE_NEW
+    If v_STATE_NEW = 0 Then pass_count = pass_count + 1
+    Dim v_STATE_CONNECTING As Integer = WebRTCPeerConnection.STATE_CONNECTING
+    If v_STATE_CONNECTING = 1 Then pass_count = pass_count + 1
+    Dim v_STATE_CONNECTED As Integer = WebRTCPeerConnection.STATE_CONNECTED
+    If v_STATE_CONNECTED = 2 Then pass_count = pass_count + 1
+    Dim v_STATE_DISCONNECTED As Integer = WebRTCPeerConnection.STATE_DISCONNECTED
+    If v_STATE_DISCONNECTED = 3 Then pass_count = pass_count + 1
+    Dim v_STATE_FAILED As Integer = WebRTCPeerConnection.STATE_FAILED
+    If v_STATE_FAILED = 4 Then pass_count = pass_count + 1
+    Dim v_STATE_CLOSED As Integer = WebRTCPeerConnection.STATE_CLOSED
+    If v_STATE_CLOSED = 5 Then pass_count = pass_count + 1
+    If pass_count = 6 Then
+        Print "PASS:enum_WebRTCPeerConnection_ConnectionState"
+    Else
+        Print "FAIL:enum_WebRTCPeerConnection_ConnectionState count=" & str(pass_count) & "/6"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_WebRTCPeerConnection_ConnectionState err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_GATHERING_STATE_NEW As Integer = WebRTCPeerConnection.GATHERING_STATE_NEW
+    If v_GATHERING_STATE_NEW = 0 Then pass_count = pass_count + 1
+    Dim v_GATHERING_STATE_GATHERING As Integer = WebRTCPeerConnection.GATHERING_STATE_GATHERING
+    If v_GATHERING_STATE_GATHERING = 1 Then pass_count = pass_count + 1
+    Dim v_GATHERING_STATE_COMPLETE As Integer = WebRTCPeerConnection.GATHERING_STATE_COMPLETE
+    If v_GATHERING_STATE_COMPLETE = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_WebRTCPeerConnection_GatheringState"
+    Else
+        Print "FAIL:enum_WebRTCPeerConnection_GatheringState count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_WebRTCPeerConnection_GatheringState err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_SIGNALING_STATE_STABLE As Integer = WebRTCPeerConnection.SIGNALING_STATE_STABLE
+    If v_SIGNALING_STATE_STABLE = 0 Then pass_count = pass_count + 1
+    Dim v_SIGNALING_STATE_HAVE_LOCAL_OFFER As Integer = WebRTCPeerConnection.SIGNALING_STATE_HAVE_LOCAL_OFFER
+    If v_SIGNALING_STATE_HAVE_LOCAL_OFFER = 1 Then pass_count = pass_count + 1
+    Dim v_SIGNALING_STATE_HAVE_REMOTE_OFFER As Integer = WebRTCPeerConnection.SIGNALING_STATE_HAVE_REMOTE_OFFER
+    If v_SIGNALING_STATE_HAVE_REMOTE_OFFER = 2 Then pass_count = pass_count + 1
+    Dim v_SIGNALING_STATE_HAVE_LOCAL_PRANSWER As Integer = WebRTCPeerConnection.SIGNALING_STATE_HAVE_LOCAL_PRANSWER
+    If v_SIGNALING_STATE_HAVE_LOCAL_PRANSWER = 3 Then pass_count = pass_count + 1
+    Dim v_SIGNALING_STATE_HAVE_REMOTE_PRANSWER As Integer = WebRTCPeerConnection.SIGNALING_STATE_HAVE_REMOTE_PRANSWER
+    If v_SIGNALING_STATE_HAVE_REMOTE_PRANSWER = 4 Then pass_count = pass_count + 1
+    Dim v_SIGNALING_STATE_CLOSED As Integer = WebRTCPeerConnection.SIGNALING_STATE_CLOSED
+    If v_SIGNALING_STATE_CLOSED = 5 Then pass_count = pass_count + 1
+    If pass_count = 6 Then
+        Print "PASS:enum_WebRTCPeerConnection_SignalingState"
+    Else
+        Print "FAIL:enum_WebRTCPeerConnection_SignalingState count=" & str(pass_count) & "/6"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_WebRTCPeerConnection_SignalingState err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

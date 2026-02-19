@@ -1,0 +1,130 @@
+Attribute VB_Name = "fuzz_enum_1461"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_CAMERA2D_PROCESS_PHYSICS As Integer = Camera2D.CAMERA2D_PROCESS_PHYSICS
+    If v_CAMERA2D_PROCESS_PHYSICS = 0 Then pass_count = pass_count + 1
+    Dim v_CAMERA2D_PROCESS_IDLE As Integer = Camera2D.CAMERA2D_PROCESS_IDLE
+    If v_CAMERA2D_PROCESS_IDLE = 1 Then pass_count = pass_count + 1
+    If pass_count = 2 Then
+        Print "PASS:enum_Camera2D_Camera2DProcessCallback"
+    Else
+        Print "FAIL:enum_Camera2D_Camera2DProcessCallback count=" & str(pass_count) & "/2"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Camera2D_Camera2DProcessCallback err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_PROJECTION_PERSPECTIVE As Integer = Camera3D.PROJECTION_PERSPECTIVE
+    If v_PROJECTION_PERSPECTIVE = 0 Then pass_count = pass_count + 1
+    Dim v_PROJECTION_ORTHOGONAL As Integer = Camera3D.PROJECTION_ORTHOGONAL
+    If v_PROJECTION_ORTHOGONAL = 1 Then pass_count = pass_count + 1
+    Dim v_PROJECTION_FRUSTUM As Integer = Camera3D.PROJECTION_FRUSTUM
+    If v_PROJECTION_FRUSTUM = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_Camera3D_ProjectionType"
+    Else
+        Print "FAIL:enum_Camera3D_ProjectionType count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Camera3D_ProjectionType err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_KEEP_WIDTH As Integer = Camera3D.KEEP_WIDTH
+    If v_KEEP_WIDTH = 0 Then pass_count = pass_count + 1
+    Dim v_KEEP_HEIGHT As Integer = Camera3D.KEEP_HEIGHT
+    If v_KEEP_HEIGHT = 1 Then pass_count = pass_count + 1
+    If pass_count = 2 Then
+        Print "PASS:enum_Camera3D_KeepAspect"
+    Else
+        Print "FAIL:enum_Camera3D_KeepAspect count=" & str(pass_count) & "/2"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Camera3D_KeepAspect err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_DOPPLER_TRACKING_DISABLED As Integer = Camera3D.DOPPLER_TRACKING_DISABLED
+    If v_DOPPLER_TRACKING_DISABLED = 0 Then pass_count = pass_count + 1
+    Dim v_DOPPLER_TRACKING_IDLE_STEP As Integer = Camera3D.DOPPLER_TRACKING_IDLE_STEP
+    If v_DOPPLER_TRACKING_IDLE_STEP = 1 Then pass_count = pass_count + 1
+    Dim v_DOPPLER_TRACKING_PHYSICS_STEP As Integer = Camera3D.DOPPLER_TRACKING_PHYSICS_STEP
+    If v_DOPPLER_TRACKING_PHYSICS_STEP = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_Camera3D_DopplerTracking"
+    Else
+        Print "FAIL:enum_Camera3D_DopplerTracking count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Camera3D_DopplerTracking err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_FEED_NOIMAGE As Integer = CameraFeed.FEED_NOIMAGE
+    If v_FEED_NOIMAGE = 0 Then pass_count = pass_count + 1
+    Dim v_FEED_RGB As Integer = CameraFeed.FEED_RGB
+    If v_FEED_RGB = 1 Then pass_count = pass_count + 1
+    Dim v_FEED_YCBCR As Integer = CameraFeed.FEED_YCBCR
+    If v_FEED_YCBCR = 2 Then pass_count = pass_count + 1
+    Dim v_FEED_YCBCR_SEP As Integer = CameraFeed.FEED_YCBCR_SEP
+    If v_FEED_YCBCR_SEP = 3 Then pass_count = pass_count + 1
+    Dim v_FEED_EXTERNAL As Integer = CameraFeed.FEED_EXTERNAL
+    If v_FEED_EXTERNAL = 4 Then pass_count = pass_count + 1
+    If pass_count = 5 Then
+        Print "PASS:enum_CameraFeed_FeedDataType"
+    Else
+        Print "FAIL:enum_CameraFeed_FeedDataType count=" & str(pass_count) & "/5"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_CameraFeed_FeedDataType err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_FEED_UNSPECIFIED As Integer = CameraFeed.FEED_UNSPECIFIED
+    If v_FEED_UNSPECIFIED = 0 Then pass_count = pass_count + 1
+    Dim v_FEED_FRONT As Integer = CameraFeed.FEED_FRONT
+    If v_FEED_FRONT = 1 Then pass_count = pass_count + 1
+    Dim v_FEED_BACK As Integer = CameraFeed.FEED_BACK
+    If v_FEED_BACK = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_CameraFeed_FeedPosition"
+    Else
+        Print "FAIL:enum_CameraFeed_FeedPosition count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_CameraFeed_FeedPosition err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

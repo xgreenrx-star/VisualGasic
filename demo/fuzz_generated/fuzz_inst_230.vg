@@ -1,0 +1,163 @@
+Attribute VB_Name = "fuzz_inst_230"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As GPUParticlesAttractorBox3D = GPUParticlesAttractorBox3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_GPUParticlesAttractorBox3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_GPUParticlesAttractorBox3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_GPUParticlesAttractorBox3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As GPUParticlesAttractorSphere3D = GPUParticlesAttractorSphere3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_GPUParticlesAttractorSphere3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_GPUParticlesAttractorSphere3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_GPUParticlesAttractorSphere3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As GPUParticlesAttractorVectorField3D = GPUParticlesAttractorVectorField3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_GPUParticlesAttractorVectorField3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_GPUParticlesAttractorVectorField3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_GPUParticlesAttractorVectorField3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As GPUParticlesCollisionBox3D = GPUParticlesCollisionBox3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_GPUParticlesCollisionBox3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_GPUParticlesCollisionBox3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_GPUParticlesCollisionBox3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As GPUParticlesCollisionHeightField3D = GPUParticlesCollisionHeightField3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_GPUParticlesCollisionHeightField3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_GPUParticlesCollisionHeightField3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_GPUParticlesCollisionHeightField3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As GPUParticlesCollisionSDF3D = GPUParticlesCollisionSDF3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_GPUParticlesCollisionSDF3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_GPUParticlesCollisionSDF3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_GPUParticlesCollisionSDF3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As GPUParticlesCollisionSphere3D = GPUParticlesCollisionSphere3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_GPUParticlesCollisionSphere3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_GPUParticlesCollisionSphere3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_GPUParticlesCollisionSphere3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As Generic6DOFJoint3D = Generic6DOFJoint3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_Generic6DOFJoint3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_Generic6DOFJoint3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_Generic6DOFJoint3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As GeometryInstance3D = GeometryInstance3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_GeometryInstance3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_GeometryInstance3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_GeometryInstance3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As Gradient = Gradient.new()
+    If obj <> Null Then
+        Print "PASS:inst_Gradient"
+    Else
+        Print "FAIL:inst_Gradient returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_Gradient err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

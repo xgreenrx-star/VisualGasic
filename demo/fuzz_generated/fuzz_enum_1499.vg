@@ -1,0 +1,146 @@
+Attribute VB_Name = "fuzz_enum_1499"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_UPDATE_DISABLED As Integer = SubViewport.UPDATE_DISABLED
+    If v_UPDATE_DISABLED = 0 Then pass_count = pass_count + 1
+    Dim v_UPDATE_ONCE As Integer = SubViewport.UPDATE_ONCE
+    If v_UPDATE_ONCE = 1 Then pass_count = pass_count + 1
+    Dim v_UPDATE_WHEN_VISIBLE As Integer = SubViewport.UPDATE_WHEN_VISIBLE
+    If v_UPDATE_WHEN_VISIBLE = 2 Then pass_count = pass_count + 1
+    Dim v_UPDATE_WHEN_PARENT_VISIBLE As Integer = SubViewport.UPDATE_WHEN_PARENT_VISIBLE
+    If v_UPDATE_WHEN_PARENT_VISIBLE = 3 Then pass_count = pass_count + 1
+    Dim v_UPDATE_ALWAYS As Integer = SubViewport.UPDATE_ALWAYS
+    If v_UPDATE_ALWAYS = 4 Then pass_count = pass_count + 1
+    If pass_count = 5 Then
+        Print "PASS:enum_SubViewport_UpdateMode"
+    Else
+        Print "FAIL:enum_SubViewport_UpdateMode count=" & str(pass_count) & "/5"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_SubViewport_UpdateMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_CUSTOM_RGBA8_UNORM As Integer = SurfaceTool.CUSTOM_RGBA8_UNORM
+    If v_CUSTOM_RGBA8_UNORM = 0 Then pass_count = pass_count + 1
+    Dim v_CUSTOM_RGBA8_SNORM As Integer = SurfaceTool.CUSTOM_RGBA8_SNORM
+    If v_CUSTOM_RGBA8_SNORM = 1 Then pass_count = pass_count + 1
+    Dim v_CUSTOM_RG_HALF As Integer = SurfaceTool.CUSTOM_RG_HALF
+    If v_CUSTOM_RG_HALF = 2 Then pass_count = pass_count + 1
+    Dim v_CUSTOM_RGBA_HALF As Integer = SurfaceTool.CUSTOM_RGBA_HALF
+    If v_CUSTOM_RGBA_HALF = 3 Then pass_count = pass_count + 1
+    Dim v_CUSTOM_R_FLOAT As Integer = SurfaceTool.CUSTOM_R_FLOAT
+    If v_CUSTOM_R_FLOAT = 4 Then pass_count = pass_count + 1
+    Dim v_CUSTOM_RG_FLOAT As Integer = SurfaceTool.CUSTOM_RG_FLOAT
+    If v_CUSTOM_RG_FLOAT = 5 Then pass_count = pass_count + 1
+    Dim v_CUSTOM_RGB_FLOAT As Integer = SurfaceTool.CUSTOM_RGB_FLOAT
+    If v_CUSTOM_RGB_FLOAT = 6 Then pass_count = pass_count + 1
+    Dim v_CUSTOM_RGBA_FLOAT As Integer = SurfaceTool.CUSTOM_RGBA_FLOAT
+    If v_CUSTOM_RGBA_FLOAT = 7 Then pass_count = pass_count + 1
+    If pass_count = 8 Then
+        Print "PASS:enum_SurfaceTool_CustomFormat"
+    Else
+        Print "FAIL:enum_SurfaceTool_CustomFormat count=" & str(pass_count) & "/8"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_SurfaceTool_CustomFormat err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_SKIN_4_WEIGHTS As Integer = SurfaceTool.SKIN_4_WEIGHTS
+    If v_SKIN_4_WEIGHTS = 0 Then pass_count = pass_count + 1
+    Dim v_SKIN_8_WEIGHTS As Integer = SurfaceTool.SKIN_8_WEIGHTS
+    If v_SKIN_8_WEIGHTS = 1 Then pass_count = pass_count + 1
+    If pass_count = 2 Then
+        Print "PASS:enum_SurfaceTool_SkinWeightCount"
+    Else
+        Print "FAIL:enum_SurfaceTool_SkinWeightCount count=" & str(pass_count) & "/2"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_SurfaceTool_SkinWeightCount err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_ALIGNMENT_LEFT As Integer = TabBar.ALIGNMENT_LEFT
+    If v_ALIGNMENT_LEFT = 0 Then pass_count = pass_count + 1
+    Dim v_ALIGNMENT_CENTER As Integer = TabBar.ALIGNMENT_CENTER
+    If v_ALIGNMENT_CENTER = 1 Then pass_count = pass_count + 1
+    Dim v_ALIGNMENT_RIGHT As Integer = TabBar.ALIGNMENT_RIGHT
+    If v_ALIGNMENT_RIGHT = 2 Then pass_count = pass_count + 1
+    Dim v_ALIGNMENT_MAX As Integer = TabBar.ALIGNMENT_MAX
+    If v_ALIGNMENT_MAX = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_TabBar_AlignmentMode"
+    Else
+        Print "FAIL:enum_TabBar_AlignmentMode count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_TabBar_AlignmentMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_CLOSE_BUTTON_SHOW_NEVER As Integer = TabBar.CLOSE_BUTTON_SHOW_NEVER
+    If v_CLOSE_BUTTON_SHOW_NEVER = 0 Then pass_count = pass_count + 1
+    Dim v_CLOSE_BUTTON_SHOW_ACTIVE_ONLY As Integer = TabBar.CLOSE_BUTTON_SHOW_ACTIVE_ONLY
+    If v_CLOSE_BUTTON_SHOW_ACTIVE_ONLY = 1 Then pass_count = pass_count + 1
+    Dim v_CLOSE_BUTTON_SHOW_ALWAYS As Integer = TabBar.CLOSE_BUTTON_SHOW_ALWAYS
+    If v_CLOSE_BUTTON_SHOW_ALWAYS = 2 Then pass_count = pass_count + 1
+    Dim v_CLOSE_BUTTON_MAX As Integer = TabBar.CLOSE_BUTTON_MAX
+    If v_CLOSE_BUTTON_MAX = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_TabBar_CloseButtonDisplayPolicy"
+    Else
+        Print "FAIL:enum_TabBar_CloseButtonDisplayPolicy count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_TabBar_CloseButtonDisplayPolicy err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_POSITION_TOP As Integer = TabContainer.POSITION_TOP
+    If v_POSITION_TOP = 0 Then pass_count = pass_count + 1
+    Dim v_POSITION_BOTTOM As Integer = TabContainer.POSITION_BOTTOM
+    If v_POSITION_BOTTOM = 1 Then pass_count = pass_count + 1
+    Dim v_POSITION_MAX As Integer = TabContainer.POSITION_MAX
+    If v_POSITION_MAX = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_TabContainer_TabPosition"
+    Else
+        Print "FAIL:enum_TabContainer_TabPosition count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_TabContainer_TabPosition err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

@@ -1,0 +1,172 @@
+Attribute VB_Name = "fuzz_meth_1575"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As ScrollContainer = ScrollContainer.new()
+    If obj = Null Then
+        Print "SKIP:meth_ScrollContainer (null)"
+        Exit Sub
+    End If
+    Dim r_get_h_scroll As Variant = obj.get_h_scroll()
+    Print "PASS:meth_ScrollContainer_get_h_scroll"
+    Dim r_get_v_scroll As Variant = obj.get_v_scroll()
+    Print "PASS:meth_ScrollContainer_get_v_scroll"
+    Dim r_get_horizontal_custom_step As Variant = obj.get_horizontal_custom_step()
+    Print "PASS:meth_ScrollContainer_get_horizontal_custom_step"
+    Dim r_get_vertical_custom_step As Variant = obj.get_vertical_custom_step()
+    Print "PASS:meth_ScrollContainer_get_vertical_custom_step"
+    Dim r_get_horizontal_scroll_mode As Variant = obj.get_horizontal_scroll_mode()
+    Print "PASS:meth_ScrollContainer_get_horizontal_scroll_mode"
+    Dim r_get_vertical_scroll_mode As Variant = obj.get_vertical_scroll_mode()
+    Print "PASS:meth_ScrollContainer_get_vertical_scroll_mode"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_ScrollContainer err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As SplitContainer = SplitContainer.new()
+    If obj = Null Then
+        Print "SKIP:meth_SplitContainer (null)"
+        Exit Sub
+    End If
+    Dim r_get_split_offset As Variant = obj.get_split_offset()
+    Print "PASS:meth_SplitContainer_get_split_offset"
+    Dim r_is_collapsed As Variant = obj.is_collapsed()
+    Print "PASS:meth_SplitContainer_is_collapsed"
+    Dim r_get_dragger_visibility As Variant = obj.get_dragger_visibility()
+    Print "PASS:meth_SplitContainer_get_dragger_visibility"
+    Dim r_is_vertical As Variant = obj.is_vertical()
+    Print "PASS:meth_SplitContainer_is_vertical"
+    Dim r_is_dragging_enabled As Variant = obj.is_dragging_enabled()
+    Print "PASS:meth_SplitContainer_is_dragging_enabled"
+    Dim r_get_drag_area_margin_begin As Variant = obj.get_drag_area_margin_begin()
+    Print "PASS:meth_SplitContainer_get_drag_area_margin_begin"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_SplitContainer err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As VScrollBar = VScrollBar.new()
+    If obj = Null Then
+        Print "SKIP:meth_VScrollBar (null)"
+        Exit Sub
+    End If
+    Dim r_get_custom_step As Variant = obj.get_custom_step()
+    Print "PASS:meth_VScrollBar_get_custom_step"
+    Dim r_get_value As Variant = obj.get_value()
+    Print "PASS:meth_VScrollBar_get_value"
+    Dim r_get_min As Variant = obj.get_min()
+    Print "PASS:meth_VScrollBar_get_min"
+    Dim r_get_max As Variant = obj.get_max()
+    Print "PASS:meth_VScrollBar_get_max"
+    Dim r_get_step As Variant = obj.get_step()
+    Print "PASS:meth_VScrollBar_get_step"
+    Dim r_get_page As Variant = obj.get_page()
+    Print "PASS:meth_VScrollBar_get_page"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_VScrollBar err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As VSplitContainer = VSplitContainer.new()
+    If obj = Null Then
+        Print "SKIP:meth_VSplitContainer (null)"
+        Exit Sub
+    End If
+    Dim r_get_split_offset As Variant = obj.get_split_offset()
+    Print "PASS:meth_VSplitContainer_get_split_offset"
+    Dim r_is_collapsed As Variant = obj.is_collapsed()
+    Print "PASS:meth_VSplitContainer_is_collapsed"
+    Dim r_get_dragger_visibility As Variant = obj.get_dragger_visibility()
+    Print "PASS:meth_VSplitContainer_get_dragger_visibility"
+    Dim r_is_vertical As Variant = obj.is_vertical()
+    Print "PASS:meth_VSplitContainer_is_vertical"
+    Dim r_is_dragging_enabled As Variant = obj.is_dragging_enabled()
+    Print "PASS:meth_VSplitContainer_is_dragging_enabled"
+    Dim r_get_drag_area_margin_begin As Variant = obj.get_drag_area_margin_begin()
+    Print "PASS:meth_VSplitContainer_get_drag_area_margin_begin"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_VSplitContainer err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As Range = Range.new()
+    If obj = Null Then
+        Print "SKIP:meth_Range (null)"
+        Exit Sub
+    End If
+    Dim r_get_value As Variant = obj.get_value()
+    Print "PASS:meth_Range_get_value"
+    Dim r_get_min As Variant = obj.get_min()
+    Print "PASS:meth_Range_get_min"
+    Dim r_get_max As Variant = obj.get_max()
+    Print "PASS:meth_Range_get_max"
+    Dim r_get_step As Variant = obj.get_step()
+    Print "PASS:meth_Range_get_step"
+    Dim r_get_page As Variant = obj.get_page()
+    Print "PASS:meth_Range_get_page"
+    Dim r_get_as_ratio As Variant = obj.get_as_ratio()
+    Print "PASS:meth_Range_get_as_ratio"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_Range err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As FoldableContainer = FoldableContainer.new()
+    If obj = Null Then
+        Print "SKIP:meth_FoldableContainer (null)"
+        Exit Sub
+    End If
+    Dim r_is_folded As Variant = obj.is_folded()
+    Print "PASS:meth_FoldableContainer_is_folded"
+    Dim r_get_foldable_group As Variant = obj.get_foldable_group()
+    Print "PASS:meth_FoldableContainer_get_foldable_group"
+    Dim r_get_title As Variant = obj.get_title()
+    Print "PASS:meth_FoldableContainer_get_title"
+    Dim r_get_title_alignment As Variant = obj.get_title_alignment()
+    Print "PASS:meth_FoldableContainer_get_title_alignment"
+    Dim r_get_language As Variant = obj.get_language()
+    Print "PASS:meth_FoldableContainer_get_language"
+    Dim r_get_title_text_direction As Variant = obj.get_title_text_direction()
+    Print "PASS:meth_FoldableContainer_get_title_text_direction"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_FoldableContainer err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

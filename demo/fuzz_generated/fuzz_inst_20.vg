@@ -1,0 +1,154 @@
+Attribute VB_Name = "fuzz_inst_20"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As Animation = Animation.new()
+    If obj <> Null Then
+        Print "PASS:inst_Animation"
+    Else
+        Print "FAIL:inst_Animation returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_Animation err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As AnimationLibrary = AnimationLibrary.new()
+    If obj <> Null Then
+        Print "PASS:inst_AnimationLibrary"
+    Else
+        Print "FAIL:inst_AnimationLibrary returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AnimationLibrary err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As AnimationNode = AnimationNode.new()
+    If obj <> Null Then
+        Print "PASS:inst_AnimationNode"
+    Else
+        Print "FAIL:inst_AnimationNode returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AnimationNode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As AnimationNodeAdd2 = AnimationNodeAdd2.new()
+    If obj <> Null Then
+        Print "PASS:inst_AnimationNodeAdd2"
+    Else
+        Print "FAIL:inst_AnimationNodeAdd2 returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AnimationNodeAdd2 err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As AnimationNodeAdd3 = AnimationNodeAdd3.new()
+    If obj <> Null Then
+        Print "PASS:inst_AnimationNodeAdd3"
+    Else
+        Print "FAIL:inst_AnimationNodeAdd3 returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AnimationNodeAdd3 err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As AnimationNodeAnimation = AnimationNodeAnimation.new()
+    If obj <> Null Then
+        Print "PASS:inst_AnimationNodeAnimation"
+    Else
+        Print "FAIL:inst_AnimationNodeAnimation returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AnimationNodeAnimation err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As AnimationNodeBlend2 = AnimationNodeBlend2.new()
+    If obj <> Null Then
+        Print "PASS:inst_AnimationNodeBlend2"
+    Else
+        Print "FAIL:inst_AnimationNodeBlend2 returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AnimationNodeBlend2 err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As AnimationNodeBlend3 = AnimationNodeBlend3.new()
+    If obj <> Null Then
+        Print "PASS:inst_AnimationNodeBlend3"
+    Else
+        Print "FAIL:inst_AnimationNodeBlend3 returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AnimationNodeBlend3 err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As AnimationNodeBlendSpace1D = AnimationNodeBlendSpace1D.new()
+    If obj <> Null Then
+        Print "PASS:inst_AnimationNodeBlendSpace1D"
+    Else
+        Print "FAIL:inst_AnimationNodeBlendSpace1D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AnimationNodeBlendSpace1D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As AnimationNodeBlendSpace2D = AnimationNodeBlendSpace2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_AnimationNodeBlendSpace2D"
+    Else
+        Print "FAIL:inst_AnimationNodeBlendSpace2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AnimationNodeBlendSpace2D err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

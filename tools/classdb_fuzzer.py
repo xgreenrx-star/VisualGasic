@@ -304,6 +304,421 @@ End Sub
 '''
 
 
+def gen_method_call_test(cls_name, methods, is_node, batch_id):
+    """Test: instantiate object and call zero-arg getter methods."""
+    cleanup = ""
+    if is_node:
+        cleanup = "\n    obj.free()"
+
+    lines = [
+        f'Attribute VB_Name = "FuzzMeth{batch_id}"',
+        "",
+        "Sub RunTest()",
+        "    On Error Resume Next",
+        f"    Dim obj As {cls_name} = {cls_name}.new()",
+        "    If obj = Null Then",
+        f'        Print "SKIP:meth_{cls_name} (null)"',
+        "        Exit Sub",
+        "    End If",
+    ]
+
+    for m_name, ret_type in methods:
+        lines.append(f"    Dim r_{m_name} As Variant = obj.{m_name}()")
+        lines.append(f'    Print "PASS:meth_{cls_name}_{m_name}"')
+
+    if cleanup:
+        lines.append(cleanup)
+    lines.append("    If Err.Number <> 0 Then")
+    lines.append(f'        Print "ERROR:meth_{cls_name} err=" & str(Err.Number)')
+    lines.append("    End If")
+    lines.append("End Sub")
+    return "\n".join(lines)
+
+
+def gen_setter_call_test(cls_name, methods, is_node, batch_id):
+    """Test: instantiate object and call 1-arg setter methods with safe values."""
+    cleanup = ""
+    if is_node:
+        cleanup = "\n    obj.free()"
+
+    arg_defaults = {
+        "bool": "True",
+        "int": "0",
+        "float": "1.0",
+        "String": '"test"',
+    }
+
+    lines = [
+        f'Attribute VB_Name = "FuzzSet{batch_id}"',
+        "",
+        "Sub RunTest()",
+        "    On Error Resume Next",
+        f"    Dim obj As {cls_name} = {cls_name}.new()",
+        "    If obj = Null Then",
+        f'        Print "SKIP:setter_{cls_name} (null)"',
+        "        Exit Sub",
+        "    End If",
+    ]
+
+    for m_name, arg_type in methods:
+        val = arg_defaults.get(arg_type, "0")
+        lines.append(f"    obj.{m_name}({val})")
+        lines.append(f'    Print "PASS:setter_{cls_name}_{m_name}"')
+
+    if cleanup:
+        lines.append(cleanup)
+    lines.append("    If Err.Number <> 0 Then")
+    lines.append(f'        Print "ERROR:setter_{cls_name} err=" & str(Err.Number)')
+    lines.append("    End If")
+    lines.append("End Sub")
+    return "\n".join(lines)
+
+
+def gen_inheritance_chain_test(cls_name, chain_classes, class_map, is_node, batch_id):
+    """Test: call methods from each ancestor class to verify inheritance dispatch."""
+    cleanup = ""
+    if is_node:
+        cleanup = "\n    obj.free()"
+
+    lines = [
+        f'Attribute VB_Name = "FuzzInh{batch_id}"',
+        "",
+        "Sub RunTest()",
+        "    On Error Resume Next",
+        f"    Dim obj As {cls_name} = {cls_name}.new()",
+        "    If obj = Null Then",
+        f'        Print "SKIP:inh_{cls_name} (null)"',
+        "        Exit Sub",
+        "    End If",
+    ]
+
+    for ancestor in chain_classes:
+        c = class_map.get(ancestor)
+        if not c:
+            continue
+        # Pick first no-arg non-void method from this ancestor
+        for m in c.get("methods", []):
+            if (not m.get("arguments") and
+                m.get("return_value", {}).get("type", "void") != "void" and
+                not m.get("is_static", False) and
+                not m.get("is_virtual", False)):
+                lines.append(f"    Dim v_{ancestor} As Variant = obj.{m['name']}()")
+                lines.append(f'    Print "PASS:inh_{cls_name}_from_{ancestor}_{m["name"]}"')
+                break
+
+    if cleanup:
+        lines.append(cleanup)
+    lines.append("    If Err.Number <> 0 Then")
+    lines.append(f'        Print "ERROR:inh_{cls_name} err=" & str(Err.Number)')
+    lines.append("    End If")
+    lines.append("End Sub")
+    return "\n".join(lines)
+
+
+def gen_with_block_test(cls_name, props, is_node, batch_id):
+    """Test: With obj ... .prop ... End With syntax on Godot objects."""
+    cleanup = ""
+    if is_node:
+        cleanup = "\n    obj.free()"
+
+    lines = [
+        f'Attribute VB_Name = "FuzzWith{batch_id}"',
+        "",
+        "Sub RunTest()",
+        "    On Error Resume Next",
+        f"    Dim obj As {cls_name} = {cls_name}.new()",
+        "    If obj = Null Then",
+        f'        Print "SKIP:with_{cls_name} (null)"',
+        "        Exit Sub",
+        "    End If",
+        "    With obj",
+    ]
+
+    for p_name in props:
+        lines.append(f"        Dim v_{p_name} As Variant = .{p_name}")
+
+    lines.append("    End With")
+    lines.append(f'    Print "PASS:with_{cls_name}"')
+
+    if cleanup:
+        lines.append(cleanup)
+    lines.append("    If Err.Number <> 0 Then")
+    lines.append(f'        Print "ERROR:with_{cls_name} err=" & str(Err.Number)')
+    lines.append("    End If")
+    lines.append("End Sub")
+    return "\n".join(lines)
+
+
+def gen_typeof_is_test(cls_name, parent_name, is_node, batch_id):
+    """Test: TypeOf/Is operator on Godot objects."""
+    cleanup = ""
+    if is_node:
+        cleanup = "\n    obj.free()"
+
+    lines = [
+        f'Attribute VB_Name = "FuzzTypeOf{batch_id}"',
+        "",
+        "Sub RunTest()",
+        "    On Error Resume Next",
+        f"    Dim obj As {cls_name} = {cls_name}.new()",
+        "    If obj = Null Then",
+        f'        Print "SKIP:typeof_{cls_name} (null)"',
+        "        Exit Sub",
+        "    End If",
+        f'    Dim tn As String = str(TypeOf(obj))',
+        f'    Print "PASS:typeof_{cls_name} type=" & tn',
+    ]
+
+    if cleanup:
+        lines.append(cleanup)
+    lines.append("    If Err.Number <> 0 Then")
+    lines.append(f'        Print "ERROR:typeof_{cls_name} err=" & str(Err.Number)')
+    lines.append("    End If")
+    lines.append("End Sub")
+    return "\n".join(lines)
+
+
+def gen_foreach_array_test(batch_id):
+    """Test: For Each over a Godot Array with mixed Godot objects."""
+    return f'''Attribute VB_Name = "FuzzForEach{batch_id}"
+
+Sub RunTest()
+    On Error Resume Next
+    Dim arr() As Variant
+    ReDim arr(4)
+    arr(0) = 10
+    arr(1) = "hello"
+    arr(2) = 3.14
+    arr(3) = True
+    arr(4) = Vector2(1, 2)
+
+    Dim count As Integer = 0
+    For Each item In arr
+        count = count + 1
+    Next
+
+    If count = 5 Then
+        Print "PASS:foreach_mixed_array"
+    Else
+        Print "FAIL:foreach_mixed_array count=" & str(count)
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:foreach_mixed_array err=" & str(Err.Number)
+    End If
+End Sub
+'''
+
+
+def gen_singleton_method_test(singleton_name, methods, batch_id):
+    """Test: call zero-arg getter methods on singletons."""
+    lines = [
+        f'Attribute VB_Name = "FuzzSMeth{batch_id}"',
+        "",
+        "Sub RunTest()",
+        "    On Error Resume Next",
+    ]
+
+    for m_name, ret_type in methods:
+        lines.append(f"    Dim r_{m_name} As Variant = {singleton_name}.{m_name}()")
+        lines.append(f'    Print "PASS:smeth_{singleton_name}_{m_name}"')
+
+    lines.append("    If Err.Number <> 0 Then")
+    lines.append(f'        Print "ERROR:smeth_{singleton_name} err=" & str(Err.Number)')
+    lines.append("    End If")
+    lines.append("End Sub")
+    return "\n".join(lines)
+
+
+def gen_error_handling_test(batch_id):
+    """Test: On Error Resume Next + Err object with Godot operations."""
+    return f'''Attribute VB_Name = "FuzzErr{batch_id}"
+
+Sub RunTest()
+    On Error Resume Next
+
+    ' Access a null object method — should trigger error handling not crash
+    Dim obj As Variant = Null
+    Dim x As Variant = obj.some_method()
+
+    If Err.Number <> 0 Then
+        Print "PASS:err_null_method_caught"
+        Err.Clear
+    Else
+        Print "FAIL:err_null_method_not_caught"
+    End If
+
+    ' Division by zero
+    Dim a As Integer = 10
+    Dim b As Integer = 0
+    Dim c As Variant = a / b
+
+    If Err.Number <> 0 Then
+        Print "PASS:err_div_zero_caught"
+        Err.Clear
+    Else
+        ' Godot might return INF instead of erroring
+        Print "PASS:err_div_zero_inf"
+    End If
+
+    ' Invalid cast
+    Dim s As String = "not a number"
+    Dim n As Integer = CInt(s)
+
+    If Err.Number <> 0 Then
+        Print "PASS:err_invalid_cast_caught"
+        Err.Clear
+    Else
+        Print "PASS:err_invalid_cast_coerced"
+    End If
+End Sub
+'''
+
+
+def gen_string_method_chain_test(batch_id):
+    """Test: chained string method calls — a common pattern in real VG code."""
+    return f'''Attribute VB_Name = "FuzzStrChain{batch_id}"
+
+Sub RunTest()
+    On Error Resume Next
+    Dim s As String = "  Hello World  "
+    Dim t As String = Trim(s)
+    If t = "Hello World" Then
+        Print "PASS:str_trim"
+    Else
+        Print "FAIL:str_trim got=" & t
+    End If
+
+    Dim u As String = UCase("hello")
+    If u = "HELLO" Then
+        Print "PASS:str_ucase"
+    Else
+        Print "FAIL:str_ucase got=" & u
+    End If
+
+    Dim l As String = LCase("HELLO")
+    If l = "hello" Then
+        Print "PASS:str_lcase"
+    Else
+        Print "FAIL:str_lcase got=" & l
+    End If
+
+    Dim ln As Integer = Len("Hello")
+    If ln = 5 Then
+        Print "PASS:str_len"
+    Else
+        Print "FAIL:str_len got=" & str(ln)
+    End If
+
+    Dim m As String = Mid("Hello World", 7, 5)
+    If m = "World" Then
+        Print "PASS:str_mid"
+    Else
+        Print "FAIL:str_mid got=" & m
+    End If
+
+    Dim p As Integer = InStr("Hello World", "World")
+    If p > 0 Then
+        Print "PASS:str_instr"
+    Else
+        Print "FAIL:str_instr got=" & str(p)
+    End If
+
+    If Err.Number <> 0 Then
+        Print "ERROR:str_chain err=" & str(Err.Number)
+    End If
+End Sub
+'''
+
+
+def gen_vector_math_test(batch_id):
+    """Test: Vector2/Vector3 construction and operations."""
+    return f'''Attribute VB_Name = "FuzzVecMath{batch_id}"
+
+Sub RunTest()
+    On Error Resume Next
+
+    ' Vector2 construction and member access
+    Dim v2 As Vector2 = Vector2(3, 4)
+    Dim v2len As Variant = v2.length()
+    If v2len = 5 Then
+        Print "PASS:vec2_length"
+    Else
+        Print "FAIL:vec2_length got=" & str(v2len)
+    End If
+
+    ' Vector2 arithmetic
+    Dim v2a As Vector2 = Vector2(1, 2)
+    Dim v2b As Vector2 = Vector2(3, 4)
+    Dim v2c As Vector2 = v2a + v2b
+    If v2c.x = 4 And v2c.y = 6 Then
+        Print "PASS:vec2_add"
+    Else
+        Print "FAIL:vec2_add got=" & str(v2c)
+    End If
+
+    ' Vector3 construction
+    Dim v3 As Vector3 = Vector3(1, 2, 3)
+    Dim v3len As Variant = v3.length()
+    If v3len > 3.7 And v3len < 3.75 Then
+        Print "PASS:vec3_length"
+    Else
+        Print "FAIL:vec3_length got=" & str(v3len)
+    End If
+
+    ' Color construction and member access
+    Dim col As Color = Color(1, 0.5, 0.25, 1)
+    If col.r = 1 And col.a = 1 Then
+        Print "PASS:color_construct"
+    Else
+        Print "FAIL:color_construct got=" & str(col)
+    End If
+
+    If Err.Number <> 0 Then
+        Print "ERROR:vec_math err=" & str(Err.Number)
+    End If
+End Sub
+'''
+
+
+# =============================================================================
+# METHODS / SETTERS WE WANT TO SKIP (hang, crash, or require context)
+# =============================================================================
+
+SKIP_METHODS = {
+    "free", "queue_free", "queue_redraw", "notification", "emit_signal",
+    "connect", "disconnect", "call_deferred", "call_thread_safe",
+    "set_meta", "remove_meta", "set_block_signals", "propagate_notification",
+    "propagate_call", "add_child", "remove_child", "reparent",
+    "move_child", "print_tree", "print_tree_pretty", "print_orphan_nodes",
+    "get_tree", "get_parent", "get_window", "get_viewport",
+    "set_process", "set_physics_process", "set_process_input",
+    "_ready", "_process", "_physics_process", "_input", "_unhandled_input",
+    "_enter_tree", "_exit_tree", "_notification",
+    # Methods that access display/render context
+    "get_canvas", "get_canvas_item", "get_world_2d", "get_world_3d",
+    "grab_focus", "release_focus", "warp_mouse", "get_global_rect",
+    "make_canvas_position_local", "make_input_local",
+    # Methods that require scene tree context
+    "get_global_transform", "get_global_position", "to_global", "to_local",
+    "get_global_transform_with_canvas", "get_screen_transform",
+    "is_visible_in_tree", "get_minimum_size",
+    # Setters with validation that rejects 0
+    "set_amount", "set_indent_size", "set_tab_size",
+    "set_collision_layer_value", "set_collision_mask_value",
+    "set_quadrant_size",
+    # Index-based methods that fail on empty containers
+    "set_current_tab", "get_current_tab_control", "get_tab_title",
+    "get_tab_icon", "get_item_text", "get_item_icon", "set_item_text",
+    "remove_item", "select", "get_selected", "set_column_title",
+    # Physics body methods needing space
+    "get_colliding_bodies", "move_and_collide", "move_and_slide",
+    "test_move", "get_floor_normal", "get_wall_normal",
+    "get_last_slide_collision", "get_platform_velocity",
+    "apply_central_impulse", "apply_impulse", "apply_force",
+    "get_contact_count",
+}
+
+
 # =============================================================================
 # BATCHING — group small tests into batched .vg files for speed
 # =============================================================================
@@ -419,6 +834,249 @@ def generate_all(api):
         fname = "fuzz_singletons.vg"
         _write_batch(fname, singleton_tests)
         all_files.append((fname, [n for n, _ in singleton_tests]))
+
+    # --- 5) Method call tests (zero-arg getters on diverse classes) ---
+    method_classes = []
+    for cls in instantiable:
+        name = cls["name"]
+        all_methods = []
+        n = name
+        while n:
+            c = class_map.get(n)
+            if c:
+                for m in c.get("methods", []):
+                    if (not m.get("arguments") and
+                        m.get("return_value", {}).get("type", "void") != "void" and
+                        not m.get("is_static", False) and
+                        not m.get("is_virtual", False) and
+                        m["name"] not in SKIP_METHODS):
+                        all_methods.append((m["name"], m["return_value"]["type"]))
+            n = inherits.get(n, "")
+        if all_methods:
+            method_classes.append((cls, all_methods))
+
+    # Top 80 classes by method count — sample up to 6 methods each
+    method_classes.sort(key=lambda x: -len(x[1]))
+    for cls, methods in method_classes[:80]:
+        name = cls["name"]
+        is_nd = is_node_derived(name, inherits)
+        sampled = methods[:6]
+        code = gen_method_call_test(name, sampled, is_nd, batch_id)
+        batch.append((f"meth_{name}", code))
+        batch_id += 1
+
+        if len(batch) >= 6:
+            fname = f"fuzz_meth_{batch_id}.vg"
+            _write_batch(fname, batch)
+            all_files.append((fname, [n for n, _ in batch]))
+            batch = []
+
+    if batch:
+        fname = f"fuzz_meth_{batch_id}.vg"
+        _write_batch(fname, batch)
+        all_files.append((fname, [n for n, _ in batch]))
+        batch = []
+
+    # --- 6) Setter method tests (1-arg with safe types) ---
+    safe_arg_types = {"bool", "int", "float", "String"}
+    setter_classes = []
+    for cls in instantiable:
+        name = cls["name"]
+        setters = []
+        n = name
+        while n:
+            c = class_map.get(n)
+            if c:
+                for m in c.get("methods", []):
+                    args = m.get("arguments", [])
+                    if (len(args) == 1 and
+                        args[0]["type"] in safe_arg_types and
+                        not m.get("is_static", False) and
+                        not m.get("is_virtual", False) and
+                        m["name"] not in SKIP_METHODS and
+                        m["name"] not in SKIP_PROPERTIES):
+                        setters.append((m["name"], args[0]["type"]))
+            n = inherits.get(n, "")
+        if setters:
+            setter_classes.append((cls, setters))
+
+    setter_classes.sort(key=lambda x: -len(x[1]))
+    for cls, setters in setter_classes[:40]:
+        name = cls["name"]
+        is_nd = is_node_derived(name, inherits)
+        sampled = setters[:4]
+        code = gen_setter_call_test(name, sampled, is_nd, batch_id)
+        batch.append((f"setter_{name}", code))
+        batch_id += 1
+
+        if len(batch) >= 6:
+            fname = f"fuzz_setter_{batch_id}.vg"
+            _write_batch(fname, batch)
+            all_files.append((fname, [n for n, _ in batch]))
+            batch = []
+
+    if batch:
+        fname = f"fuzz_setter_{batch_id}.vg"
+        _write_batch(fname, batch)
+        all_files.append((fname, [n for n, _ in batch]))
+        batch = []
+
+    # --- 7) Inheritance chain tests (verify ancestor methods resolve) ---
+    chain_targets = [
+        "Sprite2D", "CharacterBody2D", "RigidBody3D", "Camera3D",
+        "MeshInstance3D", "AudioStreamPlayer", "Timer", "Label",
+        "Button", "LineEdit", "SphereMesh", "StandardMaterial3D",
+        "AnimatedSprite2D", "Area2D", "Area3D", "RichTextLabel",
+        "TextureRect", "ProgressBar", "TabContainer", "Tree",
+        "BoxContainer", "MarginContainer", "PanelContainer",
+        "RayCast2D", "RayCast3D", "CollisionShape2D", "CollisionShape3D",
+        "Path2D", "PathFollow2D", "StaticBody2D", "StaticBody3D",
+    ]
+    for target in chain_targets:
+        if target in SKIP_CLASSES or target not in class_map:
+            continue
+        chain = []
+        n = target
+        while n:
+            chain.append(n)
+            n = inherits.get(n, "")
+        is_nd = is_node_derived(target, inherits)
+        code = gen_inheritance_chain_test(target, chain, class_map, is_nd, batch_id)
+        batch.append((f"inh_{target}", code))
+        batch_id += 1
+
+    if batch:
+        fname = f"fuzz_inherit_{batch_id}.vg"
+        _write_batch(fname, batch)
+        all_files.append((fname, [n for n, _ in batch]))
+        batch = []
+
+    # --- 8) With...End With tests ---
+    with_targets = [
+        ("SphereMesh", ["radius", "height", "radial_segments"]),
+        ("BoxMesh", ["size"]),
+        ("StandardMaterial3D", ["albedo_color", "metallic", "roughness"]),
+        ("Label", ["text", "visible_characters"]),
+        ("Timer", ["wait_time", "one_shot", "autostart"]),
+        ("AnimatedTexture", ["frames", "speed_scale"]),
+        ("Gradient", ["interpolation_mode"]),
+        ("Camera3D", ["fov", "near", "far"]),
+        ("RichTextLabel", ["bbcode_enabled", "scroll_active"]),
+        ("ProgressBar", ["value", "min_value", "max_value"]),
+    ]
+    for target, props in with_targets:
+        if target in SKIP_CLASSES or target not in class_map:
+            continue
+        is_nd = is_node_derived(target, inherits)
+        code = gen_with_block_test(target, props, is_nd, batch_id)
+        batch.append((f"with_{target}", code))
+        batch_id += 1
+
+    if batch:
+        fname = f"fuzz_with_{batch_id}.vg"
+        _write_batch(fname, batch)
+        all_files.append((fname, [n for n, _ in batch]))
+        batch = []
+
+    # --- 9) TypeOf tests on diverse class types ---
+    typeof_targets = [
+        ("SphereMesh", "Resource"), ("Label", "Node"),
+        ("Timer", "Node"), ("Camera3D", "Node3D"),
+        ("StandardMaterial3D", "Resource"), ("Area2D", "Node2D"),
+        ("Sprite2D", "Node2D"), ("RigidBody3D", "Node3D"),
+        ("AudioStreamPlayer", "Node"), ("AnimatedSprite2D", "Node2D"),
+        ("BoxMesh", "Resource"), ("Button", "Control"),
+        ("LineEdit", "Control"), ("Tree", "Control"),
+        ("Gradient", "Resource"), ("Image", "Resource"),
+    ]
+    for target, parent in typeof_targets:
+        if target in SKIP_CLASSES or target not in class_map:
+            continue
+        is_nd = is_node_derived(target, inherits)
+        code = gen_typeof_is_test(target, parent, is_nd, batch_id)
+        batch.append((f"typeof_{target}", code))
+        batch_id += 1
+
+    if batch:
+        fname = f"fuzz_typeof_{batch_id}.vg"
+        _write_batch(fname, batch)
+        all_files.append((fname, [n for n, _ in batch]))
+        batch = []
+
+    # --- 10) Singleton method call tests ---
+    singleton_method_map = {
+        "Engine": [
+            ("get_frames_per_second", "int"),
+            ("get_physics_ticks_per_second", "int"),
+            ("is_editor_hint", "bool"),
+            ("get_physics_interpolation_fraction", "float"),
+        ],
+        "OS": [
+            ("get_name", "String"),
+            ("get_processor_count", "int"),
+            ("get_processor_name", "String"),
+            ("get_static_memory_usage", "int"),
+            ("is_debug_build", "bool"),
+        ],
+        "Time": [
+            ("get_ticks_msec", "int"),
+            ("get_ticks_usec", "int"),
+            ("get_unix_time_from_system", "float"),
+        ],
+        "Input": [
+            ("get_mouse_mode", "int"),
+            ("get_connected_joypads", "Variant"),
+            ("is_using_accumulated_input", "bool"),
+        ],
+        "ResourceLoader": [],
+        "DisplayServer": [
+            ("get_name", "String"),
+            ("tts_is_speaking", "bool"),
+            ("tts_is_paused", "bool"),
+        ],
+        "AudioServer": [
+            ("get_bus_count", "int"),
+            ("get_mix_rate", "float"),
+            ("get_playback_speed_scale", "float"),
+        ],
+    }
+    for sname, methods in singleton_method_map.items():
+        code = gen_singleton_method_test(sname, methods, batch_id)
+        batch.append((f"smeth_{sname}", code))
+        batch_id += 1
+
+    if batch:
+        fname = f"fuzz_smeth_{batch_id}.vg"
+        _write_batch(fname, batch)
+        all_files.append((fname, [n for n, _ in batch]))
+        batch = []
+
+    # --- 11) VG language feature tests ---
+    # For Each
+    code = gen_foreach_array_test(batch_id)
+    batch.append(("foreach_mixed", code))
+    batch_id += 1
+
+    # Error handling
+    code = gen_error_handling_test(batch_id)
+    batch.append(("err_handling", code))
+    batch_id += 1
+
+    # String method chains
+    code = gen_string_method_chain_test(batch_id)
+    batch.append(("str_chain", code))
+    batch_id += 1
+
+    # Vector math
+    code = gen_vector_math_test(batch_id)
+    batch.append(("vec_math", code))
+    batch_id += 1
+
+    if batch:
+        fname = f"fuzz_lang_{batch_id}.vg"
+        _write_batch(fname, batch)
+        all_files.append((fname, [n for n, _ in batch]))
+        batch = []
 
     return all_files
 

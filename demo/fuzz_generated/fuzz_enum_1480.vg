@@ -1,0 +1,152 @@
+Attribute VB_Name = "fuzz_enum_1480"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_LINE_CAP_NONE As Integer = Line2D.LINE_CAP_NONE
+    If v_LINE_CAP_NONE = 0 Then pass_count = pass_count + 1
+    Dim v_LINE_CAP_BOX As Integer = Line2D.LINE_CAP_BOX
+    If v_LINE_CAP_BOX = 1 Then pass_count = pass_count + 1
+    Dim v_LINE_CAP_ROUND As Integer = Line2D.LINE_CAP_ROUND
+    If v_LINE_CAP_ROUND = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_Line2D_LineCapMode"
+    Else
+        Print "FAIL:enum_Line2D_LineCapMode count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Line2D_LineCapMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_LINE_TEXTURE_NONE As Integer = Line2D.LINE_TEXTURE_NONE
+    If v_LINE_TEXTURE_NONE = 0 Then pass_count = pass_count + 1
+    Dim v_LINE_TEXTURE_TILE As Integer = Line2D.LINE_TEXTURE_TILE
+    If v_LINE_TEXTURE_TILE = 1 Then pass_count = pass_count + 1
+    Dim v_LINE_TEXTURE_STRETCH As Integer = Line2D.LINE_TEXTURE_STRETCH
+    If v_LINE_TEXTURE_STRETCH = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_Line2D_LineTextureMode"
+    Else
+        Print "FAIL:enum_Line2D_LineTextureMode count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Line2D_LineTextureMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_MENU_CUT As Integer = LineEdit.MENU_CUT
+    If v_MENU_CUT = 0 Then pass_count = pass_count + 1
+    Dim v_MENU_COPY As Integer = LineEdit.MENU_COPY
+    If v_MENU_COPY = 1 Then pass_count = pass_count + 1
+    Dim v_MENU_PASTE As Integer = LineEdit.MENU_PASTE
+    If v_MENU_PASTE = 2 Then pass_count = pass_count + 1
+    Dim v_MENU_CLEAR As Integer = LineEdit.MENU_CLEAR
+    If v_MENU_CLEAR = 3 Then pass_count = pass_count + 1
+    Dim v_MENU_SELECT_ALL As Integer = LineEdit.MENU_SELECT_ALL
+    If v_MENU_SELECT_ALL = 4 Then pass_count = pass_count + 1
+    Dim v_MENU_UNDO As Integer = LineEdit.MENU_UNDO
+    If v_MENU_UNDO = 5 Then pass_count = pass_count + 1
+    Dim v_MENU_REDO As Integer = LineEdit.MENU_REDO
+    If v_MENU_REDO = 6 Then pass_count = pass_count + 1
+    Dim v_MENU_SUBMENU_TEXT_DIR As Integer = LineEdit.MENU_SUBMENU_TEXT_DIR
+    If v_MENU_SUBMENU_TEXT_DIR = 7 Then pass_count = pass_count + 1
+    If pass_count = 8 Then
+        Print "PASS:enum_LineEdit_MenuItems"
+    Else
+        Print "FAIL:enum_LineEdit_MenuItems count=" & str(pass_count) & "/8"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_LineEdit_MenuItems err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_KEYBOARD_TYPE_DEFAULT As Integer = LineEdit.KEYBOARD_TYPE_DEFAULT
+    If v_KEYBOARD_TYPE_DEFAULT = 0 Then pass_count = pass_count + 1
+    Dim v_KEYBOARD_TYPE_MULTILINE As Integer = LineEdit.KEYBOARD_TYPE_MULTILINE
+    If v_KEYBOARD_TYPE_MULTILINE = 1 Then pass_count = pass_count + 1
+    Dim v_KEYBOARD_TYPE_NUMBER As Integer = LineEdit.KEYBOARD_TYPE_NUMBER
+    If v_KEYBOARD_TYPE_NUMBER = 2 Then pass_count = pass_count + 1
+    Dim v_KEYBOARD_TYPE_NUMBER_DECIMAL As Integer = LineEdit.KEYBOARD_TYPE_NUMBER_DECIMAL
+    If v_KEYBOARD_TYPE_NUMBER_DECIMAL = 3 Then pass_count = pass_count + 1
+    Dim v_KEYBOARD_TYPE_PHONE As Integer = LineEdit.KEYBOARD_TYPE_PHONE
+    If v_KEYBOARD_TYPE_PHONE = 4 Then pass_count = pass_count + 1
+    Dim v_KEYBOARD_TYPE_EMAIL_ADDRESS As Integer = LineEdit.KEYBOARD_TYPE_EMAIL_ADDRESS
+    If v_KEYBOARD_TYPE_EMAIL_ADDRESS = 5 Then pass_count = pass_count + 1
+    Dim v_KEYBOARD_TYPE_PASSWORD As Integer = LineEdit.KEYBOARD_TYPE_PASSWORD
+    If v_KEYBOARD_TYPE_PASSWORD = 6 Then pass_count = pass_count + 1
+    Dim v_KEYBOARD_TYPE_URL As Integer = LineEdit.KEYBOARD_TYPE_URL
+    If v_KEYBOARD_TYPE_URL = 7 Then pass_count = pass_count + 1
+    If pass_count = 8 Then
+        Print "PASS:enum_LineEdit_VirtualKeyboardType"
+    Else
+        Print "FAIL:enum_LineEdit_VirtualKeyboardType count=" & str(pass_count) & "/8"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_LineEdit_VirtualKeyboardType err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_UNDERLINE_MODE_ALWAYS As Integer = LinkButton.UNDERLINE_MODE_ALWAYS
+    If v_UNDERLINE_MODE_ALWAYS = 0 Then pass_count = pass_count + 1
+    Dim v_UNDERLINE_MODE_ON_HOVER As Integer = LinkButton.UNDERLINE_MODE_ON_HOVER
+    If v_UNDERLINE_MODE_ON_HOVER = 1 Then pass_count = pass_count + 1
+    Dim v_UNDERLINE_MODE_NEVER As Integer = LinkButton.UNDERLINE_MODE_NEVER
+    If v_UNDERLINE_MODE_NEVER = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_LinkButton_UnderlineMode"
+    Else
+        Print "FAIL:enum_LinkButton_UnderlineMode count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_LinkButton_UnderlineMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_ERROR_TYPE_ERROR As Integer = Logger.ERROR_TYPE_ERROR
+    If v_ERROR_TYPE_ERROR = 0 Then pass_count = pass_count + 1
+    Dim v_ERROR_TYPE_WARNING As Integer = Logger.ERROR_TYPE_WARNING
+    If v_ERROR_TYPE_WARNING = 1 Then pass_count = pass_count + 1
+    Dim v_ERROR_TYPE_SCRIPT As Integer = Logger.ERROR_TYPE_SCRIPT
+    If v_ERROR_TYPE_SCRIPT = 2 Then pass_count = pass_count + 1
+    Dim v_ERROR_TYPE_SHADER As Integer = Logger.ERROR_TYPE_SHADER
+    If v_ERROR_TYPE_SHADER = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_Logger_ErrorType"
+    Else
+        Print "FAIL:enum_Logger_ErrorType count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Logger_ErrorType err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

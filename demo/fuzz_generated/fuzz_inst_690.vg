@@ -1,0 +1,154 @@
+Attribute VB_Name = "fuzz_inst_690"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeUIntConstant = VisualShaderNodeUIntConstant.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeUIntConstant"
+    Else
+        Print "FAIL:inst_VisualShaderNodeUIntConstant returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeUIntConstant err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeUIntFunc = VisualShaderNodeUIntFunc.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeUIntFunc"
+    Else
+        Print "FAIL:inst_VisualShaderNodeUIntFunc returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeUIntFunc err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeUIntOp = VisualShaderNodeUIntOp.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeUIntOp"
+    Else
+        Print "FAIL:inst_VisualShaderNodeUIntOp returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeUIntOp err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeUIntParameter = VisualShaderNodeUIntParameter.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeUIntParameter"
+    Else
+        Print "FAIL:inst_VisualShaderNodeUIntParameter returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeUIntParameter err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeUVFunc = VisualShaderNodeUVFunc.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeUVFunc"
+    Else
+        Print "FAIL:inst_VisualShaderNodeUVFunc returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeUVFunc err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeUVPolarCoord = VisualShaderNodeUVPolarCoord.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeUVPolarCoord"
+    Else
+        Print "FAIL:inst_VisualShaderNodeUVPolarCoord returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeUVPolarCoord err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeVaryingGetter = VisualShaderNodeVaryingGetter.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeVaryingGetter"
+    Else
+        Print "FAIL:inst_VisualShaderNodeVaryingGetter returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeVaryingGetter err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeVaryingSetter = VisualShaderNodeVaryingSetter.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeVaryingSetter"
+    Else
+        Print "FAIL:inst_VisualShaderNodeVaryingSetter returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeVaryingSetter err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeVec2Constant = VisualShaderNodeVec2Constant.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeVec2Constant"
+    Else
+        Print "FAIL:inst_VisualShaderNodeVec2Constant returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeVec2Constant err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As VisualShaderNodeVec2Parameter = VisualShaderNodeVec2Parameter.new()
+    If obj <> Null Then
+        Print "PASS:inst_VisualShaderNodeVec2Parameter"
+    Else
+        Print "FAIL:inst_VisualShaderNodeVec2Parameter returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_VisualShaderNodeVec2Parameter err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

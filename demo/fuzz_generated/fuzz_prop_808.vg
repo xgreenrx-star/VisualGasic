@@ -1,0 +1,160 @@
+Attribute VB_Name = "fuzz_prop_808"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As GraphEdit = GraphEdit.new()
+    If obj = Null Then
+        Print "SKIP:prop_GraphEdit_snapping_distance (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.snapping_distance
+    Print "PASS:prop_GraphEdit_snapping_distance"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_GraphEdit_snapping_distance err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As MenuButton = MenuButton.new()
+    If obj = Null Then
+        Print "SKIP:prop_MenuButton_switch_on_hover (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.switch_on_hover
+    Print "PASS:prop_MenuButton_switch_on_hover"
+    obj.switch_on_hover = True
+    Dim val2 As Variant = obj.switch_on_hover
+    Print "PASS:propset_MenuButton_switch_on_hover"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_MenuButton_switch_on_hover err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As MenuButton = MenuButton.new()
+    If obj = Null Then
+        Print "SKIP:prop_MenuButton_item_count (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.item_count
+    Print "PASS:prop_MenuButton_item_count"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_MenuButton_item_count err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As MenuButton = MenuButton.new()
+    If obj = Null Then
+        Print "SKIP:prop_MenuButton_text (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.text
+    Print "PASS:prop_MenuButton_text"
+    obj.text = "test_string"
+    Dim val2 As Variant = obj.text
+    Print "PASS:propset_MenuButton_text"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_MenuButton_text err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As MenuButton = MenuButton.new()
+    If obj = Null Then
+        Print "SKIP:prop_MenuButton_icon (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.icon
+    Print "PASS:prop_MenuButton_icon"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_MenuButton_icon err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As MenuButton = MenuButton.new()
+    If obj = Null Then
+        Print "SKIP:prop_MenuButton_flat (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.flat
+    Print "PASS:prop_MenuButton_flat"
+    obj.flat = True
+    Dim val2 As Variant = obj.flat
+    Print "PASS:propset_MenuButton_flat"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_MenuButton_flat err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As Button = Button.new()
+    If obj = Null Then
+        Print "SKIP:prop_Button_text (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.text
+    Print "PASS:prop_Button_text"
+    obj.text = "test_string"
+    Dim val2 As Variant = obj.text
+    Print "PASS:propset_Button_text"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_Button_text err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As Button = Button.new()
+    If obj = Null Then
+        Print "SKIP:prop_Button_icon (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.icon
+    Print "PASS:prop_Button_icon"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_Button_icon err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+End Sub

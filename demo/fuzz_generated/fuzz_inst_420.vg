@@ -1,0 +1,156 @@
+Attribute VB_Name = "fuzz_inst_420"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As PlaceholderTexture2DArray = PlaceholderTexture2DArray.new()
+    If obj <> Null Then
+        Print "PASS:inst_PlaceholderTexture2DArray"
+    Else
+        Print "FAIL:inst_PlaceholderTexture2DArray returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_PlaceholderTexture2DArray err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As PlaceholderTexture3D = PlaceholderTexture3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_PlaceholderTexture3D"
+    Else
+        Print "FAIL:inst_PlaceholderTexture3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_PlaceholderTexture3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As PlaneMesh = PlaneMesh.new()
+    If obj <> Null Then
+        Print "PASS:inst_PlaneMesh"
+    Else
+        Print "FAIL:inst_PlaneMesh returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_PlaneMesh err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As PointLight2D = PointLight2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_PointLight2D"
+        obj.free()
+    Else
+        Print "FAIL:inst_PointLight2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_PointLight2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As PointMesh = PointMesh.new()
+    If obj <> Null Then
+        Print "PASS:inst_PointMesh"
+    Else
+        Print "FAIL:inst_PointMesh returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_PointMesh err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As Polygon2D = Polygon2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_Polygon2D"
+        obj.free()
+    Else
+        Print "FAIL:inst_Polygon2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_Polygon2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As PolygonOccluder3D = PolygonOccluder3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_PolygonOccluder3D"
+    Else
+        Print "FAIL:inst_PolygonOccluder3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_PolygonOccluder3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As PolygonPathFinder = PolygonPathFinder.new()
+    If obj <> Null Then
+        Print "PASS:inst_PolygonPathFinder"
+    Else
+        Print "FAIL:inst_PolygonPathFinder returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_PolygonPathFinder err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As PortableCompressedTexture2D = PortableCompressedTexture2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_PortableCompressedTexture2D"
+    Else
+        Print "FAIL:inst_PortableCompressedTexture2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_PortableCompressedTexture2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As PrimitiveMesh = PrimitiveMesh.new()
+    If obj <> Null Then
+        Print "PASS:inst_PrimitiveMesh"
+    Else
+        Print "FAIL:inst_PrimitiveMesh returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_PrimitiveMesh err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

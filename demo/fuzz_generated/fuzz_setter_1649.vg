@@ -1,0 +1,148 @@
+Attribute VB_Name = "fuzz_setter_1649"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As CPUParticles2D = CPUParticles2D.new()
+    If obj = Null Then
+        Print "SKIP:setter_CPUParticles2D (null)"
+        Exit Sub
+    End If
+    obj.set_emitting(True)
+    Print "PASS:setter_CPUParticles2D_set_emitting"
+    obj.set_lifetime(1.0)
+    Print "PASS:setter_CPUParticles2D_set_lifetime"
+    obj.set_one_shot(True)
+    Print "PASS:setter_CPUParticles2D_set_one_shot"
+    obj.set_pre_process_time(1.0)
+    Print "PASS:setter_CPUParticles2D_set_pre_process_time"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:setter_CPUParticles2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As HSlider = HSlider.new()
+    If obj = Null Then
+        Print "SKIP:setter_HSlider (null)"
+        Exit Sub
+    End If
+    obj.set_ticks(0)
+    Print "PASS:setter_HSlider_set_ticks"
+    obj.set_ticks_on_borders(True)
+    Print "PASS:setter_HSlider_set_ticks_on_borders"
+    obj.set_editable(True)
+    Print "PASS:setter_HSlider_set_editable"
+    obj.set_scrollable(True)
+    Print "PASS:setter_HSlider_set_scrollable"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:setter_HSlider err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As MenuButton = MenuButton.new()
+    If obj = Null Then
+        Print "SKIP:setter_MenuButton (null)"
+        Exit Sub
+    End If
+    obj.set_switch_on_hover(True)
+    Print "PASS:setter_MenuButton_set_switch_on_hover"
+    obj.set_disable_shortcuts(True)
+    Print "PASS:setter_MenuButton_set_disable_shortcuts"
+    obj.set_item_count(0)
+    Print "PASS:setter_MenuButton_set_item_count"
+    obj.set_text("test")
+    Print "PASS:setter_MenuButton_set_text"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:setter_MenuButton err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As ProgressBar = ProgressBar.new()
+    If obj = Null Then
+        Print "SKIP:setter_ProgressBar (null)"
+        Exit Sub
+    End If
+    obj.set_fill_mode(0)
+    Print "PASS:setter_ProgressBar_set_fill_mode"
+    obj.set_show_percentage(True)
+    Print "PASS:setter_ProgressBar_set_show_percentage"
+    obj.set_indeterminate(True)
+    Print "PASS:setter_ProgressBar_set_indeterminate"
+    obj.set_editor_preview_indeterminate(True)
+    Print "PASS:setter_ProgressBar_set_editor_preview_indeterminate"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:setter_ProgressBar err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As TextureProgressBar = TextureProgressBar.new()
+    If obj = Null Then
+        Print "SKIP:setter_TextureProgressBar (null)"
+        Exit Sub
+    End If
+    obj.set_fill_mode(0)
+    Print "PASS:setter_TextureProgressBar_set_fill_mode"
+    obj.set_radial_initial_angle(1.0)
+    Print "PASS:setter_TextureProgressBar_set_radial_initial_angle"
+    obj.set_fill_degrees(1.0)
+    Print "PASS:setter_TextureProgressBar_set_fill_degrees"
+    obj.set_nine_patch_stretch(True)
+    Print "PASS:setter_TextureProgressBar_set_nine_patch_stretch"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:setter_TextureProgressBar err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As VSlider = VSlider.new()
+    If obj = Null Then
+        Print "SKIP:setter_VSlider (null)"
+        Exit Sub
+    End If
+    obj.set_ticks(0)
+    Print "PASS:setter_VSlider_set_ticks"
+    obj.set_ticks_on_borders(True)
+    Print "PASS:setter_VSlider_set_ticks_on_borders"
+    obj.set_editable(True)
+    Print "PASS:setter_VSlider_set_editable"
+    obj.set_scrollable(True)
+    Print "PASS:setter_VSlider_set_scrollable"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:setter_VSlider err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

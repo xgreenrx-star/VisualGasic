@@ -1,0 +1,155 @@
+Attribute VB_Name = "fuzz_inst_500"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As SkeletonModification2DCCDIK = SkeletonModification2DCCDIK.new()
+    If obj <> Null Then
+        Print "PASS:inst_SkeletonModification2DCCDIK"
+    Else
+        Print "FAIL:inst_SkeletonModification2DCCDIK returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_SkeletonModification2DCCDIK err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As SkeletonModification2DFABRIK = SkeletonModification2DFABRIK.new()
+    If obj <> Null Then
+        Print "PASS:inst_SkeletonModification2DFABRIK"
+    Else
+        Print "FAIL:inst_SkeletonModification2DFABRIK returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_SkeletonModification2DFABRIK err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As SkeletonModification2DJiggle = SkeletonModification2DJiggle.new()
+    If obj <> Null Then
+        Print "PASS:inst_SkeletonModification2DJiggle"
+    Else
+        Print "FAIL:inst_SkeletonModification2DJiggle returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_SkeletonModification2DJiggle err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As SkeletonModification2DLookAt = SkeletonModification2DLookAt.new()
+    If obj <> Null Then
+        Print "PASS:inst_SkeletonModification2DLookAt"
+    Else
+        Print "FAIL:inst_SkeletonModification2DLookAt returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_SkeletonModification2DLookAt err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As SkeletonModification2DPhysicalBones = SkeletonModification2DPhysicalBones.new()
+    If obj <> Null Then
+        Print "PASS:inst_SkeletonModification2DPhysicalBones"
+    Else
+        Print "FAIL:inst_SkeletonModification2DPhysicalBones returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_SkeletonModification2DPhysicalBones err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As SkeletonModification2DStackHolder = SkeletonModification2DStackHolder.new()
+    If obj <> Null Then
+        Print "PASS:inst_SkeletonModification2DStackHolder"
+    Else
+        Print "FAIL:inst_SkeletonModification2DStackHolder returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_SkeletonModification2DStackHolder err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As SkeletonModification2DTwoBoneIK = SkeletonModification2DTwoBoneIK.new()
+    If obj <> Null Then
+        Print "PASS:inst_SkeletonModification2DTwoBoneIK"
+    Else
+        Print "FAIL:inst_SkeletonModification2DTwoBoneIK returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_SkeletonModification2DTwoBoneIK err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As SkeletonModificationStack2D = SkeletonModificationStack2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_SkeletonModificationStack2D"
+    Else
+        Print "FAIL:inst_SkeletonModificationStack2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_SkeletonModificationStack2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As SkeletonModifier3D = SkeletonModifier3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_SkeletonModifier3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_SkeletonModifier3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_SkeletonModifier3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As SkeletonProfile = SkeletonProfile.new()
+    If obj <> Null Then
+        Print "PASS:inst_SkeletonProfile"
+    Else
+        Print "FAIL:inst_SkeletonProfile returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_SkeletonProfile err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

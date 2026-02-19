@@ -1,0 +1,162 @@
+Attribute VB_Name = "fuzz_inst_320"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As MultiMeshInstance2D = MultiMeshInstance2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_MultiMeshInstance2D"
+        obj.free()
+    Else
+        Print "FAIL:inst_MultiMeshInstance2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_MultiMeshInstance2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As MultiMeshInstance3D = MultiMeshInstance3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_MultiMeshInstance3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_MultiMeshInstance3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_MultiMeshInstance3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As MultiplayerAPIExtension = MultiplayerAPIExtension.new()
+    If obj <> Null Then
+        Print "PASS:inst_MultiplayerAPIExtension"
+    Else
+        Print "FAIL:inst_MultiplayerAPIExtension returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_MultiplayerAPIExtension err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As MultiplayerPeerExtension = MultiplayerPeerExtension.new()
+    If obj <> Null Then
+        Print "PASS:inst_MultiplayerPeerExtension"
+    Else
+        Print "FAIL:inst_MultiplayerPeerExtension returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_MultiplayerPeerExtension err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As MultiplayerSpawner = MultiplayerSpawner.new()
+    If obj <> Null Then
+        Print "PASS:inst_MultiplayerSpawner"
+        obj.free()
+    Else
+        Print "FAIL:inst_MultiplayerSpawner returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_MultiplayerSpawner err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As MultiplayerSynchronizer = MultiplayerSynchronizer.new()
+    If obj <> Null Then
+        Print "PASS:inst_MultiplayerSynchronizer"
+        obj.free()
+    Else
+        Print "FAIL:inst_MultiplayerSynchronizer returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_MultiplayerSynchronizer err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As NavigationAgent2D = NavigationAgent2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_NavigationAgent2D"
+        obj.free()
+    Else
+        Print "FAIL:inst_NavigationAgent2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_NavigationAgent2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As NavigationAgent3D = NavigationAgent3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_NavigationAgent3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_NavigationAgent3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_NavigationAgent3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As NavigationLink2D = NavigationLink2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_NavigationLink2D"
+        obj.free()
+    Else
+        Print "FAIL:inst_NavigationLink2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_NavigationLink2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As NavigationLink3D = NavigationLink3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_NavigationLink3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_NavigationLink3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_NavigationLink3D err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

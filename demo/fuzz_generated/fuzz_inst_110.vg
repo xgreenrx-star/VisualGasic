@@ -1,0 +1,160 @@
+Attribute VB_Name = "fuzz_inst_110"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As BoxMesh = BoxMesh.new()
+    If obj <> Null Then
+        Print "PASS:inst_BoxMesh"
+    Else
+        Print "FAIL:inst_BoxMesh returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_BoxMesh err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As BoxOccluder3D = BoxOccluder3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_BoxOccluder3D"
+    Else
+        Print "FAIL:inst_BoxOccluder3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_BoxOccluder3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As BoxShape3D = BoxShape3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_BoxShape3D"
+    Else
+        Print "FAIL:inst_BoxShape3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_BoxShape3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As Button = Button.new()
+    If obj <> Null Then
+        Print "PASS:inst_Button"
+        obj.free()
+    Else
+        Print "FAIL:inst_Button returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_Button err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As ButtonGroup = ButtonGroup.new()
+    If obj <> Null Then
+        Print "PASS:inst_ButtonGroup"
+    Else
+        Print "FAIL:inst_ButtonGroup returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_ButtonGroup err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As CPUParticles2D = CPUParticles2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_CPUParticles2D"
+        obj.free()
+    Else
+        Print "FAIL:inst_CPUParticles2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_CPUParticles2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As CPUParticles3D = CPUParticles3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_CPUParticles3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_CPUParticles3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_CPUParticles3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As CSGBox3D = CSGBox3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_CSGBox3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_CSGBox3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_CSGBox3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As CSGCombiner3D = CSGCombiner3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_CSGCombiner3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_CSGCombiner3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_CSGCombiner3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As CSGCylinder3D = CSGCylinder3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_CSGCylinder3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_CSGCylinder3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_CSGCylinder3D err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

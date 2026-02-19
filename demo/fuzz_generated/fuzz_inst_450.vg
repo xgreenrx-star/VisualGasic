@@ -1,0 +1,159 @@
+Attribute VB_Name = "fuzz_inst_450"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As RDVertexAttribute = RDVertexAttribute.new()
+    If obj <> Null Then
+        Print "PASS:inst_RDVertexAttribute"
+    Else
+        Print "FAIL:inst_RDVertexAttribute returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_RDVertexAttribute err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As RandomNumberGenerator = RandomNumberGenerator.new()
+    If obj <> Null Then
+        Print "PASS:inst_RandomNumberGenerator"
+    Else
+        Print "FAIL:inst_RandomNumberGenerator returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_RandomNumberGenerator err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As Range = Range.new()
+    If obj <> Null Then
+        Print "PASS:inst_Range"
+        obj.free()
+    Else
+        Print "FAIL:inst_Range returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_Range err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As RayCast2D = RayCast2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_RayCast2D"
+        obj.free()
+    Else
+        Print "FAIL:inst_RayCast2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_RayCast2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As RayCast3D = RayCast3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_RayCast3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_RayCast3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_RayCast3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As RectangleShape2D = RectangleShape2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_RectangleShape2D"
+    Else
+        Print "FAIL:inst_RectangleShape2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_RectangleShape2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As ReferenceRect = ReferenceRect.new()
+    If obj <> Null Then
+        Print "PASS:inst_ReferenceRect"
+        obj.free()
+    Else
+        Print "FAIL:inst_ReferenceRect returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_ReferenceRect err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As ReflectionProbe = ReflectionProbe.new()
+    If obj <> Null Then
+        Print "PASS:inst_ReflectionProbe"
+        obj.free()
+    Else
+        Print "FAIL:inst_ReflectionProbe returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_ReflectionProbe err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As RegEx = RegEx.new()
+    If obj <> Null Then
+        Print "PASS:inst_RegEx"
+    Else
+        Print "FAIL:inst_RegEx returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_RegEx err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As RegExMatch = RegExMatch.new()
+    If obj <> Null Then
+        Print "PASS:inst_RegExMatch"
+    Else
+        Print "FAIL:inst_RegExMatch returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_RegExMatch err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

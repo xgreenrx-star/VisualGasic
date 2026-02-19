@@ -1,0 +1,157 @@
+Attribute VB_Name = "fuzz_prop_816"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As Button = Button.new()
+    If obj = Null Then
+        Print "SKIP:prop_Button_flat (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.flat
+    Print "PASS:prop_Button_flat"
+    obj.flat = True
+    Dim val2 As Variant = obj.flat
+    Print "PASS:propset_Button_flat"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_Button_flat err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As Button = Button.new()
+    If obj = Null Then
+        Print "SKIP:prop_Button_alignment (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.alignment
+    Print "PASS:prop_Button_alignment"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_Button_alignment err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As Button = Button.new()
+    If obj = Null Then
+        Print "SKIP:prop_Button_text_overrun_behavior (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.text_overrun_behavior
+    Print "PASS:prop_Button_text_overrun_behavior"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_Button_text_overrun_behavior err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As CheckBox = CheckBox.new()
+    If obj = Null Then
+        Print "SKIP:prop_CheckBox_text (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.text
+    Print "PASS:prop_CheckBox_text"
+    obj.text = "test_string"
+    Dim val2 As Variant = obj.text
+    Print "PASS:propset_CheckBox_text"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_CheckBox_text err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As CheckBox = CheckBox.new()
+    If obj = Null Then
+        Print "SKIP:prop_CheckBox_icon (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.icon
+    Print "PASS:prop_CheckBox_icon"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_CheckBox_icon err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As CheckBox = CheckBox.new()
+    If obj = Null Then
+        Print "SKIP:prop_CheckBox_flat (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.flat
+    Print "PASS:prop_CheckBox_flat"
+    obj.flat = True
+    Dim val2 As Variant = obj.flat
+    Print "PASS:propset_CheckBox_flat"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_CheckBox_flat err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As CheckBox = CheckBox.new()
+    If obj = Null Then
+        Print "SKIP:prop_CheckBox_alignment (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.alignment
+    Print "PASS:prop_CheckBox_alignment"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_CheckBox_alignment err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As CheckBox = CheckBox.new()
+    If obj = Null Then
+        Print "SKIP:prop_CheckBox_text_overrun_behavior (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.text_overrun_behavior
+    Print "PASS:prop_CheckBox_text_overrun_behavior"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_CheckBox_text_overrun_behavior err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+End Sub

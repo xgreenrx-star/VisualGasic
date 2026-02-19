@@ -1,0 +1,160 @@
+Attribute VB_Name = "fuzz_enum_1517"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_FILTER_DEFAULT As Integer = VisualShaderNodeTextureParameter.FILTER_DEFAULT
+    If v_FILTER_DEFAULT = 0 Then pass_count = pass_count + 1
+    Dim v_FILTER_NEAREST As Integer = VisualShaderNodeTextureParameter.FILTER_NEAREST
+    If v_FILTER_NEAREST = 1 Then pass_count = pass_count + 1
+    Dim v_FILTER_LINEAR As Integer = VisualShaderNodeTextureParameter.FILTER_LINEAR
+    If v_FILTER_LINEAR = 2 Then pass_count = pass_count + 1
+    Dim v_FILTER_NEAREST_MIPMAP As Integer = VisualShaderNodeTextureParameter.FILTER_NEAREST_MIPMAP
+    If v_FILTER_NEAREST_MIPMAP = 3 Then pass_count = pass_count + 1
+    Dim v_FILTER_LINEAR_MIPMAP As Integer = VisualShaderNodeTextureParameter.FILTER_LINEAR_MIPMAP
+    If v_FILTER_LINEAR_MIPMAP = 4 Then pass_count = pass_count + 1
+    Dim v_FILTER_NEAREST_MIPMAP_ANISOTROPIC As Integer = VisualShaderNodeTextureParameter.FILTER_NEAREST_MIPMAP_ANISOTROPIC
+    If v_FILTER_NEAREST_MIPMAP_ANISOTROPIC = 5 Then pass_count = pass_count + 1
+    Dim v_FILTER_LINEAR_MIPMAP_ANISOTROPIC As Integer = VisualShaderNodeTextureParameter.FILTER_LINEAR_MIPMAP_ANISOTROPIC
+    If v_FILTER_LINEAR_MIPMAP_ANISOTROPIC = 6 Then pass_count = pass_count + 1
+    Dim v_FILTER_MAX As Integer = VisualShaderNodeTextureParameter.FILTER_MAX
+    If v_FILTER_MAX = 7 Then pass_count = pass_count + 1
+    If pass_count = 8 Then
+        Print "PASS:enum_VisualShaderNodeTextureParameter_TextureFilter"
+    Else
+        Print "FAIL:enum_VisualShaderNodeTextureParameter_TextureFilter count=" & str(pass_count) & "/8"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_VisualShaderNodeTextureParameter_TextureFilter err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_REPEAT_DEFAULT As Integer = VisualShaderNodeTextureParameter.REPEAT_DEFAULT
+    If v_REPEAT_DEFAULT = 0 Then pass_count = pass_count + 1
+    Dim v_REPEAT_ENABLED As Integer = VisualShaderNodeTextureParameter.REPEAT_ENABLED
+    If v_REPEAT_ENABLED = 1 Then pass_count = pass_count + 1
+    Dim v_REPEAT_DISABLED As Integer = VisualShaderNodeTextureParameter.REPEAT_DISABLED
+    If v_REPEAT_DISABLED = 2 Then pass_count = pass_count + 1
+    Dim v_REPEAT_MAX As Integer = VisualShaderNodeTextureParameter.REPEAT_MAX
+    If v_REPEAT_MAX = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_VisualShaderNodeTextureParameter_TextureRepeat"
+    Else
+        Print "FAIL:enum_VisualShaderNodeTextureParameter_TextureRepeat count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_VisualShaderNodeTextureParameter_TextureRepeat err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_SOURCE_NONE As Integer = VisualShaderNodeTextureParameter.SOURCE_NONE
+    If v_SOURCE_NONE = 0 Then pass_count = pass_count + 1
+    Dim v_SOURCE_SCREEN As Integer = VisualShaderNodeTextureParameter.SOURCE_SCREEN
+    If v_SOURCE_SCREEN = 1 Then pass_count = pass_count + 1
+    Dim v_SOURCE_DEPTH As Integer = VisualShaderNodeTextureParameter.SOURCE_DEPTH
+    If v_SOURCE_DEPTH = 2 Then pass_count = pass_count + 1
+    Dim v_SOURCE_NORMAL_ROUGHNESS As Integer = VisualShaderNodeTextureParameter.SOURCE_NORMAL_ROUGHNESS
+    If v_SOURCE_NORMAL_ROUGHNESS = 3 Then pass_count = pass_count + 1
+    Dim v_SOURCE_MAX As Integer = VisualShaderNodeTextureParameter.SOURCE_MAX
+    If v_SOURCE_MAX = 4 Then pass_count = pass_count + 1
+    If pass_count = 5 Then
+        Print "PASS:enum_VisualShaderNodeTextureParameter_TextureSource"
+    Else
+        Print "FAIL:enum_VisualShaderNodeTextureParameter_TextureSource count=" & str(pass_count) & "/5"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_VisualShaderNodeTextureParameter_TextureSource err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_FUNC_INVERSE As Integer = VisualShaderNodeTransformFunc.FUNC_INVERSE
+    If v_FUNC_INVERSE = 0 Then pass_count = pass_count + 1
+    Dim v_FUNC_TRANSPOSE As Integer = VisualShaderNodeTransformFunc.FUNC_TRANSPOSE
+    If v_FUNC_TRANSPOSE = 1 Then pass_count = pass_count + 1
+    Dim v_FUNC_MAX As Integer = VisualShaderNodeTransformFunc.FUNC_MAX
+    If v_FUNC_MAX = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_VisualShaderNodeTransformFunc_Function"
+    Else
+        Print "FAIL:enum_VisualShaderNodeTransformFunc_Function count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_VisualShaderNodeTransformFunc_Function err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_OP_AxB As Integer = VisualShaderNodeTransformOp.OP_AxB
+    If v_OP_AxB = 0 Then pass_count = pass_count + 1
+    Dim v_OP_BxA As Integer = VisualShaderNodeTransformOp.OP_BxA
+    If v_OP_BxA = 1 Then pass_count = pass_count + 1
+    Dim v_OP_AxB_COMP As Integer = VisualShaderNodeTransformOp.OP_AxB_COMP
+    If v_OP_AxB_COMP = 2 Then pass_count = pass_count + 1
+    Dim v_OP_BxA_COMP As Integer = VisualShaderNodeTransformOp.OP_BxA_COMP
+    If v_OP_BxA_COMP = 3 Then pass_count = pass_count + 1
+    Dim v_OP_ADD As Integer = VisualShaderNodeTransformOp.OP_ADD
+    If v_OP_ADD = 4 Then pass_count = pass_count + 1
+    Dim v_OP_A_MINUS_B As Integer = VisualShaderNodeTransformOp.OP_A_MINUS_B
+    If v_OP_A_MINUS_B = 5 Then pass_count = pass_count + 1
+    Dim v_OP_B_MINUS_A As Integer = VisualShaderNodeTransformOp.OP_B_MINUS_A
+    If v_OP_B_MINUS_A = 6 Then pass_count = pass_count + 1
+    Dim v_OP_A_DIV_B As Integer = VisualShaderNodeTransformOp.OP_A_DIV_B
+    If v_OP_A_DIV_B = 7 Then pass_count = pass_count + 1
+    If pass_count = 8 Then
+        Print "PASS:enum_VisualShaderNodeTransformOp_Operator"
+    Else
+        Print "FAIL:enum_VisualShaderNodeTransformOp_Operator count=" & str(pass_count) & "/8"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_VisualShaderNodeTransformOp_Operator err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_OP_AxB As Integer = VisualShaderNodeTransformVecMult.OP_AxB
+    If v_OP_AxB = 0 Then pass_count = pass_count + 1
+    Dim v_OP_BxA As Integer = VisualShaderNodeTransformVecMult.OP_BxA
+    If v_OP_BxA = 1 Then pass_count = pass_count + 1
+    Dim v_OP_3x3_AxB As Integer = VisualShaderNodeTransformVecMult.OP_3x3_AxB
+    If v_OP_3x3_AxB = 2 Then pass_count = pass_count + 1
+    Dim v_OP_3x3_BxA As Integer = VisualShaderNodeTransformVecMult.OP_3x3_BxA
+    If v_OP_3x3_BxA = 3 Then pass_count = pass_count + 1
+    Dim v_OP_MAX As Integer = VisualShaderNodeTransformVecMult.OP_MAX
+    If v_OP_MAX = 4 Then pass_count = pass_count + 1
+    If pass_count = 5 Then
+        Print "PASS:enum_VisualShaderNodeTransformVecMult_Operator"
+    Else
+        Print "FAIL:enum_VisualShaderNodeTransformVecMult_Operator count=" & str(pass_count) & "/5"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_VisualShaderNodeTransformVecMult_Operator err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

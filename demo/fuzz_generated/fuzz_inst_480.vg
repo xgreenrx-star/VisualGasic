@@ -1,0 +1,156 @@
+Attribute VB_Name = "fuzz_inst_480"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As SceneReplicationConfig = SceneReplicationConfig.new()
+    If obj <> Null Then
+        Print "PASS:inst_SceneReplicationConfig"
+    Else
+        Print "FAIL:inst_SceneReplicationConfig returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_SceneReplicationConfig err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As ScriptBacktrace = ScriptBacktrace.new()
+    If obj <> Null Then
+        Print "PASS:inst_ScriptBacktrace"
+    Else
+        Print "FAIL:inst_ScriptBacktrace returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_ScriptBacktrace err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As ScriptExtension = ScriptExtension.new()
+    If obj <> Null Then
+        Print "PASS:inst_ScriptExtension"
+    Else
+        Print "FAIL:inst_ScriptExtension returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_ScriptExtension err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As ScriptLanguageExtension = ScriptLanguageExtension.new()
+    If obj <> Null Then
+        Print "PASS:inst_ScriptLanguageExtension"
+    Else
+        Print "FAIL:inst_ScriptLanguageExtension returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_ScriptLanguageExtension err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As ScrollContainer = ScrollContainer.new()
+    If obj <> Null Then
+        Print "PASS:inst_ScrollContainer"
+        obj.free()
+    Else
+        Print "FAIL:inst_ScrollContainer returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_ScrollContainer err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As SegmentShape2D = SegmentShape2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_SegmentShape2D"
+    Else
+        Print "FAIL:inst_SegmentShape2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_SegmentShape2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As SeparationRayShape2D = SeparationRayShape2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_SeparationRayShape2D"
+    Else
+        Print "FAIL:inst_SeparationRayShape2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_SeparationRayShape2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As SeparationRayShape3D = SeparationRayShape3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_SeparationRayShape3D"
+    Else
+        Print "FAIL:inst_SeparationRayShape3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_SeparationRayShape3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As Shader = Shader.new()
+    If obj <> Null Then
+        Print "PASS:inst_Shader"
+    Else
+        Print "FAIL:inst_Shader returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_Shader err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As ShaderGlobalsOverride = ShaderGlobalsOverride.new()
+    If obj <> Null Then
+        Print "PASS:inst_ShaderGlobalsOverride"
+        obj.free()
+    Else
+        Print "FAIL:inst_ShaderGlobalsOverride returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_ShaderGlobalsOverride err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

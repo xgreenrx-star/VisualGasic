@@ -1,0 +1,163 @@
+Attribute VB_Name = "fuzz_prop_880"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As TabBar = TabBar.new()
+    If obj = Null Then
+        Print "SKIP:prop_TabBar_tab_alignment (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.tab_alignment
+    Print "PASS:prop_TabBar_tab_alignment"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_TabBar_tab_alignment err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As TabBar = TabBar.new()
+    If obj = Null Then
+        Print "SKIP:prop_TabBar_clip_tabs (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.clip_tabs
+    Print "PASS:prop_TabBar_clip_tabs"
+    obj.clip_tabs = True
+    Dim val2 As Variant = obj.clip_tabs
+    Print "PASS:propset_TabBar_clip_tabs"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_TabBar_clip_tabs err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As TabBar = TabBar.new()
+    If obj = Null Then
+        Print "SKIP:prop_TabBar_close_with_middle_mouse (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.close_with_middle_mouse
+    Print "PASS:prop_TabBar_close_with_middle_mouse"
+    obj.close_with_middle_mouse = True
+    Dim val2 As Variant = obj.close_with_middle_mouse
+    Print "PASS:propset_TabBar_close_with_middle_mouse"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_TabBar_close_with_middle_mouse err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As TabBar = TabBar.new()
+    If obj = Null Then
+        Print "SKIP:prop_TabBar_tab_close_display_policy (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.tab_close_display_policy
+    Print "PASS:prop_TabBar_tab_close_display_policy"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_TabBar_tab_close_display_policy err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As Tree = Tree.new()
+    If obj = Null Then
+        Print "SKIP:prop_Tree_columns (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.columns
+    Print "PASS:prop_Tree_columns"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_Tree_columns err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As Tree = Tree.new()
+    If obj = Null Then
+        Print "SKIP:prop_Tree_column_titles_visible (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.column_titles_visible
+    Print "PASS:prop_Tree_column_titles_visible"
+    obj.column_titles_visible = True
+    Dim val2 As Variant = obj.column_titles_visible
+    Print "PASS:propset_Tree_column_titles_visible"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_Tree_column_titles_visible err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As Tree = Tree.new()
+    If obj = Null Then
+        Print "SKIP:prop_Tree_allow_reselect (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.allow_reselect
+    Print "PASS:prop_Tree_allow_reselect"
+    obj.allow_reselect = True
+    Dim val2 As Variant = obj.allow_reselect
+    Print "PASS:propset_Tree_allow_reselect"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_Tree_allow_reselect err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As Tree = Tree.new()
+    If obj = Null Then
+        Print "SKIP:prop_Tree_allow_rmb_select (null)"
+        Exit Sub
+    End If
+    Dim val As Variant = obj.allow_rmb_select
+    Print "PASS:prop_Tree_allow_rmb_select"
+    obj.allow_rmb_select = True
+    Dim val2 As Variant = obj.allow_rmb_select
+    Print "PASS:propset_Tree_allow_rmb_select"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:prop_Tree_allow_rmb_select err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+End Sub

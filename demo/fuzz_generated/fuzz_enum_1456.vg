@@ -1,0 +1,142 @@
+Attribute VB_Name = "fuzz_enum_1456"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_FEATURE_EMISSION As Integer = BaseMaterial3D.FEATURE_EMISSION
+    If v_FEATURE_EMISSION = 0 Then pass_count = pass_count + 1
+    Dim v_FEATURE_NORMAL_MAPPING As Integer = BaseMaterial3D.FEATURE_NORMAL_MAPPING
+    If v_FEATURE_NORMAL_MAPPING = 1 Then pass_count = pass_count + 1
+    Dim v_FEATURE_RIM As Integer = BaseMaterial3D.FEATURE_RIM
+    If v_FEATURE_RIM = 2 Then pass_count = pass_count + 1
+    Dim v_FEATURE_CLEARCOAT As Integer = BaseMaterial3D.FEATURE_CLEARCOAT
+    If v_FEATURE_CLEARCOAT = 3 Then pass_count = pass_count + 1
+    Dim v_FEATURE_ANISOTROPY As Integer = BaseMaterial3D.FEATURE_ANISOTROPY
+    If v_FEATURE_ANISOTROPY = 4 Then pass_count = pass_count + 1
+    Dim v_FEATURE_AMBIENT_OCCLUSION As Integer = BaseMaterial3D.FEATURE_AMBIENT_OCCLUSION
+    If v_FEATURE_AMBIENT_OCCLUSION = 5 Then pass_count = pass_count + 1
+    Dim v_FEATURE_HEIGHT_MAPPING As Integer = BaseMaterial3D.FEATURE_HEIGHT_MAPPING
+    If v_FEATURE_HEIGHT_MAPPING = 6 Then pass_count = pass_count + 1
+    Dim v_FEATURE_SUBSURFACE_SCATTERING As Integer = BaseMaterial3D.FEATURE_SUBSURFACE_SCATTERING
+    If v_FEATURE_SUBSURFACE_SCATTERING = 7 Then pass_count = pass_count + 1
+    If pass_count = 8 Then
+        Print "PASS:enum_BaseMaterial3D_Feature"
+    Else
+        Print "FAIL:enum_BaseMaterial3D_Feature count=" & str(pass_count) & "/8"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_BaseMaterial3D_Feature err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_BLEND_MODE_MIX As Integer = BaseMaterial3D.BLEND_MODE_MIX
+    If v_BLEND_MODE_MIX = 0 Then pass_count = pass_count + 1
+    Dim v_BLEND_MODE_ADD As Integer = BaseMaterial3D.BLEND_MODE_ADD
+    If v_BLEND_MODE_ADD = 1 Then pass_count = pass_count + 1
+    Dim v_BLEND_MODE_SUB As Integer = BaseMaterial3D.BLEND_MODE_SUB
+    If v_BLEND_MODE_SUB = 2 Then pass_count = pass_count + 1
+    Dim v_BLEND_MODE_MUL As Integer = BaseMaterial3D.BLEND_MODE_MUL
+    If v_BLEND_MODE_MUL = 3 Then pass_count = pass_count + 1
+    Dim v_BLEND_MODE_PREMULT_ALPHA As Integer = BaseMaterial3D.BLEND_MODE_PREMULT_ALPHA
+    If v_BLEND_MODE_PREMULT_ALPHA = 4 Then pass_count = pass_count + 1
+    If pass_count = 5 Then
+        Print "PASS:enum_BaseMaterial3D_BlendMode"
+    Else
+        Print "FAIL:enum_BaseMaterial3D_BlendMode count=" & str(pass_count) & "/5"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_BaseMaterial3D_BlendMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_ALPHA_ANTIALIASING_OFF As Integer = BaseMaterial3D.ALPHA_ANTIALIASING_OFF
+    If v_ALPHA_ANTIALIASING_OFF = 0 Then pass_count = pass_count + 1
+    Dim v_ALPHA_ANTIALIASING_ALPHA_TO_COVERAGE As Integer = BaseMaterial3D.ALPHA_ANTIALIASING_ALPHA_TO_COVERAGE
+    If v_ALPHA_ANTIALIASING_ALPHA_TO_COVERAGE = 1 Then pass_count = pass_count + 1
+    Dim v_ALPHA_ANTIALIASING_ALPHA_TO_COVERAGE_AND_TO_ONE As Integer = BaseMaterial3D.ALPHA_ANTIALIASING_ALPHA_TO_COVERAGE_AND_TO_ONE
+    If v_ALPHA_ANTIALIASING_ALPHA_TO_COVERAGE_AND_TO_ONE = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_BaseMaterial3D_AlphaAntiAliasing"
+    Else
+        Print "FAIL:enum_BaseMaterial3D_AlphaAntiAliasing count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_BaseMaterial3D_AlphaAntiAliasing err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_DEPTH_DRAW_OPAQUE_ONLY As Integer = BaseMaterial3D.DEPTH_DRAW_OPAQUE_ONLY
+    If v_DEPTH_DRAW_OPAQUE_ONLY = 0 Then pass_count = pass_count + 1
+    Dim v_DEPTH_DRAW_ALWAYS As Integer = BaseMaterial3D.DEPTH_DRAW_ALWAYS
+    If v_DEPTH_DRAW_ALWAYS = 1 Then pass_count = pass_count + 1
+    Dim v_DEPTH_DRAW_DISABLED As Integer = BaseMaterial3D.DEPTH_DRAW_DISABLED
+    If v_DEPTH_DRAW_DISABLED = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_BaseMaterial3D_DepthDrawMode"
+    Else
+        Print "FAIL:enum_BaseMaterial3D_DepthDrawMode count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_BaseMaterial3D_DepthDrawMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_DEPTH_TEST_DEFAULT As Integer = BaseMaterial3D.DEPTH_TEST_DEFAULT
+    If v_DEPTH_TEST_DEFAULT = 0 Then pass_count = pass_count + 1
+    Dim v_DEPTH_TEST_INVERTED As Integer = BaseMaterial3D.DEPTH_TEST_INVERTED
+    If v_DEPTH_TEST_INVERTED = 1 Then pass_count = pass_count + 1
+    If pass_count = 2 Then
+        Print "PASS:enum_BaseMaterial3D_DepthTest"
+    Else
+        Print "FAIL:enum_BaseMaterial3D_DepthTest count=" & str(pass_count) & "/2"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_BaseMaterial3D_DepthTest err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_CULL_BACK As Integer = BaseMaterial3D.CULL_BACK
+    If v_CULL_BACK = 0 Then pass_count = pass_count + 1
+    Dim v_CULL_FRONT As Integer = BaseMaterial3D.CULL_FRONT
+    If v_CULL_FRONT = 1 Then pass_count = pass_count + 1
+    Dim v_CULL_DISABLED As Integer = BaseMaterial3D.CULL_DISABLED
+    If v_CULL_DISABLED = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_BaseMaterial3D_CullMode"
+    Else
+        Print "FAIL:enum_BaseMaterial3D_CullMode count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_BaseMaterial3D_CullMode err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

@@ -1,0 +1,158 @@
+Attribute VB_Name = "fuzz_inst_570"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As TextureProgressBar = TextureProgressBar.new()
+    If obj <> Null Then
+        Print "PASS:inst_TextureProgressBar"
+        obj.free()
+    Else
+        Print "FAIL:inst_TextureProgressBar returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_TextureProgressBar err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As TextureRect = TextureRect.new()
+    If obj <> Null Then
+        Print "PASS:inst_TextureRect"
+        obj.free()
+    Else
+        Print "FAIL:inst_TextureRect returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_TextureRect err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As Theme = Theme.new()
+    If obj <> Null Then
+        Print "PASS:inst_Theme"
+    Else
+        Print "FAIL:inst_Theme returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_Theme err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As TileData = TileData.new()
+    If obj <> Null Then
+        Print "PASS:inst_TileData"
+    Else
+        Print "FAIL:inst_TileData returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_TileData err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As TileMap = TileMap.new()
+    If obj <> Null Then
+        Print "PASS:inst_TileMap"
+        obj.free()
+    Else
+        Print "FAIL:inst_TileMap returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_TileMap err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As TileMapLayer = TileMapLayer.new()
+    If obj <> Null Then
+        Print "PASS:inst_TileMapLayer"
+        obj.free()
+    Else
+        Print "FAIL:inst_TileMapLayer returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_TileMapLayer err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As TileMapPattern = TileMapPattern.new()
+    If obj <> Null Then
+        Print "PASS:inst_TileMapPattern"
+    Else
+        Print "FAIL:inst_TileMapPattern returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_TileMapPattern err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As TileSet = TileSet.new()
+    If obj <> Null Then
+        Print "PASS:inst_TileSet"
+    Else
+        Print "FAIL:inst_TileSet returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_TileSet err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As TileSetAtlasSource = TileSetAtlasSource.new()
+    If obj <> Null Then
+        Print "PASS:inst_TileSetAtlasSource"
+    Else
+        Print "FAIL:inst_TileSetAtlasSource returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_TileSetAtlasSource err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As TileSetScenesCollectionSource = TileSetScenesCollectionSource.new()
+    If obj <> Null Then
+        Print "PASS:inst_TileSetScenesCollectionSource"
+    Else
+        Print "FAIL:inst_TileSetScenesCollectionSource returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_TileSetScenesCollectionSource err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

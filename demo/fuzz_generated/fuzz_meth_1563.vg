@@ -1,0 +1,172 @@
+Attribute VB_Name = "fuzz_meth_1563"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As TabBar = TabBar.new()
+    If obj = Null Then
+        Print "SKIP:meth_TabBar (null)"
+        Exit Sub
+    End If
+    Dim r_get_tab_count As Variant = obj.get_tab_count()
+    Print "PASS:meth_TabBar_get_tab_count"
+    Dim r_get_current_tab As Variant = obj.get_current_tab()
+    Print "PASS:meth_TabBar_get_current_tab"
+    Dim r_get_previous_tab As Variant = obj.get_previous_tab()
+    Print "PASS:meth_TabBar_get_previous_tab"
+    Dim r_select_previous_available As Variant = obj.select_previous_available()
+    Print "PASS:meth_TabBar_select_previous_available"
+    Dim r_select_next_available As Variant = obj.select_next_available()
+    Print "PASS:meth_TabBar_select_next_available"
+    Dim r_get_tab_alignment As Variant = obj.get_tab_alignment()
+    Print "PASS:meth_TabBar_get_tab_alignment"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_TabBar err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As TabContainer = TabContainer.new()
+    If obj = Null Then
+        Print "SKIP:meth_TabContainer (null)"
+        Exit Sub
+    End If
+    Dim r_get_tab_count As Variant = obj.get_tab_count()
+    Print "PASS:meth_TabContainer_get_tab_count"
+    Dim r_get_current_tab As Variant = obj.get_current_tab()
+    Print "PASS:meth_TabContainer_get_current_tab"
+    Dim r_get_previous_tab As Variant = obj.get_previous_tab()
+    Print "PASS:meth_TabContainer_get_previous_tab"
+    Dim r_select_previous_available As Variant = obj.select_previous_available()
+    Print "PASS:meth_TabContainer_select_previous_available"
+    Dim r_select_next_available As Variant = obj.select_next_available()
+    Print "PASS:meth_TabContainer_select_next_available"
+    Dim r_get_tab_bar As Variant = obj.get_tab_bar()
+    Print "PASS:meth_TabContainer_get_tab_bar"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_TabContainer err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As ColorPicker = ColorPicker.new()
+    If obj = Null Then
+        Print "SKIP:meth_ColorPicker (null)"
+        Exit Sub
+    End If
+    Dim r_get_pick_color As Variant = obj.get_pick_color()
+    Print "PASS:meth_ColorPicker_get_pick_color"
+    Dim r_is_deferred_mode As Variant = obj.is_deferred_mode()
+    Print "PASS:meth_ColorPicker_is_deferred_mode"
+    Dim r_get_color_mode As Variant = obj.get_color_mode()
+    Print "PASS:meth_ColorPicker_get_color_mode"
+    Dim r_is_editing_alpha As Variant = obj.is_editing_alpha()
+    Print "PASS:meth_ColorPicker_is_editing_alpha"
+    Dim r_is_editing_intensity As Variant = obj.is_editing_intensity()
+    Print "PASS:meth_ColorPicker_is_editing_intensity"
+    Dim r_are_swatches_enabled As Variant = obj.are_swatches_enabled()
+    Print "PASS:meth_ColorPicker_are_swatches_enabled"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_ColorPicker err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As VideoStreamPlayer = VideoStreamPlayer.new()
+    If obj = Null Then
+        Print "SKIP:meth_VideoStreamPlayer (null)"
+        Exit Sub
+    End If
+    Dim r_get_stream As Variant = obj.get_stream()
+    Print "PASS:meth_VideoStreamPlayer_get_stream"
+    Dim r_is_playing As Variant = obj.is_playing()
+    Print "PASS:meth_VideoStreamPlayer_is_playing"
+    Dim r_is_paused As Variant = obj.is_paused()
+    Print "PASS:meth_VideoStreamPlayer_is_paused"
+    Dim r_has_loop As Variant = obj.has_loop()
+    Print "PASS:meth_VideoStreamPlayer_has_loop"
+    Dim r_get_volume As Variant = obj.get_volume()
+    Print "PASS:meth_VideoStreamPlayer_get_volume"
+    Dim r_get_volume_db As Variant = obj.get_volume_db()
+    Print "PASS:meth_VideoStreamPlayer_get_volume_db"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_VideoStreamPlayer err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As HSlider = HSlider.new()
+    If obj = Null Then
+        Print "SKIP:meth_HSlider (null)"
+        Exit Sub
+    End If
+    Dim r_get_ticks As Variant = obj.get_ticks()
+    Print "PASS:meth_HSlider_get_ticks"
+    Dim r_get_ticks_on_borders As Variant = obj.get_ticks_on_borders()
+    Print "PASS:meth_HSlider_get_ticks_on_borders"
+    Dim r_get_ticks_position As Variant = obj.get_ticks_position()
+    Print "PASS:meth_HSlider_get_ticks_position"
+    Dim r_is_editable As Variant = obj.is_editable()
+    Print "PASS:meth_HSlider_is_editable"
+    Dim r_is_scrollable As Variant = obj.is_scrollable()
+    Print "PASS:meth_HSlider_is_scrollable"
+    Dim r_get_value As Variant = obj.get_value()
+    Print "PASS:meth_HSlider_get_value"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_HSlider err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As VSlider = VSlider.new()
+    If obj = Null Then
+        Print "SKIP:meth_VSlider (null)"
+        Exit Sub
+    End If
+    Dim r_get_ticks As Variant = obj.get_ticks()
+    Print "PASS:meth_VSlider_get_ticks"
+    Dim r_get_ticks_on_borders As Variant = obj.get_ticks_on_borders()
+    Print "PASS:meth_VSlider_get_ticks_on_borders"
+    Dim r_get_ticks_position As Variant = obj.get_ticks_position()
+    Print "PASS:meth_VSlider_get_ticks_position"
+    Dim r_is_editable As Variant = obj.is_editable()
+    Print "PASS:meth_VSlider_is_editable"
+    Dim r_is_scrollable As Variant = obj.is_scrollable()
+    Print "PASS:meth_VSlider_is_scrollable"
+    Dim r_get_value As Variant = obj.get_value()
+    Print "PASS:meth_VSlider_get_value"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_VSlider err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

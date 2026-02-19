@@ -1,0 +1,164 @@
+Attribute VB_Name = "fuzz_enum_1522"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_HAND_JOINT_PALM As Integer = XRHandTracker.HAND_JOINT_PALM
+    If v_HAND_JOINT_PALM = 0 Then pass_count = pass_count + 1
+    Dim v_HAND_JOINT_WRIST As Integer = XRHandTracker.HAND_JOINT_WRIST
+    If v_HAND_JOINT_WRIST = 1 Then pass_count = pass_count + 1
+    Dim v_HAND_JOINT_THUMB_METACARPAL As Integer = XRHandTracker.HAND_JOINT_THUMB_METACARPAL
+    If v_HAND_JOINT_THUMB_METACARPAL = 2 Then pass_count = pass_count + 1
+    Dim v_HAND_JOINT_THUMB_PHALANX_PROXIMAL As Integer = XRHandTracker.HAND_JOINT_THUMB_PHALANX_PROXIMAL
+    If v_HAND_JOINT_THUMB_PHALANX_PROXIMAL = 3 Then pass_count = pass_count + 1
+    Dim v_HAND_JOINT_THUMB_PHALANX_DISTAL As Integer = XRHandTracker.HAND_JOINT_THUMB_PHALANX_DISTAL
+    If v_HAND_JOINT_THUMB_PHALANX_DISTAL = 4 Then pass_count = pass_count + 1
+    Dim v_HAND_JOINT_THUMB_TIP As Integer = XRHandTracker.HAND_JOINT_THUMB_TIP
+    If v_HAND_JOINT_THUMB_TIP = 5 Then pass_count = pass_count + 1
+    Dim v_HAND_JOINT_INDEX_FINGER_METACARPAL As Integer = XRHandTracker.HAND_JOINT_INDEX_FINGER_METACARPAL
+    If v_HAND_JOINT_INDEX_FINGER_METACARPAL = 6 Then pass_count = pass_count + 1
+    Dim v_HAND_JOINT_INDEX_FINGER_PHALANX_PROXIMAL As Integer = XRHandTracker.HAND_JOINT_INDEX_FINGER_PHALANX_PROXIMAL
+    If v_HAND_JOINT_INDEX_FINGER_PHALANX_PROXIMAL = 7 Then pass_count = pass_count + 1
+    If pass_count = 8 Then
+        Print "PASS:enum_XRHandTracker_HandJoint"
+    Else
+        Print "FAIL:enum_XRHandTracker_HandJoint count=" & str(pass_count) & "/8"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_XRHandTracker_HandJoint err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_HAND_JOINT_FLAG_ORIENTATION_VALID As Integer = XRHandTracker.HAND_JOINT_FLAG_ORIENTATION_VALID
+    If v_HAND_JOINT_FLAG_ORIENTATION_VALID = 1 Then pass_count = pass_count + 1
+    Dim v_HAND_JOINT_FLAG_ORIENTATION_TRACKED As Integer = XRHandTracker.HAND_JOINT_FLAG_ORIENTATION_TRACKED
+    If v_HAND_JOINT_FLAG_ORIENTATION_TRACKED = 2 Then pass_count = pass_count + 1
+    Dim v_HAND_JOINT_FLAG_POSITION_VALID As Integer = XRHandTracker.HAND_JOINT_FLAG_POSITION_VALID
+    If v_HAND_JOINT_FLAG_POSITION_VALID = 4 Then pass_count = pass_count + 1
+    Dim v_HAND_JOINT_FLAG_POSITION_TRACKED As Integer = XRHandTracker.HAND_JOINT_FLAG_POSITION_TRACKED
+    If v_HAND_JOINT_FLAG_POSITION_TRACKED = 8 Then pass_count = pass_count + 1
+    Dim v_HAND_JOINT_FLAG_LINEAR_VELOCITY_VALID As Integer = XRHandTracker.HAND_JOINT_FLAG_LINEAR_VELOCITY_VALID
+    If v_HAND_JOINT_FLAG_LINEAR_VELOCITY_VALID = 16 Then pass_count = pass_count + 1
+    Dim v_HAND_JOINT_FLAG_ANGULAR_VELOCITY_VALID As Integer = XRHandTracker.HAND_JOINT_FLAG_ANGULAR_VELOCITY_VALID
+    If v_HAND_JOINT_FLAG_ANGULAR_VELOCITY_VALID = 32 Then pass_count = pass_count + 1
+    If pass_count = 6 Then
+        Print "PASS:enum_XRHandTracker_HandJointFlags"
+    Else
+        Print "FAIL:enum_XRHandTracker_HandJointFlags count=" & str(pass_count) & "/6"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_XRHandTracker_HandJointFlags err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_XR_NONE As Integer = XRInterface.XR_NONE
+    If v_XR_NONE = 0 Then pass_count = pass_count + 1
+    Dim v_XR_MONO As Integer = XRInterface.XR_MONO
+    If v_XR_MONO = 1 Then pass_count = pass_count + 1
+    Dim v_XR_STEREO As Integer = XRInterface.XR_STEREO
+    If v_XR_STEREO = 2 Then pass_count = pass_count + 1
+    Dim v_XR_QUAD As Integer = XRInterface.XR_QUAD
+    If v_XR_QUAD = 4 Then pass_count = pass_count + 1
+    Dim v_XR_VR As Integer = XRInterface.XR_VR
+    If v_XR_VR = 8 Then pass_count = pass_count + 1
+    Dim v_XR_AR As Integer = XRInterface.XR_AR
+    If v_XR_AR = 16 Then pass_count = pass_count + 1
+    Dim v_XR_EXTERNAL As Integer = XRInterface.XR_EXTERNAL
+    If v_XR_EXTERNAL = 32 Then pass_count = pass_count + 1
+    If pass_count = 7 Then
+        Print "PASS:enum_XRInterface_Capabilities"
+    Else
+        Print "FAIL:enum_XRInterface_Capabilities count=" & str(pass_count) & "/7"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_XRInterface_Capabilities err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_XR_NORMAL_TRACKING As Integer = XRInterface.XR_NORMAL_TRACKING
+    If v_XR_NORMAL_TRACKING = 0 Then pass_count = pass_count + 1
+    Dim v_XR_EXCESSIVE_MOTION As Integer = XRInterface.XR_EXCESSIVE_MOTION
+    If v_XR_EXCESSIVE_MOTION = 1 Then pass_count = pass_count + 1
+    Dim v_XR_INSUFFICIENT_FEATURES As Integer = XRInterface.XR_INSUFFICIENT_FEATURES
+    If v_XR_INSUFFICIENT_FEATURES = 2 Then pass_count = pass_count + 1
+    Dim v_XR_UNKNOWN_TRACKING As Integer = XRInterface.XR_UNKNOWN_TRACKING
+    If v_XR_UNKNOWN_TRACKING = 3 Then pass_count = pass_count + 1
+    Dim v_XR_NOT_TRACKING As Integer = XRInterface.XR_NOT_TRACKING
+    If v_XR_NOT_TRACKING = 4 Then pass_count = pass_count + 1
+    If pass_count = 5 Then
+        Print "PASS:enum_XRInterface_TrackingStatus"
+    Else
+        Print "FAIL:enum_XRInterface_TrackingStatus count=" & str(pass_count) & "/5"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_XRInterface_TrackingStatus err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_XR_PLAY_AREA_UNKNOWN As Integer = XRInterface.XR_PLAY_AREA_UNKNOWN
+    If v_XR_PLAY_AREA_UNKNOWN = 0 Then pass_count = pass_count + 1
+    Dim v_XR_PLAY_AREA_3DOF As Integer = XRInterface.XR_PLAY_AREA_3DOF
+    If v_XR_PLAY_AREA_3DOF = 1 Then pass_count = pass_count + 1
+    Dim v_XR_PLAY_AREA_SITTING As Integer = XRInterface.XR_PLAY_AREA_SITTING
+    If v_XR_PLAY_AREA_SITTING = 2 Then pass_count = pass_count + 1
+    Dim v_XR_PLAY_AREA_ROOMSCALE As Integer = XRInterface.XR_PLAY_AREA_ROOMSCALE
+    If v_XR_PLAY_AREA_ROOMSCALE = 3 Then pass_count = pass_count + 1
+    Dim v_XR_PLAY_AREA_STAGE As Integer = XRInterface.XR_PLAY_AREA_STAGE
+    If v_XR_PLAY_AREA_STAGE = 4 Then pass_count = pass_count + 1
+    Dim v_XR_PLAY_AREA_CUSTOM As Integer = XRInterface.XR_PLAY_AREA_CUSTOM
+    If v_XR_PLAY_AREA_CUSTOM = 2147483647 Then pass_count = pass_count + 1
+    If pass_count = 6 Then
+        Print "PASS:enum_XRInterface_PlayAreaMode"
+    Else
+        Print "FAIL:enum_XRInterface_PlayAreaMode count=" & str(pass_count) & "/6"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_XRInterface_PlayAreaMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_XR_ENV_BLEND_MODE_OPAQUE As Integer = XRInterface.XR_ENV_BLEND_MODE_OPAQUE
+    If v_XR_ENV_BLEND_MODE_OPAQUE = 0 Then pass_count = pass_count + 1
+    Dim v_XR_ENV_BLEND_MODE_ADDITIVE As Integer = XRInterface.XR_ENV_BLEND_MODE_ADDITIVE
+    If v_XR_ENV_BLEND_MODE_ADDITIVE = 1 Then pass_count = pass_count + 1
+    Dim v_XR_ENV_BLEND_MODE_ALPHA_BLEND As Integer = XRInterface.XR_ENV_BLEND_MODE_ALPHA_BLEND
+    If v_XR_ENV_BLEND_MODE_ALPHA_BLEND = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_XRInterface_EnvironmentBlendMode"
+    Else
+        Print "FAIL:enum_XRInterface_EnvironmentBlendMode count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_XRInterface_EnvironmentBlendMode err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

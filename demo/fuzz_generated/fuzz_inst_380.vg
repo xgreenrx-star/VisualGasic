@@ -1,0 +1,157 @@
+Attribute VB_Name = "fuzz_inst_380"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As PackedDataContainer = PackedDataContainer.new()
+    If obj <> Null Then
+        Print "PASS:inst_PackedDataContainer"
+    Else
+        Print "FAIL:inst_PackedDataContainer returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_PackedDataContainer err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As PackedScene = PackedScene.new()
+    If obj <> Null Then
+        Print "PASS:inst_PackedScene"
+    Else
+        Print "FAIL:inst_PackedScene returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_PackedScene err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As PacketPeerDTLS = PacketPeerDTLS.new()
+    If obj <> Null Then
+        Print "PASS:inst_PacketPeerDTLS"
+    Else
+        Print "FAIL:inst_PacketPeerDTLS returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_PacketPeerDTLS err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As PacketPeerExtension = PacketPeerExtension.new()
+    If obj <> Null Then
+        Print "PASS:inst_PacketPeerExtension"
+    Else
+        Print "FAIL:inst_PacketPeerExtension returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_PacketPeerExtension err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As PacketPeerStream = PacketPeerStream.new()
+    If obj <> Null Then
+        Print "PASS:inst_PacketPeerStream"
+    Else
+        Print "FAIL:inst_PacketPeerStream returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_PacketPeerStream err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As PacketPeerUDP = PacketPeerUDP.new()
+    If obj <> Null Then
+        Print "PASS:inst_PacketPeerUDP"
+    Else
+        Print "FAIL:inst_PacketPeerUDP returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_PacketPeerUDP err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As Panel = Panel.new()
+    If obj <> Null Then
+        Print "PASS:inst_Panel"
+        obj.free()
+    Else
+        Print "FAIL:inst_Panel returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_Panel err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As PanelContainer = PanelContainer.new()
+    If obj <> Null Then
+        Print "PASS:inst_PanelContainer"
+        obj.free()
+    Else
+        Print "FAIL:inst_PanelContainer returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_PanelContainer err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As PanoramaSkyMaterial = PanoramaSkyMaterial.new()
+    If obj <> Null Then
+        Print "PASS:inst_PanoramaSkyMaterial"
+    Else
+        Print "FAIL:inst_PanoramaSkyMaterial returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_PanoramaSkyMaterial err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As Parallax2D = Parallax2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_Parallax2D"
+        obj.free()
+    Else
+        Print "FAIL:inst_Parallax2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_Parallax2D err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

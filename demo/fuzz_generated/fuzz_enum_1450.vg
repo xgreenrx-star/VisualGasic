@@ -1,0 +1,126 @@
+Attribute VB_Name = "fuzz_enum_1450"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_MIX_MODE_BLEND As Integer = AnimationNodeOneShot.MIX_MODE_BLEND
+    If v_MIX_MODE_BLEND = 0 Then pass_count = pass_count + 1
+    Dim v_MIX_MODE_ADD As Integer = AnimationNodeOneShot.MIX_MODE_ADD
+    If v_MIX_MODE_ADD = 1 Then pass_count = pass_count + 1
+    If pass_count = 2 Then
+        Print "PASS:enum_AnimationNodeOneShot_MixMode"
+    Else
+        Print "FAIL:enum_AnimationNodeOneShot_MixMode count=" & str(pass_count) & "/2"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_AnimationNodeOneShot_MixMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_STATE_MACHINE_TYPE_ROOT As Integer = AnimationNodeStateMachine.STATE_MACHINE_TYPE_ROOT
+    If v_STATE_MACHINE_TYPE_ROOT = 0 Then pass_count = pass_count + 1
+    Dim v_STATE_MACHINE_TYPE_NESTED As Integer = AnimationNodeStateMachine.STATE_MACHINE_TYPE_NESTED
+    If v_STATE_MACHINE_TYPE_NESTED = 1 Then pass_count = pass_count + 1
+    Dim v_STATE_MACHINE_TYPE_GROUPED As Integer = AnimationNodeStateMachine.STATE_MACHINE_TYPE_GROUPED
+    If v_STATE_MACHINE_TYPE_GROUPED = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_AnimationNodeStateMachine_StateMachineType"
+    Else
+        Print "FAIL:enum_AnimationNodeStateMachine_StateMachineType count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_AnimationNodeStateMachine_StateMachineType err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_SWITCH_MODE_IMMEDIATE As Integer = AnimationNodeStateMachineTransition.SWITCH_MODE_IMMEDIATE
+    If v_SWITCH_MODE_IMMEDIATE = 0 Then pass_count = pass_count + 1
+    Dim v_SWITCH_MODE_SYNC As Integer = AnimationNodeStateMachineTransition.SWITCH_MODE_SYNC
+    If v_SWITCH_MODE_SYNC = 1 Then pass_count = pass_count + 1
+    Dim v_SWITCH_MODE_AT_END As Integer = AnimationNodeStateMachineTransition.SWITCH_MODE_AT_END
+    If v_SWITCH_MODE_AT_END = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_AnimationNodeStateMachineTransition_SwitchMode"
+    Else
+        Print "FAIL:enum_AnimationNodeStateMachineTransition_SwitchMode count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_AnimationNodeStateMachineTransition_SwitchMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_ADVANCE_MODE_DISABLED As Integer = AnimationNodeStateMachineTransition.ADVANCE_MODE_DISABLED
+    If v_ADVANCE_MODE_DISABLED = 0 Then pass_count = pass_count + 1
+    Dim v_ADVANCE_MODE_ENABLED As Integer = AnimationNodeStateMachineTransition.ADVANCE_MODE_ENABLED
+    If v_ADVANCE_MODE_ENABLED = 1 Then pass_count = pass_count + 1
+    Dim v_ADVANCE_MODE_AUTO As Integer = AnimationNodeStateMachineTransition.ADVANCE_MODE_AUTO
+    If v_ADVANCE_MODE_AUTO = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_AnimationNodeStateMachineTransition_AdvanceMode"
+    Else
+        Print "FAIL:enum_AnimationNodeStateMachineTransition_AdvanceMode count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_AnimationNodeStateMachineTransition_AdvanceMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_ANIMATION_PROCESS_PHYSICS As Integer = AnimationPlayer.ANIMATION_PROCESS_PHYSICS
+    If v_ANIMATION_PROCESS_PHYSICS = 0 Then pass_count = pass_count + 1
+    Dim v_ANIMATION_PROCESS_IDLE As Integer = AnimationPlayer.ANIMATION_PROCESS_IDLE
+    If v_ANIMATION_PROCESS_IDLE = 1 Then pass_count = pass_count + 1
+    Dim v_ANIMATION_PROCESS_MANUAL As Integer = AnimationPlayer.ANIMATION_PROCESS_MANUAL
+    If v_ANIMATION_PROCESS_MANUAL = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_AnimationPlayer_AnimationProcessCallback"
+    Else
+        Print "FAIL:enum_AnimationPlayer_AnimationProcessCallback count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_AnimationPlayer_AnimationProcessCallback err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_ANIMATION_METHOD_CALL_DEFERRED As Integer = AnimationPlayer.ANIMATION_METHOD_CALL_DEFERRED
+    If v_ANIMATION_METHOD_CALL_DEFERRED = 0 Then pass_count = pass_count + 1
+    Dim v_ANIMATION_METHOD_CALL_IMMEDIATE As Integer = AnimationPlayer.ANIMATION_METHOD_CALL_IMMEDIATE
+    If v_ANIMATION_METHOD_CALL_IMMEDIATE = 1 Then pass_count = pass_count + 1
+    If pass_count = 2 Then
+        Print "PASS:enum_AnimationPlayer_AnimationMethodCallMode"
+    Else
+        Print "FAIL:enum_AnimationPlayer_AnimationMethodCallMode count=" & str(pass_count) & "/2"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_AnimationPlayer_AnimationMethodCallMode err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

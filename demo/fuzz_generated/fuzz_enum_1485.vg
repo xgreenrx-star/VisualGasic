@@ -1,0 +1,132 @@
+Attribute VB_Name = "fuzz_enum_1485"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_SAMPLE_PARTITION_CONVEX_PARTITION As Integer = NavigationPolygon.SAMPLE_PARTITION_CONVEX_PARTITION
+    If v_SAMPLE_PARTITION_CONVEX_PARTITION = 0 Then pass_count = pass_count + 1
+    Dim v_SAMPLE_PARTITION_TRIANGULATE As Integer = NavigationPolygon.SAMPLE_PARTITION_TRIANGULATE
+    If v_SAMPLE_PARTITION_TRIANGULATE = 1 Then pass_count = pass_count + 1
+    Dim v_SAMPLE_PARTITION_MAX As Integer = NavigationPolygon.SAMPLE_PARTITION_MAX
+    If v_SAMPLE_PARTITION_MAX = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_NavigationPolygon_SamplePartitionType"
+    Else
+        Print "FAIL:enum_NavigationPolygon_SamplePartitionType count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_NavigationPolygon_SamplePartitionType err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_PARSED_GEOMETRY_MESH_INSTANCES As Integer = NavigationPolygon.PARSED_GEOMETRY_MESH_INSTANCES
+    If v_PARSED_GEOMETRY_MESH_INSTANCES = 0 Then pass_count = pass_count + 1
+    Dim v_PARSED_GEOMETRY_STATIC_COLLIDERS As Integer = NavigationPolygon.PARSED_GEOMETRY_STATIC_COLLIDERS
+    If v_PARSED_GEOMETRY_STATIC_COLLIDERS = 1 Then pass_count = pass_count + 1
+    Dim v_PARSED_GEOMETRY_BOTH As Integer = NavigationPolygon.PARSED_GEOMETRY_BOTH
+    If v_PARSED_GEOMETRY_BOTH = 2 Then pass_count = pass_count + 1
+    Dim v_PARSED_GEOMETRY_MAX As Integer = NavigationPolygon.PARSED_GEOMETRY_MAX
+    If v_PARSED_GEOMETRY_MAX = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_NavigationPolygon_ParsedGeometryType"
+    Else
+        Print "FAIL:enum_NavigationPolygon_ParsedGeometryType count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_NavigationPolygon_ParsedGeometryType err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_SOURCE_GEOMETRY_ROOT_NODE_CHILDREN As Integer = NavigationPolygon.SOURCE_GEOMETRY_ROOT_NODE_CHILDREN
+    If v_SOURCE_GEOMETRY_ROOT_NODE_CHILDREN = 0 Then pass_count = pass_count + 1
+    Dim v_SOURCE_GEOMETRY_GROUPS_WITH_CHILDREN As Integer = NavigationPolygon.SOURCE_GEOMETRY_GROUPS_WITH_CHILDREN
+    If v_SOURCE_GEOMETRY_GROUPS_WITH_CHILDREN = 1 Then pass_count = pass_count + 1
+    Dim v_SOURCE_GEOMETRY_GROUPS_EXPLICIT As Integer = NavigationPolygon.SOURCE_GEOMETRY_GROUPS_EXPLICIT
+    If v_SOURCE_GEOMETRY_GROUPS_EXPLICIT = 2 Then pass_count = pass_count + 1
+    Dim v_SOURCE_GEOMETRY_MAX As Integer = NavigationPolygon.SOURCE_GEOMETRY_MAX
+    If v_SOURCE_GEOMETRY_MAX = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_NavigationPolygon_SourceGeometryMode"
+    Else
+        Print "FAIL:enum_NavigationPolygon_SourceGeometryMode count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_NavigationPolygon_SourceGeometryMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_AXIS_STRETCH_MODE_STRETCH As Integer = NinePatchRect.AXIS_STRETCH_MODE_STRETCH
+    If v_AXIS_STRETCH_MODE_STRETCH = 0 Then pass_count = pass_count + 1
+    Dim v_AXIS_STRETCH_MODE_TILE As Integer = NinePatchRect.AXIS_STRETCH_MODE_TILE
+    If v_AXIS_STRETCH_MODE_TILE = 1 Then pass_count = pass_count + 1
+    Dim v_AXIS_STRETCH_MODE_TILE_FIT As Integer = NinePatchRect.AXIS_STRETCH_MODE_TILE_FIT
+    If v_AXIS_STRETCH_MODE_TILE_FIT = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_NinePatchRect_AxisStretchMode"
+    Else
+        Print "FAIL:enum_NinePatchRect_AxisStretchMode count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_NinePatchRect_AxisStretchMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_CULL_DISABLED As Integer = OccluderPolygon2D.CULL_DISABLED
+    If v_CULL_DISABLED = 0 Then pass_count = pass_count + 1
+    Dim v_CULL_CLOCKWISE As Integer = OccluderPolygon2D.CULL_CLOCKWISE
+    If v_CULL_CLOCKWISE = 1 Then pass_count = pass_count + 1
+    Dim v_CULL_COUNTER_CLOCKWISE As Integer = OccluderPolygon2D.CULL_COUNTER_CLOCKWISE
+    If v_CULL_COUNTER_CLOCKWISE = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_OccluderPolygon2D_CullMode"
+    Else
+        Print "FAIL:enum_OccluderPolygon2D_CullMode count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_OccluderPolygon2D_CullMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_SHADOW_DUAL_PARABOLOID As Integer = OmniLight3D.SHADOW_DUAL_PARABOLOID
+    If v_SHADOW_DUAL_PARABOLOID = 0 Then pass_count = pass_count + 1
+    Dim v_SHADOW_CUBE As Integer = OmniLight3D.SHADOW_CUBE
+    If v_SHADOW_CUBE = 1 Then pass_count = pass_count + 1
+    If pass_count = 2 Then
+        Print "PASS:enum_OmniLight3D_ShadowMode"
+    Else
+        Print "FAIL:enum_OmniLight3D_ShadowMode count=" & str(pass_count) & "/2"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_OmniLight3D_ShadowMode err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

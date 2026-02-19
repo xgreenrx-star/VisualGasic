@@ -1,0 +1,229 @@
+Attribute VB_Name = "fuzz_singletons"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim desc As String = str(Engine)
+    If desc <> "" And desc <> "Null" Then
+        Print "PASS:singleton_Engine"
+    Else
+        Print "FAIL:singleton_Engine not accessible"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:singleton_Engine err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim desc As String = str(ProjectSettings)
+    If desc <> "" And desc <> "Null" Then
+        Print "PASS:singleton_ProjectSettings"
+    Else
+        Print "FAIL:singleton_ProjectSettings not accessible"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:singleton_ProjectSettings err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim desc As String = str(OS)
+    If desc <> "" And desc <> "Null" Then
+        Print "PASS:singleton_OS"
+    Else
+        Print "FAIL:singleton_OS not accessible"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:singleton_OS err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim desc As String = str(Time)
+    If desc <> "" And desc <> "Null" Then
+        Print "PASS:singleton_Time"
+    Else
+        Print "FAIL:singleton_Time not accessible"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:singleton_Time err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim desc As String = str(Geometry2D)
+    If desc <> "" And desc <> "Null" Then
+        Print "PASS:singleton_Geometry2D"
+    Else
+        Print "FAIL:singleton_Geometry2D not accessible"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:singleton_Geometry2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim desc As String = str(Geometry3D)
+    If desc <> "" And desc <> "Null" Then
+        Print "PASS:singleton_Geometry3D"
+    Else
+        Print "FAIL:singleton_Geometry3D not accessible"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:singleton_Geometry3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim desc As String = str(ResourceLoader)
+    If desc <> "" And desc <> "Null" Then
+        Print "PASS:singleton_ResourceLoader"
+    Else
+        Print "FAIL:singleton_ResourceLoader not accessible"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:singleton_ResourceLoader err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim desc As String = str(ClassDB)
+    If desc <> "" And desc <> "Null" Then
+        Print "PASS:singleton_ClassDB"
+    Else
+        Print "FAIL:singleton_ClassDB not accessible"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:singleton_ClassDB err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim desc As String = str(Marshalls)
+    If desc <> "" And desc <> "Null" Then
+        Print "PASS:singleton_Marshalls"
+    Else
+        Print "FAIL:singleton_Marshalls not accessible"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:singleton_Marshalls err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim desc As String = str(TranslationServer)
+    If desc <> "" And desc <> "Null" Then
+        Print "PASS:singleton_TranslationServer"
+    Else
+        Print "FAIL:singleton_TranslationServer not accessible"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:singleton_TranslationServer err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest10()
+    On Error Resume Next
+    Dim desc As String = str(Input)
+    If desc <> "" And desc <> "Null" Then
+        Print "PASS:singleton_Input"
+    Else
+        Print "FAIL:singleton_Input not accessible"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:singleton_Input err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest11()
+    On Error Resume Next
+    Dim desc As String = str(InputMap)
+    If desc <> "" And desc <> "Null" Then
+        Print "PASS:singleton_InputMap"
+    Else
+        Print "FAIL:singleton_InputMap not accessible"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:singleton_InputMap err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest12()
+    On Error Resume Next
+    Dim desc As String = str(ResourceUID)
+    If desc <> "" And desc <> "Null" Then
+        Print "PASS:singleton_ResourceUID"
+    Else
+        Print "FAIL:singleton_ResourceUID not accessible"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:singleton_ResourceUID err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest13()
+    On Error Resume Next
+    Dim desc As String = str(ThemeDB)
+    If desc <> "" And desc <> "Null" Then
+        Print "PASS:singleton_ThemeDB"
+    Else
+        Print "FAIL:singleton_ThemeDB not accessible"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:singleton_ThemeDB err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest14()
+    On Error Resume Next
+    Dim desc As String = str(AudioServer)
+    If desc <> "" And desc <> "Null" Then
+        Print "PASS:singleton_AudioServer"
+    Else
+        Print "FAIL:singleton_AudioServer not accessible"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:singleton_AudioServer err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+    RunTest10()
+    RunTest11()
+    RunTest12()
+    RunTest13()
+    RunTest14()
+End Sub

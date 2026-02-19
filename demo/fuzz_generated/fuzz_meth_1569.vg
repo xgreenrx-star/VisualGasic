@@ -1,0 +1,172 @@
+Attribute VB_Name = "fuzz_meth_1569"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As ProgressBar = ProgressBar.new()
+    If obj = Null Then
+        Print "SKIP:meth_ProgressBar (null)"
+        Exit Sub
+    End If
+    Dim r_get_fill_mode As Variant = obj.get_fill_mode()
+    Print "PASS:meth_ProgressBar_get_fill_mode"
+    Dim r_is_percentage_shown As Variant = obj.is_percentage_shown()
+    Print "PASS:meth_ProgressBar_is_percentage_shown"
+    Dim r_is_indeterminate As Variant = obj.is_indeterminate()
+    Print "PASS:meth_ProgressBar_is_indeterminate"
+    Dim r_is_editor_preview_indeterminate_enabled As Variant = obj.is_editor_preview_indeterminate_enabled()
+    Print "PASS:meth_ProgressBar_is_editor_preview_indeterminate_enabled"
+    Dim r_get_value As Variant = obj.get_value()
+    Print "PASS:meth_ProgressBar_get_value"
+    Dim r_get_min As Variant = obj.get_min()
+    Print "PASS:meth_ProgressBar_get_min"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_ProgressBar err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As BaseButton = BaseButton.new()
+    If obj = Null Then
+        Print "SKIP:meth_BaseButton (null)"
+        Exit Sub
+    End If
+    Dim r_is_pressed As Variant = obj.is_pressed()
+    Print "PASS:meth_BaseButton_is_pressed"
+    Dim r_is_hovered As Variant = obj.is_hovered()
+    Print "PASS:meth_BaseButton_is_hovered"
+    Dim r_is_toggle_mode As Variant = obj.is_toggle_mode()
+    Print "PASS:meth_BaseButton_is_toggle_mode"
+    Dim r_is_shortcut_in_tooltip_enabled As Variant = obj.is_shortcut_in_tooltip_enabled()
+    Print "PASS:meth_BaseButton_is_shortcut_in_tooltip_enabled"
+    Dim r_is_disabled As Variant = obj.is_disabled()
+    Print "PASS:meth_BaseButton_is_disabled"
+    Dim r_get_action_mode As Variant = obj.get_action_mode()
+    Print "PASS:meth_BaseButton_get_action_mode"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_BaseButton err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As GraphFrame = GraphFrame.new()
+    If obj = Null Then
+        Print "SKIP:meth_GraphFrame (null)"
+        Exit Sub
+    End If
+    Dim r_get_title As Variant = obj.get_title()
+    Print "PASS:meth_GraphFrame_get_title"
+    Dim r_get_titlebar_hbox As Variant = obj.get_titlebar_hbox()
+    Print "PASS:meth_GraphFrame_get_titlebar_hbox"
+    Dim r_is_autoshrink_enabled As Variant = obj.is_autoshrink_enabled()
+    Print "PASS:meth_GraphFrame_is_autoshrink_enabled"
+    Dim r_get_autoshrink_margin As Variant = obj.get_autoshrink_margin()
+    Print "PASS:meth_GraphFrame_get_autoshrink_margin"
+    Dim r_get_drag_margin As Variant = obj.get_drag_margin()
+    Print "PASS:meth_GraphFrame_get_drag_margin"
+    Dim r_is_tint_color_enabled As Variant = obj.is_tint_color_enabled()
+    Print "PASS:meth_GraphFrame_is_tint_color_enabled"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_GraphFrame err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As GraphNode = GraphNode.new()
+    If obj = Null Then
+        Print "SKIP:meth_GraphNode (null)"
+        Exit Sub
+    End If
+    Dim r_get_title As Variant = obj.get_title()
+    Print "PASS:meth_GraphNode_get_title"
+    Dim r_get_titlebar_hbox As Variant = obj.get_titlebar_hbox()
+    Print "PASS:meth_GraphNode_get_titlebar_hbox"
+    Dim r_is_ignoring_valid_connection_type As Variant = obj.is_ignoring_valid_connection_type()
+    Print "PASS:meth_GraphNode_is_ignoring_valid_connection_type"
+    Dim r_get_slots_focus_mode As Variant = obj.get_slots_focus_mode()
+    Print "PASS:meth_GraphNode_get_slots_focus_mode"
+    Dim r_get_input_port_count As Variant = obj.get_input_port_count()
+    Print "PASS:meth_GraphNode_get_input_port_count"
+    Dim r_get_output_port_count As Variant = obj.get_output_port_count()
+    Print "PASS:meth_GraphNode_get_output_port_count"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_GraphNode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As HScrollBar = HScrollBar.new()
+    If obj = Null Then
+        Print "SKIP:meth_HScrollBar (null)"
+        Exit Sub
+    End If
+    Dim r_get_custom_step As Variant = obj.get_custom_step()
+    Print "PASS:meth_HScrollBar_get_custom_step"
+    Dim r_get_value As Variant = obj.get_value()
+    Print "PASS:meth_HScrollBar_get_value"
+    Dim r_get_min As Variant = obj.get_min()
+    Print "PASS:meth_HScrollBar_get_min"
+    Dim r_get_max As Variant = obj.get_max()
+    Print "PASS:meth_HScrollBar_get_max"
+    Dim r_get_step As Variant = obj.get_step()
+    Print "PASS:meth_HScrollBar_get_step"
+    Dim r_get_page As Variant = obj.get_page()
+    Print "PASS:meth_HScrollBar_get_page"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_HScrollBar err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As HSplitContainer = HSplitContainer.new()
+    If obj = Null Then
+        Print "SKIP:meth_HSplitContainer (null)"
+        Exit Sub
+    End If
+    Dim r_get_split_offset As Variant = obj.get_split_offset()
+    Print "PASS:meth_HSplitContainer_get_split_offset"
+    Dim r_is_collapsed As Variant = obj.is_collapsed()
+    Print "PASS:meth_HSplitContainer_is_collapsed"
+    Dim r_get_dragger_visibility As Variant = obj.get_dragger_visibility()
+    Print "PASS:meth_HSplitContainer_get_dragger_visibility"
+    Dim r_is_vertical As Variant = obj.is_vertical()
+    Print "PASS:meth_HSplitContainer_is_vertical"
+    Dim r_is_dragging_enabled As Variant = obj.is_dragging_enabled()
+    Print "PASS:meth_HSplitContainer_is_dragging_enabled"
+    Dim r_get_drag_area_margin_begin As Variant = obj.get_drag_area_margin_begin()
+    Print "PASS:meth_HSplitContainer_get_drag_area_margin_begin"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:meth_HSplitContainer err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

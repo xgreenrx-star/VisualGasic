@@ -1,0 +1,156 @@
+Attribute VB_Name = "fuzz_enum_1489"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_PERF_SETTINGS_NOTIF_LEVEL_NORMAL As Integer = OpenXRInterface.PERF_SETTINGS_NOTIF_LEVEL_NORMAL
+    If v_PERF_SETTINGS_NOTIF_LEVEL_NORMAL = 0 Then pass_count = pass_count + 1
+    Dim v_PERF_SETTINGS_NOTIF_LEVEL_WARNING As Integer = OpenXRInterface.PERF_SETTINGS_NOTIF_LEVEL_WARNING
+    If v_PERF_SETTINGS_NOTIF_LEVEL_WARNING = 1 Then pass_count = pass_count + 1
+    Dim v_PERF_SETTINGS_NOTIF_LEVEL_IMPAIRED As Integer = OpenXRInterface.PERF_SETTINGS_NOTIF_LEVEL_IMPAIRED
+    If v_PERF_SETTINGS_NOTIF_LEVEL_IMPAIRED = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_OpenXRInterface_PerfSettingsNotificationLevel"
+    Else
+        Print "FAIL:enum_OpenXRInterface_PerfSettingsNotificationLevel count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_OpenXRInterface_PerfSettingsNotificationLevel err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_HAND_JOINT_NONE As Integer = OpenXRInterface.HAND_JOINT_NONE
+    If v_HAND_JOINT_NONE = 0 Then pass_count = pass_count + 1
+    Dim v_HAND_JOINT_ORIENTATION_VALID As Integer = OpenXRInterface.HAND_JOINT_ORIENTATION_VALID
+    If v_HAND_JOINT_ORIENTATION_VALID = 1 Then pass_count = pass_count + 1
+    Dim v_HAND_JOINT_ORIENTATION_TRACKED As Integer = OpenXRInterface.HAND_JOINT_ORIENTATION_TRACKED
+    If v_HAND_JOINT_ORIENTATION_TRACKED = 2 Then pass_count = pass_count + 1
+    Dim v_HAND_JOINT_POSITION_VALID As Integer = OpenXRInterface.HAND_JOINT_POSITION_VALID
+    If v_HAND_JOINT_POSITION_VALID = 4 Then pass_count = pass_count + 1
+    Dim v_HAND_JOINT_POSITION_TRACKED As Integer = OpenXRInterface.HAND_JOINT_POSITION_TRACKED
+    If v_HAND_JOINT_POSITION_TRACKED = 8 Then pass_count = pass_count + 1
+    Dim v_HAND_JOINT_LINEAR_VELOCITY_VALID As Integer = OpenXRInterface.HAND_JOINT_LINEAR_VELOCITY_VALID
+    If v_HAND_JOINT_LINEAR_VELOCITY_VALID = 16 Then pass_count = pass_count + 1
+    Dim v_HAND_JOINT_ANGULAR_VELOCITY_VALID As Integer = OpenXRInterface.HAND_JOINT_ANGULAR_VELOCITY_VALID
+    If v_HAND_JOINT_ANGULAR_VELOCITY_VALID = 32 Then pass_count = pass_count + 1
+    If pass_count = 7 Then
+        Print "PASS:enum_OpenXRInterface_HandJointFlags"
+    Else
+        Print "FAIL:enum_OpenXRInterface_HandJointFlags count=" & str(pass_count) & "/7"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_OpenXRInterface_HandJointFlags err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_RENDER_MODEL_TRACKER_ANY As Integer = OpenXRRenderModelManager.RENDER_MODEL_TRACKER_ANY
+    If v_RENDER_MODEL_TRACKER_ANY = 0 Then pass_count = pass_count + 1
+    Dim v_RENDER_MODEL_TRACKER_NONE_SET As Integer = OpenXRRenderModelManager.RENDER_MODEL_TRACKER_NONE_SET
+    If v_RENDER_MODEL_TRACKER_NONE_SET = 1 Then pass_count = pass_count + 1
+    Dim v_RENDER_MODEL_TRACKER_LEFT_HAND As Integer = OpenXRRenderModelManager.RENDER_MODEL_TRACKER_LEFT_HAND
+    If v_RENDER_MODEL_TRACKER_LEFT_HAND = 2 Then pass_count = pass_count + 1
+    Dim v_RENDER_MODEL_TRACKER_RIGHT_HAND As Integer = OpenXRRenderModelManager.RENDER_MODEL_TRACKER_RIGHT_HAND
+    If v_RENDER_MODEL_TRACKER_RIGHT_HAND = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_OpenXRRenderModelManager_RenderModelTracker"
+    Else
+        Print "FAIL:enum_OpenXRRenderModelManager_RenderModelTracker count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_OpenXRRenderModelManager_RenderModelTracker err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_GEN_EDIT_STATE_DISABLED As Integer = PackedScene.GEN_EDIT_STATE_DISABLED
+    If v_GEN_EDIT_STATE_DISABLED = 0 Then pass_count = pass_count + 1
+    Dim v_GEN_EDIT_STATE_INSTANCE As Integer = PackedScene.GEN_EDIT_STATE_INSTANCE
+    If v_GEN_EDIT_STATE_INSTANCE = 1 Then pass_count = pass_count + 1
+    Dim v_GEN_EDIT_STATE_MAIN As Integer = PackedScene.GEN_EDIT_STATE_MAIN
+    If v_GEN_EDIT_STATE_MAIN = 2 Then pass_count = pass_count + 1
+    Dim v_GEN_EDIT_STATE_MAIN_INHERITED As Integer = PackedScene.GEN_EDIT_STATE_MAIN_INHERITED
+    If v_GEN_EDIT_STATE_MAIN_INHERITED = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_PackedScene_GenEditState"
+    Else
+        Print "FAIL:enum_PackedScene_GenEditState count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_PackedScene_GenEditState err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_STATUS_DISCONNECTED As Integer = PacketPeerDTLS.STATUS_DISCONNECTED
+    If v_STATUS_DISCONNECTED = 0 Then pass_count = pass_count + 1
+    Dim v_STATUS_HANDSHAKING As Integer = PacketPeerDTLS.STATUS_HANDSHAKING
+    If v_STATUS_HANDSHAKING = 1 Then pass_count = pass_count + 1
+    Dim v_STATUS_CONNECTED As Integer = PacketPeerDTLS.STATUS_CONNECTED
+    If v_STATUS_CONNECTED = 2 Then pass_count = pass_count + 1
+    Dim v_STATUS_ERROR As Integer = PacketPeerDTLS.STATUS_ERROR
+    If v_STATUS_ERROR = 3 Then pass_count = pass_count + 1
+    Dim v_STATUS_ERROR_HOSTNAME_MISMATCH As Integer = PacketPeerDTLS.STATUS_ERROR_HOSTNAME_MISMATCH
+    If v_STATUS_ERROR_HOSTNAME_MISMATCH = 4 Then pass_count = pass_count + 1
+    If pass_count = 5 Then
+        Print "PASS:enum_PacketPeerDTLS_Status"
+    Else
+        Print "FAIL:enum_PacketPeerDTLS_Status count=" & str(pass_count) & "/5"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_PacketPeerDTLS_Status err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_PARAM_INITIAL_LINEAR_VELOCITY As Integer = ParticleProcessMaterial.PARAM_INITIAL_LINEAR_VELOCITY
+    If v_PARAM_INITIAL_LINEAR_VELOCITY = 0 Then pass_count = pass_count + 1
+    Dim v_PARAM_ANGULAR_VELOCITY As Integer = ParticleProcessMaterial.PARAM_ANGULAR_VELOCITY
+    If v_PARAM_ANGULAR_VELOCITY = 1 Then pass_count = pass_count + 1
+    Dim v_PARAM_ORBIT_VELOCITY As Integer = ParticleProcessMaterial.PARAM_ORBIT_VELOCITY
+    If v_PARAM_ORBIT_VELOCITY = 2 Then pass_count = pass_count + 1
+    Dim v_PARAM_LINEAR_ACCEL As Integer = ParticleProcessMaterial.PARAM_LINEAR_ACCEL
+    If v_PARAM_LINEAR_ACCEL = 3 Then pass_count = pass_count + 1
+    Dim v_PARAM_RADIAL_ACCEL As Integer = ParticleProcessMaterial.PARAM_RADIAL_ACCEL
+    If v_PARAM_RADIAL_ACCEL = 4 Then pass_count = pass_count + 1
+    Dim v_PARAM_TANGENTIAL_ACCEL As Integer = ParticleProcessMaterial.PARAM_TANGENTIAL_ACCEL
+    If v_PARAM_TANGENTIAL_ACCEL = 5 Then pass_count = pass_count + 1
+    Dim v_PARAM_DAMPING As Integer = ParticleProcessMaterial.PARAM_DAMPING
+    If v_PARAM_DAMPING = 6 Then pass_count = pass_count + 1
+    Dim v_PARAM_ANGLE As Integer = ParticleProcessMaterial.PARAM_ANGLE
+    If v_PARAM_ANGLE = 7 Then pass_count = pass_count + 1
+    If pass_count = 8 Then
+        Print "PASS:enum_ParticleProcessMaterial_Parameter"
+    Else
+        Print "FAIL:enum_ParticleProcessMaterial_Parameter count=" & str(pass_count) & "/8"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_ParticleProcessMaterial_Parameter err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

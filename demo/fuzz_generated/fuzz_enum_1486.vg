@@ -1,0 +1,142 @@
+Attribute VB_Name = "fuzz_enum_1486"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_OPENXR_ALPHA_BLEND_MODE_SUPPORT_NONE As Integer = OpenXRAPIExtension.OPENXR_ALPHA_BLEND_MODE_SUPPORT_NONE
+    If v_OPENXR_ALPHA_BLEND_MODE_SUPPORT_NONE = 0 Then pass_count = pass_count + 1
+    Dim v_OPENXR_ALPHA_BLEND_MODE_SUPPORT_REAL As Integer = OpenXRAPIExtension.OPENXR_ALPHA_BLEND_MODE_SUPPORT_REAL
+    If v_OPENXR_ALPHA_BLEND_MODE_SUPPORT_REAL = 1 Then pass_count = pass_count + 1
+    Dim v_OPENXR_ALPHA_BLEND_MODE_SUPPORT_EMULATING As Integer = OpenXRAPIExtension.OPENXR_ALPHA_BLEND_MODE_SUPPORT_EMULATING
+    If v_OPENXR_ALPHA_BLEND_MODE_SUPPORT_EMULATING = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_OpenXRAPIExtension_OpenXRAlphaBlendModeSupport"
+    Else
+        Print "FAIL:enum_OpenXRAPIExtension_OpenXRAlphaBlendModeSupport count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_OpenXRAPIExtension_OpenXRAlphaBlendModeSupport err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_OPENXR_ACTION_BOOL As Integer = OpenXRAction.OPENXR_ACTION_BOOL
+    If v_OPENXR_ACTION_BOOL = 0 Then pass_count = pass_count + 1
+    Dim v_OPENXR_ACTION_FLOAT As Integer = OpenXRAction.OPENXR_ACTION_FLOAT
+    If v_OPENXR_ACTION_FLOAT = 1 Then pass_count = pass_count + 1
+    Dim v_OPENXR_ACTION_VECTOR2 As Integer = OpenXRAction.OPENXR_ACTION_VECTOR2
+    If v_OPENXR_ACTION_VECTOR2 = 2 Then pass_count = pass_count + 1
+    Dim v_OPENXR_ACTION_POSE As Integer = OpenXRAction.OPENXR_ACTION_POSE
+    If v_OPENXR_ACTION_POSE = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_OpenXRAction_ActionType"
+    Else
+        Print "FAIL:enum_OpenXRAction_ActionType count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_OpenXRAction_ActionType err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_FILTER_NEAREST As Integer = OpenXRCompositionLayer.FILTER_NEAREST
+    If v_FILTER_NEAREST = 0 Then pass_count = pass_count + 1
+    Dim v_FILTER_LINEAR As Integer = OpenXRCompositionLayer.FILTER_LINEAR
+    If v_FILTER_LINEAR = 1 Then pass_count = pass_count + 1
+    Dim v_FILTER_CUBIC As Integer = OpenXRCompositionLayer.FILTER_CUBIC
+    If v_FILTER_CUBIC = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_OpenXRCompositionLayer_Filter"
+    Else
+        Print "FAIL:enum_OpenXRCompositionLayer_Filter count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_OpenXRCompositionLayer_Filter err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_MIPMAP_MODE_DISABLED As Integer = OpenXRCompositionLayer.MIPMAP_MODE_DISABLED
+    If v_MIPMAP_MODE_DISABLED = 0 Then pass_count = pass_count + 1
+    Dim v_MIPMAP_MODE_NEAREST As Integer = OpenXRCompositionLayer.MIPMAP_MODE_NEAREST
+    If v_MIPMAP_MODE_NEAREST = 1 Then pass_count = pass_count + 1
+    Dim v_MIPMAP_MODE_LINEAR As Integer = OpenXRCompositionLayer.MIPMAP_MODE_LINEAR
+    If v_MIPMAP_MODE_LINEAR = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_OpenXRCompositionLayer_MipmapMode"
+    Else
+        Print "FAIL:enum_OpenXRCompositionLayer_MipmapMode count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_OpenXRCompositionLayer_MipmapMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_WRAP_CLAMP_TO_BORDER As Integer = OpenXRCompositionLayer.WRAP_CLAMP_TO_BORDER
+    If v_WRAP_CLAMP_TO_BORDER = 0 Then pass_count = pass_count + 1
+    Dim v_WRAP_CLAMP_TO_EDGE As Integer = OpenXRCompositionLayer.WRAP_CLAMP_TO_EDGE
+    If v_WRAP_CLAMP_TO_EDGE = 1 Then pass_count = pass_count + 1
+    Dim v_WRAP_REPEAT As Integer = OpenXRCompositionLayer.WRAP_REPEAT
+    If v_WRAP_REPEAT = 2 Then pass_count = pass_count + 1
+    Dim v_WRAP_MIRRORED_REPEAT As Integer = OpenXRCompositionLayer.WRAP_MIRRORED_REPEAT
+    If v_WRAP_MIRRORED_REPEAT = 3 Then pass_count = pass_count + 1
+    Dim v_WRAP_MIRROR_CLAMP_TO_EDGE As Integer = OpenXRCompositionLayer.WRAP_MIRROR_CLAMP_TO_EDGE
+    If v_WRAP_MIRROR_CLAMP_TO_EDGE = 4 Then pass_count = pass_count + 1
+    If pass_count = 5 Then
+        Print "PASS:enum_OpenXRCompositionLayer_Wrap"
+    Else
+        Print "FAIL:enum_OpenXRCompositionLayer_Wrap count=" & str(pass_count) & "/5"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_OpenXRCompositionLayer_Wrap err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_SWIZZLE_RED As Integer = OpenXRCompositionLayer.SWIZZLE_RED
+    If v_SWIZZLE_RED = 0 Then pass_count = pass_count + 1
+    Dim v_SWIZZLE_GREEN As Integer = OpenXRCompositionLayer.SWIZZLE_GREEN
+    If v_SWIZZLE_GREEN = 1 Then pass_count = pass_count + 1
+    Dim v_SWIZZLE_BLUE As Integer = OpenXRCompositionLayer.SWIZZLE_BLUE
+    If v_SWIZZLE_BLUE = 2 Then pass_count = pass_count + 1
+    Dim v_SWIZZLE_ALPHA As Integer = OpenXRCompositionLayer.SWIZZLE_ALPHA
+    If v_SWIZZLE_ALPHA = 3 Then pass_count = pass_count + 1
+    Dim v_SWIZZLE_ZERO As Integer = OpenXRCompositionLayer.SWIZZLE_ZERO
+    If v_SWIZZLE_ZERO = 4 Then pass_count = pass_count + 1
+    Dim v_SWIZZLE_ONE As Integer = OpenXRCompositionLayer.SWIZZLE_ONE
+    If v_SWIZZLE_ONE = 5 Then pass_count = pass_count + 1
+    If pass_count = 6 Then
+        Print "PASS:enum_OpenXRCompositionLayer_Swizzle"
+    Else
+        Print "FAIL:enum_OpenXRCompositionLayer_Swizzle count=" & str(pass_count) & "/6"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_OpenXRCompositionLayer_Swizzle err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

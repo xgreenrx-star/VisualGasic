@@ -1,0 +1,156 @@
+Attribute VB_Name = "fuzz_inst_460"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As RemoteTransform2D = RemoteTransform2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_RemoteTransform2D"
+        obj.free()
+    Else
+        Print "FAIL:inst_RemoteTransform2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_RemoteTransform2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As RemoteTransform3D = RemoteTransform3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_RemoteTransform3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_RemoteTransform3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_RemoteTransform3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As RenderDataExtension = RenderDataExtension.new()
+    If obj <> Null Then
+        Print "PASS:inst_RenderDataExtension"
+    Else
+        Print "FAIL:inst_RenderDataExtension returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_RenderDataExtension err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As RenderDataRD = RenderDataRD.new()
+    If obj <> Null Then
+        Print "PASS:inst_RenderDataRD"
+    Else
+        Print "FAIL:inst_RenderDataRD returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_RenderDataRD err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As RenderSceneBuffersConfiguration = RenderSceneBuffersConfiguration.new()
+    If obj <> Null Then
+        Print "PASS:inst_RenderSceneBuffersConfiguration"
+    Else
+        Print "FAIL:inst_RenderSceneBuffersConfiguration returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_RenderSceneBuffersConfiguration err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As RenderSceneBuffersExtension = RenderSceneBuffersExtension.new()
+    If obj <> Null Then
+        Print "PASS:inst_RenderSceneBuffersExtension"
+    Else
+        Print "FAIL:inst_RenderSceneBuffersExtension returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_RenderSceneBuffersExtension err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As RenderSceneBuffersRD = RenderSceneBuffersRD.new()
+    If obj <> Null Then
+        Print "PASS:inst_RenderSceneBuffersRD"
+    Else
+        Print "FAIL:inst_RenderSceneBuffersRD returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_RenderSceneBuffersRD err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As RenderSceneDataExtension = RenderSceneDataExtension.new()
+    If obj <> Null Then
+        Print "PASS:inst_RenderSceneDataExtension"
+    Else
+        Print "FAIL:inst_RenderSceneDataExtension returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_RenderSceneDataExtension err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As RenderSceneDataRD = RenderSceneDataRD.new()
+    If obj <> Null Then
+        Print "PASS:inst_RenderSceneDataRD"
+    Else
+        Print "FAIL:inst_RenderSceneDataRD returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_RenderSceneDataRD err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As ResourceFormatLoader = ResourceFormatLoader.new()
+    If obj <> Null Then
+        Print "PASS:inst_ResourceFormatLoader"
+    Else
+        Print "FAIL:inst_ResourceFormatLoader returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_ResourceFormatLoader err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

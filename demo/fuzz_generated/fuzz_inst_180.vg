@@ -1,0 +1,158 @@
+Attribute VB_Name = "fuzz_inst_180"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As CurveXYZTexture = CurveXYZTexture.new()
+    If obj <> Null Then
+        Print "PASS:inst_CurveXYZTexture"
+    Else
+        Print "FAIL:inst_CurveXYZTexture returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_CurveXYZTexture err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As CylinderMesh = CylinderMesh.new()
+    If obj <> Null Then
+        Print "PASS:inst_CylinderMesh"
+    Else
+        Print "FAIL:inst_CylinderMesh returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_CylinderMesh err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As CylinderShape3D = CylinderShape3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_CylinderShape3D"
+    Else
+        Print "FAIL:inst_CylinderShape3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_CylinderShape3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As DPITexture = DPITexture.new()
+    If obj <> Null Then
+        Print "PASS:inst_DPITexture"
+    Else
+        Print "FAIL:inst_DPITexture returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_DPITexture err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As DTLSServer = DTLSServer.new()
+    If obj <> Null Then
+        Print "PASS:inst_DTLSServer"
+    Else
+        Print "FAIL:inst_DTLSServer returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_DTLSServer err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As DampedSpringJoint2D = DampedSpringJoint2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_DampedSpringJoint2D"
+        obj.free()
+    Else
+        Print "FAIL:inst_DampedSpringJoint2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_DampedSpringJoint2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As Decal = Decal.new()
+    If obj <> Null Then
+        Print "PASS:inst_Decal"
+        obj.free()
+    Else
+        Print "FAIL:inst_Decal returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_Decal err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As DirectionalLight2D = DirectionalLight2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_DirectionalLight2D"
+        obj.free()
+    Else
+        Print "FAIL:inst_DirectionalLight2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_DirectionalLight2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As DirectionalLight3D = DirectionalLight3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_DirectionalLight3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_DirectionalLight3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_DirectionalLight3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As ENetConnection = ENetConnection.new()
+    If obj <> Null Then
+        Print "PASS:inst_ENetConnection"
+    Else
+        Print "FAIL:inst_ENetConnection returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_ENetConnection err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

@@ -1,0 +1,161 @@
+Attribute VB_Name = "fuzz_inst_140"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As CharFXTransform = CharFXTransform.new()
+    If obj <> Null Then
+        Print "PASS:inst_CharFXTransform"
+    Else
+        Print "FAIL:inst_CharFXTransform returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_CharFXTransform err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As CharacterBody2D = CharacterBody2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_CharacterBody2D"
+        obj.free()
+    Else
+        Print "FAIL:inst_CharacterBody2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_CharacterBody2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As CharacterBody3D = CharacterBody3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_CharacterBody3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_CharacterBody3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_CharacterBody3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As CheckBox = CheckBox.new()
+    If obj <> Null Then
+        Print "PASS:inst_CheckBox"
+        obj.free()
+    Else
+        Print "FAIL:inst_CheckBox returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_CheckBox err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As CheckButton = CheckButton.new()
+    If obj <> Null Then
+        Print "PASS:inst_CheckButton"
+        obj.free()
+    Else
+        Print "FAIL:inst_CheckButton returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_CheckButton err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As CircleShape2D = CircleShape2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_CircleShape2D"
+    Else
+        Print "FAIL:inst_CircleShape2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_CircleShape2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As CodeEdit = CodeEdit.new()
+    If obj <> Null Then
+        Print "PASS:inst_CodeEdit"
+        obj.free()
+    Else
+        Print "FAIL:inst_CodeEdit returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_CodeEdit err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As CodeHighlighter = CodeHighlighter.new()
+    If obj <> Null Then
+        Print "PASS:inst_CodeHighlighter"
+    Else
+        Print "FAIL:inst_CodeHighlighter returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_CodeHighlighter err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As CollisionPolygon2D = CollisionPolygon2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_CollisionPolygon2D"
+        obj.free()
+    Else
+        Print "FAIL:inst_CollisionPolygon2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_CollisionPolygon2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As CollisionPolygon3D = CollisionPolygon3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_CollisionPolygon3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_CollisionPolygon3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_CollisionPolygon3D err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

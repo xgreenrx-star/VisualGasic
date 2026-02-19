@@ -1,0 +1,156 @@
+Attribute VB_Name = "fuzz_enum_1521"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_BODY_FLAG_UPPER_BODY_SUPPORTED As Integer = XRBodyTracker.BODY_FLAG_UPPER_BODY_SUPPORTED
+    If v_BODY_FLAG_UPPER_BODY_SUPPORTED = 1 Then pass_count = pass_count + 1
+    Dim v_BODY_FLAG_LOWER_BODY_SUPPORTED As Integer = XRBodyTracker.BODY_FLAG_LOWER_BODY_SUPPORTED
+    If v_BODY_FLAG_LOWER_BODY_SUPPORTED = 2 Then pass_count = pass_count + 1
+    Dim v_BODY_FLAG_HANDS_SUPPORTED As Integer = XRBodyTracker.BODY_FLAG_HANDS_SUPPORTED
+    If v_BODY_FLAG_HANDS_SUPPORTED = 4 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_XRBodyTracker_BodyFlags"
+    Else
+        Print "FAIL:enum_XRBodyTracker_BodyFlags count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_XRBodyTracker_BodyFlags err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_JOINT_ROOT As Integer = XRBodyTracker.JOINT_ROOT
+    If v_JOINT_ROOT = 0 Then pass_count = pass_count + 1
+    Dim v_JOINT_HIPS As Integer = XRBodyTracker.JOINT_HIPS
+    If v_JOINT_HIPS = 1 Then pass_count = pass_count + 1
+    Dim v_JOINT_SPINE As Integer = XRBodyTracker.JOINT_SPINE
+    If v_JOINT_SPINE = 2 Then pass_count = pass_count + 1
+    Dim v_JOINT_CHEST As Integer = XRBodyTracker.JOINT_CHEST
+    If v_JOINT_CHEST = 3 Then pass_count = pass_count + 1
+    Dim v_JOINT_UPPER_CHEST As Integer = XRBodyTracker.JOINT_UPPER_CHEST
+    If v_JOINT_UPPER_CHEST = 4 Then pass_count = pass_count + 1
+    Dim v_JOINT_NECK As Integer = XRBodyTracker.JOINT_NECK
+    If v_JOINT_NECK = 5 Then pass_count = pass_count + 1
+    Dim v_JOINT_HEAD As Integer = XRBodyTracker.JOINT_HEAD
+    If v_JOINT_HEAD = 6 Then pass_count = pass_count + 1
+    Dim v_JOINT_HEAD_TIP As Integer = XRBodyTracker.JOINT_HEAD_TIP
+    If v_JOINT_HEAD_TIP = 7 Then pass_count = pass_count + 1
+    If pass_count = 8 Then
+        Print "PASS:enum_XRBodyTracker_Joint"
+    Else
+        Print "FAIL:enum_XRBodyTracker_Joint count=" & str(pass_count) & "/8"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_XRBodyTracker_Joint err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_JOINT_FLAG_ORIENTATION_VALID As Integer = XRBodyTracker.JOINT_FLAG_ORIENTATION_VALID
+    If v_JOINT_FLAG_ORIENTATION_VALID = 1 Then pass_count = pass_count + 1
+    Dim v_JOINT_FLAG_ORIENTATION_TRACKED As Integer = XRBodyTracker.JOINT_FLAG_ORIENTATION_TRACKED
+    If v_JOINT_FLAG_ORIENTATION_TRACKED = 2 Then pass_count = pass_count + 1
+    Dim v_JOINT_FLAG_POSITION_VALID As Integer = XRBodyTracker.JOINT_FLAG_POSITION_VALID
+    If v_JOINT_FLAG_POSITION_VALID = 4 Then pass_count = pass_count + 1
+    Dim v_JOINT_FLAG_POSITION_TRACKED As Integer = XRBodyTracker.JOINT_FLAG_POSITION_TRACKED
+    If v_JOINT_FLAG_POSITION_TRACKED = 8 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_XRBodyTracker_JointFlags"
+    Else
+        Print "FAIL:enum_XRBodyTracker_JointFlags count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_XRBodyTracker_JointFlags err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_FT_EYE_LOOK_OUT_RIGHT As Integer = XRFaceTracker.FT_EYE_LOOK_OUT_RIGHT
+    If v_FT_EYE_LOOK_OUT_RIGHT = 0 Then pass_count = pass_count + 1
+    Dim v_FT_EYE_LOOK_IN_RIGHT As Integer = XRFaceTracker.FT_EYE_LOOK_IN_RIGHT
+    If v_FT_EYE_LOOK_IN_RIGHT = 1 Then pass_count = pass_count + 1
+    Dim v_FT_EYE_LOOK_UP_RIGHT As Integer = XRFaceTracker.FT_EYE_LOOK_UP_RIGHT
+    If v_FT_EYE_LOOK_UP_RIGHT = 2 Then pass_count = pass_count + 1
+    Dim v_FT_EYE_LOOK_DOWN_RIGHT As Integer = XRFaceTracker.FT_EYE_LOOK_DOWN_RIGHT
+    If v_FT_EYE_LOOK_DOWN_RIGHT = 3 Then pass_count = pass_count + 1
+    Dim v_FT_EYE_LOOK_OUT_LEFT As Integer = XRFaceTracker.FT_EYE_LOOK_OUT_LEFT
+    If v_FT_EYE_LOOK_OUT_LEFT = 4 Then pass_count = pass_count + 1
+    Dim v_FT_EYE_LOOK_IN_LEFT As Integer = XRFaceTracker.FT_EYE_LOOK_IN_LEFT
+    If v_FT_EYE_LOOK_IN_LEFT = 5 Then pass_count = pass_count + 1
+    Dim v_FT_EYE_LOOK_UP_LEFT As Integer = XRFaceTracker.FT_EYE_LOOK_UP_LEFT
+    If v_FT_EYE_LOOK_UP_LEFT = 6 Then pass_count = pass_count + 1
+    Dim v_FT_EYE_LOOK_DOWN_LEFT As Integer = XRFaceTracker.FT_EYE_LOOK_DOWN_LEFT
+    If v_FT_EYE_LOOK_DOWN_LEFT = 7 Then pass_count = pass_count + 1
+    If pass_count = 8 Then
+        Print "PASS:enum_XRFaceTracker_BlendShapeEntry"
+    Else
+        Print "FAIL:enum_XRFaceTracker_BlendShapeEntry count=" & str(pass_count) & "/8"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_XRFaceTracker_BlendShapeEntry err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_BONE_UPDATE_FULL As Integer = XRHandModifier3D.BONE_UPDATE_FULL
+    If v_BONE_UPDATE_FULL = 0 Then pass_count = pass_count + 1
+    Dim v_BONE_UPDATE_ROTATION_ONLY As Integer = XRHandModifier3D.BONE_UPDATE_ROTATION_ONLY
+    If v_BONE_UPDATE_ROTATION_ONLY = 1 Then pass_count = pass_count + 1
+    Dim v_BONE_UPDATE_MAX As Integer = XRHandModifier3D.BONE_UPDATE_MAX
+    If v_BONE_UPDATE_MAX = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_XRHandModifier3D_BoneUpdate"
+    Else
+        Print "FAIL:enum_XRHandModifier3D_BoneUpdate count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_XRHandModifier3D_BoneUpdate err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_HAND_TRACKING_SOURCE_UNKNOWN As Integer = XRHandTracker.HAND_TRACKING_SOURCE_UNKNOWN
+    If v_HAND_TRACKING_SOURCE_UNKNOWN = 0 Then pass_count = pass_count + 1
+    Dim v_HAND_TRACKING_SOURCE_UNOBSTRUCTED As Integer = XRHandTracker.HAND_TRACKING_SOURCE_UNOBSTRUCTED
+    If v_HAND_TRACKING_SOURCE_UNOBSTRUCTED = 1 Then pass_count = pass_count + 1
+    Dim v_HAND_TRACKING_SOURCE_CONTROLLER As Integer = XRHandTracker.HAND_TRACKING_SOURCE_CONTROLLER
+    If v_HAND_TRACKING_SOURCE_CONTROLLER = 2 Then pass_count = pass_count + 1
+    Dim v_HAND_TRACKING_SOURCE_NOT_TRACKED As Integer = XRHandTracker.HAND_TRACKING_SOURCE_NOT_TRACKED
+    If v_HAND_TRACKING_SOURCE_NOT_TRACKED = 3 Then pass_count = pass_count + 1
+    Dim v_HAND_TRACKING_SOURCE_MAX As Integer = XRHandTracker.HAND_TRACKING_SOURCE_MAX
+    If v_HAND_TRACKING_SOURCE_MAX = 4 Then pass_count = pass_count + 1
+    If pass_count = 5 Then
+        Print "PASS:enum_XRHandTracker_HandTrackingSource"
+    Else
+        Print "FAIL:enum_XRHandTracker_HandTrackingSource count=" & str(pass_count) & "/5"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_XRHandTracker_HandTrackingSource err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

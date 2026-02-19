@@ -1,0 +1,160 @@
+Attribute VB_Name = "fuzz_enum_1513"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_FUNC_SUM As Integer = VisualShaderNodeDerivativeFunc.FUNC_SUM
+    If v_FUNC_SUM = 0 Then pass_count = pass_count + 1
+    Dim v_FUNC_X As Integer = VisualShaderNodeDerivativeFunc.FUNC_X
+    If v_FUNC_X = 1 Then pass_count = pass_count + 1
+    Dim v_FUNC_Y As Integer = VisualShaderNodeDerivativeFunc.FUNC_Y
+    If v_FUNC_Y = 2 Then pass_count = pass_count + 1
+    Dim v_FUNC_MAX As Integer = VisualShaderNodeDerivativeFunc.FUNC_MAX
+    If v_FUNC_MAX = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_VisualShaderNodeDerivativeFunc_Function"
+    Else
+        Print "FAIL:enum_VisualShaderNodeDerivativeFunc_Function count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_VisualShaderNodeDerivativeFunc_Function err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_PRECISION_NONE As Integer = VisualShaderNodeDerivativeFunc.PRECISION_NONE
+    If v_PRECISION_NONE = 0 Then pass_count = pass_count + 1
+    Dim v_PRECISION_COARSE As Integer = VisualShaderNodeDerivativeFunc.PRECISION_COARSE
+    If v_PRECISION_COARSE = 1 Then pass_count = pass_count + 1
+    Dim v_PRECISION_FINE As Integer = VisualShaderNodeDerivativeFunc.PRECISION_FINE
+    If v_PRECISION_FINE = 2 Then pass_count = pass_count + 1
+    Dim v_PRECISION_MAX As Integer = VisualShaderNodeDerivativeFunc.PRECISION_MAX
+    If v_PRECISION_MAX = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_VisualShaderNodeDerivativeFunc_Precision"
+    Else
+        Print "FAIL:enum_VisualShaderNodeDerivativeFunc_Precision count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_VisualShaderNodeDerivativeFunc_Precision err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_FUNC_SIN As Integer = VisualShaderNodeFloatFunc.FUNC_SIN
+    If v_FUNC_SIN = 0 Then pass_count = pass_count + 1
+    Dim v_FUNC_COS As Integer = VisualShaderNodeFloatFunc.FUNC_COS
+    If v_FUNC_COS = 1 Then pass_count = pass_count + 1
+    Dim v_FUNC_TAN As Integer = VisualShaderNodeFloatFunc.FUNC_TAN
+    If v_FUNC_TAN = 2 Then pass_count = pass_count + 1
+    Dim v_FUNC_ASIN As Integer = VisualShaderNodeFloatFunc.FUNC_ASIN
+    If v_FUNC_ASIN = 3 Then pass_count = pass_count + 1
+    Dim v_FUNC_ACOS As Integer = VisualShaderNodeFloatFunc.FUNC_ACOS
+    If v_FUNC_ACOS = 4 Then pass_count = pass_count + 1
+    Dim v_FUNC_ATAN As Integer = VisualShaderNodeFloatFunc.FUNC_ATAN
+    If v_FUNC_ATAN = 5 Then pass_count = pass_count + 1
+    Dim v_FUNC_SINH As Integer = VisualShaderNodeFloatFunc.FUNC_SINH
+    If v_FUNC_SINH = 6 Then pass_count = pass_count + 1
+    Dim v_FUNC_COSH As Integer = VisualShaderNodeFloatFunc.FUNC_COSH
+    If v_FUNC_COSH = 7 Then pass_count = pass_count + 1
+    If pass_count = 8 Then
+        Print "PASS:enum_VisualShaderNodeFloatFunc_Function"
+    Else
+        Print "FAIL:enum_VisualShaderNodeFloatFunc_Function count=" & str(pass_count) & "/8"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_VisualShaderNodeFloatFunc_Function err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_OP_ADD As Integer = VisualShaderNodeFloatOp.OP_ADD
+    If v_OP_ADD = 0 Then pass_count = pass_count + 1
+    Dim v_OP_SUB As Integer = VisualShaderNodeFloatOp.OP_SUB
+    If v_OP_SUB = 1 Then pass_count = pass_count + 1
+    Dim v_OP_MUL As Integer = VisualShaderNodeFloatOp.OP_MUL
+    If v_OP_MUL = 2 Then pass_count = pass_count + 1
+    Dim v_OP_DIV As Integer = VisualShaderNodeFloatOp.OP_DIV
+    If v_OP_DIV = 3 Then pass_count = pass_count + 1
+    Dim v_OP_MOD As Integer = VisualShaderNodeFloatOp.OP_MOD
+    If v_OP_MOD = 4 Then pass_count = pass_count + 1
+    Dim v_OP_POW As Integer = VisualShaderNodeFloatOp.OP_POW
+    If v_OP_POW = 5 Then pass_count = pass_count + 1
+    Dim v_OP_MAX As Integer = VisualShaderNodeFloatOp.OP_MAX
+    If v_OP_MAX = 6 Then pass_count = pass_count + 1
+    Dim v_OP_MIN As Integer = VisualShaderNodeFloatOp.OP_MIN
+    If v_OP_MIN = 7 Then pass_count = pass_count + 1
+    If pass_count = 8 Then
+        Print "PASS:enum_VisualShaderNodeFloatOp_Operator"
+    Else
+        Print "FAIL:enum_VisualShaderNodeFloatOp_Operator count=" & str(pass_count) & "/8"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_VisualShaderNodeFloatOp_Operator err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_HINT_NONE As Integer = VisualShaderNodeFloatParameter.HINT_NONE
+    If v_HINT_NONE = 0 Then pass_count = pass_count + 1
+    Dim v_HINT_RANGE As Integer = VisualShaderNodeFloatParameter.HINT_RANGE
+    If v_HINT_RANGE = 1 Then pass_count = pass_count + 1
+    Dim v_HINT_RANGE_STEP As Integer = VisualShaderNodeFloatParameter.HINT_RANGE_STEP
+    If v_HINT_RANGE_STEP = 2 Then pass_count = pass_count + 1
+    Dim v_HINT_MAX As Integer = VisualShaderNodeFloatParameter.HINT_MAX
+    If v_HINT_MAX = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_VisualShaderNodeFloatParameter_Hint"
+    Else
+        Print "FAIL:enum_VisualShaderNodeFloatParameter_Hint count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_VisualShaderNodeFloatParameter_Hint err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_FUNC_ABS As Integer = VisualShaderNodeIntFunc.FUNC_ABS
+    If v_FUNC_ABS = 0 Then pass_count = pass_count + 1
+    Dim v_FUNC_NEGATE As Integer = VisualShaderNodeIntFunc.FUNC_NEGATE
+    If v_FUNC_NEGATE = 1 Then pass_count = pass_count + 1
+    Dim v_FUNC_SIGN As Integer = VisualShaderNodeIntFunc.FUNC_SIGN
+    If v_FUNC_SIGN = 2 Then pass_count = pass_count + 1
+    Dim v_FUNC_BITWISE_NOT As Integer = VisualShaderNodeIntFunc.FUNC_BITWISE_NOT
+    If v_FUNC_BITWISE_NOT = 3 Then pass_count = pass_count + 1
+    Dim v_FUNC_MAX As Integer = VisualShaderNodeIntFunc.FUNC_MAX
+    If v_FUNC_MAX = 4 Then pass_count = pass_count + 1
+    If pass_count = 5 Then
+        Print "PASS:enum_VisualShaderNodeIntFunc_Function"
+    Else
+        Print "FAIL:enum_VisualShaderNodeIntFunc_Function count=" & str(pass_count) & "/5"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_VisualShaderNodeIntFunc_Function err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

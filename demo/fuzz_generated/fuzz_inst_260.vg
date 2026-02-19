@@ -1,0 +1,156 @@
+Attribute VB_Name = "fuzz_inst_260"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As HingeJoint3D = HingeJoint3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_HingeJoint3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_HingeJoint3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_HingeJoint3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As Image = Image.new()
+    If obj <> Null Then
+        Print "PASS:inst_Image"
+    Else
+        Print "FAIL:inst_Image returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_Image err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As ImageFormatLoaderExtension = ImageFormatLoaderExtension.new()
+    If obj <> Null Then
+        Print "PASS:inst_ImageFormatLoaderExtension"
+    Else
+        Print "FAIL:inst_ImageFormatLoaderExtension returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_ImageFormatLoaderExtension err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As ImageTexture = ImageTexture.new()
+    If obj <> Null Then
+        Print "PASS:inst_ImageTexture"
+    Else
+        Print "FAIL:inst_ImageTexture returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_ImageTexture err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As ImageTexture3D = ImageTexture3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_ImageTexture3D"
+    Else
+        Print "FAIL:inst_ImageTexture3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_ImageTexture3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As ImmediateMesh = ImmediateMesh.new()
+    If obj <> Null Then
+        Print "PASS:inst_ImmediateMesh"
+    Else
+        Print "FAIL:inst_ImmediateMesh returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_ImmediateMesh err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As ImporterMesh = ImporterMesh.new()
+    If obj <> Null Then
+        Print "PASS:inst_ImporterMesh"
+    Else
+        Print "FAIL:inst_ImporterMesh returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_ImporterMesh err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As ImporterMeshInstance3D = ImporterMeshInstance3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_ImporterMeshInstance3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_ImporterMeshInstance3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_ImporterMeshInstance3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As InputEventAction = InputEventAction.new()
+    If obj <> Null Then
+        Print "PASS:inst_InputEventAction"
+    Else
+        Print "FAIL:inst_InputEventAction returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_InputEventAction err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As InputEventJoypadButton = InputEventJoypadButton.new()
+    If obj <> Null Then
+        Print "PASS:inst_InputEventJoypadButton"
+    Else
+        Print "FAIL:inst_InputEventJoypadButton returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_InputEventJoypadButton err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

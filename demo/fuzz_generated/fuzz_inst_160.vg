@@ -1,0 +1,157 @@
+Attribute VB_Name = "fuzz_inst_160"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As CompressedTexture2D = CompressedTexture2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_CompressedTexture2D"
+    Else
+        Print "FAIL:inst_CompressedTexture2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_CompressedTexture2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As CompressedTexture2DArray = CompressedTexture2DArray.new()
+    If obj <> Null Then
+        Print "PASS:inst_CompressedTexture2DArray"
+    Else
+        Print "FAIL:inst_CompressedTexture2DArray returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_CompressedTexture2DArray err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As CompressedTexture3D = CompressedTexture3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_CompressedTexture3D"
+    Else
+        Print "FAIL:inst_CompressedTexture3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_CompressedTexture3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As ConcavePolygonShape2D = ConcavePolygonShape2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_ConcavePolygonShape2D"
+    Else
+        Print "FAIL:inst_ConcavePolygonShape2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_ConcavePolygonShape2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As ConcavePolygonShape3D = ConcavePolygonShape3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_ConcavePolygonShape3D"
+    Else
+        Print "FAIL:inst_ConcavePolygonShape3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_ConcavePolygonShape3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As ConeTwistJoint3D = ConeTwistJoint3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_ConeTwistJoint3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_ConeTwistJoint3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_ConeTwistJoint3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As ConfigFile = ConfigFile.new()
+    If obj <> Null Then
+        Print "PASS:inst_ConfigFile"
+    Else
+        Print "FAIL:inst_ConfigFile returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_ConfigFile err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As Container = Container.new()
+    If obj <> Null Then
+        Print "PASS:inst_Container"
+        obj.free()
+    Else
+        Print "FAIL:inst_Container returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_Container err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As ConvertTransformModifier3D = ConvertTransformModifier3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_ConvertTransformModifier3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_ConvertTransformModifier3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_ConvertTransformModifier3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As ConvexPolygonShape2D = ConvexPolygonShape2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_ConvexPolygonShape2D"
+    Else
+        Print "FAIL:inst_ConvexPolygonShape2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_ConvexPolygonShape2D err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

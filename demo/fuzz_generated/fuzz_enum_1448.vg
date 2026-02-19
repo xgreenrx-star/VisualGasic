@@ -1,0 +1,128 @@
+Attribute VB_Name = "fuzz_enum_1448"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_UPDATE_CONTINUOUS As Integer = Animation.UPDATE_CONTINUOUS
+    If v_UPDATE_CONTINUOUS = 0 Then pass_count = pass_count + 1
+    Dim v_UPDATE_DISCRETE As Integer = Animation.UPDATE_DISCRETE
+    If v_UPDATE_DISCRETE = 1 Then pass_count = pass_count + 1
+    Dim v_UPDATE_CAPTURE As Integer = Animation.UPDATE_CAPTURE
+    If v_UPDATE_CAPTURE = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_Animation_UpdateMode"
+    Else
+        Print "FAIL:enum_Animation_UpdateMode count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Animation_UpdateMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_LOOP_NONE As Integer = Animation.LOOP_NONE
+    If v_LOOP_NONE = 0 Then pass_count = pass_count + 1
+    Dim v_LOOP_LINEAR As Integer = Animation.LOOP_LINEAR
+    If v_LOOP_LINEAR = 1 Then pass_count = pass_count + 1
+    Dim v_LOOP_PINGPONG As Integer = Animation.LOOP_PINGPONG
+    If v_LOOP_PINGPONG = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_Animation_LoopMode"
+    Else
+        Print "FAIL:enum_Animation_LoopMode count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Animation_LoopMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_LOOPED_FLAG_NONE As Integer = Animation.LOOPED_FLAG_NONE
+    If v_LOOPED_FLAG_NONE = 0 Then pass_count = pass_count + 1
+    Dim v_LOOPED_FLAG_END As Integer = Animation.LOOPED_FLAG_END
+    If v_LOOPED_FLAG_END = 1 Then pass_count = pass_count + 1
+    Dim v_LOOPED_FLAG_START As Integer = Animation.LOOPED_FLAG_START
+    If v_LOOPED_FLAG_START = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_Animation_LoopedFlag"
+    Else
+        Print "FAIL:enum_Animation_LoopedFlag count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Animation_LoopedFlag err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_FIND_MODE_NEAREST As Integer = Animation.FIND_MODE_NEAREST
+    If v_FIND_MODE_NEAREST = 0 Then pass_count = pass_count + 1
+    Dim v_FIND_MODE_APPROX As Integer = Animation.FIND_MODE_APPROX
+    If v_FIND_MODE_APPROX = 1 Then pass_count = pass_count + 1
+    Dim v_FIND_MODE_EXACT As Integer = Animation.FIND_MODE_EXACT
+    If v_FIND_MODE_EXACT = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_Animation_FindMode"
+    Else
+        Print "FAIL:enum_Animation_FindMode count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_Animation_FindMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_ANIMATION_CALLBACK_MODE_PROCESS_PHYSICS As Integer = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_PHYSICS
+    If v_ANIMATION_CALLBACK_MODE_PROCESS_PHYSICS = 0 Then pass_count = pass_count + 1
+    Dim v_ANIMATION_CALLBACK_MODE_PROCESS_IDLE As Integer = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_IDLE
+    If v_ANIMATION_CALLBACK_MODE_PROCESS_IDLE = 1 Then pass_count = pass_count + 1
+    Dim v_ANIMATION_CALLBACK_MODE_PROCESS_MANUAL As Integer = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL
+    If v_ANIMATION_CALLBACK_MODE_PROCESS_MANUAL = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_AnimationMixer_AnimationCallbackModeProcess"
+    Else
+        Print "FAIL:enum_AnimationMixer_AnimationCallbackModeProcess count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_AnimationMixer_AnimationCallbackModeProcess err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_ANIMATION_CALLBACK_MODE_METHOD_DEFERRED As Integer = AnimationMixer.ANIMATION_CALLBACK_MODE_METHOD_DEFERRED
+    If v_ANIMATION_CALLBACK_MODE_METHOD_DEFERRED = 0 Then pass_count = pass_count + 1
+    Dim v_ANIMATION_CALLBACK_MODE_METHOD_IMMEDIATE As Integer = AnimationMixer.ANIMATION_CALLBACK_MODE_METHOD_IMMEDIATE
+    If v_ANIMATION_CALLBACK_MODE_METHOD_IMMEDIATE = 1 Then pass_count = pass_count + 1
+    If pass_count = 2 Then
+        Print "PASS:enum_AnimationMixer_AnimationCallbackModeMethod"
+    Else
+        Print "FAIL:enum_AnimationMixer_AnimationCallbackModeMethod count=" & str(pass_count) & "/2"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_AnimationMixer_AnimationCallbackModeMethod err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

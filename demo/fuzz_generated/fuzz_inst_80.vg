@@ -1,0 +1,156 @@
+Attribute VB_Name = "fuzz_inst_80"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As AudioEffectStereoEnhance = AudioEffectStereoEnhance.new()
+    If obj <> Null Then
+        Print "PASS:inst_AudioEffectStereoEnhance"
+    Else
+        Print "FAIL:inst_AudioEffectStereoEnhance returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AudioEffectStereoEnhance err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As AudioListener2D = AudioListener2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_AudioListener2D"
+        obj.free()
+    Else
+        Print "FAIL:inst_AudioListener2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AudioListener2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As AudioListener3D = AudioListener3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_AudioListener3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_AudioListener3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AudioListener3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As AudioSample = AudioSample.new()
+    If obj <> Null Then
+        Print "PASS:inst_AudioSample"
+    Else
+        Print "FAIL:inst_AudioSample returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AudioSample err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As AudioSamplePlayback = AudioSamplePlayback.new()
+    If obj <> Null Then
+        Print "PASS:inst_AudioSamplePlayback"
+    Else
+        Print "FAIL:inst_AudioSamplePlayback returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AudioSamplePlayback err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As AudioStream = AudioStream.new()
+    If obj <> Null Then
+        Print "PASS:inst_AudioStream"
+    Else
+        Print "FAIL:inst_AudioStream returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AudioStream err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As AudioStreamGenerator = AudioStreamGenerator.new()
+    If obj <> Null Then
+        Print "PASS:inst_AudioStreamGenerator"
+    Else
+        Print "FAIL:inst_AudioStreamGenerator returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AudioStreamGenerator err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As AudioStreamInteractive = AudioStreamInteractive.new()
+    If obj <> Null Then
+        Print "PASS:inst_AudioStreamInteractive"
+    Else
+        Print "FAIL:inst_AudioStreamInteractive returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AudioStreamInteractive err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As AudioStreamMP3 = AudioStreamMP3.new()
+    If obj <> Null Then
+        Print "PASS:inst_AudioStreamMP3"
+    Else
+        Print "FAIL:inst_AudioStreamMP3 returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AudioStreamMP3 err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As AudioStreamMicrophone = AudioStreamMicrophone.new()
+    If obj <> Null Then
+        Print "PASS:inst_AudioStreamMicrophone"
+    Else
+        Print "FAIL:inst_AudioStreamMicrophone returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AudioStreamMicrophone err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

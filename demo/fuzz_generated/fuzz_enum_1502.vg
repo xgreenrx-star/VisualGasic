@@ -1,0 +1,170 @@
+Attribute VB_Name = "fuzz_enum_1502"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_AUTOWRAP_OFF As Integer = TextServer.AUTOWRAP_OFF
+    If v_AUTOWRAP_OFF = 0 Then pass_count = pass_count + 1
+    Dim v_AUTOWRAP_ARBITRARY As Integer = TextServer.AUTOWRAP_ARBITRARY
+    If v_AUTOWRAP_ARBITRARY = 1 Then pass_count = pass_count + 1
+    Dim v_AUTOWRAP_WORD As Integer = TextServer.AUTOWRAP_WORD
+    If v_AUTOWRAP_WORD = 2 Then pass_count = pass_count + 1
+    Dim v_AUTOWRAP_WORD_SMART As Integer = TextServer.AUTOWRAP_WORD_SMART
+    If v_AUTOWRAP_WORD_SMART = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_TextServer_AutowrapMode"
+    Else
+        Print "FAIL:enum_TextServer_AutowrapMode count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_TextServer_AutowrapMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_BREAK_NONE As Integer = TextServer.BREAK_NONE
+    If v_BREAK_NONE = 0 Then pass_count = pass_count + 1
+    Dim v_BREAK_MANDATORY As Integer = TextServer.BREAK_MANDATORY
+    If v_BREAK_MANDATORY = 1 Then pass_count = pass_count + 1
+    Dim v_BREAK_WORD_BOUND As Integer = TextServer.BREAK_WORD_BOUND
+    If v_BREAK_WORD_BOUND = 2 Then pass_count = pass_count + 1
+    Dim v_BREAK_GRAPHEME_BOUND As Integer = TextServer.BREAK_GRAPHEME_BOUND
+    If v_BREAK_GRAPHEME_BOUND = 4 Then pass_count = pass_count + 1
+    Dim v_BREAK_ADAPTIVE As Integer = TextServer.BREAK_ADAPTIVE
+    If v_BREAK_ADAPTIVE = 8 Then pass_count = pass_count + 1
+    Dim v_BREAK_TRIM_EDGE_SPACES As Integer = TextServer.BREAK_TRIM_EDGE_SPACES
+    If v_BREAK_TRIM_EDGE_SPACES = 16 Then pass_count = pass_count + 1
+    Dim v_BREAK_TRIM_INDENT As Integer = TextServer.BREAK_TRIM_INDENT
+    If v_BREAK_TRIM_INDENT = 32 Then pass_count = pass_count + 1
+    Dim v_BREAK_TRIM_START_EDGE_SPACES As Integer = TextServer.BREAK_TRIM_START_EDGE_SPACES
+    If v_BREAK_TRIM_START_EDGE_SPACES = 64 Then pass_count = pass_count + 1
+    If pass_count = 8 Then
+        Print "PASS:enum_TextServer_LineBreakFlag"
+    Else
+        Print "FAIL:enum_TextServer_LineBreakFlag count=" & str(pass_count) & "/8"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_TextServer_LineBreakFlag err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_VC_CHARS_BEFORE_SHAPING As Integer = TextServer.VC_CHARS_BEFORE_SHAPING
+    If v_VC_CHARS_BEFORE_SHAPING = 0 Then pass_count = pass_count + 1
+    Dim v_VC_CHARS_AFTER_SHAPING As Integer = TextServer.VC_CHARS_AFTER_SHAPING
+    If v_VC_CHARS_AFTER_SHAPING = 1 Then pass_count = pass_count + 1
+    Dim v_VC_GLYPHS_AUTO As Integer = TextServer.VC_GLYPHS_AUTO
+    If v_VC_GLYPHS_AUTO = 2 Then pass_count = pass_count + 1
+    Dim v_VC_GLYPHS_LTR As Integer = TextServer.VC_GLYPHS_LTR
+    If v_VC_GLYPHS_LTR = 3 Then pass_count = pass_count + 1
+    Dim v_VC_GLYPHS_RTL As Integer = TextServer.VC_GLYPHS_RTL
+    If v_VC_GLYPHS_RTL = 4 Then pass_count = pass_count + 1
+    If pass_count = 5 Then
+        Print "PASS:enum_TextServer_VisibleCharactersBehavior"
+    Else
+        Print "FAIL:enum_TextServer_VisibleCharactersBehavior count=" & str(pass_count) & "/5"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_TextServer_VisibleCharactersBehavior err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_OVERRUN_NO_TRIMMING As Integer = TextServer.OVERRUN_NO_TRIMMING
+    If v_OVERRUN_NO_TRIMMING = 0 Then pass_count = pass_count + 1
+    Dim v_OVERRUN_TRIM_CHAR As Integer = TextServer.OVERRUN_TRIM_CHAR
+    If v_OVERRUN_TRIM_CHAR = 1 Then pass_count = pass_count + 1
+    Dim v_OVERRUN_TRIM_WORD As Integer = TextServer.OVERRUN_TRIM_WORD
+    If v_OVERRUN_TRIM_WORD = 2 Then pass_count = pass_count + 1
+    Dim v_OVERRUN_TRIM_ELLIPSIS As Integer = TextServer.OVERRUN_TRIM_ELLIPSIS
+    If v_OVERRUN_TRIM_ELLIPSIS = 3 Then pass_count = pass_count + 1
+    Dim v_OVERRUN_TRIM_WORD_ELLIPSIS As Integer = TextServer.OVERRUN_TRIM_WORD_ELLIPSIS
+    If v_OVERRUN_TRIM_WORD_ELLIPSIS = 4 Then pass_count = pass_count + 1
+    Dim v_OVERRUN_TRIM_ELLIPSIS_FORCE As Integer = TextServer.OVERRUN_TRIM_ELLIPSIS_FORCE
+    If v_OVERRUN_TRIM_ELLIPSIS_FORCE = 5 Then pass_count = pass_count + 1
+    Dim v_OVERRUN_TRIM_WORD_ELLIPSIS_FORCE As Integer = TextServer.OVERRUN_TRIM_WORD_ELLIPSIS_FORCE
+    If v_OVERRUN_TRIM_WORD_ELLIPSIS_FORCE = 6 Then pass_count = pass_count + 1
+    If pass_count = 7 Then
+        Print "PASS:enum_TextServer_OverrunBehavior"
+    Else
+        Print "FAIL:enum_TextServer_OverrunBehavior count=" & str(pass_count) & "/7"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_TextServer_OverrunBehavior err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_OVERRUN_NO_TRIM As Integer = TextServer.OVERRUN_NO_TRIM
+    If v_OVERRUN_NO_TRIM = 0 Then pass_count = pass_count + 1
+    Dim v_OVERRUN_TRIM As Integer = TextServer.OVERRUN_TRIM
+    If v_OVERRUN_TRIM = 1 Then pass_count = pass_count + 1
+    Dim v_OVERRUN_TRIM_WORD_ONLY As Integer = TextServer.OVERRUN_TRIM_WORD_ONLY
+    If v_OVERRUN_TRIM_WORD_ONLY = 2 Then pass_count = pass_count + 1
+    Dim v_OVERRUN_ADD_ELLIPSIS As Integer = TextServer.OVERRUN_ADD_ELLIPSIS
+    If v_OVERRUN_ADD_ELLIPSIS = 4 Then pass_count = pass_count + 1
+    Dim v_OVERRUN_ENFORCE_ELLIPSIS As Integer = TextServer.OVERRUN_ENFORCE_ELLIPSIS
+    If v_OVERRUN_ENFORCE_ELLIPSIS = 8 Then pass_count = pass_count + 1
+    Dim v_OVERRUN_JUSTIFICATION_AWARE As Integer = TextServer.OVERRUN_JUSTIFICATION_AWARE
+    If v_OVERRUN_JUSTIFICATION_AWARE = 16 Then pass_count = pass_count + 1
+    If pass_count = 6 Then
+        Print "PASS:enum_TextServer_TextOverrunFlag"
+    Else
+        Print "FAIL:enum_TextServer_TextOverrunFlag count=" & str(pass_count) & "/6"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_TextServer_TextOverrunFlag err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_GRAPHEME_IS_VALID As Integer = TextServer.GRAPHEME_IS_VALID
+    If v_GRAPHEME_IS_VALID = 1 Then pass_count = pass_count + 1
+    Dim v_GRAPHEME_IS_RTL As Integer = TextServer.GRAPHEME_IS_RTL
+    If v_GRAPHEME_IS_RTL = 2 Then pass_count = pass_count + 1
+    Dim v_GRAPHEME_IS_VIRTUAL As Integer = TextServer.GRAPHEME_IS_VIRTUAL
+    If v_GRAPHEME_IS_VIRTUAL = 4 Then pass_count = pass_count + 1
+    Dim v_GRAPHEME_IS_SPACE As Integer = TextServer.GRAPHEME_IS_SPACE
+    If v_GRAPHEME_IS_SPACE = 8 Then pass_count = pass_count + 1
+    Dim v_GRAPHEME_IS_BREAK_HARD As Integer = TextServer.GRAPHEME_IS_BREAK_HARD
+    If v_GRAPHEME_IS_BREAK_HARD = 16 Then pass_count = pass_count + 1
+    Dim v_GRAPHEME_IS_BREAK_SOFT As Integer = TextServer.GRAPHEME_IS_BREAK_SOFT
+    If v_GRAPHEME_IS_BREAK_SOFT = 32 Then pass_count = pass_count + 1
+    Dim v_GRAPHEME_IS_TAB As Integer = TextServer.GRAPHEME_IS_TAB
+    If v_GRAPHEME_IS_TAB = 64 Then pass_count = pass_count + 1
+    Dim v_GRAPHEME_IS_ELONGATION As Integer = TextServer.GRAPHEME_IS_ELONGATION
+    If v_GRAPHEME_IS_ELONGATION = 128 Then pass_count = pass_count + 1
+    If pass_count = 8 Then
+        Print "PASS:enum_TextServer_GraphemeFlag"
+    Else
+        Print "FAIL:enum_TextServer_GraphemeFlag count=" & str(pass_count) & "/8"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_TextServer_GraphemeFlag err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

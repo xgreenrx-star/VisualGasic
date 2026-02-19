@@ -1,0 +1,810 @@
+Attribute VB_Name = "fuzz_inherit_1690"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As Sprite2D = Sprite2D.new()
+    If obj = Null Then
+        Print "SKIP:inh_Sprite2D (null)"
+        Exit Sub
+    End If
+    Dim v_Sprite2D As Variant = obj.get_texture()
+    Print "PASS:inh_Sprite2D_from_Sprite2D_get_texture"
+    Dim v_Node2D As Variant = obj.get_position()
+    Print "PASS:inh_Sprite2D_from_Node2D_get_position"
+    Dim v_CanvasItem As Variant = obj.get_canvas_item()
+    Print "PASS:inh_Sprite2D_from_CanvasItem_get_canvas_item"
+    Dim v_Node As Variant = obj.get_name()
+    Print "PASS:inh_Sprite2D_from_Node_get_name"
+    Dim v_Object As Variant = obj.get_class()
+    Print "PASS:inh_Sprite2D_from_Object_get_class"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:inh_Sprite2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As CharacterBody2D = CharacterBody2D.new()
+    If obj = Null Then
+        Print "SKIP:inh_CharacterBody2D (null)"
+        Exit Sub
+    End If
+    Dim v_CharacterBody2D As Variant = obj.move_and_slide()
+    Print "PASS:inh_CharacterBody2D_from_CharacterBody2D_move_and_slide"
+    Dim v_PhysicsBody2D As Variant = obj.get_gravity()
+    Print "PASS:inh_CharacterBody2D_from_PhysicsBody2D_get_gravity"
+    Dim v_CollisionObject2D As Variant = obj.get_rid()
+    Print "PASS:inh_CharacterBody2D_from_CollisionObject2D_get_rid"
+    Dim v_Node2D As Variant = obj.get_position()
+    Print "PASS:inh_CharacterBody2D_from_Node2D_get_position"
+    Dim v_CanvasItem As Variant = obj.get_canvas_item()
+    Print "PASS:inh_CharacterBody2D_from_CanvasItem_get_canvas_item"
+    Dim v_Node As Variant = obj.get_name()
+    Print "PASS:inh_CharacterBody2D_from_Node_get_name"
+    Dim v_Object As Variant = obj.get_class()
+    Print "PASS:inh_CharacterBody2D_from_Object_get_class"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:inh_CharacterBody2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As RigidBody3D = RigidBody3D.new()
+    If obj = Null Then
+        Print "SKIP:inh_RigidBody3D (null)"
+        Exit Sub
+    End If
+    Dim v_RigidBody3D As Variant = obj.get_mass()
+    Print "PASS:inh_RigidBody3D_from_RigidBody3D_get_mass"
+    Dim v_PhysicsBody3D As Variant = obj.get_gravity()
+    Print "PASS:inh_RigidBody3D_from_PhysicsBody3D_get_gravity"
+    Dim v_CollisionObject3D As Variant = obj.get_collision_layer()
+    Print "PASS:inh_RigidBody3D_from_CollisionObject3D_get_collision_layer"
+    Dim v_Node3D As Variant = obj.get_transform()
+    Print "PASS:inh_RigidBody3D_from_Node3D_get_transform"
+    Dim v_Node As Variant = obj.get_name()
+    Print "PASS:inh_RigidBody3D_from_Node_get_name"
+    Dim v_Object As Variant = obj.get_class()
+    Print "PASS:inh_RigidBody3D_from_Object_get_class"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:inh_RigidBody3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As Camera3D = Camera3D.new()
+    If obj = Null Then
+        Print "SKIP:inh_Camera3D (null)"
+        Exit Sub
+    End If
+    Dim v_Camera3D As Variant = obj.is_current()
+    Print "PASS:inh_Camera3D_from_Camera3D_is_current"
+    Dim v_Node3D As Variant = obj.get_transform()
+    Print "PASS:inh_Camera3D_from_Node3D_get_transform"
+    Dim v_Node As Variant = obj.get_name()
+    Print "PASS:inh_Camera3D_from_Node_get_name"
+    Dim v_Object As Variant = obj.get_class()
+    Print "PASS:inh_Camera3D_from_Object_get_class"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:inh_Camera3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As MeshInstance3D = MeshInstance3D.new()
+    If obj = Null Then
+        Print "SKIP:inh_MeshInstance3D (null)"
+        Exit Sub
+    End If
+    Dim v_MeshInstance3D As Variant = obj.get_mesh()
+    Print "PASS:inh_MeshInstance3D_from_MeshInstance3D_get_mesh"
+    Dim v_GeometryInstance3D As Variant = obj.get_material_override()
+    Print "PASS:inh_MeshInstance3D_from_GeometryInstance3D_get_material_override"
+    Dim v_VisualInstance3D As Variant = obj.get_base()
+    Print "PASS:inh_MeshInstance3D_from_VisualInstance3D_get_base"
+    Dim v_Node3D As Variant = obj.get_transform()
+    Print "PASS:inh_MeshInstance3D_from_Node3D_get_transform"
+    Dim v_Node As Variant = obj.get_name()
+    Print "PASS:inh_MeshInstance3D_from_Node_get_name"
+    Dim v_Object As Variant = obj.get_class()
+    Print "PASS:inh_MeshInstance3D_from_Object_get_class"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:inh_MeshInstance3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As AudioStreamPlayer = AudioStreamPlayer.new()
+    If obj = Null Then
+        Print "SKIP:inh_AudioStreamPlayer (null)"
+        Exit Sub
+    End If
+    Dim v_AudioStreamPlayer As Variant = obj.get_stream()
+    Print "PASS:inh_AudioStreamPlayer_from_AudioStreamPlayer_get_stream"
+    Dim v_Node As Variant = obj.get_name()
+    Print "PASS:inh_AudioStreamPlayer_from_Node_get_name"
+    Dim v_Object As Variant = obj.get_class()
+    Print "PASS:inh_AudioStreamPlayer_from_Object_get_class"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:inh_AudioStreamPlayer err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As Timer = Timer.new()
+    If obj = Null Then
+        Print "SKIP:inh_Timer (null)"
+        Exit Sub
+    End If
+    Dim v_Timer As Variant = obj.get_wait_time()
+    Print "PASS:inh_Timer_from_Timer_get_wait_time"
+    Dim v_Node As Variant = obj.get_name()
+    Print "PASS:inh_Timer_from_Node_get_name"
+    Dim v_Object As Variant = obj.get_class()
+    Print "PASS:inh_Timer_from_Object_get_class"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:inh_Timer err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As Label = Label.new()
+    If obj = Null Then
+        Print "SKIP:inh_Label (null)"
+        Exit Sub
+    End If
+    Dim v_Label As Variant = obj.get_horizontal_alignment()
+    Print "PASS:inh_Label_from_Label_get_horizontal_alignment"
+    Dim v_Control As Variant = obj.get_minimum_size()
+    Print "PASS:inh_Label_from_Control_get_minimum_size"
+    Dim v_CanvasItem As Variant = obj.get_canvas_item()
+    Print "PASS:inh_Label_from_CanvasItem_get_canvas_item"
+    Dim v_Node As Variant = obj.get_name()
+    Print "PASS:inh_Label_from_Node_get_name"
+    Dim v_Object As Variant = obj.get_class()
+    Print "PASS:inh_Label_from_Object_get_class"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:inh_Label err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As Button = Button.new()
+    If obj = Null Then
+        Print "SKIP:inh_Button (null)"
+        Exit Sub
+    End If
+    Dim v_Button As Variant = obj.get_text()
+    Print "PASS:inh_Button_from_Button_get_text"
+    Dim v_BaseButton As Variant = obj.is_pressed()
+    Print "PASS:inh_Button_from_BaseButton_is_pressed"
+    Dim v_Control As Variant = obj.get_minimum_size()
+    Print "PASS:inh_Button_from_Control_get_minimum_size"
+    Dim v_CanvasItem As Variant = obj.get_canvas_item()
+    Print "PASS:inh_Button_from_CanvasItem_get_canvas_item"
+    Dim v_Node As Variant = obj.get_name()
+    Print "PASS:inh_Button_from_Node_get_name"
+    Dim v_Object As Variant = obj.get_class()
+    Print "PASS:inh_Button_from_Object_get_class"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:inh_Button err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As LineEdit = LineEdit.new()
+    If obj = Null Then
+        Print "SKIP:inh_LineEdit (null)"
+        Exit Sub
+    End If
+    Dim v_LineEdit As Variant = obj.has_ime_text()
+    Print "PASS:inh_LineEdit_from_LineEdit_has_ime_text"
+    Dim v_Control As Variant = obj.get_minimum_size()
+    Print "PASS:inh_LineEdit_from_Control_get_minimum_size"
+    Dim v_CanvasItem As Variant = obj.get_canvas_item()
+    Print "PASS:inh_LineEdit_from_CanvasItem_get_canvas_item"
+    Dim v_Node As Variant = obj.get_name()
+    Print "PASS:inh_LineEdit_from_Node_get_name"
+    Dim v_Object As Variant = obj.get_class()
+    Print "PASS:inh_LineEdit_from_Object_get_class"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:inh_LineEdit err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest10()
+    On Error Resume Next
+    Dim obj As SphereMesh = SphereMesh.new()
+    If obj = Null Then
+        Print "SKIP:inh_SphereMesh (null)"
+        Exit Sub
+    End If
+    Dim v_SphereMesh As Variant = obj.get_radius()
+    Print "PASS:inh_SphereMesh_from_SphereMesh_get_radius"
+    Dim v_PrimitiveMesh As Variant = obj.get_material()
+    Print "PASS:inh_SphereMesh_from_PrimitiveMesh_get_material"
+    Dim v_Mesh As Variant = obj.get_lightmap_size_hint()
+    Print "PASS:inh_SphereMesh_from_Mesh_get_lightmap_size_hint"
+    Dim v_Resource As Variant = obj.get_path()
+    Print "PASS:inh_SphereMesh_from_Resource_get_path"
+    Dim v_RefCounted As Variant = obj.init_ref()
+    Print "PASS:inh_SphereMesh_from_RefCounted_init_ref"
+    Dim v_Object As Variant = obj.get_class()
+    Print "PASS:inh_SphereMesh_from_Object_get_class"
+    If Err.Number <> 0 Then
+        Print "ERROR:inh_SphereMesh err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest11()
+    On Error Resume Next
+    Dim obj As StandardMaterial3D = StandardMaterial3D.new()
+    If obj = Null Then
+        Print "SKIP:inh_StandardMaterial3D (null)"
+        Exit Sub
+    End If
+    Dim v_BaseMaterial3D As Variant = obj.get_albedo()
+    Print "PASS:inh_StandardMaterial3D_from_BaseMaterial3D_get_albedo"
+    Dim v_Material As Variant = obj.get_next_pass()
+    Print "PASS:inh_StandardMaterial3D_from_Material_get_next_pass"
+    Dim v_Resource As Variant = obj.get_path()
+    Print "PASS:inh_StandardMaterial3D_from_Resource_get_path"
+    Dim v_RefCounted As Variant = obj.init_ref()
+    Print "PASS:inh_StandardMaterial3D_from_RefCounted_init_ref"
+    Dim v_Object As Variant = obj.get_class()
+    Print "PASS:inh_StandardMaterial3D_from_Object_get_class"
+    If Err.Number <> 0 Then
+        Print "ERROR:inh_StandardMaterial3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest12()
+    On Error Resume Next
+    Dim obj As AnimatedSprite2D = AnimatedSprite2D.new()
+    If obj = Null Then
+        Print "SKIP:inh_AnimatedSprite2D (null)"
+        Exit Sub
+    End If
+    Dim v_AnimatedSprite2D As Variant = obj.get_sprite_frames()
+    Print "PASS:inh_AnimatedSprite2D_from_AnimatedSprite2D_get_sprite_frames"
+    Dim v_Node2D As Variant = obj.get_position()
+    Print "PASS:inh_AnimatedSprite2D_from_Node2D_get_position"
+    Dim v_CanvasItem As Variant = obj.get_canvas_item()
+    Print "PASS:inh_AnimatedSprite2D_from_CanvasItem_get_canvas_item"
+    Dim v_Node As Variant = obj.get_name()
+    Print "PASS:inh_AnimatedSprite2D_from_Node_get_name"
+    Dim v_Object As Variant = obj.get_class()
+    Print "PASS:inh_AnimatedSprite2D_from_Object_get_class"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:inh_AnimatedSprite2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest13()
+    On Error Resume Next
+    Dim obj As Area2D = Area2D.new()
+    If obj = Null Then
+        Print "SKIP:inh_Area2D (null)"
+        Exit Sub
+    End If
+    Dim v_Area2D As Variant = obj.get_gravity_space_override_mode()
+    Print "PASS:inh_Area2D_from_Area2D_get_gravity_space_override_mode"
+    Dim v_CollisionObject2D As Variant = obj.get_rid()
+    Print "PASS:inh_Area2D_from_CollisionObject2D_get_rid"
+    Dim v_Node2D As Variant = obj.get_position()
+    Print "PASS:inh_Area2D_from_Node2D_get_position"
+    Dim v_CanvasItem As Variant = obj.get_canvas_item()
+    Print "PASS:inh_Area2D_from_CanvasItem_get_canvas_item"
+    Dim v_Node As Variant = obj.get_name()
+    Print "PASS:inh_Area2D_from_Node_get_name"
+    Dim v_Object As Variant = obj.get_class()
+    Print "PASS:inh_Area2D_from_Object_get_class"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:inh_Area2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest14()
+    On Error Resume Next
+    Dim obj As Area3D = Area3D.new()
+    If obj = Null Then
+        Print "SKIP:inh_Area3D (null)"
+        Exit Sub
+    End If
+    Dim v_Area3D As Variant = obj.get_gravity_space_override_mode()
+    Print "PASS:inh_Area3D_from_Area3D_get_gravity_space_override_mode"
+    Dim v_CollisionObject3D As Variant = obj.get_collision_layer()
+    Print "PASS:inh_Area3D_from_CollisionObject3D_get_collision_layer"
+    Dim v_Node3D As Variant = obj.get_transform()
+    Print "PASS:inh_Area3D_from_Node3D_get_transform"
+    Dim v_Node As Variant = obj.get_name()
+    Print "PASS:inh_Area3D_from_Node_get_name"
+    Dim v_Object As Variant = obj.get_class()
+    Print "PASS:inh_Area3D_from_Object_get_class"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:inh_Area3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest15()
+    On Error Resume Next
+    Dim obj As RichTextLabel = RichTextLabel.new()
+    If obj = Null Then
+        Print "SKIP:inh_RichTextLabel (null)"
+        Exit Sub
+    End If
+    Dim v_RichTextLabel As Variant = obj.get_parsed_text()
+    Print "PASS:inh_RichTextLabel_from_RichTextLabel_get_parsed_text"
+    Dim v_Control As Variant = obj.get_minimum_size()
+    Print "PASS:inh_RichTextLabel_from_Control_get_minimum_size"
+    Dim v_CanvasItem As Variant = obj.get_canvas_item()
+    Print "PASS:inh_RichTextLabel_from_CanvasItem_get_canvas_item"
+    Dim v_Node As Variant = obj.get_name()
+    Print "PASS:inh_RichTextLabel_from_Node_get_name"
+    Dim v_Object As Variant = obj.get_class()
+    Print "PASS:inh_RichTextLabel_from_Object_get_class"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:inh_RichTextLabel err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest16()
+    On Error Resume Next
+    Dim obj As TextureRect = TextureRect.new()
+    If obj = Null Then
+        Print "SKIP:inh_TextureRect (null)"
+        Exit Sub
+    End If
+    Dim v_TextureRect As Variant = obj.get_texture()
+    Print "PASS:inh_TextureRect_from_TextureRect_get_texture"
+    Dim v_Control As Variant = obj.get_minimum_size()
+    Print "PASS:inh_TextureRect_from_Control_get_minimum_size"
+    Dim v_CanvasItem As Variant = obj.get_canvas_item()
+    Print "PASS:inh_TextureRect_from_CanvasItem_get_canvas_item"
+    Dim v_Node As Variant = obj.get_name()
+    Print "PASS:inh_TextureRect_from_Node_get_name"
+    Dim v_Object As Variant = obj.get_class()
+    Print "PASS:inh_TextureRect_from_Object_get_class"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:inh_TextureRect err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest17()
+    On Error Resume Next
+    Dim obj As ProgressBar = ProgressBar.new()
+    If obj = Null Then
+        Print "SKIP:inh_ProgressBar (null)"
+        Exit Sub
+    End If
+    Dim v_ProgressBar As Variant = obj.get_fill_mode()
+    Print "PASS:inh_ProgressBar_from_ProgressBar_get_fill_mode"
+    Dim v_Range As Variant = obj.get_value()
+    Print "PASS:inh_ProgressBar_from_Range_get_value"
+    Dim v_Control As Variant = obj.get_minimum_size()
+    Print "PASS:inh_ProgressBar_from_Control_get_minimum_size"
+    Dim v_CanvasItem As Variant = obj.get_canvas_item()
+    Print "PASS:inh_ProgressBar_from_CanvasItem_get_canvas_item"
+    Dim v_Node As Variant = obj.get_name()
+    Print "PASS:inh_ProgressBar_from_Node_get_name"
+    Dim v_Object As Variant = obj.get_class()
+    Print "PASS:inh_ProgressBar_from_Object_get_class"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:inh_ProgressBar err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest18()
+    On Error Resume Next
+    Dim obj As TabContainer = TabContainer.new()
+    If obj = Null Then
+        Print "SKIP:inh_TabContainer (null)"
+        Exit Sub
+    End If
+    Dim v_TabContainer As Variant = obj.get_tab_count()
+    Print "PASS:inh_TabContainer_from_TabContainer_get_tab_count"
+    Dim v_Control As Variant = obj.get_minimum_size()
+    Print "PASS:inh_TabContainer_from_Control_get_minimum_size"
+    Dim v_CanvasItem As Variant = obj.get_canvas_item()
+    Print "PASS:inh_TabContainer_from_CanvasItem_get_canvas_item"
+    Dim v_Node As Variant = obj.get_name()
+    Print "PASS:inh_TabContainer_from_Node_get_name"
+    Dim v_Object As Variant = obj.get_class()
+    Print "PASS:inh_TabContainer_from_Object_get_class"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:inh_TabContainer err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest19()
+    On Error Resume Next
+    Dim obj As Tree = Tree.new()
+    If obj = Null Then
+        Print "SKIP:inh_Tree (null)"
+        Exit Sub
+    End If
+    Dim v_Tree As Variant = obj.get_root()
+    Print "PASS:inh_Tree_from_Tree_get_root"
+    Dim v_Control As Variant = obj.get_minimum_size()
+    Print "PASS:inh_Tree_from_Control_get_minimum_size"
+    Dim v_CanvasItem As Variant = obj.get_canvas_item()
+    Print "PASS:inh_Tree_from_CanvasItem_get_canvas_item"
+    Dim v_Node As Variant = obj.get_name()
+    Print "PASS:inh_Tree_from_Node_get_name"
+    Dim v_Object As Variant = obj.get_class()
+    Print "PASS:inh_Tree_from_Object_get_class"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:inh_Tree err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest20()
+    On Error Resume Next
+    Dim obj As BoxContainer = BoxContainer.new()
+    If obj = Null Then
+        Print "SKIP:inh_BoxContainer (null)"
+        Exit Sub
+    End If
+    Dim v_BoxContainer As Variant = obj.get_alignment()
+    Print "PASS:inh_BoxContainer_from_BoxContainer_get_alignment"
+    Dim v_Control As Variant = obj.get_minimum_size()
+    Print "PASS:inh_BoxContainer_from_Control_get_minimum_size"
+    Dim v_CanvasItem As Variant = obj.get_canvas_item()
+    Print "PASS:inh_BoxContainer_from_CanvasItem_get_canvas_item"
+    Dim v_Node As Variant = obj.get_name()
+    Print "PASS:inh_BoxContainer_from_Node_get_name"
+    Dim v_Object As Variant = obj.get_class()
+    Print "PASS:inh_BoxContainer_from_Object_get_class"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:inh_BoxContainer err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest21()
+    On Error Resume Next
+    Dim obj As MarginContainer = MarginContainer.new()
+    If obj = Null Then
+        Print "SKIP:inh_MarginContainer (null)"
+        Exit Sub
+    End If
+    Dim v_Control As Variant = obj.get_minimum_size()
+    Print "PASS:inh_MarginContainer_from_Control_get_minimum_size"
+    Dim v_CanvasItem As Variant = obj.get_canvas_item()
+    Print "PASS:inh_MarginContainer_from_CanvasItem_get_canvas_item"
+    Dim v_Node As Variant = obj.get_name()
+    Print "PASS:inh_MarginContainer_from_Node_get_name"
+    Dim v_Object As Variant = obj.get_class()
+    Print "PASS:inh_MarginContainer_from_Object_get_class"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:inh_MarginContainer err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest22()
+    On Error Resume Next
+    Dim obj As PanelContainer = PanelContainer.new()
+    If obj = Null Then
+        Print "SKIP:inh_PanelContainer (null)"
+        Exit Sub
+    End If
+    Dim v_Control As Variant = obj.get_minimum_size()
+    Print "PASS:inh_PanelContainer_from_Control_get_minimum_size"
+    Dim v_CanvasItem As Variant = obj.get_canvas_item()
+    Print "PASS:inh_PanelContainer_from_CanvasItem_get_canvas_item"
+    Dim v_Node As Variant = obj.get_name()
+    Print "PASS:inh_PanelContainer_from_Node_get_name"
+    Dim v_Object As Variant = obj.get_class()
+    Print "PASS:inh_PanelContainer_from_Object_get_class"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:inh_PanelContainer err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest23()
+    On Error Resume Next
+    Dim obj As RayCast2D = RayCast2D.new()
+    If obj = Null Then
+        Print "SKIP:inh_RayCast2D (null)"
+        Exit Sub
+    End If
+    Dim v_RayCast2D As Variant = obj.is_enabled()
+    Print "PASS:inh_RayCast2D_from_RayCast2D_is_enabled"
+    Dim v_Node2D As Variant = obj.get_position()
+    Print "PASS:inh_RayCast2D_from_Node2D_get_position"
+    Dim v_CanvasItem As Variant = obj.get_canvas_item()
+    Print "PASS:inh_RayCast2D_from_CanvasItem_get_canvas_item"
+    Dim v_Node As Variant = obj.get_name()
+    Print "PASS:inh_RayCast2D_from_Node_get_name"
+    Dim v_Object As Variant = obj.get_class()
+    Print "PASS:inh_RayCast2D_from_Object_get_class"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:inh_RayCast2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest24()
+    On Error Resume Next
+    Dim obj As RayCast3D = RayCast3D.new()
+    If obj = Null Then
+        Print "SKIP:inh_RayCast3D (null)"
+        Exit Sub
+    End If
+    Dim v_RayCast3D As Variant = obj.is_enabled()
+    Print "PASS:inh_RayCast3D_from_RayCast3D_is_enabled"
+    Dim v_Node3D As Variant = obj.get_transform()
+    Print "PASS:inh_RayCast3D_from_Node3D_get_transform"
+    Dim v_Node As Variant = obj.get_name()
+    Print "PASS:inh_RayCast3D_from_Node_get_name"
+    Dim v_Object As Variant = obj.get_class()
+    Print "PASS:inh_RayCast3D_from_Object_get_class"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:inh_RayCast3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest25()
+    On Error Resume Next
+    Dim obj As CollisionShape2D = CollisionShape2D.new()
+    If obj = Null Then
+        Print "SKIP:inh_CollisionShape2D (null)"
+        Exit Sub
+    End If
+    Dim v_CollisionShape2D As Variant = obj.get_shape()
+    Print "PASS:inh_CollisionShape2D_from_CollisionShape2D_get_shape"
+    Dim v_Node2D As Variant = obj.get_position()
+    Print "PASS:inh_CollisionShape2D_from_Node2D_get_position"
+    Dim v_CanvasItem As Variant = obj.get_canvas_item()
+    Print "PASS:inh_CollisionShape2D_from_CanvasItem_get_canvas_item"
+    Dim v_Node As Variant = obj.get_name()
+    Print "PASS:inh_CollisionShape2D_from_Node_get_name"
+    Dim v_Object As Variant = obj.get_class()
+    Print "PASS:inh_CollisionShape2D_from_Object_get_class"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:inh_CollisionShape2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest26()
+    On Error Resume Next
+    Dim obj As CollisionShape3D = CollisionShape3D.new()
+    If obj = Null Then
+        Print "SKIP:inh_CollisionShape3D (null)"
+        Exit Sub
+    End If
+    Dim v_CollisionShape3D As Variant = obj.get_shape()
+    Print "PASS:inh_CollisionShape3D_from_CollisionShape3D_get_shape"
+    Dim v_Node3D As Variant = obj.get_transform()
+    Print "PASS:inh_CollisionShape3D_from_Node3D_get_transform"
+    Dim v_Node As Variant = obj.get_name()
+    Print "PASS:inh_CollisionShape3D_from_Node_get_name"
+    Dim v_Object As Variant = obj.get_class()
+    Print "PASS:inh_CollisionShape3D_from_Object_get_class"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:inh_CollisionShape3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest27()
+    On Error Resume Next
+    Dim obj As Path2D = Path2D.new()
+    If obj = Null Then
+        Print "SKIP:inh_Path2D (null)"
+        Exit Sub
+    End If
+    Dim v_Path2D As Variant = obj.get_curve()
+    Print "PASS:inh_Path2D_from_Path2D_get_curve"
+    Dim v_Node2D As Variant = obj.get_position()
+    Print "PASS:inh_Path2D_from_Node2D_get_position"
+    Dim v_CanvasItem As Variant = obj.get_canvas_item()
+    Print "PASS:inh_Path2D_from_CanvasItem_get_canvas_item"
+    Dim v_Node As Variant = obj.get_name()
+    Print "PASS:inh_Path2D_from_Node_get_name"
+    Dim v_Object As Variant = obj.get_class()
+    Print "PASS:inh_Path2D_from_Object_get_class"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:inh_Path2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest28()
+    On Error Resume Next
+    Dim obj As PathFollow2D = PathFollow2D.new()
+    If obj = Null Then
+        Print "SKIP:inh_PathFollow2D (null)"
+        Exit Sub
+    End If
+    Dim v_PathFollow2D As Variant = obj.get_progress()
+    Print "PASS:inh_PathFollow2D_from_PathFollow2D_get_progress"
+    Dim v_Node2D As Variant = obj.get_position()
+    Print "PASS:inh_PathFollow2D_from_Node2D_get_position"
+    Dim v_CanvasItem As Variant = obj.get_canvas_item()
+    Print "PASS:inh_PathFollow2D_from_CanvasItem_get_canvas_item"
+    Dim v_Node As Variant = obj.get_name()
+    Print "PASS:inh_PathFollow2D_from_Node_get_name"
+    Dim v_Object As Variant = obj.get_class()
+    Print "PASS:inh_PathFollow2D_from_Object_get_class"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:inh_PathFollow2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest29()
+    On Error Resume Next
+    Dim obj As StaticBody2D = StaticBody2D.new()
+    If obj = Null Then
+        Print "SKIP:inh_StaticBody2D (null)"
+        Exit Sub
+    End If
+    Dim v_StaticBody2D As Variant = obj.get_constant_linear_velocity()
+    Print "PASS:inh_StaticBody2D_from_StaticBody2D_get_constant_linear_velocity"
+    Dim v_PhysicsBody2D As Variant = obj.get_gravity()
+    Print "PASS:inh_StaticBody2D_from_PhysicsBody2D_get_gravity"
+    Dim v_CollisionObject2D As Variant = obj.get_rid()
+    Print "PASS:inh_StaticBody2D_from_CollisionObject2D_get_rid"
+    Dim v_Node2D As Variant = obj.get_position()
+    Print "PASS:inh_StaticBody2D_from_Node2D_get_position"
+    Dim v_CanvasItem As Variant = obj.get_canvas_item()
+    Print "PASS:inh_StaticBody2D_from_CanvasItem_get_canvas_item"
+    Dim v_Node As Variant = obj.get_name()
+    Print "PASS:inh_StaticBody2D_from_Node_get_name"
+    Dim v_Object As Variant = obj.get_class()
+    Print "PASS:inh_StaticBody2D_from_Object_get_class"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:inh_StaticBody2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest30()
+    On Error Resume Next
+    Dim obj As StaticBody3D = StaticBody3D.new()
+    If obj = Null Then
+        Print "SKIP:inh_StaticBody3D (null)"
+        Exit Sub
+    End If
+    Dim v_StaticBody3D As Variant = obj.get_constant_linear_velocity()
+    Print "PASS:inh_StaticBody3D_from_StaticBody3D_get_constant_linear_velocity"
+    Dim v_PhysicsBody3D As Variant = obj.get_gravity()
+    Print "PASS:inh_StaticBody3D_from_PhysicsBody3D_get_gravity"
+    Dim v_CollisionObject3D As Variant = obj.get_collision_layer()
+    Print "PASS:inh_StaticBody3D_from_CollisionObject3D_get_collision_layer"
+    Dim v_Node3D As Variant = obj.get_transform()
+    Print "PASS:inh_StaticBody3D_from_Node3D_get_transform"
+    Dim v_Node As Variant = obj.get_name()
+    Print "PASS:inh_StaticBody3D_from_Node_get_name"
+    Dim v_Object As Variant = obj.get_class()
+    Print "PASS:inh_StaticBody3D_from_Object_get_class"
+
+    obj.free()
+    If Err.Number <> 0 Then
+        Print "ERROR:inh_StaticBody3D err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+    RunTest10()
+    RunTest11()
+    RunTest12()
+    RunTest13()
+    RunTest14()
+    RunTest15()
+    RunTest16()
+    RunTest17()
+    RunTest18()
+    RunTest19()
+    RunTest20()
+    RunTest21()
+    RunTest22()
+    RunTest23()
+    RunTest24()
+    RunTest25()
+    RunTest26()
+    RunTest27()
+    RunTest28()
+    RunTest29()
+    RunTest30()
+End Sub

@@ -1,0 +1,160 @@
+Attribute VB_Name = "fuzz_enum_1514"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_OP_ADD As Integer = VisualShaderNodeIntOp.OP_ADD
+    If v_OP_ADD = 0 Then pass_count = pass_count + 1
+    Dim v_OP_SUB As Integer = VisualShaderNodeIntOp.OP_SUB
+    If v_OP_SUB = 1 Then pass_count = pass_count + 1
+    Dim v_OP_MUL As Integer = VisualShaderNodeIntOp.OP_MUL
+    If v_OP_MUL = 2 Then pass_count = pass_count + 1
+    Dim v_OP_DIV As Integer = VisualShaderNodeIntOp.OP_DIV
+    If v_OP_DIV = 3 Then pass_count = pass_count + 1
+    Dim v_OP_MOD As Integer = VisualShaderNodeIntOp.OP_MOD
+    If v_OP_MOD = 4 Then pass_count = pass_count + 1
+    Dim v_OP_MAX As Integer = VisualShaderNodeIntOp.OP_MAX
+    If v_OP_MAX = 5 Then pass_count = pass_count + 1
+    Dim v_OP_MIN As Integer = VisualShaderNodeIntOp.OP_MIN
+    If v_OP_MIN = 6 Then pass_count = pass_count + 1
+    Dim v_OP_BITWISE_AND As Integer = VisualShaderNodeIntOp.OP_BITWISE_AND
+    If v_OP_BITWISE_AND = 7 Then pass_count = pass_count + 1
+    If pass_count = 8 Then
+        Print "PASS:enum_VisualShaderNodeIntOp_Operator"
+    Else
+        Print "FAIL:enum_VisualShaderNodeIntOp_Operator count=" & str(pass_count) & "/8"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_VisualShaderNodeIntOp_Operator err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_HINT_NONE As Integer = VisualShaderNodeIntParameter.HINT_NONE
+    If v_HINT_NONE = 0 Then pass_count = pass_count + 1
+    Dim v_HINT_RANGE As Integer = VisualShaderNodeIntParameter.HINT_RANGE
+    If v_HINT_RANGE = 1 Then pass_count = pass_count + 1
+    Dim v_HINT_RANGE_STEP As Integer = VisualShaderNodeIntParameter.HINT_RANGE_STEP
+    If v_HINT_RANGE_STEP = 2 Then pass_count = pass_count + 1
+    Dim v_HINT_ENUM As Integer = VisualShaderNodeIntParameter.HINT_ENUM
+    If v_HINT_ENUM = 3 Then pass_count = pass_count + 1
+    Dim v_HINT_MAX As Integer = VisualShaderNodeIntParameter.HINT_MAX
+    If v_HINT_MAX = 4 Then pass_count = pass_count + 1
+    If pass_count = 5 Then
+        Print "PASS:enum_VisualShaderNodeIntParameter_Hint"
+    Else
+        Print "FAIL:enum_VisualShaderNodeIntParameter_Hint count=" & str(pass_count) & "/5"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_VisualShaderNodeIntParameter_Hint err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_FUNC_IS_INF As Integer = VisualShaderNodeIs.FUNC_IS_INF
+    If v_FUNC_IS_INF = 0 Then pass_count = pass_count + 1
+    Dim v_FUNC_IS_NAN As Integer = VisualShaderNodeIs.FUNC_IS_NAN
+    If v_FUNC_IS_NAN = 1 Then pass_count = pass_count + 1
+    Dim v_FUNC_MAX As Integer = VisualShaderNodeIs.FUNC_MAX
+    If v_FUNC_MAX = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_VisualShaderNodeIs_Function"
+    Else
+        Print "FAIL:enum_VisualShaderNodeIs_Function count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_VisualShaderNodeIs_Function err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_OP_TYPE_SCALAR As Integer = VisualShaderNodeMix.OP_TYPE_SCALAR
+    If v_OP_TYPE_SCALAR = 0 Then pass_count = pass_count + 1
+    Dim v_OP_TYPE_VECTOR_2D As Integer = VisualShaderNodeMix.OP_TYPE_VECTOR_2D
+    If v_OP_TYPE_VECTOR_2D = 1 Then pass_count = pass_count + 1
+    Dim v_OP_TYPE_VECTOR_2D_SCALAR As Integer = VisualShaderNodeMix.OP_TYPE_VECTOR_2D_SCALAR
+    If v_OP_TYPE_VECTOR_2D_SCALAR = 2 Then pass_count = pass_count + 1
+    Dim v_OP_TYPE_VECTOR_3D As Integer = VisualShaderNodeMix.OP_TYPE_VECTOR_3D
+    If v_OP_TYPE_VECTOR_3D = 3 Then pass_count = pass_count + 1
+    Dim v_OP_TYPE_VECTOR_3D_SCALAR As Integer = VisualShaderNodeMix.OP_TYPE_VECTOR_3D_SCALAR
+    If v_OP_TYPE_VECTOR_3D_SCALAR = 4 Then pass_count = pass_count + 1
+    Dim v_OP_TYPE_VECTOR_4D As Integer = VisualShaderNodeMix.OP_TYPE_VECTOR_4D
+    If v_OP_TYPE_VECTOR_4D = 5 Then pass_count = pass_count + 1
+    Dim v_OP_TYPE_VECTOR_4D_SCALAR As Integer = VisualShaderNodeMix.OP_TYPE_VECTOR_4D_SCALAR
+    If v_OP_TYPE_VECTOR_4D_SCALAR = 6 Then pass_count = pass_count + 1
+    Dim v_OP_TYPE_MAX As Integer = VisualShaderNodeMix.OP_TYPE_MAX
+    If v_OP_TYPE_MAX = 7 Then pass_count = pass_count + 1
+    If pass_count = 8 Then
+        Print "PASS:enum_VisualShaderNodeMix_OpType"
+    Else
+        Print "FAIL:enum_VisualShaderNodeMix_OpType count=" & str(pass_count) & "/8"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_VisualShaderNodeMix_OpType err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_OP_TYPE_SCALAR As Integer = VisualShaderNodeMultiplyAdd.OP_TYPE_SCALAR
+    If v_OP_TYPE_SCALAR = 0 Then pass_count = pass_count + 1
+    Dim v_OP_TYPE_VECTOR_2D As Integer = VisualShaderNodeMultiplyAdd.OP_TYPE_VECTOR_2D
+    If v_OP_TYPE_VECTOR_2D = 1 Then pass_count = pass_count + 1
+    Dim v_OP_TYPE_VECTOR_3D As Integer = VisualShaderNodeMultiplyAdd.OP_TYPE_VECTOR_3D
+    If v_OP_TYPE_VECTOR_3D = 2 Then pass_count = pass_count + 1
+    Dim v_OP_TYPE_VECTOR_4D As Integer = VisualShaderNodeMultiplyAdd.OP_TYPE_VECTOR_4D
+    If v_OP_TYPE_VECTOR_4D = 3 Then pass_count = pass_count + 1
+    Dim v_OP_TYPE_MAX As Integer = VisualShaderNodeMultiplyAdd.OP_TYPE_MAX
+    If v_OP_TYPE_MAX = 4 Then pass_count = pass_count + 1
+    If pass_count = 5 Then
+        Print "PASS:enum_VisualShaderNodeMultiplyAdd_OpType"
+    Else
+        Print "FAIL:enum_VisualShaderNodeMultiplyAdd_OpType count=" & str(pass_count) & "/5"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_VisualShaderNodeMultiplyAdd_OpType err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_QUAL_NONE As Integer = VisualShaderNodeParameter.QUAL_NONE
+    If v_QUAL_NONE = 0 Then pass_count = pass_count + 1
+    Dim v_QUAL_GLOBAL As Integer = VisualShaderNodeParameter.QUAL_GLOBAL
+    If v_QUAL_GLOBAL = 1 Then pass_count = pass_count + 1
+    Dim v_QUAL_INSTANCE As Integer = VisualShaderNodeParameter.QUAL_INSTANCE
+    If v_QUAL_INSTANCE = 2 Then pass_count = pass_count + 1
+    Dim v_QUAL_MAX As Integer = VisualShaderNodeParameter.QUAL_MAX
+    If v_QUAL_MAX = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_VisualShaderNodeParameter_Qualifier"
+    Else
+        Print "FAIL:enum_VisualShaderNodeParameter_Qualifier count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_VisualShaderNodeParameter_Qualifier err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

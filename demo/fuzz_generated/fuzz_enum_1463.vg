@@ -1,0 +1,144 @@
+Attribute VB_Name = "fuzz_enum_1463"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_KIND_CLASS As Integer = CodeEdit.KIND_CLASS
+    If v_KIND_CLASS = 0 Then pass_count = pass_count + 1
+    Dim v_KIND_FUNCTION As Integer = CodeEdit.KIND_FUNCTION
+    If v_KIND_FUNCTION = 1 Then pass_count = pass_count + 1
+    Dim v_KIND_SIGNAL As Integer = CodeEdit.KIND_SIGNAL
+    If v_KIND_SIGNAL = 2 Then pass_count = pass_count + 1
+    Dim v_KIND_VARIABLE As Integer = CodeEdit.KIND_VARIABLE
+    If v_KIND_VARIABLE = 3 Then pass_count = pass_count + 1
+    Dim v_KIND_MEMBER As Integer = CodeEdit.KIND_MEMBER
+    If v_KIND_MEMBER = 4 Then pass_count = pass_count + 1
+    Dim v_KIND_ENUM As Integer = CodeEdit.KIND_ENUM
+    If v_KIND_ENUM = 5 Then pass_count = pass_count + 1
+    Dim v_KIND_CONSTANT As Integer = CodeEdit.KIND_CONSTANT
+    If v_KIND_CONSTANT = 6 Then pass_count = pass_count + 1
+    Dim v_KIND_NODE_PATH As Integer = CodeEdit.KIND_NODE_PATH
+    If v_KIND_NODE_PATH = 7 Then pass_count = pass_count + 1
+    If pass_count = 8 Then
+        Print "PASS:enum_CodeEdit_CodeCompletionKind"
+    Else
+        Print "FAIL:enum_CodeEdit_CodeCompletionKind count=" & str(pass_count) & "/8"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_CodeEdit_CodeCompletionKind err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_LOCATION_LOCAL As Integer = CodeEdit.LOCATION_LOCAL
+    If v_LOCATION_LOCAL = 0 Then pass_count = pass_count + 1
+    Dim v_LOCATION_PARENT_MASK As Integer = CodeEdit.LOCATION_PARENT_MASK
+    If v_LOCATION_PARENT_MASK = 256 Then pass_count = pass_count + 1
+    Dim v_LOCATION_OTHER_USER_CODE As Integer = CodeEdit.LOCATION_OTHER_USER_CODE
+    If v_LOCATION_OTHER_USER_CODE = 512 Then pass_count = pass_count + 1
+    Dim v_LOCATION_OTHER As Integer = CodeEdit.LOCATION_OTHER
+    If v_LOCATION_OTHER = 1024 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_CodeEdit_CodeCompletionLocation"
+    Else
+        Print "FAIL:enum_CodeEdit_CodeCompletionLocation count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_CodeEdit_CodeCompletionLocation err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_DISABLE_MODE_REMOVE As Integer = CollisionObject2D.DISABLE_MODE_REMOVE
+    If v_DISABLE_MODE_REMOVE = 0 Then pass_count = pass_count + 1
+    Dim v_DISABLE_MODE_MAKE_STATIC As Integer = CollisionObject2D.DISABLE_MODE_MAKE_STATIC
+    If v_DISABLE_MODE_MAKE_STATIC = 1 Then pass_count = pass_count + 1
+    Dim v_DISABLE_MODE_KEEP_ACTIVE As Integer = CollisionObject2D.DISABLE_MODE_KEEP_ACTIVE
+    If v_DISABLE_MODE_KEEP_ACTIVE = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_CollisionObject2D_DisableMode"
+    Else
+        Print "FAIL:enum_CollisionObject2D_DisableMode count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_CollisionObject2D_DisableMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_DISABLE_MODE_REMOVE As Integer = CollisionObject3D.DISABLE_MODE_REMOVE
+    If v_DISABLE_MODE_REMOVE = 0 Then pass_count = pass_count + 1
+    Dim v_DISABLE_MODE_MAKE_STATIC As Integer = CollisionObject3D.DISABLE_MODE_MAKE_STATIC
+    If v_DISABLE_MODE_MAKE_STATIC = 1 Then pass_count = pass_count + 1
+    Dim v_DISABLE_MODE_KEEP_ACTIVE As Integer = CollisionObject3D.DISABLE_MODE_KEEP_ACTIVE
+    If v_DISABLE_MODE_KEEP_ACTIVE = 2 Then pass_count = pass_count + 1
+    If pass_count = 3 Then
+        Print "PASS:enum_CollisionObject3D_DisableMode"
+    Else
+        Print "FAIL:enum_CollisionObject3D_DisableMode count=" & str(pass_count) & "/3"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_CollisionObject3D_DisableMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_BUILD_SOLIDS As Integer = CollisionPolygon2D.BUILD_SOLIDS
+    If v_BUILD_SOLIDS = 0 Then pass_count = pass_count + 1
+    Dim v_BUILD_SEGMENTS As Integer = CollisionPolygon2D.BUILD_SEGMENTS
+    If v_BUILD_SEGMENTS = 1 Then pass_count = pass_count + 1
+    If pass_count = 2 Then
+        Print "PASS:enum_CollisionPolygon2D_BuildMode"
+    Else
+        Print "FAIL:enum_CollisionPolygon2D_BuildMode count=" & str(pass_count) & "/2"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_CollisionPolygon2D_BuildMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_MODE_RGB As Integer = ColorPicker.MODE_RGB
+    If v_MODE_RGB = 0 Then pass_count = pass_count + 1
+    Dim v_MODE_HSV As Integer = ColorPicker.MODE_HSV
+    If v_MODE_HSV = 1 Then pass_count = pass_count + 1
+    Dim v_MODE_RAW As Integer = ColorPicker.MODE_RAW
+    If v_MODE_RAW = 2 Then pass_count = pass_count + 1
+    Dim v_MODE_LINEAR As Integer = ColorPicker.MODE_LINEAR
+    If v_MODE_LINEAR = 2 Then pass_count = pass_count + 1
+    Dim v_MODE_OKHSL As Integer = ColorPicker.MODE_OKHSL
+    If v_MODE_OKHSL = 3 Then pass_count = pass_count + 1
+    If pass_count = 5 Then
+        Print "PASS:enum_ColorPicker_ColorModeType"
+    Else
+        Print "FAIL:enum_ColorPicker_ColorModeType count=" & str(pass_count) & "/5"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_ColorPicker_ColorModeType err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub

@@ -1,0 +1,157 @@
+Attribute VB_Name = "fuzz_inst_90"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As AudioStreamOggVorbis = AudioStreamOggVorbis.new()
+    If obj <> Null Then
+        Print "PASS:inst_AudioStreamOggVorbis"
+    Else
+        Print "FAIL:inst_AudioStreamOggVorbis returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AudioStreamOggVorbis err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As AudioStreamPlayback = AudioStreamPlayback.new()
+    If obj <> Null Then
+        Print "PASS:inst_AudioStreamPlayback"
+    Else
+        Print "FAIL:inst_AudioStreamPlayback returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AudioStreamPlayback err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As AudioStreamPlaybackOggVorbis = AudioStreamPlaybackOggVorbis.new()
+    If obj <> Null Then
+        Print "PASS:inst_AudioStreamPlaybackOggVorbis"
+    Else
+        Print "FAIL:inst_AudioStreamPlaybackOggVorbis returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AudioStreamPlaybackOggVorbis err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As AudioStreamPlaybackResampled = AudioStreamPlaybackResampled.new()
+    If obj <> Null Then
+        Print "PASS:inst_AudioStreamPlaybackResampled"
+    Else
+        Print "FAIL:inst_AudioStreamPlaybackResampled returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AudioStreamPlaybackResampled err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As AudioStreamPlayer = AudioStreamPlayer.new()
+    If obj <> Null Then
+        Print "PASS:inst_AudioStreamPlayer"
+        obj.free()
+    Else
+        Print "FAIL:inst_AudioStreamPlayer returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AudioStreamPlayer err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As AudioStreamPlayer2D = AudioStreamPlayer2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_AudioStreamPlayer2D"
+        obj.free()
+    Else
+        Print "FAIL:inst_AudioStreamPlayer2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AudioStreamPlayer2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As AudioStreamPlayer3D = AudioStreamPlayer3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_AudioStreamPlayer3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_AudioStreamPlayer3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AudioStreamPlayer3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As AudioStreamPlaylist = AudioStreamPlaylist.new()
+    If obj <> Null Then
+        Print "PASS:inst_AudioStreamPlaylist"
+    Else
+        Print "FAIL:inst_AudioStreamPlaylist returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AudioStreamPlaylist err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As AudioStreamPolyphonic = AudioStreamPolyphonic.new()
+    If obj <> Null Then
+        Print "PASS:inst_AudioStreamPolyphonic"
+    Else
+        Print "FAIL:inst_AudioStreamPolyphonic returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AudioStreamPolyphonic err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As AudioStreamRandomizer = AudioStreamRandomizer.new()
+    If obj <> Null Then
+        Print "PASS:inst_AudioStreamRandomizer"
+    Else
+        Print "FAIL:inst_AudioStreamRandomizer returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_AudioStreamRandomizer err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

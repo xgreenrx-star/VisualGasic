@@ -1,0 +1,158 @@
+Attribute VB_Name = "fuzz_inst_130"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As CameraTexture = CameraTexture.new()
+    If obj <> Null Then
+        Print "PASS:inst_CameraTexture"
+    Else
+        Print "FAIL:inst_CameraTexture returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_CameraTexture err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As CanvasGroup = CanvasGroup.new()
+    If obj <> Null Then
+        Print "PASS:inst_CanvasGroup"
+        obj.free()
+    Else
+        Print "FAIL:inst_CanvasGroup returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_CanvasGroup err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As CanvasItemMaterial = CanvasItemMaterial.new()
+    If obj <> Null Then
+        Print "PASS:inst_CanvasItemMaterial"
+    Else
+        Print "FAIL:inst_CanvasItemMaterial returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_CanvasItemMaterial err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As CanvasLayer = CanvasLayer.new()
+    If obj <> Null Then
+        Print "PASS:inst_CanvasLayer"
+        obj.free()
+    Else
+        Print "FAIL:inst_CanvasLayer returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_CanvasLayer err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As CanvasModulate = CanvasModulate.new()
+    If obj <> Null Then
+        Print "PASS:inst_CanvasModulate"
+        obj.free()
+    Else
+        Print "FAIL:inst_CanvasModulate returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_CanvasModulate err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As CanvasTexture = CanvasTexture.new()
+    If obj <> Null Then
+        Print "PASS:inst_CanvasTexture"
+    Else
+        Print "FAIL:inst_CanvasTexture returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_CanvasTexture err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As CapsuleMesh = CapsuleMesh.new()
+    If obj <> Null Then
+        Print "PASS:inst_CapsuleMesh"
+    Else
+        Print "FAIL:inst_CapsuleMesh returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_CapsuleMesh err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As CapsuleShape2D = CapsuleShape2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_CapsuleShape2D"
+    Else
+        Print "FAIL:inst_CapsuleShape2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_CapsuleShape2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As CapsuleShape3D = CapsuleShape3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_CapsuleShape3D"
+    Else
+        Print "FAIL:inst_CapsuleShape3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_CapsuleShape3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As CenterContainer = CenterContainer.new()
+    If obj <> Null Then
+        Print "PASS:inst_CenterContainer"
+        obj.free()
+    Else
+        Print "FAIL:inst_CenterContainer returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_CenterContainer err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

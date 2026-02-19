@@ -1,0 +1,158 @@
+Attribute VB_Name = "fuzz_inst_310"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim obj As MeshInstance2D = MeshInstance2D.new()
+    If obj <> Null Then
+        Print "PASS:inst_MeshInstance2D"
+        obj.free()
+    Else
+        Print "FAIL:inst_MeshInstance2D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_MeshInstance2D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim obj As MeshInstance3D = MeshInstance3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_MeshInstance3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_MeshInstance3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_MeshInstance3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim obj As MeshLibrary = MeshLibrary.new()
+    If obj <> Null Then
+        Print "PASS:inst_MeshLibrary"
+    Else
+        Print "FAIL:inst_MeshLibrary returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_MeshLibrary err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim obj As MeshTexture = MeshTexture.new()
+    If obj <> Null Then
+        Print "PASS:inst_MeshTexture"
+    Else
+        Print "FAIL:inst_MeshTexture returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_MeshTexture err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim obj As MissingNode = MissingNode.new()
+    If obj <> Null Then
+        Print "PASS:inst_MissingNode"
+        obj.free()
+    Else
+        Print "FAIL:inst_MissingNode returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_MissingNode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim obj As MissingResource = MissingResource.new()
+    If obj <> Null Then
+        Print "PASS:inst_MissingResource"
+    Else
+        Print "FAIL:inst_MissingResource returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_MissingResource err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest6()
+    On Error Resume Next
+    Dim obj As MobileVRInterface = MobileVRInterface.new()
+    If obj <> Null Then
+        Print "PASS:inst_MobileVRInterface"
+    Else
+        Print "FAIL:inst_MobileVRInterface returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_MobileVRInterface err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest7()
+    On Error Resume Next
+    Dim obj As ModifierBoneTarget3D = ModifierBoneTarget3D.new()
+    If obj <> Null Then
+        Print "PASS:inst_ModifierBoneTarget3D"
+        obj.free()
+    Else
+        Print "FAIL:inst_ModifierBoneTarget3D returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_ModifierBoneTarget3D err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest8()
+    On Error Resume Next
+    Dim obj As MovieWriter = MovieWriter.new()
+    If obj <> Null Then
+        Print "PASS:inst_MovieWriter"
+    Else
+        Print "FAIL:inst_MovieWriter returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_MovieWriter err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest9()
+    On Error Resume Next
+    Dim obj As MultiMesh = MultiMesh.new()
+    If obj <> Null Then
+        Print "PASS:inst_MultiMesh"
+    Else
+        Print "FAIL:inst_MultiMesh returned null"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:inst_MultiMesh err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+    RunTest6()
+    RunTest7()
+    RunTest8()
+    RunTest9()
+End Sub

@@ -1,0 +1,152 @@
+Attribute VB_Name = "fuzz_enum_1455"
+
+
+Sub RunTest0()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_ACTION_MODE_BUTTON_PRESS As Integer = BaseButton.ACTION_MODE_BUTTON_PRESS
+    If v_ACTION_MODE_BUTTON_PRESS = 0 Then pass_count = pass_count + 1
+    Dim v_ACTION_MODE_BUTTON_RELEASE As Integer = BaseButton.ACTION_MODE_BUTTON_RELEASE
+    If v_ACTION_MODE_BUTTON_RELEASE = 1 Then pass_count = pass_count + 1
+    If pass_count = 2 Then
+        Print "PASS:enum_BaseButton_ActionMode"
+    Else
+        Print "FAIL:enum_BaseButton_ActionMode count=" & str(pass_count) & "/2"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_BaseButton_ActionMode err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest1()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_TEXTURE_ALBEDO As Integer = BaseMaterial3D.TEXTURE_ALBEDO
+    If v_TEXTURE_ALBEDO = 0 Then pass_count = pass_count + 1
+    Dim v_TEXTURE_METALLIC As Integer = BaseMaterial3D.TEXTURE_METALLIC
+    If v_TEXTURE_METALLIC = 1 Then pass_count = pass_count + 1
+    Dim v_TEXTURE_ROUGHNESS As Integer = BaseMaterial3D.TEXTURE_ROUGHNESS
+    If v_TEXTURE_ROUGHNESS = 2 Then pass_count = pass_count + 1
+    Dim v_TEXTURE_EMISSION As Integer = BaseMaterial3D.TEXTURE_EMISSION
+    If v_TEXTURE_EMISSION = 3 Then pass_count = pass_count + 1
+    Dim v_TEXTURE_NORMAL As Integer = BaseMaterial3D.TEXTURE_NORMAL
+    If v_TEXTURE_NORMAL = 4 Then pass_count = pass_count + 1
+    Dim v_TEXTURE_BENT_NORMAL As Integer = BaseMaterial3D.TEXTURE_BENT_NORMAL
+    If v_TEXTURE_BENT_NORMAL = 18 Then pass_count = pass_count + 1
+    Dim v_TEXTURE_RIM As Integer = BaseMaterial3D.TEXTURE_RIM
+    If v_TEXTURE_RIM = 5 Then pass_count = pass_count + 1
+    Dim v_TEXTURE_CLEARCOAT As Integer = BaseMaterial3D.TEXTURE_CLEARCOAT
+    If v_TEXTURE_CLEARCOAT = 6 Then pass_count = pass_count + 1
+    If pass_count = 8 Then
+        Print "PASS:enum_BaseMaterial3D_TextureParam"
+    Else
+        Print "FAIL:enum_BaseMaterial3D_TextureParam count=" & str(pass_count) & "/8"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_BaseMaterial3D_TextureParam err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest2()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_TEXTURE_FILTER_NEAREST As Integer = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+    If v_TEXTURE_FILTER_NEAREST = 0 Then pass_count = pass_count + 1
+    Dim v_TEXTURE_FILTER_LINEAR As Integer = BaseMaterial3D.TEXTURE_FILTER_LINEAR
+    If v_TEXTURE_FILTER_LINEAR = 1 Then pass_count = pass_count + 1
+    Dim v_TEXTURE_FILTER_NEAREST_WITH_MIPMAPS As Integer = BaseMaterial3D.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS
+    If v_TEXTURE_FILTER_NEAREST_WITH_MIPMAPS = 2 Then pass_count = pass_count + 1
+    Dim v_TEXTURE_FILTER_LINEAR_WITH_MIPMAPS As Integer = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+    If v_TEXTURE_FILTER_LINEAR_WITH_MIPMAPS = 3 Then pass_count = pass_count + 1
+    Dim v_TEXTURE_FILTER_NEAREST_WITH_MIPMAPS_ANISOTROPIC As Integer = BaseMaterial3D.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS_ANISOTROPIC
+    If v_TEXTURE_FILTER_NEAREST_WITH_MIPMAPS_ANISOTROPIC = 4 Then pass_count = pass_count + 1
+    Dim v_TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC As Integer = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
+    If v_TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC = 5 Then pass_count = pass_count + 1
+    Dim v_TEXTURE_FILTER_MAX As Integer = BaseMaterial3D.TEXTURE_FILTER_MAX
+    If v_TEXTURE_FILTER_MAX = 6 Then pass_count = pass_count + 1
+    If pass_count = 7 Then
+        Print "PASS:enum_BaseMaterial3D_TextureFilter"
+    Else
+        Print "FAIL:enum_BaseMaterial3D_TextureFilter count=" & str(pass_count) & "/7"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_BaseMaterial3D_TextureFilter err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest3()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_DETAIL_UV_1 As Integer = BaseMaterial3D.DETAIL_UV_1
+    If v_DETAIL_UV_1 = 0 Then pass_count = pass_count + 1
+    Dim v_DETAIL_UV_2 As Integer = BaseMaterial3D.DETAIL_UV_2
+    If v_DETAIL_UV_2 = 1 Then pass_count = pass_count + 1
+    If pass_count = 2 Then
+        Print "PASS:enum_BaseMaterial3D_DetailUV"
+    Else
+        Print "FAIL:enum_BaseMaterial3D_DetailUV count=" & str(pass_count) & "/2"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_BaseMaterial3D_DetailUV err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest4()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_TRANSPARENCY_DISABLED As Integer = BaseMaterial3D.TRANSPARENCY_DISABLED
+    If v_TRANSPARENCY_DISABLED = 0 Then pass_count = pass_count + 1
+    Dim v_TRANSPARENCY_ALPHA As Integer = BaseMaterial3D.TRANSPARENCY_ALPHA
+    If v_TRANSPARENCY_ALPHA = 1 Then pass_count = pass_count + 1
+    Dim v_TRANSPARENCY_ALPHA_SCISSOR As Integer = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
+    If v_TRANSPARENCY_ALPHA_SCISSOR = 2 Then pass_count = pass_count + 1
+    Dim v_TRANSPARENCY_ALPHA_HASH As Integer = BaseMaterial3D.TRANSPARENCY_ALPHA_HASH
+    If v_TRANSPARENCY_ALPHA_HASH = 3 Then pass_count = pass_count + 1
+    Dim v_TRANSPARENCY_ALPHA_DEPTH_PRE_PASS As Integer = BaseMaterial3D.TRANSPARENCY_ALPHA_DEPTH_PRE_PASS
+    If v_TRANSPARENCY_ALPHA_DEPTH_PRE_PASS = 4 Then pass_count = pass_count + 1
+    Dim v_TRANSPARENCY_MAX As Integer = BaseMaterial3D.TRANSPARENCY_MAX
+    If v_TRANSPARENCY_MAX = 5 Then pass_count = pass_count + 1
+    If pass_count = 6 Then
+        Print "PASS:enum_BaseMaterial3D_Transparency"
+    Else
+        Print "FAIL:enum_BaseMaterial3D_Transparency count=" & str(pass_count) & "/6"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_BaseMaterial3D_Transparency err=" & str(Err.Number)
+    End If
+End Sub
+
+
+Sub RunTest5()
+    On Error Resume Next
+    Dim pass_count As Integer = 0
+    Dim v_SHADING_MODE_UNSHADED As Integer = BaseMaterial3D.SHADING_MODE_UNSHADED
+    If v_SHADING_MODE_UNSHADED = 0 Then pass_count = pass_count + 1
+    Dim v_SHADING_MODE_PER_PIXEL As Integer = BaseMaterial3D.SHADING_MODE_PER_PIXEL
+    If v_SHADING_MODE_PER_PIXEL = 1 Then pass_count = pass_count + 1
+    Dim v_SHADING_MODE_PER_VERTEX As Integer = BaseMaterial3D.SHADING_MODE_PER_VERTEX
+    If v_SHADING_MODE_PER_VERTEX = 2 Then pass_count = pass_count + 1
+    Dim v_SHADING_MODE_MAX As Integer = BaseMaterial3D.SHADING_MODE_MAX
+    If v_SHADING_MODE_MAX = 3 Then pass_count = pass_count + 1
+    If pass_count = 4 Then
+        Print "PASS:enum_BaseMaterial3D_ShadingMode"
+    Else
+        Print "FAIL:enum_BaseMaterial3D_ShadingMode count=" & str(pass_count) & "/4"
+    End If
+    If Err.Number <> 0 Then
+        Print "ERROR:enum_BaseMaterial3D_ShadingMode err=" & str(Err.Number)
+    End If
+End Sub
+
+Sub RunTest()
+    RunTest0()
+    RunTest1()
+    RunTest2()
+    RunTest3()
+    RunTest4()
+    RunTest5()
+End Sub
