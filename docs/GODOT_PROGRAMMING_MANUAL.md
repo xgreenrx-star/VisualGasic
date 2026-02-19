@@ -3513,15 +3513,12 @@ Sub _Ready()
     Dim metallic As Integer
     For roughness = 0 To 10
         For metallic = 0 To 10
-            Dim sphere As MeshInstance3D
-            sphere = MeshInstance3D.new()
+            Dim sphere As MeshInstance3D = MeshInstance3D.new()
             sphere.mesh = SphereMesh.new()
-            sphere.position = Vector3(
-                roughness, 0, metallic
-            ) - Vector3(5, 0, 5)
+            ' Center the spheres around the node origin
+            sphere.position = Vector3(roughness, 0, metallic) - Vector3(5, 0, 5)
 
-            Dim material As StandardMaterial3D
-            material = StandardMaterial3D.new()
+            Dim material As StandardMaterial3D = StandardMaterial3D.new()
             material.albedo_color = Color(0.5, 0.5, 0.5)
             material.roughness = roughness * 0.1
             material.metallic = metallic * 0.1
@@ -3541,7 +3538,7 @@ End Sub
 | Concept | GDScript | VisualGasic | Notes |
 |---------|----------|-------------|-------|
 | Constructor | `MeshInstance3D.new()` | `MeshInstance3D.new()` | **Identical** — VG also supports `New MeshInstance3D` |
-| Inferred type | `var sphere := MeshInstance3D.new()` | `Dim sphere As MeshInstance3D` + assign | VG splits declaration and assignment |
+| Typed initializer | `var sphere := MeshInstance3D.new()` | `Dim sphere As MeshInstance3D = MeshInstance3D.new()` | VG uses explicit `Dim … As T = expr` |
 | Range loop | `for roughness in range(11):` | `For roughness = 0 To 10` | VG uses inclusive end bound |
 | Nested loops | Indentation only | `Next` closes each level | VG block structure is explicit |
 | Tool mode | `@tool` (runs in editor) | (not needed for this use case) | VG scripts don't use `@tool` annotation |
@@ -3625,11 +3622,120 @@ End Select
 | Godot API calls | Identical | Identical |
 | Performance | GDScript interpreter | VG bytecode compiler (faster in hot paths) |
 
+### 38.5 Unique Patterns First Seen in This Demo
+
+The Sky Shaders conversion is the most complex port in the demo library and
+introduces several patterns not seen in any earlier conversion:
+
+#### 38.5.1 Class Enum Constants from Any Godot Class
+
+Previous demos only showed `Input.MOUSE_MODE_CAPTURED`. This demo proves that
+VisualGasic handles class enum constants from **any** Godot class:
+
+| GDScript | VisualGasic |
+|----------|-------------|
+| `Sky.PROCESS_MODE_QUALITY` | `Sky.PROCESS_MODE_QUALITY` |
+| `Sky.PROCESS_MODE_INCREMENTAL` | `Sky.PROCESS_MODE_INCREMENTAL` |
+| `Sky.PROCESS_MODE_REALTIME` | `Sky.PROCESS_MODE_REALTIME` |
+| `Sky.RADIANCE_SIZE_32` | `Sky.RADIANCE_SIZE_32` |
+| `Sky.RADIANCE_SIZE_64` | `Sky.RADIANCE_SIZE_64` |
+| `Sky.RADIANCE_SIZE_128` | `Sky.RADIANCE_SIZE_128` |
+
+The syntax is **identical** — no conversion needed. VG resolves these at runtime
+through `ClassDB`.
+
+#### 38.5.2 RefCounted Object Instantiation
+
+`SphereMesh` and `StandardMaterial3D` are **RefCounted** resources, not Nodes.
+This is the first demo that creates resources (not just scene nodes)
+programmatically:
+
+| GDScript | VisualGasic |
+|----------|-------------|
+| `sphere.mesh = SphereMesh.new()` | `sphere.mesh = SphereMesh.new()` |
+| `var material := StandardMaterial3D.new()` | `Dim material As StandardMaterial3D = StandardMaterial3D.new()` |
+
+Under the hood, VG's runtime keeps the `Variant` returned by
+`ClassDB::instantiate()` alive so that RefCounted objects are not prematurely
+freed. Node-derived types (like `MeshInstance3D`) are unaffected because the
+scene tree holds their reference.
+
+#### 38.5.3 Deepest Property Chain (5 Levels)
+
+This demo contains the longest property chain of any VG conversion:
+
+```
+GDScript:     $WorldEnvironment.environment.sky.sky_material.set_shader_parameter(&"cloud_coverage", value)
+VisualGasic:  GetNode("WorldEnvironment").environment.sky.sky_material.set_shader_parameter("cloud_coverage", value)
+```
+
+Both are 5-deep: `node → environment → sky → sky_material → method`. VG
+handles arbitrarily deep chained member access.
+
+#### 38.5.4 `@onready` → Declare + Assign in `_Ready()`
+
+GDScript's `@onready` decorator initializes a variable once the scene tree is
+ready. VG has no decorators, so the pattern becomes two steps:
+
+| GDScript | VisualGasic |
+|----------|-------------|
+| `@onready var desired_fov: float = $YawCamera/Camera3D.fov` | `Dim desired_fov As Single` (module-level) |
+| *(runs automatically)* | `desired_fov = GetNode("YawCamera/Camera3D").fov` (inside `Sub _Ready()`) |
+
+#### 38.5.5 `@tool` Script Removal
+
+The original `spheres.gd` uses `@tool` so the spheres appear in the Godot
+editor viewport. VG scripts don't support `@tool`, so the annotation is simply
+omitted — the spheres are created at game-time only:
+
+| GDScript | VisualGasic |
+|----------|-------------|
+| `@tool` | *(omitted — runs at runtime only)* |
+| `extends Node3D` | `Attribute VB_Name = "Spheres"` |
+
+#### 38.5.6 `&"StringName"` → Plain Strings
+
+GDScript uses the `&` prefix for `StringName` literals (an interned string
+optimization). VG accepts plain strings and handles the conversion to
+`StringName` automatically:
+
+| GDScript | VisualGasic |
+|----------|-------------|
+| `input_event.is_action_pressed(&"toggle_gui")` | `input_event.is_action_pressed("toggle_gui")` |
+| `set_shader_parameter(&"cloud_coverage", val)` | `set_shader_parameter("cloud_coverage", val)` |
+
+No `&` prefix is ever needed in VG.
+
+### 38.6 Complete Conversion Quick-Reference Card
+
+All syntax differences in one table:
+
+| Feature | GDScript | VisualGasic |
+|---------|----------|-------------|
+| Module header | `extends Node3D` | `Attribute VB_Name = "Main"` |
+| Constants | `const MOUSE_SENSITIVITY = 0.001` | `Const MOUSE_SENSITIVITY As Single = 0.001` |
+| Variable decl | `var fov: float` | `Dim fov As Single` |
+| Typed initializer | `var s := MeshInstance3D.new()` | `Dim s As MeshInstance3D = MeshInstance3D.new()` |
+| Node access | `$Panel.visible` | `GetNode("Panel").visible` |
+| Boolean not | `not $Panel.visible` | `Not GetNode("Panel").visible` |
+| For loop | `for r in range(11):` | `For r = 0 To 10` / `Next` |
+| Switch | `match index:` / `0:` | `Select Case index` / `Case 0` / `End Select` |
+| Type check | `event is InputEventMouseMotion` | `TypeOf event Is InputEventMouseMotion` |
+| Format string | `"%.2f×" % (val * 10)` | `"%.2fx" % (val * 10)` |
+| StringName | `&"toggle_gui"` | `"toggle_gui"` |
+| Math builtins | `lerpf()`, `clampf()`, `exp()` | `lerpf()`, `clampf()`, `exp()` (identical) |
+| Class enums | `Sky.PROCESS_MODE_QUALITY` | `Sky.PROCESS_MODE_QUALITY` (identical) |
+| Tool mode | `@tool` | *(not applicable)* |
+| Onready | `@onready var x = $Node.prop` | `Dim x` + assign in `_Ready()` |
+
 > **Key takeaway:** The VisualGasic port of the Sky Shaders demo uses the same
 > Godot API calls as the GDScript original. The only differences are syntactic:
 > `Sub`/`End Sub` vs indentation, `GetNode()` vs `$`, explicit `Dim` declarations,
 > and `Select Case` vs `match`. The scene files, shaders, and textures are
-> shared unchanged between both versions.
+> shared unchanged between both versions. This demo is particularly notable for
+> proving VG handles **class enum constants** from any Godot class, **RefCounted**
+> resource creation, **deep property chains**, and automatic **StringName**
+> conversion — all with zero-friction syntax.
 
 ---
 
