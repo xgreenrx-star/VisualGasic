@@ -22,6 +22,7 @@ func _init():
 	min_size = Vector2i(520, 380)
 	exclusive = false
 	transient = true
+	visible = false
 
 func _ready():
 	# Main layout

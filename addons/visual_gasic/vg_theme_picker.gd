@@ -52,6 +52,7 @@ func _init():
 	min_size = Vector2i(480, 360)
 	exclusive = false
 	transient = true
+	visible = false
 
 func _ready():
 	var root = HBoxContainer.new()
