@@ -2750,8 +2750,24 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                         break;
                     }
                 }
-                // Other initializers with casting are not supported in bytecode yet.
-                compile_ok = false;
+                // General initializer: compile the expression and store to local/global.
+                // Type tracking is already set up by collect_locals pre-pass.
+                {
+                    ValueType vt = VT_UNKNOWN;
+                    if (!s->type_name.is_empty()) {
+                        String t = s->type_name.to_lower();
+                        if (t == "integer" || t == "long") vt = VT_INT;
+                        else if (t == "single" || t == "double") vt = VT_FLOAT;
+                    }
+                    compile_expression(s->initializer);
+                    int slot = get_or_add_local(s->variable_name, vt);
+                    if (slot >= 0) {
+                        emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
+                    } else {
+                        int idx = current_chunk->add_constant(s->variable_name);
+                        emit_bytes(OP_SET_GLOBAL, (uint8_t)idx);
+                    }
+                }
                 break;
             }
 
