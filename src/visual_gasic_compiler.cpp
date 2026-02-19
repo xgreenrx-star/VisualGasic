@@ -269,6 +269,22 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
     non_local_names.insert("godot");
     non_local_names.insert("me");
     non_local_names.insert("super");
+    // Godot engine singletons — must route through OP_GET_GLOBAL so the
+    // VM can resolve them via Engine::get_singleton() at runtime.
+    static const char *godot_singletons[] = {
+        "engine", "os", "time", "resourceloader", "resourcesaver",
+        "audioserver", "displayserver", "inputmap", "classdb",
+        "projectsettings", "performance", "renderingserver",
+        "physicsserver2d", "physicsserver3d", "navigationserver2d",
+        "navigationserver3d", "cameraserver", "themedb",
+        "translationserver", "ip", "geometry2d", "geometry3d",
+        "marshalls", "resourceuid", "textservermanager",
+        "workerthreadpool", "enginedebugger", "nativemenu",
+        "gdextensionmanager", "xrserver", nullptr
+    };
+    for (const char **s = godot_singletons; *s; ++s) {
+        non_local_names.insert(*s);
+    }
 
     for (int i = 0; i < sub->parameters.size(); i++) {
         non_local_names.insert(sub->parameters[i].name.to_lower());
