@@ -1192,9 +1192,79 @@ End Sub
 
 ---
 
+---
+
+## Godot Singleton Access
+
+All 37 registered Godot engine singletons are accessible directly by name. You can call any method on them:
+
+### Engine
+```vb
+Dim fps As Integer = Engine.get_frames_per_second()
+Dim physTicks As Integer = Engine.get_physics_ticks_per_second()
+Dim isEditor As Boolean = Engine.is_editor_hint()
+Dim interpFrac As Double = Engine.get_physics_interpolation_fraction()
+```
+
+### OS
+```vb
+Dim osName As String = OS.get_name()           ' e.g. "Linux", "Windows"
+Dim cpus As Integer = OS.get_processor_count()
+Dim cpuName As String = OS.get_processor_name()
+Dim memUsage As Integer = OS.get_static_memory_usage()
+Dim isDebug As Boolean = OS.is_debug_build()
+```
+
+### Time
+```vb
+Dim ms As Integer = Time.get_ticks_msec()
+Dim us As Integer = Time.get_ticks_usec()
+Dim unix As Double = Time.get_unix_time_from_system()
+```
+
+### DisplayServer
+```vb
+Dim name As String = DisplayServer.get_name()
+Dim isSpeaking As Boolean = DisplayServer.tts_is_speaking()
+```
+
+### AudioServer
+```vb
+Dim buses As Integer = AudioServer.get_bus_count()
+Dim rate As Double = AudioServer.get_mix_rate()
+Dim speed As Double = AudioServer.get_playback_speed_scale()
+```
+
+> **Note:** `Input` and `Godot` (alias for Engine) also work as singletons, along with `ResourceLoader`, `ResourceSaver`, `ProjectSettings`, `RenderingServer`, `PhysicsServer2D`, `PhysicsServer3D`, `NavigationServer2D`, `NavigationServer3D`, `ClassDB`, `Performance`, `IP`, `Geometry2D`, `Geometry3D`, `ThemeDB`, `TranslationServer`, `Marshalls`, and more.
+
+---
+
+## Godot Class Enum Constants
+
+Access any Godot class enum constant using `ClassName.CONSTANT_NAME`:
+
+```vb
+' File modes
+Dim mode As Integer = FileAccess.READ            ' 1
+Dim rw As Integer = FileAccess.READ_WRITE        ' 3
+
+' Input mouse modes
+Dim captured As Integer = Input.MOUSE_MODE_CAPTURED  ' 2
+
+' Compression modes
+Dim zstd As Integer = FileAccess.COMPRESSION_ZSTD   ' 2
+
+' Node process modes
+Dim always As Integer = Node.PROCESS_MODE_ALWAYS     ' 1
+```
+
+Constants whose names happen to be VG keywords (e.g., `READ`, `WRITE`) are handled automatically.
+
+---
+
 ## Summary
 
-VisualGasic now includes **60+ Godot-specific functions** covering:
+VisualGasic now includes **60+ Godot-specific functions** plus universal singleton and enum access:
 - ✅ Scene/Node Management (8 functions)
 - ✅ Input Functions (8 functions)
 - ✅ Timing Functions (2 functions)
@@ -1206,5 +1276,7 @@ VisualGasic now includes **60+ Godot-specific functions** covering:
 - ✅ Engine Info (3 functions)
 - ✅ Math Helpers (5 functions)
 - ✅ Rendering (4 functions)
+- ✅ **Singleton Access** — All 37 Godot singletons (Engine, OS, Time, Input, etc.)
+- ✅ **Enum Constants** — ClassName.CONSTANT_NAME for all Godot class enums
 
 These functions provide seamless integration between VB6-style syntax and Godot 4's powerful game engine features!

@@ -132,6 +132,28 @@ Print "FPS: " & GetFPS()
 - `GetEngineVersion()` - Engine version info
 - `QueueFree()` - Queue node for deletion
 
+### Singletons (Direct Access)
+- `Engine.get_frames_per_second()` - FPS via singleton
+- `Engine.is_editor_hint()` - Editor check via singleton
+- `OS.get_name()` - OS name ("Linux", "Windows")
+- `OS.get_processor_count()` - CPU count
+- `OS.is_debug_build()` - Debug build check
+- `Time.get_ticks_msec()` - Milliseconds since start
+- `Time.get_ticks_usec()` - Microseconds since start
+- `DisplayServer.get_name()` - Display server name
+- `AudioServer.get_bus_count()` - Audio bus count
+- `AudioServer.get_mix_rate()` - Audio mix rate
+
+> All 37 Godot singletons accessible by name.
+
+### Enum Constants
+- `FileAccess.READ` / `FileAccess.WRITE` / `FileAccess.READ_WRITE`
+- `Input.MOUSE_MODE_CAPTURED` / `Input.MOUSE_MODE_VISIBLE`
+- `Node.PROCESS_MODE_ALWAYS` / `Node.PROCESS_MODE_INHERIT`
+- `Sky.PROCESS_MODE_QUALITY` / `Sky.PROCESS_MODE_REALTIME`
+
+> Syntax: `ClassName.CONSTANT_NAME` for any Godot class.
+
 ---
 
 ## 🎯 Common Patterns
@@ -340,5 +362,16 @@ End Sub
 ```
 
 ---
+
+### 💡 Tips
+
+- Use `On Error Resume Next` to safely call methods on objects that may be `Nothing`:
+  ```vb
+  On Error Resume Next
+  Dim val = optionalObj.GetValue()
+  If Err.Number <> 0 Then Err.Clear
+  ```
+- All 37 Godot singletons (Engine, OS, Time, etc.) are accessible directly by name
+- Enum constants like `FileAccess.READ` work even when the constant name matches a VG keyword
 
 For complete documentation, see **GODOT_FUNCTIONS_REFERENCE.md**

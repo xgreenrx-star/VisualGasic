@@ -44,6 +44,8 @@
 ### **Game Development**
 - **Entity Component System** - High-performance ECS with archetype optimization
 - **Godot Integration** - Native scene tree synchronization and node management
+- **Godot Singleton Access** - All 37 engine singletons (Engine, OS, Time, Input, DisplayServer, AudioServer, etc.)
+- **Godot Enum Constants** - `ClassName.CONSTANT_NAME` for all class enums with keyword-safe resolution
 - **Built-in Components** - Transform, Velocity, Render, and custom component support
 
 ## 📁 **Project Structure**
@@ -230,7 +232,21 @@ See the [demos/](demos/) directory for source code.
 - **Memory Profiling** - Built-in leak detection and analysis
 
 ## 🧪 **Testing & Bytecode Regression**
+### ClassDB Fuzzer — 2421 Tests, 0 Failures
 
+The automated ClassDB fuzzer generates and runs **2421 tests** across 210 `.vg` files covering:
+- Class instantiation (854 Godot classes)
+- Property get/set, enum constants
+- Zero-arg method calls, setter methods
+- Inheritance chain verification, With blocks
+- TypeOf/Is operators, singleton method calls
+- VG language features (For Each, error handling, string/vector ops)
+
+```bash
+python3 tools/classdb_fuzzer.py --run   # Generate + run all 2421 tests
+```
+
+### Bytecode Regression Harness
 Use the regression harness in [Makefile.tests](Makefile.tests) to keep builds, tests, and benchmarks reproducible:
 
 ```bash

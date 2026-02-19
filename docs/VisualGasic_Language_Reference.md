@@ -1675,6 +1675,35 @@ ErrorHandler:
     Resume Next
 ```
 
+#### On Error Resume Next
+
+`On Error Resume Next` catches runtime errors inline without jumping to a handler. This includes **method calls on Null objects** — a common scenario with optional object references:
+
+```vb
+Sub SafeProcess()
+    On Error Resume Next
+    
+    Dim obj As Variant = Nothing
+    
+    ' This would normally crash — but On Error Resume Next catches it
+    Dim result As Variant = obj.SomeMethod()
+    
+    ' Check if an error occurred
+    If Err.Number <> 0 Then
+        Print "Error caught: " & Err.Description
+        Err.Clear
+    End If
+    
+    ' Execution continues safely
+    Print "Continuing after error"
+End Sub
+```
+
+The `Err` object provides:
+- `Err.Number` — Error code (0 = no error)
+- `Err.Description` — Human-readable error message
+- `Err.Clear` — Reset the error state
+
 ---
 
 ## Procedures and Functions
@@ -2547,6 +2576,63 @@ Dim scene = Load("res://enemies/Goblin.tscn")
 Dim enemy = scene.Instantiate()
 AddChild(enemy)
 ```
+
+### Godot Singleton Access
+
+VisualGasic provides **universal access to all 37 Godot engine singletons** directly by name. Any registered Godot singleton can be used without imports or special setup:
+
+```vb
+' Engine singleton — performance monitoring
+Dim fps As Integer = Engine.get_frames_per_second()
+Dim physTicks As Integer = Engine.get_physics_ticks_per_second()
+Dim isEditor As Boolean = Engine.is_editor_hint()
+
+' OS singleton — system information
+Dim osName As String = OS.get_name()
+Dim cpuCount As Integer = OS.get_processor_count()
+Dim cpuName As String = OS.get_processor_name()
+Dim isDebug As Boolean = OS.is_debug_build()
+
+' Time singleton — timing
+Dim ms As Integer = Time.get_ticks_msec()
+Dim us As Integer = Time.get_ticks_usec()
+Dim unixTime As Double = Time.get_unix_time_from_system()
+
+' Input singleton — input state
+Dim mouseMode As Integer = Input.get_mouse_mode()
+Dim joypads As Variant = Input.get_connected_joypads()
+
+' DisplayServer — display info
+Dim displayName As String = DisplayServer.get_name()
+
+' AudioServer — audio info
+Dim busCount As Integer = AudioServer.get_bus_count()
+Dim mixRate As Double = AudioServer.get_mix_rate()
+```
+
+All 37 Godot singletons are supported, including `Engine`, `OS`, `Time`, `Input`, `DisplayServer`, `AudioServer`, `RenderingServer`, `PhysicsServer2D`, `PhysicsServer3D`, `NavigationServer2D`, `NavigationServer3D`, `ProjectSettings`, `ResourceLoader`, `ResourceSaver`, `ClassDB`, `Performance`, `IP`, `Geometry2D`, `Geometry3D`, `ThemeDB`, `TranslationServer`, `Marshalls`, and more.
+
+### Godot Class Enum Constants
+
+Access Godot class enum constants using `ClassName.CONSTANT_NAME` syntax:
+
+```vb
+' FileAccess mode flags
+Dim mode As Integer = FileAccess.READ          ' = 1
+Dim rw As Integer = FileAccess.READ_WRITE      ' = 3
+
+' Input mouse modes
+Dim captured As Integer = Input.MOUSE_MODE_CAPTURED  ' = 2
+
+' Sky processing modes
+Dim quality As Integer = Sky.PROCESS_MODE_QUALITY    ' = 1
+
+' Node process modes
+Dim inherit As Integer = Node.PROCESS_MODE_INHERIT   ' = 0
+Dim always As Integer = Node.PROCESS_MODE_ALWAYS     ' = 1
+```
+
+Enum constants work with all Godot classes, including constants whose names match VG keywords (e.g., `FileAccess.READ` and `FileAccess.WRITE` work correctly even though `Read` and `Write` are VG keywords).
 
 ### Event-Driven Programming with Whenever
 

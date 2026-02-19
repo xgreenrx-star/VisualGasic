@@ -81,6 +81,10 @@ All documentation is organized in [docs/DOCUMENTATION_INDEX.md](docs/DOCUMENTATI
 - ✅ Godot integration
 - ✅ Form designer
 - ✅ Performance optimization
+- ✅ **Universal Godot singleton access** — All 37 singletons (Engine, OS, Time, etc.)
+- ✅ **Godot class enum constants** — ClassName.CONSTANT_NAME with keyword-safe resolution
+- ✅ **Null method call protection** — On Error Resume Next catches .method() on Null
+- ✅ **ClassDB fuzzer: 2421 PASS / 0 FAIL / 0 ERRORS** across 210 test files
 - ✅ **Native compiler: 39 tests across 4 batches**
   - Batch 1: Select Case, For Each, Object Method Calls
   - Batch 2: With...End With, Continue For/Do, GoTo, Try/Catch/Finally
@@ -227,6 +231,21 @@ MIT License - See [LICENSE](LICENSE)
 - GitHub Issues: Bug reports and feature requests
 - Discord: Join our community (see [COMMUNITY_HUB.md](COMMUNITY_HUB.md))
 - Forums: Discussion and support
+
+## Recent Updates (v2.7.0)
+
+### Bug Fixes
+- **Fix method call on Null objects** — On Error Resume Next now catches `.method()` on Null instead of silent failure
+- **Fix enum constants with keyword names** — `FileAccess.READ`, `.WRITE` now resolve correctly (tokenizer keyword normalization + UPPER_CASE fallback)
+- **Fix singleton instantiation crash** — `ProjectSettings.new()` no longer causes SIGILL
+- **Universal Godot singleton resolution** — All 37 singletons accessible by name (Engine, OS, Time, DisplayServer, AudioServer, etc.)
+- **Fix RefCounted object lifetime** — SphereMesh, StandardMaterial3D etc. no longer freed immediately
+- **Fix bytecode singleton resolution** — Input, Godot, Me, Super correctly resolved in bytecode VM
+
+### Testing
+- **ClassDB fuzzer expanded** — 11 test types, 2421 PASS / 0 FAIL / 0 ERRORS across 210 files
+- Test categories: instantiation, property get/set, enum constants, singleton access, method calls, setter calls, inheritance chains, With blocks, TypeOf/Is, singleton methods, VG language features
+- 34 Godot engine-level warnings properly separated from VG errors
 
 ## Credits
 
