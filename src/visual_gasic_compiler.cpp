@@ -262,6 +262,14 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
     non_local_names.insert(sub->name.to_lower());
     used_vars.insert(sub->name.to_lower());
 
+    // Keywords and singletons must always go through OP_GET_GLOBAL
+    // so the VM's special resolution (Input singleton, Me/Super owner,
+    // Godot engine, child-node search, etc.) is used.
+    non_local_names.insert("input");
+    non_local_names.insert("godot");
+    non_local_names.insert("me");
+    non_local_names.insert("super");
+
     for (int i = 0; i < sub->parameters.size(); i++) {
         non_local_names.insert(sub->parameters[i].name.to_lower());
         // Register ParamArray parameters as array variables for proper subscript handling
