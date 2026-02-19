@@ -1182,10 +1182,28 @@ def run_and_parse(godot_bin, verbose=False):
     passed = []
     failed = []
     errors = []
+    godot_warns = []
     skipped = []
     load_fails = []
     unsupported_ops = []
     fallbacks = []
+
+    # Known Godot engine validation patterns — not VG bugs.
+    # These are Godot's own error/warning messages triggered by edge-case API
+    # calls (empty containers, orientation constraints, physics without space, etc.).
+    GODOT_ENGINE_PATTERNS = [
+        "Can't change orientation",
+        "out of bounds",
+        "is null",
+        "Condition \"",
+        "Collision layer number",
+        "size cannot be smaller",
+        "RID allocations of type",
+        "PagedAllocator",
+        "Error calling method from",
+        "No loader found for resource",
+        "Must use a valid extension",
+    ]
 
     for line in all_lines:
         s = line.strip()
@@ -1194,7 +1212,17 @@ def run_and_parse(godot_bin, verbose=False):
         elif s.startswith("FAIL:"):
             failed.append(s[5:])
         elif s.startswith("ERROR:"):
-            errors.append(s[6:])
+            msg = s[6:]
+            # Distinguish VG test errors from Godot engine errors.
+            # VG test output: "ERROR:test_name err=N" (no space after colon)
+            # Godot engine:   "ERROR: validation message"  (space after colon)
+            is_godot_error = msg.startswith(" ") or any(
+                pat in msg for pat in GODOT_ENGINE_PATTERNS
+            )
+            if is_godot_error:
+                godot_warns.append(msg.strip())
+            else:
+                errors.append(msg)
         elif s.startswith("SKIP:"):
             skipped.append(s[5:])
         elif s.startswith("LOAD_FAIL:"):
@@ -1213,7 +1241,8 @@ def run_and_parse(godot_bin, verbose=False):
     print("=" * 64)
     print(f"  ✅ PASSED:          {len(passed)}")
     print(f"  ❌ FAILED:          {len(failed)}")
-    print(f"  💥 ERRORS:          {len(errors)}")
+    print(f"  💥 VG ERRORS:       {len(errors)}")
+    print(f"  ⚠  GODOT WARNINGS:  {len(godot_warns)}  (engine-level, not VG bugs)")
     print(f"  ⏭  SKIPPED:         {len(skipped)}")
     print(f"  📁 LOAD FAILURES:   {len(load_fails)}")
     print(f"  ⚙  UNSUPPORTED OPS: {len(unsupported_ops)}")
@@ -1233,13 +1262,25 @@ def run_and_parse(godot_bin, verbose=False):
 
     if errors:
         cats = _categorize(errors)
-        print("\n💥 ERRORS by category:")
+        print("\n💥 VG ERRORS by category:")
         for cat, items in sorted(cats.items()):
             print(f"  [{cat}] ({len(items)}):")
             for item in items[:10]:
                 print(f"    ✗ {item}")
             if len(items) > 10:
                 print(f"    ... and {len(items) - 10} more")
+
+    if godot_warns:
+        # Deduplicate and count
+        from collections import Counter
+        warn_counts = Counter(godot_warns)
+        unique = len(warn_counts)
+        print(f"\n⚠  GODOT ENGINE WARNINGS ({len(godot_warns)} total, {unique} unique):")
+        for msg, count in warn_counts.most_common(15):
+            suffix = f" (×{count})" if count > 1 else ""
+            print(f"    ⚠ {msg}{suffix}")
+        if unique > 15:
+            print(f"    ... and {unique - 15} more unique warnings")
 
     if unsupported_ops:
         print("\n⚙ UNSUPPORTED OPCODES (bugs in bytecode VM):")
@@ -1262,16 +1303,19 @@ def run_and_parse(godot_bin, verbose=False):
         "passed": len(passed),
         "failed": len(failed),
         "errors": len(errors),
+        "godot_warnings": len(godot_warns),
         "skipped": len(skipped),
         "load_failures": load_fails,
         "failed_tests": failed,
         "error_tests": errors,
+        "godot_warning_tests": godot_warns,
         "unsupported_opcodes": unsupported_ops,
         "ast_fallbacks": fallbacks,
     }
     RESULTS.write_text(json.dumps(results, indent=2))
     print(f"\nFull results → {RESULTS}")
 
+    # Godot warnings are not VG bugs — only fail on actual VG errors
     return len(failed) == 0 and len(errors) == 0 and len(load_fails) == 0
 
 
