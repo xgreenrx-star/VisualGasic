@@ -1865,6 +1865,17 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
 
         // Try Godot ClassDB
         if (ClassDB::class_exists(n->class_name)) {
+             // Guard: singletons like ProjectSettings crash if you
+             // call ClassDB::instantiate() on them.  Return the
+             // existing singleton instead.
+             if (Engine::get_singleton()->has_singleton(n->class_name)) {
+                 Object *s = Engine::get_singleton()->get_singleton(n->class_name);
+                 if (s) return Variant(s);
+                 return Variant();
+             }
+             if (!ClassDB::can_instantiate(n->class_name)) {
+                 return Variant();
+             }
              // Keep as Variant so RefCounted subclasses retain their refcount.
              Variant inst = ClassDB::instantiate(n->class_name);
              if (inst.get_type() == Variant::OBJECT) return inst;
@@ -9040,6 +9051,18 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 }
                 // Godot ClassDB
                 if (ClassDB::class_exists(class_name)) {
+                    // Guard: singletons like ProjectSettings crash if you
+                    // call ClassDB::instantiate() on them.  Return the
+                    // existing singleton instead.
+                    if (Engine::get_singleton()->has_singleton(class_name)) {
+                        Object *s = Engine::get_singleton()->get_singleton(class_name);
+                        push_value(s ? Variant(s) : Variant());
+                        break;
+                    }
+                    if (!ClassDB::can_instantiate(class_name)) {
+                        push_value(Variant());
+                        break;
+                    }
                     // instantiate() returns Variant — keep it as Variant so that
                     // RefCounted subclasses (SphereMesh, StandardMaterial3D, …)
                     // retain their reference count instead of being freed when a

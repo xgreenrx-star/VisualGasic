@@ -1,0 +1,19 @@
+{
+  "timestamp": "2026-02-19T13:18:08.698098",
+  "passed": 1578,
+  "failed": 1,
+  "errors": 4,
+  "skipped": 0,
+  "load_failures": [],
+  "failed_tests": [
+    "enum_FileAccess_ModeFlags count=2/4"
+  ],
+  "error_tests": [
+    " Can't change orientation of HSplitContainer.",
+    " Can't change orientation of VSplitContainer.",
+    " Can't change orientation of HFlowContainer.",
+    " Can't change orientation of VFlowContainer."
+  ],
+  "unsupported_opcodes": [],
+  "ast_fallbacks": []
+}
