@@ -1971,6 +1971,11 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
              if (base_name == "Color") {
                  return Color::named(ma->member_name);
              }
+             // Godot class enum constants: Input.MOUSE_MODE_CAPTURED, Sky.PROCESS_MODE_QUALITY, etc.
+             if (ClassDB::class_exists(base_name) &&
+                 ClassDB::class_has_integer_constant(base_name, ma->member_name)) {
+                 return (int)ClassDB::class_get_integer_constant(base_name, ma->member_name);
+             }
          }
          
          Variant base = evaluate_expression(ma->base_object);
@@ -2083,6 +2088,12 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
                  String snake = prop_name.to_snake_case();
                  val = obj->get(snake);
                  if (val.get_type() != Variant::NIL) return val;
+                 
+                 // Fallback: class integer constants (e.g. Input.MOUSE_MODE_CAPTURED)
+                 StringName cn = obj->get_class();
+                 if (ClassDB::class_has_integer_constant(cn, ma->member_name)) {
+                     return (int)ClassDB::class_get_integer_constant(cn, ma->member_name);
+                 }
              }
          }
          
@@ -9915,7 +9926,22 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         if (!found) {
                             bool stmt_found = false;
                             dispatch_builtin_call(method, args, stmt_found);
-                            call_ret = Variant();
+                            if (!stmt_found && owner) {
+                                // Fallback: try calling the method on the owner node
+                                // (matches AST interpreter's STMT_CALL fallback at end)
+                                if (owner->has_method(method)) {
+                                    call_ret = owner->callv(method, args);
+                                } else {
+                                    String snake = method.to_snake_case();
+                                    if (owner->has_method(snake)) {
+                                        call_ret = owner->callv(snake, args);
+                                    } else {
+                                        call_ret = Variant();
+                                    }
+                                }
+                            } else {
+                                call_ret = Variant();
+                            }
                         }
                     }
                 }
