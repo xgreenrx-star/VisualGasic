@@ -1,0 +1,66 @@
+' ============================================================================
+' GAME - Main Game Controller
+' Converted from official Godot 2D Platformer demo
+' ============================================================================
+' Attached to the root Node of game_singleplayer.tscn.
+' Handles pause toggle and fullscreen toggle via _UnhandledInput.
+'
+' Note: The original GDScript used DisplayServer singleton for fullscreen.
+' VG accesses this via the generic callv dispatch mechanism.
+'
+' The splitscreen mode has been omitted for simplicity — this demo focuses
+' on demonstrating single-player CharacterBody2D gameplay in VisualGasic.
+' ============================================================================
+Attribute VB_Name = "Game"
+
+' --- Node references ---
+Dim pauseMenu As Object         ' PauseMenu (Control) - pause overlay
+
+' ============================================================================
+' INITIALIZATION
+' ============================================================================
+Sub _Ready()
+    ' Get reference to the pause menu via its scene tree path
+    pauseMenu = GetNode("InterfaceLayer/PauseMenu")
+End Sub
+
+' ============================================================================
+' INPUT HANDLING - Pause and Fullscreen toggles
+' ============================================================================
+' _UnhandledInput is called for input events not consumed by GUI or other nodes.
+' This ensures UI buttons don't accidentally trigger game-level input.
+Sub _UnhandledInput(event As Object)
+    ' --- Fullscreen toggle (F11 or Alt+Enter) ---
+    If IsActionJustPressed("toggle_fullscreen") Then
+        ' Toggle between windowed and fullscreen modes
+        Dim vp As Object
+        vp = Me.GetViewport()
+        Dim win As Object
+        win = vp.GetWindow()
+        Dim currentMode As Integer
+        currentMode = win.mode
+        ' Window.MODE_FULLSCREEN = 3, MODE_WINDOWED = 0
+        If currentMode = 3 Or currentMode = 4 Then
+            win.mode = 0     ' Switch to windowed
+        Else
+            win.mode = 3     ' Switch to fullscreen
+        End If
+        vp.SetInputAsHandled()
+        Exit Sub
+    End If
+
+    ' --- Pause toggle (Escape) ---
+    If IsActionJustPressed("toggle_pause") Then
+        Dim tree As Object
+        tree = Me.GetTree()
+        tree.paused = Not tree.paused
+        If tree.paused Then
+            pauseMenu.OpenMenu()
+        Else
+            pauseMenu.CloseMenu()
+        End If
+        Dim vp2 As Object
+        vp2 = Me.GetViewport()
+        vp2.SetInputAsHandled()
+    End If
+End Sub

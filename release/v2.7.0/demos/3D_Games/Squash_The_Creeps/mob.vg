@@ -1,0 +1,109 @@
+' ============================================================================
+' MOB - Enemy Creep for Squash the Creeps 3D (VisualGasic Conversion)
+' Converted from the official Godot demo: godotengine/godot-demo-projects
+' ============================================================================
+' A CharacterBody3D that spawns, faces toward the player with a random offset,
+' then moves in a straight line at a random speed. Gets squashed when the
+' player lands on it from above.
+'
+' Original GDScript: extends CharacterBody3D
+' This script attaches to a CharacterBody3D node in mob.tscn
+' ============================================================================
+Attribute VB_Name = "Mob"
+
+' --- Custom signals ---
+' Emitted when the mob is squashed by the player.
+Event squashed()
+
+' --- Speed range ---
+Const MIN_SPEED As Integer = 10
+Const MAX_SPEED As Integer = 18
+
+' --- Node references ---
+Dim animPlayer As Object
+Dim frameCount As Integer
+
+' ============================================================================
+' INITIALIZATION
+' ============================================================================
+Sub _Ready()
+    animPlayer = GetNode("AnimationPlayer")
+End Sub
+
+' ============================================================================
+' PHYSICS - Just move forward (velocity set in initialize)
+' ============================================================================
+Sub _PhysicsProcess(delta As Single)
+    MoveAndSlide(Me)
+    frameCount = frameCount + 1
+End Sub
+
+' ============================================================================
+' INITIALIZE - Called by Main after spawning
+' ============================================================================
+' Positions the mob at startPosition, facing toward playerPosition with a
+' random angular offset, then sets velocity in that direction.
+Sub initialize(startPosition As Object, playerPosition As Object)
+    ' --- Calculate direction to player (on XZ plane) ---
+    Dim dx As Single
+    Dim dz As Single
+    dx = playerPosition.x - startPosition.x
+    dz = playerPosition.z - startPosition.z
+
+    ' Normalize direction
+    Dim dist As Single
+    dist = Sqr(dx * dx + dz * dz)
+    If dist > 0 Then
+        dx = dx / dist
+        dz = dz / dist
+    End If
+
+    ' --- Random angular offset (-45 to +45 degrees) ---
+    Dim offset As Single
+    offset = (Rnd() - 0.5) * 1.5708
+
+    ' Rotate direction by offset
+    Dim cosO As Single
+    Dim sinO As Single
+    cosO = Cos(offset)
+    sinO = Sin(offset)
+    Dim finalDx As Single
+    Dim finalDz As Single
+    finalDx = dx * cosO - dz * sinO
+    finalDz = dx * sinO + dz * cosO
+
+    ' --- Position and face the movement direction ---
+    Dim ahead As Object
+    ahead = Vector3(startPosition.x + finalDx, startPosition.y, startPosition.z + finalDz)
+    Dim upVec As Object
+    upVec = Vector3(0, 1, 0)
+    Me.LookAtFromPosition(startPosition, ahead, upVec)
+
+    ' --- Random speed ---
+    Dim randomSpeed As Single
+    randomSpeed = MIN_SPEED + Rnd() * (MAX_SPEED - MIN_SPEED)
+
+    ' --- Set velocity in the facing direction ---
+    SetVelocity(Me, finalDx * randomSpeed, 0, finalDz * randomSpeed)
+
+    ' --- Animation speed proportional to movement speed ---
+    animPlayer.set("speed_scale", randomSpeed / MIN_SPEED)
+End Sub
+
+' ============================================================================
+' SQUASH - Called by the player when landing on this mob
+' ============================================================================
+Sub squash()
+    RaiseEvent squashed
+    Me.queue_free()
+End Sub
+
+' --- Signal handler: VisibleOnScreenNotifier3D screen_exited ---
+' Destroys the mob when it leaves the screen to prevent buildup.
+Sub _on_VisibleOnScreenNotifier3D_screen_exited()
+    ' Wait until mob has been alive long enough to enter the camera view.
+    ' Mobs spawning at the screen edge would otherwise flicker and vanish.
+    If frameCount > 120 Then
+        Me.queue_free()
+    End If
+End Sub

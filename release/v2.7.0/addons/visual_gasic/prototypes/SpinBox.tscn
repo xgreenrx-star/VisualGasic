@@ -1,0 +1,10 @@
+[gd_scene format=3]
+
+[node name="SpinBox" type="SpinBox"]
+custom_minimum_size = Vector2(80, 24)
+offset_right = 80.0
+offset_bottom = 24.0
+focus_mode = 2
+min_value = 0.0
+max_value = 100.0
+value = 0.0

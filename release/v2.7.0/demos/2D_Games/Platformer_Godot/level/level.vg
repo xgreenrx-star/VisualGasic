@@ -1,0 +1,45 @@
+' ============================================================================
+' LEVEL - Camera Limit Setup
+' Converted from official Godot 2D Platformer demo
+' ============================================================================
+' Attached to the root Node2D of level.tscn.
+' Sets camera boundaries so the camera doesn't scroll beyond the level edges.
+' Iterates over children to find Player nodes and configures their cameras.
+'
+' Original GDScript: child is Player → replaced with group check.
+' ============================================================================
+Attribute VB_Name = "Level"
+
+' --- Camera boundary constants (match the level geometry) ---
+Const LIMIT_LEFT As Integer = -315
+Const LIMIT_TOP As Integer = -250
+Const LIMIT_RIGHT As Integer = 955
+Const LIMIT_BOTTOM As Integer = 690
+
+' ============================================================================
+' INITIALIZATION - Set camera limits on all player children
+' ============================================================================
+Sub _Ready()
+    ' Iterate through all children of the Level node
+    Dim childCount As Integer
+    childCount = Me.GetChildCount()
+
+    Dim i As Integer
+    For i = 0 To childCount - 1
+        Dim child As Object
+        child = Me.GetChild(i)
+
+        ' Check if this child is a Player (using the "players" group)
+        If child.IsInGroup("players") Then
+            ' Get the player's Camera2D child node
+            Dim cam As Object
+            cam = child.GetNode("Camera")
+
+            ' Set camera boundaries to prevent scrolling beyond level edges
+            cam.limit_left = LIMIT_LEFT
+            cam.limit_top = LIMIT_TOP
+            cam.limit_right = LIMIT_RIGHT
+            cam.limit_bottom = LIMIT_BOTTOM
+        End If
+    Next
+End Sub

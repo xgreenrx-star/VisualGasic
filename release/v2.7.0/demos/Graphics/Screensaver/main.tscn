@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://b0in1bebhgrob"]
+
+[ext_resource type="Script" uid="uid://b6pbfa3vmdq1a" path="res://screensaver.vg" id="1_ss"]
+
+[node name="Main" type="Node2D"]
+script = ExtResource("1_ss")

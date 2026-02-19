@@ -1,0 +1,29 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
+config_version=5
+
+[application]
+
+config/name="High Score Table - VisualGasic Demo"
+config/description="DATA statement demo with high scores"
+run/main_scene="res://main.tscn"
+config/features=PackedStringArray("4.5", "Forward Plus")
+
+[autoload]
+
+VGDebugHandler="*res://addons/visual_gasic/vg_debug_handler.gd"
+
+[display]
+
+window/size/viewport_width=640
+window/size/viewport_height=480
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/visual_gasic/plugin.cfg")

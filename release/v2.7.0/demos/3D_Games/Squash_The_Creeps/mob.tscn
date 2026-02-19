@@ -1,0 +1,62 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://mob.vg" id="1"]
+
+[sub_resource type="BoxShape3D" id="mob_shape"]
+size = Vector3(1.4, 1.1, 2.2)
+
+[sub_resource type="StandardMaterial3D" id="mob_mat"]
+albedo_color = Color(0.06, 0.27, 0.49, 1.0)
+roughness = 0.43
+
+[sub_resource type="BoxMesh" id="mob_mesh"]
+size = Vector3(1.4, 1.1, 2.2)
+material = SubResource("mob_mat")
+
+[sub_resource type="Animation" id="anim_float"]
+resource_name = "float"
+length = 1.2
+loop_mode = 1
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("Pivot/MeshInstance3D:position")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0.22, 0.7, 1.18),
+"transitions": PackedFloat32Array(0.44, 2.2, 1),
+"update": 0,
+"values": [Vector3(0, 0.33, 0), Vector3(0, 0.66, 0), Vector3(0, 0.35, 0)]
+}
+
+[sub_resource type="AnimationLibrary" id="anim_lib"]
+_data = {
+&"float": SubResource("anim_float")
+}
+
+[node name="Mob" type="CharacterBody3D" groups=["mob"]]
+collision_layer = 2
+collision_mask = 4
+script = ExtResource("1")
+
+[node name="Pivot" type="Node3D" parent="."]
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Pivot"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.35, 0)
+mesh = SubResource("mob_mesh")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.55, 0)
+shape = SubResource("mob_shape")
+
+[node name="VisibleOnScreenNotifier3D" type="VisibleOnScreenNotifier3D" parent="."]
+aabb = AABB(-1.2, 0.0, -1.6, 2.4, 1.1, 3.2)
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="."]
+libraries = {
+&"": SubResource("anim_lib")
+}
+autoplay = "float"
+
+[connection signal="screen_exited" from="VisibleOnScreenNotifier3D" to="." method="_on_VisibleOnScreenNotifier3D_screen_exited"]
