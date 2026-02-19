@@ -1865,8 +1865,9 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
 
         // Try Godot ClassDB
         if (ClassDB::class_exists(n->class_name)) {
-             Object* obj = ClassDB::instantiate(n->class_name);
-             if (obj) return obj;
+             // Keep as Variant so RefCounted subclasses retain their refcount.
+             Variant inst = ClassDB::instantiate(n->class_name);
+             if (inst.get_type() == Variant::OBJECT) return inst;
         }
 
         return Variant(); 
@@ -2538,9 +2539,10 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
                 // e.g. Label.new(), MeshInstance3D.new(), StandardMaterial3D.new()
                 if (call->method_name.nocasecmp_to("new") == 0 && ClassDB::class_exists(var_name)) {
                     if (ClassDB::can_instantiate(var_name)) {
-                        Object *obj = ClassDB::instantiate(var_name);
-                        if (obj) {
-                            return obj;
+                        // Keep as Variant so RefCounted subclasses retain their refcount.
+                        Variant inst = ClassDB::instantiate(var_name);
+                        if (inst.get_type() == Variant::OBJECT) {
+                            return inst;
                         }
                     }
                     return Variant();
@@ -9038,9 +9040,13 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 }
                 // Godot ClassDB
                 if (ClassDB::class_exists(class_name)) {
-                    Object* obj = ClassDB::instantiate(class_name);
-                    if (obj) {
-                        push_value(obj);
+                    // instantiate() returns Variant — keep it as Variant so that
+                    // RefCounted subclasses (SphereMesh, StandardMaterial3D, …)
+                    // retain their reference count instead of being freed when a
+                    // temporary Object* goes out of scope.
+                    Variant inst = ClassDB::instantiate(class_name);
+                    if (inst.get_type() == Variant::OBJECT) {
+                        push_value(inst);
                         break;
                     }
                 }
