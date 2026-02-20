@@ -81,6 +81,8 @@ func SetFocus() -> void:
 # =============================================================================
 
 func _ready() -> void:
+	if Engine.is_editor_hint():
+		return
 	if not pressed.is_connected(_on_pressed):
 		pressed.connect(_on_pressed)
 

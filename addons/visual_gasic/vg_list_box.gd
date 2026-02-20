@@ -161,10 +161,11 @@ func Selected(index: int) -> bool:
 # =============================================================================
 
 func _ready() -> void:
-	if not item_clicked.is_connected(_on_item_clicked):
-		item_clicked.connect(_on_item_clicked)
-	if not item_activated.is_connected(_on_item_activated):
-		item_activated.connect(_on_item_activated)
+	if not Engine.is_editor_hint():
+		if not item_clicked.is_connected(_on_item_clicked):
+			item_clicked.connect(_on_item_clicked)
+		if not item_activated.is_connected(_on_item_activated):
+			item_activated.connect(_on_item_activated)
 	_load_design_time_list()
 
 func _load_design_time_list() -> void:

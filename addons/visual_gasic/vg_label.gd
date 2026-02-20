@@ -98,10 +98,14 @@ var Caption: String:
 # =============================================================================
 
 func _ready() -> void:
-	mouse_filter = Control.MOUSE_FILTER_STOP  # Allow click events
+	# Only handle mouse events at runtime — not in the editor
+	if not Engine.is_editor_hint():
+		mouse_filter = Control.MOUSE_FILTER_STOP
 	_update_label_style()
 
 func _gui_input(event: InputEvent) -> void:
+	if Engine.is_editor_hint():
+		return
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		var now := Time.get_ticks_msec()
 		if now - _last_click_time < 400:

@@ -88,6 +88,8 @@ func SetFocus() -> void:
 # =============================================================================
 
 func _ready() -> void:
+	if Engine.is_editor_hint():
+		return
 	if not toggled.is_connected(_on_toggled):
 		toggled.connect(_on_toggled)
 

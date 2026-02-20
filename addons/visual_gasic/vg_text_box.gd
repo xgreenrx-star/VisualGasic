@@ -71,9 +71,9 @@ var MaxLength: int:
 	set(v):
 		_alignment_vb = v
 		match v:
-			0: horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-			1: horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-			2: horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			0: alignment = HORIZONTAL_ALIGNMENT_LEFT
+			1: alignment = HORIZONTAL_ALIGNMENT_RIGHT
+			2: alignment = HORIZONTAL_ALIGNMENT_CENTER
 
 ## SelStart — caret position / start of selection (VB6 convention).
 var SelStart: int:
@@ -110,8 +110,6 @@ var SelText: String:
 			return text.substr(from, to - from)
 		return ""
 	set(v):
-		if has_selection():
-			delete_selection()
 		insert_text_at_caret(v)
 
 ## Tag — general-purpose string storage (VB6 convention).
@@ -136,13 +134,15 @@ func SetFocus() -> void:
 # =============================================================================
 
 func _ready() -> void:
-	select_all_on_focus = true
+	if not Engine.is_editor_hint():
+		select_all_on_focus = true
 	if not text_changed.is_connected(_on_text_changed):
 		text_changed.connect(_on_text_changed)
-	if not focus_entered.is_connected(_on_focus_entered):
-		focus_entered.connect(_on_focus_entered)
-	if not focus_exited.is_connected(_on_focus_exited):
-		focus_exited.connect(_on_focus_exited)
+	if not Engine.is_editor_hint():
+		if not focus_entered.is_connected(_on_focus_entered):
+			focus_entered.connect(_on_focus_entered)
+		if not focus_exited.is_connected(_on_focus_exited):
+			focus_exited.connect(_on_focus_exited)
 
 func _on_text_changed(new_text: String) -> void:
 	Change.emit(new_text)

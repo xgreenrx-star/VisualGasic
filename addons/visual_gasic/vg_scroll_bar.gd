@@ -82,10 +82,11 @@ func SetFocus() -> void:
 func _ready() -> void:
 	step = _small_change
 	page = _large_change
-	if not value_changed.is_connected(_on_value_changed):
-		value_changed.connect(_on_value_changed)
-	if not scrolling.is_connected(_on_scrolling):
-		scrolling.connect(_on_scrolling)
+	if not Engine.is_editor_hint():
+		if not value_changed.is_connected(_on_value_changed):
+			value_changed.connect(_on_value_changed)
+		if not scrolling.is_connected(_on_scrolling):
+			scrolling.connect(_on_scrolling)
 
 func _on_value_changed(_val: float) -> void:
 	Change.emit()

@@ -38,7 +38,7 @@ var _enabled: bool = true
 		_interval_ms = maxi(v, 0)
 		if _interval_ms > 0:
 			wait_time = _interval_ms / 1000.0
-		if is_inside_tree():
+		if is_inside_tree() and not Engine.is_editor_hint():
 			if _interval_ms > 0 and _enabled:
 				start()
 			else:
@@ -50,7 +50,7 @@ var Enabled: bool:
 	get: return _enabled
 	set(v):
 		_enabled = v
-		if is_inside_tree():
+		if is_inside_tree() and not Engine.is_editor_hint():
 			if _enabled and _interval_ms > 0:
 				start()
 			else:
@@ -69,7 +69,7 @@ func _ready() -> void:
 		timeout.connect(_on_timeout)
 	if _interval_ms > 0:
 		wait_time = _interval_ms / 1000.0
-	if _enabled and _interval_ms > 0:
+	if not Engine.is_editor_hint() and _enabled and _interval_ms > 0:
 		start()
 
 func _on_timeout() -> void:
