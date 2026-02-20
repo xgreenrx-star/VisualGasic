@@ -1,42 +1,275 @@
 @tool
 extends HBoxContainer
-## VGComboBox — VB6-style ComboBox: LineEdit + ▼ Button + popup ItemList.
-## Drop-in replacement for OptionButton with per-item color and type-ahead scrolling.
+## VGComboBox — VB6-faithful ComboBox control.
 ##
-## VB6 ComboBox behaviour:
-##   • Click ▼ or press Down arrow → open dropdown
-##   • Type text → scroll to first matching item (prefix, case-insensitive)
-##   • Single-click or Enter → commit selection, close dropdown
-##   • Escape → close dropdown, restore previous text
-##   • Per-item colour via set_item_custom_color() (VB6 bold substitute)
+## Replicates the VB6 ComboBox with all standard properties, methods, events,
+## and three Style modes:
+##   0 = vbComboDropDown   — editable text + dropdown list (default)
+##   1 = vbComboSimple     — editable text + always-visible list
+##   2 = vbComboDropDownList — read-only text + dropdown list
+##
+## VB6-compatible API:
+##   Properties: Text, List(i), ListIndex, ListCount, Sorted, Locked,
+##               NewIndex, ItemData(i), Style, Enabled, Tag
+##   Methods:    AddItem, RemoveItem, Clear, SetFocus
+##   Events:     Click (item_selected), Change (text_changed), DropDown
 
+# =============================================================================
+# VB6 Signals (Events)
+# =============================================================================
+
+## Click — fires when the user selects an item (VB6: Click event).
 signal item_selected(index: int)
+
+## Change — fires when the edit text changes (VB6: Change event).
+signal text_changed(new_text: String)
+
+## DropDown — fires when the dropdown list opens (VB6: DropDown event).
+signal dropdown_opened()
+
+# =============================================================================
+# Style constants (match VB6)
+# =============================================================================
+
+const vbComboDropDown: int = 0      ## Editable text + dropdown
+const vbComboSimple: int = 1        ## Editable text + always-visible list
+const vbComboDropDownList: int = 2  ## Read-only text + dropdown
+
+# =============================================================================
+# Internal nodes
+# =============================================================================
 
 var _line_edit: LineEdit
 var _arrow_btn: Button
-var _popup: PopupPanel
-var _item_list: ItemList
+var _popup: PopupPanel         # Popup for Style 0 and 2
+var _popup_list: ItemList       # ItemList inside the popup
+var _inline_list: ItemList      # Always-visible list for Style 1
+var _item_list: ItemList        # Points to whichever list is active
 
-var _data: Array = []            # [{text: String, metadata: Variant}]
+# =============================================================================
+# Internal data
+# =============================================================================
+
+var _data: Array = []            # [{text, item_data, metadata}]
 var _selected_idx: int = -1
+var _new_index: int = -1
 var _suppress_text: bool = false
 var _popup_just_closed: bool = false
+var _sorted: bool = false
+var _style: int = vbComboDropDown
+var _locked: bool = false
 
-## Number of items in the dropdown.
+# =============================================================================
+# VB6 Properties
+# =============================================================================
+
+## Style — 0=DropdownCombo, 1=SimpleCombo, 2=DropdownList.
+@export_enum("DropdownCombo:0", "SimpleCombo:1", "DropdownList:2")
+var Style: int = 0:
+	get: return _style
+	set(v):
+		if _style == v:
+			return
+		_style = v
+		_apply_style()
+
+## Text — the text displayed in the edit area.
+var Text: String:
+	get:
+		if _line_edit:
+			return _line_edit.text
+		return ""
+	set(v):
+		if not _line_edit:
+			return
+		if _style == vbComboDropDownList:
+			for i in _data.size():
+				if _data[i]["text"] == v:
+					select(i)
+					return
+		else:
+			_suppress_text = true
+			_line_edit.text = v
+			_suppress_text = false
+
+## ListIndex — index of the selected item (-1 = none).
+var ListIndex: int:
+	get: return _selected_idx
+	set(v): select(v)
+
+## ListCount — number of items (read-only).
+var ListCount: int:
+	get: return _data.size()
+
+## Sorted — keep items in alphabetical order.
+@export var Sorted: bool = false:
+	get: return _sorted
+	set(v):
+		_sorted = v
+		if _sorted and _data.size() > 1:
+			_resort()
+
+## Locked — make the text area read-only (Style 0/1 only).
+@export var Locked: bool = false:
+	get: return _locked
+	set(v):
+		_locked = v
+		if _line_edit:
+			_line_edit.editable = not _locked and _style != vbComboDropDownList
+
+## NewIndex — index of the most recently added item (read-only).
+var NewIndex: int:
+	get: return _new_index
+
+## Tag — general-purpose variant storage (VB6 convention).
+@export var Tag: String = ""
+
+## Enabled — whether the control accepts input.
+var Enabled: bool:
+	get:
+		if _line_edit:
+			return not _line_edit.editable == false and _style == vbComboDropDownList or _line_edit.editable
+		return true
+	set(v):
+		if _line_edit:
+			_line_edit.editable = v and not _locked and _style != vbComboDropDownList
+		if _arrow_btn:
+			_arrow_btn.disabled = not v
+
+# Legacy / code_navigator compat aliases
 var item_count: int:
 	get: return _data.size()
 
-## Index of the currently selected item (-1 if none).
 var selected: int:
 	get: return _selected_idx
+
+# =============================================================================
+# VB6 Methods
+# =============================================================================
+
+## AddItem text [, index] — Insert an item. If Sorted, index is ignored.
+func AddItem(text: String, index: int = -1) -> void:
+	var entry := {"text": text, "item_data": 0, "metadata": null}
+	if _sorted:
+		var pos := _find_sorted_pos(text)
+		_data.insert(pos, entry)
+		_rebuild_item_list()
+		_new_index = pos
+	elif index >= 0 and index <= _data.size():
+		_data.insert(index, entry)
+		_rebuild_item_list()
+		_new_index = index
+	else:
+		_data.append(entry)
+		_item_list.add_item(text)
+		_new_index = _data.size() - 1
+
+## RemoveItem index — Remove the item at index.
+func RemoveItem(index: int) -> void:
+	if index < 0 or index >= _data.size():
+		return
+	_data.remove_at(index)
+	_item_list.remove_item(index)
+	if _selected_idx == index:
+		_selected_idx = -1
+		_suppress_text = true
+		_line_edit.text = ""
+		_suppress_text = false
+	elif _selected_idx > index:
+		_selected_idx -= 1
+
+## Clear — Remove all items and reset.
+func Clear() -> void:
+	_data.clear()
+	_item_list.clear()
+	_selected_idx = -1
+	_new_index = -1
+	_suppress_text = true
+	_line_edit.text = ""
+	_suppress_text = false
+
+## SetFocus — Give keyboard focus to the text area.
+func SetFocus() -> void:
+	if _line_edit:
+		_line_edit.grab_focus()
+
+## List(index) — Get the text of an item.
+func List(index: int) -> String:
+	if index >= 0 and index < _data.size():
+		return _data[index]["text"]
+	return ""
+
+## SetList(index, value) — Set the text of an item.
+func SetList(index: int, value: String) -> void:
+	if index < 0 or index >= _data.size():
+		return
+	_data[index]["text"] = value
+	_item_list.set_item_text(index, value)
+	if index == _selected_idx:
+		_suppress_text = true
+		_line_edit.text = value
+		_suppress_text = false
+	if _sorted:
+		_resort()
+
+## ItemData(index) — Get per-item integer data (VB6 convention).
+func GetItemData(index: int) -> int:
+	if index >= 0 and index < _data.size():
+		return _data[index]["item_data"]
+	return 0
+
+## SetItemData(index, value) — Set per-item integer data.
+func SetItemData(index: int, value: int) -> void:
+	if index >= 0 and index < _data.size():
+		_data[index]["item_data"] = value
+
+# =============================================================================
+# OptionButton / code_navigator compat API
+# =============================================================================
+
+func add_item(text: String, _id: int = -1) -> void:
+	AddItem(text)
+
+func clear() -> void:
+	Clear()
+
+func select(idx: int) -> void:
+	if idx < 0 or idx >= _data.size():
+		_selected_idx = -1
+		return
+	_selected_idx = idx
+	_suppress_text = true
+	_line_edit.text = _data[idx]["text"]
+	_line_edit.caret_column = 0
+	_suppress_text = false
+
+func set_item_metadata(idx: int, value) -> void:
+	if idx >= 0 and idx < _data.size():
+		_data[idx]["metadata"] = value
+
+func get_item_metadata(idx: int):
+	if idx >= 0 and idx < _data.size():
+		return _data[idx].get("metadata", null)
+	return null
+
+func get_item_text(idx: int) -> String:
+	return List(idx)
+
+func set_item_custom_color(idx: int, color: Color) -> void:
+	if idx >= 0 and idx < _item_list.item_count:
+		_item_list.set_item_custom_fg_color(idx, color)
+
+# =============================================================================
+# Construction
+# =============================================================================
 
 func _init():
 	add_theme_constant_override("separation", 0)
 
-	# --- LineEdit (editable text area) ---
+	# --- LineEdit ---
 	_line_edit = LineEdit.new()
 	_line_edit.size_flags_horizontal = SIZE_EXPAND_FILL
-	_line_edit.select_all_on_focus = true  # Click → select all → type to replace (VB6 ComboBox)
+	_line_edit.select_all_on_focus = true
 	_line_edit.text_changed.connect(_on_text_changed)
 	_line_edit.gui_input.connect(_on_line_edit_gui_input)
 	add_child(_line_edit)
@@ -50,16 +283,34 @@ func _init():
 	add_child(_arrow_btn)
 	_update_arrow_icon()
 
-	# --- Popup containing ItemList ---
+	# --- Popup + ItemList (Style 0 / 2) ---
 	_popup = PopupPanel.new()
 	_popup.popup_hide.connect(_on_popup_hide)
-	_item_list = ItemList.new()
-	_item_list.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_item_list.auto_height = false
-	_item_list.item_clicked.connect(_on_item_clicked)
-	_item_list.item_activated.connect(_on_item_activated)
-	_popup.add_child(_item_list)
+	_popup_list = ItemList.new()
+	_popup_list.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_popup_list.auto_height = false
+	_popup_list.item_clicked.connect(_on_item_clicked)
+	_popup_list.item_activated.connect(_on_item_activated)
+	_popup.add_child(_popup_list)
 	add_child(_popup)
+
+	# --- Inline ItemList (Style 1) ---
+	_inline_list = ItemList.new()
+	_inline_list.size_flags_horizontal = SIZE_EXPAND_FILL
+	_inline_list.size_flags_vertical = SIZE_EXPAND_FILL
+	_inline_list.custom_minimum_size = Vector2(0, 100)
+	_inline_list.auto_height = false
+	_inline_list.visible = false
+	_inline_list.item_clicked.connect(_on_item_clicked)
+	_inline_list.item_activated.connect(_on_item_activated)
+
+	# Active list pointer
+	_item_list = _popup_list
+	_apply_style()
+
+func _ready():
+	if _style == vbComboSimple and _inline_list and _inline_list.get_parent() == null:
+		_reparent_inline_list()
 
 func _notification(what: int):
 	if what == NOTIFICATION_THEME_CHANGED or what == NOTIFICATION_READY:
@@ -77,61 +328,83 @@ func _update_arrow_icon() -> void:
 	else:
 		_arrow_btn.text = "▼"
 
-# ============================================================
-# OptionButton-compatible API
-# ============================================================
+# =============================================================================
+# Style management
+# =============================================================================
 
-func add_item(text: String, _id: int = -1) -> void:
-	"""Add an item. Second argument is accepted for OptionButton compat but ignored."""
-	_data.append({"text": text, "metadata": null})
-	_item_list.add_item(text)
-
-func clear() -> void:
-	"""Remove all items."""
-	_data.clear()
-	_item_list.clear()
-	_selected_idx = -1
-	_suppress_text = true
-	_line_edit.text = ""
-	_suppress_text = false
-
-func select(idx: int) -> void:
-	"""Select an item by index and display its text."""
-	if idx < 0 or idx >= _data.size():
-		_selected_idx = -1
+func _apply_style() -> void:
+	if not _line_edit:
 		return
-	_selected_idx = idx
-	_suppress_text = true
-	_line_edit.text = _data[idx]["text"]
-	_line_edit.caret_column = 0
-	_suppress_text = false
+	match _style:
+		vbComboDropDown:
+			_line_edit.editable = not _locked
+			if _arrow_btn: _arrow_btn.visible = true
+			if _inline_list: _inline_list.visible = false
+			_item_list = _popup_list
+		vbComboSimple:
+			_line_edit.editable = not _locked
+			if _arrow_btn: _arrow_btn.visible = false
+			if _inline_list: _inline_list.visible = true
+			_item_list = _inline_list
+			_reparent_inline_list()
+		vbComboDropDownList:
+			_line_edit.editable = false
+			if _arrow_btn: _arrow_btn.visible = true
+			if _inline_list: _inline_list.visible = false
+			_item_list = _popup_list
+	_rebuild_item_list()
 
-func set_item_metadata(idx: int, value) -> void:
-	if idx >= 0 and idx < _data.size():
-		_data[idx]["metadata"] = value
+func _reparent_inline_list() -> void:
+	if not is_inside_tree():
+		return
+	if not _inline_list or _inline_list.get_parent():
+		return
+	var p = get_parent()
+	if p:
+		p.add_child(_inline_list)
+		p.move_child(_inline_list, get_index() + 1)
+	else:
+		add_child(_inline_list)
 
-func get_item_metadata(idx: int):
-	if idx >= 0 and idx < _data.size():
-		return _data[idx]["metadata"]
-	return null
+# =============================================================================
+# Sorting
+# =============================================================================
 
-func get_item_text(idx: int) -> String:
-	if idx >= 0 and idx < _data.size():
-		return _data[idx]["text"]
-	return ""
+func _find_sorted_pos(text: String) -> int:
+	var lower := text.to_lower()
+	for i in _data.size():
+		if _data[i]["text"].to_lower() > lower:
+			return i
+	return _data.size()
 
-## Set per-item foreground colour (for VB6 bold emulation).
-## Use a dim colour for unimplemented events, leave implemented at default.
-func set_item_custom_color(idx: int, color: Color) -> void:
-	if idx >= 0 and idx < _item_list.item_count:
-		_item_list.set_item_custom_fg_color(idx, color)
+func _resort() -> void:
+	var sel_text := ""
+	if _selected_idx >= 0 and _selected_idx < _data.size():
+		sel_text = _data[_selected_idx]["text"]
+	_data.sort_custom(func(a, b): return a["text"].to_lower() < b["text"].to_lower())
+	_rebuild_item_list()
+	if not sel_text.is_empty():
+		for i in _data.size():
+			if _data[i]["text"] == sel_text:
+				_selected_idx = i
+				return
+	_selected_idx = -1
 
-# ============================================================
+func _rebuild_item_list() -> void:
+	if not _item_list:
+		return
+	_item_list.clear()
+	for entry in _data:
+		_item_list.add_item(entry["text"])
+
+# =============================================================================
 # Popup management
-# ============================================================
+# =============================================================================
 
 func _on_arrow_pressed() -> void:
 	if _popup_just_closed:
+		return
+	if _style == vbComboSimple:
 		return
 	_toggle_popup()
 
@@ -144,19 +417,18 @@ func _toggle_popup() -> void:
 func _show_popup() -> void:
 	if _data.is_empty():
 		return
+	if _style == vbComboSimple:
+		return
 	var scr := get_screen_position()
 	var sz := size
-	# 28 px per item + 20 px panel padding, min 60 px, max 300 px
 	var h := clampi(_data.size() * 28 + 20, 60, 300)
 	_popup.popup(Rect2i(int(scr.x), int(scr.y + sz.y), int(sz.x), h))
-	# Highlight current selection
+	dropdown_opened.emit()
 	if _selected_idx >= 0 and _selected_idx < _data.size():
 		_item_list.select(_selected_idx)
 		_item_list.ensure_current_is_visible()
 
 func _on_popup_hide() -> void:
-	# Prevent the arrow button click from immediately re-opening the popup
-	# (the popup closes on focus-loss before the button press fires).
 	_popup_just_closed = true
 	if is_inside_tree():
 		get_tree().create_timer(0.15).timeout.connect(_clear_popup_flag, CONNECT_ONE_SHOT)
@@ -164,19 +436,18 @@ func _on_popup_hide() -> void:
 func _clear_popup_flag() -> void:
 	_popup_just_closed = false
 
-# ============================================================
+# =============================================================================
 # Type-ahead search
-# ============================================================
+# =============================================================================
 
 func _on_text_changed(new_text: String) -> void:
 	if _suppress_text:
 		return
-	# Open the popup while the user is typing
-	if not _popup.visible:
+	text_changed.emit(new_text)
+	if _style != vbComboSimple and not _popup.visible:
 		_show_popup()
 	if new_text.is_empty():
 		return
-	# Scroll to first item whose text starts with the typed prefix
 	var prefix := new_text.to_lower()
 	for i in _data.size():
 		if _data[i]["text"].to_lower().begins_with(prefix):
@@ -184,29 +455,31 @@ func _on_text_changed(new_text: String) -> void:
 			_item_list.ensure_current_is_visible()
 			return
 
-# ============================================================
+# =============================================================================
 # Keyboard navigation
-# ============================================================
+# =============================================================================
 
 func _on_line_edit_gui_input(event: InputEvent) -> void:
 	if not (event is InputEventKey and event.pressed):
 		return
 	var kc := (event as InputEventKey).keycode
 	if kc == KEY_DOWN:
-		if not _popup.visible:
+		if _style == vbComboSimple:
+			_move_selection(1)
+		elif not _popup.visible:
 			_show_popup()
 		else:
 			_move_selection(1)
 	elif kc == KEY_UP:
-		if _popup.visible:
-			_move_selection(-1)
+		_move_selection(-1)
 	elif kc == KEY_ENTER or kc == KEY_KP_ENTER:
-		if _popup.visible:
+		if _style == vbComboSimple:
+			_commit_list_selection()
+		elif _popup.visible:
 			_commit_list_selection()
 	elif kc == KEY_ESCAPE:
 		if _popup.visible:
 			_popup.hide()
-			# Restore previously committed text
 			if _selected_idx >= 0 and _selected_idx < _data.size():
 				_suppress_text = true
 				_line_edit.text = _data[_selected_idx]["text"]
@@ -219,9 +492,9 @@ func _move_selection(delta: int) -> void:
 	_item_list.select(nxt)
 	_item_list.ensure_current_is_visible()
 
-# ============================================================
+# =============================================================================
 # Item selection / commit
-# ============================================================
+# =============================================================================
 
 func _on_item_clicked(idx: int, _pos: Vector2, _btn: int) -> void:
 	_commit_selection(idx)
@@ -242,5 +515,6 @@ func _commit_selection(idx: int) -> void:
 	_line_edit.text = _data[idx]["text"]
 	_line_edit.caret_column = 0
 	_suppress_text = false
-	_popup.hide()
+	if _style != vbComboSimple:
+		_popup.hide()
 	item_selected.emit(idx)
