@@ -613,10 +613,16 @@ func _process(_delta: float) -> void:
 			# Use a timer to give Godot time to fully process the drag end
 			var timer = get_tree().create_timer(0.05)  # 50ms delay
 			timer.timeout.connect(_handle_vg_drop_delayed.bind(drag_data))
+	
+	# Safety reset: if drag was active but meta was consumed by _drop_data()
+	# (form_editor_helper handled it), just reset the flag
+	if _vg_drag_active and not is_dragging and not has_vg_drag:
+		_vg_drag_active = false
 
 ## Handles vg_control drop after a short delay for editor stability.
-## Uses EditorUndoRedoManager to properly add controls to the scene tree,
-## avoiding "Invalid owner" errors and scene file corruption.
+## Fallback handler for vg_control drop (fires only when form_editor_helper's
+## _drop_data didn't handle it, e.g. for non-Window forms or missing background).
+## Uses direct add_child + owner (NOT UndoRedo) which is the proven working pattern.
 func _handle_vg_drop_delayed(drag_data: Dictionary) -> void:
 	var scene_path = drag_data.get("scene_path", "")
 	if scene_path.is_empty():
@@ -651,15 +657,9 @@ func _handle_vg_drop_delayed(drag_data: Dictionary) -> void:
 		printerr("VisualGasic: Could not instantiate: ", scene_path)
 		return
 	
-	# Use EditorUndoRedoManager for proper editor integration
-	# This ensures the node is registered correctly with the editor scene tree
-	var undo_redo = get_undo_redo()
-	undo_redo.create_action("Add " + instance.name)
-	undo_redo.add_do_method(root, "add_child", instance, true)
-	undo_redo.add_do_property(instance, "owner", root)
-	undo_redo.add_do_reference(instance)
-	undo_redo.add_undo_method(root, "remove_child", instance)
-	undo_redo.commit_action()
+	# Add to scene tree using direct add_child + owner (proven working pattern)
+	root.add_child(instance, true)  # force_readable_name = true
+	instance.owner = root
 	
 	# Position at drop location
 	if instance is Control:
@@ -670,7 +670,7 @@ func _handle_vg_drop_delayed(drag_data: Dictionary) -> void:
 	if control_name in ["Button", "Label", "CheckBox", "OptionButton"] and "text" in instance:
 		instance.text = instance.name
 	
-	# Select the new node (deferred to avoid conflicts with undo_redo)
+	# Select the new node
 	call_deferred("_select_dropped_node", instance)
 	
 	print("VisualGasic: Dropped ", instance.name, " at ", drop_pos)
@@ -706,6 +706,7 @@ func _handle_vg_drag_end_deferred():
 
 ## Handles the end of a vg_control drag operation.
 ## Gets mouse position and creates the control at that location.
+## Uses direct add_child + owner (proven working pattern).
 func _handle_vg_drag_end():
 	if not Engine.has_meta("_vg_active_drag"):
 		return
@@ -720,19 +721,9 @@ func _handle_vg_drag_end():
 		return
 	
 	var root = get_editor_interface().get_edited_scene_root()
-	print("VisualGasic: get_edited_scene_root() returned: ", root, " type: ", typeof(root))
-	if root:
-		print("VisualGasic: root.name=", root.name, " root.get_class()=", root.get_class())
-	if not root:
-		printerr("VisualGasic: No scene root for drop")
+	if not root or not is_instance_valid(root):
+		printerr("VisualGasic: No valid scene root for drop")
 		return
-	
-	# Check if root is actually valid and in the scene tree
-	if not is_instance_valid(root):
-		printerr("VisualGasic: Scene root is not valid")
-		return
-	
-	print("VisualGasic: root valid, is_inside_tree=", root.is_inside_tree())
 	
 	# Get mouse position in the 2D canvas
 	var viewport = get_editor_interface().get_editor_viewport_2d()
@@ -740,10 +731,7 @@ func _handle_vg_drag_end():
 		printerr("VisualGasic: Could not get editor viewport")
 		return
 	
-	# Get the global mouse position and transform to canvas coordinates
 	var mouse_pos = viewport.get_mouse_position()
-	
-	# Adjust for canvas transform (zoom/pan)
 	var canvas_transform = viewport.get_canvas_transform()
 	var world_pos = canvas_transform.affine_inverse() * mouse_pos
 	
@@ -753,37 +741,30 @@ func _handle_vg_drag_end():
 		printerr("VisualGasic: Could not load scene: ", scene_path)
 		return
 	
-	print("VisualGasic: Scene loaded, instantiating...")
 	var instance = scene.instantiate()
 	if not instance:
 		printerr("VisualGasic: Could not instantiate: ", scene_path)
 		return
 	
-	print("VisualGasic: Calling add_child...")
-	# Use EditorUndoRedoManager for proper editor integration
-	var undo_redo = get_undo_redo()
-	undo_redo.create_action("Add " + instance.name)
-	undo_redo.add_do_method(root, "add_child", instance, true)
-	undo_redo.add_do_property(instance, "owner", root)
-	undo_redo.add_do_reference(instance)
-	undo_redo.add_undo_method(root, "remove_child", instance)
-	undo_redo.commit_action()
-	
-	print("VisualGasic: UndoRedo action committed")
+	# Add to scene tree using direct add_child + owner (proven working pattern)
+	root.add_child(instance, true)
+	instance.owner = root
 	
 	# Position the control
 	if instance is Control:
-		# Adjust for form's position if it's a Window
 		var offset = Vector2.ZERO
 		if root is Window:
 			offset = Vector2(root.position)
-		instance.position = world_pos - offset
-		# Snap to 8px grid
-		instance.position = instance.position.snapped(Vector2(8, 8))
+		instance.position = (world_pos - offset).snapped(Vector2(8, 8))
+	
+	# Set button/label text to match the node name
+	var control_name = scene_path.get_file().get_basename()
+	if control_name in ["Button", "Label", "CheckBox", "OptionButton"] and "text" in instance:
+		instance.text = instance.name
 	
 	print("VisualGasic: Dropped ", instance.name, " at ", instance.position)
 	
-	# Select the newly created node - use call_deferred to avoid conflicts
+	# Select the newly created node
 	call_deferred("_select_dropped_node", instance)
 
 # =============================================================================
