@@ -77,6 +77,14 @@ var NewIndex: int:
 var SelCount: int:
 	get: return get_selected_items().size()
 
+## List — design-time items (one per entry). Set in the Inspector to pre-populate.
+## In VB6, this is the List property in the Properties window.
+@export var DesignTimeList: PackedStringArray = []:
+	set(v):
+		DesignTimeList = v
+		if is_inside_tree() or Engine.is_editor_hint():
+			_load_design_time_list()
+
 ## Tag — general-purpose string storage (VB6 convention).
 @export var Tag: String = ""
 
@@ -157,6 +165,16 @@ func _ready() -> void:
 		item_clicked.connect(_on_item_clicked)
 	if not item_activated.is_connected(_on_item_activated):
 		item_activated.connect(_on_item_activated)
+	_load_design_time_list()
+
+func _load_design_time_list() -> void:
+	if DesignTimeList.is_empty():
+		return
+	# Only populate if list is currently empty (don't overwrite runtime data)
+	if item_count > 0:
+		return
+	for item_text in DesignTimeList:
+		AddItem(item_text)
 
 func _on_item_clicked(_index: int, _at_position: Vector2, _mouse_button_index: int) -> void:
 	Click.emit()

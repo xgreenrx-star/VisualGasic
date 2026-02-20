@@ -121,6 +121,14 @@ var ListCount: int:
 var NewIndex: int:
 	get: return _new_index
 
+## List — design-time items (one per entry). Set in the Inspector to pre-populate.
+## In VB6, this is the List property in the Properties window.
+@export var DesignTimeList: PackedStringArray = []:
+	set(v):
+		DesignTimeList = v
+		if is_inside_tree() or Engine.is_editor_hint():
+			_load_design_time_list()
+
 ## Tag — general-purpose variant storage (VB6 convention).
 @export var Tag: String = ""
 
@@ -269,10 +277,11 @@ func _init():
 	# --- LineEdit ---
 	_line_edit = LineEdit.new()
 	_line_edit.size_flags_horizontal = SIZE_EXPAND_FILL
+	_line_edit.size_flags_vertical = SIZE_EXPAND_FILL
 	_line_edit.select_all_on_focus = true
 	_line_edit.text_changed.connect(_on_text_changed)
 	_line_edit.gui_input.connect(_on_line_edit_gui_input)
-	add_child(_line_edit)
+	add_child(_line_edit, false, INTERNAL_MODE_FRONT)
 
 	# --- ▼ Arrow Button ---
 	_arrow_btn = Button.new()
@@ -280,7 +289,7 @@ func _init():
 	_arrow_btn.size_flags_vertical = SIZE_EXPAND_FILL
 	_arrow_btn.focus_mode = Control.FOCUS_NONE
 	_arrow_btn.pressed.connect(_on_arrow_pressed)
-	add_child(_arrow_btn)
+	add_child(_arrow_btn, false, INTERNAL_MODE_FRONT)
 	_update_arrow_icon()
 
 	# --- Popup + ItemList (Style 0 / 2) ---
@@ -292,7 +301,7 @@ func _init():
 	_popup_list.item_clicked.connect(_on_item_clicked)
 	_popup_list.item_activated.connect(_on_item_activated)
 	_popup.add_child(_popup_list)
-	add_child(_popup)
+	add_child(_popup, false, INTERNAL_MODE_FRONT)
 
 	# --- Inline ItemList (Style 1) ---
 	_inline_list = ItemList.new()
@@ -311,6 +320,18 @@ func _init():
 func _ready():
 	if _style == vbComboSimple and _inline_list and _inline_list.get_parent() == null:
 		_reparent_inline_list()
+	_load_design_time_list()
+
+func _load_design_time_list() -> void:
+	if DesignTimeList.is_empty():
+		return
+	if not _item_list:
+		return
+	# Only populate if list is currently empty (don't overwrite runtime data)
+	if _data.size() > 0:
+		return
+	for item_text in DesignTimeList:
+		AddItem(item_text)
 
 func _notification(what: int):
 	if what == NOTIFICATION_THEME_CHANGED or what == NOTIFICATION_READY:
