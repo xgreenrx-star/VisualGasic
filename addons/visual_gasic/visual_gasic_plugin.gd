@@ -615,6 +615,8 @@ func _process(_delta: float) -> void:
 			timer.timeout.connect(_handle_vg_drop_delayed.bind(drag_data))
 
 ## Handles vg_control drop after a short delay for editor stability.
+## Uses Godot API (load + instantiate + add_child) instead of raw text manipulation
+## to avoid corrupting scene files with duplicate ext_resource entries.
 func _handle_vg_drop_delayed(drag_data: Dictionary) -> void:
 	var scene_path = drag_data.get("scene_path", "")
 	if scene_path.is_empty():
@@ -625,12 +627,6 @@ func _handle_vg_drop_delayed(drag_data: Dictionary) -> void:
 	var root = get_editor_interface().get_edited_scene_root()
 	if not root or not is_instance_valid(root):
 		printerr("VisualGasic: No valid scene root for drop")
-		return
-	
-	# Get the scene file path
-	var edited_scene_path = root.scene_file_path
-	if edited_scene_path.is_empty():
-		printerr("VisualGasic: Scene has no file path")
 		return
 	
 	# Use the pre-captured drop position (captured at moment of drop, not after delay)
@@ -644,61 +640,37 @@ func _handle_vg_drop_delayed(drag_data: Dictionary) -> void:
 			var world_pos = canvas_xform.affine_inverse() * mouse_pos
 			drop_pos = world_pos.snapped(Vector2(8, 8))
 	
-	# Get control class name from scene path
-	var control_name = scene_path.get_file().get_basename()
-	
-	# Read the current scene file
-	var file = FileAccess.open(edited_scene_path, FileAccess.READ)
-	if not file:
-		printerr("VisualGasic: Could not open scene file: ", edited_scene_path)
+	# Load and instantiate the scene using Godot API
+	var scene = load(scene_path)
+	if not scene:
+		printerr("VisualGasic: Could not load scene: ", scene_path)
 		return
-	var scene_text = file.get_as_text()
-	file.close()
 	
-	# Find how many ext_resources there are to determine next ID
-	var ext_res_count = scene_text.count("[ext_resource")
-	var new_ext_id = ext_res_count + 1
+	var instance = scene.instantiate()
+	if not instance:
+		printerr("VisualGasic: Could not instantiate: ", scene_path)
+		return
 	
-	# Find existing nodes with same base name to generate unique name (always numbered)
-	var existing_count = scene_text.count("[node name=\"" + control_name)
-	var node_name = control_name + str(existing_count + 1)
+	# Add to form root using proper API (not raw text manipulation)
+	root.add_child(instance, true)  # force_readable_name = true
+	instance.owner = root
 	
-	# Build the new ext_resource line
-	var ext_resource_line = "[ext_resource type=\"PackedScene\" uid=\"\" path=\"" + scene_path + "\" id=\"" + str(new_ext_id) + "\"]\n"
+	# Position at drop location
+	if instance is Control:
+		instance.position = drop_pos
 	
-	# Build the new node line
-	var node_line = "\n[node name=\"" + node_name + "\" parent=\".\" instance=ExtResource(\"" + str(new_ext_id) + "\")]\n"
-	node_line += "offset_left = " + str(int(drop_pos.x)) + ".0\n"
-	node_line += "offset_top = " + str(int(drop_pos.y)) + ".0\n"
 	# Set button/label text to match the node name
-	if control_name in ["Button", "Label", "CheckBox", "OptionButton"]:
-		node_line += "text = \"" + node_name + "\"\n"
+	var control_name = scene_path.get_file().get_basename()
+	if control_name in ["Button", "Label", "CheckBox", "OptionButton"] and "text" in instance:
+		instance.text = instance.name
 	
-	# Insert ext_resource after the last ext_resource line
-	var last_ext_pos = scene_text.rfind("[ext_resource")
-	if last_ext_pos >= 0:
-		var end_of_line = scene_text.find("\n", last_ext_pos)
-		scene_text = scene_text.insert(end_of_line + 1, ext_resource_line)
+	# Select the new node
+	var selection = get_editor_interface().get_selection()
+	selection.clear()
+	selection.add_node(instance)
+	get_editor_interface().edit_node(instance)
 	
-	# Append node at the end
-	scene_text += node_line
-	
-	# Write back
-	file = FileAccess.open(edited_scene_path, FileAccess.WRITE)
-	if not file:
-		printerr("VisualGasic: Could not write scene file: ", edited_scene_path)
-		return
-	file.store_string(scene_text)
-	file.close()
-	
-	# Reload the scene in the editor
-	get_editor_interface().reload_scene_from_path(edited_scene_path)
-	
-	# Select the new node after a short delay (to let the scene fully reload)
-	var select_timer = get_tree().create_timer(0.1)
-	select_timer.timeout.connect(_select_node_by_name.bind(node_name))
-	
-	print("VisualGasic: Dropped ", node_name, " at ", drop_pos)
+	print("VisualGasic: Dropped ", instance.name, " at ", drop_pos)
 
 ## Selects a node by name after scene reload
 func _select_node_by_name(node_name: String) -> void:
@@ -1004,8 +976,9 @@ func _finish_form_creation(path: String, form_name: String, vg_path: String, tem
 	bg_panel.name = "_FormBackground"
 	# Don't use PRESET_FULL_RECT - let the panel have its own size for editor resize
 	bg_panel.size = root.size
-	# Use MOUSE_FILTER_STOP to intercept drops in the editor viewport
-	bg_panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	# Use MOUSE_FILTER_PASS so the panel receives drop data but lets clicks through
+	# to sibling controls (Buttons, ComboBoxes, etc.) for selection and deletion
+	bg_panel.mouse_filter = Control.MOUSE_FILTER_PASS
 	# Attach the form editor helper script for drag-resize support
 	var helper_script = load("res://addons/visual_gasic/form_editor_helper.gd")
 	if helper_script:
