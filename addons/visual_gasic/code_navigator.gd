@@ -6,9 +6,11 @@ extends HBoxContainer
 ## Selecting an object populates the event list; selecting an event navigates
 ## to (or creates) the corresponding Sub handler in the .vg script.
 
+const VGComboBox = preload("res://addons/visual_gasic/vg_combo_box.gd")
+
 var editor_plugin: EditorPlugin
-var object_list: OptionButton
-var event_list: OptionButton
+var object_list  # VGComboBox — left dropdown (Object)
+var event_list   # VGComboBox — right dropdown (Event/Procedure)
 var refresh_button: Button
 var _separator: VSeparator
 var _debugger_plugin: EditorDebuggerPlugin = null
@@ -23,6 +25,9 @@ const EVENTS_TIMER = ["Timer"]
 const EVENTS_SCROLL = ["Change", "Scroll"]
 const EVENTS_FORM = ["Load", "Unload", "Click", "MouseDown", "MouseUp", "MouseMove", "KeyDown", "KeyUp", "KeyPress", "Resize"]
 
+# Dim colour for unimplemented event handlers (VB6 shows implemented in bold)
+const COLOR_DIM := Color(0.45, 0.45, 0.5)
+
 func _init():
 	name = "Code Navigator"
 	# Horizontal bar that spans the full width above the code editor
@@ -30,10 +35,9 @@ func _init():
 	custom_minimum_size = Vector2(0, 30)
 	
 	# --- Object Dropdown (left half) ---
-	object_list = OptionButton.new()
+	object_list = VGComboBox.new()
 	object_list.size_flags_horizontal = SIZE_EXPAND_FILL
 	object_list.custom_minimum_size.x = 120
-	object_list.clip_text = true
 	object_list.item_selected.connect(_on_object_selected)
 	add_child(object_list)
 	
@@ -42,10 +46,9 @@ func _init():
 	add_child(_separator)
 	
 	# --- Event Dropdown (right half) ---
-	event_list = OptionButton.new()
+	event_list = VGComboBox.new()
 	event_list.size_flags_horizontal = SIZE_EXPAND_FILL
 	event_list.custom_minimum_size.x = 120
-	event_list.clip_text = true
 	event_list.item_selected.connect(_on_event_selected)
 	add_child(event_list)
 	
@@ -56,10 +59,6 @@ func _init():
 	refresh_button.pressed.connect(refresh_objects)
 	_set_refresh_icon()
 	add_child(refresh_button)
-	
-	# Enable type-ahead letter-jump on both dropdowns (like VB6 ComboBox behavior)
-	object_list.get_popup().allow_search = true
-	event_list.get_popup().allow_search = true
 
 func _notification(what):
 	if what == NOTIFICATION_THEME_CHANGED or what == NOTIFICATION_READY:
@@ -380,6 +379,12 @@ func _on_object_selected(idx):
 		var has_handler = text.contains(handler_name)
 		event_list.add_item(evt)
 		event_list.set_item_metadata(eidx, {"type": "event", "event": evt, "has_handler": has_handler})
+	
+	# Dim unimplemented events (VB6 shows implemented handlers in bold)
+	for i in event_list.item_count:
+		var emeta = event_list.get_item_metadata(i)
+		if emeta and emeta.has("has_handler") and not emeta["has_handler"]:
+			event_list.set_item_custom_color(i, COLOR_DIM)
 
 func _on_event_selected(idx):
 	if idx < 0: return
