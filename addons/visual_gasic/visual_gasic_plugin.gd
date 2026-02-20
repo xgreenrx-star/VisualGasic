@@ -620,9 +620,10 @@ func _process(_delta: float) -> void:
 		_vg_drag_active = false
 
 ## Handles vg_control drop after a short delay for editor stability.
-## Fallback handler for vg_control drop (fires only when form_editor_helper's
-## _drop_data didn't handle it, e.g. for non-Window forms or missing background).
-## Uses direct add_child + owner (NOT UndoRedo) which is the proven working pattern.
+## Modifies the .tscn file on disk and reloads — the ONLY approach that
+## correctly registers ownership in the Godot editor scene tree.
+## Improved over the original: uses proper UIDs, max-based ext_resource IDs,
+## and reuses existing ext_resource entries to prevent scene corruption.
 func _handle_vg_drop_delayed(drag_data: Dictionary) -> void:
 	var scene_path = drag_data.get("scene_path", "")
 	if scene_path.is_empty():
@@ -633,6 +634,12 @@ func _handle_vg_drop_delayed(drag_data: Dictionary) -> void:
 	var root = get_editor_interface().get_edited_scene_root()
 	if not root or not is_instance_valid(root):
 		printerr("VisualGasic: No valid scene root for drop")
+		return
+	
+	# Scene must be saved to disk for text manipulation
+	var edited_scene_path = root.scene_file_path
+	if edited_scene_path.is_empty():
+		printerr("VisualGasic: Scene has no file path")
 		return
 	
 	# Use the pre-captured drop position (captured at moment of drop, not after delay)
@@ -646,34 +653,98 @@ func _handle_vg_drop_delayed(drag_data: Dictionary) -> void:
 			var world_pos = canvas_xform.affine_inverse() * mouse_pos
 			drop_pos = world_pos.snapped(Vector2(8, 8))
 	
-	# Load and instantiate the scene using Godot API
-	var scene = load(scene_path)
-	if not scene:
-		printerr("VisualGasic: Could not load scene: ", scene_path)
-		return
-	
-	var instance = scene.instantiate()
-	if not instance:
-		printerr("VisualGasic: Could not instantiate: ", scene_path)
-		return
-	
-	# Add to scene tree using direct add_child + owner (proven working pattern)
-	root.add_child(instance, true)  # force_readable_name = true
-	instance.owner = root
-	
-	# Position at drop location
-	if instance is Control:
-		instance.position = drop_pos
-	
-	# Set button/label text to match the node name
 	var control_name = scene_path.get_file().get_basename()
-	if control_name in ["Button", "Label", "CheckBox", "OptionButton"] and "text" in instance:
-		instance.text = instance.name
 	
-	# Select the new node
-	call_deferred("_select_dropped_node", instance)
+	# Save any pending editor changes before modifying the file on disk
+	get_editor_interface().save_scene()
 	
-	print("VisualGasic: Dropped ", instance.name, " at ", drop_pos)
+	# Read the current scene file
+	var file = FileAccess.open(edited_scene_path, FileAccess.READ)
+	if not file:
+		printerr("VisualGasic: Could not open scene file: ", edited_scene_path)
+		return
+	var scene_text = file.get_as_text()
+	file.close()
+	
+	# Check if this scene_path already has an ext_resource entry (reuse it)
+	var ext_id_str := ""
+	var lines = scene_text.split("\n")
+	for line in lines:
+		if line.begins_with("[ext_resource") and line.find('path="' + scene_path + '"') >= 0:
+			var id_start = line.find('id="') + 4
+			var id_end = line.find('"', id_start)
+			if id_start > 3 and id_end > id_start:
+				ext_id_str = line.substr(id_start, id_end - id_start)
+			break
+	
+	if ext_id_str.is_empty():
+		# Need a new ext_resource — find the maximum existing numeric ID
+		var max_num := 0
+		for line in lines:
+			if line.begins_with("[ext_resource"):
+				var id_start = line.find('id="') + 4
+				var id_end = line.find('"', id_start)
+				if id_start > 3 and id_end > id_start:
+					var id_val = line.substr(id_start, id_end - id_start)
+					# Handle Godot 4 "3_abc" style IDs — extract numeric prefix
+					var num_part = id_val.split("_")[0]
+					if num_part.is_valid_int() and int(num_part) > max_num:
+						max_num = int(num_part)
+		ext_id_str = str(max_num + 1)
+		
+		# Get proper UID for the prototype scene
+		var uid_str := ""
+		var uid_val = ResourceLoader.get_resource_uid(scene_path)
+		if uid_val >= 0:
+			uid_str = ResourceUID.id_to_text(uid_val)
+		
+		# Build the new ext_resource line
+		var ext_line := '[ext_resource type="PackedScene"'
+		if not uid_str.is_empty():
+			ext_line += ' uid="' + uid_str + '"'
+		ext_line += ' path="' + scene_path + '" id="' + ext_id_str + '"]\n'
+		
+		# Insert after the last ext_resource line
+		var last_ext_pos = scene_text.rfind("[ext_resource")
+		if last_ext_pos >= 0:
+			var end_of_line = scene_text.find("\n", last_ext_pos)
+			scene_text = scene_text.insert(end_of_line + 1, ext_line)
+		else:
+			# No ext_resources yet — insert before first [node
+			var first_node_pos = scene_text.find("\n[node ")
+			if first_node_pos >= 0:
+				scene_text = scene_text.insert(first_node_pos, "\n" + ext_line)
+	
+	# Generate unique node name (always numbered)
+	var existing_count = scene_text.count('[node name="' + control_name)
+	var node_name = control_name + str(existing_count + 1)
+	
+	# Build the new node entry
+	var node_line = '\n[node name="' + node_name + '" parent="." instance=ExtResource("' + ext_id_str + '")]\n'
+	node_line += "offset_left = " + str(int(drop_pos.x)) + ".0\n"
+	node_line += "offset_top = " + str(int(drop_pos.y)) + ".0\n"
+	if control_name in ["Button", "Label", "CheckBox", "OptionButton"]:
+		node_line += 'text = "' + node_name + '"\n'
+	
+	# Append node at the end
+	scene_text += node_line
+	
+	# Write back
+	file = FileAccess.open(edited_scene_path, FileAccess.WRITE)
+	if not file:
+		printerr("VisualGasic: Could not write scene file: ", edited_scene_path)
+		return
+	file.store_string(scene_text)
+	file.close()
+	
+	# Reload the scene in the editor
+	get_editor_interface().reload_scene_from_path(edited_scene_path)
+	
+	# Select the new node after a short delay (to let the scene fully reload)
+	var select_timer = get_tree().create_timer(0.1)
+	select_timer.timeout.connect(_select_node_by_name.bind(node_name))
+	
+	print("VisualGasic: Dropped ", node_name, " at ", drop_pos)
 
 ## Selects a node by name after scene reload
 func _select_node_by_name(node_name: String) -> void:
@@ -705,8 +776,7 @@ func _handle_vg_drag_end_deferred():
 	Engine.remove_meta("_vg_active_drag")
 
 ## Handles the end of a vg_control drag operation.
-## Gets mouse position and creates the control at that location.
-## Uses direct add_child + owner (proven working pattern).
+## Computes drop position and delegates to _handle_vg_drop_delayed.
 func _handle_vg_drag_end():
 	if not Engine.has_meta("_vg_active_drag"):
 		return
@@ -715,57 +785,22 @@ func _handle_vg_drag_end():
 	if not drag_data is Dictionary:
 		return
 	
-	var scene_path = drag_data.get("scene_path", "")
-	if scene_path.is_empty():
-		printerr("VisualGasic: No scene_path in drag data")
-		return
+	# Compute drop position if not already set
+	if not drag_data.has("drop_position"):
+		var root = get_editor_interface().get_edited_scene_root()
+		var viewport = get_editor_interface().get_editor_viewport_2d()
+		if root and viewport:
+			var mouse_pos = viewport.get_mouse_position()
+			var canvas_xform = viewport.get_canvas_transform()
+			var world_pos = canvas_xform.affine_inverse() * mouse_pos
+			var form_offset = Vector2.ZERO
+			if root is Window:
+				form_offset = Vector2(root.position)
+			elif root is Control:
+				form_offset = root.position
+			drag_data["drop_position"] = (world_pos - form_offset).snapped(Vector2(8, 8))
 	
-	var root = get_editor_interface().get_edited_scene_root()
-	if not root or not is_instance_valid(root):
-		printerr("VisualGasic: No valid scene root for drop")
-		return
-	
-	# Get mouse position in the 2D canvas
-	var viewport = get_editor_interface().get_editor_viewport_2d()
-	if not viewport:
-		printerr("VisualGasic: Could not get editor viewport")
-		return
-	
-	var mouse_pos = viewport.get_mouse_position()
-	var canvas_transform = viewport.get_canvas_transform()
-	var world_pos = canvas_transform.affine_inverse() * mouse_pos
-	
-	# Load and instance the scene
-	var scene = load(scene_path)
-	if not scene:
-		printerr("VisualGasic: Could not load scene: ", scene_path)
-		return
-	
-	var instance = scene.instantiate()
-	if not instance:
-		printerr("VisualGasic: Could not instantiate: ", scene_path)
-		return
-	
-	# Add to scene tree using direct add_child + owner (proven working pattern)
-	root.add_child(instance, true)
-	instance.owner = root
-	
-	# Position the control
-	if instance is Control:
-		var offset = Vector2.ZERO
-		if root is Window:
-			offset = Vector2(root.position)
-		instance.position = (world_pos - offset).snapped(Vector2(8, 8))
-	
-	# Set button/label text to match the node name
-	var control_name = scene_path.get_file().get_basename()
-	if control_name in ["Button", "Label", "CheckBox", "OptionButton"] and "text" in instance:
-		instance.text = instance.name
-	
-	print("VisualGasic: Dropped ", instance.name, " at ", instance.position)
-	
-	# Select the newly created node
-	call_deferred("_select_dropped_node", instance)
+	_handle_vg_drop_delayed(drag_data)
 
 # =============================================================================
 # VB6 IMPORT FUNCTIONS
@@ -1823,56 +1858,30 @@ func _forward_canvas_gui_input(event):
 	return false
 
 ## Handles dropping a vg_control onto the 2D canvas.
-## Instances the scene and adds it to the form root (NOT the control under cursor).
+## Computes form-local position and delegates to _handle_vg_drop_delayed.
 ## @param canvas_pos: The position in the canvas where drop occurred
 ## @param drag_data: The drag data dictionary from C++ toolbox
 ## @returns: true if drop was handled
 func _handle_vg_control_drop(canvas_pos: Vector2, drag_data: Dictionary) -> bool:
-	print("VisualGasic: _handle_vg_control_drop called at ", canvas_pos)
-	var scene_path = drag_data.get("scene_path", "")
-	if scene_path.is_empty():
-		printerr("VisualGasic: Empty scene_path in drag data")
-		return false
-	
 	var root = get_editor_interface().get_edited_scene_root()
-	print("VisualGasic: Scene root = ", root)
 	if not root:
-		printerr("VisualGasic: No scene root for drop")
 		return false
 	
-	# Load and instance the scene
-	var scene = load(scene_path)
-	if not scene:
-		printerr("VisualGasic: Could not load scene: ", scene_path)
-		return false
+	# Transform canvas viewport position to form-local coordinates
+	var viewport = get_editor_interface().get_editor_viewport_2d()
+	if viewport:
+		var canvas_xform = viewport.get_canvas_transform()
+		var world_pos = canvas_xform.affine_inverse() * canvas_pos
+		var form_offset = Vector2.ZERO
+		if root is Window:
+			form_offset = Vector2(root.position)
+		elif root is Control:
+			form_offset = root.position
+		drag_data["drop_position"] = (world_pos - form_offset).snapped(Vector2(8, 8))
+	else:
+		drag_data["drop_position"] = canvas_pos.snapped(Vector2(8, 8))
 	
-	var instance = scene.instantiate()
-	if not instance:
-		printerr("VisualGasic: Could not instantiate: ", scene_path)
-		return false
-	
-	print("VisualGasic: Adding ", instance.name, " to ", root.name)
-	# Add to form root (always, regardless of what's under cursor)
-	root.add_child(instance, true)  # force_readable_name = true
-	instance.owner = root
-	
-	# Position the control at drop location
-	# Transform from viewport coords to canvas coords
-	if instance is Control:
-		var viewport = get_editor_interface().get_editor_viewport_2d()
-		if viewport:
-			var canvas_xform = viewport.get_canvas_transform()
-			var world_pos = canvas_xform.affine_inverse() * canvas_pos
-			instance.position = world_pos.snapped(Vector2(8, 8))
-		else:
-			instance.position = canvas_pos.snapped(Vector2(8, 8))
-	
-	# Select the newly created node
-	var selection = get_editor_interface().get_selection()
-	selection.clear()
-	selection.add_node(instance)
-	
-	print("VisualGasic: Successfully dropped ", instance.name, " at ", instance.position)
+	_handle_vg_drop_delayed(drag_data)
 	return true
 
 ## Generates an event handler for the given node.
