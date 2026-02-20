@@ -1,4 +1,4 @@
-[gd_scene load_steps=4 format=3 uid="uid://dvua3o2xw82ft"]
+[gd_scene load_steps=5 format=3 uid="uid://dvua3o2xw82ft"]
 
 [ext_resource type="Script" uid="uid://cmc4nsw84511m" path="res://Form1.vg" id="1_8ppk2"]
 [ext_resource type="Script" uid="uid://dpmjycbb7xr6m" path="res://addons/visual_gasic/form_editor_helper.gd" id="2_33e8d"]
@@ -41,10 +41,21 @@ offset_top = 104.0
 text = "Button1"
 
 [node name="Button2" parent="." instance=ExtResource("3")]
-offset_left = 144.0
-offset_top = 72.0
+offset_left = 212.0
+offset_top = 26.0
+offset_right = 287.0
+offset_bottom = 57.0
 text = "Button2"
 
 [node name="VGComboBox1" parent="." instance=ExtResource("4")]
+clip_children = 2
+layout_mode = 3
+anchors_preset = 0
 offset_left = 136.0
 offset_top = 192.0
+DesignTimeList = PackedStringArray()
+
+[node name="Button3" parent="." instance=ExtResource("3")]
+offset_left = 120.0
+offset_top = 72.0
+text = "Button3"

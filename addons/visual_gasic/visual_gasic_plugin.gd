@@ -97,6 +97,9 @@ var _color_palette = null
 ## VB6 Main Screen control (registered as editor tab alongside 2D/3D/Script)
 var _vb6_main_screen = null
 
+## C++ Form Designer canvas — the custom form editor that bypasses Godot's scene tree
+var _form_designer: Control = null
+
 ## Tracks whether VG panels are currently in Godot docks
 var _vg_panels_docked: bool = false
 
@@ -318,6 +321,25 @@ func _enter_tree():
 	# Style after in tree so sibling theme lookups work
 	call_deferred("_style_form_designer_button")
 
+	# Create the C++ Form Designer (our custom main screen canvas)
+	if ClassDB.class_exists("VisualGasicFormDesigner"):
+		_form_designer = ClassDB.instantiate("VisualGasicFormDesigner")
+		_form_designer.name = "FormDesignerCanvas"
+		_form_designer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		_form_designer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		_form_designer.new_form("Form1")
+		# Connect signals
+		_form_designer.control_selected.connect(_on_fd_control_selected)
+		_form_designer.control_deselected.connect(_on_fd_control_deselected)
+		_form_designer.form_modified.connect(_on_fd_form_modified)
+		_form_designer.control_double_clicked.connect(_on_fd_control_double_clicked)
+		# Add to editor's main screen area and hide initially
+		EditorInterface.get_editor_main_screen().add_child(_form_designer)
+		_make_visible(false)
+		print("VisualGasic: C++ FormDesigner created and added to main screen")
+	else:
+		push_warning("VisualGasic: VisualGasicFormDesigner class not found in ClassDB")
+
 	_post_init()
 	_setup_script_editor_context_menu()
 	_setup_recent_projects_menu()
@@ -411,12 +433,35 @@ func undock_vg_toolbars():
 # MAIN SCREEN PLUGIN OVERRIDES
 # =============================================================================
 
-## No VB6 main screen tab. The form designer IS the Godot 2D viewport.
-## VB6 mode = 2D viewport + VG dock panels (Toolbox, Properties, Project Explorer)
-##         + VG toolbars (Alignment, Preview, Color Palette).
-## Toggled via Project > Tools > Toggle VG IDE Layout.
+## The C++ Form Designer is a proper main screen tab (alongside 2D/3D/Script).
+## Clicking it shows our custom canvas; clicking 2D/3D/Script hides it.
 func _has_main_screen() -> bool:
-	return false
+	return _form_designer != null
+
+func _get_plugin_name() -> String:
+	return "Form Designer"
+
+func _get_plugin_icon() -> Texture2D:
+	var theme = get_editor_interface().get_base_control().get_theme()
+	if theme:
+		var icon = theme.get_icon("Window", "EditorIcons")
+		if icon:
+			return icon
+		icon = theme.get_icon("Control", "EditorIcons")
+		if icon:
+			return icon
+	return null
+
+func _make_visible(p_visible: bool) -> void:
+	if _form_designer:
+		_form_designer.visible = p_visible
+	# Activate/deactivate VB6 layout when switching to/from Form Designer
+	if is_instance_valid(_layout_manager):
+		if p_visible and not _layout_manager.is_vb6_mode():
+			_layout_manager.toggle()
+		elif not p_visible and _layout_manager.is_vb6_mode():
+			_layout_manager._deactivate_vb6_mode()
+	_update_main_screen_buttons(p_visible)
 
 ## Called by the editor after restoring saved window layout.
 func _set_window_layout(config: ConfigFile):
@@ -446,6 +491,11 @@ func _exit_tree():
 			_vb6_toggle_button.get_parent().remove_child(_vb6_toggle_button)
 		_vb6_toggle_button.queue_free()
 		_vb6_toggle_button = null
+
+	# Cleanup C++ Form Designer
+	if is_instance_valid(_form_designer):
+		_form_designer.queue_free()
+		_form_designer = null
 	
 	remove_tool_menu_item("Toggle VG IDE Layout")
 	remove_tool_menu_item("New Module...")
@@ -570,9 +620,15 @@ func _exit_tree():
 		get_tree().node_added.disconnect(_on_node_added)
 
 ## Called every frame. Detects vg_control drag end and handles drop.
-## Since _forward_canvas_gui_input doesn't receive mouse release during drag,
-## we detect when dragging stops and handle the drop here.
+## When the C++ Form Designer is active and visible, it handles drops directly
+## via _can_drop_data/_drop_data — skip the old GDScript drop path entirely.
 func _process(_delta: float) -> void:
+	# C++ Form Designer handles its own drops — skip old code path
+	if _form_designer and _form_designer.visible:
+		if _vg_drag_active and not get_viewport().gui_is_dragging():
+			_vg_drag_active = false  # Reset flag, C++ consumed the meta
+		return
+
 	# Check if we have an active vg_control drag
 	var has_vg_drag = Engine.has_meta("_vg_active_drag")
 	
@@ -1200,26 +1256,86 @@ End Sub
 ## Activates VB6 mode (just like clicking 2D/3D/Script activates that screen).
 ## With toggle_mode=true, the button toggles its own pressed state before this fires.
 func _on_form_designer_pressed():
-	if not is_instance_valid(_layout_manager):
-		return
-	if _vb6_toggle_button.button_pressed:
-		# Button was just pressed ON - activate Form Designer
+	# Switch to our main screen tab (C++ Form Designer)
+	if _form_designer:
+		EditorInterface.set_main_screen_editor("Form Designer")
+	# Also activate VB6 layout if available
+	if is_instance_valid(_layout_manager):
 		if not _layout_manager.is_vb6_mode():
-			_layout_manager.toggle()  # Activate
-		else:
-			# Already active - just ensure we are on 2D
-			_layout_manager.switching_internally = true
-			EditorInterface.set_main_screen_editor("2D")
-			_layout_manager.switching_internally = false
-		_update_main_screen_buttons(true)
-	else:
-		# Button was just pressed OFF - deactivate and go to 2D
-		if _layout_manager.is_vb6_mode():
-			_layout_manager._deactivate_vb6_mode()
-		_layout_manager.switching_internally = true
-		EditorInterface.set_main_screen_editor("2D")
-		_layout_manager.switching_internally = false
-		_update_main_screen_buttons(false)
+			_layout_manager.toggle()
+	_update_main_screen_buttons(true)
+
+## Opens a .tscn form file in the C++ Form Designer.
+## Called from Project Explorer or when double-clicking a .tscn in FileSystem.
+func open_form_in_designer(tscn_path: String) -> void:
+	if not _form_designer:
+		push_warning("VisualGasic: Form Designer not available")
+		return
+	_form_designer.open_form(tscn_path)
+	EditorInterface.set_main_screen_editor("Form Designer")
+	print("VisualGasic: Opened '", tscn_path, "' in Form Designer")
+
+## Signal: A control was selected in the C++ Form Designer canvas.
+func _on_fd_control_selected(index: int) -> void:
+	if not _form_designer:
+		return
+	var info = _form_designer.get_control_info(index)
+	print("FormDesigner: Selected ", info.get("name", "?"), " (", info.get("type", "?"), ")")
+	# Update properties inspector if available
+	if is_instance_valid(_properties_inspector) and _properties_inspector.has_method("show_control_properties"):
+		_properties_inspector.show_control_properties(info)
+
+## Signal: All controls deselected in the C++ Form Designer.
+func _on_fd_control_deselected() -> void:
+	if is_instance_valid(_properties_inspector) and _properties_inspector.has_method("clear_properties"):
+		_properties_inspector.clear_properties()
+
+## Signal: Form was modified (dirty flag set) in the C++ Form Designer.
+func _on_fd_form_modified() -> void:
+	pass  # Could update title bar asterisk, etc.
+
+## Signal: A control was double-clicked — generate event handler stub.
+func _on_fd_control_double_clicked(index: int) -> void:
+	if not _form_designer:
+		return
+	var info = _form_designer.get_control_info(index)
+	var ctrl_name = info.get("name", "")
+	var ctrl_type = info.get("type", "")
+	if ctrl_name.is_empty():
+		return
+	# Determine default event suffix based on type
+	var event_suffix = "Click"
+	if ctrl_type in ["LineEdit", "TextEdit"]:
+		event_suffix = "Change"
+	elif ctrl_type in ["HScrollBar", "VScrollBar", "HSlider", "VSlider"]:
+		event_suffix = "Change"
+	# Open/create the .vg script and insert/navigate to the event handler
+	var form_path = _form_designer.get_form_path()
+	if form_path.is_empty():
+		return
+	var vg_path = form_path.get_basename() + ".vg"
+	var sub_name = ctrl_name + "_" + event_suffix
+	_open_or_create_event_handler(vg_path, sub_name)
+
+## Opens the .vg script and creates/navigates to the given Sub stub.
+## Reuses the existing _open_and_inject infrastructure.
+func _open_or_create_event_handler(vg_path: String, sub_name: String) -> void:
+	# Split sub_name into obj + event parts for _open_and_inject
+	var parts = sub_name.split("_", true, 1)
+	if parts.size() < 2:
+		return
+	var obj = parts[0]
+	var event = parts[1]
+
+	# Create file if missing
+	if not FileAccess.file_exists(vg_path):
+		var f = FileAccess.open(vg_path, FileAccess.WRITE)
+		if f:
+			f.store_string("' Visual Gasic Form Script\nOption Explicit\n\n")
+			f.close()
+		get_editor_interface().get_resource_filesystem().scan()
+
+	_open_and_inject(vg_path, obj, event)
 
 ## Called from Project > Tools > Toggle VG IDE Layout menu item.
 func _on_toggle_vb6_layout():
