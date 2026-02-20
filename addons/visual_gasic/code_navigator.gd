@@ -216,11 +216,9 @@ func _get_current_vg_path() -> String:
 	# First try: get the currently edited script directly from the script editor
 	var script_editor = editor_plugin.get_editor_interface().get_script_editor()
 	if script_editor:
-		var current_editor = script_editor.get_current_editor()
-		if current_editor:
-			var edited_script = current_editor.get_edited_resource()
-			if edited_script and edited_script.resource_path.ends_with(".vg"):
-				return edited_script.resource_path
+		var current_script = script_editor.get_current_script()
+		if current_script and current_script.resource_path.ends_with(".vg"):
+			return current_script.resource_path
 	# Fallback: derive from scene path
 	var root = editor_plugin.get_editor_interface().get_edited_scene_root()
 	if not root:
