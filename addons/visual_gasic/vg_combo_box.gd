@@ -169,7 +169,8 @@ func AddItem(text: String, index: int = -1) -> void:
 		_new_index = index
 	else:
 		_data.append(entry)
-		_item_list.add_item(text)
+		if _item_list and is_instance_valid(_item_list):
+			_item_list.add_item(text)
 		_new_index = _data.size() - 1
 
 ## RemoveItem index — Remove the item at index.
@@ -177,24 +178,28 @@ func RemoveItem(index: int) -> void:
 	if index < 0 or index >= _data.size():
 		return
 	_data.remove_at(index)
-	_item_list.remove_item(index)
+	if _item_list and is_instance_valid(_item_list):
+		_item_list.remove_item(index)
 	if _selected_idx == index:
 		_selected_idx = -1
-		_suppress_text = true
-		_line_edit.text = ""
-		_suppress_text = false
+		if _line_edit and is_instance_valid(_line_edit):
+			_suppress_text = true
+			_line_edit.text = ""
+			_suppress_text = false
 	elif _selected_idx > index:
 		_selected_idx -= 1
 
 ## Clear — Remove all items and reset.
 func Clear() -> void:
 	_data.clear()
-	_item_list.clear()
+	if _item_list and is_instance_valid(_item_list):
+		_item_list.clear()
 	_selected_idx = -1
 	_new_index = -1
-	_suppress_text = true
-	_line_edit.text = ""
-	_suppress_text = false
+	if _line_edit and is_instance_valid(_line_edit):
+		_suppress_text = true
+		_line_edit.text = ""
+		_suppress_text = false
 
 ## SetFocus — Give keyboard focus to the text area.
 func SetFocus() -> void:
@@ -246,10 +251,11 @@ func select(idx: int) -> void:
 		_selected_idx = -1
 		return
 	_selected_idx = idx
-	_suppress_text = true
-	_line_edit.text = _data[idx]["text"]
-	_line_edit.caret_column = 0
-	_suppress_text = false
+	if _line_edit and is_instance_valid(_line_edit):
+		_suppress_text = true
+		_line_edit.text = _data[idx]["text"]
+		_line_edit.caret_column = 0
+		_suppress_text = false
 
 func set_item_metadata(idx: int, value) -> void:
 	if idx >= 0 and idx < _data.size():
@@ -264,7 +270,7 @@ func get_item_text(idx: int) -> String:
 	return List(idx)
 
 func set_item_custom_color(idx: int, color: Color) -> void:
-	if idx >= 0 and idx < _item_list.item_count:
+	if _item_list and is_instance_valid(_item_list) and idx >= 0 and idx < _item_list.item_count:
 		_item_list.set_item_custom_fg_color(idx, color)
 
 # =============================================================================
@@ -274,8 +280,19 @@ func set_item_custom_color(idx: int, color: Color) -> void:
 func _init():
 	add_theme_constant_override("separation", 0)
 
+func _ready():
+	# Guard: don't re-create children if they already exist (scene reload)
+	if _line_edit and is_instance_valid(_line_edit):
+		_load_design_time_list()
+		return
+	_build_ui()
+	_apply_style()
+	_load_design_time_list()
+
+func _build_ui() -> void:
 	# --- LineEdit ---
 	_line_edit = LineEdit.new()
+	_line_edit.name = &"_LE"
 	_line_edit.size_flags_horizontal = SIZE_EXPAND_FILL
 	_line_edit.size_flags_vertical = SIZE_EXPAND_FILL
 	_line_edit.select_all_on_focus = true
@@ -285,6 +302,7 @@ func _init():
 
 	# --- ▼ Arrow Button ---
 	_arrow_btn = Button.new()
+	_arrow_btn.name = &"_AB"
 	_arrow_btn.custom_minimum_size = Vector2(22, 0)
 	_arrow_btn.size_flags_vertical = SIZE_EXPAND_FILL
 	_arrow_btn.focus_mode = Control.FOCUS_NONE
@@ -294,6 +312,7 @@ func _init():
 
 	# --- Popup + ItemList (Style 0 / 2) ---
 	_popup = PopupPanel.new()
+	_popup.name = &"_PP"
 	_popup.popup_hide.connect(_on_popup_hide)
 	_popup_list = ItemList.new()
 	_popup_list.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -305,6 +324,7 @@ func _init():
 
 	# --- Inline ItemList (Style 1) ---
 	_inline_list = ItemList.new()
+	_inline_list.name = &"_IL"
 	_inline_list.size_flags_horizontal = SIZE_EXPAND_FILL
 	_inline_list.size_flags_vertical = SIZE_EXPAND_FILL
 	_inline_list.custom_minimum_size = Vector2(0, 100)
@@ -315,12 +335,6 @@ func _init():
 
 	# Active list pointer
 	_item_list = _popup_list
-	_apply_style()
-
-func _ready():
-	if _style == vbComboSimple and _inline_list and _inline_list.get_parent() == null:
-		_reparent_inline_list()
-	_load_design_time_list()
 
 func _load_design_time_list() -> void:
 	if DesignTimeList.is_empty():
@@ -354,7 +368,7 @@ func _update_arrow_icon() -> void:
 # =============================================================================
 
 func _apply_style() -> void:
-	if not _line_edit:
+	if not _line_edit or not is_instance_valid(_line_edit):
 		return
 	match _style:
 		vbComboDropDown:
@@ -378,14 +392,12 @@ func _apply_style() -> void:
 func _reparent_inline_list() -> void:
 	if not is_inside_tree():
 		return
-	if not _inline_list or _inline_list.get_parent():
+	if not _inline_list or not is_instance_valid(_inline_list):
 		return
-	var p = get_parent()
-	if p:
-		p.add_child(_inline_list)
-		p.move_child(_inline_list, get_index() + 1)
-	else:
-		add_child(_inline_list)
+	if _inline_list.get_parent():
+		return
+	# Keep inline list as our own internal child
+	add_child(_inline_list, false, INTERNAL_MODE_FRONT)
 
 # =============================================================================
 # Sorting
@@ -412,7 +424,7 @@ func _resort() -> void:
 	_selected_idx = -1
 
 func _rebuild_item_list() -> void:
-	if not _item_list:
+	if not _item_list or not is_instance_valid(_item_list):
 		return
 	_item_list.clear()
 	for entry in _data:
@@ -427,9 +439,13 @@ func _on_arrow_pressed() -> void:
 		return
 	if _style == vbComboSimple:
 		return
+	if not _popup or not is_instance_valid(_popup):
+		return
 	_toggle_popup()
 
 func _toggle_popup() -> void:
+	if not _popup or not is_instance_valid(_popup):
+		return
 	if _popup.visible:
 		_popup.hide()
 	else:
@@ -439,6 +455,8 @@ func _show_popup() -> void:
 	if _data.is_empty():
 		return
 	if _style == vbComboSimple:
+		return
+	if not _popup or not is_instance_valid(_popup):
 		return
 	var scr := get_screen_position()
 	var sz := size
@@ -451,7 +469,7 @@ func _show_popup() -> void:
 
 func _on_popup_hide() -> void:
 	_popup_just_closed = true
-	if is_inside_tree():
+	if is_inside_tree() and get_tree():
 		get_tree().create_timer(0.15).timeout.connect(_clear_popup_flag, CONNECT_ONE_SHOT)
 
 func _clear_popup_flag() -> void:
@@ -465,7 +483,7 @@ func _on_text_changed(new_text: String) -> void:
 	if _suppress_text:
 		return
 	text_changed.emit(new_text)
-	if _style != vbComboSimple and not _popup.visible:
+	if _popup and is_instance_valid(_popup) and _style != vbComboSimple and not _popup.visible:
 		_show_popup()
 	if new_text.is_empty():
 		return
@@ -484,10 +502,11 @@ func _on_line_edit_gui_input(event: InputEvent) -> void:
 	if not (event is InputEventKey and event.pressed):
 		return
 	var kc := (event as InputEventKey).keycode
+	var popup_vis := _popup and is_instance_valid(_popup) and _popup.visible
 	if kc == KEY_DOWN:
 		if _style == vbComboSimple:
 			_move_selection(1)
-		elif not _popup.visible:
+		elif not popup_vis:
 			_show_popup()
 		else:
 			_move_selection(1)
@@ -496,17 +515,20 @@ func _on_line_edit_gui_input(event: InputEvent) -> void:
 	elif kc == KEY_ENTER or kc == KEY_KP_ENTER:
 		if _style == vbComboSimple:
 			_commit_list_selection()
-		elif _popup.visible:
+		elif popup_vis:
 			_commit_list_selection()
 	elif kc == KEY_ESCAPE:
-		if _popup.visible:
+		if popup_vis:
 			_popup.hide()
 			if _selected_idx >= 0 and _selected_idx < _data.size():
-				_suppress_text = true
-				_line_edit.text = _data[_selected_idx]["text"]
-				_suppress_text = false
+				if _line_edit and is_instance_valid(_line_edit):
+					_suppress_text = true
+					_line_edit.text = _data[_selected_idx]["text"]
+					_suppress_text = false
 
 func _move_selection(delta: int) -> void:
+	if not _item_list or not is_instance_valid(_item_list):
+		return
 	var sel := _item_list.get_selected_items()
 	var cur := sel[0] if sel.size() > 0 else -1
 	var nxt := clampi(cur + delta, 0, _data.size() - 1)
@@ -524,6 +546,8 @@ func _on_item_activated(idx: int) -> void:
 	_commit_selection(idx)
 
 func _commit_list_selection() -> void:
+	if not _item_list or not is_instance_valid(_item_list):
+		return
 	var sel := _item_list.get_selected_items()
 	if sel.size() > 0:
 		_commit_selection(sel[0])
@@ -532,10 +556,11 @@ func _commit_selection(idx: int) -> void:
 	if idx < 0 or idx >= _data.size():
 		return
 	_selected_idx = idx
-	_suppress_text = true
-	_line_edit.text = _data[idx]["text"]
-	_line_edit.caret_column = 0
-	_suppress_text = false
-	if _style != vbComboSimple:
+	if _line_edit and is_instance_valid(_line_edit):
+		_suppress_text = true
+		_line_edit.text = _data[idx]["text"]
+		_line_edit.caret_column = 0
+		_suppress_text = false
+	if _style != vbComboSimple and _popup and is_instance_valid(_popup):
 		_popup.hide()
 	item_selected.emit(idx)
