@@ -145,8 +145,8 @@ func _show_popup() -> void:
 		return
 	var scr := get_screen_position()
 	var sz := size
-	# Approx 24 px per item, max 300 px tall
-	var h := mini(_data.size() * 24 + 16, 300)
+	# 28 px per item + 20 px panel padding, min 60 px, max 300 px
+	var h := clampi(_data.size() * 28 + 20, 60, 300)
 	_popup.popup(Rect2i(int(scr.x), int(scr.y + sz.y), int(sz.x), h))
 	# Highlight current selection
 	if _selected_idx >= 0 and _selected_idx < _data.size():

@@ -155,8 +155,10 @@ func refresh_objects():
 	var current_node_name = ""
 	if object_list.item_count > 0 and object_list.selected >= 0:
 		var meta = object_list.get_item_metadata(object_list.selected)
-		if meta and is_instance_valid(meta):
+		if meta is Node and is_instance_valid(meta):
 			current_node_name = meta.name
+		elif meta is String:
+			current_node_name = meta  # "(General)"
 	
 	object_list.clear()
 	
@@ -189,7 +191,12 @@ func refresh_objects():
 	if current_node_name != "":
 		for i in object_list.item_count:
 			var meta = object_list.get_item_metadata(i)
-			if meta and meta.name == current_node_name:
+			if meta is String and meta == current_node_name:
+				object_list.select(i)
+				_on_object_selected(i)
+				found = true
+				break
+			elif meta is Node and is_instance_valid(meta) and meta.name == current_node_name:
 				object_list.select(i)
 				_on_object_selected(i)
 				found = true
@@ -345,6 +352,8 @@ func _on_object_selected(idx):
 			var eidx = event_list.item_count
 			event_list.add_item(display)
 			event_list.set_item_metadata(eidx, {"type": "procedure", "line": proc["line"], "name": proc["name"], "kind": proc["kind"]})
+		if event_list.item_count > 0:
+			event_list.select(0)
 		return
 	
 	if not is_instance_valid(meta):
@@ -385,6 +394,10 @@ func _on_object_selected(idx):
 		var emeta = event_list.get_item_metadata(i)
 		if emeta and emeta.has("has_handler") and not emeta["has_handler"]:
 			event_list.set_item_custom_color(i, COLOR_DIM)
+	
+	# Auto-select first event so the textbox is never blank
+	if event_list.item_count > 0:
+		event_list.select(0)
 
 func _on_event_selected(idx):
 	if idx < 0: return
