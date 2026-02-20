@@ -36,6 +36,7 @@ func _init():
 	# --- LineEdit (editable text area) ---
 	_line_edit = LineEdit.new()
 	_line_edit.size_flags_horizontal = SIZE_EXPAND_FILL
+	_line_edit.select_all_on_focus = true  # Click → select all → type to replace (VB6 ComboBox)
 	_line_edit.text_changed.connect(_on_text_changed)
 	_line_edit.gui_input.connect(_on_line_edit_gui_input)
 	add_child(_line_edit)
