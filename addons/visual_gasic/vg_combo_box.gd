@@ -1,5 +1,5 @@
 @tool
-extends HBoxContainer
+extends Control
 ## VGComboBox — VB6-faithful ComboBox control.
 ##
 ## Replicates the VB6 ComboBox with all standard properties, methods, events,
@@ -278,7 +278,7 @@ func set_item_custom_color(idx: int, color: Color) -> void:
 # =============================================================================
 
 func _init():
-	add_theme_constant_override("separation", 0)
+	clip_children = CanvasItem.CLIP_CHILDREN_AND_DRAW
 
 func _ready():
 	# Guard: don't re-create children if they already exist (scene reload)
@@ -291,23 +291,30 @@ func _ready():
 
 func _build_ui() -> void:
 	var in_editor := Engine.is_editor_hint()
+	var arrow_w := 22
 
-	# --- LineEdit ---
+	# --- LineEdit (fills left, leaves room for arrow) ---
 	_line_edit = LineEdit.new()
 	_line_edit.name = &"_LE"
-	_line_edit.size_flags_horizontal = SIZE_EXPAND_FILL
-	_line_edit.size_flags_vertical = SIZE_EXPAND_FILL
+	_line_edit.set_anchors_preset(PRESET_FULL_RECT)
+	_line_edit.offset_right = -arrow_w
 	if not in_editor:
 		_line_edit.select_all_on_focus = true
 		_line_edit.gui_input.connect(_on_line_edit_gui_input)
 	_line_edit.text_changed.connect(_on_text_changed)
 	add_child(_line_edit, false, INTERNAL_MODE_FRONT)
 
-	# --- ▼ Arrow Button ---
+	# --- ▼ Arrow Button (anchored to right edge) ---
 	_arrow_btn = Button.new()
 	_arrow_btn.name = &"_AB"
-	_arrow_btn.custom_minimum_size = Vector2(22, 0)
-	_arrow_btn.size_flags_vertical = SIZE_EXPAND_FILL
+	_arrow_btn.anchor_left = 1.0
+	_arrow_btn.anchor_right = 1.0
+	_arrow_btn.anchor_top = 0.0
+	_arrow_btn.anchor_bottom = 1.0
+	_arrow_btn.offset_left = -arrow_w
+	_arrow_btn.offset_right = 0
+	_arrow_btn.offset_top = 0
+	_arrow_btn.offset_bottom = 0
 	_arrow_btn.focus_mode = Control.FOCUS_NONE
 	if not in_editor:
 		_arrow_btn.pressed.connect(_on_arrow_pressed)
@@ -330,8 +337,7 @@ func _build_ui() -> void:
 	# --- Inline ItemList (Style 1) ---
 	_inline_list = ItemList.new()
 	_inline_list.name = &"_IL"
-	_inline_list.size_flags_horizontal = SIZE_EXPAND_FILL
-	_inline_list.size_flags_vertical = SIZE_EXPAND_FILL
+	_inline_list.set_anchors_preset(PRESET_FULL_RECT)
 	_inline_list.custom_minimum_size = Vector2(0, 100)
 	_inline_list.auto_height = false
 	_inline_list.visible = false
@@ -356,6 +362,14 @@ func _load_design_time_list() -> void:
 func _notification(what: int):
 	if what == NOTIFICATION_THEME_CHANGED or what == NOTIFICATION_READY:
 		_update_arrow_icon()
+	if what == NOTIFICATION_RESIZED:
+		_update_layout()
+
+func _update_layout() -> void:
+	if not _line_edit or not is_instance_valid(_line_edit):
+		return
+	var arrow_w := 22 if (_arrow_btn and _arrow_btn.visible) else 0
+	_line_edit.offset_right = -arrow_w
 
 func _update_arrow_icon() -> void:
 	if not _arrow_btn:
@@ -393,6 +407,7 @@ func _apply_style() -> void:
 			if _arrow_btn: _arrow_btn.visible = true
 			if _inline_list: _inline_list.visible = false
 			_item_list = _popup_list
+	_update_layout()
 	_rebuild_item_list()
 
 func _reparent_inline_list() -> void:

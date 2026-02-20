@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" path="res://addons/visual_gasic/vg_combo_box.gd" id="1"]
 
-[node name="VGComboBox" type="HBoxContainer"]
+[node name="VGComboBox" type="Control"]
 custom_minimum_size = Vector2(150, 28)
 offset_right = 150.0
 offset_bottom = 28.0
