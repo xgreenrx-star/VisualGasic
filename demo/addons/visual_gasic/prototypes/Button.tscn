@@ -1,4 +1,6 @@
-[gd_scene format=3]
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://addons/visual_gasic/vg_button.gd" id="1"]
 
 [node name="Button" type="Button"]
 custom_minimum_size = Vector2(75, 23)
@@ -6,3 +8,4 @@ offset_right = 75.0
 offset_bottom = 23.0
 focus_mode = 2
 text = "Button"
+script = ExtResource("1")

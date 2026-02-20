@@ -59,3 +59,8 @@ DesignTimeList = PackedStringArray()
 offset_left = 120.0
 offset_top = 72.0
 text = "Button3"
+
+[node name="Button4" parent="." instance=ExtResource("3")]
+offset_left = 104.0
+offset_top = 144.0
+text = "Button4"

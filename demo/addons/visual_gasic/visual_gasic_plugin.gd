@@ -97,6 +97,9 @@ var _color_palette = null
 ## VB6 Main Screen control (registered as editor tab alongside 2D/3D/Script)
 var _vb6_main_screen = null
 
+## C++ Form Designer canvas — the custom form editor that bypasses Godot's scene tree
+var _form_designer: Control = null
+
 ## Tracks whether VG panels are currently in Godot docks
 var _vg_panels_docked: bool = false
 
@@ -111,6 +114,9 @@ var _snippet_browser = null
 
 ## Theme Picker dialog (v2.4.1)
 var _theme_picker = null
+
+## Profiler Panel (v2.6.0) — bottom panel for bytecode profiling
+var _profiler_panel = null
 
 # =============================================================================
 # PLUGIN LIFECYCLE
@@ -260,6 +266,18 @@ func _enter_tree():
 		add_tool_menu_item("VG: Theme Picker", Callable(self, "_on_open_theme_picker"))
 		print("VisualGasic: Theme Picker created")
 	
+	# Create Profiler Panel (v2.6.0) — bottom panel for bytecode profiling
+	var profiler_script = load("res://addons/visual_gasic/vg_profiler_panel.gd")
+	if profiler_script:
+		_profiler_panel = profiler_script.new()
+		if _profiler_panel.has_method("set_debugger_plugin"):
+			_profiler_panel.set_debugger_plugin(debugger_plugin)
+		add_control_to_bottom_panel(_profiler_panel, "VG Profiler")
+		print("VisualGasic: Profiler Panel created (bottom panel)")
+	
+	# Register custom .vg file icon in the editor theme
+	call_deferred("_register_vg_file_icon")
+	
 	# Create VB6 Project Explorer (right-upper dock in VB6 mode)
 	var proj_explorer_script = load("res://addons/visual_gasic/vb6_project_explorer.gd")
 	if proj_explorer_script:
@@ -302,6 +320,25 @@ func _enter_tree():
 		print("VisualGasic: Added 'Form Designer' to toolbar (fallback)")
 	# Style after in tree so sibling theme lookups work
 	call_deferred("_style_form_designer_button")
+
+	# Create the C++ Form Designer (our custom main screen canvas)
+	if ClassDB.class_exists("VisualGasicFormDesigner"):
+		_form_designer = ClassDB.instantiate("VisualGasicFormDesigner")
+		_form_designer.name = "FormDesignerCanvas"
+		_form_designer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		_form_designer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		_form_designer.new_form("Form1")
+		# Connect signals
+		_form_designer.control_selected.connect(_on_fd_control_selected)
+		_form_designer.control_deselected.connect(_on_fd_control_deselected)
+		_form_designer.form_modified.connect(_on_fd_form_modified)
+		_form_designer.control_double_clicked.connect(_on_fd_control_double_clicked)
+		# Add to editor's main screen area and hide initially
+		EditorInterface.get_editor_main_screen().add_child(_form_designer)
+		_make_visible(false)
+		print("VisualGasic: C++ FormDesigner created and added to main screen")
+	else:
+		push_warning("VisualGasic: VisualGasicFormDesigner class not found in ClassDB")
 
 	_post_init()
 	_setup_script_editor_context_menu()
@@ -396,12 +433,35 @@ func undock_vg_toolbars():
 # MAIN SCREEN PLUGIN OVERRIDES
 # =============================================================================
 
-## No VB6 main screen tab. The form designer IS the Godot 2D viewport.
-## VB6 mode = 2D viewport + VG dock panels (Toolbox, Properties, Project Explorer)
-##         + VG toolbars (Alignment, Preview, Color Palette).
-## Toggled via Project > Tools > Toggle VG IDE Layout.
+## The C++ Form Designer is a proper main screen tab (alongside 2D/3D/Script).
+## Clicking it shows our custom canvas; clicking 2D/3D/Script hides it.
 func _has_main_screen() -> bool:
-	return false
+	return _form_designer != null
+
+func _get_plugin_name() -> String:
+	return "Form Designer"
+
+func _get_plugin_icon() -> Texture2D:
+	var theme = get_editor_interface().get_base_control().get_theme()
+	if theme:
+		var icon = theme.get_icon("Window", "EditorIcons")
+		if icon:
+			return icon
+		icon = theme.get_icon("Control", "EditorIcons")
+		if icon:
+			return icon
+	return null
+
+func _make_visible(p_visible: bool) -> void:
+	if _form_designer:
+		_form_designer.visible = p_visible
+	# Activate/deactivate VB6 layout when switching to/from Form Designer
+	if is_instance_valid(_layout_manager):
+		if p_visible and not _layout_manager.is_vb6_mode():
+			_layout_manager.toggle()
+		elif not p_visible and _layout_manager.is_vb6_mode():
+			_layout_manager._deactivate_vb6_mode()
+	_update_main_screen_buttons(p_visible)
 
 ## Called by the editor after restoring saved window layout.
 func _set_window_layout(config: ConfigFile):
@@ -431,6 +491,11 @@ func _exit_tree():
 			_vb6_toggle_button.get_parent().remove_child(_vb6_toggle_button)
 		_vb6_toggle_button.queue_free()
 		_vb6_toggle_button = null
+
+	# Cleanup C++ Form Designer
+	if is_instance_valid(_form_designer):
+		_form_designer.queue_free()
+		_form_designer = null
 	
 	remove_tool_menu_item("Toggle VG IDE Layout")
 	remove_tool_menu_item("New Module...")
@@ -448,6 +513,12 @@ func _exit_tree():
 		remove_control_from_bottom_panel(immediate_window)
 		immediate_window.queue_free()
 		immediate_window = null
+	
+	# Cleanup Profiler Panel
+	if is_instance_valid(_profiler_panel):
+		remove_control_from_bottom_panel(_profiler_panel)
+		_profiler_panel.queue_free()
+		_profiler_panel = null
 	
 	# Cleanup Code Navigator (injected above code editor)
 	if is_instance_valid(_code_navigator):
@@ -549,9 +620,15 @@ func _exit_tree():
 		get_tree().node_added.disconnect(_on_node_added)
 
 ## Called every frame. Detects vg_control drag end and handles drop.
-## Since _forward_canvas_gui_input doesn't receive mouse release during drag,
-## we detect when dragging stops and handle the drop here.
+## When the C++ Form Designer is active and visible, it handles drops directly
+## via _can_drop_data/_drop_data — skip the old GDScript drop path entirely.
 func _process(_delta: float) -> void:
+	# C++ Form Designer handles its own drops — skip old code path
+	if _form_designer and _form_designer.visible:
+		if _vg_drag_active and not get_viewport().gui_is_dragging():
+			_vg_drag_active = false  # Reset flag, C++ consumed the meta
+		return
+
 	# Check if we have an active vg_control drag
 	var has_vg_drag = Engine.has_meta("_vg_active_drag")
 	
@@ -592,8 +669,17 @@ func _process(_delta: float) -> void:
 			# Use a timer to give Godot time to fully process the drag end
 			var timer = get_tree().create_timer(0.05)  # 50ms delay
 			timer.timeout.connect(_handle_vg_drop_delayed.bind(drag_data))
+	
+	# Safety reset: if drag was active but meta was consumed by _drop_data()
+	# (form_editor_helper handled it), just reset the flag
+	if _vg_drag_active and not is_dragging and not has_vg_drag:
+		_vg_drag_active = false
 
 ## Handles vg_control drop after a short delay for editor stability.
+## Modifies the .tscn file on disk and reloads — the ONLY approach that
+## correctly registers ownership in the Godot editor scene tree.
+## Improved over the original: uses proper UIDs, max-based ext_resource IDs,
+## and reuses existing ext_resource entries to prevent scene corruption.
 func _handle_vg_drop_delayed(drag_data: Dictionary) -> void:
 	var scene_path = drag_data.get("scene_path", "")
 	if scene_path.is_empty():
@@ -606,7 +692,7 @@ func _handle_vg_drop_delayed(drag_data: Dictionary) -> void:
 		printerr("VisualGasic: No valid scene root for drop")
 		return
 	
-	# Get the scene file path
+	# Scene must be saved to disk for text manipulation
 	var edited_scene_path = root.scene_file_path
 	if edited_scene_path.is_empty():
 		printerr("VisualGasic: Scene has no file path")
@@ -623,8 +709,10 @@ func _handle_vg_drop_delayed(drag_data: Dictionary) -> void:
 			var world_pos = canvas_xform.affine_inverse() * mouse_pos
 			drop_pos = world_pos.snapped(Vector2(8, 8))
 	
-	# Get control class name from scene path
 	var control_name = scene_path.get_file().get_basename()
+	
+	# Save any pending editor changes before modifying the file on disk
+	get_editor_interface().save_scene()
 	
 	# Read the current scene file
 	var file = FileAccess.open(edited_scene_path, FileAccess.READ)
@@ -634,30 +722,65 @@ func _handle_vg_drop_delayed(drag_data: Dictionary) -> void:
 	var scene_text = file.get_as_text()
 	file.close()
 	
-	# Find how many ext_resources there are to determine next ID
-	var ext_res_count = scene_text.count("[ext_resource")
-	var new_ext_id = ext_res_count + 1
+	# Check if this scene_path already has an ext_resource entry (reuse it)
+	var ext_id_str := ""
+	var lines = scene_text.split("\n")
+	for line in lines:
+		if line.begins_with("[ext_resource") and line.find('path="' + scene_path + '"') >= 0:
+			var id_start = line.find('id="') + 4
+			var id_end = line.find('"', id_start)
+			if id_start > 3 and id_end > id_start:
+				ext_id_str = line.substr(id_start, id_end - id_start)
+			break
 	
-	# Find existing nodes with same base name to generate unique name (always numbered)
-	var existing_count = scene_text.count("[node name=\"" + control_name)
+	if ext_id_str.is_empty():
+		# Need a new ext_resource — find the maximum existing numeric ID
+		var max_num := 0
+		for line in lines:
+			if line.begins_with("[ext_resource"):
+				var id_start = line.find('id="') + 4
+				var id_end = line.find('"', id_start)
+				if id_start > 3 and id_end > id_start:
+					var id_val = line.substr(id_start, id_end - id_start)
+					# Handle Godot 4 "3_abc" style IDs — extract numeric prefix
+					var num_part = id_val.split("_")[0]
+					if num_part.is_valid_int() and int(num_part) > max_num:
+						max_num = int(num_part)
+		ext_id_str = str(max_num + 1)
+		
+		# Get proper UID for the prototype scene
+		var uid_str := ""
+		var uid_val = ResourceLoader.get_resource_uid(scene_path)
+		if uid_val >= 0:
+			uid_str = ResourceUID.id_to_text(uid_val)
+		
+		# Build the new ext_resource line
+		var ext_line := '[ext_resource type="PackedScene"'
+		if not uid_str.is_empty():
+			ext_line += ' uid="' + uid_str + '"'
+		ext_line += ' path="' + scene_path + '" id="' + ext_id_str + '"]\n'
+		
+		# Insert after the last ext_resource line
+		var last_ext_pos = scene_text.rfind("[ext_resource")
+		if last_ext_pos >= 0:
+			var end_of_line = scene_text.find("\n", last_ext_pos)
+			scene_text = scene_text.insert(end_of_line + 1, ext_line)
+		else:
+			# No ext_resources yet — insert before first [node
+			var first_node_pos = scene_text.find("\n[node ")
+			if first_node_pos >= 0:
+				scene_text = scene_text.insert(first_node_pos, "\n" + ext_line)
+	
+	# Generate unique node name (always numbered)
+	var existing_count = scene_text.count('[node name="' + control_name)
 	var node_name = control_name + str(existing_count + 1)
 	
-	# Build the new ext_resource line
-	var ext_resource_line = "[ext_resource type=\"PackedScene\" uid=\"\" path=\"" + scene_path + "\" id=\"" + str(new_ext_id) + "\"]\n"
-	
-	# Build the new node line
-	var node_line = "\n[node name=\"" + node_name + "\" parent=\".\" instance=ExtResource(\"" + str(new_ext_id) + "\")]\n"
+	# Build the new node entry
+	var node_line = '\n[node name="' + node_name + '" parent="." instance=ExtResource("' + ext_id_str + '")]\n'
 	node_line += "offset_left = " + str(int(drop_pos.x)) + ".0\n"
 	node_line += "offset_top = " + str(int(drop_pos.y)) + ".0\n"
-	# Set button/label text to match the node name
 	if control_name in ["Button", "Label", "CheckBox", "OptionButton"]:
-		node_line += "text = \"" + node_name + "\"\n"
-	
-	# Insert ext_resource after the last ext_resource line
-	var last_ext_pos = scene_text.rfind("[ext_resource")
-	if last_ext_pos >= 0:
-		var end_of_line = scene_text.find("\n", last_ext_pos)
-		scene_text = scene_text.insert(end_of_line + 1, ext_resource_line)
+		node_line += 'text = "' + node_name + '"\n'
 	
 	# Append node at the end
 	scene_text += node_line
@@ -692,13 +815,24 @@ func _select_node_by_name(node_name: String) -> void:
 		# Force the editor to focus on this node - this updates the Scene Tree display
 		get_editor_interface().edit_node(node)
 
+## Selects a node instance after it was dropped via toolbox drag.
+## Called deferred to avoid conflicts with UndoRedo action processing.
+func _select_dropped_node(node: Node) -> void:
+	if not is_instance_valid(node):
+		return
+	if not node.is_inside_tree():
+		return
+	get_editor_interface().get_selection().clear()
+	get_editor_interface().get_selection().add_node(node)
+	get_editor_interface().edit_node(node)
+
 ## Deferred handler for vg_control drop - runs on next frame for cleaner context
 func _handle_vg_drag_end_deferred():
 	_handle_vg_drag_end()
 	Engine.remove_meta("_vg_active_drag")
 
 ## Handles the end of a vg_control drag operation.
-## Gets mouse position and creates the control at that location.
+## Computes drop position and delegates to _handle_vg_drop_delayed.
 func _handle_vg_drag_end():
 	if not Engine.has_meta("_vg_active_drag"):
 		return
@@ -707,77 +841,22 @@ func _handle_vg_drag_end():
 	if not drag_data is Dictionary:
 		return
 	
-	var scene_path = drag_data.get("scene_path", "")
-	if scene_path.is_empty():
-		printerr("VisualGasic: No scene_path in drag data")
-		return
+	# Compute drop position if not already set
+	if not drag_data.has("drop_position"):
+		var root = get_editor_interface().get_edited_scene_root()
+		var viewport = get_editor_interface().get_editor_viewport_2d()
+		if root and viewport:
+			var mouse_pos = viewport.get_mouse_position()
+			var canvas_xform = viewport.get_canvas_transform()
+			var world_pos = canvas_xform.affine_inverse() * mouse_pos
+			var form_offset = Vector2.ZERO
+			if root is Window:
+				form_offset = Vector2(root.position)
+			elif root is Control:
+				form_offset = root.position
+			drag_data["drop_position"] = (world_pos - form_offset).snapped(Vector2(8, 8))
 	
-	var root = get_editor_interface().get_edited_scene_root()
-	print("VisualGasic: get_edited_scene_root() returned: ", root, " type: ", typeof(root))
-	if root:
-		print("VisualGasic: root.name=", root.name, " root.get_class()=", root.get_class())
-	if not root:
-		printerr("VisualGasic: No scene root for drop")
-		return
-	
-	# Check if root is actually valid and in the scene tree
-	if not is_instance_valid(root):
-		printerr("VisualGasic: Scene root is not valid")
-		return
-	
-	print("VisualGasic: root valid, is_inside_tree=", root.is_inside_tree())
-	
-	# Get mouse position in the 2D canvas
-	var viewport = get_editor_interface().get_editor_viewport_2d()
-	if not viewport:
-		printerr("VisualGasic: Could not get editor viewport")
-		return
-	
-	# Get the global mouse position and transform to canvas coordinates
-	var mouse_pos = viewport.get_mouse_position()
-	
-	# Adjust for canvas transform (zoom/pan)
-	var canvas_transform = viewport.get_canvas_transform()
-	var world_pos = canvas_transform.affine_inverse() * mouse_pos
-	
-	# Load and instance the scene
-	var scene = load(scene_path)
-	if not scene:
-		printerr("VisualGasic: Could not load scene: ", scene_path)
-		return
-	
-	print("VisualGasic: Scene loaded, instantiating...")
-	var instance = scene.instantiate()
-	if not instance:
-		printerr("VisualGasic: Could not instantiate: ", scene_path)
-		return
-	
-	print("VisualGasic: Calling add_child...")
-	# Use EditorUndoRedoManager for proper editor integration
-	var undo_redo = get_undo_redo()
-	undo_redo.create_action("Add " + instance.name)
-	undo_redo.add_do_method(root, "add_child", instance, true)
-	undo_redo.add_do_property(instance, "owner", root)
-	undo_redo.add_do_reference(instance)
-	undo_redo.add_undo_method(root, "remove_child", instance)
-	undo_redo.commit_action()
-	
-	print("VisualGasic: UndoRedo action committed")
-	
-	# Position the control
-	if instance is Control:
-		# Adjust for form's position if it's a Window
-		var offset = Vector2.ZERO
-		if root is Window:
-			offset = Vector2(root.position)
-		instance.position = world_pos - offset
-		# Snap to 8px grid
-		instance.position = instance.position.snapped(Vector2(8, 8))
-	
-	print("VisualGasic: Dropped ", instance.name, " at ", instance.position)
-	
-	# Select the newly created node - use call_deferred to avoid conflicts
-	call_deferred("_select_dropped_node", instance)
+	_handle_vg_drop_delayed(drag_data)
 
 # =============================================================================
 # VB6 IMPORT FUNCTIONS
@@ -983,8 +1062,9 @@ func _finish_form_creation(path: String, form_name: String, vg_path: String, tem
 	bg_panel.name = "_FormBackground"
 	# Don't use PRESET_FULL_RECT - let the panel have its own size for editor resize
 	bg_panel.size = root.size
-	# Use MOUSE_FILTER_STOP to intercept drops in the editor viewport
-	bg_panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	# Use MOUSE_FILTER_PASS so the panel receives drop data but lets clicks through
+	# to sibling controls (Buttons, ComboBoxes, etc.) for selection and deletion
+	bg_panel.mouse_filter = Control.MOUSE_FILTER_PASS
 	# Attach the form editor helper script for drag-resize support
 	var helper_script = load("res://addons/visual_gasic/form_editor_helper.gd")
 	if helper_script:
@@ -1176,26 +1256,86 @@ End Sub
 ## Activates VB6 mode (just like clicking 2D/3D/Script activates that screen).
 ## With toggle_mode=true, the button toggles its own pressed state before this fires.
 func _on_form_designer_pressed():
-	if not is_instance_valid(_layout_manager):
-		return
-	if _vb6_toggle_button.button_pressed:
-		# Button was just pressed ON - activate Form Designer
+	# Switch to our main screen tab (C++ Form Designer)
+	if _form_designer:
+		EditorInterface.set_main_screen_editor("Form Designer")
+	# Also activate VB6 layout if available
+	if is_instance_valid(_layout_manager):
 		if not _layout_manager.is_vb6_mode():
-			_layout_manager.toggle()  # Activate
-		else:
-			# Already active - just ensure we are on 2D
-			_layout_manager.switching_internally = true
-			EditorInterface.set_main_screen_editor("2D")
-			_layout_manager.switching_internally = false
-		_update_main_screen_buttons(true)
-	else:
-		# Button was just pressed OFF - deactivate and go to 2D
-		if _layout_manager.is_vb6_mode():
-			_layout_manager._deactivate_vb6_mode()
-		_layout_manager.switching_internally = true
-		EditorInterface.set_main_screen_editor("2D")
-		_layout_manager.switching_internally = false
-		_update_main_screen_buttons(false)
+			_layout_manager.toggle()
+	_update_main_screen_buttons(true)
+
+## Opens a .tscn form file in the C++ Form Designer.
+## Called from Project Explorer or when double-clicking a .tscn in FileSystem.
+func open_form_in_designer(tscn_path: String) -> void:
+	if not _form_designer:
+		push_warning("VisualGasic: Form Designer not available")
+		return
+	_form_designer.open_form(tscn_path)
+	EditorInterface.set_main_screen_editor("Form Designer")
+	print("VisualGasic: Opened '", tscn_path, "' in Form Designer")
+
+## Signal: A control was selected in the C++ Form Designer canvas.
+func _on_fd_control_selected(index: int) -> void:
+	if not _form_designer:
+		return
+	var info = _form_designer.get_control_info(index)
+	print("FormDesigner: Selected ", info.get("name", "?"), " (", info.get("type", "?"), ")")
+	# Update properties inspector if available
+	if is_instance_valid(_properties_inspector) and _properties_inspector.has_method("show_control_properties"):
+		_properties_inspector.show_control_properties(info)
+
+## Signal: All controls deselected in the C++ Form Designer.
+func _on_fd_control_deselected() -> void:
+	if is_instance_valid(_properties_inspector) and _properties_inspector.has_method("clear_properties"):
+		_properties_inspector.clear_properties()
+
+## Signal: Form was modified (dirty flag set) in the C++ Form Designer.
+func _on_fd_form_modified() -> void:
+	pass  # Could update title bar asterisk, etc.
+
+## Signal: A control was double-clicked — generate event handler stub.
+func _on_fd_control_double_clicked(index: int) -> void:
+	if not _form_designer:
+		return
+	var info = _form_designer.get_control_info(index)
+	var ctrl_name = info.get("name", "")
+	var ctrl_type = info.get("type", "")
+	if ctrl_name.is_empty():
+		return
+	# Determine default event suffix based on type
+	var event_suffix = "Click"
+	if ctrl_type in ["LineEdit", "TextEdit"]:
+		event_suffix = "Change"
+	elif ctrl_type in ["HScrollBar", "VScrollBar", "HSlider", "VSlider"]:
+		event_suffix = "Change"
+	# Open/create the .vg script and insert/navigate to the event handler
+	var form_path = _form_designer.get_form_path()
+	if form_path.is_empty():
+		return
+	var vg_path = form_path.get_basename() + ".vg"
+	var sub_name = ctrl_name + "_" + event_suffix
+	_open_or_create_event_handler(vg_path, sub_name)
+
+## Opens the .vg script and creates/navigates to the given Sub stub.
+## Reuses the existing _open_and_inject infrastructure.
+func _open_or_create_event_handler(vg_path: String, sub_name: String) -> void:
+	# Split sub_name into obj + event parts for _open_and_inject
+	var parts = sub_name.split("_", true, 1)
+	if parts.size() < 2:
+		return
+	var obj = parts[0]
+	var event = parts[1]
+
+	# Create file if missing
+	if not FileAccess.file_exists(vg_path):
+		var f = FileAccess.open(vg_path, FileAccess.WRITE)
+		if f:
+			f.store_string("' Visual Gasic Form Script\nOption Explicit\n\n")
+			f.close()
+		get_editor_interface().get_resource_filesystem().scan()
+
+	_open_and_inject(vg_path, obj, event)
 
 ## Called from Project > Tools > Toggle VG IDE Layout menu item.
 func _on_toggle_vb6_layout():
@@ -1296,6 +1436,22 @@ func _style_form_designer_button() -> void:
 	_vb6_toggle_button.add_theme_color_override("font_hover_color", Color(1.0, 0.9, 0.3))
 	_vb6_toggle_button.add_theme_color_override("font_pressed_color", Color(1.0, 1.0, 0.5))
 	_vb6_toggle_button.add_theme_color_override("font_focus_color", Color(1.0, 1.0, 0.5))
+
+func _register_vg_file_icon() -> void:
+	"""Register the custom .vg file icon so it appears in the FileSystem dock."""
+	var icon_path := "res://addons/visual_gasic/vg_file_icon.svg"
+	if not ResourceLoader.exists(icon_path):
+		return
+	var icon_texture: Texture2D = load(icon_path)
+	if icon_texture == null:
+		return
+	# Inject into the editor theme so the FileSystem dock picks it up
+	var theme := get_editor_interface().get_base_control().get_theme()
+	if theme:
+		# Godot maps file extension icons via "res://path.ext" → icon lookup
+		# The most reliable way is overriding the GDExtension script icon
+		theme.set_icon("VisualGasicScript", "EditorIcons", icon_texture)
+		print("VisualGasic: Registered .vg file icon")
 
 # =============================================================================
 # MODULE CREATION
@@ -1682,6 +1838,7 @@ func _on_components_changed():
 
 ## Registers the GDScript-extended tools (not in C++ defaults)
 func _register_extended_tools():
+	register_tool("VGComboBox", "HBoxContainer", "OptionButton", "res://addons/visual_gasic/prototypes/VGComboBox.tscn")
 	register_tool("FlexGrid", "Tree", "Tree", "res://custom_widgets/FlexGrid.tscn")
 	register_tool("Form", "Panel", "Window", "res://custom_widgets/Form.tscn")
 	register_tool("Option", "CheckBox", "CheckBox", "res://custom_widgets/Option.tscn")
@@ -1817,56 +1974,30 @@ func _forward_canvas_gui_input(event):
 	return false
 
 ## Handles dropping a vg_control onto the 2D canvas.
-## Instances the scene and adds it to the form root (NOT the control under cursor).
+## Computes form-local position and delegates to _handle_vg_drop_delayed.
 ## @param canvas_pos: The position in the canvas where drop occurred
 ## @param drag_data: The drag data dictionary from C++ toolbox
 ## @returns: true if drop was handled
 func _handle_vg_control_drop(canvas_pos: Vector2, drag_data: Dictionary) -> bool:
-	print("VisualGasic: _handle_vg_control_drop called at ", canvas_pos)
-	var scene_path = drag_data.get("scene_path", "")
-	if scene_path.is_empty():
-		printerr("VisualGasic: Empty scene_path in drag data")
-		return false
-	
 	var root = get_editor_interface().get_edited_scene_root()
-	print("VisualGasic: Scene root = ", root)
 	if not root:
-		printerr("VisualGasic: No scene root for drop")
 		return false
 	
-	# Load and instance the scene
-	var scene = load(scene_path)
-	if not scene:
-		printerr("VisualGasic: Could not load scene: ", scene_path)
-		return false
+	# Transform canvas viewport position to form-local coordinates
+	var viewport = get_editor_interface().get_editor_viewport_2d()
+	if viewport:
+		var canvas_xform = viewport.get_canvas_transform()
+		var world_pos = canvas_xform.affine_inverse() * canvas_pos
+		var form_offset = Vector2.ZERO
+		if root is Window:
+			form_offset = Vector2(root.position)
+		elif root is Control:
+			form_offset = root.position
+		drag_data["drop_position"] = (world_pos - form_offset).snapped(Vector2(8, 8))
+	else:
+		drag_data["drop_position"] = canvas_pos.snapped(Vector2(8, 8))
 	
-	var instance = scene.instantiate()
-	if not instance:
-		printerr("VisualGasic: Could not instantiate: ", scene_path)
-		return false
-	
-	print("VisualGasic: Adding ", instance.name, " to ", root.name)
-	# Add to form root (always, regardless of what's under cursor)
-	root.add_child(instance, true)  # force_readable_name = true
-	instance.owner = root
-	
-	# Position the control at drop location
-	# Transform from viewport coords to canvas coords
-	if instance is Control:
-		var viewport = get_editor_interface().get_editor_viewport_2d()
-		if viewport:
-			var canvas_xform = viewport.get_canvas_transform()
-			var world_pos = canvas_xform.affine_inverse() * canvas_pos
-			instance.position = world_pos.snapped(Vector2(8, 8))
-		else:
-			instance.position = canvas_pos.snapped(Vector2(8, 8))
-	
-	# Select the newly created node
-	var selection = get_editor_interface().get_selection()
-	selection.clear()
-	selection.add_node(instance)
-	
-	print("VisualGasic: Successfully dropped ", instance.name, " at ", instance.position)
+	_handle_vg_drop_delayed(drag_data)
 	return true
 
 ## Generates an event handler for the given node.
