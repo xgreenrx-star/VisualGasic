@@ -14,7 +14,6 @@ var _separator: VSeparator
 var _debugger_plugin: EditorDebuggerPlugin = null
 var _current_break_file: String = ""
 var _current_break_line: int = 0
-var _handler_icon: Texture2D = null  # Filled dot = handler/procedure exists (VB6 bold equivalent)
 
 # Standard VB6 Events
 const EVENTS_COMMON = ["Click", "DblClick", "MouseDown", "MouseUp", "MouseMove", "KeyDown", "KeyUp", "KeyPress"]
@@ -61,10 +60,6 @@ func _init():
 	# Enable type-ahead letter-jump on both dropdowns (like VB6 ComboBox behavior)
 	object_list.get_popup().allow_search = true
 	event_list.get_popup().allow_search = true
-	
-	# Create the small handler icon (VB6 shows implemented procedures in bold;
-	# Godot has no per-item bold, so we use a filled-circle icon instead)
-	_create_handler_icon()
 
 func _notification(what):
 	if what == NOTIFICATION_THEME_CHANGED or what == NOTIFICATION_READY:
@@ -78,22 +73,6 @@ func _set_refresh_icon():
 		refresh_button.icon = icon
 	else:
 		refresh_button.icon = null
-
-func _create_handler_icon() -> void:
-	"""Create a small filled-circle icon for implemented handlers/procedures.
-	VB6 shows these in bold; Godot can't do per-item bold, so we use an icon."""
-	var sz: int = 8
-	var img := Image.create(sz, sz, false, Image.FORMAT_RGBA8)
-	var center := Vector2(sz / 2.0, sz / 2.0)
-	var radius := sz / 2.0 - 0.5
-	for x in sz:
-		for y in sz:
-			var dist := Vector2(x + 0.5, y + 0.5).distance_to(center)
-			if dist <= radius:
-				img.set_pixel(x, y, Color(0.85, 0.85, 0.85, 1.0))
-			else:
-				img.set_pixel(x, y, Color(0, 0, 0, 0))
-	_handler_icon = ImageTexture.create_from_image(img)
 
 func setup(plugin: EditorPlugin):
 	editor_plugin = plugin
@@ -367,12 +346,6 @@ func _on_object_selected(idx):
 			var eidx = event_list.item_count
 			event_list.add_item(display)
 			event_list.set_item_metadata(eidx, {"type": "procedure", "line": proc["line"], "name": proc["name"], "kind": proc["kind"]})
-		# Apply handler icons — all procedures under (General) exist, so all get the icon
-		# (In VB6, all listed procedures here would appear bold)
-		if _handler_icon:
-			var popup = event_list.get_popup()
-			for i in range(1, event_list.item_count):  # Skip (Declarations) at index 0
-				popup.set_item_icon(i, _handler_icon)
 		return
 	
 	if not is_instance_valid(meta):
@@ -407,15 +380,6 @@ func _on_object_selected(idx):
 		var has_handler = text.contains(handler_name)
 		event_list.add_item(evt)
 		event_list.set_item_metadata(eidx, {"type": "event", "event": evt, "has_handler": has_handler})
-	
-	# Apply handler icons — only events with existing handlers get the filled dot
-	# (VB6 shows implemented event handlers in bold, unimplemented in normal weight)
-	if _handler_icon:
-		var popup = event_list.get_popup()
-		for i in event_list.item_count:
-			var emeta = event_list.get_item_metadata(i)
-			if emeta and emeta.get("has_handler", false):
-				popup.set_item_icon(i, _handler_icon)
 
 func _on_event_selected(idx):
 	if idx < 0: return
