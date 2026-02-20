@@ -1,0 +1,50 @@
+[gd_scene load_steps=4 format=3 uid="uid://dvua3o2xw82ft"]
+
+[ext_resource type="Script" uid="uid://cmc4nsw84511m" path="res://Form1.vg" id="1_8ppk2"]
+[ext_resource type="Script" uid="uid://dpmjycbb7xr6m" path="res://addons/visual_gasic/form_editor_helper.gd" id="2_33e8d"]
+[ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/Button.tscn" id="3"]
+[ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/VGComboBox.tscn" id="4"]
+
+[node name="Form1" type="Window"]
+positional_shadow_atlas_quad_0 = null
+positional_shadow_atlas_quad_1 = null
+positional_shadow_atlas_quad_2 = null
+positional_shadow_atlas_quad_3 = null
+oversampling_override = 1.0
+title = "Form1"
+position = Vector2i(10, 36)
+size = Vector2i(400, 300)
+unresizable = null
+borderless = null
+always_on_top = null
+transparent = null
+unfocusable = null
+popup_window = null
+extend_to_title = null
+mouse_passthrough = null
+sharp_corners = null
+exclude_from_capture = null
+popup_wm_hint = null
+minimize_disabled = null
+maximize_disabled = null
+script = ExtResource("1_8ppk2")
+
+[node name="_FormBackground" type="Panel" parent="."]
+offset_right = 400.0
+offset_bottom = 300.0
+mouse_filter = 1
+script = ExtResource("2_33e8d")
+
+[node name="Button1" parent="." instance=ExtResource("3")]
+offset_left = 168.0
+offset_top = 104.0
+text = "Button1"
+
+[node name="Button2" parent="." instance=ExtResource("3")]
+offset_left = 144.0
+offset_top = 72.0
+text = "Button2"
+
+[node name="VGComboBox1" parent="." instance=ExtResource("4")]
+offset_left = 136.0
+offset_top = 192.0

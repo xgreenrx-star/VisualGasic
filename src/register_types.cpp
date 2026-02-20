@@ -20,6 +20,7 @@
 #include "visual_gasic_test_runner.h"
 #include "visual_gasic_immediate.h"
 #include "visual_gasic_debugger.h"
+#include "visual_gasic_form_designer.h"
 
 using namespace godot;
 
@@ -64,6 +65,7 @@ void initialize_visual_gasic_module(ModuleInitializationLevel p_level) {
         ClassDB::register_class<VisualGasicToolButton>();
         // ClassDB::register_class<VisualGasicEditorPlugin>(); // Using GDScript plugin instead
         ClassDB::register_class<VisualGasicSyntaxHighlighter>();
+        ClassDB::register_class<VisualGasicFormDesigner>();
         
         // EditorPlugins::add_by_type<VisualGasicEditorPlugin>();
     }

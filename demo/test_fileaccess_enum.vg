@@ -1,0 +1,13 @@
+Attribute VB_Name = "TestFAEnum"
+
+Sub RunTest()
+    Print "Testing FileAccess enum constants..."
+    Dim v1 As Integer = FileAccess.READ
+    Print "READ = " & str(v1)
+    Dim v2 As Integer = FileAccess.WRITE
+    Print "WRITE = " & str(v2)
+    Dim v3 As Integer = FileAccess.READ_WRITE
+    Print "READ_WRITE = " & str(v3)
+    Dim v4 As Integer = FileAccess.WRITE_READ
+    Print "WRITE_READ = " & str(v4)
+End Sub
