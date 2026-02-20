@@ -1719,6 +1719,7 @@ func _on_components_changed():
 
 ## Registers the GDScript-extended tools (not in C++ defaults)
 func _register_extended_tools():
+	register_tool("VGComboBox", "HBoxContainer", "OptionButton", "res://addons/visual_gasic/prototypes/VGComboBox.tscn")
 	register_tool("FlexGrid", "Tree", "Tree", "res://custom_widgets/FlexGrid.tscn")
 	register_tool("Form", "Panel", "Window", "res://custom_widgets/Form.tscn")
 	register_tool("Option", "CheckBox", "CheckBox", "res://custom_widgets/Option.tscn")
