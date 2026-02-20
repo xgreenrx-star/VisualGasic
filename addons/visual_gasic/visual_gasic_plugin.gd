@@ -615,8 +615,8 @@ func _process(_delta: float) -> void:
 			timer.timeout.connect(_handle_vg_drop_delayed.bind(drag_data))
 
 ## Handles vg_control drop after a short delay for editor stability.
-## Uses Godot API (load + instantiate + add_child) instead of raw text manipulation
-## to avoid corrupting scene files with duplicate ext_resource entries.
+## Uses EditorUndoRedoManager to properly add controls to the scene tree,
+## avoiding "Invalid owner" errors and scene file corruption.
 func _handle_vg_drop_delayed(drag_data: Dictionary) -> void:
 	var scene_path = drag_data.get("scene_path", "")
 	if scene_path.is_empty():
@@ -651,9 +651,15 @@ func _handle_vg_drop_delayed(drag_data: Dictionary) -> void:
 		printerr("VisualGasic: Could not instantiate: ", scene_path)
 		return
 	
-	# Add to form root using proper API (not raw text manipulation)
-	root.add_child(instance, true)  # force_readable_name = true
-	instance.owner = root
+	# Use EditorUndoRedoManager for proper editor integration
+	# This ensures the node is registered correctly with the editor scene tree
+	var undo_redo = get_undo_redo()
+	undo_redo.create_action("Add " + instance.name)
+	undo_redo.add_do_method(root, "add_child", instance, true)
+	undo_redo.add_do_property(instance, "owner", root)
+	undo_redo.add_do_reference(instance)
+	undo_redo.add_undo_method(root, "remove_child", instance)
+	undo_redo.commit_action()
 	
 	# Position at drop location
 	if instance is Control:
@@ -664,11 +670,8 @@ func _handle_vg_drop_delayed(drag_data: Dictionary) -> void:
 	if control_name in ["Button", "Label", "CheckBox", "OptionButton"] and "text" in instance:
 		instance.text = instance.name
 	
-	# Select the new node
-	var selection = get_editor_interface().get_selection()
-	selection.clear()
-	selection.add_node(instance)
-	get_editor_interface().edit_node(instance)
+	# Select the new node (deferred to avoid conflicts with undo_redo)
+	call_deferred("_select_dropped_node", instance)
 	
 	print("VisualGasic: Dropped ", instance.name, " at ", drop_pos)
 
@@ -684,6 +687,17 @@ func _select_node_by_name(node_name: String) -> void:
 		get_editor_interface().get_selection().add_node(node)
 		# Force the editor to focus on this node - this updates the Scene Tree display
 		get_editor_interface().edit_node(node)
+
+## Selects a node instance after it was dropped via toolbox drag.
+## Called deferred to avoid conflicts with UndoRedo action processing.
+func _select_dropped_node(node: Node) -> void:
+	if not is_instance_valid(node):
+		return
+	if not node.is_inside_tree():
+		return
+	get_editor_interface().get_selection().clear()
+	get_editor_interface().get_selection().add_node(node)
+	get_editor_interface().edit_node(node)
 
 ## Deferred handler for vg_control drop - runs on next frame for cleaner context
 func _handle_vg_drag_end_deferred():
