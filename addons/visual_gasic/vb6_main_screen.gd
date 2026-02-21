@@ -66,9 +66,9 @@ func _build_layout():
 	_center_toolbar.add_child(btn_new_module)
 
 	var btn_switch_2d = Button.new()
-	btn_switch_2d.text = "🎨 Open Form Designer (2D)"
-	btn_switch_2d.tooltip_text = "Switch to 2D tab to visually design forms"
-	btn_switch_2d.pressed.connect(_on_switch_to_2d)
+	btn_switch_2d.text = "🎨 Open Form Designer"
+	btn_switch_2d.tooltip_text = "Open the VB6-style Form Designer canvas"
+	btn_switch_2d.pressed.connect(_on_switch_to_form_designer)
 	_center_toolbar.add_child(btn_switch_2d)
 
 	main_vbox.add_child(_center_toolbar)
@@ -164,8 +164,11 @@ func _on_form_item_activated():
 		return
 	if path is String:
 		if path.ends_with(".tscn"):
-			EditorInterface.open_scene_from_path(path)
-			EditorInterface.set_main_screen_editor("2D")
+			if editor_plugin and editor_plugin.has_method("open_form_in_designer"):
+				editor_plugin.open_form_in_designer(path)
+			else:
+				EditorInterface.open_scene_from_path(path)
+				EditorInterface.set_main_screen_editor("Form Designer")
 		elif path.ends_with(".vg"):
 			var script = load(path)
 			if script:
@@ -183,8 +186,8 @@ func _on_new_module():
 	if editor_plugin and editor_plugin.has_method("_on_new_module"):
 		editor_plugin._on_new_module()
 
-func _on_switch_to_2d():
-	EditorInterface.set_main_screen_editor("2D")
+func _on_switch_to_form_designer():
+	EditorInterface.set_main_screen_editor("Form Designer")
 
 # =============================================================================
 # LAYOUT PERSISTENCE (minimal — no splits to save)

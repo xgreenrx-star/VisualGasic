@@ -524,6 +524,6 @@ func _draw() -> void:
 			var row_height: float = get_line_height()
 			var y_offset: float = (line_idx - first_visible) * row_height
 			# Draw the separator line across the full width
-			var from_x: float = get_gutter_width() if has_method("get_gutter_width") else 48.0
+			var from_x: float = get_total_gutter_width() if has_method("get_total_gutter_width") else 48.0
 			var to_x: float = size.x
 			draw_line(Vector2(from_x, y_offset), Vector2(to_x, y_offset), separator_color, line_width)

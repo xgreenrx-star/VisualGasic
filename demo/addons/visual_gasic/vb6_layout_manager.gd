@@ -81,13 +81,11 @@ func _activate_vb6_mode():
 	if editor_plugin and is_instance_valid(editor_plugin):
 		editor_plugin.dock_vg_panels()
 		editor_plugin.dock_vg_toolbars()
-	# Switch to 2D where form design + toolbars are visible
-	# Guard: prevent main_screen_changed from deactivating us
-	switching_internally = true
-	EditorInterface.set_main_screen_editor("2D")
-	switching_internally = false
+	# Do NOT switch the main screen here. The user is already on
+	# Form Designer (which triggered this). Switching to 2D would hide
+	# the Form Designer and cascade back to _make_visible(false).
 	layout_changed.emit(true)
-	print("VisualGasic: VB6 mode ON — panels docked, toolbars visible in 2D")
+	print("VisualGasic: VB6 mode ON — panels docked, toolbars visible")
 
 func _deactivate_vb6_mode():
 	if not _vb6_mode:

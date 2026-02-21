@@ -10,15 +10,27 @@ var _next_instance_id: int = 1
 # This is populated by the editor's debugger plugin and queried by C++ code
 var _breakpoints: Dictionary = {}
 
+var _capture_registered := false
+var _capture_prefix := "visualgasic"
+
 func _ready() -> void:
 	# Load breakpoints from file FIRST - before any scripts run
 	# This ensures breakpoints work for init code
 	_load_breakpoints_from_file()
 	
-	# Register our message capture with the engine debugger
+	# Register our message capture with the engine debugger.
+	# The C++ language runtime already registers "visualgasic" when loaded,
+	# so skip registration here when the native extension is active to
+	# avoid the "Capture already registered" error that can cascade into
+	# an unregister failure at exit.
 	if EngineDebugger.is_active():
-		EngineDebugger.register_message_capture("visualgasic", _on_debugger_message)
-		print("[VisualGasic] Debug handler registered")
+		var cpp_loaded := ClassDB.class_exists("VisualGasicLanguage")
+		if cpp_loaded:
+			print("[VisualGasic] Debug handler: C++ capture active, skipping GDScript registration")
+		else:
+			EngineDebugger.register_message_capture(_capture_prefix, _on_debugger_message)
+			_capture_registered = true
+			print("[VisualGasic] Debug handler registered")
 
 func _load_breakpoints_from_file() -> void:
 	"""Load breakpoints saved by the editor at startup.
@@ -40,8 +52,9 @@ func _load_breakpoints_from_file() -> void:
 				_breakpoints[script_path] = int_lines
 
 func _exit_tree() -> void:
-	if EngineDebugger.is_active():
-		EngineDebugger.unregister_message_capture("visualgasic")
+	if _capture_registered and EngineDebugger.is_active():
+		EngineDebugger.unregister_message_capture(_capture_prefix)
+		_capture_registered = false
 
 func _on_debugger_message(message: String, data: Array) -> bool:
 	match message:
@@ -104,6 +117,22 @@ func _on_debugger_message(message: String, data: Array) -> bool:
 		"get_debug_state":
 			_send_debug_state()
 			return true
+		
+		"profiler_start":
+			_profiler_start()
+			return true
+		
+		"profiler_stop":
+			_profiler_stop()
+			return true
+		
+		"profiler_get_data":
+			_profiler_send_data()
+			return true
+		
+		"profiler_clear":
+			_profiler_clear()
+			return true
 	
 	return false
 
@@ -117,27 +146,29 @@ func _set_breakpoints(breakpoints_dict: Dictionary) -> void:
 
 # ============================================================================
 # STEP DEBUGGING
+# These methods are stubs for future implementation when the native
+# extension exposes debug stepping methods.
 # ============================================================================
 
 func _debug_continue() -> void:
 	"""Resume execution after a breakpoint or step."""
-	if ClassDB.class_exists("VisualGasicLanguage"):
-		VisualGasicLanguage.vg_debug_continue()
+	# Debug stepping not yet implemented in native extension
+	pass
 
 func _debug_step_into() -> void:
 	"""Step to the next line, entering function calls."""
-	if ClassDB.class_exists("VisualGasicLanguage"):
-		VisualGasicLanguage.vg_debug_step_into()
+	# Debug stepping not yet implemented in native extension
+	pass
 
 func _debug_step_over() -> void:
 	"""Step to the next line, stepping over function calls."""
-	if ClassDB.class_exists("VisualGasicLanguage"):
-		VisualGasicLanguage.vg_debug_step_over()
+	# Debug stepping not yet implemented in native extension
+	pass
 
 func _debug_step_out() -> void:
 	"""Step out of the current function."""
-	if ClassDB.class_exists("VisualGasicLanguage"):
-		VisualGasicLanguage.vg_debug_step_out()
+	# Debug stepping not yet implemented in native extension
+	pass
 
 func _send_debug_state() -> void:
 	"""Send the current debug state to the editor."""
@@ -146,12 +177,7 @@ func _send_debug_state() -> void:
 		"current_line": 0,
 		"current_file": ""
 	}
-	if ClassDB.class_exists("VisualGasicLanguage"):
-		state["step_mode"] = VisualGasicLanguage.vg_get_step_mode()
-		# Use the stored break location (set before script_debug blocks)
-		state["current_line"] = VisualGasicLanguage.vg_get_break_line()
-		state["current_file"] = VisualGasicLanguage.vg_get_break_file()
-		print("[VGDebugHandler] Sending debug_state: file='", state["current_file"], "' line=", state["current_line"])
+	# Debug state retrieval not yet implemented in native extension
 	EngineDebugger.send_message("visualgasic:debug_state", [state])
 
 func has_breakpoint(script_path: String, line: int) -> bool:
@@ -375,3 +401,45 @@ func _set_whenever_active(instance_id: int, section_name: String, active: bool) 
 		inst.call("_vg_set_whenever_active", section_name, active)
 		# Send updated sections list
 		_send_whenever_sections(instance_id)
+
+# ============================================================================
+# PROFILER COMMANDS
+# ============================================================================
+
+func _profiler_start() -> void:
+	"""Enable C++ profiler and start collecting data."""
+	# Call the C++ VisualGasicProfiler singleton
+	for inst_id in _registered_instances:
+		var inst = _get_instance(inst_id)
+		if inst and inst.has_method("_vg_profiler_enable"):
+			inst.call("_vg_profiler_enable", true)
+	print("[VisualGasic] Profiler started")
+
+func _profiler_stop() -> void:
+	"""Disable C++ profiler."""
+	for inst_id in _registered_instances:
+		var inst = _get_instance(inst_id)
+		if inst and inst.has_method("_vg_profiler_enable"):
+			inst.call("_vg_profiler_enable", false)
+	print("[VisualGasic] Profiler stopped")
+
+func _profiler_send_data() -> void:
+	"""Collect profiler report from C++ and send to editor."""
+	var report: Dictionary = {}
+	for inst_id in _registered_instances:
+		var inst = _get_instance(inst_id)
+		if inst and inst.has_method("_vg_profiler_get_report"):
+			report = inst.call("_vg_profiler_get_report")
+			break  # One report covers the global profiler
+	if report.is_empty():
+		# Build a minimal empty report so the editor panel still updates
+		report = {"profiles": {}, "counters": {}}
+	EngineDebugger.send_message("visualgasic:profiler_data", [report])
+
+func _profiler_clear() -> void:
+	"""Reset C++ profiler counters."""
+	for inst_id in _registered_instances:
+		var inst = _get_instance(inst_id)
+		if inst and inst.has_method("_vg_profiler_clear"):
+			inst.call("_vg_profiler_clear")
+	print("[VisualGasic] Profiler counters cleared")

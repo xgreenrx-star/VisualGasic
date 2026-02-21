@@ -10,15 +10,27 @@ var _next_instance_id: int = 1
 # This is populated by the editor's debugger plugin and queried by C++ code
 var _breakpoints: Dictionary = {}
 
+var _capture_registered := false
+var _capture_prefix := "visualgasic"
+
 func _ready() -> void:
 	# Load breakpoints from file FIRST - before any scripts run
 	# This ensures breakpoints work for init code
 	_load_breakpoints_from_file()
 	
-	# Register our message capture with the engine debugger
+	# Register our message capture with the engine debugger.
+	# The C++ language runtime already registers "visualgasic" when loaded,
+	# so skip registration here when the native extension is active to
+	# avoid the "Capture already registered" error that can cascade into
+	# an unregister failure at exit.
 	if EngineDebugger.is_active():
-		EngineDebugger.register_message_capture("visualgasic", _on_debugger_message)
-		print("[VisualGasic] Debug handler registered")
+		var cpp_loaded := ClassDB.class_exists("VisualGasicLanguage")
+		if cpp_loaded:
+			print("[VisualGasic] Debug handler: C++ capture active, skipping GDScript registration")
+		else:
+			EngineDebugger.register_message_capture(_capture_prefix, _on_debugger_message)
+			_capture_registered = true
+			print("[VisualGasic] Debug handler registered")
 
 func _load_breakpoints_from_file() -> void:
 	"""Load breakpoints saved by the editor at startup.
@@ -40,8 +52,9 @@ func _load_breakpoints_from_file() -> void:
 				_breakpoints[script_path] = int_lines
 
 func _exit_tree() -> void:
-	if EngineDebugger.is_active():
-		EngineDebugger.unregister_message_capture("visualgasic")
+	if _capture_registered and EngineDebugger.is_active():
+		EngineDebugger.unregister_message_capture(_capture_prefix)
+		_capture_registered = false
 
 func _on_debugger_message(message: String, data: Array) -> bool:
 	match message:

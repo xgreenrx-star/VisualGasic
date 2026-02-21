@@ -68,16 +68,43 @@ void VisualGasicFormDesigner::_bind_methods() {
     ClassDB::bind_method(D_METHOD("register_custom_control_type", "type_name", "scene_path", "default_size", "design_color"),
                          &VisualGasicFormDesigner::register_custom_control_type);
 
+    // Active tool (click-to-place)
+    ClassDB::bind_method(D_METHOD("set_active_tool", "class_name", "scene_path"), &VisualGasicFormDesigner::set_active_tool);
+    ClassDB::bind_method(D_METHOD("get_active_tool"), &VisualGasicFormDesigner::get_active_tool);
+    ClassDB::bind_method(D_METHOD("clear_active_tool"), &VisualGasicFormDesigner::clear_active_tool);
+
+    // Window type
+    ClassDB::bind_method(D_METHOD("set_window_type", "type"), &VisualGasicFormDesigner::set_window_type);
+    ClassDB::bind_method(D_METHOD("get_window_type"), &VisualGasicFormDesigner::get_window_type);
+
+    // Theme colors
+    ClassDB::bind_method(D_METHOD("set_theme_colors", "colors"), &VisualGasicFormDesigner::set_theme_colors);
+    ClassDB::bind_method(D_METHOD("get_theme_colors"), &VisualGasicFormDesigner::get_theme_colors);
+
+    // VB6 Form Properties
+    ClassDB::bind_method(D_METHOD("set_form_property", "key", "value"), &VisualGasicFormDesigner::set_form_property);
+    ClassDB::bind_method(D_METHOD("get_form_property", "key"), &VisualGasicFormDesigner::get_form_property);
+    ClassDB::bind_method(D_METHOD("get_form_properties"), &VisualGasicFormDesigner::get_form_properties);
+
     // Properties
     ADD_PROPERTY(PropertyInfo(Variant::INT, "grid_size"), "set_grid_size", "get_grid_size");
     ADD_PROPERTY(PropertyInfo(Variant::BOOL, "grid_visible"), "set_grid_visible", "get_grid_visible");
     ADD_PROPERTY(PropertyInfo(Variant::BOOL, "snap_enabled"), "set_snap_enabled", "get_snap_enabled");
+    ADD_PROPERTY(PropertyInfo(Variant::INT, "window_type"), "set_window_type", "get_window_type");
+
+    // Form size
+    ClassDB::bind_method(D_METHOD("set_form_size", "size"), &VisualGasicFormDesigner::set_form_size);
+    ClassDB::bind_method(D_METHOD("get_form_size"), &VisualGasicFormDesigner::get_form_size);
+    ClassDB::bind_method(D_METHOD("get_status_text"), &VisualGasicFormDesigner::get_status_text);
+    ClassDB::bind_method(D_METHOD("get_mouse_canvas_pos"), &VisualGasicFormDesigner::get_mouse_canvas_pos);
 
     // Signals
     ADD_SIGNAL(MethodInfo("control_selected", PropertyInfo(Variant::INT, "index")));
     ADD_SIGNAL(MethodInfo("control_deselected"));
     ADD_SIGNAL(MethodInfo("form_modified"));
     ADD_SIGNAL(MethodInfo("control_double_clicked", PropertyInfo(Variant::INT, "index")));
+    ADD_SIGNAL(MethodInfo("status_changed", PropertyInfo(Variant::STRING, "text")));
+    ADD_SIGNAL(MethodInfo("form_resized", PropertyInfo(Variant::VECTOR2I, "size")));
 }
 
 // =============================================================================
@@ -98,7 +125,16 @@ VisualGasicFormDesigner::~VisualGasicFormDesigner() {
 // =============================================================================
 
 void VisualGasicFormDesigner::_ready() {
-    set_custom_minimum_size(Vector2(200, 200));
+    _update_min_size();
+}
+
+void VisualGasicFormDesigner::_update_min_size() {
+    // Set minimum size to exactly what the form needs.
+    // Inside a ScrollContainer, this determines the scrollable area.
+    // The MDI frame always fills get_size() (which may be larger).
+    float w = FORM_PADDING_X + (float)form_size.x + FORM_HANDLE_SIZE + 20.0f;
+    float h = FORM_PADDING_Y + (float)form_size.y + FORM_HANDLE_SIZE + 20.0f;
+    set_custom_minimum_size(Vector2(w, h));
 }
 
 void VisualGasicFormDesigner::_process(double p_delta) {
@@ -128,6 +164,17 @@ void VisualGasicFormDesigner::_process(double p_delta) {
 // =============================================================================
 
 void VisualGasicFormDesigner::_draw() {
+    // Draw MDI background area (the gray workspace behind all forms)
+    Rect2 full = Rect2(Vector2(), get_size());
+    draw_rect(full, mdi_background);
+
+    // Draw MDI parent window frame
+    _draw_mdi_frame();
+
+    // Translate to form body origin (inside the MDI frame)
+    // The form body starts at (FORM_PADDING_X, FORM_PADDING_Y)
+    draw_set_transform(Vector2(FORM_PADDING_X, FORM_PADDING_Y));
+
     _draw_form_background();
     _draw_grid();
 
@@ -147,22 +194,158 @@ void VisualGasicFormDesigner::_draw() {
 
     _draw_rubber_band();
     _draw_toolbox_preview();
+
+    // Reset transform for form-level drawing
+    draw_set_transform(Vector2());
+
+    // Form resize handles (drawn outside the form body transform)
+    _draw_form_resize_handles();
 }
 
 void VisualGasicFormDesigner::_draw_form_background() {
-    // Classic VB6 form background
+    // Classic VB6 form background (drawn in form-local coordinates, 0,0 = top-left of form body)
     Rect2 bg = Rect2(Vector2(), Vector2(form_size));
     draw_rect(bg, color_form_bg);
+
+    // BorderStyle 0 (None) = no border, no title bar at all
+    if (form_border_style == BORDER_NONE) {
+        // Just the form body with a thin design-time dashed outline
+        draw_rect(bg, design_outline, false, 1.0);
+        return;
+    }
+
     // Border
-    draw_rect(bg, Color(0.4, 0.4, 0.4), false, 1.0);
-    // Title bar simulation
-    Rect2 title_bar(Vector2(0, -24), Vector2(form_size.x, 24));
-    draw_rect(title_bar, Color(0.0, 0.0, 0.5)); // VB6 dark blue title bar
+    draw_rect(bg, color_form_border, false, 1.0);
+
+    // Title bar height depends on tool window vs. normal
+    float title_h = (form_border_style == BORDER_FIXED_TOOL || form_border_style == BORDER_SIZABLE_TOOL)
+                    ? FORM_TITLE_HEIGHT * 0.75f : FORM_TITLE_HEIGHT;
+
+    // Title bar (above form body, at Y = -title_h)
+    Rect2 title_bar(Vector2(0, -title_h), Vector2(form_size.x, title_h));
+    draw_rect(title_bar, sys_active_title);
+
     // Title text
     Ref<Font> font = get_theme_default_font();
     if (font.is_valid()) {
         int font_size = get_theme_default_font_size();
-        draw_string(font, Vector2(4, -8), form_name, HORIZONTAL_ALIGNMENT_LEFT, form_size.x - 8, font_size, Color(1, 1, 1));
+        draw_string(font, Vector2(4, -title_h + title_h - 6), form_name, HORIZONTAL_ALIGNMENT_LEFT, form_size.x - 80, font_size, sys_title_text);
+    }
+
+    // Caption buttons (only if ControlBox is true)
+    if (form_control_box) {
+        _draw_form_caption_buttons();
+    }
+}
+
+void VisualGasicFormDesigner::_draw_mdi_frame() {
+    // The MDI parent window frame fills the ENTIRE available widget area.
+    // In VB6, this is the large window that contains the form designer workspace.
+    // The form floats inside it.
+    Vector2 sz = get_size();
+    float margin = 2.0f;
+    Rect2 frame(Vector2(margin, margin), Vector2(sz.x - margin * 2, sz.y - margin * 2));
+
+    // Outer 3D raised border (Win95/98 style)
+    draw_rect(frame, sys_button_highlight, false, 1.0);
+    Rect2 inner_border(frame.position + Vector2(1, 1), frame.size - Vector2(2, 2));
+    draw_rect(inner_border, sys_3d_dark_shadow, false, 1.0);
+
+    // MDI title bar (blue bar across top of workspace)
+    Rect2 mdi_title(Vector2(margin + 2, margin + 2),
+                     Vector2(sz.x - margin * 2 - 4, MDI_TITLE_HEIGHT));
+    draw_rect(mdi_title, sys_active_title);
+
+    // MDI title text: "ProjectName - FormName (Form)"
+    Ref<Font> font = get_theme_default_font();
+    if (font.is_valid()) {
+        int font_size = get_theme_default_font_size();
+        String mdi_text = form_name + String(" (Form)");
+        draw_string(font, Vector2(mdi_title.position.x + 4, mdi_title.position.y + 15),
+                    mdi_text, HORIZONTAL_ALIGNMENT_LEFT, mdi_title.size.x - 8, font_size, sys_title_text);
+    }
+
+    // Sunken client area (below MDI title bar — the gray workspace)
+    float client_y = margin + 2 + MDI_TITLE_HEIGHT;
+    Rect2 client(Vector2(margin + 2, client_y),
+                 Vector2(sz.x - margin * 2 - 4, sz.y - client_y - margin - 2));
+    // Sunken border lines
+    draw_rect(client, sys_button_shadow, false, 1.0);
+    draw_rect(Rect2(client.position + Vector2(1, 1), client.size - Vector2(2, 2)),
+              sys_button_highlight, false, 1.0);
+}
+
+void VisualGasicFormDesigner::_draw_form_caption_buttons() {
+    // Draw caption buttons based on VB6 form properties
+    // Tool windows only get a close button; FixedDialog has no min/max
+    bool is_tool = (form_border_style == BORDER_FIXED_TOOL || form_border_style == BORDER_SIZABLE_TOOL);
+    bool is_dialog = (form_border_style == BORDER_FIXED_DIALOG);
+
+    bool show_close = form_control_box;
+    bool show_max = form_max_button && !is_tool && !is_dialog;
+    bool show_min = form_min_button && !is_tool && !is_dialog;
+
+    float title_h = is_tool ? FORM_TITLE_HEIGHT * 0.75f : FORM_TITLE_HEIGHT;
+    float btn_h = is_tool ? CAPTION_BTN_H * 0.75f : CAPTION_BTN_H;
+    float btn_w = is_tool ? CAPTION_BTN_W * 0.85f : CAPTION_BTN_W;
+    float btn_y = -title_h + (title_h - btn_h) / 2.0f;
+
+    // Position buttons from right to left
+    float x = form_size.x - btn_w - 3;
+
+    // Button backgrounds (raised 3D look)
+    auto draw_caption_btn = [&](float bx, float by, float bw, float bh) {
+        Rect2 btn_rect(Vector2(bx, by), Vector2(bw, bh));
+        draw_rect(btn_rect, sys_button_face);
+        draw_line(Vector2(bx, by), Vector2(bx + bw, by), sys_button_highlight);
+        draw_line(Vector2(bx, by), Vector2(bx, by + bh), sys_button_highlight);
+        draw_line(Vector2(bx + bw - 1, by), Vector2(bx + bw - 1, by + bh), sys_3d_dark_shadow);
+        draw_line(Vector2(bx, by + bh - 1), Vector2(bx + bw, by + bh - 1), sys_3d_dark_shadow);
+    };
+
+    Color glyph = sys_glyph;
+
+    // Close button
+    if (show_close) {
+        draw_caption_btn(x, btn_y, btn_w, btn_h);
+        // X glyph
+        float g_cx1 = x + 4;
+        float g_cy1 = btn_y + 3;
+        float g_cx2 = x + btn_w - 4;
+        float g_cy2 = btn_y + btn_h - 3;
+        draw_line(Vector2(g_cx1, g_cy1), Vector2(g_cx2, g_cy2), glyph, 1.5);
+        draw_line(Vector2(g_cx2, g_cy1), Vector2(g_cx1, g_cy2), glyph, 1.5);
+        x -= btn_w + 1;
+    }
+
+    // Maximize button
+    if (show_max) {
+        draw_caption_btn(x, btn_y, btn_w, btn_h);
+        // Rectangle glyph
+        float g_x1 = x + 3;
+        float g_y1 = btn_y + 3;
+        float g_x2 = x + btn_w - 4;
+        float g_y2 = btn_y + btn_h - 3;
+        draw_rect(Rect2(Vector2(g_x1, g_y1), Vector2(g_x2 - g_x1, g_y2 - g_y1)), glyph, false, 1.0);
+        draw_line(Vector2(g_x1, g_y1 + 1), Vector2(g_x2, g_y1 + 1), glyph, 1.0);
+        x -= btn_w + 1;
+    }
+
+    // Minimize button
+    if (show_min) {
+        draw_caption_btn(x, btn_y, btn_w, btn_h);
+        // Horizontal line glyph at bottom
+        float g_min_y = btn_y + btn_h - 5;
+        draw_line(Vector2(x + 4, g_min_y), Vector2(x + btn_w - 4, g_min_y), glyph, 2.0);
+    }
+}
+
+void VisualGasicFormDesigner::_draw_form_resize_handles() {
+    // Draw 8 blue/black resize handles at the form border edges
+    // These are drawn in global (non-transformed) coordinates
+    for (int h = 0; h < 8; h++) {
+        Rect2 hr = _get_form_handle_rect((HandleID)h);
+        draw_rect(hr, form_handle_color);
     }
 }
 
@@ -179,29 +362,743 @@ void VisualGasicFormDesigner::_draw_grid() {
 
 void VisualGasicFormDesigner::_draw_control(const FormControlItem &item, int index) {
     Rect2 r = item.rect;
-    Color bg = _design_color_for_type(item.type);
-    Color border = item.selected ? color_selected : color_control_border;
-    float border_width = item.selected ? 2.0f : 1.0f;
-
-    // Fill
-    draw_rect(r, bg);
-    // Border
-    draw_rect(r, border, false, border_width);
-
-    // Type icon / label in top-left
     Ref<Font> font = get_theme_default_font();
-    if (font.is_valid()) {
-        int font_size = get_theme_default_font_size();
-        String label = item.text.is_empty() ? item.name : item.text;
-        // Clamp text inside control rect
-        float max_w = r.size.x - 4;
-        if (max_w > 10) {
-            draw_string(font, r.position + Vector2(3, font_size + 2), label, HORIZONTAL_ALIGNMENT_LEFT, max_w, font_size, color_text);
+    int font_size = font.is_valid() ? get_theme_default_font_size() : 12;
+    String label = item.text.is_empty() ? item.name : item.text;
+
+    // Dispatch to per-type WYSIWYG drawing
+    if (item.type == "Button") {
+        _draw_button_control(r, label, font, font_size);
+    } else if (item.type == "Label") {
+        _draw_label_control(r, label, font, font_size);
+    } else if (item.type == "LineEdit") {
+        _draw_textbox_control(r, label, font, font_size);
+    } else if (item.type == "TextEdit") {
+        _draw_textarea_control(r, label, font, font_size);
+    } else if (item.type == "CheckBox") {
+        _draw_checkbox_control(r, label, font, font_size);
+    } else if (item.type == "OptionButton") {
+        _draw_combobox_control(r, label, font, font_size);
+    } else if (item.type == "ItemList") {
+        _draw_listbox_control(r, label, font, font_size);
+    } else if (item.type == "Panel") {
+        _draw_frame_control(r, label, font, font_size);
+    } else if (item.type == "ProgressBar") {
+        _draw_progressbar_control(r, font, font_size);
+    } else if (item.type == "HScrollBar") {
+        _draw_hscrollbar_control(r);
+    } else if (item.type == "VScrollBar") {
+        _draw_vscrollbar_control(r);
+    } else if (item.type == "HSlider") {
+        _draw_hslider_control(r);
+    } else if (item.type == "VSlider") {
+        _draw_vslider_control(r);
+    } else if (item.type == "SpinBox") {
+        _draw_spinbox_control(r, font, font_size);
+    } else if (item.type == "Timer") {
+        _draw_timer_control(r, item.name, font, font_size);
+    } else if (item.type == "TextureRect") {
+        _draw_picture_control(r, item.name, font, font_size);
+    } else if (item.type == "Tree") {
+        _draw_treeview_control(r, font, font_size);
+    } else if (item.type == "RichTextLabel") {
+        _draw_richtext_control(r, label, font, font_size);
+    } else if (item.type == "TabContainer") {
+        _draw_tabstrip_control(r, label, font, font_size);
+    } else if (item.type == "ColorRect") {
+        _draw_shape_control(r);
+    } else if (item.type == "HSeparator") {
+        // Horizontal separator: etched line across the center
+        draw_rect(r, color_form_bg);
+        float mid_y = r.position.y + r.size.y * 0.5f;
+        draw_rect(Rect2(r.position.x, mid_y - 1, r.size.x, 1), sys_button_shadow);
+        draw_rect(Rect2(r.position.x, mid_y, r.size.x, 1), sys_button_highlight);
+    } else if (item.type == "VSeparator") {
+        // Vertical separator: etched line down the center
+        draw_rect(r, color_form_bg);
+        float mid_x = r.position.x + r.size.x * 0.5f;
+        draw_rect(Rect2(mid_x - 1, r.position.y, 1, r.size.y), sys_button_shadow);
+        draw_rect(Rect2(mid_x, r.position.y, 1, r.size.y), sys_button_highlight);
+    } else if (item.type == "ColorPickerButton") {
+        // Color button: raised button with a color swatch
+        _draw_raised_rect(r, sys_button_face);
+        float pad = 4;
+        if (r.size.x > pad * 2 + 6 && r.size.y > pad * 2 + 4) {
+            Rect2 swatch(r.position + Vector2(pad, pad), Vector2(r.size.x - pad * 2, r.size.y - pad * 2));
+            draw_rect(swatch, sys_glyph);
+            draw_rect(Rect2(swatch.position + Vector2(1, 1), swatch.size - Vector2(2, 2)), Color(1, 0, 0));
         }
-        // Type indicator (small text, top-right)
-        String type_label = _display_label_for_type(item.type);
-        draw_string(font, r.position + Vector2(r.size.x - 3, 10), type_label, HORIZONTAL_ALIGNMENT_RIGHT, r.size.x - 6, 9, Color(0.4, 0.4, 0.4));
+    } else if (item.type == "HBoxContainer" || item.type == "VBoxContainer" ||
+               item.type == "GridContainer" || item.type == "SubViewportContainer") {
+        // Container types: dashed outline with label
+        draw_rect(r, Color(sys_button_face.r, sys_button_face.g, sys_button_face.b, 0.3));
+        Color dash(design_outline.r, design_outline.g, design_outline.b, 0.6);
+        float x1 = r.position.x, y1 = r.position.y;
+        float x2 = x1 + r.size.x, y2 = y1 + r.size.y;
+        for (float dx = x1; dx < x2; dx += 6.0f) {
+            draw_rect(Rect2(dx, y1, 3, 1), dash);
+            draw_rect(Rect2(dx, y2 - 1, 3, 1), dash);
+        }
+        for (float dy = y1; dy < y2; dy += 6.0f) {
+            draw_rect(Rect2(x1, dy, 1, 3), dash);
+            draw_rect(Rect2(x2 - 1, dy, 1, 3), dash);
+        }
+        if (font.is_valid()) {
+            draw_string(font, r.position + Vector2(3, font_size + 2), label,
+                        HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 6, font_size - 1, color_text);
+        }
+    } else {
+        // Fallback: generic raised control (like a button)
+        _draw_raised_rect(r, sys_button_face);
+        if (font.is_valid()) {
+            float max_w = r.size.x - 6;
+            if (max_w > 10) {
+                draw_string(font, r.position + Vector2(3, font_size + 2), label,
+                            HORIZONTAL_ALIGNMENT_LEFT, max_w, font_size, color_text);
+            }
+        }
     }
+
+    // If selected, draw a blue selection border on top
+    if (item.selected) {
+        draw_rect(r, color_selected, false, 2.0);
+    }
+}
+
+// =============================================================================
+// WYSIWYG 3D border helpers (WinForms / VB6 classic style)
+// Uses filled rects instead of single-pixel lines for visibility at all zoom levels
+// =============================================================================
+
+void VisualGasicFormDesigner::_draw_raised_rect(const Rect2 &r, const Color &face) {
+    // Classic Windows 3D raised button look
+    Color highlight = sys_button_highlight;
+    Color shadow = sys_button_shadow;
+    Color dark_shadow = sys_3d_dark_shadow;
+
+    // Face fill
+    draw_rect(r, face);
+
+    float x = r.position.x, y = r.position.y;
+    float w = r.size.x, h = r.size.y;
+
+    // Top highlight band (2px)
+    draw_rect(Rect2(x, y, w, 1), highlight);
+    draw_rect(Rect2(x + 1, y + 1, w - 2, 1), sys_3d_light);
+    // Left highlight band (2px)
+    draw_rect(Rect2(x, y, 1, h), highlight);
+    draw_rect(Rect2(x + 1, y + 1, 1, h - 2), sys_3d_light);
+    // Bottom shadow band (2px)
+    draw_rect(Rect2(x, y + h - 1, w, 1), dark_shadow);
+    draw_rect(Rect2(x + 1, y + h - 2, w - 2, 1), shadow);
+    // Right shadow band (2px)
+    draw_rect(Rect2(x + w - 1, y, 1, h), dark_shadow);
+    draw_rect(Rect2(x + w - 2, y + 1, 1, h - 2), shadow);
+}
+
+void VisualGasicFormDesigner::_draw_sunken_rect(const Rect2 &r, const Color &face) {
+    // Classic Windows 3D sunken edit look
+    Color highlight = sys_button_highlight;
+    Color shadow = sys_button_shadow;
+    Color dark_shadow = sys_3d_dark_shadow;
+
+    // Face fill
+    draw_rect(r, face);
+
+    float x = r.position.x, y = r.position.y;
+    float w = r.size.x, h = r.size.y;
+
+    // Top shadow band (2px)
+    draw_rect(Rect2(x, y, w, 1), shadow);
+    draw_rect(Rect2(x + 1, y + 1, w - 2, 1), dark_shadow);
+    // Left shadow band (2px)
+    draw_rect(Rect2(x, y, 1, h), shadow);
+    draw_rect(Rect2(x + 1, y + 1, 1, h - 2), dark_shadow);
+    // Bottom highlight band (2px)
+    draw_rect(Rect2(x, y + h - 1, w, 1), highlight);
+    draw_rect(Rect2(x + 1, y + h - 2, w - 2, 1), sys_3d_light);
+    // Right highlight band (2px)
+    draw_rect(Rect2(x + w - 1, y, 1, h), highlight);
+    draw_rect(Rect2(x + w - 2, y + 1, 1, h - 2), sys_3d_light);
+}
+
+void VisualGasicFormDesigner::_draw_etched_rect(const Rect2 &r) {
+    Color shadow = sys_button_shadow;
+    Color highlight = sys_button_highlight;
+    float x = r.position.x, y = r.position.y;
+    float w = r.size.x, h = r.size.y;
+
+    // Shadow lines
+    draw_rect(Rect2(x, y, w - 1, 1), shadow);
+    draw_rect(Rect2(x, y, 1, h - 1), shadow);
+    // Highlight lines (offset +1)
+    draw_rect(Rect2(x + 1, y + 1, w - 1, 1), highlight);
+    draw_rect(Rect2(x + 1, y + 1, 1, h - 1), highlight);
+    // Bottom/right highlight
+    draw_rect(Rect2(x + 1, y + h - 1, w - 1, 1), highlight);
+    draw_rect(Rect2(x + w - 1, y + 1, 1, h - 1), highlight);
+    // Bottom/right inner shadow
+    draw_rect(Rect2(x, y + h - 2, w - 1, 1), shadow);
+    draw_rect(Rect2(x + w - 2, y, 1, h - 1), shadow);
+}
+
+// =============================================================================
+// WYSIWYG per-type control drawing
+// =============================================================================
+
+void VisualGasicFormDesigner::_draw_button_control(const Rect2 &r, const String &text, const Ref<Font> &font, int font_size) {
+    Color face = sys_button_face;
+    _draw_raised_rect(r, face);
+
+    if (font.is_valid() && r.size.x > 8 && r.size.y > 8) {
+        float tw = font->get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x;
+        float x_off = MAX((r.size.x - tw) * 0.5f, 3.0f);
+        float y_off = (r.size.y + font_size * 0.7f) * 0.5f;
+        draw_string(font, r.position + Vector2(x_off, y_off), text,
+                    HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 6, font_size, color_text);
+    }
+}
+
+void VisualGasicFormDesigner::_draw_label_control(const Rect2 &r, const String &text, const Ref<Font> &font, int font_size) {
+    // Label: transparent bg, just text, thin dashed outline at design time
+    if (font.is_valid() && r.size.x > 4) {
+        float y_off = (r.size.y + font_size * 0.7f) * 0.5f;
+        draw_string(font, r.position + Vector2(1, y_off), text,
+                    HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 2, font_size, color_text);
+    }
+    // Design-time dashed boundary (draw small dots along the edges)
+    Color dot_c = design_outline;
+    float x1 = r.position.x, y1 = r.position.y;
+    float x2 = x1 + r.size.x, y2 = y1 + r.size.y;
+    for (float dx = x1; dx < x2; dx += 4.0f) {
+        draw_rect(Rect2(dx, y1, 2, 1), dot_c);
+        draw_rect(Rect2(dx, y2 - 1, 2, 1), dot_c);
+    }
+    for (float dy = y1; dy < y2; dy += 4.0f) {
+        draw_rect(Rect2(x1, dy, 1, 2), dot_c);
+        draw_rect(Rect2(x2 - 1, dy, 1, 2), dot_c);
+    }
+}
+
+void VisualGasicFormDesigner::_draw_textbox_control(const Rect2 &r, const String &text, const Ref<Font> &font, int font_size) {
+    _draw_sunken_rect(r, sys_window);
+    if (font.is_valid() && r.size.x > 8) {
+        float y_off = (r.size.y + font_size * 0.7f) * 0.5f;
+        draw_string(font, r.position + Vector2(4, y_off), text,
+                    HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 8, font_size, color_text);
+    }
+}
+
+void VisualGasicFormDesigner::_draw_textarea_control(const Rect2 &r, const String &text, const Ref<Font> &font, int font_size) {
+    float sb_w = 16.0f;
+    // Main text area
+    Rect2 text_area(r.position, Vector2(r.size.x - sb_w, r.size.y));
+    _draw_sunken_rect(text_area, sys_window);
+
+    if (font.is_valid() && text_area.size.x > 8) {
+        draw_string(font, r.position + Vector2(4, font_size + 3), text,
+                    HORIZONTAL_ALIGNMENT_LEFT, text_area.size.x - 8, font_size, color_text);
+    }
+
+    // Scrollbar column
+    Color face = sys_button_face;
+    Rect2 sb(r.position + Vector2(r.size.x - sb_w, 0), Vector2(sb_w, r.size.y));
+    _draw_raised_rect(sb, face);
+
+    // Up arrow button
+    Rect2 up_btn(sb.position, Vector2(sb_w, sb_w));
+    _draw_raised_rect(up_btn, face);
+    // Down arrow button
+    Rect2 dn_btn(sb.position + Vector2(0, sb.size.y - sb_w), Vector2(sb_w, sb_w));
+    _draw_raised_rect(dn_btn, face);
+
+    // Arrow glyphs (filled triangles via small rects)
+    float cx = sb.position.x + sb_w * 0.5f;
+    // Up arrow
+    float uy = up_btn.position.y + sb_w * 0.35f;
+    draw_rect(Rect2(cx - 0.5f, uy, 1, 1), sys_glyph);
+    draw_rect(Rect2(cx - 1.5f, uy + 1, 3, 1), sys_glyph);
+    draw_rect(Rect2(cx - 2.5f, uy + 2, 5, 1), sys_glyph);
+    draw_rect(Rect2(cx - 3.5f, uy + 3, 7, 1), sys_glyph);
+    // Down arrow
+    float dy = dn_btn.position.y + sb_w * 0.4f;
+    draw_rect(Rect2(cx - 3.5f, dy, 7, 1), sys_glyph);
+    draw_rect(Rect2(cx - 2.5f, dy + 1, 5, 1), sys_glyph);
+    draw_rect(Rect2(cx - 1.5f, dy + 2, 3, 1), sys_glyph);
+    draw_rect(Rect2(cx - 0.5f, dy + 3, 1, 1), sys_glyph);
+}
+
+void VisualGasicFormDesigner::_draw_checkbox_control(const Rect2 &r, const String &text, const Ref<Font> &font, int font_size) {
+    // Solid form-colored background so checkbox square stands out
+    draw_rect(r, color_form_bg);
+
+    // Checkbox indicator: 13x13 sunken white square
+    float box_size = 13.0f;
+    float box_x = r.position.x + 3;
+    float box_y = r.position.y + (r.size.y - box_size) * 0.5f;
+    Rect2 box(Vector2(box_x, box_y), Vector2(box_size, box_size));
+    _draw_sunken_rect(box, sys_window);
+
+    // Text to the right
+    if (font.is_valid()) {
+        float text_x = box_x + box_size + 4;
+        float avail_w = r.size.x - box_size - 9;
+        if (avail_w > 4) {
+            float y_off = (r.size.y + font_size * 0.7f) * 0.5f;
+            draw_string(font, Vector2(text_x, r.position.y + y_off), text,
+                        HORIZONTAL_ALIGNMENT_LEFT, avail_w, font_size, color_text);
+        }
+    }
+
+    // Design-time outline
+    draw_rect(r, Color(design_outline.r, design_outline.g, design_outline.b, 0.2), false, 1.0);
+}
+
+void VisualGasicFormDesigner::_draw_option_control(const Rect2 &r, const String &text, const Ref<Font> &font, int font_size) {
+    // Radio button: form-colored bg + circle indicator + text
+    draw_rect(r, color_form_bg);
+
+    float circle_d = 12.0f;
+    float cx = r.position.x + 3 + circle_d * 0.5f;
+    float cy = r.position.y + r.size.y * 0.5f;
+    float cr = circle_d * 0.5f;
+
+    // Draw outer circle border using small filled segments
+    // Shadow arc (top-left)
+    int segs = 32;
+    for (int i = 0; i < segs; i++) {
+        float a1 = (float)i / segs * Math_TAU;
+        float a2 = (float)(i + 1) / segs * Math_TAU;
+        Vector2 p1(cx + Math::cos(a1) * cr, cy + Math::sin(a1) * cr);
+        Vector2 p2(cx + Math::cos(a2) * cr, cy + Math::sin(a2) * cr);
+        bool top_left = (a1 >= Math_PI * 0.75f && a1 <= Math_PI * 1.75f);
+        Color c = top_left ? sys_button_shadow : sys_button_highlight;
+        draw_line(p1, p2, c, 1.5);
+    }
+    // White fill inside
+    for (int i = 0; i < segs; i++) {
+        float a1 = (float)i / segs * Math_TAU;
+        float a2 = (float)(i + 1) / segs * Math_TAU;
+        Vector2 p1(cx + Math::cos(a1) * (cr - 2), cy + Math::sin(a1) * (cr - 2));
+        Vector2 p2(cx + Math::cos(a2) * (cr - 2), cy + Math::sin(a2) * (cr - 2));
+        draw_line(p1, p2, sys_window, 3.0);
+    }
+    // Center white fill
+    draw_rect(Rect2(cx - 2, cy - 2, 4, 4), sys_window);
+
+    // Text
+    if (font.is_valid()) {
+        float text_x = r.position.x + circle_d + 7;
+        float avail_w = r.size.x - circle_d - 10;
+        if (avail_w > 4) {
+            float y_off = (r.size.y + font_size * 0.7f) * 0.5f;
+            draw_string(font, Vector2(text_x, r.position.y + y_off), text,
+                        HORIZONTAL_ALIGNMENT_LEFT, avail_w, font_size, color_text);
+        }
+    }
+
+    draw_rect(r, Color(design_outline.r, design_outline.g, design_outline.b, 0.2), false, 1.0);
+}
+
+void VisualGasicFormDesigner::_draw_combobox_control(const Rect2 &r, const String &text, const Ref<Font> &font, int font_size) {
+    // ComboBox: sunken white text field + raised dropdown button with arrow
+    float btn_w = 17.0f;
+    if (btn_w > r.size.x * 0.4f) btn_w = r.size.x * 0.4f;
+
+    // Text field area
+    Rect2 text_area(r.position, Vector2(r.size.x - btn_w, r.size.y));
+    _draw_sunken_rect(text_area, sys_window);
+
+    // Dropdown button
+    Rect2 btn(r.position + Vector2(r.size.x - btn_w, 0), Vector2(btn_w, r.size.y));
+    _draw_raised_rect(btn, sys_button_face);
+
+    // Down arrow glyph (filled triangle using horizontal rect scanlines)
+    float acx = btn.position.x + btn_w * 0.5f;
+    float acy = btn.position.y + r.size.y * 0.5f - 2;
+    draw_rect(Rect2(acx - 4, acy, 9, 1), sys_glyph);
+    draw_rect(Rect2(acx - 3, acy + 1, 7, 1), sys_glyph);
+    draw_rect(Rect2(acx - 2, acy + 2, 5, 1), sys_glyph);
+    draw_rect(Rect2(acx - 1, acy + 3, 3, 1), sys_glyph);
+    draw_rect(Rect2(acx, acy + 4, 1, 1), sys_glyph);
+
+    // Text in text area
+    if (font.is_valid() && text_area.size.x > 8) {
+        float y_off = (r.size.y + font_size * 0.7f) * 0.5f;
+        draw_string(font, r.position + Vector2(4, y_off), text,
+                    HORIZONTAL_ALIGNMENT_LEFT, text_area.size.x - 8, font_size, color_text);
+    }
+}
+
+void VisualGasicFormDesigner::_draw_listbox_control(const Rect2 &r, const String &text, const Ref<Font> &font, int font_size) {
+    float sb_w = 16.0f;
+    // Main list area
+    Rect2 list_area(r.position, Vector2(r.size.x - sb_w, r.size.y));
+    _draw_sunken_rect(list_area, sys_window);
+
+    // Placeholder list items
+    if (font.is_valid()) {
+        float line_h = font_size + 4;
+        float y = r.position.y + 3;
+        int max_lines = MIN((int)((r.size.y - 4) / line_h), 6);
+        for (int i = 0; i < max_lines && y + font_size < r.position.y + r.size.y - 2; i++) {
+            if (i == 0 && !text.is_empty()) {
+                draw_string(font, Vector2(r.position.x + 4, y + font_size), text,
+                            HORIZONTAL_ALIGNMENT_LEFT, list_area.size.x - 8, font_size, color_text);
+            }
+            y += line_h;
+        }
+    }
+
+    // Scrollbar
+    Color face = sys_button_face;
+    Rect2 sb(r.position + Vector2(r.size.x - sb_w, 0), Vector2(sb_w, r.size.y));
+    _draw_raised_rect(sb, face);
+    // Up button
+    Rect2 up_btn(sb.position, Vector2(sb_w, sb_w));
+    _draw_raised_rect(up_btn, face);
+    // Down button
+    Rect2 dn_btn(sb.position + Vector2(0, sb.size.y - sb_w), Vector2(sb_w, sb_w));
+    _draw_raised_rect(dn_btn, face);
+    // Arrow glyphs
+    float acx = sb.position.x + sb_w * 0.5f;
+    float uy = up_btn.position.y + sb_w * 0.35f;
+    draw_rect(Rect2(acx - 0.5f, uy, 1, 1), sys_glyph);
+    draw_rect(Rect2(acx - 1.5f, uy + 1, 3, 1), sys_glyph);
+    draw_rect(Rect2(acx - 2.5f, uy + 2, 5, 1), sys_glyph);
+    draw_rect(Rect2(acx - 3.5f, uy + 3, 7, 1), sys_glyph);
+    float dny = dn_btn.position.y + sb_w * 0.4f;
+    draw_rect(Rect2(acx - 3.5f, dny, 7, 1), sys_glyph);
+    draw_rect(Rect2(acx - 2.5f, dny + 1, 5, 1), sys_glyph);
+    draw_rect(Rect2(acx - 1.5f, dny + 2, 3, 1), sys_glyph);
+    draw_rect(Rect2(acx - 0.5f, dny + 3, 1, 1), sys_glyph);
+}
+
+void VisualGasicFormDesigner::_draw_frame_control(const Rect2 &r, const String &text, const Ref<Font> &font, int font_size) {
+    // GroupBox/Frame: form-colored fill with etched border and label gap
+    draw_rect(r, color_form_bg);
+
+    float label_y = r.position.y + (font.is_valid() ? font_size * 0.5f : 8);
+    float gap_x1 = r.position.x + 10;
+    float gap_x2 = gap_x1;
+
+    if (font.is_valid() && !text.is_empty()) {
+        float tw = font->get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x;
+        gap_x2 = gap_x1 + tw + 4;
+    }
+
+    Color shadow = sys_button_shadow;
+    Color highlight = sys_button_highlight;
+    float x1 = r.position.x, x2 = r.position.x + r.size.x - 1;
+    float y2 = r.position.y + r.size.y - 1;
+
+    // Top etched line (with gap for label)
+    draw_rect(Rect2(x1, label_y, gap_x1 - x1, 1), shadow);
+    draw_rect(Rect2(gap_x2, label_y, x2 - gap_x2, 1), shadow);
+    draw_rect(Rect2(x1 + 1, label_y + 1, gap_x1 - x1 - 1, 1), highlight);
+    draw_rect(Rect2(gap_x2, label_y + 1, x2 - gap_x2, 1), highlight);
+    // Left
+    draw_rect(Rect2(x1, label_y, 1, y2 - label_y), shadow);
+    draw_rect(Rect2(x1 + 1, label_y + 1, 1, y2 - label_y - 2), highlight);
+    // Bottom
+    draw_rect(Rect2(x1, y2, r.size.x, 1), highlight);
+    draw_rect(Rect2(x1 + 1, y2 - 1, r.size.x - 2, 1), shadow);
+    // Right
+    draw_rect(Rect2(x2, label_y, 1, y2 - label_y + 1), highlight);
+    draw_rect(Rect2(x2 - 1, label_y + 1, 1, y2 - label_y - 1), shadow);
+
+    // Label text
+    if (font.is_valid() && !text.is_empty()) {
+        draw_string(font, Vector2(gap_x1 + 2, label_y + font_size * 0.35f), text,
+                    HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 16, font_size, color_text);
+    }
+}
+
+void VisualGasicFormDesigner::_draw_progressbar_control(const Rect2 &r, const Ref<Font> &font, int font_size) {
+    _draw_sunken_rect(r, sys_window);
+
+    // Green progress blocks (30% fill)
+    float pad = 3;
+    float inner_h = r.size.y - pad * 2;
+    float fill_w = (r.size.x - pad * 2) * 0.3f;
+    float block_w = 8.0f, gap = 2.0f;
+    Color block_c = sys_progress_fill;
+    for (float bx = r.position.x + pad; bx < r.position.x + pad + fill_w; bx += block_w + gap) {
+        float w = MIN(block_w, r.position.x + pad + fill_w - bx);
+        if (w > 0) draw_rect(Rect2(bx, r.position.y + pad, w, inner_h), block_c);
+    }
+}
+
+void VisualGasicFormDesigner::_draw_hscrollbar_control(const Rect2 &r) {
+    Color face = sys_button_face;
+    float btn_w = MIN(r.size.y, 17.0f);
+
+    // Track
+    _draw_sunken_rect(r, sys_scrollbar);
+    // Left button
+    _draw_raised_rect(Rect2(r.position, Vector2(btn_w, r.size.y)), face);
+    // Right button
+    _draw_raised_rect(Rect2(r.position + Vector2(r.size.x - btn_w, 0), Vector2(btn_w, r.size.y)), face);
+
+    // Left arrow glyph
+    float cy = r.position.y + r.size.y * 0.5f;
+    float lx = r.position.x + btn_w * 0.5f + 1;
+    draw_rect(Rect2(lx - 1, cy - 0.5f, 1, 1), sys_glyph);
+    draw_rect(Rect2(lx, cy - 1.5f, 1, 3), sys_glyph);
+    draw_rect(Rect2(lx + 1, cy - 2.5f, 1, 5), sys_glyph);
+    draw_rect(Rect2(lx + 2, cy - 3.5f, 1, 7), sys_glyph);
+    // Right arrow glyph
+    float rx = r.position.x + r.size.x - btn_w * 0.5f - 2;
+    draw_rect(Rect2(rx + 1, cy - 0.5f, 1, 1), sys_glyph);
+    draw_rect(Rect2(rx, cy - 1.5f, 1, 3), sys_glyph);
+    draw_rect(Rect2(rx - 1, cy - 2.5f, 1, 5), sys_glyph);
+    draw_rect(Rect2(rx - 2, cy - 3.5f, 1, 7), sys_glyph);
+
+    // Thumb
+    float thumb_w = MAX((r.size.x - btn_w * 2) * 0.3f, 12.0f);
+    float thumb_x = r.position.x + btn_w + (r.size.x - btn_w * 2 - thumb_w) * 0.5f;
+    _draw_raised_rect(Rect2(thumb_x, r.position.y, thumb_w, r.size.y), face);
+}
+
+void VisualGasicFormDesigner::_draw_vscrollbar_control(const Rect2 &r) {
+    Color face = sys_button_face;
+    float btn_h = MIN(r.size.x, 17.0f);
+
+    _draw_sunken_rect(r, sys_scrollbar);
+    _draw_raised_rect(Rect2(r.position, Vector2(r.size.x, btn_h)), face);
+    _draw_raised_rect(Rect2(r.position + Vector2(0, r.size.y - btn_h), Vector2(r.size.x, btn_h)), face);
+
+    // Up arrow glyph
+    float cx = r.position.x + r.size.x * 0.5f;
+    float uy = r.position.y + btn_h * 0.5f - 1;
+    draw_rect(Rect2(cx - 0.5f, uy - 1, 1, 1), sys_glyph);
+    draw_rect(Rect2(cx - 1.5f, uy, 3, 1), sys_glyph);
+    draw_rect(Rect2(cx - 2.5f, uy + 1, 5, 1), sys_glyph);
+    draw_rect(Rect2(cx - 3.5f, uy + 2, 7, 1), sys_glyph);
+    // Down arrow glyph
+    float dny = r.position.y + r.size.y - btn_h * 0.5f - 2;
+    draw_rect(Rect2(cx - 3.5f, dny, 7, 1), sys_glyph);
+    draw_rect(Rect2(cx - 2.5f, dny + 1, 5, 1), sys_glyph);
+    draw_rect(Rect2(cx - 1.5f, dny + 2, 3, 1), sys_glyph);
+    draw_rect(Rect2(cx - 0.5f, dny + 3, 1, 1), sys_glyph);
+
+    // Thumb
+    float thumb_h = MAX((r.size.y - btn_h * 2) * 0.3f, 12.0f);
+    float thumb_y = r.position.y + btn_h + (r.size.y - btn_h * 2 - thumb_h) * 0.5f;
+    _draw_raised_rect(Rect2(r.position.x, thumb_y, r.size.x, thumb_h), face);
+}
+
+void VisualGasicFormDesigner::_draw_hslider_control(const Rect2 &r) {
+    Color face = sys_button_face;
+    draw_rect(r, color_form_bg);
+
+    // Sunken channel groove
+    float ch_h = 4.0f;
+    float ch_y = r.position.y + (r.size.y - ch_h) * 0.5f;
+    _draw_sunken_rect(Rect2(r.position.x + 6, ch_y, r.size.x - 12, ch_h), sys_window);
+
+    // Tick marks
+    for (float tx = r.position.x + 6; tx <= r.position.x + r.size.x - 6; tx += 10) {
+        draw_rect(Rect2(tx, ch_y + ch_h + 3, 1, 4), sys_glyph);
+    }
+
+    // Thumb
+    float tw = 11.0f, th = r.size.y - 8;
+    _draw_raised_rect(Rect2(r.position.x + (r.size.x - tw) * 0.5f, r.position.y + 3, tw, th), face);
+}
+
+void VisualGasicFormDesigner::_draw_vslider_control(const Rect2 &r) {
+    Color face = sys_button_face;
+    draw_rect(r, color_form_bg);
+
+    float ch_w = 4.0f;
+    float ch_x = r.position.x + (r.size.x - ch_w) * 0.5f;
+    _draw_sunken_rect(Rect2(ch_x, r.position.y + 6, ch_w, r.size.y - 12), sys_window);
+
+    for (float ty = r.position.y + 6; ty <= r.position.y + r.size.y - 6; ty += 10) {
+        draw_rect(Rect2(ch_x + ch_w + 3, ty, 4, 1), sys_glyph);
+    }
+
+    float tw = r.size.x - 8, th = 11.0f;
+    _draw_raised_rect(Rect2(r.position.x + 3, r.position.y + (r.size.y - th) * 0.5f, tw, th), face);
+}
+
+void VisualGasicFormDesigner::_draw_spinbox_control(const Rect2 &r, const Ref<Font> &font, int font_size) {
+    float btn_w = 16.0f;
+    Rect2 text_area(r.position, Vector2(r.size.x - btn_w, r.size.y));
+    _draw_sunken_rect(text_area, sys_window);
+
+    if (font.is_valid()) {
+        float y_off = (r.size.y + font_size * 0.7f) * 0.5f;
+        draw_string(font, r.position + Vector2(4, y_off), "0",
+                    HORIZONTAL_ALIGNMENT_LEFT, text_area.size.x - 8, font_size, color_text);
+    }
+
+    Color face = sys_button_face;
+    float half_h = r.size.y * 0.5f;
+    // Up spin button
+    Rect2 up_btn(r.position + Vector2(r.size.x - btn_w, 0), Vector2(btn_w, half_h));
+    _draw_raised_rect(up_btn, face);
+    float cx = up_btn.position.x + btn_w * 0.5f;
+    float uy = up_btn.position.y + half_h * 0.35f;
+    draw_rect(Rect2(cx - 0.5f, uy, 1, 1), sys_glyph);
+    draw_rect(Rect2(cx - 1.5f, uy + 1, 3, 1), sys_glyph);
+    draw_rect(Rect2(cx - 2.5f, uy + 2, 5, 1), sys_glyph);
+
+    // Down spin button
+    Rect2 dn_btn(r.position + Vector2(r.size.x - btn_w, half_h), Vector2(btn_w, r.size.y - half_h));
+    _draw_raised_rect(dn_btn, face);
+    float dy = dn_btn.position.y + (r.size.y - half_h) * 0.35f;
+    draw_rect(Rect2(cx - 2.5f, dy, 5, 1), sys_glyph);
+    draw_rect(Rect2(cx - 1.5f, dy + 1, 3, 1), sys_glyph);
+    draw_rect(Rect2(cx - 0.5f, dy + 2, 1, 1), sys_glyph);
+}
+
+void VisualGasicFormDesigner::_draw_timer_control(const Rect2 &r, const String &name, const Ref<Font> &font, int font_size) {
+    // Non-visual component: warm bg with clock icon
+    draw_rect(r, nonvisual_bg);
+    draw_rect(r, nonvisual_border, false, 1.0);
+
+    float cx = r.position.x + r.size.x * 0.5f;
+    float cy = r.position.y + r.size.y * 0.5f - 2;
+    float cr = MIN(r.size.x, r.size.y) * 0.3f;
+
+    int segs = 24;
+    for (int i = 0; i < segs; i++) {
+        float a1 = (float)i / segs * Math_TAU;
+        float a2 = (float)(i + 1) / segs * Math_TAU;
+        draw_line(Vector2(cx + Math::cos(a1) * cr, cy + Math::sin(a1) * cr),
+                  Vector2(cx + Math::cos(a2) * cr, cy + Math::sin(a2) * cr),
+                  sys_glyph, 2.0);
+    }
+    draw_line(Vector2(cx, cy), Vector2(cx, cy - cr * 0.7f), sys_glyph, 2.0);
+    draw_line(Vector2(cx, cy), Vector2(cx + cr * 0.5f, cy), sys_glyph, 1.5);
+
+    if (font.is_valid()) {
+        draw_string(font, Vector2(r.position.x + 2, r.position.y + r.size.y - 2), name,
+                    HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 4, 9, color_text);
+    }
+}
+
+void VisualGasicFormDesigner::_draw_picture_control(const Rect2 &r, const String &name, const Ref<Font> &font, int font_size) {
+    _draw_sunken_rect(r, sys_window);
+
+    // Cross lines (image placeholder)
+    Color cross = placeholder_color;
+    draw_line(r.position + Vector2(3, 3), r.position + r.size - Vector2(3, 3), cross, 1.0);
+    draw_line(Vector2(r.position.x + r.size.x - 3, r.position.y + 3),
+              Vector2(r.position.x + 3, r.position.y + r.size.y - 3), cross, 1.0);
+
+    // Simple mountain + sun icon
+    float mx = r.position.x + r.size.x * 0.5f;
+    float my = r.position.y + r.size.y * 0.5f;
+    Color ic = placeholder_color;
+    // Mountain
+    draw_line(Vector2(mx - 10, my + 8), Vector2(mx, my - 2), ic, 1.5);
+    draw_line(Vector2(mx, my - 2), Vector2(mx + 10, my + 8), ic, 1.5);
+    draw_line(Vector2(mx - 10, my + 8), Vector2(mx + 10, my + 8), ic, 1.5);
+    // Sun
+    int ss = 12;
+    float sr = 4, sx = mx - 6, sy = my - 5;
+    for (int i = 0; i < ss; i++) {
+        float a1 = (float)i / ss * Math_TAU;
+        float a2 = (float)(i + 1) / ss * Math_TAU;
+        draw_line(Vector2(sx + Math::cos(a1) * sr, sy + Math::sin(a1) * sr),
+                  Vector2(sx + Math::cos(a2) * sr, sy + Math::sin(a2) * sr), ic, 1.5);
+    }
+}
+
+void VisualGasicFormDesigner::_draw_treeview_control(const Rect2 &r, const Ref<Font> &font, int font_size) {
+    _draw_sunken_rect(r, sys_window);
+    if (!font.is_valid()) return;
+
+    float lh = font_size + 4;
+    float bx = r.position.x + 6, by = r.position.y + 4;
+    Color lc = placeholder_color;
+
+    // Root expand box [+]
+    if (by + font_size < r.position.y + r.size.y) {
+        Rect2 box(bx, by + 2, 9, 9);
+        draw_rect(box, sys_window);
+        draw_rect(box, lc, false, 1.0);
+        // Plus sign
+        draw_rect(Rect2(bx + 2, by + 6, 5, 1), sys_glyph);
+        draw_rect(Rect2(bx + 4, by + 4, 1, 5), sys_glyph);
+        // Connector
+        draw_rect(Rect2(bx + 9, by + 6, 7, 1), lc);
+        draw_string(font, Vector2(bx + 18, by + font_size), "Node",
+                    HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 30, font_size - 2, color_text);
+    }
+
+    // Children
+    float cx2 = bx + 16;
+    for (int i = 1; i <= 2 && (by + lh * i + font_size) < r.position.y + r.size.y - 2; i++) {
+        float ny = by + lh * i;
+        draw_rect(Rect2(bx + 4, by + 11, 1, ny + 6 - by - 11), lc);
+        draw_rect(Rect2(bx + 4, ny + 6, cx2 - bx - 4, 1), lc);
+        draw_string(font, Vector2(cx2 + 4, ny + font_size), (i == 1) ? "Child1" : "Child2",
+                    HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 40, font_size - 2, color_text);
+    }
+}
+
+void VisualGasicFormDesigner::_draw_richtext_control(const Rect2 &r, const String &text, const Ref<Font> &font, int font_size) {
+    _draw_sunken_rect(r, sys_window);
+    if (font.is_valid() && r.size.x > 8) {
+        String display = text.is_empty() ? "RichText" : text;
+        draw_string(font, r.position + Vector2(4, font_size + 3), display,
+                    HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 8, font_size, color_text);
+        if (r.size.y > font_size * 2 + 10) {
+            draw_string(font, r.position + Vector2(4, font_size * 2 + 6), "formatted text...",
+                        HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 8, font_size - 1, placeholder_color);
+        }
+    }
+}
+
+void VisualGasicFormDesigner::_draw_tabstrip_control(const Rect2 &r, const String &text, const Ref<Font> &font, int font_size) {
+    Color face = sys_button_face;
+    float tab_h = 22.0f;
+
+    // Body below tabs
+    Rect2 body(r.position + Vector2(0, tab_h), Vector2(r.size.x, r.size.y - tab_h));
+    _draw_raised_rect(body, face);
+
+    // Active tab
+    String tab_text = text.is_empty() ? "Tab1" : text;
+    float tab_w = 60;
+    if (font.is_valid()) {
+        tab_w = font->get_string_size(tab_text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size - 1).x + 16;
+    }
+    if (tab_w > r.size.x - 4) tab_w = r.size.x - 4;
+    float tab_x = r.position.x + 2;
+
+    Rect2 active_tab(tab_x, r.position.y, tab_w, tab_h + 1);
+    draw_rect(active_tab, face);
+    // Tab borders
+    draw_rect(Rect2(tab_x, r.position.y, tab_w, 1), Color(1, 1, 1));
+    draw_rect(Rect2(tab_x, r.position.y, 1, tab_h), Color(1, 1, 1));
+    draw_rect(Rect2(tab_x + tab_w - 1, r.position.y, 1, tab_h), Color(0.51, 0.51, 0.51));
+
+    if (font.is_valid()) {
+        float tw = font->get_string_size(tab_text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size - 1).x;
+        draw_string(font, Vector2(tab_x + (tab_w - tw) * 0.5f, r.position.y + font_size + 3), tab_text,
+                    HORIZONTAL_ALIGNMENT_LEFT, tab_w - 4, font_size - 1, color_text);
+    }
+
+    // Inactive tab hint
+    if (r.size.x > tab_w + 50) {
+        Rect2 itab(tab_x + tab_w + 1, r.position.y + 2, 50, tab_h - 2);
+        draw_rect(itab, Color(0.78, 0.78, 0.78));
+        draw_rect(itab, Color(0.6, 0.6, 0.6), false, 1.0);
+        if (font.is_valid()) {
+            draw_string(font, Vector2(itab.position.x + 8, r.position.y + font_size + 3), "Tab2",
+                        HORIZONTAL_ALIGNMENT_LEFT, 40, font_size - 1, Color(0.3, 0.3, 0.3));
+        }
+    }
+}
+
+void VisualGasicFormDesigner::_draw_shape_control(const Rect2 &r) {
+    draw_rect(r, Color(0.5, 0.5, 0.5));
+    draw_rect(r, Color(0.0, 0.0, 0.0), false, 2.0);
 }
 
 void VisualGasicFormDesigner::_draw_selection_handles(const Rect2 &rect) {
@@ -219,20 +1116,49 @@ void VisualGasicFormDesigner::_draw_rubber_band() {
 }
 
 void VisualGasicFormDesigner::_draw_toolbox_preview() {
+    if (!show_preview && mode != MODE_PLACING) return;
+
+    if (mode == MODE_PLACING) {
+        // Draw the control being placed using WYSIWYG rendering with alpha
+        Rect2 r = placing_rect.abs();
+        if (r.size.x > MIN_CONTROL_SIZE || r.size.y > MIN_CONTROL_SIZE) {
+            // Use a temporary item to render via the WYSIWYG path
+            FormControlItem tmp;
+            tmp.type = placing_tool_class;
+            tmp.name = placing_tool_class;
+            tmp.text = placing_tool_class;
+            tmp.rect = r;
+            tmp.selected = false;
+            tmp.visible = true;
+            _draw_control(tmp, -1);
+            // Semi-transparent overlay to show it's a preview
+            draw_rect(r, Color(0.5, 0.5, 1.0, 0.15));
+            draw_rect(r, color_selected, false, 2.0);
+        } else if (r.size.x > 0 || r.size.y > 0) {
+            // Too small for WYSIWYG — just draw a simple outline
+            draw_rect(r, Color(0.5, 0.5, 1.0, 0.3));
+            draw_rect(r, color_selected, false, 1.0);
+        }
+        return;
+    }
+
     if (!show_preview) return;
 
     Vector2 sz = _default_size_for_type(preview_type);
     Rect2 preview_rect(preview_pos - sz * 0.5, sz);
-    Color preview_color = _design_color_for_type(preview_type);
-    preview_color.a = 0.5;
 
-    draw_rect(preview_rect, preview_color);
+    // Use WYSIWYG rendering for hover preview too
+    FormControlItem tmp;
+    tmp.type = preview_type;
+    tmp.name = preview_type;
+    tmp.text = preview_type;
+    tmp.rect = preview_rect;
+    tmp.selected = false;
+    tmp.visible = true;
+    _draw_control(tmp, -1);
+    // Semi-transparent overlay
+    draw_rect(preview_rect, Color(0.5, 0.5, 1.0, 0.2));
     draw_rect(preview_rect, Color(0, 0, 0.6, 0.7), false, 1.0);
-
-    Ref<Font> font = get_theme_default_font();
-    if (font.is_valid()) {
-        draw_string(font, preview_rect.position + Vector2(3, 14), preview_type, HORIZONTAL_ALIGNMENT_LEFT, preview_rect.size.x - 6, 12, Color(0, 0, 0, 0.7));
-    }
 }
 
 // =============================================================================
@@ -281,6 +1207,83 @@ Rect2 VisualGasicFormDesigner::_get_handle_rect(const Rect2 &r, HandleID h) cons
 }
 
 // =============================================================================
+// Form-level resize handle geometry and hit testing
+// =============================================================================
+
+Rect2 VisualGasicFormDesigner::_get_form_handle_rect(HandleID h) const {
+    // Form body in screen coords: starts at (FORM_PADDING_X, FORM_PADDING_Y)
+    float fx = FORM_PADDING_X;
+    float fy = FORM_PADDING_Y;
+    float fw = (float)form_size.x;
+    float fh = (float)form_size.y;
+
+    Vector2 pos;
+    switch (h) {
+        case HANDLE_TL: pos = Vector2(fx, fy); break;
+        case HANDLE_TM: pos = Vector2(fx + fw * 0.5f, fy); break;
+        case HANDLE_TR: pos = Vector2(fx + fw, fy); break;
+        case HANDLE_ML: pos = Vector2(fx, fy + fh * 0.5f); break;
+        case HANDLE_MR: pos = Vector2(fx + fw, fy + fh * 0.5f); break;
+        case HANDLE_BL: pos = Vector2(fx, fy + fh); break;
+        case HANDLE_BM: pos = Vector2(fx + fw * 0.5f, fy + fh); break;
+        case HANDLE_BR: pos = Vector2(fx + fw, fy + fh); break;
+        default: return Rect2();
+    }
+    return Rect2(pos - Vector2(FORM_HANDLE_HALF, FORM_HANDLE_HALF), Vector2(FORM_HANDLE_SIZE, FORM_HANDLE_SIZE));
+}
+
+VisualGasicFormDesigner::HandleID VisualGasicFormDesigner::_hit_test_form_handle(const Vector2 &p_pos) const {
+    for (int h = 0; h < 8; h++) {
+        Rect2 hr = _get_form_handle_rect((HandleID)h);
+        if (hr.has_point(p_pos)) {
+            return (HandleID)h;
+        }
+    }
+    return HANDLE_NONE;
+}
+
+// =============================================================================
+// Form size get/set
+// =============================================================================
+
+void VisualGasicFormDesigner::set_form_size(const Vector2i &p_size) {
+    form_size = p_size;
+    if (form_size.x < 100) form_size.x = 100;
+    if (form_size.y < 60) form_size.y = 60;
+    _update_min_size();
+    _mark_dirty();
+    queue_redraw();
+    emit_signal("form_resized", form_size);
+}
+
+Vector2i VisualGasicFormDesigner::get_form_size() const {
+    return form_size;
+}
+
+String VisualGasicFormDesigner::get_status_text() const {
+    // Build a VB6-style status string
+    int sel_count = get_selected_count();
+    if (sel_count == 1) {
+        for (int i = 0; i < controls.size(); i++) {
+            if (controls[i].selected) {
+                return controls[i].name + String(" - ") +
+                    String::num_int64((int)controls[i].rect.position.x) + String(", ") +
+                    String::num_int64((int)controls[i].rect.position.y) + String("  ") +
+                    String::num_int64((int)controls[i].rect.size.x) + String(" x ") +
+                    String::num_int64((int)controls[i].rect.size.y);
+            }
+        }
+    } else if (sel_count > 1) {
+        return String::num_int64(sel_count) + String(" controls selected");
+    }
+    return String::num_int64(form_size.x) + String(" x ") + String::num_int64(form_size.y);
+}
+
+Vector2 VisualGasicFormDesigner::get_mouse_canvas_pos() const {
+    return mouse_current_pos - Vector2(FORM_PADDING_X, FORM_PADDING_Y);
+}
+
+// =============================================================================
 // Mouse input
 // =============================================================================
 
@@ -325,9 +1328,30 @@ void VisualGasicFormDesigner::_gui_input(const Ref<InputEvent> &p_event) {
 void VisualGasicFormDesigner::_on_mouse_down(const Ref<InputEventMouseButton> &p_event) {
     if (p_event->get_button_index() != MOUSE_BUTTON_LEFT) return;
 
-    Vector2 pos = p_event->get_position();
+    Vector2 screen_pos = p_event->get_position();
+    // Convert to form-local coordinates (account for FORM_PADDING offset)
+    Vector2 pos = screen_pos - Vector2(FORM_PADDING_X, FORM_PADDING_Y);
     mouse_down_pos = pos;
-    mouse_current_pos = pos;
+    mouse_current_pos = screen_pos;
+
+    // --- Check form resize handles first (in screen coordinates) ---
+    HandleID fh = _hit_test_form_handle(screen_pos);
+    if (fh != HANDLE_NONE) {
+        mode = MODE_FORM_RESIZING;
+        form_resize_handle = fh;
+        original_form_size = form_size;
+        form_resize_mouse_start = screen_pos;
+        accept_event();
+        return;
+    }
+
+    // --- Click-to-place mode: start drawing the new control rect ---
+    if (!placing_tool_class.is_empty()) {
+        mode = MODE_PLACING;
+        placing_rect = Rect2(_snap(pos), Vector2(0, 0));
+        accept_event();
+        return;
+    }
 
     // Double-click → signal
     if (p_event->is_double_click()) {
@@ -367,6 +1391,7 @@ void VisualGasicFormDesigner::_on_mouse_down(const Ref<InputEventMouseButton> &p
         drag_offset = pos - controls[idx].rect.position;
 
         emit_signal("control_selected", idx);
+        emit_signal("status_changed", get_status_text());
         queue_redraw();
         accept_event();
     } else {
@@ -377,6 +1402,7 @@ void VisualGasicFormDesigner::_on_mouse_down(const Ref<InputEventMouseButton> &p
         mode = MODE_SELECTING;
         rubber_band_rect = Rect2(pos, Vector2());
         emit_signal("control_deselected");
+        emit_signal("status_changed", get_status_text());
         queue_redraw();
         accept_event();
     }
@@ -384,6 +1410,33 @@ void VisualGasicFormDesigner::_on_mouse_down(const Ref<InputEventMouseButton> &p
 
 void VisualGasicFormDesigner::_on_mouse_up(const Ref<InputEventMouseButton> &p_event) {
     if (p_event->get_button_index() != MOUSE_BUTTON_LEFT) return;
+
+    if (mode == MODE_FORM_RESIZING) {
+        form_resize_handle = HANDLE_NONE;
+        mode = MODE_NONE;
+        emit_signal("form_resized", form_size);
+        emit_signal("status_changed", get_status_text());
+        queue_redraw();
+        accept_event();
+        return;
+    }
+
+    if (mode == MODE_PLACING) {
+        // Finalize click-to-place: create the control at the drawn rect
+        Rect2 r = placing_rect.abs();
+        Vector2 def_size = _default_size_for_type(placing_tool_class);
+        // If user just clicked without dragging, use default size
+        if (r.size.x < MIN_CONTROL_SIZE || r.size.y < MIN_CONTROL_SIZE) {
+            r.size = def_size;
+        }
+        int idx = add_control(placing_tool_class, placing_tool_scene_path, r.position, r.size);
+        // After placing, reset to pointer (VB6 behavior: one placement then back to pointer)
+        clear_active_tool();
+        mode = MODE_NONE;
+        queue_redraw();
+        accept_event();
+        return;
+    }
 
     if (mode == MODE_SELECTING) {
         // Finalize rubber-band selection
@@ -407,22 +1460,88 @@ void VisualGasicFormDesigner::_on_mouse_up(const Ref<InputEventMouseButton> &p_e
 }
 
 void VisualGasicFormDesigner::_on_mouse_motion(const Ref<InputEventMouseMotion> &p_event) {
-    mouse_current_pos = p_event->get_position();
+    Vector2 screen_pos = p_event->get_position();
+    mouse_current_pos = screen_pos;
+    // Form-local coordinates
+    Vector2 pos = screen_pos - Vector2(FORM_PADDING_X, FORM_PADDING_Y);
 
-    // Update toolbox preview position
+    // Update toolbox preview position (in form-local coords)
     if (show_preview) {
-        preview_pos = mouse_current_pos;
+        preview_pos = pos;
         queue_redraw();
     }
 
+    // Form resize mode
+    if (mode == MODE_FORM_RESIZING) {
+        Vector2 delta = screen_pos - form_resize_mouse_start;
+        Vector2i new_size = original_form_size;
+
+        switch (form_resize_handle) {
+            case HANDLE_MR:
+                new_size.x = original_form_size.x + (int)delta.x;
+                break;
+            case HANDLE_BM:
+                new_size.y = original_form_size.y + (int)delta.y;
+                break;
+            case HANDLE_BR:
+                new_size.x = original_form_size.x + (int)delta.x;
+                new_size.y = original_form_size.y + (int)delta.y;
+                break;
+            case HANDLE_ML:
+                new_size.x = original_form_size.x - (int)delta.x;
+                break;
+            case HANDLE_TM:
+                new_size.y = original_form_size.y - (int)delta.y;
+                break;
+            case HANDLE_TL:
+                new_size.x = original_form_size.x - (int)delta.x;
+                new_size.y = original_form_size.y - (int)delta.y;
+                break;
+            case HANDLE_TR:
+                new_size.x = original_form_size.x + (int)delta.x;
+                new_size.y = original_form_size.y - (int)delta.y;
+                break;
+            case HANDLE_BL:
+                new_size.x = original_form_size.x - (int)delta.x;
+                new_size.y = original_form_size.y + (int)delta.y;
+                break;
+            default: break;
+        }
+
+        // Snap to grid
+        if (snap_enabled) {
+            new_size.x = ((new_size.x + grid_size / 2) / grid_size) * grid_size;
+            new_size.y = ((new_size.y + grid_size / 2) / grid_size) * grid_size;
+        }
+
+        // Enforce minimum
+        if (new_size.x < 100) new_size.x = 100;
+        if (new_size.y < 60) new_size.y = 60;
+
+        form_size = new_size;
+        _update_min_size();
+        _mark_dirty();
+        emit_signal("status_changed", get_status_text());
+        queue_redraw();
+        return;
+    }
+
     if (mode == MODE_SELECTING) {
-        rubber_band_rect = Rect2(mouse_down_pos, mouse_current_pos - mouse_down_pos);
+        rubber_band_rect = Rect2(mouse_down_pos, pos - mouse_down_pos);
+        queue_redraw();
+        return;
+    }
+
+    if (mode == MODE_PLACING) {
+        // Update the placing rect as user drags
+        Vector2 snapped = _snap(pos);
+        placing_rect = Rect2(placing_rect.position, snapped - placing_rect.position);
         queue_redraw();
         return;
     }
 
     if (mode == MODE_MOVING) {
-        Vector2 delta = _snap(mouse_current_pos - drag_offset) - controls[drag_control_index].rect.position;
+        Vector2 delta = _snap(pos - drag_offset) - controls[drag_control_index].rect.position;
         // Move all selected controls by the same delta
         for (int i = 0; i < controls.size(); i++) {
             if (controls[i].selected) {
@@ -430,12 +1549,13 @@ void VisualGasicFormDesigner::_on_mouse_motion(const Ref<InputEventMouseMotion> 
             }
         }
         _mark_dirty();
+        emit_signal("status_changed", get_status_text());
         queue_redraw();
         return;
     }
 
     if (mode == MODE_RESIZING && drag_control_index >= 0) {
-        Vector2 snapped = _snap(mouse_current_pos);
+        Vector2 snapped = _snap(pos);
         Rect2 r = original_rect;
 
         switch (active_handle) {
@@ -479,6 +1599,7 @@ void VisualGasicFormDesigner::_on_mouse_motion(const Ref<InputEventMouseMotion> 
 
         controls.write[drag_control_index].rect = r;
         _mark_dirty();
+        emit_signal("status_changed", get_status_text());
         queue_redraw();
         return;
     }
@@ -504,7 +1625,9 @@ void VisualGasicFormDesigner::_drop_data(const Vector2 &p_point, const Variant &
     String scene_path = data.get("scene_path", "");
 
     Vector2 sz = _default_size_for_type(type);
-    Vector2 pos = _snap(p_point - sz * 0.5);
+    // Convert screen coords to form-local coords
+    Vector2 form_pos = p_point - Vector2(FORM_PADDING_X, FORM_PADDING_Y);
+    Vector2 pos = _snap(form_pos - sz * 0.5);
 
     int idx = add_control(type, scene_path, pos, sz);
 
@@ -547,6 +1670,9 @@ int VisualGasicFormDesigner::add_control(const String &p_type, const String &p_s
     if (p_type == "Button" || p_type == "Label" || p_type == "CheckBox" || p_type == "OptionButton") {
         item.text = item.name;
     }
+
+    // Initialize full VB6 default properties
+    _init_vb6_defaults(item);
 
     controls.push_back(item);
     int idx = controls.size() - 1;
@@ -962,6 +2088,226 @@ void VisualGasicFormDesigner::register_custom_control_type(const String &p_type_
 }
 
 // =============================================================================
+// Active tool (click-to-place mode)
+// =============================================================================
+
+void VisualGasicFormDesigner::set_active_tool(const String &p_class_name, const String &p_scene_path) {
+    placing_tool_class = p_class_name;
+    placing_tool_scene_path = p_scene_path;
+    // Change cursor to crosshair while a tool is active
+    set_default_cursor_shape(p_class_name.is_empty() ? CURSOR_ARROW : CURSOR_CROSS);
+    UtilityFunctions::print("FormDesigner: Active tool = '", p_class_name, "'");
+}
+
+String VisualGasicFormDesigner::get_active_tool() const {
+    return placing_tool_class;
+}
+
+void VisualGasicFormDesigner::clear_active_tool() {
+    placing_tool_class = "";
+    placing_tool_scene_path = "";
+    set_default_cursor_shape(CURSOR_ARROW);
+}
+
+// =============================================================================
+// Window type
+// =============================================================================
+
+void VisualGasicFormDesigner::set_window_type(int p_type) {
+    window_type = (WindowType)CLAMP(p_type, 0, 3);
+    _mark_dirty();
+}
+
+int VisualGasicFormDesigner::get_window_type() const {
+    return (int)window_type;
+}
+
+// =============================================================================
+// Theme colors — configurable from GDScript via VGFormDesignerTheme
+// =============================================================================
+
+void VisualGasicFormDesigner::set_theme_colors(const Dictionary &p_colors) {
+    // Form canvas colors
+    if (p_colors.has("form_background"))    color_form_bg      = p_colors["form_background"];
+    if (p_colors.has("form_border"))        color_form_border  = p_colors["form_border"];
+    if (p_colors.has("grid_dots"))          color_grid_dot     = p_colors["grid_dots"];
+    if (p_colors.has("selection_border"))   color_selected     = p_colors["selection_border"];
+    if (p_colors.has("selection_handle"))   color_handle       = p_colors["selection_handle"];
+    if (p_colors.has("rubber_band"))        color_rubber_band  = p_colors["rubber_band"];
+    // Win32 system colors
+    if (p_colors.has("sys_button_face"))      sys_button_face      = p_colors["sys_button_face"];
+    if (p_colors.has("sys_button_highlight")) sys_button_highlight = p_colors["sys_button_highlight"];
+    if (p_colors.has("sys_button_shadow"))    sys_button_shadow    = p_colors["sys_button_shadow"];
+    if (p_colors.has("sys_3d_dark_shadow"))   sys_3d_dark_shadow   = p_colors["sys_3d_dark_shadow"];
+    if (p_colors.has("sys_3d_light"))         sys_3d_light         = p_colors["sys_3d_light"];
+    if (p_colors.has("sys_window"))           sys_window           = p_colors["sys_window"];
+    if (p_colors.has("sys_window_text"))    { sys_window_text      = p_colors["sys_window_text"];
+                                              color_text           = sys_window_text; }
+    if (p_colors.has("sys_active_title"))     sys_active_title     = p_colors["sys_active_title"];
+    if (p_colors.has("sys_title_text"))       sys_title_text       = p_colors["sys_title_text"];
+    if (p_colors.has("sys_scrollbar"))        sys_scrollbar        = p_colors["sys_scrollbar"];
+    if (p_colors.has("sys_glyph"))            sys_glyph            = p_colors["sys_glyph"];
+    if (p_colors.has("sys_progress_fill"))    sys_progress_fill    = p_colors["sys_progress_fill"];
+    if (p_colors.has("design_time_outline"))  design_outline       = p_colors["design_time_outline"];
+    if (p_colors.has("nonvisual_bg"))         nonvisual_bg         = p_colors["nonvisual_bg"];
+    if (p_colors.has("nonvisual_border"))     nonvisual_border     = p_colors["nonvisual_border"];
+    if (p_colors.has("placeholder_color"))    placeholder_color    = p_colors["placeholder_color"];
+    if (p_colors.has("mdi_background"))       mdi_background       = p_colors["mdi_background"];
+    if (p_colors.has("form_handle_color"))    form_handle_color    = p_colors["form_handle_color"];
+    if (p_colors.has("sys_inactive_title"))   sys_inactive_title   = p_colors["sys_inactive_title"];
+    queue_redraw();
+}
+
+Dictionary VisualGasicFormDesigner::get_theme_colors() const {
+    Dictionary d;
+    d["form_background"]    = color_form_bg;
+    d["form_border"]        = color_form_border;
+    d["grid_dots"]          = color_grid_dot;
+    d["selection_border"]   = color_selected;
+    d["selection_handle"]   = color_handle;
+    d["rubber_band"]        = color_rubber_band;
+    d["sys_button_face"]      = sys_button_face;
+    d["sys_button_highlight"] = sys_button_highlight;
+    d["sys_button_shadow"]    = sys_button_shadow;
+    d["sys_3d_dark_shadow"]   = sys_3d_dark_shadow;
+    d["sys_3d_light"]         = sys_3d_light;
+    d["sys_window"]           = sys_window;
+    d["sys_window_text"]      = sys_window_text;
+    d["sys_active_title"]     = sys_active_title;
+    d["sys_title_text"]       = sys_title_text;
+    d["sys_scrollbar"]        = sys_scrollbar;
+    d["sys_glyph"]            = sys_glyph;
+    d["sys_progress_fill"]    = sys_progress_fill;
+    d["design_time_outline"]  = design_outline;
+    d["nonvisual_bg"]         = nonvisual_bg;
+    d["nonvisual_border"]     = nonvisual_border;
+    d["placeholder_color"]    = placeholder_color;
+    d["mdi_background"]       = mdi_background;
+    d["form_handle_color"]    = form_handle_color;
+    d["sys_inactive_title"]   = sys_inactive_title;
+    return d;
+}
+
+// =============================================================================
+// VB6 default property initializer
+// =============================================================================
+
+void VisualGasicFormDesigner::_init_vb6_defaults(FormControlItem &item) const {
+    Dictionary &p = item.properties;
+
+    // Universal VB6 properties
+    p["Enabled"]       = true;
+    p["TabStop"]       = true;
+    p["TabIndex"]      = (int)controls.size(); // Auto-increment
+    p["Tag"]           = String("");
+    p["ToolTipText"]   = String("");
+    p["MousePointer"]  = 0;  // Default
+    p["BackColor"]     = Color(0.85, 0.85, 0.85);
+    p["ForeColor"]     = Color(0.0, 0.0, 0.0);
+    p["FontName"]      = String("MS Sans Serif");
+    p["FontSize"]      = 8;
+    p["FontBold"]      = false;
+    p["FontItalic"]    = false;
+    p["Appearance"]    = 1; // 3D
+    p["BorderStyle"]   = 0; // None
+
+    // Type-specific VB6 defaults
+    String t = item.type;
+
+    if (t == "Button") {
+        p["Default"]    = false;
+        p["Cancel"]     = false;
+        p["Style"]      = 0;  // Standard
+        p["BackColor"]  = Color(0.85, 0.85, 0.85);
+    }
+    else if (t == "Label") {
+        p["Alignment"]   = 0;  // Left
+        p["AutoSize"]    = false;
+        p["WordWrap"]    = false;
+        p["BackColor"]   = Color(0.753, 0.753, 0.753, 0.0); // Transparent
+        p["BorderStyle"] = 0;
+        p["TabStop"]     = false;
+    }
+    else if (t == "LineEdit") {
+        p["Locked"]          = false;
+        p["MaxLength"]       = 0;
+        p["PasswordChar"]    = String("");
+        p["PlaceholderText"] = String("");
+        p["BackColor"]       = Color(1.0, 1.0, 1.0);
+        p["BorderStyle"]     = 1; // Fixed Single
+    }
+    else if (t == "TextEdit") {
+        p["MultiLine"]   = true;
+        p["ScrollBars"]  = 3;  // Both
+        p["Locked"]      = false;
+        p["BackColor"]   = Color(1.0, 1.0, 1.0);
+        p["BorderStyle"] = 1;
+    }
+    else if (t == "CheckBox" || t == "CheckButton") {
+        p["Value"]      = false;
+    }
+    else if (t == "OptionButton") {
+        p["Value"]      = false;
+    }
+    else if (t == "ItemList") {
+        p["Sorted"]      = false;
+        p["MultiSelect"] = 0;  // None
+        p["Columns"]     = 0;
+        p["BackColor"]   = Color(1.0, 1.0, 1.0);
+        p["BorderStyle"] = 1;
+    }
+    else if (t == "Tree") {
+        p["Sorted"]      = false;
+        p["BackColor"]   = Color(1.0, 1.0, 1.0);
+        p["BorderStyle"] = 1;
+    }
+    else if (t == "ProgressBar") {
+        p["Value"] = 0.0;
+        p["Min"]   = 0.0;
+        p["Max"]   = 100.0;
+        p["Step"]  = 1.0;
+    }
+    else if (t == "HSlider" || t == "VSlider") {
+        p["Value"] = 0.0;
+        p["Min"]   = 0.0;
+        p["Max"]   = 100.0;
+        p["Step"]  = 1.0;
+    }
+    else if (t == "HScrollBar" || t == "VScrollBar") {
+        p["Value"] = 0.0;
+        p["Min"]   = 0.0;
+        p["Max"]   = 100.0;
+        p["Step"]  = 1.0;
+    }
+    else if (t == "SpinBox") {
+        p["Value"] = 0.0;
+        p["Min"]   = 0.0;
+        p["Max"]   = 100.0;
+        p["Step"]  = 1.0;
+    }
+    else if (t == "Timer") {
+        p["Interval"] = 1000;
+        p["Enabled"]  = false; // VB6: Timer starts disabled
+        p["TabStop"]  = false;
+    }
+    else if (t == "TextureRect" || t == "Picture") {
+        p["Picture"]  = String("");
+        p["Stretch"]  = false;
+        p["TabStop"]  = false;
+    }
+    else if (t == "Panel" || t == "ColorRect") {
+        p["BorderStyle"] = 1;
+    }
+    else if (t == "RichTextLabel") {
+        p["BackColor"]   = Color(1.0, 1.0, 1.0);
+        p["BorderStyle"] = 1;
+    }
+    else if (t == "TabContainer") {
+        p["BackColor"] = Color(0.85, 0.85, 0.85);
+    }
+}
+
+// =============================================================================
 // Naming helpers
 // =============================================================================
 
@@ -1077,6 +2423,100 @@ String VisualGasicFormDesigner::get_form_name() const { return form_name; }
 void VisualGasicFormDesigner::set_form_name(const String &p_name) { form_name = p_name; _mark_dirty(); queue_redraw(); }
 
 // =============================================================================
+// VB6 Form Properties — get/set/getAll
+// =============================================================================
+
+void VisualGasicFormDesigner::set_form_property(const String &p_key, const Variant &p_value) {
+    if (p_key == "Caption" || p_key == "caption") {
+        form_name = p_value;
+    } else if (p_key == "BorderStyle" || p_key == "borderstyle") {
+        form_border_style = (FormBorderStyle)(int)p_value;
+    } else if (p_key == "ControlBox" || p_key == "controlbox") {
+        form_control_box = p_value;
+    } else if (p_key == "MinButton" || p_key == "minbutton") {
+        form_min_button = p_value;
+    } else if (p_key == "MaxButton" || p_key == "maxbutton") {
+        form_max_button = p_value;
+    } else if (p_key == "Moveable" || p_key == "moveable") {
+        form_moveable = p_value;
+    } else if (p_key == "ShowInTaskbar" || p_key == "showintaskbar") {
+        form_show_in_taskbar = p_value;
+    } else if (p_key == "WindowState" || p_key == "windowstate") {
+        form_window_state = p_value;
+    } else if (p_key == "StartUpPosition" || p_key == "startposition") {
+        form_start_position = p_value;
+    } else if (p_key == "KeyPreview" || p_key == "keypreview") {
+        form_key_preview = p_value;
+    } else if (p_key == "AutoRedraw" || p_key == "autoredraw") {
+        form_auto_redraw = p_value;
+    } else if (p_key == "BackColor" || p_key == "backcolor") {
+        form_back_color = p_value;
+        color_form_bg = form_back_color;
+    } else if (p_key == "ForeColor" || p_key == "forecolor") {
+        form_fore_color = p_value;
+    } else if (p_key == "Icon" || p_key == "icon") {
+        form_icon = p_value;
+    } else if (p_key == "Width" || p_key == "width") {
+        form_size.x = (int)(float)p_value;
+        _update_min_size();
+    } else if (p_key == "Height" || p_key == "height") {
+        form_size.y = (int)(float)p_value;
+        _update_min_size();
+    } else if (p_key == "WindowType" || p_key == "windowtype") {
+        window_type = (WindowType)(int)p_value;
+    } else {
+        UtilityFunctions::print("FormDesigner: Unknown form property '", p_key, "'");
+        return;
+    }
+    _mark_dirty();
+    queue_redraw();
+}
+
+Variant VisualGasicFormDesigner::get_form_property(const String &p_key) const {
+    if (p_key == "Caption" || p_key == "caption") return form_name;
+    if (p_key == "BorderStyle" || p_key == "borderstyle") return (int)form_border_style;
+    if (p_key == "ControlBox" || p_key == "controlbox") return form_control_box;
+    if (p_key == "MinButton" || p_key == "minbutton") return form_min_button;
+    if (p_key == "MaxButton" || p_key == "maxbutton") return form_max_button;
+    if (p_key == "Moveable" || p_key == "moveable") return form_moveable;
+    if (p_key == "ShowInTaskbar" || p_key == "showintaskbar") return form_show_in_taskbar;
+    if (p_key == "WindowState" || p_key == "windowstate") return form_window_state;
+    if (p_key == "StartUpPosition" || p_key == "startposition") return form_start_position;
+    if (p_key == "KeyPreview" || p_key == "keypreview") return form_key_preview;
+    if (p_key == "AutoRedraw" || p_key == "autoredraw") return form_auto_redraw;
+    if (p_key == "BackColor" || p_key == "backcolor") return form_back_color;
+    if (p_key == "ForeColor" || p_key == "forecolor") return form_fore_color;
+    if (p_key == "Icon" || p_key == "icon") return form_icon;
+    if (p_key == "Width" || p_key == "width") return form_size.x;
+    if (p_key == "Height" || p_key == "height") return form_size.y;
+    if (p_key == "WindowType" || p_key == "windowtype") return (int)window_type;
+    return Variant();
+}
+
+Dictionary VisualGasicFormDesigner::get_form_properties() const {
+    Dictionary d;
+    d["(Name)"]           = form_name;
+    d["Caption"]          = form_name;
+    d["BorderStyle"]      = (int)form_border_style;
+    d["ControlBox"]       = form_control_box;
+    d["MinButton"]        = form_min_button;
+    d["MaxButton"]        = form_max_button;
+    d["Moveable"]         = form_moveable;
+    d["ShowInTaskbar"]    = form_show_in_taskbar;
+    d["WindowState"]      = form_window_state;
+    d["StartUpPosition"]  = form_start_position;
+    d["BackColor"]        = form_back_color;
+    d["ForeColor"]        = form_fore_color;
+    d["Width"]            = form_size.x;
+    d["Height"]           = form_size.y;
+    d["KeyPreview"]       = form_key_preview;
+    d["AutoRedraw"]       = form_auto_redraw;
+    d["Icon"]             = form_icon;
+    d["WindowType"]       = (int)window_type;
+    return d;
+}
+
+// =============================================================================
 // New form
 // =============================================================================
 
@@ -1088,7 +2528,23 @@ void VisualGasicFormDesigner::new_form(const String &p_name) {
     form_name = p_name;
     form_path = "";
     form_size = Vector2i(600, 400);
+    // Reset VB6 form properties to defaults
+    form_border_style = BORDER_SIZABLE;
+    form_control_box = true;
+    form_min_button = true;
+    form_max_button = true;
+    form_moveable = true;
+    form_show_in_taskbar = true;
+    form_window_state = 0;
+    form_start_position = 2;
+    form_key_preview = false;
+    form_auto_redraw = true;
+    form_back_color = Color(0.753, 0.753, 0.753, 1.0);
+    color_form_bg = form_back_color;
+    form_fore_color = Color(0.0, 0.0, 0.0, 1.0);
+    form_icon = "";
     dirty = false;
+    _update_min_size();
     queue_redraw();
     UtilityFunctions::print("FormDesigner: New form '", p_name, "'");
 }
@@ -1460,6 +2916,7 @@ bool VisualGasicFormDesigner::open_form(const String &p_tscn_path) {
     dirty = false;
     undo_stack.clear();
     redo_stack.clear();
+    _update_min_size();
     queue_redraw();
     UtilityFunctions::print("FormDesigner: Opened '", form_name, "' with ", controls.size(), " controls");
     return true;

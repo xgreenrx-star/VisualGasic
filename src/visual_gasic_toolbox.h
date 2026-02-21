@@ -42,6 +42,14 @@ class VisualGasicToolbox : public PanelContainer {
     int default_tool_count_2d = 0;
     int default_tool_count_3d = 0;
 
+    // Active tool state (for click-to-place mode)
+    String active_tool_class;       // e.g. "Button", "Label" — empty = Pointer
+    String active_tool_scene_path;  // e.g. "res://addons/visual_gasic/prototypes/Button.tscn"
+    VisualGasicToolButton *active_tool_button = nullptr; // Currently pressed button
+
+    void _on_tool_button_pressed(VisualGasicToolButton *p_btn);
+    void _update_button_states();
+
 protected:
     static void _bind_methods();
     void _notification(int p_what);
@@ -61,6 +69,14 @@ public:
     
     // Mark current tools as "default" (called after initial setup)
     void mark_defaults();
+
+    // Active tool access
+    String get_active_tool_class() const;
+    String get_active_tool_scene() const;
+    void reset_to_pointer();
+
+    // Signals:
+    // "tool_selected" (class_name: String, scene_path: String)
 };
 
 #endif // VISUAL_GASIC_TOOLBOX_H

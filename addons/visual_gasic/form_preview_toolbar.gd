@@ -14,6 +14,7 @@ var _debug_button: Button
 var _build_button: Button
 var _run_project_button: Button
 var _editor_plugin: EditorPlugin
+var _preview_window: Window = null
 
 func _init() -> void:
 	name = "FormPreviewToolbar"
@@ -69,33 +70,40 @@ func _preview_current_form(with_debug: bool) -> void:
 		push_error("FormPreviewToolbar: No editor plugin set")
 		return
 	
-	var editor = _editor_plugin.get_editor_interface()
-	var scene_root = editor.get_edited_scene_root()
-	
-	if not scene_root:
-		push_warning("No scene is currently open")
+	# Get the form designer from the plugin
+	var designer = _editor_plugin.get("_form_designer") if "_form_designer" in _editor_plugin else null
+	if not designer:
+		push_warning("No form designer active — open a form first")
 		return
 	
-	# Check if it's a valid form (Window or Control with VG script)
-	if not (scene_root is Window or scene_root is Control):
-		push_warning("Current scene is not a form (Window or Control)")
+	if not designer.has_method("get_control_count"):
+		push_warning("Form designer does not support preview (missing get_control_count)")
 		return
 	
-	# Save the current scene first
-	editor.save_scene()
+	# Close any existing preview window
+	if is_instance_valid(_preview_window):
+		_preview_window.queue_free()
+		_preview_window = null
 	
-	# Get the scene path
-	var scene_path = scene_root.scene_file_path
-	if scene_path.is_empty():
-		push_warning("Scene must be saved before previewing")
+	# Load and instantiate the preview window
+	var preview_script = load("res://addons/visual_gasic/form_preview_window.gd")
+	if not preview_script:
+		push_error("FormPreviewToolbar: Cannot load form_preview_window.gd")
 		return
 	
-	# Save breakpoints before running with debug
-	if with_debug:
-		_save_breakpoints_for_preview()
+	_preview_window = Window.new()
+	_preview_window.set_script(preview_script)
 	
-	# Play the custom scene
-	editor.play_custom_scene(scene_path)
+	# Add to the editor tree so it can display
+	_editor_plugin.get_editor_interface().get_base_control().add_child(_preview_window)
+	
+	# Build the preview from the designer data
+	_preview_window.build_from_designer(designer)
+	
+	# Show it
+	_preview_window.popup_centered()
+	
+	print("VisualGasic: Form preview opened — ", designer.get_form_name())
 
 func _build_project() -> void:
 	"""Validate all .vg files in the project by scanning for syntax issues"""

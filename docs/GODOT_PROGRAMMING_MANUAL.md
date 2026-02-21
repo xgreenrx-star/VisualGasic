@@ -155,7 +155,7 @@ Use **Import VB6 Project...** in the Toolbox to convert existing applications.
 VisualGasic includes a complete RAD (Rapid Application Development) environment:
 
 - **Integrated Script Editor** with syntax highlighting and IntelliSense
-- **Visual Form Designer** for creating user interfaces
+- **Visual Form Designer** — Full C++ WYSIWYG form editor with 40+ controls, VB6 properties, and live preview
 - **Immediate Window** for testing and debugging
 - **Toolbox** with common controls (Button, Label, TextBox, etc.)
 - **Property Inspector** for editing node properties
@@ -185,7 +185,11 @@ The **Toolbox** provides quick access to all VisualGasic features:
 
 ### Visual Form Designer
 
-Create user interfaces by dragging controls onto forms:
+![Form Designer IDE](screenshots/form_designer_ide.png)
+
+*Complete VB6 IDE: Toolbox (40+ controls) · WYSIWYG Canvas · Properties Panel · Project Explorer · Alignment Toolbar · Live Preview*
+
+The **C++ Form Designer** provides a full WYSIWYG editor for creating user interfaces by dragging controls onto forms:
 
 **VB6 to Godot Control Mappings:**
 
@@ -1653,6 +1657,8 @@ Next ${1:i}
 
 ### Chapter 35: Form Designer Tools {#form-designer}
 
+The VisualGasic Form Designer is a **C++ GDExtension** that provides a complete WYSIWYG editing experience with 40+ controls, VB6-style properties, and a live preview system.
+
 #### Grid Snapping
 
 The 2D canvas toolbar provides grid controls:
@@ -1683,10 +1689,12 @@ Select multiple controls and use:
 
 Press **F5** or click "▶ Preview Form" to:
 
-- Open the current form in a popup window
-- Test buttons, inputs, and interactions
-- Fire Form_Load and Form_Shown events
-- Close to return to editor
+- Open a **live preview window** showing the form as it will appear at runtime
+- All controls are built from the C++ form designer's in-memory data
+- VB6 form properties are applied (Caption, BackColor, ForeColor, BorderStyle, ControlBox, MinButton, MaxButton)
+- 20+ control types mapped: Button, Label, TextBox, CheckBox, ComboBox, ListBox, Panel, ProgressBar, ScrollBars, Sliders, SpinBox, Tree, RichTextLabel, TabContainer, ColorRect, Separators, Containers
+- Test visual layout and control positioning
+- Close preview window to return to the editor
 
 #### Rename Refactoring
 

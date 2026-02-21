@@ -97,6 +97,26 @@ public:
         MODE_MOVING,         // Dragging selected controls
         MODE_RESIZING,       // Dragging a resize handle
         MODE_TOOLBOX_DROP,   // Dragging from toolbox (preview shown)
+        MODE_PLACING,        // Click-to-place: first click = origin, drag = size
+        MODE_FORM_RESIZING,  // Dragging a form border handle to resize the form
+    };
+
+    // Window type for the form (affects .tscn root node and runtime container)
+    enum WindowType {
+        WINDOW_GAME = 0,     // SubViewport-based (embedded in game)
+        WINDOW_WINDOWS = 1,  // Native OS Window (Windows-style)
+        WINDOW_LINUX = 2,    // Native OS Window (Linux/CSD-style)
+        WINDOW_MAC = 3,      // Native OS Window (Mac-style)
+    };
+
+    // VB6 BorderStyle — controls form chrome appearance
+    enum FormBorderStyle {
+        BORDER_NONE = 0,           // No border, no title bar
+        BORDER_FIXED_SINGLE = 1,   // Fixed (non-resizable) with title bar
+        BORDER_SIZABLE = 2,        // Default — sizable with title bar
+        BORDER_FIXED_DIALOG = 3,   // Fixed dialog — no min/max buttons
+        BORDER_FIXED_TOOL = 4,     // Thin title bar, close only
+        BORDER_SIZABLE_TOOL = 5,   // Thin title bar, close only, sizable
     };
 
 protected:
@@ -169,20 +189,81 @@ public:
     void register_custom_control_type(const String &p_type_name, const String &p_scene_path,
                                       const Vector2 &p_default_size, const Color &p_design_color);
 
+    // --- Active tool (click-to-place mode) ---
+    void set_active_tool(const String &p_class_name, const String &p_scene_path);
+    String get_active_tool() const;
+    void clear_active_tool();
+
+    // --- Window type ---
+    void set_window_type(int p_type);
+    int  get_window_type() const;
+
+    // --- Form size ---
+    void set_form_size(const Vector2i &p_size);
+    Vector2i get_form_size() const;
+
+    // --- VB6 Form Properties ---
+    void set_form_property(const String &p_key, const Variant &p_value);
+    Variant get_form_property(const String &p_key) const;
+    Dictionary get_form_properties() const;
+
+    // --- Status info for toolbar/statusbar ---
+    String get_status_text() const;
+    Vector2 get_mouse_canvas_pos() const;
+
+    // --- Theme colors (configurable from GDScript theme file) ---
+    void set_theme_colors(const Dictionary &p_colors);
+    Dictionary get_theme_colors() const;
+
     // --- Signals ---
     // "control_selected"  (index: int)
     // "control_deselected" ()
     // "form_modified" ()
     // "control_double_clicked" (index: int)
+    // "status_changed" (text: String)  — for toolbar/statusbar coordinate display
+    // "form_resized" (size: Vector2i)  — when user resizes the form via handles
 
 private:
     // --- Drawing helpers ---
     void _draw_grid();
     void _draw_form_background();
+    void _draw_mdi_frame();           // Outer MDI window frame around the form
+    void _draw_form_caption_buttons(); // Min/Max/Close buttons on the title bar
+    void _draw_form_resize_handles();  // Blue handles at form edges for resizing
     void _draw_control(const FormControlItem &item, int index);
     void _draw_selection_handles(const Rect2 &rect);
     void _draw_rubber_band();
     void _draw_toolbox_preview();
+
+    // --- Form resize hit testing ---
+    HandleID _hit_test_form_handle(const Vector2 &p_pos) const;
+    Rect2    _get_form_handle_rect(HandleID handle) const;
+
+    // --- WYSIWYG per-type drawing (WinForms-style) ---
+    void _draw_raised_rect(const Rect2 &r, const Color &face);   // 3D raised border
+    void _draw_sunken_rect(const Rect2 &r, const Color &face);   // 3D sunken border
+    void _draw_etched_rect(const Rect2 &r);                      // Etched frame border
+    void _draw_button_control(const Rect2 &r, const String &text, const Ref<Font> &font, int font_size);
+    void _draw_label_control(const Rect2 &r, const String &text, const Ref<Font> &font, int font_size);
+    void _draw_textbox_control(const Rect2 &r, const String &text, const Ref<Font> &font, int font_size);
+    void _draw_textarea_control(const Rect2 &r, const String &text, const Ref<Font> &font, int font_size);
+    void _draw_checkbox_control(const Rect2 &r, const String &text, const Ref<Font> &font, int font_size);
+    void _draw_option_control(const Rect2 &r, const String &text, const Ref<Font> &font, int font_size);
+    void _draw_combobox_control(const Rect2 &r, const String &text, const Ref<Font> &font, int font_size);
+    void _draw_listbox_control(const Rect2 &r, const String &text, const Ref<Font> &font, int font_size);
+    void _draw_frame_control(const Rect2 &r, const String &text, const Ref<Font> &font, int font_size);
+    void _draw_progressbar_control(const Rect2 &r, const Ref<Font> &font, int font_size);
+    void _draw_hscrollbar_control(const Rect2 &r);
+    void _draw_vscrollbar_control(const Rect2 &r);
+    void _draw_hslider_control(const Rect2 &r);
+    void _draw_vslider_control(const Rect2 &r);
+    void _draw_spinbox_control(const Rect2 &r, const Ref<Font> &font, int font_size);
+    void _draw_timer_control(const Rect2 &r, const String &name, const Ref<Font> &font, int font_size);
+    void _draw_picture_control(const Rect2 &r, const String &name, const Ref<Font> &font, int font_size);
+    void _draw_treeview_control(const Rect2 &r, const Ref<Font> &font, int font_size);
+    void _draw_richtext_control(const Rect2 &r, const String &text, const Ref<Font> &font, int font_size);
+    void _draw_tabstrip_control(const Rect2 &r, const String &text, const Ref<Font> &font, int font_size);
+    void _draw_shape_control(const Rect2 &r);
 
     // --- Hit testing ---
     int      _hit_test(const Vector2 &p_pos) const;
@@ -213,6 +294,9 @@ private:
     void _push_undo(const FormUndoAction &action);
     void _mark_dirty();
 
+    // --- VB6 default property initializer ---
+    void _init_vb6_defaults(FormControlItem &item) const;
+
     // =========================================================================
     // Data
     // =========================================================================
@@ -222,6 +306,22 @@ private:
     String form_path;  // .tscn path (empty = unsaved)
     Vector2i form_size = Vector2i(600, 400);
     bool dirty = false;
+    WindowType window_type = WINDOW_GAME;
+
+    // VB6 form properties
+    FormBorderStyle form_border_style = BORDER_SIZABLE;  // Default: sizable with full chrome
+    bool form_control_box = true;   // Show system menu / close button
+    bool form_min_button  = true;   // Show minimize button
+    bool form_max_button  = true;   // Show maximize button
+    bool form_moveable    = true;   // Form can be moved at runtime
+    bool form_show_in_taskbar = true; // Show in OS taskbar
+    int  form_window_state = 0;     // 0=Normal, 1=Minimized, 2=Maximized
+    int  form_start_position = 2;   // 0=Manual, 1=CenterOwner, 2=CenterScreen, 3=Default
+    bool form_key_preview = false;  // Fire form key events before control events
+    bool form_auto_redraw = true;   // Auto paint
+    Color form_back_color = Color(0.753, 0.753, 0.753, 1.0); // SystemButtonFace
+    Color form_fore_color = Color(0.0, 0.0, 0.0, 1.0);       // Black
+    String form_icon = "";          // Icon path
 
     // Controls in the form
     Vector<FormControlItem> controls;
@@ -239,6 +339,32 @@ private:
     HandleID active_handle = HANDLE_NONE;
     Rect2   original_rect;       // Rect before resize started
     mutable int drag_control_index = -1; // mutable: set by const _hit_test_handle
+
+    // Active tool for click-to-place
+    String placing_tool_class;       // e.g. "Button"
+    String placing_tool_scene_path;  // e.g. "res://addons/visual_gasic/prototypes/Button.tscn"
+    Rect2  placing_rect;             // Rect being drawn during MODE_PLACING
+
+    // Form resize state
+    HandleID form_resize_handle = HANDLE_NONE;
+    Vector2i original_form_size;
+    Vector2  form_resize_mouse_start;
+
+    // Canvas offset (padding around the form for the MDI frame)
+    static constexpr float FORM_PADDING_X = 40.0f;
+    static constexpr float FORM_PADDING_Y = 60.0f;  // Space for MDI title bar + form title bar + border
+    static constexpr float MDI_TITLE_HEIGHT = 20.0f; // MDI parent window title bar
+    static constexpr float FORM_TITLE_HEIGHT = 24.0f;
+    static constexpr float CAPTION_BTN_W = 16.0f;
+    static constexpr float CAPTION_BTN_H = 14.0f;
+    static constexpr float FORM_HANDLE_SIZE = 8.0f;
+    static constexpr float FORM_HANDLE_HALF = 4.0f;
+    // Extra client-area padding inside the MDI frame (space around the form body)
+    static constexpr float MDI_CLIENT_PAD_RIGHT  = 120.0f;
+    static constexpr float MDI_CLIENT_PAD_BOTTOM = 100.0f;
+
+    // Helper: update custom_minimum_size to always be bigger than the form
+    void _update_min_size();
 
     // Rubber-band selection
     Rect2 rubber_band_rect;
@@ -270,15 +396,35 @@ private:
     static constexpr float HANDLE_HALF      = 3.0f;
     static constexpr float MIN_CONTROL_SIZE = 8.0f;
 
-    // Colors (VB6-style)
+    // Colors — form canvas
     Color color_form_bg      = Color(0.753, 0.753, 0.753, 1.0); // Classic gray
+    Color color_form_border  = Color(0.4, 0.4, 0.4, 1.0);       // Form outline
     Color color_grid_dot     = Color(0.0, 0.0, 0.0, 0.3);
-    Color color_control_bg   = Color(0.85, 0.85, 0.85, 1.0);
-    Color color_control_border = Color(0.0, 0.0, 0.0, 1.0);
-    Color color_selected     = Color(0.0, 0.0, 0.6, 1.0);     // VB6 dark blue
-    Color color_handle       = Color(0.0, 0.0, 0.0, 1.0);
-    Color color_rubber_band  = Color(0.0, 0.0, 0.6, 0.3);
-    Color color_text         = Color(0.0, 0.0, 0.0, 1.0);
+    Color color_selected     = Color(0.0, 0.0, 0.6, 1.0);       // Selection border
+    Color color_handle       = Color(0.0, 0.0, 0.0, 1.0);       // Resize handles
+    Color color_rubber_band  = Color(0.0, 0.0, 0.6, 0.3);       // Rubber-band rect
+    Color color_text         = Color(0.0, 0.0, 0.0, 1.0);       // Default text
+
+    // Win32 system color palette — used by WYSIWYG control drawing
+    Color sys_button_face      = Color(0.831, 0.816, 0.784);    // Button/control face
+    Color sys_button_highlight = Color(1.0, 1.0, 1.0);          // 3D highlight
+    Color sys_button_shadow    = Color(0.51, 0.51, 0.51);       // 3D shadow
+    Color sys_3d_dark_shadow   = Color(0.25, 0.25, 0.25);       // Dark shadow
+    Color sys_3d_light         = Color(0.93, 0.93, 0.89);       // Inner highlight
+    Color sys_window           = Color(1.0, 1.0, 1.0);          // Window/textbox bg
+    Color sys_window_text      = Color(0.0, 0.0, 0.0);          // Text in windows
+    Color sys_active_title     = Color(0.0, 0.0, 0.5);          // Title bar bg
+    Color sys_inactive_title   = Color(0.5, 0.5, 0.5);          // MDI parent title bar
+    Color sys_title_text       = Color(1.0, 1.0, 1.0);          // Title bar text
+    Color mdi_background       = Color(0.64, 0.64, 0.64);       // MDI client area bg
+    Color form_handle_color    = Color(0.0, 0.0, 0.0);          // Form resize handles (black like VB6)
+    Color sys_scrollbar        = Color(0.87, 0.87, 0.87);       // Scrollbar track
+    Color sys_glyph            = Color(0.0, 0.0, 0.0);          // Arrow glyphs
+    Color sys_progress_fill    = Color(0.0, 0.5, 0.0);          // Progress bar
+    Color design_outline       = Color(0.0, 0.0, 0.0, 0.35);   // Design-time dashes
+    Color nonvisual_bg         = Color(0.9, 0.85, 0.72);        // Timer/non-visual bg
+    Color nonvisual_border     = Color(0.6, 0.55, 0.45);        // Timer/non-visual border
+    Color placeholder_color    = Color(0.6, 0.6, 0.6);          // Image placeholders
 };
 
 #endif // VISUAL_GASIC_FORM_DESIGNER_H

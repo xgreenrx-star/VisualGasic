@@ -108,6 +108,13 @@ void VisualGasicToolbox::_bind_methods() {
     ClassDB::bind_method(D_METHOD("remove_tool", "name"), &VisualGasicToolbox::remove_tool);
     ClassDB::bind_method(D_METHOD("clear_custom_tools"), &VisualGasicToolbox::clear_custom_tools);
     ClassDB::bind_method(D_METHOD("mark_defaults"), &VisualGasicToolbox::mark_defaults);
+    ClassDB::bind_method(D_METHOD("get_active_tool_class"), &VisualGasicToolbox::get_active_tool_class);
+    ClassDB::bind_method(D_METHOD("get_active_tool_scene"), &VisualGasicToolbox::get_active_tool_scene);
+    ClassDB::bind_method(D_METHOD("reset_to_pointer"), &VisualGasicToolbox::reset_to_pointer);
+
+    ADD_SIGNAL(MethodInfo("tool_selected",
+        PropertyInfo(Variant::STRING, "class_name"),
+        PropertyInfo(Variant::STRING, "scene_path")));
 }
 
 VisualGasicToolbox::VisualGasicToolbox() {
@@ -191,6 +198,11 @@ void VisualGasicToolbox::add_tool(const String &p_name, const String &p_godot_cl
     btn->set_custom_minimum_size(Vector2(32, 32));
     btn->set_icon_alignment(HORIZONTAL_ALIGNMENT_CENTER);
     btn->set_expand_icon(true);
+
+    // Toggle mode — clicking selects the active tool (VB6 style)
+    btn->set_toggle_mode(true);
+    btn->set_pressed(false);
+    btn->connect("pressed", callable_mp(this, &VisualGasicToolbox::_on_tool_button_pressed).bind(btn));
     
     btn->set_h_size_flags(Control::SIZE_EXPAND_FILL);
     btn->set_focus_mode(FOCUS_NONE); // Prevent stealing focus from Editor, which can mess up drag coordinates
@@ -242,6 +254,68 @@ void VisualGasicToolbox::clear_custom_tools() {
 void VisualGasicToolbox::mark_defaults() {
     default_tool_count_2d = grid_2d->get_child_count();
     default_tool_count_3d = grid_3d->get_child_count();
+}
+
+// =============================================================================
+// Active tool state (click-to-place mode)
+// =============================================================================
+
+void VisualGasicToolbox::_on_tool_button_pressed(VisualGasicToolButton *p_btn) {
+    if (!p_btn) return;
+
+    String cls = p_btn->get_create_class();
+    String scene = p_btn->get_scene_path();
+
+    // If this button is already the active tool, toggle back to Pointer
+    if (p_btn == active_tool_button) {
+        reset_to_pointer();
+        return;
+    }
+
+    // If the Pointer button was clicked (empty class), just reset
+    if (cls.is_empty() && scene.is_empty()) {
+        reset_to_pointer();
+        return;
+    }
+
+    active_tool_class = cls;
+    active_tool_scene_path = scene;
+    active_tool_button = p_btn;
+    _update_button_states();
+
+    emit_signal("tool_selected", active_tool_class, active_tool_scene_path);
+    UtilityFunctions::print("Toolbox: Active tool = ", cls, " (", scene, ")");
+}
+
+void VisualGasicToolbox::_update_button_states() {
+    // Depress all buttons except the active one
+    auto _depress = [&](GridContainer *grid) {
+        for (int i = 0; i < grid->get_child_count(); i++) {
+            VisualGasicToolButton *btn = Object::cast_to<VisualGasicToolButton>(grid->get_child(i));
+            if (btn) {
+                btn->set_pressed(btn == active_tool_button);
+            }
+        }
+    };
+    _depress(grid_2d);
+    _depress(grid_3d);
+}
+
+String VisualGasicToolbox::get_active_tool_class() const {
+    return active_tool_class;
+}
+
+String VisualGasicToolbox::get_active_tool_scene() const {
+    return active_tool_scene_path;
+}
+
+void VisualGasicToolbox::reset_to_pointer() {
+    active_tool_class = "";
+    active_tool_scene_path = "";
+    active_tool_button = nullptr;
+    _update_button_states();
+    emit_signal("tool_selected", String(""), String(""));
+    UtilityFunctions::print("Toolbox: Reset to Pointer");
 }
 
 /*

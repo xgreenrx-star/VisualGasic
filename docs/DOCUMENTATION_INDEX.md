@@ -78,7 +78,7 @@
 |------|-------------|----------|
 | Snap-to-Grid | Configurable grid snapping | 2D Canvas Toolbar |
 | Alignment Toolbar | Align and distribute controls | 2D Canvas Toolbar |
-| Form Preview | Quick form testing (F5) | 2D Canvas Toolbar |
+| Form Preview | Live preview window with full control rendering (F5) | 2D Canvas Toolbar |
 | Tab Order Editor | Set focus order | Tools menu |
 | Menu Editor | Visual menu bar designer | Tools menu |
 | Components Dialog | Add/remove optional controls | Project menu |
@@ -116,6 +116,7 @@
 
 ### Release Notes
 - [CHANGELOG.md](../CHANGELOG.md) - Full change log
+- [RELEASE_NOTES_v2.8.0.md](../RELEASE_NOTES_v2.8.0.md) - v2.8.0 release notes (C++ Form Designer, Live Preview)
 - [RELEASE_NOTES_v2.3.0.md](../RELEASE_NOTES_v2.3.0.md) - v2.3.0 release notes
 - [RELEASE_NOTES_v2.4.0.md](../RELEASE_NOTES_v2.4.0.md) - v2.4.0 release notes
 - [RELEASE_NOTES_v2.4.1.md](../RELEASE_NOTES_v2.4.1.md) - v2.4.1 release notes
@@ -161,6 +162,7 @@
 |------|-------------|
 | `alignment_toolbar.gd` | Alignment and distribution tools |
 | `form_preview_toolbar.gd` | Form preview with F5 |
+| `form_preview_window.gd` | Live preview window (builds real Godot controls from form data) |
 | `form_editor_helper.gd` | Grid snapping and resize |
 | `VGFormBase.gd` | WinForms-style form base class |
 | `new_form_dialog.gd` | Form template selection dialog |

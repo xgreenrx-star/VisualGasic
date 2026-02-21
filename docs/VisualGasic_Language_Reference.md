@@ -493,7 +493,9 @@ The **Toolbox** is located in the left dock and provides quick access to all dev
 
 ### Visual Form Designer
 
-The **Visual Form Designer** allows you to create user interfaces by dragging and dropping controls onto forms, just like VB6.
+The **C++ Form Designer** provides a full WYSIWYG editing experience with 40+ controls, VB6-style properties (Caption, BackColor, ForeColor, BorderStyle, ControlBox, MinButton, MaxButton), and a live preview system.
+
+![Form Designer IDE](screenshots/form_designer_ide.png)
 
 **Creating a Form:**
 1. Click **New Form** in the Toolbox

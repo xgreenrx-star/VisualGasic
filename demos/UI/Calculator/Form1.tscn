@@ -64,3 +64,8 @@ text = "Button3"
 offset_left = 104.0
 offset_top = 144.0
 text = "Button4"
+
+[node name="Button5" parent="." instance=ExtResource("3")]
+offset_left = 336.0
+offset_top = 104.0
+text = "Button5"

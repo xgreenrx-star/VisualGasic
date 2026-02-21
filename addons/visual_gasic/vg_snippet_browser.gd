@@ -3,7 +3,7 @@ extends Window
 ## VG Snippet Browser — Visual dialog for browsing, inserting, and managing code snippets.
 ## Launched from the script editor toolbar or Ctrl+Shift+S shortcut.
 
-const VGSnippetManager = preload("res://addons/visual_gasic/vg_snippet_manager.gd")
+## VGSnippetManager is available globally via class_name
 
 signal snippet_insert_requested(text: String)
 

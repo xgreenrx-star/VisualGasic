@@ -1,7 +1,7 @@
 # VisualGasic - Advanced Visual Basic for Godot 4
 
 [![CI](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml/badge.svg)](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/badge/version-2.6.1-blue.svg)](https://github.com/xgreenrx-star/VisualGasic/releases)
+[![Version](https://img.shields.io/badge/version-2.8.0-blue.svg)](https://github.com/xgreenrx-star/VisualGasic/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Godot](https://img.shields.io/badge/Godot-4.5+-purple.svg)](https://godotengine.org)
 
@@ -39,7 +39,13 @@
 - **Code Linting** - Static analysis with 10 issue codes (VG001-VG010)
 - **Snippet Manager** - 40+ built-in snippets with custom snippet support
 - **Theme Support** - 5 built-in themes including VB6 Classic
-- **Form Designer** - Grid snapping, alignment tools, F5 preview
+- **Form Designer** - Full C++ WYSIWYG form editor with VB6-style Toolbox, Properties Panel, live Preview, 40+ controls
+
+### **VB6-Style Form Designer**
+
+![Form Designer IDE](docs/screenshots/form_designer_ide.png)
+
+*Complete VB6 IDE: Toolbox (40+ controls) · WYSIWYG Canvas · Properties Panel · Project Explorer · Alignment Toolbar · Live Preview*
 
 ### **Game Development**
 - **Entity Component System** - High-performance ECS with archetype optimization
@@ -275,7 +281,7 @@ VisualGasic welcomes contributions! Please see our [Contributing Guide](CONTRIBU
 
 ## 📊 **Project Status**
 
-**Current Version**: 2.6.1 (Bytecode Compiler Batches 1-4 — 39 Tests)
+**Current Version**: 2.8.0 (C++ Form Designer + VGComboBox + 22 Bug Fixes)
 
 **Completion Status**:
 - ✅ **Core Language** - 100% (Full VB6 compatibility + class inheritance)
@@ -285,15 +291,15 @@ VisualGasic welcomes contributions! Please see our [Contributing Guide](CONTRIBU
 - ✅ **Development Tools** - 100% (REPL, LSP, debugger, linter, snippet browser, theme picker)
 - ✅ **Bytecode Optimizer** - 100% (9-pass peephole optimizer)
 - ✅ **ECS Integration** - 100% (High-performance game development)
+- ✅ **Form Designer** - 100% (C++ WYSIWYG editor, 40+ controls, VB6 properties, live preview)
 - ✅ **Form Templates** - 100% (23 templates: VB6, Game, Platform, Custom)
-- ✅ **Game Demos** - 100% (12 demos: Pong, Snake, Space Shooter, Galactic Defender, Calculator, Piano, and more)
+- ✅ **Game Demos** - 100% (14 demos: Pong, Snake, Space Shooter, Galactic Defender, Calculator, Piano, and more)
 - ✅ **Documentation** - 100% (Comprehensive guides and references)
-- ✅ **Performance** - 11/11 benchmarks faster than GDScript (up to 104× faster) — VG wins 6/11 vs C++
+- ✅ **Performance** - 11/11 benchmarks faster than GDScript (up to 50× faster) — VG wins 7/11 vs C++
 
 ### 🚧 Coming Soon
 
 See [ROADMAP.md](ROADMAP.md) for the full development roadmap:
-- **Form Preview** - Run individual forms without launching the full game
 - **Asset Library** - Publish to Godot Asset Library
 
 ## 📄 **License**
