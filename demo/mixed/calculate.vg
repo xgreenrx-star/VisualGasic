@@ -13,7 +13,7 @@ Dim Number, Operator As Integer
 
 
 Private Sub Num_Click(Index As Integer) ' Numbers
-TextBox.Text = TextBox.Text & FindControl("Num_" & CStr(Index)).Caption
+TextBox.Text = TextBox.Text & FindControl("Num_" & CStr(Index)).text
 End Sub
 
 Private Sub Mul_Click() ' Multiplication
@@ -62,7 +62,7 @@ End Sub
 
 Private Sub Exit_Click() ' Exit
 MsgBox "Baye"
-Exit Sub  ' VB6: End
+get_tree().quit()  ' VB6: End
 End Sub
 
 

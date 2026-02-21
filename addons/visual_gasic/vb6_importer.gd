@@ -342,6 +342,8 @@ static func import_form_file(path: String) -> Dictionary:
 		result.errors.append("Failed to save scene: " + scene_path)
 	else:
 		result.scene_path = scene_path
+		# Auto-wire signals: append [connection] entries to the saved .tscn
+		_auto_wire_signals_to_tscn(scene_path, root, parse_result.code)
 	
 	# Transform and save the code
 	if parse_result.code != "":
@@ -642,6 +644,9 @@ static func _apply_property(node: Node, key: String, val: String, owner: Node):
 				node.text = val
 			elif "text" in node:
 				node.text = val
+			else:
+				# Root form Caption - store as metadata (Control has no .text)
+				node.set_meta("title", val)
 		
 		# Position (in twips)
 		"Left":
@@ -1319,9 +1324,9 @@ static func _transform_line(line: String, control_arrays: Dictionary) -> String:
 	# VB6-SPECIFIC SYNTAX TRANSFORMATIONS
 	# =========================================================================
 	
-	# Transform standalone End statement
+	# Transform standalone End statement (VB6 End = terminate app)
 	if trim == "End":
-		result = result.replace("End", "Exit Sub  ' VB6: End")
+		result = result.replace("End", "get_tree().quit()  ' VB6: End")
 	
 	# Remove explicit Let keyword
 	if trim.begins_with("Let "):
@@ -1355,6 +1360,70 @@ static func _transform_line(line: String, control_arrays: Dictionary) -> String:
 	if print_match:
 		var file_num = print_match.get_string(1)
 		result = result.replace(print_match.get_string(), "Print #" + file_num + ",")
+	
+	# =========================================================================
+	# VB6 PROPERTY NAME TRANSLATIONS
+	# =========================================================================
+	
+	# .Caption -> .text (Button, Label, CheckBox, etc.)
+	var caption_regex = RegEx.new()
+	caption_regex.compile("\\.Caption\\b")
+	result = caption_regex.sub(result, ".text", true)
+	
+	# .Value -> .value (ScrollBar, Slider, ProgressBar) or .button_pressed (CheckBox)
+	# Only translate when not in a Val() function call
+	var value_regex = RegEx.new()
+	value_regex.compile("\\.Value\\b")
+	result = value_regex.sub(result, ".value", true)
+	
+	# .Visible -> .visible
+	var visible_regex = RegEx.new()
+	visible_regex.compile("\\.Visible\\b")
+	result = visible_regex.sub(result, ".visible", true)
+	
+	# .Enabled -> .disabled (inverted logic)
+	# This is tricky: Ctrl.Enabled = False -> Ctrl.disabled = true
+	# For now just translate the property name; user reviews logic
+	var enabled_regex = RegEx.new()
+	enabled_regex.compile("\\.Enabled\\b")
+	result = enabled_regex.sub(result, ".disabled", true)
+	
+	# .Left -> .position.x, .Top -> .position.y
+	var left_regex = RegEx.new()
+	left_regex.compile("(?<![A-Za-z0-9_])(\\w+)\\.Left\\b")
+	result = left_regex.sub(result, "$1.position.x", true)
+	var top_regex = RegEx.new()
+	top_regex.compile("(?<![A-Za-z0-9_])(\\w+)\\.Top\\b")
+	result = top_regex.sub(result, "$1.position.y", true)
+	
+	# .Width -> .size.x, .Height -> .size.y
+	var width_regex = RegEx.new()
+	width_regex.compile("(?<![A-Za-z0-9_])(\\w+)\\.Width\\b")
+	result = width_regex.sub(result, "$1.size.x", true)
+	var height_regex = RegEx.new()
+	height_regex.compile("(?<![A-Za-z0-9_])(\\w+)\\.Height\\b")
+	result = height_regex.sub(result, "$1.size.y", true)
+	
+	# .BackColor -> .modulate (approximate)
+	var backcolor_regex = RegEx.new()
+	backcolor_regex.compile("\\.BackColor\\b")
+	result = backcolor_regex.sub(result, ".modulate", true)
+	
+	# .ForeColor -> .add_theme_color_override("font_color", ...) — leave as comment
+	# Too complex for auto-translate; keep as-is with note
+	
+	# .SelText -> .get_selected_text() / .insert_text_at_caret()
+	# .SelStart -> .caret_column  
+	# .SelLength -> .get_selection_to_column() - .get_selection_from_column()
+	# These need contextual handling, leave for manual review
+	
+	# .ListCount -> .get_item_count(), .ListIndex -> .get_selected_items()[0]
+	var listcount_regex = RegEx.new()
+	listcount_regex.compile("\\.ListCount\\b")
+	result = listcount_regex.sub(result, ".get_item_count()", true)
+	
+	# .Count -> .get_child_count() (for collections)
+	# Leave as-is — too ambiguous without context
 	
 	# Transform property access with default properties
 	# TextBox.Text -> TextBox.Text (usually same, but Me. prefix)
@@ -1472,6 +1541,146 @@ static func _auto_connect_signals(node: Node, owner: Node):
 	# Recurse to children
 	for child in node.get_children():
 		_auto_connect_signals(child, owner)
+
+# =============================================================================
+# AUTO SIGNAL WIRING (baked into .tscn)
+# =============================================================================
+
+static func _auto_wire_signals_to_tscn(scene_path: String, root: Node, raw_code: String):
+	"""Scan VB6 event handlers in code and append [connection] entries to .tscn file."""
+	# Parse out all Sub declarations to find event handlers
+	# Pattern: Private Sub ControlName_EventName(...)
+	var handler_regex = RegEx.new()
+	handler_regex.compile("(?:Private |Public )?Sub (\\w+)_(\\w+)\\s*\\(")
+	var handlers = handler_regex.search_all(raw_code)
+	if handlers.size() == 0:
+		return
+	
+	# Build a lookup: node_name -> Godot node class
+	var node_map: Dictionary = {}  # node_name -> godot_class
+	_build_node_map(root, node_map)
+	
+	# Collect connection lines
+	var connections: Array = []
+	for m in handlers:
+		var ctrl_name = m.get_string(1)
+		var vb_event = m.get_string(2)
+		var handler_name = ctrl_name + "_" + vb_event
+		
+		# Find the node's Godot class
+		var godot_class = ""
+		var node_path = ""
+		
+		# Check for control array nodes (e.g. Num -> Num_0, Num_1, ...)
+		var is_array = false
+		for nname in node_map:
+			if nname == ctrl_name:
+				godot_class = node_map[nname]
+				node_path = ctrl_name
+				break
+			elif nname.begins_with(ctrl_name + "_") and nname.substr(ctrl_name.length() + 1).is_valid_int():
+				godot_class = node_map[nname]
+				is_array = true
+		
+		if godot_class == "" and not is_array:
+			continue
+		
+		# Look up the Godot signal for this VB6 event
+		var godot_signal = _lookup_signal(godot_class, vb_event)
+		if godot_signal == "":
+			continue
+		
+		if is_array:
+			# Wire all array elements to the same handler
+			for nname in node_map:
+				if nname.begins_with(ctrl_name + "_") and nname.substr(ctrl_name.length() + 1).is_valid_int():
+					var conn_line = '[connection signal="%s" from="%s" to="." method="%s"]' % [godot_signal, nname, handler_name]
+					if conn_line not in connections:
+						connections.append(conn_line)
+		else:
+			var conn_line = '[connection signal="%s" from="%s" to="." method="%s"]' % [godot_signal, node_path, handler_name]
+			if conn_line not in connections:
+				connections.append(conn_line)
+	
+	if connections.size() == 0:
+		return
+	
+	# Append connections to the .tscn file
+	var tscn_path = ProjectSettings.globalize_path(scene_path)
+	var file = FileAccess.open(scene_path, FileAccess.READ)
+	if not file:
+		return
+	var content = file.get_as_text()
+	file.close()
+	
+	# Append connection lines
+	content += "\n" + "\n".join(connections) + "\n"
+	
+	var out = FileAccess.open(scene_path, FileAccess.WRITE)
+	if out:
+		out.store_string(content)
+		out.close()
+
+static func _build_node_map(node: Node, map: Dictionary, path_prefix: String = ""):
+	"""Build a map of node_name -> Godot class for all children."""
+	for child in node.get_children():
+		map[child.name] = child.get_class()
+		# Recurse for nested containers
+		if child.get_child_count() > 0:
+			_build_node_map(child, map, str(child.name) + "/")
+
+static func _lookup_signal(godot_class: String, vb_event: String) -> String:
+	"""Find the Godot signal name for a VB6 event on a given node class."""
+	# Check direct class match
+	if EVENT_MAP.has(godot_class):
+		var events = EVENT_MAP[godot_class]
+		if events.has(vb_event):
+			return events[vb_event]
+	
+	# Check parent classes (Button -> Control, etc.)
+	var class_hierarchy = {
+		"Button": ["Button"],
+		"LinkButton": ["Button"],
+		"CheckBox": ["CheckBox", "Button"],
+		"LineEdit": ["LineEdit"],
+		"TextEdit": ["TextEdit"],
+		"OptionButton": ["OptionButton"],
+		"ItemList": ["ItemList"],
+		"Tree": ["Tree"],
+		"Timer": ["Timer"],
+		"HScrollBar": ["HScrollBar", "Range"],
+		"VScrollBar": ["VScrollBar", "Range"],
+		"HSlider": ["HSlider", "Range"],
+		"VSlider": ["VSlider", "Range"],
+		"ProgressBar": ["ProgressBar", "Range"],
+		"SpinBox": ["SpinBox", "Range"],
+		"TabContainer": ["TabContainer"],
+		"MenuBar": ["MenuBar"],
+		"Label": ["Label"],
+		"RichTextLabel": ["RichTextLabel"],
+		"ColorRect": ["ColorRect"],
+		"Panel": ["Panel"],
+		"TextureRect": ["TextureRect"],
+	}
+	
+	# Try hierarchy lookup
+	if class_hierarchy.has(godot_class):
+		for parent_class in class_hierarchy[godot_class]:
+			if EVENT_MAP.has(parent_class):
+				if EVENT_MAP[parent_class].has(vb_event):
+					return EVENT_MAP[parent_class][vb_event]
+	
+	# Fallback: try the event name directly for common events
+	var common_events = {
+		"Click": "pressed",
+		"Change": "text_changed",
+		"DblClick": "item_activated",
+		"GotFocus": "focus_entered",
+		"LostFocus": "focus_exited",
+		"MouseDown": "button_down",
+		"MouseUp": "button_up",
+	}
+	return common_events.get(vb_event, "")
 
 # =============================================================================
 # IMPORT REPORT GENERATION

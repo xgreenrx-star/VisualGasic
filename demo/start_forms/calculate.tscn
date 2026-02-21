@@ -19,6 +19,7 @@ offset_right = 510.0
 offset_bottom = 486.0
 metadata/back_color = Color(0.75, 0.75, 0.75, 1)
 metadata/vb6_borderstyle = 1
+metadata/title = "calculator"
 metadata/has_control_box = false
 metadata/link_topic = "Form1"
 metadata/has_max_button = false
@@ -285,3 +286,23 @@ offset_bottom = 47.0
 theme_override_styles/normal = SubResource("StyleBoxFlat_1l4do")
 metadata/vb6_class = "VB.TextBox"
 metadata/tab_index = 0
+
+[connection signal="pressed" from="Num_10" to="." method="Num_Click"]
+[connection signal="pressed" from="Num_9" to="." method="Num_Click"]
+[connection signal="pressed" from="Num_8" to="." method="Num_Click"]
+[connection signal="pressed" from="Num_7" to="." method="Num_Click"]
+[connection signal="pressed" from="Num_6" to="." method="Num_Click"]
+[connection signal="pressed" from="Num_5" to="." method="Num_Click"]
+[connection signal="pressed" from="Num_4" to="." method="Num_Click"]
+[connection signal="pressed" from="Num_3" to="." method="Num_Click"]
+[connection signal="pressed" from="Num_2" to="." method="Num_Click"]
+[connection signal="pressed" from="Num_1" to="." method="Num_Click"]
+[connection signal="pressed" from="Num_0" to="." method="Num_Click"]
+[connection signal="pressed" from="Mul" to="." method="Mul_Click"]
+[connection signal="pressed" from="Add" to="." method="Add_Click"]
+[connection signal="pressed" from="Sub" to="." method="Sub_Click"]
+[connection signal="pressed" from="Div" to="." method="Div_Click"]
+[connection signal="pressed" from="Pow" to="." method="Pow_Click"]
+[connection signal="pressed" from="Mod" to="." method="Mod_Click"]
+[connection signal="pressed" from="Result" to="." method="Result_Click"]
+[connection signal="pressed" from="Exit" to="." method="Exit_Click"]
