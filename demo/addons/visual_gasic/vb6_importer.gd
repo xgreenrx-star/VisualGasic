@@ -51,8 +51,9 @@ const CONTROL_MAP: Dictionary = {
 	"ComDlg.CommonDialog": "FileDialog",
 	
 	# Rich Text (richtx32.ocx)
-	"RichText.RichTextBox": "RichTextLabel",
-	"RICHTEXT.RichTextCtrl": "RichTextLabel",
+	"RichText.RichTextBox": "TextEdit",
+	"RICHTEXT.RichTextCtrl": "TextEdit",
+	"RichTextLib.RichTextBox": "TextEdit",  # richtx32.ocx v6
 	
 	# Progress and Slider (comctl32.ocx / mscomctl.ocx)
 	"MSComctlLib.ProgressBar": "ProgressBar",
@@ -541,6 +542,8 @@ static func _parse_form_content(file: FileAccess, root: Control) -> Dictionary:
 		root.add_child(mb)
 		mb.owner = root
 		mb.set_anchors_preset(Control.PRESET_TOP_WIDE)
+		# Store menu tree as metadata for signal wiring
+		mb.set_meta("vb6_menu_items", menu_items_tree)
 		_build_menu_tree(mb, menu_items_tree, root)
 	
 	return result
@@ -1560,12 +1563,48 @@ static func _auto_wire_signals_to_tscn(scene_path: String, root: Node, raw_code:
 	var node_map: Dictionary = {}  # node_name -> godot_class
 	_build_node_map(root, node_map)
 	
+	# Form-level event mapping (Form_Load → ready, etc.)
+	var form_event_map: Dictionary = {
+		"Load": "ready",
+		"Unload": "tree_exiting",
+		"QueryUnload": "tree_exiting",
+		"Resize": "resized",
+		"Activate": "visibility_changed",
+		"Deactivate": "visibility_changed",
+		"GotFocus": "focus_entered",
+		"LostFocus": "focus_exited",
+	}
+	
+	# Build menu name set (menu items stored in PopupMenu, not as child nodes)
+	var menu_names: Dictionary = {}  # menu_name -> true
+	_collect_menu_names(root, menu_names)
+	
 	# Collect connection lines
 	var connections: Array = []
 	for m in handlers:
 		var ctrl_name = m.get_string(1)
 		var vb_event = m.get_string(2)
 		var handler_name = ctrl_name + "_" + vb_event
+		
+		# Handle Form-level events (Form_Load, Form_Resize, etc.)
+		if ctrl_name == "Form":
+			if form_event_map.has(vb_event):
+				var godot_signal = form_event_map[vb_event]
+				var conn_line = '[connection signal="%s" from="." to="." method="%s"]' % [godot_signal, handler_name]
+				if conn_line not in connections:
+					connections.append(conn_line)
+			continue
+		
+		# Handle menu item events (mnuXxx_Click → MenuBar dispatch)
+		if menu_names.has(ctrl_name) and vb_event == "Click":
+			# Menu items are wired via MenuBar's PopupMenu children
+			# Connect MenuBar's popup id_pressed if not already done
+			if node_map.has("MenuBar"):
+				# Add a metadata annotation so the runtime can dispatch
+				var conn_line = '[connection signal="pressed" from="MenuBar" to="." method="%s"]' % [handler_name]
+				# Note: actual menu dispatch is handled by metadata; skip invalid connection
+				pass
+			continue
 		
 		# Find the node's Godot class
 		var godot_class = ""
@@ -1628,6 +1667,41 @@ static func _build_node_map(node: Node, map: Dictionary, path_prefix: String = "
 		# Recurse for nested containers
 		if child.get_child_count() > 0:
 			_build_node_map(child, map, str(child.name) + "/")
+
+static func _collect_menu_names(root: Node, menu_names: Dictionary):
+	"""Collect all VB6 menu item names stored in metadata across the scene tree."""
+	for child in root.get_children():
+		if child.has_meta("vb6_class") and str(child.get_meta("vb6_class")) == "VB.Menu":
+			menu_names[child.name] = true
+		# Check PopupMenu items: menu names stored as metadata on MenuBar's PopupMenu children
+		if child is MenuBar:
+			for i in child.get_menu_count():
+				var popup = child.get_menu_popup(i)
+				if popup:
+					for j in popup.item_count:
+						var item_name = popup.get_item_metadata(j)
+						if item_name is String and item_name != "":
+							menu_names[item_name] = true
+		# Also scan metadata/vb6_menu_items stored during form parsing
+		if child.has_meta("vb6_menu_items"):
+			var items = child.get_meta("vb6_menu_items")
+			if items is Array:
+				for item in items:
+					if item is Dictionary and item.has("name"):
+						menu_names[item.name] = true
+						# Also recurse into children
+						_collect_menu_items_recursive(item, menu_names)
+		# Recurse
+		if child.get_child_count() > 0:
+			_collect_menu_names(child, menu_names)
+
+static func _collect_menu_items_recursive(item: Dictionary, menu_names: Dictionary):
+	"""Recursively collect menu item names from nested menu tree structures."""
+	if item.has("children"):
+		for child_item in item.children:
+			if child_item is Dictionary and child_item.has("name"):
+				menu_names[child_item.name] = true
+				_collect_menu_items_recursive(child_item, menu_names)
 
 static func _lookup_signal(godot_class: String, vb_event: String) -> String:
 	"""Find the Godot signal name for a VB6 event on a given node class."""

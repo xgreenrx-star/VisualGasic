@@ -57,3 +57,6 @@ tests/integration_test_*.json
 tests/integration_test_*.xml
 bytecode_dump*.json
 bytecode_diff*.txt
+
+# External test repos
+Semi-VB-Decompiler/
