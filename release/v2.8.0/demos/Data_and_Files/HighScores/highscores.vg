@@ -1,0 +1,281 @@
+' ============================================================================
+' HIGH SCORE TABLE - DATA Statement Demo
+' Written in VisualGasic for Godot 4.5+
+' ============================================================================
+' Demonstrates classic DATA/READ/RESTORE statements for embedding data
+' ============================================================================
+' VB6 module attribute — sets this file's class/module name inside the engine.
+' Godot will register the node type under this name.
+Attribute VB_Name = "HighScoreDemo"
+
+' ---------------------------------------------------------------------------
+' PARALLEL ARRAYS — Classic BASIC data storage pattern
+' ---------------------------------------------------------------------------
+' Instead of a struct/class, classic VB6/BASIC stores related fields in
+' separate arrays indexed by the same subscript. Entry i is:
+'   playerNames(i), playerScores(i), playerDates(i)
+' This mirrors how DATA/READ naturally fills arrays one field at a time.
+' ---------------------------------------------------------------------------
+Dim playerNames(10) As String    ' 3-letter arcade-style initials (e.g. "ACE")
+Dim playerScores(10) As Integer  ' Score value — Integer can hold up to ~2 billion
+Dim playerDates(10) As String    ' Date stamp or difficulty tag per entry
+Dim scoreCount As Integer        ' How many entries are actually populated (0-10)
+
+' Animation state for the blinking "INSERT COIN" text at the bottom
+Dim blinkTimer As Single   ' Accumulates delta time; resets every 0.5 seconds
+Dim showCursor As Boolean  ' Toggled each half-second to flash the text on/off
+
+' ============================================================================
+' INITIALIZATION  (Godot lifecycle callback)
+' ============================================================================
+' _Ready() is called once when the node enters the scene tree — the Godot
+' equivalent of Form_Load in VB6. All one-time setup goes here.
+Sub _Ready()
+	Print "=== HIGH SCORE TABLE DEMO ==="
+	Print "Demonstrating DATA, READ, and RESTORE statements"
+	Print ""
+	
+	' Populate the parallel arrays from the embedded DATA section, then
+	' dump them to the Output console for quick verification.
+	LoadDefaultScores
+	PrintScoresToConsole
+End Sub
+
+' ---------------------------------------------------------------------------
+' LoadDefaultScores — THE main DATA / READ / RESTORE showcase
+' ---------------------------------------------------------------------------
+' HOW IT WORKS:
+'   1. RESTORE <label>  — moves the internal "data pointer" to a named
+'      DATA section anywhere in the file. Multiple labels let you keep
+'      several data tables (DefaultHighScores, EasyDifficulty, etc.)
+'   2. READ var          — pulls the next comma-separated value from the
+'      current DATA line and advances the pointer. Types are converted
+'      automatically (String stays String, numbers become Integer/Single).
+'   3. Sentinel pattern  — the last DATA line contains "END" so the
+'      reading loop knows when to stop (classic BASIC idiom).
+' ---------------------------------------------------------------------------
+Sub LoadDefaultScores()
+	' RESTORE positions the read pointer at the label "DefaultHighScores:"
+	' (defined near the bottom of this file). Without this, Read would
+	' continue from wherever the pointer was last left.
+	Restore DefaultHighScores
+	
+	scoreCount = 0  ' Reset the live entry count before loading
+	
+	' Temporary variables to hold each field as it is READ from DATA lines.
+	Dim playerName As String
+	Dim score As Integer
+	Dim dateStr As String
+	
+	' Do ... Loop (no condition) runs forever until Exit Do is hit.
+	' This is the idiomatic VB6/VisualGasic way to read DATA with a sentinel.
+	Do
+		' READ one value — the first field on each DATA line is the name.
+		Read playerName
+		
+		' Sentinel check: "END" signals no more real data to read.
+		If playerName = "END" Then Exit Do
+		
+		' READ supports a comma-separated list to grab multiple values at
+		' once. Here we pull the score (Integer) and date (String) together.
+		Read score, dateStr
+		
+		' Store the three fields in their respective parallel arrays at the
+		' same index — this keeps them linked by position.
+		playerNames(scoreCount) = playerName
+		playerScores(scoreCount) = score
+		playerDates(scoreCount) = dateStr
+		scoreCount = scoreCount + 1  ' Advance the live count
+		
+		' Safety guard: never exceed the declared array size (10).
+		If scoreCount >= 10 Then Exit Do
+	Loop
+	
+	Print "Loaded " & Str(scoreCount) & " high scores from DATA statements"
+End Sub
+
+' Print a nicely-aligned table to Godot's Output console (for debugging).
+' Uses PadRight / PadLeft to create fixed-width columns — the same
+' technique used in classic BBS / DOS score displays.
+Sub PrintScoresToConsole()
+	Print ""
+	Print "=== CURRENT HIGH SCORES ==="
+	
+	Dim i As Integer
+	For i = 0 To scoreCount - 1
+		' Str() converts Integer to String; PadRight pads the name to 10
+		' chars so columns stay aligned; PadLeft right-justifies the score.
+		Print Str(i + 1) & ". " & PadRight(playerNames(i), 10) & " " & PadLeft(Str(playerScores(i)), 8) & "  " & playerDates(i)
+	Next
+	
+	Print ""
+End Sub
+
+' ============================================================================
+' HELPER FUNCTIONS — String formatting utilities
+' ============================================================================
+' PadRight / PadLeft replicate VB6's fixed-width formatting. They are used
+' both for the console printout and for DrawString rendering so that columns
+' line up regardless of the text length.
+' ============================================================================
+
+' PadRight: Appends spaces to the RIGHT of `text` until it reaches `length`.
+' Example: PadRight("ACE", 10) → "ACE       " — left-justifies the text.
+Function PadRight(text As String, length As Integer) As String
+	Dim result As String = text        ' Start with the original text
+	Do While Len(result) < length      ' Keep going until we hit the target width
+		result = result & " "           ' Append one space per iteration
+	Loop
+	Return result                       ' Return the padded string
+End Function
+
+' PadLeft: Prepends spaces to the LEFT of `text` until it reaches `length`.
+' Example: PadLeft("1000000", 8) → " 1000000" — right-justifies the text.
+' Perfect for numeric columns where you want digits to align on the right.
+Function PadLeft(text As String, length As Integer) As String
+	Dim result As String = text        ' Start with the original text
+	Do While Len(result) < length      ' Keep going until we hit the target width
+		result = " " & result           ' Prepend one space per iteration
+	Loop
+	Return result                       ' Return the padded string
+End Function
+
+' ============================================================================
+' GAME LOOP  (Godot lifecycle callback — called every frame)
+' ============================================================================
+' _Process(delta) is the Godot equivalent of a Timer event firing every
+' frame. `delta` (Single) is the elapsed time in seconds since the last
+' frame, which keeps animation speed independent of framerate.
+Sub _Process(delta As Single)
+	' Accumulate elapsed time to create a 0.5-second toggle interval.
+	blinkTimer = blinkTimer + delta
+	If blinkTimer >= 0.5 Then
+		blinkTimer = 0                 ' Reset the timer for the next half-second
+		showCursor = Not showCursor    ' Toggle Boolean — classic VB6 blink idiom
+	End If
+End Sub
+
+' ============================================================================
+' RENDERING  (Godot lifecycle callback — called every frame after _Process)
+' ============================================================================
+' _Draw() maps to Godot's _draw() override. All DrawRect / DrawString calls
+' use VisualGasic wrappers around Godot's CanvasItem drawing API, giving an
+' immediate-mode feel similar to classic arcade rendering loops.
+' Color("#hex") creates a Godot Color from a CSS-style hex string.
+Sub _Draw()
+	' Fill the entire 640×480 viewport with a dark navy — classic CRT look.
+	' DrawRect x, y, width, height, color
+	DrawRect 0, 0, 640, 480, Color("#000033")
+	
+	' Title rendered in bright yellow at font size 36 — arcade attract mode style.
+	' DrawString text, x, y, color, fontSize
+	DrawString "HIGH SCORES", 220, 30, Color("#FFFF00"), 36
+	
+	' Column headers in muted gray — they label the four data columns.
+	DrawString "RANK", 80, 90, Color("#888888"), 20
+	DrawString "NAME", 160, 90, Color("#888888"), 20
+	DrawString "SCORE", 320, 90, Color("#888888"), 20
+	DrawString "DATE", 480, 90, Color("#888888"), 20
+	
+	' Thin horizontal rule (2 px tall rect) separating headers from entries.
+	DrawRect 60, 115, 520, 2, Color("#444488")
+	
+	' --- Score entries (iterates over the parallel arrays) ---
+	Dim i As Integer          ' Loop counter / array index
+	Dim y As Integer          ' Computed vertical position for this row
+	Dim rankColor As Variant  ' Variant holds the Color object for this rank
+	
+	For i = 0 To scoreCount - 1
+		y = 130 + i * 30  ' Each row is 30 px apart, starting at y=130
+		
+		' Select Case (VB6 equivalent of switch) picks a color by rank.
+		' Gold / Silver / Bronze for the podium; plain white for the rest.
+		Select Case i
+			Case 0
+				rankColor = Color("#FFD700")  ' Gold   — 1st place
+			Case 1
+				rankColor = Color("#C0C0C0")  ' Silver — 2nd place
+			Case 2
+				rankColor = Color("#CD7F32")  ' Bronze — 3rd place
+			Case Else
+				rankColor = Color("#FFFFFF")  ' White  — everyone else
+		End Select
+		
+		' Rank number ("1.", "2.", etc.)
+		DrawString Str(i + 1) & ".", 90, y, rankColor, 24
+		
+		' Player initials from playerNames() — 3-letter arcade tradition
+		DrawString playerNames(i), 160, y, rankColor, 24
+		
+		' Score, right-justified via PadLeft so digits align on the right edge.
+		DrawString PadLeft(Str(playerScores(i)), 8), 300, y, rankColor, 24
+		
+		' Date/tag from playerDates() — rendered smaller and in gray.
+		DrawString playerDates(i), 460, y, Color("#888888"), 20
+	Next
+	
+	' Bottom divider — mirrors the top rule for visual symmetry.
+	DrawRect 60, 430, 520, 2, Color("#444488")
+	
+	' Blinking "INSERT COIN" — showCursor is toggled in _Process every 0.5s.
+	' When False the text simply isn't drawn, creating the classic blink.
+	If showCursor Then
+		DrawString "INSERT COIN", 250, 450, Color("#00FF00"), 24
+	End If
+	
+	' Static credit counter — always visible in the lower-right corner.
+	DrawString "CREDITS: 0", 500, 450, Color("#FFFFFF"), 16
+End Sub
+
+' ============================================================================
+' EMBEDDED DATA — Classic BASIC-style inline data tables
+' ============================================================================
+' DATA lines store literal values directly inside the source code — no
+' external CSV, JSON, or resource file is needed. The runtime reads them
+' sequentially via the READ statement.
+'
+' KEY CONCEPTS:
+'   • Labels (e.g. DefaultHighScores:) act as named bookmarks. You jump to
+'     any label with RESTORE <label>, then READ from that point onward.
+'   • Each DATA line holds a comma-separated list of mixed types:
+'       "ACE"  → String     1000000 → Integer     "2026-01-15" → String
+'     READ automatically converts values to the target variable's type.
+'   • The sentinel line  Data "END", 0, ""  marks the end of a table so
+'     the reading loop knows when to stop (see LoadDefaultScores above).
+'   • Multiple labeled sections let you pack several independent tables
+'     in one file — switch between them at runtime with RESTORE.
+' ============================================================================
+
+' --- Default top-10 table (loaded in _Ready via LoadDefaultScores) ----------
+' RESTORE DefaultHighScores positions the read pointer HERE.
+DefaultHighScores:
+Data "ACE", 1000000, "2026-01-15"   ' #1  — name, score, date (3 fields per entry)
+Data "MAX", 875000, "2026-01-14"    ' #2
+Data "ZAP", 750000, "2026-01-13"    ' #3
+Data "PRO", 625000, "2026-01-12"    ' #4
+Data "DOC", 500000, "2026-01-11"    ' #5
+Data "REX", 375000, "2026-01-10"    ' #6
+Data "KID", 250000, "2026-01-09"    ' #7
+Data "NEW", 125000, "2026-01-08"    ' #8
+Data "ONE", 50000, "2026-01-07"     ' #9
+Data "TRY", 25000, "2026-01-06"     ' #10
+Data "END", 0, ""                   ' Sentinel — signals end of this data section
+
+' --- Easy difficulty table ------------------------------------------------
+' You could load this instead by calling: Restore EasyDifficulty
+' before entering the READ loop — no code changes needed, just a
+' different RESTORE target.
+EasyDifficulty:
+Data "AAA", 100000, "EASY"
+Data "BBB", 75000, "EASY"
+Data "CCC", 50000, "EASY"
+Data "END", 0, ""                   ' Sentinel
+
+' --- Hard difficulty table ------------------------------------------------
+' Demonstrates that DATA sections can live anywhere in the file and
+' contain any number of entries. RESTORE HardDifficulty jumps here.
+HardDifficulty:
+Data "GOD", 5000000, "HARD"
+Data "PRO", 2500000, "HARD"
+Data "VET", 1000000, "HARD"
+Data "END", 0, ""                   ' Sentinel

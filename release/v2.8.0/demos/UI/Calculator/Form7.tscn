@@ -1,0 +1,69 @@
+[gd_scene load_steps=3 format=3 uid="uid://d1uys7qxl5anx"]
+
+[ext_resource type="Script" uid="uid://bndw0s8cbb6oy" path="res://Form7.vg" id="1_tf1fs"]
+[ext_resource type="Script" uid="uid://dpmjycbb7xr6m" path="res://addons/visual_gasic/form_editor_helper.gd" id="2_bv2u6"]
+
+[node name="Form7" type="Window"]
+positional_shadow_atlas_quad_0 = null
+positional_shadow_atlas_quad_1 = null
+positional_shadow_atlas_quad_2 = null
+positional_shadow_atlas_quad_3 = null
+oversampling_override = 1.0
+title = "Form7"
+position = Vector2i(10, 36)
+size = Vector2i(1280, 720)
+unresizable = null
+borderless = null
+always_on_top = null
+transparent = null
+unfocusable = null
+popup_window = null
+extend_to_title = null
+mouse_passthrough = null
+sharp_corners = null
+exclude_from_capture = null
+popup_wm_hint = null
+minimize_disabled = null
+maximize_disabled = null
+script = ExtResource("1_tf1fs")
+
+[node name="_FormBackground" type="Panel" parent="."]
+offset_right = 1280.0
+offset_bottom = 720.0
+mouse_filter = 1
+script = ExtResource("2_bv2u6")
+
+[node name="lblGameOver" type="Label" parent="."]
+offset_left = 440.0
+offset_top = 150.0
+offset_right = 840.0
+offset_bottom = 230.0
+text = "GAME OVER"
+
+[node name="lblFinalScore" type="Label" parent="."]
+offset_left = 490.0
+offset_top = 280.0
+offset_right = 790.0
+offset_bottom = 320.0
+text = "Final Score: 0"
+
+[node name="lblHighScore" type="Label" parent="."]
+offset_left = 490.0
+offset_top = 330.0
+offset_right = 790.0
+offset_bottom = 370.0
+text = "High Score: 0"
+
+[node name="btnRetry" type="Button" parent="."]
+offset_left = 440.0
+offset_top = 420.0
+offset_right = 620.0
+offset_bottom = 470.0
+text = "Try Again"
+
+[node name="btnMainMenu" type="Button" parent="."]
+offset_left = 660.0
+offset_top = 420.0
+offset_right = 840.0
+offset_bottom = 470.0
+text = "Main Menu"

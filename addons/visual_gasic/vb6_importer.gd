@@ -312,15 +312,25 @@ static func import_form_file(path: String) -> Dictionary:
 	var form_name = path.get_file().get_basename()
 	result.name = form_name
 	
-	# Create root node
+	# Create root node (no anchors preset - size set by ClientWidth/ClientHeight)
 	var root = Control.new()
 	root.name = form_name
-	root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	
 	# Parse the form
 	var parse_result = _parse_form_content(file, root)
 	result.control_arrays = parse_result.control_arrays
 	result.warnings.append_array(parse_result.warnings)
+	
+	# Post-process: swap MultiLine TextBoxes from LineEdit to TextEdit
+	_post_process_multiline(root)
+	
+	# Post-process: group VB.OptionButton radio buttons within same parent
+	_post_process_radio_groups(root)
+	
+	# Post-process: extract .frx embedded images if available
+	var frx_path = path.get_basename() + ".frx"
+	if FileAccess.file_exists(frx_path):
+		_extract_frx_images(frx_path, root, result)
 	
 	# Save the scene
 	_ensure_dir("res://start_forms")
@@ -367,9 +377,9 @@ static func _parse_form_content(file: FileAccess, root: Control) -> Dictionary:
 	var current_control_name = ""
 	var current_control_index = -1
 	var pending_properties: Array = []
-	var menu_bar: MenuBar = null
-	var menu_stack: Array = []  # Stack of PopupMenu for nested menus
-	var current_menu_item: Dictionary = {}
+	var menu_items_tree: Array = []  # Collected menu item tree structure
+	var menu_item_stack: Array = []  # Stack for tracking nesting during parse
+	var in_menu_depth: int = 0  # Current menu nesting depth
 	
 	while !file.eof_reached():
 		var line = file.get_line()
@@ -411,28 +421,28 @@ static func _parse_form_content(file: FileAccess, root: Control) -> Dictionary:
 				current_font[key] = val
 			continue
 		
-		# Handle VB6 Menu blocks
+		# Handle VB6 Menu blocks (tree-based: collect items, build after parsing)
 		if trim.begins_with("Begin VB.Menu "):
 			var parts = trim.split(" ", false)
 			if parts.size() >= 3:
 				var menu_name = parts[2]
-				in_menu_block = true
-				current_menu_item = {"name": menu_name, "caption": "", "shortcut": "", "checked": false, "enabled": true, "visible": true}
+				var menu_item = {"name": menu_name, "caption": "", "shortcut": "", "checked": false, "enabled": true, "visible": true, "children": []}
 				
-				# Create MenuBar if this is the first menu
-				if menu_bar == null:
-					menu_bar = MenuBar.new()
-					menu_bar.name = "MenuBar"
-					root.add_child(menu_bar)
-					menu_bar.owner = root
-					menu_bar.set_anchors_preset(Control.PRESET_TOP_WIDE)
+				# Nest under parent or add to top-level tree
+				if menu_item_stack.size() > 0:
+					menu_item_stack.back().children.append(menu_item)
+				else:
+					menu_items_tree.append(menu_item)
+				menu_item_stack.push_back(menu_item)
+				in_menu_block = true
+				in_menu_depth += 1
 			continue
 		
 		if in_menu_block and trim == "End":
-			in_menu_block = false
-			# Create the menu item
-			_create_menu_item(menu_bar, menu_stack, current_menu_item, root)
-			current_menu_item = {}
+			menu_item_stack.pop_back()
+			in_menu_depth -= 1
+			if menu_item_stack.size() == 0:
+				in_menu_block = false
 			continue
 		
 		if in_menu_block and trim.contains("="):
@@ -444,17 +454,19 @@ static func _parse_form_content(file: FileAccess, root: Control) -> Dictionary:
 			if val.begins_with('"') and val.ends_with('"'):
 				val = val.substr(1, val.length() - 2)
 			
-			match key:
-				"Caption":
-					current_menu_item.caption = val
-				"Shortcut":
-					current_menu_item.shortcut = val
-				"Checked":
-					current_menu_item.checked = (val == "-1" or val.to_lower() == "true")
-				"Enabled":
-					current_menu_item.enabled = (val == "-1" or val.to_lower() == "true" or val == "0")
-				"Visible":
-					current_menu_item.visible = (val == "-1" or val.to_lower() == "true" or val == "0")
+			var cur_item = menu_item_stack.back() if menu_item_stack.size() > 0 else null
+			if cur_item:
+				match key:
+					"Caption":
+						cur_item.caption = val
+					"Shortcut":
+						cur_item.shortcut = val
+					"Checked":
+						cur_item.checked = (val == "-1" or val.to_lower() == "true")
+					"Enabled":
+						cur_item.enabled = (val == "-1" or val.to_lower() == "true" or val == "1")
+					"Visible":
+						cur_item.visible = (val == "-1" or val.to_lower() == "true" or val == "1")
 			continue
 		
 		# Begin block - new control
@@ -519,56 +531,71 @@ static func _parse_form_content(file: FileAccess, root: Control) -> Dictionary:
 				
 			if current_parent:
 				_apply_property(current_parent, key, val, root)
-
+	
+	# Build menu bar from collected menu tree (after parsing)
+	if menu_items_tree.size() > 0:
+		var mb = MenuBar.new()
+		mb.name = "MenuBar"
+		root.add_child(mb)
+		mb.owner = root
+		mb.set_anchors_preset(Control.PRESET_TOP_WIDE)
+		_build_menu_tree(mb, menu_items_tree, root)
+	
 	return result
 
-static func _create_menu_item(menu_bar: MenuBar, menu_stack: Array, item: Dictionary, owner: Node):
-	"""Create a menu item from VB6 menu definition."""
-	if not menu_bar or item.is_empty():
-		return
-	
-	var caption = item.get("caption", "")
-	var menu_name = item.get("name", "")
-	
-	# Check if this is a separator
-	if caption == "-":
-		if menu_stack.size() > 0:
-			var parent_menu: PopupMenu = menu_stack.back()
-			parent_menu.add_separator()
-		return
-	
-	# Determine nesting level by checking caption prefix (& indicates top level in nested menus)
-	# In VB6, nested menus are defined by indentation or by caption patterns
-	
-	# For now, treat all menus as top-level menu items with submenus
-	# A more complete implementation would track indentation
-	
-	if menu_stack.size() == 0:
-		# This is a top-level menu - add it to the MenuBar
+static func _build_menu_tree(menu_bar: MenuBar, items: Array, owner: Node):
+	"""Build Godot MenuBar structure from collected VB6 menu tree."""
+	for item in items:
+		var caption = item.get("caption", "").replace("&", "")
+		var menu_name = item.get("name", "")
+		var children = item.get("children", [])
+		
+		# Every top-level item creates a PopupMenu on the MenuBar
 		var popup = PopupMenu.new()
 		popup.name = menu_name + "_Popup"
 		menu_bar.add_child(popup)
 		popup.owner = owner
-		
-		# Set menu title
 		var idx = menu_bar.get_menu_count() - 1
-		menu_bar.set_menu_title(idx, caption.replace("&", ""))
+		menu_bar.set_menu_title(idx, caption)
 		
-		menu_stack.append(popup)
-	else:
-		# This is a submenu item
-		var parent_menu: PopupMenu = menu_stack.back()
-		var item_id = parent_menu.item_count
-		parent_menu.add_item(caption.replace("&", ""), item_id)
+		# Add children as items in this popup
+		if children.size() > 0:
+			_build_popup_items(popup, children, owner)
+
+static func _build_popup_items(popup: PopupMenu, items: Array, owner: Node):
+	"""Recursively build PopupMenu items, handling submenus at any depth."""
+	for item in items:
+		var caption = item.get("caption", "").replace("&", "")
+		var menu_name = item.get("name", "")
+		var children = item.get("children", [])
 		
-		# Apply properties
-		if not item.get("enabled", true):
-			parent_menu.set_item_disabled(item_id, true)
-		if item.get("checked", false):
-			parent_menu.set_item_checked(item_id, true)
+		# Separator
+		if caption == "-":
+			popup.add_separator()
+			continue
 		
-		# Store the handler name for signal connection
-		parent_menu.set_item_metadata(item_id, menu_name)
+		if children.size() > 0:
+			# Sub-submenu: create a child PopupMenu
+			var sub_popup = PopupMenu.new()
+			sub_popup.name = menu_name + "_Popup"
+			popup.add_child(sub_popup)
+			sub_popup.owner = owner
+			popup.add_submenu_item(caption, sub_popup.name)
+			_build_popup_items(sub_popup, children, owner)
+		else:
+			# Leaf item
+			var item_id = popup.item_count
+			popup.add_item(caption, item_id)
+			
+			if not item.get("enabled", true):
+				popup.set_item_disabled(item_id, true)
+			if item.get("checked", false):
+				popup.set_item_checked(item_id, true)
+			if not item.get("visible", true):
+				# Store as metadata since PopupMenu doesn't have per-item visibility
+				popup.set_item_metadata(item_id, {"name": menu_name, "hidden": true})
+			else:
+				popup.set_item_metadata(item_id, menu_name)
 
 static func _create_control(vb_class: String, vb_name: String) -> Node:
 	"""Create a Godot node from a VB6 control class."""
@@ -1247,6 +1274,13 @@ static func _transform_vb6_code(code: String, form_name: String, control_arrays:
 	header += "' Note: Some manual adjustments may be required\n"
 	header += "Option Explicit\n\n"
 	
+	# Add FindControl helper if control arrays were used
+	if control_arrays.size() > 0:
+		header += "' Helper for control array access (auto-generated)\n"
+		header += "Private Function FindControl(name As String) As Control\n"
+		header += "    Return Me.FindChild(name)\n"
+		header += "End Function\n\n"
+	
 	return header + "\n".join(result_lines)
 
 static func _transform_line(line: String, control_arrays: Dictionary) -> String:
@@ -1258,18 +1292,28 @@ static func _transform_line(line: String, control_arrays: Dictionary) -> String:
 	if trim == "" or trim.begins_with("'"):
 		return result
 	
-	# Handle control array access: ControlName(Index) -> ControlName_Index
+	# Handle control array access
 	for ctrl_name in control_arrays.keys():
 		var pattern = ctrl_name + "("
 		if result.contains(pattern):
-			# Find and replace control array references
-			var regex = RegEx.new()
-			regex.compile(ctrl_name + "\\((\\d+)\\)")
-			var matches = regex.search_all(result)
-			for m in matches:
+			# First pass: replace literal indices: Num(5) -> Num_5
+			var lit_regex = RegEx.new()
+			lit_regex.compile(ctrl_name + "\\((\\d+)\\)")
+			var lit_matches = lit_regex.search_all(result)
+			for m in lit_matches:
 				var full_match = m.get_string()
 				var index = m.get_string(1)
 				result = result.replace(full_match, ctrl_name + "_" + index)
+			
+			# Second pass: replace variable indices: Num(expr) -> FindControl("Num_" & CStr(expr))
+			if result.contains(pattern):
+				var var_regex = RegEx.new()
+				var_regex.compile(ctrl_name + "\\(([^)]+)\\)")
+				var var_matches = var_regex.search_all(result)
+				for m in var_matches:
+					var full_match = m.get_string()
+					var expr = m.get_string(1)
+					result = result.replace(full_match, 'FindControl("' + ctrl_name + '_" & CStr(' + expr + '))')
 	
 	# =========================================================================
 	# VB6-SPECIFIC SYNTAX TRANSFORMATIONS
@@ -1541,4 +1585,149 @@ static func get_godot_equivalent(vb_class: String) -> String:
 	"""Get the Godot equivalent for a VB6 control type."""
 	return CONTROL_MAP.get(vb_class, "")
 
+# =============================================================================
+# POST-PROCESSING: MULTILINE TEXTBOX SWAP
+# =============================================================================
 
+static func _post_process_multiline(root: Node):
+	"""Swap LineEdit nodes marked as multiline to TextEdit after parsing."""
+	var to_swap: Array = []
+	_find_multiline_nodes(root, to_swap)
+	
+	for old_node in to_swap:
+		var new_node = TextEdit.new()
+		new_node.name = old_node.name
+		if old_node is Control:
+			new_node.position = old_node.position
+			new_node.size = old_node.size
+			new_node.custom_minimum_size = old_node.custom_minimum_size
+		new_node.text = old_node.text
+		new_node.tooltip_text = old_node.tooltip_text
+		new_node.visible = old_node.visible
+		
+		# Copy metadata
+		for meta_key in old_node.get_meta_list():
+			new_node.set_meta(meta_key, old_node.get_meta(meta_key))
+		
+		# Copy theme overrides
+		if old_node.has_theme_font_size_override("font_size"):
+			new_node.add_theme_font_size_override("font_size", old_node.get_theme_font_size("font_size"))
+		if old_node.has_theme_color_override("font_color"):
+			new_node.add_theme_color_override("font_color", old_node.get_theme_color("font_color"))
+		
+		# Handle scrollbars: 0=None, 1=Horizontal, 2=Vertical, 3=Both
+		var scrollbars = old_node.get_meta("scrollbars", 0)
+		if scrollbars == 0:
+			new_node.scroll_fit_content_height = true
+		
+		# Handle editable/locked
+		new_node.editable = old_node.editable if old_node is LineEdit else true
+		
+		# Replace in parent
+		var parent = old_node.get_parent()
+		var idx = old_node.get_index()
+		parent.remove_child(old_node)
+		parent.add_child(new_node)
+		parent.move_child(new_node, idx)
+		new_node.owner = root
+		old_node.free()
+
+static func _find_multiline_nodes(node: Node, result: Array):
+	"""Recursively find LineEdit nodes with multiline metadata."""
+	if node is LineEdit and node.get_meta("multiline", false):
+		result.append(node)
+	for child in node.get_children():
+		_find_multiline_nodes(child, result)
+
+# =============================================================================
+# POST-PROCESSING: OPTIONBUTTON RADIO GROUPS
+# =============================================================================
+
+static func _post_process_radio_groups(root: Node):
+	"""Group VB.OptionButton controls (imported as CheckBox) within the same parent into ButtonGroups."""
+	_group_radio_buttons_in(root)
+
+static func _group_radio_buttons_in(parent: Node):
+	"""Find CheckBoxes from VB.OptionButton in this parent and group them."""
+	var radio_buttons: Array = []
+	for child in parent.get_children():
+		if child is CheckBox and child.get_meta("vb6_class", "") == "VB.OptionButton":
+			radio_buttons.append(child)
+		# Recurse into containers/panels
+		if child.get_child_count() > 0:
+			_group_radio_buttons_in(child)
+	
+	if radio_buttons.size() > 1:
+		var group = ButtonGroup.new()
+		for btn in radio_buttons:
+			btn.button_group = group
+
+# =============================================================================
+# POST-PROCESSING: .FRX IMAGE EXTRACTION
+# =============================================================================
+
+static func _extract_frx_images(frx_path: String, root: Node, result: Dictionary):
+	"""Extract embedded images from a .frx binary file."""
+	var file = FileAccess.open(frx_path, FileAccess.READ)
+	if not file:
+		result.warnings.append("Could not open .frx file: " + frx_path)
+		return
+	
+	var data = file.get_buffer(file.get_length())
+	file.close()
+	
+	if data.size() == 0:
+		return
+	
+	# .frx files contain binary data for pictures, icons, and other resources.
+	# Each resource is referenced by offset in the .frm file:
+	#   Picture = "Form1.frx":0000
+	# Format: at each offset, a 4-byte LE length prefix followed by image data.
+	
+	var nodes_with_pics: Array = []
+	_find_nodes_with_meta(root, "vb6_picture", nodes_with_pics)
+	
+	for node in nodes_with_pics:
+		var pic_ref: String = node.get_meta("vb6_picture", "")
+		if ":" in pic_ref:
+			var parts = pic_ref.split(":")
+			if parts.size() >= 2:
+				var offset_hex = parts[parts.size() - 1].replace('"', "").strip_edges()
+				var offset = offset_hex.hex_to_int()
+				
+				if offset >= 0 and offset + 4 < data.size():
+					# Read 4-byte little-endian length
+					var length = data[offset] | (data[offset + 1] << 8) | (data[offset + 2] << 16) | (data[offset + 3] << 24)
+					
+					if length > 0 and offset + 4 + length <= data.size():
+						var img_data = data.slice(offset + 4, offset + 4 + length)
+						
+						# Detect format and load
+						var img = Image.new()
+						var err = ERR_FILE_UNRECOGNIZED
+						
+						# BMP (starts with "BM")
+						if img_data.size() >= 2 and img_data[0] == 0x42 and img_data[1] == 0x4D:
+							err = img.load_bmp_from_buffer(img_data)
+						# PNG (starts with 0x89 PNG)
+						elif img_data.size() >= 4 and img_data[0] == 0x89 and img_data[1] == 0x50:
+							err = img.load_png_from_buffer(img_data)
+						# JPG (starts with 0xFF 0xD8)
+						elif img_data.size() >= 2 and img_data[0] == 0xFF and img_data[1] == 0xD8:
+							err = img.load_jpg_from_buffer(img_data)
+						
+						if err == OK:
+							var tex = ImageTexture.create_from_image(img)
+							if node is TextureRect:
+								node.texture = tex
+							else:
+								node.set_meta("imported_texture", tex)
+						else:
+							result.warnings.append("Could not decode image at offset %04X for %s" % [offset, node.name])
+
+static func _find_nodes_with_meta(node: Node, meta_key: String, result: Array):
+	"""Recursively find nodes with a specific metadata key."""
+	if node.has_meta(meta_key):
+		result.append(node)
+	for child in node.get_children():
+		_find_nodes_with_meta(child, meta_key, result)

@@ -1,0 +1,88 @@
+' ============================================================================
+' PAUSE MENU - In-Game Pause Overlay
+' Converted from official Godot 2D Platformer demo
+' ============================================================================
+' Attached to a Control node in pause_menu.tscn.
+' Shows/hides with tween animations, handles Resume/Quit button presses,
+' and tracks coin collection via the coin_collected signal relay.
+'
+' Original GDScript used complex Tween property path animations.
+' VG uses TweenProperty for the fade effect and simplified open/close.
+' ============================================================================
+Attribute VB_Name = "PauseMenu"
+
+' --- Tween timing ---
+Const FADE_IN_DURATION As Single = 0.3
+Const FADE_OUT_DURATION As Single = 0.2
+
+' --- Node references ---
+Dim centerCont As Object            ' CenterContainer - menu buttons container
+Dim resumeButton As Object          ' Button - resume game
+Dim coinsCounter As Object          ' CoinsCounter (Panel) - coin display
+
+' ============================================================================
+' INITIALIZATION
+' ============================================================================
+Sub _Ready()
+    ' Get node references — use full relative paths from owner
+    centerCont = GetNode("ColorRect/CenterContainer")
+    resumeButton = GetNode("ColorRect/CenterContainer/VBoxContainer/ResumeButton")
+    coinsCounter = GetNode("ColorRect/CoinsCounter")
+
+    ' Start hidden
+    Me.Hide()
+End Sub
+
+' ============================================================================
+' OPEN / CLOSE - Show and hide the pause menu
+' ============================================================================
+' Opens the pause menu with a fade-in animation.
+Sub OpenMenu()
+    Me.Show()
+    resumeButton.GrabFocus()
+
+    ' Set initial transparent state
+    Me.modulate = Color(1.0, 1.0, 1.0, 0.0)
+
+    ' Fade in using a tween on the modulate alpha
+    Dim tween As Object
+    tween = CreateTween()
+    TweenProperty Me, "modulate:a", 1.0, FADE_IN_DURATION
+End Sub
+
+' Closes the pause menu with a fade-out animation.
+Sub CloseMenu()
+    Dim tree As Object
+    tree = Me.GetTree()
+    tree.paused = False
+
+    ' Fade out then hide
+    TweenProperty Me, "modulate:a", 0.0, FADE_OUT_DURATION
+    ' Hide after the fade completes
+    Me.Hide()
+End Sub
+
+' ============================================================================
+' SIGNAL HANDLERS - Connected via .tscn signal connections
+' ============================================================================
+' Called when the coin_collected signal fires from the Player node.
+' Connected in game_singleplayer.tscn via:
+'   [connection signal="coin_collected" from="Level/Player"
+'    to="InterfaceLayer/PauseMenu" method="_on_coin_collected"]
+Sub _on_coin_collected()
+    coinsCounter.collect_coin()
+End Sub
+
+' Called when Resume button is pressed.
+' Connected in pause_menu.tscn via:
+'   [connection signal="pressed" from="...ResumeButton" to="." method="_on_resume_button_pressed"]
+Sub _on_resume_button_pressed()
+    CloseMenu
+End Sub
+
+' Called when Quit button is pressed.
+' Connected in pause_menu.tscn via:
+'   [connection signal="pressed" from="...QuitButton" to="." method="_on_quit_button_pressed"]
+Sub _on_quit_button_pressed()
+    Me.GetTree().Quit()
+End Sub

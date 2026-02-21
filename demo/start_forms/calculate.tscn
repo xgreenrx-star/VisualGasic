@@ -1,0 +1,287 @@
+[gd_scene load_steps=4 format=3]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_qbomg"]
+bg_color = Color(0, 0, 0.5, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_tc6iu"]
+bg_color = Color(1, 1, 1, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_1l4do"]
+bg_color = Color(1, 1, 1, 1)
+
+[node name="Calculate" type="Control"]
+custom_minimum_size = Vector2(202, 238)
+layout_mode = 3
+anchors_preset = 0
+offset_left = 308.0
+offset_top = 248.0
+offset_right = 510.0
+offset_bottom = 486.0
+metadata/back_color = Color(0.75, 0.75, 0.75, 1)
+metadata/vb6_borderstyle = 1
+metadata/has_control_box = false
+metadata/link_topic = "Form1"
+metadata/has_max_button = false
+metadata/has_min_button = false
+
+[node name="Num_10" type="Button" parent="."]
+custom_minimum_size = Vector2(33, 33)
+layout_mode = 0
+offset_left = 56.0
+offset_top = 168.0
+offset_right = 89.0
+offset_bottom = 201.0
+theme_override_font_sizes/font_size = 17
+text = "."
+metadata/vb6_class = "VB.CommandButton"
+metadata/font_name = "MS Sans Serif"
+metadata/font_bold = false
+metadata/font_italic = false
+metadata/font_underline = false
+metadata/tab_index = 19
+
+[node name="Pow" type="Button" parent="."]
+custom_minimum_size = Vector2(41, 25)
+layout_mode = 0
+offset_left = 152.0
+offset_top = 176.0
+offset_right = 193.0
+offset_bottom = 207.0
+theme_override_font_sizes/font_size = 15
+text = "^"
+metadata/vb6_class = "VB.CommandButton"
+metadata/font_name = "MS Sans Serif"
+metadata/font_bold = false
+metadata/font_italic = false
+metadata/font_underline = false
+metadata/tab_index = 18
+
+[node name="Mod" type="Button" parent="."]
+custom_minimum_size = Vector2(41, 25)
+layout_mode = 0
+offset_left = 152.0
+offset_top = 208.0
+offset_right = 193.0
+offset_bottom = 239.0
+theme_override_font_sizes/font_size = 15
+text = "%"
+metadata/vb6_class = "VB.CommandButton"
+metadata/font_name = "MS Sans Serif"
+metadata/font_bold = false
+metadata/font_italic = false
+metadata/font_underline = false
+metadata/tab_index = 17
+
+[node name="Exit" type="Button" parent="."]
+custom_minimum_size = Vector2(49, 25)
+layout_mode = 0
+offset_left = 8.0
+offset_top = 208.0
+offset_right = 57.0
+offset_bottom = 239.0
+theme_override_styles/normal = SubResource("StyleBoxFlat_qbomg")
+text = "Exit"
+metadata/vb6_class = "VB.CommandButton"
+metadata/tab_index = 16
+
+[node name="Result" type="Button" parent="."]
+custom_minimum_size = Vector2(73, 25)
+layout_mode = 0
+offset_left = 72.0
+offset_top = 208.0
+offset_right = 145.0
+offset_bottom = 239.0
+theme_override_font_sizes/font_size = 17
+text = "="
+metadata/vb6_class = "VB.CommandButton"
+metadata/font_name = "MS Sans Serif"
+metadata/font_bold = false
+metadata/font_italic = false
+metadata/font_underline = false
+metadata/tab_index = 15
+
+[node name="Div" type="Button" parent="."]
+custom_minimum_size = Vector2(41, 25)
+layout_mode = 0
+offset_left = 152.0
+offset_top = 144.0
+offset_right = 193.0
+offset_bottom = 175.0
+theme_override_font_sizes/font_size = 15
+text = "/"
+metadata/vb6_class = "VB.CommandButton"
+metadata/font_name = "MS Sans Serif"
+metadata/font_bold = false
+metadata/font_italic = false
+metadata/font_underline = false
+metadata/tab_index = 14
+
+[node name="Sub" type="Button" parent="."]
+custom_minimum_size = Vector2(41, 25)
+layout_mode = 0
+offset_left = 152.0
+offset_top = 80.0
+offset_right = 193.0
+offset_bottom = 111.0
+theme_override_font_sizes/font_size = 15
+text = "-"
+metadata/vb6_class = "VB.CommandButton"
+metadata/font_name = "MS Sans Serif"
+metadata/font_bold = false
+metadata/font_italic = false
+metadata/font_underline = false
+metadata/tab_index = 13
+
+[node name="Add" type="Button" parent="."]
+custom_minimum_size = Vector2(41, 25)
+layout_mode = 0
+offset_left = 152.0
+offset_top = 48.0
+offset_right = 193.0
+offset_bottom = 79.0
+theme_override_styles/normal = SubResource("StyleBoxFlat_tc6iu")
+theme_override_font_sizes/font_size = 15
+text = "+"
+metadata/vb6_class = "VB.CommandButton"
+metadata/font_name = "MS Sans Serif"
+metadata/font_bold = false
+metadata/font_italic = false
+metadata/font_underline = false
+metadata/tab_index = 12
+
+[node name="Mul" type="Button" parent="."]
+custom_minimum_size = Vector2(41, 25)
+layout_mode = 0
+offset_left = 152.0
+offset_top = 112.0
+offset_right = 193.0
+offset_bottom = 143.0
+theme_override_font_sizes/font_size = 15
+text = "*"
+metadata/vb6_class = "VB.CommandButton"
+metadata/font_name = "MS Sans Serif"
+metadata/font_bold = false
+metadata/font_italic = false
+metadata/font_underline = false
+metadata/tab_index = 11
+
+[node name="Num_9" type="Button" parent="."]
+custom_minimum_size = Vector2(33, 33)
+layout_mode = 0
+offset_left = 8.0
+offset_top = 168.0
+offset_right = 41.0
+offset_bottom = 201.0
+text = "0"
+metadata/vb6_class = "VB.CommandButton"
+metadata/tab_index = 10
+
+[node name="Num_8" type="Button" parent="."]
+custom_minimum_size = Vector2(33, 33)
+layout_mode = 0
+offset_left = 104.0
+offset_top = 128.0
+offset_right = 137.0
+offset_bottom = 161.0
+text = "9"
+metadata/vb6_class = "VB.CommandButton"
+metadata/tab_index = 9
+
+[node name="Num_7" type="Button" parent="."]
+custom_minimum_size = Vector2(33, 33)
+layout_mode = 0
+offset_left = 56.0
+offset_top = 128.0
+offset_right = 89.0
+offset_bottom = 161.0
+text = "8"
+metadata/vb6_class = "VB.CommandButton"
+metadata/tab_index = 8
+
+[node name="Num_6" type="Button" parent="."]
+custom_minimum_size = Vector2(33, 33)
+layout_mode = 0
+offset_left = 8.0
+offset_top = 128.0
+offset_right = 41.0
+offset_bottom = 161.0
+text = "7"
+metadata/vb6_class = "VB.CommandButton"
+metadata/tab_index = 7
+
+[node name="Num_5" type="Button" parent="."]
+custom_minimum_size = Vector2(33, 33)
+layout_mode = 0
+offset_left = 104.0
+offset_top = 88.0
+offset_right = 137.0
+offset_bottom = 121.0
+text = "6"
+metadata/vb6_class = "VB.CommandButton"
+metadata/tab_index = 6
+
+[node name="Num_4" type="Button" parent="."]
+custom_minimum_size = Vector2(33, 33)
+layout_mode = 0
+offset_left = 56.0
+offset_top = 88.0
+offset_right = 89.0
+offset_bottom = 121.0
+text = "5"
+metadata/vb6_class = "VB.CommandButton"
+metadata/tab_index = 5
+
+[node name="Num_3" type="Button" parent="."]
+custom_minimum_size = Vector2(33, 33)
+layout_mode = 0
+offset_left = 8.0
+offset_top = 88.0
+offset_right = 41.0
+offset_bottom = 121.0
+text = "4"
+metadata/vb6_class = "VB.CommandButton"
+metadata/tab_index = 4
+
+[node name="Num_2" type="Button" parent="."]
+custom_minimum_size = Vector2(33, 33)
+layout_mode = 0
+offset_left = 104.0
+offset_top = 48.0
+offset_right = 137.0
+offset_bottom = 81.0
+text = "3"
+metadata/vb6_class = "VB.CommandButton"
+metadata/tab_index = 3
+
+[node name="Num_1" type="Button" parent="."]
+custom_minimum_size = Vector2(33, 33)
+layout_mode = 0
+offset_left = 56.0
+offset_top = 48.0
+offset_right = 89.0
+offset_bottom = 81.0
+text = "2"
+metadata/vb6_class = "VB.CommandButton"
+metadata/tab_index = 2
+
+[node name="Num_0" type="Button" parent="."]
+custom_minimum_size = Vector2(33, 33)
+layout_mode = 0
+offset_left = 8.0
+offset_top = 48.0
+offset_right = 41.0
+offset_bottom = 81.0
+text = "1"
+metadata/vb6_class = "VB.CommandButton"
+metadata/tab_index = 1
+
+[node name="TextBox" type="LineEdit" parent="."]
+custom_minimum_size = Vector2(185, 25)
+layout_mode = 0
+offset_left = 8.0
+offset_top = 16.0
+offset_right = 193.0
+offset_bottom = 47.0
+theme_override_styles/normal = SubResource("StyleBoxFlat_1l4do")
+metadata/vb6_class = "VB.TextBox"
+metadata/tab_index = 0

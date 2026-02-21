@@ -1,0 +1,38 @@
+' ============================================================================
+' COIN - Collectible Pickup
+' Converted from official Godot 2D Platformer demo
+' ============================================================================
+' Attached to an Area2D node in coin.tscn.
+' When the player touches the coin, it plays a "picked" animation
+' (which ends with queue_free via animation method track) and emits
+' the coin_collected signal on the player body.
+'
+' Original GDScript: (body as Player).coin_collected.emit()
+' In VG we use body.EmitSignal("coin_collected") via callv dispatch.
+' ============================================================================
+Attribute VB_Name = "Coin"
+
+' --- Node references ---
+Dim animPlayer As Object        ' AnimationPlayer - spinning/picked animations
+
+' ============================================================================
+' INITIALIZATION
+' ============================================================================
+Sub _Ready()
+    animPlayer = GetNode("AnimationPlayer")
+End Sub
+
+' ============================================================================
+' BODY ENTERED - Player touched the coin
+' ============================================================================
+' Connected via signal in coin.tscn:
+'   [connection signal="body_entered" from="." to="." method="_on_body_entered"]
+Sub _on_body_entered(body As Object)
+    ' Play the "picked" animation (fades out and queue_free's via anim track)
+    animPlayer.Play("picked")
+
+    ' Emit the coin_collected signal on the player body.
+    ' This signal is connected in game_singleplayer.tscn to the PauseMenu's
+    ' _on_coin_collected handler, which updates the coin counter display.
+    body.EmitSignal("coin_collected")
+End Sub

@@ -1,0 +1,1883 @@
+' ============================================================================
+' GALACTIC DEFENDER — Tower Defense & Wave Survival
+' Written in VisualGasic for Godot 4.5+ (v2.4.1)
+' ============================================================================
+' THE ULTIMATE VISUALGASIC SHOWCASE
+'
+' This game demonstrates EVERY major VisualGasic feature:
+'   ★ Classes & Inheritance (v2.4.1) — Tower/Enemy class hierarchies
+'   ★ Whenever System          — Reactive wave spawning & alerts
+'   ★ Lambda Expressions       — Distance, collision, filtering
+'   ★ Functional Programming   — Map, Filter, Find on game entities
+'   ★ DATA Statements          — Wave/tower/enemy definitions
+'   ★ Parallel For             — Bulk projectile updates
+'   ★ Dictionary               — Tower inventory & upgrades
+'   ★ Select Case / Match      — Entity behavior & rendering
+'   ★ Properties (Get/Let)     — Encapsulated game objects
+'   ★ String Interpolation     — HUD text formatting
+'   ★ Error Handling           — Graceful edge-case recovery
+'   ★ For Each                 — Iterating collections
+'   ★ _Draw() Rendering        — Full software-rendered game
+'
+' Controls:
+'   1-4     = Select tower type (Blaster/Cannon/Tesla/Missile)
+'   Click   = Place tower on grid
+'   U       = Upgrade selected tower
+'   S       = Sell selected tower
+'   SPACE   = Start next wave / Pause
+'   R       = Restart game
+' ============================================================================
+Attribute VB_Name = "GalacticDefender"
+
+' ────────────────────────────────────────────────────────────────────────────
+' CONSTANTS
+' ────────────────────────────────────────────────────────────────────────────
+Const SCREEN_W As Integer = 960
+Const SCREEN_H As Integer = 640
+Const GRID_COLS As Integer = 24
+Const GRID_ROWS As Integer = 14
+Const CELL As Integer = 40
+
+Const MAX_ENEMIES As Integer = 60
+Const MAX_PROJECTILES As Integer = 120
+Const MAX_PARTICLES As Integer = 200
+Const MAX_TOWERS As Integer = 40
+Const MAX_PATH_NODES As Integer = 20
+
+Const STARTING_GOLD As Integer = 2000
+Const STARTING_LIVES As Integer = 20
+
+' ────────────────────────────────────────────────────────────────────────────
+' CLASS HIERARCHY — Demonstrates Inheritance (v2.4.1)
+' ────────────────────────────────────────────────────────────────────────────
+
+' ── BASE: Entity ──
+' VISUALGASIC OOP: "Class ... End Class" defines a class. Entity is the root of
+' the entire game-object hierarchy. Both Tower and Enemy inherit from it, giving
+' every game object a position (x,y), collision radius, alive flag, and type tag.
+' This mirrors classic VB6 class-module design but adds single inheritance via
+' the "Inherits" keyword (v2.4.1 feature).
+Class Entity
+	Public x As Single        ' World-space X position (pixels)
+	Public y As Single        ' World-space Y position (pixels)
+	Public radius As Single   ' Collision/rendering radius (pixels)
+	Public alive As Boolean   ' False = pending removal from entity pool
+	Public entityType As String ' Runtime type tag used by Select Case rendering/logic
+
+	' VISUALGASIC CONSTRUCTOR: Sub Class_Initialize() is called automatically when
+	' you write "New Entity". This is the VB6 constructor equivalent — there are no
+	' parameterized constructors, so defaults are set here.
+	Sub Class_Initialize()
+		x = 0
+		y = 0
+		radius = 10
+		alive = True
+		entityType = "entity"
+	End Sub
+
+	' Method on the base class — all subclasses (Tower, Enemy, etc.) inherit this.
+	' VB6-style return: assign to the function's own name to set the return value.
+	Function DistanceTo(otherX As Single, otherY As Single) As Single
+		Dim dx As Single = otherX - x
+		Dim dy As Single = otherY - y
+		DistanceTo = Sqr(dx * dx + dy * dy)
+	End Function
+End Class
+
+' ── TOWER BASE (inherits Entity) ──
+' VISUALGASIC INHERITANCE: "Inherits Entity" gives Tower all of Entity's fields
+' (x, y, radius, alive, entityType) plus its methods (DistanceTo). Tower adds
+' combat stats. Blaster/Cannon/Tesla/Missile then inherit Tower, overriding only
+' Class_Initialize() to set different defaults — classic polymorphism.
+Class Tower
+	Inherits Entity
+
+	' PUBLIC fields are accessible from any code that holds a reference to this object.
+	Public level As Integer       ' 1-3, affects damage/range multipliers
+	Public damage As Single       ' Base damage per shot (scaled by level)
+	Public fireRate As Single     ' Shots per second
+	Public range As Single        ' Targeting radius in pixels
+	Public cooldown As Single     ' Time until next shot is allowed (counts down)
+	Public totalKills As Integer  ' Stat: enemies killed by this tower
+	Public towerName As String    ' Display name for HUD
+	Public cost As Integer        ' Gold cost to build
+	' PRIVATE vs PUBLIC: mAngle is Private — external code MUST go through the
+	' Property Get/Let accessors below. This is VB6-style encapsulation.
+	Private mAngle As Single      ' Internal backing field for the Angle property
+
+	' VISUALGASIC PROPERTY GET/LET: These are VB6-style accessor pairs.
+	' "Property Get" is the getter — reads the private backing field mAngle.
+	' "Property Let" is the setter — validates/stores into mAngle.
+	' External code uses  tower.Angle = 1.57  or  x = tower.Angle  seamlessly.
+	Property Get Angle() As Single
+		Angle = mAngle
+	End Property
+
+	Property Let Angle(value As Single)
+		mAngle = value
+	End Property
+
+	' READ-ONLY COMPUTED PROPERTIES: These have Get but NO Let, making them
+	' read-only. SellValue returns 60% of cost scaled by level. UpgradeCost
+	' returns the gold needed for the next level. This is clean encapsulation —
+	' the formula lives inside the class, not scattered across game logic.
+	Property Get SellValue() As Integer
+		SellValue = Int(cost * 0.6) * level
+	End Property
+
+	Property Get UpgradeCost() As Integer
+		UpgradeCost = Int(cost * 0.75) * (level + 1)
+	End Property
+
+	' Tower's constructor sets sensible defaults. Subclasses (Blaster, Cannon, etc.)
+	' override these in their own Class_Initialize — the LAST constructor in the
+	' inheritance chain wins, so "New Blaster" gets Blaster's values, not these.
+	Sub Class_Initialize()
+		level = 1
+		damage = 10
+		fireRate = 1.0
+		range = 120
+		cooldown = 0
+		totalKills = 0
+		towerName = "Tower"
+		cost = 50
+		mAngle = 0
+		radius = 18
+		entityType = "tower"
+	End Sub
+
+	' Helper methods inherited by all tower subclasses.
+	Function CanFire() As Boolean
+		CanFire = (cooldown <= 0)   ' True when cooldown has elapsed
+	End Function
+
+	Sub ResetCooldown()
+		cooldown = 1.0 / fireRate   ' Convert shots/sec to seconds between shots
+	End Sub
+End Class
+
+' ── BLASTER (inherits Tower) — Fast, cheap, single-target ──
+' CONCRETE SUBCLASS PATTERN: Blaster inherits ALL of Tower's fields and methods
+' (which in turn inherited Entity's). It only overrides Class_Initialize() to set
+' different stat defaults. No new fields needed — the inheritance chain provides
+' everything. "New Blaster" → runs Blaster's Class_Initialize → object is ready.
+Class Blaster
+	Inherits Tower
+
+	Sub Class_Initialize()
+		towerName = "Blaster"
+		damage = 8
+		fireRate = 3.0
+		range = 130
+		cost = 50
+		entityType = "blaster"
+	End Sub
+End Class
+
+' ── CANNON (inherits Tower) — Slow, splash damage ──
+' Cannon EXTENDS Tower with a new field: splashRadius. This shows that subclasses
+' can add members beyond what the parent provides. FireProjectile() checks
+' entityType="cannon" to apply area-of-effect damage using this radius.
+Class Cannon
+	Inherits Tower
+
+	Public splashRadius As Single  ' AOE blast radius — unique to Cannon
+
+	Sub Class_Initialize()
+		towerName = "Cannon"
+		damage = 30
+		fireRate = 0.8
+		range = 150
+		cost = 100
+		splashRadius = 50
+		entityType = "cannon"
+	End Sub
+End Class
+
+' ── TESLA (inherits Tower) — Chain lightning ──
+' Tesla adds chainCount — the number of enemies its lightning can arc to.
+' The ChainLightning() sub uses recursive calls to propagate reduced damage.
+Class Tesla
+	Inherits Tower
+
+	Public chainCount As Integer   ' How many targets the lightning can jump to
+
+	Sub Class_Initialize()
+		towerName = "Tesla"
+		damage = 12
+		fireRate = 1.5
+		range = 110
+		cost = 125
+		chainCount = 3
+		entityType = "tesla"
+	End Sub
+End Class
+
+' ── MISSILE (inherits Tower) — Homing, high damage ──
+' Missile adds homingStrength — used in UpdateProjectiles() Parallel For loop to
+' steer projectiles toward their target enemy each frame.
+Class Missile
+	Inherits Tower
+
+	Public homingStrength As Single  ' Steering force for homing projectiles
+
+	Sub Class_Initialize()
+		towerName = "Missile"
+		damage = 50
+		fireRate = 0.5
+		range = 200
+		cost = 175
+		homingStrength = 3.0
+		entityType = "missile"
+	End Sub
+End Class
+
+' ── ENEMY BASE (inherits Entity) ──
+' SECOND BRANCH OF THE HIERARCHY: Enemy also inherits Entity, forming a parallel
+' tree: Entity → Tower → {Blaster,Cannon,Tesla,Missile}
+'               Entity → Enemy → {Scout,Soldier,Tank,Flyer,Boss}
+' Enemy adds health, movement, path-following, and slow/debuff state.
+Class Enemy
+	Inherits Entity
+
+	Public health As Single       ' Current HP (reduced by TakeDamage)
+	Public maxHealth As Single    ' Max HP (used for health bar percentage)
+	Public speed As Single
+	Public armor As Single
+	Public goldValue As Integer
+	Public enemyName As String
+	Public pathIndex As Integer
+	Public pathProgress As Single
+	Public slowTimer As Single
+	Public slowFactor As Single
+
+	' COMPUTED READ-ONLY PROPERTIES on Enemy — no Property Let, so these are
+	' read-only from outside. They encapsulate health-bar math, slow status,
+	' and effective speed so callers don't need to know the internal formula.
+	Property Get HealthPercent() As Single
+		If maxHealth > 0 Then
+			HealthPercent = health / maxHealth  ' 0.0 to 1.0 for health bar width
+		Else
+			HealthPercent = 0
+		End If
+	End Property
+
+	Property Get IsSlowed() As Boolean
+		IsSlowed = (slowTimer > 0)  ' True while a slow debuff is active
+	End Property
+
+	' EffectiveSpeed applies the slow debuff transparently — MoveAlongPath()
+	' just calls e.EffectiveSpeed and doesn't care whether the enemy is slowed.
+	Property Get EffectiveSpeed() As Single
+		If slowTimer > 0 Then
+			EffectiveSpeed = speed * slowFactor  ' Reduced speed during slow
+		Else
+			EffectiveSpeed = speed               ' Normal speed
+		End If
+	End Property
+
+	Sub Class_Initialize()
+		health = 50
+		maxHealth = 50
+		speed = 60
+		armor = 0
+		goldValue = 10
+		enemyName = "Enemy"
+		pathIndex = 0
+		pathProgress = 0
+		slowTimer = 0
+		slowFactor = 1.0
+		radius = 12
+		entityType = "enemy"
+	End Sub
+
+	' TakeDamage applies armor reduction and returns True if the enemy died.
+	' This return-value pattern lets callers (OnProjectileHit) branch on kill.
+	Function TakeDamage(dmg As Single) As Boolean
+		Dim actualDmg As Single = dmg - armor  ' Armor subtracts flat damage
+		If actualDmg < 1 Then actualDmg = 1    ' Minimum 1 damage guarantees progress
+		health = health - actualDmg
+		If health <= 0 Then
+			alive = False
+			TakeDamage = True   ' killed
+		Else
+			TakeDamage = False  ' survived
+		End If
+	End Function
+
+	' Debuff system: sets a timed slow that EffectiveSpeed reads each frame.
+	Sub ApplySlow(duration As Single, factor As Single)
+		slowTimer = duration   ' Seconds remaining
+		slowFactor = factor    ' Multiplier (e.g. 0.5 = half speed)
+	End Sub
+End Class
+
+' ── SCOUT (inherits Enemy) — Fast, weak ──
+' ENEMY SUBCLASSES follow the same pattern as Tower subclasses: inherit Enemy,
+' override Class_Initialize() with different stat profiles. No new fields needed.
+' Scout: glass cannon — high speed (100), low HP (30), no armor.
+Class Scout
+	Inherits Enemy
+
+	Sub Class_Initialize()
+		enemyName = "Scout"
+		health = 30
+		maxHealth = 30
+		speed = 100
+		armor = 0
+		goldValue = 8
+		radius = 8
+		entityType = "scout"
+	End Sub
+End Class
+
+' ── Soldier (inherits Enemy) — Balanced ──
+Class Soldier
+	Inherits Enemy
+
+	Sub Class_Initialize()
+		enemyName = "Soldier"
+		health = 80
+		maxHealth = 80
+		speed = 60
+		armor = 2
+		goldValue = 15
+		radius = 12
+		entityType = "soldier"
+	End Sub
+End Class
+
+' ── Tank (inherits Enemy) — Slow, heavy ──
+Class Tank
+	Inherits Enemy
+
+	Sub Class_Initialize()
+		enemyName = "Tank"
+		health = 250
+		maxHealth = 250
+		speed = 35
+		armor = 8
+		goldValue = 40
+		radius = 16
+		entityType = "tank"
+	End Sub
+End Class
+
+' ── Flyer (inherits Enemy) — Ignores path, flies direct ──
+' Flyer has entityType="flyer" which UpdateEnemies() checks to call MoveFlyer()
+' instead of MoveAlongPath(). Same class hierarchy, different runtime behavior
+' via type-tag dispatch — a lightweight alternative to virtual methods.
+Class Flyer
+	Inherits Enemy
+
+	Sub Class_Initialize()
+		enemyName = "Flyer"
+		health = 45
+		maxHealth = 45
+		speed = 80
+		armor = 0
+		goldValue = 20
+		radius = 10
+		entityType = "flyer"
+	End Sub
+End Class
+
+' ── Boss (inherits Enemy) — Massive HP, special ──
+' Boss has 2000 HP, 15 armor, and moves slowly. Spawned alone on waves 10 & 12.
+' The DATA statement "Boss" triggers "New Boss" in SpawnNextEnemy().
+Class Boss
+	Inherits Enemy
+
+	Sub Class_Initialize()
+		enemyName = "Boss"
+		health = 2000
+		maxHealth = 2000
+		speed = 25
+		armor = 15
+		goldValue = 200
+		radius = 24
+		entityType = "boss"
+	End Sub
+End Class
+
+' ────────────────────────────────────────────────────────────────────────────
+' GAME STATE
+' ────────────────────────────────────────────────────────────────────────────
+
+' ENTITY POOL STRATEGY: Towers and enemies are stored as Variant arrays holding
+' class instances (New Blaster, New Scout, etc.). Variant is VisualGasic's
+' "any type" — it can hold class objects, enabling polymorphism. A separate
+' count variable tracks how many slots are active; dead entities are repacked.
+' This is an "array of objects" (AoS) approach for complex entities.
+Dim towers(MAX_TOWERS) As Variant   ' Each slot holds a Tower subclass instance
+Dim towerCount As Integer            ' Number of live towers in the array
+
+Dim enemies(MAX_ENEMIES) As Variant  ' Each slot holds an Enemy subclass instance
+Dim enemyCount As Integer            ' Number of live enemies (repacked each frame)
+
+' PROJECTILES — STRUCT-OF-ARRAYS (SoA) LAYOUT
+' Unlike towers/enemies (array of objects), projectiles use parallel arrays:
+' one array per attribute. This is ideal for Parallel For because each array
+' can be processed independently with minimal cache thrashing. The i-th
+' projectile's data lives at index [i] across all these arrays.
+Dim projX(MAX_PROJECTILES) As Single       ' X position
+Dim projY(MAX_PROJECTILES) As Single       ' Y position
+Dim projVX(MAX_PROJECTILES) As Single      ' X velocity (pixels/sec)
+Dim projVY(MAX_PROJECTILES) As Single      ' Y velocity (pixels/sec)
+Dim projDamage(MAX_PROJECTILES) As Single  ' Damage on impact
+Dim projType(MAX_PROJECTILES) As String    ' "bullet", "cannonball", "lightning", "missile"
+Dim projTarget(MAX_PROJECTILES) As Integer ' Target enemy index (for homing missiles)
+Dim projActive(MAX_PROJECTILES) As Boolean ' True = in flight; False = available slot
+Dim projSplash(MAX_PROJECTILES) As Single  ' Splash radius (0 = single-target)
+
+' PARTICLES — Also SoA layout for Parallel For efficiency.
+' Each particle has position, velocity, lifetime, and RGB color.
+' SpawnExplosion() finds dead slots (partLife <= 0) to reuse.
+Dim partX(MAX_PARTICLES) As Single
+Dim partY(MAX_PARTICLES) As Single
+Dim partVX(MAX_PARTICLES) As Single
+Dim partVY(MAX_PARTICLES) As Single
+Dim partLife(MAX_PARTICLES) As Single   ' Seconds remaining; <=0 means slot is free
+Dim partR(MAX_PARTICLES) As Single     ' Red   (0.0–1.0)
+Dim partG(MAX_PARTICLES) As Single     ' Green (0.0–1.0)
+Dim partB(MAX_PARTICLES) As Single     ' Blue  (0.0–1.0)
+
+' PATH SYSTEM: Enemy waypoints loaded from DATA statements via Restore/Read.
+' Enemies follow pathX/Y[0] → pathX/Y[1] → ... → pathX/Y[pathCount-1].
+Dim pathX(MAX_PATH_NODES) As Single    ' Waypoint X in pixels (grid * CELL + half)
+Dim pathY(MAX_PATH_NODES) As Single    ' Waypoint Y in pixels
+Dim pathCount As Integer               ' Number of loaded waypoints
+
+' GRID — 1D flattened 2D array. Index = row * GRID_COLS + col.
+' Values: 0 = empty (can build), 1 = path (blocked), 2 = tower placed.
+Dim grid(384) As Integer  ' 24 * 16 = 384 cells
+
+' PLAYER STATE — Core resources monitored by Whenever Sections.
+' When lives/score/gold cross thresholds, Whenever callbacks fire automatically.
+Dim gold As Integer           ' Currency for building/upgrading towers
+Dim lives As Integer          ' Lost when enemies reach the base; 0 = game over
+Dim score As Integer          ' Accumulated from kills; triggers score milestones
+Dim wave As Integer           ' Current wave number (1-based)
+Dim totalWaves As Integer     ' Total waves loaded from DATA (12 in this demo)
+
+' GAME FLOW — State machine drives _Process() behavior via Select Case.
+Dim gameState As String       ' "building", "combat", "gameover", "victory"
+Dim waveTimer As Single       ' (unused — spawnTimer handles wave pacing)
+Dim spawnTimer As Single      ' Countdown to next enemy spawn within a wave
+Dim spawnIndex As Integer     ' How many enemies have been spawned this wave
+Dim enemiesThisWave As Integer      ' Running count of enemies spawned
+Dim totalSpawnThisWave As Integer   ' Total to spawn (from waveEnemyCount)
+Dim gameTime As Single        ' Wall-clock time since game start
+
+' UI STATE — Tracks mouse cursor grid position and selection.
+Dim selectedTower As Integer  ' 1-4 tower type selector (keyboard 1/2/3/4)
+Dim selectedPlaced As Integer ' Index of placed tower being inspected (-1 = none)
+Dim cursorGridX As Integer    ' Mouse grid column (0..GRID_COLS-1)
+Dim cursorGridY As Integer    ' Mouse grid row (0..GRID_ROWS-1)
+Dim canPlace As Boolean       ' True if current cell is empty and affordable
+Dim showRangeFor As Integer   ' Tower index whose range circle to render
+
+' VISUALGASIC DICTIONARY: A key-value store (like VB6's Scripting.Dictionary).
+' Used here as a stats tracker. Access via stats.Item("key") for get/set.
+' Created with "Set stats = New Dictionary" + stats.Add "key", value.
+Dim stats As Dictionary
+
+' WAVE DEFINITION ARRAYS — Populated at startup from DATA statements.
+' Each index corresponds to one wave (0-based). The pattern string is Split()
+' at runtime to get individual enemy type names for polymorphic instantiation.
+Dim waveEnemyList(15) As String    ' CSV enemy names, e.g. "Scout,Scout,Soldier"
+Dim waveEnemyCount(15) As Integer  ' Number of enemies to spawn in this wave
+Dim waveSpawnRate(15) As Single    ' Seconds between spawns
+
+' ────────────────────────────────────────────────────────────────────────────
+' LAMBDA EXPRESSIONS — Reusable game logic
+' ────────────────────────────────────────────────────────────────────────────
+' VISUALGASIC LAMBDA EXPRESSIONS: "Lambda(params) expression" creates an anonymous
+' function stored in a Variant. These are first-class values — you can pass them
+' as arguments, store them in variables, and call them like regular functions.
+' Dist() is used throughout targeting, collision, and chain lightning.
+' InRange() composes Dist — demonstrating that lambdas can call other lambdas.
+' Clamp01 and Lerp are classic math utilities used for interpolation & UI.
+Dim Dist As Variant = Lambda(x1, y1, x2, y2) Sqr((x2-x1)*(x2-x1) + (y2-y1)*(y2-y1))  ' Euclidean distance
+Dim InRange As Variant = Lambda(x1, y1, x2, y2, r) Dist(x1, y1, x2, y2) <= r           ' Distance check
+Dim Clamp01 As Variant = Lambda(v) IIf(v < 0, 0, IIf(v > 1, 1, v))                     ' Clamp to [0,1]
+Dim Lerp As Variant = Lambda(a, b, t) a + (b - a) * t                                  ' Linear interpolation
+
+' ────────────────────────────────────────────────────────────────────────────
+' WHENEVER SECTIONS — Reactive game monitoring
+' ────────────────────────────────────────────────────────────────────────────
+
+' VISUALGASIC WHENEVER SECTIONS — Reactive/declarative event monitoring.
+' Syntax: Whenever Section <Name> <variable> <Condition> <threshold> <Callback>
+' The runtime automatically checks these conditions each frame. When the
+' condition becomes true, the callback Sub is invoked ONCE (edge-triggered).
+' Conditions: "Becomes" (equality), "Below" (less-than), "Exceeds" (greater-than).
+' Whenever sections can be Suspended/Resumed (see InitGame and StartNextWave).
+'
+' COMBAT EVENTS — monitor enemy count and player lives.
+Whenever Section WaveComplete enemyCount Becomes 0 OnWaveCleared  ' All enemies dead → wave cleared
+Whenever Section LowLives lives Below 5 OnLowLives                ' Warning at 4 lives
+Whenever Section NoLives lives Below 1 OnGameOver                 ' 0 lives → game over
+
+' SCORE MILESTONES — award gold bonuses at score thresholds.
+Whenever Section ScoreBonus score Exceeds 1000 OnScoreBonus1      ' +50g bonus
+Whenever Section ScoreBonus2 score Exceeds 5000 OnScoreBonus2     ' +100g bonus
+Whenever Section ScoreBonus3 score Exceeds 10000 OnScoreBonus3    ' +200g bonus
+
+' GOLD EVENT — reminder to spend accumulated gold.
+Whenever Section RichPlayer gold Exceeds 500 OnGoldRich           ' Prompt to upgrade
+
+' ────────────────────────────────────────────────────────────────────────────
+' WHENEVER CALLBACKS
+' ────────────────────────────────────────────────────────────────────────────
+
+' WHENEVER CALLBACK: Fired when enemyCount Becomes 0.
+' Guard clauses prevent false triggers (e.g., during building phase or mid-spawn).
+' Transitions gameState back to "building" so the player can place more towers.
+Sub OnWaveCleared()
+	If gameState <> "combat" Then Exit Sub
+	' Don't declare wave complete until ALL enemies have been spawned
+	If spawnIndex < totalSpawnThisWave Then Exit Sub
+	Print "Wave " & Str(wave) & " cleared!"
+	gold = gold + 25 + wave * 5  ' Wave completion bonus scales with difficulty
+	gameState = "building"       ' Return to build phase
+	stats.Item("waves_cleared") = wave  ' Update Dictionary stat
+End Sub
+
+Sub OnLowLives()
+	Print "WARNING: Base defenses critical! Lives: " & Str(lives)
+End Sub
+
+Sub OnGameOver()
+	gameState = "gameover"
+	Print "GAME OVER at wave " & Str(wave) & "! Final score: " & Str(score)
+End Sub
+
+Sub OnScoreBonus1()
+	gold = gold + 50
+	Print "SCORE MILESTONE: 1000! +50 gold bonus!"
+End Sub
+
+Sub OnScoreBonus2()
+	gold = gold + 100
+	Print "SCORE MILESTONE: 5000! +100 gold bonus!"
+End Sub
+
+Sub OnScoreBonus3()
+	gold = gold + 200
+	Print "AMAZING! 10000+ points! +200 gold bonus!"
+End Sub
+
+Sub OnGoldRich()
+	Print "Rich! Consider upgrading your towers!"
+End Sub
+
+' ────────────────────────────────────────────────────────────────────────────
+' DATA STATEMENTS — Game definitions
+' ────────────────────────────────────────────────────────────────────────────
+
+' VISUALGASIC DATA / READ / RESTORE SYSTEM:
+' DATA statements define inline constant tables (like VB6/BASIC's DATA lines).
+' "Restore WaveData" resets the read pointer to the WaveData: label.
+' "Read var1, var2, ..." reads the next values sequentially.
+' A sentinel value (-1) marks end-of-data. This pattern is used for both
+' wave definitions and path waypoints — classic BASIC data-driven design.
+WaveData:
+' WaveNum, EnemyCount, SpawnRate, EnemyPattern
+Data 1, 6, 1.2, "Scout,Scout,Scout,Scout,Scout,Scout"
+Data 2, 8, 1.0, "Scout,Scout,Soldier,Scout,Scout,Soldier,Scout,Scout"
+Data 3, 10, 0.9, "Soldier,Scout,Soldier,Scout,Soldier,Scout,Soldier,Scout,Soldier,Scout"
+Data 4, 8, 0.8, "Soldier,Soldier,Flyer,Soldier,Soldier,Flyer,Soldier,Soldier"
+Data 5, 12, 0.7, "Scout,Scout,Soldier,Tank,Scout,Scout,Soldier,Tank,Scout,Scout,Soldier,Soldier"
+Data 6, 10, 0.7, "Flyer,Flyer,Soldier,Flyer,Soldier,Flyer,Flyer,Soldier,Flyer,Soldier"
+Data 7, 14, 0.6, "Soldier,Soldier,Tank,Soldier,Flyer,Soldier,Tank,Soldier,Soldier,Tank,Flyer,Soldier,Soldier,Soldier"
+Data 8, 12, 0.5, "Tank,Soldier,Soldier,Tank,Flyer,Flyer,Tank,Soldier,Soldier,Tank,Flyer,Flyer"
+Data 9, 16, 0.4, "Scout,Soldier,Tank,Flyer,Scout,Soldier,Tank,Flyer,Scout,Soldier,Tank,Flyer,Scout,Soldier,Tank,Flyer"
+Data 10, 1, 2.0, "Boss"
+Data 11, 18, 0.35, "Soldier,Tank,Flyer,Tank,Soldier,Flyer,Tank,Soldier,Tank,Flyer,Soldier,Tank,Flyer,Tank,Soldier,Flyer,Tank,Soldier"
+Data 12, 1, 2.0, "Boss"
+Data -1, 0, 0, ""
+
+PathData:
+' PATH WAYPOINTS in grid-cell coordinates. LoadPath() multiplies by CELL (40px)
+' and adds CELL/2 to center each waypoint in its cell. The path forms a zigzag
+' route: left→right→down→right→up→right→down→right→up→right (10 waypoints).
+Data 0, 4
+Data 4, 4
+Data 4, 8
+Data 8, 8
+Data 8, 2
+Data 14, 2
+Data 14, 12
+Data 20, 12
+Data 20, 6
+Data 24, 6
+Data -1, -1
+
+' ────────────────────────────────────────────────────────────────────────────
+' INITIALIZATION
+' ────────────────────────────────────────────────────────────────────────────
+
+' GODOT LIFECYCLE: _Ready() is called once when the node enters the scene tree.
+' This is the entry point for the entire game — it loads data, initializes state,
+' and prints the title banner. The chain: _Ready → LoadPath → LoadWaveData → InitGame.
+Sub _Ready()
+	Print "╔══════════════════════════════════════════╗"
+	Print "║     GALACTIC DEFENDER — Tower Defense     ║"
+	Print "║     VisualGasic Feature Showcase v2.4.1   ║"
+	Print "╠══════════════════════════════════════════╣"
+	Print "║  1-4: Select Tower   Click: Place Tower   ║"
+	Print "║  U: Upgrade  S: Sell  SPACE: Next Wave    ║"
+	Print "╚══════════════════════════════════════════╝"
+	Print ""
+
+	LoadPath
+	LoadWaveData
+	InitGame
+End Sub
+
+' LoadPath: Uses Restore/Read to consume PathData waypoints.
+' "Restore PathData" sets the DATA read cursor to the PathData: label.
+' The Do/Loop reads until the -1 sentinel. Each waypoint is converted from
+' grid coordinates to pixel coordinates (centered in the cell).
+Sub LoadPath()
+	Restore PathData        ' Reset DATA read pointer to PathData: label
+	pathCount = 0
+
+	Dim px, py As Integer
+	Do
+		Read px               ' Read next X value from DATA
+		If px = -1 Then Exit Do  ' Sentinel: end of path data
+		Read py
+		pathX(pathCount) = px * CELL + CELL / 2
+		pathY(pathCount) = py * CELL + CELL / 2
+		pathCount = pathCount + 1
+	Loop
+
+	' Mark path cells on grid
+	Dim i As Integer
+	For i = 0 To pathCount - 2
+		MarkPathSegment CInt(pathX(i) / CELL), CInt(pathY(i) / CELL), CInt(pathX(i+1) / CELL), CInt(pathY(i+1) / CELL)
+	Next
+
+	Print "Path loaded: " & Str(pathCount) & " waypoints"
+End Sub
+
+' MarkPathSegment: Marks grid cells along a horizontal or vertical segment as
+' path (value 1) so towers cannot be placed there. Uses 1D flattened index:
+' grid(row * GRID_COLS + col). Only axis-aligned segments are supported.
+Sub MarkPathSegment(x1 As Integer, y1 As Integer, x2 As Integer, y2 As Integer)
+	Dim x, y As Integer
+	If x1 = x2 Then
+		' Vertical
+		Dim minY As Integer = IIf(y1 < y2, y1, y2)
+		Dim maxY As Integer = IIf(y1 > y2, y1, y2)
+		For y = minY To maxY
+			If x1 >= 0 And x1 < GRID_COLS And y >= 0 And y < GRID_ROWS Then
+				grid(y * GRID_COLS + x1) = 1
+			End If
+		Next
+	Else
+		' Horizontal
+		Dim minX As Integer = IIf(x1 < x2, x1, x2)
+		Dim maxX As Integer = IIf(x1 > x2, x1, x2)
+		For x = minX To maxX
+			If x >= 0 And x < GRID_COLS And y1 >= 0 And y1 < GRID_ROWS Then
+				grid(y1 * GRID_COLS + x) = 1
+			End If
+		Next
+	End If
+End Sub
+
+' LoadWaveData: Reads all wave definitions from DATA into arrays.
+' Pattern string (e.g. "Scout,Scout,Soldier") is stored as-is and Split() at
+' spawn time. This separates data authoring (DATA) from runtime logic.
+Sub LoadWaveData()
+	Restore WaveData         ' Reset DATA read pointer to WaveData: label
+	totalWaves = 0
+
+	Dim waveNum As Integer
+	Do
+		Read waveNum             ' Wave number (or -1 sentinel)
+		If waveNum = -1 Then Exit Do
+
+		Dim count As Integer
+		Dim rate As Single
+		Dim pattern As String
+		Read count, rate, pattern
+
+		waveEnemyCount(totalWaves) = count
+		waveSpawnRate(totalWaves) = rate
+		waveEnemyList(totalWaves) = pattern
+
+		totalWaves = totalWaves + 1
+	Loop
+
+	Print "Loaded " & Str(totalWaves) & " wave definitions"
+End Sub
+
+' InitGame: Resets all game state for a new game or restart.
+' Called from _Ready() and also on R/ENTER after game over/victory.
+Sub InitGame()
+	gold = STARTING_GOLD      ' Start with 2000g to place initial defenses
+	lives = STARTING_LIVES    ' 20 lives before game over
+	score = 0
+	wave = 0                  ' Incremented by StartNextWave()
+	towerCount = 0
+	enemyCount = 0
+	gameState = "building"    ' Start in build phase (waiting for SPACE)
+	selectedTower = 1         ' Default to Blaster
+	selectedPlaced = -1       ' No tower selected for inspection
+	gameTime = 0
+
+	' VISUALGASIC DICTIONARY INITIALIZATION:
+	' "Set stats = New Dictionary" creates a new key-value store.
+	' "stats.Add key, value" inserts entries. Later, stats.Item(key) reads/writes.
+	' Displayed in the victory/game-over overlay for end-of-game summary.
+	Set stats = New Dictionary
+	stats.Add "enemies_killed", 0
+	stats.Add "gold_earned", 0
+	stats.Add "towers_built", 0
+	stats.Add "towers_upgraded", 0
+	stats.Add "waves_cleared", 0
+	stats.Add "damage_dealt", 0
+
+	' Clear all projectile slots by marking them inactive.
+	Dim i As Integer
+	For i = 0 To MAX_PROJECTILES - 1
+		projActive(i) = False
+	Next
+
+	' WHENEVER SUSPEND/RESUME: Temporarily disable WaveComplete monitoring
+	' because enemyCount is already 0 during init, which would immediately
+	' trigger the "Becomes 0" condition. It's Resumed in StartNextWave().
+	Suspend Whenever WaveComplete
+	Resume Whenever LowLives
+	Resume Whenever NoLives
+
+	Print "Game ready! Starting gold: " & Str(gold) & ", Lives: " & Str(lives)
+	Print "Press SPACE to start Wave 1!"
+End Sub
+
+' ────────────────────────────────────────────────────────────────────────────
+' GAME LOOP
+' ────────────────────────────────────────────────────────────────────────────
+
+' GODOT LIFECYCLE: _Process(delta) is called every frame (60 FPS).
+' delta = seconds since last frame (~0.016). This is the main game loop.
+' Input and cursor are always processed; the SELECT CASE state machine decides
+' which update systems run: combat runs everything, building only particles,
+' and gameover/victory allow restart input.
+Sub _Process(delta As Single)
+	gameTime = gameTime + delta  ' Accumulate total elapsed time
+
+	HandleInput      ' Poll keyboard/mouse for player actions
+	UpdateCursor     ' Convert mouse position to grid coordinates
+
+	' VISUALGASIC SELECT CASE: Multi-branch dispatch on gameState string.
+	' This is the game's state machine — clean and readable.
+	Select Case gameState
+		Case "combat"         ' Active wave — full update pipeline
+			UpdateSpawner delta       ' Spawn enemies on timer
+			UpdateEnemies delta       ' Move enemies along path
+			UpdateTowers delta        ' Tower targeting and firing
+			UpdateProjectiles delta   ' Move/collide projectiles (Parallel For)
+			UpdateParticles delta     ' Animate particle effects
+
+		Case "building"       ' Between waves — only particles animate
+			UpdateParticles delta
+
+		Case "gameover", "victory"  ' Game ended — particles + restart input
+			UpdateParticles delta
+			If Input.IsActionJustPressed("ui_accept") Then
+				' Clear grid
+				Dim gx, gy As Integer
+				For gx = 0 To GRID_COLS - 1
+					For gy = 0 To GRID_ROWS - 1
+						If grid(gy * GRID_COLS + gx) = 2 Then grid(gy * GRID_COLS + gx) = 0
+					Next
+				Next
+				InitGame
+			End If
+	End Select
+End Sub
+
+' HandleInput: Polls Godot's Input singleton for keyboard and mouse events.
+' IsKeyPressed() uses raw keycodes (49='1', 50='2', etc.).
+' IsActionJustPressed() uses Godot's input map ("ui_accept"=SPACE/ENTER, "click"=LMB).
+Sub HandleInput()
+	' Tower type selection (1-4) — maps number keys to tower types
+	If Input.IsKeyPressed(49) Then selectedTower = 1  ' KEY_1 → Blaster
+	If Input.IsKeyPressed(50) Then selectedTower = 2  ' KEY_2 → Cannon
+	If Input.IsKeyPressed(51) Then selectedTower = 3  ' KEY_3 → Tesla
+	If Input.IsKeyPressed(52) Then selectedTower = 4  ' KEY_4 → Missile
+
+	' Start wave / Pause
+	If Input.IsActionJustPressed("ui_accept") Then
+		If gameState = "building" Then
+			StartNextWave
+		End If
+	End If
+
+	' Restart
+	If Input.IsKeyPressed(82) Then  ' KEY_R
+		If gameState = "gameover" Or gameState = "victory" Then
+			Dim gx, gy As Integer
+			For gx = 0 To GRID_COLS - 1
+				For gy = 0 To GRID_ROWS - 1
+					If grid(gy * GRID_COLS + gx) = 2 Then grid(gy * GRID_COLS + gx) = 0
+				Next
+			Next
+			InitGame
+		End If
+	End If
+
+	' Place tower (click)
+	If Input.IsActionJustPressed("click") Then
+		If (gameState = "building" Or gameState = "combat") And canPlace Then
+			PlaceTower cursorGridX, cursorGridY
+		End If
+	End If
+
+	' Upgrade tower
+	If Input.IsKeyPressed(85) Then  ' KEY_U
+		If selectedPlaced >= 0 Then
+			UpgradeTower selectedPlaced
+		End If
+	End If
+
+	' Sell tower
+	If Input.IsKeyPressed(83) Then  ' KEY_S
+		If selectedPlaced >= 0 Then
+			SellTower selectedPlaced
+		End If
+	End If
+End Sub
+
+' UpdateCursor: Converts pixel mouse position to grid cell, validates placement,
+' and detects if the cursor is hovering over an existing tower (for upgrade/sell).
+Sub UpdateCursor()
+	Dim mx As Single = Input.GetMousePosition().x
+	Dim my As Single = Input.GetMousePosition().y
+
+	' Snap mouse to grid — integer division by CELL size
+	cursorGridX = Int(mx / CELL)
+	cursorGridY = Int(my / CELL)
+
+	' Clamp to grid
+	If cursorGridX < 0 Then cursorGridX = 0
+	If cursorGridX >= GRID_COLS Then cursorGridX = GRID_COLS - 1
+	If cursorGridY < 0 Then cursorGridY = 0
+	If cursorGridY >= GRID_ROWS Then cursorGridY = GRID_ROWS - 1
+
+	' Check if placement is valid
+	canPlace = (grid(cursorGridY * GRID_COLS + cursorGridX) = 0)
+
+	' Check if we have enough gold
+	If canPlace Then
+		Dim cost As Integer = GetTowerCost(selectedTower)
+		If gold < cost Then canPlace = False
+	End If
+
+	' Check for clicking on existing tower
+	selectedPlaced = -1
+	Dim i As Integer
+	For i = 0 To towerCount - 1
+		Dim t As Variant = towers(i)
+		If t.alive Then
+			Dim tgx As Integer = Int(t.x / CELL)
+			Dim tgy As Integer = Int(t.y / CELL)
+			If tgx = cursorGridX And tgy = cursorGridY Then
+				selectedPlaced = i
+				canPlace = False
+				Exit For
+			End If
+		End If
+	Next
+End Sub
+
+' ────────────────────────────────────────────────────────────────────────────
+' TOWER MANAGEMENT
+' ────────────────────────────────────────────────────────────────────────────
+
+Function GetTowerCost(tType As Integer) As Integer
+	Select Case tType
+		Case 1: GetTowerCost = 50    ' Blaster
+		Case 2: GetTowerCost = 100   ' Cannon
+		Case 3: GetTowerCost = 125   ' Tesla
+		Case 4: GetTowerCost = 175   ' Missile
+		Case Else: GetTowerCost = 999
+	End Select
+End Function
+
+Function GetTowerName(tType As Integer) As String
+	Select Case tType
+		Case 1: GetTowerName = "Blaster"
+		Case 2: GetTowerName = "Cannon"
+		Case 3: GetTowerName = "Tesla"
+		Case 4: GetTowerName = "Missile"
+		Case Else: GetTowerName = "Unknown"
+	End Select
+End Function
+
+Sub PlaceTower(gx As Integer, gy As Integer)
+	If towerCount >= MAX_TOWERS Then
+		Print "Max towers reached!"
+		Exit Sub
+	End If
+
+	Dim cost As Integer = GetTowerCost(selectedTower)
+	If gold < cost Then Exit Sub
+
+	' POLYMORPHIC INSTANTIATION: Dim t As Variant can hold ANY class instance.
+	' "New Blaster" creates a Blaster (which inherits Tower which inherits Entity).
+	' After this Select Case, 't' is a fully initialized tower subclass object,
+	' and all code below works identically regardless of which subclass was chosen.
+	Dim t As Variant
+	Select Case selectedTower
+		Case 1: t = New Blaster   ' Fast, cheap single-target
+		Case 2: t = New Cannon    ' Slow, splash damage
+		Case 3: t = New Tesla     ' Chain lightning
+		Case 4: t = New Missile   ' Homing, high damage
+	End Select
+
+	' Center the tower in the grid cell (pixel coordinates)
+	t.x = gx * CELL + CELL / 2
+	t.y = gy * CELL + CELL / 2
+
+	' Add to the entity pool and mark the grid cell as occupied
+	towers(towerCount) = t
+	towerCount = towerCount + 1
+
+	grid(gy * GRID_COLS + gx) = 2     ' Mark cell as "tower placed"
+	gold = gold - cost                 ' Deduct cost
+	stats.Item("towers_built") = stats.Item("towers_built") + 1  ' Dictionary stat update
+
+	Print "Placed " & t.towerName & " at (" & Str(gx) & "," & Str(gy) & ") — Cost: " & Str(cost) & "g"
+End Sub
+
+' UpgradeTower: Levels up a placed tower (max level 3). Uses the tower's
+' UpgradeCost Property Get to calculate cost, then scales damage/rate/range.
+Sub UpgradeTower(idx As Integer)
+	Dim t As Variant = towers(idx)  ' Retrieve tower object from pool
+	If Not t.alive Then Exit Sub
+	If t.level >= 3 Then
+		Print "Tower already max level!"
+		Exit Sub
+	End If
+
+	Dim cost As Integer = t.UpgradeCost
+	If gold < cost Then
+		Print "Need " & Str(cost) & "g to upgrade (have " & Str(gold) & "g)"
+		Exit Sub
+	End If
+
+	gold = gold - cost
+	t.level = t.level + 1
+	t.damage = t.damage * 1.5
+	t.fireRate = t.fireRate * 1.2
+	t.range = t.range * 1.15
+	towers(idx) = t
+
+	stats.Item("towers_upgraded") = stats.Item("towers_upgraded") + 1
+	Print "Upgraded " & t.towerName & " to level " & Str(t.level) & "! (DMG: " & Str(Int(t.damage)) & ", RNG: " & Str(Int(t.range)) & ")"
+End Sub
+
+' SellTower: Removes a tower and refunds gold. t.SellValue is a read-only
+' Property Get that calculates 60% of cost × level — encapsulated in the class.
+Sub SellTower(idx As Integer)
+	Dim t As Variant = towers(idx)
+	If Not t.alive Then Exit Sub
+
+	Dim refund As Integer = t.SellValue  ' Computed property: Int(cost * 0.6) * level
+	gold = gold + refund
+	t.alive = False
+	towers(idx) = t
+
+	Dim gx As Integer = Int(t.x / CELL)
+	Dim gy As Integer = Int(t.y / CELL)
+	grid(gy * GRID_COLS + gx) = 0
+
+	Print "Sold " & t.towerName & " for " & Str(refund) & "g"
+End Sub
+
+' ────────────────────────────────────────────────────────────────────────────
+' WAVE SPAWNING
+' ────────────────────────────────────────────────────────────────────────────
+
+' StartNextWave: Transitions from "building" to "combat", sets up spawn state,
+' and resumes the WaveComplete Whenever section that was suspended during init.
+Sub StartNextWave()
+	If wave >= totalWaves Then
+		gameState = "victory"   ' All 12 waves beaten!
+		Print "VICTORY! All waves defeated!"
+		Return
+	End If
+
+	wave = wave + 1
+	gameState = "combat"       ' Enable full update pipeline in _Process()
+	spawnTimer = 0             ' Spawn first enemy immediately
+	spawnIndex = 0             ' Reset spawn counter
+	totalSpawnThisWave = waveEnemyCount(wave - 1)  ' Look up from DATA-loaded array
+	enemiesThisWave = 0
+
+	' WHENEVER RESUME: Re-enable WaveComplete monitoring now that enemies will
+	' be spawned. It was Suspended in InitGame() to prevent false triggers.
+	Resume Whenever WaveComplete
+
+	Print "=== WAVE " & Str(wave) & " === (" & Str(totalSpawnThisWave) & " enemies incoming)"
+End Sub
+
+Sub UpdateSpawner(delta As Single)
+	If spawnIndex >= totalSpawnThisWave Then Exit Sub
+
+	spawnTimer = spawnTimer - delta
+	If spawnTimer <= 0 Then
+		SpawnNextEnemy
+		spawnTimer = waveSpawnRate(wave - 1)
+		spawnIndex = spawnIndex + 1
+	End If
+End Sub
+
+' SpawnNextEnemy: DATA-DRIVEN POLYMORPHIC SPAWNING.
+' 1. Reads the wave's CSV pattern string from waveEnemyList (loaded from DATA).
+' 2. Split() breaks it into an array of enemy type names.
+' 3. Select Case on the name string creates the correct subclass via "New".
+' 4. Health is scaled by wave number for progressive difficulty.
+' This is the DATA→Split→Select Case→New pipeline that ties together
+' several VisualGasic features into a clean data-driven spawn system.
+Sub SpawnNextEnemy()
+	If enemyCount >= MAX_ENEMIES Then Exit Sub
+
+	' Get enemy type from wave pattern (DATA-loaded CSV string)
+	Dim pattern As String = waveEnemyList(wave - 1)
+	Dim types() As String = Split(pattern, ",")  ' Split CSV into array
+	Dim typeIdx As Integer = spawnIndex Mod (UBound(types) + 1)  ' Cycle through pattern
+	Dim eName As String = Trim(types(typeIdx))    ' Trim whitespace from name
+
+	' POLYMORPHIC INSTANTIATION from a string name — Select Case maps data to classes.
+	' Each "New <Class>" creates an instance with that subclass's stat defaults.
+	Dim e As Variant
+	Select Case eName
+		Case "Scout": e = New Scout       ' Fast, fragile
+		Case "Soldier": e = New Soldier   ' Balanced
+		Case "Tank": e = New Tank         ' Slow, armored
+		Case "Flyer": e = New Flyer       ' Ignores path
+		Case "Boss": e = New Boss         ' 2000 HP juggernaut
+		Case Else: e = New Scout          ' Fallback
+	End Select
+
+	' Progressive difficulty: scale HP by 10% per wave
+	Dim waveScale As Single = 1.0 + (wave - 1) * 0.10
+	e.health = e.health * waveScale
+	e.maxHealth = e.maxHealth * waveScale
+
+	' Start at path origin
+	e.x = pathX(0)
+	e.y = pathY(0)
+	e.pathIndex = 0
+	e.pathProgress = 0
+
+	enemies(enemyCount) = e
+	enemyCount = enemyCount + 1
+	enemiesThisWave = enemiesThisWave + 1
+End Sub
+
+' ────────────────────────────────────────────────────────────────────────────
+' ENTITY UPDATES
+' ────────────────────────────────────────────────────────────────────────────
+
+' UpdateEnemies: Per-frame enemy update — slow timers, movement, and cleanup.
+' Uses a counted For loop over the enemies() pool. Dead enemies are skipped
+' via GoTo (VB6-style continue). After the loop, RepackEnemies() compacts
+' the array by removing dead entries, and enemyCount is updated — this is
+' what triggers the WaveComplete Whenever when it hits 0.
+Sub UpdateEnemies(delta As Single)
+	Dim i As Integer
+	Dim aliveCount As Integer = 0
+
+	For i = 0 To enemyCount - 1
+		Dim e As Variant = enemies(i)       ' Retrieve enemy object from pool
+		If Not e.alive Then GoTo NextEnemy  ' Skip dead enemies (VB6's "Continue For")
+
+		aliveCount = aliveCount + 1
+
+		' Tick down slow debuff timer
+		If e.slowTimer > 0 Then
+			e.slowTimer = e.slowTimer - delta
+		End If
+
+		' TYPE-TAG DISPATCH: entityType string determines movement behavior.
+		' Flyers ignore the path and fly straight to the base.
+		If e.entityType = "flyer" Then
+			MoveFlyer e, delta          ' Direct line to final waypoint
+		Else
+			MoveAlongPath e, delta      ' Follow waypoint chain
+		End If
+
+		enemies(i) = e  ' Write modified object back to pool (Variant is value-copied)
+
+NextEnemy:
+	Next
+
+	' REPACK: Remove dead enemies and compact the array.
+	' This updates enemyCount, which Whenever WaveComplete monitors.
+	Dim repackResult As Integer = RepackEnemies()
+	enemyCount = repackResult
+End Sub
+
+' MoveAlongPath: Moves an enemy toward the next waypoint in the path array.
+' Uses ByRef so modifications to 'e' persist in the caller.
+' When the enemy reaches the final waypoint, the player loses a life.
+Sub MoveAlongPath(ByRef e As Variant, delta As Single)
+	If e.pathIndex >= pathCount - 1 Then
+		' Reached the end — lose a life (triggers LowLives/NoLives Whenever)
+		e.alive = False
+		lives = lives - 1
+		Print "Enemy reached base! Lives: " & Str(lives)
+		Return
+	End If
+
+	Dim targetX As Single = pathX(e.pathIndex + 1)
+	Dim targetY As Single = pathY(e.pathIndex + 1)
+	Dim dx As Single = targetX - e.x
+	Dim dy As Single = targetY - e.y
+	Dim dist As Single = Sqr(dx * dx + dy * dy)
+
+	If dist < 2 Then
+		e.pathIndex = e.pathIndex + 1
+		Return
+	End If
+
+	Dim spd As Single = e.EffectiveSpeed * delta
+	e.x = e.x + (dx / dist) * spd
+	e.y = e.y + (dy / dist) * spd
+End Sub
+
+Sub MoveFlyer(ByRef e As Variant, delta As Single)
+	' Fly straight toward final path node
+	Dim targetX As Single = pathX(pathCount - 1)
+	Dim targetY As Single = pathY(pathCount - 1)
+	Dim dx As Single = targetX - e.x
+	Dim dy As Single = targetY - e.y
+	Dim dist As Single = Sqr(dx * dx + dy * dy)
+
+	If dist < 5 Then
+		e.alive = False
+		lives = lives - 1
+		Print "Flyer reached base! Lives: " & Str(lives)
+		Return
+	End If
+
+	Dim spd As Single = e.EffectiveSpeed * delta
+	e.x = e.x + (dx / dist) * spd
+	e.y = e.y + (dy / dist) * spd
+End Sub
+
+' RepackEnemies: Compacts the enemies() array by shifting alive entries to the
+' front. This is a standard "remove-if" pattern — readIdx scans forward, writeIdx
+' tracks the next write position. Returns the new count. This avoids gaps in the
+' pool, keeping iteration tight for UpdateTowers' targeting loop.
+Function RepackEnemies() As Integer
+	Dim writeIdx As Integer = 0
+	Dim readIdx As Integer
+
+	For readIdx = 0 To enemyCount - 1
+		If enemies(readIdx).alive Then
+			If writeIdx <> readIdx Then
+				enemies(writeIdx) = enemies(readIdx)
+			End If
+			writeIdx = writeIdx + 1
+		End If
+	Next
+
+	RepackEnemies = writeIdx
+End Function
+
+' UpdateTowers: Per-frame tower AI — cooldown tick, target acquisition, firing.
+' Each tower scans all enemies for the nearest one within range using the Dist
+' lambda. CanFire() (inherited method) checks cooldown. On fire, the tower's
+' Angle property is set to aim at the target, and a projectile is spawned.
+Sub UpdateTowers(delta As Single)
+	Dim i As Integer
+	For i = 0 To towerCount - 1
+		Dim t As Variant = towers(i)
+		If Not t.alive Then GoTo NextTower
+
+		t.cooldown = t.cooldown - delta  ' Tick down fire cooldown
+
+		' TARGET ACQUISITION: Find nearest enemy within range using Dist lambda.
+		If t.CanFire() And enemyCount > 0 Then
+			Dim bestIdx As Integer = -1
+			Dim bestDist As Single = 99999
+
+			Dim j As Integer
+			For j = 0 To enemyCount - 1
+				Dim e As Variant = enemies(j)
+				If e.alive Then
+					Dim d As Single = Dist(t.x, t.y, e.x, e.y)
+					If d <= t.range And d < bestDist Then
+						bestDist = d
+						bestIdx = j
+						' Aim at target
+						t.Angle = Atn2(e.y - t.y, e.x - t.x)
+					End If
+				End If
+			Next
+
+			If bestIdx >= 0 Then
+				FireProjectile t, bestIdx
+				t.ResetCooldown
+			End If
+		End If
+
+		towers(i) = t
+
+NextTower:
+	Next
+End Sub
+
+' FireProjectile: Allocates a free slot in the projectile SoA arrays and
+' initializes it based on the tower's entityType. Each tower type produces a
+' different projectile type with different speed, splash, and behavior.
+' The Select Case on t.entityType is polymorphic dispatch via the type tag.
+Sub FireProjectile(ByRef t As Variant, targetIdx As Integer)
+	' Find free projectile slot in the SoA pool (linear scan for inactive slot)
+	Dim i As Integer
+	For i = 0 To MAX_PROJECTILES - 1
+		If Not projActive(i) Then
+			Dim e As Variant = enemies(targetIdx)
+			Dim dx As Single = e.x - t.x
+			Dim dy As Single = e.y - t.y
+			Dim dist As Single = Sqr(dx * dx + dy * dy)
+			If dist < 1 Then dist = 1
+
+			Dim speed As Single = 400
+
+			projX(i) = t.x
+			projY(i) = t.y
+			projVX(i) = (dx / dist) * speed
+			projVY(i) = (dy / dist) * speed
+			projDamage(i) = t.damage
+			projTarget(i) = targetIdx
+			projSplash(i) = 0
+			projActive(i) = True
+
+			' Set type based on tower class
+			Select Case t.entityType
+				Case "blaster"
+					projType(i) = "bullet"
+				Case "cannon"
+					projType(i) = "cannonball"
+					projSplash(i) = t.splashRadius
+					speed = 300
+					projVX(i) = (dx / dist) * speed
+					projVY(i) = (dy / dist) * speed
+				Case "tesla"
+					projType(i) = "lightning"
+					speed = 600
+					projVX(i) = (dx / dist) * speed
+					projVY(i) = (dy / dist) * speed
+				Case "missile"
+					projType(i) = "missile"
+					speed = 250
+					projVX(i) = (dx / dist) * speed
+					projVY(i) = (dy / dist) * speed
+			End Select
+
+			Exit For
+		End If
+	Next
+End Sub
+
+' ────────────────────────────────────────────────────────────────────────────
+' PROJECTILE UPDATES — Uses Parallel For for performance
+' ────────────────────────────────────────────────────────────────────────────
+
+' UpdateProjectiles: The showcase for VISUALGASIC PARALLEL FOR.
+' "Parallel For" tells the runtime it can process iterations concurrently
+' because each iteration only touches its own index [i] in the SoA arrays.
+' This is safe because projX[i], projY[i], etc. are independent per slot.
+' The SoA layout (struct-of-arrays) was designed specifically to enable this.
+' Inside the loop: homing steering for missiles, position integration,
+' off-screen culling, and hit detection against all alive enemies.
+Sub UpdateProjectiles(delta As Single)
+	Parallel For i = 0 To MAX_PROJECTILES - 1
+		If projActive(i) Then
+			' HOMING: Missiles steer toward their target enemy each frame
+			If projType(i) = "missile" And projTarget(i) >= 0 And projTarget(i) < enemyCount Then
+				Dim te As Variant = enemies(projTarget(i))
+				If te.alive Then
+					Dim tdx As Single = te.x - projX(i)
+					Dim tdy As Single = te.y - projY(i)
+					Dim tdist As Single = Sqr(tdx * tdx + tdy * tdy)
+					If tdist > 1 Then
+						Dim homingF As Single = 3.0
+						projVX(i) = projVX(i) + (tdx / tdist) * homingF * delta * 400
+						projVY(i) = projVY(i) + (tdy / tdist) * homingF * delta * 400
+						' Normalize speed
+						Dim curSpd As Single = Sqr(projVX(i)*projVX(i) + projVY(i)*projVY(i))
+						If curSpd > 350 Then
+							projVX(i) = projVX(i) / curSpd * 350
+							projVY(i) = projVY(i) / curSpd * 350
+						End If
+					End If
+				End If
+			End If
+
+			projX(i) = projX(i) + projVX(i) * delta
+			projY(i) = projY(i) + projVY(i) * delta
+
+			' Off-screen check
+			If projX(i) < -20 Or projX(i) > SCREEN_W + 20 Or projY(i) < -20 Or projY(i) > SCREEN_H + 20 Then
+				projActive(i) = False
+			End If
+
+			' HIT DETECTION: Uses the Dist lambda to check distance between
+			' projectile and each alive enemy. Collision threshold = enemy radius + 5px.
+			Dim j As Integer
+			For j = 0 To enemyCount - 1
+				If enemies(j).alive Then
+					Dim hitDist As Single = Dist(projX(i), projY(i), enemies(j).x, enemies(j).y)
+					If hitDist < enemies(j).radius + 5 Then
+						OnProjectileHit i, j  ' Damage, particles, splash, chain
+						Exit For
+					End If
+				End If
+			Next
+		End If
+	Next
+End Sub
+
+' OnProjectileHit: COMBAT RESOLUTION — called when a projectile contacts an enemy.
+' 1. Deactivates the projectile slot.
+' 2. Calls e.TakeDamage(dmg) — the Enemy method that applies armor reduction.
+' 3. Spawns hit particles via SpawnExplosion.
+' 4. If splash > 0 (Cannon), applies area damage to nearby enemies.
+' 5. If lightning (Tesla), triggers recursive ChainLightning.
+Sub OnProjectileHit(projIdx As Integer, enemyIdx As Integer)
+	projActive(projIdx) = False   ' Free the projectile slot
+
+	' Direct damage — TakeDamage returns True if the enemy died
+	Dim dmg As Single = projDamage(projIdx)
+	Dim e As Variant = enemies(enemyIdx)
+	Dim killed As Boolean = e.TakeDamage(dmg)  ' Polymorphic call on Enemy subclass
+	enemies(enemyIdx) = e  ' Write back (Variant value semantics)
+
+	stats.Item("damage_dealt") = stats.Item("damage_dealt") + dmg  ' Dictionary stat
+
+	' Visual feedback — spawn particle burst at impact point
+	SpawnExplosion projX(projIdx), projY(projIdx), 5, 0.8, 0.6, 0.2
+
+	If killed Then
+		OnEnemyKilled enemyIdx
+	End If
+
+	' SPLASH DAMAGE (Cannon only): Damages all enemies within splashRadius.
+	' Damage falls off linearly with distance — enemies at the edge take less.
+	' Uses the Dist lambda for distance calculation.
+	If projSplash(projIdx) > 0 Then
+		Dim j As Integer
+		For j = 0 To enemyCount - 1
+			If j <> enemyIdx And enemies(j).alive Then
+				Dim sd As Single = Dist(projX(projIdx), projY(projIdx), enemies(j).x, enemies(j).y)
+				If sd < projSplash(projIdx) Then
+					' Linear falloff: full damage at center, 0 at edge, ×0.6 multiplier
+					Dim splashDmg As Single = dmg * (1.0 - sd / projSplash(projIdx)) * 0.6
+					Dim se As Variant = enemies(j)
+					Dim sk As Boolean = se.TakeDamage(splashDmg)
+					enemies(j) = se
+					If sk Then OnEnemyKilled j
+				End If
+			End If
+		Next
+		SpawnExplosion projX(projIdx), projY(projIdx), 15, 1.0, 0.5, 0.0
+	End If
+
+	' Tesla chain lightning
+	If projType(projIdx) = "lightning" Then
+		ChainLightning projX(projIdx), projY(projIdx), dmg * 0.6, 3, enemyIdx
+	End If
+End Sub
+
+' ChainLightning: RECURSIVE chain mechanic for Tesla towers.
+' Starting from the impact point, finds the nearest enemy within 120px,
+' deals reduced damage (×0.7 per hop), spawns a spark particle, and recurses.
+' chainsLeft decrements each hop; skipIdx prevents hitting the same target twice.
+' This is a classic recursive algorithm adapted for game combat.
+Sub ChainLightning(fromX As Single, fromY As Single, dmg As Single, chainsLeft As Integer, skipIdx As Integer)
+	If chainsLeft <= 0 Then Exit Sub   ' Base case: no more chains
+
+	' Find nearest enemy to chain to (within 120px arc range)
+	Dim bestIdx As Integer = -1
+	Dim bestDist As Single = 120  ' Maximum chain arc distance
+
+	Dim i As Integer
+	For i = 0 To enemyCount - 1
+		If i <> skipIdx And enemies(i).alive Then
+			Dim d As Single = Dist(fromX, fromY, enemies(i).x, enemies(i).y)
+			If d < bestDist Then
+				bestDist = d
+				bestIdx = i
+			End If
+		End If
+	Next
+
+	If bestIdx >= 0 Then
+		Dim e As Variant = enemies(bestIdx)
+		Dim killed As Boolean = e.TakeDamage(dmg)
+		enemies(bestIdx) = e
+
+		SpawnExplosion e.x, e.y, 3, 0.5, 0.7, 1.0
+
+		If killed Then OnEnemyKilled bestIdx
+
+		' Recurse
+		ChainLightning e.x, e.y, dmg * 0.7, chainsLeft - 1, bestIdx
+	End If
+End Sub
+
+' OnEnemyKilled: Awards gold and score, updates Dictionary stats, spawns
+' death particles. Modifying 'gold' and 'score' may trigger Whenever Sections
+' (ScoreBonus, RichPlayer) automatically — no manual event dispatch needed.
+Sub OnEnemyKilled(idx As Integer)
+	Dim e As Variant = enemies(idx)
+	gold = gold + e.goldValue         ' Award gold (triggers RichPlayer Whenever)
+	score = score + e.goldValue * 5   ' Award score (triggers ScoreBonus Whenever)
+
+	stats.Item("enemies_killed") = stats.Item("enemies_killed") + 1
+	stats.Item("gold_earned") = stats.Item("gold_earned") + e.goldValue
+
+	SpawnExplosion e.x, e.y, 12, 1.0, 0.3, 0.1
+	Print "Killed " & e.enemyName & "! +" & Str(e.goldValue) & "g  Score: " & Str(score)
+End Sub
+
+' ────────────────────────────────────────────────────────────────────────────
+' PARTICLES
+' ────────────────────────────────────────────────────────────────────────────
+
+' SpawnExplosion: Finds 'count' dead particle slots and initializes them with
+' random velocities and a base color (with slight random variation for variety).
+' Dead slots have partLife <= 0, so the pool is self-recycling — no allocation.
+Sub SpawnExplosion(cx As Single, cy As Single, count As Integer, r As Single, g As Single, b As Single)
+	Dim spawned As Integer = 0
+	Dim i As Integer
+	For i = 0 To MAX_PARTICLES - 1
+		If partLife(i) <= 0 Then  ' Slot is free — reuse it
+			partX(i) = cx
+			partY(i) = cy
+			partVX(i) = (Rnd() - 0.5) * 200
+			partVY(i) = (Rnd() - 0.5) * 200
+			partLife(i) = 0.3 + Rnd() * 0.5
+			partR(i) = r + (Rnd() - 0.5) * 0.2
+			partG(i) = g + (Rnd() - 0.5) * 0.2
+			partB(i) = b + (Rnd() - 0.5) * 0.2
+			spawned = spawned + 1
+			If spawned >= count Then Exit For
+		End If
+	Next
+End Sub
+
+' UpdateParticles: Another PARALLEL FOR — each particle is independent (SoA),
+' so iterations can run concurrently. Applies velocity, gravity, and lifetime decay.
+Sub UpdateParticles(delta As Single)
+	Parallel For i = 0 To MAX_PARTICLES - 1
+		If partLife(i) > 0 Then
+			partX(i) = partX(i) + partVX(i) * delta   ' Move X
+			partY(i) = partY(i) + partVY(i) * delta   ' Move Y
+			partVY(i) = partVY(i) + 100 * delta       ' Apply gravity (downward accel)
+			partLife(i) = partLife(i) - delta           ' Tick lifetime toward 0
+		End If
+	Next
+End Sub
+
+' ────────────────────────────────────────────────────────────────────────────
+' RENDERING — Full software-rendered game via _Draw()
+' ────────────────────────────────────────────────────────────────────────────
+
+' GODOT LIFECYCLE: _Draw() is called every frame AFTER _Process().
+' VISUALGASIC RENDERING: DrawRect, DrawCircle, DrawLine, DrawString are built-in
+' software rendering primitives — no sprites, textures, or scene nodes needed.
+' The entire game is rendered procedurally in draw-call order (painter's algorithm).
+' This makes the demo self-contained with zero external assets.
+Sub _Draw()
+	' Background — dark blue-black fills the entire screen
+	DrawRect 0, 0, SCREEN_W, SCREEN_H, Color("#0a0a1a")
+
+	' RENDER PIPELINE — back-to-front ordering (painter's algorithm):
+	DrawGrid          ' 1. Subtle grid lines
+	DrawPath           ' 2. Path floor + waypoint markers
+	DrawTowers         ' 3. Tower bodies, barrels, range circles, level stars
+	DrawEnemies        ' 4. Enemy circles, health bars, slow effects, boss labels
+	DrawProjectiles    ' 5. Bullets, cannonballs, lightning, missiles + trails
+	DrawParticles      ' 6. Explosion/spark particles (alpha-blended)
+	DrawHUD            ' 7. Bottom bar: gold, lives, score, wave, tower selector
+	DrawCursor         ' 8. Grid-snapped cursor (green/red/yellow overlay)
+	DrawOverlays       ' 9. Game over / Victory fullscreen overlays
+End Sub
+
+' DrawGrid: Renders subtle white grid lines at 3% opacity for spatial reference.
+' DrawLine(x1, y1, x2, y2, color) — one of VisualGasic's built-in draw primitives.
+' Color(r, g, b, a) creates an RGBA color with alpha transparency.
+Sub DrawGrid()
+	Dim x, y As Integer
+	For x = 0 To GRID_COLS
+		DrawLine x * CELL, 0, x * CELL, GRID_ROWS * CELL, Color(1, 1, 1, 0.03)
+	Next
+	For y = 0 To GRID_ROWS
+		DrawLine 0, y * CELL, GRID_COLS * CELL, y * CELL, Color(1, 1, 1, 0.03)
+	Next
+End Sub
+
+' DrawPath: Renders the enemy route in three layers:
+' 1. Dark filled rectangles for each path cell (floor)
+' 2. Connecting lines between waypoints (edges)
+' 3. START (green) and BASE (red) markers at endpoints.
+' Uses Color("#hex") string syntax — another way to specify colors.
+Sub DrawPath()
+	' Draw path segments — iterate waypoint pairs
+	Dim i As Integer
+	For i = 0 To pathCount - 2
+		' Path floor
+		Dim x1 As Integer = Int(pathX(i) / CELL)
+		Dim y1 As Integer = Int(pathY(i) / CELL)
+		Dim x2 As Integer = Int(pathX(i+1) / CELL)
+		Dim y2 As Integer = Int(pathY(i+1) / CELL)
+
+		' Draw filled path cells
+		Dim px, py As Integer
+		If x1 = x2 Then
+			Dim minY As Integer = IIf(y1 < y2, y1, y2)
+			Dim maxY As Integer = IIf(y1 > y2, y1, y2)
+			For py = minY To maxY
+				DrawRect x1 * CELL, py * CELL, CELL, CELL, Color("#1a1a2e")
+			Next
+		Else
+			Dim minX As Integer = IIf(x1 < x2, x1, x2)
+			Dim maxX As Integer = IIf(x1 > x2, x1, x2)
+			For px = minX To maxX
+				DrawRect px * CELL, y1 * CELL, CELL, CELL, Color("#1a1a2e")
+			Next
+		End If
+	Next
+
+	' Path edges (connecting line)
+	For i = 0 To pathCount - 2
+		DrawLine pathX(i), pathY(i), pathX(i+1), pathY(i+1), Color("#334466")
+	Next
+
+	' Start marker
+	DrawCircle pathX(0), pathY(0), 12, Color("#00FF44")
+	DrawString "START", pathX(0) - 16, pathY(0) - 22, Color("#00FF44"), 12
+
+	' End marker
+	DrawCircle pathX(pathCount - 1), pathY(pathCount - 1), 12, Color("#FF4444")
+	DrawString "BASE", pathX(pathCount-1) - 14, pathY(pathCount-1) - 22, Color("#FF4444"), 12
+End Sub
+
+' DrawTowers: Renders each alive tower with type-specific colors, a barrel
+' line rotated toward the target (using the Angle property), and gold stars
+' for level 2-3 upgrades. SELECT CASE on entityType drives color selection —
+' this is the rendering counterpart of the targeting Select Case in UpdateTowers.
+Sub DrawTowers()
+	Dim i As Integer
+	For i = 0 To towerCount - 1
+		Dim t As Variant = towers(i)
+		If Not t.alive Then GoTo NextDrawTower  ' Skip dead towers
+
+		' Show range circle when tower is selected (for upgrade/sell feedback)
+		If i = selectedPlaced Or i = showRangeFor Then
+			DrawCircle t.x, t.y, t.range, Color(1, 1, 1, 0.08)
+		End If
+
+		' SELECT CASE for type-specific rendering colors
+		Dim bodyColor As Variant
+		Dim barrelColor As Variant
+		Select Case t.entityType
+			Case "blaster"
+				bodyColor = Color("#4488FF")
+				barrelColor = Color("#66AAFF")
+			Case "cannon"
+				bodyColor = Color("#FF8844")
+				barrelColor = Color("#FFAA66")
+			Case "tesla"
+				bodyColor = Color("#44FFFF")
+				barrelColor = Color("#88FFFF")
+			Case "missile"
+				bodyColor = Color("#FF44FF")
+				barrelColor = Color("#FF88FF")
+			Case Else
+				bodyColor = Color.White
+				barrelColor = Color.Gray
+		End Select
+
+		' Base
+		DrawCircle t.x, t.y, 14, bodyColor
+
+		' Barrel (rotated toward target)
+		Dim bx As Single = t.x + Cos(t.Angle) * 16
+		Dim by As Single = t.y + Sin(t.Angle) * 16
+		DrawLine t.x, t.y, bx, by, barrelColor
+
+		' Level indicator (stars)
+		If t.level >= 2 Then
+			DrawCircle t.x - 6, t.y - 18, 3, Color("#FFD700")
+		End If
+		If t.level >= 3 Then
+			DrawCircle t.x + 6, t.y - 18, 3, Color("#FFD700")
+		End If
+
+NextDrawTower:
+	Next
+End Sub
+
+' DrawEnemies: Renders each alive enemy with type-colored circle, optional slow
+' aura (using IsSlowed property), health bar (using HealthPercent property), and
+' a "BOSS" label for boss enemies. Demonstrates Property Get in rendering context.
+Sub DrawEnemies()
+	Dim i As Integer
+	For i = 0 To enemyCount - 1
+		Dim e As Variant = enemies(i)
+		If Not e.alive Then GoTo NextDrawEnemy
+
+		' Type-specific color via Select Case
+		Dim eColor As Variant
+		Select Case e.entityType
+			Case "scout": eColor = Color("#88FF88")
+			Case "soldier": eColor = Color("#FFAA44")
+			Case "tank": eColor = Color("#FF6666")
+			Case "flyer": eColor = Color("#AAAAFF")
+			Case "boss": eColor = Color("#FF0044")
+			Case Else: eColor = Color.White
+		End Select
+
+		' Body
+		DrawCircle e.x, e.y, e.radius, eColor
+
+		' Slow effect
+		If e.IsSlowed Then
+			DrawCircle e.x, e.y, e.radius + 3, Color(0, 0.5, 1, 0.4)
+		End If
+
+		' Health bar
+		Dim hpPct As Single = e.HealthPercent
+		Dim barW As Integer = 20
+		Dim barH As Integer = 3
+		Dim barX As Single = e.x - barW / 2
+		Dim barY As Single = e.y - e.radius - 8
+
+		DrawRect barX, barY, barW, barH, Color("#440000")
+		DrawRect barX, barY, barW * hpPct, barH, Color(1 - hpPct, hpPct, 0)
+
+		' Boss label
+		If e.entityType = "boss" Then
+			DrawString "BOSS", e.x - 16, e.y - e.radius - 16, Color("#FF0044"), 12
+		End If
+
+NextDrawEnemy:
+	Next
+End Sub
+
+' DrawProjectiles: Iterates the full SoA pool (MAX_PROJECTILES), drawing only
+' active slots. Each projectile type gets a distinct color and size.
+' Missiles also draw a trailing ghost circle for a motion blur effect.
+Sub DrawProjectiles()
+	Dim i As Integer
+	For i = 0 To MAX_PROJECTILES - 1
+		If projActive(i) Then
+			Select Case projType(i)
+				Case "bullet"
+					DrawCircle projX(i), projY(i), 3, Color("#AADDFF")
+				Case "cannonball"
+					DrawCircle projX(i), projY(i), 5, Color("#FFAA44")
+				Case "lightning"
+					DrawCircle projX(i), projY(i), 4, Color("#44FFFF")
+				Case "missile"
+					DrawCircle projX(i), projY(i), 4, Color("#FF88FF")
+					' Trail
+					DrawCircle projX(i) - projVX(i)*0.02, projY(i) - projVY(i)*0.02, 2, Color(1, 0.5, 1, 0.5)
+			End Select
+		End If
+	Next
+End Sub
+
+' DrawParticles: Renders all live particles with fade-out (alpha = life × 2,
+' capped at 1) and shrink (size = life × 5). Uses per-particle RGB from the SoA.
+' Color(r, g, b, alpha) creates an RGBA color for alpha-blended rendering.
+Sub DrawParticles()
+	Dim i As Integer
+	For i = 0 To MAX_PARTICLES - 1
+		If partLife(i) > 0 Then
+			Dim alpha As Single = partLife(i) * 2    ' Fade out as life decreases
+			If alpha > 1 Then alpha = 1              ' Clamp to opaque
+			Dim sz As Single = partLife(i) * 5       ' Shrink as life decreases
+			DrawCircle partX(i), partY(i), sz, Color(partR(i), partG(i), partB(i), alpha)
+		End If
+	Next
+End Sub
+
+' DrawCursor: Grid-snapped cursor overlay — green for valid placement, red for
+' blocked, yellow for selecting an existing tower. Also shows a range preview
+' circle when placing, so the player can see coverage before committing gold.
+Sub DrawCursor()
+	If gameState = "gameover" Or gameState = "victory" Then Exit Sub
+
+	Dim cx As Single = cursorGridX * CELL
+	Dim cy As Single = cursorGridY * CELL
+
+	If selectedPlaced >= 0 Then
+		' Highlight selected tower
+		DrawRect cx, cy, CELL, CELL, Color(1, 1, 0, 0.2)
+	ElseIf canPlace Then
+		' Valid placement — green
+		DrawRect cx, cy, CELL, CELL, Color(0, 1, 0, 0.2)
+		' Show range preview
+		Dim previewRange As Single
+		Select Case selectedTower
+			Case 1: previewRange = 130
+			Case 2: previewRange = 150
+			Case 3: previewRange = 110
+			Case 4: previewRange = 200
+		End Select
+		DrawCircle cx + CELL/2, cy + CELL/2, previewRange, Color(1, 1, 1, 0.06)
+	Else
+		' Invalid — red
+		DrawRect cx, cy, CELL, CELL, Color(1, 0, 0, 0.15)
+	End If
+End Sub
+
+' DrawHUD: Renders the bottom panel with player stats, tower selector buttons,
+' selected tower info, and game state prompts. Uses STRING CONCATENATION ("&")
+' with Str() to format numbers — this is VB6-style string building.
+' DrawString(text, x, y, color, fontSize) is a built-in VisualGasic primitive.
+Sub DrawHUD()
+	' Dark panel below the grid
+	DrawRect 0, GRID_ROWS * CELL, SCREEN_W, SCREEN_H - GRID_ROWS * CELL, Color("#111122")
+
+	Dim hudY As Integer = GRID_ROWS * CELL + 4
+
+	' Resource display — VB6-style string concatenation with & operator
+	DrawString "Gold: " & Str(gold), 10, hudY, Color("#FFD700"), 18
+	DrawString "Lives: " & Str(lives), 160, hudY, Color("#FF4444"), 18
+	DrawString "Score: " & Str(score), 310, hudY, Color("#FFFFFF"), 18
+	DrawString "Wave: " & Str(wave) & "/" & Str(totalWaves), 480, hudY, Color("#88AAFF"), 18
+
+	' Tower selector
+	Dim selY As Integer = hudY + 26
+	DrawString "Towers:", 10, selY, Color("#888888"), 14
+
+	' Tower buttons
+	Dim tNames(4) As String
+	tNames(1) = "1:Blaster"
+	tNames(2) = "2:Cannon"
+	tNames(3) = "3:Tesla"
+	tNames(4) = "4:Missile"
+
+	Dim tCosts(4) As Integer
+	tCosts(1) = 50
+	tCosts(2) = 100
+	tCosts(3) = 125
+	tCosts(4) = 175
+
+	Dim tColors(4) As Variant
+	tColors(1) = Color("#4488FF")
+	tColors(2) = Color("#FF8844")
+	tColors(3) = Color("#44FFFF")
+	tColors(4) = Color("#FF44FF")
+
+	Dim ti As Integer
+	For ti = 1 To 4
+		Dim btnX As Integer = 80 + (ti - 1) * 130
+		Dim isSelected As Boolean = (ti = selectedTower)
+		Dim canAfford As Boolean = (gold >= tCosts(ti))
+
+		' Button background
+		If isSelected Then
+			DrawRect btnX, selY - 2, 120, 20, Color(1, 1, 1, 0.15)
+		End If
+
+		Dim textColor As Variant
+		If canAfford Then
+			textColor = tColors(ti)
+		Else
+			textColor = Color("#444444")
+		End If
+
+		DrawString tNames(ti) & " (" & Str(tCosts(ti)) & "g)", btnX + 4, selY, textColor, 14
+	Next
+
+	' Selected tower info
+	If selectedPlaced >= 0 Then
+		Dim st As Variant = towers(selectedPlaced)
+		If st.alive Then
+			Dim infoX As Integer = 650
+			DrawString st.towerName & " Lv." & Str(st.level), infoX, hudY, Color.White, 16
+			DrawString "DMG:" & Str(Int(st.damage)) & " RNG:" & Str(Int(st.range)), infoX, hudY + 18, Color("#AAAAAA"), 12
+			DrawString "Kills: " & Str(st.totalKills), infoX, hudY + 32, Color("#AAAAAA"), 12
+			DrawString "U:Upgrade S:Sell", infoX, hudY + 46, Color("#888888"), 11
+		End If
+	End If
+
+	' Game state indicator
+	If gameState = "building" Then
+		DrawString "Press SPACE for next wave", SCREEN_W / 2 - 100, hudY + 48, Color("#44FF44"), 14
+	ElseIf gameState = "combat" Then
+		Dim remaining As Integer = totalSpawnThisWave - spawnIndex + enemyCount
+		DrawString "Enemies remaining: " & Str(enemyCount), SCREEN_W / 2 - 80, hudY + 48, Color("#FF8844"), 14
+	End If
+End Sub
+
+' DrawOverlays: Fullscreen overlays for game-over and victory states.
+' Draws a semi-transparent black rectangle over everything, then centered text
+' with final stats pulled from the Dictionary (stats.Item("enemies_killed"), etc.).
+' This demonstrates using Dictionary values in string formatting for display.
+Sub DrawOverlays()
+	If gameState = "gameover" Then
+		DrawRect 0, 0, SCREEN_W, SCREEN_H, Color(0, 0, 0, 0.85)  ' Dim background
+		DrawString "GAME OVER", SCREEN_W/2 - 100, SCREEN_H/2 - 60, Color("#FF4444"), 48
+		DrawString "Final Score: " & Str(score), SCREEN_W/2 - 80, SCREEN_H/2, Color.White, 28
+		DrawString "Waves Survived: " & Str(wave), SCREEN_W/2 - 70, SCREEN_H/2 + 35, Color("#AAAAAA"), 20
+		DrawString "Enemies Killed: " & Str(stats.Item("enemies_killed")), SCREEN_W/2 - 70, SCREEN_H/2 + 60, Color("#AAAAAA"), 18
+		DrawString "Press R or ENTER to restart", SCREEN_W/2 - 110, SCREEN_H/2 + 100, Color("#44AAFF"), 20
+	End If
+
+	If gameState = "victory" Then
+		DrawRect 0, 0, SCREEN_W, SCREEN_H, Color(0, 0, 0.1, 0.85)
+		DrawString "VICTORY!", SCREEN_W/2 - 80, SCREEN_H/2 - 60, Color("#FFD700"), 48
+		DrawString "Final Score: " & Str(score), SCREEN_W/2 - 80, SCREEN_H/2, Color.White, 28
+		DrawString "All " & Str(totalWaves) & " waves defeated!", SCREEN_W/2 - 90, SCREEN_H/2 + 35, Color("#44FF44"), 20
+		DrawString "Gold Earned: " & Str(stats.Item("gold_earned")), SCREEN_W/2 - 70, SCREEN_H/2 + 60, Color("#FFD700"), 18
+		DrawString "Towers Built: " & Str(stats.Item("towers_built")), SCREEN_W/2 - 70, SCREEN_H/2 + 82, Color("#AAAAAA"), 18
+		DrawString "Press R or ENTER to play again", SCREEN_W/2 - 120, SCREEN_H/2 + 120, Color("#44AAFF"), 20
+	End If
+End Sub
+
+' ────────────────────────────────────────────────────────────────────────────
+' UTILITY FUNCTIONS
+' ────────────────────────────────────────────────────────────────────────────
+
+' Atn2: Custom 4-quadrant arctangent (atan2) since VB6's Atn() only handles
+' one quadrant. Returns angle in radians for tower barrel rotation.
+' Used by UpdateTowers to aim at the nearest enemy.
+Function Atn2(y As Single, x As Single) As Single
+	' 4-quadrant arctangent — handles all sign combinations of x and y
+	If x > 0 Then
+		Atn2 = Atn(y / x)
+	ElseIf x < 0 And y >= 0 Then
+		Atn2 = Atn(y / x) + 3.14159
+	ElseIf x < 0 And y < 0 Then
+		Atn2 = Atn(y / x) - 3.14159
+	ElseIf x = 0 And y > 0 Then
+		Atn2 = 1.5708
+	ElseIf x = 0 And y < 0 Then
+		Atn2 = -1.5708
+	Else
+		Atn2 = 0
+	End If
+End Function
+
+Function RandRange(minVal As Single, maxVal As Single) As Single
+	RandRange = minVal + Rnd() * (maxVal - minVal)
+End Function
+
+' IIf is a built-in VisualGasic expression — no custom definition needed
