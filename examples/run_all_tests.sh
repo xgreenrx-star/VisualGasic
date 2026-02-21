@@ -1,6 +1,6 @@
 #!/bin/bash
 
-GODOT_BIN="/home/Commodore/Documents/VisualGasic/Godot_v4.5.1-stable_linux.x86_64"
+GODOT_BIN="/home/Commodore/Documents/VisualGasic/Godot_v4.6.1-stable_linux.x86_64"
 TEST_DIR="/home/Commodore/Documents/VisualGasic/examples"
 
 echo "Starting Visual Gasic Test Suite..."

@@ -2415,7 +2415,7 @@ audio and shooting mechanic. Both are complete, playable games.
 cd demos/2D_Games/Platformer/
 
 # Run with Godot:
-/path/to/Godot_v4.5.1-stable_linux.x86_64 --path .
+/path/to/Godot_v4.6.1-stable_linux.x86_64 --path .
 ```
 
 **Controls:**
@@ -3019,7 +3019,7 @@ giving near-native performance with familiar VB6-style function syntax.
 cd demos/3D_Games/Squash_The_Creeps/
 
 # Run with Godot (adjust path to your Godot binary):
-/path/to/Godot_v4.5.1-stable_linux.x86_64 --path .
+/path/to/Godot_v4.6.1-stable_linux.x86_64 --path .
 ```
 
 **Controls:**

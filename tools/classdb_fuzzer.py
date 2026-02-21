@@ -1337,7 +1337,7 @@ def main():
     parser = argparse.ArgumentParser(description="VisualGasic ClassDB Fuzzer")
     parser.add_argument("--run", action="store_true", help="Generate AND run fuzz tests")
     parser.add_argument("--verbose", action="store_true", help="Show all Godot output")
-    parser.add_argument("--godot", default=str(WORKSPACE / "Godot_v4.5.1-stable_linux.x86_64"))
+    parser.add_argument("--godot", default=str(WORKSPACE / "Godot_v4.6.1-stable_linux.x86_64"))
     args = parser.parse_args()
 
     print("VisualGasic ClassDB Fuzzer")

@@ -1,6 +1,6 @@
 ' test_compiler_features.vg
 ' Tests Select Case, For Each, and object method calls in bytecode
-' Run: ./Godot_v4.5.1-stable_linux.x86_64 --headless -s run_test_modern.gd -- test_compiler_features.vg
+' Run: ./Godot_v4.6.1-stable_linux.x86_64 --headless -s run_test_modern.gd -- test_compiler_features.vg
 
 Sub Main()
     Print "=== Testing Bytecode Compiler Features ==="

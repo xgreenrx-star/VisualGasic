@@ -1,4 +1,4 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene format=3]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_qbomg"]
 bg_color = Color(0, 0, 0.5, 1)
@@ -9,7 +9,7 @@ bg_color = Color(1, 1, 1, 1)
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_1l4do"]
 bg_color = Color(1, 1, 1, 1)
 
-[node name="Calculate" type="Control"]
+[node name="Calculate" type="Control" unique_id=455124292]
 custom_minimum_size = Vector2(202, 238)
 layout_mode = 3
 anchors_preset = 0
@@ -25,7 +25,7 @@ metadata/link_topic = "Form1"
 metadata/has_max_button = false
 metadata/has_min_button = false
 
-[node name="Num_10" type="Button" parent="."]
+[node name="Num_10" type="Button" parent="." unique_id=1198705363]
 custom_minimum_size = Vector2(33, 33)
 layout_mode = 0
 offset_left = 56.0
@@ -41,7 +41,7 @@ metadata/font_italic = false
 metadata/font_underline = false
 metadata/tab_index = 19
 
-[node name="Pow" type="Button" parent="."]
+[node name="Pow" type="Button" parent="." unique_id=926996700]
 custom_minimum_size = Vector2(41, 25)
 layout_mode = 0
 offset_left = 152.0
@@ -57,7 +57,7 @@ metadata/font_italic = false
 metadata/font_underline = false
 metadata/tab_index = 18
 
-[node name="Mod" type="Button" parent="."]
+[node name="Mod" type="Button" parent="." unique_id=1132051756]
 custom_minimum_size = Vector2(41, 25)
 layout_mode = 0
 offset_left = 152.0
@@ -73,7 +73,7 @@ metadata/font_italic = false
 metadata/font_underline = false
 metadata/tab_index = 17
 
-[node name="Exit" type="Button" parent="."]
+[node name="Exit" type="Button" parent="." unique_id=1612042972]
 custom_minimum_size = Vector2(49, 25)
 layout_mode = 0
 offset_left = 8.0
@@ -85,7 +85,7 @@ text = "Exit"
 metadata/vb6_class = "VB.CommandButton"
 metadata/tab_index = 16
 
-[node name="Result" type="Button" parent="."]
+[node name="Result" type="Button" parent="." unique_id=282725061]
 custom_minimum_size = Vector2(73, 25)
 layout_mode = 0
 offset_left = 72.0
@@ -101,7 +101,7 @@ metadata/font_italic = false
 metadata/font_underline = false
 metadata/tab_index = 15
 
-[node name="Div" type="Button" parent="."]
+[node name="Div" type="Button" parent="." unique_id=346309406]
 custom_minimum_size = Vector2(41, 25)
 layout_mode = 0
 offset_left = 152.0
@@ -117,7 +117,7 @@ metadata/font_italic = false
 metadata/font_underline = false
 metadata/tab_index = 14
 
-[node name="Sub" type="Button" parent="."]
+[node name="Sub" type="Button" parent="." unique_id=831099536]
 custom_minimum_size = Vector2(41, 25)
 layout_mode = 0
 offset_left = 152.0
@@ -133,7 +133,7 @@ metadata/font_italic = false
 metadata/font_underline = false
 metadata/tab_index = 13
 
-[node name="Add" type="Button" parent="."]
+[node name="Add" type="Button" parent="." unique_id=165797031]
 custom_minimum_size = Vector2(41, 25)
 layout_mode = 0
 offset_left = 152.0
@@ -150,7 +150,7 @@ metadata/font_italic = false
 metadata/font_underline = false
 metadata/tab_index = 12
 
-[node name="Mul" type="Button" parent="."]
+[node name="Mul" type="Button" parent="." unique_id=1256131038]
 custom_minimum_size = Vector2(41, 25)
 layout_mode = 0
 offset_left = 152.0
@@ -166,7 +166,7 @@ metadata/font_italic = false
 metadata/font_underline = false
 metadata/tab_index = 11
 
-[node name="Num_9" type="Button" parent="."]
+[node name="Num_9" type="Button" parent="." unique_id=1266890536]
 custom_minimum_size = Vector2(33, 33)
 layout_mode = 0
 offset_left = 8.0
@@ -177,7 +177,7 @@ text = "0"
 metadata/vb6_class = "VB.CommandButton"
 metadata/tab_index = 10
 
-[node name="Num_8" type="Button" parent="."]
+[node name="Num_8" type="Button" parent="." unique_id=1224178459]
 custom_minimum_size = Vector2(33, 33)
 layout_mode = 0
 offset_left = 104.0
@@ -188,7 +188,7 @@ text = "9"
 metadata/vb6_class = "VB.CommandButton"
 metadata/tab_index = 9
 
-[node name="Num_7" type="Button" parent="."]
+[node name="Num_7" type="Button" parent="." unique_id=1764011676]
 custom_minimum_size = Vector2(33, 33)
 layout_mode = 0
 offset_left = 56.0
@@ -199,7 +199,7 @@ text = "8"
 metadata/vb6_class = "VB.CommandButton"
 metadata/tab_index = 8
 
-[node name="Num_6" type="Button" parent="."]
+[node name="Num_6" type="Button" parent="." unique_id=1240789836]
 custom_minimum_size = Vector2(33, 33)
 layout_mode = 0
 offset_left = 8.0
@@ -210,7 +210,7 @@ text = "7"
 metadata/vb6_class = "VB.CommandButton"
 metadata/tab_index = 7
 
-[node name="Num_5" type="Button" parent="."]
+[node name="Num_5" type="Button" parent="." unique_id=1542052967]
 custom_minimum_size = Vector2(33, 33)
 layout_mode = 0
 offset_left = 104.0
@@ -221,7 +221,7 @@ text = "6"
 metadata/vb6_class = "VB.CommandButton"
 metadata/tab_index = 6
 
-[node name="Num_4" type="Button" parent="."]
+[node name="Num_4" type="Button" parent="." unique_id=279386265]
 custom_minimum_size = Vector2(33, 33)
 layout_mode = 0
 offset_left = 56.0
@@ -232,7 +232,7 @@ text = "5"
 metadata/vb6_class = "VB.CommandButton"
 metadata/tab_index = 5
 
-[node name="Num_3" type="Button" parent="."]
+[node name="Num_3" type="Button" parent="." unique_id=1769181494]
 custom_minimum_size = Vector2(33, 33)
 layout_mode = 0
 offset_left = 8.0
@@ -243,7 +243,7 @@ text = "4"
 metadata/vb6_class = "VB.CommandButton"
 metadata/tab_index = 4
 
-[node name="Num_2" type="Button" parent="."]
+[node name="Num_2" type="Button" parent="." unique_id=1556754917]
 custom_minimum_size = Vector2(33, 33)
 layout_mode = 0
 offset_left = 104.0
@@ -254,7 +254,7 @@ text = "3"
 metadata/vb6_class = "VB.CommandButton"
 metadata/tab_index = 3
 
-[node name="Num_1" type="Button" parent="."]
+[node name="Num_1" type="Button" parent="." unique_id=2002382294]
 custom_minimum_size = Vector2(33, 33)
 layout_mode = 0
 offset_left = 56.0
@@ -265,7 +265,7 @@ text = "2"
 metadata/vb6_class = "VB.CommandButton"
 metadata/tab_index = 2
 
-[node name="Num_0" type="Button" parent="."]
+[node name="Num_0" type="Button" parent="." unique_id=1065000309]
 custom_minimum_size = Vector2(33, 33)
 layout_mode = 0
 offset_left = 8.0
@@ -276,7 +276,7 @@ text = "1"
 metadata/vb6_class = "VB.CommandButton"
 metadata/tab_index = 1
 
-[node name="TextBox" type="LineEdit" parent="."]
+[node name="TextBox" type="LineEdit" parent="." unique_id=865312340]
 custom_minimum_size = Vector2(185, 25)
 layout_mode = 0
 offset_left = 8.0

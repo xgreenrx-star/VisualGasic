@@ -799,7 +799,7 @@ def run_tests(godot_bin):
 def main():
     parser = argparse.ArgumentParser(description="VisualGasic automated test generator")
     parser.add_argument("--run", action="store_true", help="Generate AND run tests")
-    parser.add_argument("--godot", default=str(WORKSPACE / "Godot_v4.5.1-stable_linux.x86_64"),
+    parser.add_argument("--godot", default=str(WORKSPACE / "Godot_v4.6.1-stable_linux.x86_64"),
                         help="Path to Godot executable")
     parser.add_argument("--generate-only", action="store_true", help="Only generate, don't run")
     args = parser.parse_args()

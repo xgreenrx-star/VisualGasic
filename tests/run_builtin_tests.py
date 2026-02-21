@@ -41,7 +41,7 @@ if __name__ == '__main__':
         sys.exit(rc)
 
     # Run headless demo test runner
-    rc, out_lines = run('./Godot_v4.5.1-stable_linux.x86_64 --path demo --no-window -s run_builtins.gd')
+    rc, out_lines = run('./Godot_v4.6.1-stable_linux.x86_64 --path demo --no-window -s run_builtins.gd')
     if rc != 0:
         print('Godot run failed')
         sys.exit(rc)

@@ -10,7 +10,7 @@
 
 set -euo pipefail
 
-GODOT="./Godot_v4.5.1-stable_linux.x86_64"
+GODOT="./Godot_v4.6.1-stable_linux.x86_64"
 TEST_DIR="test_proj/test_suite"
 RUNNER="run_suite.gd"
 TIMEOUT_SECS=20
