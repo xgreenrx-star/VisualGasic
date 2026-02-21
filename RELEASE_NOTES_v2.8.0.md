@@ -12,7 +12,7 @@ This release introduces the **C++ Form Designer** — a fully custom WYSIWYG for
 
 ### 🖼️ VB6-Style Form Designer IDE
 
-![Form Designer IDE](docs/screenshots/form_designer_ide.png)
+![Form Designer IDE](https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/v2.8.0/docs/screenshots/form_designer_ide.png)
 
 The new form designer features:
 - **40+ VB6 controls** in a tabbed Toolbox (2D Tools / 3D Tools)
