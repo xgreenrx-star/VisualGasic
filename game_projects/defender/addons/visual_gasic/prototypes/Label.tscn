@@ -1,6 +1,11 @@
-[gd_scene format=3]
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://addons/visual_gasic/vg_label.gd" id="1"]
 
 [node name="Label" type="Label"]
+custom_minimum_size = Vector2(100, 16)
 offset_right = 100.0
-offset_bottom = 30.0
+offset_bottom = 16.0
 text = "Label"
+vertical_alignment = 1
+script = ExtResource("1")

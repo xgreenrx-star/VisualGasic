@@ -1,0 +1,113 @@
+' demo_crypto.vg — Cryptography & Encoding Demo
+' Shows hashing, AES encryption, Base64 encoding, UUIDs, and HMAC
+
+Sub Main()
+    Print "=== Cryptography Demo ==="
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 1. Hashing — generate checksums of strings
+    ' ---------------------------------------------------------------
+    Print "--- Hashing ---"
+
+    Dim message As String
+    message = "Hello, VisualGasic!"
+
+    Print "  Text:    " & message
+    Print "  MD5:     " & VGCrypto.MD5(message)
+    Print "  SHA1:    " & VGCrypto.SHA1(message)
+    Print "  SHA256:  " & VGCrypto.SHA256(message)
+
+    ' Hash a different string to show they change
+    Print ""
+    Print "  MD5(abc):  " & VGCrypto.MD5("abc")
+    Print "  MD5(abcd): " & VGCrypto.MD5("abcd")
+
+    ' ---------------------------------------------------------------
+    ' 2. Base64 Encoding / Decoding
+    ' ---------------------------------------------------------------
+    Print ""
+    Print "--- Base64 Encoding ---"
+
+    Dim original As String
+    original = "The quick brown fox jumps over the lazy dog"
+
+    Dim encoded As String
+    encoded = VGCrypto.base64_encode(original.to_utf8_buffer())
+    Print "  Original: " & original
+    Print "  Encoded:  " & encoded
+
+    Dim decoded As Variant
+    decoded = VGCrypto.base64_decode(encoded)
+    Print "  Decoded:  " & decoded.get_string_from_utf8()
+
+    ' ---------------------------------------------------------------
+    ' 3. Hex Encoding
+    ' ---------------------------------------------------------------
+    Print ""
+    Print "--- Hex Encoding ---"
+
+    Dim hexData As String
+    hexData = VGCrypto.hex_encode(original.to_utf8_buffer())
+    Print "  Hex: " & Left(hexData, 40) & "..."
+
+    ' ---------------------------------------------------------------
+    ' 4. AES-256 Encryption / Decryption
+    ' ---------------------------------------------------------------
+    Print ""
+    Print "--- AES-256 Encryption ---"
+
+    Dim secret As String
+    secret = "This is my secret data!"
+
+    Dim key As String
+    key = "MySecretKey12345MySecretKey12345"  ' 32 bytes for AES-256
+
+    Dim encrypted As Variant
+    encrypted = VGCrypto.encrypt_aes(secret.to_utf8_buffer(), key.to_utf8_buffer())
+    Print "  Original:   " & secret
+    Print "  Encrypted:  " & VGCrypto.hex_encode(encrypted) 
+
+    Dim decrypted As Variant
+    decrypted = VGCrypto.decrypt_aes(encrypted, key.to_utf8_buffer())
+    Print "  Decrypted:  " & decrypted.get_string_from_utf8()
+
+    ' ---------------------------------------------------------------
+    ' 5. Random Bytes & UUID
+    ' ---------------------------------------------------------------
+    Print ""
+    Print "--- Random & UUID ---"
+
+    Dim randomData As Variant
+    randomData = VGCrypto.random_bytes(16)
+    Print "  16 Random Bytes (hex): " & VGCrypto.hex_encode(randomData)
+
+    Dim uuid As String
+    uuid = VGCrypto.generate_uuid()
+    Print "  UUID: " & uuid
+
+    ' Generate a few more to show they're unique
+    Print "  UUID: " & VGCrypto.generate_uuid()
+    Print "  UUID: " & VGCrypto.generate_uuid()
+
+    ' ---------------------------------------------------------------
+    ' 6. HMAC (Hash-based Message Authentication Code)
+    ' ---------------------------------------------------------------
+    Print ""
+    Print "--- HMAC-SHA256 ---"
+
+    Dim hmacKey As String
+    hmacKey = "my-signing-key"
+
+    Dim payload As String
+    payload = "important data to verify"
+
+    Dim signature As String
+    signature = VGCrypto.hmac_sha256(payload.to_utf8_buffer(), hmacKey.to_utf8_buffer())
+    Print "  Payload:   " & payload
+    Print "  HMAC Key:  " & hmacKey
+    Print "  Signature: " & signature
+
+    Print ""
+    Print "=== Crypto Demo Complete ==="
+End Sub

@@ -1,0 +1,260 @@
+' test_v3_features.vg — Smoke test for all v3.0 system-integration features
+' Tests: Crypto, XML, ZIP, Tasks, PackageManager, FFI (NativeLibrary)
+'
+' Run with: Godot --headless -s run_v3_features.gd
+
+Dim passed As Integer
+Dim failed As Integer
+passed = 0
+failed = 0
+
+Sub Assert(condition As Boolean, testName As String)
+    If condition Then
+        Print "  PASS: " & testName
+        passed = passed + 1
+    Else
+        Print "  FAIL: " & testName
+        failed = failed + 1
+    End If
+End Sub
+
+Sub Main()
+    Print "=== VisualGasic v3.0 System Integration Tests ==="
+    Print ""
+
+    ' ================================================================
+    ' 1. VGCrypto — Hashing, Encoding, UUID
+    ' ================================================================
+    Print "--- VGCrypto ---"
+
+    Dim md5 As String
+    md5 = VGCrypto.MD5("hello")
+    Assert Len(md5) = 32, "MD5 returns 32-char hex string"
+    Assert md5 = "5d41402abc4b2a76b9719d911017c592", "MD5(hello) matches known hash"
+
+    Dim sha1 As String
+    sha1 = VGCrypto.SHA1("hello")
+    Assert Len(sha1) = 40, "SHA1 returns 40-char hex string"
+
+    Dim sha256 As String
+    sha256 = VGCrypto.SHA256("hello")
+    Assert Len(sha256) = 64, "SHA256 returns 64-char hex string"
+
+    ' Base64 round-trip
+    Dim b64 As String
+    b64 = VGCrypto.base64_encode("test data".to_utf8_buffer())
+    Assert Len(b64) > 0, "Base64 encode produces output"
+    Dim decoded As Variant
+    decoded = VGCrypto.base64_decode(b64)
+    Assert decoded.get_string_from_utf8() = "test data", "Base64 round-trip matches"
+
+    ' Hex round-trip
+    Dim hexStr As String
+    hexStr = VGCrypto.hex_encode("AB".to_utf8_buffer())
+    Assert Len(hexStr) > 0, "Hex encode produces output"
+
+    ' UUID
+    Dim uuid As String
+    uuid = VGCrypto.generate_uuid()
+    Assert Len(uuid) = 36, "UUID is 36 chars (with dashes)"
+    Assert VGCrypto.generate_uuid() <> uuid, "Two UUIDs are different"
+
+    ' Random bytes
+    Dim rnd As Variant
+    rnd = VGCrypto.random_bytes(32)
+    Assert rnd.size() = 32, "random_bytes(32) returns 32 bytes"
+    Print ""
+
+    ' ================================================================
+    ' 2. VGXml — Parse and Query XML
+    ' ================================================================
+    Print "--- VGXml ---"
+
+    Dim xml As Object
+    Set xml = New VGXml
+
+    Dim xmlStr As String
+    xmlStr = "<root><item name=""A"">First</item><item name=""B"">Second</item></root>"
+    xml.LoadString xmlStr
+
+    Dim tree As Variant
+    tree = xml.Parse()
+    Assert tree["tag"] = "root", "XML root tag is 'root'"
+    Assert tree["children"].size() = 2, "XML has 2 child nodes"
+
+    Dim items As Variant
+    items = xml.SelectNodes("root/item")
+    Assert items.size() = 2, "SelectNodes finds 2 items"
+
+    Dim first As Variant
+    first = xml.SelectSingleNode("root/item")
+    Assert first <> Null, "SelectSingleNode returns a node"
+
+    ' Save and reload
+    xml.SaveFile "user://test_v3_xml.xml"
+    Dim xml2 As Object
+    Set xml2 = New VGXml
+    xml2.LoadFile "user://test_v3_xml.xml"
+    Dim content As String
+    content = xml2.ToString()
+    Assert Len(content) > 0, "XML reload produces content"
+    Print ""
+
+    ' ================================================================
+    ' 3. VGZip — Create and Read ZIP archives
+    ' ================================================================
+    Print "--- VGZip ---"
+
+    Dim zipW As Object
+    Set zipW = New VGZip
+
+    Dim openOk As Boolean
+    openOk = zipW.OpenWrite("user://test_v3.zip")
+    Assert openOk = True, "OpenWrite creates ZIP"
+
+    zipW.AddText "hello.txt", "Hello from ZIP!"
+    zipW.AddText "data/config.txt", "key=value"
+    zipW.Close
+
+    ' Read it back
+    Dim zipR As Object
+    Set zipR = New VGZip
+    zipR.OpenRead "user://test_v3.zip"
+    Assert zipR.IsOpen = True, "OpenRead opens ZIP"
+    Assert zipR.FileCount >= 2, "ZIP has at least 2 files"
+
+    Dim fileList As Variant
+    fileList = zipR.ListFiles()
+    Assert fileList.size() >= 2, "ListFiles returns entries"
+
+    Assert zipR.file_exists("hello.txt") = True, "file_exists finds hello.txt"
+
+    Dim txt As String
+    txt = zipR.read_text("hello.txt")
+    Assert txt = "Hello from ZIP!", "read_text returns correct content"
+
+    ' Extract
+    Dim extractOk As Boolean
+    extractOk = zipR.extract_to("user://test_v3_extracted/")
+    Assert extractOk = True, "extract_to succeeds"
+
+    zipR.Close
+    Print ""
+
+    ' ================================================================
+    ' 4. VGTask / VGTaskRunner — Async Operations
+    ' ================================================================
+    Print "--- VGTask ---"
+
+    Dim task As Object
+    Set task = New VGTask
+    Assert Not task Is Nothing, "New VGTask creates object"
+    Assert task.Status = "pending", "Initial status is pending"
+    Assert task.IsComplete = False, "Not complete initially"
+
+    ' Test cancellation
+    Dim cancelTask As Object
+    Set cancelTask = New VGTask
+    cancelTask.Cancel
+    Assert cancelTask.IsCancelled = True, "Cancel sets IsCancelled"
+    Assert cancelTask.Status = "cancelled", "Cancelled status string"
+
+    ' TaskRunner
+    Dim runner As Object
+    Set runner = New VGTaskRunner
+    Assert Not runner Is Nothing, "New VGTaskRunner creates object"
+    Print ""
+
+    ' ================================================================
+    ' 5. VisualGasicPackage — Package Manager
+    ' ================================================================
+    Print "--- VisualGasicPackage ---"
+
+    Dim pkg As Object
+    Set pkg = New VisualGasicPackage
+    Assert Not pkg Is Nothing, "New VisualGasicPackage creates object"
+
+    pkg.Initialize "res://"
+
+    ' Add a registry
+    pkg.AddRegistry "test-registry", "https://example.com/packages"
+    Dim regs As Variant
+    regs = pkg.get_registries()
+    Assert regs.size() > 0, "Registry added"
+
+    ' Check no packages installed initially
+    Dim installed As Variant
+    installed = pkg.get_installed_packages()
+    Assert installed.size() = 0, "No packages installed initially"
+
+    ' Add and remove a dependency
+    pkg.add_dependency "test-pkg", "^1.0.0"
+    Dim deps As Variant
+    deps = pkg.get_project_dependencies()
+    Assert deps.size() > 0, "Dependency added"
+
+    pkg.remove_dependency "test-pkg"
+    deps = pkg.get_project_dependencies()
+    Assert deps.size() = 0, "Dependency removed"
+
+    pkg.Shutdown
+    Print ""
+
+    ' ================================================================
+    ' 6. VGNativeLibrary — FFI (load libm)
+    ' ================================================================
+    Print "--- VGNativeLibrary (FFI) ---"
+
+    Dim lib As Object
+    Set lib = New NativeLibrary
+    Assert Not lib Is Nothing, "New NativeLibrary creates object"
+
+    Dim loaded As Boolean
+    loaded = lib.Load("libm.so.6")
+
+    If loaded Then
+        Assert lib.IsLoaded = True, "Library reports loaded"
+        Assert Len(lib.Path) > 0, "Library path is set"
+
+        Dim sqrtResult As Variant
+        sqrtResult = lib.QuickCall("sqrt", 144.0)
+        Assert Abs(sqrtResult - 12.0) < 0.001, "sqrt(144) = 12"
+
+        sqrtResult = lib.QuickCall("sqrt", 25.0)
+        Assert Abs(sqrtResult - 5.0) < 0.001, "sqrt(25) = 5"
+
+        Dim cosResult As Variant
+        cosResult = lib.QuickCall("cos", 0.0)
+        Assert Abs(cosResult - 1.0) < 0.001, "cos(0) = 1"
+
+        lib.Unload
+        Assert lib.IsLoaded = False, "Library unloaded"
+    Else
+        Print "  SKIP: libm.so.6 not found (" & lib.LastError & ")"
+    End If
+
+    ' NativeStruct
+    Dim s As Object
+    Set s = New NativeStruct
+    s.AddField "x", "int"
+    s.AddField "y", "int"
+    Assert s.FieldCount = 2, "Struct has 2 fields"
+    Assert s.Size > 0, "Struct size > 0"
+
+    Dim handle As Integer
+    handle = s.Create()
+    s.SetField handle, "x", 42
+    Assert s.GetField(handle, "x") = 42, "Struct set/get field"
+    s.Destroy handle
+    Print ""
+
+    ' ================================================================
+    ' Summary
+    ' ================================================================
+    Print "============================================"
+    Print "RESULTS: " & CStr(passed) & " passed, " & CStr(failed) & " failed"
+    Print "============================================"
+    If failed = 0 Then
+        Print "All v3.0 System Integration tests PASSED!"
+    End If
+End Sub

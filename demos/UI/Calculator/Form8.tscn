@@ -1,0 +1,14 @@
+[gd_scene format=3 uid="uid://cf5u73oryvhjv"]
+
+[ext_resource type="Script" uid="uid://dpmjycbb7xr6m" path="res://addons/visual_gasic/form_editor_helper.gd" id="1_bwu87"]
+
+[node name="Form8" type="Window" unique_id=1369251792]
+title = "Form8"
+position = Vector2i(10, 36)
+size = Vector2i(400, 300)
+
+[node name="_FormBackground" type="Panel" parent="." unique_id=1943741394]
+offset_right = 400.0
+offset_bottom = 300.0
+mouse_filter = 1
+script = ExtResource("1_bwu87")

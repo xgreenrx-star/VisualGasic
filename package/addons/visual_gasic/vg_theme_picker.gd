@@ -3,12 +3,12 @@ extends Window
 ## VG Theme Picker — Visual dialog for selecting and previewing editor themes.
 ## Shows a live preview of each theme's color scheme.
 
-const VGThemeManager = preload("res://addons/visual_gasic/vg_theme_manager.gd")
+## VGThemeManager is available globally via class_name
 
 signal vg_theme_changed(theme_name: String)
 
 var _theme_list: ItemList
-var _preview_edit: TextEdit
+var _preview_edit: CodeEdit
 var _apply_btn: Button
 var _current_theme_name: String = ""
 
@@ -90,11 +90,14 @@ func _ready():
 	preview_label.add_theme_font_size_override("font_size", 15)
 	right_panel.add_child(preview_label)
 
-	_preview_edit = TextEdit.new()
+	_preview_edit = CodeEdit.new()
 	_preview_edit.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_preview_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_preview_edit.editable = false
 	_preview_edit.text = PREVIEW_CODE
+	_preview_edit.gutters_draw_line_numbers = true
+	_preview_edit.set("line_folding_enabled", true)
+	_preview_edit.set("gutters_draw_folding", true)
 	right_panel.add_child(_preview_edit)
 
 	# Populate
@@ -144,9 +147,42 @@ func _apply_theme_preview(theme_data):
 	if not theme_data or not _preview_edit:
 		return
 	
+	# Editor chrome colors
 	_preview_edit.add_theme_color_override("background_color", theme_data.background_color)
 	_preview_edit.add_theme_color_override("font_color", theme_data.text_color)
 	_preview_edit.add_theme_color_override("caret_color", theme_data.caret_color)
 	_preview_edit.add_theme_color_override("selection_color", theme_data.selection_color)
 	_preview_edit.add_theme_color_override("current_line_color", theme_data.current_line_color)
 	_preview_edit.add_theme_color_override("line_number_color", theme_data.line_number_color)
+	
+	# Build a CodeHighlighter with this theme's syntax colors
+	var hl = CodeHighlighter.new()
+	
+	# Keywords
+	for kw in VGIntelliSense.VB6_KEYWORDS:
+		hl.add_keyword_color(kw, theme_data.keyword_color)
+	
+	# Types
+	for tp in VGIntelliSense.VB6_TYPES:
+		hl.add_keyword_color(tp, theme_data.type_color)
+	for tp in VGIntelliSense.GODOT_TYPES:
+		hl.add_keyword_color(tp, theme_data.type_color)
+	
+	# Built-in functions
+	for func_info in VGIntelliSense.BUILTIN_FUNCTIONS:
+		hl.add_keyword_color(func_info["name"], theme_data.builtin_color)
+	
+	# Strings
+	hl.add_color_region('"', '"', theme_data.string_color)
+	
+	# Comments (single-line: ' and REM)
+	hl.add_color_region("'", "", theme_data.comment_color, true)
+	hl.add_color_region("REM ", "", theme_data.comment_color, true)
+	
+	# Other token colors
+	hl.number_color = theme_data.number_color
+	hl.symbol_color = theme_data.operator_color
+	hl.function_color = theme_data.function_color
+	hl.member_variable_color = theme_data.property_color
+	
+	_preview_edit.syntax_highlighter = hl

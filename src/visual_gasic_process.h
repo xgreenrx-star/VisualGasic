@@ -40,6 +40,13 @@ class VGProcess : public RefCounted {
     int stdout_fd;
     int stderr_fd;
     int child_pid;
+#ifdef _WIN32
+    void *win_stdin_write;
+    void *win_stdout_read;
+    void *win_stderr_read;
+    void *win_process;
+    void *win_thread;
+#endif
 
 protected:
     static void _bind_methods();

@@ -5,6 +5,144 @@ All notable changes to Visual Gasic will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.0] - February 2026
+
+### Added — System-Level Programming
+
+Closes every gap identified in the system-programming audit. VisualGasic is now a proper system-level language on Linux, Windows, macOS, and Android.
+
+**System Information (VGSystem)**
+- `Hostname`, `Username`, `ProcessId` — host identity
+- `CpuCount`, `CpuName`, `Architecture` — CPU details
+- `TotalMemory`, `FreeMemory`, `UsedMemory`, `MemoryUsagePercent` — RAM stats (bytes)
+- `FreeDiskSpace(path)`, `TotalDiskSpace(path)`, `DiskUsagePercent(path)` — disk stats
+- `OsName`, `OsVersion`, `OsFull`, `Endianness`, `Uptime` — OS details
+- `GetEnv()`, `SetEnv()`, `HasEnv()`, `GetAllEnv()` — environment variables
+- `GetLocale()`, `GetLanguage()`, `GetTimezone()`, `GetTimezoneOffset()` — locale
+- `GetSystemInfo()` — single Dictionary with everything
+
+**OS Signal Handling (VGSignalHandler)**
+- `OnInterrupt(handler)`, `OnTerminate(handler)`, `OnHangup(handler)` — SIGINT/SIGTERM/SIGHUP
+- `OnUser1(handler)`, `OnUser2(handler)` — SIGUSR1/SIGUSR2
+- `OnExit(handler)` — atexit cleanup
+- `SetHandler(name, handler)`, `RemoveHandler(name)`, `HasHandler(name)`
+- `RaiseSignal(name)` — send signal to self
+- Windows: SetConsoleCtrlHandler for Ctrl+C/Close/Logoff/Shutdown
+
+**File Permissions (VGFilePermissions)**
+- `Chmod(path, mode)`, `GetPermissions(path)`, `GetPermissionsString(path)` — UNIX permissions
+- `IsReadable(path)`, `IsWritable(path)`, `IsExecutable(path)` — access checks
+- `Chown(path, owner, group)`, `GetOwner(path)`, `GetGroup(path)` — ownership
+- `CreateSymlink()`, `CreateHardlink()`, `IsSymlink()`, `ReadSymlink()` — links
+- `LockFile()`, `TryLockFile()`, `UnlockFile()`, `IsLocked()` — file locking (flock/LockFileEx)
+- `GetAttr(path)`, `SetAttr(path, flags)` — VB6-style file attributes (1=ReadOnly, 2=Hidden, etc.)
+- `GetFileInfo(path)`, `FileLen(path)`, `FileType(path)` — file metadata
+
+**Raw Memory Buffer (VGMemoryBuffer)**
+- `Allocate(size)`, `Resize(size)`, `Free()`, `Fill(byte)`, `Clear()` — lifecycle
+- `PeekByte/Int16/UInt16/Int32/Int64/Float/Double/String(offset)` — typed reads
+- `PokeByte/Int16/UInt16/Int32/Int64/Float/Double/String(offset, value)` — typed writes
+- `CopyTo(dest, srcOff, dstOff, len)`, `CopyFrom(src, ...)` — bulk copy
+- `ToByteArray()`, `FromByteArray()` — PackedByteArray conversion
+- `FindByte(value)`, `FindPattern(bytes)` — search
+- `HexDump(offset, len)` — debug hex dump
+- `GetPointer()` — raw int64 address for FFI interop
+
+**Inter-Process Communication (VGIPC)**
+- Named Pipes: `CreateNamedPipe()`, `OpenPipe()`, `ReadPipe()`, `WritePipe()`, `ClosePipe()`
+- UNIX Domain Sockets: `CreateDomainSocket()`, `ConnectDomainSocket()`, `AcceptConnection()`, `ReadSocket()`, `WriteSocket()`, `CloseSocket()`
+- Shared Memory: `CreateSharedMemory(name, size)`, `OpenSharedMemory()`, `WriteSharedMemory()`, `ReadSharedMemory()`, `CloseSharedMemory()`
+- Byte-level variants: `ReadPipeBytes()`, `WritePipeBytes()`, `ReadSocketBytes()`, `WriteSocketBytes()`, `ReadSharedMemoryBytes()`, `WriteSharedMemoryBytes()`
+- Status: `PipeIsOpen`, `SocketIsOpen`, `ShmIsOpen`, `LastError`
+
+**Real Threading (Multitask Runtime)**
+- `Task.Run` now uses real `std::thread` with per-thread scope cloning
+- `Parallel For` uses partitioned workers across `hardware_concurrency()` cores
+- `Parallel Section` uses atomic work-stealing pattern
+- Serial fallback for ≤4 iterations to avoid thread overhead
+
+**Android Bridge (VGAndroidBridge)**
+- Device Info: `SdkVersion`, `DeviceModel`, `DeviceManufacturer`, `AndroidVersion`, `PackageName`, `AppVersion`, `DeviceId`
+- Permissions: `HasPermission()`, `RequestPermission()`, `RequestPermissions()`, `GetGrantedPermissions()`
+- Intents: `OpenUrl()`, `ShareText()`, `SendEmail()`, `OpenAppSettings()`
+- UI: `ShowToast()`, `Vibrate()`
+- Storage: `ExternalStoragePath`, `CacheDir`, `FilesDir`
+- Sensors: `GetBatteryInfo()` — level, status, charging
+- System: `IsAndroid()`, `KeepScreenOn()`
+- Safe no-ops on non-Android platforms
+
+### Changed
+- SConstruct now links `-lrt` and `-lpthread` on Linux for shared memory and threading
+- SConstruct adds Android build target with `-llog` for JNI logging
+- All POSIX syscalls in VGIPC use `::` global namespace prefix to avoid Godot Object method shadowing
+
+## [3.0.0] - February 2026
+
+### Added — System Integration (C#-class feature parity)
+
+**Native FFI (Foreign Function Interface)**
+- `NativeLibrary` class — load `.so`/`.dll`/`.dylib` and call C functions via libffi
+- `NativeStruct` class — define C struct layouts, allocate/read/write fields
+- Supports all common C types: int, float, double, pointer, string, int8–int64
+- Cross-platform: dlopen on Linux/macOS, LoadLibrary on Windows
+- `QuickCall()` for simple calls, `CallFunction()` for full type signatures
+
+**ODBC Database Connectivity**
+- `VGOdbc` class — connect to any ODBC database (PostgreSQL, MySQL, SQL Server, SQLite, etc.)
+- `Query()` / `QueryParams()` — SELECT returning Array of Dictionary
+- `Execute()` / `ExecuteParams()` — INSERT/UPDATE/DELETE with parameterized queries
+- Transaction support: `BeginTransaction` / `CommitTransaction` / `RollbackTransaction`
+- `ListTables()`, `TableExists()`, `ListDrivers()`
+- Dynamic ODBC loading (no compile-time dependency)
+
+**Cryptography (VGCrypto)**
+- Static utility class: `MD5()`, `SHA1()`, `SHA256()` — hash strings or byte arrays
+- `encrypt_aes()` / `decrypt_aes()` — AES-256-CBC encryption
+- `base64_encode()` / `base64_decode()`, `hex_encode()` / `hex_decode()`
+- `random_bytes()`, `generate_uuid()`, `hmac_sha256()`
+
+**XML Processing (VGXml)**
+- `LoadFile()` / `LoadString()` / `SaveFile()` / `ToString()` — read and write XML
+- `Parse()` — convert XML into Dictionary tree structure
+- `SelectNodes()` / `SelectSingleNode()` — XPath-style queries
+
+**ZIP Archives (VGZip)**
+- `OpenRead()` / `OpenWrite()` — create and read ZIP files
+- `AddText()` / `AddFile()` / `add_directory_recursive()` — add content
+- `ListFiles()` / `read_text()` / `read_file()` / `file_exists()` — read content
+- `extract_to()` / `extract_file()` — extract to disk
+
+**Async Tasks (VGTask / VGTaskRunner)**
+- `VGTask` — run a Callable on a background thread
+- `RunAsync()`, `RunDelayed()`, `Cancel()`, `WaitForResult()`
+- Status tracking: `IsComplete`, `IsRunning`, `IsFailed`, `IsCancelled`
+- `VGTaskRunner` — run multiple tasks in parallel, collect results
+- `AddTask()`, `RunAll()`, `RunAllLimited()`, `get_all_results()`, `Progress`
+
+**Package Manager (VisualGasicPackage)**
+- `InstallPackage()` / `UninstallPackage()` / `update_package()` / `update_all_packages()`
+- Registry management: `AddRegistry()`, `search_packages()`
+- Project manifests (vgpkg.json): `initialize_project()`, `add_dependency()`
+- Semantic versioning: `^1.0.0`, `~1.2.0`, `>=2.0.0` constraint syntax
+- `create_package_template()`, `build_package()`, `publish_package()`
+
+**Cross-Platform System Calls**
+- `VGProcess` — now has full Windows backend (CreateProcess/CreatePipe)
+- `VGSocket` — WinSock2 implementation for Windows
+- `VGFileWatcher` — FindFirstChangeNotification on Windows
+- `VGSysTray` — Shell_NotifyIcon on Windows
+- All four classes now share Linux + macOS POSIX code paths
+
+**Real COM Interop (Windows)**
+- `CreateObject()` now falls through to real COM via CoCreateInstance/IDispatch
+- Automate Excel, Word, Outlook, or any installed COM server
+- Still supports built-in emulated objects (Scripting.Dictionary, etc.) on all platforms
+
+### Added — Demos & Documentation
+- 7 new demo programs in `demos/`: FFI, Crypto, XML, ZIP, ODBC, Async Tasks, Packages
+- `demo/test_v3_features.vg` — automated smoke test for all v3.0 classes
+- `docs/SYSTEM_INTEGRATION.md` — complete API reference with code snippets
+
 ## [2.6.1] - February 2026
 
 ### Added - Bytecode Compiler Batches 1-4 (39 Tests)

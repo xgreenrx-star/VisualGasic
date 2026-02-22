@@ -10,6 +10,9 @@
 #include <unistd.h>
 #include <signal.h>
 #include <sys/wait.h>
+#elif defined(_WIN32)
+#include <windows.h>
+#include <shellapi.h>
 #endif
 
 using namespace godot;
@@ -136,6 +139,39 @@ void VGSysTray::create_tray() {
     // or use GDBus to register a StatusNotifierItem
     // For now, the tray state is tracked internally and balloon notifications
     // use notify-send which is universally available
+#elif defined(_WIN32)
+    // Register window class once for tray message handling
+    static bool wc_registered = false;
+    if (!wc_registered) {
+        WNDCLASSW wc = {};
+        wc.lpfnWndProc = DefWindowProcW;
+        wc.hInstance = GetModuleHandle(nullptr);
+        wc.lpszClassName = L"VGSysTrayHiddenWnd";
+        RegisterClassW(&wc);
+        wc_registered = true;
+    }
+
+    // Create a message-only window for tray notifications
+    HWND hwnd = CreateWindowW(L"VGSysTrayHiddenWnd", L"", 0,
+                               0, 0, 0, 0, HWND_MESSAGE, nullptr,
+                               GetModuleHandle(nullptr), nullptr);
+    tray_handle = (void *)hwnd;
+
+    NOTIFYICONDATAW nid = {};
+    nid.cbSize = sizeof(nid);
+    nid.hWnd = hwnd;
+    nid.uID = 1;
+    nid.uFlags = NIF_ICON | NIF_TIP | NIF_MESSAGE;
+    nid.uCallbackMessage = WM_USER + 1;
+    nid.hIcon = LoadIcon(nullptr, IDI_APPLICATION);
+
+    if (!tooltip.is_empty()) {
+        Char16String wide_tip = tooltip.utf16();
+        wcsncpy(nid.szTip, (const wchar_t *)wide_tip.get_data(), 127);
+    }
+
+    Shell_NotifyIconW(NIM_ADD, &nid);
+    UtilityFunctions::print("[VGSysTray] Tray icon created: ", tooltip);
 #endif
 }
 
@@ -145,10 +181,37 @@ void VGSysTray::destroy_tray() {
         tray_handle = nullptr;
     }
     UtilityFunctions::print("[VGSysTray] Tray icon destroyed");
+#elif defined(_WIN32)
+    if (tray_handle) {
+        HWND hwnd = (HWND)tray_handle;
+        NOTIFYICONDATAW nid = {};
+        nid.cbSize = sizeof(nid);
+        nid.hWnd = hwnd;
+        nid.uID = 1;
+        Shell_NotifyIconW(NIM_DELETE, &nid);
+        DestroyWindow(hwnd);
+        tray_handle = nullptr;
+    }
+    UtilityFunctions::print("[VGSysTray] Tray icon destroyed");
 #endif
 }
 
 void VGSysTray::update_tray() {
+#ifdef _WIN32
+    if (tray_handle) {
+        HWND hwnd = (HWND)tray_handle;
+        NOTIFYICONDATAW nid = {};
+        nid.cbSize = sizeof(nid);
+        nid.hWnd = hwnd;
+        nid.uID = 1;
+        nid.uFlags = NIF_TIP;
+        if (!tooltip.is_empty()) {
+            Char16String wide_tip = tooltip.utf16();
+            wcsncpy(nid.szTip, (const wchar_t *)wide_tip.get_data(), 127);
+        }
+        Shell_NotifyIconW(NIM_MODIFY, &nid);
+    }
+#endif
     // Update tray icon properties
     UtilityFunctions::print("[VGSysTray] Updated: icon=", icon_path, " tooltip=", tooltip);
 }
@@ -186,6 +249,25 @@ void VGSysTray::show_balloon(const String &p_title, const String &p_message, int
     Array output;
     OS::get_singleton()->execute(cmd, args, output, false);
 
+    UtilityFunctions::print("[VGSysTray] Balloon: ", p_title, " - ", p_message);
+#elif defined(_WIN32)
+    if (tray_handle) {
+        HWND hwnd = (HWND)tray_handle;
+        NOTIFYICONDATAW nid = {};
+        nid.cbSize = sizeof(nid);
+        nid.hWnd = hwnd;
+        nid.uID = 1;
+        nid.uFlags = NIF_INFO;
+        nid.dwInfoFlags = NIIF_INFO;
+        nid.uTimeout = (UINT)p_timeout_ms;
+
+        Char16String wide_title = p_title.utf16();
+        Char16String wide_msg = p_message.utf16();
+        wcsncpy(nid.szInfoTitle, (const wchar_t *)wide_title.get_data(), 63);
+        wcsncpy(nid.szInfo, (const wchar_t *)wide_msg.get_data(), 255);
+
+        Shell_NotifyIconW(NIM_MODIFY, &nid);
+    }
     UtilityFunctions::print("[VGSysTray] Balloon: ", p_title, " - ", p_message);
 #endif
 }

@@ -1,0 +1,93 @@
+' demo_odbc.vg — ODBC Database Demo
+' Shows connecting to databases via ODBC, running queries, and transactions
+'
+' NOTE: Requires an ODBC driver installed on your system.
+' On Linux:  sudo apt install unixodbc-dev odbc-postgresql (or odbc-mariadb)
+' On Windows: ODBC drivers are built-in
+
+Sub Main()
+    Print "=== ODBC Database Demo ==="
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 1. List available ODBC drivers
+    ' ---------------------------------------------------------------
+    Print "--- Available Drivers ---"
+
+    Dim db As Object
+    Set db = New VGOdbc
+
+    Dim drivers As Variant
+    drivers = db.list_drivers()
+
+    If drivers.size() = 0 Then
+        Print "  No ODBC drivers found."
+        Print "  Install an ODBC driver to use this demo."
+        Print "  Example: sudo apt install odbc-postgresql"
+        Print ""
+        Print "  (Showing API usage without a live connection)"
+        GoTo ShowApiUsage
+    End If
+
+    Dim i As Integer
+    For i = 0 To drivers.size() - 1
+        Print "  " & CStr(i + 1) & ". " & drivers[i]
+    Next i
+
+ShowApiUsage:
+    ' ---------------------------------------------------------------
+    ' 2. Connect to a database (example connection strings)
+    ' ---------------------------------------------------------------
+    Print ""
+    Print "--- Connection Examples ---"
+    Print "  PostgreSQL: Driver={PostgreSQL};Server=localhost;Database=mydb;Uid=user;Pwd=pass;"
+    Print "  MySQL:      Driver={MySQL};Server=localhost;Database=mydb;User=root;Password=pass;"
+    Print "  SQL Server: Driver={ODBC Driver 17 for SQL Server};Server=localhost;Database=mydb;"
+    Print "  SQLite:     Driver={SQLite3};Database=/path/to/db.sqlite;"
+
+    ' ---------------------------------------------------------------
+    ' 3. Demonstrate the API (works when a driver is available)
+    ' ---------------------------------------------------------------
+    Print ""
+    Print "--- API Usage Pattern ---"
+    Print ""
+    Print "  ' Connect to database"
+    Print "  Dim db As Object"
+    Print "  Set db = New VGOdbc"
+    Print "  db.ConnectionString = ""Driver={PostgreSQL};Server=localhost;Database=mydb;"""
+    Print "  db.Open"
+    Print ""
+    Print "  ' Run a query"
+    Print "  Dim rows As Variant"
+    Print "  rows = db.Query(""SELECT name, age FROM users"")"
+    Print "  For i = 0 To rows.size() - 1"
+    Print "      Print rows[i][""name""] & "": "" & rows[i][""age""]"
+    Print "  Next i"
+    Print ""
+    Print "  ' Parameterized query (safe from SQL injection)"
+    Print "  rows = db.QueryParams(""SELECT * FROM users WHERE age > ?"", Array(18))"
+    Print ""
+    Print "  ' Execute (INSERT/UPDATE/DELETE)"
+    Print "  db.Execute ""INSERT INTO users (name, age) VALUES ('Alice', 30)"""
+    Print ""
+    Print "  ' Transactions"
+    Print "  db.BeginTransaction"
+    Print "  db.Execute ""UPDATE accounts SET balance = balance - 100 WHERE id = 1"""
+    Print "  db.Execute ""UPDATE accounts SET balance = balance + 100 WHERE id = 2"""
+    Print "  db.CommitTransaction"
+    Print ""
+    Print "  ' Clean up"
+    Print "  db.Close"
+
+    ' ---------------------------------------------------------------
+    ' 4. Check ODBC availability
+    ' ---------------------------------------------------------------
+    Print ""
+    Print "--- Status ---"
+    Print "  ODBC object created: Yes"
+    Print "  Is connected:        " & CStr(db.IsOpen)
+    Print "  Last error:          " & db.LastError
+
+    Print ""
+    Print "=== ODBC Demo Complete ==="
+End Sub

@@ -1,0 +1,127 @@
+' demo_packages.vg — Package Manager Demo
+' Shows how to manage project dependencies with the built-in package system
+
+Sub Main()
+    Print "=== Package Manager Demo ==="
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 1. Initialize the package system
+    ' ---------------------------------------------------------------
+    Print "--- Initialize ---"
+
+    Dim pkg As Object
+    Set pkg = New VisualGasicPackage
+
+    pkg.Initialize "res://"
+    Print "  Package manager initialized"
+
+    ' ---------------------------------------------------------------
+    ' 2. Set up a registry
+    ' ---------------------------------------------------------------
+    Print ""
+    Print "--- Registry Setup ---"
+
+    pkg.AddRegistry "official", "https://packages.visualgasic.org"
+    Print "  Added official registry"
+
+    Dim registries As Variant
+    registries = pkg.get_registries()
+    Print "  Registries: " & CStr(registries.size())
+
+    ' ---------------------------------------------------------------
+    ' 3. Create a new package template
+    ' ---------------------------------------------------------------
+    Print ""
+    Print "--- Create Package Template ---"
+
+    Dim templateOk As Boolean
+    templateOk = pkg.create_package_template("my-game-utils", "library")
+
+    If templateOk Then
+        Print "  Created package template: my-game-utils"
+        Print "  This generates a vgpkg.json manifest file"
+    End If
+
+    ' ---------------------------------------------------------------
+    ' 4. Initialize a project
+    ' ---------------------------------------------------------------
+    Print ""
+    Print "--- Project Setup ---"
+
+    pkg.initialize_project "res://"
+    Print "  Project initialized with vgpkg.json"
+
+    ' ---------------------------------------------------------------
+    ' 5. Manage dependencies
+    ' ---------------------------------------------------------------
+    Print ""
+    Print "--- Dependencies ---"
+
+    pkg.add_dependency "vg-math", "^1.0.0"
+    pkg.add_dependency "vg-ui-toolkit", ">=2.0.0"
+    pkg.add_dependency "vg-networking", "~1.5.0"
+
+    Print "  Added 3 dependencies"
+
+    Dim deps As Variant
+    deps = pkg.get_project_dependencies()
+    Print "  Project dependencies: " & CStr(deps.size())
+
+    ' ---------------------------------------------------------------
+    ' 6. List installed packages
+    ' ---------------------------------------------------------------
+    Print ""
+    Print "--- Installed Packages ---"
+
+    Dim installed As Variant
+    installed = pkg.get_installed_packages()
+
+    If installed.size() = 0 Then
+        Print "  No packages installed yet"
+        Print "  (Packages install from the registry when available)"
+    Else
+        Dim i As Integer
+        For i = 0 To installed.size() - 1
+            Print "  - " & CStr(installed[i])
+        Next i
+    End If
+
+    ' ---------------------------------------------------------------
+    ' 7. Search for packages
+    ' ---------------------------------------------------------------
+    Print ""
+    Print "--- Search Packages ---"
+
+    Dim results As Variant
+    results = pkg.search_packages("math")
+    Print "  Search 'math': " & CStr(results.size()) & " results"
+
+    ' ---------------------------------------------------------------
+    ' 8. Version constraint syntax
+    ' ---------------------------------------------------------------
+    Print ""
+    Print "--- Version Constraints ---"
+    Print "  ^1.2.0  = Compatible with 1.x.x (>=1.2.0, <2.0.0)"
+    Print "  ~1.2.0  = Patch-level changes (>=1.2.0, <1.3.0)"
+    Print "  >=2.0.0 = At least version 2.0.0"
+    Print "  1.5.0   = Exact version 1.5.0"
+
+    ' ---------------------------------------------------------------
+    ' 9. Clean up
+    ' ---------------------------------------------------------------
+    Print ""
+    Print "--- Cleanup ---"
+
+    pkg.remove_dependency "vg-networking"
+    Print "  Removed vg-networking dependency"
+
+    pkg.clear_cache
+    Print "  Cache cleared"
+
+    pkg.Shutdown
+    Print "  Package manager shut down"
+
+    Print ""
+    Print "=== Package Manager Demo Complete ==="
+End Sub

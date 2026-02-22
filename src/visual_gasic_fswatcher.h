@@ -37,6 +37,9 @@ class VGFileWatcher : public RefCounted {
     int watch_descriptor;
     // Map of wd -> directory path for subdirectory watching
     Dictionary wd_to_path;
+#ifdef _WIN32
+    void *win_watch_handle;
+#endif
 
     // Pending events queue
     Array pending_events;

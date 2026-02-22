@@ -127,11 +127,11 @@ public:
     bool set_default_registry(const String& name);
     
     // Package Installation
-    InstallationResult install_package(const String& package_name, const String& version_constraint = "");
-    InstallationResult install_packages(const Array& package_specs);
+    Dictionary install_package(const String& package_name, const String& version_constraint = "");
+    Dictionary install_packages(const Array& package_specs);
     bool uninstall_package(const String& package_name);
-    InstallationResult update_package(const String& package_name, const String& version_constraint = "");
-    InstallationResult update_all_packages();
+    Dictionary update_package(const String& package_name, const String& version_constraint = "");
+    Dictionary update_all_packages();
     
     // Dependency Management
     Dictionary resolve_dependencies(const Array& root_dependencies);

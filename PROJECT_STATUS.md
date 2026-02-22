@@ -1,6 +1,6 @@
 # VisualGasic Project Status
 
-**Version**: 2.9.0 (System-Level Features, Process, SQLite, Sockets, COM Interop)  
+**Version**: 3.1.0 (System-Level Programming, IPC, Signals, Memory, Android Bridge)  
 **Last Updated**: February 2026
 
 ## Overview
@@ -11,7 +11,7 @@ VisualGasic is a Visual Basic 6-style scripting language for Godot Engine 4.x, i
 
 ### Benchmark Results (v2.8.0) ⭐
 
-**All 11 benchmarks faster than GDScript. VG wins 6/11 vs C++.** All checksums verified.
+**All 11 benchmarks faster than GDScript. VG wins 7/11 vs C++.** All checksums verified.
 
 | Benchmark | GDScript | VisualGasic | C++ | **VG vs GDScript** | **VG vs C++** | Winner |
 |-----------|----------|-------------|-----|-------------------|---------------|--------|
@@ -42,7 +42,7 @@ VisualGasic is a Visual Basic 6-style scripting language for Godot Engine 4.x, i
 - Form designer integration
 - Event-driven programming
 - COM-style object model
-- See [VB6_FEATURES_IMPLEMENTATION.md](VB6_FEATURES_IMPLEMENTATION.md)
+- See [VB6_FEATURES_IMPLEMENTATION.md](docs/reference/VB6_FEATURES_IMPLEMENTATION.md)
 
 ### Modern Extensions
 - Async/await support
@@ -50,27 +50,27 @@ VisualGasic is a Visual Basic 6-style scripting language for Godot Engine 4.x, i
 - LINQ-style operations
 - Modern collection syntax
 - Enhanced error handling
-- See [MODERN_FEATURES_README.md](MODERN_FEATURES_README.md)
+- See [MODERN_FEATURES_README.md](docs/guides/MODERN_FEATURES_README.md)
 
 ### Godot Integration
 - Direct access to Godot nodes and resources
 - Scene tree manipulation
 - Signal system integration
 - Built-in Godot types (Vector2, Vector3, etc.)
-- See [GODOT_FUNCTIONS_REFERENCE.md](GODOT_FUNCTIONS_REFERENCE.md)
+- See [GODOT_FUNCTIONS_REFERENCE.md](docs/reference/GODOT_FUNCTIONS_REFERENCE.md)
 
 ## Documentation
 
 All documentation is organized in [docs/DOCUMENTATION_INDEX.md](docs/DOCUMENTATION_INDEX.md)
 
 ### Quick Start
-1. [GET_STARTED.md](GET_STARTED.md) - Installation and first program
-2. [BUILTIN_FUNCTIONS_REFERENCE.md](BUILTIN_FUNCTIONS_REFERENCE.md) - Language reference
+1. [GET_STARTED.md](docs/guides/GET_STARTED.md) - Installation and first program
+2. [BUILTIN_FUNCTIONS_REFERENCE.md](docs/reference/BUILTIN_FUNCTIONS_REFERENCE.md) - Language reference
 3. [examples/](examples/) - Example programs
 
 ### For VB6 Users
-1. [MIGRATION_GUIDE.md](MIGRATION_GUIDE.md) - Differences and migration tips
-2. [IMPORTING_VB6.md](IMPORTING_VB6.md) - Import existing VB6 projects
+1. [MIGRATION_GUIDE.md](docs/guides/MIGRATION_GUIDE.md) - Differences and migration tips
+2. [IMPORTING_VB6.md](docs/guides/IMPORTING_VB6.md) - Import existing VB6 projects
 
 ## Project Status
 
@@ -90,6 +90,15 @@ All documentation is organized in [docs/DOCUMENTATION_INDEX.md](docs/DOCUMENTATI
   - Batch 2: With...End With, Continue For/Do, GoTo, Try/Catch/Finally
   - Batch 3: Erase, TypeOf...Is, Optional?.Access, Lambda
   - Batch 4: ReDim Preserve, Super, New with Args, Pass
+- ✅ **System Integration (v3.0)**: FFI, ODBC, Crypto, XML, ZIP, Tasks, Packages
+- ✅ **System-Level Programming (v3.1)**:
+  - VGSystem — hostname, CPU, RAM, disk, OS, uptime, env, locale
+  - VGSignalHandler — SIGINT/SIGTERM/SIGHUP/atexit handlers
+  - VGFilePermissions — chmod, chown, symlinks, file locking, GetAttr/SetAttr
+  - VGMemoryBuffer — Peek/Poke byte buffers, CopyMemory, HexDump, FFI pointer
+  - VGIPC — named pipes, UNIX domain sockets, shared memory
+  - VGAndroidBridge — JNI device info, permissions, intents, toast, vibrate
+  - Real threading — Task.Run / Parallel For / Parallel Section backed by std::thread
 
 ### Testing: ✅ Comprehensive
 - ✅ Unit tests for all features
@@ -102,6 +111,22 @@ All documentation is organized in [docs/DOCUMENTATION_INDEX.md](docs/DOCUMENTATI
 - ✅ API reference
 - ✅ Migration guides
 - ✅ Examples
+
+## Recent Updates (v3.1.0)
+
+### System-Level Programming
+- **VGSystem** — Cross-platform system info: hostname, CPU, RAM, disk, OS, uptime, environment variables, locale
+- **VGSignalHandler** — OS signal handling: SIGINT, SIGTERM, SIGHUP, SIGUSR1/2, atexit; Windows SetConsoleCtrlHandler
+- **VGFilePermissions** — File permissions: chmod, chown, symlinks, hard links, file locking (flock/LockFileEx), VB6 GetAttr/SetAttr
+- **VGMemoryBuffer** — Raw memory: Peek/Poke byte-level access, CopyMemory, HexDump, FFI pointer interop
+- **VGIPC** — IPC: named pipes (mkfifo/CreateNamedPipe), UNIX domain sockets, shared memory (shm_open/mmap)
+- **VGAndroidBridge** — JNI bridge: device info, permissions, intents, toast, vibrate, battery, storage
+- **Real Threading** — Task.Run/Parallel For/Parallel Section now use real std::thread with per-thread scope cloning
+
+### Build System
+- SConstruct links `-lrt` and `-lpthread` on Linux for shared memory and threading
+- Android build target with `-llog` for JNI logging
+- All POSIX syscalls use `::` global prefix to avoid Godot method shadowing
 
 ## Recent Updates (v2.6.1)
 
@@ -166,7 +191,7 @@ All documentation is organized in [docs/DOCUMENTATION_INDEX.md](docs/DOCUMENTATI
 See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines
 
 ### Source Organization
-See [FILE_INDEX.md](FILE_INDEX.md) for source structure
+See [FILE_INDEX.md](docs/archive/FILE_INDEX.md) for source structure
 
 ### Build System
 \`\`\`bash

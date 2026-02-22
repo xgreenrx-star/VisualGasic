@@ -3,19 +3,19 @@
 ## Getting Started
 
 - [README.md](../README.md) - Project overview and quick start
-- [GET_STARTED.md](../GET_STARTED.md) - Installation and first steps
-- [MIGRATION_GUIDE.md](../MIGRATION_GUIDE.md) - Migrating from VB6/VBA
-- [IMPORTING_VB6.md](../IMPORTING_VB6.md) - Importing existing VB6 projects
+- [GET_STARTED.md](guides/GET_STARTED.md) - Installation and first steps
+- [MIGRATION_GUIDE.md](guides/MIGRATION_GUIDE.md) - Migrating from VB6/VBA
+- [IMPORTING_VB6.md](guides/IMPORTING_VB6.md) - Importing existing VB6 projects
 
 ## Language Reference
 
 ### Core Features
-- [BUILTIN_FUNCTIONS_REFERENCE.md](../BUILTIN_FUNCTIONS_REFERENCE.md) - Built-in functions (Print, Input, MsgBox, etc.)
+- [BUILTIN_FUNCTIONS_REFERENCE.md](reference/BUILTIN_FUNCTIONS_REFERENCE.md) - Built-in functions (Print, Input, MsgBox, etc.)
 - [CONTROLS_REFERENCE.md](reference/CONTROLS_REFERENCE.md) - **Complete toolbox controls reference**
-- [GODOT_FUNCTIONS_REFERENCE.md](../GODOT_FUNCTIONS_REFERENCE.md) - Godot integration functions
-- [GODOT_QUICK_REF.md](../GODOT_QUICK_REF.md) - Quick reference for Godot features
-- [MODERN_SYNTAX_QUICK_REF.md](../MODERN_SYNTAX_QUICK_REF.md) - Modern syntax features
-- [VB6_FEATURES_IMPLEMENTATION.md](../VB6_FEATURES_IMPLEMENTATION.md) - VB6 feature compatibility
+- [GODOT_FUNCTIONS_REFERENCE.md](reference/GODOT_FUNCTIONS_REFERENCE.md) - Godot integration functions
+- [GODOT_QUICK_REF.md](reference/GODOT_QUICK_REF.md) - Quick reference for Godot features
+- [MODERN_SYNTAX_QUICK_REF.md](reference/MODERN_SYNTAX_QUICK_REF.md) - Modern syntax features
+- [VB6_FEATURES_IMPLEMENTATION.md](reference/VB6_FEATURES_IMPLEMENTATION.md) - VB6 feature compatibility
 
 ### Editor Features
 - [ide_tools.md](manual/ide_tools.md) - **Complete IDE tools guide** (Watch Window, Alignment, IntelliSense, Debugging, Linting, Snippets, Themes)
@@ -24,16 +24,16 @@
 - [IMMEDIATE_WINDOW.md](IMMEDIATE_WINDOW.md) - Interactive debugging console
 
 ### Modern Features
-- [MODERN_FEATURES_README.md](../MODERN_FEATURES_README.md) - Overview of modern extensions
-- [MODERN_FEATURES.md](../MODERN_FEATURES.md) - Detailed modern feature documentation
+- [MODERN_FEATURES_README.md](guides/MODERN_FEATURES_README.md) - Overview of modern extensions
+- [MODERN_FEATURES.md](guides/MODERN_FEATURES.md) - Detailed modern feature documentation
 - [ADVANCED_FEATURES.md](ADVANCED_FEATURES.md) - Advanced language features
 
 ## API Documentation
 
-- [README_DATA.md](../README_DATA.md) - Data types and structures
-- [README_FORMS.md](../README_FORMS.md) - GUI forms and controls
-- [README_HELPERS.md](../README_HELPERS.md) - Helper utilities
+- [SYSTEM_INTEGRATION.md](SYSTEM_INTEGRATION.md) - **v3.0/v3.1 System Integration Reference** (FFI, ODBC, Crypto, XML, ZIP, Async, Packages, System Info, Signals, Permissions, Memory, IPC, Android)
+- [VisualGasic_Language_Reference.md](VisualGasic_Language_Reference.md) - **Complete language reference** (4000+ lines)
 - [WINFORMS_FORM_GUIDE.md](WINFORMS_FORM_GUIDE.md) - WinForms-style form development
+- [BUILTINS.md](BUILTINS.md) - Built-in functions overview
 
 ## Tutorials
 
@@ -51,6 +51,30 @@
 | **Pong Advanced** | `demos/2D_Games/Pong_Advanced/` | AI opponent, power-ups |
 | **Galactic Defender** | `demos/2D_Games/Galactic_Defender/` | Full game project with scenes |
 | **Calculator** | `demos/UI/Calculator/` | Input handling, `Is` type-checking, _Draw() UI |
+
+### v3.0 System Integration Demos
+
+| Demo | Location | Key Features |
+|------|----------|-------------|
+| **FFI** | `demos/Utilities/FFI/` | NativeLibrary, call C functions, NativeStruct |
+| **Crypto** | `demos/Utilities/Crypto/` | MD5, SHA, AES-256, Base64, UUID, HMAC |
+| **XML** | `demos/Utilities/XML/` | Parse, XPath queries, save/load |
+| **ZIP** | `demos/Utilities/ZIP/` | Create, read, extract archives |
+| **ODBC** | `demos/Data_and_Files/ODBC/` | Database connect, query, transactions |
+| **Async Tasks** | `demos/Threading/` | VGTask, VGTaskRunner, background work |
+| **Package Manager** | `demos/Utilities/PackageManager/` | Install, registries, semver |
+
+### v3.1 System-Level Programming Classes
+
+| Class | Description | Platform |
+|-------|-------------|----------|
+| **VGSystem** | System info: hostname, CPU, RAM, disk, OS, uptime, env, locale | Linux, Windows, macOS |
+| **VGSignalHandler** | OS signals: SIGINT, SIGTERM, SIGHUP, atexit | Linux, Windows, macOS |
+| **VGFilePermissions** | chmod, chown, symlinks, file locking, GetAttr/SetAttr | Linux, Windows, macOS |
+| **VGMemoryBuffer** | Raw Peek/Poke byte buffers, CopyMemory, HexDump, FFI pointer | All |
+| **VGIPC** | Named pipes, UNIX domain sockets, shared memory | Linux, macOS (partial Windows) |
+| **VGAndroidBridge** | JNI device info, permissions, intents, toast, vibrate | Android (safe no-ops elsewhere) |
+| **Real Threading** | Task.Run / Parallel For / Parallel Section → std::thread | All |
 
 ## IDE Tools Reference
 
@@ -104,15 +128,12 @@
 ## Project Information
 
 ### Status & Performance
-- [ROADMAP.md](ROADMAP.md) - **Development roadmap and feature status**
+- [ROADMAP.md](../ROADMAP.md) - **Development roadmap and feature status**
 - [PROJECT_STATUS.md](../PROJECT_STATUS.md) - Current project status
-- [IMPLEMENTATION_STATUS.md](../IMPLEMENTATION_STATUS.md) - Current implementation status
-- [OPTIMIZATION_RESULTS.md](../OPTIMIZATION_RESULTS.md) - Performance optimization results
-- [PERFORMANCE_REPORT.md](../PERFORMANCE_REPORT.md) - Comprehensive performance analysis
-- [performance.md](manual/performance.md) - Benchmark results with charts (v2.4.2)
-- [TEST_RESULTS.md](../TEST_RESULTS.md) - Test suite results
-- [TODO_FUTURE_OPTIMIZATIONS.md](../TODO_FUTURE_OPTIMIZATIONS.md) - Future optimization opportunities
-- [TODO_VG_DEBUGGING.md](../TODO_VG_DEBUGGING.md) - Debugging system implementation
+- [IMPLEMENTATION_STATUS.md](development/IMPLEMENTATION_STATUS.md) - Current implementation status
+- [performance.md](manual/performance.md) - Benchmark results with charts
+- [TODO_FUTURE_OPTIMIZATIONS.md](development/TODO_FUTURE_OPTIMIZATIONS.md) - Future optimization opportunities
+- [TODO_VG_DEBUGGING.md](development/TODO_VG_DEBUGGING.md) - Debugging system implementation
 
 ### Release Notes
 - [CHANGELOG.md](../CHANGELOG.md) - Full change log
@@ -126,8 +147,7 @@
 
 ### Development
 - [CONTRIBUTING.md](../CONTRIBUTING.md) - Contribution guidelines
-- [REFACTORING_GUIDE.md](../REFACTORING_GUIDE.md) - Code refactoring guide
-- [FILE_INDEX.md](../FILE_INDEX.md) - Source file organization
+- [REFACTORING_GUIDE.md](guides/REFACTORING_GUIDE.md) - Code refactoring guide
 - [COMMUNITY_HUB.md](../COMMUNITY_HUB.md) - Community resources
 
 ## Plugin Files Reference
@@ -202,18 +222,17 @@ Located in [tests/](../tests/) directory:
 
 ### For New Users
 1. Read [README.md](../README.md)
-2. Follow [GET_STARTED.md](../GET_STARTED.md)
-3. Review [BUILTIN_FUNCTIONS_REFERENCE.md](../BUILTIN_FUNCTIONS_REFERENCE.md)
+2. Follow [GET_STARTED.md](guides/GET_STARTED.md)
+3. Review [BUILTIN_FUNCTIONS_REFERENCE.md](reference/BUILTIN_FUNCTIONS_REFERENCE.md)
 4. Try examples in [examples/](../examples/)
 
 ### For VB6/VBA Users
-1. Read [MIGRATION_GUIDE.md](../MIGRATION_GUIDE.md)
-2. Check [VB6_FEATURES_IMPLEMENTATION.md](../VB6_FEATURES_IMPLEMENTATION.md)
-3. Learn about [MODERN_FEATURES_README.md](../MODERN_FEATURES_README.md)
-4. Follow [IMPORTING_VB6.md](../IMPORTING_VB6.md) for existing projects
+1. Read [MIGRATION_GUIDE.md](guides/MIGRATION_GUIDE.md)
+2. Check [VB6_FEATURES_IMPLEMENTATION.md](reference/VB6_FEATURES_IMPLEMENTATION.md)
+3. Learn about [MODERN_FEATURES_README.md](guides/MODERN_FEATURES_README.md)
+4. Follow [IMPORTING_VB6.md](guides/IMPORTING_VB6.md) for existing projects
 
 ### For Contributors
 1. Read [CONTRIBUTING.md](../CONTRIBUTING.md)
-2. Review [FILE_INDEX.md](../FILE_INDEX.md)
-3. Check [IMPLEMENTATION_STATUS.md](../IMPLEMENTATION_STATUS.md)
-4. See [TODO_FUTURE_OPTIMIZATIONS.md](../TODO_FUTURE_OPTIMIZATIONS.md)
+2. Check [IMPLEMENTATION_STATUS.md](development/IMPLEMENTATION_STATUS.md)
+3. See [TODO_FUTURE_OPTIMIZATIONS.md](development/TODO_FUTURE_OPTIMIZATIONS.md)

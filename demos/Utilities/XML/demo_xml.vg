@@ -1,0 +1,123 @@
+' demo_xml.vg — XML Processing Demo
+' Shows loading, parsing, querying, and saving XML documents
+
+Sub Main()
+    Print "=== XML Processing Demo ==="
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 1. Load XML from a string
+    ' ---------------------------------------------------------------
+    Print "--- Parse XML String ---"
+
+    Dim xml As Object
+    Set xml = New VGXml
+
+    Dim xmlText As String
+    xmlText = "<?xml version=""1.0""?>" & vbCrLf
+    xmlText = xmlText & "<catalog>" & vbCrLf
+    xmlText = xmlText & "  <book id=""1"">" & vbCrLf
+    xmlText = xmlText & "    <title>Visual Basic 6 Programming</title>" & vbCrLf
+    xmlText = xmlText & "    <author>Francesco Balena</author>" & vbCrLf
+    xmlText = xmlText & "    <price>29.99</price>" & vbCrLf
+    xmlText = xmlText & "  </book>" & vbCrLf
+    xmlText = xmlText & "  <book id=""2"">" & vbCrLf
+    xmlText = xmlText & "    <title>VisualGasic Game Dev</title>" & vbCrLf
+    xmlText = xmlText & "    <author>Commodore</author>" & vbCrLf
+    xmlText = xmlText & "    <price>19.99</price>" & vbCrLf
+    xmlText = xmlText & "  </book>" & vbCrLf
+    xmlText = xmlText & "  <book id=""3"">" & vbCrLf
+    xmlText = xmlText & "    <title>Godot Engine Handbook</title>" & vbCrLf
+    xmlText = xmlText & "    <author>GDQuest</author>" & vbCrLf
+    xmlText = xmlText & "    <price>24.99</price>" & vbCrLf
+    xmlText = xmlText & "  </book>" & vbCrLf
+    xmlText = xmlText & "</catalog>"
+
+    xml.LoadString xmlText
+    Print "  Loaded XML (" & CStr(Len(xmlText)) & " chars)"
+
+    ' ---------------------------------------------------------------
+    ' 2. Parse into a Dictionary tree
+    ' ---------------------------------------------------------------
+    Print ""
+    Print "--- Parse to Dictionary ---"
+
+    Dim tree As Variant
+    tree = xml.Parse()
+    Print "  Root tag: " & tree["tag"]
+    Print "  Children: " & CStr(tree["children"].size())
+
+    ' Walk the tree
+    Dim i As Integer
+    For i = 0 To tree["children"].size() - 1
+        Dim book As Variant
+        book = tree["children"][i]
+        Dim bookId As String
+        bookId = book["attributes"]["id"]
+
+        ' Each book has child nodes for title, author, price
+        Dim title As String
+        title = book["children"][0]["text"]
+        Dim author As String
+        author = book["children"][1]["text"]
+        Dim price As String
+        price = book["children"][2]["text"]
+
+        Print "  Book #" & bookId & ": " & title & " by " & author & " ($" & price & ")"
+    Next i
+
+    ' ---------------------------------------------------------------
+    ' 3. XPath-style queries
+    ' ---------------------------------------------------------------
+    Print ""
+    Print "--- XPath Queries ---"
+
+    Dim titles As Variant
+    titles = xml.SelectNodes("catalog/book/title")
+    Print "  Found " & CStr(titles.size()) & " titles:"
+    For i = 0 To titles.size() - 1
+        Print "    - " & titles[i]["text"]
+    Next i
+
+    ' Select a single node
+    Dim firstBook As Variant
+    firstBook = xml.SelectSingleNode("catalog/book")
+    If firstBook <> Null Then
+        Print "  First book tag: " & firstBook["tag"]
+    End If
+
+    ' ---------------------------------------------------------------
+    ' 4. Save to file
+    ' ---------------------------------------------------------------
+    Print ""
+    Print "--- Save XML ---"
+
+    Dim saved As Boolean
+    saved = xml.SaveFile("user://demo_catalog.xml")
+    If saved Then
+        Print "  Saved to user://demo_catalog.xml"
+    Else
+        Print "  Save error: " & xml.get_last_error()
+    End If
+
+    ' ---------------------------------------------------------------
+    ' 5. Load from file
+    ' ---------------------------------------------------------------
+    Print ""
+    Print "--- Reload from File ---"
+
+    Dim xml2 As Object
+    Set xml2 = New VGXml
+    Dim loadOk As Boolean
+    loadOk = xml2.LoadFile("user://demo_catalog.xml")
+    If loadOk Then
+        Dim content As String
+        content = xml2.ToString()
+        Print "  Reloaded " & CStr(Len(content)) & " chars from file"
+    Else
+        Print "  Load error: " & xml2.get_last_error()
+    End If
+
+    Print ""
+    Print "=== XML Demo Complete ==="
+End Sub

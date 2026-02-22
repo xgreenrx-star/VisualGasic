@@ -1,0 +1,105 @@
+' demo_ffi.vg — Foreign Function Interface (FFI) Demo
+' Shows how to load native C libraries and call functions directly from Basic
+'
+' This is like VB6's "Declare Function" but works cross-platform!
+
+Sub Main()
+    Print "=== Native Library (FFI) Demo ==="
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 1. Load a native C library (libm = standard math library)
+    ' ---------------------------------------------------------------
+    Print "--- Loading Native Library ---"
+    Dim lib As Object
+    Set lib = New NativeLibrary
+
+    Dim loaded As Boolean
+    loaded = lib.Load("libm.so.6")
+
+    If loaded Then
+        Print "  Loaded: " & lib.Path
+    Else
+        Print "  Error: " & lib.LastError
+        Exit Sub
+    End If
+
+    ' ---------------------------------------------------------------
+    ' 2. Call a simple C function: sqrt(double) -> double
+    ' ---------------------------------------------------------------
+    Print ""
+    Print "--- Calling C Functions ---"
+
+    ' QuickCall is the easiest way — pass function name and arguments
+    Dim result As Variant
+    result = lib.QuickCall("sqrt", 144.0)
+    Print "  sqrt(144) = " & CStr(result)
+
+    ' Call with explicit type signatures for full control
+    Dim argTypes As Array
+    argTypes = Array("double")
+    Dim args As Array
+    args = Array(25.0)
+    result = lib.CallFunction("sqrt", "double", argTypes, args)
+    Print "  sqrt(25)  = " & CStr(result)
+
+    ' ---------------------------------------------------------------
+    ' 3. Call more math functions
+    ' ---------------------------------------------------------------
+    Print ""
+    Print "--- More Math Functions ---"
+
+    result = lib.QuickCall("cos", 0.0)
+    Print "  cos(0)   = " & CStr(result)
+
+    result = lib.QuickCall("sin", 3.14159265)
+    Print "  sin(pi)  = " & CStr(result)
+
+    result = lib.QuickCall("pow", 2.0, 10.0)
+    Print "  pow(2,10)= " & CStr(result)
+
+    result = lib.QuickCall("ceil", 4.3)
+    Print "  ceil(4.3)= " & CStr(result)
+
+    result = lib.QuickCall("floor", 4.7)
+    Print "  floor(4.7)= " & CStr(result)
+
+    ' ---------------------------------------------------------------
+    ' 4. Working with C Structs
+    ' ---------------------------------------------------------------
+    Print ""
+    Print "--- C Struct Layout ---"
+
+    Dim s As Object
+    Set s = New NativeStruct
+
+    ' Define a struct like: struct Point { int x; int y; }
+    s.AddField "x", "int"
+    s.AddField "y", "int"
+
+    Print "  Struct size:  " & CStr(s.Size) & " bytes"
+    Print "  Field count:  " & CStr(s.FieldCount)
+    Print "  Field names:  " & CStr(s.FieldNames)
+
+    ' Allocate a struct instance
+    Dim handle As Integer
+    handle = s.Create()
+
+    ' Set field values
+    s.SetField handle, "x", 100
+    s.SetField handle, "y", 200
+
+    ' Read them back
+    Print "  Point.x = " & CStr(s.GetField(handle, "x"))
+    Print "  Point.y = " & CStr(s.GetField(handle, "y"))
+
+    ' Clean up
+    s.Destroy handle
+
+    ' ---------------------------------------------------------------
+    ' 5. Clean up
+    ' ---------------------------------------------------------------
+    lib.Unload
+    Print ""
+    Print "=== FFI Demo Complete ==="
+End Sub

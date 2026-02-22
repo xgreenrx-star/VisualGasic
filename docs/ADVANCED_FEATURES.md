@@ -319,6 +319,8 @@ Debug.IdentifyPerformanceHotspots()  ' Prints top 5 slowest functions
 - Type system works seamlessly with async/await operations
 - Pattern matching supports async result handling
 - GPU computing integrates with parallel task execution
+- **v3.1**: Task.Run / Parallel For / Parallel Section now backed by real `std::thread` with per-thread scope cloning
+- **v3.1**: VGSystem, VGSignalHandler, VGFilePermissions, VGMemoryBuffer, VGIPC, VGAndroidBridge provide full system-level programming
 
 #### Development Workflow Integration ✅  
 - REPL supports all advanced language features
@@ -343,7 +345,7 @@ Debug.IdentifyPerformanceHotspots()  ' Prints top 5 slowest functions
 1. **ECS Integration** - Complete entity component system implementation
 2. **Time-Travel Debugging** - Add execution replay capability for step-back debugging
 3. **WebAssembly Compilation** - Long-term goal for web deployment
-4. **Mobile Platform Support** - Long-term goal for native mobile development
+4. ✅ ~~**Mobile Platform Support**~~ - VGAndroidBridge added in v3.1 (JNI device info, permissions, intents, toast, vibrate, battery, storage)
 5. **Integration Testing** - Full test suite covering feature interactions
 
 ### Conclusion

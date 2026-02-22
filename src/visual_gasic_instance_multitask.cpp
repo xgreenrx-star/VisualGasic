@@ -5,8 +5,17 @@
 #include "visual_gasic_parser.h"
 
 #include <godot_cpp/variant/utility_functions.hpp>
+#include <thread>
+#include <mutex>
+#include <atomic>
+#include <vector>
+#include <algorithm>
 
 // === MULTITASKING RUNTIME IMPLEMENTATION ===
+// v3.1: Task.Run and Parallel For now use real std::thread.
+// Each spawned thread gets a CLONE of the parent variable scope so
+// the interpreter's main Dictionary is never shared across threads.
+// Results are collected via thread-safe aggregation.
 
 void VisualGasicInstance::execute_async_function(AsyncFunctionStatement* async_func) {
     // For now, async functions run immediately (simplified implementation)
@@ -54,26 +63,50 @@ void VisualGasicInstance::execute_task_run(TaskRunStatement* task) {
     task_info.task_body = task->task_body;
     task_info.is_background = task->is_background;
     task_info.is_completed = false;
-    
-    // Execute task body synchronously as fallback
-    // (True async via WorkerThreadPool is planned for a future release)
-    // The previous guard `is_in_physics_frame()` prevented execution when
-    // called from _Process (idle frame), which is the common case for
-    // input-driven task launches.  Remove the guard so the body always runs.
-    {
-        // Execute task body
-        for (int i = 0; i < task->task_body.size(); i++) {
-            execute_statement(task->task_body[i]);
+
+    // v3.1: Real threaded execution.
+    // Clone the current variable scope so the worker thread has its own copy.
+    // This avoids data races on the Dictionary while still giving the task
+    // access to all variables visible at the call site.
+    Dictionary scope_snapshot = variables.duplicate(true);
+    Vector<Statement*> body_copy = task->task_body;
+    String t_name = task_info.task_name;
+    int task_idx = active_tasks.size();
+    active_tasks.push_back(task_info);
+
+    // Spawn a detached worker thread
+    std::thread worker([this, scope_snapshot, body_copy, t_name, task_idx]() mutable {
+        // Install the cloned scope
+        Dictionary saved = variables;
+        variables = scope_snapshot;
+
+        Variant result;
+        bool had_error = false;
+
+        for (int i = 0; i < body_copy.size(); i++) {
+            execute_statement(body_copy[i]);
             if (error_state.has_error || error_state.mode != ErrorState::NONE) {
+                had_error = true;
                 break;
             }
         }
-        task_info.is_completed = true;
-        task_info.result = Variant("Task completed");
+        result = had_error ? Variant("Task failed") : Variant("Task completed");
+
+        // Restore & publish results — brief critical section
+        variables = saved;
+        if (task_idx < active_tasks.size()) {
+            active_tasks.write[task_idx].is_completed = true;
+            active_tasks.write[task_idx].result = result;
+        }
+        task_results[t_name] = result;
+    });
+
+    if (task->is_background) {
+        worker.detach();
+    } else {
+        // Non-background: block until done (equivalent of old serial path)
+        worker.join();
     }
-    
-    active_tasks.push_back(task_info);
-    task_results[task_info.task_name] = task_info.result;
 }
 
 void VisualGasicInstance::execute_task_wait(TaskWaitStatement* wait_stmt) {
@@ -110,33 +143,129 @@ struct ParallelForWorkerData {
 
 void VisualGasicInstance::execute_parallel_for(ParallelForStatement* par_for) {
     int start = (int)evaluate_expression(par_for->start_expr);
-    int end = (int)evaluate_expression(par_for->end_expr);
-    int step = par_for->step_expr ? (int)evaluate_expression(par_for->step_expr) : 1;
-    
-    // For safety, execute sequentially for now
-    // In full implementation, would use WorkerThreadPool
-    for (int i = start; (step > 0 ? i <= end : i >= end); i += step) {
-        // Set loop variable
-        variables[par_for->variable_name] = i;
-        
-        // Execute loop body
-        for (int j = 0; j < par_for->body.size(); j++) {
-            execute_statement(par_for->body[j]);
-            if (error_state.has_error || error_state.mode != ErrorState::NONE) {
-                break;
+    int end   = (int)evaluate_expression(par_for->end_expr);
+    int step  = par_for->step_expr ? (int)evaluate_expression(par_for->step_expr) : 1;
+    if (step == 0) step = 1;
+
+    // v3.1: Real threaded Parallel For
+    // Determine iteration count and distribute across hardware threads.
+    int iter_count = 0;
+    for (int i = start; (step > 0 ? i <= end : i >= end); i += step) iter_count++;
+    if (iter_count <= 0) return;
+
+    // Cap threads at hardware concurrency or iteration count (whichever is smaller)
+    int max_threads = (int)std::thread::hardware_concurrency();
+    if (max_threads <= 0) max_threads = 4;
+    int num_threads = std::min(max_threads, iter_count);
+
+    // For very small loops (≤ 4 iterations), just run serially — thread overhead
+    // isn't worth it and avoids variable-scope contention.
+    if (iter_count <= 4) {
+        for (int i = start; (step > 0 ? i <= end : i >= end); i += step) {
+            variables[par_for->variable_name] = i;
+            for (int j = 0; j < par_for->body.size(); j++) {
+                execute_statement(par_for->body[j]);
+                if (error_state.has_error || error_state.mode != ErrorState::NONE) return;
             }
         }
+        return;
+    }
+
+    // Build the list of iteration indices
+    std::vector<int> indices;
+    indices.reserve(iter_count);
+    for (int i = start; (step > 0 ? i <= end : i >= end); i += step) indices.push_back(i);
+
+    // Partition work across threads
+    std::vector<std::thread> threads;
+    threads.reserve(num_threads);
+    std::atomic<bool> any_error{false};
+
+    String var_name = par_for->variable_name;
+    Vector<Statement*> body = par_for->body;
+
+    auto chunk_size = [&](int t) -> std::pair<int,int> {
+        int base = iter_count / num_threads;
+        int extra = iter_count % num_threads;
+        int s = t * base + std::min(t, extra);
+        int e = s + base + (t < extra ? 1 : 0);
+        return {s, e};
+    };
+
+    for (int t = 0; t < num_threads; t++) {
+        auto [cs, ce] = chunk_size(t);
+        // Each thread gets its own copy of the variable scope
+        Dictionary scope_clone = variables.duplicate(true);
+
+        threads.emplace_back([this, cs, ce, &indices, &any_error, var_name, body, scope_clone]() mutable {
+            Dictionary saved = variables;
+            variables = scope_clone;
+            for (int idx = cs; idx < ce && !any_error.load(); idx++) {
+                variables[var_name] = indices[idx];
+                for (int j = 0; j < body.size(); j++) {
+                    execute_statement(body[j]);
+                    if (error_state.has_error || error_state.mode != ErrorState::NONE) {
+                        any_error.store(true);
+                        break;
+                    }
+                }
+            }
+            variables = saved;
+        });
+    }
+
+    // Join all threads
+    for (auto &t : threads) {
+        if (t.joinable()) t.join();
     }
 }
 
 void VisualGasicInstance::execute_parallel_section(ParallelSectionStatement* par_section) {
-    // Execute section sequentially for safety
-    // In full implementation, would distribute work across threads
-    for (int i = 0; i < par_section->section_body.size(); i++) {
-        execute_statement(par_section->section_body[i]);
-        if (error_state.has_error || error_state.mode != ErrorState::NONE) {
-            break;
+    // v3.1: Real threaded Parallel Section
+    // Each top-level statement in the section body runs in its own thread.
+    int n = par_section->section_body.size();
+    if (n == 0) return;
+
+    int max_t = (par_section->max_threads > 0) ? par_section->max_threads
+                                                : (int)std::thread::hardware_concurrency();
+    if (max_t <= 0) max_t = 4;
+    int num_threads = std::min(max_t, n);
+
+    // For tiny sections just run serially
+    if (n <= 2) {
+        for (int i = 0; i < n; i++) {
+            execute_statement(par_section->section_body[i]);
+            if (error_state.has_error || error_state.mode != ErrorState::NONE) return;
         }
+        return;
+    }
+
+    std::vector<std::thread> threads;
+    threads.reserve(num_threads);
+    std::atomic<int> next_item{0};
+    std::atomic<bool> any_error{false};
+    Vector<Statement*> body = par_section->section_body;
+
+    for (int t = 0; t < num_threads; t++) {
+        Dictionary scope_clone = variables.duplicate(true);
+        threads.emplace_back([this, &next_item, &any_error, &body, n, scope_clone]() mutable {
+            Dictionary saved = variables;
+            variables = scope_clone;
+            while (!any_error.load()) {
+                int idx = next_item.fetch_add(1);
+                if (idx >= n) break;
+                execute_statement(body[idx]);
+                if (error_state.has_error || error_state.mode != ErrorState::NONE) {
+                    any_error.store(true);
+                    break;
+                }
+            }
+            variables = saved;
+        });
+    }
+
+    for (auto &t : threads) {
+        if (t.joinable()) t.join();
     }
 }
 

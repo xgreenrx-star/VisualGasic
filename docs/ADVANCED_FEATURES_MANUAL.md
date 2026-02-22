@@ -15,7 +15,7 @@
 
 ## Performance Snapshot
 
-VisualGasic targets high performance in tight loops and engine interop while keeping Gasic-style ergonomics. Below is a snapshot from the built‑in benchmark suite (Godot 4.5.1 headless, v2.5). All 11 benchmarks faster than GDScript. Full results and methodology are in [docs/manual/performance.md](docs/manual/performance.md).
+VisualGasic targets high performance in tight loops and engine interop while keeping Gasic-style ergonomics. Below is a snapshot from the built‑in benchmark suite (Godot 4.5.1 headless). All 11 benchmarks faster than GDScript. Full results and methodology are in [performance.md](manual/performance.md).
 
 ```mermaid
 xychart-beta

@@ -32,6 +32,7 @@ var _btn_toggle_folders: Button
 var _btn_refresh: Button
 var _show_folders: bool = true
 var _project_name: String = "Project1"
+var _context_menu: PopupMenu
 
 # =============================================================================
 # INITIALIZATION
@@ -41,25 +42,25 @@ func _init():
 	name = "Project"
 	size_flags_vertical = SIZE_EXPAND_FILL
 	size_flags_horizontal = SIZE_EXPAND_FILL
-	custom_minimum_size = Vector2(180, 100)  # Reasonable min for dock; Godot handles resize via dock splitters
+	custom_minimum_size = Vector2(150, 100)
 
-	# --- Title Bar (VB6-style dark blue) ---
-	var title = Label.new()
-	title.text = "Project Explorer"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	var style = StyleBoxFlat.new()
-	style.bg_color = Color(0.1, 0.1, 0.4)  # VB6 Title Bar Blue
-	title.add_theme_stylebox_override("normal", style)
-	add_child(title)
-
-	# --- Toolbar ---
+	# --- Toolbar (VB6-style: dark text on warm off-white) ---
 	_toolbar = HBoxContainer.new()
 	_toolbar.custom_minimum_size.y = 26
+	var tb_sb = StyleBoxFlat.new()
+	tb_sb.bg_color = Color("#E8E5E0")  # slightly darker than panel bg
+	tb_sb.content_margin_left = 4
+	tb_sb.content_margin_right = 4
+	tb_sb.content_margin_top = 1
+	tb_sb.content_margin_bottom = 1
+	_toolbar.add_theme_stylebox_override("panel", tb_sb)
 
 	_btn_view_code = Button.new()
 	_btn_view_code.text = "Code"
 	_btn_view_code.tooltip_text = "View Code"
 	_btn_view_code.flat = true
+	_btn_view_code.add_theme_color_override("font_color", Color(0.15, 0.15, 0.15))
+	_btn_view_code.add_theme_color_override("font_hover_color", Color(0.0, 0.0, 0.5))
 	_btn_view_code.pressed.connect(_on_view_code)
 	_toolbar.add_child(_btn_view_code)
 
@@ -67,6 +68,8 @@ func _init():
 	_btn_view_object.text = "Design"
 	_btn_view_object.tooltip_text = "View Object (Form Designer)"
 	_btn_view_object.flat = true
+	_btn_view_object.add_theme_color_override("font_color", Color(0.15, 0.15, 0.15))
+	_btn_view_object.add_theme_color_override("font_hover_color", Color(0.0, 0.0, 0.5))
 	_btn_view_object.pressed.connect(_on_view_object)
 	_toolbar.add_child(_btn_view_object)
 
@@ -78,6 +81,8 @@ func _init():
 	_btn_toggle_folders.flat = true
 	_btn_toggle_folders.toggle_mode = true
 	_btn_toggle_folders.button_pressed = true
+	_btn_toggle_folders.add_theme_color_override("font_color", Color(0.15, 0.15, 0.15))
+	_btn_toggle_folders.add_theme_color_override("font_hover_color", Color(0.0, 0.0, 0.5))
 	_btn_toggle_folders.toggled.connect(_on_toggle_folders)
 	_toolbar.add_child(_btn_toggle_folders)
 
@@ -85,12 +90,13 @@ func _init():
 	_btn_refresh.text = "↻"
 	_btn_refresh.tooltip_text = "Refresh"
 	_btn_refresh.flat = true
+	_btn_refresh.add_theme_color_override("font_color", Color(0.15, 0.15, 0.15))
 	_btn_refresh.pressed.connect(refresh)
 	_toolbar.add_child(_btn_refresh)
 
 	add_child(_toolbar)
 
-	# --- Tree View ---
+	# --- Tree View (dark text on off-white background) ---
 	tree = Tree.new()
 	tree.size_flags_vertical = SIZE_EXPAND_FILL
 	tree.size_flags_horizontal = SIZE_EXPAND_FILL
@@ -98,7 +104,41 @@ func _init():
 	tree.allow_reselect = true
 	tree.item_activated.connect(_on_item_activated)
 	tree.item_selected.connect(_on_item_selected)
+	# Dark text + warm off-white background for the tree
+	var tree_sb = StyleBoxFlat.new()
+	tree_sb.bg_color = Color("#F0EDE8")
+	tree_sb.content_margin_left = 4
+	tree_sb.content_margin_right = 4
+	tree_sb.content_margin_top = 2
+	tree_sb.content_margin_bottom = 2
+	tree.add_theme_stylebox_override("panel", tree_sb)
+	tree.add_theme_color_override("font_color", Color(0.1, 0.1, 0.1))
+	tree.add_theme_color_override("font_selected_color", Color(1, 1, 1))
+	tree.add_theme_color_override("title_button_color", Color(0.1, 0.1, 0.1))
+	# VB6-style tree connector lines (dotted gray lines between parent/child)
+	tree.add_theme_color_override("relationship_line_color", Color(0.5, 0.5, 0.5, 0.8))
+	tree.add_theme_color_override("parent_hl_line_color", Color(0.5, 0.5, 0.5, 0.8))
+	tree.add_theme_color_override("children_hl_line_color", Color(0.5, 0.5, 0.5, 0.8))
+	tree.add_theme_constant_override("draw_relationship_lines", 1)
+	tree.add_theme_constant_override("relationship_line_width", 1)
+	tree.add_theme_constant_override("parent_hl_line_width", 1)
+	tree.add_theme_constant_override("children_hl_line_width", 1)
+	# Selected item highlight: blue selection bar
+	var sel_sb = StyleBoxFlat.new()
+	sel_sb.bg_color = Color(0.26, 0.59, 0.98, 1.0)
+	tree.add_theme_stylebox_override("selected", sel_sb)
+	tree.add_theme_stylebox_override("selected_focus", sel_sb)
 	add_child(tree)
+
+	# --- Right-click context menu ---
+	_context_menu = PopupMenu.new()
+	_context_menu.add_item("Add Form...", 0)
+	_context_menu.add_item("Add Module...", 1)
+	_context_menu.add_separator()
+	_context_menu.add_item("Refresh", 2)
+	_context_menu.id_pressed.connect(_on_context_menu_selected)
+	add_child(_context_menu)
+	tree.gui_input.connect(_on_tree_gui_input)
 
 ## Setup with the editor plugin reference.
 func setup(plugin: EditorPlugin):
@@ -335,7 +375,11 @@ func _on_view_object():
 		scene_path = file_path.get_basename() + ".tscn"
 
 	if FileAccess.file_exists(scene_path) and (scene_path.ends_with(".tscn") or scene_path.ends_with(".scn")):
-		editor_plugin.get_editor_interface().open_scene_from_path(scene_path)
+		if editor_plugin.has_method("open_form_in_designer"):
+			editor_plugin.open_form_in_designer(scene_path)
+		else:
+			editor_plugin.get_editor_interface().open_scene_from_path(scene_path)
+			EditorInterface.set_main_screen_editor("Form Designer")
 
 ## Toggle folder grouping on/off.
 func _on_toggle_folders(toggled: bool):
@@ -352,6 +396,24 @@ func _on_item_selected():
 		return
 	# Could preview the file in inspector, etc.
 	pass
+
+## Right-click on tree — show VB6-style context menu.
+func _on_tree_gui_input(event: InputEvent):
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_RIGHT:
+		_context_menu.position = Vector2i(DisplayServer.mouse_get_position())
+		_context_menu.popup()
+
+## Context menu item selected.
+func _on_context_menu_selected(id: int):
+	match id:
+		0:  # Add Form...
+			if editor_plugin and editor_plugin.has_method("_on_add_form"):
+				editor_plugin._on_add_form()
+		1:  # Add Module...
+			if editor_plugin and editor_plugin.has_method("_on_new_module"):
+				editor_plugin._on_new_module()
+		2:  # Refresh
+			refresh()
 
 # =============================================================================
 # HELPERS

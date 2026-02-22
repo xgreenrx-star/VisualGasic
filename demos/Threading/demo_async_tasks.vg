@@ -1,0 +1,125 @@
+' demo_async_tasks.vg — Async Task & Parallel Processing Demo
+' Shows running background tasks and parallel workloads
+
+Sub Main()
+    Print "=== Async Tasks Demo ==="
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 1. Run a single async task
+    ' ---------------------------------------------------------------
+    Print "--- Single Async Task ---"
+
+    Dim task As Object
+    Set task = New VGTask
+
+    ' Run a simple computation in the background
+    task.RunAsync Callable(Me, "ComputeSquares")
+
+    ' Wait for it to finish
+    Dim result As Variant
+    result = task.WaitForResult()
+
+    Print "  Status:   " & task.Status
+    Print "  Complete: " & CStr(task.IsComplete)
+    Print "  Result:   " & CStr(result)
+
+    ' ---------------------------------------------------------------
+    ' 2. Run a delayed task (like a timer)
+    ' ---------------------------------------------------------------
+    Print ""
+    Print "--- Delayed Task ---"
+
+    Dim delayed As Object
+    Set delayed = New VGTask
+
+    delayed.RunDelayed Callable(Me, "DelayedGreeting"), 0.5
+
+    Print "  Task started (0.5 second delay)..."
+    Dim greeting As Variant
+    greeting = delayed.WaitForResult()
+    Print "  Result: " & CStr(greeting)
+
+    ' ---------------------------------------------------------------
+    ' 3. Task Runner — run multiple tasks in parallel
+    ' ---------------------------------------------------------------
+    Print ""
+    Print "--- Parallel Task Runner ---"
+
+    Dim runner As Object
+    Set runner = New VGTaskRunner
+
+    ' Add several computation tasks
+    runner.AddTask Callable(Me, "Worker1")
+    runner.AddTask Callable(Me, "Worker2")
+    runner.AddTask Callable(Me, "Worker3")
+
+    Print "  Running " & CStr(runner.TaskCount) & " tasks in parallel..."
+    runner.RunAll
+
+    ' Get results from all tasks
+    Dim results As Variant
+    results = runner.get_all_results()
+
+    Print "  All complete!"
+    Dim i As Integer
+    For i = 0 To results.size() - 1
+        Print "    Task " & CStr(i + 1) & ": " & CStr(results[i])
+    Next i
+
+    ' ---------------------------------------------------------------
+    ' 4. Cancellation
+    ' ---------------------------------------------------------------
+    Print ""
+    Print "--- Task Cancellation ---"
+
+    Dim longTask As Object
+    Set longTask = New VGTask
+
+    longTask.RunDelayed Callable(Me, "SlowWork"), 5.0
+
+    Print "  Started long task (5 sec)..."
+    Print "  Cancelling..."
+    longTask.Cancel
+
+    Print "  Is Cancelled: " & CStr(longTask.IsCancelled)
+    Print "  Status:       " & longTask.Status
+
+    Print ""
+    Print "=== Async Tasks Demo Complete ==="
+End Sub
+
+' ---------------------------------------------------------------
+' Worker functions called by tasks
+' ---------------------------------------------------------------
+
+Function ComputeSquares() As Integer
+    ' Compute sum of squares 1..100
+    Dim total As Integer
+    total = 0
+    Dim n As Integer
+    For n = 1 To 100
+        total = total + (n * n)
+    Next n
+    ComputeSquares = total
+End Function
+
+Function DelayedGreeting() As String
+    DelayedGreeting = "Hello from the future!"
+End Function
+
+Function Worker1() As String
+    Worker1 = "Result from Worker 1"
+End Function
+
+Function Worker2() As String
+    Worker2 = "Result from Worker 2"
+End Function
+
+Function Worker3() As String
+    Worker3 = "Result from Worker 3"
+End Function
+
+Function SlowWork() As String
+    SlowWork = "This takes a while..."
+End Function

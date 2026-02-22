@@ -48,6 +48,45 @@ if "template_debug" in env.get("target", "").lower() or env.get("debug_build", F
 # Force no automatic stripping for all builds in this repository to help debugging.
 env['STRIP'] = ''
 
+# --- libffi linking (required by VGNativeLibrary FFI support) ---
+# Define VG_HAS_LIBFFI when libffi is available so FFI code compiles conditionally.
+if env["platform"] in ["linux", "macos"]:
+    try:
+        env.ParseConfig('pkg-config --cflags --libs libffi')
+        env.Append(CPPDEFINES=["VG_HAS_LIBFFI"])
+    except Exception:
+        # Fallback if pkg-config is not available
+        env.Append(LIBS=["ffi"])
+        env.Append(CPPDEFINES=["VG_HAS_LIBFFI"])
+elif env["platform"] == "windows":
+    # On Windows the FFI calls fall back to LoadLibrary/GetProcAddress;
+    # link libffi only when a pre-built static lib is available.
+    import os as _os
+    if _os.path.exists('thirdparty/libffi/lib/ffi.lib'):
+        env.Append(CPPPATH=['thirdparty/libffi/include'])
+        env.Append(LIBPATH=['thirdparty/libffi/lib'])
+        env.Append(LIBS=['ffi'])
+        env.Append(CPPDEFINES=["VG_HAS_LIBFFI"])
+
+# --- POSIX libraries required by v3.1 system-level classes ---
+# librt: shm_open/shm_unlink (VGIPC shared memory)
+# libpthread: threading in VGTask, Parallel For
+if env["platform"] == "linux":
+    env.Append(LIBS=["rt", "pthread"])
+
+# --- Windows system libraries ---
+# ws2_32: Winsock2 (sockets, networking)
+# ole32 + oleaut32: COM interop (VGComObject)
+# uuid: COM interface IIDs (IID_IDispatch, etc.)
+if env["platform"] == "windows":
+    env.Append(LIBS=["ws2_32", "ole32", "oleaut32", "uuid"])
+
+# --- Android build support ---
+if env["platform"] == "android":
+    env.Append(CPPDEFINES=["ANDROID_ENABLED"])
+    env.Append(LIBS=["log"])  # __android_log_print
+    # Android NDK sysroot provides POSIX subset — no librt needed
+
 # Optional: allow using ccache by setting the environment variable USE_CCACHE=1
 import os
 if os.environ.get("USE_CCACHE", "0") == "1":

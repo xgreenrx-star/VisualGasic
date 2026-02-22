@@ -1,5 +1,12 @@
-[gd_scene format=3]
+[gd_scene load_steps=2 format=3]
 
-[node name="LineEdit" type="Control"]
+[ext_resource type="Script" path="res://addons/visual_gasic/vg_text_box.gd" id="1"]
+
+[node name="LineEdit" type="LineEdit"]
+custom_minimum_size = Vector2(100, 24)
 offset_right = 100.0
-offset_bottom = 30.0
+offset_bottom = 24.0
+focus_mode = 2
+placeholder_text = ""
+max_length = 0
+script = ExtResource("1")

@@ -10,12 +10,16 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <poll.h>
+#elif defined(_WIN32)
+#include <windows.h>
 #endif
 
 using namespace godot;
 
+#ifdef __linux__
 // inotify event buffer size
 #define EVENT_BUF_SIZE (1024 * (sizeof(struct inotify_event) + 16))
+#endif
 
 void VGFileWatcher::_bind_methods() {
     ClassDB::bind_method(D_METHOD("set_path", "path"), &VGFileWatcher::set_path);
@@ -48,6 +52,9 @@ VGFileWatcher::VGFileWatcher() {
     watch_descriptor = -1;
     enabled = false;
     include_subdirectories = false;
+#ifdef _WIN32
+    win_watch_handle = nullptr;
+#endif
 }
 
 VGFileWatcher::~VGFileWatcher() {
@@ -128,6 +135,28 @@ void VGFileWatcher::setup_watch() {
 
     UtilityFunctions::print("[VGFileWatcher] Watching: ", watch_path,
                             (include_subdirectories ? " (recursive)" : ""));
+#elif defined(_WIN32)
+    if (watch_path.is_empty()) return;
+
+    Char16String wide_path = watch_path.utf16();
+    DWORD filter = FILE_NOTIFY_CHANGE_FILE_NAME | FILE_NOTIFY_CHANGE_DIR_NAME |
+                   FILE_NOTIFY_CHANGE_SIZE | FILE_NOTIFY_CHANGE_LAST_WRITE |
+                   FILE_NOTIFY_CHANGE_CREATION;
+
+    win_watch_handle = FindFirstChangeNotificationW(
+        (LPCWSTR)wide_path.get_data(),
+        include_subdirectories ? TRUE : FALSE,
+        filter
+    );
+
+    if (win_watch_handle == INVALID_HANDLE_VALUE) {
+        UtilityFunctions::printerr("[VGFileWatcher] FindFirstChangeNotification failed for: ", watch_path);
+        win_watch_handle = nullptr;
+        return;
+    }
+
+    UtilityFunctions::print("[VGFileWatcher] Watching: ", watch_path,
+                            (include_subdirectories ? " (recursive)" : ""));
 #else
     UtilityFunctions::printerr("[VGFileWatcher] Not implemented on this platform");
 #endif
@@ -168,6 +197,11 @@ void VGFileWatcher::teardown_watch() {
         inotify_fd = -1;
         watch_descriptor = -1;
         wd_to_path.clear();
+    }
+#elif defined(_WIN32)
+    if (win_watch_handle) {
+        FindCloseChangeNotification(win_watch_handle);
+        win_watch_handle = nullptr;
     }
 #endif
 }
@@ -232,6 +266,21 @@ Array VGFileWatcher::poll_changes() {
         }
 
         i += sizeof(struct inotify_event) + event->len;
+    }
+#elif defined(_WIN32)
+    if (win_watch_handle) {
+        DWORD wait_result = WaitForSingleObject(win_watch_handle, 0);
+        if (wait_result == WAIT_OBJECT_0) {
+            // A change was detected in the watched directory
+            Dictionary evt;
+            evt["path"] = watch_path;
+            evt["filename"] = "";
+            evt["type"] = "Changed";
+            events.push_back(evt);
+
+            // Re-arm the notification for subsequent changes
+            FindNextChangeNotification(win_watch_handle);
+        }
     }
 #endif
     return events;

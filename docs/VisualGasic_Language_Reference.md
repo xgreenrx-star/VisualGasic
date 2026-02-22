@@ -62,6 +62,25 @@
 - [VGHttpRequest](#vghttprequest)
 - [VGTimer](#vgtimer)
 
+### [System Integration (v3.0)](#system-integration)
+- [NativeLibrary (FFI)](#nativelibrary-ffi)
+- [NativeStruct](#nativestruct)
+- [VGOdbc (Database)](#vgodbc-database)
+- [VGCrypto (Cryptography)](#vgcrypto-cryptography)
+- [VGXml (XML Processing)](#vgxml-xml-processing)
+- [VGZip (ZIP Archives)](#vgzip-zip-archives)
+- [VGTask (Async Tasks)](#vgtask-async-tasks)
+- [VGTaskRunner (Parallel)](#vgtaskrunner-parallel)
+- [VisualGasicPackage (Package Manager)](#visualgasicpackage-package-manager)
+
+### [System-Level Programming (v3.1)](#system-level-programming)
+- [VGSystem (System Info)](#vgsystem-system-info)
+- [VGSignalHandler (OS Signals)](#vgsignalhandler-os-signals)
+- [VGFilePermissions (Permissions & Links)](#vgfilepermissions-permissions--links)
+- [VGMemoryBuffer (Raw Memory)](#vgmemorybuffer-raw-memory)
+- [VGIPC (Inter-Process Communication)](#vgipc-inter-process-communication)
+- [VGAndroidBridge (Android Platform)](#vgandroidbridge-android-platform)
+
 ### [Modern Language Features](#modern-language-features)
 - [Lambda Expressions](#lambda-expressions)
 - [Pattern Matching](#pattern-matching)
@@ -2698,6 +2717,689 @@ tmr.Enabled = True
 
 ---
 
+## System Integration {#system-integration}
+
+*Added in v3.0.* These classes provide C#-level system integration: native FFI, ODBC databases, cryptography, XML, ZIP, async threading, and package management. All classes use VB6-style PascalCase aliases for a familiar BASIC feel.
+
+> **See also:** [docs/SYSTEM_INTEGRATION.md](SYSTEM_INTEGRATION.md) for the full API reference with extended examples.
+
+### NativeLibrary (FFI) {#nativelibrary-ffi}
+
+Load any shared library (`.so`, `.dll`, `.dylib`) and call its C functions — the cross-platform equivalent of VB6's `Declare Function`.
+
+**Aliases:** `New NativeLibrary`
+
+| Method/Property | Description |
+|-----------------|-------------|
+| `Load(path)` | Load a shared library. Returns `True` on success |
+| `Unload()` | Unload the library |
+| `QuickCall(name, ...)` | Call with auto-detected argument types |
+| `CallFunction(name, returnType, argTypes, args)` | Full-signature call |
+| `CallSimple(name, args)` | Array-based call |
+| `CreateCallback(callable, returnType, argTypes)` | Create a C callback |
+| `.IsLoaded` | Whether a library is loaded |
+| `.Path` | The loaded library path |
+| `.LastError` | Last error message |
+
+```vb
+Dim lib As New NativeLibrary
+lib.Load "libm.so.6"
+
+' Quick call — auto-detects types
+Dim result As Variant
+result = lib.QuickCall("sqrt", 144.0)
+Print "sqrt(144) = " & CStr(result)       ' 12.0
+
+' Full call with explicit types
+result = lib.CallFunction("pow", "double", Array("double", "double"), Array(2.0, 10.0))
+Print "pow(2,10) = " & CStr(result)       ' 1024.0
+
+lib.Unload
+```
+
+**Supported FFI Types:** `void`, `int`, `uint`, `long`, `ulong`, `float`, `double`, `pointer`, `string`, `int8`, `uint8`, `int16`, `uint16`, `int32`, `uint32`, `int64`, `uint64`
+
+### NativeStruct {#nativestruct}
+
+Describe C struct memory layouts and allocate/read/write fields.
+
+**Aliases:** `New NativeStruct`
+
+| Method/Property | Description |
+|-----------------|-------------|
+| `AddField(name, type)` | Add a field to the struct layout |
+| `Create()` | Allocate a new struct instance → handle |
+| `Destroy(handle)` | Free a struct instance |
+| `SetField(handle, name, value)` | Write a field |
+| `GetField(handle, name)` | Read a field |
+| `GetPointer(handle)` | Get raw memory address |
+| `.Size` | Struct size in bytes |
+| `.FieldCount` | Number of fields |
+| `.FieldNames` | Array of field name strings |
+
+```vb
+Dim s As New NativeStruct
+
+' Define: struct Point { int x; int y; }
+s.AddField "x", "int"
+s.AddField "y", "int"
+
+Print "Size: " & CStr(s.Size) & " bytes"   ' 8
+
+Dim h As Integer = s.Create()
+s.SetField h, "x", 100
+s.SetField h, "y", 200
+Print s.GetField(h, "x")                    ' 100
+s.Destroy h
+```
+
+### VGOdbc (Database) {#vgodbc-database}
+
+Connect to any ODBC database — PostgreSQL, MySQL, SQL Server, SQLite, Oracle, and more. The ODBC driver is loaded dynamically at runtime.
+
+**Aliases:** `New VGOdbc`
+
+| Method/Property | Description |
+|-----------------|-------------|
+| `Open()` | Connect using `.ConnectionString` |
+| `OpenWithString(cs)` | Connect with a specified connection string |
+| `Close()` | Disconnect |
+| `Execute(sql)` | Run INSERT/UPDATE/DELETE |
+| `ExecuteParams(sql, params)` | Parameterized execute (safe from injection) |
+| `Query(sql)` | SELECT → `Array` of `Dictionary` rows |
+| `QueryParams(sql, params)` | Parameterized query |
+| `BeginTransaction()` | Start a transaction |
+| `CommitTransaction()` | Commit |
+| `RollbackTransaction()` | Rollback |
+| `ListTables()` | List table names |
+| `TableExists(name)` | Check if a table exists |
+| `ListDrivers()` | List installed ODBC drivers |
+| `.ConnectionString` | Get/set connection string |
+| `.IsOpen` | Connection state |
+| `.LastError` | Last error message |
+
+```vb
+Dim db As New VGOdbc
+db.ConnectionString = "Driver={PostgreSQL};Server=localhost;Database=myapp;"
+db.Open
+
+' Query → Array of Dictionary
+Dim rows As Variant
+rows = db.Query("SELECT name, email FROM users ORDER BY name")
+For i = 0 To rows.size() - 1
+    Print rows[i]["name"] & " — " & rows[i]["email"]
+Next i
+
+' Parameterized query (safe)
+rows = db.QueryParams("SELECT * FROM users WHERE age > ?", Array(18))
+
+' Transactions
+db.BeginTransaction
+db.Execute "UPDATE accounts SET balance = balance - 100 WHERE id = 1"
+db.Execute "UPDATE accounts SET balance = balance + 100 WHERE id = 2"
+db.CommitTransaction
+
+db.Close
+```
+
+### VGCrypto (Cryptography) {#vgcrypto-cryptography}
+
+Static utility class for hashing, encoding, encryption, and random generation.
+
+| Method | Description |
+|--------|-------------|
+| `MD5(text)` / `SHA1(text)` / `SHA256(text)` | Hash a string → hex |
+| `MD5Bytes(data)` / `SHA1Bytes(data)` / `SHA256Bytes(data)` | Hash bytes → hex |
+| `base64_encode(data)` / `base64_decode(b64)` | Base64 encode/decode |
+| `hex_encode(data)` / `hex_decode(hex)` | Hex encode/decode |
+| `encrypt_aes(data, key)` | AES-256-CBC encrypt |
+| `decrypt_aes(data, key)` | AES-256-CBC decrypt |
+| `random_bytes(count)` | Random byte array |
+| `generate_uuid()` | RFC 4122 v4 UUID string |
+| `hmac_sha256(data, key)` | HMAC-SHA256 hex signature |
+
+```vb
+' Hashing
+Print VGCrypto.MD5("hello")        ' "5d41402abc4b2a76b9719d911017c592"
+Print VGCrypto.SHA256("hello")     ' 64-char hex
+
+' AES Encryption
+Dim key As String = "MySecretKey12345MySecretKey12345"   ' 32 bytes
+Dim encrypted As Variant
+encrypted = VGCrypto.encrypt_aes("top secret".to_utf8_buffer(), key.to_utf8_buffer())
+Dim decrypted As Variant
+decrypted = VGCrypto.decrypt_aes(encrypted, key.to_utf8_buffer())
+Print decrypted.get_string_from_utf8()    ' "top secret"
+
+' UUID
+Dim id As String = VGCrypto.generate_uuid()
+Print id   ' "550e8400-e29b-41d4-a716-446655440000"
+```
+
+### VGXml (XML Processing) {#vgxml-xml-processing}
+
+Read, write, parse, and query XML documents.
+
+**Aliases:** `New VGXml`
+
+| Method/Property | Description |
+|-----------------|-------------|
+| `LoadFile(path)` | Load XML from a file |
+| `LoadString(xml)` | Load XML from a string |
+| `SaveFile(path)` | Save to file |
+| `ToString()` | Get XML as a string |
+| `Parse()` | Parse into a Dictionary tree |
+| `SelectNodes(path)` | XPath query → Array of nodes |
+| `SelectSingleNode(path)` | XPath query → first match |
+| `.XmlContent` | Property — raw XML string |
+| `.LastError` | Property — last error |
+
+```vb
+Dim xml As New VGXml
+xml.LoadString "<catalog><book>Title A</book><book>Title B</book></catalog>"
+
+' Parse to Dictionary tree
+Dim tree As Variant = xml.Parse()
+Print tree["tag"]                       ' "catalog"
+Print tree["children"][0]["text"]       ' "Title A"
+
+' XPath-style queries
+Dim books As Variant = xml.SelectNodes("catalog/book")
+Print "Found " & CStr(books.size()) & " books"
+
+' Save
+xml.SaveFile "user://output.xml"
+```
+
+### VGZip (ZIP Archives) {#vgzip-zip-archives}
+
+Create, read, and extract ZIP archives.
+
+**Aliases:** `New VGZip`
+
+| Method/Property | Description |
+|-----------------|-------------|
+| `OpenRead(path)` | Open for reading |
+| `OpenWrite(path)` | Create/open for writing |
+| `Close()` | Close the archive |
+| `AddText(name, text)` | Add a text file to archive |
+| `AddFile(name, data)` | Add a binary file (PackedByteArray) |
+| `ListFiles()` | List file names → Array |
+| `read_text(name)` | Read a file as String |
+| `read_file(name)` | Read a file as PackedByteArray |
+| `file_exists(name)` | Check if file exists |
+| `extract_to(dir)` | Extract all files to a directory |
+| `extract_file(name, dest)` | Extract a single file |
+| `.FileCount` | Number of files |
+| `.IsOpen` | Whether the archive is open |
+| `.ArchivePath` | File path |
+| `.LastError` | Last error |
+
+```vb
+' Create a ZIP
+Dim zip As New VGZip
+zip.OpenWrite "user://backup.zip"
+zip.AddText "readme.txt", "Hello World!"
+zip.AddText "data/config.ini", "[Settings]" & vbCrLf & "Theme=Dark"
+zip.Close
+
+' Read a ZIP
+Dim reader As New VGZip
+reader.OpenRead "user://backup.zip"
+Print "Files: " & CStr(reader.FileCount)
+Print reader.read_text("readme.txt")      ' "Hello World!"
+reader.extract_to "user://restored/"
+reader.Close
+```
+
+### VGTask (Async Tasks) {#vgtask-async-tasks}
+
+Run work on a background thread without freezing the game. Wraps `std::thread` with Godot-safe signalling.
+
+**Aliases:** `New VGTask`
+
+| Method/Property | Description |
+|-----------------|-------------|
+| `RunAsync(callable)` | Run a Callable on a background thread |
+| `RunAsyncWithArgs(callable, args)` | Run with arguments |
+| `RunDelayed(callable, seconds)` | Run after a delay |
+| `Cancel()` | Cancel the task |
+| `WaitForResult()` | Block until the result is ready |
+| `.IsComplete` | Whether the task finished |
+| `.IsRunning` | Whether it's currently running |
+| `.IsFailed` | Whether an error occurred |
+| `.IsCancelled` | Whether it was cancelled |
+| `.Status` | String — `"pending"`, `"running"`, `"completed"`, `"failed"`, `"cancelled"` |
+| `.Result` | The return value |
+| `.ErrorMessage` | Error text (if failed) |
+
+```vb
+Dim task As New VGTask
+task.RunAsync Callable(Me, "HeavyWork")
+
+' ... do other things ...
+
+Dim result As Variant = task.WaitForResult()
+Print "Done: " & CStr(result)
+
+' Delayed execution
+Dim later As New VGTask
+later.RunDelayed Callable(Me, "Greet"), 2.0   ' Run after 2 seconds
+
+' Cancellation
+task.Cancel
+Print task.IsCancelled   ' True
+```
+
+### VGTaskRunner (Parallel) {#vgtaskrunner-parallel}
+
+Run multiple tasks in parallel and collect their results.
+
+**Aliases:** `New VGTaskRunner`
+
+| Method/Property | Description |
+|-----------------|-------------|
+| `AddTask(callable)` | Add a task to the queue |
+| `RunAll()` | Run all tasks in parallel, wait for completion |
+| `RunAllLimited(max)` | Run with a maximum thread count |
+| `get_all_results()` | Get all results → Array |
+| `.TaskCount` | Number of tasks |
+| `.CompletedCount` | Number finished |
+| `.Progress` | 0.0 – 1.0 progress float |
+
+```vb
+Dim runner As New VGTaskRunner
+
+runner.AddTask Callable(Me, "Worker1")
+runner.AddTask Callable(Me, "Worker2")
+runner.AddTask Callable(Me, "Worker3")
+
+Print "Running " & CStr(runner.TaskCount) & " tasks..."
+runner.RunAll
+
+Dim results As Variant = runner.get_all_results()
+For i = 0 To results.size() - 1
+    Print "Task " & CStr(i) & ": " & CStr(results[i])
+Next i
+```
+
+### VisualGasicPackage (Package Manager) {#visualgasicpackage-package-manager}
+
+Manage project dependencies with semantic versioning, registries, and `vgpkg.json` manifests.
+
+**Aliases:** `New VisualGasicPackage`
+
+| Method | Description |
+|--------|-------------|
+| `Initialize(workspace)` | Initialize the package manager |
+| `Shutdown()` | Shut down cleanly |
+| `InstallPackage(name, version)` | Install a package → Dictionary result |
+| `UninstallPackage(name)` | Remove a package |
+| `update_package(name)` | Update a package |
+| `update_all_packages()` | Update everything |
+| `AddRegistry(name, url [, token])` | Add a package registry |
+| `search_packages(query)` | Search for packages |
+| `get_installed_packages()` | List installed packages |
+| `initialize_project(path)` | Create a `vgpkg.json` manifest |
+| `add_dependency(name, constraint)` | Add a dependency |
+| `remove_dependency(name)` | Remove a dependency |
+| `get_project_dependencies()` | List dependencies |
+| `create_package_template(name, type)` | Scaffold a new package |
+| `build_package(path)` | Build a package for distribution |
+| `publish_package(path, registry)` | Publish to a registry |
+| `clear_cache()` | Clear download cache |
+
+**Version constraints:** `^1.2.0` (compatible), `~1.2.0` (patch only), `>=2.0.0` (at least), `1.5.0` (exact).
+
+```vb
+Dim pkg As New VisualGasicPackage
+pkg.Initialize "res://"
+
+' Add a registry
+pkg.AddRegistry "official", "https://packages.visualgasic.org"
+
+' Install a package
+Dim result As Variant = pkg.InstallPackage("vg-math", "^1.0.0")
+Print result["message"]
+
+' Project dependencies
+pkg.initialize_project "res://"
+pkg.add_dependency "vg-ui", ">=2.0.0"
+
+Dim deps As Variant = pkg.get_project_dependencies()
+Print "Dependencies: " & CStr(deps.size())
+
+pkg.Shutdown
+```
+
+### Cross-Platform System Classes
+
+The following system classes (introduced in v2.9.0) now have full **Windows** and **macOS** backends in v3.0. The same VG code runs on all three platforms:
+
+| Class | Linux/macOS | Windows |
+|-------|------------|--------|
+| `VGProcess` (`New Process`) | fork / exec / pipe | CreateProcess / CreatePipe |
+| `VGSocket` (`New WinSock`) | POSIX sockets | WinSock2 (WSAStartup) |
+| `VGFileWatcher` (`New FileSystemWatcher`) | inotify / kqueue | FindFirstChangeNotification |
+| `VGSysTray` (`New SysTray`) | stub | Shell_NotifyIcon + HWND_MESSAGE |
+
+### Real COM Interop (Windows)
+
+`CreateObject()` now falls through to the real COM subsystem on Windows when the requested ProgID isn't a built-in emulated object. This lets you automate Excel, Word, Outlook, or any installed COM server:
+
+```vb
+' Built-in objects — work on all platforms
+Dim dict As Object = CreateObject("Scripting.Dictionary")
+
+' Real COM — Windows only
+Dim xl As Object = CreateObject("Excel.Application")
+xl.Visible = True
+xl.Workbooks.Add
+xl.Cells(1, 1).Value = "Hello from VisualGasic!"
+```
+
+---
+
+## System-Level Programming {#system-level-programming}
+
+*Added in v3.1.* These classes close every gap identified in the system-programming audit, making VisualGasic a proper system-level language on Linux, Windows, macOS, and Android.
+
+> **See also:** [docs/SYSTEM_INTEGRATION.md](SYSTEM_INTEGRATION.md) for the full API reference with extended examples.
+
+### VGSystem (System Info) {#vgsystem-system-info}
+
+Cross-platform system information queries — hostname, CPU, RAM, disk, OS, uptime, environment variables, and locale.
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `Hostname` | String | Machine hostname |
+| `Username` | String | Current user name |
+| `ProcessId` | int | Current process ID |
+| `CpuCount` | int | Number of logical CPU cores |
+| `CpuName` | String | CPU model name |
+| `Architecture` | String | CPU architecture (x86_64, aarch64, etc.) |
+| `TotalMemory` | int64 | Total RAM in bytes |
+| `FreeMemory` | int64 | Free RAM in bytes |
+| `UsedMemory` | int64 | Used RAM in bytes |
+| `MemoryUsagePercent` | double | RAM usage as percentage |
+| `FreeDiskSpace(path)` | int64 | Free disk space in bytes |
+| `TotalDiskSpace(path)` | int64 | Total disk space in bytes |
+| `DiskUsagePercent(path)` | double | Disk usage as percentage |
+| `OsName` | String | Operating system name |
+| `OsVersion` | String | OS version/release |
+| `OsFull` | String | OS name + version combined |
+| `Endianness` | String | "little" or "big" |
+| `Uptime` | double | System uptime in seconds |
+| `GetEnv(name)` | String | Get environment variable |
+| `SetEnv(name, value)` | void | Set environment variable |
+| `HasEnv(name)` | bool | Check if env var exists |
+| `GetAllEnv()` | Dictionary | All environment variables |
+| `GetLocale()` | String | System locale (e.g. "en_US.UTF-8") |
+| `GetLanguage()` | String | Two-letter language code |
+| `GetTimezone()` | String | Timezone name |
+| `GetTimezoneOffset()` | int | UTC offset in seconds |
+| `GetSystemInfo()` | Dictionary | Everything in one call |
+
+```vb
+Dim sys As Object = New VGSystem
+Print "Host: " & sys.Hostname
+Print "CPU: " & sys.CpuName & " (" & CStr(sys.CpuCount) & " cores)"
+Print "RAM: " & CStr(sys.TotalMemory / 1073741824) & " GB"
+Print "OS: " & sys.OsFull
+Print "Uptime: " & CStr(CInt(sys.Uptime / 3600)) & " hours"
+Print "Locale: " & sys.GetLocale()
+Print "HOME=" & sys.GetEnv("HOME")
+```
+
+### VGSignalHandler (OS Signals) {#vgsignalhandler-os-signals}
+
+Handle OS-level signals (SIGINT, SIGTERM, SIGHUP) and atexit cleanup. On Windows, maps to `SetConsoleCtrlHandler` events.
+
+| Method | Description |
+|--------|-------------|
+| `OnInterrupt(handler)` | Register SIGINT (Ctrl+C) handler |
+| `OnTerminate(handler)` | Register SIGTERM handler |
+| `OnHangup(handler)` | Register SIGHUP handler |
+| `OnUser1(handler)` | Register SIGUSR1 handler |
+| `OnUser2(handler)` | Register SIGUSR2 handler |
+| `OnExit(handler)` | Register atexit cleanup |
+| `SetHandler(name, handler)` | Generic signal handler by name |
+| `RemoveHandler(name)` | Remove a registered handler |
+| `HasHandler(name)` | Check if handler is registered |
+| `GetRegisteredSignals()` | List all registered signal names |
+| `RaiseSignal(name)` | Send signal to self |
+| `LastSignal` | Name of last received signal |
+| `IsInstalled` | Whether any handlers are installed |
+
+```vb
+Dim sh As Object = New VGSignalHandler
+sh.OnInterrupt(Lambda() => Print("Caught Ctrl+C!"))
+sh.OnExit(Lambda() => Print("Cleaning up..."))
+sh.OnTerminate(Lambda() => Print("Shutting down gracefully"))
+```
+
+### VGFilePermissions (Permissions & Links) {#vgfilepermissions-permissions--links}
+
+UNIX file permissions, ownership, symbolic links, file locking, and VB6-style file attributes.
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `Chmod(path, mode)` | bool | Set UNIX permissions (e.g. `&o755`) |
+| `GetPermissions(path)` | int | Get permission bits |
+| `GetPermissionsString(path)` | String | "rwxr-xr-x" format |
+| `IsReadable(path)` | bool | Check read access |
+| `IsWritable(path)` | bool | Check write access |
+| `IsExecutable(path)` | bool | Check execute access |
+| `Chown(path, owner, group)` | bool | Change ownership |
+| `GetOwner(path)` | String | Get file owner name |
+| `GetGroup(path)` | String | Get file group name |
+| `CreateSymlink(link, target)` | bool | Create symbolic link |
+| `CreateHardlink(link, target)` | bool | Create hard link |
+| `IsSymlink(path)` | bool | Test for symlink |
+| `ReadSymlink(path)` | String | Read symlink target |
+| `LockFile(path)` | bool | Exclusive file lock (blocking) |
+| `TryLockFile(path)` | bool | Non-blocking lock attempt |
+| `UnlockFile(path)` | bool | Release file lock |
+| `IsLocked(path)` | bool | Check if currently locked |
+| `GetAttr(path)` | int | VB6-style attributes (1=ReadOnly, 2=Hidden, 4=System, 16=Dir, 32=Archive) |
+| `SetAttr(path, flags)` | bool | Set VB6-style attributes |
+| `GetFileInfo(path)` | Dictionary | Full stat info (size, created, modified, mode, etc.) |
+| `FileLen(path)` | int64 | File size in bytes |
+| `FileType(path)` | String | "file", "directory", "symlink", etc. |
+
+```vb
+Dim fp As Object = New VGFilePermissions
+fp.Chmod "/tmp/script.sh", &o755
+Print fp.GetPermissionsString("/tmp/script.sh")    ' "rwxr-xr-x"
+fp.CreateSymlink "/tmp/link", "/tmp/script.sh"
+Print "Owner: " & fp.GetOwner("/tmp/script.sh")
+
+' VB6-style attributes
+Dim attr As Integer = fp.GetAttr("C:\data.txt")
+If attr And 1 Then Print "Read-only"
+
+' File locking
+If fp.TryLockFile("/tmp/data.lock") Then
+    ' ... critical section ...
+    fp.UnlockFile "/tmp/data.lock"
+End If
+```
+
+### VGMemoryBuffer (Raw Memory) {#vgmemorybuffer-raw-memory}
+
+Raw byte-level memory buffer with Peek/Poke access — the VB6 equivalent of `CopyMemory` / `RtlMoveMemory`. Useful for binary protocols, FFI interop, and system programming.
+
+| Method | Description |
+|--------|-------------|
+| `Allocate(size)` | Allocate buffer (bytes) |
+| `Resize(size)` | Resize preserving content |
+| `Free()` | Release memory |
+| `IsAllocated` | Check if allocated |
+| `Size` | Current buffer size |
+| `Fill(byte)` / `FillRange(off, len, byte)` | Fill with value |
+| `Clear()` | Zero-fill |
+| `PeekByte/Int16/UInt16/Int32/Int64(offset)` | Read typed value |
+| `PeekFloat/Double(offset)` | Read floating point |
+| `PeekString(offset, length)` | Read UTF-8 string |
+| `PokeByte/Int16/UInt16/Int32/Int64(offset, value)` | Write typed value |
+| `PokeFloat/Double(offset, value)` | Write floating point |
+| `PokeString(offset, value)` | Write UTF-8 string |
+| `CopyTo(dest, srcOff, dstOff, len)` | Copy to another buffer |
+| `CopyFrom(src, srcOff, dstOff, len)` | Copy from another buffer |
+| `ToByteArray()` / `ToByteArrayRange(off, len)` | Export to PackedByteArray |
+| `FromByteArray(arr)` | Import from PackedByteArray |
+| `FindByte(value, start)` | Search for byte |
+| `FindPattern(bytes, start)` | Search for byte pattern |
+| `HexDump(offset, length)` | Debug hex dump string |
+| `GetPointer()` | Raw int64 address for FFI |
+
+```vb
+Dim buf As Object = New VGMemoryBuffer
+buf.Allocate 1024
+
+' Write a C-style struct: int32 id, float x, float y
+buf.PokeInt32 0, 42
+buf.PokeFloat 4, 3.14
+buf.PokeFloat 8, 2.71
+
+' Read it back
+Print "ID: " & CStr(buf.PeekInt32(0))
+Print "X: " & CStr(buf.PeekFloat(4))
+Print "Y: " & CStr(buf.PeekFloat(8))
+
+' Pass to FFI
+Dim lib As Object = New NativeLibrary
+lib.Load "mylib.so"
+lib.CallFunction "process_data", "void", Array("pointer", "int"), Array(buf.GetPointer(), buf.Size)
+
+Print buf.HexDump(0, 16)
+buf.Free
+```
+
+### VGIPC (Inter-Process Communication) {#vgipc-inter-process-communication}
+
+Named pipes, UNIX domain sockets, and POSIX shared memory for communicating between processes.
+
+#### Named Pipes
+
+| Method | Description |
+|--------|-------------|
+| `CreateNamedPipe(path)` | Create a FIFO (mkfifo / CreateNamedPipe) |
+| `OpenPipe(path, mode)` | Open pipe for "read" or "write" |
+| `ReadPipe(maxBytes)` | Read string from pipe |
+| `ReadPipeBytes(maxBytes)` | Read raw bytes from pipe |
+| `WritePipe(data)` | Write string to pipe |
+| `WritePipeBytes(data)` | Write raw bytes to pipe |
+| `ClosePipe()` | Close pipe fd |
+| `DeleteNamedPipe(path)` | Remove FIFO from filesystem |
+
+#### UNIX Domain Sockets
+
+| Method | Description |
+|--------|-------------|
+| `CreateDomainSocket(path)` | Create, bind, and listen |
+| `ConnectDomainSocket(path)` | Connect as client |
+| `AcceptConnection()` | Accept incoming connection |
+| `ReadSocket(maxBytes)` | Read string |
+| `ReadSocketBytes(maxBytes)` | Read raw bytes |
+| `WriteSocket(data)` | Write string |
+| `WriteSocketBytes(data)` | Write raw bytes |
+| `CloseSocket()` | Close socket and unlink |
+
+#### Shared Memory
+
+| Method | Description |
+|--------|-------------|
+| `CreateSharedMemory(name, size)` | Create new shared segment (shm_open + mmap) |
+| `OpenSharedMemory(name, size)` | Attach to existing segment |
+| `WriteSharedMemory(offset, data)` | Write string at offset |
+| `WriteSharedMemoryBytes(offset, data)` | Write bytes at offset |
+| `ReadSharedMemory(offset, length)` | Read string |
+| `ReadSharedMemoryBytes(offset, length)` | Read bytes |
+| `CloseSharedMemory()` | Detach and unlink |
+
+```vb
+' === Named Pipe Example ===
+Dim ipc As Object = New VGIPC
+ipc.CreateNamedPipe "/tmp/myapp.pipe"
+ipc.OpenPipe "/tmp/myapp.pipe", "write"
+ipc.WritePipe "Hello from VG!"
+ipc.ClosePipe
+
+' === Shared Memory Example ===
+Dim shm As Object = New VGIPC
+shm.CreateSharedMemory "myapp_data", 4096
+shm.WriteSharedMemory 0, "Shared state"
+Dim data As String = shm.ReadSharedMemory(0, 12)
+Print data  ' "Shared state"
+shm.CloseSharedMemory
+
+' === Domain Socket Server ===
+Dim srv As Object = New VGIPC
+srv.CreateDomainSocket "/tmp/myapp.sock"
+srv.AcceptConnection
+Dim msg As String = srv.ReadSocket(1024)
+srv.WriteSocket "ACK: " & msg
+srv.CloseSocket
+```
+
+### VGAndroidBridge (Android Platform) {#vgandroidbridge-android-platform}
+
+JNI bridge for Android platform APIs. All methods return safe defaults on non-Android platforms (Linux, Windows, macOS).
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `SdkVersion` | int | Android SDK version (e.g. 34) |
+| `DeviceModel` | String | Device model name |
+| `DeviceManufacturer` | String | Device manufacturer |
+| `AndroidVersion` | String | Android version string |
+| `PackageName` | String | App package name |
+| `AppVersion` | String | App version string |
+| `DeviceId` | String | Device identifier |
+| `HasPermission(perm)` | bool | Check if permission granted |
+| `RequestPermission(perm)` | void | Request single permission |
+| `RequestPermissions(perms)` | void | Request multiple permissions |
+| `GetGrantedPermissions()` | Array | List granted permissions |
+| `OpenUrl(url)` | void | Open URL in browser |
+| `ShareText(text, title)` | void | Share text via intent |
+| `SendEmail(to, subject, body)` | void | Send email via intent |
+| `OpenAppSettings()` | void | Open app settings page |
+| `ShowToast(message, duration)` | void | Show Android toast |
+| `Vibrate(ms)` | void | Vibrate device |
+| `ExternalStoragePath` | String | External storage path |
+| `CacheDir` | String | App cache directory |
+| `FilesDir` | String | App files directory |
+| `GetBatteryInfo()` | Dictionary | Battery level, status, charging |
+| `IsAndroid()` | bool | True on Android, false elsewhere |
+| `KeepScreenOn(enabled)` | void | Prevent screen timeout |
+
+```vb
+Dim android As Object = New VGAndroidBridge
+
+If android.IsAndroid() Then
+    Print "Device: " & android.DeviceManufacturer & " " & android.DeviceModel
+    Print "Android " & android.AndroidVersion & " (SDK " & CStr(android.SdkVersion) & ")"
+    
+    ' Check and request permissions
+    If Not android.HasPermission("android.permission.CAMERA") Then
+        android.RequestPermission "android.permission.CAMERA"
+    End If
+    
+    ' UI
+    android.ShowToast "Welcome to VisualGasic!", 1
+    android.Vibrate 200
+    
+    ' Battery
+    Dim batt As Dictionary = android.GetBatteryInfo()
+    Print "Battery: " & CStr(batt("level")) & "%"
+    
+    ' Share
+    android.ShareText "Check out VisualGasic!", "Share"
+End If
+```
+
+---
+
 ## Modern Language Features
 
 ### Lambda Expressions
@@ -3193,7 +3895,11 @@ The Whenever system elevates VisualGasic to the forefront of reactive programmin
 
 VisualGasic's **Multitasking System** provides world-class asynchronous programming, parallel processing, and concurrency capabilities that rival and often surpass those found in modern languages like C#, TypeScript, and Kotlin. The system combines the simplicity of VB.NET async/await with the power of advanced parallel programming frameworks.
 
-Built on Godot's highly optimized WorkerThreadPool, VisualGasic's multitasking features deliver exceptional performance while maintaining code clarity and safety.
+As of v3.1, all multitasking primitives are backed by **real `std::thread`** with per-thread scope cloning:
+
+- **`Task.Run`** — spawns a real OS thread; variable scope is cloned via `Dictionary.duplicate(true)` so each thread gets independent state
+- **`Parallel For`** — partitions the iteration space across `hardware_concurrency()` worker threads; falls back to serial execution for ≤4 iterations to avoid thread overhead
+- **`Parallel Section`** — uses an atomic work-stealing pattern with `std::atomic<int>` next-item counter, spawning up to max-cores threads
 
 #### Async/Await Programming
 

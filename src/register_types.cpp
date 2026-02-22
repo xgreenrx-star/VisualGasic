@@ -34,6 +34,23 @@
 #include "visual_gasic_regex.h"
 #include "visual_gasic_timer.h"
 
+// v3.0 – system-integration features
+#include "visual_gasic_ffi.h"
+#include "visual_gasic_odbc.h"
+#include "visual_gasic_crypto.h"
+#include "visual_gasic_xml.h"
+#include "visual_gasic_zip.h"
+#include "visual_gasic_task.h"
+#include "visual_gasic_package.h"
+
+// v3.1 – system-level programming
+#include "visual_gasic_system.h"
+#include "visual_gasic_signal_handler.h"
+#include "visual_gasic_file_permissions.h"
+#include "visual_gasic_memory_buffer.h"
+#include "visual_gasic_ipc.h"
+#include "visual_gasic_android_bridge.h"
+
 using namespace godot;
 
 static VisualGasicLanguage *visual_gasic_language = nullptr;
@@ -82,7 +99,26 @@ void initialize_visual_gasic_module(ModuleInitializationLevel p_level) {
         ClassDB::register_class<VGRegEx>();
         ClassDB::register_class<VGRegExMatch>();
         ClassDB::register_class<VGTimer>();
-    
+
+        // v3.0 – system-integration classes
+        ClassDB::register_class<VGNativeLibrary>();   // libffi: load .so/.dll, call C functions
+        ClassDB::register_class<VGNativeStruct>();    // libffi: C struct layout helper
+        ClassDB::register_class<VGOdbc>();            // ODBC database connectivity
+        ClassDB::register_class<VGCrypto>();          // Hashing, AES, Base64, HMAC
+        ClassDB::register_class<VGXml>();             // XML read / write / XPath
+        ClassDB::register_class<VGZip>();             // ZIP archive read / write
+        ClassDB::register_class<VGTask>();            // Single async task
+        ClassDB::register_class<VGTaskRunner>();      // Parallel task runner
+        ClassDB::register_class<VisualGasicPackage>();// Package manager
+
+        // v3.1 – system-level programming
+        ClassDB::register_class<VGSystem>();           // Hostname, CPU, RAM, disk, OS, uptime, env
+        ClassDB::register_class<VGSignalHandler>();    // SIGINT/SIGTERM/SIGHUP + atexit
+        ClassDB::register_class<VGFilePermissions>();  // chmod, chown, symlink, file locking
+        ClassDB::register_class<VGMemoryBuffer>();     // Raw Peek/Poke byte buffer
+        ClassDB::register_class<VGIPC>();              // Named pipes, domain sockets, shared mem
+        ClassDB::register_class<VGAndroidBridge>();    // JNI bridge for Android APIs
+
         visual_gasic_language = memnew(VisualGasicLanguage);
         Engine::get_singleton()->register_script_language(visual_gasic_language);
     

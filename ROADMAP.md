@@ -1,7 +1,7 @@
 # Visual Gasic Development Roadmap
 
 **Last Updated**: February 2026  
-**Current Version**: 2.9.0 (System-Level Features, Process, SQLite, Sockets, COM Interop)
+**Current Version**: 3.1.0 (System-Level Programming, IPC, Signals, Memory, Android Bridge)
 
 This document outlines the planned improvements and features for Visual Gasic. Items are prioritized by impact and development effort.
 
@@ -452,7 +452,9 @@ Each feature has implementation notes that describe:
 
 ## 📝 Version History
 
-- **v2.8.0** (Current) - VB6 Importer (15 fixes), Form Designer, Godot 4.6.1 Support
+- **v3.1.0** (Current) - System-Level Programming: VGSystem, Signals, Permissions, Memory, IPC, Android, Real Threading
+- **v3.0.0** - System Integration: FFI, ODBC, Crypto, XML, ZIP, Tasks, Packages, Cross-Platform System Calls, COM Interop
+- **v2.8.0** - VB6 Importer (15 fixes), Form Designer, Godot 4.6.1 Support
 - **v2.7.0** - Theme Picker, Form Preview, Screenshot Overhaul
 - **v2.6.1** - Bytecode Compiler Batches 1-4 (39 tests), Updated Benchmarks (18.9× geo mean vs GDScript)
 - **v2.6.0** - Custom .vg Icons, IntelliSense Update, Profiler UI
@@ -466,6 +468,18 @@ Each feature has implementation notes that describe:
 ## 🚀 v3.0 Roadmap — "Production Ready"
 
 Targeted improvements for a stable 3.0 release:
+
+### ✅ Completed in v3.1 — System-Level Programming
+
+All items from the system-programming audit are now implemented:
+
+1. **VGSystem** — Cross-platform system info (hostname, CPU, RAM, disk, OS, uptime, env, locale)
+2. **VGSignalHandler** — OS signal handling (SIGINT/SIGTERM/SIGHUP/atexit + Windows SetConsoleCtrlHandler)
+3. **VGFilePermissions** — File permissions (chmod, chown, symlinks, locking, VB6 GetAttr/SetAttr)
+4. **VGMemoryBuffer** — Raw memory (Peek/Poke, CopyMemory, HexDump, FFI pointer)
+5. **VGIPC** — IPC (named pipes, UNIX domain sockets, shared memory)
+6. **Real Threading** — Task.Run / Parallel For / Parallel Section backed by real std::thread
+7. **VGAndroidBridge** — JNI bridge (device info, permissions, intents, toast, vibrate, battery)
 
 ### 🔴 High Priority
 

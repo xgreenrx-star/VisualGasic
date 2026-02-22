@@ -1,0 +1,96 @@
+' demo_zip.vg — ZIP Archive Demo
+' Shows creating, reading, and extracting ZIP archives
+
+Sub Main()
+    Print "=== ZIP Archive Demo ==="
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 1. Create a new ZIP file
+    ' ---------------------------------------------------------------
+    Print "--- Create ZIP Archive ---"
+
+    Dim zip As Object
+    Set zip = New VGZip
+
+    Dim created As Boolean
+    created = zip.OpenWrite("user://demo_archive.zip")
+
+    If Not created Then
+        Print "  Error: " & zip.LastError
+        Exit Sub
+    End If
+
+    ' Add text files
+    zip.AddText "readme.txt", "Welcome to the VisualGasic ZIP demo!"
+    zip.AddText "data/config.ini", "[Settings]" & vbCrLf & "Theme=Dark" & vbCrLf & "FontSize=14"
+    zip.AddText "data/notes.txt", "These are some notes stored inside the ZIP."
+    zip.AddText "src/hello.vg", "Sub Main()" & vbCrLf & "    Print ""Hello from ZIP!""" & vbCrLf & "End Sub"
+
+    zip.Close
+    Print "  Created: user://demo_archive.zip"
+
+    ' ---------------------------------------------------------------
+    ' 2. Read the ZIP contents
+    ' ---------------------------------------------------------------
+    Print ""
+    Print "--- Read ZIP Contents ---"
+
+    Dim reader As Object
+    Set reader = New VGZip
+
+    reader.OpenRead "user://demo_archive.zip"
+
+    Print "  Archive:    " & reader.ArchivePath
+    Print "  File count: " & CStr(reader.FileCount)
+
+    ' List all files
+    Dim files As Variant
+    files = reader.ListFiles()
+    Print "  Files:"
+
+    Dim i As Integer
+    For i = 0 To files.size() - 1
+        Print "    - " & files[i]
+    Next i
+
+    ' ---------------------------------------------------------------
+    ' 3. Read a specific file from the archive
+    ' ---------------------------------------------------------------
+    Print ""
+    Print "--- Read File from Archive ---"
+
+    Dim readmeText As String
+    readmeText = reader.read_text("readme.txt")
+    Print "  readme.txt: " & readmeText
+
+    Dim configText As String
+    configText = reader.read_text("data/config.ini")
+    Print "  config.ini:"
+    Print "    " & configText
+
+    ' Check if a file exists
+    If reader.file_exists("src/hello.vg") Then
+        Print "  src/hello.vg exists!"
+        Print "    " & reader.read_text("src/hello.vg")
+    End If
+
+    ' ---------------------------------------------------------------
+    ' 4. Extract all files
+    ' ---------------------------------------------------------------
+    Print ""
+    Print "--- Extract All ---"
+
+    Dim extractOk As Boolean
+    extractOk = reader.extract_to("user://demo_extracted/")
+    If extractOk Then
+        Print "  Extracted to user://demo_extracted/"
+    Else
+        Print "  Extract error: " & reader.LastError
+    End If
+
+    reader.Close
+
+    Print ""
+    Print "=== ZIP Demo Complete ==="
+End Sub

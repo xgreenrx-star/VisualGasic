@@ -56,8 +56,24 @@ chmod +x setup_symlinks.sh
 | Demo | Description | Features Demonstrated |
 |------|-------------|----------------------|
 | **ParallelDemo/** | Parallel processing showcase | **Parallel For**, **Task.Run**, **Await**, Lock/Unlock |
+| **demo_async_tasks/** | Async task runner | **VGTask**, **VGTaskRunner**, background work, cancellation |
 
-## Features Showcased
+### 🔧 Utilities
+
+| Demo | Description | Features Demonstrated |
+|------|-------------|----------------------|
+| **FFI/** | Load native C libraries | **NativeLibrary** load .so/.dll, call C functions, **NativeStruct** |
+| **Crypto/** | Cryptography & encoding | **VGCrypto** MD5/SHA/AES, Base64, UUID, HMAC |
+| **XML/** | XML processing | **VGXml** parse, XPath queries, save/load |
+| **ZIP/** | ZIP archive management | **VGZip** create, read, extract archives |
+| **PackageManager/** | Dependency management | **VisualGasicPackage** install, registries, versioning |
+
+### 💾 Data and Files
+
+| Demo | Description | Features Demonstrated |
+|------|-------------|----------------------|
+| **HighScores/** | High score management | DATA/Read/Restore, LoadData, DataFile, sorting |
+| **ODBC/** | Database connectivity | **VGOdbc** connect, query, parameterized SQL, transactions |
 
 ### Whenever System (Reactive Programming)
 ```vb
@@ -137,10 +153,17 @@ demos/
 │   ├── Calculator/
 │   └── TodoApp/
 ├── Data_and_Files/
-│   └── HighScores/
+│   ├── HighScores/
+│   └── ODBC/
 ├── Threading/
-│   └── ParallelDemo/
-├── Utilities/         (coming soon)
+│   ├── ParallelDemo/
+│   └── demo_async_tasks/
+├── Utilities/
+│   ├── FFI/
+│   ├── Crypto/
+│   ├── XML/
+│   ├── ZIP/
+│   └── PackageManager/
 ├── Networking/        (coming soon)
 ├── setup_symlinks.sh
 └── README.md

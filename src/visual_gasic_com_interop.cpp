@@ -1,5 +1,6 @@
 // VGComInterop — VB6 CreateObject / COM compatibility layer
 // Maps common COM ProgIDs to native Linux equivalents
+// On Windows: Falls back to real COM via CoCreateInstance/IDispatch for unknown ProgIDs
 
 #include "visual_gasic_com_interop.h"
 #include "visual_gasic_http.h"
@@ -10,6 +11,14 @@
 #include <godot_cpp/classes/dir_access.hpp>
 #include <godot_cpp/classes/os.hpp>
 #include <godot_cpp/classes/time.hpp>
+
+#ifdef _WIN32
+#include <windows.h>
+#include <objbase.h>
+#include <oleauto.h>
+#pragma comment(lib, "ole32.lib")
+#pragma comment(lib, "oleaut32.lib")
+#endif
 
 using namespace godot;
 
@@ -405,9 +414,60 @@ Variant VGComInterop::create_object(const String &p_prog_id) {
         return col;
     }
 
+    // --- Real COM fallback on Windows ---
+    // If the ProgID isn't in our whitelist, try to instantiate via CoCreateInstance/IDispatch
+#ifdef _WIN32
+    // Try real COM automation for unknown ProgIDs
+    // This makes CreateObject() work with ANY installed COM object: Excel, Word, ADODB, etc.
+    UtilityFunctions::print("[VG] CreateObject: Attempting real COM for '", p_prog_id, "'...");
+
+    HRESULT hr;
+    CLSID clsid;
+
+    // Initialize COM if needed
+    static bool com_initialized = false;
+    if (!com_initialized) {
+        hr = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+        if (SUCCEEDED(hr) || hr == S_FALSE || hr == RPC_E_CHANGED_MODE) {
+            com_initialized = true;
+        }
+    }
+
+    // Convert ProgID to CLSID
+    int wide_len = MultiByteToWideChar(CP_UTF8, 0, p_prog_id.utf8().get_data(), -1, nullptr, 0);
+    wchar_t *wide_progid = new wchar_t[wide_len];
+    MultiByteToWideChar(CP_UTF8, 0, p_prog_id.utf8().get_data(), -1, wide_progid, wide_len);
+
+    hr = CLSIDFromProgID(wide_progid, &clsid);
+    delete[] wide_progid;
+
+    if (FAILED(hr)) {
+        UtilityFunctions::printerr("[VG] CreateObject: COM ProgID not found '", p_prog_id, "'");
+        UtilityFunctions::print("[VG] Supported built-in: ", get_supported_prog_ids());
+        return Variant();
+    }
+
+    // Create COM object and get IDispatch
+    IDispatch *dispatch = nullptr;
+    hr = CoCreateInstance(clsid, nullptr, CLSCTX_ALL, IID_IDispatch, (void **)&dispatch);
+    if (FAILED(hr) || !dispatch) {
+        UtilityFunctions::printerr("[VG] CreateObject: CoCreateInstance failed for '", p_prog_id, "', hr=", (int64_t)hr);
+        return Variant();
+    }
+
+    // Wrap the IDispatch in a VGComObject that proxies calls via IDispatch::Invoke
+    Ref<VGComObject> obj;
+    obj.instantiate();
+    obj->set_prog_id(p_prog_id);
+    // Store the IDispatch pointer as a property for late-bound invoke()
+    obj->set_property("__idispatch__", (int64_t)dispatch);
+    UtilityFunctions::print("[VG] CreateObject: Real COM object '", p_prog_id, "' created via IDispatch");
+    return obj;
+#else
     UtilityFunctions::printerr("[VG] CreateObject: Unsupported ProgID '", p_prog_id, "'");
     UtilityFunctions::print("[VG] Supported: ", get_supported_prog_ids());
     return Variant();
+#endif
 }
 
 bool VGComInterop::is_supported(const String &p_prog_id) {

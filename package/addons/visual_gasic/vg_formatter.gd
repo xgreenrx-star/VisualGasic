@@ -134,7 +134,7 @@ const VB6_KEYWORDS_PROPER_CASE: Dictionary = {
 	"with": "With", "end with": "End With",
 	"using": "Using", "end using": "End Using",
 	"yield": "Yield", "iterator": "Iterator",
-	"lambda": "Lambda", "of": "Of", "iif": "IIf",
+	"lambda": "Lambda", "fn": "Fn", "of": "Of", "iif": "IIf",
 	
 	# Operators
 	"and": "And", "or": "Or", "not": "Not", "xor": "Xor", "mod": "Mod",
@@ -256,6 +256,9 @@ static func _format_line(line: String, options: FormatOptions) -> String:
 	if options.capitalize_keywords:
 		code_part = _capitalize_keywords(code_part)
 	
+	# Auto-replace Lambda(...) => with Function(...) for consistency
+	code_part = _normalize_lambda_syntax(code_part)
+	
 	# Add spacing around operators
 	if options.space_around_operators:
 		code_part = _space_operators(code_part)
@@ -265,6 +268,39 @@ static func _format_line(line: String, options: FormatOptions) -> String:
 		code_part = _space_commas(code_part)
 	
 	return code_part + comment_part
+
+## Normalizes lambda syntax: Lambda/Fn(...) => expr → Function(...) expr
+static func _normalize_lambda_syntax(line: String) -> String:
+	var result = line
+	# Replace Lambda(...) => with Function(...)
+	var regex = RegEx.new()
+	regex.compile("(?i)\\b(Lambda|Fn)\\s*(\\([^)]*\\))\\s*=>")
+	var m = regex.search(result)
+	while m:
+		var start = m.get_start()
+		if not _is_in_string(result, start):
+			var params = m.get_string(2)
+			var replacement = "Function" + params
+			result = result.substr(0, start) + replacement + result.substr(m.get_end())
+			m = regex.search(result, start + replacement.length())
+		else:
+			m = regex.search(result, m.get_end())
+	
+	# Also replace Lambda/Fn without arrow: Lambda(x) expr → Function(x) expr
+	var regex2 = RegEx.new()
+	regex2.compile("(?i)\\b(Lambda|Fn)\\s*(\\([^)]*\\))")
+	var m2 = regex2.search(result)
+	while m2:
+		var start = m2.get_start()
+		if not _is_in_string(result, start):
+			var params = m2.get_string(2)
+			var replacement = "Function" + params
+			result = result.substr(0, start) + replacement + result.substr(m2.get_end())
+			m2 = regex2.search(result, start + replacement.length())
+		else:
+			m2 = regex2.search(result, m2.get_end())
+	
+	return result
 
 ## Finds the start of a comment ('), considering string literals
 static func _find_comment_start(line: String) -> int:

@@ -221,3 +221,61 @@ static func get_designer_colors() -> Dictionary:
 		"nonvisual_border": nonvisual_border,
 		"placeholder_color": placeholder_color,
 	}
+
+## Returns ALL theme values as a Dictionary (used by the plugin loader).
+## This is the only reliable way to read static vars from a loaded GDScript.
+static func get_all() -> Dictionary:
+	return {
+		# Form canvas
+		"form_background": form_background,
+		"grid_dots": grid_dots,
+		"selection_border": selection_border,
+		"selection_handle": selection_handle,
+		"rubber_band": rubber_band,
+		"form_border": form_border,
+		# Win32 system colors
+		"sys_button_face": sys_button_face,
+		"sys_button_highlight": sys_button_highlight,
+		"sys_button_shadow": sys_button_shadow,
+		"sys_3d_dark_shadow": sys_3d_dark_shadow,
+		"sys_3d_light": sys_3d_light,
+		"sys_window": sys_window,
+		"sys_window_text": sys_window_text,
+		"sys_active_title": sys_active_title,
+		"sys_title_text": sys_title_text,
+		"sys_scrollbar": sys_scrollbar,
+		"sys_glyph": sys_glyph,
+		"sys_progress_fill": sys_progress_fill,
+		"design_time_outline": design_time_outline,
+		"nonvisual_bg": nonvisual_bg,
+		"nonvisual_border": nonvisual_border,
+		"placeholder_color": placeholder_color,
+		# IDE panels
+		"panel_background": panel_background,
+		"panel_border": panel_border,
+		"toolbox_btn_normal": toolbox_btn_normal,
+		"toolbox_btn_hover": toolbox_btn_hover,
+		"toolbox_btn_pressed": toolbox_btn_pressed,
+		"toolbox_btn_hover_border": toolbox_btn_hover_border,
+		"toolbox_text": toolbox_text,
+		"toolbox_text_pressed": toolbox_text_pressed,
+		"project_explorer_text": project_explorer_text,
+		# Headers
+		"header_background": header_background,
+		"header_border": header_border,
+		"header_text": header_text,
+		"header_font_size": header_font_size,
+		# Toolbar buttons
+		"godot_button_text": godot_button_text,
+		"godot_button_hover_text": godot_button_hover_text,
+		"toggle_button_text": toggle_button_text,
+		"toggle_button_hover": toggle_button_hover,
+		"toggle_button_pressed": toggle_button_pressed,
+		# Fonts
+		"font_family": font_family,
+		"designer_font_size": designer_font_size,
+		"properties_font_size": properties_font_size,
+		"code_font_size": code_font_size,
+		# Window title
+		"window_title_prefix": window_title_prefix,
+	}

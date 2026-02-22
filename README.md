@@ -1,7 +1,7 @@
 # VisualGasic - Advanced Visual Basic for Godot 4
 
 [![CI](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml/badge.svg)](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/badge/version-2.9.0-blue.svg)](https://github.com/xgreenrx-star/VisualGasic/releases)
+[![Version](https://img.shields.io/badge/version-3.1.0-blue.svg)](https://github.com/xgreenrx-star/VisualGasic/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Godot](https://img.shields.io/badge/Godot-4.5+-purple.svg)](https://godotengine.org)
 
@@ -54,6 +54,15 @@
 - **Godot Enum Constants** - `ClassName.CONSTANT_NAME` for all class enums with keyword-safe resolution
 - **Built-in Components** - Transform, Velocity, Render, and custom component support
 
+### **System-Level Programming** *(New in v3.1)*
+- **System Info** - Hostname, CPU, RAM, disk, OS, uptime, environment, locale via `VGSystem`
+- **OS Signals** - SIGINT/SIGTERM/SIGHUP/atexit handling via `VGSignalHandler`
+- **File Permissions** - chmod, chown, symlinks, file locking, VB6 GetAttr/SetAttr via `VGFilePermissions`
+- **Raw Memory** - Peek/Poke byte-level buffers, CopyMemory, HexDump, FFI pointers via `VGMemoryBuffer`
+- **IPC** - Named pipes, UNIX domain sockets, shared memory via `VGIPC`
+- **Real Threading** - Task.Run/Parallel For/Parallel Section backed by real `std::thread`
+- **Android Bridge** - JNI device info, permissions, intents, toast, vibrate via `VGAndroidBridge`
+
 ## 📁 **Project Structure**
 
 ```
@@ -68,6 +77,12 @@ VisualGasic/
 │   ├── visual_gasic_optimizer.* # Bytecode peephole optimizer
 │   ├── visual_gasic_package.*   # Package management
 │   └── visual_gasic_ecs.*       # Entity component system
+│   ├── visual_gasic_system.*    # System info (hostname, CPU, RAM, OS)
+│   ├── visual_gasic_signal_handler.* # OS signal handling
+│   ├── visual_gasic_file_permissions.* # chmod, chown, symlinks, locking
+│   ├── visual_gasic_memory_buffer.*   # Raw Peek/Poke byte buffers
+│   ├── visual_gasic_ipc.*       # Named pipes, sockets, shared memory
+│   └── visual_gasic_android_bridge.*  # JNI Android bridge
 ├── docs/                        # Comprehensive documentation
 │   ├── reference/              # API and syntax references
 │   ├── guides/                 # Getting started and tutorials
@@ -205,15 +220,15 @@ See the [demos/](demos/) directory for source code.
 - [**Installation Guide**](docs/guides/INSTALLATION.md) - Detailed setup instructions
 
 ### **Advanced Topics**
-- [**Multitasking Guide**](docs/MULTITASKING.md) - Async/await and parallel programming
-- [**ECS Development**](docs/ECS.md) - Game development with Entity Component System
-- [**GPU Computing**](docs/GPU_COMPUTING.md) - High-performance SIMD operations
-- [**Package Management**](docs/PACKAGE_MANAGEMENT.md) - Dependency resolution and publishing
+- [**System Integration**](docs/SYSTEM_INTEGRATION.md) - FFI, ODBC, Crypto, XML, ZIP, IPC, Signals, Memory, Android
+- [**Language Reference**](docs/VisualGasic_Language_Reference.md) - Complete syntax and API reference
+- [**Advanced Features**](docs/ADVANCED_FEATURES.md) - Type system, GPU computing, ECS, pattern matching
+- [**Advanced Features Manual**](docs/ADVANCED_FEATURES_MANUAL.md) - Detailed walkthroughs with examples
 
 ### **Developer Resources**
-- [**Language Reference**](docs/manual/keywords.md) - Complete syntax reference
+- [**Keywords Reference**](docs/manual/keywords.md) - Complete syntax reference
 - [**IDE Integration**](docs/manual/ide_tools.md) - LSP and development tools
-- [**Performance Guide**](docs/PERFORMANCE.md) - Optimization techniques
+- [**Performance Guide**](docs/manual/performance.md) - Benchmarks and optimization
 - [**Contributing Guide**](CONTRIBUTING.md) - How to contribute to VisualGasic
 
 ## 🛠️ **Development Architecture**
@@ -281,13 +296,15 @@ VisualGasic welcomes contributions! Please see our [Contributing Guide](CONTRIBU
 
 ## 📊 **Project Status**
 
-**Current Version**: 2.9.0 (System-Level Features — Process, SQLite, Sockets, Settings, COM Interop)
+**Current Version**: 3.1.0 (System-Level Programming — VGSystem, Signals, Permissions, Memory, IPC, Threading, Android)
 
 **Completion Status**:
 - ✅ **Core Language** - 100% (Full VB6 compatibility + class inheritance)
 - ✅ **Advanced Types** - 100% (Generics, optionals, unions)
-- ✅ **Multitasking** - 100% (Async/await, parallel processing)
+- ✅ **Multitasking** - 100% (Real std::thread, async/await, parallel processing)
 - ✅ **GPU Computing** - 100% (SIMD, compute shaders)
+- ✅ **System Integration** - 100% (FFI, ODBC, Crypto, XML, ZIP, Tasks, Packages)
+- ✅ **System Programming** - 100% (VGSystem, Signals, Permissions, Memory, IPC, Android Bridge)
 - ✅ **Development Tools** - 100% (REPL, LSP, debugger, linter, snippet browser, theme picker)
 - ✅ **Bytecode Optimizer** - 100% (9-pass peephole optimizer)
 - ✅ **ECS Integration** - 100% (High-performance game development)
