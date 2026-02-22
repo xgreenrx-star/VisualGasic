@@ -181,6 +181,18 @@ enum OpCode {
     // New object instantiation
     OP_NEW_OBJECT,     // [OP] [CLASS_NAME_IDX] [ARG_COUNT] - Pop args, instantiate class, push result
 
+    // File I/O (v2.10.0)
+    OP_OPEN_FILE,      // [OP] [MODE] - Pop file_num, pop path → open file (mode: 0=Input,1=Output,2=Append,3=Binary,4=Random)
+    OP_CLOSE_FILE,     // [OP] - Pop file_num → close file (0 = close all)
+    OP_PRINT_FILE,     // [OP] [ARG_COUNT] - Pop args + file_num → Print #n, ...
+    OP_WRITE_FILE,     // [OP] [ARG_COUNT] - Pop args + file_num → Write #n, ...
+    OP_INPUT_FILE,     // [OP] [VAR_COUNT] - Pop var_names + file_num → Input #n, var1, var2
+    OP_LINE_INPUT,     // [OP] - Pop var_name + file_num → Line Input #n, var
+
+    // GoSub/Return (v2.10.0)
+    OP_GOSUB,          // [OP] [OFFSET_16] - Push return address, jump to label
+    OP_RETURN_GOSUB,   // [OP] - Pop return address from gosub stack, jump back
+
     OP_COUNT_          // Sentinel — must be last (used by computed-goto table)
 };
 

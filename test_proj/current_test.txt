@@ -1,1 +1,1 @@
-res://test_suite/test_variant_debug.vg
+res://test_suite/test_continue.vg

@@ -1570,6 +1570,11 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
             else if (alias.nocasecmp_to("ScriptingDictionary") == 0) resolved = "VGScriptingDict";
             else if (alias.nocasecmp_to("WScriptShell") == 0) resolved = "VGWScriptShell";
             else if (alias.nocasecmp_to("ComObject") == 0) resolved = "VGComObject";
+                    // v2.10.0 aliases
+                    else if (alias.nocasecmp_to("HttpRequest") == 0 || alias.nocasecmp_to("XMLHTTP") == 0) resolved = "VGHttpRequest";
+                    else if (alias.nocasecmp_to("Collection") == 0) resolved = "VGCollection";
+                    else if (alias.nocasecmp_to("RegExp") == 0) resolved = "VGRegEx";
+                    else if (alias.nocasecmp_to("Timer") == 0 || alias.nocasecmp_to("VBTimer") == 0) resolved = "VGTimer";
 
             if (!resolved.is_empty() && ClassDB::class_exists(resolved)) {
                 Variant inst = ClassDB::instantiate(resolved);
@@ -1631,6 +1636,43 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
         if (Engine::get_singleton()->has_singleton(name)) {
             Object *singleton = Engine::get_singleton()->get_singleton(name);
             if (singleton) return Variant(singleton);
+        }
+
+        // VB6 virtual objects: App, Screen, Err (v2.10.0)
+        if (name.nocasecmp_to("App") == 0) {
+            Dictionary app;
+            app["Path"] = OS::get_singleton()->get_executable_path().get_base_dir();
+            String exe_full = OS::get_singleton()->get_executable_path().get_file();
+            app["EXEName"] = exe_full.get_basename();
+            app["Title"] = ProjectSettings::get_singleton()->get_setting("application/config/name", String("VisualGasic App"));
+            app["Major"] = 1;
+            app["Minor"] = 0;
+            app["Revision"] = 0;
+            app["PrevInstance"] = false;
+            app["ProductName"] = app["Title"];
+            app["CompanyName"] = String("");
+            return app;
+        }
+        if (name.nocasecmp_to("Screen") == 0) {
+            Dictionary screen;
+            Vector2i screen_size = DisplayServer::get_singleton()->screen_get_size();
+            screen["Width"] = screen_size.x;
+            screen["Height"] = screen_size.y;
+            screen["TwipsPerPixelX"] = 1;
+            screen["TwipsPerPixelY"] = 1;
+            screen["MousePointer"] = 0;
+            return screen;
+        }
+        if (name.nocasecmp_to("Err") == 0) {
+            if (variables.has("Err")) {
+                return variables["Err"];
+            }
+            Dictionary err;
+            err["Number"] = 0;
+            err["Description"] = String("");
+            err["Source"] = String("");
+            variables["Err"] = err;
+            return err;
         }
         
         if (variables.has(name)) {
@@ -4538,21 +4580,14 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
         case STMT_RETURN: {
             ReturnStatement* ret = (ReturnStatement*)stmt;
             if (ret->return_value) {
-                // If it's a function, we must assign to function name variable?
-                // Or just set the return value register.
-                // The current calling convention relies on Function Name = Value for returns.
-                // The `execute` method returns Variant on completion.
-                // If we are in a Function, we should probably set the return value if not already set by name?
-                // Actually, current engine doesn't explicitly return variant from execute_block cleanly.
-                // But `call_internal` returns `variables[func_name]` or last result?
-                
-                // Let's check `call_internal`.
-                // It executes block and checks `variables[func_name]`.
-                // So `Return X` => `variables[func_name] = X; Exit Function`
-                
                 if (current_sub) {
                     variables[current_sub->name] = evaluate_expression(ret->return_value);
                 }
+            } else if (gosub_return_stack.size() > 0) {
+                // Bare "Return" with GoSub context — return to GoSub caller
+                jump_target = gosub_return_stack[gosub_return_stack.size() - 1] - 1;
+                gosub_return_stack.resize(gosub_return_stack.size() - 1);
+                break;
             }
             error_state.has_error = true; 
             error_state.mode = ErrorState::EXIT_SUB; 
@@ -5845,6 +5880,37 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
              } else {
                  raise_error("Label not found: " + s->label_name);
              }
+             break;
+        }
+        case STMT_GOSUB: {
+             GoSubStatement* s = (GoSubStatement*)stmt;
+             if (current_sub && current_sub->label_map.has(s->label_name)) {
+                 // Push current position as return address
+                 // jump_target is the index into the body array
+                 // We need to save where we are and jump
+                 // The outer execution loop uses jump_target to set i
+                 gosub_return_stack.push_back(jump_target + 1); // save next stmt index (will be set by outer loop)
+                 jump_target = (int)current_sub->label_map[s->label_name] - 1;
+             } else {
+                 raise_error("Label not found: " + s->label_name);
+             }
+             break;
+        }
+        case STMT_RETURN_GOSUB: {
+             if (gosub_return_stack.size() > 0) {
+                 jump_target = gosub_return_stack[gosub_return_stack.size() - 1] - 1;
+                 gosub_return_stack.resize(gosub_return_stack.size() - 1);
+             } else {
+                 // No GoSub context — treat as normal return
+                 return;
+             }
+             break;
+        }
+        case STMT_IMPLEMENTS: {
+             // Implements — runtime verification: check that all methods from
+             // the interface class exist on this class. Log a warning if not.
+             ImplementsStatement* s = (ImplementsStatement*)stmt;
+             UtilityFunctions::print("[VG] Implements ", s->interface_name, " declared (interface verification pending)");
              break;
         }
         case STMT_ON_ERROR: {

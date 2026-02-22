@@ -63,6 +63,9 @@ enum StatementType {
     STMT_WRITE,    // Write # statement
     STMT_ERASE,    // Erase array statement
     STMT_STOP,     // VB6 Stop statement (debugger break)
+    STMT_GOSUB,    // GoSub label (v2.10.0)
+    STMT_RETURN_GOSUB, // Return from GoSub (v2.10.0)
+    STMT_IMPLEMENTS,   // Implements InterfaceName (v2.10.0)
     STMT_UNKNOWN
 };
 
@@ -514,6 +517,20 @@ struct LabelStatement : public Statement {
 struct GotoStatement : public Statement {
     String label_name;
     GotoStatement() : Statement(STMT_GOTO) {}
+};
+
+struct GoSubStatement : public Statement {
+    String label_name;
+    GoSubStatement() : Statement(STMT_GOSUB) {}
+};
+
+struct ReturnGoSubStatement : public Statement {
+    ReturnGoSubStatement() : Statement(STMT_RETURN_GOSUB) {}
+};
+
+struct ImplementsStatement : public Statement {
+    String interface_name;
+    ImplementsStatement() : Statement(STMT_IMPLEMENTS) {}
 };
 
 struct OnErrorStatement : public Statement {

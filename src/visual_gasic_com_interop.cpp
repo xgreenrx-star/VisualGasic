@@ -2,6 +2,9 @@
 // Maps common COM ProgIDs to native Linux equivalents
 
 #include "visual_gasic_com_interop.h"
+#include "visual_gasic_http.h"
+#include "visual_gasic_collection.h"
+#include "visual_gasic_regex.h"
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <godot_cpp/classes/file_access.hpp>
 #include <godot_cpp/classes/dir_access.hpp>
@@ -381,6 +384,27 @@ Variant VGComInterop::create_object(const String &p_prog_id) {
         return shell;
     }
 
+    if (id == "msxml2.xmlhttp" || id == "msxml2.serverxmlhttp" || id == "microsoft.xmlhttp" || id == "msxml2.xmlhttp.6.0") {
+        Ref<VGHttpRequest> http;
+        http.instantiate();
+        UtilityFunctions::print("[VG] CreateObject: MSXML2.XMLHTTP");
+        return http;
+    }
+
+    if (id == "vbscript.regexp") {
+        Ref<VGRegEx> regex;
+        regex.instantiate();
+        UtilityFunctions::print("[VG] CreateObject: VBScript.RegExp");
+        return regex;
+    }
+
+    if (id == "vb6.collection" || id == "vba.collection") {
+        Ref<VGCollection> col;
+        col.instantiate();
+        UtilityFunctions::print("[VG] CreateObject: VB6.Collection");
+        return col;
+    }
+
     UtilityFunctions::printerr("[VG] CreateObject: Unsupported ProgID '", p_prog_id, "'");
     UtilityFunctions::print("[VG] Supported: ", get_supported_prog_ids());
     return Variant();
@@ -390,7 +414,14 @@ bool VGComInterop::is_supported(const String &p_prog_id) {
     String id = p_prog_id.to_lower();
     return id == "scripting.filesystemobject" ||
            id == "scripting.dictionary" ||
-           id == "wscript.shell";
+           id == "wscript.shell" ||
+           id == "msxml2.xmlhttp" ||
+           id == "msxml2.serverxmlhttp" ||
+           id == "microsoft.xmlhttp" ||
+           id == "msxml2.xmlhttp.6.0" ||
+           id == "vbscript.regexp" ||
+           id == "vb6.collection" ||
+           id == "vba.collection";
 }
 
 Array VGComInterop::get_supported_prog_ids() {
@@ -398,5 +429,8 @@ Array VGComInterop::get_supported_prog_ids() {
     ids.push_back("Scripting.FileSystemObject");
     ids.push_back("Scripting.Dictionary");
     ids.push_back("WScript.Shell");
+    ids.push_back("MSXML2.XMLHTTP");
+    ids.push_back("VBScript.RegExp");
+    ids.push_back("VB6.Collection");
     return ids;
 }

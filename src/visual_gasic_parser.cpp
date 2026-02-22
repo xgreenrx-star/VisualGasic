@@ -854,6 +854,28 @@ Statement* VisualGasicParser::parse_statement() {
         }
     }
 
+    if (val == "gosub") {
+        advance();
+        if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
+            String label = peek().value;
+            advance();
+            GoSubStatement* gs = static_cast<GoSubStatement*>(register_node(new GoSubStatement()));
+            gs->label_name = label;
+            return set_line(gs);
+        }
+    }
+
+    if (val == "implements") {
+        advance();
+        if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
+            String iface = peek().value;
+            advance();
+            ImplementsStatement* impl = static_cast<ImplementsStatement*>(register_node(new ImplementsStatement()));
+            impl->interface_name = iface;
+            return set_line(impl);
+        }
+    }
+
     if (val == "on") {
         advance(); // On
         bool is_error = false;

@@ -25,6 +25,9 @@
 #include "visual_gasic_database.h"
 #include "visual_gasic_settings.h"
 #include "visual_gasic_com_interop.h"
+#include "visual_gasic_timer.h"
+#include "visual_gasic_collection.h"
+#include <godot_cpp/classes/project_settings.hpp>
 #include <godot_cpp/classes/tree_item.hpp>
 #include <godot_cpp/variant/packed_int64_array.hpp>
 #include <godot_cpp/variant/vector2.hpp>
@@ -2518,6 +2521,12 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
         return get_cwd();
     }
 
+    // Timer() — VB6 Timer function: returns seconds since midnight
+    if (METHOD_IS("timer")) {
+        r_handled = true;
+        return VGTimer::timer_function();
+    }
+
 #undef METHOD_IS
     return Variant();
 }
@@ -2538,6 +2547,79 @@ bool call_builtin_for_base_variable(VisualGasicInstance *instance, const String 
             r_ret = Variant();
             return true;
         }
+    }
+
+    // App object — VB6 App.Path, App.Title, App.EXEName, App.Major, etc.
+    if (p_base_name == "App") {
+        if (p_method == "Path" || p_method == "path") {
+            r_ret = OS::get_singleton()->get_executable_path().get_base_dir();
+            return true;
+        }
+        if (p_method == "Title" || p_method == "title") {
+            r_ret = ProjectSettings::get_singleton()->get_setting("application/config/name", String("VisualGasic App"));
+            return true;
+        }
+        if (p_method == "EXEName" || p_method == "exename") {
+            r_ret = OS::get_singleton()->get_executable_path().get_file();
+            return true;
+        }
+        if (p_method == "Major" || p_method == "major") { r_ret = 1; return true; }
+        if (p_method == "Minor" || p_method == "minor") { r_ret = 0; return true; }
+        if (p_method == "Revision" || p_method == "revision") { r_ret = 0; return true; }
+        if (p_method == "PrevInstance" || p_method == "previnstance") { r_ret = false; return true; }
+        if (p_method == "ProductName" || p_method == "productname") {
+            r_ret = ProjectSettings::get_singleton()->get_setting("application/config/name", String("VisualGasic App"));
+            return true;
+        }
+        if (p_method == "CompanyName" || p_method == "companyname") {
+            r_ret = String("");
+            return true;
+        }
+        return false;
+    }
+
+    // Screen object — VB6 Screen.Width, Screen.Height
+    if (p_base_name == "Screen") {
+        if (p_method == "Width" || p_method == "width") {
+            Vector2i size = DisplayServer::get_singleton()->screen_get_size();
+            r_ret = size.x;
+            return true;
+        }
+        if (p_method == "Height" || p_method == "height") {
+            Vector2i size = DisplayServer::get_singleton()->screen_get_size();
+            r_ret = size.y;
+            return true;
+        }
+        if (p_method == "TwipsPerPixelX" || p_method == "twipsperpixelx") { r_ret = 1; return true; }
+        if (p_method == "TwipsPerPixelY" || p_method == "twipsperpixely") { r_ret = 1; return true; }
+        if (p_method == "MousePointer" || p_method == "mousepointer") { r_ret = 0; return true; }
+        return false;
+    }
+
+    // Err object — VB6 Err.Raise, Err.Clear, Err.Number, Err.Description
+    if (p_base_name == "Err") {
+        if (p_method == "Raise" || p_method == "raise") {
+            int err_num = p_args.size() >= 1 ? (int)p_args[0] : 0;
+            String source = p_args.size() >= 2 ? String(p_args[1]) : String("");
+            String desc = p_args.size() >= 3 ? String(p_args[2]) : String("Application-defined or object-defined error");
+            instance->raise_runtime_error(desc, err_num, source);
+            r_ret = Variant();
+            return true;
+        }
+        if (p_method == "Clear" || p_method == "clear") {
+            Dictionary &vars = instance->get_variables();
+            if (vars.has("Err")) {
+                Dictionary err;
+                err["Number"] = 0;
+                err["Description"] = String("");
+                err["Source"] = String("");
+                vars["Err"] = err;
+            }
+            instance->clear_error_state();
+            r_ret = Variant();
+            return true;
+        }
+        return false;
     }
     return false;
 }

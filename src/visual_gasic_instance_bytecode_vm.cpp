@@ -640,6 +640,15 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         dispatch_table[OP_DUP]            = &&vg_op_dup;
         dispatch_table[OP_ARRAY_RESIZE]   = &&vg_op_array_resize;
         dispatch_table[OP_NEW_OBJECT]     = &&vg_op_new_object;
+        // v2.10.0 File I/O + GoSub
+        dispatch_table[OP_OPEN_FILE]      = &&vg_op_open_file;
+        dispatch_table[OP_CLOSE_FILE]     = &&vg_op_close_file;
+        dispatch_table[OP_PRINT_FILE]     = &&vg_op_print_file;
+        dispatch_table[OP_WRITE_FILE]     = &&vg_op_write_file;
+        dispatch_table[OP_INPUT_FILE]     = &&vg_op_input_file;
+        dispatch_table[OP_LINE_INPUT]     = &&vg_op_line_input;
+        dispatch_table[OP_GOSUB]          = &&vg_op_gosub;
+        dispatch_table[OP_RETURN_GOSUB]   = &&vg_op_return_gosub;
         dispatch_table_init = true;
     }
 
@@ -793,6 +802,11 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     else if (class_name.nocasecmp_to("ScriptingDictionary") == 0) resolved = "VGScriptingDict";
                     else if (class_name.nocasecmp_to("WScriptShell") == 0) resolved = "VGWScriptShell";
                     else if (class_name.nocasecmp_to("ComObject") == 0) resolved = "VGComObject";
+                    // v2.10.0 aliases
+                    else if (class_name.nocasecmp_to("HttpRequest") == 0 || class_name.nocasecmp_to("XMLHTTP") == 0) resolved = "VGHttpRequest";
+                    else if (class_name.nocasecmp_to("Collection") == 0) resolved = "VGCollection";
+                    else if (class_name.nocasecmp_to("RegExp") == 0) resolved = "VGRegEx";
+                    else if (class_name.nocasecmp_to("Timer") == 0 || class_name.nocasecmp_to("VBTimer") == 0) resolved = "VGTimer";
 
                     if (!resolved.is_empty() && ClassDB::class_exists(resolved)) {
                         Variant inst = ClassDB::instantiate(resolved);
@@ -859,6 +873,48 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 // "Godot" (Engine) singleton
                 if (name.nocasecmp_to("Godot") == 0) {
                     push_value(Variant(Engine::get_singleton()));
+                    break;
+                }
+
+                // VB6 virtual objects: App, Screen, Err (v2.10.0)
+                if (name.nocasecmp_to("App") == 0) {
+                    Dictionary app;
+                    app["Path"] = OS::get_singleton()->get_executable_path().get_base_dir();
+                    String exe_full = OS::get_singleton()->get_executable_path().get_file();
+                    app["EXEName"] = exe_full.get_basename();
+                    app["Title"] = ProjectSettings::get_singleton()->get_setting("application/config/name", String("VisualGasic App"));
+                    app["Major"] = 1;
+                    app["Minor"] = 0;
+                    app["Revision"] = 0;
+                    app["PrevInstance"] = false;
+                    app["ProductName"] = app["Title"];
+                    app["CompanyName"] = String("");
+                    push_value(app);
+                    break;
+                }
+                if (name.nocasecmp_to("Screen") == 0) {
+                    Dictionary screen;
+                    Vector2i screen_size = DisplayServer::get_singleton()->screen_get_size();
+                    screen["Width"] = screen_size.x;
+                    screen["Height"] = screen_size.y;
+                    screen["TwipsPerPixelX"] = 1;
+                    screen["TwipsPerPixelY"] = 1;
+                    screen["MousePointer"] = 0;
+                    push_value(screen);
+                    break;
+                }
+                if (name.nocasecmp_to("Err") == 0) {
+                    // Return the Err dictionary from variables, or create default
+                    if (variables.has("Err")) {
+                        push_value(variables["Err"]);
+                    } else {
+                        Dictionary err;
+                        err["Number"] = 0;
+                        err["Description"] = String("");
+                        err["Source"] = String("");
+                        variables["Err"] = err;
+                        push_value(err);
+                    }
                     break;
                 }
                 
@@ -3410,6 +3466,140 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 }
                 VG_BREAK;
             }
+
+            // ── v2.10.0: File I/O Opcodes ──
+            VG_CASE(vg_op_open_file, OP_OPEN_FILE): {
+                uint8_t mode = code[vm.ip++];
+                int file_num = (int)pop_value();
+                String path = pop_value();
+                if (open_files.has(file_num)) {
+                    raise_error(String("File already open: ") + String::num(file_num), 55);
+                } else {
+                    Ref<FileAccess> fa;
+                    if (mode == 0) fa = FileAccess::open(path, FileAccess::READ);
+                    else if (mode == 1) fa = FileAccess::open(path, FileAccess::WRITE);
+                    else if (mode == 2) {
+                        if (FileAccess::file_exists(path)) {
+                            fa = FileAccess::open(path, FileAccess::READ_WRITE);
+                            if (fa.is_valid()) fa->seek_end();
+                        } else {
+                            fa = FileAccess::open(path, FileAccess::WRITE);
+                        }
+                    }
+                    if (fa.is_null()) {
+                        raise_error(String("Failed to open file: ") + path, 53);
+                    } else {
+                        open_files[file_num] = fa;
+                    }
+                }
+                VG_BREAK;
+            }
+            VG_CASE(vg_op_close_file, OP_CLOSE_FILE): {
+                int file_num = (int)pop_value();
+                if (file_num == 0) {
+                    open_files.clear();
+                } else if (open_files.has(file_num)) {
+                    open_files.erase(file_num);
+                }
+                VG_BREAK;
+            }
+            VG_CASE(vg_op_print_file, OP_PRINT_FILE): {
+                uint8_t arg_count = code[vm.ip++];
+                // Pop args in reverse (they were pushed left-to-right)
+                Vector<Variant> args;
+                args.resize(arg_count);
+                for (int i = arg_count - 1; i >= 0; i--) args.write[i] = pop_value();
+                int file_num = (int)pop_value();
+                if (open_files.has(file_num)) {
+                    Ref<FileAccess> fa = open_files[file_num];
+                    String line;
+                    for (int i = 0; i < args.size(); i++) {
+                        if (i > 0) line += " ";
+                        line += String(args[i]);
+                    }
+                    fa->store_line(line);
+                } else {
+                    raise_error(String("Bad file number: ") + String::num(file_num), 52);
+                }
+                VG_BREAK;
+            }
+            VG_CASE(vg_op_write_file, OP_WRITE_FILE): {
+                uint8_t arg_count = code[vm.ip++];
+                Vector<Variant> args;
+                args.resize(arg_count);
+                for (int i = arg_count - 1; i >= 0; i--) args.write[i] = pop_value();
+                int file_num = (int)pop_value();
+                if (open_files.has(file_num)) {
+                    Ref<FileAccess> fa = open_files[file_num];
+                    String line;
+                    for (int i = 0; i < args.size(); i++) {
+                        if (i > 0) line += ",";
+                        Variant v = args[i];
+                        if (v.get_type() == Variant::STRING) {
+                            line += String("\"") + String(v) + String("\"");
+                        } else {
+                            line += String(v);
+                        }
+                    }
+                    fa->store_line(line);
+                } else {
+                    raise_error(String("Bad file number: ") + String::num(file_num), 52);
+                }
+                VG_BREAK;
+            }
+            VG_CASE(vg_op_input_file, OP_INPUT_FILE): {
+                uint8_t var_idx = code[vm.ip++];
+                String var_name = read_constant(var_idx);
+                int file_num = (int)pop_value();
+                if (open_files.has(file_num)) {
+                    Ref<FileAccess> fa = open_files[file_num];
+                    PackedStringArray csv = fa->get_csv_line();
+                    if (csv.size() > 0) {
+                        variables[var_name] = csv[0];
+                    }
+                } else {
+                    raise_error(String("Bad file number: ") + String::num(file_num), 52);
+                }
+                VG_BREAK;
+            }
+            VG_CASE(vg_op_line_input, OP_LINE_INPUT): {
+                uint8_t var_idx = code[vm.ip++];
+                String var_name = read_constant(var_idx);
+                int file_num = (int)pop_value();
+                if (open_files.has(file_num)) {
+                    Ref<FileAccess> fa = open_files[file_num];
+                    String line = fa->get_line();
+                    variables[var_name] = line;
+                } else {
+                    raise_error(String("Bad file number: ") + String::num(file_num), 52);
+                }
+                VG_BREAK;
+            }
+
+            // ── v2.10.0: GoSub / Return ──
+            VG_CASE(vg_op_gosub, OP_GOSUB): {
+                // Read 16-bit offset (like OP_JUMP)
+                uint8_t hi = code[vm.ip++];
+                uint8_t lo = code[vm.ip++];
+                int target = (hi << 8) | lo;
+                // Push return address
+                gosub_return_stack.push_back(vm.ip);
+                vm.ip = target;
+                VG_BREAK;
+            }
+            VG_CASE(vg_op_return_gosub, OP_RETURN_GOSUB): {
+                if (gosub_return_stack.size() > 0) {
+                    vm.ip = gosub_return_stack[gosub_return_stack.size() - 1];
+                    gosub_return_stack.resize(gosub_return_stack.size() - 1);
+                } else {
+                    // No GoSub context — treat as normal return (exit sub/function)
+                    r_ret = Variant();
+                    success = true;
+                    goto cleanup;
+                }
+                VG_BREAK;
+            }
+
             vg_op_default: default:
                 UtilityFunctions::printerr("VisualGasic: unsupported opcode ", (int)op);
                 success = false;

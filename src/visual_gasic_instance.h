@@ -37,6 +37,7 @@ class VisualGasicInstance {
     // VM State
     VMState vm;
     Vector<Variant> with_stack;
+    Vector<int> gosub_return_stack; // GoSub return addresses (statement indices)
 
     // DATA / READ Support
     Vector<ExpressionNode*> data_segments; 
@@ -209,6 +210,15 @@ public:
     void randomize_seed();
     // Allow builtins to raise runtime errors via instance wrapper
     void raise_runtime_error(const String &p_msg, int p_code = 5, const String &p_source = "");
+
+    // Accessors for builtins module (Err.Clear etc.)
+    Dictionary &get_variables() { return variables; }
+    void clear_error_state() {
+        error_state.has_error = false;
+        error_state.message = "";
+        error_state.code = 0;
+        error_state.mode = ErrorState::NONE;
+    }
     
     // Whenever system utilities
     String get_whenever_status() const;

@@ -269,6 +269,11 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
     non_local_names.insert("godot");
     non_local_names.insert("me");
     non_local_names.insert("super");
+    // VB6 virtual objects (v2.10.0) — must route through OP_GET_GLOBAL
+    // so the VM can resolve App, Screen, Err as virtual Dictionary objects.
+    non_local_names.insert("app");
+    non_local_names.insert("screen");
+    non_local_names.insert("err");
     // Godot engine singletons — must route through OP_GET_GLOBAL so the
     // VM can resolve them via Engine::get_singleton() at runtime.
     static const char *godot_singletons[] = {
@@ -4469,13 +4474,16 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             break;
         }
         case STMT_RETURN: {
-            // Return statement (used in functions)
+            // Return statement (used in functions, or GoSub return if no value)
             ReturnStatement* s = (ReturnStatement*)stmt;
             if (s->return_value) {
                 compile_expression(s->return_value);
                 emit_byte(OP_RETURN_VALUE);
             } else {
-                emit_return(); // bare OP_RETURN (no value)
+                // Bare "Return" — could be GoSub return or Sub exit.
+                // Emit OP_RETURN_GOSUB first; runtime checks gosub stack.
+                // If stack is empty, it falls through to OP_RETURN.
+                emit_byte(OP_RETURN_GOSUB);
             }
             break;
         }
@@ -4928,6 +4936,93 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
         }
         case STMT_PASS: {
             // Pass statement — intentional no-op
+            break;
+        }
+        case STMT_OPEN: {
+            // Open "path" For mode As #filenum
+            OpenStatement* s = (OpenStatement*)stmt;
+            compile_expression(s->path);       // push path
+            compile_expression(s->file_number); // push file_num
+            emit_byte(OP_OPEN_FILE);
+            emit_byte((uint8_t)s->mode); // 0=Input, 1=Output, 2=Append
+            break;
+        }
+        case STMT_CLOSE: {
+            CloseStatement* s = (CloseStatement*)stmt;
+            if (s->file_number) {
+                compile_expression(s->file_number); // push file_num
+            } else {
+                emit_constant(Variant(0)); // 0 = close all
+            }
+            emit_byte(OP_CLOSE_FILE);
+            break;
+        }
+        case STMT_INPUT: {
+            InputStatement* s = (InputStatement*)stmt;
+            if (s->file_number && s->is_line_input) {
+                // Line Input #n, var
+                compile_expression(s->file_number);
+                // Push var name as constant for assignment
+                if (s->variables.size() > 0 && s->variables[0]->type == ExpressionNode::VARIABLE) {
+                    int idx = current_chunk->add_constant(((VariableNode*)s->variables[0])->name);
+                    emit_byte(OP_LINE_INPUT);
+                    emit_byte((uint8_t)idx);
+                }
+            } else if (s->file_number) {
+                // Input #n, var1, var2...
+                compile_expression(s->file_number);
+                for (int i = 0; i < s->variables.size(); i++) {
+                    if (s->variables[i]->type == ExpressionNode::VARIABLE) {
+                        int idx = current_chunk->add_constant(((VariableNode*)s->variables[i])->name);
+                        emit_byte(OP_INPUT_FILE);
+                        emit_byte((uint8_t)idx);
+                    }
+                }
+            }
+            break;
+        }
+        case STMT_WRITE: {
+            // Write #n, val1, val2...
+            WriteStatement* ws = (WriteStatement*)stmt;
+            if (ws->file_number) {
+                compile_expression(ws->file_number);
+                for (int i = 0; i < ws->expressions.size(); i++) {
+                    compile_expression(ws->expressions[i]);
+                }
+                emit_byte(OP_WRITE_FILE);
+                emit_byte((uint8_t)ws->expressions.size());
+            }
+            break;
+        }
+        case STMT_GOSUB: {
+            // GoSub label — like GoTo but pushes return address
+            GoSubStatement* s = (GoSubStatement*)stmt;
+            String key = s->label_name.to_lower();
+            if (label_positions.has(key)) {
+                // Backward jump — label already seen
+                // Emit OP_GOSUB with absolute target
+                emit_byte(OP_GOSUB);
+                int target = label_positions[key];
+                emit_byte((uint8_t)((target >> 8) & 0xFF));
+                emit_byte((uint8_t)(target & 0xFF));
+            } else {
+                // Forward jump — emit placeholder, patch when label found
+                int jump_addr = emit_jump(OP_GOSUB);
+                if (!goto_forward_jumps.has(key)) {
+                    goto_forward_jumps[key] = Vector<int>();
+                }
+                goto_forward_jumps[key].push_back(jump_addr);
+            }
+            break;
+        }
+        case STMT_RETURN_GOSUB: {
+            // Explicit Return from GoSub
+            emit_byte(OP_RETURN_GOSUB);
+            break;
+        }
+        case STMT_IMPLEMENTS: {
+            // Implements — stored for runtime verification, no code emitted
+            // Interface checking is done at class instantiation time
             break;
         }
         default:

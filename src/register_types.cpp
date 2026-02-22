@@ -29,6 +29,10 @@
 #include "visual_gasic_systray.h"
 #include "visual_gasic_settings.h"
 #include "visual_gasic_com_interop.h"
+#include "visual_gasic_http.h"
+#include "visual_gasic_collection.h"
+#include "visual_gasic_regex.h"
+#include "visual_gasic_timer.h"
 
 using namespace godot;
 
@@ -71,6 +75,13 @@ void initialize_visual_gasic_module(ModuleInitializationLevel p_level) {
         ClassDB::register_class<VGScriptingDict>();
         ClassDB::register_class<VGWScriptShell>();
         ClassDB::register_class<VGComInterop>();
+
+        // v2.10.0 classes
+        ClassDB::register_class<VGHttpRequest>();
+        ClassDB::register_class<VGCollection>();
+        ClassDB::register_class<VGRegEx>();
+        ClassDB::register_class<VGRegExMatch>();
+        ClassDB::register_class<VGTimer>();
     
         visual_gasic_language = memnew(VisualGasicLanguage);
         Engine::get_singleton()->register_script_language(visual_gasic_language);
