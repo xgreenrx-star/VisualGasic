@@ -1555,6 +1555,28 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
             return instantiate_class(n->class_name, args_arr);
         }
 
+        // VB6-friendly aliases for system classes (v2.9.0)
+        {
+            String alias = n->class_name;
+            String resolved;
+            if (alias.nocasecmp_to("Process") == 0) resolved = "VGProcess";
+            else if (alias.nocasecmp_to("Database") == 0) resolved = "VGDatabase";
+            else if (alias.nocasecmp_to("FileSystemWatcher") == 0) resolved = "VGFileWatcher";
+            else if (alias.nocasecmp_to("CommonDialog") == 0) resolved = "VGCommonDialog";
+            else if (alias.nocasecmp_to("WinSock") == 0 || alias.nocasecmp_to("Socket") == 0) resolved = "VGSocket";
+            else if (alias.nocasecmp_to("SysTray") == 0) resolved = "VGSysTray";
+            else if (alias.nocasecmp_to("Settings") == 0) resolved = "VGSettings";
+            else if (alias.nocasecmp_to("FileSystemObject") == 0) resolved = "VGFileSystemObject";
+            else if (alias.nocasecmp_to("ScriptingDictionary") == 0) resolved = "VGScriptingDict";
+            else if (alias.nocasecmp_to("WScriptShell") == 0) resolved = "VGWScriptShell";
+            else if (alias.nocasecmp_to("ComObject") == 0) resolved = "VGComObject";
+
+            if (!resolved.is_empty() && ClassDB::class_exists(resolved)) {
+                Variant inst = ClassDB::instantiate(resolved);
+                if (inst.get_type() == Variant::OBJECT) return inst;
+            }
+        }
+
         // Try Godot ClassDB
         if (ClassDB::class_exists(n->class_name)) {
              // Guard: singletons like ProjectSettings crash if you

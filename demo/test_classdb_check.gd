@@ -1,0 +1,22 @@
+extends SceneTree
+
+func _init():
+	print("Existing classes:")
+	print("  VisualGasicImmediate: ", ClassDB.class_exists("VisualGasicImmediate"))
+	print("  MSComm: ", ClassDB.class_exists("MSComm"))
+	print("  GasicForm: ", ClassDB.class_exists("GasicForm"))
+	print("")
+	print("New classes:")
+	print("  VGProcess: ", ClassDB.class_exists("VGProcess"))
+	print("  VGDatabase: ", ClassDB.class_exists("VGDatabase"))
+	print("  VGSettings: ", ClassDB.class_exists("VGSettings"))
+	print("  VGSocket: ", ClassDB.class_exists("VGSocket"))
+	print("  VGCommonDialog: ", ClassDB.class_exists("VGCommonDialog"))
+	print("  VGComInterop: ", ClassDB.class_exists("VGComInterop"))
+	print("  VGFileWatcher: ", ClassDB.class_exists("VGFileWatcher"))
+	print("  VGSysTray: ", ClassDB.class_exists("VGSysTray"))
+	print("  VGComObject: ", ClassDB.class_exists("VGComObject"))
+	print("  VGFileSystemObject: ", ClassDB.class_exists("VGFileSystemObject"))
+	print("  VGScriptingDict: ", ClassDB.class_exists("VGScriptingDict"))
+	print("  VGWScriptShell: ", ClassDB.class_exists("VGWScriptShell"))
+	quit()

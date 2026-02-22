@@ -20,6 +20,11 @@
 #include <godot_cpp/classes/input.hpp>
 #include <godot_cpp/classes/time.hpp>
 #include <godot_cpp/classes/tree.hpp>
+// System-level class headers for built-in function dispatch
+#include "visual_gasic_process.h"
+#include "visual_gasic_database.h"
+#include "visual_gasic_settings.h"
+#include "visual_gasic_com_interop.h"
 #include <godot_cpp/classes/tree_item.hpp>
 #include <godot_cpp/variant/packed_int64_array.hpp>
 #include <godot_cpp/variant/vector2.hpp>
@@ -377,6 +382,70 @@ Variant call_builtin_expr(VisualGasicInstance *instance, CallExpression *call, b
         // Beep is a no-op in Godot (no system beep API), but we acknowledge the call
         UtilityFunctions::print("[VG] Beep");
         return Variant();
+    }
+
+    // ====================================================================
+    // System-Level Built-in Functions (v2.9.0)
+    // ====================================================================
+
+    // Shell() — VB6-style process launch, returns PID
+    if (METHOD_IS("shell") && args.size() >= 1) {
+        r_handled = true;
+        int window_style = args.size() > 1 ? (int)args[1] : 1;
+        return VGProcess::shell_execute(args[0], window_style);
+    }
+
+    // GetSetting / SaveSetting / DeleteSetting — VB6 registry-style settings
+    if (METHOD_IS("getsetting") && args.size() >= 3) {
+        r_handled = true;
+        String def = args.size() > 3 ? String(args[3]) : "";
+        return VGSettings::get_setting(args[0], args[1], args[2], def);
+    }
+    if (METHOD_IS("savesetting") && args.size() >= 4) {
+        r_handled = true;
+        VGSettings::save_setting(args[0], args[1], args[2], args[3]);
+        return Variant();
+    }
+    if (METHOD_IS("deletesetting") && args.size() >= 1) {
+        r_handled = true;
+        String section = args.size() > 1 ? String(args[1]) : "";
+        String key = args.size() > 2 ? String(args[2]) : "";
+        VGSettings::delete_setting(args[0], section, key);
+        return Variant();
+    }
+    if (METHOD_IS("getallsettings") && args.size() >= 2) {
+        r_handled = true;
+        return VGSettings::get_all_settings(args[0], args[1]);
+    }
+
+    // CreateObject() — VB6 COM-style late-bound object creation
+    if (METHOD_IS("createobject") && args.size() >= 1) {
+        r_handled = true;
+        return VGComInterop::create_object(args[0]);
+    }
+
+    // Environ() — VB6-style environment variable access
+    if (METHOD_IS("environ") && args.size() >= 1) {
+        r_handled = true;
+        String var_name = args[0];
+        if (OS::get_singleton()->has_environment(var_name)) {
+            return OS::get_singleton()->get_environment(var_name);
+        }
+        return "";
+    }
+    if (METHOD_IS("environ$") && args.size() >= 1) {
+        r_handled = true;
+        String var_name = args[0];
+        if (OS::get_singleton()->has_environment(var_name)) {
+            return OS::get_singleton()->get_environment(var_name);
+        }
+        return "";
+    }
+
+    // SQLite availability check
+    if (METHOD_IS("issqliteavailable")) {
+        r_handled = true;
+        return VGDatabase::is_sqlite_available();
     }
 
     // If not handled here, leave r_handled false so caller can fallback
@@ -2384,6 +2453,52 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
         };
         if (c >= 0 && c < 16) return (int64_t)qb_palette[c];
         return (int64_t)0;
+    }
+
+    // ====================================================================
+    // System-Level Built-in Functions (v2.9.0)
+    // ====================================================================
+
+    // Shell() — VB6-style process launch, returns PID
+    if (METHOD_IS("shell") && args.size() >= 1) {
+        r_handled = true;
+        int window_style = args.size() > 1 ? (int)args[1] : 1;
+        return VGProcess::shell_execute(args[0], window_style);
+    }
+
+    // GetSetting / SaveSetting / DeleteSetting — VB6 registry-style settings
+    if (METHOD_IS("getsetting") && args.size() >= 3) {
+        r_handled = true;
+        String def = args.size() > 3 ? String(args[3]) : "";
+        return VGSettings::get_setting(args[0], args[1], args[2], def);
+    }
+    if (METHOD_IS("savesetting") && args.size() >= 4) {
+        r_handled = true;
+        VGSettings::save_setting(args[0], args[1], args[2], args[3]);
+        return Variant();
+    }
+    if (METHOD_IS("deletesetting") && args.size() >= 1) {
+        r_handled = true;
+        String section = args.size() > 1 ? String(args[1]) : "";
+        String key = args.size() > 2 ? String(args[2]) : "";
+        VGSettings::delete_setting(args[0], section, key);
+        return Variant();
+    }
+    if (METHOD_IS("getallsettings") && args.size() >= 2) {
+        r_handled = true;
+        return VGSettings::get_all_settings(args[0], args[1]);
+    }
+
+    // CreateObject() — VB6 COM-style late-bound object creation
+    if (METHOD_IS("createobject") && args.size() >= 1) {
+        r_handled = true;
+        return VGComInterop::create_object(args[0]);
+    }
+
+    // SQLite availability check
+    if (METHOD_IS("issqliteavailable")) {
+        r_handled = true;
+        return VGDatabase::is_sqlite_available();
     }
 
     // ---- Environ(name) / Environ$(name) — read environment variable ----

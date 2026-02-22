@@ -778,6 +778,31 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     push_value(result);
                     break;
                 }
+
+                // VB6-friendly aliases for system classes (v2.9.0)
+                {
+                    String resolved;
+                    if (class_name.nocasecmp_to("Process") == 0) resolved = "VGProcess";
+                    else if (class_name.nocasecmp_to("Database") == 0) resolved = "VGDatabase";
+                    else if (class_name.nocasecmp_to("FileSystemWatcher") == 0) resolved = "VGFileWatcher";
+                    else if (class_name.nocasecmp_to("CommonDialog") == 0) resolved = "VGCommonDialog";
+                    else if (class_name.nocasecmp_to("WinSock") == 0 || class_name.nocasecmp_to("Socket") == 0) resolved = "VGSocket";
+                    else if (class_name.nocasecmp_to("SysTray") == 0) resolved = "VGSysTray";
+                    else if (class_name.nocasecmp_to("Settings") == 0) resolved = "VGSettings";
+                    else if (class_name.nocasecmp_to("FileSystemObject") == 0) resolved = "VGFileSystemObject";
+                    else if (class_name.nocasecmp_to("ScriptingDictionary") == 0) resolved = "VGScriptingDict";
+                    else if (class_name.nocasecmp_to("WScriptShell") == 0) resolved = "VGWScriptShell";
+                    else if (class_name.nocasecmp_to("ComObject") == 0) resolved = "VGComObject";
+
+                    if (!resolved.is_empty() && ClassDB::class_exists(resolved)) {
+                        Variant inst = ClassDB::instantiate(resolved);
+                        if (inst.get_type() == Variant::OBJECT) {
+                            push_value(inst);
+                            break;
+                        }
+                    }
+                }
+
                 // Godot ClassDB
                 if (ClassDB::class_exists(class_name)) {
                     // Guard: singletons like ProjectSettings crash if you

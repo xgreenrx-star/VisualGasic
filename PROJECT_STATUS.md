@@ -1,6 +1,6 @@
 # VisualGasic Project Status
 
-**Version**: 2.8.0 (VB6 Importer, Form Designer, Godot 4.6.1)  
+**Version**: 2.9.0 (System-Level Features, Process, SQLite, Sockets, COM Interop)  
 **Last Updated**: February 2026
 
 ## Overview

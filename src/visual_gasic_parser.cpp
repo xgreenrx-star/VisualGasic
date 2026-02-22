@@ -1837,12 +1837,29 @@ DimStatement* VisualGasicParser::parse_dim() {
             }
         }
         
-        // Optional: As Type
+        // Optional: As [New] Type
         if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("As") == 0) {
             advance(); // Eat As
+            
+            // Check for "As New ClassName" — VB6 auto-instantiation
+            bool is_new = false;
+            if ((check(VisualGasicTokenizer::TOKEN_KEYWORD) || check(VisualGasicTokenizer::TOKEN_IDENTIFIER))
+                && String(peek().value).nocasecmp_to("New") == 0) {
+                is_new = true;
+                advance(); // Eat New
+            }
+            
             if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER) || check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
                 stmt->type_name = peek().value;
                 advance();
+                
+                // If "As New ClassName", create a NewNode as the initializer
+                if (is_new) {
+                    NewNode* nn = static_cast<NewNode*>(register_node(new NewNode()));
+                    nn->class_name = stmt->type_name;
+                    stmt->initializer = nn;
+                    unregister_node(nn);
+                }
             } else {
                 UtilityFunctions::print("Parser Error: Expected type name after As");
             }

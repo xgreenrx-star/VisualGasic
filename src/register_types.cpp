@@ -21,6 +21,14 @@
 #include "visual_gasic_immediate.h"
 #include "visual_gasic_debugger.h"
 #include "visual_gasic_form_designer.h"
+#include "visual_gasic_process.h"
+#include "visual_gasic_database.h"
+#include "visual_gasic_fswatcher.h"
+#include "visual_gasic_common_dialog.h"
+#include "visual_gasic_socket.h"
+#include "visual_gasic_systray.h"
+#include "visual_gasic_settings.h"
+#include "visual_gasic_com_interop.h"
 
 using namespace godot;
 
@@ -49,6 +57,20 @@ void initialize_visual_gasic_module(ModuleInitializationLevel p_level) {
         ClassDB::register_class<VisualGasicTestRunner>();
         ClassDB::register_class<VisualGasicImmediate>();
         ClassDB::register_class<VisualGasicDebugger>();
+
+        // System-level classes (v2.9.0)
+        ClassDB::register_class<VGProcess>();
+        ClassDB::register_class<VGDatabase>();
+        ClassDB::register_class<VGFileWatcher>();
+        ClassDB::register_class<VGCommonDialog>();
+        ClassDB::register_class<VGSocket>();
+        ClassDB::register_class<VGSysTray>();
+        ClassDB::register_class<VGSettings>();
+        ClassDB::register_class<VGComObject>();
+        ClassDB::register_class<VGFileSystemObject>();
+        ClassDB::register_class<VGScriptingDict>();
+        ClassDB::register_class<VGWScriptShell>();
+        ClassDB::register_class<VGComInterop>();
     
         visual_gasic_language = memnew(VisualGasicLanguage);
         Engine::get_singleton()->register_script_language(visual_gasic_language);

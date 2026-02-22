@@ -1,0 +1,139 @@
+' test_system_features.vg — Comprehensive smoke test for v2.9.0 system features
+' Tests: Process, Database, FileWatcher, CommonDialog, Socket, SysTray, Settings, COM Interop
+
+Dim passed As Integer
+Dim failed As Integer
+passed = 0
+failed = 0
+
+Sub Assert(condition As Boolean, testName As String)
+    If condition Then
+        Print "  PASS: " & testName
+        passed = passed + 1
+    Else
+        Print "  FAIL: " & testName
+        failed = failed + 1
+    End If
+End Sub
+
+Sub Main()
+    Print "=== VisualGasic v2.9.0 System Features Test ==="
+    Print ""
+
+    ' --- 1. Environ ---
+    Print "--- Environ ---"
+    Dim home As String
+    home = Environ("HOME")
+    Assert Len(home) > 0, "Environ(HOME) returns value"
+    Assert Environ("PATH") <> "", "Environ(PATH) returns value"
+    Print ""
+
+    ' --- 2. Settings API ---
+    Print "--- Settings API ---"
+    SaveSetting "VGTest", "Config", "Theme", "Dark"
+    Dim theme As String
+    theme = GetSetting("VGTest", "Config", "Theme", "Light")
+    Assert theme = "Dark", "SaveSetting/GetSetting round-trip"
+
+    Dim missing As String
+    missing = GetSetting("VGTest", "Config", "NonExistent", "fallback")
+    Assert missing = "fallback", "GetSetting returns default for missing key"
+
+    DeleteSetting "VGTest", "Config", "Theme"
+    theme = GetSetting("VGTest", "Config", "Theme", "default")
+    Assert theme = "default", "DeleteSetting removes key"
+
+    ' Clean up
+    DeleteSetting "VGTest"
+    Print ""
+
+    ' --- 3. Process ---
+    Print "--- Process ---"
+    Dim proc As Object
+    Set proc = New Process
+    Assert Not proc Is Nothing, "New Process creates object"
+
+    Dim pid As Variant
+    pid = Shell("echo hello_from_shell")
+    Assert pid > 0, "Shell() returns positive PID"
+
+    Dim captured As String
+    captured = proc.RunAndCapture("echo", "capture_test")
+    Assert InStr(captured, "capture_test") > 0, "RunAndCapture captures stdout"
+    Print ""
+
+    ' --- 4. Database (SQLite) ---
+    Print "--- Database ---"
+    Dim sqlOk As Boolean
+    sqlOk = IsSQLiteAvailable()
+    Assert sqlOk = True, "IsSQLiteAvailable on Linux"
+
+    If sqlOk Then
+        Dim db As Object
+        Set db = New Database
+        Assert Not db Is Nothing, "New Database creates object"
+        db.Open ":memory:"
+        db.Execute "CREATE TABLE items (id INTEGER PRIMARY KEY, name TEXT, price REAL)"
+        db.Execute "INSERT INTO items VALUES (1, 'Widget', 9.99)"
+        db.Execute "INSERT INTO items VALUES (2, 'Gadget', 19.99)"
+        Dim rows As Variant
+        rows = db.Query("SELECT name FROM items ORDER BY id")
+        Assert rows.size() = 2, "Query returns 2 rows"
+        db.Close
+        Print "  In-memory SQLite working"
+    End If
+    Print ""
+
+    ' --- 5. Socket ---
+    Print "--- Socket ---"
+    Dim sock As Object
+    Set sock = New WinSock
+    Assert Not sock Is Nothing, "New WinSock creates object"
+    sock.Protocol = 1  ' UDP
+    Dim bound As Boolean
+    bound = sock.Bind(0)
+    Assert bound = True, "UDP Bind to port 0 succeeds"
+    sock.Close
+    Print ""
+
+    ' --- 6. FileSystemWatcher ---
+    Print "--- FileSystemWatcher ---"
+    Dim watcher As Object
+    Set watcher = New FileSystemWatcher
+    Assert Not watcher Is Nothing, "New FileSystemWatcher creates object"
+    watcher.Path = "/tmp"
+    watcher.Filter = "*.txt"
+    Print ""
+
+    ' --- 7. CommonDialog ---
+    Print "--- CommonDialog ---"
+    Dim dlg As Object
+    Set dlg = New CommonDialog
+    Assert Not dlg Is Nothing, "New CommonDialog creates object"
+    dlg.Filter = "Text Files|*.txt|All Files|*.*"
+    dlg.DialogTitle = "Test Dialog"
+    Print "  (GUI dialogs not tested in headless mode)"
+    Print ""
+
+    ' --- 8. COM Interop ---
+    Print "--- COM Interop (Scripting.Dictionary) ---"
+    Dim dict As Object
+    Set dict = CreateObject("Scripting.Dictionary")
+    Assert Not dict Is Nothing, "CreateObject(Scripting.Dictionary)"
+    dict.Add "Name", "VisualGasic"
+    dict.Add "Version", "2.9.0"
+    Assert dict.Count = 2, "Dictionary.Count after 2 Adds"
+    Assert dict.Item("Name") = "VisualGasic", "Dictionary.Item retrieval"
+    Assert dict.Exists("Version") = True, "Dictionary.Exists"
+    dict.Remove "Version"
+    Assert dict.Count = 1, "Dictionary.Count after Remove"
+    Print ""
+
+    ' --- Summary ---
+    Print "============================================"
+    Print "RESULTS: " & CStr(passed) & " passed, " & CStr(failed) & " failed"
+    Print "============================================"
+    If failed = 0 Then
+        Print "All System Feature tests PASSED!"
+    End If
+End Sub

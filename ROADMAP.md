@@ -1,7 +1,7 @@
 # Visual Gasic Development Roadmap
 
 **Last Updated**: February 2026  
-**Current Version**: 2.8.0 (VB6 Importer, Form Designer, Godot 4.6.1 Support)
+**Current Version**: 2.9.0 (System-Level Features, Process, SQLite, Sockets, COM Interop)
 
 This document outlines the planned improvements and features for Visual Gasic. Items are prioritized by impact and development effort.
 
