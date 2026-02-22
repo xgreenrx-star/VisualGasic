@@ -283,12 +283,13 @@ Dim total = Reduce(doubled, Fn(a, b) a + b, 0)   ' 60
 
 ---
 
-## Date/Time Functions (3) — *New in v2.5.0*
+## Date/Time Functions (4) — *Updated in v2.10.0*
 
 ```vb
 Weekday(date, [firstDayOfWeek])   ' Day of week 1-7 (1=Sunday default)
 WeekdayName(day, [abbreviate])    ' Name from number: WeekdayName(6) → "Friday"
 MonthName(month, [abbreviate])    ' Name from number: MonthName(1) → "January"
+Timer()                           ' Seconds since midnight as Double (New in v2.10.0)
 ```
 
 **Examples:**
@@ -361,6 +362,100 @@ End Sub
 
 ---
 
+## VB6 Global Objects (3) — *New in v2.10.0*
+
+Virtual global objects resolved automatically — no `Dim` or `New` required.
+
+```vb
+App.Path                          ' Directory containing the executable
+App.EXEName                       ' Executable filename
+App.Title                         ' Application title
+App.Major / App.Minor / App.Revision  ' Version numbers
+
+Screen.Width / Screen.Height      ' Screen dimensions in pixels
+Screen.TwipsPerPixelX/Y           ' Always 1 (pixel units)
+
+Err.Number                        ' Last error number
+Err.Description                   ' Last error description
+Err.Source                        ' Error source module (New in v2.10.0)
+Err.Clear                         ' Reset error state
+Err.Raise number, source, desc    ' Raise a runtime error
+```
+
+---
+
+## COM-Style Objects (4) — *New in v2.10.0*
+
+Instantiate with `Dim obj As New ClassName` or `CreateObject("ProgID")`.
+
+### VGCollection
+```vb
+Dim col As New Collection         ' or CreateObject("VB6.Collection")
+col.Add item [, key] [, Before n] [, After n]
+col.Remove index_or_key
+col.Item(index_or_key)            ' 1-based indexing
+col.Count                         ' Number of items
+col.HasKey(key)                   ' Check key existence
+col.Clear                         ' Remove all items
+col.ToArray                       ' Return all items as Array
+```
+
+### VGRegEx
+```vb
+Dim re As New RegExp              ' or CreateObject("VBScript.RegExp")
+re.Pattern = "\d+"
+re.Global = True
+re.IgnoreCase = False
+re.Test(string)                   ' Returns True if pattern matches
+re.Execute(string)                ' Returns Array of VGRegExMatch objects
+re.Replace(string, replacement)   ' Replace matched text
+```
+
+### VGHttpRequest
+```vb
+Dim http As New HttpRequest       ' or CreateObject("MSXML2.XMLHTTP")
+http.open method, url
+http.setRequestHeader name, value
+http.send [body]
+http.responseText                 ' Response body string
+http.status                       ' HTTP status code
+http.getAllResponseHeaders         ' All headers as string
+```
+
+### VGTimer
+```vb
+Dim tmr As New VBTimer
+tmr.Interval = 1000               ' Milliseconds
+tmr.Enabled = True                ' Start/stop the timer
+Timer()                           ' Seconds since midnight as Double
+```
+
+---
+
+## File I/O Statements (4 opcodes) — *New in v2.10.0*
+
+Bytecode-compiled file I/O statements:
+
+```vb
+Print #fileNum, expression        ' Write formatted output
+Write #fileNum, expression        ' Write CSV-style quoted output
+Input #fileNum, variable          ' Read delimited value
+Line Input #fileNum, variable     ' Read entire line
+```
+
+---
+
+## GoSub/Return — *New in v2.10.0*
+
+Intra-procedure branching with return address stack:
+
+```vb
+GoSub label                       ' Push return address and jump to label
+Return                            ' Pop and return to caller
+```
+
+---
+
 ## Existing VB6 Functions Still Available
 
 These were already implemented and still work:
@@ -410,14 +505,18 @@ These were already implemented and still work:
 - **JSON**: 2 new = **2 total**
 - **File System**: 5 new (v2.5) + 5 new + 6 existing = **16 total**
 - **Functional**: 6 new = **6 total** ✅
-- **Date/Time**: 3 new (v2.5) = **3 total**
+- **Date/Time**: 3 + 1 (Timer, v2.10) = **4 total**
 - **System/Environment**: 3 new (v2.5) = **3 total**
 - **Debugging**: 1 new (v2.5, Stop statement) = **1 total**
 - **Math**: 0 new + 11 existing = **11 total**
 - **Vector**: 12 (Vec2, Vec3, VAdd, VSub, VMul, VDot, VCross, VLen, VNormalize, VDistance, VLerp, SetProp) = **12 total**
 - **Utility**: 2 new (SetProp, AddChild) = **2 total**
+- **VB6 Global Objects** (v2.10): App, Screen, Err = **3 virtual objects**
+- **COM-Style Objects** (v2.10): VGCollection, VGRegEx, VGHttpRequest, VGTimer = **4 classes**
+- **File I/O Opcodes** (v2.10): Print#, Write#, Input#, Line Input# = **4 statements**
+- **GoSub/Return** (v2.10): GoSub, Return = **2 flow-control statements**
 
-**Grand Total**: 56 new functions + 52 existing = **108 builtin functions!**
+**Grand Total**: 57 new functions + 52 existing + 13 v2.10.0 features = **122 builtins & features!**
 
 ---
 

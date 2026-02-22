@@ -116,6 +116,8 @@
 
 ### Release Notes
 - [CHANGELOG.md](../CHANGELOG.md) - Full change log
+- [RELEASE_NOTES_v2.10.0.md](../RELEASE_NOTES_v2.10.0.md) - v2.10.0 release notes (COM Objects, VB6 Globals, GoSub, File I/O)
+- [RELEASE_NOTES_v2.9.0.md](../RELEASE_NOTES_v2.9.0.md) - v2.9.0 release notes
 - [RELEASE_NOTES_v2.8.0.md](../RELEASE_NOTES_v2.8.0.md) - v2.8.0 release notes (C++ Form Designer, Live Preview)
 - [RELEASE_NOTES_v2.3.0.md](../RELEASE_NOTES_v2.3.0.md) - v2.3.0 release notes
 - [RELEASE_NOTES_v2.4.0.md](../RELEASE_NOTES_v2.4.0.md) - v2.4.0 release notes

@@ -51,6 +51,17 @@
 - [Classic DATA Statements](#classic-data-statements)
 - [Game and Application Development Functions](#game-and-application-development-functions)
 
+### [VB6 Global Objects (v2.10.0)](#vb6-global-objects)
+- [App Object](#app-object)
+- [Screen Object](#screen-object)
+- [Err Object](#err-object)
+
+### [COM-Style Objects (v2.10.0)](#com-style-objects)
+- [VGCollection](#vgcollection)
+- [VGRegEx](#vgregex)
+- [VGHttpRequest](#vghttprequest)
+- [VGTimer](#vgtimer)
+
 ### [Modern Language Features](#modern-language-features)
 - [Lambda Expressions](#lambda-expressions)
 - [Pattern Matching](#pattern-matching)
@@ -332,8 +343,9 @@ VB6 code is automatically transformed to VisualGasic:
 - `On Error Resume Next` → `' On Error Resume Next  ' TODO: Use Try/Catch`
 
 **Warnings Added:**
-- `GoSub` statements flagged as deprecated
 - Standalone `End` converted to `Exit Sub`
+
+> **Note:** `GoSub`/`Return` is fully implemented in v2.10.0 and no longer flagged as deprecated.
 
 ##### VB6 Functions
 
@@ -1229,7 +1241,8 @@ VisualGasic provides a comprehensive set of keywords for modern game development
 - `Error` - Error keyword
 - `Resume` - Resume after error
 - `Resume Next` - Resume at next statement after error
-- `GoSub` - Call subroutine (legacy)
+- `GoSub` - Jump to label and return (v2.10.0 — fully implemented)
+- `Return` - Return from GoSub
 - `GoTo` - Jump to label
 - `Try` - Start try block
 - `Catch` - Catch exceptions
@@ -1704,7 +1717,44 @@ End Sub
 The `Err` object provides:
 - `Err.Number` — Error code (0 = no error)
 - `Err.Description` — Human-readable error message
+- `Err.Source` — Source of the error (v2.10.0)
 - `Err.Clear` — Reset the error state
+- `Err.Raise number, source, description` — Raise a custom error (v2.10.0)
+
+```vb
+' Raise a custom error
+On Error Resume Next
+Err.Raise 1001, "MyModule", "Custom validation failed"
+If Err.Number = 1001 Then
+    Print "Source: " & Err.Source       ' "MyModule"
+    Print "Error: " & Err.Description   ' "Custom validation failed"
+    Err.Clear
+End If
+On Error GoTo 0
+```
+
+#### GoSub / Return
+
+Classic VB6 `GoSub` jumps to a label within the current Sub/Function, then `Return` jumps back to the statement after the `GoSub`. This is useful for reusable code blocks without creating separate subroutines:
+
+```vb
+Sub ProcessData()
+    Dim x As Integer
+    x = 10
+    GoSub DoubleIt
+    Print x            ' 20
+    x = 50
+    GoSub DoubleIt
+    Print x            ' 100
+    Exit Sub
+
+DoubleIt:
+    x = x * 2
+    Return
+End Sub
+```
+
+> **Note:** `Return` checks the GoSub return stack first. If no GoSub is pending, bare `Return` acts as `Exit Sub`.
 
 ---
 
@@ -2237,6 +2287,29 @@ Dim size As Long = FileLen("data.txt")
 Dim exists As Boolean = (Dir("data.txt") <> "")
 ```
 
+#### File I/O Statements (v2.10.0)
+
+`Print #`, `Write #`, `Input #`, and `Line Input #` statements are now compiled to dedicated bytecode opcodes for full VB6-compatible sequential file I/O:
+
+```vb
+' Write data to a file
+Dim f As Integer = FreeFile()
+Open "output.csv" For Output As f
+Print #f, "Name,Score,Level"       ' Print line as-is
+Write #f, "Alice", 100, 5           ' Write with quotes and commas
+Write #f, "Bob", 85, 3
+Close f
+
+' Read data from a file
+Dim name As String, score As Integer, level As Integer
+Open "output.csv" For Input As f
+Dim header As String
+Line Input #f, header              ' Read entire line
+Input #f, name, score, level       ' Read comma-separated values
+Print name & ": " & CStr(score)    ' "Alice: 100"
+Close f
+```
+
 ### Classic DATA Statements {#classic-data-statements}
 
 **Classic DATA statements are back — and better than ever!**
@@ -2449,6 +2522,178 @@ Sleep(500)                          ' Pause for 0.5 seconds
 ' Utility (general application functions)
 Cls                                 ' Clear screen
 Dim choice = Choose(score > 100, "Winner!", "Try again!")
+```
+
+---
+
+## VB6 Global Objects {#vb6-global-objects}
+
+*Added in v2.10.0.* These virtual objects emulate VB6's built-in global objects. They are resolved automatically when referenced by name — no `Dim` or `New` required.
+
+### App Object {#app-object}
+
+The `App` object provides information about the running application, mirroring VB6's `App` global.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `App.Path` | String | Directory containing the executable |
+| `App.EXEName` | String | Executable filename (without extension) |
+| `App.Title` | String | Application title from project settings |
+| `App.Major` | Integer | Major version number |
+| `App.Minor` | Integer | Minor version number |
+| `App.Revision` | Integer | Revision number |
+| `App.PrevInstance` | Boolean | Always `False` (reserved) |
+| `App.ProductName` | String | Same as Title |
+| `App.CompanyName` | String | Company name (empty by default) |
+
+```vb
+Print "Running from: " & App.Path
+Print "Application: " & App.Title & " v" & CStr(App.Major) & "." & CStr(App.Minor)
+```
+
+### Screen Object {#screen-object}
+
+The `Screen` object provides display information, mirroring VB6's `Screen` global.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `Screen.Width` | Integer | Screen width in pixels |
+| `Screen.Height` | Integer | Screen height in pixels |
+| `Screen.TwipsPerPixelX` | Integer | Always 1 (pixels, not twips) |
+| `Screen.TwipsPerPixelY` | Integer | Always 1 (pixels, not twips) |
+| `Screen.MousePointer` | Integer | Mouse cursor type (0 = default) |
+
+```vb
+Print "Resolution: " & CStr(Screen.Width) & "x" & CStr(Screen.Height)
+```
+
+### Err Object {#err-object}
+
+The `Err` object is also documented under [Error Handling](#error-handling). It provides runtime error information and supports `Err.Raise` and `Err.Clear`:
+
+```vb
+On Error Resume Next
+Err.Raise 5, "MyModule", "Invalid argument"
+Print Err.Number         ' 5
+Print Err.Source         ' "MyModule"
+Print Err.Description    ' "Invalid argument"
+Err.Clear
+On Error GoTo 0
+```
+
+---
+
+## COM-Style Objects {#com-style-objects}
+
+*Added in v2.10.0.* These classes emulate common VB6/VBScript COM objects. Instantiate with `Dim obj As New ClassName` or via `CreateObject("ProgID")`.
+
+### VGCollection {#vgcollection}
+
+A VB6-compatible ordered collection with optional string keys and **1-based indexing**.
+
+**Aliases:** `New Collection` · `CreateObject("VB6.Collection")` · `CreateObject("VBA.Collection")`
+
+| Method/Property | Description |
+|-----------------|-------------|
+| `Add item [, key] [, Before n] [, After n]` | Add an item with optional key and position |
+| `Remove index_or_key` | Remove by 1-based index or key |
+| `Item(index_or_key)` | Retrieve by 1-based index or key |
+| `Count` | Number of items |
+| `HasKey(key)` | Check if a key exists |
+| `Clear` | Remove all items |
+| `ToArray` | Return all items as an Array |
+
+```vb
+Dim col As New Collection
+col.Add "Apple", "a"
+col.Add "Banana", "b"
+col.Add "Cherry", "c"
+
+Print col.Count              ' 3
+Print col.Item(1)            ' "Apple"
+Print col.Item("b")          ' "Banana"
+
+col.Remove 2                 ' Remove "Banana"
+Print col.Count              ' 2
+
+col.Clear
+```
+
+### VGRegEx {#vgregex}
+
+VBScript.RegExp emulation wrapping Godot's PCRE2-based RegEx engine.
+
+**Aliases:** `New RegExp` · `CreateObject("VBScript.RegExp")`
+
+| Property/Method | Description |
+|-----------------|-------------|
+| `Pattern` | The regular expression pattern |
+| `Global` | Boolean — match all occurrences (default: False) |
+| `IgnoreCase` | Boolean — case-insensitive matching |
+| `Test(string)` | Returns True if the pattern matches |
+| `Execute(string)` | Returns an Array of VGRegExMatch objects |
+| `Replace(string, replacement)` | Replace matched text |
+
+```vb
+Dim re As New RegExp
+re.Pattern = "\d+"
+re.Global = True
+
+If re.Test("abc123def") Then
+    Print "Found digits!"
+End If
+
+Dim result As String = re.Replace("abc123def456", "NUM")
+Print result    ' "abcNUMdefNUM"
+```
+
+### VGHttpRequest {#vghttprequest}
+
+MSXML2.XMLHTTP emulation wrapping Godot HTTPClient. Suitable for REST API calls.
+
+**Aliases:** `New HttpRequest` · `New XMLHTTP` · `CreateObject("MSXML2.XMLHTTP")`
+
+| Method/Property | Description |
+|-----------------|-------------|
+| `open method, url` | Initialize a request ("GET", "POST", etc.) |
+| `setRequestHeader name, value` | Set a request header |
+| `send [body]` | Send the request |
+| `responseText` | The response body as a string |
+| `status` | HTTP status code (200, 404, etc.) |
+| `getAllResponseHeaders` | All response headers as a string |
+
+```vb
+Dim http As New HttpRequest
+http.open "GET", "https://api.example.com/data"
+http.setRequestHeader "Accept", "application/json"
+http.send
+If http.status = 200 Then
+    Print http.responseText
+End If
+```
+
+### VGTimer {#vgtimer}
+
+A poll-based timer control for periodic events. Also provides the `Timer()` function.
+
+**Aliases:** `New VBTimer` · `New Timer`
+
+| Property | Description |
+|----------|-------------|
+| `Interval` | Timer interval in milliseconds |
+| `Enabled` | Boolean — whether the timer is active |
+
+**Timer() Function:** Returns the number of seconds since midnight as a Double.
+
+```vb
+' Timer function
+Dim t As Double = Timer()
+Print "Seconds since midnight: " & CStr(t)
+
+' Timer class
+Dim tmr As New VBTimer
+tmr.Interval = 1000    ' Fire every second
+tmr.Enabled = True
 ```
 
 ---

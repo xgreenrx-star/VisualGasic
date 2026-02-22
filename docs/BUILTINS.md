@@ -22,6 +22,7 @@ Math helpers (some handled in `call_builtin_expr_evaluated` — they expect alre
 
 File/dir helpers (delegate to `VisualGasicInstance` wrappers):
 - `LOF(fileHandle)`, `Loc(fileHandle)`, `EOF(fileHandle)`, `FreeFile([range])`, `FileLen(path)`, `Dir(...)`, `Randomize()`
+- `Timer()` — Seconds since midnight as Double *(New in v2.10.0)*
 
 Statement-level builtins (examples):
 - `MsgBox(message[, buttons, title])` — shows a dialog with VB6-style button/icon constants
@@ -83,6 +84,42 @@ Base-specific handlers:
 - `Tree.GetTextMatrix(row,col)`, `Tree.SetTextMatrix(row,col,text)`, `Tree.AddItem(text)`, `Tree.RemoveItem(index)`
 - `Connect` helpers that simplify signal wiring
 - `Err`-style dictionary helpers (`Clear`, `Raise`) which call back into the instance to raise runtime errors
+
+### VB6 Global Objects *(New in v2.10.0)*
+
+Three virtual objects are resolved automatically when referenced by name (no `Dim` required):
+
+- **App** — `App.Path`, `App.EXEName`, `App.Title`, `App.Major`, `App.Minor`, `App.Revision`, `App.PrevInstance`, `App.ProductName`, `App.CompanyName`
+- **Screen** — `Screen.Width`, `Screen.Height`, `Screen.TwipsPerPixelX`, `Screen.TwipsPerPixelY`, `Screen.MousePointer`
+- **Err** — `Err.Number`, `Err.Description`, `Err.Source`, `Err.Clear`, `Err.Raise`
+
+These are `Dictionary` instances initialized in the constructor and added to `non_local_names` in the compiler so they bypass local variable scoping.
+
+### COM-Style Object Classes *(New in v2.10.0)*
+
+Four C++ classes are registered with Godot ClassDB and instantiable via `New` or `CreateObject()`:
+
+| Class | ProgIDs | Description |
+|-------|---------|-------------|
+| `VGCollection` | `VB6.Collection`, `VBA.Collection` | 1-based ordered collection with string keys |
+| `VGRegEx` + `VGRegExMatch` | `VBScript.RegExp` | RegExp engine wrapping Godot PCRE2 |
+| `VGHttpRequest` | `MSXML2.XMLHTTP` | HTTP client wrapping Godot HTTPClient |
+| `VGTimer` | *(via New VBTimer)* | Poll-based timer with Interval/Enabled |
+
+### File I/O Bytecode Opcodes *(New in v2.10.0)*
+
+Four new bytecode opcodes for compiled file I/O:
+- `OP_PRINT_FILE` — `Print #n, expr`
+- `OP_WRITE_FILE` — `Write #n, expr`
+- `OP_INPUT_FILE` — `Input #n, var`
+- `OP_LINE_INPUT_FILE` — `Line Input #n, var`
+
+### GoSub/Return *(New in v2.10.0)*
+
+Intra-procedure branching compiled to bytecode:
+- `OP_GOSUB` — Push return address and jump to label
+- `OP_RETURN_GOSUB` — Pop and return to address
+- Managed via a `gosub_stack` (Vector<int>) in the bytecode VM.
 
 ## VisualGasicInstance public wrappers
 The builtins implementation uses a handful of instance helpers. These are documented here so extension authors know where to call into the runtime.

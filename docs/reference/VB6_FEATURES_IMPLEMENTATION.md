@@ -371,3 +371,74 @@ This implementation provides **complete parsing and infrastructure** for all adv
 - **Declare/FFI** for external library calls
 
 All features are **fully parsed**, **AST nodes created**, **runtime infrastructure in place**, and **ready for execution**. The implementation represents a major advancement in VB6 compatibility for VisualGasic.
+
+---
+
+## 7. COM-STYLE OBJECT CLASSES (Fully Implemented — v2.10.0)
+
+Four new C++ classes registered with Godot ClassDB, emulating common VB6/VBScript COM objects.
+
+### VGCollection
+- 1-based ordered collection with optional string keys
+- Methods: `Add`, `Remove`, `Item`, `Count`, `HasKey`, `Clear`, `ToArray`
+- ProgIDs: `VB6.Collection`, `VBA.Collection`
+- Instantiation: `Dim col As New Collection` or `CreateObject("VB6.Collection")`
+
+### VGRegEx + VGRegExMatch
+- VBScript.RegExp emulation wrapping Godot PCRE2-based RegEx engine
+- Properties: `Pattern`, `Global`, `IgnoreCase`
+- Methods: `Test`, `Execute`, `Replace`
+- ProgID: `VBScript.RegExp`
+
+### VGHttpRequest
+- MSXML2.XMLHTTP emulation wrapping Godot HTTPClient
+- Methods: `open`, `setRequestHeader`, `send`
+- Properties: `responseText`, `status`, `getAllResponseHeaders`
+- ProgID: `MSXML2.XMLHTTP`
+
+### VGTimer
+- Poll-based timer control for periodic events
+- Properties: `Interval` (ms), `Enabled`
+- Also provides global `Timer()` function (seconds since midnight)
+
+### Files Added
+- `src/vg_collection.h` / `src/vg_collection.cpp`
+- `src/vg_regex.h` / `src/vg_regex.cpp`
+- `src/vg_http_request.h` / `src/vg_http_request.cpp`
+- `src/vg_timer.h` / `src/vg_timer.cpp`
+- All registered in `src/register_types.cpp`
+
+---
+
+## 8. VB6 GLOBAL OBJECTS (Fully Implemented — v2.10.0)
+
+Three virtual global objects initialized as Dictionaries in the VisualGasicInstance constructor.
+
+| Object | Key Properties |
+|--------|---------------|
+| **App** | Path, EXEName, Title, Major, Minor, Revision, PrevInstance, ProductName, CompanyName |
+| **Screen** | Width, Height, TwipsPerPixelX, TwipsPerPixelY, MousePointer |
+| **Err** | Number, Description, Source + Clear/Raise methods |
+
+- Compiler fix: `app`, `screen`, `err` added to `non_local_names` so they resolve correctly.
+
+---
+
+## 9. GoSub/Return (Fully Implemented — v2.10.0)
+
+Intra-procedure branching with return address stack:
+- Compiled to `OP_GOSUB` and `OP_RETURN_GOSUB` bytecode opcodes
+- Managed via `gosub_stack` (Vector<int>) in the bytecode VM
+- GoSub no longer flagged as deprecated
+
+---
+
+## 10. FILE I/O BYTECODE OPCODES (Fully Implemented — v2.10.0)
+
+Four new bytecode opcodes for compiled file I/O statements:
+- `OP_PRINT_FILE` — `Print #n, expr`
+- `OP_WRITE_FILE` — `Write #n, expr`
+- `OP_INPUT_FILE` — `Input #n, var`
+- `OP_LINE_INPUT_FILE` — `Line Input #n, var`
+
+These complement the existing `Open`/`Close` statements and File Mode Keywords (Section 4).
