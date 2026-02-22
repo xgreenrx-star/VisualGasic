@@ -47,9 +47,6 @@ const VB6_KEYWORDS: Array[String] = [
 	# Error Handling
 	"Try", "Catch", "Finally", "End Try", "Throw",
 	
-	# Debugging
-	"Stop",
-	
 	# Modern Extensions - Async/Parallel
 	"Async", "Await", "Task", "Parallel",
 	
@@ -178,9 +175,6 @@ const BUILTIN_FUNCTIONS: Array[Dictionary] = [
 	{"name": "Second", "signature": "Second(d As Date) As Integer", "description": "Returns second component"},
 	{"name": "DateAdd", "signature": "DateAdd(interval As String, n As Integer, d As Date) As Date", "description": "Adds interval to date"},
 	{"name": "DateDiff", "signature": "DateDiff(interval As String, d1 As Date, d2 As Date) As Long", "description": "Returns difference between dates"},
-	{"name": "Weekday", "signature": "Weekday(date, [firstDayOfWeek]) As Integer", "description": "Returns day of week (1=Sunday..7=Saturday)"},
-	{"name": "WeekdayName", "signature": "WeekdayName(day As Integer, [abbreviate As Boolean]) As String", "description": "Returns name for day-of-week number"},
-	{"name": "MonthName", "signature": "MonthName(month As Integer, [abbreviate As Boolean]) As String", "description": "Returns name for month number"},
 	
 	# File Functions
 	{"name": "Dir", "signature": "Dir([path], [attributes]) As String", "description": "Returns matching filename"},
@@ -194,11 +188,6 @@ const BUILTIN_FUNCTIONS: Array[Dictionary] = [
 	
 	# Color Functions
 	{"name": "RGB", "signature": "RGB(red As Integer, green As Integer, blue As Integer) As Color", "description": "Creates color from 0-255 RGB values"},
-	{"name": "QBColor", "signature": "QBColor(index As Integer) As Long", "description": "Returns color from classic VB6 16-color palette (0-15)"},
-	
-	# System Functions
-	{"name": "Environ", "signature": "Environ(varName As String) As String", "description": "Returns the value of an OS environment variable"},
-	{"name": "Beep", "signature": "Beep", "description": "Produces a system beep sound"},
 	
 	# Godot Integration
 	{"name": "get_node", "signature": "get_node(path As String) As Node", "description": "Gets node by path"},

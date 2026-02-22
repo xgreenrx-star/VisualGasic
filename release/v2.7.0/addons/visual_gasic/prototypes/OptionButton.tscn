@@ -1,7 +1,0 @@
-[gd_scene format=3]
-
-[node name="OptionButton" type="OptionButton"]
-custom_minimum_size = Vector2(120, 24)
-offset_right = 120.0
-offset_bottom = 24.0
-focus_mode = 2

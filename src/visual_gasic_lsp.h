@@ -28,14 +28,14 @@ class VisualGasicLSP : public RefCounted {
 
 public:
     // LSP Data Structures
-    struct Position {
+    struct LspPosition {
         int line = 0;
         int character = 0;
     };
     
     struct Range {
-        Position start;
-        Position end;
+        LspPosition start;
+        LspPosition end;
     };
     
     struct Location {
@@ -118,17 +118,17 @@ public:
     Array get_diagnostics(const String& uri);
     
     // Language Features
-    Array get_completions(const String& uri, const Position& position, const String& trigger_character = "");
-    Dictionary get_hover_info(const String& uri, const Position& position);
-    Array get_definitions(const String& uri, const Position& position);
-    Array get_references(const String& uri, const Position& position, bool include_declaration = true);
+    Array get_completions(const String& uri, const LspPosition& position, const String& trigger_character = "");
+    Dictionary get_hover_info(const String& uri, const LspPosition& position);
+    Array get_definitions(const String& uri, const LspPosition& position);
+    Array get_references(const String& uri, const LspPosition& position, bool include_declaration = true);
     Array get_document_symbols(const String& uri);
     Array get_workspace_symbols(const String& query = "");
     
     // Code Actions
     Array get_code_actions(const String& uri, const Range& range);
     Dictionary format_document(const String& uri);
-    Dictionary rename_symbol(const String& uri, const Position& position, const String& new_name);
+    Dictionary rename_symbol(const String& uri, const LspPosition& position, const String& new_name);
     
     // Analysis
     void analyze_file(const String& uri, const String& content);
@@ -144,7 +144,7 @@ protected:
 
 private:
     // Internal Analysis Methods
-    Array analyze_completions_at_position(const String& content, const Position& position);
+    Array analyze_completions_at_position(const String& content, const LspPosition& position);
     CompletionItem create_completion_item(const String& label, const String& kind, 
                                          const String& detail = "", const String& documentation = "");
     Array get_keyword_completions(const String& context);
@@ -152,7 +152,7 @@ private:
     Array get_member_completions(const String& object_type, const String& prefix);
     
     // Symbol Resolution
-    Symbol resolve_symbol_at_position(const String& uri, const Position& position);
+    Symbol resolve_symbol_at_position(const String& uri, const LspPosition& position);
     Array find_symbol_references(const String& symbol_name, const String& workspace_uri);
     String get_symbol_hover_text(const Symbol& symbol);
     
@@ -162,10 +162,10 @@ private:
     Diagnostic create_diagnostic(const Range& range, const String& message, const String& severity);
     
     // Utility Methods
-    Position offset_to_position(const String& content, int offset);
-    int position_to_offset(const String& content, const Position& position);
-    String get_word_at_position(const String& content, const Position& position);
-    Range get_word_range_at_position(const String& content, const Position& position);
+    LspPosition offset_to_position(const String& content, int offset);
+    int position_to_offset(const String& content, const LspPosition& position);
+    String get_word_at_position(const String& content, const LspPosition& position);
+    Range get_word_range_at_position(const String& content, const LspPosition& position);
     
     // Cache Management
     void invalidate_cache(const String& uri);

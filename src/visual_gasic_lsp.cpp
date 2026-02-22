@@ -146,7 +146,7 @@ Array VisualGasicLSP::get_diagnostics(const String& uri) {
     return Array();
 }
 
-Array VisualGasicLSP::get_completions(const String& uri, const Position& position, const String& trigger_character) {
+Array VisualGasicLSP::get_completions(const String& uri, const LspPosition& position, const String& trigger_character) {
     if (!enable_completion) {
         return Array();
     }
@@ -169,7 +169,7 @@ Array VisualGasicLSP::get_completions(const String& uri, const Position& positio
     return completions;
 }
 
-Dictionary VisualGasicLSP::get_hover_info(const String& uri, const Position& position) {
+Dictionary VisualGasicLSP::get_hover_info(const String& uri, const LspPosition& position) {
     Dictionary hover_info;
     
     if (!enable_hover) {
@@ -189,7 +189,7 @@ Dictionary VisualGasicLSP::get_hover_info(const String& uri, const Position& pos
     return hover_info;
 }
 
-Array VisualGasicLSP::get_definitions(const String& uri, const Position& position) {
+Array VisualGasicLSP::get_definitions(const String& uri, const LspPosition& position) {
     Array definitions;
     
     Symbol symbol = resolve_symbol_at_position(uri, position);
@@ -215,7 +215,7 @@ Array VisualGasicLSP::get_definitions(const String& uri, const Position& positio
     return definitions;
 }
 
-Array VisualGasicLSP::get_references(const String& uri, const Position& position, bool include_declaration) {
+Array VisualGasicLSP::get_references(const String& uri, const LspPosition& position, bool include_declaration) {
     Array references;
     
     Symbol symbol = resolve_symbol_at_position(uri, position);
@@ -307,7 +307,7 @@ void VisualGasicLSP::analyze_file(const String& uri, const String& content) {
     }
 }
 
-Array VisualGasicLSP::analyze_completions_at_position(const String& content, const Position& position) {
+Array VisualGasicLSP::analyze_completions_at_position(const String& content, const LspPosition& position) {
     Array completions;
     
     // Get context at position
@@ -415,7 +415,7 @@ Array VisualGasicLSP::get_builtin_functions() {
 }
 
 // Utility method implementations
-String VisualGasicLSP::get_word_at_position(const String& content, const Position& position) {
+String VisualGasicLSP::get_word_at_position(const String& content, const LspPosition& position) {
     Array lines = content.split("\n");
     if (position.line >= lines.size()) {
         return "";
@@ -441,7 +441,7 @@ String VisualGasicLSP::get_word_at_position(const String& content, const Positio
     return line.substr(start, end - start);
 }
 
-String VisualGasicLSP::get_line_at_position(const String& content, const Position& position) {
+String VisualGasicLSP::get_line_at_position(const String& content, const LspPosition& position) {
     Array lines = content.split("\n");
     if (position.line >= lines.size()) {
         return "";
@@ -483,7 +483,7 @@ void VisualGasicLSP::find_source_files(const String& directory, Array& files) {
 }
 
 // Simplified implementations for other methods
-VisualGasicLSP::Symbol VisualGasicLSP::resolve_symbol_at_position(const String& uri, const Position& position) {
+VisualGasicLSP::Symbol VisualGasicLSP::resolve_symbol_at_position(const String& uri, const LspPosition& position) {
     Symbol symbol;
     
     // Try to get cached parse result for this file

@@ -33,18 +33,6 @@ var _tab_container: TabContainer
 var _description_label: RichTextLabel
 var _template_lists: Dictionary = {}  # category -> ItemList
 
-# VB6 Theme Colors (matches Form Designer IDE panels)
-const VB6_PANEL_BG := Color(0.941, 0.929, 0.910)       # #F0EDE8
-const VB6_PANEL_BORDER := Color(0.72, 0.71, 0.68)
-const VB6_TEXT_COLOR := Color.BLACK
-const VB6_TAB_UNSEL_BG := Color(0.85, 0.84, 0.82)
-const VB6_TAB_HOVER_BG := Color(0.95, 0.94, 0.92)
-const VB6_BTN_HOVER_BG := Color(0.95, 0.94, 0.92)
-const VB6_BTN_PRESSED_BG := Color(0.88, 0.87, 0.85)
-const VB6_HEADER_BG := Color(0.58, 0.58, 0.62)
-const VB6_HEADER_TEXT := Color.WHITE
-const VB6_SELECTION_BG := Color(0.0, 0.0, 0.5)          # sys_active_title (navy)
-
 # =============================================================================
 # LIFECYCLE
 # =============================================================================
@@ -55,163 +43,14 @@ func _ready():
 	max_size = Vector2(800, 500)
 	ok_button_text = "Create"
 	
-	# Apply VB6 light theme to entire dialog
-	theme = _build_vb6_dialog_theme()
-	
 	_setup_ui()
 	_init_all_templates()
 	_load_custom_templates()
 	_populate_lists()
-	
-	# Style the built-in OK button to match VB6
-	var ok_btn = get_ok_button()
-	if ok_btn:
-		ok_btn.add_theme_color_override("font_color", VB6_TEXT_COLOR)
-		ok_btn.add_theme_color_override("font_hover_color", VB6_TEXT_COLOR)
-		ok_btn.add_theme_color_override("font_pressed_color", VB6_TEXT_COLOR)
 
 # =============================================================================
 # UI SETUP
 # =============================================================================
-
-## Builds a VB6-style light Theme matching the Form Designer IDE.
-func _build_vb6_dialog_theme() -> Theme:
-	var t = Theme.new()
-	var bg := VB6_PANEL_BG
-	var border := VB6_PANEL_BORDER
-	var text_color := VB6_TEXT_COLOR
-
-	# ── AcceptDialog / Window background ──
-	var dialog_sb = StyleBoxFlat.new()
-	dialog_sb.bg_color = bg
-	dialog_sb.border_color = border
-	dialog_sb.set_border_width_all(1)
-	dialog_sb.set_content_margin_all(4)
-	t.set_stylebox("panel", "AcceptDialog", dialog_sb)
-	t.set_stylebox("embedded_border", "Window", dialog_sb)
-
-	# ── PanelContainer ──
-	var pc_sb = StyleBoxFlat.new()
-	pc_sb.bg_color = bg
-	pc_sb.border_color = border
-	pc_sb.set_border_width_all(1)
-	pc_sb.set_content_margin_all(2)
-	t.set_stylebox("panel", "PanelContainer", pc_sb)
-
-	# ── TabContainer panel + tab bar ──
-	var tc_panel = StyleBoxFlat.new()
-	tc_panel.bg_color = bg
-	tc_panel.set_content_margin_all(4)
-	t.set_stylebox("panel", "TabContainer", tc_panel)
-
-	var tab_sel = StyleBoxFlat.new()
-	tab_sel.bg_color = bg
-	tab_sel.border_color = border
-	tab_sel.border_width_left = 1; tab_sel.border_width_top = 1
-	tab_sel.border_width_right = 1; tab_sel.border_width_bottom = 0
-	tab_sel.content_margin_left = 8; tab_sel.content_margin_right = 8
-	tab_sel.content_margin_top = 4; tab_sel.content_margin_bottom = 4
-	t.set_stylebox("tab_selected", "TabContainer", tab_sel)
-	t.set_stylebox("tab_selected", "TabBar", tab_sel)
-
-	var tab_unsel = StyleBoxFlat.new()
-	tab_unsel.bg_color = VB6_TAB_UNSEL_BG
-	tab_unsel.border_color = border
-	tab_unsel.set_border_width_all(1)
-	tab_unsel.content_margin_left = 8; tab_unsel.content_margin_right = 8
-	tab_unsel.content_margin_top = 4; tab_unsel.content_margin_bottom = 4
-	t.set_stylebox("tab_unselected", "TabContainer", tab_unsel)
-	t.set_stylebox("tab_unselected", "TabBar", tab_unsel)
-
-	var tab_hover = StyleBoxFlat.new()
-	tab_hover.bg_color = VB6_TAB_HOVER_BG
-	tab_hover.border_color = border
-	tab_hover.border_width_left = 1; tab_hover.border_width_top = 1
-	tab_hover.border_width_right = 1; tab_hover.border_width_bottom = 0
-	tab_hover.content_margin_left = 8; tab_hover.content_margin_right = 8
-	tab_hover.content_margin_top = 4; tab_hover.content_margin_bottom = 4
-	t.set_stylebox("tab_hovered", "TabContainer", tab_hover)
-	t.set_stylebox("tab_hovered", "TabBar", tab_hover)
-
-	# Tab font colors
-	t.set_color("font_selected_color", "TabContainer", text_color)
-	t.set_color("font_unselected_color", "TabContainer", Color(0.3, 0.3, 0.3))
-	t.set_color("font_hovered_color", "TabContainer", text_color)
-	t.set_color("font_selected_color", "TabBar", text_color)
-	t.set_color("font_unselected_color", "TabBar", Color(0.3, 0.3, 0.3))
-	t.set_color("font_hovered_color", "TabBar", text_color)
-
-	# ── ItemList (template lists) ──
-	var il_sb = StyleBoxFlat.new()
-	il_sb.bg_color = Color.WHITE
-	il_sb.border_color = border
-	il_sb.set_border_width_all(1)
-	t.set_stylebox("panel", "ItemList", il_sb)
-	t.set_color("font_color", "ItemList", text_color)
-	var il_sel = StyleBoxFlat.new()
-	il_sel.bg_color = VB6_SELECTION_BG
-	il_sel.set_content_margin_all(2)
-	t.set_stylebox("selected", "ItemList", il_sel)
-	t.set_stylebox("selected_focus", "ItemList", il_sel)
-	t.set_color("font_selected_color", "ItemList", Color.WHITE)
-
-	# ── RichTextLabel (description) ──
-	var rtl_sb = StyleBoxFlat.new()
-	rtl_sb.bg_color = Color.WHITE
-	rtl_sb.border_color = border
-	rtl_sb.set_border_width_all(1)
-	rtl_sb.set_content_margin_all(4)
-	t.set_stylebox("normal", "RichTextLabel", rtl_sb)
-	t.set_color("default_color", "RichTextLabel", text_color)
-
-	# ── Label ──
-	t.set_color("font_color", "Label", text_color)
-
-	# ── Button ──
-	var btn_sb = StyleBoxFlat.new()
-	btn_sb.bg_color = bg
-	btn_sb.border_color = border
-	btn_sb.set_border_width_all(1)
-	btn_sb.content_margin_left = 4; btn_sb.content_margin_right = 4
-	btn_sb.content_margin_top = 2; btn_sb.content_margin_bottom = 2
-	t.set_stylebox("normal", "Button", btn_sb)
-	var btn_hover_sb = StyleBoxFlat.new()
-	btn_hover_sb.bg_color = VB6_BTN_HOVER_BG
-	btn_hover_sb.border_color = border
-	btn_hover_sb.set_border_width_all(1)
-	btn_hover_sb.content_margin_left = 4; btn_hover_sb.content_margin_right = 4
-	btn_hover_sb.content_margin_top = 2; btn_hover_sb.content_margin_bottom = 2
-	t.set_stylebox("hover", "Button", btn_hover_sb)
-	var btn_pressed_sb = StyleBoxFlat.new()
-	btn_pressed_sb.bg_color = VB6_BTN_PRESSED_BG
-	btn_pressed_sb.border_color = border
-	btn_pressed_sb.set_border_width_all(1)
-	btn_pressed_sb.content_margin_left = 4; btn_pressed_sb.content_margin_right = 4
-	btn_pressed_sb.content_margin_top = 2; btn_pressed_sb.content_margin_bottom = 2
-	t.set_stylebox("pressed", "Button", btn_pressed_sb)
-	t.set_color("font_color", "Button", text_color)
-	t.set_color("font_hover_color", "Button", text_color)
-	t.set_color("font_pressed_color", "Button", text_color)
-
-	# ── LineEdit ──
-	var le_sb = StyleBoxFlat.new()
-	le_sb.bg_color = Color.WHITE
-	le_sb.border_color = border
-	le_sb.set_border_width_all(1)
-	le_sb.content_margin_left = 4; le_sb.content_margin_right = 4
-	le_sb.content_margin_top = 2; le_sb.content_margin_bottom = 2
-	t.set_stylebox("normal", "LineEdit", le_sb)
-	t.set_color("font_color", "LineEdit", text_color)
-	t.set_color("font_placeholder_color", "LineEdit", Color(0.5, 0.5, 0.5))
-
-	# ── HSeparator ──
-	var sep_sb = StyleBoxFlat.new()
-	sep_sb.bg_color = border
-	sep_sb.content_margin_top = 4
-	sep_sb.content_margin_bottom = 4
-	t.set_stylebox("separator", "HSeparator", sep_sb)
-
-	return t
 
 func _setup_ui():
 	var margin = MarginContainer.new()
@@ -258,15 +97,6 @@ func _setup_ui():
 		list.name = "List"
 		list.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		list.item_selected.connect(_on_item_selected.bind(cat_id))
-		# VB6 selection: white text on navy, black text normally
-		list.add_theme_color_override("font_color", VB6_TEXT_COLOR)
-		list.add_theme_color_override("font_selected_color", Color.WHITE)
-		list.add_theme_color_override("font_hovered_color", VB6_TEXT_COLOR)
-		var _sel_sb = StyleBoxFlat.new()
-		_sel_sb.bg_color = VB6_SELECTION_BG
-		_sel_sb.set_content_margin_all(2)
-		list.add_theme_stylebox_override("selected", _sel_sb)
-		list.add_theme_stylebox_override("selected_focus", _sel_sb)
 		cat_vbox.add_child(list)
 		_template_lists[cat_id] = list
 		

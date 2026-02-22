@@ -1,7 +1,7 @@
 # Visual Gasic Development Roadmap
 
 **Last Updated**: February 2026  
-**Current Version**: 2.6.1 (Bytecode Compiler Batches 1-4, Updated Benchmarks)
+**Current Version**: 2.8.0 (VB6 Importer, Form Designer, Godot 4.6.1 Support)
 
 This document outlines the planned improvements and features for Visual Gasic. Items are prioritized by impact and development effort.
 
@@ -452,12 +452,63 @@ Each feature has implementation notes that describe:
 
 ## 📝 Version History
 
-- **v2.6.1** (Current) - Bytecode Compiler Batches 1-4 (39 tests), Updated Benchmarks (18.9× geo mean vs GDScript)
+- **v2.8.0** (Current) - VB6 Importer (15 fixes), Form Designer, Godot 4.6.1 Support
+- **v2.7.0** - Theme Picker, Form Preview, Screenshot Overhaul
+- **v2.6.1** - Bytecode Compiler Batches 1-4 (39 tests), Updated Benchmarks (18.9× geo mean vs GDScript)
 - **v2.6.0** - Custom .vg Icons, IntelliSense Update, Profiler UI
 - **v2.5.0** - Computed Gotos, 11 New Builtins, Stop Statement, Conditional Breakpoints, 12 Demo Projects
 - **v2.0.0** - Advanced Features Release
 - **v1.5.0** - Immediate Window and debugging
 - **v1.0.0** - Initial release with VB6 compatibility
+
+---
+
+## 🚀 v3.0 Roadmap — "Production Ready"
+
+Targeted improvements for a stable 3.0 release:
+
+### 🔴 High Priority
+
+1. **LSP Integration**  
+   Resolve the `Position` type conflict in `visual_gasic_lsp.cpp` and register the LSP class.  
+   Enables: go-to-definition, hover docs, diagnostics, symbol search.
+
+2. **Refactor visual_gasic_instance.cpp**  
+   Continue splitting the remaining 8K-line core (evaluate_expression, execute_statement, call_internal) into focused modules.
+
+3. **Automated Release Pipeline**  
+   GitHub Actions workflow to build Linux + Windows .so/.dll, package addon .zip, and publish GitHub Releases on tag push.
+
+4. **Remaining Bytecode Gaps**  
+   Fix the 2 failing bytecode tests (interop fusion, allocation fusion) and compile new opcodes for Struct and Class member access.
+
+### 🟡 Medium Priority
+
+5. **macOS / ARM64 Build**  
+   Add `platform=macos` CI job with universal binary (x86_64 + arm64). Validate GDExtension loads on Apple Silicon.
+
+6. **Windows CI Testing**  
+   Add a `windows-latest` runner to CI. Cross-compile with MinGW or use MSVC.
+
+7. **Runtime Error Recovery**  
+   VB6 `On Error Resume Next` / `On Error GoTo` runtime plumbing for production scripts.
+
+8. **Debugger Protocol v2**  
+   Wire Godot's `EngineDebugger` messages for watch expressions, conditional breakpoints, and step-over-bytecode.
+
+### 🟢 Nice-to-Have
+
+9. **Hot Reload**  
+   Detect .vg file saves and re-parse without restarting the scene.
+
+10. **Asset Library Submission**  
+    Package for Godot Asset Library (requires single-addon zip with proper plugin.cfg).
+
+11. **Documentation Generator**  
+    Parse `''' XML-style` doc comments from .vg files and emit HTML/Markdown API docs.
+
+12. **JIT Tier 2**  
+    Extend the JIT framework from simple loops to full function bodies (requires register allocator).
 
 ---
 

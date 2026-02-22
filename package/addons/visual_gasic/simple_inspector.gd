@@ -12,6 +12,13 @@ var rename_dialog: ConfirmationDialog
 var old_name_for_rename: String = ""
 var new_name_for_rename: String = ""
 
+# === Form Designer mode ===
+# When editing controls on the C++ FormDesigner canvas (not scene-tree nodes),
+# we store the designer reference and the selected control index.
+var _fd_mode: bool = false          # true = showing FormDesigner control props
+var _fd_designer = null             # Reference to VisualGasicFormDesigner instance
+var _fd_control_index: int = -1     # Index of the control in the designer
+
 # === VB6 UI: Object dropdown ===
 var _object_dropdown: OptionButton
 var _all_form_nodes: Array = []
@@ -78,13 +85,41 @@ const PROPERTY_DESCRIPTIONS: Dictionary = {
 	"show_percentage": "Returns/sets whether the ProgressBar displays its value as a percentage.",
 	"spinbox_prefix": "Returns/sets the text displayed before the SpinBox value.",
 	"spinbox_suffix": "Returns/sets the text displayed after the SpinBox value.",
+	# Form Designer properties (VB6 complete set)
+	"caption": "Returns/sets the text displayed in the control's title bar or on its face.",
+	"borderstyle": "Returns/sets the border style for a control. 0=None, 1=Fixed Single.",
+	"appearance": "Returns/sets whether a control is painted at run time with 3D effects. 0=Flat, 1=3D.",
+	"startposition": "Returns/sets the position of a Form when it first appears. 0=Manual, 1=CenterOwner, 2=CenterScreen, 3=WindowsDefault.",
+	"windowstate": "Returns/sets the visual state of the form at run time. 0=Normal, 1=Minimized, 2=Maximized.",
+	"controlbox": "Returns/sets whether a Control-menu box is displayed on the form at run time.",
+	"minbutton": "Returns/sets whether a form has a Minimize button.",
+	"maxbutton": "Returns/sets whether a form has a Maximize button.",
+	"moveable": "Returns/sets whether the form can be moved at run time.",
+	"showintaskbar": "Returns/sets whether the form appears in the Windows taskbar.",
+	"icon": "Returns/sets the icon displayed for a Form in the title bar and taskbar.",
+	"keypreview": "Returns/sets whether keyboard events for the form are invoked before keyboard events for controls.",
+	"autoredraw": "Returns/sets whether Form_Paint events are handled automatically.",
+	"picturebox": "Returns/sets the graphic to be displayed in a PictureBox or Image control.",
+	"stretch": "Returns/sets whether a graphic resizes to fit the size of an Image control.",
+	"multiline": "Returns/sets whether a TextBox can accept multiple lines of text.",
+	"scrollbars": "Returns/sets what type of scrollbars a control has. 0=None, 1=Horizontal, 2=Vertical, 3=Both.",
+	"style": "Returns/sets the visual style of a control. 0=Standard, 1=Graphical.",
+	"interval": "Returns/sets the number of milliseconds between calls to a Timer control's Timer event.",
+	"sorted": "Returns/sets whether items in a ListBox are sorted alphabetically.",
+	"multiselect": "Returns/sets whether a ListBox allows multiple selections. 0=None, 1=Simple, 2=Extended.",
+	"columns": "Returns/sets the number of columns in a ListBox.",
+	"tabindex": "Returns/sets the tab order of the control within its container.",
+	"cancel_button": "Returns/sets whether a command button is the Cancel button for a form.",
+	"default_button": "Returns/sets whether a command button is the default button for a form.",
+	"index": "Returns the index of the control in the Form Designer's control array.",
+	"windowtype": "Returns/sets the window type for the form. Game=SubViewport, Windows=Window, Linux=Window+CSD, Mac=Window+CSD.",
 }
 
 func _init():
 	name = "Properties"
 	size_flags_vertical = SIZE_EXPAND_FILL
 	size_flags_horizontal = SIZE_EXPAND_FILL
-	custom_minimum_size = Vector2(180, 100)  # Reasonable min for dock; Godot handles resize via dock splitters
+	custom_minimum_size = Vector2(150, 100)  # Reduced for better dock resizing
 	
 	# === 1. Object Dropdown (VB6-style, at the very top) ===
 	_object_dropdown = OptionButton.new()
@@ -118,7 +153,7 @@ func _init():
 	
 	add_child(tab_bar)
 	
-	# === 3. Property grid (scrollable) ===
+	# === 3. Property grid (scrollable) — TwinBasic dark style ===
 	var scroll = ScrollContainer.new()
 	scroll.size_flags_vertical = SIZE_EXPAND_FILL
 	add_child(scroll)
@@ -140,12 +175,18 @@ func _init():
 	_description_label.bbcode_enabled = false
 	_description_label.text = ""
 	var desc_style = StyleBoxFlat.new()
-	desc_style.bg_color = Color(0.15, 0.15, 0.18)
-	desc_style.content_margin_left = 4
-	desc_style.content_margin_right = 4
-	desc_style.content_margin_top = 2
-	desc_style.content_margin_bottom = 2
+	desc_style.bg_color = Color("#E8E5E0")  # warm off-white description bg
+	desc_style.border_width_top = 1
+	desc_style.border_width_left = 0
+	desc_style.border_width_bottom = 0
+	desc_style.border_width_right = 0
+	desc_style.border_color = Color(0.72, 0.71, 0.68)
+	desc_style.content_margin_left = 6
+	desc_style.content_margin_right = 6
+	desc_style.content_margin_top = 4
+	desc_style.content_margin_bottom = 4
 	_description_label.add_theme_stylebox_override("normal", desc_style)
+	_description_label.add_theme_color_override("default_color", Color(0.15, 0.15, 0.15))  # dark text
 	_description_label.add_theme_font_size_override("normal_font_size", 11)
 	add_child(_description_label)
 
@@ -237,11 +278,167 @@ func _on_selection_changed():
 
 func clear_properties():
 	current_node = null
+	_fd_mode = false
+	_fd_designer = null
+	_fd_control_index = -1
 	_property_entries.clear()
 	for c in property_grid.get_children():
 		c.queue_free()
 	_description_label.text = ""
 	_refresh_object_dropdown()
+
+# ==========================================================================
+# Form Designer Mode — shows properties for a control on the C++ canvas
+# ==========================================================================
+
+## Called by visual_gasic_plugin.gd when a control is selected on the
+## C++ FormDesigner canvas.  `info` is the Dictionary returned by
+## FormDesigner.get_control_info(index).
+func show_control_properties(info: Dictionary, designer = null, ctrl_index: int = -1) -> void:
+	_fd_mode = true
+	_fd_designer = designer
+	_fd_control_index = ctrl_index
+	current_node = null  # Not a scene-tree node
+	_property_entries.clear()
+	for c in property_grid.get_children():
+		c.queue_free()
+	_description_label.text = ""
+
+	var ctrl_name: String = info.get("name", "")
+	var ctrl_type: String = info.get("type", "")
+	var props: Dictionary = info.get("properties", {})
+
+	# Object dropdown — show "<Name>  <Type>"
+	_object_dropdown.clear()
+	_object_dropdown.add_item(ctrl_name + "  " + ctrl_type)
+
+	# ===== (Name) — always first, like VB6 =====
+	_property_entries.append({"label": "(Name)", "value": ctrl_name, "prop_key": "name", "type": "string", "category": ""})
+
+	# ===== Appearance Properties =====
+	# Caption / Text
+	var text_val: String = info.get("text", "")
+	if ctrl_type in ["Button", "Label", "CheckBox", "OptionButton", "GroupBox", "Frame"]:
+		_property_entries.append({"label": "Caption", "value": text_val, "prop_key": "text", "type": "string", "category": CATEGORY_APPEARANCE})
+	elif ctrl_type in ["LineEdit", "TextEdit", "RichTextLabel"]:
+		_property_entries.append({"label": "Text", "value": text_val, "prop_key": "text", "type": "string", "category": CATEGORY_APPEARANCE})
+
+	# BackColor / ForeColor
+	var back_color = _fd_color_from_props(props, "BackColor", Color(0.85, 0.85, 0.85))
+	var fore_color = _fd_color_from_props(props, "ForeColor", Color(0.0, 0.0, 0.0))
+	_property_entries.append({"label": "BackColor", "value": back_color, "prop_key": "BackColor", "type": "color", "category": CATEGORY_APPEARANCE})
+	_property_entries.append({"label": "ForeColor", "value": fore_color, "prop_key": "ForeColor", "type": "color", "category": CATEGORY_APPEARANCE})
+
+	# BorderStyle (Label, Panel, TextBox)
+	if ctrl_type in ["Label", "Panel", "LineEdit", "TextEdit"]:
+		var bs = int(props.get("BorderStyle", 0))
+		_property_entries.append({"label": "BorderStyle", "value": bs, "prop_key": "BorderStyle", "type": "fd_enum_borderstyle", "category": CATEGORY_APPEARANCE})
+
+	# Appearance (3D / Flat)
+	var appearance_val = int(props.get("Appearance", 1))
+	_property_entries.append({"label": "Appearance", "value": appearance_val, "prop_key": "Appearance", "type": "fd_enum_appearance", "category": CATEGORY_APPEARANCE})
+
+	# Alignment (Label)
+	if ctrl_type == "Label":
+		var align_val = int(props.get("Alignment", 0))
+		_property_entries.append({"label": "Alignment", "value": align_val, "prop_key": "Alignment", "type": "fd_enum_alignment", "category": CATEGORY_APPEARANCE})
+
+	# AutoSize (Label)
+	if ctrl_type == "Label":
+		_property_entries.append({"label": "AutoSize", "value": bool(props.get("AutoSize", false)), "prop_key": "AutoSize", "type": "bool", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "WordWrap", "value": bool(props.get("WordWrap", false)), "prop_key": "WordWrap", "type": "bool", "category": CATEGORY_APPEARANCE})
+
+	# Flat (Button)
+	if ctrl_type == "Button":
+		_property_entries.append({"label": "Style", "value": int(props.get("Style", 0)), "prop_key": "Style", "type": "fd_enum_style", "category": CATEGORY_APPEARANCE})
+
+	# PasswordChar (LineEdit/TextBox)
+	if ctrl_type == "LineEdit":
+		_property_entries.append({"label": "PasswordChar", "value": str(props.get("PasswordChar", "")), "prop_key": "PasswordChar", "type": "string", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "MaxLength", "value": int(props.get("MaxLength", 0)), "prop_key": "MaxLength", "type": "number", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "Locked", "value": bool(props.get("Locked", false)), "prop_key": "Locked", "type": "bool", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "PlaceholderText", "value": str(props.get("PlaceholderText", "")), "prop_key": "PlaceholderText", "type": "string", "category": CATEGORY_APPEARANCE})
+
+	# MultiLine / ScrollBars (TextEdit)
+	if ctrl_type == "TextEdit":
+		_property_entries.append({"label": "MultiLine", "value": bool(props.get("MultiLine", true)), "prop_key": "MultiLine", "type": "bool", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "ScrollBars", "value": int(props.get("ScrollBars", 3)), "prop_key": "ScrollBars", "type": "fd_enum_scrollbars", "category": CATEGORY_APPEARANCE})
+
+	# Range controls (ProgressBar, Slider, SpinBox, ScrollBar)
+	if ctrl_type in ["ProgressBar", "HSlider", "VSlider", "SpinBox", "HScrollBar", "VScrollBar"]:
+		_property_entries.append({"label": "Value", "value": float(props.get("Value", 0)), "prop_key": "Value", "type": "number", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "Min", "value": float(props.get("Min", 0)), "prop_key": "Min", "type": "number", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "Max", "value": float(props.get("Max", 100)), "prop_key": "Max", "type": "number", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "Step", "value": float(props.get("Step", 1)), "prop_key": "Step", "type": "number", "category": CATEGORY_APPEARANCE})
+
+	# CheckBox value
+	if ctrl_type in ["CheckBox", "CheckButton"]:
+		_property_entries.append({"label": "Value", "value": bool(props.get("Value", false)), "prop_key": "Value", "type": "bool", "category": CATEGORY_APPEARANCE})
+
+	# Timer interval
+	if ctrl_type == "Timer":
+		_property_entries.append({"label": "Interval", "value": int(props.get("Interval", 1000)), "prop_key": "Interval", "type": "number", "category": CATEGORY_BEHAVIOR})
+
+	# Sorted / MultiSelect / Columns (ItemList / ListBox)
+	if ctrl_type in ["ItemList", "Tree"]:
+		_property_entries.append({"label": "Sorted", "value": bool(props.get("Sorted", false)), "prop_key": "Sorted", "type": "bool", "category": CATEGORY_BEHAVIOR})
+	if ctrl_type == "ItemList":
+		_property_entries.append({"label": "MultiSelect", "value": int(props.get("MultiSelect", 0)), "prop_key": "MultiSelect", "type": "fd_enum_multiselect", "category": CATEGORY_BEHAVIOR})
+		_property_entries.append({"label": "Columns", "value": int(props.get("Columns", 0)), "prop_key": "Columns", "type": "number", "category": CATEGORY_BEHAVIOR})
+
+	# PictureBox / Image
+	if ctrl_type in ["TextureRect", "Picture"]:
+		_property_entries.append({"label": "Picture", "value": str(props.get("Picture", "")), "prop_key": "Picture", "type": "string", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "Stretch", "value": bool(props.get("Stretch", false)), "prop_key": "Stretch", "type": "bool", "category": CATEGORY_APPEARANCE})
+
+	# ===== Behavior Properties =====
+	_property_entries.append({"label": "Enabled", "value": bool(props.get("Enabled", true)), "prop_key": "Enabled", "type": "bool", "category": CATEGORY_BEHAVIOR})
+	_property_entries.append({"label": "Visible", "value": info.get("visible", true), "prop_key": "visible", "type": "bool", "category": CATEGORY_BEHAVIOR})
+	_property_entries.append({"label": "TabStop", "value": bool(props.get("TabStop", true)), "prop_key": "TabStop", "type": "bool", "category": CATEGORY_BEHAVIOR})
+	_property_entries.append({"label": "TabIndex", "value": int(props.get("TabIndex", ctrl_index)), "prop_key": "TabIndex", "type": "number", "category": CATEGORY_BEHAVIOR})
+
+	# Default / Cancel (Button)
+	if ctrl_type == "Button":
+		_property_entries.append({"label": "Default", "value": bool(props.get("Default", false)), "prop_key": "Default", "type": "bool", "category": CATEGORY_BEHAVIOR})
+		_property_entries.append({"label": "Cancel", "value": bool(props.get("Cancel", false)), "prop_key": "Cancel", "type": "bool", "category": CATEGORY_BEHAVIOR})
+
+	# ===== Font Properties =====
+	var font_name = str(props.get("FontName", "MS Sans Serif"))
+	var font_size = int(props.get("FontSize", 8))
+	var font_bold = bool(props.get("FontBold", false))
+	var font_italic = bool(props.get("FontItalic", false))
+	_property_entries.append({"label": "FontName", "value": font_name, "prop_key": "FontName", "type": "string", "category": CATEGORY_FONT})
+	_property_entries.append({"label": "FontSize", "value": font_size, "prop_key": "FontSize", "type": "number", "category": CATEGORY_FONT})
+	_property_entries.append({"label": "FontBold", "value": font_bold, "prop_key": "FontBold", "type": "bool", "category": CATEGORY_FONT})
+	_property_entries.append({"label": "FontItalic", "value": font_italic, "prop_key": "FontItalic", "type": "bool", "category": CATEGORY_FONT})
+
+	# ===== Position Properties =====
+	_property_entries.append({"label": "Left", "value": int(info.get("x", 0)), "prop_key": "x", "type": "number", "category": CATEGORY_POSITION})
+	_property_entries.append({"label": "Top", "value": int(info.get("y", 0)), "prop_key": "y", "type": "number", "category": CATEGORY_POSITION})
+	_property_entries.append({"label": "Width", "value": int(info.get("width", 0)), "prop_key": "width", "type": "number", "category": CATEGORY_POSITION})
+	_property_entries.append({"label": "Height", "value": int(info.get("height", 0)), "prop_key": "height", "type": "number", "category": CATEGORY_POSITION})
+
+	# ===== Misc Properties =====
+	_property_entries.append({"label": "ToolTipText", "value": str(props.get("ToolTipText", "")), "prop_key": "ToolTipText", "type": "string", "category": CATEGORY_MISC})
+	_property_entries.append({"label": "Tag", "value": str(props.get("Tag", "")), "prop_key": "Tag", "type": "string", "category": CATEGORY_MISC})
+	_property_entries.append({"label": "MousePointer", "value": int(props.get("MousePointer", 0)), "prop_key": "MousePointer", "type": "fd_enum_mousepointer", "category": CATEGORY_MISC})
+	_property_entries.append({"label": "Index", "value": ctrl_index, "prop_key": "index", "type": "readonly", "category": CATEGORY_MISC})
+
+	# Render based on view mode
+	if _view_mode == 0:
+		_render_alphabetic()
+	else:
+		_render_categorized()
+
+## Helper: extract a Color from the FormDesigner properties dictionary.
+func _fd_color_from_props(props: Dictionary, key: String, default: Color) -> Color:
+	if props.has(key):
+		var v = props[key]
+		if v is Color:
+			return v
+		if v is String and not v.is_empty():
+			return Color(v)
+	return default
 
 # === Description Area ===
 
@@ -424,8 +621,63 @@ func _render_property_entry(entry: Dictionary):
 			_add_anchor_row(label_text, value)
 		"pivot":
 			_add_pivot_row(label_text, value["pivot"], value["size"])
+		"readonly":
+			_add_readonly_row(label_text, value)
+		"fd_enum_borderstyle":
+			_add_fd_enum_row(label_text, prop_key, value, ["0 - None", "1 - Fixed Single"])
+		"fd_enum_appearance":
+			_add_fd_enum_row(label_text, prop_key, value, ["0 - Flat", "1 - 3D"])
+		"fd_enum_alignment":
+			_add_fd_enum_row(label_text, prop_key, value, ["0 - Left Justify", "1 - Right Justify", "2 - Center"])
+		"fd_enum_style":
+			_add_fd_enum_row(label_text, prop_key, value, ["0 - Standard", "1 - Graphical"])
+		"fd_enum_scrollbars":
+			_add_fd_enum_row(label_text, prop_key, value, ["0 - None", "1 - Horizontal", "2 - Vertical", "3 - Both"])
+		"fd_enum_multiselect":
+			_add_fd_enum_row(label_text, prop_key, value, ["0 - None", "1 - Simple", "2 - Extended"])
+		"fd_enum_mousepointer":
+			_add_fd_enum_row(label_text, prop_key, value, [
+				"0 - Default", "1 - Arrow", "2 - Crosshair", "3 - IBeam",
+				"4 - Size All", "5 - Size NESW", "6 - Size NS",
+				"7 - Size NWSE", "8 - Size WE", "9 - Up Arrow",
+				"10 - Hourglass", "11 - No Drop", "12 - Hand"
+			])
 		_:
 			_add_prop_row(label_text, value, prop_key)
+
+## Read-only display row (e.g., Index)
+func _add_readonly_row(label_text: String, value):
+	var lbl = Label.new()
+	lbl.text = label_text
+	lbl.custom_minimum_size.x = 70
+	lbl.add_theme_color_override("font_color", Color(0.15, 0.15, 0.15))
+	property_grid.add_child(lbl)
+	var val_lbl = Label.new()
+	val_lbl.text = str(value)
+	val_lbl.add_theme_color_override("font_color", Color(0.45, 0.45, 0.45))  # dimmed readonly
+	property_grid.add_child(val_lbl)
+
+## FormDesigner enum dropdown row
+func _add_fd_enum_row(label_text: String, prop_key: String, current_value: int, items: Array):
+	var lbl = Label.new()
+	lbl.text = label_text
+	lbl.custom_minimum_size.x = 70
+	lbl.add_theme_color_override("font_color", Color(0.15, 0.15, 0.15))
+	lbl.mouse_filter = Control.MOUSE_FILTER_STOP
+	lbl.gui_input.connect(func(event):
+		if event is InputEventMouseButton and event.pressed:
+			_show_description(prop_key.to_lower())
+	)
+	property_grid.add_child(lbl)
+
+	var opt = OptionButton.new()
+	for item_text in items:
+		opt.add_item(item_text)
+	if current_value >= 0 and current_value < items.size():
+		opt.select(current_value)
+	opt.size_flags_horizontal = SIZE_EXPAND_FILL
+	opt.item_selected.connect(func(idx): _apply_prop(prop_key, idx))
+	property_grid.add_child(opt)
 
 func _add_section_header(title: String):
 	var sep = HSeparator.new()
@@ -433,14 +685,15 @@ func _add_section_header(title: String):
 	property_grid.add_child(sep)
 	
 	var lbl = Label.new()
-	lbl.text = "── " + title + " ──"
-	lbl.add_theme_color_override("font_color", Color(0.6, 0.6, 0.8))
+	lbl.text = title.to_upper()
+	lbl.add_theme_color_override("font_color", Color("#003399"))  # navy blue section header
 	property_grid.add_child(lbl)
 
 func _add_prop_row(label_text: String, value, prop_key: String):
 	var lbl = Label.new()
 	lbl.text = label_text
 	lbl.custom_minimum_size.x = 70  # Reduced for narrower panels
+	lbl.add_theme_color_override("font_color", Color(0.15, 0.15, 0.15))
 	lbl.mouse_filter = Control.MOUSE_FILTER_STOP
 	lbl.gui_input.connect(func(event):
 		if event is InputEventMouseButton and event.pressed:
@@ -476,12 +729,14 @@ func _add_prop_row(label_text: String, value, prop_key: String):
 	else:
 		var placeholder = Label.new()
 		placeholder.text = str(value)
+		placeholder.add_theme_color_override("font_color", Color(0.15, 0.15, 0.15))
 		property_grid.add_child(placeholder)
 
 func _add_color_row(label_text: String, color: Color, prop_key: String):
 	var lbl = Label.new()
 	lbl.text = label_text
 	lbl.custom_minimum_size.x = 90
+	lbl.add_theme_color_override("font_color", Color(0.15, 0.15, 0.15))
 	property_grid.add_child(lbl)
 	
 	var color_btn = ColorPickerButton.new()
@@ -495,6 +750,7 @@ func _add_alignment_row(label_text: String, alignment: int):
 	var lbl = Label.new()
 	lbl.text = label_text
 	lbl.custom_minimum_size.x = 90
+	lbl.add_theme_color_override("font_color", Color(0.15, 0.15, 0.15))
 	property_grid.add_child(lbl)
 	
 	var opt = OptionButton.new()
@@ -510,6 +766,7 @@ func _add_cursor_row(label_text: String, cursor: int):
 	var lbl = Label.new()
 	lbl.text = label_text
 	lbl.custom_minimum_size.x = 90
+	lbl.add_theme_color_override("font_color", Color(0.15, 0.15, 0.15))
 	property_grid.add_child(lbl)
 	
 	var opt = OptionButton.new()
@@ -535,6 +792,7 @@ func _add_slider_row(label_text: String, value: int, prop_key: String):
 	var lbl = Label.new()
 	lbl.text = label_text
 	lbl.custom_minimum_size.x = 90
+	lbl.add_theme_color_override("font_color", Color(0.15, 0.15, 0.15))
 	property_grid.add_child(lbl)
 	
 	var hbox = HBoxContainer.new()
@@ -571,6 +829,7 @@ func _add_anchor_row(label_text: String, node: Control):
 	var lbl = Label.new()
 	lbl.text = label_text
 	lbl.custom_minimum_size.x = 90
+	lbl.add_theme_color_override("font_color", Color(0.15, 0.15, 0.15))
 	property_grid.add_child(lbl)
 	
 	var opt = OptionButton.new()
@@ -596,6 +855,7 @@ func _add_pivot_row(label_text: String, pivot: Vector2, size: Vector2):
 	var lbl = Label.new()
 	lbl.text = label_text
 	lbl.custom_minimum_size.x = 90
+	lbl.add_theme_color_override("font_color", Color(0.15, 0.15, 0.15))
 	property_grid.add_child(lbl)
 	
 	var opt = OptionButton.new()
@@ -665,6 +925,11 @@ func _get_enabled(node: Node) -> bool:
 	return true
 
 func _apply_prop(prop_key: String, value):
+	# --- Form Designer mode: route to C++ FormDesigner ---
+	if _fd_mode:
+		_apply_fd_prop(prop_key, value)
+		return
+
 	if not current_node:
 		return
 	
@@ -789,6 +1054,41 @@ func _apply_prop(prop_key: String, value):
 		"spinbox_suffix":
 			if current_node is SpinBox:
 				current_node.suffix = value
+
+# ==========================================================================
+# Form Designer property application
+# ==========================================================================
+
+## Routes a property change to the C++ FormDesigner.set_control_property().
+## The C++ side handles "name", "text", "x", "y", "width", "height",
+## "visible" as first-class fields; everything else goes into the generic
+## properties Dictionary.
+func _apply_fd_prop(prop_key: String, value) -> void:
+	if not is_instance_valid(_fd_designer) or _fd_control_index < 0:
+		push_warning("VisualGasic Inspector: No FormDesigner or control index for property change")
+		return
+
+	# Map VB6-style property keys to what the C++ set_control_property expects
+	match prop_key:
+		"name":
+			_fd_designer.set_control_property(_fd_control_index, "name", str(value))
+		"text":
+			_fd_designer.set_control_property(_fd_control_index, "text", str(value))
+		"visible":
+			_fd_designer.set_control_property(_fd_control_index, "visible", bool(value))
+		"x":
+			_fd_designer.set_control_property(_fd_control_index, "x", float(value))
+		"y":
+			_fd_designer.set_control_property(_fd_control_index, "y", float(value))
+		"width":
+			_fd_designer.set_control_property(_fd_control_index, "width", float(value))
+		"height":
+			_fd_designer.set_control_property(_fd_control_index, "height", float(value))
+		_:
+			# Everything else stored in the generic properties Dictionary
+			_fd_designer.set_control_property(_fd_control_index, prop_key, value)
+
+	print("VisualGasic Inspector: Set FD property '", prop_key, "' = ", value, " on control #", _fd_control_index)
 
 ## Get the current background color of a control
 func _get_back_color(node: Control) -> Color:

@@ -1,6 +1,6 @@
 # VisualGasic Project Status
 
-**Version**: 2.6.1 (Bytecode Builtins Fix + Signal Handler + Platformer Demo)  
+**Version**: 2.8.0 (VB6 Importer, Form Designer, Godot 4.6.1)  
 **Last Updated**: February 2026
 
 ## Overview
@@ -9,7 +9,7 @@ VisualGasic is a Visual Basic 6-style scripting language for Godot Engine 4.x, i
 
 ## Performance
 
-### Benchmark Results (v2.6.1) ⭐
+### Benchmark Results (v2.8.0) ⭐
 
 **All 11 benchmarks faster than GDScript. VG wins 6/11 vs C++.** All checksums verified.
 

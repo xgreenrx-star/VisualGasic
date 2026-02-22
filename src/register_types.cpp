@@ -94,7 +94,7 @@ GDExtensionBool GDE_EXPORT visual_gasic_library_init(GDExtensionInterfaceGetProc
 
 	init_obj.register_initializer(initialize_visual_gasic_module);
 	init_obj.register_terminator(uninitialize_visual_gasic_module);
-	// init_obj.set_min_api_level(4, 2);
+	init_obj.set_minimum_library_initialization_level(MODULE_INITIALIZATION_LEVEL_SCENE);
 
 	return init_obj.init();
 }

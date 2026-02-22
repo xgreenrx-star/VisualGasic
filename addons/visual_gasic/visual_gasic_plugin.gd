@@ -104,7 +104,7 @@ var _vb6_main_screen = null
 var _form_designer: Control = null
 
 ## Composite VB6 IDE layout: Toolbox | Canvas | Properties — all in one main screen
-var _ide_layout: VBoxContainer = null
+var _ide_layout: HSplitContainer = null
 
 ## Tracks Godot editor chrome visibility for Form Designer mode.
 ## Docks are hidden via EditorInterface.set_distraction_free_mode();
@@ -112,20 +112,9 @@ var _ide_layout: VBoxContainer = null
 var _godot_menu_bar: Control = null           ## Godot's top MenuBar (File/Scene/Project/Debug/Editor/Help)
 var _godot_status_bar: Control = null         ## Status bar at the very bottom of the editor
 var _godot_title_bar_hbox: Control = null     ## Title bar HBox (run buttons, renderer dropdown etc.)
-var _godot_bottom_panel: Control = null       ## Bottom panel container (Output/Debugger/Audio/etc.)
-var _godot_main_vsplit: SplitContainer = null ## Main vertical SplitContainer (viewport vs bottom panel)
-var _godot_main_vsplit_offset: int = 0        ## Saved split offset to restore later
 var _godot_docks_hidden: bool = false
 var _godot_original_title: String = ""        ## Cached original window title for restore
 var _chrome_to_keep_hidden: Array = []        ## Menu/title/status bars that _process() keeps hidden
-var _bottom_panel_search_done: bool = false    ## Guard for lazy bottom-panel search in _process()
-
-## VB6-style menu bar above the form designer canvas
-var _vb6_menu_bar: MenuBar = null
-## VB6-style coordinate/size display label in toolbar
-var _coord_label: Label = null
-## VB6-style status bar at bottom of the IDE layout
-var _status_bar: Label = null
 
 ## Cached theme dictionary — loaded once from vg_form_designer_theme.gd with hardcoded fallbacks.
 ## Access any theme value as _theme["key"].  Edit vg_form_designer_theme.gd to customize.
@@ -332,89 +321,23 @@ func _enter_tree():
 		# --- Form Designer Canvas (center) ---
 		_form_designer = ClassDB.instantiate("VisualGasicFormDesigner")
 		_form_designer.name = "FormDesignerCanvas"
+		_form_designer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		_form_designer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		_form_designer.new_form("Form1")
 		# Connect signals
 		_form_designer.control_selected.connect(_on_fd_control_selected)
 		_form_designer.control_deselected.connect(_on_fd_control_deselected)
 		_form_designer.form_modified.connect(_on_fd_form_modified)
 		_form_designer.control_double_clicked.connect(_on_fd_control_double_clicked)
-		if _form_designer.has_signal("status_changed"):
-			_form_designer.status_changed.connect(_on_fd_status_changed)
-		if _form_designer.has_signal("form_resized"):
-			_form_designer.form_resized.connect(_on_fd_form_resized)
 
-		# --- Build the composite layout ---
-		# VBoxContainer root: Menu | Toolbar | [Toolbox | Canvas | Properties] | Status
-		_ide_layout = VBoxContainer.new()
+		# --- Build the composite layout: [Toolbox | Canvas | Properties] ---
+		_ide_layout = HSplitContainer.new()
 		_ide_layout.name = "VB6_IDE_Layout"
 		_ide_layout.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		_ide_layout.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		# Apply VB6 light theme IMMEDIATELY so all children inherit it
-		_ide_layout.theme = _build_vb6_theme()
-
-		# ── VB6 Menu Bar (full width, like real VB6) ──
-		_vb6_menu_bar = _create_vb6_menu_bar()
-		_ide_layout.add_child(_vb6_menu_bar)
-
-		# ── Top toolbar row (full width, with VB6 light grey background) ──
-		var toolbar_panel = PanelContainer.new()
-		toolbar_panel.name = "ToolbarPanel"
-		var tb_sb = StyleBoxFlat.new()
-		tb_sb.bg_color = _theme.get("panel_background", Color("#F0EDE8"))
-		tb_sb.border_color = _theme.get("panel_border", Color(0.72, 0.71, 0.68))
-		tb_sb.border_width_bottom = 1
-		tb_sb.content_margin_left = 4
-		tb_sb.content_margin_right = 4
-		tb_sb.content_margin_top = 2
-		tb_sb.content_margin_bottom = 2
-		toolbar_panel.add_theme_stylebox_override("panel", tb_sb)
-		var toolbar_row = HBoxContainer.new()
-		toolbar_row.name = "ToolbarRow"
-		# Move alignment/preview/color toolbars into the embedded row
-		for tb in [alignment_toolbar, form_preview_toolbar, _color_palette]:
-			if is_instance_valid(tb):
-				if tb.get_parent() == self:
-					remove_child(tb)
-				tb.visible = true
-				toolbar_row.add_child(tb)
-
-		# ── Coordinate/Size display (like VB6's "0, 0  4800 x 3600") ──
-		var coord_sep = VSeparator.new()
-		toolbar_row.add_child(coord_sep)
-		_coord_label = Label.new()
-		_coord_label.name = "CoordLabel"
-		_coord_label.text = "600 x 400"
-		_coord_label.add_theme_font_size_override("font_size", 11)
-		_coord_label.add_theme_color_override("font_color", Color(0.15, 0.15, 0.15))
-		_coord_label.custom_minimum_size.x = 120
-		toolbar_row.add_child(_coord_label)
-
-		# Spacer to push "Godot Editor" button to the right
-		var spacer = Control.new()
-		spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		toolbar_row.add_child(spacer)
-
-		# "↩ Godot Editor" button — exits Form Designer, restores all Godot panels
-		var godot_btn = Button.new()
-		godot_btn.name = "BackToGodotBtn"
-		godot_btn.text = "\u21a9 Godot Editor"
-		godot_btn.tooltip_text = "Exit Form Designer and return to Godot Editor"
-		godot_btn.flat = true
-		godot_btn.add_theme_color_override("font_color", Color(0.2, 0.2, 0.2))
-		godot_btn.add_theme_color_override("font_hover_color", Color(0.0, 0.0, 0.5))
-		godot_btn.pressed.connect(_on_back_to_godot_pressed)
-		toolbar_row.add_child(godot_btn)
-		toolbar_panel.add_child(toolbar_row)
-		_ide_layout.add_child(toolbar_panel)
-
-		# ── Main 3-panel workspace: [Toolbox | Canvas | Properties] ──
-		var main_hsplit = HSplitContainer.new()
-		main_hsplit.name = "MainHSplit"
-		main_hsplit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		main_hsplit.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		main_hsplit.dragger_visibility = SplitContainer.DRAGGER_VISIBLE
-		main_hsplit.add_theme_constant_override("separation", 6)
-		main_hsplit.add_theme_constant_override("minimum_grab_thickness", 8)
+		_ide_layout.dragger_visibility = SplitContainer.DRAGGER_VISIBLE
+		_ide_layout.add_theme_constant_override("separation", 6)
+		_ide_layout.add_theme_constant_override("minimum_grab_thickness", 8)
 
 		# -- LEFT: Toolbox panel --
 		var left_panel = PanelContainer.new()
@@ -428,38 +351,60 @@ func _enter_tree():
 		if is_instance_valid(toolbox):
 			toolbox.visible = true
 			left_panel.add_child(toolbox)
-		main_hsplit.add_child(left_panel)
+		_ide_layout.add_child(left_panel)
 
-		# -- CENTER-RIGHT split: Canvas + Right panels --
-		var canvas_right_split = HSplitContainer.new()
-		canvas_right_split.name = "CanvasRightSplit"
-		canvas_right_split.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		canvas_right_split.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		canvas_right_split.dragger_visibility = SplitContainer.DRAGGER_VISIBLE
-		canvas_right_split.add_theme_constant_override("separation", 6)
-		canvas_right_split.add_theme_constant_override("minimum_grab_thickness", 8)
+		# -- CENTER-RIGHT split: Canvas + Properties --
+		var right_split = HSplitContainer.new()
+		right_split.name = "CanvasPropertiesSplit"
+		right_split.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		right_split.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		right_split.dragger_visibility = SplitContainer.DRAGGER_VISIBLE
+		right_split.add_theme_constant_override("separation", 6)
+		right_split.add_theme_constant_override("minimum_grab_thickness", 8)
 
-		# ── Scrollable MDI workspace (canvas center) ──
-		var canvas_scroll = ScrollContainer.new()
-		canvas_scroll.name = "CanvasScroll"
-		canvas_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		canvas_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		canvas_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
-		canvas_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
-		_form_designer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		_form_designer.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		canvas_scroll.add_child(_form_designer)
-		canvas_right_split.add_child(canvas_scroll)
+		# -- CENTER: VB6 toolbar + form canvas --
+		var center_vbox = VBoxContainer.new()
+		center_vbox.name = "CenterArea"
+		center_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		center_vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
 
-		# -- RIGHT: Project Explorer + Properties (resizable VSplitContainer) --
-		var right_vsplit = VSplitContainer.new()
-		right_vsplit.name = "RightPanelSplit"
-		right_vsplit.custom_minimum_size = Vector2(220, 0)
-		right_vsplit.size_flags_horizontal = Control.SIZE_FILL
-		right_vsplit.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		right_vsplit.dragger_visibility = SplitContainer.DRAGGER_VISIBLE
-		right_vsplit.add_theme_constant_override("separation", 4)
-		right_vsplit.add_theme_constant_override("minimum_grab_thickness", 8)
+		# Top toolbar row inside the canvas area
+		var toolbar_row = HBoxContainer.new()
+		toolbar_row.name = "ToolbarRow"
+		# Move alignment/preview/color toolbars into the embedded row
+		for tb in [alignment_toolbar, form_preview_toolbar, _color_palette]:
+			if is_instance_valid(tb):
+				if tb.get_parent() == self:
+					remove_child(tb)
+				tb.visible = true
+				toolbar_row.add_child(tb)
+
+		# Spacer to push "Godot Editor" button to the right
+		var spacer = Control.new()
+		spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		toolbar_row.add_child(spacer)
+
+		# "↩ Godot Editor" button — exits Form Designer, restores all Godot panels
+		var godot_btn = Button.new()
+		godot_btn.name = "BackToGodotBtn"
+		godot_btn.text = "\u21a9 Godot Editor"
+		godot_btn.tooltip_text = "Exit Form Designer and return to Godot Editor"
+		godot_btn.flat = true
+		godot_btn.add_theme_color_override("font_color", _theme.get("godot_button_text", Color(0.85, 0.85, 0.85)))
+		godot_btn.add_theme_color_override("font_hover_color", _theme.get("godot_button_hover_text", Color(1.0, 1.0, 1.0)))
+		godot_btn.pressed.connect(_on_back_to_godot_pressed)
+		toolbar_row.add_child(godot_btn)
+
+		center_vbox.add_child(toolbar_row)
+		center_vbox.add_child(_form_designer)
+		right_split.add_child(center_vbox)
+
+		# -- RIGHT: Properties + Project Explorer --
+		var right_panel_vbox = VBoxContainer.new()
+		right_panel_vbox.name = "RightPanelArea"
+		right_panel_vbox.custom_minimum_size = Vector2(240, 0)
+		right_panel_vbox.size_flags_horizontal = Control.SIZE_FILL
+		right_panel_vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
 
 		# Project Explorer (top half of right panel)
 		if is_instance_valid(_project_explorer):
@@ -467,7 +412,7 @@ func _enter_tree():
 				remove_child(_project_explorer)
 			_project_explorer.visible = true
 			_project_explorer.size_flags_vertical = Control.SIZE_EXPAND_FILL
-			right_vsplit.add_child(_project_explorer)
+			right_panel_vbox.add_child(_project_explorer)
 
 		# Properties Inspector (bottom half of right panel)
 		if is_instance_valid(_properties_inspector):
@@ -475,15 +420,10 @@ func _enter_tree():
 				remove_child(_properties_inspector)
 			_properties_inspector.visible = true
 			_properties_inspector.size_flags_vertical = Control.SIZE_EXPAND_FILL
-			right_vsplit.add_child(_properties_inspector)
+			right_panel_vbox.add_child(_properties_inspector)
 
-		canvas_right_split.add_child(right_vsplit)
-		main_hsplit.add_child(canvas_right_split)
-		_ide_layout.add_child(main_hsplit)
-
-		# ── Status Bar at bottom ──
-		_status_bar = _create_vb6_status_bar()
-		_ide_layout.add_child(_status_bar)
+		right_split.add_child(right_panel_vbox)
+		_ide_layout.add_child(right_split)
 
 		# --- Add composite layout to main screen ---
 		EditorInterface.get_editor_main_screen().add_child(_ide_layout)
@@ -800,25 +740,6 @@ func _process(_delta: float) -> void:
 		for ctrl in _chrome_to_keep_hidden:
 			if is_instance_valid(ctrl) and ctrl.visible:
 				ctrl.visible = false
-		# Keep the main VSplit collapsed each frame (Godot may restore it)
-		if is_instance_valid(_godot_main_vsplit):
-			var target_offset = int(_godot_main_vsplit.size.y)
-			if _godot_main_vsplit.split_offset != target_offset:
-				_godot_main_vsplit.split_offset = target_offset
-			if _godot_main_vsplit.get_child_count() >= 2:
-				var bc = _godot_main_vsplit.get_child(1)
-				if bc is Control and bc.visible:
-					bc.visible = false
-		# Lazy-find the bottom panel if it wasn't found during initial hide
-		# (the editor may not have fully built its UI when we first looked)
-		if not is_instance_valid(_godot_bottom_panel) and not _bottom_panel_search_done:
-			var base = get_editor_interface().get_base_control()
-			_godot_bottom_panel = _find_bottom_panel(base)
-			if is_instance_valid(_godot_bottom_panel):
-				_chrome_to_keep_hidden.append(_godot_bottom_panel)
-				_godot_bottom_panel.visible = false
-				_bottom_panel_search_done = true
-			# We'll keep retrying each frame until found (editor UI loads asynchronously)
 
 	# C++ Form Designer handles its own drops — skip old code path
 	if _form_designer and _form_designer.visible:
@@ -1480,14 +1401,12 @@ func open_form_in_designer(tscn_path: String) -> void:
 func _setup_ide_split_ratios() -> void:
 	if not is_instance_valid(_ide_layout):
 		return
-	# Main horizontal split: Toolbox gets ~200px
-	var main_split = _ide_layout.get_node_or_null("MainHSplit")
-	if main_split and main_split is HSplitContainer:
-		main_split.split_offset = 200
-		# Canvas-Right split: right panel gets ~280px from the right
-		var canvas_right = main_split.get_node_or_null("CanvasRightSplit")
-		if canvas_right and canvas_right is HSplitContainer:
-			canvas_right.split_offset = -280
+	# Left split: Toolbox gets ~200px
+	_ide_layout.split_offset = 200
+	# Right split: Properties panel gets ~260px from the right
+	var right_split = _ide_layout.get_node_or_null("CanvasPropertiesSplit")
+	if right_split and right_split is HSplitContainer:
+		right_split.split_offset = -280
 	# Apply VB6 visual styling
 	_apply_vb6_theme()
 	_restyle_toolbox_buttons()
@@ -1564,9 +1483,6 @@ func _load_theme_config() -> void:
 		"nonvisual_bg": Color(0.9, 0.85, 0.72),
 		"nonvisual_border": Color(0.6, 0.55, 0.45),
 		"placeholder_color": Color(0.6, 0.6, 0.6),
-		"mdi_background": Color(0.64, 0.64, 0.64),
-		"form_handle_color": Color(0.0, 0.0, 0.0),
-		"sys_inactive_title": Color(0.5, 0.5, 0.5),
 		# IDE panels
 		"panel_background": Color("#F0EDE8"),
 		"panel_border": Color(0.72, 0.71, 0.68),
@@ -1592,159 +1508,37 @@ func _load_theme_config() -> void:
 		"window_title_prefix": "Visual Gasic",
 	}
 
-	# NOTE: Theme file overlay disabled — hardcoded defaults above are used.
-	# To revisit external theming later, re-enable loading from
-	# vg_form_designer_theme.gd here.
-	print("VisualGasic: Theme loaded (hardcoded defaults, %d values)" % _theme.size())
+	# ── Try to overlay from theme file (safe — any error keeps defaults) ──
+	var theme_path := "res://addons/visual_gasic/vg_form_designer_theme.gd"
+	if not ResourceLoader.exists(theme_path):
+		print("VisualGasic: Theme file not found — using built-in defaults")
+		return
 
-## Builds a VB6-style light Theme resource for the entire IDE layout.
-## When applied to _ide_layout, this propagates to ALL children — including
-## the C++ VisualGasicToolbox (PanelContainer) that would otherwise use
-## Godot's dark editor theme.
-func _build_vb6_theme() -> Theme:
-	var t = Theme.new()
-	var bg: Color = _theme.get("panel_background", Color("#F0EDE8"))
-	var border: Color = _theme.get("panel_border", Color(0.72, 0.71, 0.68))
-	var text_color := Color.BLACK
+	var theme_script = load(theme_path)
+	if theme_script == null:
+		print("VisualGasic: Could not load theme file — using built-in defaults")
+		return
 
-	# ── PanelContainer (fixes C++ VisualGasicToolbox dark bg) ──
-	var pc_sb = StyleBoxFlat.new()
-	pc_sb.bg_color = bg
-	pc_sb.border_color = border
-	pc_sb.set_border_width_all(1)
-	pc_sb.set_content_margin_all(2)
-	t.set_stylebox("panel", "PanelContainer", pc_sb)
+	# Read each static var from the theme script and overlay onto defaults
+	var overlay_count := 0
+	for key in _theme.keys():
+		var val = theme_script.get(key)
+		if val != null:
+			_theme[key] = val
+			overlay_count += 1
 
-	# ── TabContainer panel + tab bar ──
-	var tc_panel = StyleBoxFlat.new()
-	tc_panel.bg_color = bg
-	tc_panel.set_content_margin_all(4)
-	t.set_stylebox("panel", "TabContainer", tc_panel)
-
-	var tab_sel = StyleBoxFlat.new()
-	tab_sel.bg_color = bg
-	tab_sel.border_color = border
-	tab_sel.border_width_left = 1; tab_sel.border_width_top = 1
-	tab_sel.border_width_right = 1; tab_sel.border_width_bottom = 0
-	tab_sel.content_margin_left = 8; tab_sel.content_margin_right = 8
-	tab_sel.content_margin_top = 4; tab_sel.content_margin_bottom = 4
-	t.set_stylebox("tab_selected", "TabContainer", tab_sel)
-	t.set_stylebox("tab_selected", "TabBar", tab_sel)
-
-	var tab_unsel = StyleBoxFlat.new()
-	tab_unsel.bg_color = Color(0.85, 0.84, 0.82)
-	tab_unsel.border_color = border
-	tab_unsel.set_border_width_all(1)
-	tab_unsel.content_margin_left = 8; tab_unsel.content_margin_right = 8
-	tab_unsel.content_margin_top = 4; tab_unsel.content_margin_bottom = 4
-	t.set_stylebox("tab_unselected", "TabContainer", tab_unsel)
-	t.set_stylebox("tab_unselected", "TabBar", tab_unsel)
-
-	var tab_hover = StyleBoxFlat.new()
-	tab_hover.bg_color = Color(0.95, 0.94, 0.92)
-	tab_hover.border_color = border
-	tab_hover.border_width_left = 1; tab_hover.border_width_top = 1
-	tab_hover.border_width_right = 1; tab_hover.border_width_bottom = 0
-	tab_hover.content_margin_left = 8; tab_hover.content_margin_right = 8
-	tab_hover.content_margin_top = 4; tab_hover.content_margin_bottom = 4
-	t.set_stylebox("tab_hovered", "TabContainer", tab_hover)
-	t.set_stylebox("tab_hovered", "TabBar", tab_hover)
-
-	# Tab font colors
-	t.set_color("font_selected_color", "TabContainer", text_color)
-	t.set_color("font_unselected_color", "TabContainer", Color(0.3, 0.3, 0.3))
-	t.set_color("font_hovered_color", "TabContainer", text_color)
-	t.set_color("font_selected_color", "TabBar", text_color)
-	t.set_color("font_unselected_color", "TabBar", Color(0.3, 0.3, 0.3))
-	t.set_color("font_hovered_color", "TabBar", text_color)
-
-	# ── Tree (Project Explorer, Properties Inspector) ──
-	var tree_sb = StyleBoxFlat.new()
-	tree_sb.bg_color = Color.WHITE
-	tree_sb.border_color = border
-	tree_sb.set_border_width_all(1)
-	t.set_stylebox("panel", "Tree", tree_sb)
-	t.set_color("font_color", "Tree", text_color)
-	t.set_color("font_selected_color", "Tree", Color.WHITE)
-
-	# ── ItemList ──
-	var il_sb = StyleBoxFlat.new()
-	il_sb.bg_color = Color.WHITE
-	il_sb.border_color = border
-	il_sb.set_border_width_all(1)
-	t.set_stylebox("panel", "ItemList", il_sb)
-	t.set_color("font_color", "ItemList", text_color)
-
-	# ── Label ──
-	t.set_color("font_color", "Label", text_color)
-
-	# ── LineEdit (property fields) ──
-	var le_sb = StyleBoxFlat.new()
-	le_sb.bg_color = Color.WHITE
-	le_sb.border_color = border
-	le_sb.set_border_width_all(1)
-	le_sb.content_margin_left = 4; le_sb.content_margin_right = 4
-	le_sb.content_margin_top = 2; le_sb.content_margin_bottom = 2
-	t.set_stylebox("normal", "LineEdit", le_sb)
-	t.set_color("font_color", "LineEdit", text_color)
-	t.set_color("font_placeholder_color", "LineEdit", Color(0.5, 0.5, 0.5))
-
-	# ── Button (neutral light style — toolbox buttons override individually) ──
-	var btn_sb = StyleBoxFlat.new()
-	btn_sb.bg_color = bg
-	btn_sb.border_color = border
-	btn_sb.set_border_width_all(1)
-	btn_sb.content_margin_left = 4; btn_sb.content_margin_right = 4
-	btn_sb.content_margin_top = 2; btn_sb.content_margin_bottom = 2
-	t.set_stylebox("normal", "Button", btn_sb)
-	var btn_hover = StyleBoxFlat.new()
-	btn_hover.bg_color = Color(0.95, 0.94, 0.92)
-	btn_hover.border_color = border
-	btn_hover.set_border_width_all(1)
-	btn_hover.content_margin_left = 4; btn_hover.content_margin_right = 4
-	btn_hover.content_margin_top = 2; btn_hover.content_margin_bottom = 2
-	t.set_stylebox("hover", "Button", btn_hover)
-	var btn_pressed = StyleBoxFlat.new()
-	btn_pressed.bg_color = Color(0.88, 0.87, 0.85)
-	btn_pressed.border_color = border
-	btn_pressed.set_border_width_all(1)
-	btn_pressed.content_margin_left = 4; btn_pressed.content_margin_right = 4
-	btn_pressed.content_margin_top = 2; btn_pressed.content_margin_bottom = 2
-	t.set_stylebox("pressed", "Button", btn_pressed)
-	t.set_color("font_color", "Button", text_color)
-	t.set_color("font_hover_color", "Button", text_color)
-	t.set_color("font_pressed_color", "Button", text_color)
-
-	# ── OptionButton ──
-	var ob_sb = StyleBoxFlat.new()
-	ob_sb.bg_color = bg
-	ob_sb.border_color = border
-	ob_sb.set_border_width_all(1)
-	ob_sb.content_margin_left = 4; ob_sb.content_margin_right = 16
-	ob_sb.content_margin_top = 2; ob_sb.content_margin_bottom = 2
-	t.set_stylebox("normal", "OptionButton", ob_sb)
-	t.set_color("font_color", "OptionButton", text_color)
-
-	# ── ScrollContainer ──
-	var sc_sb = StyleBoxFlat.new()
-	sc_sb.bg_color = bg
-	t.set_stylebox("panel", "ScrollContainer", sc_sb)
-
-	return t
+	print("VisualGasic: Theme loaded (%d/%d values from theme file)" % [overlay_count, _theme.size()])
 
 ## Applies VB6 SystemButtonFace gray theme to the embedded IDE panels.
 func _apply_vb6_theme() -> void:
 	if not is_instance_valid(_ide_layout):
 		return
 
-	# Re-apply comprehensive light Theme (belt-and-suspenders with inline apply)
-	_ide_layout.theme = _build_vb6_theme()
-
 	var panel_bg = _theme.get("panel_background", Color("#F0EDE8"))
 	var panel_border = _theme.get("panel_border", Color(0.72, 0.71, 0.68))
 
 	# Style the left Toolbox panel
-	var toolbox_panel = _ide_layout.get_node_or_null("MainHSplit/ToolboxPanel")
+	var toolbox_panel = _ide_layout.get_node_or_null("ToolboxPanel")
 	if toolbox_panel and toolbox_panel is PanelContainer:
 		var sb = StyleBoxFlat.new()
 		sb.bg_color = panel_bg
@@ -1769,7 +1563,7 @@ func _apply_vb6_theme() -> void:
 			toolbox_panel.add_child(wrapper)
 
 	# Style the right panel area with headers
-	var right_area = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/RightPanelSplit")
+	var right_area = _ide_layout.get_node_or_null("CanvasPropertiesSplit/RightPanelArea")
 	if right_area:
 		# Wrap Project Explorer with header
 		if is_instance_valid(_project_explorer) and _project_explorer.get_parent() == right_area:
@@ -1831,8 +1625,7 @@ func _apply_designer_theme() -> void:
 		"sys_button_shadow", "sys_3d_dark_shadow", "sys_3d_light", "sys_window",
 		"sys_window_text", "sys_active_title", "sys_title_text", "sys_scrollbar",
 		"sys_glyph", "sys_progress_fill", "design_time_outline", "nonvisual_bg",
-		"nonvisual_border", "placeholder_color", "mdi_background",
-		"form_handle_color", "sys_inactive_title",
+		"nonvisual_border", "placeholder_color",
 	]
 	var colors := {}
 	for key in designer_keys:
@@ -1849,13 +1642,6 @@ func _restyle_toolbox_buttons() -> void:
 	var cpp_toolbox = _get_toolbox_instance()
 	if not cpp_toolbox:
 		return
-
-	# ── CRITICAL: Override C++ VisualGasicToolbox (PanelContainer) panel style ──
-	# Without this, Godot's dark editor theme draws over our light background.
-	var toolbox_panel_sb := StyleBoxFlat.new()
-	toolbox_panel_sb.bg_color = _theme.get("panel_background", Color("#F0EDE8"))
-	toolbox_panel_sb.set_content_margin_all(0)
-	cpp_toolbox.add_theme_stylebox_override("panel", toolbox_panel_sb)
 
 	# Find the TabContainer inside the C++ toolbox
 	var tabs: TabContainer = null
@@ -1984,361 +1770,7 @@ func _restyle_toolbox_buttons() -> void:
 
 	print("VisualGasic: Toolbox restyled to TwinBasic list layout (%d icons)" % vb6_icons.size())
 
-# =============================================================================
-# VB6 MENU BAR — File/Edit/View/Project/Format/Debug/Run/Tools/Window/Help
-# =============================================================================
-
-## Creates a VB6-style menu bar with all classic menus.
-func _create_vb6_menu_bar() -> MenuBar:
-	var mb = MenuBar.new()
-	mb.name = "VB6MenuBar"
-	mb.flat = true
-
-	# Style the menu bar background
-	var mb_sb = StyleBoxFlat.new()
-	mb_sb.bg_color = _theme.get("panel_background", Color("#F0EDE8"))
-	mb_sb.content_margin_left = 4
-	mb_sb.content_margin_right = 4
-	mb_sb.content_margin_top = 1
-	mb_sb.content_margin_bottom = 1
-	mb.add_theme_stylebox_override("panel", mb_sb)
-
-	# ── File ──
-	var file_menu = PopupMenu.new()
-	file_menu.name = "File"
-	_style_popup_menu(file_menu)
-	file_menu.add_item("New Form", 0)
-	file_menu.add_item("New Module", 1)
-	file_menu.add_separator()
-	file_menu.add_item("Open Project...", 2)
-	file_menu.add_separator()
-	file_menu.add_item("Save Form", 10)
-	file_menu.add_shortcut(_make_shortcut(KEY_S, true), 10)
-	file_menu.add_item("Save Form As...", 11)
-	file_menu.add_separator()
-	file_menu.add_item("Import VB6 Form...", 20)
-	file_menu.add_item("Import VB6 Project...", 21)
-	file_menu.add_separator()
-	file_menu.add_item("Exit to Godot Editor", 99)
-	file_menu.id_pressed.connect(_on_vb6_file_menu)
-	mb.add_child(file_menu)
-
-	# ── Edit ──
-	var edit_menu = PopupMenu.new()
-	edit_menu.name = "Edit"
-	_style_popup_menu(edit_menu)
-	edit_menu.add_item("Undo", 0)
-	edit_menu.add_shortcut(_make_shortcut(KEY_Z, true), 0)
-	edit_menu.add_item("Redo", 1)
-	edit_menu.add_shortcut(_make_shortcut(KEY_Y, true), 1)
-	edit_menu.add_separator()
-	edit_menu.add_item("Cut", 10)
-	edit_menu.add_shortcut(_make_shortcut(KEY_X, true), 10)
-	edit_menu.add_item("Copy", 11)
-	edit_menu.add_shortcut(_make_shortcut(KEY_C, true), 11)
-	edit_menu.add_item("Paste", 12)
-	edit_menu.add_shortcut(_make_shortcut(KEY_V, true), 12)
-	edit_menu.add_item("Delete", 13)
-	edit_menu.add_separator()
-	edit_menu.add_item("Select All", 20)
-	edit_menu.add_shortcut(_make_shortcut(KEY_A, true), 20)
-	edit_menu.id_pressed.connect(_on_vb6_edit_menu)
-	mb.add_child(edit_menu)
-
-	# ── View ──
-	var view_menu = PopupMenu.new()
-	view_menu.name = "View"
-	_style_popup_menu(view_menu)
-	view_menu.add_item("Code", 0)
-	view_menu.add_item("Object", 1)
-	view_menu.add_separator()
-	view_menu.add_item("Toolbox", 10)
-	view_menu.add_item("Project Explorer", 11)
-	view_menu.add_item("Properties Window", 12)
-	view_menu.add_item("Immediate Window", 13)
-	view_menu.id_pressed.connect(_on_vb6_view_menu)
-	mb.add_child(view_menu)
-
-	# ── Project ──
-	var project_menu = PopupMenu.new()
-	project_menu.name = "Project"
-	_style_popup_menu(project_menu)
-	project_menu.add_item("Add Form...", 0)
-	project_menu.add_item("Add Module...", 1)
-	project_menu.add_separator()
-	project_menu.add_item("Project Properties...", 10)
-	project_menu.add_item("Components...", 11)
-	project_menu.id_pressed.connect(_on_vb6_project_menu)
-	mb.add_child(project_menu)
-
-	# ── Format ──
-	var format_menu = PopupMenu.new()
-	format_menu.name = "Format"
-	_style_popup_menu(format_menu)
-	format_menu.add_item("Align Lefts", 0)
-	format_menu.add_item("Align Rights", 1)
-	format_menu.add_item("Align Tops", 2)
-	format_menu.add_item("Align Bottoms", 3)
-	format_menu.add_separator()
-	format_menu.add_item("Center Horizontally", 10)
-	format_menu.add_item("Center Vertically", 11)
-	format_menu.add_separator()
-	format_menu.add_item("Make Same Width", 20)
-	format_menu.add_item("Make Same Height", 21)
-	format_menu.add_item("Make Same Size", 22)
-	format_menu.id_pressed.connect(_on_vb6_format_menu)
-	mb.add_child(format_menu)
-
-	# ── Debug ──
-	var debug_menu = PopupMenu.new()
-	debug_menu.name = "Debug"
-	_style_popup_menu(debug_menu)
-	debug_menu.add_item("Run Project", 0)
-	debug_menu.add_shortcut(_make_shortcut(KEY_F5), 0)
-	debug_menu.add_item("Run Current Scene", 1)
-	debug_menu.add_shortcut(_make_shortcut(KEY_F6), 1)
-	debug_menu.add_separator()
-	debug_menu.add_item("Stop", 10)
-	debug_menu.id_pressed.connect(_on_vb6_debug_menu)
-	mb.add_child(debug_menu)
-
-	# ── Run ──
-	var run_menu = PopupMenu.new()
-	run_menu.name = "Run"
-	_style_popup_menu(run_menu)
-	run_menu.add_item("Preview Form", 0)
-	run_menu.add_item("Preview + Debug", 1)
-	run_menu.add_separator()
-	run_menu.add_item("Build Project", 10)
-	run_menu.add_item("Run Project", 11)
-	run_menu.id_pressed.connect(_on_vb6_run_menu)
-	mb.add_child(run_menu)
-
-	# ── Tools ──
-	var tools_menu = PopupMenu.new()
-	tools_menu.name = "Tools"
-	_style_popup_menu(tools_menu)
-	tools_menu.add_item("Menu Editor...", 0)
-	tools_menu.add_item("Tab Order...", 1)
-	tools_menu.add_item("Object Browser...", 2)
-	tools_menu.add_separator()
-	tools_menu.add_item("Snippet Browser...", 10)
-	tools_menu.add_item("Theme Picker...", 11)
-	tools_menu.id_pressed.connect(_on_vb6_tools_menu)
-	mb.add_child(tools_menu)
-
-	# ── Window ──
-	var window_menu = PopupMenu.new()
-	window_menu.name = "Window"
-	_style_popup_menu(window_menu)
-	window_menu.add_item("Tile Horizontally", 0)
-	window_menu.add_item("Tile Vertically", 1)
-	window_menu.add_separator()
-	window_menu.add_item("Toggle VG IDE Layout", 10)
-	window_menu.id_pressed.connect(_on_vb6_window_menu)
-	mb.add_child(window_menu)
-
-	# ── Help ──
-	var help_menu = PopupMenu.new()
-	help_menu.name = "Help"
-	_style_popup_menu(help_menu)
-	help_menu.add_item("Visual Gasic Documentation", 0)
-	help_menu.add_item("About Visual Gasic...", 1)
-	help_menu.id_pressed.connect(_on_vb6_help_menu)
-	mb.add_child(help_menu)
-
-	return mb
-
-## Creates a Shortcut for use in menu items.
-func _make_shortcut(key: Key, ctrl: bool = false) -> Shortcut:
-	var ev = InputEventKey.new()
-	ev.keycode = key
-	ev.ctrl_pressed = ctrl
-	var sc = Shortcut.new()
-	sc.events = [ev]
-	return sc
-
-## Applies VB6/Win95-style contrast styling to a PopupMenu.
-func _style_popup_menu(popup: PopupMenu) -> void:
-	# Light background panel (Win95 menu style)
-	var panel_sb = StyleBoxFlat.new()
-	panel_sb.bg_color = Color("#F0F0F0")
-	panel_sb.border_width_top = 2
-	panel_sb.border_width_bottom = 2
-	panel_sb.border_width_left = 2
-	panel_sb.border_width_right = 2
-	panel_sb.border_color = Color("#808080")
-	panel_sb.content_margin_left = 20
-	panel_sb.content_margin_right = 12
-	panel_sb.content_margin_top = 2
-	panel_sb.content_margin_bottom = 2
-	popup.add_theme_stylebox_override("panel", panel_sb)
-
-	# Hover / selection highlight (navy blue like classic Windows)
-	var hover_sb = StyleBoxFlat.new()
-	hover_sb.bg_color = Color("#000080")
-	hover_sb.content_margin_left = 20
-	hover_sb.content_margin_right = 12
-	hover_sb.content_margin_top = 1
-	hover_sb.content_margin_bottom = 1
-	popup.add_theme_stylebox_override("hover", hover_sb)
-
-	# Separator style
-	var sep_sb = StyleBoxFlat.new()
-	sep_sb.bg_color = Color("#808080")
-	sep_sb.content_margin_top = 0
-	sep_sb.content_margin_bottom = 0
-	popup.add_theme_stylebox_override("separator", sep_sb)
-
-	# Font colors — black on light gray, white on navy hover
-	popup.add_theme_color_override("font_color", Color("#000000"))
-	popup.add_theme_color_override("font_hover_color", Color("#FFFFFF"))
-	popup.add_theme_color_override("font_disabled_color", Color("#808080"))
-	popup.add_theme_color_override("font_separator_color", Color("#404040"))
-	popup.add_theme_color_override("font_accelerator_color", Color("#404040"))
-
-# ── VB6 Menu Bar Handlers ──
-
-func _on_vb6_file_menu(id: int) -> void:
-	match id:
-		0: _on_add_form()
-		1: _on_new_module()
-		10:
-			if _form_designer and _form_designer.has_method("save_form"):
-				_form_designer.save_form()
-		11: pass # Save As — could show FileDialog
-		20: _on_import_vb6_form()
-		21: _on_import_vb6_project()
-		99: _on_back_to_godot_pressed()
-
-func _on_vb6_edit_menu(id: int) -> void:
-	if not _form_designer:
-		return
-	match id:
-		0: _form_designer.undo()
-		1: _form_designer.redo()
-		10: _form_designer.cut()
-		11: _form_designer.copy()
-		12: _form_designer.paste()
-		13: _form_designer.remove_selected()
-		20: _form_designer.select_all()
-
-func _on_vb6_view_menu(id: int) -> void:
-	match id:
-		0: # Code view — switch to Script editor
-			EditorInterface.set_main_screen_editor("Script")
-		1: # Object view — switch back to Form Designer
-			EditorInterface.set_main_screen_editor("Form Designer")
-		10: pass # Toolbox — already visible
-		11: pass # Project Explorer — already visible
-		12: pass # Properties — already visible
-		13: # Immediate Window — focus it in bottom panel
-			if is_instance_valid(immediate_window):
-				make_bottom_panel_item_visible(immediate_window)
-
-func _on_vb6_project_menu(id: int) -> void:
-	match id:
-		0: _on_add_form()
-		1: _on_new_module()
-		10: _on_proj_props()
-		11: _on_components()
-
-func _on_vb6_format_menu(id: int) -> void:
-	if not _form_designer:
-		return
-	match id:
-		0: _form_designer.align_left()
-		1: _form_designer.align_right()
-		2: _form_designer.align_top()
-		3: _form_designer.align_bottom()
-		10: _form_designer.align_center_h()
-		11: _form_designer.align_center_v()
-		20: _form_designer.make_same_width()
-		21: _form_designer.make_same_height()
-		22:
-			_form_designer.make_same_width()
-			_form_designer.make_same_height()
-
-func _on_vb6_debug_menu(id: int) -> void:
-	match id:
-		0: EditorInterface.play_main_scene()
-		1: EditorInterface.play_current_scene()
-		10: EditorInterface.stop_playing_scene()
-
-func _on_vb6_run_menu(id: int) -> void:
-	match id:
-		0: # Preview Form
-			if is_instance_valid(form_preview_toolbar) and form_preview_toolbar.has_method("_on_preview"):
-				form_preview_toolbar._on_preview()
-		1: # Preview + Debug
-			if is_instance_valid(form_preview_toolbar) and form_preview_toolbar.has_method("_on_preview_debug"):
-				form_preview_toolbar._on_preview_debug()
-		10: pass # Build
-		11: EditorInterface.play_main_scene()
-
-func _on_vb6_tools_menu(id: int) -> void:
-	match id:
-		0: _on_menu_editor()
-		1: _on_tab_order()
-		2: _on_obj_browser()
-		10: _on_open_snippet_browser()
-		11: _on_open_theme_picker()
-
-func _on_vb6_window_menu(id: int) -> void:
-	match id:
-		10: _on_toggle_vb6_layout()
-
-func _on_vb6_help_menu(id: int) -> void:
-	match id:
-		0: OS.shell_open("https://github.com/nickshouse/VisualGasic")
-		1: pass # About dialog
-
-# =============================================================================
-# VB6 STATUS BAR
-# =============================================================================
-
-## Creates a VB6-style status bar at the bottom of the center panel.
-func _create_vb6_status_bar() -> Label:
-	var lbl = Label.new()
-	lbl.name = "StatusBar"
-	lbl.text = "  Form1  |  600 x 400  |  Grid: 8 px"
-	lbl.custom_minimum_size.y = 22
-	lbl.add_theme_font_size_override("font_size", 11)
-	lbl.add_theme_color_override("font_color", Color(0.1, 0.1, 0.1))
-	# Sunken 3D look
-	var sb = StyleBoxFlat.new()
-	sb.bg_color = _theme.get("panel_background", Color("#F0EDE8"))
-	sb.border_color = Color(0.55, 0.55, 0.55)
-	sb.border_width_top = 1
-	sb.content_margin_left = 6
-	sb.content_margin_right = 6
-	sb.content_margin_top = 2
-	sb.content_margin_bottom = 2
-	lbl.add_theme_stylebox_override("normal", sb)
-	return lbl
-
-## Updates the status bar text based on form designer state.
-func _update_status_bar() -> void:
-	if not is_instance_valid(_status_bar) or not is_instance_valid(_form_designer):
-		return
-	var form_name = _form_designer.get_form_name() if _form_designer.has_method("get_form_name") else "Form1"
-	var status_text = _form_designer.get_status_text() if _form_designer.has_method("get_status_text") else ""
-	var grid_size = _form_designer.get_grid_size() if _form_designer.has_method("get_grid_size") else 8
-	_status_bar.text = "  %s  |  %s  |  Grid: %d px" % [form_name, status_text, grid_size]
-
-## Called by C++ when control position/size changes or selection changes.
-func _on_fd_status_changed(text: String) -> void:
-	if is_instance_valid(_coord_label):
-		_coord_label.text = text
-	_update_status_bar()
-
-## Called by C++ when form is resized via drag handles.
-func _on_fd_form_resized(size: Vector2i) -> void:
-	if is_instance_valid(_coord_label):
-		_coord_label.text = "%d x %d" % [size.x, size.y]
-	_update_status_bar()
-
-## Finds Godot editor chrome that needs manual hiding (menu bar, title bar, status bar, bottom panel).
+## Finds Godot editor chrome that needs manual hiding (menu bar, title bar, status bar).
 ## Docks (left/right/bottom) are handled by EditorInterface.set_distraction_free_mode().
 func _find_godot_chrome() -> void:
 	var base = get_editor_interface().get_base_control()
@@ -2354,34 +1786,6 @@ func _find_godot_chrome() -> void:
 	# ── Status bar at the very bottom ──
 	if not is_instance_valid(_godot_status_bar):
 		_godot_status_bar = _find_status_bar(base)
-
-	# ── Bottom panel (Output/Debugger/Audio/Animation/etc.) ──
-	if not is_instance_valid(_godot_bottom_panel):
-		_godot_bottom_panel = _find_bottom_panel(base)
-
-	# ── Main VSplitContainer (viewport vs bottom panel) ──
-	# In Godot 4.5+, the container is a DockSplitContainer (inherits SplitContainer).
-	# Walk UP from the found bottom panel to locate it.
-	if not is_instance_valid(_godot_main_vsplit) and is_instance_valid(_godot_bottom_panel):
-		var node = _godot_bottom_panel
-		for i in range(12):
-			var parent = node.get_parent()
-			if not parent:
-				break
-			# Check for DockSplitContainer or VSplitContainer by class name
-			var cls = parent.get_class()
-			if cls == "DockSplitContainer" or parent is VSplitContainer:
-				# Verify it's the vertical one (DockVSplitCenter)
-				if parent is SplitContainer and (parent as SplitContainer).vertical:
-					_godot_main_vsplit = parent as SplitContainer
-					print("[VG] Main VSplit found: ", cls, "(", parent.name, ") at depth ", i + 1)
-					break
-			node = parent
-	# Fallback: breadth-first search from root
-	if not is_instance_valid(_godot_main_vsplit):
-		_godot_main_vsplit = _find_main_vsplit(base, 0)
-		if is_instance_valid(_godot_main_vsplit):
-			print("[VG] Main VSplit found via root search")
 
 ## Recursively find a node with a given class name, limited by depth.
 func _find_node_by_class_recursive(node: Node, cls: String, max_depth: int) -> Control:
@@ -2441,128 +1845,9 @@ func _find_status_bar(base: Control) -> Control:
 				return child
 	return null
 
-## Finds the Godot editor's bottom panel (Output/Debugger/Audio/Animation tabs).
-## In Godot 4.5+ this is an EditorBottomPanel node inside a DockSplitContainer.
-func _find_bottom_panel(base: Control) -> Control:
-	# Strategy 1: Find EditorBottomPanel by class name directly
-	var ebp = _find_node_by_class_recursive(base, "EditorBottomPanel", 12)
-	if ebp:
-		print("[VG] Bottom panel found via EditorBottomPanel class")
-		return ebp
-
-	# Strategy 2: Find a Button with text "Output", walk up to EditorBottomPanel
-	var output_btn = _find_button_by_text_recursive(base, "Output", 0)
-	if output_btn:
-		var node = output_btn
-		for i in range(8):
-			var parent = node.get_parent()
-			if not parent:
-				break
-			if parent.get_class() == "EditorBottomPanel":
-				print("[VG] Bottom panel found via Output button → EditorBottomPanel")
-				return parent as Control
-			if parent is SplitContainer and node is Control:
-				# Found the split; the node is the bottom panel side
-				print("[VG] Bottom panel found via Output button → SplitContainer child")
-				return node as Control
-			node = parent
-		# Fallback: return the button's grandparent
-		var hbox = output_btn.get_parent()
-		if hbox:
-			var vbox = hbox.get_parent()
-			if vbox is Control:
-				print("[VG] Bottom panel found via Output button → grandparent")
-				return vbox as Control
-
-	# Strategy 3: Find node containing "Filter Messages" text (visible in output panel)
-	var filter_node = _find_node_with_text_recursive(base, "Filter Messages", 0)
-	if filter_node:
-		# Walk up to find a sizeable container
-		var node = filter_node
-		for i in range(5):
-			var parent = node.get_parent()
-			if not parent:
-				break
-			if parent is VSplitContainer:
-				print("[VG] Bottom panel found via Filter Messages → parent of VSplit child")
-				return node as Control
-			node = parent
-
-	print("[VG] Bottom panel: NOT found with any strategy")
-	return null
-
-## Find the main editor VSplitContainer (the one splitting viewport from bottom panel).
-func _find_main_vsplit(node: Node, depth: int) -> VSplitContainer:
-	if depth > 10:
-		return null
-	if node is VSplitContainer:
-		# Check if this VSplit has at least 2 children and is tall (main editor area)
-		if node.get_child_count() >= 2:
-			var ctrl = node as Control
-			if ctrl.size.y > 300:
-				return node as VSplitContainer
-	for child in node.get_children():
-		var result = _find_main_vsplit(child, depth + 1)
-		if result:
-			return result
-	return null
-
-## Recursively find a node that has a property or child Label/Button with given text.
-func _find_node_with_text_recursive(node: Node, txt: String, depth: int) -> Control:
-	if depth > 16:
-		return null
-	if node is Label and (node as Label).text.strip_edges().begins_with(txt):
-		return node as Control
-	if node is Button and (node as Button).text.strip_edges().begins_with(txt):
-		return node as Control
-	for child in node.get_children():
-		var result = _find_node_with_text_recursive(child, txt, depth + 1)
-		if result:
-			return result
-	return null
-
-## Recursively find a Button whose .text matches the given string.
-func _find_button_by_text_recursive(node: Node, txt: String, depth: int) -> Button:
-	if depth > 16:
-		return null
-	if node is Button:
-		var btn_text: String = (node as Button).text.strip_edges()
-		if btn_text == txt:
-			return node as Button
-	for child in node.get_children():
-		var result = _find_button_by_text_recursive(child, txt, depth + 1)
-		if result:
-			return result
-	return null
-
-## Recursive helper to locate the bottom panel button bar.
-func _search_bottom_panel_recursive(node: Node, depth: int) -> Control:
-	if depth > 14:
-		return null
-	if node is HBoxContainer:
-		var has_output := false
-		var has_debugger := false
-		for child in node.get_children():
-			if child is Button:
-				var btn_txt: String = (child as Button).text.strip_edges()
-				if btn_txt == "Output":
-					has_output = true
-				elif btn_txt == "Debugger":
-					has_debugger = true
-		if has_output and has_debugger:
-			var parent = node.get_parent()
-			if parent is Control:
-				return parent as Control
-			return node as Control
-	for child in node.get_children():
-		var result = _search_bottom_panel_recursive(child, depth + 1)
-		if result:
-			return result
-	return null
-
 ## Hides ALL Godot editor chrome for a clean VB6 experience.
 ## Uses EditorInterface.set_distraction_free_mode() for docks (left/right/bottom)
-## and additionally hides menu bar, title bar, status bar, and bottom panel via _process().
+## and additionally hides menu bar, title bar, and status bar via _process().
 func _hide_godot_panels() -> void:
 	if _godot_docks_hidden:
 		return
@@ -2571,7 +1856,7 @@ func _hide_godot_panels() -> void:
 	if not EditorInterface.is_distraction_free_mode_enabled():
 		EditorInterface.set_distraction_free_mode(true)
 
-	# Find and hide the additional chrome (menu bar, title bar, status bar, bottom panel)
+	# Find and hide the additional chrome (menu bar, title bar, status bar)
 	_find_godot_chrome()
 	_chrome_to_keep_hidden = []
 	if is_instance_valid(_godot_menu_bar):
@@ -2580,25 +1865,9 @@ func _hide_godot_panels() -> void:
 		_chrome_to_keep_hidden.append(_godot_title_bar_hbox)
 	if is_instance_valid(_godot_status_bar):
 		_chrome_to_keep_hidden.append(_godot_status_bar)
-	if is_instance_valid(_godot_bottom_panel):
-		_chrome_to_keep_hidden.append(_godot_bottom_panel)
-	else:
-		print("[VG] WARNING: Bottom panel NOT found — Output window will remain visible")
 	for ctrl in _chrome_to_keep_hidden:
 		ctrl.visible = false
-
-	# Collapse the main VSplitContainer to push the bottom panel out of view
-	if is_instance_valid(_godot_main_vsplit):
-		_godot_main_vsplit_offset = _godot_main_vsplit.split_offset
-		_godot_main_vsplit.split_offset = int(_godot_main_vsplit.size.y)
-		# Also hide the second child directly
-		if _godot_main_vsplit.get_child_count() >= 2:
-			var bottom_child = _godot_main_vsplit.get_child(1)
-			if bottom_child is Control:
-				bottom_child.visible = false
-		print("[VG] Main VSplit collapsed (offset ", _godot_main_vsplit_offset, " → ", _godot_main_vsplit.split_offset, ")")
-
-	print("[VG] Chrome to keep hidden: ", _chrome_to_keep_hidden.size(), " (bottom_panel=", is_instance_valid(_godot_bottom_panel), ")")
+	print("[VG] Chrome to keep hidden: ", _chrome_to_keep_hidden.size())
 
 	# ── Window title ──
 	if _godot_original_title.is_empty():
@@ -2628,15 +1897,6 @@ func _show_godot_panels() -> void:
 			ctrl.visible = true
 	_chrome_to_keep_hidden = []
 
-	# Restore the main VSplitContainer
-	if is_instance_valid(_godot_main_vsplit):
-		if _godot_main_vsplit.get_child_count() >= 2:
-			var bottom_child = _godot_main_vsplit.get_child(1)
-			if bottom_child is Control:
-				bottom_child.visible = true
-		_godot_main_vsplit.split_offset = _godot_main_vsplit_offset
-		_godot_main_vsplit = null
-
 	# ── Restore window title ──
 	if not _godot_original_title.is_empty():
 		DisplayServer.window_set_title(_godot_original_title)
@@ -2645,8 +1905,6 @@ func _show_godot_panels() -> void:
 	_godot_menu_bar = null
 	_godot_title_bar_hbox = null
 	_godot_status_bar = null
-	_godot_bottom_panel = null
-	_bottom_panel_search_done = false
 
 ## Syncs the currently edited scene into the C++ Form Designer canvas.
 ## Called by _make_visible(true) when user switches to Form Designer tab.
@@ -2685,11 +1943,8 @@ func _on_fd_control_selected(index: int) -> void:
 		cpp_toolbox.reset_to_pointer()
 
 ## Signal: All controls deselected in the C++ Form Designer.
-## Show form-level properties (VB6-style) instead of clearing.
 func _on_fd_control_deselected() -> void:
-	if is_instance_valid(_properties_inspector) and _properties_inspector.has_method("show_form_properties") and is_instance_valid(_form_designer):
-		_properties_inspector.show_form_properties(_form_designer)
-	elif is_instance_valid(_properties_inspector) and _properties_inspector.has_method("clear_properties"):
+	if is_instance_valid(_properties_inspector) and _properties_inspector.has_method("clear_properties"):
 		_properties_inspector.clear_properties()
 
 ## Signal: Form was modified (dirty flag set) in the C++ Form Designer.
@@ -2863,9 +2118,42 @@ func _register_vg_file_icon() -> void:
 # =============================================================================
 
 ## Opens a dialog to add a new Form (scene + .vg script) — like VB6 Project > Add Form.
-## Delegates to the full New Form dialog with VB6, Game, Platform, and Custom templates.
 func _on_add_form():
-	_on_new_form()
+	var dlg = AcceptDialog.new()
+	dlg.title = "Add Form"
+	dlg.dialog_text = "Enter a name for the new form:"
+	dlg.ok_button_text = "Add"
+
+	var vbox = VBoxContainer.new()
+
+	var name_label = Label.new()
+	name_label.text = "Form Name:"
+	vbox.add_child(name_label)
+
+	var name_edit = LineEdit.new()
+	name_edit.text = "Form1"
+	name_edit.placeholder_text = "Form1"
+	name_edit.select_all_on_focus = true
+	vbox.add_child(name_edit)
+
+	dlg.add_child(vbox)
+	dlg.min_size = Vector2i(320, 160)
+
+	get_editor_interface().get_base_control().add_child(dlg)
+
+	dlg.confirmed.connect(func():
+		var form_name = name_edit.text.strip_edges()
+		dlg.queue_free()
+		if not form_name.is_empty():
+			_create_new_form(form_name)
+	)
+
+	dlg.canceled.connect(func():
+		dlg.queue_free()
+	)
+
+	dlg.popup_centered()
+	name_edit.grab_focus()
 
 ## Creates a new form: .tscn scene file + companion .vg script.
 ## @param form_name: Name for the form (without extension)

@@ -20,15 +20,14 @@ func setup(plugin: EditorPlugin) -> void:
 	_plugin = plugin
 
 func _setup_ui() -> void:
-	# Grid controls
-	var grid_label = Label.new()
-	grid_label.text = "Grid:"
-	add_child(grid_label)
+	# Compact layout — no text labels, small icon-only buttons
+	# Total width target: ~220px (was ~500px)
 	
+	# Grid snap toggle (compact CheckButton, no label)
 	var grid_toggle = CheckButton.new()
 	grid_toggle.text = "Snap"
 	grid_toggle.button_pressed = true
-	grid_toggle.tooltip_text = "Enable snap-to-grid (Ctrl+G)"
+	grid_toggle.tooltip_text = "Snap to grid (Ctrl+G)"
 	grid_toggle.toggled.connect(_on_grid_toggled)
 	add_child(grid_toggle)
 	
@@ -37,57 +36,44 @@ func _setup_ui() -> void:
 	grid_size.max_value = 64
 	grid_size.value = 8
 	grid_size.suffix = "px"
-	grid_size.tooltip_text = "Grid size in pixels"
+	grid_size.tooltip_text = "Grid size"
+	grid_size.custom_minimum_size = Vector2(60, 0)  # Compact
 	grid_size.value_changed.connect(_on_grid_size_changed)
 	add_child(grid_size)
 	
 	add_child(VSeparator.new())
 	
-	# Alignment buttons
-	var align_label = Label.new()
-	align_label.text = "Align:"
-	add_child(align_label)
-	
-	_add_button("⬅", "Align Left", _align_left)
-	_add_button("↔", "Align Center Horizontal", _align_center_h)
-	_add_button("➡", "Align Right", _align_right)
-	
-	add_child(VSeparator.new())
-	
-	_add_button("⬆", "Align Top", _align_top)
-	_add_button("↕", "Align Center Vertical", _align_center_v)
-	_add_button("⬇", "Align Bottom", _align_bottom)
+	# Alignment buttons — icon only, no "Align:" label
+	_add_icon_button("⬅", "Align Left", _align_left)
+	_add_icon_button("↔", "Center H", _align_center_h)
+	_add_icon_button("➡", "Align Right", _align_right)
+	_add_icon_button("⬆", "Align Top", _align_top)
+	_add_icon_button("↕", "Center V", _align_center_v)
+	_add_icon_button("⬇", "Align Bottom", _align_bottom)
 	
 	add_child(VSeparator.new())
 	
-	# Distribution buttons
-	var dist_label = Label.new()
-	dist_label.text = "Distribute:"
-	add_child(dist_label)
-	
-	_add_button("⇔", "Distribute Horizontally", _distribute_h)
-	_add_button("⇕", "Distribute Vertically", _distribute_v)
-	
-	add_child(VSeparator.new())
-	
-	# Size buttons
-	var size_label = Label.new()
-	size_label.text = "Size:"
-	add_child(size_label)
-	
-	_add_button("↔W", "Make Same Width", _make_same_width)
-	_add_button("↕H", "Make Same Height", _make_same_height)
-	_add_button("⬜", "Make Same Size", _make_same_size)
-	
-	add_child(VSeparator.new())
-	
-	# Center in parent
-	_add_button("⊞", "Center in Parent", _center_in_parent)
+	# Distribute + Size — icon only, no labels
+	_add_icon_button("⇔", "Distribute H", _distribute_h)
+	_add_icon_button("⇕", "Distribute V", _distribute_v)
+	_add_icon_button("↔W", "Same Width", _make_same_width)
+	_add_icon_button("↕H", "Same Height", _make_same_height)
+	_add_icon_button("⬜", "Same Size", _make_same_size)
+	_add_icon_button("⊞", "Center in Parent", _center_in_parent)
 
 func _add_button(text: String, tooltip: String, callback: Callable) -> Button:
 	var btn = Button.new()
 	btn.text = text
 	btn.tooltip_text = tooltip
+	btn.pressed.connect(callback)
+	add_child(btn)
+	return btn
+
+func _add_icon_button(icon_text: String, tooltip: String, callback: Callable) -> Button:
+	var btn = Button.new()
+	btn.text = icon_text
+	btn.tooltip_text = tooltip
+	btn.custom_minimum_size = Vector2(24, 24)
 	btn.pressed.connect(callback)
 	add_child(btn)
 	return btn

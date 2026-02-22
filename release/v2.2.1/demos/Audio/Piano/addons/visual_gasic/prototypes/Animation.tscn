@@ -1,4 +1,0 @@
-[gd_scene format=3]
-
-[node name="Animation" type="AnimatedSprite2D"]
-position = Vector2(32, 32)

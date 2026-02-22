@@ -1,209 +1,110 @@
 @tool
-extends HBoxContainer
-## Layout Manager for Visual Gasic
+extends Node
+## VB6 Layout Manager for VisualGasic
 ##
-## Provides a toggle between the standard Godot editor layout and a
-## Visual Gasic layout matching the classic Visual Basic 6 IDE.
-
-# =============================================================================
-# SIGNALS
-# =============================================================================
+## Two completely separate modes:
+##
+##   GODOT MODE (default):
+##     - Standard Godot docks only (Scene, Inspector, FileSystem, etc.)
+##     - ZERO VG panels in docks — clean Godot experience
+##     - Panels are hidden children of plugin node (not docked)
+##
+##   VB6 MODE (toggled via Project > Tools > Toggle VG IDE Layout):
+##     - VG panels dynamically ADDED to Godot docks:
+##       Toolbox (left), Properties (right-bottom), Project Explorer (right-upper)
+##     - Panels are real dock tabs — fully resizable by Godot's dock system
+##     - Persist across VB6 tab ↔ 2D tab switching (for form design)
+##     - Toggle again to cleanly REMOVE them from docks
+##
+## The key: panels are added/removed from docks via
+##   editor_plugin.dock_vg_panels() / editor_plugin.undock_vg_panels()
+## NOT via visible=true/false (which leaves empty dock slots).
 
 signal layout_changed(is_vb6_mode: bool)
 
-# =============================================================================
-# CONSTANTS
-# =============================================================================
-
 const SETTING_KEY := "visual_gasic/layout/vb6_mode"
 
-# =============================================================================
-# MEMBER VARIABLES
-# =============================================================================
-
 var editor_plugin: EditorPlugin
-var _toggle_btn: Button
 var _vb6_mode: bool = false
+var _main_screen: Control = null
+## Guard flag: true while we're calling set_main_screen_editor internally,
+## so the plugin's main_screen_changed handler won't re-trigger deactivation.
+var switching_internally: bool = false
 
-var _toolbox: Control = null
-var _project_explorer: Control = null
-var _properties_inspector: Control = null
+# Extra toolbars to hide/show with mode
+var _compact_toolbars: Array = []
 
-var _toolbox_docked: bool = false
-var _project_explorer_docked: bool = false
-var _properties_docked: bool = false
-
-var _hidden_godot_tabs: Array = []
-
-# =============================================================================
-# INITIALIZATION
-# =============================================================================
-
-func _init():
-	name = "VGLayoutToggle"
-	custom_minimum_size = Vector2(0, 0)
-	size_flags_horizontal = SIZE_SHRINK_CENTER
-	add_child(VSeparator.new())
-	_toggle_btn = Button.new()
-	_toggle_btn.text = "  Visual Gasic IDE  "
-	_toggle_btn.tooltip_text = "Switch to Visual Gasic IDE layout"
-	_toggle_btn.toggle_mode = true
-	_toggle_btn.flat = false
-	_toggle_btn.custom_minimum_size = Vector2(130, 0)
-	_toggle_btn.toggled.connect(_on_toggle)
-	add_child(_toggle_btn)
-	add_child(VSeparator.new())
-
-func setup(plugin: EditorPlugin, toolbox_control: Control = null, project_explorer: Control = null, properties_inspector: Control = null):
+func setup(plugin: EditorPlugin, _toolbox: Control = null, _proj_explorer: Control = null, _props_inspector: Control = null, compact_toolbars: Array = []):
 	editor_plugin = plugin
-	_toolbox = toolbox_control
-	_project_explorer = project_explorer
-	_properties_inspector = properties_inspector
+	_compact_toolbars = compact_toolbars
+	# Check if VB6 mode was saved from last session
 	if ProjectSettings.has_setting(SETTING_KEY):
 		var saved = ProjectSettings.get_setting(SETTING_KEY)
 		if saved is bool and saved:
-			call_deferred("_activate_vb6_mode")
+			_vb6_mode = true
+
+func set_main_screen(main_screen: Control):
+	_main_screen = main_screen
 
 func cleanup():
-	_undock_vb6_panels()
+	# Undock panels + toolbars before plugin exits (so cleanup can free them)
+	if _vb6_mode and editor_plugin and is_instance_valid(editor_plugin):
+		editor_plugin.undock_vg_panels()
+		editor_plugin.undock_vg_toolbars()
 
-# =============================================================================
-# TOGGLE
-# =============================================================================
+# === LAYOUT PERSISTENCE ===
 
-func _on_toggle(pressed: bool):
-	if pressed:
-		_activate_vb6_mode()
-	else:
+func on_window_layout_restored(config: ConfigFile):
+	if _main_screen and is_instance_valid(_main_screen) and _main_screen.has_method("restore_layout"):
+		_main_screen.restore_layout(config)
+	# Restore VB6 mode if it was active last session
+	if _vb6_mode:
+		call_deferred("_activate_vb6_mode")
+
+func on_window_layout_saving(config: ConfigFile):
+	config.set_value("VisualGasic", "vb6_mode", _vb6_mode)
+	if _main_screen and is_instance_valid(_main_screen) and _main_screen.has_method("save_layout"):
+		_main_screen.save_layout(config)
+
+# === MODE TOGGLE ===
+
+func toggle():
+	if _vb6_mode:
 		_deactivate_vb6_mode()
+	else:
+		_activate_vb6_mode()
 
 func _activate_vb6_mode():
-	if _vb6_mode:
-		return
 	_vb6_mode = true
-	_toggle_btn.button_pressed = true
-	_toggle_btn.text = "  Godot IDE  "
-	_toggle_btn.tooltip_text = "Switch back to standard Godot editor layout"
 	ProjectSettings.set_setting(SETTING_KEY, true)
-	_dock_vb6_panels()
+	# Add VG panels to Godot docks + toolbars to 2D canvas bar
+	if editor_plugin and is_instance_valid(editor_plugin):
+		editor_plugin.dock_vg_panels()
+		editor_plugin.dock_vg_toolbars()
+	# Do NOT switch the main screen here. The user is already on
+	# Form Designer (which triggered this). Switching to 2D would hide
+	# the Form Designer and cascade back to _make_visible(false).
 	layout_changed.emit(true)
-	print("VisualGasic: Switched to Visual Gasic IDE layout")
+	print("VisualGasic: VB6 mode ON — panels docked, toolbars visible")
 
 func _deactivate_vb6_mode():
 	if not _vb6_mode:
 		return
 	_vb6_mode = false
-	_toggle_btn.button_pressed = false
-	_toggle_btn.text = "  Visual Gasic IDE  "
-	_toggle_btn.tooltip_text = "Switch to Visual Gasic IDE layout"
 	ProjectSettings.set_setting(SETTING_KEY, false)
-	_undock_vb6_panels()
+	# Remove VG panels from docks + toolbars from 2D bar (clean Godot mode)
+	if editor_plugin and is_instance_valid(editor_plugin):
+		editor_plugin.undock_vg_panels()
+		editor_plugin.undock_vg_toolbars()
+	# Don't call set_main_screen_editor here — the user is already switching
+	# to another screen, or we're being called from the plugin's handler.
 	layout_changed.emit(false)
-	print("VisualGasic: Restored Godot editor layout")
+	print("VisualGasic: VB6 mode OFF — docks cleaned")
 
-# =============================================================================
-# DOCK MANAGEMENT
-# =============================================================================
-
-func _dock_vb6_panels():
-	if not editor_plugin:
-		return
-	if _toolbox and is_instance_valid(_toolbox) and not _toolbox_docked:
-		editor_plugin.add_control_to_dock(EditorPlugin.DOCK_SLOT_LEFT_BL, _toolbox)
-		_toolbox_docked = true
-	if _toolbox and is_instance_valid(_toolbox):
-		_toolbox.visible = true
-	if _project_explorer and is_instance_valid(_project_explorer) and not _project_explorer_docked:
-		editor_plugin.add_control_to_dock(EditorPlugin.DOCK_SLOT_RIGHT_UL, _project_explorer)
-		_project_explorer_docked = true
-	if _project_explorer and is_instance_valid(_project_explorer):
-		_project_explorer.visible = true
-		if _project_explorer.has_method("refresh"):
-			_project_explorer.call_deferred("refresh")
-		call_deferred("_select_tab_for", _project_explorer)
-	if _properties_inspector and is_instance_valid(_properties_inspector) and not _properties_docked:
-		editor_plugin.add_control_to_dock(EditorPlugin.DOCK_SLOT_RIGHT_BL, _properties_inspector)
-		_properties_docked = true
-	if _properties_inspector and is_instance_valid(_properties_inspector):
-		_properties_inspector.visible = true
-	_hide_godot_docks()
-
-func _undock_vb6_panels():
-	if not editor_plugin:
-		return
-	_show_godot_docks()
-	if _toolbox_docked and _toolbox and is_instance_valid(_toolbox):
-		editor_plugin.remove_control_from_docks(_toolbox)
-		_toolbox.visible = false
-		_toolbox_docked = false
-	if _project_explorer_docked and _project_explorer and is_instance_valid(_project_explorer):
-		editor_plugin.remove_control_from_docks(_project_explorer)
-		_project_explorer.visible = false
-		_project_explorer_docked = false
-	if _properties_docked and _properties_inspector and is_instance_valid(_properties_inspector):
-		editor_plugin.remove_control_from_docks(_properties_inspector)
-		_properties_inspector.visible = false
-		_properties_docked = false
-
-# =============================================================================
-# GODOT DOCK VISIBILITY
-# =============================================================================
-
-func _hide_godot_docks():
-	_hidden_godot_tabs.clear()
-	var base = EditorInterface.get_base_control()
-	if not base:
-		return
-	var fs_dock = EditorInterface.get_file_system_dock()
-	var hide_titles := ["Scene", "Import", "FileSystem"]
-	var hide_classes := ["SceneTreeDock", "ImportDock", "FileSystemDock"]
-	for tc_node in base.find_children("*", "TabContainer", true, false):
-		var tc = tc_node as TabContainer
-		if not tc:
-			continue
-		for i in tc.get_tab_count():
-			if tc.is_tab_hidden(i):
-				continue
-			var child = tc.get_tab_control(i)
-			if not child:
-				continue
-			var title = tc.get_tab_title(i)
-			var should_hide = title in hide_titles
-			if not should_hide:
-				should_hide = child.get_class() in hide_classes
-			if not should_hide and fs_dock and child == fs_dock:
-				should_hide = true
-			if should_hide:
-				tc.set_tab_hidden(i, true)
-				_hidden_godot_tabs.append({"container": tc, "control": child})
-
-func _show_godot_docks():
-	for tab_info in _hidden_godot_tabs:
-		var tc = tab_info["container"] as TabContainer
-		var ctrl = tab_info["control"] as Control
-		if is_instance_valid(tc) and is_instance_valid(ctrl):
-			var idx = tc.get_tab_idx_from_control(ctrl)
-			if idx >= 0:
-				tc.set_tab_hidden(idx, false)
-	_hidden_godot_tabs.clear()
-
-# =============================================================================
-# TAB SELECTION
-# =============================================================================
-
-func _select_tab_for(control: Control):
-	if not is_instance_valid(control):
-		return
-	var parent = control.get_parent()
-	if parent is TabContainer:
-		var tc := parent as TabContainer
-		var idx = tc.get_tab_idx_from_control(control)
-		if idx >= 0:
-			tc.current_tab = idx
-
-# =============================================================================
-# STATE QUERY
-# =============================================================================
+# === TOOLBAR MANAGEMENT ===
+# Toolbars are now dynamically added/removed from the 2D canvas editor menu
+# via editor_plugin.dock_vg_toolbars() / editor_plugin.undock_vg_toolbars()
+# (same pattern as dock panels — visible=false still reserves layout space)
 
 func is_vb6_mode() -> bool:
 	return _vb6_mode

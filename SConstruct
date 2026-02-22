@@ -21,16 +21,9 @@ if ARGUMENTS.get("asan", "0") == "1":
 env.Append(CPPPATH=["src"])
 sources = Glob("src/*.cpp")
 
-# Exclude problematic files that need additional work
+# Exclude files that should not be compiled
 exclude_files = [
-    "src/visual_gasic_lsp.cpp",  # Custom Position type needs Godot binding work
-    # JIT, performance, and REPL modules are now fixed and included
-]
-# Also exclude old backup files
-exclude_files += [
-    "src/visual_gasic_jit_old.cpp",
-    "src/visual_gasic_repl_old.cpp", 
-    "src/visual_gasic_performance_old.cpp",
+    "src/visual_gasic_lsp.cpp",  # LSP needs binding rework for LspPosition type (v3.0)
 ]
 sources = [s for s in sources if str(s) not in exclude_files]
 

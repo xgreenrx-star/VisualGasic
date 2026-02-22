@@ -1,5 +1,0 @@
-[gd_scene format=3]
-
-[node name="Timer" type="Timer"]
-wait_time = 1.0
-one_shot = false

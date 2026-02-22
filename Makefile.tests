@@ -1,6 +1,6 @@
 # VisualGasic bytecode regression harness
 
-GODOT_BIN           ?= ./Godot_v4.5.1-stable_linux.x86_64
+GODOT_BIN           ?= ./Godot_v4.6.1-stable_linux.x86_64
 GODOT_PROJECT_DIR   ?= demo
 GODOT_TEST_SCRIPT   ?= run_bytecode_tests.gd
 GODOT_BENCH_SCRIPT  ?= run_benchmarks.gd

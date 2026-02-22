@@ -1,8 +1,0 @@
-[gd_scene format=3]
-
-[node name="ProgressBar" type="ProgressBar"]
-custom_minimum_size = Vector2(150, 20)
-offset_right = 150.0
-offset_bottom = 20.0
-value = 50.0
-show_percentage = true

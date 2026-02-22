@@ -16,7 +16,6 @@ var new_name_for_rename: String = ""
 # When editing controls on the C++ FormDesigner canvas (not scene-tree nodes),
 # we store the designer reference and the selected control index.
 var _fd_mode: bool = false          # true = showing FormDesigner control props
-var _fd_form_mode: bool = false     # true = showing form-level (not control) props
 var _fd_designer = null             # Reference to VisualGasicFormDesigner instance
 var _fd_control_index: int = -1     # Index of the control in the designer
 
@@ -280,7 +279,6 @@ func _on_selection_changed():
 func clear_properties():
 	current_node = null
 	_fd_mode = false
-	_fd_form_mode = false
 	_fd_designer = null
 	_fd_control_index = -1
 	_property_entries.clear()
@@ -298,7 +296,6 @@ func clear_properties():
 ## FormDesigner.get_control_info(index).
 func show_control_properties(info: Dictionary, designer = null, ctrl_index: int = -1) -> void:
 	_fd_mode = true
-	_fd_form_mode = false
 	_fd_designer = designer
 	_fd_control_index = ctrl_index
 	current_node = null  # Not a scene-tree node
@@ -442,73 +439,6 @@ func _fd_color_from_props(props: Dictionary, key: String, default: Color) -> Col
 		if v is String and not v.is_empty():
 			return Color(v)
 	return default
-
-# ==========================================================================
-# Form Designer Mode — shows FORM-LEVEL properties (VB6 style)
-# ==========================================================================
-
-## Called when user clicks the form background (no control selected).
-## Displays VB6 form properties like Caption, BorderStyle, ControlBox, etc.
-func show_form_properties(designer) -> void:
-	_fd_mode = true
-	_fd_form_mode = true
-	_fd_designer = designer
-	_fd_control_index = -1
-	current_node = null
-	_property_entries.clear()
-	for c in property_grid.get_children():
-		c.queue_free()
-	_description_label.text = ""
-
-	# Get all form properties from C++
-	var props: Dictionary = designer.get_form_properties()
-	var form_name: String = props.get("(Name)", "Form1")
-
-	# Object dropdown — show "<Name>  Form"
-	_object_dropdown.clear()
-	_object_dropdown.add_item(form_name + "  Form")
-
-	# ===== (Name) — always first =====
-	_property_entries.append({"label": "(Name)", "value": form_name, "prop_key": "Caption", "type": "string", "category": ""})
-
-	# ===== Appearance Properties =====
-	_property_entries.append({"label": "Caption", "value": form_name, "prop_key": "Caption", "type": "string", "category": CATEGORY_APPEARANCE})
-
-	var border_style: int = int(props.get("BorderStyle", 2))
-	_property_entries.append({"label": "BorderStyle", "value": border_style, "prop_key": "BorderStyle", "type": "fd_enum_form_borderstyle", "category": CATEGORY_APPEARANCE})
-
-	_property_entries.append({"label": "BackColor", "value": props.get("BackColor", Color(0.753, 0.753, 0.753)), "prop_key": "BackColor", "type": "color", "category": CATEGORY_APPEARANCE})
-	_property_entries.append({"label": "ForeColor", "value": props.get("ForeColor", Color.BLACK), "prop_key": "ForeColor", "type": "color", "category": CATEGORY_APPEARANCE})
-
-	# ===== Behavior Properties =====
-	_property_entries.append({"label": "ControlBox", "value": bool(props.get("ControlBox", true)), "prop_key": "ControlBox", "type": "bool", "category": CATEGORY_BEHAVIOR})
-	_property_entries.append({"label": "MinButton", "value": bool(props.get("MinButton", true)), "prop_key": "MinButton", "type": "bool", "category": CATEGORY_BEHAVIOR})
-	_property_entries.append({"label": "MaxButton", "value": bool(props.get("MaxButton", true)), "prop_key": "MaxButton", "type": "bool", "category": CATEGORY_BEHAVIOR})
-	_property_entries.append({"label": "Moveable", "value": bool(props.get("Moveable", true)), "prop_key": "Moveable", "type": "bool", "category": CATEGORY_BEHAVIOR})
-	_property_entries.append({"label": "ShowInTaskbar", "value": bool(props.get("ShowInTaskbar", true)), "prop_key": "ShowInTaskbar", "type": "bool", "category": CATEGORY_BEHAVIOR})
-	_property_entries.append({"label": "KeyPreview", "value": bool(props.get("KeyPreview", false)), "prop_key": "KeyPreview", "type": "bool", "category": CATEGORY_BEHAVIOR})
-	_property_entries.append({"label": "AutoRedraw", "value": bool(props.get("AutoRedraw", true)), "prop_key": "AutoRedraw", "type": "bool", "category": CATEGORY_BEHAVIOR})
-
-	var ws: int = int(props.get("WindowState", 0))
-	_property_entries.append({"label": "WindowState", "value": ws, "prop_key": "WindowState", "type": "fd_enum_windowstate", "category": CATEGORY_BEHAVIOR})
-
-	var sp: int = int(props.get("StartUpPosition", 2))
-	_property_entries.append({"label": "StartUpPosition", "value": sp, "prop_key": "StartUpPosition", "type": "fd_enum_startposition", "category": CATEGORY_BEHAVIOR})
-
-	# ===== Position Properties =====
-	_property_entries.append({"label": "Width", "value": int(props.get("Width", 600)), "prop_key": "Width", "type": "number", "category": CATEGORY_POSITION})
-	_property_entries.append({"label": "Height", "value": int(props.get("Height", 400)), "prop_key": "Height", "type": "number", "category": CATEGORY_POSITION})
-
-	# ===== Misc Properties =====
-	var wt: int = int(props.get("WindowType", 0))
-	_property_entries.append({"label": "WindowType", "value": wt, "prop_key": "WindowType", "type": "fd_enum_windowtype", "category": CATEGORY_MISC})
-	_property_entries.append({"label": "Icon", "value": str(props.get("Icon", "")), "prop_key": "Icon", "type": "string", "category": CATEGORY_MISC})
-
-	# Render based on view mode
-	if _view_mode == 0:
-		_render_alphabetic()
-	else:
-		_render_categorized()
 
 # === Description Area ===
 
@@ -712,17 +642,6 @@ func _render_property_entry(entry: Dictionary):
 				"7 - Size NWSE", "8 - Size WE", "9 - Up Arrow",
 				"10 - Hourglass", "11 - No Drop", "12 - Hand"
 			])
-		"fd_enum_form_borderstyle":
-			_add_fd_enum_row(label_text, prop_key, value, [
-				"0 - None", "1 - Fixed Single", "2 - Sizable",
-				"3 - Fixed Dialog", "4 - Fixed ToolWindow", "5 - Sizable ToolWindow"
-			])
-		"fd_enum_windowstate":
-			_add_fd_enum_row(label_text, prop_key, value, ["0 - Normal", "1 - Minimized", "2 - Maximized"])
-		"fd_enum_startposition":
-			_add_fd_enum_row(label_text, prop_key, value, ["0 - Manual", "1 - CenterOwner", "2 - CenterScreen", "3 - Windows Default"])
-		"fd_enum_windowtype":
-			_add_fd_enum_row(label_text, prop_key, value, ["0 - Game (SubViewport)", "1 - Windows", "2 - Linux/CSD", "3 - macOS"])
 		_:
 			_add_prop_row(label_text, value, prop_key)
 
@@ -1140,26 +1059,13 @@ func _apply_prop(prop_key: String, value):
 # Form Designer property application
 # ==========================================================================
 
-## Routes a property change to the C++ FormDesigner.
-## In form mode (_fd_form_mode), uses set_form_property().
-## In control mode, uses set_control_property().
+## Routes a property change to the C++ FormDesigner.set_control_property().
+## The C++ side handles "name", "text", "x", "y", "width", "height",
+## "visible" as first-class fields; everything else goes into the generic
+## properties Dictionary.
 func _apply_fd_prop(prop_key: String, value) -> void:
-	if not is_instance_valid(_fd_designer):
-		push_warning("VisualGasic Inspector: No FormDesigner for property change")
-		return
-
-	# Form-level properties go through set_form_property
-	if _fd_form_mode:
-		_fd_designer.set_form_property(prop_key, value)
-		print("VisualGasic Inspector: Set form property '", prop_key, "' = ", value)
-		# Don't rebuild the grid — the C++ side already redraws the form.
-		# Only refresh for Caption changes (which also update the (Name) display).
-		if prop_key == "Caption":
-			call_deferred("show_form_properties", _fd_designer)
-		return
-
-	if _fd_control_index < 0:
-		push_warning("VisualGasic Inspector: No control index for property change")
+	if not is_instance_valid(_fd_designer) or _fd_control_index < 0:
+		push_warning("VisualGasic Inspector: No FormDesigner or control index for property change")
 		return
 
 	# Map VB6-style property keys to what the C++ set_control_property expects

@@ -58,5 +58,8 @@ tests/integration_test_*.xml
 bytecode_dump*.json
 bytecode_diff*.txt
 
+# Release archives — artifacts live on GitHub Releases, not in-tree
+release/
+
 # External test repos
 Semi-VB-Decompiler/

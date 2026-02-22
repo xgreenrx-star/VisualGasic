@@ -74,23 +74,13 @@ func _drop_data(at_position: Vector2, data) -> void:
 		return
 	
 	# Add to form root (NOT to _FormBackground)
-	form_root.add_child(instance, true)  # force_readable_name
+	form_root.add_child(instance)
 	instance.owner = form_root
 	
 	# Position at drop location, snapped to grid
 	if instance is Control:
 		var snapped_pos = snap_to_grid(at_position)
 		instance.position = snapped_pos
-	
-	# Set button/label text to match the node name
-	var control_name = scene_path.get_file().get_basename()
-	if control_name in ["Button", "Label", "CheckBox", "OptionButton"] and "text" in instance:
-		instance.text = instance.name
-	
-	# CRITICAL: Remove the drag meta so _process() doesn't ALSO fire
-	# _handle_vg_drop_delayed, which would create a duplicate control
-	if Engine.has_meta("_vg_active_drag"):
-		Engine.remove_meta("_vg_active_drag")
 	
 	print("VisualGasic: Dropped ", instance.name, " at ", at_position)
 	

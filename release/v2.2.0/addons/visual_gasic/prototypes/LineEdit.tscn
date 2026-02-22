@@ -1,9 +1,0 @@
-[gd_scene format=3]
-
-[node name="LineEdit" type="LineEdit"]
-custom_minimum_size = Vector2(100, 24)
-offset_right = 100.0
-offset_bottom = 24.0
-focus_mode = 2
-placeholder_text = ""
-max_length = 0
