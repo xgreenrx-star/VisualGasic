@@ -1,0 +1,275 @@
+' demo_collections.vg — Collections, Arrays, and Dictionaries
+' Demonstrates dynamic arrays, ReDim, Dictionary, For Each, sorting
+
+Sub Main()
+    Print "=== Collections Demo ==="
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 1. Static Arrays
+    ' ---------------------------------------------------------------
+    Print "--- Static Arrays ---"
+
+    Dim scores(4) As Integer
+    scores(0) = 95
+    scores(1) = 87
+    scores(2) = 92
+    scores(3) = 78
+    scores(4) = 88
+
+    Dim i As Integer
+    Print "Scores:"
+    For i = 0 To 4
+        Print "  [" & CStr(i) & "] " & CStr(scores(i))
+    Next i
+
+    ' LBound / UBound
+    Print "LBound: " & CStr(LBound(scores))
+    Print "UBound: " & CStr(UBound(scores))
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 2. Dynamic Arrays with ReDim
+    ' ---------------------------------------------------------------
+    Print "--- Dynamic Arrays (ReDim) ---"
+
+    Dim names() As String
+    ReDim names(2)
+    names(0) = "Alice"
+    names(1) = "Bob"
+    names(2) = "Charlie"
+
+    Print "Before ReDim Preserve: " & CStr(UBound(names) + 1) & " items"
+
+    ' Grow the array while keeping existing data
+    ReDim Preserve names(4)
+    names(3) = "Diana"
+    names(4) = "Eve"
+
+    Print "After ReDim Preserve: " & CStr(UBound(names) + 1) & " items"
+    For i = 0 To UBound(names)
+        Print "  [" & CStr(i) & "] " & names(i)
+    Next i
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 3. Array() Function
+    ' ---------------------------------------------------------------
+    Print "--- Array() Function ---"
+
+    Dim colors As Array
+    colors = Array("Red", "Green", "Blue", "Yellow", "Purple")
+
+    Print "Colors: " & Join(colors, ", ")
+    Print "Count:  " & CStr(UBound(colors) + 1)
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 4. For Each Loop
+    ' ---------------------------------------------------------------
+    Print "--- For Each ---"
+
+    Dim total As Integer
+    total = 0
+
+    Dim numbers As Array
+    numbers = Array(10, 20, 30, 40, 50)
+
+    Dim n As Variant
+    For Each n In numbers
+        total = total + n
+    Next n
+
+    Print "Numbers: " & Join(numbers, " + ")
+    Print "Sum:     " & CStr(total)
+    Print "Average: " & Format(CDbl(total) / (UBound(numbers) + 1), "Fixed")
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 5. Dictionary (Scripting.Dictionary Style)
+    ' ---------------------------------------------------------------
+    Print "--- Dictionary ---"
+
+    Dim playerStats As Object
+    Set playerStats = CreateObject("Dictionary")
+
+    ' Add key-value pairs
+    playerStats.Add "health", 100
+    playerStats.Add "mana", 50
+    playerStats.Add "strength", 18
+    playerStats.Add "agility", 14
+    playerStats.Add "level", 5
+
+    Print "Player Stats:"
+    Dim keys As Array
+    keys = playerStats.Keys()
+    For i = 0 To UBound(keys)
+        Print "  " & PadRight(keys(i), 12) & " = " & CStr(playerStats(keys(i)))
+    Next i
+
+    Print "Count:    " & CStr(playerStats.Count)
+    Print "Exists 'health': " & CStr(playerStats.Exists("health"))
+    Print "Exists 'luck':   " & CStr(playerStats.Exists("luck"))
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 6. Dictionary — Update and Remove
+    ' ---------------------------------------------------------------
+    Print "--- Dictionary Update/Remove ---"
+
+    ' Update
+    playerStats("health") = 85
+    playerStats("mana") = 35
+    Print "After combat: health=" & CStr(playerStats("health")) & ", mana=" & CStr(playerStats("mana"))
+
+    ' Remove
+    playerStats.Remove "agility"
+    Print "Removed 'agility', Count: " & CStr(playerStats.Count)
+
+    ' Add new
+    playerStats.Add "armor", 25
+    Print "Added 'armor', Count: " & CStr(playerStats.Count)
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 7. Nested Collections — Inventory System
+    ' ---------------------------------------------------------------
+    Print "--- Nested Collections: Inventory ---"
+
+    ' Create items as dictionaries
+    Dim sword As Object
+    Set sword = CreateObject("Dictionary")
+    sword.Add "name", "Iron Sword"
+    sword.Add "type", "weapon"
+    sword.Add "damage", 15
+    sword.Add "weight", 3.5
+
+    Dim shield As Object
+    Set shield = CreateObject("Dictionary")
+    shield.Add "name", "Oak Shield"
+    shield.Add "type", "armor"
+    shield.Add "defense", 10
+    shield.Add "weight", 5.0
+
+    Dim potion As Object
+    Set potion = CreateObject("Dictionary")
+    potion.Add "name", "Health Potion"
+    potion.Add "type", "consumable"
+    potion.Add "healing", 50
+    potion.Add "weight", 0.5
+
+    ' Store in an array
+    Dim inventory As Array
+    inventory = Array(sword, shield, potion)
+
+    Print "Inventory (" & CStr(UBound(inventory) + 1) & " items):"
+    Dim item As Variant
+    For Each item In inventory
+        Print "  " & item("name") & " [" & item("type") & "] weight=" & CStr(item("weight"))
+    Next item
+
+    ' Calculate total weight
+    Dim totalWeight As Double
+    For Each item In inventory
+        totalWeight = totalWeight + CDbl(item("weight"))
+    Next item
+    Print "Total weight: " & Format(totalWeight, "Fixed")
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 8. Array Search
+    ' ---------------------------------------------------------------
+    Print "--- Array Search ---"
+
+    Dim cities As Array
+    cities = Array("New York", "London", "Tokyo", "Paris", "Berlin", "Sydney")
+
+    ' Linear search
+    Dim target As String
+    target = "Tokyo"
+    Dim found As Boolean
+    Dim foundIdx As Integer
+    foundIdx = -1
+    For i = 0 To UBound(cities)
+        If cities(i) = target Then
+            found = True
+            foundIdx = i
+            Exit For
+        End If
+    Next i
+
+    If found Then
+        Print "Found '" & target & "' at index " & CStr(foundIdx)
+    Else
+        Print "'" & target & "' not found"
+    End If
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 9. Array Filter
+    ' ---------------------------------------------------------------
+    Print "--- Array Filter ---"
+
+    Dim allScores As Array
+    allScores = Array(95, 42, 87, 63, 91, 55, 78, 99, 31, 88)
+
+    ' Filter passing scores (>= 70)
+    Dim passing() As Integer
+    Dim passCount As Integer
+    passCount = 0
+
+    For i = 0 To UBound(allScores)
+        If allScores(i) >= 70 Then
+            ReDim Preserve passing(passCount)
+            passing(passCount) = allScores(i)
+            passCount = passCount + 1
+        End If
+    Next i
+
+    Print "All scores:     " & CStr(UBound(allScores) + 1)
+    Print "Passing (>=70): " & CStr(passCount)
+    For i = 0 To passCount - 1
+        Print "  " & CStr(passing(i))
+    Next i
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 10. Practical: Frequency Counter
+    ' ---------------------------------------------------------------
+    Print "--- Practical: Frequency Counter ---"
+
+    Dim rolls As Array
+    rolls = Array(3, 6, 2, 4, 6, 1, 3, 5, 6, 2, 4, 3, 1, 6, 5, 2, 3, 4, 6, 1)
+
+    Dim freq As Object
+    Set freq = CreateObject("Dictionary")
+
+    Dim roll As Variant
+    For Each roll In rolls
+        Dim key As String
+        key = CStr(roll)
+        If freq.Exists(key) Then
+            freq(key) = freq(key) + 1
+        Else
+            freq.Add key, 1
+        End If
+    Next roll
+
+    Print "Dice rolls (" & CStr(UBound(rolls) + 1) & " total):"
+    Dim face As Integer
+    For face = 1 To 6
+        Dim count As Integer
+        Dim bar As String
+        key = CStr(face)
+        If freq.Exists(key) Then
+            count = freq(key)
+        Else
+            count = 0
+        End If
+        bar = String(count, "#")
+        Print "  " & key & ": " & PadLeft(CStr(count), 2) & " " & bar
+    Next face
+    Print ""
+
+    Print "=== Collections Demo Complete ==="
+End Sub

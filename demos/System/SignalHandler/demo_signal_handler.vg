@@ -1,0 +1,136 @@
+' demo_signal_handler.vg — OS Signal Handling
+' Demonstrates VGSignalHandler: SIGINT, SIGTERM, atexit callbacks, custom signals
+
+Sub Main()
+    Print "=== Signal Handler Demo ==="
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 1. Creating a Signal Handler
+    ' ---------------------------------------------------------------
+    Print "--- Creating Signal Handler ---"
+
+    Dim sh As New VGSignalHandler
+    Print "Signal handler created"
+    Print "Installed: " & CStr(sh.IsInstalled)
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 2. Registering Interrupt Handler (Ctrl+C / SIGINT)
+    ' ---------------------------------------------------------------
+    Print "--- Registering SIGINT Handler ---"
+
+    ' OnInterrupt registers a callback for Ctrl+C
+    sh.OnInterrupt Callable(Me, "HandleInterrupt")
+    Print "SIGINT handler registered"
+    Print "Has SIGINT handler: " & CStr(sh.HasHandler("SIGINT"))
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 3. Registering Termination Handler (SIGTERM)
+    ' ---------------------------------------------------------------
+    Print "--- Registering SIGTERM Handler ---"
+
+    sh.OnTerminate Callable(Me, "HandleTerminate")
+    Print "SIGTERM handler registered"
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 4. Registering Exit Handler (atexit)
+    ' ---------------------------------------------------------------
+    Print "--- Registering Exit Handler ---"
+
+    ' OnExit fires when the process exits normally
+    sh.OnExit Callable(Me, "HandleExit")
+    Print "Exit handler registered"
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 5. Registering Custom Signal Handlers
+    ' ---------------------------------------------------------------
+    Print "--- Custom Signal Handlers ---"
+
+    ' SIGUSR1 and SIGUSR2 are user-defined signals (Linux)
+    sh.OnUser1 Callable(Me, "HandleUser1")
+    sh.OnUser2 Callable(Me, "HandleUser2")
+
+    ' You can also use SetHandler with a signal name string
+    sh.SetHandler "SIGHUP", Callable(Me, "HandleHangup")
+
+    Print "Registered signals:"
+    Dim signals As Array
+    signals = sh.GetRegisteredSignals()
+    Dim i As Integer
+    For i = 0 To UBound(signals)
+        Print "  - " & signals(i)
+    Next i
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 6. Testing Signal Dispatch
+    ' ---------------------------------------------------------------
+    Print "--- Testing Signal Dispatch ---"
+
+    ' Raise simulates receiving a signal — useful for testing
+    Print "Raising SIGUSR1..."
+    sh.Raise "SIGUSR1"
+    sh.Dispatch
+
+    Print "Raising SIGUSR2..."
+    sh.Raise "SIGUSR2"
+    sh.Dispatch
+
+    Print ""
+    Print "Last signal received: " & sh.LastSignal
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 7. Removing Handlers
+    ' ---------------------------------------------------------------
+    Print "--- Removing Handlers ---"
+
+    sh.RemoveHandler "SIGUSR1"
+    Print "Removed SIGUSR1 handler"
+    Print "Has SIGUSR1: " & CStr(sh.HasHandler("SIGUSR1"))
+    Print "Has SIGINT:  " & CStr(sh.HasHandler("SIGINT"))
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 8. Graceful Shutdown Pattern
+    ' ---------------------------------------------------------------
+    Print "--- Graceful Shutdown Pattern ---"
+    Print "In a real application, you would:"
+    Print "  1. Register SIGINT to set a 'shutting_down' flag"
+    Print "  2. Register OnExit to save state and close files"
+    Print "  3. Check the flag in your main loop"
+    Print "  4. Clean up resources when the flag is set"
+    Print ""
+
+    Print "=== Signal Handler Demo Complete ==="
+End Sub
+
+' --- Callback Subs ---
+
+Sub HandleInterrupt()
+    Print "  [HANDLER] Caught SIGINT (Ctrl+C) — cleaning up..."
+End Sub
+
+Sub HandleTerminate()
+    Print "  [HANDLER] Caught SIGTERM — saving state..."
+End Sub
+
+Sub HandleExit()
+    Print "  [HANDLER] Process exiting — goodbye!"
+End Sub
+
+Sub HandleHangup()
+    Print "  [HANDLER] Caught SIGHUP — reloading config..."
+End Sub
+
+Sub HandleUser1()
+    Print "  [HANDLER] Caught SIGUSR1 — custom action 1"
+End Sub
+
+Sub HandleUser2()
+    Print "  [HANDLER] Caught SIGUSR2 — custom action 2"
+End Sub

@@ -1,0 +1,177 @@
+' demo_gpu.vg — GPU Computing and SIMD Operations
+' Demonstrates VisualGasicGPU: parallel ops, SIMD, compute patterns
+
+Sub Main()
+    Print "=== GPU Computing Demo ==="
+    Print ""
+
+    Dim gpu As New VisualGasicGPU
+
+    ' ---------------------------------------------------------------
+    ' 1. Check GPU Availability
+    ' ---------------------------------------------------------------
+    Print "--- GPU Info ---"
+
+    Print "GPU Available: " & CStr(gpu.IsAvailable())
+    Print "Backend:       " & gpu.GetBackend()
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 2. SIMD Vector Add
+    ' ---------------------------------------------------------------
+    Print "--- SIMD Vector Add ---"
+
+    Dim a As Array
+    Dim b As Array
+    a = Array(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0)
+    b = Array(10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0)
+
+    Dim sumResult As Array
+    sumResult = gpu.VectorAdd(a, b)
+
+    Print "A:      " & Join(a, ", ")
+    Print "B:      " & Join(b, ", ")
+    Print "A + B:  " & Join(sumResult, ", ")
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 3. SIMD Vector Multiply
+    ' ---------------------------------------------------------------
+    Print "--- SIMD Vector Multiply ---"
+
+    Dim mulResult As Array
+    mulResult = gpu.VectorMul(a, b)
+
+    Print "A * B:  " & Join(mulResult, ", ")
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 4. Dot Product
+    ' ---------------------------------------------------------------
+    Print "--- Dot Product ---"
+
+    Dim v1 As Array
+    Dim v2 As Array
+    v1 = Array(1.0, 2.0, 3.0)
+    v2 = Array(4.0, 5.0, 6.0)
+
+    Dim dot As Double
+    dot = gpu.DotProduct(v1, v2)
+
+    Print "v1:           " & Join(v1, ", ")
+    Print "v2:           " & Join(v2, ", ")
+    Print "Dot product:  " & CStr(dot)
+    Print "Expected:     32  (1*4 + 2*5 + 3*6)"
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 5. Scalar Operations
+    ' ---------------------------------------------------------------
+    Print "--- Scalar Operations ---"
+
+    Dim data As Array
+    data = Array(10.0, 20.0, 30.0, 40.0, 50.0)
+
+    Dim scaled As Array
+    scaled = gpu.VectorScale(data, 2.5)
+
+    Print "Data:       " & Join(data, ", ")
+    Print "Scale 2.5x: " & Join(scaled, ", ")
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 6. Parallel Map
+    ' ---------------------------------------------------------------
+    Print "--- Parallel Map ---"
+
+    Dim values As Array
+    values = Array(1.0, 4.0, 9.0, 16.0, 25.0, 36.0)
+
+    Dim sqrtResult As Array
+    sqrtResult = gpu.ParallelMap(values, "sqrt")
+
+    Print "Values:   " & Join(values, ", ")
+    Print "Sqrt:     " & Join(sqrtResult, ", ")
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 7. Parallel Reduce (Sum)
+    ' ---------------------------------------------------------------
+    Print "--- Parallel Reduce ---"
+
+    Dim bigArray As Array
+    bigArray = Array(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0)
+
+    Dim total As Double
+    total = gpu.ParallelReduce(bigArray, "sum")
+
+    Print "Array:  " & Join(bigArray, ", ")
+    Print "Sum:    " & CStr(total)
+    Print "Expected: 55"
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 8. Matrix Multiply
+    ' ---------------------------------------------------------------
+    Print "--- Matrix Multiply ---"
+
+    ' 2x2 matrix as flat array: [[1,2],[3,4]]
+    Dim mat1 As Array
+    mat1 = Array(1.0, 2.0, 3.0, 4.0)
+
+    ' 2x2 matrix: [[5,6],[7,8]]
+    Dim mat2 As Array
+    mat2 = Array(5.0, 6.0, 7.0, 8.0)
+
+    Dim product As Array
+    product = gpu.MatrixMul(mat1, mat2, 2, 2, 2)
+
+    Print "Matrix A: [1,2; 3,4]"
+    Print "Matrix B: [5,6; 7,8]"
+    Print "A * B:    " & Join(product, ", ")
+    Print "Expected: 19, 22, 43, 50"
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 9. Performance Comparison
+    ' ---------------------------------------------------------------
+    Print "--- Performance Note ---"
+
+    Print "GPU/SIMD acceleration shines with large datasets."
+    Print "For arrays < 64 elements, scalar loops are faster."
+    Print "For arrays > 1000 elements, GPU can be 4-10x faster."
+    Print "Use gpu.IsAvailable() to check and fallback gracefully."
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 10. Practical: Batch Distance Calculation
+    ' ---------------------------------------------------------------
+    Print "--- Practical: Batch Distances ---"
+
+    ' Calculate distances from origin for 5 2D points
+    Dim px As Array
+    Dim py As Array
+    px = Array(3.0, 0.0, 5.0, 1.0, 8.0)
+    py = Array(4.0, 7.0, 12.0, 1.0, 6.0)
+
+    ' dist = sqrt(x^2 + y^2)
+    Dim px2 As Array
+    Dim py2 As Array
+    px2 = gpu.VectorMul(px, px)
+    py2 = gpu.VectorMul(py, py)
+
+    Dim sumSquares As Array
+    sumSquares = gpu.VectorAdd(px2, py2)
+
+    Dim distances As Array
+    distances = gpu.ParallelMap(sumSquares, "sqrt")
+
+    Print "Points and distances from origin:"
+    Dim i As Integer
+    For i = 0 To UBound(px)
+        Print "  (" & CStr(px(i)) & ", " & CStr(py(i)) & ") -> " & Format(distances(i), "Fixed")
+    Next i
+    Print ""
+
+    Print "=== GPU Computing Demo Complete ==="
+End Sub

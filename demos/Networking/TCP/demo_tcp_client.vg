@@ -1,0 +1,152 @@
+' demo_tcp_client.vg — TCP Networking with WinSock
+' Demonstrates VGSocket (WinSock): TCP connect, send, receive, server/client
+
+Sub Main()
+    Print "=== TCP Networking Demo ==="
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 1. Creating a TCP Socket
+    ' ---------------------------------------------------------------
+    Print "--- Creating TCP Socket ---"
+
+    ' WinSock is the VB6-compatible name for VGSocket
+    Dim sock As New WinSock
+    sock.Protocol = 0   ' sckTCPProtocol (0 = TCP, 1 = UDP)
+    Print "Socket created"
+    Print "Protocol: TCP"
+    Print "State: " & CStr(sock.State)
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 2. DNS Resolution
+    ' ---------------------------------------------------------------
+    Print "--- DNS Resolution ---"
+
+    Dim ip As String
+    ip = sock.Resolve("localhost")
+    Print "Resolved 'localhost' to: " & ip
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 3. TCP Server Pattern
+    ' ---------------------------------------------------------------
+    Print "--- TCP Server Pattern ---"
+    Print "A simple echo server:"
+    Print ""
+    Print "  Dim server As New WinSock"
+    Print "  server.Protocol = 0           ' TCP"
+    Print "  server.Bind 8080              ' Bind to port 8080"
+    Print "  server.Listen 5               ' Accept up to 5 queued connections"
+    Print "  Print ""Listening on port 8080..."""
+    Print ""
+    Print "  ' Accept a client connection"
+    Print "  Dim client As WinSock"
+    Print "  Set client = server.Accept()"
+    Print ""
+    Print "  If Not client Is Nothing Then"
+    Print "      Dim msg As String"
+    Print "      msg = client.Receive(4096)"
+    Print "      Print ""Client says: "" & msg"
+    Print "      client.Send ""Echo: "" & msg"
+    Print "      client.Close"
+    Print "  End If"
+    Print "  server.Close"
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 4. TCP Client Pattern
+    ' ---------------------------------------------------------------
+    Print "--- TCP Client Pattern ---"
+    Print "Connecting to a server:"
+    Print ""
+    Print "  Dim client As New WinSock"
+    Print "  client.Protocol = 0           ' TCP"
+    Print "  client.Connect ""example.com"", 80"
+    Print "  client.Send ""GET / HTTP/1.0"" & vbCrLf & vbCrLf"
+    Print "  Dim response As String"
+    Print "  response = client.Receive(4096)"
+    Print "  Print response"
+    Print "  client.Close"
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 5. Socket Properties
+    ' ---------------------------------------------------------------
+    Print "--- Socket Properties ---"
+
+    Dim sock2 As New WinSock
+    sock2.Protocol = 0
+    Print "LocalHostName: " & sock2.LocalHostName
+    Print "LocalIP:       " & sock2.LocalIP
+    Print "LocalPort:     " & CStr(sock2.LocalPort)
+    Print "RemoteHost:    " & sock2.RemoteHost
+    Print "RemotePort:    " & CStr(sock2.RemotePort)
+    Print "Connected:     " & CStr(sock2.Connected)
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 6. UDP Communication
+    ' ---------------------------------------------------------------
+    Print "--- UDP Communication ---"
+    Print "UDP is connectionless — send individual datagrams:"
+    Print ""
+    Print "  Dim udp As New WinSock"
+    Print "  udp.Protocol = 1              ' sckUDPProtocol"
+    Print "  udp.Bind 9999                 ' Listen on port 9999"
+    Print ""
+    Print "  ' Send a datagram"
+    Print "  udp.SendTo ""Hello!"", ""192.168.1.100"", 9999"
+    Print ""
+    Print "  ' Receive a datagram"
+    Print "  Dim msg As String"
+    Print "  msg = udp.ReceiveFrom(4096)   ' Returns data + sender info"
+    Print "  Print ""From: "" & udp.RemoteHost & "":"" & CStr(udp.RemotePort)"
+    Print "  Print ""Data: "" & msg"
+    Print "  udp.Close"
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 7. Practical: Simple Chat Protocol
+    ' ---------------------------------------------------------------
+    Print "--- Practical: Chat Protocol ---"
+    Print "A minimal chat protocol using TCP:"
+    Print ""
+    Print "  ' Message format: LENGTH:DATA"
+    Print "  ' Example: ""13:Hello, World!"""
+    Print ""
+    Print "  Function SendMessage(sock As WinSock, msg As String) As Boolean"
+    Print "      Dim packet As String"
+    Print "      packet = CStr(Len(msg)) & "":"" & msg"
+    Print "      sock.Send packet"
+    Print "      SendMessage = True"
+    Print "  End Function"
+    Print ""
+    Print "  Function ReceiveMessage(sock As WinSock) As String"
+    Print "      Dim raw As String"
+    Print "      raw = sock.Receive(4096)"
+    Print "      Dim colonPos As Integer"
+    Print "      colonPos = InStr(raw, "":"")"
+    Print "      Dim msgLen As Integer"
+    Print "      msgLen = CInt(Left(raw, colonPos - 1))"
+    Print "      ReceiveMessage = Mid(raw, colonPos + 1, msgLen)"
+    Print "  End Function"
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 8. Error Handling
+    ' ---------------------------------------------------------------
+    Print "--- Error Handling ---"
+
+    Dim errSock As New WinSock
+    errSock.Protocol = 0
+
+    ' Trying to connect to a non-existent server
+    ' In production code, use On Error Resume Next
+    Print "Attempting connection to unreachable host..."
+    Print "(In production, wrap in On Error handling)"
+    Print "LastError would contain the socket error description"
+    Print ""
+
+    Print "=== TCP Networking Demo Complete ==="
+End Sub

@@ -25,6 +25,7 @@ void VGCollection::_bind_methods() {
     ClassDB::bind_method(D_METHOD("Clear"), &VGCollection::clear);
     ClassDB::bind_method(D_METHOD("Items"), &VGCollection::get_items);
     ClassDB::bind_method(D_METHOD("Keys"), &VGCollection::get_keys);
+    ClassDB::bind_method(D_METHOD("Count"), &VGCollection::get_count);
 
     ADD_PROPERTY(PropertyInfo(Variant::INT, "Count"), "", "get_count");
 }

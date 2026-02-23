@@ -1,0 +1,134 @@
+' demo_http_request.vg — HTTP Client with VGHttpRequest
+' Demonstrates VGHttpRequest: GET, POST, headers, JSON, status codes (XMLHTTP-style)
+
+Sub Main()
+    Print "=== HTTP Request Demo ==="
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 1. Basic GET Request (XMLHTTP API)
+    ' ---------------------------------------------------------------
+    Print "--- Basic GET Request ---"
+
+    ' VGHttpRequest uses the classic XMLHTTP/WinHTTP API style
+    Dim http As New VGHttpRequest
+
+    ' Open(method, url, async)
+    http.Open "GET", "https://httpbin.org/get", False
+
+    ' Send fires the request
+    http.Send ""
+
+    Print "Status:      " & CStr(http.Status)
+    Print "Status Text: " & http.StatusText
+    Print "Ready State: " & CStr(http.ReadyState)
+    Print ""
+    Print "Response (first 200 chars):"
+    Print Left(http.ResponseText, 200)
+    Print "..."
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 2. Custom Headers
+    ' ---------------------------------------------------------------
+    Print "--- Custom Headers ---"
+
+    Dim http2 As New VGHttpRequest
+    http2.Open "GET", "https://httpbin.org/headers", False
+
+    ' SetRequestHeader adds custom headers before Send
+    http2.SetRequestHeader "X-Custom-Header", "VisualGasic/3.1"
+    http2.SetRequestHeader "Accept", "application/json"
+    http2.Send ""
+
+    Print "Status: " & CStr(http2.Status)
+    Print "Response headers:"
+    Print http2.GetAllResponseHeaders()
+    Print ""
+
+    ' Get a specific response header
+    Dim contentType As String
+    contentType = http2.GetResponseHeader("Content-Type")
+    Print "Content-Type: " & contentType
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 3. POST Request with JSON Body
+    ' ---------------------------------------------------------------
+    Print "--- POST Request with JSON ---"
+
+    Dim http3 As New VGHttpRequest
+    http3.Open "POST", "https://httpbin.org/post", False
+    http3.SetRequestHeader "Content-Type", "application/json"
+
+    ' Build a JSON body
+    Dim body As String
+    body = "{""name"": ""VisualGasic"", ""version"": ""3.1.0"", ""score"": 42}"
+    http3.Send body
+
+    Print "POST Status: " & CStr(http3.Status)
+    Print "Response (first 300 chars):"
+    Print Left(http3.ResponseText, 300)
+    Print "..."
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 4. Convenience Methods (GET shorthand)
+    ' ---------------------------------------------------------------
+    Print "--- Convenience: SimpleGet ---"
+
+    Dim http4 As New VGHttpRequest
+    Dim result As String
+    result = http4.SimpleGet("https://httpbin.org/ip")
+    Print "SimpleGet result: " & result
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 5. Parsing JSON Responses
+    ' ---------------------------------------------------------------
+    Print "--- Parsing JSON Response ---"
+
+    ' Use the built-in JsonParse function
+    Dim json As Dictionary
+    Set json = JsonParse(result)
+    Print "Parsed JSON:"
+    Print "  origin: " & json("origin")
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 6. Practical: REST API Client
+    ' ---------------------------------------------------------------
+    Print "--- Practical: REST API Pattern ---"
+    Print ""
+    Print "  ' GET a list of items"
+    Print "  Dim api As New VGHttpRequest"
+    Print "  api.Open ""GET"", ""https://api.example.com/items"", False"
+    Print "  api.SetRequestHeader ""Authorization"", ""Bearer "" & token"
+    Print "  api.Send """""
+    Print ""
+    Print "  If api.Status = 200 Then"
+    Print "      Dim items As Dictionary"
+    Print "      Set items = JsonParse(api.ResponseText)"
+    Print "      ' Process items..."
+    Print "  ElseIf api.Status = 401 Then"
+    Print "      Print ""Unauthorized — check your token"""
+    Print "  ElseIf api.Status = 404 Then"
+    Print "      Print ""Not found"""
+    Print "  Else"
+    Print "      Print ""Error: "" & CStr(api.Status) & "" "" & api.StatusText"
+    Print "  End If"
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 7. Ready States
+    ' ---------------------------------------------------------------
+    Print "--- Ready States ---"
+    Print "0 = UNSENT      (Open not called yet)"
+    Print "1 = OPENED      (Open called)"
+    Print "2 = HEADERS_RECEIVED (Send called, headers received)"
+    Print "3 = LOADING      (Receiving body)"
+    Print "4 = DONE         (Complete)"
+    Print ""
+
+    Print "=== HTTP Request Demo Complete ==="
+End Sub

@@ -51,6 +51,10 @@
 #include "visual_gasic_ipc.h"
 #include "visual_gasic_android_bridge.h"
 
+// v3.2 – GPU computing & ECS
+#include "visual_gasic_gpu.h"
+#include "visual_gasic_ecs.h"
+
 using namespace godot;
 
 static VisualGasicLanguage *visual_gasic_language = nullptr;
@@ -118,6 +122,10 @@ void initialize_visual_gasic_module(ModuleInitializationLevel p_level) {
         ClassDB::register_class<VGMemoryBuffer>();     // Raw Peek/Poke byte buffer
         ClassDB::register_class<VGIPC>();              // Named pipes, domain sockets, shared mem
         ClassDB::register_class<VGAndroidBridge>();    // JNI bridge for Android APIs
+
+        // v3.2 – GPU computing & ECS
+        ClassDB::register_class<VisualGasicGPU>();      // SIMD vector math, CPU fallback
+        ClassDB::register_class<VisualGasicECS>();      // Dictionary-based ECS
 
         visual_gasic_language = memnew(VisualGasicLanguage);
         Engine::get_singleton()->register_script_language(visual_gasic_language);

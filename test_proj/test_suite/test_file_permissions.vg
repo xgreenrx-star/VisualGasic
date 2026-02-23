@@ -1,0 +1,135 @@
+' Test: VGFilePermissions module
+' Tests chmod, GetPermissions, GetAttr, symlinks, file info, locking
+' NOTE: chmod takes decimal value, 420 decimal = 0644 octal
+Attribute VB_Name = "TestVGFilePermissions"
+
+Sub _Ready()
+    Dim fp As New VGFilePermissions
+
+    Dim testPath As String
+    testPath = "/tmp/vg_test_fileperm.txt"
+    Dim linkPath As String
+    linkPath = "/tmp/vg_test_fileperm_link.txt"
+
+    ' Clean up from prior runs
+    On Error Resume Next
+    Kill testPath
+    Kill linkPath
+    On Error GoTo 0
+
+    ' Create test file using FileSystemObject (known working)
+    Dim fso As New FileSystemObject
+    fso.WriteAll testPath, "test content"
+
+    ' --- GetPermissions ---
+    Dim perms As Integer
+    perms = fp.GetPermissions(testPath)
+    If perms > 0 Then
+        Print "PASS: fileperm_get_permissions"
+    Else
+        Print "FAIL: fileperm_get_permissions: got " & CStr(perms)
+    End If
+
+    ' --- Chmod --- (decimal 420 = octal 0644 = rw-r--r--)
+    Dim ok As Boolean
+    ok = fp.Chmod(testPath, 420)
+    If ok Then
+        Print "PASS: fileperm_chmod"
+    Else
+        Print "FAIL: fileperm_chmod"
+    End If
+
+    ' --- GetAttr ---
+    Dim attr As Integer
+    attr = fp.GetAttr(testPath)
+    If attr >= 0 Then
+        Print "PASS: fileperm_get_attr"
+    Else
+        Print "FAIL: fileperm_get_attr: returned " & CStr(attr)
+    End If
+
+    ' --- GetFileInfo ---
+    Dim info As Object
+    Set info = fp.GetFileInfo(testPath)
+    If Not info Is Nothing Then
+        Print "PASS: fileperm_get_file_info"
+    Else
+        Print "FAIL: fileperm_get_file_info: null"
+    End If
+
+    ' --- IsReadable (should be True after chmod 644) ---
+    If fp.IsReadable(testPath) Then
+        Print "PASS: fileperm_is_readable"
+    Else
+        Print "FAIL: fileperm_is_readable"
+    End If
+
+    ' --- IsWritable ---
+    If fp.IsWritable(testPath) Then
+        Print "PASS: fileperm_is_writable"
+    Else
+        Print "FAIL: fileperm_is_writable"
+    End If
+
+    ' --- Lock ---
+    ok = fp.Lock(testPath)
+    If ok Then
+        Print "PASS: fileperm_lock"
+    Else
+        Print "FAIL: fileperm_lock"
+    End If
+
+    ' --- IsLocked ---
+    If fp.IsLocked(testPath) Then
+        Print "PASS: fileperm_is_locked"
+    Else
+        Print "FAIL: fileperm_is_locked"
+    End If
+
+    ' --- Unlock ---
+    ok = fp.Unlock(testPath)
+    If ok Then
+        Print "PASS: fileperm_unlock"
+    Else
+        Print "FAIL: fileperm_unlock"
+    End If
+
+    If fp.IsLocked(testPath) = False Then
+        Print "PASS: fileperm_unlock_verified"
+    Else
+        Print "FAIL: fileperm_unlock_verified: still locked"
+    End If
+
+    ' --- Symlink (clean up first to avoid EEXIST) ---
+    On Error Resume Next
+    Kill linkPath
+    On Error GoTo 0
+
+    ok = fp.CreateSymlink(linkPath, testPath)
+    If ok Then
+        Print "PASS: fileperm_create_symlink"
+        If fp.IsSymlink(linkPath) Then
+            Print "PASS: fileperm_is_symlink"
+        Else
+            Print "FAIL: fileperm_is_symlink"
+        End If
+    Else
+        Print "FAIL: fileperm_create_symlink"
+        Print "FAIL: fileperm_is_symlink"
+    End If
+
+    ' --- Error on non-existent ---
+    Dim badPerms As Integer
+    badPerms = fp.GetPermissions("/tmp/nonexistent_file_vg_12345.txt")
+    If badPerms <= 0 Then
+        Print "PASS: fileperm_nonexistent_file"
+    Else
+        Print "FAIL: fileperm_nonexistent_file"
+    End If
+
+    ' Cleanup
+    On Error Resume Next
+    Kill linkPath
+    Kill testPath
+    On Error GoTo 0
+End Sub

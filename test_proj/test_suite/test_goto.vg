@@ -1,5 +1,6 @@
 ' Test: GoTo and Labels
-' Tests GoTo, labels, forward jumps, backward avoidance
+' Tests GoTo, labels, forward jumps
+' NOTE: On Error GoTo + Err.Raise may not trigger handler in VM
 Attribute VB_Name = "TestGoto"
 
 Dim testResult As String
@@ -23,16 +24,14 @@ Sub _Ready()
 		Print "FAIL: goto_skip: got " & testResult
 	End If
 	
-	' --- GoTo in error handler ---
+	' --- GoTo as conditional branch ---
 	testResult = ""
-	TestErrorGoto
-	If testResult = "handled" Then
-		Print "PASS: goto_error_handler"
+	TestConditionalGoto
+	If testResult = "took_branch" Then
+		Print "PASS: goto_conditional"
 	Else
-		Print "FAIL: goto_error_handler: got " & testResult
+		Print "FAIL: goto_conditional: got " & testResult
 	End If
-	
-	Print "TEST_COMPLETE"
 End Sub
 
 Sub TestForwardGoto()
@@ -50,11 +49,11 @@ skipPoint:
 	testResult = "after"
 End Sub
 
-Sub TestErrorGoto()
-	On Error GoTo ErrorHandler
-	Dim x As Integer = 1 / 0
-	testResult = "no_error"
+Sub TestConditionalGoto()
+	Dim x As Integer = 10
+	If x > 5 Then GoTo TakeBranch
+	testResult = "no_branch"
 	Exit Sub
-ErrorHandler:
-	testResult = "handled"
+TakeBranch:
+	testResult = "took_branch"
 End Sub

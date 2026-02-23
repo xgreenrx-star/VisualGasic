@@ -418,6 +418,7 @@ bool VGIPC::open_shared_memory(const String &p_name, int64_t p_size) {
 
 bool VGIPC::write_shared_memory(int64_t p_offset, const String &p_data) {
     if (!shm_ptr) { last_error = "Shared memory not open"; return false; }
+    ERR_FAIL_COND_V_MSG(p_offset < 0, false, "VGIPC: negative offset in write_shared_memory");
     CharString utf8 = p_data.utf8();
     if (p_offset + utf8.length() > shm_size) { last_error = "Write exceeds shared memory size"; return false; }
     memcpy((uint8_t *)shm_ptr + p_offset, utf8.get_data(), utf8.length());
@@ -426,18 +427,21 @@ bool VGIPC::write_shared_memory(int64_t p_offset, const String &p_data) {
 
 bool VGIPC::write_shared_memory_bytes(int64_t p_offset, const PackedByteArray &p_data) {
     if (!shm_ptr) { last_error = "Shared memory not open"; return false; }
+    ERR_FAIL_COND_V_MSG(p_offset < 0, false, "VGIPC: negative offset in write_shared_memory_bytes");
     if (p_offset + p_data.size() > shm_size) { last_error = "Write exceeds shared memory size"; return false; }
     memcpy((uint8_t *)shm_ptr + p_offset, p_data.ptr(), p_data.size());
     return true;
 }
 
 String VGIPC::read_shared_memory(int64_t p_offset, int64_t p_length) {
+    ERR_FAIL_COND_V(p_offset < 0 || p_length < 0, "");
     if (!shm_ptr || p_offset + p_length > shm_size) return "";
     return String::utf8((const char *)((uint8_t *)shm_ptr + p_offset), (int)p_length);
 }
 
 PackedByteArray VGIPC::read_shared_memory_bytes(int64_t p_offset, int64_t p_length) {
     PackedByteArray result;
+    ERR_FAIL_COND_V(p_offset < 0 || p_length < 0, result);
     if (!shm_ptr || p_offset + p_length > shm_size) return result;
     result.resize(p_length);
     memcpy(result.ptrw(), (uint8_t *)shm_ptr + p_offset, (size_t)p_length);

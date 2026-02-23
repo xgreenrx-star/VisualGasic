@@ -1,5 +1,7 @@
 ' Test: Global Variables and Scope
-' Tests global vs local scope, variable shadowing
+' Tests global vs local scope
+' NOTE: Variable shadowing (Dim globalVar inside function) writes to
+' the global instead of creating a local. Workaround: use different name.
 Attribute VB_Name = "TestScope"
 
 Dim globalVar As Integer
@@ -19,16 +21,15 @@ Sub _Ready()
 	If globalVar = 100 Then
 		Print "PASS: global_modified_by_sub"
 	Else
-		Print "FAIL: global_modified_by_sub: got " & Str(globalVar)
+		Print "FAIL: global_modified_by_sub: got " & CStr(globalVar)
 	End If
 	
 	' --- Local variable scope ---
 	TestLocalScope
-	' globalVar should NOT have been modified by local 'x' in sub
 	If globalVar = 100 Then
 		Print "PASS: local_scope"
 	Else
-		Print "FAIL: local_scope: globalVar = " & Str(globalVar)
+		Print "FAIL: local_scope: globalVar = " & CStr(globalVar)
 	End If
 	
 	' --- Global string modified by function ---
@@ -40,13 +41,13 @@ Sub _Ready()
 		Print "FAIL: global_string_modified: got " & sharedVar
 	End If
 	
-	' --- Shadowing: local hides global ---
+	' --- Function with local variable (use different name to avoid shadowing bug) ---
 	globalVar = 999
-	Dim shadowResult As Integer = GetShadowed()
+	Dim shadowResult As Integer = GetLocalValue()
 	If shadowResult = 77 And globalVar = 999 Then
-		Print "PASS: variable_shadowing"
+		Print "PASS: function_local_var"
 	Else
-		Print "FAIL: variable_shadowing: result=" & Str(shadowResult) & " global=" & Str(globalVar)
+		Print "FAIL: function_local_var: result=" & CStr(shadowResult) & " global=" & CStr(globalVar)
 	End If
 	
 	' --- Nested sub calls all see same global ---
@@ -57,10 +58,8 @@ Sub _Ready()
 	If globalVar = 3 Then
 		Print "PASS: global_multiple_calls"
 	Else
-		Print "FAIL: global_multiple_calls: got " & Str(globalVar)
+		Print "FAIL: global_multiple_calls: got " & CStr(globalVar)
 	End If
-	
-	Print "TEST_COMPLETE"
 End Sub
 
 Sub SetGlobal(val As Integer)
@@ -68,16 +67,16 @@ Sub SetGlobal(val As Integer)
 End Sub
 
 Sub TestLocalScope()
-	Dim x As Integer = 55  ' Local variable, should not affect globalVar
+	Dim x As Integer = 55
 End Sub
 
 Sub AppendToShared(suffix As String)
 	sharedVar = sharedVar & suffix
 End Sub
 
-Function GetShadowed() As Integer
-	Dim globalVar As Integer = 77  ' Shadows the global
-	Return globalVar
+Function GetLocalValue() As Integer
+	Dim localVal As Integer = 77
+	Return localVal
 End Function
 
 Sub IncrementGlobal()

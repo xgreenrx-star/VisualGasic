@@ -163,7 +163,10 @@ Array VGSignalHandler::get_registered_signals() const {
 void VGSignalHandler::dispatch(const String &p_signal_name) {
     last_signal = p_signal_name;
     if (handlers.has(p_signal_name)) {
-        Callable cb = handlers[p_signal_name];
+        Variant v = handlers[p_signal_name];
+        ERR_FAIL_COND_MSG(v.get_type() != Variant::CALLABLE,
+            "VGSignalHandler: handler for '" + p_signal_name + "' is not a Callable");
+        Callable cb = v;
         if (cb.is_valid()) {
             // Use call_deferred for thread safety — OS signals can arrive on any thread
             cb.call_deferred(p_signal_name);

@@ -1,0 +1,88 @@
+' Test: Stress — Dictionary operations at scale
+' NOTE: Use .Count() with parens (VM property access bug)
+Attribute VB_Name = "TestStressDictionary"
+
+Sub _Ready()
+    Dim dict As New Dictionary
+    
+    ' --- Bulk insert ---
+    Dim i As Integer
+    For i = 1 To 5000
+        dict.Add "key_" & CStr(i), i * 3
+    Next i
+    
+    If dict.Count() = 5000 Then
+        Print "PASS: stress_dict_insert_5k"
+    Else
+        Print "FAIL: stress_dict_insert_5k: count=" & CStr(dict.Count())
+    End If
+
+    ' --- Random-access reads ---
+    Dim failed As Boolean
+    failed = False
+    For i = 1 To 5000 Step 7
+        If dict("key_" & CStr(i)) <> i * 3 Then
+            Print "FAIL: stress_dict_read: key_" & CStr(i)
+            failed = True
+            Exit For
+        End If
+    Next i
+    
+    If Not failed Then
+        Print "PASS: stress_dict_read_sampled"
+    End If
+
+    ' --- Exists check ---
+    If dict.Exists("key_1") And dict.Exists("key_5000") And Not dict.Exists("key_5001") Then
+        Print "PASS: stress_dict_exists"
+    Else
+        Print "FAIL: stress_dict_exists"
+    End If
+
+    ' --- Bulk update ---
+    For i = 1 To 5000
+        dict("key_" & CStr(i)) = i * 5
+    Next i
+    
+    If dict("key_2500") = 12500 Then
+        Print "PASS: stress_dict_update_5k"
+    Else
+        Print "FAIL: stress_dict_update_5k"
+    End If
+
+    ' --- Bulk remove (odd keys) ---
+    For i = 1 To 5000 Step 2
+        dict.Remove "key_" & CStr(i)
+    Next i
+    
+    If dict.Count() = 2500 Then
+        Print "PASS: stress_dict_remove_half"
+    Else
+        Print "FAIL: stress_dict_remove_half: count=" & CStr(dict.Count())
+    End If
+
+    ' --- Keys enumeration ---
+    Dim keys As Array
+    keys = dict.Keys()
+    If UBound(keys) = 2499 Then
+        Print "PASS: stress_dict_keys_enum"
+    Else
+        Print "FAIL: stress_dict_keys_enum: count=" & CStr(UBound(keys) + 1)
+    End If
+
+    ' --- RemoveAll and reuse ---
+    dict.RemoveAll
+    If dict.Count() = 0 Then
+        Print "PASS: stress_dict_clear"
+    Else
+        Print "FAIL: stress_dict_clear"
+    End If
+    
+    dict.Add "reuse_1", 100
+    dict.Add "reuse_2", 200
+    If dict.Count() = 2 And dict("reuse_1") = 100 Then
+        Print "PASS: stress_dict_reuse"
+    Else
+        Print "FAIL: stress_dict_reuse"
+    End If
+End Sub

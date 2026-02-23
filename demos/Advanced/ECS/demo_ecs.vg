@@ -1,0 +1,228 @@
+' demo_ecs.vg — Entity Component System
+' Demonstrates VisualGasicECS: entities, components, systems, queries, profiling
+
+Sub Main()
+    Print "=== Entity Component System Demo ==="
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 1. Creating the ECS World
+    ' ---------------------------------------------------------------
+    Print "--- Creating ECS World ---"
+
+    Dim ecs As New VisualGasicECS
+    ecs.Initialize 1000   ' Max 1000 entities
+    Print "ECS initialized with capacity for 1000 entities"
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 2. Creating Entities
+    ' ---------------------------------------------------------------
+    Print "--- Creating Entities ---"
+
+    ' Entities are just IDs — they have no data by themselves
+    Dim player As Integer
+    Dim enemy1 As Integer
+    Dim enemy2 As Integer
+    Dim bullet As Integer
+
+    player = ecs.CreateEntity()
+    enemy1 = ecs.CreateEntity()
+    enemy2 = ecs.CreateEntity()
+    bullet = ecs.CreateEntity()
+
+    Print "Player entity: " & CStr(player)
+    Print "Enemy1 entity: " & CStr(enemy1)
+    Print "Enemy2 entity: " & CStr(enemy2)
+    Print "Bullet entity: " & CStr(bullet)
+    Print "Valid: " & CStr(ecs.IsEntityValid(player))
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 3. Adding Components
+    ' ---------------------------------------------------------------
+    Print "--- Adding Components ---"
+
+    ' Components are data bags attached to entities
+    ' Built-in: TransformComponent, PhysicsComponent, RenderComponent
+
+    ' Add transform to all entities (position, rotation, scale)
+    Dim playerTransform As Dictionary
+    Set playerTransform = {"position": Vec3(100, 50, 0), "rotation": Vec3(0, 0, 0), "scale": Vec3(1, 1, 1)}
+    ecs.AddComponent player, "TransformComponent", playerTransform
+    Print "Added TransformComponent to player"
+
+    Dim enemy1Transform As Dictionary
+    Set enemy1Transform = {"position": Vec3(300, 100, 0), "rotation": Vec3(0, 0, 0), "scale": Vec3(1, 1, 1)}
+    ecs.AddComponent enemy1, "TransformComponent", enemy1Transform
+
+    Dim enemy2Transform As Dictionary
+    Set enemy2Transform = {"position": Vec3(500, 200, 0), "rotation": Vec3(0, 0, 0), "scale": Vec3(1, 1, 1)}
+    ecs.AddComponent enemy2, "TransformComponent", enemy2Transform
+    Print "Added TransformComponent to enemies"
+
+    ' Add physics to moving entities
+    Dim playerPhysics As Dictionary
+    Set playerPhysics = {"linear_velocity": Vec3(5, 0, 0), "angular_velocity": Vec3(0, 0, 0)}
+    ecs.AddComponent player, "PhysicsComponent", playerPhysics
+
+    Dim bulletPhysics As Dictionary
+    Set bulletPhysics = {"linear_velocity": Vec3(20, 0, 0), "angular_velocity": Vec3(0, 0, 0)}
+    ecs.AddComponent bullet, "PhysicsComponent", bulletPhysics
+    ecs.AddComponent bullet, "TransformComponent", {"position": Vec3(100, 50, 0), "rotation": Vec3(0, 0, 0), "scale": Vec3(1, 1, 1)}
+    Print "Added PhysicsComponent to player and bullet"
+
+    ' Add render component
+    ecs.AddComponent player, "RenderComponent", {"mesh_path": "res://player.mesh", "visible": True, "render_layer": 1}
+    ecs.AddComponent enemy1, "RenderComponent", {"mesh_path": "res://enemy.mesh", "visible": True, "render_layer": 1}
+    ecs.AddComponent enemy2, "RenderComponent", {"mesh_path": "res://enemy.mesh", "visible": True, "render_layer": 1}
+    Print "Added RenderComponent to player and enemies"
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 4. Querying Components
+    ' ---------------------------------------------------------------
+    Print "--- Querying Components ---"
+
+    ' Check if an entity has a component
+    Print "Player has Transform: " & CStr(ecs.HasComponent(player, "TransformComponent"))
+    Print "Player has Physics:   " & CStr(ecs.HasComponent(player, "PhysicsComponent"))
+    Print "Enemy1 has Physics:   " & CStr(ecs.HasComponent(enemy1, "PhysicsComponent"))
+
+    ' Get a component's data
+    Dim pTrans As Dictionary
+    Set pTrans = ecs.GetComponent(player, "TransformComponent")
+    Print "Player position: " & CStr(pTrans("position"))
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 5. Entity Queries
+    ' ---------------------------------------------------------------
+    Print "--- Entity Queries ---"
+
+    ' Find all entities with both Transform AND Physics (movable objects)
+    Dim movable As Array
+    movable = ecs.QueryEntities(Array("TransformComponent", "PhysicsComponent"))
+    Print "Entities with Transform + Physics: " & CStr(UBound(movable) + 1)
+    Dim i As Integer
+    For i = 0 To UBound(movable)
+        Print "  Entity " & CStr(movable(i))
+    Next i
+    Print ""
+
+    ' Find all entities with Transform + Render (visible objects)
+    Dim visible As Array
+    visible = ecs.QueryEntities(Array("TransformComponent", "RenderComponent"))
+    Print "Entities with Transform + Render: " & CStr(UBound(visible) + 1)
+    Print ""
+
+    ' Get all entities
+    Dim all As Array
+    all = ecs.GetAllEntities()
+    Print "Total entities: " & CStr(UBound(all) + 1)
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 6. Systems (Update Logic)
+    ' ---------------------------------------------------------------
+    Print "--- Systems ---"
+
+    ' Register a movement system that applies velocity to position
+    ' Built-in MovementSystem updates Transform from Physics velocity
+    ecs.AddSystem "MovementSystem", 100   ' Priority 100 (runs first)
+    Print "Registered MovementSystem (priority 100)"
+
+    ' Simulate a few frames
+    Print ""
+    Print "Simulating 3 frames..."
+    Dim frame As Integer
+    For frame = 1 To 3
+        ecs.Update 0.016   ' 60 FPS = ~16ms per frame
+
+        ' Read updated positions
+        Dim pt As Dictionary
+        Set pt = ecs.GetComponent(player, "TransformComponent")
+        Dim bt As Dictionary
+        Set bt = ecs.GetComponent(bullet, "TransformComponent")
+        Print "  Frame " & CStr(frame) & ": Player=" & CStr(pt("position")) & " Bullet=" & CStr(bt("position"))
+    Next frame
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 7. Removing Components and Entities
+    ' ---------------------------------------------------------------
+    Print "--- Removing Components & Entities ---"
+
+    ' Remove a component
+    ecs.RemoveComponent bullet, "RenderComponent"
+    Print "Removed RenderComponent from bullet"
+    Print "Bullet has Render: " & CStr(ecs.HasComponent(bullet, "RenderComponent"))
+
+    ' Destroy an entity entirely
+    ecs.DestroyEntity bullet
+    Print "Destroyed bullet entity"
+    Print "Bullet valid: " & CStr(ecs.IsEntityValid(bullet))
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 8. Entity Info & Debug
+    ' ---------------------------------------------------------------
+    Print "--- Entity Info ---"
+
+    Dim info As Dictionary
+    Set info = ecs.GetEntityInfo(player)
+    Print "Player entity info:"
+    Dim keys As Array
+    keys = info.Keys()
+    For i = 0 To UBound(keys)
+        Print "  " & keys(i) & ": " & CStr(info(keys(i)))
+    Next i
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 9. Serialization
+    ' ---------------------------------------------------------------
+    Print "--- Serialization ---"
+
+    ' Save the entire ECS state to a dictionary
+    Dim saved As Dictionary
+    Set saved = ecs.Serialize()
+    Print "Serialized ECS state (keys: " & CStr(saved.Keys().size()) & ")"
+
+    ' You could save this to a file with JsonStringify
+    ' Dim json As String
+    ' json = JsonStringify(saved)
+    ' WriteAllText "save_game.json", json
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 10. Performance Profiling
+    ' ---------------------------------------------------------------
+    Print "--- Performance Profiling ---"
+
+    ecs.EnableProfiling True
+    ecs.Update 0.016
+    ecs.Update 0.016
+    ecs.Update 0.016
+
+    Dim stats As Dictionary
+    Set stats = ecs.GetPerformanceStats()
+    Print "Performance stats:"
+    keys = stats.Keys()
+    For i = 0 To UBound(keys)
+        Print "  " & keys(i) & ": " & CStr(stats(keys(i)))
+    Next i
+
+    ecs.ClearPerformanceStats
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 11. Cleanup
+    ' ---------------------------------------------------------------
+    Print "--- Cleanup ---"
+    ecs.Shutdown
+    Print "ECS shut down"
+    Print ""
+
+    Print "=== ECS Demo Complete ==="
+End Sub

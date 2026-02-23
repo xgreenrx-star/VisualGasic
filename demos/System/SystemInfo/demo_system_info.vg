@@ -1,0 +1,131 @@
+' demo_system_info.vg — System Information Queries
+' Demonstrates VGSystem: hostname, CPU, RAM, disk, OS, uptime, environment, locale
+
+Sub Main()
+    Print "=== System Information Demo ==="
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 1. Host Identity
+    ' ---------------------------------------------------------------
+    Print "--- Host Identity ---"
+
+    ' VGSystem methods are all static — call directly on the class
+    Print "Hostname:   " & VGSystem.Hostname
+    Print "Username:   " & VGSystem.Username
+    Print "Process ID: " & CStr(VGSystem.ProcessId)
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 2. CPU Information
+    ' ---------------------------------------------------------------
+    Print "--- CPU Information ---"
+
+    Print "CPU Name:     " & VGSystem.CpuName
+    Print "CPU Cores:    " & CStr(VGSystem.CpuCount)
+    Print "Architecture: " & VGSystem.Architecture
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 3. Memory Usage
+    ' ---------------------------------------------------------------
+    Print "--- Memory Usage ---"
+
+    Dim totalMB As Double
+    Dim freeMB As Double
+    Dim usedMB As Double
+
+    ' Memory values are returned in bytes — convert to MB
+    totalMB = VGSystem.TotalMemory / 1048576
+    freeMB = VGSystem.FreeMemory / 1048576
+    usedMB = VGSystem.UsedMemory / 1048576
+
+    Print "Total RAM:  " & Format(totalMB, "Standard") & " MB"
+    Print "Free RAM:   " & Format(freeMB, "Standard") & " MB"
+    Print "Used RAM:   " & Format(usedMB, "Standard") & " MB"
+    Print "Usage:      " & Format(VGSystem.MemoryUsagePercent, "Fixed") & "%"
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 4. Disk Space
+    ' ---------------------------------------------------------------
+    Print "--- Disk Space ---"
+
+    Dim diskTotalGB As Double
+    Dim diskFreeGB As Double
+
+    ' Disk values are also in bytes — convert to GB
+    diskTotalGB = VGSystem.TotalDiskSpace("/") / 1073741824
+    diskFreeGB = VGSystem.FreeDiskSpace("/") / 1073741824
+
+    Print "Total Disk: " & Format(diskTotalGB, "Fixed") & " GB"
+    Print "Free Disk:  " & Format(diskFreeGB, "Fixed") & " GB"
+    Print "Disk Usage: " & Format(VGSystem.DiskUsagePercent("/"), "Fixed") & "%"
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 5. Operating System
+    ' ---------------------------------------------------------------
+    Print "--- Operating System ---"
+
+    Print "OS Name:    " & VGSystem.OsName
+    Print "OS Version: " & VGSystem.OsVersion
+    Print "OS Full:    " & VGSystem.OsFull
+    Print "Endianness: " & VGSystem.Endianness
+    Print "Uptime:     " & Format(VGSystem.Uptime / 3600, "Fixed") & " hours"
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 6. Environment Variables
+    ' ---------------------------------------------------------------
+    Print "--- Environment Variables ---"
+
+    ' Read specific environment variables
+    Print "HOME:  " & VGSystem.GetEnv("HOME")
+    Print "PATH:  " & Left(VGSystem.GetEnv("PATH"), 60) & "..."
+    Print "SHELL: " & VGSystem.GetEnv("SHELL")
+    Print ""
+
+    ' Check if a variable exists before using it
+    If VGSystem.HasEnv("EDITOR") Then
+        Print "EDITOR: " & VGSystem.GetEnv("EDITOR")
+    Else
+        Print "EDITOR: (not set)"
+    End If
+
+    ' Set a custom environment variable
+    VGSystem.SetEnv "VG_DEMO", "running"
+    Print "VG_DEMO: " & VGSystem.GetEnv("VG_DEMO")
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 7. Locale & Timezone
+    ' ---------------------------------------------------------------
+    Print "--- Locale & Timezone ---"
+
+    Print "Locale:    " & VGSystem.Locale
+    Print "Language:  " & VGSystem.Language
+    Print "Timezone:  " & VGSystem.Timezone
+    Print "TZ Offset: " & CStr(VGSystem.TimezoneOffset) & " seconds from UTC"
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 8. Full System Info Dictionary
+    ' ---------------------------------------------------------------
+    Print "--- Full System Info (Dictionary) ---"
+
+    ' GetSystemInfo returns everything in one Dictionary
+    Dim info As Dictionary
+    Set info = VGSystem.GetSystemInfo()
+
+    ' Iterate the dictionary keys
+    Dim keys As Array
+    keys = info.Keys()
+    Dim i As Integer
+    For i = 0 To UBound(keys)
+        Print "  " & keys(i) & ": " & CStr(info(keys(i)))
+    Next i
+
+    Print ""
+    Print "=== System Information Demo Complete ==="
+End Sub

@@ -1,0 +1,34 @@
+' Test: VGSignalHandler module
+' Tests construction and basic method dispatch
+' NOTE: SetHandler requires a Callable which VG can't easily produce
+' from inline syntax. Test only non-handler operations.
+Attribute VB_Name = "TestVGSignalHandler"
+
+Sub _Ready()
+    Dim sh As New VGSignalHandler
+
+    ' --- Object constructed without crash ---
+    Print "PASS: signal_handler_construct"
+
+    ' --- GetRegisteredSignals returns array ---
+    Dim signals As Array
+    signals = sh.GetRegisteredSignals()
+    Print "PASS: signal_handler_get_signals"
+
+    ' --- HasHandler on unknown returns False ---
+    Dim has As Boolean
+    has = sh.HasHandler("UNKNOWN_SIGNAL")
+    If has = False Then
+        Print "PASS: signal_handler_has_false"
+    Else
+        Print "FAIL: signal_handler_has_false"
+    End If
+
+    ' --- RemoveHandler on nonexistent doesn't crash ---
+    sh.RemoveHandler "NONEXISTENT"
+    Print "PASS: signal_handler_remove_safe"
+
+    ' --- Raise with no handler doesn't crash ---
+    sh.Raise "TEST_SIG"
+    Print "PASS: signal_handler_raise_safe"
+End Sub

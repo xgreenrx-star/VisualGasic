@@ -1,0 +1,229 @@
+' demo_loops.vg — Loop Constructs
+' Demonstrates For/Next, For Each, Do While/Until, While/Wend, nested loops, Exit
+
+Sub Main()
+    Print "=== Loops Demo ==="
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 1. For...Next (Basic)
+    ' ---------------------------------------------------------------
+    Print "--- For...Next ---"
+
+    Dim i As Integer
+    Print "Count 1-5: ";
+    For i = 1 To 5
+        Print CStr(i) & " ";
+    Next i
+    Print ""
+
+    ' With Step
+    Print "Even 2-10: ";
+    For i = 2 To 10 Step 2
+        Print CStr(i) & " ";
+    Next i
+    Print ""
+
+    ' Counting down
+    Print "Countdown: ";
+    For i = 5 To 1 Step -1
+        Print CStr(i) & " ";
+    Next i
+    Print "Liftoff!"
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 2. For Each
+    ' ---------------------------------------------------------------
+    Print "--- For Each ---"
+
+    Dim fruits As Array
+    fruits = Array("Apple", "Banana", "Cherry", "Date")
+
+    Dim fruit As Variant
+    For Each fruit In fruits
+        Print "  Fruit: " & fruit
+    Next fruit
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 3. Do While...Loop
+    ' ---------------------------------------------------------------
+    Print "--- Do While...Loop ---"
+
+    Dim x As Integer
+    x = 1
+    Print "Powers of 2: ";
+    Do While x <= 128
+        Print CStr(x) & " ";
+        x = x * 2
+    Loop
+    Print ""
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 4. Do...Loop While (Post-Test)
+    ' ---------------------------------------------------------------
+    Print "--- Do...Loop While ---"
+
+    Dim n As Integer
+    n = 1
+    Dim sum As Integer
+    sum = 0
+    Print "Summing: ";
+    Do
+        Print CStr(n) & " ";
+        sum = sum + n
+        n = n + 1
+    Loop While n <= 5
+    Print "= " & CStr(sum)
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 5. Do Until...Loop
+    ' ---------------------------------------------------------------
+    Print "--- Do Until...Loop ---"
+
+    Dim value As Integer
+    value = 100
+    Print "Halving: ";
+    Do Until value < 5
+        Print CStr(value) & " ";
+        value = value \ 2
+    Loop
+    Print ""
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 6. Do...Loop Until (Post-Test)
+    ' ---------------------------------------------------------------
+    Print "--- Do...Loop Until ---"
+
+    ' Collatz sequence from 12
+    Dim cn As Integer
+    cn = 12
+    Print "Collatz(12): ";
+    Do
+        Print CStr(cn) & " ";
+        If cn Mod 2 = 0 Then
+            cn = cn \ 2
+        Else
+            cn = cn * 3 + 1
+        End If
+    Loop Until cn = 1
+    Print "1"
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 7. While...Wend
+    ' ---------------------------------------------------------------
+    Print "--- While...Wend ---"
+
+    Dim w As Integer
+    w = 10
+    Print "Counting down: ";
+    While w > 0
+        Print CStr(w) & " ";
+        w = w - 1
+    Wend
+    Print ""
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 8. Exit For / Exit Do
+    ' ---------------------------------------------------------------
+    Print "--- Exit For / Exit Do ---"
+
+    ' Find first even number > 10
+    Dim nums As Array
+    nums = Array(3, 7, 5, 12, 8, 15, 20)
+
+    For Each n In nums
+        If n > 10 And n Mod 2 = 0 Then
+            Print "First even > 10: " & CStr(n)
+            Exit For
+        End If
+    Next n
+
+    ' Exit Do example
+    Dim attempts As Integer
+    attempts = 0
+    Do While True
+        attempts = attempts + 1
+        If attempts >= 5 Then
+            Print "Exited Do loop after " & CStr(attempts) & " attempts"
+            Exit Do
+        End If
+    Loop
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 9. Nested Loops
+    ' ---------------------------------------------------------------
+    Print "--- Nested Loops ---"
+
+    ' Multiplication table (1-5)
+    Print "  Multiplication Table:"
+    Print "     1   2   3   4   5"
+    Print "   +" & String(20, "-")
+
+    Dim row As Integer, col As Integer
+    For row = 1 To 5
+        Print " " & CStr(row) & " |";
+        For col = 1 To 5
+            Print PadLeft(CStr(row * col), 4);
+        Next col
+        Print ""
+    Next row
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 10. Nested Exit (Break from inner only)
+    ' ---------------------------------------------------------------
+    Print "--- Nested Loop with Exit ---"
+
+    ' Find pairs that sum to 10
+    Print "Pairs summing to 10:"
+    Dim a As Integer, b As Integer
+    For a = 1 To 9
+        For b = a + 1 To 9
+            If a + b = 10 Then
+                Print "  " & CStr(a) & " + " & CStr(b) & " = 10"
+                Exit For   ' exits inner For only
+            End If
+        Next b
+    Next a
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 11. Practical: Fibonacci Sequence
+    ' ---------------------------------------------------------------
+    Print "--- Practical: Fibonacci ---"
+
+    Dim fib1 As Long, fib2 As Long, temp As Long
+    fib1 = 0
+    fib2 = 1
+
+    Print "Fibonacci: ";
+    Print CStr(fib1) & " ";
+    Do While fib2 < 100
+        Print CStr(fib2) & " ";
+        temp = fib2
+        fib2 = fib1 + fib2
+        fib1 = temp
+    Loop
+    Print ""
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 12. Practical: Triangle Pattern
+    ' ---------------------------------------------------------------
+    Print "--- Practical: Triangle ---"
+
+    For row = 1 To 5
+        Print Space(5 - row) & String(2 * row - 1, "*")
+    Next row
+    Print ""
+
+    Print "=== Loops Demo Complete ==="
+End Sub

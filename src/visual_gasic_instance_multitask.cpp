@@ -76,9 +76,16 @@ void VisualGasicInstance::execute_task_run(TaskRunStatement* task) {
 
     // Spawn a detached worker thread
     std::thread worker([this, scope_snapshot, body_copy, t_name, task_idx]() mutable {
-        // Install the cloned scope
-        Dictionary saved = variables;
-        variables = scope_snapshot;
+        // SAFETY: Use a mutex to protect access to the shared 'variables' member.
+        // We snapshot, swap in our scope under lock, execute, then restore under lock.
+        static std::mutex variables_mtx;
+
+        Dictionary saved;
+        {
+            std::lock_guard<std::mutex> lock(variables_mtx);
+            saved = variables.duplicate(true);
+            variables = scope_snapshot;
+        }
 
         Variant result;
         bool had_error = false;
@@ -92,9 +99,12 @@ void VisualGasicInstance::execute_task_run(TaskRunStatement* task) {
         }
         result = had_error ? Variant("Task failed") : Variant("Task completed");
 
-        // Restore & publish results — brief critical section
-        variables = saved;
-        if (task_idx < active_tasks.size()) {
+        // Restore & publish results under lock
+        {
+            std::lock_guard<std::mutex> lock(variables_mtx);
+            variables = saved;
+        }
+        if (task_idx < (int)active_tasks.size()) {
             active_tasks.write[task_idx].is_completed = true;
             active_tasks.write[task_idx].result = result;
         }
@@ -198,8 +208,13 @@ void VisualGasicInstance::execute_parallel_for(ParallelForStatement* par_for) {
         Dictionary scope_clone = variables.duplicate(true);
 
         threads.emplace_back([this, cs, ce, &indices, &any_error, var_name, body, scope_clone]() mutable {
-            Dictionary saved = variables;
-            variables = scope_clone;
+            static std::mutex pfor_variables_mtx;
+            Dictionary saved;
+            {
+                std::lock_guard<std::mutex> lock(pfor_variables_mtx);
+                saved = variables.duplicate(true);
+                variables = scope_clone;
+            }
             for (int idx = cs; idx < ce && !any_error.load(); idx++) {
                 variables[var_name] = indices[idx];
                 for (int j = 0; j < body.size(); j++) {
@@ -210,7 +225,10 @@ void VisualGasicInstance::execute_parallel_for(ParallelForStatement* par_for) {
                     }
                 }
             }
-            variables = saved;
+            {
+                std::lock_guard<std::mutex> lock(pfor_variables_mtx);
+                variables = saved;
+            }
         });
     }
 
@@ -249,8 +267,13 @@ void VisualGasicInstance::execute_parallel_section(ParallelSectionStatement* par
     for (int t = 0; t < num_threads; t++) {
         Dictionary scope_clone = variables.duplicate(true);
         threads.emplace_back([this, &next_item, &any_error, &body, n, scope_clone]() mutable {
-            Dictionary saved = variables;
-            variables = scope_clone;
+            static std::mutex psec_variables_mtx;
+            Dictionary saved;
+            {
+                std::lock_guard<std::mutex> lock(psec_variables_mtx);
+                saved = variables.duplicate(true);
+                variables = scope_clone;
+            }
             while (!any_error.load()) {
                 int idx = next_item.fetch_add(1);
                 if (idx >= n) break;
@@ -260,7 +283,10 @@ void VisualGasicInstance::execute_parallel_section(ParallelSectionStatement* par
                     break;
                 }
             }
-            variables = saved;
+            {
+                std::lock_guard<std::mutex> lock(psec_variables_mtx);
+                variables = saved;
+            }
         });
     }
 
@@ -382,6 +408,8 @@ bool VisualGasicInstance::pattern_matches(Pattern* pattern, const Variant& value
 }
 
 AdvancedType* VisualGasicInstance::infer_type(const Variant& value) {
+    // NOTE: Caller is responsible for deleting the returned pointer.
+    // Consider migrating to std::unique_ptr in the future.
     AdvancedType* type = new AdvancedType();
     
     switch (value.get_type()) {

@@ -1,0 +1,82 @@
+' Test: Integration — VGMemoryBuffer round-trip
+' Tests buffer allocation, Peek/Poke operations, Fill, Find
+' NOTE: ToByteArray() returns PackedByteArray which VG can't consume (engine limitation)
+'       So we skip ToByteArray tests and focus on Peek/Poke round-trips
+Attribute VB_Name = "TestIntegMemBuf"
+
+Sub _Ready()
+    Dim buf As New VGMemoryBuffer
+
+    ' --- Allocate ---
+    buf.Allocate 256
+    Print "PASS: integ_membuf_allocate"
+
+    ' --- PokeInt32 + PeekInt32 round-trip ---
+    buf.PokeInt32 0, 42
+    Dim v As Integer
+    v = buf.PeekInt32(0)
+    If v = 42 Then
+        Print "PASS: integ_membuf_roundtrip_int32"
+    Else
+        Print "FAIL: integ_membuf_roundtrip_int32: got " & CStr(v)
+    End If
+
+    ' --- PokeInt32 at different offsets ---
+    buf.PokeInt32 4, 100
+    buf.PokeInt32 8, 200
+    If buf.PeekInt32(4) = 100 And buf.PeekInt32(8) = 200 Then
+        Print "PASS: integ_membuf_multi_offset"
+    Else
+        Print "FAIL: integ_membuf_multi_offset"
+    End If
+
+    ' --- PokeByte + PeekByte ---
+    buf.PokeByte 50, 255
+    If buf.PeekByte(50) = 255 Then
+        Print "PASS: integ_membuf_byte_roundtrip"
+    Else
+        Print "FAIL: integ_membuf_byte_roundtrip"
+    End If
+
+    ' --- FillRange ---
+    buf.FillRange 100, 10, 77
+    If buf.PeekByte(100) = 77 And buf.PeekByte(109) = 77 Then
+        Print "PASS: integ_membuf_fill_range"
+    Else
+        Print "FAIL: integ_membuf_fill_range"
+    End If
+
+    ' --- FindByte ---
+    Dim pos As Integer
+    pos = buf.FindByte(77, 0)
+    If pos = 50 Or pos = 100 Then
+        Print "PASS: integ_membuf_find_byte"
+    Else
+        Print "FAIL: integ_membuf_find_byte: found at " & CStr(pos)
+    End If
+
+    ' --- PokeFloat + PeekFloat ---
+    buf.PokeFloat 60, 3.14
+    Dim f As Double
+    f = buf.PeekFloat(60)
+    If f > 3.1 And f < 3.2 Then
+        Print "PASS: integ_membuf_float_roundtrip"
+    Else
+        Print "FAIL: integ_membuf_float_roundtrip: got " & CStr(f)
+    End If
+
+    ' --- CopyTo another buffer ---
+    Dim buf2 As New VGMemoryBuffer
+    buf2.Allocate 256
+    buf.CopyTo buf2, 0, 0, 12
+    If buf2.PeekInt32(0) = 42 And buf2.PeekInt32(4) = 100 Then
+        Print "PASS: integ_membuf_copy_to"
+    Else
+        Print "FAIL: integ_membuf_copy_to"
+    End If
+
+    ' --- Cleanup ---
+    buf.Free
+    buf2.Free
+    Print "PASS: integ_membuf_cleanup"
+End Sub

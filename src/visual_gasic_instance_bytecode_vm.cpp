@@ -807,6 +807,27 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     else if (class_name.nocasecmp_to("Collection") == 0) resolved = "VGCollection";
                     else if (class_name.nocasecmp_to("RegExp") == 0) resolved = "VGRegEx";
                     else if (class_name.nocasecmp_to("Timer") == 0 || class_name.nocasecmp_to("VBTimer") == 0) resolved = "VGTimer";
+                    // v3.0 aliases
+                    else if (class_name.nocasecmp_to("NativeLibrary") == 0) resolved = "VGNativeLibrary";
+                    else if (class_name.nocasecmp_to("NativeStruct") == 0) resolved = "VGNativeStruct";
+                    else if (class_name.nocasecmp_to("Odbc") == 0) resolved = "VGOdbc";
+                    else if (class_name.nocasecmp_to("Crypto") == 0) resolved = "VGCrypto";
+                    else if (class_name.nocasecmp_to("Xml") == 0) resolved = "VGXml";
+                    else if (class_name.nocasecmp_to("Zip") == 0) resolved = "VGZip";
+                    else if (class_name.nocasecmp_to("Task") == 0) resolved = "VGTask";
+                    else if (class_name.nocasecmp_to("TaskRunner") == 0) resolved = "VGTaskRunner";
+                    // v3.1 aliases
+                    else if (class_name.nocasecmp_to("System") == 0) resolved = "VGSystem";
+                    else if (class_name.nocasecmp_to("SignalHandler") == 0) resolved = "VGSignalHandler";
+                    else if (class_name.nocasecmp_to("FilePermissions") == 0) resolved = "VGFilePermissions";
+                    else if (class_name.nocasecmp_to("MemoryBuffer") == 0) resolved = "VGMemoryBuffer";
+                    else if (class_name.nocasecmp_to("IPC") == 0) resolved = "VGIPC";
+                    else if (class_name.nocasecmp_to("AndroidBridge") == 0) resolved = "VGAndroidBridge";
+                    // v3.2 aliases – GPU & ECS
+                    else if (class_name.nocasecmp_to("Gpu") == 0 || class_name.nocasecmp_to("VGGpu") == 0) resolved = "VisualGasicGPU";
+                    else if (class_name.nocasecmp_to("ECS") == 0 || class_name.nocasecmp_to("VGEcs") == 0) resolved = "VisualGasicECS";
+                    // Also resolve full VG* names for v3.0+ (bypass can_instantiate issue)
+                    else if (class_name.begins_with("VG") && ClassDB::class_exists(class_name)) resolved = class_name;
 
                     if (!resolved.is_empty() && ClassDB::class_exists(resolved)) {
                         Variant inst = ClassDB::instantiate(resolved);
@@ -1618,6 +1639,12 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 String method = read_constant(name_idx);
                 bool handled = false;
                 Variant call_ret = VisualGasicBuiltins::call_builtin_expr_evaluated(this, method, args, handled);
+
+                // VB6 Array() — build a Godot Array from the arguments
+                if (!handled && method.nocasecmp_to("Array") == 0) {
+                    call_ret = args;   // args is already a Godot Array of the evaluated arguments
+                    handled = true;
+                }
 
                 // GetNode("path") — Godot node path lookup (bytecode path)
                 if (!handled && method.nocasecmp_to("GetNode") == 0 && args.size() == 1) {

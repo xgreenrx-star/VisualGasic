@@ -1,0 +1,211 @@
+' demo_threading.vg — Multi-Threading and Concurrency
+' Demonstrates VisualGasic real threading: Thread, Mutex, barriers
+
+Sub Main()
+    Print "=== Threading Demo ==="
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 1. Basic Thread Creation
+    ' ---------------------------------------------------------------
+    Print "--- Basic Thread ---"
+
+    Dim t As New Thread
+    t.Start Sub()
+        Print "  Hello from a worker thread!"
+    End Sub
+    t.Join()
+
+    Print "Thread completed and joined."
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 2. Thread with Parameters
+    ' ---------------------------------------------------------------
+    Print "--- Thread with Shared Data ---"
+
+    Dim result As Integer
+    result = 0
+
+    Dim worker As New Thread
+    worker.Start Sub()
+        Dim i As Integer
+        Dim sum As Integer
+        sum = 0
+        For i = 1 To 100
+            sum = sum + i
+        Next i
+        result = sum
+    End Sub
+    worker.Join()
+
+    Print "Sum 1..100 = " & CStr(result)
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 3. Mutex for Synchronization
+    ' ---------------------------------------------------------------
+    Print "--- Mutex Synchronization ---"
+
+    Dim counter As Integer
+    counter = 0
+
+    Dim mtx As New Mutex
+
+    ' Spawn two threads incrementing the same counter
+    Dim t1 As New Thread
+    Dim t2 As New Thread
+
+    t1.Start Sub()
+        Dim i As Integer
+        For i = 1 To 1000
+            mtx.Lock()
+            counter = counter + 1
+            mtx.Unlock()
+        Next i
+    End Sub
+
+    t2.Start Sub()
+        Dim i As Integer
+        For i = 1 To 1000
+            mtx.Lock()
+            counter = counter + 1
+            mtx.Unlock()
+        Next i
+    End Sub
+
+    t1.Join()
+    t2.Join()
+
+    Print "Counter after 2 threads x 1000 = " & CStr(counter)
+    Print "Expected: 2000 (mutex prevents races)"
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 4. Thread Sleep
+    ' ---------------------------------------------------------------
+    Print "--- Thread Sleep ---"
+
+    Dim start As Double
+    start = Timer
+
+    Dim sleeper As New Thread
+    sleeper.Start Sub()
+        Thread.Sleep 100    ' Sleep 100ms
+    End Sub
+    sleeper.Join()
+
+    Dim elapsed As Double
+    elapsed = (Timer - start) * 1000
+    Print "Slept ~100ms, actual: " & Format(elapsed, "Fixed") & "ms"
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 5. Multiple Workers (Thread Pool Pattern)
+    ' ---------------------------------------------------------------
+    Print "--- Multiple Workers ---"
+
+    Dim results(3) As Integer
+    Dim workers(3) As Thread
+
+    Dim idx As Integer
+    For idx = 0 To 3
+        Set workers(idx) = New Thread
+        Dim taskId As Integer
+        taskId = idx
+
+        workers(idx).Start Sub()
+            ' Each worker computes factorial of (taskId + 1) * 3
+            Dim n As Integer
+            n = (taskId + 1) * 3
+            Dim fact As Integer
+            fact = 1
+            Dim j As Integer
+            For j = 1 To n
+                fact = fact * j
+            Next j
+            results(taskId) = fact
+        End Sub
+    Next idx
+
+    ' Join all
+    For idx = 0 To 3
+        workers(idx).Join()
+    Next idx
+
+    Print "Factorial results (computed in parallel):"
+    For idx = 0 To 3
+        Print "  Worker " & CStr(idx) & ": " & CStr((idx + 1) * 3) & "! = " & CStr(results(idx))
+    Next idx
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 6. Thread-Safe Queue Pattern
+    ' ---------------------------------------------------------------
+    Print "--- Producer/Consumer Pattern ---"
+
+    Dim queue As Array
+    ReDim queue(-1)
+    Dim queueMtx As New Mutex
+
+    ' Producer thread
+    Dim producer As New Thread
+    producer.Start Sub()
+        Dim i As Integer
+        For i = 1 To 5
+            queueMtx.Lock()
+            ReDim Preserve queue(UBound(queue) + 1)
+            queue(UBound(queue)) = "Item_" & CStr(i)
+            queueMtx.Unlock()
+            Thread.Sleep 10
+        Next i
+    End Sub
+
+    producer.Join()
+
+    Print "Queue after production: " & CStr(UBound(queue) + 1) & " items"
+    Dim qi As Integer
+    For qi = 0 To UBound(queue)
+        Print "  " & queue(qi)
+    Next qi
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 7. Practical: Parallel Array Sum
+    ' ---------------------------------------------------------------
+    Print "--- Practical: Parallel Sum ---"
+
+    ' Split a large computation across 2 threads
+    Dim partialA As Long
+    Dim partialB As Long
+    partialA = 0
+    partialB = 0
+
+    Dim sumA As New Thread
+    Dim sumB As New Thread
+
+    sumA.Start Sub()
+        Dim i As Long
+        For i = 1 To 500000
+            partialA = partialA + i
+        Next i
+    End Sub
+
+    sumB.Start Sub()
+        Dim i As Long
+        For i = 500001 To 1000000
+            partialB = partialB + i
+        Next i
+    End Sub
+
+    sumA.Join()
+    sumB.Join()
+
+    Dim totalSum As Long
+    totalSum = partialA + partialB
+    Print "Sum 1..1000000 = " & CStr(totalSum)
+    Print "Expected:        500000500000"
+    Print ""
+
+    Print "=== Threading Demo Complete ==="
+End Sub

@@ -596,6 +596,7 @@ Dictionary VGSocket::receive_from(int p_max_bytes) {
     }
 
     char *buf = (char *)memalloc(p_max_bytes + 1);
+    ERR_FAIL_NULL_V_MSG(buf, result, "VGSocket: allocation failed in receive_from");
     struct sockaddr_in sender = {};
     socklen_t sender_len = sizeof(sender);
 
@@ -621,6 +622,7 @@ Dictionary VGSocket::receive_from(int p_max_bytes) {
     }
 
     char *buf = (char *)memalloc(p_max_bytes + 1);
+    ERR_FAIL_NULL_V_MSG(buf, result, "VGSocket: allocation failed in receive_from");
     struct sockaddr_in sender = {};
     int sender_len = sizeof(sender);
 

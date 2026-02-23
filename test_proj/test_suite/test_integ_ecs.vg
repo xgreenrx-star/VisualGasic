@@ -1,0 +1,79 @@
+' Test: Integration — ECS multi-entity simulation lifecycle
+Attribute VB_Name = "TestIntegECS"
+
+Sub _Ready()
+    Dim ecs As New VGEcs
+
+    ' Create 5 entities with Transform + Velocity
+    Dim ids(4) As Long
+    Dim i As Long
+    For i = 0 To 4
+        ids(i) = ecs.CreateEntity()
+        Dim t As New Dictionary
+        t.Add "x", CDbl(i * 10)
+        t.Add "y", 0.0
+        ecs.AddComponent ids(i), "Transform", t
+
+        Dim v As New Dictionary
+        v.Add "dx", 1.0
+        v.Add "dy", CDbl(i)
+        ecs.AddComponent ids(i), "Velocity", v
+    Next
+
+    If ecs.GetEntityCount() = 5 Then
+        Print "PASS: integ_ecs_bulk_create"
+    Else
+        Print "FAIL: integ_ecs_bulk_create: count=" & CStr(ecs.GetEntityCount())
+    End If
+
+    ' Query Transform+Velocity — should return all 5
+    Dim req As Variant
+    req = Array("Transform", "Velocity")
+    Dim qr As Variant
+    qr = ecs.Query(req)
+    If UBound(qr) = 4 Then
+        Print "PASS: integ_ecs_query_all"
+    Else
+        Print "FAIL: integ_ecs_query_all: got " & CStr(UBound(qr) + 1)
+    End If
+
+    ' Remove Velocity from entity 0 — query should now return 4
+    ecs.RemoveComponent ids(0), "Velocity"
+    qr = ecs.Query(req)
+    If UBound(qr) = 3 Then
+        Print "PASS: integ_ecs_query_after_remove"
+    Else
+        Print "FAIL: integ_ecs_query_after_remove: got " & CStr(UBound(qr) + 1)
+    End If
+
+    ' Destroy entity 4 — count should be 4
+    ecs.DestroyEntity ids(4)
+    If ecs.GetEntityCount() = 4 Then
+        Print "PASS: integ_ecs_destroy_mid_sim"
+    Else
+        Print "FAIL: integ_ecs_destroy_mid_sim"
+    End If
+
+    ' Serialize → Clear → Deserialize roundtrip
+    Dim snap As Dictionary
+    Set snap = ecs.Serialize()
+    ecs.Clear
+    ecs.Deserialize snap
+    If ecs.GetEntityCount() = 4 Then
+        Print "PASS: integ_ecs_roundtrip"
+    Else
+        Print "FAIL: integ_ecs_roundtrip: count=" & CStr(ecs.GetEntityCount())
+    End If
+
+    ' Tick update 10 times
+    For i = 1 To 10
+        ecs.Update 0.016
+    Next
+    Dim dinfo As Dictionary
+    Set dinfo = ecs.GetDebugInfo()
+    If dinfo.Item("total_updates") >= 10 Then
+        Print "PASS: integ_ecs_multi_update"
+    Else
+        Print "FAIL: integ_ecs_multi_update"
+    End If
+End Sub

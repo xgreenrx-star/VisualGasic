@@ -1,0 +1,207 @@
+' demo_error_handling.vg — Comprehensive Error Handling
+' Demonstrates On Error, Try/Catch/Finally, Err object, custom errors
+
+Sub Main()
+    Print "=== Error Handling Demo ==="
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 1. On Error Resume Next (VB6 Classic)
+    ' ---------------------------------------------------------------
+    Print "--- On Error Resume Next ---"
+
+    On Error Resume Next
+
+    ' This will cause a division by zero error
+    Dim result As Double
+    result = 10 / 0
+
+    ' Check the Err object after the operation
+    If Err.Number <> 0 Then
+        Print "Error caught: #" & CStr(Err.Number) & " - " & Err.Description
+        Err.Clear   ' Always clear after handling
+    Else
+        Print "Result: " & CStr(result)
+    End If
+
+    ' Try accessing an invalid array index
+    Dim arr(2) As Integer
+    arr(0) = 10
+    arr(1) = 20
+    arr(2) = 30
+
+    Dim bad As Integer
+    bad = arr(99)   ' Out of bounds!
+
+    If Err.Number <> 0 Then
+        Print "Array error: " & Err.Description
+        Err.Clear
+    End If
+
+    On Error GoTo 0   ' Reset error handling
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 2. On Error GoTo Label
+    ' ---------------------------------------------------------------
+    Print "--- On Error GoTo Label ---"
+
+    Call TestOnErrorGoTo
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 3. Try / Catch / Finally (Modern Extension)
+    ' ---------------------------------------------------------------
+    Print "--- Try / Catch / Finally ---"
+
+    Try
+        Print "Attempting risky operation..."
+        Dim x As Integer
+        x = CInt("not a number")   ' This will fail
+        Print "This line won't execute"
+    Catch ex
+        Print "Caught exception: " & ex.Description
+    Finally
+        Print "Finally block always runs (cleanup here)"
+    End Try
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 4. Nested Try/Catch
+    ' ---------------------------------------------------------------
+    Print "--- Nested Try/Catch ---"
+
+    Try
+        Print "Outer try..."
+        Try
+            Print "  Inner try..."
+            Err.Raise 1001, "InnerBlock", "Custom inner error"
+        Catch innerEx
+            Print "  Inner catch: " & innerEx.Description
+            ' Re-raise to outer handler
+            Err.Raise 1002, "InnerBlock", "Propagated error"
+        End Try
+    Catch outerEx
+        Print "Outer catch: " & outerEx.Description
+    End Try
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 5. The Err Object
+    ' ---------------------------------------------------------------
+    Print "--- The Err Object ---"
+
+    On Error Resume Next
+
+    ' Raise a custom error
+    Err.Raise 5000, "Main", "Custom application error"
+
+    Print "Err.Number:      " & CStr(Err.Number)
+    Print "Err.Description: " & Err.Description
+    Print "Err.Source:       " & Err.Source
+
+    Err.Clear
+    On Error GoTo 0
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 6. Error Handling in Functions
+    ' ---------------------------------------------------------------
+    Print "--- Error Handling in Functions ---"
+
+    Dim safeResult As Variant
+    safeResult = SafeDivide(10, 3)
+    Print "10 / 3 = " & CStr(safeResult)
+
+    safeResult = SafeDivide(10, 0)
+    Print "10 / 0 = " & CStr(safeResult)
+
+    safeResult = SafeDivide(100, 7)
+    Print "100 / 7 = " & Format(safeResult, "Fixed")
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 7. Practical: Robust File Reader
+    ' ---------------------------------------------------------------
+    Print "--- Practical: Robust File Reader ---"
+
+    Call ReadFileSafely("/tmp/test_error_demo.txt")
+    Call ReadFileSafely("/tmp/does_not_exist_12345.txt")
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 8. Error Constants
+    ' ---------------------------------------------------------------
+    Print "--- Common VB6 Error Numbers ---"
+    Print "  5    = Invalid procedure call"
+    Print "  6    = Overflow"
+    Print "  9    = Subscript out of range"
+    Print "  11   = Division by zero"
+    Print "  13   = Type mismatch"
+    Print "  53   = File not found"
+    Print "  76   = Path not found"
+    Print "  91   = Object variable not set"
+    Print "  1001+= Application-defined errors"
+    Print ""
+
+    Print "=== Error Handling Demo Complete ==="
+End Sub
+
+' ---------------------------------------------------------------
+' Helper: On Error GoTo Label example
+' ---------------------------------------------------------------
+Sub TestOnErrorGoTo()
+    On Error GoTo HandleError
+
+    Print "Before error..."
+    Dim x As Integer
+    x = CInt("abc")   ' Type mismatch!
+    Print "This won't print"
+    Exit Sub
+
+HandleError:
+    Print "GoTo handler caught: #" & CStr(Err.Number) & " - " & Err.Description
+End Sub
+
+' ---------------------------------------------------------------
+' Helper: Safe division with error handling
+' ---------------------------------------------------------------
+Function SafeDivide(a As Double, b As Double) As Variant
+    If b = 0 Then
+        SafeDivide = "Error: Division by zero"
+    Else
+        SafeDivide = a / b
+    End If
+End Function
+
+' ---------------------------------------------------------------
+' Helper: Robust file reader
+' ---------------------------------------------------------------
+Sub ReadFileSafely(path As String)
+    On Error Resume Next
+
+    ' Try to create and read the file
+    If path = "/tmp/test_error_demo.txt" Then
+        ' Create the file first
+        Open path For Output As #1
+        Print #1, "Hello from error handling demo!"
+        Close #1
+    End If
+
+    Dim content As String
+    content = ReadAllText(path)
+
+    If Err.Number <> 0 Then
+        Print "  Could not read '" & path & "': " & Err.Description
+        Err.Clear
+    Else
+        Print "  Read '" & path & "': " & content
+    End If
+
+    On Error GoTo 0
+
+    ' Clean up
+    If path = "/tmp/test_error_demo.txt" Then
+        Kill path
+    End If
+End Sub

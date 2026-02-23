@@ -1,0 +1,106 @@
+' Test: Integration — File permissions + FileSystemObject
+' Uses VGFilePermissions for chmod/lock, FSO for file I/O
+' FSO API: WriteAll(path, content), ReadAll(path), NOT CreateTextFile/ReadAllText
+Attribute VB_Name = "TestIntegFilePerm"
+
+Sub _Ready()
+    Dim fp As New VGFilePermissions
+    Dim fso As New FileSystemObject
+
+    Dim testPath As String
+    testPath = "/tmp/vg_integ_fileperm_test.txt"
+
+    ' Clean up from prior runs
+    On Error Resume Next
+    Kill testPath
+    On Error GoTo 0
+
+    ' --- Write file using FSO.WriteAll ---
+    fso.WriteAll testPath, "Integration test data"
+    
+    ' --- Read back using FSO.ReadAll ---
+    Dim content As String
+    content = fso.ReadAll(testPath)
+    If InStr(content, "Integration") > 0 Then
+        Print "PASS: integ_fp_write_read"
+    Else
+        Print "FAIL: integ_fp_write_read: got '" & content & "'"
+    End If
+
+    ' --- Get permissions, then chmod (decimal 420 = octal 0644) ---
+    Dim origPerms As Integer
+    origPerms = fp.GetPermissions(testPath)
+    fp.Chmod testPath, 420
+
+    Dim newPerms As Integer
+    newPerms = fp.GetPermissions(testPath)
+    If newPerms > 0 Then
+        Print "PASS: integ_fp_chmod_verify"
+    Else
+        Print "FAIL: integ_fp_chmod_verify"
+    End If
+
+    ' --- Read after chmod (file should still be readable) ---
+    content = fso.ReadAll(testPath)
+    If InStr(content, "Integration") > 0 Then
+        Print "PASS: integ_fp_read_after_chmod"
+    Else
+        Print "FAIL: integ_fp_read_after_chmod"
+    End If
+
+    ' --- Lock file ---
+    Dim ok As Boolean
+    ok = fp.Lock(testPath)
+    If ok Then
+        Print "PASS: integ_fp_lock"
+    Else
+        Print "FAIL: integ_fp_lock"
+    End If
+
+    ' --- IsLocked ---
+    If fp.IsLocked(testPath) Then
+        Print "PASS: integ_fp_is_locked"
+    Else
+        Print "FAIL: integ_fp_is_locked"
+    End If
+
+    ' --- Try to write while locked (FSO should still work — lock is advisory) ---
+    fso.WriteAll testPath, "Overwritten while locked"
+    content = fso.ReadAll(testPath)
+    If InStr(content, "Overwritten") > 0 Then
+        Print "PASS: integ_fp_write_while_locked"
+    Else
+        Print "FAIL: integ_fp_write_while_locked"
+    End If
+
+    ' --- Unlock ---
+    ok = fp.Unlock(testPath)
+    If ok Then
+        Print "PASS: integ_fp_unlock"
+    Else
+        Print "FAIL: integ_fp_unlock"
+    End If
+
+    ' --- File info ---
+    Dim info As Object
+    Set info = fp.GetFileInfo(testPath)
+    If Not info Is Nothing Then
+        Print "PASS: integ_fp_file_info"
+    Else
+        Print "FAIL: integ_fp_file_info"
+    End If
+
+    ' --- FileLen ---
+    Dim sz As Integer
+    sz = fp.FileLen(testPath)
+    If sz > 0 Then
+        Print "PASS: integ_fp_file_len"
+    Else
+        Print "FAIL: integ_fp_file_len: got " & CStr(sz)
+    End If
+
+    ' --- Cleanup ---
+    On Error Resume Next
+    Kill testPath
+    On Error GoTo 0
+End Sub

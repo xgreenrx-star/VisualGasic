@@ -1,0 +1,151 @@
+' demo_ipc.vg — Inter-Process Communication
+' Demonstrates VGIPC: named pipes, UNIX domain sockets, POSIX shared memory
+
+Sub Main()
+    Print "=== Inter-Process Communication Demo ==="
+    Print ""
+
+    Dim ipc As New VGIPC
+
+    ' ---------------------------------------------------------------
+    ' 1. Named Pipes
+    ' ---------------------------------------------------------------
+    Print "--- Named Pipes ---"
+
+    Dim pipePath As String
+    pipePath = "/tmp/vg_demo_pipe"
+
+    ' Create a named pipe (FIFO)
+    Dim ok As Boolean
+    ok = ipc.CreateNamedPipe(pipePath)
+    Print "Created pipe: " & CStr(ok)
+
+    ' Open pipe for writing
+    ok = ipc.OpenPipe(pipePath, "write")
+    Print "Opened for write: " & CStr(ok)
+    Print "Pipe is open: " & CStr(ipc.PipeIsOpen)
+
+    ' Write data to the pipe
+    ' Note: In a real scenario, another process would read from the pipe.
+    ' For demonstration, we close and reopen.
+    ipc.WritePipe "Hello from VG pipe!"
+    Print "Wrote message to pipe"
+    ipc.ClosePipe
+    Print "Pipe closed"
+
+    ' Clean up the named pipe
+    ipc.DeleteNamedPipe pipePath
+    Print "Deleted pipe: " & pipePath
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 2. POSIX Shared Memory
+    ' ---------------------------------------------------------------
+    Print "--- Shared Memory ---"
+
+    Dim shmName As String
+    shmName = "vg_demo_shm"
+    Dim shmSize As Integer
+    shmSize = 4096
+
+    ' Create a shared memory region
+    ok = ipc.CreateSharedMemory(shmName, shmSize)
+    Print "Created shared memory '" & shmName & "': " & CStr(ok)
+    Print "SHM is open: " & CStr(ipc.ShmIsOpen)
+
+    ' Write string data at offset 0
+    ipc.WriteSharedMemory 0, "Player1:Score=1500"
+    Print "Wrote: 'Player1:Score=1500' at offset 0"
+
+    ' Write more data at another offset
+    ipc.WriteSharedMemory 256, "Player2:Score=2300"
+    Print "Wrote: 'Player2:Score=2300' at offset 256"
+
+    ' Read it back
+    Dim data1 As String
+    Dim data2 As String
+    data1 = ipc.ReadSharedMemory(0, 18)
+    data2 = ipc.ReadSharedMemory(256, 18)
+    Print "Read at 0:   '" & data1 & "'"
+    Print "Read at 256: '" & data2 & "'"
+
+    ' Close and clean up
+    ipc.CloseSharedMemory
+    Print "Shared memory closed"
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 3. UNIX Domain Sockets
+    ' ---------------------------------------------------------------
+    Print "--- UNIX Domain Sockets ---"
+    Print "Domain sockets enable fast local IPC between processes."
+    Print ""
+    Print "Server pattern:"
+    Print "  Dim server As New VGIPC"
+    Print "  server.CreateDomainSocket ""/tmp/vg.sock"""
+    Print "  server.AcceptConnection"
+    Print "  Dim msg As String"
+    Print "  msg = server.ReadSocket(1024)"
+    Print "  server.WriteSocket ""ACK: "" & msg"
+    Print "  server.CloseSocket"
+    Print ""
+    Print "Client pattern:"
+    Print "  Dim client As New VGIPC"
+    Print "  client.ConnectDomainSocket ""/tmp/vg.sock"""
+    Print "  client.WriteSocket ""Hello server!"""
+    Print "  Dim reply As String"
+    Print "  reply = client.ReadSocket(1024)"
+    Print "  client.CloseSocket"
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 4. Practical: Game State Sharing
+    ' ---------------------------------------------------------------
+    Print "--- Practical: Game State Sharing via SHM ---"
+    Print "Shared memory is ideal for sharing game state between"
+    Print "a VisualGasic game and an external tool (e.g., an AI agent)."
+    Print ""
+
+    Dim gameIpc As New VGIPC
+    ok = gameIpc.CreateSharedMemory("game_state", 1024)
+
+    If ok Then
+        ' Write a simple game state structure
+        ' Format: "x,y,health,score"
+        Dim state As String
+        state = "150.5,200.0,100,15000"
+        gameIpc.WriteSharedMemory 0, state
+        Print "Game state written to SHM: " & state
+
+        ' An external tool could read this same memory region
+        Dim readBack As String
+        readBack = gameIpc.ReadSharedMemory(0, Len(state))
+        Print "External tool reads: " & readBack
+
+        ' Parse the state
+        Dim parts As Array
+        parts = Split(readBack, ",")
+        Print "  Position: (" & parts(0) & ", " & parts(1) & ")"
+        Print "  Health:   " & parts(2)
+        Print "  Score:    " & parts(3)
+
+        gameIpc.CloseSharedMemory
+    End If
+
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 5. Error Handling
+    ' ---------------------------------------------------------------
+    Print "--- Error Handling ---"
+
+    Dim errIpc As New VGIPC
+    ' Try to open non-existent shared memory
+    ok = errIpc.OpenSharedMemory("nonexistent_shm_12345")
+    If Not ok Then
+        Print "Expected error: " & errIpc.LastError
+    End If
+
+    Print ""
+    Print "=== IPC Demo Complete ==="
+End Sub

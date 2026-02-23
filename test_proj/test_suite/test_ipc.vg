@@ -1,0 +1,97 @@
+' Test: VGIPC module
+' Tests named pipes (skip blocking open), shared memory
+' API: CreateNamedPipe, WritePipe, ClosePipe, DeleteNamedPipe
+'      CreateSharedMemory, WriteSharedMemory, ReadSharedMemory, CloseSharedMemory
+Attribute VB_Name = "TestVGIPC"
+
+Sub _Ready()
+    Dim ipc As New VGIPC
+
+    ' --- Create Named Pipe ---
+    Dim pipeName As String
+    pipeName = "/tmp/vg_test_pipe_" & CStr(Int(Rnd * 99999))
+    Dim ok As Boolean
+    ok = ipc.CreateNamedPipe(pipeName)
+    If ok Then
+        Print "PASS: ipc_create_pipe"
+    Else
+        Print "FAIL: ipc_create_pipe"
+    End If
+
+    ' NOTE: OpenPipe on Linux FIFOs blocks until both ends are open
+    ' So we skip the blocking open test and just delete the pipe
+    
+    ' --- Delete Named Pipe ---
+    ok = ipc.DeleteNamedPipe(pipeName)
+    If ok Then
+        Print "PASS: ipc_delete_pipe"
+    Else
+        Print "FAIL: ipc_delete_pipe"
+    End If
+
+    ' -----------------------------------------------
+    ' Shared Memory Tests
+    ' -----------------------------------------------
+
+    ' --- Create Shared Memory ---
+    Dim shmName As String
+    shmName = "vg_test_shm"
+    ok = ipc.CreateSharedMemory(shmName, 1024)
+    If ok Then
+        Print "PASS: ipc_create_shm"
+    Else
+        Print "FAIL: ipc_create_shm"
+    End If
+
+    ' --- Write Shared Memory ---
+    ok = ipc.WriteSharedMemory(0, "Hello SHM!")
+    If ok Then
+        Print "PASS: ipc_write_shm"
+    Else
+        Print "FAIL: ipc_write_shm"
+    End If
+
+    ' --- Read Shared Memory ---
+    Dim readStr As String
+    readStr = ipc.ReadSharedMemory(0, 10)
+    If readStr = "Hello SHM!" Then
+        Print "PASS: ipc_read_shm"
+    Else
+        Print "FAIL: ipc_read_shm: got '" & readStr & "'"
+    End If
+
+    ' --- Write at offset ---
+    ok = ipc.WriteSharedMemory(100, "Offset Data")
+    If ok Then
+        Dim readStr2 As String
+        readStr2 = ipc.ReadSharedMemory(100, 11)
+        If readStr2 = "Offset Data" Then
+            Print "PASS: ipc_shm_offset"
+        Else
+            Print "FAIL: ipc_shm_offset: got '" & readStr2 & "'"
+        End If
+    Else
+        Print "FAIL: ipc_shm_offset: write failed"
+    End If
+
+    ' --- Negative offset guard ---
+    ok = ipc.WriteSharedMemory(-1, "bad")
+    If ok = False Then
+        Print "PASS: ipc_shm_negative_offset"
+    Else
+        Print "FAIL: ipc_shm_negative_offset: should reject"
+    End If
+
+    ' --- Read beyond bounds ---
+    Dim emptyStr As String
+    emptyStr = ipc.ReadSharedMemory(0, 2000)
+    If emptyStr = "" Then
+        Print "PASS: ipc_shm_read_oob"
+    Else
+        Print "FAIL: ipc_shm_read_oob: should return empty"
+    End If
+
+    ' --- Close Shared Memory ---
+    ipc.CloseSharedMemory
+    Print "PASS: ipc_close_shm"
+End Sub

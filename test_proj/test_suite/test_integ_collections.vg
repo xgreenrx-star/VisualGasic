@@ -1,0 +1,113 @@
+' Test: Integration — Collections + Strings
+' Uses Dictionary for storage, string funcs for parsing
+' NOTE: Dictionary.Keys() array indexing is buggy — keys(i) returns []
+'       Workaround: iterate Keys with For Each
+Attribute VB_Name = "TestIntegCollStrings"
+
+Sub _Ready()
+    ' --- Split CSV then store in Dictionary ---
+    Dim csv As String
+    csv = "Alice=95,Bob=87,Charlie=92"
+    
+    Dim pairs As Array
+    pairs = Split(csv, ",")
+    
+    Dim scores As New Dictionary
+    
+    Dim i As Integer
+    For i = 0 To UBound(pairs)
+        Dim kv As Array
+        kv = Split(pairs(i), "=")
+        scores.Add kv(0), CInt(kv(1))
+    Next i
+    
+    If scores.Count() = 3 Then
+        Print "PASS: integ_coll_str_parse_count"
+    Else
+        Print "FAIL: integ_coll_str_parse_count: expected 3, got " & CStr(scores.Count())
+    End If
+    
+    If scores("Alice") = 95 Then
+        Print "PASS: integ_coll_str_lookup_alice"
+    Else
+        Print "FAIL: integ_coll_str_lookup_alice"
+    End If
+
+    If scores("Bob") = 87 Then
+        Print "PASS: integ_coll_str_lookup_bob"
+    Else
+        Print "FAIL: integ_coll_str_lookup_bob"
+    End If
+
+    If scores("Charlie") = 92 Then
+        Print "PASS: integ_coll_str_lookup_charlie"
+    Else
+        Print "FAIL: integ_coll_str_lookup_charlie"
+    End If
+
+    ' --- String search in array ---
+    Dim names As Array
+    names = Array("Alice", "Bob", "Charlie", "Diana", "Eve")
+    
+    Dim found As Boolean
+    found = False
+    Dim item As Variant
+    For Each item In names
+        If InStr(item, "li") > 0 Then
+            found = True
+            Exit For
+        End If
+    Next item
+    
+    If found Then
+        Print "PASS: integ_coll_str_search"
+    Else
+        Print "FAIL: integ_coll_str_search"
+    End If
+
+    ' --- Frequency count with UCase normalization ---
+    Dim words As Array
+    words = Split("The THE the tHe quick QUICK fox", " ")
+    
+    Dim freq As New Dictionary
+    For Each item In words
+        Dim w As String
+        w = UCase(item)
+        If freq.Exists(w) Then
+            freq(w) = freq(w) + 1
+        Else
+            freq.Add w, 1
+        End If
+    Next item
+    
+    If freq("THE") = 4 Then
+        Print "PASS: integ_coll_str_freq_the"
+    Else
+        Print "FAIL: integ_coll_str_freq_the: expected 4, got " & CStr(freq("THE"))
+    End If
+    
+    If freq("QUICK") = 2 Then
+        Print "PASS: integ_coll_str_freq_quick"
+    Else
+        Print "FAIL: integ_coll_str_freq_quick"
+    End If
+
+    If freq("FOX") = 1 Then
+        Print "PASS: integ_coll_str_freq_fox"
+    Else
+        Print "FAIL: integ_coll_str_freq_fox"
+    End If
+
+    ' --- Replace within array elements ---
+    Dim items As Array
+    items = Array("item_001", "item_002", "item_003")
+    For i = 0 To UBound(items)
+        items(i) = Replace(items(i), "item_", "ID:")
+    Next i
+    
+    If items(0) = "ID:001" And items(2) = "ID:003" Then
+        Print "PASS: integ_coll_str_replace_array"
+    Else
+        Print "FAIL: integ_coll_str_replace_array"
+    End If
+End Sub

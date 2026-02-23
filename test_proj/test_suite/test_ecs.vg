@@ -1,0 +1,206 @@
+' Test: VGEcs — Dictionary-based Entity-Component-System
+Attribute VB_Name = "TestECS"
+
+Sub _Ready()
+    Dim ecs As New VGEcs
+
+    ' --- Construction ---
+    Print "PASS: ecs_construction"
+
+    ' --- RegisterComponentType ---
+    ecs.RegisterComponentType "Transform"
+    ecs.RegisterComponentType "Velocity"
+    If ecs.HasComponentType("Transform") And ecs.HasComponentType("Velocity") Then
+        Print "PASS: ecs_register_component_type"
+    Else
+        Print "FAIL: ecs_register_component_type"
+    End If
+
+    ' --- GetComponentTypes ---
+    Dim types As Variant
+    types = ecs.GetComponentTypes()
+    If UBound(types) >= 1 Then
+        Print "PASS: ecs_get_component_types"
+    Else
+        Print "FAIL: ecs_get_component_types"
+    End If
+
+    ' --- CreateEntity ---
+    Dim e1 As Long
+    e1 = ecs.CreateEntity()
+    If e1 > 0 Then
+        Print "PASS: ecs_create_entity"
+    Else
+        Print "FAIL: ecs_create_entity"
+    End If
+
+    ' --- IsEntityValid ---
+    If ecs.IsEntityValid(e1) Then
+        Print "PASS: ecs_is_entity_valid"
+    Else
+        Print "FAIL: ecs_is_entity_valid"
+    End If
+
+    ' --- GetEntityCount ---
+    If ecs.GetEntityCount() = 1 Then
+        Print "PASS: ecs_get_entity_count"
+    Else
+        Print "FAIL: ecs_get_entity_count: got " & CStr(ecs.GetEntityCount())
+    End If
+
+    ' --- AddComponent ---
+    Dim td As New Dictionary
+    td.Add "x", 10.0
+    td.Add "y", 20.0
+    ecs.AddComponent e1, "Transform", td
+    Print "PASS: ecs_add_component"
+
+    ' --- HasComponent ---
+    If ecs.HasComponent(e1, "Transform") Then
+        Print "PASS: ecs_has_component"
+    Else
+        Print "FAIL: ecs_has_component"
+    End If
+
+    ' --- GetComponent ---
+    Dim comp As Dictionary
+    Set comp = ecs.GetComponent(e1, "Transform")
+    If comp.Has("x") Then
+        If Abs(comp.Item("x") - 10.0) < 0.01 Then
+            Print "PASS: ecs_get_component"
+        Else
+            Print "FAIL: ecs_get_component: x=" & CStr(comp.Item("x"))
+        End If
+    Else
+        Print "FAIL: ecs_get_component: missing x"
+    End If
+
+    ' --- SetComponent (overwrite) ---
+    Dim td2 As New Dictionary
+    td2.Add "x", 99.0
+    td2.Add "y", 88.0
+    ecs.SetComponent e1, "Transform", td2
+    Set comp = ecs.GetComponent(e1, "Transform")
+    If Abs(comp.Item("x") - 99.0) < 0.01 Then
+        Print "PASS: ecs_set_component"
+    Else
+        Print "FAIL: ecs_set_component"
+    End If
+
+    ' --- Auto-register on AddComponent ---
+    Dim vd As New Dictionary
+    vd.Add "dx", 1.0
+    vd.Add "dy", 2.0
+    ecs.AddComponent e1, "Velocity", vd
+    If ecs.HasComponent(e1, "Velocity") Then
+        Print "PASS: ecs_auto_register"
+    Else
+        Print "FAIL: ecs_auto_register"
+    End If
+
+    ' --- Query (single required) ---
+    Dim e2 As Long
+    e2 = ecs.CreateEntity()
+    Dim td3 As New Dictionary
+    td3.Add "x", 5.0
+    ecs.AddComponent e2, "Transform", td3
+    ' e1 has Transform+Velocity, e2 has Transform only
+
+    Dim req As Variant
+    req = Array("Transform")
+    Dim results As Variant
+    results = ecs.Query(req)
+    If UBound(results) >= 1 Then
+        Print "PASS: ecs_query_single"
+    Else
+        Print "FAIL: ecs_query_single: got " & CStr(UBound(results) + 1) & " results"
+    End If
+
+    ' --- Query (two required) ---
+    req = Array("Transform", "Velocity")
+    results = ecs.Query(req)
+    If UBound(results) = 0 Then
+        Print "PASS: ecs_query_multi"
+    Else
+        Print "FAIL: ecs_query_multi: expected 1 got " & CStr(UBound(results) + 1)
+    End If
+
+    ' --- QueryExclude ---
+    req = Array("Transform")
+    Dim exc As Variant
+    exc = Array("Velocity")
+    results = ecs.QueryExclude(req, exc)
+    If UBound(results) = 0 Then
+        Print "PASS: ecs_query_exclude"
+    Else
+        Print "FAIL: ecs_query_exclude"
+    End If
+
+    ' --- RemoveComponent ---
+    ecs.RemoveComponent e1, "Velocity"
+    If Not ecs.HasComponent(e1, "Velocity") Then
+        Print "PASS: ecs_remove_component"
+    Else
+        Print "FAIL: ecs_remove_component"
+    End If
+
+    ' --- GetAllEntities ---
+    Dim ents As Variant
+    ents = ecs.GetAllEntities()
+    If UBound(ents) >= 1 Then
+        Print "PASS: ecs_get_all_entities"
+    Else
+        Print "FAIL: ecs_get_all_entities"
+    End If
+
+    ' --- GetEntityInfo ---
+    Dim einfo As Dictionary
+    Set einfo = ecs.GetEntityInfo(e1)
+    If einfo.Item("valid") = True Then
+        Print "PASS: ecs_get_entity_info"
+    Else
+        Print "FAIL: ecs_get_entity_info"
+    End If
+
+    ' --- DestroyEntity ---
+    ecs.DestroyEntity e2
+    If Not ecs.IsEntityValid(e2) Then
+        Print "PASS: ecs_destroy_entity"
+    Else
+        Print "FAIL: ecs_destroy_entity"
+    End If
+
+    ' --- Update (no crash) ---
+    ecs.Update 0.016
+    Print "PASS: ecs_update"
+
+    ' --- GetDebugInfo ---
+    Dim dinfo As Dictionary
+    Set dinfo = ecs.GetDebugInfo()
+    If dinfo.Has("entity_count") And dinfo.Has("total_updates") Then
+        Print "PASS: ecs_get_debug_info"
+    Else
+        Print "FAIL: ecs_get_debug_info"
+    End If
+
+    ' --- Serialize / Deserialize roundtrip ---
+    Dim snap As Dictionary
+    Set snap = ecs.Serialize()
+    ecs.Clear
+    If ecs.GetEntityCount() = 0 Then
+        Print "PASS: ecs_clear"
+    Else
+        Print "FAIL: ecs_clear"
+    End If
+
+    ecs.Deserialize snap
+    If ecs.GetEntityCount() >= 1 Then
+        Print "PASS: ecs_serialize_deserialize"
+    Else
+        Print "FAIL: ecs_serialize_deserialize"
+    End If
+
+    ' --- EnableProfiling (no crash) ---
+    ecs.EnableProfiling True
+    Print "PASS: ecs_enable_profiling"
+End Sub

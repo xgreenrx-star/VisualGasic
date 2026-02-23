@@ -1,0 +1,204 @@
+' demo_functional.vg — Functional Programming Features
+' Demonstrates Lambda, Map, Filter, Reduce, Any, All, Find, closures
+
+Sub Main()
+    Print "=== Functional Programming Demo ==="
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 1. Lambda Expressions
+    ' ---------------------------------------------------------------
+    Print "--- Lambda Expressions ---"
+
+    ' Lambda creates an anonymous function
+    Dim double As Variant
+    double = Lambda(Function(x) x * 2)
+    Print "Lambda double(5) = " & CStr(double.Call(5))
+    Print "Lambda double(21) = " & CStr(double.Call(21))
+
+    ' Lambda with multiple parameters
+    Dim add As Variant
+    add = Lambda(Function(a, b) a + b)
+    Print "Lambda add(3, 4) = " & CStr(add.Call(3, 4))
+
+    ' Lambda returning a string
+    Dim greet As Variant
+    greet = Lambda(Function(name) "Hello, " & name & "!")
+    Print "Lambda greet: " & greet.Call("World")
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 2. Map — Transform Every Element
+    ' ---------------------------------------------------------------
+    Print "--- Map ---"
+
+    Dim numbers As Array
+    numbers = Array(1, 2, 3, 4, 5)
+    Print "Original: " & Join(numbers, ", ")
+
+    ' Map applies a function to every element
+    Dim doubled As Array
+    doubled = Map(numbers, Lambda(Function(x) x * 2))
+    Print "Doubled:  " & Join(doubled, ", ")
+
+    Dim squared As Array
+    squared = Map(numbers, Lambda(Function(x) x * x))
+    Print "Squared:  " & Join(squared, ", ")
+
+    ' Map over strings
+    Dim names As Array
+    names = Array("alice", "bob", "charlie")
+    Dim upper As Array
+    upper = Map(names, Lambda(Function(s) UCase(s)))
+    Print "Uppercase: " & Join(upper, ", ")
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 3. Filter — Keep Elements Matching a Condition
+    ' ---------------------------------------------------------------
+    Print "--- Filter ---"
+
+    Dim data As Array
+    data = Array(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+    Print "Data: " & Join(data, ", ")
+
+    ' Keep only even numbers
+    Dim evens As Array
+    evens = Filter(data, Lambda(Function(x) x Mod 2 = 0))
+    Print "Evens:  " & Join(evens, ", ")
+
+    ' Keep numbers greater than 5
+    Dim big As Array
+    big = Filter(data, Lambda(Function(x) x > 5))
+    Print "Big (>5): " & Join(big, ", ")
+
+    ' Filter strings by length
+    Dim words As Array
+    words = Array("cat", "elephant", "dog", "hippopotamus", "ant", "butterfly")
+    Dim longWords As Array
+    longWords = Filter(words, Lambda(Function(w) Len(w) > 4))
+    Print "Long words: " & Join(longWords, ", ")
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 4. Reduce — Accumulate to a Single Value
+    ' ---------------------------------------------------------------
+    Print "--- Reduce ---"
+
+    Dim nums As Array
+    nums = Array(1, 2, 3, 4, 5)
+
+    ' Sum all numbers
+    Dim total As Variant
+    total = Reduce(nums, Lambda(Function(acc, x) acc + x), 0)
+    Print "Sum(1..5) = " & CStr(total)
+
+    ' Product of all numbers
+    Dim product As Variant
+    product = Reduce(nums, Lambda(Function(acc, x) acc * x), 1)
+    Print "Product(1..5) = " & CStr(product)
+
+    ' Find maximum value
+    Dim maxVal As Variant
+    maxVal = Reduce(nums, Lambda(Function(acc, x) IIf(x > acc, x, acc)), 0)
+    Print "Max(1..5) = " & CStr(maxVal)
+
+    ' Concatenate strings
+    Dim parts As Array
+    parts = Array("Visual", "Gasic", "is", "awesome")
+    Dim sentence As Variant
+    sentence = Reduce(parts, Lambda(Function(acc, s) acc & " " & s), "")
+    Print "Sentence:" & sentence
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 5. Any / All — Boolean Queries
+    ' ---------------------------------------------------------------
+    Print "--- Any / All ---"
+
+    Dim scores As Array
+    scores = Array(85, 92, 78, 95, 88)
+    Print "Scores: " & Join(scores, ", ")
+
+    ' Does ANY score exceed 90?
+    Dim hasExcellent As Boolean
+    hasExcellent = Any(scores, Lambda(Function(s) s > 90))
+    Print "Any > 90?  " & CStr(hasExcellent)
+
+    ' Are ALL scores above 70?
+    Dim allPassing As Boolean
+    allPassing = All(scores, Lambda(Function(s) s > 70))
+    Print "All > 70?  " & CStr(allPassing)
+
+    ' Are ALL scores above 90?
+    Dim allExcellent As Boolean
+    allExcellent = All(scores, Lambda(Function(s) s > 90))
+    Print "All > 90?  " & CStr(allExcellent)
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 6. Find — First Matching Element
+    ' ---------------------------------------------------------------
+    Print "--- Find ---"
+
+    Dim items As Array
+    items = Array(10, 25, 30, 45, 50)
+
+    ' Find first item over 30
+    Dim found As Variant
+    found = Find(items, Lambda(Function(x) x > 30))
+    Print "First > 30: " & CStr(found)
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 7. Chaining — Combine Operations
+    ' ---------------------------------------------------------------
+    Print "--- Chaining Operations ---"
+
+    ' Pipeline: start with data, filter, map, reduce
+    Dim raw As Array
+    raw = Array(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+    Print "Raw data: " & Join(raw, ", ")
+
+    ' Get sum of squares of even numbers
+    Dim step1 As Array
+    step1 = Filter(raw, Lambda(Function(x) x Mod 2 = 0))
+    Print "1. Filter evens: " & Join(step1, ", ")
+
+    Dim step2 As Array
+    step2 = Map(step1, Lambda(Function(x) x * x))
+    Print "2. Square them:  " & Join(step2, ", ")
+
+    Dim step3 As Variant
+    step3 = Reduce(step2, Lambda(Function(acc, x) acc + x), 0)
+    Print "3. Sum:          " & CStr(step3)
+    Print "   (4+16+36+64+100 = 220)"
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 8. Practical: Data Processing Pipeline
+    ' ---------------------------------------------------------------
+    Print "--- Practical: Student Grade Pipeline ---"
+
+    Dim grades As Array
+    grades = Array(45, 72, 88, 55, 91, 38, 67, 95, 82, 50)
+    Print "All grades: " & Join(grades, ", ")
+
+    ' Count passing students (>= 60)
+    Dim passing As Array
+    passing = Filter(grades, Lambda(Function(g) g >= 60))
+    Print "Passing: " & Join(passing, ", ") & " (" & CStr(UBound(passing) + 1) & " students)"
+
+    ' Calculate average of passing grades
+    Dim avg As Double
+    avg = Reduce(passing, Lambda(Function(acc, g) acc + g), 0) / (UBound(passing) + 1)
+    Print "Average (passing): " & Format(avg, "Fixed")
+
+    ' Get letter grades
+    Dim letters As Array
+    letters = Map(passing, Lambda(Function(g) IIf(g >= 90, "A", IIf(g >= 80, "B", IIf(g >= 70, "C", "D")))))
+    Print "Letter grades: " & Join(letters, ", ")
+    Print ""
+
+    Print "=== Functional Programming Demo Complete ==="
+End Sub

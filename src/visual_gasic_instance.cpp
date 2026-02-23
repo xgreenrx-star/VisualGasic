@@ -1385,6 +1385,7 @@ const GDExtensionPropertyInfo *VisualGasicInstance::get_property_list(uint32_t *
     if (*r_count == 0) return nullptr;
     
     GDExtensionPropertyInfo *list = (GDExtensionPropertyInfo *)memalloc(sizeof(GDExtensionPropertyInfo) * (*r_count));
+    ERR_FAIL_NULL_V_MSG(list, nullptr, "VisualGasic: memalloc failed in get_property_list");
     
     for(uint32_t i=0; i<*r_count; i++) {
         VariableDefinition* v = public_vars[i];
@@ -1575,6 +1576,27 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
                     else if (alias.nocasecmp_to("Collection") == 0) resolved = "VGCollection";
                     else if (alias.nocasecmp_to("RegExp") == 0) resolved = "VGRegEx";
                     else if (alias.nocasecmp_to("Timer") == 0 || alias.nocasecmp_to("VBTimer") == 0) resolved = "VGTimer";
+                    // v3.0 aliases
+                    else if (alias.nocasecmp_to("NativeLibrary") == 0) resolved = "VGNativeLibrary";
+                    else if (alias.nocasecmp_to("NativeStruct") == 0) resolved = "VGNativeStruct";
+                    else if (alias.nocasecmp_to("Odbc") == 0) resolved = "VGOdbc";
+                    else if (alias.nocasecmp_to("Crypto") == 0) resolved = "VGCrypto";
+                    else if (alias.nocasecmp_to("Xml") == 0) resolved = "VGXml";
+                    else if (alias.nocasecmp_to("Zip") == 0) resolved = "VGZip";
+                    else if (alias.nocasecmp_to("Task") == 0) resolved = "VGTask";
+                    else if (alias.nocasecmp_to("TaskRunner") == 0) resolved = "VGTaskRunner";
+                    // v3.1 aliases
+                    else if (alias.nocasecmp_to("System") == 0) resolved = "VGSystem";
+                    else if (alias.nocasecmp_to("SignalHandler") == 0) resolved = "VGSignalHandler";
+                    else if (alias.nocasecmp_to("FilePermissions") == 0) resolved = "VGFilePermissions";
+                    else if (alias.nocasecmp_to("MemoryBuffer") == 0) resolved = "VGMemoryBuffer";
+                    else if (alias.nocasecmp_to("IPC") == 0) resolved = "VGIPC";
+                    else if (alias.nocasecmp_to("AndroidBridge") == 0) resolved = "VGAndroidBridge";
+                    // v3.2 aliases – GPU & ECS
+                    else if (alias.nocasecmp_to("Gpu") == 0 || alias.nocasecmp_to("VGGpu") == 0) resolved = "VisualGasicGPU";
+                    else if (alias.nocasecmp_to("ECS") == 0 || alias.nocasecmp_to("VGEcs") == 0) resolved = "VisualGasicECS";
+                    // Also resolve full VG* names for v3.0+ (bypass can_instantiate issue)
+                    else if (alias.begins_with("VG") && ClassDB::class_exists(alias)) resolved = alias;
 
             if (!resolved.is_empty() && ClassDB::class_exists(resolved)) {
                 Variant inst = ClassDB::instantiate(resolved);

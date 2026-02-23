@@ -1,0 +1,67 @@
+' Test: Integration — File I/O + JSON round-trip
+' Uses Dim As New Dictionary (not CreateObject)
+Attribute VB_Name = "TestIntegFileJSON"
+
+Sub _Ready()
+    Dim testPath As String
+    testPath = "/tmp/vg_integ_json_test.json"
+
+    ' --- Build a dictionary and serialize to JSON ---
+    Dim d As New Dictionary
+    d.Add "name", "Alice"
+    d.Add "age", 30
+    d.Add "active", True
+    
+    Dim json As String
+    json = JsonStringify(d)
+    If Len(json) > 0 Then
+        Print "PASS: integ_json_stringify"
+    Else
+        Print "FAIL: integ_json_stringify: empty result"
+    End If
+
+    ' --- Write JSON to file ---
+    WriteAllText testPath, json
+    
+    ' --- Read it back ---
+    Dim content As String
+    content = ReadAllText(testPath)
+    If content = json Then
+        Print "PASS: integ_file_roundtrip"
+    Else
+        Print "FAIL: integ_file_roundtrip: content mismatch"
+    End If
+
+    ' --- Parse JSON back to dictionary ---
+    Dim parsed As Object
+    Set parsed = JsonParse(content)
+    If parsed("name") = "Alice" Then
+        Print "PASS: integ_json_parse_string"
+    Else
+        Print "FAIL: integ_json_parse_string"
+    End If
+
+    If parsed("age") = 30 Then
+        Print "PASS: integ_json_parse_number"
+    Else
+        Print "FAIL: integ_json_parse_number"
+    End If
+
+    ' --- Modify and re-save ---
+    parsed("age") = 31
+    Dim json2 As String
+    json2 = JsonStringify(parsed)
+    WriteAllText testPath, json2
+    
+    Dim content2 As String
+    content2 = ReadAllText(testPath)
+    Dim reparsed As Object
+    Set reparsed = JsonParse(content2)
+    If reparsed("age") = 31 Then
+        Print "PASS: integ_json_modify_resave"
+    Else
+        Print "FAIL: integ_json_modify_resave"
+    End If
+
+    Kill testPath
+End Sub

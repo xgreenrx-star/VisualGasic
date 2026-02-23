@@ -1,0 +1,174 @@
+' demo_file_permissions.vg — File Permissions, Symlinks, and Locking
+' Demonstrates VGFilePermissions: chmod, chown, symlinks, locking, GetAttr/SetAttr
+
+Sub Main()
+    Print "=== File Permissions Demo ==="
+    Print ""
+
+    Dim fp As New VGFilePermissions
+    Dim testFile As String
+    testFile = "/tmp/vg_perm_test.txt"
+
+    ' Create a test file first
+    Open testFile For Output As #1
+    Print #1, "Hello from VisualGasic!"
+    Close #1
+    Print "Created test file: " & testFile
+
+    ' ---------------------------------------------------------------
+    ' 1. Reading File Permissions
+    ' ---------------------------------------------------------------
+    Print ""
+    Print "--- Reading Permissions ---"
+
+    Dim perms As Integer
+    perms = fp.GetPermissions(testFile)
+    Print "Numeric permissions: " & CStr(perms)
+    Print "String permissions:  " & fp.GetPermissionsString(testFile)
+    Print "Readable:   " & CStr(fp.IsReadable(testFile))
+    Print "Writable:   " & CStr(fp.IsWritable(testFile))
+    Print "Executable: " & CStr(fp.IsExecutable(testFile))
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 2. Changing Permissions (chmod)
+    ' ---------------------------------------------------------------
+    Print "--- Changing Permissions (chmod) ---"
+
+    ' Make file read-only (octal 444 = decimal 292)
+    fp.Chmod testFile, 292
+    Print "After chmod 444: " & fp.GetPermissionsString(testFile)
+    Print "Writable: " & CStr(fp.IsWritable(testFile))
+
+    ' Restore read-write (octal 644 = decimal 420)
+    fp.Chmod testFile, 420
+    Print "After chmod 644: " & fp.GetPermissionsString(testFile)
+    Print "Writable: " & CStr(fp.IsWritable(testFile))
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 3. File Ownership
+    ' ---------------------------------------------------------------
+    Print "--- File Ownership ---"
+
+    Print "Owner: " & fp.GetOwner(testFile)
+    Print "Group: " & fp.GetGroup(testFile)
+    ' Note: chown requires root privileges on Linux
+    Print "(Changing ownership requires root privileges)"
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 4. File Information
+    ' ---------------------------------------------------------------
+    Print "--- File Information ---"
+
+    Print "File size: " & CStr(fp.GetFileSize(testFile)) & " bytes"
+    Print "File type: " & fp.GetFileType(testFile)
+
+    Dim info As Dictionary
+    Set info = fp.GetFileInfo(testFile)
+    Print "Full info:"
+    Print "  Size:     " & CStr(info("size"))
+    Print "  Type:     " & info("type")
+    Print "  Readable: " & CStr(info("readable"))
+    Print "  Writable: " & CStr(info("writable"))
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 5. Symbolic Links
+    ' ---------------------------------------------------------------
+    Print "--- Symbolic Links ---"
+
+    Dim linkPath As String
+    linkPath = "/tmp/vg_perm_link.txt"
+
+    ' Create a symlink pointing to our test file
+    Dim ok As Boolean
+    ok = fp.CreateSymlink(testFile, linkPath)
+    Print "Created symlink: " & CStr(ok)
+    Print "Is symlink: " & CStr(fp.IsSymlink(linkPath))
+    Print "Link target: " & fp.ReadSymlink(linkPath)
+    Print "Link file type: " & fp.GetFileType(linkPath)
+
+    ' Clean up symlink
+    Kill linkPath
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 6. File Locking
+    ' ---------------------------------------------------------------
+    Print "--- File Locking ---"
+
+    ' Lock the file for exclusive access
+    Print "Locking file..."
+    ok = fp.Lock(testFile)
+    Print "Lock acquired: " & CStr(ok)
+    Print "Is locked: " & CStr(fp.IsLocked(testFile))
+
+    ' Try to acquire a second lock (should fail or report locked)
+    Print "Trying second lock..."
+    ok = fp.TryLock(testFile)
+    Print "Second lock: " & CStr(ok)
+
+    ' Unlock when done
+    fp.Unlock testFile
+    Print "File unlocked"
+    Print "Is locked: " & CStr(fp.IsLocked(testFile))
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 7. VB6-Style GetAttr / SetAttr
+    ' ---------------------------------------------------------------
+    Print "--- VB6-Style GetAttr / SetAttr ---"
+
+    ' GetAttr returns a bitmask:
+    '   1 = vbReadOnly
+    '   2 = vbHidden
+    '   4 = vbSystem
+    '   16 = vbDirectory
+    '   32 = vbArchive
+    Dim attr As Integer
+    attr = fp.GetAttr(testFile)
+    Print "Attributes: " & CStr(attr)
+
+    If (attr And 1) = 1 Then
+        Print "  File is ReadOnly"
+    Else
+        Print "  File is NOT ReadOnly"
+    End If
+
+    If (attr And 16) = 16 Then
+        Print "  Is a directory"
+    Else
+        Print "  Is a file"
+    End If
+
+    ' Set file to read-only using VB6-style flag
+    fp.SetAttr testFile, 1   ' vbReadOnly
+    Print "After SetAttr vbReadOnly: " & CStr(fp.GetAttr(testFile))
+    Print "Writable: " & CStr(fp.IsWritable(testFile))
+
+    ' Clear read-only
+    fp.SetAttr testFile, 0   ' Normal
+    Print "After SetAttr Normal: " & CStr(fp.GetAttr(testFile))
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 8. Error Handling
+    ' ---------------------------------------------------------------
+    Print "--- Error Handling ---"
+
+    ' Try to get permissions on a non-existent file
+    Dim badPerms As Integer
+    badPerms = fp.GetPermissions("/tmp/does_not_exist_12345.txt")
+    If fp.LastError <> "" Then
+        Print "Error: " & fp.LastError
+    Else
+        Print "Permissions: " & CStr(badPerms)
+    End If
+
+    ' Clean up test file
+    Kill testFile
+    Print ""
+    Print "=== File Permissions Demo Complete ==="
+End Sub

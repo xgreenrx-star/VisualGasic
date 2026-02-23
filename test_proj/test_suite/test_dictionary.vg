@@ -1,21 +1,21 @@
 ' Test: Dictionary
 ' Tests dictionary creation, key/value access, methods
+' NOTE: Use .Count() with parens (VM property access bug for .Count)
 Attribute VB_Name = "TestDictionary"
 
 Sub _Ready()
 	' --- Create dictionary ---
-	Dim d As Dictionary
-	Set d = New Dictionary
+	Dim d As New Dictionary
 	
 	' --- Add entries ---
 	d.Add "name", "Alice"
 	d.Add "age", 30
 	
-	' --- Count ---
+	' --- Count (use parens to work around VM property bug) ---
 	If d.Count() = 2 Then
 		Print "PASS: dict_count"
 	Else
-		Print "FAIL: dict_count: got " & Str(d.Count())
+		Print "FAIL: dict_count: got " & CStr(d.Count())
 	End If
 	
 	' --- Get value ---
@@ -57,7 +57,7 @@ Sub _Ready()
 	If d.Count() = 1 Then
 		Print "PASS: dict_remove"
 	Else
-		Print "FAIL: dict_remove: count = " & Str(d.Count())
+		Print "FAIL: dict_remove: count = " & CStr(d.Count())
 	End If
 	
 	' --- Keys ---
@@ -68,6 +68,4 @@ Sub _Ready()
 	Else
 		Print "FAIL: dict_keys"
 	End If
-	
-	Print "TEST_COMPLETE"
 End Sub

@@ -1,0 +1,192 @@
+' demo_math.vg — Mathematical Functions
+' Demonstrates all math built-ins, constants, and practical formulas
+
+Sub Main()
+    Print "=== Math Functions Demo ==="
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 1. Basic Arithmetic and Constants
+    ' ---------------------------------------------------------------
+    Print "--- Constants ---"
+
+    Print "Pi:    " & CStr(3.14159265358979)
+    Print "E:     " & CStr(2.71828182845905)
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 2. Abs, Sgn, Int, Fix
+    ' ---------------------------------------------------------------
+    Print "--- Abs, Sgn, Int, Fix ---"
+
+    Print "Abs(-42):   " & CStr(Abs(-42))
+    Print "Abs(42):    " & CStr(Abs(42))
+    Print "Sgn(-5):    " & CStr(Sgn(-5))
+    Print "Sgn(0):     " & CStr(Sgn(0))
+    Print "Sgn(5):     " & CStr(Sgn(5))
+    Print "Int(3.7):   " & CStr(Int(3.7))
+    Print "Int(-3.7):  " & CStr(Int(-3.7))
+    Print "Fix(3.7):   " & CStr(Fix(3.7))
+    Print "Fix(-3.7):  " & CStr(Fix(-3.7))
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 3. Sqr (Square Root)
+    ' ---------------------------------------------------------------
+    Print "--- Square Root ---"
+
+    Print "Sqr(4):     " & CStr(Sqr(4))
+    Print "Sqr(2):     " & Format(Sqr(2), "Fixed")
+    Print "Sqr(144):   " & CStr(Sqr(144))
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 4. Power and Logarithms
+    ' ---------------------------------------------------------------
+    Print "--- Power and Logarithms ---"
+
+    Print "2 ^ 10:     " & CStr(2 ^ 10)
+    Print "3 ^ 3:      " & CStr(3 ^ 3)
+    Print "Log(1):     " & CStr(Log(1))
+    Print "Log(E):     " & Format(Log(2.71828182845905), "Fixed")
+    Print "Exp(1):     " & Format(Exp(1), "Fixed")
+    Print "Exp(0):     " & CStr(Exp(0))
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 5. Trigonometry
+    ' ---------------------------------------------------------------
+    Print "--- Trigonometry ---"
+
+    Dim pi As Double
+    pi = 3.14159265358979
+
+    Print "Sin(0):       " & CStr(Sin(0))
+    Print "Sin(Pi/2):    " & Format(Sin(pi / 2), "Fixed")
+    Print "Sin(Pi):      " & Format(Sin(pi), "0.00E+0")
+    Print "Cos(0):       " & CStr(Cos(0))
+    Print "Cos(Pi):      " & Format(Cos(pi), "Fixed")
+    Print "Tan(Pi/4):    " & Format(Tan(pi / 4), "Fixed")
+    Print "Atn(1)*4:     " & Format(Atn(1) * 4, "Fixed") & " (= Pi)"
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 6. Min, Max
+    ' ---------------------------------------------------------------
+    Print "--- Min, Max ---"
+
+    Print "Min(10, 20):    " & CStr(Min(10, 20))
+    Print "Max(10, 20):    " & CStr(Max(10, 20))
+    Print "Min(-5, 5):     " & CStr(Min(-5, 5))
+    Print "Max(-5, -10):   " & CStr(Max(-5, -10))
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 7. Rnd (Random Numbers)
+    ' ---------------------------------------------------------------
+    Print "--- Random Numbers ---"
+
+    Randomize
+
+    Print "Rnd():           " & Format(Rnd(), "Fixed")
+    Print "Rnd():           " & Format(Rnd(), "Fixed")
+    Print "Rnd():           " & Format(Rnd(), "Fixed")
+
+    ' Random integer in range [1, 6] (dice roll)
+    Dim roll As Integer
+    Dim i As Integer
+    Print "Dice rolls: ";
+    For i = 1 To 10
+        roll = Int(Rnd() * 6) + 1
+        Print CStr(roll) & " ";
+    Next i
+    Print ""
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 8. Rounding
+    ' ---------------------------------------------------------------
+    Print "--- Rounding ---"
+
+    Print "Round(3.5):      " & CStr(Round(3.5))
+    Print "Round(4.5):      " & CStr(Round(4.5))
+    Print "Round(3.14159, 2): " & CStr(Round(3.14159, 2))
+    Print "Round(2.675, 2):   " & CStr(Round(2.675, 2))
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 9. Modulus
+    ' ---------------------------------------------------------------
+    Print "--- Modulus ---"
+
+    Print "17 Mod 5:   " & CStr(17 Mod 5)
+    Print "10 Mod 3:   " & CStr(10 Mod 3)
+    Print "100 Mod 7:  " & CStr(100 Mod 7)
+
+    ' Even/Odd check
+    For i = 1 To 8
+        If i Mod 2 = 0 Then
+            Print "  " & CStr(i) & " is even"
+        Else
+            Print "  " & CStr(i) & " is odd"
+        End If
+    Next i
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 10. Practical: 2D Distance and Angle
+    ' ---------------------------------------------------------------
+    Print "--- Practical: Distance and Angle ---"
+
+    Dim x1 As Double, y1 As Double
+    Dim x2 As Double, y2 As Double
+
+    x1 = 3.0 : y1 = 4.0
+    x2 = 7.0 : y2 = 1.0
+
+    ' Distance
+    Dim dx As Double, dy As Double
+    dx = x2 - x1
+    dy = y2 - y1
+
+    Dim dist As Double
+    dist = Sqr(dx * dx + dy * dy)
+
+    ' Angle in degrees
+    Dim angle As Double
+    angle = Atn(dy / dx) * 180 / pi
+
+    Print "Point A: (" & CStr(x1) & ", " & CStr(y1) & ")"
+    Print "Point B: (" & CStr(x2) & ", " & CStr(y2) & ")"
+    Print "Distance: " & Format(dist, "Fixed")
+    Print "Angle:    " & Format(angle, "Fixed") & " degrees"
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 11. Practical: Quadratic Formula
+    ' ---------------------------------------------------------------
+    Print "--- Practical: Quadratic Formula ---"
+
+    ' Solve ax^2 + bx + c = 0
+    Dim a As Double, b As Double, c As Double
+    a = 1.0 : b = -5.0 : c = 6.0
+
+    Dim discriminant As Double
+    discriminant = b * b - 4 * a * c
+
+    Print "Equation: " & CStr(a) & "x^2 + (" & CStr(b) & ")x + " & CStr(c) & " = 0"
+    Print "Discriminant: " & CStr(discriminant)
+
+    If discriminant >= 0 Then
+        Dim root1 As Double, root2 As Double
+        root1 = (-b + Sqr(discriminant)) / (2 * a)
+        root2 = (-b - Sqr(discriminant)) / (2 * a)
+        Print "Root 1: " & Format(root1, "Fixed")
+        Print "Root 2: " & Format(root2, "Fixed")
+    Else
+        Print "No real roots (complex)"
+    End If
+    Print ""
+
+    Print "=== Math Functions Demo Complete ==="
+End Sub

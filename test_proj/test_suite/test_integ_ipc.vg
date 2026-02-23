@@ -1,0 +1,77 @@
+' Test: Integration — IPC shared memory round-trip
+' Uses correct VGIPC API: CreateSharedMemory, WriteSharedMemory, ReadSharedMemory
+Attribute VB_Name = "TestIntegIPC"
+
+Sub _Ready()
+    Dim ipc As New VGIPC
+
+    ' --- Create shared memory ---
+    Dim ok As Boolean
+    ok = ipc.CreateSharedMemory("vg_integ_test", 4096)
+    If ok Then
+        Print "PASS: integ_ipc_create_shm"
+    Else
+        Print "FAIL: integ_ipc_create_shm: " & ipc.LastError
+    End If
+
+    ' --- Write header at offset 0 ---
+    ok = ipc.WriteSharedMemory(0, "HEADER_V1")
+    If ok Then
+        Print "PASS: integ_ipc_write_header"
+    Else
+        Print "FAIL: integ_ipc_write_header"
+    End If
+
+    ' --- Write payload at offset 64 ---
+    ok = ipc.WriteSharedMemory(64, "Alice,95,Bob,87,Charlie,92")
+    If ok Then
+        Print "PASS: integ_ipc_write_payload"
+    Else
+        Print "FAIL: integ_ipc_write_payload"
+    End If
+
+    ' --- Read header back ---
+    Dim header As String
+    header = ipc.ReadSharedMemory(0, 9)
+    If header = "HEADER_V1" Then
+        Print "PASS: integ_ipc_read_header"
+    Else
+        Print "FAIL: integ_ipc_read_header: got '" & header & "'"
+    End If
+
+    ' --- Read payload back ---
+    Dim payload As String
+    payload = ipc.ReadSharedMemory(64, 26)
+    If payload = "Alice,95,Bob,87,Charlie,92" Then
+        Print "PASS: integ_ipc_read_payload"
+    Else
+        Print "FAIL: integ_ipc_read_payload: got '" & payload & "'"
+    End If
+
+    ' --- Parse CSV-style payload ---
+    Dim parts As Array
+    parts = Split(payload, ",")
+    If UBound(parts) >= 5 Then
+        If parts(0) = "Alice" And parts(1) = "95" Then
+            Print "PASS: integ_ipc_parse_payload"
+        Else
+            Print "FAIL: integ_ipc_parse_payload: wrong values"
+        End If
+    Else
+        Print "FAIL: integ_ipc_parse_payload: wrong count"
+    End If
+
+    ' --- Overwrite and re-read ---
+    ok = ipc.WriteSharedMemory(64, "UPDATED_DATA_HERE")
+    Dim updated As String
+    updated = ipc.ReadSharedMemory(64, 17)
+    If updated = "UPDATED_DATA_HERE" Then
+        Print "PASS: integ_ipc_overwrite"
+    Else
+        Print "FAIL: integ_ipc_overwrite: got '" & updated & "'"
+    End If
+
+    ' --- Cleanup ---
+    ipc.CloseSharedMemory
+    Print "PASS: integ_ipc_cleanup"
+End Sub

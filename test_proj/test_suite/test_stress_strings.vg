@@ -1,0 +1,85 @@
+' Test: Stress — String concatenation and operations
+' Builds large strings, verifies no corruption
+Attribute VB_Name = "TestStressStrings"
+
+Sub _Ready()
+    ' --- Concatenation stress ---
+    Dim s As String
+    s = ""
+    Dim i As Integer
+    
+    For i = 1 To 10000
+        s = s & "A"
+    Next i
+    
+    If Len(s) = 10000 Then
+        Print "PASS: stress_str_concat_10k"
+    Else
+        Print "FAIL: stress_str_concat_10k: len=" & CStr(Len(s))
+    End If
+
+    ' --- Split/Join round-trip ---
+    Dim csv As String
+    csv = ""
+    For i = 1 To 1000
+        If i > 1 Then csv = csv & ","
+        csv = csv & CStr(i)
+    Next i
+    
+    Dim parts As Array
+    parts = Split(csv, ",")
+    
+    If UBound(parts) = 999 Then
+        Print "PASS: stress_str_split_1k"
+    Else
+        Print "FAIL: stress_str_split_1k: count=" & CStr(UBound(parts) + 1)
+    End If
+    
+    Dim rejoined As String
+    rejoined = Join(parts, ",")
+    If rejoined = csv Then
+        Print "PASS: stress_str_join_roundtrip"
+    Else
+        Print "FAIL: stress_str_join_roundtrip: mismatch"
+    End If
+
+    ' --- Replace stress ---
+    Dim base As String
+    base = String(5000, "X")
+    ' Replace every other X with Y by replacing XX -> XY
+    Dim result As String
+    result = Replace(base, "XX", "XY")
+    If Len(result) = 5000 Then
+        Print "PASS: stress_str_replace_len"
+    Else
+        Print "FAIL: stress_str_replace_len: " & CStr(Len(result))
+    End If
+
+    ' --- UCase/LCase cycle ---
+    Dim mixed As String
+    mixed = "Hello World Test String"
+    Dim prev As String
+    prev = mixed
+    Dim stable As Boolean
+    stable = True
+    For i = 1 To 2000
+        prev = UCase(prev)
+        prev = LCase(prev)
+    Next i
+    If prev = LCase(mixed) Then
+        Print "PASS: stress_str_case_cycle"
+    Else
+        Print "FAIL: stress_str_case_cycle"
+    End If
+
+    ' --- InStr search stress ---
+    Dim haystack As String
+    haystack = String(50000, "A") & "NEEDLE" & String(50000, "A")
+    Dim pos As Integer
+    pos = InStr(haystack, "NEEDLE")
+    If pos = 50001 Then
+        Print "PASS: stress_str_instr_100k"
+    Else
+        Print "FAIL: stress_str_instr_100k: pos=" & CStr(pos)
+    End If
+End Sub

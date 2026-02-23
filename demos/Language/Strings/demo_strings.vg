@@ -1,0 +1,231 @@
+' demo_strings.vg — String Processing Functions
+' Demonstrates all VB6-compatible string built-ins
+
+Sub Main()
+    Print "=== String Functions Demo ==="
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 1. Length and Case
+    ' ---------------------------------------------------------------
+    Print "--- Length and Case ---"
+
+    Dim s As String
+    s = "Hello, VisualGasic World!"
+
+    Print "String:    " & s
+    Print "Len:       " & CStr(Len(s))
+    Print "UCase:     " & UCase(s)
+    Print "LCase:     " & LCase(s)
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 2. Substrings: Left, Right, Mid
+    ' ---------------------------------------------------------------
+    Print "--- Substrings ---"
+
+    Print "Left(s, 5):     " & Left(s, 5)
+    Print "Right(s, 6):    " & Right(s, 6)
+    Print "Mid(s, 8, 11):  " & Mid(s, 8, 11)
+    Print "Mid(s, 8):      " & Mid(s, 8)
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 3. Searching: InStr, InStrRev
+    ' ---------------------------------------------------------------
+    Print "--- Searching ---"
+
+    Print "InStr(s, ""World""):    " & CStr(InStr(s, "World"))
+    Print "InStr(s, ""xyz""):      " & CStr(InStr(s, "xyz"))
+    Print "InStr(8, s, ""a""):     " & CStr(InStr(8, s, "a"))
+    Print "InStrRev(s, ""a""):     " & CStr(InStrRev(s, "a"))
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 4. Trimming
+    ' ---------------------------------------------------------------
+    Print "--- Trimming ---"
+
+    Dim padded As String
+    padded = "   spaces around   "
+
+    Print "Original:  [" & padded & "]"
+    Print "LTrim:     [" & LTrim(padded) & "]"
+    Print "RTrim:     [" & RTrim(padded) & "]"
+    Print "Trim:      [" & Trim(padded) & "]"
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 5. Replace
+    ' ---------------------------------------------------------------
+    Print "--- Replace ---"
+
+    Dim original As String
+    original = "The cat sat on the mat"
+
+    Print "Original:  " & original
+    Print "Replace cat->dog: " & Replace(original, "cat", "dog")
+    Print "Replace the->a:   " & Replace(original, "the", "a")
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 6. Split and Join
+    ' ---------------------------------------------------------------
+    Print "--- Split / Join ---"
+
+    Dim csv As String
+    csv = "Apple,Banana,Cherry,Date,Elderberry"
+
+    Dim fruits As Array
+    fruits = Split(csv, ",")
+    Print "Split '" & csv & "' -> " & CStr(UBound(fruits) + 1) & " items"
+
+    Dim i As Integer
+    For i = 0 To UBound(fruits)
+        Print "  [" & CStr(i) & "] " & fruits(i)
+    Next i
+
+    ' Rejoin with different delimiter
+    Dim rejoined As String
+    rejoined = Join(fruits, " | ")
+    Print "Joined: " & rejoined
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 7. String Repetition and Padding
+    ' ---------------------------------------------------------------
+    Print "--- String / Space ---"
+
+    Print "String(5, ""*""): " & String(5, "*")
+    Print "String(3, ""ab""): " & String(3, "ab")
+    Print "Space(10): [" & Space(10) & "]"
+    Print "PadRight(""Hi"", 10): [" & PadRight("Hi", 10) & "]"
+    Print "PadLeft(""42"", 8): [" & PadLeft("42", 8) & "]"
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 8. Asc / Chr — Character Codes
+    ' ---------------------------------------------------------------
+    Print "--- Asc / Chr ---"
+
+    Print "Asc(""A""):   " & CStr(Asc("A"))
+    Print "Asc(""a""):   " & CStr(Asc("a"))
+    Print "Asc(""0""):   " & CStr(Asc("0"))
+    Print "Chr(65):    " & Chr(65)
+    Print "Chr(97):    " & Chr(97)
+    Print "Chr(48):    " & Chr(48)
+
+    ' Build alphabet
+    Dim alpha As String
+    For i = 65 To 90
+        alpha = alpha & Chr(i)
+    Next i
+    Print "Alphabet:   " & alpha
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 9. StrReverse
+    ' ---------------------------------------------------------------
+    Print "--- StrReverse ---"
+
+    Print "StrReverse(""Hello""): " & StrReverse("Hello")
+    Print "StrReverse(""12345""): " & StrReverse("12345")
+
+    ' Palindrome check
+    Dim word As String
+    word = "racecar"
+    If LCase(word) = LCase(StrReverse(word)) Then
+        Print """" & word & """ is a palindrome!"
+    End If
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 10. Type Conversions
+    ' ---------------------------------------------------------------
+    Print "--- Type Conversions ---"
+
+    Print "CStr(42):       " & CStr(42)
+    Print "CStr(3.14):     " & CStr(3.14)
+    Print "CStr(True):     " & CStr(True)
+    Print "CInt(""123""):    " & CStr(CInt("123"))
+    Print "CDbl(""3.14""):   " & CStr(CDbl("3.14"))
+    Print "Val(""42abc""):   " & CStr(Val("42abc"))
+    Print "Str(42):        [" & Str(42) & "]"
+    Print "Hex(255):       " & Hex(255)
+    Print "Oct(255):       " & Oct(255)
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 11. StrComp — String Comparison
+    ' ---------------------------------------------------------------
+    Print "--- StrComp ---"
+
+    Print "StrComp(""abc"", ""abc""): " & CStr(StrComp("abc", "abc"))
+    Print "StrComp(""abc"", ""xyz""): " & CStr(StrComp("abc", "xyz"))
+    Print "StrComp(""xyz"", ""abc""): " & CStr(StrComp("xyz", "abc"))
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 12. StartsWith / EndsWith / Contains
+    ' ---------------------------------------------------------------
+    Print "--- StartsWith / EndsWith / Contains ---"
+
+    Dim msg As String
+    msg = "Error: File not found"
+
+    Print "String:             " & msg
+    Print "StartsWith(""Error""): " & CStr(StartsWith(msg, "Error"))
+    Print "EndsWith(""found""):   " & CStr(EndsWith(msg, "found"))
+    Print "Contains(""File""):    " & CStr(Contains(msg, "File"))
+    Print "Contains(""xyz""):     " & CStr(Contains(msg, "xyz"))
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 13. Format — Number Formatting
+    ' ---------------------------------------------------------------
+    Print "--- Format ---"
+
+    Print "Format(1234.5, ""Standard""):  " & Format(1234.5, "Standard")
+    Print "Format(1234.5, ""Currency""):  " & Format(1234.5, "Currency")
+    Print "Format(1234.5, ""Fixed""):     " & Format(1234.5, "Fixed")
+    Print "Format(0.85, ""Percent""):     " & Format(0.85, "Percent")
+    Print "Format(42, ""0000""):          " & Format(42, "0000")
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 14. Practical: Word Counter
+    ' ---------------------------------------------------------------
+    Print "--- Practical: Word Counter ---"
+
+    Dim text As String
+    text = "The quick brown fox jumps over the lazy dog"
+
+    Dim words As Array
+    words = Split(text, " ")
+    Print "Text:  " & text
+    Print "Words: " & CStr(UBound(words) + 1)
+
+    ' Count each unique word
+    Dim wordCounts As Object
+    Set wordCounts = CreateObject("Dictionary")
+    For i = 0 To UBound(words)
+        Dim w As String
+        w = LCase(words(i))
+        If wordCounts.Exists(w) Then
+            wordCounts(w) = wordCounts(w) + 1
+        Else
+            wordCounts(w) = 1
+        End If
+    Next i
+
+    Dim keys As Array
+    keys = wordCounts.Keys()
+    For i = 0 To UBound(keys)
+        If wordCounts(keys(i)) > 1 Then
+            Print "  """ & keys(i) & """ appears " & CStr(wordCounts(keys(i))) & " times"
+        End If
+    Next i
+    Print ""
+
+    Print "=== String Functions Demo Complete ==="
+End Sub

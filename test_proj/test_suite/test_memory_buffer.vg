@@ -1,0 +1,108 @@
+' Test: VGMemoryBuffer module
+' Tests allocation, Peek/Poke operations, Fill, Find, Clear, Resize
+' NOTE: ToByteArray returns PackedByteArray which VG can't consume (known engine limitation)
+Attribute VB_Name = "TestVGMemoryBuffer"
+
+Sub _Ready()
+    Dim buf As New VGMemoryBuffer
+
+    ' --- Allocate ---
+    buf.Allocate 128
+    Print "PASS: membuf_allocate"
+
+    ' --- PokeByte / PeekByte ---
+    buf.PokeByte 0, 42
+    If buf.PeekByte(0) = 42 Then
+        Print "PASS: membuf_poke_peek_byte"
+    Else
+        Print "FAIL: membuf_poke_peek_byte"
+    End If
+
+    ' --- PokeInt16 / PeekInt16 ---
+    buf.PokeInt16 10, 12345
+    If buf.PeekInt16(10) = 12345 Then
+        Print "PASS: membuf_poke_peek_int16"
+    Else
+        Print "FAIL: membuf_poke_peek_int16: got " & CStr(buf.PeekInt16(10))
+    End If
+
+    ' --- PokeInt32 / PeekInt32 ---
+    buf.PokeInt32 20, 999999
+    If buf.PeekInt32(20) = 999999 Then
+        Print "PASS: membuf_poke_peek_int32"
+    Else
+        Print "FAIL: membuf_poke_peek_int32: got " & CStr(buf.PeekInt32(20))
+    End If
+
+    ' --- PokeFloat / PeekFloat ---
+    buf.PokeFloat 30, 2.718
+    Dim f As Double
+    f = buf.PeekFloat(30)
+    If f > 2.7 And f < 2.8 Then
+        Print "PASS: membuf_poke_peek_float"
+    Else
+        Print "FAIL: membuf_poke_peek_float: got " & CStr(f)
+    End If
+
+    ' --- PokeDouble / PeekDouble ---
+    buf.PokeDouble 40, 1.23456789
+    Dim d As Double
+    d = buf.PeekDouble(40)
+    If d > 1.23 And d < 1.24 Then
+        Print "PASS: membuf_poke_peek_double"
+    Else
+        Print "FAIL: membuf_poke_peek_double: got " & CStr(d)
+    End If
+
+    ' --- PokeString / PeekString ---
+    buf.PokeString 60, "Hello"
+    Dim s As String
+    s = buf.PeekString(60, 5)
+    If s = "Hello" Then
+        Print "PASS: membuf_poke_peek_string"
+    Else
+        Print "FAIL: membuf_poke_peek_string: got '" & s & "'"
+    End If
+
+    ' --- Fill entire buffer ---
+    buf.Fill 0
+    If buf.PeekByte(0) = 0 And buf.PeekByte(127) = 0 Then
+        Print "PASS: membuf_fill"
+    Else
+        Print "FAIL: membuf_fill"
+    End If
+
+    ' --- FillRange ---
+    buf.FillRange 10, 5, 99
+    If buf.PeekByte(10) = 99 And buf.PeekByte(14) = 99 And buf.PeekByte(15) = 0 Then
+        Print "PASS: membuf_fill_range"
+    Else
+        Print "FAIL: membuf_fill_range"
+    End If
+
+    ' --- FindByte ---
+    Dim pos As Integer
+    pos = buf.FindByte(99, 0)
+    If pos = 10 Then
+        Print "PASS: membuf_find_byte"
+    Else
+        Print "FAIL: membuf_find_byte: expected 10, got " & CStr(pos)
+    End If
+
+    ' --- Resize ---
+    buf.Resize 256
+    buf.PokeByte 200, 77
+    If buf.PeekByte(200) = 77 Then
+        Print "PASS: membuf_resize"
+    Else
+        Print "FAIL: membuf_resize"
+    End If
+
+    ' --- Clear ---
+    buf.Clear
+    Print "PASS: membuf_clear"
+
+    ' --- Free ---
+    buf.Free
+    Print "PASS: membuf_free"
+End Sub

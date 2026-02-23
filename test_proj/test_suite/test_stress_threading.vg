@@ -1,0 +1,51 @@
+' Test: Stress — Threading (construct many objects, no actual thread spawn)
+' NOTE: "Task" is a reserved word — use myTask, etc.
+Attribute VB_Name = "TestStressThreading"
+
+Sub _Ready()
+    ' --- Stress construct many VGTask objects ---
+    Dim i As Integer
+    Dim allOk As Boolean
+    allOk = True
+    For i = 1 To 100
+        Dim myTask As New VGTask
+        If myTask Is Nothing Then
+            allOk = False
+            Exit For
+        End If
+    Next i
+    If allOk Then
+        Print "PASS: stress_threading_construct_100_tasks"
+    Else
+        Print "FAIL: stress_threading_construct_100_tasks"
+    End If
+
+    ' --- Stress construct VGTaskRunner ---
+    allOk = True
+    For i = 1 To 50
+        Dim r As New VGTaskRunner
+        If r Is Nothing Then
+            allOk = False
+            Exit For
+        End If
+    Next i
+    If allOk Then
+        Print "PASS: stress_threading_construct_50_runners"
+    Else
+        Print "FAIL: stress_threading_construct_50_runners"
+    End If
+
+    ' --- Task property access stress ---
+    Dim oneTask As New VGTask
+    allOk = True
+    For i = 1 To 1000
+        Dim dummy As Boolean
+        dummy = oneTask.IsComplete
+        dummy = oneTask.IsRunning
+    Next i
+    If allOk Then
+        Print "PASS: stress_threading_property_access"
+    Else
+        Print "FAIL: stress_threading_property_access"
+    End If
+End Sub

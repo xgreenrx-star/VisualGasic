@@ -1,0 +1,149 @@
+' demo_json.vg — JSON Parsing and Generation
+' Demonstrates JSON handling with VisualGasic built-ins
+
+Sub Main()
+    Print "=== JSON Demo ==="
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 1. Parse Simple JSON Object
+    ' ---------------------------------------------------------------
+    Print "--- Parse JSON Object ---"
+
+    Dim jsonStr As String
+    jsonStr = "{""name"": ""Alice"", ""age"": 28, ""active"": true}"
+
+    Dim obj As Object
+    Set obj = JsonParse(jsonStr)
+
+    Print "Parsed: " & jsonStr
+    Print "  name:   " & obj("name")
+    Print "  age:    " & CStr(obj("age"))
+    Print "  active: " & CStr(obj("active"))
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 2. Parse JSON Array
+    ' ---------------------------------------------------------------
+    Print "--- Parse JSON Array ---"
+
+    Dim arrJson As String
+    arrJson = "[10, 20, 30, 40, 50]"
+
+    Dim arr As Array
+    arr = JsonParse(arrJson)
+
+    Print "Parsed: " & arrJson
+    Dim i As Integer
+    Dim total As Integer
+    For i = 0 To UBound(arr)
+        total = total + arr(i)
+    Next i
+    Print "Sum: " & CStr(total)
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 3. Build and Serialize JSON
+    ' ---------------------------------------------------------------
+    Print "--- Build JSON ---"
+
+    Dim player As Object
+    Set player = CreateObject("Dictionary")
+    player.Add "name", "Commander"
+    player.Add "level", 15
+    player.Add "health", 100
+    player.Add "position_x", 42.5
+    player.Add "position_y", 18.3
+
+    Dim result As String
+    result = JsonStringify(player)
+    Print "Serialized: " & result
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 4. Nested JSON Objects
+    ' ---------------------------------------------------------------
+    Print "--- Nested JSON ---"
+
+    Dim nested As String
+    nested = "{""player"": {""name"": ""Bob"", ""stats"": {""hp"": 85, ""mp"": 40}}, ""level"": ""dungeon_3""}"
+
+    Dim game As Object
+    Set game = JsonParse(nested)
+
+    Dim pData As Object
+    Set pData = game("player")
+    Print "Player: " & pData("name")
+
+    Dim stats As Object
+    Set stats = pData("stats")
+    Print "HP: " & CStr(stats("hp")) & ", MP: " & CStr(stats("mp"))
+    Print "Level: " & game("level")
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 5. JSON Array of Objects
+    ' ---------------------------------------------------------------
+    Print "--- JSON Array of Objects ---"
+
+    Dim listJson As String
+    listJson = "[{""id"": 1, ""item"": ""Sword"", ""qty"": 1}, {""id"": 2, ""item"": ""Potion"", ""qty"": 5}, {""id"": 3, ""item"": ""Shield"", ""qty"": 1}]"
+
+    Dim items As Array
+    items = JsonParse(listJson)
+
+    Print "Inventory (" & CStr(UBound(items) + 1) & " slots):"
+    Dim item As Variant
+    For Each item In items
+        Print "  #" & CStr(item("id")) & " " & item("item") & " x" & CStr(item("qty"))
+    Next item
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 6. Practical: Config Loader
+    ' ---------------------------------------------------------------
+    Print "--- Practical: Config Loader ---"
+
+    Dim configJson As String
+    configJson = "{""window"": {""width"": 1280, ""height"": 720, ""fullscreen"": false}, ""audio"": {""volume"": 80, ""music"": true, ""sfx"": true}, ""controls"": {""jump"": ""Space"", ""fire"": ""LMB""}}"
+
+    Dim config As Object
+    Set config = JsonParse(configJson)
+
+    Dim win As Object
+    Set win = config("window")
+    Print "Window: " & CStr(win("width")) & "x" & CStr(win("height"))
+    Print "Fullscreen: " & CStr(win("fullscreen"))
+
+    Dim audio As Object
+    Set audio = config("audio")
+    Print "Volume: " & CStr(audio("volume")) & "%"
+    Print "Music: " & CStr(audio("music")) & ", SFX: " & CStr(audio("sfx"))
+
+    Dim ctrl As Object
+    Set ctrl = config("controls")
+    Print "Jump: " & ctrl("jump") & ", Fire: " & ctrl("fire")
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 7. Round-Trip: Parse -> Modify -> Serialize
+    ' ---------------------------------------------------------------
+    Print "--- Round-Trip ---"
+
+    Dim saveData As String
+    saveData = "{""score"": 1500, ""lives"": 3, ""checkpoint"": ""level_2""}"
+
+    Dim save As Object
+    Set save = JsonParse(saveData)
+    Print "Before: " & JsonStringify(save)
+
+    ' Modify
+    save("score") = save("score") + 500
+    save("lives") = save("lives") - 1
+    save("checkpoint") = "level_3"
+
+    Print "After:  " & JsonStringify(save)
+    Print ""
+
+    Print "=== JSON Demo Complete ==="
+End Sub

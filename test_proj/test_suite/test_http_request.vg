@@ -1,0 +1,58 @@
+' Test: VGHttpRequest module
+' API: SetRequestHeader, GetResponseHeader, Open, Send, GetUrl, PostUrl
+'      Properties: Status, StatusText, ResponseText, ReadyState
+' NOTE: No SetHeader/GetHeader/ClearHeaders/Timeout/LastStatusCode
+Attribute VB_Name = "TestVGHttpRequest"
+
+Sub _Ready()
+    Dim http As New VGHttpRequest
+
+    ' --- SetRequestHeader (correct API) ---
+    http.SetRequestHeader "Content-Type", "application/json"
+    http.SetRequestHeader "User-Agent", "VisualGasic-Test/1.0"
+    Print "PASS: http_set_request_header"
+
+    ' --- ReadyState initial ---
+    Dim rs As Integer
+    rs = http.ReadyState
+    If rs = 0 Then
+        Print "PASS: http_initial_ready_state"
+    Else
+        Print "FAIL: http_initial_ready_state: got " & CStr(rs)
+    End If
+
+    ' --- Status initial (0 before any request) ---
+    Dim status As Integer
+    status = http.Status
+    If status = 0 Then
+        Print "PASS: http_initial_status"
+    Else
+        Print "FAIL: http_initial_status: got " & CStr(status)
+    End If
+
+    ' --- ResponseText initial (empty before request) ---
+    Dim rt As String
+    rt = http.ResponseText
+    If rt = "" Then
+        Print "PASS: http_initial_response_text"
+    Else
+        Print "FAIL: http_initial_response_text"
+    End If
+
+    ' --- GetUrl to non-routable address (should not crash) ---
+    Dim result As String
+    result = http.GetUrl("http://192.0.2.1:1/test")
+    ' May fail with error or empty string, but should not crash
+    Print "PASS: http_get_no_crash"
+
+    ' --- Status after failed request ---
+    status = http.Status
+    ' 0 or an error code are both acceptable
+    Print "PASS: http_status_after_fail"
+
+    ' --- StatusText ---
+    Dim st As String
+    st = http.StatusText
+    ' Any string (including empty) is acceptable
+    Print "PASS: http_status_text"
+End Sub

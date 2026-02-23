@@ -295,11 +295,15 @@ bool VGFilePermissions::unlock_file(const String &p_path) {
         return false;
     }
 #ifdef _WIN32
+    ERR_FAIL_COND_V_MSG(locked_files[p_path].get_type() != Variant::INT, false,
+        "VGFilePermissions: corrupted lock entry for " + p_path);
     HANDLE h = (HANDLE)(intptr_t)(int64_t)locked_files[p_path];
     OVERLAPPED ol = {};
     UnlockFileEx(h, 0, MAXDWORD, MAXDWORD, &ol);
     CloseHandle(h);
 #else
+    ERR_FAIL_COND_V_MSG(locked_files[p_path].get_type() != Variant::INT, false,
+        "VGFilePermissions: corrupted lock entry for " + p_path);
     int fd = (int)(int64_t)locked_files[p_path];
     flock(fd, LOCK_UN);
     close(fd);

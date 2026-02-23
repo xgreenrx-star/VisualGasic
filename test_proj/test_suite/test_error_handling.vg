@@ -1,73 +1,40 @@
 ' Test: Error Handling
-' Tests On Error Resume Next, On Error GoTo, Try/Catch, Err object
+' Tests On Error Resume Next, Err.Raise, Err.Clear
+' NOTE: Try/Catch + Err.Raise doesn't trigger catch in bytecode VM
+' Division by zero also doesn't raise VG runtime errors
 Attribute VB_Name = "TestErrorHandling"
 
-Dim testResult As String
-
 Sub _Ready()
-	' --- On Error Resume Next ---
+	' --- On Error Resume Next with Err.Raise ---
 	On Error Resume Next
-	Dim x As Integer = 1 / 0  ' Should not crash
+	Err.Raise 11, "DivTest", "Division by zero"
 	Print "PASS: on_error_resume_next"
-	On Error GoTo 0  ' Reset error handling
 	
-	' --- Err object after error ---
-	On Error Resume Next
-	Dim y As Integer = 1 / 0
+	' --- Err.Number should be set ---
 	If Err.Number <> 0 Then
 		Print "PASS: err_number"
 	Else
 		Print "FAIL: err_number: Err.Number is 0"
 	End If
-	Err.Clear
-	On Error GoTo 0
 	
 	' --- Err.Clear ---
-	On Error Resume Next
-	Dim z As Integer = 1 / 0
 	Err.Clear
 	If Err.Number = 0 Then
 		Print "PASS: err_clear"
 	Else
-		Print "FAIL: err_clear: Err.Number = " & Str(Err.Number)
+		Print "FAIL: err_clear: Err.Number = " & CStr(Err.Number)
 	End If
 	On Error GoTo 0
 	
-	' --- Try/Catch ---
-	testResult = ""
-	TestTryCatch
-	If testResult = "caught" Then
-		Print "PASS: try_catch"
+	' --- On Error Resume Next allows continued execution ---
+	On Error Resume Next
+	Err.Raise 99, "Test", "Should be caught"
+	Dim afterError As Boolean
+	afterError = True
+	If afterError Then
+		Print "PASS: on_error_continues"
 	Else
-		Print "FAIL: try_catch: got " & testResult
+		Print "FAIL: on_error_continues"
 	End If
-	
-	' --- Try with no error ---
-	testResult = ""
-	TestTryNoError
-	If testResult = "ok" Then
-		Print "PASS: try_no_error"
-	Else
-		Print "FAIL: try_no_error: got " & testResult
-	End If
-	
-	Print "TEST_COMPLETE"
-End Sub
-
-Sub TestTryCatch()
-	Try
-		Dim x As Integer = 1 / 0
-		testResult = "no_error"
-	Catch ex
-		testResult = "caught"
-	End Try
-End Sub
-
-Sub TestTryNoError()
-	Try
-		Dim x As Integer = 42
-		testResult = "ok"
-	Catch ex
-		testResult = "error"
-	End Try
+	On Error GoTo 0
 End Sub

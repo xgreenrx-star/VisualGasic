@@ -75,6 +75,47 @@ chmod +x setup_symlinks.sh
 | **HighScores/** | High score management | DATA/Read/Restore, LoadData, DataFile, sorting |
 | **ODBC/** | Database connectivity | **VGOdbc** connect, query, parameterized SQL, transactions |
 
+### 🖥️ System Integration
+
+| Demo | Description | Features Demonstrated |
+|------|-------------|----------------------|
+| **System/SystemInfo/** | OS and hardware info | **VGSystem** hostname, CPU, RAM, disk, uptime, env, locale |
+| **System/SignalHandler/** | Unix signal handling | **VGSignalHandler** SIGINT, SIGTERM, atexit, custom signals |
+| **System/FilePermissions/** | File permission management | **VGFilePermissions** chmod, chown, symlinks, locking, GetAttr/SetAttr |
+| **System/MemoryBuffer/** | Raw memory operations | **VGMemoryBuffer** Peek/Poke, hex dump, copy, search, FFI, binary structs |
+| **System/IPC/** | Inter-process communication | **VGIPC** named pipes, shared memory, domain sockets |
+
+### 🌐 Networking
+
+| Demo | Description | Features Demonstrated |
+|------|-------------|----------------------|
+| **Networking/TCP/** | TCP/UDP socket programming | **WinSock** client/server, DNS, chat protocol patterns |
+| **Networking/HTTP/** | HTTP requests | **VGHttpRequest** GET, POST, headers, JSON, REST API |
+
+### 🚀 Advanced
+
+| Demo | Description | Features Demonstrated |
+|------|-------------|----------------------|
+| **Advanced/ECS/** | Entity Component System | **VisualGasicECS** entities, components, systems, queries, profiling |
+| **Advanced/GPU/** | GPU computing and SIMD | **VisualGasicGPU** vector math, dot product, parallel map/reduce, matrices |
+| **Advanced/Threading/** | Multi-threading | **Thread**, **Mutex**, parallel sum, producer/consumer pattern |
+
+### 📚 Language Features
+
+| Demo | Description | Features Demonstrated |
+|------|-------------|----------------------|
+| **Language/OOP/** | Object-oriented programming | Class, Inherits, Overrides, Property Get/Let, polymorphism |
+| **Language/ErrorHandling/** | Error handling patterns | On Error, Try/Catch/Finally, Err object, nested handlers |
+| **Language/Functional/** | Functional programming | Lambda, Map, Filter, Reduce, Any, All, Find, chaining |
+| **Language/SelectCase/** | Select Case patterns | Multi-value, ranges (To), comparisons (Is), nested, Select Case True |
+| **Language/DateTime/** | Date and time functions | Now, DateAdd, DateDiff, DatePart, Format, Timer stopwatch |
+| **Language/FileIO/** | File input/output | Open/Close, Print#, Write#, Line Input, EOF, ReadAllText, config files |
+| **Language/Strings/** | String processing | Len, Mid, InStr, Split/Join, Replace, Asc/Chr, Format, word counter |
+| **Language/Collections/** | Collections and arrays | Arrays, ReDim Preserve, Dictionary, For Each, nested collections |
+| **Language/JSON/** | JSON handling | JsonParse, JsonStringify, nested objects, round-trip, config loader |
+| **Language/Math/** | Mathematical functions | Abs, Sqr, Trig, Log, Rnd, Round, quadratic formula, distance |
+| **Language/Loops/** | Loop constructs | For/Next, For Each, Do While/Until, While/Wend, nested, Exit |
+
 ### Whenever System (Reactive Programming)
 ```vb
 Whenever Section GameLogic
@@ -164,7 +205,31 @@ demos/
 │   ├── XML/
 │   ├── ZIP/
 │   └── PackageManager/
-├── Networking/        (coming soon)
+├── System/
+│   ├── SystemInfo/
+│   ├── SignalHandler/
+│   ├── FilePermissions/
+│   ├── MemoryBuffer/
+│   └── IPC/
+├── Networking/
+│   ├── TCP/
+│   └── HTTP/
+├── Advanced/
+│   ├── ECS/
+│   ├── GPU/
+│   └── Threading/
+├── Language/
+│   ├── OOP/
+│   ├── ErrorHandling/
+│   ├── Functional/
+│   ├── SelectCase/
+│   ├── DateTime/
+│   ├── FileIO/
+│   ├── Strings/
+│   ├── Collections/
+│   ├── JSON/
+│   ├── Math/
+│   └── Loops/
 ├── setup_symlinks.sh
 └── README.md
 ```

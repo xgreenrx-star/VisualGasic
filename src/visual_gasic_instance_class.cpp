@@ -16,7 +16,10 @@ using namespace VisualGasic;
 
 ClassDefinition* VisualGasicInstance::get_class_def(const String& class_name) {
     if (class_registry.has(class_name)) {
-        return (ClassDefinition*)((int64_t)class_registry[class_name]);
+        Variant v = class_registry[class_name];
+        ERR_FAIL_COND_V_MSG(v.get_type() != Variant::INT, nullptr,
+            "VisualGasic: corrupted class registry entry for '" + class_name + "'");
+        return (ClassDefinition*)((int64_t)v);
     }
     return nullptr;
 }
@@ -97,7 +100,8 @@ Variant VisualGasicInstance::instantiate_class(const String& class_name, const A
         return Variant();
     }
     
-    ClassDefinition* cls = (ClassDefinition*)((int64_t)class_registry[class_name]);
+    ClassDefinition* cls = get_class_def(class_name);
+    ERR_FAIL_NULL_V_MSG(cls, Variant(), "VisualGasic: failed to retrieve class definition for '" + class_name + "'");
     
     // Create new object instance
     int obj_id = next_object_id++;
@@ -291,7 +295,8 @@ Variant VisualGasicInstance::call_object_method(int obj_id, const String& method
         return Variant();
     }
     
-    ClassDefinition* cls = (ClassDefinition*)((int64_t)class_registry[class_name]);
+    ClassDefinition* cls = get_class_def(class_name);
+    ERR_FAIL_NULL_V_MSG(cls, Variant(), "VisualGasic: class '" + class_name + "' not found in registry");
     
     // Find method in class hierarchy (derived-first for polymorphism)
     SubDefinition* method = find_method_in_hierarchy(cls, method_name);
@@ -371,7 +376,8 @@ void VisualGasicInstance::execute_class_method(ClassDefinition* cls, SubDefiniti
         String class_name = obj_data["__class__"];
         
         if (class_registry.has(class_name)) {
-            ClassDefinition* cls_def = (ClassDefinition*)((int64_t)class_registry[class_name]);
+            ClassDefinition* cls_def = get_class_def(class_name);
+            ERR_FAIL_NULL(cls_def);
             
             Vector<ClassDefinition*> chain;
             collect_class_hierarchy(cls_def, chain);

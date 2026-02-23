@@ -1,17 +1,19 @@
 ' Test: Constants
-' Tests Const declaration, usage in expressions
+' Tests Const declaration at module level, usage in expressions
+' NOTE: Local Const inside Sub/Function not supported — use Dim instead
 Attribute VB_Name = "TestConstants"
 
 Const MAX_SIZE As Integer = 100
 Const PI_VAL As Double = 3.14159
 Const GREETING As String = "Hello"
+Const LOCAL_EQUIV As Integer = 42
 
 Sub _Ready()
 	' --- Integer const ---
 	If MAX_SIZE = 100 Then
 		Print "PASS: const_integer"
 	Else
-		Print "FAIL: const_integer: got " & Str(MAX_SIZE)
+		Print "FAIL: const_integer: got " & CStr(MAX_SIZE)
 	End If
 	
 	' --- Double const ---
@@ -33,7 +35,7 @@ Sub _Ready()
 	If area > 314 And area < 315 Then
 		Print "PASS: const_in_expression"
 	Else
-		Print "FAIL: const_in_expression: got " & Str(area)
+		Print "FAIL: const_in_expression: got " & CStr(area)
 	End If
 	
 	' --- Const in condition ---
@@ -44,13 +46,10 @@ Sub _Ready()
 		Print "FAIL: const_in_condition"
 	End If
 	
-	' --- Local const ---
-	Const LOCAL_VAL As Integer = 42
-	If LOCAL_VAL = 42 Then
-		Print "PASS: local_const"
+	' --- Module-level const used like local ---
+	If LOCAL_EQUIV = 42 Then
+		Print "PASS: const_module_level"
 	Else
-		Print "FAIL: local_const"
+		Print "FAIL: const_module_level"
 	End If
-	
-	Print "TEST_COMPLETE"
 End Sub

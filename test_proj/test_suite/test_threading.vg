@@ -1,0 +1,43 @@
+' Test: VGTask / VGTaskRunner threading
+' NOTE: "Task" is a reserved word in VG — use "myTask" etc.
+' NOTE: Task.RunAsync spawns real OS threads — Print is unsafe from threads
+'       We test only construction and property access
+Attribute VB_Name = "TestThreading"
+
+Sub _Ready()
+    ' --- VGTask construction ---
+    Dim myTask As New VGTask
+    If Not myTask Is Nothing Then
+        Print "PASS: threading_task_construct"
+    Else
+        Print "FAIL: threading_task_construct"
+    End If
+
+    ' --- VGTaskRunner construction ---
+    Dim runner As New VGTaskRunner
+    If Not runner Is Nothing Then
+        Print "PASS: threading_task_runner_construct"
+    Else
+        Print "FAIL: threading_task_runner_construct"
+    End If
+
+    ' --- TaskRunner.Count starts at 0 ---
+    If runner.Count() = 0 Then
+        Print "PASS: threading_task_runner_initial_count"
+    Else
+        Print "FAIL: threading_task_runner_initial_count"
+    End If
+
+    ' --- Task status properties ---
+    If myTask.IsComplete = False Then
+        Print "PASS: threading_task_not_complete"
+    Else
+        Print "FAIL: threading_task_not_complete"
+    End If
+
+    If myTask.IsRunning = False Then
+        Print "PASS: threading_task_not_running"
+    Else
+        Print "FAIL: threading_task_not_running"
+    End If
+End Sub

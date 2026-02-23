@@ -6,186 +6,164 @@ Sub _Ready()
     passed = 0
     failed = 0
 
-    Print "=== VisualGasic v2.10.0 Feature Tests ==="
-
     ' --- Test 1: Timer() function ---
-    Print "--- Timer() Function ---"
     Dim t As Double
     t = Timer()
     If t > 0 Then
-        Print "  PASS: Timer() returns positive value"
+        Print "PASS: v210_timer_positive"
         passed = passed + 1
     Else
-        Print "  FAIL: Timer() returns positive value"
+        Print "FAIL: v210_timer_positive"
         failed = failed + 1
     End If
 
     If t < 86400 Then
-        Print "  PASS: Timer() < 86400"
+        Print "PASS: v210_timer_range"
         passed = passed + 1
     Else
-        Print "  FAIL: Timer() < 86400"
+        Print "FAIL: v210_timer_range"
         failed = failed + 1
     End If
 
     ' --- Test 2: App Object ---
-    Print "--- App Object ---"
     Dim appPath As String
     appPath = App.Path
     If Len(appPath) > 0 Then
-        Print "  PASS: App.Path not empty"
+        Print "PASS: v210_app_path"
         passed = passed + 1
     Else
-        Print "  FAIL: App.Path is empty"
+        Print "FAIL: v210_app_path"
         failed = failed + 1
     End If
 
     If App.Major >= 0 Then
-        Print "  PASS: App.Major >= 0"
+        Print "PASS: v210_app_major"
         passed = passed + 1
     Else
-        Print "  FAIL: App.Major"
+        Print "FAIL: v210_app_major"
         failed = failed + 1
     End If
 
     ' --- Test 3: Screen Object ---
-    Print "--- Screen Object ---"
     Dim sw As Integer
     sw = Screen.Width
     If sw >= 0 Then
-        Print "  PASS: Screen.Width >= 0"
+        Print "PASS: v210_screen_width"
         passed = passed + 1
     Else
-        Print "  FAIL: Screen.Width"
+        Print "FAIL: v210_screen_width"
         failed = failed + 1
     End If
 
     Dim sh As Integer
     sh = Screen.Height
     If sh >= 0 Then
-        Print "  PASS: Screen.Height >= 0"
+        Print "PASS: v210_screen_height"
         passed = passed + 1
     Else
-        Print "  FAIL: Screen.Height"
+        Print "FAIL: v210_screen_height"
         failed = failed + 1
     End If
 
     ' --- Test 4: Collection ---
-    Print "--- Collection ---"
     Dim col As New Collection
     col.Add "Apple", "a"
     col.Add "Banana", "b"
     col.Add "Cherry", "c"
-    If col.Count = 3 Then
-        Print "  PASS: Collection.Count = 3"
+    If col.Count() = 3 Then
+        Print "PASS: v210_collection_count"
         passed = passed + 1
     Else
-        Print "  FAIL: Collection.Count = " & CStr(col.Count)
+        Print "FAIL: v210_collection_count: " & CStr(col.Count())
         failed = failed + 1
     End If
 
     If col.Item(1) = "Apple" Then
-        Print "  PASS: Collection.Item(1) = Apple"
+        Print "PASS: v210_collection_item_index"
         passed = passed + 1
     Else
-        Print "  FAIL: Collection.Item(1)"
+        Print "FAIL: v210_collection_item_index"
         failed = failed + 1
     End If
 
     If col.Item("b") = "Banana" Then
-        Print "  PASS: Collection.Item(b) = Banana"
+        Print "PASS: v210_collection_item_key"
         passed = passed + 1
     Else
-        Print "  FAIL: Collection.Item(b)"
+        Print "FAIL: v210_collection_item_key"
         failed = failed + 1
     End If
 
     col.Remove 2
-    If col.Count = 2 Then
-        Print "  PASS: Collection after Remove = 2"
+    If col.Count() = 2 Then
+        Print "PASS: v210_collection_remove"
         passed = passed + 1
     Else
-        Print "  FAIL: Collection after Remove"
+        Print "FAIL: v210_collection_remove"
         failed = failed + 1
     End If
 
     col.Clear
-    If col.Count = 0 Then
-        Print "  PASS: Collection after Clear = 0"
+    If col.Count() = 0 Then
+        Print "PASS: v210_collection_clear"
         passed = passed + 1
     Else
-        Print "  FAIL: Collection after Clear"
+        Print "FAIL: v210_collection_clear"
         failed = failed + 1
     End If
 
-    ' --- Test 5: VGTimer ---
-    Print "--- VGTimer ---"
+    ' --- Test 5: VBTimer ---
     Dim tmr As New VBTimer
     tmr.Interval = 100
     tmr.Enabled = True
     If tmr.Interval = 100 Then
-        Print "  PASS: VGTimer.Interval = 100"
+        Print "PASS: v210_timer_interval"
         passed = passed + 1
     Else
-        Print "  FAIL: VGTimer.Interval"
+        Print "FAIL: v210_timer_interval"
         failed = failed + 1
     End If
 
     ' --- Test 6: RegExp ---
-    Print "--- RegExp ---"
     Dim re As New RegExp
     re.Pattern = "\d+"
     re.Global = True
     If re.Test("abc123def") = True Then
-        Print "  PASS: RegExp.Test matches digits"
+        Print "PASS: v210_regexp_test"
         passed = passed + 1
     Else
-        Print "  FAIL: RegExp.Test"
+        Print "FAIL: v210_regexp_test"
         failed = failed + 1
     End If
 
     Dim replResult As String
     replResult = re.Replace("abc123def456", "NUM")
     If replResult = "abcNUMdefNUM" Then
-        Print "  PASS: RegExp.Replace global"
+        Print "PASS: v210_regexp_replace"
         passed = passed + 1
     Else
-        Print "  FAIL: RegExp.Replace = " & replResult
+        Print "FAIL: v210_regexp_replace: " & replResult
         failed = failed + 1
     End If
 
     ' --- Test 7: Err Object ---
-    Print "--- Err Object ---"
     On Error Resume Next
     Err.Raise 42, "TestSource", "Test error"
     If Err.Number = 42 Then
-        Print "  PASS: Err.Number = 42 after Raise"
+        Print "PASS: v210_err_raise"
         passed = passed + 1
     Else
-        Print "  FAIL: Err.Number = " & CStr(Err.Number)
+        Print "FAIL: v210_err_raise: " & CStr(Err.Number)
         failed = failed + 1
     End If
 
     Err.Clear
     If Err.Number = 0 Then
-        Print "  PASS: Err.Number = 0 after Clear"
+        Print "PASS: v210_err_clear"
         passed = passed + 1
     Else
-        Print "  FAIL: Err.Number after Clear"
+        Print "FAIL: v210_err_clear"
         failed = failed + 1
     End If
     On Error GoTo 0
-
-    ' --- Summary ---
-    Print ""
-    Print "=== Results ==="
-    Print "Passed: " & CStr(passed)
-    Print "Failed: " & CStr(failed)
-    Print "Total:  " & CStr(passed + failed)
-    If failed = 0 Then
-        Print "ALL TESTS PASSED!"
-    Else
-        Print "SOME TESTS FAILED"
-    End If
-    Print "TEST_COMPLETE"
 End Sub

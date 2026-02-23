@@ -1,0 +1,214 @@
+' demo_class_inheritance.vg — Object-Oriented Programming
+' Demonstrates classes, inheritance, polymorphism, properties, interfaces
+
+' ---------------------------------------------------------------
+' Base class: Animal
+' ---------------------------------------------------------------
+Class Animal
+    Public Name As String
+    Public Age As Integer
+    Private m_Sound As String
+
+    Sub Class_Initialize()
+        Name = "Unknown"
+        Age = 0
+        m_Sound = "..."
+    End Sub
+
+    ' Property with Get/Let
+    Property Get Sound() As String
+        Sound = m_Sound
+    End Property
+
+    Property Let Sound(value As String)
+        m_Sound = value
+    End Property
+
+    ' Virtual method — subclasses override this
+    Function Speak() As String
+        Speak = Name & " says " & m_Sound
+    End Function
+
+    Function Describe() As String
+        Describe = Name & " (age " & CStr(Age) & ")"
+    End Function
+End Class
+
+' ---------------------------------------------------------------
+' Derived class: Dog inherits Animal
+' ---------------------------------------------------------------
+Class Dog
+    Inherits Animal
+
+    Public Breed As String
+
+    Sub Class_Initialize()
+        MyBase.Class_Initialize
+        Sound = "Woof!"
+        Breed = "Mixed"
+    End Sub
+
+    ' Override the Speak method
+    Overrides Function Speak() As String
+        Speak = Name & " barks: " & Sound & " (tail wagging)"
+    End Function
+
+    Function Fetch(item As String) As String
+        Fetch = Name & " fetches the " & item & "!"
+    End Function
+End Class
+
+' ---------------------------------------------------------------
+' Derived class: Cat inherits Animal
+' ---------------------------------------------------------------
+Class Cat
+    Inherits Animal
+
+    Public Indoor As Boolean
+
+    Sub Class_Initialize()
+        MyBase.Class_Initialize
+        Sound = "Meow!"
+        Indoor = True
+    End Sub
+
+    Overrides Function Speak() As String
+        Speak = Name & " purrs: " & Sound
+    End Function
+
+    Function Scratch(target As String) As String
+        Scratch = Name & " scratches the " & target & "!"
+    End Function
+End Class
+
+' ---------------------------------------------------------------
+' Another level: Kitten inherits Cat
+' ---------------------------------------------------------------
+Class Kitten
+    Inherits Cat
+
+    Sub Class_Initialize()
+        MyBase.Class_Initialize
+        Sound = "Mew!"
+    End Sub
+
+    Overrides Function Speak() As String
+        Speak = Name & " squeaks: " & Sound & " (tiny!)"
+    End Function
+End Class
+
+' ---------------------------------------------------------------
+' Main program
+' ---------------------------------------------------------------
+Sub Main()
+    Print "=== Class Inheritance Demo ==="
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 1. Creating Objects
+    ' ---------------------------------------------------------------
+    Print "--- Creating Objects ---"
+
+    Dim d As New Dog
+    d.Name = "Rex"
+    d.Age = 5
+    d.Breed = "German Shepherd"
+
+    Dim c As New Cat
+    c.Name = "Whiskers"
+    c.Age = 3
+    c.Indoor = True
+
+    Dim k As New Kitten
+    k.Name = "Tiny"
+    k.Age = 0
+
+    Print "Dog:    " & d.Describe()
+    Print "Cat:    " & c.Describe()
+    Print "Kitten: " & k.Describe()
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 2. Polymorphism — Same Method, Different Behavior
+    ' ---------------------------------------------------------------
+    Print "--- Polymorphism ---"
+
+    Print d.Speak()
+    Print c.Speak()
+    Print k.Speak()
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 3. Using Properties
+    ' ---------------------------------------------------------------
+    Print "--- Properties ---"
+
+    Print "Dog breed: " & d.Breed
+    Print "Cat indoor: " & CStr(c.Indoor)
+
+    ' Change a property via Property Let
+    d.Sound = "WOOF WOOF!"
+    Print "Dog new sound: " & d.Sound
+    Print d.Speak()
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 4. Subclass-Specific Methods
+    ' ---------------------------------------------------------------
+    Print "--- Subclass Methods ---"
+
+    Print d.Fetch("ball")
+    Print c.Scratch("furniture")
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 5. Polymorphic Array
+    ' ---------------------------------------------------------------
+    Print "--- Polymorphic Array ---"
+
+    Dim animals(2) As Animal
+    Set animals(0) = d
+    Set animals(1) = c
+    Set animals(2) = k
+
+    Dim i As Integer
+    For i = 0 To 2
+        Print "  " & animals(i).Describe() & " -> " & animals(i).Speak()
+    Next i
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 6. Type Checking
+    ' ---------------------------------------------------------------
+    Print "--- Type Checking ---"
+
+    Print "d Is Dog:    " & CStr(d Is Dog)
+    Print "d Is Animal: " & CStr(d Is Animal)
+    Print "c Is Dog:    " & CStr(c Is Dog)
+    Print "k Is Cat:    " & CStr(k Is Cat)
+    Print "k Is Animal: " & CStr(k Is Animal)
+    Print ""
+
+    Print "TypeName(d): " & TypeName(d)
+    Print "TypeName(c): " & TypeName(c)
+    Print "TypeName(k): " & TypeName(k)
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 7. With...End With
+    ' ---------------------------------------------------------------
+    Print "--- With...End With ---"
+
+    Dim d2 As New Dog
+    With d2
+        .Name = "Buddy"
+        .Age = 2
+        .Breed = "Labrador"
+        .Sound = "Arf!"
+        Print .Describe() & " - " & .Breed
+        Print .Speak()
+    End With
+    Print ""
+
+    Print "=== Class Inheritance Demo Complete ==="
+End Sub

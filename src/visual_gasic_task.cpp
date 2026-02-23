@@ -197,6 +197,7 @@ void VGTaskRunner::_bind_methods() {
     ClassDB::bind_method(D_METHOD("Add", "callable"), &VGTaskRunner::add);
     ClassDB::bind_method(D_METHOD("RunAll"), &VGTaskRunner::run_all);
     ClassDB::bind_method(D_METHOD("Clear"), &VGTaskRunner::clear);
+    ClassDB::bind_method(D_METHOD("Count"), &VGTaskRunner::get_count);
 
     ADD_PROPERTY(PropertyInfo(Variant::BOOL, "AllComplete"), "", "get_all_complete");
     ADD_PROPERTY(PropertyInfo(Variant::INT, "CompleteCount"), "", "get_complete_count");

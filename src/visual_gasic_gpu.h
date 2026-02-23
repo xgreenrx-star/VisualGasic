@@ -7,20 +7,23 @@
 #include <godot_cpp/classes/rd_shader_spirv.hpp>
 #include <godot_cpp/variant/array.hpp>
 #include <godot_cpp/variant/dictionary.hpp>
-#include <godot_cpp/variant/packed_float32_array.hpp>
 #include <functional>
 #include <map>
 
 using namespace godot;
 
 /**
- * VisualGasic GPU Computing System
- * 
- * Provides GPU-accelerated computing capabilities including:
- * - SIMD vector operations
- * - Parallel computing with compute shaders
- * - Memory management for GPU buffers
- * - Automatic fallback to CPU when needed
+ * VGGpu — GPU-accelerated computing for VisualGasic
+ *
+ * Provides SIMD-style vector math, element-wise operations, and parallel
+ * reduction — all with automatic CPU fallback when RenderingDevice is
+ * unavailable (headless, CI, software renderer).
+ *
+ * VB6-style API:
+ *   Dim gpu As New VGGpu
+ *   gpu.Initialize
+ *   result = gpu.VectorAdd(a(), b())
+ *   dot    = gpu.DotProduct(a(), b())
  */
 class VisualGasicGPU : public RefCounted {
     GDCLASS(VisualGasicGPU, RefCounted)
@@ -35,46 +38,53 @@ public:
 private:
     RenderingDevice* rendering_device;
     std::map<String, ComputeShaderInfo> compute_cache;
+    bool initialized;
 
 public:
     VisualGasicGPU();
     ~VisualGasicGPU();
-    
-    // Initialization
+
+    // ── Lifecycle ─────────────────────────────────────
     bool initialize();
-    
-    // SIMD Vector Operations
-    Vector<float> simd_vector_add(const Vector<float>& a, const Vector<float>& b);
-    Vector<float> simd_vector_multiply(const Vector<float>& a, const Vector<float>& b);
-    Vector<float> simd_vector_dot_product(const Vector<float>& a, const Vector<float>& b);
-    
-    // Parallel Computing
-    void parallel_for_gpu(int count, std::function<void(int)> operation);
-    Dictionary parallel_map_reduce(const Array& data, 
-                                 std::function<Variant(Variant)> map_func,
-                                 std::function<Variant(Variant, Variant)> reduce_func);
-    
-    // Compute Shader Management
-    ComputeShaderInfo get_or_create_compute_shader(const String& name, const String& source);
-    
-    // Shader Source Generation
+    bool is_initialized() const;
+    bool has_gpu() const;
+
+    // ── Vector Operations (Variant Array of floats) ─
+    Array vector_add(const Array &a, const Array &b);
+    Array vector_subtract(const Array &a, const Array &b);
+    Array vector_multiply(const Array &a, const Array &b);
+    Array vector_divide(const Array &a, const Array &b);
+    double dot_product(const Array &a, const Array &b);
+    double vector_length(const Array &v);
+    Array vector_normalize(const Array &v);
+    Array vector_scale(const Array &v, double scalar);
+
+    // ── Scalar Reduction ──────────────────────────────
+    double vector_sum(const Array &v);
+    double vector_min(const Array &v);
+    double vector_max(const Array &v);
+    double vector_average(const Array &v);
+
+    // ── Element-wise Math ─────────────────────────────
+    Array vector_abs(const Array &v);
+    Array vector_clamp(const Array &v, double lo, double hi);
+    Array vector_lerp(const Array &a, const Array &b, double t);
+
+    // ── Utility ───────────────────────────────────────
+    String get_backend() const;
+    Dictionary get_info() const;
+
+protected:
+    static void _bind_methods();
+
+private:
+    // Internal compute-shader helpers (kept for future real-GPU path)
+    ComputeShaderInfo get_or_create_compute_shader(const String &name, const String &source);
     String generate_vector_add_shader();
     String generate_vector_multiply_shader();
     String generate_parallel_for_shader();
     String generate_map_reduce_shader();
-
-protected:
-    static void _bind_methods() {}
-
-private:
-    // GPU Execution Methods
-    Vector<float> execute_vector_operation(const String& operation, 
-                                          const Vector<float>& a, 
-                                          const Vector<float>& b);
     bool create_test_shader();
-    void execute_parallel_compute(const ComputeShaderInfo& shader_info, int count);
-    Array execute_map_phase(const ComputeShaderInfo& shader_info, const Array& data);
-    Variant execute_reduce_phase(const ComputeShaderInfo& shader_info, const Array& mapped_data);
 };
 
 #endif // VISUAL_GASIC_GPU_H

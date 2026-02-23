@@ -1,0 +1,209 @@
+' demo_select_case.vg — Advanced Select Case & Pattern Matching
+' Demonstrates multi-value, ranges, comparisons, string matching, nested cases
+
+Sub Main()
+    Print "=== Advanced Select Case Demo ==="
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 1. Basic Select Case
+    ' ---------------------------------------------------------------
+    Print "--- Basic Select Case ---"
+
+    Dim day As Integer
+    day = 3
+
+    Select Case day
+        Case 1: Print "Monday"
+        Case 2: Print "Tuesday"
+        Case 3: Print "Wednesday"
+        Case 4: Print "Thursday"
+        Case 5: Print "Friday"
+        Case 6: Print "Saturday"
+        Case 7: Print "Sunday"
+        Case Else: Print "Invalid day"
+    End Select
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 2. Multi-Value Cases
+    ' ---------------------------------------------------------------
+    Print "--- Multi-Value Cases ---"
+
+    Dim month As Integer
+    For month = 1 To 12
+        Dim season As String
+        Select Case month
+            Case 3, 4, 5
+                season = "Spring"
+            Case 6, 7, 8
+                season = "Summer"
+            Case 9, 10, 11
+                season = "Autumn"
+            Case 12, 1, 2
+                season = "Winter"
+        End Select
+
+        If month = 1 Or month = 6 Then
+            Print "  Month " & CStr(month) & ": " & season
+        End If
+    Next month
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 3. Range Cases (To keyword)
+    ' ---------------------------------------------------------------
+    Print "--- Range Cases ---"
+
+    Dim score As Integer
+    Dim scores As Array
+    scores = Array(95, 82, 73, 65, 45)
+    Dim i As Integer
+
+    For i = 0 To UBound(scores)
+        score = scores(i)
+        Dim grade As String
+
+        Select Case score
+            Case 90 To 100
+                grade = "A"
+            Case 80 To 89
+                grade = "B"
+            Case 70 To 79
+                grade = "C"
+            Case 60 To 69
+                grade = "D"
+            Case 0 To 59
+                grade = "F"
+            Case Else
+                grade = "?"
+        End Select
+
+        Print "  Score " & CStr(score) & " -> Grade " & grade
+    Next i
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 4. Comparison Cases (Is keyword)
+    ' ---------------------------------------------------------------
+    Print "--- Comparison Cases ---"
+
+    Dim temp As Integer
+    temp = 35
+
+    Select Case temp
+        Case Is < 0
+            Print "  " & CStr(temp) & "°C: Freezing!"
+        Case Is < 15
+            Print "  " & CStr(temp) & "°C: Cold"
+        Case Is < 25
+            Print "  " & CStr(temp) & "°C: Comfortable"
+        Case Is < 35
+            Print "  " & CStr(temp) & "°C: Warm"
+        Case Is >= 35
+            Print "  " & CStr(temp) & "°C: Hot!"
+    End Select
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 5. String Select Case
+    ' ---------------------------------------------------------------
+    Print "--- String Select Case ---"
+
+    Dim command As String
+    Dim commands As Array
+    commands = Array("OPEN", "SAVE", "QUIT", "HELP", "UNKNOWN")
+
+    For i = 0 To UBound(commands)
+        command = commands(i)
+        Select Case command
+            Case "OPEN", "LOAD"
+                Print "  " & command & " -> Opening file..."
+            Case "SAVE", "WRITE"
+                Print "  " & command & " -> Saving file..."
+            Case "QUIT", "EXIT"
+                Print "  " & command & " -> Goodbye!"
+            Case "HELP", "?"
+                Print "  " & command & " -> Commands: OPEN, SAVE, QUIT, HELP"
+            Case Else
+                Print "  " & command & " -> Unknown command"
+        End Select
+    Next i
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 6. Nested Select Case
+    ' ---------------------------------------------------------------
+    Print "--- Nested Select Case ---"
+
+    Dim category As String
+    category = "fruit"
+    Dim item As String
+    item = "banana"
+
+    Select Case category
+        Case "fruit"
+            Select Case item
+                Case "apple"
+                    Print "  Red or green fruit"
+                Case "banana"
+                    Print "  Yellow curved fruit"
+                Case Else
+                    Print "  Some fruit"
+            End Select
+        Case "vegetable"
+            Print "  A healthy vegetable"
+        Case Else
+            Print "  Unknown category"
+    End Select
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 7. Select Case with Expressions
+    ' ---------------------------------------------------------------
+    Print "--- Select Case with Expressions ---"
+
+    Dim x As Integer
+    x = 42
+
+    Select Case True
+        Case x > 100
+            Print "  " & CStr(x) & " is greater than 100"
+        Case x > 50
+            Print "  " & CStr(x) & " is greater than 50"
+        Case x > 25
+            Print "  " & CStr(x) & " is greater than 25"
+        Case x > 0
+            Print "  " & CStr(x) & " is positive"
+        Case Else
+            Print "  " & CStr(x) & " is zero or negative"
+    End Select
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 8. Practical: Menu System
+    ' ---------------------------------------------------------------
+    Print "--- Practical: Menu System ---"
+
+    Dim choices As Array
+    choices = Array(1, 2, 3, 5)
+
+    For i = 0 To UBound(choices)
+        Print "  Selection " & CStr(choices(i)) & ":"
+        Select Case choices(i)
+            Case 1
+                Print "    [New Game] Starting fresh..."
+            Case 2
+                Print "    [Load Game] Loading save file..."
+            Case 3
+                Print "    [Options] Opening settings..."
+            Case 4
+                Print "    [Credits] Showing credits..."
+            Case Else
+                Print "    [?] Invalid option!"
+        End Select
+    Next i
+    Print ""
+
+    Print "=== Advanced Select Case Demo Complete ==="
+End Sub

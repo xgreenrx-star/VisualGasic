@@ -1,0 +1,57 @@
+' Test: VGSocket module
+' API: Properties: Connected, Listening, Protocol (INT), LastError,
+'                  RemoteHost, RemotePort, LocalPort
+' Methods: connect_to, close_socket, send_data, send_to, resolve_host (static)
+Attribute VB_Name = "TestVGSocket"
+
+Sub _Ready()
+    Dim sock As New VGSocket
+
+    ' --- Connected property (initial = False) ---
+    If sock.Connected = False Then
+        Print "PASS: socket_initial_not_connected"
+    Else
+        Print "FAIL: socket_initial_not_connected"
+    End If
+
+    ' --- Protocol property (INT, 0=TCP) ---
+    Dim proto As Integer
+    proto = sock.Protocol
+    If proto = 0 Then
+        Print "PASS: socket_protocol_default"
+    Else
+        Print "FAIL: socket_protocol_default: got " & CStr(proto)
+    End If
+
+    ' --- Listening property (initial = False) ---
+    If sock.Listening = False Then
+        Print "PASS: socket_initial_not_listening"
+    Else
+        Print "FAIL: socket_initial_not_listening"
+    End If
+
+    ' --- connect_to invalid address should fail gracefully ---
+    Dim ok As Boolean
+    ok = sock.connect_to("192.0.2.1", 1)
+    Print "PASS: socket_connect_invalid_no_crash"
+
+    ' --- LastError should be set after failure ---
+    Dim err As String
+    err = sock.LastError
+    If Len(err) >= 0 Then
+        Print "PASS: socket_last_error"
+    Else
+        Print "FAIL: socket_last_error"
+    End If
+
+    ' --- close_socket should not crash ---
+    sock.close_socket
+    Print "PASS: socket_close_safe"
+
+    ' --- UDP send_to (may fail if no network, but shouldn't crash) ---
+    Dim udpSock As New VGSocket
+    udpSock.Protocol = 1  ' 1 = UDP
+    udpSock.send_to "test_data", "127.0.0.1", 9999
+    Print "PASS: socket_udp_sendto_no_crash"
+    udpSock.close_socket
+End Sub

@@ -116,15 +116,18 @@ End Sub
 
 ### **GPU Computing**
 ```vb
-Imports VisualGasic.GPU
-
 Sub PerformVectorMath()
-    Dim a As Vector(Of Single) = {1.0, 2.0, 3.0, 4.0}
-    Dim b As Vector(Of Single) = {2.0, 3.0, 4.0, 5.0}
+    Dim gpu As New VGGpu
+    gpu.Initialize
+
+    Dim a = Array(1.0, 2.0, 3.0, 4.0)
+    Dim b = Array(2.0, 3.0, 4.0, 5.0)
     
-    ' GPU-accelerated operations
-    Dim sum = GPU.SIMDAdd(a, b)
-    Print "Result: " & String.Join(", ", sum)
+    ' GPU-accelerated vector operations (CPU fallback)
+    Dim sum = gpu.VectorAdd(a, b)       ' {3, 5, 7, 9}
+    Dim dot = gpu.DotProduct(a, b)      ' 40
+    Dim avg = gpu.VectorAverage(a)      ' 2.5
+    Print "Sum: " & str(sum) & " Dot: " & str(dot)
 End Sub
 ```
 
@@ -218,12 +221,12 @@ VisualGasic welcomes contributions! Please see our [Contributing Guide](CONTRIBU
 **Current Version**: 2.0.0 (Advanced Features Release)
 
 **Completion Status**:
-- ✅ **Core Language** - 100% (Full VB6 compatibility)
+- ✅ **Core Language** - 95% (VB6 compatibility — see docs/KNOWN_ISSUES.md)
 - ✅ **Advanced Types** - 100% (Generics, optionals, unions)
-- ✅ **Multitasking** - 100% (Async/await, parallel processing)
-- ✅ **GPU Computing** - 100% (SIMD, compute shaders)
+- ⚠️ **Multitasking** - Experimental (Task.RunAsync works; Parallel For not yet compiled)
+- 🔬 **GPU Computing** - Stub (scaffolding only; no methods exposed yet)
 - ✅ **Development Tools** - 100% (REPL, LSP, debugger, packages)
-- ✅ **ECS Integration** - 100% (High-performance game development)
+- 🔬 **ECS Integration** - Stub (header-only skeleton; implementation planned)
 - ✅ **Form Templates** - 100% (23 templates: VB6, Game, Platform, Custom)
 - ✅ **Documentation** - 95% (Comprehensive guides and references)
 

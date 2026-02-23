@@ -1,0 +1,65 @@
+' Test: Stress — Memory buffer allocate/free cycles
+Attribute VB_Name = "TestStressMemory"
+
+Sub _Ready()
+    Dim buf As New VGMemoryBuffer
+    
+    ' --- Rapid alloc/free cycles ---
+    Dim i As Integer
+    Dim failed As Boolean
+    failed = False
+    
+    For i = 1 To 5000
+        buf.Allocate 1024
+        buf.PokeByte 0, i Mod 256
+        If buf.PeekByte(0) <> (i Mod 256) Then
+            Print "FAIL: stress_mem_alloc_cycle: iteration " & CStr(i)
+            failed = True
+            Exit For
+        End If
+        buf.Free
+    Next i
+    
+    If Not failed Then
+        Print "PASS: stress_mem_alloc_cycle (5000 iterations)"
+    End If
+
+    ' --- Growing allocations ---
+    failed = False
+    For i = 1 To 500
+        buf.Allocate i * 16
+        buf.PokeByte 0, i Mod 256
+        If buf.PeekByte(0) <> (i Mod 256) Then
+            Print "FAIL: stress_mem_growing: iteration " & CStr(i)
+            failed = True
+            Exit For
+        End If
+        buf.Free
+    Next i
+    
+    If Not failed Then
+        Print "PASS: stress_mem_growing (500 iterations)"
+    End If
+
+    ' --- Fill + verify large block ---
+    buf.Allocate 65536
+    buf.Fill 170
+    
+    Dim mismatch As Boolean
+    mismatch = False
+    For i = 0 To 65535 Step 1000
+        If buf.PeekByte(i) <> 170 Then
+            mismatch = True
+            Exit For
+        End If
+    Next i
+    
+    If Not mismatch Then
+        Print "PASS: stress_mem_fill_64k"
+    Else
+        Print "FAIL: stress_mem_fill_64k: mismatch at offset " & CStr(i)
+    End If
+    
+    buf.Free
+    Print "PASS: stress_mem_cleanup"
+End Sub

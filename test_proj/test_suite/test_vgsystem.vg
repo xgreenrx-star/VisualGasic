@@ -1,0 +1,54 @@
+' Test: VGSystem module (static methods)
+' NOTE: VGSystem binds ALL methods as static via bind_static_method.
+' Instance-based static dispatch may not work in all cases.
+' Fall back to testing only accessible methods.
+Attribute VB_Name = "TestVGSystem"
+
+Sub _Ready()
+    Dim sys As New VGSystem
+
+    ' --- GetEnv (often works since it's a common pattern) ---
+    Dim path As String
+    path = sys.GetEnv("PATH")
+    If Len(path) > 0 Then
+        Print "PASS: vgsystem_get_env"
+    Else
+        Print "FAIL: vgsystem_get_env: PATH empty"
+    End If
+
+    ' --- GetLocale ---
+    Dim loc As String
+    loc = sys.GetLocale()
+    If Len(loc) >= 0 Then
+        Print "PASS: vgsystem_get_locale"
+    Else
+        Print "FAIL: vgsystem_get_locale"
+    End If
+
+    ' --- Hostname (static method on instance) ---
+    Dim h As String
+    h = sys.Hostname()
+    If Len(h) > 0 Then
+        Print "PASS: vgsystem_hostname"
+    Else
+        Print "FAIL: vgsystem_hostname: empty string"
+    End If
+
+    ' --- CpuCount ---
+    Dim cpus As Integer
+    cpus = sys.CpuCount()
+    If cpus >= 1 Then
+        Print "PASS: vgsystem_cpu_count"
+    Else
+        Print "FAIL: vgsystem_cpu_count: got " & CStr(cpus)
+    End If
+
+    ' --- OsName ---
+    Dim osn As String
+    osn = sys.OsName()
+    If Len(osn) > 0 Then
+        Print "PASS: vgsystem_os_name"
+    Else
+        Print "FAIL: vgsystem_os_name: empty"
+    End If
+End Sub

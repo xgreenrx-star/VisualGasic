@@ -1,0 +1,212 @@
+' demo_memory_buffer.vg — Raw Memory Access with Peek and Poke
+' Demonstrates VGMemoryBuffer: allocate, peek/poke, hex dump, copy, search, FFI
+
+Sub Main()
+    Print "=== Memory Buffer (Peek & Poke) Demo ==="
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 1. Allocating a Buffer
+    ' ---------------------------------------------------------------
+    Print "--- Allocating Memory ---"
+
+    Dim buf As New VGMemoryBuffer
+
+    ' Allocate 256 bytes of raw memory
+    buf.Allocate 256
+    Print "Allocated: " & CStr(buf.Size) & " bytes"
+    Print "Is allocated: " & CStr(buf.IsAllocated)
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 2. Poke — Writing Data
+    ' ---------------------------------------------------------------
+    Print "--- Poke (Writing Data) ---"
+
+    ' Write individual bytes (VB6-style Poke)
+    buf.PokeByte 0, 72    ' H
+    buf.PokeByte 1, 101   ' e
+    buf.PokeByte 2, 108   ' l
+    buf.PokeByte 3, 108   ' l
+    buf.PokeByte 4, 111   ' o
+    Print "Wrote 'Hello' as bytes at offset 0"
+
+    ' Write typed values at specific offsets
+    buf.PokeInt32 8, 42              ' 32-bit integer
+    buf.PokeInt64 16, 1234567890123  ' 64-bit integer
+    buf.PokeFloat 24, 3.14           ' 32-bit float
+    buf.PokeDouble 32, 2.718281828   ' 64-bit double
+    buf.PokeInt16 40, 1000           ' 16-bit integer
+
+    Print "Wrote int32=42 at offset 8"
+    Print "Wrote int64=1234567890123 at offset 16"
+    Print "Wrote float=3.14 at offset 24"
+    Print "Wrote double=2.718281828 at offset 32"
+    Print "Wrote int16=1000 at offset 40"
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 3. Peek — Reading Data Back
+    ' ---------------------------------------------------------------
+    Print "--- Peek (Reading Data) ---"
+
+    ' Read individual bytes
+    Dim h As Integer
+    h = buf.PeekByte(0)
+    Print "Byte at 0: " & CStr(h) & " ('" & Chr(h) & "')"
+
+    ' Read typed values
+    Print "Int32 at 8:  " & CStr(buf.PeekInt32(8))
+    Print "Int64 at 16: " & CStr(buf.PeekInt64(16))
+    Print "Float at 24: " & Format(buf.PeekFloat(24), "Fixed")
+    Print "Double at 32: " & Format(buf.PeekDouble(32), "Fixed")
+    Print "Int16 at 40: " & CStr(buf.PeekInt16(40))
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 4. String Poke/Peek
+    ' ---------------------------------------------------------------
+    Print "--- String Operations ---"
+
+    ' Write a string at a specific offset
+    buf.PokeString 64, "VisualGasic"
+    Print "Wrote 'VisualGasic' at offset 64"
+
+    ' Read the string back (specify max length)
+    Dim s As String
+    s = buf.PeekString(64, 11)
+    Print "Read back: '" & s & "'"
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 5. Fill Operations
+    ' ---------------------------------------------------------------
+    Print "--- Fill Operations ---"
+
+    ' Fill a range with a specific byte value
+    buf.FillRange 128, 16, &hAA
+    Print "Filled bytes 128-143 with 0xAA"
+
+    ' Clear (zero out) the entire buffer
+    ' buf.Clear  ' (not calling this — we want to keep our data)
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 6. Hex Dump
+    ' ---------------------------------------------------------------
+    Print "--- Hex Dump (first 48 bytes) ---"
+
+    ' HexDump shows memory contents like a debugger
+    Dim dump As String
+    dump = buf.HexDump(0, 48)
+    Print dump
+    Print ""
+
+    Print "--- Hex Dump (string area, bytes 64-80) ---"
+    dump = buf.HexDump(64, 16)
+    Print dump
+    Print ""
+
+    Print "--- Hex Dump (filled area, bytes 128-144) ---"
+    dump = buf.HexDump(128, 16)
+    Print dump
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 7. Copy Between Buffers
+    ' ---------------------------------------------------------------
+    Print "--- Copy Between Buffers ---"
+
+    Dim buf2 As New VGMemoryBuffer
+    buf2.Allocate 64
+
+    ' Copy 16 bytes from buf offset 0 to buf2 offset 0
+    buf.CopyTo buf2, 0, 0, 16
+    Print "Copied 16 bytes from buf to buf2"
+    Print "buf2 byte 0: " & CStr(buf2.PeekByte(0)) & " ('" & Chr(buf2.PeekByte(0)) & "')"
+    Print "buf2 int32 at 8: " & CStr(buf2.PeekInt32(8))
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 8. Byte Array Conversion
+    ' ---------------------------------------------------------------
+    Print "--- Byte Array Conversion ---"
+
+    ' Convert a range to a Godot PackedByteArray
+    Dim bytes As PackedByteArray
+    bytes = buf.ToByteArrayRange(0, 5)
+    Print "Exported 5 bytes to PackedByteArray, size: " & CStr(bytes.size())
+
+    ' Import from a PackedByteArray
+    Dim buf3 As New VGMemoryBuffer
+    buf3.FromByteArray bytes
+    Print "Imported PackedByteArray into new buffer, size: " & CStr(buf3.Size)
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 9. Pattern Search
+    ' ---------------------------------------------------------------
+    Print "--- Pattern Search ---"
+
+    ' Find a specific byte value
+    Dim pos As Integer
+    pos = buf.FindByte(108, 0)  ' Find 'l' (108)
+    Print "First 'l' (108) found at offset: " & CStr(pos)
+
+    ' Find a byte pattern (the string "Hello" as bytes)
+    ' This is useful for binary file parsing
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 10. FFI Pointer Access
+    ' ---------------------------------------------------------------
+    Print "--- FFI Pointer ---"
+
+    ' GetPointer returns the raw memory address — useful for FFI
+    Dim ptr As Long
+    ptr = buf.Pointer
+    Print "Raw memory pointer: " & CStr(ptr)
+    Print "(Used to pass buffer to native C functions via FFI)"
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 11. Building a Binary Struct (Practical Example)
+    ' ---------------------------------------------------------------
+    Print "--- Practical: Binary Struct Layout ---"
+    Print "Simulating a C struct:"
+    Print "  struct Player {"
+    Print "      int32_t id;      // offset 0"
+    Print "      float   x, y;   // offset 4, 8"
+    Print "      int16_t health;  // offset 12"
+    Print "      int8_t  alive;   // offset 14"
+    Print "  }"
+
+    Dim player As New VGMemoryBuffer
+    player.Allocate 16
+
+    ' Write struct fields
+    player.PokeInt32 0, 1         ' id = 1
+    player.PokeFloat 4, 150.5     ' x = 150.5
+    player.PokeFloat 8, 200.0     ' y = 200.0
+    player.PokeInt16 12, 100      ' health = 100
+    player.PokeByte 14, 1         ' alive = true
+
+    ' Read them back
+    Print "Player ID:     " & CStr(player.PeekInt32(0))
+    Print "Position:      (" & Format(player.PeekFloat(4), "Fixed") & ", " & Format(player.PeekFloat(8), "Fixed") & ")"
+    Print "Health:        " & CStr(player.PeekInt16(12))
+    Print "Alive:         " & CStr(player.PeekByte(14))
+    Print ""
+
+    Print "Hex dump of Player struct:"
+    Print player.HexDump(0, 16)
+
+    ' Clean up
+    buf.Free
+    buf2.Free
+    buf3.Free
+    player.Free
+
+    Print ""
+    Print "=== Memory Buffer Demo Complete ==="
+End Sub

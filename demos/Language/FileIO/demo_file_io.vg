@@ -1,0 +1,227 @@
+' demo_file_io.vg — File Input/Output Operations
+' Demonstrates Open/Close, Print #, Write #, Input #, Line Input, binary, builtins
+
+Sub Main()
+    Print "=== File I/O Demo ==="
+    Print ""
+
+    Dim testDir As String
+    testDir = "/tmp/vg_fileio_demo"
+    MkDir testDir
+
+    ' ---------------------------------------------------------------
+    ' 1. Sequential Output (Writing Text)
+    ' ---------------------------------------------------------------
+    Print "--- Sequential Output ---"
+
+    Dim filePath As String
+    filePath = testDir & "/output.txt"
+
+    Open filePath For Output As #1
+    Print #1, "Line 1: Hello from VisualGasic!"
+    Print #1, "Line 2: Score = " & CStr(42)
+    Print #1, "Line 3: Pi = " & Format(3.14159, "Fixed")
+    Close #1
+    Print "Wrote 3 lines to " & filePath
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 2. Sequential Input (Reading Text)
+    ' ---------------------------------------------------------------
+    Print "--- Sequential Input ---"
+
+    Open filePath For Input As #1
+    Dim line1 As String
+    Dim line2 As String
+    Dim line3 As String
+    Line Input #1, line1
+    Line Input #1, line2
+    Line Input #1, line3
+    Close #1
+
+    Print "Read back:"
+    Print "  " & line1
+    Print "  " & line2
+    Print "  " & line3
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 3. Write # (Comma-Delimited, Quoted Strings)
+    ' ---------------------------------------------------------------
+    Print "--- Write # (CSV-style) ---"
+
+    Dim csvPath As String
+    csvPath = testDir & "/data.csv"
+
+    Open csvPath For Output As #1
+    Write #1, "Alice", 25, 95.5
+    Write #1, "Bob", 30, 87.3
+    Write #1, "Charlie", 22, 92.1
+    Close #1
+    Print "Wrote CSV data to " & csvPath
+
+    ' Read it back with Input #
+    Open csvPath For Input As #1
+    Dim name1 As String, age1 As Integer, score1 As Double
+    Dim name2 As String, age2 As Integer, score2 As Double
+    Input #1, name1, age1, score1
+    Input #1, name2, age2, score2
+    Close #1
+
+    Print "Read back:"
+    Print "  " & name1 & ", age " & CStr(age1) & ", score " & Format(score1, "Fixed")
+    Print "  " & name2 & ", age " & CStr(age2) & ", score " & Format(score2, "Fixed")
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 4. Append Mode
+    ' ---------------------------------------------------------------
+    Print "--- Append Mode ---"
+
+    Open filePath For Append As #1
+    Print #1, "Line 4: Appended later!"
+    Print #1, "Line 5: Still appending..."
+    Close #1
+    Print "Appended 2 more lines"
+
+    ' Count lines
+    Open filePath For Input As #1
+    Dim lineCount As Integer
+    Dim temp As String
+    Do While Not EOF(1)
+        Line Input #1, temp
+        lineCount = lineCount + 1
+    Loop
+    Close #1
+    Print "Total lines now: " & CStr(lineCount)
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 5. Reading Until EOF
+    ' ---------------------------------------------------------------
+    Print "--- Reading Until EOF ---"
+
+    Open filePath For Input As #1
+    Dim lineNum As Integer
+    lineNum = 1
+    Do While Not EOF(1)
+        Line Input #1, temp
+        Print "  [" & CStr(lineNum) & "] " & temp
+        lineNum = lineNum + 1
+    Loop
+    Close #1
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 6. File Built-in Functions
+    ' ---------------------------------------------------------------
+    Print "--- File Built-in Functions ---"
+
+    Print "FileExists: " & CStr(FileExists(filePath))
+    Print "FileLen:    " & CStr(FileLen(filePath)) & " bytes"
+    Print "CurDir:     " & CurDir()
+    Print "Dir:        " & Dir(testDir & "/*")
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 7. ReadAllText / WriteAllText (Convenience)
+    ' ---------------------------------------------------------------
+    Print "--- ReadAllText / WriteAllText ---"
+
+    Dim quickPath As String
+    quickPath = testDir & "/quick.txt"
+
+    ' Write entire content in one call
+    WriteAllText quickPath, "Quick write! One call, no Open/Close needed."
+    Print "Wrote with WriteAllText"
+
+    ' Read entire file in one call
+    Dim content As String
+    content = ReadAllText(quickPath)
+    Print "ReadAllText: " & content
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 8. ReadLines (Returns Array)
+    ' ---------------------------------------------------------------
+    Print "--- ReadLines ---"
+
+    Dim lines As Array
+    lines = ReadLines(filePath)
+    Print "ReadLines returned " & CStr(UBound(lines) + 1) & " lines"
+    Print "First line: " & lines(0)
+    Print "Last line:  " & lines(UBound(lines))
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 9. Directory Operations
+    ' ---------------------------------------------------------------
+    Print "--- Directory Operations ---"
+
+    Dim subDir As String
+    subDir = testDir & "/subdir"
+
+    MkDir subDir
+    Print "Created: " & subDir
+    Print "DirExists: " & CStr(DirExists(subDir))
+
+    RmDir subDir
+    Print "Removed: " & subDir
+    Print "DirExists: " & CStr(DirExists(subDir))
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 10. FileCopy
+    ' ---------------------------------------------------------------
+    Print "--- FileCopy ---"
+
+    Dim copyPath As String
+    copyPath = testDir & "/output_copy.txt"
+
+    FileCopy filePath, copyPath
+    Print "Copied " & filePath & " -> " & copyPath
+    Print "Copy exists: " & CStr(FileExists(copyPath))
+    Print "Copy size:   " & CStr(FileLen(copyPath)) & " bytes"
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 11. Practical: Config File Reader
+    ' ---------------------------------------------------------------
+    Print "--- Practical: Config File ---"
+
+    Dim cfgPath As String
+    cfgPath = testDir & "/settings.ini"
+
+    ' Write a config file
+    Open cfgPath For Output As #1
+    Print #1, "window_width=800"
+    Print #1, "window_height=600"
+    Print #1, "fullscreen=false"
+    Print #1, "volume=75"
+    Print #1, "player_name=Commander"
+    Close #1
+
+    ' Read and parse it
+    Open cfgPath For Input As #1
+    Dim configLine As String
+    Do While Not EOF(1)
+        Line Input #1, configLine
+        Dim parts As Array
+        parts = Split(configLine, "=")
+        If UBound(parts) >= 1 Then
+            Print "  " & PadRight(parts(0), 15) & " = " & parts(1)
+        End If
+    Loop
+    Close #1
+    Print ""
+
+    ' Clean up all test files
+    Kill testDir & "/output.txt"
+    Kill testDir & "/output_copy.txt"
+    Kill testDir & "/data.csv"
+    Kill testDir & "/quick.txt"
+    Kill testDir & "/settings.ini"
+    RmDir testDir
+
+    Print "=== File I/O Demo Complete ==="
+End Sub

@@ -1,0 +1,168 @@
+' demo_date_time.vg — Date and Time Functions
+' Demonstrates all VB6-style date/time builtins: Now, Date, Time, DateAdd, DateDiff, Format
+
+Sub Main()
+    Print "=== Date & Time Functions Demo ==="
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 1. Current Date and Time
+    ' ---------------------------------------------------------------
+    Print "--- Current Date & Time ---"
+
+    Print "Now():  " & CStr(Now())
+    Print "Date(): " & CStr(Date())
+    Print "Time(): " & CStr(Time())
+    Print "Timer:  " & Format(Timer, "Fixed") & " seconds since midnight"
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 2. Extracting Date Parts
+    ' ---------------------------------------------------------------
+    Print "--- Extracting Date Parts ---"
+
+    Dim today As Variant
+    today = Now()
+
+    Print "Year:    " & CStr(Year(today))
+    Print "Month:   " & CStr(Month(today))
+    Print "Day:     " & CStr(Day(today))
+    Print "Hour:    " & CStr(Hour(today))
+    Print "Minute:  " & CStr(Minute(today))
+    Print "Second:  " & CStr(Second(today))
+    Print "Weekday: " & CStr(Weekday(today)) & " (1=Sun, 7=Sat)"
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 3. Weekday and Month Names
+    ' ---------------------------------------------------------------
+    Print "--- Day & Month Names ---"
+
+    Print "Today is: " & WeekdayName(Weekday(today))
+    Print "Month is: " & MonthName(Month(today))
+
+    ' Abbreviated names
+    Print "Short day:   " & WeekdayName(Weekday(today), True)
+    Print "Short month: " & MonthName(Month(today), True)
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 4. DateSerial / TimeSerial — Constructing Dates
+    ' ---------------------------------------------------------------
+    Print "--- Constructing Dates ---"
+
+    Dim birthday As Variant
+    birthday = DateSerial(1990, 6, 15)
+    Print "Birthday: " & CStr(birthday) & " (June 15, 1990)"
+
+    Dim alarm As Variant
+    alarm = TimeSerial(7, 30, 0)
+    Print "Alarm:    " & CStr(alarm) & " (7:30 AM)"
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 5. DateAdd — Adding to Dates
+    ' ---------------------------------------------------------------
+    Print "--- DateAdd ---"
+
+    ' Add days, months, years to a date
+    Dim futureDate As Variant
+    futureDate = DateAdd("d", 30, today)
+    Print "30 days from now:   " & CStr(futureDate)
+
+    futureDate = DateAdd("m", 6, today)
+    Print "6 months from now:  " & CStr(futureDate)
+
+    futureDate = DateAdd("yyyy", 1, today)
+    Print "1 year from now:    " & CStr(futureDate)
+
+    ' Subtract by using negative values
+    Dim pastDate As Variant
+    pastDate = DateAdd("d", -7, today)
+    Print "7 days ago:         " & CStr(pastDate)
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 6. DateDiff — Difference Between Dates
+    ' ---------------------------------------------------------------
+    Print "--- DateDiff ---"
+
+    Dim startDate As Variant
+    startDate = DateSerial(2020, 1, 1)
+
+    Print "Days since 2020-01-01:   " & CStr(DateDiff("d", startDate, today))
+    Print "Months since 2020-01-01: " & CStr(DateDiff("m", startDate, today))
+    Print "Years since 2020-01-01:  " & CStr(DateDiff("yyyy", startDate, today))
+
+    ' Age calculation
+    Dim birthYear As Variant
+    birthYear = DateSerial(1990, 6, 15)
+    Dim age As Integer
+    age = DateDiff("yyyy", birthYear, today)
+    Print "Age (born 1990-06-15):   " & CStr(age) & " years"
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 7. DatePart — Extract a Part
+    ' ---------------------------------------------------------------
+    Print "--- DatePart ---"
+
+    Print "Quarter: Q" & CStr(DatePart("q", today))
+    Print "Week:    " & CStr(DatePart("ww", today))
+    Print "Day of year: " & CStr(DatePart("y", today))
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 8. Formatting Dates
+    ' ---------------------------------------------------------------
+    Print "--- Format Dates ---"
+
+    Print "Short Date:  " & Format(today, "Short Date")
+    Print "Long Date:   " & Format(today, "Long Date")
+    Print "Short Time:  " & Format(today, "Short Time")
+    Print "Long Time:   " & Format(today, "Long Time")
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 9. Practical: Stopwatch
+    ' ---------------------------------------------------------------
+    Print "--- Practical: Stopwatch ---"
+
+    Dim startTime As Double
+    startTime = Timer
+
+    ' Do some work
+    Dim sum As Long
+    Dim j As Integer
+    For j = 1 To 100000
+        sum = sum + j
+    Next j
+
+    Dim elapsed As Double
+    elapsed = Timer - startTime
+    Print "Computed sum(1..100000) = " & CStr(sum)
+    Print "Elapsed: " & Format(elapsed * 1000, "Fixed") & " ms"
+    Print ""
+
+    ' ---------------------------------------------------------------
+    ' 10. Practical: Countdown Timer
+    ' ---------------------------------------------------------------
+    Print "--- Practical: Days Until Events ---"
+
+    Dim newYear As Variant
+    newYear = DateSerial(Year(today) + 1, 1, 1)
+    Print "Days until New Year:  " & CStr(DateDiff("d", today, newYear))
+
+    Dim christmas As Variant
+    christmas = DateSerial(Year(today), 12, 25)
+    Dim daysToXmas As Integer
+    daysToXmas = DateDiff("d", today, christmas)
+    If daysToXmas < 0 Then
+        christmas = DateSerial(Year(today) + 1, 12, 25)
+        daysToXmas = DateDiff("d", today, christmas)
+    End If
+    Print "Days until Christmas: " & CStr(daysToXmas)
+    Print ""
+
+    Print "=== Date & Time Demo Complete ==="
+End Sub

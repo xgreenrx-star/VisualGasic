@@ -1,0 +1,109 @@
+' Test: Stress — Array ReDim Preserve operations
+' Repeatedly grows and shrinks arrays
+Attribute VB_Name = "TestStressArrays"
+
+Sub _Ready()
+    ' --- ReDim Preserve growth ---
+    Dim arr() As Integer
+    ReDim arr(0)
+    arr(0) = 0
+    
+    Dim i As Integer
+    Dim failed As Boolean
+    failed = False
+    
+    For i = 1 To 5000
+        ReDim Preserve arr(i)
+        arr(i) = i
+    Next i
+    
+    ' Verify first, middle, and last
+    If arr(0) = 0 And arr(2500) = 2500 And arr(5000) = 5000 Then
+        Print "PASS: stress_arr_redim_5k"
+    Else
+        Print "FAIL: stress_arr_redim_5k: data corruption"
+    End If
+
+    ' --- Array of strings ---
+    Dim sArr() As String
+    ReDim sArr(0)
+    sArr(0) = "item_0"
+    
+    For i = 1 To 2000
+        ReDim Preserve sArr(i)
+        sArr(i) = "item_" & CStr(i)
+    Next i
+    
+    If sArr(0) = "item_0" And sArr(1000) = "item_1000" And sArr(2000) = "item_2000" Then
+        Print "PASS: stress_arr_string_redim_2k"
+    Else
+        Print "FAIL: stress_arr_string_redim_2k"
+    End If
+
+    ' --- Multi-dimensional array ---
+    Dim grid(99, 99) As Integer
+    For i = 0 To 99
+        Dim j As Integer
+        For j = 0 To 99
+            grid(i, j) = i * 100 + j
+        Next j
+    Next i
+    
+    ' Spot-check corners and center
+    If grid(0, 0) = 0 And grid(99, 99) = 9999 And grid(50, 50) = 5050 Then
+        Print "PASS: stress_arr_2d_100x100"
+    Else
+        Print "FAIL: stress_arr_2d_100x100"
+    End If
+
+    ' --- Erase and reallocate cycle ---
+    Dim cycle() As Integer
+    failed = False
+    For i = 1 To 1000
+        ReDim cycle(100)
+        cycle(0) = i
+        cycle(100) = i * 2
+        If cycle(0) <> i Or cycle(100) <> i * 2 Then
+            failed = True
+            Exit For
+        End If
+        Erase cycle
+    Next i
+    
+    If Not failed Then
+        Print "PASS: stress_arr_erase_cycle_1k"
+    Else
+        Print "FAIL: stress_arr_erase_cycle_1k: iteration " & CStr(i)
+    End If
+
+    ' --- Large array sort-like access pattern ---
+    Dim big() As Integer
+    ReDim big(9999)
+    For i = 0 To 9999
+        big(i) = 9999 - i
+    Next i
+    
+    ' Bubble-sort first 500 elements (stress random access)
+    Dim n As Integer
+    n = 499
+    Dim swapped As Boolean
+    Do
+        swapped = False
+        For i = 0 To n - 1
+            If big(i) > big(i + 1) Then
+                Dim tmp As Integer
+                tmp = big(i)
+                big(i) = big(i + 1)
+                big(i + 1) = tmp
+                swapped = True
+            End If
+        Next i
+        n = n - 1
+    Loop While swapped
+    
+    If big(0) <= big(1) And big(498) <= big(499) Then
+        Print "PASS: stress_arr_sort_access"
+    Else
+        Print "FAIL: stress_arr_sort_access"
+    End If
+End Sub

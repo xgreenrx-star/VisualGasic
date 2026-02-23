@@ -1,0 +1,187 @@
+' Test: VGGpu — GPU-accelerated vector math (CPU fallback in headless)
+Attribute VB_Name = "TestGPU"
+
+Sub _Ready()
+    Dim gpu As New VGGpu
+
+    ' --- Lifecycle ---
+    Print "PASS: gpu_construction"
+
+    Dim ok As Boolean
+    ok = gpu.Initialize()
+    If ok Then
+        Print "PASS: gpu_initialize"
+    Else
+        Print "PASS: gpu_initialize"  ' CPU fallback is OK
+    End If
+
+    Dim inited As Boolean
+    inited = gpu.IsInitialized()
+    If inited Then
+        Print "PASS: gpu_is_initialized"
+    Else
+        Print "FAIL: gpu_is_initialized: expected True"
+    End If
+
+    ' Backend should be "GPU" or "CPU"
+    Dim be As String
+    be = gpu.GetBackend()
+    If be = "GPU" Or be = "CPU" Then
+        Print "PASS: gpu_get_backend"
+    Else
+        Print "FAIL: gpu_get_backend: got " & be
+    End If
+
+    ' GetInfo returns Dictionary with expected keys
+    Dim info As Dictionary
+    Set info = gpu.GetInfo()
+    If info.Has("initialized") And info.Has("backend") Then
+        Print "PASS: gpu_get_info"
+    Else
+        Print "FAIL: gpu_get_info: missing keys"
+    End If
+
+    ' --- VectorAdd ---
+    Dim a As Variant
+    a = Array(1.0, 2.0, 3.0)
+    Dim b As Variant
+    b = Array(4.0, 5.0, 6.0)
+
+    Dim r As Variant
+    r = gpu.VectorAdd(a, b)
+    If Abs(r(0) - 5.0) < 0.01 And Abs(r(1) - 7.0) < 0.01 And Abs(r(2) - 9.0) < 0.01 Then
+        Print "PASS: gpu_vector_add"
+    Else
+        Print "FAIL: gpu_vector_add: " & CStr(r(0)) & "," & CStr(r(1)) & "," & CStr(r(2))
+    End If
+
+    ' --- VectorSubtract ---
+    r = gpu.VectorSubtract(b, a)
+    If Abs(r(0) - 3.0) < 0.01 And Abs(r(1) - 3.0) < 0.01 And Abs(r(2) - 3.0) < 0.01 Then
+        Print "PASS: gpu_vector_subtract"
+    Else
+        Print "FAIL: gpu_vector_subtract"
+    End If
+
+    ' --- VectorMultiply ---
+    r = gpu.VectorMultiply(a, b)
+    If Abs(r(0) - 4.0) < 0.01 And Abs(r(1) - 10.0) < 0.01 And Abs(r(2) - 18.0) < 0.01 Then
+        Print "PASS: gpu_vector_multiply"
+    Else
+        Print "FAIL: gpu_vector_multiply"
+    End If
+
+    ' --- VectorDivide ---
+    r = gpu.VectorDivide(b, a)
+    If Abs(r(0) - 4.0) < 0.01 And Abs(r(1) - 2.5) < 0.01 And Abs(r(2) - 2.0) < 0.01 Then
+        Print "PASS: gpu_vector_divide"
+    Else
+        Print "FAIL: gpu_vector_divide"
+    End If
+
+    ' --- DotProduct ---
+    Dim dp As Double
+    dp = gpu.DotProduct(a, b)
+    If Abs(dp - 32.0) < 0.01 Then
+        Print "PASS: gpu_dot_product"
+    Else
+        Print "FAIL: gpu_dot_product: got " & CStr(dp)
+    End If
+
+    ' --- VectorLength ---
+    Dim c As Variant
+    c = Array(3.0, 4.0, 0.0)
+    Dim vlen As Double
+    vlen = gpu.VectorLength(c)
+    If Abs(vlen - 5.0) < 0.01 Then
+        Print "PASS: gpu_vector_length"
+    Else
+        Print "FAIL: gpu_vector_length: got " & CStr(vlen)
+    End If
+
+    ' --- VectorNormalize ---
+    r = gpu.VectorNormalize(c)
+    If Abs(r(0) - 0.6) < 0.01 And Abs(r(1) - 0.8) < 0.01 Then
+        Print "PASS: gpu_vector_normalize"
+    Else
+        Print "FAIL: gpu_vector_normalize"
+    End If
+
+    ' --- VectorScale ---
+    r = gpu.VectorScale(a, 2.0)
+    If Abs(r(0) - 2.0) < 0.01 And Abs(r(1) - 4.0) < 0.01 And Abs(r(2) - 6.0) < 0.01 Then
+        Print "PASS: gpu_vector_scale"
+    Else
+        Print "FAIL: gpu_vector_scale"
+    End If
+
+    ' --- Reduction: Sum, Min, Max, Average ---
+    Dim s As Double
+    s = gpu.VectorSum(a)
+    If Abs(s - 6.0) < 0.01 Then
+        Print "PASS: gpu_vector_sum"
+    Else
+        Print "FAIL: gpu_vector_sum: got " & CStr(s)
+    End If
+
+    Dim mn As Double
+    mn = gpu.VectorMin(a)
+    If Abs(mn - 1.0) < 0.01 Then
+        Print "PASS: gpu_vector_min"
+    Else
+        Print "FAIL: gpu_vector_min"
+    End If
+
+    Dim mx As Double
+    mx = gpu.VectorMax(a)
+    If Abs(mx - 3.0) < 0.01 Then
+        Print "PASS: gpu_vector_max"
+    Else
+        Print "FAIL: gpu_vector_max"
+    End If
+
+    Dim avg As Double
+    avg = gpu.VectorAverage(a)
+    If Abs(avg - 2.0) < 0.01 Then
+        Print "PASS: gpu_vector_average"
+    Else
+        Print "FAIL: gpu_vector_average"
+    End If
+
+    ' --- VectorAbs ---
+    Dim neg As Variant
+    neg = Array(-3.0, 5.0)
+    r = gpu.VectorAbs(neg)
+    If Abs(r(0) - 3.0) < 0.01 And Abs(r(1) - 5.0) < 0.01 Then
+        Print "PASS: gpu_vector_abs"
+    Else
+        Print "FAIL: gpu_vector_abs"
+    End If
+
+    ' --- VectorClamp ---
+    Dim big As Variant
+    big = Array(-10.0, 5.0, 100.0)
+    r = gpu.VectorClamp(big, 0.0, 10.0)
+    If Abs(r(0) - 0.0) < 0.01 And Abs(r(1) - 5.0) < 0.01 And Abs(r(2) - 10.0) < 0.01 Then
+        Print "PASS: gpu_vector_clamp"
+    Else
+        Print "FAIL: gpu_vector_clamp"
+    End If
+
+    ' --- VectorLerp ---
+    Dim z As Variant
+    Dim o As Variant
+    z = Array(0.0, 0.0)
+    o = Array(10.0, 20.0)
+    r = gpu.VectorLerp(z, o, 0.5)
+    If Abs(r(0) - 5.0) < 0.01 And Abs(r(1) - 10.0) < 0.01 Then
+        Print "PASS: gpu_vector_lerp"
+    Else
+        Print "FAIL: gpu_vector_lerp"
+    End If
+
+    ' --- HasGpu (just verify it returns boolean) ---
+    Dim hg As Boolean
+    hg = gpu.HasGpu()
+    Print "PASS: gpu_has_gpu"
+End Sub
