@@ -8,13 +8,17 @@
 
 config_version=5
 
+[animation]
+
+compatibility/default_parent_skeleton_in_mesh_instance_3d=true
+
 [application]
 
 config/name="Screen Space Shaders - VisualGasic Demo"
 config/description="2D full-screen shader post-processing effects ported to VisualGasic. Original from Godot demo projects."
 config/tags=PackedStringArray("2d", "demo", "rendering", "shaders", "visualgasic")
 run/main_scene="res://screen_shaders.tscn"
-config/features=PackedStringArray("4.5", "GL Compatibility")
+config/features=PackedStringArray("4.6", "GL Compatibility")
 config/icon="res://icon.webp"
 
 [autoload]
@@ -30,10 +34,6 @@ gdscript/warnings/untyped_declaration=1
 window/size/viewport_width=800
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
-
-[editor_plugins]
-
-enabled=PackedStringArray("res://addons/visual_gasic/plugin.cfg")
 
 [rendering]
 

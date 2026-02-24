@@ -29,6 +29,7 @@
 #include "visual_gasic_builtins.h"
 #include "visual_gasic_debugger.h"
 #include "visual_gasic_profiler.h"
+#include "visual_gasic_timer.h"
 #include <godot_cpp/core/object.hpp>
 #include <godot_cpp/classes/node.hpp>
 #include <godot_cpp/classes/input.hpp>
@@ -2809,7 +2810,7 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
              return Time::get_singleton()->get_time_dict_from_system();
         }
         if (call->method_name == "Timer") {
-             return Time::get_singleton()->get_ticks_msec() / 1000.0;
+             return VGTimer::timer_function();
         }
         if (call->method_name == "Year" && call_args.size() == 1) {
              Dictionary d = call_args[0];
@@ -6400,6 +6401,14 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
         case STMT_PARALLEL_SECTION: {
             ParallelSectionStatement* s = (ParallelSectionStatement*)stmt;
             execute_parallel_section(s);
+            break;
+        }
+        case STMT_LOCK: {
+            instance_mutex_.lock();
+            break;
+        }
+        case STMT_UNLOCK: {
+            instance_mutex_.unlock();
             break;
         }
         

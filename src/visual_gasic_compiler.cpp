@@ -4568,9 +4568,9 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             break;
         }
         case STMT_PARALLEL_FOR: {
-            // Compile Parallel For as a regular sequential For loop.
-            // The AST interpreter uses threads, but bytecode runs it serially
-            // for simplicity and correctness.
+            // Compile Parallel For with OP_PARALLEL_FOR_BEGIN / END.
+            // The VM will dispatch iterations to WorkerThreadPool, each
+            // running the body bytecode with its own locals[] copy.
             ParallelForStatement* pf = (ParallelForStatement*)stmt;
             if (!pf->start_expr || !pf->end_expr) {
                 compile_ok = false;
@@ -4579,112 +4579,47 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
 
             loop_exit_jumps.push_back(Vector<int>());
 
+            // Allocate a local slot for the loop variable.
             ValueType declared_type = get_local_type(pf->variable_name);
             ValueType init_type = declared_type != VT_UNKNOWN ? declared_type : infer_type(pf->start_expr);
             int var_slot = get_or_add_local(pf->variable_name, init_type);
-            ValueType loop_type = declared_type != VT_UNKNOWN ? declared_type : init_type;
 
+            // Push start, end, step onto the stack for the VM to consume.
             compile_expression(pf->start_expr);
-            if (var_slot >= 0) {
-                emit_bytes(OP_SET_LOCAL, (uint8_t)var_slot);
+            compile_expression(pf->end_expr);
+            if (pf->step_expr) {
+                compile_expression(pf->step_expr);
             } else {
-                int var_idx = current_chunk->add_constant(pf->variable_name);
-                emit_bytes(OP_SET_GLOBAL, (uint8_t)var_idx);
+                emit_constant(Variant((int64_t)1));
             }
 
-            int to_slot = -1;
-            if (is_constant_expr(pf->end_expr)) {
-                to_slot = get_or_add_local(String("__const_to_") + String::num_int64(temp_local_id++), infer_type(pf->end_expr));
-                emit_constant(eval_constant_expr(pf->end_expr));
-                if (to_slot >= 0) {
-                    emit_bytes(OP_SET_LOCAL, (uint8_t)to_slot);
-                }
-            }
+            // Emit OP_PARALLEL_FOR_BEGIN [var_slot] [body_len placeholder]
+            emit_byte(OP_PARALLEL_FOR_BEGIN);
+            emit_byte((uint8_t)(var_slot >= 0 ? var_slot : 0));
+            // Reserve 2 bytes for body_len (patched after body compilation).
+            int body_len_offset = current_chunk->code.size();
+            emit_byte(0xFF);
+            emit_byte(0xFF);
 
-            int step_slot = -1;
-            bool has_step_const = false;
-            bool step_const_is_integral = false;
-            bool step_const_is_one = false;
-            int64_t step_const_int = 0;
-            ValueType step_expr_type = pf->step_expr ? infer_type(pf->step_expr) : loop_type;
-            if (!pf->step_expr) {
-                has_step_const = true;
-                step_const_is_integral = true;
-                step_const_is_one = true;
-                step_const_int = 1;
-            }
+            int body_start = current_chunk->code.size();
 
-            int loop_start = current_chunk->code.size();
-
-            if (var_slot >= 0) {
-                emit_bytes(OP_GET_LOCAL, (uint8_t)var_slot);
-            } else {
-                int var_idx = current_chunk->add_constant(pf->variable_name);
-                emit_bytes(OP_GET_GLOBAL, (uint8_t)var_idx);
-            }
-
-            if (to_slot >= 0) {
-                emit_bytes(OP_GET_LOCAL, (uint8_t)to_slot);
-            } else {
-                compile_expression(pf->end_expr);
-            }
-            ValueType to_type = infer_type(pf->end_expr);
-            bool use_int_compare = (loop_type == VT_INT && to_type != VT_FLOAT);
-            emit_byte(use_int_compare ? OP_LESS_EQUAL_I64 : OP_LESS_EQUAL);
-            int exit_jump = emit_jump(OP_JUMP_IF_FALSE);
-
+            // Compile the loop body.
             for (int i = 0; i < pf->body.size(); i++) {
                 compile_statement(pf->body[i]);
+                if (!compile_ok) break;
             }
 
-            bool inc_local_fast = (var_slot >= 0 && has_step_const && step_const_is_one && loop_type == VT_INT);
+            // Emit OP_PARALLEL_FOR_END as a body terminator.
+            emit_byte(OP_PARALLEL_FOR_END);
 
-            if (inc_local_fast) {
-                emit_byte(OP_INC_LOCAL_I64);
-                emit_byte((uint8_t)var_slot);
-            } else {
-                if (var_slot >= 0) {
-                    emit_bytes(OP_GET_LOCAL, (uint8_t)var_slot);
-                } else {
-                    int var_idx = current_chunk->add_constant(pf->variable_name);
-                    emit_bytes(OP_GET_GLOBAL, (uint8_t)var_idx);
-                }
+            int body_end = current_chunk->code.size();
+            int body_len = body_end - body_start;
 
-                if (step_slot >= 0) {
-                    emit_bytes(OP_GET_LOCAL, (uint8_t)step_slot);
-                } else if (pf->step_expr) {
-                    compile_expression(pf->step_expr);
-                } else {
-                    emit_constant(Variant((int64_t)1));
-                }
+            // Patch the body length.
+            current_chunk->code.write[body_len_offset]     = (uint8_t)((body_len >> 8) & 0xFF);
+            current_chunk->code.write[body_len_offset + 1] = (uint8_t)(body_len & 0xFF);
 
-                bool step_requires_float = false;
-                if (loop_type == VT_FLOAT) {
-                    step_requires_float = true;
-                } else if (!has_step_const && step_expr_type == VT_FLOAT) {
-                    step_requires_float = true;
-                } else if (has_step_const && !step_const_is_integral) {
-                    step_requires_float = true;
-                }
-                if (loop_type == VT_INT && !step_requires_float) {
-                    emit_byte(OP_ADD_I64);
-                } else if (step_requires_float) {
-                    emit_byte(OP_ADD_F64);
-                } else {
-                    emit_byte(OP_ADD);
-                }
-
-                if (var_slot >= 0) {
-                    emit_bytes(OP_SET_LOCAL, (uint8_t)var_slot);
-                } else {
-                    int var_idx = current_chunk->add_constant(pf->variable_name);
-                    emit_bytes(OP_SET_GLOBAL, (uint8_t)var_idx);
-                }
-            }
-
-            emit_loop(loop_start);
-            patch_jump(exit_jump);
-            // Patch any Exit For jumps collected during this loop body
+            // Patch Exit For jumps to point past the body end.
             if (!loop_exit_jumps.is_empty()) {
                 const Vector<int> &exits = loop_exit_jumps[loop_exit_jumps.size() - 1];
                 for (int ei = 0; ei < exits.size(); ei++) {
@@ -5023,6 +4958,77 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
         case STMT_IMPLEMENTS: {
             // Implements — stored for runtime verification, no code emitted
             // Interface checking is done at class instantiation time
+            break;
+        }
+        // === MULTITASKING STATEMENTS ===
+        // In bytecode mode, Task Run bodies execute serially on the main
+        // thread (same strategy used for Parallel For).  True threaded
+        // execution remains in the AST interpreter path.
+        case STMT_TASK_RUN: {
+            // Compile Task.Run body with OP_TASK_RUN_BEGIN / END.
+            // The VM will submit the body to WorkerThreadPool.
+            TaskRunStatement* s = (TaskRunStatement*)stmt;
+
+            // Emit OP_TASK_RUN_BEGIN [name_const] [bg_flag] [body_len_hi] [body_len_lo]
+            int name_idx = current_chunk->add_constant(Variant(s->task_name));
+            emit_byte(OP_TASK_RUN_BEGIN);
+            emit_byte((uint8_t)(name_idx & 0xFF));
+            emit_byte(s->is_background ? 1 : 0);
+            int body_len_offset = current_chunk->code.size();
+            emit_byte(0xFF);
+            emit_byte(0xFF);
+
+            int body_start = current_chunk->code.size();
+            for (int i = 0; i < s->task_body.size(); i++) {
+                compile_statement(s->task_body[i]);
+                if (!compile_ok) break;
+            }
+            emit_byte(OP_TASK_RUN_END);
+            int body_end = current_chunk->code.size();
+            int body_len = body_end - body_start;
+            current_chunk->code.write[body_len_offset]     = (uint8_t)((body_len >> 8) & 0xFF);
+            current_chunk->code.write[body_len_offset + 1] = (uint8_t)(body_len & 0xFF);
+            break;
+        }
+        case STMT_TASK_WAIT: {
+            // Emit OP_TASK_WAIT [wait_all_flag]
+            TaskWaitStatement* s = (TaskWaitStatement*)stmt;
+            emit_byte(OP_TASK_WAIT);
+            emit_byte(s->wait_all ? 1 : 0);
+            break;
+        }
+        case STMT_PARALLEL_SECTION: {
+            // Compile body serially, like Parallel For.
+            ParallelSectionStatement* s = (ParallelSectionStatement*)stmt;
+            for (int i = 0; i < s->section_body.size(); i++) {
+                compile_statement(s->section_body[i]);
+                if (!compile_ok) break;
+            }
+            break;
+        }
+        case STMT_ASYNC_FUNCTION: {
+            // Async functions compile the body inline, same as regular functions.
+            // The "async" marker is a hint for future coroutine support.
+            AsyncFunctionStatement* s = (AsyncFunctionStatement*)stmt;
+            for (int i = 0; i < s->body.size(); i++) {
+                compile_statement(s->body[i]);
+                if (!compile_ok) break;
+            }
+            break;
+        }
+        case STMT_AWAIT: {
+            // The parser turns 'Await expr' into AssignmentStatement to
+            // __await_result__, so this case is rarely hit.  Emit OP_AWAIT
+            // as a placeholder for future coroutine dispatch.
+            emit_byte(OP_AWAIT);
+            break;
+        }
+        case STMT_LOCK: {
+            emit_byte(OP_LOCK);
+            break;
+        }
+        case STMT_UNLOCK: {
+            emit_byte(OP_UNLOCK);
             break;
         }
         default:
@@ -5406,6 +5412,16 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
         }
         case ExpressionNode::MEMBER_ACCESS: {
             MemberAccessNode* ma = (MemberAccessNode*)expr;
+            // Check for Color.White, Color.Red, etc. — named color constants
+            if (ma->base_object && ma->base_object->type == ExpressionNode::VARIABLE) {
+                String base_name = ((VariableNode*)ma->base_object)->name;
+                if (base_name.nocasecmp_to("Color") == 0 && !ma->member_name.is_empty()) {
+                    Color c = Color::named(ma->member_name);
+                    int cidx = current_chunk->add_constant(c);
+                    emit_bytes(OP_CONSTANT, (uint8_t)cidx);
+                    break;
+                }
+            }
             // Check if this is ClassName.CONSTANT (Godot class enum constant)
             if (ma->base_object && ma->base_object->type == ExpressionNode::VARIABLE) {
                 String class_name = ((VariableNode*)ma->base_object)->name;

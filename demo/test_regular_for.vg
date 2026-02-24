@@ -1,0 +1,10 @@
+Option Explicit
+
+Sub Main()
+	Dim x As Long
+	x = 0
+	For i As Integer = 1 To 5
+		x = x + 1
+	Next
+	Print "x = " & x
+End Sub

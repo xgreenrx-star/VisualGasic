@@ -6,21 +6,6 @@ func _init():
     var root = Node2D.new()
     root.name = "Root"
     
-    var script = load("res://examples/pong/pong.vg") # Using the actual file location if possible, or copy it
-    # Since res:// usually maps to project root.
-    # The user's workspace has examples/pong/pong.vg
-    # We should probably copy it to root or load it via path if VisualGasic supports absolute paths or relative?
-    # Usually VisualGasic Script loading is via ResourceLoader.
-    # GDExtension usually expects imported resources.
-    
-    # Let's hope the user is running the game from project root where pck is?
-    # Or just assume we can load it if we place it right.
-    # We will copy it to root for safety.
-    
-    var dir = DirAccess.open("res://")
-    if dir:
-        dir.copy("res://examples/pong/pong.vg", "res://pong_angle.vg")
-    
     var s = load("res://pong_angle.vg")
     if not s:
         print("Failed to load pong_angle.vg")

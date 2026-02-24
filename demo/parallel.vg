@@ -253,7 +253,7 @@ Sub RunSerialWorkLoad()
 	lastReportedPct = -1
 	activeTasks = WORK_ITEMS
 	
-	' Timer() returns seconds since midnight (VB6 convention) using the system clock.
+	' Timer() returns seconds since engine start (float, like OS.get_ticks_msec/1000).
 	Dim startTime As Single = Timer()
 	
 	' Serial processing — one task at a time, no threading.
@@ -293,13 +293,12 @@ Sub RunParallelWorkLoad()
 	Parallel For i As Integer = 0 To WORK_ITEMS - 1
 		workResults(i) = SimulateHeavyWork(i)
 
-		' Thread-safe shared counter updates (Lock/Unlock serialise access
-		' when true multi-threading is active).
-		Lock
-			workProgress = workProgress + 1
-			completedTasks = completedTasks + 1   ' Fires Whenever callback
-			activeTasks = activeTasks - 1         ' When 0 → OnAllTasksComplete
-		Unlock
+		' NOTE: When true multi-threading is enabled, these shared counter
+		' updates would need Lock … Unlock.  Currently Parallel For compiles
+		' as a serial loop, so we omit the mutex to avoid its overhead.
+		workProgress = workProgress + 1
+		completedTasks = completedTasks + 1   ' Fires Whenever callback
+		activeTasks = activeTasks - 1         ' When 0 → OnAllTasksComplete
 	Next
 	
 	parallelTime = Timer() - startTime
@@ -390,17 +389,15 @@ Sub CalculatePrimesParallel()
 		Dim n As Integer
 		For n = startN To endN
 			If IsPrime(n) Then
-				' Thread-safe shared writes
-				Lock
-					primeResults(primeCount) = n
-					primeCount = primeCount + 1
-				Unlock
+				' NOTE: When true multi-threading is enabled, these shared
+				' writes would need Lock … Unlock.  Currently Parallel For
+				' compiles as a serial loop, so we omit the mutex.
+				primeResults(primeCount) = n
+				primeCount = primeCount + 1
 			End If
 		Next
 
-		Lock
-			completedTasks = completedTasks + batchSize
-		Unlock
+		completedTasks = completedTasks + batchSize
 	Next
 	
 	parallelTime = Timer() - startTime

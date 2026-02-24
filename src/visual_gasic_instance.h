@@ -11,6 +11,7 @@
 #include <godot_cpp/classes/engine_debugger.hpp>
 #include <godot_cpp/templates/hash_map.hpp>
 #include "vg_fast_dict.h"
+#include <mutex>
 
 using namespace godot;
 using namespace VisualGasic;
@@ -132,6 +133,12 @@ class VisualGasicInstance {
     };
     Vector<TaskInfo> active_tasks;
     Dictionary task_results; // Task name -> result
+
+    // Per-instance recursive mutex for Lock / Unlock statements.
+    // Recursive so Lock inside an already-locked Parallel For body won't deadlock.
+    // Used by Parallel For / Task Run / Parallel Section worker threads
+    // to protect shared variable access.
+    std::recursive_mutex instance_mutex_;
     
     struct CoroutineState {
         String function_name;
@@ -238,6 +245,8 @@ public:
     void update_tasks(); // Check task completion
     static void _task_worker_function(void* user_data);
     static void _parallel_worker_function(void* user_data, uint32_t index);
+    static void _pfor_bytecode_worker(void* user_data, uint32_t index);
+    static void _task_run_bc_worker(void* user_data);
     
     // Advanced type system utilities
     void execute_pattern_match(PatternMatchStatement* match_stmt);
@@ -245,7 +254,9 @@ public:
     AdvancedType* infer_type(const Variant& value);
     bool is_type_compatible(const AdvancedType* expected, const AdvancedType* actual);
 
-    bool execute_bytecode(BytecodeChunk* chunk, SubDefinition* func, Variant &r_ret);
+    bool execute_bytecode(BytecodeChunk* chunk, SubDefinition* func, Variant &r_ret,
+                          int p_ip_start = 0, int p_ip_end = -1,
+                          const Vector<Variant>* p_initial_locals = nullptr);
 
     bool set(const StringName &p_name, const Variant &p_value);
     bool get(const StringName &p_name, Variant &r_ret);

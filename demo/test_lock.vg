@@ -1,0 +1,29 @@
+' Test Lock/Unlock keyword parsing and execution
+Sub Main()
+    Dim counter As Integer = 0
+    
+    ' Test Lock/Unlock in a simple serial context (should be no-op but not crash)
+    Lock
+        counter = counter + 1
+        counter = counter + 1
+    Unlock
+    
+    Print "Counter after Lock/Unlock block: " & Str(counter)
+    
+    ' Test Lock/Unlock inside a Parallel For
+    Dim total As Integer = 0
+    Parallel For i As Integer = 1 To 10
+        Lock
+            total = total + i
+        Unlock
+    Next
+    
+    Print "Parallel For sum 1..10 with Lock: " & Str(total)
+    Print "Expected: 55"
+    
+    If total = 55 Then
+        Print "PASS: Lock/Unlock works correctly"
+    Else
+        Print "FAIL: Expected 55, got " & Str(total)
+    End If
+End Sub

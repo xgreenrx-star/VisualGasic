@@ -1,0 +1,13 @@
+Option Explicit
+
+Dim total As Long
+
+Sub Main()
+	total = 0
+	Parallel For i As Integer = 1 To 10
+		Lock
+		total = total + 1
+		Unlock
+	Next
+	Print "total = " & total
+End Sub

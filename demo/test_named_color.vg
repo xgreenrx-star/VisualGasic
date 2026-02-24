@@ -1,0 +1,14 @@
+' Test that named colors resolve correctly in bytecode
+Sub Main()
+    Dim c As Variant
+    c = Color.Yellow
+    Print "Yellow: " & Str(c)
+    c = Color.White
+    Print "White: " & Str(c)
+    c = Color.Red
+    Print "Red: " & Str(c)
+    c = Color.Green
+    Print "Green: " & Str(c)
+    c = Color.Cyan
+    Print "Cyan: " & Str(c)
+End Sub

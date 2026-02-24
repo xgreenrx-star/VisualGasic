@@ -1,0 +1,76 @@
+' Comprehensive threading test — all phases
+Sub Main()
+    Print "=== VisualGasic Threading Tests ==="
+    
+    ' Phase 1: Lock/Unlock
+    Dim c As Integer = 0
+    Lock
+        c = c + 10
+    Unlock
+    If c = 10 Then Print "PASS: Lock/Unlock" Else Print "FAIL: Lock/Unlock"
+    
+    ' Phase 4a: Small Parallel For (serial fallback)
+    Dim s2 As Integer = 0
+    Parallel For i As Integer = 1 To 4
+        Lock
+            s2 = s2 + i
+        Unlock
+    Next
+    If s2 = 10 Then Print "PASS: Small PFor" Else Print "FAIL: Small PFor=" & Str(s2)
+    
+    ' Phase 4b: Large Parallel For (WorkerThreadPool)
+    Dim s3 As Integer = 0
+    Parallel For j As Integer = 1 To 50
+        Lock
+            s3 = s3 + j
+        Unlock
+    Next
+    If s3 = 1275 Then Print "PASS: Large PFor" Else Print "FAIL: Large PFor=" & Str(s3)
+    
+    ' Phase 5a: Task.Run + Task.Wait
+    Dim tr As Integer = 0
+    Task.Run
+        tr = 42
+    End Task
+    Task.Wait All
+    If tr = 42 Then Print "PASS: Task.Run" Else Print "FAIL: Task.Run=" & Str(tr)
+    
+    ' Phase 5b: Task.Run with loop
+    Dim ts As Integer = 0
+    Task.Run
+        Dim k As Integer
+        For k = 1 To 100
+            ts = ts + k
+        Next
+    End Task
+    Task.Wait All
+    If ts = 5050 Then Print "PASS: Task loop" Else Print "FAIL: Task loop=" & Str(ts)
+    
+    ' Phase 5c: PFor + function
+    Dim tsq As Integer = 0
+    Parallel For m As Integer = 1 To 10
+        Dim sq As Integer = Square(m)
+        Lock
+            tsq = tsq + sq
+        Unlock
+    Next
+    If tsq = 385 Then Print "PASS: PFor+func" Else Print "FAIL: PFor+func=" & Str(tsq)
+    
+    ' Phase 5d: Multiple Task.Run
+    Dim t1 As Integer = 0
+    Dim t2 As Integer = 0
+    Task.Run
+        t1 = 100
+    End Task
+    Task.Run
+        t2 = 200
+    End Task
+    Task.Wait All
+    If t1 = 100 And t2 = 200 Then Print "PASS: Multi Task" Else Print "FAIL: Multi Task"
+    
+    Print "=== Done ==="
+End Sub
+
+Function Square(x As Integer) As Integer
+    Square = x * x
+End Function

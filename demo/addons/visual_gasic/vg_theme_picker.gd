@@ -175,9 +175,10 @@ func _apply_theme_preview(theme_data):
 	# Strings
 	hl.add_color_region('"', '"', theme_data.string_color)
 	
-	# Comments (single-line: ' and REM)
+	# Comments (single-line: ')
+	# Note: REM comments are handled by the main highlighter; Godot's
+	# add_color_region requires a symbol prefix so we skip "REM" here.
 	hl.add_color_region("'", "", theme_data.comment_color, true)
-	hl.add_color_region("REM ", "", theme_data.comment_color, true)
 	
 	# Other token colors
 	hl.number_color = theme_data.number_color

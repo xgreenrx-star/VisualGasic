@@ -5,17 +5,48 @@
 #include "visual_gasic_parser.h"
 
 #include <godot_cpp/variant/utility_functions.hpp>
-#include <thread>
+#include <godot_cpp/classes/worker_thread_pool.hpp>
 #include <mutex>
 #include <atomic>
 #include <vector>
 #include <algorithm>
 
 // === MULTITASKING RUNTIME IMPLEMENTATION ===
-// v3.1: Task.Run and Parallel For now use real std::thread.
-// Each spawned thread gets a CLONE of the parent variable scope so
-// the interpreter's main Dictionary is never shared across threads.
-// Results are collected via thread-safe aggregation.
+// v4.0: Uses Godot's WorkerThreadPool for Parallel For, Task Run,
+// and Parallel Section.  Instance-level std::recursive_mutex
+// (instance_mutex_) protects the shared 'variables' Dictionary.
+
+// ---- Worker data structures for native pool callbacks ----------------------
+
+// Data block shared among all elements of a Parallel For group task.
+struct PForGroupData {
+    VisualGasicInstance* instance;
+    std::vector<int> indices;
+    std::atomic<bool> any_error{false};
+    String var_name;
+    Vector<Statement*> body;
+    Dictionary parent_scope;
+};
+
+// Data block for a single Task.Run submitted to the pool.
+struct TaskRunPoolData {
+    VisualGasicInstance* instance;
+    Dictionary scope_snapshot;
+    Vector<Statement*> body_copy;
+    String task_name;
+    int task_idx;
+};
+
+// Data block for a Parallel Section submitted to the pool.
+struct PSectionPoolData {
+    VisualGasicInstance* instance;
+    Vector<Statement*> section_body;
+    std::atomic<int> next_item{0};
+    std::atomic<bool> any_error{false};
+    Dictionary parent_scope;
+};
+
+// ---- Static worker callbacks (passed to WorkerThreadPool) ------------------
 
 void VisualGasicInstance::execute_async_function(AsyncFunctionStatement* async_func) {
     // For now, async functions run immediately (simplified implementation)
@@ -64,92 +95,83 @@ void VisualGasicInstance::execute_task_run(TaskRunStatement* task) {
     task_info.is_background = task->is_background;
     task_info.is_completed = false;
 
-    // v3.1: Real threaded execution.
-    // Clone the current variable scope so the worker thread has its own copy.
-    // This avoids data races on the Dictionary while still giving the task
-    // access to all variables visible at the call site.
     Dictionary scope_snapshot = variables.duplicate(true);
     Vector<Statement*> body_copy = task->task_body;
     String t_name = task_info.task_name;
     int task_idx = active_tasks.size();
+
+    // Allocate worker data on the heap (freed after join/completion).
+    TaskRunPoolData* data = new TaskRunPoolData();
+    data->instance = this;
+    data->scope_snapshot = scope_snapshot;
+    data->body_copy = body_copy;
+    data->task_name = t_name;
+    data->task_idx = task_idx;
+
+    // Submit to Godot's WorkerThreadPool.
+    WorkerThreadPool* pool = WorkerThreadPool::get_singleton();
+    int64_t pool_task_id = pool->add_native_task(&VisualGasicInstance::_task_worker_function, data);
+
+    task_info.task_id = pool_task_id;
     active_tasks.push_back(task_info);
 
-    // Spawn a detached worker thread
-    std::thread worker([this, scope_snapshot, body_copy, t_name, task_idx]() mutable {
-        // SAFETY: Use a mutex to protect access to the shared 'variables' member.
-        // We snapshot, swap in our scope under lock, execute, then restore under lock.
-        static std::mutex variables_mtx;
-
-        Dictionary saved;
-        {
-            std::lock_guard<std::mutex> lock(variables_mtx);
-            saved = variables.duplicate(true);
-            variables = scope_snapshot;
-        }
-
-        Variant result;
-        bool had_error = false;
-
-        for (int i = 0; i < body_copy.size(); i++) {
-            execute_statement(body_copy[i]);
-            if (error_state.has_error || error_state.mode != ErrorState::NONE) {
-                had_error = true;
-                break;
-            }
-        }
-        result = had_error ? Variant("Task failed") : Variant("Task completed");
-
-        // Restore & publish results under lock
-        {
-            std::lock_guard<std::mutex> lock(variables_mtx);
-            variables = saved;
-        }
-        if (task_idx < (int)active_tasks.size()) {
-            active_tasks.write[task_idx].is_completed = true;
-            active_tasks.write[task_idx].result = result;
-        }
-        task_results[t_name] = result;
-    });
-
-    if (task->is_background) {
-        worker.detach();
-    } else {
-        // Non-background: block until done (equivalent of old serial path)
-        worker.join();
+    if (!task->is_background) {
+        // Non-background: block until done.
+        pool->wait_for_task_completion(pool_task_id);
+        active_tasks.write[task_idx].is_completed = true;
+        delete data;
     }
+    // Background tasks are cleaned up in execute_task_wait / update_tasks.
 }
 
 void VisualGasicInstance::execute_task_wait(TaskWaitStatement* wait_stmt) {
+    WorkerThreadPool* pool = WorkerThreadPool::get_singleton();
+
     if (wait_stmt->wait_all) {
-        // Wait for all specified tasks
-        for (int i = 0; i < wait_stmt->task_names.size(); i++) {
-            String task_name = wait_stmt->task_names[i];
-            // Find and wait for task completion
+        // WaitAll — block until every named task (or all active tasks) completes.
+        if (wait_stmt->task_names.size() > 0) {
+            for (int i = 0; i < wait_stmt->task_names.size(); i++) {
+                String task_name = wait_stmt->task_names[i];
+                for (int j = 0; j < active_tasks.size(); j++) {
+                    if (active_tasks[j].task_name == task_name && !active_tasks[j].is_completed) {
+                        if (active_tasks[j].task_id >= 0) {
+                            pool->wait_for_task_completion(active_tasks[j].task_id);
+                        }
+                        active_tasks.write[j].is_completed = true;
+                        break;
+                    }
+                }
+            }
+        } else {
+            // No names specified — wait for ALL active tasks.
             for (int j = 0; j < active_tasks.size(); j++) {
-                if (active_tasks[j].task_name == task_name) {
-                    // In real implementation, would wait for actual completion
-                    break;
+                if (!active_tasks[j].is_completed && active_tasks[j].task_id >= 0) {
+                    pool->wait_for_task_completion(active_tasks[j].task_id);
+                    active_tasks.write[j].is_completed = true;
                 }
             }
         }
     } else {
-        // Wait for any task to complete (WaitAny)
-        // Simplified: just check if any task is completed
-        for (int i = 0; i < active_tasks.size(); i++) {
-            if (active_tasks[i].is_completed) {
-                break;
+        // WaitAny — block until at least one named task completes.
+        // Poll in a tight loop (WorkerThreadPool doesn't have a WaitAny API).
+        bool found = false;
+        while (!found) {
+            for (int i = 0; i < active_tasks.size(); i++) {
+                if (!active_tasks[i].is_completed && active_tasks[i].task_id >= 0) {
+                    if (pool->is_task_completed(active_tasks[i].task_id)) {
+                        active_tasks.write[i].is_completed = true;
+                        found = true;
+                        break;
+                    }
+                }
+            }
+            if (!found) {
+                // Yield briefly to avoid busy-spin.
+                OS::get_singleton()->delay_usec(100);
             }
         }
     }
 }
-
-struct ParallelForWorkerData {
-    VisualGasicInstance* instance;
-    ParallelForStatement* par_for;
-    int start_index;
-    int end_index;
-    int step;
-};
 
 void VisualGasicInstance::execute_parallel_for(ParallelForStatement* par_for) {
     int start = (int)evaluate_expression(par_for->start_expr);
@@ -157,20 +179,15 @@ void VisualGasicInstance::execute_parallel_for(ParallelForStatement* par_for) {
     int step  = par_for->step_expr ? (int)evaluate_expression(par_for->step_expr) : 1;
     if (step == 0) step = 1;
 
-    // v3.1: Real threaded Parallel For
-    // Determine iteration count and distribute across hardware threads.
+    // Determine iteration count
     int iter_count = 0;
     for (int i = start; (step > 0 ? i <= end : i >= end); i += step) iter_count++;
     if (iter_count <= 0) return;
 
-    // Cap threads at hardware concurrency or iteration count (whichever is smaller)
-    int max_threads = (int)std::thread::hardware_concurrency();
-    if (max_threads <= 0) max_threads = 4;
-    int num_threads = std::min(max_threads, iter_count);
-
-    // For very small loops (≤ 4 iterations), just run serially — thread overhead
-    // isn't worth it and avoids variable-scope contention.
-    if (iter_count <= 4) {
+    // AST interpreter shares instance variables[] across all iterations
+    // (mutex serialises workers).  Use a direct loop for modest counts
+    // to avoid thread-pool dispatch/join overhead.
+    if (iter_count <= 128) {
         for (int i = start; (step > 0 ? i <= end : i >= end); i += step) {
             variables[par_for->variable_name] = i;
             for (int j = 0; j < par_for->body.size(); j++) {
@@ -181,73 +198,33 @@ void VisualGasicInstance::execute_parallel_for(ParallelForStatement* par_for) {
         return;
     }
 
-    // Build the list of iteration indices
-    std::vector<int> indices;
-    indices.reserve(iter_count);
-    for (int i = start; (step > 0 ? i <= end : i >= end); i += step) indices.push_back(i);
+    // Build iteration indices
+    PForGroupData data;
+    data.instance = this;
+    data.indices.reserve(iter_count);
+    for (int i = start; (step > 0 ? i <= end : i >= end); i += step)
+        data.indices.push_back(i);
+    data.var_name = par_for->variable_name;
+    data.body = par_for->body;
 
-    // Partition work across threads
-    std::vector<std::thread> threads;
-    threads.reserve(num_threads);
-    std::atomic<bool> any_error{false};
+    // Submit as a group task — WorkerThreadPool distributes elements
+    // across its thread pool automatically.
+    WorkerThreadPool* pool = WorkerThreadPool::get_singleton();
+    int64_t group_id = pool->add_native_group_task(
+        &VisualGasicInstance::_parallel_worker_function,
+        &data,
+        iter_count,
+        -1,       // tasks_needed = auto (let the pool decide)
+        false     // not high priority
+    );
 
-    String var_name = par_for->variable_name;
-    Vector<Statement*> body = par_for->body;
-
-    auto chunk_size = [&](int t) -> std::pair<int,int> {
-        int base = iter_count / num_threads;
-        int extra = iter_count % num_threads;
-        int s = t * base + std::min(t, extra);
-        int e = s + base + (t < extra ? 1 : 0);
-        return {s, e};
-    };
-
-    for (int t = 0; t < num_threads; t++) {
-        auto [cs, ce] = chunk_size(t);
-        // Each thread gets its own copy of the variable scope
-        Dictionary scope_clone = variables.duplicate(true);
-
-        threads.emplace_back([this, cs, ce, &indices, &any_error, var_name, body, scope_clone]() mutable {
-            static std::mutex pfor_variables_mtx;
-            Dictionary saved;
-            {
-                std::lock_guard<std::mutex> lock(pfor_variables_mtx);
-                saved = variables.duplicate(true);
-                variables = scope_clone;
-            }
-            for (int idx = cs; idx < ce && !any_error.load(); idx++) {
-                variables[var_name] = indices[idx];
-                for (int j = 0; j < body.size(); j++) {
-                    execute_statement(body[j]);
-                    if (error_state.has_error || error_state.mode != ErrorState::NONE) {
-                        any_error.store(true);
-                        break;
-                    }
-                }
-            }
-            {
-                std::lock_guard<std::mutex> lock(pfor_variables_mtx);
-                variables = saved;
-            }
-        });
-    }
-
-    // Join all threads
-    for (auto &t : threads) {
-        if (t.joinable()) t.join();
-    }
+    // Block until all elements are done.
+    pool->wait_for_group_task_completion(group_id);
 }
 
 void VisualGasicInstance::execute_parallel_section(ParallelSectionStatement* par_section) {
-    // v3.1: Real threaded Parallel Section
-    // Each top-level statement in the section body runs in its own thread.
     int n = par_section->section_body.size();
     if (n == 0) return;
-
-    int max_t = (par_section->max_threads > 0) ? par_section->max_threads
-                                                : (int)std::thread::hardware_concurrency();
-    if (max_t <= 0) max_t = 4;
-    int num_threads = std::min(max_t, n);
 
     // For tiny sections just run serially
     if (n <= 2) {
@@ -258,41 +235,40 @@ void VisualGasicInstance::execute_parallel_section(ParallelSectionStatement* par
         return;
     }
 
-    std::vector<std::thread> threads;
-    threads.reserve(num_threads);
-    std::atomic<int> next_item{0};
-    std::atomic<bool> any_error{false};
-    Vector<Statement*> body = par_section->section_body;
+    // Submit each section statement as a WorkerThreadPool task.
+    PSectionPoolData data;
+    data.instance = this;
+    data.section_body = par_section->section_body;
+    data.parent_scope = variables.duplicate(true);
 
-    for (int t = 0; t < num_threads; t++) {
-        Dictionary scope_clone = variables.duplicate(true);
-        threads.emplace_back([this, &next_item, &any_error, &body, n, scope_clone]() mutable {
-            static std::mutex psec_variables_mtx;
-            Dictionary saved;
-            {
-                std::lock_guard<std::mutex> lock(psec_variables_mtx);
-                saved = variables.duplicate(true);
-                variables = scope_clone;
-            }
-            while (!any_error.load()) {
-                int idx = next_item.fetch_add(1);
-                if (idx >= n) break;
-                execute_statement(body[idx]);
-                if (error_state.has_error || error_state.mode != ErrorState::NONE) {
-                    any_error.store(true);
-                    break;
-                }
-            }
-            {
-                std::lock_guard<std::mutex> lock(psec_variables_mtx);
-                variables = saved;
-            }
-        });
-    }
+    WorkerThreadPool* pool = WorkerThreadPool::get_singleton();
+    int64_t group_id = pool->add_native_group_task(
+        [](void* ud, uint32_t index) {
+            PSectionPoolData* d = static_cast<PSectionPoolData*>(ud);
+            if (d->any_error.load()) return;
 
-    for (auto &t : threads) {
-        if (t.joinable()) t.join();
-    }
+            VisualGasicInstance* inst = d->instance;
+            std::lock_guard<std::recursive_mutex> lock(inst->instance_mutex_);
+
+            // Shallow copy for section isolation (sections are few, so
+            // one shallow COW copy each is acceptable).
+            Dictionary saved = inst->variables;
+            inst->variables = d->parent_scope.duplicate(false);
+
+            inst->execute_statement(d->section_body[index]);
+            if (inst->error_state.has_error || inst->error_state.mode != VisualGasicInstance::ErrorState::NONE) {
+                d->any_error.store(true);
+            }
+
+            inst->variables = saved;
+        },
+        &data,
+        n,
+        -1,
+        false
+    );
+
+    pool->wait_for_group_task_completion(group_id);
 }
 
 void VisualGasicInstance::update_tasks() {
@@ -304,17 +280,58 @@ void VisualGasicInstance::update_tasks() {
     }
 }
 
-// Static worker functions for thread pool integration
+// Static worker callback for Task.Run — called by WorkerThreadPool.
 void VisualGasicInstance::_task_worker_function(void* user_data) {
-    TaskInfo* task = static_cast<TaskInfo*>(user_data);
-    // Execute task body in worker thread
-    // This would require thread-safe execution context
+    TaskRunPoolData* data = static_cast<TaskRunPoolData*>(user_data);
+    VisualGasicInstance* inst = data->instance;
+
+    Variant result;
+    bool had_error = false;
+
+    {
+        std::lock_guard<std::recursive_mutex> lock(inst->instance_mutex_);
+
+        Dictionary saved = inst->variables;
+        inst->variables = data->scope_snapshot;
+
+        for (int i = 0; i < data->body_copy.size(); i++) {
+            inst->execute_statement(data->body_copy[i]);
+            if (inst->error_state.has_error || inst->error_state.mode != ErrorState::NONE) {
+                had_error = true;
+                break;
+            }
+        }
+        result = had_error ? Variant("Task failed") : Variant("Task completed");
+        inst->variables = saved;
+    }
+
+    if (data->task_idx < (int)inst->active_tasks.size()) {
+        inst->active_tasks.write[data->task_idx].is_completed = true;
+        inst->active_tasks.write[data->task_idx].result = result;
+    }
+    inst->task_results[data->task_name] = result;
 }
 
+// Static group-worker callback for Parallel For — called once per element.
+// The mutex serialises iterations; body runs against the live variables[]
+// dict so modifications persist across iterations (matching serial semantics).
+// No per-iteration deep Dictionary clone — just set the loop variable.
 void VisualGasicInstance::_parallel_worker_function(void* user_data, uint32_t index) {
-    ParallelForWorkerData* data = static_cast<ParallelForWorkerData*>(user_data);
-    // Execute parallel work item
-    // This would require thread-safe variable access
+    PForGroupData* data = static_cast<PForGroupData*>(user_data);
+    if (data->any_error.load()) return;
+
+    VisualGasicInstance* inst = data->instance;
+    std::lock_guard<std::recursive_mutex> lock(inst->instance_mutex_);
+
+    inst->variables[data->var_name] = data->indices[index];
+
+    for (int j = 0; j < data->body.size(); j++) {
+        inst->execute_statement(data->body[j]);
+        if (inst->error_state.has_error || inst->error_state.mode != VisualGasicInstance::ErrorState::NONE) {
+            data->any_error.store(true);
+            break;
+        }
+    }
 }
 
 // === ADVANCED TYPE SYSTEM RUNTIME ===

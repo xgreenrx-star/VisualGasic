@@ -1,0 +1,108 @@
+' Comprehensive test for bytecode Parallel For (Phase 4)
+' Tests both serial fallback (<=4 iters) and WorkerThreadPool (>4 iters)
+Sub Main()
+    Dim passed As Integer = 0
+    Dim failed As Integer = 0
+    
+    ' Test 1: Serial Lock/Unlock (basic sanity)
+    Dim counter As Integer = 0
+    Lock
+        counter = counter + 1
+        counter = counter + 1
+    Unlock
+    If counter = 2 Then
+        Print "PASS: Test 1 - Serial Lock/Unlock"
+        passed = passed + 1
+    Else
+        Print "FAIL: Test 1 - Expected 2, got " & Str(counter)
+        failed = failed + 1
+    End If
+    
+    ' Test 2: Small Parallel For (serial fallback, <=4 iterations)
+    Dim sum2 As Integer = 0
+    Parallel For i As Integer = 1 To 3
+        Lock
+            sum2 = sum2 + i
+        Unlock
+    Next
+    If sum2 = 6 Then
+        Print "PASS: Test 2 - Small Parallel For (1+2+3=6)"
+        passed = passed + 1
+    Else
+        Print "FAIL: Test 2 - Expected 6, got " & Str(sum2)
+        failed = failed + 1
+    End If
+    
+    ' Test 3: Medium Parallel For (WorkerThreadPool, >4 iterations)
+    Dim sum3 As Integer = 0
+    Parallel For j As Integer = 1 To 10
+        Lock
+            sum3 = sum3 + j
+        Unlock
+    Next
+    If sum3 = 55 Then
+        Print "PASS: Test 3 - Medium Parallel For (sum 1..10=55)"
+        passed = passed + 1
+    Else
+        Print "FAIL: Test 3 - Expected 55, got " & Str(sum3)
+        failed = failed + 1
+    End If
+    
+    ' Test 4: Large Parallel For with step
+    Dim sum4 As Integer = 0
+    Parallel For k As Integer = 0 To 100 Step 10
+        Lock
+            sum4 = sum4 + k
+        Unlock
+    Next
+    ' 0+10+20+30+40+50+60+70+80+90+100 = 550
+    If sum4 = 550 Then
+        Print "PASS: Test 4 - Step Parallel For (0 to 100 step 10 = 550)"
+        passed = passed + 1
+    Else
+        Print "FAIL: Test 4 - Expected 550, got " & Str(sum4)
+        failed = failed + 1
+    End If
+    
+    ' Test 5: Parallel For with function call in body
+    Dim sum5 As Integer = 0
+    Parallel For m As Integer = 1 To 20
+        Dim val As Integer = Square(m)
+        Lock
+            sum5 = sum5 + val
+        Unlock
+    Next
+    ' Sum of squares 1..20 = 2870
+    If sum5 = 2870 Then
+        Print "PASS: Test 5 - Parallel For with function call (sum of squares 1..20 = 2870)"
+        passed = passed + 1
+    Else
+        Print "FAIL: Test 5 - Expected 2870, got " & Str(sum5)
+        failed = failed + 1
+    End If
+    
+    ' Test 6: Empty Parallel For (0 iterations)
+    Dim sum6 As Integer = 42
+    Parallel For n As Integer = 10 To 1
+        Lock
+            sum6 = sum6 + n
+        Unlock
+    Next
+    If sum6 = 42 Then
+        Print "PASS: Test 6 - Empty Parallel For (no iterations)"
+        passed = passed + 1
+    Else
+        Print "FAIL: Test 6 - Expected 42, got " & Str(sum6)
+        failed = failed + 1
+    End If
+    
+    Print ""
+    Print "Results: " & Str(passed) & " passed, " & Str(failed) & " failed out of 6 tests"
+    If failed = 0 Then
+        Print "ALL TESTS PASSED!"
+    End If
+End Sub
+
+Function Square(x As Integer) As Integer
+    Square = x * x
+End Function

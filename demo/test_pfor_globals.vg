@@ -1,0 +1,75 @@
+Option Explicit
+
+' Global arrays and counters — same pattern as RunParallelWorkLoad
+Const WORK_ITEMS As Integer = 100
+Dim workResults(100) As Integer
+Dim completedTasks As Integer
+Dim activeTasks As Integer
+Dim workProgress As Integer
+
+Function SimulateHeavyWork(index As Integer) As Integer
+	Dim result As Integer = 0
+	Dim j As Integer
+	For j = 1 To 3500
+		result = result + (j * index) Mod 997
+	Next
+	Return result
+End Function
+
+Sub Main()
+	Print "=== Parallel For with Global Access Test ==="
+
+	' --- Serial baseline ---
+	completedTasks = 0
+	activeTasks = WORK_ITEMS
+	workProgress = 0
+	Dim startTime As Single = Timer()
+	Dim i As Integer
+	For i = 0 To WORK_ITEMS - 1
+		workResults(i) = SimulateHeavyWork(i)
+		workProgress = workProgress + 1
+		completedTasks = completedTasks + 1
+		activeTasks = activeTasks - 1
+	Next
+	Dim serialTime As Single = Timer() - startTime
+	Print "Serial: " & completedTasks & " tasks in " & Format(serialTime, "0.000") & "s"
+
+	' Verify serial results
+	Dim serialSum As Long = 0
+	For i = 0 To WORK_ITEMS - 1
+		serialSum = serialSum + workResults(i)
+	Next
+	Print "Serial checksum: " & serialSum
+
+	' --- Parallel run ---
+	completedTasks = 0
+	activeTasks = WORK_ITEMS
+	workProgress = 0
+	Dim pStartTime As Single = Timer()
+	Parallel For i = 0 To WORK_ITEMS - 1
+		workResults(i) = SimulateHeavyWork(i)
+		workProgress = workProgress + 1
+		completedTasks = completedTasks + 1
+		activeTasks = activeTasks - 1
+	Next
+	Dim parallelTime As Single = Timer() - pStartTime
+	Print "Parallel: " & completedTasks & " tasks in " & Format(parallelTime, "0.000") & "s"
+
+	' Verify parallel results match serial
+	Dim parallelSum As Long = 0
+	For i = 0 To WORK_ITEMS - 1
+		parallelSum = parallelSum + workResults(i)
+	Next
+	Print "Parallel checksum: " & parallelSum
+
+	If serialSum = parallelSum Then
+		Print "PASS: Checksums match"
+	Else
+		Print "FAIL: Checksums differ! Serial=" & serialSum & " Parallel=" & parallelSum
+	End If
+
+	If parallelTime > 0 Then
+		Dim speedup As Single = serialTime / parallelTime
+		Print "Speedup: " & Format(speedup, "0.00") & "x"
+	End If
+End Sub

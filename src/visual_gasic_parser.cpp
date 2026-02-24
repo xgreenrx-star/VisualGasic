@@ -786,6 +786,14 @@ Statement* VisualGasicParser::parse_statement() {
             error("Expected 'Run', 'Wait', 'WaitAll', or 'WaitAny' after 'Task'");
             return nullptr;
         }
+        if (val == "lock") {
+            advance(); // consume "lock"
+            return set_line(static_cast<Statement*>(register_node(new LockStatement())));
+        }
+        if (val == "unlock") {
+            advance(); // consume "unlock"
+            return set_line(static_cast<Statement*>(register_node(new UnlockStatement())));
+        }
         if (val == "parallel") {
             advance(); // consume "parallel" 
             String next_val = String(peek().value).to_lower();

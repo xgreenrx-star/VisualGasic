@@ -1,0 +1,64 @@
+Option Explicit
+
+Dim total As Long
+
+Function HeavyWork(n As Integer) As Integer
+	Dim result As Integer = 0
+	Dim j As Integer
+	For j = 1 To 100
+		result = result + (j * n) Mod 97
+	Next
+	Return result
+End Function
+
+Sub Main()
+	' Test 1: Parallel For with simple global increment
+	total = 0
+	Parallel For i As Integer = 1 To 50
+		total = total + i
+	Next
+	If total = 1275 Then
+		Print "PASS: Test 1 - Global accumulator (sum 1..50 = " & total & ")"
+	Else
+		Print "FAIL: Test 1 - Expected 1275, got " & total
+	End If
+
+	' Test 2: Parallel For with function call (no arrays)
+	total = 0
+	Parallel For i As Integer = 1 To 20
+		total = total + HeavyWork(i)
+	Next
+	Print "Test 2: total = " & total
+
+	' Test 3: Parallel For with global array
+	Dim arr(50) As Integer
+	Parallel For i As Integer = 0 To 49
+		arr(i) = i * 2
+	Next
+	Dim sum As Long = 0
+	Dim k As Integer
+	For k = 0 To 49
+		sum = sum + arr(k)
+	Next
+	If sum = 2450 Then
+		Print "PASS: Test 3 - Array write (sum = " & sum & ")"
+	Else
+		Print "FAIL: Test 3 - Expected 2450, got " & sum
+	End If
+
+	' Test 4: Parallel For with array + function call
+	Dim results(20) As Integer
+	Parallel For i As Integer = 0 To 19
+		results(i) = HeavyWork(i)
+	Next
+	Dim rsum As Long = 0
+	For k = 0 To 19
+		rsum = rsum + results(k)
+	Next
+	Print "Test 4: rsum = " & rsum
+	If rsum > 0 Then
+		Print "PASS: Test 4 - Array+func"
+	Else
+		Print "FAIL: Test 4 - rsum is zero"
+	End If
+End Sub

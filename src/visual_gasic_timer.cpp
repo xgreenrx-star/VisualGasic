@@ -5,6 +5,7 @@
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <godot_cpp/classes/time.hpp>
 #include <godot_cpp/classes/os.hpp>
+#include <cmath>
 
 using namespace godot;
 
@@ -74,14 +75,13 @@ int VGTimer::get_elapsed_ms() const {
 }
 
 double VGTimer::timer_function() {
-    // VB6 Timer() returns seconds since midnight as Single
-    Dictionary dt = Time::get_singleton()->get_datetime_dict_from_system();
-    int hour = dt["hour"];
-    int minute = dt["minute"];
-    int second = dt["second"];
-    // Godot's datetime doesn't give sub-second precision via dict,
-    // so add msec fraction from ticks
-    uint64_t ticks = Time::get_singleton()->get_ticks_msec();
-    double frac = (ticks % 1000) / 1000.0;
-    return (double)(hour * 3600 + minute * 60 + second) + frac;
+    // VB6 Timer() returns seconds since midnight as Single.
+    // Use get_unix_time_from_system() for a single consistent clock source
+    // with sub-second precision. The previous implementation mixed wall-clock
+    // seconds from get_datetime_dict_from_system() with the sub-second
+    // fraction from get_ticks_msec() % 1000 — two unsynchronized clocks
+    // that caused ~1-second backward jumps at second boundaries.
+    double unix_time = Time::get_singleton()->get_unix_time_from_system();
+    double seconds_today = fmod(unix_time, 86400.0);
+    return seconds_today;
 }

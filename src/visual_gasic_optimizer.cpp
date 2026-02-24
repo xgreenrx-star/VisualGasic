@@ -49,10 +49,14 @@ int VisualGasicOptimizer::instruction_size(const Vector<uint8_t>& code, int ip) 
         case OP_POP_TRY: case OP_THROW:
         case OP_DUP:
         case OP_ARRAY_RESIZE:
+        case OP_LOCK: case OP_UNLOCK:                                 // [OP] — threading mutex
+        case OP_PARALLEL_FOR_END: case OP_TASK_RUN_END:               // [OP] — body-end markers
+        case OP_AWAIT:                                                // [OP] — async placeholder
             return 1;
 
         // 2-byte instructions (opcode + 1 operand)
         case OP_CONSTANT:
+        case OP_TASK_WAIT:                                            // [OP] [WAIT_ALL_FLAG]
         case OP_GET_GLOBAL: case OP_SET_GLOBAL:
         case OP_GET_LOCAL: case OP_SET_LOCAL:
         case OP_GET_MEMBER: case OP_SET_MEMBER:
@@ -95,7 +99,12 @@ int VisualGasicOptimizer::instruction_size(const Vector<uint8_t>& code, int ip) 
         case OP_ALLOC_FILL_I64_OFFSET:
         case OP_ARRAY_FILL_I64_OFFSET:
         case OP_ACCUM_I64_MULADD_CONST:
+        case OP_PARALLEL_FOR_BEGIN:  // [OP] [VAR_SLOT] [BODY_LEN_HI] [BODY_LEN_LO]
             return 4;
+
+        // 5-byte instructions (opcode + 4 operands)
+        case OP_TASK_RUN_BEGIN:      // [OP] [NAME_CONST] [BG_FLAG] [BODY_LEN_HI] [BODY_LEN_LO]
+            return 5;
 
         // 7-byte instructions (opcode + 6 operands)
         case OP_ALLOC_FILL_REPEAT_I64:
@@ -224,6 +233,68 @@ void VisualGasicOptimizer::erase_bytes(BytecodeChunk* chunk, int start, int coun
         ip += sz;
     }
 
+    // Fix body_len fields in OP_PARALLEL_FOR_BEGIN and OP_TASK_RUN_BEGIN
+    for (int ip = 0; ip < chunk->code.size();) {
+        uint8_t op = chunk->code[ip];
+        if (ip >= start && ip < start + count) {
+            // This instruction is being removed — skip it
+            ip += instruction_size(chunk->code, ip);
+            continue;
+        }
+        if (op == OP_PARALLEL_FOR_BEGIN) {
+            int old_body_len = (chunk->code[ip + 2] << 8) | chunk->code[ip + 3];
+            int old_body_start = ip + 4;
+            int old_body_end = old_body_start + old_body_len;
+            if (old_body_end > chunk->code.size()) old_body_end = chunk->code.size();
+            int new_body_start = old_to_new[old_body_start];
+            int new_body_end = (old_body_end >= chunk->code.size())
+                ? old_to_new[chunk->code.size()]
+                : old_to_new[old_body_end];
+            if (new_body_start < 0) {
+                for (int t = old_body_start; t < chunk->code.size(); t++) {
+                    if (old_to_new[t] >= 0) { new_body_start = old_to_new[t]; break; }
+                }
+            }
+            if (new_body_end < 0) {
+                for (int t = old_body_end; t < chunk->code.size(); t++) {
+                    if (old_to_new[t] >= 0) { new_body_end = old_to_new[t]; break; }
+                }
+                if (new_body_end < 0) new_body_end = old_to_new[chunk->code.size()];
+            }
+            int new_body_len = new_body_end - new_body_start;
+            if (new_body_len < 0) new_body_len = 0;
+            if (new_body_len > 0xFFFF) new_body_len = 0xFFFF;
+            chunk->code.write[ip + 2] = (uint8_t)((new_body_len >> 8) & 0xFF);
+            chunk->code.write[ip + 3] = (uint8_t)(new_body_len & 0xFF);
+        } else if (op == OP_TASK_RUN_BEGIN) {
+            int old_body_len = (chunk->code[ip + 3] << 8) | chunk->code[ip + 4];
+            int old_body_start = ip + 5;
+            int old_body_end = old_body_start + old_body_len;
+            if (old_body_end > chunk->code.size()) old_body_end = chunk->code.size();
+            int new_body_start = old_to_new[old_body_start];
+            int new_body_end = (old_body_end >= chunk->code.size())
+                ? old_to_new[chunk->code.size()]
+                : old_to_new[old_body_end];
+            if (new_body_start < 0) {
+                for (int t = old_body_start; t < chunk->code.size(); t++) {
+                    if (old_to_new[t] >= 0) { new_body_start = old_to_new[t]; break; }
+                }
+            }
+            if (new_body_end < 0) {
+                for (int t = old_body_end; t < chunk->code.size(); t++) {
+                    if (old_to_new[t] >= 0) { new_body_end = old_to_new[t]; break; }
+                }
+                if (new_body_end < 0) new_body_end = old_to_new[chunk->code.size()];
+            }
+            int new_body_len = new_body_end - new_body_start;
+            if (new_body_len < 0) new_body_len = 0;
+            if (new_body_len > 0xFFFF) new_body_len = 0xFFFF;
+            chunk->code.write[ip + 3] = (uint8_t)((new_body_len >> 8) & 0xFF);
+            chunk->code.write[ip + 4] = (uint8_t)(new_body_len & 0xFF);
+        }
+        ip += instruction_size(chunk->code, ip);
+    }
+
     // Now physically remove the bytes
     Vector<uint8_t> new_code;
     Vector<int> new_lines;
@@ -325,6 +396,74 @@ void VisualGasicOptimizer::compact(BytecodeChunk* chunk) {
             if (new_offset > 0xFFFF) new_offset = 0xFFFF;
             chunk->code.write[ip + 1] = (uint8_t)((new_offset >> 8) & 0xFF);
             chunk->code.write[ip + 2] = (uint8_t)(new_offset & 0xFF);
+        }
+        ip += instruction_size(chunk->code, ip);
+    }
+
+    // Fix body_len fields in OP_PARALLEL_FOR_BEGIN and OP_TASK_RUN_BEGIN.
+    // These opcodes embed a 16-bit body length that must be adjusted when
+    // NOP bytes are removed from within the body.
+    for (int ip = 0; ip < chunk->code.size();) {
+        uint8_t op = chunk->code[ip];
+        if (op == OP_NOP) {
+            ip++;
+            continue;
+        }
+        if (op == OP_PARALLEL_FOR_BEGIN) {
+            // Layout: [OP] [VAR_SLOT] [BODY_LEN_HI] [BODY_LEN_LO]
+            // body_start is ip+4 (first byte after this instruction)
+            int old_body_len = (chunk->code[ip + 2] << 8) | chunk->code[ip + 3];
+            int old_body_start = ip + 4;
+            int old_body_end = old_body_start + old_body_len;
+            if (old_body_end > chunk->code.size()) old_body_end = chunk->code.size();
+            int new_body_start = old_to_new[old_body_start];
+            int new_body_end = (old_body_end >= chunk->code.size())
+                ? old_to_new[chunk->code.size()]
+                : old_to_new[old_body_end];
+            // If mapped to removed region, find next valid position
+            if (new_body_start < 0) {
+                for (int t = old_body_start; t < chunk->code.size(); t++) {
+                    if (old_to_new[t] >= 0) { new_body_start = old_to_new[t]; break; }
+                }
+            }
+            if (new_body_end < 0) {
+                for (int t = old_body_end; t < chunk->code.size(); t++) {
+                    if (old_to_new[t] >= 0) { new_body_end = old_to_new[t]; break; }
+                }
+                if (new_body_end < 0) new_body_end = old_to_new[chunk->code.size()];
+            }
+            int new_body_len = new_body_end - new_body_start;
+            if (new_body_len < 0) new_body_len = 0;
+            if (new_body_len > 0xFFFF) new_body_len = 0xFFFF;
+            chunk->code.write[ip + 2] = (uint8_t)((new_body_len >> 8) & 0xFF);
+            chunk->code.write[ip + 3] = (uint8_t)(new_body_len & 0xFF);
+        } else if (op == OP_TASK_RUN_BEGIN) {
+            // Layout: [OP] [NAME_CONST] [BG_FLAG] [BODY_LEN_HI] [BODY_LEN_LO]
+            // body_start is ip+5 (first byte after this instruction)
+            int old_body_len = (chunk->code[ip + 3] << 8) | chunk->code[ip + 4];
+            int old_body_start = ip + 5;
+            int old_body_end = old_body_start + old_body_len;
+            if (old_body_end > chunk->code.size()) old_body_end = chunk->code.size();
+            int new_body_start = old_to_new[old_body_start];
+            int new_body_end = (old_body_end >= chunk->code.size())
+                ? old_to_new[chunk->code.size()]
+                : old_to_new[old_body_end];
+            if (new_body_start < 0) {
+                for (int t = old_body_start; t < chunk->code.size(); t++) {
+                    if (old_to_new[t] >= 0) { new_body_start = old_to_new[t]; break; }
+                }
+            }
+            if (new_body_end < 0) {
+                for (int t = old_body_end; t < chunk->code.size(); t++) {
+                    if (old_to_new[t] >= 0) { new_body_end = old_to_new[t]; break; }
+                }
+                if (new_body_end < 0) new_body_end = old_to_new[chunk->code.size()];
+            }
+            int new_body_len = new_body_end - new_body_start;
+            if (new_body_len < 0) new_body_len = 0;
+            if (new_body_len > 0xFFFF) new_body_len = 0xFFFF;
+            chunk->code.write[ip + 3] = (uint8_t)((new_body_len >> 8) & 0xFF);
+            chunk->code.write[ip + 4] = (uint8_t)(new_body_len & 0xFF);
         }
         ip += instruction_size(chunk->code, ip);
     }

@@ -150,6 +150,8 @@ Vector<VisualGasicTokenizer::Token> VisualGasicTokenizer::tokenize(const String 
     keywords.push_back("Await");
     keywords.push_back("Task");
     keywords.push_back("Parallel");
+    keywords.push_back("Lock");
+    keywords.push_back("Unlock");
     keywords.push_back("Of");
     keywords.push_back("Where");
     keywords.push_back("Match");

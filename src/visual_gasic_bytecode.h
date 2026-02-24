@@ -193,6 +193,16 @@ enum OpCode {
     OP_GOSUB,          // [OP] [OFFSET_16] - Push return address, jump to label
     OP_RETURN_GOSUB,   // [OP] - Pop return address from gosub stack, jump back
 
+    // Threading (v2.11.0)
+    OP_LOCK,           // [OP] - Acquire per-instance mutex
+    OP_UNLOCK,         // [OP] - Release per-instance mutex
+    OP_PARALLEL_FOR_BEGIN, // [OP] [VAR_SLOT] [BODY_LEN_HI] [BODY_LEN_LO] - Start parallel for (start/end/step on stack)
+    OP_PARALLEL_FOR_END,   // [OP] - Marker: end of parallel for body (workers stop here)
+    OP_TASK_RUN_BEGIN, // [OP] [NAME_CONST] [BG_FLAG] [BODY_LEN_HI] [BODY_LEN_LO] - Submit body to WorkerThreadPool
+    OP_TASK_RUN_END,   // [OP] - Marker: end of task run body
+    OP_TASK_WAIT,      // [OP] [WAIT_ALL_FLAG] - Wait for active tasks (1=all, 0=any)
+    OP_AWAIT,          // [OP] - Pop expression result, push back (future: async dispatch)
+
     OP_COUNT_          // Sentinel — must be last (used by computed-goto table)
 };
 

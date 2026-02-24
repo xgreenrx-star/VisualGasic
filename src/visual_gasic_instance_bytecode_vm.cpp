@@ -80,19 +80,154 @@
 
 #include <cstdlib>
 #include <limits>
+#include <atomic>
+#include <mutex>
+#include <godot_cpp/classes/worker_thread_pool.hpp>
 
-bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* func, Variant &r_ret) {
+// Data block for bytecode Parallel For group task.
+struct PForBytecodeData {
+    VisualGasicInstance* instance;
+    BytecodeChunk* chunk;
+    SubDefinition* func;
+    int body_start_ip;
+    int body_end_ip;
+    int var_slot;
+    bool needs_lock;  // true only when body contains OP_LOCK
+    std::vector<int64_t> indices;
+    std::atomic<bool> any_error{false};
+    Vector<Variant> parent_locals;  // snapshot of parent scope locals for lock-free workers
+};
+
+// Thread-local flag: set to true inside WorkerThreadPool callbacks so that
+// execute_bytecode() can skip non-thread-safe debug/profiling code.
+static thread_local bool tl_on_worker_thread = false;
+
+// RAII guard that sets tl_on_worker_thread for the scope of a worker callback.
+struct WorkerThreadGuard {
+    bool prev;
+    WorkerThreadGuard() : prev(tl_on_worker_thread) { tl_on_worker_thread = true; }
+    ~WorkerThreadGuard() { tl_on_worker_thread = prev; }
+};
+
+// Static group-worker callback for bytecode Parallel For.
+// Lock-free path: each worker gets its own locals snapshot + thread-local
+// VM state inside execute_bytecode, achieving true parallel execution.
+// Locked path (body contains Lock/Unlock): GIL-style serialisation so
+// shared accumulator patterns work correctly through variables[].
+void VisualGasicInstance::_pfor_bytecode_worker(void* user_data, uint32_t index) {
+    WorkerThreadGuard _wg;  // Mark this thread as a worker for execute_bytecode
+    PForBytecodeData* d = static_cast<PForBytecodeData*>(user_data);
+    if (d->any_error.load(std::memory_order_relaxed)) return;
+
+    VisualGasicInstance* inst = d->instance;
+
+    if (d->needs_lock) {
+        // Locked path: body uses Lock/Unlock — serialise through variables[].
+        std::lock_guard<std::recursive_mutex> lock(inst->instance_mutex_);
+
+        bool saved_vs = inst->needs_var_sync;
+        inst->needs_var_sync = true;
+
+        if (d->var_slot >= 0 && d->var_slot < d->chunk->local_names.size()) {
+            String var_name = d->chunk->local_names[d->var_slot];
+            if (!var_name.is_empty()) {
+                inst->variables[var_name] = Variant(d->indices[index]);
+            }
+        }
+
+        Variant ret;
+        bool ok = inst->execute_bytecode(d->chunk, d->func, ret,
+                                          d->body_start_ip, d->body_end_ip,
+                                          nullptr);
+        if (!ok) {
+            d->any_error.store(true, std::memory_order_relaxed);
+        }
+
+        inst->needs_var_sync = saved_vs;
+    } else {
+        // Lock-free path: each worker gets isolated locals + thread-local VM.
+        // No mutex, no shared Dictionary access — true parallel execution.
+        // Godot Vector is COW so this copy is cheap until the worker writes.
+        Vector<Variant> worker_locals = d->parent_locals;
+        if (d->var_slot >= 0 && d->var_slot < worker_locals.size()) {
+            worker_locals.write[d->var_slot] = Variant(d->indices[index]);
+        }
+
+        Variant ret;
+        bool ok = inst->execute_bytecode(d->chunk, d->func, ret,
+                                          d->body_start_ip, d->body_end_ip,
+                                          &worker_locals);
+        if (!ok) d->any_error.store(true, std::memory_order_relaxed);
+    }
+}
+
+// Data block for bytecode Task.Run submitted to WorkerThreadPool.
+struct TaskRunBCData {
+    VisualGasicInstance* instance;
+    BytecodeChunk* chunk;
+    SubDefinition* func;
+    int body_start_ip;
+    int body_end_ip;
+    String task_name;
+    int task_idx;
+    std::atomic<bool> error{false};
+};
+
+// Static worker callback for bytecode Task.Run.
+void VisualGasicInstance::_task_run_bc_worker(void* user_data) {
+    WorkerThreadGuard _wg;  // Mark this thread as a worker for execute_bytecode
+    TaskRunBCData* d = static_cast<TaskRunBCData*>(user_data);
+    VisualGasicInstance* inst = d->instance;
+    std::lock_guard<std::recursive_mutex> lock(inst->instance_mutex_);
+
+    bool saved_var_sync = inst->needs_var_sync;
+    inst->needs_var_sync = true;
+
+    Variant ret;
+    bool ok = inst->execute_bytecode(d->chunk, d->func, ret,
+                                      d->body_start_ip, d->body_end_ip,
+                                      nullptr);
+    if (!ok) {
+        d->error.store(true, std::memory_order_relaxed);
+    }
+
+    inst->needs_var_sync = saved_var_sync;
+
+    if (d->task_idx < (int)inst->active_tasks.size()) {
+        inst->active_tasks.write[d->task_idx].is_completed = true;
+        inst->active_tasks.write[d->task_idx].result = ok ? Variant("Task completed") : Variant("Task failed");
+    }
+    inst->task_results[d->task_name] = ok ? Variant("Task completed") : Variant("Task failed");
+}
+
+bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* func, Variant &r_ret,
+                                           int p_ip_start, int p_ip_end,
+                                           const Vector<Variant>* p_initial_locals) {
     if (!chunk) {
         r_ret = Variant();
         return false;
     }
     
-    // Push debug stack frame for Godot debugger integration
-    String debug_file = script.is_valid() ? script->get_path() : String("<unknown>");
-    String debug_func = func ? func->name : String("<main>");
-    VisualGasicLanguage::push_stack_frame(debug_file, debug_func, 0, this);
+    // Detect when running on a WorkerThreadPool thread.  Worker callbacks
+    // set the file-scope thread_local tl_on_worker_thread flag via
+    // WorkerThreadGuard.  When true, skip all non-thread-safe debug/
+    // profiling infrastructure (debug stack, EngineDebugger, debug_state,
+    // opcode profiling, etc.) to avoid data races and crashes.
+    const bool is_parallel_worker = tl_on_worker_thread;
 
-    const bool profiling_enabled = vg_opcode_profile_enabled();
+    // Also skip debug stack for sub-range execution (serial fallback bodies)
+    const bool is_sub_range = (p_ip_end > 0);
+
+    // Push debug stack frame for Godot debugger integration
+    // (skip for parallel workers AND sub-range bodies — these are internal
+    // recursive calls that don't need their own stack frames)
+    String debug_file = (!is_parallel_worker && !is_sub_range && script.is_valid()) ? script->get_path() : String("<unknown>");
+    if (!is_parallel_worker && !is_sub_range) {
+        String debug_func = func ? func->name : String("<main>");
+        VisualGasicLanguage::push_stack_frame(debug_file, debug_func, 0, this);
+    }
+
+    const bool profiling_enabled = !is_parallel_worker && vg_opcode_profile_enabled();
     const bool is_outermost_profile = profiling_enabled && vg_opcode_profile_depth == 0;
     if (profiling_enabled) {
         if (is_outermost_profile) {
@@ -101,8 +236,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         vg_opcode_profile_depth++;
     }
 
-    const bool stack_profile_enabled = vg_stack_profile_enabled();
-    const bool stack_trace_enabled = []() {
+    const bool stack_profile_enabled = !is_parallel_worker && vg_stack_profile_enabled();
+    const bool stack_trace_enabled = !is_parallel_worker && []() {
         const char *trace_env = std::getenv("VG_STACK_TRACE");
         return trace_env && trace_env[0] != '\0' && trace_env[0] != '0';
     }();
@@ -123,10 +258,18 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         }
     }
 
+    // Thread-local VM state: each OS thread gets its own execution stack
+    // and instruction pointer.  Parallel-for workers running on different
+    // pool threads execute bytecode concurrently without conflicting.
+    // Recursive calls (OP_CALL → call_internal → execute_bytecode) nest
+    // correctly via the stack_base / previous_ip save-restore pattern.
+    static thread_local VMState tl_vm;
+    auto& vm = tl_vm;  // shadow instance member for thread-safety
+
     const size_t stack_base = vm.stack.size();
     int previous_ip = vm.ip;
     vm.stack.resize(stack_base);
-    vm.ip = 0;
+    vm.ip = p_ip_start;  // Start at custom IP for parallel workers
 
     auto restore_vm = [&]() {
         vm.stack.resize(stack_base);
@@ -134,17 +277,27 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
     };
 
     Vector<Variant> locals;
-    locals.resize(chunk->local_count);
-    for (int i = 0; i < chunk->local_count; i++) {
-        Variant initial;
-        if (i < chunk->local_names.size()) {
-            const String &name = chunk->local_names[i];
-            if (!name.is_empty() && variables.has(name)) {
-                initial = variables[name];
+    if (p_initial_locals) {
+        // Parallel worker — use pre-initialized locals (with loop var set).
+        locals = *p_initial_locals;
+    } else {
+        locals.resize(chunk->local_count);
+        for (int i = 0; i < chunk->local_count; i++) {
+            Variant initial;
+            if (i < chunk->local_names.size()) {
+                const String &name = chunk->local_names[i];
+                if (!name.is_empty() && variables.has(name)) {
+                    initial = variables[name];
+                }
             }
+            locals.write[i] = initial;
         }
-        locals.write[i] = initial;
     }
+
+    // When running as a parallel worker (p_initial_locals provided), keep
+    // all local variable access thread-local — never touch the shared
+    // variables[] Dictionary.  This enables lock-free parallel execution.
+    const bool isolated_locals = (p_initial_locals != nullptr);
 
     auto get_local_name = [&](int slot) -> String {
         if (slot >= 0 && slot < chunk->local_names.size()) {
@@ -159,8 +312,9 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         }
         locals.write[slot] = value;
         // Fast path: skip the expensive variables[] Dictionary sync
-        // when no Whenever callbacks need it (v2.4.1 optimisation)
-        if (needs_var_sync) {
+        // when no Whenever callbacks need it (v2.4.1 optimisation).
+        // Also skip when running as isolated parallel worker (v4.1).
+        if (needs_var_sync && !isolated_locals) {
             String name = get_local_name(slot);
             if (!name.is_empty()) {
                 variables[name] = value;
@@ -170,9 +324,10 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
 
     auto read_local = [&](int slot) -> Variant {
         if (slot >= 0 && slot < locals.size()) {
-            // Fast path: when no Whenever sections exist, skip the
-            // expensive variables[] HashMap lookup entirely (v2.4.1)
-            if (!needs_var_sync) {
+            // Fast path: when no Whenever sections exist or when running
+            // as an isolated parallel worker, skip the expensive
+            // variables[] HashMap lookup entirely (v2.4.1 / v4.1).
+            if (!needs_var_sync || isolated_locals) {
                 return locals[slot];
             }
             // Slow path: read from variables dictionary to pick up
@@ -280,10 +435,15 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 func ? func->name : "<null>", " need=", count,
                 " have=", (int64_t)(vm.stack.size() - stack_base),
                 " ip=", vm.ip, " last_op=", (int)current_opcode,
-                " code_size=", (int)chunk->code.size());
+                " code_size=", (int)chunk->code.size(),
+                " stack_base=", (int64_t)stack_base,
+                " stack_size=", (int64_t)vm.stack.size(),
+                " p_ip_start=", p_ip_start,
+                " p_ip_end=", p_ip_end,
+                " isolated=", isolated_locals ? 1 : 0);
             // Dump full bytecode for diagnosis
             String dump = "  [DUMP] bytecode for " + (func ? func->name : String("<null>")) + ": ";
-            for (int di = 0; di < chunk->code.size() && di < 64; di++) {
+            for (int di = 0; di < chunk->code.size() && di < 80; di++) {
                 dump += String::num_int64(chunk->code[di]) + " ";
             }
             UtilityFunctions::printerr(dump);
@@ -350,6 +510,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
 
     const Vector<uint8_t> &code = chunk->code;
     const int code_size = code.size();
+    // For parallel workers p_ip_end constrains execution to the body range.
+    const int effective_code_end = (p_ip_end > 0 && p_ip_end <= code_size) ? p_ip_end : code_size;
     bool success = true;
     Variant result_snapshot;
     Variant explicit_return;
@@ -359,8 +521,13 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
     // If bytecode execution fails and the AST fallback re-runs the function,
     // we need to rollback globals to prevent double-mutation (e.g. wave += 1
     // executed in bytecode, then again in AST fallback → wave += 2).
+    //
+    // Skip this scan for parallel-body sub-range execution (p_ip_end > 0):
+    //  1. The scan would run over the FULL chunk (not just the body range),
+    //     and multi-byte opcodes like OP_PARALLEL_FOR_BEGIN can desync it.
+    //  2. Parallel bodies have no AST fallback, so rollback is unnecessary.
     Dictionary saved_globals;
-    {
+    if (p_ip_end <= 0) {
         int scan_ip = 0;
         while (scan_ip < code_size) {
             uint8_t scan_op = code[scan_ip++];
@@ -398,6 +565,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     case OP_SUM_VGDICT_ALL_I64:
                     case OP_NEW_VGDICT: case OP_GET_VGDICT_LOCAL: case OP_SET_VGDICT_LOCAL:
                     case OP_ITER_ARRAY:
+                    case OP_NEW_ARRAY: case OP_NEW_ARRAY_I64:
+                    case OP_GOSUB: case OP_PRINT_FILE:
                         scan_ip += 1; break;
                     // 3-byte opcodes (2 operands)
                     case OP_CONSTANT_LONG:
@@ -412,12 +581,41 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     case OP_STRING_REPEAT_OUTER:
                     case OP_DEBUG_LINE:
                     case OP_SET_DICT_LOCAL: case OP_SET_DICT_GLOBAL:
+                    case OP_NEW_OBJECT:  // [OP] [CLASS_NAME_IDX] [ARG_COUNT]
+                    case OP_OPEN_FILE:   // [OP] [MODE]
+                    case OP_WRITE_FILE:  // [OP] [ARG_COUNT]
+                    case OP_INPUT_FILE:  // [OP] [VAR_COUNT]
                         scan_ip += 2; break;
                     // 4-byte opcodes (3 operands)
                     case OP_ALLOC_FILL_I64_OFFSET:
                     case OP_ARRAY_FILL_I64_OFFSET:
                     case OP_ACCUM_I64_MULADD_CONST:
                         scan_ip += 3; break;
+                    // OP_PARALLEL_FOR_BEGIN: [VAR_SLOT] [BODY_LEN_HI] [BODY_LEN_LO] + body bytes
+                    // Must skip the 3 operand bytes PLUS the entire body length.
+                    case OP_PARALLEL_FOR_BEGIN: {
+                        if (scan_ip + 2 < code_size) {
+                            scan_ip++; // var_slot
+                            int body_len = (code[scan_ip] << 8) | code[scan_ip + 1];
+                            scan_ip += 2; // body_len_hi, body_len_lo
+                            scan_ip += body_len; // skip entire body
+                        } else {
+                            scan_ip = code_size;
+                        }
+                        break;
+                    }
+                    // OP_TASK_RUN_BEGIN: [NAME_CONST] [BG_FLAG] [BODY_LEN_HI] [BODY_LEN_LO] + body bytes
+                    case OP_TASK_RUN_BEGIN: {
+                        if (scan_ip + 3 < code_size) {
+                            scan_ip += 2; // name_const, bg_flag
+                            int body_len = (code[scan_ip] << 8) | code[scan_ip + 1];
+                            scan_ip += 2; // body_len_hi, body_len_lo
+                            scan_ip += body_len; // skip entire body
+                        } else {
+                            scan_ip = code_size;
+                        }
+                        break;
+                    }
                     // 7-byte opcodes (6 operands)
                     case OP_ALLOC_FILL_REPEAT_I64:
                         scan_ip += 6; break;
@@ -512,10 +710,16 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
 
 #if VG_USE_COMPUTED_GOTO
     // Dispatch table: maps each opcode byte to the address of its handler label.
-    // Initialised once (static + init flag) so the && address-of-label expressions
-    // are only evaluated on the first call.
-    static const void* dispatch_table[256];
-    static bool dispatch_table_init = false;
+    // THREAD-LOCAL: each thread gets its own copy to avoid a data race
+    // during initialisation.  The old `static` table was filled under a plain
+    // bool flag with no memory barrier — a worker thread entering
+    // execute_bytecode() could observe dispatch_table_init==true before the
+    // table entries were committed, dispatching through stale/zero pointers
+    // and causing random stack-underflow / SIGSEGV.
+    // Thread-local is the simplest correct fix (one init per OS thread; cheap
+    // for the handful of WorkerThreadPool threads).
+    static thread_local const void* dispatch_table[256];
+    static thread_local bool dispatch_table_init = false;
     if (!dispatch_table_init) {
         for (int _i = 0; _i < 256; _i++) dispatch_table[_i] = &&vg_op_default;
         dispatch_table[OP_CONSTANT]       = &&vg_op_constant;
@@ -649,6 +853,15 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         dispatch_table[OP_LINE_INPUT]     = &&vg_op_line_input;
         dispatch_table[OP_GOSUB]          = &&vg_op_gosub;
         dispatch_table[OP_RETURN_GOSUB]   = &&vg_op_return_gosub;
+        // Threading (v2.11.0)
+        dispatch_table[OP_LOCK]           = &&vg_op_lock;
+        dispatch_table[OP_UNLOCK]         = &&vg_op_unlock;
+        dispatch_table[OP_PARALLEL_FOR_BEGIN] = &&vg_op_parallel_for_begin;
+        dispatch_table[OP_PARALLEL_FOR_END]   = &&vg_op_parallel_for_end;
+        dispatch_table[OP_TASK_RUN_BEGIN]     = &&vg_op_task_run_begin;
+        dispatch_table[OP_TASK_RUN_END]       = &&vg_op_task_run_end;
+        dispatch_table[OP_TASK_WAIT]          = &&vg_op_task_wait;
+        dispatch_table[OP_AWAIT]              = &&vg_op_await;
         dispatch_table_init = true;
     }
 
@@ -659,7 +872,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
 #define VG_CASE(label, opcode)  label: case opcode
 #define VG_BREAK                                    \
     do {                                            \
-        if (vm.ip >= code_size) goto cleanup;       \
+        if (vm.ip >= effective_code_end) goto cleanup; \
         last_opcode_offset = vm.ip;                 \
         op = code[vm.ip++];                         \
         current_opcode = op;                        \
@@ -671,7 +884,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
 #define VG_BREAK  break
 #endif // VG_USE_COMPUTED_GOTO
 
-    while (vm.ip < code_size) {
+    while (vm.ip < effective_code_end) {
         last_opcode_offset = vm.ip;
         uint8_t op = code[vm.ip++];
         current_opcode = op;
@@ -1409,7 +1622,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 uint8_t slot = code[vm.ip++];
                 int64_t delta = to_int(pop_value());
                 int64_t base = to_int(read_local(slot));
-                sync_local(slot, (int64_t)(base + delta));
+                int64_t result = base + delta;
+                sync_local(slot, (int64_t)result);
                 break;
             }
             VG_CASE(vg_op_sub_local_i64_stack, OP_SUB_LOCAL_I64_STACK): {
@@ -3007,6 +3221,14 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 if (vm.ip + 1 >= code_size) { success = false; goto cleanup; }
                 uint8_t line_lo = code[vm.ip++];
                 uint8_t line_hi = code[vm.ip++];
+
+                // Parallel workers: skip ALL debug/debugger logic.
+                // The debug stack, EngineDebugger, debug_state, and
+                // VisualGasicLanguage singletons are NOT thread-safe.
+                if (is_parallel_worker) {
+                    break;
+                }
+
                 int line_number = (line_hi << 8) | line_lo;
                 
                 // Update debug state
@@ -3627,6 +3849,275 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 VG_BREAK;
             }
 
+            // Threading (v2.11.0)
+            VG_CASE(vg_op_lock, OP_LOCK): {
+                instance_mutex_.lock();
+                VG_BREAK;
+            }
+            VG_CASE(vg_op_unlock, OP_UNLOCK): {
+                instance_mutex_.unlock();
+                VG_BREAK;
+            }
+
+            // Bytecode Parallel For (v2.11.0 Phase 4)
+            VG_CASE(vg_op_parallel_for_begin, OP_PARALLEL_FOR_BEGIN): {
+                // Layout: OP_PARALLEL_FOR_BEGIN [var_slot] [body_len_hi] [body_len_lo]
+                // Stack (TOS first): step, end, start
+                if (vm.ip + 2 >= code_size) { success = false; goto cleanup; }
+                int var_slot = code[vm.ip++];
+                int body_len = (code[vm.ip] << 8) | code[vm.ip + 1];
+                vm.ip += 2;
+
+                Variant v_step  = pop_value();
+                Variant v_end   = pop_value();
+                Variant v_start = pop_value();
+
+                int64_t start_val = to_int(v_start);
+                int64_t end_val   = to_int(v_end);
+                int64_t step_val  = to_int(v_step);
+                if (step_val == 0) step_val = 1;
+
+                int body_start_ip = vm.ip;
+                int body_end_ip   = vm.ip + body_len;
+
+                // Build iteration indices.
+                std::vector<int64_t> indices;
+                for (int64_t i = start_val;
+                     (step_val > 0 ? i <= end_val : i >= end_val);
+                     i += step_val) {
+                    indices.push_back(i);
+                }
+                int iter_count = (int)indices.size();
+
+                if (iter_count <= 0) {
+                    // No iterations — skip body.
+                    vm.ip = body_end_ip;
+                    VG_BREAK;
+                }
+
+                // Before dispatching body iterations, flush current locals
+                // to variables[] so that the body (which uses var_sync) can
+                // see the parent scope.
+                for (int li = 0; li < locals.size() && li < chunk->local_names.size(); li++) {
+                    const String &lname = chunk->local_names[li];
+                    if (!lname.is_empty()) {
+                        variables[lname] = locals[li];
+                    }
+                }
+
+                // --- Serial fallback for small loops (thread overhead > benefit) ---
+                if (iter_count <= 32) {
+                    bool saved_vs = needs_var_sync;
+                    needs_var_sync = true;
+                    for (int idx = 0; idx < iter_count; idx++) {
+                        if (var_slot >= 0 && var_slot < chunk->local_names.size()) {
+                            String vn = chunk->local_names[var_slot];
+                            if (!vn.is_empty()) {
+                                variables[vn] = Variant(indices[idx]);
+                            }
+                        }
+                        Variant body_ret;
+                        execute_bytecode(chunk, func, body_ret,
+                                         body_start_ip, body_end_ip,
+                                         nullptr);
+                    }
+                    needs_var_sync = saved_vs;
+
+                    // Refresh parent locals from variables[] so subsequent
+                    // OP_GET_LOCAL picks up body changes (e.g. total).
+                    for (int li = 0; li < locals.size() && li < chunk->local_names.size(); li++) {
+                        const String &lname = chunk->local_names[li];
+                        if (!lname.is_empty() && variables.has(lname)) {
+                            locals.write[li] = variables[lname];
+                        }
+                    }
+                    vm.ip = body_end_ip;
+                    VG_BREAK;
+                }
+
+                // --- Parallel execution via WorkerThreadPool ---
+                {
+                    // Force locked (serialised) path for ALL parallel workers.
+                    // The lock-free path (per-worker isolated locals) requires
+                    // a truly thread-safe execution environment, but
+                    // execute_bytecode() accesses shared instance state (debug
+                    // stack, debug_state, vgdict_pool, EngineDebugger, etc.)
+                    // that is NOT thread-safe.  Until a lightweight worker-only
+                    // interpreter is implemented, serialise through the mutex
+                    // to guarantee correctness.
+                    //
+                    // Performance is still improved over the original because:
+                    //  - No per-iteration deep Dictionary clone
+                    //  - Thread-local VM state avoids stack conflicts
+                    //  - Serial threshold (≤32) avoids pool overhead for small loops
+                    bool body_has_lock = true;
+
+                    PForBytecodeData pf_data;
+                    pf_data.instance      = this;
+                    pf_data.chunk         = chunk;
+                    pf_data.func          = func;
+                    pf_data.body_start_ip = body_start_ip;
+                    pf_data.body_end_ip   = body_end_ip;
+                    pf_data.var_slot      = var_slot;
+                    pf_data.needs_lock    = body_has_lock;
+                    pf_data.indices.assign(indices.begin(), indices.end());
+                    pf_data.parent_locals = locals;  // snapshot for lock-free workers
+
+                    WorkerThreadPool* pool = WorkerThreadPool::get_singleton();
+                    int64_t group_id = pool->add_native_group_task(
+                        &VisualGasicInstance::_pfor_bytecode_worker,
+                        &pf_data,
+                        iter_count,
+                        -1,    // tasks_needed = auto
+                        false  // not high priority
+                    );
+                    pool->wait_for_group_task_completion(group_id);
+                }
+
+                // Refresh parent locals from variables[] after parallel body.
+                for (int li = 0; li < locals.size() && li < chunk->local_names.size(); li++) {
+                    const String &lname = chunk->local_names[li];
+                    if (!lname.is_empty() && variables.has(lname)) {
+                        locals.write[li] = variables[lname];
+                    }
+                }
+
+                vm.ip = body_end_ip;
+                VG_BREAK;
+            }
+
+            VG_CASE(vg_op_parallel_for_end, OP_PARALLEL_FOR_END): {
+                // Workers reach this opcode at the end of the parallel body.
+                // The main thread should never execute it (it skips past via
+                // vm.ip = body_end_ip above).  Treat as clean exit for safety.
+                success = true;
+                goto cleanup;
+            }
+
+            // Task.Run bytecode (v2.11.0 Phase 5)
+            VG_CASE(vg_op_task_run_begin, OP_TASK_RUN_BEGIN): {
+                // Layout: OP_TASK_RUN_BEGIN [name_const] [bg_flag] [body_len_hi] [body_len_lo]
+                if (vm.ip + 3 >= code_size) { success = false; goto cleanup; }
+                uint8_t name_idx = code[vm.ip++];
+                uint8_t bg_flag  = code[vm.ip++];
+                int body_len = (code[vm.ip] << 8) | code[vm.ip + 1];
+                vm.ip += 2;
+
+                String task_name = (name_idx < chunk->constants.size())
+                    ? String(chunk->constants[name_idx])
+                    : String("Task_") + String::num_int64(active_tasks.size());
+                bool is_background = (bg_flag != 0);
+
+                int body_start_ip = vm.ip;
+                int body_end_ip   = vm.ip + body_len;
+
+                // Flush locals to variables[] so the worker body can see them.
+                for (int li = 0; li < locals.size() && li < chunk->local_names.size(); li++) {
+                    const String &lname = chunk->local_names[li];
+                    if (!lname.is_empty()) {
+                        variables[lname] = locals[li];
+                    }
+                }
+
+                // Allocate worker data (freed after wait/completion).
+                TaskRunBCData* data = new TaskRunBCData();
+                data->instance      = this;
+                data->chunk         = chunk;
+                data->func          = func;
+                data->body_start_ip = body_start_ip;
+                data->body_end_ip   = body_end_ip;
+                data->task_name     = task_name;
+                data->task_idx      = active_tasks.size();
+
+                TaskInfo task_info;
+                task_info.task_name = task_name;
+                task_info.is_background = is_background;
+                task_info.is_completed = false;
+
+                WorkerThreadPool* pool = WorkerThreadPool::get_singleton();
+                int64_t pool_task_id = pool->add_native_task(
+                    &VisualGasicInstance::_task_run_bc_worker, data);
+                task_info.task_id = pool_task_id;
+                active_tasks.push_back(task_info);
+
+                // In the bytecode path ALL tasks wait immediately because
+                // VMState (vm.ip, vm.stack) is per-instance, not per-thread.
+                // A background worker calling execute_bytecode would race
+                // with the main thread's VM state.  True background execution
+                // will be available when VMState is made per-call (future).
+                pool->wait_for_task_completion(pool_task_id);
+                active_tasks.write[data->task_idx].is_completed = true;
+                // Refresh locals from variables[] after task completes.
+                for (int li = 0; li < locals.size() && li < chunk->local_names.size(); li++) {
+                    const String &lname = chunk->local_names[li];
+                    if (!lname.is_empty() && variables.has(lname)) {
+                        locals.write[li] = variables[lname];
+                    }
+                }
+                delete data;
+
+                vm.ip = body_end_ip;
+                VG_BREAK;
+            }
+
+            VG_CASE(vg_op_task_run_end, OP_TASK_RUN_END): {
+                // Workers reach this at the end of a task body.
+                success = true;
+                goto cleanup;
+            }
+
+            VG_CASE(vg_op_task_wait, OP_TASK_WAIT): {
+                // Layout: OP_TASK_WAIT [wait_all_flag]
+                if (vm.ip >= code_size) { success = false; goto cleanup; }
+                uint8_t wait_all_flag = code[vm.ip++];
+
+                WorkerThreadPool* pool = WorkerThreadPool::get_singleton();
+
+                if (wait_all_flag) {
+                    // Wait for ALL active tasks.
+                    for (int ti = 0; ti < active_tasks.size(); ti++) {
+                        if (!active_tasks[ti].is_completed && active_tasks[ti].task_id >= 0) {
+                            pool->wait_for_task_completion(active_tasks[ti].task_id);
+                            active_tasks.write[ti].is_completed = true;
+                        }
+                    }
+                } else {
+                    // Wait for ANY active task.
+                    bool found = false;
+                    while (!found) {
+                        for (int ti = 0; ti < active_tasks.size(); ti++) {
+                            if (!active_tasks[ti].is_completed && active_tasks[ti].task_id >= 0) {
+                                if (pool->is_task_completed(active_tasks[ti].task_id)) {
+                                    active_tasks.write[ti].is_completed = true;
+                                    found = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if (!found) {
+                            OS::get_singleton()->delay_usec(100);
+                        }
+                    }
+                }
+
+                // Refresh locals from variables[] after wait.
+                for (int li = 0; li < locals.size() && li < chunk->local_names.size(); li++) {
+                    const String &lname = chunk->local_names[li];
+                    if (!lname.is_empty() && variables.has(lname)) {
+                        locals.write[li] = variables[lname];
+                    }
+                }
+                VG_BREAK;
+            }
+
+            // Await (v2.11.0 Phase 5) — placeholder for future coroutine dispatch.
+            VG_CASE(vg_op_await, OP_AWAIT): {
+                // Currently a no-op: the awaited expression was already evaluated
+                // synchronously.  This opcode establishes the infrastructure for
+                // future async dispatch (e.g. OP_ASYNC_CALL → future handle).
+                VG_BREAK;
+            }
+
             vg_op_default: default:
                 UtilityFunctions::printerr("VisualGasic: unsupported opcode ", (int)op);
                 success = false;
@@ -3660,7 +4151,10 @@ cleanup:
     // re-execute the function from scratch, so we must leave variables[]
     // untouched.  This eliminates the need for variables.duplicate(true)
     // in call_internal() — the single biggest performance bottleneck.
-    if (success && !needs_var_sync) {
+    // NOTE: Skip the flush for parallel workers (p_initial_locals != nullptr)
+    // because worker locals are private; shared state goes through
+    // OP_GET_GLOBAL / OP_SET_GLOBAL protected by Lock/Unlock.
+    if (success && !needs_var_sync && !p_initial_locals) {
         for (int i = 0; i < locals.size() && i < chunk->local_names.size(); i++) {
             const String &name = chunk->local_names[i];
             if (!name.is_empty()) {
@@ -3673,7 +4167,8 @@ cleanup:
     // to variables[].  Without this, the AST fallback would re-execute the
     // entire function, causing globals to be double-mutated (e.g. wave += 1
     // runs in bytecode, then again in AST → wave += 2).
-    if (!success && saved_globals.size() > 0) {
+    // Skip for parallel workers — they don't own global rollback.
+    if (!success && !p_initial_locals && saved_globals.size() > 0) {
         Array gkeys = saved_globals.keys();
         for (int i = 0; i < gkeys.size(); i++) {
             variables[gkeys[i]] = saved_globals[gkeys[i]];
@@ -3698,8 +4193,10 @@ cleanup:
     finalize_stack_profile();
     finalize_profile();
     
-    // Pop debug stack frame
-    VisualGasicLanguage::pop_stack_frame();
+    // Pop debug stack frame (must match push above; skipped for parallel workers and sub-range bodies)
+    if (!is_parallel_worker && !is_sub_range) {
+        VisualGasicLanguage::pop_stack_frame();
+    }
     
     if (!success) {
         r_ret = Variant();

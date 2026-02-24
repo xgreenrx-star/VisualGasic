@@ -1,0 +1,8 @@
+Option Explicit
+
+Sub Main()
+	Parallel For i As Integer = 1 To 50
+		' empty body - just iterates
+	Next
+	Print "done"
+End Sub

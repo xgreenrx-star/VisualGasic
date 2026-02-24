@@ -8,17 +8,12 @@ func _run():
 	print("\n=== Running Godot Integration Tests ===\n")
 	
 	# Load the test script
-	var script_path = "res://../tests/test_godot_integration.vg"
 	var local_path = "res://test_godot_integration.vg"
 	
 	# Try to find the script
 	var script: Script = null
-	if FileAccess.file_exists(script_path):
-		script = load(script_path)
-	elif FileAccess.file_exists(local_path):
+	if FileAccess.file_exists(local_path):
 		script = load(local_path)
-	elif FileAccess.file_exists("../tests/test_godot_integration.vg"):
-		script = load("../tests/test_godot_integration.vg")
 	
 	if not script:
 		# Copy test file to demo directory

@@ -58,6 +58,8 @@ enum StatementType {
     STMT_TASK_WAIT,
     STMT_PARALLEL_FOR,
     STMT_PARALLEL_SECTION,
+    STMT_LOCK,             // Lock (acquire instance mutex)
+    STMT_UNLOCK,           // Unlock (release instance mutex)
     STMT_PATTERN_MATCH,
     STMT_DECLARE,  // FFI/DLL declarations
     STMT_WRITE,    // Write # statement
@@ -837,6 +839,17 @@ struct ParallelSectionStatement : Statement {
     ~ParallelSectionStatement() {
         for(int i=0; i<section_body.size(); i++) if(section_body[i]) delete section_body[i];
     }
+};
+
+// Lock / Unlock Statement — acquires/releases the per-instance mutex.
+// Used inside Parallel For / Parallel Section / Task Run bodies to protect
+// shared variable access.
+struct LockStatement : Statement {
+    LockStatement() : Statement(STMT_LOCK) {}
+};
+
+struct UnlockStatement : Statement {
+    UnlockStatement() : Statement(STMT_UNLOCK) {}
 };
 
 // Task Definition (for runtime tracking)
