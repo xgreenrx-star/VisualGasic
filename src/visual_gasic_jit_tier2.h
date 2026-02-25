@@ -61,6 +61,7 @@ enum class IROp : uint8_t {
     ADD_I64_CONST,   // dest = src1 + imm_i64
     SUB_I64_CONST,   // dest = src1 - imm_i64
     MUL_I64_CONST,   // dest = src1 * imm_i64
+    SHR_I64_CONST,   // dest = src1 >> imm_i64 (arithmetic shift right)
     
     // Float arithmetic
     ADD_F64,         SUB_F64,   MUL_F64,   DIV_F64,
@@ -68,6 +69,13 @@ enum class IROp : uint8_t {
     
     // Integer comparison → bool
     EQ_I64,  NE_I64,  LE_I64,  LT_I64,  GE_I64,  GT_I64,
+    
+    // Float comparison → bool  (uses ucomisd; unsigned condition codes)
+    EQ_F64,  NE_F64,  LE_F64,  LT_F64,  GE_F64,  GT_F64,
+    
+    // Type conversion
+    I64_TO_F64,      // dest(f64) = (double)src1(i64)  — cvtsi2sd
+    F64_TO_I64,      // dest(i64) = (int64_t)src1(f64) — cvttsd2si (truncate)
     
     // Control flow
     JUMP,            // goto label_id
@@ -177,6 +185,11 @@ public:
     void setl(Reg dst);
     void setge(Reg dst);
     void setg(Reg dst);
+    // Unsigned conditions (used after ucomisd for float comparisons)
+    void setb(Reg dst);   // below (CF=1)
+    void setbe(Reg dst);  // below or equal (CF=1 || ZF=1)
+    void seta(Reg dst);   // above (CF=0 && ZF=0)
+    void setae(Reg dst);  // above or equal (CF=0)
     
     // SSE2 double-precision
     void addsd(Reg dst, Reg src);
@@ -185,6 +198,7 @@ public:
     void divsd(Reg dst, Reg src);
     void xorpd(Reg dst, Reg src);
     void movsd_rr(Reg dst, Reg src);
+    void ucomisd(Reg lhs, Reg rhs);  // compare floats → EFLAGS
     
     // Memory [rdi + slot*8]  (locals array passed in rdi)
     void load_local_i64(Reg dst, int slot);
@@ -207,6 +221,8 @@ public:
     
     const std::vector<uint8_t>& code() const { return buf_; }
     size_t code_size() const { return buf_.size(); }
+    size_t label_count() const { return label_pos_.size(); }
+    size_t fixup_count() const { return fixups_.size(); }
 };
 
 // ═══════════════════════════════════════════════════════════════════
@@ -223,6 +239,12 @@ struct CompiledFunc {
     FnPtr  fn        = nullptr;
     std::string name;
     uint64_t exec_count = 0;
+    
+    // Virtual global→local slot mapping: globals are assigned local slots
+    // beyond chunk->local_count so the caller can pre-populate them.
+    // Each pair: (global_name, virtual_slot_index).
+    std::vector<std::pair<std::string, int>> global_slots;
+    int total_slots = 0; // local_count + number of virtual global slots
     
     ~CompiledFunc();
 };
@@ -264,7 +286,8 @@ private:
     HotInfo& get_hotness(const std::string& name);
     
     // Pipeline
-    bool lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& vreg_count);
+    bool lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& vreg_count,
+                        std::vector<std::pair<std::string, int>>& global_slots, int& total_slots);
     bool alloc_regs(const std::vector<IRInst>& ir, int vreg_count, RegAlloc& out);
     CompiledFunc* emit_native(const std::vector<IRInst>& ir, const RegAlloc& alloc,
                               BytecodeChunk* chunk, const std::string& name);

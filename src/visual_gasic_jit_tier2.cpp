@@ -6,6 +6,7 @@
 #include <cstring>
 #include <cstdlib>
 #include <algorithm>
+#include <unordered_set>
 
 using namespace godot;
 
@@ -47,9 +48,13 @@ void CodeBuf::bind_label(int id) {
 
 bool CodeBuf::resolve() {
     for (auto& f : fixups_) {
-        if (f.label_id < 0 || f.label_id >= (int)label_pos_.size()) return false;
+        if (f.label_id < 0 || f.label_id >= (int)label_pos_.size()) {
+            return false;
+        }
         int target = label_pos_[f.label_id];
-        if (target < 0) return false;
+        if (target < 0) {
+            return false;
+        }
         // rel32 patch: target - (patch_offset + 4)
         int32_t rel = (int32_t)(target - (int)(f.patch_offset + 4));
         memcpy(&buf_[f.patch_offset], &rel, 4);
@@ -169,28 +174,37 @@ void CodeBuf::test_rr(Reg a, Reg b) {
     modrm(3, lo3(b), lo3(a));
 }
 
-// Conditional set helpers: setCC al, then movzx r64, al
+// Conditional set helpers: setCC r/m8, then movzx r64, r/m8
+// Uses the actual destination register directly when possible to avoid
+// unnecessary moves through RAX.
 static void emit_setcc(CodeBuf& cb, Reg dst, uint8_t cc_byte) {
-    // setCC al
-    cb.rex(false, false, false, false);
-    cb.emit(0x0F); cb.emit(cc_byte);
-    cb.modrm(3, 0, 0);  // al = reg 0
-    // movzx dst, al
-    cb.rex(true, needs_ext(dst), false, false);
-    cb.emit(0x0F); cb.emit(0xB6);
-    cb.modrm(3, lo3(dst), 0);
-    // If dst != rax, move from rax
-    if (dst != Reg::RAX) {
-        cb.mov_rr(dst, Reg::RAX);
+    // setCC requires an 8-bit register (al, cl, dl, bl, sil, dil, r8b..r15b).
+    // We write to the low byte of dst, then zero-extend.
+    uint8_t lo = lo3(dst);
+    bool ext = needs_ext(dst);
+    // REX prefix needed for sil/dil/r8b+ or if dst >= R8
+    if (ext || (uint8_t)dst >= 4) {
+        cb.rex(false, false, false, ext);
     }
+    cb.emit(0x0F); cb.emit(cc_byte);
+    cb.modrm(3, 0, lo);
+    // movzx r64, low byte of dst
+    cb.rex(true, ext, false, ext);
+    cb.emit(0x0F); cb.emit(0xB6);
+    cb.modrm(3, lo, lo);
 }
 
-void CodeBuf::sete(Reg dst)  { Reg save = dst; emit_setcc(*this, Reg::RAX, 0x94); if (save != Reg::RAX) mov_rr(save, Reg::RAX); }
-void CodeBuf::setne(Reg dst) { Reg save = dst; emit_setcc(*this, Reg::RAX, 0x95); if (save != Reg::RAX) mov_rr(save, Reg::RAX); }
-void CodeBuf::setle(Reg dst) { Reg save = dst; emit_setcc(*this, Reg::RAX, 0x9E); if (save != Reg::RAX) mov_rr(save, Reg::RAX); }
-void CodeBuf::setl(Reg dst)  { Reg save = dst; emit_setcc(*this, Reg::RAX, 0x9C); if (save != Reg::RAX) mov_rr(save, Reg::RAX); }
-void CodeBuf::setge(Reg dst) { Reg save = dst; emit_setcc(*this, Reg::RAX, 0x9D); if (save != Reg::RAX) mov_rr(save, Reg::RAX); }
-void CodeBuf::setg(Reg dst)  { Reg save = dst; emit_setcc(*this, Reg::RAX, 0x9F); if (save != Reg::RAX) mov_rr(save, Reg::RAX); }
+void CodeBuf::sete(Reg dst)  { emit_setcc(*this, dst, 0x94); }
+void CodeBuf::setne(Reg dst) { emit_setcc(*this, dst, 0x95); }
+void CodeBuf::setle(Reg dst) { emit_setcc(*this, dst, 0x9E); }
+void CodeBuf::setl(Reg dst)  { emit_setcc(*this, dst, 0x9C); }
+void CodeBuf::setge(Reg dst) { emit_setcc(*this, dst, 0x9D); }
+void CodeBuf::setg(Reg dst)  { emit_setcc(*this, dst, 0x9F); }
+// Unsigned conditions (used after ucomisd for float comparisons)
+void CodeBuf::setb(Reg dst)  { emit_setcc(*this, dst, 0x92); }
+void CodeBuf::setbe(Reg dst) { emit_setcc(*this, dst, 0x96); }
+void CodeBuf::seta(Reg dst)  { emit_setcc(*this, dst, 0x97); }
+void CodeBuf::setae(Reg dst) { emit_setcc(*this, dst, 0x93); }
 
 // ── SSE2 double-precision ──
 
@@ -222,6 +236,14 @@ void CodeBuf::movsd_rr(Reg dst, Reg src) {
     uint8_t s = (uint8_t)src - (uint8_t)Reg::XMM0;
     emit(0xF2); emit(0x0F); emit(0x10);
     modrm(3, d & 7, s & 7);
+}
+
+// ucomisd xmm, xmm — sets EFLAGS for float comparison
+void CodeBuf::ucomisd(Reg lhs, Reg rhs) {
+    uint8_t l = (uint8_t)lhs - (uint8_t)Reg::XMM0;
+    uint8_t r = (uint8_t)rhs - (uint8_t)Reg::XMM0;
+    emit(0x66); emit(0x0F); emit(0x2E);
+    modrm(3, l & 7, r & 7);
 }
 
 // ── Memory: locals array [rdi + slot*8] ──
@@ -363,14 +385,18 @@ void CodeBuf::prologue(int spill_bytes) {
 }
 
 void CodeBuf::epilogue() {
+    // Stack layout: old_rbp [rbp], rbx, r12, r13, r14, r15, [spill...]
+    // We need to skip the spill area first by restoring RSP to just below
+    // the callee-saved registers: lea rsp, [rbp - 40]  (5 regs * 8 = 40)
+    // REX.W LEA RSP, [RBP - 40]  → 48 8D 65 D8
+    emit(0x48); emit(0x8D); emit(0x65); emit((uint8_t)(int8_t)-40);
     // Restore callee-saved (reverse order)
     pop_r(Reg::R15);
     pop_r(Reg::R14);
     pop_r(Reg::R13);
     pop_r(Reg::R12);
     pop_r(Reg::RBX);
-    // mov rsp, rbp; pop rbp; ret
-    mov_rr(Reg::RSP, Reg::RBP);
+    // pop rbp; ret
     pop_r(Reg::RBP);
     emit(0xC3);
 }
@@ -381,16 +407,37 @@ void CodeBuf::epilogue() {
 
 // Helper to read a 16-bit value from bytecode
 static int read_u16(const uint8_t* code, int ip) {
-    return (int)code[ip] | ((int)code[ip+1] << 8);
+    return ((int)code[ip] << 8) | (int)code[ip+1];
 }
 
-bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& vreg_count) {
+bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& vreg_count,
+                           std::vector<std::pair<std::string, int>>& global_slots, int& total_slots) {
     const uint8_t* code = chunk->code.ptr();
     int size = chunk->code.size();
     int next_vreg = 0;
     
     // Simulated value stack → maps to virtual registers
     std::vector<int> vstack;
+    
+    // Track the type of each vreg so generic comparisons use correct type
+    std::vector<IRType> vreg_type_map;
+    auto set_vreg_type = [&](int vreg, IRType t) {
+        if (vreg >= (int)vreg_type_map.size()) vreg_type_map.resize(vreg + 1, IRType::I64);
+        vreg_type_map[vreg] = t;
+    };
+    auto get_vreg_type = [&](int vreg) -> IRType {
+        if (vreg >= 0 && vreg < (int)vreg_type_map.size()) return vreg_type_map[vreg];
+        return IRType::I64;
+    };
+    
+    // Track the type of each local slot so LOAD_LOCAL inherits the correct type
+    // when a local was previously stored from an F64 vreg.
+    std::unordered_map<int, IRType> local_slot_type;
+    
+    // Virtual global→local slot mapping: globals get slots beyond local_count
+    int base_locals = chunk->local_count;
+    int next_global_slot = base_locals;
+    std::unordered_map<int, int> global_const_to_slot; // constant index → virtual slot
     
     // Map bytecode IP → IR label (for jump targets)
     std::unordered_map<int, int> ip_to_label;
@@ -432,9 +479,12 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                         case OP_GET_GLOBAL: case OP_SET_GLOBAL:
                         case OP_CALL_BUILTIN: case OP_NEW_ARRAY: case OP_NEW_ARRAY_I64:
                         case OP_OPEN_FILE: case OP_INC_LOCAL_I64:
+                        case OP_ADD_LOCAL_I64_STACK: case OP_SUB_LOCAL_I64_STACK:
                             advance = 2; break;
                         case OP_CALL: case OP_METHOD_CALL: case OP_GET_ARRAY: case OP_SET_ARRAY:
                         case OP_ADD_I64_CONST: case OP_SUB_I64_CONST: case OP_MUL_I64_CONST:
+                        case OP_ADD_LOCAL_I64_CONST: case OP_SUB_LOCAL_I64_CONST:
+                        case OP_ARITH_SUM:
                         case OP_GET_MEMBER: case OP_SET_MEMBER:
                         case OP_GET_ARRAY_FAST: case OP_SET_ARRAY_FAST:
                         case OP_GET_DICT_FAST: case OP_SET_DICT_FAST:
@@ -498,6 +548,43 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
         kv.second = next_label++;
     }
     
+    // Pre-analysis: identify slots that are ever modified by I64 fused opcodes.
+    // These slots must always use I64 representation to avoid type mismatch across
+    // loop iterations (e.g., init as F64 0.0 but incremented as I64).
+    std::unordered_set<int> i64_pinned_slots;
+    {
+        int ip = 0;
+        while (ip < size) {
+            uint8_t op = code[ip];
+            switch (op) {
+                case OP_INC_LOCAL_I64:
+                    i64_pinned_slots.insert(code[ip + 1]);
+                    ip += 2; break;
+                case OP_ADD_LOCAL_I64_STACK: case OP_SUB_LOCAL_I64_STACK:
+                    i64_pinned_slots.insert(code[ip + 1]);
+                    ip += 2; break;
+                case OP_ADD_LOCAL_I64_CONST: case OP_SUB_LOCAL_I64_CONST:
+                    i64_pinned_slots.insert(code[ip + 1]);
+                    ip += 3; break;
+                case OP_DEBUG_LINE:
+                    ip += 3; break;
+                case OP_JUMP: case OP_JUMP_IF_FALSE: case OP_JUMP_IF_TRUE: case OP_LOOP:
+                    ip += 3; break;
+                case OP_CONSTANT: case OP_GET_GLOBAL: case OP_SET_GLOBAL:
+                case OP_GET_LOCAL: case OP_SET_LOCAL:
+                    ip += 2; break;
+                case OP_CALL:
+                    ip += 3; break;
+                case OP_CALL_BUILTIN:
+                    ip += 3; break;
+                case OP_CONSTANT_LONG: case OP_ACCUM_I64_MULADD_CONST:
+                    ip += 4; break;
+                default:
+                    ip += 1; break;
+            }
+        }
+    }
+    
     // Second pass: generate IR
     int ip = 0;
     while (ip < size) {
@@ -524,6 +611,7 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                         inst.op = IROp::CONST_I64;
                         inst.type = IRType::I64;
                         inst.dest = next_vreg++;
+                        set_vreg_type(inst.dest, IRType::I64);
                         inst.imm_i64 = (int64_t)v;
                         inst.bc_offset = ip;
                         ir.push_back(inst);
@@ -533,6 +621,7 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                         inst.op = IROp::CONST_F64;
                         inst.type = IRType::F64;
                         inst.dest = next_vreg++;
+                        set_vreg_type(inst.dest, IRType::F64);
                         inst.imm_f64 = (double)v;
                         inst.bc_offset = ip;
                         ir.push_back(inst);
@@ -552,6 +641,7 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                 inst.op = IROp::CONST_ZERO;
                 inst.type = IRType::I64;
                 inst.dest = next_vreg++;
+                set_vreg_type(inst.dest, IRType::I64);
                 inst.bc_offset = ip;
                 ir.push_back(inst);
                 vstack.push_back(inst.dest);
@@ -564,6 +654,7 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                 inst.op = IROp::CONST_BOOL;
                 inst.type = IRType::BOOL;
                 inst.dest = next_vreg++;
+                set_vreg_type(inst.dest, IRType::I64);
                 inst.imm_i64 = 1;
                 inst.bc_offset = ip;
                 ir.push_back(inst);
@@ -577,6 +668,7 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                 inst.op = IROp::CONST_BOOL;
                 inst.type = IRType::BOOL;
                 inst.dest = next_vreg++;
+                set_vreg_type(inst.dest, IRType::I64);
                 inst.imm_i64 = 0;
                 inst.bc_offset = ip;
                 ir.push_back(inst);
@@ -587,10 +679,14 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
             
             case OP_GET_LOCAL: {
                 int slot = code[ip + 1];
+                IRType slot_type = IRType::I64;
+                auto stt = local_slot_type.find(slot);
+                if (stt != local_slot_type.end()) slot_type = stt->second;
                 IRInst inst;
                 inst.op = IROp::LOAD_LOCAL;
-                inst.type = IRType::I64; // Treat all locals as i64 for now
+                inst.type = slot_type;
                 inst.dest = next_vreg++;
+                set_vreg_type(inst.dest, slot_type);
                 inst.local_slot = slot;
                 inst.bc_offset = ip;
                 ir.push_back(inst);
@@ -603,6 +699,18 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                 int slot = code[ip + 1];
                 if (vstack.empty()) return false;
                 int val = vstack.back(); vstack.pop_back();
+                // If this slot is pinned to I64 (modified by fused I64 opcodes),
+                // convert F64 values to I64 before storing so the slot stays I64.
+                if (i64_pinned_slots.count(slot) && get_vreg_type(val) == IRType::F64) {
+                    int conv = next_vreg++;
+                    set_vreg_type(conv, IRType::I64);
+                    IRInst cv; cv.op = IROp::F64_TO_I64; cv.type = IRType::I64;
+                    cv.dest = conv; cv.src1 = val; cv.bc_offset = ip;
+                    ir.push_back(cv);
+                    val = conv;
+                }
+                // Track the type of the value being stored
+                local_slot_type[slot] = get_vreg_type(val);
                 IRInst inst;
                 inst.op = IROp::STORE_LOCAL;
                 inst.src1 = val;
@@ -613,10 +721,76 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                 break;
             }
             
+            // ── Globals mapped to virtual local slots ──
+            // Parameters and return values are globals in VisualGasic bytecode.
+            // We assign each unique global a virtual local slot beyond local_count
+            // so the JIT can treat them as regular locals.
+            
+            case OP_GET_GLOBAL: {
+                int name_idx = code[ip + 1];
+                // Resolve or assign virtual slot for this global
+                auto it = global_const_to_slot.find(name_idx);
+                int vslot;
+                if (it != global_const_to_slot.end()) {
+                    vslot = it->second;
+                } else {
+                    vslot = next_global_slot++;
+                    global_const_to_slot[name_idx] = vslot;
+                    // Record the name for the caller
+                    if (name_idx < chunk->constants.size()) {
+                        String gname = chunk->constants[name_idx].stringify();
+                        global_slots.push_back({ std::string(gname.utf8().get_data()), vslot });
+                    }
+                }
+                IRType slot_type = IRType::I64;
+                auto stt = local_slot_type.find(vslot);
+                if (stt != local_slot_type.end()) slot_type = stt->second;
+                IRInst inst;
+                inst.op = IROp::LOAD_LOCAL;
+                inst.type = slot_type;
+                inst.dest = next_vreg++;
+                set_vreg_type(inst.dest, slot_type);
+                inst.local_slot = vslot;
+                inst.bc_offset = ip;
+                ir.push_back(inst);
+                vstack.push_back(inst.dest);
+                ip += 2;
+                break;
+            }
+            
+            case OP_SET_GLOBAL: {
+                int name_idx = code[ip + 1];
+                if (vstack.empty()) return false;
+                int val = vstack.back(); vstack.pop_back();
+                // Resolve or assign virtual slot
+                auto it = global_const_to_slot.find(name_idx);
+                int vslot;
+                if (it != global_const_to_slot.end()) {
+                    vslot = it->second;
+                } else {
+                    vslot = next_global_slot++;
+                    global_const_to_slot[name_idx] = vslot;
+                    if (name_idx < chunk->constants.size()) {
+                        String gname = chunk->constants[name_idx].stringify();
+                        global_slots.push_back({ std::string(gname.utf8().get_data()), vslot });
+                    }
+                }
+                local_slot_type[vslot] = get_vreg_type(val);
+                IRInst inst;
+                inst.op = IROp::STORE_LOCAL;
+                inst.src1 = val;
+                inst.local_slot = vslot;
+                inst.bc_offset = ip;
+                ir.push_back(inst);
+                ip += 2;
+                break;
+            }
+            
             case OP_INC_LOCAL_I64: {
                 int slot = code[ip + 1];
                 // Load, increment, store back
                 int loaded = next_vreg++;
+                set_vreg_type(loaded, IRType::I64);
                 {
                     IRInst ld;
                     ld.op = IROp::LOAD_LOCAL;
@@ -627,6 +801,7 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                     ir.push_back(ld);
                 }
                 int result = next_vreg++;
+                set_vreg_type(result, IRType::I64);
                 {
                     IRInst inc;
                     inc.op = IROp::INC_I64;
@@ -648,6 +823,232 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                 break;
             }
             
+            // ── Fused local-modify opcodes ──
+            // These are the critical opcodes that bench.vg inner loops emit.
+            
+            // OP_ADD_LOCAL_I64_STACK / OP_SUB_LOCAL_I64_STACK:
+            //   [OP] [SLOT] — pop TOS as delta, locals[slot] ±= delta
+            case OP_ADD_LOCAL_I64_STACK: case OP_SUB_LOCAL_I64_STACK: {
+                int slot = code[ip + 1];
+                if (vstack.empty()) return false;
+                int delta = vstack.back(); vstack.pop_back();
+                // Convert F64 delta to I64 if needed (opcode is explicitly I64)
+                if (get_vreg_type(delta) == IRType::F64) {
+                    int conv = next_vreg++;
+                    set_vreg_type(conv, IRType::I64);
+                    IRInst cv; cv.op = IROp::F64_TO_I64; cv.type = IRType::I64;
+                    cv.dest = conv; cv.src1 = delta; cv.bc_offset = ip;
+                    ir.push_back(cv);
+                    delta = conv;
+                }
+                int loaded = next_vreg++;
+                set_vreg_type(loaded, IRType::I64);
+                { IRInst ld; ld.op = IROp::LOAD_LOCAL; ld.type = IRType::I64;
+                  ld.dest = loaded; ld.local_slot = slot; ld.bc_offset = ip;
+                  ir.push_back(ld); }
+                int result = next_vreg++;
+                set_vreg_type(result, IRType::I64);
+                { IRInst ar; ar.type = IRType::I64; ar.dest = result;
+                  ar.src1 = loaded; ar.src2 = delta; ar.bc_offset = ip;
+                  ar.op = (op == OP_ADD_LOCAL_I64_STACK) ? IROp::ADD_I64 : IROp::SUB_I64;
+                  ir.push_back(ar); }
+                { IRInst st; st.op = IROp::STORE_LOCAL; st.src1 = result;
+                  st.local_slot = slot; st.bc_offset = ip;
+                  ir.push_back(st); }
+                ip += 2;
+                break;
+            }
+            
+            // OP_ADD_LOCAL_I64_CONST / OP_SUB_LOCAL_I64_CONST:
+            //   [OP] [SLOT] [CONST_IDX] — locals[slot] ±= constants[idx]
+            case OP_ADD_LOCAL_I64_CONST: case OP_SUB_LOCAL_I64_CONST: {
+                int slot = code[ip + 1];
+                int cidx = code[ip + 2];
+                if (cidx >= chunk->constants.size()) return false;
+                Variant cv = chunk->constants[cidx];
+                if (cv.get_type() != Variant::INT) return false;
+                int64_t cval = (int64_t)cv;
+                int loaded = next_vreg++;
+                set_vreg_type(loaded, IRType::I64);
+                { IRInst ld; ld.op = IROp::LOAD_LOCAL; ld.type = IRType::I64;
+                  ld.dest = loaded; ld.local_slot = slot; ld.bc_offset = ip;
+                  ir.push_back(ld); }
+                int result = next_vreg++;
+                set_vreg_type(result, IRType::I64);
+                { IRInst ar; ar.type = IRType::I64; ar.dest = result;
+                  ar.src1 = loaded; ar.imm_i64 = cval; ar.bc_offset = ip;
+                  ar.op = (op == OP_ADD_LOCAL_I64_CONST) ? IROp::ADD_I64_CONST : IROp::SUB_I64_CONST;
+                  ir.push_back(ar); }
+                { IRInst st; st.op = IROp::STORE_LOCAL; st.src1 = result;
+                  st.local_slot = slot; st.bc_offset = ip;
+                  ir.push_back(st); }
+                ip += 3;
+                break;
+            }
+            
+            // OP_ACCUM_I64_MULADD_CONST:
+            //   [OP] [S_SLOT] [J_SLOT] [K_CONST] — locals[s] += locals[j] * K
+            case OP_ACCUM_I64_MULADD_CONST: {
+                int s_slot = code[ip + 1];
+                int j_slot = code[ip + 2];
+                int k_idx  = code[ip + 3];
+                if (k_idx >= chunk->constants.size()) return false;
+                Variant kv = chunk->constants[k_idx];
+                if (kv.get_type() != Variant::INT) return false;
+                int64_t k_val = (int64_t)kv;
+                // Load s, j
+                int s_loaded = next_vreg++;
+                set_vreg_type(s_loaded, IRType::I64);
+                { IRInst ld; ld.op = IROp::LOAD_LOCAL; ld.type = IRType::I64;
+                  ld.dest = s_loaded; ld.local_slot = s_slot; ld.bc_offset = ip;
+                  ir.push_back(ld); }
+                int j_loaded = next_vreg++;
+                set_vreg_type(j_loaded, IRType::I64);
+                { IRInst ld; ld.op = IROp::LOAD_LOCAL; ld.type = IRType::I64;
+                  ld.dest = j_loaded; ld.local_slot = j_slot; ld.bc_offset = ip;
+                  ir.push_back(ld); }
+                // product = j * K
+                int product = next_vreg++;
+                set_vreg_type(product, IRType::I64);
+                { IRInst m; m.op = IROp::MUL_I64_CONST; m.type = IRType::I64;
+                  m.dest = product; m.src1 = j_loaded; m.imm_i64 = k_val; m.bc_offset = ip;
+                  ir.push_back(m); }
+                // result = s + product
+                int result = next_vreg++;
+                set_vreg_type(result, IRType::I64);
+                { IRInst a; a.op = IROp::ADD_I64; a.type = IRType::I64;
+                  a.dest = result; a.src1 = s_loaded; a.src2 = product; a.bc_offset = ip;
+                  ir.push_back(a); }
+                // Store back
+                { IRInst st; st.op = IROp::STORE_LOCAL; st.src1 = result;
+                  st.local_slot = s_slot; st.bc_offset = ip;
+                  ir.push_back(st); }
+                ip += 4;
+                break;
+            }
+            
+            // OP_ARITH_SUM: closed-form nested loop sum
+            //   [OP] [K_IDX] [C_IDX]
+            //   Stack: pops current_sum (top), outer_to, inner_to
+            //   Computes: result = current_sum + (k * sum_j + c * n_inner) * n_outer
+            //     where sum_j = inner_to * (inner_to + 1) / 2
+            //           n_inner = inner_to + 1, n_outer = outer_to + 1
+            //   (Assumes inner_to >= 0 and outer_to >= 0; guarded with jumps.)
+            case OP_ARITH_SUM: {
+                int k_idx = code[ip + 1];
+                int c_idx = code[ip + 2];
+                if (k_idx >= chunk->constants.size() || c_idx >= chunk->constants.size()) return false;
+                Variant kv = chunk->constants[k_idx];
+                Variant cv = chunk->constants[c_idx];
+                if (kv.get_type() != Variant::INT || cv.get_type() != Variant::INT) return false;
+                int64_t k_val = (int64_t)kv;
+                int64_t c_val = (int64_t)cv;
+                
+                if (vstack.size() < 3) return false;
+                int v_current = vstack.back(); vstack.pop_back();
+                int v_outer   = vstack.back(); vstack.pop_back();
+                int v_inner   = vstack.back(); vstack.pop_back();
+                
+                // Allocate internal labels for conditional skip
+                int lbl_skip = next_label++;
+                int lbl_done = next_label++;
+                
+                // result vreg — starts as current_sum, may be updated
+                int v_result = next_vreg++;
+                set_vreg_type(v_result, IRType::I64);
+                { IRInst mv; mv.op = IROp::MOV; mv.type = IRType::I64;
+                  mv.dest = v_result; mv.src1 = v_current; mv.bc_offset = ip;
+                  ir.push_back(mv); }
+                
+                // Check inner_to >= 0 — compare with CONST_ZERO
+                int v_zero = next_vreg++;
+                set_vreg_type(v_zero, IRType::I64);
+                { IRInst z; z.op = IROp::CONST_ZERO; z.type = IRType::I64;
+                  z.dest = v_zero; z.bc_offset = ip; ir.push_back(z); }
+                int v_cmp1 = next_vreg++;
+                set_vreg_type(v_cmp1, IRType::I64);
+                { IRInst c; c.op = IROp::LT_I64; c.type = IRType::BOOL;
+                  c.dest = v_cmp1; c.src1 = v_inner; c.src2 = v_zero; c.bc_offset = ip;
+                  ir.push_back(c); }
+                { IRInst j; j.op = IROp::JUMP_IF_TRUE; j.src1 = v_cmp1;
+                  j.label_id = lbl_skip; j.bc_offset = ip; ir.push_back(j); }
+                // Check outer_to >= 0
+                int v_cmp2 = next_vreg++;
+                set_vreg_type(v_cmp2, IRType::I64);                { IRInst c; c.op = IROp::LT_I64; c.type = IRType::BOOL;
+                  c.dest = v_cmp2; c.src1 = v_outer; c.src2 = v_zero; c.bc_offset = ip;
+                  ir.push_back(c); }
+                { IRInst j; j.op = IROp::JUMP_IF_TRUE; j.src1 = v_cmp2;
+                  j.label_id = lbl_skip; j.bc_offset = ip; ir.push_back(j); }
+                
+                // n_inner = inner_to + 1
+                int v_n_inner = next_vreg++;
+                set_vreg_type(v_n_inner, IRType::I64);
+                { IRInst i; i.op = IROp::INC_I64; i.type = IRType::I64;
+                  i.dest = v_n_inner; i.src1 = v_inner; i.bc_offset = ip;
+                  ir.push_back(i); }
+                // n_outer = outer_to + 1
+                int v_n_outer = next_vreg++;
+                set_vreg_type(v_n_outer, IRType::I64);
+                { IRInst i; i.op = IROp::INC_I64; i.type = IRType::I64;
+                  i.dest = v_n_outer; i.src1 = v_outer; i.bc_offset = ip;
+                  ir.push_back(i); }
+                
+                // sum_j = inner_to * (inner_to + 1) / 2 = inner_to * n_inner / 2
+                int v_prod_j = next_vreg++;
+                set_vreg_type(v_prod_j, IRType::I64);
+                { IRInst m; m.op = IROp::MUL_I64; m.type = IRType::I64;
+                  m.dest = v_prod_j; m.src1 = v_inner; m.src2 = v_n_inner; m.bc_offset = ip;
+                  ir.push_back(m); }
+                int v_sum_j = next_vreg++;
+                set_vreg_type(v_sum_j, IRType::I64);
+                { IRInst s; s.op = IROp::SHR_I64_CONST; s.type = IRType::I64;
+                  s.dest = v_sum_j; s.src1 = v_prod_j; s.imm_i64 = 1; s.bc_offset = ip;
+                  ir.push_back(s); }
+                
+                // per_inner = k * sum_j + c * n_inner
+                int v_k_sum = next_vreg++;
+                set_vreg_type(v_k_sum, IRType::I64);
+                { IRInst m; m.op = IROp::MUL_I64_CONST; m.type = IRType::I64;
+                  m.dest = v_k_sum; m.src1 = v_sum_j; m.imm_i64 = k_val; m.bc_offset = ip;
+                  ir.push_back(m); }
+                int v_c_n = next_vreg++;
+                set_vreg_type(v_c_n, IRType::I64);
+                { IRInst m; m.op = IROp::MUL_I64_CONST; m.type = IRType::I64;
+                  m.dest = v_c_n; m.src1 = v_n_inner; m.imm_i64 = c_val; m.bc_offset = ip;
+                  ir.push_back(m); }
+                int v_per_inner = next_vreg++;
+                set_vreg_type(v_per_inner, IRType::I64);
+                { IRInst a; a.op = IROp::ADD_I64; a.type = IRType::I64;
+                  a.dest = v_per_inner; a.src1 = v_k_sum; a.src2 = v_c_n; a.bc_offset = ip;
+                  ir.push_back(a); }
+                
+                // total_delta = per_inner * n_outer
+                int v_delta = next_vreg++;
+                set_vreg_type(v_delta, IRType::I64);                { IRInst m; m.op = IROp::MUL_I64; m.type = IRType::I64;
+                  m.dest = v_delta; m.src1 = v_per_inner; m.src2 = v_n_outer; m.bc_offset = ip;
+                  ir.push_back(m); }
+                
+                // result = current_sum + total_delta
+                { IRInst a; a.op = IROp::ADD_I64; a.type = IRType::I64;
+                  a.dest = v_result; a.src1 = v_current; a.src2 = v_delta; a.bc_offset = ip;
+                  ir.push_back(a); }
+                
+                // Jump over skip label to done
+                { IRInst j; j.op = IROp::JUMP; j.label_id = lbl_done; j.bc_offset = ip;
+                  ir.push_back(j); }
+                
+                // skip: result stays as current_sum (already set by MOV above)
+                { IRInst lbl; lbl.op = IROp::LABEL; lbl.label_id = lbl_skip; lbl.bc_offset = ip;
+                  ir.push_back(lbl); }
+                // done:
+                { IRInst lbl; lbl.op = IROp::LABEL; lbl.label_id = lbl_done; lbl.bc_offset = ip;
+                  ir.push_back(lbl); }
+                
+                vstack.push_back(v_result);
+                ip += 3;
+                break;
+            }
+            
             // Integer binary ops
             case OP_ADD_I64: case OP_SUB_I64: case OP_MUL_I64: {
                 if (vstack.size() < 2) return false;
@@ -659,6 +1060,7 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                 else inst.op = IROp::MUL_I64;
                 inst.type = IRType::I64;
                 inst.dest = next_vreg++;
+                set_vreg_type(inst.dest, IRType::I64);
                 inst.src1 = lhs;
                 inst.src2 = rhs;
                 inst.bc_offset = ip;
@@ -682,6 +1084,7 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                 
                 // Actually the encoding is [OP][SLOT][CONST_IDX] — load from slot, apply const, push result
                 int loaded = next_vreg++;
+                set_vreg_type(loaded, IRType::I64);
                 {
                     IRInst ld;
                     ld.op = IROp::LOAD_LOCAL;
@@ -697,6 +1100,7 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                 else arith.op = IROp::MUL_I64_CONST;
                 arith.type = IRType::I64;
                 arith.dest = next_vreg++;
+                set_vreg_type(arith.dest, IRType::I64);
                 arith.src1 = loaded;
                 arith.imm_i64 = cval;
                 arith.bc_offset = ip;
@@ -706,11 +1110,28 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                 break;
             }
             
-            // Float binary ops
+            // Float binary ops — insert I64→F64 conversions if needed
             case OP_ADD_F64: case OP_SUB_F64: case OP_MUL_F64: case OP_DIV_F64: {
                 if (vstack.size() < 2) return false;
                 int rhs = vstack.back(); vstack.pop_back();
                 int lhs = vstack.back(); vstack.pop_back();
+                // Convert I64 operands to F64 if needed
+                if (get_vreg_type(lhs) != IRType::F64) {
+                    int conv = next_vreg++;
+                    set_vreg_type(conv, IRType::F64);
+                    IRInst cv; cv.op = IROp::I64_TO_F64; cv.type = IRType::F64;
+                    cv.dest = conv; cv.src1 = lhs; cv.bc_offset = ip;
+                    ir.push_back(cv);
+                    lhs = conv;
+                }
+                if (get_vreg_type(rhs) != IRType::F64) {
+                    int conv = next_vreg++;
+                    set_vreg_type(conv, IRType::F64);
+                    IRInst cv; cv.op = IROp::I64_TO_F64; cv.type = IRType::F64;
+                    cv.dest = conv; cv.src1 = rhs; cv.bc_offset = ip;
+                    ir.push_back(cv);
+                    rhs = conv;
+                }
                 IRInst inst;
                 if (op == OP_ADD_F64) inst.op = IROp::ADD_F64;
                 else if (op == OP_SUB_F64) inst.op = IROp::SUB_F64;
@@ -718,6 +1139,7 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                 else inst.op = IROp::DIV_F64;
                 inst.type = IRType::F64;
                 inst.dest = next_vreg++;
+                set_vreg_type(inst.dest, IRType::F64);
                 inst.src1 = lhs;
                 inst.src2 = rhs;
                 inst.bc_offset = ip;
@@ -735,6 +1157,7 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                 inst.op = IROp::NEG_I64;
                 inst.type = IRType::I64;
                 inst.dest = next_vreg++;
+                set_vreg_type(inst.dest, IRType::I64);
                 inst.src1 = src;
                 inst.bc_offset = ip;
                 ir.push_back(inst);
@@ -743,7 +1166,129 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                 break;
             }
             
-            // Integer comparisons
+            // Generic arithmetic — type-aware: use F64 ops when either operand is F64.
+            // When one operand is I64 and the other F64, insert I64_TO_F64 conversion.
+            case OP_ADD: case OP_SUBTRACT: case OP_MULTIPLY: {
+                if (vstack.size() < 2) return false;
+                int rhs = vstack.back(); vstack.pop_back();
+                int lhs = vstack.back(); vstack.pop_back();
+                IRType ltype = get_vreg_type(lhs);
+                IRType rtype = get_vreg_type(rhs);
+                bool use_f64 = (ltype == IRType::F64 || rtype == IRType::F64);
+                
+                if (use_f64) {
+                    // Convert I64 operand to F64 if needed
+                    if (ltype != IRType::F64) {
+                        int conv = next_vreg++;
+                        set_vreg_type(conv, IRType::F64);
+                        IRInst cv; cv.op = IROp::I64_TO_F64; cv.type = IRType::F64;
+                        cv.dest = conv; cv.src1 = lhs; cv.bc_offset = ip;
+                        ir.push_back(cv);
+                        lhs = conv;
+                    }
+                    if (rtype != IRType::F64) {
+                        int conv = next_vreg++;
+                        set_vreg_type(conv, IRType::F64);
+                        IRInst cv; cv.op = IROp::I64_TO_F64; cv.type = IRType::F64;
+                        cv.dest = conv; cv.src1 = rhs; cv.bc_offset = ip;
+                        ir.push_back(cv);
+                        rhs = conv;
+                    }
+                    IRInst inst;
+                    if (op == OP_ADD) inst.op = IROp::ADD_F64;
+                    else if (op == OP_SUBTRACT) inst.op = IROp::SUB_F64;
+                    else inst.op = IROp::MUL_F64;
+                    inst.type = IRType::F64;
+                    inst.dest = next_vreg++;
+                    set_vreg_type(inst.dest, IRType::F64);
+                    inst.src1 = lhs;
+                    inst.src2 = rhs;
+                    inst.bc_offset = ip;
+                    ir.push_back(inst);
+                    vstack.push_back(inst.dest);
+                } else {
+                    IRInst inst;
+                    if (op == OP_ADD) inst.op = IROp::ADD_I64;
+                    else if (op == OP_SUBTRACT) inst.op = IROp::SUB_I64;
+                    else inst.op = IROp::MUL_I64;
+                    inst.type = IRType::I64;
+                    inst.dest = next_vreg++;
+                    set_vreg_type(inst.dest, IRType::I64);
+                    inst.src1 = lhs;
+                    inst.src2 = rhs;
+                    inst.bc_offset = ip;
+                    ir.push_back(inst);
+                    vstack.push_back(inst.dest);
+                }
+                ip += 1;
+                break;
+            }
+            
+            // Generic comparisons — type-aware: use F64 comparison when either operand is F64
+            case OP_EQUAL: case OP_NOT_EQUAL: case OP_GREATER: case OP_LESS:
+            case OP_GREATER_EQUAL: case OP_LESS_EQUAL: {
+                if (vstack.size() < 2) return false;
+                int rhs = vstack.back(); vstack.pop_back();
+                int lhs = vstack.back(); vstack.pop_back();
+                IRType ltype = get_vreg_type(lhs);
+                IRType rtype = get_vreg_type(rhs);
+                bool use_f64 = (ltype == IRType::F64 || rtype == IRType::F64);
+                
+                if (use_f64) {
+                    // Convert I64 operand to F64 if needed
+                    if (ltype != IRType::F64) {
+                        int conv = next_vreg++;
+                        set_vreg_type(conv, IRType::F64);
+                        IRInst cv; cv.op = IROp::I64_TO_F64; cv.type = IRType::F64;
+                        cv.dest = conv; cv.src1 = lhs; cv.bc_offset = ip;
+                        ir.push_back(cv);
+                        lhs = conv;
+                    }
+                    if (rtype != IRType::F64) {
+                        int conv = next_vreg++;
+                        set_vreg_type(conv, IRType::F64);
+                        IRInst cv; cv.op = IROp::I64_TO_F64; cv.type = IRType::F64;
+                        cv.dest = conv; cv.src1 = rhs; cv.bc_offset = ip;
+                        ir.push_back(cv);
+                        rhs = conv;
+                    }
+                    IRInst inst;
+                    if (op == OP_EQUAL) inst.op = IROp::EQ_F64;
+                    else if (op == OP_NOT_EQUAL) inst.op = IROp::NE_F64;
+                    else if (op == OP_GREATER) inst.op = IROp::GT_F64;
+                    else if (op == OP_LESS) inst.op = IROp::LT_F64;
+                    else if (op == OP_GREATER_EQUAL) inst.op = IROp::GE_F64;
+                    else inst.op = IROp::LE_F64;
+                    inst.type = IRType::BOOL;
+                    inst.dest = next_vreg++;
+                    set_vreg_type(inst.dest, IRType::I64); // comparison result is boolean/int
+                    inst.src1 = lhs;
+                    inst.src2 = rhs;
+                    inst.bc_offset = ip;
+                    ir.push_back(inst);
+                    vstack.push_back(inst.dest);
+                } else {
+                    IRInst inst;
+                    if (op == OP_EQUAL) inst.op = IROp::EQ_I64;
+                    else if (op == OP_NOT_EQUAL) inst.op = IROp::NE_I64;
+                    else if (op == OP_GREATER) inst.op = IROp::GT_I64;
+                    else if (op == OP_LESS) inst.op = IROp::LT_I64;
+                    else if (op == OP_GREATER_EQUAL) inst.op = IROp::GE_I64;
+                    else inst.op = IROp::LE_I64;
+                    inst.type = IRType::BOOL;
+                    inst.dest = next_vreg++;
+                    set_vreg_type(inst.dest, IRType::I64);
+                    inst.src1 = lhs;
+                    inst.src2 = rhs;
+                    inst.bc_offset = ip;
+                    ir.push_back(inst);
+                    vstack.push_back(inst.dest);
+                }
+                ip += 1;
+                break;
+            }
+            
+            // Integer comparisons (typed)
             case OP_EQUAL_I64: case OP_NOT_EQUAL_I64: case OP_LESS_EQUAL_I64: {
                 if (vstack.size() < 2) return false;
                 int rhs = vstack.back(); vstack.pop_back();
@@ -754,6 +1299,7 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                 else inst.op = IROp::LE_I64;
                 inst.type = IRType::BOOL;
                 inst.dest = next_vreg++;
+                set_vreg_type(inst.dest, IRType::I64);
                 inst.src1 = lhs;
                 inst.src2 = rhs;
                 inst.bc_offset = ip;
@@ -840,6 +1386,7 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                 if (vstack.empty()) return false;
                 int top = vstack.back();
                 int dup = next_vreg++;
+                set_vreg_type(dup, get_vreg_type(top)); // inherit type from source
                 IRInst inst;
                 inst.op = IROp::MOV;
                 inst.type = IRType::I64;
@@ -886,6 +1433,7 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
     }
     
     vreg_count = next_vreg;
+    total_slots = next_global_slot; // local_count + virtual global count
     return true;
 }
 
@@ -1127,9 +1675,18 @@ CompiledFunc* Tier2::emit_native(const std::vector<IRInst>& ir, const RegAlloc& 
             
             case IROp::LOAD_LOCAL: {
                 Reg dst = alloc.reg_for(inst.dest);
-                if (dst == Reg::SPILL) {
-                    cb.load_local_i64(Reg::RAX, inst.local_slot);
-                    cb.store_spill(alloc.spill_for(inst.dest), Reg::RAX);
+                if (dst >= Reg::XMM0 && dst <= Reg::XMM7) {
+                    // F64 local → load into XMM register
+                    cb.load_local_f64(dst, inst.local_slot);
+                } else if (dst == Reg::SPILL) {
+                    // Check if this is an F64 type that got spilled
+                    if (inst.type == IRType::F64) {
+                        cb.load_local_i64(Reg::RAX, inst.local_slot);
+                        cb.store_spill(alloc.spill_for(inst.dest), Reg::RAX);
+                    } else {
+                        cb.load_local_i64(Reg::RAX, inst.local_slot);
+                        cb.store_spill(alloc.spill_for(inst.dest), Reg::RAX);
+                    }
                 } else if (dst != Reg::NONE) {
                     cb.load_local_i64(dst, inst.local_slot);
                 }
@@ -1137,90 +1694,257 @@ CompiledFunc* Tier2::emit_native(const std::vector<IRInst>& ir, const RegAlloc& 
             }
             
             case IROp::STORE_LOCAL: {
-                Reg src = get_or_load(cb, alloc, inst.src1, Reg::RAX);
-                cb.store_local_i64(inst.local_slot, src);
+                Reg src = alloc.reg_for(inst.src1);
+                if (src >= Reg::XMM0 && src <= Reg::XMM7) {
+                    // F64 value in XMM → store directly
+                    cb.store_local_f64(inst.local_slot, src);
+                } else {
+                    Reg r = get_or_load(cb, alloc, inst.src1, Reg::RAX);
+                    cb.store_local_i64(inst.local_slot, r);
+                }
                 break;
             }
             
             case IROp::ADD_I64: case IROp::SUB_I64: case IROp::MUL_I64: {
-                Reg lhs = get_or_load(cb, alloc, inst.src1, Reg::RAX);
-                Reg rhs = get_or_load(cb, alloc, inst.src2, Reg::RCX);
-                // Result in RAX
-                if (lhs != Reg::RAX) cb.mov_rr(Reg::RAX, lhs);
-                if (inst.op == IROp::ADD_I64) cb.add_rr(Reg::RAX, rhs);
-                else if (inst.op == IROp::SUB_I64) cb.sub_rr(Reg::RAX, rhs);
-                else cb.imul_rr(Reg::RAX, rhs);
-                store_result(cb, alloc, inst.dest, Reg::RAX);
+                Reg dst = alloc.reg_for(inst.dest);
+                Reg work = (dst != Reg::SPILL && dst != Reg::NONE) ? dst : Reg::RAX;
+                Reg lhs = get_or_load(cb, alloc, inst.src1, work);
+                // Use RCX as scratch for RHS, but avoid clobbering lhs
+                Reg rhs_scratch = (lhs == Reg::RCX) ? Reg::RDX : Reg::RCX;
+                Reg rhs = get_or_load(cb, alloc, inst.src2, rhs_scratch);
+                if (lhs != work) cb.mov_rr(work, lhs);
+                if (inst.op == IROp::ADD_I64) cb.add_rr(work, rhs);
+                else if (inst.op == IROp::SUB_I64) cb.sub_rr(work, rhs);
+                else cb.imul_rr(work, rhs);
+                store_result(cb, alloc, inst.dest, work);
                 break;
             }
             
             case IROp::ADD_I64_CONST: case IROp::SUB_I64_CONST: case IROp::MUL_I64_CONST: {
-                Reg src = get_or_load(cb, alloc, inst.src1, Reg::RAX);
-                if (src != Reg::RAX) cb.mov_rr(Reg::RAX, src);
-                cb.mov_ri64(Reg::RCX, inst.imm_i64);
-                if (inst.op == IROp::ADD_I64_CONST) cb.add_rr(Reg::RAX, Reg::RCX);
-                else if (inst.op == IROp::SUB_I64_CONST) cb.sub_rr(Reg::RAX, Reg::RCX);
-                else cb.imul_rr(Reg::RAX, Reg::RCX);
-                store_result(cb, alloc, inst.dest, Reg::RAX);
+                Reg dst = alloc.reg_for(inst.dest);
+                Reg work = (dst != Reg::SPILL && dst != Reg::NONE) ? dst : Reg::RAX;
+                Reg src = get_or_load(cb, alloc, inst.src1, work);
+                if (src != work) cb.mov_rr(work, src);
+                // Load immediate into a scratch that won't collide with work
+                Reg imm_reg = (work == Reg::RCX) ? Reg::RDX : Reg::RCX;
+                cb.mov_ri64(imm_reg, inst.imm_i64);
+                if (inst.op == IROp::ADD_I64_CONST) cb.add_rr(work, imm_reg);
+                else if (inst.op == IROp::SUB_I64_CONST) cb.sub_rr(work, imm_reg);
+                else cb.imul_rr(work, imm_reg);
+                store_result(cb, alloc, inst.dest, work);
                 break;
             }
             
             case IROp::NEG_I64: {
-                Reg src = get_or_load(cb, alloc, inst.src1, Reg::RAX);
-                if (src != Reg::RAX) cb.mov_rr(Reg::RAX, src);
-                cb.neg_r(Reg::RAX);
-                store_result(cb, alloc, inst.dest, Reg::RAX);
+                Reg dst = alloc.reg_for(inst.dest);
+                Reg work = (dst != Reg::SPILL && dst != Reg::NONE) ? dst : Reg::RAX;
+                Reg src = get_or_load(cb, alloc, inst.src1, work);
+                if (src != work) cb.mov_rr(work, src);
+                cb.neg_r(work);
+                store_result(cb, alloc, inst.dest, work);
                 break;
             }
             
             case IROp::INC_I64: {
-                Reg src = get_or_load(cb, alloc, inst.src1, Reg::RAX);
-                if (src != Reg::RAX) cb.mov_rr(Reg::RAX, src);
-                cb.inc_r(Reg::RAX);
-                store_result(cb, alloc, inst.dest, Reg::RAX);
+                Reg dst = alloc.reg_for(inst.dest);
+                Reg work = (dst != Reg::SPILL && dst != Reg::NONE) ? dst : Reg::RAX;
+                Reg src = get_or_load(cb, alloc, inst.src1, work);
+                if (src != work) cb.mov_rr(work, src);
+                cb.inc_r(work);
+                store_result(cb, alloc, inst.dest, work);
+                break;
+            }
+            
+            case IROp::SHR_I64_CONST: {
+                // Arithmetic shift right by imm_i64 (SAR reg, imm8)
+                Reg dst = alloc.reg_for(inst.dest);
+                Reg work = (dst != Reg::SPILL && dst != Reg::NONE) ? dst : Reg::RAX;
+                Reg src = get_or_load(cb, alloc, inst.src1, work);
+                if (src != work) cb.mov_rr(work, src);
+                // REX.W + C1 /7 ib  → SAR r64, imm8
+                cb.rex(true, false, false, ((int)work >= 8));
+                cb.emit(0xC1);
+                cb.modrm(3, 7, (int)work & 7);
+                cb.emit((uint8_t)(inst.imm_i64 & 0x3F));
+                store_result(cb, alloc, inst.dest, work);
                 break;
             }
             
             case IROp::ADD_F64: case IROp::SUB_F64: case IROp::MUL_F64: case IROp::DIV_F64: {
-                // For simplicity, use XMM0 and XMM1 as scratch
+                // Use allocated XMM registers directly to avoid clobber.
+                // Strategy: get lhs into xmm_a, rhs into xmm_b, then
+                // op xmm_a, xmm_b (destructive: xmm_a = xmm_a op xmm_b).
+                // Finally move result to dest.
+                
                 Reg lhs = alloc.reg_for(inst.src1);
                 Reg rhs = alloc.reg_for(inst.src2);
+                Reg dst = alloc.reg_for(inst.dest);
                 
-                // Load into xmm0 and xmm1 if not already there
-                if (lhs >= Reg::XMM0 && lhs <= Reg::XMM7) {
-                    if (lhs != Reg::XMM0) cb.movsd_rr(Reg::XMM0, lhs);
+                // Helper lambda: load a vreg into an XMM register.
+                // If already in an XMM, return it. Otherwise load via GP→movq.
+                auto load_xmm = [&](int vreg, Reg allocated, Reg gp_scratch, Reg xmm_scratch) -> Reg {
+                    if (allocated >= Reg::XMM0 && allocated <= Reg::XMM7) return allocated;
+                    // Spilled or in GP — load into xmm_scratch via movq
+                    Reg gp = get_or_load(cb, alloc, vreg, gp_scratch);
+                    if (gp != gp_scratch) cb.mov_rr(gp_scratch, gp);
+                    // movq xmm_scratch, gp_scratch
+                    uint8_t xlo = lo3(xmm_scratch);
+                    bool xext = needs_ext(xmm_scratch);
+                    bool gpext = ((int)gp_scratch >= 8);
+                    cb.emit(0x66); cb.rex(true, xext, false, gpext);
+                    cb.emit(0x0F); cb.emit(0x6E);
+                    cb.modrm(3, xlo, (int)gp_scratch & 7);
+                    return xmm_scratch;
+                };
+                
+                // Pick scratch XMM registers that don't conflict with allocated regs
+                Reg xmm_a = load_xmm(inst.src1, lhs, Reg::RAX, Reg::XMM0);
+                // For rhs scratch, pick XMM1 unless xmm_a already is XMM1
+                Reg rhs_xmm_scratch = (xmm_a == Reg::XMM1) ? Reg::XMM2 : Reg::XMM1;
+                Reg xmm_b = load_xmm(inst.src2, rhs, Reg::RCX, rhs_xmm_scratch);
+                
+                // The SSE op is destructive: xmm_a = xmm_a op xmm_b.
+                // If xmm_a is the same as a live src register we don't want to
+                // destroy, we need to copy first. But since xmm_a IS src1's reg
+                // and the register allocator treats it as consumed, it's fine.
+                // However, if dst is a different XMM from xmm_a, copy lhs there first.
+                Reg work = xmm_a;
+                if (dst >= Reg::XMM0 && dst <= Reg::XMM7 && dst != xmm_a && dst != xmm_b) {
+                    cb.movsd_rr(dst, xmm_a);
+                    work = dst;
+                }
+                
+                if (inst.op == IROp::ADD_F64) cb.addsd(work, xmm_b);
+                else if (inst.op == IROp::SUB_F64) cb.subsd(work, xmm_b);
+                else if (inst.op == IROp::MUL_F64) cb.mulsd(work, xmm_b);
+                else cb.divsd(work, xmm_b);
+                
+                // Store result
+                if (dst >= Reg::XMM0 && dst <= Reg::XMM7) {
+                    if (dst != work) cb.movsd_rr(dst, work);
+                } else if (dst == Reg::SPILL) {
+                    // movq rax, work_xmm then store
+                    uint8_t wlo = lo3(work);
+                    bool wext = needs_ext(work);
+                    cb.emit(0x66); cb.rex(true, false, false, wext);
+                    cb.emit(0x0F); cb.emit(0x7E);
+                    cb.modrm(3, wlo, 0); // movq rax, work
+                    cb.store_spill(alloc.spill_for(inst.dest), Reg::RAX);
+                }
+                break;
+            }
+            
+            // ── I64 → F64 conversion (cvtsi2sd) ──
+            case IROp::I64_TO_F64: {
+                // Load integer into a GP register
+                Reg src = get_or_load(cb, alloc, inst.src1, Reg::RAX);
+                if (src != Reg::RAX) cb.mov_rr(Reg::RAX, src);
+                
+                // Determine target XMM register
+                Reg dst = alloc.reg_for(inst.dest);
+                Reg xmm_target = Reg::XMM0;
+                if (dst >= Reg::XMM0 && dst <= Reg::XMM7) {
+                    xmm_target = dst;
+                }
+                
+                // cvtsi2sd xmm_target, rax — F2 REX.W 0F 2A /r
+                uint8_t xmm_lo = lo3(xmm_target);
+                bool xmm_ext = needs_ext(xmm_target);
+                cb.emit(0xF2);
+                cb.rex(true, xmm_ext, false, false);
+                cb.emit(0x0F); cb.emit(0x2A);
+                cb.modrm(3, xmm_lo, 0); // modrm(3, xmm_reg, rax=0)
+                
+                if (dst == Reg::SPILL) {
+                    // movq rax, xmm_target → store spill
+                    cb.emit(0x66);
+                    cb.rex(true, false, false, xmm_ext);
+                    cb.emit(0x0F); cb.emit(0x7E);
+                    cb.modrm(3, xmm_lo, 0); // movq rax, xmm_target
+                    cb.store_spill(alloc.spill_for(inst.dest), Reg::RAX);
+                }
+                break;
+            }
+            
+            case IROp::F64_TO_I64: {
+                // Get F64 source into an XMM register (prefer the one it's already in)
+                Reg src = alloc.reg_for(inst.src1);
+                Reg xmm_src = Reg::XMM0;
+                if (src >= Reg::XMM0 && src <= Reg::XMM7) {
+                    xmm_src = src; // use directly, no move needed
                 } else {
-                    // Load from spill or GP
+                    Reg gp = get_or_load(cb, alloc, inst.src1, Reg::RAX);
+                    if (gp != Reg::RAX) cb.mov_rr(Reg::RAX, gp);
                     // movq xmm0, rax
-                    Reg src = get_or_load(cb, alloc, inst.src1, Reg::RAX);
-                    if (src != Reg::RAX) cb.mov_rr(Reg::RAX, src);
                     cb.emit(0x66); cb.rex(true, false, false, false);
                     cb.emit(0x0F); cb.emit(0x6E); cb.modrm(3, 0, 0);
                 }
-                
-                if (rhs >= Reg::XMM0 && rhs <= Reg::XMM7) {
-                    if (rhs != Reg::XMM1) cb.movsd_rr(Reg::XMM1, rhs);
-                } else {
-                    Reg src = get_or_load(cb, alloc, inst.src2, Reg::RCX);
-                    if (src != Reg::RCX) cb.mov_rr(Reg::RCX, src);
-                    cb.emit(0x66); cb.rex(true, false, false, false);
-                    cb.emit(0x0F); cb.emit(0x6E); cb.modrm(3, 1, 1);
+                // cvttsd2si rax, xmm_src — F2 REX.W 0F 2C /r
+                uint8_t xmm_lo = lo3(xmm_src);
+                bool xmm_ext = needs_ext(xmm_src);
+                cb.emit(0xF2); cb.rex(true, false, false, xmm_ext);
+                cb.emit(0x0F); cb.emit(0x2C);
+                cb.modrm(3, 0, xmm_lo); // cvttsd2si rax, xmm_src
+                // Result is now in rax — store to dest
+                Reg dst = alloc.reg_for(inst.dest);
+                if (dst != Reg::RAX && dst != Reg::SPILL) {
+                    cb.mov_rr(dst, Reg::RAX);
                 }
+                if (dst == Reg::SPILL) {
+                    cb.store_spill(alloc.spill_for(inst.dest), Reg::RAX);
+                }
+                break;
+            }
+            
+            // ── Float comparisons (ucomisd + unsigned setCC) ──
+            case IROp::EQ_F64: case IROp::NE_F64: case IROp::LE_F64:
+            case IROp::LT_F64: case IROp::GE_F64: case IROp::GT_F64: {
+                // Use allocated XMM registers directly to avoid clobber.
+                Reg lhs_r = alloc.reg_for(inst.src1);
+                Reg rhs_r = alloc.reg_for(inst.src2);
                 
-                if (inst.op == IROp::ADD_F64) cb.addsd(Reg::XMM0, Reg::XMM1);
-                else if (inst.op == IROp::SUB_F64) cb.subsd(Reg::XMM0, Reg::XMM1);
-                else if (inst.op == IROp::MUL_F64) cb.mulsd(Reg::XMM0, Reg::XMM1);
-                else cb.divsd(Reg::XMM0, Reg::XMM1);
+                // Helper: get vreg into an XMM register
+                auto load_xmm_cmp = [&](int vreg, Reg allocated, Reg gp_scratch, Reg xmm_scratch) -> Reg {
+                    if (allocated >= Reg::XMM0 && allocated <= Reg::XMM7) return allocated;
+                    Reg gp = get_or_load(cb, alloc, vreg, gp_scratch);
+                    if (gp != gp_scratch) cb.mov_rr(gp_scratch, gp);
+                    uint8_t xlo = lo3(xmm_scratch);
+                    bool xext = needs_ext(xmm_scratch);
+                    bool gpext = ((int)gp_scratch >= 8);
+                    cb.emit(0x66); cb.rex(true, xext, false, gpext);
+                    cb.emit(0x0F); cb.emit(0x6E);
+                    cb.modrm(3, xlo, (int)gp_scratch & 7);
+                    return xmm_scratch;
+                };
+                
+                Reg xmm_l = load_xmm_cmp(inst.src1, lhs_r, Reg::RAX, Reg::XMM0);
+                Reg rhs_xmm_scratch = (xmm_l == Reg::XMM1) ? Reg::XMM2 : Reg::XMM1;
+                Reg xmm_r = load_xmm_cmp(inst.src2, rhs_r, Reg::RCX, rhs_xmm_scratch);
+                
+                cb.ucomisd(xmm_l, xmm_r);
                 
                 Reg dst = alloc.reg_for(inst.dest);
-                if (dst >= Reg::XMM0 && dst <= Reg::XMM7 && dst != Reg::XMM0) {
-                    cb.movsd_rr(dst, Reg::XMM0);
+                Reg target = (dst != Reg::SPILL && dst != Reg::NONE) ? dst : Reg::RAX;
+                
+                // ucomisd sets CF, ZF for unsigned comparison:
+                //   a > b  → CF=0, ZF=0  → seta
+                //   a >= b → CF=0        → setae
+                //   a < b  → CF=1        → setb
+                //   a <= b → CF=1|ZF=1   → setbe
+                //   a == b → ZF=1, PF=0  → sete (+ check PF for unordered, skip for now)
+                //   a != b → ZF=0        → setne
+                switch (inst.op) {
+                    case IROp::EQ_F64: cb.sete(target); break;
+                    case IROp::NE_F64: cb.setne(target); break;
+                    case IROp::LE_F64: cb.setbe(target); break;
+                    case IROp::LT_F64: cb.setb(target); break;
+                    case IROp::GE_F64: cb.setae(target); break;
+                    case IROp::GT_F64: cb.seta(target); break;
+                    default: break;
                 }
-                // If spilled, movq rax,xmm0 then store
+                
                 if (dst == Reg::SPILL) {
-                    cb.emit(0x66); cb.rex(true, false, false, false);
-                    cb.emit(0x0F); cb.emit(0x7E); cb.modrm(3, 0, 0); // movq rax, xmm0
-                    cb.store_spill(alloc.spill_for(inst.dest), Reg::RAX);
+                    cb.store_spill(alloc.spill_for(inst.dest), target);
                 }
                 break;
             }
@@ -1228,16 +1952,15 @@ CompiledFunc* Tier2::emit_native(const std::vector<IRInst>& ir, const RegAlloc& 
             case IROp::EQ_I64: case IROp::NE_I64: case IROp::LE_I64:
             case IROp::LT_I64: case IROp::GE_I64: case IROp::GT_I64: {
                 Reg lhs = get_or_load(cb, alloc, inst.src1, Reg::RAX);
-                Reg rhs = get_or_load(cb, alloc, inst.src2, Reg::RCX);
+                // Avoid RCX scratch colliding with lhs
+                Reg rhs_scratch = (lhs == Reg::RCX) ? Reg::RDX : Reg::RCX;
+                Reg rhs = get_or_load(cb, alloc, inst.src2, rhs_scratch);
                 cb.cmp_rr(lhs, rhs);
                 
-                // Result goes through RAX via setCC
                 Reg dst = alloc.reg_for(inst.dest);
                 Reg target = (dst != Reg::SPILL && dst != Reg::NONE) ? dst : Reg::RAX;
                 
-                // xor target first to clear upper bits
-                cb.mov_ri32(target, 0);
-                
+                // setCC + movzx already zero-extends to 64 bits — no pre-clear needed
                 switch (inst.op) {
                     case IROp::EQ_I64: cb.sete(target); break;
                     case IROp::NE_I64: cb.setne(target); break;
@@ -1249,7 +1972,7 @@ CompiledFunc* Tier2::emit_native(const std::vector<IRInst>& ir, const RegAlloc& 
                 }
                 
                 if (dst == Reg::SPILL) {
-                    cb.store_spill(alloc.spill_for(inst.dest), Reg::RAX);
+                    cb.store_spill(alloc.spill_for(inst.dest), target);
                 }
                 break;
             }
@@ -1381,8 +2104,12 @@ CompiledFunc* Tier2::get_or_compile(const std::string& name, BytecodeChunk* chun
     // Pipeline: bytecode → IR → regalloc → native
     std::vector<IRInst> ir;
     int vreg_count = 0;
+    std::vector<std::pair<std::string, int>> global_slots;
+    int total_slots = 0;
     
-    if (!lower_bytecode(chunk, ir, vreg_count)) {
+    UtilityFunctions::print("[VG_JIT T2] Attempting compile: '", String(name.c_str()), "' (", (int)chunk->code.size(), " bytes BC, ", chunk->local_count, " locals)");
+    
+    if (!lower_bytecode(chunk, ir, vreg_count, global_slots, total_slots)) {
         hot.failed = true;
         return nullptr;
     }
@@ -1399,6 +2126,8 @@ CompiledFunc* Tier2::get_or_compile(const std::string& name, BytecodeChunk* chun
         return nullptr;
     }
     
+    func->global_slots = std::move(global_slots);
+    func->total_slots = total_slots;
     cache_[name] = func;
     
     UtilityFunctions::print("[VG_JIT T2] Compiled '", String(name.c_str()), "' → ",

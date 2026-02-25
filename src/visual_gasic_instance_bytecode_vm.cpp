@@ -288,11 +288,12 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         if (!jit_name.empty()) {
             vgjit2::CompiledFunc* native = vgjit2::thread_jit().get_or_compile(jit_name, chunk);
             if (native && native->fn) {
-                // Marshal locals into int64 array for native code
-                int lcount = chunk->local_count;
-                std::vector<int64_t> jit_locals(lcount > 0 ? lcount : 1, 0);
-                // Pre-populate with variable values
-                for (int i = 0; i < lcount && i < chunk->local_names.size(); i++) {
+                // Marshal locals + virtual global slots into int64 array
+                int slot_count = native->total_slots > 0 ? native->total_slots : chunk->local_count;
+                if (slot_count < 1) slot_count = 1;
+                std::vector<int64_t> jit_locals(slot_count, 0);
+                // Pre-populate real locals from variable values
+                for (int i = 0; i < chunk->local_count && i < chunk->local_names.size(); i++) {
                     const String &lname = chunk->local_names[i];
                     if (!lname.is_empty() && variables.has(lname)) {
                         Variant v = variables[lname];
@@ -304,18 +305,59 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         }
                     }
                 }
-                int64_t has_retval = native->fn(jit_locals.data(), (int64_t)lcount);
-                // Sync locals back to variables
-                for (int i = 0; i < lcount && i < chunk->local_names.size(); i++) {
+                // Pre-populate virtual global slots from variables dictionary
+                for (const auto& gs : native->global_slots) {
+                    String gname = String(gs.first.c_str());
+                    int slot = gs.second;
+                    if (slot >= 0 && slot < slot_count && variables.has(gname)) {
+                        Variant v = variables[gname];
+                        if (v.get_type() == Variant::INT) {
+                            jit_locals[slot] = (int64_t)v;
+                        } else if (v.get_type() == Variant::FLOAT) {
+                            double d = (double)v;
+                            memcpy(&jit_locals[slot], &d, 8);
+                        }
+                    }
+                }
+                int64_t has_retval = native->fn(jit_locals.data(), (int64_t)slot_count);
+                // Sync real locals back to variables
+                for (int i = 0; i < chunk->local_count && i < chunk->local_names.size(); i++) {
                     const String &lname = chunk->local_names[i];
                     if (!lname.is_empty()) {
                         variables[lname] = Variant((int64_t)jit_locals[i]);
                     }
                 }
+                // Sync virtual global slots back to variables
+                for (const auto& gs : native->global_slots) {
+                    String gname = String(gs.first.c_str());
+                    int slot = gs.second;
+                    if (slot >= 0 && slot < slot_count) {
+                        variables[gname] = Variant((int64_t)jit_locals[slot]);
+                    }
+                }
                 if (has_retval) {
                     r_ret = Variant((int64_t)jit_locals[0]);
                 } else {
-                    r_ret = Variant();
+                    // VB6 convention: FunctionName = value sets return via
+                    // OP_SET_GLOBAL. Check if the function name has a global
+                    // slot and use that as the return value.
+                    bool found_ret = false;
+                    if (func) {
+                        std::string fn_name(func->name.utf8().get_data());
+                        for (const auto& gs : native->global_slots) {
+                            if (gs.first == fn_name) {
+                                int slot = gs.second;
+                                if (slot >= 0 && slot < slot_count) {
+                                    r_ret = Variant((int64_t)jit_locals[slot]);
+                                    found_ret = true;
+                                }
+                                break;
+                            }
+                        }
+                    }
+                    if (!found_ret) {
+                        r_ret = Variant();
+                    }
                 }
                 return true;
             }
@@ -844,6 +886,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         dispatch_table[OP_ADD_LOCAL_I64_CONST]  = &&vg_op_add_local_i64_const;
         dispatch_table[OP_SUB_LOCAL_I64_CONST]  = &&vg_op_sub_local_i64_const;
         dispatch_table[OP_INC_LOCAL_I64]  = &&vg_op_inc_local_i64;
+        dispatch_table[OP_ACCUM_I64_MULADD_CONST] = &&vg_op_accum_i64_muladd_const;
         dispatch_table[OP_ARITH_SUM]      = &&vg_op_arith_sum;
         dispatch_table[OP_BRANCH_SUM]     = &&vg_op_branch_sum;
         dispatch_table[OP_SUM_ARRAY_I64]  = &&vg_op_sum_array_i64;
@@ -1732,6 +1775,19 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 uint8_t slot = code[vm.ip++];
                 int64_t base = to_int(read_local(slot));
                 sync_local(slot, (int64_t)(base + 1));
+                break;
+            }
+            VG_CASE(vg_op_accum_i64_muladd_const, OP_ACCUM_I64_MULADD_CONST): {
+                // [OP] [S_SLOT] [J_SLOT] [K_CONST]
+                // locals[s] += locals[j] * K
+                if (vm.ip + 2 >= code_size) { success = false; goto cleanup; }
+                uint8_t s_slot = code[vm.ip++];
+                uint8_t j_slot = code[vm.ip++];
+                uint8_t k_idx  = code[vm.ip++];
+                int64_t s_val = to_int(read_local(s_slot));
+                int64_t j_val = to_int(read_local(j_slot));
+                int64_t k_val = to_int(read_constant(k_idx));
+                sync_local(s_slot, (int64_t)(s_val + j_val * k_val));
                 break;
             }
             VG_CASE(vg_op_arith_sum, OP_ARITH_SUM): {
