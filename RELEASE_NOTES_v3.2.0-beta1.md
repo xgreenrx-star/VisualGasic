@@ -61,6 +61,12 @@ End Sub
 
 No other Godot language gives you this workflow. GDScript, C++, and C# all require manual signal wiring, boilerplate connection code, and explicit callback registration. In VisualGasic, you **name the Sub** and the event system connects it automatically — just like VB6 did 25 years ago. This is what makes VG uniquely productive for both UI applications and games.
 
+The automatic wiring extends to every context:
+- **IDE Form Designer**: Double-click any control on the design canvas → event stub generated and cursor placed inside it
+- **Game forms**: Timer, Sprite2D, Area2D — all generate event handlers the same way
+- **Custom `.tscn` components**: Register your own scenes via Project → Components, then they get the same double-click → event handler workflow
+- **Code-behind model**: Each `.tscn` form is paired with a `.vg` script, automatically attached to the scene root — no manual script assignment
+
 ### Who Is This For?
 
 - **VB6/VB.NET veterans** who want to build games and apps with familiar syntax
@@ -149,12 +155,64 @@ VisualGasic's greatest strength is **Rapid Application Development** — the sam
 
 The Form Designer is a **drag-and-drop visual editor** integrated directly into Godot:
 
-- **25 default controls**: Button, TextBox, Label, CheckBox, ListBox, ComboBox, PictureBox, Timer, Frame, ScrollBar, and more
+- **25 default controls**: Button, TextBox, Label, CheckBox, ListBox, ComboBox, PictureBox, Timer, Frame, ScrollBar, ProgressBar, SpinBox, HSlider, VSlider, RichText, TextArea, TabStrip, and more
 - **8 extended 2D tools**: Sprite2D, AnimatedSprite2D, TileMapLayer, Camera2D, etc.
-- **9 extended 3D tools**: MeshInstance3D, Camera3D, Light3D, etc.
+- **9 extended 3D tools**: Box, Sphere, Capsule, Cylinder, Light, Camera, Text3D, Sprite3D, Sound3D
 - **Custom Components**: Add your own `.tscn` scenes to the toolbox via Project → Components
 - **Property Inspector**: Edit control properties visually
 - **Event Code Generation**: Double-click a button → jumps to `Sub btnName_Click()`
+
+### Automatic Event Wiring — How It Works
+
+This is the feature that sets VisualGasic apart from every other Godot language. When you work with the Form Designer:
+
+1. **Drop a control** (e.g., a Button named `btnSave`) onto the form canvas
+2. **Double-click it** — VG automatically:
+   - Creates or opens the `.vg` script file paired with the form's `.tscn`
+   - Generates a `Sub btnSave_Click()` event handler stub
+   - Attaches the script to the form's root node
+   - Navigates the cursor directly into the new Sub body
+3. **Write your logic** — no `connect()`, no signal paths, no boilerplate
+
+The naming convention determines the event type:
+
+| Control Type | Sub Name Generated | Fires When |
+|-------------|-------------------|------------|
+| Button, CheckBox | `ControlName_Click()` | Pressed |
+| TextBox (LineEdit) | `ControlName_Change()` | Text modified |
+| TextArea (TextEdit) | `ControlName_Change()` | Text modified |
+| ScrollBar, Slider | `ControlName_Change()` | Value changed |
+| Timer | `ControlName_Timer()` | Interval elapsed |
+| Form | `Form_Load()` | Form initializes |
+| Any other control | `ControlName_Click()` | Default (pressed) |
+
+The same automatic wiring works in **two contexts**:
+
+**IDE Forms (Application Development):**
+For desktop/mobile apps — data entry, calculators, file managers, settings screens. You design forms with UI controls (TextBox, ListBox, ComboBox, etc.) and double-click to write handlers. Each form is a `.tscn` + `.vg` pair, exactly like VB6's `.frm` files.
+
+**Game Forms (Game Development):**
+The same Form Designer works for game UIs too — HUD overlays, inventory screens, dialogue boxes, menus. But you also get 2D game tools (Sprite2D, Camera2D, TileMapLayer) and 3D tools (MeshInstance3D, Camera3D, Light3D) in the toolbox. Drop a Sprite2D on the canvas, double-click it → `Sub Player_Click()`. Wire a Timer for enemy spawning → `Sub tmrSpawn_Timer()`.
+
+### Three Tiers of Tools
+
+The toolbox has a three-tier architecture:
+
+**Tier 1 — C++ Default Tools (25 controls)**
+Built into the engine. Always available. These are the classic VB6 controls: Pointer, Picture, Label, TextBox, Button, CheckBox, ComboBox, Frame, GroupBox, ListBox, TreeView, HScroll, VScroll, ProgressBar, HSlider, VSlider, SpinBox, Shape, HLine, VLine, RichText, TextArea, TabStrip, Timer, Files.
+
+**Tier 2 — Extended Tools (17 controls)**
+GDScript-registered tools loaded automatically on startup. These add VGComboBox (faithful 3-style VB6 combo), FlexGrid, Form, Option (radio button), CommonDialog, ColorBtn, Video, Viewport, plus 9 3D tools (Box, Sphere, Capsule, Cylinder, Light, Camera, Text3D, Sprite3D, Sound3D).
+
+**Tier 3 — Custom Components (unlimited)**
+Your own controls. Go to **Project → Components** to open the VB6-style Components dialog:
+- **Browse** for any `.tscn` scene file in your project
+- **Toggle** built-in optional components on/off (StatusBar, Toolbar, Animation, Calendar, etc.)
+- **Save** your selections to `custom_components.cfg` — persists across sessions
+- When you toggle a component, the toolbox **instantly updates** — no restart needed
+- Your custom `.tscn` scenes appear in the toolbox with automatic drag-and-drop support
+
+This means you can build a custom widget (e.g., a health bar, a chat bubble, a VB6-style DataGrid) as a Godot `.tscn` scene, register it as a component, and from then on it appears in the toolbox like a built-in control. Drop it on any form, double-click it, write event handlers — the full VB6 workflow, with your own controls.
 
 ### VB6-Style Programming
 
