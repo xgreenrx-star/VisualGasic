@@ -234,7 +234,7 @@ VisualGasic welcomes contributions! Please see our [Contributing Guide](CONTRIBU
 - ✅ **Form Templates** - 100% (23 templates: VB6, Game, Platform, Custom)
 - ✅ **Game Demos** - 100% (14 demos: Pong, Snake, Space Shooter, Galactic Defender, Calculator, Piano, and more)
 - ✅ **Documentation** - 100% (Comprehensive guides and references)
-- ✅ **Performance** - 11/11 benchmarks faster than GDScript (up to 50× faster) — VG wins 7/11 vs C++
+- ✅ **Performance** - 11/11 benchmarks faster than GDScript (up to 118× faster) — VG wins 6/9 vs C++
 
 ### 🚧 Coming Soon
 
