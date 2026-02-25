@@ -107,29 +107,28 @@ VisualGasic/
 ## ⚡ **Quick Start**
 
 ### **Prerequisites**
-- **Godot 4.5+** - Download from [godotengine.org](https://godotengine.org)
-- **SCons** - Build system (`pip install scons`)
-- **Git** - For cloning submodules
-- **Modern C++ Compiler** - GCC 9+, Clang 10+, or MSVC 2019+
+- **Godot 4.5+** (4.6.1 recommended) — Download from [godotengine.org](https://godotengine.org)
 
 ### **Installation**
 
-**Quick Install (Recommended):**
+**From Godot Asset Library (Easiest):**
+1. Open your Godot project
+2. Go to **AssetLib** tab → Search **"VisualGasic"**
+3. Click **Download** → **Install**
+4. Enable the plugin: **Project → Project Settings → Plugins → VisualGasic ✓**
 
+**From GitHub Release:**
+1. Download from [Releases](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v3.2.0-beta1)
+2. Copy the `addons/visual_gasic/` folder into your project's `addons/` directory
+3. Enable the plugin: **Project → Project Settings → Plugins → VisualGasic ✓**
+
+**Build from Source** (for contributors):
 ```bash
-# Linux/macOS
-curl -sSL https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/main/install.sh | bash
-
-# Windows PowerShell
-iwr -useb https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/main/install.ps1 | iex
+git clone --recurse-submodules https://github.com/xgreenrx-star/VisualGasic.git
+cd VisualGasic
+scons platform=linux target=editor -j$(nproc)   # or platform=windows / platform=macos
 ```
-
-This installs VisualGasic as a project template. Create new projects with VisualGasic already configured!
-
-**Alternative Methods:**
-- **Asset Library**: Search "VisualGasic" in Godot's AssetLib tab (coming soon)
-- **Manual**: Download from [Releases](https://github.com/xgreenrx-star/VisualGasic/releases) and copy to `addons/`
-- **Build from Source**: See [INSTALLATION.md](INSTALLATION.md)
+See [INSTALLATION.md](INSTALLATION.md) for full build instructions.
 
 ## 🎯 **Usage Examples**
 
