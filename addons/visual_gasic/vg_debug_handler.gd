@@ -133,6 +133,35 @@ func _on_debugger_message(message: String, data: Array) -> bool:
 		"profiler_clear":
 			_profiler_clear()
 			return true
+		
+		# v3.2: Debugger Protocol v2 — Watch expressions & data breakpoints
+		"add_watchpoint":
+			if data.size() >= 1:
+				_add_watchpoint(data[0])
+			return true
+		
+		"remove_watchpoint":
+			if data.size() >= 1:
+				_remove_watchpoint(data[0])
+			return true
+		
+		"clear_watchpoints":
+			_clear_watchpoints()
+			return true
+		
+		"get_watchpoints":
+			_send_watchpoints()
+			return true
+		
+		"eval_watch_expressions":
+			if data.size() >= 2:
+				_eval_watch_expressions(data[0], data[1])
+			return true
+		
+		"set_conditional_breakpoint":
+			if data.size() >= 3:
+				_set_conditional_breakpoint(data[0], data[1], data[2])
+			return true
 	
 	return false
 
@@ -152,32 +181,37 @@ func _set_breakpoints(breakpoints_dict: Dictionary) -> void:
 
 func _debug_continue() -> void:
 	"""Resume execution after a breakpoint or step."""
-	# Debug stepping not yet implemented in native extension
-	pass
+	if ClassDB.class_exists("VisualGasicLanguage"):
+		VisualGasicLanguage.vg_debug_continue()
 
 func _debug_step_into() -> void:
 	"""Step to the next line, entering function calls."""
-	# Debug stepping not yet implemented in native extension
-	pass
+	if ClassDB.class_exists("VisualGasicLanguage"):
+		VisualGasicLanguage.vg_debug_step_into()
 
 func _debug_step_over() -> void:
 	"""Step to the next line, stepping over function calls."""
-	# Debug stepping not yet implemented in native extension
-	pass
+	if ClassDB.class_exists("VisualGasicLanguage"):
+		VisualGasicLanguage.vg_debug_step_over()
 
 func _debug_step_out() -> void:
 	"""Step out of the current function."""
-	# Debug stepping not yet implemented in native extension
-	pass
+	if ClassDB.class_exists("VisualGasicLanguage"):
+		VisualGasicLanguage.vg_debug_step_out()
 
 func _send_debug_state() -> void:
 	"""Send the current debug state to the editor."""
 	var state = {
 		"step_mode": 0,
 		"current_line": 0,
-		"current_file": ""
+		"current_file": "",
+		"has_error": false,
+		"error_message": ""
 	}
-	# Debug state retrieval not yet implemented in native extension
+	if ClassDB.class_exists("VisualGasicLanguage"):
+		state["step_mode"] = VisualGasicLanguage.vg_get_step_mode()
+		state["current_line"] = VisualGasicLanguage.vg_get_current_debug_line()
+		state["current_file"] = VisualGasicLanguage.vg_get_current_debug_file()
 	EngineDebugger.send_message("visualgasic:debug_state", [state])
 
 func has_breakpoint(script_path: String, line: int) -> bool:
@@ -443,3 +477,91 @@ func _profiler_clear() -> void:
 		if inst and inst.has_method("_vg_profiler_clear"):
 			inst.call("_vg_profiler_clear")
 	print("[VisualGasic] Profiler counters cleared")
+
+# ============================================================================
+# v3.2: DEBUGGER PROTOCOL v2 — Watch Expressions & Data Breakpoints
+# ============================================================================
+
+func _add_watchpoint(variable_name: String) -> void:
+	"""Add a data breakpoint (watchpoint) on a variable."""
+	if ClassDB.class_exists("VisualGasicLanguage"):
+		VisualGasicLanguage.vg_add_watchpoint(variable_name)
+	EngineDebugger.send_message("visualgasic:watchpoint_added", [variable_name])
+
+func _remove_watchpoint(variable_name: String) -> void:
+	"""Remove a data breakpoint (watchpoint)."""
+	if ClassDB.class_exists("VisualGasicLanguage"):
+		VisualGasicLanguage.vg_remove_watchpoint(variable_name)
+	EngineDebugger.send_message("visualgasic:watchpoint_removed", [variable_name])
+
+func _clear_watchpoints() -> void:
+	"""Clear all data breakpoints."""
+	if ClassDB.class_exists("VisualGasicLanguage"):
+		VisualGasicLanguage.vg_clear_watchpoints()
+	EngineDebugger.send_message("visualgasic:watchpoints_cleared", [])
+
+func _send_watchpoints() -> void:
+	"""Send current watchpoint list to editor."""
+	var watchpoints: Array = []
+	if ClassDB.class_exists("VisualGasicLanguage"):
+		watchpoints = VisualGasicLanguage.vg_get_watchpoints()
+	EngineDebugger.send_message("visualgasic:watchpoints_list", [watchpoints])
+
+func _eval_watch_expressions(instance_id: int, expressions: Array) -> void:
+	"""Evaluate a list of watch expressions and send results back.
+	   Each expression is evaluated in the context of the given instance."""
+	var results: Array = []
+	var inst = _get_instance(instance_id)
+	
+	for expr in expressions:
+		var result_entry: Dictionary = {"expr": expr, "value": "", "error": false}
+		if inst == null:
+			result_entry["value"] = "<no instance>"
+			result_entry["error"] = true
+		elif inst.has_method("_vg_get_variable"):
+			# Try simple variable lookup first
+			var val = inst.call("_vg_get_variable", expr)
+			if val != null:
+				result_entry["value"] = str(val)
+			else:
+				# Fall back to C++ expression evaluator
+				if ClassDB.class_exists("VisualGasicLanguage"):
+					var eval_result = VisualGasicLanguage.vg_evaluate_expression(expr)
+					result_entry["value"] = eval_result
+				else:
+					result_entry["value"] = "<cannot evaluate>"
+					result_entry["error"] = true
+		else:
+			# Try direct property access
+			var val = inst.get(expr)
+			if val != null:
+				result_entry["value"] = str(val)
+			else:
+				result_entry["value"] = "<undefined>"
+				result_entry["error"] = true
+		results.append(result_entry)
+	
+	EngineDebugger.send_message("visualgasic:watch_results", [results])
+
+func _set_conditional_breakpoint(script_path: String, line: int, condition: String) -> void:
+	"""Set a conditional breakpoint via the C++ debugger."""
+	# Use the global debugger instance — do NOT instantiate a throwaway one,
+	# as breakpoint data would be lost when the temporary object is freed.
+	if ClassDB.class_exists("VisualGasicDebugger"):
+		var global_debugger = VisualGasicDebugger.get_global_debugger() if VisualGasicDebugger.has_method("get_global_debugger") else null
+		if global_debugger:
+			global_debugger.set_breakpoint(script_path, line, condition)
+		else:
+			# Fallback: store in our own breakpoint dict with condition metadata
+			if not _breakpoints.has(script_path):
+				_breakpoints[script_path] = []
+			if line not in _breakpoints[script_path]:
+				_breakpoints[script_path].append(line)
+			# Store condition in a separate dict for the C++ conditional check
+			if not has_meta("_conditional_bps"):
+				set_meta("_conditional_bps", {})
+			var cond_bps: Dictionary = get_meta("_conditional_bps")
+			cond_bps["%s:%d" % [script_path, line]] = condition
+			set_meta("_conditional_bps", cond_bps)
+	print("[VisualGasic] Conditional breakpoint set at %s:%d [%s]" % [script_path, line, condition])
+	EngineDebugger.send_message("visualgasic:conditional_bp_set", [script_path, line, condition])

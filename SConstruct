@@ -23,7 +23,7 @@ sources = Glob("src/*.cpp")
 
 # Exclude files that should not be compiled
 exclude_files = [
-    "src/visual_gasic_lsp.cpp",  # LSP needs binding rework for LspPosition type (v3.0)
+    # All LSP binding issues resolved — LspPosition replaced with int params (v3.2)
 ]
 sources = [s for s in sources if str(s) not in exclude_files]
 

@@ -55,6 +55,9 @@
 #include "visual_gasic_gpu.h"
 #include "visual_gasic_ecs.h"
 
+// v3.2 – LSP integration (binding rework complete)
+#include "visual_gasic_lsp.h"
+
 using namespace godot;
 
 static VisualGasicLanguage *visual_gasic_language = nullptr;
@@ -126,6 +129,9 @@ void initialize_visual_gasic_module(ModuleInitializationLevel p_level) {
         // v3.2 – GPU computing & ECS
         ClassDB::register_class<VisualGasicGPU>();      // SIMD vector math, CPU fallback
         ClassDB::register_class<VisualGasicECS>();      // Dictionary-based ECS
+
+        // v3.2 – LSP integration
+        ClassDB::register_class<VisualGasicLSP>();      // Language server: completions, hover, definitions
 
         visual_gasic_language = memnew(VisualGasicLanguage);
         Engine::get_singleton()->register_script_language(visual_gasic_language);

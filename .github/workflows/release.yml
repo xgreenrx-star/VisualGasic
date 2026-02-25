@@ -1,0 +1,141 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+env:
+  GODOT_CPP_VERSION: "4.6"
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Linux build — all three targets (editor, template_debug, template_release)
+  # ---------------------------------------------------------------------------
+  build-linux:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: [editor, template_debug, template_release]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y scons build-essential python3 libffi-dev
+
+      - name: Build (${{ matrix.target }})
+        run: scons platform=linux target=${{ matrix.target }} -j$(nproc)
+
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-${{ matrix.target }}
+          path: demo/bin/libvisualgasic.linux.*
+
+  # ---------------------------------------------------------------------------
+  # Windows build (cross-compiled from Ubuntu with MinGW)
+  # ---------------------------------------------------------------------------
+  build-windows:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: [editor, template_debug, template_release]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y scons build-essential python3 g++-mingw-w64-x86-64
+
+      - name: Build (${{ matrix.target }})
+        run: scons platform=windows target=${{ matrix.target }} -j$(nproc)
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-${{ matrix.target }}
+          path: demo/bin/libvisualgasic.windows.*
+
+  # ---------------------------------------------------------------------------
+  # Package addon .zip and publish GitHub Release
+  # ---------------------------------------------------------------------------
+  publish:
+    needs: [build-linux, build-windows]
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read version
+        id: version
+        run: echo "version=$(cat VERSION | tr -d '[:space:]')" >> "$GITHUB_OUTPUT"
+
+      - name: Create staging directory
+        run: mkdir -p staging/addons/visual_gasic/bin
+
+      - name: Download Linux artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: linux-*
+          path: staging/addons/visual_gasic/bin
+          merge-multiple: true
+
+      - name: Download Windows artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: windows-*
+          path: staging/addons/visual_gasic/bin
+          merge-multiple: true
+
+      - name: Copy addon files
+        run: |
+          # Copy all GDScript editor files, plugin config, icons, etc.
+          cp addons/visual_gasic/*.gd staging/addons/visual_gasic/ 2>/dev/null || true
+          cp addons/visual_gasic/*.cfg staging/addons/visual_gasic/ 2>/dev/null || true
+          cp addons/visual_gasic/*.svg staging/addons/visual_gasic/ 2>/dev/null || true
+          cp addons/visual_gasic/visual_gasic.gdextension staging/addons/visual_gasic/
+          # Copy prototype files if present
+          if [ -d addons/visual_gasic/prototypes ]; then
+            cp -r addons/visual_gasic/prototypes staging/addons/visual_gasic/
+          fi
+
+      - name: List packaged files
+        run: find staging -type f | sort
+
+      - name: Create addon zip
+        working-directory: staging
+        run: zip -r "../VisualGasic-v${{ steps.version.outputs.version }}.zip" addons/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "VisualGasic v${{ steps.version.outputs.version }}"
+          body: |
+            ## VisualGasic v${{ steps.version.outputs.version }}
+
+            ### Installation
+            1. Download `VisualGasic-v${{ steps.version.outputs.version }}.zip`
+            2. Extract into your Godot 4.6+ project root
+            3. Enable the plugin in **Project → Project Settings → Plugins**
+
+            ### Platforms
+            - **Linux** x86_64 (editor + template_debug + template_release)
+            - **Windows** x86_64 (editor + template_debug + template_release)
+
+            See [CHANGELOG.md](CHANGELOG.md) for full details.
+          files: |
+            VisualGasic-v${{ steps.version.outputs.version }}.zip
+          draft: false
+          prerelease: false

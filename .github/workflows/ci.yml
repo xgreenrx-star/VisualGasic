@@ -12,6 +12,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Download Godot 4.6.1
         run: |
@@ -124,4 +126,23 @@ jobs:
           path: |
             bytecode_dump*.json
             bytecode_diff*.txt
+
+  # -------------------------------------------------------------------------
+  # Windows cross-compilation check (MinGW)
+  # -------------------------------------------------------------------------
+  build-windows:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y scons build-essential python3 g++-mingw-w64-x86-64
+
+      - name: Build (Windows template_debug)
+        run: scons platform=windows target=template_debug -j$(nproc)
           if-no-files-found: error

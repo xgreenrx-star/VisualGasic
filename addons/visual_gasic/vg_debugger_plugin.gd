@@ -319,6 +319,42 @@ func send_profiler_command(command: String) -> void:
 		_active_session.send_message("visualgasic:profiler_" + command, [])
 
 # ============================================================================
+# v3.2: DEBUGGER PROTOCOL v2 — Watch Expressions & Data Breakpoints
+# ============================================================================
+
+func add_watchpoint(variable_name: String) -> void:
+	"""Add a data breakpoint (watchpoint) that breaks when a variable changes."""
+	if _active_session:
+		_active_session.send_message("visualgasic:add_watchpoint", [variable_name])
+
+func remove_watchpoint(variable_name: String) -> void:
+	"""Remove a data breakpoint."""
+	if _active_session:
+		_active_session.send_message("visualgasic:remove_watchpoint", [variable_name])
+
+func clear_watchpoints() -> void:
+	"""Clear all data breakpoints."""
+	if _active_session:
+		_active_session.send_message("visualgasic:clear_watchpoints", [])
+
+func request_watchpoints() -> void:
+	"""Request the current list of watchpoints from the game."""
+	if _active_session:
+		_active_session.send_message("visualgasic:get_watchpoints", [])
+
+func eval_watch_expressions(instance_id: int, expressions: Array) -> void:
+	"""Evaluate a list of expressions in the context of a running instance.
+	   Results come back via 'visualgasic:watch_results' message."""
+	if _active_session:
+		_active_session.send_message("visualgasic:eval_watch_expressions", [instance_id, expressions])
+
+func set_conditional_breakpoint(script_path: String, line: int, condition: String) -> void:
+	"""Set a breakpoint with a condition expression.
+	   The breakpoint only triggers when the condition evaluates to true."""
+	if _active_session:
+		_active_session.send_message("visualgasic:set_conditional_breakpoint", [script_path, line, condition])
+
+# ============================================================================
 # NAVIGATION HELPER
 # ============================================================================
 

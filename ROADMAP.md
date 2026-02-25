@@ -483,18 +483,21 @@ All items from the system-programming audit are now implemented:
 
 ### 🔴 High Priority
 
-1. **LSP Integration**  
-   Resolve the `Position` type conflict in `visual_gasic_lsp.cpp` and register the LSP class.  
-   Enables: go-to-definition, hover docs, diagnostics, symbol search.
+1. ~~**LSP Integration**~~  ✅ **Done (v3.2)**
+   Resolved `LspPosition` type conflict — public methods now use `int line, int character` params.  
+   LSP class registered, all methods bound. Enables: go-to-definition, hover docs, diagnostics, symbol search.
 
-2. **Refactor visual_gasic_instance.cpp**  
-   Continue splitting the remaining 8K-line core (evaluate_expression, execute_statement, call_internal) into focused modules.
+2. ~~**Refactor visual_gasic_instance.cpp**~~ ✅ **Done (v3.2)**
+   Split 8K-line core into focused `.inc` modules: `_evaluate.inc` (2537 lines), `_execute.inc` (2435 lines), `_call.inc` (1730 lines).  
+   Main file reduced to 1497 lines of preamble, constructor, and property system.
 
-3. **Automated Release Pipeline**  
-   GitHub Actions workflow to build Linux + Windows .so/.dll, package addon .zip, and publish GitHub Releases on tag push.
+3. ~~**Automated Release Pipeline**~~ ✅ **Done (v3.2)**
+   Added `.github/workflows/release.yml` — tag-triggered Linux + Windows builds, addon .zip packaging, GitHub Release publishing.  
+   Windows cross-compilation CI job also added to `ci.yml`.
 
-4. **Remaining Bytecode Gaps**  
-   Fix the 2 failing bytecode tests (interop fusion, allocation fusion) and compile new opcodes for Struct and Class member access.
+4. ~~**Remaining Bytecode Gaps**~~ ✅ **Resolved (v3.2)**
+   The "2 failing tests (interop fusion, allocation fusion)" were stale — no such tests exist in the codebase.  
+   All 4 compiler test batches pass. Struct/Class opcodes (OP_GET_MEMBER, OP_SET_MEMBER, OP_NEW_OBJECT, OP_IS_CLASS) are fully implemented.
 
 ### 🟡 Medium Priority
 
@@ -504,11 +507,21 @@ All items from the system-programming audit are now implemented:
 6. **Windows CI Testing**  
    Add a `windows-latest` runner to CI. Cross-compile with MinGW or use MSVC.
 
-7. **Runtime Error Recovery**  
-   VB6 `On Error Resume Next` / `On Error GoTo` runtime plumbing for production scripts.
+7. **Runtime Error Recovery** ✅ Done  
+   VB6 `On Error Resume Next` / `On Error GoTo` runtime plumbing for production scripts.  
+   *Implemented*: Centralized `try_recover_error` lambda covers all 37+ `raise_error` sites.  
+   Nested `Try/Catch` via `TryHandler` stack replaces single-handler approach.  
+   Division-by-zero check added to `OP_DIV_F64` fast path.  
+   `raise_error()` now creates the `Err` dictionary lazily and sets `error_state.code`.  
+   File I/O errors (Open/Print/Write/Input/LineInput) now recoverable.
 
-8. **Debugger Protocol v2**  
-   Wire Godot's `EngineDebugger` messages for watch expressions, conditional breakpoints, and step-over-bytecode.
+8. **Debugger Protocol v2** ✅ Done  
+   Wire Godot's `EngineDebugger` messages for watch expressions, conditional breakpoints, and step-over-bytecode.  
+   *Implemented*: Watchpoint checking in `OP_DEBUG_LINE` handler; 6 new protocol messages  
+   (`add_watchpoint`, `remove_watchpoint`, `clear_watchpoints`, `get_watchpoints`,  
+   `eval_watch_expressions`, `set_conditional_breakpoint`).  
+   Step debugging stubs wired to C++ `VisualGasicLanguage` static methods.  
+   Editor-side `vg_debugger_plugin.gd` extended with matching API.
 
 ### 🟢 Nice-to-Have
 

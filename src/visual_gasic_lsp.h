@@ -118,22 +118,21 @@ public:
     Array get_diagnostics(const String& uri);
     
     // Language Features
-    Array get_completions(const String& uri, const LspPosition& position, const String& trigger_character = "");
-    Dictionary get_hover_info(const String& uri, const LspPosition& position);
-    Array get_definitions(const String& uri, const LspPosition& position);
-    Array get_references(const String& uri, const LspPosition& position, bool include_declaration = true);
+    Array get_completions(const String& uri, int p_line, int p_character, const String& trigger_character = "");
+    Dictionary get_hover_info(const String& uri, int p_line, int p_character);
+    Array get_definitions(const String& uri, int p_line, int p_character);
+    Array get_references(const String& uri, int p_line, int p_character, bool include_declaration = true);
     Array get_document_symbols(const String& uri);
     Array get_workspace_symbols(const String& query = "");
     
     // Code Actions
-    Array get_code_actions(const String& uri, const Range& range);
+    Array get_code_actions(const String& uri, int p_start_line, int p_start_character, int p_end_line, int p_end_character);
     Dictionary format_document(const String& uri);
-    Dictionary rename_symbol(const String& uri, const LspPosition& position, const String& new_name);
+    Dictionary rename_symbol(const String& uri, int p_line, int p_character, const String& new_name);
     
     // Analysis
     void analyze_file(const String& uri, const String& content);
     void update_symbol_index(const String& uri, const Array& symbols);
-    Array extract_symbols_from_ast(Node* ast_root, const String& uri);
     
     // Configuration
     void update_settings(const Dictionary& new_settings);
@@ -166,6 +165,11 @@ private:
     int position_to_offset(const String& content, const LspPosition& position);
     String get_word_at_position(const String& content, const LspPosition& position);
     Range get_word_range_at_position(const String& content, const LspPosition& position);
+    
+    // File Utilities
+    String get_line_at_position(const String& content, const LspPosition& position);
+    String find_workspace_for_uri(const String& uri);
+    void find_source_files(const String& directory, Array& files);
     
     // Cache Management
     void invalidate_cache(const String& uri);

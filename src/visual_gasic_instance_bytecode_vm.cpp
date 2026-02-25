@@ -207,6 +207,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         r_ret = Variant();
         return false;
     }
+
     
     // Detect when running on a WorkerThreadPool thread.  Worker callbacks
     // set the file-scope thread_local tl_on_worker_thread flag via
@@ -517,6 +518,13 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
     Variant explicit_return;
     bool has_explicit_return = false;
 
+    // ── v3.2: Try/Catch handler stack for nested exception handling ──
+    struct TryHandler {
+        int catch_ip;
+        int stack_depth;  // vm.stack.size() at OP_SETUP_TRY (for unwinding)
+    };
+    Vector<TryHandler> try_handler_stack;
+
     // Snapshot global variables that this function may write via OP_SET_GLOBAL.
     // If bytecode execution fails and the AST fallback re-runs the function,
     // we need to rollback globals to prevent double-mutation (e.g. wave += 1
@@ -632,6 +640,41 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
             return chunk->constants[idx];
         }
         return Variant();
+    };
+
+    // ── v3.2: Centralized error recovery (Runtime Error Recovery) ──
+    // Called after raise_error(). Checks try handler stack and On Error mode.
+    // Returns true if error was handled (caller should break/VG_BREAK).
+    // When push_default=true, pushes default_val onto stack for expression contexts.
+    auto try_recover_error = [&](const Variant& default_val = Variant(), bool push_default = true) -> bool {
+        // Priority 1: Try/Catch handler stack (innermost handler wins)
+        if (!try_handler_stack.is_empty()) {
+            TryHandler handler = try_handler_stack[try_handler_stack.size() - 1];
+            try_handler_stack.resize(try_handler_stack.size() - 1);
+            // Build exception dictionary (matches OP_THROW behavior)
+            Dictionary ex;
+            ex["Description"] = error_state.message;
+            ex["Number"] = error_state.code;
+            ex["Source"] = String("VisualGasic");
+            // Unwind VM stack to handler's saved depth
+            while ((int)vm.stack.size() > handler.stack_depth) {
+                vm.stack.pop_back();
+            }
+            push_value(ex);
+            error_state.has_error = false;
+            vm.ip = handler.catch_ip;
+            return true;
+        }
+        // Priority 2: On Error Resume Next
+        if (error_state.mode == ErrorState::RESUME_NEXT) {
+            error_state.has_error = false;
+            if (push_default) push_value(default_val);
+            return true;
+        }
+        // Priority 3: On Error GoTo Label — return false so caller does
+        // goto cleanup → AST fallback handles the label jump.
+        // Also NONE mode: return false → abort.
+        return false;
     };
 
     struct MemberNameCacheEntry {
@@ -1306,15 +1349,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 double divisor = (double)b;
                 if (divisor == 0.0) {
                     raise_error("Division by zero", 11);
-                    if (error_state.mode == ErrorState::RESUME_NEXT) {
-                        error_state.has_error = false;
-                        push_value(Variant(0.0));
-                        break;
-                    } else if (error_state.mode == ErrorState::GOTO_LABEL && !error_state.label.is_empty()) {
-                        // Need to jump to error handler - for now fallback to interpreter
-                        success = false;
-                        goto cleanup;
-                    }
+                    if (try_recover_error(Variant(0.0))) break;
                     success = false;
                     goto cleanup;
                 }
@@ -1345,14 +1380,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 int64_t ival_b = to_int(b);
                 if (ival_b == 0) {
                     raise_error("Division by zero", 11);
-                    if (error_state.mode == ErrorState::RESUME_NEXT) {
-                        error_state.has_error = false;
-                        push_value(Variant((int64_t)0));
-                        break;
-                    } else if (error_state.mode == ErrorState::GOTO_LABEL && !error_state.label.is_empty()) {
-                        success = false;
-                        goto cleanup;
-                    }
+                    if (try_recover_error(Variant((int64_t)0))) break;
                     success = false;
                     goto cleanup;
                 }
@@ -1370,14 +1398,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 int64_t ival_b = to_int(b);
                 if (ival_b == 0) {
                     raise_error("Division by zero", 11);
-                    if (error_state.mode == ErrorState::RESUME_NEXT) {
-                        error_state.has_error = false;
-                        push_value(Variant((int64_t)0));
-                        break;
-                    } else if (error_state.mode == ErrorState::GOTO_LABEL && !error_state.label.is_empty()) {
-                        success = false;
-                        goto cleanup;
-                    }
+                    if (try_recover_error(Variant((int64_t)0))) break;
                     success = false;
                     goto cleanup;
                 } else {
@@ -1584,6 +1605,13 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 }
                 double b = to_double(pop_value());
                 double a = to_double(pop_value());
+                // v3.2: Division-by-zero check (mirrors OP_DIVIDE)
+                if (b == 0.0) {
+                    raise_error("Division by zero", 11);
+                    if (try_recover_error(Variant(0.0))) break;
+                    success = false;
+                    goto cleanup;
+                }
                 push_value(a / b);
                 break;
             }
@@ -2143,6 +2171,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                             result = Variant();
                         } else {
                             raise_error("Array subscript out of range", 9);
+                            if (try_recover_error(Variant())) break;
                             success = false;
                             goto cleanup;
                         }
@@ -2154,6 +2183,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     result = dict.get(indices[0], Variant());
                 } else {
                     raise_error("Unsupported array base type");
+                    if (try_recover_error(Variant())) break;
                     success = false;
                     goto cleanup;
                 }
@@ -2167,6 +2197,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 uint8_t arg_count = code[vm.ip++];
                 if (arg_count != 1) {
                     raise_error("Fast array opcode supports exactly one index");
+                    if (try_recover_error(Variant())) break;
                     success = false;
                     goto cleanup;
                 }
@@ -2175,6 +2206,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 Variant base = pop_value();
                 if (base.get_type() != Variant::ARRAY) {
                     raise_error("Fast array base is not an array");
+                    if (try_recover_error(Variant())) break;
                     success = false;
                     goto cleanup;
                 }
@@ -2186,6 +2218,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         break;
                     }
                     raise_error("Array subscript out of range", 9);
+                    if (try_recover_error(Variant())) break;
                     success = false;
                     goto cleanup;
                 }
@@ -2199,6 +2232,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 uint8_t arg_count = code[vm.ip++];
                 if (arg_count != 1) {
                     raise_error("Fast dictionary opcode supports exactly one key");
+                    if (try_recover_error(Variant())) break;
                     success = false;
                     goto cleanup;
                 }
@@ -2208,6 +2242,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 if (op == OP_GET_DICT_FAST) {
                     if (base.get_type() != Variant::DICTIONARY) {
                         raise_error("Fast dictionary base is not a dictionary");
+                        if (try_recover_error(Variant())) break;
                         success = false;
                         goto cleanup;
                     }
@@ -2216,6 +2251,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 else {
                     if (base.get_type() != Variant::DICTIONARY) {
                         raise_error("Trusted dictionary base is not a dictionary");
+                        if (try_recover_error(Variant())) break;
                         success = false;
                         goto cleanup;
                     }
@@ -2249,6 +2285,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                             ok = false;
                         } else {
                             raise_error("Array subscript out of range", 9);
+                            if (try_recover_error(base)) break;
                             success = false;
                             goto cleanup;
                         }
@@ -2262,6 +2299,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     updated = dict;
                 } else {
                     raise_error("Unsupported array assignment base");
+                    if (try_recover_error(base)) break;
                     success = false;
                     goto cleanup;
                 }
@@ -2275,6 +2313,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 uint8_t arg_count = code[vm.ip++];
                 if (arg_count != 1) {
                     raise_error("Fast array opcode supports exactly one index");
+                    if (try_recover_error(Variant(), false)) break;
                     success = false;
                     goto cleanup;
                 }
@@ -2284,6 +2323,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 Variant base = pop_value();
                 if (base.get_type() != Variant::ARRAY) {
                     raise_error("Fast array assignment base is not an array");
+                    if (try_recover_error(base)) break;
                     success = false;
                     goto cleanup;
                 }
@@ -2295,6 +2335,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         break;
                     }
                     raise_error("Array subscript out of range", 9);
+                    if (try_recover_error(base)) break;
                     success = false;
                     goto cleanup;
                 }
@@ -2309,6 +2350,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 uint8_t arg_count = code[vm.ip++];
                 if (arg_count != 1) {
                     raise_error("Fast dictionary opcode supports exactly one key");
+                    if (try_recover_error(Variant(), false)) break;
                     success = false;
                     goto cleanup;
                 }
@@ -2319,6 +2361,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 if (op == OP_SET_DICT_FAST) {
                     if (base.get_type() != Variant::DICTIONARY) {
                         raise_error("Fast dictionary assignment base is not a dictionary");
+                        if (try_recover_error(base)) break;
                         success = false;
                         goto cleanup;
                     }
@@ -2327,6 +2370,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 else {
                     if (base.get_type() != Variant::DICTIONARY) {
                         raise_error("Trusted dictionary assignment base is not a dictionary");
+                        if (try_recover_error(base)) break;
                         success = false;
                         goto cleanup;
                     }
@@ -2348,6 +2392,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 
                 if (arg_count != 1) {
                     raise_error("In-place dictionary opcode supports exactly one key");
+                    if (try_recover_error(Variant(), false)) break;
                     success = false;
                     goto cleanup;
                 }
@@ -2361,6 +2406,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 if (op == OP_SET_DICT_LOCAL) {
                     if (slot_or_idx < 0 || slot_or_idx >= locals.size()) {
                         raise_error("Invalid local slot in OP_SET_DICT_LOCAL");
+                        if (try_recover_error(Variant(), false)) break;
                         success = false;
                         goto cleanup;
                     }
@@ -2369,6 +2415,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     String var_name = read_constant(slot_or_idx);
                     if (!variables.has(var_name)) {
                         raise_error("Global variable not found: " + var_name);
+                        if (try_recover_error(Variant(), false)) break;
                         success = false;
                         goto cleanup;
                     }
@@ -2377,6 +2424,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 
                 if (dict_var_ptr->get_type() != Variant::DICTIONARY) {
                     raise_error("In-place dictionary opcode: variable is not a dictionary");
+                    if (try_recover_error(Variant(), false)) break;
                     success = false;
                     goto cleanup;
                 }
@@ -2395,6 +2443,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 uint8_t slot = code[vm.ip++];
                 if (slot >= VGDICT_POOL_MAX) {
                     raise_error("OP_NEW_VGDICT: slot out of range");
+                    if (try_recover_error(Variant(), false)) break;
                     success = false;
                     goto cleanup;
                 }
@@ -2414,6 +2463,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 if (vm.stack.size() <= stack_base) { success = false; goto cleanup; }
                 if (slot >= VGDICT_POOL_MAX || !vgdict_slot_active[slot]) {
                     raise_error("OP_GET_VGDICT_LOCAL: invalid VGDict slot");
+                    if (try_recover_error(Variant())) break;
                     success = false;
                     goto cleanup;
                 }
@@ -2440,6 +2490,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 if (vm.stack.size() < stack_base + 2) { success = false; goto cleanup; }
                 if (slot >= VGDICT_POOL_MAX || !vgdict_slot_active[slot]) {
                     raise_error("OP_SET_VGDICT_LOCAL: invalid VGDict slot");
+                    if (try_recover_error(Variant(), false)) break;
                     success = false;
                     goto cleanup;
                 }
@@ -2496,6 +2547,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 uint8_t slot = code[vm.ip++];
                 if (slot >= VGDICT_POOL_MAX || !vgdict_slot_active[slot]) {
                     raise_error("OP_SUM_VGDICT_ALL_I64: invalid VGDict slot");
+                    if (try_recover_error(Variant((int64_t)0))) break;
                     success = false;
                     goto cleanup;
                 }
@@ -2597,6 +2649,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 int member_idx = idx;
                 if (member_idx >= member_name_cache.size()) {
                     raise_error("Invalid member constant index");
+                    if (try_recover_error(Variant())) break;
                     success = false;
                     goto cleanup;
                 }
@@ -2791,6 +2844,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 int member_idx = idx;
                 if (member_idx >= member_name_cache.size()) {
                     raise_error("Invalid member constant index");
+                    if (try_recover_error(Variant(), false)) break;
                     success = false;
                     goto cleanup;
                 }
@@ -3187,8 +3241,10 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
             VG_CASE(vg_op_read_data, OP_READ_DATA): {
                 // Read the next value from DATA segments and push onto stack
                 if (data_pointer >= data_segments.size()) {
-                    raise_error("Out of Data");
-                    push_value(Variant()); // push nil on error
+                    raise_error("Out of Data", 5);
+                    if (try_recover_error(Variant())) break;
+                    success = false;
+                    goto cleanup;
                 } else {
                     Variant val = evaluate_expression(data_segments[data_pointer]);
                     data_pointer++;
@@ -3377,10 +3433,62 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                             );
                         }
                         
+                        // Send enhanced break data with reason
+                        Array cond_break_data;
+                        cond_break_data.push_back(script_path);
+                        cond_break_data.push_back(line_number);
+                        engine_debugger->send_message("visualgasic:break_hit", cond_break_data);
+                        
+                        _send_variables_to_debugger(engine_debugger);
+                        _send_call_stack_to_debugger(engine_debugger);
+                        engine_debugger->line_poll();
+                        
                         // Use Godot's script_debug() for proper pause/resume
                         VisualGasicLanguage* lang = VisualGasicLanguage::get_singleton();
                         if (lang) {
                             engine_debugger->script_debug(lang, true, false);
+                        }
+                    }
+                }
+                
+                // ── v3.2: Data Breakpoints (Watchpoints) ──
+                // Check if any watched variables changed value since last debug line.
+                if (!should_break && engine_debugger && engine_debugger->is_active() && !script_path.is_empty()) {
+                    Array wp_list = VisualGasicLanguage::get_watchpoints();
+                    for (int wi = 0; wi < wp_list.size(); wi++) {
+                        Dictionary wp_info = wp_list[wi];
+                        String wp_name = wp_info["name"];
+                        if (variables.has(wp_name)) {
+                            Variant current_val = variables[wp_name];
+                            if (VisualGasicLanguage::check_watchpoint(wp_name, current_val)) {
+                                // Value changed — break!
+                                VisualGasicLanguage::set_current_break_location(script_path, line_number);
+                                
+                                // Send watchpoint hit notification with old/new values
+                                Array wp_break_data;
+                                wp_break_data.push_back(script_path);
+                                wp_break_data.push_back(line_number);
+                                engine_debugger->send_message("visualgasic:break_hit", wp_break_data);
+                                
+                                // Send watchpoint-specific info
+                                Dictionary wp_hit;
+                                wp_hit["variable"] = wp_name;
+                                wp_hit["new_value"] = current_val;
+                                wp_hit["reason"] = "watchpoint";
+                                Array wp_hit_data;
+                                wp_hit_data.push_back(wp_hit);
+                                engine_debugger->send_message("visualgasic:watchpoint_hit", wp_hit_data);
+                                
+                                _send_variables_to_debugger(engine_debugger);
+                                _send_call_stack_to_debugger(engine_debugger);
+                                engine_debugger->line_poll();
+                                
+                                VisualGasicLanguage* lang = VisualGasicLanguage::get_singleton();
+                                if (lang) {
+                                    engine_debugger->script_debug(lang, true, false);
+                                }
+                                break;  // Only break once per debug line
+                            }
                         }
                     }
                 }
@@ -3538,9 +3646,10 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 if (!handled) {
                     // Method call on Null / Nothing — raise error
                     if (base.get_type() == Variant::NIL) {
-                        raise_error("Method call on Null object: ." + method);
-                        push_value(Variant());
-                        VG_BREAK;
+                        raise_error("Method call on Null object: ." + method, 91);
+                        if (try_recover_error(Variant())) { VG_BREAK; }
+                        success = false;
+                        goto cleanup;
                     }
                     // Last resort: call_internal with the method name
                     // (some builtins might only exist in the statement path)
@@ -3656,26 +3765,24 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
             }
             VG_CASE(vg_op_setup_try, OP_SETUP_TRY): {
                 // Set up an exception handler: [OP] [OFFSET_16]
-                // The offset points to the catch block. If OP_THROW fires
-                // while this handler is active, it jumps to catch_ip.
+                // v3.2: Push onto handler stack (supports nested Try/Catch).
                 if (vm.ip + 1 >= code_size) { success = false; goto cleanup; }
                 uint8_t hi = code[vm.ip++];
                 uint8_t lo = code[vm.ip++];
                 int offset = (hi << 8) | lo;
                 int catch_ip = (int)vm.ip + offset;
                 
-                // Store handler via error_state (single-handler approach).
-                // OP_POP_TRY clears it; OP_THROW checks it.
-                error_state.mode = ErrorState::GOTO_LABEL;
-                error_state.label = String::num_int64(catch_ip);
+                TryHandler handler;
+                handler.catch_ip = catch_ip;
+                handler.stack_depth = (int)vm.stack.size();
+                try_handler_stack.push_back(handler);
                 error_state.has_error = false;
                 VG_BREAK;
             }
             VG_CASE(vg_op_pop_try, OP_POP_TRY): {
-                // No error occurred in try block — remove the exception handler.
-                if (error_state.mode == ErrorState::GOTO_LABEL) {
-                    error_state.mode = ErrorState::NONE;
-                    error_state.label = "";
+                // No error in try block — pop the handler.
+                if (!try_handler_stack.is_empty()) {
+                    try_handler_stack.resize(try_handler_stack.size() - 1);
                 }
                 VG_BREAK;
             }
@@ -3687,29 +3794,12 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 String msg = (String)msg_v;
                 int err_code = (int)code_v;
                 
-                // Check if there's an active try handler
-                if (error_state.mode == ErrorState::GOTO_LABEL && !error_state.label.is_empty()) {
-                    int catch_ip = error_state.label.to_int();
-                    // Build exception dictionary (matching interpreter behavior)
-                    Dictionary ex;
-                    ex["Description"] = msg;
-                    ex["Number"] = err_code;
-                    ex["Source"] = "VisualGasic";
-                    push_value(ex);
-                    // Jump to catch block
-                    error_state.mode = ErrorState::NONE;
-                    error_state.label = "";
-                    error_state.has_error = false;
-                    vm.ip = catch_ip;
-                } else if (error_state.mode == ErrorState::RESUME_NEXT) {
-                    // On Error Resume Next — swallow the error
-                    error_state.has_error = false;
-                } else {
-                    // No handler — report runtime error and stop
+                // Always update the Err object (VB6 Err.Raise contract)
+                raise_error(msg, err_code);
+                
+                // v3.2: Use centralized error recovery (try/catch, On Error, etc.)
+                if (!try_recover_error(Variant(), false)) {
                     UtilityFunctions::printerr("VisualGasic: Unhandled exception: ", msg, " (code ", err_code, ")");
-                    error_state.has_error = true;
-                    error_state.message = msg;
-                    error_state.code = err_code;
                     success = false;
                     goto cleanup;
                 }
@@ -3723,6 +3813,9 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 String path = pop_value();
                 if (open_files.has(file_num)) {
                     raise_error(String("File already open: ") + String::num(file_num), 55);
+                    if (!try_recover_error(Variant(), false)) {
+                        // In NONE mode, keep VB6 behavior: error printed, continue
+                    }
                 } else {
                     Ref<FileAccess> fa;
                     if (mode == 0) fa = FileAccess::open(path, FileAccess::READ);
@@ -3737,6 +3830,9 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     }
                     if (fa.is_null()) {
                         raise_error(String("Failed to open file: ") + path, 53);
+                        if (!try_recover_error(Variant(), false)) {
+                            // In NONE mode, keep VB6 behavior: error printed, continue
+                        }
                     } else {
                         open_files[file_num] = fa;
                     }
@@ -3769,6 +3865,9 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     fa->store_line(line);
                 } else {
                     raise_error(String("Bad file number: ") + String::num(file_num), 52);
+                    if (!try_recover_error(Variant(), false)) {
+                        // NONE mode: error printed, continue
+                    }
                 }
                 VG_BREAK;
             }
@@ -3793,6 +3892,9 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     fa->store_line(line);
                 } else {
                     raise_error(String("Bad file number: ") + String::num(file_num), 52);
+                    if (!try_recover_error(Variant(), false)) {
+                        // NONE mode: error printed, continue
+                    }
                 }
                 VG_BREAK;
             }
@@ -3808,6 +3910,9 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     }
                 } else {
                     raise_error(String("Bad file number: ") + String::num(file_num), 52);
+                    if (!try_recover_error(Variant(), false)) {
+                        // NONE mode: error printed, continue
+                    }
                 }
                 VG_BREAK;
             }
@@ -3821,6 +3926,9 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     variables[var_name] = line;
                 } else {
                     raise_error(String("Bad file number: ") + String::num(file_num), 52);
+                    if (!try_recover_error(Variant(), false)) {
+                        // NONE mode: error printed, continue
+                    }
                 }
                 VG_BREAK;
             }

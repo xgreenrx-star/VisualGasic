@@ -2,6 +2,7 @@
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <godot_cpp/classes/file_access.hpp>
 #include <godot_cpp/classes/dir_access.hpp>
+#include <godot_cpp/classes/time.hpp>
 
 VisualGasicLSP::VisualGasicLSP() {
     workspace_folders.clear();
@@ -27,12 +28,37 @@ VisualGasicLSP::~VisualGasicLSP() {
 }
 
 void VisualGasicLSP::_bind_methods() {
-    ClassDB::bind_method(D_METHOD("initialize"), &VisualGasicLSP::initialize);
-    ClassDB::bind_method(D_METHOD("add_workspace_folder"), &VisualGasicLSP::add_workspace_folder);
-    ClassDB::bind_method(D_METHOD("open_document"), &VisualGasicLSP::open_document);
-    ClassDB::bind_method(D_METHOD("get_completions"), &VisualGasicLSP::get_completions);
-    ClassDB::bind_method(D_METHOD("get_diagnostics"), &VisualGasicLSP::get_diagnostics);
-    ClassDB::bind_method(D_METHOD("get_hover_info"), &VisualGasicLSP::get_hover_info);
+    // Lifecycle
+    ClassDB::bind_method(D_METHOD("initialize", "init_params"), &VisualGasicLSP::initialize);
+    ClassDB::bind_method(D_METHOD("shutdown"), &VisualGasicLSP::shutdown);
+    
+    // Workspace Management
+    ClassDB::bind_method(D_METHOD("add_workspace_folder", "uri", "name"), &VisualGasicLSP::add_workspace_folder);
+    ClassDB::bind_method(D_METHOD("remove_workspace_folder", "uri"), &VisualGasicLSP::remove_workspace_folder);
+    ClassDB::bind_method(D_METHOD("index_workspace", "workspace_uri"), &VisualGasicLSP::index_workspace);
+    
+    // Document Management
+    ClassDB::bind_method(D_METHOD("open_document", "uri", "content"), &VisualGasicLSP::open_document);
+    ClassDB::bind_method(D_METHOD("close_document", "uri"), &VisualGasicLSP::close_document);
+    ClassDB::bind_method(D_METHOD("change_document", "uri", "content"), &VisualGasicLSP::change_document);
+    ClassDB::bind_method(D_METHOD("get_diagnostics", "uri"), &VisualGasicLSP::get_diagnostics);
+    
+    // Language Features — use int line/character instead of LspPosition structs
+    ClassDB::bind_method(D_METHOD("get_completions", "uri", "line", "character", "trigger_character"), &VisualGasicLSP::get_completions, DEFVAL(""));
+    ClassDB::bind_method(D_METHOD("get_hover_info", "uri", "line", "character"), &VisualGasicLSP::get_hover_info);
+    ClassDB::bind_method(D_METHOD("get_definitions", "uri", "line", "character"), &VisualGasicLSP::get_definitions);
+    ClassDB::bind_method(D_METHOD("get_references", "uri", "line", "character", "include_declaration"), &VisualGasicLSP::get_references, DEFVAL(true));
+    ClassDB::bind_method(D_METHOD("get_document_symbols", "uri"), &VisualGasicLSP::get_document_symbols);
+    ClassDB::bind_method(D_METHOD("get_workspace_symbols", "query"), &VisualGasicLSP::get_workspace_symbols, DEFVAL(""));
+    
+    // Code Actions
+    ClassDB::bind_method(D_METHOD("get_code_actions", "uri", "start_line", "start_character", "end_line", "end_character"), &VisualGasicLSP::get_code_actions);
+    ClassDB::bind_method(D_METHOD("format_document", "uri"), &VisualGasicLSP::format_document);
+    ClassDB::bind_method(D_METHOD("rename_symbol", "uri", "line", "character", "new_name"), &VisualGasicLSP::rename_symbol);
+    
+    // Configuration
+    ClassDB::bind_method(D_METHOD("update_settings", "new_settings"), &VisualGasicLSP::update_settings);
+    ClassDB::bind_method(D_METHOD("get_current_settings"), &VisualGasicLSP::get_current_settings);
 }
 
 bool VisualGasicLSP::initialize(const Dictionary& init_params) {
@@ -78,7 +104,7 @@ void VisualGasicLSP::add_workspace_folder(const String& uri, const String& name)
     
     workspace_folders[uri] = folder_dict;
     
-    UtilityFunctions::print("LSP: Added workspace folder: " + name + " (" + uri + ")");
+    UtilityFunctions::print(String("LSP: Added workspace folder: ") + name + String(" (") + uri + String(")"));
     
     // Index the workspace in the background
     index_workspace(uri);
@@ -89,7 +115,7 @@ void VisualGasicLSP::remove_workspace_folder(const String& uri) {
         Dictionary folder = workspace_folders[uri];
         String name = folder["name"];
         workspace_folders.erase(uri);
-        UtilityFunctions::print("LSP: Removed workspace folder: " + name);
+        UtilityFunctions::print(String("LSP: Removed workspace folder: ") + name);
     }
 }
 
@@ -109,7 +135,7 @@ void VisualGasicLSP::index_workspace(const String& workspace_uri) {
     // Index each file
     for (int i = 0; i < files_to_index.size(); i++) {
         String file_path = files_to_index[i];
-        String file_uri = "file://" + file_path;
+        String file_uri = String("file://") + file_path;
         
         Ref<FileAccess> file = FileAccess::open(file_path, FileAccess::READ);
         if (file.is_valid()) {
@@ -118,12 +144,12 @@ void VisualGasicLSP::index_workspace(const String& workspace_uri) {
         }
     }
     
-    UtilityFunctions::print("LSP: Indexed " + String::num(files_to_index.size()) + " files");
+    UtilityFunctions::print(String("LSP: Indexed ") + String::num(files_to_index.size()) + String(" files"));
 }
 
 void VisualGasicLSP::open_document(const String& uri, const String& content) {
     analyze_file(uri, content);
-    UtilityFunctions::print("LSP: Opened document: " + uri);
+    UtilityFunctions::print(String("LSP: Opened document: ") + uri);
 }
 
 void VisualGasicLSP::close_document(const String& uri) {
@@ -131,7 +157,7 @@ void VisualGasicLSP::close_document(const String& uri) {
     if (file_diagnostics.has(uri)) {
         file_diagnostics.erase(uri);
     }
-    UtilityFunctions::print("LSP: Closed document: " + uri);
+    UtilityFunctions::print(String("LSP: Closed document: ") + uri);
 }
 
 void VisualGasicLSP::change_document(const String& uri, const String& content) {
@@ -146,12 +172,14 @@ Array VisualGasicLSP::get_diagnostics(const String& uri) {
     return Array();
 }
 
-Array VisualGasicLSP::get_completions(const String& uri, const LspPosition& position, const String& trigger_character) {
+Array VisualGasicLSP::get_completions(const String& uri, int p_line, int p_character, const String& trigger_character) {
     if (!enable_completion) {
         return Array();
     }
     
-    String cache_key = uri + ":" + String::num(position.line) + ":" + String::num(position.character);
+    LspPosition position{p_line, p_character};
+    
+    String cache_key = uri + String(":") + String::num(p_line) + String(":") + String::num(p_character);
     if (completion_cache.has(cache_key)) {
         return completion_cache[cache_key];
     }
@@ -169,12 +197,14 @@ Array VisualGasicLSP::get_completions(const String& uri, const LspPosition& posi
     return completions;
 }
 
-Dictionary VisualGasicLSP::get_hover_info(const String& uri, const LspPosition& position) {
+Dictionary VisualGasicLSP::get_hover_info(const String& uri, int p_line, int p_character) {
     Dictionary hover_info;
     
     if (!enable_hover) {
         return hover_info;
     }
+    
+    LspPosition position{p_line, p_character};
     
     Symbol symbol = resolve_symbol_at_position(uri, position);
     if (!symbol.name.is_empty()) {
@@ -189,8 +219,10 @@ Dictionary VisualGasicLSP::get_hover_info(const String& uri, const LspPosition& 
     return hover_info;
 }
 
-Array VisualGasicLSP::get_definitions(const String& uri, const LspPosition& position) {
+Array VisualGasicLSP::get_definitions(const String& uri, int p_line, int p_character) {
     Array definitions;
+    
+    LspPosition position{p_line, p_character};
     
     Symbol symbol = resolve_symbol_at_position(uri, position);
     if (!symbol.name.is_empty()) {
@@ -200,11 +232,11 @@ Array VisualGasicLSP::get_definitions(const String& uri, const LspPosition& posi
         // Build proper range from symbol location
         Dictionary range_dict;
         Dictionary start_pos;
-        start_pos["line"] = symbol.location.line;
-        start_pos["character"] = 0;
+        start_pos["line"] = symbol.location.range.start.line;
+        start_pos["character"] = symbol.location.range.start.character;
         Dictionary end_pos;
-        end_pos["line"] = symbol.location.line;
-        end_pos["character"] = symbol.name.length();
+        end_pos["line"] = symbol.location.range.end.line;
+        end_pos["character"] = symbol.location.range.end.character;
         range_dict["start"] = start_pos;
         range_dict["end"] = end_pos;
         
@@ -215,8 +247,10 @@ Array VisualGasicLSP::get_definitions(const String& uri, const LspPosition& posi
     return definitions;
 }
 
-Array VisualGasicLSP::get_references(const String& uri, const LspPosition& position, bool include_declaration) {
+Array VisualGasicLSP::get_references(const String& uri, int p_line, int p_character, bool include_declaration) {
     Array references;
+    
+    LspPosition position{p_line, p_character};
     
     Symbol symbol = resolve_symbol_at_position(uri, position);
     if (!symbol.name.is_empty()) {
@@ -430,12 +464,22 @@ String VisualGasicLSP::get_word_at_position(const String& content, const LspPosi
     int start = position.character;
     int end = position.character;
     
-    while (start > 0 && (line[start - 1].is_alnum() || line[start - 1] == '_')) {
-        start--;
+    while (start > 0) {
+        char32_t c = line[start - 1];
+        if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_') {
+            start--;
+        } else {
+            break;
+        }
     }
     
-    while (end < line.length() && (line[end].is_alnum() || line[end] == '_')) {
-        end++;
+    while (end < line.length()) {
+        char32_t c = line[end];
+        if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_') {
+            end++;
+        } else {
+            break;
+        }
     }
     
     return line.substr(start, end - start);
@@ -470,11 +514,11 @@ void VisualGasicLSP::find_source_files(const String& directory, Array& files) {
     String file_name = dir->get_next();
     
     while (!file_name.is_empty()) {
-        String full_path = directory + "/" + file_name;
+        String full_path = directory + String("/") + file_name;
         
         if (dir->current_is_dir() && !file_name.begins_with(".")) {
             find_source_files(full_path, files);
-        } else if (file_name.ends_with(".bas") || file_name.ends_with(".vb")) {
+        } else if (file_name.ends_with(".bas") || file_name.ends_with(".vb") || file_name.ends_with(".vg")) {
             files.push_back(full_path);
         }
         
@@ -503,7 +547,10 @@ VisualGasicLSP::Symbol VisualGasicLSP::resolve_symbol_at_position(const String& 
                         symbol.documentation = sym.has("doc") ? String(sym["doc"]) : "";
                         if (sym.has("line")) {
                             symbol.location.uri = uri;
-                            symbol.location.line = sym["line"];
+                            symbol.location.range.start.line = sym["line"];
+                            symbol.location.range.start.character = 0;
+                            symbol.location.range.end.line = sym["line"];
+                            symbol.location.range.end.character = symbol.name.length();
                         }
                         break;
                     }
@@ -520,7 +567,7 @@ Array VisualGasicLSP::find_symbol_references(const String& symbol_name, const St
 }
 
 String VisualGasicLSP::get_symbol_hover_text(const Symbol& symbol) {
-    return symbol.name + " : " + symbol.type_info + "\n" + symbol.documentation;
+    return symbol.name + String(" : ") + symbol.type_info + String("\n") + symbol.documentation;
 }
 
 Array VisualGasicLSP::analyze_syntax_errors(const String& content) {
@@ -552,7 +599,7 @@ void VisualGasicLSP::invalidate_cache(const String& uri) {
     Array cache_keys = completion_cache.keys();
     for (int i = 0; i < cache_keys.size(); i++) {
         String key = cache_keys[i];
-        if (key.begins_with(uri + ":")) {
+        if (key.begins_with(uri + String(":"))) {
             completion_cache.erase(key);
         }
     }
@@ -569,4 +616,55 @@ void VisualGasicLSP::update_settings(const Dictionary& new_settings) {
         String key = keys[i];
         settings[key] = new_settings[key];
     }
+}
+
+Dictionary VisualGasicLSP::get_current_settings() {
+    return settings.duplicate();
+}
+
+Array VisualGasicLSP::get_code_actions(const String& uri, int p_start_line, int p_start_character, int p_end_line, int p_end_character) {
+    Array actions;
+    // TODO: Implement code actions (quick fixes, refactorings)
+    return actions;
+}
+
+Dictionary VisualGasicLSP::format_document(const String& uri) {
+    Dictionary result;
+    // TODO: Implement document formatting
+    return result;
+}
+
+Dictionary VisualGasicLSP::rename_symbol(const String& uri, int p_line, int p_character, const String& new_name) {
+    Dictionary workspace_edit;
+    
+    LspPosition position{p_line, p_character};
+    Symbol symbol = resolve_symbol_at_position(uri, position);
+    if (symbol.name.is_empty()) {
+        return workspace_edit;
+    }
+    
+    // Find all references and create edits
+    Dictionary changes;
+    Array workspace_uris = workspace_folders.keys();
+    for (int i = 0; i < workspace_uris.size(); i++) {
+        String workspace_uri = workspace_uris[i];
+        Array refs = find_symbol_references(symbol.name, workspace_uri);
+        for (int j = 0; j < refs.size(); j++) {
+            Dictionary ref = refs[j];
+            String ref_uri = ref.has("uri") ? String(ref["uri"]) : uri;
+            if (!changes.has(ref_uri)) {
+                changes[ref_uri] = Array();
+            }
+            Array uri_edits = changes[ref_uri];
+            Dictionary edit;
+            Dictionary empty_range;
+            edit["range"] = ref.has("range") ? Dictionary(ref["range"]) : empty_range;
+            edit["newText"] = new_name;
+            uri_edits.push_back(edit);
+            changes[ref_uri] = uri_edits;
+        }
+    }
+    
+    workspace_edit["changes"] = changes;
+    return workspace_edit;
 }
