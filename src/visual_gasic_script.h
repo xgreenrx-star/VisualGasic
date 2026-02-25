@@ -9,6 +9,9 @@
 #include "visual_gasic_parser.h" 
 #include "visual_gasic_bytecode.h"
 
+// Forward declaration for hot reload registry
+class VisualGasicLanguage;
+
 using namespace godot;
 
 class VisualGasicScript : public ScriptExtension {
@@ -39,11 +42,7 @@ protected:
 	static void _bind_methods();
 
 public:
-    virtual ~VisualGasicScript() {
-        if (ast_root) {
-            delete ast_root;
-        }
-    }
+    virtual ~VisualGasicScript();
 
     virtual bool _can_instantiate() const override;
     virtual Ref<Script> _get_base_script() const override;

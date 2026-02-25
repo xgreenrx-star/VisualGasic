@@ -525,8 +525,14 @@ All items from the system-programming audit are now implemented:
 
 ### 🟢 Nice-to-Have
 
-9. **Hot Reload**  
-   Detect .vg file saves and re-parse without restarting the scene.
+9. **Hot Reload** ✅  
+   Detect .vg file saves and re-parse without restarting the scene.  
+   *Implemented*: Script registry (`live_scripts` set) in `VisualGasicLanguage` with  
+   `register_script()` / `unregister_script()` lifecycle.  `_frame()` polls  
+   `pending_reloads`, re-reads source from disk, calls `_set_source_code()` +  
+   `_reload(true)`.  `_reload_all_scripts()` refreshes every live script.  
+   `_reload_tool_script()` queues via `pending_reloads` to avoid re-entrancy.  
+   Thread-safe via `std::mutex`.
 
 10. **Asset Library Submission**  
     Package for Godot Asset Library (requires single-addon zip with proper plugin.cfg).
@@ -534,8 +540,14 @@ All items from the system-programming audit are now implemented:
 11. **Documentation Generator**  
     Parse `''' XML-style` doc comments from .vg files and emit HTML/Markdown API docs.
 
-12. **JIT Tier 2**  
-    Extend the JIT framework from simple loops to full function bodies (requires register allocator).
+12. **JIT Tier 2** ✅  
+    Extend the JIT framework from simple loops to full function bodies (requires register allocator).  
+    *Implemented*: Native x86-64 function body compilation in `visual_gasic_jit_tier2.h/cpp`.  
+    Pipeline: bytecode → typed IR (`IROp` / `IRInst`) → linear-scan register allocation  
+    (`LiveRange` / `RegAlloc`) → x86-64 machine code (`CodeBuf` emitter) → `mmap`+`mprotect`  
+    executable memory.  Supports integer/float arithmetic, locals load/store, comparisons,  
+    branches, loops, return values.  Hot detection at threshold 50 calls; unsupported opcodes  
+    gracefully fall back to interpreter.  Activated via `VG_JIT=2` environment variable.
 
 ---
 

@@ -339,6 +339,13 @@ void VisualGasicScript::_bind_methods() {
     ClassDB::bind_method(D_METHOD("debug_dump_bytecode", "entry_point"), &VisualGasicScript::debug_dump_bytecode);
 }
 
+VisualGasicScript::~VisualGasicScript() {
+    VisualGasicLanguage::unregister_script(this);
+    if (ast_root) {
+        delete ast_root;
+    }
+}
+
 bool VisualGasicScript::_can_instantiate() const {
     // Typically true if the script is valid
     return true; 
@@ -452,6 +459,9 @@ Error VisualGasicScript::_reload(bool p_keep_state) {
             debug_file->close();
         }
     }
+    
+    // Register with language hot reload tracker (idempotent — set insert)
+    VisualGasicLanguage::register_script(this);
     
     last_reload_had_error = false;
     clear_bytecode_cache();

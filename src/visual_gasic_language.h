@@ -5,6 +5,8 @@
 #include "visual_gasic_script.h"
 #include <vector>
 #include <map>
+#include <set>
+#include <mutex>
 #include <memory>
 
 using namespace godot;
@@ -64,6 +66,11 @@ class VisualGasicLanguage : public ScriptLanguageExtension {
     
     // Pause/Break request flag (atomic-safe: only set by editor thread, cleared by script thread)
     static bool break_requested;
+    
+    // Hot Reload infrastructure — track all live scripts for reload-on-save
+    static std::set<VisualGasicScript*> live_scripts;
+    static std::mutex live_scripts_mutex;
+    static std::vector<VisualGasicScript*> pending_reloads;  // Scripts queued for reload on next _frame()
     
     // Helper to ensure debug stack is initialized (lazy initialization)
     static std::vector<VGDebugStackFrame>& get_debug_stack();
@@ -194,6 +201,12 @@ public:
     
     // Expression evaluation in debug context
     static String evaluate_expression_in_context(const String& expression);
+    
+    // Hot Reload — script registry
+    static void register_script(VisualGasicScript* script);
+    static void unregister_script(VisualGasicScript* script);
+    static void queue_hot_reload(VisualGasicScript* script);
+    static int get_live_script_count();
 };
 
 #endif // VISUAL_GASIC_LANGUAGE_H

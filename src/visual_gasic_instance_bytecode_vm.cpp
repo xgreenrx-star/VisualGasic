@@ -8,6 +8,7 @@
 #include "visual_gasic_builtins.h"
 #include "visual_gasic_debugger.h"
 #include "visual_gasic_profiler.h"
+#include "visual_gasic_jit_tier2.h"
 #include "gasic_ai_controller.h"
 #include "visual_gasic_comm.h"
 
@@ -276,6 +277,52 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         vm.stack.resize(stack_base);
         vm.ip = previous_ip;
     };
+
+    // ── JIT Tier 2: attempt native execution for hot functions ──────────
+#ifdef __linux__
+    if (p_ip_start == 0 && p_ip_end <= 0 && func && !p_initial_locals) {
+        std::string jit_name;
+        if (func->name.length() > 0) {
+            jit_name = std::string(func->name.utf8().get_data());
+        }
+        if (!jit_name.empty()) {
+            vgjit2::CompiledFunc* native = vgjit2::thread_jit().get_or_compile(jit_name, chunk);
+            if (native && native->fn) {
+                // Marshal locals into int64 array for native code
+                int lcount = chunk->local_count;
+                std::vector<int64_t> jit_locals(lcount > 0 ? lcount : 1, 0);
+                // Pre-populate with variable values
+                for (int i = 0; i < lcount && i < chunk->local_names.size(); i++) {
+                    const String &lname = chunk->local_names[i];
+                    if (!lname.is_empty() && variables.has(lname)) {
+                        Variant v = variables[lname];
+                        if (v.get_type() == Variant::INT) {
+                            jit_locals[i] = (int64_t)v;
+                        } else if (v.get_type() == Variant::FLOAT) {
+                            double d = (double)v;
+                            memcpy(&jit_locals[i], &d, 8);
+                        }
+                    }
+                }
+                int64_t has_retval = native->fn(jit_locals.data(), (int64_t)lcount);
+                // Sync locals back to variables
+                for (int i = 0; i < lcount && i < chunk->local_names.size(); i++) {
+                    const String &lname = chunk->local_names[i];
+                    if (!lname.is_empty()) {
+                        variables[lname] = Variant((int64_t)jit_locals[i]);
+                    }
+                }
+                if (has_retval) {
+                    r_ret = Variant((int64_t)jit_locals[0]);
+                } else {
+                    r_ret = Variant();
+                }
+                return true;
+            }
+        }
+    }
+#endif
+    // ── End JIT Tier 2 ────────────────────────────────────────────────
 
     Vector<Variant> locals;
     if (p_initial_locals) {

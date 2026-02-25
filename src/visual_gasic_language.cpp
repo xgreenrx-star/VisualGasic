@@ -38,6 +38,11 @@ int VisualGasicLanguage::current_break_line = 0;
 std::map<std::string, std::vector<int>> VisualGasicLanguage::breakpoints;
 bool VisualGasicLanguage::breakpoints_loaded = false;
 
+// Hot Reload infrastructure
+std::set<VisualGasicScript*> VisualGasicLanguage::live_scripts;
+std::mutex VisualGasicLanguage::live_scripts_mutex;
+std::vector<VisualGasicScript*> VisualGasicLanguage::pending_reloads;
+
 // Lazy initialization of debug stack
 std::vector<VGDebugStackFrame>& VisualGasicLanguage::get_debug_stack() {
     if (!debug_call_stack) {
@@ -1014,6 +1019,9 @@ void VisualGasicLanguage::_bind_methods() {
     
     // Expression evaluation in debug context
     ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_evaluate_expression", "expression"), &VisualGasicLanguage::evaluate_expression_in_context);
+    
+    // Hot Reload
+    ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_get_live_script_count"), &VisualGasicLanguage::get_live_script_count);
 }
 
 String VisualGasicLanguage::format_source_code(const String &p_code) const {
@@ -1214,7 +1222,36 @@ TypedArray<Dictionary> VisualGasicLanguage::_debug_get_current_stack_info() {
 }
 
 void VisualGasicLanguage::_frame() {
-    // Called every frame
+    // Process pending hot reloads (queued from resource_saved or _reload_tool_script)
+    if (!pending_reloads.empty()) {
+        std::lock_guard<std::mutex> lock(live_scripts_mutex);
+        for (VisualGasicScript* script : pending_reloads) {
+            if (live_scripts.count(script) && script->_has_source_code()) {
+                String path = script->get_path();
+                
+                // Re-read source from disk if the file exists
+                if (!path.is_empty() && FileAccess::file_exists(path)) {
+                    Ref<FileAccess> f = FileAccess::open(path, FileAccess::READ);
+                    if (f.is_valid()) {
+                        String new_source = f->get_as_text();
+                        f->close();
+                        
+                        // Only reload if source actually changed
+                        if (new_source != script->_get_source_code()) {
+                            script->_set_source_code(new_source);
+                            Error err = script->_reload(true);
+                            if (err == OK) {
+                                UtilityFunctions::print_rich("[color=lime][VG Hot Reload] Reloaded: ", path, "[/color]");
+                            } else {
+                                UtilityFunctions::print_rich("[color=red][VG Hot Reload] Failed to reload: ", path, "[/color]");
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        pending_reloads.clear();
+    }
 }
 
 Dictionary VisualGasicLanguage::_debug_get_globals(int32_t p_max_subitems, int32_t p_max_depth) {
@@ -1234,9 +1271,44 @@ String VisualGasicLanguage::_debug_parse_stack_level_expression(int32_t p_level,
 }
 
 void VisualGasicLanguage::_reload_all_scripts() {
+    std::lock_guard<std::mutex> lock(live_scripts_mutex);
+    int count = 0;
+    for (VisualGasicScript* script : live_scripts) {
+        String path = script->get_path();
+        if (path.is_empty()) continue;
+        if (!FileAccess::file_exists(path)) continue;
+        
+        Ref<FileAccess> f = FileAccess::open(path, FileAccess::READ);
+        if (f.is_valid()) {
+            String new_source = f->get_as_text();
+            f->close();
+            script->_set_source_code(new_source);
+            Error err = script->_reload(true);
+            if (err == OK) {
+                count++;
+            } else {
+                UtilityFunctions::print_rich("[color=red][VG Hot Reload] Failed: ", path, "[/color]");
+            }
+        }
+    }
+    if (count > 0) {
+        UtilityFunctions::print_rich("[color=lime][VG Hot Reload] Reloaded ", count, " script(s)[/color]");
+    }
 }
 
 void VisualGasicLanguage::_reload_tool_script(const Ref<Script> &p_script, bool p_soft_reload) {
+    if (p_script.is_null()) return;
+    
+    VisualGasicScript* vg_script = Object::cast_to<VisualGasicScript>(p_script.ptr());
+    if (!vg_script) return;
+    
+    // Queue for processing in _frame() to avoid re-entrancy issues
+    std::lock_guard<std::mutex> lock(live_scripts_mutex);
+    // Avoid duplicates in pending queue
+    for (VisualGasicScript* s : pending_reloads) {
+        if (s == vg_script) return;
+    }
+    pending_reloads.push_back(vg_script);
 }
 
 String VisualGasicLanguage::_debug_get_stack_level_source(int32_t p_level) const {
@@ -1715,4 +1787,42 @@ String VisualGasicLanguage::evaluate_expression_in_context(const String& express
     }
     
     return "[Cannot evaluate: " + trimmed + "]";
+}
+
+// ============================================================================
+// HOT RELOAD — SCRIPT REGISTRY
+// ============================================================================
+
+void VisualGasicLanguage::register_script(VisualGasicScript* script) {
+    std::lock_guard<std::mutex> lock(live_scripts_mutex);
+    live_scripts.insert(script);
+}
+
+void VisualGasicLanguage::unregister_script(VisualGasicScript* script) {
+    std::lock_guard<std::mutex> lock(live_scripts_mutex);
+    live_scripts.erase(script);
+    // Remove from pending queue too
+    for (auto it = pending_reloads.begin(); it != pending_reloads.end(); ) {
+        if (*it == script) {
+            it = pending_reloads.erase(it);
+        } else {
+            ++it;
+        }
+    }
+}
+
+void VisualGasicLanguage::queue_hot_reload(VisualGasicScript* script) {
+    std::lock_guard<std::mutex> lock(live_scripts_mutex);
+    if (live_scripts.count(script)) {
+        // Avoid duplicates
+        for (VisualGasicScript* s : pending_reloads) {
+            if (s == script) return;
+        }
+        pending_reloads.push_back(script);
+    }
+}
+
+int VisualGasicLanguage::get_live_script_count() {
+    std::lock_guard<std::mutex> lock(live_scripts_mutex);
+    return (int)live_scripts.size();
 }
