@@ -1,0 +1,44 @@
+# Normalize line endings
+* text=auto eol=lf
+# Binary files — no text conversion
+*.so binary
+*.dll binary
+*.dylib binary
+*.framework/** binary
+# Exclude development/build files from GitHub zip downloads (AssetLib uses these)
+# Users only need the addons/ folder to use the plugin.
+src/ export-ignore
+godot-cpp/ export-ignore
+demo/ export-ignore
+tests/ export-ignore
+tools/ export-ignore
+scripts/ export-ignore
+perf_reports/ export-ignore
+package/ export-ignore
+test_proj/ export-ignore
+game_projects/ export-ignore
+community_support/ export-ignore
+tutorials/ export-ignore
+video_tutorials/ export-ignore
+vbnet_examples_backup/ export-ignore
+vbnet_samples_backup/ export-ignore
+Calculator-vb6-main/ export-ignore
+Semi-VB-Decompiler/ export-ignore
+bin/ export-ignore
+SConstruct export-ignore
+Makefile.tests export-ignore
+CMakeLists.txt export-ignore
+gdextension_interface.h export-ignore
+run_test_suite.sh export-ignore
+install.sh export-ignore
+install.py export-ignore
+install.ps1 export-ignore
+UPLOAD_TO_GITHUB.sh export-ignore
+performance.conf export-ignore
+production_performance.conf export-ignore
+performance_results.json export-ignore
+Godot_v4.*-stable_linux.x86_64 export-ignore
+.vscode/ export-ignore
+addons/visual_gasic/bin/*.framework/** filter=lfs diff=lfs merge=lfs -text
+addons/visual_gasic/bin/*.so filter=lfs diff=lfs merge=lfs -text
+addons/visual_gasic/bin/*.dll filter=lfs diff=lfs merge=lfs -text

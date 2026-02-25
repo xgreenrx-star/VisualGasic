@@ -27,6 +27,10 @@ perf_*.txt
 *.exe
 VisualGasic
 
+# Exception: addon binaries are committed for AssetLib distribution
+!addons/visual_gasic/bin/
+!addons/visual_gasic/bin/**
+
 # Python/Venv
 venv/
 .venv/
