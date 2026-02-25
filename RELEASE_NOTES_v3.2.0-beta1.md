@@ -9,10 +9,25 @@
 
 ---
 
-> **⚠️ This is a BETA release.**  
-> VisualGasic is feature-complete for Beta 1 but has not been battle-tested by a large user base yet.
-> You may encounter bugs, edge cases, or missing features. We welcome all feedback, bug reports,
-> and contributions. See [How to Report Bugs](#-how-to-report-bugs) below.
+> ## ⚠️ EARLY BETA — READ THIS FIRST
+>
+> **This is an early beta release — the very first public version of VisualGasic.**
+>
+> Our version numbering (v3.2.0) reflects the internal development history, **not** product
+> maturity. Despite the high version number, this is the first release made available to
+> the public. Think of it as a "v0.1" in terms of community testing.
+>
+> **What "early beta" means:**
+> - The core language, compiler, and JIT are functional and pass all tests
+> - The IDE and Form Designer work but are still being polished
+> - You **will** encounter bugs, rough edges, and missing features
+> - Documentation may reference features that behave slightly differently than described
+> - **We need your help** — bug reports, feedback, and testing are invaluable right now
+>
+> **This is not production-ready software.** Please do not use it for commercial projects yet.
+> Use it to experiment, learn, build prototypes, and help us find bugs.
+>
+> See [How to Report Bugs](#-how-to-report-bugs) below — every report helps!
 
 ---
 
@@ -21,6 +36,30 @@
 **VisualGasic** is a **Visual Basic 6-style programming language** that runs inside the **Godot Engine** as a GDExtension. It brings the simplicity and rapid development experience of classic VB6 to modern 2D/3D game and application development.
 
 If you ever loved Visual Basic 6 — the drag-and-drop Form Designer, the familiar `Dim`, `Sub`, `If...Then`, `Select Case` syntax, and the ability to go from idea to working program in minutes — VisualGasic brings all of that back, powered by one of the most capable open-source game engines in the world.
+
+### 🎯 The Event-Driven Difference
+
+VisualGasic is one of the only game-engine scripting languages that is **truly event-driven by design**. Instead of writing monolithic game loops, you write small, focused event handlers:
+
+```vb
+' Drop a Button on the Form Designer → double-click it → write this:
+Sub btnFire_Click()
+    SpawnBullet player.x, player.y
+    PlaySound "laser"
+End Sub
+
+' Timer fires every 500ms → spawns an enemy:
+Sub tmrSpawn_Timer()
+    SpawnEnemy Rnd() * SCREEN_WIDTH, 0
+End Sub
+
+' Godot signals wired automatically:
+Sub Player_AreaEntered(area As Variant)
+    If area.is_in_group("powerup") Then CollectPowerup area
+End Sub
+```
+
+No other Godot language gives you this workflow. GDScript, C++, and C# all require manual signal wiring, boilerplate connection code, and explicit callback registration. In VisualGasic, you **name the Sub** and the event system connects it automatically — just like VB6 did 25 years ago. This is what makes VG uniquely productive for both UI applications and games.
 
 ### Who Is This For?
 
@@ -154,7 +193,8 @@ End Select
 | Feature | How It Helps |
 |---------|-------------|
 | **Form Designer** | Drag-and-drop UI — no manual positioning code |
-| **Event-driven coding** | Double-click a control → write the handler |
+| **Event-driven architecture** | Name a Sub `btnSave_Click()` and it's automatically wired — no signal boilerplate |
+| **Automatic event binding** | Timer events, button clicks, area signals — all connected by naming convention |
 | **Familiar syntax** | If you know VB6, you already know 90% of VG |
 | **Immediate Window** | Test expressions and inspect variables live |
 | **Auto-complete** | IntelliSense-style code completion |
@@ -331,6 +371,7 @@ Press F5 to play Pong — use W/S and Arrow keys.
 | **Learning curve** | ⭐ Easiest (VB6 syntax) | ⭐⭐ Easy (Python-like) | ⭐⭐⭐⭐⭐ Hard | ⭐⭐⭐ Medium |
 | **Performance** | ⭐⭐⭐⭐ Fast (JIT) | ⭐⭐ Slow | ⭐⭐⭐⭐⭐ Fastest | ⭐⭐⭐⭐ Fast |
 | **RAD / Form Designer** | ✅ Full WYSIWYG | ❌ None | ❌ None | ❌ None |
+| **Event-driven design** | ✅ Automatic binding | ❌ Manual signals | ❌ Manual callbacks | ❌ Manual delegates |
 | **VB6 familiarity** | ✅ Native | ❌ | ❌ | ⚡ Partial |
 | **Godot integration** | ✅ Full API | ✅ Full API | ✅ Full API | ✅ Full API |
 | **Debugging** | ✅ Immediate Window | ✅ Built-in | ⚡ External | ✅ VS Integration |
@@ -339,9 +380,51 @@ Press F5 to play Pong — use W/S and Arrow keys.
 
 ---
 
+## ✅ Advantages of VisualGasic
+
+1. **Event-driven programming model** — The single most unique feature. Name a Sub `btnName_Click()` or `tmrEnemy_Timer()` and it's automatically connected. No signal wiring, no `connect()` calls, no delegate boilerplate. This is how VB6 worked and no other Godot language offers it. It makes UI apps trivially easy and game event handling remarkably clean.
+
+2. **Exceptional performance** — The Tier 2 JIT compiler generates native x86-64 machine code. Branching ties C++ at 59 µs. String operations are 83× faster than GDScript. You get scripting-language convenience with compiled-language speed.
+
+3. **Fastest path from idea to working program** — The Form Designer lets you drag controls onto a canvas, double-click them to write event handlers, and press F5 to run. No build steps, no configuration files, no class hierarchies to set up first.
+
+4. **Gentle learning curve** — VB6 syntax is widely regarded as one of the easiest to learn. `Dim x As Integer`, `If...Then...Else`, `For...Next`, `Sub...End Sub` read almost like English. Millions of developers already know this syntax.
+
+5. **Full Godot engine access** — Every Godot API, singleton, class, and enum is available. You're not in a sandbox — you can do anything GDScript or C++ can do.
+
+6. **Cross-platform via Godot** — Export to Linux, Windows, macOS, Android, iOS, and WebAssembly from the same codebase.
+
+7. **Modern language features** — Despite the VB6 familiarity, VG includes lambdas, async/await, generics, pattern matching, higher-order functions, and a full class system with inheritance.
+
+8. **Integrated debugging** — The Immediate Window lets you evaluate expressions, inspect variables, and modify state while your program is paused — a feature VB6 developers loved and no other Godot language replicates.
+
+## ❌ Disadvantages of VisualGasic (Honest Assessment)
+
+1. **Early beta — not production-ready** — This is the first public release. There will be bugs, missing edge cases, and rough spots. Do not ship commercial products with it yet.
+
+2. **Godot dependency** — VG only runs inside Godot Engine. If Godot doesn't suit your project (e.g., you need a pure desktop toolkit or a web framework), VG won't help.
+
+3. **Small ecosystem** — There is no package registry, no Stack Overflow tag with thousands of answers, no third-party libraries. You're an early adopter. The community is just getting started.
+
+4. **No native desktop widgets** — UI is rendered by Godot, not the OS. Your Calculator app won't look like a native Windows or macOS app. It will look like a Godot app.
+
+5. **Linux-only binaries in Beta 1** — Windows and macOS builds are planned for Beta 2 but aren't available yet.
+
+6. **IDE is Godot Editor** — You use Godot's editor, not a standalone VB6-style IDE. If you want to work outside Godot, you can't (yet).
+
+7. **JIT is x86-64 only** — On ARM devices (Raspberry Pi, Apple Silicon without Rosetta, Android), VG falls back to interpreted mode, which is still faster than GDScript but not as fast as JIT.
+
+8. **Niche job market** — No one is hiring VisualGasic developers. This is a passion project and hobby tool, not a career language (yet).
+
+9. **Non-traditional version numbering** — The v3.2.0 version number reflects internal development history, not maturity. This confuses people into thinking this is a mature v3.x product. It's not — it's an early beta.
+
+10. **Not suitable for web development** — VG cannot create websites, REST APIs, or server-side applications. It can export to WebAssembly via Godot, but that produces a canvas-based app, not a traditional web page.
+
+---
+
 ## 🐛 Known Limitations (Beta)
 
-This is a beta release. The following limitations are known:
+This is an early beta release. The following limitations are known:
 
 ### IDE / Form Designer
 - The IDE integration is functional but still being polished
@@ -426,5 +509,8 @@ cd VisualGasic-v3.2.0-beta1-linux-x86_64
 ```
 
 ---
+
+> ⚠️ **Remember: this is an early beta.** The high version number (v3.2.0) reflects internal
+> development history — this is the first public release. Please report bugs and help us improve!
 
 *VisualGasic v3.2.0 Beta 1 — VB6 lives again.* 🎉

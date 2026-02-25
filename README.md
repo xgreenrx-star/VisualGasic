@@ -5,9 +5,18 @@
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Godot](https://img.shields.io/badge/Godot-4.5+-purple.svg)](https://godotengine.org)
 
-**World-Class RAD Platform**: Professional Visual Basic language implementation with cutting-edge modern features including multitasking, advanced type system, pattern matching, GPU computing, and comprehensive development tools.
+**World-Class RAD Platform**: Professional Visual Basic language implementation with **event-driven programming**, cutting-edge modern features including multitasking, advanced type system, pattern matching, GPU computing, and comprehensive development tools.
+
+> ⚠️ **Early Beta** — v3.2.0 version number reflects internal dev history. This is the first public release. [See release notes](RELEASE_NOTES_v3.2.0-beta1.md).
 
 ## 🚀 **Key Features**
+
+### **Event-Driven Programming** *(Unique to VisualGasic)*
+- **Automatic event binding** — Name a Sub `btnSave_Click()` and it's wired automatically. No manual `connect()` calls.
+- **Timer events** — `Sub tmrSpawn_Timer()` fires automatically. No signal boilerplate.
+- **Godot signal integration** — `Sub Player_AreaEntered(area)` just works by naming convention.
+- **Form Designer events** — Double-click any control → event handler Sub is created and connected.
+- No other Godot language offers this workflow. GDScript, C++, and C# all require explicit signal wiring.
 
 ### **Core Language**
 - **Complete Visual Basic 6 Syntax** - Full compatibility with VB6 projects
@@ -300,6 +309,10 @@ VisualGasic welcomes contributions! Please see our [Contributing Guide](CONTRIBU
 ## 📊 **Project Status**
 
 **Current Version**: 3.2.0-beta1 (JIT Compiler, LSP, Performance — First Public Beta)
+
+> ⚠️ **Early Beta:** Despite the v3.2.0 version number (which reflects internal development
+> history), this is the **first public release** of VisualGasic. Expect bugs and rough edges.
+> We need testers — see [RELEASE_NOTES_v3.2.0-beta1.md](RELEASE_NOTES_v3.2.0-beta1.md) for details.
 
 **Completion Status**:
 - ✅ **Core Language** - 95% (VB6 compatibility — see [Known Issues](docs/KNOWN_ISSUES.md) for edge cases)
