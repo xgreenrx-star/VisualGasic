@@ -1,7 +1,7 @@
 # Visual Gasic Development Roadmap
 
 **Last Updated**: February 2026  
-**Current Version**: 3.1.0 (System-Level Programming, IPC, Signals, Memory, Android Bridge)
+**Current Version**: 3.2.0-beta1 (JIT Compiler, LSP, Performance, Beta Release)
 
 This document outlines the planned improvements and features for Visual Gasic. Items are prioritized by impact and development effort.
 

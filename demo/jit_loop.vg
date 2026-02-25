@@ -1,0 +1,9 @@
+' Simple loop JIT test
+Function SumTo(ByVal n As Long) As Long
+    Dim i As Long
+    Dim s As Long
+    For i = 0 To n - 1 Step 1
+        s = s + 1
+    Next i
+    SumTo = s
+End Function

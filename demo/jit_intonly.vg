@@ -1,0 +1,8 @@
+' Very simple test - pure integer
+Function AddTwo(ByVal a As Long, ByVal b As Long) As Long
+    AddTwo = a + b
+End Function
+
+Function Identity(ByVal n As Long) As Long
+    Identity = n
+End Function

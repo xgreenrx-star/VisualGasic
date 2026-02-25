@@ -5,6 +5,37 @@ All notable changes to Visual Gasic will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.2.0-beta1] - February 2026
+
+### 🚀 First Public Beta Release
+
+**VisualGasic v3.2.0 Beta 1** — the first public beta release of the VB6-style scripting language for Godot 4.6.1.
+
+### Added
+- **JIT Compiler (Tier 2)** — x86-64 native code generation for hot loops and arithmetic; 2×–118× faster than GDScript
+- **LSP Integration** — Language Server Protocol support for editor features
+- **Step-by-step Tutorials** — App Development (Calculator) and Game Development (Pong) guides
+- **11 Performance Benchmarks** — comprehensive suite comparing VG vs GDScript vs C++
+
+### Performance Highlights
+- All 11 benchmarks faster than GDScript (2×–118×)
+- VG wins 6/9 benchmarks vs native C++
+- Branching: 59 µs — **ties C++** at native speed
+- StringConcat: 83× faster than GDScript, 8× faster than C++
+- Interop: 67× faster than GDScript, 57× faster than C++
+
+### Fixed
+- XMM register clobber bug in F64 arithmetic/comparison JIT codegen
+- JIT stack alignment issues on x86-64
+
+### Documentation
+- Updated performance docs with v3.2 benchmark results
+- Added APP_DEVELOPMENT.md tutorial (Calculator, 12 steps)
+- Added GAME_DEVELOPMENT.md tutorial (Pong, 14 steps)
+- Version references updated across all docs
+
+---
+
 ## [3.1.0] - February 2026
 
 ### Added — System-Level Programming

@@ -1,6 +1,6 @@
 # VisualGasic Project Status
 
-**Version**: 3.1.0 (System-Level Programming, IPC, Signals, Memory, Android Bridge)  
+**Version**: 3.2.0-beta1 (JIT Compiler, LSP, Performance, Beta Release)  
 **Last Updated**: February 2026
 
 ## Overview
