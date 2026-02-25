@@ -140,7 +140,7 @@ public:
                               int line_number, const Dictionary& variables);
     bool step_backward();
     bool step_forward();
-    bool goto_frame(size_t frame_index);
+    bool goto_frame(int64_t frame_index);
     ExecutionFrame get_current_frame() const;
     Array get_execution_history(int max_frames = 100) const;
     

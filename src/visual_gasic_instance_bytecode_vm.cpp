@@ -834,7 +834,10 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
     // back-edge, giving ~15-25% faster opcode throughput.
     // MSVC falls back to the classic while+switch.
 
-#if defined(__GNUC__) || defined(__clang__)
+#if defined(__GNUC__) && !defined(__clang__)
+// GCC: use computed goto for ~15-25% faster opcode dispatch.
+// Clang: disabled — Clang's strict indirect-goto analysis rejects
+// jumps across scoped variable declarations (e.g. Variant, String).
 #define VG_USE_COMPUTED_GOTO 1
 #else
 #define VG_USE_COMPUTED_GOTO 0

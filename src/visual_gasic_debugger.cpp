@@ -134,8 +134,8 @@ Dictionary VisualGasicDebugger::get_session_info() const {
         info["session_id"] = current_session->session_id;
         info["start_time"] = current_session->start_time_us;
         info["end_time"] = current_session->end_time_us;
-        info["frame_count"] = current_session->execution_history.size();
-        info["current_frame"] = current_frame_index;
+        info["frame_count"] = (int64_t)current_session->execution_history.size();
+        info["current_frame"] = (int64_t)current_frame_index;
         info["profiling_enabled"] = profiling_enabled;
         info["memory_tracking_enabled"] = memory_tracking_enabled;
         info["time_travel_enabled"] = time_travel_enabled;
@@ -219,9 +219,9 @@ bool VisualGasicDebugger::step_forward() {
     return true;
 }
 
-bool VisualGasicDebugger::goto_frame(size_t frame_index) {
-    if (!time_travel_enabled || !current_session || 
-        frame_index >= current_session->execution_history.size()) {
+bool VisualGasicDebugger::goto_frame(int64_t frame_index) {
+    if (!time_travel_enabled || !current_session || frame_index < 0 ||
+        (size_t)frame_index >= current_session->execution_history.size()) {
         return false;
     }
     
@@ -452,7 +452,7 @@ Dictionary VisualGasicDebugger::get_memory_usage() const {
     
     usage["total_allocated"] = total_allocated_bytes;
     usage["total_freed"] = total_freed_bytes;
-    usage["active_allocations"] = active_allocations.size();
+    usage["active_allocations"] = (int64_t)active_allocations.size();
     usage["current_usage"] = total_allocated_bytes - total_freed_bytes;
     
     if (!current_session->memory_snapshots.empty()) {
@@ -469,7 +469,7 @@ Array VisualGasicDebugger::get_memory_leaks() const {
     for (const auto& alloc : active_allocations) {
         Dictionary leak;
         leak["address"] = String::num_uint64(reinterpret_cast<uintptr_t>(alloc.first));
-        leak["size"] = alloc.second;
+        leak["size"] = (int64_t)alloc.second;
         leak["stack_trace"] = get_allocation_stack_trace();
         leaks.push_back(leak);
     }
@@ -982,7 +982,7 @@ void VisualGasicDebugger::load_session(const String& file_path) {
 
 void VisualGasicDebugger::export_session_data(const String& format) const {
     UtilityFunctions::print("[VG Debug] Export in format: ", format, " (", 
-        current_session ? current_session->execution_history.size() : 0, " frames)");
+        (int64_t)(current_session ? current_session->execution_history.size() : 0), " frames)");
 }
 
 // ============================================================================

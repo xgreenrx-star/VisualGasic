@@ -14,7 +14,9 @@
 #else
     #include <unistd.h>
     #include <sys/utsname.h>
-    #include <sys/sysinfo.h>
+    #ifndef __APPLE__
+        #include <sys/sysinfo.h>
+    #endif
     #include <sys/statvfs.h>
     #include <pwd.h>
     #include <limits.h>
