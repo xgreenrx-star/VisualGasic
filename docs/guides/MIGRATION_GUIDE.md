@@ -501,4 +501,4 @@ If you encounter issues:
 
 ---
 
-**Remember**: All modern features are optional. You can use as much or as little as you want. 100% backward compatible!
+**Remember**: All modern features are optional. You can use as much or as little as you want. All supported VB6 syntax continues to work!

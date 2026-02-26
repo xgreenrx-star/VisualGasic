@@ -205,7 +205,7 @@ From the audit, these specific items need verification:
 | 2 | Package `publish`/`upload` are stubs | 🟡 Medium | Package manager |
 | 3 | JIT only handles loops | 🟡 Low | `visual_gasic_jit.cpp` |
 | 4 | `visual_gasic_instance.cpp` is 8,152 lines | 🟡 Debt | Architecture |
-| 5 | Some "100%" claims in docs for stub features | 🟡 Medium | Documentation |
+| 5 | ~~Some "100%" claims in docs for stub features~~ ✅ Fixed | 🟢 Done | Documentation |
 | 6 | No valgrind/ASAN memory testing done | 🟠 High | Memory safety |
 
 ---
@@ -238,7 +238,7 @@ From the audit, these specific items need verification:
 3. Document any platform-specific failures
 
 ### Phase 6: Documentation Audit (0.5 day)
-1. Remove "100%" claims for stub features
+1. ~~Remove "100%" claims for stub features~~ ✅ Done
 2. Mark LSP as "experimental / in progress"
 3. Ensure all demos in README match actual files
 

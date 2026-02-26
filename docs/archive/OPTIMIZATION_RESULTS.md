@@ -201,4 +201,4 @@ Despite using the same optimizations, dictionaries are 3-12× slower due to:
 ✅ **Production-ready performance** for most use cases  
 ⚠️ **Dictionary operations slower** - architectural limitation, not a bug
 
-All optimizations maintain **full VB6 compatibility** with **zero breaking changes**.
+All optimizations maintain **compatibility with supported VB6 features** with **zero breaking changes**.

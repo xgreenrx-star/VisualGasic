@@ -99,10 +99,10 @@ VisualGasic preserves this philosophy:
 - **Meaningful keywords**: `Sub`, `Function`, `End If`, `Loop`, `Next`
 - **Natural syntax**: `For i = 1 To 10` instead of `for (i = 1; i <= 10; i++)`
 
-**Complete VB6 Compatibility:**
+**VB6-Inspired Syntax:**
 
 ```vb
-' Classic VB6 syntax works perfectly in VisualGasic
+' Classic VB6 syntax is supported in VisualGasic
 Dim playerName As String
 Dim health As Integer
 Dim isAlive As Boolean

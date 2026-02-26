@@ -2,7 +2,7 @@
 
 ## 🎉 New Modern Syntax Features!
 
-VisualGasic now includes **13 fully implemented** modern language features that make your code more concise, safer, and easier to read - while maintaining 100% backward compatibility with VB6!
+VisualGasic now includes **13 fully implemented** modern language features that make your code more concise, safer, and easier to read - while maintaining backward compatibility with supported VB6 syntax!
 
 ## Quick Examples
 
@@ -199,11 +199,11 @@ examples/test_modern_working.bas
 
 ## Backward Compatibility
 
-✅ **100% backward compatible**
-- All existing VB6 code works unchanged
+✅ **Backward compatible with supported VB6 features**
+- All existing VisualGasic code works unchanged
 - Modern features are purely additive
-- Mix old and new syntax freely
-- No breaking changes
+- Mix traditional and modern syntax freely
+- No breaking changes to existing functionality
 
 ## Build Status
 

@@ -79,7 +79,7 @@ Dictionary operations were previously 3-12× slower than GDScript. Three optimiz
 - Competitive with C++ on most operations
 - Beats C++ on string operations
 - Consistent, reproducible results
-- Full VB6 compatibility maintained
+- Broad VB6 syntax coverage maintained
 
 **Considerations**:
 - StringConcat in tight loops is slower than GDScript (tracked for v2.5)

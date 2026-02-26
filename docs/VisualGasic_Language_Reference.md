@@ -126,7 +126,7 @@ BASIC (**B**eginner's **A**ll-purpose **S**ymbolic **I**nstruction **C**ode) was
 
 #### VB6 Compatibility
 
-VisualGasic supports the complete VB6 syntax, including:
+VisualGasic supports a large subset of VB6 syntax, including:
 
 **Variables and Data Types:**
 ```vb
