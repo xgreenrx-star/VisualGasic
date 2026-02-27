@@ -35,6 +35,7 @@ int VisualGasicOptimizer::instruction_size(const Vector<uint8_t>& code, int ip) 
         case OP_DICT_HAS_KEY: case OP_DICT_SIZE: case OP_DICT_CLEAR_INPLACE:
         case OP_DICT_KEYS: case OP_DICT_VALUES: case OP_DICT_ERASE:
         case OP_RESTORE_DATA: case OP_READ_DATA:
+        case OP_LOAD_DATA: case OP_CLEAR_DATA:
         case OP_ON_ERROR_RESUME_NEXT: case OP_ON_ERROR_GOTO_0:
         case OP_NIL: case OP_TRUE: case OP_FALSE:
         case OP_NOP:
@@ -62,6 +63,7 @@ int VisualGasicOptimizer::instruction_size(const Vector<uint8_t>& code, int ip) 
         case OP_GET_MEMBER: case OP_SET_MEMBER:
         case OP_REGISTER_WHENEVER: case OP_SUSPEND_WHENEVER: case OP_RESUME_WHENEVER:
         case OP_ON_ERROR_GOTO:
+        case OP_COERCE_TYPE:                                                   // [OP] [TYPE_IDX]
         case OP_INC_LOCAL_I64:
         case OP_ADD_I64_CONST: case OP_SUB_I64_CONST:                 // [OP] [CONST_IDX]
         case OP_ADD_LOCAL_I64_STACK: case OP_SUB_LOCAL_I64_STACK:      // [OP] [LOCAL_SLOT]

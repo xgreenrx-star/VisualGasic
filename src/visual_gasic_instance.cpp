@@ -1028,13 +1028,64 @@ void VisualGasicInstance::scan_data_sections(ModuleNode* root) {
     data_segments.clear();
     label_to_data_index.clear();
 
-    // Scan Subs (and Functions which are now subtypes of Subs)
+    // Scan Global Statements first (module-level Data/Labels appear before Subs in source)
+    collect_data_from_block(root->global_statements);
+
+    // Then scan Subs in declaration order
     for(int i=0; i<root->subs.size(); i++) {
         collect_data_from_block(root->subs[i]->statements);
     }
-    
-    // Scan Global Statements (Data/Labels)
-    collect_data_from_block(root->global_statements);
+}
+
+int VisualGasicInstance::get_section_end(int section_start) const {
+    // Find the next label boundary after section_start
+    Array keys = label_to_data_index.keys();
+    int nearest = data_segments.size();
+    for (int i = 0; i < keys.size(); i++) {
+        int idx = (int)label_to_data_index[keys[i]];
+        if (idx > section_start && idx < nearest) {
+            nearest = idx;
+        }
+    }
+    return nearest;
+}
+
+int VisualGasicInstance::get_current_section_start() const {
+    // Find the label boundary at or before data_pointer
+    Array keys = label_to_data_index.keys();
+    int best = 0;
+    for (int i = 0; i < keys.size(); i++) {
+        int idx = (int)label_to_data_index[keys[i]];
+        if (idx <= data_pointer && idx > best) {
+            best = idx;
+        }
+    }
+    return best;
+}
+
+void VisualGasicInstance::clear_data_tape() {
+    // Free runtime-loaded nodes
+    for (int i = 0; i < runtime_data_nodes.size(); i++) {
+        if (runtime_data_nodes[i]) delete runtime_data_nodes[i];
+    }
+    runtime_data_nodes.clear();
+    data_segments.clear();
+    label_to_data_index.clear();
+    data_pointer = 0;
+}
+
+Variant VisualGasicInstance::coerce_to_type(const Variant &val, const String &type_name) {
+    String tl = type_name.to_lower();
+    if (tl == "integer" || tl == "int" || tl == "long" || tl == "int32" || tl == "int64") {
+        return Variant((int64_t)val);
+    } else if (tl == "single" || tl == "float" || tl == "double" || tl == "float32" || tl == "float64") {
+        return Variant((double)val);
+    } else if (tl == "string") {
+        return Variant(String(val));
+    } else if (tl == "boolean" || tl == "bool") {
+        return Variant(val.booleanize());
+    }
+    return val; // unknown type, pass through
 }
 
 void VisualGasicInstance::collect_data_from_block(const Vector<Statement*>& block) {
@@ -1048,7 +1099,7 @@ void VisualGasicInstance::collect_data_from_block(const Vector<Statement*>& bloc
         }
         if (s->type == STMT_LABEL) {
             LabelStatement* label = (LabelStatement*)s;
-            label_to_data_index[label->name] = data_segments.size();
+            label_to_data_index[label->name.to_lower()] = data_segments.size();
         }
         
         // Recursive blocks (If, Do, Loop, For, Select, With)

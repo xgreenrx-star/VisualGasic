@@ -52,6 +52,12 @@ class VisualGasicInstance {
     void scan_data_sections(ModuleNode* root);
     void collect_data_from_block(const Vector<Statement*>& block);
 
+    // Data introspection helpers
+    int get_section_end(int section_start) const;
+    int get_current_section_start() const;
+    void clear_data_tape();
+    static Variant coerce_to_type(const Variant &val, const String &type_name);
+
     Dictionary defined_structs; // Name -> StructDefinition* (wrapped or pointer?)
     // Storing pointers in Variant Dictionary is unsafe if not RefCounted.
     // StructDefinition is not RefCounted.
@@ -217,6 +223,13 @@ public:
     void randomize_seed();
     // Allow builtins to raise runtime errors via instance wrapper
     void raise_runtime_error(const String &p_msg, int p_code = 5, const String &p_source = "");
+
+    // Data introspection accessors for builtins
+    int get_data_count() const { return data_segments.size(); }
+    int get_data_pointer() const { return data_pointer; }
+    int get_data_section_end(int section_start) const { return get_section_end(section_start); }
+    int get_data_section_start() const { return get_current_section_start(); }
+    const Dictionary &get_label_to_data_index() const { return label_to_data_index; }
 
     // Accessors for builtins module (Err.Clear etc.)
     Dictionary &get_variables() { return variables; }

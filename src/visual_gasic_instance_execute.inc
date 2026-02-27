@@ -339,6 +339,10 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                  }
                  Variant val = evaluate_expression(data_segments[data_pointer]);
                  data_pointer++;
+                 // Typed Read coercion (Read x As Integer)
+                 if (i < s->type_names.size() && !s->type_names[i].is_empty()) {
+                     val = coerce_to_type(val, s->type_names[i]);
+                 }
                  assign_to_target(s->targets[i], val);
              }
              break;
@@ -348,8 +352,9 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
              if (s->label_name.is_empty()) {
                  data_pointer = 0;
              } else {
-                 if (label_to_data_index.has(s->label_name)) {
-                     data_pointer = (int)label_to_data_index[s->label_name];
+                 String key = s->label_name.to_lower();
+                 if (label_to_data_index.has(key)) {
+                     data_pointer = (int)label_to_data_index[key];
                  } else {
                      raise_error("Label not found for Restore: " + s->label_name);
                  }
@@ -1956,6 +1961,10 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                 runtime_data_nodes.push_back(new_data[i]);
             }
             
+            break;
+        }
+        case STMT_CLEAR_DATA: {
+            clear_data_tape();
             break;
         }
         case STMT_SELECT: {

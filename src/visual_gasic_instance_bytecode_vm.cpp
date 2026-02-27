@@ -959,6 +959,9 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         dispatch_table[OP_RESUME_WHENEVER]      = &&vg_op_resume_whenever;
         dispatch_table[OP_RESTORE_DATA]         = &&vg_op_restore_data;
         dispatch_table[OP_READ_DATA]            = &&vg_op_read_data;
+        dispatch_table[OP_LOAD_DATA]            = &&vg_op_load_data;
+        dispatch_table[OP_CLEAR_DATA]           = &&vg_op_clear_data;
+        dispatch_table[OP_COERCE_TYPE]          = &&vg_op_coerce_type;
         dispatch_table[OP_ON_ERROR_RESUME_NEXT] = &&vg_op_on_error_resume_next;
         dispatch_table[OP_ON_ERROR_GOTO]        = &&vg_op_on_error_goto;
         dispatch_table[OP_ON_ERROR_GOTO_0]      = &&vg_op_on_error_goto_0;
@@ -3328,12 +3331,10 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     // Reset to beginning
                     data_pointer = 0;
                 } else if (restore_val.get_type() == Variant::STRING) {
-                    // Restore to label - find the label in label_to_data_index
-                    String label = restore_val;
-                    if (label_to_data_index.has(label)) {
-                        data_pointer = (int)label_to_data_index[label];
-                    } else if (label_to_data_index.has(label.to_lower())) {
-                        data_pointer = (int)label_to_data_index[label.to_lower()];
+                    // Restore to label - labels stored lowercase in label_to_data_index
+                    String key = String(restore_val).to_lower();
+                    if (label_to_data_index.has(key)) {
+                        data_pointer = (int)label_to_data_index[key];
                     } else {
                         // Label not found - reset to beginning
                         data_pointer = 0;
@@ -3356,6 +3357,45 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     data_pointer++;
                     push_value(val);
                 }
+                break;
+            }
+            VG_CASE(vg_op_load_data, OP_LOAD_DATA): {
+                // LoadData — pop path string, load file, append to data tape
+                Variant v_path = pop_value();
+                String path = v_path;
+                if (!FileAccess::file_exists(path)) {
+                    raise_error("LoadData: File not found: " + path, 200);
+                    if (try_recover_error(Variant())) break;
+                    success = false;
+                    goto cleanup;
+                }
+                {
+                    Ref<FileAccess> file = FileAccess::open(path, FileAccess::READ);
+                    if (file.is_null()) {
+                        raise_error("LoadData: Could not open file: " + path, 201);
+                        if (try_recover_error(Variant())) break;
+                        success = false;
+                        goto cleanup;
+                    }
+                    String content = file->get_as_text();
+                    file->close();
+                    Vector<ExpressionNode*> new_data = VisualGasicParser::parse_data_values_from_text(content);
+                    for (int i = 0; i < new_data.size(); i++) {
+                        data_segments.push_back(new_data[i]);
+                        runtime_data_nodes.push_back(new_data[i]);
+                    }
+                }
+                break;
+            }
+            VG_CASE(vg_op_clear_data, OP_CLEAR_DATA): {
+                clear_data_tape();
+                break;
+            }
+            VG_CASE(vg_op_coerce_type, OP_COERCE_TYPE): {
+                uint8_t type_idx = code[vm.ip++];
+                String type_name = chunk->constants[type_idx];
+                Variant val = pop_value();
+                push_value(coerce_to_type(val, type_name));
                 break;
             }
             VG_CASE(vg_op_on_error_resume_next, OP_ON_ERROR_RESUME_NEXT): {

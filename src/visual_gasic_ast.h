@@ -43,6 +43,7 @@ enum StatementType {
     STMT_READ,
     STMT_RESTORE,
     STMT_LOAD_DATA,
+    STMT_CLEAR_DATA,
     STMT_SEEK,
     STMT_KILL,
     STMT_NAME,
@@ -378,10 +379,15 @@ struct DataStatement : public Statement {
 
 struct ReadStatement : public Statement {
     Vector<ExpressionNode*> targets;
+    Vector<String> type_names; // Parallel to targets; empty = no coercion (for Read x As Integer)
     ReadStatement() : Statement(STMT_READ) {}
     ~ReadStatement() {
         for(int i=0; i<targets.size(); i++) if(targets[i]) delete targets[i];
     }
+};
+
+struct ClearDataStatement : public Statement {
+    ClearDataStatement() : Statement(STMT_CLEAR_DATA) {}
 };
 
 struct RestoreStatement : public Statement {

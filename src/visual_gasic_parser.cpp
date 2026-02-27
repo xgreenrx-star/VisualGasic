@@ -729,6 +729,7 @@ Statement* VisualGasicParser::parse_statement() {
         if (val == "loaddata") return set_line(parse_load_data());
         if (val == "read") return set_line(parse_read());
         if (val == "restore") return set_line(parse_restore());
+        if (val == "cleardata") return set_line(parse_clear_data());
         if (val == "if") return set_line(parse_if());
         if (val == "for") return set_line(parse_for());
         if (val == "while") return set_line(parse_while());
@@ -3263,6 +3264,15 @@ DataStatement* VisualGasicParser::parse_data() {
     DataStatement* stmt = static_cast<DataStatement*>(register_node(new DataStatement()));
     
     while (!check(VisualGasicTokenizer::TOKEN_NEWLINE) && !check(VisualGasicTokenizer::TOKEN_EOF)) {
+        // Check for empty slot (consecutive commas: Data 1,,3)
+        if (check(VisualGasicTokenizer::TOKEN_COMMA)) {
+            LiteralNode* null_lit = static_cast<LiteralNode*>(register_node(new LiteralNode()));
+            null_lit->value = Variant(); // Nothing
+            stmt->values.push_back(null_lit);
+            unregister_node(null_lit);
+            advance(); // eat comma
+            continue;
+        }
         {
             ExpressionNode* _tmp = parse_expression();
             if (_tmp) { stmt->values.push_back(_tmp); unregister_node(_tmp); }
@@ -3288,6 +3298,17 @@ ReadStatement* VisualGasicParser::parse_read() {
             if (_tmp) { stmt->targets.push_back(_tmp); unregister_node(_tmp); }
         }
         
+        // Optional: As TypeName (typed Read coercion)
+        String type_name;
+        if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("As") == 0) {
+            advance(); // Eat As
+            if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER) || check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
+                type_name = peek().value;
+                advance();
+            }
+        }
+        stmt->type_names.push_back(type_name);
+        
         if (check(VisualGasicTokenizer::TOKEN_COMMA)) {
             advance();
         } else {
@@ -3306,6 +3327,11 @@ RestoreStatement* VisualGasicParser::parse_restore() {
         advance();
     }
     return stmt;
+}
+
+ClearDataStatement* VisualGasicParser::parse_clear_data() {
+    advance(); // Eat ClearData
+    return static_cast<ClearDataStatement*>(register_node(new ClearDataStatement()));
 }
 
 Vector<ExpressionNode*> VisualGasicParser::parse_data_values_from_text(const String& text) {

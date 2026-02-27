@@ -4508,6 +4508,11 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                 ExpressionNode* target = s->targets[ri];
                 // Push next DATA value onto stack
                 emit_byte(OP_READ_DATA);
+                // Typed Read coercion (Read x As Integer)
+                if (ri < s->type_names.size() && !s->type_names[ri].is_empty()) {
+                    int type_idx = current_chunk->add_constant(s->type_names[ri]);
+                    emit_bytes(OP_COERCE_TYPE, (uint8_t)type_idx);
+                }
                 // Store into target variable
                 if (target->type == ExpressionNode::VARIABLE) {
                     VariableNode* tv = (VariableNode*)target;
@@ -5029,6 +5034,21 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
         }
         case STMT_UNLOCK: {
             emit_byte(OP_UNLOCK);
+            break;
+        }
+        case STMT_DATA: {
+            // No-op at runtime — Data values are collected at init time by scan_data_sections
+            break;
+        }
+        case STMT_LOAD_DATA: {
+            // LoadData path_expr — push path string, emit OP_LOAD_DATA
+            LoadDataStatement* s = (LoadDataStatement*)stmt;
+            compile_expression(s->path_expression);
+            emit_byte(OP_LOAD_DATA);
+            break;
+        }
+        case STMT_CLEAR_DATA: {
+            emit_byte(OP_CLEAR_DATA);
             break;
         }
         default:

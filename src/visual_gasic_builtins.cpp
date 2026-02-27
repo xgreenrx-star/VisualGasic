@@ -318,6 +318,49 @@ Variant call_builtin_expr(VisualGasicInstance *instance, CallExpression *call, b
     }
     if (METHOD_IS("lbound") && args.size() >= 1) { r_handled = true; return 0; }
 
+    // DATA Introspection Functions
+    if (METHOD_IS("datacount")) {
+        r_handled = true;
+        if (args.size() >= 1) {
+            // DataCount("label") — items in a specific labeled section
+            String key = String(args[0]).to_lower();
+            const Dictionary &ldi = instance->get_label_to_data_index();
+            if (ldi.has(key)) {
+                int start = (int)ldi[key];
+                int end = instance->get_data_section_end(start);
+                return end - start;
+            }
+            return 0; // label not found
+        }
+        // DataCount() — total items in the data tape
+        return (int64_t)instance->get_data_count();
+    }
+    if (METHOD_IS("dataremain")) {
+        r_handled = true;
+        // DataRemain() — remaining items from pointer to end of tape
+        int remain = instance->get_data_count() - instance->get_data_pointer();
+        return remain > 0 ? remain : 0;
+    }
+    if (METHOD_IS("datasectioncount")) {
+        r_handled = true;
+        // DataSectionCount() — items in the current section the pointer is in
+        int sec_start = instance->get_data_section_start();
+        int sec_end = instance->get_data_section_end(sec_start);
+        return sec_end - sec_start;
+    }
+    if (METHOD_IS("datasectionremain")) {
+        r_handled = true;
+        // DataSectionRemain() — remaining items from pointer to end of current section
+        int sec_start = instance->get_data_section_start();
+        int sec_end = instance->get_data_section_end(sec_start);
+        int remain = sec_end - instance->get_data_pointer();
+        return remain > 0 ? remain : 0;
+    }
+    if (METHOD_IS("datapointer")) {
+        r_handled = true;
+        return (int64_t)instance->get_data_pointer();
+    }
+
     // File / Dir Helpers (use instance wrappers)
     if (METHOD_IS("lof") && args.size() == 1) { r_handled = true; return instance->file_lof((int)args[0]); }
     if (METHOD_IS("loc") && args.size() == 1) { r_handled = true; return instance->file_loc((int)args[0]); }
@@ -2349,6 +2392,44 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
         return -1;
     }
     if (METHOD_IS("lbound") && args.size() >= 1) { r_handled = true; return 0; }
+
+    // DATA Introspection Functions (shared by tree-walk and bytecode)
+    if (METHOD_IS("datacount")) {
+        r_handled = true;
+        if (args.size() >= 1) {
+            String key = String(args[0]).to_lower();
+            const Dictionary &ldi = instance->get_label_to_data_index();
+            if (ldi.has(key)) {
+                int start = (int)ldi[key];
+                int end = instance->get_data_section_end(start);
+                return end - start;
+            }
+            return 0;
+        }
+        return (int64_t)instance->get_data_count();
+    }
+    if (METHOD_IS("dataremain")) {
+        r_handled = true;
+        int remain = instance->get_data_count() - instance->get_data_pointer();
+        return remain > 0 ? remain : 0;
+    }
+    if (METHOD_IS("datasectioncount")) {
+        r_handled = true;
+        int sec_start = instance->get_data_section_start();
+        int sec_end = instance->get_data_section_end(sec_start);
+        return sec_end - sec_start;
+    }
+    if (METHOD_IS("datasectionremain")) {
+        r_handled = true;
+        int sec_start = instance->get_data_section_start();
+        int sec_end = instance->get_data_section_end(sec_start);
+        int remain = sec_end - instance->get_data_pointer();
+        return remain > 0 ? remain : 0;
+    }
+    if (METHOD_IS("datapointer")) {
+        r_handled = true;
+        return (int64_t)instance->get_data_pointer();
+    }
 
     // ── Functional Programming: Map, Filter, Reduce, Any, All, Find ──
     if (METHOD_IS("map") && args.size() == 2) {

@@ -122,6 +122,7 @@ Vector<VisualGasicTokenizer::Token> VisualGasicTokenizer::tokenize(const String 
     keywords.push_back("Data");
     keywords.push_back("Read");
     keywords.push_back("Restore");
+    keywords.push_back("ClearData");
     keywords.push_back("Option");
     keywords.push_back("Explicit");
     keywords.push_back("Try");

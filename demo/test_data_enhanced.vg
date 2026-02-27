@@ -1,0 +1,299 @@
+' test_data_enhanced.vg — Tests for enhanced Data/Read system
+' Uses If/Then/End If without Else (avoids pre-existing If/Else dual-branch bug)
+
+Sub Main()
+    Dim p As Integer
+    Dim f As Integer
+    p = 0
+    f = 0
+
+    Print "=== Test 1: Basic Read & Source-Order Fix ==="
+    Dim a As Integer
+    Dim b As Integer
+    Dim c As Integer
+    Read a, b, c
+    If a = 10 Then
+        p = p + 1
+        Print "  PASS: a = 10"
+    End If
+    If a <> 10 Then
+        f = f + 1
+        Print "  FAIL: a = " & CStr(a) & " expected 10"
+    End If
+    If b = 20 Then
+        p = p + 1
+        Print "  PASS: b = 20"
+    End If
+    If b <> 20 Then
+        f = f + 1
+        Print "  FAIL: b = " & CStr(b) & " expected 20"
+    End If
+    If c = 30 Then
+        p = p + 1
+        Print "  PASS: c = 30"
+    End If
+    If c <> 30 Then
+        f = f + 1
+        Print "  FAIL: c = " & CStr(c) & " expected 30"
+    End If
+
+    Print ""
+    Print "=== Test 2: DataCount() Total ==="
+    Dim total As Integer
+    total = DataCount()
+    If total = 17 Then
+        p = p + 1
+        Print "  PASS: DataCount() = 17"
+    End If
+    If total <> 17 Then
+        f = f + 1
+        Print "  FAIL: DataCount() = " & CStr(total) & " expected 17"
+    End If
+
+    Print ""
+    Print "=== Test 3: DataPointer() ==="
+    Dim ptr As Integer
+    ptr = DataPointer()
+    If ptr = 3 Then
+        p = p + 1
+        Print "  PASS: DataPointer() = 3"
+    End If
+    If ptr <> 3 Then
+        f = f + 1
+        Print "  FAIL: DataPointer() = " & CStr(ptr) & " expected 3"
+    End If
+
+    Print ""
+    Print "=== Test 4: DataRemain() ==="
+    Dim remain As Integer
+    remain = DataRemain()
+    If remain = 14 Then
+        p = p + 1
+        Print "  PASS: DataRemain() = 14"
+    End If
+    If remain <> 14 Then
+        f = f + 1
+        Print "  FAIL: DataRemain() = " & CStr(remain) & " expected 14"
+    End If
+
+    Print ""
+    Print "=== Test 5: DataCount(label) ==="
+    Dim colCount As Integer
+    colCount = DataCount("Colors")
+    If colCount = 3 Then
+        p = p + 1
+        Print "  PASS: DataCount('Colors') = 3"
+    End If
+    If colCount <> 3 Then
+        f = f + 1
+        Print "  FAIL: DataCount('Colors') = " & CStr(colCount) & " expected 3"
+    End If
+    Dim numCount As Integer
+    numCount = DataCount("Numbers")
+    If numCount = 5 Then
+        p = p + 1
+        Print "  PASS: DataCount('Numbers') = 5"
+    End If
+    If numCount <> 5 Then
+        f = f + 1
+        Print "  FAIL: DataCount('Numbers') = " & CStr(numCount) & " expected 5"
+    End If
+
+    Print ""
+    Print "=== Test 6: Restore + SectionCount/Remain ==="
+    Restore Numbers
+    Dim secC As Integer
+    Dim secR As Integer
+    secC = DataSectionCount()
+    secR = DataSectionRemain()
+    If secC = 5 Then
+        p = p + 1
+        Print "  PASS: DataSectionCount() = 5"
+    End If
+    If secC <> 5 Then
+        f = f + 1
+        Print "  FAIL: DataSectionCount() = " & CStr(secC) & " expected 5"
+    End If
+    If secR = 5 Then
+        p = p + 1
+        Print "  PASS: DataSectionRemain() = 5"
+    End If
+    If secR <> 5 Then
+        f = f + 1
+        Print "  FAIL: DataSectionRemain() = " & CStr(secR) & " expected 5"
+    End If
+    Dim n1 As Integer
+    Dim n2 As Integer
+    Read n1, n2
+    If n1 = 100 Then
+        p = p + 1
+        Print "  PASS: n1 = 100"
+    End If
+    If n1 <> 100 Then
+        f = f + 1
+        Print "  FAIL: n1 = " & CStr(n1) & " expected 100"
+    End If
+    If n2 = 200 Then
+        p = p + 1
+        Print "  PASS: n2 = 200"
+    End If
+    If n2 <> 200 Then
+        f = f + 1
+        Print "  FAIL: n2 = " & CStr(n2) & " expected 200"
+    End If
+    secR = DataSectionRemain()
+    If secR = 3 Then
+        p = p + 1
+        Print "  PASS: SectionRemain after 2 reads = 3"
+    End If
+    If secR <> 3 Then
+        f = f + 1
+        Print "  FAIL: SectionRemain = " & CStr(secR) & " expected 3"
+    End If
+
+    Print ""
+    Print "=== Test 7: Typed Read ==="
+    Restore Numbers
+    Dim strVal As String
+    Read strVal As String
+    If strVal = "100" Then
+        p = p + 1
+        Print "  PASS: Read As String = '100'"
+    End If
+    If strVal = "100.0" Then
+        p = p + 1
+        Print "  PASS: Read As String = '100.0'"
+    End If
+    If strVal <> "100" Then
+        If strVal <> "100.0" Then
+            f = f + 1
+            Print "  FAIL: Read As String = '" & strVal & "'"
+        End If
+    End If
+    Dim floatVal As Double
+    Read floatVal As Double
+    If floatVal = 200 Then
+        p = p + 1
+        Print "  PASS: Read As Double = " & CStr(floatVal)
+    End If
+    If floatVal <> 200 Then
+        f = f + 1
+        Print "  FAIL: Read As Double = " & CStr(floatVal) & " expected 200"
+    End If
+
+    Print ""
+    Print "=== Test 8: Case-Insensitive Restore ==="
+    Restore colors
+    Dim col As String
+    Read col
+    If col = "Red" Then
+        p = p + 1
+        Print "  PASS: Restore colors -> Red"
+    End If
+    If col <> "Red" Then
+        f = f + 1
+        Print "  FAIL: Restore colors -> '" & col & "' expected Red"
+    End If
+
+    Print ""
+    Print "=== Test 9: Empty Data Slots ==="
+    Restore EmptySlots
+    Dim e1
+    Dim e2
+    Dim e3
+    Dim e4
+    Dim e5
+    Dim e6
+    Read e1, e2, e3, e4, e5, e6
+    If e1 = 1 Then
+        p = p + 1
+        Print "  PASS: e1 = 1"
+    End If
+    If e1 <> 1 Then
+        f = f + 1
+        Print "  FAIL: e1 = " & CStr(e1) & " expected 1"
+    End If
+    If e3 = 3 Then
+        p = p + 1
+        Print "  PASS: e3 = 3"
+    End If
+    If e3 <> 3 Then
+        f = f + 1
+        Print "  FAIL: e3 = " & CStr(e3) & " expected 3"
+    End If
+    If e4 = "hello" Then
+        p = p + 1
+        Print "  PASS: e4 = hello"
+    End If
+    If e4 <> "hello" Then
+        f = f + 1
+        Print "  FAIL: e4 = '" & CStr(e4) & "' expected hello"
+    End If
+    If e6 = 99 Then
+        p = p + 1
+        Print "  PASS: e6 = 99"
+    End If
+    If e6 <> 99 Then
+        f = f + 1
+        Print "  FAIL: e6 = " & CStr(e6) & " expected 99"
+    End If
+
+    Print ""
+    Print "=== Test 10: ClearData ==="
+    ClearData
+    Dim cnt As Integer
+    cnt = DataCount()
+    If cnt = 0 Then
+        p = p + 1
+        Print "  PASS: DataCount after ClearData = 0"
+    End If
+    If cnt <> 0 Then
+        f = f + 1
+        Print "  FAIL: DataCount = " & CStr(cnt) & " expected 0"
+    End If
+    Dim pp As Integer
+    pp = DataPointer()
+    If pp = 0 Then
+        p = p + 1
+        Print "  PASS: DataPointer after ClearData = 0"
+    End If
+    If pp <> 0 Then
+        f = f + 1
+        Print "  FAIL: DataPointer = " & CStr(pp) & " expected 0"
+    End If
+
+    Print ""
+    Print "=== Test 11: Restore after ClearData ==="
+    Restore
+    pp = DataPointer()
+    If pp = 0 Then
+        p = p + 1
+        Print "  PASS: Restore to start after ClearData"
+    End If
+    If pp <> 0 Then
+        f = f + 1
+        Print "  FAIL: DataPointer = " & CStr(pp) & " expected 0"
+    End If
+
+    Print ""
+    Print "================================"
+    Print "Results: " & CStr(p) & " passed, " & CStr(f) & " failed"
+    If f = 0 Then
+        Print "ALL TESTS PASSED!"
+    End If
+    If f > 0 Then
+        Print "SOME TESTS FAILED!"
+    End If
+End Sub
+
+' --- Module-level Data ---
+Data 10, 20, 30
+
+Colors:
+Data "Red", "Green", "Blue"
+
+Numbers:
+Data 100, 200, 300, 400, 500
+
+EmptySlots:
+Data 1,,3, "hello",, 99
