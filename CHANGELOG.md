@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Branching: 59 µs — **ties C++** at native speed
 - StringConcat: 83× faster than GDScript, 8× faster than C++
 - Interop: 67× faster than GDScript, 57× faster than C++
+- **Data/Read vs Array**: only ~12% slower than pre-filled array reads; 2× faster than array write+read round-trips (see `demo/bench_data_vs_array.vg`)
 
 ### Added — Enhanced Data/Read System
 - **Typed Read** — `Read x As Integer` coerces data values at read time (Integer, Long, Single, Double, String, Boolean)

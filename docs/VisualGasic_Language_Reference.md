@@ -54,6 +54,7 @@
   - [ClearData Statement](#cleardata-statement-new-in-v320)
   - [DataFromString Statement](#datafromstring-statement-new-in-v320)
   - [Data Introspection Functions](#data-introspection-functions-new-in-v320)
+  - [Performance: Data/Read vs Arrays](#performance-dataread-vs-arrays)
 - [Game and Application Development Functions](#game-and-application-development-functions)
 
 ### [VB6 Global Objects (v2.10.0)](#vb6-global-objects)
@@ -2353,6 +2354,7 @@ Remember storing game data, level layouts, and lookup tables right in your code?
 
 - **No External Files Needed** — Embed data directly in your code
 - **Instant Access** — No file I/O overhead for small datasets
+- **Nearly as fast as arrays** — `Data`/`Read` is only ~12% slower than array indexing, and 2× faster than filling an array then reading it (see [Performance](#performance-dataread-vs-arrays) below)
 - **Self-Documenting** — Data lives alongside the code that uses it
 - **Classic Compatibility** — Works exactly like VB6/QBasic DATA
 - **Modern Enhancements** — Load from external files, use labels for organization
@@ -3026,6 +3028,26 @@ Sub _Ready()
     Print "Pointer at " & CStr(DataPointer()) & ", " & CStr(DataRemain()) & " values remaining"
 End Sub
 ```
+
+#### Performance: Data/Read vs Arrays {#performance-dataread-vs-arrays}
+
+Benchmark: 500 values × 200 iterations (100,000 sequential reads per test). All tests produce the same checksum to ensure correctness.
+
+| Test | Time (µs) | Reads/sec | vs Array Read |
+|------|----------:|----------:|--------------:|
+| **Array Read** (pre-filled) | ~45,000 | ~2.2 M/s | 1.0× (baseline) |
+| **Data/Read** + `Restore` | ~51,000 | ~2.0 M/s | 0.88× |
+| **Array Write + Read** (round-trip) | ~110,000 | ~910 K/s | 0.41× |
+| **DataFromString** + `ClearData` (per-iter) | ~170,000 | ~590 K/s | 0.26× |
+
+**Guidelines:**
+
+- **Use `Data`/`Read` for static tables** — only ~12% slower than a pre-filled array, with zero setup code. Ideal for lookup tables, level data, enemy stats, tile maps.
+- **`Data`/`Read` is 2× faster than array round-trips** — if the alternative is building an array and then reading it, the data tape wins because values are parsed once at script load time.
+- **Use arrays for random access** — `Data`/`Read` is strictly sequential. If you need `arr(i)` with arbitrary `i`, use an array.
+- **`DataFromString` is for one-time loading** — the string-to-AST parsing adds overhead, so call it once (e.g. after reading a file), not in a hot loop.
+
+> *Benchmark script: `demo/bench_data_vs_array.vg` — run with `./Godot --headless --path demo -s run_vg.gd -- bench_data_vs_array.vg`*
 
 ### Game and Application Development Functions {#game-and-application-development-functions}
 
