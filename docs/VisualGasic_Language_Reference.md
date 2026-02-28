@@ -3091,7 +3091,7 @@ Read title, width, height, fullscreen, targetFPS
 
 #### Putting It All Together *(v3.2.0 Features)*
 
-This example combines **DataFromString**, **ClearData**, **Typed Read**, **Empty Data Slots**, and **Data Introspection** in a realistic game scenario:
+This example combines **DataFromString**, **ClearData**, **Typed Read**, **Empty Data Slots**, **Data Introspection**, **PeekData**, **SetDataPointer**, **DataLabels**, **DataSectionName**, and **DataToArray** in a realistic game scenario:
 
 ```vb
 ' ============================================================
@@ -3107,9 +3107,43 @@ Data "Oak Shield",   35,  3,,  8,,
 Data "Health Vial",  10, 20,,,  25
 Data "Mana Ring",   100,  1,,  3, 10
 
+Buffs:
+Data "Strength", 1.5, 30
+Data "Shield",   1.2, 60
+
 Sub _Ready()
-    ' --- Step 1: Show shop from inline data ---
-    Print "=== DEFAULT SHOP ==="
+    ' --- Step 1: Discover all data sections dynamically ---
+    Print "=== DATA SECTIONS ==="
+    Dim sections As Variant
+    sections = DataLabels()
+    For Each s In sections
+        Print "  " & s & ": " & CStr(DataCount(s)) & " values"
+    Next
+    
+    ' --- Step 2: Bulk-load buffs with DataToArray ---
+    Print ""
+    Print "=== BUFFS (via DataToArray) ==="
+    Dim buffs As Variant
+    buffs = DataToArray("Buffs")     ' ["Strength", 1.5, 30, "Shield", 1.2, 60]
+    Dim b As Integer
+    For b = 0 To UBound(buffs) Step 3
+        Print "  " & CStr(buffs(b)) & " x" & CStr(buffs(b + 1)) & " for " & CStr(buffs(b + 2)) & "s"
+    Next
+    
+    ' --- Step 3: Random-access shop items with PeekData ---
+    Print ""
+    Print "=== PEEK ITEM #2 (no loop needed) ==="
+    ' Each item is 6 fields; item #2 starts at offset 6
+    Dim itemName As String
+    itemName = PeekData("ShopItems", 6)
+    Dim itemPrice As Integer
+    itemPrice = PeekData("ShopItems", 7)
+    Print "  " & itemName & " costs $" & CStr(itemPrice)
+    Print "  Pointer still at: " & CStr(DataPointer()) & " (unchanged!)"
+
+    ' --- Step 4: Read shop with DataSectionName tracking ---
+    Print ""
+    Print "=== FULL SHOP (sequential read) ==="
     Restore ShopItems
     Dim shopSize As Integer
     shopSize = DataSectionCount() \ 6   ' 6 fields per item
@@ -3120,14 +3154,27 @@ Sub _Ready()
         Read name, price, qty, atk, def, heal
         
         Dim desc As String
-        desc = name & " ($" & CStr(price) & ", stock: " & CStr(qty) & ")"
+        desc = "[" & DataSectionName() & "] " & name
+        desc = desc & " ($" & CStr(price) & ", stock: " & CStr(qty) & ")"
         If Not IsNothing(atk)  Then desc = desc & " ATK+" & CStr(atk)
         If Not IsNothing(def)  Then desc = desc & " DEF+" & CStr(def)
         If Not IsNothing(heal) Then desc = desc & " HEAL+" & CStr(heal)
         Print "  " & desc
     Next
     
-    ' --- Step 2: Load DLC items from a file ---
+    ' --- Step 5: Save/restore pointer with SetDataPointer ---
+    Print ""
+    Print "=== SAVE/RESTORE POINTER ==="
+    Dim saved As Integer
+    saved = DataPointer()
+    SetDataPointer 0               ' Jump to very beginning
+    Dim firstItem As String
+    Read firstItem
+    Print "  First item in tape: " & firstItem
+    SetDataPointer saved            ' Restore where we were
+    Print "  Pointer restored to: " & CStr(DataPointer())
+    
+    ' --- Step 6: Load DLC items from a file ---
     Print ""
     Print "=== LOADING DLC PACK ==="
     ClearData
@@ -3156,7 +3203,7 @@ Sub _Ready()
         Print "  + " & dName & " ($" & CStr(dPrice) & ")"
     Loop
     
-    ' --- Step 3: Merge user save data on top ---
+    ' --- Step 7: Merge user save data on top ---
     Print ""
     Print "=== MERGING SAVE DATA ==="
     Dim q As String
@@ -3171,6 +3218,11 @@ Sub _Ready()
     DataFromString saveData
     Print "Tape now has " & CStr(DataCount()) & " total values"
     Print "Pointer at " & CStr(DataPointer()) & ", " & CStr(DataRemain()) & " values remaining"
+    
+    ' Grab everything as an array for processing
+    Dim allData As Variant
+    allData = DataToArray()
+    Print "DataToArray() returned " & CStr(UBound(allData) + 1) & " items"
 End Sub
 ```
 
