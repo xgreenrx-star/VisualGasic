@@ -241,6 +241,32 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
         variables[saved_keys[i]] = saved_locals[saved_keys[i]];
     }
 
+    // Erase callee-introduced variables that did NOT exist in the caller's
+    // scope before the call.  Without this, the function return variable
+    // (e.g. "Scale") leaks into `variables` and the tree-walk evaluator's
+    // ARRAY_ACCESS handler sees it as an Array/Dictionary instead of
+    // dispatching a function call on subsequent invocations.
+    // -- Function return variable
+    if (func->type == SubDefinition::TYPE_FUNCTION && !saved_locals.has(func->name)) {
+        variables.erase(func->name);
+    }
+    // -- Parameters
+    for (int i = 0; i < func->parameters.size(); i++) {
+        const String &pname = func->parameters[i].name;
+        if (!saved_locals.has(pname)) {
+            variables.erase(pname);
+        }
+    }
+    // -- Dim'd locals
+    if (chunk_for_locals) {
+        for (int i = 0; i < chunk_for_locals->local_names.size(); i++) {
+            const String &lname = chunk_for_locals->local_names[i];
+            if (!lname.is_empty() && !saved_locals.has(lname)) {
+                variables.erase(lname);
+            }
+        }
+    }
+
     // Re-apply captured ByRef parameter values so the caller's
     // STMT_CALL ByRef write-back reads the correct post-execution values.
     for (int i = 0; i < byref_captures.size(); i++) {
