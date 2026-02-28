@@ -2492,6 +2492,48 @@ Read b As Boolean   ' b = True (string coerced to boolean)
 
 Supported type names: `Integer`, `Int`, `Long`, `Int32`, `Int64`, `Single`, `Float`, `Double`, `Float32`, `Float64`, `String`, `Boolean`, `Bool`.
 
+**Practical example — parsing mixed configuration data:**
+
+```vb
+' Config data stored as strings from an INI-style source
+Data "1280", "720", "60", "True", "My Game"
+
+Dim width As Integer
+Dim height As Integer
+Dim fps As Integer
+Dim fullscreen As Boolean
+Dim title As String
+
+' Typed Read ensures correct types even when data is all strings
+Read width As Integer         ' 1280
+Read height As Integer        ' 720
+Read fps As Integer           ' 60
+Read fullscreen As Boolean    ' True
+Read title As String          ' "My Game"
+
+OS.WindowSize = Vector2(width, height)
+```
+
+**Typed Read with LoadData — safely loading external CSV files:**
+
+```vb
+' External file scores.dat contains:
+'   "Alice", "950", "3"
+'   "Bob",   "820", "5"
+LoadData "res://data/scores.dat"
+
+Dim name As String
+Dim score As Integer
+Dim deaths As Integer
+
+For i = 1 To 2
+    Read name As String
+    Read score As Integer      ' Coerced from string "950" → 950
+    Read deaths As Integer     ' Coerced from string "3" → 3
+    Print name & ": " & CStr(score) & " pts, " & CStr(deaths) & " deaths"
+Next
+```
+
 #### Empty Data Slots *(New in v3.2.0)*
 
 Use consecutive commas to insert `Nothing` (null) values:
@@ -2506,6 +2548,43 @@ Read a, b, c, d, e, f
 
 This is useful for sparse data tables where some positions are intentionally empty.
 
+**Practical example — RPG item table with optional properties:**
+
+```vb
+' Item format: Name, Price, Attack, Defense, HealHP, ManaRestore
+' Use empty slots when an item doesn't have a property
+ItemTable:
+Data "Sword",   100, 15,,, 
+Data "Shield",  80,,  12,,
+Data "Potion",  25,,,  50,
+Data "Elixir",  60,,,  30, 20
+Data "Amulet",  200,,  5,,
+
+Restore ItemTable
+For i = 1 To 5
+    Dim itemName As String
+    Dim price, atk, def, heal, mana
+    Read itemName, price, atk, def, heal, mana
+    
+    Print itemName & " ($" & CStr(price) & ")"
+    ' Check for Nothing before using optional stats
+    If Not IsNothing(atk) Then Print "  ATK: " & CStr(atk)
+    If Not IsNothing(def) Then Print "  DEF: " & CStr(def)
+    If Not IsNothing(heal) Then Print "  Heal: +" & CStr(heal) & " HP"
+    If Not IsNothing(mana) Then Print "  Mana: +" & CStr(mana)
+Next
+```
+
+**Sparse grid / level flags:**
+
+```vb
+' Flags for 4 checkpoints: hasKey, hasShop, hasBoss, isSafe
+Data True,,, True       ' Checkpoint 1: has key, is safe
+Data, True,,            ' Checkpoint 2: has shop only
+Data,, True,            ' Checkpoint 3: has boss only
+Data True, True,, True  ' Checkpoint 4: key + shop + safe
+```
+
 #### ClearData Statement *(New in v3.2.0)*
 
 Clear the entire data tape and reset the read pointer:
@@ -2519,6 +2598,54 @@ ClearData    ' Tape emptied, pointer reset to 0
 ' DataCount() now returns 0
 ' You can LoadData to populate a fresh tape
 LoadData "res://data/new_data.dat"
+```
+
+**Practical example — swapping level data on the fly:**
+
+```vb
+Sub LoadLevel(levelNum As Integer)
+    ' Wipe previous level data
+    ClearData
+    
+    ' Load the new level's data file
+    LoadData "res://levels/level" & CStr(levelNum) & ".dat"
+    
+    ' Read level header
+    Dim mapW As Integer, mapH As Integer, tileset As String
+    Read mapW, mapH, tileset
+    
+    ' Read tile grid
+    Dim tiles(mapH, mapW) As Integer
+    For y = 1 To mapH
+        For x = 1 To mapW
+            Read tiles(y, x)
+        Next
+    Next
+    
+    Print "Loaded level " & CStr(levelNum) & " (" & CStr(mapW) & "x" & CStr(mapH) & ")"
+End Sub
+```
+
+**Resetting between test runs:**
+
+```vb
+Sub RunTest(testData As String)
+    ClearData
+    DataFromString testData
+    
+    Dim result As Integer
+    Dim expected As Integer
+    Read result, expected
+    
+    If result = expected Then
+        Print "PASS"
+    Else
+        Print "FAIL: got " & CStr(result) & " expected " & CStr(expected)
+    End If
+End Sub
+
+RunTest "42, 42"    ' PASS
+RunTest "10, 20"    ' FAIL: got 10 expected 20
 ```
 
 #### DataFromString Statement *(New in v3.2.0)*
@@ -2569,6 +2696,69 @@ DataFromString "3, 4"
 Read a, b, c, d   ' a=1, b=2, c=3, d=4
 ```
 
+**Complete example — CSV high-score loader:**
+
+```vb
+' Load a CSV file into the data tape and read structured records
+Sub LoadHighScores()
+    ClearData
+    
+    ' Read the entire file into a string
+    Open "res://data/highscores.csv" For Input As #1
+    Dim raw As String
+    raw = Input(LOF(1), 1)
+    Close #1
+    
+    ' Feed the file contents to the data tape
+    DataFromString raw
+    
+    ' highscores.csv contains lines like:
+    '   "Alice", 9500, 12
+    '   "Bob", 8200, 8
+    '   "Charlie", 7100, 15
+    
+    Dim count As Integer
+    count = DataCount() \ 3    ' 3 fields per record
+    
+    Dim q As String
+    q = Chr(34)
+    
+    Print "=== HIGH SCORES ==="
+    For i = 1 To count
+        Dim playerName As String
+        Dim score As Integer
+        Dim level As Integer
+        Read playerName, score, level
+        Print CStr(i) & ". " & playerName & " - " & CStr(score) & " pts (Level " & CStr(level) & ")"
+    Next
+End Sub
+```
+
+**Building data programmatically from user input:**
+
+```vb
+' Collect settings at runtime and store as data
+Sub SaveSettings()
+    Dim q As String
+    q = Chr(34)
+    
+    ' Build a data string from current game state
+    Dim settings As String
+    settings = CStr(screenWidth) & ", " & CStr(screenHeight) & ", "
+    settings = settings & CStr(musicVolume) & ", " & CStr(sfxVolume) & ", "
+    settings = settings & q & playerName & q
+    
+    ' Now we can store and reload it later
+    ClearData
+    DataFromString settings
+    
+    ' Verify by reading back
+    Dim w As Integer, h As Integer, mv As Integer, sv As Integer, name As String
+    Read w, h, mv, sv, name
+    Print "Settings: " & CStr(w) & "x" & CStr(h) & " Vol:" & CStr(mv) & "/" & CStr(sv) & " Player:" & name
+End Sub
+```
+
 #### Data Introspection Functions *(New in v3.2.0)*
 
 Query the state of the data tape at runtime:
@@ -2608,6 +2798,91 @@ End Sub
 ```
 
 > **Note:** `Restore` is case-insensitive — `Restore colors`, `Restore COLORS`, and `Restore Colors` all work.
+
+**Practical example — safe reading with bounds checking:**
+
+```vb
+' Read all items without risking "Out of Data" errors
+Sub ReadAllItems()
+    Restore ItemData
+    
+    Do While DataRemain() >= 3    ' Each record is 3 fields
+        Dim name As String
+        Dim price As Integer
+        Dim weight As Single
+        Read name, price, weight
+        Print name & ": $" & CStr(price) & " (" & CStr(weight) & " kg)"
+    Loop
+    
+    If DataRemain() > 0 Then
+        Print "WARNING: " & CStr(DataRemain()) & " leftover values (incomplete record)"
+    End If
+End Sub
+
+ItemData:
+Data "Sword", 150, 3.5
+Data "Shield", 100, 5.0
+Data "Potion", 25, 0.2
+```
+
+**Progress tracking while loading large datasets:**
+
+```vb
+Sub LoadWorldData()
+    LoadData "res://data/world.dat"
+    
+    Dim total As Integer
+    total = DataCount()
+    Print "Loading " & CStr(total) & " data values..."
+    
+    Dim loaded As Integer
+    loaded = 0
+    
+    Do While DataRemain() > 0
+        Dim value
+        Read value
+        ProcessValue(value)
+        loaded = loaded + 1
+        
+        ' Show progress every 100 items
+        If loaded Mod 100 = 0 Then
+            Dim pct As Integer
+            pct = (loaded * 100) \ total
+            Print "Progress: " & CStr(pct) & "%"
+        End If
+    Loop
+    
+    Print "Loaded " & CStr(loaded) & " values."
+End Sub
+```
+
+**Section-aware menu system:**
+
+```vb
+MainMenu:
+Data "New Game", "Load Game", "Settings", "Quit"
+
+SettingsMenu:
+Data "Video", "Audio", "Controls", "Back"
+
+Sub ShowMenu(section As String)
+    Restore section
+    Dim count As Integer
+    count = DataSectionCount()
+    
+    Print "┌──────────────────┐"
+    For i = 1 To count
+        Dim item As String
+        Read item
+        Print "│ " & CStr(i) & ". " & item & String(14 - Len(item), " ") & "│"
+    Next
+    Print "└──────────────────┘"
+    Print "Choose 1-" & CStr(count) & ": ";
+End Sub
+
+ShowMenu "MainMenu"      ' Shows 4-item main menu
+ShowMenu "SettingsMenu"   ' Shows 4-item settings menu
+```
 
 #### Classic Use Cases
 
@@ -2665,6 +2940,91 @@ Dim fullscreen As Boolean
 Dim targetFPS As Integer
 
 Read title, width, height, fullscreen, targetFPS
+```
+
+#### Putting It All Together *(v3.2.0 Features)*
+
+This example combines **DataFromString**, **ClearData**, **Typed Read**, **Empty Data Slots**, and **Data Introspection** in a realistic game scenario:
+
+```vb
+' ============================================================
+' Dynamic Inventory System using all v3.2.0 Data features
+' ============================================================
+
+' Default shop inventory (embedded in code)
+' Format: Name, Price, Qty, Attack, Defense, Heal
+' Empty slots (,,) mean "not applicable"
+ShopItems:
+Data "Iron Sword",   50,  5,  12,,,
+Data "Oak Shield",   35,  3,,  8,,
+Data "Health Vial",  10, 20,,,  25
+Data "Mana Ring",   100,  1,,  3, 10
+
+Sub _Ready()
+    ' --- Step 1: Show shop from inline data ---
+    Print "=== DEFAULT SHOP ==="
+    Restore ShopItems
+    Dim shopSize As Integer
+    shopSize = DataSectionCount() \ 6   ' 6 fields per item
+    
+    For i = 1 To shopSize
+        Dim name As String, price As Integer, qty As Integer
+        Dim atk, def, heal
+        Read name, price, qty, atk, def, heal
+        
+        Dim desc As String
+        desc = name & " ($" & CStr(price) & ", stock: " & CStr(qty) & ")"
+        If Not IsNothing(atk)  Then desc = desc & " ATK+" & CStr(atk)
+        If Not IsNothing(def)  Then desc = desc & " DEF+" & CStr(def)
+        If Not IsNothing(heal) Then desc = desc & " HEAL+" & CStr(heal)
+        Print "  " & desc
+    Next
+    
+    ' --- Step 2: Load DLC items from a file ---
+    Print ""
+    Print "=== LOADING DLC PACK ==="
+    ClearData
+    
+    Open "res://data/dlc_items.csv" For Input As #1
+    Dim raw As String
+    raw = Input(LOF(1), 1)
+    Close #1
+    
+    DataFromString raw
+    
+    Dim dlcCount As Integer
+    dlcCount = DataCount() \ 6
+    Print "Loaded " & CStr(dlcCount) & " DLC items"
+    
+    ' Use Typed Read for safe parsing of external data
+    Do While DataRemain() >= 6
+        Dim dName As String
+        Dim dPrice As Integer, dQty As Integer
+        Read dName As String
+        Read dPrice As Integer
+        Read dQty As Integer
+        Read atk    ' Could be Nothing (empty slot)
+        Read def
+        Read heal
+        Print "  + " & dName & " ($" & CStr(dPrice) & ")"
+    Loop
+    
+    ' --- Step 3: Merge user save data on top ---
+    Print ""
+    Print "=== MERGING SAVE DATA ==="
+    Dim q As String
+    q = Chr(34)
+    
+    ' Simulate save file content as a string
+    Dim saveData As String
+    saveData = q & "Iron Sword" & q & ", 50, 2, 12,,," & Chr(10)
+    saveData = saveData & q & "Health Vial" & q & ", 10, 5,,, 25"
+    
+    ' Append save data without clearing DLC items
+    DataFromString saveData
+    Print "Tape now has " & CStr(DataCount()) & " total values"
+    Print "Pointer at " & CStr(DataPointer()) & ", " & CStr(DataRemain()) & " values remaining"
+End Sub
 ```
 
 ### Game and Application Development Functions {#game-and-application-development-functions}
