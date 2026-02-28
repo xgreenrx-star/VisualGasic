@@ -1323,6 +1323,9 @@ VisualGasic provides a comprehensive set of keywords for modern game development
 - `DataSectionCount()` - Items in current labeled section *(New in v3.2.0)*
 - `DataSectionRemain()` - Remaining items in current section *(New in v3.2.0)*
 - `DataPointer()` - Current read position *(New in v3.2.0)*
+- `PeekData(index)` - Random-access read by absolute index *(New in v3.2.0)*
+- `PeekData("label", offset)` - Random-access read relative to a labeled section *(New in v3.2.0)*
+- `SetDataPointer(n)` - Set the read pointer to an arbitrary position *(New in v3.2.0)*
 
 #### **Advanced Features**
 - `Include` - Include external file
@@ -2773,6 +2776,9 @@ Query the state of the data tape at runtime:
 | `DataSectionCount()` | Integer | Total items in the current labeled section |
 | `DataSectionRemain()` | Integer | Remaining items in the current labeled section |
 | `DataPointer()` | Integer | Current read position (0-based) |
+| `PeekData(index)` | Variant | Read value at absolute index without moving pointer |
+| `PeekData("label", offset)` | Variant | Read value at label + offset without moving pointer |
+| `SetDataPointer(n)` | (none) | Set the read pointer to position *n* (clamped to 0..DataCount) |
 
 ```vb
 Data 10, 20, 30
@@ -2884,6 +2890,63 @@ End Sub
 
 ShowMenu "MainMenu"      ' Shows 4-item main menu
 ShowMenu "SettingsMenu"   ' Shows 4-item settings menu
+```
+
+**Random-access reads with PeekData:**
+
+```vb
+' PeekData lets you read any value by index without disturbing the pointer.
+' This is ideal for lookup tables, tile maps, and configuration.
+
+Weapons:
+Data "Sword", 150, 3.5
+Data "Shield", 100, 5.0
+Data "Potion",  25, 0.2
+
+Sub Main()
+    ' --- Absolute index ---
+    Print PeekData(0)          ' "Sword"
+    Print PeekData(3)          ' "Shield"
+    Print DataPointer()        ' 0 — pointer unchanged!
+
+    ' --- Label + offset ---
+    Print PeekData("Weapons", 0)   ' "Sword"
+    Print PeekData("Weapons", 4)   ' 100  (second item's price)
+
+    ' --- Build an inventory lookup without Read ---
+    Dim i As Integer
+    For i = 0 To DataCount("Weapons") - 1 Step 3
+        Dim n As String
+        n = PeekData("Weapons", i)
+        Dim p As Integer
+        p = PeekData("Weapons", i + 1)
+        Print n & ": $" & CStr(p)
+    Next
+End Sub
+```
+
+**SetDataPointer for save / restore patterns:**
+
+```vb
+Scores:
+Data 1000, 850, 720, 600, 500
+
+Sub Main()
+    ' Save current position, jump to entry #3, read one value, restore
+    Dim saved As Integer
+    saved = DataPointer()
+
+    SetDataPointer 2              ' Jump to index 2
+    Dim third As Integer
+    Read third                    ' Reads 720, pointer moves to 3
+    Print "3rd place: " & CStr(third)
+
+    SetDataPointer saved          ' Restore original position
+
+    ' Negative or out-of-range values are clamped automatically
+    SetDataPointer -1             ' Clamped to 0
+    SetDataPointer 99999          ' Clamped to DataCount()
+End Sub
 ```
 
 #### Classic Use Cases

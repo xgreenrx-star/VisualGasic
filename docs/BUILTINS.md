@@ -31,6 +31,9 @@ Data introspection helpers *(New in v3.2.0)*:
 - `DataSectionCount()` — total items in the current labeled section
 - `DataSectionRemain()` — items remaining in the current labeled section
 - `DataPointer()` — current read position (0-based index)
+- `PeekData(index)` — read a data value by absolute 0-based index without moving the pointer
+- `PeekData("label", offset)` — read a value at *label* + *offset* without moving the pointer
+- `SetDataPointer(n)` — set the read pointer to position *n* (clamped to valid range)
 
 Statement-level builtins (examples):
 - `MsgBox(message[, buttons, title])` — shows a dialog with VB6-style button/icon constants

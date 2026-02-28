@@ -227,9 +227,11 @@ public:
     // Data introspection accessors for builtins
     int get_data_count() const { return data_segments.size(); }
     int get_data_pointer() const { return data_pointer; }
+    void set_data_pointer(int p) { data_pointer = p < 0 ? 0 : (p > data_segments.size() ? data_segments.size() : p); }
     int get_data_section_end(int section_start) const { return get_section_end(section_start); }
     int get_data_section_start() const { return get_current_section_start(); }
     const Dictionary &get_label_to_data_index() const { return label_to_data_index; }
+    ExpressionNode* get_data_segment_at(int index) const { return (index >= 0 && index < data_segments.size()) ? data_segments[index] : nullptr; }
 
     // Accessors for builtins module (Err.Clear etc.)
     Dictionary &get_variables() { return variables; }

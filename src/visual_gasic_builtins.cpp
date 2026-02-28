@@ -360,6 +360,42 @@ Variant call_builtin_expr(VisualGasicInstance *instance, CallExpression *call, b
         r_handled = true;
         return (int64_t)instance->get_data_pointer();
     }
+    if (METHOD_IS("peekdata")) {
+        r_handled = true;
+        int abs_index = 0;
+        if (args.size() == 1) {
+            // PeekData(index) — absolute 0-based index into the data tape
+            abs_index = (int)args[0];
+        } else if (args.size() == 2) {
+            // PeekData("label", offset) — offset relative to a labeled section
+            String key = String(args[0]).to_lower();
+            const Dictionary &ldi = instance->get_label_to_data_index();
+            if (!ldi.has(key)) {
+                instance->raise_runtime_error("PeekData: label '" + String(args[0]) + "' not found");
+                return Variant();
+            }
+            abs_index = (int)ldi[key] + (int)args[1];
+        } else {
+            instance->raise_runtime_error("PeekData: expected 1 or 2 arguments");
+            return Variant();
+        }
+        if (abs_index < 0 || abs_index >= instance->get_data_count()) {
+            instance->raise_runtime_error("PeekData: index " + itos(abs_index) + " out of range (0.." + itos(instance->get_data_count() - 1) + ")");
+            return Variant();
+        }
+        ExpressionNode* expr = instance->get_data_segment_at(abs_index);
+        if (expr) {
+            return instance->evaluate_expression_for_builtins(expr);
+        }
+        return Variant();
+    }
+    if (METHOD_IS("setdatapointer")) {
+        r_handled = true;
+        if (args.size() >= 1) {
+            instance->set_data_pointer((int)args[0]);
+        }
+        return Variant();
+    }
 
     // File / Dir Helpers (use instance wrappers)
     if (METHOD_IS("lof") && args.size() == 1) { r_handled = true; return instance->file_lof((int)args[0]); }
@@ -2429,6 +2465,40 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
     if (METHOD_IS("datapointer")) {
         r_handled = true;
         return (int64_t)instance->get_data_pointer();
+    }
+    if (METHOD_IS("peekdata")) {
+        r_handled = true;
+        int abs_index = 0;
+        if (args.size() == 1) {
+            abs_index = (int)args[0];
+        } else if (args.size() == 2) {
+            String key = String(args[0]).to_lower();
+            const Dictionary &ldi = instance->get_label_to_data_index();
+            if (!ldi.has(key)) {
+                instance->raise_runtime_error("PeekData: label '" + String(args[0]) + "' not found");
+                return Variant();
+            }
+            abs_index = (int)ldi[key] + (int)args[1];
+        } else {
+            instance->raise_runtime_error("PeekData: expected 1 or 2 arguments");
+            return Variant();
+        }
+        if (abs_index < 0 || abs_index >= instance->get_data_count()) {
+            instance->raise_runtime_error("PeekData: index " + itos(abs_index) + " out of range (0.." + itos(instance->get_data_count() - 1) + ")");
+            return Variant();
+        }
+        ExpressionNode* expr = instance->get_data_segment_at(abs_index);
+        if (expr) {
+            return instance->evaluate_expression_for_builtins(expr);
+        }
+        return Variant();
+    }
+    if (METHOD_IS("setdatapointer")) {
+        r_handled = true;
+        if (args.size() >= 1) {
+            instance->set_data_pointer((int)args[0]);
+        }
+        return Variant();
     }
 
     // ── Functional Programming: Map, Filter, Reduce, Any, All, Find ──

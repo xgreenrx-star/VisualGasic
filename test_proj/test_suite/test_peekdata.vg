@@ -1,0 +1,139 @@
+' Test: PeekData and SetDataPointer
+' Tests random-access reads and explicit pointer control
+Attribute VB_Name = "TestPeekData"
+
+Sub _Ready()
+	' -------------------------------------------------------
+	' Test 1: PeekData absolute index — basic read
+	' -------------------------------------------------------
+	Dim v As Variant
+	v = PeekData(0)
+	If v = 100 Then
+		Print "PASS: peekdata_abs_first"
+	Else
+		Print "FAIL: peekdata_abs_first: got " & Str(v)
+	End If
+
+	v = PeekData(2)
+	If v = 300 Then
+		Print "PASS: peekdata_abs_third"
+	Else
+		Print "FAIL: peekdata_abs_third: got " & Str(v)
+	End If
+
+	' -------------------------------------------------------
+	' Test 2: PeekData does NOT move the data pointer
+	' -------------------------------------------------------
+	Dim pBefore As Integer
+	pBefore = DataPointer()
+	v = PeekData(1)
+	Dim pAfter As Integer
+	pAfter = DataPointer()
+	If pBefore = pAfter Then
+		Print "PASS: peekdata_no_move"
+	Else
+		Print "FAIL: peekdata_no_move: pointer moved from " & Str(pBefore) & " to " & Str(pAfter)
+	End If
+
+	' -------------------------------------------------------
+	' Test 3: PeekData with label + offset
+	' -------------------------------------------------------
+	v = PeekData("fruits", 0)
+	If v = "Apple" Then
+		Print "PASS: peekdata_label_first"
+	Else
+		Print "FAIL: peekdata_label_first: got " & CStr(v)
+	End If
+
+	v = PeekData("fruits", 2)
+	If v = "Cherry" Then
+		Print "PASS: peekdata_label_offset"
+	Else
+		Print "FAIL: peekdata_label_offset: got " & CStr(v)
+	End If
+
+	' -------------------------------------------------------
+	' Test 4: PeekData label is case-insensitive
+	' -------------------------------------------------------
+	v = PeekData("FRUITS", 1)
+	If v = "Banana" Then
+		Print "PASS: peekdata_label_case"
+	Else
+		Print "FAIL: peekdata_label_case: got " & CStr(v)
+	End If
+
+	' -------------------------------------------------------
+	' Test 5: SetDataPointer — move pointer explicitly
+	' -------------------------------------------------------
+	SetDataPointer 3
+	Dim dp As Integer
+	dp = DataPointer()
+	If dp = 3 Then
+		Print "PASS: setdatapointer_basic"
+	Else
+		Print "FAIL: setdatapointer_basic: got " & Str(dp)
+	End If
+
+	' Read should pick up from the new pointer position (index 3 = 400)
+	Dim r As Integer
+	Read r
+	If r = 400 Then
+		Print "PASS: setdatapointer_read"
+	Else
+		Print "FAIL: setdatapointer_read: got " & Str(r)
+	End If
+
+	' -------------------------------------------------------
+	' Test 6: SetDataPointer clamped to bounds
+	' -------------------------------------------------------
+	SetDataPointer -5
+	dp = DataPointer()
+	If dp = 0 Then
+		Print "PASS: setdatapointer_clamp_low"
+	Else
+		Print "FAIL: setdatapointer_clamp_low: got " & Str(dp)
+	End If
+
+	SetDataPointer 99999
+	dp = DataPointer()
+	If dp = DataCount() Then
+		Print "PASS: setdatapointer_clamp_high"
+	Else
+		Print "FAIL: setdatapointer_clamp_high: got " & Str(dp) & " expected " & Str(DataCount())
+	End If
+
+	' -------------------------------------------------------
+	' Test 7: PeekData across sections via absolute index
+	' -------------------------------------------------------
+	' Numbers section: indices 0..3 (100,200,300,400)
+	' Fruits section: indices 4..6 ("Apple","Banana","Cherry")
+	v = PeekData(4)
+	If v = "Apple" Then
+		Print "PASS: peekdata_cross_section"
+	Else
+		Print "FAIL: peekdata_cross_section: got " & CStr(v)
+	End If
+
+	' -------------------------------------------------------
+	' Test 8: SetDataPointer + PeekData together — random-access pattern
+	' -------------------------------------------------------
+	' Save pointer, peek, restore pointer
+	SetDataPointer 0
+	Dim saved As Integer
+	saved = DataPointer()
+	v = PeekData("fruits", 1)  ' "Banana"
+	SetDataPointer saved
+	Read r  ' Should read from 0 => 100
+	If v = "Banana" And r = 100 Then
+		Print "PASS: peek_save_restore"
+	Else
+		Print "FAIL: peek_save_restore: peeked=" & CStr(v) & " read=" & Str(r)
+	End If
+
+End Sub
+
+' --- Data sections ---
+Numbers:
+Data 100, 200, 300, 400
+Fruits:
+Data "Apple", "Banana", "Cherry"

@@ -37,6 +37,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `DataSectionCount()` — total items in the current labeled section
   - `DataSectionRemain()` — remaining items in the current labeled section
   - `DataPointer()` — current read position (0-based index)
+  - `PeekData(index)` — read a data value by absolute index without moving the pointer
+  - `PeekData("label", offset)` — read a value relative to a labeled section
+  - `SetDataPointer(n)` — set the read pointer to an arbitrary position (clamped to bounds)
 - **New bytecode opcodes:** `OP_LOAD_DATA`, `OP_DATA_FROM_STRING`, `OP_CLEAR_DATA`, `OP_COERCE_TYPE` with optimizer registration
 
 ### Fixed
