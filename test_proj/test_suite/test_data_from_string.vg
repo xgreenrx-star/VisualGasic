@@ -1,0 +1,119 @@
+' test_data_from_string.vg — Tests for DataFromString statement
+' DataFromString takes a string expression and parses it as comma-separated
+' data values, appending them to the data tape for Read.
+' Values follow normal Data syntax: numbers are bare, strings must be quoted.
+
+Sub _Ready()
+    Dim q As String
+    q = Chr(34)  ' double-quote character
+
+    ' ---- Test 1: Basic numeric literal ----
+    DataFromString "100, 200, 300"
+    Dim a As Integer
+    Dim b As Integer
+    Dim c As Integer
+    Read a, b, c
+    If a = 100 And b = 200 And c = 300 Then
+        Print "PASS: DataFromString literal integers"
+    Else
+        Print "FAIL: DataFromString literal integers: got " & CStr(a) & "," & CStr(b) & "," & CStr(c)
+    End If
+
+    ' ---- Test 2: String variable with quoted values ----
+    ClearData
+    Dim csv As String
+    csv = q & "Alice" & q & ", " & q & "Bob" & q & ", " & q & "Charlie" & q
+    DataFromString csv
+    Dim n1 As String
+    Dim n2 As String
+    Dim n3 As String
+    Read n1, n2, n3
+    If n1 = "Alice" And n2 = "Bob" And n3 = "Charlie" Then
+        Print "PASS: DataFromString from variable"
+    Else
+        Print "FAIL: DataFromString from variable: got " & n1 & "," & n2 & "," & n3
+    End If
+
+    ' ---- Test 3: Concatenated numeric string ----
+    ClearData
+    Dim part1 As String
+    Dim part2 As String
+    part1 = "10, 20"
+    part2 = "30, 40"
+    DataFromString part1 & ", " & part2
+    Dim x1 As Integer
+    Dim x2 As Integer
+    Dim x3 As Integer
+    Dim x4 As Integer
+    Read x1, x2, x3, x4
+    If x1 = 10 And x2 = 20 And x3 = 30 And x4 = 40 Then
+        Print "PASS: DataFromString with concatenation"
+    Else
+        Print "FAIL: DataFromString with concatenation: got " & CStr(x1) & "," & CStr(x2) & "," & CStr(x3) & "," & CStr(x4)
+    End If
+
+    ' ---- Test 4: Mixed types ----
+    ClearData
+    DataFromString "42, " & q & "hello" & q & ", 3.14, True"
+    Dim vi As Integer
+    Dim vs As String
+    Dim vf As Single
+    Dim vb As Boolean
+    Read vi, vs, vf, vb
+    If vi = 42 And vs = "hello" And vf > 3.13 And vf < 3.15 And vb = True Then
+        Print "PASS: DataFromString mixed types"
+    Else
+        Print "FAIL: DataFromString mixed types: got " & CStr(vi) & "," & vs & "," & CStr(vf) & "," & CStr(vb)
+    End If
+
+    ' ---- Test 5: Append to existing data ----
+    ClearData
+    DataFromString "1, 2"
+    DataFromString "3, 4"
+    Dim d1 As Integer
+    Dim d2 As Integer
+    Dim d3 As Integer
+    Dim d4 As Integer
+    Read d1, d2, d3, d4
+    If d1 = 1 And d2 = 2 And d3 = 3 And d4 = 4 Then
+        Print "PASS: DataFromString appends to tape"
+    Else
+        Print "FAIL: DataFromString appends to tape: got " & CStr(d1) & "," & CStr(d2) & "," & CStr(d3) & "," & CStr(d4)
+    End If
+
+    ' ---- Test 6: DataCount after DataFromString ----
+    ClearData
+    DataFromString "10, 20, 30, 40, 50"
+    Dim cnt As Integer
+    cnt = DataCount()
+    If cnt = 5 Then
+        Print "PASS: DataCount after DataFromString"
+    Else
+        Print "FAIL: DataCount after DataFromString: expected 5, got " & CStr(cnt)
+    End If
+
+    ' ---- Test 7: DataRemain after partial Read ----
+    Dim dummy As Integer
+    Read dummy, dummy
+    Dim rem As Integer
+    rem = DataRemain()
+    If rem = 3 Then
+        Print "PASS: DataRemain after partial read"
+    Else
+        Print "FAIL: DataRemain after partial read: expected 3, got " & CStr(rem)
+    End If
+
+    ' ---- Test 8: Empty string ----
+    ClearData
+    DataFromString ""
+    Dim ec As Integer
+    ec = DataCount()
+    If ec = 0 Then
+        Print "PASS: DataFromString empty string"
+    Else
+        Print "FAIL: DataFromString empty string: expected 0, got " & CStr(ec)
+    End If
+
+    Print ""
+    Print "DataFromString tests complete."
+End Sub

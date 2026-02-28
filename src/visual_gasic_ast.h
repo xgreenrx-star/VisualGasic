@@ -420,6 +420,7 @@ struct IfStatement : public Statement {
 
 struct LoadDataStatement : public Statement {
     ExpressionNode* path_expression;
+    bool is_from_string = false;   // true = DataFromString (parse string directly as values)
     LoadDataStatement() : Statement(STMT_LOAD_DATA), path_expression(nullptr) {}
     virtual ~LoadDataStatement() {
         if(path_expression) delete path_expression;

@@ -52,6 +52,7 @@
   - [Typed Read](#typed-read-new-in-v320)
   - [Empty Data Slots](#empty-data-slots-new-in-v320)
   - [ClearData Statement](#cleardata-statement-new-in-v320)
+  - [DataFromString Statement](#datafromstring-statement-new-in-v320)
   - [Data Introspection Functions](#data-introspection-functions-new-in-v320)
 - [Game and Application Development Functions](#game-and-application-development-functions)
 
@@ -1313,6 +1314,7 @@ VisualGasic provides a comprehensive set of keywords for modern game development
 - `Read` - Read data (supports typed Read: `Read x As Integer`)
 - `Restore` - Restore data pointer (case-insensitive label matching)
 - `ClearData` - Clear data tape and reset pointer *(New in v3.2.0)*
+- `DataFromString` - Parse a string as data values and append to tape *(New in v3.2.0)*
 - `DataFile` - Include data from external file at parse time
 - `LoadData` - Load data from external file at runtime
 - `DataCount()` - Total items or items in named section *(New in v3.2.0)*
@@ -2517,6 +2519,54 @@ ClearData    ' Tape emptied, pointer reset to 0
 ' DataCount() now returns 0
 ' You can LoadData to populate a fresh tape
 LoadData "res://data/new_data.dat"
+```
+
+#### DataFromString Statement *(New in v3.2.0)*
+
+Parse a string expression as comma-separated data values and append them to the data tape. This is the runtime equivalent of `LoadData` but takes a string variable or expression instead of a file path:
+
+```vb
+' Syntax
+DataFromString expression
+
+' Example: build data from a variable
+Dim csv As String
+csv = "10, 20, 30"
+DataFromString csv
+Read a, b, c      ' a=10, b=20, c=30
+```
+
+The string contents follow normal `Data` statement syntax — numbers are bare, strings must be double-quoted:
+
+```vb
+Dim q As String
+q = Chr(34)   ' double-quote character
+
+' Build a string with quoted values
+Dim s As String
+s = "42, " & q & "hello" & q & ", 3.14, True"
+DataFromString s
+Read vi, vs, vf, vb   ' vi=42, vs="hello", vf=3.14, vb=True
+```
+
+**Typical use case** — load a file into a string, then feed it to the data tape:
+
+```vb
+Open "res://data/scores.csv" For Input As #1
+Dim contents As String
+contents = Input(LOF(1), 1)
+Close #1
+
+DataFromString contents
+' Now Read values from the file contents
+```
+
+Multiple `DataFromString` calls append to the existing tape:
+
+```vb
+DataFromString "1, 2"
+DataFromString "3, 4"
+Read a, b, c, d   ' a=1, b=2, c=3, d=4
 ```
 
 #### Data Introspection Functions *(New in v3.2.0)*

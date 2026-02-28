@@ -730,6 +730,7 @@ Statement* VisualGasicParser::parse_statement() {
         if (val == "read") return set_line(parse_read());
         if (val == "restore") return set_line(parse_restore());
         if (val == "cleardata") return set_line(parse_clear_data());
+        if (val == "datafromstring") return set_line(parse_data_from_string());
         if (val == "if") return set_line(parse_if());
         if (val == "for") return set_line(parse_for());
         if (val == "while") return set_line(parse_while());
@@ -3408,6 +3409,24 @@ LoadDataStatement* VisualGasicParser::parse_load_data() {
     }
     if (!stmt->path_expression) {
         error("Expected string expression for file path after LoadData");
+        unregister_node(stmt); delete stmt;
+        return nullptr;
+    }
+    return stmt;
+}
+
+LoadDataStatement* VisualGasicParser::parse_data_from_string() {
+    advance(); // Eat DataFromString
+    
+    LoadDataStatement* stmt = static_cast<LoadDataStatement*>(register_node(new LoadDataStatement()));
+    stmt->is_from_string = true;
+    {
+        ExpressionNode* _tmp = parse_expression();
+        stmt->path_expression = _tmp;
+        unregister_node(_tmp);
+    }
+    if (!stmt->path_expression) {
+        error("Expected string expression after DataFromString");
         unregister_node(stmt); delete stmt;
         return nullptr;
     }

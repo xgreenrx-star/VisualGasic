@@ -960,6 +960,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         dispatch_table[OP_RESTORE_DATA]         = &&vg_op_restore_data;
         dispatch_table[OP_READ_DATA]            = &&vg_op_read_data;
         dispatch_table[OP_LOAD_DATA]            = &&vg_op_load_data;
+        dispatch_table[OP_DATA_FROM_STRING]     = &&vg_op_data_from_string;
         dispatch_table[OP_CLEAR_DATA]           = &&vg_op_clear_data;
         dispatch_table[OP_COERCE_TYPE]          = &&vg_op_coerce_type;
         dispatch_table[OP_ON_ERROR_RESUME_NEXT] = &&vg_op_on_error_resume_next;
@@ -3384,6 +3385,17 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         data_segments.push_back(new_data[i]);
                         runtime_data_nodes.push_back(new_data[i]);
                     }
+                }
+                break;
+            }
+            VG_CASE(vg_op_data_from_string, OP_DATA_FROM_STRING): {
+                // DataFromString — pop string, parse as CSV data values, append to tape
+                Variant v_str = pop_value();
+                String content = v_str;
+                Vector<ExpressionNode*> new_data = VisualGasicParser::parse_data_values_from_text(content);
+                for (int i = 0; i < new_data.size(); i++) {
+                    data_segments.push_back(new_data[i]);
+                    runtime_data_nodes.push_back(new_data[i]);
                 }
                 break;
             }

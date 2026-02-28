@@ -1933,29 +1933,32 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
         }
         case STMT_LOAD_DATA: {
             LoadDataStatement* s = (LoadDataStatement*)stmt;
-            Variant v_path = evaluate_expression(s->path_expression);
-            String path = v_path;
+            Variant v_val = evaluate_expression(s->path_expression);
+            String content;
             
-            if (!FileAccess::file_exists(path)) {
-                 raise_error("LoadData: File not found: " + path, 200);
-                 break;
+            if (s->is_from_string) {
+                // DataFromString — use expression result directly as CSV data
+                content = v_val;
+            } else {
+                // LoadData — expression is a file path
+                String path = v_val;
+                if (!FileAccess::file_exists(path)) {
+                     raise_error("LoadData: File not found: " + path, 200);
+                     break;
+                }
+                Ref<FileAccess> file = FileAccess::open(path, FileAccess::READ);
+                if (file.is_null()) {
+                    raise_error("LoadData: Could not open file: " + path, 201);
+                    break;
+                }
+                content = file->get_as_text();
+                file->close();
             }
-            
-            Ref<FileAccess> file = FileAccess::open(path, FileAccess::READ);
-            if (file.is_null()) {
-                raise_error("LoadData: Could not open file: " + path, 201);
-                break;
-            }
-            
-            String content = file->get_as_text();
-            file->close();
             
             // Parse using static helper
             Vector<ExpressionNode*> new_data = VisualGasicParser::parse_data_values_from_text(content);
             
             // Append to data_segments
-            // IMPORTANT: Who owns these new nodes? 
-            // We should add them to a cleanup list in Instance.
             for(int i=0; i<new_data.size(); i++) {
                 data_segments.push_back(new_data[i]);
                 runtime_data_nodes.push_back(new_data[i]);

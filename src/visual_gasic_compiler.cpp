@@ -5041,10 +5041,10 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             break;
         }
         case STMT_LOAD_DATA: {
-            // LoadData path_expr — push path string, emit OP_LOAD_DATA
+            // LoadData / DataFromString — push string expression, emit opcode
             LoadDataStatement* s = (LoadDataStatement*)stmt;
             compile_expression(s->path_expression);
-            emit_byte(OP_LOAD_DATA);
+            emit_byte(s->is_from_string ? OP_DATA_FROM_STRING : OP_LOAD_DATA);
             break;
         }
         case STMT_CLEAR_DATA: {

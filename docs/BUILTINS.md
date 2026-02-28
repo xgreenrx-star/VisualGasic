@@ -134,10 +134,12 @@ Intra-procedure branching compiled to bytecode:
 Three new bytecode opcodes for the enhanced Data system:
 - `OP_LOAD_DATA` — Pop path string from stack, open file, parse comma-separated values, append to data tape
 - `OP_CLEAR_DATA` — Clear data tape, reset pointer, free runtime-loaded nodes
+- `OP_DATA_FROM_STRING` — Pop string from stack, parse as comma-separated values, append to data tape
 - `OP_COERCE_TYPE` — `[OP] [TYPE_IDX]` — Pop value, coerce to the type named by constant at TYPE_IDX, push result (used by typed `Read x As Integer`)
 
 New statement keywords:
 - `ClearData` — Clears the data tape (keyword registered in tokenizer)
+- `DataFromString` — Parse a string expression as data values and append to tape (keyword registered in tokenizer)
 - `Read x As Type` — Typed Read with compile-time coercion instruction
 - `Data 1,,3` — Empty slots insert `Nothing` between commas
 

@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Typed Read** — `Read x As Integer` coerces data values at read time (Integer, Long, Single, Double, String, Boolean)
 - **ClearData statement** — clears the data tape, resets the read pointer, and frees runtime-loaded nodes
 - **Empty data slots** — `Data 1,,3` inserts `Nothing` for empty positions between commas
+- **DataFromString statement** — `DataFromString expr` parses a string expression as comma-separated data values and appends them to the data tape, enabling runtime-built data (e.g. from file contents or user input)
 - **Data introspection functions:**
   - `DataCount()` — total number of items in the data tape
   - `DataCount("label")` — number of items in a named data section
@@ -35,7 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `DataSectionCount()` — total items in the current labeled section
   - `DataSectionRemain()` — remaining items in the current labeled section
   - `DataPointer()` — current read position (0-based index)
-- **New bytecode opcodes:** `OP_LOAD_DATA`, `OP_CLEAR_DATA`, `OP_COERCE_TYPE` with optimizer registration
+- **New bytecode opcodes:** `OP_LOAD_DATA`, `OP_DATA_FROM_STRING`, `OP_CLEAR_DATA`, `OP_COERCE_TYPE` with optimizer registration
 
 ### Fixed
 - XMM register clobber bug in F64 arithmetic/comparison JIT codegen

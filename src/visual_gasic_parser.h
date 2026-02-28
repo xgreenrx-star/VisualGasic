@@ -71,6 +71,7 @@ private:
     ReadStatement* parse_read();
     RestoreStatement* parse_restore();
     ClearDataStatement* parse_clear_data();
+    LoadDataStatement* parse_data_from_string();
     OpenStatement* parse_open();
     CloseStatement* parse_close();
     SeekStatement* parse_seek();

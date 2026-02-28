@@ -138,6 +138,7 @@ enum OpCode {
     OP_RESTORE_DATA,        // [OP] - Reset DATA pointer (value on stack: -1 for start, or label name)
     OP_READ_DATA,           // [OP] - Read next value from DATA segments, push to stack
     OP_LOAD_DATA,           // [OP] - Load data from file (path on stack)
+    OP_DATA_FROM_STRING,    // [OP] - Parse string on stack as comma-separated values, append to data tape
     OP_CLEAR_DATA,          // [OP] - Clear data tape, reset pointer, free runtime nodes
     OP_COERCE_TYPE,         // [OP] [TYPE_IDX] - Coerce top of stack to named type
 
