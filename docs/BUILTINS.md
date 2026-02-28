@@ -34,6 +34,11 @@ Data introspection helpers *(New in v3.2.0)*:
 - `PeekData(index)` — read a data value by absolute 0-based index without moving the pointer
 - `PeekData("label", offset)` — read a value at *label* + *offset* without moving the pointer
 - `SetDataPointer(n)` — set the read pointer to position *n* (clamped to valid range)
+- `DataLabels()` — returns an Array of all label names in the data tape
+- `DataSectionName()` — returns the label name of the section the pointer is currently in
+- `DataToArray()` — read the entire data tape into an Array
+- `DataToArray("label")` — read all items in a labeled section into an Array
+- `DataToArray(n)` — read *n* items from the current pointer into an Array
 
 Statement-level builtins (examples):
 - `MsgBox(message[, buttons, title])` — shows a dialog with VB6-style button/icon constants

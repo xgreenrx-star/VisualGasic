@@ -396,6 +396,43 @@ Variant call_builtin_expr(VisualGasicInstance *instance, CallExpression *call, b
         }
         return Variant();
     }
+    if (METHOD_IS("datalabels")) {
+        r_handled = true;
+        return instance->get_label_to_data_index().keys();
+    }
+    if (METHOD_IS("datasectionname")) {
+        r_handled = true;
+        return instance->get_data_section_name();
+    }
+    if (METHOD_IS("datatoarray")) {
+        r_handled = true;
+        int start = 0;
+        int end = instance->get_data_count();
+        if (args.size() >= 1 && args[0].get_type() == Variant::STRING) {
+            // DataToArray("label") — return items in that section
+            String key = String(args[0]).to_lower();
+            const Dictionary &ldi = instance->get_label_to_data_index();
+            if (!ldi.has(key)) {
+                instance->raise_runtime_error("DataToArray: label '" + String(args[0]) + "' not found");
+                return Array();
+            }
+            start = (int)ldi[key];
+            end = instance->get_data_section_end(start);
+        } else if (args.size() >= 1) {
+            // DataToArray(n) — read n items from current pointer
+            start = instance->get_data_pointer();
+            end = start + (int)args[0];
+            if (end > instance->get_data_count()) end = instance->get_data_count();
+        }
+        Array result;
+        for (int i = start; i < end; i++) {
+            ExpressionNode* expr = instance->get_data_segment_at(i);
+            if (expr) {
+                result.push_back(instance->evaluate_expression_for_builtins(expr));
+            }
+        }
+        return result;
+    }
 
     // File / Dir Helpers (use instance wrappers)
     if (METHOD_IS("lof") && args.size() == 1) { r_handled = true; return instance->file_lof((int)args[0]); }
@@ -2499,6 +2536,41 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
             instance->set_data_pointer((int)args[0]);
         }
         return Variant();
+    }
+    if (METHOD_IS("datalabels")) {
+        r_handled = true;
+        return instance->get_label_to_data_index().keys();
+    }
+    if (METHOD_IS("datasectionname")) {
+        r_handled = true;
+        return instance->get_data_section_name();
+    }
+    if (METHOD_IS("datatoarray")) {
+        r_handled = true;
+        int start = 0;
+        int end = instance->get_data_count();
+        if (args.size() >= 1 && args[0].get_type() == Variant::STRING) {
+            String key = String(args[0]).to_lower();
+            const Dictionary &ldi = instance->get_label_to_data_index();
+            if (!ldi.has(key)) {
+                instance->raise_runtime_error("DataToArray: label '" + String(args[0]) + "' not found");
+                return Array();
+            }
+            start = (int)ldi[key];
+            end = instance->get_data_section_end(start);
+        } else if (args.size() >= 1) {
+            start = instance->get_data_pointer();
+            end = start + (int)args[0];
+            if (end > instance->get_data_count()) end = instance->get_data_count();
+        }
+        Array result;
+        for (int i = start; i < end; i++) {
+            ExpressionNode* expr = instance->get_data_segment_at(i);
+            if (expr) {
+                result.push_back(instance->evaluate_expression_for_builtins(expr));
+            }
+        }
+        return result;
     }
 
     // ── Functional Programming: Map, Filter, Reduce, Any, All, Find ──

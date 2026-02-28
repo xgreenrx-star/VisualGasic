@@ -40,6 +40,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `PeekData(index)` — read a data value by absolute index without moving the pointer
   - `PeekData("label", offset)` — read a value relative to a labeled section
   - `SetDataPointer(n)` — set the read pointer to an arbitrary position (clamped to bounds)
+  - `DataLabels()` — returns an Array of all label names in the data tape
+  - `DataSectionName()` — returns the label name of the section the pointer is currently in
+  - `DataToArray("label")` — bulk-read an entire labeled section into an Array
+  - `DataToArray(n)` — read *n* items from the current pointer into an Array
+  - `DataToArray()` — read the entire data tape into an Array
 - **New bytecode opcodes:** `OP_LOAD_DATA`, `OP_DATA_FROM_STRING`, `OP_CLEAR_DATA`, `OP_COERCE_TYPE` with optimizer registration
 
 ### Fixed

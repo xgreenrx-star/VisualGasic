@@ -232,6 +232,18 @@ public:
     int get_data_section_start() const { return get_current_section_start(); }
     const Dictionary &get_label_to_data_index() const { return label_to_data_index; }
     ExpressionNode* get_data_segment_at(int index) const { return (index >= 0 && index < data_segments.size()) ? data_segments[index] : nullptr; }
+    String get_data_section_name() const {
+        int ptr = data_pointer;
+        String found;
+        Array keys = label_to_data_index.keys();
+        for (int i = 0; i < keys.size(); i++) {
+            int idx = (int)label_to_data_index[keys[i]];
+            if (idx <= ptr && (found.is_empty() || idx > (int)label_to_data_index[found])) {
+                found = keys[i];
+            }
+        }
+        return found;
+    }
 
     // Accessors for builtins module (Err.Clear etc.)
     Dictionary &get_variables() { return variables; }

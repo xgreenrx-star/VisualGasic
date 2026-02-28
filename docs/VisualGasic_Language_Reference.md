@@ -1326,6 +1326,9 @@ VisualGasic provides a comprehensive set of keywords for modern game development
 - `PeekData(index)` - Random-access read by absolute index *(New in v3.2.0)*
 - `PeekData("label", offset)` - Random-access read relative to a labeled section *(New in v3.2.0)*
 - `SetDataPointer(n)` - Set the read pointer to an arbitrary position *(New in v3.2.0)*
+- `DataLabels()` - Array of all label names in the data tape *(New in v3.2.0)*
+- `DataSectionName()` - Label name of the current section *(New in v3.2.0)*
+- `DataToArray()` / `DataToArray("label")` / `DataToArray(n)` - Bulk-read data into an Array *(New in v3.2.0)*
 
 #### **Advanced Features**
 - `Include` - Include external file
@@ -2779,6 +2782,11 @@ Query the state of the data tape at runtime:
 | `PeekData(index)` | Variant | Read value at absolute index without moving pointer |
 | `PeekData("label", offset)` | Variant | Read value at label + offset without moving pointer |
 | `SetDataPointer(n)` | (none) | Set the read pointer to position *n* (clamped to 0..DataCount) |
+| `DataLabels()` | Array | Array of all label names in the data tape |
+| `DataSectionName()` | String | Label name of the section the pointer is currently in ("" if preamble) |
+| `DataToArray()` | Array | Read the entire data tape into an Array |
+| `DataToArray("label")` | Array | Read all items in a labeled section into an Array |
+| `DataToArray(n)` | Array | Read *n* items from the current pointer into an Array |
 
 ```vb
 Data 10, 20, 30
@@ -2946,6 +2954,80 @@ Sub Main()
     ' Negative or out-of-range values are clamped automatically
     SetDataPointer -1             ' Clamped to 0
     SetDataPointer 99999          ' Clamped to DataCount()
+End Sub
+```
+
+**DataLabels — discover all sections dynamically:**
+
+```vb
+Weapons:
+Data "Sword", 150, "Shield", 100
+
+Armor:
+Data "Helmet", 50, "Chestplate", 200
+
+Potions:
+Data "Health", 25, "Mana", 30
+
+Sub Main()
+    Dim sections As Variant
+    sections = DataLabels()       ' ["weapons", "armor", "potions"]
+    
+    For Each s In sections
+        Print UCase(Left(s, 1)) & Mid(s, 2) & ": " & CStr(DataCount(s)) & " items"
+    Next
+    ' Output:
+    '   Weapons: 4 items
+    '   Armor: 4 items
+    '   Potions: 4 items
+End Sub
+```
+
+**DataSectionName — know where the pointer is:**
+
+```vb
+Enemies:
+Data "Goblin", 30, "Orc", 80, "Dragon", 500
+
+Sub Main()
+    Restore Enemies
+    Do While DataRemain() > 0
+        Dim name As String
+        Dim hp As Integer
+        Read name, hp
+        Print "[" & DataSectionName() & "] " & name & " HP=" & CStr(hp)
+    Loop
+    ' Output:
+    '   [enemies] Goblin HP=30
+    '   [enemies] Orc HP=80
+    '   [enemies] Dragon HP=500
+End Sub
+```
+
+**DataToArray — bulk load without looping:**
+
+```vb
+Colors:
+Data "Red", "Green", "Blue", "Yellow"
+
+Scores:
+Data 100, 95, 87, 72, 65
+
+Sub Main()
+    ' Load an entire section
+    Dim c As Variant
+    c = DataToArray("Colors")     ' ["Red", "Green", "Blue", "Yellow"]
+    Print "Colors: " & Join(c, ", ")
+    
+    ' Load first 3 items from pointer position
+    SetDataPointer 0
+    Dim first3 As Variant
+    first3 = DataToArray(3)       ' First 3 items from tape start
+    
+    ' Load everything
+    Dim all As Variant
+    all = DataToArray()           ' Entire tape as one array
+    Print "Total items: " & CStr(UBound(all) + 1)
 End Sub
 ```
 

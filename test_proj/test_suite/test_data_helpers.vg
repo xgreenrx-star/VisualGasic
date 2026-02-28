@@ -1,0 +1,159 @@
+' Test: DataLabels, DataSectionName, DataToArray
+' Tests the three new data-tape helper functions
+Attribute VB_Name = "TestDataHelpers"
+
+Sub _Ready()
+	' ═══════════════════════════════════════════════════
+	' DataLabels()
+	' ═══════════════════════════════════════════════════
+
+	' Test 1: returns an array
+	Dim labels As Variant
+	labels = DataLabels()
+	If TypeName(labels) = "Array" Then
+		Print "PASS: datalabels_returns_array"
+	Else
+		Print "FAIL: datalabels_returns_array: got " & TypeName(labels)
+	End If
+
+	' Test 2: correct number of labels
+	If UBound(labels) + 1 = 3 Then
+		Print "PASS: datalabels_count"
+	Else
+		Print "FAIL: datalabels_count: expected 3, got " & CStr(UBound(labels) + 1)
+	End If
+
+	' Test 3: known labels present (case-insensitive keys stored lowercase)
+	Dim found_colors As Boolean
+	Dim found_sizes As Boolean
+	Dim found_scores As Boolean
+	Dim i As Integer
+	For i = 0 To UBound(labels)
+		If LCase(CStr(labels(i))) = "colors" Then found_colors = True
+		If LCase(CStr(labels(i))) = "sizes" Then found_sizes = True
+		If LCase(CStr(labels(i))) = "scores" Then found_scores = True
+	Next
+	If found_colors And found_sizes And found_scores Then
+		Print "PASS: datalabels_contains_all"
+	Else
+		Print "FAIL: datalabels_contains_all: colors=" & CStr(found_colors) & " sizes=" & CStr(found_sizes) & " scores=" & CStr(found_scores)
+	End If
+
+	' ═══════════════════════════════════════════════════
+	' DataSectionName()
+	' ═══════════════════════════════════════════════════
+
+	' Test 4: at start of tape (before any label), should be empty string
+	SetDataPointer 0
+	Dim secName As String
+	secName = DataSectionName()
+	If secName = "" Then
+		Print "PASS: datasectionname_preamble"
+	Else
+		Print "FAIL: datasectionname_preamble: got '" & secName & "'"
+	End If
+
+	' Test 5: inside Colors section
+	Restore Colors
+	Dim dummy As String
+	Read dummy  ' move into the section
+	secName = DataSectionName()
+	If secName = "colors" Then
+		Print "PASS: datasectionname_colors"
+	Else
+		Print "FAIL: datasectionname_colors: got '" & secName & "'"
+	End If
+
+	' Test 6: inside Scores section
+	Restore Scores
+	Dim d2 As Integer
+	Read d2
+	secName = DataSectionName()
+	If secName = "scores" Then
+		Print "PASS: datasectionname_scores"
+	Else
+		Print "FAIL: datasectionname_scores: got '" & secName & "'"
+	End If
+
+	' ═══════════════════════════════════════════════════
+	' DataToArray()
+	' ═══════════════════════════════════════════════════
+
+	' Test 7: DataToArray("label") — entire section
+	Dim colors As Variant
+	colors = DataToArray("Colors")
+	If UBound(colors) + 1 = 3 Then
+		Print "PASS: datatoarray_label_count"
+	Else
+		Print "FAIL: datatoarray_label_count: expected 3, got " & CStr(UBound(colors) + 1)
+	End If
+
+	' Test 8: correct values from labeled section
+	If colors(0) = "Red" And colors(1) = "Green" And colors(2) = "Blue" Then
+		Print "PASS: datatoarray_label_values"
+	Else
+		Print "FAIL: datatoarray_label_values: got " & CStr(colors(0)) & "," & CStr(colors(1)) & "," & CStr(colors(2))
+	End If
+
+	' Test 9: DataToArray("label") is case-insensitive
+	Dim scores As Variant
+	scores = DataToArray("SCORES")
+	If UBound(scores) + 1 = 5 Then
+		Print "PASS: datatoarray_case_insensitive"
+	Else
+		Print "FAIL: datatoarray_case_insensitive: expected 5, got " & CStr(UBound(scores) + 1)
+	End If
+
+	' Test 10: DataToArray(n) — read n items from current pointer
+	SetDataPointer 0
+	Dim first3 As Variant
+	first3 = DataToArray(3)
+	If UBound(first3) + 1 = 3 Then
+		Print "PASS: datatoarray_n_count"
+	Else
+		Print "FAIL: datatoarray_n_count: expected 3, got " & CStr(UBound(first3) + 1)
+	End If
+
+	' Test 11: values from DataToArray(n)
+	If first3(0) = 10 And first3(1) = 20 And first3(2) = 30 Then
+		Print "PASS: datatoarray_n_values"
+	Else
+		Print "FAIL: datatoarray_n_values: got " & CStr(first3(0)) & "," & CStr(first3(1)) & "," & CStr(first3(2))
+	End If
+
+	' Test 12: DataToArray() with no args — entire tape
+	Dim all As Variant
+	all = DataToArray()
+	If UBound(all) + 1 = DataCount() Then
+		Print "PASS: datatoarray_all"
+	Else
+		Print "FAIL: datatoarray_all: expected " & CStr(DataCount()) & ", got " & CStr(UBound(all) + 1)
+	End If
+
+	' Test 13: DataToArray does NOT move the pointer
+	SetDataPointer 2
+	Dim before As Integer
+	before = DataPointer()
+	Dim tmp As Variant
+	tmp = DataToArray("Sizes")
+	Dim after As Integer
+	after = DataPointer()
+	If before = after Then
+		Print "PASS: datatoarray_no_move"
+	Else
+		Print "FAIL: datatoarray_no_move: pointer moved from " & Str(before) & " to " & Str(after)
+	End If
+
+End Sub
+
+' --- Preamble data (before any label) ---
+Data 10, 20, 30
+
+Colors:
+Data "Red", "Green", "Blue"
+
+Sizes:
+Data "Small", "Medium", "Large", "XL"
+
+Scores:
+Data 1000, 850, 720, 600, 500
