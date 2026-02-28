@@ -31,6 +31,7 @@ private:
     HashMap<String, int> local_slots;
     HashMap<String, ValueType> local_types;
     HashSet<String> array_vars;
+    HashSet<String> param_vars;  // Parameter names — needed for array-access disambiguation
     HashSet<String> dictionary_vars;
     HashSet<String> trusted_dictionary_vars;
     HashSet<String> sole_owner_dict_vars;  // Dicts proven to have sole ownership → use VGFastStringDict

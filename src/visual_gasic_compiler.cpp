@@ -227,6 +227,7 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
     current_module = module;
     compile_ok = true;
     array_vars.clear();
+    param_vars.clear();
     dictionary_vars.clear();
     trusted_dictionary_vars.clear();
     sole_owner_dict_vars.clear();
@@ -293,6 +294,7 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
 
     for (int i = 0; i < sub->parameters.size(); i++) {
         non_local_names.insert(sub->parameters[i].name.to_lower());
+        param_vars.insert(sub->parameters[i].name.to_lower());
         // Register ParamArray parameters as array variables for proper subscript handling
         if (sub->parameters[i].is_param_array) {
             array_vars.insert(sub->parameters[i].name.to_lower());
@@ -5372,8 +5374,9 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                 bool is_array = is_fast_array_var(var_name) || array_vars.has(var_name.to_lower());
                 bool is_dict = is_dictionary_var(var_name);
                 bool is_local = local_slots.has(var_name.to_lower());
-                if (!is_array && !is_dict && !is_local) {
-                    // Not a known array/dict/local variable — treat as function call
+                bool is_param = param_vars.has(var_name.to_lower());
+                if (!is_array && !is_dict && !is_local && !is_param) {
+                    // Not a known array/dict/local/parameter variable — treat as function call
                     for (int i = 0; i < aa->indices.size(); i++) {
                         compile_expression(aa->indices[i]);
                     }
@@ -5498,7 +5501,7 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
              }
 
              String call_name = call->method_name.to_lower();
-             if (array_vars.has(call_name) || dictionary_vars.has(call_name) || local_slots.has(call_name)) {
+             if (array_vars.has(call_name) || dictionary_vars.has(call_name) || local_slots.has(call_name) || param_vars.has(call_name)) {
                  if (call->arguments.size() != 1) {
                      compile_ok = false;
                      break;
