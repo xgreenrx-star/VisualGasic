@@ -1,0 +1,171 @@
+Attribute VB_Name = "TilemapTutorial"
+' ============================================================
+' Tilemap Tutorial  --  VisualGasic Data Tape Demo
+' ============================================================
+'
+' This tutorial shows how to:
+'   1. Store a tile map in Data statements (flat, row-major)
+'   2. Load it into an array with DataToArray("label")
+'   3. Reshape the flat array into a 2-D grid (pure VG)
+'   4. Scale the grid with nearest-neighbour upsampling
+'   5. Render it as ASCII art via a tile-character lookup
+'
+' Tile legend:
+'   0 = empty (floor)    " "
+'   1 = wall             "#"
+'   2 = player           "@"
+'   3 = exit             ">"
+'   4 = key              "?"
+' ============================================================
+
+' -- Tile map: 10 columns x 5 rows (50 values) ---------------
+Room1:
+Data 1,1,1,1,1,1,1,1,1,1
+Data 1,0,0,0,1,0,0,0,0,1
+Data 1,0,2,0,1,0,4,0,0,1
+Data 1,0,0,0,0,0,0,0,3,1
+Data 1,1,1,1,1,1,1,1,1,1
+
+' -- Character lookup for each tile ID -----------------------
+Tiles:
+Data " ","#","@",">","?"
+
+' =============================================================
+' ReshapeToMatrix -- convert a flat array into a 2-D array
+'   flat()  : one-dimensional source array
+'   cols    : number of columns per row
+'   Returns : Array of Arrays (rows x cols)
+' =============================================================
+Function ReshapeToMatrix(flat As Variant, cols As Integer) As Variant
+    Dim total As Integer
+    total = UBound(flat) + 1
+    Dim rows As Integer
+    rows = total / cols
+
+    Dim grid() As Variant
+    ReDim grid(rows - 1)
+
+    Dim r As Integer
+    For r = 0 To rows - 1
+        Dim row() As Variant
+        ReDim row(cols - 1)
+        Dim c As Integer
+        For c = 0 To cols - 1
+            row(c) = flat(r * cols + c)
+        Next
+        grid(r) = row
+    Next
+
+    ReshapeToMatrix = grid
+End Function
+
+' =============================================================
+' ScaleGrid -- nearest-neighbour upscale of a 2-D grid
+'   srcGrid() : Array of Arrays (rows x cols)
+'   scale     : integer scale factor (2 = double, 3 = triple)
+'   Returns   : scaled Array of Arrays
+' =============================================================
+Function ScaleGrid(srcGrid As Variant, scale As Integer) As Variant
+    Dim srcRows As Integer
+    srcRows = UBound(srcGrid) + 1
+    Dim firstRow As Variant
+    firstRow = srcGrid(0)
+    Dim srcCols As Integer
+    srcCols = UBound(firstRow) + 1
+
+    Dim newRows As Integer
+    newRows = srcRows * scale
+    Dim newCols As Integer
+    newCols = srcCols * scale
+
+    Dim out() As Variant
+    ReDim out(newRows - 1)
+
+    Dim r As Integer
+    For r = 0 To newRows - 1
+        Dim row() As Variant
+        ReDim row(newCols - 1)
+        Dim c As Integer
+        For c = 0 To newCols - 1
+            Dim srcR As Integer
+            srcR = r / scale
+            Dim srcC As Integer
+            srcC = c / scale
+            Dim srcRow As Variant
+            srcRow = srcGrid(srcR)
+            row(c) = srcRow(srcC)
+        Next
+        out(r) = row
+    Next
+
+    ScaleGrid = out
+End Function
+
+' =============================================================
+' PrintGrid -- render a 2-D tile grid as ASCII art
+'   g()  : Array of Arrays (rows x cols)
+'   tc() : character lookup per tile ID
+'
+' NOTE: parameter names are kept short to avoid clashing
+' with caller variables (VG shares a flat variable scope).
+' =============================================================
+Sub PrintGrid(g As Variant, tc As Variant)
+    Dim rows As Integer
+    rows = UBound(g) + 1
+    Dim r As Integer
+    For r = 0 To rows - 1
+        Dim row As Variant
+        row = g(r)
+        Dim cols As Integer
+        cols = UBound(row) + 1
+        Dim ln As String
+        ln = ""
+        Dim c As Integer
+        For c = 0 To cols - 1
+            Dim tid As Integer
+            tid = CInt(row(c))
+            If tid >= 0 And tid <= UBound(tc) Then
+                ln = ln & CStr(tc(tid))
+            Else
+                ln = ln & "?"
+            End If
+        Next
+        Print ln
+    Next
+End Sub
+
+' =============================================================
+' Main -- entry point
+' =============================================================
+Sub Main()
+    ' -- Load tile characters --
+    Dim tileChars As Variant
+    tileChars = DataToArray("Tiles")
+
+    ' -- Load room data --
+    Dim flat As Variant
+    flat = DataToArray("Room1")
+
+    Dim cols As Integer
+    cols = 10
+
+    Print "--- Room at 1x (10x5) ---"
+    Dim grid As Variant
+    grid = ReshapeToMatrix(flat, cols)
+    PrintGrid grid, tileChars
+
+    Print ""
+    Print "--- Room at 2x (20x10) ---"
+    Dim grid2 As Variant
+    grid2 = ScaleGrid(grid, 2)
+    PrintGrid grid2, tileChars
+
+    Print ""
+    Print "--- Room at 3x (30x15) ---"
+    Dim grid3 As Variant
+    grid3 = ScaleGrid(grid, 3)
+    PrintGrid grid3, tileChars
+
+    Print ""
+    Print "Done."
+End Sub
