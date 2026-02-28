@@ -49,6 +49,10 @@
 - [Array Functions](#array-functions)
 - [File I/O Functions](#file-io-functions-classic-vb6-style)
 - [Classic DATA Statements](#classic-data-statements)
+  - [Typed Read](#typed-read-new-in-v320)
+  - [Empty Data Slots](#empty-data-slots-new-in-v320)
+  - [ClearData Statement](#cleardata-statement-new-in-v320)
+  - [Data Introspection Functions](#data-introspection-functions-new-in-v320)
 - [Game and Application Development Functions](#game-and-application-development-functions)
 
 ### [VB6 Global Objects (v2.10.0)](#vb6-global-objects)
@@ -1305,9 +1309,17 @@ VisualGasic provides a comprehensive set of keywords for modern game development
 - `in` - In operator (for iteration)
 
 #### **Data Processing**
-- `Data` - Data statement
-- `Read` - Read data
-- `Restore` - Restore data pointer
+- `Data` - Data statement (supports empty slots with consecutive commas)
+- `Read` - Read data (supports typed Read: `Read x As Integer`)
+- `Restore` - Restore data pointer (case-insensitive label matching)
+- `ClearData` - Clear data tape and reset pointer *(New in v3.2.0)*
+- `DataFile` - Include data from external file at parse time
+- `LoadData` - Load data from external file at runtime
+- `DataCount()` - Total items or items in named section *(New in v3.2.0)*
+- `DataRemain()` - Items remaining from current pointer *(New in v3.2.0)*
+- `DataSectionCount()` - Items in current labeled section *(New in v3.2.0)*
+- `DataSectionRemain()` - Remaining items in current section *(New in v3.2.0)*
+- `DataPointer()` - Current read position *(New in v3.2.0)*
 
 #### **Advanced Features**
 - `Include` - Include external file
@@ -2457,6 +2469,95 @@ For i = 1 To enemyCount
     SpawnEnemy(name, hp, damage)
 Next
 ```
+
+#### Typed Read *(New in v3.2.0)*
+
+Coerce values to a specific type at read time with `Read variable As Type`:
+
+```vb
+Data 42, 3.14, "100", "True"
+
+Dim s As String
+Dim d As Double
+Dim i As Integer
+Dim b As Boolean
+
+Read s As String    ' s = "42" (number coerced to string)
+Read d As Double    ' d = 3.14
+Read i As Integer   ' i = 100  (string coerced to integer)
+Read b As Boolean   ' b = True (string coerced to boolean)
+```
+
+Supported type names: `Integer`, `Int`, `Long`, `Int32`, `Int64`, `Single`, `Float`, `Double`, `Float32`, `Float64`, `String`, `Boolean`, `Bool`.
+
+#### Empty Data Slots *(New in v3.2.0)*
+
+Use consecutive commas to insert `Nothing` (null) values:
+
+```vb
+Data 1,,3, "hello",, 99
+
+Dim a, b, c, d, e, f
+Read a, b, c, d, e, f
+' a = 1, b = Nothing, c = 3, d = "hello", e = Nothing, f = 99
+```
+
+This is useful for sparse data tables where some positions are intentionally empty.
+
+#### ClearData Statement *(New in v3.2.0)*
+
+Clear the entire data tape and reset the read pointer:
+
+```vb
+Data 10, 20, 30
+Read a, b    ' a=10, b=20
+
+ClearData    ' Tape emptied, pointer reset to 0
+
+' DataCount() now returns 0
+' You can LoadData to populate a fresh tape
+LoadData "res://data/new_data.dat"
+```
+
+#### Data Introspection Functions *(New in v3.2.0)*
+
+Query the state of the data tape at runtime:
+
+| Function | Returns | Description |
+|----------|---------|-------------|
+| `DataCount()` | Integer | Total number of items in the data tape |
+| `DataCount("label")` | Integer | Number of items in a labeled section (case-insensitive) |
+| `DataRemain()` | Integer | Items remaining from current pointer to end |
+| `DataSectionCount()` | Integer | Total items in the current labeled section |
+| `DataSectionRemain()` | Integer | Remaining items in the current labeled section |
+| `DataPointer()` | Integer | Current read position (0-based) |
+
+```vb
+Data 10, 20, 30
+
+Colors:
+Data "Red", "Green", "Blue"
+
+Numbers:
+Data 100, 200, 300, 400, 500
+
+Sub Main()
+    Print DataCount()             ' 11 (total items)
+    Print DataCount("Colors")     ' 3
+    Print DataCount("Numbers")    ' 5
+    
+    Read a, b, c                  ' Read 10, 20, 30
+    Print DataPointer()           ' 3
+    Print DataRemain()            ' 8
+    
+    Restore Numbers
+    Print DataSectionCount()      ' 5
+    Read x, y
+    Print DataSectionRemain()     ' 3
+End Sub
+```
+
+> **Note:** `Restore` is case-insensitive — `Restore colors`, `Restore COLORS`, and `Restore Colors` all work.
 
 #### Classic Use Cases
 

@@ -24,6 +24,14 @@ File/dir helpers (delegate to `VisualGasicInstance` wrappers):
 - `LOF(fileHandle)`, `Loc(fileHandle)`, `EOF(fileHandle)`, `FreeFile([range])`, `FileLen(path)`, `Dir(...)`, `Randomize()`
 - `Timer()` — Seconds since midnight as Double *(New in v2.10.0)*
 
+Data introspection helpers *(New in v3.2.0)*:
+- `DataCount()` — total number of items in the data tape
+- `DataCount("label")` — number of items in a named data section (case-insensitive)
+- `DataRemain()` — items remaining from current read pointer to end of tape
+- `DataSectionCount()` — total items in the current labeled section
+- `DataSectionRemain()` — items remaining in the current labeled section
+- `DataPointer()` — current read position (0-based index)
+
 Statement-level builtins (examples):
 - `MsgBox(message[, buttons, title])` — shows a dialog with VB6-style button/icon constants
 - `InputBox(prompt[, title, default])` — shows an input dialog and returns the result
@@ -120,6 +128,25 @@ Intra-procedure branching compiled to bytecode:
 - `OP_GOSUB` — Push return address and jump to label
 - `OP_RETURN_GOSUB` — Pop and return to address
 - Managed via a `gosub_stack` (Vector<int>) in the bytecode VM.
+
+### Enhanced Data/Read System *(New in v3.2.0)*
+
+Three new bytecode opcodes for the enhanced Data system:
+- `OP_LOAD_DATA` — Pop path string from stack, open file, parse comma-separated values, append to data tape
+- `OP_CLEAR_DATA` — Clear data tape, reset pointer, free runtime-loaded nodes
+- `OP_COERCE_TYPE` — `[OP] [TYPE_IDX]` — Pop value, coerce to the type named by constant at TYPE_IDX, push result (used by typed `Read x As Integer`)
+
+New statement keywords:
+- `ClearData` — Clears the data tape (keyword registered in tokenizer)
+- `Read x As Type` — Typed Read with compile-time coercion instruction
+- `Data 1,,3` — Empty slots insert `Nothing` between commas
+
+Public instance accessors used by builtins:
+- `get_data_count()` — total tape size
+- `get_data_pointer()` — current read position
+- `get_data_section_end()` — end index for current section
+- `get_data_section_start()` — start index for current section
+- `get_label_to_data_index()` — label→index Dictionary (keys lowercase)
 
 ## VisualGasicInstance public wrappers
 The builtins implementation uses a handful of instance helpers. These are documented here so extension authors know where to call into the runtime.

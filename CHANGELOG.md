@@ -24,9 +24,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - StringConcat: 83× faster than GDScript, 8× faster than C++
 - Interop: 67× faster than GDScript, 57× faster than C++
 
+### Added — Enhanced Data/Read System
+- **Typed Read** — `Read x As Integer` coerces data values at read time (Integer, Long, Single, Double, String, Boolean)
+- **ClearData statement** — clears the data tape, resets the read pointer, and frees runtime-loaded nodes
+- **Empty data slots** — `Data 1,,3` inserts `Nothing` for empty positions between commas
+- **Data introspection functions:**
+  - `DataCount()` — total number of items in the data tape
+  - `DataCount("label")` — number of items in a named data section
+  - `DataRemain()` — items remaining from current read pointer to end
+  - `DataSectionCount()` — total items in the current labeled section
+  - `DataSectionRemain()` — remaining items in the current labeled section
+  - `DataPointer()` — current read position (0-based index)
+- **New bytecode opcodes:** `OP_LOAD_DATA`, `OP_CLEAR_DATA`, `OP_COERCE_TYPE` with optimizer registration
+
 ### Fixed
 - XMM register clobber bug in F64 arithmetic/comparison JIT codegen
 - JIT stack alignment issues on x86-64
+- **STMT_DATA bytecode no-op** — `Data` statements in functions no longer force tree-walk fallback
+- **STMT_LOAD_DATA bytecode support** — `LoadData` now compiles to bytecode instead of requiring the AST interpreter
+- **Case-insensitive Restore** — `Restore colors` now matches `Colors:` label regardless of case
+- **Data scanning source order** — global-level `Data` statements are now scanned before sub-level statements, matching VB6 source order
 
 ### Documentation
 - Updated performance docs with v3.2 benchmark results
