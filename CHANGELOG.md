@@ -5,6 +5,57 @@ All notable changes to Visual Gasic will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.3.0] - March 2026
+
+### 🚀 Language Enhancements Release
+
+**18 new language features** making VisualGasic more expressive than ever, plus updated documentation clarifying VG's identity as a modern language inspired by — but distinct from — VB6.
+
+### Added — Language Features
+- **String interpolation** — `$"Hello {name}!"` with embedded expressions
+- **Count()** — universal count function for arrays and strings
+- **Print semicolons** — `Print "A"; "B"` suppresses newlines; trailing `;` suppresses final newline
+- **Spc() / Tab()** — spacing functions for formatted output
+- **Array literals** — `[1, 2, 3]` syntax
+- **Dictionary literals** — `{"key": value}` syntax
+- **For Each With Index** — `For Each item With Index i In collection`
+- **For Each over Strings** — iterate characters in a string
+- **Bitwise operations** — `BitAnd`, `BitOr`, `BitXor`, `BitNot`, `BitShiftLeft`, `BitShiftRight`
+- **Math functions** — `Ceiling`, `Floor`, `Atan2`
+- **Math constants** — `Math.PI`, `Math.E`, `Math.Tau`, `Math.Infinity`, `Math.NaN`
+- **VB6 intrinsic constants** — `vbCrLf`, `vbTab`, `vbNullString`, `PI`, `E`, etc.
+- **StringBuilder** — `NewStringBuilder()`, `.Append`, `.ToString`, `.Length`, `.Replace`, `.Insert`, `.Clear`
+- **Regular expressions** — `RegExp.Test`, `RegExp.Execute`, `RegExp.Replace`
+- **Static local variables** — `Static count As Integer` persists across function calls
+- **Swap statement** — `Swap a, b`
+- **Assert statement** — `Assert condition, "message"`
+- **On n GoTo / GoSub** — computed branching: `On choice GoTo Label1, Label2, Label3`
+- **Resume / Resume Next / Resume Label** — structured error recovery
+- **Get# / Put#** — binary file I/O with `Open For Binary` and `Open For Random`
+- **Enum improvements** — `.Parse()`, `.Values()`, `.ToString()`, direct member access
+- **Array utilities** — `Array.Copy`, `Array.Fill`, `Array.Shuffle`, `Array.Transpose`
+- **String utilities** — `String.Contains` / `StrContains`, `String.Repeat` / `StrRepeat`
+- **Sleep** — `Sleep ms` blocking delay
+- **Module statement** — `Module ... End Module` code organization
+
+### Added — Demos
+- **v330_features.vg** — comprehensive demo exercising all 18 new features
+- **Demos now included in releases** — all 55 demo .vg files ship in the release package
+
+### Changed
+- **Documentation identity update** — README, Language Reference, and Project Status now clearly state that VisualGasic is a modern language inspired by VB6, not a VB6 clone
+- **Tokenizer keywords** — added `Swap`, `Assert`, `Module`, `GoTo`, `GoSub`, `With` (title-cased)
+
+### Fixed
+- **ForEach With Index parsing** — `"with"` keyword was lowercase; `"Index"` incorrectly required keyword token type
+- **Array/String/RegExp namespace dispatch** — `Array.Copy()`, `String.Contains()`, `RegExp.Test()`, `Debug.Assert()` now route through `call_builtin_for_base_variable()`
+- **Assert statement** — now parsed as a keyword statement, not a method call
+
+### Tests
+- **481/483** assertions pass — zero regressions from v3.2.0
+
+---
+
 ## [3.2.0-beta1] - February 2026
 
 ### 🚀 First Public Beta Release
