@@ -70,16 +70,15 @@ echo -e "\n${YELLOW}[4/6] Copying files...${NC}"
 # Copy addon directory
 cp -r addons "${DEST}/"
 
-# Copy documentation
-mkdir -p "${DEST}/docs"
+# Copy documentation (full docs/ tree, excluding archive and dev-only files)
+cp -r docs "${DEST}/"
+rm -rf "${DEST}/docs/archive" 2>/dev/null || true
+rm -rf "${DEST}/docs/development" 2>/dev/null || true
+rm -f "${DEST}/docs/reddit_announcement.md" 2>/dev/null || true
 cp README.md "${DEST}/"
 cp CHANGELOG.md "${DEST}/"
 cp LICENSE "${DEST}/"
 cp CONTRIBUTING.md "${DEST}/" 2>/dev/null || true
-
-# Copy reference docs
-cp -r docs/reference "${DEST}/docs/" 2>/dev/null || true
-cp -r docs/guides "${DEST}/docs/" 2>/dev/null || true
 
 # Copy examples
 cp -r examples "${DEST}/" 2>/dev/null || true
