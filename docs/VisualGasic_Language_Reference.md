@@ -107,24 +107,29 @@
 
 ### Introduction
 
-VisualGasic is a modern, expressive scripting language designed for application and game development on the Godot 4.5+ platform. The name "Gasic" stands for **G**odot **A**ll-purpose **S**ymbolic **C**ode (when used within Godot) or **G**eneral **A**ll-purpose **S**ymbolic **C**ode (for standalone applications), representing its versatility as both a game development language and a general-purpose programming solution.
+VisualGasic is a modern, forward-looking programming language designed for application and game development on the Godot 4.5+ platform. The name "Gasic" stands for **G**odot **A**ll-purpose **S**ymbolic **C**ode (when used within Godot) or **G**eneral **A**ll-purpose **S**ymbolic **C**ode (for standalone applications), representing its versatility as both a game development language and a general-purpose programming solution.
+
+> **VisualGasic is not a VB6 clone.** It is a distinct, modern language that takes inspiration from VB6's legendary approachability — the simple syntax, the ease of learning, the RAD workflow — and builds something new on that foundation. If you know VB6, you'll feel at home in minutes. But VisualGasic goes far beyond VB6 with features like lambda expressions, async/await, pattern matching, null-safe operators, GPU computing, generics, and a JIT-compiled bytecode engine. VG is VB6-*compatible* where it makes sense, but it is designed to look forwards, not backwards.
 
 VisualGasic serves as a **RAD (Rapid Application Development) IDE** environment, combining intuitive syntax with powerful language features, seamless Godot integration, and cross-platform capabilities to accelerate the development process for both applications and games.
 
 Whether you're creating desktop applications, mobile apps, web software, or interactive games, VisualGasic provides the tools and cross-platform flexibility you need for professional development.
 
 **Key Features:**
-- Clean, intuitive syntax with modern enhancements
+- Clean, intuitive syntax — familiar to VB6 developers, accessible to everyone
+- Modern language features: lambdas, async/await, pattern matching, null-safety, generics
 - Full Godot 4.5+ integration for applications and games
 - Cross-platform development support
-- Object-oriented programming support
+- Object-oriented programming with classes, inheritance, and interfaces
+- JIT-compiled bytecode engine — faster than GDScript, competitive with native C++
 - Built-in functions for game and application development
 - Type safety with optional explicit typing
-- Lambda expressions and pattern matching
 
 ### Visual Basic Heritage {#visual-basic-heritage}
 
-VisualGasic is built on the foundation of **Visual Basic 6.0** (VB6), one of the most successful programming languages in history. If you have experience with VB6, VBA (Visual Basic for Applications), or any BASIC dialect, you'll feel right at home with VisualGasic.
+VisualGasic takes its inspiration from **Visual Basic 6.0** (VB6), one of the most successful programming languages in history. If you have experience with VB6, VBA (Visual Basic for Applications), or any BASIC dialect, you'll feel right at home with VisualGasic.
+
+However, **VisualGasic is not a VB6 clone or reimplementation**. It is its own language. VB6's genius was its simplicity — anyone could learn it, and you could build real software in minutes. VisualGasic preserves that spirit while adding the features that modern developers expect: lambda expressions, async/await concurrency, pattern matching, null-safe operators (`??`, `?.`), generics, GPU computing, and a JIT-compiled bytecode engine. VB6 code will often run in VisualGasic with minimal changes, but VisualGasic code can do things VB6 never could.
 
 #### What is BASIC?
 
@@ -132,7 +137,7 @@ BASIC (**B**eginner's **A**ll-purpose **S**ymbolic **I**nstruction **C**ode) was
 
 #### VB6 Compatibility
 
-VisualGasic supports a large subset of VB6 syntax, including:
+VisualGasic supports a large subset of VB6 syntax for easy porting and familiarity, including:
 
 **Variables and Data Types:**
 ```vb

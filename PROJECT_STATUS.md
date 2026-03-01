@@ -1,11 +1,11 @@
 # VisualGasic Project Status
 
-**Version**: 3.2.0-beta1 (JIT Compiler, LSP, Performance, Beta Release)  
-**Last Updated**: February 2026
+**Version**: 3.3.0 (Language Enhancements, JIT Compiler, LSP, Performance)  
+**Last Updated**: March 2026
 
 ## Overview
 
-VisualGasic is a Visual Basic 6-style scripting language for Godot Engine 4.x, implemented as a GDExtension. It provides familiar VB6 syntax with modern enhancements and exceptional performance.
+VisualGasic is a modern programming language for Godot Engine 4.x, implemented as a GDExtension. Inspired by VB6's approachable syntax and ease of learning, VisualGasic is its own language — VB6-compatible where it counts, but packed with modern features (lambdas, async/await, pattern matching, generics, GPU computing, JIT compilation) that go far beyond what VB6 ever offered. It is designed to look forwards, not backwards.
 
 ## Performance
 

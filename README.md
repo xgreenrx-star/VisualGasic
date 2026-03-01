@@ -1,13 +1,15 @@
-# VisualGasic - Advanced Visual Basic for Godot 4
+# VisualGasic — A Modern Language for Godot 4
 
 [![CI](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml/badge.svg)](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/badge/version-3.2.0--beta1-blue.svg)](https://github.com/xgreenrx-star/VisualGasic/releases)
+[![Version](https://img.shields.io/badge/version-3.3.0-blue.svg)](https://github.com/xgreenrx-star/VisualGasic/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Godot](https://img.shields.io/badge/Godot-4.5+-purple.svg)](https://godotengine.org)
 
-**World-Class RAD Platform**: Professional Visual Basic language implementation with **event-driven programming**, cutting-edge modern features including multitasking, advanced type system, pattern matching, GPU computing, and comprehensive development tools.
+**World-Class RAD Platform**: A modern, forward-looking programming language with **event-driven programming**, cutting-edge features including multitasking, advanced type system, pattern matching, GPU computing, and comprehensive development tools.
 
-> ⚠️ **Early Beta** — v3.2.0 version number reflects internal dev history. This is the first public release. [See release notes](RELEASE_NOTES_v3.2.0-beta1.md).
+> **VisualGasic is not a VB6 clone.** It is a modern language that draws inspiration from VB6's approachable syntax and ease of learning, while introducing advanced features that go well beyond what VB6 ever offered. VG is VB6-*compatible* where it makes sense — you can port VB6 projects and feel at home immediately — but the language itself is designed to look forwards, not backwards.
+
+> ⚠️ **Early Beta** — v3.3.0 version number reflects internal dev history. This is the first public release. [See release notes](RELEASE_NOTES_v3.2.0-beta1.md).
 
 ## 🚀 **Key Features**
 
@@ -19,7 +21,7 @@
 - No other Godot language offers this workflow. GDScript, C++, and C# all require explicit signal wiring.
 
 ### **Core Language**
-- **Complete Visual Basic 6 Syntax** - Full compatibility with VB6 projects
+- **Clean, Familiar Syntax** — Inspired by VB6's simplicity; VB6-compatible where it counts, modern where it matters
 - **Classes & Objects** - `Class...End Class`, `New`, `Property Get/Let/Set`, `Class_Initialize`
 - **Class Inheritance** - `Inherits`, `MyBase`, `MustOverride`, `Overrides`, multi-level chains
 - **Lambda Expressions** - `Lambda`, `Fn`, `Function`, `Sub` with optional `=>` arrow
