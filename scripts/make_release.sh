@@ -84,6 +84,9 @@ cp -r docs/guides "${DEST}/docs/" 2>/dev/null || true
 # Copy examples
 cp -r examples "${DEST}/" 2>/dev/null || true
 
+# Copy demos (converted Godot demos, game projects, language showcases)
+cp -r demos "${DEST}/" 2>/dev/null || true
+
 # Copy tutorials
 cp -r tutorials "${DEST}/" 2>/dev/null || true
 
@@ -97,6 +100,10 @@ find "${DEST}" -name ".git*" -delete
 find "${DEST}" -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
 find "${DEST}" -name "*.pyc" -delete
 find "${DEST}" -name ".DS_Store" -delete
+
+# Remove Godot editor caches from demos
+find "${DEST}/demos" -name ".godot" -type d -exec rm -rf {} + 2>/dev/null || true
+find "${DEST}/demos" -name "*.import" -delete 2>/dev/null || true
 
 # Remove test files
 rm -rf "${DEST}/examples/test_*" 2>/dev/null || true
