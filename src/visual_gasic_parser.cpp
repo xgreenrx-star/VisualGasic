@@ -679,6 +679,86 @@ Statement* VisualGasicParser::parse_statement() {
         if (val == "name") return set_line(parse_name());
         if (val == "try") return set_line(parse_try());
         if (val == "write") return set_line(parse_write());
+        // ── v3.3.0: Swap, Get#, Put#, Module, Assert ──
+        if (val == "assert") {
+            advance(); // Eat Assert
+            CallStatement* cs = static_cast<CallStatement*>(register_node(new CallStatement()));
+            cs->method_name = "Assert";
+            { ExpressionNode* _t = parse_expression(); cs->arguments.push_back(_t); unregister_node(_t); }
+            if (check(VisualGasicTokenizer::TOKEN_COMMA)) {
+                advance();
+                ExpressionNode* _t = parse_expression();
+                cs->arguments.push_back(_t); unregister_node(_t);
+            }
+            return set_line(cs);
+        }
+        if (val == "swap") {
+            advance(); // Eat Swap
+            SwapStatement* swp = static_cast<SwapStatement*>(register_node(new SwapStatement()));
+            { ExpressionNode* _t = parse_expression(); swp->left = _t; unregister_node(_t); }
+            if (check(VisualGasicTokenizer::TOKEN_COMMA)) advance();
+            { ExpressionNode* _t = parse_expression(); swp->right = _t; unregister_node(_t); }
+            return set_line(swp);
+        }
+        if (val == "get") {
+            // Get #filenum, [recno], var
+            if (current_pos + 1 < tokens.size() && tokens[current_pos + 1].type == VisualGasicTokenizer::TOKEN_OPERATOR && String(tokens[current_pos + 1].value) == "#") {
+                advance(); // Eat Get
+                advance(); // Eat #
+                GetFileStatement* gfs = static_cast<GetFileStatement*>(register_node(new GetFileStatement()));
+                { ExpressionNode* _t = parse_expression(); gfs->file_number = _t; unregister_node(_t); }
+                if (check(VisualGasicTokenizer::TOKEN_COMMA)) {
+                    advance();
+                    // Optional record number (can be empty: Get #1, , x)
+                    if (!check(VisualGasicTokenizer::TOKEN_COMMA)) {
+                        ExpressionNode* _t = parse_expression(); gfs->record_number = _t; unregister_node(_t);
+                    }
+                }
+                if (check(VisualGasicTokenizer::TOKEN_COMMA)) advance();
+                { ExpressionNode* _t = parse_expression(); gfs->variable = _t; unregister_node(_t); }
+                return set_line(gfs);
+            }
+            // Otherwise fall through to property Get in class context
+        }
+        if (val == "put") {
+            // Put #filenum, [recno], expr
+            if (current_pos + 1 < tokens.size() && tokens[current_pos + 1].type == VisualGasicTokenizer::TOKEN_OPERATOR && String(tokens[current_pos + 1].value) == "#") {
+                advance(); // Eat Put
+                advance(); // Eat #
+                PutFileStatement* pfs = static_cast<PutFileStatement*>(register_node(new PutFileStatement()));
+                { ExpressionNode* _t = parse_expression(); pfs->file_number = _t; unregister_node(_t); }
+                if (check(VisualGasicTokenizer::TOKEN_COMMA)) {
+                    advance();
+                    if (!check(VisualGasicTokenizer::TOKEN_COMMA)) {
+                        ExpressionNode* _t = parse_expression(); pfs->record_number = _t; unregister_node(_t);
+                    }
+                }
+                if (check(VisualGasicTokenizer::TOKEN_COMMA)) advance();
+                { ExpressionNode* _t = parse_expression(); pfs->expression = _t; unregister_node(_t); }
+                return set_line(pfs);
+            }
+        }
+        if (val == "module") {
+            advance(); // Eat Module
+            ModuleStatement* mod = static_cast<ModuleStatement*>(register_node(new ModuleStatement()));
+            if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
+                mod->module_name = peek().value;
+                advance();
+            }
+            // Parse module body until End Module
+            while (!is_at_end()) {
+                while (check(VisualGasicTokenizer::TOKEN_NEWLINE)) advance();
+                if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("End") == 0) {
+                    if (current_pos + 1 < tokens.size() && String(tokens[current_pos + 1].value).nocasecmp_to("Module") == 0) {
+                        advance(); advance(); // Eat End Module
+                        break;
+                    }
+                }
+                Statement* s = parse_statement();
+                if (s) { unregister_node(s); }
+            }
+            return set_line(mod);
+        }
         if (val == "input") {
             // Check if this is Godot's Input singleton (Input.xxx) rather than VB Input statement
             if (current_pos + 1 < tokens.size() && tokens[current_pos + 1].type == VisualGasicTokenizer::TOKEN_OPERATOR && tokens[current_pos + 1].value == ".") {
@@ -839,8 +919,27 @@ Statement* VisualGasicParser::parse_statement() {
                 advance(); // consume "whenever"
                 return set_line(parse_resume_whenever());
             }
-            error("Expected 'Whenever' after 'Resume'");
-            return nullptr;
+            // Resume Next
+            if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("Next") == 0) {
+                advance();
+                ResumeStatement* s = static_cast<ResumeStatement*>(register_node(new ResumeStatement()));
+                s->resume_type = ResumeStatement::RESUME_NEXT;
+                return set_line(s);
+            }
+            // Resume <label>
+            if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
+                ResumeStatement* s = static_cast<ResumeStatement*>(register_node(new ResumeStatement()));
+                s->resume_type = ResumeStatement::RESUME_LABEL;
+                s->label_name = peek().value;
+                advance();
+                return set_line(s);
+            }
+            // Plain Resume
+            {
+                ResumeStatement* s = static_cast<ResumeStatement*>(register_node(new ResumeStatement()));
+                s->resume_type = ResumeStatement::RESUME_PLAIN;
+                return set_line(s);
+            }
         }
         if (val == "raiseevent") {
             advance();
@@ -914,20 +1013,56 @@ Statement* VisualGasicParser::parse_statement() {
                      s->label_name = label;
                      return set_line(s);
                  }
-                 // Handle "0" to disable? VB semantics "On Error Goto 0"
                  if (check(VisualGasicTokenizer::TOKEN_LITERAL_INTEGER)) {
                       if ((int)peek().value == 0) {
                            advance();
-                           // Treated as disable, or empty label?
-                           // For now, let's just ignore or treat as disable.
-                           // Actually, we can make it a specific mode or empty label.
                            OnErrorStatement* s = static_cast<OnErrorStatement*>(register_node(new OnErrorStatement()));
                            s->mode = OnErrorStatement::GOTO_LABEL;
-                           s->label_name = ""; // Empty label means disable
+                           s->label_name = "";
                            return set_line(s);
                       }
                  }
              }
+        } else {
+            // On expr GoTo label1, label2, ... OR On expr GoSub label1, label2, ...
+            // We already consumed "On" and the next token is NOT "Error"
+            // Back up: we need the expression. Current token is the first token of the expression.
+            ExpressionNode* idx_expr = parse_expression();
+            if (idx_expr) {
+                String next_kw = String(peek().value);
+                if (next_kw.nocasecmp_to("GoTo") == 0 || next_kw.nocasecmp_to("Goto") == 0) {
+                    advance(); // Eat GoTo
+                    OnGotoStatement* ogs = static_cast<OnGotoStatement*>(register_node(new OnGotoStatement()));
+                    ogs->index_expression = idx_expr;
+                    unregister_node(idx_expr);
+                    // Parse comma-separated labels
+                    while (!check(VisualGasicTokenizer::TOKEN_NEWLINE) && !check(VisualGasicTokenizer::TOKEN_EOF)) {
+                        if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
+                            ogs->labels.push_back(peek().value);
+                            advance();
+                        }
+                        if (check(VisualGasicTokenizer::TOKEN_COMMA)) advance();
+                        else break;
+                    }
+                    return set_line(ogs);
+                } else if (next_kw.nocasecmp_to("GoSub") == 0 || next_kw.nocasecmp_to("Gosub") == 0) {
+                    advance(); // Eat GoSub
+                    OnGosubStatement* oss = static_cast<OnGosubStatement*>(register_node(new OnGosubStatement()));
+                    oss->index_expression = idx_expr;
+                    unregister_node(idx_expr);
+                    while (!check(VisualGasicTokenizer::TOKEN_NEWLINE) && !check(VisualGasicTokenizer::TOKEN_EOF)) {
+                        if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
+                            oss->labels.push_back(peek().value);
+                            advance();
+                        }
+                        if (check(VisualGasicTokenizer::TOKEN_COMMA)) advance();
+                        else break;
+                    }
+                    return set_line(oss);
+                } else {
+                    delete idx_expr;
+                }
+            }
         }
     }
 
@@ -1790,6 +1925,46 @@ ExpressionNode* VisualGasicParser::parse_factor() {
         return expr;
     }
     
+    // ── Array literal: [expr, expr, ...] ──
+    if (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().value == "[") {
+        advance(); // Eat [
+        ArrayLiteralNode* arr = static_cast<ArrayLiteralNode*>(register_node(new ArrayLiteralNode()));
+        while (!check(VisualGasicTokenizer::TOKEN_EOF)) {
+            if (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().value == "]") {
+                advance(); break;
+            }
+            ExpressionNode* elem = parse_expression();
+            if (elem) { arr->elements.push_back(elem); unregister_node(elem); }
+            if (check(VisualGasicTokenizer::TOKEN_COMMA)) advance();
+            else if (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().value == "]") { advance(); break; }
+            else break;
+        }
+        return arr;
+    }
+    
+    // ── Dictionary literal: {key: val, key: val, ...} ──
+    if (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().value == "{") {
+        advance(); // Eat {
+        DictLiteralNode* dict = static_cast<DictLiteralNode*>(register_node(new DictLiteralNode()));
+        while (!check(VisualGasicTokenizer::TOKEN_EOF)) {
+            if (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().value == "}") {
+                advance(); break;
+            }
+            ExpressionNode* key = parse_expression();
+            if (check(VisualGasicTokenizer::TOKEN_COLON)) advance(); // Eat :
+            else if (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().value == ":") advance();
+            ExpressionNode* val = parse_expression();
+            if (key && val) {
+                dict->keys.push_back(key); unregister_node(key);
+                dict->values.push_back(val); unregister_node(val);
+            }
+            if (check(VisualGasicTokenizer::TOKEN_COMMA)) advance();
+            else if (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().value == "}") { advance(); break; }
+            else break;
+        }
+        return dict;
+    }
+    
     error("Unexpected token in expression: " + String(peek().value));
     advance();
     return nullptr;
@@ -2053,6 +2228,18 @@ Statement* VisualGasicParser::parse_for() {
     advance(); // Eat var name
 
     if (is_for_each) {
+        // Check for "With Index varname" before "In"
+        String index_var;
+        if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("With") == 0) {
+            advance(); // Eat With
+            if ((check(VisualGasicTokenizer::TOKEN_KEYWORD) || check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) && String(peek().value).nocasecmp_to("Index") == 0) {
+                advance(); // Eat Index
+                if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
+                    index_var = peek().value;
+                    advance();
+                }
+            }
+        }
         if (!check(VisualGasicTokenizer::TOKEN_KEYWORD) || String(peek().value).nocasecmp_to("In") != 0) {
             error("Expected 'In' after For Each variable");
             return nullptr;
@@ -2061,6 +2248,7 @@ Statement* VisualGasicParser::parse_for() {
         
         ForEachStatement* stmt = static_cast<ForEachStatement*>(register_node(new ForEachStatement()));
         stmt->variable_name = var_name;
+        stmt->index_variable_name = index_var;
         {
             ExpressionNode* _tmp = parse_expression();
             if (!_tmp) {
@@ -3059,13 +3247,27 @@ PrintStatement* VisualGasicParser::parse_print() {
         }
     }
     
-    // Parse expression(s)
-    // currently only one supported by AST
+    // Parse first expression
     if (!check(VisualGasicTokenizer::TOKEN_NEWLINE) && !check(VisualGasicTokenizer::TOKEN_EOF) && !check(VisualGasicTokenizer::TOKEN_COLON)) {
         {
             ExpressionNode* _tmp = parse_expression();
             stmt->expression = _tmp;
             unregister_node(_tmp);
+        }
+        // Parse additional expressions separated by ; or ,
+        while (check(VisualGasicTokenizer::TOKEN_SEMICOLON) || check(VisualGasicTokenizer::TOKEN_COMMA)) {
+            bool was_semicolon = check(VisualGasicTokenizer::TOKEN_SEMICOLON);
+            advance(); // Eat ; or ,
+            // If semicolon at end of line = suppress newline
+            if (check(VisualGasicTokenizer::TOKEN_NEWLINE) || check(VisualGasicTokenizer::TOKEN_EOF) || check(VisualGasicTokenizer::TOKEN_COLON)) {
+                if (was_semicolon) stmt->suppress_newline = true;
+                break;
+            }
+            ExpressionNode* _tmp = parse_expression();
+            if (_tmp) {
+                stmt->extra_expressions.push_back(_tmp);
+                unregister_node(_tmp);
+            }
         }
     }
     
@@ -3123,7 +3325,20 @@ OpenStatement* VisualGasicParser::parse_open() {
             if (m.nocasecmp_to("Input") == 0) stmt->mode = OpenStatement::MODE_INPUT;
             else if (m.nocasecmp_to("Output") == 0) stmt->mode = OpenStatement::MODE_OUTPUT;
             else if (m.nocasecmp_to("Append") == 0) stmt->mode = OpenStatement::MODE_APPEND;
+            else if (m.nocasecmp_to("Binary") == 0) stmt->mode = OpenStatement::MODE_BINARY;
+            else if (m.nocasecmp_to("Random") == 0) stmt->mode = OpenStatement::MODE_RANDOM;
             else UtilityFunctions::print("Parser Error: Unknown Open mode ", m);
+            advance();
+        }
+    }
+    
+    // Len=N for Random mode
+    if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER) && String(peek().value).nocasecmp_to("Len") == 0) {
+        advance(); // Eat Len
+        if (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().value == "=") {
+            advance(); // Eat =
+            Variant len_val = peek().value;
+            stmt->record_length = (int)len_val;
             advance();
         }
     }

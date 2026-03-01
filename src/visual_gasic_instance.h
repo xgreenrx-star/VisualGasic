@@ -21,6 +21,8 @@ class VisualGasicInstance {
     Object *owner;
     Dictionary variables; // Variable storage
     Dictionary open_files; // Map<int, Ref<FileAccess>>
+    Dictionary static_variables; // Persist across calls (Static keyword)
+    Dictionary module_registry; // Module name -> Dictionary of module variables
 
     Ref<DirAccess> current_dir; // For Dir() iteration
     String dir_pattern; 

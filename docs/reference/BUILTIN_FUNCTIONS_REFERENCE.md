@@ -575,6 +575,63 @@ End Function
 
 ---
 
+## v3.3.0 New Builtins
+
+### Count(collection)
+Returns element count for Array, Dictionary, or String length.
+```vb
+Count(Array(1,2,3))   ' → 3
+Count("Hello")         ' → 5
+```
+
+### Spc(n) / Tab(n)
+`Spc(n)` returns n spaces. `Tab(n)` returns spaces to fill to column n.
+```vb
+Print "A"; Spc(5); "B"    ' → A     B
+Print "A"; Tab(10); "B"   ' → A         B
+```
+
+### Bitwise Functions
+`BitAnd(a,b)`, `BitOr(a,b)`, `BitXor(a,b)`, `BitNot(a)`, `BitShiftLeft(val,bits)`, `BitShiftRight(val,bits)`
+
+### Math Functions
+`Ceiling(n)` — round up. `Floor(n)` — round down. `Atan2(y,x)` — arc tangent of y/x.
+
+### Array Utilities
+- `Array.Copy(arr)` — deep copy
+- `Array.Fill(size, value)` — create filled array
+- `Array.Shuffle(arr)` — randomize in place
+- `Array.Transpose(matrix)` — transpose 2D array
+
+### String Utilities
+- `String.Contains(str, search)` / `StrContains(str, search)` — boolean
+- `String.Repeat(str, n)` / `StrRepeat(str, n)` — repeat string n times
+
+### RegExp
+- `RegExp.Test(str, pattern)` — returns Boolean
+- `RegExp.Execute(str, pattern)` — returns Array of matches
+- `RegExp.Replace(str, pattern, replacement)` — returns new string
+
+### StringBuilder
+```vb
+Dim sb = NewStringBuilder()
+sb.Append "text"
+sb.AppendLine "with newline"
+sb.Insert 0, "prefix"
+sb.Replace "old", "new"
+sb.Length  ' property
+sb.ToString()
+sb.Clear
+```
+
+### Sleep(ms)
+Pauses execution for `ms` milliseconds.
+
+### Assert(condition, message)
+Raises error if condition is False.
+
+---
+
 ## See Also
 
 - [Modern Features Guide](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/guides/MODERN_FEATURES.md) - Modern syntax features

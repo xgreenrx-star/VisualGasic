@@ -5039,4 +5039,307 @@ VisualGasic's multitasking capabilities compare favorably with industry leaders:
 
 ---
 
+## v3.3.0 Language Enhancements
+
+### String Interpolation
+
+Build strings with embedded expressions using `$"..."` syntax:
+
+```vb
+Dim name As String = "World"
+Print $"Hello, {name}!"           ' → Hello, World!
+Print $"2 + 2 = {2 + 2}"         ' → 2 + 2 = 4
+Print $"Upper: {UCase(name)}"     ' → Upper: WORLD
+```
+
+### Count() Function
+
+Returns the number of elements in an Array, Dictionary, or characters in a String:
+
+```vb
+Dim arr() = Array(1, 2, 3)
+Print Count(arr)    ' → 3
+
+Dim d As Object
+Set d = CreateObject("Scripting.Dictionary")
+d.Add "a", 1
+Print Count(d)      ' → 1
+
+Print Count("Hello") ' → 5
+```
+
+### Debug.Print and Assert
+
+```vb
+Debug.Print "This goes to Immediate Window"
+
+' Assert — halts execution if condition is False
+Assert 1 + 1 = 2, "Math is broken"
+Assert x > 0, "x must be positive"
+```
+
+### Print Semicolons (Multiple Expressions)
+
+Use `;` to concatenate output, or trailing `;` to suppress newline:
+
+```vb
+Print "Hello"; " "; "World"     ' → Hello World
+Print "Name: "; name; " Age: "; age
+Print "No newline";             ' Trailing ; suppresses newline
+```
+
+### Spc() and Tab() Functions
+
+```vb
+Print "Col1"; Spc(5); "Col2"    ' 5 spaces between columns
+Print "Col1"; Tab(20); "Col2"   ' Pad to column 20
+```
+
+### Array and Dictionary Literals
+
+Create arrays with `[...]` and dictionaries with `{...}`:
+
+```vb
+Dim arr = [1, 2, 3, 4, 5]
+Dim names = ["Alice", "Bob", "Charlie"]
+Dim config = {"host": "localhost", "port": 8080, "debug": True}
+
+For Each item In [10, 20, 30]
+    Print item
+Next
+```
+
+### On n GoTo / On n GoSub
+
+Branch to one of several labels based on an expression value:
+
+```vb
+On choice GoTo Label1, Label2, Label3
+
+' On n GoSub — calls subroutine at label, returns with Return
+On menuItem GoSub HandleNew, HandleOpen, HandleSave
+```
+
+### Resume / Resume Next / Resume Label
+
+Error recovery after On Error:
+
+```vb
+On Error GoTo ErrorHandler
+' ... code that might fail ...
+Exit Sub
+
+ErrorHandler:
+    Print "Error: "; Err.Description
+    Resume Next    ' Continue at next statement
+    ' or: Resume RetryLabel
+    ' or: Resume  (retry the failing statement)
+```
+
+### Get # / Put # (Binary File I/O)
+
+Read and write binary data:
+
+```vb
+Open "data.bin" For Binary As #1
+Put #1, 1, "Hello World"      ' Write at record 1
+Dim result As String
+Get #1, 1, result              ' Read from record 1
+Close #1
+```
+
+### Open For Binary / Open For Random
+
+```vb
+Open "file.dat" For Binary As #1
+Open "records.dat" For Random As #2 Len=128
+```
+
+### Static Local Variables
+
+Variables that persist across function calls:
+
+```vb
+Function Counter() As Integer
+    Static count As Integer
+    count = count + 1
+    Counter = count
+End Function
+
+Print Counter()  ' → 1
+Print Counter()  ' → 2
+Print Counter()  ' → 3
+```
+
+### Regular Expressions
+
+```vb
+' Test if pattern matches
+Dim matched = RegExp.Test("Hello123", "\d+")    ' → True
+
+' Execute — returns array of matches
+Dim matches = RegExp.Execute("abc 123 def 456", "\d+")
+Print matches(0)  ' → 123
+Print matches(1)  ' → 456
+
+' Replace
+Dim result = RegExp.Replace("Hello World", "World", "VG")
+Print result  ' → Hello VG
+```
+
+### Bitwise Functions
+
+```vb
+Print BitAnd(12, 10)       ' → 8
+Print BitOr(12, 10)        ' → 14
+Print BitXor(12, 10)       ' → 6
+Print BitNot(0)             ' → -1
+Print BitShiftLeft(1, 4)   ' → 16
+Print BitShiftRight(16, 2) ' → 4
+```
+
+### StringBuilder
+
+Efficient string building:
+
+```vb
+Dim sb = NewStringBuilder()
+sb.Append "Hello"
+sb.Append " "
+sb.Append "World"
+sb.AppendLine "!"
+Print sb.ToString()   ' → Hello World!\n
+Print sb.Length        ' → 13
+
+sb.Replace "World", "VG"
+sb.Insert 0, ">> "
+sb.Clear
+```
+
+### For Each With Index
+
+```vb
+Dim fruits = Array("Apple", "Banana", "Cherry")
+For Each fruit With Index i In fruits
+    Print $"{i}: {fruit}"
+Next
+' → 0: Apple
+' → 1: Banana
+' → 2: Cherry
+
+' Also works with Strings:
+For Each ch In "Hello"
+    Print ch;
+Next
+```
+
+### Enum Improvements
+
+Access enum values by name, get all values, and convert to/from strings:
+
+```vb
+Enum Color
+    Red = 1
+    Green = 2
+    Blue = 3
+End Enum
+
+' Direct member access
+Print Color.Red          ' → 1
+
+' Parse from string
+Dim val = Color.Parse("Green")   ' → 2
+
+' Get all values
+Dim values = Color.Values()      ' → [{Name: "Red", Value: 1}, ...]
+
+' Convert to string
+Print Color.ToString(3)          ' → Blue
+```
+
+### Swap Statement
+
+```vb
+Dim a = 10, b = 20
+Swap a, b
+Print a  ' → 20
+Print b  ' → 10
+```
+
+### Math Constants
+
+```vb
+Print Math.PI        ' → 3.14159...
+Print Math.E         ' → 2.71828...
+Print Math.Tau       ' → 6.28318...
+Print PI             ' → 3.14159... (standalone)
+```
+
+### Math Functions
+
+```vb
+Print Ceiling(3.2)   ' → 4
+Print Floor(3.8)     ' → 3
+Print Atan2(1, 1)    ' → 0.7854... (π/4)
+```
+
+### Array Utility Functions
+
+```vb
+Dim arr = Array(3, 1, 4, 1, 5)
+
+Dim copy = Array.Copy(arr)        ' Deep copy
+Dim filled = Array.Fill(5, 0)     ' [0, 0, 0, 0, 0]
+Array.Shuffle arr                  ' Random order
+
+' 2D array transpose
+Dim matrix = Array(Array(1, 2), Array(3, 4))
+Dim transposed = Array.Transpose(matrix)
+```
+
+### String Utility Functions
+
+```vb
+Print String.Contains("Hello World", "World")  ' → True
+Print StrContains("Hello", "xyz")               ' → False
+Print String.Repeat("ab", 3)                    ' → ababab
+Print StrRepeat("-", 20)                         ' → --------------------
+```
+
+### Sleep Function
+
+```vb
+Sleep 1000   ' Pause for 1000 milliseconds
+```
+
+### VB6 Intrinsic Constants
+
+```vb
+Print "Line 1" & vbCrLf & "Line 2"
+Print "Col1" & vbTab & "Col2"
+Dim empty = vbNullString
+
+' All available constants:
+' vbCrLf, vbCr, vbLf, vbTab, vbNullString, vbNullChar
+' vbNewLine, vbBack, vbFormFeed, vbVerticalTab
+' vbTrue, vbFalse, Nothing, Null, Empty
+```
+
+### Module Statement
+
+Group related code into named modules:
+
+```vb
+Module MathHelpers
+    Function Square(x) As Double
+        Square = x * x
+    End Function
+    
+    Function Cube(x) As Double
+        Cube = x * x * x
+    End Function
+End Module
+```
+
+---
 This documentation provides a comprehensive overview of VisualGasic's advanced capabilities and modern language features. The format is professional and showcases VisualGasic as a powerful, contemporary programming language for cross-platform application and game development.

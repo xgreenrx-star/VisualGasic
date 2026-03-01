@@ -24,6 +24,7 @@ public:
         TOKEN_PAREN_CLOSE,
         TOKEN_COMMA,
         TOKEN_COLON,
+        TOKEN_SEMICOLON,
         TOKEN_COMMENT,
         TOKEN_ERROR
     };

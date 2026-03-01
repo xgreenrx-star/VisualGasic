@@ -69,6 +69,13 @@ enum StatementType {
     STMT_GOSUB,    // GoSub label (v2.10.0)
     STMT_RETURN_GOSUB, // Return from GoSub (v2.10.0)
     STMT_IMPLEMENTS,   // Implements InterfaceName (v2.10.0)
+    STMT_RESUME,       // Resume / Resume Next / Resume label (v3.3.0)
+    STMT_ON_GOTO,      // On expr GoTo label1, label2, ... (v3.3.0)
+    STMT_ON_GOSUB,     // On expr GoSub label1, label2, ... (v3.3.0)
+    STMT_GET_FILE,     // Get #n, [recno], var (v3.3.0)
+    STMT_PUT_FILE,     // Put #n, [recno], var (v3.3.0)
+    STMT_SWAP,         // Swap a, b (v3.3.0)
+    STMT_MODULE,       // Module ModuleName ... End Module (v3.3.0)
     STMT_UNKNOWN
 };
 
@@ -255,10 +262,13 @@ struct PrintStatement : public Statement {
     ExpressionNode* expression;
     ExpressionNode* file_number; // Optional, formatted as #N
     bool is_debug;  // True for Debug.Print — routes to Immediate Window
-    PrintStatement() : Statement(STMT_PRINT), expression(nullptr), file_number(nullptr), is_debug(false) {}
+    Vector<ExpressionNode*> extra_expressions; // Additional expressions after ;
+    bool suppress_newline; // True if trailing ; (no newline)
+    PrintStatement() : Statement(STMT_PRINT), expression(nullptr), file_number(nullptr), is_debug(false), suppress_newline(false) {}
     virtual ~PrintStatement() { 
         if(expression) delete expression; 
         if(file_number) delete file_number;
+        for(int i=0; i<extra_expressions.size(); i++) if(extra_expressions[i]) delete extra_expressions[i];
     }
 };
 
@@ -273,12 +283,13 @@ struct WriteStatement : public Statement {
 };
 
 struct OpenStatement : public Statement {
-    enum Mode { MODE_INPUT, MODE_OUTPUT, MODE_APPEND };
+    enum Mode { MODE_INPUT, MODE_OUTPUT, MODE_APPEND, MODE_BINARY, MODE_RANDOM };
     Mode mode;
     ExpressionNode* path;
     ExpressionNode* file_number;
+    int record_length; // For Random mode Len=n
     
-    OpenStatement() : Statement(STMT_OPEN), path(nullptr), file_number(nullptr) {}
+    OpenStatement() : Statement(STMT_OPEN), path(nullptr), file_number(nullptr), record_length(0) {}
     ~OpenStatement() {
         if(path) delete path;
         if(file_number) delete file_number;
@@ -481,6 +492,7 @@ struct DoStatement : public Statement {
 
 struct ForEachStatement : public Statement {
     String variable_name;
+    String index_variable_name; // Optional: For Each item With Index i In collection
     ExpressionNode* collection;
     Vector<Statement*> body;
     
@@ -1035,6 +1047,113 @@ struct DeclareStatement : public Statement {
     DeclareStatement() : Statement(STMT_DECLARE) {
         use_cdecl = false;
     }
+};
+
+// ── v3.3.0 New Statement Types ──
+
+// Resume / Resume Next / Resume <label>
+struct ResumeStatement : public Statement {
+    enum ResumeType { RESUME_PLAIN, RESUME_NEXT, RESUME_LABEL };
+    ResumeType resume_type;
+    String label_name; // Only for RESUME_LABEL
+    ResumeStatement() : Statement(STMT_RESUME), resume_type(RESUME_PLAIN) {}
+};
+
+// On expr GoTo label1, label2, ...
+struct OnGotoStatement : public Statement {
+    ExpressionNode* index_expression;
+    Vector<String> labels;
+    OnGotoStatement() : Statement(STMT_ON_GOTO), index_expression(nullptr) {}
+    virtual ~OnGotoStatement() { if(index_expression) delete index_expression; }
+};
+
+// On expr GoSub label1, label2, ...
+struct OnGosubStatement : public Statement {
+    ExpressionNode* index_expression;
+    Vector<String> labels;
+    OnGosubStatement() : Statement(STMT_ON_GOSUB), index_expression(nullptr) {}
+    virtual ~OnGosubStatement() { if(index_expression) delete index_expression; }
+};
+
+// Get #filenum, [recno], varname
+struct GetFileStatement : public Statement {
+    ExpressionNode* file_number;
+    ExpressionNode* record_number; // Optional
+    ExpressionNode* variable;      // Target variable (VariableNode)
+    GetFileStatement() : Statement(STMT_GET_FILE), file_number(nullptr), record_number(nullptr), variable(nullptr) {}
+    virtual ~GetFileStatement() {
+        if(file_number) delete file_number;
+        if(record_number) delete record_number;
+        if(variable) delete variable;
+    }
+};
+
+// Put #filenum, [recno], expression
+struct PutFileStatement : public Statement {
+    ExpressionNode* file_number;
+    ExpressionNode* record_number; // Optional
+    ExpressionNode* expression;    // Value to write
+    PutFileStatement() : Statement(STMT_PUT_FILE), file_number(nullptr), record_number(nullptr), expression(nullptr) {}
+    virtual ~PutFileStatement() {
+        if(file_number) delete file_number;
+        if(record_number) delete record_number;
+        if(expression) delete expression;
+    }
+};
+
+// Swap a, b
+struct SwapStatement : public Statement {
+    ExpressionNode* left;   // Variable/array element
+    ExpressionNode* right;  // Variable/array element
+    SwapStatement() : Statement(STMT_SWAP), left(nullptr), right(nullptr) {}
+    virtual ~SwapStatement() {
+        if(left) delete left;
+        if(right) delete right;
+    }
+};
+
+// Module ModuleName ... End Module (contains Subs, Variables, Constants)
+struct ModuleStatement : public Statement {
+    String module_name;
+    Vector<SubDefinition*> subs;
+    Vector<VariableDefinition*> variables;
+    Vector<ConstStatement*> constants;
+    ModuleStatement() : Statement(STMT_MODULE) {}
+    virtual ~ModuleStatement() {
+        // subs/vars/consts lifetime managed by parser (registered into module)
+    }
+};
+
+// Array literal expression node: [1, 2, 3]
+struct ArrayLiteralNode : public ExpressionNode {
+    Vector<ExpressionNode*> elements;
+    ArrayLiteralNode() { type = LITERAL; }  // Reuse LITERAL type
+    virtual ~ArrayLiteralNode() {
+        for(int i=0; i<elements.size(); i++) if(elements[i]) delete elements[i];
+    }
+    virtual ExpressionNode* duplicate() override {
+        ArrayLiteralNode* n = new ArrayLiteralNode();
+        for(int i=0; i<elements.size(); i++) n->elements.push_back(elements[i]->duplicate());
+        return n;
+    }
+    // Tag to distinguish from plain LiteralNode
+    bool is_array_literal() const { return true; }
+};
+
+// Dictionary literal expression node: {"key": val, ...}
+struct DictLiteralNode : public ExpressionNode {
+    Vector<ExpressionNode*> keys;
+    Vector<ExpressionNode*> values;
+    DictLiteralNode() { type = LITERAL; }
+    virtual ~DictLiteralNode() {
+        for(int i=0; i<keys.size(); i++) { if(keys[i]) delete keys[i]; if(values[i]) delete values[i]; }
+    }
+    virtual ExpressionNode* duplicate() override {
+        DictLiteralNode* n = new DictLiteralNode();
+        for(int i=0; i<keys.size(); i++) { n->keys.push_back(keys[i]->duplicate()); n->values.push_back(values[i]->duplicate()); }
+        return n;
+    }
+    bool is_dict_literal() const { return true; }
 };
 
 } // namespace VisualGasic

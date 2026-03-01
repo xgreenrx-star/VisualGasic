@@ -39,6 +39,8 @@ String VisualGasicTokenizer::token_type_to_string(TokenType p_type) {
         case TOKEN_PAREN_OPEN: return "PAREN_OPEN";
         case TOKEN_PAREN_CLOSE: return "PAREN_CLOSE";
         case TOKEN_COMMA: return "COMMA";
+        case TOKEN_COLON: return "COLON";
+        case TOKEN_SEMICOLON: return "SEMICOLON";
         case TOKEN_COMMENT: return "COMMENT";
         case TOKEN_ERROR: return "ERROR";
         default: return "UNKNOWN";
@@ -109,7 +111,7 @@ Vector<VisualGasicTokenizer::Token> VisualGasicTokenizer::tokenize(const String 
     keywords.push_back("Dictionary");
     keywords.push_back("each");
     keywords.push_back("in");
-    keywords.push_back("with");
+    keywords.push_back("With");
     keywords.push_back("Return");
     keywords.push_back("Continue");
     keywords.push_back("AndAlso");
@@ -137,6 +139,11 @@ Vector<VisualGasicTokenizer::Token> VisualGasicTokenizer::tokenize(const String 
     keywords.push_back("ByRef");
     keywords.push_back("ParamArray");
     keywords.push_back("Static");
+    keywords.push_back("Swap");
+    keywords.push_back("Assert");
+    keywords.push_back("Module");
+    keywords.push_back("GoTo");
+    keywords.push_back("GoSub");
     keywords.push_back("Whenever");
     keywords.push_back("Section");
     keywords.push_back("Changes");
@@ -405,6 +412,7 @@ Vector<VisualGasicTokenizer::Token> VisualGasicTokenizer::tokenize(const String 
             case '&': t.type = TOKEN_OPERATOR; t.value = "&"; break;
             case '%': t.type = TOKEN_OPERATOR; t.value = "%"; break; // GDScript-style format / modulo
             case ':': t.type = TOKEN_COLON;    t.value = ":"; break;
+            case ';': t.type = TOKEN_SEMICOLON; t.value = ";"; break;
             case '.': t.type = TOKEN_OPERATOR; t.value = "."; break;
             case '=': t.type = TOKEN_OPERATOR; t.value = "="; break;
             case '#': t.type = TOKEN_OPERATOR; t.value = "#"; break;
@@ -442,6 +450,10 @@ Vector<VisualGasicTokenizer::Token> VisualGasicTokenizer::tokenize(const String 
                     t.type = TOKEN_OPERATOR; t.value = "?";
                 }
                 break;
+            case '[': t.type = TOKEN_OPERATOR; t.value = "["; break;
+            case ']': t.type = TOKEN_OPERATOR; t.value = "]"; break;
+            case '{': t.type = TOKEN_OPERATOR; t.value = "{"; break;
+            case '}': t.type = TOKEN_OPERATOR; t.value = "}"; break;
             default:
                 t.type = TOKEN_ERROR;
                 t.value = String("Unexpected character: ") + String::chr(c);

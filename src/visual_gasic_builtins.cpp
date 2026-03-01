@@ -32,6 +32,10 @@
 #include <godot_cpp/variant/packed_int64_array.hpp>
 #include <godot_cpp/variant/vector2.hpp>
 #include <godot_cpp/variant/vector3.hpp>
+#include <godot_cpp/classes/reg_ex.hpp>
+#include <godot_cpp/classes/reg_ex_match.hpp>
+#include <thread>
+#include <chrono>
 
 using namespace godot;
 
@@ -2750,6 +2754,175 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
         return VGTimer::timer_function();
     }
 
+    // ================================================================
+    // v3.3: New builtins
+    // ================================================================
+
+    // ---- Count() — array/dict length (eliminates UBound + 1) ----
+    if (METHOD_IS("count") && args.size() == 1) {
+        r_handled = true;
+        if (args[0].get_type() == Variant::ARRAY) { Array a = args[0]; return (int64_t)a.size(); }
+        if (args[0].get_type() == Variant::DICTIONARY) { Dictionary d = args[0]; return (int64_t)d.size(); }
+        if (args[0].get_type() == Variant::STRING) { String s = args[0]; return (int64_t)s.length(); }
+        return (int64_t)0;
+    }
+
+    // ---- Spc(n) — returns n spaces (Print formatting) ----
+    if (METHOD_IS("spc") && args.size() == 1) {
+        r_handled = true;
+        int n = (int)(int64_t)args[0];
+        if (n < 0) n = 0;
+        String s;
+        for (int i = 0; i < n; i++) s += " ";
+        return s;
+    }
+
+    // ---- Tab(n) — returns spaces to reach column n (Print formatting) ----
+    if (METHOD_IS("tab") && args.size() == 1) {
+        r_handled = true;
+        int n = (int)(int64_t)args[0];
+        if (n < 0) n = 0;
+        String s;
+        for (int i = 0; i < n; i++) s += " ";
+        return s;
+    }
+
+    // ---- Bitwise functions ----
+    if (METHOD_IS("bitand") && args.size() == 2) { r_handled = true; return (int64_t)((int64_t)args[0] & (int64_t)args[1]); }
+    if (METHOD_IS("bitor") && args.size() == 2) { r_handled = true; return (int64_t)((int64_t)args[0] | (int64_t)args[1]); }
+    if (METHOD_IS("bitxor") && args.size() == 2) { r_handled = true; return (int64_t)((int64_t)args[0] ^ (int64_t)args[1]); }
+    if (METHOD_IS("bitnot") && args.size() == 1) { r_handled = true; return (int64_t)(~(int64_t)args[0]); }
+    if (METHOD_IS("bitshiftleft") && args.size() == 2) { r_handled = true; return (int64_t)((int64_t)args[0] << (int64_t)args[1]); }
+    if (METHOD_IS("bitshiftright") && args.size() == 2) { r_handled = true; return (int64_t)((int64_t)args[0] >> (int64_t)args[1]); }
+
+    // ---- Math: Ceiling, Floor, Atan2, PI, E ----
+    if (METHOD_IS("ceiling") && args.size() == 1) { r_handled = true; return (int64_t)((int64_t)Math::ceil((double)args[0])); }
+    if (METHOD_IS("floor") && args.size() == 1) { r_handled = true; return (int64_t)((int64_t)Math::floor((double)args[0])); }
+    if (METHOD_IS("atan2") && args.size() == 2) { r_handled = true; return Math::atan2((double)args[0], (double)args[1]); }
+
+    // ---- Array utility functions ----
+    if (METHOD_IS("array.copy") && args.size() >= 2) {
+        r_handled = true;
+        Array src = args[0];
+        int count = (args.size() >= 3) ? (int)(int64_t)args[2] : src.size();
+        Array dst;
+        dst.resize(count);
+        for (int i = 0; i < count && i < src.size(); i++) dst[i] = src[i];
+        return dst;
+    }
+    if (METHOD_IS("array.fill") && args.size() == 2) {
+        r_handled = true;
+        Array arr = args[0];
+        Variant val = args[1];
+        for (int i = 0; i < arr.size(); i++) arr[i] = val;
+        return arr;
+    }
+    if (METHOD_IS("array.shuffle") && args.size() == 1) {
+        r_handled = true;
+        Array arr = args[0];
+        arr.shuffle();
+        return arr;
+    }
+    if (METHOD_IS("array.transpose") && args.size() == 1) {
+        r_handled = true;
+        Array grid = args[0];
+        if (grid.size() == 0) return Array();
+        Array row0 = grid[0];
+        int rows = grid.size();
+        int cols = row0.size();
+        Array result;
+        result.resize(cols);
+        for (int c = 0; c < cols; c++) {
+            Array new_row;
+            new_row.resize(rows);
+            for (int r = 0; r < rows; r++) {
+                Array src_row = grid[r];
+                new_row[r] = (c < src_row.size()) ? src_row[c] : Variant();
+            }
+            result[c] = new_row;
+        }
+        return result;
+    }
+
+    // ---- String utility functions ----
+    if ((METHOD_IS("string.contains") || METHOD_IS("strcontains")) && args.size() == 2) {
+        r_handled = true;
+        return String(args[0]).find(String(args[1])) != -1;
+    }
+    if ((METHOD_IS("string.repeat") || METHOD_IS("strrepeat")) && args.size() == 2) {
+        r_handled = true;
+        String s = args[0];
+        int n = (int)(int64_t)args[1];
+        String result;
+        for (int i = 0; i < n; i++) result += s;
+        return result;
+    }
+
+    // ---- Sleep(ms) — blocking delay ----
+    if (METHOD_IS("sleep") && args.size() == 1) {
+        r_handled = true;
+        int ms = (int)(int64_t)args[0];
+        if (ms > 0) std::this_thread::sleep_for(std::chrono::milliseconds(ms));
+        return Variant();
+    }
+
+    // ---- Debug.Assert (also callable as Assert) ----
+    if (METHOD_IS("assert") && args.size() >= 1) {
+        r_handled = true;
+        bool cond = (bool)args[0];
+        if (!cond) {
+            String msg = (args.size() >= 2) ? String(args[1]) : "Assertion failed";
+            UtilityFunctions::print("[VG] ASSERT FAILED: ", msg);
+            instance->raise_runtime_error(msg, 999, "Debug.Assert");
+        }
+        return Variant();
+    }
+
+    // ---- RegExp support (VBScript-compatible API) ----
+    if (METHOD_IS("regexp.test") && args.size() == 2) {
+        r_handled = true;
+        Ref<RegEx> re;
+        re.instantiate();
+        re->compile(String(args[0]));
+        Ref<RegExMatch> m = re->search(String(args[1]));
+        return m.is_valid();
+    }
+    if (METHOD_IS("regexp.execute") && args.size() == 2) {
+        r_handled = true;
+        Ref<RegEx> re;
+        re.instantiate();
+        re->compile(String(args[0]));
+        TypedArray<RegExMatch> matches = re->search_all(String(args[1]));
+        Array result;
+        for (int i = 0; i < matches.size(); i++) {
+            Ref<RegExMatch> m = matches[i];
+            if (m.is_valid()) result.push_back(m->get_string());
+        }
+        return result;
+    }
+    if (METHOD_IS("regexp.replace") && args.size() == 3) {
+        r_handled = true;
+        Ref<RegEx> re;
+        re.instantiate();
+        re->compile(String(args[0]));
+        return re->sub(String(args[1]), String(args[2]), true);
+    }
+
+    // ---- Enum helpers ----
+    // Enum.Values("EnumName") — requires instance for AST access
+    // Handled via virtual object in evaluate.inc
+
+    // ---- StringBuilder ----
+    // StringBuilder is implemented as a Dictionary-based object:
+    //   {"__vg_stringbuilder": true, "__buffer": PackedStringArray}
+    if (METHOD_IS("stringbuilder") || METHOD_IS("newstringbuilder")) {
+        r_handled = true;
+        Dictionary sb;
+        sb["__vg_stringbuilder"] = true;
+        sb["__buffer"] = Array();
+        return sb;
+    }
+
 #undef METHOD_IS
     return Variant();
 }
@@ -2816,6 +2989,125 @@ bool call_builtin_for_base_variable(VisualGasicInstance *instance, const String 
         if (p_method == "TwipsPerPixelX" || p_method == "twipsperpixelx") { r_ret = 1; return true; }
         if (p_method == "TwipsPerPixelY" || p_method == "twipsperpixely") { r_ret = 1; return true; }
         if (p_method == "MousePointer" || p_method == "mousepointer") { r_ret = 0; return true; }
+        return false;
+    }
+
+    // ── Array namespace: Array.Copy, Array.Fill, Array.Shuffle, Array.Transpose ──
+    if (p_base_name.nocasecmp_to("Array") == 0) {
+        if (p_method.nocasecmp_to("Copy") == 0 && p_args.size() >= 1) {
+            Array src = p_args[0];
+            int count = (p_args.size() >= 2) ? (int)(int64_t)p_args[1] : src.size();
+            Array dst;
+            dst.resize(count);
+            for (int i = 0; i < count && i < src.size(); i++) dst[i] = src[i];
+            r_ret = dst;
+            return true;
+        }
+        if (p_method.nocasecmp_to("Fill") == 0 && p_args.size() >= 2) {
+            int size = (int)(int64_t)p_args[0];
+            Variant val = p_args[1];
+            Array arr;
+            arr.resize(size);
+            for (int i = 0; i < size; i++) arr[i] = val;
+            r_ret = arr;
+            return true;
+        }
+        if (p_method.nocasecmp_to("Shuffle") == 0 && p_args.size() >= 1) {
+            Array arr = p_args[0];
+            arr.shuffle();
+            r_ret = arr;
+            return true;
+        }
+        if (p_method.nocasecmp_to("Transpose") == 0 && p_args.size() >= 1) {
+            Array grid = p_args[0];
+            if (grid.size() == 0) { r_ret = Array(); return true; }
+            Array row0 = grid[0];
+            int rows = grid.size();
+            int cols = row0.size();
+            Array result;
+            result.resize(cols);
+            for (int c = 0; c < cols; c++) {
+                Array new_row;
+                new_row.resize(rows);
+                for (int r = 0; r < rows; r++) {
+                    Array src_row = grid[r];
+                    new_row[r] = (c < src_row.size()) ? src_row[c] : Variant();
+                }
+                result[c] = new_row;
+            }
+            r_ret = result;
+            return true;
+        }
+        return false;
+    }
+
+    // ── String namespace: String.Contains, String.Repeat ──
+    if (p_base_name.nocasecmp_to("String") == 0) {
+        if (p_method.nocasecmp_to("Contains") == 0 && p_args.size() == 2) {
+            r_ret = String(p_args[0]).find(String(p_args[1])) != -1;
+            return true;
+        }
+        if (p_method.nocasecmp_to("Repeat") == 0 && p_args.size() == 2) {
+            String s = p_args[0];
+            int n = (int)(int64_t)p_args[1];
+            String result;
+            for (int i = 0; i < n; i++) result += s;
+            r_ret = result;
+            return true;
+        }
+        return false;
+    }
+
+    // ── RegExp namespace: RegExp.Test, RegExp.Execute, RegExp.Replace ──
+    if (p_base_name.nocasecmp_to("RegExp") == 0) {
+        if (p_method.nocasecmp_to("Test") == 0 && p_args.size() == 2) {
+            Ref<RegEx> re;
+            re.instantiate();
+            re->compile(String(p_args[1]));
+            Ref<RegExMatch> m = re->search(String(p_args[0]));
+            r_ret = m.is_valid();
+            return true;
+        }
+        if (p_method.nocasecmp_to("Execute") == 0 && p_args.size() == 2) {
+            Ref<RegEx> re;
+            re.instantiate();
+            re->compile(String(p_args[1]));
+            TypedArray<RegExMatch> matches = re->search_all(String(p_args[0]));
+            Array result;
+            for (int i = 0; i < matches.size(); i++) {
+                Ref<RegExMatch> m = matches[i];
+                result.push_back(m->get_string());
+            }
+            r_ret = result;
+            return true;
+        }
+        if (p_method.nocasecmp_to("Replace") == 0 && p_args.size() == 3) {
+            Ref<RegEx> re;
+            re.instantiate();
+            re->compile(String(p_args[1]));
+            r_ret = re->sub(String(p_args[0]), String(p_args[2]), true);
+            return true;
+        }
+        return false;
+    }
+
+    // ── Debug namespace: Debug.Print, Debug.Assert ──
+    if (p_base_name.nocasecmp_to("Debug") == 0) {
+        if (p_method.nocasecmp_to("Print") == 0) {
+            String msg;
+            for (int i = 0; i < p_args.size(); i++) msg += String(p_args[i]);
+            UtilityFunctions::print("[VG Debug] ", msg);
+            r_ret = Variant();
+            return true;
+        }
+        if (p_method.nocasecmp_to("Assert") == 0 && p_args.size() >= 1) {
+            if (!(bool)p_args[0]) {
+                String msg = (p_args.size() >= 2) ? String(p_args[1]) : String("Debug.Assert failed");
+                instance->raise_runtime_error(msg, 0, "Debug.Assert");
+            }
+            r_ret = Variant();
+            return true;
+        }
         return false;
     }
 
@@ -2939,9 +3231,75 @@ bool call_builtin_for_base_object(VisualGasicInstance *instance, const Variant &
 }
 
 bool call_builtin_for_base_variant(VisualGasicInstance *instance, const Variant &p_base, const String &p_method, const Array &p_args, Variant &r_ret) {
-    // Handle DICTIONARY Err-like behavior
+    // Handle DICTIONARY-based types
     if (p_base.get_type() == Variant::DICTIONARY) {
         Dictionary d = p_base;
+        
+        // ── StringBuilder dispatch ──
+        if (d.has("__vg_stringbuilder")) {
+            if (p_method.nocasecmp_to("Append") == 0 && p_args.size() >= 1) {
+                Array buf = d["__buffer"];
+                buf.push_back(String(p_args[0]));
+                d["__buffer"] = buf;
+                r_ret = d; // return self for chaining
+                return true;
+            }
+            if (p_method.nocasecmp_to("AppendLine") == 0) {
+                Array buf = d["__buffer"];
+                if (p_args.size() >= 1) buf.push_back(String(p_args[0]));
+                buf.push_back("\n");
+                d["__buffer"] = buf;
+                r_ret = d;
+                return true;
+            }
+            if (p_method.nocasecmp_to("ToString") == 0) {
+                Array buf = d["__buffer"];
+                String result;
+                for (int i = 0; i < buf.size(); i++) result += String(buf[i]);
+                r_ret = result;
+                return true;
+            }
+            if (p_method.nocasecmp_to("Length") == 0 || p_method.nocasecmp_to("Count") == 0) {
+                Array buf = d["__buffer"];
+                int len = 0;
+                for (int i = 0; i < buf.size(); i++) len += String(buf[i]).length();
+                r_ret = len;
+                return true;
+            }
+            if (p_method.nocasecmp_to("Clear") == 0) {
+                Array buf;
+                d["__buffer"] = buf;
+                r_ret = d;
+                return true;
+            }
+            if (p_method.nocasecmp_to("Insert") == 0 && p_args.size() >= 2) {
+                // Build full string, insert, rebuild
+                Array buf = d["__buffer"];
+                String full;
+                for (int i = 0; i < buf.size(); i++) full += String(buf[i]);
+                int pos = (int)p_args[0];
+                if (pos < 0) pos = 0;
+                if (pos > full.length()) pos = full.length();
+                full = full.substr(0, pos) + String(p_args[1]) + full.substr(pos, full.length() - pos);
+                Array new_buf;
+                new_buf.push_back(full);
+                d["__buffer"] = new_buf;
+                r_ret = d;
+                return true;
+            }
+            if (p_method.nocasecmp_to("Replace") == 0 && p_args.size() >= 2) {
+                Array buf = d["__buffer"];
+                String full;
+                for (int i = 0; i < buf.size(); i++) full += String(buf[i]);
+                full = full.replace(String(p_args[0]), String(p_args[1]));
+                Array new_buf;
+                new_buf.push_back(full);
+                d["__buffer"] = new_buf;
+                r_ret = d;
+                return true;
+            }
+            return false;
+        }
         if (p_method == "Clear") {
             if (d.has("Number") && d.has("Description")) {
                 d["Number"] = 0;

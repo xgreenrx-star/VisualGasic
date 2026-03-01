@@ -235,6 +235,18 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
     jump_target = prev_jump;
     error_state = prev_error;
     
+    // Save any static variables before restoring locals
+    // Check func body for Static Dim statements and persist their values
+    for (int si = 0; si < func->statements.size(); si++) {
+        if (func->statements[si] && func->statements[si]->type == STMT_DIM) {
+            DimStatement* ds = (DimStatement*)func->statements[si];
+            if (ds->is_static && variables.has(ds->variable_name)) {
+                String static_key = func->name + "." + ds->variable_name;
+                static_variables[static_key] = variables[ds->variable_name];
+            }
+        }
+    }
+    
     // Restore saved local variables for recursion support
     Array saved_keys = saved_locals.keys();
     for(int i=0; i<saved_keys.size(); i++) {

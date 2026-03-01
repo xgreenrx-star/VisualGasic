@@ -1,0 +1,159 @@
+' ═══════════════════════════════════════════════════════
+' VisualGasic v3.3.0 Language Enhancements Demo
+' ═══════════════════════════════════════════════════════
+
+Sub Main()
+    Print "=== VisualGasic v3.3.0 Feature Demo ==="
+    Print ""
+    
+    ' ── String Interpolation ──
+    Dim name As String = "VisualGasic"
+    Dim version = 3.3
+    Print $"Welcome to {name} v{version}!"
+    Print $"2 + 2 = {2 + 2}"
+    Print ""
+    
+    ' ── VB6 Intrinsic Constants ──
+    Print "Line 1" & vbCrLf & "Line 2"
+    Print "Col1" & vbTab & "Col2"
+    Print "PI = "; PI
+    Print "Math.PI = "; Math.PI
+    Print "Math.E = "; Math.E
+    Print ""
+    
+    ' ── Count() Function ──
+    Dim arr = Array(10, 20, 30, 40, 50)
+    Print "Count of array: "; Count(arr)
+    Print "Count of string: "; Count("Hello")
+    Print ""
+    
+    ' ── Print Semicolons ──
+    Print "A"; " "; "B"; " "; "C"
+    Print "Spc test:"; Spc(5); "after 5 spaces"
+    Print "Tab test:"; Tab(20); "at column 20"
+    Print ""
+    
+    ' ── Array Literals ──
+    Dim fruits = ["Apple", "Banana", "Cherry"]
+    Print "Fruits: "; fruits
+    
+    ' ── Dictionary Literals ──
+    Dim config = {"host": "localhost", "port": 8080}
+    Print "Config: "; config
+    Print ""
+    
+    ' ── For Each With Index ──
+    Print "=== For Each With Index ==="
+    For Each fruit With Index i In fruits
+        Print $"  {i}: {fruit}"
+    Next
+    Print ""
+    
+    ' ── For Each over String ──
+    Print "Characters in 'VG': ";
+    For Each ch In "VG"
+        Print ch; " ";
+    Next
+    Print ""
+    Print ""
+    
+    ' ── Bitwise Operations ──
+    Print "=== Bitwise Operations ==="
+    Print "BitAnd(12, 10) = "; BitAnd(12, 10)
+    Print "BitOr(12, 10) = "; BitOr(12, 10)
+    Print "BitXor(12, 10) = "; BitXor(12, 10)
+    Print "BitShiftLeft(1, 4) = "; BitShiftLeft(1, 4)
+    Print "BitShiftRight(16, 2) = "; BitShiftRight(16, 2)
+    Print ""
+    
+    ' ── Math Functions ──
+    Print "=== Math Functions ==="
+    Print "Ceiling(3.2) = "; Ceiling(3.2)
+    Print "Floor(3.8) = "; Floor(3.8)
+    Print "Atan2(1, 1) = "; Atan2(1, 1)
+    Print ""
+    
+    ' ── StringBuilder ──
+    Print "=== StringBuilder ==="
+    Dim sb = NewStringBuilder()
+    sb.Append "Hello"
+    sb.Append " "
+    sb.Append "World"
+    Print "StringBuilder result: "; sb.ToString()
+    Print "StringBuilder length: "; sb.Length
+    sb.Replace "World", "VisualGasic"
+    Print "After replace: "; sb.ToString()
+    Print ""
+    
+    ' ── Array Utilities ──
+    Print "=== Array Utilities ==="
+    Dim original = Array(1, 2, 3, 4, 5)
+    Dim copied = Array.Copy(original)
+    Print "Original: "; original
+    Print "Copy: "; copied
+    
+    Dim filled = Array.Fill(5, 0)
+    Print "Filled(5, 0): "; filled
+    Print ""
+    
+    ' ── String Utilities ──
+    Print "=== String Utilities ==="
+    Print "Contains 'Hello World', 'World': "; StrContains("Hello World", "World")
+    Print "Repeat '-' x 20: "; StrRepeat("-", 20)
+    Print ""
+    
+    ' ── RegExp ──
+    Print "=== Regular Expressions ==="
+    Print "Test digits: "; RegExp.Test("abc123", "\d+")
+    Dim matches = RegExp.Execute("foo 42 bar 99", "\d+")
+    Print "Matches: "; matches
+    Print "Replace: "; RegExp.Replace("Hello World", "World", "VG")
+    Print ""
+    
+    ' ── Swap ──
+    Print "=== Swap Statement ==="
+    Dim a = 10
+    Dim b = 20
+    Print "Before: a="; a; " b="; b
+    Swap a, b
+    Print "After:  a="; a; " b="; b
+    Print ""
+    
+    ' ── Static Variables ──
+    Print "=== Static Variables ==="
+    Print "Counter: "; IncrementCounter()
+    Print "Counter: "; IncrementCounter()
+    Print "Counter: "; IncrementCounter()
+    Print ""
+    
+    ' ── Enum Improvements ──
+    Print "=== Enum Improvements ==="
+    Print "Direction.North = "; Direction.North
+    Print "Direction.East = "; Direction.East
+    Print "Parse 'South': "; Direction.Parse("South")
+    Print "ToString(3): "; Direction.ToString(3)
+    Dim vals = Direction.Values()
+    Print "All values: "; vals
+    Print ""
+    
+    ' ── Assert ──
+    Assert 1 + 1 = 2, "Basic math works"
+    Assert Count(arr) = 5, "Array has 5 elements"
+    Print "All assertions passed!"
+    Print ""
+    
+    Print "=== Demo Complete ==="
+End Sub
+
+Enum Direction
+    North = 0
+    East = 1
+    South = 2
+    West = 3
+End Enum
+
+Function IncrementCounter() As Integer
+    Static count As Integer
+    count = count + 1
+    IncrementCounter = count
+End Function

@@ -24,6 +24,25 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
     }
     
     if (expr->type == ExpressionNode::LITERAL) {
+        // Check if this is an ArrayLiteralNode or DictLiteralNode (both use LITERAL type)
+        ArrayLiteralNode* arr_lit = dynamic_cast<ArrayLiteralNode*>(expr);
+        if (arr_lit) {
+            Array result;
+            for (int i = 0; i < arr_lit->elements.size(); i++) {
+                result.push_back(evaluate_expression(arr_lit->elements[i]));
+            }
+            return result;
+        }
+        DictLiteralNode* dict_lit = dynamic_cast<DictLiteralNode*>(expr);
+        if (dict_lit) {
+            Dictionary result;
+            for (int i = 0; i < dict_lit->keys.size(); i++) {
+                Variant key = evaluate_expression(dict_lit->keys[i]);
+                Variant val = evaluate_expression(dict_lit->values[i]);
+                result[key] = val;
+            }
+            return result;
+        }
         return ((LiteralNode*)expr)->value;
     }
     if (expr->type == ExpressionNode::ME) {
@@ -157,6 +176,28 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
             return Variant();
         }
         
+        // ── VB6 Intrinsic Constants ──
+        if (name.nocasecmp_to("vbCrLf") == 0) return String("\r\n");
+        if (name.nocasecmp_to("vbCr") == 0) return String("\r");
+        if (name.nocasecmp_to("vbLf") == 0) return String("\n");
+        if (name.nocasecmp_to("vbTab") == 0) return String("\t");
+        if (name.nocasecmp_to("vbNullString") == 0) return String("");
+        if (name.nocasecmp_to("vbNullChar") == 0) return String(String::chr(0));
+        if (name.nocasecmp_to("vbNewLine") == 0) return String("\n");
+        if (name.nocasecmp_to("vbBack") == 0) return String(String::chr(8));
+        if (name.nocasecmp_to("vbFormFeed") == 0) return String(String::chr(12));
+        if (name.nocasecmp_to("vbVerticalTab") == 0) return String(String::chr(11));
+        // VB6 Boolean constants
+        if (name.nocasecmp_to("vbTrue") == 0) return true;
+        if (name.nocasecmp_to("vbFalse") == 0) return false;
+        // Nothing / Null / Empty
+        if (name.nocasecmp_to("Nothing") == 0) return Variant();
+        if (name.nocasecmp_to("Null") == 0) return Variant();
+        if (name.nocasecmp_to("Empty") == 0) return Variant();
+        // PI and E as standalone constants
+        if (name.nocasecmp_to("PI") == 0) return Math_PI;
+        if (name.nocasecmp_to("E") == 0 && !variables.has("E") && !variables.has("e")) return Math_E;
+        
         if (name.nocasecmp_to("FreeFile") == 0) {
              for(int i=1; i<=255; i++) {
                  if (!open_files.has(i)) return i;
@@ -281,6 +322,40 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
              if (base_name == "Color") {
                  return Color::named(ma->member_name);
              }
+             // Math.PI, Math.E constants
+             if (base_name.nocasecmp_to("Math") == 0) {
+                 if (ma->member_name.nocasecmp_to("PI") == 0) return Math_PI;
+                 if (ma->member_name.nocasecmp_to("E") == 0) return Math_E;
+                 if (ma->member_name.nocasecmp_to("Tau") == 0) return Math_TAU;
+                 if (ma->member_name.nocasecmp_to("Infinity") == 0) return INFINITY;
+                 if (ma->member_name.nocasecmp_to("NaN") == 0) return NAN;
+             }
+             // Debug.Assert — assert expression is truthy
+             if (base_name.nocasecmp_to("Debug") == 0) {
+                 if (ma->member_name.nocasecmp_to("Assert") == 0) {
+                     // Debug.Assert evaluated as a member access returns a marker;
+                     // actual assertion is handled by Call dispatch
+                     return String("__vg_debug_assert");
+                 }
+             }
+             // ── Enum value access: EnumName.MemberName ──
+             if (script.is_valid() && script->ast_root) {
+                 ModuleNode* root = script->ast_root;
+                 for (int ei = 0; ei < root->enums.size(); ei++) {
+                     EnumDefinition* ed = root->enums[ei];
+                     if (ed->name.nocasecmp_to(base_name) == 0) {
+                         // Enum.Parse("MemberName") / Enum.Values() / Enum.ToString(val)
+                         // These are handled via call dispatch, but direct member access:
+                         for (int vi = 0; vi < ed->values.size(); vi++) {
+                             if (ed->values[vi].name.nocasecmp_to(ma->member_name) == 0) {
+                                 return ed->values[vi].value;
+                             }
+                         }
+                         raise_error("Enum '" + ed->name + "' has no member '" + ma->member_name + "'");
+                         return Variant();
+                     }
+                 }
+             }
              // Godot class enum constants: Input.MOUSE_MODE_CAPTURED, Sky.PROCESS_MODE_QUALITY, etc.
              // Try as-is first, then UPPER_CASE (tokenizer normalises keywords
              // like READ → "Read" but Godot constants are ALL_CAPS).
@@ -310,6 +385,15 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
 
          if (base.get_type() == Variant::DICTIONARY) {
              Dictionary d = base;
+             // StringBuilder property access
+             if (d.has("__vg_stringbuilder")) {
+                 if (ma->member_name.nocasecmp_to("Length") == 0) {
+                     Array buf = d["__buffer"];
+                     int len = 0;
+                     for (int i = 0; i < buf.size(); i++) len += String(buf[i]).length();
+                     return len;
+                 }
+             }
              // VB6 Scripting.Dictionary property-style access
              if (ma->member_name.nocasecmp_to("Count") == 0) return d.size();
              if (ma->member_name.nocasecmp_to("Keys") == 0) return d.keys();
@@ -868,13 +952,53 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
                 // e.g. Label.new(), MeshInstance3D.new(), StandardMaterial3D.new()
                 if (call->method_name.nocasecmp_to("new") == 0 && ClassDB::class_exists(var_name)) {
                     if (ClassDB::can_instantiate(var_name)) {
-                        // Keep as Variant so RefCounted subclasses retain their refcount.
                         Variant inst = ClassDB::instantiate(var_name);
                         if (inst.get_type() == Variant::OBJECT) {
                             return inst;
                         }
                     }
                     return Variant();
+                }
+                // ── Enum.Parse / Enum.Values / Enum.ToString ──
+                if (script.is_valid() && script->ast_root) {
+                    ModuleNode* root = script->ast_root;
+                    for (int ei = 0; ei < root->enums.size(); ei++) {
+                        EnumDefinition* ed = root->enums[ei];
+                        if (ed->name.nocasecmp_to(var_name) == 0) {
+                            if (call->method_name.nocasecmp_to("Parse") == 0 && call_args.size() >= 1) {
+                                // Enum.Parse("MemberName") -> int value
+                                String mname = String(call_args[0]);
+                                for (int vi = 0; vi < ed->values.size(); vi++) {
+                                    if (ed->values[vi].name.nocasecmp_to(mname) == 0) {
+                                        return ed->values[vi].value;
+                                    }
+                                }
+                                raise_error("Enum '" + ed->name + "' has no member '" + mname + "'");
+                                return Variant();
+                            }
+                            if (call->method_name.nocasecmp_to("Values") == 0) {
+                                // Enum.Values() -> Array of [name, value] pairs
+                                Array result;
+                                for (int vi = 0; vi < ed->values.size(); vi++) {
+                                    Dictionary entry;
+                                    entry["Name"] = ed->values[vi].name;
+                                    entry["Value"] = ed->values[vi].value;
+                                    result.push_back(entry);
+                                }
+                                return result;
+                            }
+                            if (call->method_name.nocasecmp_to("ToString") == 0 && call_args.size() >= 1) {
+                                // Enum.ToString(intValue) -> name string
+                                int val = (int)call_args[0];
+                                for (int vi = 0; vi < ed->values.size(); vi++) {
+                                    if (ed->values[vi].value == val) {
+                                        return ed->values[vi].name;
+                                    }
+                                }
+                                return String::num_int64(val); // Unknown value
+                            }
+                        }
+                    }
                 }
             }
 

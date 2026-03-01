@@ -175,26 +175,41 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
         }
         case STMT_PRINT: {
             PrintStatement* s = (PrintStatement*)stmt;
-            Variant val = evaluate_expression(s->expression);
+            // Build combined output string
+            String output;
+            if (s->expression) {
+                output += String(evaluate_expression(s->expression));
+            }
+            for (int ei = 0; ei < s->extra_expressions.size(); ei++) {
+                output += String(evaluate_expression(s->extra_expressions[ei]));
+            }
             if (s->file_number) {
                 int fn = evaluate_expression(s->file_number);
                 if (open_files.has(fn)) {
                      Ref<FileAccess> fa = open_files[fn];
-                     fa->store_line(String(val));
+                     if (s->suppress_newline) {
+                         fa->store_string(output);
+                     } else {
+                         fa->store_line(output);
+                     }
                 } else {
                      raise_error("Bad File Name or Number");
                 }
             } else if (s->is_debug) {
-                // Debug.Print → route to Immediate Window via debugger protocol
-                UtilityFunctions::print(val);  // Also print to Output console
+                UtilityFunctions::print(output);
                 EngineDebugger* engine_debugger = EngineDebugger::get_singleton();
                 if (engine_debugger && engine_debugger->is_active()) {
                     Array data;
-                    data.push_back(String(val));
+                    data.push_back(output);
                     engine_debugger->send_message("visualgasic:debug_print", data);
                 }
             } else {
-                UtilityFunctions::print(val);
+                if (s->suppress_newline) {
+                    // Print without trailing newline - use print_rich with no newline
+                    UtilityFunctions::print_rich(output);
+                } else {
+                    UtilityFunctions::print(output);
+                }
             }
             break;
         }
@@ -237,10 +252,14 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
         case STMT_DIM: {
             DimStatement* s = (DimStatement*)stmt;
             
-            // Static handling: If variable exists, preserve it.
-            // Note: In current architecture without stack frames, this persists across the instance lifetime.
-            if (s->is_static && variables.has(s->variable_name)) {
-                break;
+            // Static handling: persist variable across calls using static_variables store
+            if (s->is_static) {
+                String static_key = (current_sub ? current_sub->name + "." : String("")) + s->variable_name;
+                if (static_variables.has(static_key)) {
+                    variables[s->variable_name] = static_variables[static_key];
+                    break;
+                }
+                // First time: continue to initialize, will be saved on function exit
             }
             
             if (s->array_sizes.size() > 0) {
@@ -392,23 +411,17 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
         case STMT_FOR_EACH: {
              ForEachStatement* s = (ForEachStatement*)stmt;
              Variant col = evaluate_expression(s->collection);
+             bool has_index = !s->index_variable_name.is_empty();
              
-             // Check if it is iterable? Array or Object (get_iter)?
-             // Variant doesn't expose get_iter directly in GDExtension easily?
-             // Array has iteration.
-             // Dictionary has keys.
-             // Objects might have _iter.
-             
-             // For now, support Array.
              if (col.get_type() == Variant::ARRAY) {
                  Array arr = col;
                  for(int i=0; i<arr.size(); i++) {
                      assign_variable(s->variable_name, arr[i]);
+                     if (has_index) assign_variable(s->index_variable_name, i);
                      
                      for(int b=0; b<s->body.size(); b++) {
                          execute_statement(s->body[b]);
                          if (error_state.has_error) break;
-                         // Handle Exit For?
                          if (error_state.mode == ErrorState::EXIT_FOR) break;
                          if (error_state.mode != ErrorState::NONE) break;
                      }
@@ -425,6 +438,7 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                  Array keys = dict.keys();
                  for(int i=0; i<keys.size(); i++) {
                      assign_variable(s->variable_name, keys[i]);
+                     if (has_index) assign_variable(s->index_variable_name, i);
                      
                      for(int b=0; b<s->body.size(); b++) {
                          execute_statement(s->body[b]);
@@ -440,8 +454,28 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                      }
                      if (error_state.mode != ErrorState::NONE) break;
                  }
+             } else if (col.get_type() == Variant::STRING) {
+                 // Iterate characters of a string
+                 String str = col;
+                 for(int i=0; i<str.length(); i++) {
+                     assign_variable(s->variable_name, String(String::chr(str[i])));
+                     if (has_index) assign_variable(s->index_variable_name, i);
+                     
+                     for(int b=0; b<s->body.size(); b++) {
+                         execute_statement(s->body[b]);
+                         if (error_state.has_error) break;
+                         if (error_state.mode == ErrorState::EXIT_FOR) break;
+                         if (error_state.mode != ErrorState::NONE) break;
+                     }
+                     if (error_state.has_error) break;
+                     if (error_state.mode == ErrorState::EXIT_FOR) {
+                         error_state.mode = ErrorState::NONE;
+                         break;
+                     }
+                     if (error_state.mode != ErrorState::NONE) break;
+                 }
              } else {
-                 raise_error("For Each requires an Array (other types not supported yet)");
+                 raise_error("For Each requires an Array, Dictionary, or String");
              }
              break;
         }
@@ -832,6 +866,16 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                 if (s->method_name.nocasecmp_to("Sleep") == 0 && call_args.size() == 1) {
                      int ms = (int)call_args[0];
                      OS::get_singleton()->delay_msec(ms);
+                     break;
+                }
+                // Assert condition [, message]
+                if (s->method_name.nocasecmp_to("Assert") == 0 && call_args.size() >= 1) {
+                     bool cond = (bool)call_args[0];
+                     if (!cond) {
+                         String msg = (call_args.size() >= 2) ? String(call_args[1]) : String("Assertion failed");
+                         UtilityFunctions::print("[VG] ASSERT FAILED: ", msg);
+                         raise_error(msg);
+                     }
                      break;
                 }
                 if (s->method_name.nocasecmp_to("Shell") == 0 && call_args.size() >= 1) {
@@ -1915,11 +1959,149 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
              break;
         }
         case STMT_IMPLEMENTS: {
-             // Implements — runtime verification: check that all methods from
-             // the interface class exist on this class. Log a warning if not.
              ImplementsStatement* s = (ImplementsStatement*)stmt;
              UtilityFunctions::print("[VG] Implements ", s->interface_name, " declared (interface verification pending)");
              break;
+        }
+        // ── v3.3.0 New Statement Execution ──
+        case STMT_RESUME: {
+            ResumeStatement* s = (ResumeStatement*)stmt;
+            if (s->resume_type == ResumeStatement::RESUME_NEXT) {
+                // Resume Next: clear error and continue to next statement
+                error_state.has_error = false;
+                error_state.message = "";
+                error_state.code = 0;
+            } else if (s->resume_type == ResumeStatement::RESUME_LABEL) {
+                // Resume <label>: clear error and jump to label
+                error_state.has_error = false;
+                error_state.message = "";
+                error_state.code = 0;
+                jump_target = -1; // Will be resolved by label lookup
+                // Find label in current sub
+                if (current_sub) {
+                    for (int li = 0; li < current_sub->statements.size(); li++) {
+                        if (current_sub->statements[li]->type == STMT_LABEL) {
+                            LabelStatement* ls = (LabelStatement*)current_sub->statements[li];
+                            if (ls->name.nocasecmp_to(s->label_name) == 0) {
+                                jump_target = li;
+                                break;
+                            }
+                        }
+                    }
+                }
+            } else {
+                // Plain Resume: clear error (re-execute failing statement not supported in tree-walk)
+                error_state.has_error = false;
+                error_state.message = "";
+                error_state.code = 0;
+            }
+            break;
+        }
+        case STMT_ON_GOTO: {
+            OnGotoStatement* s = (OnGotoStatement*)stmt;
+            int idx = (int)evaluate_expression(s->index_expression);
+            if (idx >= 1 && idx <= s->labels.size()) {
+                String target_label = s->labels[idx - 1]; // 1-based
+                // Jump to label
+                if (current_sub) {
+                    for (int li = 0; li < current_sub->statements.size(); li++) {
+                        if (current_sub->statements[li]->type == STMT_LABEL) {
+                            LabelStatement* ls = (LabelStatement*)current_sub->statements[li];
+                            if (ls->name.nocasecmp_to(target_label) == 0) {
+                                jump_target = li;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            // If out of range, falls through (VB6 behavior)
+            break;
+        }
+        case STMT_ON_GOSUB: {
+            OnGosubStatement* s = (OnGosubStatement*)stmt;
+            int idx = (int)evaluate_expression(s->index_expression);
+            if (idx >= 1 && idx <= s->labels.size()) {
+                String target_label = s->labels[idx - 1];
+                // Push return address and jump
+                if (current_sub) {
+                    int target = -1;
+                    for (int li = 0; li < current_sub->statements.size(); li++) {
+                        if (current_sub->statements[li]->type == STMT_LABEL) {
+                            LabelStatement* ls = (LabelStatement*)current_sub->statements[li];
+                            if (ls->name.nocasecmp_to(target_label) == 0) {
+                                target = li;
+                                break;
+                            }
+                        }
+                    }
+                    if (target >= 0) {
+                        gosub_return_stack.push_back(jump_target >= 0 ? jump_target : 0);
+                        jump_target = target;
+                    }
+                }
+            }
+            break;
+        }
+        case STMT_GET_FILE: {
+            GetFileStatement* s = (GetFileStatement*)stmt;
+            int fn = (int)evaluate_expression(s->file_number);
+            if (!open_files.has(fn)) {
+                raise_error("Bad File Name or Number");
+                break;
+            }
+            Ref<FileAccess> fa = open_files[fn];
+            if (s->record_number) {
+                int recno = (int)evaluate_expression(s->record_number);
+                if (recno > 0) fa->seek((recno - 1) * 128); // Default record size
+            }
+            // Read a line or binary data into variable
+            if (s->variable) {
+                String var_name;
+                if (s->variable->type == ExpressionNode::VARIABLE) {
+                    var_name = ((VariableNode*)s->variable)->name;
+                }
+                if (!var_name.is_empty()) {
+                    // Read binary data as string
+                    PackedByteArray data = fa->get_buffer(128);
+                    assign_variable(var_name, data.get_string_from_ascii());
+                }
+            }
+            break;
+        }
+        case STMT_PUT_FILE: {
+            PutFileStatement* s = (PutFileStatement*)stmt;
+            int fn = (int)evaluate_expression(s->file_number);
+            if (!open_files.has(fn)) {
+                raise_error("Bad File Name or Number");
+                break;
+            }
+            Ref<FileAccess> fa = open_files[fn];
+            if (s->record_number) {
+                int recno = (int)evaluate_expression(s->record_number);
+                if (recno > 0) fa->seek((recno - 1) * 128);
+            }
+            if (s->expression) {
+                Variant val = evaluate_expression(s->expression);
+                String str_val = String(val);
+                fa->store_string(str_val);
+            }
+            break;
+        }
+        case STMT_SWAP: {
+            SwapStatement* s = (SwapStatement*)stmt;
+            // Get left and right values
+            Variant left_val = evaluate_expression(s->left);
+            Variant right_val = evaluate_expression(s->right);
+            // Assign swapped
+            assign_to_target(s->left, right_val);
+            assign_to_target(s->right, left_val);
+            break;
+        }
+        case STMT_MODULE: {
+            // Module statement: module-level subs are already registered during parsing
+            // This is a no-op at execution time (declarations happen at parse/load time)
+            break;
         }
         case STMT_ON_ERROR: {
              OnErrorStatement* s = (OnErrorStatement*)stmt;
@@ -2307,6 +2489,14 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                      if (fa.is_valid()) fa->seek_end();
                  } else {
                      fa = FileAccess::open(path, FileAccess::WRITE);
+                 }
+            }
+            else if (s->mode == OpenStatement::MODE_BINARY || s->mode == OpenStatement::MODE_RANDOM) {
+                 // Binary/Random: open read-write, create if needed
+                 if (FileAccess::file_exists(path)) {
+                     fa = FileAccess::open(path, FileAccess::READ_WRITE);
+                 } else {
+                     fa = FileAccess::open(path, FileAccess::WRITE_READ);
                  }
             }
             
