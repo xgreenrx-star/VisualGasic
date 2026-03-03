@@ -13,6 +13,11 @@
 #include <godot_cpp/classes/rich_text_label.hpp>
 #include <godot_cpp/classes/tab_container.hpp>
 #include <godot_cpp/classes/dir_access.hpp>
+#include <godot_cpp/classes/label.hpp>
+#include <godot_cpp/classes/panel.hpp>
+#include <godot_cpp/classes/menu_bar.hpp>
+#include <godot_cpp/classes/input_event.hpp>
+#include <godot_cpp/classes/input_event_mouse_button.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
 
 using namespace godot;
@@ -231,6 +236,55 @@ void GasicForm::wire_events(Node* root) {
             }
         }
 
+        // --- Label: Click / DblClick via gui_input (no built-in pressed signal) ---
+        if (child->is_class("Label")) {
+            String click_method = name + "_Click";
+            String dblclick_method = name + "_DblClick";
+            if (has_method(click_method) || has_method(dblclick_method)) {
+                // Use a lambda-style Callable via gui_input to detect mouse clicks
+                child->set_meta("_vg_click_method", click_method);
+                child->set_meta("_vg_dblclick_method", dblclick_method);
+                child->set_meta("_vg_form", Variant(this));
+                child->connect("gui_input", callable_mp(this, &GasicForm::_on_control_gui_input).bind(child));
+                child->set("mouse_filter", 0); // MOUSE_FILTER_STOP
+                UtilityFunctions::print("GasicForm: Wired ", name, ".Click (gui_input)");
+            }
+        }
+
+        // --- Panel: Click / DblClick via gui_input ---
+        if (child->is_class("Panel") && !child->is_class("BaseButton")) {
+            String click_method = name + "_Click";
+            String dblclick_method = name + "_DblClick";
+            if (has_method(click_method) || has_method(dblclick_method)) {
+                child->set_meta("_vg_click_method", click_method);
+                child->set_meta("_vg_dblclick_method", dblclick_method);
+                child->set_meta("_vg_form", Variant(this));
+                child->connect("gui_input", callable_mp(this, &GasicForm::_on_control_gui_input).bind(child));
+                child->set("mouse_filter", 0); // MOUSE_FILTER_STOP
+                UtilityFunctions::print("GasicForm: Wired ", name, ".Click (gui_input)");
+            }
+        }
+
+        // --- MenuBar: menu_id_pressed for menu item clicks ---
+        if (child->is_class("MenuBar")) {
+            String click_method = name + "_Click";
+            if (has_method(click_method)) {
+                // MenuBar doesn't emit pressed directly; wire each PopupMenu child
+                TypedArray<Node> menu_children = child->get_children();
+                for (int m = 0; m < menu_children.size(); m++) {
+                    Node* menu_child = Object::cast_to<Node>(menu_children[m]);
+                    if (menu_child && menu_child->is_class("PopupMenu")) {
+                        String menu_name = menu_child->get_name();
+                        String menu_click = menu_name + "_Click";
+                        if (has_method(menu_click)) {
+                            menu_child->connect("id_pressed", Callable(this, menu_click));
+                            UtilityFunctions::print("GasicForm: Wired ", menu_name, ".Click (id_pressed)");
+                        }
+                    }
+                }
+            }
+        }
+
         // --- Universal Focus events for any Control ---
         if (child->is_class("Control")) {
             // GotFocus / LostFocus (only if not already wired above)
@@ -247,9 +301,68 @@ void GasicForm::wire_events(Node* root) {
             if (has_method(mouse_enter)) {
                 child->connect("mouse_entered", Callable(this, mouse_enter));
             }
+            String mouse_exit = name + "_MouseExit";
+            if (has_method(mouse_exit)) {
+                child->connect("mouse_exited", Callable(this, mouse_exit));
+            }
+
+            // --- DragDrop / DragOver events (VB6-style) ---
+            String drag_drop = name + "_DragDrop";
+            String drag_over = name + "_DragOver";
+            if (has_method(drag_drop) || has_method(drag_over)) {
+                child->set_meta("_vg_dragdrop_method", drag_drop);
+                child->set_meta("_vg_dragover_method", drag_over);
+                child->set_meta("_vg_form", Variant(this));
+                // Enable drop handling — Godot signals _can_drop_data/_drop_data
+                // For runtime, we connect gui_input to detect drag gestures
+                if (!child->is_connected("gui_input", callable_mp(this, &GasicForm::_on_control_gui_input).bind(child))) {
+                    child->connect("gui_input", callable_mp(this, &GasicForm::_on_control_gui_input).bind(child));
+                }
+                child->set("mouse_filter", 0); // MOUSE_FILTER_STOP
+                UtilityFunctions::print("GasicForm: Wired ", name, ".DragDrop/DragOver");
+            }
         }
 
         // Recurse into children (for Panels, GroupBoxes, etc.)
         wire_events(child);
+    }
+}
+
+// =============================================================================
+// gui_input handler for Label/Panel _Click and DragDrop/DragOver events
+// =============================================================================
+void GasicForm::_on_control_gui_input(const Ref<InputEvent> &p_event, Node *p_control) {
+    if (!p_control || p_event.is_null()) return;
+
+    Ref<InputEventMouseButton> mb = p_event;
+    if (mb.is_valid() && mb->is_pressed()) {
+        if (mb->get_button_index() == godot::MOUSE_BUTTON_LEFT) {
+            if (mb->is_double_click()) {
+                // DblClick event
+                String dblclick = p_control->get_meta("_vg_dblclick_method", "");
+                if (!dblclick.is_empty() && has_method(dblclick)) {
+                    call(dblclick);
+                }
+            } else {
+                // Click event
+                String click = p_control->get_meta("_vg_click_method", "");
+                if (!click.is_empty() && has_method(click)) {
+                    call(click);
+                }
+            }
+        }
+    }
+
+    // DragDrop/DragOver handling via mouse button release
+    if (mb.is_valid() && !mb->is_pressed() && mb->get_button_index() == godot::MOUSE_BUTTON_LEFT) {
+        String drag_drop = p_control->get_meta("_vg_dragdrop_method", "");
+        if (!drag_drop.is_empty() && has_method(drag_drop)) {
+            // Check if there's active drag data in the viewport
+            // The DragDrop event fires when a drag operation ends on this control
+            Variant drag_data = p_control->call("get_viewport").call("gui_get_drag_data");
+            if (drag_data.get_type() != Variant::NIL) {
+                call(drag_drop, drag_data, mb->get_position().x, mb->get_position().y);
+            }
+        }
     }
 }

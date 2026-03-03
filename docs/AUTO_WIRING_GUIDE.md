@@ -18,10 +18,21 @@ ControlName_EventType
 | Control Type | Signal | Event Suffix | Handler Example |
 |-------------|--------|--------------|-----------------|
 | Button, CheckBox, etc. | `pressed` | `Click` | `btnOK_Click()` |
+| Label | `gui_input` | `Click` | `lblTitle_Click()` |
+| Label | `gui_input` | `DblClick` | `lblTitle_DblClick()` |
+| Panel | `gui_input` | `Click` | `pnlMain_Click()` |
+| Panel | `gui_input` | `DblClick` | `pnlMain_DblClick()` |
 | LineEdit, TextEdit | `text_changed` | `Change` | `txtName_Change(newText)` |
 | Slider, ScrollBar | `value_changed` | `Change` | `hSlider1_Change(value)` |
 | Timer | `timeout` | `Timer` | `Timer1_Timer()` |
 | ItemList, OptionButton | `item_selected` | `Click` | `lstItems_Click(index)` |
+| MenuBar > PopupMenu | `id_pressed` | `Click` | `mnuFile_Click(id)` |
+| Any Control | `focus_entered` | `GotFocus` | `txtName_GotFocus()` |
+| Any Control | `focus_exited` | `LostFocus` | `txtName_LostFocus()` |
+| Any Control | `mouse_entered` | `MouseMove` | `btnOK_MouseMove()` |
+| Any Control | `mouse_exited` | `MouseExit` | `btnOK_MouseExit()` |
+| Any Control | `gui_input` (drag) | `DragDrop` | `lstTarget_DragDrop(data, x, y)` |
+| Any Control | `gui_input` (drag) | `DragOver` | `lstTarget_DragOver(data, x, y)` |
 
 ## Example: Before and After
 

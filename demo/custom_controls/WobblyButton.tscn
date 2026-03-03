@@ -1,0 +1,15 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://custom_controls/WobblyButton.gd" id="1"]
+
+[node name="WobblyButton" type="Button"]
+custom_minimum_size = Vector2(120, 40)
+offset_right = 120.0
+offset_bottom = 40.0
+script = ExtResource("1")
+text = "Wobbly!"
+wobble_amount = 3.0
+wobble_speed = 4.0
+pulse_amount = 0.04
+pulse_speed = 2.5
+hover_glow_color = Color(0.3, 0.6, 1, 0.25)

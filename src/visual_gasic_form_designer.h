@@ -15,6 +15,7 @@
 #include <godot_cpp/classes/file_access.hpp>
 #include <godot_cpp/classes/resource_loader.hpp>
 #include <godot_cpp/classes/resource_uid.hpp>
+#include <godot_cpp/classes/texture2d.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <godot_cpp/classes/engine.hpp>
 
@@ -188,6 +189,7 @@ public:
     // --- Custom tool extensibility ---
     void register_custom_control_type(const String &p_type_name, const String &p_scene_path,
                                       const Vector2 &p_default_size, const Color &p_design_color);
+    void set_control_preview_texture(const String &p_type_name, const Ref<Texture2D> &p_texture);
 
     // --- Active tool (click-to-place mode) ---
     void set_active_tool(const String &p_class_name, const String &p_scene_path);
@@ -220,6 +222,7 @@ public:
     // "control_deselected" ()
     // "form_modified" ()
     // "control_double_clicked" (index: int)
+    // "control_right_clicked" (index: int, position: Vector2) — context menu
     // "status_changed" (text: String)  — for toolbar/statusbar coordinate display
     // "form_resized" (size: Vector2i)  — when user resizes the form via handles
 
@@ -287,6 +290,7 @@ private:
     String  _display_label_for_type(const String &p_type) const;
 
     // --- .tscn serialization ---
+    void   _validate_scene_paths();
     String _serialize_to_tscn() const;
     bool   _parse_tscn(const String &p_text);
 
@@ -390,6 +394,9 @@ private:
         Color design_color;
     };
     HashMap<String, CustomControlDef> custom_control_types;
+
+    // Preview textures for custom controls (rendered thumbnails for design-time display)
+    HashMap<String, Ref<Texture2D>> control_preview_textures;
 
     // Drawing constants
     static constexpr float HANDLE_SIZE      = 6.0f;

@@ -8,6 +8,18 @@ signal components_changed
 
 const CONFIG_PATH = "res://addons/visual_gasic/custom_components.cfg"
 
+# VB6 theme palette (must match _theme dict in visual_gasic_plugin.gd)
+const VB6_PANEL_BG       = Color(0.941, 0.929, 0.910)   # #F0EDE8  cream
+const VB6_PANEL_BORDER   = Color(0.72, 0.71, 0.68)
+const VB6_HEADER_BG      = Color(0.58, 0.58, 0.62)      # panel-header blue-gray
+const VB6_HEADER_BORDER  = Color(0.4, 0.4, 0.4)
+const VB6_HEADER_TEXT    = Color(1.0, 1.0, 1.0)
+const VB6_TEXT           = Color(0.0, 0.0, 0.0)
+const VB6_LIST_BG        = Color(1.0, 1.0, 1.0)
+const VB6_BTN_HOVER_BG   = Color(0.95, 0.94, 0.92)
+const VB6_BTN_PRESSED_BG = Color(0.88, 0.87, 0.85)
+const VB6_ACTIVE_TITLE   = Color(0.0, 0.0, 0.5)         # selection blue
+
 var component_list: ItemList
 var add_btn: Button
 var remove_btn: Button
@@ -21,6 +33,12 @@ var all_components: Array = []
 
 # Built-in VB6-style components (optional ones from Components dialog)
 var builtin_components: Array = [
+	{"name": "VGComboBox", "scene": "res://addons/visual_gasic/prototypes/VGComboBox.tscn", "icon": "OptionButton", "class": "Control", "builtin": true, "enabled": true, "category": "2D"},
+	{"name": "RadioButton", "scene": "res://addons/visual_gasic/prototypes/RadioButton.tscn", "icon": "CheckBox", "class": "CheckBox", "builtin": true, "enabled": true, "category": "2D"},
+	{"name": "MenuBar", "scene": "res://addons/visual_gasic/prototypes/MenuBar.tscn", "icon": "PopupMenu", "class": "MenuBar", "builtin": true, "enabled": true, "category": "2D"},
+	{"name": "PictureButton", "scene": "res://addons/visual_gasic/prototypes/TextureButton.tscn", "icon": "TextureButton", "class": "TextureButton", "builtin": true, "enabled": true, "category": "2D"},
+	{"name": "Line", "scene": "res://addons/visual_gasic/prototypes/Line.tscn", "icon": "ColorRect", "class": "ColorRect", "builtin": true, "enabled": true, "category": "2D"},
+	{"name": "DriveListBox", "scene": "res://addons/visual_gasic/prototypes/DriveListBox.tscn", "icon": "OptionButton", "class": "OptionButton", "builtin": true, "enabled": true, "category": "2D"},
 	{"name": "StatusBar", "scene": "res://addons/visual_gasic/prototypes/StatusBar.tscn", "icon": "StatusIndicator", "class": "PanelContainer", "builtin": true, "enabled": false, "category": "2D"},
 	{"name": "Toolbar", "scene": "res://addons/visual_gasic/prototypes/Toolbar.tscn", "icon": "ToolBar", "class": "PanelContainer", "builtin": true, "enabled": false, "category": "2D"},
 	{"name": "Animation", "scene": "res://addons/visual_gasic/prototypes/Animation.tscn", "icon": "AnimatedSprite2D", "class": "AnimatedSprite2D", "builtin": true, "enabled": false, "category": "2D"},
@@ -40,19 +58,109 @@ func _init():
 	exclusive = true
 	
 func _ready():
+	theme = _build_vb6_dialog_theme()
 	_build_ui()
 	_load_config()
 	_populate_list()
-	
+
+## Builds a VB6-style Theme so the dialog matches the form designer panels.
+func _build_vb6_dialog_theme() -> Theme:
+	var t = Theme.new()
+
+	# ── Window chrome  (embedded title-bar = header blue-gray, white title) ──
+	var win_sb = StyleBoxFlat.new()
+	win_sb.bg_color = VB6_HEADER_BG
+	win_sb.border_color = VB6_HEADER_BORDER
+	win_sb.set_border_width_all(2)
+	win_sb.content_margin_left = 4; win_sb.content_margin_right = 4
+	win_sb.content_margin_top = 4; win_sb.content_margin_bottom = 4
+	t.set_stylebox("embedded_border", "Window", win_sb)
+	var win_unfocus = win_sb.duplicate()
+	win_unfocus.bg_color = Color(0.50, 0.50, 0.50)
+	t.set_stylebox("embedded_unfocused_border", "Window", win_unfocus)
+	t.set_color("title_color", "Window", VB6_HEADER_TEXT)
+	t.set_color("title_outline_modulate", "Window", Color.TRANSPARENT)
+
+	# ── PanelContainer ──
+	var pc_sb = StyleBoxFlat.new()
+	pc_sb.bg_color = VB6_PANEL_BG
+	pc_sb.border_color = VB6_PANEL_BORDER
+	pc_sb.set_border_width_all(1)
+	pc_sb.set_content_margin_all(2)
+	t.set_stylebox("panel", "PanelContainer", pc_sb)
+
+	# ── ItemList (white bg, black text, blue selection) ──
+	var il_sb = StyleBoxFlat.new()
+	il_sb.bg_color = VB6_LIST_BG
+	il_sb.border_color = VB6_PANEL_BORDER
+	il_sb.set_border_width_all(1)
+	t.set_stylebox("panel", "ItemList", il_sb)
+	t.set_color("font_color", "ItemList", VB6_TEXT)
+	t.set_color("font_selected_color", "ItemList", Color.WHITE)
+	var il_sel = StyleBoxFlat.new()
+	il_sel.bg_color = VB6_ACTIVE_TITLE
+	t.set_stylebox("selected", "ItemList", il_sel)
+	t.set_stylebox("selected_focus", "ItemList", il_sel)
+
+	# ── Label ──
+	t.set_color("font_color", "Label", VB6_TEXT)
+
+	# ── Button (raised VB6 look) ──
+	var btn_sb = StyleBoxFlat.new()
+	btn_sb.bg_color = VB6_PANEL_BG
+	btn_sb.border_color = VB6_PANEL_BORDER
+	btn_sb.set_border_width_all(1)
+	btn_sb.content_margin_left = 8; btn_sb.content_margin_right = 8
+	btn_sb.content_margin_top = 3; btn_sb.content_margin_bottom = 3
+	t.set_stylebox("normal", "Button", btn_sb)
+	var btn_hov = StyleBoxFlat.new()
+	btn_hov.bg_color = VB6_BTN_HOVER_BG
+	btn_hov.border_color = VB6_PANEL_BORDER
+	btn_hov.set_border_width_all(1)
+	btn_hov.content_margin_left = 8; btn_hov.content_margin_right = 8
+	btn_hov.content_margin_top = 3; btn_hov.content_margin_bottom = 3
+	t.set_stylebox("hover", "Button", btn_hov)
+	var btn_pre = StyleBoxFlat.new()
+	btn_pre.bg_color = VB6_BTN_PRESSED_BG
+	btn_pre.border_color = VB6_PANEL_BORDER
+	btn_pre.set_border_width_all(1)
+	btn_pre.content_margin_left = 8; btn_pre.content_margin_right = 8
+	btn_pre.content_margin_top = 3; btn_pre.content_margin_bottom = 3
+	t.set_stylebox("pressed", "Button", btn_pre)
+	var btn_dis = StyleBoxFlat.new()
+	btn_dis.bg_color = Color(0.90, 0.89, 0.87)
+	btn_dis.border_color = VB6_PANEL_BORDER
+	btn_dis.set_border_width_all(1)
+	btn_dis.content_margin_left = 8; btn_dis.content_margin_right = 8
+	btn_dis.content_margin_top = 3; btn_dis.content_margin_bottom = 3
+	t.set_stylebox("disabled", "Button", btn_dis)
+	t.set_color("font_color", "Button", VB6_TEXT)
+	t.set_color("font_hover_color", "Button", VB6_TEXT)
+	t.set_color("font_pressed_color", "Button", VB6_TEXT)
+	t.set_color("font_disabled_color", "Button", Color(0.5, 0.5, 0.5))
+
+	# ── HSeparator ──
+	var sep_sb = StyleBoxFlat.new()
+	sep_sb.bg_color = VB6_PANEL_BORDER
+	sep_sb.content_margin_top = 4; sep_sb.content_margin_bottom = 4
+	t.set_stylebox("separator", "HSeparator", sep_sb)
+
+	return t
+
 func _build_ui():
+	# ── Cream content panel (covers the header-blue window background) ──
+	var bg_panel = PanelContainer.new()
+	bg_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var bg_sb = StyleBoxFlat.new()
+	bg_sb.bg_color = VB6_PANEL_BG
+	bg_sb.set_content_margin_all(10)
+	bg_panel.add_theme_stylebox_override("panel", bg_sb)
+	add_child(bg_panel)
+
 	var main_vbox = VBoxContainer.new()
-	main_vbox.set_anchors_preset(Control.PRESET_FULL_RECT)
-	main_vbox.offset_left = 10
-	main_vbox.offset_top = 10
-	main_vbox.offset_right = -10
-	main_vbox.offset_bottom = -10
-	add_child(main_vbox)
-	
+	main_vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	bg_panel.add_child(main_vbox)
+
 	# Header label
 	var header = Label.new()
 	header.text = "Available Components:"
@@ -312,6 +420,12 @@ static func load_enabled_components() -> Array:
 		if config.load(CONFIG_PATH) == OK:
 			# Check built-in components
 			var builtins = [
+				{"name": "VGComboBox", "scene": "res://addons/visual_gasic/prototypes/VGComboBox.tscn", "icon": "OptionButton", "class": "Control", "category": "2D"},
+				{"name": "RadioButton", "scene": "res://addons/visual_gasic/prototypes/RadioButton.tscn", "icon": "CheckBox", "class": "CheckBox", "category": "2D"},
+				{"name": "MenuBar", "scene": "res://addons/visual_gasic/prototypes/MenuBar.tscn", "icon": "PopupMenu", "class": "MenuBar", "category": "2D"},
+				{"name": "PictureButton", "scene": "res://addons/visual_gasic/prototypes/TextureButton.tscn", "icon": "TextureButton", "class": "TextureButton", "category": "2D"},
+				{"name": "Line", "scene": "res://addons/visual_gasic/prototypes/Line.tscn", "icon": "ColorRect", "class": "ColorRect", "category": "2D"},
+				{"name": "DriveListBox", "scene": "res://addons/visual_gasic/prototypes/DriveListBox.tscn", "icon": "OptionButton", "class": "OptionButton", "category": "2D"},
 				{"name": "StatusBar", "scene": "res://addons/visual_gasic/prototypes/StatusBar.tscn", "icon": "StatusIndicator", "class": "PanelContainer", "category": "2D"},
 				{"name": "Toolbar", "scene": "res://addons/visual_gasic/prototypes/Toolbar.tscn", "icon": "ToolBar", "class": "PanelContainer", "category": "2D"},
 				{"name": "Animation", "scene": "res://addons/visual_gasic/prototypes/Animation.tscn", "icon": "AnimatedSprite2D", "class": "AnimatedSprite2D", "category": "2D"},

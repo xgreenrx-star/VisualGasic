@@ -67,6 +67,8 @@ void VisualGasicFormDesigner::_bind_methods() {
     // Extensibility
     ClassDB::bind_method(D_METHOD("register_custom_control_type", "type_name", "scene_path", "default_size", "design_color"),
                          &VisualGasicFormDesigner::register_custom_control_type);
+    ClassDB::bind_method(D_METHOD("set_control_preview_texture", "type_name", "texture"),
+                         &VisualGasicFormDesigner::set_control_preview_texture);
 
     // Active tool (click-to-place)
     ClassDB::bind_method(D_METHOD("set_active_tool", "class_name", "scene_path"), &VisualGasicFormDesigner::set_active_tool);
@@ -103,8 +105,10 @@ void VisualGasicFormDesigner::_bind_methods() {
     ADD_SIGNAL(MethodInfo("control_deselected"));
     ADD_SIGNAL(MethodInfo("form_modified"));
     ADD_SIGNAL(MethodInfo("control_double_clicked", PropertyInfo(Variant::INT, "index")));
+    ADD_SIGNAL(MethodInfo("control_right_clicked", PropertyInfo(Variant::INT, "index"), PropertyInfo(Variant::VECTOR2, "position")));
     ADD_SIGNAL(MethodInfo("status_changed", PropertyInfo(Variant::STRING, "text")));
     ADD_SIGNAL(MethodInfo("form_resized", PropertyInfo(Variant::VECTOR2I, "size")));
+    ADD_SIGNAL(MethodInfo("scene_file_dropped", PropertyInfo(Variant::STRING, "scene_path"), PropertyInfo(Variant::STRING, "control_name")));
 }
 
 // =============================================================================
@@ -375,6 +379,8 @@ void VisualGasicFormDesigner::_draw_control(const FormControlItem &item, int ind
         _draw_textbox_control(r, label, font, font_size);
     } else if (item.type == "TextEdit") {
         _draw_textarea_control(r, label, font, font_size);
+    } else if (item.type == "RadioButton") {
+        _draw_option_control(r, label, font, font_size);
     } else if (item.type == "CheckBox") {
         _draw_checkbox_control(r, label, font, font_size);
     } else if (item.type == "OptionButton") {
@@ -428,6 +434,38 @@ void VisualGasicFormDesigner::_draw_control(const FormControlItem &item, int ind
             draw_rect(swatch, sys_glyph);
             draw_rect(Rect2(swatch.position + Vector2(1, 1), swatch.size - Vector2(2, 2)), Color(1, 0, 0));
         }
+    } else if (item.type == "TextureButton") {
+        // PictureButton: raised button with a small image icon in center
+        _draw_raised_rect(r, sys_button_face);
+        if (font.is_valid()) {
+            // Draw a small landscape icon to indicate "image button"
+            float cx = r.position.x + r.size.x * 0.5f;
+            float cy = r.position.y + r.size.y * 0.5f;
+            float iw = MIN(r.size.x * 0.5f, 20.0f);
+            float ih = MIN(r.size.y * 0.5f, 14.0f);
+            Rect2 img_r(cx - iw * 0.5f, cy - ih * 0.5f, iw, ih);
+            draw_rect(img_r, Color(0.9, 0.9, 0.9));
+            draw_rect(img_r, sys_button_shadow, false, 1.0);
+        }
+    } else if (item.type == "MenuBar") {
+        // MenuBar: gray bar with File|Edit labels
+        draw_rect(r, sys_button_face);
+        // Bottom border
+        draw_rect(Rect2(r.position.x, r.position.y + r.size.y - 1, r.size.x, 1), sys_button_shadow);
+        if (font.is_valid()) {
+            float tx = r.position.x + 6;
+            float ty = r.position.y + (r.size.y + font_size) * 0.5f - 2;
+            draw_string(font, Vector2(tx, ty), "File", HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, color_text);
+            draw_string(font, Vector2(tx + 40, ty), "Edit", HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, color_text);
+            draw_string(font, Vector2(tx + 80, ty), "View", HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, color_text);
+        }
+    } else if (item.type == "Line") {
+        // Line control: solid black line across the control rect
+        float mid_y = r.position.y + r.size.y * 0.5f;
+        draw_rect(Rect2(r.position.x, mid_y - 1, r.size.x, 2), Color(0, 0, 0));
+    } else if (item.type == "DriveListBox") {
+        // DriveListBox: combo-style with "C:" text
+        _draw_combobox_control(r, "C:\\", font, font_size);
     } else if (item.type == "HBoxContainer" || item.type == "VBoxContainer" ||
                item.type == "GridContainer" || item.type == "SubViewportContainer") {
         // Container types: dashed outline with label
@@ -448,13 +486,27 @@ void VisualGasicFormDesigner::_draw_control(const FormControlItem &item, int ind
                         HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 6, font_size - 1, color_text);
         }
     } else {
-        // Fallback: generic raised control (like a button)
-        _draw_raised_rect(r, sys_button_face);
-        if (font.is_valid()) {
-            float max_w = r.size.x - 6;
-            if (max_w > 10) {
-                draw_string(font, r.position + Vector2(3, font_size + 2), label,
-                            HORIZONTAL_ALIGNMENT_LEFT, max_w, font_size, color_text);
+        // Check for a preview texture (design-time rendering from SubViewport capture)
+        if (control_preview_textures.has(item.type) && control_preview_textures[item.type].is_valid()) {
+            Ref<Texture2D> tex = control_preview_textures[item.type];
+            // Draw the preview texture scaled to fit the control rect
+            draw_texture_rect(tex, r, false);
+            // Draw a subtle border so the user knows it's a custom control
+            draw_rect(r, Color(0.5, 0.6, 0.8, 0.4), false, 1.0);
+        } else {
+            // Fallback: generic raised control (like a button)
+            _draw_raised_rect(r, sys_button_face);
+            // Custom control types get a tinted banner with their name
+            if (custom_control_types.has(item.type)) {
+                Color tint = custom_control_types[item.type].design_color;
+                draw_rect(Rect2(r.position.x + 2, r.position.y + 2, r.size.x - 4, 14), Color(tint.r, tint.g, tint.b, 0.3));
+            }
+            if (font.is_valid()) {
+                float max_w = r.size.x - 6;
+                if (max_w > 10) {
+                    draw_string(font, r.position + Vector2(3, font_size + 2), label,
+                                HORIZONTAL_ALIGNMENT_LEFT, max_w, font_size, color_text);
+                }
             }
         }
     }
@@ -1294,7 +1346,23 @@ void VisualGasicFormDesigner::_gui_input(const Ref<InputEvent> &p_event) {
 
     if (mb.is_valid()) {
         if (mb->is_pressed()) {
-            _on_mouse_down(mb);
+            if (mb->get_button_index() == MOUSE_BUTTON_RIGHT) {
+                // Right-click: hit-test and emit context menu signal
+                Vector2 screen_pos = mb->get_position();
+                Vector2 pos = screen_pos - Vector2(FORM_PADDING_X, FORM_PADDING_Y);
+                int idx = _hit_test(pos);
+                if (idx >= 0) {
+                    // Select the right-clicked control
+                    select_none();
+                    controls.write[idx].selected = true;
+                    queue_redraw();
+                    emit_signal("control_selected", idx);
+                }
+                emit_signal("control_right_clicked", idx, screen_pos + get_global_position());
+                accept_event();
+            } else {
+                _on_mouse_down(mb);
+            }
         } else {
             _on_mouse_up(mb);
         }
@@ -1615,12 +1683,58 @@ bool VisualGasicFormDesigner::_can_drop_data(const Vector2 &p_point, const Varia
         if (data.has("type") && String(data["type"]) == "vg_control") {
             return true;
         }
+        // Accept .tscn files dragged from Godot's FileSystem dock
+        if (data.has("type") && String(data["type"]) == "files") {
+            PackedStringArray files = data.get("files", PackedStringArray());
+            for (int i = 0; i < files.size(); i++) {
+                if (files[i].ends_with(".tscn")) {
+                    return true;
+                }
+            }
+        }
     }
     return false;
 }
 
 void VisualGasicFormDesigner::_drop_data(const Vector2 &p_point, const Variant &p_data) {
     Dictionary data = p_data;
+
+    // ── Handle .tscn file drop from FileSystem dock ──
+    if (data.has("type") && String(data["type"]) == "files") {
+        PackedStringArray files = data.get("files", PackedStringArray());
+        for (int i = 0; i < files.size(); i++) {
+            if (files[i].ends_with(".tscn")) {
+                String scene_path = files[i];
+                String name = scene_path.get_file().get_basename();
+
+                // Register as custom type if not already known
+                if (!custom_control_types.has(name)) {
+                    CustomControlDef def;
+                    def.scene_path = scene_path;
+                    def.default_size = Vector2(100, 60);
+                    def.design_color = Color(0.7, 0.8, 0.9);
+                    custom_control_types[name] = def;
+                }
+
+                Vector2 sz = _default_size_for_type(name);
+                Vector2 form_pos = p_point - Vector2(FORM_PADDING_X, FORM_PADDING_Y);
+                Vector2 pos = _snap(form_pos - sz * 0.5);
+
+                int idx = add_control(name, scene_path, pos, sz);
+
+                // Emit signal so GDScript can auto-register in Components config
+                emit_signal("scene_file_dropped", scene_path, name);
+
+                UtilityFunctions::print("FormDesigner: Dropped scene file '", name, "' at ", pos);
+                break;  // Place only the first .tscn
+            }
+        }
+        show_preview = false;
+        queue_redraw();
+        return;
+    }
+
+    // ── Original vg_control handling ──
     String type = data.get("class_name", "Control");
     String scene_path = data.get("scene_path", "");
 
@@ -1665,6 +1779,12 @@ int VisualGasicFormDesigner::add_control(const String &p_type, const String &p_s
     item.name = _make_unique_name(p_type);
     item.rect.position = p_position;
     item.rect.size = (p_size.x > 0 && p_size.y > 0) ? p_size : _default_size_for_type(p_type);
+
+    // MenuBar auto-docks to top of form, full width
+    if (p_type == "MenuBar") {
+        item.rect.position = Vector2(0, 0);
+        item.rect.size = Vector2(form_size.x, 24);
+    }
 
     // Set default text for text-bearing controls
     if (p_type == "Button" || p_type == "Label" || p_type == "CheckBox" || p_type == "OptionButton") {
@@ -1782,6 +1902,8 @@ void VisualGasicFormDesigner::set_control_property(int p_index, const String &p_
         controls.write[p_index].rect.size.y = p_value;
     } else if (p_key == "visible") {
         controls.write[p_index].visible = p_value;
+    } else if (p_key == "scene_path") {
+        controls.write[p_index].scene_path = p_value;
     } else {
         // Store in generic property bag
         controls.write[p_index].properties[p_key] = p_value;
@@ -2087,6 +2209,17 @@ void VisualGasicFormDesigner::register_custom_control_type(const String &p_type_
     UtilityFunctions::print("FormDesigner: Registered custom control type '", p_type_name, "'");
 }
 
+void VisualGasicFormDesigner::set_control_preview_texture(const String &p_type_name, const Ref<Texture2D> &p_texture) {
+    if (p_texture.is_valid()) {
+        control_preview_textures[p_type_name] = p_texture;
+        queue_redraw();
+        UtilityFunctions::print("FormDesigner: Set preview texture for '", p_type_name, "' (", p_texture->get_width(), "x", p_texture->get_height(), ")");
+    } else {
+        control_preview_textures.erase(p_type_name);
+        queue_redraw();
+    }
+}
+
 // =============================================================================
 // Active tool (click-to-place mode)
 // =============================================================================
@@ -2353,6 +2486,11 @@ Vector2 VisualGasicFormDesigner::_default_size_for_type(const String &p_type) co
     if (p_type == "Tree")         return Vector2(150, 120);
     if (p_type == "RichTextLabel") return Vector2(150, 80);
     if (p_type == "TabContainer") return Vector2(200, 150);
+    if (p_type == "MenuBar")     return Vector2(300, 24);
+    if (p_type == "Line")        return Vector2(150, 4);
+    if (p_type == "RadioButton") return Vector2(100, 23);
+    if (p_type == "TextureButton") return Vector2(40, 40);
+    if (p_type == "DriveListBox") return Vector2(150, 28);
     if (p_type == "Control")      return Vector2(150, 28); // VGComboBox
     return Vector2(80, 23);
 }
@@ -2552,6 +2690,25 @@ void VisualGasicFormDesigner::new_form(const String &p_name) {
 // =============================================================================
 // .tscn serializer
 // =============================================================================
+
+void VisualGasicFormDesigner::_validate_scene_paths() {
+    for (int i = 0; i < controls.size(); i++) {
+        String sp = controls[i].scene_path;
+        if (sp.is_empty()) continue;
+        if (FileAccess::file_exists(sp)) continue;
+        // Custom scene was deleted — fall back to built-in prototype
+        String fallback = "res://addons/visual_gasic/prototypes/" + controls[i].type + ".tscn";
+        if (FileAccess::file_exists(fallback)) {
+            controls.write[i].scene_path = fallback;
+            UtilityFunctions::print("FormDesigner: Custom scene '", sp,
+                "' not found — falling back to prototype for '", controls[i].name, "'");
+        } else {
+            controls.write[i].scene_path = "";
+            UtilityFunctions::print("FormDesigner: Scene '", sp,
+                "' not found and no prototype available for '", controls[i].name, "'");
+        }
+    }
+}
 
 String VisualGasicFormDesigner::_serialize_to_tscn() const {
     // Collect unique scene paths → ext_resource entries
@@ -2932,6 +3089,9 @@ bool VisualGasicFormDesigner::save_form() {
 
 bool VisualGasicFormDesigner::save_form_as(const String &p_tscn_path) {
     form_path = p_tscn_path;
+
+    // Validate scene paths — fall back to prototype if custom file was deleted
+    _validate_scene_paths();
 
     // Ensure VG script file exists
     String vg_path = form_path.get_basename() + ".vg";

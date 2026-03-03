@@ -11,7 +11,7 @@
 
 ### Core Features
 - [BUILTIN_FUNCTIONS_REFERENCE.md](reference/BUILTIN_FUNCTIONS_REFERENCE.md) - Built-in functions (Print, Input, MsgBox, etc.)
-- [CONTROLS_REFERENCE.md](reference/CONTROLS_REFERENCE.md) - **Complete toolbox controls reference**
+- [CONTROLS_REFERENCE.md](reference/CONTROLS_REFERENCE.md) - **Complete toolbox controls reference** (40+ controls, Form Designer properties)
 - [GODOT_FUNCTIONS_REFERENCE.md](reference/GODOT_FUNCTIONS_REFERENCE.md) - Godot integration functions
 - [GODOT_QUICK_REF.md](reference/GODOT_QUICK_REF.md) - Quick reference for Godot features
 - [MODERN_SYNTAX_QUICK_REF.md](reference/MODERN_SYNTAX_QUICK_REF.md) - Modern syntax features
@@ -19,6 +19,7 @@
 
 ### Editor Features
 - [ide_tools.md](manual/ide_tools.md) - **Complete IDE tools guide** (Watch Window, Alignment, IntelliSense, Debugging, Linting, Snippets, Themes)
+- [CUSTOM_CONTROLS.md](guides/CUSTOM_CONTROLS.md) - **Creating and using custom controls** (design in Godot, add via Components, use on forms)
 - [BRACKET_COMPLETION.md](BRACKET_COMPLETION.md) - Smart bracket completion system (type `}` to auto-complete blocks)
 - [BRACKET_COMPLETION_QUICK_REF.md](BRACKET_COMPLETION_QUICK_REF.md) - Quick reference for bracket completion
 - [IMMEDIATE_WINDOW.md](IMMEDIATE_WINDOW.md) - Interactive debugging console

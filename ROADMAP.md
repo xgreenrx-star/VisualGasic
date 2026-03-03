@@ -549,6 +549,22 @@ All items from the system-programming audit are now implemented:
     branches, loops, return values.  Hot detection at threshold 50 calls; unsupported opcodes  
     gracefully fall back to interpreter.  Activated via `VG_JIT=2` environment variable.
 
+13. **Custom Control Designer (UserControl Editor)**  
+    A WYSIWYG editor for designing reusable custom controls — wobbly buttons, animated  
+    dropdowns, themed game UI widgets, etc. Users design a control visually, save it as a  
+    `.tscn`, and it appears in the Toolbox alongside the built-in controls for drag-and-drop  
+    reuse across any form.  
+    **Scope**:  
+    - Mini design surface dialog (similar to Menu Editor) with live preview canvas  
+    - Property panel for theme overrides (fonts, colors, StyleBox), child node composition  
+      (icon + label + particle effect, etc.), and basic animation/shader parameters  
+    - "Save as Custom Control" writes to `res://custom_controls/` and auto-registers in Toolbox  
+      via `register_custom_control_type()`  
+    - Components dialog already supports add/remove; this adds the visual authoring step  
+    **Foundation already in place**: Toolbox custom control registration, Components dialog,  
+    right-click context menu plumbing, scene_path tracking per control, `_validate_scene_paths()`  
+    fallback system.
+
 ---
 
 *This roadmap is a living document. Priorities may shift based on community feedback and development resources.*

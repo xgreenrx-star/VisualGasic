@@ -19,6 +19,7 @@
 #include <godot_cpp/classes/tab_container.hpp>
 #include <godot_cpp/classes/label.hpp>
 #include <godot_cpp/classes/script.hpp>
+#include <godot_cpp/classes/input_event.hpp>
 
 using namespace godot;
 
@@ -36,6 +37,7 @@ public:
     
 private:
     void wire_events(Node* node);
+    void _on_control_gui_input(const Ref<InputEvent> &p_event, Node *p_control);
 };
 
 #endif

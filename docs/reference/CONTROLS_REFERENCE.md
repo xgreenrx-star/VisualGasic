@@ -944,27 +944,284 @@ The C++ runtime also provides these aliased properties on **all** form controls:
 
 ---
 
-## VB6 Property Inspector
+## Form Designer Properties Reference
 
-The **Properties** panel (left dock) shows VB6-style properties for selected controls:
-
-| Property | Description |
-|----------|-------------|
-| Name | Control name for code access |
-| Left | X position |
-| Top | Y position |
-| Width | Control width |
-| Height | Control height |
-| Caption/Text | Display text |
-| BackColor | Background color |
-| ForeColor | Text color |
-| Enabled | Whether control accepts input |
-| Visible | Whether control is shown |
-| TabIndex | Focus order |
-| TabStop | Whether control can receive focus |
-| ToolTipText | Hover tooltip |
+The **Properties** panel shows VB6-style properties organized into categories.
+Select any control on the canvas and these properties appear in the right-hand panel.
+Toggle between **A–Z** (alphabetic) and **≡** (categorized) views.
 
 Colors can be entered as:
 - Hex: `#FF0000` or `0xFF0000`
 - VB6 constants: `vbRed`, `vbBlue`, `vbGreen`, etc.
 - RGB: `RGB(255, 0, 0)`
+
+---
+
+### Common Properties (All Controls)
+
+These properties appear for every control type.
+
+#### (Name) — *always first*
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `(Name)` | String | Control name used in code to identify the control |
+
+#### APPEARANCE
+
+| Property | Type | Controls | Description |
+|----------|------|----------|-------------|
+| `Caption` / `Text` | String | All with text | Display text (Caption for Buttons/Labels, Text for TextBoxes) |
+| `BackColor` | Color | All | Background color |
+| `ForeColor` | Color | All | Text/foreground color |
+| `Appearance` | Enum | All | `0 - Flat`, `1 - 3D` (raised/sunken effect) |
+| `BorderStyle` | Enum | Label, Panel, LineEdit, TextEdit | `0 - None`, `1 - Fixed Single` |
+
+#### BEHAVIOR
+
+| Property | Type | Controls | Description |
+|----------|------|----------|-------------|
+| `Enabled` | Bool | All | Whether the control responds to user input |
+| `Visible` | Bool | All | Whether the control is displayed |
+| `TabStop` | Bool | All | Whether the user can TAB to this control |
+| `TabIndex` | Number | All | Tab order within the form |
+
+#### FONT
+
+| Property | Type | Controls | Description |
+|----------|------|----------|-------------|
+| `FontName` | String | All | Font family name (default: "MS Sans Serif") |
+| `FontSize` | Number | All | Font size in points |
+| `FontBold` | Bool | All | Bold text |
+| `FontItalic` | Bool | All | Italic text |
+| `FontUnderline` | Bool | All | Underlined text |
+| `FontStrikethrough` | Bool | All | Strikethrough text |
+
+#### POSITION
+
+| Property | Type | Controls | Description |
+|----------|------|----------|-------------|
+| `Left` | Number | All | X position on the form (pixels) |
+| `Top` | Number | All | Y position on the form (pixels) |
+| `Width` | Number | All | Control width (pixels) |
+| `Height` | Number | All | Control height (pixels) |
+
+#### EFFECTS
+
+| Property | Type | Controls | Description |
+|----------|------|----------|-------------|
+| `Opacity` | Slider (0–100) | All | Transparency level (100 = fully opaque, 0 = invisible) |
+| `Rotation` | Number | All | Rotation angle in degrees |
+| `ScaleX` | Number | All | Horizontal scale factor (1.0 = normal) |
+| `ScaleY` | Number | All | Vertical scale factor (1.0 = normal) |
+
+#### LAYOUT
+
+| Property | Type | Controls | Description |
+|----------|------|----------|-------------|
+| `MinWidth` | Number | All | Minimum width constraint |
+| `MinHeight` | Number | All | Minimum height constraint |
+| `ClipContents` | Bool | All | Clip child controls to this control's boundaries |
+
+#### MISC
+
+| Property | Type | Controls | Description |
+|----------|------|----------|-------------|
+| `ToolTipText` | String | All | Text shown when hovering over the control |
+| `Tag` | String | All | General-purpose storage string |
+| `MousePointer` | Enum | All | Cursor shape (Default, Arrow, Crosshair, IBeam, Hand, etc.) |
+| `Index` | Readonly | All | Control index in the form designer's array |
+
+---
+
+### Button (CommandButton)
+
+| Property | Type | Category | Description |
+|----------|------|----------|-------------|
+| `Caption` | String | Appearance | Button label text |
+| `Style` | Enum | Appearance | `0 - Standard`, `1 - Graphical` |
+| `Flat` | Bool | Appearance | Removes 3D border (flat appearance) |
+| `Icon` | String | Appearance | Path to icon texture displayed on the button |
+| `IconAlignment` | Enum | Appearance | `0 - Left`, `1 - Center`, `2 - Right` |
+| `Default` | Bool | Behavior | Whether this is the form's default button (Enter key) |
+| `Cancel` | Bool | Behavior | Whether this is the form's Cancel button (Escape key) |
+
+---
+
+### Label
+
+| Property | Type | Category | Description |
+|----------|------|----------|-------------|
+| `Caption` | String | Appearance | Label display text |
+| `Alignment` | Enum | Appearance | `0 - Left`, `1 - Right`, `2 - Center` |
+| `VerticalAlignment` | Enum | Appearance | `0 - Top`, `1 - Center`, `2 - Bottom` |
+| `AutoSize` | Bool | Appearance | Automatically resize to fit text |
+| `WordWrap` | Bool | Appearance | Wrap long text to next line |
+| `MaxLinesVisible` | Number | Appearance | Maximum visible lines (-1 = unlimited) |
+
+---
+
+### TextBox (LineEdit)
+
+| Property | Type | Category | Description |
+|----------|------|----------|-------------|
+| `Text` | String | Appearance | Current text content |
+| `PasswordChar` | String | Appearance | Mask character (e.g. `"*"`), empty = normal |
+| `MaxLength` | Number | Appearance | Maximum characters (0 = unlimited) |
+| `Locked` | Bool | Appearance | Read-only mode |
+| `PlaceholderText` | String | Appearance | Grayed-out hint text when empty |
+| `ClearButton` | Bool | Appearance | Show ✕ clear button when field has text |
+| `SelectAllOnFocus` | Bool | Behavior | Auto-select all text when control receives focus |
+
+---
+
+### TextArea (TextEdit)
+
+| Property | Type | Category | Description |
+|----------|------|----------|-------------|
+| `Text` | String | Appearance | Current text content |
+| `MultiLine` | Bool | Appearance | Accept multiple lines of text |
+| `ScrollBars` | Enum | Appearance | `0 - None`, `1 - Horizontal`, `2 - Vertical`, `3 - Both` |
+| `Editable` | Bool | Behavior | Whether the user can edit the content |
+
+---
+
+### CheckBox
+
+| Property | Type | Category | Description |
+|----------|------|----------|-------------|
+| `Caption` | String | Appearance | Checkbox label text |
+| `Value` | Bool | Appearance | Current checked state |
+
+---
+
+### Range Controls (ProgressBar, HSlider, VSlider, HScrollBar, VScrollBar, SpinBox)
+
+| Property | Type | Category | Description |
+|----------|------|----------|-------------|
+| `Value` | Number | Appearance | Current value |
+| `Min` | Number | Appearance | Minimum value |
+| `Max` | Number | Appearance | Maximum value |
+| `Step` | Number | Appearance | Increment step |
+
+---
+
+### ProgressBar (additional)
+
+| Property | Type | Category | Description |
+|----------|------|----------|-------------|
+| `ShowPercentage` | Bool | Appearance | Display value as percentage text |
+| `FillMode` | Enum | Appearance | `0 - Left to Right`, `1 - Right to Left`, `2 - Top to Bottom`, `3 - Bottom to Top` |
+
+---
+
+### SpinBox (additional)
+
+| Property | Type | Category | Description |
+|----------|------|----------|-------------|
+| `Prefix` | String | Appearance | Text before the value (e.g. `"$"`) |
+| `Suffix` | String | Appearance | Text after the value (e.g. `"%"`, `"px"`) |
+| `Wrap` | Bool | Behavior | Wrap from Max→Min and Min→Max |
+
+---
+
+### PictureBox (TextureRect)
+
+| Property | Type | Category | Description |
+|----------|------|----------|-------------|
+| `Picture` | String | Appearance | Path to the image resource |
+| `Stretch` | Bool | Appearance | Legacy stretch toggle |
+| `StretchMode` | Enum | Appearance | `0 - Scale`, `1 - Tile`, `2 - Keep`, `3 - Keep Centered`, `4 - Keep Aspect`, `5 - Keep Aspect Centered`, `6 - Keep Aspect Covered` |
+| `FlipH` | Bool | Appearance | Flip image horizontally |
+| `FlipV` | Bool | Appearance | Flip image vertically |
+
+---
+
+### Shape (ColorRect)
+
+| Property | Type | Category | Description |
+|----------|------|----------|-------------|
+| `ShapeColor` | Color | Appearance | Fill color of the rectangle |
+
+---
+
+### ListBox (ItemList)
+
+| Property | Type | Category | Description |
+|----------|------|----------|-------------|
+| `Sorted` | Bool | Behavior | Sort items alphabetically |
+| `MultiSelect` | Enum | Behavior | `0 - None`, `1 - Simple`, `2 - Extended` |
+| `Columns` | Number | Behavior | Number of columns |
+| `IconMode` | Enum | Appearance | `0 - Top`, `1 - Left` |
+| `MaxColumns` | Number | Appearance | Maximum columns (0 = auto-fit) |
+| `FixedColumnWidth` | Number | Appearance | Fixed column width (0 = auto) |
+
+---
+
+### ComboBox (OptionButton)
+
+| Property | Type | Category | Description |
+|----------|------|----------|-------------|
+| `ListItems` | String | Appearance | Pipe-separated items (e.g. `"Red|Green|Blue"`) |
+
+---
+
+### TreeView (Tree)
+
+| Property | Type | Category | Description |
+|----------|------|----------|-------------|
+| `Sorted` | Bool | Behavior | Sort items alphabetically |
+| `HideRoot` | Bool | Appearance | Hide the root tree item |
+| `HideFolding` | Bool | Appearance | Hide the expand/collapse arrows |
+
+---
+
+### TabStrip (TabContainer)
+
+| Property | Type | Category | Description |
+|----------|------|----------|-------------|
+| `CurrentTab` | Number | Appearance | Currently active tab index (0-based) |
+| `TabAlignment` | Enum | Appearance | `0 - Left`, `1 - Center`, `2 - Right` |
+
+---
+
+### Timer
+
+| Property | Type | Category | Description |
+|----------|------|----------|-------------|
+| `Interval` | Number | Behavior | Milliseconds between Timer events |
+
+---
+
+### Form Properties
+
+When you click the form background (no control selected), these properties appear:
+
+| Property | Type | Category | Description |
+|----------|------|----------|-------------|
+| `(Name)` | String | — | Form name |
+| `Caption` | String | Appearance | Title bar text |
+| `BorderStyle` | Enum | Appearance | `0 - None`, `1 - Fixed Single`, `2 - Sizable`, `3 - Fixed Dialog`, `4 - Fixed ToolWindow`, `5 - Sizable ToolWindow` |
+| `BackColor` | Color | Appearance | Form background color |
+| `ForeColor` | Color | Appearance | Default text color for new controls |
+| `ControlBox` | Bool | Behavior | Show close/min/max buttons in title bar |
+| `MinButton` | Bool | Behavior | Show minimize button |
+| `MaxButton` | Bool | Behavior | Show maximize button |
+| `Moveable` | Bool | Behavior | Allow user to drag the form |
+| `ShowInTaskbar` | Bool | Behavior | Appear in the OS taskbar |
+| `KeyPreview` | Bool | Behavior | Form receives key events before controls |
+| `AutoRedraw` | Bool | Behavior | Automatically handle Paint events |
+| `WindowState` | Enum | Behavior | `0 - Normal`, `1 - Minimized`, `2 - Maximized` |
+| `StartUpPosition` | Enum | Behavior | `0 - Manual`, `1 - CenterOwner`, `2 - CenterScreen`, `3 - Windows Default` |
+| `Width` | Number | Position | Form width |
+| `Height` | Number | Position | Form height |
+| `WindowType` | Enum | Misc | `0 - Game (SubViewport)`, `1 - Windows`, `2 - Linux/CSD`, `3 - macOS` |
+| `Icon` | String | Misc | Path to the form's title bar icon |
+
+---
+
+## Custom Controls
+
+You can design your own controls in Godot and add them to the Toolbox.
+See the **[Custom Controls Guide](../guides/CUSTOM_CONTROLS.md)** for
+step-by-step instructions on creating, registering, and using custom controls.
