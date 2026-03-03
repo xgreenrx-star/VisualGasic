@@ -547,8 +547,8 @@ func _set_conditional_breakpoint(script_path: String, line: int, condition: Stri
 	"""Set a conditional breakpoint via the C++ debugger."""
 	# Use the global debugger instance — do NOT instantiate a throwaway one,
 	# as breakpoint data would be lost when the temporary object is freed.
-	if ClassDB.class_exists("VisualGasicDebugger"):
-		var global_debugger = VisualGasicDebugger.get_global_debugger() if VisualGasicDebugger.has_method("get_global_debugger") else null
+	if ClassDB.class_exists("VisualGasicDebugger") and ClassDB.class_has_method("VisualGasicDebugger", "get_global_debugger"):
+		var global_debugger = ClassDB.instantiate("VisualGasicDebugger").call("get_global_debugger")
 		if global_debugger:
 			global_debugger.set_breakpoint(script_path, line, condition)
 		else:

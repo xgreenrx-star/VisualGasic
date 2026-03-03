@@ -1779,12 +1779,11 @@ func _on_scene_changed(scene_root: Node):
 		_disable_menubar_mouse_in_editor(scene_root)
 
 ## Determines if this plugin handles input for the given object.
-## Returns true for Control and Node2D nodes to enable double-click event generation.
+## Returns true for Control/Node2D nodes only when the scene has an associated .vg script.
 ## @param object: The object being edited
 ## @returns: true if plugin should handle input for this object
-func _handles(object):
-	# Handle input for any Control or Node2D being edited
-	return object is Control or object is Node2D
+func _handles(_object):
+	return false
 
 ## Intercepts canvas GUI input for:
 ## 1. Custom vg_control drag-drop handling (avoids MenuBar issues)

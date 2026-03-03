@@ -1414,7 +1414,19 @@ void VisualGasicFormDesigner::_on_mouse_down(const Ref<InputEventMouseButton> &p
     }
 
     // --- Click-to-place mode: start drawing the new control rect ---
+    // BUT: double-clicks on existing controls should always open code editor,
+    // even if a tool is active — cancel the tool and handle the double-click.
     if (!placing_tool_class.is_empty()) {
+        if (p_event->is_double_click()) {
+            int idx = _hit_test(pos);
+            if (idx >= 0) {
+                // Cancel the active tool and open the code editor instead
+                placing_tool_class = "";
+                placing_tool_scene_path = "";
+                emit_signal("control_double_clicked", idx);
+                return;
+            }
+        }
         mode = MODE_PLACING;
         placing_rect = Rect2(_snap(pos), Vector2(0, 0));
         accept_event();

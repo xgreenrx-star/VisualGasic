@@ -2872,6 +2872,7 @@ func _on_fd_control_double_clicked(index: int) -> void:
 	var ctrl_name = info.get("name", "")
 	var ctrl_type = info.get("type", "")
 	if ctrl_name.is_empty():
+		push_warning("VisualGasic: Double-click — control has no name")
 		return
 	# Determine default event suffix based on type
 	var event_suffix = "Click"
@@ -2879,12 +2880,25 @@ func _on_fd_control_double_clicked(index: int) -> void:
 		event_suffix = "Change"
 	elif ctrl_type in ["HScrollBar", "VScrollBar", "HSlider", "VSlider"]:
 		event_suffix = "Change"
-	# Open/create the .vg script and insert/navigate to the event handler
+	# Get form path — try multiple fallbacks
 	var form_path = _form_designer.get_form_path()
 	if form_path.is_empty():
+		# Try syncing from the currently edited scene
+		_sync_scene_to_form_designer()
+		form_path = _form_designer.get_form_path()
+	if form_path.is_empty():
+		# Still empty — auto-save form to a default location
+		var form_name = _form_designer.get_form_name() if _form_designer.has_method("get_form_name") else "Form1"
+		var default_path = "res://" + form_name + ".tscn"
+		print("VisualGasic: Form not saved yet — auto-saving to ", default_path)
+		_form_designer.save_form_as(default_path)
+		form_path = _form_designer.get_form_path()
+	if form_path.is_empty():
+		push_warning("VisualGasic: Cannot open code — form has no save path. Save the form first (File > Save).")
 		return
 	var vg_path = form_path.get_basename() + ".vg"
 	var sub_name = ctrl_name + "_" + event_suffix
+	print("VisualGasic: Double-click → opening ", sub_name, " in ", vg_path)
 	_open_or_create_event_handler(vg_path, sub_name)
 
 ## Opens the .vg script and creates/navigates to the given Sub stub.
@@ -3994,15 +4008,12 @@ func _on_scene_changed(scene_root: Node):
 		_sync_scene_to_form_designer()
 
 ## Determines if this plugin handles input for the given object.
-## Returns true for Control and Node2D nodes to enable double-click event generation.
+## Always returns false — the Form Designer never auto-activates.
+## Users open it manually via the "Form Designer" tab when needed.
 ## @param object: The object being edited
-## @returns: true if plugin should handle input for this object
-func _handles(object):
-	# Don't reclaim focus while user is editing an external control scene
-	if _editing_external_scene:
-		return false
-	# Handle input for any Control or Node2D being edited
-	return object is Control or object is Node2D
+## @returns: always false
+func _handles(_object):
+	return false
 
 ## Intercepts canvas GUI input for:
 ## 1. Custom vg_control drag-drop handling (avoids MenuBar issues)
@@ -4149,8 +4160,10 @@ func _poll_for_inject(path: String, obj: String, event: String, attempts: int):
 					root.set_script(res)
 					print("VisualGasic: Attached " + path.get_file() + " to Form (" + root.name + ").")
 			
-			# Open in Editor
+			# Open in Editor — switch to Script view
 			get_editor_interface().edit_resource(res)
+			# Switch to the Script editor screen so the CodeEdit is visible
+			EditorInterface.set_main_screen_editor("Script")
 			print("VisualGasic: Opened script in Godot Editor -> " + path)
 			
 			# INJECT CODE INTO BUFFER
@@ -4164,22 +4177,45 @@ func _poll_for_inject(path: String, obj: String, event: String, attempts: int):
 					var text = code_edit.text
 					
 					if text.find(sub_name) == -1:
-						var new_code = "\n" + sub_name + "()\n    Print \"" + obj + " " + event + "\"\nEnd Sub\n"
+						# Generate a clean event handler stub (no placeholder Print)
+						var new_code = "\n" + sub_name + "()\n    \nEnd Sub\n"
 						code_edit.text += new_code
 						text = code_edit.text # Refresh for search
 					
-					# Goto Line
+					# Navigate to the Sub body line (the blank line inside the Sub)
 					var lines = text.split("\n")
 					for i in lines.size():
 						if lines[i].strip_edges().begins_with(sub_name):
-							code_edit.set_caret_line(i + 1)
+							# Position caret on the line INSIDE the Sub body
+							var body_line = i + 1
+							code_edit.set_caret_line(body_line)
 							code_edit.set_caret_column(4)
-							code_edit.center_viewport_to_caret()
-							code_edit.grab_focus()
 							break
+					
+					# Deferred scroll — wait for the editor to finish layout
+					_deferred_scroll_to_caret.call_deferred(code_edit)
 	else:
 		await get_tree().create_timer(0.1).timeout
 		_poll_for_inject(path, obj, event, attempts + 1)
+
+## Deferred helper: scrolls the CodeEdit viewport to the caret position.
+## Uses a short timer to let the Script editor fully lay out after a screen switch,
+## then centers the viewport on the caret and grabs focus.
+func _deferred_scroll_to_caret(code_edit: CodeEdit) -> void:
+	if not is_instance_valid(code_edit):
+		return
+	# Wait for the Script editor to finish its layout after the screen switch.
+	# A single call_deferred is too early — the editor needs ~150ms to resize.
+	var timer = get_tree().create_timer(0.15)
+	await timer.timeout
+	if is_instance_valid(code_edit):
+		code_edit.center_viewport_to_caret()
+		code_edit.grab_focus()
+		# Second pass after another short delay for robustness
+		var timer2 = get_tree().create_timer(0.15)
+		await timer2.timeout
+		if is_instance_valid(code_edit):
+			code_edit.center_viewport_to_caret()
 
 ## Called when the main editor screen changes (2D, 3D, Script, AssetLib).
 ## Switches toolbox tab to match the current view.
