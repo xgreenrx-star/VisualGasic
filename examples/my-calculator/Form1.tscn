@@ -29,10 +29,10 @@ script = ExtResource("3")
 [node name="mnuEdit" type="PopupMenu" parent="MainMenu"]
 
 [node name="LineEdit1" parent="." instance=ExtResource("4")]
-offset_left = 88.0
-offset_top = 80.0
-offset_right = 416.0
-offset_bottom = 120.0
+offset_left = 160.0
+offset_top = 64.0
+offset_right = 408.0
+offset_bottom = 88.0
 Enabled = true
 TabStop = true
 TabIndex = 0
@@ -53,10 +53,10 @@ PasswordChar = ""
 PlaceholderText = ""
 
 [node name="Button1" parent="." instance=ExtResource("5")]
-offset_left = 128.0
-offset_top = 192.0
-offset_right = 176.0
-offset_bottom = 216.0
+offset_left = 200.0
+offset_top = 128.0
+offset_right = 232.0
+offset_bottom = 160.0
 text = "Button1"
 Enabled = true
 TabStop = true
@@ -77,10 +77,10 @@ Cancel = false
 Style = 0
 
 [node name="Button2" parent="." instance=ExtResource("5")]
-offset_left = 187.0
-offset_top = 237.0
-offset_right = 235.0
-offset_bottom = 261.0
+offset_left = 248.0
+offset_top = 128.0
+offset_right = 280.0
+offset_bottom = 160.0
 text = "Button2"
 Enabled = true
 TabStop = true
@@ -101,10 +101,10 @@ Cancel = false
 Style = 0
 
 [node name="Button3" parent="." instance=ExtResource("5")]
-offset_left = 246.0
-offset_top = 237.0
-offset_right = 294.0
-offset_bottom = 261.0
+offset_left = 296.0
+offset_top = 128.0
+offset_right = 328.0
+offset_bottom = 160.0
 text = "Button3"
 Enabled = true
 TabStop = true
@@ -125,10 +125,10 @@ Cancel = false
 Style = 0
 
 [node name="Button4" parent="." instance=ExtResource("5")]
-offset_left = 305.0
-offset_top = 237.0
-offset_right = 353.0
-offset_bottom = 261.0
+offset_left = 344.0
+offset_top = 128.0
+offset_right = 376.0
+offset_bottom = 160.0
 text = "Button4"
 Enabled = true
 TabStop = true
@@ -149,10 +149,10 @@ Cancel = false
 Style = 0
 
 [node name="Button5" parent="." instance=ExtResource("5")]
-offset_left = 128.0
-offset_top = 282.0
-offset_right = 176.0
-offset_bottom = 306.0
+offset_left = 200.0
+offset_top = 176.0
+offset_right = 232.0
+offset_bottom = 208.0
 text = "Button5"
 Enabled = true
 TabStop = true
@@ -173,10 +173,10 @@ Cancel = false
 Style = 0
 
 [node name="Button6" parent="." instance=ExtResource("5")]
-offset_left = 305.0
-offset_top = 282.0
-offset_right = 353.0
-offset_bottom = 306.0
+offset_left = 248.0
+offset_top = 176.0
+offset_right = 280.0
+offset_bottom = 208.0
 text = "Button6"
 Enabled = true
 TabStop = true
@@ -197,10 +197,10 @@ Cancel = false
 Style = 0
 
 [node name="Button7" parent="." instance=ExtResource("5")]
-offset_left = 246.0
-offset_top = 282.0
-offset_right = 294.0
-offset_bottom = 306.0
+offset_left = 296.0
+offset_top = 176.0
+offset_right = 328.0
+offset_bottom = 208.0
 text = "Button7"
 Enabled = true
 TabStop = true
@@ -221,10 +221,10 @@ Cancel = false
 Style = 0
 
 [node name="Button8" parent="." instance=ExtResource("5")]
-offset_left = 187.0
-offset_top = 282.0
-offset_right = 235.0
-offset_bottom = 306.0
+offset_left = 344.0
+offset_top = 176.0
+offset_right = 376.0
+offset_bottom = 208.0
 text = "Button8"
 Enabled = true
 TabStop = true
@@ -244,12 +244,12 @@ Default = false
 Cancel = false
 Style = 0
 
-[node name="Button9" parent="." instance=ExtResource("5")]
-offset_left = 187.0
-offset_top = 192.0
-offset_right = 235.0
-offset_bottom = 216.0
-text = "Button9"
+[node name="btn0" parent="." instance=ExtResource("5")]
+offset_left = 200.0
+offset_top = 224.0
+offset_right = 232.0
+offset_bottom = 256.0
+text = "0"
 Enabled = true
 TabStop = true
 TabIndex = 1
@@ -268,12 +268,12 @@ Default = false
 Cancel = false
 Style = 0
 
-[node name="Button10" parent="." instance=ExtResource("5")]
-offset_left = 246.0
-offset_top = 192.0
-offset_right = 294.0
-offset_bottom = 216.0
-text = "Button10"
+[node name="btnDecimal" parent="." instance=ExtResource("5")]
+offset_left = 248.0
+offset_top = 224.0
+offset_right = 280.0
+offset_bottom = 256.0
+text = "."
 Enabled = true
 TabStop = true
 TabIndex = 1
@@ -292,12 +292,12 @@ Default = false
 Cancel = false
 Style = 0
 
-[node name="Button11" parent="." instance=ExtResource("5")]
-offset_left = 305.0
-offset_top = 192.0
-offset_right = 353.0
-offset_bottom = 216.0
-text = "Button11"
+[node name="btnEquals" parent="." instance=ExtResource("5")]
+offset_left = 296.0
+offset_top = 224.0
+offset_right = 328.0
+offset_bottom = 256.0
+text = "="
 Enabled = true
 TabStop = true
 TabIndex = 1
@@ -316,12 +316,12 @@ Default = false
 Cancel = false
 Style = 0
 
-[node name="Button12" parent="." instance=ExtResource("5")]
-offset_left = 128.0
-offset_top = 237.0
-offset_right = 176.0
-offset_bottom = 261.0
-text = "Button12"
+[node name="btnAdd" parent="." instance=ExtResource("5")]
+offset_left = 344.0
+offset_top = 224.0
+offset_right = 376.0
+offset_bottom = 256.0
+text = "+"
 Enabled = true
 TabStop = true
 TabIndex = 1

@@ -653,19 +653,41 @@ func _on_back_to_godot_pressed() -> void:
 func _set_window_layout(config: ConfigFile):
 	if is_instance_valid(_layout_manager):
 		_layout_manager.on_window_layout_restored(config)
+	# Restore the form path from last session so the designer isn't blank
+	var saved_form_path = config.get_value("VisualGasic", "form_path", "")
+	if not saved_form_path.is_empty() and is_instance_valid(_form_designer):
+		if FileAccess.file_exists(saved_form_path):
+			_form_designer.open_form(saved_form_path)
+			print("[VisualGasic] Restored form from layout config: ", saved_form_path)
 
 ## Called by the editor when saving window layout.
 func _get_window_layout(config: ConfigFile):
 	if is_instance_valid(_layout_manager):
 		_layout_manager.on_window_layout_saving(config)
+	# Persist the current form path so it survives editor restart
+	if is_instance_valid(_form_designer):
+		var fpath = _form_designer.get_form_path()
+		if not fpath.is_empty():
+			config.set_value("VisualGasic", "form_path", fpath)
 
 ## Called by the editor before saving any external data (scenes, resources).
-## We write the C++ Form Designer state to disk so Godot's scene tree reload
-## picks up our version rather than overwriting it with stale data.
+## We write the C++ Form Designer state to disk, then force Godot to reload
+## the scene so its in-memory scene tree matches our .tscn.  Without the
+## reload, Godot's own scene-save (which runs right after this) would
+## overwrite our file with its stale version.
 func _save_external_data() -> void:
+	if _saving_external:
+		return  # reentrancy guard — reload_scene can trigger another save cycle
+	_saving_external = true
 	if is_instance_valid(_form_designer) and not _form_designer.get_form_path().is_empty():
 		_form_designer.save_form()
-		print("[VisualGasic] _save_external_data → form auto-saved")
+		var path = _form_designer.get_form_path()
+		# Force Godot to re-read the .tscn so its scene tree matches our save
+		var scene_root = EditorInterface.get_edited_scene_root()
+		if scene_root and scene_root.scene_file_path == path:
+			EditorInterface.reload_scene_from_path(path)
+		print("[VisualGasic] _save_external_data → form saved & scene reloaded")
+	_saving_external = false
 
 ## Called when the plugin exits the editor tree.
 ## Cleans up all plugin components and disconnects signals.
@@ -2815,6 +2837,7 @@ func _on_fd_form_modified() -> void:
 var _fd_context_menu: PopupMenu = null
 var _fd_context_ctrl_index: int = -1
 var _editing_external_scene: bool = false
+var _saving_external: bool = false  ## reentrancy guard for _save_external_data
 
 func _on_fd_control_right_clicked(index: int, position: Vector2) -> void:
 	# Clean up previous context menu if any
