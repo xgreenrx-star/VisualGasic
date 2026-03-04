@@ -640,6 +640,12 @@ func _make_visible(p_visible: bool) -> void:
 		_hide_godot_panels()
 	else:
 		_show_godot_panels()
+		# Leaving Form Designer → flush C++ state to disk and reload Godot's
+		# scene tree so it matches.  This prevents Godot from overwriting our
+		# .tscn with stale data if the user saves while in Godot mode.
+		if is_instance_valid(_form_designer) and not _form_designer.get_form_path().is_empty():
+			_form_designer.save_form()
+			_reload_scene_after_form_save(_form_designer.get_form_path())
 	# Auto-load the currently edited scene into the C++ Form Designer
 	if p_visible and _form_designer:
 		_sync_scene_to_form_designer()
