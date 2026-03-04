@@ -48,8 +48,9 @@ func _ready() -> void:
 func setup(form_designer) -> void:
 	_form_designer = form_designer
 
-## Opens the dialog for the currently selected controls on the form designer
-func open_for_controls(anchor_pos: Vector2 = Vector2.ZERO) -> void:
+## Opens the dialog for the currently selected controls on the form designer.
+## canvas_rect: the global rect of the form canvas — dialog positions beside it.
+func open_for_controls(anchor_pos: Vector2 = Vector2.ZERO, canvas_rect: Rect2 = Rect2()) -> void:
 	if not _form_designer:
 		push_error("[VisualGasic] Grid Arrange: no form designer reference")
 		return
@@ -83,12 +84,27 @@ func open_for_controls(anchor_pos: Vector2 = Vector2.ZERO) -> void:
 	
 	_update_status()
 	
-	# Position near the mouse
-	if anchor_pos != Vector2.ZERO:
-		position = Vector2i(anchor_pos)
+	# Position to the RIGHT of the form canvas so the dialog doesn't block it.
+	# If canvas_rect is provided, dock to its right edge.  Otherwise, use the
+	# right third of the screen so it's out of the way.
+	var dialog_size = Vector2(size)
+	var screen_size = Vector2(DisplayServer.screen_get_size())
+	var target_pos := Vector2.ZERO
+	
+	if canvas_rect.size.x > 0:
+		# Place flush with the right edge of the canvas, vertically centered
+		target_pos.x = canvas_rect.position.x + canvas_rect.size.x - dialog_size.x - 8
+		target_pos.y = canvas_rect.position.y + 8
+	elif anchor_pos != Vector2.ZERO:
+		target_pos = anchor_pos
 	else:
-		var screen_size = DisplayServer.screen_get_size()
-		position = Vector2i((Vector2(screen_size) - Vector2(size)) / 2)
+		target_pos = (screen_size - dialog_size) / 2
+	
+	# Clamp to screen bounds
+	target_pos.x = clampf(target_pos.x, 0, screen_size.x - dialog_size.x)
+	target_pos.y = clampf(target_pos.y, 0, screen_size.y - dialog_size.y)
+	
+	position = Vector2i(target_pos)
 	
 	print("[VisualGasic] Grid Arrange: opening for %d controls at %s" % [_selected_indices.size(), str(position)])
 	popup(Rect2i(position, Vector2i(size)))

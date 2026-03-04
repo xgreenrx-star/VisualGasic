@@ -231,5 +231,8 @@ func _open_grid_arrange() -> void:
 		_grid_arrange_dialog.setup(fd)
 	
 	print("[VisualGasic] Opening Grid Arrange dialog")
-	var mouse_pos = DisplayServer.mouse_get_position()
-	_grid_arrange_dialog.open_for_controls(Vector2(mouse_pos))
+	# Pass the canvas global rect so the dialog positions beside the form, not over it
+	var canvas_rect := Rect2()
+	if is_instance_valid(fd):
+		canvas_rect = fd.get_global_rect()
+	_grid_arrange_dialog.open_for_controls(Vector2.ZERO, canvas_rect)
