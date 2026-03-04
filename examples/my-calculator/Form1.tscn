@@ -1,9 +1,10 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" uid="uid://3wdqchq1mhir" path="res://Form1.vg" id="1"]
 [ext_resource type="Script" uid="uid://cixa1he0byrgy" path="res://addons/visual_gasic/form_editor_helper.gd" id="2"]
 [ext_resource type="Script" uid="uid://cxdke3blsbum2" path="res://addons/visual_gasic/menu_bar_helper.gd" id="3"]
 [ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/LineEdit.tscn" id="4"]
+[ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/Button.tscn" id="5"]
 
 [node name="Form1" type="Window"]
 title = "Form1"
@@ -28,10 +29,10 @@ script = ExtResource("3")
 [node name="mnuEdit" type="PopupMenu" parent="MainMenu"]
 
 [node name="LineEdit1" parent="." instance=ExtResource("4")]
-offset_left = 112.0
-offset_top = 72.0
-offset_right = 472.0
-offset_bottom = 104.0
+offset_left = 88.0
+offset_top = 80.0
+offset_right = 416.0
+offset_bottom = 120.0
 Enabled = true
 TabStop = true
 TabIndex = 0
@@ -50,4 +51,292 @@ Locked = false
 MaxLength = 0
 PasswordChar = ""
 PlaceholderText = ""
+
+[node name="Button1" parent="." instance=ExtResource("5")]
+offset_left = 128.0
+offset_top = 192.0
+offset_right = 176.0
+offset_bottom = 216.0
+text = "Button1"
+Enabled = true
+TabStop = true
+TabIndex = 1
+Tag = ""
+ToolTipText = ""
+MousePointer = 0
+BackColor = (0.85, 0.85, 0.85, 1.0)
+ForeColor = (0.0, 0.0, 0.0, 1.0)
+FontName = "MS Sans Serif"
+FontSize = 8
+FontBold = false
+FontItalic = false
+Appearance = 1
+BorderStyle = 0
+Default = false
+Cancel = false
+Style = 0
+
+[node name="Button2" parent="." instance=ExtResource("5")]
+offset_left = 187.0
+offset_top = 237.0
+offset_right = 235.0
+offset_bottom = 261.0
+text = "Button2"
+Enabled = true
+TabStop = true
+TabIndex = 1
+Tag = ""
+ToolTipText = ""
+MousePointer = 0
+BackColor = (0.85, 0.85, 0.85, 1.0)
+ForeColor = (0.0, 0.0, 0.0, 1.0)
+FontName = "MS Sans Serif"
+FontSize = 8
+FontBold = false
+FontItalic = false
+Appearance = 1
+BorderStyle = 0
+Default = false
+Cancel = false
+Style = 0
+
+[node name="Button3" parent="." instance=ExtResource("5")]
+offset_left = 246.0
+offset_top = 237.0
+offset_right = 294.0
+offset_bottom = 261.0
+text = "Button3"
+Enabled = true
+TabStop = true
+TabIndex = 1
+Tag = ""
+ToolTipText = ""
+MousePointer = 0
+BackColor = (0.85, 0.85, 0.85, 1.0)
+ForeColor = (0.0, 0.0, 0.0, 1.0)
+FontName = "MS Sans Serif"
+FontSize = 8
+FontBold = false
+FontItalic = false
+Appearance = 1
+BorderStyle = 0
+Default = false
+Cancel = false
+Style = 0
+
+[node name="Button4" parent="." instance=ExtResource("5")]
+offset_left = 305.0
+offset_top = 237.0
+offset_right = 353.0
+offset_bottom = 261.0
+text = "Button4"
+Enabled = true
+TabStop = true
+TabIndex = 1
+Tag = ""
+ToolTipText = ""
+MousePointer = 0
+BackColor = (0.85, 0.85, 0.85, 1.0)
+ForeColor = (0.0, 0.0, 0.0, 1.0)
+FontName = "MS Sans Serif"
+FontSize = 8
+FontBold = false
+FontItalic = false
+Appearance = 1
+BorderStyle = 0
+Default = false
+Cancel = false
+Style = 0
+
+[node name="Button5" parent="." instance=ExtResource("5")]
+offset_left = 128.0
+offset_top = 282.0
+offset_right = 176.0
+offset_bottom = 306.0
+text = "Button5"
+Enabled = true
+TabStop = true
+TabIndex = 1
+Tag = ""
+ToolTipText = ""
+MousePointer = 0
+BackColor = (0.85, 0.85, 0.85, 1.0)
+ForeColor = (0.0, 0.0, 0.0, 1.0)
+FontName = "MS Sans Serif"
+FontSize = 8
+FontBold = false
+FontItalic = false
+Appearance = 1
+BorderStyle = 0
+Default = false
+Cancel = false
+Style = 0
+
+[node name="Button6" parent="." instance=ExtResource("5")]
+offset_left = 305.0
+offset_top = 282.0
+offset_right = 353.0
+offset_bottom = 306.0
+text = "Button6"
+Enabled = true
+TabStop = true
+TabIndex = 1
+Tag = ""
+ToolTipText = ""
+MousePointer = 0
+BackColor = (0.85, 0.85, 0.85, 1.0)
+ForeColor = (0.0, 0.0, 0.0, 1.0)
+FontName = "MS Sans Serif"
+FontSize = 8
+FontBold = false
+FontItalic = false
+Appearance = 1
+BorderStyle = 0
+Default = false
+Cancel = false
+Style = 0
+
+[node name="Button7" parent="." instance=ExtResource("5")]
+offset_left = 246.0
+offset_top = 282.0
+offset_right = 294.0
+offset_bottom = 306.0
+text = "Button7"
+Enabled = true
+TabStop = true
+TabIndex = 1
+Tag = ""
+ToolTipText = ""
+MousePointer = 0
+BackColor = (0.85, 0.85, 0.85, 1.0)
+ForeColor = (0.0, 0.0, 0.0, 1.0)
+FontName = "MS Sans Serif"
+FontSize = 8
+FontBold = false
+FontItalic = false
+Appearance = 1
+BorderStyle = 0
+Default = false
+Cancel = false
+Style = 0
+
+[node name="Button8" parent="." instance=ExtResource("5")]
+offset_left = 187.0
+offset_top = 282.0
+offset_right = 235.0
+offset_bottom = 306.0
+text = "Button8"
+Enabled = true
+TabStop = true
+TabIndex = 1
+Tag = ""
+ToolTipText = ""
+MousePointer = 0
+BackColor = (0.85, 0.85, 0.85, 1.0)
+ForeColor = (0.0, 0.0, 0.0, 1.0)
+FontName = "MS Sans Serif"
+FontSize = 8
+FontBold = false
+FontItalic = false
+Appearance = 1
+BorderStyle = 0
+Default = false
+Cancel = false
+Style = 0
+
+[node name="Button9" parent="." instance=ExtResource("5")]
+offset_left = 187.0
+offset_top = 192.0
+offset_right = 235.0
+offset_bottom = 216.0
+text = "Button9"
+Enabled = true
+TabStop = true
+TabIndex = 1
+Tag = ""
+ToolTipText = ""
+MousePointer = 0
+BackColor = (0.85, 0.85, 0.85, 1.0)
+ForeColor = (0.0, 0.0, 0.0, 1.0)
+FontName = "MS Sans Serif"
+FontSize = 8
+FontBold = false
+FontItalic = false
+Appearance = 1
+BorderStyle = 0
+Default = false
+Cancel = false
+Style = 0
+
+[node name="Button10" parent="." instance=ExtResource("5")]
+offset_left = 246.0
+offset_top = 192.0
+offset_right = 294.0
+offset_bottom = 216.0
+text = "Button10"
+Enabled = true
+TabStop = true
+TabIndex = 1
+Tag = ""
+ToolTipText = ""
+MousePointer = 0
+BackColor = (0.85, 0.85, 0.85, 1.0)
+ForeColor = (0.0, 0.0, 0.0, 1.0)
+FontName = "MS Sans Serif"
+FontSize = 8
+FontBold = false
+FontItalic = false
+Appearance = 1
+BorderStyle = 0
+Default = false
+Cancel = false
+Style = 0
+
+[node name="Button11" parent="." instance=ExtResource("5")]
+offset_left = 305.0
+offset_top = 192.0
+offset_right = 353.0
+offset_bottom = 216.0
+text = "Button11"
+Enabled = true
+TabStop = true
+TabIndex = 1
+Tag = ""
+ToolTipText = ""
+MousePointer = 0
+BackColor = (0.85, 0.85, 0.85, 1.0)
+ForeColor = (0.0, 0.0, 0.0, 1.0)
+FontName = "MS Sans Serif"
+FontSize = 8
+FontBold = false
+FontItalic = false
+Appearance = 1
+BorderStyle = 0
+Default = false
+Cancel = false
+Style = 0
+
+[node name="Button12" parent="." instance=ExtResource("5")]
+offset_left = 128.0
+offset_top = 237.0
+offset_right = 176.0
+offset_bottom = 261.0
+text = "Button12"
+Enabled = true
+TabStop = true
+TabIndex = 1
+Tag = ""
+ToolTipText = ""
+MousePointer = 0
+BackColor = (0.85, 0.85, 0.85, 1.0)
+ForeColor = (0.0, 0.0, 0.0, 1.0)
+FontName = "MS Sans Serif"
+FontSize = 8
+FontBold = false
+FontItalic = false
+Appearance = 1
+BorderStyle = 0
+Default = false
+Cancel = false
+Style = 0
 

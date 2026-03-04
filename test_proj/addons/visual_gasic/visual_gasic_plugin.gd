@@ -659,9 +659,21 @@ func _get_window_layout(config: ConfigFile):
 	if is_instance_valid(_layout_manager):
 		_layout_manager.on_window_layout_saving(config)
 
+## Called by the editor before saving any external data (scenes, resources).
+## We write the C++ Form Designer state to disk so Godot's scene tree reload
+## picks up our version rather than overwriting it with stale data.
+func _save_external_data() -> void:
+	if is_instance_valid(_form_designer) and not _form_designer.get_form_path().is_empty():
+		_form_designer.save_form()
+		print("[VisualGasic] _save_external_data → form auto-saved")
+
 ## Called when the plugin exits the editor tree.
 ## Cleans up all plugin components and disconnects signals.
 func _exit_tree():
+	# Auto-save the form before cleanup so Godot doesn't lose our work
+	if is_instance_valid(_form_designer) and not _form_designer.get_form_path().is_empty():
+		_form_designer.save_form()
+		print("[VisualGasic] _exit_tree → form auto-saved")
 	# Restore any hidden Godot docks before cleanup
 	_show_godot_panels()
 	
@@ -2251,7 +2263,12 @@ func _do_save_form() -> void:
 		_form_designer.save_form_as(default_path)
 	else:
 		_form_designer.save_form()
-	print("[VisualGasic] Form saved: ", _form_designer.get_form_path())
+	var saved_path = _form_designer.get_form_path()
+	print("[VisualGasic] Form saved: ", saved_path)
+	# CRITICAL: Reload the scene in Godot's editor so its in-memory scene tree
+	# matches what we just wrote to disk.  Without this, Godot overwrites our
+	# .tscn with its stale scene tree version when the editor closes.
+	_reload_scene_after_form_save(saved_path)
 
 ## Show a FileDialog so the user can choose where to save the form .tscn.
 func _do_save_form_as() -> void:
@@ -2274,11 +2291,36 @@ func _do_save_form_as() -> void:
 	fd.file_selected.connect(func(path: String):
 		_form_designer.save_form_as(path)
 		print("[VisualGasic] Form saved as: ", path)
+		_reload_scene_after_form_save(path)
 		fd.queue_free()
 	)
 	fd.canceled.connect(fd.queue_free)
 	get_editor_interface().get_base_control().add_child(fd)
 	fd.popup_centered()
+
+## After the C++ Form Designer writes a .tscn, force Godot to reload it.
+## This ensures Godot's in-memory scene tree matches our save, preventing
+## Godot from overwriting our .tscn with its stale version on editor close.
+func _reload_scene_after_form_save(tscn_path: String) -> void:
+	if tscn_path.is_empty():
+		return
+	var scene_root = EditorInterface.get_edited_scene_root()
+	if not scene_root:
+		return
+	# Only reload if this is the currently edited scene
+	if scene_root.scene_file_path != tscn_path:
+		return
+	# Defer the reload so the file write completes first
+	call_deferred("_deferred_reload_scene", tscn_path)
+
+func _deferred_reload_scene(tscn_path: String) -> void:
+	# Tell Godot to reload the scene from disk — now its scene tree matches our save
+	EditorInterface.reload_scene_from_path(tscn_path)
+	# Re-sync the C++ form designer from the reloaded file
+	if is_instance_valid(_form_designer):
+		# Clear cached path so _sync re-reads from disk
+		_form_designer.open_form(tscn_path)
+	print("[VisualGasic] Scene reloaded from disk after save: ", tscn_path)
 
 func _on_vb6_edit_menu(id: int) -> void:
 	if not _form_designer:
