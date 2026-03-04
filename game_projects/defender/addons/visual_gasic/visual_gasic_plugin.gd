@@ -342,6 +342,10 @@ func _enter_tree():
 			_form_designer.status_changed.connect(_on_fd_status_changed)
 		if _form_designer.has_signal("form_resized"):
 			_form_designer.form_resized.connect(_on_fd_form_resized)
+		if _form_designer.has_signal("control_right_clicked"):
+			_form_designer.control_right_clicked.connect(_on_fd_control_right_clicked)
+		if _form_designer.has_signal("scene_file_dropped"):
+			_form_designer.scene_file_dropped.connect(_on_fd_scene_file_dropped)
 
 		# --- Build the composite layout ---
 		# VBoxContainer root: Menu | Toolbar | [Toolbox | Canvas | Properties] | Status
@@ -623,6 +627,9 @@ func _get_plugin_icon() -> Texture2D:
 	return null
 
 func _make_visible(p_visible: bool) -> void:
+	# Clear external scene editing flag when Form Designer is explicitly activated
+	if p_visible:
+		_editing_external_scene = false
 	# Show/hide the entire VB6 IDE layout (Toolbox + Canvas + Properties)
 	if _ide_layout:
 		_ide_layout.visible = p_visible
@@ -1905,6 +1912,25 @@ func _restyle_toolbox_buttons() -> void:
 		"TabStrip": "TabStrip",
 		"Timer": "Timer",
 		"Files": "FileDialog",
+		# Extended / Components-dialog tools
+		"VGComboBox": "VGComboBox",
+		"RadioButton": "RadioButton",
+		"MenuBar": "MenuBar",
+		"PictureButton": "PictureButton",
+		"Line": "Line",
+		"DriveListBox": "DriveListBox",
+		"FlexGrid": "FlexGrid",
+		"Form": "Form",
+		"Option": "Option",
+		"CommonDialog": "CommonDialog",
+		"ColorBtn": "ColorBtn",
+		"Video": "Video",
+		"Viewport": "Viewport",
+	}
+
+	# Map button node names → VB6 icon dict keys (where they differ)
+	var icon_key_map := {
+		"DriveListBox": "DriveList",
 	}
 
 	var white := Color(1, 1, 1, 1)
@@ -1933,9 +1959,10 @@ func _restyle_toolbox_buttons() -> void:
 					btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
 					btn.expand_icon = false
 
-					# Apply custom SVG icon
-					if vb6_icons.has(tool_name):
-						btn.icon = vb6_icons[tool_name]
+					# Apply custom SVG icon (use icon_key_map for remapped names)
+					var icon_key: String = icon_key_map.get(tool_name, tool_name)
+					if vb6_icons.has(icon_key):
+						btn.icon = vb6_icons[icon_key]
 
 					# ── CRITICAL: Override icon colors to prevent green editor tint ──
 					btn.add_theme_color_override("icon_normal_color", white)
@@ -2122,6 +2149,8 @@ func _create_vb6_menu_bar() -> MenuBar:
 	tools_menu.add_item("Tab Order...", 1)
 	tools_menu.add_item("Object Browser...", 2)
 	tools_menu.add_separator()
+	tools_menu.add_item("New Custom Control...", 20)
+	tools_menu.add_separator()
 	tools_menu.add_item("Snippet Browser...", 10)
 	tools_menu.add_item("Theme Picker...", 11)
 	tools_menu.id_pressed.connect(_on_vb6_tools_menu)
@@ -2203,13 +2232,53 @@ func _on_vb6_file_menu(id: int) -> void:
 	match id:
 		0: _on_add_form()
 		1: _on_new_module()
-		10:
-			if _form_designer and _form_designer.has_method("save_form"):
-				_form_designer.save_form()
-		11: pass # Save As — could show FileDialog
+		10: _do_save_form()
+		11: _do_save_form_as()
 		20: _on_import_vb6_form()
 		21: _on_import_vb6_project()
 		99: _on_back_to_godot_pressed()
+
+## Save the current form. If no path is set, falls through to Save As.
+func _do_save_form() -> void:
+	if not _form_designer:
+		return
+	var path = _form_designer.get_form_path()
+	if path.is_empty():
+		# No path yet — behave like Save As, auto-generating a default name
+		var form_name = _form_designer.get_form_name() if _form_designer.has_method("get_form_name") else "Form1"
+		var default_path = "res://" + form_name + ".tscn"
+		print("[VisualGasic] Save Form: no path set — saving to ", default_path)
+		_form_designer.save_form_as(default_path)
+	else:
+		_form_designer.save_form()
+	print("[VisualGasic] Form saved: ", _form_designer.get_form_path())
+
+## Show a FileDialog so the user can choose where to save the form .tscn.
+func _do_save_form_as() -> void:
+	if not _form_designer:
+		return
+	var fd = FileDialog.new()
+	fd.file_mode = FileDialog.FILE_MODE_SAVE_FILE
+	fd.access = FileDialog.ACCESS_RESOURCES
+	fd.add_filter("*.tscn ; Godot Scene")
+	fd.title = "Save Form As..."
+	fd.min_size = Vector2i(600, 400)
+	# Pre-fill with current path or a default
+	var current_path = _form_designer.get_form_path()
+	if not current_path.is_empty():
+		fd.current_path = current_path
+	else:
+		var form_name = _form_designer.get_form_name() if _form_designer.has_method("get_form_name") else "Form1"
+		fd.current_file = form_name + ".tscn"
+		fd.current_dir = "res://"
+	fd.file_selected.connect(func(path: String):
+		_form_designer.save_form_as(path)
+		print("[VisualGasic] Form saved as: ", path)
+		fd.queue_free()
+	)
+	fd.canceled.connect(fd.queue_free)
+	get_editor_interface().get_base_control().add_child(fd)
+	fd.popup_centered()
 
 func _on_vb6_edit_menu(id: int) -> void:
 	if not _form_designer:
@@ -2283,6 +2352,7 @@ func _on_vb6_tools_menu(id: int) -> void:
 		2: _on_obj_browser()
 		10: _on_open_snippet_browser()
 		11: _on_open_theme_picker()
+		20: _on_new_custom_control()
 
 func _on_vb6_window_menu(id: int) -> void:
 	match id:
@@ -2696,6 +2766,144 @@ func _on_fd_control_deselected() -> void:
 func _on_fd_form_modified() -> void:
 	pass  # Could update title bar asterisk, etc.
 
+## Signal: Right-click on the form designer canvas.
+## Shows a context menu with type-specific actions.
+## @param index: Control index (-1 if right-clicked empty form area)
+## @param position: Global screen position for popup placement
+var _fd_context_menu: PopupMenu = null
+var _fd_context_ctrl_index: int = -1
+var _editing_external_scene: bool = false
+
+func _on_fd_control_right_clicked(index: int, position: Vector2) -> void:
+	# Clean up previous context menu if any
+	if is_instance_valid(_fd_context_menu):
+		_fd_context_menu.queue_free()
+	
+	_fd_context_ctrl_index = index
+	_fd_context_menu = PopupMenu.new()
+	_fd_context_menu.name = "FDContextMenu"
+	
+	if index >= 0:
+		var info = _form_designer.get_control_info(index)
+		var ctrl_type: String = info.get("type", "")
+		var ctrl_name: String = info.get("name", "")
+		var scene_path: String = info.get("scene_path", "")
+		
+		# Type-specific actions
+		if ctrl_type == "MenuBar":
+			_fd_context_menu.add_item("Edit Menus...", 100)
+			_fd_context_menu.add_separator()
+		
+		# Common actions
+		_fd_context_menu.add_item("View Code (" + ctrl_name + "_Click)", 10)
+		_fd_context_menu.add_separator()
+		_fd_context_menu.add_item("Edit Control Scene...", 20)
+		var idx = _fd_context_menu.get_item_index(20)
+		_fd_context_menu.set_item_disabled(idx, true)
+		_fd_context_menu.add_item("Delete", 30)
+		_fd_context_menu.add_separator()
+		_fd_context_menu.add_item("Properties", 40)
+	else:
+		# Right-clicked on empty form area
+		_fd_context_menu.add_item("View Code", 11)
+		_fd_context_menu.add_item("Paste", 50)
+		_fd_context_menu.add_separator()
+		_fd_context_menu.add_item("Form Properties", 41)
+	
+	_fd_context_menu.id_pressed.connect(_on_fd_context_menu_pressed)
+	get_editor_interface().get_base_control().add_child(_fd_context_menu)
+	_fd_context_menu.popup(Rect2(position, Vector2.ZERO))
+
+func _on_fd_context_menu_pressed(id: int) -> void:
+	var index = _fd_context_ctrl_index
+	match id:
+		10: # View Code (control event handler)
+			_on_fd_control_double_clicked(index)
+		11: # View Code (form-level)
+			if _form_designer:
+				var form_path = _form_designer.get_form_path()
+				if not form_path.is_empty():
+					var vg_path = form_path.get_basename() + ".vg"
+					get_editor_interface().edit_resource(load(vg_path) if ResourceLoader.exists(vg_path) else null)
+		20: # Edit Control Scene
+			_edit_control_scene(index)
+		30: # Delete
+			if _form_designer:
+				_form_designer.remove_selected()
+		40: # Properties (control)
+			if is_instance_valid(_properties_inspector) and _properties_inspector.has_method("show_control_properties") and _form_designer:
+				var info = _form_designer.get_control_info(index)
+				_properties_inspector.show_control_properties(info, _form_designer, index)
+		41: # Form Properties
+			if is_instance_valid(_properties_inspector) and _properties_inspector.has_method("show_form_properties") and _form_designer:
+				_properties_inspector.show_form_properties(_form_designer)
+		50: # Paste
+			if _form_designer:
+				_form_designer.paste()
+		100: # Edit Menus (MenuBar-specific)
+			_open_menu_editor_for_fd(index)
+
+## Opens a control's prototype scene for editing in the Godot scene editor.
+## Built-in prototypes are copied to a user-editable location first.
+func _edit_control_scene(index: int) -> void:
+	if not _form_designer:
+		return
+	var info = _form_designer.get_control_info(index)
+	var scene_path: String = info.get("scene_path", "")
+	var ctrl_name: String = info.get("name", "")
+	var ctrl_type: String = info.get("type", "")
+	
+	# Fall back to prototype if scene_path is empty or the file was deleted
+	if scene_path.is_empty() or not FileAccess.file_exists(scene_path):
+		scene_path = "res://addons/visual_gasic/prototypes/" + ctrl_type + ".tscn"
+		if not FileAccess.file_exists(scene_path):
+			push_error("No prototype scene found for control type '" + ctrl_type + "'")
+			return
+		_form_designer.set_control_property(index, "scene_path", scene_path)
+	
+	# Check if this is a built-in prototype (under addons/visual_gasic/)
+	var is_builtin := scene_path.begins_with("res://addons/visual_gasic/")
+	var edit_path := scene_path
+	
+	if is_builtin:
+		# Copy to a user-editable location: res://custom_controls/<ControlName>.tscn
+		var dir = DirAccess.open("res://")
+		if dir and not dir.dir_exists("custom_controls"):
+			dir.make_dir("custom_controls")
+		
+		var basename = scene_path.get_file()  # e.g. "MenuBar.tscn"
+		edit_path = "res://custom_controls/" + ctrl_name + ".tscn"
+		
+		if not FileAccess.file_exists(edit_path):
+			# Copy the prototype
+			var src = FileAccess.open(scene_path, FileAccess.READ)
+			if src:
+				var content = src.get_as_text()
+				src.close()
+				var dst = FileAccess.open(edit_path, FileAccess.WRITE)
+				if dst:
+					dst.store_string(content)
+					dst.close()
+					print("VisualGasic: Copied built-in prototype to ", edit_path)
+				else:
+					push_error("Cannot write to " + edit_path)
+					return
+			else:
+				push_error("Cannot read " + scene_path)
+				return
+		
+		# Update the control's scene_path to point to the custom copy
+		_form_designer.set_control_property(index, "scene_path", edit_path)
+		# Also update scene_path in the control info struct via C++ API
+		# (The C++ set_control_property stores in the properties dict,
+		#  but scene_path is a separate field — we need a dedicated setter)
+	
+	# Open the scene in Godot's editor and switch to 2D
+	_editing_external_scene = true
+	get_editor_interface().open_scene_from_path(edit_path)
+	EditorInterface.set_main_screen_editor("2D")
+	print("VisualGasic: Opened control scene: ", edit_path)
+
 ## Signal: A control was double-clicked — generate event handler stub.
 func _on_fd_control_double_clicked(index: int) -> void:
 	if not _form_designer:
@@ -2704,6 +2912,7 @@ func _on_fd_control_double_clicked(index: int) -> void:
 	var ctrl_name = info.get("name", "")
 	var ctrl_type = info.get("type", "")
 	if ctrl_name.is_empty():
+		push_warning("VisualGasic: Double-click — control has no name")
 		return
 	# Determine default event suffix based on type
 	var event_suffix = "Click"
@@ -2711,12 +2920,25 @@ func _on_fd_control_double_clicked(index: int) -> void:
 		event_suffix = "Change"
 	elif ctrl_type in ["HScrollBar", "VScrollBar", "HSlider", "VSlider"]:
 		event_suffix = "Change"
-	# Open/create the .vg script and insert/navigate to the event handler
+	# Get form path — try multiple fallbacks
 	var form_path = _form_designer.get_form_path()
 	if form_path.is_empty():
+		# Try syncing from the currently edited scene
+		_sync_scene_to_form_designer()
+		form_path = _form_designer.get_form_path()
+	if form_path.is_empty():
+		# Still empty — auto-save form to a default location
+		var form_name = _form_designer.get_form_name() if _form_designer.has_method("get_form_name") else "Form1"
+		var default_path = "res://" + form_name + ".tscn"
+		print("VisualGasic: Form not saved yet — auto-saving to ", default_path)
+		_form_designer.save_form_as(default_path)
+		form_path = _form_designer.get_form_path()
+	if form_path.is_empty():
+		push_warning("VisualGasic: Cannot open code — form has no save path. Save the form first (File > Save).")
 		return
 	var vg_path = form_path.get_basename() + ".vg"
 	var sub_name = ctrl_name + "_" + event_suffix
+	print("VisualGasic: Double-click → opening ", sub_name, " in ", vg_path)
 	_open_or_create_event_handler(vg_path, sub_name)
 
 ## Opens the .vg script and creates/navigates to the given Sub stub.
@@ -3237,22 +3459,145 @@ End Function
 
 ## Opens the visual Menu Editor for the selected MenuBar node.
 ## Allows drag-and-drop menu item arrangement and property editing.
+## Works with both Form Designer MenuBar controls and real scene tree MenuBars.
 func _on_menu_editor():
+	# First, check if we have a Form Designer MenuBar selected (design-time)
+	if is_instance_valid(_form_designer):
+		var mb_index := -1
+		# Look for a selected MenuBar control
+		for i in range(_form_designer.get_control_count()):
+			var info = _form_designer.get_control_info(i)
+			if info.get("type", "") == "MenuBar" and info.get("selected", false):
+				mb_index = i
+				break
+		# If none selected, find the first MenuBar on the form
+		if mb_index < 0:
+			for i in range(_form_designer.get_control_count()):
+				var info = _form_designer.get_control_info(i)
+				if info.get("type", "") == "MenuBar":
+					mb_index = i
+					break
+		if mb_index >= 0:
+			_open_menu_editor_for_fd(mb_index)
+			return
+	
+	# Fallback: try Godot scene tree selection (runtime/scene editing)
 	var selected = get_editor_interface().get_selection().get_selected_nodes()
-	if selected.is_empty():
-		push_error("Please select a MenuBar node first")
+	if not selected.is_empty() and selected[0] is MenuBar:
+		var dlg = load("res://addons/visual_gasic/menu_editor.gd").new()
+		dlg.set_menu_bar(selected[0])
+		dlg.menu_applied.connect(_on_menu_applied.bind(selected[0]))
+		get_editor_interface().get_base_control().add_child(dlg)
+		dlg.popup_centered()
 		return
 	
-	var menu_bar = selected[0]
-	if not menu_bar is MenuBar:
-		push_error("Selected node must be a MenuBar")
-		return
+	push_error("No MenuBar found. Add a MenuBar to the form first, or select one in the Scene Tree.")
+
+## Opens the Menu Editor for a form designer MenuBar control by index.
+## Creates a temporary real MenuBar from stored properties, edits it,
+## and serializes the result back to the form designer on apply.
+func _open_menu_editor_for_fd(fd_index: int) -> void:
+	# Build a temporary real MenuBar from stored menu data
+	var temp_mb = MenuBar.new()
+	temp_mb.name = "TempMenuBar"
 	
+	# Load existing menu structure from the control's properties
+	var menu_data = _form_designer.get_control_property(fd_index, "_menu_data")
+	if menu_data is Array and menu_data.size() > 0:
+		_rebuild_menubar_from_data(temp_mb, menu_data)
+	else:
+		# No stored menu data yet — add default File/Edit/View
+		for menu_name in ["File", "Edit", "View"]:
+			var popup = PopupMenu.new()
+			popup.name = menu_name
+			temp_mb.add_child(popup)
+	
+	# Add to tree temporarily so signals work
+	get_editor_interface().get_base_control().add_child(temp_mb)
+	temp_mb.visible = false
+	
+	# Open menu editor
 	var dlg = load("res://addons/visual_gasic/menu_editor.gd").new()
-	dlg.set_menu_bar(menu_bar)
-	dlg.menu_applied.connect(_on_menu_applied.bind(menu_bar))
+	dlg.set_menu_bar(temp_mb)
+	dlg.menu_applied.connect(_on_fd_menu_applied.bind(fd_index, temp_mb))
+	dlg.close_requested.connect(func(): temp_mb.queue_free())
 	get_editor_interface().get_base_control().add_child(dlg)
 	dlg.popup_centered()
+
+## Called when the Menu Editor applies changes back to a form designer MenuBar.
+## Serializes the MenuBar's PopupMenu hierarchy into the control's properties.
+func _on_fd_menu_applied(fd_index: int, temp_mb: MenuBar) -> void:
+	var menu_data: Array = []
+	for i in range(temp_mb.get_child_count()):
+		var popup = temp_mb.get_child(i)
+		if popup is PopupMenu:
+			menu_data.append(_serialize_popup_menu(popup))
+	# Store the menu structure in the form designer control's properties
+	_form_designer.set_control_property(fd_index, "_menu_data", menu_data)
+	# Update the design-time label to reflect actual menu names
+	var labels := PackedStringArray()
+	for m in menu_data:
+		labels.append(m.get("name", "?"))
+	_form_designer.set_control_property(fd_index, "_menu_labels", "|".join(labels))
+	print("Menu Editor: Saved ", menu_data.size(), " menus to form designer control #", fd_index)
+	# Clean up the temporary MenuBar
+	temp_mb.queue_free()
+
+## Serializes a PopupMenu and its items into a Dictionary.
+func _serialize_popup_menu(popup: PopupMenu) -> Dictionary:
+	var result := {
+		"name": popup.name,
+		"items": []
+	}
+	for i in range(popup.item_count):
+		var item := {
+			"text": popup.get_item_text(i),
+			"separator": popup.is_item_separator(i),
+			"checked": popup.is_item_checked(i),
+			"disabled": popup.is_item_disabled(i),
+		}
+		# Check for submenus
+		var sub_name = popup.get_item_submenu(i)
+		if not sub_name.is_empty():
+			var sub_popup = popup.get_node_or_null(NodePath(sub_name))
+			if sub_popup is PopupMenu:
+				item["submenu"] = _serialize_popup_menu(sub_popup)
+		result["items"].append(item)
+	return result
+
+## Rebuilds a real MenuBar from serialized menu data.
+func _rebuild_menubar_from_data(mb: MenuBar, menu_data: Array) -> void:
+	for menu_dict in menu_data:
+		if not menu_dict is Dictionary:
+			continue
+		var popup = PopupMenu.new()
+		popup.name = menu_dict.get("name", "Menu")
+		_rebuild_popup_items(popup, menu_dict.get("items", []))
+		mb.add_child(popup)
+
+## Rebuilds PopupMenu items from serialized item data.
+func _rebuild_popup_items(popup: PopupMenu, items: Array) -> void:
+	for item_dict in items:
+		if not item_dict is Dictionary:
+			continue
+		if item_dict.get("separator", false):
+			popup.add_separator()
+		else:
+			var text: String = item_dict.get("text", "")
+			popup.add_item(text)
+			var idx = popup.item_count - 1
+			if item_dict.get("checked", false):
+				popup.set_item_checked(idx, true)
+			if item_dict.get("disabled", false):
+				popup.set_item_disabled(idx, true)
+			# Handle submenus
+			if item_dict.has("submenu"):
+				var sub_data: Dictionary = item_dict["submenu"]
+				var sub_popup = PopupMenu.new()
+				sub_popup.name = sub_data.get("name", "SubMenu")
+				_rebuild_popup_items(sub_popup, sub_data.get("items", []))
+				popup.add_child(sub_popup)
+				popup.set_item_submenu(idx, sub_popup.name)
 
 ## Callback when menu changes are applied from the Menu Editor.
 ## Forces the editor to refresh the MenuBar display.
@@ -3306,6 +3651,257 @@ func _on_components():
 	get_editor_interface().get_base_control().add_child(dlg)
 	dlg.popup_centered()
 
+# =============================================================================
+# NEW CUSTOM CONTROL WIZARD
+# =============================================================================
+
+## Opens the "New Custom Control" wizard dialog.
+## Lets user choose a name and root node type, then generates a .tscn file,
+## registers it in the Components config, and refreshes the toolbox.
+func _on_new_custom_control():
+	var dlg = AcceptDialog.new()
+	dlg.title = "New Custom Control"
+	dlg.ok_button_text = "Create"
+	dlg.size = Vector2i(380, 200)
+
+	# Build a small form inside the dialog
+	var vbox = VBoxContainer.new()
+	vbox.custom_minimum_size = Vector2(340, 0)
+	dlg.add_child(vbox)
+
+	# Name field
+	var name_label = Label.new()
+	name_label.text = "Control Name:"
+	vbox.add_child(name_label)
+
+	var name_edit = LineEdit.new()
+	name_edit.text = "MyCustomControl"
+	name_edit.placeholder_text = "e.g. WobblyButton"
+	name_edit.select_all_on_focus = true
+	vbox.add_child(name_edit)
+
+	# Spacer
+	var spacer = Control.new()
+	spacer.custom_minimum_size.y = 8
+	vbox.add_child(spacer)
+
+	# Root node type
+	var type_label = Label.new()
+	type_label.text = "Root Node Type:"
+	vbox.add_child(type_label)
+
+	var type_option = OptionButton.new()
+	type_option.add_item("Control", 0)
+	type_option.add_item("Panel", 1)
+	type_option.add_item("PanelContainer", 2)
+	type_option.add_item("HBoxContainer", 3)
+	type_option.add_item("VBoxContainer", 4)
+	type_option.add_item("MarginContainer", 5)
+	type_option.add_item("Button", 6)
+	type_option.add_item("TextureRect", 7)
+	vbox.add_child(type_option)
+
+	# Info label
+	var info = Label.new()
+	info.text = "Saves to res://custom_controls/ and adds to Toolbox."
+	info.add_theme_font_size_override("font_size", 11)
+	info.add_theme_color_override("font_color", Color(0.4, 0.4, 0.4))
+	vbox.add_child(info)
+
+	dlg.confirmed.connect(func():
+		var ctrl_name = name_edit.text.strip_edges()
+		if ctrl_name.is_empty():
+			push_warning("VisualGasic: Custom control name cannot be empty.")
+			dlg.queue_free()
+			return
+
+		# Sanitize: remove spaces, ensure PascalCase-friendly
+		ctrl_name = ctrl_name.replace(" ", "")
+
+		var root_types := ["Control", "Panel", "PanelContainer", "HBoxContainer",
+						   "VBoxContainer", "MarginContainer", "Button", "TextureRect"]
+		var root_type: String = root_types[type_option.selected]
+
+		_create_custom_control_scene(ctrl_name, root_type)
+		dlg.queue_free()
+	)
+
+	dlg.canceled.connect(func():
+		dlg.queue_free()
+	)
+
+	get_editor_interface().get_base_control().add_child(dlg)
+	dlg.popup_centered()
+
+## Creates a minimal .tscn file for a new custom control, registers it, and refreshes the toolbox.
+## @param ctrl_name: The name of the new custom control (e.g. "WobblyButton")
+## @param root_type: The Godot node type for the root (e.g. "Panel")
+func _create_custom_control_scene(ctrl_name: String, root_type: String) -> void:
+	var dir_path = "res://custom_controls"
+	var scene_path = dir_path + "/" + ctrl_name + ".tscn"
+
+	# Ensure directory exists
+	if not DirAccess.dir_exists_absolute(dir_path):
+		DirAccess.make_dir_recursive_absolute(dir_path)
+
+	# Check if file already exists
+	if FileAccess.file_exists(scene_path):
+		push_warning("VisualGasic: '" + scene_path + "' already exists. Skipping creation.")
+		return
+
+	# Generate minimal .tscn content
+	var tscn_content := '[gd_scene format=3]\n\n'
+	tscn_content += '[node name="' + ctrl_name + '" type="' + root_type + '"]\n'
+	# Give it a visible default size
+	if root_type in ["Control", "Panel", "PanelContainer", "MarginContainer",
+					  "HBoxContainer", "VBoxContainer", "TextureRect", "Button"]:
+		tscn_content += 'custom_minimum_size = Vector2(100, 60)\n'
+
+	# Write the .tscn file
+	var f = FileAccess.open(scene_path, FileAccess.WRITE)
+	if not f:
+		push_error("VisualGasic: Failed to write " + scene_path)
+		return
+	f.store_string(tscn_content)
+	f.close()
+
+	# Register in Components config
+	_register_custom_control_in_config(ctrl_name, scene_path)
+
+	# Refresh toolbox
+	_on_components_changed()
+
+	# Tell the editor to rescan so the new file appears in FileSystem dock
+	EditorInterface.get_resource_filesystem().scan()
+
+	print("VisualGasic: Created custom control '", ctrl_name, "' at ", scene_path)
+	print("VisualGasic: Design it in Godot's Scene tab, then use it in your forms!")
+
+## Registers a new custom control in the custom_components.cfg file.
+## @param ctrl_name: The display name
+## @param scene_path: Path to the .tscn file
+func _register_custom_control_in_config(ctrl_name: String, scene_path: String) -> void:
+	var config = ConfigFile.new()
+	var cfg_path = "res://addons/visual_gasic/custom_components.cfg"
+	if FileAccess.file_exists(cfg_path):
+		config.load(cfg_path)
+
+	# Save as a custom component (enabled by default)
+	var data := {
+		"name": ctrl_name,
+		"scene": scene_path,
+		"icon": "Control",
+		"class": "Control",
+		"enabled": true,
+		"category": "2D"
+	}
+	config.set_value("custom", ctrl_name, data)
+	config.save(cfg_path)
+
+## Called when a .tscn file is dragged from the FileSystem dock onto the form designer canvas.
+## Auto-registers the scene as a custom component and refreshes the toolbox.
+## @param scene_path: The res:// path of the dropped .tscn file
+## @param control_name: The inferred control name (filename without extension)
+func _on_fd_scene_file_dropped(scene_path: String, control_name: String) -> void:
+	print("VisualGasic: Scene file dropped on canvas: ", scene_path, " → ", control_name)
+	# Register in config if not already present
+	_register_custom_control_in_config(control_name, scene_path)
+	# Refresh toolbox so the new control appears
+	_on_components_changed()
+	# Generate a preview texture for design-time rendering
+	_generate_preview_for_custom_control(control_name, scene_path)
+
+# =============================================================================
+# THUMBNAIL / PREVIEW TEXTURE GENERATION
+# =============================================================================
+
+## Generates a design-time preview texture for a custom control by instantiating
+## its .tscn in a hidden SubViewport, waiting one frame, then capturing the image.
+## The resulting ImageTexture is passed to the C++ form designer for WYSIWYG rendering,
+## and a 20×20 icon version is set on the toolbox button.
+## @param ctrl_name: The custom control type name
+## @param scene_path: Path to the .tscn file
+func _generate_preview_for_custom_control(ctrl_name: String, scene_path: String) -> void:
+	if not FileAccess.file_exists(scene_path):
+		return
+
+	var packed = load(scene_path)
+	if not packed or not packed is PackedScene:
+		return
+
+	var instance = packed.instantiate()
+	if not instance or not instance is Control:
+		if instance:
+			instance.queue_free()
+		return
+
+	# Create a SubViewport to render into
+	var vp = SubViewport.new()
+	vp.size = Vector2i(200, 150)  # Reasonable capture size
+	vp.transparent_bg = true
+	vp.render_target_update_mode = SubViewport.UPDATE_ONCE
+
+	vp.add_child(instance)
+	# Ensure the instance fills the viewport
+	if instance is Control:
+		instance.set_anchors_preset(Control.PRESET_FULL_RECT)
+
+	# Add viewport to tree so it renders
+	add_child(vp)
+
+	# Wait two frames for rendering to complete, then capture
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	var img: Image = vp.get_texture().get_image()
+	if img and not img.is_empty():
+		# Design-time preview texture (full size for canvas rendering)
+		var preview_tex = ImageTexture.create_from_image(img)
+		if _form_designer and _form_designer.has_method("set_control_preview_texture"):
+			_form_designer.set_control_preview_texture(ctrl_name, preview_tex)
+
+		# Toolbox icon (scaled to 20×20)
+		var icon_img = img.duplicate()
+		icon_img.resize(20, 20, Image.INTERPOLATE_LANCZOS)
+		var icon_tex = ImageTexture.create_from_image(icon_img)
+		_set_toolbox_button_icon(ctrl_name, icon_tex)
+
+	# Cleanup
+	vp.remove_child(instance)
+	instance.queue_free()
+	remove_child(vp)
+	vp.queue_free()
+
+## Sets a custom icon on a toolbox button by name.
+## @param tool_name: The toolbox button's node name
+## @param icon: The texture to set as the icon
+func _set_toolbox_button_icon(tool_name: String, icon: Texture2D) -> void:
+	var real_toolbox = _get_toolbox_instance()
+	if not real_toolbox:
+		return
+	for c in real_toolbox.get_children():
+		if c is TabContainer:
+			for tab_idx in range(c.get_tab_count()):
+				var grid = c.get_child(tab_idx)
+				if grid is GridContainer:
+					for btn_idx in range(grid.get_child_count()):
+						var btn = grid.get_child(btn_idx)
+						if btn is Button and btn.name == tool_name:
+							btn.icon = icon
+							return
+
+## Generates preview textures for all enabled custom components.
+## Called after toolbox refresh to provide design-time rendering and toolbox icons.
+func _generate_all_custom_previews() -> void:
+	var ComponentsDialog = load("res://addons/visual_gasic/components_dialog.gd")
+	var enabled = ComponentsDialog.load_enabled_components()
+	for comp in enabled:
+		var cname: String = comp["name"]
+		var scene: String = comp.get("scene", "")
+		# Only generate for non-builtin custom controls with a scene path
+		if not comp.get("builtin", false) and not scene.is_empty():
+			_generate_preview_for_custom_control(cname, scene)
+
 ## Callback when components are added/removed via the Components dialog.
 ## Clears custom tools and reloads only enabled ones.
 func _on_components_changed():
@@ -3319,12 +3915,20 @@ func _on_components_changed():
 	
 	# Load enabled components from config
 	_load_custom_components()
+	
+	# Re-apply VB6 icons and labels to the new buttons
+	_restyle_toolbox_buttons()
+	
+	# Generate preview textures for all custom components
+	_generate_all_custom_previews()
 
 ## Registers the GDScript-extended tools (not in C++ defaults)
 func _register_extended_tools():
+	# NOTE: VGComboBox, RadioButton, MenuBar, PictureButton, Line, DriveListBox
+	# are registered by _load_custom_components() via the Components dialog.
+	# Do NOT register them here to avoid duplicate toolbox buttons.
 	if not _get_toolbox_instance():
 		return  # C++ extension not loaded — skip silently
-	register_tool("VGComboBox", "HBoxContainer", "OptionButton", "res://addons/visual_gasic/prototypes/VGComboBox.tscn")
 	register_tool("FlexGrid", "Tree", "Tree", "res://custom_widgets/FlexGrid.tscn")
 	register_tool("Form", "Panel", "Window", "res://custom_widgets/Form.tscn")
 	register_tool("Option", "CheckBox", "CheckBox", "res://custom_widgets/Option.tscn")
@@ -3349,11 +3953,28 @@ func _register_extended_tools():
 func _load_custom_components():
 	var ComponentsDialog = load("res://addons/visual_gasic/components_dialog.gd")
 	var enabled = ComponentsDialog.load_enabled_components()
-	
+
+	# Collect existing tool names to avoid duplicates
+	var existing_names := {}
+	var real_toolbox = _get_toolbox_instance()
+	if real_toolbox:
+		for c in real_toolbox.get_children():
+			if c is TabContainer:
+				for tab_idx in range(c.get_tab_count()):
+					var grid = c.get_child(tab_idx)
+					if grid is GridContainer:
+						for btn_idx in range(grid.get_child_count()):
+							existing_names[grid.get_child(btn_idx).name] = true
+
+	var added := 0
 	for comp in enabled:
-		register_tool(comp["name"], comp["class"], comp.get("icon", "Control"), comp["scene"], comp.get("category", "2D"))
-	
-	print("VisualGasic: Loaded ", enabled.size(), " custom/optional components")
+		var cname: String = comp["name"]
+		if existing_names.has(cname):
+			continue  # Already in toolbox
+		register_tool(cname, comp["class"], comp.get("icon", "Control"), comp["scene"], comp.get("category", "2D"))
+		added += 1
+
+	print("VisualGasic: Loaded ", added, " custom/optional components (", enabled.size(), " enabled, ", enabled.size() - added, " already present)")
 
 
 # =============================================================================
@@ -3394,6 +4015,9 @@ func _post_init():
 	# Load custom/optional components from Components dialog config
 	_load_custom_components()
 	
+	# Generate preview textures for custom controls (deferred so tree is ready)
+	call_deferred("_generate_all_custom_previews")
+	
 	# Connect to screen change signal
 	main_screen_changed.connect(_on_main_screen_changed)
 	
@@ -3426,9 +4050,10 @@ func _on_scene_changed(scene_root: Node):
 		_sync_scene_to_form_designer()
 
 ## Determines if this plugin handles input for the given object.
-## Returns true for Control/Node2D nodes only when the scene has an associated .vg script.
+## Always returns false — the Form Designer never auto-activates.
+## Users open it manually via the "Form Designer" tab when needed.
 ## @param object: The object being edited
-## @returns: true if plugin should handle input for this object
+## @returns: always false
 func _handles(_object):
 	return false
 
@@ -3577,8 +4202,10 @@ func _poll_for_inject(path: String, obj: String, event: String, attempts: int):
 					root.set_script(res)
 					print("VisualGasic: Attached " + path.get_file() + " to Form (" + root.name + ").")
 			
-			# Open in Editor
+			# Open in Editor — switch to Script view
 			get_editor_interface().edit_resource(res)
+			# Switch to the Script editor screen so the CodeEdit is visible
+			EditorInterface.set_main_screen_editor("Script")
 			print("VisualGasic: Opened script in Godot Editor -> " + path)
 			
 			# INJECT CODE INTO BUFFER
@@ -3592,22 +4219,45 @@ func _poll_for_inject(path: String, obj: String, event: String, attempts: int):
 					var text = code_edit.text
 					
 					if text.find(sub_name) == -1:
-						var new_code = "\n" + sub_name + "()\n    Print \"" + obj + " " + event + "\"\nEnd Sub\n"
+						# Generate a clean event handler stub (no placeholder Print)
+						var new_code = "\n" + sub_name + "()\n    \nEnd Sub\n"
 						code_edit.text += new_code
 						text = code_edit.text # Refresh for search
 					
-					# Goto Line
+					# Navigate to the Sub body line (the blank line inside the Sub)
 					var lines = text.split("\n")
 					for i in lines.size():
 						if lines[i].strip_edges().begins_with(sub_name):
-							code_edit.set_caret_line(i + 1)
+							# Position caret on the line INSIDE the Sub body
+							var body_line = i + 1
+							code_edit.set_caret_line(body_line)
 							code_edit.set_caret_column(4)
-							code_edit.center_viewport_to_caret()
-							code_edit.grab_focus()
 							break
+					
+					# Deferred scroll — wait for the editor to finish layout
+					_deferred_scroll_to_caret.call_deferred(code_edit)
 	else:
 		await get_tree().create_timer(0.1).timeout
 		_poll_for_inject(path, obj, event, attempts + 1)
+
+## Deferred helper: scrolls the CodeEdit viewport to the caret position.
+## Uses a short timer to let the Script editor fully lay out after a screen switch,
+## then centers the viewport on the caret and grabs focus.
+func _deferred_scroll_to_caret(code_edit: CodeEdit) -> void:
+	if not is_instance_valid(code_edit):
+		return
+	# Wait for the Script editor to finish its layout after the screen switch.
+	# A single call_deferred is too early — the editor needs ~150ms to resize.
+	var timer = get_tree().create_timer(0.15)
+	await timer.timeout
+	if is_instance_valid(code_edit):
+		code_edit.center_viewport_to_caret()
+		code_edit.grab_focus()
+		# Second pass after another short delay for robustness
+		var timer2 = get_tree().create_timer(0.15)
+		await timer2.timeout
+		if is_instance_valid(code_edit):
+			code_edit.center_viewport_to_caret()
 
 ## Called when the main editor screen changes (2D, 3D, Script, AssetLib).
 ## Switches toolbox tab to match the current view.
