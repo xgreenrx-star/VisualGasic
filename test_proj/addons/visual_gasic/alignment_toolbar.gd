@@ -216,16 +216,30 @@ func _center_in_parent() -> void:
 # =============================================================================
 
 func _open_grid_arrange() -> void:
+	print("[VisualGasic] Grid Arrange button pressed")
 	var controls = _get_selected_controls()
+	print("[VisualGasic] Selected controls: ", controls.size())
 	if controls.size() < 2:
-		printerr("VisualGasic: Select at least 2 controls to arrange in a grid")
+		# Show a visible warning — printerr goes to the Output tab where nobody looks
+		var msg = AcceptDialog.new()
+		msg.title = "Grid Arrange"
+		msg.dialog_text = "Select at least 2 controls on the form first.\n\nTip: Shift+Click or Ctrl+Click controls in the Scene tree,\nor drag-select on the form, then click ⊞▦ again."
+		msg.dialog_autowrap = true
+		msg.min_size = Vector2i(340, 120)
+		if _plugin:
+			_plugin.get_editor_interface().get_base_control().add_child(msg)
+		else:
+			add_child(msg)
+		msg.popup_centered()
+		msg.confirmed.connect(msg.queue_free)
+		msg.canceled.connect(msg.queue_free)
 		return
 	
 	# Create dialog on first use
 	if not is_instance_valid(_grid_arrange_dialog):
 		var dialog_script = load("res://addons/visual_gasic/grid_arrange_dialog.gd")
 		if not dialog_script:
-			printerr("VisualGasic: Could not load grid_arrange_dialog.gd")
+			push_error("VisualGasic: Could not load grid_arrange_dialog.gd")
 			return
 		_grid_arrange_dialog = dialog_script.new()
 		_grid_arrange_dialog.setup(_plugin)
@@ -238,6 +252,7 @@ func _open_grid_arrange() -> void:
 		else:
 			add_child(_grid_arrange_dialog)
 	
+	print("[VisualGasic] Opening Grid Arrange dialog for ", controls.size(), " controls")
 	# Open with the selected controls, positioned near the mouse
 	var mouse_pos = DisplayServer.mouse_get_position()
 	_grid_arrange_dialog.open_for_controls(controls, Vector2(mouse_pos))

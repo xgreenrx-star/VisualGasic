@@ -70,7 +70,8 @@ func open_for_controls(controls: Array, anchor_pos: Vector2 = Vector2.ZERO) -> v
 		var screen_size = DisplayServer.screen_get_size()
 		position = Vector2i((Vector2(screen_size) - Vector2(size)) / 2)
 	
-	popup()
+	print("[VisualGasic] Grid Arrange: popup() with %d controls, pos=%s, size=%s" % [controls.size(), str(position), str(size)])
+	popup(Rect2i(position, Vector2i(size)))
 	
 	# Apply initial preview
 	_apply_preview()
