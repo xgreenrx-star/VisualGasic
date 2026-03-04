@@ -2232,13 +2232,53 @@ func _on_vb6_file_menu(id: int) -> void:
 	match id:
 		0: _on_add_form()
 		1: _on_new_module()
-		10:
-			if _form_designer and _form_designer.has_method("save_form"):
-				_form_designer.save_form()
-		11: pass # Save As — could show FileDialog
+		10: _do_save_form()
+		11: _do_save_form_as()
 		20: _on_import_vb6_form()
 		21: _on_import_vb6_project()
 		99: _on_back_to_godot_pressed()
+
+## Save the current form. If no path is set, falls through to Save As.
+func _do_save_form() -> void:
+	if not _form_designer:
+		return
+	var path = _form_designer.get_form_path()
+	if path.is_empty():
+		# No path yet — behave like Save As, auto-generating a default name
+		var form_name = _form_designer.get_form_name() if _form_designer.has_method("get_form_name") else "Form1"
+		var default_path = "res://" + form_name + ".tscn"
+		print("[VisualGasic] Save Form: no path set — saving to ", default_path)
+		_form_designer.save_form_as(default_path)
+	else:
+		_form_designer.save_form()
+	print("[VisualGasic] Form saved: ", _form_designer.get_form_path())
+
+## Show a FileDialog so the user can choose where to save the form .tscn.
+func _do_save_form_as() -> void:
+	if not _form_designer:
+		return
+	var fd = FileDialog.new()
+	fd.file_mode = FileDialog.FILE_MODE_SAVE_FILE
+	fd.access = FileDialog.ACCESS_RESOURCES
+	fd.add_filter("*.tscn ; Godot Scene")
+	fd.title = "Save Form As..."
+	fd.min_size = Vector2i(600, 400)
+	# Pre-fill with current path or a default
+	var current_path = _form_designer.get_form_path()
+	if not current_path.is_empty():
+		fd.current_path = current_path
+	else:
+		var form_name = _form_designer.get_form_name() if _form_designer.has_method("get_form_name") else "Form1"
+		fd.current_file = form_name + ".tscn"
+		fd.current_dir = "res://"
+	fd.file_selected.connect(func(path: String):
+		_form_designer.save_form_as(path)
+		print("[VisualGasic] Form saved as: ", path)
+		fd.queue_free()
+	)
+	fd.canceled.connect(fd.queue_free)
+	get_editor_interface().get_base_control().add_child(fd)
+	fd.popup_centered()
 
 func _on_vb6_edit_menu(id: int) -> void:
 	if not _form_designer:

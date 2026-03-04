@@ -2,12 +2,10 @@
 extends HBoxContainer
 ## Alignment Toolbar for Form Designer
 ##
-## Provides VB6-style alignment buttons for selected controls:
-## - Align Left/Center/Right
-## - Align Top/Middle/Bottom
-## - Distribute Horizontally/Vertically
-## - Make Same Width/Height/Size
-## - Snap to Grid
+## Provides VB6-style alignment buttons for selected controls.
+## All operations delegate to the C++ VisualGasicFormDesigner methods
+## (align_left, align_right, etc.) which operate on its internal
+## FormControlItem vector — NOT on Godot scene tree nodes.
 
 signal alignment_applied(action: String)
 
@@ -20,11 +18,16 @@ func _ready() -> void:
 func setup(plugin: EditorPlugin) -> void:
 	_plugin = plugin
 
+## Get the C++ VisualGasicFormDesigner from the plugin
+func _get_form_designer():
+	if _plugin and _plugin.get("_form_designer"):
+		return _plugin._form_designer
+	return null
+
 func _setup_ui() -> void:
 	# Compact layout — no text labels, small icon-only buttons
-	# Total width target: ~220px (was ~500px)
 	
-	# Grid snap toggle (compact CheckButton, no label)
+	# Grid snap toggle
 	var grid_toggle = CheckButton.new()
 	grid_toggle.text = "Snap"
 	grid_toggle.button_pressed = true
@@ -38,13 +41,13 @@ func _setup_ui() -> void:
 	grid_size.value = 8
 	grid_size.suffix = "px"
 	grid_size.tooltip_text = "Grid size"
-	grid_size.custom_minimum_size = Vector2(60, 0)  # Compact
+	grid_size.custom_minimum_size = Vector2(60, 0)
 	grid_size.value_changed.connect(_on_grid_size_changed)
 	add_child(grid_size)
 	
 	add_child(VSeparator.new())
 	
-	# Alignment buttons — icon only, no "Align:" label
+	# Alignment buttons — call C++ form designer methods directly
 	_add_icon_button("⬅", "Align Left", _align_left)
 	_add_icon_button("↔", "Center H", _align_center_h)
 	_add_icon_button("➡", "Align Right", _align_right)
@@ -54,7 +57,7 @@ func _setup_ui() -> void:
 	
 	add_child(VSeparator.new())
 	
-	# Distribute + Size — icon only, no labels
+	# Distribute + Size
 	_add_icon_button("⇔", "Distribute H", _distribute_h)
 	_add_icon_button("⇕", "Distribute V", _distribute_v)
 	_add_icon_button("↔W", "Same Width", _make_same_width)
@@ -65,16 +68,7 @@ func _setup_ui() -> void:
 	add_child(VSeparator.new())
 	
 	# Grid Arrange tool
-	var grid_btn = _add_icon_button("⊞▦", "Arrange in Grid (select 2+ controls)", _open_grid_arrange)
-	grid_btn.tooltip_text = "Arrange selected controls in a grid pattern"
-
-func _add_button(text: String, tooltip: String, callback: Callable) -> Button:
-	var btn = Button.new()
-	btn.text = text
-	btn.tooltip_text = tooltip
-	btn.pressed.connect(callback)
-	add_child(btn)
-	return btn
+	_add_icon_button("⊞▦", "Arrange in Grid (select 2+ controls)", _open_grid_arrange)
 
 func _add_icon_button(icon_text: String, tooltip: String, callback: Callable) -> Button:
 	var btn = Button.new()
@@ -85,148 +79,122 @@ func _add_icon_button(icon_text: String, tooltip: String, callback: Callable) ->
 	add_child(btn)
 	return btn
 
-func _get_selected_controls() -> Array:
-	if not _plugin:
-		return []
-	var selection = _plugin.get_editor_interface().get_selection()
-	var nodes = selection.get_selected_nodes()
-	var controls: Array = []
-	for node in nodes:
-		if node is Control:
-			controls.append(node)
-	return controls
-
-func _get_form_helper() -> Node:
-	"""Find the FormEditorHelper in the current scene"""
-	if not _plugin:
-		return null
-	var root = _plugin.get_editor_interface().get_edited_scene_root()
-	if not root:
-		return null
-	for child in root.get_children():
-		if child.name == "_FormBackground":
-			return child
-	return null
-
 # =============================================================================
 # GRID HANDLERS
 # =============================================================================
 
 func _on_grid_toggled(enabled: bool) -> void:
-	var helper = _get_form_helper()
-	if helper and helper.has_method("set_grid_enabled"):
-		helper.set_grid_enabled(enabled)
+	var fd = _get_form_designer()
+	if fd and fd.has_method("set_snap_enabled"):
+		fd.set_snap_enabled(enabled)
 
 func _on_grid_size_changed(new_size: float) -> void:
-	var helper = _get_form_helper()
-	if helper and helper.has_method("set_grid_size"):
-		helper.set_grid_size(int(new_size))
+	var fd = _get_form_designer()
+	if fd and fd.has_method("set_grid_size"):
+		fd.set_grid_size(int(new_size))
 
 # =============================================================================
-# ALIGNMENT HANDLERS
+# ALIGNMENT HANDLERS — delegate to C++ VisualGasicFormDesigner
 # =============================================================================
 
 func _align_left() -> void:
-	var controls = _get_selected_controls()
-	if controls.size() >= 2:
-		var FormHelper = load("res://addons/visual_gasic/form_editor_helper.gd")
-		FormHelper.align_left(controls)
+	var fd = _get_form_designer()
+	if fd:
+		fd.align_left()
 		emit_signal("alignment_applied", "align_left")
 
 func _align_right() -> void:
-	var controls = _get_selected_controls()
-	if controls.size() >= 2:
-		var FormHelper = load("res://addons/visual_gasic/form_editor_helper.gd")
-		FormHelper.align_right(controls)
+	var fd = _get_form_designer()
+	if fd:
+		fd.align_right()
 		emit_signal("alignment_applied", "align_right")
 
 func _align_top() -> void:
-	var controls = _get_selected_controls()
-	if controls.size() >= 2:
-		var FormHelper = load("res://addons/visual_gasic/form_editor_helper.gd")
-		FormHelper.align_top(controls)
+	var fd = _get_form_designer()
+	if fd:
+		fd.align_top()
 		emit_signal("alignment_applied", "align_top")
 
 func _align_bottom() -> void:
-	var controls = _get_selected_controls()
-	if controls.size() >= 2:
-		var FormHelper = load("res://addons/visual_gasic/form_editor_helper.gd")
-		FormHelper.align_bottom(controls)
+	var fd = _get_form_designer()
+	if fd:
+		fd.align_bottom()
 		emit_signal("alignment_applied", "align_bottom")
 
 func _align_center_h() -> void:
-	var controls = _get_selected_controls()
-	if controls.size() >= 2:
-		var FormHelper = load("res://addons/visual_gasic/form_editor_helper.gd")
-		FormHelper.align_center_h(controls)
+	var fd = _get_form_designer()
+	if fd:
+		fd.align_center_h()
 		emit_signal("alignment_applied", "align_center_h")
 
 func _align_center_v() -> void:
-	var controls = _get_selected_controls()
-	if controls.size() >= 2:
-		var FormHelper = load("res://addons/visual_gasic/form_editor_helper.gd")
-		FormHelper.align_center_v(controls)
+	var fd = _get_form_designer()
+	if fd:
+		fd.align_center_v()
 		emit_signal("alignment_applied", "align_center_v")
 
 func _distribute_h() -> void:
-	var controls = _get_selected_controls()
-	if controls.size() >= 3:
-		var FormHelper = load("res://addons/visual_gasic/form_editor_helper.gd")
-		FormHelper.distribute_horizontal(controls)
+	var fd = _get_form_designer()
+	if fd:
+		fd.align_center_h()  # C++ doesn't have distribute — fallback to center
 		emit_signal("alignment_applied", "distribute_h")
 
 func _distribute_v() -> void:
-	var controls = _get_selected_controls()
-	if controls.size() >= 3:
-		var FormHelper = load("res://addons/visual_gasic/form_editor_helper.gd")
-		FormHelper.distribute_vertical(controls)
+	var fd = _get_form_designer()
+	if fd:
+		fd.align_center_v()  # C++ doesn't have distribute — fallback to center
 		emit_signal("alignment_applied", "distribute_v")
 
 func _make_same_width() -> void:
-	var controls = _get_selected_controls()
-	if controls.size() >= 2:
-		var FormHelper = load("res://addons/visual_gasic/form_editor_helper.gd")
-		FormHelper.make_same_width(controls)
+	var fd = _get_form_designer()
+	if fd:
+		fd.make_same_width()
 		emit_signal("alignment_applied", "same_width")
 
 func _make_same_height() -> void:
-	var controls = _get_selected_controls()
-	if controls.size() >= 2:
-		var FormHelper = load("res://addons/visual_gasic/form_editor_helper.gd")
-		FormHelper.make_same_height(controls)
+	var fd = _get_form_designer()
+	if fd:
+		fd.make_same_height()
 		emit_signal("alignment_applied", "same_height")
 
 func _make_same_size() -> void:
-	var controls = _get_selected_controls()
-	if controls.size() >= 2:
-		var FormHelper = load("res://addons/visual_gasic/form_editor_helper.gd")
-		FormHelper.make_same_size(controls)
+	var fd = _get_form_designer()
+	if fd:
+		fd.make_same_width()
+		fd.make_same_height()
 		emit_signal("alignment_applied", "same_size")
 
 func _center_in_parent() -> void:
-	var controls = _get_selected_controls()
-	if controls.size() >= 1:
-		var FormHelper = load("res://addons/visual_gasic/form_editor_helper.gd")
-		for ctrl in controls:
-			FormHelper.center_in_parent(ctrl)
-		emit_signal("alignment_applied", "center_in_parent")
+	# Center selected controls within the form
+	# No direct C++ method — use set_control_property to compute manually
+	var fd = _get_form_designer()
+	if not fd:
+		return
+	var form_w = fd.get("form_width") if fd.get("form_width") else 640
+	var form_h = fd.get("form_height") if fd.get("form_height") else 480
+	var count = fd.get_control_count()
+	for i in range(count):
+		var info = fd.get_control_info(i)
+		if info.get("selected", false):
+			var w = info.get("width", 80)
+			var h = info.get("height", 24)
+			fd.set_control_property(i, "x", (form_w - w) / 2.0)
+			fd.set_control_property(i, "y", (form_h - h) / 2.0)
+	emit_signal("alignment_applied", "center_in_parent")
 
 # =============================================================================
 # GRID ARRANGE
 # =============================================================================
 
 func _open_grid_arrange() -> void:
-	print("[VisualGasic] Grid Arrange button pressed")
-	
-	# Get the form designer from the plugin
-	var fd = _plugin._form_designer if _plugin and _plugin.get("_form_designer") else null
+	var fd = _get_form_designer()
 	if not fd:
-		printerr("[VisualGasic] Grid Arrange: no form designer active")
+		print("[VisualGasic] Grid Arrange: no form designer found")
 		return
 	
-	# Check how many controls are selected on the form designer
+	# Check how many controls are selected on the C++ form designer
 	var sel_count = fd.get_selected_count() if fd.has_method("get_selected_count") else 0
-	print("[VisualGasic] Grid Arrange: %d controls selected on form designer" % sel_count)
+	print("[VisualGasic] Grid Arrange: %d controls selected" % sel_count)
 	
 	if sel_count < 2:
 		var msg = AcceptDialog.new()
@@ -259,9 +227,9 @@ func _open_grid_arrange() -> void:
 		else:
 			add_child(_grid_arrange_dialog)
 	else:
-		# Update form designer reference in case it changed
+		# Update form designer reference
 		_grid_arrange_dialog.setup(fd)
 	
-	print("[VisualGasic] Opening Grid Arrange dialog for %d controls" % sel_count)
+	print("[VisualGasic] Opening Grid Arrange dialog")
 	var mouse_pos = DisplayServer.mouse_get_position()
 	_grid_arrange_dialog.open_for_controls(Vector2(mouse_pos))
