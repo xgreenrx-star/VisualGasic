@@ -2797,10 +2797,13 @@ func _on_fd_control_right_clicked(index: int, position: Vector2) -> void:
 		# Common actions
 		_fd_context_menu.add_item("View Code (" + ctrl_name + "_Click)", 10)
 		_fd_context_menu.add_separator()
+		_fd_context_menu.add_item("Cut", 31)
+		_fd_context_menu.add_item("Copy", 32)
+		_fd_context_menu.add_item("Delete", 30)
+		_fd_context_menu.add_separator()
 		_fd_context_menu.add_item("Edit Control Scene...", 20)
 		var idx = _fd_context_menu.get_item_index(20)
 		_fd_context_menu.set_item_disabled(idx, true)
-		_fd_context_menu.add_item("Delete", 30)
 		_fd_context_menu.add_separator()
 		_fd_context_menu.add_item("Properties", 40)
 	else:
@@ -2830,6 +2833,12 @@ func _on_fd_context_menu_pressed(id: int) -> void:
 		30: # Delete
 			if _form_designer:
 				_form_designer.remove_selected()
+		31: # Cut
+			if _form_designer:
+				_form_designer.cut()
+		32: # Copy
+			if _form_designer:
+				_form_designer.copy()
 		40: # Properties (control)
 			if is_instance_valid(_properties_inspector) and _properties_inspector.has_method("show_control_properties") and _form_designer:
 				var info = _form_designer.get_control_info(index)
