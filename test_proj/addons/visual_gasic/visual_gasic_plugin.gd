@@ -1682,6 +1682,8 @@ func _on_components_changed():
 
 ## Registers the GDScript-extended tools (not in C++ defaults)
 func _register_extended_tools():
+	if not _get_toolbox_instance():
+		return  # C++ extension not loaded — skip silently
 	register_tool("FlexGrid", "Tree", "Tree", "res://custom_widgets/FlexGrid.tscn")
 	register_tool("Form", "Panel", "Window", "res://custom_widgets/Form.tscn")
 	register_tool("Option", "CheckBox", "CheckBox", "res://custom_widgets/Option.tscn")
@@ -2079,8 +2081,6 @@ func register_tool(name: String, create_class: String, icon_name: String = "", s
 	var real_toolbox = _get_toolbox_instance()
 	if real_toolbox:
 		real_toolbox.add_tool(name, create_class, icon_name, scene_path, category)
-	else:
-		printerr("VisualGasic: Toolbox not found!")
 
 ## Gets the C++ VisualGasicToolbox instance from the toolbox container.
 ## @returns: The toolbox instance or null if not found

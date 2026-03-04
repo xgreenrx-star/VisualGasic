@@ -327,6 +327,64 @@ static func center_in_parent(control: Control) -> void:
 	elif parent is Window:
 		control.position = (Vector2(parent.size) - control.size) / 2
 
+## Arranges controls in a grid pattern
+## controls: Array of Control nodes to arrange
+## columns: Number of columns in the grid
+## h_spacing: Horizontal gap between controls (px)
+## v_spacing: Vertical gap between controls (px)
+## sort_by_position: If true, sort by spatial position; if false, use array order
+## make_same_size: If true, resize all controls to match the first one
+static func arrange_grid(controls: Array, columns: int = 4, h_spacing: float = 4.0, v_spacing: float = 4.0, sort_by_position: bool = true, make_same_size: bool = false) -> void:
+	if controls.size() < 2 or columns < 1:
+		return
+	
+	# Sort controls
+	var sorted_controls = controls.duplicate()
+	if sort_by_position:
+		sorted_controls.sort_custom(func(a, b):
+			var row_tolerance = 20.0
+			if abs(a.position.y - b.position.y) < row_tolerance:
+				return a.position.x < b.position.x
+			return a.position.y < b.position.y
+		)
+	
+	# Determine cell size
+	var cell_w: float = 0.0
+	var cell_h: float = 0.0
+	if make_same_size and sorted_controls.size() > 0:
+		cell_w = sorted_controls[0].size.x
+		cell_h = sorted_controls[0].size.y
+		for ctrl in sorted_controls:
+			if ctrl is Control:
+				ctrl.size = Vector2(cell_w, cell_h)
+	else:
+		for ctrl in sorted_controls:
+			if ctrl is Control:
+				cell_w = max(cell_w, ctrl.size.x)
+				cell_h = max(cell_h, ctrl.size.y)
+	
+	# Start from top-left of the bounding box
+	var start_x: float = INF
+	var start_y: float = INF
+	for ctrl in sorted_controls:
+		if ctrl is Control:
+			start_x = min(start_x, ctrl.position.x)
+			start_y = min(start_y, ctrl.position.y)
+	if start_x == INF: start_x = 0
+	if start_y == INF: start_y = 0
+	
+	# Place each control
+	for i in range(sorted_controls.size()):
+		var ctrl = sorted_controls[i]
+		if not ctrl is Control:
+			continue
+		var row = i / columns
+		var col = i % columns
+		ctrl.position = Vector2(
+			start_x + col * (cell_w + h_spacing),
+			start_y + row * (cell_h + v_spacing)
+		)
+
 # =============================================================================
 # GRID SETTINGS
 # =============================================================================

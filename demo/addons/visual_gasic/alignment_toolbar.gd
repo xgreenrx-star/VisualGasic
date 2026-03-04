@@ -12,6 +12,7 @@ extends HBoxContainer
 signal alignment_applied(action: String)
 
 var _plugin: EditorPlugin = null
+var _grid_arrange_dialog = null  # GridArrangeDialog instance
 
 func _ready() -> void:
 	_setup_ui()
@@ -60,6 +61,12 @@ func _setup_ui() -> void:
 	_add_icon_button("↕H", "Same Height", _make_same_height)
 	_add_icon_button("⬜", "Same Size", _make_same_size)
 	_add_icon_button("⊞", "Center in Parent", _center_in_parent)
+	
+	add_child(VSeparator.new())
+	
+	# Grid Arrange tool
+	var grid_btn = _add_icon_button("⊞▦", "Arrange in Grid (select 2+ controls)", _open_grid_arrange)
+	grid_btn.tooltip_text = "Arrange selected controls in a grid pattern"
 
 func _add_button(text: String, tooltip: String, callback: Callable) -> Button:
 	var btn = Button.new()
@@ -203,3 +210,34 @@ func _center_in_parent() -> void:
 		for ctrl in controls:
 			FormHelper.center_in_parent(ctrl)
 		emit_signal("alignment_applied", "center_in_parent")
+
+# =============================================================================
+# GRID ARRANGE
+# =============================================================================
+
+func _open_grid_arrange() -> void:
+	var controls = _get_selected_controls()
+	if controls.size() < 2:
+		printerr("VisualGasic: Select at least 2 controls to arrange in a grid")
+		return
+	
+	# Create dialog on first use
+	if not is_instance_valid(_grid_arrange_dialog):
+		var dialog_script = load("res://addons/visual_gasic/grid_arrange_dialog.gd")
+		if not dialog_script:
+			printerr("VisualGasic: Could not load grid_arrange_dialog.gd")
+			return
+		_grid_arrange_dialog = dialog_script.new()
+		_grid_arrange_dialog.setup(_plugin)
+		_grid_arrange_dialog.grid_applied.connect(func():
+			emit_signal("alignment_applied", "grid_arrange")
+		)
+		# Add to the editor root so it appears above everything
+		if _plugin:
+			_plugin.get_editor_interface().get_base_control().add_child(_grid_arrange_dialog)
+		else:
+			add_child(_grid_arrange_dialog)
+	
+	# Open with the selected controls, positioned near the mouse
+	var mouse_pos = DisplayServer.mouse_get_position()
+	_grid_arrange_dialog.open_for_controls(controls, Vector2(mouse_pos))

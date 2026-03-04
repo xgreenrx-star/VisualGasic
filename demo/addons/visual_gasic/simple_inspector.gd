@@ -114,6 +114,40 @@ const PROPERTY_DESCRIPTIONS: Dictionary = {
 	"default_button": "Returns/sets whether a command button is the default button for a form.",
 	"index": "Returns the index of the control in the Form Designer's control array.",
 	"windowtype": "Returns/sets the window type for the form. Game=SubViewport, Windows=Window, Linux=Window+CSD, Mac=Window+CSD.",
+	"Opacity": "Returns/sets the opacity of the control (0 = fully transparent, 100 = fully opaque).",
+	"Rotation": "Returns/sets the rotation of the control in degrees.",
+	"ScaleX": "Returns/sets the horizontal scale factor of the control (1.0 = normal).",
+	"ScaleY": "Returns/sets the vertical scale factor of the control (1.0 = normal).",
+	"ClipContents": "Returns/sets whether child controls are clipped to this control's boundaries.",
+	"MinWidth": "Returns/sets the minimum width constraint for the control.",
+	"MinHeight": "Returns/sets the minimum height constraint for the control.",
+	"Flat": "Returns/sets whether a Button appears 3D (raised) or flat.",
+	"Icon": "Returns/sets the path to an icon texture displayed on the Button.",
+	"IconAlignment": "Returns/sets which side of the Button the icon appears on (Left, Center, Right).",
+	"VerticalAlignment": "Returns/sets the vertical alignment of text in a Label (Top, Center, Bottom).",
+	"MaxLinesVisible": "Returns/sets the maximum number of visible lines in a Label. -1 means no limit.",
+	"ClearButton": "Returns/sets whether the TextBox displays a clear (×) button when it contains text.",
+	"SelectAllOnFocus": "Returns/sets whether all text is automatically selected when the TextBox receives focus.",
+	"Editable": "Returns/sets whether the user can edit the content of the control.",
+	"ShowPercentage": "Returns/sets whether a ProgressBar displays its value as a percentage.",
+	"FillMode": "Returns/sets the fill direction of a ProgressBar (Left to Right, Right to Left, Top to Bottom, Bottom to Top).",
+	"StretchMode": "Returns/sets how a PictureBox image is stretched to fit the control.",
+	"FlipH": "Returns/sets whether the image is flipped horizontally.",
+	"FlipV": "Returns/sets whether the image is flipped vertically.",
+	"ShapeColor": "Returns/sets the fill color of a Shape (ColorRect) control.",
+	"IconMode": "Returns/sets how icons are displayed in a ListBox (Top, Left).",
+	"MaxColumns": "Returns/sets the maximum number of columns in a ListBox. 0 = as many as fit.",
+	"FixedColumnWidth": "Returns/sets a fixed width for columns in a ListBox. 0 = auto.",
+	"HideRoot": "Returns/sets whether the root item of a TreeView is hidden.",
+	"HideFolding": "Returns/sets whether the folding arrows in a TreeView are hidden.",
+	"CurrentTab": "Returns/sets the currently active tab index in a TabStrip control.",
+	"TabAlignment": "Returns/sets the alignment of tabs (Left, Center, Right).",
+	"Prefix": "Returns/sets the text displayed before the SpinBox value.",
+	"Suffix": "Returns/sets the text displayed after the SpinBox value.",
+	"Wrap": "Returns/sets whether a SpinBox wraps from Max to Min and vice versa.",
+	"ListItems": "Returns/sets the items in the list, separated by | characters.",
+	"FontUnderline": "Returns/sets whether the font is underlined.",
+	"FontStrikethrough": "Returns/sets whether the font has a strikethrough.",
 }
 
 func _init():
@@ -326,94 +360,252 @@ func show_control_properties(info: Dictionary, designer = null, ctrl_index: int 
 	elif ctrl_type in ["LineEdit", "TextEdit", "RichTextLabel"]:
 		_property_entries.append({"label": "Text", "value": text_val, "prop_key": "text", "type": "string", "category": CATEGORY_APPEARANCE})
 
-	# BackColor / ForeColor
+	# BackColor / ForeColor — all visible controls
 	var back_color = _fd_color_from_props(props, "BackColor", Color(0.85, 0.85, 0.85))
 	var fore_color = _fd_color_from_props(props, "ForeColor", Color(0.0, 0.0, 0.0))
-	_property_entries.append({"label": "BackColor", "value": back_color, "prop_key": "BackColor", "type": "color", "category": CATEGORY_APPEARANCE})
-	_property_entries.append({"label": "ForeColor", "value": fore_color, "prop_key": "ForeColor", "type": "color", "category": CATEGORY_APPEARANCE})
+	if ctrl_type != "Timer":
+		_property_entries.append({"label": "BackColor", "value": back_color, "prop_key": "BackColor", "type": "color", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "ForeColor", "value": fore_color, "prop_key": "ForeColor", "type": "color", "category": CATEGORY_APPEARANCE})
 
-	# BorderStyle (Label, Panel, TextBox)
-	if ctrl_type in ["Label", "Panel", "LineEdit", "TextEdit"]:
+	# BorderStyle (Label, Panel, TextBox, PictureBox)
+	if ctrl_type in ["Label", "Panel", "LineEdit", "TextEdit", "TextureRect", "Picture", "RichTextLabel"]:
 		var bs = int(props.get("BorderStyle", 0))
 		_property_entries.append({"label": "BorderStyle", "value": bs, "prop_key": "BorderStyle", "type": "fd_enum_borderstyle", "category": CATEGORY_APPEARANCE})
 
-	# Appearance (3D / Flat)
-	var appearance_val = int(props.get("Appearance", 1))
-	_property_entries.append({"label": "Appearance", "value": appearance_val, "prop_key": "Appearance", "type": "fd_enum_appearance", "category": CATEGORY_APPEARANCE})
+	# Appearance (3D / Flat) — most visual controls
+	if ctrl_type != "Timer":
+		var appearance_val = int(props.get("Appearance", 1))
+		_property_entries.append({"label": "Appearance", "value": appearance_val, "prop_key": "Appearance", "type": "fd_enum_appearance", "category": CATEGORY_APPEARANCE})
 
-	# Alignment (Label)
+	# Alignment (Label, LineEdit, TextEdit, CheckBox, OptionButton)
 	if ctrl_type == "Label":
 		var align_val = int(props.get("Alignment", 0))
 		_property_entries.append({"label": "Alignment", "value": align_val, "prop_key": "Alignment", "type": "fd_enum_alignment", "category": CATEGORY_APPEARANCE})
+	if ctrl_type in ["LineEdit", "TextEdit"]:
+		var align_val = int(props.get("Alignment", 0))
+		_property_entries.append({"label": "Alignment", "value": align_val, "prop_key": "Alignment", "type": "fd_enum_alignment", "category": CATEGORY_APPEARANCE})
+	if ctrl_type in ["CheckBox", "OptionButton"]:
+		var align_val = int(props.get("Alignment", 0))
+		_property_entries.append({"label": "Alignment", "value": align_val, "prop_key": "Alignment", "type": "fd_enum_alignment", "category": CATEGORY_APPEARANCE})
 
-	# AutoSize (Label)
-	if ctrl_type == "Label":
+	# AutoSize (Label, PictureBox)
+	if ctrl_type in ["Label", "TextureRect", "Picture"]:
 		_property_entries.append({"label": "AutoSize", "value": bool(props.get("AutoSize", false)), "prop_key": "AutoSize", "type": "bool", "category": CATEGORY_APPEARANCE})
+	# WordWrap (Label, TextEdit)
+	if ctrl_type in ["Label", "TextEdit", "RichTextLabel"]:
 		_property_entries.append({"label": "WordWrap", "value": bool(props.get("WordWrap", false)), "prop_key": "WordWrap", "type": "bool", "category": CATEGORY_APPEARANCE})
 
-	# Flat (Button)
+	# Style (Button — graphical vs standard)
 	if ctrl_type == "Button":
 		_property_entries.append({"label": "Style", "value": int(props.get("Style", 0)), "prop_key": "Style", "type": "fd_enum_style", "category": CATEGORY_APPEARANCE})
 
-	# PasswordChar (LineEdit/TextBox)
+	# --------- LineEdit / TextBox properties ---------
 	if ctrl_type == "LineEdit":
 		_property_entries.append({"label": "PasswordChar", "value": str(props.get("PasswordChar", "")), "prop_key": "PasswordChar", "type": "string", "category": CATEGORY_APPEARANCE})
 		_property_entries.append({"label": "MaxLength", "value": int(props.get("MaxLength", 0)), "prop_key": "MaxLength", "type": "number", "category": CATEGORY_APPEARANCE})
-		_property_entries.append({"label": "Locked", "value": bool(props.get("Locked", false)), "prop_key": "Locked", "type": "bool", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "Locked", "value": bool(props.get("Locked", false)), "prop_key": "Locked", "type": "bool", "category": CATEGORY_BEHAVIOR})
 		_property_entries.append({"label": "PlaceholderText", "value": str(props.get("PlaceholderText", "")), "prop_key": "PlaceholderText", "type": "string", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "ClearButton", "value": bool(props.get("ClearButton", false)), "prop_key": "ClearButton", "type": "bool", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "SelectAllOnFocus", "value": bool(props.get("SelectAllOnFocus", false)), "prop_key": "SelectAllOnFocus", "type": "bool", "category": CATEGORY_BEHAVIOR})
+		_property_entries.append({"label": "RightToLeft", "value": bool(props.get("RightToLeft", false)), "prop_key": "RightToLeft", "type": "bool", "category": CATEGORY_BEHAVIOR})
+		_property_entries.append({"label": "VirtualKeyboardEnabled", "value": bool(props.get("VirtualKeyboardEnabled", true)), "prop_key": "VirtualKeyboardEnabled", "type": "bool", "category": CATEGORY_BEHAVIOR})
 
-	# MultiLine / ScrollBars (TextEdit)
+	# --------- TextEdit properties ---------
 	if ctrl_type == "TextEdit":
 		_property_entries.append({"label": "MultiLine", "value": bool(props.get("MultiLine", true)), "prop_key": "MultiLine", "type": "bool", "category": CATEGORY_APPEARANCE})
 		_property_entries.append({"label": "ScrollBars", "value": int(props.get("ScrollBars", 3)), "prop_key": "ScrollBars", "type": "fd_enum_scrollbars", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "Locked", "value": bool(props.get("Locked", false)), "prop_key": "Locked", "type": "bool", "category": CATEGORY_BEHAVIOR})
+		_property_entries.append({"label": "Editable", "value": bool(props.get("Editable", true)), "prop_key": "Editable", "type": "bool", "category": CATEGORY_BEHAVIOR})
+		_property_entries.append({"label": "MaxLength", "value": int(props.get("MaxLength", 0)), "prop_key": "MaxLength", "type": "number", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "PlaceholderText", "value": str(props.get("PlaceholderText", "")), "prop_key": "PlaceholderText", "type": "string", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "RightToLeft", "value": bool(props.get("RightToLeft", false)), "prop_key": "RightToLeft", "type": "bool", "category": CATEGORY_BEHAVIOR})
 
-	# Range controls (ProgressBar, Slider, SpinBox, ScrollBar)
+	# --------- RichTextLabel properties ---------
+	if ctrl_type == "RichTextLabel":
+		_property_entries.append({"label": "BbcodeEnabled", "value": bool(props.get("BbcodeEnabled", false)), "prop_key": "BbcodeEnabled", "type": "bool", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "FitContent", "value": bool(props.get("FitContent", false)), "prop_key": "FitContent", "type": "bool", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "ScrollActive", "value": bool(props.get("ScrollActive", true)), "prop_key": "ScrollActive", "type": "bool", "category": CATEGORY_BEHAVIOR})
+		_property_entries.append({"label": "SelectionEnabled", "value": bool(props.get("SelectionEnabled", false)), "prop_key": "SelectionEnabled", "type": "bool", "category": CATEGORY_BEHAVIOR})
+
+	# --------- Button properties ---------
+	if ctrl_type == "Button":
+		_property_entries.append({"label": "Flat", "value": bool(props.get("Flat", false)), "prop_key": "Flat", "type": "bool", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "Icon", "value": str(props.get("Icon", "")), "prop_key": "Icon", "type": "string", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "IconAlignment", "value": int(props.get("IconAlignment", 0)), "prop_key": "IconAlignment", "type": "fd_enum_iconalignment", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "ClipText", "value": bool(props.get("ClipText", false)), "prop_key": "ClipText", "type": "bool", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "ExpandIcon", "value": bool(props.get("ExpandIcon", false)), "prop_key": "ExpandIcon", "type": "bool", "category": CATEGORY_APPEARANCE})
+
+	# --------- Label properties ---------
+	if ctrl_type == "Label":
+		_property_entries.append({"label": "VerticalAlignment", "value": int(props.get("VerticalAlignment", 0)), "prop_key": "VerticalAlignment", "type": "fd_enum_valignment", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "MaxLinesVisible", "value": int(props.get("MaxLinesVisible", -1)), "prop_key": "MaxLinesVisible", "type": "number", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "ClipText", "value": bool(props.get("ClipText", false)), "prop_key": "ClipText", "type": "bool", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "TextOverrunBehavior", "value": int(props.get("TextOverrunBehavior", 0)), "prop_key": "TextOverrunBehavior", "type": "number", "category": CATEGORY_APPEARANCE})
+
+	# --------- CheckBox properties ---------
+	if ctrl_type in ["CheckBox", "CheckButton"]:
+		_property_entries.append({"label": "Value", "value": bool(props.get("Value", false)), "prop_key": "Value", "type": "bool", "category": CATEGORY_APPEARANCE})
+
+	# --------- Range controls (ProgressBar, Slider, SpinBox, ScrollBar) ---------
 	if ctrl_type in ["ProgressBar", "HSlider", "VSlider", "SpinBox", "HScrollBar", "VScrollBar"]:
 		_property_entries.append({"label": "Value", "value": float(props.get("Value", 0)), "prop_key": "Value", "type": "number", "category": CATEGORY_APPEARANCE})
 		_property_entries.append({"label": "Min", "value": float(props.get("Min", 0)), "prop_key": "Min", "type": "number", "category": CATEGORY_APPEARANCE})
 		_property_entries.append({"label": "Max", "value": float(props.get("Max", 100)), "prop_key": "Max", "type": "number", "category": CATEGORY_APPEARANCE})
 		_property_entries.append({"label": "Step", "value": float(props.get("Step", 1)), "prop_key": "Step", "type": "number", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "Rounded", "value": bool(props.get("Rounded", false)), "prop_key": "Rounded", "type": "bool", "category": CATEGORY_BEHAVIOR})
+		_property_entries.append({"label": "AllowGreater", "value": bool(props.get("AllowGreater", false)), "prop_key": "AllowGreater", "type": "bool", "category": CATEGORY_BEHAVIOR})
+		_property_entries.append({"label": "AllowLesser", "value": bool(props.get("AllowLesser", false)), "prop_key": "AllowLesser", "type": "bool", "category": CATEGORY_BEHAVIOR})
 
-	# CheckBox value
-	if ctrl_type in ["CheckBox", "CheckButton"]:
-		_property_entries.append({"label": "Value", "value": bool(props.get("Value", false)), "prop_key": "Value", "type": "bool", "category": CATEGORY_APPEARANCE})
+	# --------- Slider-specific ---------
+	if ctrl_type in ["HSlider", "VSlider"]:
+		_property_entries.append({"label": "TickCount", "value": int(props.get("TickCount", 0)), "prop_key": "TickCount", "type": "number", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "TicksOnBorders", "value": bool(props.get("TicksOnBorders", false)), "prop_key": "TicksOnBorders", "type": "bool", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "Scrollable", "value": bool(props.get("Scrollable", true)), "prop_key": "Scrollable", "type": "bool", "category": CATEGORY_BEHAVIOR})
 
-	# Timer interval
-	if ctrl_type == "Timer":
-		_property_entries.append({"label": "Interval", "value": int(props.get("Interval", 1000)), "prop_key": "Interval", "type": "number", "category": CATEGORY_BEHAVIOR})
+	# --------- ScrollBar-specific ---------
+	if ctrl_type in ["HScrollBar", "VScrollBar"]:
+		_property_entries.append({"label": "Page", "value": float(props.get("Page", 0)), "prop_key": "Page", "type": "number", "category": CATEGORY_APPEARANCE})
 
-	# Sorted / MultiSelect / Columns (ItemList / ListBox)
-	if ctrl_type in ["ItemList", "Tree"]:
-		_property_entries.append({"label": "Sorted", "value": bool(props.get("Sorted", false)), "prop_key": "Sorted", "type": "bool", "category": CATEGORY_BEHAVIOR})
-	if ctrl_type == "ItemList":
-		_property_entries.append({"label": "MultiSelect", "value": int(props.get("MultiSelect", 0)), "prop_key": "MultiSelect", "type": "fd_enum_multiselect", "category": CATEGORY_BEHAVIOR})
-		_property_entries.append({"label": "Columns", "value": int(props.get("Columns", 0)), "prop_key": "Columns", "type": "number", "category": CATEGORY_BEHAVIOR})
+	# --------- ProgressBar properties ---------
+	if ctrl_type == "ProgressBar":
+		_property_entries.append({"label": "ShowPercentage", "value": bool(props.get("ShowPercentage", true)), "prop_key": "ShowPercentage", "type": "bool", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "FillMode", "value": int(props.get("FillMode", 0)), "prop_key": "FillMode", "type": "fd_enum_fillmode", "category": CATEGORY_APPEARANCE})
 
-	# PictureBox / Image
+	# --------- SpinBox properties ---------
+	if ctrl_type == "SpinBox":
+		_property_entries.append({"label": "Prefix", "value": str(props.get("Prefix", "")), "prop_key": "Prefix", "type": "string", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "Suffix", "value": str(props.get("Suffix", "")), "prop_key": "Suffix", "type": "string", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "Wrap", "value": bool(props.get("Wrap", false)), "prop_key": "Wrap", "type": "bool", "category": CATEGORY_BEHAVIOR})
+		_property_entries.append({"label": "Alignment", "value": int(props.get("Alignment", 0)), "prop_key": "Alignment", "type": "fd_enum_alignment", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "Editable", "value": bool(props.get("Editable", true)), "prop_key": "Editable", "type": "bool", "category": CATEGORY_BEHAVIOR})
+		_property_entries.append({"label": "UpdateOnTextChanged", "value": bool(props.get("UpdateOnTextChanged", false)), "prop_key": "UpdateOnTextChanged", "type": "bool", "category": CATEGORY_BEHAVIOR})
+
+	# --------- PictureBox / TextureRect properties ---------
 	if ctrl_type in ["TextureRect", "Picture"]:
+		_property_entries.append({"label": "StretchMode", "value": int(props.get("StretchMode", 0)), "prop_key": "StretchMode", "type": "fd_enum_stretchmode", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "FlipH", "value": bool(props.get("FlipH", false)), "prop_key": "FlipH", "type": "bool", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "FlipV", "value": bool(props.get("FlipV", false)), "prop_key": "FlipV", "type": "bool", "category": CATEGORY_APPEARANCE})
 		_property_entries.append({"label": "Picture", "value": str(props.get("Picture", "")), "prop_key": "Picture", "type": "string", "category": CATEGORY_APPEARANCE})
 		_property_entries.append({"label": "Stretch", "value": bool(props.get("Stretch", false)), "prop_key": "Stretch", "type": "bool", "category": CATEGORY_APPEARANCE})
 
-	# ===== Behavior Properties =====
+	# --------- ColorRect / Shape properties ---------
+	if ctrl_type in ["ColorRect", "Shape"]:
+		var shape_clr = _fd_color_from_props(props, "ShapeColor", Color(0.3, 0.3, 0.8))
+		_property_entries.append({"label": "ShapeColor", "value": shape_clr, "prop_key": "ShapeColor", "type": "color", "category": CATEGORY_APPEARANCE})
+
+	# --------- ItemList / ListBox properties ---------
+	if ctrl_type == "ItemList":
+		_property_entries.append({"label": "IconMode", "value": int(props.get("IconMode", 1)), "prop_key": "IconMode", "type": "fd_enum_iconmode", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "MaxColumns", "value": int(props.get("MaxColumns", 1)), "prop_key": "MaxColumns", "type": "number", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "FixedColumnWidth", "value": int(props.get("FixedColumnWidth", 0)), "prop_key": "FixedColumnWidth", "type": "number", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "Sorted", "value": bool(props.get("Sorted", false)), "prop_key": "Sorted", "type": "bool", "category": CATEGORY_BEHAVIOR})
+		_property_entries.append({"label": "MultiSelect", "value": int(props.get("MultiSelect", 0)), "prop_key": "MultiSelect", "type": "fd_enum_multiselect", "category": CATEGORY_BEHAVIOR})
+		_property_entries.append({"label": "Columns", "value": int(props.get("Columns", 0)), "prop_key": "Columns", "type": "number", "category": CATEGORY_BEHAVIOR})
+		_property_entries.append({"label": "AllowReselect", "value": bool(props.get("AllowReselect", false)), "prop_key": "AllowReselect", "type": "bool", "category": CATEGORY_BEHAVIOR})
+		_property_entries.append({"label": "AutoHeight", "value": bool(props.get("AutoHeight", false)), "prop_key": "AutoHeight", "type": "bool", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "FixedIconSize", "value": int(props.get("FixedIconSize", 0)), "prop_key": "FixedIconSize", "type": "number", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "SameColumnWidth", "value": bool(props.get("SameColumnWidth", false)), "prop_key": "SameColumnWidth", "type": "bool", "category": CATEGORY_APPEARANCE})
+
+	# --------- OptionButton / ComboBox properties ---------
+	if ctrl_type in ["OptionButton", "ComboBox", "VGComboBox"]:
+		_property_entries.append({"label": "ListItems", "value": str(props.get("ListItems", "")), "prop_key": "ListItems", "type": "string", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "Selected", "value": int(props.get("Selected", -1)), "prop_key": "Selected", "type": "number", "category": CATEGORY_BEHAVIOR})
+		_property_entries.append({"label": "FitToLongestItem", "value": bool(props.get("FitToLongestItem", true)), "prop_key": "FitToLongestItem", "type": "bool", "category": CATEGORY_APPEARANCE})
+
+	# --------- Tree / TreeView properties ---------
+	if ctrl_type in ["Tree", "TreeView"]:
+		_property_entries.append({"label": "HideRoot", "value": bool(props.get("HideRoot", false)), "prop_key": "HideRoot", "type": "bool", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "HideFolding", "value": bool(props.get("HideFolding", false)), "prop_key": "HideFolding", "type": "bool", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "Sorted", "value": bool(props.get("Sorted", false)), "prop_key": "Sorted", "type": "bool", "category": CATEGORY_BEHAVIOR})
+		_property_entries.append({"label": "AllowReselect", "value": bool(props.get("AllowReselect", false)), "prop_key": "AllowReselect", "type": "bool", "category": CATEGORY_BEHAVIOR})
+		_property_entries.append({"label": "AllowRmbSelect", "value": bool(props.get("AllowRmbSelect", false)), "prop_key": "AllowRmbSelect", "type": "bool", "category": CATEGORY_BEHAVIOR})
+		_property_entries.append({"label": "SelectMode", "value": int(props.get("SelectMode", 0)), "prop_key": "SelectMode", "type": "number", "category": CATEGORY_BEHAVIOR})
+		_property_entries.append({"label": "Columns", "value": int(props.get("Columns", 1)), "prop_key": "Columns", "type": "number", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "ColumnTitlesVisible", "value": bool(props.get("ColumnTitlesVisible", false)), "prop_key": "ColumnTitlesVisible", "type": "bool", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "ScrollHorizontalEnabled", "value": bool(props.get("ScrollHorizontalEnabled", true)), "prop_key": "ScrollHorizontalEnabled", "type": "bool", "category": CATEGORY_BEHAVIOR})
+		_property_entries.append({"label": "ScrollVerticalEnabled", "value": bool(props.get("ScrollVerticalEnabled", true)), "prop_key": "ScrollVerticalEnabled", "type": "bool", "category": CATEGORY_BEHAVIOR})
+
+	# --------- TabContainer / TabStrip properties ---------
+	if ctrl_type in ["TabContainer", "TabStrip"]:
+		_property_entries.append({"label": "CurrentTab", "value": int(props.get("CurrentTab", 0)), "prop_key": "CurrentTab", "type": "number", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "TabAlignment", "value": int(props.get("TabAlignment", 0)), "prop_key": "TabAlignment", "type": "fd_enum_tabalignment", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "ClipTabs", "value": bool(props.get("ClipTabs", true)), "prop_key": "ClipTabs", "type": "bool", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "DragToRearrangeEnabled", "value": bool(props.get("DragToRearrangeEnabled", false)), "prop_key": "DragToRearrangeEnabled", "type": "bool", "category": CATEGORY_BEHAVIOR})
+		_property_entries.append({"label": "TabCount", "value": int(props.get("TabCount", 0)), "prop_key": "TabCount", "type": "number", "category": CATEGORY_APPEARANCE})
+
+	# --------- Panel properties ---------
+	if ctrl_type == "Panel":
+		_property_entries.append({"label": "ClipContents", "value": bool(props.get("ClipContents", false)), "prop_key": "ClipContents", "type": "bool", "category": CATEGORY_APPEARANCE})
+
+	# --------- Timer properties ---------
+	if ctrl_type == "Timer":
+		_property_entries.append({"label": "Interval", "value": int(props.get("Interval", 1000)), "prop_key": "Interval", "type": "number", "category": CATEGORY_BEHAVIOR})
+		_property_entries.append({"label": "OneShot", "value": bool(props.get("OneShot", false)), "prop_key": "OneShot", "type": "bool", "category": CATEGORY_BEHAVIOR})
+		_property_entries.append({"label": "Autostart", "value": bool(props.get("Autostart", false)), "prop_key": "Autostart", "type": "bool", "category": CATEGORY_BEHAVIOR})
+
+	# --------- MenuBar properties ---------
+	if ctrl_type == "MenuBar":
+		_property_entries.append({"label": "Flat", "value": bool(props.get("Flat", false)), "prop_key": "Flat", "type": "bool", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "SwitchOnHover", "value": bool(props.get("SwitchOnHover", true)), "prop_key": "SwitchOnHover", "type": "bool", "category": CATEGORY_BEHAVIOR})
+		_property_entries.append({"label": "PreferGlobalMenu", "value": bool(props.get("PreferGlobalMenu", false)), "prop_key": "PreferGlobalMenu", "type": "bool", "category": CATEGORY_BEHAVIOR})
+
+	# --------- TextureButton properties ---------
+	if ctrl_type == "TextureButton":
+		_property_entries.append({"label": "StretchMode", "value": int(props.get("StretchMode", 0)), "prop_key": "StretchMode", "type": "fd_enum_stretchmode", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "FlipH", "value": bool(props.get("FlipH", false)), "prop_key": "FlipH", "type": "bool", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "FlipV", "value": bool(props.get("FlipV", false)), "prop_key": "FlipV", "type": "bool", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "IgnoreTextureSize", "value": bool(props.get("IgnoreTextureSize", false)), "prop_key": "IgnoreTextureSize", "type": "bool", "category": CATEGORY_APPEARANCE})
+
+	# --------- GroupBox / Frame properties ---------
+	if ctrl_type in ["GroupBox", "Frame"]:
+		_property_entries.append({"label": "ClipContents", "value": bool(props.get("ClipContents", false)), "prop_key": "ClipContents", "type": "bool", "category": CATEGORY_APPEARANCE})
+
+	# --------- FileDialog properties ---------
+	if ctrl_type == "FileDialog":
+		_property_entries.append({"label": "FileMode", "value": int(props.get("FileMode", 0)), "prop_key": "FileMode", "type": "number", "category": CATEGORY_BEHAVIOR})
+		_property_entries.append({"label": "Filters", "value": str(props.get("Filters", "")), "prop_key": "Filters", "type": "string", "category": CATEGORY_BEHAVIOR})
+		_property_entries.append({"label": "CurrentDir", "value": str(props.get("CurrentDir", "")), "prop_key": "CurrentDir", "type": "string", "category": CATEGORY_BEHAVIOR})
+		_property_entries.append({"label": "CurrentFile", "value": str(props.get("CurrentFile", "")), "prop_key": "CurrentFile", "type": "string", "category": CATEGORY_BEHAVIOR})
+		_property_entries.append({"label": "ShowHiddenFiles", "value": bool(props.get("ShowHiddenFiles", false)), "prop_key": "ShowHiddenFiles", "type": "bool", "category": CATEGORY_BEHAVIOR})
+
+	# --------- Separator properties ---------
+	# HSeparator / VSeparator have no special properties beyond the universals
+
+	# ===== Behavior Properties (universal) =====
 	_property_entries.append({"label": "Enabled", "value": bool(props.get("Enabled", true)), "prop_key": "Enabled", "type": "bool", "category": CATEGORY_BEHAVIOR})
 	_property_entries.append({"label": "Visible", "value": info.get("visible", true), "prop_key": "visible", "type": "bool", "category": CATEGORY_BEHAVIOR})
-	_property_entries.append({"label": "TabStop", "value": bool(props.get("TabStop", true)), "prop_key": "TabStop", "type": "bool", "category": CATEGORY_BEHAVIOR})
-	_property_entries.append({"label": "TabIndex", "value": int(props.get("TabIndex", ctrl_index)), "prop_key": "TabIndex", "type": "number", "category": CATEGORY_BEHAVIOR})
+	if ctrl_type != "Timer":
+		_property_entries.append({"label": "TabStop", "value": bool(props.get("TabStop", true)), "prop_key": "TabStop", "type": "bool", "category": CATEGORY_BEHAVIOR})
+		_property_entries.append({"label": "TabIndex", "value": int(props.get("TabIndex", ctrl_index)), "prop_key": "TabIndex", "type": "number", "category": CATEGORY_BEHAVIOR})
+		_property_entries.append({"label": "FocusMode", "value": int(props.get("FocusMode", 2)), "prop_key": "FocusMode", "type": "number", "category": CATEGORY_BEHAVIOR})
+		_property_entries.append({"label": "MouseFilter", "value": int(props.get("MouseFilter", 0)), "prop_key": "MouseFilter", "type": "number", "category": CATEGORY_BEHAVIOR})
+
+	# CausesValidation (VB6 classic)
+	if ctrl_type in ["Button", "LineEdit", "TextEdit", "CheckBox", "OptionButton", "SpinBox"]:
+		_property_entries.append({"label": "CausesValidation", "value": bool(props.get("CausesValidation", true)), "prop_key": "CausesValidation", "type": "bool", "category": CATEGORY_BEHAVIOR})
 
 	# Default / Cancel (Button)
 	if ctrl_type == "Button":
 		_property_entries.append({"label": "Default", "value": bool(props.get("Default", false)), "prop_key": "Default", "type": "bool", "category": CATEGORY_BEHAVIOR})
 		_property_entries.append({"label": "Cancel", "value": bool(props.get("Cancel", false)), "prop_key": "Cancel", "type": "bool", "category": CATEGORY_BEHAVIOR})
+		_property_entries.append({"label": "DisabledFocusMode", "value": int(props.get("DisabledFocusMode", 0)), "prop_key": "DisabledFocusMode", "type": "number", "category": CATEGORY_BEHAVIOR})
+		_property_entries.append({"label": "KeepPressedOutside", "value": bool(props.get("KeepPressedOutside", false)), "prop_key": "KeepPressedOutside", "type": "bool", "category": CATEGORY_BEHAVIOR})
+		_property_entries.append({"label": "ActionMode", "value": int(props.get("ActionMode", 1)), "prop_key": "ActionMode", "type": "number", "category": CATEGORY_BEHAVIOR})
 
 	# ===== Font Properties =====
-	var font_name = str(props.get("FontName", "MS Sans Serif"))
-	var font_size = int(props.get("FontSize", 8))
-	var font_bold = bool(props.get("FontBold", false))
-	var font_italic = bool(props.get("FontItalic", false))
-	_property_entries.append({"label": "FontName", "value": font_name, "prop_key": "FontName", "type": "string", "category": CATEGORY_FONT})
-	_property_entries.append({"label": "FontSize", "value": font_size, "prop_key": "FontSize", "type": "number", "category": CATEGORY_FONT})
-	_property_entries.append({"label": "FontBold", "value": font_bold, "prop_key": "FontBold", "type": "bool", "category": CATEGORY_FONT})
-	_property_entries.append({"label": "FontItalic", "value": font_italic, "prop_key": "FontItalic", "type": "bool", "category": CATEGORY_FONT})
+	if ctrl_type != "Timer":
+		var font_name = str(props.get("FontName", "MS Sans Serif"))
+		var font_size = int(props.get("FontSize", 8))
+		var font_bold = bool(props.get("FontBold", false))
+		var font_italic = bool(props.get("FontItalic", false))
+		_property_entries.append({"label": "FontName", "value": font_name, "prop_key": "FontName", "type": "string", "category": CATEGORY_FONT})
+		_property_entries.append({"label": "FontSize", "value": font_size, "prop_key": "FontSize", "type": "number", "category": CATEGORY_FONT})
+		_property_entries.append({"label": "FontBold", "value": font_bold, "prop_key": "FontBold", "type": "bool", "category": CATEGORY_FONT})
+		_property_entries.append({"label": "FontItalic", "value": font_italic, "prop_key": "FontItalic", "type": "bool", "category": CATEGORY_FONT})
+		var font_underline = bool(props.get("FontUnderline", false))
+		var font_strikethrough = bool(props.get("FontStrikethrough", false))
+		_property_entries.append({"label": "FontUnderline", "value": font_underline, "prop_key": "FontUnderline", "type": "bool", "category": CATEGORY_FONT})
+		_property_entries.append({"label": "FontStrikethrough", "value": font_strikethrough, "prop_key": "FontStrikethrough", "type": "bool", "category": CATEGORY_FONT})
 
 	# ===== Position Properties =====
 	_property_entries.append({"label": "Left", "value": int(info.get("x", 0)), "prop_key": "x", "type": "number", "category": CATEGORY_POSITION})
@@ -421,10 +613,35 @@ func show_control_properties(info: Dictionary, designer = null, ctrl_index: int 
 	_property_entries.append({"label": "Width", "value": int(info.get("width", 0)), "prop_key": "width", "type": "number", "category": CATEGORY_POSITION})
 	_property_entries.append({"label": "Height", "value": int(info.get("height", 0)), "prop_key": "height", "type": "number", "category": CATEGORY_POSITION})
 
+	# ===== Effects Properties (all visual controls) =====
+	if ctrl_type != "Timer":
+		_property_entries.append({"label": "Opacity", "value": int(props.get("Opacity", 100)), "prop_key": "Opacity", "type": "slider", "category": "Effects"})
+		_property_entries.append({"label": "Rotation", "value": float(props.get("Rotation", 0.0)), "prop_key": "Rotation", "type": "number", "category": "Effects"})
+		_property_entries.append({"label": "ScaleX", "value": float(props.get("ScaleX", 1.0)), "prop_key": "ScaleX", "type": "number", "category": "Effects"})
+		_property_entries.append({"label": "ScaleY", "value": float(props.get("ScaleY", 1.0)), "prop_key": "ScaleY", "type": "number", "category": "Effects"})
+		_property_entries.append({"label": "PivotOffsetX", "value": float(props.get("PivotOffsetX", 0.0)), "prop_key": "PivotOffsetX", "type": "number", "category": "Effects"})
+		_property_entries.append({"label": "PivotOffsetY", "value": float(props.get("PivotOffsetY", 0.0)), "prop_key": "PivotOffsetY", "type": "number", "category": "Effects"})
+		_property_entries.append({"label": "SelfModulate", "value": _fd_color_from_props(props, "SelfModulate", Color(1, 1, 1, 1)), "prop_key": "SelfModulate", "type": "color", "category": "Effects"})
+		_property_entries.append({"label": "ShowBehindParent", "value": bool(props.get("ShowBehindParent", false)), "prop_key": "ShowBehindParent", "type": "bool", "category": "Effects"})
+
+	# ===== Layout Properties (all visual controls) =====
+	if ctrl_type != "Timer":
+		_property_entries.append({"label": "MinWidth", "value": int(props.get("MinWidth", 0)), "prop_key": "MinWidth", "type": "number", "category": "Layout"})
+		_property_entries.append({"label": "MinHeight", "value": int(props.get("MinHeight", 0)), "prop_key": "MinHeight", "type": "number", "category": "Layout"})
+		_property_entries.append({"label": "ClipContents", "value": bool(props.get("ClipContents", false)), "prop_key": "ClipContents", "type": "bool", "category": "Layout"})
+		_property_entries.append({"label": "SizeFlagsHorizontal", "value": int(props.get("SizeFlagsHorizontal", 1)), "prop_key": "SizeFlagsHorizontal", "type": "number", "category": "Layout"})
+		_property_entries.append({"label": "SizeFlagsVertical", "value": int(props.get("SizeFlagsVertical", 1)), "prop_key": "SizeFlagsVertical", "type": "number", "category": "Layout"})
+		_property_entries.append({"label": "GrowHorizontal", "value": int(props.get("GrowHorizontal", 1)), "prop_key": "GrowHorizontal", "type": "number", "category": "Layout"})
+		_property_entries.append({"label": "GrowVertical", "value": int(props.get("GrowVertical", 1)), "prop_key": "GrowVertical", "type": "number", "category": "Layout"})
+		_property_entries.append({"label": "LayoutDirection", "value": int(props.get("LayoutDirection", 0)), "prop_key": "LayoutDirection", "type": "number", "category": "Layout"})
+
 	# ===== Misc Properties =====
 	_property_entries.append({"label": "ToolTipText", "value": str(props.get("ToolTipText", "")), "prop_key": "ToolTipText", "type": "string", "category": CATEGORY_MISC})
 	_property_entries.append({"label": "Tag", "value": str(props.get("Tag", "")), "prop_key": "Tag", "type": "string", "category": CATEGORY_MISC})
-	_property_entries.append({"label": "MousePointer", "value": int(props.get("MousePointer", 0)), "prop_key": "MousePointer", "type": "fd_enum_mousepointer", "category": CATEGORY_MISC})
+	if ctrl_type != "Timer":
+		_property_entries.append({"label": "MousePointer", "value": int(props.get("MousePointer", 0)), "prop_key": "MousePointer", "type": "fd_enum_mousepointer", "category": CATEGORY_MISC})
+		_property_entries.append({"label": "MouseDefaultCursorShape", "value": int(props.get("MouseDefaultCursorShape", 0)), "prop_key": "MouseDefaultCursorShape", "type": "number", "category": CATEGORY_MISC})
+		_property_entries.append({"label": "ThemeTypeVariation", "value": str(props.get("ThemeTypeVariation", "")), "prop_key": "ThemeTypeVariation", "type": "string", "category": CATEGORY_MISC})
 	_property_entries.append({"label": "Index", "value": ctrl_index, "prop_key": "index", "type": "readonly", "category": CATEGORY_MISC})
 
 	# Render based on view mode
@@ -723,6 +940,21 @@ func _render_property_entry(entry: Dictionary):
 			_add_fd_enum_row(label_text, prop_key, value, ["0 - Manual", "1 - CenterOwner", "2 - CenterScreen", "3 - Windows Default"])
 		"fd_enum_windowtype":
 			_add_fd_enum_row(label_text, prop_key, value, ["0 - Game (SubViewport)", "1 - Windows", "2 - Linux/CSD", "3 - macOS"])
+		"fd_enum_iconalignment":
+			_add_fd_enum_row(label_text, prop_key, value, ["0 - Left", "1 - Center", "2 - Right"])
+		"fd_enum_valignment":
+			_add_fd_enum_row(label_text, prop_key, value, ["0 - Top", "1 - Center", "2 - Bottom"])
+		"fd_enum_fillmode":
+			_add_fd_enum_row(label_text, prop_key, value, ["0 - Left to Right", "1 - Right to Left", "2 - Top to Bottom", "3 - Bottom to Top"])
+		"fd_enum_stretchmode":
+			_add_fd_enum_row(label_text, prop_key, value, [
+				"0 - Scale", "1 - Tile", "2 - Keep", "3 - Keep Centered",
+				"4 - Keep Aspect", "5 - Keep Aspect Centered", "6 - Keep Aspect Covered"
+			])
+		"fd_enum_iconmode":
+			_add_fd_enum_row(label_text, prop_key, value, ["0 - Top", "1 - Left"])
+		"fd_enum_tabalignment":
+			_add_fd_enum_row(label_text, prop_key, value, ["0 - Left", "1 - Center", "2 - Right"])
 		_:
 			_add_prop_row(label_text, value, prop_key)
 
