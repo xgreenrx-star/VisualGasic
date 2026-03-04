@@ -1382,6 +1382,23 @@ func _apply_fd_prop(prop_key: String, value) -> void:
 
 	# Form-level properties go through set_form_property
 	if _fd_form_mode:
+		# If renaming the form (Caption / (Name) change), handle file rename first
+		if prop_key == "Caption":
+			var old_name: String = _fd_designer.get_form_name()
+			var new_name: String = str(value).strip_edges()
+			if new_name.is_empty():
+				push_warning("VisualGasic Inspector: Form name cannot be empty")
+				return
+			if new_name != old_name and is_instance_valid(editor_plugin) and editor_plugin.has_method("handle_form_rename"):
+				if not editor_plugin.handle_form_rename(old_name, new_name):
+					push_warning("VisualGasic Inspector: Form rename failed — reverting")
+					call_deferred("show_form_properties", _fd_designer)
+					return
+				# Rename succeeded — the plugin already called set_form_name + save_form_as,
+				# so just refresh the inspector without calling set_form_property again.
+				call_deferred("show_form_properties", _fd_designer)
+				return
+
 		_fd_designer.set_form_property(prop_key, value)
 		print("VisualGasic Inspector: Set form property '", prop_key, "' = ", value)
 		# Don't rebuild the grid — the C++ side already redraws the form.

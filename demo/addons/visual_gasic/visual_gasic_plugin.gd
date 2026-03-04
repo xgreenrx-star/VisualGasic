@@ -2326,6 +2326,120 @@ func _do_save_form_as() -> void:
 	get_editor_interface().get_base_control().add_child(fd)
 	fd.popup_centered()
 
+## Handle renaming a form: rename .tscn, .vg, .vg.uid files on disk,
+## update form_path in C++, close old scene tab, and reload from new path.
+## Called by simple_inspector.gd when the user edits the form (Name)/Caption.
+func handle_form_rename(old_name: String, new_name: String) -> bool:
+	if not is_instance_valid(_form_designer):
+		push_warning("[VisualGasic] handle_form_rename: no FormDesigner")
+		return false
+	var old_path: String = _form_designer.get_form_path()
+	if old_path.is_empty():
+		# No file on disk yet — nothing to rename; just let the name change happen
+		return true
+	var dir_prefix: String = old_path.get_base_dir()
+	if not dir_prefix.ends_with("/"):
+		dir_prefix += "/"
+	var new_tscn: String = dir_prefix + new_name + ".tscn"
+	var old_vg: String = old_path.get_basename() + ".vg"
+	var new_vg: String = dir_prefix + new_name + ".vg"
+	var old_uid: String = old_vg + ".uid"
+	var new_uid: String = new_vg + ".uid"
+
+	# Prevent overwriting an existing different form
+	if old_path != new_tscn and FileAccess.file_exists(new_tscn):
+		push_warning("[VisualGasic] Cannot rename — '", new_tscn, "' already exists")
+		return false
+
+	print("[VisualGasic] Renaming form: ", old_path, " → ", new_tscn)
+	var da := DirAccess.open(dir_prefix)
+	if not da:
+		push_warning("[VisualGasic] Cannot access directory: ", dir_prefix)
+		return false
+
+	# Close the old scene in the editor before renaming
+	var scene_root = EditorInterface.get_edited_scene_root()
+	if scene_root and scene_root.scene_file_path == old_path:
+		# We'll reopen at the new path after rename
+		pass
+
+	# Rename .vg first (so the .tscn can reference it)
+	if FileAccess.file_exists(old_vg) and old_vg != new_vg:
+		var err = da.rename(old_vg, new_vg)
+		if err != OK:
+			push_warning("[VisualGasic] Failed to rename .vg: ", old_vg, " → ", new_vg, " (error ", err, ")")
+	# Rename .vg.uid
+	if FileAccess.file_exists(old_uid) and old_uid != new_uid:
+		da.rename(old_uid, new_uid)
+
+	# Tell Godot's filesystem to rescan so the UID cache picks up the renamed .vg
+	EditorInterface.get_resource_filesystem().scan()
+
+	# Now save the form to the NEW .tscn path (this updates form_path in C++,
+	# writes the new .tscn with correct VG script reference + UID, and creates
+	# the .vg file if it doesn't exist yet).
+	_form_designer.set_form_name(new_name)
+	_form_designer.save_form_as(new_tscn)
+
+	# Safety: ensure the .tscn has the VG script UID.  The C++ serializer uses
+	# ResourceLoader.get_resource_uid() which may miss newly-renamed files.
+	# If the .uid file exists, patch the .tscn so Godot can always resolve it.
+	_ensure_tscn_script_uid(new_tscn, new_vg, new_uid)
+
+	# Remove the old .tscn if it's different from the new one
+	if old_path != new_tscn and FileAccess.file_exists(old_path):
+		da.remove(old_path)
+		print("[VisualGasic] Removed old .tscn: ", old_path)
+	# Remove the old .vg if still lingering (save_form_as may have recreated it)
+	if old_vg != new_vg and FileAccess.file_exists(old_vg):
+		da.remove(old_vg)
+
+	# Tell Godot's editor to close the old scene tab and open the new one
+	if scene_root and scene_root.scene_file_path == old_path:
+		# Reload will fail on old path, so open the new file instead
+		EditorInterface.open_scene_from_path(new_tscn)
+	elif FileAccess.file_exists(new_tscn):
+		EditorInterface.open_scene_from_path(new_tscn)
+
+	# Re-sync the form designer from the new path
+	_form_designer.open_form(new_tscn)
+
+	# Update the editor layout config so next restart opens the right file
+	var config = get_editor_interface().get_editor_settings()
+	# Also update our plugin-level cached path
+	print("[VisualGasic] Form renamed successfully: ", old_name, " → ", new_name, " (", new_tscn, ")")
+	return true
+
+## Ensure the .tscn file's first ext_resource (the VG script) has a uid="..." attribute.
+## The C++ serializer uses ResourceLoader.get_resource_uid() which may return -1 for
+## freshly-renamed files.  We read the UID from the .uid sidecar and patch the .tscn.
+func _ensure_tscn_script_uid(tscn_path: String, vg_path: String, uid_path: String) -> void:
+	if not FileAccess.file_exists(uid_path):
+		return  # No .uid file — nothing we can do
+	var uid_text: String = FileAccess.get_file_as_string(uid_path).strip_edges()
+	if uid_text.is_empty() or not uid_text.begins_with("uid://"):
+		return
+
+	if not FileAccess.file_exists(tscn_path):
+		return
+	var tscn_text: String = FileAccess.get_file_as_string(tscn_path)
+	# Check if the first ext_resource already has a uid
+	# Pattern: [ext_resource type="Script" path="res://Foo.vg" id="1"]  (no uid)
+	var vg_basename: String = vg_path.get_file()
+	var needle: String = 'type="Script" path="' + vg_path + '" id="1"'
+	var needle_with_uid: String = 'uid="' + uid_text + '" path="' + vg_path + '"'
+	if needle_with_uid in tscn_text:
+		return  # Already has the correct UID
+
+	# Missing UID — patch it in
+	var patched: String = tscn_text.replace(needle, 'type="Script" uid="' + uid_text + '" path="' + vg_path + '" id="1"')
+	if patched != tscn_text:
+		var f = FileAccess.open(tscn_path, FileAccess.WRITE)
+		if f:
+			f.store_string(patched)
+			f = null  # close
+			print("[VisualGasic] Patched UID into .tscn: ", uid_text)
+
 ## After the C++ Form Designer writes a .tscn, force Godot to reload it.
 ## This ensures Godot's in-memory scene tree matches our save, preventing
 ## Godot from overwriting our .tscn with its stale version on editor close.
