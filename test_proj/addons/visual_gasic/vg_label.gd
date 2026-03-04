@@ -31,6 +31,7 @@ var _back_style: int = 0       # 0=Transparent, 1=Opaque
 var _border_style: int = 0     # 0=None, 1=FixedSingle
 var _back_color: Color = Color(0.94, 0.94, 0.94, 1.0)
 var _last_click_time: int = 0
+var _vb6_props: Dictionary = {}
 
 # =============================================================================
 # VB6 Properties
@@ -134,3 +135,39 @@ func _update_label_style() -> void:
 		add_theme_stylebox_override("normal", sb)
 	else:
 		remove_theme_stylebox_override("normal")
+
+# =============================================================================
+# VB6 Common Property Handlers (Form Designer round-trip)
+# =============================================================================
+
+## Accepts VB6 properties written by the C++ Form Designer serializer.
+func _set(property: StringName, value: Variant) -> bool:
+	var p := String(property)
+	match p:
+		"Enabled":
+			_vb6_props[p] = value
+			return true
+		"TabStop":
+			focus_mode = Control.FOCUS_ALL if value else Control.FOCUS_NONE
+			_vb6_props[p] = value
+			return true
+		"TabIndex", "MousePointer", "Appearance", "BorderStyle", \
+		"FontSize", "FontBold", "FontItalic":
+			_vb6_props[p] = value
+			return true
+		"ToolTipText":
+			tooltip_text = str(value)
+			_vb6_props[p] = value
+			return true
+		"BackColor", "ForeColor":
+			_vb6_props[p] = value
+			return true
+		"FontName":
+			_vb6_props[p] = value
+			return true
+	return false
+
+func _get(property: StringName) -> Variant:
+	if _vb6_props.has(String(property)):
+		return _vb6_props[String(property)]
+	return null

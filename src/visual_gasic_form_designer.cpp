@@ -2856,13 +2856,23 @@ String VisualGasicFormDesigner::_serialize_to_tscn() const {
             out += "text = \"" + ctrl.text + "\"\n";
         }
 
-        // Write extra properties
+        // Write extra properties (VB6 properties stored in the form designer)
         Array keys = ctrl.properties.keys();
         for (int k = 0; k < keys.size(); k++) {
             String key = keys[k];
             Variant val = ctrl.properties[key];
             if (val.get_type() == Variant::STRING) {
                 out += key + " = \"" + String(val) + "\"\n";
+            } else if (val.get_type() == Variant::COLOR) {
+                // Godot .tscn requires Color(r, g, b, a) format
+                Color c = val;
+                out += key + " = Color(" + String::num(c.r, 4) + ", " + String::num(c.g, 4) + ", " + String::num(c.b, 4) + ", " + String::num(c.a, 4) + ")\n";
+            } else if (val.get_type() == Variant::VECTOR2) {
+                Vector2 v = val;
+                out += key + " = Vector2(" + String::num(v.x, 4) + ", " + String::num(v.y, 4) + ")\n";
+            } else if (val.get_type() == Variant::VECTOR2I) {
+                Vector2i v = val;
+                out += key + " = Vector2i(" + String::num_int64(v.x) + ", " + String::num_int64(v.y) + ")\n";
             } else {
                 out += key + " = " + String(val) + "\n";
             }

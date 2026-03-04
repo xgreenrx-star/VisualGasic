@@ -38,6 +38,7 @@ var _border_width: int = 1
 var _border_style: int = 1       # 0=Transparent, 1=Solid
 var _back_style: int = 1         # 0=Transparent, 1=Opaque
 var _back_color: Color = Color(0.2, 0.4, 0.8, 1.0)
+var _vb6_props: Dictionary = {}
 
 # =============================================================================
 # VB6 Properties
@@ -202,3 +203,39 @@ func _draw_rounded_rect(rect: Rect2, radius: float, col: Color, filled: bool) ->
 	else:
 		pts.append(pts[0])  # close the outline
 		draw_polyline(pts, col, float(_border_width), true)
+
+# =============================================================================
+# VB6 Common Property Handlers (Form Designer round-trip)
+# =============================================================================
+
+## Accepts VB6 properties written by the C++ Form Designer serializer.
+func _set(property: StringName, value: Variant) -> bool:
+	var p := String(property)
+	match p:
+		"Enabled":
+			_vb6_props[p] = value
+			return true
+		"TabStop":
+			focus_mode = Control.FOCUS_ALL if value else Control.FOCUS_NONE
+			_vb6_props[p] = value
+			return true
+		"TabIndex", "MousePointer", "Appearance", "BorderStyle", \
+		"FontSize", "FontBold", "FontItalic":
+			_vb6_props[p] = value
+			return true
+		"ToolTipText":
+			tooltip_text = str(value)
+			_vb6_props[p] = value
+			return true
+		"BackColor", "ForeColor":
+			_vb6_props[p] = value
+			return true
+		"FontName":
+			_vb6_props[p] = value
+			return true
+	return false
+
+func _get(property: StringName) -> Variant:
+	if _vb6_props.has(String(property)):
+		return _vb6_props[String(property)]
+	return null

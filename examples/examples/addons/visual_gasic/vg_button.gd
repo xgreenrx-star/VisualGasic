@@ -28,6 +28,9 @@ const vbButtonGraphical: int = 1   ## Button that can display an icon/picture
 # Internal state
 # =============================================================================
 
+## Storage for common VB6 properties that the Form Designer writes to .tscn.
+## Accepted silently so Godot's scene loader doesn't error on unknown props.
+var _vb6_props: Dictionary = {}
 var _default: bool = false
 var _cancel: bool = false
 var _style: int = 0
@@ -105,3 +108,41 @@ func _update_shortcuts() -> void:
 		shortcut = sc
 	else:
 		shortcut = null
+
+# =============================================================================
+# VB6 Common Property Handlers (Form Designer round-trip)
+# =============================================================================
+
+## Accepts VB6 properties written by the C++ Form Designer serializer.
+## Without this, Godot's .tscn loader errors on unknown properties.
+func _set(property: StringName, value: Variant) -> bool:
+	var p := String(property)
+	match p:
+		"Enabled":
+			disabled = not value
+			_vb6_props[p] = value
+			return true
+		"TabStop":
+			focus_mode = Control.FOCUS_ALL if value else Control.FOCUS_NONE
+			_vb6_props[p] = value
+			return true
+		"TabIndex", "MousePointer", "Appearance", "BorderStyle", \
+		"FontSize", "FontBold", "FontItalic":
+			_vb6_props[p] = value
+			return true
+		"ToolTipText":
+			tooltip_text = str(value)
+			_vb6_props[p] = value
+			return true
+		"BackColor", "ForeColor":
+			_vb6_props[p] = value
+			return true
+		"FontName":
+			_vb6_props[p] = value
+			return true
+	return false
+
+func _get(property: StringName) -> Variant:
+	if _vb6_props.has(String(property)):
+		return _vb6_props[String(property)]
+	return null

@@ -28,6 +28,7 @@ signal Scroll()
 var _small_change: float = 1.0
 var _large_change: float = 10.0
 var _was_dragging: bool = false
+var _vb6_props: Dictionary = {}
 
 # =============================================================================
 # VB6 Properties
@@ -93,3 +94,39 @@ func _on_value_changed(_val: float) -> void:
 
 func _on_scrolling() -> void:
 	Scroll.emit()
+
+# =============================================================================
+# VB6 Common Property Handlers (Form Designer round-trip)
+# =============================================================================
+
+## Accepts VB6 properties written by the C++ Form Designer serializer.
+func _set(property: StringName, value: Variant) -> bool:
+	var p := String(property)
+	match p:
+		"Enabled":
+			_vb6_props[p] = value
+			return true
+		"TabStop":
+			focus_mode = Control.FOCUS_ALL if value else Control.FOCUS_NONE
+			_vb6_props[p] = value
+			return true
+		"TabIndex", "MousePointer", "Appearance", "BorderStyle", \
+		"FontSize", "FontBold", "FontItalic":
+			_vb6_props[p] = value
+			return true
+		"ToolTipText":
+			tooltip_text = str(value)
+			_vb6_props[p] = value
+			return true
+		"BackColor", "ForeColor":
+			_vb6_props[p] = value
+			return true
+		"FontName":
+			_vb6_props[p] = value
+			return true
+	return false
+
+func _get(property: StringName) -> Variant:
+	if _vb6_props.has(String(property)):
+		return _vb6_props[String(property)]
+	return null

@@ -32,6 +32,9 @@ var _password_char: String = ""
 var _locked: bool = false
 var _alignment_vb: int = 0   # 0=Left, 1=Right, 2=Center
 
+## Storage for common VB6 properties that the Form Designer writes to .tscn.
+var _vb6_props: Dictionary = {}
+
 # =============================================================================
 # VB6 Properties
 # =============================================================================
@@ -152,3 +155,44 @@ func _on_focus_entered() -> void:
 
 func _on_focus_exited() -> void:
 	LostFocus.emit()
+
+# =============================================================================
+# VB6 Common Property Handlers (Form Designer round-trip)
+# =============================================================================
+
+## Accepts VB6 properties written by the C++ Form Designer serializer.
+func _set(property: StringName, value: Variant) -> bool:
+	var p := String(property)
+	match p:
+		"Enabled":
+			editable = value
+			_vb6_props[p] = value
+			return true
+		"TabStop":
+			focus_mode = Control.FOCUS_ALL if value else Control.FOCUS_NONE
+			_vb6_props[p] = value
+			return true
+		"TabIndex", "MousePointer", "Appearance", "BorderStyle", \
+		"FontSize", "FontBold", "FontItalic":
+			_vb6_props[p] = value
+			return true
+		"ToolTipText":
+			tooltip_text = str(value)
+			_vb6_props[p] = value
+			return true
+		"BackColor", "ForeColor":
+			_vb6_props[p] = value
+			return true
+		"FontName":
+			_vb6_props[p] = value
+			return true
+		"PlaceholderText":
+			placeholder_text = str(value)
+			_vb6_props[p] = value
+			return true
+	return false
+
+func _get(property: StringName) -> Variant:
+	if _vb6_props.has(String(property)):
+		return _vb6_props[String(property)]
+	return null
