@@ -217,13 +217,21 @@ func _center_in_parent() -> void:
 
 func _open_grid_arrange() -> void:
 	print("[VisualGasic] Grid Arrange button pressed")
-	var controls = _get_selected_controls()
-	print("[VisualGasic] Selected controls: ", controls.size())
-	if controls.size() < 2:
-		# Show a visible warning — printerr goes to the Output tab where nobody looks
+	
+	# Get the form designer from the plugin
+	var fd = _plugin._form_designer if _plugin and _plugin.get("_form_designer") else null
+	if not fd:
+		printerr("[VisualGasic] Grid Arrange: no form designer active")
+		return
+	
+	# Check how many controls are selected on the form designer
+	var sel_count = fd.get_selected_count() if fd.has_method("get_selected_count") else 0
+	print("[VisualGasic] Grid Arrange: %d controls selected on form designer" % sel_count)
+	
+	if sel_count < 2:
 		var msg = AcceptDialog.new()
 		msg.title = "Grid Arrange"
-		msg.dialog_text = "Select at least 2 controls on the form first.\n\nTip: Shift+Click or Ctrl+Click controls in the Scene tree,\nor drag-select on the form, then click ⊞▦ again."
+		msg.dialog_text = "Select at least 2 controls on the form first.\n\nTip: Shift+Click or rubber-band select controls\non the Form Designer canvas, then click ⊞▦ again."
 		msg.dialog_autowrap = true
 		msg.min_size = Vector2i(340, 120)
 		if _plugin:
@@ -242,17 +250,18 @@ func _open_grid_arrange() -> void:
 			push_error("VisualGasic: Could not load grid_arrange_dialog.gd")
 			return
 		_grid_arrange_dialog = dialog_script.new()
-		_grid_arrange_dialog.setup(_plugin)
+		_grid_arrange_dialog.setup(fd)
 		_grid_arrange_dialog.grid_applied.connect(func():
 			emit_signal("alignment_applied", "grid_arrange")
 		)
-		# Add to the editor root so it appears above everything
 		if _plugin:
 			_plugin.get_editor_interface().get_base_control().add_child(_grid_arrange_dialog)
 		else:
 			add_child(_grid_arrange_dialog)
+	else:
+		# Update form designer reference in case it changed
+		_grid_arrange_dialog.setup(fd)
 	
-	print("[VisualGasic] Opening Grid Arrange dialog for ", controls.size(), " controls")
-	# Open with the selected controls, positioned near the mouse
+	print("[VisualGasic] Opening Grid Arrange dialog for %d controls" % sel_count)
 	var mouse_pos = DisplayServer.mouse_get_position()
-	_grid_arrange_dialog.open_for_controls(controls, Vector2(mouse_pos))
+	_grid_arrange_dialog.open_for_controls(Vector2(mouse_pos))

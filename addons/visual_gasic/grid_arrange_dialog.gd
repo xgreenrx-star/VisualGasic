@@ -2,13 +2,16 @@
 extends PopupPanel
 ## Grid Arrange Dialog — Arrange selected controls in a grid pattern
 ##
+## Works with the C++ VisualGasicFormDesigner API:
+##   get_control_count(), get_control_info(i), set_control_property(i, key, val)
+##
 ## Features:
 ## - Live preview as spinners change
 ## - Auto-detect columns from spatial layout
 ## - Drag handle to adjust spacing interactively
-## - Sort order: by position, by name, or by selection order
+## - Sort order: by position or by name
 ## - Optional "Make Same Size" before arranging
-## - Apply / Cancel with full undo support
+## - Cancel restores original positions
 
 signal grid_applied()
 signal grid_cancelled()
@@ -25,52 +28,69 @@ var _status_label: Label
 var _drag_handle: Control  # Interactive spacing adjuster
 
 # --- State ---
-var _controls: Array = []           # The controls being arranged
-var _original_positions: Dictionary = {}  # {control_instance_id: Vector2}
-var _original_sizes: Dictionary = {}      # {control_instance_id: Vector2}
+var _form_designer = null           # VisualGasicFormDesigner C++ instance
+var _selected_indices: Array = []   # Indices of selected controls
+var _original_rects: Dictionary = {}  # {index: {x, y, width, height}}
 var _is_dragging: bool = false
 var _drag_start_pos: Vector2 = Vector2.ZERO
 var _drag_start_h_spacing: float = 0.0
 var _drag_start_v_spacing: float = 0.0
-var _plugin: EditorPlugin = null
 
 # Sort modes
 enum SortMode { BY_POSITION, BY_NAME }
 
 func _ready() -> void:
-	# Don't show title bar clutter — PopupPanel is clean
 	size = Vector2(280, 340)
 	transparent_bg = false
 	_build_ui()
 
-func setup(plugin: EditorPlugin) -> void:
-	_plugin = plugin
+## Set the form designer reference (called from alignment_toolbar)
+func setup(form_designer) -> void:
+	_form_designer = form_designer
 
-## Opens the dialog for the given set of controls
-func open_for_controls(controls: Array, anchor_pos: Vector2 = Vector2.ZERO) -> void:
-	_controls = controls
-	_save_original_state()
+## Opens the dialog for the currently selected controls on the form designer
+func open_for_controls(anchor_pos: Vector2 = Vector2.ZERO) -> void:
+	if not _form_designer:
+		push_error("[VisualGasic] Grid Arrange: no form designer reference")
+		return
+	
+	# Gather selected control indices from the C++ form designer
+	_selected_indices.clear()
+	_original_rects.clear()
+	var count = _form_designer.get_control_count()
+	for i in range(count):
+		var info = _form_designer.get_control_info(i)
+		if info.get("selected", false):
+			_selected_indices.append(i)
+			_original_rects[i] = {
+				"x": info.get("x", 0.0),
+				"y": info.get("y", 0.0),
+				"width": info.get("width", 80.0),
+				"height": info.get("height", 24.0),
+			}
+	
+	if _selected_indices.size() < 2:
+		push_warning("[VisualGasic] Grid Arrange: need 2+ selected controls, got %d" % _selected_indices.size())
+		return
 	
 	# Auto-detect columns from spatial layout
-	var detected_cols = _detect_columns(controls)
+	var detected_cols = _detect_columns()
 	_columns_spin.value = detected_cols
 	
 	# Set reasonable default spacing
 	_h_spacing_spin.value = 4
 	_v_spacing_spin.value = 4
 	
-	# Update status
 	_update_status()
 	
-	# Position near the toolbar or mouse
+	# Position near the mouse
 	if anchor_pos != Vector2.ZERO:
 		position = Vector2i(anchor_pos)
 	else:
-		# Center on screen
 		var screen_size = DisplayServer.screen_get_size()
 		position = Vector2i((Vector2(screen_size) - Vector2(size)) / 2)
 	
-	print("[VisualGasic] Grid Arrange: popup() with %d controls, pos=%s, size=%s" % [controls.size(), str(position), str(size)])
+	print("[VisualGasic] Grid Arrange: opening for %d controls at %s" % [_selected_indices.size(), str(position)])
 	popup(Rect2i(position, Vector2i(size)))
 	
 	# Apply initial preview
@@ -85,7 +105,6 @@ func _build_ui() -> void:
 	main_vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	main_vbox.add_theme_constant_override("separation", 6)
 	
-	# Add margins
 	var margin = MarginContainer.new()
 	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	margin.add_theme_constant_override("margin_left", 10)
@@ -219,12 +238,10 @@ func _build_drag_handle() -> Control:
 	return handle
 
 func _on_drag_draw(handle: Control) -> void:
-	# Draw a crosshair icon so user knows it's draggable
 	var center = handle.size / 2
 	var arrow_color = Color(0.7, 0.8, 1.0, 0.8)
 	var bg_color = Color(0.15, 0.15, 0.2, 0.6)
 	
-	# Background
 	handle.draw_rect(Rect2(Vector2.ZERO, handle.size), bg_color)
 	
 	# Crosshair
@@ -234,16 +251,12 @@ func _on_drag_draw(handle: Control) -> void:
 	
 	# Arrow tips
 	var tip = 5.0
-	# Right
 	handle.draw_line(center + Vector2(arm, 0), center + Vector2(arm - tip, -tip), arrow_color, 2.0)
 	handle.draw_line(center + Vector2(arm, 0), center + Vector2(arm - tip, tip), arrow_color, 2.0)
-	# Left
 	handle.draw_line(center - Vector2(arm, 0), center - Vector2(arm - tip, -tip), arrow_color, 2.0)
 	handle.draw_line(center - Vector2(arm, 0), center - Vector2(arm - tip, tip), arrow_color, 2.0)
-	# Down
 	handle.draw_line(center + Vector2(0, arm), center + Vector2(-tip, arm - tip), arrow_color, 2.0)
 	handle.draw_line(center + Vector2(0, arm), center + Vector2(tip, arm - tip), arrow_color, 2.0)
-	# Up
 	handle.draw_line(center - Vector2(0, arm), center - Vector2(-tip, arm - tip), arrow_color, 2.0)
 	handle.draw_line(center - Vector2(0, arm), center - Vector2(tip, arm - tip), arrow_color, 2.0)
 	
@@ -266,13 +279,10 @@ func _on_drag_input(event: InputEvent) -> void:
 	
 	elif event is InputEventMouseMotion and _is_dragging:
 		var delta = event.global_position - _drag_start_pos
-		# Horizontal drag → H spacing, Vertical drag → V spacing
-		# Scale: 1px mouse = 0.5px spacing for fine control
 		var new_h = clampf(_drag_start_h_spacing + delta.x * 0.5, 0, 200)
 		var new_v = clampf(_drag_start_v_spacing + delta.y * 0.5, 0, 200)
 		_h_spacing_spin.value = round(new_h)
 		_v_spacing_spin.value = round(new_v)
-		# Spinners fire value_changed → _on_setting_changed → _apply_preview
 		_drag_handle.queue_redraw()
 
 # =============================================================================
@@ -291,25 +301,9 @@ func _on_same_size_toggled(_pressed: bool) -> void:
 	_apply_preview()
 
 func _on_apply() -> void:
-	# Positions are already set by live preview — just close
-	# Wrap in undo action if we have a plugin
-	if _plugin:
-		var undo_redo = _plugin.get_undo_redo()
-		if undo_redo:
-			undo_redo.create_action("Arrange in Grid")
-			for ctrl in _controls:
-				if ctrl is Control:
-					var cid = ctrl.get_instance_id()
-					var orig_pos = _original_positions.get(cid, ctrl.position)
-					var orig_size = _original_sizes.get(cid, ctrl.size)
-					var new_pos = ctrl.position
-					var new_size = ctrl.size
-					undo_redo.add_do_property(ctrl, "position", new_pos)
-					undo_redo.add_do_property(ctrl, "size", new_size)
-					undo_redo.add_undo_property(ctrl, "position", orig_pos)
-					undo_redo.add_undo_property(ctrl, "size", orig_size)
-			undo_redo.commit_action(false)
-	
+	# Positions are already set via set_control_property (which pushes C++ undo).
+	# Just close — the form designer already has the new positions.
+	print("[VisualGasic] Grid Arrange: applied to %d controls" % _selected_indices.size())
 	emit_signal("grid_applied")
 	hide()
 
@@ -326,11 +320,11 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 # =============================================================================
-# CORE GRID ALGORITHM
+# CORE GRID ALGORITHM — operates on C++ form designer data
 # =============================================================================
 
 func _apply_preview() -> void:
-	if _controls.is_empty():
+	if _selected_indices.is_empty() or not _form_designer:
 		return
 	
 	var cols = int(_columns_spin.value)
@@ -341,73 +335,68 @@ func _apply_preview() -> void:
 	var v_spacing = _v_spacing_spin.value
 	var make_same = _same_size_check.button_pressed
 	
-	# Sort controls
-	var sorted_controls = _get_sorted_controls()
+	# Get sorted indices
+	var sorted_indices = _get_sorted_indices()
 	
-	# Determine cell size
+	# Determine cell size from ORIGINAL rects
 	var cell_w: float = 0.0
 	var cell_h: float = 0.0
 	
-	if make_same and sorted_controls.size() > 0:
-		# Use the first control's size for all
-		cell_w = sorted_controls[0].size.x
-		cell_h = sorted_controls[0].size.y
-		for ctrl in sorted_controls:
-			if ctrl is Control:
-				ctrl.size = Vector2(cell_w, cell_h)
+	if make_same and sorted_indices.size() > 0:
+		# Use the first selected control's original size
+		var first = _original_rects[sorted_indices[0]]
+		cell_w = first["width"]
+		cell_h = first["height"]
+		# Resize all to match
+		for idx in sorted_indices:
+			_form_designer.set_control_property(idx, "width", cell_w)
+			_form_designer.set_control_property(idx, "height", cell_h)
 	else:
-		# Use max size across all controls so they don't overlap
-		for ctrl in sorted_controls:
-			if ctrl is Control:
-				cell_w = max(cell_w, ctrl.size.x)
-				cell_h = max(cell_h, ctrl.size.y)
+		# Use max size across all selected so they don't overlap
+		for idx in sorted_indices:
+			var orig = _original_rects[idx]
+			cell_w = max(cell_w, orig["width"])
+			cell_h = max(cell_h, orig["height"])
 	
-	# Start position: use the top-left of the bounding box of original positions
+	# Start position: top-left of bounding box of ORIGINAL positions
 	var start_x: float = INF
 	var start_y: float = INF
-	for ctrl in sorted_controls:
-		if ctrl is Control:
-			var cid = ctrl.get_instance_id()
-			var orig = _original_positions.get(cid, ctrl.position)
-			start_x = min(start_x, orig.x)
-			start_y = min(start_y, orig.y)
+	for idx in sorted_indices:
+		var orig = _original_rects[idx]
+		start_x = min(start_x, orig["x"])
+		start_y = min(start_y, orig["y"])
+	if start_x == INF: start_x = 0
+	if start_y == INF: start_y = 0
 	
-	if start_x == INF:
-		start_x = 0
-	if start_y == INF:
-		start_y = 0
-	
-	# Place each control
-	for i in range(sorted_controls.size()):
-		var ctrl = sorted_controls[i]
-		if not ctrl is Control:
-			continue
+	# Place each control in the grid
+	for i in range(sorted_indices.size()):
+		var idx = sorted_indices[i]
 		var row = i / cols
 		var col = i % cols
-		ctrl.position = Vector2(
-			start_x + col * (cell_w + h_spacing),
-			start_y + row * (cell_h + v_spacing)
-		)
+		var new_x = start_x + col * (cell_w + h_spacing)
+		var new_y = start_y + row * (cell_h + v_spacing)
+		_form_designer.set_control_property(idx, "x", new_x)
+		_form_designer.set_control_property(idx, "y", new_y)
 
-func _get_sorted_controls() -> Array:
-	var sorted = _controls.duplicate()
+func _get_sorted_indices() -> Array:
+	var sorted = _selected_indices.duplicate()
 	var mode = _sort_option.selected if _sort_option else 0
 	
 	match mode:
 		SortMode.BY_POSITION:
-			# Sort top-to-bottom, left-to-right using ORIGINAL positions
 			sorted.sort_custom(func(a, b):
-				var a_pos = _original_positions.get(a.get_instance_id(), a.position)
-				var b_pos = _original_positions.get(b.get_instance_id(), b.position)
-				# Row-major: compare Y first (with tolerance), then X
-				var row_tolerance = 20.0  # Controls within 20px Y are "same row"
-				if abs(a_pos.y - b_pos.y) < row_tolerance:
-					return a_pos.x < b_pos.x
-				return a_pos.y < b_pos.y
+				var a_r = _original_rects[a]
+				var b_r = _original_rects[b]
+				var row_tolerance = 20.0
+				if abs(a_r["y"] - b_r["y"]) < row_tolerance:
+					return a_r["x"] < b_r["x"]
+				return a_r["y"] < b_r["y"]
 			)
 		SortMode.BY_NAME:
 			sorted.sort_custom(func(a, b):
-				return a.name.naturalnocasecmp_to(b.name) < 0
+				var a_info = _form_designer.get_control_info(a)
+				var b_info = _form_designer.get_control_info(b)
+				return a_info.get("name", "").naturalnocasecmp_to(b_info.get("name", "")) < 0
 			)
 	
 	return sorted
@@ -416,26 +405,18 @@ func _get_sorted_controls() -> Array:
 # STATE MANAGEMENT
 # =============================================================================
 
-func _save_original_state() -> void:
-	_original_positions.clear()
-	_original_sizes.clear()
-	for ctrl in _controls:
-		if ctrl is Control:
-			var cid = ctrl.get_instance_id()
-			_original_positions[cid] = ctrl.position
-			_original_sizes[cid] = ctrl.size
-
 func _restore_original_state() -> void:
-	for ctrl in _controls:
-		if ctrl is Control:
-			var cid = ctrl.get_instance_id()
-			if cid in _original_positions:
-				ctrl.position = _original_positions[cid]
-			if cid in _original_sizes:
-				ctrl.size = _original_sizes[cid]
+	if not _form_designer:
+		return
+	for idx in _original_rects:
+		var orig = _original_rects[idx]
+		_form_designer.set_control_property(idx, "x", orig["x"])
+		_form_designer.set_control_property(idx, "y", orig["y"])
+		_form_designer.set_control_property(idx, "width", orig["width"])
+		_form_designer.set_control_property(idx, "height", orig["height"])
 
 func _update_status() -> void:
-	var count = _controls.size()
+	var count = _selected_indices.size()
 	var cols = int(_columns_spin.value)
 	if cols < 1:
 		cols = 1
@@ -446,20 +427,17 @@ func _update_status() -> void:
 # AUTO-DETECT COLUMNS
 # =============================================================================
 
-func _detect_columns(controls: Array) -> int:
-	"""Detect the number of columns by analyzing the spatial layout of controls.
-	Groups controls into rows by Y-coordinate proximity, then returns the
-	most common row width."""
-	if controls.size() <= 1:
+func _detect_columns() -> int:
+	if _selected_indices.size() <= 1:
 		return 1
-	if controls.size() <= 3:
-		return controls.size()
+	if _selected_indices.size() <= 3:
+		return _selected_indices.size()
 	
-	# Collect Y positions
+	# Collect Y positions from original rects
 	var y_positions: Array = []
-	for ctrl in controls:
-		if ctrl is Control:
-			y_positions.append(ctrl.position.y)
+	for idx in _selected_indices:
+		var orig = _original_rects[idx]
+		y_positions.append(orig["y"])
 	
 	if y_positions.is_empty():
 		return 1
@@ -468,7 +446,7 @@ func _detect_columns(controls: Array) -> int:
 	
 	# Group into rows using a tolerance (controls within 20px Y = same row)
 	var tolerance = 20.0
-	var rows: Array = []  # Array of Arrays
+	var rows: Array = []
 	var current_row: Array = [y_positions[0]]
 	
 	for i in range(1, y_positions.size()):
