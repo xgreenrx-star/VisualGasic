@@ -247,9 +247,9 @@ private:
     void _draw_sunken_rect(const Rect2 &r, const Color &face);   // 3D sunken border
     void _draw_etched_rect(const Rect2 &r);                      // Etched frame border
     void _draw_button_control(const Rect2 &r, const String &text, const Ref<Font> &font, int font_size);
-    void _draw_label_control(const Rect2 &r, const String &text, const Ref<Font> &font, int font_size);
-    void _draw_textbox_control(const Rect2 &r, const String &text, const Ref<Font> &font, int font_size);
-    void _draw_textarea_control(const Rect2 &r, const String &text, const Ref<Font> &font, int font_size);
+    void _draw_label_control(const Rect2 &r, const String &text, const Ref<Font> &font, int font_size, HorizontalAlignment halign = HORIZONTAL_ALIGNMENT_LEFT);
+    void _draw_textbox_control(const Rect2 &r, const String &text, const Ref<Font> &font, int font_size, HorizontalAlignment halign = HORIZONTAL_ALIGNMENT_LEFT);
+    void _draw_textarea_control(const Rect2 &r, const String &text, const Ref<Font> &font, int font_size, HorizontalAlignment halign = HORIZONTAL_ALIGNMENT_LEFT);
     void _draw_checkbox_control(const Rect2 &r, const String &text, const Ref<Font> &font, int font_size);
     void _draw_option_control(const Rect2 &r, const String &text, const Ref<Font> &font, int font_size);
     void _draw_combobox_control(const Rect2 &r, const String &text, const Ref<Font> &font, int font_size);

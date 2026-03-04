@@ -370,15 +370,26 @@ void VisualGasicFormDesigner::_draw_control(const FormControlItem &item, int ind
     int font_size = font.is_valid() ? get_theme_default_font_size() : 12;
     String label = item.text.is_empty() ? item.name : item.text;
 
+    // Extract VB6 Alignment property: 0=Left, 1=Right, 2=Center
+    HorizontalAlignment halign = HORIZONTAL_ALIGNMENT_LEFT;
+    if (item.properties.has("Alignment")) {
+        int vb6_align = int(item.properties["Alignment"]);
+        switch (vb6_align) {
+            case 1: halign = HORIZONTAL_ALIGNMENT_RIGHT; break;
+            case 2: halign = HORIZONTAL_ALIGNMENT_CENTER; break;
+            default: halign = HORIZONTAL_ALIGNMENT_LEFT; break;
+        }
+    }
+
     // Dispatch to per-type WYSIWYG drawing
     if (item.type == "Button") {
         _draw_button_control(r, label, font, font_size);
     } else if (item.type == "Label") {
-        _draw_label_control(r, label, font, font_size);
+        _draw_label_control(r, label, font, font_size, halign);
     } else if (item.type == "LineEdit") {
-        _draw_textbox_control(r, label, font, font_size);
+        _draw_textbox_control(r, label, font, font_size, halign);
     } else if (item.type == "TextEdit") {
-        _draw_textarea_control(r, label, font, font_size);
+        _draw_textarea_control(r, label, font, font_size, halign);
     } else if (item.type == "RadioButton") {
         _draw_option_control(r, label, font, font_size);
     } else if (item.type == "CheckBox") {
@@ -611,12 +622,12 @@ void VisualGasicFormDesigner::_draw_button_control(const Rect2 &r, const String 
     }
 }
 
-void VisualGasicFormDesigner::_draw_label_control(const Rect2 &r, const String &text, const Ref<Font> &font, int font_size) {
+void VisualGasicFormDesigner::_draw_label_control(const Rect2 &r, const String &text, const Ref<Font> &font, int font_size, HorizontalAlignment halign) {
     // Label: transparent bg, just text, thin dashed outline at design time
     if (font.is_valid() && r.size.x > 4) {
         float y_off = (r.size.y + font_size * 0.7f) * 0.5f;
         draw_string(font, r.position + Vector2(1, y_off), text,
-                    HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 2, font_size, color_text);
+                    halign, r.size.x - 2, font_size, color_text);
     }
     // Design-time dashed boundary (draw small dots along the edges)
     Color dot_c = design_outline;
@@ -632,16 +643,16 @@ void VisualGasicFormDesigner::_draw_label_control(const Rect2 &r, const String &
     }
 }
 
-void VisualGasicFormDesigner::_draw_textbox_control(const Rect2 &r, const String &text, const Ref<Font> &font, int font_size) {
+void VisualGasicFormDesigner::_draw_textbox_control(const Rect2 &r, const String &text, const Ref<Font> &font, int font_size, HorizontalAlignment halign) {
     _draw_sunken_rect(r, sys_window);
     if (font.is_valid() && r.size.x > 8) {
         float y_off = (r.size.y + font_size * 0.7f) * 0.5f;
         draw_string(font, r.position + Vector2(4, y_off), text,
-                    HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 8, font_size, color_text);
+                    halign, r.size.x - 8, font_size, color_text);
     }
 }
 
-void VisualGasicFormDesigner::_draw_textarea_control(const Rect2 &r, const String &text, const Ref<Font> &font, int font_size) {
+void VisualGasicFormDesigner::_draw_textarea_control(const Rect2 &r, const String &text, const Ref<Font> &font, int font_size, HorizontalAlignment halign) {
     float sb_w = 16.0f;
     // Main text area
     Rect2 text_area(r.position, Vector2(r.size.x - sb_w, r.size.y));
@@ -649,7 +660,7 @@ void VisualGasicFormDesigner::_draw_textarea_control(const Rect2 &r, const Strin
 
     if (font.is_valid() && text_area.size.x > 8) {
         draw_string(font, r.position + Vector2(4, font_size + 3), text,
-                    HORIZONTAL_ALIGNMENT_LEFT, text_area.size.x - 8, font_size, color_text);
+                    halign, text_area.size.x - 8, font_size, color_text);
     }
 
     // Scrollbar column
