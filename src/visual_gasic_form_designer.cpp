@@ -3043,11 +3043,59 @@ bool VisualGasicFormDesigner::_parse_tscn(const String &p_text) {
                 } else if (key == "script" || key == "mouse_filter") {
                     // Internal, skip
                 } else {
-                    // Generic property
+                    // Generic property — parse typed values back into proper Variants
+                    // so _serialize_to_tscn writes them with the correct format.
                     if (val.begins_with("\"") && val.ends_with("\"")) {
+                        // Quoted string
                         val = val.substr(1, val.length() - 2);
+                        current_item.properties[key] = val;
+                    } else if (val.begins_with("Color(") && val.ends_with(")")) {
+                        // Color(r, g, b, a)
+                        String inner = val.substr(6, val.length() - 7);
+                        PackedStringArray parts = inner.split(",");
+                        if (parts.size() >= 4) {
+                            Color c(parts[0].strip_edges().to_float(),
+                                    parts[1].strip_edges().to_float(),
+                                    parts[2].strip_edges().to_float(),
+                                    parts[3].strip_edges().to_float());
+                            current_item.properties[key] = c;
+                        } else if (parts.size() >= 3) {
+                            Color c(parts[0].strip_edges().to_float(),
+                                    parts[1].strip_edges().to_float(),
+                                    parts[2].strip_edges().to_float());
+                            current_item.properties[key] = c;
+                        } else {
+                            current_item.properties[key] = val;
+                        }
+                    } else if (val.begins_with("Vector2(") && val.ends_with(")")) {
+                        String inner = val.substr(8, val.length() - 9);
+                        PackedStringArray parts = inner.split(",");
+                        if (parts.size() >= 2) {
+                            Vector2 v(parts[0].strip_edges().to_float(), parts[1].strip_edges().to_float());
+                            current_item.properties[key] = v;
+                        } else {
+                            current_item.properties[key] = val;
+                        }
+                    } else if (val.begins_with("Vector2i(") && val.ends_with(")")) {
+                        String inner = val.substr(9, val.length() - 10);
+                        PackedStringArray parts = inner.split(",");
+                        if (parts.size() >= 2) {
+                            Vector2i v(parts[0].strip_edges().to_int(), parts[1].strip_edges().to_int());
+                            current_item.properties[key] = v;
+                        } else {
+                            current_item.properties[key] = val;
+                        }
+                    } else if (val == "true") {
+                        current_item.properties[key] = true;
+                    } else if (val == "false") {
+                        current_item.properties[key] = false;
+                    } else if (val.is_valid_int()) {
+                        current_item.properties[key] = val.to_int();
+                    } else if (val.is_valid_float()) {
+                        current_item.properties[key] = val.to_float();
+                    } else {
+                        current_item.properties[key] = val;
                     }
-                    current_item.properties[key] = val;
                 }
             }
         }
