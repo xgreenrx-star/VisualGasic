@@ -1777,6 +1777,15 @@ func _build_vb6_theme() -> Theme:
 	sc_sb.bg_color = bg
 	t.set_stylebox("panel", "ScrollContainer", sc_sb)
 
+	# ── Tooltip (classic light-yellow tooltip) ──
+	var tooltip_sb = StyleBoxFlat.new()
+	tooltip_sb.bg_color = Color(1.0, 1.0, 0.94)   # Light-yellow
+	tooltip_sb.border_color = Color(0.0, 0.0, 0.0)
+	tooltip_sb.set_border_width_all(1)
+	tooltip_sb.set_content_margin_all(4)
+	t.set_stylebox("panel", "TooltipPanel", tooltip_sb)
+	t.set_color("font_color", "TooltipLabel", Color.BLACK)
+
 	return t
 
 ## Applies VB6 SystemButtonFace gray theme to the embedded IDE panels.
@@ -1897,6 +1906,19 @@ func _restyle_toolbox_buttons() -> void:
 	if not cpp_toolbox:
 		return
 
+	# ── Build a tooltip-only theme for the toolbox ──
+	# Tooltip popups inherit from the triggering control's theme owner,
+	# so we set a Theme on the C++ toolbox that includes TooltipPanel/TooltipLabel.
+	var tooltip_theme := Theme.new()
+	var tooltip_sb := StyleBoxFlat.new()
+	tooltip_sb.bg_color = Color(1.0, 1.0, 0.94)   # Classic light-yellow
+	tooltip_sb.border_color = Color(0.0, 0.0, 0.0)
+	tooltip_sb.set_border_width_all(1)
+	tooltip_sb.set_content_margin_all(4)
+	tooltip_theme.set_stylebox("panel", "TooltipPanel", tooltip_sb)
+	tooltip_theme.set_color("font_color", "TooltipLabel", Color.BLACK)
+	cpp_toolbox.theme = tooltip_theme
+
 	# ── CRITICAL: Override C++ VisualGasicToolbox (PanelContainer) panel style ──
 	# Without this, Godot's dark editor theme draws over our light background.
 	var toolbox_panel_sb := StyleBoxFlat.new()
@@ -1973,6 +1995,81 @@ func _restyle_toolbox_buttons() -> void:
 		"DriveListBox": "DriveList",
 	}
 
+	# Brief tooltip descriptions for each tool (shown on hover)
+	var tool_tips := {
+		# ── Built-in 2D tools (C++ defaults) ──
+		"Pointer": "Select and move controls on the form",
+		"Picture": "Display an image or texture",
+		"Label": "Static text that the user cannot edit",
+		"TextBox": "Single-line text input field",
+		"Button": "Clickable button that triggers an action",
+		"CheckBox": "Toggle option on or off",
+		"ComboBox": "Drop-down list of choices",
+		"Frame": "Container panel to group controls",
+		"GroupBox": "Bordered panel with a title for grouping",
+		"ListBox": "Scrollable list of selectable items",
+		"TreeView": "Hierarchical tree of expandable items",
+		"HScroll": "Horizontal scroll bar",
+		"VScroll": "Vertical scroll bar",
+		"ProgressBar": "Shows completion progress of a task",
+		"HSlider": "Horizontal slider for picking a value",
+		"VSlider": "Vertical slider for picking a value",
+		"SpinBox": "Numeric input with up/down arrows",
+		"Shape": "Filled rectangle (ColorRect)",
+		"HLine": "Horizontal separator line",
+		"VLine": "Vertical separator line",
+		"RichText": "Formatted text with BBCode support",
+		"TextArea": "Multi-line text editing area",
+		"TabStrip": "Tabbed container with multiple pages",
+		"Timer": "Fires an event at a set interval",
+		"Files": "Open/save file dialog",
+		# ── Extended 2D tools ──
+		"VGComboBox": "Enhanced combo box control",
+		"RadioButton": "Mutually exclusive option in a group",
+		"MenuBar": "Top-level menu bar with drop-down menus",
+		"PictureButton": "Button that displays an image",
+		"Line": "Straight line between two points",
+		"DriveListBox": "Lists available disk drives",
+		"FlexGrid": "Resizable grid of rows and columns",
+		"Form": "Top-level window or dialog",
+		"Option": "Option button (radio style)",
+		"CommonDialog": "Standard system dialog (color, font, etc.)",
+		"ColorBtn": "Button that opens a color picker",
+		"Video": "Plays video or animation files",
+		"Viewport": "Embedded rendering viewport",
+		# ── Components dialog extras ──
+		"StatusBar": "Status bar panel at bottom of a form",
+		"Toolbar": "Toolbar panel with action buttons",
+		"Animation": "Animated sprite with frame sequences",
+		"Calendar": "Month calendar date selector",
+		"DatePicker": "Pick a date from a pop-up calendar",
+		"MaskedEdit": "Text input with an input mask format",
+		"Winsock": "HTTP / network request component",
+		"UpDown": "Numeric spinner (up/down buttons)",
+		"ListView": "Multi-column list with icons",
+		"ImageCombo": "Drop-down list with icon items",
+		# ── 3D tools ──
+		"Box": "3D box mesh primitive",
+		"Sphere": "3D sphere mesh primitive",
+		"Capsule": "3D capsule mesh primitive",
+		"Cylinder": "3D cylinder mesh primitive",
+		"Light": "Omni-directional 3D light source",
+		"Camera": "3D camera viewpoint",
+		"Text3D": "3D text label in world space",
+		"Sprite3D": "2D sprite rendered in 3D space",
+		"Sound3D": "Positional 3D audio player",
+	}
+
+	# Load user-defined descriptions from custom_components.cfg
+	var _comp_descriptions := {}
+	var ComponentsDialog = load("res://addons/visual_gasic/components_dialog.gd")
+	if ComponentsDialog:
+		var all_enabled = ComponentsDialog.load_enabled_components()
+		for comp in all_enabled:
+			var desc: String = comp.get("description", "")
+			if not desc.is_empty():
+				_comp_descriptions[comp["name"]] = desc
+
 	var white := Color(1, 1, 1, 1)
 	var btn_bg: Color = _theme.get("toolbox_btn_normal", Color("#F0EDE8"))
 	var hover_bg: Color = _theme.get("toolbox_btn_hover", Color(0.91, 0.95, 1.0))
@@ -1993,6 +2090,15 @@ func _restyle_toolbox_buttons() -> void:
 
 					# Show icon + text label (like TwinBasic toolbox)
 					btn.text = display_names.get(tool_name, tool_name)
+					# Tooltip priority: user description > built-in tips > auto-generated
+					if _comp_descriptions.has(tool_name):
+						btn.tooltip_text = _comp_descriptions[tool_name]
+					elif tool_tips.has(tool_name):
+						btn.tooltip_text = tool_tips[tool_name]
+					elif btn.has_method("get_create_class") and not btn.get_create_class().is_empty():
+						btn.tooltip_text = "Custom control (%s)" % btn.get_create_class()
+					else:
+						btn.tooltip_text = tool_name
 					btn.custom_minimum_size = Vector2(0, 26)
 					btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 					btn.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
@@ -2003,6 +2109,9 @@ func _restyle_toolbox_buttons() -> void:
 					var icon_key: String = icon_key_map.get(tool_name, tool_name)
 					if vb6_icons.has(icon_key):
 						btn.icon = vb6_icons[icon_key]
+					elif vb6_icons.has("_CustomControl"):
+						# Fallback: generic gear icon for custom controls without a specific SVG
+						btn.icon = vb6_icons["_CustomControl"]
 
 					# ── CRITICAL: Override icon colors to prevent green editor tint ──
 					btn.add_theme_color_override("icon_normal_color", white)

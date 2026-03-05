@@ -1,6 +1,8 @@
 #include "visual_gasic_toolbox.h"
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/classes/label.hpp>
+#include <godot_cpp/classes/panel_container.hpp>
+#include <godot_cpp/classes/style_box_flat.hpp>
 #include <godot_cpp/classes/editor_interface.hpp>
 #include <godot_cpp/classes/editor_selection.hpp>
 #include <godot_cpp/classes/editor_plugin.hpp>
@@ -52,6 +54,29 @@ void VisualGasicToolButton::_notification(int p_what) {
              }
         }
     }
+}
+
+Object *VisualGasicToolButton::_make_custom_tooltip(const String &p_text) const {
+    if (p_text.is_empty()) {
+        return nullptr;
+    }
+
+    // Classic VB6 light-yellow tooltip with black text and 1px black border
+    PanelContainer *panel = memnew(PanelContainer);
+    Ref<StyleBoxFlat> sb;
+    sb.instantiate();
+    sb->set_bg_color(Color(1.0, 1.0, 0.94));   // Light yellow
+    sb->set_border_color(Color(0.0, 0.0, 0.0)); // Black border
+    sb->set_border_width_all(1);
+    sb->set_content_margin_all(4);
+    panel->add_theme_stylebox_override("panel", sb);
+
+    Label *lbl = memnew(Label);
+    lbl->set_text(p_text);
+    lbl->add_theme_color_override("font_color", Color(0.0, 0.0, 0.0)); // Black text
+    panel->add_child(lbl);
+
+    return panel;
 }
 
 Variant VisualGasicToolButton::_get_drag_data(const Vector2 &at_position) {

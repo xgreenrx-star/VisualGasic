@@ -89,6 +89,30 @@ static func _svgs() -> Dictionary:
 
 		# ── FileDialog: yellow folder ──
 		"Files": '<path d="M1,6 L1,18 L19,18 L19,6 L9,6 L7.5,3 L1,3 Z" fill="#FFFF00" stroke="#000000" stroke-width="1" stroke-linejoin="round"/>',
+
+		# ── RadioButton / OptionButton: circle with filled dot ──
+		"RadioButton": '<circle cx="10" cy="10" r="7" fill="#FFFFFF" stroke="#000000" stroke-width="1.2"/><circle cx="10" cy="10" r="3.5" fill="#000000"/>',
+
+		# ── MenuBar: three-line menu icon ──
+		"MenuBar": '<rect x="1" y="2" width="18" height="16" fill="#C0C0C0" stroke="#000000" stroke-width="1"/><text x="3" y="8" font-family="sans-serif" font-size="5" fill="#000000">File</text><text x="10" y="8" font-family="sans-serif" font-size="5" fill="#000000">Edit</text><line x1="1" y1="10" x2="19" y2="10" stroke="#808080" stroke-width="0.8"/>',
+
+		# ── TextureButton / PictureButton: image button ──
+		"PictureButton": '<rect x="2" y="3" width="16" height="14" fill="#C0C0C0" stroke="#000000" stroke-width="0.8"/><line x1="2" y1="3" x2="18" y2="3" stroke="#FFFFFF" stroke-width="1.2"/><line x1="2" y1="3" x2="2" y2="17" stroke="#FFFFFF" stroke-width="1.2"/><polygon points="5,14 9,8 12,12 14,9 17,14" fill="#008000" stroke="none"/><circle cx="14" cy="7" r="1.5" fill="#FFFF00" stroke="none"/>',
+
+		# ── Line: diagonal line tool ──
+		"Line": '<line x1="2" y1="17" x2="18" y2="3" stroke="#000000" stroke-width="2"/><circle cx="2" cy="17" r="1.5" fill="#0000FF"/><circle cx="18" cy="3" r="1.5" fill="#0000FF"/>',
+
+		# ── DriveListBox: drive combo ──
+		"DriveList": '<rect x="1" y="5" width="18" height="11" fill="#FFFFFF" stroke="#000000" stroke-width="1"/><rect x="13" y="5" width="6" height="11" fill="#C0C0C0" stroke="#000000" stroke-width="0.8"/><polygon points="14.5,8.5 17.5,8.5 16,12.5" fill="#000000"/><text x="2.5" y="12.5" font-family="sans-serif" font-size="5.5" fill="#000000">C:</text>',
+
+		# ── WobblyButton: wavy animated button (custom control) ──
+		"WobblyButton": '<path d="M3,5 Q5,3 8,5 Q11,7 14,5 Q17,3 18,5 L18,15 Q16,17 13,15 Q10,13 7,15 Q4,17 3,15 Z" fill="#C0C0C0" stroke="#000000" stroke-width="1.2"/><line x1="3" y1="5" x2="18" y2="5" stroke="#FFFFFF" stroke-width="0" /><text x="10" y="12" text-anchor="middle" font-family="sans-serif" font-weight="bold" font-size="5" fill="#000000">~OK~</text>',
+
+		# ── WobblyPanel: wavy animated panel (custom control) ──
+		"WobblyPanel": '<path d="M2,3 Q5,1 10,3 Q15,5 18,3 L18,17 Q15,19 10,17 Q5,15 2,17 Z" fill="#E0E0E0" stroke="#000000" stroke-width="1.2"/><path d="M4,7 Q7,5.5 10,7 Q13,8.5 16,7" fill="none" stroke="#808080" stroke-width="0.7"/><path d="M4,11 Q7,9.5 10,11 Q13,12.5 16,11" fill="none" stroke="#808080" stroke-width="0.7"/>',
+
+		# ── _CustomControl: generic fallback for any custom control (gear icon) ──
+		"_CustomControl": '<circle cx="10" cy="10" r="4" fill="#808080" stroke="#000000" stroke-width="0.8"/><circle cx="10" cy="10" r="1.8" fill="#C0C0C0" stroke="#000000" stroke-width="0.5"/><rect x="8.8" y="1" width="2.4" height="3.5" rx="0.5" fill="#808080" stroke="#000000" stroke-width="0.6"/><rect x="8.8" y="15.5" width="2.4" height="3.5" rx="0.5" fill="#808080" stroke="#000000" stroke-width="0.6"/><rect x="1" y="8.8" width="3.5" height="2.4" rx="0.5" fill="#808080" stroke="#000000" stroke-width="0.6"/><rect x="15.5" y="8.8" width="3.5" height="2.4" rx="0.5" fill="#808080" stroke="#000000" stroke-width="0.6"/><rect x="3.2" y="3.2" width="2.4" height="2" rx="0.4" fill="#808080" stroke="#000000" stroke-width="0.5" transform="rotate(45 4.4 4.2)"/><rect x="14.4" y="14.8" width="2.4" height="2" rx="0.4" fill="#808080" stroke="#000000" stroke-width="0.5" transform="rotate(45 15.6 15.8)"/><rect x="14.4" y="3.2" width="2.4" height="2" rx="0.4" fill="#808080" stroke="#000000" stroke-width="0.5" transform="rotate(-45 15.6 4.2)"/><rect x="3.2" y="14.8" width="2.4" height="2" rx="0.4" fill="#808080" stroke="#000000" stroke-width="0.5" transform="rotate(-45 4.4 15.8)"/>',
 	}
 
 

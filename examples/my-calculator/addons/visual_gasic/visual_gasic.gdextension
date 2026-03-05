@@ -1,16 +1,1 @@
-[configuration]
-
-entry_symbol = "visual_gasic_library_init"
-compatibility_minimum = "4.5"
-
-[libraries]
-
-linux.editor.x86_64 = "bin/libvisualgasic.linux.editor.x86_64.so"
-linux.debug.x86_64 = "bin/libvisualgasic.linux.template_debug.x86_64.so"
-linux.release.x86_64 = "bin/libvisualgasic.linux.template_release.x86_64.so"
-windows.editor.x86_64 = "bin/libvisualgasic.windows.editor.x86_64.dll"
-windows.debug.x86_64 = "bin/libvisualgasic.windows.template_debug.x86_64.dll"
-windows.release.x86_64 = "bin/libvisualgasic.windows.template_release.x86_64.dll"
-macos.editor = "bin/libvisualgasic.macos.editor.framework"
-macos.debug = "bin/libvisualgasic.macos.template_debug.framework"
-macos.release = "bin/libvisualgasic.macos.template_release.framework"
+../../../../addons/visual_gasic/visual_gasic.gdextension

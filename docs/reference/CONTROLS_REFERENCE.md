@@ -897,9 +897,12 @@ You can add your own custom controls:
 1. Create a `.tscn` scene file with your control
 2. Open **Project > Visual Gasic Components...**
 3. Click **Browse** and select your `.tscn` file
-4. The control will appear in the Toolbox
+4. The control will appear in the Toolbox with a **gear ⚙ icon** (generic fallback)
+5. *(Optional)* To give it a unique icon, add an SVG entry to `vb6_toolbox_icons.gd` keyed to the control's name
 
 Custom controls are saved to `custom_components.cfg` and persist between sessions.
+
+**Bundled custom control icons:** WobblyButton and WobblyPanel ship with specific SVG icons. All other custom controls use the generic gear fallback. See the [Custom Toolbox Icons](../tutorials/custom_wobbly_form.md#custom-toolbox-icons) section for details on creating your own.
 
 ---
 

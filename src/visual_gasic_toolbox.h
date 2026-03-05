@@ -29,6 +29,7 @@ public:
     String get_scene_path() const;
     
     virtual Variant _get_drag_data(const Vector2 &at_position) override;
+    virtual Object *_make_custom_tooltip(const String &p_text) const override;
 };
 
 class VisualGasicToolbox : public PanelContainer {

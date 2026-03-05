@@ -227,6 +227,7 @@ Quickly generate a new Form scene.
 A VB6-style dialog for managing optional and custom controls in the Toolbox.
 *   **Optional Components**: Enable/disable advanced controls
 *   **Custom Controls**: Browse and add your own .tscn prototypes
+*   **Custom Icons**: Each custom control gets a gear ⚙ fallback icon automatically. To provide a specific icon, add an SVG entry keyed to the control name in `vb6_toolbox_icons.gd` (see the [Custom Wobbly Form](../tutorials/custom_wobbly_form.md#custom-toolbox-icons) tutorial for details)
 *   **Persistent Config**: Settings saved to `custom_components.cfg`
 *   **Double-Click Toggle**: Quickly add/remove components
 
