@@ -640,12 +640,17 @@ func _make_visible(p_visible: bool) -> void:
 		_hide_godot_panels()
 	else:
 		_show_godot_panels()
-		# Leaving Form Designer → flush C++ state to disk and reload Godot's
-		# scene tree so it matches.  This prevents Godot from overwriting our
-		# .tscn with stale data if the user saves while in Godot mode.
+		# Leaving Form Designer → flush C++ state to disk.
 		if is_instance_valid(_form_designer) and not _form_designer.get_form_path().is_empty():
 			_form_designer.save_form()
-			_reload_scene_after_form_save(_form_designer.get_form_path())
+			# Reload Godot's scene tree so it matches our .tscn — but skip
+			# the reload when we're switching to the code editor via
+			# double-click, because the deferred reload can race with
+			# Godot's save pipeline and clobber the C++ controls vector.
+			if _switching_to_code_editor:
+				_switching_to_code_editor = false
+			else:
+				_reload_scene_after_form_save(_form_designer.get_form_path())
 	# Auto-load the currently edited scene into the C++ Form Designer
 	if p_visible and _form_designer:
 		_sync_scene_to_form_designer()
@@ -2574,12 +2579,14 @@ func _reload_scene_after_form_save(tscn_path: String) -> void:
 	call_deferred("_deferred_reload_scene", tscn_path)
 
 func _deferred_reload_scene(tscn_path: String) -> void:
-	# Tell Godot to reload the scene from disk — now its scene tree matches our save
+	# Tell Godot to reload the scene from disk — now its scene tree matches our save.
+	# IMPORTANT: Do NOT call _form_designer.open_form() here!  open_form() starts
+	# with controls.clear() and re-parses the .tscn.  If Godot has overwritten the
+	# file between our save_form() and this deferred call, the re-parse would read
+	# 0 controls.  The C++ controls vector is the authoritative source of truth
+	# during the session — it is only re-read from disk when the user explicitly
+	# opens a different scene (handled by _sync_scene_to_form_designer).
 	EditorInterface.reload_scene_from_path(tscn_path)
-	# Re-sync the C++ form designer from the reloaded file
-	if is_instance_valid(_form_designer):
-		# Clear cached path so _sync re-reads from disk
-		_form_designer.open_form(tscn_path)
 	print("[VisualGasic] Scene reloaded from disk after save: ", tscn_path)
 
 func _on_vb6_edit_menu(id: int) -> void:
@@ -3038,6 +3045,12 @@ func _sync_scene_to_form_designer() -> void:
 		return
 	# Only reload if the path changed (avoid re-parsing the same scene)
 	if _form_designer.get_form_path() == scene_path:
+		# Safety fallback: if the C++ controls vector was somehow emptied
+		# (e.g. by a stale reload race) but the .tscn exists on disk,
+		# force a re-read so we recover the user's controls.
+		if _form_designer.get_control_count() == 0 and FileAccess.file_exists(scene_path):
+			print("VisualGasic: Controls lost — recovering from disk: ", scene_path)
+			_form_designer.open_form(scene_path)
 		return
 	_form_designer.open_form(scene_path)
 	print("VisualGasic: Synced scene '", scene_path, "' into Form Designer")
@@ -3076,6 +3089,7 @@ var _fd_context_menu: PopupMenu = null
 var _fd_context_ctrl_index: int = -1
 var _editing_external_scene: bool = false
 var _saving_external: bool = false  ## reentrancy guard for _save_external_data
+var _switching_to_code_editor: bool = false  ## suppress reload in _make_visible(false) during double-click
 
 func _on_fd_control_right_clicked(index: int, position: Vector2) -> void:
 	# Clean up previous context menu if any
@@ -3248,6 +3262,13 @@ func _on_fd_control_double_clicked(index: int) -> void:
 	if form_path.is_empty():
 		push_warning("VisualGasic: Cannot open code — form has no save path. Save the form first (File > Save).")
 		return
+
+	# ── Persist controls to disk BEFORE switching to the code editor ──
+	# This guarantees the .tscn is up-to-date regardless of what deferred
+	# operations or Godot save cycles happen during the view switch.
+	_form_designer.save_form()
+	_switching_to_code_editor = true   # suppress risky reload in _make_visible(false)
+
 	var vg_path = form_path.get_basename() + ".vg"
 	var sub_name = ctrl_name + "_" + event_suffix
 	print("VisualGasic: Double-click → opening ", sub_name, " in ", vg_path)
