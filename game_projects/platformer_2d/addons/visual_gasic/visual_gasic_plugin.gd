@@ -4172,11 +4172,10 @@ func _generate_preview_for_custom_control(ctrl_name: String, scene_path: String)
 		if _form_designer and _form_designer.has_method("set_control_preview_texture"):
 			_form_designer.set_control_preview_texture(ctrl_name, preview_tex)
 
-		# Toolbox icon (scaled to 20×20)
-		var icon_img = img.duplicate()
-		icon_img.resize(20, 20, Image.INTERPOLATE_LANCZOS)
-		var icon_tex = ImageTexture.create_from_image(icon_img)
-		_set_toolbox_button_icon(ctrl_name, icon_tex)
+		# NOTE: We no longer overwrite the toolbox button icon here.
+		# SVG icons from vb6_toolbox_icons.gd (or the _CustomControl gear
+		# fallback) are set by _restyle_toolbox_buttons() and should not
+		# be replaced by a blurry 20×20 scene capture.
 
 	# Cleanup
 	vp.remove_child(instance)
@@ -4326,6 +4325,11 @@ func _post_init():
 	
 	# Load custom/optional components from Components dialog config
 	_load_custom_components()
+	
+	# Immediately restyle ALL toolbox buttons (including just-added custom ones)
+	# This is the PRIMARY restyle; the deferred call in _setup_ide_split_ratios
+	# acts as a backup after _apply_vb6_theme() reparents the toolbox.
+	_restyle_toolbox_buttons()
 	
 	# Generate preview textures for custom controls (deferred so tree is ready)
 	call_deferred("_generate_all_custom_previews")
