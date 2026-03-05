@@ -44,9 +44,12 @@ String VisualGasicToolButton::get_scene_path() const {
 }
 
 void VisualGasicToolButton::_notification(int p_what) {
-    if (p_what == NOTIFICATION_THEME_CHANGED || p_what == NOTIFICATION_ENTER_TREE) {
+    // Only set the editor-theme icon once, when the button first enters the
+    // tree.  The GDScript restyler (_restyle_toolbox_buttons) replaces every
+    // icon with a custom SVG shortly after.  Reacting to THEME_CHANGED here
+    // would overwrite those SVG icons every time a theme override is added.
+    if (p_what == NOTIFICATION_ENTER_TREE) {
         if (!icon_name.is_empty()) {
-             // Access editor theme if available
              Control *base = EditorInterface::get_singleton()->get_base_control();
              if (base) {
                  Ref<Texture2D> icon = base->get_theme_icon(icon_name, "EditorIcons");

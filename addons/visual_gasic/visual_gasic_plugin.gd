@@ -2105,20 +2105,12 @@ func _restyle_toolbox_buttons() -> void:
 					btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
 					btn.expand_icon = false
 
-					# Apply custom SVG icon (use icon_key_map for remapped names)
-					var icon_key: String = icon_key_map.get(tool_name, tool_name)
-					if vb6_icons.has(icon_key):
-						btn.icon = vb6_icons[icon_key]
-					elif vb6_icons.has("_CustomControl"):
-						# Fallback: generic gear icon for custom controls without a specific SVG
-						btn.icon = vb6_icons["_CustomControl"]
+					# ── Apply ALL theme overrides FIRST ──
+					# Each add_theme_*_override triggers NOTIFICATION_THEME_CHANGED
+					# in the C++ button, so we must finish these before setting
+					# the SVG icon (which we want to be the final icon value).
 
-					# Clear C++ icon_name so NOTIFICATION_THEME_CHANGED won't
-					# overwrite our SVG icon with the Godot editor theme icon.
-					if btn.has_method("set_icon_name"):
-						btn.set_icon_name("")
-
-					# ── CRITICAL: Override icon colors to prevent green editor tint ──
+					# Override icon colors to prevent green editor tint
 					btn.add_theme_color_override("icon_normal_color", white)
 					btn.add_theme_color_override("icon_hover_color", white)
 					btn.add_theme_color_override("icon_pressed_color", white)
@@ -2162,6 +2154,18 @@ func _restyle_toolbox_buttons() -> void:
 					pressed_sb.content_margin_top = 2
 					pressed_sb.content_margin_bottom = 2
 					btn.add_theme_stylebox_override("pressed", pressed_sb)
+
+					# ── LAST: Apply custom SVG icon AFTER all theme overrides ──
+					# This ensures no NOTIFICATION_THEME_CHANGED can overwrite
+					# the icon after we set it.
+					var icon_key: String = icon_key_map.get(tool_name, tool_name)
+					if vb6_icons.has(icon_key):
+						btn.icon = vb6_icons[icon_key]
+					elif vb6_icons.has("_CustomControl"):
+						btn.icon = vb6_icons["_CustomControl"]
+					# Clear C++ icon_name so any future theme propagation skips
+					if btn.has_method("set_icon_name"):
+						btn.set_icon_name("")
 
 	print("VisualGasic: Toolbox restyled to TwinBasic list layout (%d icons)" % vb6_icons.size())
 

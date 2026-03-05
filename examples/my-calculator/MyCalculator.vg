@@ -1,5 +1,5 @@
 ' MyCalculator - VisualGasic Form
 
 Private Sub Form_Load()
-    ' Initialization code here
+	' Initialization code here
 End Sub
