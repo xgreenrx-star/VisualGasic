@@ -643,16 +643,23 @@ func _make_visible(p_visible: bool) -> void:
 		# Leaving Form Designer → flush C++ state to disk.
 		if is_instance_valid(_form_designer) and not _form_designer.get_form_path().is_empty():
 			_form_designer.save_form()
-			# Reload Godot's scene tree so it matches our .tscn — but skip
+			# Reload Godot’s scene tree so it matches our .tscn — but skip
 			# the reload when we're switching to the code editor via
 			# double-click, because the deferred reload can race with
 			# Godot's save pipeline and clobber the C++ controls vector.
-			if _switching_to_code_editor:
-				_switching_to_code_editor = false
-			else:
+			if not _switching_to_code_editor:
 				_reload_scene_after_form_save(_form_designer.get_form_path())
-	# Auto-load the currently edited scene into the C++ Form Designer
-	if p_visible and _form_designer:
+		# Always clear the flag here (even when form_path was empty and
+		# the save block above was skipped — the previous code never
+		# reached the clear in that case, leaving the flag stuck true).
+		_switching_to_code_editor = false
+	# Auto-load the currently edited scene into the C++ Form Designer —
+	# but NOT when we're in the middle of a double-click → code-editor
+	# flow.  Godot may fire a spurious _make_visible(true) during the
+	# screen transition (edit_resource → set_main_screen_editor), and
+	# calling _sync_scene at that point would re-parse the .tscn from
+	# disk and wipe the in-memory controls.
+	if p_visible and _form_designer and not _switching_to_code_editor:
 		_sync_scene_to_form_designer()
 
 ## Called when user clicks the "↩ Godot Editor" button.
@@ -697,7 +704,6 @@ func _save_external_data() -> void:
 		var scene_root = EditorInterface.get_edited_scene_root()
 		if scene_root and scene_root.scene_file_path == path:
 			EditorInterface.reload_scene_from_path(path)
-		print("[VisualGasic] _save_external_data → form saved & scene reloaded")
 	_saving_external = false
 
 ## Called when the plugin exits the editor tree.
@@ -2587,7 +2593,6 @@ func _deferred_reload_scene(tscn_path: String) -> void:
 	# during the session — it is only re-read from disk when the user explicitly
 	# opens a different scene (handled by _sync_scene_to_form_designer).
 	EditorInterface.reload_scene_from_path(tscn_path)
-	print("[VisualGasic] Scene reloaded from disk after save: ", tscn_path)
 
 func _on_vb6_edit_menu(id: int) -> void:
 	if not _form_designer:
@@ -3043,8 +3048,9 @@ func _sync_scene_to_form_designer() -> void:
 		return
 	if not scene_path.ends_with(".tscn") and not scene_path.ends_with(".scn"):
 		return
+	var form_path = _form_designer.get_form_path()
 	# Only reload if the path changed (avoid re-parsing the same scene)
-	if _form_designer.get_form_path() == scene_path:
+	if form_path == scene_path:
 		# Safety fallback: if the C++ controls vector was somehow emptied
 		# (e.g. by a stale reload race) but the .tscn exists on disk,
 		# force a re-read so we recover the user's controls.
@@ -3052,6 +3058,17 @@ func _sync_scene_to_form_designer() -> void:
 			print("VisualGasic: Controls lost — recovering from disk: ", scene_path)
 			_form_designer.open_form(scene_path)
 		return
+
+	# Path mismatch — but if the designer already has controls in memory and
+	# the form_path was simply lost (cleared to ""), we must NOT call
+	# open_form() because that starts with controls.clear() and re-parses
+	# the .tscn from disk (which may have 0 user controls).
+	# Instead, re-establish the path by saving the current state to disk.
+	if form_path.is_empty() and _form_designer.get_control_count() > 0:
+		print("VisualGasic: form_path lost — re-establishing via save_form_as('", scene_path, "')  controls=", _form_designer.get_control_count())
+		_form_designer.save_form_as(scene_path)
+		return
+
 	_form_designer.open_form(scene_path)
 	print("VisualGasic: Synced scene '", scene_path, "' into Form Designer")
 
