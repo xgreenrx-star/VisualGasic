@@ -2113,6 +2113,11 @@ func _restyle_toolbox_buttons() -> void:
 						# Fallback: generic gear icon for custom controls without a specific SVG
 						btn.icon = vb6_icons["_CustomControl"]
 
+					# Clear C++ icon_name so NOTIFICATION_THEME_CHANGED won't
+					# overwrite our SVG icon with the Godot editor theme icon.
+					if btn.has_method("set_icon_name"):
+						btn.set_icon_name("")
+
 					# ── CRITICAL: Override icon colors to prevent green editor tint ──
 					btn.add_theme_color_override("icon_normal_color", white)
 					btn.add_theme_color_override("icon_hover_color", white)
