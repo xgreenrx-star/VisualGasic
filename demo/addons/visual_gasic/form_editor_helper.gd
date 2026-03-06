@@ -28,13 +28,30 @@ func _ready() -> void:
 	# Use MOUSE_FILTER_PASS to allow receiving drop data while letting clicks through
 	mouse_filter = Control.MOUSE_FILTER_PASS
 	
+	# ── Apply VB6 Classic Theme to the parent Window ──
+	# This is the authoritative, bulletproof theme application point.
+	# It runs every time any VG form is loaded — in the editor's 2D viewport,
+	# after scene reloads, and at runtime (F5).  Godot's theme inheritance
+	# is dynamic, so all child controls (Button, LineEdit, etc.) will
+	# immediately pick up the VB6 styles.
+	var parent_window = get_parent()
+	if parent_window is Window:
+		var vb6_theme = _build_vb6_classic_theme()
+		if vb6_theme:
+			parent_window.theme = vb6_theme
+			print("[VG-THEME] Applied VB6 Classic Theme to '", parent_window.name, "' (", vb6_theme.get_type_list().size(), " types)")
+		else:
+			print("[VG-THEME] ERROR: _build_vb6_classic_theme() returned null!")
+	else:
+		print("[VG-THEME] Parent is not Window: ", parent_window.get_class() if parent_window else "null")
+
 	if Engine.is_editor_hint():
 		# Initialize size tracking from parent Window
-		var parent_window = get_parent()
-		if parent_window is Window:
-			size = Vector2(parent_window.size)
+		var parent_window2 = get_parent()
+		if parent_window2 is Window:
+			size = Vector2(parent_window2.size)
 		_last_size = size
-		
+
 		# Request redraw for grid
 		queue_redraw()
 
@@ -404,3 +421,249 @@ func set_show_grid(show: bool) -> void:
 func toggle_grid() -> void:
 	grid_enabled = not grid_enabled
 	queue_redraw()
+
+# =============================================================================
+# VB6 CLASSIC (WIN98) THEME — applied to parent Window for WYSIWYG fidelity
+# =============================================================================
+# This ensures Godot's 2D preview and runtime match the Form Designer.
+# Uses the authentic Win32 system color palette from the C++ header.
+
+static func _build_vb6_classic_theme() -> Theme:
+	var t = Theme.new()
+
+	# ── Win32 system colors (matching C++ visual_gasic_form_designer.h) ──
+	var btn_face      := Color(0.831, 0.816, 0.784)  # #D4D0C8
+	var btn_shadow    := Color(0.51, 0.51, 0.51)
+	var dark_shadow   := Color(0.25, 0.25, 0.25)
+	var win_bg        := Color(1.0, 1.0, 1.0)
+	var win_text      := Color(0.0, 0.0, 0.0)
+	var form_bg       := Color(0.753, 0.753, 0.753)  # #C0C0C0
+	var scrollbar_bg  := Color(0.87, 0.87, 0.87)
+	var progress_fill := Color(0.0, 0.5, 0.0)
+	var placeholder   := Color(0.6, 0.6, 0.6)
+	var title_bg      := Color(0.0, 0.0, 0.5)
+	var title_text    := Color(1.0, 1.0, 1.0)
+	var disabled_text := Color(0.51, 0.51, 0.51)
+	var border_mid    := Color(0.6, 0.6, 0.6)
+
+	# ── Helpers ──
+	var _raised = func(bg: Color) -> StyleBoxFlat:
+		var sb = StyleBoxFlat.new()
+		sb.bg_color = bg
+		sb.border_color = border_mid
+		sb.set_border_width_all(2)
+		sb.content_margin_left = 4; sb.content_margin_right = 4
+		sb.content_margin_top = 2; sb.content_margin_bottom = 2
+		return sb
+
+	var _sunken = func(bg: Color) -> StyleBoxFlat:
+		var sb = StyleBoxFlat.new()
+		sb.bg_color = bg
+		sb.border_color = btn_shadow
+		sb.set_border_width_all(2)
+		sb.content_margin_left = 4; sb.content_margin_right = 4
+		sb.content_margin_top = 2; sb.content_margin_bottom = 2
+		return sb
+
+	# ── Window ──
+	var win_sb = StyleBoxFlat.new()
+	win_sb.bg_color = form_bg
+	win_sb.set_content_margin_all(0)
+	t.set_stylebox("embedded_border", "Window", win_sb)
+	t.set_stylebox("embedded_unfocused_border", "Window", win_sb)
+
+	# ── Panel / PanelContainer — form background ──
+	var panel_sb = StyleBoxFlat.new()
+	panel_sb.bg_color = form_bg
+	panel_sb.set_content_margin_all(0)
+	t.set_stylebox("panel", "Panel", panel_sb)
+	var pc_sb = StyleBoxFlat.new()
+	pc_sb.bg_color = form_bg
+	pc_sb.set_content_margin_all(0)
+	t.set_stylebox("panel", "PanelContainer", pc_sb)
+
+	# ── Button ──
+	t.set_stylebox("normal",   "Button", _raised.call(btn_face))
+	t.set_stylebox("hover",    "Button", _raised.call(Color(0.87, 0.855, 0.824)))
+	var btn_pressed = StyleBoxFlat.new()
+	btn_pressed.bg_color = btn_face
+	btn_pressed.border_color = dark_shadow
+	btn_pressed.set_border_width_all(2)
+	btn_pressed.content_margin_left = 5; btn_pressed.content_margin_right = 3
+	btn_pressed.content_margin_top = 3; btn_pressed.content_margin_bottom = 1
+	t.set_stylebox("pressed",  "Button", btn_pressed)
+	t.set_stylebox("disabled", "Button", _raised.call(btn_face))
+	var btn_focus = StyleBoxFlat.new()
+	btn_focus.bg_color = btn_face
+	btn_focus.border_color = Color(0, 0, 0)
+	btn_focus.set_border_width_all(1)
+	btn_focus.content_margin_left = 4; btn_focus.content_margin_right = 4
+	btn_focus.content_margin_top = 2; btn_focus.content_margin_bottom = 2
+	t.set_stylebox("focus",    "Button", btn_focus)
+	t.set_color("font_color",          "Button", win_text)
+	t.set_color("font_hover_color",    "Button", win_text)
+	t.set_color("font_pressed_color",  "Button", win_text)
+	t.set_color("font_disabled_color", "Button", disabled_text)
+	t.set_color("font_focus_color",    "Button", win_text)
+
+	# ── LineEdit (TextBox) ──
+	t.set_stylebox("normal",    "LineEdit", _sunken.call(win_bg))
+	var le_focus = _sunken.call(win_bg)
+	le_focus.border_color = Color(0, 0, 0)
+	t.set_stylebox("focus",     "LineEdit", le_focus)
+	t.set_stylebox("read_only", "LineEdit", _sunken.call(btn_face))
+	t.set_color("font_color",             "LineEdit", win_text)
+	t.set_color("font_selected_color",    "LineEdit", title_text)
+	t.set_color("font_uneditable_color",  "LineEdit", disabled_text)
+	t.set_color("font_placeholder_color", "LineEdit", placeholder)
+	t.set_color("selection_color",        "LineEdit", title_bg)
+	t.set_color("caret_color",            "LineEdit", win_text)
+
+	# ── TextEdit (TextArea) ──
+	t.set_stylebox("normal",    "TextEdit", _sunken.call(win_bg))
+	var te_focus = _sunken.call(win_bg)
+	te_focus.border_color = Color(0, 0, 0)
+	t.set_stylebox("focus",     "TextEdit", te_focus)
+	t.set_stylebox("read_only", "TextEdit", _sunken.call(btn_face))
+	t.set_color("font_color",             "TextEdit", win_text)
+	t.set_color("font_selected_color",    "TextEdit", title_text)
+	t.set_color("font_readonly_color",    "TextEdit", disabled_text)
+	t.set_color("font_placeholder_color", "TextEdit", placeholder)
+	t.set_color("selection_color",        "TextEdit", title_bg)
+	t.set_color("caret_color",            "TextEdit", win_text)
+
+	# ── Label ──
+	t.set_color("font_color",        "Label", win_text)
+	t.set_color("font_shadow_color", "Label", Color(0, 0, 0, 0))
+
+	# ── CheckBox ──
+	var cb_bg = StyleBoxFlat.new()
+	cb_bg.bg_color = Color(0, 0, 0, 0)
+	cb_bg.set_content_margin_all(2)
+	for state in ["normal", "hover", "pressed"]:
+		t.set_stylebox(state, "CheckBox",   cb_bg)
+		t.set_stylebox(state, "CheckButton",cb_bg)
+	for ctype in ["CheckBox", "CheckButton"]:
+		t.set_color("font_color",         ctype, win_text)
+		t.set_color("font_hover_color",   ctype, win_text)
+		t.set_color("font_pressed_color", ctype, win_text)
+
+	# ── OptionButton (ComboBox) ──
+	var ob = _raised.call(btn_face)
+	ob.content_margin_right = 20
+	t.set_stylebox("normal",   "OptionButton", ob)
+	t.set_stylebox("hover",    "OptionButton", ob)
+	t.set_stylebox("pressed",  "OptionButton", ob)
+	t.set_stylebox("disabled", "OptionButton", ob)
+	t.set_color("font_color",         "OptionButton", win_text)
+	t.set_color("font_hover_color",   "OptionButton", win_text)
+	t.set_color("font_pressed_color", "OptionButton", win_text)
+
+	# ── ItemList (ListBox) ──
+	t.set_stylebox("panel", "ItemList", _sunken.call(win_bg))
+	t.set_color("font_color",          "ItemList", win_text)
+	t.set_color("font_selected_color", "ItemList", title_text)
+	var il_sel = StyleBoxFlat.new()
+	il_sel.bg_color = title_bg; il_sel.set_content_margin_all(2)
+	t.set_stylebox("selected",       "ItemList", il_sel)
+	t.set_stylebox("selected_focus", "ItemList", il_sel)
+
+	# ── Tree (TreeView) ──
+	t.set_stylebox("panel", "Tree", _sunken.call(win_bg))
+	t.set_color("font_color",          "Tree", win_text)
+	t.set_color("font_selected_color", "Tree", title_text)
+	var tree_sel = StyleBoxFlat.new()
+	tree_sel.bg_color = title_bg; tree_sel.set_content_margin_all(2)
+	t.set_stylebox("selected",       "Tree", tree_sel)
+	t.set_stylebox("selected_focus", "Tree", tree_sel)
+
+	# ── TabContainer ──
+	var tc = StyleBoxFlat.new()
+	tc.bg_color = btn_face; tc.border_color = btn_shadow
+	tc.set_border_width_all(1); tc.set_content_margin_all(4)
+	t.set_stylebox("panel", "TabContainer", tc)
+	var tab_s = StyleBoxFlat.new()
+	tab_s.bg_color = btn_face; tab_s.border_color = btn_shadow
+	tab_s.border_width_left = 1; tab_s.border_width_top = 1
+	tab_s.border_width_right = 1; tab_s.border_width_bottom = 0
+	tab_s.content_margin_left = 8; tab_s.content_margin_right = 8
+	tab_s.content_margin_top = 4; tab_s.content_margin_bottom = 4
+	t.set_stylebox("tab_selected", "TabContainer", tab_s)
+	t.set_stylebox("tab_selected", "TabBar",       tab_s)
+	var tab_u = StyleBoxFlat.new()
+	tab_u.bg_color = Color(0.75, 0.74, 0.72); tab_u.border_color = btn_shadow
+	tab_u.set_border_width_all(1)
+	tab_u.content_margin_left = 8; tab_u.content_margin_right = 8
+	tab_u.content_margin_top = 4; tab_u.content_margin_bottom = 4
+	t.set_stylebox("tab_unselected", "TabContainer", tab_u)
+	t.set_stylebox("tab_unselected", "TabBar",       tab_u)
+	t.set_color("font_selected_color",   "TabContainer", win_text)
+	t.set_color("font_unselected_color", "TabContainer", disabled_text)
+	t.set_color("font_selected_color",   "TabBar",       win_text)
+	t.set_color("font_unselected_color", "TabBar",       disabled_text)
+
+	# ── ProgressBar ──
+	t.set_stylebox("background", "ProgressBar", _sunken.call(btn_face))
+	var pb_fill = StyleBoxFlat.new()
+	pb_fill.bg_color = progress_fill; pb_fill.set_content_margin_all(0)
+	t.set_stylebox("fill", "ProgressBar", pb_fill)
+
+	# ── ScrollBars ──
+	for sb_type in ["HScrollBar", "VScrollBar"]:
+		var sc = StyleBoxFlat.new()
+		sc.bg_color = scrollbar_bg; sc.set_content_margin_all(0)
+		t.set_stylebox("scroll", sb_type, sc)
+		var gr = _raised.call(btn_face)
+		gr.content_margin_left = 2; gr.content_margin_right = 2
+		gr.content_margin_top = 2; gr.content_margin_bottom = 2
+		t.set_stylebox("grabber",          sb_type, gr)
+		t.set_stylebox("grabber_highlight",sb_type, gr)
+		t.set_stylebox("grabber_pressed",  sb_type, gr)
+
+	# ── Sliders ──
+	for sl_type in ["HSlider", "VSlider"]:
+		var sl = StyleBoxFlat.new()
+		sl.bg_color = scrollbar_bg; sl.border_color = btn_shadow
+		sl.set_border_width_all(1); sl.set_content_margin_all(0)
+		t.set_stylebox("slider", sl_type, sl)
+		t.set_stylebox("grabber_area",           sl_type, _raised.call(btn_face))
+		t.set_stylebox("grabber_area_highlight", sl_type, _raised.call(btn_face))
+
+	# ── MenuBar ──
+	var menu = StyleBoxFlat.new()
+	menu.bg_color = btn_face; menu.set_content_margin_all(2)
+	t.set_stylebox("normal",  "MenuBar", menu)
+	t.set_stylebox("hover",   "MenuBar", menu)
+	t.set_stylebox("pressed", "MenuBar", menu)
+	t.set_color("font_color",         "MenuBar", win_text)
+	t.set_color("font_hover_color",   "MenuBar", win_text)
+	t.set_color("font_pressed_color", "MenuBar", win_text)
+
+	# ── PopupMenu ──
+	var popup = StyleBoxFlat.new()
+	popup.bg_color = btn_face; popup.border_color = btn_shadow
+	popup.set_border_width_all(1); popup.set_content_margin_all(2)
+	t.set_stylebox("panel", "PopupMenu", popup)
+	var popup_hover = StyleBoxFlat.new()
+	popup_hover.bg_color = title_bg; popup_hover.set_content_margin_all(2)
+	t.set_stylebox("hover", "PopupMenu", popup_hover)
+	t.set_color("font_color",       "PopupMenu", win_text)
+	t.set_color("font_hover_color", "PopupMenu", title_text)
+
+	# ── RichTextLabel ──
+	t.set_stylebox("normal", "RichTextLabel", _sunken.call(win_bg))
+	t.set_color("default_color",      "RichTextLabel", win_text)
+	t.set_color("font_selected_color","RichTextLabel", title_text)
+	t.set_color("selection_color",    "RichTextLabel", title_bg)
+
+	# ── SpinBox ──
+	t.set_color("font_color", "SpinBox", win_text)
+
+	# ── Tooltip ──
+	var tip = StyleBoxFlat.new()
+	tip.bg_color = Color(1, 1, 0.94); tip.border_color = Color(0, 0, 0)
+	tip.set_border_width_all(1); tip.set_content_margin_all(4)
+	t.set_stylebox("panel", "TooltipPanel", tip)
+	t.set_color("font_color", "TooltipLabel", win_text)
+
+	return t

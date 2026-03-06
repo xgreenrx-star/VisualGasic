@@ -1,12 +1,12 @@
 [gd_scene load_steps=5 format=3]
 
-[ext_resource type="Script" uid="uid://c2vym322awsfg" path="res://Form3.vg" id="1"]
+[ext_resource type="Script" uid="uid://bcxff57gifo1q" path="res://Form4.vg" id="1"]
 [ext_resource type="Script" uid="uid://cixa1he0byrgy" path="res://addons/visual_gasic/form_editor_helper.gd" id="2"]
 [ext_resource type="Script" uid="uid://cxdke3blsbum2" path="res://addons/visual_gasic/menu_bar_helper.gd" id="3"]
 [ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/LineEdit.tscn" id="4"]
 
-[node name="Form3" type="Window"]
-title = "Form3"
+[node name="Form4" type="Window"]
+title = "Form4"
 position = Vector2i(10, 36)
 size = Vector2i(600, 400)
 script = ExtResource("1")
@@ -28,61 +28,13 @@ script = ExtResource("3")
 [node name="mnuEdit" type="PopupMenu" parent="MainMenu"]
 
 [node name="LineEdit1" parent="." instance=ExtResource("4")]
-offset_left = 88.0
+offset_left = 112.0
 offset_top = 88.0
-offset_right = 336.0
-offset_bottom = 152.0
+offset_right = 368.0
+offset_bottom = 128.0
 Enabled = true
 TabStop = true
 TabIndex = 0
-Tag = ""
-ToolTipText = ""
-MousePointer = 0
-BackColor = Color(1.0, 1.0, 1.0, 1.0)
-ForeColor = Color(0.0, 0.0, 0.0, 1.0)
-FontName = "MS Sans Serif"
-FontSize = 8
-FontBold = false
-FontItalic = false
-Appearance = 1
-BorderStyle = 1
-Locked = false
-MaxLength = 0
-PasswordChar = ""
-PlaceholderText = ""
-
-[node name="LineEdit2" parent="." instance=ExtResource("4")]
-offset_left = 104.0
-offset_top = 208.0
-offset_right = 344.0
-offset_bottom = 288.0
-Enabled = true
-TabStop = true
-TabIndex = 1
-Tag = ""
-ToolTipText = ""
-MousePointer = 0
-BackColor = Color(1.0, 1.0, 1.0, 1.0)
-ForeColor = Color(0.0, 0.0, 0.0, 1.0)
-FontName = "MS Sans Serif"
-FontSize = 8
-FontBold = false
-FontItalic = false
-Appearance = 1
-BorderStyle = 1
-Locked = false
-MaxLength = 0
-PasswordChar = ""
-PlaceholderText = ""
-
-[node name="LineEdit3" parent="." instance=ExtResource("4")]
-offset_left = 400.0
-offset_top = 80.0
-offset_right = 520.0
-offset_bottom = 152.0
-Enabled = true
-TabStop = true
-TabIndex = 2
 Tag = ""
 ToolTipText = ""
 MousePointer = 0
