@@ -693,6 +693,7 @@ func _set_window_layout(config: ConfigFile):
 		if FileAccess.file_exists(saved_form_path):
 			_form_designer.open_form(saved_form_path)
 			print("[VisualGasic] Restored form from layout config: ", saved_form_path)
+			_ensure_vb6_theme(saved_form_path)
 
 ## Called by the editor when saving window layout.
 func _get_window_layout(config: ConfigFile):
@@ -1566,6 +1567,9 @@ func open_form_in_designer(tscn_path: String) -> void:
 	_form_designer.open_form(tscn_path)
 	EditorInterface.set_main_screen_editor("Form Designer")
 	print("VisualGasic: Opened '", tscn_path, "' in Form Designer")
+	# If open_form() auto-injected the VB6 theme (file was pre-theme),
+	# force a scene reload so the 2D viewport picks up the theme too.
+	get_tree().create_timer(0.3).timeout.connect(_force_godot_scene_reload.bind(tscn_path))
 
 ## Sets initial split positions for the embedded VB6 IDE layout.
 ## Called deferred after the layout is added to the scene tree.
@@ -3089,6 +3093,31 @@ func _show_godot_panels() -> void:
 	_godot_bottom_panel = null
 	_bottom_panel_search_done = false
 
+## Ensures a .tscn file on disk has the VB6 Classic Theme.
+## If the file predates the theme feature (no "vb6_theme" marker),
+## re-saves it through the C++ serializer which injects all StyleBoxes.
+## This is a GDScript-side fallback that works even when the .so hasn't
+## been reloaded (GDScript is hot-reloaded by the editor).
+func _ensure_vb6_theme(tscn_path: String) -> void:
+	if not FileAccess.file_exists(tscn_path):
+		return
+	var file = FileAccess.open(tscn_path, FileAccess.READ)
+	if not file:
+		return
+	var text = file.get_as_text()
+	file.close()
+	if "vb6_theme" in text:
+		return  # Already themed
+	# The file is pre-theme — re-save through C++ serializer to inject it.
+	# open_form() already loaded the controls; save_form_as() writes them
+	# back with the full VB6 theme sub_resources.
+	print("[VisualGasic] Auto-injecting VB6 Classic Theme into: ", tscn_path)
+	_form_designer.save_form_as(tscn_path)
+	# Force Godot to reload the scene from disk so the 2D viewport
+	# picks up the new theme resources.
+	EditorInterface.get_resource_filesystem().update_file(tscn_path)
+	get_tree().create_timer(0.3).timeout.connect(_force_godot_scene_reload.bind(tscn_path))
+
 ## Syncs the currently edited scene into the C++ Form Designer canvas.
 ## Called by _make_visible(true) when user switches to Form Designer tab.
 ## Reads the scene root's .tscn path and loads it into the designer.
@@ -3128,6 +3157,10 @@ func _sync_scene_to_form_designer() -> void:
 
 	_form_designer.open_form(scene_path)
 	print("VisualGasic: Synced scene '", scene_path, "' into Form Designer")
+	# Auto-inject VB6 Classic Theme if the .tscn predates the theme feature.
+	# We check the FILE on disk (not the C++ state) because the C++ open_form
+	# auto-inject only works after Godot restarts with the new .so.
+	_ensure_vb6_theme(scene_path)
 
 ## Signal: A control was selected in the C++ Form Designer canvas.
 func _on_fd_control_selected(index: int) -> void:
