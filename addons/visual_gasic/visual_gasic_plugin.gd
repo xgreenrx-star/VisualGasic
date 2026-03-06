@@ -728,10 +728,9 @@ func _save_external_data() -> void:
 		# Notify Godot's filesystem and reload the scene
 		fp = _form_designer.get_form_path()
 		if not fp.is_empty():
-			EditorInterface.get_resource_filesystem().update_file(fp)
 			var scene_root = EditorInterface.get_edited_scene_root()
 			if scene_root and scene_root.scene_file_path == fp:
-				EditorInterface.reload_scene_from_path(fp)
+				_force_godot_scene_reload(fp)
 	_saving_external = false
 
 ## Called when the plugin exits the editor tree.
@@ -1083,8 +1082,8 @@ func _handle_vg_drop_delayed(drag_data: Dictionary) -> void:
 	file.store_string(scene_text)
 	file.close()
 	
-	# Reload the scene in the editor
-	get_editor_interface().reload_scene_from_path(edited_scene_path)
+	# Reload the scene in the editor (evict stale cache first)
+	_force_godot_scene_reload(edited_scene_path)
 	
 	# Select the new node after a short delay (to let the scene fully reload)
 	var select_timer = get_tree().create_timer(0.1)
@@ -2630,7 +2629,21 @@ func _deferred_reload_scene(tscn_path: String) -> void:
 	#
 	# Notify Godot's filesystem first — our C++ FileAccess write bypasses the
 	# EditorFileSystem, so without this the reload may use a stale cache.
+	_force_godot_scene_reload(tscn_path)
+
+## Forces Godot to re-read a .tscn from disk and update its open scene tab.
+## The C++ Form Designer writes .tscn files via FileAccess which bypasses
+## Godot’s ResourceLoader cache.  A plain reload_scene_from_path() would
+## just re-instantiate the stale cached PackedScene.  We must:
+##   1. Tell EditorFileSystem the file changed  (update_file)
+##   2. Evict the stale PackedScene from the resource cache  (CACHE_MODE_REPLACE)
+##   3. Then reload the scene tab  (reload_scene_from_path)
+func _force_godot_scene_reload(tscn_path: String) -> void:
 	EditorInterface.get_resource_filesystem().update_file(tscn_path)
+	# Evict the stale cached PackedScene — forces ResourceLoader to
+	# re-read the file from disk on the next load.
+	if ResourceLoader.exists(tscn_path):
+		ResourceLoader.load(tscn_path, "PackedScene", ResourceLoader.CACHE_MODE_REPLACE)
 	EditorInterface.reload_scene_from_path(tscn_path)
 
 func _on_vb6_edit_menu(id: int) -> void:
