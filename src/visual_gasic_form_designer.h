@@ -362,6 +362,7 @@ private:
     Vector2  form_resize_mouse_start;
 
     // Canvas offset (padding around the form for the MDI frame)
+    static constexpr int   VB6_FONT_SIZE = 12;     // MS Sans Serif 8pt equivalent (~12px)
     static constexpr float FORM_PADDING_X = 40.0f;
     static constexpr float FORM_PADDING_Y = 60.0f;  // Space for MDI title bar + form title bar + border
     static constexpr float MDI_TITLE_HEIGHT = 20.0f; // MDI parent window title bar

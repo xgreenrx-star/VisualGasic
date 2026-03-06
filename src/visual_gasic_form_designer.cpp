@@ -233,8 +233,7 @@ void VisualGasicFormDesigner::_draw_form_background() {
     // Title text
     Ref<Font> font = get_theme_default_font();
     if (font.is_valid()) {
-        int font_size = get_theme_default_font_size();
-        draw_string(font, Vector2(4, -title_h + title_h - 6), form_name, HORIZONTAL_ALIGNMENT_LEFT, form_size.x - 80, font_size, sys_title_text);
+        draw_string(font, Vector2(4, -title_h + title_h - 6), form_name, HORIZONTAL_ALIGNMENT_LEFT, form_size.x - 80, VB6_FONT_SIZE, sys_title_text);
     }
 
     // Caption buttons (only if ControlBox is true)
@@ -259,7 +258,7 @@ void VisualGasicFormDesigner::_draw_form_menu_bar() {
 
     Ref<Font> font = get_theme_default_font();
     if (!font.is_valid()) return;
-    int fsize = get_theme_default_font_size();
+    int fsize = VB6_FONT_SIZE;
 
     float tx = 6.0f;
     float ty = (bar_h + fsize) * 0.5f - 2.0f;
@@ -294,10 +293,9 @@ void VisualGasicFormDesigner::_draw_mdi_frame() {
     // MDI title text: "ProjectName - FormName (Form)"
     Ref<Font> font = get_theme_default_font();
     if (font.is_valid()) {
-        int font_size = get_theme_default_font_size();
         String mdi_text = form_name + String(" (Form)");
         draw_string(font, Vector2(mdi_title.position.x + 4, mdi_title.position.y + 15),
-                    mdi_text, HORIZONTAL_ALIGNMENT_LEFT, mdi_title.size.x - 8, font_size, sys_title_text);
+                    mdi_text, HORIZONTAL_ALIGNMENT_LEFT, mdi_title.size.x - 8, VB6_FONT_SIZE, sys_title_text);
     }
 
     // Sunken client area (below MDI title bar — the gray workspace)
@@ -398,7 +396,7 @@ void VisualGasicFormDesigner::_draw_grid() {
 void VisualGasicFormDesigner::_draw_control(const FormControlItem &item, int index) {
     Rect2 r = item.rect;
     Ref<Font> font = get_theme_default_font();
-    int font_size = font.is_valid() ? get_theme_default_font_size() : 12;
+    int font_size = VB6_FONT_SIZE;
     String label = item.text.is_empty() ? item.name : item.text;
 
     // Extract VB6 Alignment property: 0=Left, 1=Right, 2=Center
@@ -3009,6 +3007,7 @@ String VisualGasicFormDesigner::_serialize_to_tscn() const {
 
     String theme_res;
     theme_res += "[sub_resource type=\"Theme\" id=\"vb6_theme\"]\n";
+    theme_res += "default_font_size = " + String::num_int64(VB6_FONT_SIZE) + "\n";
 
     // -- Button --
     theme_res += "Button/colors/font_color = " + fmt_color(color_text) + "\n";

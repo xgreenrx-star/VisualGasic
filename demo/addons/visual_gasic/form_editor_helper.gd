@@ -47,7 +47,10 @@ func _ready() -> void:
 		# to blank forms.  A MenuBar is "empty default" when every PopupMenu child
 		# has zero user items (no add_item calls).  Forms created from the
 		# "Main Form with Menu" template will have items, so they are kept.
+		# Check both "MainMenu" (current convention) and "MenuBar" (old convention).
 		var main_menu = parent_window.get_node_or_null("MainMenu")
+		if main_menu == null:
+			main_menu = parent_window.get_node_or_null("MenuBar")
 		if main_menu is MenuBar:
 			var all_empty := true
 			for child in main_menu.get_children():
@@ -445,6 +448,7 @@ func toggle_grid() -> void:
 
 static func _build_vb6_classic_theme() -> Theme:
 	var t = Theme.new()
+	t.default_font_size = 12  # MS Sans Serif 8pt equivalent
 
 	# ── Win32 system colors (matching C++ visual_gasic_form_designer.h) ──
 	var btn_face      := Color(0.831, 0.816, 0.784)  # #D4D0C8

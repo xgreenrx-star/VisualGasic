@@ -448,6 +448,7 @@ func toggle_grid() -> void:
 
 static func _build_vb6_classic_theme() -> Theme:
 	var t = Theme.new()
+	t.default_font_size = 12  # MS Sans Serif 8pt equivalent
 
 	# ── Win32 system colors (matching C++ visual_gasic_form_designer.h) ──
 	var btn_face      := Color(0.831, 0.816, 0.784)  # #D4D0C8
