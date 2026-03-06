@@ -565,6 +565,33 @@ All items from the system-programming audit are now implemented:
     right-click context menu plumbing, scene_path tracking per control, `_validate_scene_paths()`  
     fallback system.
 
+
+14. **Live Animation for Custom Controls in Form Designer (v4)**  
+    Currently, custom controls are rendered in the Form Designer as **static preview
+    textures** — a single SubViewport snapshot captured once at startup via
+    `_generate_preview_for_custom_control()` and stored through
+    `set_control_preview_texture()`.  This means `@tool` controls like WobblyButton
+    that animate via `_process()` appear frozen at design time, even though they
+    animate correctly in Godot's 2D editor (which instantiates real scene nodes).  
+    **Goal**: Replace the static-texture path with **live embedded SubViewports** so
+    each custom control instance in the Form Designer runs its `@tool` script in
+    real time, showing wobble, pulse, glow, particle effects, and shader animations
+    right on the design surface.  
+    **Approach**:  
+    - Maintain a per-instance `SubViewportContainer` + `SubViewport` for every custom
+      control placed on the form (instead of one shared static texture per type)  
+    - Instantiate the control's `.tscn` inside its SubViewport so `_process()` runs
+      every frame and animations play live  
+    - Blit each SubViewport's `ViewportTexture` in `_draw()` at the control's rect,
+      replacing the current `draw_texture()` call for custom types  
+    - Add a "Freeze Previews" toggle (toolbar button or property) for users who
+      prefer the lightweight static snapshots or have many heavy custom controls  
+    - Throttle live viewports to ~15 FPS when the Form Designer tab is not focused
+      to save CPU/GPU  
+    **Foundation already in place**: SubViewport capture pipeline in GDScript,
+    `control_preview_textures` HashMap in C++, per-control rect tracking in
+    `FormControlItem`, custom control `.tscn` scene_path storage.
+
 ---
 
 *This roadmap is a living document. Priorities may shift based on community feedback and development resources.*
