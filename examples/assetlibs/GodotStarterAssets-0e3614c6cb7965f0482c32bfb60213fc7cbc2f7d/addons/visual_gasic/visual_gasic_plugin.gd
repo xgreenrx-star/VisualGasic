@@ -640,14 +640,48 @@ func _make_visible(p_visible: bool) -> void:
 		_hide_godot_panels()
 	else:
 		_show_godot_panels()
-		# Leaving Form Designer → flush C++ state to disk and reload Godot's
-		# scene tree so it matches.  This prevents Godot from overwriting our
-		# .tscn with stale data if the user saves while in Godot mode.
-		if is_instance_valid(_form_designer) and not _form_designer.get_form_path().is_empty():
-			_form_designer.save_form()
-			_reload_scene_after_form_save(_form_designer.get_form_path())
-	# Auto-load the currently edited scene into the C++ Form Designer
-	if p_visible and _form_designer:
+		# Leaving Form Designer → flush C++ state to disk.
+		if is_instance_valid(_form_designer):
+			var fp = _form_designer.get_form_path()
+			# If form_path is empty but we have controls, the form was never
+			# saved to a path yet (new_form sets form_path="").  Derive a
+			# path so we can write the .tscn before switching to Godot.
+			if fp.is_empty() and _form_designer.get_control_count() > 0:
+				var scene_root = EditorInterface.get_edited_scene_root()
+				if scene_root and not scene_root.scene_file_path.is_empty():
+					fp = scene_root.scene_file_path
+				else:
+					fp = "res://" + _form_designer.get_form_name() + ".tscn"
+				_form_designer.save_form_as(fp)
+			elif not fp.is_empty():
+				_form_designer.save_form()
+			# Notify Godot’s resource filesystem that the .tscn changed.
+			# Our C++ FileAccess write bypasses EditorFileSystem, so without
+			# this Godot may reload a stale cached version of the scene.
+			fp = _form_designer.get_form_path()   # re-read (save_form_as sets it)
+			if not fp.is_empty():
+				EditorInterface.get_resource_filesystem().update_file(fp)
+			# [VG-SYNC] Verify the save/reload pipeline
+			if not fp.is_empty():
+				var _vf = FileAccess.file_exists(fp)
+				var _sr = EditorInterface.get_edited_scene_root()
+				var _sp = _sr.scene_file_path if _sr else '<null>'
+				print("[VG-SYNC] save done  fp='", fp, "'  exists=", _vf, "  scene_root.path='", _sp, "'  controls=", _form_designer.get_control_count())
+			# Reload Godot’s scene tree so it matches our .tscn, but skip
+			# the reload when switching to the code editor via double-click.
+			if not fp.is_empty() and not _switching_to_code_editor:
+				_reload_scene_after_form_save(fp)
+		# Always clear the flag here (even when form_path was empty and
+		# the save block above was skipped — the previous code never
+		# reached the clear in that case, leaving the flag stuck true).
+		_switching_to_code_editor = false
+	# Auto-load the currently edited scene into the C++ Form Designer —
+	# but NOT when we're in the middle of a double-click → code-editor
+	# flow.  Godot may fire a spurious _make_visible(true) during the
+	# screen transition (edit_resource → set_main_screen_editor), and
+	# calling _sync_scene at that point would re-parse the .tscn from
+	# disk and wipe the in-memory controls.
+	if p_visible and _form_designer and not _switching_to_code_editor:
 		_sync_scene_to_form_designer()
 
 ## Called when user clicks the "↩ Godot Editor" button.
@@ -685,23 +719,40 @@ func _save_external_data() -> void:
 	if _saving_external:
 		return  # reentrancy guard — reload_scene can trigger another save cycle
 	_saving_external = true
-	if is_instance_valid(_form_designer) and not _form_designer.get_form_path().is_empty():
-		_form_designer.save_form()
-		var path = _form_designer.get_form_path()
-		# Force Godot to re-read the .tscn so its scene tree matches our save
-		var scene_root = EditorInterface.get_edited_scene_root()
-		if scene_root and scene_root.scene_file_path == path:
-			EditorInterface.reload_scene_from_path(path)
-		print("[VisualGasic] _save_external_data → form saved & scene reloaded")
+	if is_instance_valid(_form_designer):
+		var fp = _form_designer.get_form_path()
+		# Derive a save path if the form was never saved to disk yet
+		if fp.is_empty() and _form_designer.get_control_count() > 0:
+			var scene_root = EditorInterface.get_edited_scene_root()
+			if scene_root and not scene_root.scene_file_path.is_empty():
+				fp = scene_root.scene_file_path
+			else:
+				fp = "res://" + _form_designer.get_form_name() + ".tscn"
+			_form_designer.save_form_as(fp)
+		elif not fp.is_empty():
+			_form_designer.save_form()
+		# Notify Godot's filesystem and reload the scene
+		fp = _form_designer.get_form_path()
+		if not fp.is_empty():
+			var scene_root = EditorInterface.get_edited_scene_root()
+			if scene_root and scene_root.scene_file_path == fp:
+				_force_godot_scene_reload(fp)
 	_saving_external = false
 
 ## Called when the plugin exits the editor tree.
 ## Cleans up all plugin components and disconnects signals.
 func _exit_tree():
 	# Auto-save the form before cleanup so Godot doesn't lose our work
-	if is_instance_valid(_form_designer) and not _form_designer.get_form_path().is_empty():
-		_form_designer.save_form()
-		print("[VisualGasic] _exit_tree → form auto-saved")
+	if is_instance_valid(_form_designer):
+		var fp = _form_designer.get_form_path()
+		if fp.is_empty() and _form_designer.get_control_count() > 0:
+			fp = "res://" + _form_designer.get_form_name() + ".tscn"
+			_form_designer.save_form_as(fp)
+		elif not fp.is_empty():
+			_form_designer.save_form()
+		if not _form_designer.get_form_path().is_empty():
+			EditorInterface.get_resource_filesystem().update_file(_form_designer.get_form_path())
+			print("[VisualGasic] _exit_tree → form auto-saved")
 	# Restore any hidden Godot docks before cleanup
 	_show_godot_panels()
 	
@@ -1037,8 +1088,8 @@ func _handle_vg_drop_delayed(drag_data: Dictionary) -> void:
 	file.store_string(scene_text)
 	file.close()
 	
-	# Reload the scene in the editor
-	get_editor_interface().reload_scene_from_path(edited_scene_path)
+	# Reload the scene in the editor (evict stale cache first)
+	_force_godot_scene_reload(edited_scene_path)
 	
 	# Select the new node after a short delay (to let the scene fully reload)
 	var select_timer = get_tree().create_timer(0.1)
@@ -2060,6 +2111,16 @@ func _restyle_toolbox_buttons() -> void:
 		"Sound3D": "Positional 3D audio player",
 	}
 
+	# Load user-defined descriptions from custom_components.cfg
+	var _comp_descriptions := {}
+	var ComponentsDialog = load("res://addons/visual_gasic/components_dialog.gd")
+	if ComponentsDialog:
+		var all_enabled = ComponentsDialog.load_enabled_components()
+		for comp in all_enabled:
+			var desc: String = comp.get("description", "")
+			if not desc.is_empty():
+				_comp_descriptions[comp["name"]] = desc
+
 	var white := Color(1, 1, 1, 1)
 	var btn_bg: Color = _theme.get("toolbox_btn_normal", Color("#F0EDE8"))
 	var hover_bg: Color = _theme.get("toolbox_btn_hover", Color(0.91, 0.95, 1.0))
@@ -2080,8 +2141,10 @@ func _restyle_toolbox_buttons() -> void:
 
 					# Show icon + text label (like TwinBasic toolbox)
 					btn.text = display_names.get(tool_name, tool_name)
-					# Tooltip: use known description, or auto-generate from class name
-					if tool_tips.has(tool_name):
+					# Tooltip priority: user description > built-in tips > auto-generated
+					if _comp_descriptions.has(tool_name):
+						btn.tooltip_text = _comp_descriptions[tool_name]
+					elif tool_tips.has(tool_name):
 						btn.tooltip_text = tool_tips[tool_name]
 					elif btn.has_method("get_create_class") and not btn.get_create_class().is_empty():
 						btn.tooltip_text = "Custom control (%s)" % btn.get_create_class()
@@ -2093,12 +2156,12 @@ func _restyle_toolbox_buttons() -> void:
 					btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
 					btn.expand_icon = false
 
-					# Apply custom SVG icon (use icon_key_map for remapped names)
-					var icon_key: String = icon_key_map.get(tool_name, tool_name)
-					if vb6_icons.has(icon_key):
-						btn.icon = vb6_icons[icon_key]
+					# ── Apply ALL theme overrides FIRST ──
+					# Each add_theme_*_override triggers NOTIFICATION_THEME_CHANGED
+					# in the C++ button, so we must finish these before setting
+					# the SVG icon (which we want to be the final icon value).
 
-					# ── CRITICAL: Override icon colors to prevent green editor tint ──
+					# Override icon colors to prevent green editor tint
 					btn.add_theme_color_override("icon_normal_color", white)
 					btn.add_theme_color_override("icon_hover_color", white)
 					btn.add_theme_color_override("icon_pressed_color", white)
@@ -2142,6 +2205,18 @@ func _restyle_toolbox_buttons() -> void:
 					pressed_sb.content_margin_top = 2
 					pressed_sb.content_margin_bottom = 2
 					btn.add_theme_stylebox_override("pressed", pressed_sb)
+
+					# ── LAST: Apply custom SVG icon AFTER all theme overrides ──
+					# This ensures no NOTIFICATION_THEME_CHANGED can overwrite
+					# the icon after we set it.
+					var icon_key: String = icon_key_map.get(tool_name, tool_name)
+					if vb6_icons.has(icon_key):
+						btn.icon = vb6_icons[icon_key]
+					elif vb6_icons.has("_CustomControl"):
+						btn.icon = vb6_icons["_CustomControl"]
+					# Clear C++ icon_name so any future theme propagation skips
+					if btn.has_method("set_icon_name"):
+						btn.set_icon_name("")
 
 	print("VisualGasic: Toolbox restyled to TwinBasic list layout (%d icons)" % vb6_icons.size())
 
@@ -2538,25 +2613,49 @@ func _ensure_tscn_script_uid(tscn_path: String, vg_path: String, uid_path: Strin
 ## This ensures Godot's in-memory scene tree matches our save, preventing
 ## Godot from overwriting our .tscn with its stale version on editor close.
 func _reload_scene_after_form_save(tscn_path: String) -> void:
+	print("[VG-SYNC] _reload_scene_after_form_save('", tscn_path, "')")
 	if tscn_path.is_empty():
 		return
 	var scene_root = EditorInterface.get_edited_scene_root()
 	if not scene_root:
 		return
 	# Only reload if this is the currently edited scene
+	print("[VG-SYNC]   scene_root.path='", scene_root.scene_file_path, "'  match=", scene_root.scene_file_path == tscn_path)
 	if scene_root.scene_file_path != tscn_path:
 		return
-	# Defer the reload so the file write completes first
-	call_deferred("_deferred_reload_scene", tscn_path)
+	# Godot's reload_scene_from_path() silently bails out when
+	# EditorNode::is_changing_scene() is true (see editor_interface.cpp).
+	# During _make_visible(false) Godot IS mid-scene-change, so both
+	# direct calls and call_deferred() run too early.  Use a short
+	# SceneTreeTimer so the transition completes before we reload.
+	print("[VG-SYNC]   -> scheduling timer reload (0.3s)")
+	get_tree().create_timer(0.3).timeout.connect(_force_godot_scene_reload.bind(tscn_path))
 
 func _deferred_reload_scene(tscn_path: String) -> void:
-	# Tell Godot to reload the scene from disk — now its scene tree matches our save
+	# Legacy entry point (kept for compatibility).
+	_force_godot_scene_reload(tscn_path)
+
+## Forces Godot to re-read a .tscn from disk and update its open scene tab.
+## The C++ Form Designer writes .tscn files via FileAccess which bypasses
+## Godot’s ResourceLoader cache.  A plain reload_scene_from_path() would
+## just re-instantiate the stale cached PackedScene.  We must:
+##   1. Tell EditorFileSystem the file changed  (update_file)
+##   2. Evict the stale PackedScene from the resource cache  (CACHE_MODE_REPLACE)
+##   3. Then reload the scene tab  (reload_scene_from_path)
+func _force_godot_scene_reload(tscn_path: String) -> void:
+	print("[VG-SYNC] _force_godot_scene_reload('", tscn_path, "')")
+	EditorInterface.get_resource_filesystem().update_file(tscn_path)
+	# Evict the stale cached PackedScene — forces ResourceLoader to
+	# re-read the file from disk on the next load.
+	if ResourceLoader.exists(tscn_path):
+		ResourceLoader.load(tscn_path, "PackedScene", ResourceLoader.CACHE_MODE_REPLACE)
 	EditorInterface.reload_scene_from_path(tscn_path)
-	# Re-sync the C++ form designer from the reloaded file
-	if is_instance_valid(_form_designer):
-		# Clear cached path so _sync re-reads from disk
-		_form_designer.open_form(tscn_path)
-	print("[VisualGasic] Scene reloaded from disk after save: ", tscn_path)
+	print("[VG-SYNC]   reload_scene_from_path returned")
+	var _sr2 = EditorInterface.get_edited_scene_root()
+	if _sr2:
+		print("[VG-SYNC]   scene now has ", _sr2.get_child_count(), " children  path='", _sr2.scene_file_path, "'")
+		for _ci in _sr2.get_child_count():
+			print("[VG-SYNC]     child[", _ci, "] = ", _sr2.get_child(_ci).name, " (", _sr2.get_child(_ci).get_class(), ")")
 
 func _on_vb6_edit_menu(id: int) -> void:
 	if not _form_designer:
@@ -3012,9 +3111,27 @@ func _sync_scene_to_form_designer() -> void:
 		return
 	if not scene_path.ends_with(".tscn") and not scene_path.ends_with(".scn"):
 		return
+	var form_path = _form_designer.get_form_path()
 	# Only reload if the path changed (avoid re-parsing the same scene)
-	if _form_designer.get_form_path() == scene_path:
+	if form_path == scene_path:
+		# Safety fallback: if the C++ controls vector was somehow emptied
+		# (e.g. by a stale reload race) but the .tscn exists on disk,
+		# force a re-read so we recover the user's controls.
+		if _form_designer.get_control_count() == 0 and FileAccess.file_exists(scene_path):
+			print("VisualGasic: Controls lost — recovering from disk: ", scene_path)
+			_form_designer.open_form(scene_path)
 		return
+
+	# Path mismatch — but if the designer already has controls in memory and
+	# the form_path was simply lost (cleared to ""), we must NOT call
+	# open_form() because that starts with controls.clear() and re-parses
+	# the .tscn from disk (which may have 0 user controls).
+	# Instead, re-establish the path by saving the current state to disk.
+	if form_path.is_empty() and _form_designer.get_control_count() > 0:
+		print("VisualGasic: form_path lost — re-establishing via save_form_as('", scene_path, "')  controls=", _form_designer.get_control_count())
+		_form_designer.save_form_as(scene_path)
+		return
+
 	_form_designer.open_form(scene_path)
 	print("VisualGasic: Synced scene '", scene_path, "' into Form Designer")
 
@@ -3052,6 +3169,7 @@ var _fd_context_menu: PopupMenu = null
 var _fd_context_ctrl_index: int = -1
 var _editing_external_scene: bool = false
 var _saving_external: bool = false  ## reentrancy guard for _save_external_data
+var _switching_to_code_editor: bool = false  ## suppress reload in _make_visible(false) during double-click
 
 func _on_fd_control_right_clicked(index: int, position: Vector2) -> void:
 	# Clean up previous context menu if any
@@ -3224,6 +3342,13 @@ func _on_fd_control_double_clicked(index: int) -> void:
 	if form_path.is_empty():
 		push_warning("VisualGasic: Cannot open code — form has no save path. Save the form first (File > Save).")
 		return
+
+	# ── Persist controls to disk BEFORE switching to the code editor ──
+	# This guarantees the .tscn is up-to-date regardless of what deferred
+	# operations or Godot save cycles happen during the view switch.
+	_form_designer.save_form()
+	_switching_to_code_editor = true   # suppress risky reload in _make_visible(false)
+
 	var vg_path = form_path.get_basename() + ".vg"
 	var sub_name = ctrl_name + "_" + event_suffix
 	print("VisualGasic: Double-click → opening ", sub_name, " in ", vg_path)
@@ -4148,11 +4273,10 @@ func _generate_preview_for_custom_control(ctrl_name: String, scene_path: String)
 		if _form_designer and _form_designer.has_method("set_control_preview_texture"):
 			_form_designer.set_control_preview_texture(ctrl_name, preview_tex)
 
-		# Toolbox icon (scaled to 20×20)
-		var icon_img = img.duplicate()
-		icon_img.resize(20, 20, Image.INTERPOLATE_LANCZOS)
-		var icon_tex = ImageTexture.create_from_image(icon_img)
-		_set_toolbox_button_icon(ctrl_name, icon_tex)
+		# NOTE: We no longer overwrite the toolbox button icon here.
+		# SVG icons from vb6_toolbox_icons.gd (or the _CustomControl gear
+		# fallback) are set by _restyle_toolbox_buttons() and should not
+		# be replaced by a blurry 20×20 scene capture.
 
 	# Cleanup
 	vp.remove_child(instance)
@@ -4302,6 +4426,11 @@ func _post_init():
 	
 	# Load custom/optional components from Components dialog config
 	_load_custom_components()
+	
+	# Immediately restyle ALL toolbox buttons (including just-added custom ones)
+	# This is the PRIMARY restyle; the deferred call in _setup_ide_split_ratios
+	# acts as a backup after _apply_vb6_theme() reparents the toolbox.
+	_restyle_toolbox_buttons()
 	
 	# Generate preview textures for custom controls (deferred so tree is ready)
 	call_deferred("_generate_all_custom_previews")

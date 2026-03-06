@@ -1,11 +1,10 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=6 format=3]
 
-[ext_resource type="Script" uid="uid://dyoatgru52b80" path="res://Form2.vg" id="1"]
+[ext_resource type="Script" path=".vg" id="1"]
 [ext_resource type="Script" uid="uid://cixa1he0byrgy" path="res://addons/visual_gasic/form_editor_helper.gd" id="2"]
 [ext_resource type="Script" uid="uid://cxdke3blsbum2" path="res://addons/visual_gasic/menu_bar_helper.gd" id="3"]
 [ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/LineEdit.tscn" id="4"]
 [ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/ItemList.tscn" id="5"]
-[ext_resource type="PackedScene" path="res://custom_controls/WobblyButton.tscn" id="6"]
 
 [node name="Form2" type="Window"]
 title = "Form2"
@@ -75,52 +74,4 @@ BorderStyle = 1
 Sorted = false
 MultiSelect = 0
 Columns = 0
-
-[node name="Button1" parent="." instance=ExtResource("6")]
-offset_left = 384.0
-offset_top = 224.0
-offset_right = 488.0
-offset_bottom = 288.0
-text = "Button1"
-Enabled = true
-TabStop = true
-TabIndex = 2
-Tag = ""
-ToolTipText = ""
-MousePointer = 0
-BackColor = Color(0.85, 0.85, 0.85, 1.0)
-ForeColor = Color(0.0, 0.0, 0.0, 1.0)
-FontName = "MS Sans Serif"
-FontSize = 8
-FontBold = false
-FontItalic = false
-Appearance = 1
-BorderStyle = 0
-Default = false
-Cancel = false
-Style = 0
-
-[node name="LineEdit2" parent="." instance=ExtResource("4")]
-offset_left = 184.0
-offset_top = 32.0
-offset_right = 472.0
-offset_bottom = 72.0
-Enabled = true
-TabStop = true
-TabIndex = 3
-Tag = ""
-ToolTipText = ""
-MousePointer = 0
-BackColor = Color(1.0, 1.0, 1.0, 1.0)
-ForeColor = Color(0.0, 0.0, 0.0, 1.0)
-FontName = "MS Sans Serif"
-FontSize = 8
-FontBold = false
-FontItalic = false
-Appearance = 1
-BorderStyle = 1
-Locked = false
-MaxLength = 0
-PasswordChar = ""
-PlaceholderText = ""
 
