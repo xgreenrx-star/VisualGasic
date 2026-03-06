@@ -1,8 +1,7 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" uid="uid://c2vym322awsfg" path="res://Form3.vg" id="1"]
 [ext_resource type="Script" uid="uid://cixa1he0byrgy" path="res://addons/visual_gasic/form_editor_helper.gd" id="2"]
-[ext_resource type="Script" uid="uid://cxdke3blsbum2" path="res://addons/visual_gasic/menu_bar_helper.gd" id="3"]
 [ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/LineEdit.tscn" id="4"]
 
 [node name="Form3" type="Window"]
@@ -16,16 +15,6 @@ offset_right = 600.0
 offset_bottom = 400.0
 mouse_filter = 2
 script = ExtResource("2")
-
-[node name="MainMenu" type="MenuBar" parent="."]
-offset_right = 600.0
-offset_bottom = 30.0
-mouse_filter = 2
-script = ExtResource("3")
-
-[node name="mnuFile" type="PopupMenu" parent="MainMenu"]
-
-[node name="mnuEdit" type="PopupMenu" parent="MainMenu"]
 
 [node name="LineEdit1" parent="." instance=ExtResource("4")]
 offset_left = 88.0

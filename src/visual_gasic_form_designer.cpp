@@ -2772,9 +2772,9 @@ String VisualGasicFormDesigner::_serialize_to_tscn() const {
         path_to_idx[helper_path] = 2;
     }
 
-    // Menu bar helper
+    // Menu bar helper (only if form has a menu bar)
     String menubar_helper_path = "res://addons/visual_gasic/menu_bar_helper.gd";
-    {
+    if (has_menu_bar) {
         ExtRes er;
         er.type = "Script";
         er.path = menubar_helper_path;
@@ -2787,7 +2787,7 @@ String VisualGasicFormDesigner::_serialize_to_tscn() const {
     }
 
     // Control prototype scenes
-    int next_id = 4;
+    int next_id = has_menu_bar ? 4 : 3;
     for (int i = 0; i < controls.size(); i++) {
         String sp = controls[i].scene_path;
         if (sp.is_empty() || path_to_idx.has(sp)) continue;
@@ -3150,17 +3150,19 @@ String VisualGasicFormDesigner::_serialize_to_tscn() const {
     out += "script = ExtResource(\"" + String::num_int64(path_to_idx[helper_path]) + "\")\n";
     out += "\n";
 
-    // MenuBar
-    out += "[node name=\"MainMenu\" type=\"MenuBar\" parent=\".\"]\n";
-    out += "offset_right = " + String::num_int64(form_size.x) + ".0\n";
-    out += "offset_bottom = 30.0\n";
-    out += "mouse_filter = 2\n";  // IGNORE in editor
-    out += "script = ExtResource(\"" + String::num_int64(path_to_idx[menubar_helper_path]) + "\")\n";
-    out += "\n";
+    // MenuBar (only if form was created with menu)
+    if (has_menu_bar) {
+        out += "[node name=\"MainMenu\" type=\"MenuBar\" parent=\".\"]\n";
+        out += "offset_right = " + String::num_int64(form_size.x) + ".0\n";
+        out += "offset_bottom = 30.0\n";
+        out += "mouse_filter = 2\n";  // IGNORE in editor
+        out += "script = ExtResource(\"" + String::num_int64(path_to_idx[menubar_helper_path]) + "\")\n";
+        out += "\n";
 
-    // Default menus
-    out += "[node name=\"mnuFile\" type=\"PopupMenu\" parent=\"MainMenu\"]\n\n";
-    out += "[node name=\"mnuEdit\" type=\"PopupMenu\" parent=\"MainMenu\"]\n\n";
+        // Default menus
+        out += "[node name=\"mnuFile\" type=\"PopupMenu\" parent=\"MainMenu\"]\n\n";
+        out += "[node name=\"mnuEdit\" type=\"PopupMenu\" parent=\"MainMenu\"]\n\n";
+    }
 
     // User controls
     for (int i = 0; i < controls.size(); i++) {
@@ -3223,6 +3225,7 @@ String VisualGasicFormDesigner::_serialize_to_tscn() const {
 
 bool VisualGasicFormDesigner::_parse_tscn(const String &p_text) {
     controls.clear();
+    has_menu_bar = false;
 
     // Parse ext_resource entries to build id → path map
     HashMap<String, String> ext_id_to_path;  // "3" → "res://addons/..."
@@ -3279,7 +3282,9 @@ bool VisualGasicFormDesigner::_parse_tscn(const String &p_text) {
             // Commit previous node if it was a user control
             if (in_node && !current_node_name.begins_with("_") && current_node_parent == ".") {
                 // Skip internal nodes (MenuBar, PopupMenu, _FormBackground)
-                if (current_node_name != "MainMenu" && current_node_name != "mnuFile" && current_node_name != "mnuEdit") {
+                if (current_node_name == "MainMenu") {
+                    has_menu_bar = true;  // Form has a menu bar
+                } else if (current_node_name != "mnuFile" && current_node_name != "mnuEdit") {
                     controls.push_back(current_item);
                 }
             }
@@ -3439,7 +3444,9 @@ bool VisualGasicFormDesigner::_parse_tscn(const String &p_text) {
 
     // Commit last node
     if (in_node && !current_node_name.begins_with("_") && current_node_parent == ".") {
-        if (current_node_name != "MainMenu" && current_node_name != "mnuFile" && current_node_name != "mnuEdit") {
+        if (current_node_name == "MainMenu") {
+            has_menu_bar = true;
+        } else if (current_node_name != "mnuFile" && current_node_name != "mnuEdit") {
             controls.push_back(current_item);
         }
     }

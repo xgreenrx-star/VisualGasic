@@ -1,8 +1,7 @@
-[gd_scene load_steps=43 format=3]
+[gd_scene load_steps=42 format=3]
 
 [ext_resource type="Script" uid="uid://bvctsxrw2mxje" path="res://MyCalculator.vg" id="1"]
 [ext_resource type="Script" uid="uid://cixa1he0byrgy" path="res://addons/visual_gasic/form_editor_helper.gd" id="2"]
-[ext_resource type="Script" uid="uid://cxdke3blsbum2" path="res://addons/visual_gasic/menu_bar_helper.gd" id="3"]
 [ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/Button.tscn" id="4"]
 [ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/TextEdit.tscn" id="5"]
 
@@ -437,16 +436,6 @@ offset_right = 408.0
 offset_bottom = 328.0
 mouse_filter = 2
 script = ExtResource("2")
-
-[node name="MainMenu" type="MenuBar" parent="."]
-offset_right = 408.0
-offset_bottom = 30.0
-mouse_filter = 2
-script = ExtResource("3")
-
-[node name="mnuFile" type="PopupMenu" parent="MainMenu"]
-
-[node name="mnuEdit" type="PopupMenu" parent="MainMenu"]
 
 [node name="btn7" parent="." instance=ExtResource("4")]
 offset_left = 107.0

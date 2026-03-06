@@ -327,6 +327,9 @@ private:
     Color form_fore_color = Color(0.0, 0.0, 0.0, 1.0);       // Black
     String form_icon = "";          // Icon path
 
+    // Menu bar
+    bool has_menu_bar = false;       // True if form was created with "Main Form with Menu" template
+
     // Controls in the form
     Vector<FormControlItem> controls;
 
