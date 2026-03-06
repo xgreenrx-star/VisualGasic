@@ -36,7 +36,13 @@ func _ready() -> void:
 	# immediately pick up the VB6 styles.
 	var parent_window = get_parent()
 	if parent_window is Window:
-		var vb6_theme = _build_vb6_classic_theme()
+		# Read the C++ serializer's theme font size before we replace it.
+		# The C++ inline theme is the source of truth for the base font size.
+		var base_font_size := 12  # fallback = VB6 default 8pt
+		var existing_theme = parent_window.theme
+		if existing_theme and existing_theme.default_font_size > 0:
+			base_font_size = existing_theme.default_font_size
+		var vb6_theme = _build_vb6_classic_theme(base_font_size)
 		if vb6_theme:
 			parent_window.theme = vb6_theme
 			print("[VG-THEME] Applied VB6 Classic Theme to '", parent_window.name, "' (", vb6_theme.get_type_list().size(), " types)")
@@ -446,9 +452,11 @@ func toggle_grid() -> void:
 # This ensures Godot's 2D preview and runtime match the Form Designer.
 # Uses the authentic Win32 system color palette from the C++ header.
 
-static func _build_vb6_classic_theme() -> Theme:
+static func _build_vb6_classic_theme(p_default_font_size: int = 12) -> Theme:
 	var t = Theme.new()
-	t.default_font_size = 12  # MS Sans Serif 8pt equivalent
+	# Use the font size from the C++ serializer's inline theme (source of truth).
+	# VB6 default = 8pt → 12px.  The C++ canvas draws at the same size.
+	t.default_font_size = p_default_font_size
 
 	# ── Win32 system colors (matching C++ visual_gasic_form_designer.h) ──
 	var btn_face      := Color(0.831, 0.816, 0.784)  # #D4D0C8

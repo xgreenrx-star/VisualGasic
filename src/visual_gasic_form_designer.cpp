@@ -396,7 +396,12 @@ void VisualGasicFormDesigner::_draw_grid() {
 void VisualGasicFormDesigner::_draw_control(const FormControlItem &item, int index) {
     Rect2 r = item.rect;
     Ref<Font> font = get_theme_default_font();
-    int font_size = VB6_FONT_SIZE;
+    // Per-control font size: read VB6 FontSize (points) and convert to Godot px
+    int font_size = VB6_FONT_SIZE;  // default = 8pt → 12px
+    if (item.properties.has("FontSize")) {
+        int vb6_pt = int(item.properties["FontSize"]);
+        font_size = vb6_pt_to_px(vb6_pt);
+    }
     String label = item.text.is_empty() ? item.name : item.text;
 
     // Extract VB6 Alignment property: 0=Left, 1=Right, 2=Center
@@ -3238,6 +3243,16 @@ String VisualGasicFormDesigner::_serialize_to_tscn() const {
 
         if (!ctrl.text.is_empty()) {
             out += "text = \"" + ctrl.text + "\"\n";
+        }
+
+        // Per-control font size override: convert VB6 pt → Godot px
+        // Only emit when FontSize differs from the VB6 default (8pt = 12px)
+        if (ctrl.properties.has("FontSize")) {
+            int vb6_pt = int(ctrl.properties["FontSize"]);
+            if (vb6_pt != 8) {
+                int godot_px = vb6_pt_to_px(vb6_pt);
+                out += "theme_override_font_sizes/font_size = " + String::num_int64(godot_px) + "\n";
+            }
         }
 
         // Write extra properties (VB6 properties stored in the form designer)

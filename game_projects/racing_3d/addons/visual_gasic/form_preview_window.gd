@@ -382,10 +382,12 @@ func _apply_common_props(ctrl: Control, props: Dictionary, default_fore: Color) 
 			sb.bg_color = back
 			ctrl.add_theme_stylebox_override("panel", sb)
 	
-	# Font size
+	# Font size — convert VB6 points to Godot pixels (same formula as C++ canvas)
 	var fsize = props.get("FontSize", null)
 	if fsize is int or fsize is float:
-		ctrl.add_theme_font_size_override("font_size", int(fsize))
+		var godot_px := maxi(8, roundi(float(fsize) * 1.5))
+		if godot_px != 12:  # Only override when != VB6 default (8pt → 12px)
+			ctrl.add_theme_font_size_override("font_size", godot_px)
 	
 	# Enabled
 	var enabled = props.get("Enabled", true)
