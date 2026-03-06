@@ -642,35 +642,29 @@ func _make_visible(p_visible: bool) -> void:
 		_show_godot_panels()
 		# Leaving Form Designer → flush C++ state to disk.
 		if is_instance_valid(_form_designer):
-			var fp = _form_designer.get_form_path()
-			# If form_path is empty but we have controls, the form was never
-			# saved to a path yet (new_form sets form_path="").  Derive a
-			# path so we can write the .tscn before switching to Godot.
-			if fp.is_empty() and _form_designer.get_control_count() > 0:
-				var scene_root = EditorInterface.get_edited_scene_root()
-				if scene_root and not scene_root.scene_file_path.is_empty():
-					fp = scene_root.scene_file_path
-				else:
-					fp = "res://" + _form_designer.get_form_name() + ".tscn"
-				_form_designer.save_form_as(fp)
-			elif not fp.is_empty():
-				_form_designer.save_form()
-			# Notify Godot’s resource filesystem that the .tscn changed.
-			# Our C++ FileAccess write bypasses EditorFileSystem, so without
-			# this Godot may reload a stale cached version of the scene.
-			fp = _form_designer.get_form_path()   # re-read (save_form_as sets it)
-			if not fp.is_empty():
-				EditorInterface.get_resource_filesystem().update_file(fp)
-			# [VG-SYNC] Verify the save/reload pipeline
-			if not fp.is_empty():
-				var _vf = FileAccess.file_exists(fp)
-				var _sr = EditorInterface.get_edited_scene_root()
-				var _sp = _sr.scene_file_path if _sr else '<null>'
-				print("[VG-SYNC] save done  fp='", fp, "'  exists=", _vf, "  scene_root.path='", _sp, "'  controls=", _form_designer.get_control_count())
-			# Reload Godot’s scene tree so it matches our .tscn, but skip
-			# the reload when switching to the code editor via double-click.
-			if not fp.is_empty() and not _switching_to_code_editor:
-				_reload_scene_after_form_save(fp)
+			# Derive the save path: prefer scene_root.scene_file_path (the
+			# source of truth), then form_path, then fallback from form_name.
+			# We can NOT rely solely on get_form_path() — it may be empty if
+			# open_form was never called or form_path was cleared.
+			var save_path := ""
+			var scene_root = EditorInterface.get_edited_scene_root()
+			if scene_root and not scene_root.scene_file_path.is_empty():
+				save_path = scene_root.scene_file_path
+			if save_path.is_empty():
+				save_path = _form_designer.get_form_path()
+			if save_path.is_empty() and _form_designer.get_control_count() > 0:
+				save_path = "res://" + _form_designer.get_form_name() + ".tscn"
+			print("[VG-SYNC] _make_visible(false)  save_path='", save_path, "'  fp='", _form_designer.get_form_path(), "'  controls=", _form_designer.get_control_count())
+			if not save_path.is_empty():
+				_form_designer.save_form_as(save_path)
+				EditorInterface.get_resource_filesystem().update_file(save_path)
+				print("[VG-SYNC]   saved & update_file done for '", save_path, "'")
+				# Schedule reload for AFTER the screen transition completes.
+				# Godot's reload_scene_from_path() silently does nothing while
+				# is_changing_scene() is true (see editor_interface.cpp:707).
+				# We store the path and do the reload in _on_main_screen_changed.
+				if not _switching_to_code_editor:
+					_pending_reload_path = save_path
 		# Always clear the flag here (even when form_path was empty and
 		# the save block above was skipped — the previous code never
 		# reached the clear in that case, leaving the flag stuck true).
@@ -3170,6 +3164,7 @@ var _fd_context_ctrl_index: int = -1
 var _editing_external_scene: bool = false
 var _saving_external: bool = false  ## reentrancy guard for _save_external_data
 var _switching_to_code_editor: bool = false  ## suppress reload in _make_visible(false) during double-click
+var _pending_reload_path: String = ""  ## path to reload after main_screen_changed
 
 func _on_fd_control_right_clicked(index: int, position: Vector2) -> void:
 	# Clean up previous context menu if any
@@ -4682,6 +4677,15 @@ func _deferred_scroll_to_caret(code_edit: CodeEdit) -> void:
 ## deactivate Form Designer (like switching away from any main screen).
 ## @param screen_name: Name of the screen ("2D", "3D", "Script", etc.)
 func _on_main_screen_changed(screen_name: String):
+	# ── Handle pending Form Designer → Godot reload ──
+	# _make_visible(false) saved the .tscn but couldn't reload because
+	# Godot was mid-scene-transition (is_changing_scene() == true).
+	# Now the transition is complete, so the reload will actually work.
+	if not _pending_reload_path.is_empty():
+		var reload_path = _pending_reload_path
+		_pending_reload_path = ""
+		print("[VG-SYNC] main_screen_changed('", screen_name, "') → reloading '", reload_path, "'")
+		_force_godot_scene_reload(reload_path)
 	# VB6 mode is STICKY — it stays active when switching between
 	# Form Designer / 2D / Script / 3D.  Only the explicit
 	# "Toggle VG IDE Layout" menu item deactivates it.
