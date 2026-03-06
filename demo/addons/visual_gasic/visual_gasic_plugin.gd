@@ -657,6 +657,7 @@ func _make_visible(p_visible: bool) -> void:
 			print("[VG-SYNC] _make_visible(false)  save_path='", save_path, "'  fp='", _form_designer.get_form_path(), "'  controls=", _form_designer.get_control_count())
 			if not save_path.is_empty():
 				_form_designer.save_form_as(save_path)
+				_strip_empty_menubar_from_tscn(save_path)
 				EditorInterface.get_resource_filesystem().update_file(save_path)
 				print("[VG-SYNC]   saved & update_file done for '", save_path, "'")
 				# Schedule reload for AFTER the screen transition completes.
@@ -745,8 +746,10 @@ func _exit_tree():
 		if fp.is_empty() and _form_designer.get_control_count() > 0:
 			fp = "res://" + _form_designer.get_form_name() + ".tscn"
 			_form_designer.save_form_as(fp)
+			_strip_empty_menubar_from_tscn(fp)
 		elif not fp.is_empty():
 			_form_designer.save_form()
+			_strip_empty_menubar_from_tscn(fp)
 		if not _form_designer.get_form_path().is_empty():
 			EditorInterface.get_resource_filesystem().update_file(_form_designer.get_form_path())
 			print("[VisualGasic] _exit_tree → form auto-saved")
@@ -2903,6 +2906,7 @@ func handle_form_rename(old_name: String, new_name: String) -> bool:
 	# the .vg file if it doesn't exist yet).
 	_form_designer.set_form_name(new_name)
 	_form_designer.save_form_as(new_tscn)
+	_strip_empty_menubar_from_tscn(new_tscn)
 
 	# Safety: ensure the .tscn has the VG script UID.  The C++ serializer uses
 	# ResourceLoader.get_resource_uid() which may miss newly-renamed files.
@@ -2963,10 +2967,110 @@ func _ensure_tscn_script_uid(tscn_path: String, vg_path: String, uid_path: Strin
 			f = null  # close
 			print("[VisualGasic] Patched UID into .tscn: ", uid_text)
 
+## Strip the auto-generated empty MenuBar from a .tscn file on disk.
+## The old C++ _serialize_to_tscn() unconditionally adds a MainMenu MenuBar
+## with empty mnuFile/mnuEdit PopupMenus to every form.  This function reads
+## the .tscn, detects those nodes, removes them (and the menu_bar_helper.gd
+## ext_resource if it's only used for that), and writes the file back.
+## This is a COMPATIBILITY FIX — once the user restarts Godot with the new
+## .so, this function will be a harmless no-op because the C++ code no longer
+## emits MenuBar for blank forms.
+static func _strip_empty_menubar_from_tscn(tscn_path: String) -> void:
+	var fa = FileAccess.open(tscn_path, FileAccess.READ)
+	if not fa:
+		return
+	var text = fa.get_as_text()
+	fa = null
+	
+	# Quick check: if there's no MainMenu node, nothing to do
+	if text.find("[node name=\"MainMenu\"") < 0:
+		return
+	
+	# Check if there are any real menu items (populated PopupMenus)
+	# If we find add_item patterns or item_count references, keep the menu
+	# We only strip if the PopupMenu nodes have zero content
+	var has_menu_items := false
+	var lines = text.split("\n")
+	var in_popup := false
+	for line in lines:
+		var stripped = line.strip_edges()
+		if stripped.begins_with("[node name=\"mnuFile\"") or stripped.begins_with("[node name=\"mnuEdit\""):
+			in_popup = true
+			continue
+		if in_popup and stripped.begins_with("["):
+			in_popup = false  # hit next node section
+		if in_popup and not stripped.is_empty() and not stripped.begins_with("["):
+			# PopupMenu has actual properties = user added items
+			has_menu_items = true
+			break
+	
+	if has_menu_items:
+		return  # Real menu content, keep it
+	
+	# Strip the MainMenu, mnuFile, mnuEdit nodes and the menu_bar_helper ext_resource
+	var result_lines: PackedStringArray = []
+	var menu_helper_id := ""
+	var skip_until_next_node := false
+	
+	for line in lines:
+		var stripped = line.strip_edges()
+		
+		# Detect and remove menu_bar_helper.gd ext_resource
+		if stripped.begins_with("[ext_resource") and "menu_bar_helper.gd" in stripped:
+			# Extract the id for later reference
+			var id_pos = stripped.find("id=\"")
+			if id_pos >= 0:
+				var id_start = id_pos + 4
+				var id_end = stripped.find("\"", id_start)
+				if id_end >= 0:
+					menu_helper_id = stripped.substr(id_start, id_end - id_start)
+			continue  # Skip this line
+		
+		# Skip MainMenu node block
+		if stripped.begins_with("[node name=\"MainMenu\""):
+			skip_until_next_node = true
+			continue
+		# Skip mnuFile node
+		if stripped.begins_with("[node name=\"mnuFile\""):
+			skip_until_next_node = true
+			continue
+		# Skip mnuEdit node
+		if stripped.begins_with("[node name=\"mnuEdit\""):
+			skip_until_next_node = true
+			continue
+		
+		if skip_until_next_node:
+			if stripped.begins_with("[node ") or stripped.begins_with("[connection "):
+				skip_until_next_node = false
+				result_lines.append(line)
+			# else skip this line (part of the menu node block)
+			continue
+		
+		result_lines.append(line)
+	
+	var new_text = "\n".join(result_lines)
+	
+	# Fix load_steps count (we removed 1 ext_resource)
+	if not menu_helper_id.is_empty():
+		var re_steps = RegEx.new()
+		re_steps.compile("load_steps=(\\d+)")
+		var m = re_steps.search(new_text)
+		if m:
+			var old_count = m.get_string(1).to_int()
+			new_text = new_text.replace("load_steps=" + m.get_string(1), "load_steps=" + str(old_count - 1))
+	
+	var fw = FileAccess.open(tscn_path, FileAccess.WRITE)
+	if fw:
+		fw.store_string(new_text)
+		fw = null
+		print("[VG-SYNC] Stripped empty MenuBar from '", tscn_path, "'")
+
 ## After the C++ Form Designer writes a .tscn, force Godot to reload it.
 ## This ensures Godot's in-memory scene tree matches our save, preventing
 ## Godot from overwriting our .tscn with its stale version on editor close.
 func _reload_scene_after_form_save(tscn_path: String) -> void:
+	# Strip empty MenuBars that the old C++ serializer may have added
+	_strip_empty_menubar_from_tscn(tscn_path)
 	print("[VG-SYNC] _reload_scene_after_form_save('", tscn_path, "')")
 	if tscn_path.is_empty():
 		return
@@ -2998,6 +3102,8 @@ func _deferred_reload_scene(tscn_path: String) -> void:
 ##   3. Then reload the scene tab  (reload_scene_from_path)
 func _force_godot_scene_reload(tscn_path: String) -> void:
 	print("[VG-SYNC] _force_godot_scene_reload('", tscn_path, "')")
+	# Strip empty MenuBars the old C++ serializer may have injected
+	_strip_empty_menubar_from_tscn(tscn_path)
 	EditorInterface.get_resource_filesystem().update_file(tscn_path)
 	# Evict the stale cached PackedScene — forces ResourceLoader to
 	# re-read the file from disk on the next load.
