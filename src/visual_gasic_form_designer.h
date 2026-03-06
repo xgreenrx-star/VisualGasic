@@ -329,6 +329,8 @@ private:
 
     // Menu bar
     bool has_menu_bar = false;       // True if form was created with "Main Form with Menu" template
+    String menu_bar_node_name;       // Name used in .tscn (e.g., "MainMenu")
+    Vector<String> menu_child_raw_blocks;  // Raw [node ...] blocks for PopupMenu children
 
     // Controls in the form
     Vector<FormControlItem> controls;

@@ -1,10 +1,10 @@
 [gd_scene load_steps=3 format=3]
 
-[ext_resource type="Script" uid="uid://bcy7f2h7je3q2" path="res://Form6.vg" id="1"]
+[ext_resource type="Script" uid="uid://dcctgsj2j3b6s" path="res://Form7.vg" id="1"]
 [ext_resource type="Script" uid="uid://cixa1he0byrgy" path="res://addons/visual_gasic/form_editor_helper.gd" id="2"]
 
-[node name="Form6" type="Window"]
-title = "Form6"
+[node name="Form7" type="Window"]
+title = "Form7"
 position = Vector2i(10, 36)
 size = Vector2i(600, 400)
 script = ExtResource("1")
@@ -14,3 +14,12 @@ offset_right = 600.0
 offset_bottom = 400.0
 mouse_filter = 2
 script = ExtResource("2")
+
+[node name="MenuBar" type="MenuBar" parent="."]
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 300.0
+offset_bottom = 24.0
+anchors_preset = 10
+anchor_right = 1.0
+

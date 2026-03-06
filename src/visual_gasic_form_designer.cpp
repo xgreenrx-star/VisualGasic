@@ -3159,9 +3159,21 @@ String VisualGasicFormDesigner::_serialize_to_tscn() const {
         out += "script = ExtResource(\"" + String::num_int64(path_to_idx[menubar_helper_path]) + "\")\n";
         out += "\n";
 
-        // Default menus
-        out += "[node name=\"mnuFile\" type=\"PopupMenu\" parent=\"MainMenu\"]\n\n";
-        out += "[node name=\"mnuEdit\" type=\"PopupMenu\" parent=\"MainMenu\"]\n\n";
+        // Re-emit PopupMenu children from parsed data, or defaults for brand-new forms
+        if (menu_child_raw_blocks.size() > 0) {
+            for (int m = 0; m < menu_child_raw_blocks.size(); m++) {
+                String block = menu_child_raw_blocks[m];
+                // Fix parent reference if the original MenuBar had a different name
+                if (!menu_bar_node_name.is_empty() && menu_bar_node_name != "MainMenu") {
+                    block = block.replace("parent=\"" + menu_bar_node_name + "\"", "parent=\"MainMenu\"");
+                }
+                out += block + "\n";
+            }
+        } else {
+            // Default menus for brand-new forms
+            out += "[node name=\"mnuFile\" type=\"PopupMenu\" parent=\"MainMenu\"]\n\n";
+            out += "[node name=\"mnuEdit\" type=\"PopupMenu\" parent=\"MainMenu\"]\n\n";
+        }
     }
 
     // User controls
@@ -3226,6 +3238,8 @@ String VisualGasicFormDesigner::_serialize_to_tscn() const {
 bool VisualGasicFormDesigner::_parse_tscn(const String &p_text) {
     controls.clear();
     has_menu_bar = false;
+    menu_bar_node_name = "";
+    menu_child_raw_blocks.clear();
 
     // Parse ext_resource entries to build id → path map
     HashMap<String, String> ext_id_to_path;  // "3" → "res://addons/..."
@@ -3274,18 +3288,25 @@ bool VisualGasicFormDesigner::_parse_tscn(const String &p_text) {
     String current_instance_id;
     bool in_node = false;
     FormControlItem current_item;
+    String current_raw_block;  // accumulates raw lines for MenuBar child storage
 
     while (i < lines.size()) {
         String line = lines[i].strip_edges();
 
         if (line.begins_with("[node ")) {
-            // Commit previous node if it was a user control
-            if (in_node && !current_node_name.begins_with("_") && current_node_parent == ".") {
-                // Skip internal nodes (MenuBar, PopupMenu, _FormBackground)
-                if (current_node_name == "MainMenu") {
-                    has_menu_bar = true;  // Form has a menu bar
-                } else if (current_node_name != "mnuFile" && current_node_name != "mnuEdit") {
-                    controls.push_back(current_item);
+            // Commit previous node
+            if (in_node) {
+                if (!current_node_name.begins_with("_") && current_node_parent == ".") {
+                    // Direct child of root Window
+                    if (current_node_type == "MenuBar" || current_node_name == "MainMenu") {
+                        has_menu_bar = true;
+                        menu_bar_node_name = current_node_name;
+                    } else {
+                        controls.push_back(current_item);
+                    }
+                } else if (!menu_bar_node_name.is_empty() && current_node_parent == menu_bar_node_name) {
+                    // Child of the MenuBar (PopupMenu) → store raw block
+                    menu_child_raw_blocks.push_back(current_raw_block);
                 }
             }
 
@@ -3341,7 +3362,12 @@ bool VisualGasicFormDesigner::_parse_tscn(const String &p_text) {
                 form_name = current_node_name;
                 in_node = false; // Don't add root as a control
             }
+
+            // Start accumulating raw block for potential MenuBar child storage
+            current_raw_block = line + "\n";
         } else if (in_node && !line.is_empty() && !line.begins_with("[")) {
+            // Accumulate raw text for MenuBar child round-trip
+            current_raw_block += line + "\n";
             // Parse property lines: key = value
             int eq_pos = line.find(" = ");
             if (eq_pos > 0) {
@@ -3443,11 +3469,17 @@ bool VisualGasicFormDesigner::_parse_tscn(const String &p_text) {
     }
 
     // Commit last node
-    if (in_node && !current_node_name.begins_with("_") && current_node_parent == ".") {
-        if (current_node_name == "MainMenu") {
-            has_menu_bar = true;
-        } else if (current_node_name != "mnuFile" && current_node_name != "mnuEdit") {
-            controls.push_back(current_item);
+    if (in_node) {
+        if (!current_node_name.begins_with("_") && current_node_parent == ".") {
+            if (current_node_type == "MenuBar" || current_node_name == "MainMenu") {
+                has_menu_bar = true;
+                menu_bar_node_name = current_node_name;
+            } else {
+                controls.push_back(current_item);
+            }
+        } else if (!menu_bar_node_name.is_empty() && current_node_parent == menu_bar_node_name) {
+            // Child of the MenuBar (PopupMenu) → store raw block
+            menu_child_raw_blocks.push_back(current_raw_block);
         }
     }
 
