@@ -2802,9 +2802,318 @@ String VisualGasicFormDesigner::_serialize_to_tscn() const {
         path_to_idx[sp] = next_id++;
     }
 
+    // =========================================================================
+    // Check whether any custom controls exist (scene_path NOT under prototypes/)
+    // so we know whether to emit an empty theme blocker
+    // =========================================================================
+    String proto_prefix = "res://addons/visual_gasic/prototypes/";
+    bool has_custom_controls = false;
+    for (int i = 0; i < controls.size(); i++) {
+        if (!controls[i].scene_path.is_empty() && !controls[i].scene_path.begins_with(proto_prefix)) {
+            has_custom_controls = true;
+            break;
+        }
+    }
+
+    // =========================================================================
+    // Build VB6 Classic Theme sub_resources (StyleBoxFlat + Theme)
+    // These inline resources make the Godot scene preview match the Form Designer
+    // =========================================================================
+
+    // Helper: format a Color for .tscn
+    auto fmt_color = [](const Color &c) -> String {
+        return "Color(" + String::num(c.r, 4) + ", " + String::num(c.g, 4) + ", " + String::num(c.b, 4) + ", " + String::num(c.a, 4) + ")";
+    };
+
+    // StyleBoxFlat helper — returns a [sub_resource] block
+    // border_widths: top, right, bottom, left
+    auto make_stylebox = [&](const String &id, const Color &bg,
+                             int bw_top, int bw_right, int bw_bottom, int bw_left,
+                             const Color &border_top, const Color &border_right,
+                             const Color &border_bottom, const Color &border_left,
+                             int corner_radius = 0, int content_margin = -1) -> String {
+        String s;
+        s += "[sub_resource type=\"StyleBoxFlat\" id=\"" + id + "\"]\n";
+        s += "bg_color = " + fmt_color(bg) + "\n";
+        if (bw_top > 0)    s += "border_width_top = "    + String::num_int64(bw_top) + "\n";
+        if (bw_right > 0)  s += "border_width_right = "  + String::num_int64(bw_right) + "\n";
+        if (bw_bottom > 0) s += "border_width_bottom = " + String::num_int64(bw_bottom) + "\n";
+        if (bw_left > 0)   s += "border_width_left = "   + String::num_int64(bw_left) + "\n";
+        s += "border_color = " + fmt_color(border_top) + "\n"; // Godot uses single border_color
+        if (corner_radius > 0) {
+            s += "corner_radius_top_left = "     + String::num_int64(corner_radius) + "\n";
+            s += "corner_radius_top_right = "    + String::num_int64(corner_radius) + "\n";
+            s += "corner_radius_bottom_right = " + String::num_int64(corner_radius) + "\n";
+            s += "corner_radius_bottom_left = "  + String::num_int64(corner_radius) + "\n";
+        }
+        if (content_margin >= 0) {
+            s += "content_margin_left = "   + String::num_int64(content_margin) + ".0\n";
+            s += "content_margin_top = "    + String::num_int64(content_margin) + ".0\n";
+            s += "content_margin_right = "  + String::num_int64(content_margin) + ".0\n";
+            s += "content_margin_bottom = " + String::num_int64(content_margin) + ".0\n";
+        }
+        s += "\n";
+        return s;
+    };
+
+    // Per-type VB6 border emulation using Godot's single border_color:
+    // - Raised (button): light face + dark border  → border_color = shadow
+    // - Sunken (edit):   white fill + dark border  → border_color = shadow
+
+    String sub_resources;
+
+    // --- Button StyleBoxes ---
+    // Normal: raised 3D look (warm gray face, dark shadow border)
+    sub_resources += make_stylebox("vb6_btn_normal", sys_button_face,
+        2, 2, 2, 2, sys_button_highlight, sys_3d_dark_shadow, sys_3d_dark_shadow, sys_button_highlight, 0, 4);
+    // Hover: slightly lighter
+    Color btn_hover_face(MIN(sys_button_face.r + 0.04f, 1.0f), MIN(sys_button_face.g + 0.04f, 1.0f), MIN(sys_button_face.b + 0.04f, 1.0f));
+    sub_resources += make_stylebox("vb6_btn_hover", btn_hover_face,
+        2, 2, 2, 2, sys_button_highlight, sys_3d_dark_shadow, sys_3d_dark_shadow, sys_button_highlight, 0, 4);
+    // Pressed: sunken (swap highlight/shadow)
+    sub_resources += make_stylebox("vb6_btn_pressed", sys_button_face,
+        2, 2, 2, 2, sys_3d_dark_shadow, sys_button_highlight, sys_button_highlight, sys_3d_dark_shadow, 0, 4);
+    // Focus: same as normal with highlight border
+    sub_resources += make_stylebox("vb6_btn_focus", sys_button_face,
+        2, 2, 2, 2, sys_button_highlight, sys_3d_dark_shadow, sys_3d_dark_shadow, sys_button_highlight, 0, 4);
+    // Disabled: lighter face
+    Color btn_disabled_face(0.85f, 0.85f, 0.85f);
+    sub_resources += make_stylebox("vb6_btn_disabled", btn_disabled_face,
+        2, 2, 2, 2, sys_button_shadow, sys_button_shadow, sys_button_shadow, sys_button_shadow, 0, 4);
+
+    // --- LineEdit StyleBoxes (sunken white) ---
+    sub_resources += make_stylebox("vb6_edit_normal", sys_window,
+        2, 2, 2, 2, sys_button_shadow, sys_button_highlight, sys_button_highlight, sys_button_shadow, 0, 3);
+    sub_resources += make_stylebox("vb6_edit_focus", sys_window,
+        2, 2, 2, 2, sys_3d_dark_shadow, sys_button_highlight, sys_button_highlight, sys_3d_dark_shadow, 0, 3);
+    sub_resources += make_stylebox("vb6_edit_read_only", Color(0.93f, 0.93f, 0.93f),
+        2, 2, 2, 2, sys_button_shadow, sys_button_highlight, sys_button_highlight, sys_button_shadow, 0, 3);
+
+    // --- TextEdit StyleBoxes (same sunken look as LineEdit) ---
+    sub_resources += make_stylebox("vb6_textedit_normal", sys_window,
+        2, 2, 2, 2, sys_button_shadow, sys_button_highlight, sys_button_highlight, sys_button_shadow, 0, 3);
+    sub_resources += make_stylebox("vb6_textedit_focus", sys_window,
+        2, 2, 2, 2, sys_3d_dark_shadow, sys_button_highlight, sys_button_highlight, sys_3d_dark_shadow, 0, 3);
+    sub_resources += make_stylebox("vb6_textedit_read_only", Color(0.93f, 0.93f, 0.93f),
+        2, 2, 2, 2, sys_button_shadow, sys_button_highlight, sys_button_highlight, sys_button_shadow, 0, 3);
+
+    // --- CheckBox StyleBoxes (transparent, just text on form bg) ---
+    Color transparent(0, 0, 0, 0);
+    sub_resources += make_stylebox("vb6_check_normal", transparent, 0, 0, 0, 0, transparent, transparent, transparent, transparent);
+    sub_resources += make_stylebox("vb6_check_hover", Color(sys_button_face.r, sys_button_face.g, sys_button_face.b, 0.3f),
+        0, 0, 0, 0, transparent, transparent, transparent, transparent);
+    sub_resources += make_stylebox("vb6_check_pressed", transparent, 0, 0, 0, 0, transparent, transparent, transparent, transparent);
+
+    // --- OptionButton (ComboBox) StyleBoxes ---
+    sub_resources += make_stylebox("vb6_combo_normal", sys_window,
+        2, 2, 2, 2, sys_button_shadow, sys_button_highlight, sys_button_highlight, sys_button_shadow, 0, 3);
+    sub_resources += make_stylebox("vb6_combo_hover", sys_window,
+        2, 2, 2, 2, sys_3d_dark_shadow, sys_button_highlight, sys_button_highlight, sys_3d_dark_shadow, 0, 3);
+    sub_resources += make_stylebox("vb6_combo_pressed", sys_window,
+        2, 2, 2, 2, sys_3d_dark_shadow, sys_button_highlight, sys_button_highlight, sys_3d_dark_shadow, 0, 3);
+
+    // --- Panel / Frame StyleBox (form background gray + etched border) ---
+    sub_resources += make_stylebox("vb6_panel", color_form_bg,
+        1, 1, 1, 1, sys_button_shadow, sys_button_highlight, sys_button_highlight, sys_button_shadow, 0, 4);
+
+    // --- ItemList StyleBox (sunken white like TextEdit) ---
+    sub_resources += make_stylebox("vb6_itemlist_normal", sys_window,
+        2, 2, 2, 2, sys_button_shadow, sys_button_highlight, sys_button_highlight, sys_button_shadow, 0, 2);
+    sub_resources += make_stylebox("vb6_itemlist_focus", sys_window,
+        2, 2, 2, 2, sys_3d_dark_shadow, sys_button_highlight, sys_button_highlight, sys_3d_dark_shadow, 0, 2);
+
+    // --- ProgressBar StyleBoxes ---
+    sub_resources += make_stylebox("vb6_progress_bg", sys_window,
+        2, 2, 2, 2, sys_button_shadow, sys_button_highlight, sys_button_highlight, sys_button_shadow);
+    sub_resources += make_stylebox("vb6_progress_fill", sys_progress_fill,
+        0, 0, 0, 0, transparent, transparent, transparent, transparent);
+
+    // --- TabContainer StyleBoxes ---
+    sub_resources += make_stylebox("vb6_tab_panel", sys_button_face,
+        1, 1, 1, 1, sys_button_shadow, sys_button_shadow, sys_button_shadow, sys_button_shadow, 0, 4);
+    sub_resources += make_stylebox("vb6_tab_selected", sys_button_face,
+        1, 1, 0, 1, sys_button_highlight, sys_3d_dark_shadow, sys_button_face, sys_button_highlight, 0, 4);
+    sub_resources += make_stylebox("vb6_tab_unselected", Color(0.72f, 0.72f, 0.72f),
+        1, 1, 1, 1, sys_button_shadow, sys_button_shadow, sys_button_shadow, sys_button_shadow, 0, 4);
+    sub_resources += make_stylebox("vb6_tab_hovered", Color(0.80f, 0.80f, 0.78f),
+        1, 1, 0, 1, sys_button_highlight, sys_3d_dark_shadow, sys_button_face, sys_button_highlight, 0, 4);
+
+    // --- ScrollBar StyleBoxes ---
+    sub_resources += make_stylebox("vb6_scrollbar_scroll", sys_scrollbar,
+        0, 0, 0, 0, transparent, transparent, transparent, transparent);
+    sub_resources += make_stylebox("vb6_scrollbar_grabber", sys_button_face,
+        1, 1, 1, 1, sys_button_highlight, sys_3d_dark_shadow, sys_3d_dark_shadow, sys_button_highlight);
+    sub_resources += make_stylebox("vb6_scrollbar_grabber_hl", btn_hover_face,
+        1, 1, 1, 1, sys_button_highlight, sys_3d_dark_shadow, sys_3d_dark_shadow, sys_button_highlight);
+    sub_resources += make_stylebox("vb6_scrollbar_grabber_pressed", sys_button_face,
+        1, 1, 1, 1, sys_3d_dark_shadow, sys_button_highlight, sys_button_highlight, sys_3d_dark_shadow);
+
+    // --- SpinBox (uses LineEdit styles + Button for arrows) ---
+    // SpinBox inherits LineEdit styles automatically
+
+    // --- Label StyleBoxes (transparent) ---
+    sub_resources += make_stylebox("vb6_label_normal", transparent, 0, 0, 0, 0, transparent, transparent, transparent, transparent);
+
+    // --- RadioButton StyleBoxes (transparent like CheckBox) ---
+    sub_resources += make_stylebox("vb6_radio_normal", transparent, 0, 0, 0, 0, transparent, transparent, transparent, transparent);
+    sub_resources += make_stylebox("vb6_radio_hover", Color(sys_button_face.r, sys_button_face.g, sys_button_face.b, 0.3f),
+        0, 0, 0, 0, transparent, transparent, transparent, transparent);
+    sub_resources += make_stylebox("vb6_radio_pressed", transparent, 0, 0, 0, 0, transparent, transparent, transparent, transparent);
+
+    // --- Tree (TreeView) StyleBox ---
+    sub_resources += make_stylebox("vb6_tree_panel", sys_window,
+        2, 2, 2, 2, sys_button_shadow, sys_button_highlight, sys_button_highlight, sys_button_shadow, 0, 2);
+    sub_resources += make_stylebox("vb6_tree_focus", sys_window,
+        2, 2, 2, 2, sys_3d_dark_shadow, sys_button_highlight, sys_button_highlight, sys_3d_dark_shadow, 0, 2);
+
+    // =========================================================================
+    // VB6 Classic Theme sub_resource — maps StyleBoxes to control types
+    // =========================================================================
+
+    String theme_res;
+    theme_res += "[sub_resource type=\"Theme\" id=\"vb6_theme\"]\n";
+
+    // -- Button --
+    theme_res += "Button/colors/font_color = " + fmt_color(color_text) + "\n";
+    theme_res += "Button/colors/font_hover_color = " + fmt_color(color_text) + "\n";
+    theme_res += "Button/colors/font_pressed_color = " + fmt_color(color_text) + "\n";
+    theme_res += "Button/colors/font_disabled_color = " + fmt_color(Color(0.5f, 0.5f, 0.5f)) + "\n";
+    theme_res += "Button/styles/normal = SubResource(\"vb6_btn_normal\")\n";
+    theme_res += "Button/styles/hover = SubResource(\"vb6_btn_hover\")\n";
+    theme_res += "Button/styles/pressed = SubResource(\"vb6_btn_pressed\")\n";
+    theme_res += "Button/styles/focus = SubResource(\"vb6_btn_focus\")\n";
+    theme_res += "Button/styles/disabled = SubResource(\"vb6_btn_disabled\")\n";
+
+    // -- LineEdit --
+    theme_res += "LineEdit/colors/font_color = " + fmt_color(sys_window_text) + "\n";
+    theme_res += "LineEdit/colors/font_placeholder_color = " + fmt_color(placeholder_color) + "\n";
+    theme_res += "LineEdit/colors/caret_color = " + fmt_color(sys_window_text) + "\n";
+    theme_res += "LineEdit/colors/selection_color = " + fmt_color(Color(0.0f, 0.0f, 0.5f, 0.4f)) + "\n";
+    theme_res += "LineEdit/styles/normal = SubResource(\"vb6_edit_normal\")\n";
+    theme_res += "LineEdit/styles/focus = SubResource(\"vb6_edit_focus\")\n";
+    theme_res += "LineEdit/styles/read_only = SubResource(\"vb6_edit_read_only\")\n";
+
+    // -- TextEdit --
+    theme_res += "TextEdit/colors/font_color = " + fmt_color(sys_window_text) + "\n";
+    theme_res += "TextEdit/colors/font_placeholder_color = " + fmt_color(placeholder_color) + "\n";
+    theme_res += "TextEdit/colors/caret_color = " + fmt_color(sys_window_text) + "\n";
+    theme_res += "TextEdit/styles/normal = SubResource(\"vb6_textedit_normal\")\n";
+    theme_res += "TextEdit/styles/focus = SubResource(\"vb6_textedit_focus\")\n";
+    theme_res += "TextEdit/styles/read_only = SubResource(\"vb6_textedit_read_only\")\n";
+
+    // -- CheckBox --
+    theme_res += "CheckBox/colors/font_color = " + fmt_color(color_text) + "\n";
+    theme_res += "CheckBox/colors/font_hover_color = " + fmt_color(color_text) + "\n";
+    theme_res += "CheckBox/colors/font_pressed_color = " + fmt_color(color_text) + "\n";
+    theme_res += "CheckBox/styles/normal = SubResource(\"vb6_check_normal\")\n";
+    theme_res += "CheckBox/styles/hover = SubResource(\"vb6_check_hover\")\n";
+    theme_res += "CheckBox/styles/pressed = SubResource(\"vb6_check_pressed\")\n";
+    theme_res += "CheckBox/styles/focus = SubResource(\"vb6_check_normal\")\n";
+
+    // -- RadioButton (Option) --
+    theme_res += "RadioButton/colors/font_color = " + fmt_color(color_text) + "\n";
+    theme_res += "RadioButton/styles/normal = SubResource(\"vb6_radio_normal\")\n";
+    theme_res += "RadioButton/styles/hover = SubResource(\"vb6_radio_hover\")\n";
+    theme_res += "RadioButton/styles/pressed = SubResource(\"vb6_radio_pressed\")\n";
+    theme_res += "RadioButton/styles/focus = SubResource(\"vb6_radio_normal\")\n";
+
+    // -- OptionButton (ComboBox) --
+    theme_res += "OptionButton/colors/font_color = " + fmt_color(sys_window_text) + "\n";
+    theme_res += "OptionButton/styles/normal = SubResource(\"vb6_combo_normal\")\n";
+    theme_res += "OptionButton/styles/hover = SubResource(\"vb6_combo_hover\")\n";
+    theme_res += "OptionButton/styles/pressed = SubResource(\"vb6_combo_pressed\")\n";
+    theme_res += "OptionButton/styles/focus = SubResource(\"vb6_combo_normal\")\n";
+
+    // -- Panel (Frame / GroupBox) --
+    theme_res += "Panel/styles/panel = SubResource(\"vb6_panel\")\n";
+
+    // -- Label --
+    theme_res += "Label/colors/font_color = " + fmt_color(color_text) + "\n";
+    theme_res += "Label/styles/normal = SubResource(\"vb6_label_normal\")\n";
+
+    // -- ItemList (ListBox) --
+    theme_res += "ItemList/colors/font_color = " + fmt_color(sys_window_text) + "\n";
+    theme_res += "ItemList/colors/font_selected_color = " + fmt_color(sys_title_text) + "\n";
+    theme_res += "ItemList/colors/guide_color = " + fmt_color(Color(0.9f, 0.9f, 0.9f)) + "\n";
+    theme_res += "ItemList/styles/panel = SubResource(\"vb6_itemlist_normal\")\n";
+    theme_res += "ItemList/styles/focus = SubResource(\"vb6_itemlist_focus\")\n";
+
+    // -- ProgressBar --
+    theme_res += "ProgressBar/colors/font_color = " + fmt_color(color_text) + "\n";
+    theme_res += "ProgressBar/styles/background = SubResource(\"vb6_progress_bg\")\n";
+    theme_res += "ProgressBar/styles/fill = SubResource(\"vb6_progress_fill\")\n";
+
+    // -- TabContainer --
+    theme_res += "TabContainer/styles/panel = SubResource(\"vb6_tab_panel\")\n";
+    theme_res += "TabContainer/styles/tab_selected = SubResource(\"vb6_tab_selected\")\n";
+    theme_res += "TabContainer/styles/tab_unselected = SubResource(\"vb6_tab_unselected\")\n";
+    theme_res += "TabContainer/styles/tab_hovered = SubResource(\"vb6_tab_hovered\")\n";
+
+    // -- HScrollBar / VScrollBar --
+    theme_res += "HScrollBar/styles/scroll = SubResource(\"vb6_scrollbar_scroll\")\n";
+    theme_res += "HScrollBar/styles/grabber = SubResource(\"vb6_scrollbar_grabber\")\n";
+    theme_res += "HScrollBar/styles/grabber_highlight = SubResource(\"vb6_scrollbar_grabber_hl\")\n";
+    theme_res += "HScrollBar/styles/grabber_pressed = SubResource(\"vb6_scrollbar_grabber_pressed\")\n";
+    theme_res += "VScrollBar/styles/scroll = SubResource(\"vb6_scrollbar_scroll\")\n";
+    theme_res += "VScrollBar/styles/grabber = SubResource(\"vb6_scrollbar_grabber\")\n";
+    theme_res += "VScrollBar/styles/grabber_highlight = SubResource(\"vb6_scrollbar_grabber_hl\")\n";
+    theme_res += "VScrollBar/styles/grabber_pressed = SubResource(\"vb6_scrollbar_grabber_pressed\")\n";
+
+    // -- HSlider / VSlider --
+    theme_res += "HSlider/styles/slider = SubResource(\"vb6_scrollbar_scroll\")\n";
+    theme_res += "HSlider/styles/grabber_area = SubResource(\"vb6_scrollbar_scroll\")\n";
+    theme_res += "VSlider/styles/slider = SubResource(\"vb6_scrollbar_scroll\")\n";
+    theme_res += "VSlider/styles/grabber_area = SubResource(\"vb6_scrollbar_scroll\")\n";
+
+    // -- SpinBox (uses LineEdit + Button internally) --
+    // SpinBox inherits from LineEdit+Button styles in the theme automatically.
+
+    // -- Tree (TreeView) --
+    theme_res += "Tree/colors/font_color = " + fmt_color(sys_window_text) + "\n";
+    theme_res += "Tree/styles/panel = SubResource(\"vb6_tree_panel\")\n";
+    theme_res += "Tree/styles/focus = SubResource(\"vb6_tree_focus\")\n";
+
+    // -- RichTextLabel --
+    theme_res += "RichTextLabel/colors/default_color = " + fmt_color(sys_window_text) + "\n";
+    theme_res += "RichTextLabel/styles/normal = SubResource(\"vb6_edit_normal\")\n";
+    theme_res += "RichTextLabel/styles/focus = SubResource(\"vb6_edit_focus\")\n";
+
+    // -- MenuBar --
+    theme_res += "MenuBar/styles/normal = SubResource(\"vb6_btn_normal\")\n";
+    theme_res += "MenuBar/colors/font_color = " + fmt_color(color_text) + "\n";
+
+    theme_res += "\n";
+
+    // =========================================================================
+    // Empty theme for custom controls — blocks VB6 theme inheritance
+    // so custom controls keep their own scene-defined look
+    // =========================================================================
+    String empty_theme_res;
+    if (has_custom_controls) {
+        empty_theme_res += "[sub_resource type=\"Theme\" id=\"vb6_empty_theme\"]\n\n";
+    }
+
+    // =========================================================================
+    // Count sub_resources for load_steps header
+    // =========================================================================
+    // Count the [sub_resource] blocks we're about to emit
+    // Quick count: search for "[sub_resource" occurrences
+    int sub_res_count = 0;
+    {
+        int pos = 0;
+        while ((pos = sub_resources.find("[sub_resource", pos)) >= 0) {
+            sub_res_count++;
+            pos++;
+        }
+        // theme_res has 1 Theme
+        sub_res_count += 1;
+        // empty theme if needed
+        if (has_custom_controls) sub_res_count += 1;
+    }
+
     // Build the .tscn text
     String out;
-    int load_steps = ext_resources.size() + 1;
+    int load_steps = ext_resources.size() + sub_res_count + 1;
     out += "[gd_scene load_steps=" + String::num_int64(load_steps) + " format=3]\n\n";
 
     // ext_resources
@@ -2817,11 +3126,19 @@ String VisualGasicFormDesigner::_serialize_to_tscn() const {
     }
     out += "\n";
 
-    // Root node (Window)
+    // Sub-resources (StyleBoxes + Themes)
+    out += sub_resources;
+    out += theme_res;
+    out += empty_theme_res;
+
+    // Root node (Window) — with VB6 Classic Theme applied
+    // The theme is on the root so all child controls inherit VB6 styling.
+    // Custom controls get an empty Theme blocker to preserve their own look.
     out += "[node name=\"" + form_name + "\" type=\"Window\"]\n";
     out += "title = \"" + form_name + "\"\n";
     out += "position = Vector2i(10, 36)\n";
     out += "size = Vector2i(" + String::num_int64(form_size.x) + ", " + String::num_int64(form_size.y) + ")\n";
+    out += "theme = SubResource(\"vb6_theme\")\n";
     out += "script = ExtResource(\"" + String::num_int64(path_to_idx[vg_script_path]) + "\")\n";
     out += "\n";
 
@@ -2862,6 +3179,12 @@ String VisualGasicFormDesigner::_serialize_to_tscn() const {
         out += "offset_top = " + String::num_int64((int)ctrl.rect.position.y) + ".0\n";
         out += "offset_right = " + String::num_int64((int)(ctrl.rect.position.x + ctrl.rect.size.x)) + ".0\n";
         out += "offset_bottom = " + String::num_int64((int)(ctrl.rect.position.y + ctrl.rect.size.y)) + ".0\n";
+
+        // Custom controls (scene_path NOT under prototypes/) get an empty Theme
+        // to block VB6 theme inheritance, preserving their own scene-defined look
+        if (has_custom_controls && !sp.is_empty() && !sp.begins_with(proto_prefix)) {
+            out += "theme = SubResource(\"vb6_empty_theme\")\n";
+        }
 
         if (!ctrl.text.is_empty()) {
             out += "text = \"" + ctrl.text + "\"\n";
@@ -3051,8 +3374,8 @@ bool VisualGasicFormDesigner::_parse_tscn(const String &p_text) {
                     }
                 } else if (key == "title") {
                     // Skip, we already have form_name from node name
-                } else if (key == "script" || key == "mouse_filter") {
-                    // Internal, skip
+                } else if (key == "script" || key == "mouse_filter" || key == "theme") {
+                    // Internal / theme managed by serializer, skip
                 } else {
                     // Generic property — parse typed values back into proper Variants
                     // so _serialize_to_tscn writes them with the correct format.
