@@ -693,7 +693,9 @@ func _set_window_layout(config: ConfigFile):
 		if FileAccess.file_exists(saved_form_path):
 			_form_designer.open_form(saved_form_path)
 			print("[VisualGasic] Restored form from layout config: ", saved_form_path)
-			_ensure_vb6_theme(saved_form_path)
+			# Apply VB6 theme to the live scene tree (deferred — scene root
+			# may not be fully set up yet during layout restoration).
+			call_deferred("_apply_vb6_theme_to_scene_root")
 
 ## Called by the editor when saving window layout.
 func _get_window_layout(config: ConfigFile):
@@ -1567,8 +1569,9 @@ func open_form_in_designer(tscn_path: String) -> void:
 	_form_designer.open_form(tscn_path)
 	EditorInterface.set_main_screen_editor("Form Designer")
 	print("VisualGasic: Opened '", tscn_path, "' in Form Designer")
-	# If open_form() auto-injected the VB6 theme (file was pre-theme),
-	# force a scene reload so the 2D viewport picks up the theme too.
+	# Apply VB6 theme to the live scene tree immediately
+	_apply_vb6_theme_to_scene_root()
+	# Also force a scene reload so the 2D viewport picks up any C++ changes.
 	get_tree().create_timer(0.3).timeout.connect(_force_godot_scene_reload.bind(tscn_path))
 
 ## Sets initial split positions for the embedded VB6 IDE layout.
@@ -1836,6 +1839,359 @@ func _build_vb6_theme() -> Theme:
 	t.set_color("font_color", "TooltipLabel", Color.BLACK)
 
 	return t
+
+## Builds a VB6 Classic (Win98) Theme for form SCENES.
+## Unlike _build_vb6_theme() which styles the IDE panels, this theme styles
+## the controls that appear in the Godot 2D viewport and at runtime (F5).
+## It uses the authentic Win32 system color palette from the C++ header.
+func _build_vb6_scene_theme() -> Theme:
+	var t = Theme.new()
+
+	# ── Win32 system color palette (matches C++ header exactly) ──
+	var btn_face     := Color(0.831, 0.816, 0.784)  # SystemButtonFace #D4D0C8
+	var btn_highlight:= Color(1.0, 1.0, 1.0)        # 3D highlight
+	var btn_shadow   := Color(0.51, 0.51, 0.51)     # 3D shadow
+	var dark_shadow  := Color(0.25, 0.25, 0.25)     # Dark shadow edge
+	var light_3d     := Color(0.93, 0.93, 0.89)     # Inner highlight
+	var win_bg       := Color(1.0, 1.0, 1.0)        # Window/textbox bg
+	var win_text     := Color(0.0, 0.0, 0.0)        # Text in windows
+	var form_bg      := Color(0.753, 0.753, 0.753)  # Classic form gray #C0C0C0
+	var scrollbar_bg := Color(0.87, 0.87, 0.87)     # Scrollbar track
+	var progress_fill:= Color(0.0, 0.5, 0.0)        # Progress bar green
+	var placeholder  := Color(0.6, 0.6, 0.6)        # Placeholder text
+	var title_bg     := Color(0.0, 0.0, 0.5)        # Title bar blue
+	var title_text   := Color(1.0, 1.0, 1.0)        # Title bar text
+	var disabled_text:= Color(0.51, 0.51, 0.51)     # Disabled/grayed text
+
+	# ── Helper: create a Win98-style raised StyleBoxFlat ──
+	# Outer: dark_shadow bottom-right, btn_highlight top-left
+	# Inner: btn_shadow bottom-right, light_3d top-left
+	# VB6 buttons have a distinctive 2px raised-edge look
+	var _make_raised = func(bg: Color) -> StyleBoxFlat:
+		var sb = StyleBoxFlat.new()
+		sb.bg_color = bg
+		sb.border_color = btn_highlight
+		sb.border_width_top = 2
+		sb.border_width_left = 2
+		sb.border_color = btn_shadow  # Godot uses one border_color, approximate with shadow
+		sb.border_width_bottom = 2
+		sb.border_width_right = 2
+		# Approximate the 3D look: top/left = highlight, bottom/right = shadow
+		# Godot 4 doesn't support per-edge colors, so we use a compromise
+		sb.border_color = Color(0.6, 0.6, 0.6)  # Mid-gray border
+		sb.content_margin_left = 4
+		sb.content_margin_right = 4
+		sb.content_margin_top = 2
+		sb.content_margin_bottom = 2
+		return sb
+
+	var _make_sunken = func(bg: Color) -> StyleBoxFlat:
+		var sb = StyleBoxFlat.new()
+		sb.bg_color = bg
+		sb.border_color = btn_shadow
+		sb.border_width_top = 2
+		sb.border_width_left = 2
+		sb.border_width_bottom = 2
+		sb.border_width_right = 2
+		sb.content_margin_left = 4
+		sb.content_margin_right = 4
+		sb.content_margin_top = 2
+		sb.content_margin_bottom = 2
+		return sb
+
+	# ── Window ──
+	var win_sb = StyleBoxFlat.new()
+	win_sb.bg_color = form_bg
+	win_sb.set_content_margin_all(0)
+	t.set_stylebox("embedded_border", "Window", win_sb)
+	t.set_stylebox("embedded_unfocused_border", "Window", win_sb)
+
+	# ── Panel / PanelContainer — form background ──
+	var panel_sb = StyleBoxFlat.new()
+	panel_sb.bg_color = form_bg
+	panel_sb.set_content_margin_all(0)
+	t.set_stylebox("panel", "Panel", panel_sb)
+	var pc_sb = StyleBoxFlat.new()
+	pc_sb.bg_color = form_bg
+	pc_sb.set_content_margin_all(0)
+	t.set_stylebox("panel", "PanelContainer", pc_sb)
+
+	# ── Button ──
+	var btn_normal = _make_raised.call(btn_face)
+	t.set_stylebox("normal", "Button", btn_normal)
+
+	var btn_hover = _make_raised.call(Color(0.87, 0.855, 0.824))  # Slightly lighter
+	t.set_stylebox("hover", "Button", btn_hover)
+
+	var btn_pressed = StyleBoxFlat.new()
+	btn_pressed.bg_color = btn_face
+	btn_pressed.border_color = dark_shadow
+	btn_pressed.set_border_width_all(2)
+	btn_pressed.content_margin_left = 5  # Shift text down-right on press
+	btn_pressed.content_margin_right = 3
+	btn_pressed.content_margin_top = 3
+	btn_pressed.content_margin_bottom = 1
+	t.set_stylebox("pressed", "Button", btn_pressed)
+
+	var btn_disabled = _make_raised.call(btn_face)
+	t.set_stylebox("disabled", "Button", btn_disabled)
+
+	var btn_focus = StyleBoxFlat.new()
+	btn_focus.bg_color = btn_face
+	btn_focus.border_color = Color(0.0, 0.0, 0.0)
+	btn_focus.set_border_width_all(1)
+	btn_focus.content_margin_left = 4
+	btn_focus.content_margin_right = 4
+	btn_focus.content_margin_top = 2
+	btn_focus.content_margin_bottom = 2
+	t.set_stylebox("focus", "Button", btn_focus)
+
+	t.set_color("font_color",          "Button", win_text)
+	t.set_color("font_hover_color",    "Button", win_text)
+	t.set_color("font_pressed_color",  "Button", win_text)
+	t.set_color("font_disabled_color", "Button", disabled_text)
+	t.set_color("font_focus_color",    "Button", win_text)
+
+	# ── LineEdit ──
+	var le_normal = _make_sunken.call(win_bg)
+	t.set_stylebox("normal", "LineEdit", le_normal)
+
+	var le_focus = _make_sunken.call(win_bg)
+	le_focus.border_color = Color(0.0, 0.0, 0.0)
+	t.set_stylebox("focus", "LineEdit", le_focus)
+
+	var le_read_only = _make_sunken.call(btn_face)
+	t.set_stylebox("read_only", "LineEdit", le_read_only)
+
+	t.set_color("font_color",             "LineEdit", win_text)
+	t.set_color("font_selected_color",    "LineEdit", title_text)
+	t.set_color("font_uneditable_color",  "LineEdit", disabled_text)
+	t.set_color("font_placeholder_color", "LineEdit", placeholder)
+	t.set_color("selection_color",        "LineEdit", title_bg)
+	t.set_color("caret_color",            "LineEdit", win_text)
+
+	# ── TextEdit ──
+	var te_normal = _make_sunken.call(win_bg)
+	t.set_stylebox("normal", "TextEdit", te_normal)
+
+	var te_focus = _make_sunken.call(win_bg)
+	te_focus.border_color = Color(0.0, 0.0, 0.0)
+	t.set_stylebox("focus", "TextEdit", te_focus)
+
+	var te_read_only = _make_sunken.call(btn_face)
+	t.set_stylebox("read_only", "TextEdit", te_read_only)
+
+	t.set_color("font_color",             "TextEdit", win_text)
+	t.set_color("font_selected_color",    "TextEdit", title_text)
+	t.set_color("font_readonly_color",    "TextEdit", disabled_text)
+	t.set_color("font_placeholder_color", "TextEdit", placeholder)
+	t.set_color("selection_color",        "TextEdit", title_bg)
+	t.set_color("caret_color",            "TextEdit", win_text)
+
+	# ── Label ──
+	t.set_color("font_color",        "Label", win_text)
+	t.set_color("font_shadow_color", "Label", Color(0, 0, 0, 0))  # No shadow
+
+	# ── CheckBox ──
+	var cb_normal = StyleBoxFlat.new()
+	cb_normal.bg_color = Color(0, 0, 0, 0)  # Transparent — label background
+	cb_normal.set_content_margin_all(2)
+	t.set_stylebox("normal",  "CheckBox", cb_normal)
+	t.set_stylebox("hover",   "CheckBox", cb_normal)
+	t.set_stylebox("pressed", "CheckBox", cb_normal)
+	t.set_color("font_color",         "CheckBox", win_text)
+	t.set_color("font_hover_color",   "CheckBox", win_text)
+	t.set_color("font_pressed_color", "CheckBox", win_text)
+
+	# ── CheckButton (toggle switch style → VB6 check appearance) ──
+	t.set_stylebox("normal",  "CheckButton", cb_normal)
+	t.set_stylebox("hover",   "CheckButton", cb_normal)
+	t.set_stylebox("pressed", "CheckButton", cb_normal)
+	t.set_color("font_color",         "CheckButton", win_text)
+	t.set_color("font_hover_color",   "CheckButton", win_text)
+	t.set_color("font_pressed_color", "CheckButton", win_text)
+
+	# ── OptionButton (ComboBox) ──
+	var ob_normal = _make_raised.call(btn_face)
+	ob_normal.content_margin_right = 20  # Room for dropdown arrow
+	t.set_stylebox("normal",   "OptionButton", ob_normal)
+	t.set_stylebox("hover",    "OptionButton", ob_normal)
+	t.set_stylebox("pressed",  "OptionButton", ob_normal)
+	t.set_stylebox("disabled", "OptionButton", ob_normal)
+	t.set_color("font_color",         "OptionButton", win_text)
+	t.set_color("font_hover_color",   "OptionButton", win_text)
+	t.set_color("font_pressed_color", "OptionButton", win_text)
+
+	# ── ItemList (ListBox) ──
+	var il_sb = _make_sunken.call(win_bg)
+	t.set_stylebox("panel", "ItemList", il_sb)
+	t.set_color("font_color",          "ItemList", win_text)
+	t.set_color("font_selected_color", "ItemList", title_text)
+
+	var il_sel = StyleBoxFlat.new()
+	il_sel.bg_color = title_bg
+	il_sel.set_content_margin_all(2)
+	t.set_stylebox("selected",       "ItemList", il_sel)
+	t.set_stylebox("selected_focus", "ItemList", il_sel)
+
+	# ── Tree (TreeView) ──
+	var tree_sb = _make_sunken.call(win_bg)
+	t.set_stylebox("panel", "Tree", tree_sb)
+	t.set_color("font_color",          "Tree", win_text)
+	t.set_color("font_selected_color", "Tree", title_text)
+
+	var tree_sel = StyleBoxFlat.new()
+	tree_sel.bg_color = title_bg
+	tree_sel.set_content_margin_all(2)
+	t.set_stylebox("selected",       "Tree", tree_sel)
+	t.set_stylebox("selected_focus", "Tree", tree_sel)
+
+	# ── TabContainer ──
+	var tc_panel = StyleBoxFlat.new()
+	tc_panel.bg_color = btn_face
+	tc_panel.border_color = btn_shadow
+	tc_panel.set_border_width_all(1)
+	tc_panel.set_content_margin_all(4)
+	t.set_stylebox("panel", "TabContainer", tc_panel)
+
+	var tab_sel = StyleBoxFlat.new()
+	tab_sel.bg_color = btn_face
+	tab_sel.border_color = btn_shadow
+	tab_sel.border_width_left = 1; tab_sel.border_width_top = 1
+	tab_sel.border_width_right = 1; tab_sel.border_width_bottom = 0
+	tab_sel.content_margin_left = 8; tab_sel.content_margin_right = 8
+	tab_sel.content_margin_top = 4; tab_sel.content_margin_bottom = 4
+	t.set_stylebox("tab_selected",   "TabContainer", tab_sel)
+	t.set_stylebox("tab_selected",   "TabBar",       tab_sel)
+
+	var tab_unsel = StyleBoxFlat.new()
+	tab_unsel.bg_color = Color(0.75, 0.74, 0.72)  # Slightly darker than face
+	tab_unsel.border_color = btn_shadow
+	tab_unsel.set_border_width_all(1)
+	tab_unsel.content_margin_left = 8; tab_unsel.content_margin_right = 8
+	tab_unsel.content_margin_top = 4; tab_unsel.content_margin_bottom = 4
+	t.set_stylebox("tab_unselected", "TabContainer", tab_unsel)
+	t.set_stylebox("tab_unselected", "TabBar",       tab_unsel)
+
+	t.set_color("font_selected_color",   "TabContainer", win_text)
+	t.set_color("font_unselected_color", "TabContainer", disabled_text)
+	t.set_color("font_selected_color",   "TabBar",       win_text)
+	t.set_color("font_unselected_color", "TabBar",       disabled_text)
+
+	# ── ProgressBar ──
+	var pb_bg = _make_sunken.call(btn_face)
+	t.set_stylebox("background", "ProgressBar", pb_bg)
+
+	var pb_fill = StyleBoxFlat.new()
+	pb_fill.bg_color = progress_fill
+	pb_fill.set_content_margin_all(0)
+	t.set_stylebox("fill", "ProgressBar", pb_fill)
+
+	# ── HScrollBar / VScrollBar ──
+	for sb_type in ["HScrollBar", "VScrollBar"]:
+		var scroll_sb = StyleBoxFlat.new()
+		scroll_sb.bg_color = scrollbar_bg
+		scroll_sb.set_content_margin_all(0)
+		t.set_stylebox("scroll", sb_type, scroll_sb)
+
+		var grabber_sb = _make_raised.call(btn_face)
+		grabber_sb.content_margin_left = 2
+		grabber_sb.content_margin_right = 2
+		grabber_sb.content_margin_top = 2
+		grabber_sb.content_margin_bottom = 2
+		t.set_stylebox("grabber",         sb_type, grabber_sb)
+		t.set_stylebox("grabber_highlight",sb_type, grabber_sb)
+		t.set_stylebox("grabber_pressed", sb_type, grabber_sb)
+
+	# ── HSlider / VSlider ──
+	for sl_type in ["HSlider", "VSlider"]:
+		var slider_sb = StyleBoxFlat.new()
+		slider_sb.bg_color = scrollbar_bg
+		slider_sb.border_color = btn_shadow
+		slider_sb.set_border_width_all(1)
+		slider_sb.set_content_margin_all(0)
+		t.set_stylebox("slider", sl_type, slider_sb)
+
+		var sl_grabber = _make_raised.call(btn_face)
+		t.set_stylebox("grabber_area",            sl_type, sl_grabber)
+		t.set_stylebox("grabber_area_highlight",  sl_type, sl_grabber)
+
+	# ── MenuBar ──
+	var menu_sb = StyleBoxFlat.new()
+	menu_sb.bg_color = btn_face
+	menu_sb.set_content_margin_all(2)
+	t.set_stylebox("normal",  "MenuBar", menu_sb)
+	t.set_stylebox("hover",   "MenuBar", menu_sb)
+	t.set_stylebox("pressed", "MenuBar", menu_sb)
+	t.set_color("font_color",         "MenuBar", win_text)
+	t.set_color("font_hover_color",   "MenuBar", win_text)
+	t.set_color("font_pressed_color", "MenuBar", win_text)
+
+	# ── PopupMenu ──
+	var popup_sb = StyleBoxFlat.new()
+	popup_sb.bg_color = btn_face
+	popup_sb.border_color = btn_shadow
+	popup_sb.set_border_width_all(1)
+	popup_sb.set_content_margin_all(2)
+	t.set_stylebox("panel",  "PopupMenu", popup_sb)
+	t.set_stylebox("hover",  "PopupMenu", StyleBoxFlat.new())
+	t.get_stylebox("hover", "PopupMenu").bg_color = title_bg
+	t.get_stylebox("hover", "PopupMenu").set_content_margin_all(2)
+	t.set_color("font_color",       "PopupMenu", win_text)
+	t.set_color("font_hover_color", "PopupMenu", title_text)
+
+	# ── RichTextLabel ──
+	var rtl_sb = _make_sunken.call(win_bg)
+	t.set_stylebox("normal", "RichTextLabel", rtl_sb)
+	t.set_color("default_color",    "RichTextLabel", win_text)
+	t.set_color("font_selected_color","RichTextLabel", title_text)
+	t.set_color("selection_color",  "RichTextLabel", title_bg)
+
+	# ── SpinBox (uses LineEdit internally) ──
+	# SpinBox inherits LineEdit styles, but also needs its own
+	t.set_color("font_color", "SpinBox", win_text)
+
+	# ── Tooltip ──
+	var tooltip_sb = StyleBoxFlat.new()
+	tooltip_sb.bg_color = Color(1.0, 1.0, 0.94)  # Light-yellow
+	tooltip_sb.border_color = Color(0.0, 0.0, 0.0)
+	tooltip_sb.set_border_width_all(1)
+	tooltip_sb.set_content_margin_all(4)
+	t.set_stylebox("panel", "TooltipPanel", tooltip_sb)
+	t.set_color("font_color", "TooltipLabel", win_text)
+
+	return t
+
+## Applies the VB6 Classic Theme to the currently edited scene root.
+## This modifies the LIVE in-memory scene tree so Godot's editor preview
+## (2D viewport) and runtime (F5) both show the VB6 look.
+## Because this sets scene_root.theme directly, Godot's own scene serializer
+## will persist it into the .tscn automatically — no disk patching needed.
+func _apply_vb6_theme_to_scene_root() -> void:
+	var scene_root = EditorInterface.get_edited_scene_root()
+	if not scene_root:
+		return
+	# Only apply to VG forms: root is a Window with a _FormBackground child
+	if not (scene_root is Window and scene_root.has_node("_FormBackground")):
+		return
+	# Avoid re-building if the theme is already applied (check for a marker)
+	if scene_root.has_meta("_vb6_scene_theme_applied"):
+		return
+	scene_root.theme = _build_vb6_scene_theme()
+	scene_root.set_meta("_vb6_scene_theme_applied", true)
+	print("[VG-THEME] Applied VB6 Classic Theme to scene root: ", scene_root.name)
+
+## Force-applies VB6 theme, ignoring the "already applied" marker.
+## Use this after a scene reload (which destroys the old scene root).
+func _force_apply_vb6_theme_to_scene_root() -> void:
+	var scene_root = EditorInterface.get_edited_scene_root()
+	if not scene_root:
+		return
+	if not (scene_root is Window and scene_root.has_node("_FormBackground")):
+		return
+	scene_root.theme = _build_vb6_scene_theme()
+	scene_root.set_meta("_vb6_scene_theme_applied", true)
+	print("[VG-THEME] Force-applied VB6 Classic Theme to scene root: ", scene_root.name)
 
 ## Applies VB6 SystemButtonFace gray theme to the embedded IDE panels.
 func _apply_vb6_theme() -> void:
@@ -2654,6 +3010,10 @@ func _force_godot_scene_reload(tscn_path: String) -> void:
 		print("[VG-SYNC]   scene now has ", _sr2.get_child_count(), " children  path='", _sr2.scene_file_path, "'")
 		for _ci in _sr2.get_child_count():
 			print("[VG-SYNC]     child[", _ci, "] = ", _sr2.get_child(_ci).name, " (", _sr2.get_child(_ci).get_class(), ")")
+	# Apply VB6 Classic Theme to the freshly-reloaded scene root.
+	# The reload destroys the old tree and recreates from disk, so any
+	# previously-applied theme is lost.  Force-apply unconditionally.
+	_force_apply_vb6_theme_to_scene_root()
 
 func _on_vb6_edit_menu(id: int) -> void:
 	if not _form_designer:
@@ -3157,10 +3517,10 @@ func _sync_scene_to_form_designer() -> void:
 
 	_form_designer.open_form(scene_path)
 	print("VisualGasic: Synced scene '", scene_path, "' into Form Designer")
-	# Auto-inject VB6 Classic Theme if the .tscn predates the theme feature.
-	# We check the FILE on disk (not the C++ state) because the C++ open_form
-	# auto-inject only works after Godot restarts with the new .so.
-	_ensure_vb6_theme(scene_path)
+	# Apply VB6 Classic Theme directly to the live scene tree.
+	# This ensures Godot's 2D viewport shows VB6 styling and Godot's own
+	# save serializer will persist the theme into the .tscn.
+	_apply_vb6_theme_to_scene_root()
 
 ## Signal: A control was selected in the C++ Form Designer canvas.
 func _on_fd_control_selected(index: int) -> void:
