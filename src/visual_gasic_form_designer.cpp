@@ -180,6 +180,7 @@ void VisualGasicFormDesigner::_draw() {
     draw_set_transform(Vector2(FORM_PADDING_X, FORM_PADDING_Y));
 
     _draw_form_background();
+    _draw_form_menu_bar();
     _draw_grid();
 
     // Draw controls back-to-front
@@ -239,6 +240,36 @@ void VisualGasicFormDesigner::_draw_form_background() {
     // Caption buttons (only if ControlBox is true)
     if (form_control_box) {
         _draw_form_caption_buttons();
+    }
+}
+
+void VisualGasicFormDesigner::_draw_form_menu_bar() {
+    // Draw a VB6-style menu bar for forms created with "Main Form with Menu" template.
+    // This renders at the top of the form body (Y=0), using actual menu titles
+    // extracted from the PopupMenu children (menu_titles vector).
+    if (!has_menu_bar || menu_titles.size() == 0) return;
+
+    float bar_h = 20.0f;  // VB6 menu bar height
+    Rect2 bar(Vector2(0, 0), Vector2(form_size.x, bar_h));
+
+    // Background: standard button face color (flat gray)
+    draw_rect(bar, sys_button_face);
+    // Bottom border: subtle shadow line
+    draw_rect(Rect2(0, bar_h - 1, form_size.x, 1), sys_button_shadow);
+
+    Ref<Font> font = get_theme_default_font();
+    if (!font.is_valid()) return;
+    int fsize = get_theme_default_font_size();
+
+    float tx = 6.0f;
+    float ty = (bar_h + fsize) * 0.5f - 2.0f;
+
+    for (int m = 0; m < menu_titles.size(); m++) {
+        String title = menu_titles[m];
+        float tw = font->get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, fsize).x;
+        // Draw with 6px padding on each side of each item (VB6 menu item spacing)
+        draw_string(font, Vector2(tx, ty), title, HORIZONTAL_ALIGNMENT_LEFT, -1, fsize, color_text);
+        tx += tw + 12.0f;  // text width + padding between items
     }
 }
 
@@ -459,16 +490,22 @@ void VisualGasicFormDesigner::_draw_control(const FormControlItem &item, int ind
             draw_rect(img_r, sys_button_shadow, false, 1.0);
         }
     } else if (item.type == "MenuBar") {
-        // MenuBar: gray bar with File|Edit labels
+        // MenuBar: VB6-style flat gray bar with menu titles
+        // The default prototype has File/Edit/View children
         draw_rect(r, sys_button_face);
         // Bottom border
         draw_rect(Rect2(r.position.x, r.position.y + r.size.y - 1, r.size.x, 1), sys_button_shadow);
         if (font.is_valid()) {
             float tx = r.position.x + 6;
             float ty = r.position.y + (r.size.y + font_size) * 0.5f - 2;
-            draw_string(font, Vector2(tx, ty), "File", HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, color_text);
-            draw_string(font, Vector2(tx + 40, ty), "Edit", HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, color_text);
-            draw_string(font, Vector2(tx + 80, ty), "View", HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, color_text);
+            // Default menu titles from the prototype MenuBar.tscn
+            const char *titles[] = { "File", "Edit", "View" };
+            for (int m = 0; m < 3; m++) {
+                String title = String(titles[m]);
+                float tw = font->get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x;
+                draw_string(font, Vector2(tx, ty), title, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, color_text);
+                tx += tw + 12.0f;
+            }
         }
     } else if (item.type == "Line") {
         // Line control: solid black line across the control rect
@@ -3240,6 +3277,7 @@ bool VisualGasicFormDesigner::_parse_tscn(const String &p_text) {
     has_menu_bar = false;
     menu_bar_node_name = "";
     menu_child_raw_blocks.clear();
+    menu_titles.clear();
 
     // Parse ext_resource entries to build id → path map
     HashMap<String, String> ext_id_to_path;  // "3" → "res://addons/..."
@@ -3305,8 +3343,14 @@ bool VisualGasicFormDesigner::_parse_tscn(const String &p_text) {
                         controls.push_back(current_item);
                     }
                 } else if (!menu_bar_node_name.is_empty() && current_node_parent == menu_bar_node_name) {
-                    // Child of the MenuBar (PopupMenu) → store raw block
+                    // Child of the MenuBar (PopupMenu) → store raw block + extract title
                     menu_child_raw_blocks.push_back(current_raw_block);
+                    // Derive display title from node name: "mnuFile" → "File", "Edit" → "Edit"
+                    String title = current_node_name;
+                    if (title.begins_with("mnu") && title.length() > 3) {
+                        title = title.substr(3);
+                    }
+                    menu_titles.push_back(title);
                 }
             }
 
@@ -3478,8 +3522,13 @@ bool VisualGasicFormDesigner::_parse_tscn(const String &p_text) {
                 controls.push_back(current_item);
             }
         } else if (!menu_bar_node_name.is_empty() && current_node_parent == menu_bar_node_name) {
-            // Child of the MenuBar (PopupMenu) → store raw block
+            // Child of the MenuBar (PopupMenu) → store raw block + extract title
             menu_child_raw_blocks.push_back(current_raw_block);
+            String title = current_node_name;
+            if (title.begins_with("mnu") && title.length() > 3) {
+                title = title.substr(3);
+            }
+            menu_titles.push_back(title);
         }
     }
 

@@ -230,6 +230,7 @@ private:
     // --- Drawing helpers ---
     void _draw_grid();
     void _draw_form_background();
+    void _draw_form_menu_bar();        // VB6-style menu bar for has_menu_bar forms
     void _draw_mdi_frame();           // Outer MDI window frame around the form
     void _draw_form_caption_buttons(); // Min/Max/Close buttons on the title bar
     void _draw_form_resize_handles();  // Blue handles at form edges for resizing
@@ -331,6 +332,7 @@ private:
     bool has_menu_bar = false;       // True if form was created with "Main Form with Menu" template
     String menu_bar_node_name;       // Name used in .tscn (e.g., "MainMenu")
     Vector<String> menu_child_raw_blocks;  // Raw [node ...] blocks for PopupMenu children
+    Vector<String> menu_titles;      // Display titles extracted from PopupMenu node names
 
     // Controls in the form
     Vector<FormControlItem> controls;

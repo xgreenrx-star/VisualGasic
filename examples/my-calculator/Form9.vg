@@ -1,0 +1,30 @@
+' Form9.vg - Main Form with Menu
+' Generated from Visual Gasic template
+Option Explicit
+
+' Main form with menu bar
+Sub Form_Load()
+	' Initialize main form
+End Sub
+
+' File menu handlers
+Sub mnuFile_New_Click()
+	Print "New file"
+End Sub
+
+Sub mnuFile_Open_Click()
+	Print "Open file"
+End Sub
+
+Sub mnuFile_Save_Click()
+	Print "Save file"
+End Sub
+
+Sub mnuFile_Exit_Click()
+	Me.Close()
+End Sub
+
+' Help menu handlers
+Sub mnuHelp_About_Click()
+	MsgBox "My Application v1.0", vbInformation, "About"
+End Sub
