@@ -42,6 +42,21 @@ func _ready() -> void:
 			print("[VG-THEME] Applied VB6 Classic Theme to '", parent_window.name, "' (", vb6_theme.get_type_list().size(), " types)")
 		else:
 			print("[VG-THEME] ERROR: _build_vb6_classic_theme() returned null!")
+		
+		# Remove auto-generated empty MenuBars that were added by the old C++ serializer
+		# to blank forms.  A MenuBar is "empty default" when every PopupMenu child
+		# has zero user items (no add_item calls).  Forms created from the
+		# "Main Form with Menu" template will have items, so they are kept.
+		var main_menu = parent_window.get_node_or_null("MainMenu")
+		if main_menu is MenuBar:
+			var all_empty := true
+			for child in main_menu.get_children():
+				if child is PopupMenu and child.item_count > 0:
+					all_empty = false
+					break
+			if all_empty:
+				main_menu.queue_free()
+				print("[VG-THEME] Removed empty default MainMenu from '", parent_window.name, "'")
 	else:
 		print("[VG-THEME] Parent is not Window: ", parent_window.get_class() if parent_window else "null")
 
