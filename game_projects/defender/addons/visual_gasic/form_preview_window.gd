@@ -63,6 +63,13 @@ func build_from_designer(designer) -> void:
 	always_on_top = true
 	wrap_controls = true
 
+	# ── Apply VB6 Classic Theme so all child controls look correct ──
+	var FormEditorHelper = load("res://addons/visual_gasic/form_editor_helper.gd")
+	if FormEditorHelper:
+		var vb6_theme = FormEditorHelper._build_vb6_classic_theme()
+		if vb6_theme:
+			self.theme = vb6_theme
+
 	# Client area panel (form background)
 	_form_panel = Panel.new()
 	_form_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
