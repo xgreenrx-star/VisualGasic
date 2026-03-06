@@ -1566,6 +1566,9 @@ func open_form_in_designer(tscn_path: String) -> void:
 	_form_designer.open_form(tscn_path)
 	EditorInterface.set_main_screen_editor("Form Designer")
 	print("VisualGasic: Opened '", tscn_path, "' in Form Designer")
+	# If open_form() auto-injected the VB6 theme (file was pre-theme),
+	# force a scene reload so the 2D viewport picks up the theme too.
+	get_tree().create_timer(0.3).timeout.connect(_force_godot_scene_reload.bind(tscn_path))
 
 ## Sets initial split positions for the embedded VB6 IDE layout.
 ## Called deferred after the layout is added to the scene tree.

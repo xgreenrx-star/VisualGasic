@@ -3480,6 +3480,14 @@ bool VisualGasicFormDesigner::open_form(const String &p_tscn_path) {
     _update_min_size();
     queue_redraw();
     UtilityFunctions::print("FormDesigner: Opened '", form_name, "' with ", controls.size(), " controls");
+
+    // Auto-inject VB6 Classic Theme if the .tscn was saved before the theme
+    // feature existed.  Only writes once; subsequent opens find the marker and skip.
+    if (text.find("vb6_theme") < 0) {
+        save_form_as(p_tscn_path);
+        UtilityFunctions::print("FormDesigner: Auto-injected VB6 Classic Theme into ", p_tscn_path);
+    }
+
     return true;
 }
 
