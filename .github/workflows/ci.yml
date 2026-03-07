@@ -145,4 +145,3 @@ jobs:
 
       - name: Build (Windows template_debug)
         run: scons platform=windows target=template_debug -j$(nproc)
-          if-no-files-found: error
