@@ -139,28 +139,53 @@ const EVENT_MAP: Dictionary = {
 		"Click": "pressed",
 		"MouseDown": "button_down",
 		"MouseUp": "button_up",
+		"GotFocus": "focus_entered",
+		"LostFocus": "focus_exited",
+		"KeyDown": "gui_input",
+		"KeyUp": "gui_input",
+	},
+	"LinkButton": {
+		"Click": "pressed",
+		"GotFocus": "focus_entered",
+		"LostFocus": "focus_exited",
 	},
 	"LineEdit": {
 		"Change": "text_changed",
 		"KeyPress": "text_submitted",
+		"KeyDown": "gui_input",
+		"KeyUp": "gui_input",
 		"GotFocus": "focus_entered",
 		"LostFocus": "focus_exited",
+		"DblClick": "gui_input",
 	},
 	"TextEdit": {
 		"Change": "text_changed",
+		"KeyDown": "gui_input",
+		"KeyUp": "gui_input",
+		"KeyPress": "gui_input",
 		"GotFocus": "focus_entered",
 		"LostFocus": "focus_exited",
 	},
 	"CheckBox": {
 		"Click": "toggled",
+		"GotFocus": "focus_entered",
+		"LostFocus": "focus_exited",
 	},
 	"OptionButton": {
 		"Click": "item_selected",
 		"Change": "item_selected",
+		"GotFocus": "focus_entered",
+		"LostFocus": "focus_exited",
 	},
 	"ItemList": {
 		"Click": "item_selected",
 		"DblClick": "item_activated",
+		"KeyDown": "gui_input",
+		"KeyUp": "gui_input",
+		"GotFocus": "focus_entered",
+		"LostFocus": "focus_exited",
+		"ItemCheck": "item_selected",
+		"Scroll": "gui_input",
 	},
 	"Timer": {
 		"Timer": "timeout",
@@ -168,18 +193,76 @@ const EVENT_MAP: Dictionary = {
 	"HScrollBar": {
 		"Change": "value_changed",
 		"Scroll": "value_changed",
+		"GotFocus": "focus_entered",
+		"LostFocus": "focus_exited",
 	},
 	"VScrollBar": {
 		"Change": "value_changed",
 		"Scroll": "value_changed",
+		"GotFocus": "focus_entered",
+		"LostFocus": "focus_exited",
 	},
 	"HSlider": {
 		"Change": "value_changed",
+		"GotFocus": "focus_entered",
+		"LostFocus": "focus_exited",
+	},
+	"VSlider": {
+		"Change": "value_changed",
+		"GotFocus": "focus_entered",
+		"LostFocus": "focus_exited",
+	},
+	"ProgressBar": {
+		"Change": "value_changed",
+	},
+	"SpinBox": {
+		"Change": "value_changed",
+		"GotFocus": "focus_entered",
+		"LostFocus": "focus_exited",
 	},
 	"Tree": {
 		"Click": "item_selected",
 		"DblClick": "item_activated",
 		"NodeSelected": "item_selected",
+		"Expand": "item_collapsed",
+		"Collapse": "item_collapsed",
+		"KeyDown": "gui_input",
+		"GotFocus": "focus_entered",
+		"LostFocus": "focus_exited",
+	},
+	"TabContainer": {
+		"Click": "tab_changed",
+		"GotFocus": "focus_entered",
+		"LostFocus": "focus_exited",
+	},
+	"Label": {
+		"Click": "gui_input",
+		"DblClick": "gui_input",
+	},
+	"TextureRect": {
+		"Click": "gui_input",
+		"DblClick": "gui_input",
+		"MouseDown": "gui_input",
+		"MouseUp": "gui_input",
+		"MouseMove": "gui_input",
+	},
+	"Panel": {
+		"Click": "gui_input",
+		"DblClick": "gui_input",
+		"MouseDown": "gui_input",
+		"MouseUp": "gui_input",
+		"Resize": "resized",
+	},
+	"RichTextLabel": {
+		"Click": "gui_input",
+		"GotFocus": "focus_entered",
+		"LostFocus": "focus_exited",
+	},
+	"ColorRect": {
+		"Click": "gui_input",
+		"MouseDown": "gui_input",
+		"MouseUp": "gui_input",
+		"MouseMove": "gui_input",
 	},
 }
 
@@ -374,6 +457,33 @@ static func import_project(path: String) -> Dictionary:
 			
 		elif line.begins_with("Name="):
 			project_name = line.replace("Name=", "").replace('"', "")
+		
+		# Object= lines reference ActiveX OCX controls used by the project
+		elif line.begins_with("Object="):
+			var obj_info = line.replace("Object=", "").strip_edges()
+			result.warnings.append("ActiveX reference (OCX): " + obj_info + " — not available in Godot; controls mapped to built-in equivalents where possible")
+		
+		# Reference= lines reference COM type libraries (.tlb, .olb, .dll)
+		elif line.begins_with("Reference="):
+			var ref_info = line.replace("Reference=", "").strip_edges()
+			result.warnings.append("COM type library reference: " + ref_info + " — COM not supported; API calls will need manual replacement")
+		
+		# UserControl= lines reference .ctl user control files
+		elif line.begins_with("UserControl="):
+			var ctl_parts = line.replace("UserControl=", "").split(";")
+			if ctl_parts.size() > 1:
+				var ctl_file = ctl_parts[1].strip_edges()
+				result.warnings.append("UserControl (.ctl) skipped: " + ctl_file + " — import UserControls manually as custom scenes")
+			else:
+				result.warnings.append("UserControl (.ctl) skipped: " + line)
+		
+		# UserDocument= lines (ActiveX documents - very rare)
+		elif line.begins_with("UserDocument="):
+			result.warnings.append("UserDocument skipped: " + line + " — not supported")
+		
+		# PropertyPage= lines (property pages for controls - rare)
+		elif line.begins_with("PropertyPage="):
+			result.warnings.append("PropertyPage skipped: " + line + " — not supported")
 			
 	print("VB6 Importer: Found ", forms.size(), " forms, ", modules.size(), " modules, ", classes.size(), " classes")
 	
@@ -540,6 +650,12 @@ static func _parse_form_content(file: FileAccess, root: Control) -> Dictionary:
 		
 		# Skip version line
 		if trim.begins_with("VERSION "):
+			continue
+		
+		# Parse Object= lines (OCX references at top of .frm file)
+		# Format: Object = "{GUID}#version#lcid"; "filename.ocx"
+		if trim.begins_with("Object = ") or trim.begins_with("Object="):
+			result.warnings.append("Form requires ActiveX OCX: " + trim.replace("Object = ", "").replace("Object=", "").strip_edges())
 			continue
 		
 		# Detect code section start
@@ -1543,6 +1659,75 @@ static func _transform_line(line: String, control_arrays: Dictionary) -> String:
 		or trim.begins_with("Public Declare Function ") or trim.begins_with("Public Declare Sub "):
 		return result.replace(trim, "' [VB6 API] " + trim + "  ' TODO: Replace with Godot equivalent")
 	
+	# =========================================================================
+	# CONDITIONAL COMPILATION DIRECTIVES (#If / #Else / #End If / #Const)
+	# =========================================================================
+	if trim.begins_with("#If ") or trim.begins_with("#ElseIf "):
+		return result.replace(trim, "' [VB6 CC] " + trim)
+	if trim == "#Else":
+		return result.replace(trim, "' [VB6 CC] " + trim)
+	if trim == "#End If":
+		return result.replace(trim, "' [VB6 CC] " + trim)
+	if trim.begins_with("#Const "):
+		return result.replace(trim, "' [VB6 CC] " + trim)
+	
+	# =========================================================================
+	# RAISEEVENT / WITHEVENTS / EVENT DECLARATIONS
+	# =========================================================================
+	
+	# RaiseEvent EventName(args) -> emit_signal("EventName", args) (approximate)
+	var raiseevent_regex = RegEx.new()
+	raiseevent_regex.compile("^(\\s*)RaiseEvent\\s+(\\w+)\\((.*)\\)")
+	var raiseevent_match = raiseevent_regex.search(result)
+	if raiseevent_match:
+		var indent_re = raiseevent_match.get_string(1)
+		var event_name = raiseevent_match.get_string(2)
+		var args = raiseevent_match.get_string(3)
+		if args.strip_edges() != "":
+			result = indent_re + 'emit_signal("' + event_name + '", ' + args + ')  ' + "' VB6: RaiseEvent"
+		else:
+			result = indent_re + 'emit_signal("' + event_name + '")  ' + "' VB6: RaiseEvent"
+		return result
+	
+	# Simple RaiseEvent without parens: RaiseEvent EventName
+	if trim.begins_with("RaiseEvent "):
+		var event_name = trim.substr(len("RaiseEvent ")).strip_edges()
+		var indent_re = result.substr(0, result.length() - result.lstrip(" \t").length())
+		result = indent_re + 'emit_signal("' + event_name + '")  ' + "' VB6: RaiseEvent"
+		return result
+	
+	# WithEvents declaration -> comment with note
+	if "WithEvents " in trim and (trim.begins_with("Private ") or trim.begins_with("Public ") or trim.begins_with("Dim ")):
+		return result.replace(trim, "' [VB6] " + trim + "  ' TODO: Use Godot signals instead of WithEvents")
+	
+	# Event declaration (Public Event / Private Event)
+	if trim.begins_with("Public Event ") or trim.begins_with("Private Event ") or trim.begins_with("Event "):
+		return result.replace(trim, "' [VB6] " + trim + "  ' TODO: Define as signal in VisualGasic")
+	
+	# =========================================================================
+	# ERR OBJECT TRANSFORMS
+	# =========================================================================
+	
+	# Err.Raise -> comment with TODO
+	if "Err.Raise " in result:
+		var err_raise_regex = RegEx.new()
+		err_raise_regex.compile("Err\\.Raise\\s+(.+)")
+		var err_match = err_raise_regex.search(result)
+		if err_match:
+			result = result.replace(err_match.get_string(), "' Err.Raise " + err_match.get_string(1) + "  ' TODO: Use Throw or push_error()")
+	
+	# Err.Clear -> comment
+	if "Err.Clear" in result:
+		result = result.replace("Err.Clear", "' Err.Clear  ' Error state cleared")
+	
+	# Err.Number -> 0 with comment (in expressions)
+	if "Err.Number" in result and not result.strip_edges().begins_with("'"):
+		result = result.replace("Err.Number", "0  ' VB6: Err.Number")
+	
+	# Err.Description -> "" with comment (in expressions)
+	if "Err.Description" in result and not result.strip_edges().begins_with("'"):
+		result = result.replace("Err.Description", '"" ' + " ' VB6: Err.Description")
+	
 	# Property Let -> Property Set (VisualGasic uses Set for value setters)
 	if trim.begins_with("Property Let ") or trim.begins_with("Public Property Let ") \
 		or trim.begins_with("Private Property Let "):
@@ -1646,11 +1831,112 @@ static func _transform_line(line: String, control_arrays: Dictionary) -> String:
 	# .ForeColor -> .add_theme_color_override("font_color", ...) — leave as comment
 	# Too complex for auto-translate; keep as-is with note
 	
-	# .SelText -> .get_selected_text() / .insert_text_at_caret()
-	# .SelStart -> .caret_column  
-	# .SelLength -> .get_selection_to_column() - .get_selection_from_column()
-	# These need contextual handling, leave for manual review
+	# =========================================================================
+	# VB6 METHOD TRANSFORMS
+	# =========================================================================
 	
+	# .SetFocus -> .grab_focus()
+	var setfocus_regex = RegEx.new()
+	setfocus_regex.compile("\\.SetFocus\\b")
+	result = setfocus_regex.sub(result, ".grab_focus()", true)
+	
+	# .Refresh -> .queue_redraw()
+	var refresh_regex = RegEx.new()
+	refresh_regex.compile("\\.Refresh\\b")
+	result = refresh_regex.sub(result, ".queue_redraw()", true)
+	
+	# .AddItem -> .add_item()
+	var additem_regex = RegEx.new()
+	additem_regex.compile("\\.AddItem\\b")
+	result = additem_regex.sub(result, ".add_item", true)
+	
+	# .RemoveItem -> .remove_item()
+	var removeitem_regex = RegEx.new()
+	removeitem_regex.compile("\\.RemoveItem\\b")
+	result = removeitem_regex.sub(result, ".remove_item", true)
+	
+	# .Clear -> .clear()
+	var clear_regex = RegEx.new()
+	clear_regex.compile("\\.Clear\\b")
+	result = clear_regex.sub(result, ".clear()", true)
+	
+	# .ZOrder -> .z_index (approximate — VB6 ZOrder 0=front, 1=back)
+	var zorder_regex = RegEx.new()
+	zorder_regex.compile("\\.ZOrder\\b")
+	result = zorder_regex.sub(result, ".z_index", true)
+	
+	# .SelText -> .get_selected_text()  (read context)
+	var seltext_assign = RegEx.new()
+	seltext_assign.compile("(\\w+)\\.SelText\\s*=")
+	if seltext_assign.search(result):
+		result = seltext_assign.sub(result, "$1.insert_text_at_caret(")
+		result += ")"  # close the paren
+	else:
+		var seltext_regex = RegEx.new()
+		seltext_regex.compile("\\.SelText\\b")
+		result = seltext_regex.sub(result, ".get_selected_text()", true)
+	
+	# .SelStart -> .caret_column
+	var selstart_regex = RegEx.new()
+	selstart_regex.compile("\\.SelStart\\b")
+	result = selstart_regex.sub(result, ".caret_column", true)
+	
+	# .SelLength -> selection length (approximate)
+	var sellength_regex = RegEx.new()
+	sellength_regex.compile("\\.SelLength\\b")
+	result = sellength_regex.sub(result, ".get_selection_to_column() - .get_selection_from_column()  ' VB6: SelLength", true)
+	
+	# .ListIndex -> .get_selected_items()[0] (for ListBox/ComboBox)
+	var listindex_regex = RegEx.new()
+	listindex_regex.compile("\\.ListIndex\\b")
+	result = listindex_regex.sub(result, ".get_selected_items()[0]", true)
+	
+	# .Text -> .text (case sensitivity — most VB6 controls have .Text)
+	var text_prop_regex = RegEx.new()
+	text_prop_regex.compile("\\.Text\\b")
+	result = text_prop_regex.sub(result, ".text", true)
+	
+	# =========================================================================
+	# VB6 FORM/CONTROL MANAGEMENT
+	# =========================================================================
+	
+	# Load FormName -> FormName.show() (approximate)
+	var load_regex = RegEx.new()
+	load_regex.compile("^(\\s*)Load\\s+(\\w+)\\s*$")
+	var load_match = load_regex.search(result)
+	if load_match:
+		var indent = load_match.get_string(1)
+		var form_name = load_match.get_string(2)
+		result = indent + form_name + ".show()  ' VB6: Load " + form_name
+	
+	# Unload FormName -> FormName.hide() (approximate)
+	var unload_regex = RegEx.new()
+	unload_regex.compile("^(\\s*)Unload\\s+(\\w+)\\s*$")
+	var unload_match = unload_regex.search(result)
+	if unload_match:
+		var indent = unload_match.get_string(1)
+		var form_name = unload_match.get_string(2)
+		result = indent + form_name + ".hide()  ' VB6: Unload " + form_name
+	
+	# .Show -> .show()
+	var show_regex = RegEx.new()
+	show_regex.compile("\\.Show\\b")
+	result = show_regex.sub(result, ".show()", true)
+	
+	# .Hide -> .hide()
+	var hide_regex = RegEx.new()
+	hide_regex.compile("\\.Hide\\b")
+	result = hide_regex.sub(result, ".hide()", true)
+	
+	# .Move left, top, width, height -> position/size assignment (comment)
+	var move_regex = RegEx.new()
+	move_regex.compile("(\\w+)\\.Move\\s+(.+)")
+	var move_match = move_regex.search(result)
+	if move_match:
+		var ctrl = move_match.get_string(1)
+		var args = move_match.get_string(2)
+		result = result + "  ' TODO: " + ctrl + ".position = Vector2(left, top) ; " + ctrl + ".size = Vector2(width, height)"
+
 	# .ListCount -> .get_item_count(), .ListIndex -> .get_selected_items()[0]
 	var listcount_regex = RegEx.new()
 	listcount_regex.compile("\\.ListCount\\b")

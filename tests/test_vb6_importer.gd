@@ -94,6 +94,14 @@ func run_all_tests():
 	test_encoding_detection()
 	test_windows_1252_decode()
 	test_calculator_form_import()
+	test_method_transforms()
+	test_conditional_compilation()
+	test_raiseevent_transform()
+	test_withevents_transform()
+	test_err_object_transforms()
+	test_load_unload_transforms()
+	test_event_map_coverage()
+	test_show_hide_transforms()
 
 # --------------- Individual test functions ---------------
 
@@ -481,3 +489,192 @@ End Sub
 	assert_eq(VB6Importer.get_godot_equivalent("VB.TextBox"), "LineEdit", "VB.TextBox -> LineEdit")
 	
 	print("\n  Calculator code transform: %d lines output" % result.split("\n").size())
+
+# ===============================================================================
+# NEW TEST FUNCTIONS — Method Transforms, Conditional Compilation, etc.
+# ===============================================================================
+
+func test_method_transforms():
+	print("\n--- Method Transforms ---")
+	var ca: Dictionary = {}
+	
+	# .SetFocus -> .grab_focus()
+	var line = VB6Importer._transform_line("    TextBox1.SetFocus", ca)
+	assert_contains(line, ".grab_focus()", ".SetFocus -> .grab_focus()")
+	
+	# .Refresh -> .queue_redraw()
+	line = VB6Importer._transform_line("    Picture1.Refresh", ca)
+	assert_contains(line, ".queue_redraw()", ".Refresh -> .queue_redraw()")
+	
+	# .AddItem -> .add_item
+	line = VB6Importer._transform_line("    List1.AddItem \"Hello\"", ca)
+	assert_contains(line, ".add_item", ".AddItem -> .add_item")
+	
+	# .RemoveItem -> .remove_item
+	line = VB6Importer._transform_line("    List1.RemoveItem 0", ca)
+	assert_contains(line, ".remove_item", ".RemoveItem -> .remove_item")
+	
+	# .Clear -> .clear()
+	line = VB6Importer._transform_line("    List1.Clear", ca)
+	assert_contains(line, ".clear()", ".Clear -> .clear()")
+	
+	# .ZOrder -> .z_index
+	line = VB6Importer._transform_line("    Picture1.ZOrder 0", ca)
+	assert_contains(line, ".z_index", ".ZOrder -> .z_index")
+	
+	# .SelStart -> .caret_column
+	line = VB6Importer._transform_line("    pos = Text1.SelStart", ca)
+	assert_contains(line, ".caret_column", ".SelStart -> .caret_column")
+	
+	# .SelText (read) -> .get_selected_text()
+	line = VB6Importer._transform_line("    s = Text1.SelText", ca)
+	assert_contains(line, ".get_selected_text()", ".SelText -> .get_selected_text()")
+	
+	# .ListIndex -> .get_selected_items()[0]
+	line = VB6Importer._transform_line("    idx = List1.ListIndex", ca)
+	assert_contains(line, ".get_selected_items()", ".ListIndex -> .get_selected_items()")
+	
+	# .Text -> .text (case transform)
+	line = VB6Importer._transform_line("    s = TextBox1.Text", ca)
+	assert_contains(line, ".text", ".Text -> .text")
+
+func test_conditional_compilation():
+	print("\n--- Conditional Compilation ---")
+	var ca: Dictionary = {}
+	
+	# #If -> commented
+	var line = VB6Importer._transform_line("#If VBA6 Then", ca)
+	assert_contains(line, "' [VB6 CC]", "#If commented out")
+	
+	# #ElseIf -> commented
+	line = VB6Importer._transform_line("#ElseIf Win32 Then", ca)
+	assert_contains(line, "' [VB6 CC]", "#ElseIf commented out")
+	
+	# #Else -> commented
+	line = VB6Importer._transform_line("#Else", ca)
+	assert_contains(line, "' [VB6 CC]", "#Else commented out")
+	
+	# #End If -> commented
+	line = VB6Importer._transform_line("#End If", ca)
+	assert_contains(line, "' [VB6 CC]", "#End If commented out")
+	
+	# #Const -> commented
+	line = VB6Importer._transform_line("#Const DEBUG_MODE = 1", ca)
+	assert_contains(line, "' [VB6 CC]", "#Const commented out")
+
+func test_raiseevent_transform():
+	print("\n--- RaiseEvent Transform ---")
+	var ca: Dictionary = {}
+	
+	# RaiseEvent with args -> emit_signal
+	var line = VB6Importer._transform_line("    RaiseEvent StatusChanged(\"done\")", ca)
+	assert_contains(line, 'emit_signal("StatusChanged"', "RaiseEvent -> emit_signal with args")
+	assert_contains(line, '"done"', "RaiseEvent args preserved")
+	
+	# RaiseEvent without args
+	line = VB6Importer._transform_line("    RaiseEvent DataReady", ca)
+	assert_contains(line, 'emit_signal("DataReady")', "RaiseEvent no-args -> emit_signal")
+	
+	# Event declaration commented out
+	line = VB6Importer._transform_line("Public Event StatusChanged(ByVal msg As String)", ca)
+	assert_contains(line, "' [VB6]", "Public Event commented")
+	assert_contains(line, "signal", "Event note mentions signal")
+
+func test_withevents_transform():
+	print("\n--- WithEvents Transform ---")
+	var ca: Dictionary = {}
+	
+	# Private WithEvents -> commented
+	var line = VB6Importer._transform_line("Private WithEvents mTimer As TimerState", ca)
+	assert_contains(line, "' [VB6]", "WithEvents commented out")
+	assert_contains(line, "signal", "WithEvents note mentions signals")
+	
+	# Dim WithEvents -> commented
+	line = VB6Importer._transform_line("Dim WithEvents objConn As Connection", ca)
+	assert_contains(line, "' [VB6]", "Dim WithEvents commented")
+
+func test_err_object_transforms():
+	print("\n--- Err Object Transforms ---")
+	var ca: Dictionary = {}
+	
+	# Err.Raise -> commented with TODO
+	var line = VB6Importer._transform_line("    Err.Raise vbObjectError + 1, \"MyClass\", \"Invalid\"", ca)
+	assert_contains(line, "'", "Err.Raise commented")
+	assert_contains(line, "TODO", "Err.Raise has TODO")
+	
+	# Err.Clear -> commented
+	line = VB6Importer._transform_line("    Err.Clear", ca)
+	assert_contains(line, "'", "Err.Clear commented")
+	
+	# Err.Number in expression -> 0
+	line = VB6Importer._transform_line("    If Err.Number <> 0 Then", ca)
+	assert_contains(line, "0", "Err.Number replaced with 0")
+	assert_contains(line, "VB6", "Err.Number has VB6 comment")
+	
+	# Err.Description -> ""
+	line = VB6Importer._transform_line("    msg = Err.Description", ca)
+	assert_contains(line, "VB6", "Err.Description has VB6 comment")
+
+func test_load_unload_transforms():
+	print("\n--- Load/Unload Transforms ---")
+	var ca: Dictionary = {}
+	
+	# Load FormName -> .show()
+	var line = VB6Importer._transform_line("    Load Form2", ca)
+	assert_contains(line, "Form2.show()", "Load Form2 -> Form2.show()")
+	
+	# Unload FormName -> .hide()
+	line = VB6Importer._transform_line("    Unload Form1", ca)
+	assert_contains(line, "Form1.hide()", "Unload Form1 -> Form1.hide()")
+	
+	# .Show -> .show()
+	line = VB6Importer._transform_line("    frmMain.Show", ca)
+	assert_contains(line, ".show()", ".Show -> .show()")
+	
+	# .Hide -> .hide()
+	line = VB6Importer._transform_line("    frmMain.Hide", ca)
+	assert_contains(line, ".hide()", ".Hide -> .hide()")
+
+func test_event_map_coverage():
+	print("\n--- EVENT_MAP Coverage ---")
+	
+	# Verify expanded EVENT_MAP has expected control types
+	assert_true(VB6Importer.EVENT_MAP.has("Button"), "EVENT_MAP has Button")
+	assert_true(VB6Importer.EVENT_MAP.has("LineEdit"), "EVENT_MAP has LineEdit")
+	assert_true(VB6Importer.EVENT_MAP.has("TextEdit"), "EVENT_MAP has TextEdit")
+	assert_true(VB6Importer.EVENT_MAP.has("CheckBox"), "EVENT_MAP has CheckBox")
+	assert_true(VB6Importer.EVENT_MAP.has("Timer"), "EVENT_MAP has Timer")
+	assert_true(VB6Importer.EVENT_MAP.has("Label"), "EVENT_MAP has Label")
+	assert_true(VB6Importer.EVENT_MAP.has("TextureRect"), "EVENT_MAP has TextureRect")
+	assert_true(VB6Importer.EVENT_MAP.has("Panel"), "EVENT_MAP has Panel")
+	assert_true(VB6Importer.EVENT_MAP.has("RichTextLabel"), "EVENT_MAP has RichTextLabel")
+	assert_true(VB6Importer.EVENT_MAP.has("ColorRect"), "EVENT_MAP has ColorRect")
+	assert_true(VB6Importer.EVENT_MAP.has("VSlider"), "EVENT_MAP has VSlider")
+	assert_true(VB6Importer.EVENT_MAP.has("ProgressBar"), "EVENT_MAP has ProgressBar")
+	assert_true(VB6Importer.EVENT_MAP.has("SpinBox"), "EVENT_MAP has SpinBox")
+	assert_true(VB6Importer.EVENT_MAP.has("TabContainer"), "EVENT_MAP has TabContainer")
+	assert_true(VB6Importer.EVENT_MAP.has("LinkButton"), "EVENT_MAP has LinkButton")
+	
+	# Verify Button has KeyDown/KeyUp events
+	assert_true(VB6Importer.EVENT_MAP["Button"].has("KeyDown"), "Button has KeyDown event")
+	assert_true(VB6Importer.EVENT_MAP["Button"].has("KeyUp"), "Button has KeyUp event")
+	
+	# Verify TextureRect has MouseMove
+	assert_true(VB6Importer.EVENT_MAP["TextureRect"].has("MouseMove"), "TextureRect has MouseMove")
+	
+	# Verify Panel has Resize
+	assert_true(VB6Importer.EVENT_MAP["Panel"].has("Resize"), "Panel has Resize event")
+	
+	# Count total events mapped
+	var total_events = 0
+	for ctrl_type in VB6Importer.EVENT_MAP:
+		total_events += VB6Importer.EVENT_MAP[ctrl_type].size()
+	print("  Total event mappings: %d across %d control types" % [total_events, VB6Importer.EVENT_MAP.size()])
+
+func test_show_hide_transforms():
+	print("\n--- Show/Hide/Move Transforms ---")
+	var ca: Dictionary = {}
+	
+	# .Move with args -> position/size comment
+	var line = VB6Importer._transform_line("    Picture1.Move 100, 200, 300, 400", ca)
+	assert_contains(line, "TODO", ".Move has TODO for manual conversion")
