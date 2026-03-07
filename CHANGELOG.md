@@ -5,6 +5,38 @@ All notable changes to Visual Gasic will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.5.0-beta2] - March 6, 2026
+
+### 🎨 IDE Polish Release
+
+Major IDE theming overhaul, new tools, and 15+ bug fixes.
+
+### Added
+- **Custom Theme Editor** — full Edit Theme tab with 38 color pickers and live preview
+- **8 IDE themes** with complete chrome theming (VB6 Classic, QuickBasic, Godot Dark, Amiga Workbench, Modern Dark, Modern Light, High Contrast, Solarized Dark)
+- **Object Browser** — Tools → Object Browser for exploring Godot class hierarchy
+- **Project Properties dialog** — Project → Project Properties now opens a proper settings dialog
+
+### Fixed
+- **VB6 Classic theme** — was showing QuickBasic colors (blue bg/yellow text), now authentic VB6 (white bg/blue keywords)
+- **Menu Editor** dark colors — now uses VB6 cream theme
+- **New Custom Control dialog** dark colors — VB6 cream theme applied
+- **Snippet Browser** dark colors — VB6 cream theme applied
+- **Project Properties** dark colors — VB6 cream theme applied
+- **Font size consistency** — flows correctly from WYSIWYG editor to all rendering paths
+- **Dark controls in Form Preview Window** — VB6 Classic Theme applied
+- **MenuBar preview rendering** improved in Form Designer
+- **MenuBar round-trip** — name mismatch and lost PopupMenu children fixed
+- **Ghost blank rows** in VB6 menus (File, Edit, Debug) removed
+- **File → Open Project** was a no-op — now functional
+- **New Module dialog** garbled text fixed
+- **project_properties.gd** was missing — added
+
+### Changed
+- **godot-cpp submodule** updated: API 4.5.1, test bindings helper, vgename fix
+
+---
+
 ## [3.3.0] - March 2026
 
 ### 🚀 Language Enhancements Release

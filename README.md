@@ -1,7 +1,7 @@
 # VisualGasic — A Modern Language for Godot 4
 
 [![CI](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml/badge.svg)](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/badge/version-3.3.0-blue.svg)](https://github.com/xgreenrx-star/VisualGasic/releases)
+[![Version](https://img.shields.io/badge/version-3.5.0--beta2-blue.svg)](https://github.com/xgreenrx-star/VisualGasic/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Godot](https://img.shields.io/badge/Godot-4.5+-purple.svg)](https://godotengine.org)
 
@@ -9,7 +9,7 @@
 
 > **VisualGasic is not a VB6 clone.** It is a modern language that draws inspiration from VB6's approachable syntax and ease of learning, while introducing advanced features that go well beyond what VB6 ever offered. VG is VB6-*compatible* where it makes sense — you can port VB6 projects and feel at home immediately — but the language itself is designed to look forwards, not backwards.
 
-> ⚠️ **Early Beta** — v3.3.0 version number reflects internal dev history. This is the first public release. [See release notes](RELEASE_NOTES_v3.2.0-beta1.md).
+> ⚠️ **Early Beta** — version number reflects internal dev history. Latest: v3.5.0-beta2 (IDE Polish Release). [See release notes](RELEASE_NOTES_v3.5.0-beta2.md).
 
 ## 🚀 **Key Features**
 
@@ -49,7 +49,7 @@
 - **Advanced Debugger** - Conditional breakpoint expressions, Stop statement, call stack, watch window, time-travel debugging
 - **Code Linting** - Static analysis with 10 issue codes (VG001-VG010)
 - **Snippet Manager** - 40+ built-in snippets with custom snippet support
-- **Theme Support** - 5 built-in themes including VB6 Classic
+- **Theme Support** - 8 built-in themes with full IDE chrome theming + Custom Theme Editor
 - **Form Designer** - Full C++ WYSIWYG form editor with VB6-style Toolbox, Properties Panel, live Preview, 40+ controls
 
 ### **VB6-Style Form Designer**
@@ -57,6 +57,12 @@
 ![Form Designer IDE](docs/screenshots/form_designer_ide.png)
 
 *Complete VB6 IDE: Toolbox (40+ controls) · WYSIWYG Canvas · Properties Panel · Project Explorer · Alignment Toolbar · Live Preview*
+
+### **Custom Theme Editor**
+
+![Theme Editor](docs/screenshots/theme_picker_editor.png)
+
+*8 built-in themes + Custom Theme Editor with 38 adjustable colors and live preview*
 
 ### **Game Development**
 - **Entity Component System** - High-performance ECS with archetype optimization
