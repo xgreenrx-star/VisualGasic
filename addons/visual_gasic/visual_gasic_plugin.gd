@@ -4075,10 +4075,13 @@ func _create_new_form(form_name: String):
 func _on_new_module():
 	var dlg = AcceptDialog.new()
 	dlg.title = "New Module"
-	dlg.dialog_text = "Enter a name for the new module:"
 	dlg.ok_button_text = "Create"
 	
 	var vbox = VBoxContainer.new()
+	
+	var desc_label = Label.new()
+	desc_label.text = "Enter a name for the new module:"
+	vbox.add_child(desc_label)
 	
 	var name_label = Label.new()
 	name_label.text = "Module Name:"

@@ -1316,7 +1316,7 @@ func _finish_form_creation(path: String, form_name: String, vg_path: String, tem
 	# Add MenuBar FIRST if specified - so _FormBackground comes AFTER and intercepts drops
 	if template.get("has_menu", false):
 		var menu_bar = MenuBar.new()
-		menu_bar.name = "MenuBar"
+		menu_bar.name = "MainMenu"
 		menu_bar.anchor_left = 0.0
 		menu_bar.anchor_top = 0.0
 		menu_bar.anchor_right = 1.0
@@ -2987,19 +2987,20 @@ static func _strip_empty_menubar_from_tscn(tscn_path: String) -> void:
 		return
 	
 	# Check if there are any real menu items (populated PopupMenus)
-	# If we find add_item patterns or item_count references, keep the menu
-	# We only strip if the PopupMenu nodes have zero content
+	# A PopupMenu child of MainMenu is any node with parent="MainMenu"
+	# We only strip if ALL such children have zero content (no properties beyond the header)
 	var has_menu_items := false
 	var lines = text.split("\n")
-	var in_popup := false
+	var in_menu_child := false
 	for line in lines:
 		var stripped = line.strip_edges()
-		if stripped.begins_with("[node name=\"mnuFile\"") or stripped.begins_with("[node name=\"mnuEdit\""):
-			in_popup = true
+		# Detect any PopupMenu node that is a child of MainMenu
+		if stripped.begins_with("[node ") and "parent=\"MainMenu\"" in stripped and "type=\"PopupMenu\"" in stripped:
+			in_menu_child = true
 			continue
-		if in_popup and stripped.begins_with("["):
-			in_popup = false  # hit next node section
-		if in_popup and not stripped.is_empty() and not stripped.begins_with("["):
+		if in_menu_child and stripped.begins_with("["):
+			in_menu_child = false  # hit next node section
+		if in_menu_child and not stripped.is_empty() and not stripped.begins_with("["):
 			# PopupMenu has actual properties = user added items
 			has_menu_items = true
 			break
@@ -3007,7 +3008,7 @@ static func _strip_empty_menubar_from_tscn(tscn_path: String) -> void:
 	if has_menu_items:
 		return  # Real menu content, keep it
 	
-	# Strip the MainMenu, mnuFile, mnuEdit nodes and the menu_bar_helper ext_resource
+	# Strip the MainMenu and ALL its child nodes, plus the menu_bar_helper ext_resource
 	var result_lines: PackedStringArray = []
 	var menu_helper_id := ""
 	var skip_until_next_node := false
@@ -3030,17 +3031,16 @@ static func _strip_empty_menubar_from_tscn(tscn_path: String) -> void:
 		if stripped.begins_with("[node name=\"MainMenu\""):
 			skip_until_next_node = true
 			continue
-		# Skip mnuFile node
-		if stripped.begins_with("[node name=\"mnuFile\""):
-			skip_until_next_node = true
-			continue
-		# Skip mnuEdit node
-		if stripped.begins_with("[node name=\"mnuEdit\""):
+		# Skip any child node of MainMenu (PopupMenu children)
+		if stripped.begins_with("[node ") and "parent=\"MainMenu\"" in stripped:
 			skip_until_next_node = true
 			continue
 		
 		if skip_until_next_node:
 			if stripped.begins_with("[node ") or stripped.begins_with("[connection "):
+				# Check if THIS node is also a MainMenu child before stopping skip
+				if "parent=\"MainMenu\"" in stripped:
+					continue  # Still a MainMenu child, keep skipping
 				skip_until_next_node = false
 				result_lines.append(line)
 			# else skip this line (part of the menu node block)
@@ -4075,10 +4075,13 @@ func _create_new_form(form_name: String):
 func _on_new_module():
 	var dlg = AcceptDialog.new()
 	dlg.title = "New Module"
-	dlg.dialog_text = "Enter a name for the new module:"
 	dlg.ok_button_text = "Create"
 	
 	var vbox = VBoxContainer.new()
+	
+	var desc_label = Label.new()
+	desc_label.text = "Enter a name for the new module:"
+	vbox.add_child(desc_label)
 	
 	var name_label = Label.new()
 	name_label.text = "Module Name:"
