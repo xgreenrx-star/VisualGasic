@@ -1705,9 +1705,19 @@ func _load_theme_config() -> void:
 ## Godot's dark editor theme.
 func _build_vb6_theme() -> Theme:
 	var t = Theme.new()
-	var bg: Color = _theme.get("panel_background", Color("#F0EDE8"))
-	var border: Color = _theme.get("panel_border", Color(0.72, 0.71, 0.68))
-	var text_color := Color.BLACK
+	# Read IDE chrome colors from the active theme in VGThemeManager
+	var td = VGThemeManager.get_current_theme()
+	var bg: Color = td.ide_panel_bg if td else _theme.get("panel_background", Color("#F0EDE8"))
+	var border: Color = td.ide_panel_border if td else _theme.get("panel_border", Color(0.72, 0.71, 0.68))
+	var text_color: Color = td.ide_text_color if td else Color.BLACK
+	var list_bg: Color = td.ide_list_bg if td else Color.WHITE
+	var tab_sel_bg: Color = td.ide_tab_selected_bg if td else bg
+	var tab_unsel_bg: Color = td.ide_tab_unselected_bg if td else Color(0.85, 0.84, 0.82)
+	var tab_hover_bg: Color = td.ide_tab_hover_bg if td else Color(0.95, 0.94, 0.92)
+	var btn_hover_bg: Color = td.ide_btn_hover_bg if td else Color(0.95, 0.94, 0.92)
+	var btn_pressed_bg: Color = td.ide_btn_pressed_bg if td else Color(0.88, 0.87, 0.85)
+	var tooltip_bg: Color = td.ide_tooltip_bg if td else Color(1.0, 1.0, 0.94)
+	var tab_unsel_text: Color = text_color.lerp(bg, 0.35)
 
 	# ── PanelContainer (fixes C++ VisualGasicToolbox dark bg) ──
 	var pc_sb = StyleBoxFlat.new()
@@ -1724,7 +1734,7 @@ func _build_vb6_theme() -> Theme:
 	t.set_stylebox("panel", "TabContainer", tc_panel)
 
 	var tab_sel = StyleBoxFlat.new()
-	tab_sel.bg_color = bg
+	tab_sel.bg_color = tab_sel_bg
 	tab_sel.border_color = border
 	tab_sel.border_width_left = 1; tab_sel.border_width_top = 1
 	tab_sel.border_width_right = 1; tab_sel.border_width_bottom = 0
@@ -1734,7 +1744,7 @@ func _build_vb6_theme() -> Theme:
 	t.set_stylebox("tab_selected", "TabBar", tab_sel)
 
 	var tab_unsel = StyleBoxFlat.new()
-	tab_unsel.bg_color = Color(0.85, 0.84, 0.82)
+	tab_unsel.bg_color = tab_unsel_bg
 	tab_unsel.border_color = border
 	tab_unsel.set_border_width_all(1)
 	tab_unsel.content_margin_left = 8; tab_unsel.content_margin_right = 8
@@ -1743,7 +1753,7 @@ func _build_vb6_theme() -> Theme:
 	t.set_stylebox("tab_unselected", "TabBar", tab_unsel)
 
 	var tab_hover = StyleBoxFlat.new()
-	tab_hover.bg_color = Color(0.95, 0.94, 0.92)
+	tab_hover.bg_color = tab_hover_bg
 	tab_hover.border_color = border
 	tab_hover.border_width_left = 1; tab_hover.border_width_top = 1
 	tab_hover.border_width_right = 1; tab_hover.border_width_bottom = 0
@@ -1754,24 +1764,24 @@ func _build_vb6_theme() -> Theme:
 
 	# Tab font colors
 	t.set_color("font_selected_color", "TabContainer", text_color)
-	t.set_color("font_unselected_color", "TabContainer", Color(0.3, 0.3, 0.3))
+	t.set_color("font_unselected_color", "TabContainer", tab_unsel_text)
 	t.set_color("font_hovered_color", "TabContainer", text_color)
 	t.set_color("font_selected_color", "TabBar", text_color)
-	t.set_color("font_unselected_color", "TabBar", Color(0.3, 0.3, 0.3))
+	t.set_color("font_unselected_color", "TabBar", tab_unsel_text)
 	t.set_color("font_hovered_color", "TabBar", text_color)
 
 	# ── Tree (Project Explorer, Properties Inspector) ──
 	var tree_sb = StyleBoxFlat.new()
-	tree_sb.bg_color = Color.WHITE
+	tree_sb.bg_color = list_bg
 	tree_sb.border_color = border
 	tree_sb.set_border_width_all(1)
 	t.set_stylebox("panel", "Tree", tree_sb)
 	t.set_color("font_color", "Tree", text_color)
-	t.set_color("font_selected_color", "Tree", Color.WHITE)
+	t.set_color("font_selected_color", "Tree", Color.WHITE if text_color.get_luminance() < 0.5 else Color.BLACK)
 
 	# ── ItemList ──
 	var il_sb = StyleBoxFlat.new()
-	il_sb.bg_color = Color.WHITE
+	il_sb.bg_color = list_bg
 	il_sb.border_color = border
 	il_sb.set_border_width_all(1)
 	t.set_stylebox("panel", "ItemList", il_sb)
@@ -1782,7 +1792,7 @@ func _build_vb6_theme() -> Theme:
 
 	# ── LineEdit (property fields) ──
 	var le_sb = StyleBoxFlat.new()
-	le_sb.bg_color = Color.WHITE
+	le_sb.bg_color = list_bg
 	le_sb.border_color = border
 	le_sb.set_border_width_all(1)
 	le_sb.content_margin_left = 4; le_sb.content_margin_right = 4
@@ -1799,20 +1809,20 @@ func _build_vb6_theme() -> Theme:
 	btn_sb.content_margin_left = 4; btn_sb.content_margin_right = 4
 	btn_sb.content_margin_top = 2; btn_sb.content_margin_bottom = 2
 	t.set_stylebox("normal", "Button", btn_sb)
-	var btn_hover = StyleBoxFlat.new()
-	btn_hover.bg_color = Color(0.95, 0.94, 0.92)
-	btn_hover.border_color = border
-	btn_hover.set_border_width_all(1)
-	btn_hover.content_margin_left = 4; btn_hover.content_margin_right = 4
-	btn_hover.content_margin_top = 2; btn_hover.content_margin_bottom = 2
-	t.set_stylebox("hover", "Button", btn_hover)
-	var btn_pressed = StyleBoxFlat.new()
-	btn_pressed.bg_color = Color(0.88, 0.87, 0.85)
-	btn_pressed.border_color = border
-	btn_pressed.set_border_width_all(1)
-	btn_pressed.content_margin_left = 4; btn_pressed.content_margin_right = 4
-	btn_pressed.content_margin_top = 2; btn_pressed.content_margin_bottom = 2
-	t.set_stylebox("pressed", "Button", btn_pressed)
+	var btn_hov = StyleBoxFlat.new()
+	btn_hov.bg_color = btn_hover_bg
+	btn_hov.border_color = border
+	btn_hov.set_border_width_all(1)
+	btn_hov.content_margin_left = 4; btn_hov.content_margin_right = 4
+	btn_hov.content_margin_top = 2; btn_hov.content_margin_bottom = 2
+	t.set_stylebox("hover", "Button", btn_hov)
+	var btn_prs = StyleBoxFlat.new()
+	btn_prs.bg_color = btn_pressed_bg
+	btn_prs.border_color = border
+	btn_prs.set_border_width_all(1)
+	btn_prs.content_margin_left = 4; btn_prs.content_margin_right = 4
+	btn_prs.content_margin_top = 2; btn_prs.content_margin_bottom = 2
+	t.set_stylebox("pressed", "Button", btn_prs)
 	t.set_color("font_color", "Button", text_color)
 	t.set_color("font_hover_color", "Button", text_color)
 	t.set_color("font_pressed_color", "Button", text_color)
@@ -1834,12 +1844,12 @@ func _build_vb6_theme() -> Theme:
 
 	# ── Tooltip (classic light-yellow tooltip) ──
 	var tooltip_sb = StyleBoxFlat.new()
-	tooltip_sb.bg_color = Color(1.0, 1.0, 0.94)   # Light-yellow
+	tooltip_sb.bg_color = tooltip_bg
 	tooltip_sb.border_color = Color(0.0, 0.0, 0.0)
 	tooltip_sb.set_border_width_all(1)
 	tooltip_sb.set_content_margin_all(4)
 	t.set_stylebox("panel", "TooltipPanel", tooltip_sb)
-	t.set_color("font_color", "TooltipLabel", Color.BLACK)
+	t.set_color("font_color", "TooltipLabel", Color.BLACK if tooltip_bg.get_luminance() > 0.5 else Color.WHITE)
 
 	return t
 
@@ -4017,12 +4027,32 @@ func _on_open_theme_picker():
 	if _theme_picker:
 		_theme_picker.popup_centered()
 
-## Applies a new theme to the active code editor (v2.4.1)
+## Applies a new theme to the active code editor AND IDE chrome (v3.5)
 func _on_theme_changed(theme_name: String):
 	var theme_mgr_script = load("res://addons/visual_gasic/vg_theme_manager.gd")
 	if theme_mgr_script and _current_code_edit and is_instance_valid(_current_code_edit):
 		theme_mgr_script.apply_to_code_edit(_current_code_edit)
-		print("VisualGasic: Applied theme '", theme_name, "'")
+	
+	# Also update the IDE chrome colors from the new theme
+	var td = VGThemeManager.get_current_theme()
+	if td:
+		# Update the _theme dictionary with IDE chrome values
+		_theme["panel_background"] = td.ide_panel_bg
+		_theme["panel_border"] = td.ide_panel_border
+		_theme["header_background"] = td.ide_header_bg
+		_theme["header_border"] = td.ide_header_border
+		_theme["header_text"] = td.ide_header_text
+		_theme["toolbox_btn_normal"] = td.ide_panel_bg
+		_theme["toolbox_btn_hover"] = td.ide_toolbox_btn_hover
+		_theme["toolbox_btn_pressed"] = td.ide_toolbox_btn_pressed
+		_theme["toolbox_text"] = td.ide_text_color
+		_theme["toolbox_text_pressed"] = td.ide_toolbox_text_pressed
+	
+	# Rebuild the IDE Theme from the new colors
+	if is_instance_valid(_ide_layout):
+		_ide_layout.theme = _build_vb6_theme()
+	_apply_vb6_theme()
+	print("VisualGasic: Applied theme '", theme_name, "' (code + IDE)")
 
 
 ## Updates the Form Designer button pressed state when mode changes.
