@@ -2798,6 +2798,7 @@ func _on_vb6_file_menu(id: int) -> void:
 	match id:
 		0: _on_add_form()
 		1: _on_new_module()
+		2: _on_open_project()
 		10: _do_save_form()
 		11: _do_save_form_as()
 		20: _on_import_vb6_form()
@@ -2846,6 +2847,24 @@ func _do_save_form_as() -> void:
 		_form_designer.save_form_as(path)
 		print("[VisualGasic] Form saved as: ", path)
 		_reload_scene_after_form_save(path)
+		fd.queue_free()
+	)
+	fd.canceled.connect(fd.queue_free)
+	get_editor_interface().get_base_control().add_child(fd)
+	fd.popup_centered()
+
+## Show a FileDialog so the user can open an existing form (.tscn) in the
+## Form Designer.  This is the File > Open Project handler.
+func _on_open_project() -> void:
+	var fd = FileDialog.new()
+	fd.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	fd.access = FileDialog.ACCESS_RESOURCES
+	fd.add_filter("*.tscn ; Godot Scene")
+	fd.title = "Open Project..."
+	fd.min_size = Vector2i(600, 400)
+	fd.current_dir = "res://"
+	fd.file_selected.connect(func(path: String):
+		open_form_in_designer(path)
 		fd.queue_free()
 	)
 	fd.canceled.connect(fd.queue_free)
