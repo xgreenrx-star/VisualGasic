@@ -2165,6 +2165,112 @@ func _build_vb6_scene_theme() -> Theme:
 
 	return t
 
+## Builds a VB6-style Theme for popup dialogs created inline (AcceptDialog, etc.).
+## This is the same palette used by components_dialog.gd, menu_editor.gd, etc.
+func _build_vb6_dialog_theme() -> Theme:
+	var t = Theme.new()
+	var panel_bg     := Color(0.941, 0.929, 0.910)   # #F0EDE8 cream
+	var panel_border := Color(0.72, 0.71, 0.68)
+	var header_bg    := Color(0.58, 0.58, 0.62)
+	var header_border:= Color(0.4, 0.4, 0.4)
+	var text_color   := Color(0.0, 0.0, 0.0)
+	var list_bg      := Color(1.0, 1.0, 1.0)
+	var btn_hover    := Color(0.95, 0.94, 0.92)
+	var btn_pressed  := Color(0.88, 0.87, 0.85)
+	var active_title := Color(0.0, 0.0, 0.5)
+
+	# ── Window chrome ──
+	var win_sb = StyleBoxFlat.new()
+	win_sb.bg_color = header_bg
+	win_sb.border_color = header_border
+	win_sb.set_border_width_all(2)
+	win_sb.set_content_margin_all(4)
+	t.set_stylebox("embedded_border", "Window", win_sb)
+	var win_unfocus = win_sb.duplicate()
+	win_unfocus.bg_color = Color(0.50, 0.50, 0.50)
+	t.set_stylebox("embedded_unfocused_border", "Window", win_unfocus)
+	t.set_color("title_color", "Window", Color.WHITE)
+	t.set_color("title_outline_modulate", "Window", Color.TRANSPARENT)
+
+	# ── AcceptDialog panel ──
+	var dlg_sb = StyleBoxFlat.new()
+	dlg_sb.bg_color = panel_bg
+	dlg_sb.border_color = panel_border
+	dlg_sb.set_border_width_all(1)
+	dlg_sb.set_content_margin_all(10)
+	t.set_stylebox("panel", "AcceptDialog", dlg_sb)
+
+	# ── Label ──
+	t.set_color("font_color", "Label", text_color)
+
+	# ── LineEdit ──
+	var le_sb = StyleBoxFlat.new()
+	le_sb.bg_color = list_bg
+	le_sb.border_color = panel_border
+	le_sb.set_border_width_all(1)
+	le_sb.set_content_margin_all(4)
+	t.set_stylebox("normal", "LineEdit", le_sb)
+	t.set_stylebox("focus", "LineEdit", le_sb.duplicate())
+	t.set_color("font_color", "LineEdit", text_color)
+	t.set_color("font_placeholder_color", "LineEdit", Color(0.5, 0.5, 0.5))
+
+	# ── OptionButton ──
+	var ob_sb = StyleBoxFlat.new()
+	ob_sb.bg_color = panel_bg
+	ob_sb.border_color = panel_border
+	ob_sb.set_border_width_all(1)
+	ob_sb.content_margin_left = 6; ob_sb.content_margin_right = 6
+	ob_sb.content_margin_top = 3; ob_sb.content_margin_bottom = 3
+	t.set_stylebox("normal", "OptionButton", ob_sb)
+	var ob_hov = ob_sb.duplicate()
+	ob_hov.bg_color = btn_hover
+	t.set_stylebox("hover", "OptionButton", ob_hov)
+	var ob_pre = ob_sb.duplicate()
+	ob_pre.bg_color = btn_pressed
+	t.set_stylebox("pressed", "OptionButton", ob_pre)
+	t.set_color("font_color", "OptionButton", text_color)
+	t.set_color("font_hover_color", "OptionButton", text_color)
+	t.set_color("font_pressed_color", "OptionButton", text_color)
+
+	# ── PopupMenu (OptionButton dropdown) ──
+	var pm_sb = StyleBoxFlat.new()
+	pm_sb.bg_color = list_bg
+	pm_sb.border_color = panel_border
+	pm_sb.set_border_width_all(1)
+	pm_sb.set_content_margin_all(4)
+	t.set_stylebox("panel", "PopupMenu", pm_sb)
+	t.set_color("font_color", "PopupMenu", text_color)
+	t.set_color("font_hover_color", "PopupMenu", Color.WHITE)
+	var pm_hov = StyleBoxFlat.new()
+	pm_hov.bg_color = active_title
+	t.set_stylebox("hover", "PopupMenu", pm_hov)
+
+	# ── Button ──
+	var btn_sb = StyleBoxFlat.new()
+	btn_sb.bg_color = panel_bg
+	btn_sb.border_color = panel_border
+	btn_sb.set_border_width_all(1)
+	btn_sb.content_margin_left = 8; btn_sb.content_margin_right = 8
+	btn_sb.content_margin_top = 3; btn_sb.content_margin_bottom = 3
+	t.set_stylebox("normal", "Button", btn_sb)
+	var bh = btn_sb.duplicate()
+	bh.bg_color = btn_hover
+	t.set_stylebox("hover", "Button", bh)
+	var bp = btn_sb.duplicate()
+	bp.bg_color = btn_pressed
+	t.set_stylebox("pressed", "Button", bp)
+	t.set_color("font_color", "Button", text_color)
+	t.set_color("font_hover_color", "Button", text_color)
+	t.set_color("font_pressed_color", "Button", text_color)
+
+	# ── HSeparator ──
+	var sep_sb = StyleBoxFlat.new()
+	sep_sb.bg_color = panel_border
+	sep_sb.content_margin_top = 4; sep_sb.content_margin_bottom = 4
+	t.set_stylebox("separator", "HSeparator", sep_sb)
+
+	return t
+
 ## Applies the VB6 Classic Theme to the currently edited scene root.
 ## This modifies the LIVE in-memory scene tree so Godot's editor preview
 ## (2D viewport) and runtime (F5) both show the VB6 look.
@@ -4592,6 +4698,10 @@ func _on_new_custom_control():
 	dlg.title = "New Custom Control"
 	dlg.ok_button_text = "Create"
 	dlg.size = Vector2i(380, 200)
+	dlg.theme = _build_vb6_dialog_theme()
+
+	# Hide AcceptDialog's default label
+	dlg.get_label().visible = false
 
 	# Build a small form inside the dialog
 	var vbox = VBoxContainer.new()
@@ -4634,7 +4744,6 @@ func _on_new_custom_control():
 	var info = Label.new()
 	info.text = "Saves to res://custom_controls/ and adds to Toolbox."
 	info.add_theme_font_size_override("font_size", 11)
-	info.add_theme_color_override("font_color", Color(0.4, 0.4, 0.4))
 	vbox.add_child(info)
 
 	dlg.confirmed.connect(func():
