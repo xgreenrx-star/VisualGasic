@@ -114,6 +114,102 @@ func _init():
 	bots.add_child(btn_cancel)
 	vbox.add_child(bots)
 
+func _ready():
+	theme = _build_vb6_theme()
+
+## Builds a VB6-style theme for the Menu Editor dialog.
+func _build_vb6_theme() -> Theme:
+	const PANEL_BG      = Color(0.941, 0.929, 0.910)   # #F0EDE8  cream
+	const PANEL_BORDER  = Color(0.72, 0.71, 0.68)
+	const HEADER_BG     = Color(0.58, 0.58, 0.62)
+	const HEADER_BORDER = Color(0.4, 0.4, 0.4)
+	const TEXT_COL      = Color(0.0, 0.0, 0.0)
+	const LIST_BG       = Color(1.0, 1.0, 1.0)
+	const BTN_FACE      = Color("#D4D0C8")
+	const BTN_HOVER     = Color(0.95, 0.94, 0.92)
+	const BTN_PRESSED   = Color(0.88, 0.87, 0.85)
+	const SEL_BLUE      = Color(0.0, 0.0, 0.5)
+
+	var t = Theme.new()
+
+	# ── Window chrome ──
+	var win_sb = StyleBoxFlat.new()
+	win_sb.bg_color = HEADER_BG
+	win_sb.border_color = HEADER_BORDER
+	win_sb.set_border_width_all(2)
+	win_sb.set_content_margin_all(4)
+	t.set_stylebox("embedded_border", "Window", win_sb)
+	var win_uf = win_sb.duplicate()
+	win_uf.bg_color = Color(0.50, 0.50, 0.50)
+	t.set_stylebox("embedded_unfocused_border", "Window", win_uf)
+	t.set_color("title_color", "Window", Color.WHITE)
+	t.set_color("title_outline_modulate", "Window", Color.TRANSPARENT)
+
+	# ── Panel ──
+	var pnl = StyleBoxFlat.new()
+	pnl.bg_color = PANEL_BG
+	pnl.border_color = PANEL_BORDER
+	pnl.set_border_width_all(1)
+	t.set_stylebox("panel", "Panel", pnl)
+
+	# ── Label ──
+	t.set_color("font_color", "Label", TEXT_COL)
+
+	# ── LineEdit ──
+	var le_sb = StyleBoxFlat.new()
+	le_sb.bg_color = LIST_BG
+	le_sb.border_color = PANEL_BORDER
+	le_sb.set_border_width_all(1)
+	le_sb.content_margin_left = 4; le_sb.content_margin_right = 4
+	t.set_stylebox("normal", "LineEdit", le_sb)
+	t.set_stylebox("focus", "LineEdit", le_sb)
+	t.set_color("font_color", "LineEdit", TEXT_COL)
+	t.set_color("font_placeholder_color", "LineEdit", Color(0.5, 0.5, 0.5))
+
+	# ── CheckBox ──
+	t.set_color("font_color", "CheckBox", TEXT_COL)
+	t.set_color("font_hover_color", "CheckBox", TEXT_COL)
+	t.set_color("font_pressed_color", "CheckBox", TEXT_COL)
+
+	# ── Tree ──
+	var tree_sb = StyleBoxFlat.new()
+	tree_sb.bg_color = LIST_BG
+	tree_sb.border_color = PANEL_BORDER
+	tree_sb.set_border_width_all(1)
+	t.set_stylebox("panel", "Tree", tree_sb)
+	t.set_color("font_color", "Tree", TEXT_COL)
+	t.set_color("font_selected_color", "Tree", Color.WHITE)
+	var tree_sel = StyleBoxFlat.new()
+	tree_sel.bg_color = SEL_BLUE
+	t.set_stylebox("selected", "Tree", tree_sel)
+	t.set_stylebox("selected_focus", "Tree", tree_sel)
+
+	# ── Button ──
+	var btn_sb = StyleBoxFlat.new()
+	btn_sb.bg_color = PANEL_BG
+	btn_sb.border_color = PANEL_BORDER
+	btn_sb.set_border_width_all(1)
+	btn_sb.content_margin_left = 8; btn_sb.content_margin_right = 8
+	btn_sb.content_margin_top = 3; btn_sb.content_margin_bottom = 3
+	t.set_stylebox("normal", "Button", btn_sb)
+	var btn_h = btn_sb.duplicate()
+	btn_h.bg_color = BTN_HOVER
+	t.set_stylebox("hover", "Button", btn_h)
+	var btn_p = btn_sb.duplicate()
+	btn_p.bg_color = BTN_PRESSED
+	t.set_stylebox("pressed", "Button", btn_p)
+	t.set_color("font_color", "Button", TEXT_COL)
+	t.set_color("font_hover_color", "Button", TEXT_COL)
+	t.set_color("font_pressed_color", "Button", TEXT_COL)
+
+	# ── HSeparator ──
+	var sep_sb = StyleBoxFlat.new()
+	sep_sb.bg_color = PANEL_BORDER
+	sep_sb.content_margin_top = 4; sep_sb.content_margin_bottom = 4
+	t.set_stylebox("separator", "HSeparator", sep_sb)
+
+	return t
+
 ## Sets the MenuBar to edit. Loads existing menus into the tree.
 func set_menu_bar(menu_bar: MenuBar) -> void:
 	_menu_bar = menu_bar
