@@ -70,48 +70,40 @@ func _import(source_file: String, save_path: String, options: Dictionary, platfo
 		push_error("Could not load VB6 importer script")
 		return ERR_FILE_NOT_FOUND
 	
-	var importer = vb6_importer_script.new()
+	# Use the full import_form_file() API which handles:
+	#   - parsing controls, properties, fonts, menus
+	#   - control array detection and renaming
+	#   - multiline TextBox post-processing
+	#   - radio button grouping
+	#   - .frx image extraction
+	#   - signal auto-wiring into .tscn
+	#   - VB6→VG code transformation
+	var result: Dictionary = vb6_importer_script.import_form_file(source_file)
 	
-	# Read the .frm file
-	var file = FileAccess.open(source_file, FileAccess.READ)
-	if not file:
-		push_error("Could not open FRM file: " + source_file)
-		return ERR_FILE_CANT_OPEN
-	
-	var content = file.get_as_text()
-	file.close()
-	
-	# Parse the form
-	var form_data = importer.parse_frm_file(source_file)
-	if form_data.is_empty():
-		push_error("Failed to parse FRM file: " + source_file)
+	if not result.get("success", false):
+		var errors = result.get("errors", [])
+		for e in errors:
+			push_error("FRM Import: " + e)
 		return ERR_PARSE_ERROR
 	
-	# Create the scene
-	var root_node = importer.create_godot_scene(form_data, options.get("preserve_layout", true))
-	if not root_node:
-		push_error("Failed to create scene from FRM: " + source_file)
+	# import_form_file() saves the scene to res://start_forms/ and code to
+	# res://mixed/.  Load the packed scene it created and re-save to the
+	# Godot import system's expected save_path.
+	var scene_path: String = result.get("scene_path", "")
+	if scene_path == "":
+		push_error("FRM Import: no scene path returned")
 		return ERR_CANT_CREATE
 	
-	# Generate .vg script if requested
-	if options.get("convert_code", true):
-		var vg_path = source_file.get_basename() + ".vg"
-		var code_result = importer.convert_vb6_code(form_data.get("code", ""), form_data.get("name", "Form1"))
-		if code_result and not code_result.is_empty():
-			var vg_file = FileAccess.open(vg_path, FileAccess.WRITE)
-			if vg_file:
-				vg_file.store_string(code_result)
-				vg_file.close()
-				gen_files.append(vg_path)
-	
-	# Pack and save the scene
-	var packed_scene = PackedScene.new()
-	var pack_result = packed_scene.pack(root_node)
-	root_node.queue_free()
-	
-	if pack_result != OK:
-		push_error("Failed to pack scene: " + str(pack_result))
-		return pack_result
+	var packed_scene = load(scene_path) as PackedScene
+	if not packed_scene:
+		push_error("FRM Import: could not load generated scene: " + scene_path)
+		return ERR_FILE_CANT_READ
 	
 	var save_result = ResourceSaver.save(packed_scene, save_path + "." + _get_save_extension())
+	
+	# Register the generated .vg file so Godot knows about it
+	var code_path: String = result.get("code_path", "")
+	if code_path != "":
+		gen_files.append(code_path)
+	
 	return save_result

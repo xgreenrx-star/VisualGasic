@@ -1197,36 +1197,21 @@ func _do_import_frm(path):
 		print("Importer script not found")
 		return
 
-	var dir = DirAccess.open("res://")
-	if not dir.dir_exists("res://start_forms"): dir.make_dir("res://start_forms")
-	if not dir.dir_exists("res://mixed"): dir.make_dir("res://mixed")
-		
-	var root = Control.new()
-	root.name = path.get_file().get_basename()
-	
-	# Create Scene Root
-	var packed_scene = PackedScene.new()
-	# Can't pack yet, need node tree
-	
-	# We want to create it in the currently open scene or a new scene?
-	# Let's creating a new scene file.
-	
-	var code = importer.import_form(path, root, root)
-	
-	packed_scene.pack(root)
-	var save_path = "res://start_forms/" + root.name + ".tscn"
-	ResourceSaver.save(packed_scene, save_path)
-	print("Saved Scene to " + save_path)
-	
-	if code != "":
-		var bas_path = "res://mixed/" + root.name + ".vg"
-		var f = FileAccess.open(bas_path, FileAccess.WRITE)
-		f.store_string(code)
-		f.close()
-		print("Saved Code to " + bas_path)
-		_add_to_recent_projects(bas_path)  # Track in recent projects
-		
-	get_editor_interface().open_scene_from_path(save_path)
+	var result = importer.import_form_file(path)
+	if result.get("success", false):
+		var scene_path = result.get("scene_path", "")
+		var code_path = result.get("code_path", "")
+		print("VB6 Import OK: scene=%s  code=%s" % [scene_path, code_path])
+		if code_path != "":
+			_add_to_recent_projects(code_path)
+		get_editor_interface().get_resource_filesystem().scan()
+		if scene_path != "":
+			get_editor_interface().open_scene_from_path(scene_path)
+	else:
+		var errors = result.get("errors", [])
+		for e in errors:
+			push_error("VB6 Import: " + e)
+		print("VB6 Import failed. See errors above.")
 
 # =============================================================================
 # FORM CREATION

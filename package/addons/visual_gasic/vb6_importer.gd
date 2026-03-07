@@ -403,10 +403,16 @@ static func _parse_form_content(file: FileAccess, root: Control) -> Dictionary:
 				result.code += line + "\n"
 			continue
 		
-		# Handle font property blocks
-		if trim.begins_with("BeginProperty Font"):
-			in_font_block = true
-			current_font = {}
+		# Handle BeginProperty blocks (Font, Picture, Icon, etc.)
+		if trim.begins_with("BeginProperty "):
+			var prop_name = trim.substr(len("BeginProperty ")).strip_edges()
+			if prop_name.begins_with("Font"):
+				in_font_block = true
+				current_font = {}
+			else:
+				# Non-Font BeginProperty — store as metadata dict
+				in_font_block = false
+				_skip_or_store_property_block(file, prop_name, current_parent)
 			continue
 			
 		if trim == "EndProperty" and in_font_block:
@@ -913,6 +919,19 @@ static func _apply_font(node: Node, font_props: Dictionary):
 	node.set_meta("font_italic", italic)
 	node.set_meta("font_underline", underline)
 
+static func _skip_or_store_property_block(file: FileAccess, prop_name: String, node: Node):
+	"""Read through a non-Font BeginProperty...EndProperty block, storing key=value pairs as metadata."""
+	var props: Dictionary = {}
+	while not file.eof_reached():
+		var line = file.get_line().strip_edges()
+		if line == "EndProperty":
+			break
+		var parts = line.split("=", true, 1)
+		if parts.size() == 2:
+			props[parts[0].strip_edges()] = parts[1].strip_edges()
+	if props.size() > 0 and node:
+		node.set_meta("vb6_prop_" + prop_name.to_lower().replace(" ", "_"), props)
+
 static func _apply_back_color(node: Node, val: String):
 	"""Apply background color to a control."""
 	var c = vb_color_to_godot(val)
@@ -1255,7 +1274,25 @@ const VB6_CONSTANTS: Dictionary = {
 
 static func _transform_vb6_code(code: String, form_name: String, control_arrays: Dictionary) -> String:
 	"""Transform VB6 code to VisualGasic syntax."""
-	var lines = code.split("\n")
+	# Join line continuations: lines ending with " _" continue on the next line
+	var raw_lines = code.split("\n")
+	var joined_lines: Array = []
+	var accum = ""
+	for raw_line in raw_lines:
+		var trimmed = raw_line.rstrip(" \t\r")
+		if trimmed.ends_with(" _") or trimmed.ends_with("\t_"):
+			# Strip the trailing " _" and accumulate
+			accum += trimmed.substr(0, trimmed.length() - 1)
+		else:
+			if accum != "":
+				joined_lines.append(accum + raw_line)
+				accum = ""
+			else:
+				joined_lines.append(raw_line)
+	if accum != "":
+		joined_lines.append(accum)
+	
+	var lines = joined_lines
 	var result_lines: Array = []
 	var in_attribute_section = true
 	
@@ -1271,6 +1308,17 @@ static func _transform_vb6_code(code: String, form_name: String, control_arrays:
 			continue
 		
 		in_attribute_section = false
+		
+		# Split multi-statement lines (a = 1 : b = 2 → two separate lines)
+		# But don't split inside strings or label definitions (word:)
+		if ":" in trim and not trim.begins_with("'") and not trim.ends_with(":"):
+			var stmts = _split_multi_statement(trim)
+			if stmts.size() > 1:
+				var indent = line.substr(0, line.length() - line.lstrip(" \t").length())
+				for stmt in stmts:
+					var transformed = _transform_line(indent + stmt, control_arrays)
+					result_lines.append(transformed)
+				continue
 		
 		# Transform the line
 		var transformed = _transform_line(line, control_arrays)
@@ -1385,11 +1433,21 @@ static func _transform_line(line: String, control_arrays: Dictionary) -> String:
 	result = visible_regex.sub(result, ".visible", true)
 	
 	# .Enabled -> .disabled (inverted logic)
-	# This is tricky: Ctrl.Enabled = False -> Ctrl.disabled = true
-	# For now just translate the property name; user reviews logic
-	var enabled_regex = RegEx.new()
-	enabled_regex.compile("\\.Enabled\\b")
-	result = enabled_regex.sub(result, ".disabled", true)
+	# Ctrl.Enabled = False -> Ctrl.disabled = True
+	# Ctrl.Enabled = True  -> Ctrl.disabled = False
+	var enabled_assign_regex = RegEx.new()
+	enabled_assign_regex.compile("(\\w+)\\.Enabled\\s*=\\s*(True|False|true|false)")
+	var enabled_match = enabled_assign_regex.search(result)
+	if enabled_match:
+		var ctrl = enabled_match.get_string(1)
+		var val_str = enabled_match.get_string(2)
+		var inverted = "True" if val_str.to_lower() == "false" else "False"
+		result = enabled_assign_regex.sub(result, ctrl + ".disabled = " + inverted)
+	else:
+		# Non-assignment usage (e.g. If ctrl.Enabled Then) — just rename
+		var enabled_regex = RegEx.new()
+		enabled_regex.compile("\\.Enabled\\b")
+		result = enabled_regex.sub(result, ".disabled", true)
 	
 	# .Left -> .position.x, .Top -> .position.y
 	var left_regex = RegEx.new()
@@ -1503,6 +1561,28 @@ static func _transform_type_suffixes(line: String) -> String:
 			result = result.replace(var_name + suffix, var_name + " As " + type_name)
 	
 	return result
+
+static func _split_multi_statement(line: String) -> Array:
+	"""Split a VB6 multi-statement line on ':' separators, respecting strings."""
+	var stmts: Array = []
+	var current = ""
+	var in_string = false
+	for i in line.length():
+		var c = line[i]
+		if c == '"':
+			in_string = not in_string
+			current += c
+		elif c == ':' and not in_string:
+			var trimmed = current.strip_edges()
+			if trimmed != "":
+				stmts.append(trimmed)
+			current = ""
+		else:
+			current += c
+	var trimmed = current.strip_edges()
+	if trimmed != "":
+		stmts.append(trimmed)
+	return stmts
 
 # =============================================================================
 # LEGACY COMPATIBILITY
@@ -1630,10 +1710,11 @@ static func _auto_wire_signals_to_tscn(scene_path: String, root: Node, raw_code:
 			continue
 		
 		if is_array:
-			# Wire all array elements to the same handler
+			# Wire all array elements to the same handler, binding the Index
 			for nname in node_map:
 				if nname.begins_with(ctrl_name + "_") and nname.substr(ctrl_name.length() + 1).is_valid_int():
-					var conn_line = '[connection signal="%s" from="%s" to="." method="%s"]' % [godot_signal, nname, handler_name]
+					var idx_str = nname.substr(ctrl_name.length() + 1)
+					var conn_line = '[connection signal="%s" from="%s" to="." method="%s" binds=[%s]]' % [godot_signal, nname, handler_name, idx_str]
 					if conn_line not in connections:
 						connections.append(conn_line)
 		else:
@@ -1998,6 +2079,28 @@ static func _extract_frx_images(frx_path: String, root: Node, result: Dictionary
 						# JPG (starts with 0xFF 0xD8)
 						elif img_data.size() >= 2 and img_data[0] == 0xFF and img_data[1] == 0xD8:
 							err = img.load_jpg_from_buffer(img_data)
+						# GIF (starts with "GIF")
+						elif img_data.size() >= 3 and img_data[0] == 0x47 and img_data[1] == 0x49 and img_data[2] == 0x46:
+							# Save GIF to disk and load as texture (Godot can't load GIF from buffer directly)
+							var gif_path = "res://resources/" + node.name + "_frx.gif"
+							_ensure_dir("res://resources")
+							var gif_file = FileAccess.open(gif_path, FileAccess.WRITE)
+							if gif_file:
+								gif_file.store_buffer(img_data)
+								gif_file.close()
+								result.warnings.append("Saved GIF to %s (manual import may be needed)" % gif_path)
+							continue
+						# ICO (starts with 00 00 01 00)
+						elif img_data.size() >= 4 and img_data[0] == 0x00 and img_data[1] == 0x00 and img_data[2] == 0x01 and img_data[3] == 0x00:
+							# Save ICO to disk (used for form icons)
+							var ico_path = "res://resources/" + node.name + "_icon.ico"
+							_ensure_dir("res://resources")
+							var ico_file = FileAccess.open(ico_path, FileAccess.WRITE)
+							if ico_file:
+								ico_file.store_buffer(img_data)
+								ico_file.close()
+								result.warnings.append("Saved ICO to %s (convert to .png for Godot)" % ico_path)
+							continue
 						
 						if err == OK:
 							var tex = ImageTexture.create_from_image(img)
