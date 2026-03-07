@@ -195,6 +195,128 @@ static func _ensure_dir(path: String):
 			push_error("Error creating directory: " + path)
 
 # =============================================================================
+# ENCODING DETECTION & CONVERSION
+# =============================================================================
+
+static func _detect_encoding(data: PackedByteArray) -> String:
+	"""Detect encoding from BOM or heuristic analysis of raw bytes."""
+	if data.size() == 0:
+		return "utf-8"
+	
+	# UTF-8 BOM: EF BB BF
+	if data.size() >= 3 and data[0] == 0xEF and data[1] == 0xBB and data[2] == 0xBF:
+		return "utf-8-bom"
+	
+	# UTF-16 LE BOM: FF FE
+	if data.size() >= 2 and data[0] == 0xFF and data[1] == 0xFE:
+		return "utf-16-le"
+	
+	# UTF-16 BE BOM: FE FF
+	if data.size() >= 2 and data[0] == 0xFE and data[1] == 0xFF:
+		return "utf-16-be"
+	
+	# Heuristic: check for non-UTF-8 high bytes (Windows-1252 / Latin-1 range)
+	# VB6 .frm files are almost always Windows-1252 (ANSI)
+	var has_high_bytes = false
+	var is_valid_utf8 = true
+	var i = 0
+	while i < data.size():
+		var b = data[i]
+		if b >= 0x80:
+			has_high_bytes = true
+			# Check if this is valid UTF-8 multi-byte sequence
+			if b >= 0xC0 and b <= 0xDF:
+				if i + 1 < data.size() and (data[i + 1] & 0xC0) == 0x80:
+					i += 2
+					continue
+				else:
+					is_valid_utf8 = false
+			elif b >= 0xE0 and b <= 0xEF:
+				if i + 2 < data.size() and (data[i + 1] & 0xC0) == 0x80 and (data[i + 2] & 0xC0) == 0x80:
+					i += 3
+					continue
+				else:
+					is_valid_utf8 = false
+			else:
+				# Byte 0x80-0xBF without preceding lead byte, or 0xF0+ (rare)
+				is_valid_utf8 = false
+		i += 1
+	
+	if has_high_bytes and not is_valid_utf8:
+		return "windows-1252"
+	
+	return "utf-8"
+
+static func _decode_to_utf8(data: PackedByteArray, encoding: String) -> String:
+	"""Decode raw bytes to a UTF-8 string based on detected encoding."""
+	
+	if encoding == "utf-8-bom":
+		# Strip the 3-byte BOM and decode normally
+		return data.slice(3).get_string_from_utf8()
+	
+	if encoding == "utf-16-le":
+		# Convert UTF-16 LE (with BOM) to UTF-8
+		return data.slice(2).get_string_from_utf16()
+	
+	if encoding == "utf-16-be":
+		# Swap bytes to LE then decode
+		var swapped = PackedByteArray()
+		swapped.resize(data.size() - 2)
+		for idx in range(0, data.size() - 2, 2):
+			swapped[idx] = data[idx + 3]      # low byte
+			swapped[idx + 1] = data[idx + 2]  # high byte
+		return swapped.get_string_from_utf16()
+	
+	if encoding == "windows-1252":
+		# Windows-1252 superset of Latin-1 (ISO 8859-1)
+		# Bytes 0x80-0x9F have special mappings, 0xA0-0xFF match Unicode directly
+		# Map the Windows-1252 specific range (0x80-0x9F) to Unicode codepoints
+		var cp1252_map: Dictionary = {
+			0x80: 0x20AC,  # €
+			0x82: 0x201A,  # ‚
+			0x83: 0x0192,  # ƒ
+			0x84: 0x201E,  # „
+			0x85: 0x2026,  # …
+			0x86: 0x2020,  # †
+			0x87: 0x2021,  # ‡
+			0x88: 0x02C6,  # ˆ
+			0x89: 0x2030,  # ‰
+			0x8A: 0x0160,  # Š
+			0x8B: 0x2039,  # ‹
+			0x8C: 0x0152,  # Œ
+			0x8E: 0x017D,  # Ž
+			0x91: 0x2018,  # '
+			0x92: 0x2019,  # '
+			0x93: 0x201C,  # "
+			0x94: 0x201D,  # "
+			0x95: 0x2022,  # •
+			0x96: 0x2013,  # –
+			0x97: 0x2014,  # —
+			0x98: 0x02DC,  # ˜
+			0x99: 0x2122,  # ™
+			0x9A: 0x0161,  # š
+			0x9B: 0x203A,  # ›
+			0x9C: 0x0153,  # œ
+			0x9E: 0x017E,  # ž
+			0x9F: 0x0178,  # Ÿ
+		}
+		
+		var text = ""
+		for idx in data.size():
+			var b = data[idx]
+			if b < 0x80:
+				text += char(b)
+			elif cp1252_map.has(b):
+				text += char(cp1252_map[b])
+			else:
+				# 0xA0-0xFF map directly to Unicode (Latin-1 supplement)
+				text += char(b)
+		return text
+	
+	# Fallback
+	return data.get_string_from_utf8()
+
+# =============================================================================
 # PROJECT IMPORT
 # =============================================================================
 
@@ -305,7 +427,30 @@ static func import_form_file(path: String) -> Dictionary:
 		"control_arrays": {}
 	}
 	
-	var file = FileAccess.open(path, FileAccess.READ)
+	# ---- Encoding detection & conversion ----
+	# VB6 .frm files are typically Windows-1252 (ANSI) or sometimes UTF-16LE.
+	# Godot's FileAccess assumes UTF-8. We read raw bytes, detect encoding,
+	# and convert to a temp UTF-8 file if necessary.
+	var raw = FileAccess.get_file_as_bytes(path)
+	if raw.size() == 0:
+		result.errors.append("Could not open file: " + path)
+		return result
+	
+	var encoding = _detect_encoding(raw)
+	var actual_path = path
+	if encoding != "utf-8":
+		# Convert and write a temp UTF-8 file
+		var utf8_text = _decode_to_utf8(raw, encoding)
+		if utf8_text != "":
+			var tmp_path = path + ".utf8.tmp"
+			var tmp_f = FileAccess.open(tmp_path, FileAccess.WRITE)
+			if tmp_f:
+				tmp_f.store_string(utf8_text)
+				tmp_f.close()
+				actual_path = tmp_path
+				result.warnings.append("Converted %s encoding to UTF-8" % encoding)
+	
+	var file = FileAccess.open(actual_path, FileAccess.READ)
 	if !file:
 		result.errors.append("Could not open file: " + path)
 		return result
@@ -360,6 +505,11 @@ static func import_form_file(path: String) -> Dictionary:
 			result.errors.append("Failed to save code: " + code_path)
 	
 	root.free()
+	
+	# Clean up temp encoding-converted file
+	if actual_path != path and FileAccess.file_exists(actual_path):
+		DirAccess.remove_absolute(actual_path)
+	
 	result.success = result.errors.size() == 0
 	return result
 
@@ -403,10 +553,16 @@ static func _parse_form_content(file: FileAccess, root: Control) -> Dictionary:
 				result.code += line + "\n"
 			continue
 		
-		# Handle font property blocks
-		if trim.begins_with("BeginProperty Font"):
-			in_font_block = true
-			current_font = {}
+		# Handle BeginProperty blocks (Font, Picture, Icon, etc.)
+		if trim.begins_with("BeginProperty "):
+			var prop_name = trim.substr(len("BeginProperty ")).strip_edges()
+			if prop_name.begins_with("Font"):
+				in_font_block = true
+				current_font = {}
+			else:
+				# Non-Font BeginProperty — store as metadata dict
+				in_font_block = false
+				_skip_or_store_property_block(file, prop_name, current_parent)
 			continue
 			
 		if trim == "EndProperty" and in_font_block:
@@ -913,6 +1069,19 @@ static func _apply_font(node: Node, font_props: Dictionary):
 	node.set_meta("font_italic", italic)
 	node.set_meta("font_underline", underline)
 
+static func _skip_or_store_property_block(file: FileAccess, prop_name: String, node: Node):
+	"""Read through a non-Font BeginProperty...EndProperty block, storing key=value pairs as metadata."""
+	var props: Dictionary = {}
+	while not file.eof_reached():
+		var line = file.get_line().strip_edges()
+		if line == "EndProperty":
+			break
+		var parts = line.split("=", true, 1)
+		if parts.size() == 2:
+			props[parts[0].strip_edges()] = parts[1].strip_edges()
+	if props.size() > 0 and node:
+		node.set_meta("vb6_prop_" + prop_name.to_lower().replace(" ", "_"), props)
+
 static func _apply_back_color(node: Node, val: String):
 	"""Apply background color to a control."""
 	var c = vb_color_to_godot(val)
@@ -1022,7 +1191,13 @@ static func import_module(path: String) -> Dictionary:
 		"errors": []
 	}
 	
-	var content = FileAccess.get_file_as_string(path)
+	# Encoding-aware read
+	var raw = FileAccess.get_file_as_bytes(path)
+	if raw.size() == 0:
+		result.errors.append("Could not read module: " + path)
+		return result
+	var encoding = _detect_encoding(raw)
+	var content = _decode_to_utf8(raw, encoding) if encoding != "utf-8" else raw.get_string_from_utf8()
 	if content == "":
 		result.errors.append("Could not read module: " + path)
 		return result
@@ -1053,7 +1228,13 @@ static func import_class(path: String) -> Dictionary:
 		"errors": []
 	}
 	
-	var content = FileAccess.get_file_as_string(path)
+	# Encoding-aware read
+	var raw = FileAccess.get_file_as_bytes(path)
+	if raw.size() == 0:
+		result.errors.append("Could not read class: " + path)
+		return result
+	var encoding = _detect_encoding(raw)
+	var content = _decode_to_utf8(raw, encoding) if encoding != "utf-8" else raw.get_string_from_utf8()
 	if content == "":
 		result.errors.append("Could not read class: " + path)
 		return result
@@ -1255,7 +1436,25 @@ const VB6_CONSTANTS: Dictionary = {
 
 static func _transform_vb6_code(code: String, form_name: String, control_arrays: Dictionary) -> String:
 	"""Transform VB6 code to VisualGasic syntax."""
-	var lines = code.split("\n")
+	# Join line continuations: lines ending with " _" continue on the next line
+	var raw_lines = code.split("\n")
+	var joined_lines: Array = []
+	var accum = ""
+	for raw_line in raw_lines:
+		var trimmed = raw_line.rstrip(" \t\r")
+		if trimmed.ends_with(" _") or trimmed.ends_with("\t_"):
+			# Strip the trailing " _" and accumulate
+			accum += trimmed.substr(0, trimmed.length() - 1)
+		else:
+			if accum != "":
+				joined_lines.append(accum + raw_line)
+				accum = ""
+			else:
+				joined_lines.append(raw_line)
+	if accum != "":
+		joined_lines.append(accum)
+	
+	var lines = joined_lines
 	var result_lines: Array = []
 	var in_attribute_section = true
 	
@@ -1271,6 +1470,17 @@ static func _transform_vb6_code(code: String, form_name: String, control_arrays:
 			continue
 		
 		in_attribute_section = false
+		
+		# Split multi-statement lines (a = 1 : b = 2 → two separate lines)
+		# But don't split inside strings or label definitions (word:)
+		if ":" in trim and not trim.begins_with("'") and not trim.ends_with(":"):
+			var stmts = _split_multi_statement(trim)
+			if stmts.size() > 1:
+				var indent = line.substr(0, line.length() - line.lstrip(" \t").length())
+				for stmt in stmts:
+					var transformed = _transform_line(indent + stmt, control_arrays)
+					result_lines.append(transformed)
+				continue
 		
 		# Transform the line
 		var transformed = _transform_line(line, control_arrays)
@@ -1326,6 +1536,17 @@ static func _transform_line(line: String, control_arrays: Dictionary) -> String:
 	# =========================================================================
 	# VB6-SPECIFIC SYNTAX TRANSFORMATIONS
 	# =========================================================================
+	
+	# Declare Function/Sub (Win32 API calls) – not supported in VisualGasic
+	if trim.begins_with("Declare Function ") or trim.begins_with("Declare Sub ") \
+		or trim.begins_with("Private Declare Function ") or trim.begins_with("Private Declare Sub ") \
+		or trim.begins_with("Public Declare Function ") or trim.begins_with("Public Declare Sub "):
+		return result.replace(trim, "' [VB6 API] " + trim + "  ' TODO: Replace with Godot equivalent")
+	
+	# Property Let -> Property Set (VisualGasic uses Set for value setters)
+	if trim.begins_with("Property Let ") or trim.begins_with("Public Property Let ") \
+		or trim.begins_with("Private Property Let "):
+		result = result.replace("Property Let ", "Property Set ")
 	
 	# Transform standalone End statement (VB6 End = terminate app)
 	if trim == "End":
@@ -1385,11 +1606,21 @@ static func _transform_line(line: String, control_arrays: Dictionary) -> String:
 	result = visible_regex.sub(result, ".visible", true)
 	
 	# .Enabled -> .disabled (inverted logic)
-	# This is tricky: Ctrl.Enabled = False -> Ctrl.disabled = true
-	# For now just translate the property name; user reviews logic
-	var enabled_regex = RegEx.new()
-	enabled_regex.compile("\\.Enabled\\b")
-	result = enabled_regex.sub(result, ".disabled", true)
+	# Ctrl.Enabled = False -> Ctrl.disabled = True
+	# Ctrl.Enabled = True  -> Ctrl.disabled = False
+	var enabled_assign_regex = RegEx.new()
+	enabled_assign_regex.compile("(\\w+)\\.Enabled\\s*=\\s*(True|False|true|false)")
+	var enabled_match = enabled_assign_regex.search(result)
+	if enabled_match:
+		var ctrl = enabled_match.get_string(1)
+		var val_str = enabled_match.get_string(2)
+		var inverted = "True" if val_str.to_lower() == "false" else "False"
+		result = enabled_assign_regex.sub(result, ctrl + ".disabled = " + inverted)
+	else:
+		# Non-assignment usage (e.g. If ctrl.Enabled Then) — just rename
+		var enabled_regex = RegEx.new()
+		enabled_regex.compile("\\.Enabled\\b")
+		result = enabled_regex.sub(result, ".disabled", true)
 	
 	# .Left -> .position.x, .Top -> .position.y
 	var left_regex = RegEx.new()
@@ -1442,6 +1673,20 @@ static func _transform_line(line: String, control_arrays: Dictionary) -> String:
 	if trim == "Return" and not "Return " in trim:
 		# Standalone Return (from GoSub) vs Return value
 		result = result + "  ' WARNING: GoSub Return - verify this is not a function return"
+	
+	# DoEvents -> OS.delay_usec(0) (yield to OS)
+	if trim == "DoEvents":
+		result = result.replace("DoEvents", "' DoEvents  ' TODO: Godot handles this via coroutines / await")
+	
+	# Implements keyword (interface declaration) - comment out, VG doesn't have Implements
+	if trim.begins_with("Implements "):
+		result = result.replace(trim, "' [VB6] " + trim + "  ' TODO: Use Class inheritance instead")
+	
+	# DefType statements (DefInt, DefLng, DefStr, etc.) - legacy, comment out
+	var deftype_regex = RegEx.new()
+	deftype_regex.compile("^\\s*Def(Int|Lng|Sng|Dbl|Cur|Str|Bool|Byte|Date|Obj|Var)\\s+")
+	if deftype_regex.search(result):
+		result = result.replace(trim, "' [VB6] " + trim + "  ' Default type declarations not needed")
 	
 	# Transform With...End With (VisualGasic supports this)
 	# No changes needed
@@ -1503,6 +1748,28 @@ static func _transform_type_suffixes(line: String) -> String:
 			result = result.replace(var_name + suffix, var_name + " As " + type_name)
 	
 	return result
+
+static func _split_multi_statement(line: String) -> Array:
+	"""Split a VB6 multi-statement line on ':' separators, respecting strings."""
+	var stmts: Array = []
+	var current = ""
+	var in_string = false
+	for i in line.length():
+		var c = line[i]
+		if c == '"':
+			in_string = not in_string
+			current += c
+		elif c == ':' and not in_string:
+			var trimmed = current.strip_edges()
+			if trimmed != "":
+				stmts.append(trimmed)
+			current = ""
+		else:
+			current += c
+	var trimmed = current.strip_edges()
+	if trimmed != "":
+		stmts.append(trimmed)
+	return stmts
 
 # =============================================================================
 # LEGACY COMPATIBILITY
@@ -1630,10 +1897,11 @@ static func _auto_wire_signals_to_tscn(scene_path: String, root: Node, raw_code:
 			continue
 		
 		if is_array:
-			# Wire all array elements to the same handler
+			# Wire all array elements to the same handler, binding the Index
 			for nname in node_map:
 				if nname.begins_with(ctrl_name + "_") and nname.substr(ctrl_name.length() + 1).is_valid_int():
-					var conn_line = '[connection signal="%s" from="%s" to="." method="%s"]' % [godot_signal, nname, handler_name]
+					var idx_str = nname.substr(ctrl_name.length() + 1)
+					var conn_line = '[connection signal="%s" from="%s" to="." method="%s" binds=[%s]]' % [godot_signal, nname, handler_name, idx_str]
 					if conn_line not in connections:
 						connections.append(conn_line)
 		else:
@@ -1998,6 +2266,28 @@ static func _extract_frx_images(frx_path: String, root: Node, result: Dictionary
 						# JPG (starts with 0xFF 0xD8)
 						elif img_data.size() >= 2 and img_data[0] == 0xFF and img_data[1] == 0xD8:
 							err = img.load_jpg_from_buffer(img_data)
+						# GIF (starts with "GIF")
+						elif img_data.size() >= 3 and img_data[0] == 0x47 and img_data[1] == 0x49 and img_data[2] == 0x46:
+							# Save GIF to disk and load as texture (Godot can't load GIF from buffer directly)
+							var gif_path = "res://resources/" + node.name + "_frx.gif"
+							_ensure_dir("res://resources")
+							var gif_file = FileAccess.open(gif_path, FileAccess.WRITE)
+							if gif_file:
+								gif_file.store_buffer(img_data)
+								gif_file.close()
+								result.warnings.append("Saved GIF to %s (manual import may be needed)" % gif_path)
+							continue
+						# ICO (starts with 00 00 01 00)
+						elif img_data.size() >= 4 and img_data[0] == 0x00 and img_data[1] == 0x00 and img_data[2] == 0x01 and img_data[3] == 0x00:
+							# Save ICO to disk (used for form icons)
+							var ico_path = "res://resources/" + node.name + "_icon.ico"
+							_ensure_dir("res://resources")
+							var ico_file = FileAccess.open(ico_path, FileAccess.WRITE)
+							if ico_file:
+								ico_file.store_buffer(img_data)
+								ico_file.close()
+								result.warnings.append("Saved ICO to %s (convert to .png for Godot)" % ico_path)
+							continue
 						
 						if err == OK:
 							var tex = ImageTexture.create_from_image(img)

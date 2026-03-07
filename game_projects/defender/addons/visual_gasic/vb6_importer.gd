@@ -195,6 +195,128 @@ static func _ensure_dir(path: String):
 			push_error("Error creating directory: " + path)
 
 # =============================================================================
+# ENCODING DETECTION & CONVERSION
+# =============================================================================
+
+static func _detect_encoding(data: PackedByteArray) -> String:
+	"""Detect encoding from BOM or heuristic analysis of raw bytes."""
+	if data.size() == 0:
+		return "utf-8"
+	
+	# UTF-8 BOM: EF BB BF
+	if data.size() >= 3 and data[0] == 0xEF and data[1] == 0xBB and data[2] == 0xBF:
+		return "utf-8-bom"
+	
+	# UTF-16 LE BOM: FF FE
+	if data.size() >= 2 and data[0] == 0xFF and data[1] == 0xFE:
+		return "utf-16-le"
+	
+	# UTF-16 BE BOM: FE FF
+	if data.size() >= 2 and data[0] == 0xFE and data[1] == 0xFF:
+		return "utf-16-be"
+	
+	# Heuristic: check for non-UTF-8 high bytes (Windows-1252 / Latin-1 range)
+	# VB6 .frm files are almost always Windows-1252 (ANSI)
+	var has_high_bytes = false
+	var is_valid_utf8 = true
+	var i = 0
+	while i < data.size():
+		var b = data[i]
+		if b >= 0x80:
+			has_high_bytes = true
+			# Check if this is valid UTF-8 multi-byte sequence
+			if b >= 0xC0 and b <= 0xDF:
+				if i + 1 < data.size() and (data[i + 1] & 0xC0) == 0x80:
+					i += 2
+					continue
+				else:
+					is_valid_utf8 = false
+			elif b >= 0xE0 and b <= 0xEF:
+				if i + 2 < data.size() and (data[i + 1] & 0xC0) == 0x80 and (data[i + 2] & 0xC0) == 0x80:
+					i += 3
+					continue
+				else:
+					is_valid_utf8 = false
+			else:
+				# Byte 0x80-0xBF without preceding lead byte, or 0xF0+ (rare)
+				is_valid_utf8 = false
+		i += 1
+	
+	if has_high_bytes and not is_valid_utf8:
+		return "windows-1252"
+	
+	return "utf-8"
+
+static func _decode_to_utf8(data: PackedByteArray, encoding: String) -> String:
+	"""Decode raw bytes to a UTF-8 string based on detected encoding."""
+	
+	if encoding == "utf-8-bom":
+		# Strip the 3-byte BOM and decode normally
+		return data.slice(3).get_string_from_utf8()
+	
+	if encoding == "utf-16-le":
+		# Convert UTF-16 LE (with BOM) to UTF-8
+		return data.slice(2).get_string_from_utf16()
+	
+	if encoding == "utf-16-be":
+		# Swap bytes to LE then decode
+		var swapped = PackedByteArray()
+		swapped.resize(data.size() - 2)
+		for idx in range(0, data.size() - 2, 2):
+			swapped[idx] = data[idx + 3]      # low byte
+			swapped[idx + 1] = data[idx + 2]  # high byte
+		return swapped.get_string_from_utf16()
+	
+	if encoding == "windows-1252":
+		# Windows-1252 superset of Latin-1 (ISO 8859-1)
+		# Bytes 0x80-0x9F have special mappings, 0xA0-0xFF match Unicode directly
+		# Map the Windows-1252 specific range (0x80-0x9F) to Unicode codepoints
+		var cp1252_map: Dictionary = {
+			0x80: 0x20AC,  # €
+			0x82: 0x201A,  # ‚
+			0x83: 0x0192,  # ƒ
+			0x84: 0x201E,  # „
+			0x85: 0x2026,  # …
+			0x86: 0x2020,  # †
+			0x87: 0x2021,  # ‡
+			0x88: 0x02C6,  # ˆ
+			0x89: 0x2030,  # ‰
+			0x8A: 0x0160,  # Š
+			0x8B: 0x2039,  # ‹
+			0x8C: 0x0152,  # Œ
+			0x8E: 0x017D,  # Ž
+			0x91: 0x2018,  # '
+			0x92: 0x2019,  # '
+			0x93: 0x201C,  # "
+			0x94: 0x201D,  # "
+			0x95: 0x2022,  # •
+			0x96: 0x2013,  # –
+			0x97: 0x2014,  # —
+			0x98: 0x02DC,  # ˜
+			0x99: 0x2122,  # ™
+			0x9A: 0x0161,  # š
+			0x9B: 0x203A,  # ›
+			0x9C: 0x0153,  # œ
+			0x9E: 0x017E,  # ž
+			0x9F: 0x0178,  # Ÿ
+		}
+		
+		var text = ""
+		for idx in data.size():
+			var b = data[idx]
+			if b < 0x80:
+				text += char(b)
+			elif cp1252_map.has(b):
+				text += char(cp1252_map[b])
+			else:
+				# 0xA0-0xFF map directly to Unicode (Latin-1 supplement)
+				text += char(b)
+		return text
+	
+	# Fallback
+	return data.get_string_from_utf8()
+
+# =============================================================================
 # PROJECT IMPORT
 # =============================================================================
 
@@ -305,7 +427,30 @@ static func import_form_file(path: String) -> Dictionary:
 		"control_arrays": {}
 	}
 	
-	var file = FileAccess.open(path, FileAccess.READ)
+	# ---- Encoding detection & conversion ----
+	# VB6 .frm files are typically Windows-1252 (ANSI) or sometimes UTF-16LE.
+	# Godot's FileAccess assumes UTF-8. We read raw bytes, detect encoding,
+	# and convert to a temp UTF-8 file if necessary.
+	var raw = FileAccess.get_file_as_bytes(path)
+	if raw.size() == 0:
+		result.errors.append("Could not open file: " + path)
+		return result
+	
+	var encoding = _detect_encoding(raw)
+	var actual_path = path
+	if encoding != "utf-8":
+		# Convert and write a temp UTF-8 file
+		var utf8_text = _decode_to_utf8(raw, encoding)
+		if utf8_text != "":
+			var tmp_path = path + ".utf8.tmp"
+			var tmp_f = FileAccess.open(tmp_path, FileAccess.WRITE)
+			if tmp_f:
+				tmp_f.store_string(utf8_text)
+				tmp_f.close()
+				actual_path = tmp_path
+				result.warnings.append("Converted %s encoding to UTF-8" % encoding)
+	
+	var file = FileAccess.open(actual_path, FileAccess.READ)
 	if !file:
 		result.errors.append("Could not open file: " + path)
 		return result
@@ -360,6 +505,11 @@ static func import_form_file(path: String) -> Dictionary:
 			result.errors.append("Failed to save code: " + code_path)
 	
 	root.free()
+	
+	# Clean up temp encoding-converted file
+	if actual_path != path and FileAccess.file_exists(actual_path):
+		DirAccess.remove_absolute(actual_path)
+	
 	result.success = result.errors.size() == 0
 	return result
 
@@ -1041,7 +1191,13 @@ static func import_module(path: String) -> Dictionary:
 		"errors": []
 	}
 	
-	var content = FileAccess.get_file_as_string(path)
+	# Encoding-aware read
+	var raw = FileAccess.get_file_as_bytes(path)
+	if raw.size() == 0:
+		result.errors.append("Could not read module: " + path)
+		return result
+	var encoding = _detect_encoding(raw)
+	var content = _decode_to_utf8(raw, encoding) if encoding != "utf-8" else raw.get_string_from_utf8()
 	if content == "":
 		result.errors.append("Could not read module: " + path)
 		return result
@@ -1072,7 +1228,13 @@ static func import_class(path: String) -> Dictionary:
 		"errors": []
 	}
 	
-	var content = FileAccess.get_file_as_string(path)
+	# Encoding-aware read
+	var raw = FileAccess.get_file_as_bytes(path)
+	if raw.size() == 0:
+		result.errors.append("Could not read class: " + path)
+		return result
+	var encoding = _detect_encoding(raw)
+	var content = _decode_to_utf8(raw, encoding) if encoding != "utf-8" else raw.get_string_from_utf8()
 	if content == "":
 		result.errors.append("Could not read class: " + path)
 		return result
@@ -1375,6 +1537,17 @@ static func _transform_line(line: String, control_arrays: Dictionary) -> String:
 	# VB6-SPECIFIC SYNTAX TRANSFORMATIONS
 	# =========================================================================
 	
+	# Declare Function/Sub (Win32 API calls) – not supported in VisualGasic
+	if trim.begins_with("Declare Function ") or trim.begins_with("Declare Sub ") \
+		or trim.begins_with("Private Declare Function ") or trim.begins_with("Private Declare Sub ") \
+		or trim.begins_with("Public Declare Function ") or trim.begins_with("Public Declare Sub "):
+		return result.replace(trim, "' [VB6 API] " + trim + "  ' TODO: Replace with Godot equivalent")
+	
+	# Property Let -> Property Set (VisualGasic uses Set for value setters)
+	if trim.begins_with("Property Let ") or trim.begins_with("Public Property Let ") \
+		or trim.begins_with("Private Property Let "):
+		result = result.replace("Property Let ", "Property Set ")
+	
 	# Transform standalone End statement (VB6 End = terminate app)
 	if trim == "End":
 		result = result.replace("End", "get_tree().quit()  ' VB6: End")
@@ -1500,6 +1673,20 @@ static func _transform_line(line: String, control_arrays: Dictionary) -> String:
 	if trim == "Return" and not "Return " in trim:
 		# Standalone Return (from GoSub) vs Return value
 		result = result + "  ' WARNING: GoSub Return - verify this is not a function return"
+	
+	# DoEvents -> OS.delay_usec(0) (yield to OS)
+	if trim == "DoEvents":
+		result = result.replace("DoEvents", "' DoEvents  ' TODO: Godot handles this via coroutines / await")
+	
+	# Implements keyword (interface declaration) - comment out, VG doesn't have Implements
+	if trim.begins_with("Implements "):
+		result = result.replace(trim, "' [VB6] " + trim + "  ' TODO: Use Class inheritance instead")
+	
+	# DefType statements (DefInt, DefLng, DefStr, etc.) - legacy, comment out
+	var deftype_regex = RegEx.new()
+	deftype_regex.compile("^\\s*Def(Int|Lng|Sng|Dbl|Cur|Str|Bool|Byte|Date|Obj|Var)\\s+")
+	if deftype_regex.search(result):
+		result = result.replace(trim, "' [VB6] " + trim + "  ' Default type declarations not needed")
 	
 	# Transform With...End With (VisualGasic supports this)
 	# No changes needed
