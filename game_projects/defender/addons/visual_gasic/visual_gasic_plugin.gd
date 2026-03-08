@@ -966,6 +966,21 @@ func _shortcut_input(event: InputEvent) -> void:
 	# Only intercept when our Form Designer main screen is visible
 	if not is_instance_valid(_ide_layout) or not _ide_layout.visible:
 		return
+
+	# ── Ctrl+Shift+S  →  Save All ──
+	if event.keycode == KEY_S and event.ctrl_pressed and event.shift_pressed and not event.alt_pressed:
+		_do_save_all()
+		get_viewport().set_input_as_handled()
+		return
+
+	# ── Ctrl+S  →  Save Form ──
+	if event.keycode == KEY_S and event.ctrl_pressed and not event.shift_pressed and not event.alt_pressed:
+		_do_save_form()
+		_flash_status_message("Form saved")
+		get_viewport().set_input_as_handled()
+		return
+
+	# ── Delete  →  Remove selected control (not root) ──
 	if event.keycode == KEY_DELETE and not event.ctrl_pressed and not event.alt_pressed:
 		if is_instance_valid(_form_designer):
 			_form_designer.remove_selected()

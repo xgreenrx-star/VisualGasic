@@ -1,8 +1,0 @@
-' Form4.vg - Blank Form
-' Generated from Visual Gasic template
-Option Explicit
-
-' Form_Load event
-Sub Form_Load()
-	' Initialize form
-End Sub
