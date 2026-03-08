@@ -7,6 +7,7 @@ extends VBoxContainer
 
 var editor_plugin: EditorPlugin
 var property_grid: GridContainer
+var _scroll_container: ScrollContainer
 var current_node: Node
 var rename_dialog: ConfirmationDialog
 var old_name_for_rename: String = ""
@@ -189,17 +190,42 @@ func _init():
 	add_child(tab_bar)
 	
 	# === 3. Property grid (scrollable) — TwinBasic dark style ===
-	var scroll = ScrollContainer.new()
-	scroll.size_flags_vertical = SIZE_EXPAND_FILL
-	scroll.size_flags_horizontal = SIZE_EXPAND_FILL
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	add_child(scroll)
+	_scroll_container = ScrollContainer.new()
+	_scroll_container.size_flags_vertical = SIZE_EXPAND_FILL
+	_scroll_container.size_flags_horizontal = SIZE_EXPAND_FILL
+	_scroll_container.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	add_child(_scroll_container)
+	
+	# Style the vertical scrollbar so it's visible on the light background
+	_scroll_container.get_v_scroll_bar().custom_minimum_size.x = 14
+	var sb_grabber = StyleBoxFlat.new()
+	sb_grabber.bg_color = Color(0.62, 0.61, 0.58)  # warm gray grabber
+	sb_grabber.corner_radius_top_left = 3
+	sb_grabber.corner_radius_top_right = 3
+	sb_grabber.corner_radius_bottom_left = 3
+	sb_grabber.corner_radius_bottom_right = 3
+	var sb_grabber_hl = StyleBoxFlat.new()
+	sb_grabber_hl.bg_color = Color(0.48, 0.47, 0.44)  # darker on hover
+	sb_grabber_hl.corner_radius_top_left = 3
+	sb_grabber_hl.corner_radius_top_right = 3
+	sb_grabber_hl.corner_radius_bottom_left = 3
+	sb_grabber_hl.corner_radius_bottom_right = 3
+	var sb_bg = StyleBoxFlat.new()
+	sb_bg.bg_color = Color(0.88, 0.87, 0.84)  # light track background
+	sb_bg.corner_radius_top_left = 3
+	sb_bg.corner_radius_top_right = 3
+	sb_bg.corner_radius_bottom_left = 3
+	sb_bg.corner_radius_bottom_right = 3
+	_scroll_container.get_v_scroll_bar().add_theme_stylebox_override("grabber", sb_grabber)
+	_scroll_container.get_v_scroll_bar().add_theme_stylebox_override("grabber_highlight", sb_grabber_hl)
+	_scroll_container.get_v_scroll_bar().add_theme_stylebox_override("grabber_pressed", sb_grabber_hl)
+	_scroll_container.get_v_scroll_bar().add_theme_stylebox_override("scroll", sb_bg)
 	
 	property_grid = GridContainer.new()
 	property_grid.columns = 2
 	property_grid.size_flags_horizontal = SIZE_EXPAND_FILL
 	property_grid.size_flags_vertical = SIZE_EXPAND_FILL
-	scroll.add_child(property_grid)
+	_scroll_container.add_child(property_grid)
 	
 	# === 4. Description area at the bottom ===
 	var desc_sep = HSeparator.new()
@@ -601,7 +627,7 @@ func show_control_properties(info: Dictionary, designer = null, ctrl_index: int 
 		var font_size = int(props.get("FontSize", 8))
 		var font_bold = bool(props.get("FontBold", false))
 		var font_italic = bool(props.get("FontItalic", false))
-		_property_entries.append({"label": "FontName", "value": font_name, "prop_key": "FontName", "type": "string", "category": CATEGORY_FONT})
+		_property_entries.append({"label": "FontName", "value": font_name, "prop_key": "FontName", "type": "font_name", "category": CATEGORY_FONT})
 		_property_entries.append({"label": "FontSize", "value": font_size, "prop_key": "FontSize", "type": "number", "category": CATEGORY_FONT})
 		_property_entries.append({"label": "FontBold", "value": font_bold, "prop_key": "FontBold", "type": "bool", "category": CATEGORY_FONT})
 		_property_entries.append({"label": "FontItalic", "value": font_italic, "prop_key": "FontItalic", "type": "bool", "category": CATEGORY_FONT})
@@ -958,6 +984,8 @@ func _render_property_entry(entry: Dictionary):
 			_add_fd_enum_row(label_text, prop_key, value, ["0 - Top", "1 - Left"])
 		"fd_enum_tabalignment":
 			_add_fd_enum_row(label_text, prop_key, value, ["0 - Left", "1 - Center", "2 - Right"])
+		"font_name":
+			_add_font_name_row(label_text, value, prop_key)
 		_:
 			_add_prop_row(label_text, value, prop_key)
 
@@ -993,6 +1021,40 @@ func _add_fd_enum_row(label_text: String, prop_key: String, current_value: int, 
 		opt.select(current_value)
 	opt.size_flags_horizontal = SIZE_EXPAND_FILL
 	opt.item_selected.connect(func(idx): _apply_prop(prop_key, idx))
+	property_grid.add_child(opt)
+
+## Font name dropdown with common VB6 / system fonts
+func _add_font_name_row(label_text: String, current_font: String, prop_key: String):
+	var lbl = Label.new()
+	lbl.text = label_text
+	lbl.custom_minimum_size.x = 70
+	lbl.add_theme_color_override("font_color", Color(0.15, 0.15, 0.15))
+	lbl.mouse_filter = Control.MOUSE_FILTER_STOP
+	lbl.gui_input.connect(func(event):
+		if event is InputEventMouseButton and event.pressed:
+			_show_description(prop_key.to_lower())
+	)
+	property_grid.add_child(lbl)
+
+	var fonts: Array = [
+		"MS Sans Serif", "Arial", "Courier New", "Comic Sans MS",
+		"Georgia", "Impact", "Lucida Console", "Segoe UI",
+		"Tahoma", "Times New Roman", "Trebuchet MS", "Verdana",
+		"Consolas", "Calibri", "Cambria", "Palatino Linotype",
+		"Franklin Gothic Medium", "Book Antiqua", "Garamond",
+		"Century Gothic", "Fixedsys", "Terminal", "System",
+	]
+	var opt = OptionButton.new()
+	opt.size_flags_horizontal = SIZE_EXPAND_FILL
+	opt.clip_text = true
+	var selected_idx := 0
+	for i in fonts.size():
+		opt.add_item(fonts[i])
+		if fonts[i].to_lower() == current_font.to_lower():
+			selected_idx = i
+	opt.select(selected_idx)
+	opt.item_selected.connect(func(idx): _apply_prop(prop_key, fonts[idx]))
+	opt.focus_entered.connect(func(): _show_description(prop_key.to_lower()))
 	property_grid.add_child(opt)
 
 func _add_section_header(title: String):
