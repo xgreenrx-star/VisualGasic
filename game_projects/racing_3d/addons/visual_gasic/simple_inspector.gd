@@ -12,6 +12,8 @@ var current_node: Node
 var rename_dialog: ConfirmationDialog
 var _chk_unchecked_icon: ImageTexture
 var _chk_checked_icon: ImageTexture
+var _filter_edit: LineEdit  ## Search/filter input at top of properties
+var _prop_row_index: int = 0  ## Row counter for zebra-striping
 var old_name_for_rename: String = ""
 var new_name_for_rename: String = ""
 
@@ -190,6 +192,26 @@ func _init():
 	tab_bar.add_child(_cat_btn)
 	
 	add_child(tab_bar)
+	
+	# === 2b. Property filter/search box ===
+	_filter_edit = LineEdit.new()
+	_filter_edit.placeholder_text = "🔍 Filter properties..."
+	_filter_edit.size_flags_horizontal = SIZE_EXPAND_FILL
+	_filter_edit.clear_button_enabled = true
+	_filter_edit.custom_minimum_size.y = 22
+	var filter_sb = StyleBoxFlat.new()
+	filter_sb.bg_color = Color(1.0, 1.0, 1.0)
+	filter_sb.border_color = Color(0.65, 0.64, 0.62)
+	filter_sb.set_border_width_all(1)
+	filter_sb.content_margin_left = 4
+	filter_sb.content_margin_right = 4
+	_filter_edit.add_theme_stylebox_override("normal", filter_sb)
+	_filter_edit.add_theme_color_override("font_color", Color(0.1, 0.1, 0.1))
+	_filter_edit.add_theme_color_override("font_placeholder_color", Color(0.5, 0.5, 0.5))
+	_filter_edit.add_theme_color_override("caret_color", Color(0.0, 0.0, 0.0))
+	_filter_edit.add_theme_font_size_override("font_size", 11)
+	_filter_edit.text_changed.connect(_on_filter_changed)
+	add_child(_filter_edit)
 	
 	# === 3. Property grid (scrollable) — TwinBasic dark style ===
 	_scroll_container = ScrollContainer.new()
@@ -768,6 +790,38 @@ func _show_description(prop_key: String):
 	else:
 		_description_label.text = desc
 
+## Apply subtle zebra-stripe background to alternating rows.
+func _apply_row_stripe(ctrl: Control) -> void:
+	if _prop_row_index % 2 == 1:
+		var stripe_sb = StyleBoxFlat.new()
+		stripe_sb.bg_color = Color(0.93, 0.92, 0.89, 0.5)  # subtle warm tint on odd rows
+		stripe_sb.content_margin_left = 2
+		stripe_sb.content_margin_right = 2
+		ctrl.add_theme_stylebox_override("normal", stripe_sb)
+
+## Called when the filter text changes — re-renders properties matching the query.
+func _on_filter_changed(_new_text: String) -> void:
+	_rerender_properties()
+
+## Re-render the current property list (respects filter and view mode).
+func _rerender_properties() -> void:
+	for c in property_grid.get_children():
+		c.queue_free()
+	_prop_row_index = 0
+	if _view_mode == 0:
+		_render_alphabetic()
+	else:
+		_render_categorized()
+
+## Check if a property entry matches the current filter text.
+func _entry_matches_filter(entry: Dictionary) -> bool:
+	if not is_instance_valid(_filter_edit) or _filter_edit.text.strip_edges().is_empty():
+		return true  # no filter active
+	var query = _filter_edit.text.strip_edges().to_lower()
+	var label_lower = entry.get("label", "").to_lower()
+	var key_lower = entry.get("prop_key", "").to_lower()
+	return query in label_lower or query in key_lower
+
 func update_properties(node: Node):
 	_property_entries.clear()
 	for c in property_grid.get_children():
@@ -892,15 +946,16 @@ func _collect_properties(node: Node):
 
 func _render_categorized():
 	"""Render properties grouped by category with section headers."""
+	_prop_row_index = 0
 	# (Name) is always first
 	for entry in _property_entries:
-		if entry["category"] == "":
+		if entry["category"] == "" and _entry_matches_filter(entry):
 			_render_property_entry(entry)
 	
 	# Group by category
 	var categories_order = [CATEGORY_APPEARANCE, CATEGORY_BEHAVIOR, CATEGORY_FONT, CATEGORY_POSITION, "Layout", "Effects", CATEGORY_MISC]
 	for cat in categories_order:
-		var cat_entries = _property_entries.filter(func(e): return e["category"] == cat)
+		var cat_entries = _property_entries.filter(func(e): return e["category"] == cat and _entry_matches_filter(e))
 		if cat_entries.size() > 0:
 			_add_section_header(cat)
 			for entry in cat_entries:
@@ -908,13 +963,14 @@ func _render_categorized():
 
 func _render_alphabetic():
 	"""Render all properties sorted alphabetically (no section headers)."""
+	_prop_row_index = 0
 	# (Name) is always first
 	for entry in _property_entries:
-		if entry["category"] == "":
+		if entry["category"] == "" and _entry_matches_filter(entry):
 			_render_property_entry(entry)
 	
 	# Sort remaining entries alphabetically
-	var sorted_entries = _property_entries.filter(func(e): return e["category"] != "")
+	var sorted_entries = _property_entries.filter(func(e): return e["category"] != "" and _entry_matches_filter(e))
 	sorted_entries.sort_custom(func(a, b): return a["label"].to_lower() < b["label"].to_lower())
 	for entry in sorted_entries:
 		_render_property_entry(entry)
@@ -997,11 +1053,13 @@ func _add_readonly_row(label_text: String, value):
 	lbl.text = label_text
 	lbl.custom_minimum_size.x = 70
 	lbl.add_theme_color_override("font_color", Color(0.15, 0.15, 0.15))
+	_apply_row_stripe(lbl)
 	property_grid.add_child(lbl)
 	var val_lbl = Label.new()
 	val_lbl.text = str(value)
 	val_lbl.add_theme_color_override("font_color", Color(0.45, 0.45, 0.45))  # dimmed readonly
 	property_grid.add_child(val_lbl)
+	_prop_row_index += 1
 
 ## FormDesigner enum dropdown row
 func _add_fd_enum_row(label_text: String, prop_key: String, current_value: int, items: Array):
@@ -1009,6 +1067,10 @@ func _add_fd_enum_row(label_text: String, prop_key: String, current_value: int, 
 	lbl.text = label_text
 	lbl.custom_minimum_size.x = 70
 	lbl.add_theme_color_override("font_color", Color(0.15, 0.15, 0.15))
+	var desc = PROPERTY_DESCRIPTIONS.get(prop_key, PROPERTY_DESCRIPTIONS.get(prop_key.to_lower(), ""))
+	if not desc.is_empty():
+		lbl.tooltip_text = desc
+	_apply_row_stripe(lbl)
 	lbl.mouse_filter = Control.MOUSE_FILTER_STOP
 	lbl.gui_input.connect(func(event):
 		if event is InputEventMouseButton and event.pressed:
@@ -1025,6 +1087,7 @@ func _add_fd_enum_row(label_text: String, prop_key: String, current_value: int, 
 	_style_option_button(opt)
 	opt.item_selected.connect(func(idx): _apply_prop(prop_key, idx))
 	property_grid.add_child(opt)
+	_prop_row_index += 1
 
 ## Style an OptionButton and its popup for readability on the light Properties panel
 func _style_option_button(opt: OptionButton):
@@ -1134,6 +1197,10 @@ func _add_font_name_row(label_text: String, current_font: String, prop_key: Stri
 	lbl.text = label_text
 	lbl.custom_minimum_size.x = 70
 	lbl.add_theme_color_override("font_color", Color(0.15, 0.15, 0.15))
+	var desc = PROPERTY_DESCRIPTIONS.get(prop_key, PROPERTY_DESCRIPTIONS.get(prop_key.to_lower(), ""))
+	if not desc.is_empty():
+		lbl.tooltip_text = desc
+	_apply_row_stripe(lbl)
 	lbl.mouse_filter = Control.MOUSE_FILTER_STOP
 	lbl.gui_input.connect(func(event):
 		if event is InputEventMouseButton and event.pressed:
@@ -1162,6 +1229,7 @@ func _add_font_name_row(label_text: String, current_font: String, prop_key: Stri
 	opt.item_selected.connect(func(idx): _apply_prop(prop_key, fonts[idx]))
 	opt.focus_entered.connect(func(): _show_description(prop_key.to_lower()))
 	property_grid.add_child(opt)
+	_prop_row_index += 1
 
 func _add_section_header(title: String):
 	var sep = HSeparator.new()
@@ -1179,6 +1247,12 @@ func _add_prop_row(label_text: String, value, prop_key: String):
 	lbl.custom_minimum_size.x = 70  # Reduced for narrower panels
 	lbl.add_theme_color_override("font_color", Color(0.15, 0.15, 0.15))
 	lbl.mouse_filter = Control.MOUSE_FILTER_STOP
+	# Non-intrusive hover tooltip with property description
+	var desc = PROPERTY_DESCRIPTIONS.get(prop_key, PROPERTY_DESCRIPTIONS.get(prop_key.to_lower(), ""))
+	if not desc.is_empty():
+		lbl.tooltip_text = desc
+	# Zebra-stripe background on odd rows
+	_apply_row_stripe(lbl)
 	lbl.gui_input.connect(func(event):
 		if event is InputEventMouseButton and event.pressed:
 			_show_description(prop_key)
@@ -1241,26 +1315,38 @@ func _add_prop_row(label_text: String, value, prop_key: String):
 		placeholder.text = str(value)
 		placeholder.add_theme_color_override("font_color", Color(0.15, 0.15, 0.15))
 		property_grid.add_child(placeholder)
+	_prop_row_index += 1
 
 func _add_color_row(label_text: String, color: Color, prop_key: String):
 	var lbl = Label.new()
 	lbl.text = label_text
 	lbl.custom_minimum_size.x = 90
 	lbl.add_theme_color_override("font_color", Color(0.15, 0.15, 0.15))
+	var desc = PROPERTY_DESCRIPTIONS.get(prop_key, PROPERTY_DESCRIPTIONS.get(prop_key.to_lower(), ""))
+	if not desc.is_empty():
+		lbl.tooltip_text = desc
+	_apply_row_stripe(lbl)
 	property_grid.add_child(lbl)
 	
 	var color_btn = ColorPickerButton.new()
 	color_btn.color = color
 	color_btn.size_flags_horizontal = SIZE_EXPAND_FILL
 	color_btn.custom_minimum_size.y = 24
+	color_btn.edit_alpha = true
 	color_btn.color_changed.connect(func(c): _apply_prop(prop_key, c))
+	_apply_row_stripe(color_btn)
 	property_grid.add_child(color_btn)
+	_prop_row_index += 1
 
 func _add_alignment_row(label_text: String, alignment: int):
 	var lbl = Label.new()
 	lbl.text = label_text
 	lbl.custom_minimum_size.x = 90
 	lbl.add_theme_color_override("font_color", Color(0.15, 0.15, 0.15))
+	var desc = PROPERTY_DESCRIPTIONS.get("alignment", "")
+	if not desc.is_empty():
+		lbl.tooltip_text = desc
+	_apply_row_stripe(lbl)
 	property_grid.add_child(lbl)
 	
 	var opt = OptionButton.new()
@@ -1272,12 +1358,17 @@ func _add_alignment_row(label_text: String, alignment: int):
 	_style_option_button(opt)
 	opt.item_selected.connect(func(idx): _apply_prop("alignment", idx))
 	property_grid.add_child(opt)
+	_prop_row_index += 1
 
 func _add_cursor_row(label_text: String, cursor: int):
 	var lbl = Label.new()
 	lbl.text = label_text
 	lbl.custom_minimum_size.x = 90
 	lbl.add_theme_color_override("font_color", Color(0.15, 0.15, 0.15))
+	var desc = PROPERTY_DESCRIPTIONS.get("mousepointer", PROPERTY_DESCRIPTIONS.get("cursor", ""))
+	if not desc.is_empty():
+		lbl.tooltip_text = desc
+	_apply_row_stripe(lbl)
 	property_grid.add_child(lbl)
 	
 	var opt = OptionButton.new()
@@ -1299,12 +1390,17 @@ func _add_cursor_row(label_text: String, cursor: int):
 	_style_option_button(opt)
 	opt.item_selected.connect(func(idx): _apply_prop("cursor", opt.get_item_id(idx)))
 	property_grid.add_child(opt)
+	_prop_row_index += 1
 
 func _add_slider_row(label_text: String, value: int, prop_key: String):
 	var lbl = Label.new()
 	lbl.text = label_text
 	lbl.custom_minimum_size.x = 90
 	lbl.add_theme_color_override("font_color", Color(0.15, 0.15, 0.15))
+	var desc = PROPERTY_DESCRIPTIONS.get(prop_key, PROPERTY_DESCRIPTIONS.get(prop_key.to_lower(), ""))
+	if not desc.is_empty():
+		lbl.tooltip_text = desc
+	_apply_row_stripe(lbl)
 	property_grid.add_child(lbl)
 	
 	var hbox = HBoxContainer.new()
@@ -1336,12 +1432,17 @@ func _add_slider_row(label_text: String, value: int, prop_key: String):
 	hbox.add_child(slider)
 	hbox.add_child(spin)
 	property_grid.add_child(hbox)
+	_prop_row_index += 1
 
 func _add_anchor_row(label_text: String, node: Control):
 	var lbl = Label.new()
 	lbl.text = label_text
 	lbl.custom_minimum_size.x = 90
 	lbl.add_theme_color_override("font_color", Color(0.15, 0.15, 0.15))
+	var desc = PROPERTY_DESCRIPTIONS.get("anchor", "")
+	if not desc.is_empty():
+		lbl.tooltip_text = desc
+	_apply_row_stripe(lbl)
 	property_grid.add_child(lbl)
 	
 	var opt = OptionButton.new()
@@ -1363,12 +1464,17 @@ func _add_anchor_row(label_text: String, node: Control):
 	_style_option_button(opt)
 	opt.item_selected.connect(func(idx): _apply_prop("anchor", idx))
 	property_grid.add_child(opt)
+	_prop_row_index += 1
 
 func _add_pivot_row(label_text: String, pivot: Vector2, size: Vector2):
 	var lbl = Label.new()
 	lbl.text = label_text
 	lbl.custom_minimum_size.x = 90
 	lbl.add_theme_color_override("font_color", Color(0.15, 0.15, 0.15))
+	var desc = PROPERTY_DESCRIPTIONS.get("pivot", "")
+	if not desc.is_empty():
+		lbl.tooltip_text = desc
+	_apply_row_stripe(lbl)
 	property_grid.add_child(lbl)
 	
 	var opt = OptionButton.new()
@@ -1390,6 +1496,7 @@ func _add_pivot_row(label_text: String, pivot: Vector2, size: Vector2):
 	_style_option_button(opt)
 	opt.item_selected.connect(func(idx): _apply_prop("pivot", idx))
 	property_grid.add_child(opt)
+	_prop_row_index += 1
 
 func _detect_anchor_preset(node: Control) -> int:
 	# Simple detection based on anchor values

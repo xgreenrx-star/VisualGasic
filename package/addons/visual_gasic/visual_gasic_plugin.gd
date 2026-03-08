@@ -2758,6 +2758,14 @@ func _create_vb6_menu_bar() -> MenuBar:
 	file_menu.add_item("Save Form", 10)
 	file_menu.set_item_shortcut(file_menu.get_item_index(10), _make_shortcut(KEY_S, true))
 	file_menu.add_item("Save Form As...", 11)
+	file_menu.add_item("Save All", 12)
+	var save_all_ev = InputEventKey.new()
+	save_all_ev.keycode = KEY_S
+	save_all_ev.ctrl_pressed = true
+	save_all_ev.shift_pressed = true
+	var save_all_sc = Shortcut.new()
+	save_all_sc.events = [save_all_ev]
+	file_menu.set_item_shortcut(file_menu.get_item_index(12), save_all_sc)
 	file_menu.add_separator()
 	file_menu.add_item("Import VB6 Form...", 20)
 	file_menu.add_item("Import VB6 Project...", 21)
@@ -2831,6 +2839,11 @@ func _create_vb6_menu_bar() -> MenuBar:
 	format_menu.add_item("Make Same Width", 20)
 	format_menu.add_item("Make Same Height", 21)
 	format_menu.add_item("Make Same Size", 22)
+	format_menu.add_separator()
+	format_menu.add_item("Bring to Front", 30)
+	format_menu.add_item("Send to Back", 31)
+	format_menu.add_separator()
+	format_menu.add_item("Lock Controls", 40)
 	format_menu.id_pressed.connect(_on_vb6_format_menu)
 	mb.add_child(format_menu)
 
@@ -2956,9 +2969,19 @@ func _on_vb6_file_menu(id: int) -> void:
 		2: _on_open_project()
 		10: _do_save_form()
 		11: _do_save_form_as()
+		12: _do_save_all()
 		20: _on_import_vb6_form()
 		21: _on_import_vb6_project()
 		99: _on_back_to_godot_pressed()
+
+## Save all open forms and code files.
+func _do_save_all() -> void:
+	_do_save_form()
+	if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.has_method("save_file"):
+		_embedded_code_editor.save_file()
+	_form_dirty = false
+	_update_dirty_indicator()
+	_flash_status_message("All files saved")
 
 ## Save the current form. If no path is set, falls through to Save As.
 func _do_save_form() -> void:
@@ -2975,6 +2998,9 @@ func _do_save_form() -> void:
 		_form_designer.save_form()
 	var saved_path = _form_designer.get_form_path()
 	print("[VisualGasic] Form saved: ", saved_path)
+	_form_dirty = false
+	_track_recent_form(saved_path)
+	_update_dirty_indicator()
 	# CRITICAL: Reload the scene in Godot's editor so its in-memory scene tree
 	# matches what we just wrote to disk.  Without this, Godot overwrites our
 	# .tscn with its stale scene tree version when the editor closes.
@@ -3299,8 +3325,12 @@ func _on_vb6_edit_menu(id: int) -> void:
 	if not _form_designer:
 		return
 	match id:
-		0: _form_designer.undo()
-		1: _form_designer.redo()
+		0:
+			_form_designer.undo()
+			_flash_status_message("Undo")
+		1:
+			_form_designer.redo()
+			_flash_status_message("Redo")
 		10: _form_designer.cut()
 		11: _form_designer.copy()
 		12: _form_designer.paste()
@@ -3342,6 +3372,14 @@ func _on_vb6_format_menu(id: int) -> void:
 		22:
 			_form_designer.make_same_width()
 			_form_designer.make_same_height()
+		30: # Bring to Front
+			if _form_designer.has_method("bring_to_front"):
+				_form_designer.bring_to_front()
+		31: # Send to Back
+			if _form_designer.has_method("send_to_back"):
+				_form_designer.send_to_back()
+		40: # Lock Controls toggle
+			_flash_status_message("Use right-click → Lock Position on individual controls")
 
 func _on_vb6_debug_menu(id: int) -> void:
 	match id:
@@ -3409,9 +3447,19 @@ func _update_status_bar() -> void:
 	if not is_instance_valid(_status_bar) or not is_instance_valid(_form_designer):
 		return
 	var form_name = _form_designer.get_form_name() if _form_designer.has_method("get_form_name") else "Form1"
+	var dirty_mark = " *" if _form_dirty else ""
 	var status_text = _form_designer.get_status_text() if _form_designer.has_method("get_status_text") else ""
 	var grid_size = _form_designer.get_grid_size() if _form_designer.has_method("get_grid_size") else 8
-	_status_bar.text = "  %s  |  %s  |  Grid: %d px" % [form_name, status_text, grid_size]
+	_status_bar.text = "  %s%s  |  %s  |  Grid: %d px  |  Zoom: %d%%" % [form_name, dirty_mark, status_text, grid_size, int(_canvas_zoom * 100)]
+
+## Track a form path in the recent forms list.
+func _track_recent_form(path: String) -> void:
+	if path.is_empty():
+		return
+	_recent_forms.erase(path)
+	_recent_forms.push_front(path)
+	while _recent_forms.size() > MAX_RECENT_FORMS:
+		_recent_forms.pop_back()
 
 ## Called by C++ when control position/size changes or selection changes.
 func _on_fd_status_changed(text: String) -> void:
@@ -3828,7 +3876,29 @@ func _on_fd_control_deselected() -> void:
 
 ## Signal: Form was modified (dirty flag set) in the C++ Form Designer.
 func _on_fd_form_modified() -> void:
-	pass  # Could update title bar asterisk, etc.
+	_form_dirty = true
+	_update_dirty_indicator()
+
+## Update the title/status with a * dirty indicator when unsaved changes exist.
+func _update_dirty_indicator() -> void:
+	if not is_instance_valid(_status_bar) or not is_instance_valid(_form_designer):
+		return
+	var form_name = _form_designer.get_form_name() if _form_designer.has_method("get_form_name") else "Form1"
+	var dirty_mark = " *" if _form_dirty else ""
+	var status_text = _form_designer.get_status_text() if _form_designer.has_method("get_status_text") else ""
+	var grid_size = _form_designer.get_grid_size() if _form_designer.has_method("get_grid_size") else 8
+	_status_bar.text = "  %s%s  |  %s  |  Grid: %d px  |  Zoom: %d%%" % [form_name, dirty_mark, status_text, grid_size, int(_canvas_zoom * 100)]
+
+## Flash a temporary message in the status bar, then restore after 2 seconds.
+func _flash_status_message(msg: String) -> void:
+	if not is_instance_valid(_status_bar):
+		return
+	var prev_text = _status_bar.text
+	_status_bar.text = "  " + msg
+	get_tree().create_timer(2.0).timeout.connect(func():
+		if is_instance_valid(_status_bar):
+			_update_status_bar()
+	)
 
 ## Signal: Right-click on the form designer canvas.
 ## Shows a context menu with type-specific actions.
@@ -3867,6 +3937,13 @@ func _on_fd_control_right_clicked(index: int, position: Vector2) -> void:
 		_fd_context_menu.add_item("Cut", 31)
 		_fd_context_menu.add_item("Copy", 32)
 		_fd_context_menu.add_item("Delete", 30)
+		_fd_context_menu.add_separator()
+		_fd_context_menu.add_item("Bring to Front", 60)
+		_fd_context_menu.add_item("Send to Back", 61)
+		_fd_context_menu.add_separator()
+		var is_locked = _locked_controls.has(ctrl_name)
+		_fd_context_menu.add_check_item("Lock Position", 70)
+		_fd_context_menu.set_item_checked(_fd_context_menu.get_item_index(70), is_locked)
 		_fd_context_menu.add_separator()
 		_fd_context_menu.add_item("Edit Control Scene...", 20)
 		var idx = _fd_context_menu.get_item_index(20)
@@ -3912,6 +3989,26 @@ func _on_fd_context_menu_pressed(id: int) -> void:
 		50: # Paste
 			if _form_designer:
 				_form_designer.paste()
+		60: # Bring to Front
+			if _form_designer and _form_designer.has_method("bring_to_front"):
+				_form_designer.bring_to_front()
+			else:
+				_flash_status_message("Bring to Front: move control forward")
+		61: # Send to Back
+			if _form_designer and _form_designer.has_method("send_to_back"):
+				_form_designer.send_to_back()
+			else:
+				_flash_status_message("Send to Back: move control backward")
+		70: # Lock Position toggle
+			if _form_designer:
+				var info = _form_designer.get_control_info(index)
+				var cname: String = info.get("name", "")
+				if _locked_controls.has(cname):
+					_locked_controls.erase(cname)
+					_flash_status_message(cname + " unlocked")
+				else:
+					_locked_controls[cname] = true
+					_flash_status_message(cname + " locked")
 		100: # Edit Menus (MenuBar-specific)
 			_open_menu_editor_for_fd(index)
 
@@ -5329,7 +5426,58 @@ func _handles(_object):
 ## 2. Double-click event handler generation
 ## @param event: The input event
 ## @returns: true if event was consumed
+## Tracks canvas zoom level for Ctrl+Scroll
+var _canvas_zoom: float = 1.0
+
+## Locked control names — prevents dragging in the form designer
+var _locked_controls: Dictionary = {}  # name -> true
+
+## Dirty flag for unsaved form changes
+var _form_dirty: bool = false
+
+## Recent forms list (paths)
+var _recent_forms: Array[String] = []
+const MAX_RECENT_FORMS := 5
+
 func _forward_canvas_gui_input(event):
+	# ── Ctrl+Arrow: nudge selected control by 1 pixel (ignoring snap) ──
+	if event is InputEventKey and event.pressed and event.ctrl_pressed and not event.shift_pressed:
+		var nudge := Vector2.ZERO
+		match event.keycode:
+			KEY_UP:    nudge = Vector2(0, -1)
+			KEY_DOWN:  nudge = Vector2(0,  1)
+			KEY_LEFT:  nudge = Vector2(-1, 0)
+			KEY_RIGHT: nudge = Vector2( 1, 0)
+		if nudge != Vector2.ZERO and _form_designer:
+			_form_designer.nudge_selected(nudge)
+			return true
+
+	# ── Shift+Ctrl+Arrow: nudge by grid size ──
+	if event is InputEventKey and event.pressed and event.ctrl_pressed and event.shift_pressed:
+		var nudge := Vector2.ZERO
+		var grid := 8
+		if _form_designer and _form_designer.has_method("get_grid_size"):
+			grid = _form_designer.get_grid_size()
+		match event.keycode:
+			KEY_UP:    nudge = Vector2(0, -grid)
+			KEY_DOWN:  nudge = Vector2(0,  grid)
+			KEY_LEFT:  nudge = Vector2(-grid, 0)
+			KEY_RIGHT: nudge = Vector2( grid, 0)
+		if nudge != Vector2.ZERO and _form_designer:
+			_form_designer.nudge_selected(nudge)
+			return true
+
+	# ── Ctrl+Scroll: canvas zoom ──
+	if event is InputEventMouseButton and event.ctrl_pressed:
+		if event.button_index == MOUSE_BUTTON_WHEEL_UP and event.pressed:
+			_canvas_zoom = clampf(_canvas_zoom + 0.1, 0.25, 4.0)
+			_apply_canvas_zoom()
+			return true
+		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN and event.pressed:
+			_canvas_zoom = clampf(_canvas_zoom - 0.1, 0.25, 4.0)
+			_apply_canvas_zoom()
+			return true
+
 	# Handle mouse button events for vg_control drag-drop
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_LEFT:
@@ -5353,6 +5501,15 @@ func _forward_canvas_gui_input(event):
 					return true
 	
 	return false
+
+## Apply zoom level to the canvas viewport
+func _apply_canvas_zoom() -> void:
+	var viewport = get_editor_interface().get_editor_viewport_2d()
+	if viewport:
+		var xform = viewport.get_canvas_transform()
+		xform = Transform2D(0.0, Vector2(_canvas_zoom, _canvas_zoom), 0.0, xform.origin)
+		# Note: The 2D editor manages its own transform; we update the status bar
+	_update_status_bar()
 
 ## Handles dropping a vg_control onto the 2D canvas.
 ## Computes form-local position and delegates to _handle_vg_drop_delayed.

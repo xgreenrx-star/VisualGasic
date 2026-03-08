@@ -380,6 +380,56 @@ func _gui_input(event: InputEvent) -> void:
 		match event.keycode:
 			KEY_PARENLEFT:
 				_show_parameter_hint()
+			KEY_G:
+				if event.ctrl_pressed and not event.shift_pressed:
+					_show_goto_line_dialog()
+					accept_event()
+
+## Show a small popup dialog to jump to a specific line number.
+func _show_goto_line_dialog() -> void:
+	var dialog := AcceptDialog.new()
+	dialog.title = "Go To Line"
+	dialog.ok_button_text = "Go"
+	dialog.min_size = Vector2i(260, 0)
+	dialog.exclusive = true
+
+	var vbox := VBoxContainer.new()
+	var info_label := Label.new()
+	info_label.text = "Line number (1 – %d):" % get_line_count()
+	vbox.add_child(info_label)
+
+	var line_edit := LineEdit.new()
+	line_edit.placeholder_text = str(get_caret_line() + 1)
+	line_edit.select_all_on_focus = true
+	line_edit.text = str(get_caret_line() + 1)
+	vbox.add_child(line_edit)
+	dialog.add_child(vbox)
+
+	# Accept on Enter key inside the LineEdit
+	line_edit.text_submitted.connect(func(_t):
+		dialog.emit_signal("confirmed")
+	)
+
+	dialog.confirmed.connect(func():
+		var target := line_edit.text.strip_edges().to_int()
+		if target < 1:
+			target = 1
+		elif target > get_line_count():
+			target = get_line_count()
+		set_caret_line(target - 1)
+		set_caret_column(0)
+		center_viewport_to_caret()
+		dialog.queue_free()
+	)
+
+	dialog.canceled.connect(func():
+		dialog.queue_free()
+	)
+
+	add_child(dialog)
+	dialog.popup_centered()
+	line_edit.grab_focus()
+	line_edit.select_all()
 
 func _show_parameter_hint() -> void:
 	var line = get_line(get_caret_line())
