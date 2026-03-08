@@ -80,6 +80,8 @@ A blank form named **Form1** appears on the canvas. Two files are created automa
 - `Form1.tscn` — the visual layout (Godot scene)
 - `Form1.vg` — the code behind it (VisualGasic script)
 
+**Tip:** You can resize the form by dragging the small black **resize handles** on its edges and corners — just like resizing a window. The status bar at the bottom shows the current dimensions (e.g., `600 x 400`).
+
 📸 *Screenshot: The Form Designer with a blank Form1 on the canvas*
 ![![alt text](image-4.png)](image-3.png)
 ---
@@ -95,13 +97,15 @@ Now we'll place controls on the form. The workflow is: **click a tool in the Too
 3. The control appears selected. In the **Properties** panel on the right, set:
    - **(Name)**: `txtDisplay`
    - **Text**: `0`
-   - **Alignment**: `2 - Right` (numbers display right-aligned, like a real calculator)
+   - **Alignment**: `1 - Right` (numbers display right-aligned, like a real calculator)
    - **Locked**: `true` (the user shouldn't type into it directly)
    - **FontSize**: `14` (makes the display easier to read)
 4. Drag the edges of the control to make it wider — stretch it across most of the form width.
 
-📸 *Screenshot: Form with txtDisplay placed across the top*
+**Tip:** For numeric properties like **FontSize**, **Width**, and **Height**, use the **Up/Down arrow keys** to adjust by 1, or **Shift+Up/Down** to jump by 10.
 
+📸 *Screenshot: Form with txtDisplay placed across the top*
+![alt text](image-5.png)
 ### 5b — Add the Digit Buttons
 
 Now we'll add buttons for the digits **0–9** and the decimal point. For each button:
@@ -123,6 +127,10 @@ Place them in a grid layout like a real calculator:
 
 **Tip:** Use the snap grid to keep buttons aligned. You can drag buttons to reposition them, and drag their edges to resize.
 
+**Tip:** For pixel-perfect positioning, use **Ctrl+Arrow** to nudge a selected control by exactly 1 pixel. Use **Shift+Ctrl+Arrow** to nudge by the grid size.
+
+**Tip:** The Properties panel has a **🔍 Filter** box at the top — type a property name to instantly find it. Hover over any property label to see a **tooltip** describing what it does.
+
 📸 *Screenshot: All digit and operator buttons arranged in a 4×4 grid below the display*
 
 ### 5c — Add the Clear Button
@@ -140,11 +148,15 @@ Place them in a grid layout like a real calculator:
 1. Click on the **form background** (not on any control) to select the form itself.
 2. In the Properties panel, change **Caption** to `Calculator`.
 
+**Tip:** If buttons overlap, right-click a control and choose **Bring to Front** or **Send to Back** to adjust the Z-order. You can also **Lock Position** on controls you've finished placing to prevent accidental moves.
+
 ---
 
 ## Step 6 — Write the Calculator Code
 
 Now for the fun part: double-click a button to jump to its code.
+
+**Tip:** In the code editor, press **Ctrl+G** to open a **Go To Line** dialog and jump to any line number. Use **Ctrl+Shift+S** to **Save All** (form + code) at any time. The status bar shows a `*` when you have unsaved changes.
 
 ### 6a — Set Up the Variables
 
@@ -535,6 +547,10 @@ End Sub
 - ✅ How to **double-click a control** to jump to its event handler
 - ✅ How to write **event-driven code** with the `ControlName_Click()` naming convention
 - ✅ How to **run the project** from Godot
+- ✅ How to **resize the form** by dragging edge handles
+- ✅ How to **nudge controls** with Ctrl+Arrow for pixel-perfect placement
+- ✅ How to **filter and search** properties in the Properties panel
+- ✅ How to use **keyboard shortcuts** (Ctrl+G, Ctrl+Shift+S, Ctrl+Scroll, etc.)
 
 ---
 
@@ -545,3 +561,4 @@ End Sub
 - **Add memory buttons** (M+, M-, MR, MC) — store values in extra variables
 - **Try the other templates** — File → New Form has game HUDs, dialog boxes, menus, and more
 - **Explore the 66 demos** included with VisualGasic for more examples
+- **Learn all shortcuts** — see the [IDE Keyboard Shortcuts](../manual/IDE_SHORTCUTS.md) reference for every shortcut and feature

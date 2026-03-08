@@ -19,6 +19,7 @@
 
 ### Editor Features
 - [ide_tools.md](manual/ide_tools.md) - **Complete IDE tools guide** (Watch Window, Alignment, IntelliSense, Debugging, Linting, Snippets, Themes)
+- [IDE_SHORTCUTS.md](manual/IDE_SHORTCUTS.md) - **Keyboard shortcuts & features quick-reference** (canvas, menus, properties, code editor)
 - [CUSTOM_CONTROLS.md](guides/CUSTOM_CONTROLS.md) - **Creating and using custom controls** (design in Godot, add via Components, use on forms)
 - [BRACKET_COMPLETION.md](BRACKET_COMPLETION.md) - Smart bracket completion system (type `}` to auto-complete blocks)
 - [BRACKET_COMPLETION_QUICK_REF.md](BRACKET_COMPLETION_QUICK_REF.md) - Quick reference for bracket completion
@@ -40,6 +41,7 @@
 
 - [Your First 2D Game](tutorials/your_first_2d_game.md) - Dodge the Creeps-style introduction
 - [Building a 2D Platformer](tutorials/2d_platformer.md) - Complete platformer walkthrough (gravity, tile-based levels, enemies, camera)
+- [Build a Calculator](tutorials/calculator_form_designer.md) - **Beginner Form Designer tutorial** (place controls, set properties, write event code)
 
 ## Game Demo Projects
 
@@ -108,6 +110,16 @@
 | Menu Editor | Visual menu bar designer | Tools menu |
 | Components Dialog | Add/remove optional controls | Project menu |
 | New Form Dialog | Create forms from templates | Toolbox |
+| Ctrl+Arrow Nudge | Move controls 1px for precision | Canvas (keyboard) |
+| Ctrl+Scroll Zoom | Zoom canvas 25%–400% | Canvas (mouse) |
+| Form Resize Handles | Drag edges/corners to resize form | Canvas |
+| Z-Order Controls | Bring to Front / Send to Back | Right-click / Format menu |
+| Lock Position | Prevent accidental control moves | Right-click context menu |
+| Property Filter | 🔍 Search/filter properties by name | Properties panel |
+| Property Tooltips | Hover descriptions on all labels | Properties panel |
+| Save All | Save form + code together (Ctrl+Shift+S) | File menu |
+| Go To Line | Jump to line number (Ctrl+G) | Code editor |
+| Dirty Indicator | Asterisk `*` for unsaved changes | Status bar |
 
 ### Toolbox Controls
 | Category | Controls |

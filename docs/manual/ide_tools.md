@@ -103,6 +103,52 @@ Quick form testing without full game launch.
 *   **Preview + Debug**: Connect to Immediate Window
 *   **Form Events**: Fires Form_Load, Form_Shown
 
+### Form Designer Canvas Enhancements
+**Location**: Form Designer canvas
+
+Precision tools for control layout and form editing.
+*   **Ctrl+Arrow Nudge**: Move selected controls by exactly 1 pixel
+*   **Shift+Ctrl+Arrow Nudge**: Move selected controls by grid size
+*   **Ctrl+Scroll Zoom**: Zoom the canvas in/out (25%–400%, 10% steps)
+*   **Form Resize Handles**: 8 draggable handles on form edges and corners
+*   **Z-Order Controls**: Right-click → Bring to Front / Send to Back
+*   **Lock Position**: Right-click → Lock Position to prevent accidental moves
+*   **Status Bar**: Live display of form name, dimensions, grid size, zoom %, and dirty indicator (`*`)
+*   **Dirty Indicator**: Asterisk `*` appears in the status bar when the form has unsaved changes
+*   **Undo/Redo Feedback**: Status bar flashes "Undo" / "Redo" on each operation
+
+### Save All
+**Location**: `File > Save All` or `Ctrl+Shift+S`
+
+Save both the form layout (.tscn) and the code file (.vg) simultaneously.
+*   **Keyboard Shortcut**: Ctrl+Shift+S
+*   **Saves Form + Code**: Both files saved in one action
+*   **Clears Dirty Flag**: The `*` indicator disappears after save
+*   **Status Flash**: Shows "All files saved" briefly in status bar
+
+### Properties Panel Enhancements
+**Location**: Properties panel (right side)
+
+Improved usability for the VB6-style Properties panel.
+*   **🔍 Filter Search**: Type to filter properties by name — real-time, case-insensitive
+*   **Hover Tooltips**: Every property label shows a description tooltip on hover
+*   **Zebra Striping**: Alternating row backgrounds for easier visual scanning
+*   **Numeric Stepping**: Arrow keys ±1, Shift+Arrow keys ±10 (±100 for Interval)
+*   **Color Picker**: Click any color swatch for a full ColorPicker with alpha support
+
+### Go To Line
+**Location**: Code Editor — `Ctrl+G`
+
+Jump to any line number in the current .vg script.
+*   **Keyboard Shortcut**: Ctrl+G
+*   **Shows Line Range**: Dialog displays valid range (1–N)
+*   **Enter to Jump**: Type a number and press Enter
+*   **Centers Viewport**: Editor scrolls to show the target line centered
+
+### Keyboard Shortcuts Reference
+
+For a complete list of all keyboard shortcuts, see [IDE Keyboard Shortcuts](IDE_SHORTCUTS.md).
+
 ---
 
 ## Nice-to-Have Features (Complete)
