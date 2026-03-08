@@ -2821,6 +2821,8 @@ func _create_vb6_menu_bar() -> MenuBar:
 	tools_menu.add_separator()
 	tools_menu.add_item("Snippet Browser...", 10)
 	tools_menu.add_item("Theme Picker...", 11)
+	tools_menu.add_separator()
+	tools_menu.add_item("Generate Documentation...", 12)
 	tools_menu.id_pressed.connect(_on_vb6_tools_menu)
 	mb.add_child(tools_menu)
 
@@ -3314,6 +3316,7 @@ func _on_vb6_tools_menu(id: int) -> void:
 		2: _on_obj_browser()
 		10: _on_open_snippet_browser()
 		11: _on_open_theme_picker()
+		12: _on_generate_docs()
 		20: _on_new_custom_control()
 		21: _on_edit_custom_control()
 
@@ -4762,6 +4765,20 @@ func _on_edit_custom_control():
 	fd.canceled.connect(func(): fd.queue_free())
 	get_editor_interface().get_base_control().add_child(fd)
 	fd.popup_centered()
+
+## Opens the Documentation Generator dialog to scan .vg files and produce
+## Markdown / HTML API reference pages.
+func _on_generate_docs():
+	var DocGenClass = load("res://addons/visual_gasic/doc_generator.gd")
+	if not DocGenClass:
+		push_error("VisualGasic: Could not load doc_generator.gd")
+		return
+	var dlg = DocGenClass.new()
+	dlg.docs_generated.connect(func(out_path: String):
+		print("VisualGasic: Documentation generated → ", out_path)
+	)
+	get_editor_interface().get_base_control().add_child(dlg)
+	dlg.popup_centered()
 
 ## Creates a minimal .tscn file for a new custom control, registers it, and refreshes the toolbox.
 ## @param ctrl_name: The name of the new custom control (e.g. "WobblyButton")

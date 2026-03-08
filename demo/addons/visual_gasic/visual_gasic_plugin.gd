@@ -1197,36 +1197,21 @@ func _do_import_frm(path):
 		print("Importer script not found")
 		return
 
-	var dir = DirAccess.open("res://")
-	if not dir.dir_exists("res://start_forms"): dir.make_dir("res://start_forms")
-	if not dir.dir_exists("res://mixed"): dir.make_dir("res://mixed")
-		
-	var root = Control.new()
-	root.name = path.get_file().get_basename()
-	
-	# Create Scene Root
-	var packed_scene = PackedScene.new()
-	# Can't pack yet, need node tree
-	
-	# We want to create it in the currently open scene or a new scene?
-	# Let's creating a new scene file.
-	
-	var code = importer.import_form(path, root, root)
-	
-	packed_scene.pack(root)
-	var save_path = "res://start_forms/" + root.name + ".tscn"
-	ResourceSaver.save(packed_scene, save_path)
-	print("Saved Scene to " + save_path)
-	
-	if code != "":
-		var bas_path = "res://mixed/" + root.name + ".vg"
-		var f = FileAccess.open(bas_path, FileAccess.WRITE)
-		f.store_string(code)
-		f.close()
-		print("Saved Code to " + bas_path)
-		_add_to_recent_projects(bas_path)  # Track in recent projects
-		
-	get_editor_interface().open_scene_from_path(save_path)
+	var result = importer.import_form_file(path)
+	if result.get("success", false):
+		var scene_path = result.get("scene_path", "")
+		var code_path = result.get("code_path", "")
+		print("VB6 Import OK: scene=%s  code=%s" % [scene_path, code_path])
+		if code_path != "":
+			_add_to_recent_projects(code_path)
+		get_editor_interface().get_resource_filesystem().scan()
+		if scene_path != "":
+			get_editor_interface().open_scene_from_path(scene_path)
+	else:
+		var errors = result.get("errors", [])
+		for e in errors:
+			push_error("VB6 Import: " + e)
+		print("VB6 Import failed. See errors above.")
 
 # =============================================================================
 # FORM CREATION
@@ -2832,9 +2817,12 @@ func _create_vb6_menu_bar() -> MenuBar:
 	tools_menu.add_item("Object Browser...", 2)
 	tools_menu.add_separator()
 	tools_menu.add_item("New Custom Control...", 20)
+	tools_menu.add_item("Edit Custom Control...", 21)
 	tools_menu.add_separator()
 	tools_menu.add_item("Snippet Browser...", 10)
 	tools_menu.add_item("Theme Picker...", 11)
+	tools_menu.add_separator()
+	tools_menu.add_item("Generate Documentation...", 12)
 	tools_menu.id_pressed.connect(_on_vb6_tools_menu)
 	mb.add_child(tools_menu)
 
@@ -3328,7 +3316,9 @@ func _on_vb6_tools_menu(id: int) -> void:
 		2: _on_obj_browser()
 		10: _on_open_snippet_browser()
 		11: _on_open_theme_picker()
+		12: _on_generate_docs()
 		20: _on_new_custom_control()
+		21: _on_edit_custom_control()
 
 func _on_vb6_window_menu(id: int) -> void:
 	match id:
@@ -4720,84 +4710,73 @@ func _on_components():
 # NEW CUSTOM CONTROL WIZARD
 # =============================================================================
 
-## Opens the "New Custom Control" wizard dialog.
-## Lets user choose a name and root node type, then generates a .tscn file,
-## registers it in the Components config, and refreshes the toolbox.
+## Opens the Custom Control Designer to create a new custom control.
+## The designer provides a WYSIWYG surface for composing child nodes,
+## setting properties, and saving as a reusable .tscn control.
 func _on_new_custom_control():
-	var dlg = AcceptDialog.new()
-	dlg.title = "New Custom Control"
-	dlg.ok_button_text = "Create"
-	dlg.size = Vector2i(380, 200)
-	dlg.theme = _build_vb6_dialog_theme()
+	var DesignerClass = load("res://addons/visual_gasic/custom_control_designer.gd")
+	if not DesignerClass:
+		push_error("VisualGasic: Could not load custom_control_designer.gd")
+		return
 
-	# Hide AcceptDialog's default label
-	dlg.get_label().visible = false
+	var dlg = DesignerClass.new()
+	dlg.control_saved.connect(func(ctrl_name: String, save_path: String):
+		_register_custom_control_in_config(ctrl_name, save_path)
+		_on_components_changed()
+		_generate_preview_for_custom_control(ctrl_name, save_path)
+		print("VisualGasic: Custom control '", ctrl_name, "' registered in toolbox.")
+	)
+	get_editor_interface().get_base_control().add_child(dlg)
+	dlg.popup_centered()
 
-	# Build a small form inside the dialog
-	var vbox = VBoxContainer.new()
-	vbox.custom_minimum_size = Vector2(340, 0)
-	dlg.add_child(vbox)
+## Opens a file picker to select an existing custom control .tscn, then
+## opens it in the Custom Control Designer for visual editing.
+func _on_edit_custom_control():
+	var fd = FileDialog.new()
+	fd.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	fd.access = FileDialog.ACCESS_RESOURCES
+	fd.filters = ["*.tscn ; Scene Files"]
+	fd.title = "Select Custom Control to Edit"
+	fd.size = Vector2i(600, 400)
 
-	# Name field
-	var name_label = Label.new()
-	name_label.text = "Control Name:"
-	vbox.add_child(name_label)
+	# Default to custom_controls folder if it exists
+	if DirAccess.dir_exists_absolute("res://custom_controls"):
+		fd.current_dir = "res://custom_controls"
 
-	var name_edit = LineEdit.new()
-	name_edit.text = "MyCustomControl"
-	name_edit.placeholder_text = "e.g. WobblyButton"
-	name_edit.select_all_on_focus = true
-	vbox.add_child(name_edit)
-
-	# Spacer
-	var spacer = Control.new()
-	spacer.custom_minimum_size.y = 8
-	vbox.add_child(spacer)
-
-	# Root node type
-	var type_label = Label.new()
-	type_label.text = "Root Node Type:"
-	vbox.add_child(type_label)
-
-	var type_option = OptionButton.new()
-	type_option.add_item("Control", 0)
-	type_option.add_item("Panel", 1)
-	type_option.add_item("PanelContainer", 2)
-	type_option.add_item("HBoxContainer", 3)
-	type_option.add_item("VBoxContainer", 4)
-	type_option.add_item("MarginContainer", 5)
-	type_option.add_item("Button", 6)
-	type_option.add_item("TextureRect", 7)
-	vbox.add_child(type_option)
-
-	# Info label
-	var info = Label.new()
-	info.text = "Saves to res://custom_controls/ and adds to Toolbox."
-	info.add_theme_font_size_override("font_size", 11)
-	vbox.add_child(info)
-
-	dlg.confirmed.connect(func():
-		var ctrl_name = name_edit.text.strip_edges()
-		if ctrl_name.is_empty():
-			push_warning("VisualGasic: Custom control name cannot be empty.")
-			dlg.queue_free()
+	fd.file_selected.connect(func(path: String):
+		var DesignerClass = load("res://addons/visual_gasic/custom_control_designer.gd")
+		if not DesignerClass:
+			push_error("VisualGasic: Could not load custom_control_designer.gd")
+			fd.queue_free()
 			return
 
-		# Sanitize: remove spaces, ensure PascalCase-friendly
-		ctrl_name = ctrl_name.replace(" ", "")
-
-		var root_types := ["Control", "Panel", "PanelContainer", "HBoxContainer",
-						   "VBoxContainer", "MarginContainer", "Button", "TextureRect"]
-		var root_type: String = root_types[type_option.selected]
-
-		_create_custom_control_scene(ctrl_name, root_type)
-		dlg.queue_free()
+		var dlg = DesignerClass.new()
+		dlg.load_from_scene(path)
+		dlg.control_saved.connect(func(ctrl_name: String, save_path: String):
+			_register_custom_control_in_config(ctrl_name, save_path)
+			_on_components_changed()
+			_generate_preview_for_custom_control(ctrl_name, save_path)
+		)
+		get_editor_interface().get_base_control().add_child(dlg)
+		dlg.popup_centered()
+		fd.queue_free()
 	)
 
-	dlg.canceled.connect(func():
-		dlg.queue_free()
-	)
+	fd.canceled.connect(func(): fd.queue_free())
+	get_editor_interface().get_base_control().add_child(fd)
+	fd.popup_centered()
 
+## Opens the Documentation Generator dialog to scan .vg files and produce
+## Markdown / HTML API reference pages.
+func _on_generate_docs():
+	var DocGenClass = load("res://addons/visual_gasic/doc_generator.gd")
+	if not DocGenClass:
+		push_error("VisualGasic: Could not load doc_generator.gd")
+		return
+	var dlg = DocGenClass.new()
+	dlg.docs_generated.connect(func(out_path: String):
+		print("VisualGasic: Documentation generated → ", out_path)
+	)
 	get_editor_interface().get_base_control().add_child(dlg)
 	dlg.popup_centered()
 
