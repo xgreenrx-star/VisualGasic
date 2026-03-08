@@ -1049,6 +1049,26 @@ func _style_option_button(opt: OptionButton):
 	hover_style.corner_radius_bottom_right = 2
 	popup.add_theme_stylebox_override("hover", hover_style)
 
+## Style a LineEdit for readability on the light Properties panel
+func _style_line_edit(le: LineEdit):
+	le.add_theme_color_override("font_color", Color(0.1, 0.1, 0.1))
+	le.add_theme_color_override("font_placeholder_color", Color(0.5, 0.5, 0.5))
+	le.add_theme_color_override("caret_color", Color(0.0, 0.0, 0.0))
+	le.add_theme_color_override("selection_color", Color(0.26, 0.52, 0.96, 0.4))
+	var le_normal = StyleBoxFlat.new()
+	le_normal.bg_color = Color(1.0, 1.0, 1.0)
+	le_normal.border_width_top = 1
+	le_normal.border_width_bottom = 1
+	le_normal.border_width_left = 1
+	le_normal.border_width_right = 1
+	le_normal.border_color = Color(0.65, 0.64, 0.62)
+	le_normal.content_margin_left = 4
+	le_normal.content_margin_right = 4
+	le.add_theme_stylebox_override("normal", le_normal)
+	var le_focus = le_normal.duplicate()
+	le_focus.border_color = Color(0.0, 0.47, 0.84)
+	le.add_theme_stylebox_override("focus", le_focus)
+
 ## Font name dropdown with common VB6 / system fonts
 func _add_font_name_row(label_text: String, current_font: String, prop_key: String):
 	var lbl = Label.new()
@@ -1117,6 +1137,11 @@ func _add_prop_row(label_text: String, value, prop_key: String):
 		chk.add_theme_stylebox_override("hover", empty_style)
 		chk.add_theme_stylebox_override("pressed", empty_style)
 		chk.add_theme_stylebox_override("focus", empty_style)
+		# Make check indicator visible on light background
+		chk.add_theme_color_override("icon_normal_color", Color(0.2, 0.2, 0.2))
+		chk.add_theme_color_override("icon_hover_color", Color(0.0, 0.0, 0.5))
+		chk.add_theme_color_override("icon_pressed_color", Color(0.0, 0.0, 0.5))
+		chk.add_theme_color_override("icon_focus_color", Color(0.2, 0.2, 0.2))
 		chk.toggled.connect(func(v): _apply_prop(prop_key, v))
 		chk.focus_entered.connect(func(): _show_description(prop_key))
 		property_grid.add_child(chk)
@@ -1124,6 +1149,7 @@ func _add_prop_row(label_text: String, value, prop_key: String):
 		var txt = LineEdit.new()
 		txt.text = value
 		txt.size_flags_horizontal = SIZE_EXPAND_FILL
+		_style_line_edit(txt)
 		txt.text_submitted.connect(func(v): _apply_prop(prop_key, v))
 		txt.focus_exited.connect(func(): _apply_prop(prop_key, txt.text))
 		txt.focus_entered.connect(func(): _show_description(prop_key))
@@ -1136,6 +1162,7 @@ func _add_prop_row(label_text: String, value, prop_key: String):
 		spin.max_value = 10000
 		spin.min_value = -10000
 		spin.size_flags_horizontal = SIZE_EXPAND_FILL
+		_style_line_edit(spin.get_line_edit())
 		spin.value_changed.connect(func(v): _apply_prop(prop_key, v))
 		spin.get_line_edit().focus_entered.connect(func(): _show_description(prop_key))
 		property_grid.add_child(spin)
