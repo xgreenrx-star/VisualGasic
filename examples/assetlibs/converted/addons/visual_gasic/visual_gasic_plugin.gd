@@ -140,6 +140,11 @@ var _vg_toolbars_in_container: bool = false
 ## VB6-style Data Tips — hover over variables during debugging
 var _data_tips = null
 
+## Embedded VB6-style code editor (replaces canvas in-place)
+var _embedded_code_editor = null
+## Whether the IDE is currently showing the code view (vs form view)
+var _showing_code_view: bool = false
+
 ## Snippet Browser dialog (v2.4.1)
 var _snippet_browser = null
 
@@ -393,6 +398,32 @@ func _enter_tree():
 		_coord_label.custom_minimum_size.x = 120
 		toolbar_row.add_child(_coord_label)
 
+		# ── View Code / View Object toggle buttons (like VB6 toolbar) ──
+		var view_sep = VSeparator.new()
+		toolbar_row.add_child(view_sep)
+
+		var view_code_btn = Button.new()
+		view_code_btn.name = "ViewCodeBtn"
+		view_code_btn.text = "\U0001F4DD Code"
+		view_code_btn.tooltip_text = "View Code (F7)"
+		view_code_btn.flat = true
+		view_code_btn.add_theme_font_size_override("font_size", 11)
+		view_code_btn.add_theme_color_override("font_color", Color(0.15, 0.15, 0.15))
+		view_code_btn.add_theme_color_override("font_hover_color", Color(0.0, 0.0, 0.5))
+		view_code_btn.pressed.connect(_on_view_code)
+		toolbar_row.add_child(view_code_btn)
+
+		var view_obj_btn = Button.new()
+		view_obj_btn.name = "ViewObjectBtn"
+		view_obj_btn.text = "\U0001F5BC Form"
+		view_obj_btn.tooltip_text = "View Object (Shift+F7)"
+		view_obj_btn.flat = true
+		view_obj_btn.add_theme_font_size_override("font_size", 11)
+		view_obj_btn.add_theme_color_override("font_color", Color(0.15, 0.15, 0.15))
+		view_obj_btn.add_theme_color_override("font_hover_color", Color(0.0, 0.0, 0.5))
+		view_obj_btn.pressed.connect(_on_view_object)
+		toolbar_row.add_child(view_obj_btn)
+
 		# Spacer to push "Godot Editor" button to the right
 		var spacer = Control.new()
 		spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -454,6 +485,17 @@ func _enter_tree():
 		_form_designer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		canvas_scroll.add_child(_form_designer)
 		canvas_right_split.add_child(canvas_scroll)
+
+		# ── Embedded Code Editor (hidden by default, replaces canvas on View Code) ──
+		var ece_script = load("res://addons/visual_gasic/vg_embedded_code_editor.gd")
+		if ece_script:
+			_embedded_code_editor = ece_script.new()
+			_embedded_code_editor.visible = false
+			_embedded_code_editor.view_object_requested.connect(_show_form_view)
+			canvas_right_split.add_child(_embedded_code_editor)
+			# Move it before CanvasScroll's sibling index so the split works
+			# Actually, just add after canvas_scroll — when visible it takes over
+			print("VisualGasic: Embedded Code Editor created")
 
 		# -- RIGHT: Project Explorer + Properties (resizable VSplitContainer) --
 		var right_vsplit = VSplitContainer.new()
@@ -640,6 +682,13 @@ func _make_visible(p_visible: bool) -> void:
 		_hide_godot_panels()
 	else:
 		_show_godot_panels()
+		# Leaving Form Designer → save embedded code editor if dirty
+		if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.is_dirty():
+			_embedded_code_editor.save_file()
+		# If we were showing code view, switch back to form view state
+		# (so next time Form Designer opens it shows the form canvas)
+		if _showing_code_view:
+			_show_form_view()
 		# Leaving Form Designer → flush C++ state to disk.
 		if is_instance_valid(_form_designer):
 			# Derive the save path: prefer scene_root.scene_file_path (the
@@ -2744,7 +2793,9 @@ func _create_vb6_menu_bar() -> MenuBar:
 	view_menu.name = "View"
 	_style_popup_menu(view_menu)
 	view_menu.add_item("Code", 0)
+	view_menu.set_item_shortcut(view_menu.get_item_index(0), _make_shortcut(KEY_F7))
 	view_menu.add_item("Object", 1)
+	view_menu.set_item_shortcut(view_menu.get_item_index(1), _make_shortcut(KEY_F7, false))  # Shift+F7 handled via embedded editor
 	view_menu.add_separator()
 	view_menu.add_item("Toolbox", 10)
 	view_menu.add_item("Project Explorer", 11)
@@ -3258,10 +3309,10 @@ func _on_vb6_edit_menu(id: int) -> void:
 
 func _on_vb6_view_menu(id: int) -> void:
 	match id:
-		0: # Code view — switch to Script editor
-			EditorInterface.set_main_screen_editor("Script")
-		1: # Object view — switch back to Form Designer
-			EditorInterface.set_main_screen_editor("Form Designer")
+		0: # Code view — open embedded code editor (VB6 style)
+			_on_view_code()
+		1: # Object view — switch back to Form Designer canvas
+			_on_view_object()
 		10: pass # Toolbox — already visible
 		11: pass # Project Explorer — already visible
 		12: pass # Properties — already visible
@@ -3839,11 +3890,7 @@ func _on_fd_context_menu_pressed(id: int) -> void:
 		10: # View Code (control event handler)
 			_on_fd_control_double_clicked(index)
 		11: # View Code (form-level)
-			if _form_designer:
-				var form_path = _form_designer.get_form_path()
-				if not form_path.is_empty():
-					var vg_path = form_path.get_basename() + ".vg"
-					get_editor_interface().edit_resource(load(vg_path) if ResourceLoader.exists(vg_path) else null)
+			_on_view_code()
 		20: # Edit Control Scene
 			_edit_control_scene(index)
 		30: # Delete
@@ -3966,15 +4013,178 @@ func _on_fd_control_double_clicked(index: int) -> void:
 	# This guarantees the .tscn is up-to-date regardless of what deferred
 	# operations or Godot save cycles happen during the view switch.
 	_form_designer.save_form()
-	_switching_to_code_editor = true   # suppress risky reload in _make_visible(false)
 
 	var vg_path = form_path.get_basename() + ".vg"
 	var sub_name = ctrl_name + "_" + event_suffix
 	print("VisualGasic: Double-click → opening ", sub_name, " in ", vg_path)
-	_open_or_create_event_handler(vg_path, sub_name)
+
+	# ── Use embedded code editor (VB6 style: stays within Form Designer) ──
+	if is_instance_valid(_embedded_code_editor):
+		_open_in_embedded_editor(vg_path, sub_name)
+	else:
+		# Fallback: open in Godot's Script editor (old behavior)
+		_switching_to_code_editor = true
+		_open_or_create_event_handler(vg_path, sub_name)
+
+# =============================================================================
+# EMBEDDED CODE EDITOR — VB6-style in-place code view
+# =============================================================================
+
+## Opens a .vg file in the embedded code editor and navigates to a sub.
+## Switches the canvas area to code view while keeping all VB6 panels.
+func _open_in_embedded_editor(vg_path: String, sub_name: String) -> void:
+	if not is_instance_valid(_embedded_code_editor):
+		return
+
+	# If we're already showing code for a different file, save first
+	if _embedded_code_editor.is_dirty() and _embedded_code_editor.get_file_path() != vg_path:
+		_embedded_code_editor.save_file()
+
+	# Load the file (only reloads if path changed)
+	if _embedded_code_editor.get_file_path() != vg_path:
+		_embedded_code_editor.load_file(vg_path)
+		# Feed control names to the Object dropdown
+		_feed_control_names_to_editor()
+
+	# Ensure the event handler stub exists and navigate to it
+	_embedded_code_editor.ensure_event_handler(sub_name)
+
+	# Switch to code view
+	_show_code_view()
+
+## Feed the current form's control names to the embedded code editor.
+func _feed_control_names_to_editor() -> void:
+	if not is_instance_valid(_embedded_code_editor) or not _form_designer:
+		return
+	var names: Array[String] = []
+	var count = _form_designer.get_control_count()
+	for i in count:
+		var info = _form_designer.get_control_info(i)
+		var n = info.get("name", "")
+		if not n.is_empty():
+			names.append(n)
+	_embedded_code_editor.set_control_names(names)
+
+## Switch the center panel from form canvas to code editor.
+func _show_code_view() -> void:
+	if _showing_code_view:
+		return
+	_showing_code_view = true
+
+	# Hide the canvas scroll, show the code editor
+	var canvas_scroll = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/CanvasScroll")
+	if canvas_scroll:
+		canvas_scroll.visible = false
+	if is_instance_valid(_embedded_code_editor):
+		_embedded_code_editor.visible = true
+		# Deferred focus so layout settles
+		_embedded_code_editor.get_code_edit().grab_focus.call_deferred()
+
+	# Update status bar
+	if is_instance_valid(_status_bar):
+		var path = _embedded_code_editor.get_file_path() if is_instance_valid(_embedded_code_editor) else ""
+		_status_bar.text = "  Code: " + path.get_file()
+
+	print("VisualGasic: Switched to Code View")
+
+## Switch the center panel from code editor back to form canvas.
+func _show_form_view() -> void:
+	if not _showing_code_view:
+		return
+
+	# Save any unsaved code first
+	if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.is_dirty():
+		_embedded_code_editor.save_file()
+
+	_showing_code_view = false
+
+	# Show the canvas scroll, hide the code editor
+	var canvas_scroll = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/CanvasScroll")
+	if canvas_scroll:
+		canvas_scroll.visible = true
+	if is_instance_valid(_embedded_code_editor):
+		_embedded_code_editor.visible = false
+
+	# Update status bar
+	if is_instance_valid(_status_bar):
+		_status_bar.text = "  Ready"
+
+	print("VisualGasic: Switched to Form View")
+
+## Toggle between code view and form view (VB6 F7 behavior).
+func _toggle_code_form_view() -> void:
+	if _showing_code_view:
+		_show_form_view()
+	else:
+		# If no file loaded yet, try to derive from current form
+		if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.get_file_path().is_empty():
+			var form_path = ""
+			if _form_designer:
+				form_path = _form_designer.get_form_path()
+			if form_path.is_empty():
+				var scene_root = EditorInterface.get_edited_scene_root()
+				if scene_root and not scene_root.scene_file_path.is_empty():
+					form_path = scene_root.scene_file_path
+			if not form_path.is_empty():
+				var vg_path = form_path.get_basename() + ".vg"
+				_embedded_code_editor.load_file(vg_path)
+				_feed_control_names_to_editor()
+		_show_code_view()
+
+## Opens the code view for the current form (View → Code menu or F7).
+func _on_view_code() -> void:
+	if is_instance_valid(_embedded_code_editor):
+		# Derive .vg path from form
+		var form_path = ""
+		if _form_designer:
+			form_path = _form_designer.get_form_path()
+		if form_path.is_empty():
+			var scene_root = EditorInterface.get_edited_scene_root()
+			if scene_root and not scene_root.scene_file_path.is_empty():
+				form_path = scene_root.scene_file_path
+		if not form_path.is_empty():
+			var vg_path = form_path.get_basename() + ".vg"
+			if _embedded_code_editor.get_file_path() != vg_path:
+				if _embedded_code_editor.is_dirty():
+					_embedded_code_editor.save_file()
+				_embedded_code_editor.load_file(vg_path)
+				_feed_control_names_to_editor()
+			_show_code_view()
+		else:
+			push_warning("VisualGasic: No form loaded — cannot open code view")
+	else:
+		# Fallback: switch to Godot Script editor
+		EditorInterface.set_main_screen_editor("Script")
+
+## Opens the form view (View → Object menu or Shift+F7).
+func _on_view_object() -> void:
+	_show_form_view()
+
+## Opens the .vg file in the embedded code editor directly (View Code context menu on control)
+func _open_in_embedded_editor_for_control(index: int) -> void:
+	if not _form_designer or not is_instance_valid(_embedded_code_editor):
+		return
+	var info = _form_designer.get_control_info(index)
+	var ctrl_name = info.get("name", "")
+	var ctrl_type = info.get("type", "")
+	if ctrl_name.is_empty():
+		return
+	var event_suffix = "Click"
+	if ctrl_type in ["LineEdit", "TextEdit"]:
+		event_suffix = "Change"
+	elif ctrl_type in ["HScrollBar", "VScrollBar", "HSlider", "VSlider"]:
+		event_suffix = "Change"
+	var form_path = _form_designer.get_form_path()
+	if form_path.is_empty():
+		return
+	_form_designer.save_form()
+	var vg_path = form_path.get_basename() + ".vg"
+	var sub_name = ctrl_name + "_" + event_suffix
+	_open_in_embedded_editor(vg_path, sub_name)
 
 ## Opens the .vg script and creates/navigates to the given Sub stub.
 ## Reuses the existing _open_and_inject infrastructure.
+## (Legacy fallback — used only when embedded code editor is unavailable)
 func _open_or_create_event_handler(vg_path: String, sub_name: String) -> void:
 	# Split sub_name into obj + event parts for _open_and_inject
 	var parts = sub_name.split("_", true, 1)
@@ -4022,7 +4232,13 @@ func _on_theme_changed(theme_name: String):
 	var theme_mgr_script = load("res://addons/visual_gasic/vg_theme_manager.gd")
 	if theme_mgr_script and _current_code_edit and is_instance_valid(_current_code_edit):
 		theme_mgr_script.apply_to_code_edit(_current_code_edit)
-	
+
+	# Also apply theme to the embedded code editor
+	if theme_mgr_script and is_instance_valid(_embedded_code_editor):
+		var ece_edit = _embedded_code_editor.get_code_edit()
+		if ece_edit and is_instance_valid(ece_edit):
+			theme_mgr_script.apply_to_code_edit(ece_edit)
+
 	# Also update the IDE chrome colors from the new theme
 	var td = VGThemeManager.get_current_theme()
 	if td:
