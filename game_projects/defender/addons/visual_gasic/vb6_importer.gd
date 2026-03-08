@@ -1602,6 +1602,15 @@ static func _transform_vb6_code(code: String, form_name: String, control_arrays:
 		var transformed = _transform_line(line, control_arrays)
 		result_lines.append(transformed)
 	
+	# Post-pass: expand VB6 multi-variable Dim lines
+	# VB6: "Dim Number, Operator As Integer" means Number=Variant, Operator=Integer
+	# VisualGasic: each variable needs its own explicit type
+	var expanded_lines: Array = []
+	for rline in result_lines:
+		var exp = _expand_multi_var_dim(rline)
+		expanded_lines.append_array(exp)
+	result_lines = expanded_lines
+	
 	# Add header comment
 	var header = "' VisualGasic - Imported from VB6\n"
 	header += "' Form: " + form_name + "\n"
@@ -2056,6 +2065,79 @@ static func _split_multi_statement(line: String) -> Array:
 	if trimmed != "":
 		stmts.append(trimmed)
 	return stmts
+
+static func _expand_multi_var_dim(line: String) -> Array:
+	"""Expand VB6 multi-variable Dim statements into separate lines.
+	
+	In VB6, 'Dim A, B, C As Integer' means A=Variant, B=Variant, C=Integer.
+	Only the LAST variable gets the type. This expands each to its own Dim line
+	so VisualGasic correctly assigns types.
+	
+	Examples:
+	  'Dim Number, Operator As Integer' →
+	    'Dim Number'
+	    'Dim Operator As Integer'
+	  'Dim a As String, b As Integer, c' →
+	    'Dim a As String'
+	    'Dim b As Integer'
+	    'Dim c'
+	"""
+	var trim = line.strip_edges()
+	
+	# Only process Dim/Private/Public/Static variable declarations
+	var keyword = ""
+	for kw in ["Dim ", "Private ", "Public ", "Static "]:
+		if trim.begins_with(kw):
+			keyword = kw
+			break
+	if keyword == "":
+		return [line]
+	
+	# Skip if this is a Sub/Function/Property declaration
+	var after_kw = trim.substr(keyword.length()).strip_edges()
+	for skip_kw in ["Sub ", "Function ", "Property ", "Declare ", "Event ", "Enum ", "Type ", "Const "]:
+		if after_kw.begins_with(skip_kw):
+			return [line]
+	
+	# If no comma, nothing to expand
+	if "," not in after_kw:
+		return [line]
+	
+	# Get leading whitespace from original line
+	var indent = line.substr(0, line.length() - line.lstrip(" \t").length())
+	
+	# Split on commas, respecting parentheses (for array dims like Dim arr(10), b As Integer)
+	var parts: Array = []
+	var current = ""
+	var paren_depth = 0
+	for i in after_kw.length():
+		var c = after_kw[i]
+		if c == '(':
+			paren_depth += 1
+			current += c
+		elif c == ')':
+			paren_depth -= 1
+			current += c
+		elif c == ',' and paren_depth == 0:
+			parts.append(current.strip_edges())
+			current = ""
+		else:
+			current += c
+	if current.strip_edges() != "":
+		parts.append(current.strip_edges())
+	
+	# If only 1 part, no expansion needed
+	if parts.size() <= 1:
+		return [line]
+	
+	# Check if this is the simple VB6 pattern: "A, B, C As Type"
+	# where only the last part has "As Type" and the others are bare names
+	# vs. the explicit pattern: "A As String, B As Integer"
+	var result: Array = []
+	for part in parts:
+		result.append(indent + keyword + part)
+	
+	return result
 
 # =============================================================================
 # LEGACY COMPATIBILITY

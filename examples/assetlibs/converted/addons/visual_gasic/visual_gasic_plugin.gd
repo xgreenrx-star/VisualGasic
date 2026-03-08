@@ -1319,6 +1319,8 @@ func _on_import_vb6_project():
 	fd.access = FileDialog.ACCESS_FILESYSTEM
 	fd.filters = PackedStringArray(["*.vbp ; VB6 Project Files"])
 	fd.connect("file_selected", Callable(self, "_do_import_vbp"))
+	fd.connect("canceled", fd.queue_free)
+	fd.connect("file_selected", func(_p): fd.queue_free())
 	get_editor_interface().get_base_control().add_child(fd)
 	fd.popup_centered_ratio(0.6)
 
@@ -1326,10 +1328,28 @@ func _on_import_vb6_project():
 ## @param path: Full filesystem path to the .vbp file
 func _do_import_vbp(path):
 	var importer = load("res://addons/visual_gasic/vb6_importer.gd")
-	if importer:
-		importer.import_project(path)
-		get_editor_interface().get_resource_filesystem().scan() # Refresh FileSystem
-		_add_to_recent_projects(path)  # Track in recent projects
+	if !importer:
+		push_error("VB6 Import: Could not load vb6_importer.gd")
+		return
+
+	var result = importer.import_project(path)
+	get_editor_interface().get_resource_filesystem().scan()
+	_add_to_recent_projects(path)
+
+	# Generate and save import report
+	var report_text = importer.generate_import_report(result)
+	var proj_name = path.get_file().get_basename()
+	importer.save_import_report(report_text, proj_name)
+
+	# Open the first imported form in the VG Form Designer
+	var forms = result.get("forms", [])
+	if forms.size() > 0:
+		var first_scene = forms[0].get("scene_path", "")
+		if first_scene != "":
+			call_deferred("open_form_in_designer", first_scene)
+
+	# Show import results dialog
+	_show_import_results_dialog(result, path)
 
 ## Opens a file dialog to select and import a single VB6 form (.frm) file.
 ## The form will be converted to a Godot scene with an attached .vg script.
@@ -1339,6 +1359,8 @@ func _on_import_vb6_form():
 	fd.access = FileDialog.ACCESS_FILESYSTEM
 	fd.filters = PackedStringArray(["*.frm ; VB6 Form Files"])
 	fd.connect("file_selected", Callable(self, "_do_import_frm"))
+	fd.connect("canceled", fd.queue_free)
+	fd.connect("file_selected", func(_p): fd.queue_free())
 	get_editor_interface().get_base_control().add_child(fd)
 	fd.popup_centered_ratio(0.6)
 
@@ -1348,7 +1370,7 @@ func _on_import_vb6_form():
 func _do_import_frm(path):
 	var importer = load("res://addons/visual_gasic/vb6_importer.gd")
 	if !importer:
-		print("Importer script not found")
+		push_error("VB6 Import: Could not load vb6_importer.gd")
 		return
 
 	var result = importer.import_form_file(path)
@@ -1359,13 +1381,106 @@ func _do_import_frm(path):
 		if code_path != "":
 			_add_to_recent_projects(code_path)
 		get_editor_interface().get_resource_filesystem().scan()
+		# Open in the VG Form Designer (not just as a Godot scene)
 		if scene_path != "":
-			get_editor_interface().open_scene_from_path(scene_path)
+			call_deferred("open_form_in_designer", scene_path)
 	else:
 		var errors = result.get("errors", [])
 		for e in errors:
 			push_error("VB6 Import: " + e)
-		print("VB6 Import failed. See errors above.")
+
+	# Show import results dialog (even on failure)
+	var wrapper = {"success": result.get("success", false), "forms": [result] if result.get("success", false) else [], "modules": [], "errors": result.get("errors", []), "warnings": result.get("warnings", [])}
+	_show_import_results_dialog(wrapper, path)
+
+## Shows a VB6-themed import results popup after a VBP or FRM import.
+func _show_import_results_dialog(result: Dictionary, source_path: String) -> void:
+	var dlg = AcceptDialog.new()
+	dlg.title = "VB6 Import Results"
+	dlg.min_size = Vector2i(520, 400)
+
+	var vbox = VBoxContainer.new()
+
+	# Header
+	var header = Label.new()
+	var forms_ok = result.get("forms", []).size()
+	var mods_ok = result.get("modules", []).size()
+	var errs = result.get("errors", []).size()
+	var warns = result.get("warnings", []).size()
+	var success = result.get("success", false)
+	header.text = ("✅  Import Successful" if success else "❌  Import Failed") + \
+		"\nSource: " + source_path.get_file() + \
+		"\nForms: %d   Modules: %d   Errors: %d   Warnings: %d" % [forms_ok, mods_ok, errs, warns]
+	header.add_theme_font_size_override("font_size", 14)
+	vbox.add_child(header)
+	vbox.add_child(HSeparator.new())
+
+	# Scrollable details
+	var scroll = ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(480, 260)
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var details = VBoxContainer.new()
+	details.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+	# Forms
+	for form in result.get("forms", []):
+		var lbl = Label.new()
+		lbl.text = "  ✔ Form: %s → %s" % [form.get("name", "?"), form.get("scene_path", "?")]
+		lbl.add_theme_color_override("font_color", Color(0.3, 0.85, 0.3))
+		details.add_child(lbl)
+		var ca = form.get("control_arrays", {})
+		if ca.size() > 0:
+			var ca_lbl = Label.new()
+			ca_lbl.text = "      Control arrays: %s" % str(ca.keys())
+			ca_lbl.add_theme_color_override("font_color", Color(0.6, 0.75, 1.0))
+			details.add_child(ca_lbl)
+		for w in form.get("warnings", []):
+			var wl = Label.new()
+			wl.text = "      ⚠ " + w
+			wl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
+			wl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			details.add_child(wl)
+
+	# Modules
+	for mod in result.get("modules", []):
+		var lbl = Label.new()
+		lbl.text = "  ✔ Module: %s → %s" % [mod.get("name", "?"), mod.get("path", "?")]
+		lbl.add_theme_color_override("font_color", Color(0.3, 0.85, 0.3))
+		details.add_child(lbl)
+
+	# Errors
+	for err in result.get("errors", []):
+		var lbl = Label.new()
+		lbl.text = "  ✖ " + err
+		lbl.add_theme_color_override("font_color", Color(1.0, 0.3, 0.3))
+		lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		details.add_child(lbl)
+
+	# Top-level warnings
+	for w in result.get("warnings", []):
+		var lbl = Label.new()
+		lbl.text = "  ⚠ " + w
+		lbl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
+		lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		details.add_child(lbl)
+
+	# Manual steps note
+	if success:
+		details.add_child(HSeparator.new())
+		var note = Label.new()
+		note.text = "Note: Review generated .vg code in res://mixed/ for TODO items.\nForms saved to res://start_forms/."
+		note.add_theme_color_override("font_color", Color(0.6, 0.6, 0.7))
+		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		details.add_child(note)
+
+	scroll.add_child(details)
+	vbox.add_child(scroll)
+
+	dlg.add_child(vbox)
+	dlg.connect("confirmed", dlg.queue_free)
+	dlg.connect("canceled", dlg.queue_free)
+	get_editor_interface().get_base_control().add_child(dlg)
+	dlg.popup_centered()
 
 # =============================================================================
 # FORM CREATION
