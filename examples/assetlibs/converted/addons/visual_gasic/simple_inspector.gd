@@ -1071,6 +1071,19 @@ func _style_line_edit(le: LineEdit):
 	le_focus.border_color = Color(0.0, 0.47, 0.84)
 	le.add_theme_stylebox_override("focus", le_focus)
 
+## Returns the large step used for Shift+Up / Shift+Down on numeric fields.
+## Position / size properties use 10; Interval uses 100; everything else uses 10.
+func _get_numeric_shift_step(prop_key: String) -> float:
+	var big_step_keys := ["Interval"]
+	var medium_step_keys := ["x", "y", "width", "height", "Width", "Height",
+		"left", "top", "Left", "Top", "Min", "Max", "Page",
+		"MaxLength", "FixedColumnWidth", "FixedIconSize"]
+	if prop_key in big_step_keys:
+		return 100.0
+	if prop_key in medium_step_keys:
+		return 10.0
+	return 10.0
+
 ## Create dark-on-white checkbox icons so unchecked boxes stay visible on the
 ## light Properties panel background. Godot's editor-theme icons are white-on-dark
 ## and become invisible when the panel uses a light style.
@@ -1206,10 +1219,22 @@ func _add_prop_row(label_text: String, value, prop_key: String):
 		spin.value = value
 		spin.max_value = 10000
 		spin.min_value = -10000
+		spin.step = 1
 		spin.size_flags_horizontal = SIZE_EXPAND_FILL
 		_style_line_edit(spin.get_line_edit())
 		spin.value_changed.connect(func(v): _apply_prop(prop_key, v))
 		spin.get_line_edit().focus_entered.connect(func(): _show_description(prop_key))
+		# Shift+Up/Down for larger increments (10 or 100 depending on property)
+		var shift_step := _get_numeric_shift_step(prop_key)
+		spin.get_line_edit().gui_input.connect(func(event: InputEvent):
+			if event is InputEventKey and event.pressed and event.shift_pressed:
+				if event.keycode == KEY_UP:
+					spin.value += shift_step
+					spin.get_line_edit().accept_event()
+				elif event.keycode == KEY_DOWN:
+					spin.value -= shift_step
+					spin.get_line_edit().accept_event()
+		)
 		property_grid.add_child(spin)
 	else:
 		var placeholder = Label.new()
