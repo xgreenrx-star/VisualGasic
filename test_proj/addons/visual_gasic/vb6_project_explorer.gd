@@ -169,10 +169,54 @@ func _init():
 
 	# --- Delete confirmation dialog ---
 	_confirm_delete_dialog = ConfirmationDialog.new()
-	_confirm_delete_dialog.title = "Delete"
+	_confirm_delete_dialog.title = "DELETE"
 	_confirm_delete_dialog.ok_button_text = "Delete"
-	_confirm_delete_dialog.min_size = Vector2i(340, 0)
+	_confirm_delete_dialog.min_size = Vector2i(380, 0)
 	_confirm_delete_dialog.confirmed.connect(_on_delete_confirmed)
+	# VB6/Win95 light styling so text is readable on dark editor themes
+	var dlg_panel = StyleBoxFlat.new()
+	dlg_panel.bg_color = Color("#F0F0F0")
+	dlg_panel.border_color = Color("#808080")
+	dlg_panel.border_width_top = 2
+	dlg_panel.border_width_bottom = 2
+	dlg_panel.border_width_left = 2
+	dlg_panel.border_width_right = 2
+	dlg_panel.content_margin_left = 16
+	dlg_panel.content_margin_right = 16
+	dlg_panel.content_margin_top = 12
+	dlg_panel.content_margin_bottom = 12
+	_confirm_delete_dialog.add_theme_stylebox_override("panel", dlg_panel)
+	# Dark text on light background
+	_confirm_delete_dialog.add_theme_color_override("font_color", Color("#1A1A1A"))
+	# Style the OK (Delete) and Cancel buttons
+	for btn_name in ["ok_button", "cancel_button"]:
+		var btn: Button
+		if btn_name == "ok_button":
+			btn = _confirm_delete_dialog.get_ok_button()
+		else:
+			btn = _confirm_delete_dialog.get_cancel_button()
+		if btn:
+			var btn_normal = StyleBoxFlat.new()
+			btn_normal.bg_color = Color("#D4D0C8")
+			btn_normal.border_color = Color("#808080")
+			btn_normal.border_width_top = 1
+			btn_normal.border_width_bottom = 2
+			btn_normal.border_width_left = 1
+			btn_normal.border_width_right = 2
+			btn_normal.content_margin_left = 16
+			btn_normal.content_margin_right = 16
+			btn_normal.content_margin_top = 4
+			btn_normal.content_margin_bottom = 4
+			btn.add_theme_stylebox_override("normal", btn_normal)
+			var btn_hover = btn_normal.duplicate()
+			btn_hover.bg_color = Color("#E0DCD4")
+			btn.add_theme_stylebox_override("hover", btn_hover)
+			var btn_pressed = btn_normal.duplicate()
+			btn_pressed.bg_color = Color("#C0BCB4")
+			btn.add_theme_stylebox_override("pressed", btn_pressed)
+			btn.add_theme_color_override("font_color", Color("#1A1A1A"))
+			btn.add_theme_color_override("font_hover_color", Color("#000000"))
+			btn.add_theme_color_override("font_pressed_color", Color("#000000"))
 	add_child(_confirm_delete_dialog)
 
 ## Setup with the editor plugin reference.
@@ -488,6 +532,15 @@ func _prompt_delete():
 
 	_confirm_delete_dialog.dialog_text = "Delete '%s'?\n\n%s\n\nThis cannot be undone." % [display_name, details]
 	_confirm_delete_dialog.popup_centered()
+	# Style internal labels so text is readable on the light background
+	_style_dialog_labels(_confirm_delete_dialog)
+
+## Recursively set dark font color on all Label children inside a dialog.
+func _style_dialog_labels(node: Node) -> void:
+	for child in node.get_children():
+		if child is Label:
+			child.add_theme_color_override("font_color", Color("#1A1A1A"))
+		_style_dialog_labels(child)
 
 ## Actually delete the files after user confirmation.
 func _on_delete_confirmed():

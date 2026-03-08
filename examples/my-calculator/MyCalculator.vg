@@ -3,3 +3,7 @@
 Private Sub Form_Load()
 	' Initialization code here
 End Sub
+
+Sub btnEquals_Click()
+    
+End Sub
