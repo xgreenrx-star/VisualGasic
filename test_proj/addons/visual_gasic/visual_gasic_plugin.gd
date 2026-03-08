@@ -179,6 +179,9 @@ func _enter_tree():
 	# Store self for static retrieval
 	get_editor_interface().get_base_control().set_meta("visual_gasic_plugin_instance", self)
 
+	# Enable input processing so _input() fires for our keyboard shortcuts
+	set_process_input(true)
+
 	# Import Plugin
 	import_plugin = preload("res://addons/visual_gasic/frm_import_plugin.gd").new()
 	add_import_plugin(import_plugin)
@@ -359,6 +362,8 @@ func _enter_tree():
 			_form_designer.control_right_clicked.connect(_on_fd_control_right_clicked)
 		if _form_designer.has_signal("scene_file_dropped"):
 			_form_designer.scene_file_dropped.connect(_on_fd_scene_file_dropped)
+		# Keyboard fallback: catch shortcuts when canvas has focus
+		_form_designer.gui_input.connect(_on_canvas_gui_input)
 
 		# --- Build the composite layout ---
 		# VBoxContainer root: Menu | Toolbar | [Toolbox | Canvas | Properties] | Status
@@ -955,13 +960,13 @@ func _exit_tree():
 	if get_tree().node_added.is_connected(_on_node_added):
 		get_tree().node_added.disconnect(_on_node_added)
 
-## Intercept keyboard shortcuts that Godot would handle before our plugin.
-## When the Form Designer is active, consume the Delete key so Godot's
-## built-in "Delete root node?" dialog never fires.  Instead, delegate
-## to the C++ FormDesigner's remove_selected() which safely deletes only
-## child controls and ignores the form root.
-func _shortcut_input(event: InputEvent) -> void:
-	if not event is InputEventKey or not event.pressed:
+## Intercept keyboard shortcuts BEFORE Godot's editor consumes them.
+## Uses _input() — the FIRST callback in Godot's input chain — so our
+## plugin sees key events before any GUI Control or built-in handler.
+## This is critical because _shortcut_input() fires too late: by that
+## point Godot's editor has already consumed Ctrl+S, Delete, etc.
+func _input(event: InputEvent) -> void:
+	if not event is InputEventKey or not event.pressed or event.echo:
 		return
 	# Only intercept when our Form Designer main screen is visible
 	if not is_instance_valid(_ide_layout) or not _ide_layout.visible:
@@ -981,11 +986,39 @@ func _shortcut_input(event: InputEvent) -> void:
 		return
 
 	# ── Delete  →  Remove selected control (not root) ──
+	# Skip if a text-editing control has focus (user might be typing)
 	if event.keycode == KEY_DELETE and not event.ctrl_pressed and not event.alt_pressed:
+		var focused = get_viewport().gui_get_focus_owner()
+		if focused is LineEdit or focused is TextEdit or focused is CodeEdit:
+			return  # let the text field handle Delete normally
 		if is_instance_valid(_form_designer):
 			_form_designer.remove_selected()
 			_flash_status_message("Deleted control")
 		get_viewport().set_input_as_handled()
+
+## Fallback keyboard handler connected to the Form Designer canvas's gui_input.
+## If _input() somehow misses an event (e.g., Godot processes the canvas
+## control's gui_input before _input fires on our plugin node), this catches it.
+func _on_canvas_gui_input(event: InputEvent) -> void:
+	if not event is InputEventKey or not event.pressed or event.echo:
+		return
+	# Ctrl+Shift+S → Save All
+	if event.keycode == KEY_S and event.ctrl_pressed and event.shift_pressed and not event.alt_pressed:
+		_do_save_all()
+		_form_designer.accept_event()
+		return
+	# Ctrl+S → Save Form
+	if event.keycode == KEY_S and event.ctrl_pressed and not event.shift_pressed and not event.alt_pressed:
+		_do_save_form()
+		_flash_status_message("Form saved")
+		_form_designer.accept_event()
+		return
+	# Delete → Remove selected control
+	if event.keycode == KEY_DELETE and not event.ctrl_pressed and not event.alt_pressed:
+		if is_instance_valid(_form_designer):
+			_form_designer.remove_selected()
+			_flash_status_message("Deleted control")
+		_form_designer.accept_event()
 
 ## Called every frame. Detects vg_control drag end and handles drop.
 ## When the C++ Form Designer is active and visible, it handles drops directly

@@ -5,5 +5,5 @@ Private Sub Form_Load()
 End Sub
 
 Sub btnEquals_Click()
-    
+	
 End Sub
