@@ -6,3 +6,7 @@ Option Explicit
 Sub Form_Load()
 	' Initialize form
 End Sub
+
+Sub LineEdit1_Change()
+    
+End Sub

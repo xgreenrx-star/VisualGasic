@@ -404,7 +404,7 @@ func _enter_tree():
 
 		var view_code_btn = Button.new()
 		view_code_btn.name = "ViewCodeBtn"
-		view_code_btn.text = "\U0001F4DD Code"
+		view_code_btn.text = "</> Code"
 		view_code_btn.tooltip_text = "View Code (F7)"
 		view_code_btn.flat = true
 		view_code_btn.add_theme_font_size_override("font_size", 11)
@@ -415,7 +415,7 @@ func _enter_tree():
 
 		var view_obj_btn = Button.new()
 		view_obj_btn.name = "ViewObjectBtn"
-		view_obj_btn.text = "\U0001F5BC Form"
+		view_obj_btn.text = "\u25a3 Form"
 		view_obj_btn.tooltip_text = "View Object (Shift+F7)"
 		view_obj_btn.flat = true
 		view_obj_btn.add_theme_font_size_override("font_size", 11)
