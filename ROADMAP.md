@@ -1,7 +1,7 @@
 # Visual Gasic Development Roadmap
 
-**Last Updated**: February 2026  
-**Current Version**: 3.2.0-beta1 (JIT Compiler, LSP, Performance, Beta Release)
+**Last Updated**: March 2026  
+**Current Version**: 3.5.0-beta2 (IDE Themes, VB6 Importer, Custom Controls, Language Enhancements)
 
 This document outlines the planned improvements and features for Visual Gasic. Items are prioritized by impact and development effort.
 
@@ -452,7 +452,10 @@ Each feature has implementation notes that describe:
 
 ## 📝 Version History
 
-- **v3.1.0** (Current) - System-Level Programming: VGSystem, Signals, Permissions, Memory, IPC, Android, Real Threading
+- **v3.5.0-beta2** (Current) - IDE Themes, Custom Theme Editor, Object Browser, VB6 Importer Enhancements, 15+ Bug Fixes
+- **v3.3.0** - Language Enhancements: 18 new features (String Interpolation, Bitwise, StringBuilder, RegExp, Static locals, etc.)
+- **v3.2.0-beta1** - JIT Compiler, LSP, Performance, First Public Beta
+- **v3.1.0** - System-Level Programming: VGSystem, Signals, Permissions, Memory, IPC, Android, Real Threading
 - **v3.0.0** - System Integration: FFI, ODBC, Crypto, XML, ZIP, Tasks, Packages, Cross-Platform System Calls, COM Interop
 - **v2.8.0** - VB6 Importer (15 fixes), Form Designer, Godot 4.6.1 Support
 - **v2.7.0** - Theme Picker, Form Preview, Screenshot Overhaul

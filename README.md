@@ -315,11 +315,10 @@ VisualGasic welcomes contributions! Please see our [Contributing Guide](CONTRIBU
 
 ## 📊 **Project Status**
 
-**Current Version**: 3.2.0-beta1 (JIT Compiler, LSP, Performance — First Public Beta)
+**Current Version**: 3.5.0-beta2 (IDE Themes, VB6 Importer, Custom Controls, Language Enhancements)
 
-> ⚠️ **Early Beta:** Despite the v3.2.0 version number (which reflects internal development
-> history), this is the **first public release** of VisualGasic. Expect bugs and rough edges.
-> We need testers — see [RELEASE_NOTES_v3.2.0-beta1.md](RELEASE_NOTES_v3.2.0-beta1.md) for details.
+> ⚠️ **Beta:** This is an active beta. We welcome testers and feedback.
+> See [RELEASE_NOTES_v3.5.0-beta2.md](RELEASE_NOTES_v3.5.0-beta2.md) for the latest changes.
 
 **Completion Status**:
 - ✅ **Core Language** - 95% (VB6 compatibility — see [Known Issues](docs/KNOWN_ISSUES.md) for edge cases)

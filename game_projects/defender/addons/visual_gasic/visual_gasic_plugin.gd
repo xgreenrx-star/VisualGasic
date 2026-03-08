@@ -1197,36 +1197,21 @@ func _do_import_frm(path):
 		print("Importer script not found")
 		return
 
-	var dir = DirAccess.open("res://")
-	if not dir.dir_exists("res://start_forms"): dir.make_dir("res://start_forms")
-	if not dir.dir_exists("res://mixed"): dir.make_dir("res://mixed")
-		
-	var root = Control.new()
-	root.name = path.get_file().get_basename()
-	
-	# Create Scene Root
-	var packed_scene = PackedScene.new()
-	# Can't pack yet, need node tree
-	
-	# We want to create it in the currently open scene or a new scene?
-	# Let's creating a new scene file.
-	
-	var code = importer.import_form(path, root, root)
-	
-	packed_scene.pack(root)
-	var save_path = "res://start_forms/" + root.name + ".tscn"
-	ResourceSaver.save(packed_scene, save_path)
-	print("Saved Scene to " + save_path)
-	
-	if code != "":
-		var bas_path = "res://mixed/" + root.name + ".vg"
-		var f = FileAccess.open(bas_path, FileAccess.WRITE)
-		f.store_string(code)
-		f.close()
-		print("Saved Code to " + bas_path)
-		_add_to_recent_projects(bas_path)  # Track in recent projects
-		
-	get_editor_interface().open_scene_from_path(save_path)
+	var result = importer.import_form_file(path)
+	if result.get("success", false):
+		var scene_path = result.get("scene_path", "")
+		var code_path = result.get("code_path", "")
+		print("VB6 Import OK: scene=%s  code=%s" % [scene_path, code_path])
+		if code_path != "":
+			_add_to_recent_projects(code_path)
+		get_editor_interface().get_resource_filesystem().scan()
+		if scene_path != "":
+			get_editor_interface().open_scene_from_path(scene_path)
+	else:
+		var errors = result.get("errors", [])
+		for e in errors:
+			push_error("VB6 Import: " + e)
+		print("VB6 Import failed. See errors above.")
 
 # =============================================================================
 # FORM CREATION
@@ -1705,9 +1690,19 @@ func _load_theme_config() -> void:
 ## Godot's dark editor theme.
 func _build_vb6_theme() -> Theme:
 	var t = Theme.new()
-	var bg: Color = _theme.get("panel_background", Color("#F0EDE8"))
-	var border: Color = _theme.get("panel_border", Color(0.72, 0.71, 0.68))
-	var text_color := Color.BLACK
+	# Read IDE chrome colors from the active theme in VGThemeManager
+	var td = VGThemeManager.get_current_theme()
+	var bg: Color = td.ide_panel_bg if td else _theme.get("panel_background", Color("#F0EDE8"))
+	var border: Color = td.ide_panel_border if td else _theme.get("panel_border", Color(0.72, 0.71, 0.68))
+	var text_color: Color = td.ide_text_color if td else Color.BLACK
+	var list_bg: Color = td.ide_list_bg if td else Color.WHITE
+	var tab_sel_bg: Color = td.ide_tab_selected_bg if td else bg
+	var tab_unsel_bg: Color = td.ide_tab_unselected_bg if td else Color(0.85, 0.84, 0.82)
+	var tab_hover_bg: Color = td.ide_tab_hover_bg if td else Color(0.95, 0.94, 0.92)
+	var btn_hover_bg: Color = td.ide_btn_hover_bg if td else Color(0.95, 0.94, 0.92)
+	var btn_pressed_bg: Color = td.ide_btn_pressed_bg if td else Color(0.88, 0.87, 0.85)
+	var tooltip_bg: Color = td.ide_tooltip_bg if td else Color(1.0, 1.0, 0.94)
+	var tab_unsel_text: Color = text_color.lerp(bg, 0.35)
 
 	# ── PanelContainer (fixes C++ VisualGasicToolbox dark bg) ──
 	var pc_sb = StyleBoxFlat.new()
@@ -1724,7 +1719,7 @@ func _build_vb6_theme() -> Theme:
 	t.set_stylebox("panel", "TabContainer", tc_panel)
 
 	var tab_sel = StyleBoxFlat.new()
-	tab_sel.bg_color = bg
+	tab_sel.bg_color = tab_sel_bg
 	tab_sel.border_color = border
 	tab_sel.border_width_left = 1; tab_sel.border_width_top = 1
 	tab_sel.border_width_right = 1; tab_sel.border_width_bottom = 0
@@ -1734,7 +1729,7 @@ func _build_vb6_theme() -> Theme:
 	t.set_stylebox("tab_selected", "TabBar", tab_sel)
 
 	var tab_unsel = StyleBoxFlat.new()
-	tab_unsel.bg_color = Color(0.85, 0.84, 0.82)
+	tab_unsel.bg_color = tab_unsel_bg
 	tab_unsel.border_color = border
 	tab_unsel.set_border_width_all(1)
 	tab_unsel.content_margin_left = 8; tab_unsel.content_margin_right = 8
@@ -1743,7 +1738,7 @@ func _build_vb6_theme() -> Theme:
 	t.set_stylebox("tab_unselected", "TabBar", tab_unsel)
 
 	var tab_hover = StyleBoxFlat.new()
-	tab_hover.bg_color = Color(0.95, 0.94, 0.92)
+	tab_hover.bg_color = tab_hover_bg
 	tab_hover.border_color = border
 	tab_hover.border_width_left = 1; tab_hover.border_width_top = 1
 	tab_hover.border_width_right = 1; tab_hover.border_width_bottom = 0
@@ -1754,24 +1749,24 @@ func _build_vb6_theme() -> Theme:
 
 	# Tab font colors
 	t.set_color("font_selected_color", "TabContainer", text_color)
-	t.set_color("font_unselected_color", "TabContainer", Color(0.3, 0.3, 0.3))
+	t.set_color("font_unselected_color", "TabContainer", tab_unsel_text)
 	t.set_color("font_hovered_color", "TabContainer", text_color)
 	t.set_color("font_selected_color", "TabBar", text_color)
-	t.set_color("font_unselected_color", "TabBar", Color(0.3, 0.3, 0.3))
+	t.set_color("font_unselected_color", "TabBar", tab_unsel_text)
 	t.set_color("font_hovered_color", "TabBar", text_color)
 
 	# ── Tree (Project Explorer, Properties Inspector) ──
 	var tree_sb = StyleBoxFlat.new()
-	tree_sb.bg_color = Color.WHITE
+	tree_sb.bg_color = list_bg
 	tree_sb.border_color = border
 	tree_sb.set_border_width_all(1)
 	t.set_stylebox("panel", "Tree", tree_sb)
 	t.set_color("font_color", "Tree", text_color)
-	t.set_color("font_selected_color", "Tree", Color.WHITE)
+	t.set_color("font_selected_color", "Tree", Color.WHITE if text_color.get_luminance() < 0.5 else Color.BLACK)
 
 	# ── ItemList ──
 	var il_sb = StyleBoxFlat.new()
-	il_sb.bg_color = Color.WHITE
+	il_sb.bg_color = list_bg
 	il_sb.border_color = border
 	il_sb.set_border_width_all(1)
 	t.set_stylebox("panel", "ItemList", il_sb)
@@ -1782,7 +1777,7 @@ func _build_vb6_theme() -> Theme:
 
 	# ── LineEdit (property fields) ──
 	var le_sb = StyleBoxFlat.new()
-	le_sb.bg_color = Color.WHITE
+	le_sb.bg_color = list_bg
 	le_sb.border_color = border
 	le_sb.set_border_width_all(1)
 	le_sb.content_margin_left = 4; le_sb.content_margin_right = 4
@@ -1799,20 +1794,20 @@ func _build_vb6_theme() -> Theme:
 	btn_sb.content_margin_left = 4; btn_sb.content_margin_right = 4
 	btn_sb.content_margin_top = 2; btn_sb.content_margin_bottom = 2
 	t.set_stylebox("normal", "Button", btn_sb)
-	var btn_hover = StyleBoxFlat.new()
-	btn_hover.bg_color = Color(0.95, 0.94, 0.92)
-	btn_hover.border_color = border
-	btn_hover.set_border_width_all(1)
-	btn_hover.content_margin_left = 4; btn_hover.content_margin_right = 4
-	btn_hover.content_margin_top = 2; btn_hover.content_margin_bottom = 2
-	t.set_stylebox("hover", "Button", btn_hover)
-	var btn_pressed = StyleBoxFlat.new()
-	btn_pressed.bg_color = Color(0.88, 0.87, 0.85)
-	btn_pressed.border_color = border
-	btn_pressed.set_border_width_all(1)
-	btn_pressed.content_margin_left = 4; btn_pressed.content_margin_right = 4
-	btn_pressed.content_margin_top = 2; btn_pressed.content_margin_bottom = 2
-	t.set_stylebox("pressed", "Button", btn_pressed)
+	var btn_hov = StyleBoxFlat.new()
+	btn_hov.bg_color = btn_hover_bg
+	btn_hov.border_color = border
+	btn_hov.set_border_width_all(1)
+	btn_hov.content_margin_left = 4; btn_hov.content_margin_right = 4
+	btn_hov.content_margin_top = 2; btn_hov.content_margin_bottom = 2
+	t.set_stylebox("hover", "Button", btn_hov)
+	var btn_prs = StyleBoxFlat.new()
+	btn_prs.bg_color = btn_pressed_bg
+	btn_prs.border_color = border
+	btn_prs.set_border_width_all(1)
+	btn_prs.content_margin_left = 4; btn_prs.content_margin_right = 4
+	btn_prs.content_margin_top = 2; btn_prs.content_margin_bottom = 2
+	t.set_stylebox("pressed", "Button", btn_prs)
 	t.set_color("font_color", "Button", text_color)
 	t.set_color("font_hover_color", "Button", text_color)
 	t.set_color("font_pressed_color", "Button", text_color)
@@ -1834,12 +1829,12 @@ func _build_vb6_theme() -> Theme:
 
 	# ── Tooltip (classic light-yellow tooltip) ──
 	var tooltip_sb = StyleBoxFlat.new()
-	tooltip_sb.bg_color = Color(1.0, 1.0, 0.94)   # Light-yellow
+	tooltip_sb.bg_color = tooltip_bg
 	tooltip_sb.border_color = Color(0.0, 0.0, 0.0)
 	tooltip_sb.set_border_width_all(1)
 	tooltip_sb.set_content_margin_all(4)
 	t.set_stylebox("panel", "TooltipPanel", tooltip_sb)
-	t.set_color("font_color", "TooltipLabel", Color.BLACK)
+	t.set_color("font_color", "TooltipLabel", Color.BLACK if tooltip_bg.get_luminance() > 0.5 else Color.WHITE)
 
 	return t
 
@@ -2162,6 +2157,112 @@ func _build_vb6_scene_theme() -> Theme:
 	tooltip_sb.set_content_margin_all(4)
 	t.set_stylebox("panel", "TooltipPanel", tooltip_sb)
 	t.set_color("font_color", "TooltipLabel", win_text)
+
+	return t
+
+## Builds a VB6-style Theme for popup dialogs created inline (AcceptDialog, etc.).
+## This is the same palette used by components_dialog.gd, menu_editor.gd, etc.
+func _build_vb6_dialog_theme() -> Theme:
+	var t = Theme.new()
+	var panel_bg     := Color(0.941, 0.929, 0.910)   # #F0EDE8 cream
+	var panel_border := Color(0.72, 0.71, 0.68)
+	var header_bg    := Color(0.58, 0.58, 0.62)
+	var header_border:= Color(0.4, 0.4, 0.4)
+	var text_color   := Color(0.0, 0.0, 0.0)
+	var list_bg      := Color(1.0, 1.0, 1.0)
+	var btn_hover    := Color(0.95, 0.94, 0.92)
+	var btn_pressed  := Color(0.88, 0.87, 0.85)
+	var active_title := Color(0.0, 0.0, 0.5)
+
+	# ── Window chrome ──
+	var win_sb = StyleBoxFlat.new()
+	win_sb.bg_color = header_bg
+	win_sb.border_color = header_border
+	win_sb.set_border_width_all(2)
+	win_sb.set_content_margin_all(4)
+	t.set_stylebox("embedded_border", "Window", win_sb)
+	var win_unfocus = win_sb.duplicate()
+	win_unfocus.bg_color = Color(0.50, 0.50, 0.50)
+	t.set_stylebox("embedded_unfocused_border", "Window", win_unfocus)
+	t.set_color("title_color", "Window", Color.WHITE)
+	t.set_color("title_outline_modulate", "Window", Color.TRANSPARENT)
+
+	# ── AcceptDialog panel ──
+	var dlg_sb = StyleBoxFlat.new()
+	dlg_sb.bg_color = panel_bg
+	dlg_sb.border_color = panel_border
+	dlg_sb.set_border_width_all(1)
+	dlg_sb.set_content_margin_all(10)
+	t.set_stylebox("panel", "AcceptDialog", dlg_sb)
+
+	# ── Label ──
+	t.set_color("font_color", "Label", text_color)
+
+	# ── LineEdit ──
+	var le_sb = StyleBoxFlat.new()
+	le_sb.bg_color = list_bg
+	le_sb.border_color = panel_border
+	le_sb.set_border_width_all(1)
+	le_sb.set_content_margin_all(4)
+	t.set_stylebox("normal", "LineEdit", le_sb)
+	t.set_stylebox("focus", "LineEdit", le_sb.duplicate())
+	t.set_color("font_color", "LineEdit", text_color)
+	t.set_color("font_placeholder_color", "LineEdit", Color(0.5, 0.5, 0.5))
+
+	# ── OptionButton ──
+	var ob_sb = StyleBoxFlat.new()
+	ob_sb.bg_color = panel_bg
+	ob_sb.border_color = panel_border
+	ob_sb.set_border_width_all(1)
+	ob_sb.content_margin_left = 6; ob_sb.content_margin_right = 6
+	ob_sb.content_margin_top = 3; ob_sb.content_margin_bottom = 3
+	t.set_stylebox("normal", "OptionButton", ob_sb)
+	var ob_hov = ob_sb.duplicate()
+	ob_hov.bg_color = btn_hover
+	t.set_stylebox("hover", "OptionButton", ob_hov)
+	var ob_pre = ob_sb.duplicate()
+	ob_pre.bg_color = btn_pressed
+	t.set_stylebox("pressed", "OptionButton", ob_pre)
+	t.set_color("font_color", "OptionButton", text_color)
+	t.set_color("font_hover_color", "OptionButton", text_color)
+	t.set_color("font_pressed_color", "OptionButton", text_color)
+
+	# ── PopupMenu (OptionButton dropdown) ──
+	var pm_sb = StyleBoxFlat.new()
+	pm_sb.bg_color = list_bg
+	pm_sb.border_color = panel_border
+	pm_sb.set_border_width_all(1)
+	pm_sb.set_content_margin_all(4)
+	t.set_stylebox("panel", "PopupMenu", pm_sb)
+	t.set_color("font_color", "PopupMenu", text_color)
+	t.set_color("font_hover_color", "PopupMenu", Color.WHITE)
+	var pm_hov = StyleBoxFlat.new()
+	pm_hov.bg_color = active_title
+	t.set_stylebox("hover", "PopupMenu", pm_hov)
+
+	# ── Button ──
+	var btn_sb = StyleBoxFlat.new()
+	btn_sb.bg_color = panel_bg
+	btn_sb.border_color = panel_border
+	btn_sb.set_border_width_all(1)
+	btn_sb.content_margin_left = 8; btn_sb.content_margin_right = 8
+	btn_sb.content_margin_top = 3; btn_sb.content_margin_bottom = 3
+	t.set_stylebox("normal", "Button", btn_sb)
+	var bh = btn_sb.duplicate()
+	bh.bg_color = btn_hover
+	t.set_stylebox("hover", "Button", bh)
+	var bp = btn_sb.duplicate()
+	bp.bg_color = btn_pressed
+	t.set_stylebox("pressed", "Button", bp)
+	t.set_color("font_color", "Button", text_color)
+	t.set_color("font_hover_color", "Button", text_color)
+	t.set_color("font_pressed_color", "Button", text_color)
+
+	# ── HSeparator ──
+	var sep_sb = StyleBoxFlat.new()
+	sep_sb.bg_color = panel_border
+	sep_sb.content_margin_top = 4; sep_sb.content_margin_bottom = 4
+	t.set_stylebox("separator", "HSeparator", sep_sb)
 
 	return t
 
@@ -2606,7 +2707,7 @@ func _create_vb6_menu_bar() -> MenuBar:
 	file_menu.add_item("Open Project...", 2)
 	file_menu.add_separator()
 	file_menu.add_item("Save Form", 10)
-	file_menu.add_shortcut(_make_shortcut(KEY_S, true), 10)
+	file_menu.set_item_shortcut(file_menu.get_item_index(10), _make_shortcut(KEY_S, true))
 	file_menu.add_item("Save Form As...", 11)
 	file_menu.add_separator()
 	file_menu.add_item("Import VB6 Form...", 20)
@@ -2621,20 +2722,20 @@ func _create_vb6_menu_bar() -> MenuBar:
 	edit_menu.name = "Edit"
 	_style_popup_menu(edit_menu)
 	edit_menu.add_item("Undo", 0)
-	edit_menu.add_shortcut(_make_shortcut(KEY_Z, true), 0)
+	edit_menu.set_item_shortcut(edit_menu.get_item_index(0), _make_shortcut(KEY_Z, true))
 	edit_menu.add_item("Redo", 1)
-	edit_menu.add_shortcut(_make_shortcut(KEY_Y, true), 1)
+	edit_menu.set_item_shortcut(edit_menu.get_item_index(1), _make_shortcut(KEY_Y, true))
 	edit_menu.add_separator()
 	edit_menu.add_item("Cut", 10)
-	edit_menu.add_shortcut(_make_shortcut(KEY_X, true), 10)
+	edit_menu.set_item_shortcut(edit_menu.get_item_index(10), _make_shortcut(KEY_X, true))
 	edit_menu.add_item("Copy", 11)
-	edit_menu.add_shortcut(_make_shortcut(KEY_C, true), 11)
+	edit_menu.set_item_shortcut(edit_menu.get_item_index(11), _make_shortcut(KEY_C, true))
 	edit_menu.add_item("Paste", 12)
-	edit_menu.add_shortcut(_make_shortcut(KEY_V, true), 12)
+	edit_menu.set_item_shortcut(edit_menu.get_item_index(12), _make_shortcut(KEY_V, true))
 	edit_menu.add_item("Delete", 13)
 	edit_menu.add_separator()
 	edit_menu.add_item("Select All", 20)
-	edit_menu.add_shortcut(_make_shortcut(KEY_A, true), 20)
+	edit_menu.set_item_shortcut(edit_menu.get_item_index(20), _make_shortcut(KEY_A, true))
 	edit_menu.id_pressed.connect(_on_vb6_edit_menu)
 	mb.add_child(edit_menu)
 
@@ -2687,9 +2788,9 @@ func _create_vb6_menu_bar() -> MenuBar:
 	debug_menu.name = "Debug"
 	_style_popup_menu(debug_menu)
 	debug_menu.add_item("Run Project", 0)
-	debug_menu.add_shortcut(_make_shortcut(KEY_F5), 0)
+	debug_menu.set_item_shortcut(debug_menu.get_item_index(0), _make_shortcut(KEY_F5))
 	debug_menu.add_item("Run Current Scene", 1)
-	debug_menu.add_shortcut(_make_shortcut(KEY_F6), 1)
+	debug_menu.set_item_shortcut(debug_menu.get_item_index(1), _make_shortcut(KEY_F6))
 	debug_menu.add_separator()
 	debug_menu.add_item("Stop", 10)
 	debug_menu.id_pressed.connect(_on_vb6_debug_menu)
@@ -2716,6 +2817,7 @@ func _create_vb6_menu_bar() -> MenuBar:
 	tools_menu.add_item("Object Browser...", 2)
 	tools_menu.add_separator()
 	tools_menu.add_item("New Custom Control...", 20)
+	tools_menu.add_item("Edit Custom Control...", 21)
 	tools_menu.add_separator()
 	tools_menu.add_item("Snippet Browser...", 10)
 	tools_menu.add_item("Theme Picker...", 11)
@@ -2798,6 +2900,7 @@ func _on_vb6_file_menu(id: int) -> void:
 	match id:
 		0: _on_add_form()
 		1: _on_new_module()
+		2: _on_open_project()
 		10: _do_save_form()
 		11: _do_save_form_as()
 		20: _on_import_vb6_form()
@@ -2846,6 +2949,24 @@ func _do_save_form_as() -> void:
 		_form_designer.save_form_as(path)
 		print("[VisualGasic] Form saved as: ", path)
 		_reload_scene_after_form_save(path)
+		fd.queue_free()
+	)
+	fd.canceled.connect(fd.queue_free)
+	get_editor_interface().get_base_control().add_child(fd)
+	fd.popup_centered()
+
+## Show a FileDialog so the user can open an existing form (.tscn) in the
+## Form Designer.  This is the File > Open Project handler.
+func _on_open_project() -> void:
+	var fd = FileDialog.new()
+	fd.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	fd.access = FileDialog.ACCESS_RESOURCES
+	fd.add_filter("*.tscn ; Godot Scene")
+	fd.title = "Open Project..."
+	fd.min_size = Vector2i(600, 400)
+	fd.current_dir = "res://"
+	fd.file_selected.connect(func(path: String):
+		open_form_in_designer(path)
 		fd.queue_free()
 	)
 	fd.canceled.connect(fd.queue_free)
@@ -3194,6 +3315,7 @@ func _on_vb6_tools_menu(id: int) -> void:
 		10: _on_open_snippet_browser()
 		11: _on_open_theme_picker()
 		20: _on_new_custom_control()
+		21: _on_edit_custom_control()
 
 func _on_vb6_window_menu(id: int) -> void:
 	match id:
@@ -3892,12 +4014,32 @@ func _on_open_theme_picker():
 	if _theme_picker:
 		_theme_picker.popup_centered()
 
-## Applies a new theme to the active code editor (v2.4.1)
+## Applies a new theme to the active code editor AND IDE chrome (v3.5)
 func _on_theme_changed(theme_name: String):
 	var theme_mgr_script = load("res://addons/visual_gasic/vg_theme_manager.gd")
 	if theme_mgr_script and _current_code_edit and is_instance_valid(_current_code_edit):
 		theme_mgr_script.apply_to_code_edit(_current_code_edit)
-		print("VisualGasic: Applied theme '", theme_name, "'")
+	
+	# Also update the IDE chrome colors from the new theme
+	var td = VGThemeManager.get_current_theme()
+	if td:
+		# Update the _theme dictionary with IDE chrome values
+		_theme["panel_background"] = td.ide_panel_bg
+		_theme["panel_border"] = td.ide_panel_border
+		_theme["header_background"] = td.ide_header_bg
+		_theme["header_border"] = td.ide_header_border
+		_theme["header_text"] = td.ide_header_text
+		_theme["toolbox_btn_normal"] = td.ide_panel_bg
+		_theme["toolbox_btn_hover"] = td.ide_toolbox_btn_hover
+		_theme["toolbox_btn_pressed"] = td.ide_toolbox_btn_pressed
+		_theme["toolbox_text"] = td.ide_text_color
+		_theme["toolbox_text_pressed"] = td.ide_toolbox_text_pressed
+	
+	# Rebuild the IDE Theme from the new colors
+	if is_instance_valid(_ide_layout):
+		_ide_layout.theme = _build_vb6_theme()
+	_apply_vb6_theme()
+	print("VisualGasic: Applied theme '", theme_name, "' (code + IDE)")
 
 
 ## Updates the Form Designer button pressed state when mode changes.
@@ -4075,10 +4217,13 @@ func _create_new_form(form_name: String):
 func _on_new_module():
 	var dlg = AcceptDialog.new()
 	dlg.title = "New Module"
-	dlg.dialog_text = "Enter a name for the new module:"
 	dlg.ok_button_text = "Create"
 	
 	var vbox = VBoxContainer.new()
+	
+	var desc_label = Label.new()
+	desc_label.text = "Enter a name for the new module:"
+	vbox.add_child(desc_label)
 	
 	var name_label = Label.new()
 	name_label.text = "Module Name:"
@@ -4562,83 +4707,61 @@ func _on_components():
 # NEW CUSTOM CONTROL WIZARD
 # =============================================================================
 
-## Opens the "New Custom Control" wizard dialog.
-## Lets user choose a name and root node type, then generates a .tscn file,
-## registers it in the Components config, and refreshes the toolbox.
+## Opens the Custom Control Designer to create a new custom control.
+## The designer provides a WYSIWYG surface for composing child nodes,
+## setting properties, and saving as a reusable .tscn control.
 func _on_new_custom_control():
-	var dlg = AcceptDialog.new()
-	dlg.title = "New Custom Control"
-	dlg.ok_button_text = "Create"
-	dlg.size = Vector2i(380, 200)
+	var DesignerClass = load("res://addons/visual_gasic/custom_control_designer.gd")
+	if not DesignerClass:
+		push_error("VisualGasic: Could not load custom_control_designer.gd")
+		return
 
-	# Build a small form inside the dialog
-	var vbox = VBoxContainer.new()
-	vbox.custom_minimum_size = Vector2(340, 0)
-	dlg.add_child(vbox)
-
-	# Name field
-	var name_label = Label.new()
-	name_label.text = "Control Name:"
-	vbox.add_child(name_label)
-
-	var name_edit = LineEdit.new()
-	name_edit.text = "MyCustomControl"
-	name_edit.placeholder_text = "e.g. WobblyButton"
-	name_edit.select_all_on_focus = true
-	vbox.add_child(name_edit)
-
-	# Spacer
-	var spacer = Control.new()
-	spacer.custom_minimum_size.y = 8
-	vbox.add_child(spacer)
-
-	# Root node type
-	var type_label = Label.new()
-	type_label.text = "Root Node Type:"
-	vbox.add_child(type_label)
-
-	var type_option = OptionButton.new()
-	type_option.add_item("Control", 0)
-	type_option.add_item("Panel", 1)
-	type_option.add_item("PanelContainer", 2)
-	type_option.add_item("HBoxContainer", 3)
-	type_option.add_item("VBoxContainer", 4)
-	type_option.add_item("MarginContainer", 5)
-	type_option.add_item("Button", 6)
-	type_option.add_item("TextureRect", 7)
-	vbox.add_child(type_option)
-
-	# Info label
-	var info = Label.new()
-	info.text = "Saves to res://custom_controls/ and adds to Toolbox."
-	info.add_theme_font_size_override("font_size", 11)
-	info.add_theme_color_override("font_color", Color(0.4, 0.4, 0.4))
-	vbox.add_child(info)
-
-	dlg.confirmed.connect(func():
-		var ctrl_name = name_edit.text.strip_edges()
-		if ctrl_name.is_empty():
-			push_warning("VisualGasic: Custom control name cannot be empty.")
-			dlg.queue_free()
-			return
-
-		# Sanitize: remove spaces, ensure PascalCase-friendly
-		ctrl_name = ctrl_name.replace(" ", "")
-
-		var root_types := ["Control", "Panel", "PanelContainer", "HBoxContainer",
-						   "VBoxContainer", "MarginContainer", "Button", "TextureRect"]
-		var root_type: String = root_types[type_option.selected]
-
-		_create_custom_control_scene(ctrl_name, root_type)
-		dlg.queue_free()
+	var dlg = DesignerClass.new()
+	dlg.control_saved.connect(func(ctrl_name: String, save_path: String):
+		_register_custom_control_in_config(ctrl_name, save_path)
+		_on_components_changed()
+		_generate_preview_for_custom_control(ctrl_name, save_path)
+		print("VisualGasic: Custom control '", ctrl_name, "' registered in toolbox.")
 	)
-
-	dlg.canceled.connect(func():
-		dlg.queue_free()
-	)
-
 	get_editor_interface().get_base_control().add_child(dlg)
 	dlg.popup_centered()
+
+## Opens a file picker to select an existing custom control .tscn, then
+## opens it in the Custom Control Designer for visual editing.
+func _on_edit_custom_control():
+	var fd = FileDialog.new()
+	fd.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	fd.access = FileDialog.ACCESS_RESOURCES
+	fd.filters = ["*.tscn ; Scene Files"]
+	fd.title = "Select Custom Control to Edit"
+	fd.size = Vector2i(600, 400)
+
+	# Default to custom_controls folder if it exists
+	if DirAccess.dir_exists_absolute("res://custom_controls"):
+		fd.current_dir = "res://custom_controls"
+
+	fd.file_selected.connect(func(path: String):
+		var DesignerClass = load("res://addons/visual_gasic/custom_control_designer.gd")
+		if not DesignerClass:
+			push_error("VisualGasic: Could not load custom_control_designer.gd")
+			fd.queue_free()
+			return
+
+		var dlg = DesignerClass.new()
+		dlg.load_from_scene(path)
+		dlg.control_saved.connect(func(ctrl_name: String, save_path: String):
+			_register_custom_control_in_config(ctrl_name, save_path)
+			_on_components_changed()
+			_generate_preview_for_custom_control(ctrl_name, save_path)
+		)
+		get_editor_interface().get_base_control().add_child(dlg)
+		dlg.popup_centered()
+		fd.queue_free()
+	)
+
+	fd.canceled.connect(func(): fd.queue_free())
+	get_editor_interface().get_base_control().add_child(fd)
+	fd.popup_centered()
 
 ## Creates a minimal .tscn file for a new custom control, registers it, and refreshes the toolbox.
 ## @param ctrl_name: The name of the new custom control (e.g. "WobblyButton")

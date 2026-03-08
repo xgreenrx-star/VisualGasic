@@ -1,6 +1,6 @@
 # VisualGasic Project Status
 
-**Version**: 3.3.0 (Language Enhancements, JIT Compiler, LSP, Performance)  
+**Version**: 3.5.0-beta2 (IDE Themes, VB6 Importer, Custom Controls, Language Enhancements)  
 **Last Updated**: March 2026
 
 ## Overview

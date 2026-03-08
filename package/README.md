@@ -218,7 +218,7 @@ VisualGasic welcomes contributions! Please see our [Contributing Guide](CONTRIBU
 
 ## 📊 **Project Status**
 
-**Current Version**: 3.2.0 (GPU Computing & ECS — VGGpu vector math, VGEcs Dictionary-based entity system)
+**Current Version**: 3.5.0-beta2 (IDE Themes, VB6 Importer, Custom Controls, Language Enhancements)
 
 **Completion Status**:
 - ✅ **Core Language** - 95% (VB6 compatibility — see docs/KNOWN_ISSUES.md)
