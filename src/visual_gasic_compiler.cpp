@@ -2748,7 +2748,21 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
     switch (stmt->type) {
         case STMT_PRINT: {
             PrintStatement* s = (PrintStatement*)stmt;
-            if (s->expression) {
+            if (s->file_number) {
+                // Print #N, expr1; expr2... → OP_PRINT_FILE
+                compile_expression(s->file_number);
+                int arg_count = 0;
+                if (s->expression) {
+                    compile_expression(s->expression);
+                    arg_count++;
+                }
+                for (int i = 0; i < s->extra_expressions.size(); i++) {
+                    compile_expression(s->extra_expressions[i]);
+                    arg_count++;
+                }
+                emit_byte(OP_PRINT_FILE);
+                emit_byte((uint8_t)arg_count);
+            } else if (s->expression) {
                 compile_expression(s->expression);
                 emit_byte(s->is_debug ? OP_DEBUG_PRINT : OP_PRINT);
             }
@@ -3958,7 +3972,63 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             else compile_expression(f->to_val);
             ValueType to_type = infer_type(f->to_val);
             bool use_int_compare = (loop_type == VT_INT && to_type != VT_FLOAT);
-            emit_byte(use_int_compare ? OP_LESS_EQUAL_I64 : OP_LESS_EQUAL);
+
+            // Determine comparison direction based on step sign.
+            // Positive or default step → counter <= limit (OP_LESS_EQUAL)
+            // Negative step           → counter >= limit (OP_GREATER_EQUAL)
+            bool step_is_negative = false;
+            if (has_step_const) {
+                // Constant step: check sign at compile time
+                step_is_negative = step_const_is_integral ? (step_const_int < 0) : false;
+                if (!step_const_is_integral && f->step_val) {
+                    // Float constant step: evaluate and check sign
+                    Variant sv = eval_constant_expr(f->step_val);
+                    if (sv.get_type() == Variant::FLOAT) {
+                        step_is_negative = (double)sv < 0.0;
+                    } else if (sv.get_type() == Variant::INT) {
+                        step_is_negative = (int64_t)sv < 0;
+                    }
+                }
+            }
+            // For non-constant step, we need a runtime check. Emit both branches.
+            if (!has_step_const && f->step_val) {
+                // Runtime step direction: compare step > 0 at runtime
+                // We emit:  if step > 0 then (counter <= limit) else (counter >= limit)
+                // Load step value
+                if (step_slot >= 0) {
+                    emit_bytes(OP_GET_LOCAL, (uint8_t)step_slot);
+                } else {
+                    compile_expression(f->step_val);
+                }
+                emit_constant(Variant((int64_t)0));
+                emit_byte(OP_GREATER);
+                int step_positive_jump = emit_jump(OP_JUMP_IF_FALSE);
+
+                // Positive step path: counter <= limit
+                if (var_slot >= 0) emit_bytes(OP_GET_LOCAL, (uint8_t)var_slot);
+                else { int vi = current_chunk->add_constant(f->variable_name); emit_bytes(OP_GET_GLOBAL, (uint8_t)vi); }
+                if (to_slot >= 0) emit_bytes(OP_GET_LOCAL, (uint8_t)to_slot);
+                else compile_expression(f->to_val);
+                emit_byte(use_int_compare ? OP_LESS_EQUAL_I64 : OP_LESS_EQUAL);
+                int skip_neg_path = emit_jump(OP_JUMP);
+
+                // Negative step path: counter >= limit
+                patch_jump(step_positive_jump);
+                if (var_slot >= 0) emit_bytes(OP_GET_LOCAL, (uint8_t)var_slot);
+                else { int vi = current_chunk->add_constant(f->variable_name); emit_bytes(OP_GET_GLOBAL, (uint8_t)vi); }
+                if (to_slot >= 0) emit_bytes(OP_GET_LOCAL, (uint8_t)to_slot);
+                else compile_expression(f->to_val);
+                emit_byte(OP_GREATER_EQUAL);
+
+                patch_jump(skip_neg_path);
+            } else {
+                // Constant step or no step: emit the right comparison directly
+                if (step_is_negative) {
+                    emit_byte(OP_GREATER_EQUAL);
+                } else {
+                    emit_byte(use_int_compare ? OP_LESS_EQUAL_I64 : OP_LESS_EQUAL);
+                }
+            }
             int exit_jump = emit_jump(OP_JUMP_IF_FALSE);
             auto compile_statement_list = [&](const Vector<Statement*> &stmts) {
                 for (int i = 0; i < stmts.size(); i++) {

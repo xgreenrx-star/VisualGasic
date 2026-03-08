@@ -35,6 +35,9 @@ struct FormControlItem {
     bool   selected = false;
     bool   visible  = true;
 
+    // VB6-style control array index (-1 = not a control array member)
+    int    control_array_index = -1;
+
     // Generic property bag for any extra properties
     Dictionary properties;
 };

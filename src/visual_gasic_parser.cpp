@@ -1160,6 +1160,47 @@ Statement* VisualGasicParser::parse_statement() {
             return ps;
         }
         
+        // ── Err.Raise → STMT_RAISE (VB6 Err.Raise Number, Source, Description) ──
+        if (String(t.value).nocasecmp_to("err") == 0
+            && current_pos + 2 < (int)tokens.size()
+            && tokens[current_pos + 1].type == VisualGasicTokenizer::TOKEN_OPERATOR
+            && tokens[current_pos + 1].value == "."
+            && String(tokens[current_pos + 2].value).nocasecmp_to("raise") == 0) {
+            advance(); // Eat "Err"
+            advance(); // Eat "."
+            advance(); // Eat "Raise"
+            RaiseStatement* s = static_cast<RaiseStatement*>(register_node(new RaiseStatement()));
+            // Parse error code (first argument)
+            {
+                ExpressionNode* _tmp = parse_expression();
+                s->error_code = _tmp;
+                unregister_node(_tmp);
+            }
+            // VB6 Err.Raise signature: Number, [Source], [Description]
+            // Skip optional Source parameter (second arg)
+            if (check(VisualGasicTokenizer::TOKEN_COMMA)) {
+                advance(); // Eat comma
+                // Check for empty source (double comma: Err.Raise 5, , "msg")
+                if (check(VisualGasicTokenizer::TOKEN_COMMA)) {
+                    advance(); // Skip second comma → Description
+                    ExpressionNode* _tmp = parse_expression();
+                    s->message = _tmp;
+                    unregister_node(_tmp);
+                } else if (!check(VisualGasicTokenizer::TOKEN_NEWLINE) && !check(VisualGasicTokenizer::TOKEN_EOF) && !check(VisualGasicTokenizer::TOKEN_COLON)) {
+                    // Source argument present — skip it, look for Description
+                    ExpressionNode* _source = parse_expression();
+                    if (_source) { delete _source; }
+                    if (check(VisualGasicTokenizer::TOKEN_COMMA)) {
+                        advance(); // Skip comma → Description
+                        ExpressionNode* _tmp = parse_expression();
+                        s->message = _tmp;
+                        unregister_node(_tmp);
+                    }
+                }
+            }
+            return set_line(s);
+        }
+
         // Check for Label: Identifier followed by Colon
         if (current_pos + 1 < tokens.size() && tokens[current_pos + 1].type == VisualGasicTokenizer::TOKEN_COLON) {
             String label_name = t.value;

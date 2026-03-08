@@ -1967,6 +1967,8 @@ void VisualGasicFormDesigner::set_control_property(int p_index, const String &p_
         controls.write[p_index].visible = p_value;
     } else if (p_key == "scene_path") {
         controls.write[p_index].scene_path = p_value;
+    } else if (p_key == "control_array_index") {
+        controls.write[p_index].control_array_index = p_value;
     } else {
         // Store in generic property bag
         controls.write[p_index].properties[p_key] = p_value;
@@ -1992,6 +1994,7 @@ Variant VisualGasicFormDesigner::get_control_property(int p_index, const String 
     if (p_key == "width") return item.rect.size.x;
     if (p_key == "height") return item.rect.size.y;
     if (p_key == "visible") return item.visible;
+    if (p_key == "control_array_index") return item.control_array_index;
     if (item.properties.has(p_key)) return item.properties[p_key];
     return Variant();
 }
@@ -2014,6 +2017,7 @@ Dictionary VisualGasicFormDesigner::get_control_info(int p_index) const {
     info["text"] = item.text;
     info["selected"] = item.selected;
     info["visible"] = item.visible;
+    info["control_array_index"] = item.control_array_index;
     info["properties"] = item.properties;
     return info;
 }
@@ -2245,10 +2249,40 @@ void VisualGasicFormDesigner::paste() {
 
     for (int i = 0; i < clipboard.size(); i++) {
         FormControlItem item = clipboard[i];
-        item.name = _make_unique_name(item.type);
+
+        // VB6-style control array detection:
+        // If a control with the same base name already exists, create a control array.
+        // The original becomes index 0, and the paste gets the next available index.
+        String base_name = item.name;
+        int existing_idx = -1;
+        for (int c = 0; c < controls.size(); c++) {
+            if (controls[c].name == base_name) {
+                existing_idx = c;
+                break;
+            }
+        }
+
+        if (existing_idx >= 0) {
+            // Create control array: set original to index 0 if not yet in an array
+            if (controls.write[existing_idx].control_array_index < 0) {
+                controls.write[existing_idx].control_array_index = 0;
+            }
+            // Find the next available index in the array
+            int max_idx = 0;
+            for (int c = 0; c < controls.size(); c++) {
+                if (controls[c].name == base_name && controls[c].control_array_index > max_idx) {
+                    max_idx = controls[c].control_array_index;
+                }
+            }
+            item.control_array_index = max_idx + 1;
+            // Keep the same name (VB6 control arrays share the base name)
+        } else {
+            item.name = _make_unique_name(item.type);
+        }
+
         item.rect.position += offset;
         item.selected = true;
-        if (!item.text.is_empty()) {
+        if (!item.text.is_empty() && item.control_array_index < 0) {
             item.text = item.name;
         }
         controls.push_back(item);
@@ -2256,6 +2290,7 @@ void VisualGasicFormDesigner::paste() {
 
     _mark_dirty();
     queue_redraw();
+    emit_signal("form_modified");
 }
 
 // =============================================================================
@@ -3245,6 +3280,11 @@ String VisualGasicFormDesigner::_serialize_to_tscn() const {
             out += "text = \"" + ctrl.text + "\"\n";
         }
 
+        // VB6 control array index (persisted as metadata)
+        if (ctrl.control_array_index >= 0) {
+            out += "metadata/vb6_control_array_index = " + String::num_int64(ctrl.control_array_index) + "\n";
+        }
+
         // Per-control font size override: convert VB6 pt → Godot px
         // Only emit when FontSize differs from the VB6 default (8pt = 12px)
         if (ctrl.properties.has("FontSize")) {
@@ -3472,6 +3512,9 @@ bool VisualGasicFormDesigner::_parse_tscn(const String &p_text) {
                     // Skip, we already have form_name from node name
                 } else if (key == "script" || key == "mouse_filter" || key == "theme") {
                     // Internal / theme managed by serializer, skip
+                } else if (key == "metadata/vb6_control_array_index") {
+                    // Restore VB6 control array index
+                    current_item.control_array_index = val.to_int();
                 } else {
                     // Generic property — parse typed values back into proper Variants
                     // so _serialize_to_tscn writes them with the correct format.

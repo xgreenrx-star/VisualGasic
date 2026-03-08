@@ -174,33 +174,49 @@ VisualGasicToolbox::VisualGasicToolbox() {
     grid_3d->set_v_size_flags(Control::SIZE_EXPAND_FILL);
     tabs->add_child(grid_3d);
 
-    // Add default tools (using standard class mapping)
-    // 2D
+    // Add default tools organized by type (alphabetical within groups)
+    // ── Pointer ──
     add_tool("Pointer", "", "ToolSelect"); 
-    add_tool("Picture", "TextureRect", "TextureRect", "res://addons/visual_gasic/prototypes/TextureRect.tscn");
-    add_tool("Label", "Label", "Label", "res://addons/visual_gasic/prototypes/Label.tscn"); 
-    add_tool("TextBox", "LineEdit", "LineEdit", "res://addons/visual_gasic/prototypes/LineEdit.tscn");
+    
+    // ── Basic Controls ── (alphabetical)
     add_tool("Button", "Button", "Button", "res://addons/visual_gasic/prototypes/Button.tscn");
     add_tool("CheckBox", "CheckBox", "CheckBox", "res://addons/visual_gasic/prototypes/CheckBox.tscn");
     add_tool("ComboBox", "OptionButton", "OptionButton", "res://addons/visual_gasic/prototypes/OptionButton.tscn");
+    add_tool("Label", "Label", "Label", "res://addons/visual_gasic/prototypes/Label.tscn"); 
+    add_tool("TextBox", "LineEdit", "LineEdit", "res://addons/visual_gasic/prototypes/LineEdit.tscn");
+    
+    // ── Container Controls ── (alphabetical)
     add_tool("Frame", "Panel", "Panel", "res://addons/visual_gasic/prototypes/Panel.tscn");
     add_tool("GroupBox", "Panel", "Panel", "res://addons/visual_gasic/prototypes/GroupBox.tscn");
+    add_tool("TabStrip", "TabContainer", "TabContainer", "res://addons/visual_gasic/prototypes/TabContainer.tscn");
+
+    // ── List Controls ── (alphabetical)
     add_tool("ListBox", "ItemList", "ItemList", "res://addons/visual_gasic/prototypes/ItemList.tscn");
     add_tool("TreeView", "Tree", "Tree", "res://addons/visual_gasic/prototypes/Tree.tscn");
-    add_tool("HScroll", "HScrollBar", "HScrollBar", "res://addons/visual_gasic/prototypes/HScrollBar.tscn");
-    add_tool("VScroll", "VScrollBar", "VScrollBar", "res://addons/visual_gasic/prototypes/VScrollBar.tscn");
-    add_tool("ProgressBar", "ProgressBar", "ProgressBar", "res://addons/visual_gasic/prototypes/ProgressBar.tscn");
-    add_tool("HSlider", "HSlider", "HSlider", "res://addons/visual_gasic/prototypes/HSlider.tscn");
-    add_tool("VSlider", "VSlider", "VSlider", "res://addons/visual_gasic/prototypes/VSlider.tscn");
-    add_tool("SpinBox", "SpinBox", "SpinBox", "res://addons/visual_gasic/prototypes/SpinBox.tscn");
-    add_tool("Shape", "ColorRect", "ColorRect", "res://addons/visual_gasic/prototypes/ColorRect.tscn");
-    add_tool("HLine", "HSeparator", "HSeparator", "res://addons/visual_gasic/prototypes/HSeparator.tscn");
-    add_tool("VLine", "VSeparator", "VSeparator", "res://addons/visual_gasic/prototypes/VSeparator.tscn");
+    
+    // ── Text Controls ── (alphabetical)
     add_tool("RichText", "RichTextLabel", "RichTextLabel", "res://addons/visual_gasic/prototypes/RichTextLabel.tscn");
     add_tool("TextArea", "TextEdit", "TextEdit", "res://addons/visual_gasic/prototypes/TextEdit.tscn");
-    add_tool("TabStrip", "TabContainer", "TabContainer", "res://addons/visual_gasic/prototypes/TabContainer.tscn");
-    add_tool("Timer", "Timer", "Timer", "res://addons/visual_gasic/prototypes/Timer.tscn");
+
+    // ── Display Controls ── (alphabetical)
+    add_tool("Picture", "TextureRect", "TextureRect", "res://addons/visual_gasic/prototypes/TextureRect.tscn");
+    add_tool("ProgressBar", "ProgressBar", "ProgressBar", "res://addons/visual_gasic/prototypes/ProgressBar.tscn");
+    add_tool("Shape", "ColorRect", "ColorRect", "res://addons/visual_gasic/prototypes/ColorRect.tscn");
+    
+    // ── Line / Separator Controls ── (alphabetical)
+    add_tool("HLine", "HSeparator", "HSeparator", "res://addons/visual_gasic/prototypes/HSeparator.tscn");
+    add_tool("VLine", "VSeparator", "VSeparator", "res://addons/visual_gasic/prototypes/VSeparator.tscn");
+    
+    // ── Scroll / Slider Controls ── (alphabetical)
+    add_tool("HScroll", "HScrollBar", "HScrollBar", "res://addons/visual_gasic/prototypes/HScrollBar.tscn");
+    add_tool("HSlider", "HSlider", "HSlider", "res://addons/visual_gasic/prototypes/HSlider.tscn");
+    add_tool("SpinBox", "SpinBox", "SpinBox", "res://addons/visual_gasic/prototypes/SpinBox.tscn");
+    add_tool("VScroll", "VScrollBar", "VScrollBar", "res://addons/visual_gasic/prototypes/VScrollBar.tscn");
+    add_tool("VSlider", "VSlider", "VSlider", "res://addons/visual_gasic/prototypes/VSlider.tscn");
+    
+    // ── Non-Visual Controls ── (alphabetical)
     add_tool("Files", "FileDialog", "FileDialog", "res://addons/visual_gasic/prototypes/FileDialog.tscn"); 
+    add_tool("Timer", "Timer", "Timer", "res://addons/visual_gasic/prototypes/Timer.tscn"); 
     
     // Mark these as default tools (won't be removed by clear_custom_tools)
     mark_defaults();

@@ -152,11 +152,15 @@ func _setup_auto_indent() -> void:
 	# Enable code folding (indent-based) — property names vary by Godot version
 	set("line_folding_enabled", true)
 	set("gutters_draw_folding", true)
+	
+	# Enable built-in breakpoint gutter (VB6 F9 behavior)
+	gutters_draw_breakpoints_gutter = true
 
 func _connect_signals() -> void:
 	text_changed.connect(_on_text_changed)
 	code_completion_requested.connect(_on_code_completion_requested)
 	caret_changed.connect(_on_caret_changed)
+	breakpoint_toggled.connect(_on_breakpoint_toggled)
 
 # =============================================================================
 # CODE COMPLETION
@@ -577,3 +581,83 @@ func _draw() -> void:
 			var from_x: float = get_total_gutter_width() if has_method("get_total_gutter_width") else 48.0
 			var to_x: float = size.x
 			draw_line(Vector2(from_x, y_offset), Vector2(to_x, y_offset), separator_color, line_width)
+
+# =============================================================================
+# BREAKPOINTS
+# =============================================================================
+
+## Breakpoint conditions: line_number → condition expression (empty = unconditional)
+var _breakpoint_conditions: Dictionary = {}
+## Conditional breakpoint dialog
+var _bp_condition_dialog: AcceptDialog = null
+var _bp_condition_input: LineEdit = null
+var _bp_condition_line: int = -1
+
+signal breakpoint_condition_set(line: int, condition: String)
+
+func _on_breakpoint_toggled(line: int) -> void:
+	# Emit for the debugger plugin to pick up
+	if not is_line_breakpointed(line):
+		# Breakpoint was removed — clean up condition
+		_breakpoint_conditions.erase(line)
+
+func toggle_breakpoint(line: int) -> void:
+	set_line_as_breakpoint(line, not is_line_breakpointed(line))
+
+func set_conditional_breakpoint(line: int) -> void:
+	## Opens a dialog to set/edit a condition for a breakpoint on this line.
+	## If no breakpoint exists, creates one first.
+	if not is_line_breakpointed(line):
+		set_line_as_breakpoint(line, true)
+	
+	if not _bp_condition_dialog:
+		_bp_condition_dialog = AcceptDialog.new()
+		_bp_condition_dialog.title = "Breakpoint Condition"
+		_bp_condition_dialog.min_size = Vector2i(400, 120)
+		var vb = VBoxContainer.new()
+		var lbl = Label.new()
+		lbl.text = "Break when this expression is True:"
+		vb.add_child(lbl)
+		_bp_condition_input = LineEdit.new()
+		_bp_condition_input.placeholder_text = "e.g. counter > 10"
+		vb.add_child(_bp_condition_input)
+		_bp_condition_dialog.add_child(vb)
+		_bp_condition_dialog.confirmed.connect(_on_bp_condition_confirmed)
+		add_child(_bp_condition_dialog)
+	
+	_bp_condition_line = line
+	_bp_condition_input.text = _breakpoint_conditions.get(line, "")
+	_bp_condition_dialog.popup_centered()
+	_bp_condition_input.grab_focus()
+
+func _on_bp_condition_confirmed() -> void:
+	if _bp_condition_line >= 0:
+		var condition = _bp_condition_input.text.strip_edges()
+		if condition.is_empty():
+			_breakpoint_conditions.erase(_bp_condition_line)
+		else:
+			_breakpoint_conditions[_bp_condition_line] = condition
+		breakpoint_condition_set.emit(_bp_condition_line, condition)
+
+func get_breakpoint_condition(line: int) -> String:
+	return _breakpoint_conditions.get(line, "")
+
+func get_all_breakpoints() -> Dictionary:
+	## Returns {line: condition} for all breakpoints. Unconditional = "".
+	var result: Dictionary = {}
+	for line in get_line_count():
+		if is_line_breakpointed(line):
+			result[line] = _breakpoint_conditions.get(line, "")
+	return result
+
+func _gui_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed:
+		# F9 — Toggle breakpoint on current line
+		if event.keycode == KEY_F9 and not event.ctrl_pressed and not event.shift_pressed:
+			toggle_breakpoint(get_caret_line())
+			accept_event()
+		# Ctrl+Shift+F9 — Conditional breakpoint
+		elif event.keycode == KEY_F9 and event.ctrl_pressed and event.shift_pressed:
+			set_conditional_breakpoint(get_caret_line())
+			accept_event()
+	super._gui_input(event)

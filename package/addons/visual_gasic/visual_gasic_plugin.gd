@@ -3018,6 +3018,37 @@ func _create_vb6_menu_bar() -> MenuBar:
 	edit_menu.add_separator()
 	edit_menu.add_item("Select All", 20)
 	edit_menu.set_item_shortcut(edit_menu.get_item_index(20), _make_shortcut(KEY_A, true))
+	edit_menu.add_separator()
+	edit_menu.add_item("Find...", 30)
+	edit_menu.set_item_shortcut(edit_menu.get_item_index(30), _make_shortcut(KEY_F, true))
+	edit_menu.add_item("Replace...", 31)
+	edit_menu.set_item_shortcut(edit_menu.get_item_index(31), _make_shortcut(KEY_H, true))
+	edit_menu.add_separator()
+	edit_menu.add_item("Comment Block", 32)
+	edit_menu.set_item_shortcut(edit_menu.get_item_index(32), _make_shortcut(KEY_APOSTROPHE, true))
+	edit_menu.add_item("Uncomment Block", 33)
+	edit_menu.set_item_shortcut(edit_menu.get_item_index(33), _make_shortcut(KEY_APOSTROPHE, true, true))
+	edit_menu.add_separator()
+	edit_menu.add_item("Indent", 40)
+	edit_menu.set_item_shortcut(edit_menu.get_item_index(40), _make_shortcut(KEY_BRACKETRIGHT, true))
+	edit_menu.add_item("Outdent", 41)
+	edit_menu.set_item_shortcut(edit_menu.get_item_index(41), _make_shortcut(KEY_BRACKETLEFT, true))
+	edit_menu.add_separator()
+	# Bookmarks submenu
+	var bookmarks_menu = PopupMenu.new()
+	bookmarks_menu.name = "Bookmarks"
+	_style_popup_menu(bookmarks_menu)
+	bookmarks_menu.add_item("Toggle Bookmark", 50)
+	bookmarks_menu.set_item_shortcut(bookmarks_menu.get_item_index(50), _make_shortcut(KEY_F2, true))
+	bookmarks_menu.add_item("Next Bookmark", 51)
+	bookmarks_menu.set_item_shortcut(bookmarks_menu.get_item_index(51), _make_shortcut(KEY_F2))
+	bookmarks_menu.add_item("Previous Bookmark", 52)
+	bookmarks_menu.set_item_shortcut(bookmarks_menu.get_item_index(52), _make_shortcut(KEY_F2, false, true))
+	bookmarks_menu.add_separator()
+	bookmarks_menu.add_item("Clear All Bookmarks", 53)
+	bookmarks_menu.id_pressed.connect(_on_vb6_edit_menu)
+	edit_menu.add_child(bookmarks_menu)
+	edit_menu.add_submenu_item("Bookmarks", "Bookmarks")
 	edit_menu.id_pressed.connect(_on_vb6_edit_menu)
 	mb.add_child(edit_menu)
 
@@ -3064,6 +3095,12 @@ func _create_vb6_menu_bar() -> MenuBar:
 	format_menu.add_item("Make Same Width", 20)
 	format_menu.add_item("Make Same Height", 21)
 	format_menu.add_item("Make Same Size", 22)
+	format_menu.add_separator()
+	format_menu.add_item("Space Equally Horizontal", 50)
+	format_menu.add_item("Space Equally Vertical", 51)
+	format_menu.add_item("Size to Grid", 52)
+	format_menu.add_item("Center in Form Horizontal", 53)
+	format_menu.add_item("Center in Form Vertical", 54)
 	format_menu.add_separator()
 	format_menu.add_item("Bring to Front", 30)
 	format_menu.add_item("Send to Back", 31)
@@ -3140,10 +3177,11 @@ func _create_vb6_menu_bar() -> MenuBar:
 	return mb
 
 ## Creates a Shortcut for use in menu items.
-func _make_shortcut(key: Key, ctrl: bool = false) -> Shortcut:
+func _make_shortcut(key: Key, ctrl: bool = false, shift: bool = false) -> Shortcut:
 	var ev = InputEventKey.new()
 	ev.keycode = key
 	ev.ctrl_pressed = ctrl
+	ev.shift_pressed = shift
 	var sc = Shortcut.new()
 	sc.events = [ev]
 	return sc
@@ -3666,6 +3704,34 @@ func _sync_form_state_to_scene_tree() -> void:
 	print("[VG-SYNC] Scene tree patched: ", ctrl_count, " controls, form size=", fd_size)
 
 func _on_vb6_edit_menu(id: int) -> void:
+	# Code editor actions (Find, Replace, Comment, Bookmarks, Indent)
+	if id >= 30:
+		var ce: CodeEdit = _get_active_code_edit()
+		if not ce:
+			return
+		match id:
+			30: # Find
+				_show_find_replace_bar(false)
+			31: # Replace
+				_show_find_replace_bar(true)
+			32: # Comment Block
+				_comment_selected_lines(ce)
+			33: # Uncomment Block
+				_uncomment_selected_lines(ce)
+			40: # Indent
+				_indent_selected_lines(ce)
+			41: # Outdent
+				_outdent_selected_lines(ce)
+			50: # Toggle Bookmark
+				_toggle_bookmark(ce)
+			51: # Next Bookmark
+				_goto_next_bookmark(ce)
+			52: # Previous Bookmark
+				_goto_prev_bookmark(ce)
+			53: # Clear All Bookmarks
+				_clear_all_bookmarks(ce)
+		return
+	# Form Designer actions
 	if not _form_designer:
 		return
 	match id:
@@ -3724,6 +3790,16 @@ func _on_vb6_format_menu(id: int) -> void:
 				_form_designer.send_to_back()
 		40: # Lock Controls toggle
 			_flash_status_message("Use right-click → Lock Position on individual controls")
+		50: # Space Equally Horizontal
+			_format_space_equally_h()
+		51: # Space Equally Vertical
+			_format_space_equally_v()
+		52: # Size to Grid
+			_format_size_to_grid()
+		53: # Center in Form Horizontal
+			_format_center_in_form_h()
+		54: # Center in Form Vertical
+			_format_center_in_form_v()
 
 func _on_vb6_debug_menu(id: int) -> void:
 	match id:
@@ -3762,6 +3838,414 @@ func _on_vb6_help_menu(id: int) -> void:
 		0: OS.shell_open("https://github.com/nickshouse/VisualGasic")
 		1: pass # About dialog
 		2: _show_tip_of_day()
+
+# =============================================================================
+# EDIT MENU HELPERS — Code editor operations
+# =============================================================================
+
+## Returns the active CodeEdit from the embedded code editor, or null.
+func _get_active_code_edit() -> CodeEdit:
+	if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.visible:
+		return _embedded_code_editor.get_code_edit()
+	return null
+
+## The Find/Replace bar widget (created once, reused)
+var _find_replace_bar: VBoxContainer = null
+var _find_input: LineEdit = null
+var _replace_input: LineEdit = null
+
+## Show the Find/Replace bar in the embedded code editor.
+func _show_find_replace_bar(show_replace: bool) -> void:
+	var ce: CodeEdit = _get_active_code_edit()
+	if not ce:
+		return
+	if not is_instance_valid(_find_replace_bar):
+		_create_find_replace_bar()
+	if not _find_replace_bar.get_parent():
+		# Insert above the code editor
+		if is_instance_valid(_embedded_code_editor):
+			var code_idx = _embedded_code_editor.get_child_count()
+			# Insert just before the CodeEdit
+			for i in _embedded_code_editor.get_child_count():
+				if _embedded_code_editor.get_child(i) is CodeEdit or _embedded_code_editor.get_child(i).name == "CodeEdit":
+					code_idx = i
+					break
+			_embedded_code_editor.add_child(_find_replace_bar)
+			_embedded_code_editor.move_child(_find_replace_bar, code_idx)
+	_find_replace_bar.visible = true
+	_replace_input.visible = show_replace
+	if _replace_input.get_parent() and _replace_input.get_parent().has_method("get_child"):
+		# Show/hide the replace row (the parent HBox)
+		for child in _find_replace_bar.get_children():
+			if child is HBoxContainer:
+				var has_replace = false
+				for sub in child.get_children():
+					if sub == _replace_input:
+						has_replace = true
+				if has_replace:
+					child.visible = show_replace
+	# Pre-fill with selected text
+	if ce.has_selection():
+		var sel_text = ce.get_selected_text()
+		if "\n" not in sel_text:
+			_find_input.text = sel_text
+	_find_input.grab_focus()
+	_find_input.select_all()
+
+func _create_find_replace_bar() -> void:
+	_find_replace_bar = VBoxContainer.new()
+	_find_replace_bar.name = "FindReplaceBar"
+	_find_replace_bar.custom_minimum_size.y = 0
+	
+	# Find row
+	var find_row = HBoxContainer.new()
+	find_row.add_theme_constant_override("separation", 4)
+	var find_label = Label.new()
+	find_label.text = "Find:"
+	find_label.custom_minimum_size.x = 60
+	find_row.add_child(find_label)
+	_find_input = LineEdit.new()
+	_find_input.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_find_input.placeholder_text = "Search..."
+	find_row.add_child(_find_input)
+	var find_next_btn = Button.new()
+	find_next_btn.text = "Next"
+	find_next_btn.pressed.connect(_on_find_next)
+	find_row.add_child(find_next_btn)
+	var find_prev_btn = Button.new()
+	find_prev_btn.text = "Prev"
+	find_prev_btn.pressed.connect(_on_find_prev)
+	find_row.add_child(find_prev_btn)
+	var close_btn = Button.new()
+	close_btn.text = "✕"
+	close_btn.pressed.connect(func(): _find_replace_bar.visible = false)
+	find_row.add_child(close_btn)
+	_find_replace_bar.add_child(find_row)
+	
+	# Replace row
+	var replace_row = HBoxContainer.new()
+	replace_row.name = "ReplaceRow"
+	replace_row.add_theme_constant_override("separation", 4)
+	var replace_label = Label.new()
+	replace_label.text = "Replace:"
+	replace_label.custom_minimum_size.x = 60
+	replace_row.add_child(replace_label)
+	_replace_input = LineEdit.new()
+	_replace_input.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_replace_input.placeholder_text = "Replace with..."
+	replace_row.add_child(_replace_input)
+	var replace_btn = Button.new()
+	replace_btn.text = "Replace"
+	replace_btn.pressed.connect(_on_replace_one)
+	replace_row.add_child(replace_btn)
+	var replace_all_btn = Button.new()
+	replace_all_btn.text = "All"
+	replace_all_btn.pressed.connect(_on_replace_all)
+	replace_row.add_child(replace_all_btn)
+	_find_replace_bar.add_child(replace_row)
+	
+	# Enter key triggers find next
+	_find_input.text_submitted.connect(func(_t): _on_find_next())
+
+func _on_find_next() -> void:
+	var ce = _get_active_code_edit()
+	if not ce or _find_input.text.is_empty():
+		return
+	var text = ce.text
+	var search_str = _find_input.text
+	var caret_line = ce.get_caret_line()
+	var caret_col = ce.get_caret_column()
+	# Search forward from caret
+	var start_offset = 0
+	var lines = text.split("\n")
+	for i in caret_line:
+		start_offset += lines[i].length() + 1
+	start_offset += caret_col
+	var pos = text.findn(search_str, start_offset + 1)
+	if pos == -1:
+		pos = text.findn(search_str, 0)  # Wrap around
+	if pos >= 0:
+		_navigate_to_offset(ce, pos, search_str.length())
+
+func _on_find_prev() -> void:
+	var ce = _get_active_code_edit()
+	if not ce or _find_input.text.is_empty():
+		return
+	var text = ce.text
+	var search_str = _find_input.text
+	var caret_line = ce.get_caret_line()
+	var caret_col = ce.get_caret_column()
+	var start_offset = 0
+	var lines = text.split("\n")
+	for i in caret_line:
+		start_offset += lines[i].length() + 1
+	start_offset += caret_col
+	# Search backward
+	var search_from = start_offset - 1
+	if search_from < 0:
+		search_from = text.length() - 1
+	var lower_text = text.to_lower()
+	var lower_search = search_str.to_lower()
+	var pos = lower_text.rfind(lower_search, search_from)
+	if pos == -1:
+		pos = lower_text.rfind(lower_search)  # Wrap
+	if pos >= 0:
+		_navigate_to_offset(ce, pos, search_str.length())
+
+func _navigate_to_offset(ce: CodeEdit, offset: int, sel_length: int) -> void:
+	var lines = ce.text.split("\n")
+	var current_offset = 0
+	for i in lines.size():
+		var line_len = lines[i].length() + 1
+		if current_offset + line_len > offset:
+			var col = offset - current_offset
+			ce.set_caret_line(i)
+			ce.set_caret_column(col)
+			ce.select(i, col, i, col + sel_length)
+			ce.center_viewport_to_caret()
+			return
+		current_offset += line_len
+
+func _on_replace_one() -> void:
+	var ce = _get_active_code_edit()
+	if not ce or _find_input.text.is_empty():
+		return
+	if ce.has_selection() and ce.get_selected_text().to_lower() == _find_input.text.to_lower():
+		ce.insert_text_at_caret(_replace_input.text)
+	_on_find_next()
+
+func _on_replace_all() -> void:
+	var ce = _get_active_code_edit()
+	if not ce or _find_input.text.is_empty():
+		return
+	var old_text = ce.text
+	# Case-insensitive replace
+	var new_text = ""
+	var search_lower = _find_input.text.to_lower()
+	var search_len = _find_input.text.length()
+	var i = 0
+	var count = 0
+	var lower_old = old_text.to_lower()
+	while i < old_text.length():
+		var pos = lower_old.find(search_lower, i)
+		if pos == -1:
+			new_text += old_text.substr(i)
+			break
+		new_text += old_text.substr(i, pos - i) + _replace_input.text
+		i = pos + search_len
+		count += 1
+	if count > 0:
+		ce.text = new_text
+		_flash_status_message(str(count) + " replacement(s) made")
+
+## Comment selected lines by prepending '
+func _comment_selected_lines(ce: CodeEdit) -> void:
+	if not ce.has_selection():
+		# Comment current line
+		var line = ce.get_caret_line()
+		var text = ce.get_line(line)
+		ce.set_line(line, "'" + text)
+		return
+	var from_line = ce.get_selection_from_line()
+	var to_line = ce.get_selection_to_line()
+	ce.begin_complex_operation()
+	for i in range(from_line, to_line + 1):
+		var text = ce.get_line(i)
+		ce.set_line(i, "'" + text)
+	ce.end_complex_operation()
+
+## Uncomment selected lines by removing leading '
+func _uncomment_selected_lines(ce: CodeEdit) -> void:
+	if not ce.has_selection():
+		var line = ce.get_caret_line()
+		var text = ce.get_line(line)
+		if text.begins_with("'"):
+			ce.set_line(line, text.substr(1))
+		elif text.strip_edges().begins_with("'"):
+			var idx = text.find("'")
+			ce.set_line(line, text.substr(0, idx) + text.substr(idx + 1))
+		return
+	var from_line = ce.get_selection_from_line()
+	var to_line = ce.get_selection_to_line()
+	ce.begin_complex_operation()
+	for i in range(from_line, to_line + 1):
+		var text = ce.get_line(i)
+		if text.begins_with("'"):
+			ce.set_line(i, text.substr(1))
+		elif text.strip_edges().begins_with("'"):
+			var idx = text.find("'")
+			ce.set_line(i, text.substr(0, idx) + text.substr(idx + 1))
+	ce.end_complex_operation()
+
+## Indent selected lines by adding 4 spaces
+func _indent_selected_lines(ce: CodeEdit) -> void:
+	var from_line = ce.get_caret_line()
+	var to_line = from_line
+	if ce.has_selection():
+		from_line = ce.get_selection_from_line()
+		to_line = ce.get_selection_to_line()
+	ce.begin_complex_operation()
+	for i in range(from_line, to_line + 1):
+		ce.set_line(i, "    " + ce.get_line(i))
+	ce.end_complex_operation()
+
+## Outdent selected lines by removing up to 4 leading spaces
+func _outdent_selected_lines(ce: CodeEdit) -> void:
+	var from_line = ce.get_caret_line()
+	var to_line = from_line
+	if ce.has_selection():
+		from_line = ce.get_selection_from_line()
+		to_line = ce.get_selection_to_line()
+	ce.begin_complex_operation()
+	for i in range(from_line, to_line + 1):
+		var text = ce.get_line(i)
+		var spaces_to_remove = 0
+		for j in range(mini(4, text.length())):
+			if text[j] == " ":
+				spaces_to_remove += 1
+			elif text[j] == "\t":
+				spaces_to_remove += 1
+				break
+			else:
+				break
+		if spaces_to_remove > 0:
+			ce.set_line(i, text.substr(spaces_to_remove))
+	ce.end_complex_operation()
+
+## Toggle bookmark on current line
+func _toggle_bookmark(ce: CodeEdit) -> void:
+	var line = ce.get_caret_line()
+	if ce.is_line_bookmarked(line):
+		ce.set_line_as_bookmarked(line, false)
+	else:
+		ce.set_line_as_bookmarked(line, true)
+
+## Jump to next bookmark
+func _goto_next_bookmark(ce: CodeEdit) -> void:
+	var bookmarks = ce.get_bookmarked_lines()
+	if bookmarks.is_empty():
+		_flash_status_message("No bookmarks set")
+		return
+	var caret_line = ce.get_caret_line()
+	for bm in bookmarks:
+		if bm > caret_line:
+			ce.set_caret_line(bm)
+			ce.center_viewport_to_caret()
+			return
+	# Wrap around to first bookmark
+	ce.set_caret_line(bookmarks[0])
+	ce.center_viewport_to_caret()
+
+## Jump to previous bookmark
+func _goto_prev_bookmark(ce: CodeEdit) -> void:
+	var bookmarks = ce.get_bookmarked_lines()
+	if bookmarks.is_empty():
+		_flash_status_message("No bookmarks set")
+		return
+	var caret_line = ce.get_caret_line()
+	var i = bookmarks.size() - 1
+	while i >= 0:
+		if bookmarks[i] < caret_line:
+			ce.set_caret_line(bookmarks[i])
+			ce.center_viewport_to_caret()
+			return
+		i -= 1
+	# Wrap around to last bookmark
+	ce.set_caret_line(bookmarks[bookmarks.size() - 1])
+	ce.center_viewport_to_caret()
+
+## Clear all bookmarks
+func _clear_all_bookmarks(ce: CodeEdit) -> void:
+	var bookmarks = ce.get_bookmarked_lines()
+	for bm in bookmarks:
+		ce.set_line_as_bookmarked(bm, false)
+	_flash_status_message("All bookmarks cleared")
+
+# =============================================================================
+# FORMAT MENU HELPERS — Form Designer layout operations
+# =============================================================================
+
+## Space selected controls equally in horizontal direction.
+func _format_space_equally_h() -> void:
+	if not _form_designer or not _form_designer.has_method("get_selected_controls"):
+		return
+	var selected = _form_designer.get_selected_controls()
+	if selected.size() < 3:
+		_flash_status_message("Select at least 3 controls for Space Equally")
+		return
+	# Sort by X position
+	selected.sort_custom(func(a, b): return a.position.x < b.position.x)
+	var first_x = selected[0].position.x
+	var last_right = selected[selected.size() - 1].position.x + selected[selected.size() - 1].size.x
+	var total_width = 0.0
+	for ctrl in selected:
+		total_width += ctrl.size.x
+	var gap = (last_right - first_x - total_width) / (selected.size() - 1)
+	var x_pos = first_x
+	for ctrl in selected:
+		ctrl.position.x = x_pos
+		x_pos += ctrl.size.x + gap
+	_flash_status_message("Spaced equally horizontal")
+
+## Space selected controls equally in vertical direction.
+func _format_space_equally_v() -> void:
+	if not _form_designer or not _form_designer.has_method("get_selected_controls"):
+		return
+	var selected = _form_designer.get_selected_controls()
+	if selected.size() < 3:
+		_flash_status_message("Select at least 3 controls for Space Equally")
+		return
+	selected.sort_custom(func(a, b): return a.position.y < b.position.y)
+	var first_y = selected[0].position.y
+	var last_bottom = selected[selected.size() - 1].position.y + selected[selected.size() - 1].size.y
+	var total_height = 0.0
+	for ctrl in selected:
+		total_height += ctrl.size.y
+	var gap = (last_bottom - first_y - total_height) / (selected.size() - 1)
+	var y_pos = first_y
+	for ctrl in selected:
+		ctrl.position.y = y_pos
+		y_pos += ctrl.size.y + gap
+	_flash_status_message("Spaced equally vertical")
+
+## Snap all selected controls to the grid.
+func _format_size_to_grid() -> void:
+	if not _form_designer or not _form_designer.has_method("get_selected_controls"):
+		return
+	var selected = _form_designer.get_selected_controls()
+	var grid_size = 8.0  # Default grid snap
+	if _form_designer.has_method("get_grid_size"):
+		grid_size = _form_designer.get_grid_size()
+	for ctrl in selected:
+		ctrl.position.x = round(ctrl.position.x / grid_size) * grid_size
+		ctrl.position.y = round(ctrl.position.y / grid_size) * grid_size
+		ctrl.size.x = max(grid_size, round(ctrl.size.x / grid_size) * grid_size)
+		ctrl.size.y = max(grid_size, round(ctrl.size.y / grid_size) * grid_size)
+	_flash_status_message("Sized to grid")
+
+## Center selected controls horizontally within the form.
+func _format_center_in_form_h() -> void:
+	if not _form_designer or not _form_designer.has_method("get_selected_controls"):
+		return
+	var selected = _form_designer.get_selected_controls()
+	var form_width = 640.0
+	if _form_designer.has_method("get_form_size"):
+		form_width = _form_designer.get_form_size().x
+	for ctrl in selected:
+		ctrl.position.x = (form_width - ctrl.size.x) / 2.0
+	_flash_status_message("Centered horizontally")
+
+## Center selected controls vertically within the form.
+func _format_center_in_form_v() -> void:
+	if not _form_designer or not _form_designer.has_method("get_selected_controls"):
+		return
+	var selected = _form_designer.get_selected_controls()
+	var form_height = 480.0
+	if _form_designer.has_method("get_form_size"):
+		form_height = _form_designer.get_form_size().y
+	for ctrl in selected:
+		ctrl.position.y = (form_height - ctrl.size.y) / 2.0
+	_flash_status_message("Centered vertically")
 
 # =============================================================================
 # TIP OF THE DAY

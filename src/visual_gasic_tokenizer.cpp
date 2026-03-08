@@ -261,9 +261,83 @@ Vector<VisualGasicTokenizer::Token> VisualGasicTokenizer::tokenize(const String 
             continue;
         }
 
-        // Numbers
+        // Hex literals: &H prefix (VB6 style) or 0x prefix (C style)
+        if (c == '&' && current + 1 < length &&
+            (p_source_code[current + 1] == 'H' || p_source_code[current + 1] == 'h')) {
+            int start = current;
+            current += 2; // skip &H
+            int64_t hex_val = 0;
+            bool has_digits = false;
+            while (current < length) {
+                char32_t hc = p_source_code[current];
+                if (hc >= '0' && hc <= '9')      { hex_val = (hex_val << 4) | (hc - '0'); has_digits = true; }
+                else if (hc >= 'A' && hc <= 'F') { hex_val = (hex_val << 4) | (hc - 'A' + 10); has_digits = true; }
+                else if (hc >= 'a' && hc <= 'f') { hex_val = (hex_val << 4) | (hc - 'a' + 10); has_digits = true; }
+                else break;
+                current++;
+            }
+            // Skip optional VB6 type suffix (& for Long, % for Integer)
+            if (current < length && (p_source_code[current] == '&' || p_source_code[current] == '%')) {
+                current++;
+            }
+            Token t;
+            t.type = TOKEN_LITERAL_INTEGER;
+            t.value = has_digits ? Variant(hex_val) : Variant((int64_t)0);
+            t.line = line;
+            t.column = column;
+            tokens.push_back(t);
+            column += (current - start);
+            continue;
+        }
+
+        // Octal literals: &O prefix (VB6 style)
+        if (c == '&' && current + 1 < length &&
+            (p_source_code[current + 1] == 'O' || p_source_code[current + 1] == 'o')) {
+            int start = current;
+            current += 2; // skip &O
+            int64_t oct_val = 0;
+            bool has_digits = false;
+            while (current < length && p_source_code[current] >= '0' && p_source_code[current] <= '7') {
+                oct_val = (oct_val << 3) | (p_source_code[current] - '0');
+                has_digits = true;
+                current++;
+            }
+            Token t;
+            t.type = TOKEN_LITERAL_INTEGER;
+            t.value = has_digits ? Variant(oct_val) : Variant((int64_t)0);
+            t.line = line;
+            t.column = column;
+            tokens.push_back(t);
+            column += (current - start);
+            continue;
+        }
+
+        // Numbers (decimal and 0x hex)
         if (is_digit(c)) {
             int start = current;
+            // Check for 0x hex prefix
+            if (c == '0' && current + 1 < length &&
+                (p_source_code[current + 1] == 'x' || p_source_code[current + 1] == 'X')) {
+                current += 2; // skip 0x
+                int64_t hex_val = 0;
+                bool has_digits = false;
+                while (current < length) {
+                    char32_t hc = p_source_code[current];
+                    if (hc >= '0' && hc <= '9')      { hex_val = (hex_val << 4) | (hc - '0'); has_digits = true; }
+                    else if (hc >= 'A' && hc <= 'F') { hex_val = (hex_val << 4) | (hc - 'A' + 10); has_digits = true; }
+                    else if (hc >= 'a' && hc <= 'f') { hex_val = (hex_val << 4) | (hc - 'a' + 10); has_digits = true; }
+                    else break;
+                    current++;
+                }
+                Token t;
+                t.type = TOKEN_LITERAL_INTEGER;
+                t.value = has_digits ? Variant(hex_val) : Variant((int64_t)0);
+                t.line = line;
+                t.column = column;
+                tokens.push_back(t);
+                column += (current - start);
+                continue;
+            }
             bool is_float = false;
             while (current < length && (is_digit(p_source_code[current]) || p_source_code[current] == '.')) {
                 if (p_source_code[current] == '.') {
