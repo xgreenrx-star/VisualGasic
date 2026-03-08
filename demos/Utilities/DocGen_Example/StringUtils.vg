@@ -1,0 +1,191 @@
+''' StringUtils — Common string manipulation helpers.
+'''
+''' Provides trim, pad, split, and formatting functions that
+''' complement the built-in VB string functions.
+Attribute VB_Name = "StringUtils"
+Option Explicit
+
+''' The default padding character used by PadLeft / PadRight.
+Const DEFAULT_PAD_CHAR As String = " "
+
+''' Text alignment options for the PadToWidth function.
+Enum TextAlign
+    AlignLeft = 0
+    AlignCenter = 1
+    AlignRight = 2
+End Enum
+
+''' A key-value pair used by the template engine.
+Type TemplateVar
+    Key As String
+    Value As String
+End Type
+
+''' Pads a string on the left to reach a desired width.
+'''
+''' @param s       The input string
+''' @param width   The target character width
+''' @param padCh   The character to pad with (default " ")
+''' @return The padded string
+''' @example
+'''   Print PadLeft("42", 5, "0")   ' → "00042"
+Function PadLeft(s As String, width As Integer, padCh As String) As String
+    If padCh = "" Then padCh = DEFAULT_PAD_CHAR
+    Dim result As String
+    result = s
+    Do While Len(result) < width
+        result = padCh & result
+    Loop
+    PadLeft = result
+End Function
+
+''' Pads a string on the right to reach a desired width.
+'''
+''' @param s       The input string
+''' @param width   The target character width
+''' @param padCh   The character to pad with (default " ")
+''' @return The padded string
+Function PadRight(s As String, width As Integer, padCh As String) As String
+    If padCh = "" Then padCh = DEFAULT_PAD_CHAR
+    Dim result As String
+    result = s
+    Do While Len(result) < width
+        result = result & padCh
+    Loop
+    PadRight = result
+End Function
+
+''' Centers a string within a given width.
+'''
+''' @param s      The input string
+''' @param width  The total character width
+''' @return The centered string padded with spaces on both sides
+Function CenterString(s As String, width As Integer) As String
+    If Len(s) >= width Then
+        CenterString = s
+        Exit Function
+    End If
+    Dim leftPad As Integer
+    leftPad = (width - Len(s)) \ 2
+    Dim rightPad As Integer
+    rightPad = width - Len(s) - leftPad
+    CenterString = String(leftPad, " ") & s & String(rightPad, " ")
+End Function
+
+''' Returns True if the string starts with the specified prefix.
+'''
+''' @param s       The string to test
+''' @param prefix  The prefix to look for
+''' @return True if s begins with prefix (case-sensitive)
+Function StartsWith(s As String, prefix As String) As Boolean
+    If Len(prefix) > Len(s) Then
+        StartsWith = False
+        Exit Function
+    End If
+    StartsWith = (Left(s, Len(prefix)) = prefix)
+End Function
+
+''' Returns True if the string ends with the specified suffix.
+'''
+''' @param s       The string to test
+''' @param suffix  The suffix to look for
+''' @return True if s ends with suffix (case-sensitive)
+Function EndsWith(s As String, suffix As String) As Boolean
+    If Len(suffix) > Len(s) Then
+        EndsWith = False
+        Exit Function
+    End If
+    EndsWith = (Right(s, Len(suffix)) = suffix)
+End Function
+
+''' Repeats a string a given number of times.
+'''
+''' @param s      The string to repeat
+''' @param count  How many times to repeat it
+''' @return The concatenated result
+''' @example
+'''   Print RepeatString("ab", 3)   ' → "ababab"
+Function RepeatString(s As String, count As Integer) As String
+    Dim result As String
+    result = ""
+    Dim i As Integer
+    For i = 1 To count
+        result = result & s
+    Next i
+    RepeatString = result
+End Function
+
+''' Reverses a string character-by-character.
+'''
+''' @param s  The input string
+''' @return The reversed string
+''' @example
+'''   Print ReverseString("Hello")   ' → "olleH"
+Function ReverseString(s As String) As String
+    Dim result As String
+    result = ""
+    Dim i As Integer
+    For i = Len(s) To 1 Step -1
+        result = result & Mid(s, i, 1)
+    Next i
+    ReverseString = result
+End Function
+
+''' Counts how many times a substring appears in a string.
+'''
+''' @param s       The string to search in
+''' @param substr  The substring to count
+''' @return The number of non-overlapping occurrences
+Function CountOccurrences(s As String, substr As String) As Integer
+    Dim count As Integer
+    count = 0
+    Dim pos As Integer
+    pos = 1
+    Do
+        pos = InStr(pos, s, substr)
+        If pos = 0 Then Exit Do
+        count = count + 1
+        pos = pos + Len(substr)
+    Loop
+    CountOccurrences = count
+End Function
+
+''' Performs simple template substitution: replaces {{key}} with value.
+'''
+''' @param template  The template string containing {{placeholders}}
+''' @param vars      Array of TemplateVar with Key/Value pairs
+''' @param varCount  Number of entries in the vars array
+''' @return The expanded string
+''' @example
+'''   Dim v(1) As TemplateVar
+'''   v(0).Key = "name" : v(0).Value = "World"
+'''   Print ExpandTemplate("Hello {{name}}!", v, 1)   ' → "Hello World!"
+Function ExpandTemplate(template As String, vars() As TemplateVar, varCount As Integer) As String
+    Dim result As String
+    result = template
+    Dim i As Integer
+    For i = 0 To varCount - 1
+        Dim placeholder As String
+        placeholder = "{{" & vars(i).Key & "}}"
+        Dim pos As Integer
+        pos = InStr(result, placeholder)
+        Do While pos > 0
+            result = Left(result, pos - 1) & vars(i).Value & Mid(result, pos + Len(placeholder))
+            pos = InStr(result, placeholder)
+        Loop
+    Next i
+    ExpandTemplate = result
+End Function
+
+''' Truncates a string to a maximum length, adding "..." if truncated.
+'''
+''' @param s         The input string
+''' @param maxLen    Maximum allowed length (including ellipsis)
+''' @return The possibly-truncated string
+Function Truncate(s As String, maxLen As Integer) As String
+    If Len(s) <= maxLen Then
+        Truncate = s
+    Else
+        Truncate = Left(s, maxLen - 3) & "..."
+    End If
+End Function

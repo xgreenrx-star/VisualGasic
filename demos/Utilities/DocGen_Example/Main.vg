@@ -1,0 +1,48 @@
+''' Main — Entry point that demonstrates the utility modules.
+'''
+''' Runs a series of tests using InventorySystem, MathHelpers,
+''' and StringUtils to verify everything works.
+Attribute VB_Name = "Main"
+Option Explicit
+
+Dim inv As Object
+
+''' Called when the form loads — runs all the demos.
+Sub Form_Load()
+    Me.Caption = "DocGen Example"
+    RunInventoryDemo
+    RunMathDemo
+    RunStringDemo
+    Print "All demos complete!"
+End Sub
+
+''' Demonstrates adding items, sorting, and printing the inventory.
+Sub RunInventoryDemo()
+    Print "--- Inventory Demo ---"
+    AddItem "Iron Sword", 2, 150.0
+    AddItem "Health Potion", 10, 25.0
+    AddItem "Dragon Scale", 1, 5000.0
+    AddItem "Arrow", 50, 1.5
+    SetItemRarity "Dragon Scale", Legendary
+    SortByName
+    PrintInventory
+End Sub
+
+''' Demonstrates the math helper functions.
+Sub RunMathDemo()
+    Print "--- Math Demo ---"
+    Print "Clamp(150, 0, 100) = " & CStr(Clamp(150, 0, 100))
+    Print "Lerp(0, 100, 0.75) = " & CStr(Lerp(0, 100, 0.75))
+    Print "Distance2D(0,0,3,4) = " & CStr(Distance2D(0, 0, 3, 4))
+    Print "DegToRad(180) = " & CStr(DegToRad(180))
+    Print "WrapIndex(-1, 10) = " & CStr(WrapIndex(-1, 10))
+End Sub
+
+''' Demonstrates the string utility functions.
+Sub RunStringDemo()
+    Print "--- String Demo ---"
+    Print "PadLeft(42, 6, '0') = " & PadLeft("42", 6, "0")
+    Print "RepeatString('=-', 5) = " & RepeatString("=-", 5)
+    Print "ReverseString('Hello') = " & ReverseString("Hello")
+    Print "Truncate('A very long string', 10) = " & Truncate("A very long string", 10)
+End Sub

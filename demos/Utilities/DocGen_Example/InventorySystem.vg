@@ -1,0 +1,221 @@
+''' InventorySystem — A reusable item inventory manager.
+'''
+''' Provides Add, Remove, Find, and Sort operations on a collection
+''' of inventory items.  Designed for RPG or shop-style games.
+'''
+''' @example
+'''   Dim inv As Object
+'''   Set inv = New InventorySystem
+'''   inv.AddItem "Sword", 1, 150.0
+'''   inv.AddItem "Potion", 5, 25.0
+'''   Print inv.GetTotalValue()   ' → 275.0
+Attribute VB_Name = "InventorySystem"
+Option Explicit
+
+''' Maximum number of distinct item types the inventory can hold.
+Const MAX_SLOTS As Integer = 50
+
+''' The currency symbol shown in formatted price strings.
+Const CURRENCY As String = "G"
+
+''' Describes the rarity tier of an item.
+Enum ItemRarity
+    Common = 0
+    Uncommon = 1
+    Rare = 2
+    Epic = 3
+    Legendary = 4
+End Enum
+
+''' A single inventory entry: name, quantity, price, and rarity.
+Type InventoryItem
+    Name As String
+    Quantity As Integer
+    UnitPrice As Double
+    Rarity As ItemRarity
+End Type
+
+Dim items(MAX_SLOTS) As InventoryItem
+Dim itemCount As Integer
+
+''' Initializes the inventory to empty.
+Sub Form_Load()
+    itemCount = 0
+End Sub
+
+''' Adds a quantity of a named item at a given unit price.
+'''
+''' If the item already exists, the quantity is increased and the
+''' price is updated to the new value.
+'''
+''' @param itemName   The display name of the item (e.g. "Iron Sword")
+''' @param qty        How many to add (must be > 0)
+''' @param unitPrice  Price per single unit in gold
+''' @return True if the item was added, False if inventory is full
+Function AddItem(itemName As String, qty As Integer, unitPrice As Double) As Boolean
+    ' Check if item already exists
+    Dim idx As Integer
+    idx = FindItemIndex(itemName)
+
+    If idx >= 0 Then
+        items(idx).Quantity = items(idx).Quantity + qty
+        items(idx).UnitPrice = unitPrice
+        AddItem = True
+        Exit Function
+    End If
+
+    ' New item — check capacity
+    If itemCount >= MAX_SLOTS Then
+        AddItem = False
+        Exit Function
+    End If
+
+    items(itemCount).Name = itemName
+    items(itemCount).Quantity = qty
+    items(itemCount).UnitPrice = unitPrice
+    items(itemCount).Rarity = Common
+    itemCount = itemCount + 1
+    AddItem = True
+End Function
+
+''' Removes a quantity of a named item from the inventory.
+'''
+''' If the remaining quantity reaches zero the slot is freed.
+'''
+''' @param itemName  The item to remove
+''' @param qty       How many to remove
+''' @return The number actually removed (may be less than requested)
+Function RemoveItem(itemName As String, qty As Integer) As Integer
+    Dim idx As Integer
+    idx = FindItemIndex(itemName)
+    If idx < 0 Then
+        RemoveItem = 0
+        Exit Function
+    End If
+
+    Dim actual As Integer
+    If qty >= items(idx).Quantity Then
+        actual = items(idx).Quantity
+        ' Shift remaining items down
+        Dim i As Integer
+        For i = idx To itemCount - 2
+            items(i) = items(i + 1)
+        Next i
+        itemCount = itemCount - 1
+    Else
+        actual = qty
+        items(idx).Quantity = items(idx).Quantity - qty
+    End If
+    RemoveItem = actual
+End Function
+
+''' Searches for an item by name and returns its slot index.
+'''
+''' @param itemName  The exact name to search for (case-insensitive)
+''' @return The zero-based index, or -1 if not found
+Function FindItemIndex(itemName As String) As Integer
+    Dim i As Integer
+    For i = 0 To itemCount - 1
+        If LCase(items(i).Name) = LCase(itemName) Then
+            FindItemIndex = i
+            Exit Function
+        End If
+    Next i
+    FindItemIndex = -1
+End Function
+
+''' Returns the total gold value of the entire inventory.
+'''
+''' @return Sum of (Quantity × UnitPrice) for every item
+''' @example
+'''   Dim total As Double
+'''   total = GetTotalValue()
+'''   Print "Inventory worth: " & CStr(total) & " gold"
+Function GetTotalValue() As Double
+    Dim total As Double
+    total = 0
+    Dim i As Integer
+    For i = 0 To itemCount - 1
+        total = total + items(i).Quantity * items(i).UnitPrice
+    Next i
+    GetTotalValue = total
+End Function
+
+''' Returns the number of distinct item types currently stored.
+'''
+''' @return An integer from 0 to MAX_SLOTS
+Function GetItemCount() As Integer
+    GetItemCount = itemCount
+End Function
+
+''' Sets the rarity tier for an existing item.
+'''
+''' @param itemName  The item to update
+''' @param rarity    The new ItemRarity value (0–4)
+''' @return True if the item was found and updated
+Function SetItemRarity(itemName As String, rarity As ItemRarity) As Boolean
+    Dim idx As Integer
+    idx = FindItemIndex(itemName)
+    If idx < 0 Then
+        SetItemRarity = False
+        Exit Function
+    End If
+    items(idx).Rarity = rarity
+    SetItemRarity = True
+End Function
+
+''' Formats a price value as a display string with currency symbol.
+'''
+''' @param amount  The numeric gold amount
+''' @return A string like "150 G"
+''' @example
+'''   Print FormatPrice(99.5)   ' → "99.5 G"
+Function FormatPrice(amount As Double) As String
+    FormatPrice = CStr(amount) & " " & CURRENCY
+End Function
+
+''' Sorts the inventory alphabetically by item name (bubble sort).
+Sub SortByName()
+    Dim i As Integer
+    Dim j As Integer
+    Dim tmp As InventoryItem
+    For i = 0 To itemCount - 2
+        For j = 0 To itemCount - i - 2
+            If items(j).Name > items(j + 1).Name Then
+                tmp = items(j)
+                items(j) = items(j + 1)
+                items(j + 1) = tmp
+            End If
+        Next j
+    Next i
+End Sub
+
+''' Sorts the inventory by unit price, most expensive first.
+Sub SortByPrice()
+    Dim i As Integer
+    Dim j As Integer
+    Dim tmp As InventoryItem
+    For i = 0 To itemCount - 2
+        For j = 0 To itemCount - i - 2
+            If items(j).UnitPrice < items(j + 1).UnitPrice Then
+                tmp = items(j)
+                items(j) = items(j + 1)
+                items(j + 1) = tmp
+            End If
+        Next j
+    Next i
+End Sub
+
+''' Prints a summary of the inventory to the debug console.
+'''
+''' Each line shows: "  [qty] × ItemName  (price G each)"
+Sub PrintInventory()
+    Dim i As Integer
+    Print "=== Inventory (" & CStr(itemCount) & " items) ==="
+    For i = 0 To itemCount - 1
+        Print "  [" & CStr(items(i).Quantity) & "] x " & items(i).Name & _
+              "  (" & FormatPrice(items(i).UnitPrice) & " each)"
+    Next i
+    Print "  Total value: " & FormatPrice(GetTotalValue())
+    Print "================================="
+End Sub
