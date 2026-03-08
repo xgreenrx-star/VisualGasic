@@ -955,6 +955,23 @@ func _exit_tree():
 	if get_tree().node_added.is_connected(_on_node_added):
 		get_tree().node_added.disconnect(_on_node_added)
 
+## Intercept keyboard shortcuts that Godot would handle before our plugin.
+## When the Form Designer is active, consume the Delete key so Godot's
+## built-in "Delete root node?" dialog never fires.  Instead, delegate
+## to the C++ FormDesigner's remove_selected() which safely deletes only
+## child controls and ignores the form root.
+func _shortcut_input(event: InputEvent) -> void:
+	if not event is InputEventKey or not event.pressed:
+		return
+	# Only intercept when our Form Designer main screen is visible
+	if not is_instance_valid(_ide_layout) or not _ide_layout.visible:
+		return
+	if event.keycode == KEY_DELETE and not event.ctrl_pressed and not event.alt_pressed:
+		if is_instance_valid(_form_designer):
+			_form_designer.remove_selected()
+			_flash_status_message("Deleted control")
+		get_viewport().set_input_as_handled()
+
 ## Called every frame. Detects vg_control drag end and handles drop.
 ## When the C++ Form Designer is active and visible, it handles drops directly
 ## via _can_drop_data/_drop_data — skip the old GDScript drop path entirely.
