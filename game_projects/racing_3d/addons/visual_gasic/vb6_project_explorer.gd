@@ -555,6 +555,15 @@ func _on_delete_confirmed():
 	if file_path.is_empty():
 		return
 
+	# Close the scene tab in the editor if it's currently open
+	var scene_path_to_close := ""
+	if item_type == "form":
+		scene_path_to_close = file_path.get_basename() + ".tscn"
+	elif file_path.ends_with(".tscn"):
+		scene_path_to_close = file_path
+	if not scene_path_to_close.is_empty() and editor_plugin:
+		_close_scene_tab(scene_path_to_close)
+
 	# Delete the primary file
 	if FileAccess.file_exists(file_path):
 		DirAccess.remove_absolute(file_path)
@@ -584,6 +593,50 @@ func _on_delete_confirmed():
 # =============================================================================
 # HELPERS
 # =============================================================================
+
+## Close an open scene tab in the editor by its file path.
+## Finds Godot's internal scene TabBar and emits tab_close_pressed.
+func _close_scene_tab(scene_path: String) -> void:
+	var open_scenes: PackedStringArray = EditorInterface.get_open_scenes()
+	var scene_idx := -1
+	for i in range(open_scenes.size()):
+		if open_scenes[i] == scene_path:
+			scene_idx = i
+			break
+	if scene_idx == -1:
+		return  # Scene is not open — nothing to close
+
+	# If this is the currently edited scene, switch to another one first
+	var edited_root = EditorInterface.get_edited_scene_root()
+	if edited_root and edited_root.scene_file_path == scene_path:
+		if open_scenes.size() > 1:
+			var other_idx := 1 if scene_idx == 0 else scene_idx - 1
+			EditorInterface.open_scene_from_path(open_scenes[other_idx])
+			# Switching may have shifted indices — re-scan
+			open_scenes = EditorInterface.get_open_scenes()
+			scene_idx = -1
+			for i in range(open_scenes.size()):
+				if open_scenes[i] == scene_path:
+					scene_idx = i
+					break
+			if scene_idx == -1:
+				return  # Already gone after the switch
+
+	# Find Godot's scene TabBar (named "scene_tabs" inside EditorNode)
+	var scene_tabs: TabBar = _find_named_node(EditorInterface.get_base_control(), &"scene_tabs") as TabBar
+	if scene_tabs and scene_idx < scene_tabs.tab_count:
+		scene_tabs.tab_close_pressed.emit(scene_idx)
+		print("VisualGasic: Closed editor tab for '%s'" % scene_path)
+
+## Recursively searches for a node by name in the editor's UI tree.
+func _find_named_node(node: Node, target: StringName) -> Node:
+	if node.name == target:
+		return node
+	for child in node.get_children():
+		var result = _find_named_node(child, target)
+		if result:
+			return result
+	return null
 
 ## Open a script in the script editor.
 func _open_script(path: String):
