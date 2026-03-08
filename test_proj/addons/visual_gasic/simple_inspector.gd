@@ -10,6 +10,8 @@ var property_grid: GridContainer
 var _scroll_container: ScrollContainer
 var current_node: Node
 var rename_dialog: ConfirmationDialog
+var _chk_unchecked_icon: ImageTexture
+var _chk_checked_icon: ImageTexture
 var old_name_for_rename: String = ""
 var new_name_for_rename: String = ""
 
@@ -1069,6 +1071,50 @@ func _style_line_edit(le: LineEdit):
 	le_focus.border_color = Color(0.0, 0.47, 0.84)
 	le.add_theme_stylebox_override("focus", le_focus)
 
+## Create dark-on-white checkbox icons so unchecked boxes stay visible on the
+## light Properties panel background. Godot's editor-theme icons are white-on-dark
+## and become invisible when the panel uses a light style.
+func _ensure_checkbox_icons():
+	if _chk_unchecked_icon:
+		return  # already built
+	var sz := 16
+	var border := Color(0.25, 0.25, 0.25)
+	var fill   := Color(1.0, 1.0, 1.0)
+	var check  := Color(0.0, 0.25, 0.6)
+
+	# --- unchecked: white square with dark 1-px border ---
+	var img_u := Image.create(sz, sz, false, Image.FORMAT_RGBA8)
+	img_u.fill(Color(0, 0, 0, 0))
+	for x in sz:
+		for y in sz:
+			if x == 0 or x == sz - 1 or y == 0 or y == sz - 1:
+				img_u.set_pixel(x, y, border)
+			elif x >= 1 and x <= sz - 2 and y >= 1 and y <= sz - 2:
+				img_u.set_pixel(x, y, fill)
+	_chk_unchecked_icon = ImageTexture.create_from_image(img_u)
+
+	# --- checked: same box plus a dark-blue checkmark ---
+	var img_c := Image.create(sz, sz, false, Image.FORMAT_RGBA8)
+	img_c.fill(Color(0, 0, 0, 0))
+	for x in sz:
+		for y in sz:
+			if x == 0 or x == sz - 1 or y == 0 or y == sz - 1:
+				img_c.set_pixel(x, y, border)
+			elif x >= 1 and x <= sz - 2 and y >= 1 and y <= sz - 2:
+				img_c.set_pixel(x, y, fill)
+	# Checkmark path (2-px thick): down-stroke 3,8→6,11  up-stroke 7,10→12,5
+	var pts: Array[Vector2i] = [
+		Vector2i(3,8), Vector2i(4,9), Vector2i(5,10), Vector2i(6,11),
+		Vector2i(7,10), Vector2i(8,9), Vector2i(9,8), Vector2i(10,7), Vector2i(11,6), Vector2i(12,5),
+		# second row (1 px up) for thickness
+		Vector2i(3,7), Vector2i(4,8), Vector2i(5,9), Vector2i(6,10),
+		Vector2i(7,9), Vector2i(8,8), Vector2i(9,7), Vector2i(10,6), Vector2i(11,5), Vector2i(12,4),
+	]
+	for p in pts:
+		if p.x >= 1 and p.x < sz - 1 and p.y >= 1 and p.y < sz - 1:
+			img_c.set_pixel(p.x, p.y, check)
+	_chk_checked_icon = ImageTexture.create_from_image(img_c)
+
 ## Font name dropdown with common VB6 / system fonts
 func _add_font_name_row(label_text: String, current_font: String, prop_key: String):
 	var lbl = Label.new()
@@ -1137,11 +1183,10 @@ func _add_prop_row(label_text: String, value, prop_key: String):
 		chk.add_theme_stylebox_override("hover", empty_style)
 		chk.add_theme_stylebox_override("pressed", empty_style)
 		chk.add_theme_stylebox_override("focus", empty_style)
-		# Make check indicator visible on light background
-		chk.add_theme_color_override("icon_normal_color", Color(0.2, 0.2, 0.2))
-		chk.add_theme_color_override("icon_hover_color", Color(0.0, 0.0, 0.5))
-		chk.add_theme_color_override("icon_pressed_color", Color(0.0, 0.0, 0.5))
-		chk.add_theme_color_override("icon_focus_color", Color(0.2, 0.2, 0.2))
+		# Override icons with custom dark-on-white versions
+		_ensure_checkbox_icons()
+		chk.add_theme_icon_override("unchecked", _chk_unchecked_icon)
+		chk.add_theme_icon_override("checked", _chk_checked_icon)
 		chk.toggled.connect(func(v): _apply_prop(prop_key, v))
 		chk.focus_entered.connect(func(): _show_description(prop_key))
 		property_grid.add_child(chk)
