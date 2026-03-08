@@ -1020,8 +1020,34 @@ func _add_fd_enum_row(label_text: String, prop_key: String, current_value: int, 
 	if current_value >= 0 and current_value < items.size():
 		opt.select(current_value)
 	opt.size_flags_horizontal = SIZE_EXPAND_FILL
+	_style_option_button(opt)
 	opt.item_selected.connect(func(idx): _apply_prop(prop_key, idx))
 	property_grid.add_child(opt)
+
+## Style an OptionButton and its popup for readability on the light Properties panel
+func _style_option_button(opt: OptionButton):
+	opt.add_theme_color_override("font_color", Color(0.1, 0.1, 0.1))
+	opt.add_theme_color_override("font_hover_color", Color(0.0, 0.0, 0.4))
+	opt.add_theme_color_override("font_pressed_color", Color(0.0, 0.0, 0.4))
+	opt.add_theme_color_override("font_focus_color", Color(0.1, 0.1, 0.1))
+	var popup = opt.get_popup()
+	popup.add_theme_color_override("font_color", Color(0.1, 0.1, 0.1))
+	popup.add_theme_color_override("font_hover_color", Color(1, 1, 1))
+	var panel_style = StyleBoxFlat.new()
+	panel_style.bg_color = Color(0.96, 0.95, 0.93)
+	panel_style.border_width_top = 1
+	panel_style.border_width_bottom = 1
+	panel_style.border_width_left = 1
+	panel_style.border_width_right = 1
+	panel_style.border_color = Color(0.55, 0.54, 0.52)
+	popup.add_theme_stylebox_override("panel", panel_style)
+	var hover_style = StyleBoxFlat.new()
+	hover_style.bg_color = Color(0.0, 0.47, 0.84)  # blue highlight
+	hover_style.corner_radius_top_left = 2
+	hover_style.corner_radius_top_right = 2
+	hover_style.corner_radius_bottom_left = 2
+	hover_style.corner_radius_bottom_right = 2
+	popup.add_theme_stylebox_override("hover", hover_style)
 
 ## Font name dropdown with common VB6 / system fonts
 func _add_font_name_row(label_text: String, current_font: String, prop_key: String):
@@ -1047,6 +1073,7 @@ func _add_font_name_row(label_text: String, current_font: String, prop_key: Stri
 	var opt = OptionButton.new()
 	opt.size_flags_horizontal = SIZE_EXPAND_FILL
 	opt.clip_text = true
+	_style_option_button(opt)
 	var selected_idx := 0
 	for i in fonts.size():
 		opt.add_item(fonts[i])
@@ -1145,6 +1172,7 @@ func _add_alignment_row(label_text: String, alignment: int):
 	opt.add_item("Right", 2)   # HORIZONTAL_ALIGNMENT_RIGHT
 	opt.select(alignment)
 	opt.size_flags_horizontal = SIZE_EXPAND_FILL
+	_style_option_button(opt)
 	opt.item_selected.connect(func(idx): _apply_prop("alignment", idx))
 	property_grid.add_child(opt)
 
@@ -1171,6 +1199,7 @@ func _add_cursor_row(label_text: String, cursor: int):
 			opt.select(i)
 			break
 	opt.size_flags_horizontal = SIZE_EXPAND_FILL
+	_style_option_button(opt)
 	opt.item_selected.connect(func(idx): _apply_prop("cursor", opt.get_item_id(idx)))
 	property_grid.add_child(opt)
 
@@ -1234,6 +1263,7 @@ func _add_anchor_row(label_text: String, node: Control):
 	opt.select(preset)
 	
 	opt.size_flags_horizontal = SIZE_EXPAND_FILL
+	_style_option_button(opt)
 	opt.item_selected.connect(func(idx): _apply_prop("anchor", idx))
 	property_grid.add_child(opt)
 
@@ -1260,6 +1290,7 @@ func _add_pivot_row(label_text: String, pivot: Vector2, size: Vector2):
 	opt.select(preset)
 	
 	opt.size_flags_horizontal = SIZE_EXPAND_FILL
+	_style_option_button(opt)
 	opt.item_selected.connect(func(idx): _apply_prop("pivot", idx))
 	property_grid.add_child(opt)
 
