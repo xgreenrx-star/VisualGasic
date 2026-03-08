@@ -3339,6 +3339,7 @@ bool VisualGasicFormDesigner::_parse_tscn(const String &p_text) {
     String current_node_parent;
     String current_instance_id;
     bool in_node = false;
+    bool is_root_node = false;  // True for root Window node — parse properties but don't add as control
     FormControlItem current_item;
     String current_raw_block;  // accumulates raw lines for MenuBar child storage
 
@@ -3346,8 +3347,8 @@ bool VisualGasicFormDesigner::_parse_tscn(const String &p_text) {
         String line = lines[i].strip_edges();
 
         if (line.begins_with("[node ")) {
-            // Commit previous node
-            if (in_node) {
+            // Commit previous node (skip root node — it's not a control)
+            if (in_node && !is_root_node) {
                 if (!current_node_name.begins_with("_") && current_node_parent == ".") {
                     // Direct child of root Window
                     if (current_node_type == "MenuBar" || current_node_name == "MainMenu") {
@@ -3415,10 +3416,15 @@ bool VisualGasicFormDesigner::_parse_tscn(const String &p_text) {
                 }
             }
 
-            // Root node (no parent) — extract form metadata
+            // Root node (no parent) — extract form metadata.
+            // Keep in_node=true so we still parse root properties (size, title,
+            // BackColor, etc.) but mark is_root_node so the flush logic below
+            // doesn't add it as a control.
             if (current_node_parent.is_empty() && !line.contains("parent=")) {
                 form_name = current_node_name;
-                in_node = false; // Don't add root as a control
+                is_root_node = true;
+            } else {
+                is_root_node = false;
             }
 
             // Start accumulating raw block for potential MenuBar child storage
@@ -3458,6 +3464,7 @@ bool VisualGasicFormDesigner::_parse_tscn(const String &p_text) {
                             if (parts.size() >= 2) {
                                 form_size.x = parts[0].strip_edges().to_int();
                                 form_size.y = parts[1].strip_edges().to_int();
+                                UtilityFunctions::print("FormDesigner: Parsed form_size = ", form_size, " from .tscn");
                             }
                         }
                     }
@@ -3526,8 +3533,8 @@ bool VisualGasicFormDesigner::_parse_tscn(const String &p_text) {
         i++;
     }
 
-    // Commit last node
-    if (in_node) {
+    // Commit last node (skip root node — it's not a control)
+    if (in_node && !is_root_node) {
         if (!current_node_name.begins_with("_") && current_node_parent == ".") {
             if (current_node_type == "MenuBar" || current_node_name == "MainMenu") {
                 has_menu_bar = true;

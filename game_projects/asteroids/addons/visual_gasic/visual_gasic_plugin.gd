@@ -766,6 +766,7 @@ func _set_window_layout(config: ConfigFile):
 	if not saved_form_path.is_empty() and is_instance_valid(_form_designer):
 		if FileAccess.file_exists(saved_form_path):
 			_form_designer.open_form(saved_form_path)
+			_fixup_form_size_from_tscn(saved_form_path)
 			print("[VisualGasic] Restored form from layout config: ", saved_form_path)
 			# Ensure the form is also open as a Godot scene tab so
 			# _sync_form_state_to_scene_tree() can patch the in-memory
@@ -1712,6 +1713,7 @@ func open_form_in_designer(tscn_path: String) -> void:
 	if not tscn_path in EditorInterface.get_open_scenes():
 		EditorInterface.open_scene_from_path(tscn_path)
 	_form_designer.open_form(tscn_path)
+	_fixup_form_size_from_tscn(tscn_path)
 	EditorInterface.set_main_screen_editor("Form Designer")
 	print("VisualGasic: Opened '", tscn_path, "' in Form Designer")
 	# Apply VB6 theme to the live scene tree immediately
@@ -3244,6 +3246,7 @@ func handle_form_rename(old_name: String, new_name: String) -> bool:
 
 	# Re-sync the form designer from the new path
 	_form_designer.open_form(new_tscn)
+	_fixup_form_size_from_tscn(new_tscn)
 
 	# Update the editor layout config so next restart opens the right file
 	var config = get_editor_interface().get_editor_settings()
@@ -3415,6 +3418,48 @@ func _deferred_open_scene_tab(tscn_path: String) -> void:
 		if not tscn_path in EditorInterface.get_open_scenes():
 			EditorInterface.open_scene_from_path(tscn_path)
 			print("[VG-SYNC] Deferred open scene tab: ", tscn_path)
+
+## GDScript safety net: reads the root Window's size from a .tscn text file
+## and applies it to the C++ FormDesigner.  This works around a C++ parser bug
+## where _parse_tscn() skipped root-node properties (in_node was set false
+## before property lines were reached).  The C++ is now fixed, but this
+## remains as belt-and-suspenders.
+func _fixup_form_size_from_tscn(tscn_path: String) -> void:
+	if not is_instance_valid(_form_designer):
+		return
+	if not FileAccess.file_exists(tscn_path):
+		return
+	var f = FileAccess.open(tscn_path, FileAccess.READ)
+	if not f:
+		return
+	var in_root_node := false
+	while not f.eof_reached():
+		var line = f.get_line().strip_edges()
+		if line.begins_with("[node "):
+			# Root node has no parent= attribute
+			if not "parent=" in line:
+				in_root_node = true
+			else:
+				if in_root_node:
+					break  # Left root node section
+				in_root_node = false
+		elif in_root_node and line.begins_with("size = Vector2i("):
+			# Parse: size = Vector2i(424, 352)
+			var paren_start = line.find("(")
+			var paren_end = line.find(")")
+			if paren_start >= 0 and paren_end > paren_start:
+				var inner = line.substr(paren_start + 1, paren_end - paren_start - 1)
+				var parts = inner.split(",")
+				if parts.size() >= 2:
+					var sz = Vector2i(int(parts[0].strip_edges()), int(parts[1].strip_edges()))
+					var current = _form_designer.get_form_size()
+					if current != sz:
+						_form_designer.set_form_size(sz)
+						print("[VG-SYNC] _fixup_form_size_from_tscn: patched form_size ", current, " → ", sz)
+					break
+		elif in_root_node and line.begins_with("["):
+			break  # Next section
+	f.close()
 
 ## Forces Godot to re-read a .tscn from disk and update its open scene tab.
 ## The C++ Form Designer writes .tscn files via FileAccess which bypasses
@@ -4193,6 +4238,7 @@ func _sync_scene_to_form_designer() -> void:
 		if _form_designer.get_control_count() == 0 and FileAccess.file_exists(scene_path):
 			print("VisualGasic: Controls lost — recovering from disk: ", scene_path)
 			_form_designer.open_form(scene_path)
+			_fixup_form_size_from_tscn(scene_path)
 		return
 
 	# Path mismatch — but if the designer already has controls in memory and
@@ -4206,6 +4252,7 @@ func _sync_scene_to_form_designer() -> void:
 		return
 
 	_form_designer.open_form(scene_path)
+	_fixup_form_size_from_tscn(scene_path)
 	print("VisualGasic: Synced scene '", scene_path, "' into Form Designer")
 	# Apply VB6 Classic Theme directly to the live scene tree.
 	# This ensures Godot's 2D viewport shows VB6 styling and Godot's own
