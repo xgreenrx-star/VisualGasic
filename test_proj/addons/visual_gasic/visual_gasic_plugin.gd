@@ -725,6 +725,8 @@ func _make_visible(p_visible: bool) -> void:
 				_form_designer.save_form_as(save_path)
 				_strip_empty_menubar_from_tscn(save_path)
 				EditorInterface.get_resource_filesystem().update_file(save_path)
+				# Patch in-memory tree so Godot won't overwrite with stale data
+				_sync_form_state_to_scene_tree()
 				print("[VG-SYNC]   saved & update_file done for '", save_path, "'")
 				# Schedule reload for AFTER the screen transition completes.
 				# Godot's reload_scene_from_path() silently does nothing while
@@ -803,6 +805,10 @@ func _save_external_data() -> void:
 		# Notify Godot's filesystem and reload the scene
 		fp = _form_designer.get_form_path()
 		if not fp.is_empty():
+			# CRITICAL: Patch in-memory tree FIRST.  reload_scene_from_path()
+			# silently fails during Godot's save cycle (is_changing_scene),
+			# so we must ensure the tree already has the correct values.
+			_sync_form_state_to_scene_tree()
 			var scene_root = EditorInterface.get_edited_scene_root()
 			if scene_root and scene_root.scene_file_path == fp:
 				_force_godot_scene_reload(fp)
@@ -823,6 +829,8 @@ func _exit_tree():
 			_strip_empty_menubar_from_tscn(fp)
 		if not _form_designer.get_form_path().is_empty():
 			EditorInterface.get_resource_filesystem().update_file(_form_designer.get_form_path())
+			# Patch in-memory tree so Godot's shutdown save doesn't overwrite
+			_sync_form_state_to_scene_tree()
 			print("[VisualGasic] _exit_tree → form auto-saved")
 	# Restore any hidden Godot docks before cleanup
 	_show_godot_panels()
@@ -3085,6 +3093,9 @@ func _do_save_form() -> void:
 	_form_dirty = false
 	_track_recent_form(saved_path)
 	_update_dirty_indicator()
+	# Patch Godot's in-memory scene tree so its scene saver won't overwrite
+	# our .tscn with stale values when the editor closes.
+	_sync_form_state_to_scene_tree()
 	# CRITICAL: Reload the scene in Godot's editor so its in-memory scene tree
 	# matches what we just wrote to disk.  Without this, Godot overwrites our
 	# .tscn with its stale scene tree version when the editor closes.
@@ -3111,6 +3122,7 @@ func _do_save_form_as() -> void:
 	fd.file_selected.connect(func(path: String):
 		_form_designer.save_form_as(path)
 		print("[VisualGasic] Form saved as: ", path)
+		_sync_form_state_to_scene_tree()
 		_reload_scene_after_form_save(path)
 		fd.queue_free()
 	)
@@ -3404,6 +3416,60 @@ func _force_godot_scene_reload(tscn_path: String) -> void:
 	# The reload destroys the old tree and recreates from disk, so any
 	# previously-applied theme is lost.  Force-apply unconditionally.
 	_force_apply_vb6_theme_to_scene_root()
+
+## Patches Godot's in-memory scene tree to match the C++ FormDesigner state.
+## This is CRITICAL because Godot's own scene saver writes the in-memory tree
+## to disk when the editor closes.  If the tree is stale (e.g. because
+## reload_scene_from_path() silently failed during a save cycle), Godot
+## overwrites our correct .tscn with old values.
+##
+## By directly setting Window.size, _FormBackground offsets, and each child
+## control's offsets, we guarantee the in-memory tree always matches C++.
+func _sync_form_state_to_scene_tree() -> void:
+	if not is_instance_valid(_form_designer):
+		return
+	var fp = _form_designer.get_form_path()
+	if fp.is_empty():
+		return
+	var scene_root = EditorInterface.get_edited_scene_root()
+	if not scene_root:
+		return
+	if scene_root.scene_file_path != fp:
+		return
+
+	# ── Sync form size ──
+	var fd_size: Vector2i = _form_designer.get_form_size()
+	if scene_root is Window:
+		if scene_root.size != fd_size:
+			scene_root.size = fd_size
+			print("[VG-SYNC] Patched Window.size → ", fd_size)
+	# Also patch the _FormBackground Panel offsets
+	var bg = scene_root.get_node_or_null("_FormBackground")
+	if bg:
+		bg.offset_right = float(fd_size.x)
+		bg.offset_bottom = float(fd_size.y)
+
+	# ── Sync each child control's position + size ──
+	var ctrl_count = _form_designer.get_control_count()
+	for i in ctrl_count:
+		var info: Dictionary = _form_designer.get_control_info(i)
+		var ctrl_name: String = info.get("name", "")
+		if ctrl_name.is_empty():
+			continue
+		var child = scene_root.get_node_or_null(ctrl_name)
+		if not child or not child is Control:
+			continue
+		var r: Rect2 = info.get("rect", Rect2())
+		child.offset_left   = r.position.x
+		child.offset_top    = r.position.y
+		child.offset_right  = r.position.x + r.size.x
+		child.offset_bottom = r.position.y + r.size.y
+		# Sync text/caption
+		var text_val = info.get("text", "")
+		if child.has_method("set_text") and not text_val.is_empty():
+			child.set("text", text_val)
+
+	print("[VG-SYNC] Scene tree patched: ", ctrl_count, " controls, form size=", fd_size)
 
 func _on_vb6_edit_menu(id: int) -> void:
 	if not _form_designer:
