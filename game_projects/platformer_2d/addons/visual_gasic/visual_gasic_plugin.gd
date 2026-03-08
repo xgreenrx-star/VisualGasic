@@ -767,11 +767,19 @@ func _set_window_layout(config: ConfigFile):
 		if FileAccess.file_exists(saved_form_path):
 			_form_designer.open_form(saved_form_path)
 			print("[VisualGasic] Restored form from layout config: ", saved_form_path)
+			# Ensure the form is also open as a Godot scene tab so
+			# _sync_form_state_to_scene_tree() can patch the in-memory
+			# tree during save operations.
+			if not saved_form_path in EditorInterface.get_open_scenes():
+				call_deferred("_deferred_open_scene_tab", saved_form_path)
 			# Apply VB6 theme to the live scene tree (deferred — scene root
 			# may not be fully set up yet during layout restoration).
 			call_deferred("_apply_vb6_theme_to_scene_root")
 
 ## Called by the editor when saving window layout.
+## CRITICAL: This fires AFTER Godot has saved all open scene tabs to disk.
+## We re-save the form .tscn from C++ here to overwrite any stale data
+## that Godot's scene saver may have written from its in-memory tree.
 func _get_window_layout(config: ConfigFile):
 	if is_instance_valid(_layout_manager):
 		_layout_manager.on_window_layout_saving(config)
@@ -780,6 +788,12 @@ func _get_window_layout(config: ConfigFile):
 		var fpath = _form_designer.get_form_path()
 		if not fpath.is_empty():
 			config.set_value("VisualGasic", "form_path", fpath)
+			# CRITICAL: Re-save from C++ to overwrite any stale .tscn that
+			# Godot's scene saver just wrote.  The C++ FormDesigner's
+			# form_size is the source of truth.
+			_form_designer.save_form_as(fpath)
+			_strip_empty_menubar_from_tscn(fpath)
+			print("[VG-SYNC] _get_window_layout → re-saved form to overwrite stale Godot save")
 
 ## Called by the editor before saving any external data (scenes, resources).
 ## We write the C++ Form Designer state to disk, then force Godot to reload
@@ -1693,6 +1707,10 @@ func open_form_in_designer(tscn_path: String) -> void:
 	if not _form_designer:
 		push_warning("VisualGasic: Form Designer not available")
 		return
+	# Open as a Godot scene tab FIRST so _sync_form_state_to_scene_tree()
+	# can patch Godot's in-memory tree when saving.
+	if not tscn_path in EditorInterface.get_open_scenes():
+		EditorInterface.open_scene_from_path(tscn_path)
 	_form_designer.open_form(tscn_path)
 	EditorInterface.set_main_screen_editor("Form Designer")
 	print("VisualGasic: Opened '", tscn_path, "' in Form Designer")
@@ -3389,6 +3407,15 @@ func _deferred_reload_scene(tscn_path: String) -> void:
 	# Legacy entry point (kept for compatibility).
 	_force_godot_scene_reload(tscn_path)
 
+## Deferred helper: opens a form .tscn as a Godot scene tab.
+## Used by _set_window_layout() during session restore to ensure the form
+## is available for in-memory tree patching by _sync_form_state_to_scene_tree().
+func _deferred_open_scene_tab(tscn_path: String) -> void:
+	if FileAccess.file_exists(tscn_path):
+		if not tscn_path in EditorInterface.get_open_scenes():
+			EditorInterface.open_scene_from_path(tscn_path)
+			print("[VG-SYNC] Deferred open scene tab: ", tscn_path)
+
 ## Forces Godot to re-read a .tscn from disk and update its open scene tab.
 ## The C++ Form Designer writes .tscn files via FileAccess which bypasses
 ## Godot’s ResourceLoader cache.  A plain reload_scene_from_path() would
@@ -3433,8 +3460,15 @@ func _sync_form_state_to_scene_tree() -> void:
 		return
 	var scene_root = EditorInterface.get_edited_scene_root()
 	if not scene_root:
+		print("[VG-SYNC] _sync: no edited scene root")
 		return
 	if scene_root.scene_file_path != fp:
+		# The form is not the active scene tab.  Check if it's open in another tab.
+		var open_scenes = EditorInterface.get_open_scenes()
+		if fp in open_scenes:
+			print("[VG-SYNC] _sync: form '", fp, "' is open but not active (active='", scene_root.scene_file_path, "').  Cannot patch non-active tab — relying on _get_window_layout backup save.")
+		else:
+			print("[VG-SYNC] _sync: form '", fp, "' not in open scene tabs — skipping sync")
 		return
 
 	# ── Sync form size ──

@@ -140,6 +140,11 @@ var _vg_toolbars_in_container: bool = false
 ## VB6-style Data Tips — hover over variables during debugging
 var _data_tips = null
 
+## Embedded VB6-style code editor (replaces canvas in-place)
+var _embedded_code_editor = null
+## Whether the IDE is currently showing the code view (vs form view)
+var _showing_code_view: bool = false
+
 ## Snippet Browser dialog (v2.4.1)
 var _snippet_browser = null
 
@@ -148,6 +153,14 @@ var _theme_picker = null
 
 ## Profiler Panel (v2.6.0) — bottom panel for bytecode profiling
 var _profiler_panel = null
+
+## Tip of the Day dialog (v3.5)
+var _tip_of_day_dialog: Window = null
+var _tip_label: Label = null
+var _tip_checkbox: CheckBox = null
+var _tip_index: int = 0
+var _show_tips_on_startup: bool = true
+var _tip_shown_this_session: bool = false
 
 # =============================================================================
 # PLUGIN LIFECYCLE
@@ -165,6 +178,9 @@ var _profiler_panel = null
 func _enter_tree():
 	# Store self for static retrieval
 	get_editor_interface().get_base_control().set_meta("visual_gasic_plugin_instance", self)
+
+	# Enable input processing so _input() fires for our keyboard shortcuts
+	set_process_input(true)
 
 	# Import Plugin
 	import_plugin = preload("res://addons/visual_gasic/frm_import_plugin.gd").new()
@@ -346,6 +362,8 @@ func _enter_tree():
 			_form_designer.control_right_clicked.connect(_on_fd_control_right_clicked)
 		if _form_designer.has_signal("scene_file_dropped"):
 			_form_designer.scene_file_dropped.connect(_on_fd_scene_file_dropped)
+		# Keyboard fallback: catch shortcuts when canvas has focus
+		_form_designer.gui_input.connect(_on_canvas_gui_input)
 
 		# --- Build the composite layout ---
 		# VBoxContainer root: Menu | Toolbar | [Toolbox | Canvas | Properties] | Status
@@ -392,6 +410,32 @@ func _enter_tree():
 		_coord_label.add_theme_color_override("font_color", Color(0.15, 0.15, 0.15))
 		_coord_label.custom_minimum_size.x = 120
 		toolbar_row.add_child(_coord_label)
+
+		# ── View Code / View Object toggle buttons (like VB6 toolbar) ──
+		var view_sep = VSeparator.new()
+		toolbar_row.add_child(view_sep)
+
+		var view_code_btn = Button.new()
+		view_code_btn.name = "ViewCodeBtn"
+		view_code_btn.text = "</> Code"
+		view_code_btn.tooltip_text = "View Code (F7)"
+		view_code_btn.flat = true
+		view_code_btn.add_theme_font_size_override("font_size", 11)
+		view_code_btn.add_theme_color_override("font_color", Color(0.15, 0.15, 0.15))
+		view_code_btn.add_theme_color_override("font_hover_color", Color(0.0, 0.0, 0.5))
+		view_code_btn.pressed.connect(_on_view_code)
+		toolbar_row.add_child(view_code_btn)
+
+		var view_obj_btn = Button.new()
+		view_obj_btn.name = "ViewObjectBtn"
+		view_obj_btn.text = "\u25a3 Form"
+		view_obj_btn.tooltip_text = "View Object (Shift+F7)"
+		view_obj_btn.flat = true
+		view_obj_btn.add_theme_font_size_override("font_size", 11)
+		view_obj_btn.add_theme_color_override("font_color", Color(0.15, 0.15, 0.15))
+		view_obj_btn.add_theme_color_override("font_hover_color", Color(0.0, 0.0, 0.5))
+		view_obj_btn.pressed.connect(_on_view_object)
+		toolbar_row.add_child(view_obj_btn)
 
 		# Spacer to push "Godot Editor" button to the right
 		var spacer = Control.new()
@@ -455,6 +499,17 @@ func _enter_tree():
 		canvas_scroll.add_child(_form_designer)
 		canvas_right_split.add_child(canvas_scroll)
 
+		# ── Embedded Code Editor (hidden by default, replaces canvas on View Code) ──
+		var ece_script = load("res://addons/visual_gasic/vg_embedded_code_editor.gd")
+		if ece_script:
+			_embedded_code_editor = ece_script.new()
+			_embedded_code_editor.visible = false
+			_embedded_code_editor.view_object_requested.connect(_show_form_view)
+			canvas_right_split.add_child(_embedded_code_editor)
+			# Move it before CanvasScroll's sibling index so the split works
+			# Actually, just add after canvas_scroll — when visible it takes over
+			print("VisualGasic: Embedded Code Editor created")
+
 		# -- RIGHT: Project Explorer + Properties (resizable VSplitContainer) --
 		var right_vsplit = VSplitContainer.new()
 		right_vsplit.name = "RightPanelSplit"
@@ -512,6 +567,10 @@ func _enter_tree():
 	add_tool_menu_item("Visual Gasic Object Browser", Callable(self, "_on_obj_browser"))
 	add_tool_menu_item("Visual Gasic Tab Order", Callable(self, "_on_tab_order"))
 	add_tool_menu_item("Visual Gasic Components...", Callable(self, "_on_components"))
+
+	# Tip of the Day — load preference and create dialog
+	_load_tip_config()
+	_create_tip_of_day_dialog()
 
 # =============================================================================
 # DOCK MANAGEMENT — called by layout manager on mode toggle
@@ -640,6 +699,13 @@ func _make_visible(p_visible: bool) -> void:
 		_hide_godot_panels()
 	else:
 		_show_godot_panels()
+		# Leaving Form Designer → save embedded code editor if dirty
+		if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.is_dirty():
+			_embedded_code_editor.save_file()
+		# If we were showing code view, switch back to form view state
+		# (so next time Form Designer opens it shows the form canvas)
+		if _showing_code_view:
+			_show_form_view()
 		# Leaving Form Designer → flush C++ state to disk.
 		if is_instance_valid(_form_designer):
 			# Derive the save path: prefer scene_root.scene_file_path (the
@@ -657,7 +723,10 @@ func _make_visible(p_visible: bool) -> void:
 			print("[VG-SYNC] _make_visible(false)  save_path='", save_path, "'  fp='", _form_designer.get_form_path(), "'  controls=", _form_designer.get_control_count())
 			if not save_path.is_empty():
 				_form_designer.save_form_as(save_path)
+				_strip_empty_menubar_from_tscn(save_path)
 				EditorInterface.get_resource_filesystem().update_file(save_path)
+				# Patch in-memory tree so Godot won't overwrite with stale data
+				_sync_form_state_to_scene_tree()
 				print("[VG-SYNC]   saved & update_file done for '", save_path, "'")
 				# Schedule reload for AFTER the screen transition completes.
 				# Godot's reload_scene_from_path() silently does nothing while
@@ -677,6 +746,11 @@ func _make_visible(p_visible: bool) -> void:
 	# disk and wipe the in-memory controls.
 	if p_visible and _form_designer and not _switching_to_code_editor:
 		_sync_scene_to_form_designer()
+	# Show Tip of the Day on first visit to Form Designer this session
+	if p_visible and not _tip_shown_this_session:
+		_tip_shown_this_session = true
+		if _show_tips_on_startup:
+			call_deferred("_show_tip_of_day")
 
 ## Called when user clicks the "↩ Godot Editor" button.
 ## Switches from Form Designer back to the 2D editor, restoring all Godot panels.
@@ -693,11 +767,19 @@ func _set_window_layout(config: ConfigFile):
 		if FileAccess.file_exists(saved_form_path):
 			_form_designer.open_form(saved_form_path)
 			print("[VisualGasic] Restored form from layout config: ", saved_form_path)
+			# Ensure the form is also open as a Godot scene tab so
+			# _sync_form_state_to_scene_tree() can patch the in-memory
+			# tree during save operations.
+			if not saved_form_path in EditorInterface.get_open_scenes():
+				call_deferred("_deferred_open_scene_tab", saved_form_path)
 			# Apply VB6 theme to the live scene tree (deferred — scene root
 			# may not be fully set up yet during layout restoration).
 			call_deferred("_apply_vb6_theme_to_scene_root")
 
 ## Called by the editor when saving window layout.
+## CRITICAL: This fires AFTER Godot has saved all open scene tabs to disk.
+## We re-save the form .tscn from C++ here to overwrite any stale data
+## that Godot's scene saver may have written from its in-memory tree.
 func _get_window_layout(config: ConfigFile):
 	if is_instance_valid(_layout_manager):
 		_layout_manager.on_window_layout_saving(config)
@@ -706,6 +788,12 @@ func _get_window_layout(config: ConfigFile):
 		var fpath = _form_designer.get_form_path()
 		if not fpath.is_empty():
 			config.set_value("VisualGasic", "form_path", fpath)
+			# CRITICAL: Re-save from C++ to overwrite any stale .tscn that
+			# Godot's scene saver just wrote.  The C++ FormDesigner's
+			# form_size is the source of truth.
+			_form_designer.save_form_as(fpath)
+			_strip_empty_menubar_from_tscn(fpath)
+			print("[VG-SYNC] _get_window_layout → re-saved form to overwrite stale Godot save")
 
 ## Called by the editor before saving any external data (scenes, resources).
 ## We write the C++ Form Designer state to disk, then force Godot to reload
@@ -731,6 +819,10 @@ func _save_external_data() -> void:
 		# Notify Godot's filesystem and reload the scene
 		fp = _form_designer.get_form_path()
 		if not fp.is_empty():
+			# CRITICAL: Patch in-memory tree FIRST.  reload_scene_from_path()
+			# silently fails during Godot's save cycle (is_changing_scene),
+			# so we must ensure the tree already has the correct values.
+			_sync_form_state_to_scene_tree()
 			var scene_root = EditorInterface.get_edited_scene_root()
 			if scene_root and scene_root.scene_file_path == fp:
 				_force_godot_scene_reload(fp)
@@ -745,10 +837,14 @@ func _exit_tree():
 		if fp.is_empty() and _form_designer.get_control_count() > 0:
 			fp = "res://" + _form_designer.get_form_name() + ".tscn"
 			_form_designer.save_form_as(fp)
+			_strip_empty_menubar_from_tscn(fp)
 		elif not fp.is_empty():
 			_form_designer.save_form()
+			_strip_empty_menubar_from_tscn(fp)
 		if not _form_designer.get_form_path().is_empty():
 			EditorInterface.get_resource_filesystem().update_file(_form_designer.get_form_path())
+			# Patch in-memory tree so Godot's shutdown save doesn't overwrite
+			_sync_form_state_to_scene_tree()
 			print("[VisualGasic] _exit_tree → form auto-saved")
 	# Restore any hidden Godot docks before cleanup
 	_show_godot_panels()
@@ -885,6 +981,66 @@ func _exit_tree():
 	# Disconnect node_added handler
 	if get_tree().node_added.is_connected(_on_node_added):
 		get_tree().node_added.disconnect(_on_node_added)
+
+## Intercept keyboard shortcuts BEFORE Godot's editor consumes them.
+## Uses _input() — the FIRST callback in Godot's input chain — so our
+## plugin sees key events before any GUI Control or built-in handler.
+## This is critical because _shortcut_input() fires too late: by that
+## point Godot's editor has already consumed Ctrl+S, Delete, etc.
+func _input(event: InputEvent) -> void:
+	if not event is InputEventKey or not event.pressed or event.echo:
+		return
+	# Only intercept when our Form Designer main screen is visible
+	if not is_instance_valid(_ide_layout) or not _ide_layout.visible:
+		return
+
+	# ── Ctrl+Shift+S  →  Save All ──
+	if event.keycode == KEY_S and event.ctrl_pressed and event.shift_pressed and not event.alt_pressed:
+		_do_save_all()
+		get_viewport().set_input_as_handled()
+		return
+
+	# ── Ctrl+S  →  Save Form ──
+	if event.keycode == KEY_S and event.ctrl_pressed and not event.shift_pressed and not event.alt_pressed:
+		_do_save_form()
+		_flash_status_message("Form saved")
+		get_viewport().set_input_as_handled()
+		return
+
+	# ── Delete  →  Remove selected control (not root) ──
+	# Skip if a text-editing control has focus (user might be typing)
+	if event.keycode == KEY_DELETE and not event.ctrl_pressed and not event.alt_pressed:
+		var focused = get_viewport().gui_get_focus_owner()
+		if focused is LineEdit or focused is TextEdit or focused is CodeEdit:
+			return  # let the text field handle Delete normally
+		if is_instance_valid(_form_designer):
+			_form_designer.remove_selected()
+			_flash_status_message("Deleted control")
+		get_viewport().set_input_as_handled()
+
+## Fallback keyboard handler connected to the Form Designer canvas's gui_input.
+## If _input() somehow misses an event (e.g., Godot processes the canvas
+## control's gui_input before _input fires on our plugin node), this catches it.
+func _on_canvas_gui_input(event: InputEvent) -> void:
+	if not event is InputEventKey or not event.pressed or event.echo:
+		return
+	# Ctrl+Shift+S → Save All
+	if event.keycode == KEY_S and event.ctrl_pressed and event.shift_pressed and not event.alt_pressed:
+		_do_save_all()
+		_form_designer.accept_event()
+		return
+	# Ctrl+S → Save Form
+	if event.keycode == KEY_S and event.ctrl_pressed and not event.shift_pressed and not event.alt_pressed:
+		_do_save_form()
+		_flash_status_message("Form saved")
+		_form_designer.accept_event()
+		return
+	# Delete → Remove selected control
+	if event.keycode == KEY_DELETE and not event.ctrl_pressed and not event.alt_pressed:
+		if is_instance_valid(_form_designer):
+			_form_designer.remove_selected()
+			_flash_status_message("Deleted control")
+		_form_designer.accept_event()
 
 ## Called every frame. Detects vg_control drag end and handles drop.
 ## When the C++ Form Designer is active and visible, it handles drops directly
@@ -1194,36 +1350,21 @@ func _do_import_frm(path):
 		print("Importer script not found")
 		return
 
-	var dir = DirAccess.open("res://")
-	if not dir.dir_exists("res://start_forms"): dir.make_dir("res://start_forms")
-	if not dir.dir_exists("res://mixed"): dir.make_dir("res://mixed")
-		
-	var root = Control.new()
-	root.name = path.get_file().get_basename()
-	
-	# Create Scene Root
-	var packed_scene = PackedScene.new()
-	# Can't pack yet, need node tree
-	
-	# We want to create it in the currently open scene or a new scene?
-	# Let's creating a new scene file.
-	
-	var code = importer.import_form(path, root, root)
-	
-	packed_scene.pack(root)
-	var save_path = "res://start_forms/" + root.name + ".tscn"
-	ResourceSaver.save(packed_scene, save_path)
-	print("Saved Scene to " + save_path)
-	
-	if code != "":
-		var bas_path = "res://mixed/" + root.name + ".vg"
-		var f = FileAccess.open(bas_path, FileAccess.WRITE)
-		f.store_string(code)
-		f.close()
-		print("Saved Code to " + bas_path)
-		_add_to_recent_projects(bas_path)  # Track in recent projects
-		
-	get_editor_interface().open_scene_from_path(save_path)
+	var result = importer.import_form_file(path)
+	if result.get("success", false):
+		var scene_path = result.get("scene_path", "")
+		var code_path = result.get("code_path", "")
+		print("VB6 Import OK: scene=%s  code=%s" % [scene_path, code_path])
+		if code_path != "":
+			_add_to_recent_projects(code_path)
+		get_editor_interface().get_resource_filesystem().scan()
+		if scene_path != "":
+			get_editor_interface().open_scene_from_path(scene_path)
+	else:
+		var errors = result.get("errors", [])
+		for e in errors:
+			push_error("VB6 Import: " + e)
+		print("VB6 Import failed. See errors above.")
 
 # =============================================================================
 # FORM CREATION
@@ -1313,7 +1454,7 @@ func _finish_form_creation(path: String, form_name: String, vg_path: String, tem
 	# Add MenuBar FIRST if specified - so _FormBackground comes AFTER and intercepts drops
 	if template.get("has_menu", false):
 		var menu_bar = MenuBar.new()
-		menu_bar.name = "MenuBar"
+		menu_bar.name = "MainMenu"
 		menu_bar.anchor_left = 0.0
 		menu_bar.anchor_top = 0.0
 		menu_bar.anchor_right = 1.0
@@ -1566,6 +1707,10 @@ func open_form_in_designer(tscn_path: String) -> void:
 	if not _form_designer:
 		push_warning("VisualGasic: Form Designer not available")
 		return
+	# Open as a Godot scene tab FIRST so _sync_form_state_to_scene_tree()
+	# can patch Godot's in-memory tree when saving.
+	if not tscn_path in EditorInterface.get_open_scenes():
+		EditorInterface.open_scene_from_path(tscn_path)
 	_form_designer.open_form(tscn_path)
 	EditorInterface.set_main_screen_editor("Form Designer")
 	print("VisualGasic: Opened '", tscn_path, "' in Form Designer")
@@ -1702,9 +1847,19 @@ func _load_theme_config() -> void:
 ## Godot's dark editor theme.
 func _build_vb6_theme() -> Theme:
 	var t = Theme.new()
-	var bg: Color = _theme.get("panel_background", Color("#F0EDE8"))
-	var border: Color = _theme.get("panel_border", Color(0.72, 0.71, 0.68))
-	var text_color := Color.BLACK
+	# Read IDE chrome colors from the active theme in VGThemeManager
+	var td = VGThemeManager.get_current_theme()
+	var bg: Color = td.ide_panel_bg if td else _theme.get("panel_background", Color("#F0EDE8"))
+	var border: Color = td.ide_panel_border if td else _theme.get("panel_border", Color(0.72, 0.71, 0.68))
+	var text_color: Color = td.ide_text_color if td else Color.BLACK
+	var list_bg: Color = td.ide_list_bg if td else Color.WHITE
+	var tab_sel_bg: Color = td.ide_tab_selected_bg if td else bg
+	var tab_unsel_bg: Color = td.ide_tab_unselected_bg if td else Color(0.85, 0.84, 0.82)
+	var tab_hover_bg: Color = td.ide_tab_hover_bg if td else Color(0.95, 0.94, 0.92)
+	var btn_hover_bg: Color = td.ide_btn_hover_bg if td else Color(0.95, 0.94, 0.92)
+	var btn_pressed_bg: Color = td.ide_btn_pressed_bg if td else Color(0.88, 0.87, 0.85)
+	var tooltip_bg: Color = td.ide_tooltip_bg if td else Color(1.0, 1.0, 0.94)
+	var tab_unsel_text: Color = text_color.lerp(bg, 0.35)
 
 	# ── PanelContainer (fixes C++ VisualGasicToolbox dark bg) ──
 	var pc_sb = StyleBoxFlat.new()
@@ -1721,7 +1876,7 @@ func _build_vb6_theme() -> Theme:
 	t.set_stylebox("panel", "TabContainer", tc_panel)
 
 	var tab_sel = StyleBoxFlat.new()
-	tab_sel.bg_color = bg
+	tab_sel.bg_color = tab_sel_bg
 	tab_sel.border_color = border
 	tab_sel.border_width_left = 1; tab_sel.border_width_top = 1
 	tab_sel.border_width_right = 1; tab_sel.border_width_bottom = 0
@@ -1731,7 +1886,7 @@ func _build_vb6_theme() -> Theme:
 	t.set_stylebox("tab_selected", "TabBar", tab_sel)
 
 	var tab_unsel = StyleBoxFlat.new()
-	tab_unsel.bg_color = Color(0.85, 0.84, 0.82)
+	tab_unsel.bg_color = tab_unsel_bg
 	tab_unsel.border_color = border
 	tab_unsel.set_border_width_all(1)
 	tab_unsel.content_margin_left = 8; tab_unsel.content_margin_right = 8
@@ -1740,7 +1895,7 @@ func _build_vb6_theme() -> Theme:
 	t.set_stylebox("tab_unselected", "TabBar", tab_unsel)
 
 	var tab_hover = StyleBoxFlat.new()
-	tab_hover.bg_color = Color(0.95, 0.94, 0.92)
+	tab_hover.bg_color = tab_hover_bg
 	tab_hover.border_color = border
 	tab_hover.border_width_left = 1; tab_hover.border_width_top = 1
 	tab_hover.border_width_right = 1; tab_hover.border_width_bottom = 0
@@ -1751,24 +1906,24 @@ func _build_vb6_theme() -> Theme:
 
 	# Tab font colors
 	t.set_color("font_selected_color", "TabContainer", text_color)
-	t.set_color("font_unselected_color", "TabContainer", Color(0.3, 0.3, 0.3))
+	t.set_color("font_unselected_color", "TabContainer", tab_unsel_text)
 	t.set_color("font_hovered_color", "TabContainer", text_color)
 	t.set_color("font_selected_color", "TabBar", text_color)
-	t.set_color("font_unselected_color", "TabBar", Color(0.3, 0.3, 0.3))
+	t.set_color("font_unselected_color", "TabBar", tab_unsel_text)
 	t.set_color("font_hovered_color", "TabBar", text_color)
 
 	# ── Tree (Project Explorer, Properties Inspector) ──
 	var tree_sb = StyleBoxFlat.new()
-	tree_sb.bg_color = Color.WHITE
+	tree_sb.bg_color = list_bg
 	tree_sb.border_color = border
 	tree_sb.set_border_width_all(1)
 	t.set_stylebox("panel", "Tree", tree_sb)
 	t.set_color("font_color", "Tree", text_color)
-	t.set_color("font_selected_color", "Tree", Color.WHITE)
+	t.set_color("font_selected_color", "Tree", Color.WHITE if text_color.get_luminance() < 0.5 else Color.BLACK)
 
 	# ── ItemList ──
 	var il_sb = StyleBoxFlat.new()
-	il_sb.bg_color = Color.WHITE
+	il_sb.bg_color = list_bg
 	il_sb.border_color = border
 	il_sb.set_border_width_all(1)
 	t.set_stylebox("panel", "ItemList", il_sb)
@@ -1779,7 +1934,7 @@ func _build_vb6_theme() -> Theme:
 
 	# ── LineEdit (property fields) ──
 	var le_sb = StyleBoxFlat.new()
-	le_sb.bg_color = Color.WHITE
+	le_sb.bg_color = list_bg
 	le_sb.border_color = border
 	le_sb.set_border_width_all(1)
 	le_sb.content_margin_left = 4; le_sb.content_margin_right = 4
@@ -1796,20 +1951,20 @@ func _build_vb6_theme() -> Theme:
 	btn_sb.content_margin_left = 4; btn_sb.content_margin_right = 4
 	btn_sb.content_margin_top = 2; btn_sb.content_margin_bottom = 2
 	t.set_stylebox("normal", "Button", btn_sb)
-	var btn_hover = StyleBoxFlat.new()
-	btn_hover.bg_color = Color(0.95, 0.94, 0.92)
-	btn_hover.border_color = border
-	btn_hover.set_border_width_all(1)
-	btn_hover.content_margin_left = 4; btn_hover.content_margin_right = 4
-	btn_hover.content_margin_top = 2; btn_hover.content_margin_bottom = 2
-	t.set_stylebox("hover", "Button", btn_hover)
-	var btn_pressed = StyleBoxFlat.new()
-	btn_pressed.bg_color = Color(0.88, 0.87, 0.85)
-	btn_pressed.border_color = border
-	btn_pressed.set_border_width_all(1)
-	btn_pressed.content_margin_left = 4; btn_pressed.content_margin_right = 4
-	btn_pressed.content_margin_top = 2; btn_pressed.content_margin_bottom = 2
-	t.set_stylebox("pressed", "Button", btn_pressed)
+	var btn_hov = StyleBoxFlat.new()
+	btn_hov.bg_color = btn_hover_bg
+	btn_hov.border_color = border
+	btn_hov.set_border_width_all(1)
+	btn_hov.content_margin_left = 4; btn_hov.content_margin_right = 4
+	btn_hov.content_margin_top = 2; btn_hov.content_margin_bottom = 2
+	t.set_stylebox("hover", "Button", btn_hov)
+	var btn_prs = StyleBoxFlat.new()
+	btn_prs.bg_color = btn_pressed_bg
+	btn_prs.border_color = border
+	btn_prs.set_border_width_all(1)
+	btn_prs.content_margin_left = 4; btn_prs.content_margin_right = 4
+	btn_prs.content_margin_top = 2; btn_prs.content_margin_bottom = 2
+	t.set_stylebox("pressed", "Button", btn_prs)
 	t.set_color("font_color", "Button", text_color)
 	t.set_color("font_hover_color", "Button", text_color)
 	t.set_color("font_pressed_color", "Button", text_color)
@@ -1831,12 +1986,12 @@ func _build_vb6_theme() -> Theme:
 
 	# ── Tooltip (classic light-yellow tooltip) ──
 	var tooltip_sb = StyleBoxFlat.new()
-	tooltip_sb.bg_color = Color(1.0, 1.0, 0.94)   # Light-yellow
+	tooltip_sb.bg_color = tooltip_bg
 	tooltip_sb.border_color = Color(0.0, 0.0, 0.0)
 	tooltip_sb.set_border_width_all(1)
 	tooltip_sb.set_content_margin_all(4)
 	t.set_stylebox("panel", "TooltipPanel", tooltip_sb)
-	t.set_color("font_color", "TooltipLabel", Color.BLACK)
+	t.set_color("font_color", "TooltipLabel", Color.BLACK if tooltip_bg.get_luminance() > 0.5 else Color.WHITE)
 
 	return t
 
@@ -2159,6 +2314,112 @@ func _build_vb6_scene_theme() -> Theme:
 	tooltip_sb.set_content_margin_all(4)
 	t.set_stylebox("panel", "TooltipPanel", tooltip_sb)
 	t.set_color("font_color", "TooltipLabel", win_text)
+
+	return t
+
+## Builds a VB6-style Theme for popup dialogs created inline (AcceptDialog, etc.).
+## This is the same palette used by components_dialog.gd, menu_editor.gd, etc.
+func _build_vb6_dialog_theme() -> Theme:
+	var t = Theme.new()
+	var panel_bg     := Color(0.941, 0.929, 0.910)   # #F0EDE8 cream
+	var panel_border := Color(0.72, 0.71, 0.68)
+	var header_bg    := Color(0.58, 0.58, 0.62)
+	var header_border:= Color(0.4, 0.4, 0.4)
+	var text_color   := Color(0.0, 0.0, 0.0)
+	var list_bg      := Color(1.0, 1.0, 1.0)
+	var btn_hover    := Color(0.95, 0.94, 0.92)
+	var btn_pressed  := Color(0.88, 0.87, 0.85)
+	var active_title := Color(0.0, 0.0, 0.5)
+
+	# ── Window chrome ──
+	var win_sb = StyleBoxFlat.new()
+	win_sb.bg_color = header_bg
+	win_sb.border_color = header_border
+	win_sb.set_border_width_all(2)
+	win_sb.set_content_margin_all(4)
+	t.set_stylebox("embedded_border", "Window", win_sb)
+	var win_unfocus = win_sb.duplicate()
+	win_unfocus.bg_color = Color(0.50, 0.50, 0.50)
+	t.set_stylebox("embedded_unfocused_border", "Window", win_unfocus)
+	t.set_color("title_color", "Window", Color.WHITE)
+	t.set_color("title_outline_modulate", "Window", Color.TRANSPARENT)
+
+	# ── AcceptDialog panel ──
+	var dlg_sb = StyleBoxFlat.new()
+	dlg_sb.bg_color = panel_bg
+	dlg_sb.border_color = panel_border
+	dlg_sb.set_border_width_all(1)
+	dlg_sb.set_content_margin_all(10)
+	t.set_stylebox("panel", "AcceptDialog", dlg_sb)
+
+	# ── Label ──
+	t.set_color("font_color", "Label", text_color)
+
+	# ── LineEdit ──
+	var le_sb = StyleBoxFlat.new()
+	le_sb.bg_color = list_bg
+	le_sb.border_color = panel_border
+	le_sb.set_border_width_all(1)
+	le_sb.set_content_margin_all(4)
+	t.set_stylebox("normal", "LineEdit", le_sb)
+	t.set_stylebox("focus", "LineEdit", le_sb.duplicate())
+	t.set_color("font_color", "LineEdit", text_color)
+	t.set_color("font_placeholder_color", "LineEdit", Color(0.5, 0.5, 0.5))
+
+	# ── OptionButton ──
+	var ob_sb = StyleBoxFlat.new()
+	ob_sb.bg_color = panel_bg
+	ob_sb.border_color = panel_border
+	ob_sb.set_border_width_all(1)
+	ob_sb.content_margin_left = 6; ob_sb.content_margin_right = 6
+	ob_sb.content_margin_top = 3; ob_sb.content_margin_bottom = 3
+	t.set_stylebox("normal", "OptionButton", ob_sb)
+	var ob_hov = ob_sb.duplicate()
+	ob_hov.bg_color = btn_hover
+	t.set_stylebox("hover", "OptionButton", ob_hov)
+	var ob_pre = ob_sb.duplicate()
+	ob_pre.bg_color = btn_pressed
+	t.set_stylebox("pressed", "OptionButton", ob_pre)
+	t.set_color("font_color", "OptionButton", text_color)
+	t.set_color("font_hover_color", "OptionButton", text_color)
+	t.set_color("font_pressed_color", "OptionButton", text_color)
+
+	# ── PopupMenu (OptionButton dropdown) ──
+	var pm_sb = StyleBoxFlat.new()
+	pm_sb.bg_color = list_bg
+	pm_sb.border_color = panel_border
+	pm_sb.set_border_width_all(1)
+	pm_sb.set_content_margin_all(4)
+	t.set_stylebox("panel", "PopupMenu", pm_sb)
+	t.set_color("font_color", "PopupMenu", text_color)
+	t.set_color("font_hover_color", "PopupMenu", Color.WHITE)
+	var pm_hov = StyleBoxFlat.new()
+	pm_hov.bg_color = active_title
+	t.set_stylebox("hover", "PopupMenu", pm_hov)
+
+	# ── Button ──
+	var btn_sb = StyleBoxFlat.new()
+	btn_sb.bg_color = panel_bg
+	btn_sb.border_color = panel_border
+	btn_sb.set_border_width_all(1)
+	btn_sb.content_margin_left = 8; btn_sb.content_margin_right = 8
+	btn_sb.content_margin_top = 3; btn_sb.content_margin_bottom = 3
+	t.set_stylebox("normal", "Button", btn_sb)
+	var bh = btn_sb.duplicate()
+	bh.bg_color = btn_hover
+	t.set_stylebox("hover", "Button", bh)
+	var bp = btn_sb.duplicate()
+	bp.bg_color = btn_pressed
+	t.set_stylebox("pressed", "Button", bp)
+	t.set_color("font_color", "Button", text_color)
+	t.set_color("font_hover_color", "Button", text_color)
+	t.set_color("font_pressed_color", "Button", text_color)
+
+	# ── HSeparator ──
+	var sep_sb = StyleBoxFlat.new()
+	sep_sb.bg_color = panel_border
+	sep_sb.content_margin_top = 4; sep_sb.content_margin_bottom = 4
+	t.set_stylebox("separator", "HSeparator", sep_sb)
 
 	return t
 
@@ -2603,8 +2864,16 @@ func _create_vb6_menu_bar() -> MenuBar:
 	file_menu.add_item("Open Project...", 2)
 	file_menu.add_separator()
 	file_menu.add_item("Save Form", 10)
-	file_menu.add_shortcut(_make_shortcut(KEY_S, true), 10)
+	file_menu.set_item_shortcut(file_menu.get_item_index(10), _make_shortcut(KEY_S, true))
 	file_menu.add_item("Save Form As...", 11)
+	file_menu.add_item("Save All", 12)
+	var save_all_ev = InputEventKey.new()
+	save_all_ev.keycode = KEY_S
+	save_all_ev.ctrl_pressed = true
+	save_all_ev.shift_pressed = true
+	var save_all_sc = Shortcut.new()
+	save_all_sc.events = [save_all_ev]
+	file_menu.set_item_shortcut(file_menu.get_item_index(12), save_all_sc)
 	file_menu.add_separator()
 	file_menu.add_item("Import VB6 Form...", 20)
 	file_menu.add_item("Import VB6 Project...", 21)
@@ -2618,20 +2887,20 @@ func _create_vb6_menu_bar() -> MenuBar:
 	edit_menu.name = "Edit"
 	_style_popup_menu(edit_menu)
 	edit_menu.add_item("Undo", 0)
-	edit_menu.add_shortcut(_make_shortcut(KEY_Z, true), 0)
+	edit_menu.set_item_shortcut(edit_menu.get_item_index(0), _make_shortcut(KEY_Z, true))
 	edit_menu.add_item("Redo", 1)
-	edit_menu.add_shortcut(_make_shortcut(KEY_Y, true), 1)
+	edit_menu.set_item_shortcut(edit_menu.get_item_index(1), _make_shortcut(KEY_Y, true))
 	edit_menu.add_separator()
 	edit_menu.add_item("Cut", 10)
-	edit_menu.add_shortcut(_make_shortcut(KEY_X, true), 10)
+	edit_menu.set_item_shortcut(edit_menu.get_item_index(10), _make_shortcut(KEY_X, true))
 	edit_menu.add_item("Copy", 11)
-	edit_menu.add_shortcut(_make_shortcut(KEY_C, true), 11)
+	edit_menu.set_item_shortcut(edit_menu.get_item_index(11), _make_shortcut(KEY_C, true))
 	edit_menu.add_item("Paste", 12)
-	edit_menu.add_shortcut(_make_shortcut(KEY_V, true), 12)
+	edit_menu.set_item_shortcut(edit_menu.get_item_index(12), _make_shortcut(KEY_V, true))
 	edit_menu.add_item("Delete", 13)
 	edit_menu.add_separator()
 	edit_menu.add_item("Select All", 20)
-	edit_menu.add_shortcut(_make_shortcut(KEY_A, true), 20)
+	edit_menu.set_item_shortcut(edit_menu.get_item_index(20), _make_shortcut(KEY_A, true))
 	edit_menu.id_pressed.connect(_on_vb6_edit_menu)
 	mb.add_child(edit_menu)
 
@@ -2640,7 +2909,9 @@ func _create_vb6_menu_bar() -> MenuBar:
 	view_menu.name = "View"
 	_style_popup_menu(view_menu)
 	view_menu.add_item("Code", 0)
+	view_menu.set_item_shortcut(view_menu.get_item_index(0), _make_shortcut(KEY_F7))
 	view_menu.add_item("Object", 1)
+	view_menu.set_item_shortcut(view_menu.get_item_index(1), _make_shortcut(KEY_F7, false))  # Shift+F7 handled via embedded editor
 	view_menu.add_separator()
 	view_menu.add_item("Toolbox", 10)
 	view_menu.add_item("Project Explorer", 11)
@@ -2676,6 +2947,11 @@ func _create_vb6_menu_bar() -> MenuBar:
 	format_menu.add_item("Make Same Width", 20)
 	format_menu.add_item("Make Same Height", 21)
 	format_menu.add_item("Make Same Size", 22)
+	format_menu.add_separator()
+	format_menu.add_item("Bring to Front", 30)
+	format_menu.add_item("Send to Back", 31)
+	format_menu.add_separator()
+	format_menu.add_item("Lock Controls", 40)
 	format_menu.id_pressed.connect(_on_vb6_format_menu)
 	mb.add_child(format_menu)
 
@@ -2684,9 +2960,9 @@ func _create_vb6_menu_bar() -> MenuBar:
 	debug_menu.name = "Debug"
 	_style_popup_menu(debug_menu)
 	debug_menu.add_item("Run Project", 0)
-	debug_menu.add_shortcut(_make_shortcut(KEY_F5), 0)
+	debug_menu.set_item_shortcut(debug_menu.get_item_index(0), _make_shortcut(KEY_F5))
 	debug_menu.add_item("Run Current Scene", 1)
-	debug_menu.add_shortcut(_make_shortcut(KEY_F6), 1)
+	debug_menu.set_item_shortcut(debug_menu.get_item_index(1), _make_shortcut(KEY_F6))
 	debug_menu.add_separator()
 	debug_menu.add_item("Stop", 10)
 	debug_menu.id_pressed.connect(_on_vb6_debug_menu)
@@ -2713,9 +2989,12 @@ func _create_vb6_menu_bar() -> MenuBar:
 	tools_menu.add_item("Object Browser...", 2)
 	tools_menu.add_separator()
 	tools_menu.add_item("New Custom Control...", 20)
+	tools_menu.add_item("Edit Custom Control...", 21)
 	tools_menu.add_separator()
 	tools_menu.add_item("Snippet Browser...", 10)
 	tools_menu.add_item("Theme Picker...", 11)
+	tools_menu.add_separator()
+	tools_menu.add_item("Generate Documentation...", 12)
 	tools_menu.id_pressed.connect(_on_vb6_tools_menu)
 	mb.add_child(tools_menu)
 
@@ -2736,6 +3015,8 @@ func _create_vb6_menu_bar() -> MenuBar:
 	_style_popup_menu(help_menu)
 	help_menu.add_item("Visual Gasic Documentation", 0)
 	help_menu.add_item("About Visual Gasic...", 1)
+	help_menu.add_separator()
+	help_menu.add_item("Tip of the Day...", 2)
 	help_menu.id_pressed.connect(_on_vb6_help_menu)
 	mb.add_child(help_menu)
 
@@ -2795,11 +3076,22 @@ func _on_vb6_file_menu(id: int) -> void:
 	match id:
 		0: _on_add_form()
 		1: _on_new_module()
+		2: _on_open_project()
 		10: _do_save_form()
 		11: _do_save_form_as()
+		12: _do_save_all()
 		20: _on_import_vb6_form()
 		21: _on_import_vb6_project()
 		99: _on_back_to_godot_pressed()
+
+## Save all open forms and code files.
+func _do_save_all() -> void:
+	_do_save_form()
+	if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.has_method("save_file"):
+		_embedded_code_editor.save_file()
+	_form_dirty = false
+	_update_dirty_indicator()
+	_flash_status_message("All files saved")
 
 ## Save the current form. If no path is set, falls through to Save As.
 func _do_save_form() -> void:
@@ -2816,6 +3108,12 @@ func _do_save_form() -> void:
 		_form_designer.save_form()
 	var saved_path = _form_designer.get_form_path()
 	print("[VisualGasic] Form saved: ", saved_path)
+	_form_dirty = false
+	_track_recent_form(saved_path)
+	_update_dirty_indicator()
+	# Patch Godot's in-memory scene tree so its scene saver won't overwrite
+	# our .tscn with stale values when the editor closes.
+	_sync_form_state_to_scene_tree()
 	# CRITICAL: Reload the scene in Godot's editor so its in-memory scene tree
 	# matches what we just wrote to disk.  Without this, Godot overwrites our
 	# .tscn with its stale scene tree version when the editor closes.
@@ -2842,7 +3140,26 @@ func _do_save_form_as() -> void:
 	fd.file_selected.connect(func(path: String):
 		_form_designer.save_form_as(path)
 		print("[VisualGasic] Form saved as: ", path)
+		_sync_form_state_to_scene_tree()
 		_reload_scene_after_form_save(path)
+		fd.queue_free()
+	)
+	fd.canceled.connect(fd.queue_free)
+	get_editor_interface().get_base_control().add_child(fd)
+	fd.popup_centered()
+
+## Show a FileDialog so the user can open an existing form (.tscn) in the
+## Form Designer.  This is the File > Open Project handler.
+func _on_open_project() -> void:
+	var fd = FileDialog.new()
+	fd.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	fd.access = FileDialog.ACCESS_RESOURCES
+	fd.add_filter("*.tscn ; Godot Scene")
+	fd.title = "Open Project..."
+	fd.min_size = Vector2i(600, 400)
+	fd.current_dir = "res://"
+	fd.file_selected.connect(func(path: String):
+		open_form_in_designer(path)
 		fd.queue_free()
 	)
 	fd.canceled.connect(fd.queue_free)
@@ -2903,6 +3220,7 @@ func handle_form_rename(old_name: String, new_name: String) -> bool:
 	# the .vg file if it doesn't exist yet).
 	_form_designer.set_form_name(new_name)
 	_form_designer.save_form_as(new_tscn)
+	_strip_empty_menubar_from_tscn(new_tscn)
 
 	# Safety: ensure the .tscn has the VG script UID.  The C++ serializer uses
 	# ResourceLoader.get_resource_uid() which may miss newly-renamed files.
@@ -2963,10 +3281,110 @@ func _ensure_tscn_script_uid(tscn_path: String, vg_path: String, uid_path: Strin
 			f = null  # close
 			print("[VisualGasic] Patched UID into .tscn: ", uid_text)
 
+## Strip the auto-generated empty MenuBar from a .tscn file on disk.
+## The old C++ _serialize_to_tscn() unconditionally adds a MainMenu MenuBar
+## with empty mnuFile/mnuEdit PopupMenus to every form.  This function reads
+## the .tscn, detects those nodes, removes them (and the menu_bar_helper.gd
+## ext_resource if it's only used for that), and writes the file back.
+## This is a COMPATIBILITY FIX — once the user restarts Godot with the new
+## .so, this function will be a harmless no-op because the C++ code no longer
+## emits MenuBar for blank forms.
+static func _strip_empty_menubar_from_tscn(tscn_path: String) -> void:
+	var fa = FileAccess.open(tscn_path, FileAccess.READ)
+	if not fa:
+		return
+	var text = fa.get_as_text()
+	fa = null
+	
+	# Quick check: if there's no MainMenu node, nothing to do
+	if text.find("[node name=\"MainMenu\"") < 0:
+		return
+	
+	# Check if there are any real menu items (populated PopupMenus)
+	# A PopupMenu child of MainMenu is any node with parent="MainMenu"
+	# We only strip if ALL such children have zero content (no properties beyond the header)
+	var has_menu_items := false
+	var lines = text.split("\n")
+	var in_menu_child := false
+	for line in lines:
+		var stripped = line.strip_edges()
+		# Detect any PopupMenu node that is a child of MainMenu
+		if stripped.begins_with("[node ") and "parent=\"MainMenu\"" in stripped and "type=\"PopupMenu\"" in stripped:
+			in_menu_child = true
+			continue
+		if in_menu_child and stripped.begins_with("["):
+			in_menu_child = false  # hit next node section
+		if in_menu_child and not stripped.is_empty() and not stripped.begins_with("["):
+			# PopupMenu has actual properties = user added items
+			has_menu_items = true
+			break
+	
+	if has_menu_items:
+		return  # Real menu content, keep it
+	
+	# Strip the MainMenu and ALL its child nodes, plus the menu_bar_helper ext_resource
+	var result_lines: PackedStringArray = []
+	var menu_helper_id := ""
+	var skip_until_next_node := false
+	
+	for line in lines:
+		var stripped = line.strip_edges()
+		
+		# Detect and remove menu_bar_helper.gd ext_resource
+		if stripped.begins_with("[ext_resource") and "menu_bar_helper.gd" in stripped:
+			# Extract the id for later reference
+			var id_pos = stripped.find("id=\"")
+			if id_pos >= 0:
+				var id_start = id_pos + 4
+				var id_end = stripped.find("\"", id_start)
+				if id_end >= 0:
+					menu_helper_id = stripped.substr(id_start, id_end - id_start)
+			continue  # Skip this line
+		
+		# Skip MainMenu node block
+		if stripped.begins_with("[node name=\"MainMenu\""):
+			skip_until_next_node = true
+			continue
+		# Skip any child node of MainMenu (PopupMenu children)
+		if stripped.begins_with("[node ") and "parent=\"MainMenu\"" in stripped:
+			skip_until_next_node = true
+			continue
+		
+		if skip_until_next_node:
+			if stripped.begins_with("[node ") or stripped.begins_with("[connection "):
+				# Check if THIS node is also a MainMenu child before stopping skip
+				if "parent=\"MainMenu\"" in stripped:
+					continue  # Still a MainMenu child, keep skipping
+				skip_until_next_node = false
+				result_lines.append(line)
+			# else skip this line (part of the menu node block)
+			continue
+		
+		result_lines.append(line)
+	
+	var new_text = "\n".join(result_lines)
+	
+	# Fix load_steps count (we removed 1 ext_resource)
+	if not menu_helper_id.is_empty():
+		var re_steps = RegEx.new()
+		re_steps.compile("load_steps=(\\d+)")
+		var m = re_steps.search(new_text)
+		if m:
+			var old_count = m.get_string(1).to_int()
+			new_text = new_text.replace("load_steps=" + m.get_string(1), "load_steps=" + str(old_count - 1))
+	
+	var fw = FileAccess.open(tscn_path, FileAccess.WRITE)
+	if fw:
+		fw.store_string(new_text)
+		fw = null
+		print("[VG-SYNC] Stripped empty MenuBar from '", tscn_path, "'")
+
 ## After the C++ Form Designer writes a .tscn, force Godot to reload it.
 ## This ensures Godot's in-memory scene tree matches our save, preventing
 ## Godot from overwriting our .tscn with its stale version on editor close.
 func _reload_scene_after_form_save(tscn_path: String) -> void:
+	# Strip empty MenuBars that the old C++ serializer may have added
+	_strip_empty_menubar_from_tscn(tscn_path)
 	print("[VG-SYNC] _reload_scene_after_form_save('", tscn_path, "')")
 	if tscn_path.is_empty():
 		return
@@ -2989,6 +3407,15 @@ func _deferred_reload_scene(tscn_path: String) -> void:
 	# Legacy entry point (kept for compatibility).
 	_force_godot_scene_reload(tscn_path)
 
+## Deferred helper: opens a form .tscn as a Godot scene tab.
+## Used by _set_window_layout() during session restore to ensure the form
+## is available for in-memory tree patching by _sync_form_state_to_scene_tree().
+func _deferred_open_scene_tab(tscn_path: String) -> void:
+	if FileAccess.file_exists(tscn_path):
+		if not tscn_path in EditorInterface.get_open_scenes():
+			EditorInterface.open_scene_from_path(tscn_path)
+			print("[VG-SYNC] Deferred open scene tab: ", tscn_path)
+
 ## Forces Godot to re-read a .tscn from disk and update its open scene tab.
 ## The C++ Form Designer writes .tscn files via FileAccess which bypasses
 ## Godot’s ResourceLoader cache.  A plain reload_scene_from_path() would
@@ -2998,6 +3425,8 @@ func _deferred_reload_scene(tscn_path: String) -> void:
 ##   3. Then reload the scene tab  (reload_scene_from_path)
 func _force_godot_scene_reload(tscn_path: String) -> void:
 	print("[VG-SYNC] _force_godot_scene_reload('", tscn_path, "')")
+	# Strip empty MenuBars the old C++ serializer may have injected
+	_strip_empty_menubar_from_tscn(tscn_path)
 	EditorInterface.get_resource_filesystem().update_file(tscn_path)
 	# Evict the stale cached PackedScene — forces ResourceLoader to
 	# re-read the file from disk on the next load.
@@ -3015,12 +3444,77 @@ func _force_godot_scene_reload(tscn_path: String) -> void:
 	# previously-applied theme is lost.  Force-apply unconditionally.
 	_force_apply_vb6_theme_to_scene_root()
 
+## Patches Godot's in-memory scene tree to match the C++ FormDesigner state.
+## This is CRITICAL because Godot's own scene saver writes the in-memory tree
+## to disk when the editor closes.  If the tree is stale (e.g. because
+## reload_scene_from_path() silently failed during a save cycle), Godot
+## overwrites our correct .tscn with old values.
+##
+## By directly setting Window.size, _FormBackground offsets, and each child
+## control's offsets, we guarantee the in-memory tree always matches C++.
+func _sync_form_state_to_scene_tree() -> void:
+	if not is_instance_valid(_form_designer):
+		return
+	var fp = _form_designer.get_form_path()
+	if fp.is_empty():
+		return
+	var scene_root = EditorInterface.get_edited_scene_root()
+	if not scene_root:
+		print("[VG-SYNC] _sync: no edited scene root")
+		return
+	if scene_root.scene_file_path != fp:
+		# The form is not the active scene tab.  Check if it's open in another tab.
+		var open_scenes = EditorInterface.get_open_scenes()
+		if fp in open_scenes:
+			print("[VG-SYNC] _sync: form '", fp, "' is open but not active (active='", scene_root.scene_file_path, "').  Cannot patch non-active tab — relying on _get_window_layout backup save.")
+		else:
+			print("[VG-SYNC] _sync: form '", fp, "' not in open scene tabs — skipping sync")
+		return
+
+	# ── Sync form size ──
+	var fd_size: Vector2i = _form_designer.get_form_size()
+	if scene_root is Window:
+		if scene_root.size != fd_size:
+			scene_root.size = fd_size
+			print("[VG-SYNC] Patched Window.size → ", fd_size)
+	# Also patch the _FormBackground Panel offsets
+	var bg = scene_root.get_node_or_null("_FormBackground")
+	if bg:
+		bg.offset_right = float(fd_size.x)
+		bg.offset_bottom = float(fd_size.y)
+
+	# ── Sync each child control's position + size ──
+	var ctrl_count = _form_designer.get_control_count()
+	for i in ctrl_count:
+		var info: Dictionary = _form_designer.get_control_info(i)
+		var ctrl_name: String = info.get("name", "")
+		if ctrl_name.is_empty():
+			continue
+		var child = scene_root.get_node_or_null(ctrl_name)
+		if not child or not child is Control:
+			continue
+		var r: Rect2 = info.get("rect", Rect2())
+		child.offset_left   = r.position.x
+		child.offset_top    = r.position.y
+		child.offset_right  = r.position.x + r.size.x
+		child.offset_bottom = r.position.y + r.size.y
+		# Sync text/caption
+		var text_val = info.get("text", "")
+		if child.has_method("set_text") and not text_val.is_empty():
+			child.set("text", text_val)
+
+	print("[VG-SYNC] Scene tree patched: ", ctrl_count, " controls, form size=", fd_size)
+
 func _on_vb6_edit_menu(id: int) -> void:
 	if not _form_designer:
 		return
 	match id:
-		0: _form_designer.undo()
-		1: _form_designer.redo()
+		0:
+			_form_designer.undo()
+			_flash_status_message("Undo")
+		1:
+			_form_designer.redo()
+			_flash_status_message("Redo")
 		10: _form_designer.cut()
 		11: _form_designer.copy()
 		12: _form_designer.paste()
@@ -3029,10 +3523,10 @@ func _on_vb6_edit_menu(id: int) -> void:
 
 func _on_vb6_view_menu(id: int) -> void:
 	match id:
-		0: # Code view — switch to Script editor
-			EditorInterface.set_main_screen_editor("Script")
-		1: # Object view — switch back to Form Designer
-			EditorInterface.set_main_screen_editor("Form Designer")
+		0: # Code view — open embedded code editor (VB6 style)
+			_on_view_code()
+		1: # Object view — switch back to Form Designer canvas
+			_on_view_object()
 		10: pass # Toolbox — already visible
 		11: pass # Project Explorer — already visible
 		12: pass # Properties — already visible
@@ -3062,6 +3556,14 @@ func _on_vb6_format_menu(id: int) -> void:
 		22:
 			_form_designer.make_same_width()
 			_form_designer.make_same_height()
+		30: # Bring to Front
+			if _form_designer.has_method("bring_to_front"):
+				_form_designer.bring_to_front()
+		31: # Send to Back
+			if _form_designer.has_method("send_to_back"):
+				_form_designer.send_to_back()
+		40: # Lock Controls toggle
+			_flash_status_message("Use right-click → Lock Position on individual controls")
 
 func _on_vb6_debug_menu(id: int) -> void:
 	match id:
@@ -3087,7 +3589,9 @@ func _on_vb6_tools_menu(id: int) -> void:
 		2: _on_obj_browser()
 		10: _on_open_snippet_browser()
 		11: _on_open_theme_picker()
+		12: _on_generate_docs()
 		20: _on_new_custom_control()
+		21: _on_edit_custom_control()
 
 func _on_vb6_window_menu(id: int) -> void:
 	match id:
@@ -3097,6 +3601,182 @@ func _on_vb6_help_menu(id: int) -> void:
 	match id:
 		0: OS.shell_open("https://github.com/nickshouse/VisualGasic")
 		1: pass # About dialog
+		2: _show_tip_of_day()
+
+# =============================================================================
+# TIP OF THE DAY
+# =============================================================================
+
+## Returns the array of tips shown in the Tip of the Day dialog.
+func _get_tips() -> PackedStringArray:
+	return PackedStringArray([
+		"Press Ctrl+Arrow keys to nudge selected controls by 1 pixel for precise positioning.",
+		"Use Ctrl+Mouse Wheel to zoom the form canvas in and out.",
+		"Press Ctrl+G in the Code Editor to jump to a specific line number.",
+		"Ctrl+Shift+S saves all open forms and modules at once.",
+		"Type in the Property Filter box (at the top of the Properties panel) to quickly find any property by name.",
+		"Hover over any property label in the Properties panel to see a description tooltip.",
+		"Press Shift+Up or Shift+Down on a numeric property field to step the value by ±1.",
+		"Use Edit > Bring to Front / Send to Back to change control Z-order on the form.",
+		"Right-click a control and choose Lock Position to prevent accidental moves.",
+		"Double-click any control on the form to jump straight to its event handler code.",
+		"The form canvas supports snap-to-grid — change the grid size in the Format menu.",
+		"An asterisk (*) in the title bar means you have unsaved changes.",
+		"Ctrl+A selects all controls on the current form.",
+		"Ctrl+Z and Ctrl+Y provide full undo and redo for form editing.",
+		"Right-click in the Project Explorer to add, rename, or delete forms and modules.",
+		"Press F7 to switch to Code View, and Shift+F7 to switch back to Form View.",
+		"Click a control type in the Toolbox, then click on the form to place it.",
+		"The Immediate Window (bottom panel) lets you evaluate expressions at runtime.",
+		"Use the Alignment toolbar to align, size, and distribute multiple selected controls.",
+		"Ctrl+S saves the current form. Forms are also auto-saved when you switch views.",
+		"Resize the form itself by dragging the resize handles on its edges and corners.",
+		"The Code Navigator dropdowns above the code editor let you jump between Subs and Functions.",
+		"Use the Color Palette toolbar for quick ForeColor and BackColor changes.",
+		"Import existing VB6 forms (.frm) and projects (.vbp) from Project > Tools.",
+		"The Snippet Browser (Project > Tools > VG: Snippet Browser) provides ready-made code templates.",
+		"Use the Theme Picker (Project > Tools > VG: Theme Picker) to customize IDE colors.",
+		"Right-click a control on the form to access context menu options like Cut, Copy, Paste, and Delete.",
+		"Hold Shift and click to select multiple controls for group operations.",
+		"The Menu Editor (Project > Tools) lets you build VB6-style menu bars visually.",
+		"Check the documentation at Help > Visual Gasic Documentation for guides and tutorials.",
+	])
+
+## Builds the Tip of the Day Window dialog with VB6/Win95 styling.
+func _create_tip_of_day_dialog() -> void:
+	var dialog = Window.new()
+	dialog.name = "TipOfTheDay"
+	dialog.title = "Tip of the Day"
+	dialog.size = Vector2i(520, 310)
+	dialog.exclusive = true
+	dialog.unresizable = true
+	dialog.wrap_controls = true
+	dialog.transient = true
+	dialog.close_requested.connect(dialog.hide)
+
+	# Background panel — light Win95 gray
+	var panel = PanelContainer.new()
+	panel.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var panel_sb = StyleBoxFlat.new()
+	panel_sb.bg_color = Color("#F0F0F0")
+	panel_sb.border_color = Color("#808080")
+	panel_sb.border_width_top = 1
+	panel_sb.border_width_bottom = 1
+	panel_sb.border_width_left = 1
+	panel_sb.border_width_right = 1
+	panel.add_theme_stylebox_override("panel", panel_sb)
+	dialog.add_child(panel)
+
+	var margin = MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 20)
+	margin.add_theme_constant_override("margin_right", 20)
+	margin.add_theme_constant_override("margin_top", 16)
+	margin.add_theme_constant_override("margin_bottom", 16)
+	panel.add_child(margin)
+
+	var vbox = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 10)
+	margin.add_child(vbox)
+
+	# ── Header: light-bulb + title ──
+	var header = Label.new()
+	header.text = "\ud83d\udca1  Did you know?"
+	header.add_theme_font_size_override("font_size", 17)
+	header.add_theme_color_override("font_color", Color("#000080"))
+	vbox.add_child(header)
+
+	# Separator
+	var sep = HSeparator.new()
+	vbox.add_child(sep)
+
+	# ── Tip text ──
+	_tip_label = Label.new()
+	_tip_label.name = "TipText"
+	_tip_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_tip_label.custom_minimum_size = Vector2(460, 80)
+	_tip_label.add_theme_font_size_override("font_size", 13)
+	_tip_label.add_theme_color_override("font_color", Color("#1A1A1A"))
+	_tip_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	_tip_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	vbox.add_child(_tip_label)
+
+	# ── Checkbox: "Show tips at startup" ──
+	_tip_checkbox = CheckBox.new()
+	_tip_checkbox.name = "ShowTipsCheckBox"
+	_tip_checkbox.text = "  Show tips at startup"
+	_tip_checkbox.button_pressed = _show_tips_on_startup
+	_tip_checkbox.add_theme_font_size_override("font_size", 12)
+	_tip_checkbox.add_theme_color_override("font_color", Color("#1A1A1A"))
+	_tip_checkbox.toggled.connect(_on_tip_checkbox_toggled)
+	vbox.add_child(_tip_checkbox)
+
+	# ── Button row: [spacer] [Next Tip] [Close] ──
+	var btn_row = HBoxContainer.new()
+	btn_row.alignment = BoxContainer.ALIGNMENT_END
+	btn_row.add_theme_constant_override("separation", 10)
+
+	var next_btn = Button.new()
+	next_btn.text = "Next Tip"
+	next_btn.custom_minimum_size = Vector2(100, 30)
+	next_btn.add_theme_font_size_override("font_size", 12)
+	next_btn.pressed.connect(_on_next_tip)
+	btn_row.add_child(next_btn)
+
+	var close_btn = Button.new()
+	close_btn.text = "Close"
+	close_btn.custom_minimum_size = Vector2(100, 30)
+	close_btn.add_theme_font_size_override("font_size", 12)
+	close_btn.pressed.connect(dialog.hide)
+	btn_row.add_child(close_btn)
+
+	vbox.add_child(btn_row)
+
+	_tip_of_day_dialog = dialog
+	add_child(dialog)
+
+## Shows the Tip of the Day dialog, advancing to the current tip index.
+func _show_tip_of_day() -> void:
+	if not is_instance_valid(_tip_of_day_dialog):
+		_create_tip_of_day_dialog()
+	var tips := _get_tips()
+	if tips.is_empty():
+		return
+	_tip_index = _tip_index % tips.size()
+	_tip_label.text = tips[_tip_index]
+	if is_instance_valid(_tip_checkbox):
+		_tip_checkbox.button_pressed = _show_tips_on_startup
+	_tip_of_day_dialog.popup_centered()
+
+## "Next Tip" button handler — advance and display the next tip.
+func _on_next_tip() -> void:
+	var tips := _get_tips()
+	if tips.is_empty():
+		return
+	_tip_index = (_tip_index + 1) % tips.size()
+	_tip_label.text = tips[_tip_index]
+	_save_tip_config()
+
+## Checkbox toggled — update preference and persist immediately.
+func _on_tip_checkbox_toggled(pressed: bool) -> void:
+	_show_tips_on_startup = pressed
+	_save_tip_config()
+
+## Config file path for Tip of the Day preference.
+const _TIP_CFG_PATH = "res://addons/visual_gasic/tip_of_day.cfg"
+
+## Loads Tip of the Day preferences from disk.
+func _load_tip_config() -> void:
+	var config = ConfigFile.new()
+	if config.load(_TIP_CFG_PATH) == OK:
+		_show_tips_on_startup = config.get_value("tip_of_day", "show_on_startup", true)
+		_tip_index = config.get_value("tip_of_day", "last_index", 0)
+
+## Saves Tip of the Day preferences to disk.
+func _save_tip_config() -> void:
+	var config = ConfigFile.new()
+	config.set_value("tip_of_day", "show_on_startup", _show_tips_on_startup)
+	config.set_value("tip_of_day", "last_index", _tip_index)
+	config.save(_TIP_CFG_PATH)
 
 # =============================================================================
 # VB6 STATUS BAR
@@ -3127,9 +3807,19 @@ func _update_status_bar() -> void:
 	if not is_instance_valid(_status_bar) or not is_instance_valid(_form_designer):
 		return
 	var form_name = _form_designer.get_form_name() if _form_designer.has_method("get_form_name") else "Form1"
+	var dirty_mark = " *" if _form_dirty else ""
 	var status_text = _form_designer.get_status_text() if _form_designer.has_method("get_status_text") else ""
 	var grid_size = _form_designer.get_grid_size() if _form_designer.has_method("get_grid_size") else 8
-	_status_bar.text = "  %s  |  %s  |  Grid: %d px" % [form_name, status_text, grid_size]
+	_status_bar.text = "  %s%s  |  %s  |  Grid: %d px  |  Zoom: %d%%" % [form_name, dirty_mark, status_text, grid_size, int(_canvas_zoom * 100)]
+
+## Track a form path in the recent forms list.
+func _track_recent_form(path: String) -> void:
+	if path.is_empty():
+		return
+	_recent_forms.erase(path)
+	_recent_forms.push_front(path)
+	while _recent_forms.size() > MAX_RECENT_FORMS:
+		_recent_forms.pop_back()
 
 ## Called by C++ when control position/size changes or selection changes.
 func _on_fd_status_changed(text: String) -> void:
@@ -3546,7 +4236,29 @@ func _on_fd_control_deselected() -> void:
 
 ## Signal: Form was modified (dirty flag set) in the C++ Form Designer.
 func _on_fd_form_modified() -> void:
-	pass  # Could update title bar asterisk, etc.
+	_form_dirty = true
+	_update_dirty_indicator()
+
+## Update the title/status with a * dirty indicator when unsaved changes exist.
+func _update_dirty_indicator() -> void:
+	if not is_instance_valid(_status_bar) or not is_instance_valid(_form_designer):
+		return
+	var form_name = _form_designer.get_form_name() if _form_designer.has_method("get_form_name") else "Form1"
+	var dirty_mark = " *" if _form_dirty else ""
+	var status_text = _form_designer.get_status_text() if _form_designer.has_method("get_status_text") else ""
+	var grid_size = _form_designer.get_grid_size() if _form_designer.has_method("get_grid_size") else 8
+	_status_bar.text = "  %s%s  |  %s  |  Grid: %d px  |  Zoom: %d%%" % [form_name, dirty_mark, status_text, grid_size, int(_canvas_zoom * 100)]
+
+## Flash a temporary message in the status bar, then restore after 2 seconds.
+func _flash_status_message(msg: String) -> void:
+	if not is_instance_valid(_status_bar):
+		return
+	var prev_text = _status_bar.text
+	_status_bar.text = "  " + msg
+	get_tree().create_timer(2.0).timeout.connect(func():
+		if is_instance_valid(_status_bar):
+			_update_status_bar()
+	)
 
 ## Signal: Right-click on the form designer canvas.
 ## Shows a context menu with type-specific actions.
@@ -3586,6 +4298,13 @@ func _on_fd_control_right_clicked(index: int, position: Vector2) -> void:
 		_fd_context_menu.add_item("Copy", 32)
 		_fd_context_menu.add_item("Delete", 30)
 		_fd_context_menu.add_separator()
+		_fd_context_menu.add_item("Bring to Front", 60)
+		_fd_context_menu.add_item("Send to Back", 61)
+		_fd_context_menu.add_separator()
+		var is_locked = _locked_controls.has(ctrl_name)
+		_fd_context_menu.add_check_item("Lock Position", 70)
+		_fd_context_menu.set_item_checked(_fd_context_menu.get_item_index(70), is_locked)
+		_fd_context_menu.add_separator()
 		_fd_context_menu.add_item("Edit Control Scene...", 20)
 		var idx = _fd_context_menu.get_item_index(20)
 		_fd_context_menu.set_item_disabled(idx, true)
@@ -3608,11 +4327,7 @@ func _on_fd_context_menu_pressed(id: int) -> void:
 		10: # View Code (control event handler)
 			_on_fd_control_double_clicked(index)
 		11: # View Code (form-level)
-			if _form_designer:
-				var form_path = _form_designer.get_form_path()
-				if not form_path.is_empty():
-					var vg_path = form_path.get_basename() + ".vg"
-					get_editor_interface().edit_resource(load(vg_path) if ResourceLoader.exists(vg_path) else null)
+			_on_view_code()
 		20: # Edit Control Scene
 			_edit_control_scene(index)
 		30: # Delete
@@ -3634,6 +4349,26 @@ func _on_fd_context_menu_pressed(id: int) -> void:
 		50: # Paste
 			if _form_designer:
 				_form_designer.paste()
+		60: # Bring to Front
+			if _form_designer and _form_designer.has_method("bring_to_front"):
+				_form_designer.bring_to_front()
+			else:
+				_flash_status_message("Bring to Front: move control forward")
+		61: # Send to Back
+			if _form_designer and _form_designer.has_method("send_to_back"):
+				_form_designer.send_to_back()
+			else:
+				_flash_status_message("Send to Back: move control backward")
+		70: # Lock Position toggle
+			if _form_designer:
+				var info = _form_designer.get_control_info(index)
+				var cname: String = info.get("name", "")
+				if _locked_controls.has(cname):
+					_locked_controls.erase(cname)
+					_flash_status_message(cname + " unlocked")
+				else:
+					_locked_controls[cname] = true
+					_flash_status_message(cname + " locked")
 		100: # Edit Menus (MenuBar-specific)
 			_open_menu_editor_for_fd(index)
 
@@ -3735,15 +4470,178 @@ func _on_fd_control_double_clicked(index: int) -> void:
 	# This guarantees the .tscn is up-to-date regardless of what deferred
 	# operations or Godot save cycles happen during the view switch.
 	_form_designer.save_form()
-	_switching_to_code_editor = true   # suppress risky reload in _make_visible(false)
 
 	var vg_path = form_path.get_basename() + ".vg"
 	var sub_name = ctrl_name + "_" + event_suffix
 	print("VisualGasic: Double-click → opening ", sub_name, " in ", vg_path)
-	_open_or_create_event_handler(vg_path, sub_name)
+
+	# ── Use embedded code editor (VB6 style: stays within Form Designer) ──
+	if is_instance_valid(_embedded_code_editor):
+		_open_in_embedded_editor(vg_path, sub_name)
+	else:
+		# Fallback: open in Godot's Script editor (old behavior)
+		_switching_to_code_editor = true
+		_open_or_create_event_handler(vg_path, sub_name)
+
+# =============================================================================
+# EMBEDDED CODE EDITOR — VB6-style in-place code view
+# =============================================================================
+
+## Opens a .vg file in the embedded code editor and navigates to a sub.
+## Switches the canvas area to code view while keeping all VB6 panels.
+func _open_in_embedded_editor(vg_path: String, sub_name: String) -> void:
+	if not is_instance_valid(_embedded_code_editor):
+		return
+
+	# If we're already showing code for a different file, save first
+	if _embedded_code_editor.is_dirty() and _embedded_code_editor.get_file_path() != vg_path:
+		_embedded_code_editor.save_file()
+
+	# Load the file (only reloads if path changed)
+	if _embedded_code_editor.get_file_path() != vg_path:
+		_embedded_code_editor.load_file(vg_path)
+		# Feed control names to the Object dropdown
+		_feed_control_names_to_editor()
+
+	# Ensure the event handler stub exists and navigate to it
+	_embedded_code_editor.ensure_event_handler(sub_name)
+
+	# Switch to code view
+	_show_code_view()
+
+## Feed the current form's control names to the embedded code editor.
+func _feed_control_names_to_editor() -> void:
+	if not is_instance_valid(_embedded_code_editor) or not _form_designer:
+		return
+	var names: Array[String] = []
+	var count = _form_designer.get_control_count()
+	for i in count:
+		var info = _form_designer.get_control_info(i)
+		var n = info.get("name", "")
+		if not n.is_empty():
+			names.append(n)
+	_embedded_code_editor.set_control_names(names)
+
+## Switch the center panel from form canvas to code editor.
+func _show_code_view() -> void:
+	if _showing_code_view:
+		return
+	_showing_code_view = true
+
+	# Hide the canvas scroll, show the code editor
+	var canvas_scroll = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/CanvasScroll")
+	if canvas_scroll:
+		canvas_scroll.visible = false
+	if is_instance_valid(_embedded_code_editor):
+		_embedded_code_editor.visible = true
+		# Deferred focus so layout settles
+		_embedded_code_editor.get_code_edit().grab_focus.call_deferred()
+
+	# Update status bar
+	if is_instance_valid(_status_bar):
+		var path = _embedded_code_editor.get_file_path() if is_instance_valid(_embedded_code_editor) else ""
+		_status_bar.text = "  Code: " + path.get_file()
+
+	print("VisualGasic: Switched to Code View")
+
+## Switch the center panel from code editor back to form canvas.
+func _show_form_view() -> void:
+	if not _showing_code_view:
+		return
+
+	# Save any unsaved code first
+	if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.is_dirty():
+		_embedded_code_editor.save_file()
+
+	_showing_code_view = false
+
+	# Show the canvas scroll, hide the code editor
+	var canvas_scroll = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/CanvasScroll")
+	if canvas_scroll:
+		canvas_scroll.visible = true
+	if is_instance_valid(_embedded_code_editor):
+		_embedded_code_editor.visible = false
+
+	# Update status bar
+	if is_instance_valid(_status_bar):
+		_status_bar.text = "  Ready"
+
+	print("VisualGasic: Switched to Form View")
+
+## Toggle between code view and form view (VB6 F7 behavior).
+func _toggle_code_form_view() -> void:
+	if _showing_code_view:
+		_show_form_view()
+	else:
+		# If no file loaded yet, try to derive from current form
+		if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.get_file_path().is_empty():
+			var form_path = ""
+			if _form_designer:
+				form_path = _form_designer.get_form_path()
+			if form_path.is_empty():
+				var scene_root = EditorInterface.get_edited_scene_root()
+				if scene_root and not scene_root.scene_file_path.is_empty():
+					form_path = scene_root.scene_file_path
+			if not form_path.is_empty():
+				var vg_path = form_path.get_basename() + ".vg"
+				_embedded_code_editor.load_file(vg_path)
+				_feed_control_names_to_editor()
+		_show_code_view()
+
+## Opens the code view for the current form (View → Code menu or F7).
+func _on_view_code() -> void:
+	if is_instance_valid(_embedded_code_editor):
+		# Derive .vg path from form
+		var form_path = ""
+		if _form_designer:
+			form_path = _form_designer.get_form_path()
+		if form_path.is_empty():
+			var scene_root = EditorInterface.get_edited_scene_root()
+			if scene_root and not scene_root.scene_file_path.is_empty():
+				form_path = scene_root.scene_file_path
+		if not form_path.is_empty():
+			var vg_path = form_path.get_basename() + ".vg"
+			if _embedded_code_editor.get_file_path() != vg_path:
+				if _embedded_code_editor.is_dirty():
+					_embedded_code_editor.save_file()
+				_embedded_code_editor.load_file(vg_path)
+				_feed_control_names_to_editor()
+			_show_code_view()
+		else:
+			push_warning("VisualGasic: No form loaded — cannot open code view")
+	else:
+		# Fallback: switch to Godot Script editor
+		EditorInterface.set_main_screen_editor("Script")
+
+## Opens the form view (View → Object menu or Shift+F7).
+func _on_view_object() -> void:
+	_show_form_view()
+
+## Opens the .vg file in the embedded code editor directly (View Code context menu on control)
+func _open_in_embedded_editor_for_control(index: int) -> void:
+	if not _form_designer or not is_instance_valid(_embedded_code_editor):
+		return
+	var info = _form_designer.get_control_info(index)
+	var ctrl_name = info.get("name", "")
+	var ctrl_type = info.get("type", "")
+	if ctrl_name.is_empty():
+		return
+	var event_suffix = "Click"
+	if ctrl_type in ["LineEdit", "TextEdit"]:
+		event_suffix = "Change"
+	elif ctrl_type in ["HScrollBar", "VScrollBar", "HSlider", "VSlider"]:
+		event_suffix = "Change"
+	var form_path = _form_designer.get_form_path()
+	if form_path.is_empty():
+		return
+	_form_designer.save_form()
+	var vg_path = form_path.get_basename() + ".vg"
+	var sub_name = ctrl_name + "_" + event_suffix
+	_open_in_embedded_editor(vg_path, sub_name)
 
 ## Opens the .vg script and creates/navigates to the given Sub stub.
 ## Reuses the existing _open_and_inject infrastructure.
+## (Legacy fallback — used only when embedded code editor is unavailable)
 func _open_or_create_event_handler(vg_path: String, sub_name: String) -> void:
 	# Split sub_name into obj + event parts for _open_and_inject
 	var parts = sub_name.split("_", true, 1)
@@ -3786,12 +4684,38 @@ func _on_open_theme_picker():
 	if _theme_picker:
 		_theme_picker.popup_centered()
 
-## Applies a new theme to the active code editor (v2.4.1)
+## Applies a new theme to the active code editor AND IDE chrome (v3.5)
 func _on_theme_changed(theme_name: String):
 	var theme_mgr_script = load("res://addons/visual_gasic/vg_theme_manager.gd")
 	if theme_mgr_script and _current_code_edit and is_instance_valid(_current_code_edit):
 		theme_mgr_script.apply_to_code_edit(_current_code_edit)
-		print("VisualGasic: Applied theme '", theme_name, "'")
+
+	# Also apply theme to the embedded code editor
+	if theme_mgr_script and is_instance_valid(_embedded_code_editor):
+		var ece_edit = _embedded_code_editor.get_code_edit()
+		if ece_edit and is_instance_valid(ece_edit):
+			theme_mgr_script.apply_to_code_edit(ece_edit)
+
+	# Also update the IDE chrome colors from the new theme
+	var td = VGThemeManager.get_current_theme()
+	if td:
+		# Update the _theme dictionary with IDE chrome values
+		_theme["panel_background"] = td.ide_panel_bg
+		_theme["panel_border"] = td.ide_panel_border
+		_theme["header_background"] = td.ide_header_bg
+		_theme["header_border"] = td.ide_header_border
+		_theme["header_text"] = td.ide_header_text
+		_theme["toolbox_btn_normal"] = td.ide_panel_bg
+		_theme["toolbox_btn_hover"] = td.ide_toolbox_btn_hover
+		_theme["toolbox_btn_pressed"] = td.ide_toolbox_btn_pressed
+		_theme["toolbox_text"] = td.ide_text_color
+		_theme["toolbox_text_pressed"] = td.ide_toolbox_text_pressed
+	
+	# Rebuild the IDE Theme from the new colors
+	if is_instance_valid(_ide_layout):
+		_ide_layout.theme = _build_vb6_theme()
+	_apply_vb6_theme()
+	print("VisualGasic: Applied theme '", theme_name, "' (code + IDE)")
 
 
 ## Updates the Form Designer button pressed state when mode changes.
@@ -3969,10 +4893,13 @@ func _create_new_form(form_name: String):
 func _on_new_module():
 	var dlg = AcceptDialog.new()
 	dlg.title = "New Module"
-	dlg.dialog_text = "Enter a name for the new module:"
 	dlg.ok_button_text = "Create"
 	
 	var vbox = VBoxContainer.new()
+	
+	var desc_label = Label.new()
+	desc_label.text = "Enter a name for the new module:"
+	vbox.add_child(desc_label)
 	
 	var name_label = Label.new()
 	name_label.text = "Module Name:"
@@ -4456,81 +5383,73 @@ func _on_components():
 # NEW CUSTOM CONTROL WIZARD
 # =============================================================================
 
-## Opens the "New Custom Control" wizard dialog.
-## Lets user choose a name and root node type, then generates a .tscn file,
-## registers it in the Components config, and refreshes the toolbox.
+## Opens the Custom Control Designer to create a new custom control.
+## The designer provides a WYSIWYG surface for composing child nodes,
+## setting properties, and saving as a reusable .tscn control.
 func _on_new_custom_control():
-	var dlg = AcceptDialog.new()
-	dlg.title = "New Custom Control"
-	dlg.ok_button_text = "Create"
-	dlg.size = Vector2i(380, 200)
+	var DesignerClass = load("res://addons/visual_gasic/custom_control_designer.gd")
+	if not DesignerClass:
+		push_error("VisualGasic: Could not load custom_control_designer.gd")
+		return
 
-	# Build a small form inside the dialog
-	var vbox = VBoxContainer.new()
-	vbox.custom_minimum_size = Vector2(340, 0)
-	dlg.add_child(vbox)
+	var dlg = DesignerClass.new()
+	dlg.control_saved.connect(func(ctrl_name: String, save_path: String):
+		_register_custom_control_in_config(ctrl_name, save_path)
+		_on_components_changed()
+		_generate_preview_for_custom_control(ctrl_name, save_path)
+		print("VisualGasic: Custom control '", ctrl_name, "' registered in toolbox.")
+	)
+	get_editor_interface().get_base_control().add_child(dlg)
+	dlg.popup_centered()
 
-	# Name field
-	var name_label = Label.new()
-	name_label.text = "Control Name:"
-	vbox.add_child(name_label)
+## Opens a file picker to select an existing custom control .tscn, then
+## opens it in the Custom Control Designer for visual editing.
+func _on_edit_custom_control():
+	var fd = FileDialog.new()
+	fd.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	fd.access = FileDialog.ACCESS_RESOURCES
+	fd.filters = ["*.tscn ; Scene Files"]
+	fd.title = "Select Custom Control to Edit"
+	fd.size = Vector2i(600, 400)
 
-	var name_edit = LineEdit.new()
-	name_edit.text = "MyCustomControl"
-	name_edit.placeholder_text = "e.g. WobblyButton"
-	name_edit.select_all_on_focus = true
-	vbox.add_child(name_edit)
+	# Default to custom_controls folder if it exists
+	if DirAccess.dir_exists_absolute("res://custom_controls"):
+		fd.current_dir = "res://custom_controls"
 
-	# Spacer
-	var spacer = Control.new()
-	spacer.custom_minimum_size.y = 8
-	vbox.add_child(spacer)
-
-	# Root node type
-	var type_label = Label.new()
-	type_label.text = "Root Node Type:"
-	vbox.add_child(type_label)
-
-	var type_option = OptionButton.new()
-	type_option.add_item("Control", 0)
-	type_option.add_item("Panel", 1)
-	type_option.add_item("PanelContainer", 2)
-	type_option.add_item("HBoxContainer", 3)
-	type_option.add_item("VBoxContainer", 4)
-	type_option.add_item("MarginContainer", 5)
-	type_option.add_item("Button", 6)
-	type_option.add_item("TextureRect", 7)
-	vbox.add_child(type_option)
-
-	# Info label
-	var info = Label.new()
-	info.text = "Saves to res://custom_controls/ and adds to Toolbox."
-	info.add_theme_font_size_override("font_size", 11)
-	info.add_theme_color_override("font_color", Color(0.4, 0.4, 0.4))
-	vbox.add_child(info)
-
-	dlg.confirmed.connect(func():
-		var ctrl_name = name_edit.text.strip_edges()
-		if ctrl_name.is_empty():
-			push_warning("VisualGasic: Custom control name cannot be empty.")
-			dlg.queue_free()
+	fd.file_selected.connect(func(path: String):
+		var DesignerClass = load("res://addons/visual_gasic/custom_control_designer.gd")
+		if not DesignerClass:
+			push_error("VisualGasic: Could not load custom_control_designer.gd")
+			fd.queue_free()
 			return
 
-		# Sanitize: remove spaces, ensure PascalCase-friendly
-		ctrl_name = ctrl_name.replace(" ", "")
-
-		var root_types := ["Control", "Panel", "PanelContainer", "HBoxContainer",
-						   "VBoxContainer", "MarginContainer", "Button", "TextureRect"]
-		var root_type: String = root_types[type_option.selected]
-
-		_create_custom_control_scene(ctrl_name, root_type)
-		dlg.queue_free()
+		var dlg = DesignerClass.new()
+		dlg.load_from_scene(path)
+		dlg.control_saved.connect(func(ctrl_name: String, save_path: String):
+			_register_custom_control_in_config(ctrl_name, save_path)
+			_on_components_changed()
+			_generate_preview_for_custom_control(ctrl_name, save_path)
+		)
+		get_editor_interface().get_base_control().add_child(dlg)
+		dlg.popup_centered()
+		fd.queue_free()
 	)
 
-	dlg.canceled.connect(func():
-		dlg.queue_free()
-	)
+	fd.canceled.connect(func(): fd.queue_free())
+	get_editor_interface().get_base_control().add_child(fd)
+	fd.popup_centered()
 
+## Opens the Documentation Generator dialog to scan .vg files and produce
+## Markdown / HTML API reference pages.
+func _on_generate_docs():
+	var DocGenClass = load("res://addons/visual_gasic/doc_generator.gd")
+	if not DocGenClass:
+		push_error("VisualGasic: Could not load doc_generator.gd")
+		return
+	var dlg = DocGenClass.new()
+	dlg.docs_generated.connect(func(out_path: String):
+		print("VisualGasic: Documentation generated → ", out_path)
+	)
 	get_editor_interface().get_base_control().add_child(dlg)
 	dlg.popup_centered()
 
@@ -4867,7 +5786,58 @@ func _handles(_object):
 ## 2. Double-click event handler generation
 ## @param event: The input event
 ## @returns: true if event was consumed
+## Tracks canvas zoom level for Ctrl+Scroll
+var _canvas_zoom: float = 1.0
+
+## Locked control names — prevents dragging in the form designer
+var _locked_controls: Dictionary = {}  # name -> true
+
+## Dirty flag for unsaved form changes
+var _form_dirty: bool = false
+
+## Recent forms list (paths)
+var _recent_forms: Array[String] = []
+const MAX_RECENT_FORMS := 5
+
 func _forward_canvas_gui_input(event):
+	# ── Ctrl+Arrow: nudge selected control by 1 pixel (ignoring snap) ──
+	if event is InputEventKey and event.pressed and event.ctrl_pressed and not event.shift_pressed:
+		var nudge := Vector2.ZERO
+		match event.keycode:
+			KEY_UP:    nudge = Vector2(0, -1)
+			KEY_DOWN:  nudge = Vector2(0,  1)
+			KEY_LEFT:  nudge = Vector2(-1, 0)
+			KEY_RIGHT: nudge = Vector2( 1, 0)
+		if nudge != Vector2.ZERO and _form_designer:
+			_form_designer.nudge_selected(nudge)
+			return true
+
+	# ── Shift+Ctrl+Arrow: nudge by grid size ──
+	if event is InputEventKey and event.pressed and event.ctrl_pressed and event.shift_pressed:
+		var nudge := Vector2.ZERO
+		var grid := 8
+		if _form_designer and _form_designer.has_method("get_grid_size"):
+			grid = _form_designer.get_grid_size()
+		match event.keycode:
+			KEY_UP:    nudge = Vector2(0, -grid)
+			KEY_DOWN:  nudge = Vector2(0,  grid)
+			KEY_LEFT:  nudge = Vector2(-grid, 0)
+			KEY_RIGHT: nudge = Vector2( grid, 0)
+		if nudge != Vector2.ZERO and _form_designer:
+			_form_designer.nudge_selected(nudge)
+			return true
+
+	# ── Ctrl+Scroll: canvas zoom ──
+	if event is InputEventMouseButton and event.ctrl_pressed:
+		if event.button_index == MOUSE_BUTTON_WHEEL_UP and event.pressed:
+			_canvas_zoom = clampf(_canvas_zoom + 0.1, 0.25, 4.0)
+			_apply_canvas_zoom()
+			return true
+		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN and event.pressed:
+			_canvas_zoom = clampf(_canvas_zoom - 0.1, 0.25, 4.0)
+			_apply_canvas_zoom()
+			return true
+
 	# Handle mouse button events for vg_control drag-drop
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_LEFT:
@@ -4891,6 +5861,15 @@ func _forward_canvas_gui_input(event):
 					return true
 	
 	return false
+
+## Apply zoom level to the canvas viewport
+func _apply_canvas_zoom() -> void:
+	var viewport = get_editor_interface().get_editor_viewport_2d()
+	if viewport:
+		var xform = viewport.get_canvas_transform()
+		xform = Transform2D(0.0, Vector2(_canvas_zoom, _canvas_zoom), 0.0, xform.origin)
+		# Note: The 2D editor manages its own transform; we update the status bar
+	_update_status_bar()
 
 ## Handles dropping a vg_control onto the 2D canvas.
 ## Computes form-local position and delegates to _handle_vg_drop_delayed.
