@@ -154,6 +154,14 @@ var _theme_picker = null
 ## Profiler Panel (v2.6.0) — bottom panel for bytecode profiling
 var _profiler_panel = null
 
+## Tip of the Day dialog (v3.5)
+var _tip_of_day_dialog: Window = null
+var _tip_label: Label = null
+var _tip_checkbox: CheckBox = null
+var _tip_index: int = 0
+var _show_tips_on_startup: bool = true
+var _tip_shown_this_session: bool = false
+
 # =============================================================================
 # PLUGIN LIFECYCLE
 # =============================================================================
@@ -555,6 +563,10 @@ func _enter_tree():
 	add_tool_menu_item("Visual Gasic Tab Order", Callable(self, "_on_tab_order"))
 	add_tool_menu_item("Visual Gasic Components...", Callable(self, "_on_components"))
 
+	# Tip of the Day — load preference and create dialog
+	_load_tip_config()
+	_create_tip_of_day_dialog()
+
 # =============================================================================
 # DOCK MANAGEMENT — called by layout manager on mode toggle
 # =============================================================================
@@ -727,6 +739,11 @@ func _make_visible(p_visible: bool) -> void:
 	# disk and wipe the in-memory controls.
 	if p_visible and _form_designer and not _switching_to_code_editor:
 		_sync_scene_to_form_designer()
+	# Show Tip of the Day on first visit to Form Designer this session
+	if p_visible and not _tip_shown_this_session:
+		_tip_shown_this_session = true
+		if _show_tips_on_startup:
+			call_deferred("_show_tip_of_day")
 
 ## Called when user clicks the "↩ Godot Editor" button.
 ## Switches from Form Designer back to the 2D editor, restoring all Godot panels.
@@ -2907,6 +2924,8 @@ func _create_vb6_menu_bar() -> MenuBar:
 	_style_popup_menu(help_menu)
 	help_menu.add_item("Visual Gasic Documentation", 0)
 	help_menu.add_item("About Visual Gasic...", 1)
+	help_menu.add_separator()
+	help_menu.add_item("Tip of the Day...", 2)
 	help_menu.id_pressed.connect(_on_vb6_help_menu)
 	mb.add_child(help_menu)
 
@@ -3417,6 +3436,182 @@ func _on_vb6_help_menu(id: int) -> void:
 	match id:
 		0: OS.shell_open("https://github.com/nickshouse/VisualGasic")
 		1: pass # About dialog
+		2: _show_tip_of_day()
+
+# =============================================================================
+# TIP OF THE DAY
+# =============================================================================
+
+## Returns the array of tips shown in the Tip of the Day dialog.
+func _get_tips() -> PackedStringArray:
+	return PackedStringArray([
+		"Press Ctrl+Arrow keys to nudge selected controls by 1 pixel for precise positioning.",
+		"Use Ctrl+Mouse Wheel to zoom the form canvas in and out.",
+		"Press Ctrl+G in the Code Editor to jump to a specific line number.",
+		"Ctrl+Shift+S saves all open forms and modules at once.",
+		"Type in the Property Filter box (at the top of the Properties panel) to quickly find any property by name.",
+		"Hover over any property label in the Properties panel to see a description tooltip.",
+		"Press Shift+Up or Shift+Down on a numeric property field to step the value by ±1.",
+		"Use Edit > Bring to Front / Send to Back to change control Z-order on the form.",
+		"Right-click a control and choose Lock Position to prevent accidental moves.",
+		"Double-click any control on the form to jump straight to its event handler code.",
+		"The form canvas supports snap-to-grid — change the grid size in the Format menu.",
+		"An asterisk (*) in the title bar means you have unsaved changes.",
+		"Ctrl+A selects all controls on the current form.",
+		"Ctrl+Z and Ctrl+Y provide full undo and redo for form editing.",
+		"Right-click in the Project Explorer to add, rename, or delete forms and modules.",
+		"Press F7 to switch to Code View, and Shift+F7 to switch back to Form View.",
+		"Click a control type in the Toolbox, then click on the form to place it.",
+		"The Immediate Window (bottom panel) lets you evaluate expressions at runtime.",
+		"Use the Alignment toolbar to align, size, and distribute multiple selected controls.",
+		"Ctrl+S saves the current form. Forms are also auto-saved when you switch views.",
+		"Resize the form itself by dragging the resize handles on its edges and corners.",
+		"The Code Navigator dropdowns above the code editor let you jump between Subs and Functions.",
+		"Use the Color Palette toolbar for quick ForeColor and BackColor changes.",
+		"Import existing VB6 forms (.frm) and projects (.vbp) from Project > Tools.",
+		"The Snippet Browser (Project > Tools > VG: Snippet Browser) provides ready-made code templates.",
+		"Use the Theme Picker (Project > Tools > VG: Theme Picker) to customize IDE colors.",
+		"Right-click a control on the form to access context menu options like Cut, Copy, Paste, and Delete.",
+		"Hold Shift and click to select multiple controls for group operations.",
+		"The Menu Editor (Project > Tools) lets you build VB6-style menu bars visually.",
+		"Check the documentation at Help > Visual Gasic Documentation for guides and tutorials.",
+	])
+
+## Builds the Tip of the Day Window dialog with VB6/Win95 styling.
+func _create_tip_of_day_dialog() -> void:
+	var dialog = Window.new()
+	dialog.name = "TipOfTheDay"
+	dialog.title = "Tip of the Day"
+	dialog.size = Vector2i(520, 310)
+	dialog.exclusive = true
+	dialog.unresizable = true
+	dialog.wrap_controls = true
+	dialog.transient = true
+	dialog.close_requested.connect(dialog.hide)
+
+	# Background panel — light Win95 gray
+	var panel = PanelContainer.new()
+	panel.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var panel_sb = StyleBoxFlat.new()
+	panel_sb.bg_color = Color("#F0F0F0")
+	panel_sb.border_color = Color("#808080")
+	panel_sb.border_width_top = 1
+	panel_sb.border_width_bottom = 1
+	panel_sb.border_width_left = 1
+	panel_sb.border_width_right = 1
+	panel.add_theme_stylebox_override("panel", panel_sb)
+	dialog.add_child(panel)
+
+	var margin = MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 20)
+	margin.add_theme_constant_override("margin_right", 20)
+	margin.add_theme_constant_override("margin_top", 16)
+	margin.add_theme_constant_override("margin_bottom", 16)
+	panel.add_child(margin)
+
+	var vbox = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 10)
+	margin.add_child(vbox)
+
+	# ── Header: light-bulb + title ──
+	var header = Label.new()
+	header.text = "\ud83d\udca1  Did you know?"
+	header.add_theme_font_size_override("font_size", 17)
+	header.add_theme_color_override("font_color", Color("#000080"))
+	vbox.add_child(header)
+
+	# Separator
+	var sep = HSeparator.new()
+	vbox.add_child(sep)
+
+	# ── Tip text ──
+	_tip_label = Label.new()
+	_tip_label.name = "TipText"
+	_tip_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_tip_label.custom_minimum_size = Vector2(460, 80)
+	_tip_label.add_theme_font_size_override("font_size", 13)
+	_tip_label.add_theme_color_override("font_color", Color("#1A1A1A"))
+	_tip_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	_tip_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	vbox.add_child(_tip_label)
+
+	# ── Checkbox: "Show tips at startup" ──
+	_tip_checkbox = CheckBox.new()
+	_tip_checkbox.name = "ShowTipsCheckBox"
+	_tip_checkbox.text = "  Show tips at startup"
+	_tip_checkbox.button_pressed = _show_tips_on_startup
+	_tip_checkbox.add_theme_font_size_override("font_size", 12)
+	_tip_checkbox.add_theme_color_override("font_color", Color("#1A1A1A"))
+	_tip_checkbox.toggled.connect(_on_tip_checkbox_toggled)
+	vbox.add_child(_tip_checkbox)
+
+	# ── Button row: [spacer] [Next Tip] [Close] ──
+	var btn_row = HBoxContainer.new()
+	btn_row.alignment = BoxContainer.ALIGNMENT_END
+	btn_row.add_theme_constant_override("separation", 10)
+
+	var next_btn = Button.new()
+	next_btn.text = "Next Tip"
+	next_btn.custom_minimum_size = Vector2(100, 30)
+	next_btn.add_theme_font_size_override("font_size", 12)
+	next_btn.pressed.connect(_on_next_tip)
+	btn_row.add_child(next_btn)
+
+	var close_btn = Button.new()
+	close_btn.text = "Close"
+	close_btn.custom_minimum_size = Vector2(100, 30)
+	close_btn.add_theme_font_size_override("font_size", 12)
+	close_btn.pressed.connect(dialog.hide)
+	btn_row.add_child(close_btn)
+
+	vbox.add_child(btn_row)
+
+	_tip_of_day_dialog = dialog
+	add_child(dialog)
+
+## Shows the Tip of the Day dialog, advancing to the current tip index.
+func _show_tip_of_day() -> void:
+	if not is_instance_valid(_tip_of_day_dialog):
+		_create_tip_of_day_dialog()
+	var tips := _get_tips()
+	if tips.is_empty():
+		return
+	_tip_index = _tip_index % tips.size()
+	_tip_label.text = tips[_tip_index]
+	if is_instance_valid(_tip_checkbox):
+		_tip_checkbox.button_pressed = _show_tips_on_startup
+	_tip_of_day_dialog.popup_centered()
+
+## "Next Tip" button handler — advance and display the next tip.
+func _on_next_tip() -> void:
+	var tips := _get_tips()
+	if tips.is_empty():
+		return
+	_tip_index = (_tip_index + 1) % tips.size()
+	_tip_label.text = tips[_tip_index]
+	_save_tip_config()
+
+## Checkbox toggled — update preference and persist immediately.
+func _on_tip_checkbox_toggled(pressed: bool) -> void:
+	_show_tips_on_startup = pressed
+	_save_tip_config()
+
+## Config file path for Tip of the Day preference.
+const _TIP_CFG_PATH = "res://addons/visual_gasic/tip_of_day.cfg"
+
+## Loads Tip of the Day preferences from disk.
+func _load_tip_config() -> void:
+	var config = ConfigFile.new()
+	if config.load(_TIP_CFG_PATH) == OK:
+		_show_tips_on_startup = config.get_value("tip_of_day", "show_on_startup", true)
+		_tip_index = config.get_value("tip_of_day", "last_index", 0)
+
+## Saves Tip of the Day preferences to disk.
+func _save_tip_config() -> void:
+	var config = ConfigFile.new()
+	config.set_value("tip_of_day", "show_on_startup", _show_tips_on_startup)
+	config.set_value("tip_of_day", "last_index", _tip_index)
+	config.save(_TIP_CFG_PATH)
 
 # =============================================================================
 # VB6 STATUS BAR
