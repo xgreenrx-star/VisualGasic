@@ -191,11 +191,14 @@ func _init():
 	# === 3. Property grid (scrollable) — TwinBasic dark style ===
 	var scroll = ScrollContainer.new()
 	scroll.size_flags_vertical = SIZE_EXPAND_FILL
+	scroll.size_flags_horizontal = SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	add_child(scroll)
 	
 	property_grid = GridContainer.new()
 	property_grid.columns = 2
 	property_grid.size_flags_horizontal = SIZE_EXPAND_FILL
+	property_grid.size_flags_vertical = SIZE_EXPAND_FILL
 	scroll.add_child(property_grid)
 	
 	# === 4. Description area at the bottom ===
@@ -1017,6 +1020,14 @@ func _add_prop_row(label_text: String, value, prop_key: String):
 	if value is bool:
 		var chk = CheckBox.new()
 		chk.button_pressed = value
+		chk.flat = true
+		chk.size_flags_horizontal = SIZE_EXPAND_FILL
+		# Remove button-like chrome — show only the check indicator
+		var empty_style = StyleBoxEmpty.new()
+		chk.add_theme_stylebox_override("normal", empty_style)
+		chk.add_theme_stylebox_override("hover", empty_style)
+		chk.add_theme_stylebox_override("pressed", empty_style)
+		chk.add_theme_stylebox_override("focus", empty_style)
 		chk.toggled.connect(func(v): _apply_prop(prop_key, v))
 		chk.focus_entered.connect(func(): _show_description(prop_key))
 		property_grid.add_child(chk)
