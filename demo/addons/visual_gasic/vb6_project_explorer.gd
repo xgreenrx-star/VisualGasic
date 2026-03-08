@@ -33,6 +33,7 @@ var _btn_refresh: Button
 var _show_folders: bool = true
 var _project_name: String = "Project1"
 var _context_menu: PopupMenu
+var _confirm_delete_dialog: ConfirmationDialog
 
 # =============================================================================
 # INITIALIZATION
@@ -135,10 +136,44 @@ func _init():
 	_context_menu.add_item("Add Form...", 0)
 	_context_menu.add_item("Add Module...", 1)
 	_context_menu.add_separator()
+	_context_menu.add_item("Delete", 3)
+	_context_menu.add_separator()
 	_context_menu.add_item("Refresh", 2)
 	_context_menu.id_pressed.connect(_on_context_menu_selected)
+	# Style popup for readability on the light-themed IDE
+	var ctx_panel = StyleBoxFlat.new()
+	ctx_panel.bg_color = Color(0.96, 0.95, 0.93)
+	ctx_panel.border_width_top = 1
+	ctx_panel.border_width_bottom = 1
+	ctx_panel.border_width_left = 1
+	ctx_panel.border_width_right = 1
+	ctx_panel.border_color = Color(0.55, 0.54, 0.52)
+	ctx_panel.content_margin_left = 4
+	ctx_panel.content_margin_right = 4
+	ctx_panel.content_margin_top = 4
+	ctx_panel.content_margin_bottom = 4
+	_context_menu.add_theme_stylebox_override("panel", ctx_panel)
+	_context_menu.add_theme_color_override("font_color", Color(0.1, 0.1, 0.1))
+	_context_menu.add_theme_color_override("font_hover_color", Color(1, 1, 1))
+	_context_menu.add_theme_color_override("font_disabled_color", Color(0.55, 0.55, 0.55))
+	_context_menu.add_theme_color_override("font_separator_color", Color(0.4, 0.4, 0.4))
+	var ctx_hover = StyleBoxFlat.new()
+	ctx_hover.bg_color = Color(0.0, 0.47, 0.84)
+	ctx_hover.corner_radius_top_left = 2
+	ctx_hover.corner_radius_top_right = 2
+	ctx_hover.corner_radius_bottom_left = 2
+	ctx_hover.corner_radius_bottom_right = 2
+	_context_menu.add_theme_stylebox_override("hover", ctx_hover)
 	add_child(_context_menu)
 	tree.gui_input.connect(_on_tree_gui_input)
+
+	# --- Delete confirmation dialog ---
+	_confirm_delete_dialog = ConfirmationDialog.new()
+	_confirm_delete_dialog.title = "Delete"
+	_confirm_delete_dialog.ok_button_text = "Delete"
+	_confirm_delete_dialog.min_size = Vector2i(340, 0)
+	_confirm_delete_dialog.confirmed.connect(_on_delete_confirmed)
+	add_child(_confirm_delete_dialog)
 
 ## Setup with the editor plugin reference.
 func setup(plugin: EditorPlugin):
@@ -400,6 +435,19 @@ func _on_item_selected():
 ## Right-click on tree — show VB6-style context menu.
 func _on_tree_gui_input(event: InputEvent):
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_RIGHT:
+		# Enable/disable Delete based on whether a deletable item is selected
+		var can_delete := false
+		var item = tree.get_selected()
+		if item:
+			var meta = item.get_metadata(0)
+			if meta is Dictionary:
+				var item_type = meta.get("type", "")
+				can_delete = item_type in ["form", "module", "scene", "resource"]
+		# Find the Delete item index by id and set disabled state
+		for i in _context_menu.item_count:
+			if _context_menu.get_item_id(i) == 3:  # Delete
+				_context_menu.set_item_disabled(i, not can_delete)
+				break
 		_context_menu.position = Vector2i(DisplayServer.mouse_get_position())
 		_context_menu.popup()
 
@@ -414,6 +462,71 @@ func _on_context_menu_selected(id: int):
 				editor_plugin._on_new_module()
 		2:  # Refresh
 			refresh()
+		3:  # Delete
+			_prompt_delete()
+
+## Show a confirmation dialog before deleting the selected item.
+func _prompt_delete():
+	var item = tree.get_selected()
+	if not item:
+		return
+	var meta = item.get_metadata(0)
+	if not meta is Dictionary:
+		return
+	var item_type = meta.get("type", "")
+	var file_path = meta.get("path", "")
+	if file_path.is_empty() or item_type not in ["form", "module", "scene", "resource"]:
+		return
+
+	var display_name = item.get_text(0)
+	var details := ""
+	if item_type == "form":
+		var scene_path = file_path.get_basename() + ".tscn"
+		details = "This will permanently delete:\n• %s\n• %s" % [file_path, scene_path]
+	else:
+		details = "This will permanently delete:\n• %s" % file_path
+
+	_confirm_delete_dialog.dialog_text = "Delete '%s'?\n\n%s\n\nThis cannot be undone." % [display_name, details]
+	_confirm_delete_dialog.popup_centered()
+
+## Actually delete the files after user confirmation.
+func _on_delete_confirmed():
+	var item = tree.get_selected()
+	if not item:
+		return
+	var meta = item.get_metadata(0)
+	if not meta is Dictionary:
+		return
+	var item_type = meta.get("type", "")
+	var file_path: String = meta.get("path", "")
+	if file_path.is_empty():
+		return
+
+	# Delete the primary file
+	if FileAccess.file_exists(file_path):
+		DirAccess.remove_absolute(file_path)
+		print("VisualGasic: Deleted %s" % file_path)
+
+	# For forms, also delete the companion .tscn / .vg
+	if item_type == "form":
+		var scene_path = file_path.get_basename() + ".tscn"
+		if FileAccess.file_exists(scene_path):
+			DirAccess.remove_absolute(scene_path)
+			print("VisualGasic: Deleted %s" % scene_path)
+		# Also remove any .uid file Godot may have created
+		var uid_path = file_path + ".uid"
+		if FileAccess.file_exists(uid_path):
+			DirAccess.remove_absolute(uid_path)
+		var scene_uid = scene_path + ".uid"
+		if FileAccess.file_exists(scene_uid):
+			DirAccess.remove_absolute(scene_uid)
+
+	# Refresh the file system so Godot picks up the changes
+	if editor_plugin:
+		editor_plugin.get_editor_interface().get_resource_filesystem().scan()
+
+	# Refresh the tree
+	call_deferred("refresh")
 
 # =============================================================================
 # HELPERS
