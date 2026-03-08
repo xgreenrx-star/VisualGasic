@@ -452,7 +452,7 @@ Each feature has implementation notes that describe:
 
 ## 📝 Version History
 
-- **v3.5.0-beta2** (Current) - IDE Themes, Custom Theme Editor, Object Browser, VB6 Importer Enhancements, 15+ Bug Fixes
+- **v3.5.0-beta2** (Current) - IDE Themes, Custom Theme Editor, Object Browser, VB6 Importer Enhancements, Documentation Generator, Custom Control Designer, Windows CI, 15+ Bug Fixes
 - **v3.3.0** - Language Enhancements: 18 new features (String Interpolation, Bitwise, StringBuilder, RegExp, Static locals, etc.)
 - **v3.2.0-beta1** - JIT Compiler, LSP, Performance, First Public Beta
 - **v3.1.0** - System-Level Programming: VGSystem, Signals, Permissions, Memory, IPC, Android, Real Threading
@@ -537,11 +537,17 @@ All items from the system-programming audit are now implemented:
    `_reload_tool_script()` queues via `pending_reloads` to avoid re-entrancy.  
    Thread-safe via `std::mutex`.
 
-10. **Asset Library Submission**  
-    Package for Godot Asset Library (requires single-addon zip with proper plugin.cfg).
+10. **Asset Library Submission** ⏳  
+    Package for Godot Asset Library (requires single-addon zip with proper plugin.cfg).  
+    *Status*: Submitted March 2026, awaiting Godot team review.
 
-11. **Documentation Generator**  
-    Parse `''' XML-style` doc comments from .vg files and emit HTML/Markdown API docs.
+11. **Documentation Generator** ✅  
+    Parse `'''` doc comments from .vg files and emit HTML/Markdown API docs.  
+    *Implemented*: `doc_generator.gd` — Tools → Generate Documentation. Parses `'''` triple-apostrophe  
+    doc-comments with `@param`, `@return`, `@example` tags. Generates Markdown and/or HTML  
+    index + per-module detail pages. Supports Const, Dim, Enum, Type, Sub, Function.  
+    Filter options for private members and event handlers. VB6 cream-themed config dialog.  
+    Example project in `demos/Utilities/DocGen_Example/` with 4 fully-documented .vg files.
 
 12. **JIT Tier 2** ✅  
     Extend the JIT framework from simple loops to full function bodies (requires register allocator).  
@@ -552,21 +558,15 @@ All items from the system-programming audit are now implemented:
     branches, loops, return values.  Hot detection at threshold 50 calls; unsupported opcodes  
     gracefully fall back to interpreter.  Activated via `VG_JIT=2` environment variable.
 
-13. **Custom Control Designer (UserControl Editor)**  
+13. **Custom Control Designer (UserControl Editor)** ✅  
     A WYSIWYG editor for designing reusable custom controls — wobbly buttons, animated  
     dropdowns, themed game UI widgets, etc. Users design a control visually, save it as a  
     `.tscn`, and it appears in the Toolbox alongside the built-in controls for drag-and-drop  
     reuse across any form.  
-    **Scope**:  
-    - Mini design surface dialog (similar to Menu Editor) with live preview canvas  
-    - Property panel for theme overrides (fonts, colors, StyleBox), child node composition  
-      (icon + label + particle effect, etc.), and basic animation/shader parameters  
-    - "Save as Custom Control" writes to `res://custom_controls/` and auto-registers in Toolbox  
-      via `register_custom_control_type()`  
-    - Components dialog already supports add/remove; this adds the visual authoring step  
-    **Foundation already in place**: Toolbox custom control registration, Components dialog,  
-    right-click context menu plumbing, scene_path tracking per control, `_validate_scene_paths()`  
-    fallback system.
+    *Implemented*: `custom_control_designer.gd` (~630 lines). Tools → New Custom Control /  
+    Edit Custom Control. 16 child node types, snap grid, drag/move/resize handles,  
+    SubViewport live preview, PackedScene `.tscn` save with proper owner chain.  
+    Auto-registers in Toolbox via `register_custom_control_type()`.
 
 
 14. **Live Animation for Custom Controls in Form Designer (v4)**  
@@ -594,6 +594,142 @@ All items from the system-programming audit are now implemented:
     **Foundation already in place**: SubViewport capture pipeline in GDScript,
     `control_preview_textures` HashMap in C++, per-control rect tracking in
     `FormControlItem`, custom control `.tscn` scene_path storage.
+
+---
+
+## 🚀 v4.0 Roadmap — "Next Generation"
+
+Targeted improvements for a major v4.0 release. Requires v3.5.0 stable first.
+
+### Prerequisites — Ship v3.5.0 Stable
+
+Before v4 development begins, the current beta must graduate:
+
+- [ ] **macOS / ARM64 CI build** — Add `platform=macos` CI job with universal binary (x86_64 + arm64). Validate GDExtension loads on Apple Silicon.
+- [ ] **Asset Library acceptance** — Submitted, awaiting Godot team review.
+- [ ] **Calculator tutorial screenshots** — Capture real screenshots for all 📸 placeholders in `docs/tutorials/calculator_form_designer.md`.
+- [ ] **Beta → Stable testing pass** — Full test suite run, verify all demos, tag v3.5.0 stable.
+
+### 🔴 High Priority — Flagship Features
+
+1. **Live Animation for Custom Controls in Form Designer**  
+   Replace static SubViewport snapshots with per-instance live SubViewports so  
+   `@tool` controls (WobblyButton, particle effects, shader animations) play in  
+   real time on the Form Designer design surface.  
+   **Approach**:  
+   - Per-instance `SubViewportContainer` + `SubViewport` for every custom control  
+   - Instantiate `.tscn` inside SubViewport so `_process()` runs every frame  
+   - Blit `ViewportTexture` in `_draw()` at the control's rect  
+   - "Freeze Previews" toolbar toggle for lightweight static mode  
+   - Throttle to ~15 FPS when Form Designer tab is unfocused  
+   **Foundation**: SubViewport capture pipeline, `control_preview_textures` HashMap,  
+   per-control rect tracking, `.tscn` scene_path storage.  
+   **Effort**: ~4–6 hours
+
+2. **Multi-Module Project Compilation**  
+   Currently each `.vg` file is standalone. Add a project-level compilation model  
+   where `Import MathHelpers` resolves symbols across files with proper symbol tables  
+   and cross-file IntelliSense.  
+   **Scope**:  
+   - `Import <ModuleName>` statement parsed in tokenizer/parser  
+   - Project-wide symbol table built at compile time  
+   - Cross-file go-to-definition and find-all-references  
+   - Circular import detection  
+   - IntelliSense autocomplete includes imported module members  
+   **Effort**: ~8–12 hours (parser + VM + IntelliSense changes)
+
+3. **Visual Form Debugger**  
+   Click a control on the running form → jump to its event handler source.  
+   Hover a control → tooltip shows its live property values. Inspect  
+   `Me.Controls` tree during a breakpoint.  
+   **Scope**:  
+   - Design-time control → source line mapping  
+   - Runtime overlay on form showing control names and live values  
+   - "Inspect" context menu on running forms  
+   - Integration with existing debugger protocol (watchpoints, breakpoints)  
+   **Effort**: ~6–8 hours
+
+### 🟡 Medium Priority — Ecosystem Features
+
+4. **Database Controls (Data, DBGrid, DBCombo)**  
+   VB6's killer feature: data-bound controls. SQLite-backed `Data` control with  
+   bound `DBGrid`/`DBCombo` for the VB6 nostalgia crowd.  
+   **Scope**:  
+   - `Data` control wrapping SQLite (via Godot's built-in SQLite or GDExtension)  
+   - `DBGrid` — read/write data grid bound to a `Data` source  
+   - `DBCombo` — dropdown populated from a query column  
+   - `Recordset` object with `MoveFirst`/`MoveNext`/`MoveLast`/`AddNew`/`Update`/`Delete`  
+   - SQL query property on `Data` control  
+   - Design-time column layout in Form Designer  
+   **Effort**: ~8–10 hours
+
+5. **Package Manager**  
+   `vg install <package>` to pull .vg libraries from a registry (GitHub-based).  
+   **Scope**:  
+   - `vg.json` project manifest with dependencies  
+   - `Imports` resolution from `vg_modules/` folder  
+   - GitHub-backed registry (simple JSON index + tagged releases)  
+   - `vg install`, `vg update`, `vg remove` CLI commands  
+   - Tools menu integration for GUI-based package browsing  
+   **Effort**: ~6–8 hours
+
+6. **Migration Wizard v2 (Full VBP Import)**  
+   Import entire VB6 `.vbp` projects (multi-form, modules, classes, references)  
+   in one click, not just individual `.frm` files.  
+   **Scope**:  
+   - Parse all `.vbp` entries: Form=, Module=, Class=, Reference=, Object=  
+   - Batch-import all forms, modules, and classes  
+   - Generate project structure with proper `Import` statements  
+   - Conversion report summarizing what worked and what needs manual fixes  
+   - Build on existing `frm_import_plugin.gd` and `vbp_parser` infrastructure  
+   **Effort**: ~4–6 hours
+
+### 🟢 Nice-to-Have — Performance & Platform
+
+7. **macOS Universal Binary**  
+   Fill the last platform gap with fat binary (x86_64 + arm64).  
+   **Scope**:  
+   - macOS CI job (GitHub Actions `macos-latest` or `macos-14` for ARM)  
+   - `lipo` to combine architectures into universal binary  
+   - Code-signing for Gatekeeper compliance  
+   - Release pipeline integration  
+   **Effort**: ~2–3 hours
+
+8. **JIT Tier 3 (Call Graph Compilation)**  
+   Extend JIT from hot function bodies to entire call graphs — inline small  
+   callees, eliminate call overhead for tight inner loops.  
+   **Scope**:  
+   - Call graph analysis to identify hot call chains  
+   - Function inlining heuristic (size threshold, call frequency)  
+   - Inter-procedural register allocation  
+   - Would push more benchmarks past C++  
+   **Effort**: ~10+ hours
+
+9. **WebAssembly Export Validation**  
+   Godot already exports to HTML5. Ensure VisualGasic scripts work correctly  
+   in web builds (bytecode VM path, no JIT) and document the workflow.  
+   **Scope**:  
+   - Test all language features in HTML5 export  
+   - Disable JIT gracefully on WASM (already falls back to interpreter)  
+   - Fix any threading/IPC issues (no real threads in WASM)  
+   - Demo project deployed to itch.io or GitHub Pages  
+   **Effort**: ~3–4 hours
+
+### 📊 v4.0 Priority Matrix
+
+| # | Feature | Impact | Effort | Priority |
+|---|---------|--------|--------|----------|
+| 1 | Live Animation | High | 4–6 hrs | 🔴 Must-have |
+| 2 | Multi-Module Imports | Very High | 8–12 hrs | 🔴 Must-have |
+| 3 | Visual Form Debugger | High | 6–8 hrs | 🔴 Must-have |
+| 4 | Database Controls | High | 8–10 hrs | 🟡 Should-have |
+| 5 | Package Manager | Medium | 6–8 hrs | 🟡 Should-have |
+| 6 | Migration Wizard v2 | Medium | 4–6 hrs | 🟡 Should-have |
+| 7 | macOS Universal | Medium | 2–3 hrs | 🟢 Nice-to-have |
+| 8 | JIT Tier 3 | Medium | 10+ hrs | 🟢 Nice-to-have |
+| 9 | WASM Validation | Low | 3–4 hrs | 🟢 Nice-to-have |
+| | **Total (must-have)** | | **~20–26 hrs** | |
+| | **Total (all)** | | **~52–67 hrs** | |
 
 ---
 
