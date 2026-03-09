@@ -556,7 +556,7 @@ _Draw()  ──→  Render everything:
 
 - 📱 **Build an app** → [App Development Tutorial](APP_DEVELOPMENT.md)
 - 🚀 **Explore more demos** → `demos/2D_Games/` (Space Shooter, Breakout, Snake, and more)
-- 🧰 **Use the Form Designer** → build UIs with drag-and-drop instead of custom drawing
+- 🧰 **Use the Visual Gasic IDE** → build UIs with drag-and-drop instead of custom drawing
 - 📚 **Advanced game dev** → [Modern Features Guide](../guides/MODERN_FEATURES.md) (async/await, classes, generics)
 - 🏎 **Benchmark your game** → [Performance Guide](../manual/performance.md)
 

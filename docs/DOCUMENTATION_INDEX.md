@@ -11,7 +11,7 @@
 
 ### Core Features
 - [BUILTIN_FUNCTIONS_REFERENCE.md](reference/BUILTIN_FUNCTIONS_REFERENCE.md) - Built-in functions (Print, Input, MsgBox, etc.)
-- [CONTROLS_REFERENCE.md](reference/CONTROLS_REFERENCE.md) - **Complete toolbox controls reference** (40+ controls, Form Designer properties)
+- [CONTROLS_REFERENCE.md](reference/CONTROLS_REFERENCE.md) - **Complete toolbox controls reference** (40+ controls, Visual Gasic IDE properties)
 - [GODOT_FUNCTIONS_REFERENCE.md](reference/GODOT_FUNCTIONS_REFERENCE.md) - Godot integration functions
 - [GODOT_QUICK_REF.md](reference/GODOT_QUICK_REF.md) - Quick reference for Godot features
 - [MODERN_SYNTAX_QUICK_REF.md](reference/MODERN_SYNTAX_QUICK_REF.md) - Modern syntax features
@@ -41,7 +41,7 @@
 
 - [Your First 2D Game](tutorials/your_first_2d_game.md) - Dodge the Creeps-style introduction
 - [Building a 2D Platformer](tutorials/2d_platformer.md) - Complete platformer walkthrough (gravity, tile-based levels, enemies, camera)
-- [Build a Calculator](tutorials/calculator_form_designer.md) - **Beginner Form Designer tutorial** (place controls, set properties, write event code)
+- [Build a Calculator](tutorials/calculator_form_designer.md) - **Beginner Visual Gasic IDE tutorial** (place controls, set properties, write event code)
 
 ## Game Demo Projects
 
@@ -100,7 +100,7 @@
 | Go to Definition | Jump to declaration (Ctrl+Click/F12) | Any identifier |
 | Rename Refactoring | Scope-aware renaming (Ctrl+R) | Any identifier |
 
-### Form Designer Tools
+### Visual Gasic IDE Tools
 | Tool | Description | Location |
 |------|-------------|----------|
 | Snap-to-Grid | Configurable grid snapping | 2D Canvas Toolbar |
@@ -152,7 +152,7 @@
 - [CHANGELOG.md](../CHANGELOG.md) - Full change log
 - [RELEASE_NOTES_v2.10.0.md](../RELEASE_NOTES_v2.10.0.md) - v2.10.0 release notes (COM Objects, VB6 Globals, GoSub, File I/O)
 - [RELEASE_NOTES_v2.9.0.md](../RELEASE_NOTES_v2.9.0.md) - v2.9.0 release notes
-- [RELEASE_NOTES_v2.8.0.md](../RELEASE_NOTES_v2.8.0.md) - v2.8.0 release notes (C++ Form Designer, Live Preview)
+- [RELEASE_NOTES_v2.8.0.md](../RELEASE_NOTES_v2.8.0.md) - v2.8.0 release notes (C++ Visual Gasic IDE, Live Preview)
 - [RELEASE_NOTES_v2.3.0.md](../RELEASE_NOTES_v2.3.0.md) - v2.3.0 release notes
 - [RELEASE_NOTES_v2.4.0.md](../RELEASE_NOTES_v2.4.0.md) - v2.4.0 release notes
 - [RELEASE_NOTES_v2.4.1.md](../RELEASE_NOTES_v2.4.1.md) - v2.4.1 release notes
@@ -192,7 +192,7 @@
 | `vg_recent_projects.gd` | Recent projects tracking |
 | `recent_projects_menu.gd` | Recent projects menu UI |
 
-### Form Designer Files
+### Visual Gasic IDE Files
 | File | Description |
 |------|-------------|
 | `alignment_toolbar.gd` | Alignment and distribution tools |

@@ -19,7 +19,7 @@
 3. **IMPLEMENTATION_STATUS.md** (278 lines)
    - Build status and validation
    - Short-term integration plan (error reporter, scope, cache)
-   - Long-term roadmap (modules, debugging, form designer)
+   - Long-term roadmap (modules, debugging, Visual Gasic IDE)
    - Risk assessment and success criteria
    - File structure and dependencies
 

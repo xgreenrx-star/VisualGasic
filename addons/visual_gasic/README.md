@@ -10,7 +10,7 @@ Write game logic in `.vg` files using familiar VB6 syntax with full IDE integrat
 ## Features
 
 - **Event-Driven Programming** — Double-click a control, get a `Sub Button1_Click()` handler automatically
-- **WYSIWYG Form Designer** — Drag-and-drop UI builder with 40+ controls
+- **WYSIWYG Visual Gasic IDE** — Drag-and-drop UI builder with 40+ controls
 - **JIT Compiler** — x86-64 native code generation, 2×–118× faster than GDScript
 - **Full IDE** — IntelliSense, syntax highlighting, auto-indent, debugging, profiler
 - **Three-Tier Toolbox** — 25 C++ defaults + 17 GDScript extended + unlimited custom components
@@ -20,7 +20,7 @@ Write game logic in `.vg` files using familiar VB6 syntax with full IDE integrat
 
 1. Copy this `addons/visual_gasic/` folder into your project's `addons/` directory
 2. Go to **Project → Project Settings → Plugins** and enable **VisualGasic**
-3. Create a new `.vg` file or use **File → New Form** to start with the Form Designer
+3. Create a new `.vg` file or use **File → New Form** to start with the Visual Gasic IDE
 
 ## Example
 

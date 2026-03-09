@@ -61,7 +61,7 @@ Updated: February 2026
 32. [Debugging Tools](#debugging-tools)
 33. [Code Quality and Linting](#linting)
 34. [Snippets and Templates](#snippets)
-35. [Form Designer Tools](#form-designer)
+35. [Visual Gasic IDE Tools](#form-designer)
 
 ### Part X: GDScript vs VisualGasic — Complete Reference
 36. [GDScript ↔ VisualGasic Quick Reference](#gdscript-vs-vg)
@@ -155,7 +155,7 @@ Use **Import VB6 Project...** in the Toolbox to convert existing applications.
 VisualGasic includes a complete RAD (Rapid Application Development) environment:
 
 - **Integrated Script Editor** with syntax highlighting and IntelliSense
-- **Visual Form Designer** — Full C++ WYSIWYG form editor with 40+ controls, VB6 properties, and live preview
+- **Visual Gasic IDE** — Full C++ WYSIWYG form editor with 40+ controls, VB6 properties, and live preview
 - **Immediate Window** for testing and debugging
 - **Toolbox** with common controls (Button, Label, TextBox, etc.)
 - **Property Inspector** for editing node properties
@@ -183,13 +183,13 @@ The **Toolbox** provides quick access to all VisualGasic features:
 > **📝 Note: Forms are OS Windows**  
 > Forms are built on Godot's `Window` node, so they appear as **separate operating system windows** - just like VB6. If a Form is your project's main scene, it becomes the main app window. If spawned from another scene, it appears as a popup/dialog. For in-game UIs (HUD, menus), use the **Game Forms** templates which are designed for embedded display. See [WINFORMS_FORM_GUIDE.md](WINFORMS_FORM_GUIDE.md) for details.
 
-### Visual Form Designer
+### Visual Gasic IDE
 
-![Form Designer IDE](screenshots/form_designer_ide.png)
+![Visual Gasic IDE](screenshots/form_designer_ide.png)
 
 *Complete VB6 IDE: Toolbox (40+ controls) · WYSIWYG Canvas · Properties Panel · Project Explorer · Alignment Toolbar · Live Preview*
 
-The **C++ Form Designer** provides a full WYSIWYG editor for creating user interfaces by dragging controls onto forms:
+The **Visual Gasic IDE** provides a full WYSIWYG editor for creating user interfaces by dragging controls onto forms:
 
 **VB6 to Godot Control Mappings:**
 
@@ -1655,9 +1655,9 @@ Next ${1:i}
 
 ---
 
-### Chapter 35: Form Designer Tools {#form-designer}
+### Chapter 35: Visual Gasic IDE Tools {#form-designer}
 
-The VisualGasic Form Designer is a **C++ GDExtension** that provides a complete WYSIWYG editing experience with 40+ controls, VB6-style properties, and a live preview system.
+The Visual Gasic IDE is a **C++ GDExtension** that provides a complete WYSIWYG editing experience with 40+ controls, VB6-style properties, and a live preview system.
 
 #### Grid Snapping
 
@@ -1690,7 +1690,7 @@ Select multiple controls and use:
 Press **F5** or click "▶ Preview Form" to:
 
 - Open a **live preview window** showing the form as it will appear at runtime
-- All controls are built from the C++ form designer's in-memory data
+- All controls are built from the C++ Visual Gasic IDE's in-memory data
 - VB6 form properties are applied (Caption, BackColor, ForeColor, BorderStyle, ControlBox, MinButton, MaxButton)
 - 20+ control types mapped: Button, Label, TextBox, CheckBox, ComboBox, ListBox, Panel, ProgressBar, ScrollBars, Sliders, SpinBox, Tree, RichTextLabel, TabContainer, ColorRect, Separators, Containers
 - Test visual layout and control positioning

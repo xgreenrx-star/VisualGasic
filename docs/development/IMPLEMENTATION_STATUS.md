@@ -238,7 +238,7 @@ Implement breakpoint support:
 - Visual breakpoint indicators in script display
 - Real-time variable inspection
 
-### 3. VB6 Form Designer (4-5 hours)
+### 3. VB6 Visual Gasic IDE (4-5 hours)
 Visual form builder complementing code editor:
 - Drag-and-drop control placement
 - Property inspector for form/control settings
@@ -292,7 +292,7 @@ src/
 
 4. **Long-term** (8-10 hours):
    - Advanced debugging infrastructure
-   - VB6 form designer
+   - VB6 Visual Gasic IDE
 
 ---
 

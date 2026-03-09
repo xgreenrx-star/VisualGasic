@@ -1,4 +1,4 @@
-# Build a Calculator with the Form Designer
+# Build a Calculator with the Visual Gasic IDE
 
 *A step-by-step beginner tutorial — from empty project to working app.*
 
@@ -6,7 +6,7 @@
 
 ## What You'll Build
 
-A simple four-function calculator with a display and digit/operator buttons — designed entirely with the visual Form Designer, exactly like you'd build one in VB6.
+A simple four-function calculator with a display and digit/operator buttons — designed entirely with the Visual Gasic IDE, exactly like you'd build one in VB6.
 
 **Time:** ~20 minutes
 
@@ -58,21 +58,21 @@ Godot opens the editor with an empty project.
 4. Check the **Enable** checkbox.
 5. Close the Project Settings window.
 
-You should now see a **Form Designer** button in the top toolbar, next to **2D**, **3D**, **Script**, and **AssetLib**.
+You should now see a **Visual Gasic IDE** button in the top toolbar, next to **2D**, **3D**, **Script**, and **AssetLib**.
 
-📸 *Screenshot: The top toolbar showing the "Form Designer" button*
+📸 *Screenshot: The top toolbar showing the "Visual Gasic IDE" button*
 ![alt text](image-2.png)
 ---
 
 ## Step 4 — Create a New Form
 
-1. Click the **Form Designer** button in the toolbar. The editor switches to the VB6-style IDE layout:
+1. Click the **Visual Gasic IDE** button in the toolbar. The editor switches to the VB6-style IDE layout:
    - **Toolbox** on the left (list of controls)
    - **Canvas** in the center (where you design your form)
    - **Project Explorer** on the upper-right
    - **Properties** panel on the lower-right
 
-2. Go to **File → New Form** in the VB6 menu bar (at the top of the Form Designer, *not* Godot's menu).
+2. Go to **File → New Form** in the VB6 menu bar (at the top of the Visual Gasic IDE, *not* Godot's menu).
 
 3. A **New Form** dialog appears with templates. Select **Blank Form** under the "VB6 Classic" tab and click **OK**.
 
@@ -82,7 +82,7 @@ A blank form named **Form1** appears on the canvas. Two files are created automa
 
 **Tip:** You can resize the form by dragging the small black **resize handles** on its edges and corners — just like resizing a window. The status bar at the bottom shows the current dimensions (e.g., `600 x 400`).
 
-📸 *Screenshot: The Form Designer with a blank Form1 on the canvas*
+📸 *Screenshot: The Visual Gasic IDE with a blank Form1 on the canvas*
 ![![alt text](image-4.png)](image-3.png)
 ---
 
@@ -222,7 +222,7 @@ End Sub
 
 ### 6d — Wire Up the Digit Buttons
 
-Now go back to the Form Designer (click the **Form Designer** button in the toolbar) and **double-click each digit button** to create its handler. Fill in each one:
+Now go back to the Visual Gasic IDE (click the **Visual Gasic IDE** button in the toolbar) and **double-click each digit button** to create its handler. Fill in each one:
 
 ```vb
 Sub btn0_Click()
@@ -309,7 +309,7 @@ End Sub
 
 ### 6f — Wire Up the Operator Buttons
 
-Double-click each operator button from the Form Designer and add:
+Double-click each operator button from the Visual Gasic IDE and add:
 
 ```vb
 Sub btnAdd_Click()
@@ -356,7 +356,7 @@ End Sub
 
 Before you can run the project, Godot needs to know which scene to launch:
 
-1. Go back to the Godot editor (click the **↩ Godot Editor** button in the Form Designer toolbar, or press the **2D** / **3D** / **Script** tabs).
+1. Go back to the Godot editor (click the **↩ Godot Editor** button in the Visual Gasic IDE toolbar, or press the **2D** / **3D** / **Script** tabs).
 2. Go to **Project → Project Settings → General** tab.
 3. Under **Application → Run**, set **Main Scene** to `Form1.tscn`.
 4. Close Project Settings.
@@ -383,7 +383,7 @@ Here's the full `Form1.vg` for reference:
 
 ```vb
 ' Form1.vg - Calculator
-' Built with the VisualGasic Form Designer
+' Built with the Visual Gasic IDE
 Option Explicit
 
 Dim currentDisplay As String
@@ -540,7 +540,7 @@ End Sub
 ## What You Learned
 
 - ✅ How to **install VisualGasic** into a Godot project
-- ✅ How to **enable the plugin** and access the Form Designer
+- ✅ How to **enable the plugin** and access the Visual Gasic IDE
 - ✅ How to **create a new form** from a blank template
 - ✅ How to **place and name controls** (LineEdit, Button)
 - ✅ How to **set properties** in the Properties panel

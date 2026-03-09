@@ -344,7 +344,7 @@ if (BytecodeCache::is_cached_valid(script_path, source)) {
 
 ---
 
-### Phase 5: VB6 Form Designer (4-5 hours)
+### Phase 5: VB6 Visual Gasic IDE (4-5 hours)
 **Effort**: High | **Impact**: High | **Risk**: High
 
 **Goal**: Visual form builder UI
@@ -413,7 +413,7 @@ if (BytecodeCache::is_cached_valid(script_path, source)) {
 
 4. **Later** (8-10 hours):
    - Advanced debugging
-   - VB6 form designer
+   - VB6 Visual Gasic IDE
 
 ---
 

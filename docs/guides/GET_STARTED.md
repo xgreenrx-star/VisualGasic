@@ -223,7 +223,7 @@ End Module
 - **Intelligent Code Completion** - IntelliSense-style auto-completion
 - **Real-time Error Checking** - Catch mistakes as you type
 - **Integrated Debugger** - Step through code and inspect variables
-- **Form Designer** - Visual form builder for desktop apps
+- **Visual Gasic IDE** - Visual form builder for desktop apps
 - **Project Templates** - Quick-start templates for common project types
 
 ### Godot Integration

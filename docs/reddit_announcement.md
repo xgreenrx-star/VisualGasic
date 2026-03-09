@@ -8,17 +8,17 @@
 #    (external image URLs don't work on most subreddits)
 #
 # STRONGLY RECOMMENDED: Include screenshots or a short GIF!
-#   - Form Designer with a form open (Toolbox + canvas + Properties panel)
+#   - Visual Gasic IDE with a form open (Toolbox + canvas + Properties panel)
 #   - The code editor showing a .vg file with IntelliSense
 #   - A running demo (Pong or the calculator)
 #   On r/godot especially, image/video posts get 5-10x the engagement of text posts.
 #   Consider making this an IMAGE post with the text as the first comment.
 #
 # SUGGESTED TITLES (pick one):
-#   r/godot:       I built a VB6-inspired language for Godot with a Form Designer, JIT compiler, and 66 demos
-#   r/visualbasic: VisualGasic — A VB6-inspired modern language for the Godot game engine (Form Designer, custom controls, JIT)
-#   r/gamedev:     VisualGasic — A RAD language for Godot 4 with a visual Form Designer, auto event binding, and 66 demos
-#   r/programming: VisualGasic — A modern VB6-inspired language for Godot with JIT compilation, async/await, and a WYSIWYG Form Designer
+#   r/godot:       I built a VB6-inspired language for Godot with a Visual Gasic IDE, JIT compiler, and 66 demos
+#   r/visualbasic: VisualGasic — A VB6-inspired modern language for the Godot game engine (Visual Gasic IDE, custom controls, JIT)
+#   r/gamedev:     VisualGasic — A RAD language for Godot 4 with the Visual Gasic IDE, auto event binding, and 66 demos
+#   r/programming: VisualGasic — A modern VB6-inspired language for Godot with JIT compilation, async/await, and the Visual Gasic IDE
 # ==================================================
 
 --- COPY BELOW THIS LINE ---
@@ -56,7 +56,7 @@ No `connect()` calls, no signal boilerplate. Name a Sub `btnStart_Click()` and i
 Feature | **VisualGasic** | **GDScript**
 ---|---|---
 Event binding | Automatic by naming convention | Manual `connect()` or `@onready`
-Form Designer | Full WYSIWYG with 40+ controls | —
+Visual Gasic IDE | Full WYSIWYG with 40+ controls | —
 Custom Controls | Build your own .tscn controls, drag onto forms | —
 Lambdas | `Lambda(x) => x * 2` | `func(x): return x * 2`
 Null safety | `??` and `?.` operators | Type hints help, but no operators
@@ -71,9 +71,9 @@ VG also includes a **JIT compiler** that compiles hot loops to native x86-64. On
 
 &nbsp;
 
-# Form Designer
+# Visual Gasic IDE
 
-VG ships with a **full VB6-style Form Designer** inside Godot's editor:
+VG ships with a **full VB6-style Visual Gasic IDE** inside Godot's editor:
 
 - **Toolbox** with 40+ built-in controls (buttons, text boxes, list views, tab strips, timers, and more)
 - **Drag-and-drop canvas** with snap grid, alignment guides, and multi-select

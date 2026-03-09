@@ -268,7 +268,7 @@ cp demo/bin/libvisualgasic.linux.template_debug.x86_64.so examples/addons/visual
 
 ## Remaining Work
 
-### Form Designer Integration
+### Visual Gasic IDE Integration
 - Visual form builder
 - Drag-and-drop controls
 - Property inspector
@@ -300,7 +300,7 @@ cp demo/bin/libvisualgasic.linux.template_debug.x86_64.so examples/addons/visual
 - [x] Debugger framework implemented
 - [x] Bytecode compiler implemented
 - [ ] Integrate components into instance
-- [ ] Add form designer UI
+- [ ] Add Visual Gasic IDE UI
 - [ ] Add profiler
 - [ ] Add remote debugging
 
@@ -341,7 +341,7 @@ The change is transparent - `execute_statement` can delegate to the new system i
    - Profile performance improvements
    - Validate bytecode output
 
-4. **VB6 Form Designer**
+4. **VB6 Visual Gasic IDE**
    - Create visual form builder
    - Implement drag-and-drop
    - Generate event handlers automatically

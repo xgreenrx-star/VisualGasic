@@ -15,7 +15,7 @@ Both produce a living, breathing form. Approach A is easier and integrates with 
 
 **Time:** ~15 minutes per approach
 
-**Prerequisites:** Godot 4.5+, VisualGasic installed and enabled. Familiarity with the Form Designer (see the [Calculator Tutorial](calculator_form_designer.md) first).
+**Prerequisites:** Godot 4.5+, VisualGasic installed and enabled. Familiarity with the Visual Gasic IDE (see the [Calculator Tutorial](calculator_form_designer.md) first).
 
 ---
 
@@ -145,7 +145,7 @@ hover_tint = Color(0.9, 0.95, 1, 1)
 
 Now make it appear in the Toolbox.
 
-1. In the Form Designer, go to **Project → Components** (or right-click the Toolbox and choose **Components…**).
+1. In the Visual Gasic IDE, go to **Project → Components** (or right-click the Toolbox and choose **Components…**).
 2. Click the **Add** button.
 3. Fill in:
    - **Name:** `WobblyPanel`
@@ -164,7 +164,7 @@ The **WobblyPanel** tool now appears at the bottom of the Toolbox. Hover over it
 
 ### Step 5 — Use It on a Form
 
-1. Open the Form Designer and create a new form (or open an existing one).
+1. Open the Visual Gasic IDE and create a new form (or open an existing one).
 2. Click **WobblyPanel** in the Toolbox.
 3. Click on the form canvas to place it.
 4. Drag the edges to fill the entire form.
@@ -238,7 +238,7 @@ This displaces every vertex of the Panel in a sine-wave pattern, creating a smoo
 
 ### Step 2 — Design Your Form
 
-1. In the Form Designer, create a new form normally (File → New Form → Blank Form).
+1. In the Visual Gasic IDE, create a new form normally (File → New Form → Blank Form).
 2. Add controls as usual — buttons, labels, text boxes, etc.
 3. Save the form (**Ctrl+S**).
 
@@ -305,7 +305,7 @@ VisualGasic resolves tooltips in this order:
 
 ### Changing a Tooltip Later
 
-1. Open **Project → Components** in the Form Designer.
+1. Open **Project → Components** in the Visual Gasic IDE.
 2. Find your control in the list.
 3. Click **Add** (or edit the `custom_components.cfg` file directly).
 4. Update the **Description** field.

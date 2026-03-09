@@ -9,7 +9,7 @@
 
 > **VisualGasic is not a VB6 clone.** It is a modern language that draws inspiration from VB6's approachable syntax and ease of learning, while introducing advanced features that go well beyond what VB6 ever offered. VG is VB6-*compatible* where it makes sense — you can port VB6 projects and feel at home immediately — but the language itself is designed to look forwards, not backwards.
 
-> ⚠️ **Early Beta** — version number reflects internal dev history. Latest: v3.5.0-beta2 (IDE Polish Release). [See release notes](RELEASE_NOTES_v3.5.0-beta2.md).
+> ⚠️ **Early Beta** — version number reflects internal dev history. Latest: v3.5.0-beta3 (Code Editor & Stability Release). [See release notes](RELEASE_NOTES_v3.5.0-beta3.md).
 
 ## 🚀 **Key Features**
 
@@ -17,7 +17,7 @@
 - **Automatic event binding** — Name a Sub `btnSave_Click()` and it's wired automatically. No manual `connect()` calls.
 - **Timer events** — `Sub tmrSpawn_Timer()` fires automatically. No signal boilerplate.
 - **Godot signal integration** — `Sub Player_AreaEntered(area)` just works by naming convention.
-- **Form Designer events** — Double-click any control → event handler Sub is created and connected.
+- **Visual Gasic IDE events** — Double-click any control → event handler Sub is created and connected.
 - No other Godot language offers this workflow. GDScript, C++, and C# all require explicit signal wiring.
 
 ### **Core Language**
@@ -50,11 +50,11 @@
 - **Code Linting** - Static analysis with 10 issue codes (VG001-VG010)
 - **Snippet Manager** - 40+ built-in snippets with custom snippet support
 - **Theme Support** - 8 built-in themes with full IDE chrome theming + Custom Theme Editor
-- **Form Designer** - Full C++ WYSIWYG form editor with VB6-style Toolbox, Properties Panel, live Preview, 40+ controls
+- **Visual Gasic IDE** - Full C++ WYSIWYG form editor with VB6-style Toolbox, Properties Panel, live Preview, 40+ controls
 
-### **VB6-Style Form Designer**
+### **VB6-Style Visual Gasic IDE**
 
-![Form Designer IDE](docs/screenshots/form_designer_ide.png)
+![Visual Gasic IDE](docs/screenshots/form_designer_ide.png)
 
 *Complete VB6 IDE: Toolbox (40+ controls) · WYSIWYG Canvas · Properties Panel · Project Explorer · Alignment Toolbar · Live Preview*
 
@@ -330,7 +330,7 @@ VisualGasic welcomes contributions! Please see our [Contributing Guide](CONTRIBU
 - ✅ **Development Tools** - 100% (REPL, LSP, debugger, linter, snippet browser, theme picker)
 - ✅ **Bytecode Optimizer** - 100% (9-pass peephole optimizer)
 - ✅ **ECS Integration** - 100% (18 methods: entities, Dictionary components, queries, serialization)
-- ✅ **Form Designer** - 100% (C++ WYSIWYG editor, 40+ controls, VB6 properties, live preview)
+- ✅ **Visual Gasic IDE** - 100% (C++ WYSIWYG editor, 40+ controls, VB6 properties, live preview)
 - ✅ **Form Templates** - 100% (23 templates: VB6, Game, Platform, Custom)
 - ✅ **Game Demos** - 100% (14 demos: Pong, Snake, Space Shooter, Galactic Defender, Calculator, Piano, and more)
 - ✅ **Documentation** - 100% (Comprehensive guides and references)

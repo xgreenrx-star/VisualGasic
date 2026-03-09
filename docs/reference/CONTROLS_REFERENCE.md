@@ -947,7 +947,7 @@ The C++ runtime also provides these aliased properties on **all** form controls:
 
 ---
 
-## Form Designer Properties Reference
+## Visual Gasic IDE Properties Reference
 
 The **Properties** panel shows VB6-style properties organized into categories.
 Select any control on the canvas and these properties appear in the right-hand panel.
@@ -1033,7 +1033,7 @@ These properties appear for every control type.
 | `ToolTipText` | String | All | Text shown when hovering over the control |
 | `Tag` | String | All | General-purpose storage string |
 | `MousePointer` | Enum | All | Cursor shape (Default, Arrow, Crosshair, IBeam, Hand, etc.) |
-| `Index` | Readonly | All | Control index in the form designer's array |
+| `Index` | Readonly | All | Control index in the Visual Gasic IDE's array |
 
 ---
 

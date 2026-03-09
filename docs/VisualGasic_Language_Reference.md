@@ -533,11 +533,11 @@ The **Toolbox** is located in the left dock and provides quick access to all dev
 - **Visual Gasic Object Browser** - Browse all available objects and their members
 - **Visual Gasic Tab Order** - Set control tab order visually
 
-### Visual Form Designer
+### Visual Gasic IDE
 
-The **C++ Form Designer** provides a full WYSIWYG editing experience with 40+ controls, VB6-style properties (Caption, BackColor, ForeColor, BorderStyle, ControlBox, MinButton, MaxButton), and a live preview system.
+The **Visual Gasic IDE** provides a full WYSIWYG editing experience with 40+ controls, VB6-style properties (Caption, BackColor, ForeColor, BorderStyle, ControlBox, MinButton, MaxButton), and a live preview system.
 
-![Form Designer IDE](screenshots/form_designer_ide.png)
+![Visual Gasic IDE](screenshots/form_designer_ide.png)
 
 **Creating a Form:**
 1. Click **New Form** in the Toolbox

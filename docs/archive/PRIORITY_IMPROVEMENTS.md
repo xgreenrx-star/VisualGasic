@@ -122,7 +122,7 @@ The following improvements are ready to be implemented:
 ### Long-term (High Impact, High Effort):
 1. Full bytecode compiler
 2. Advanced debugging features (breakpoints, step-through)
-3. Complete VB6 form designer integration
+3. Complete VB6 Visual Gasic IDE integration
 
 ## Building
 

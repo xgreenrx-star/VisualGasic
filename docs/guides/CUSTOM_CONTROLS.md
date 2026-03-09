@@ -2,7 +2,7 @@
 
 ## Overview
 
-VisualGasic's Form Designer ships with 40+ built-in controls (Button, Label, TextBox,
+The Visual Gasic IDE ships with 40+ built-in controls (Button, Label, TextBox,
 ListBox, etc.), but you can also **create your own controls** in Godot and use them
 on your forms exactly like the built-in ones. This lets you design themed game buttons,
 animated menus, custom widgets — anything you can build as a Godot scene.
@@ -72,14 +72,14 @@ animations, scripts, and child nodes come through in the final output.
 |------|-------------|
 | **Browse** | The Components dialog records the scene path and display name in `custom_components.cfg` |
 | **Toolbox** | On plugin load, enabled custom components are added to the Toolbox via `register_custom_control_type()` |
-| **Draw on form** | The Form Designer creates a `FormControlItem` with `scene_path` pointing to your `.tscn` |
-| **Canvas display** | The form designer draws a colored rectangle with the control name (design-time placeholder) |
+| **Draw on form** | The Visual Gasic IDE creates a `FormControlItem` with `scene_path` pointing to your `.tscn` |
+| **Canvas display** | The Visual Gasic IDE draws a colored rectangle with the control name (design-time placeholder) |
 | **Save** | `_serialize_to_tscn()` emits an `ext_resource` entry for your scene and an `instance=ExtResource()` node |
 | **Run / Preview** | Godot instances your actual scene with all its children, scripts, and themes |
 
 ### Design-time vs. run-time appearance
 
-On the form designer canvas, custom controls appear as a **colored rectangle** with
+On the Visual Gasic IDE canvas, custom controls appear as a **colored rectangle** with
 the control name — the designer doesn't render the actual Godot scene. This is normal.
 When you **Preview** or **Run** the form, you'll see the real control with all its
 styling, animations, and children.
@@ -106,7 +106,7 @@ and persist across editor sessions.
 
 If a custom control's `.tscn` file is moved or deleted:
 
-- **At save time**: The form designer automatically detects the missing file and falls back
+- **At save time**: The Visual Gasic IDE automatically detects the missing file and falls back
   to the built-in prototype for that control type. A warning is printed to the console.
 - **In the Toolbox**: The control still appears, but placing it will use a generic fallback.
 
@@ -231,11 +231,11 @@ the auto-wiring system picks them up. `Sub MyButton1_Click()` works automaticall
 A: Yes. Copy the `.tscn` file (and any assets it uses) to the other project, then
 add it via Components → Browse.
 
-**Q: Why does my control look like a plain rectangle on the form designer?**  
-A: The form designer canvas draws design-time placeholders for all controls.
+**Q: Why does my control look like a plain rectangle on the Visual Gasic IDE?**  
+A: The Visual Gasic IDE canvas draws design-time placeholders for all controls.
 Use **Preview** (or F5) to see the actual rendered control.
 
 **Q: What if I delete the `.tscn` file?**  
-A: The form designer detects missing files at save time and falls back to the
+A: The Visual Gasic IDE detects missing files at save time and falls back to the
 built-in prototype for that control type. Your form won't break — it just
 reverts to a standard control.

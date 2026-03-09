@@ -1,10 +1,10 @@
 # VisualGasic IDE Keyboard Shortcuts & Features
 
-A quick-reference card for every keyboard shortcut and IDE convenience feature in the VisualGasic Form Designer, Properties panel, and Code Editor.
+A quick-reference card for every keyboard shortcut and IDE convenience feature in the Visual Gasic IDE, Properties panel, and Code Editor.
 
 ---
 
-## Form Designer Canvas
+## Visual Gasic IDE Canvas
 
 | Shortcut | Action |
 |----------|--------|
@@ -163,7 +163,7 @@ Press **Ctrl+G** to open a small popup showing the valid line range (1–*N*). T
 
 ---
 
-## Form Designer Workflow Tips
+## Visual Gasic IDE Workflow Tips
 
 1. **Resize the form first** — drag the small black squares on the form edges before placing controls.
 2. **Use the grid** — snap-to-grid keeps controls aligned without pixel-counting.

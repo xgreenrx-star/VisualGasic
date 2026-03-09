@@ -2,7 +2,7 @@
 
 *Build a complete four-function calculator with memory — from blank project to finished application*
 
-![Form Designer IDE](../screenshots/form_designer_ide.png)
+![Visual Gasic IDE](../screenshots/form_designer_ide.png)
 
 ---
 
@@ -34,7 +34,7 @@ A fully functional calculator application with:
 
 1. Go to **Project → Project Settings → Plugins**.
 2. Enable **VisualGasic**.
-3. You should now see the VisualGasic toolbar and Form Designer panel.
+3. You should now see the VisualGasic toolbar and Visual Gasic IDE panel.
 
 ---
 
@@ -526,7 +526,7 @@ End Sub
 ## Next Steps
 
 - 🎮 **Build a game** → [Game Development Tutorial](GAME_DEVELOPMENT.md)
-- 🧰 **Explore the Form Designer** → drag-and-drop UI without custom drawing
+- 🧰 **Explore the Visual Gasic IDE** → drag-and-drop UI without custom drawing
 - 📚 **Learn advanced features** → [Modern Features Guide](../guides/MODERN_FEATURES.md)
 - 🏎 **Benchmark your code** → [Performance Guide](../manual/performance.md)
 

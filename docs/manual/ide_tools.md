@@ -18,7 +18,7 @@ Enhanced variable watching with color-coded changes.
 ### Snap-to-Grid & Alignment Tools
 **Location**: `2D Canvas Editor Toolbar`
 
-Professional form designer tools for precise control placement.
+Professional Visual Gasic IDE tools for precise control placement.
 *   **Grid Snapping**: Configurable grid size (8px, 16px, 32px, etc.)
 *   **Grid Overlay**: Visual grid drawn on form canvas
 *   **Alignment**: Left, Center, Right, Top, Middle, Bottom
@@ -103,8 +103,8 @@ Quick form testing without full game launch.
 *   **Preview + Debug**: Connect to Immediate Window
 *   **Form Events**: Fires Form_Load, Form_Shown
 
-### Form Designer Canvas Enhancements
-**Location**: Form Designer canvas
+### Visual Gasic IDE Canvas Enhancements
+**Location**: Visual Gasic IDE canvas
 
 Precision tools for control layout and form editing.
 *   **Ctrl+Arrow Nudge**: Move selected controls by exactly 1 pixel
