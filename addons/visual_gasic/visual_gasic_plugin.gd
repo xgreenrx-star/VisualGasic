@@ -2365,20 +2365,51 @@ func _build_vb6_scene_theme() -> Theme:
 	t.set_stylebox("fill", "ProgressBar", pb_fill)
 
 	# ── HScrollBar / VScrollBar ──
+	# Make the grabber dark so it is clearly visible against both the light
+	# IDE panels and the code editor's cream background.  The default Win98
+	# btn_face (0.83) is almost invisible against scrollbar_bg (0.87).
 	for sb_type in ["HScrollBar", "VScrollBar"]:
 		var scroll_sb = StyleBoxFlat.new()
 		scroll_sb.bg_color = scrollbar_bg
 		scroll_sb.set_content_margin_all(0)
 		t.set_stylebox("scroll", sb_type, scroll_sb)
 
-		var grabber_sb = _make_raised.call(btn_face)
+		var grabber_sb = StyleBoxFlat.new()
+		grabber_sb.bg_color = Color(0.45, 0.44, 0.42)   # dark gray grabber
+		grabber_sb.border_color = Color(0.30, 0.30, 0.28)
+		grabber_sb.set_border_width_all(1)
+		grabber_sb.set_corner_radius_all(2)
 		grabber_sb.content_margin_left = 2
 		grabber_sb.content_margin_right = 2
 		grabber_sb.content_margin_top = 2
 		grabber_sb.content_margin_bottom = 2
-		t.set_stylebox("grabber",         sb_type, grabber_sb)
-		t.set_stylebox("grabber_highlight",sb_type, grabber_sb)
-		t.set_stylebox("grabber_pressed", sb_type, grabber_sb)
+		t.set_stylebox("grabber", sb_type, grabber_sb)
+
+		var grabber_hl_sb = StyleBoxFlat.new()
+		grabber_hl_sb.bg_color = Color(0.35, 0.34, 0.32)  # darker on hover
+		grabber_hl_sb.border_color = Color(0.20, 0.20, 0.18)
+		grabber_hl_sb.set_border_width_all(1)
+		grabber_hl_sb.set_corner_radius_all(2)
+		grabber_hl_sb.content_margin_left = 2
+		grabber_hl_sb.content_margin_right = 2
+		grabber_hl_sb.content_margin_top = 2
+		grabber_hl_sb.content_margin_bottom = 2
+		t.set_stylebox("grabber_highlight", sb_type, grabber_hl_sb)
+
+		var grabber_pr_sb = StyleBoxFlat.new()
+		grabber_pr_sb.bg_color = Color(0.25, 0.24, 0.22)  # near-black pressed
+		grabber_pr_sb.border_color = Color(0.12, 0.12, 0.10)
+		grabber_pr_sb.set_border_width_all(1)
+		grabber_pr_sb.set_corner_radius_all(2)
+		grabber_pr_sb.content_margin_left = 2
+		grabber_pr_sb.content_margin_right = 2
+		grabber_pr_sb.content_margin_top = 2
+		grabber_pr_sb.content_margin_bottom = 2
+		t.set_stylebox("grabber_pressed", sb_type, grabber_pr_sb)
+
+	# Make scrollbars wider so the grabber is easy to click
+	t.set_constant("minimum_grab_thickness", "VScrollBar", 12)
+	t.set_constant("minimum_grab_thickness", "HScrollBar", 12)
 
 	# ── HSlider / VSlider ──
 	for sl_type in ["HSlider", "VSlider"]:
