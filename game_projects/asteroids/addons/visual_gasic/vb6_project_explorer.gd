@@ -4,7 +4,7 @@ extends VBoxContainer
 ##
 ## Displays project files in a tree view matching the VB6 IDE layout:
 ## - Project name at root
-## - Forms (scenes with .vg scripts)
+## - Scenes (.vg scripts with .tscn scene files)
 ## - Modules (.vg code-only scripts)
 ## - Resources (other project assets)
 ##
@@ -14,7 +14,7 @@ extends VBoxContainer
 # CONSTANTS
 # =============================================================================
 
-const FOLDER_FORMS := "Forms"
+const FOLDER_FORMS := "Scenes"
 const FOLDER_MODULES := "Modules"
 const FOLDER_CLASSES := "Class Modules"
 const FOLDER_RESOURCES := "Resources"
@@ -310,11 +310,11 @@ func _is_form_script(path: String) -> bool:
 
 ## Populate tree with folder grouping (like VB6).
 func _populate_with_folders(root: TreeItem, forms: Array[Dictionary], modules: Array[Dictionary], resources: Array[Dictionary]):
-	# Forms folder
+	# Scenes folder
 	if forms.size() > 0:
 		var folder = tree.create_item(root)
 		folder.set_text(0, FOLDER_FORMS + " (" + str(forms.size()) + ")")
-		folder.set_tooltip_text(0, "Form files (.vg with scene)")
+		folder.set_tooltip_text(0, "Scene scripts (.vg with .tscn scene)")
 		folder.set_selectable(0, true)
 		folder.set_metadata(0, {"type": "folder", "folder": FOLDER_FORMS})
 		for entry in forms:
@@ -369,7 +369,7 @@ func _populate_flat(root: TreeItem, forms: Array[Dictionary], modules: Array[Dic
 		var item = tree.create_item(root)
 		var suffix = ""
 		match entry.get("type", ""):
-			"form": suffix = " (Form)"
+			"form": suffix = " (Scene)"
 			"module": suffix = " (Module)"
 			"scene": suffix = " (Scene)"
 			"resource": suffix = " (Resource)"
