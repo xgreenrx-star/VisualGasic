@@ -697,6 +697,11 @@ func _make_visible(p_visible: bool) -> void:
 	# Hide Godot's own docks & bottom panel to maximize VB6 IDE experience
 	if p_visible:
 		_hide_godot_panels()
+		# --- Auto-detect formless projects ---
+		# If no form is currently loaded and the embedded editor has no file,
+		# scan the project for standalone .vg modules and open the first one
+		# so the user immediately has a code editor instead of a blank canvas.
+		call_deferred("_auto_open_formless_module")
 	else:
 		_show_godot_panels()
 		# Leaving Form Designer → save embedded code editor if dirty
@@ -5155,6 +5160,20 @@ func _open_in_embedded_editor(vg_path: String, sub_name: String) -> void:
 	# Switch to code view
 	_show_code_view()
 
+## Opens a standalone .vg module file in the embedded code editor (no form needed).
+## Called from the Project Explorer when double-clicking a module or clicking View Code.
+func open_module_in_embedded_editor(vg_path: String) -> void:
+	if not is_instance_valid(_embedded_code_editor):
+		return
+	# Save current work if switching files
+	if _embedded_code_editor.is_dirty() and _embedded_code_editor.get_file_path() != vg_path:
+		_embedded_code_editor.save_file()
+	if _embedded_code_editor.get_file_path() != vg_path:
+		_embedded_code_editor.load_file(vg_path)
+		# No form → clear control names (module has no form controls)
+		_embedded_code_editor.set_control_names([])
+	_show_code_view()
+
 ## Feed the current form's control names to the embedded code editor.
 func _feed_control_names_to_editor() -> void:
 	if not is_instance_valid(_embedded_code_editor) or not _form_designer:
@@ -5232,12 +5251,26 @@ func _toggle_code_form_view() -> void:
 				var vg_path = form_path.get_basename() + ".vg"
 				_embedded_code_editor.load_file(vg_path)
 				_feed_control_names_to_editor()
+			else:
+				# Formless fallback: check Project Explorer or scan project
+				var pe_vg := _get_selected_module_from_project_explorer()
+				if not pe_vg.is_empty():
+					_embedded_code_editor.load_file(pe_vg)
+					_embedded_code_editor.set_control_names([])
+				else:
+					var first_vg := _find_first_vg_in_project()
+					if not first_vg.is_empty():
+						_embedded_code_editor.load_file(first_vg)
+						_embedded_code_editor.set_control_names([])
 		_show_code_view()
 
 ## Opens the code view for the current form (View → Code menu or F7).
+## Now also supports formless projects — if no form is loaded, the editor
+## falls back to: (a) the file already in the embedded editor, (b) the
+## module selected in the Project Explorer, or (c) the first .vg it finds.
 func _on_view_code() -> void:
 	if is_instance_valid(_embedded_code_editor):
-		# Derive .vg path from form
+		# Try to derive .vg path from form
 		var form_path = ""
 		if _form_designer:
 			form_path = _form_designer.get_form_path()
@@ -5254,7 +5287,22 @@ func _on_view_code() -> void:
 				_feed_control_names_to_editor()
 			_show_code_view()
 		else:
-			push_warning("VisualGasic: No form loaded — cannot open code view")
+			# --- Formless fallback ---
+			# (a) If the embedded editor already has a file loaded, just show it
+			if not _embedded_code_editor.get_file_path().is_empty():
+				_show_code_view()
+				return
+			# (b) Check if the Project Explorer has a module selected
+			var pe_vg := _get_selected_module_from_project_explorer()
+			if not pe_vg.is_empty():
+				open_module_in_embedded_editor(pe_vg)
+				return
+			# (c) Scan project for the first standalone .vg file
+			var first_vg := _find_first_vg_in_project()
+			if not first_vg.is_empty():
+				open_module_in_embedded_editor(first_vg)
+				return
+			push_warning("VisualGasic: No form or module found — cannot open code view")
 	else:
 		# Fallback: switch to Godot Script editor
 		EditorInterface.set_main_screen_editor("Script")
@@ -5262,6 +5310,85 @@ func _on_view_code() -> void:
 ## Opens the form view (View → Object menu or Shift+F7).
 func _on_view_object() -> void:
 	_show_form_view()
+
+# =============================================================================
+# FORMLESS PROJECT HELPERS
+# =============================================================================
+
+## Returns the .vg path of the currently selected module in the Project Explorer,
+## or "" if nothing suitable is selected.
+func _get_selected_module_from_project_explorer() -> String:
+	if not is_instance_valid(_project_explorer):
+		return ""
+	var sel = _project_explorer.tree.get_selected()
+	if not sel:
+		return ""
+	var meta = sel.get_metadata(0)
+	if meta is Dictionary:
+		var t = meta.get("type", "")
+		var p = meta.get("path", "")
+		if t in ["module", "form"] and p.ends_with(".vg"):
+			return p
+	return ""
+
+## Recursively scans res:// for the first .vg file (prefers standalone modules
+## over form scripts).  Used as a last-resort fallback.
+func _find_first_vg_in_project() -> String:
+	var modules: Array[String] = []
+	var forms: Array[String] = []
+	_collect_vg_files("res://", modules, forms)
+	if modules.size() > 0:
+		return modules[0]
+	if forms.size() > 0:
+		return forms[0]
+	return ""
+
+## Helper: collect all .vg paths under a directory tree.
+func _collect_vg_files(path: String, modules: Array[String], forms: Array[String]) -> void:
+	var dir = DirAccess.open(path)
+	if not dir:
+		return
+	dir.list_dir_begin()
+	var file_name = dir.get_next()
+	while file_name != "":
+		var full_path = path.path_join(file_name)
+		if dir.current_is_dir():
+			if not file_name.begins_with(".") and file_name != "addons" and file_name != ".godot":
+				_collect_vg_files(full_path, modules, forms)
+		elif file_name.ends_with(".vg"):
+			# A standalone module has no companion .tscn
+			var scene_path = full_path.get_basename() + ".tscn"
+			if FileAccess.file_exists(scene_path):
+				forms.append(full_path)
+			else:
+				modules.append(full_path)
+		file_name = dir.get_next()
+	dir.list_dir_end()
+
+## Called on deferred when the Form Designer opens.
+## If no form is loaded and the embedded code editor is empty, automatically
+## find and open the first .vg module so formless projects get an editor view.
+func _auto_open_formless_module() -> void:
+	if not is_instance_valid(_embedded_code_editor):
+		return
+	# Only act if the embedded editor has nothing loaded yet
+	if not _embedded_code_editor.get_file_path().is_empty():
+		return
+	# Check whether a form is already loaded (normal case)
+	var form_path := ""
+	if _form_designer:
+		form_path = _form_designer.get_form_path()
+	if form_path.is_empty():
+		var scene_root = EditorInterface.get_edited_scene_root()
+		if scene_root and not scene_root.scene_file_path.is_empty():
+			form_path = scene_root.scene_file_path
+	if not form_path.is_empty():
+		return  # A form is loaded — normal workflow, do nothing extra
+	# No form → try to find a standalone .vg file
+	var first_vg := _find_first_vg_in_project()
+	if not first_vg.is_empty():
+		print("VisualGasic: No form detected — auto-opening module: ", first_vg)
+		open_module_in_embedded_editor(first_vg)
 
 ## Opens the .vg file in the embedded code editor directly (View Code context menu on control)
 func _open_in_embedded_editor_for_control(index: int) -> void:
@@ -5623,11 +5750,13 @@ func _create_new_module(module_name: String, module_type: int):
 	timer.one_shot = true
 	timer.timeout.connect(func():
 		timer.queue_free()
-		var script = load(path)
-		if script:
-			get_editor_interface().edit_resource(script)
-			print("VisualGasic: Opened module for editing: ", path)
+		# Open in embedded VB6 code editor instead of Godot's Script editor
+		open_module_in_embedded_editor(path)
+		print("VisualGasic: Opened module for editing: ", path)
 		_add_to_recent_projects(path)
+		# Refresh Project Explorer so the new module appears
+		if is_instance_valid(_project_explorer):
+			_project_explorer.refresh()
 	)
 	get_editor_interface().get_base_control().add_child(timer)
 	timer.start()

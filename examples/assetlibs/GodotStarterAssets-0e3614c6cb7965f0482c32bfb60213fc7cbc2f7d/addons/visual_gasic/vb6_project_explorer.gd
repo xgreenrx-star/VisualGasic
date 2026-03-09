@@ -33,6 +33,7 @@ var _btn_refresh: Button
 var _show_folders: bool = true
 var _project_name: String = "Project1"
 var _context_menu: PopupMenu
+var _confirm_delete_dialog: ConfirmationDialog
 
 # =============================================================================
 # INITIALIZATION
@@ -135,10 +136,88 @@ func _init():
 	_context_menu.add_item("Add Form...", 0)
 	_context_menu.add_item("Add Module...", 1)
 	_context_menu.add_separator()
+	_context_menu.add_item("Delete", 3)
+	_context_menu.add_separator()
 	_context_menu.add_item("Refresh", 2)
 	_context_menu.id_pressed.connect(_on_context_menu_selected)
+	# Style popup for readability on the light-themed IDE
+	var ctx_panel = StyleBoxFlat.new()
+	ctx_panel.bg_color = Color(0.96, 0.95, 0.93)
+	ctx_panel.border_width_top = 1
+	ctx_panel.border_width_bottom = 1
+	ctx_panel.border_width_left = 1
+	ctx_panel.border_width_right = 1
+	ctx_panel.border_color = Color(0.55, 0.54, 0.52)
+	ctx_panel.content_margin_left = 4
+	ctx_panel.content_margin_right = 4
+	ctx_panel.content_margin_top = 4
+	ctx_panel.content_margin_bottom = 4
+	_context_menu.add_theme_stylebox_override("panel", ctx_panel)
+	_context_menu.add_theme_color_override("font_color", Color(0.1, 0.1, 0.1))
+	_context_menu.add_theme_color_override("font_hover_color", Color(1, 1, 1))
+	_context_menu.add_theme_color_override("font_disabled_color", Color(0.55, 0.55, 0.55))
+	_context_menu.add_theme_color_override("font_separator_color", Color(0.4, 0.4, 0.4))
+	var ctx_hover = StyleBoxFlat.new()
+	ctx_hover.bg_color = Color(0.0, 0.47, 0.84)
+	ctx_hover.corner_radius_top_left = 2
+	ctx_hover.corner_radius_top_right = 2
+	ctx_hover.corner_radius_bottom_left = 2
+	ctx_hover.corner_radius_bottom_right = 2
+	_context_menu.add_theme_stylebox_override("hover", ctx_hover)
 	add_child(_context_menu)
 	tree.gui_input.connect(_on_tree_gui_input)
+
+	# --- Delete confirmation dialog ---
+	_confirm_delete_dialog = ConfirmationDialog.new()
+	_confirm_delete_dialog.title = "DELETE"
+	_confirm_delete_dialog.ok_button_text = "Delete"
+	_confirm_delete_dialog.min_size = Vector2i(380, 0)
+	_confirm_delete_dialog.confirmed.connect(_on_delete_confirmed)
+	# VB6/Win95 light styling so text is readable on dark editor themes
+	var dlg_panel = StyleBoxFlat.new()
+	dlg_panel.bg_color = Color("#F0F0F0")
+	dlg_panel.border_color = Color("#808080")
+	dlg_panel.border_width_top = 2
+	dlg_panel.border_width_bottom = 2
+	dlg_panel.border_width_left = 2
+	dlg_panel.border_width_right = 2
+	dlg_panel.content_margin_left = 16
+	dlg_panel.content_margin_right = 16
+	dlg_panel.content_margin_top = 12
+	dlg_panel.content_margin_bottom = 12
+	_confirm_delete_dialog.add_theme_stylebox_override("panel", dlg_panel)
+	# Dark text on light background
+	_confirm_delete_dialog.add_theme_color_override("font_color", Color("#1A1A1A"))
+	# Style the OK (Delete) and Cancel buttons
+	for btn_name in ["ok_button", "cancel_button"]:
+		var btn: Button
+		if btn_name == "ok_button":
+			btn = _confirm_delete_dialog.get_ok_button()
+		else:
+			btn = _confirm_delete_dialog.get_cancel_button()
+		if btn:
+			var btn_normal = StyleBoxFlat.new()
+			btn_normal.bg_color = Color("#D4D0C8")
+			btn_normal.border_color = Color("#808080")
+			btn_normal.border_width_top = 1
+			btn_normal.border_width_bottom = 2
+			btn_normal.border_width_left = 1
+			btn_normal.border_width_right = 2
+			btn_normal.content_margin_left = 16
+			btn_normal.content_margin_right = 16
+			btn_normal.content_margin_top = 4
+			btn_normal.content_margin_bottom = 4
+			btn.add_theme_stylebox_override("normal", btn_normal)
+			var btn_hover = btn_normal.duplicate()
+			btn_hover.bg_color = Color("#E0DCD4")
+			btn.add_theme_stylebox_override("hover", btn_hover)
+			var btn_pressed = btn_normal.duplicate()
+			btn_pressed.bg_color = Color("#C0BCB4")
+			btn.add_theme_stylebox_override("pressed", btn_pressed)
+			btn.add_theme_color_override("font_color", Color("#1A1A1A"))
+			btn.add_theme_color_override("font_hover_color", Color("#000000"))
+			btn.add_theme_color_override("font_pressed_color", Color("#000000"))
+	add_child(_confirm_delete_dialog)
 
 ## Setup with the editor plugin reference.
 func setup(plugin: EditorPlugin):
@@ -321,10 +400,17 @@ func _on_item_activated():
 			if FileAccess.file_exists(scene_path):
 				editor_plugin.get_editor_interface().open_scene_from_path(scene_path)
 			else:
-				# No scene — open the script
-				_open_script(file_path)
+				# No scene — open in embedded code editor
+				if editor_plugin.has_method("open_module_in_embedded_editor"):
+					editor_plugin.open_module_in_embedded_editor(file_path)
+				else:
+					_open_script(file_path)
 		"module":
-			_open_script(file_path)
+			# Open standalone modules in the embedded VB6 code editor
+			if editor_plugin.has_method("open_module_in_embedded_editor"):
+				editor_plugin.open_module_in_embedded_editor(file_path)
+			else:
+				_open_script(file_path)
 		"scene":
 			editor_plugin.get_editor_interface().open_scene_from_path(file_path)
 		"resource":
@@ -335,7 +421,7 @@ func _on_item_activated():
 		_:
 			pass
 
-## View Code button — open selected item's .vg script in the script editor.
+## View Code button — open selected item's .vg script in the embedded code editor.
 func _on_view_code():
 	var item = tree.get_selected()
 	if not item:
@@ -349,12 +435,19 @@ func _on_view_code():
 		return
 
 	if file_path.ends_with(".vg"):
-		_open_script(file_path)
+		# Route through embedded editor
+		if editor_plugin.has_method("open_module_in_embedded_editor"):
+			editor_plugin.open_module_in_embedded_editor(file_path)
+		else:
+			_open_script(file_path)
 	else:
 		# For scenes, find attached .vg script
 		var vg_path = file_path.get_basename() + ".vg"
 		if FileAccess.file_exists(vg_path):
-			_open_script(vg_path)
+			if editor_plugin.has_method("open_module_in_embedded_editor"):
+				editor_plugin.open_module_in_embedded_editor(vg_path)
+			else:
+				_open_script(vg_path)
 
 ## View Object button — open selected item's scene in the 2D editor.
 func _on_view_object():
@@ -400,6 +493,19 @@ func _on_item_selected():
 ## Right-click on tree — show VB6-style context menu.
 func _on_tree_gui_input(event: InputEvent):
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_RIGHT:
+		# Enable/disable Delete based on whether a deletable item is selected
+		var can_delete := false
+		var item = tree.get_selected()
+		if item:
+			var meta = item.get_metadata(0)
+			if meta is Dictionary:
+				var item_type = meta.get("type", "")
+				can_delete = item_type in ["form", "module", "scene", "resource"]
+		# Find the Delete item index by id and set disabled state
+		for i in _context_menu.item_count:
+			if _context_menu.get_item_id(i) == 3:  # Delete
+				_context_menu.set_item_disabled(i, not can_delete)
+				break
 		_context_menu.position = Vector2i(DisplayServer.mouse_get_position())
 		_context_menu.popup()
 
@@ -414,10 +520,137 @@ func _on_context_menu_selected(id: int):
 				editor_plugin._on_new_module()
 		2:  # Refresh
 			refresh()
+		3:  # Delete
+			_prompt_delete()
+
+## Show a confirmation dialog before deleting the selected item.
+func _prompt_delete():
+	var item = tree.get_selected()
+	if not item:
+		return
+	var meta = item.get_metadata(0)
+	if not meta is Dictionary:
+		return
+	var item_type = meta.get("type", "")
+	var file_path = meta.get("path", "")
+	if file_path.is_empty() or item_type not in ["form", "module", "scene", "resource"]:
+		return
+
+	var display_name = item.get_text(0)
+	var details := ""
+	if item_type == "form":
+		var scene_path = file_path.get_basename() + ".tscn"
+		details = "This will permanently delete:\n• %s\n• %s" % [file_path, scene_path]
+	else:
+		details = "This will permanently delete:\n• %s" % file_path
+
+	_confirm_delete_dialog.dialog_text = "Delete '%s'?\n\n%s\n\nThis cannot be undone." % [display_name, details]
+	_confirm_delete_dialog.popup_centered()
+	# Style internal labels so text is readable on the light background
+	_style_dialog_labels(_confirm_delete_dialog)
+
+## Recursively set dark font color on all Label children inside a dialog.
+func _style_dialog_labels(node: Node) -> void:
+	for child in node.get_children():
+		if child is Label:
+			child.add_theme_color_override("font_color", Color("#1A1A1A"))
+		_style_dialog_labels(child)
+
+## Actually delete the files after user confirmation.
+func _on_delete_confirmed():
+	var item = tree.get_selected()
+	if not item:
+		return
+	var meta = item.get_metadata(0)
+	if not meta is Dictionary:
+		return
+	var item_type = meta.get("type", "")
+	var file_path: String = meta.get("path", "")
+	if file_path.is_empty():
+		return
+
+	# Close the scene tab in the editor if it's currently open
+	var scene_path_to_close := ""
+	if item_type == "form":
+		scene_path_to_close = file_path.get_basename() + ".tscn"
+	elif file_path.ends_with(".tscn"):
+		scene_path_to_close = file_path
+	if not scene_path_to_close.is_empty() and editor_plugin:
+		_close_scene_tab(scene_path_to_close)
+
+	# Delete the primary file
+	if FileAccess.file_exists(file_path):
+		DirAccess.remove_absolute(file_path)
+		print("VisualGasic: Deleted %s" % file_path)
+
+	# For forms, also delete the companion .tscn / .vg
+	if item_type == "form":
+		var scene_path = file_path.get_basename() + ".tscn"
+		if FileAccess.file_exists(scene_path):
+			DirAccess.remove_absolute(scene_path)
+			print("VisualGasic: Deleted %s" % scene_path)
+		# Also remove any .uid file Godot may have created
+		var uid_path = file_path + ".uid"
+		if FileAccess.file_exists(uid_path):
+			DirAccess.remove_absolute(uid_path)
+		var scene_uid = scene_path + ".uid"
+		if FileAccess.file_exists(scene_uid):
+			DirAccess.remove_absolute(scene_uid)
+
+	# Refresh the file system so Godot picks up the changes
+	if editor_plugin:
+		editor_plugin.get_editor_interface().get_resource_filesystem().scan()
+
+	# Refresh the tree
+	call_deferred("refresh")
 
 # =============================================================================
 # HELPERS
 # =============================================================================
+
+## Close an open scene tab in the editor by its file path.
+## Finds Godot's internal scene TabBar and emits tab_close_pressed.
+func _close_scene_tab(scene_path: String) -> void:
+	var open_scenes: PackedStringArray = EditorInterface.get_open_scenes()
+	var scene_idx := -1
+	for i in range(open_scenes.size()):
+		if open_scenes[i] == scene_path:
+			scene_idx = i
+			break
+	if scene_idx == -1:
+		return  # Scene is not open — nothing to close
+
+	# If this is the currently edited scene, switch to another one first
+	var edited_root = EditorInterface.get_edited_scene_root()
+	if edited_root and edited_root.scene_file_path == scene_path:
+		if open_scenes.size() > 1:
+			var other_idx := 1 if scene_idx == 0 else scene_idx - 1
+			EditorInterface.open_scene_from_path(open_scenes[other_idx])
+			# Switching may have shifted indices — re-scan
+			open_scenes = EditorInterface.get_open_scenes()
+			scene_idx = -1
+			for i in range(open_scenes.size()):
+				if open_scenes[i] == scene_path:
+					scene_idx = i
+					break
+			if scene_idx == -1:
+				return  # Already gone after the switch
+
+	# Find Godot's scene TabBar (named "scene_tabs" inside EditorNode)
+	var scene_tabs: TabBar = _find_named_node(EditorInterface.get_base_control(), &"scene_tabs") as TabBar
+	if scene_tabs and scene_idx < scene_tabs.tab_count:
+		scene_tabs.tab_close_pressed.emit(scene_idx)
+		print("VisualGasic: Closed editor tab for '%s'" % scene_path)
+
+## Recursively searches for a node by name in the editor's UI tree.
+func _find_named_node(node: Node, target: StringName) -> Node:
+	if node.name == target:
+		return node
+	for child in node.get_children():
+		var result = _find_named_node(child, target)
+		if result:
+			return result
+	return null
 
 ## Open a script in the script editor.
 func _open_script(path: String):

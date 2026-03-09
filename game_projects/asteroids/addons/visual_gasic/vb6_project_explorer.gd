@@ -400,10 +400,17 @@ func _on_item_activated():
 			if FileAccess.file_exists(scene_path):
 				editor_plugin.get_editor_interface().open_scene_from_path(scene_path)
 			else:
-				# No scene — open the script
-				_open_script(file_path)
+				# No scene — open in embedded code editor
+				if editor_plugin.has_method("open_module_in_embedded_editor"):
+					editor_plugin.open_module_in_embedded_editor(file_path)
+				else:
+					_open_script(file_path)
 		"module":
-			_open_script(file_path)
+			# Open standalone modules in the embedded VB6 code editor
+			if editor_plugin.has_method("open_module_in_embedded_editor"):
+				editor_plugin.open_module_in_embedded_editor(file_path)
+			else:
+				_open_script(file_path)
 		"scene":
 			editor_plugin.get_editor_interface().open_scene_from_path(file_path)
 		"resource":
@@ -414,7 +421,7 @@ func _on_item_activated():
 		_:
 			pass
 
-## View Code button — open selected item's .vg script in the script editor.
+## View Code button — open selected item's .vg script in the embedded code editor.
 func _on_view_code():
 	var item = tree.get_selected()
 	if not item:
@@ -428,12 +435,19 @@ func _on_view_code():
 		return
 
 	if file_path.ends_with(".vg"):
-		_open_script(file_path)
+		# Route through embedded editor
+		if editor_plugin.has_method("open_module_in_embedded_editor"):
+			editor_plugin.open_module_in_embedded_editor(file_path)
+		else:
+			_open_script(file_path)
 	else:
 		# For scenes, find attached .vg script
 		var vg_path = file_path.get_basename() + ".vg"
 		if FileAccess.file_exists(vg_path):
-			_open_script(vg_path)
+			if editor_plugin.has_method("open_module_in_embedded_editor"):
+				editor_plugin.open_module_in_embedded_editor(vg_path)
+			else:
+				_open_script(vg_path)
 
 ## View Object button — open selected item's scene in the 2D editor.
 func _on_view_object():
