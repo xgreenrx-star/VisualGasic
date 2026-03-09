@@ -446,7 +446,7 @@ func _enter_tree():
 		var godot_btn = Button.new()
 		godot_btn.name = "BackToGodotBtn"
 		godot_btn.text = "\u21a9 Godot Editor"
-		godot_btn.tooltip_text = "Exit Form Designer and return to Godot Editor"
+		godot_btn.tooltip_text = "Exit Visual Gasic IDE and return to Godot Editor"
 		godot_btn.flat = true
 		godot_btn.add_theme_color_override("font_color", Color(0.2, 0.2, 0.2))
 		godot_btn.add_theme_color_override("font_hover_color", Color(0.0, 0.0, 0.5))
@@ -672,7 +672,7 @@ func _has_main_screen() -> bool:
 	return ClassDB.class_exists(&"VisualGasicFormDesigner")
 
 func _get_plugin_name() -> String:
-	return "Form Designer"
+	return "Visual Gasic IDE"
 
 func _get_plugin_icon() -> Texture2D:
 	var theme = get_editor_interface().get_base_control().get_theme()
@@ -1812,7 +1812,7 @@ End Sub
 func _on_form_designer_pressed():
 	# Switch to our main screen tab (C++ Form Designer)
 	if _form_designer:
-		EditorInterface.set_main_screen_editor("Form Designer")
+		EditorInterface.set_main_screen_editor("Visual Gasic IDE")
 	else:
 		push_warning("VisualGasic: C++ FormDesigner not available — rebuild the editor library with 'scons target=editor platform=linux'")
 		EditorInterface.set_main_screen_editor("2D")
@@ -1834,8 +1834,8 @@ func open_form_in_designer(tscn_path: String) -> void:
 		EditorInterface.open_scene_from_path(tscn_path)
 	_form_designer.open_form(tscn_path)
 	_fixup_form_size_from_tscn(tscn_path)
-	EditorInterface.set_main_screen_editor("Form Designer")
-	print("VisualGasic: Opened '", tscn_path, "' in Form Designer")
+	EditorInterface.set_main_screen_editor("Visual Gasic IDE")
+	print("VisualGasic: Opened '", tscn_path, "' in Visual Gasic IDE")
 	# Apply VB6 theme to the live scene tree immediately
 	_apply_vb6_theme_to_scene_root()
 	# Also force a scene reload so the 2D viewport picks up any C++ changes.
@@ -5680,12 +5680,12 @@ func _create_new_form(form_name: String):
 		timer.queue_free()
 		# Open the scene in the editor
 		get_editor_interface().open_scene_from_path(scene_path)
-		# Switch to Form Designer
-		EditorInterface.set_main_screen_editor("Form Designer")
+		# Switch to Visual Gasic IDE
+		EditorInterface.set_main_screen_editor("Visual Gasic IDE")
 		# Refresh Project Explorer
 		if is_instance_valid(_project_explorer) and _project_explorer.has_method("refresh"):
 			_project_explorer.refresh()
-		print("VisualGasic: Opened form '%s' in Form Designer" % form_name)
+		print("VisualGasic: Opened form '%s' in Visual Gasic IDE" % form_name)
 	)
 	get_editor_interface().get_base_control().add_child(timer)
 	timer.start()

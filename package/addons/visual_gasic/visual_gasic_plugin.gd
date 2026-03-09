@@ -446,7 +446,7 @@ func _enter_tree():
 		var godot_btn = Button.new()
 		godot_btn.name = "BackToGodotBtn"
 		godot_btn.text = "\u21a9 Godot Editor"
-		godot_btn.tooltip_text = "Exit Form Designer and return to Godot Editor"
+		godot_btn.tooltip_text = "Exit Visual Gasic IDE and return to Godot Editor"
 		godot_btn.flat = true
 		godot_btn.add_theme_color_override("font_color", Color(0.2, 0.2, 0.2))
 		godot_btn.add_theme_color_override("font_hover_color", Color(0.0, 0.0, 0.5))
@@ -672,7 +672,7 @@ func _has_main_screen() -> bool:
 	return ClassDB.class_exists(&"VisualGasicFormDesigner")
 
 func _get_plugin_name() -> String:
-	return "Form Designer"
+	return "Visual Gasic IDE"
 
 func _get_plugin_icon() -> Texture2D:
 	var theme = get_editor_interface().get_base_control().get_theme()
@@ -1812,7 +1812,7 @@ End Sub
 func _on_form_designer_pressed():
 	# Switch to our main screen tab (C++ Form Designer)
 	if _form_designer:
-		EditorInterface.set_main_screen_editor("Form Designer")
+		EditorInterface.set_main_screen_editor("Visual Gasic IDE")
 	else:
 		push_warning("VisualGasic: C++ FormDesigner not available — rebuild the editor library with 'scons target=editor platform=linux'")
 		EditorInterface.set_main_screen_editor("2D")
@@ -1834,8 +1834,8 @@ func open_form_in_designer(tscn_path: String) -> void:
 		EditorInterface.open_scene_from_path(tscn_path)
 	_form_designer.open_form(tscn_path)
 	_fixup_form_size_from_tscn(tscn_path)
-	EditorInterface.set_main_screen_editor("Form Designer")
-	print("VisualGasic: Opened '", tscn_path, "' in Form Designer")
+	EditorInterface.set_main_screen_editor("Visual Gasic IDE")
+	print("VisualGasic: Opened '", tscn_path, "' in Visual Gasic IDE")
 	# Apply VB6 theme to the live scene tree immediately
 	_apply_vb6_theme_to_scene_root()
 	# Also force a scene reload so the 2D viewport picks up any C++ changes.
@@ -2365,20 +2365,51 @@ func _build_vb6_scene_theme() -> Theme:
 	t.set_stylebox("fill", "ProgressBar", pb_fill)
 
 	# ── HScrollBar / VScrollBar ──
+	# Make the grabber dark so it is clearly visible against both the light
+	# IDE panels and the code editor's cream background.  The default Win98
+	# btn_face (0.83) is almost invisible against scrollbar_bg (0.87).
 	for sb_type in ["HScrollBar", "VScrollBar"]:
 		var scroll_sb = StyleBoxFlat.new()
 		scroll_sb.bg_color = scrollbar_bg
 		scroll_sb.set_content_margin_all(0)
 		t.set_stylebox("scroll", sb_type, scroll_sb)
 
-		var grabber_sb = _make_raised.call(btn_face)
+		var grabber_sb = StyleBoxFlat.new()
+		grabber_sb.bg_color = Color(0.45, 0.44, 0.42)   # dark gray grabber
+		grabber_sb.border_color = Color(0.30, 0.30, 0.28)
+		grabber_sb.set_border_width_all(1)
+		grabber_sb.set_corner_radius_all(2)
 		grabber_sb.content_margin_left = 2
 		grabber_sb.content_margin_right = 2
 		grabber_sb.content_margin_top = 2
 		grabber_sb.content_margin_bottom = 2
-		t.set_stylebox("grabber",         sb_type, grabber_sb)
-		t.set_stylebox("grabber_highlight",sb_type, grabber_sb)
-		t.set_stylebox("grabber_pressed", sb_type, grabber_sb)
+		t.set_stylebox("grabber", sb_type, grabber_sb)
+
+		var grabber_hl_sb = StyleBoxFlat.new()
+		grabber_hl_sb.bg_color = Color(0.35, 0.34, 0.32)  # darker on hover
+		grabber_hl_sb.border_color = Color(0.20, 0.20, 0.18)
+		grabber_hl_sb.set_border_width_all(1)
+		grabber_hl_sb.set_corner_radius_all(2)
+		grabber_hl_sb.content_margin_left = 2
+		grabber_hl_sb.content_margin_right = 2
+		grabber_hl_sb.content_margin_top = 2
+		grabber_hl_sb.content_margin_bottom = 2
+		t.set_stylebox("grabber_highlight", sb_type, grabber_hl_sb)
+
+		var grabber_pr_sb = StyleBoxFlat.new()
+		grabber_pr_sb.bg_color = Color(0.25, 0.24, 0.22)  # near-black pressed
+		grabber_pr_sb.border_color = Color(0.12, 0.12, 0.10)
+		grabber_pr_sb.set_border_width_all(1)
+		grabber_pr_sb.set_corner_radius_all(2)
+		grabber_pr_sb.content_margin_left = 2
+		grabber_pr_sb.content_margin_right = 2
+		grabber_pr_sb.content_margin_top = 2
+		grabber_pr_sb.content_margin_bottom = 2
+		t.set_stylebox("grabber_pressed", sb_type, grabber_pr_sb)
+
+	# Make scrollbars wider so the grabber is easy to click
+	t.set_constant("minimum_grab_thickness", "VScrollBar", 12)
+	t.set_constant("minimum_grab_thickness", "HScrollBar", 12)
 
 	# ── HSlider / VSlider ──
 	for sl_type in ["HSlider", "VSlider"]:
@@ -5649,12 +5680,12 @@ func _create_new_form(form_name: String):
 		timer.queue_free()
 		# Open the scene in the editor
 		get_editor_interface().open_scene_from_path(scene_path)
-		# Switch to Form Designer
-		EditorInterface.set_main_screen_editor("Form Designer")
+		# Switch to Visual Gasic IDE
+		EditorInterface.set_main_screen_editor("Visual Gasic IDE")
 		# Refresh Project Explorer
 		if is_instance_valid(_project_explorer) and _project_explorer.has_method("refresh"):
 			_project_explorer.refresh()
-		print("VisualGasic: Opened form '%s' in Form Designer" % form_name)
+		print("VisualGasic: Opened form '%s' in Visual Gasic IDE" % form_name)
 	)
 	get_editor_interface().get_base_control().add_child(timer)
 	timer.start()

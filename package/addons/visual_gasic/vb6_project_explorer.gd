@@ -4,7 +4,8 @@ extends VBoxContainer
 ##
 ## Displays project files in a tree view matching the VB6 IDE layout:
 ## - Project name at root
-## - Forms (scenes with .vg scripts)
+## - Forms (.vg scripts with VB6 form structure)
+## - Components (.vg scripts attached to visual scenes)
 ## - Modules (.vg code-only scripts)
 ## - Resources (other project assets)
 ##
@@ -15,6 +16,7 @@ extends VBoxContainer
 # =============================================================================
 
 const FOLDER_FORMS := "Forms"
+const FOLDER_COMPONENTS := "Components"
 const FOLDER_MODULES := "Modules"
 const FOLDER_CLASSES := "Class Modules"
 const FOLDER_RESOURCES := "Resources"
@@ -67,7 +69,7 @@ func _init():
 
 	_btn_view_object = Button.new()
 	_btn_view_object.text = "Design"
-	_btn_view_object.tooltip_text = "View Object (Form Designer)"
+	_btn_view_object.tooltip_text = "View Object (Visual Gasic IDE)"
 	_btn_view_object.flat = true
 	_btn_view_object.add_theme_color_override("font_color", Color(0.15, 0.15, 0.15))
 	_btn_view_object.add_theme_color_override("font_hover_color", Color(0.0, 0.0, 0.5))
@@ -246,20 +248,21 @@ func refresh():
 
 	# Scan for .vg and .tscn files
 	var forms: Array[Dictionary] = []
+	var components: Array[Dictionary] = []
 	var modules: Array[Dictionary] = []
 	var resources: Array[Dictionary] = []
 
-	_scan_directory("res://", forms, modules, resources)
+	_scan_directory("res://", forms, components, modules, resources)
 
 	if _show_folders:
-		_populate_with_folders(root, forms, modules, resources)
+		_populate_with_folders(root, forms, components, modules, resources)
 	else:
-		_populate_flat(root, forms, modules, resources)
+		_populate_flat(root, forms, components, modules, resources)
 
 	root.set_collapsed(false)
 
 ## Recursively scan a directory for project files.
-func _scan_directory(path: String, forms: Array[Dictionary], modules: Array[Dictionary], resources: Array[Dictionary]):
+func _scan_directory(path: String, forms: Array[Dictionary], components: Array[Dictionary], modules: Array[Dictionary], resources: Array[Dictionary]):
 	var dir = DirAccess.open(path)
 	if not dir:
 		return
@@ -271,36 +274,36 @@ func _scan_directory(path: String, forms: Array[Dictionary], modules: Array[Dict
 		if dir.current_is_dir():
 			# Skip hidden dirs, addons, .godot
 			if not file_name.begins_with(".") and file_name != "addons" and file_name != ".godot":
-				_scan_directory(full_path, forms, modules, resources)
+				_scan_directory(full_path, forms, components, modules, resources)
 		else:
 			if file_name.ends_with(".vg"):
-				# Determine if it's a Form or Module
-				# Forms typically have a corresponding .tscn or contain Form-level keywords
-				var is_form = _is_form_script(full_path)
-				if is_form:
+				# Three-way classification:
+				#   Form      = has VB6 form content (Form_Load, Begin VB.Form, etc.)
+				#   Component = has a visual scene (.tscn) but no form markers
+				#   Module    = standalone code with no visual counterpart
+				var has_form = _has_form_content(full_path)
+				var has_scene = FileAccess.file_exists(full_path.get_basename() + ".tscn")
+				if has_form:
 					forms.append({"name": file_name.get_basename(), "path": full_path})
+				elif has_scene:
+					components.append({"name": file_name.get_basename(), "path": full_path})
 				else:
 					modules.append({"name": file_name.get_basename(), "path": full_path})
 			elif file_name.ends_with(".tscn") or file_name.ends_with(".scn"):
-				# Only add scenes not already represented by a .vg form
+				# Only add scenes not already represented by a .vg file
 				resources.append({"name": file_name.get_basename(), "path": full_path, "type": "scene"})
 			elif file_name.ends_with(".tres") or file_name.ends_with(".res"):
 				resources.append({"name": file_name.get_basename(), "path": full_path, "type": "resource"})
 		file_name = dir.get_next()
 	dir.list_dir_end()
 
-## Check if a .vg script is a Form (has a corresponding scene or Form keywords).
-func _is_form_script(path: String) -> bool:
-	# Check for corresponding .tscn
-	var scene_path = path.get_basename() + ".tscn"
-	if FileAccess.file_exists(scene_path):
-		return true
-	# Check script content for Form-level markers
+## Check if a .vg script has VB6 form content (content-based only, not scene existence).
+func _has_form_content(path: String) -> bool:
 	var f = FileAccess.open(path, FileAccess.READ)
 	if f:
 		var content = f.get_as_text()
 		f.close()
-		# Heuristic: forms usually have "Sub Form_Load" or control event handlers
+		# Heuristic: forms have "Sub Form_Load" or form-level event handlers
 		if content.find("Sub Form_Load") != -1 or content.find("Sub Form_") != -1:
 			return true
 		# Check for VB6 form header
@@ -309,12 +312,12 @@ func _is_form_script(path: String) -> bool:
 	return false
 
 ## Populate tree with folder grouping (like VB6).
-func _populate_with_folders(root: TreeItem, forms: Array[Dictionary], modules: Array[Dictionary], resources: Array[Dictionary]):
-	# Forms folder
+func _populate_with_folders(root: TreeItem, forms: Array[Dictionary], components: Array[Dictionary], modules: Array[Dictionary], resources: Array[Dictionary]):
+	# Forms folder — VB6-style forms with Form_Load, event handlers, etc.
 	if forms.size() > 0:
 		var folder = tree.create_item(root)
 		folder.set_text(0, FOLDER_FORMS + " (" + str(forms.size()) + ")")
-		folder.set_tooltip_text(0, "Form files (.vg with scene)")
+		folder.set_tooltip_text(0, "Form files (.vg with VB6 form structure)")
 		folder.set_selectable(0, true)
 		folder.set_metadata(0, {"type": "folder", "folder": FOLDER_FORMS})
 		for entry in forms:
@@ -322,6 +325,19 @@ func _populate_with_folders(root: TreeItem, forms: Array[Dictionary], modules: A
 			item.set_text(0, entry.name)
 			item.set_tooltip_text(0, entry.path)
 			item.set_metadata(0, {"type": "form", "path": entry.path})
+
+	# Components folder — .vg files paired with a visual scene (game entities, etc.)
+	if components.size() > 0:
+		var folder = tree.create_item(root)
+		folder.set_text(0, FOLDER_COMPONENTS + " (" + str(components.size()) + ")")
+		folder.set_tooltip_text(0, "Component files (.vg with visual scene)")
+		folder.set_selectable(0, true)
+		folder.set_metadata(0, {"type": "folder", "folder": FOLDER_COMPONENTS})
+		for entry in components:
+			var item = tree.create_item(folder)
+			item.set_text(0, entry.name)
+			item.set_tooltip_text(0, entry.path)
+			item.set_metadata(0, {"type": "component", "path": entry.path})
 
 	# Modules folder — expanded by default so standalone code files are easy to find
 	if modules.size() > 0:
@@ -352,10 +368,13 @@ func _populate_with_folders(root: TreeItem, forms: Array[Dictionary], modules: A
 			item.set_metadata(0, {"type": entry.get("type", "resource"), "path": entry.path})
 
 ## Populate tree flat (no folders) — alphabetical list.
-func _populate_flat(root: TreeItem, forms: Array[Dictionary], modules: Array[Dictionary], resources: Array[Dictionary]):
+func _populate_flat(root: TreeItem, forms: Array[Dictionary], components: Array[Dictionary], modules: Array[Dictionary], resources: Array[Dictionary]):
 	var all_items: Array[Dictionary] = []
 	for entry in forms:
 		entry["type"] = "form"
+		all_items.append(entry)
+	for entry in components:
+		entry["type"] = "component"
 		all_items.append(entry)
 	for entry in modules:
 		entry["type"] = "module"
@@ -370,6 +389,7 @@ func _populate_flat(root: TreeItem, forms: Array[Dictionary], modules: Array[Dic
 		var suffix = ""
 		match entry.get("type", ""):
 			"form": suffix = " (Form)"
+			"component": suffix = " (Component)"
 			"module": suffix = " (Module)"
 			"scene": suffix = " (Scene)"
 			"resource": suffix = " (Resource)"
@@ -396,9 +416,8 @@ func _on_item_activated():
 		return
 
 	match file_type:
-		"form":
-			# In the VB6 IDE, double-clicking a form opens its code.
-			# Open the .vg script in the embedded code editor.
+		"form", "component":
+			# Double-clicking a form or component opens its code.
 			if editor_plugin.has_method("open_module_in_embedded_editor"):
 				editor_plugin.open_module_in_embedded_editor(file_path)
 			else:
@@ -475,7 +494,7 @@ func _on_view_object():
 			editor_plugin.open_form_in_designer(scene_path)
 		else:
 			editor_plugin.get_editor_interface().open_scene_from_path(scene_path)
-			EditorInterface.set_main_screen_editor("Form Designer")
+			EditorInterface.set_main_screen_editor("Visual Gasic IDE")
 
 ## Toggle folder grouping on/off.
 func _on_toggle_folders(toggled: bool):
@@ -503,7 +522,7 @@ func _on_tree_gui_input(event: InputEvent):
 			var meta = item.get_metadata(0)
 			if meta is Dictionary:
 				var item_type = meta.get("type", "")
-				can_delete = item_type in ["form", "module", "scene", "resource"]
+				can_delete = item_type in ["form", "component", "module", "scene", "resource"]
 		# Find the Delete item index by id and set disabled state
 		for i in _context_menu.item_count:
 			if _context_menu.get_item_id(i) == 3:  # Delete
@@ -536,12 +555,12 @@ func _prompt_delete():
 		return
 	var item_type = meta.get("type", "")
 	var file_path = meta.get("path", "")
-	if file_path.is_empty() or item_type not in ["form", "module", "scene", "resource"]:
+	if file_path.is_empty() or item_type not in ["form", "component", "module", "scene", "resource"]:
 		return
 
 	var display_name = item.get_text(0)
 	var details := ""
-	if item_type == "form":
+	if item_type in ["form", "component"]:
 		var scene_path = file_path.get_basename() + ".tscn"
 		details = "This will permanently delete:\n• %s\n• %s" % [file_path, scene_path]
 	else:
@@ -574,7 +593,7 @@ func _on_delete_confirmed():
 
 	# Close the scene tab in the editor if it's currently open
 	var scene_path_to_close := ""
-	if item_type == "form":
+	if item_type in ["form", "component"]:
 		scene_path_to_close = file_path.get_basename() + ".tscn"
 	elif file_path.ends_with(".tscn"):
 		scene_path_to_close = file_path
@@ -586,8 +605,8 @@ func _on_delete_confirmed():
 		DirAccess.remove_absolute(file_path)
 		print("VisualGasic: Deleted %s" % file_path)
 
-	# For forms, also delete the companion .tscn / .vg
-	if item_type == "form":
+	# For forms and components, also delete the companion .tscn
+	if item_type in ["form", "component"]:
 		var scene_path = file_path.get_basename() + ".tscn"
 		if FileAccess.file_exists(scene_path):
 			DirAccess.remove_absolute(scene_path)

@@ -69,7 +69,7 @@ func _init():
 
 	_btn_view_object = Button.new()
 	_btn_view_object.text = "Design"
-	_btn_view_object.tooltip_text = "View Object (Form Designer)"
+	_btn_view_object.tooltip_text = "View Object (Visual Gasic IDE)"
 	_btn_view_object.flat = true
 	_btn_view_object.add_theme_color_override("font_color", Color(0.15, 0.15, 0.15))
 	_btn_view_object.add_theme_color_override("font_hover_color", Color(0.0, 0.0, 0.5))
@@ -494,7 +494,7 @@ func _on_view_object():
 			editor_plugin.open_form_in_designer(scene_path)
 		else:
 			editor_plugin.get_editor_interface().open_scene_from_path(scene_path)
-			EditorInterface.set_main_screen_editor("Form Designer")
+			EditorInterface.set_main_screen_editor("Visual Gasic IDE")
 
 ## Toggle folder grouping on/off.
 func _on_toggle_folders(toggled: bool):
