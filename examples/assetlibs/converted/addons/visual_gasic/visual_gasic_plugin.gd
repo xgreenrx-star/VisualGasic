@@ -491,17 +491,24 @@ func _enter_tree():
 		# ── the HSplitContainer always has exactly 2 children.  Godot's
 		# ── SplitContainer only manages the first 2 *visible* children;
 		# ── having 3 children causes layout glitches (grey window on view
-		# ── switch).  Only one of the two children is visible at a time. ──
-		var canvas_stack = Control.new()
+		# ── switch).  Only one of the two children is visible at a time.
+		# ── We use a MarginContainer (with zero margins) so children are
+		# ── automatically sized to fill the parent — unlike a bare Control
+		# ── which gives children zero size by default. ──
+		var canvas_stack = MarginContainer.new()
 		canvas_stack.name = "CanvasStack"
 		canvas_stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		canvas_stack.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		canvas_stack.clip_contents = true
+		canvas_stack.add_theme_constant_override("margin_left", 0)
+		canvas_stack.add_theme_constant_override("margin_right", 0)
+		canvas_stack.add_theme_constant_override("margin_top", 0)
+		canvas_stack.add_theme_constant_override("margin_bottom", 0)
 
 		# ── Scrollable MDI workspace (canvas center) ──
 		var canvas_scroll = ScrollContainer.new()
 		canvas_scroll.name = "CanvasScroll"
-		canvas_scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		canvas_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		canvas_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		canvas_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 		canvas_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 		_form_designer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -514,7 +521,8 @@ func _enter_tree():
 		if ece_script:
 			_embedded_code_editor = ece_script.new()
 			_embedded_code_editor.visible = false
-			_embedded_code_editor.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+			_embedded_code_editor.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			_embedded_code_editor.size_flags_vertical = Control.SIZE_EXPAND_FILL
 			_embedded_code_editor.view_object_requested.connect(_show_form_view)
 			canvas_stack.add_child(_embedded_code_editor)
 			print("VisualGasic: Embedded Code Editor created")
