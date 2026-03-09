@@ -128,12 +128,14 @@ func _build_ui() -> void:
 	_code_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_code_edit.size_flags_vertical = Control.SIZE_EXPAND_FILL
 
-	# VB6 cream theme
-	_apply_vb6_theme()
-
 	_code_edit.text_changed.connect(_on_code_changed)
 	_code_edit.caret_changed.connect(_on_caret_moved)
 	add_child(_code_edit)
+
+	# Apply theme AFTER add_child so VGCodeEdit._ready() has already run.
+	# _ready() creates a CodeHighlighter with dark-background colors;
+	# the theme must override those afterwards.
+	_apply_vb6_theme()
 
 	# Scrollbar children may not be ready until the node enters the tree,
 	# so apply scrollbar styling on a deferred call.
@@ -199,19 +201,19 @@ func _apply_scrollbar_theme() -> void:
 		return
 
 	var scroll_grabber := StyleBoxFlat.new()
-	scroll_grabber.bg_color = Color(0.48, 0.47, 0.44)  # solid gray — clearly visible
+	scroll_grabber.bg_color = Color(0.32, 0.31, 0.29)  # dark gray — clearly visible
 	scroll_grabber.corner_radius_top_left = 3
 	scroll_grabber.corner_radius_top_right = 3
 	scroll_grabber.corner_radius_bottom_left = 3
 	scroll_grabber.corner_radius_bottom_right = 3
 	var scroll_grabber_hl := StyleBoxFlat.new()
-	scroll_grabber_hl.bg_color = Color(0.38, 0.37, 0.35)  # darker on hover
+	scroll_grabber_hl.bg_color = Color(0.22, 0.22, 0.20)  # darker on hover
 	scroll_grabber_hl.corner_radius_top_left = 3
 	scroll_grabber_hl.corner_radius_top_right = 3
 	scroll_grabber_hl.corner_radius_bottom_left = 3
 	scroll_grabber_hl.corner_radius_bottom_right = 3
 	var scroll_grabber_pressed := StyleBoxFlat.new()
-	scroll_grabber_pressed.bg_color = Color(0.28, 0.28, 0.26)
+	scroll_grabber_pressed.bg_color = Color(0.15, 0.15, 0.14)  # near-black when pressed
 	scroll_grabber_pressed.corner_radius_top_left = 3
 	scroll_grabber_pressed.corner_radius_top_right = 3
 	scroll_grabber_pressed.corner_radius_bottom_left = 3

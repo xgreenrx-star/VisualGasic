@@ -639,19 +639,19 @@ static func apply_to_code_edit(code_edit: CodeEdit) -> void:
 	var is_light_bg: bool = theme.background_color.get_luminance() > 0.5
 	if is_light_bg:
 		var scroll_grabber := StyleBoxFlat.new()
-		scroll_grabber.bg_color = Color(0.48, 0.47, 0.44)  # solid gray — clearly visible
+		scroll_grabber.bg_color = Color(0.32, 0.31, 0.29)  # dark gray — clearly visible
 		scroll_grabber.corner_radius_top_left = 3
 		scroll_grabber.corner_radius_top_right = 3
 		scroll_grabber.corner_radius_bottom_left = 3
 		scroll_grabber.corner_radius_bottom_right = 3
 		var scroll_grabber_hl := StyleBoxFlat.new()
-		scroll_grabber_hl.bg_color = Color(0.38, 0.37, 0.35)  # darker on hover
+		scroll_grabber_hl.bg_color = Color(0.22, 0.22, 0.20)  # darker on hover
 		scroll_grabber_hl.corner_radius_top_left = 3
 		scroll_grabber_hl.corner_radius_top_right = 3
 		scroll_grabber_hl.corner_radius_bottom_left = 3
 		scroll_grabber_hl.corner_radius_bottom_right = 3
 		var scroll_grabber_pressed := StyleBoxFlat.new()
-		scroll_grabber_pressed.bg_color = Color(0.28, 0.28, 0.26)  # darkest when pressed
+		scroll_grabber_pressed.bg_color = Color(0.15, 0.15, 0.14)  # near-black when pressed
 		scroll_grabber_pressed.corner_radius_top_left = 3
 		scroll_grabber_pressed.corner_radius_top_right = 3
 		scroll_grabber_pressed.corner_radius_bottom_left = 3
