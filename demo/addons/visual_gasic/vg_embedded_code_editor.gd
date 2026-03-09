@@ -282,6 +282,10 @@ func save_file() -> void:
 		f.store_string(_code_edit.text)
 		f.close()
 		_dirty = false
+		# Notify Godot's filesystem so it doesn't treat this as an
+		# external modification and prompt "reload from disk?" on focus.
+		if Engine.is_editor_hint():
+			EditorInterface.get_resource_filesystem().update_file(_vg_path)
 		code_saved.emit(_vg_path)
 		print("VG Code Editor: Saved ", _vg_path)
 

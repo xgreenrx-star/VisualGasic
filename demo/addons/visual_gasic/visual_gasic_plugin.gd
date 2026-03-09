@@ -799,6 +799,9 @@ func _get_window_layout(config: ConfigFile):
 			# form_size is the source of truth.
 			_form_designer.save_form_as(fpath)
 			_strip_empty_menubar_from_tscn(fpath)
+			# Notify Godot so it doesn't treat this as an external change
+			# and prompt "reload from disk?" when the window regains focus.
+			EditorInterface.get_resource_filesystem().update_file(fpath)
 			print("[VG-SYNC] _get_window_layout → re-saved form to overwrite stale Godot save")
 
 ## Called by the editor before saving any external data (scenes, resources).
@@ -825,6 +828,9 @@ func _save_external_data() -> void:
 		# Notify Godot's filesystem and reload the scene
 		fp = _form_designer.get_form_path()
 		if not fp.is_empty():
+			# Always notify EditorFileSystem so the file isn't treated as
+			# "externally modified" when Godot regains window focus.
+			EditorInterface.get_resource_filesystem().update_file(fp)
 			# CRITICAL: Patch in-memory tree FIRST.  reload_scene_from_path()
 			# silently fails during Godot's save cycle (is_changing_scene),
 			# so we must ensure the tree already has the correct values.
@@ -832,6 +838,11 @@ func _save_external_data() -> void:
 			var scene_root = EditorInterface.get_edited_scene_root()
 			if scene_root and scene_root.scene_file_path == fp:
 				_force_godot_scene_reload(fp)
+	# Also update the .vg file timestamp if the embedded editor has saved
+	if is_instance_valid(_embedded_code_editor):
+		var vg_path = _embedded_code_editor.get_file_path()
+		if not vg_path.is_empty():
+			EditorInterface.get_resource_filesystem().update_file(vg_path)
 	_saving_external = false
 
 ## Called when the plugin exits the editor tree.
@@ -3302,6 +3313,9 @@ func _do_save_form() -> void:
 	_form_dirty = false
 	_track_recent_form(saved_path)
 	_update_dirty_indicator()
+	# Notify Godot's filesystem so it doesn't treat this as external change
+	if not saved_path.is_empty():
+		EditorInterface.get_resource_filesystem().update_file(saved_path)
 	# Patch Godot's in-memory scene tree so its scene saver won't overwrite
 	# our .tscn with stale values when the editor closes.
 	_sync_form_state_to_scene_tree()
@@ -3331,6 +3345,7 @@ func _do_save_form_as() -> void:
 	fd.file_selected.connect(func(path: String):
 		_form_designer.save_form_as(path)
 		print("[VisualGasic] Form saved as: ", path)
+		EditorInterface.get_resource_filesystem().update_file(path)
 		_sync_form_state_to_scene_tree()
 		_reload_scene_after_form_save(path)
 		fd.queue_free()

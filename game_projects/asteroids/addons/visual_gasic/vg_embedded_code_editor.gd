@@ -195,44 +195,52 @@ func _get_vb6_keywords() -> Array:
 	]
 
 ## Apply scrollbar styling so grabbers are visible against the light background.
-## Called deferred so the CodeEdit's internal scrollbar children are available.
+## Uses EVERY available mechanism to force dark grabber appearance:
+## 1. Per-node stylebox overrides on the actual scrollbar nodes (priority 1)
+## 2. Theme on the CodeEdit with VScrollBar/HScrollBar entries (priority 2)
+## 3. custom_minimum_size to make scrollbar wider
 func _apply_scrollbar_theme() -> void:
 	if not _code_edit:
 		return
 
 	var scroll_grabber := StyleBoxFlat.new()
-	scroll_grabber.bg_color = Color(0.18, 0.18, 0.16)  # near-black grabber
-	scroll_grabber.border_color = Color(0.12, 0.12, 0.10)
+	scroll_grabber.bg_color = Color(0.25, 0.25, 0.22)
+	scroll_grabber.border_color = Color(0.15, 0.15, 0.12)
 	scroll_grabber.set_border_width_all(1)
-	scroll_grabber.corner_radius_top_left = 3
-	scroll_grabber.corner_radius_top_right = 3
-	scroll_grabber.corner_radius_bottom_left = 3
-	scroll_grabber.corner_radius_bottom_right = 3
-	var scroll_grabber_hl := StyleBoxFlat.new()
-	scroll_grabber_hl.bg_color = Color(0.10, 0.10, 0.08)  # black on hover
-	scroll_grabber_hl.border_color = Color(0.05, 0.05, 0.04)
-	scroll_grabber_hl.set_border_width_all(1)
-	scroll_grabber_hl.corner_radius_top_left = 3
-	scroll_grabber_hl.corner_radius_top_right = 3
-	scroll_grabber_hl.corner_radius_bottom_left = 3
-	scroll_grabber_hl.corner_radius_bottom_right = 3
-	var scroll_grabber_pressed := StyleBoxFlat.new()
-	scroll_grabber_pressed.bg_color = Color(0.05, 0.05, 0.04)  # black when pressed
-	scroll_grabber_pressed.border_color = Color(0.0, 0.0, 0.0)
-	scroll_grabber_pressed.set_border_width_all(1)
-	scroll_grabber_pressed.corner_radius_top_left = 3
-	scroll_grabber_pressed.corner_radius_top_right = 3
-	scroll_grabber_pressed.corner_radius_bottom_left = 3
-	scroll_grabber_pressed.corner_radius_bottom_right = 3
-	var scroll_track := StyleBoxFlat.new()
-	scroll_track.bg_color = Color(0.86, 0.85, 0.82)
+	scroll_grabber.set_corner_radius_all(2)
+	scroll_grabber.content_margin_left = 3
+	scroll_grabber.content_margin_right = 3
+	scroll_grabber.content_margin_top = 3
+	scroll_grabber.content_margin_bottom = 3
 
-	for bar_node in _code_edit.get_children():
-		if bar_node is VScrollBar or bar_node is HScrollBar:
-			bar_node.add_theme_stylebox_override("grabber", scroll_grabber)
-			bar_node.add_theme_stylebox_override("grabber_highlight", scroll_grabber_hl)
-			bar_node.add_theme_stylebox_override("grabber_pressed", scroll_grabber_pressed)
-			bar_node.add_theme_stylebox_override("scroll", scroll_track)
+	var scroll_grabber_hl := scroll_grabber.duplicate()
+	scroll_grabber_hl.bg_color = Color(0.18, 0.18, 0.16)
+
+	var scroll_grabber_pr := scroll_grabber.duplicate()
+	scroll_grabber_pr.bg_color = Color(0.10, 0.10, 0.08)
+
+	var scroll_track := StyleBoxFlat.new()
+	scroll_track.bg_color = Color(0.88, 0.87, 0.84)
+
+	# ── Method 1: Theme on the CodeEdit ──
+	var t := Theme.new()
+	for sb_type in ["VScrollBar", "HScrollBar", "ScrollBar"]:
+		t.set_stylebox("grabber", sb_type, scroll_grabber)
+		t.set_stylebox("grabber_highlight", sb_type, scroll_grabber_hl)
+		t.set_stylebox("grabber_pressed", sb_type, scroll_grabber_pr)
+		t.set_stylebox("scroll", sb_type, scroll_track)
+	_code_edit.theme = t
+
+	# ── Method 2: Per-node overrides on the actual scrollbar nodes ──
+	var vbar = _code_edit.get_v_scroll_bar()
+	var hbar = _code_edit.get_h_scroll_bar()
+	for bar in [vbar, hbar]:
+		if bar:
+			bar.add_theme_stylebox_override("grabber", scroll_grabber)
+			bar.add_theme_stylebox_override("grabber_highlight", scroll_grabber_hl)
+			bar.add_theme_stylebox_override("grabber_pressed", scroll_grabber_pr)
+			bar.add_theme_stylebox_override("scroll", scroll_track)
+			bar.custom_minimum_size = Vector2(14, 14)
 
 # =============================================================================
 # FILE I/O
@@ -274,6 +282,10 @@ func save_file() -> void:
 		f.store_string(_code_edit.text)
 		f.close()
 		_dirty = false
+		# Notify Godot's filesystem so it doesn't treat this as an
+		# external modification and prompt "reload from disk?" on focus.
+		if Engine.is_editor_hint():
+			EditorInterface.get_resource_filesystem().update_file(_vg_path)
 		code_saved.emit(_vg_path)
 		print("VG Code Editor: Saved ", _vg_path)
 
