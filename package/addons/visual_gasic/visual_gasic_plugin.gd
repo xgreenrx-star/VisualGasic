@@ -711,34 +711,28 @@ func _make_visible(p_visible: bool) -> void:
 		# (so next time Form Designer opens it shows the form canvas)
 		if _showing_code_view:
 			_show_form_view()
-		# Leaving Form Designer → flush C++ state to disk.
+		# Leaving Form Designer → flush C++ state to disk only if dirty.
 		if is_instance_valid(_form_designer):
-			# Derive the save path: prefer scene_root.scene_file_path (the
-			# source of truth), then form_path, then fallback from form_name.
-			# We can NOT rely solely on get_form_path() — it may be empty if
-			# open_form was never called or form_path was cleared.
-			var save_path := ""
-			var scene_root = EditorInterface.get_edited_scene_root()
-			if scene_root and not scene_root.scene_file_path.is_empty():
-				save_path = scene_root.scene_file_path
-			if save_path.is_empty():
-				save_path = _form_designer.get_form_path()
-			if save_path.is_empty() and _form_designer.get_control_count() > 0:
-				save_path = "res://" + _form_designer.get_form_name() + ".tscn"
-			print("[VG-SYNC] _make_visible(false)  save_path='", save_path, "'  fp='", _form_designer.get_form_path(), "'  controls=", _form_designer.get_control_count())
-			if not save_path.is_empty():
-				_form_designer.save_form_as(save_path)
-				_strip_empty_menubar_from_tscn(save_path)
-				EditorInterface.get_resource_filesystem().update_file(save_path)
-				# Patch in-memory tree so Godot won't overwrite with stale data
-				_sync_form_state_to_scene_tree()
-				print("[VG-SYNC]   saved & update_file done for '", save_path, "'")
-				# Schedule reload for AFTER the screen transition completes.
-				# Godot's reload_scene_from_path() silently does nothing while
-				# is_changing_scene() is true (see editor_interface.cpp:707).
-				# We store the path and do the reload in _on_main_screen_changed.
-				if not _switching_to_code_editor:
-					_pending_reload_path = save_path
+			# Always patch in-memory tree so Godot's own saver writes correct data.
+			_sync_form_state_to_scene_tree()
+			# Only write to disk if the form has unsaved changes
+			if _form_dirty:
+				var save_path := ""
+				var scene_root = EditorInterface.get_edited_scene_root()
+				if scene_root and not scene_root.scene_file_path.is_empty():
+					save_path = scene_root.scene_file_path
+				if save_path.is_empty():
+					save_path = _form_designer.get_form_path()
+				if save_path.is_empty() and _form_designer.get_control_count() > 0:
+					save_path = "res://" + _form_designer.get_form_name() + ".tscn"
+				if not save_path.is_empty():
+					_form_designer.save_form_as(save_path)
+					_strip_empty_menubar_from_tscn(save_path)
+					EditorInterface.get_resource_filesystem().update_file(save_path)
+					_form_dirty = false
+					# Schedule reload for AFTER the screen transition completes.
+					if not _switching_to_code_editor:
+						_pending_reload_path = save_path
 		# Always clear the flag here (even when form_path was empty and
 		# the save block above was skipped — the previous code never
 		# reached the clear in that case, leaving the flag stuck true).
@@ -794,55 +788,52 @@ func _get_window_layout(config: ConfigFile):
 		var fpath = _form_designer.get_form_path()
 		if not fpath.is_empty():
 			config.set_value("VisualGasic", "form_path", fpath)
-			# CRITICAL: Re-save from C++ to overwrite any stale .tscn that
-			# Godot's scene saver just wrote.  The C++ FormDesigner's
-			# form_size is the source of truth.
-			_form_designer.save_form_as(fpath)
-			_strip_empty_menubar_from_tscn(fpath)
-			# Notify Godot so it doesn't treat this as an external change
-			# and prompt "reload from disk?" when the window regains focus.
-			EditorInterface.get_resource_filesystem().update_file(fpath)
-			print("[VG-SYNC] _get_window_layout → re-saved form to overwrite stale Godot save")
+			# Patch in-memory tree so Godot's own saver writes correct data.
+			_sync_form_state_to_scene_tree()
+			# Only re-save from C++ if the form has unsaved changes.
+			# Unconditional writes here caused 'reload from disk?' prompts
+			# because Godot detects the file changed on every focus cycle.
+			if _form_dirty:
+				_form_designer.save_form_as(fpath)
+				_strip_empty_menubar_from_tscn(fpath)
+				EditorInterface.get_resource_filesystem().update_file(fpath)
+				_form_dirty = false
+				print("[VG-SYNC] _get_window_layout → re-saved dirty form")
 
 ## Called by the editor before saving any external data (scenes, resources).
-## We write the C++ Form Designer state to disk, then force Godot to reload
-## the scene so its in-memory scene tree matches our .tscn.  Without the
-## reload, Godot's own scene-save (which runs right after this) would
-## overwrite our file with its stale version.
+## Godot calls this on EVERY auto-save, including when the window loses focus.
+## We ONLY write the .tscn from C++ if the form has unsaved changes.
+## Otherwise we just patch the in-memory scene tree so Godot's own saver
+## writes correct data — this avoids the "reload from disk?" prompt that
+## occurs when we unconditionally write files on every focus-loss cycle.
 func _save_external_data() -> void:
 	if _saving_external:
 		return  # reentrancy guard — reload_scene can trigger another save cycle
 	_saving_external = true
 	if is_instance_valid(_form_designer):
 		var fp = _form_designer.get_form_path()
-		# Derive a save path if the form was never saved to disk yet
-		if fp.is_empty() and _form_designer.get_control_count() > 0:
-			var scene_root = EditorInterface.get_edited_scene_root()
-			if scene_root and not scene_root.scene_file_path.is_empty():
-				fp = scene_root.scene_file_path
-			else:
-				fp = "res://" + _form_designer.get_form_name() + ".tscn"
-			_form_designer.save_form_as(fp)
-		elif not fp.is_empty():
-			_form_designer.save_form()
-		# Notify Godot's filesystem and reload the scene
-		fp = _form_designer.get_form_path()
-		if not fp.is_empty():
-			# Always notify EditorFileSystem so the file isn't treated as
-			# "externally modified" when Godot regains window focus.
-			EditorInterface.get_resource_filesystem().update_file(fp)
-			# CRITICAL: Patch in-memory tree FIRST.  reload_scene_from_path()
-			# silently fails during Godot's save cycle (is_changing_scene),
-			# so we must ensure the tree already has the correct values.
-			_sync_form_state_to_scene_tree()
-			var scene_root = EditorInterface.get_edited_scene_root()
-			if scene_root and scene_root.scene_file_path == fp:
-				_force_godot_scene_reload(fp)
-	# Also update the .vg file timestamp if the embedded editor has saved
-	if is_instance_valid(_embedded_code_editor):
-		var vg_path = _embedded_code_editor.get_file_path()
-		if not vg_path.is_empty():
-			EditorInterface.get_resource_filesystem().update_file(vg_path)
+		# Always patch Godot's in-memory scene tree so its own saver writes
+		# correct data, regardless of whether we write the file ourselves.
+		_sync_form_state_to_scene_tree()
+		# Only write to disk if the form is actually dirty
+		if _form_dirty:
+			# Derive a save path if the form was never saved to disk yet
+			if fp.is_empty() and _form_designer.get_control_count() > 0:
+				var scene_root = EditorInterface.get_edited_scene_root()
+				if scene_root and not scene_root.scene_file_path.is_empty():
+					fp = scene_root.scene_file_path
+				else:
+					fp = "res://" + _form_designer.get_form_name() + ".tscn"
+				_form_designer.save_form_as(fp)
+			elif not fp.is_empty():
+				_form_designer.save_form()
+			# Notify Godot's filesystem so it doesn't treat this as external
+			fp = _form_designer.get_form_path()
+			if not fp.is_empty():
+				EditorInterface.get_resource_filesystem().update_file(fp)
+				var scene_root = EditorInterface.get_edited_scene_root()
+				if scene_root and scene_root.scene_file_path == fp:
+					_force_godot_scene_reload(fp)
 	_saving_external = false
 
 ## Called when the plugin exits the editor tree.
