@@ -395,7 +395,6 @@ func _gui_input(event: InputEvent) -> void:
 				elif event.ctrl_pressed and event.shift_pressed:
 					set_conditional_breakpoint(get_caret_line())
 					accept_event()
-	super._gui_input(event)
 
 ## Show a small popup dialog to jump to a specific line number.
 func _show_goto_line_dialog() -> void:
