@@ -633,56 +633,48 @@ static func apply_to_code_edit(code_edit: CodeEdit) -> void:
 		hl.add_color_region('"', '"', theme.string_color)
 
 	# ── Scrollbar styling ──
-	# Godot inherits scrollbar colors from the editor theme which can make
-	# the grabber invisible on light code-editor backgrounds.
-	#
-	# IMPORTANT: CodeEdit's scrollbars are INTERNAL children.  In Godot 4.x
-	# internal children resolve theme items through their owner's Theme, so
-	# per-node add_theme_stylebox_override() on the VScrollBar does NOT work.
-	# The correct approach is to set a Theme resource on the CodeEdit itself
-	# that defines VScrollBar / HScrollBar entries.  Per-node color/stylebox
-	# overrides already on the CodeEdit (background, font_color, etc.) are
-	# priority-1 and remain unaffected.
+	# Force dark grabber on light backgrounds via BOTH:
+	# 1. Theme on CodeEdit (for internal child resolution)
+	# 2. Per-node overrides on the actual VScrollBar/HScrollBar
+	# 3. custom_minimum_size to widen the scrollbar
 	var is_light_bg: bool = theme.background_color.get_luminance() > 0.5
 	if is_light_bg:
 		var scroll_grabber := StyleBoxFlat.new()
-		scroll_grabber.bg_color = Color(0.18, 0.18, 0.16)  # near-black grabber
-		scroll_grabber.border_color = Color(0.12, 0.12, 0.10)
+		scroll_grabber.bg_color = Color(0.25, 0.25, 0.22)
+		scroll_grabber.border_color = Color(0.15, 0.15, 0.12)
 		scroll_grabber.set_border_width_all(1)
-		scroll_grabber.set_corner_radius_all(3)
-		scroll_grabber.content_margin_left = 2
-		scroll_grabber.content_margin_right = 2
-		scroll_grabber.content_margin_top = 2
-		scroll_grabber.content_margin_bottom = 2
-		var scroll_grabber_hl := StyleBoxFlat.new()
-		scroll_grabber_hl.bg_color = Color(0.10, 0.10, 0.08)  # black on hover
-		scroll_grabber_hl.border_color = Color(0.05, 0.05, 0.04)
-		scroll_grabber_hl.set_border_width_all(1)
-		scroll_grabber_hl.set_corner_radius_all(3)
-		scroll_grabber_hl.content_margin_left = 2
-		scroll_grabber_hl.content_margin_right = 2
-		scroll_grabber_hl.content_margin_top = 2
-		scroll_grabber_hl.content_margin_bottom = 2
-		var scroll_grabber_pressed := StyleBoxFlat.new()
-		scroll_grabber_pressed.bg_color = Color(0.05, 0.05, 0.04)  # black when pressed
-		scroll_grabber_pressed.border_color = Color(0.0, 0.0, 0.0)
-		scroll_grabber_pressed.set_border_width_all(1)
-		scroll_grabber_pressed.set_corner_radius_all(3)
-		scroll_grabber_pressed.content_margin_left = 2
-		scroll_grabber_pressed.content_margin_right = 2
-		scroll_grabber_pressed.content_margin_top = 2
-		scroll_grabber_pressed.content_margin_bottom = 2
+		scroll_grabber.set_corner_radius_all(2)
+		scroll_grabber.content_margin_left = 3
+		scroll_grabber.content_margin_right = 3
+		scroll_grabber.content_margin_top = 3
+		scroll_grabber.content_margin_bottom = 3
+		var scroll_grabber_hl := scroll_grabber.duplicate()
+		scroll_grabber_hl.bg_color = Color(0.18, 0.18, 0.16)
+		var scroll_grabber_pr := scroll_grabber.duplicate()
+		scroll_grabber_pr.bg_color = Color(0.10, 0.10, 0.08)
 		var scroll_track := StyleBoxFlat.new()
-		scroll_track.bg_color = Color(0.86, 0.85, 0.82)  # warm track
+		scroll_track.bg_color = Color(0.88, 0.87, 0.84)
 
-		# Set a Theme on the CodeEdit with scrollbar type entries.
+		# Method 1: Theme on CodeEdit
 		var scroll_theme := Theme.new()
-		for sb_type in ["VScrollBar", "HScrollBar"]:
+		for sb_type in ["VScrollBar", "HScrollBar", "ScrollBar"]:
 			scroll_theme.set_stylebox("grabber", sb_type, scroll_grabber)
 			scroll_theme.set_stylebox("grabber_highlight", sb_type, scroll_grabber_hl)
-			scroll_theme.set_stylebox("grabber_pressed", sb_type, scroll_grabber_pressed)
+			scroll_theme.set_stylebox("grabber_pressed", sb_type, scroll_grabber_pr)
 			scroll_theme.set_stylebox("scroll", sb_type, scroll_track)
 		code_edit.theme = scroll_theme
+
+		# Method 2: Per-node overrides on actual scrollbar nodes
+		var vbar = code_edit.get_v_scroll_bar()
+		var hbar = code_edit.get_h_scroll_bar()
+		for bar in [vbar, hbar]:
+			if bar:
+				bar.add_theme_stylebox_override("grabber", scroll_grabber)
+				bar.add_theme_stylebox_override("grabber_highlight", scroll_grabber_hl)
+				bar.add_theme_stylebox_override("grabber_pressed", scroll_grabber_pr)
+				bar.add_theme_stylebox_override("scroll", scroll_track)
+				bar.custom_minimum_size = Vector2(14, 14)
+		print("[VG-SCROLL-TM] Applied scrollbar. vbar=", vbar, " hbar=", hbar)
 
 ## Get the current theme's IDE chrome colors as a Dictionary
 ## (compatible with the plugin's _theme dictionary format)
