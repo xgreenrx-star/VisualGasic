@@ -487,23 +487,6 @@ func _enter_tree():
 		canvas_right_split.add_theme_constant_override("separation", 6)
 		canvas_right_split.add_theme_constant_override("minimum_grab_thickness", 8)
 
-		# ── Stack container — holds the form canvas AND the code editor so
-		# ── the HSplitContainer always has exactly 2 children.  Godot's
-		# ── SplitContainer only manages the first 2 *visible* children;
-		# ── having 3 children causes layout glitches (grey window on view
-		# ── switch).  Only one of the two children is visible at a time.
-		# ── We use a MarginContainer (with zero margins) so children are
-		# ── automatically sized to fill the parent — unlike a bare Control
-		# ── which gives children zero size by default. ──
-		var canvas_stack = MarginContainer.new()
-		canvas_stack.name = "CanvasStack"
-		canvas_stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		canvas_stack.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		canvas_stack.add_theme_constant_override("margin_left", 0)
-		canvas_stack.add_theme_constant_override("margin_right", 0)
-		canvas_stack.add_theme_constant_override("margin_top", 0)
-		canvas_stack.add_theme_constant_override("margin_bottom", 0)
-
 		# ── Scrollable MDI workspace (canvas center) ──
 		var canvas_scroll = ScrollContainer.new()
 		canvas_scroll.name = "CanvasScroll"
@@ -514,20 +497,18 @@ func _enter_tree():
 		_form_designer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		_form_designer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		canvas_scroll.add_child(_form_designer)
-		canvas_stack.add_child(canvas_scroll)
+		canvas_right_split.add_child(canvas_scroll)
 
 		# ── Embedded Code Editor (hidden by default, replaces canvas on View Code) ──
 		var ece_script = load("res://addons/visual_gasic/vg_embedded_code_editor.gd")
 		if ece_script:
 			_embedded_code_editor = ece_script.new()
 			_embedded_code_editor.visible = false
-			_embedded_code_editor.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			_embedded_code_editor.size_flags_vertical = Control.SIZE_EXPAND_FILL
 			_embedded_code_editor.view_object_requested.connect(_show_form_view)
-			canvas_stack.add_child(_embedded_code_editor)
+			canvas_right_split.add_child(_embedded_code_editor)
+			# Move it before CanvasScroll's sibling index so the split works
+			# Actually, just add after canvas_scroll — when visible it takes over
 			print("VisualGasic: Embedded Code Editor created")
-
-		canvas_right_split.add_child(canvas_stack)
 
 		# -- RIGHT: Project Explorer + Properties (resizable VSplitContainer) --
 		var right_vsplit = VSplitContainer.new()
@@ -5208,20 +5189,18 @@ func _feed_control_names_to_editor() -> void:
 
 ## Switch the center panel from form canvas to code editor.
 func _show_code_view() -> void:
-	# Guard: already in code view AND editor is actually visible → nothing to do
-	if _showing_code_view and is_instance_valid(_embedded_code_editor) and _embedded_code_editor.visible:
+	if _showing_code_view:
 		return
 	_showing_code_view = true
 
 	# Hide the canvas scroll, show the code editor
-	var canvas_scroll = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/CanvasStack/CanvasScroll")
+	var canvas_scroll = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/CanvasScroll")
 	if canvas_scroll:
 		canvas_scroll.visible = false
 	if is_instance_valid(_embedded_code_editor):
 		_embedded_code_editor.visible = true
 		# Deferred focus so layout settles
-		if _embedded_code_editor.get_code_edit():
-			_embedded_code_editor.get_code_edit().grab_focus.call_deferred()
+		_embedded_code_editor.get_code_edit().grab_focus.call_deferred()
 
 	# Update status bar
 	if is_instance_valid(_status_bar):
@@ -5242,7 +5221,7 @@ func _show_form_view() -> void:
 	_showing_code_view = false
 
 	# Show the canvas scroll, hide the code editor
-	var canvas_scroll = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/CanvasStack/CanvasScroll")
+	var canvas_scroll = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/CanvasScroll")
 	if canvas_scroll:
 		canvas_scroll.visible = true
 	if is_instance_valid(_embedded_code_editor):
