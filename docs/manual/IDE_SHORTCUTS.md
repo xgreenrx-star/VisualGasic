@@ -62,14 +62,31 @@ The bottom status bar shows real-time information:
 | Paste | Ctrl+V | Paste control(s) |
 | Delete | Delete | Remove selected control(s) |
 | Select All | Ctrl+A | Select all controls on form |
+| **Find…** | **Ctrl+F** | Open Find dialog in code editor |
+| **Replace…** | **Ctrl+H** | Open Find & Replace dialog in code editor |
+| **Comment Block** | **Ctrl+'** | Comment selected lines with `'` prefix |
+| **Uncomment Block** | **Ctrl+Shift+'** | Remove `'` comment prefix from selected lines |
+| **Indent** | **Ctrl+]** | Indent selected lines one tab stop |
+| **Outdent** | **Ctrl+[** | Outdent selected lines one tab stop |
+| **Bookmarks →** | | Submenu for bookmark navigation |
+| &nbsp;&nbsp;Toggle Bookmark | Ctrl+F2 | Toggle a bookmark on the current line |
+| &nbsp;&nbsp;Next Bookmark | F2 | Jump to the next bookmark |
+| &nbsp;&nbsp;Previous Bookmark | Shift+F2 | Jump to the previous bookmark |
+| &nbsp;&nbsp;Clear All Bookmarks | — | Remove all bookmarks |
 
 ### Format Menu
 
 | Menu Item | Action |
 |-----------|--------|
-| Align Left / Center / Right | Align selected controls |
-| Align Top / Middle / Bottom | Vertical alignment |
+| Align Lefts / Rights | Align selected controls horizontally |
+| Align Tops / Bottoms | Align selected controls vertically |
+| Center Horizontally / Vertically | Center selected controls relative to each other |
 | Make Same Width / Height / Both | Match dimensions |
+| **Space Equally Horizontal** | Distribute 3+ controls with even horizontal spacing |
+| **Space Equally Vertical** | Distribute 3+ controls with even vertical spacing |
+| **Size to Grid** | Snap selected control positions and sizes to the grid |
+| **Center in Form Horizontal** | Center selected controls horizontally within the form |
+| **Center in Form Vertical** | Center selected controls vertically within the form |
 | **Bring to Front** | Move selected control to top of Z-order |
 | **Send to Back** | Move selected control to bottom of Z-order |
 | **Lock Controls** | Prevent accidental moves on locked controls |
@@ -127,8 +144,18 @@ Click any color swatch to open a full **ColorPicker** dialog with alpha channel 
 | **Ctrl+Space** | IntelliSense autocomplete |
 | **Ctrl+Click** / **F12** | Go to Definition |
 | **Ctrl+R** | Rename refactoring (scope-aware) |
+| **F9** | **Toggle Breakpoint** on current line |
+| **Ctrl+Shift+F9** | **Conditional Breakpoint** — set/edit a condition expression |
 | **Type `(`** | Parameter hint for built-in functions |
 | **Type `}`** | Smart bracket completion (closes blocks) |
+
+### Automatic Features
+
+| Feature | Description |
+|---------|-------------|
+| **Procedure Separator Lines** | A horizontal rule is drawn above each `Sub` / `Function` / `Property` header — the classic VB6 blue separator line |
+| **Parameter Info Popup** | When typing inside function call parentheses, a tooltip shows the function signature with the current parameter highlighted |
+| **Pretty Listing** | On save, keywords are auto-capitalized, operators are spaced, and indentation is normalized (VB6-style auto-format) |
 
 ### Go To Line Dialog
 
