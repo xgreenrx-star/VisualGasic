@@ -227,8 +227,12 @@ func _apply_scrollbar_theme() -> void:
 	var scroll_track := StyleBoxFlat.new()
 	scroll_track.bg_color = Color(0.86, 0.85, 0.82)
 
-	for bar_node in _code_edit.get_children():
-		if bar_node is VScrollBar or bar_node is HScrollBar:
+	# Use dedicated accessors — internal scrollbar children are NOT returned
+	# by get_children() in Godot 4.x.
+	var vbar: VScrollBar = _code_edit.get_v_scroll_bar()
+	var hbar: HScrollBar = _code_edit.get_h_scroll_bar()
+	for bar_node in [vbar, hbar]:
+		if bar_node:
 			bar_node.add_theme_stylebox_override("grabber", scroll_grabber)
 			bar_node.add_theme_stylebox_override("grabber_highlight", scroll_grabber_hl)
 			bar_node.add_theme_stylebox_override("grabber_pressed", scroll_grabber_pressed)
