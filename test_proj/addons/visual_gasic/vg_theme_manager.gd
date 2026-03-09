@@ -14,13 +14,13 @@ class_name VGThemeManager
 # THEME DATA
 # =============================================================================
 
-## A complete syntax highlighting theme
+## A complete syntax highlighting + IDE chrome theme
 class VGTheme:
 	var name: String = ""
 	var description: String = ""
 	var is_builtin: bool = false
 	
-	# Editor colors
+	# Code editor colors
 	var background_color: Color = Color.WHITE
 	var text_color: Color = Color.BLACK
 	var line_number_color: Color = Color.GRAY
@@ -47,6 +47,25 @@ class VGTheme:
 	var font_name: String = "Courier New"
 	var font_size: int = 12
 	var font_bold_keywords: bool = true
+	
+	# IDE chrome colors — panels, headers, toolbox, etc.
+	var ide_panel_bg: Color = Color("#F0EDE8")          # Main panel background
+	var ide_panel_border: Color = Color(0.72, 0.71, 0.68) # Panel borders
+	var ide_header_bg: Color = Color(0.58, 0.58, 0.62)  # Section header bars
+	var ide_header_border: Color = Color(0.4, 0.4, 0.4)
+	var ide_header_text: Color = Color.WHITE
+	var ide_text_color: Color = Color.BLACK              # Labels, tree text
+	var ide_list_bg: Color = Color.WHITE                 # Tree/ItemList/LineEdit bg
+	var ide_tab_selected_bg: Color = Color("#F0EDE8")
+	var ide_tab_unselected_bg: Color = Color(0.85, 0.84, 0.82)
+	var ide_tab_hover_bg: Color = Color(0.95, 0.94, 0.92)
+	var ide_btn_hover_bg: Color = Color(0.95, 0.94, 0.92)
+	var ide_btn_pressed_bg: Color = Color(0.88, 0.87, 0.85)
+	var ide_toolbox_btn_hover: Color = Color(0.91, 0.95, 1.0)
+	var ide_toolbox_btn_pressed: Color = Color(0.26, 0.59, 0.98)
+	var ide_toolbox_text_pressed: Color = Color.WHITE
+	var ide_accent_color: Color = Color(0.0, 0.0, 0.5)  # Selection/title bar accent
+	var ide_tooltip_bg: Color = Color(1.0, 1.0, 0.94)   # Tooltip background
 	
 	func duplicate() -> VGTheme:
 		var t = VGTheme.new()
@@ -75,6 +94,24 @@ class VGTheme:
 		t.font_name = font_name
 		t.font_size = font_size
 		t.font_bold_keywords = font_bold_keywords
+		# IDE chrome
+		t.ide_panel_bg = ide_panel_bg
+		t.ide_panel_border = ide_panel_border
+		t.ide_header_bg = ide_header_bg
+		t.ide_header_border = ide_header_border
+		t.ide_header_text = ide_header_text
+		t.ide_text_color = ide_text_color
+		t.ide_list_bg = ide_list_bg
+		t.ide_tab_selected_bg = ide_tab_selected_bg
+		t.ide_tab_unselected_bg = ide_tab_unselected_bg
+		t.ide_tab_hover_bg = ide_tab_hover_bg
+		t.ide_btn_hover_bg = ide_btn_hover_bg
+		t.ide_btn_pressed_bg = ide_btn_pressed_bg
+		t.ide_toolbox_btn_hover = ide_toolbox_btn_hover
+		t.ide_toolbox_btn_pressed = ide_toolbox_btn_pressed
+		t.ide_toolbox_text_pressed = ide_toolbox_text_pressed
+		t.ide_accent_color = ide_accent_color
+		t.ide_tooltip_bg = ide_tooltip_bg
 		return t
 
 # =============================================================================
@@ -93,34 +130,195 @@ static func _ensure_initialized() -> void:
 	load_user_themes()
 
 static func _init_builtin_themes() -> void:
-	# --- VB6 Classic (Authentic) ---
+	# --- VB6 Classic (Authentic VB6 IDE code window) ---
+	# Real VB6 had a white code editor with blue keywords, green comments,
+	# and red strings — NOT the blue/yellow QuickBasic look.
 	var classic = VGTheme.new()
 	classic.name = "VB6 Classic"
-	classic.description = "Authentic Visual Basic 6 IDE colors"
+	classic.description = "Authentic Visual Basic 6 IDE — warm cream editor, blue keywords"
 	classic.is_builtin = true
-	classic.background_color = Color(0.0, 0.0, 0.5)  # Dark blue
-	classic.text_color = Color(1.0, 1.0, 0.0)  # Yellow
-	classic.line_number_color = Color(0.6, 0.6, 0.6)
-	classic.current_line_color = Color(0.1, 0.1, 0.6)
-	classic.selection_color = Color(0.3, 0.3, 0.8, 0.5)
-	classic.caret_color = Color.WHITE
-	classic.keyword_color = Color(0.0, 1.0, 1.0)  # Cyan
-	classic.type_color = Color(0.6, 1.0, 0.6)  # Light green
-	classic.string_color = Color(1.0, 0.6, 0.6)  # Light red
-	classic.number_color = Color(1.0, 0.5, 1.0)  # Pink
-	classic.comment_color = Color(0.5, 1.0, 0.5)  # Green
-	classic.operator_color = Color(1.0, 1.0, 0.0)  # Yellow
-	classic.function_color = Color(0.8, 0.8, 1.0)  # Light blue
-	classic.variable_color = Color(1.0, 1.0, 0.0)  # Yellow
-	classic.constant_color = Color(1.0, 0.7, 0.3)  # Orange
-	classic.property_color = Color(0.8, 1.0, 0.8)
-	classic.builtin_color = Color(0.0, 1.0, 1.0)  # Cyan
-	classic.error_color = Color(1.0, 0.3, 0.3)
-	classic.warning_color = Color(1.0, 0.8, 0.2)
+	classic.background_color = Color(0.96, 0.95, 0.92)  # warm cream — easy on the eyes
+	classic.text_color = Color.BLACK
+	classic.line_number_color = Color(0.5, 0.5, 0.5)
+	classic.current_line_color = Color(0.93, 0.92, 0.88)
+	classic.selection_color = Color(0.0, 0.0, 0.5, 0.35)
+	classic.caret_color = Color.BLACK
+	classic.keyword_color = Color(0.0, 0.0, 0.8)         # Blue (VB6 keyword color)
+	classic.type_color = Color(0.0, 0.0, 0.8)            # Same blue for types
+	classic.string_color = Color(0.6, 0.0, 0.0)          # Dark red (VB6 strings)
+	classic.number_color = Color.BLACK                     # Black numbers
+	classic.comment_color = Color(0.0, 0.5, 0.0)         # Green (VB6 comments)
+	classic.operator_color = Color.BLACK
+	classic.function_color = Color.BLACK
+	classic.variable_color = Color.BLACK
+	classic.constant_color = Color.BLACK
+	classic.property_color = Color.BLACK
+	classic.builtin_color = Color(0.0, 0.0, 0.8)         # Blue like keywords
+	classic.error_color = Color.RED
+	classic.warning_color = Color(0.7, 0.5, 0.0)
 	classic.font_name = "Courier New"
 	classic.font_size = 10
-	classic.font_bold_keywords = true
+	classic.font_bold_keywords = false
+	# IDE chrome — classic VB6 cream/gray panels
+	classic.ide_panel_bg = Color("#F0EDE8")
+	classic.ide_panel_border = Color(0.72, 0.71, 0.68)
+	classic.ide_header_bg = Color(0.58, 0.58, 0.62)
+	classic.ide_header_border = Color(0.4, 0.4, 0.4)
+	classic.ide_header_text = Color.WHITE
+	classic.ide_text_color = Color.BLACK
+	classic.ide_list_bg = Color.WHITE
+	classic.ide_tab_selected_bg = Color("#F0EDE8")
+	classic.ide_tab_unselected_bg = Color(0.85, 0.84, 0.82)
+	classic.ide_tab_hover_bg = Color(0.95, 0.94, 0.92)
+	classic.ide_btn_hover_bg = Color(0.95, 0.94, 0.92)
+	classic.ide_btn_pressed_bg = Color(0.88, 0.87, 0.85)
+	classic.ide_toolbox_btn_hover = Color(0.91, 0.95, 1.0)
+	classic.ide_toolbox_btn_pressed = Color(0.26, 0.59, 0.98)
+	classic.ide_toolbox_text_pressed = Color.WHITE
+	classic.ide_accent_color = Color(0.0, 0.0, 0.5)
+	classic.ide_tooltip_bg = Color(1.0, 1.0, 0.94)
 	_themes["VB6 Classic"] = classic
+	
+	# --- QuickBasic (the classic blue-screen BASIC look) ---
+	var qb = VGTheme.new()
+	qb.name = "QuickBasic"
+	qb.description = "QBasic / QuickBasic blue screen with yellow text"
+	qb.is_builtin = true
+	qb.background_color = Color(0.0, 0.0, 0.67)         # QBasic blue
+	qb.text_color = Color(1.0, 1.0, 1.0)                 # White
+	qb.line_number_color = Color(0.5, 0.5, 0.7)
+	qb.current_line_color = Color(0.0, 0.0, 0.8)
+	qb.selection_color = Color(0.3, 0.3, 0.9, 0.5)
+	qb.caret_color = Color.WHITE
+	qb.keyword_color = Color(1.0, 1.0, 1.0)              # Bright white keywords
+	qb.type_color = Color(0.5, 1.0, 1.0)                 # Cyan
+	qb.string_color = Color(1.0, 0.6, 0.6)               # Light red
+	qb.number_color = Color(0.6, 1.0, 0.6)               # Light green
+	qb.comment_color = Color(0.5, 0.5, 0.5)              # Gray (QB comments)
+	qb.operator_color = Color(1.0, 1.0, 1.0)
+	qb.function_color = Color(1.0, 1.0, 1.0)
+	qb.variable_color = Color(1.0, 1.0, 0.0)             # Yellow variables
+	qb.constant_color = Color(1.0, 0.7, 0.3)             # Orange
+	qb.property_color = Color(0.5, 1.0, 1.0)
+	qb.builtin_color = Color(1.0, 1.0, 1.0)
+	qb.error_color = Color(1.0, 0.3, 0.3)
+	qb.warning_color = Color(1.0, 0.8, 0.2)
+	qb.font_name = "Courier New"
+	qb.font_size = 10
+	qb.font_bold_keywords = true
+	# IDE chrome — blue-tinted panels to match the code editor
+	qb.ide_panel_bg = Color(0.15, 0.15, 0.35)
+	qb.ide_panel_border = Color(0.3, 0.3, 0.5)
+	qb.ide_header_bg = Color(0.0, 0.0, 0.5)
+	qb.ide_header_border = Color(0.2, 0.2, 0.4)
+	qb.ide_header_text = Color.WHITE
+	qb.ide_text_color = Color(0.9, 0.9, 0.9)
+	qb.ide_list_bg = Color(0.0, 0.0, 0.5)
+	qb.ide_tab_selected_bg = Color(0.15, 0.15, 0.35)
+	qb.ide_tab_unselected_bg = Color(0.1, 0.1, 0.25)
+	qb.ide_tab_hover_bg = Color(0.2, 0.2, 0.4)
+	qb.ide_btn_hover_bg = Color(0.2, 0.2, 0.45)
+	qb.ide_btn_pressed_bg = Color(0.1, 0.1, 0.3)
+	qb.ide_toolbox_btn_hover = Color(0.2, 0.2, 0.5)
+	qb.ide_toolbox_btn_pressed = Color(0.0, 0.0, 0.7)
+	qb.ide_toolbox_text_pressed = Color.WHITE
+	qb.ide_accent_color = Color(0.3, 0.3, 0.9)
+	qb.ide_tooltip_bg = Color(0.0, 0.0, 0.5)
+	_themes["QuickBasic"] = qb
+	
+	# --- Godot Dark (matches the Godot editor dark theme) ---
+	var godot = VGTheme.new()
+	godot.name = "Godot Dark"
+	godot.description = "Godot editor dark theme"
+	godot.is_builtin = true
+	godot.background_color = Color(0.15, 0.17, 0.21)     # Godot code bg
+	godot.text_color = Color(0.8, 0.81, 0.82)
+	godot.line_number_color = Color(0.45, 0.47, 0.5)
+	godot.current_line_color = Color(0.19, 0.21, 0.27)
+	godot.selection_color = Color(0.24, 0.38, 0.55, 0.5)
+	godot.caret_color = Color(0.8, 0.81, 0.82)
+	godot.keyword_color = Color(1.0, 0.44, 0.52)         # Godot pink keywords
+	godot.type_color = Color(0.53, 0.83, 0.93)           # Light blue types
+	godot.string_color = Color(1.0, 0.93, 0.63)          # Yellow strings
+	godot.number_color = Color(0.63, 1.0, 0.75)          # Green numbers
+	godot.comment_color = Color(0.8, 0.81, 0.82, 0.5)   # Faded gray
+	godot.operator_color = Color(0.67, 0.79, 1.0)        # Light blue
+	godot.function_color = Color(0.34, 0.70, 1.0)        # Blue functions
+	godot.variable_color = Color(0.8, 0.81, 0.82)
+	godot.constant_color = Color(0.63, 1.0, 0.75)        # Green
+	godot.property_color = Color(0.53, 0.83, 0.93)
+	godot.builtin_color = Color(1.0, 0.44, 0.52)
+	godot.error_color = Color(1.0, 0.35, 0.35)
+	godot.warning_color = Color(1.0, 0.75, 0.25)
+	godot.font_name = "Fira Code"
+	godot.font_size = 12
+	godot.font_bold_keywords = false
+	# IDE chrome — Godot dark panels
+	godot.ide_panel_bg = Color(0.2, 0.22, 0.27)
+	godot.ide_panel_border = Color(0.14, 0.16, 0.2)
+	godot.ide_header_bg = Color(0.17, 0.19, 0.23)
+	godot.ide_header_border = Color(0.12, 0.13, 0.17)
+	godot.ide_header_text = Color(0.85, 0.85, 0.88)
+	godot.ide_text_color = Color(0.8, 0.81, 0.82)
+	godot.ide_list_bg = Color(0.15, 0.17, 0.21)
+	godot.ide_tab_selected_bg = Color(0.2, 0.22, 0.27)
+	godot.ide_tab_unselected_bg = Color(0.15, 0.17, 0.21)
+	godot.ide_tab_hover_bg = Color(0.25, 0.27, 0.33)
+	godot.ide_btn_hover_bg = Color(0.28, 0.30, 0.36)
+	godot.ide_btn_pressed_bg = Color(0.22, 0.24, 0.3)
+	godot.ide_toolbox_btn_hover = Color(0.28, 0.30, 0.36)
+	godot.ide_toolbox_btn_pressed = Color(0.24, 0.38, 0.55)
+	godot.ide_toolbox_text_pressed = Color.WHITE
+	godot.ide_accent_color = Color(0.34, 0.56, 0.86)
+	godot.ide_tooltip_bg = Color(0.18, 0.20, 0.24)
+	_themes["Godot Dark"] = godot
+	
+	# --- Amiga Workbench (classic Amiga OS 1.x / 2.x) ---
+	var amiga = VGTheme.new()
+	amiga.name = "Amiga Workbench"
+	amiga.description = "Retro Amiga Workbench 1.3 colors"
+	amiga.is_builtin = true
+	amiga.background_color = Color(0.0, 0.33, 0.66)      # Amiga blue
+	amiga.text_color = Color(1.0, 1.0, 1.0)               # White
+	amiga.line_number_color = Color(0.6, 0.6, 0.8)
+	amiga.current_line_color = Color(0.0, 0.4, 0.75)
+	amiga.selection_color = Color(1.0, 0.5, 0.0, 0.4)     # Orange selection
+	amiga.caret_color = Color(1.0, 0.5, 0.0)              # Orange caret
+	amiga.keyword_color = Color(1.0, 0.5, 0.0)            # Amiga orange
+	amiga.type_color = Color(1.0, 1.0, 1.0)               # White
+	amiga.string_color = Color(0.6, 0.85, 1.0)            # Light blue
+	amiga.number_color = Color(1.0, 0.75, 0.4)            # Light orange
+	amiga.comment_color = Color(0.5, 0.7, 0.9)            # Muted blue
+	amiga.operator_color = Color(1.0, 1.0, 1.0)
+	amiga.function_color = Color(1.0, 0.75, 0.0)          # Gold
+	amiga.variable_color = Color(1.0, 1.0, 1.0)
+	amiga.constant_color = Color(1.0, 0.5, 0.0)
+	amiga.property_color = Color(0.7, 0.9, 1.0)
+	amiga.builtin_color = Color(1.0, 0.5, 0.0)
+	amiga.error_color = Color(1.0, 0.2, 0.2)
+	amiga.warning_color = Color(1.0, 0.8, 0.0)
+	amiga.font_name = "Courier New"
+	amiga.font_size = 11
+	amiga.font_bold_keywords = true
+	# IDE chrome — Amiga Workbench blue/white/orange
+	amiga.ide_panel_bg = Color(0.6, 0.6, 0.6)             # Amiga WB light gray
+	amiga.ide_panel_border = Color(0.0, 0.0, 0.0)         # Black borders
+	amiga.ide_header_bg = Color(0.0, 0.33, 0.66)          # Amiga blue title bars
+	amiga.ide_header_border = Color(0.0, 0.0, 0.0)
+	amiga.ide_header_text = Color(1.0, 0.5, 0.0)          # Orange title text
+	amiga.ide_text_color = Color.BLACK
+	amiga.ide_list_bg = Color(0.73, 0.73, 0.73)           # Light gray lists
+	amiga.ide_tab_selected_bg = Color(0.6, 0.6, 0.6)
+	amiga.ide_tab_unselected_bg = Color(0.45, 0.45, 0.45)
+	amiga.ide_tab_hover_bg = Color(0.7, 0.7, 0.7)
+	amiga.ide_btn_hover_bg = Color(0.7, 0.7, 0.7)
+	amiga.ide_btn_pressed_bg = Color(0.5, 0.5, 0.5)
+	amiga.ide_toolbox_btn_hover = Color(0.7, 0.7, 0.7)
+	amiga.ide_toolbox_btn_pressed = Color(1.0, 0.5, 0.0)  # Orange pressed
+	amiga.ide_toolbox_text_pressed = Color.BLACK
+	amiga.ide_accent_color = Color(1.0, 0.5, 0.0)         # Orange accent
+	amiga.ide_tooltip_bg = Color(1.0, 0.9, 0.7)           # Warm tooltip
+	_themes["Amiga Workbench"] = amiga
 	
 	# --- Modern Dark ---
 	var dark = VGTheme.new()
@@ -149,6 +347,24 @@ static func _init_builtin_themes() -> void:
 	dark.font_name = "Fira Code"
 	dark.font_size = 12
 	dark.font_bold_keywords = false
+	# IDE chrome — VS Code dark style
+	dark.ide_panel_bg = Color(0.15, 0.15, 0.15)
+	dark.ide_panel_border = Color(0.22, 0.22, 0.22)
+	dark.ide_header_bg = Color(0.18, 0.18, 0.18)
+	dark.ide_header_border = Color(0.12, 0.12, 0.12)
+	dark.ide_header_text = Color(0.88, 0.88, 0.88)
+	dark.ide_text_color = Color(0.85, 0.85, 0.85)
+	dark.ide_list_bg = Color(0.12, 0.12, 0.12)
+	dark.ide_tab_selected_bg = Color(0.15, 0.15, 0.15)
+	dark.ide_tab_unselected_bg = Color(0.1, 0.1, 0.1)
+	dark.ide_tab_hover_bg = Color(0.2, 0.2, 0.2)
+	dark.ide_btn_hover_bg = Color(0.22, 0.22, 0.22)
+	dark.ide_btn_pressed_bg = Color(0.18, 0.18, 0.18)
+	dark.ide_toolbox_btn_hover = Color(0.22, 0.22, 0.22)
+	dark.ide_toolbox_btn_pressed = Color(0.26, 0.4, 0.6)
+	dark.ide_toolbox_text_pressed = Color.WHITE
+	dark.ide_accent_color = Color(0.26, 0.59, 0.98)
+	dark.ide_tooltip_bg = Color(0.2, 0.2, 0.2)
 	_themes["Modern Dark"] = dark
 	
 	# --- Modern Light ---
@@ -178,6 +394,24 @@ static func _init_builtin_themes() -> void:
 	light.font_name = "Consolas"
 	light.font_size = 12
 	light.font_bold_keywords = true
+	# IDE chrome — clean white panels
+	light.ide_panel_bg = Color(0.96, 0.96, 0.96)
+	light.ide_panel_border = Color(0.82, 0.82, 0.82)
+	light.ide_header_bg = Color(0.88, 0.88, 0.88)
+	light.ide_header_border = Color(0.78, 0.78, 0.78)
+	light.ide_header_text = Color(0.2, 0.2, 0.2)
+	light.ide_text_color = Color(0.15, 0.15, 0.15)
+	light.ide_list_bg = Color.WHITE
+	light.ide_tab_selected_bg = Color(0.96, 0.96, 0.96)
+	light.ide_tab_unselected_bg = Color(0.9, 0.9, 0.9)
+	light.ide_tab_hover_bg = Color(0.98, 0.98, 0.98)
+	light.ide_btn_hover_bg = Color(0.92, 0.92, 0.92)
+	light.ide_btn_pressed_bg = Color(0.86, 0.86, 0.86)
+	light.ide_toolbox_btn_hover = Color(0.88, 0.92, 1.0)
+	light.ide_toolbox_btn_pressed = Color(0.26, 0.59, 0.98)
+	light.ide_toolbox_text_pressed = Color.WHITE
+	light.ide_accent_color = Color(0.0, 0.47, 0.84)
+	light.ide_tooltip_bg = Color(1.0, 1.0, 0.94)
 	_themes["Modern Light"] = light
 	
 	# --- High Contrast ---
@@ -207,6 +441,24 @@ static func _init_builtin_themes() -> void:
 	hc.font_name = "Courier New"
 	hc.font_size = 14
 	hc.font_bold_keywords = true
+	# IDE chrome — high contrast black/white
+	hc.ide_panel_bg = Color(0.05, 0.05, 0.05)
+	hc.ide_panel_border = Color.WHITE
+	hc.ide_header_bg = Color(0.0, 0.0, 0.3)
+	hc.ide_header_border = Color.WHITE
+	hc.ide_header_text = Color.YELLOW
+	hc.ide_text_color = Color.WHITE
+	hc.ide_list_bg = Color.BLACK
+	hc.ide_tab_selected_bg = Color(0.05, 0.05, 0.05)
+	hc.ide_tab_unselected_bg = Color(0.15, 0.15, 0.15)
+	hc.ide_tab_hover_bg = Color(0.2, 0.2, 0.2)
+	hc.ide_btn_hover_bg = Color(0.2, 0.2, 0.2)
+	hc.ide_btn_pressed_bg = Color(0.3, 0.3, 0.3)
+	hc.ide_toolbox_btn_hover = Color(0.2, 0.2, 0.2)
+	hc.ide_toolbox_btn_pressed = Color(0.0, 0.0, 0.6)
+	hc.ide_toolbox_text_pressed = Color.YELLOW
+	hc.ide_accent_color = Color.YELLOW
+	hc.ide_tooltip_bg = Color(0.1, 0.1, 0.1)
 	_themes["High Contrast"] = hc
 	
 	# --- Solarized Dark ---
@@ -236,6 +488,24 @@ static func _init_builtin_themes() -> void:
 	solar_dark.font_name = "Source Code Pro"
 	solar_dark.font_size = 12
 	solar_dark.font_bold_keywords = false
+	# IDE chrome — solarized dark panels
+	solar_dark.ide_panel_bg = Color(0.03, 0.21, 0.26)
+	solar_dark.ide_panel_border = Color(0.07, 0.25, 0.32)
+	solar_dark.ide_header_bg = Color(0.0, 0.17, 0.21)
+	solar_dark.ide_header_border = Color(0.07, 0.25, 0.32)
+	solar_dark.ide_header_text = Color(0.51, 0.58, 0.59)
+	solar_dark.ide_text_color = Color(0.51, 0.58, 0.59)
+	solar_dark.ide_list_bg = Color(0.0, 0.17, 0.21)
+	solar_dark.ide_tab_selected_bg = Color(0.03, 0.21, 0.26)
+	solar_dark.ide_tab_unselected_bg = Color(0.0, 0.15, 0.18)
+	solar_dark.ide_tab_hover_bg = Color(0.05, 0.25, 0.3)
+	solar_dark.ide_btn_hover_bg = Color(0.05, 0.25, 0.3)
+	solar_dark.ide_btn_pressed_bg = Color(0.0, 0.17, 0.21)
+	solar_dark.ide_toolbox_btn_hover = Color(0.05, 0.25, 0.3)
+	solar_dark.ide_toolbox_btn_pressed = Color(0.15, 0.55, 0.82)
+	solar_dark.ide_toolbox_text_pressed = Color.WHITE
+	solar_dark.ide_accent_color = Color(0.15, 0.55, 0.82)
+	solar_dark.ide_tooltip_bg = Color(0.03, 0.21, 0.26)
 	_themes["Solarized Dark"] = solar_dark
 
 # =============================================================================
@@ -342,6 +612,65 @@ static func apply_to_code_edit(code_edit: CodeEdit) -> void:
 	code_edit.add_theme_color_override("selection_color", theme.selection_color)
 	code_edit.add_theme_color_override("caret_color", theme.caret_color)
 
+	# ── Scrollbar styling ──
+	# Godot inherits scrollbar colors from the editor theme which can make
+	# the grabber invisible on light code-editor backgrounds.  Explicitly
+	# style the vertical and horizontal scrollbars so they are always visible.
+	var is_light_bg: bool = theme.background_color.get_luminance() > 0.5
+	if is_light_bg:
+		var scroll_grabber := StyleBoxFlat.new()
+		scroll_grabber.bg_color = Color(0.68, 0.67, 0.64)  # warm gray
+		scroll_grabber.corner_radius_top_left = 3
+		scroll_grabber.corner_radius_top_right = 3
+		scroll_grabber.corner_radius_bottom_left = 3
+		scroll_grabber.corner_radius_bottom_right = 3
+		var scroll_grabber_hl := StyleBoxFlat.new()
+		scroll_grabber_hl.bg_color = Color(0.55, 0.54, 0.52)  # darker on hover
+		scroll_grabber_hl.corner_radius_top_left = 3
+		scroll_grabber_hl.corner_radius_top_right = 3
+		scroll_grabber_hl.corner_radius_bottom_left = 3
+		scroll_grabber_hl.corner_radius_bottom_right = 3
+		var scroll_grabber_pressed := StyleBoxFlat.new()
+		scroll_grabber_pressed.bg_color = Color(0.45, 0.44, 0.42)  # darkest when pressed
+		scroll_grabber_pressed.corner_radius_top_left = 3
+		scroll_grabber_pressed.corner_radius_top_right = 3
+		scroll_grabber_pressed.corner_radius_bottom_left = 3
+		scroll_grabber_pressed.corner_radius_bottom_right = 3
+		var scroll_track := StyleBoxFlat.new()
+		scroll_track.bg_color = Color(0.90, 0.89, 0.86)  # light warm track
+		for bar_node in code_edit.get_children():
+			if bar_node is VScrollBar or bar_node is HScrollBar:
+				bar_node.add_theme_stylebox_override("grabber", scroll_grabber)
+				bar_node.add_theme_stylebox_override("grabber_highlight", scroll_grabber_hl)
+				bar_node.add_theme_stylebox_override("grabber_pressed", scroll_grabber_pressed)
+				bar_node.add_theme_stylebox_override("scroll", scroll_track)
+
+## Get the current theme's IDE chrome colors as a Dictionary
+## (compatible with the plugin's _theme dictionary format)
+static func get_ide_colors() -> Dictionary:
+	var t = get_current_theme()
+	return {
+		"panel_background": t.ide_panel_bg,
+		"panel_border": t.ide_panel_border,
+		"header_background": t.ide_header_bg,
+		"header_border": t.ide_header_border,
+		"header_text": t.ide_header_text,
+		"ide_text_color": t.ide_text_color,
+		"ide_list_bg": t.ide_list_bg,
+		"ide_tab_selected_bg": t.ide_tab_selected_bg,
+		"ide_tab_unselected_bg": t.ide_tab_unselected_bg,
+		"ide_tab_hover_bg": t.ide_tab_hover_bg,
+		"ide_btn_hover_bg": t.ide_btn_hover_bg,
+		"ide_btn_pressed_bg": t.ide_btn_pressed_bg,
+		"toolbox_btn_normal": t.ide_panel_bg,
+		"toolbox_btn_hover": t.ide_toolbox_btn_hover,
+		"toolbox_btn_pressed": t.ide_toolbox_btn_pressed,
+		"toolbox_text": t.ide_text_color,
+		"toolbox_text_pressed": t.ide_toolbox_text_pressed,
+		"ide_accent_color": t.ide_accent_color,
+		"ide_tooltip_bg": t.ide_tooltip_bg,
+	}
+
 ## Generate CSS-like style string for export
 static func export_theme_css(theme: VGTheme) -> String:
 	return """/* VisualGasic Theme: %s */
@@ -427,6 +756,15 @@ static func save_user_themes() -> void:
 		config.set_value(section, "font_name", theme.font_name)
 		config.set_value(section, "font_size", theme.font_size)
 		config.set_value(section, "font_bold_keywords", theme.font_bold_keywords)
+		# IDE chrome colors
+		config.set_value(section, "ide_panel_bg", theme.ide_panel_bg.to_html())
+		config.set_value(section, "ide_panel_border", theme.ide_panel_border.to_html())
+		config.set_value(section, "ide_header_bg", theme.ide_header_bg.to_html())
+		config.set_value(section, "ide_header_border", theme.ide_header_border.to_html())
+		config.set_value(section, "ide_header_text", theme.ide_header_text.to_html())
+		config.set_value(section, "ide_text_color", theme.ide_text_color.to_html())
+		config.set_value(section, "ide_list_bg", theme.ide_list_bg.to_html())
+		config.set_value(section, "ide_accent_color", theme.ide_accent_color.to_html())
 	
 	config.save(USER_THEMES_PATH)
 
@@ -465,5 +803,14 @@ static func load_user_themes() -> void:
 		theme.font_name = config.get_value(section, "font_name", "Courier New")
 		theme.font_size = config.get_value(section, "font_size", 12)
 		theme.font_bold_keywords = config.get_value(section, "font_bold_keywords", true)
+		# IDE chrome colors
+		theme.ide_panel_bg = Color.from_string(config.get_value(section, "ide_panel_bg", "#F0EDE8"), Color("#F0EDE8"))
+		theme.ide_panel_border = Color.from_string(config.get_value(section, "ide_panel_border", "#B8B5AD"), Color(0.72, 0.71, 0.68))
+		theme.ide_header_bg = Color.from_string(config.get_value(section, "ide_header_bg", "#94949E"), Color(0.58, 0.58, 0.62))
+		theme.ide_header_border = Color.from_string(config.get_value(section, "ide_header_border", "#666666"), Color(0.4, 0.4, 0.4))
+		theme.ide_header_text = Color.from_string(config.get_value(section, "ide_header_text", "#FFFFFF"), Color.WHITE)
+		theme.ide_text_color = Color.from_string(config.get_value(section, "ide_text_color", "#000000"), Color.BLACK)
+		theme.ide_list_bg = Color.from_string(config.get_value(section, "ide_list_bg", "#FFFFFF"), Color.WHITE)
+		theme.ide_accent_color = Color.from_string(config.get_value(section, "ide_accent_color", "#000080"), Color(0.0, 0.0, 0.5))
 		
 		_themes[section] = theme

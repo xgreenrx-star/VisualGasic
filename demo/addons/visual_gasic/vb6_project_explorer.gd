@@ -397,16 +397,12 @@ func _on_item_activated():
 
 	match file_type:
 		"form":
-			# Open the corresponding scene in 2D editor
-			var scene_path = file_path.get_basename() + ".tscn"
-			if FileAccess.file_exists(scene_path):
-				editor_plugin.get_editor_interface().open_scene_from_path(scene_path)
+			# In the VB6 IDE, double-clicking a form opens its code.
+			# Open the .vg script in the embedded code editor.
+			if editor_plugin.has_method("open_module_in_embedded_editor"):
+				editor_plugin.open_module_in_embedded_editor(file_path)
 			else:
-				# No scene — open in embedded code editor
-				if editor_plugin.has_method("open_module_in_embedded_editor"):
-					editor_plugin.open_module_in_embedded_editor(file_path)
-				else:
-					_open_script(file_path)
+				_open_script(file_path)
 		"module":
 			# Open standalone modules in the embedded VB6 code editor
 			if editor_plugin.has_method("open_module_in_embedded_editor"):

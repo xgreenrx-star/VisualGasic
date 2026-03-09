@@ -48,7 +48,7 @@ var _procedures: Array = []
 var _control_names: Array[String] = []
 
 # VB6 cream theme colors
-const BG_COLOR := Color(0.98, 0.97, 0.93)         # cream background
+const BG_COLOR := Color(0.96, 0.95, 0.92)         # warm cream — easy on the eyes
 const TEXT_COLOR := Color(0.1, 0.1, 0.1)           # near-black text
 const KEYWORD_COLOR := Color(0.0, 0.0, 0.6)        # dark blue keywords
 const COMMENT_COLOR := Color(0.0, 0.5, 0.0)        # green comments
@@ -135,6 +135,10 @@ func _build_ui() -> void:
 	_code_edit.caret_changed.connect(_on_caret_moved)
 	add_child(_code_edit)
 
+	# Scrollbar children may not be ready until the node enters the tree,
+	# so apply scrollbar styling on a deferred call.
+	call_deferred("_apply_scrollbar_theme")
+
 func _apply_vb6_theme() -> void:
 	if not _code_edit:
 		return
@@ -187,6 +191,40 @@ func _get_vb6_keywords() -> Array:
 		"Write", "Read", "Integer", "Long", "Single", "Double",
 		"String", "Boolean", "Byte", "Date", "Variant", "Object",
 	]
+
+## Apply scrollbar styling so grabbers are visible against the light background.
+## Called deferred so the CodeEdit's internal scrollbar children are available.
+func _apply_scrollbar_theme() -> void:
+	if not _code_edit:
+		return
+
+	var scroll_grabber := StyleBoxFlat.new()
+	scroll_grabber.bg_color = Color(0.68, 0.67, 0.64)  # warm gray
+	scroll_grabber.corner_radius_top_left = 3
+	scroll_grabber.corner_radius_top_right = 3
+	scroll_grabber.corner_radius_bottom_left = 3
+	scroll_grabber.corner_radius_bottom_right = 3
+	var scroll_grabber_hl := StyleBoxFlat.new()
+	scroll_grabber_hl.bg_color = Color(0.55, 0.54, 0.52)  # darker on hover
+	scroll_grabber_hl.corner_radius_top_left = 3
+	scroll_grabber_hl.corner_radius_top_right = 3
+	scroll_grabber_hl.corner_radius_bottom_left = 3
+	scroll_grabber_hl.corner_radius_bottom_right = 3
+	var scroll_grabber_pressed := StyleBoxFlat.new()
+	scroll_grabber_pressed.bg_color = Color(0.45, 0.44, 0.42)
+	scroll_grabber_pressed.corner_radius_top_left = 3
+	scroll_grabber_pressed.corner_radius_top_right = 3
+	scroll_grabber_pressed.corner_radius_bottom_left = 3
+	scroll_grabber_pressed.corner_radius_bottom_right = 3
+	var scroll_track := StyleBoxFlat.new()
+	scroll_track.bg_color = Color(0.90, 0.89, 0.86)
+
+	for bar_node in _code_edit.get_children():
+		if bar_node is VScrollBar or bar_node is HScrollBar:
+			bar_node.add_theme_stylebox_override("grabber", scroll_grabber)
+			bar_node.add_theme_stylebox_override("grabber_highlight", scroll_grabber_hl)
+			bar_node.add_theme_stylebox_override("grabber_pressed", scroll_grabber_pressed)
+			bar_node.add_theme_stylebox_override("scroll", scroll_track)
 
 # =============================================================================
 # FILE I/O

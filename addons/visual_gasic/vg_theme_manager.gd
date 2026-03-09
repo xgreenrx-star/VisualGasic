@@ -135,12 +135,12 @@ static func _init_builtin_themes() -> void:
 	# and red strings — NOT the blue/yellow QuickBasic look.
 	var classic = VGTheme.new()
 	classic.name = "VB6 Classic"
-	classic.description = "Authentic Visual Basic 6 IDE — white editor, blue keywords"
+	classic.description = "Authentic Visual Basic 6 IDE — warm cream editor, blue keywords"
 	classic.is_builtin = true
-	classic.background_color = Color.WHITE
+	classic.background_color = Color(0.96, 0.95, 0.92)  # warm cream — easy on the eyes
 	classic.text_color = Color.BLACK
 	classic.line_number_color = Color(0.5, 0.5, 0.5)
-	classic.current_line_color = Color(0.93, 0.93, 0.93)
+	classic.current_line_color = Color(0.93, 0.92, 0.88)
 	classic.selection_color = Color(0.0, 0.0, 0.5, 0.35)
 	classic.caret_color = Color.BLACK
 	classic.keyword_color = Color(0.0, 0.0, 0.8)         # Blue (VB6 keyword color)
@@ -611,6 +611,39 @@ static func apply_to_code_edit(code_edit: CodeEdit) -> void:
 	code_edit.add_theme_color_override("current_line_color", theme.current_line_color)
 	code_edit.add_theme_color_override("selection_color", theme.selection_color)
 	code_edit.add_theme_color_override("caret_color", theme.caret_color)
+
+	# ── Scrollbar styling ──
+	# Godot inherits scrollbar colors from the editor theme which can make
+	# the grabber invisible on light code-editor backgrounds.  Explicitly
+	# style the vertical and horizontal scrollbars so they are always visible.
+	var is_light_bg: bool = theme.background_color.get_luminance() > 0.5
+	if is_light_bg:
+		var scroll_grabber := StyleBoxFlat.new()
+		scroll_grabber.bg_color = Color(0.68, 0.67, 0.64)  # warm gray
+		scroll_grabber.corner_radius_top_left = 3
+		scroll_grabber.corner_radius_top_right = 3
+		scroll_grabber.corner_radius_bottom_left = 3
+		scroll_grabber.corner_radius_bottom_right = 3
+		var scroll_grabber_hl := StyleBoxFlat.new()
+		scroll_grabber_hl.bg_color = Color(0.55, 0.54, 0.52)  # darker on hover
+		scroll_grabber_hl.corner_radius_top_left = 3
+		scroll_grabber_hl.corner_radius_top_right = 3
+		scroll_grabber_hl.corner_radius_bottom_left = 3
+		scroll_grabber_hl.corner_radius_bottom_right = 3
+		var scroll_grabber_pressed := StyleBoxFlat.new()
+		scroll_grabber_pressed.bg_color = Color(0.45, 0.44, 0.42)  # darkest when pressed
+		scroll_grabber_pressed.corner_radius_top_left = 3
+		scroll_grabber_pressed.corner_radius_top_right = 3
+		scroll_grabber_pressed.corner_radius_bottom_left = 3
+		scroll_grabber_pressed.corner_radius_bottom_right = 3
+		var scroll_track := StyleBoxFlat.new()
+		scroll_track.bg_color = Color(0.90, 0.89, 0.86)  # light warm track
+		for bar_node in code_edit.get_children():
+			if bar_node is VScrollBar or bar_node is HScrollBar:
+				bar_node.add_theme_stylebox_override("grabber", scroll_grabber)
+				bar_node.add_theme_stylebox_override("grabber_highlight", scroll_grabber_hl)
+				bar_node.add_theme_stylebox_override("grabber_pressed", scroll_grabber_pressed)
+				bar_node.add_theme_stylebox_override("scroll", scroll_track)
 
 ## Get the current theme's IDE chrome colors as a Dictionary
 ## (compatible with the plugin's _theme dictionary format)
