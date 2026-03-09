@@ -201,19 +201,25 @@ func _apply_scrollbar_theme() -> void:
 		return
 
 	var scroll_grabber := StyleBoxFlat.new()
-	scroll_grabber.bg_color = Color(0.32, 0.31, 0.29)  # dark gray — clearly visible
+	scroll_grabber.bg_color = Color(0.18, 0.18, 0.16)  # near-black grabber
+	scroll_grabber.border_color = Color(0.12, 0.12, 0.10)
+	scroll_grabber.set_border_width_all(1)
 	scroll_grabber.corner_radius_top_left = 3
 	scroll_grabber.corner_radius_top_right = 3
 	scroll_grabber.corner_radius_bottom_left = 3
 	scroll_grabber.corner_radius_bottom_right = 3
 	var scroll_grabber_hl := StyleBoxFlat.new()
-	scroll_grabber_hl.bg_color = Color(0.22, 0.22, 0.20)  # darker on hover
+	scroll_grabber_hl.bg_color = Color(0.10, 0.10, 0.08)  # black on hover
+	scroll_grabber_hl.border_color = Color(0.05, 0.05, 0.04)
+	scroll_grabber_hl.set_border_width_all(1)
 	scroll_grabber_hl.corner_radius_top_left = 3
 	scroll_grabber_hl.corner_radius_top_right = 3
 	scroll_grabber_hl.corner_radius_bottom_left = 3
 	scroll_grabber_hl.corner_radius_bottom_right = 3
 	var scroll_grabber_pressed := StyleBoxFlat.new()
-	scroll_grabber_pressed.bg_color = Color(0.15, 0.15, 0.14)  # near-black when pressed
+	scroll_grabber_pressed.bg_color = Color(0.05, 0.05, 0.04)  # black when pressed
+	scroll_grabber_pressed.border_color = Color(0.0, 0.0, 0.0)
+	scroll_grabber_pressed.set_border_width_all(1)
 	scroll_grabber_pressed.corner_radius_top_left = 3
 	scroll_grabber_pressed.corner_radius_top_right = 3
 	scroll_grabber_pressed.corner_radius_bottom_left = 3
