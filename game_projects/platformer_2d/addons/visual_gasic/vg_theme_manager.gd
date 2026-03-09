@@ -674,7 +674,6 @@ static func apply_to_code_edit(code_edit: CodeEdit) -> void:
 				bar.add_theme_stylebox_override("grabber_pressed", scroll_grabber_pr)
 				bar.add_theme_stylebox_override("scroll", scroll_track)
 				bar.custom_minimum_size = Vector2(14, 14)
-		print("[VG-SCROLL-TM] Applied scrollbar. vbar=", vbar, " hbar=", hbar)
 
 ## Get the current theme's IDE chrome colors as a Dictionary
 ## (compatible with the plugin's _theme dictionary format)

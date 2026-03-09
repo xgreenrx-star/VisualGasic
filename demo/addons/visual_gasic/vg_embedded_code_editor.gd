@@ -241,7 +241,6 @@ func _apply_scrollbar_theme() -> void:
 			bar.add_theme_stylebox_override("grabber_pressed", scroll_grabber_pr)
 			bar.add_theme_stylebox_override("scroll", scroll_track)
 			bar.custom_minimum_size = Vector2(14, 14)
-	print("[VG-SCROLL] Applied scrollbar theme. vbar=", vbar, " hbar=", hbar, " code_edit.theme=", _code_edit.theme)
 
 # =============================================================================
 # FILE I/O
