@@ -199,25 +199,25 @@ func _apply_scrollbar_theme() -> void:
 		return
 
 	var scroll_grabber := StyleBoxFlat.new()
-	scroll_grabber.bg_color = Color(0.68, 0.67, 0.64)  # warm gray
+	scroll_grabber.bg_color = Color(0.48, 0.47, 0.44)  # solid gray — clearly visible
 	scroll_grabber.corner_radius_top_left = 3
 	scroll_grabber.corner_radius_top_right = 3
 	scroll_grabber.corner_radius_bottom_left = 3
 	scroll_grabber.corner_radius_bottom_right = 3
 	var scroll_grabber_hl := StyleBoxFlat.new()
-	scroll_grabber_hl.bg_color = Color(0.55, 0.54, 0.52)  # darker on hover
+	scroll_grabber_hl.bg_color = Color(0.38, 0.37, 0.35)  # darker on hover
 	scroll_grabber_hl.corner_radius_top_left = 3
 	scroll_grabber_hl.corner_radius_top_right = 3
 	scroll_grabber_hl.corner_radius_bottom_left = 3
 	scroll_grabber_hl.corner_radius_bottom_right = 3
 	var scroll_grabber_pressed := StyleBoxFlat.new()
-	scroll_grabber_pressed.bg_color = Color(0.45, 0.44, 0.42)
+	scroll_grabber_pressed.bg_color = Color(0.28, 0.28, 0.26)
 	scroll_grabber_pressed.corner_radius_top_left = 3
 	scroll_grabber_pressed.corner_radius_top_right = 3
 	scroll_grabber_pressed.corner_radius_bottom_left = 3
 	scroll_grabber_pressed.corner_radius_bottom_right = 3
 	var scroll_track := StyleBoxFlat.new()
-	scroll_track.bg_color = Color(0.90, 0.89, 0.86)
+	scroll_track.bg_color = Color(0.86, 0.85, 0.82)
 
 	for bar_node in _code_edit.get_children():
 		if bar_node is VScrollBar or bar_node is HScrollBar:

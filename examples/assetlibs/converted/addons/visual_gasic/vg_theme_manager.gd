@@ -612,6 +612,26 @@ static func apply_to_code_edit(code_edit: CodeEdit) -> void:
 	code_edit.add_theme_color_override("selection_color", theme.selection_color)
 	code_edit.add_theme_color_override("caret_color", theme.caret_color)
 
+	# ── Re-color the syntax highlighter to match the theme ──
+	# VGCodeEdit sets up a CodeHighlighter with dark-background colors by
+	# default.  We must override those whenever a theme is applied so that
+	# keywords, comments, strings, etc. are legible on the actual background.
+	if code_edit.syntax_highlighter and code_edit.syntax_highlighter is CodeHighlighter:
+		var hl: CodeHighlighter = code_edit.syntax_highlighter
+		# Bulk-recolor every registered keyword to the theme keyword color
+		var kw_dict: Dictionary = hl.keyword_colors
+		for kw_key in kw_dict.keys():
+			hl.add_keyword_color(kw_key, theme.keyword_color)
+		hl.number_color = theme.number_color
+		hl.symbol_color = theme.operator_color
+		hl.function_color = theme.function_color
+		hl.member_variable_color = theme.variable_color
+		# Re-apply color regions (comments + strings) — clear and rebuild
+		hl.clear_color_regions()
+		hl.add_color_region("'", "", theme.comment_color, true)
+		hl.add_color_region("REM ", "", theme.comment_color, true)
+		hl.add_color_region('"', '"', theme.string_color)
+
 	# ── Scrollbar styling ──
 	# Godot inherits scrollbar colors from the editor theme which can make
 	# the grabber invisible on light code-editor backgrounds.  Explicitly
@@ -619,25 +639,25 @@ static func apply_to_code_edit(code_edit: CodeEdit) -> void:
 	var is_light_bg: bool = theme.background_color.get_luminance() > 0.5
 	if is_light_bg:
 		var scroll_grabber := StyleBoxFlat.new()
-		scroll_grabber.bg_color = Color(0.68, 0.67, 0.64)  # warm gray
+		scroll_grabber.bg_color = Color(0.48, 0.47, 0.44)  # solid gray — clearly visible
 		scroll_grabber.corner_radius_top_left = 3
 		scroll_grabber.corner_radius_top_right = 3
 		scroll_grabber.corner_radius_bottom_left = 3
 		scroll_grabber.corner_radius_bottom_right = 3
 		var scroll_grabber_hl := StyleBoxFlat.new()
-		scroll_grabber_hl.bg_color = Color(0.55, 0.54, 0.52)  # darker on hover
+		scroll_grabber_hl.bg_color = Color(0.38, 0.37, 0.35)  # darker on hover
 		scroll_grabber_hl.corner_radius_top_left = 3
 		scroll_grabber_hl.corner_radius_top_right = 3
 		scroll_grabber_hl.corner_radius_bottom_left = 3
 		scroll_grabber_hl.corner_radius_bottom_right = 3
 		var scroll_grabber_pressed := StyleBoxFlat.new()
-		scroll_grabber_pressed.bg_color = Color(0.45, 0.44, 0.42)  # darkest when pressed
+		scroll_grabber_pressed.bg_color = Color(0.28, 0.28, 0.26)  # darkest when pressed
 		scroll_grabber_pressed.corner_radius_top_left = 3
 		scroll_grabber_pressed.corner_radius_top_right = 3
 		scroll_grabber_pressed.corner_radius_bottom_left = 3
 		scroll_grabber_pressed.corner_radius_bottom_right = 3
 		var scroll_track := StyleBoxFlat.new()
-		scroll_track.bg_color = Color(0.90, 0.89, 0.86)  # light warm track
+		scroll_track.bg_color = Color(0.86, 0.85, 0.82)  # warm track
 		for bar_node in code_edit.get_children():
 			if bar_node is VScrollBar or bar_node is HScrollBar:
 				bar_node.add_theme_stylebox_override("grabber", scroll_grabber)
