@@ -388,6 +388,14 @@ func _gui_input(event: InputEvent) -> void:
 				if event.ctrl_pressed and not event.shift_pressed:
 					_show_goto_line_dialog()
 					accept_event()
+			KEY_F9:
+				if not event.ctrl_pressed and not event.shift_pressed:
+					toggle_breakpoint(get_caret_line())
+					accept_event()
+				elif event.ctrl_pressed and event.shift_pressed:
+					set_conditional_breakpoint(get_caret_line())
+					accept_event()
+	super._gui_input(event)
 
 ## Show a small popup dialog to jump to a specific line number.
 func _show_goto_line_dialog() -> void:
@@ -649,15 +657,3 @@ func get_all_breakpoints() -> Dictionary:
 		if is_line_breakpointed(line):
 			result[line] = _breakpoint_conditions.get(line, "")
 	return result
-
-func _gui_input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed:
-		# F9 — Toggle breakpoint on current line
-		if event.keycode == KEY_F9 and not event.ctrl_pressed and not event.shift_pressed:
-			toggle_breakpoint(get_caret_line())
-			accept_event()
-		# Ctrl+Shift+F9 — Conditional breakpoint
-		elif event.keycode == KEY_F9 and event.ctrl_pressed and event.shift_pressed:
-			set_conditional_breakpoint(get_caret_line())
-			accept_event()
-	super._gui_input(event)
