@@ -634,46 +634,55 @@ static func apply_to_code_edit(code_edit: CodeEdit) -> void:
 
 	# ── Scrollbar styling ──
 	# Godot inherits scrollbar colors from the editor theme which can make
-	# the grabber invisible on light code-editor backgrounds.  Explicitly
-	# style the vertical and horizontal scrollbars so they are always visible.
+	# the grabber invisible on light code-editor backgrounds.
+	#
+	# IMPORTANT: CodeEdit's scrollbars are INTERNAL children.  In Godot 4.x
+	# internal children resolve theme items through their owner's Theme, so
+	# per-node add_theme_stylebox_override() on the VScrollBar does NOT work.
+	# The correct approach is to set a Theme resource on the CodeEdit itself
+	# that defines VScrollBar / HScrollBar entries.  Per-node color/stylebox
+	# overrides already on the CodeEdit (background, font_color, etc.) are
+	# priority-1 and remain unaffected.
 	var is_light_bg: bool = theme.background_color.get_luminance() > 0.5
 	if is_light_bg:
 		var scroll_grabber := StyleBoxFlat.new()
 		scroll_grabber.bg_color = Color(0.18, 0.18, 0.16)  # near-black grabber
 		scroll_grabber.border_color = Color(0.12, 0.12, 0.10)
 		scroll_grabber.set_border_width_all(1)
-		scroll_grabber.corner_radius_top_left = 3
-		scroll_grabber.corner_radius_top_right = 3
-		scroll_grabber.corner_radius_bottom_left = 3
-		scroll_grabber.corner_radius_bottom_right = 3
+		scroll_grabber.set_corner_radius_all(3)
+		scroll_grabber.content_margin_left = 2
+		scroll_grabber.content_margin_right = 2
+		scroll_grabber.content_margin_top = 2
+		scroll_grabber.content_margin_bottom = 2
 		var scroll_grabber_hl := StyleBoxFlat.new()
 		scroll_grabber_hl.bg_color = Color(0.10, 0.10, 0.08)  # black on hover
 		scroll_grabber_hl.border_color = Color(0.05, 0.05, 0.04)
 		scroll_grabber_hl.set_border_width_all(1)
-		scroll_grabber_hl.corner_radius_top_left = 3
-		scroll_grabber_hl.corner_radius_top_right = 3
-		scroll_grabber_hl.corner_radius_bottom_left = 3
-		scroll_grabber_hl.corner_radius_bottom_right = 3
+		scroll_grabber_hl.set_corner_radius_all(3)
+		scroll_grabber_hl.content_margin_left = 2
+		scroll_grabber_hl.content_margin_right = 2
+		scroll_grabber_hl.content_margin_top = 2
+		scroll_grabber_hl.content_margin_bottom = 2
 		var scroll_grabber_pressed := StyleBoxFlat.new()
 		scroll_grabber_pressed.bg_color = Color(0.05, 0.05, 0.04)  # black when pressed
 		scroll_grabber_pressed.border_color = Color(0.0, 0.0, 0.0)
 		scroll_grabber_pressed.set_border_width_all(1)
-		scroll_grabber_pressed.corner_radius_top_left = 3
-		scroll_grabber_pressed.corner_radius_top_right = 3
-		scroll_grabber_pressed.corner_radius_bottom_left = 3
-		scroll_grabber_pressed.corner_radius_bottom_right = 3
+		scroll_grabber_pressed.set_corner_radius_all(3)
+		scroll_grabber_pressed.content_margin_left = 2
+		scroll_grabber_pressed.content_margin_right = 2
+		scroll_grabber_pressed.content_margin_top = 2
+		scroll_grabber_pressed.content_margin_bottom = 2
 		var scroll_track := StyleBoxFlat.new()
 		scroll_track.bg_color = Color(0.86, 0.85, 0.82)  # warm track
-		# Use dedicated accessors — internal scrollbar children are NOT returned
-		# by get_children() in Godot 4.x.
-		var vbar: VScrollBar = code_edit.get_v_scroll_bar()
-		var hbar: HScrollBar = code_edit.get_h_scroll_bar()
-		for bar_node in [vbar, hbar]:
-			if bar_node:
-				bar_node.add_theme_stylebox_override("grabber", scroll_grabber)
-				bar_node.add_theme_stylebox_override("grabber_highlight", scroll_grabber_hl)
-				bar_node.add_theme_stylebox_override("grabber_pressed", scroll_grabber_pressed)
-				bar_node.add_theme_stylebox_override("scroll", scroll_track)
+
+		# Set a Theme on the CodeEdit with scrollbar type entries.
+		var scroll_theme := Theme.new()
+		for sb_type in ["VScrollBar", "HScrollBar"]:
+			scroll_theme.set_stylebox("grabber", sb_type, scroll_grabber)
+			scroll_theme.set_stylebox("grabber_highlight", sb_type, scroll_grabber_hl)
+			scroll_theme.set_stylebox("grabber_pressed", sb_type, scroll_grabber_pressed)
+			scroll_theme.set_stylebox("scroll", sb_type, scroll_track)
+		code_edit.theme = scroll_theme
 
 ## Get the current theme's IDE chrome colors as a Dictionary
 ## (compatible with the plugin's _theme dictionary format)

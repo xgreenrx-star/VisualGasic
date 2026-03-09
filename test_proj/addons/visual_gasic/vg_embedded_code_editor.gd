@@ -196,6 +196,12 @@ func _get_vb6_keywords() -> Array:
 
 ## Apply scrollbar styling so grabbers are visible against the light background.
 ## Called deferred so the CodeEdit's internal scrollbar children are available.
+##
+## IMPORTANT: CodeEdit's scrollbars are INTERNAL children.  In Godot 4.x
+## internal children resolve theme items through their owner's Theme, so
+## per-node add_theme_stylebox_override() on the VScrollBar does NOT work.
+## The correct approach is to set a Theme resource on the CodeEdit itself
+## that defines VScrollBar / HScrollBar entries.
 func _apply_scrollbar_theme() -> void:
 	if not _code_edit:
 		return
@@ -204,39 +210,44 @@ func _apply_scrollbar_theme() -> void:
 	scroll_grabber.bg_color = Color(0.18, 0.18, 0.16)  # near-black grabber
 	scroll_grabber.border_color = Color(0.12, 0.12, 0.10)
 	scroll_grabber.set_border_width_all(1)
-	scroll_grabber.corner_radius_top_left = 3
-	scroll_grabber.corner_radius_top_right = 3
-	scroll_grabber.corner_radius_bottom_left = 3
-	scroll_grabber.corner_radius_bottom_right = 3
+	scroll_grabber.set_corner_radius_all(3)
+	scroll_grabber.content_margin_left = 2
+	scroll_grabber.content_margin_right = 2
+	scroll_grabber.content_margin_top = 2
+	scroll_grabber.content_margin_bottom = 2
 	var scroll_grabber_hl := StyleBoxFlat.new()
 	scroll_grabber_hl.bg_color = Color(0.10, 0.10, 0.08)  # black on hover
 	scroll_grabber_hl.border_color = Color(0.05, 0.05, 0.04)
 	scroll_grabber_hl.set_border_width_all(1)
-	scroll_grabber_hl.corner_radius_top_left = 3
-	scroll_grabber_hl.corner_radius_top_right = 3
-	scroll_grabber_hl.corner_radius_bottom_left = 3
-	scroll_grabber_hl.corner_radius_bottom_right = 3
+	scroll_grabber_hl.set_corner_radius_all(3)
+	scroll_grabber_hl.content_margin_left = 2
+	scroll_grabber_hl.content_margin_right = 2
+	scroll_grabber_hl.content_margin_top = 2
+	scroll_grabber_hl.content_margin_bottom = 2
 	var scroll_grabber_pressed := StyleBoxFlat.new()
 	scroll_grabber_pressed.bg_color = Color(0.05, 0.05, 0.04)  # black when pressed
 	scroll_grabber_pressed.border_color = Color(0.0, 0.0, 0.0)
 	scroll_grabber_pressed.set_border_width_all(1)
-	scroll_grabber_pressed.corner_radius_top_left = 3
-	scroll_grabber_pressed.corner_radius_top_right = 3
-	scroll_grabber_pressed.corner_radius_bottom_left = 3
-	scroll_grabber_pressed.corner_radius_bottom_right = 3
+	scroll_grabber_pressed.set_corner_radius_all(3)
+	scroll_grabber_pressed.content_margin_left = 2
+	scroll_grabber_pressed.content_margin_right = 2
+	scroll_grabber_pressed.content_margin_top = 2
+	scroll_grabber_pressed.content_margin_bottom = 2
 	var scroll_track := StyleBoxFlat.new()
 	scroll_track.bg_color = Color(0.86, 0.85, 0.82)
 
-	# Use dedicated accessors — internal scrollbar children are NOT returned
-	# by get_children() in Godot 4.x.
-	var vbar: VScrollBar = _code_edit.get_v_scroll_bar()
-	var hbar: HScrollBar = _code_edit.get_h_scroll_bar()
-	for bar_node in [vbar, hbar]:
-		if bar_node:
-			bar_node.add_theme_stylebox_override("grabber", scroll_grabber)
-			bar_node.add_theme_stylebox_override("grabber_highlight", scroll_grabber_hl)
-			bar_node.add_theme_stylebox_override("grabber_pressed", scroll_grabber_pressed)
-			bar_node.add_theme_stylebox_override("scroll", scroll_track)
+	# ── Set a Theme on the CodeEdit itself ──
+	# Internal children inherit from the owner node's Theme, NOT from
+	# per-node overrides.  Build a theme with just VScrollBar/HScrollBar
+	# entries and assign it.  Per-node color/stylebox overrides on the
+	# CodeEdit (background, font_color, etc.) are priority-1 and unaffected.
+	var t := Theme.new()
+	for sb_type in ["VScrollBar", "HScrollBar"]:
+		t.set_stylebox("grabber", sb_type, scroll_grabber)
+		t.set_stylebox("grabber_highlight", sb_type, scroll_grabber_hl)
+		t.set_stylebox("grabber_pressed", sb_type, scroll_grabber_pressed)
+		t.set_stylebox("scroll", sb_type, scroll_track)
+	_code_edit.theme = t
 
 # =============================================================================
 # FILE I/O
