@@ -323,26 +323,28 @@ func _populate_with_folders(root: TreeItem, forms: Array[Dictionary], modules: A
 			item.set_tooltip_text(0, entry.path)
 			item.set_metadata(0, {"type": "form", "path": entry.path})
 
-	# Modules folder
+	# Modules folder — expanded by default so standalone code files are easy to find
 	if modules.size() > 0:
 		var folder = tree.create_item(root)
 		folder.set_text(0, FOLDER_MODULES + " (" + str(modules.size()) + ")")
-		folder.set_tooltip_text(0, "Module files (.vg code-only)")
+		folder.set_tooltip_text(0, "Module files (.vg code-only) — double-click to edit")
 		folder.set_selectable(0, true)
 		folder.set_metadata(0, {"type": "folder", "folder": FOLDER_MODULES})
+		folder.set_collapsed(false)  # Always show modules
 		for entry in modules:
 			var item = tree.create_item(folder)
 			item.set_text(0, entry.name)
-			item.set_tooltip_text(0, entry.path)
+			item.set_tooltip_text(0, entry.path + "  (double-click to edit)")
 			item.set_metadata(0, {"type": "module", "path": entry.path})
 
-	# Resources folder (scenes & resources without .vg)
+	# Resources folder — collapsed by default to keep focus on code files
 	if resources.size() > 0:
 		var folder = tree.create_item(root)
 		folder.set_text(0, FOLDER_RESOURCES + " (" + str(resources.size()) + ")")
 		folder.set_tooltip_text(0, "Scene and resource files")
 		folder.set_selectable(0, true)
 		folder.set_metadata(0, {"type": "folder", "folder": FOLDER_RESOURCES})
+		folder.set_collapsed(true)  # Collapse to reduce clutter
 		for entry in resources:
 			var item = tree.create_item(folder)
 			item.set_text(0, entry.name)
@@ -422,17 +424,22 @@ func _on_item_activated():
 			pass
 
 ## View Code button — open selected item's .vg script in the embedded code editor.
+## If nothing is selected, opens the first available module.
 func _on_view_code():
 	var item = tree.get_selected()
-	if not item:
-		return
-	var meta = item.get_metadata(0)
-	if not meta or not meta is Dictionary:
-		return
+	var file_path := ""
+	if item:
+		var meta = item.get_metadata(0)
+		if meta is Dictionary:
+			file_path = meta.get("path", "")
 
-	var file_path = meta.get("path", "")
-	if file_path == "":
-		return
+	# If nothing selected or selected item has no path, find the first .vg module
+	if file_path.is_empty():
+		var first_vg := _find_first_module_path()
+		if not first_vg.is_empty():
+			file_path = first_vg
+		else:
+			return
 
 	if file_path.ends_with(".vg"):
 		# Route through embedded editor
@@ -657,3 +664,26 @@ func _open_script(path: String):
 	var script = load(path)
 	if script:
 		editor_plugin.get_editor_interface().edit_script(script)
+
+## Find the first module (.vg) path in the tree.  Used by the Code button
+## when nothing is selected so the user can always get to code with one click.
+func _find_first_module_path() -> String:
+	if not is_instance_valid(tree):
+		return ""
+	var root = tree.get_root()
+	if not root:
+		return ""
+	return _search_tree_for_type(root, "module")
+
+## Recursively search tree items for one with the given type metadata.
+func _search_tree_for_type(item: TreeItem, target_type: String) -> String:
+	var meta = item.get_metadata(0)
+	if meta is Dictionary and meta.get("type", "") == target_type:
+		return meta.get("path", "")
+	var child = item.get_first_child()
+	while child:
+		var result = _search_tree_for_type(child, target_type)
+		if not result.is_empty():
+			return result
+		child = child.get_next()
+	return ""
