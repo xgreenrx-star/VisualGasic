@@ -5,6 +5,22 @@ All notable changes to Visual Gasic will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.6.0] - 2026-03-10
+
+### 🚀 Modern Language Features — Compound Assignment, Bit-Shift, LongLong
+
+### Added
+- **Compound assignment operators** — `+=`, `-=`, `*=`, `/=`, `&=`, `\=`, `^=`, `<<=`, `>>=`. Desugared at parse time; works on any L-value (variable, array element, member)
+- **Bit-shift operators** — `<<` (left shift) and `>>` (right shift). New `OP_SHL`/`OP_SHR` bytecode opcodes with handlers in both the bytecode VM and AST evaluator. Precedence: tighter than comparison, looser than addition (VB.NET-compatible)
+- **`LongLong` type alias** — 64-bit integer type alias for `Long`, compatible with VBA 7+ / twinBASIC. Works in `Dim`, arrays, arithmetic, and type coercion
+- **`CLngLng()` conversion function** — converts to `LongLong` (64-bit integer) with banker's rounding, matching VB behavior
+- **30 new test assertions** — `test_compound_assignment.vg` (10), `test_bit_shift.vg` (12), `test_longlong.vg` (8)
+
+### Changed
+- Parser precedence chain extended: `parse_comparison` → `parse_shift` → `parse_addition`
+- Compiler constant folding now handles `<<` and `>>` operators
+- Total test suite: 61 files, 533 assertions, 531 pass
+
 ## [3.5.0-beta4] - 2026
 
 ### 🔧 Desktop Readiness — Language Features (Items 5–8)

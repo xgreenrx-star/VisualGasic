@@ -114,6 +114,7 @@ private:
     ExpressionNode* parse_and();        // AND
     ExpressionNode* parse_not();        // NOT
     ExpressionNode* parse_comparison(); // = < >
+    ExpressionNode* parse_shift();      // << >>
     ExpressionNode* parse_addition();   // + - &
     ExpressionNode* parse_term();       // * /
     ExpressionNode* parse_exponentiation(); // ** (Power)

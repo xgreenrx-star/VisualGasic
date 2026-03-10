@@ -1362,7 +1362,7 @@ ExpressionNode* VisualGasicParser::parse_not() {
 }
 
 ExpressionNode* VisualGasicParser::parse_comparison() {
-    ExpressionNode* expr = parse_addition();
+    ExpressionNode* expr = parse_shift();
     
     // Check for Operators and special Keyword 'Is'
     while (true) {
@@ -1370,7 +1370,7 @@ ExpressionNode* VisualGasicParser::parse_comparison() {
             String op = peek().value;
             if (op == "=" || op == "<" || op == ">" || op == "<=" || op == ">=" || op == "<>" || op == "!=") {
                 advance();
-                ExpressionNode* right = parse_addition();
+                ExpressionNode* right = parse_shift();
                 BinaryOpNode* bin = static_cast<BinaryOpNode*>(register_node(new BinaryOpNode()));
                 if (expr) {
                     ExpressionNode* ldup = expr->duplicate();
@@ -1388,7 +1388,7 @@ ExpressionNode* VisualGasicParser::parse_comparison() {
         
         if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("Is") == 0) {
             advance();
-            ExpressionNode* right = parse_addition();
+            ExpressionNode* right = parse_shift();
             BinaryOpNode* bin = static_cast<BinaryOpNode*>(register_node(new BinaryOpNode()));
             // Duplicate children when attaching to avoid sharing the same
             // ExpressionNode instance between multiple parents which causes
@@ -1409,7 +1409,7 @@ ExpressionNode* VisualGasicParser::parse_comparison() {
         // Like operator for pattern matching
         if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("Like") == 0) {
             advance();
-            ExpressionNode* right = parse_addition();
+            ExpressionNode* right = parse_shift();
             BinaryOpNode* bin = static_cast<BinaryOpNode*>(register_node(new BinaryOpNode()));
             if (expr) {
                 ExpressionNode* ldup = expr->duplicate();
@@ -1425,6 +1425,32 @@ ExpressionNode* VisualGasicParser::parse_comparison() {
         }
         
         break;
+    }
+    return expr;
+}
+
+ExpressionNode* VisualGasicParser::parse_shift() {
+    ExpressionNode* expr = parse_addition();
+    
+    while (check(VisualGasicTokenizer::TOKEN_OPERATOR)) {
+        String op = peek().value;
+        if (op == "<<" || op == ">>") {
+            advance();
+            ExpressionNode* right = parse_addition();
+            BinaryOpNode* bin = static_cast<BinaryOpNode*>(register_node(new BinaryOpNode()));
+            if (expr) {
+                ExpressionNode* ldup = expr->duplicate();
+                if (ldup) bin->left = register_node(ldup); else bin->left = expr;
+            } else bin->left = nullptr;
+            if (right) {
+                ExpressionNode* rdup = right->duplicate();
+                if (rdup) bin->right = register_node(rdup); else bin->right = right;
+            } else bin->right = nullptr;
+            bin->op = op;
+            expr = bin;
+        } else {
+            break;
+        }
     }
     return expr;
 }
@@ -2893,7 +2919,7 @@ Statement* VisualGasicParser::parse_assignment_or_call() {
             }
             return assign;
 
-        } else if (op == "+=" || op == "-=" || op == "*=" || op == "/=") {
+        } else if (op == "+=" || op == "-=" || op == "*=" || op == "/=" || op == "&=" || op == "\\=" || op == "^=" || op == "<<=" || op == ">>=") {
             advance(); // Eat Op
             
             AssignmentStatement* assign = static_cast<AssignmentStatement*>(register_node(new AssignmentStatement()));
@@ -2912,6 +2938,11 @@ Statement* VisualGasicParser::parse_assignment_or_call() {
             else if (op == "-=") bin->op = "-";
             else if (op == "*=") bin->op = "*";
             else if (op == "/=") bin->op = "/";
+            else if (op == "&=") bin->op = "&";
+            else if (op == "\\=") bin->op = "\\";
+            else if (op == "^=") bin->op = "^";
+            else if (op == "<<=") bin->op = "<<";
+            else if (op == ">>=") bin->op = ">>";
             
             assign->value = bin;
             return assign;

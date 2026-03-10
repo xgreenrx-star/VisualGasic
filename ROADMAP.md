@@ -597,7 +597,7 @@ All items from the system-programming audit are now implemented:
 
 ---
 
-## � v3.6 Roadmap — "Modern Language Features"
+## ✅ v3.6 Roadmap — "Modern Language Features"
 
 Language-level additions inspired by twinBASIC, VB.NET, and modern BASIC dialects.
 Strategic goal: make VisualGasic's *language* competitive with twinBASIC and RAD Basic
@@ -605,48 +605,21 @@ while leaning into our unique advantage — cross-platform game engine integrati
 
 > **Already shipped:** `Inherits` (v2.4.0), `AndAlso`/`OrElse` (v3.4),
 > `Return <expr>` (v3.5), `Continue For/Do/While` (v3.5), Classes + Properties (v2.4).
-> These are NOT listed below — they're done.
+> **v3.6.0 shipped:** Compound Assignment (`+=` etc.), Bit-Shift (`<<` `>>`), `LongLong` type.
 
-### 🔴 High Priority — Quick Wins (Tokenizer + Parser + Compiler)
+### ✅ Shipped in v3.6.0
 
-1. **Compound Assignment Operators — `+=  -=  *=  /=  \=  &=  ^=`**
-   Sugar for `x = x + y`. Extremely common in game loops (`score += 10`,
-   `position.X += velocity.X`). Every modern BASIC has these.
-   **Scope**:
-   - Tokenizer: recognize `+=`, `-=`, `*=`, `/=`, `\=` (integer div), `&=` (concat), `^=` (power) as `TOKEN_COMPOUND_ASSIGN`
-   - Parser: in `parse_assignment_or_call()`, desugar `lhs += rhs` → `lhs = lhs + rhs` at AST level
-   - Compiler/VM: no changes — the desugared AST uses existing opcodes
-   - IntelliSense: add snippets for `+=`, `-=`, etc.
-   **Tests**: arithmetic, string concat (`s &= "world"`), property targets (`Me.Score += 1`)
-   **Effort**: ~2–3 hours
+1. **Compound Assignment Operators — `+=  -=  *=  /=  \=  &=  ^=  <<=  >>=`** ✅
+   Desugared at parse time into equivalent `x = x op y`. All 9 operators work on any L-value.
+   31 test assertions (10 compound, 12 bit-shift, 9 combined).
 
-2. **Bit-Shift Operators — `<<  >>  Shl  Shr`**
-   Essential for game dev: collision layer flags, packed color math, binary protocols,
-   flag enums. The JIT already has `SHR_I64_CONST` internally — this exposes it to
-   the language.
-   **Scope**:
-   - Tokenizer: recognize `<<`, `>>` as `TOKEN_OPERATOR`; register `Shl`, `Shr` as keyword aliases
-   - Parser: new precedence level between addition and comparison (C-style)
-   - Compiler: emit `OP_SHL` / `OP_SHR` opcodes (integer-only, error on floats)
-   - JIT: map to existing `SHR_I64_CONST` pattern, add `SHL_I64_CONST`
-   **Example**:
-   ```vb
-   Dim layers As Integer = 1 << 3    ' collision layer 8
-   Dim red As Integer = (color >> 16) And &HFF
-   ```
-   **Effort**: ~2–3 hours
+2. **Bit-Shift Operators — `<<  >>`** ✅
+   New precedence level between comparison and addition (VB.NET-compatible).
+   `OP_SHL`/`OP_SHR` bytecode opcodes. 12 test assertions.
 
-3. **`LongLong` (64-bit Integer) Type**
-   Godot internally uses `int64_t` everywhere. Currently VG's `Integer` is already
-   64-bit at the Variant level, but there's no explicit `LongLong` type declaration
-   for VB6/VB.NET compatibility. Add it as a type alias so migrated code compiles
-   cleanly.
-   **Scope**:
-   - Tokenizer: register `LongLong` keyword
-   - Parser/compiler: treat `Dim x As LongLong` identically to `Integer` (both are Variant::INT / int64)
-   - Add `LongPtr` alias that maps to `LongLong` (for Win32 API code migration)
-   - Type suffix `x^^` syntax (twinBASIC-compatible)
-   **Effort**: ~1 hour (mostly a type alias)
+3. **`LongLong` (64-bit Integer) Type** ✅
+   Type alias for `Long`. `CLngLng()` conversion function. Works in `Dim`, arrays,
+   arithmetic, bit-shift. 8 test assertions.
 
 ### 🟡 Medium Priority — Significant Language Features
 
@@ -745,20 +718,16 @@ while leaning into our unique advantage — cross-platform game engine integrati
 
 ### 📊 v3.6 Priority Matrix
 
-| # | Feature | Game Dev Value | Effort | Priority |
-|---|---------|---------------|--------|----------|
-| 1 | Compound Assignment `+=` | ⭐⭐⭐⭐⭐ | 2–3 hrs | 🔴 Ship first |
-| 2 | Bit-Shift `<<` `>>` | ⭐⭐⭐⭐ | 2–3 hrs | 🔴 Ship first |
-| 3 | `LongLong` type alias | ⭐⭐⭐ | 1 hr | 🔴 Ship first |
+| # | Feature | Game Dev Value | Effort | Status |
+|---|---------|---------------|--------|--------|
+| 1 | Compound Assignment `+=` etc. | ⭐⭐⭐⭐⭐ | 2–3 hrs | ✅ Shipped |
+| 2 | Bit-Shift `<<` `>>` | ⭐⭐⭐⭐ | 2–3 hrs | ✅ Shipped |
+| 3 | `LongLong` type alias | ⭐⭐⭐ | 1 hr | ✅ Shipped |
 | 4 | Method Overloading | ⭐⭐⭐⭐ | 4–6 hrs | 🟡 Should-have |
 | 5 | Parameterized Constructors | ⭐⭐⭐⭐⭐ | 3–4 hrs | 🟡 Should-have |
 | 6 | Generics Phase 1 | ⭐⭐⭐⭐ | 6–8 hrs | 🟡 Should-have |
-| 7 | Extra Compound Ops | ⭐⭐ | 1 hr | 🟢 Nice-to-have |
-| 8 | Enum Declarations | ⭐⭐⭐ | 3–4 hrs | 🟢 Nice-to-have |
-| 9 | Game UI Mode | ⭐⭐⭐⭐⭐ | 6–8 hrs | 🟢 Nice-to-have |
-| | **Total (must-have)** | | **~5–7 hrs** | |
-| | **Total (should-have)** | | **~18–25 hrs** | |
-| | **Total (all)** | | **~29–39 hrs** | |
+| 7 | Enum Declarations | ⭐⭐⭐ | 3–4 hrs | 🟢 Nice-to-have |
+| 8 | Game UI Mode | ⭐⭐⭐⭐⭐ | 6–8 hrs | 🟢 Nice-to-have |
 
 ### ❌ Deliberately Skipped (Not Relevant to Game Engine)
 

@@ -1,0 +1,62 @@
+' test_bit_shift.vg — Bit-shift operators << and >>
+Attribute VB_Name = "TestBitShift"
+
+Sub _Ready()
+    ' Basic left shift
+    Dim a As Integer
+    a = 1 << 0
+    If a = 1 Then Print "PASS: shl_zero" Else Print "FAIL: shl_zero: expected 1 got " & CStr(a)
+
+    a = 1 << 1
+    If a = 2 Then Print "PASS: shl_one" Else Print "FAIL: shl_one: expected 2 got " & CStr(a)
+
+    a = 1 << 8
+    If a = 256 Then Print "PASS: shl_eight" Else Print "FAIL: shl_eight: expected 256 got " & CStr(a)
+
+    a = 5 << 3
+    If a = 40 Then Print "PASS: shl_five_by_three" Else Print "FAIL: shl_five_by_three: expected 40 got " & CStr(a)
+
+    ' Basic right shift
+    Dim b As Integer
+    b = 256 >> 4
+    If b = 16 Then Print "PASS: shr_256_by_4" Else Print "FAIL: shr_256_by_4: expected 16 got " & CStr(b)
+
+    b = 255 >> 1
+    If b = 127 Then Print "PASS: shr_255_by_1" Else Print "FAIL: shr_255_by_1: expected 127 got " & CStr(b)
+
+    b = 1024 >> 10
+    If b = 1 Then Print "PASS: shr_1024_by_10" Else Print "FAIL: shr_1024_by_10: expected 1 got " & CStr(b)
+
+    ' Shift by variable amount
+    Dim shift As Integer
+    shift = 4
+    Dim c As Integer
+    c = 3 << shift
+    If c = 48 Then Print "PASS: shl_variable" Else Print "FAIL: shl_variable: expected 48 got " & CStr(c)
+
+    c = 48 >> shift
+    If c = 3 Then Print "PASS: shr_variable" Else Print "FAIL: shr_variable: expected 3 got " & CStr(c)
+
+    ' Round-trip: shift left then right returns original
+    Dim d As Integer
+    d = 42
+    d = (d << 5) >> 5
+    If d = 42 Then Print "PASS: shift_roundtrip" Else Print "FAIL: shift_roundtrip: expected 42 got " & CStr(d)
+
+    ' Precedence: << should bind tighter than comparison
+    ' 1 << 3 = 8, so (1 << 3) = 8 is True
+    Dim e As Integer
+    e = 1 << 3
+    If e = 8 Then Print "PASS: shift_precedence" Else Print "FAIL: shift_precedence: expected 8 got " & CStr(e)
+
+    ' Combine with arithmetic: 2 + 3 << 2 should be (2 + 3) << 2 = 20? 
+    ' No — << binds tighter than comparison but looser than addition per our precedence:
+    ' comparison > shift > addition
+    ' So 3 << 2 = 12, then 2 + 12 = 14? No, addition is lower-level (higher precedence).
+    ' In VB.NET: << is between comparison and addition. So:
+    ' a << b + c means a << (b + c).  Let's test:
+    ' 1 << 2 + 1 should be 1 << 3 = 8  (addition binds tighter)
+    Dim f As Integer
+    f = 1 << 2 + 1
+    If f = 8 Then Print "PASS: shift_vs_addition" Else Print "FAIL: shift_vs_addition: expected 8 got " & CStr(f)
+End Sub

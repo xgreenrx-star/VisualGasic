@@ -850,6 +850,7 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
 
     if (METHOD_IS("cint") && args.size() == 1) { r_handled = true; return (int64_t)llround((double)args[0]); }
     if (METHOD_IS("clng") && args.size() == 1) { r_handled = true; return (int64_t)llround((double)args[0]); }
+    if (METHOD_IS("clnglng") && args.size() == 1) { r_handled = true; return (int64_t)llround((double)args[0]); }
     if (METHOD_IS("csng") && args.size() == 1) { r_handled = true; return (double)args[0]; }
     if (METHOD_IS("cdbl") && args.size() == 1) { r_handled = true; return (double)args[0]; }
     if (METHOD_IS("cbool") && args.size() == 1) { r_handled = true; return (bool)args[0]; }

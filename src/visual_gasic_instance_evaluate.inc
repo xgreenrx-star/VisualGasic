@@ -638,7 +638,7 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
                  String type_name = String(call_args[1]).to_lower();
                  
                  if (type_name == "integer" || type_name == "int") return (int)val;
-                 if (type_name == "long") return (int64_t)val;
+                 if (type_name == "long" || type_name == "longlong") return (int64_t)val;
                  if (type_name == "float" || type_name == "double" || type_name == "single") return (double)val;
                  if (type_name == "string") return String(val);
                  if (type_name == "boolean" || type_name == "bool") return (bool)val;
@@ -646,6 +646,7 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
              }
              if (func_name == "CInt" && call_args.size() == 1) return (int)call_args[0];
              if (func_name == "CLng" && call_args.size() == 1) return (int64_t)call_args[0];
+             if (func_name == "CLngLng" && call_args.size() == 1) return (int64_t)call_args[0];
              if (func_name == "CDbl" && call_args.size() == 1) return (double)call_args[0];
              if (func_name == "CStr" && call_args.size() == 1) return String(call_args[0]);
              if (func_name == "CBool" && call_args.size() == 1) return (bool)call_args[0];
@@ -2558,6 +2559,14 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
                  return 0;
              }
              return li % ri;
+        }
+
+        // Bit-shift operators
+        if (op == "<<") {
+             return Variant((int64_t)l << (int64_t)r);
+        }
+        if (op == ">>") {
+             return Variant((int64_t)l >> (int64_t)r);
         }
         
         if (op.nocasecmp_to("And") == 0) return l.booleanize() && r.booleanize();

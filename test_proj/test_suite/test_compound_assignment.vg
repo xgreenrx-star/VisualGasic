@@ -1,0 +1,67 @@
+' test_compound_assignment.vg — Compound assignment operators
+' Tests +=, -=, *=, /=, &=, \=, ^=, <<=, >>=
+Attribute VB_Name = "TestCompoundAssignment"
+
+Sub _Ready()
+    ' += (addition)
+    Dim a As Integer
+    a = 10
+    a += 5
+    If a = 15 Then Print "PASS: compound_add" Else Print "FAIL: compound_add: expected 15 got " & CStr(a)
+
+    ' -= (subtraction)
+    Dim b As Integer
+    b = 20
+    b -= 7
+    If b = 13 Then Print "PASS: compound_sub" Else Print "FAIL: compound_sub: expected 13 got " & CStr(b)
+
+    ' *= (multiplication)
+    Dim c As Integer
+    c = 6
+    c *= 7
+    If c = 42 Then Print "PASS: compound_mul" Else Print "FAIL: compound_mul: expected 42 got " & CStr(c)
+
+    ' /= (division)
+    Dim d As Double
+    d = 100.0
+    d /= 4.0
+    If d = 25.0 Then Print "PASS: compound_div" Else Print "FAIL: compound_div: expected 25 got " & CStr(d)
+
+    ' &= (string concatenation)
+    Dim s As String
+    s = "Hello"
+    s &= " World"
+    If s = "Hello World" Then Print "PASS: compound_concat" Else Print "FAIL: compound_concat: expected 'Hello World' got '" & s & "'"
+
+    ' \= (integer division)
+    Dim e As Integer
+    e = 17
+    e \= 3
+    If e = 5 Then Print "PASS: compound_intdiv" Else Print "FAIL: compound_intdiv: expected 5 got " & CStr(e)
+
+    ' ^= (exponentiation)
+    Dim f As Double
+    f = 3.0
+    f ^= 2.0
+    If f = 9.0 Then Print "PASS: compound_power" Else Print "FAIL: compound_power: expected 9 got " & CStr(f)
+
+    ' <<= (left shift compound)
+    Dim g As Integer
+    g = 1
+    g <<= 4
+    If g = 16 Then Print "PASS: compound_shl" Else Print "FAIL: compound_shl: expected 16 got " & CStr(g)
+
+    ' >>= (right shift compound)
+    Dim h As Integer
+    h = 128
+    h >>= 3
+    If h = 16 Then Print "PASS: compound_shr" Else Print "FAIL: compound_shr: expected 16 got " & CStr(h)
+
+    ' Chained compound on same variable
+    Dim x As Integer
+    x = 2
+    x += 3
+    x *= 4
+    x -= 10
+    If x = 10 Then Print "PASS: compound_chain" Else Print "FAIL: compound_chain: expected 10 got " & CStr(x)
+End Sub

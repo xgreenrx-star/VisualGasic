@@ -874,6 +874,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         dispatch_table[OP_INT_DIVIDE]     = &&vg_op_int_divide;
         dispatch_table[OP_POWER]          = &&vg_op_power;
         dispatch_table[OP_LIKE]           = &&vg_op_like;
+        dispatch_table[OP_SHL]            = &&vg_op_shl;
+        dispatch_table[OP_SHR]            = &&vg_op_shr;
         dispatch_table[OP_ADD_I64]        = &&vg_op_add_i64;
         dispatch_table[OP_ADD_I64_CONST]  = &&vg_op_add_i64_const;
         dispatch_table[OP_SUB_I64]        = &&vg_op_sub_i64;
@@ -1552,6 +1554,20 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 // Use full VB6 Like pattern matching
                 bool matches = vb_like_match(value, pattern);
                 push_value(Variant(matches));
+                break;
+            }
+            VG_CASE(vg_op_shl, OP_SHL): {
+                if (!ensure_stack(2)) { success = false; goto cleanup; }
+                Variant b = pop_value();
+                Variant a = pop_value();
+                push_value(Variant((int64_t)a << (int64_t)b));
+                break;
+            }
+            VG_CASE(vg_op_shr, OP_SHR): {
+                if (!ensure_stack(2)) { success = false; goto cleanup; }
+                Variant b = pop_value();
+                Variant a = pop_value();
+                push_value(Variant((int64_t)a >> (int64_t)b));
                 break;
             }
             VG_CASE(vg_op_negate, OP_NEGATE): {

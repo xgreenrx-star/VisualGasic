@@ -474,14 +474,14 @@ void VisualGasicCompiler::collect_locals(Statement* stmt) {
             if (s->array_sizes.size() > 0) {
                 array_vars.insert(s->variable_name.to_lower());
                 String t = s->type_name.to_lower();
-                if (t == "integer" || t == "long") array_types[s->variable_name.to_lower()] = VT_INT;
+                if (t == "integer" || t == "long" || t == "longlong") array_types[s->variable_name.to_lower()] = VT_INT;
                 else if (t == "single" || t == "double") array_types[s->variable_name.to_lower()] = VT_FLOAT;
                 String bound = extract_bound_var(s->array_sizes[0]);
                 if (!bound.is_empty()) array_bound_vars[s->variable_name.to_lower()] = bound.to_lower();
             } else {
                 String t = s->type_name.to_lower();
                 ValueType vt = VT_UNKNOWN;
-                if (t == "integer" || t == "long") vt = VT_INT;
+                if (t == "integer" || t == "long" || t == "longlong") vt = VT_INT;
                 else if (t == "single" || t == "double") vt = VT_FLOAT;
                 else if (t == "dictionary") {
                     dictionary_vars.insert(s->variable_name.to_lower());
@@ -2690,6 +2690,14 @@ Variant VisualGasicCompiler::eval_constant_expr(ExpressionNode* expr) const {
             valid = true;
             res = UtilityFunctions::pow((double)a, (double)c);
         }
+        else if (b->op == "<<") {
+            valid = true;
+            res = (int64_t)a << (int64_t)c;
+        }
+        else if (b->op == ">>") {
+            valid = true;
+            res = (int64_t)a >> (int64_t)c;
+        }
         else if (b->op.nocasecmp_to("Like") == 0) {
             // VB6-style Like pattern matching at compile time
             valid = true;
@@ -2802,7 +2810,7 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                     ValueType vt = VT_UNKNOWN;
                     if (!s->type_name.is_empty()) {
                         String t = s->type_name.to_lower();
-                        if (t == "integer" || t == "long") vt = VT_INT;
+                        if (t == "integer" || t == "long" || t == "longlong") vt = VT_INT;
                         else if (t == "single" || t == "double") vt = VT_FLOAT;
                     }
                     compile_expression(s->initializer);
@@ -2826,7 +2834,7 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                 // Check if it's an array of user-defined struct type
                 if (!s->type_name.is_empty()) {
                     String t = s->type_name.to_lower();
-                    if (t != "integer" && t != "long" && t != "single" && t != "double" 
+                    if (t != "integer" && t != "long" && t != "longlong" && t != "single" && t != "double" 
                         && t != "string" && t != "boolean" && t != "variant") {
                         // Could be a struct type - check
                         bool is_struct = false;
@@ -2851,7 +2859,7 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                 emit_constant(Variant((int64_t)1));
                 emit_byte(OP_ADD);
                 String t = s->type_name.to_lower();
-                if (t == "integer" || t == "long") emit_byte(OP_NEW_ARRAY_I64);
+                if (t == "integer" || t == "long" || t == "longlong") emit_byte(OP_NEW_ARRAY_I64);
                 else emit_byte(OP_NEW_ARRAY);
 
                 int slot = get_or_add_local(s->variable_name, VT_UNKNOWN);
@@ -2866,7 +2874,7 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                 // Initialize as empty array to be resized with ReDim later
                 emit_constant(Variant((int64_t)0));
                 String t = s->type_name.to_lower();
-                if (t == "integer" || t == "long") emit_byte(OP_NEW_ARRAY_I64);
+                if (t == "integer" || t == "long" || t == "longlong") emit_byte(OP_NEW_ARRAY_I64);
                 else emit_byte(OP_NEW_ARRAY);
 
                 int slot = get_or_add_local(s->variable_name, VT_UNKNOWN);
@@ -2880,7 +2888,7 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                 Variant init_val;
                 if (!s->type_name.is_empty()) {
                     String t = s->type_name.to_lower();
-                    if (t == "integer" || t == "long") init_val = (int64_t)0;
+                    if (t == "integer" || t == "long" || t == "longlong") init_val = (int64_t)0;
                     else if (t == "single" || t == "double") init_val = (double)0.0;
                     else if (t == "string") init_val = "";
                     else if (t == "boolean") init_val = false;
@@ -5323,6 +5331,8 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                 else if (b->op.nocasecmp_to("Like") == 0) emit_byte(OP_LIKE);
                 else if (b->op == "\\") emit_byte(OP_INT_DIVIDE); // Integer division
                 else if (b->op == "^" || b->op == "**") emit_byte(OP_POWER); // Exponentiation
+                else if (b->op == "<<") emit_byte(OP_SHL); // Left bit-shift
+                else if (b->op == ">>") emit_byte(OP_SHR); // Right bit-shift
                 else {
                     UtilityFunctions::print("Compiler: Unsupported binary op ", b->op);
                     compile_ok = false;
@@ -5411,6 +5421,8 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
             else if (b->op.nocasecmp_to("Like") == 0) emit_byte(OP_LIKE);
             else if (b->op == "\\") emit_byte(OP_INT_DIVIDE); // Integer division
             else if (b->op == "^" || b->op == "**") emit_byte(OP_POWER); // Exponentiation
+            else if (b->op == "<<") emit_byte(OP_SHL); // Left bit-shift
+            else if (b->op == ">>") emit_byte(OP_SHR); // Right bit-shift
             else {
                 UtilityFunctions::print("Compiler: Unsupported binary op ", b->op);
                 compile_ok = false;

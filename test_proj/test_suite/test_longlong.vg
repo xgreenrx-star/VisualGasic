@@ -1,0 +1,54 @@
+' test_longlong.vg — LongLong type alias (64-bit integer)
+Attribute VB_Name = "TestLongLong"
+
+Sub _Ready()
+    ' Basic LongLong declaration and assignment
+    Dim a As LongLong
+    a = 42
+    If a = 42 Then Print "PASS: longlong_basic" Else Print "FAIL: longlong_basic: expected 42 got " & CStr(a)
+
+    ' LongLong should behave like Long — large values
+    Dim b As LongLong
+    b = 2147483647
+    b = b + 1
+    If b = 2147483648 Then Print "PASS: longlong_large" Else Print "FAIL: longlong_large: expected 2147483648 got " & CStr(b)
+
+    ' LongLong default value should be 0
+    Dim c As LongLong
+    If c = 0 Then Print "PASS: longlong_default" Else Print "FAIL: longlong_default: expected 0 got " & CStr(c)
+
+    ' LongLong arithmetic
+    Dim d As LongLong
+    d = 1000000
+    d = d * 1000000
+    If d = 1000000000000 Then Print "PASS: longlong_multiply" Else Print "FAIL: longlong_multiply: expected 1000000000000 got " & CStr(d)
+
+    ' CLngLng conversion function
+    Dim e As Double
+    e = 3.7
+    Dim f As LongLong
+    f = CLngLng(e)
+    If f = 4 Then Print "PASS: clnglng_round" Else Print "FAIL: clnglng_round: expected 4 got " & CStr(f)
+
+    ' CLngLng from string
+    Dim g As LongLong
+    g = CLngLng(99)
+    If g = 99 Then Print "PASS: clnglng_from_int" Else Print "FAIL: clnglng_from_int: expected 99 got " & CStr(g)
+
+    ' LongLong array
+    Dim arr(4) As LongLong
+    arr(0) = 10
+    arr(1) = 20
+    arr(2) = 30
+    arr(3) = 40
+    arr(4) = 50
+    Dim total As LongLong
+    total = arr(0) + arr(1) + arr(2) + arr(3) + arr(4)
+    If total = 150 Then Print "PASS: longlong_array" Else Print "FAIL: longlong_array: expected 150 got " & CStr(total)
+
+    ' LongLong with bit-shift
+    Dim h As LongLong
+    h = 1
+    h = h << 32
+    If h = 4294967296 Then Print "PASS: longlong_shift32" Else Print "FAIL: longlong_shift32: expected 4294967296 got " & CStr(h)
+End Sub

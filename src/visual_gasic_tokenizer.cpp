@@ -484,24 +484,54 @@ Vector<VisualGasicTokenizer::Token> VisualGasicTokenizer::tokenize(const String 
                     t.type = TOKEN_OPERATOR; t.value = "/"; 
                 }
                 break;
-            case '&': t.type = TOKEN_OPERATOR; t.value = "&"; break;
+            case '&':
+                if (current + 1 < length && p_source_code[current+1] == '=') {
+                    t.type = TOKEN_OPERATOR; t.value = "&="; current++;
+                } else {
+                    t.type = TOKEN_OPERATOR; t.value = "&";
+                }
+                break;
             case '%': t.type = TOKEN_OPERATOR; t.value = "%"; break; // GDScript-style format / modulo
             case ':': t.type = TOKEN_COLON;    t.value = ":"; break;
             case ';': t.type = TOKEN_SEMICOLON; t.value = ";"; break;
             case '.': t.type = TOKEN_OPERATOR; t.value = "."; break;
             case '=': t.type = TOKEN_OPERATOR; t.value = "="; break;
             case '#': t.type = TOKEN_OPERATOR; t.value = "#"; break;
-            case '\\': t.type = TOKEN_OPERATOR; t.value = "\\"; break; // Integer division
-            case '^': t.type = TOKEN_OPERATOR; t.value = "^"; break;   // Exponentiation
-            case '>': 
+            case '\\':
                 if (current + 1 < length && p_source_code[current+1] == '=') {
+                    t.type = TOKEN_OPERATOR; t.value = "\\="; current++;
+                } else {
+                    t.type = TOKEN_OPERATOR; t.value = "\\";
+                }
+                break; // Integer division
+            case '^':
+                if (current + 1 < length && p_source_code[current+1] == '=') {
+                    t.type = TOKEN_OPERATOR; t.value = "^="; current++;
+                } else {
+                    t.type = TOKEN_OPERATOR; t.value = "^";
+                }
+                break;   // Exponentiation
+            case '>': 
+                if (current + 1 < length && p_source_code[current+1] == '>') {
+                    if (current + 2 < length && p_source_code[current+2] == '=') {
+                        t.type = TOKEN_OPERATOR; t.value = ">>="; current += 2;
+                    } else {
+                        t.type = TOKEN_OPERATOR; t.value = ">>"; current++;
+                    }
+                } else if (current + 1 < length && p_source_code[current+1] == '=') {
                     t.type = TOKEN_OPERATOR; t.value = ">="; current++;
                 } else {
                     t.type = TOKEN_OPERATOR; t.value = ">";
                 }
                 break;
             case '<': 
-                if (current + 1 < length && p_source_code[current+1] == '=') {
+                if (current + 1 < length && p_source_code[current+1] == '<') {
+                    if (current + 2 < length && p_source_code[current+2] == '=') {
+                        t.type = TOKEN_OPERATOR; t.value = "<<="; current += 2;
+                    } else {
+                        t.type = TOKEN_OPERATOR; t.value = "<<"; current++;
+                    }
+                } else if (current + 1 < length && p_source_code[current+1] == '=') {
                     t.type = TOKEN_OPERATOR; t.value = "<="; current++;
                 } else if (current + 1 < length && p_source_code[current+1] == '>') {
                     t.type = TOKEN_OPERATOR; t.value = "<>"; current++;

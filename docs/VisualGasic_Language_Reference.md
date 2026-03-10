@@ -105,6 +105,11 @@
 - [Resource Loading](#resource-loading)
 
 ### [v3.5.0-beta4 Language Enhancements](#v350-beta4-language-enhancements)
+
+### [v3.6.0 Language Enhancements](#v360-language-enhancements)
+- [Compound Assignment Operators](#compound-assignment-operators)
+- [Bit-Shift Operators](#bit-shift-operators)
+- [LongLong Type](#longlong-type)
 - [WithEvents / RaiseEvent](#withevents--raiseevent-v350)
 - [Implements Verification](#implements-verification-v350)
 - [Printer Object & PrintForm](#printer-object--printform-v350)
@@ -1522,6 +1527,7 @@ Dim maxHealth As Integer = 100
 |------|-------------|---------|
 | `Integer` | 32-bit signed integer | `42` |
 | `Long` | 64-bit signed integer | `9876543210` |
+| `LongLong` | 64-bit signed integer (alias for Long) | `9876543210` |
 | `Single` | 32-bit floating point | `3.14` |
 | `Double` | 64-bit floating point | `3.14159265` |
 | `String` | Text data | `"Hello World"` |
@@ -1537,6 +1543,7 @@ Dim text As String = "123"
 Dim number As Integer = CInt(text)
 Dim floating As Double = CDbl("3.14")
 Dim flag As Boolean = CBool(1)
+Dim big As LongLong = CLngLng(3.7)  ' Rounds to 4
 
 ' String conversion
 Dim result As String = CStr(42)  ' "42"
@@ -1580,6 +1587,26 @@ If condition1 OrElse condition2  ' Short-circuit OR
 ```vb
 fullName = firstName & " " & lastName  ' Concatenation
 If pattern Like "A*" Then              ' Pattern matching
+```
+
+#### Bit-Shift Operators *(v3.6.0)*
+```vb
+result = 1 << 4    ' Left shift  (16)
+result = 256 >> 3   ' Right shift (32)
+result = flags << n  ' Shift by variable amount
+```
+
+#### Compound Assignment Operators *(v3.6.0)*
+```vb
+x += 5     ' x = x + 5
+x -= 3     ' x = x - 3
+x *= 2     ' x = x * 2
+x /= 4     ' x = x / 4
+s &= " ok" ' s = s & " ok"   (string concatenation)
+x \= 3    ' x = x \ 3       (integer division)
+x ^= 2     ' x = x ^ 2       (exponentiation)
+x <<= 4    ' x = x << 4      (left shift)
+x >>= 2    ' x = x >> 2      (right shift)
 ```
 
 ### Comments
@@ -5545,6 +5572,82 @@ CreateWindow("Main", 1024, 768)   ' Override both
 ```
 
 The VM automatically fills missing arguments with their declared default values at call time.
+
+---
+
+## v3.6.0 Language Enhancements {#v360-language-enhancements}
+
+*Released in v3.6.0.* This release adds essential VB.NET/TwinBASIC operators and a 64-bit integer type alias.
+
+### Compound Assignment Operators {#compound-assignment-operators}
+
+Compound assignment operators combine a binary operation with assignment. They are desugared at parse time into the equivalent `x = x op expr` form, so they work on any valid L-value (simple variable, array element, object member).
+
+| Operator | Equivalent | Description |
+|----------|------------|-------------|
+| `+=` | `x = x + y` | Addition |
+| `-=` | `x = x - y` | Subtraction |
+| `*=` | `x = x * y` | Multiplication |
+| `/=` | `x = x / y` | Division |
+| `&=` | `x = x & y` | String concatenation |
+| `\=` | `x = x \ y` | Integer division |
+| `^=` | `x = x ^ y` | Exponentiation |
+| `<<=` | `x = x << y` | Left bit-shift |
+| `>>=` | `x = x >> y` | Right bit-shift |
+
+```vb
+Dim score As Integer = 100
+score += 50        ' 150
+score -= 25        ' 125
+score *= 2         ' 250
+
+Dim msg As String = "Hello"
+msg &= " World"    ' "Hello World"
+
+Dim flags As Integer = 1
+flags <<= 8        ' 256
+flags >>= 4        ' 16
+```
+
+### Bit-Shift Operators {#bit-shift-operators}
+
+The `<<` (left shift) and `>>` (right shift) operators perform bitwise shifting on integer values, matching VB.NET/TwinBASIC syntax.
+
+```vb
+Dim a As Integer = 1 << 8     ' 256
+Dim b As Integer = 256 >> 4   ' 16
+Dim c As Integer = 5 << 3     ' 40
+```
+
+**Precedence:** Bit-shift operators bind *tighter* than comparison operators but *looser* than arithmetic (`+`, `-`, `*`, `/`). This matches VB.NET:
+
+```vb
+' 1 << 2 + 1  is parsed as  1 << (2 + 1)  = 1 << 3 = 8
+' (1 << 3) = 8  is a comparison: True
+```
+
+**Typical use cases:**
+- Bitmask construction: `Dim mask As Integer = 1 << bitIndex`
+- Efficient power-of-2 multiply/divide: `value = n << 2` (×4)
+- Flag manipulation: `flags = flags Or (1 << FLAG_BIT)`
+
+### LongLong Type {#longlong-type}
+
+`LongLong` is a type alias for `Long` (64-bit signed integer). It is provided for compatibility with VBA 7+ / TwinBASIC code that declares 64-bit integers explicitly.
+
+```vb
+Dim big As LongLong = 2147483648    ' Exceeds 32-bit range
+Dim huge As LongLong = 1000000 * 1000000  ' 1 trillion
+
+' CLngLng() conversion function
+Dim rounded As LongLong = CLngLng(3.7)  ' 4 (banker's rounding)
+```
+
+`LongLong` variables:
+- Default to `0` on declaration
+- Work with all arithmetic, comparison, and bit-shift operators
+- Can be used as array element types: `Dim arr(9) As LongLong`
+- Are interchangeable with `Long` in all contexts
 
 ---
 This documentation provides a comprehensive overview of VisualGasic's advanced capabilities and modern language features. The format is professional and showcases VisualGasic as a powerful, contemporary programming language for cross-platform application and game development.

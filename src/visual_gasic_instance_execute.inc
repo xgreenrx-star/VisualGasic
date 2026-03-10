@@ -287,7 +287,7 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                              } else if (!type_name.is_empty()) {
                                  String tn = type_name.to_lower();
                                  Variant def_val;
-                                 if (tn == "integer" || tn == "long" || tn == "int") def_val = (int64_t)0;
+                                 if (tn == "integer" || tn == "long" || tn == "longlong" || tn == "int") def_val = (int64_t)0;
                                  else if (tn == "single" || tn == "double" || tn == "float") def_val = 0.0;
                                  else if (tn == "string") def_val = String("");
                                  else if (tn == "boolean" || tn == "bool") def_val = false;
@@ -320,7 +320,7 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                      Variant val = evaluate_expression(s->initializer);
                      if (!s->type_name.is_empty()) {
                          String t = s->type_name.to_lower();
-                         if (t == "integer" || t == "long") val = (int64_t)val;
+                         if (t == "integer" || t == "long" || t == "longlong") val = (int64_t)val;
                          else if (t == "single" || t == "double") val = (double)val;
                          else if (t == "string") val = (String)val;
                          else if (t == "boolean") val = (bool)val;
@@ -332,7 +332,7 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                         variables[s->variable_name] = ((Dictionary)struct_prototypes[s->type_name]).duplicate(true);
                     } else {
                         String t = s->type_name.to_lower();
-                        if (t == "integer" || t == "long") variables[s->variable_name] = 0;
+                        if (t == "integer" || t == "long" || t == "longlong") variables[s->variable_name] = 0;
                         else if (t == "single" || t == "double") variables[s->variable_name] = 0.0;
                         else if (t == "string") variables[s->variable_name] = "";
                         else if (t == "boolean") variables[s->variable_name] = false;

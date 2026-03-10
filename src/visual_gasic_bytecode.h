@@ -31,6 +31,8 @@ enum OpCode {
     OP_INT_DIVIDE,  // \ integer division
     OP_POWER,       // ^ or ** exponentiation
     OP_LIKE,        // Like pattern matching
+    OP_SHL,         // << left bit-shift
+    OP_SHR,         // >> right bit-shift
 
     // Extended numeric ops
     OP_ADD_I64,
