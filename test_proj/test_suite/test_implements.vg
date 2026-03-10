@@ -1,0 +1,37 @@
+' Test: Implements keyword
+' Tests module-level Implements declaration and runtime verification
+Attribute VB_Name = "TestImplements"
+
+' Declare that this module implements ICalculator
+Implements ICalculator
+
+' Implement the required methods using InterfaceName_MethodName convention
+Function ICalculator_Add(a As Integer, b As Integer) As Integer
+    Return a + b
+End Function
+
+Function ICalculator_Subtract(a As Integer, b As Integer) As Integer
+    Return a - b
+End Function
+
+Sub _Ready()
+    ' --- Implements parsed without error ---
+    Print "PASS: implements_declaration_parsed"
+
+    ' --- Interface methods work ---
+    Dim result As Integer = ICalculator_Add(10, 5)
+    If result = 15 Then
+        Print "PASS: implements_method_add"
+    Else
+        Print "FAIL: implements_method_add: got " & Str(result)
+    End If
+
+    result = ICalculator_Subtract(10, 3)
+    If result = 7 Then
+        Print "PASS: implements_method_subtract"
+    Else
+        Print "FAIL: implements_method_subtract: got " & Str(result)
+    End If
+
+    Print "TEST_COMPLETE"
+End Sub

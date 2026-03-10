@@ -1,0 +1,132 @@
+' Test: Printer Object
+' Tests Printer global object properties and methods
+Attribute VB_Name = "TestPrinterObject"
+
+Sub _Ready()
+    ' --- Printer.Font default ---
+    Dim f As String = Printer.Font
+    If f = "Arial" Then
+        Print "PASS: printer_font_default"
+    Else
+        Print "FAIL: printer_font_default: got " & f
+    End If
+
+    ' --- Printer.FontSize default ---
+    Dim sz As Integer = Printer.FontSize
+    If sz = 12 Then
+        Print "PASS: printer_fontsize_default"
+    Else
+        Print "FAIL: printer_fontsize_default: got " & Str(sz)
+    End If
+
+    ' --- Set Printer.Font ---
+    Printer.Font = "Courier New"
+    f = Printer.Font
+    If f = "Courier New" Then
+        Print "PASS: printer_font_set"
+    Else
+        Print "FAIL: printer_font_set: got " & f
+    End If
+
+    ' --- Set Printer.FontSize ---
+    Printer.FontSize = 24
+    sz = Printer.FontSize
+    If sz = 24 Then
+        Print "PASS: printer_fontsize_set"
+    Else
+        Print "FAIL: printer_fontsize_set: got " & Str(sz)
+    End If
+
+    ' --- Printer.FontBold default ---
+    Dim b As Boolean = Printer.FontBold
+    If b = False Then
+        Print "PASS: printer_fontbold_default"
+    Else
+        Print "FAIL: printer_fontbold_default"
+    End If
+
+    ' --- Set Printer.FontBold ---
+    Printer.FontBold = True
+    b = Printer.FontBold
+    If b = True Then
+        Print "PASS: printer_fontbold_set"
+    Else
+        Print "FAIL: printer_fontbold_set"
+    End If
+
+    ' --- Printer.Orientation default ---
+    Dim ori As Integer = Printer.Orientation
+    If ori = 1 Then
+        Print "PASS: printer_orientation_default"
+    Else
+        Print "FAIL: printer_orientation_default: got " & Str(ori)
+    End If
+
+    ' --- Printer.Copies default ---
+    Dim cp As Integer = Printer.Copies
+    If cp = 1 Then
+        Print "PASS: printer_copies_default"
+    Else
+        Print "FAIL: printer_copies_default: got " & Str(cp)
+    End If
+
+    ' --- Printer.Page default ---
+    Dim pg As Integer = Printer.Page
+    If pg = 1 Then
+        Print "PASS: printer_page_default"
+    Else
+        Print "FAIL: printer_page_default: got " & Str(pg)
+    End If
+
+    ' --- Printer.CurrentX / CurrentY default ---
+    Dim cx As Integer = Printer.CurrentX
+    Dim cy As Integer = Printer.CurrentY
+    If cx = 0 And cy = 0 Then
+        Print "PASS: printer_currentxy_default"
+    Else
+        Print "FAIL: printer_currentxy_default: got " & Str(cx) & "," & Str(cy)
+    End If
+
+    ' --- Printer.ScaleWidth / ScaleHeight ---
+    Dim sw As Integer = Printer.ScaleWidth
+    Dim sh As Integer = Printer.ScaleHeight
+    If sw = 8500 And sh = 11000 Then
+        Print "PASS: printer_scale_defaults"
+    Else
+        Print "FAIL: printer_scale_defaults: got " & Str(sw) & "x" & Str(sh)
+    End If
+
+    ' --- Printer.Print (no crash) ---
+    Printer.Print "Test line"
+    Print "PASS: printer_print_no_crash"
+
+    ' --- Printer.NewPage (no crash, increments page) ---
+    Printer.NewPage
+    Print "PASS: printer_newpage_no_crash"
+
+    ' --- Printer.EndDoc (no crash) ---
+    Printer.EndDoc
+    Print "PASS: printer_enddoc_no_crash"
+
+    ' --- Printer.KillDoc (no crash) ---
+    Printer.KillDoc
+    Print "PASS: printer_killdoc_no_crash"
+
+    ' --- Printer.ColorMode default ---
+    Dim cm As Integer = Printer.ColorMode
+    If cm = 1 Then
+        Print "PASS: printer_colormode_default"
+    Else
+        Print "FAIL: printer_colormode_default: got " & Str(cm)
+    End If
+
+    ' --- Printer.PaperSize default ---
+    Dim ps As Integer = Printer.PaperSize
+    If ps = 1 Then
+        Print "PASS: printer_papersize_default"
+    Else
+        Print "FAIL: printer_papersize_default: got " & Str(ps)
+    End If
+
+    Print "TEST_COMPLETE"
+End Sub

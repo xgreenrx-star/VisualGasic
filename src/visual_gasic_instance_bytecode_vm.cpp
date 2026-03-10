@@ -1293,6 +1293,31 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     }
                     break;
                 }
+                // VB6 Printer global object (v3.5.0) — persistent dictionary
+                if (name.nocasecmp_to("Printer") == 0) {
+                    if (variables.has("__vg_Printer")) {
+                        push_value(variables["__vg_Printer"]);
+                    } else {
+                        Dictionary printer;
+                        printer["Font"] = String("Arial");
+                        printer["FontSize"] = 12;
+                        printer["FontBold"] = false;
+                        printer["FontItalic"] = false;
+                        printer["Orientation"] = 1;
+                        printer["Copies"] = 1;
+                        printer["Page"] = 1;
+                        printer["CurrentX"] = 0;
+                        printer["CurrentY"] = 0;
+                        printer["ScaleWidth"] = 8500;
+                        printer["ScaleHeight"] = 11000;
+                        printer["hDC"] = 0;
+                        printer["ColorMode"] = 1;
+                        printer["PaperSize"] = 1;
+                        variables["__vg_Printer"] = printer;
+                        push_value(printer);
+                    }
+                    break;
+                }
                 
                 Variant val = variables.get(name, Variant());
                 

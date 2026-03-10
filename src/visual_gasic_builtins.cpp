@@ -3111,11 +3111,11 @@ bool call_builtin_for_base_variable(VisualGasicInstance *instance, const String 
             return true;
         }
         if (p_method == "ScaleWidth" || p_method == "scalewidth") {
-            r_ret = 8400; // Default 8.5" in twips
+            r_ret = 8500; // Default 8.5" in twips
             return true;
         }
         if (p_method == "ScaleHeight" || p_method == "scaleheight") {
-            r_ret = 10800; // Default 11" in twips
+            r_ret = 11000; // Default 11" in twips
             return true;
         }
         if (p_method == "hDC" || p_method == "hdc") {
@@ -3123,7 +3123,7 @@ bool call_builtin_for_base_variable(VisualGasicInstance *instance, const String 
             return true;
         }
         if (p_method == "ColorMode" || p_method == "colormode") {
-            r_ret = 2; // vbPRCMColor = 2
+            r_ret = 1; // vbPRCMMonochrome = 1
             return true;
         }
         if (p_method == "PaperSize" || p_method == "papersize") {

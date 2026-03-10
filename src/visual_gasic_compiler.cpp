@@ -275,6 +275,7 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
     non_local_names.insert("app");
     non_local_names.insert("screen");
     non_local_names.insert("err");
+    non_local_names.insert("printer"); // VB6 Printer global (v3.5.0)
     // Godot engine singletons — must route through OP_GET_GLOBAL so the
     // VM can resolve them via Engine::get_singleton() at runtime.
     static const char *godot_singletons[] = {
