@@ -41,6 +41,7 @@
 - [Classes and Types](#classes-and-types)
 - [Inheritance](#inheritance)
 - [Interfaces](#interfaces)
+- [Events (WithEvents / RaiseEvent)](#events-withevents--raiseevent)
 - [Properties and Methods](#properties-and-methods)
 
 ### [Built-in Functions](#built-in-functions)
@@ -61,6 +62,8 @@
 - [App Object](#app-object)
 - [Screen Object](#screen-object)
 - [Err Object](#err-object)
+- [Printer Object](#printer-object)
+- [PrintForm Statement](#printform-statement)
 
 ### [COM-Style Objects (v2.10.0)](#com-style-objects)
 - [VGCollection](#vgcollection)
@@ -100,6 +103,12 @@
 - [Signal System](#signal-system)
 - [Scene Management](#scene-management)
 - [Resource Loading](#resource-loading)
+
+### [v3.5.0-beta4 Language Enhancements](#v350-beta4-language-enhancements)
+- [WithEvents / RaiseEvent](#withevents--raiseevent-v350)
+- [Implements Verification](#implements-verification-v350)
+- [Printer Object & PrintForm](#printer-object--printform-v350)
+- [Optional Parameters](#optional-parameters-v350)
 
 ---
 
@@ -1978,6 +1987,64 @@ Class Enemy Implements IDamageable
 End Class
 ```
 
+> **Implements Runtime Verification (v3.5.0):** When a module declares `Implements IFoo`, VisualGasic checks at load time that at least one `IFoo_*` method exists in the module. If none is found, a warning is printed to the console so you can catch unimplemented interfaces early.
+
+### Events (WithEvents / RaiseEvent) {#events-withevents--raiseevent}
+
+VisualGasic supports VB6-style custom events with `Event`, `RaiseEvent`, and `WithEvents`.
+
+#### Declaring and Raising Events
+
+```vb
+' Declare an event in a class module
+Event ProgressChanged(percent As Integer)
+Event Completed()
+
+Sub DoWork()
+    Dim i As Integer
+    For i = 1 To 100
+        ' ... work ...
+        RaiseEvent ProgressChanged(i)
+    Next
+    RaiseEvent Completed()
+End Sub
+```
+
+`RaiseEvent` compiles to a dedicated bytecode opcode (`OP_RAISE_EVENT`) that emits a Godot signal with the same name, supporting up to 5 arguments.
+
+#### WithEvents — Automatic Event Wiring
+
+Declare a variable with `WithEvents` to automatically connect its events to handler subs in the current module. Handlers are named `VariableName_EventName`:
+
+```vb
+Dim WithEvents worker As Worker
+
+Sub StartJob()
+    Set worker = New Worker
+    worker.DoWork   ' Events fire automatically
+End Sub
+
+' Handler — auto-connected when "worker" is assigned
+Sub worker_ProgressChanged(percent As Integer)
+    ProgressBar1.Value = percent
+End Sub
+
+Sub worker_Completed()
+    MsgBox "Job finished!"
+End Sub
+```
+
+When you `Set` a WithEvents variable, VisualGasic scans the module for subs matching the `varname_SignalName` pattern and connects them via Godot's signal system. Reassigning the variable disconnects old handlers automatically.
+
+#### Event Wiring at a Glance
+
+| Feature | Syntax | Notes |
+|---------|--------|-------|
+| Declare event | `Event Name(params)` | Compiles to Godot signal |
+| Fire event | `RaiseEvent Name(args)` | Emits the signal (up to 5 args) |
+| Auto-connect | `Dim WithEvents x As T` | Handlers: `x_EventName(...)` |
+| Manual connect | `Connect obj, "signal", "handler"` | Standard Godot approach |
+
 ### Properties and Methods
 
 ```vb
@@ -3334,6 +3401,64 @@ Print Err.Description    ' "Invalid argument"
 Err.Clear
 On Error GoTo 0
 ```
+
+### Printer Object {#printer-object}
+
+*Added in v3.5.0-beta4.* The `Printer` object emulates VB6's global `Printer` object for generating printed output. It is resolved automatically by name — no `Dim` required.
+
+#### Methods
+
+| Method | Description |
+|--------|-------------|
+| `Printer.Print text` | Sends text to the output buffer |
+| `Printer.EndDoc` | Finishes the print job and flushes output |
+| `Printer.NewPage` | Starts a new page (increments `Page`) |
+| `Printer.KillDoc` | Cancels the current print job |
+| `Printer.Circle x, y, r` | Draws a circle (stub — logs parameters) |
+| `Printer.Line x1, y1, x2, y2` | Draws a line (stub — logs parameters) |
+| `Printer.PaintPicture pic, x, y` | Paints an image (stub — logs parameters) |
+| `Printer.PSet x, y` | Sets a pixel (stub — logs parameters) |
+
+#### Properties
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `Printer.Font` | String | `"Arial"` | Current font name |
+| `Printer.FontSize` | Integer | `12` | Font size in points |
+| `Printer.FontBold` | Boolean | `False` | Bold flag |
+| `Printer.FontItalic` | Boolean | `False` | Italic flag |
+| `Printer.Orientation` | Integer | `1` | 1 = Portrait, 2 = Landscape |
+| `Printer.Copies` | Integer | `1` | Number of copies |
+| `Printer.Page` | Integer | `1` | Current page number (read-only, incremented by `NewPage`) |
+| `Printer.CurrentX` | Integer | `0` | Horizontal print position |
+| `Printer.CurrentY` | Integer | `0` | Vertical print position |
+| `Printer.ScaleWidth` | Integer | `8500` | Logical page width |
+| `Printer.ScaleHeight` | Integer | `11000` | Logical page height |
+| `Printer.hDC` | Integer | `0` | Device context handle (stub) |
+| `Printer.ColorMode` | Integer | `1` | 1 = Monochrome, 2 = Color |
+| `Printer.PaperSize` | Integer | `1` | Paper size constant |
+
+```vb
+' Basic printing example
+Printer.Font = "Courier New"
+Printer.FontSize = 10
+Printer.Print "Invoice #1234"
+Printer.Print "Date: " & Format(Now, "yyyy-mm-dd")
+Printer.NewPage
+Printer.Print "Page 2 content"
+Printer.EndDoc
+```
+
+### PrintForm Statement {#printform-statement}
+
+*Added in v3.5.0-beta4.* `PrintForm` captures the current viewport to a PNG image file, emulating VB6's `PrintForm` statement.
+
+```vb
+' Capture the current form/viewport to an image
+PrintForm
+```
+
+The image is saved to `user://printform_output.png` in the Godot user data directory. A confirmation message is printed to the console.
 
 ---
 
@@ -5345,6 +5470,81 @@ Module MathHelpers
     End Function
 End Module
 ```
+
+---
+
+## v3.5.0-beta4 Language Enhancements {#v350-beta4-language-enhancements}
+
+*Released in v3.5.0-beta4.* This release adds core VB6 desktop-application features to bring VisualGasic closer to full VB6 parity.
+
+### WithEvents / RaiseEvent (v3.5.0) {#withevents--raiseevent-v350}
+
+Full VB6-style custom event support:
+
+- **`Event`** — declare a custom event (compiles to a Godot signal).
+- **`RaiseEvent`** — fire the event (dedicated `OP_RAISE_EVENT` bytecode opcode, supports up to 5 arguments).
+- **`Dim WithEvents`** — declare a variable whose events are auto-wired to `VarName_EventName` handler subs in the same module.
+
+```vb
+' Class module
+Event DataReady(rows As Integer)
+
+Sub LoadData()
+    ' ... fetch data ...
+    RaiseEvent DataReady(rowCount)
+End Sub
+
+' Form module
+Dim WithEvents db As DatabaseLoader
+
+Sub db_DataReady(rows As Integer)
+    Label1.Caption = "Loaded " & CStr(rows) & " rows"
+End Sub
+```
+
+See [Events (WithEvents / RaiseEvent)](#events-withevents--raiseevent) for full details.
+
+### Implements Verification (v3.5.0) {#implements-verification-v350}
+
+When a module declares `Implements InterfaceName`, VisualGasic now verifies at load time that at least one method matching `InterfaceName_*` exists. If the interface is completely unimplemented, a warning is printed to the console:
+
+```
+VisualGasic: Module 'MyForm' declares Implements ISerializable but has no ISerializable_* methods
+```
+
+This catches missing interface implementations early without a hard runtime error.
+
+### Printer Object & PrintForm (v3.5.0) {#printer-object--printform-v350}
+
+The global `Printer` object provides 20+ VB6-compatible properties and methods for generating printed output (font, orientation, page control, drawing primitives). `PrintForm` captures the current viewport to a PNG file.
+
+```vb
+Printer.Font = "Times New Roman"
+Printer.FontSize = 14
+Printer.Print "Report Title"
+Printer.NewPage
+Printer.Print "Page 2"
+Printer.EndDoc
+
+PrintForm   ' → saves user://printform_output.png
+```
+
+See [Printer Object](#printer-object) and [PrintForm Statement](#printform-statement) for full property/method tables.
+
+### Optional Parameters (v3.5.0) {#optional-parameters-v350}
+
+Optional parameters with default values have been fully supported since v2.x and continue to work as expected:
+
+```vb
+Sub CreateWindow(title As String, Optional width As Integer = 800, Optional height As Integer = 600)
+    ' width and height default to 800×600 if omitted
+End Sub
+
+CreateWindow("Main")              ' Uses defaults
+CreateWindow("Main", 1024, 768)   ' Override both
+```
+
+The VM automatically fills missing arguments with their declared default values at call time.
 
 ---
 This documentation provides a comprehensive overview of VisualGasic's advanced capabilities and modern language features. The format is professional and showcases VisualGasic as a powerful, contemporary programming language for cross-platform application and game development.
