@@ -60,6 +60,7 @@
 #include <godot_cpp/classes/font.hpp>
 #include <godot_cpp/classes/theme_db.hpp>
 #include <godot_cpp/classes/theme.hpp>
+#include <godot_cpp/classes/style_box_flat.hpp>
 #include <godot_cpp/classes/gpu_particles2d.hpp>
 #include <godot_cpp/classes/gpu_particles3d.hpp>
 #include <godot_cpp/classes/particle_process_material.hpp>
@@ -1001,6 +1002,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         dispatch_table[OP_TASK_RUN_END]       = &&vg_op_task_run_end;
         dispatch_table[OP_TASK_WAIT]          = &&vg_op_task_wait;
         dispatch_table[OP_AWAIT]              = &&vg_op_await;
+        // Event system (v3.5.0)
+        dispatch_table[OP_RAISE_EVENT]        = &&vg_op_raise_event;
         dispatch_table_init = true;
     }
 
@@ -2877,6 +2880,90 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                             result = obj->get("value");
                             handled = true;
                         }
+                        // ToolTipText → tooltip_text
+                        else if (prop_name == "ToolTipText") {
+                            result = obj->get("tooltip_text");
+                            handled = true;
+                        }
+                        // TabStop → focus_mode (True = FOCUS_ALL, False = FOCUS_NONE)
+                        else if (prop_name == "TabStop") {
+                            int fm = (int)obj->get("focus_mode");
+                            result = (fm != 0);  // FOCUS_NONE=0
+                            handled = true;
+                        }
+                        // Opacity → modulate.a (0–100 VB6 scale → 0.0–1.0)
+                        else if (prop_name == "Opacity") {
+                            Control *ctrl = Object::cast_to<Control>(obj);
+                            if (ctrl) {
+                                result = (int)(ctrl->get_modulate().a * 100.0f);
+                                handled = true;
+                            }
+                        }
+                        // MousePointer → mouse_default_cursor_shape
+                        else if (prop_name == "MousePointer") {
+                            result = obj->get("mouse_default_cursor_shape");
+                            handled = true;
+                        }
+                        // Locked → !editable (TextEdit/LineEdit)
+                        else if (prop_name == "Locked") {
+                            Variant ed = obj->get("editable");
+                            if (ed.get_type() == Variant::BOOL) {
+                                result = !(bool)ed;
+                            } else {
+                                result = false;
+                            }
+                            handled = true;
+                        }
+                        // MaxLength → max_length (LineEdit)
+                        else if (prop_name == "MaxLength") {
+                            result = obj->get("max_length");
+                            handled = true;
+                        }
+                        // Alignment → horizontal_alignment
+                        else if (prop_name == "Alignment") {
+                            result = obj->get("horizontal_alignment");
+                            handled = true;
+                        }
+                        // WordWrap → autowrap_mode (Label)
+                        else if (prop_name == "WordWrap") {
+                            int mode = (int)obj->get("autowrap_mode");
+                            result = (mode != 0);  // OFF=0
+                            handled = true;
+                        }
+                        // FontSize (runtime read)
+                        else if (prop_name == "FontSize") {
+                            Control *ctrl = Object::cast_to<Control>(obj);
+                            if (ctrl) {
+                                result = ctrl->get_theme_font_size("font_size");
+                                handled = true;
+                            }
+                        }
+                        // ForeColor → theme font_color
+                        else if (prop_name == "ForeColor") {
+                            Control *ctrl = Object::cast_to<Control>(obj);
+                            if (ctrl) {
+                                result = ctrl->get_theme_color("font_color");
+                                handled = true;
+                            }
+                        }
+                        // BackColor → StyleBox bg_color or self_modulate fallback
+                        else if (prop_name == "BackColor") {
+                            Control *ctrl = Object::cast_to<Control>(obj);
+                            if (ctrl) {
+                                Ref<StyleBox> sb = ctrl->get_theme_stylebox("normal");
+                                if (sb.is_valid()) {
+                                    Ref<StyleBoxFlat> sbf = sb;
+                                    if (sbf.is_valid()) {
+                                        result = sbf->get_bg_color();
+                                        handled = true;
+                                    }
+                                }
+                                if (!handled) {
+                                    result = ctrl->get_self_modulate();
+                                    handled = true;
+                                }
+                            }
+                        }
                         
                         if (handled) {
                             push_value(result);
@@ -3075,13 +3162,97 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         else if (prop_name == "Value") {
                             godot_prop = "value";
                         }
-                        // BackColor → modulate or self_modulate
-                        else if (prop_name == "BackColor") {
-                            godot_prop = "self_modulate";
+                        // ToolTipText → tooltip_text
+                        else if (prop_name == "ToolTipText") {
+                            godot_prop = "tooltip_text";
                         }
-                        // ForeColor → modulate for labels
+                        // TabStop → focus_mode (True = FOCUS_ALL=2, False = FOCUS_NONE=0)
+                        else if (prop_name == "TabStop") {
+                            int mode = (bool)value ? 2 : 0;  // FOCUS_ALL=2, FOCUS_NONE=0
+                            obj->set("focus_mode", mode);
+                            push_value(base);
+                            break;
+                        }
+                        // Opacity → modulate.a (0–100 VB6 → 0.0–1.0)
+                        else if (prop_name == "Opacity") {
+                            Control *ctrl = Object::cast_to<Control>(obj);
+                            if (ctrl) {
+                                Color mod = ctrl->get_modulate();
+                                mod.a = CLAMP((double)value / 100.0, 0.0, 1.0);
+                                ctrl->set_modulate(mod);
+                            }
+                            push_value(base);
+                            break;
+                        }
+                        // MousePointer → mouse_default_cursor_shape
+                        else if (prop_name == "MousePointer") {
+                            godot_prop = "mouse_default_cursor_shape";
+                        }
+                        // Locked → !editable (TextEdit/LineEdit)
+                        else if (prop_name == "Locked") {
+                            Variant test_ed = obj->get("editable");
+                            if (test_ed.get_type() == Variant::BOOL) {
+                                obj->set("editable", !(bool)value);
+                            }
+                            push_value(base);
+                            break;
+                        }
+                        // MaxLength → max_length (LineEdit)
+                        else if (prop_name == "MaxLength") {
+                            godot_prop = "max_length";
+                        }
+                        // Alignment → horizontal_alignment
+                        else if (prop_name == "Alignment") {
+                            godot_prop = "horizontal_alignment";
+                        }
+                        // WordWrap → autowrap_mode (True=WORD_SMART=3, False=OFF=0)
+                        else if (prop_name == "WordWrap") {
+                            int mode = (bool)value ? 3 : 0;  // AUTOWRAP_WORD_SMART=3
+                            obj->set("autowrap_mode", mode);
+                            push_value(base);
+                            break;
+                        }
+                        // FontSize → theme_override font size
+                        else if (prop_name == "FontSize") {
+                            Control *ctrl = Object::cast_to<Control>(obj);
+                            if (ctrl) {
+                                ctrl->add_theme_font_size_override("font_size", (int)value);
+                            }
+                            push_value(base);
+                            break;
+                        }
+                        // ForeColor → theme_override font_color
                         else if (prop_name == "ForeColor") {
-                            godot_prop = "self_modulate";
+                            Control *ctrl = Object::cast_to<Control>(obj);
+                            if (ctrl) {
+                                Color c = value;
+                                ctrl->add_theme_color_override("font_color", c);
+                            }
+                            push_value(base);
+                            break;
+                        }
+                        // BackColor → StyleBox override bg_color
+                        else if (prop_name == "BackColor") {
+                            Control *ctrl = Object::cast_to<Control>(obj);
+                            if (ctrl) {
+                                Color c = value;
+                                // Create a new StyleBoxFlat override for the "normal" stylebox
+                                Ref<StyleBoxFlat> sbf;
+                                Ref<StyleBox> existing = ctrl->get_theme_stylebox("normal");
+                                if (existing.is_valid()) {
+                                    Ref<StyleBoxFlat> existing_flat = existing;
+                                    if (existing_flat.is_valid()) {
+                                        sbf = existing_flat->duplicate();
+                                    }
+                                }
+                                if (sbf.is_null()) {
+                                    sbf.instantiate();
+                                }
+                                sbf->set_bg_color(c);
+                                ctrl->add_theme_stylebox_override("normal", sbf);
+                            }
+                            push_value(base);
+                            break;
                         }
                         
                         if (!godot_prop.is_empty()) {
@@ -4380,6 +4551,50 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 // Currently a no-op: the awaited expression was already evaluated
                 // synchronously.  This opcode establishes the infrastructure for
                 // future async dispatch (e.g. OP_ASYNC_CALL → future handle).
+                VG_BREAK;
+            }
+
+            // RaiseEvent (v3.5.0) — emit a Godot signal on the owner object.
+            VG_CASE(vg_op_raise_event, OP_RAISE_EVENT): {
+                if (vm.ip + 1 >= code_size) { success = false; goto cleanup; }
+                uint8_t name_idx = code[vm.ip++];
+                uint8_t arg_count = code[vm.ip++];
+                if (!ensure_stack(arg_count)) { success = false; goto cleanup; }
+                StringName sname = String(read_constant(name_idx));
+                if (owner) {
+                    if (arg_count == 0) {
+                        owner->emit_signal(sname);
+                    } else if (arg_count == 1) {
+                        Variant a0 = pop_value();
+                        owner->emit_signal(sname, a0);
+                    } else if (arg_count == 2) {
+                        Variant a1 = pop_value();
+                        Variant a0 = pop_value();
+                        owner->emit_signal(sname, a0, a1);
+                    } else if (arg_count == 3) {
+                        Variant a2 = pop_value();
+                        Variant a1 = pop_value();
+                        Variant a0 = pop_value();
+                        owner->emit_signal(sname, a0, a1, a2);
+                    } else if (arg_count == 4) {
+                        Variant a3 = pop_value();
+                        Variant a2 = pop_value();
+                        Variant a1 = pop_value();
+                        Variant a0 = pop_value();
+                        owner->emit_signal(sname, a0, a1, a2, a3);
+                    } else {
+                        // 5+ args: pop all, use first 5
+                        Array args;
+                        args.resize(arg_count);
+                        for (int i = arg_count - 1; i >= 0; i--) {
+                            args[i] = pop_value();
+                        }
+                        owner->emit_signal(sname, args[0], args[1], args[2], args[3], args[4]);
+                    }
+                } else {
+                    // No owner — just pop and discard args
+                    for (int i = 0; i < arg_count; i++) pop_value();
+                }
                 VG_BREAK;
             }
 

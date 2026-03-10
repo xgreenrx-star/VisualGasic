@@ -597,7 +597,188 @@ All items from the system-programming audit are now implemented:
 
 ---
 
-## 🚀 v4.0 Roadmap — "Next Generation"
+## � v3.6 Roadmap — "Modern Language Features"
+
+Language-level additions inspired by twinBASIC, VB.NET, and modern BASIC dialects.
+Strategic goal: make VisualGasic's *language* competitive with twinBASIC and RAD Basic
+while leaning into our unique advantage — cross-platform game engine integration.
+
+> **Already shipped:** `Inherits` (v2.4.0), `AndAlso`/`OrElse` (v3.4),
+> `Return <expr>` (v3.5), `Continue For/Do/While` (v3.5), Classes + Properties (v2.4).
+> These are NOT listed below — they're done.
+
+### 🔴 High Priority — Quick Wins (Tokenizer + Parser + Compiler)
+
+1. **Compound Assignment Operators — `+=  -=  *=  /=  \=  &=  ^=`**
+   Sugar for `x = x + y`. Extremely common in game loops (`score += 10`,
+   `position.X += velocity.X`). Every modern BASIC has these.
+   **Scope**:
+   - Tokenizer: recognize `+=`, `-=`, `*=`, `/=`, `\=` (integer div), `&=` (concat), `^=` (power) as `TOKEN_COMPOUND_ASSIGN`
+   - Parser: in `parse_assignment_or_call()`, desugar `lhs += rhs` → `lhs = lhs + rhs` at AST level
+   - Compiler/VM: no changes — the desugared AST uses existing opcodes
+   - IntelliSense: add snippets for `+=`, `-=`, etc.
+   **Tests**: arithmetic, string concat (`s &= "world"`), property targets (`Me.Score += 1`)
+   **Effort**: ~2–3 hours
+
+2. **Bit-Shift Operators — `<<  >>  Shl  Shr`**
+   Essential for game dev: collision layer flags, packed color math, binary protocols,
+   flag enums. The JIT already has `SHR_I64_CONST` internally — this exposes it to
+   the language.
+   **Scope**:
+   - Tokenizer: recognize `<<`, `>>` as `TOKEN_OPERATOR`; register `Shl`, `Shr` as keyword aliases
+   - Parser: new precedence level between addition and comparison (C-style)
+   - Compiler: emit `OP_SHL` / `OP_SHR` opcodes (integer-only, error on floats)
+   - JIT: map to existing `SHR_I64_CONST` pattern, add `SHL_I64_CONST`
+   **Example**:
+   ```vb
+   Dim layers As Integer = 1 << 3    ' collision layer 8
+   Dim red As Integer = (color >> 16) And &HFF
+   ```
+   **Effort**: ~2–3 hours
+
+3. **`LongLong` (64-bit Integer) Type**
+   Godot internally uses `int64_t` everywhere. Currently VG's `Integer` is already
+   64-bit at the Variant level, but there's no explicit `LongLong` type declaration
+   for VB6/VB.NET compatibility. Add it as a type alias so migrated code compiles
+   cleanly.
+   **Scope**:
+   - Tokenizer: register `LongLong` keyword
+   - Parser/compiler: treat `Dim x As LongLong` identically to `Integer` (both are Variant::INT / int64)
+   - Add `LongPtr` alias that maps to `LongLong` (for Win32 API code migration)
+   - Type suffix `x^^` syntax (twinBASIC-compatible)
+   **Effort**: ~1 hour (mostly a type alias)
+
+### 🟡 Medium Priority — Significant Language Features
+
+4. **Method Overloading**
+   Define multiple `Sub`/`Function` signatures with the same name but different
+   parameter counts or types. Common in game code: `Spawn(x, y)` vs
+   `Spawn(x, y, speed, angle)`.
+   **Scope**:
+   - Parser: allow multiple `Sub Foo(...)` / `Function Foo(...)` with different arity
+   - Symbol table: store overload sets keyed by `(name, param_count)`
+   - Compiler: at call site, resolve to best-match overload by argument count (VB6-style — no type-based resolution initially)
+   - Error on ambiguous calls
+   - IntelliSense: show all overloads in autocomplete popup with numbered signatures
+   **Syntax**:
+   ```vb
+   Sub Spawn(x As Single, y As Single)
+       Spawn x, y, 100, 0   ' calls 4-param version
+   End Sub
+   Sub Spawn(x As Single, y As Single, speed As Single, angle As Single)
+       ' full version
+   End Sub
+   ```
+   **Effort**: ~4–6 hours (symbol table + compiler dispatch)
+
+5. **Parameterized Constructors — `New ClassName(args)`**
+   Currently `New ClassName` calls a parameterless constructor. Game objects almost
+   always need initialization arguments: `New Bullet(speed, angle, damage)`.
+   **Scope**:
+   - Parser: parse `New Foo(expr, expr, ...)` — currently stops at `New Foo`
+   - Compiler: after `OP_NEW`, emit `OP_CALL` to `Class_Initialize` with args
+   - Allow `Class_Initialize` to accept parameters (currently must be parameterless)
+   - Backward-compatible: `New Foo` with no parens still calls zero-arg constructor
+   **Example**:
+   ```vb
+   Class Bullet
+       Private speed As Single, angle As Single, damage As Integer
+       Sub Class_Initialize(s As Single, a As Single, d As Integer)
+           speed = s : angle = a : damage = d
+       End Sub
+   End Class
+
+   Dim b As Bullet = New Bullet(300, 45, 10)
+   ```
+   **Effort**: ~3–4 hours
+
+6. **Generics (Typed Collections) — `Collection(Of T)`**
+   Type-safe collections eliminate runtime type errors. Game code is full of
+   `Collection` objects that should be typed: enemies, bullets, particles.
+   **Scope (Phase 1 — Collection only)**:
+   - Tokenizer: register `Of` as keyword (already a contextual word in some paths)
+   - Parser: parse `Dim enemies As Collection(Of Enemy)` — store generic type parameter
+   - Compiler: emit runtime type-check on `.Add()` — error if wrong type inserted
+   - IntelliSense: filter `.Item()` return type to `T` for autocomplete
+   - No user-defined generic classes yet (Phase 2)
+   **Syntax**:
+   ```vb
+   Dim enemies As New Collection(Of Sprite)
+   enemies.Add New Sprite(100, 200)     ' OK
+   enemies.Add "hello"                  ' ← COMPILE ERROR: String is not Sprite
+   Dim e As Sprite = enemies.Item(1)    ' no cast needed
+   ```
+   **Phase 2 (v4.0)**: User-defined `Class Stack(Of T)` with type parameters in
+   method signatures. Requires full type inference pass.
+   **Effort**: Phase 1 ~6–8 hours, Phase 2 ~10+ hours
+
+### 🟢 Nice-to-Have — Ecosystem Alignment
+
+7. **Additional Compound Operators — `And=  Or=  Xor=  Mod=`**
+   Bitwise compound assignment for flag manipulation:
+   `collisionMask And= Not(LAYER_WATER)`. Lower priority than the arithmetic
+   compounds above because they're less commonly used.
+   **Effort**: ~1 hour (pattern identical to item 1)
+
+8. **`Enum` with Explicit Values**
+   VB6/twinBASIC `Enum` declarations with explicit member values. Currently VG
+   uses `Const` blocks for this. Proper `Enum` gives IntelliSense grouping,
+   type safety, and `Enum.ToString()`.
+   **Scope**:
+   - `Enum Direction: Up = 0 : Down = 1 : Left = 2 : Right = 3 : End Enum`
+   - Auto-increment when values are omitted
+   - `[Flags]` attribute for bitfield enums
+   **Effort**: ~3–4 hours
+
+9. **Game UI Mode for Form Designer**
+   Reposition the Form Designer from "Windows desktop forms" to "game HUD/menu
+   builder". Instead of generating standalone Window nodes, generate CanvasLayer
+   overlays that integrate directly with the running game scene.
+   **Scope**:
+   - New "Game UI" project template alongside existing "Standard Form"
+   - Generates `CanvasLayer` root instead of `Window`
+   - Theme presets: Retro Pixel, Modern Flat, Sci-Fi, Fantasy
+   - Anchor/margin presets for common HUD layouts (health bar, minimap, score)
+   - Export to `.tscn` with proper Godot Control anchoring
+   - Existing Form Designer remains for desktop-style apps and tutorials
+   **Effort**: ~6–8 hours
+
+### 📊 v3.6 Priority Matrix
+
+| # | Feature | Game Dev Value | Effort | Priority |
+|---|---------|---------------|--------|----------|
+| 1 | Compound Assignment `+=` | ⭐⭐⭐⭐⭐ | 2–3 hrs | 🔴 Ship first |
+| 2 | Bit-Shift `<<` `>>` | ⭐⭐⭐⭐ | 2–3 hrs | 🔴 Ship first |
+| 3 | `LongLong` type alias | ⭐⭐⭐ | 1 hr | 🔴 Ship first |
+| 4 | Method Overloading | ⭐⭐⭐⭐ | 4–6 hrs | 🟡 Should-have |
+| 5 | Parameterized Constructors | ⭐⭐⭐⭐⭐ | 3–4 hrs | 🟡 Should-have |
+| 6 | Generics Phase 1 | ⭐⭐⭐⭐ | 6–8 hrs | 🟡 Should-have |
+| 7 | Extra Compound Ops | ⭐⭐ | 1 hr | 🟢 Nice-to-have |
+| 8 | Enum Declarations | ⭐⭐⭐ | 3–4 hrs | 🟢 Nice-to-have |
+| 9 | Game UI Mode | ⭐⭐⭐⭐⭐ | 6–8 hrs | 🟢 Nice-to-have |
+| | **Total (must-have)** | | **~5–7 hrs** | |
+| | **Total (should-have)** | | **~18–25 hrs** | |
+| | **Total (all)** | | **~29–39 hrs** | |
+
+### ❌ Deliberately Skipped (Not Relevant to Game Engine)
+
+These twinBASIC / RAD Basic features were evaluated and intentionally excluded:
+
+| Feature | Reason |
+|---------|--------|
+| COM / ActiveX | Windows-only, no game use case |
+| Win32 API (`Declare Function`) | Godot has its own platform API |
+| Standalone `.exe` compilation | Godot handles export to all platforms |
+| WebView2 embedding | Use Godot's UI system instead |
+| Inline assembly | Security risk in a scripting language |
+| Static linking | Godot GDExtension handles linking |
+| LLVM backend | Our JIT + Godot VM is sufficient |
+| Report Designer | Not relevant to game development |
+| DPI awareness | Godot handles DPI scaling natively |
+
+---
+
+## �🚀 v4.0 Roadmap — "Next Generation"
 
 Targeted improvements for a major v4.0 release. Requires v3.5.0 stable first.
 

@@ -180,6 +180,7 @@ Vector<VisualGasicTokenizer::Token> VisualGasicTokenizer::tokenize(const String 
     keywords.push_back("Get");
     keywords.push_back("Let");
     keywords.push_back("Implements");
+    keywords.push_back("WithEvents");
 
     while (current < length) {
         char32_t c = p_source_code[current];

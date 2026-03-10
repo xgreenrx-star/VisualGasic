@@ -65,6 +65,19 @@
 #include <godot_cpp/classes/texture_rect.hpp>
 #include <godot_cpp/classes/sprite3d.hpp>
 #include <godot_cpp/classes/texture3d.hpp>
+#include <godot_cpp/classes/input_event_mouse_button.hpp>
+#include <godot_cpp/classes/input_event_mouse_motion.hpp>
+#include <godot_cpp/classes/input_event_key.hpp>
+#include <godot_cpp/classes/input_event.hpp>
+#include <godot_cpp/classes/check_box.hpp>
+#include <godot_cpp/classes/check_button.hpp>
+#include <godot_cpp/classes/option_button.hpp>
+#include <godot_cpp/classes/spin_box.hpp>
+#include <godot_cpp/classes/tab_container.hpp>
+#include <godot_cpp/classes/menu_bar.hpp>
+#include <godot_cpp/classes/color_rect.hpp>
+#include <godot_cpp/classes/panel.hpp>
+#include <godot_cpp/classes/rich_text_label.hpp>
 #include "gasic_ai_controller.h"
 #include <godot_cpp/classes/character_body2d.hpp>
 #include <godot_cpp/classes/character_body3d.hpp>
@@ -867,6 +880,11 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
                  else if (t == "boolean") variables[v->name] = false;
                  else variables[v->name] = Variant(); // Init to Empty (Nil)
                  
+                 // Track WithEvents variables for signal auto-wiring (v3.5.0)
+                 if (v->is_with_events) {
+                     with_events_vars[v->name] = true;
+                 }
+                 
                  UtilityFunctions::print("Initialized Global Var: ", v->name);
             }
             
@@ -1015,6 +1033,32 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
         // Register Class definitions
         for(int i=0; i<script->ast_root->class_defs.size(); i++) {
             register_class(script->ast_root->class_defs[i]);
+        }
+
+        // Implements verification (v3.5.0)
+        // For each Implements InterfaceName, check that every Sub/Function
+        // in the interface module has a matching InterfaceName_MethodName in
+        // this module. VB6 convention: implementing IFoo requires IFoo_Bar
+        // for every method Bar defined in IFoo.
+        for (int ii = 0; ii < script->ast_root->implements_list.size(); ii++) {
+            String iface = script->ast_root->implements_list[ii];
+            // Look up the interface script by name among loaded scripts
+            // For now, we verify that _some_ prefixed subs exist.
+            // A proper implementation would load the interface .vg file
+            // and compare method lists. Emit a warning if no subs match.
+            String prefix = iface + "_";
+            bool found_any = false;
+            for (int si = 0; si < script->ast_root->subs.size(); si++) {
+                if (script->ast_root->subs[si]->name.begins_with(prefix)) {
+                    found_any = true;
+                    break;
+                }
+            }
+            if (!found_any) {
+                UtilityFunctions::print("VisualGasic Warning: Module 'Implements ", iface,
+                    "' but contains no '", prefix, "...' methods. "
+                    "VB6 convention requires InterfaceName_MethodName for each interface method.");
+            }
         }
 
         // Initialize Data Segments

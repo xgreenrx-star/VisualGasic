@@ -5,6 +5,32 @@ All notable changes to Visual Gasic will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.5.0-beta4] - 2026
+
+### 🔧 Desktop Readiness — Language Features (Items 5–8)
+
+RaiseEvent bytecode support, WithEvents keyword, Implements runtime verification, Printer object, PrintForm statement, and Optional param confirmation.
+
+### Added
+- **RaiseEvent bytecode opcode** — `OP_RAISE_EVENT` added to bytecode compiler, VM, optimizer, and JIT tier2. RaiseEvent now works in both AST interpreter and bytecode paths (supports up to 5 arguments via `emit_signal`)
+- **WithEvents keyword** — `Dim WithEvents obj As ClassName` parses and stores flag in AST. Runtime auto-wires signals: when a WithEvents variable is Set, all `obj_SignalName` subs are connected to the source object's signals
+- **Implements runtime verification** — `Implements InterfaceName` is now parsed at module level and stored in `ModuleNode.implements_list`. At script load, a warning is emitted if no `InterfaceName_...` methods are found
+- **Printer built-in object** — `Printer.Print`, `Printer.EndDoc`, `Printer.NewPage`, `Printer.KillDoc`, `Printer.Circle`, `Printer.Line`, `Printer.PaintPicture`, `Printer.PSet`, plus read-only properties: Font, FontSize, FontBold, FontItalic, Orientation, Copies, Page, CurrentX, CurrentY, ScaleWidth, ScaleHeight, hDC, ColorMode, PaperSize
+- **PrintForm statement** — captures current viewport to `user://PrintForm_<timestamp>.png`
+- **WithEvents tokenizer keyword** added to `visual_gasic_tokenizer.cpp`
+
+### Confirmed
+- **Optional params** — already fully working in both AST and bytecode paths. `call_internal()` fills `default_value` for any omitted Optional arguments
+- **Enum declarations** — fully implemented across parser, AST, compiler, and runtime (with `.Parse()`, `.Values()`, `.ToString()`)
+- **Type/UDT (User-Defined Types)** — fully implemented across all layers
+
+### Changed
+- `DimStatement` and `VariableDefinition` AST nodes gained `is_with_events` field
+- `ModuleNode` gained `implements_list` vector
+- Bytecode opcode enum extended: `OP_RAISE_EVENT` before `OP_COUNT_`
+
+---
+
 ## [3.5.0-beta2] - March 6, 2026
 
 ### 🎨 IDE Polish Release

@@ -358,8 +358,9 @@ struct DimStatement : public Statement {
     ExpressionNode* initializer;
     bool is_static;
     bool is_dynamic_array; // True for Dim arr() As Integer (empty parentheses)
+    bool is_with_events;   // True for Dim WithEvents obj As ClassName (v3.5.0)
     
-    DimStatement() : Statement(STMT_DIM) { initializer = nullptr; is_static = false; is_dynamic_array = false; }
+    DimStatement() : Statement(STMT_DIM) { initializer = nullptr; is_static = false; is_dynamic_array = false; is_with_events = false; }
     virtual ~DimStatement() { 
         for(int i=0; i<array_sizes.size(); i++) {
              if (array_sizes[i]) delete array_sizes[i];
@@ -641,10 +642,11 @@ struct VariableDefinition : public ASTNode {
     String type;
     Visibility visibility;
     ExpressionNode* default_value;  // Optional initialization value
+    bool is_with_events;            // WithEvents variable (v3.5.0)
     // Arrays?
     Vector<int> array_sizes; // if array
     
-    VariableDefinition() : default_value(nullptr), visibility(VIS_PRIVATE) {}
+    VariableDefinition() : default_value(nullptr), visibility(VIS_PRIVATE), is_with_events(false) {}
     ~VariableDefinition() { if(default_value) delete default_value; }
 };
 
@@ -764,6 +766,7 @@ struct ModuleNode {
     Vector<Statement*> global_statements; // For Data and Labels at module level
     Vector<PropertyDefinition*> properties; // Module level properties (owned by ClassDefinitions)
     Vector<ClassDefinition*> class_defs; // Class definitions
+    Vector<String> implements_list;      // Implements interfaces (v3.5.0)
     
     ModuleNode() { option_explicit = false; option_compare_text = false; }
 

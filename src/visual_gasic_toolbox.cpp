@@ -183,6 +183,7 @@ VisualGasicToolbox::VisualGasicToolbox() {
     add_tool("CheckBox", "CheckBox", "CheckBox", "res://addons/visual_gasic/prototypes/CheckBox.tscn");
     add_tool("ComboBox", "OptionButton", "OptionButton", "res://addons/visual_gasic/prototypes/OptionButton.tscn");
     add_tool("Label", "Label", "Label", "res://addons/visual_gasic/prototypes/Label.tscn"); 
+    add_tool("RadioButton", "CheckBox", "CheckBox", "res://addons/visual_gasic/prototypes/RadioButton.tscn");
     add_tool("TextBox", "LineEdit", "LineEdit", "res://addons/visual_gasic/prototypes/LineEdit.tscn");
     
     // ── Container Controls ── (alphabetical)
@@ -192,6 +193,7 @@ VisualGasicToolbox::VisualGasicToolbox() {
 
     // ── List Controls ── (alphabetical)
     add_tool("ListBox", "ItemList", "ItemList", "res://addons/visual_gasic/prototypes/ItemList.tscn");
+    add_tool("ListView", "ItemList", "ItemList", "res://addons/visual_gasic/prototypes/ListView.tscn");
     add_tool("TreeView", "Tree", "Tree", "res://addons/visual_gasic/prototypes/Tree.tscn");
     
     // ── Text Controls ── (alphabetical)
@@ -203,6 +205,11 @@ VisualGasicToolbox::VisualGasicToolbox() {
     add_tool("ProgressBar", "ProgressBar", "ProgressBar", "res://addons/visual_gasic/prototypes/ProgressBar.tscn");
     add_tool("Shape", "ColorRect", "ColorRect", "res://addons/visual_gasic/prototypes/ColorRect.tscn");
     
+    // ── Menu / Bar Controls ── (alphabetical)
+    add_tool("MenuBar", "MenuBar", "MenuBar", "res://addons/visual_gasic/prototypes/MenuBar.tscn");
+    add_tool("StatusBar", "PanelContainer", "PanelContainer", "res://addons/visual_gasic/prototypes/StatusBar.tscn");
+    add_tool("Toolbar", "PanelContainer", "HBoxContainer", "res://addons/visual_gasic/prototypes/Toolbar.tscn");
+
     // ── Line / Separator Controls ── (alphabetical)
     add_tool("HLine", "HSeparator", "HSeparator", "res://addons/visual_gasic/prototypes/HSeparator.tscn");
     add_tool("VLine", "VSeparator", "VSeparator", "res://addons/visual_gasic/prototypes/VSeparator.tscn");

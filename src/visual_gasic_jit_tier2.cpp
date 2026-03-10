@@ -532,6 +532,8 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                             advance = 1; break;
                         case OP_TASK_WAIT: case OP_BRANCH_SUM:
                             advance = 2; break;
+                        case OP_RAISE_EVENT:
+                            advance = 3; break;
                         default:
                             advance = 1; break;
                     }

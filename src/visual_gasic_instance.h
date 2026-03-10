@@ -85,6 +85,7 @@ class VisualGasicInstance {
     int next_object_id = 1;         // For unique object IDs
     Dictionary loaded_libraries;     // lib_name -> handle (as int64_t)
     Dictionary declared_functions;   // function_name -> DeclareStatement* (as int64_t)
+    Dictionary with_events_vars;     // WithEvents variable names → true (v3.5.0)
     HashMap<StringName, FastKeyCacheEntry> fast_dict_key_cache;
     uint32_t fast_dict_key_cache_generation = 0;
     StringName fast_dict_last_key_name;

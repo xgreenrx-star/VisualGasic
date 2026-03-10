@@ -12,7 +12,8 @@ A simple four-function calculator with a display and digit/operator buttons — 
 
 **Prerequisites:** Godot 4.5+ installed, VisualGasic release ZIP downloaded.
 
-📸 *Screenshot: The finished calculator running*
+![The finished calculator running](image-6.png)
+<!-- TODO: Capture screenshot of the running calculator showing "42" — reuse for hero and Step 8 -->
 
 ---
 
@@ -26,8 +27,8 @@ A simple four-function calculator with a display and digit/operator buttons — 
 
 Godot opens the editor with an empty project.
 
-📸 *Screenshot: Godot Project Manager with "MyCalculator" typed in*
-![alt text](image.png)
+![Godot Project Manager with MyCalculator typed in](image.png)
+
 ---
 
 ## Step 2 — Install the VisualGasic Addon
@@ -46,8 +47,8 @@ Godot opens the editor with an empty project.
    ```
 4. Back in Godot, click somewhere in the **FileSystem** dock at the bottom-left. You should see the `addons` folder appear. If not, click **Project → Reload Current Project** to refresh.
 
-📸 *Screenshot: FileSystem dock showing addons/visual_gasic/ folder*
-![alt text](image-1.png)
+![FileSystem dock showing addons/visual_gasic/ folder](image-1.png)
+
 ---
 
 ## Step 3 — Enable the Plugin
@@ -60,8 +61,8 @@ Godot opens the editor with an empty project.
 
 You should now see a **Visual Gasic IDE** button in the top toolbar, next to **2D**, **3D**, **Script**, and **AssetLib**.
 
-📸 *Screenshot: The top toolbar showing the "Visual Gasic IDE" button*
-![alt text](image-2.png)
+![The top toolbar showing the Visual Gasic IDE button](image-2.png)
+
 ---
 
 ## Step 4 — Create a New Form
@@ -82,8 +83,10 @@ A blank form named **Form1** appears on the canvas. Two files are created automa
 
 **Tip:** You can resize the form by dragging the small black **resize handles** on its edges and corners — just like resizing a window. The status bar at the bottom shows the current dimensions (e.g., `600 x 400`).
 
-📸 *Screenshot: The Visual Gasic IDE with a blank Form1 on the canvas*
-![![alt text](image-4.png)](image-3.png)
+![The Visual Gasic IDE with a blank Form1 on the canvas](image-3.png)
+
+![Detail: Form1 canvas with resize handles](image-4.png)
+
 ---
 
 ## Step 5 — Design the Calculator Layout
@@ -104,8 +107,8 @@ Now we'll place controls on the form. The workflow is: **click a tool in the Too
 
 **Tip:** For numeric properties like **FontSize**, **Width**, and **Height**, use the **Up/Down arrow keys** to adjust by 1, or **Shift+Up/Down** to jump by 10.
 
-📸 *Screenshot: Form with txtDisplay placed across the top*
-![alt text](image-5.png)
+![Form with txtDisplay placed across the top](image-5.png)
+
 ### 5b — Add the Digit Buttons
 
 Now we'll add buttons for the digits **0–9** and the decimal point. For each button:
@@ -131,7 +134,8 @@ Place them in a grid layout like a real calculator:
 
 **Tip:** The Properties panel has a **🔍 Filter** box at the top — type a property name to instantly find it. Hover over any property label to see a **tooltip** describing what it does.
 
-📸 *Screenshot: All digit and operator buttons arranged in a 4×4 grid below the display*
+![All digit and operator buttons arranged in a 4×4 grid below the display](image-7.png)
+<!-- TODO: Capture screenshot of the 4×4 button grid below the display -->
 
 ### 5c — Add the Clear Button
 
@@ -141,7 +145,8 @@ Place them in a grid layout like a real calculator:
    - **(Name)**: `btnClear`
    - **Caption**: `C`
 
-📸 *Screenshot: Completed calculator layout with display, grid, and Clear button*
+![Completed calculator layout with display, grid, and Clear button](image-8.png)
+<!-- TODO: Capture screenshot of the completed calculator layout -->
 
 ### 5d — Rename the Form
 
@@ -373,7 +378,8 @@ Your calculator window opens. Click the buttons — it works!
 
 Try: `7` → `*` → `6` → `=` → the display shows `42`.
 
-📸 *Screenshot: The running calculator showing "42" in the display*
+![The running calculator showing 42 in the display](image-6.png)
+<!-- TODO: Same screenshot as the hero image at the top -->
 
 ---
 

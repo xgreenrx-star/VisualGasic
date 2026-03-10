@@ -20,6 +20,9 @@
 #include <godot_cpp/classes/input.hpp>
 #include <godot_cpp/classes/time.hpp>
 #include <godot_cpp/classes/tree.hpp>
+#include <godot_cpp/classes/viewport.hpp>
+#include <godot_cpp/classes/viewport_texture.hpp>
+#include <godot_cpp/classes/image.hpp>
 // System-level class headers for built-in function dispatch
 #include "visual_gasic_process.h"
 #include "visual_gasic_database.h"
@@ -75,6 +78,30 @@ static String variant_to_cstr(const Variant &src) {
 }
 
 Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String &p_method, const Array &p_args, bool &r_handled);
+
+// ── PrintForm (v3.5.0) ── VB6 PrintForm statement ──
+// In VB6 this prints the current form to the default printer.
+// In Godot we capture the viewport to an image and save it as PNG.
+// Usage: PrintForm [optional form reference]
+static bool _handle_print_form(VisualGasicInstance *instance, const Array &p_args) {
+    if (!instance || !instance->get_owner()) return false;
+    Node *owner_node = Object::cast_to<Node>(instance->get_owner());
+    if (!owner_node || !owner_node->is_inside_tree()) return false;
+
+    // Get the viewport to capture
+    Viewport *vp = owner_node->get_viewport();
+    if (!vp) return false;
+
+    Ref<Image> img = vp->get_texture()->get_image();
+    if (img.is_null()) return false;
+
+    // Save to user://PrintForm_<timestamp>.png
+    String timestamp = String::num_int64(Time::get_singleton()->get_ticks_msec());
+    String path = String("user://PrintForm_") + timestamp + String(".png");
+    img->save_png(path);
+    UtilityFunctions::print("[PrintForm] Captured viewport to: ", path);
+    return true;
+}
 
 bool call_builtin(VisualGasicInstance *instance, const String &p_method, const Array &p_args, Variant &r_ret, bool &r_found) {
     VG_PROFILE_CATEGORY("builtin_call", "builtins");
@@ -219,6 +246,13 @@ bool call_builtin(VisualGasicInstance *instance, const String &p_method, const A
                 if (child) parent->add_child(child);
             }
         }
+        return true;
+    }
+
+    // PrintForm — VB6 print-current-form statement (v3.5.0)
+    if (method.nocasecmp_to("PrintForm") == 0) {
+        r_found = true;
+        _handle_print_form(instance, p_args);
         return true;
     }
 
@@ -2989,6 +3023,113 @@ bool call_builtin_for_base_variable(VisualGasicInstance *instance, const String 
         if (p_method == "TwipsPerPixelX" || p_method == "twipsperpixelx") { r_ret = 1; return true; }
         if (p_method == "TwipsPerPixelY" || p_method == "twipsperpixely") { r_ret = 1; return true; }
         if (p_method == "MousePointer" || p_method == "mousepointer") { r_ret = 0; return true; }
+        return false;
+    }
+
+    // ── Printer object (v3.5.0) ── VB6 Printer.Print, Printer.EndDoc, etc.
+    // In a game engine context, "printing" renders to a viewport or outputs text.
+    // These are stubs that log output and return success values so VB6 code
+    // that references the Printer object compiles and runs without errors.
+    if (p_base_name == "Printer" || p_base_name == "printer") {
+        if (p_method == "Print" || p_method == "print") {
+            // Printer.Print text — output to console (stub)
+            String text;
+            for (int i = 0; i < p_args.size(); i++) {
+                if (i > 0) text += " ";
+                text += String(p_args[i]);
+            }
+            UtilityFunctions::print("[Printer] ", text);
+            r_ret = Variant();
+            return true;
+        }
+        if (p_method == "EndDoc" || p_method == "enddoc") {
+            UtilityFunctions::print("[Printer] EndDoc — document sent to printer (stub)");
+            r_ret = Variant();
+            return true;
+        }
+        if (p_method == "NewPage" || p_method == "newpage") {
+            UtilityFunctions::print("[Printer] NewPage");
+            r_ret = Variant();
+            return true;
+        }
+        if (p_method == "KillDoc" || p_method == "killdoc") {
+            UtilityFunctions::print("[Printer] KillDoc — print job cancelled (stub)");
+            r_ret = Variant();
+            return true;
+        }
+        if (p_method == "Circle" || p_method == "circle") {
+            r_ret = Variant();
+            return true;
+        }
+        if (p_method == "Line" || p_method == "line") {
+            r_ret = Variant();
+            return true;
+        }
+        if (p_method == "PaintPicture" || p_method == "paintpicture") {
+            r_ret = Variant();
+            return true;
+        }
+        if (p_method == "PSet" || p_method == "pset") {
+            r_ret = Variant();
+            return true;
+        }
+        // Printer properties (read)
+        if (p_method == "Font" || p_method == "font") {
+            r_ret = String("Arial");
+            return true;
+        }
+        if (p_method == "FontSize" || p_method == "fontsize" || p_method == "Font.Size") {
+            r_ret = 12;
+            return true;
+        }
+        if (p_method == "FontBold" || p_method == "fontbold" || p_method == "Font.Bold") {
+            r_ret = false;
+            return true;
+        }
+        if (p_method == "FontItalic" || p_method == "fontitalic" || p_method == "Font.Italic") {
+            r_ret = false;
+            return true;
+        }
+        if (p_method == "Orientation" || p_method == "orientation") {
+            r_ret = 1; // vbPRORPortrait = 1
+            return true;
+        }
+        if (p_method == "Copies" || p_method == "copies") {
+            r_ret = 1;
+            return true;
+        }
+        if (p_method == "Page" || p_method == "page") {
+            r_ret = 1;
+            return true;
+        }
+        if (p_method == "CurrentX" || p_method == "currentx") {
+            r_ret = 0;
+            return true;
+        }
+        if (p_method == "CurrentY" || p_method == "currenty") {
+            r_ret = 0;
+            return true;
+        }
+        if (p_method == "ScaleWidth" || p_method == "scalewidth") {
+            r_ret = 8400; // Default 8.5" in twips
+            return true;
+        }
+        if (p_method == "ScaleHeight" || p_method == "scaleheight") {
+            r_ret = 10800; // Default 11" in twips
+            return true;
+        }
+        if (p_method == "hDC" || p_method == "hdc") {
+            r_ret = 0; // No device context in Godot
+            return true;
+        }
+        if (p_method == "ColorMode" || p_method == "colormode") {
+            r_ret = 2; // vbPRCMColor = 2
+            return true;
+        }
+        if (p_method == "PaperSize" || p_method == "papersize") {
+            r_ret = 1; // vbPRPSLetter = 1
+            return true;
+        }
         return false;
     }
 

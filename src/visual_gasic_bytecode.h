@@ -207,6 +207,9 @@ enum OpCode {
     OP_TASK_WAIT,      // [OP] [WAIT_ALL_FLAG] - Wait for active tasks (1=all, 0=any)
     OP_AWAIT,          // [OP] - Pop expression result, push back (future: async dispatch)
 
+    // Event system (v3.5.0)
+    OP_RAISE_EVENT,    // [OP] [NAME_IDX] [ARG_COUNT] - emit_signal on owner
+
     OP_COUNT_          // Sentinel — must be last (used by computed-goto table)
 };
 

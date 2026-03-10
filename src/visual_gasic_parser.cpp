@@ -221,6 +221,7 @@ ModuleNode* VisualGasicParser::parse(const Vector<VisualGasicTokenizer::Token>& 
                  v->name = dim->variable_name;
                  v->type = dim->type_name; // can be empty
                  v->visibility = (val == "public") ? VIS_PUBLIC : (val == "private" ? VIS_PRIVATE : VIS_DIM);
+                 v->is_with_events = dim->is_with_events; // Propagate WithEvents (v3.5.0)
                  
                  for(int i=0; i<dim->array_sizes.size(); i++) {
                      ExpressionNode* expr = dim->array_sizes[i];
@@ -283,6 +284,18 @@ ModuleNode* VisualGasicParser::parse(const Vector<VisualGasicTokenizer::Token>& 
                  // Keep the ConstStatement wrapper as it holds the value expression
              }
              continue;
+        }
+
+        // Implements at module level (v3.5.0) — store in implements_list
+        if (t.type == VisualGasicTokenizer::TOKEN_KEYWORD && String(t.value).nocasecmp_to("implements") == 0) {
+            advance(); // Eat Implements
+            if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
+                module->implements_list.push_back(peek().value);
+                advance();
+            } else {
+                error("Expected interface name after 'Implements'");
+            }
+            continue;
         }
 
         // Global Data/Labels support
@@ -2046,6 +2059,13 @@ WithStatement* VisualGasicParser::parse_with() {
 DimStatement* VisualGasicParser::parse_dim() {
     advance(); // Eat Dim
     
+    // Check for WithEvents modifier: Dim WithEvents obj As ClassName
+    bool with_events = false;
+    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("WithEvents") == 0) {
+        with_events = true;
+        advance(); // Eat WithEvents
+    }
+    
     if (!check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
         UtilityFunctions::print("Parser Error: Expected variable name after Dim");
         // Skip to end of line to recover
@@ -2129,6 +2149,7 @@ DimStatement* VisualGasicParser::parse_dim() {
     // Parse first variable
     DimStatement* first_stmt = parse_single_var();
     if (!first_stmt) return nullptr;
+    first_stmt->is_with_events = with_events;
     
     // Check for comma-separated additional declarations
     // VB6 style: Dim a, b, c As Integer - only c is Integer, a and b are Variant

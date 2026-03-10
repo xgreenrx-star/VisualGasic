@@ -554,6 +554,7 @@ bool VisualGasicScript::_has_method(const StringName &p_method) const {
         return true;
     }
     if (p_method == StringName("_OnSignal")) return true;
+    if (p_method == StringName("_OnGuiInput")) return true;
     if (!ast_root) return false;
     
     String method_str = String(p_method);

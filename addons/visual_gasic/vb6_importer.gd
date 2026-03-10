@@ -264,6 +264,36 @@ const EVENT_MAP: Dictionary = {
 		"MouseUp": "gui_input",
 		"MouseMove": "gui_input",
 	},
+	"RadioButton": {
+		"Click": "pressed",
+		"Change": "toggled",
+		"GotFocus": "focus_entered",
+		"LostFocus": "focus_exited",
+	},
+	"MenuBar": {
+		# MenuBar events are wired per-child PopupMenu
+	},
+	"PopupMenu": {
+		"Click": "id_pressed",
+		"MenuClick": "id_pressed",
+	},
+	"StatusBar": {
+		"Click": "gui_input",
+		"DblClick": "gui_input",
+		"PanelClick": "gui_input",
+	},
+	"Toolbar": {
+		"ButtonClick": "gui_input",
+	},
+	"ListView": {
+		"Click": "item_selected",
+		"DblClick": "item_activated",
+		"ColumnClick": "gui_input",
+		"KeyDown": "gui_input",
+		"KeyUp": "gui_input",
+		"GotFocus": "focus_entered",
+		"LostFocus": "focus_exited",
+	},
 }
 
 # =============================================================================

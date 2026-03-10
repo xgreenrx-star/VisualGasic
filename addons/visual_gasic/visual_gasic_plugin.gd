@@ -5135,8 +5135,16 @@ func _on_fd_control_double_clicked(index: int) -> void:
 	var event_suffix = "Click"
 	if ctrl_type in ["LineEdit", "TextEdit"]:
 		event_suffix = "Change"
-	elif ctrl_type in ["HScrollBar", "VScrollBar", "HSlider", "VSlider"]:
+	elif ctrl_type in ["HScrollBar", "VScrollBar", "HSlider", "VSlider", "SpinBox"]:
 		event_suffix = "Change"
+	elif ctrl_type == "Timer":
+		event_suffix = "Timer"
+	elif ctrl_type == "RadioButton":
+		event_suffix = "Click"
+	elif ctrl_type in ["StatusBar", "Toolbar"]:
+		event_suffix = "Click"
+	elif ctrl_type == "ListView":
+		event_suffix = "Click"
 	# Get form path — try multiple fallbacks
 	var form_path = _form_designer.get_form_path()
 	if form_path.is_empty():

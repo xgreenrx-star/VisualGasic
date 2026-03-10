@@ -485,6 +485,117 @@ void VisualGasicInstance::call(const StringName &p_method, const Variant *const 
          }
     }
 
+    // Intercept _OnGuiInput — demuxes gui_input InputEvents into VB6 events
+    // Args: [InputEvent, ControlName]  (ControlName is the bound arg)
+    if (p_method == StringName("_OnGuiInput")) {
+         if (args.size() >= 2) {
+             Ref<InputEvent> event = args[0];
+             String ctrl_name = args[args.size() - 1];
+
+             if (event.is_valid()) {
+                 Ref<InputEventMouseButton> mb = event;
+                 Ref<InputEventMouseMotion> mm = event;
+                 Ref<InputEventKey> key = event;
+
+                 bool found = false;
+
+                 // --- Mouse Button events ---
+                 if (mb.is_valid()) {
+                     int button = (int)mb->get_button_index();
+                     int shift_state = 0;
+                     if (mb->is_shift_pressed()) shift_state |= 1;
+                     if (mb->is_ctrl_pressed())  shift_state |= 2;
+                     if (mb->is_alt_pressed())   shift_state |= 4;
+                     float x = mb->get_position().x;
+                     float y = mb->get_position().y;
+
+                     if (mb->is_pressed()) {
+                         if (mb->is_double_click()) {
+                             // DblClick
+                             Array dbl_args;
+                             call_internal(ctrl_name + "_DblClick", dbl_args, found);
+                         } else {
+                             // MouseDown(Button, Shift, X, Y)
+                             Array md_args;
+                             md_args.push_back(button);
+                             md_args.push_back(shift_state);
+                             md_args.push_back(x);
+                             md_args.push_back(y);
+                             call_internal(ctrl_name + "_MouseDown", md_args, found);
+
+                             // Also fire Click for left button single-click
+                             if (button == 1) {
+                                 Array click_args;
+                                 call_internal(ctrl_name + "_Click", click_args, found);
+                             }
+                         }
+                     } else {
+                         // MouseUp(Button, Shift, X, Y)
+                         Array mu_args;
+                         mu_args.push_back(button);
+                         mu_args.push_back(shift_state);
+                         mu_args.push_back(x);
+                         mu_args.push_back(y);
+                         call_internal(ctrl_name + "_MouseUp", mu_args, found);
+                     }
+                 }
+
+                 // --- Mouse Motion → MouseMove(Button, Shift, X, Y) ---
+                 if (mm.is_valid()) {
+                     int button_mask = (int)mm->get_button_mask();
+                     int shift_state = 0;
+                     if (mm->is_shift_pressed()) shift_state |= 1;
+                     if (mm->is_ctrl_pressed())  shift_state |= 2;
+                     if (mm->is_alt_pressed())   shift_state |= 4;
+                     float x = mm->get_position().x;
+                     float y = mm->get_position().y;
+
+                     Array move_args;
+                     move_args.push_back(button_mask);
+                     move_args.push_back(shift_state);
+                     move_args.push_back(x);
+                     move_args.push_back(y);
+                     call_internal(ctrl_name + "_MouseMove", move_args, found);
+                 }
+
+                 // --- Key events → KeyDown / KeyUp / KeyPress ---
+                 if (key.is_valid()) {
+                     int keycode = (int)key->get_keycode();
+                     int shift_state = 0;
+                     if (key->is_shift_pressed()) shift_state |= 1;
+                     if (key->is_ctrl_pressed())  shift_state |= 2;
+                     if (key->is_alt_pressed())   shift_state |= 4;
+
+                     if (key->is_pressed() && !key->is_echo()) {
+                         // KeyDown(KeyCode, Shift)
+                         Array kd_args;
+                         kd_args.push_back(keycode);
+                         kd_args.push_back(shift_state);
+                         call_internal(ctrl_name + "_KeyDown", kd_args, found);
+
+                         // KeyPress(KeyAscii) — only for printable characters
+                         int unicode = (int)key->get_unicode();
+                         if (unicode > 0) {
+                             Array kp_args;
+                             kp_args.push_back(unicode);
+                             call_internal(ctrl_name + "_KeyPress", kp_args, found);
+                         }
+                     } else if (!key->is_pressed()) {
+                         // KeyUp(KeyCode, Shift)
+                         Array ku_args;
+                         ku_args.push_back(keycode);
+                         ku_args.push_back(shift_state);
+                         call_internal(ctrl_name + "_KeyUp", ku_args, found);
+                     }
+                 }
+             }
+
+             if (r_return) *r_return = Variant();
+             r_error->error = GDEXTENSION_CALL_OK;
+             return;
+         }
+    }
+
     bool found = false;
 
     // Guard: _Ready is handled exclusively by notification(NOTIFICATION_READY)
@@ -568,77 +679,205 @@ void VisualGasicInstance::raise_error(String msg, int code, const String &source
 
 
 // Static Helper for Auto-Connection
+// ---------------------------------------------------------------------------
+// _try_wire: Attempts to connect a Godot signal to a VB6-style event handler
+// (e.g. "Button1_Click").  Returns true if the connection was made.
+// ---------------------------------------------------------------------------
+static bool _try_wire(Node* node, const String& name, const String& evt_name,
+                      const String& signal_name, VisualGasicScript* vs,
+                      Node* instance_owner) {
+    String sub_name = name + String("_") + evt_name;
+    if (!vs->_has_method(sub_name)) return false;
+
+    Callable target(instance_owner, "_OnSignal");
+    Array binds;
+    binds.push_back(name);
+    binds.push_back(evt_name);
+    Callable bound = target.bindv(binds);
+
+    if (!node->is_connected(signal_name, target)) {
+        node->connect(signal_name, bound);
+    }
+    return true;
+}
+
 static void _connect_vb_signals_recursive(Node* node, VisualGasicInstance* instance, Node* instance_owner) {
     if (!node) return;
 
     String name = node->get_name();
-    String evt_name = "";
-    String signal_name = "";
-    
-    // Debug Trace
-    // UtilityFunctions::print("VisualGasic: Scanning ", name, " (", node->get_class(), ")");
 
-    // Determine mapping using ClassDB or string checks for safety
-    if (node->is_class("Button") || node->is_class("TextureButton") || node->is_class("CheckButton") || node->is_class("CheckBox") || Object::cast_to<BaseButton>(node)) {
-        evt_name = "Click";
-        signal_name = "pressed";
-    } else if (node->is_class("LineEdit")) {
-        evt_name = "Change";
-        signal_name = "text_changed";
-    } else if (node->is_class("TextEdit")) {
-        evt_name = "Change";
-        signal_name = "text_changed";
-    } else if (node->is_class("HSlider") || node->is_class("VSlider") || node->is_class("HScrollBar") || node->is_class("VScrollBar")) {
-        evt_name = "Change";
-        signal_name = "value_changed";
-    } else if (node->is_class("Timer")) {
-        evt_name = "Timer";
-        signal_name = "timeout";
-    } else if (node->is_class("ItemList")) {
-        evt_name = "Click";
-        signal_name = "item_selected";
-    } else if (node->is_class("OptionButton")) {
-        evt_name = "Click";
-        signal_name = "item_selected";
-    }
-    
-    if (!evt_name.is_empty()) {
-        String sub_name = name + "_" + evt_name;
-        // UtilityFunctions::print("VisualGasic: Found Candidate ", sub_name);
-
-        // Check if script has this method
-        Ref<Script> s = instance->get_script();
-        VisualGasicScript *vs = Object::cast_to<VisualGasicScript>(s.ptr());
-        
-        bool has_it = false;
-        if (vs) {
-             has_it = vs->_has_method(sub_name);
-             // UtilityFunctions::print("VisualGasic: Script Has Method? ", has_it);
-        } else {
-             // UtilityFunctions::print("VisualGasic: Script Cast Failed");
+    // Get VG script for _has_method checks
+    Ref<Script> s = instance->get_script();
+    VisualGasicScript *vs = Object::cast_to<VisualGasicScript>(s.ptr());
+    if (!vs) {
+        // Still recurse children even without a script
+        int cc = node->get_child_count();
+        for (int i = 0; i < cc; i++) {
+            _connect_vb_signals_recursive(node->get_child(i), instance, instance_owner);
         }
-        
-        if (has_it) {
-            Callable target(instance_owner, "_OnSignal");
-            
-            // Re-connect always safe? Check if connected
-            if (!node->is_connected(signal_name, target)) {
-                Array binds;
-                binds.push_back(name);
-                binds.push_back(evt_name);
-                
-                node->connect(signal_name, target.bindv(binds));
-                // UtilityFunctions::print("VisualGasic: Auto-Wired ", sub_name);
-            } else {
-                // UtilityFunctions::print("VisualGasic: Already Wired.");
+        return;
+    }
+
+    // =====================================================================
+    //  VB6 Event Wiring — comprehensive signal → Sub mapping
+    //  Mirrors GasicForm::wire_events() so .vg scripts on any node work.
+    // =====================================================================
+
+    // --- BaseButton: Button, CheckBox, CheckButton, TextureButton, etc. ---
+    if (Object::cast_to<BaseButton>(node)) {
+        _try_wire(node, name, "Click",     "pressed",    vs, instance_owner);
+        _try_wire(node, name, "MouseDown", "button_down", vs, instance_owner);
+        _try_wire(node, name, "MouseUp",   "button_up",  vs, instance_owner);
+
+        // CheckBox / CheckButton → Change (toggled)
+        if (node->is_class("CheckBox") || node->is_class("CheckButton")) {
+            _try_wire(node, name, "Change", "toggled", vs, instance_owner);
+        }
+        // OptionButton (ComboBox) → Change (item_selected)
+        if (node->is_class("OptionButton")) {
+            _try_wire(node, name, "Change", "item_selected", vs, instance_owner);
+        }
+    }
+
+    // --- LineEdit (TextBox) ---
+    else if (node->is_class("LineEdit")) {
+        _try_wire(node, name, "Change",   "text_changed",   vs, instance_owner);
+        _try_wire(node, name, "KeyPress", "text_submitted",  vs, instance_owner);
+        _try_wire(node, name, "GotFocus", "focus_entered",   vs, instance_owner);
+        _try_wire(node, name, "LostFocus","focus_exited",    vs, instance_owner);
+    }
+
+    // --- TextEdit (TextArea / RichTextBox) ---
+    else if (node->is_class("TextEdit")) {
+        _try_wire(node, name, "Change",   "text_changed",  vs, instance_owner);
+        _try_wire(node, name, "GotFocus", "focus_entered",  vs, instance_owner);
+        _try_wire(node, name, "LostFocus","focus_exited",   vs, instance_owner);
+    }
+
+    // --- Range controls: Slider, ScrollBar, SpinBox, ProgressBar ---
+    else if (node->is_class("HSlider") || node->is_class("VSlider") ||
+             node->is_class("HScrollBar") || node->is_class("VScrollBar") ||
+             node->is_class("SpinBox") || node->is_class("ProgressBar")) {
+        _try_wire(node, name, "Change", "value_changed", vs, instance_owner);
+        // Scroll alias for scrollbars
+        if (node->is_class("HScrollBar") || node->is_class("VScrollBar")) {
+            _try_wire(node, name, "Scroll", "value_changed", vs, instance_owner);
+        }
+    }
+
+    // --- Timer ---
+    else if (node->is_class("Timer")) {
+        _try_wire(node, name, "Timer", "timeout", vs, instance_owner);
+    }
+
+    // --- ItemList (ListBox) ---
+    else if (node->is_class("ItemList")) {
+        _try_wire(node, name, "Click",    "item_selected",  vs, instance_owner);
+        _try_wire(node, name, "DblClick", "item_activated",  vs, instance_owner);
+    }
+
+    // --- Tree (TreeView) ---
+    else if (node->is_class("Tree")) {
+        _try_wire(node, name, "Click",        "item_selected",  vs, instance_owner);
+        _try_wire(node, name, "DblClick",      "item_activated",  vs, instance_owner);
+        _try_wire(node, name, "NodeSelected",  "item_selected",  vs, instance_owner);
+        _try_wire(node, name, "Expand",        "item_collapsed",  vs, instance_owner);
+    }
+
+    // --- TabContainer (TabStrip) ---
+    else if (node->is_class("TabContainer")) {
+        _try_wire(node, name, "Click",  "tab_changed", vs, instance_owner);
+        _try_wire(node, name, "Change", "tab_changed", vs, instance_owner);
+    }
+
+    // --- RichTextLabel ---
+    else if (node->is_class("RichTextLabel")) {
+        _try_wire(node, name, "Click", "meta_clicked", vs, instance_owner);
+    }
+
+    // --- Label — uses gui_input for Click/DblClick (no built-in pressed) ---
+    else if (node->is_class("Label")) {
+        // Labels need gui_input wiring — handled below in universal section
+        // Ensure mouse events pass through
+        if (vs->_has_method(name + "_Click") || vs->_has_method(name + "_DblClick") ||
+            vs->_has_method(name + "_MouseDown") || vs->_has_method(name + "_MouseUp")) {
+            node->set("mouse_filter", 0); // MOUSE_FILTER_STOP
+        }
+    }
+
+    // --- Panel / ColorRect — also uses gui_input ---
+    else if ((node->is_class("Panel") || node->is_class("ColorRect")) &&
+             !Object::cast_to<BaseButton>(node)) {
+        if (vs->_has_method(name + "_Click") || vs->_has_method(name + "_DblClick") ||
+            vs->_has_method(name + "_MouseDown") || vs->_has_method(name + "_MouseUp")) {
+            node->set("mouse_filter", 0); // MOUSE_FILTER_STOP
+        }
+    }
+
+    // --- TextureRect (PictureBox) ---
+    else if (node->is_class("TextureRect")) {
+        if (vs->_has_method(name + "_Click") || vs->_has_method(name + "_DblClick") ||
+            vs->_has_method(name + "_MouseDown") || vs->_has_method(name + "_MouseUp")) {
+            node->set("mouse_filter", 0); // MOUSE_FILTER_STOP
+        }
+    }
+
+    // --- MenuBar: wire each child PopupMenu's id_pressed ---
+    else if (node->is_class("MenuBar")) {
+        int mc = node->get_child_count();
+        for (int m = 0; m < mc; m++) {
+            Node* menu_child = node->get_child(m);
+            if (menu_child && menu_child->is_class("PopupMenu")) {
+                String menu_name = menu_child->get_name();
+                _try_wire(menu_child, menu_name, "Click", "id_pressed", vs, instance_owner);
+                _try_wire(menu_child, menu_name, "MenuClick", "id_pressed", vs, instance_owner);
             }
         }
     }
-    
-    // Recurse children
 
+    // =====================================================================
+    //  Universal events — any Control gets focus + mouse wiring
+    // =====================================================================
+    if (node->is_class("Control")) {
+        // GotFocus / LostFocus (skip if already wired above for LineEdit/TextEdit)
+        if (!node->is_class("LineEdit") && !node->is_class("TextEdit")) {
+            _try_wire(node, name, "GotFocus",  "focus_entered", vs, instance_owner);
+            _try_wire(node, name, "LostFocus", "focus_exited",  vs, instance_owner);
+        }
+        // MouseEnter / MouseExit
+        _try_wire(node, name, "MouseMove", "mouse_entered", vs, instance_owner);
+        _try_wire(node, name, "MouseExit", "mouse_exited",  vs, instance_owner);
+
+        // Resize
+        _try_wire(node, name, "Resize", "resized", vs, instance_owner);
+
+        // gui_input for KeyDown, KeyUp, MouseDown, MouseUp, DblClick, MouseMove
+        // We connect gui_input → _OnGuiInput which demuxes InputEvent types
+        bool needs_gui_input = (
+            vs->_has_method(name + "_KeyDown") ||
+            vs->_has_method(name + "_KeyUp") ||
+            vs->_has_method(name + "_KeyPress") ||
+            vs->_has_method(name + "_MouseDown") ||
+            vs->_has_method(name + "_MouseUp") ||
+            vs->_has_method(name + "_DblClick") ||
+            vs->_has_method(name + "_MouseMove")
+        );
+        if (needs_gui_input) {
+            Callable target(instance_owner, "_OnGuiInput");
+            Array binds;
+            binds.push_back(name);
+            Callable bound = target.bindv(binds);
+            if (!node->is_connected("gui_input", target)) {
+                node->connect("gui_input", bound);
+            }
+            // Ensure mouse events are captured
+            node->set("mouse_filter", 0); // MOUSE_FILTER_STOP
+        }
+    }
+
+    // Recurse children
     int cc = node->get_child_count();
-    for(int i=0; i<cc; i++) {
+    for (int i = 0; i < cc; i++) {
         _connect_vb_signals_recursive(node->get_child(i), instance, instance_owner);
     }
 }
@@ -982,6 +1221,25 @@ void VisualGasicInstance::assign_variable(const String& name, Variant val) {
          variables[name] = val;
     } else {
          variables[name] = val;
+    }
+    
+    // WithEvents auto-wiring (v3.5.0)
+    // When a WithEvents variable is Set to an object, connect its signals
+    // to any matching varname_SignalName subs in this module.
+    if (with_events_vars.has(name) && val.get_type() == Variant::OBJECT) {
+        Object *obj = val;
+        if (obj && script.is_valid() && script->ast_root) {
+            String prefix = name + String("_");
+            for (int si = 0; si < script->ast_root->subs.size(); si++) {
+                SubDefinition *sub = script->ast_root->subs[si];
+                if (sub->name.begins_with(prefix)) {
+                    String signal_name = sub->name.substr(prefix.length());
+                    if (obj->has_signal(signal_name) && !obj->is_connected(signal_name, Callable(owner, sub->name))) {
+                        obj->connect(signal_name, Callable(owner, sub->name));
+                    }
+                }
+            }
+        }
     }
     
     // Check for data breakpoint (watchpoint) - after assignment

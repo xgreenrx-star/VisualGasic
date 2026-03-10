@@ -514,6 +514,69 @@ void VisualGasicFormDesigner::_draw_control(const FormControlItem &item, int ind
         // Line control: solid black line across the control rect
         float mid_y = r.position.y + r.size.y * 0.5f;
         draw_rect(Rect2(r.position.x, mid_y - 1, r.size.x, 2), Color(0, 0, 0));
+    } else if (item.type == "StatusBar") {
+        // StatusBar: VB6-style status bar docked at bottom with 3 panels
+        draw_rect(r, sys_button_face);
+        // Top border (sunken look)
+        draw_rect(Rect2(r.position.x, r.position.y, r.size.x, 1), sys_button_shadow);
+        draw_rect(Rect2(r.position.x, r.position.y + 1, r.size.x, 1), sys_button_highlight);
+        if (font.is_valid()) {
+            float ty = r.position.y + (r.size.y + font_size) * 0.5f - 2;
+            // Panel 1: "Ready" text
+            float p1_w = r.size.x * 0.5f;
+            Rect2 p1(r.position.x + 2, r.position.y + 3, p1_w - 4, r.size.y - 6);
+            draw_rect(p1, sys_button_shadow, false, 1.0);
+            draw_string(font, Vector2(r.position.x + 6, ty), "Ready",
+                        HORIZONTAL_ALIGNMENT_LEFT, p1_w - 10, font_size, color_text);
+            // Panel separator
+            float sep_x = r.position.x + p1_w;
+            Rect2 p2(sep_x + 2, r.position.y + 3, r.size.x - p1_w - 4, r.size.y - 6);
+            draw_rect(p2, sys_button_shadow, false, 1.0);
+        }
+    } else if (item.type == "Toolbar") {
+        // Toolbar: VB6-style toolbar with raised buttons
+        draw_rect(r, sys_button_face);
+        // Bottom border
+        draw_rect(Rect2(r.position.x, r.position.y + r.size.y - 1, r.size.x, 1), sys_button_shadow);
+        // Draw a few button placeholders
+        float bx = r.position.x + 4;
+        float by = r.position.y + 2;
+        float bsz = r.size.y - 4;
+        for (int b = 0; b < 6 && bx + bsz < r.position.x + r.size.x; b++) {
+            Rect2 btn(bx, by, bsz, bsz);
+            _draw_raised_rect(btn, sys_button_face);
+            bx += bsz + 2;
+            // Add a separator after every 3 buttons
+            if (b == 2) {
+                float sx = bx + 1;
+                draw_rect(Rect2(sx, by + 2, 1, bsz - 4), sys_button_shadow);
+                draw_rect(Rect2(sx + 1, by + 2, 1, bsz - 4), sys_button_highlight);
+                bx += 6;
+            }
+        }
+    } else if (item.type == "ListView") {
+        // ListView: multi-column list with column headers
+        draw_rect(r, Color(1, 1, 1)); // White background
+        // Sunken border
+        draw_rect(Rect2(r.position.x, r.position.y, r.size.x, 1), sys_button_shadow);
+        draw_rect(Rect2(r.position.x, r.position.y, 1, r.size.y), sys_button_shadow);
+        draw_rect(Rect2(r.position.x + r.size.x - 1, r.position.y, 1, r.size.y), sys_button_highlight);
+        draw_rect(Rect2(r.position.x, r.position.y + r.size.y - 1, r.size.x, 1), sys_button_highlight);
+        // Column headers
+        float hdr_h = 20;
+        Rect2 hdr(r.position.x + 1, r.position.y + 1, r.size.x - 2, hdr_h);
+        _draw_raised_rect(hdr, sys_button_face);
+        if (font.is_valid()) {
+            float col_w = (r.size.x - 2) / 3.0f;
+            for (int c = 0; c < 3; c++) {
+                float cx = r.position.x + 1 + c * col_w;
+                Rect2 ch(cx, r.position.y + 1, col_w, hdr_h);
+                _draw_raised_rect(ch, sys_button_face);
+                String col_label = "Column " + String::num_int64(c + 1);
+                draw_string(font, Vector2(cx + 4, r.position.y + 1 + (hdr_h + font_size) * 0.5f - 2),
+                            col_label, HORIZONTAL_ALIGNMENT_LEFT, col_w - 8, font_size - 1, color_text);
+            }
+        }
     } else if (item.type == "DriveListBox") {
         // DriveListBox: combo-style with "C:" text
         _draw_combobox_control(r, "C:\\", font, font_size);
@@ -1837,20 +1900,47 @@ Vector2 VisualGasicFormDesigner::_snap(const Vector2 &p_pos) const {
 
 int VisualGasicFormDesigner::add_control(const String &p_type, const String &p_scene_path, const Vector2 &p_position, const Vector2 &p_size) {
     FormControlItem item;
-    item.type = p_type;
+    // When placed from a prototype scene, use the scene basename as the type.
+    // This ensures RadioButton.tscn → type "RadioButton", StatusBar.tscn → "StatusBar", etc.
+    // instead of the generic Godot class name ("CheckBox", "PanelContainer").
+    if (!p_scene_path.is_empty()) {
+        String basename = p_scene_path.get_file().get_basename();
+        item.type = basename;
+    } else {
+        item.type = p_type;
+    }
     item.scene_path = p_scene_path;
-    item.name = _make_unique_name(p_type);
+    item.name = _make_unique_name(item.type);
     item.rect.position = p_position;
-    item.rect.size = (p_size.x > 0 && p_size.y > 0) ? p_size : _default_size_for_type(p_type);
+    item.rect.size = (p_size.x > 0 && p_size.y > 0) ? p_size : _default_size_for_type(item.type);
 
     // MenuBar auto-docks to top of form, full width
-    if (p_type == "MenuBar") {
+    if (item.type == "MenuBar") {
         item.rect.position = Vector2(0, 0);
         item.rect.size = Vector2(form_size.x, 24);
     }
+    // StatusBar auto-docks to bottom of form, full width
+    if (item.type == "StatusBar") {
+        item.rect.position = Vector2(0, form_size.y - 24);
+        item.rect.size = Vector2(form_size.x, 24);
+    }
+    // Toolbar auto-docks below menu bar, full width
+    if (item.type == "Toolbar") {
+        // Place below any existing MenuBar
+        float top = 0;
+        for (int i = 0; i < controls.size(); i++) {
+            if (controls[i].type == "MenuBar") {
+                top = controls[i].rect.position.y + controls[i].rect.size.y;
+                break;
+            }
+        }
+        item.rect.position = Vector2(0, top);
+        item.rect.size = Vector2(form_size.x, 32);
+    }
 
     // Set default text for text-bearing controls
-    if (p_type == "Button" || p_type == "Label" || p_type == "CheckBox" || p_type == "OptionButton") {
+    if (item.type == "Button" || item.type == "Label" || item.type == "CheckBox" ||
+        item.type == "OptionButton" || item.type == "RadioButton") {
         item.text = item.name;
     }
 
@@ -2536,6 +2626,27 @@ void VisualGasicFormDesigner::_init_vb6_defaults(FormControlItem &item) const {
     else if (t == "TabContainer") {
         p["BackColor"] = Color(0.85, 0.85, 0.85);
     }
+    else if (t == "RadioButton") {
+        p["Value"]     = false;
+        p["BackColor"] = Color(0.753, 0.753, 0.753, 0.0); // Transparent
+    }
+    else if (t == "MenuBar") {
+        p["TabStop"]   = false;
+    }
+    else if (t == "StatusBar") {
+        p["TabStop"]   = false;
+        p["SimpleText"] = String("Ready");
+    }
+    else if (t == "Toolbar") {
+        p["TabStop"]   = false;
+    }
+    else if (t == "ListView") {
+        p["View"]        = 3; // Report view (VB6 default: lvwReport)
+        p["Sorted"]      = false;
+        p["MultiSelect"] = 0;
+        p["BackColor"]   = Color(1.0, 1.0, 1.0);
+        p["BorderStyle"] = 1;
+    }
 }
 
 // =============================================================================
@@ -2589,6 +2700,9 @@ Vector2 VisualGasicFormDesigner::_default_size_for_type(const String &p_type) co
     if (p_type == "RadioButton") return Vector2(100, 23);
     if (p_type == "TextureButton") return Vector2(40, 40);
     if (p_type == "DriveListBox") return Vector2(150, 28);
+    if (p_type == "StatusBar")   return Vector2(300, 24);
+    if (p_type == "Toolbar")     return Vector2(300, 32);
+    if (p_type == "ListView")    return Vector2(200, 150);
     if (p_type == "Control")      return Vector2(150, 28); // VGComboBox
     return Vector2(80, 23);
 }
@@ -3285,6 +3399,13 @@ String VisualGasicFormDesigner::_serialize_to_tscn() const {
             out += "metadata/vb6_control_array_index = " + String::num_int64(ctrl.control_array_index) + "\n";
         }
 
+        // Tag RadioButton controls so form_editor_helper.gd can apply circle
+        // icons at runtime (Godot has no native RadioButton node — they use
+        // CheckBox with custom icons).
+        if (ctrl.type == "RadioButton") {
+            out += "metadata/vb6_type = \"RadioButton\"\n";
+        }
+
         // Per-control font size override: convert VB6 pt → Godot px
         // Only emit when FontSize differs from the VB6 default (8pt = 12px)
         if (ctrl.properties.has("FontSize")) {
@@ -3296,24 +3417,74 @@ String VisualGasicFormDesigner::_serialize_to_tscn() const {
         }
 
         // Write extra properties (VB6 properties stored in the form designer)
+        // Translate known VB6 property names → Godot property names so the
+        // scene loader applies them at runtime.  Unknown VB6 props are kept
+        // as-is (stored as node meta / ignored by Godot, but preserved for
+        // round-tripping).
         Array keys = ctrl.properties.keys();
         for (int k = 0; k < keys.size(); k++) {
             String key = keys[k];
             Variant val = ctrl.properties[key];
+
+            // ── VB6 → Godot property translation ──
+            String godot_key = key;
+            bool skip = false;
+            // FontSize already emitted above as theme_override_font_sizes
+            if (key == "FontSize") { skip = true; }
+            else if (key == "Text" || key == "Caption") { godot_key = "text"; }
+            else if (key == "ToolTipText") { godot_key = "tooltip_text"; }
+            else if (key == "Visible")     { godot_key = "visible"; }
+            else if (key == "MaxLength")   { godot_key = "max_length"; }
+            else if (key == "Locked") {
+                // Locked=True → editable=false
+                godot_key = "editable";
+                val = !(bool)val;
+            }
+            else if (key == "TabStop") {
+                // TabStop=True → focus_mode=2 (FOCUS_ALL), False → 0 (FOCUS_NONE)
+                godot_key = "focus_mode";
+                val = (bool)val ? 2 : 0;
+            }
+            else if (key == "Alignment") {
+                godot_key = "horizontal_alignment";
+            }
+            else if (key == "WordWrap") {
+                // True → AUTOWRAP_WORD_SMART=3, False → OFF=0
+                godot_key = "autowrap_mode";
+                val = (bool)val ? 3 : 0;
+            }
+            else if (key == "Enabled") {
+                // Enabled=False → disabled=true  (skip if default True)
+                if (!(bool)val) {
+                    godot_key = "disabled";
+                    val = true;
+                } else {
+                    skip = true;  // default is enabled
+                }
+            }
+            else if (key == "MousePointer") {
+                godot_key = "mouse_default_cursor_shape";
+            }
+            // BackColor/ForeColor stay as VB6 names — applied at runtime by
+            // bytecode VM or form_editor_helper theme.  Writing them as
+            // self_modulate here would conflict with the theme system.
+
+            if (skip) continue;
+
             if (val.get_type() == Variant::STRING) {
-                out += key + " = \"" + String(val) + "\"\n";
+                out += godot_key + " = \"" + String(val) + "\"\n";
             } else if (val.get_type() == Variant::COLOR) {
                 // Godot .tscn requires Color(r, g, b, a) format
                 Color c = val;
-                out += key + " = Color(" + String::num(c.r, 4) + ", " + String::num(c.g, 4) + ", " + String::num(c.b, 4) + ", " + String::num(c.a, 4) + ")\n";
+                out += godot_key + " = Color(" + String::num(c.r, 4) + ", " + String::num(c.g, 4) + ", " + String::num(c.b, 4) + ", " + String::num(c.a, 4) + ")\n";
             } else if (val.get_type() == Variant::VECTOR2) {
                 Vector2 v = val;
-                out += key + " = Vector2(" + String::num(v.x, 4) + ", " + String::num(v.y, 4) + ")\n";
+                out += godot_key + " = Vector2(" + String::num(v.x, 4) + ", " + String::num(v.y, 4) + ")\n";
             } else if (val.get_type() == Variant::VECTOR2I) {
                 Vector2i v = val;
-                out += key + " = Vector2i(" + String::num_int64(v.x) + ", " + String::num_int64(v.y) + ")\n";
+                out += godot_key + " = Vector2i(" + String::num_int64(v.x) + ", " + String::num_int64(v.y) + ")\n";
             } else {
-                out += key + " = " + String(val) + "\n";
+                out += godot_key + " = " + String(val) + "\n";
             }
         }
         out += "\n";
@@ -3512,16 +3683,56 @@ bool VisualGasicFormDesigner::_parse_tscn(const String &p_text) {
                     // Skip, we already have form_name from node name
                 } else if (key == "script" || key == "mouse_filter" || key == "theme") {
                     // Internal / theme managed by serializer, skip
+                } else if (key == "theme_override_font_sizes/font_size") {
+                    // Reverse-map back to VB6 FontSize (Godot px → VB6 pt)
+                    int godot_px = val.to_int();
+                    int vb6_pt = (godot_px > 0) ? (int)round(godot_px * 72.0 / 96.0) : 8;
+                    current_item.properties["FontSize"] = vb6_pt;
                 } else if (key == "metadata/vb6_control_array_index") {
                     // Restore VB6 control array index
                     current_item.control_array_index = val.to_int();
                 } else {
                     // Generic property — parse typed values back into proper Variants
                     // so _serialize_to_tscn writes them with the correct format.
-                    if (val.begins_with("\"") && val.ends_with("\"")) {
+                    //
+                    // Reverse-translate Godot property names → VB6 names so the
+                    // Properties panel shows VB6-style labels.
+                    String vb6_key = key;
+                    Variant parsed_val;
+                    bool transform_val = false;
+                    if (key == "tooltip_text")                { vb6_key = "ToolTipText"; }
+                    else if (key == "focus_mode") {
+                        vb6_key = "TabStop";
+                        // focus_mode 2 (FOCUS_ALL) → TabStop=True, 0 → False
+                        transform_val = true;
+                        parsed_val = (val.to_int() != 0);
+                    }
+                    else if (key == "max_length")             { vb6_key = "MaxLength"; }
+                    else if (key == "horizontal_alignment")   { vb6_key = "Alignment"; }
+                    else if (key == "mouse_default_cursor_shape") { vb6_key = "MousePointer"; }
+                    else if (key == "autowrap_mode") {
+                        vb6_key = "WordWrap";
+                        transform_val = true;
+                        parsed_val = (val.to_int() != 0);
+                    }
+                    else if (key == "editable") {
+                        vb6_key = "Locked";
+                        transform_val = true;
+                        parsed_val = !(val == "true");
+                    }
+                    else if (key == "disabled") {
+                        vb6_key = "Enabled";
+                        transform_val = true;
+                        parsed_val = !(val == "true");
+                    }
+                    // theme_override_font_sizes/font_size already parsed above as FontSize
+
+                    if (transform_val) {
+                        current_item.properties[vb6_key] = parsed_val;
+                    } else if (val.begins_with("\"") && val.ends_with("\"")) {
                         // Quoted string
                         val = val.substr(1, val.length() - 2);
-                        current_item.properties[key] = val;
+                        current_item.properties[vb6_key] = val;
                     } else if (val.begins_with("Color(") && val.ends_with(")")) {
                         // Color(r, g, b, a)
                         String inner = val.substr(6, val.length() - 7);
@@ -3531,43 +3742,43 @@ bool VisualGasicFormDesigner::_parse_tscn(const String &p_text) {
                                     parts[1].strip_edges().to_float(),
                                     parts[2].strip_edges().to_float(),
                                     parts[3].strip_edges().to_float());
-                            current_item.properties[key] = c;
+                            current_item.properties[vb6_key] = c;
                         } else if (parts.size() >= 3) {
                             Color c(parts[0].strip_edges().to_float(),
                                     parts[1].strip_edges().to_float(),
                                     parts[2].strip_edges().to_float());
-                            current_item.properties[key] = c;
+                            current_item.properties[vb6_key] = c;
                         } else {
-                            current_item.properties[key] = val;
+                            current_item.properties[vb6_key] = val;
                         }
                     } else if (val.begins_with("Vector2(") && val.ends_with(")")) {
                         String inner = val.substr(8, val.length() - 9);
                         PackedStringArray parts = inner.split(",");
                         if (parts.size() >= 2) {
                             Vector2 v(parts[0].strip_edges().to_float(), parts[1].strip_edges().to_float());
-                            current_item.properties[key] = v;
+                            current_item.properties[vb6_key] = v;
                         } else {
-                            current_item.properties[key] = val;
+                            current_item.properties[vb6_key] = val;
                         }
                     } else if (val.begins_with("Vector2i(") && val.ends_with(")")) {
                         String inner = val.substr(9, val.length() - 10);
                         PackedStringArray parts = inner.split(",");
                         if (parts.size() >= 2) {
                             Vector2i v(parts[0].strip_edges().to_int(), parts[1].strip_edges().to_int());
-                            current_item.properties[key] = v;
+                            current_item.properties[vb6_key] = v;
                         } else {
-                            current_item.properties[key] = val;
+                            current_item.properties[vb6_key] = val;
                         }
                     } else if (val == "true") {
-                        current_item.properties[key] = true;
+                        current_item.properties[vb6_key] = true;
                     } else if (val == "false") {
-                        current_item.properties[key] = false;
+                        current_item.properties[vb6_key] = false;
                     } else if (val.is_valid_int()) {
-                        current_item.properties[key] = val.to_int();
+                        current_item.properties[vb6_key] = val.to_int();
                     } else if (val.is_valid_float()) {
-                        current_item.properties[key] = val.to_float();
+                        current_item.properties[vb6_key] = val.to_float();
                     } else {
-                        current_item.properties[key] = val;
+                        current_item.properties[vb6_key] = val;
                     }
                 }
             }

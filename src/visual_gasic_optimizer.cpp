@@ -89,6 +89,7 @@ int VisualGasicOptimizer::instruction_size(const Vector<uint8_t>& code, int ip) 
         case OP_CALL: case OP_CALL_BUILTIN:
         case OP_METHOD_CALL:                                          // [OP] [NAME_IDX] [ARG_COUNT]
         case OP_NEW_OBJECT:                                           // [OP] [CLASS_NAME_IDX] [ARG_COUNT]
+        case OP_RAISE_EVENT:                                          // [OP] [NAME_IDX] [ARG_COUNT]
         case OP_ITER_ARRAY:                                           // [OP] [SLOT_IDX] [IDX_SLOT]
         case OP_ADD_LOCAL_I64_CONST: case OP_SUB_LOCAL_I64_CONST:
         case OP_ARITH_SUM:

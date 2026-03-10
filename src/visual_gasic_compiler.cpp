@@ -5037,6 +5037,21 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             // Interface checking is done at class instantiation time
             break;
         }
+        case STMT_RAISE_EVENT: {
+            // RaiseEvent EventName(arg1, arg2, ...)
+            // Compile arguments onto stack, then emit OP_RAISE_EVENT
+            RaiseEventStatement* s = (RaiseEventStatement*)stmt;
+            // Push arguments in order
+            for (int i = 0; i < s->arguments.size(); i++) {
+                compile_expression(s->arguments[i]);
+                if (!compile_ok) break;
+            }
+            int name_idx = current_chunk->add_constant(Variant(s->expression_name));
+            emit_byte(OP_RAISE_EVENT);
+            emit_byte((uint8_t)(name_idx & 0xFF));
+            emit_byte((uint8_t)(s->arguments.size() & 0xFF));
+            break;
+        }
         // === MULTITASKING STATEMENTS ===
         // In bytecode mode, Task Run bodies execute serially on the main
         // thread (same strategy used for Parallel For).  True threaded
