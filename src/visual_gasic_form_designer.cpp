@@ -1317,75 +1317,114 @@ void VisualGasicFormDesigner::_draw_shape_control(const Rect2 &r) {
 
 // =============================================================================
 // Game UI Tier 1 — WYSIWYG control drawing (v4.0)
-// These render approximate visual representations matching the runtime appearance.
+// These render pixel-accurate visual representations matching the runtime
+// prototype appearance.  Each method mirrors the node tree, colors, font
+// sizes, margins, and StyleBox settings from the corresponding .gd prototype
+// so that WYSIWYG holds true at design time.
 // =============================================================================
 
 void VisualGasicFormDesigner::_draw_dialog_panel_control(const Rect2 &r, const String &name, const Ref<Font> &font, int font_size) {
-    // Dark navy panel with rounded-corner feel
+    // Runtime: PanelContainer bg(0.12,0.15,0.22,0.92), margins 12h/8v,
+    //   VBox(sep=6) → Header HBox(sep=8) [Portrait 48×48 + Name fs=16]
+    //                + Body RichTextLabel(min_h=40) + Choices VBox
     Color bg(0.12, 0.15, 0.22, 0.92);
-    Color border(0.3, 0.4, 0.6, 0.7);
+
+    // Panel fill
     draw_rect(r, bg);
-    draw_rect(r, border, false, 1.5);
+
+    // Double-border for PanelContainer depth (outer dark, inner lighter)
+    draw_rect(r, Color(0.22, 0.28, 0.42, 0.8), false, 2.0);
+    Rect2 inner_b(r.position.x + 1, r.position.y + 1, r.size.x - 2, r.size.y - 2);
+    draw_rect(inner_b, Color(0.35, 0.45, 0.65, 0.4), false, 1.0);
 
     if (!font.is_valid()) return;
-    float pad = 8.0f;
-    float x = r.position.x + pad;
-    float y = r.position.y + pad;
-    float w = r.size.x - pad * 2;
+    float mh = 12.0f, mv = 8.0f;           // runtime margins
+    float x = r.position.x + mh;
+    float y = r.position.y + mv;
+    float w = r.size.x - mh * 2;
 
-    // Portrait placeholder (square)
-    float portrait_sz = MIN(48.0f, r.size.y - pad * 2 - 20.0f);
+    // Portrait placeholder (48×48 matching runtime TextureRect)
+    float portrait_sz = MIN(48.0f, r.size.y - mv * 2 - 20.0f);
     if (portrait_sz > 16 && w > portrait_sz + 60) {
         Rect2 portrait(x, y, portrait_sz, portrait_sz);
-        draw_rect(portrait, Color(0.25, 0.28, 0.35));
-        draw_rect(portrait, Color(0.4, 0.45, 0.55, 0.6), false, 1.0);
-        // Small silhouette hint
-        float cx = x + portrait_sz * 0.5f;
-        float cy = y + portrait_sz * 0.35f;
-        float head_r = portrait_sz * 0.15f;
-        // Head circle (approximated as small square)
-        draw_rect(Rect2(cx - head_r, cy - head_r, head_r * 2, head_r * 2), Color(0.4, 0.43, 0.5));
-        // Body (wider rect below)
-        draw_rect(Rect2(cx - head_r * 1.5f, cy + head_r + 2, head_r * 3, portrait_sz * 0.25f), Color(0.4, 0.43, 0.5));
+        draw_rect(portrait, Color(0.18, 0.20, 0.28));
+        // Inner shadow edges
+        draw_rect(Rect2(x, y, portrait_sz, 1), Color(0.10, 0.12, 0.18));
+        draw_rect(Rect2(x, y, 1, portrait_sz), Color(0.10, 0.12, 0.18));
+        draw_rect(Rect2(x, y + portrait_sz - 1, portrait_sz, 1), Color(0.30, 0.35, 0.42, 0.5));
+        draw_rect(Rect2(x + portrait_sz - 1, y, 1, portrait_sz), Color(0.30, 0.35, 0.42, 0.5));
+        // Person silhouette
+        float pcx = x + portrait_sz * 0.5f;
+        float pcy = y + portrait_sz * 0.32f;
+        float hr = portrait_sz * 0.14f;
+        draw_rect(Rect2(pcx - hr, pcy - hr, hr * 2, hr * 2), Color(0.35, 0.38, 0.48));
+        float bw = hr * 3.0f, bh = portrait_sz * 0.28f;
+        draw_rect(Rect2(pcx - bw * 0.5f, pcy + hr + 3, bw, bh), Color(0.35, 0.38, 0.48));
+        // Border
+        draw_rect(portrait, Color(0.40, 0.45, 0.58, 0.6), false, 1.0);
 
-        // Speaker name to right of portrait
-        float name_x = x + portrait_sz + 10;
-        float name_y = y + 14;
-        draw_string(font, Vector2(name_x, name_y), "Speaker Name",
-                    HORIZONTAL_ALIGNMENT_LEFT, w - portrait_sz - 18, font_size, Color(0.85, 0.85, 0.95));
+        // Speaker name (right of portrait, runtime fs=16)
+        int name_fs = MIN(16, font_size + 2);
+        float nx = x + portrait_sz + 8;
+        draw_string(font, Vector2(nx, y + name_fs), "Speaker Name",
+                    HORIZONTAL_ALIGNMENT_LEFT, w - portrait_sz - 16, name_fs,
+                    Color(0.88, 0.88, 0.98));
 
-        // Dialog text area below
-        float text_y = y + portrait_sz + 8;
-        if (text_y + font_size < r.position.y + r.size.y - pad) {
-            draw_string(font, Vector2(x, text_y + font_size - 2), "Dialog text goes here...",
-                        HORIZONTAL_ALIGNMENT_LEFT, w, font_size - 1, Color(0.7, 0.72, 0.8, 0.8));
+        // Separator line (mimics VBox gap between header and body)
+        float sep_y = y + portrait_sz + 4;
+        if (sep_y < r.position.y + r.size.y - mv - 16) {
+            draw_rect(Rect2(x, sep_y, w, 1), Color(0.30, 0.35, 0.50, 0.4));
+            // Body text
+            float ty = sep_y + 6;
+            if (ty + font_size < r.position.y + r.size.y - mv) {
+                draw_string(font, Vector2(x, ty + font_size - 2),
+                            "Dialog text goes here...",
+                            HORIZONTAL_ALIGNMENT_LEFT, w, font_size - 1,
+                            Color(0.72, 0.74, 0.82, 0.85));
+                // Typewriter cursor hint
+                float cw = font->get_string_size("Dialog text goes here...",
+                               HORIZONTAL_ALIGNMENT_LEFT, -1, font_size - 1).x;
+                float cx = x + cw + 2;
+                if (cx < r.position.x + r.size.x - mh) {
+                    draw_rect(Rect2(cx, ty, 2, font_size),
+                              Color(0.80, 0.80, 0.90, 0.55));
+                }
+            }
         }
     } else {
-        // Small: just draw label
         draw_string(font, Vector2(x, y + font_size), name,
-                    HORIZONTAL_ALIGNMENT_LEFT, w, font_size, Color(0.85, 0.85, 0.95));
+                    HORIZONTAL_ALIGNMENT_LEFT, w, font_size,
+                    Color(0.88, 0.88, 0.98));
     }
 }
 
 void VisualGasicFormDesigner::_draw_inventory_grid_control(const Rect2 &r, const FormControlItem &item, const Ref<Font> &font, int font_size) {
-    // Dark panel background
+    // Runtime: PanelContainer → GridContainer, margins=8.
+    //   Slot StyleBoxFlat: bg Color(0.2,0.2,0.25,0.8), corner_radius=4,
+    //     border_width=1, border_color Color(0.4,0.4,0.45,0.6).
     Color bg(0.14, 0.14, 0.18, 0.92);
-    Color border(0.35, 0.35, 0.45, 0.6);
     draw_rect(r, bg);
-    draw_rect(r, border, false, 1.5);
 
-    // Read grid properties
+    // PanelContainer outer border — subtle 3D
+    draw_rect(Rect2(r.position.x, r.position.y, r.size.x, 1),
+              Color(0.25, 0.25, 0.32, 0.6));
+    draw_rect(Rect2(r.position.x, r.position.y, 1, r.size.y),
+              Color(0.25, 0.25, 0.32, 0.6));
+    draw_rect(Rect2(r.position.x, r.position.y + r.size.y - 1, r.size.x, 1),
+              Color(0.08, 0.08, 0.10, 0.8));
+    draw_rect(Rect2(r.position.x + r.size.x - 1, r.position.y, 1, r.size.y),
+              Color(0.08, 0.08, 0.10, 0.8));
+
     int rows = 4, cols = 4, slot_sz = 48, spacing = 4;
-    if (item.properties.has("Rows")) rows = MAX(int(item.properties["Rows"]), 1);
-    if (item.properties.has("Columns")) cols = MAX(int(item.properties["Columns"]), 1);
-    if (item.properties.has("SlotSize")) slot_sz = MAX(int(item.properties["SlotSize"]), 16);
+    if (item.properties.has("Rows"))        rows    = MAX(int(item.properties["Rows"]), 1);
+    if (item.properties.has("Columns"))     cols    = MAX(int(item.properties["Columns"]), 1);
+    if (item.properties.has("SlotSize"))    slot_sz = MAX(int(item.properties["SlotSize"]), 16);
     if (item.properties.has("SlotSpacing")) spacing = MAX(int(item.properties["SlotSpacing"]), 0);
 
     float pad = 8.0f;
     float avail_w = r.size.x - pad * 2;
     float avail_h = r.size.y - pad * 2;
 
-    // Auto-scale slot size to fit if needed
     float needed_w = cols * slot_sz + (cols - 1) * spacing;
     float needed_h = rows * slot_sz + (rows - 1) * spacing;
     float scale_f = 1.0f;
@@ -1394,226 +1433,356 @@ void VisualGasicFormDesigner::_draw_inventory_grid_control(const Rect2 &r, const
     float ssz = slot_sz * scale_f;
     float ssp = spacing * scale_f;
 
-    // Center the grid
     float grid_w = cols * ssz + (cols - 1) * ssp;
     float grid_h = rows * ssz + (rows - 1) * ssp;
     float ox = r.position.x + pad + (avail_w - grid_w) * 0.5f;
     float oy = r.position.y + pad + (avail_h - grid_h) * 0.5f;
 
-    Color slot_bg(0.2, 0.2, 0.25, 0.8);
-    Color slot_border(0.4, 0.4, 0.45, 0.6);
+    // Exact runtime StyleBoxFlat colors
+    Color slot_bg(0.20, 0.20, 0.25, 0.80);
+    Color slot_border(0.40, 0.40, 0.45, 0.60);
+    Color slot_hi(0.28, 0.28, 0.33, 0.55);   // top/left inner highlight
+    Color slot_sh(0.12, 0.12, 0.16, 0.65);   // bottom/right inner shadow
 
     for (int row = 0; row < rows; row++) {
         for (int col = 0; col < cols; col++) {
             float sx = ox + col * (ssz + ssp);
             float sy = oy + row * (ssz + ssp);
             Rect2 slot(sx, sy, ssz, ssz);
+
+            // Fill
             draw_rect(slot, slot_bg);
+
+            // Inner bevel (simulates corner_radius=4 depth)
+            // Top highlight
+            draw_rect(Rect2(sx + 2, sy,     ssz - 4, 1), slot_hi);
+            draw_rect(Rect2(sx + 1, sy + 1, ssz - 2, 1), Color(slot_hi.r, slot_hi.g, slot_hi.b, slot_hi.a * 0.5f));
+            // Left highlight
+            draw_rect(Rect2(sx,     sy + 2, 1, ssz - 4), slot_hi);
+            draw_rect(Rect2(sx + 1, sy + 1, 1, ssz - 2), Color(slot_hi.r, slot_hi.g, slot_hi.b, slot_hi.a * 0.5f));
+            // Bottom shadow
+            draw_rect(Rect2(sx + 2, sy + ssz - 1, ssz - 4, 1), slot_sh);
+            draw_rect(Rect2(sx + 1, sy + ssz - 2, ssz - 2, 1), Color(slot_sh.r, slot_sh.g, slot_sh.b, slot_sh.a * 0.5f));
+            // Right shadow
+            draw_rect(Rect2(sx + ssz - 1, sy + 2, 1, ssz - 4), slot_sh);
+            draw_rect(Rect2(sx + ssz - 2, sy + 1, 1, ssz - 2), Color(slot_sh.r, slot_sh.g, slot_sh.b, slot_sh.a * 0.5f));
+
+            // Outer border (1px — runtime border_width=1)
             draw_rect(slot, slot_border, false, 1.0);
+
+            // Subtle inner top-edge shading for extra depth
+            if (ssz > 20) {
+                draw_rect(Rect2(sx + 2, sy + 2, ssz - 4, 3),
+                          Color(0.16, 0.16, 0.20, 0.25));
+            }
         }
     }
 }
 
 void VisualGasicFormDesigner::_draw_stat_bar_control(const Rect2 &r, const FormControlItem &item, const Ref<Font> &font, int font_size) {
-    // Read bar properties
+    // Runtime: Control → ColorRect bg(0.15,0.15,0.18) + two ProgressBars
+    //   Fill StyleBoxFlat: default green(0.2,0.8,0.3)
+    //   Trail StyleBoxFlat: Color(0.9,0.2,0.2,0.6)
+    //   Label: fs=12, Color.WHITE, centered, format "{value} / {max}"
     float value = 75.0f, max_val = 100.0f;
     Color bar_color(0.2, 0.8, 0.3);
-    Color trail_color(0.9, 0.2, 0.2, 0.4);
-    if (item.properties.has("Value")) value = float(item.properties["Value"]);
+    Color trail_color(0.9, 0.2, 0.2, 0.6);
+    if (item.properties.has("Value"))    value   = float(item.properties["Value"]);
     if (item.properties.has("MaxValue")) max_val = MAX(float(item.properties["MaxValue"]), 1.0f);
-    if (item.properties.has("BarColor")) {
-        bar_color = Color(item.properties["BarColor"]);
-    }
+    if (item.properties.has("BarColor")) bar_color = Color(item.properties["BarColor"]);
 
     float ratio = CLAMP(value / max_val, 0.0f, 1.0f);
 
-    // Dark background
+    // Background
     draw_rect(r, Color(0.15, 0.15, 0.18));
+    // Inner shadow (top+left darker)
+    draw_rect(Rect2(r.position.x + 1, r.position.y, r.size.x - 2, 1),
+              Color(0.10, 0.10, 0.12, 0.5));
+    draw_rect(Rect2(r.position.x, r.position.y + 1, 1, r.size.y - 2),
+              Color(0.10, 0.10, 0.12, 0.5));
 
-    // Trail bar (slightly wider than fill, shown in red-ish)
+    // Trail bar
     float trail_ratio = MIN(ratio + 0.12f, 1.0f);
     float trail_w = r.size.x * trail_ratio;
-    draw_rect(Rect2(r.position, Vector2(trail_w, r.size.y)), trail_color);
-
-    // Fill bar
-    float fill_w = r.size.x * ratio;
-    draw_rect(Rect2(r.position, Vector2(fill_w, r.size.y)), bar_color);
-
-    // Value label
-    if (font.is_valid() && r.size.y >= 12) {
-        String lbl = String::num_int64(int(value)) + " / " + String::num_int64(int(max_val));
-        int lbl_fs = MIN(font_size, int(r.size.y - 4));
-        float ty = r.position.y + (r.size.y + lbl_fs * 0.7f) * 0.5f;
-        draw_string(font, Vector2(r.position.x + 4, ty), lbl,
-                    HORIZONTAL_ALIGNMENT_CENTER, r.size.x - 8, lbl_fs, Color(1, 1, 1, 0.9));
+    if (trail_w > 0) {
+        draw_rect(Rect2(r.position, Vector2(trail_w, r.size.y)), trail_color);
     }
 
-    // Subtle border
-    draw_rect(r, Color(0.3, 0.3, 0.35, 0.5), false, 1.0);
+    // Fill bar with glossy highlight
+    float fill_w = r.size.x * ratio;
+    if (fill_w > 0) {
+        draw_rect(Rect2(r.position, Vector2(fill_w, r.size.y)), bar_color);
+        // Top highlight for glossy effect
+        if (r.size.y > 8) {
+            Color hi(MIN(bar_color.r + 0.15f, 1.0f),
+                     MIN(bar_color.g + 0.15f, 1.0f),
+                     MIN(bar_color.b + 0.15f, 1.0f), 0.35f);
+            draw_rect(Rect2(r.position.x, r.position.y + 1,
+                            fill_w, MAX(r.size.y * 0.3f, 2.0f)), hi);
+        }
+    }
+
+    // Label (runtime: fs=12, Color.WHITE, centered)
+    if (font.is_valid() && r.size.y >= 10) {
+        String lbl = String::num_int64(int(value)) + " / " + String::num_int64(int(max_val));
+        int lbl_fs = MIN(12, int(r.size.y - 4));
+        float ty = r.position.y + (r.size.y + lbl_fs * 0.7f) * 0.5f;
+        // Drop shadow
+        draw_string(font, Vector2(r.position.x + 5, ty + 1), lbl,
+                    HORIZONTAL_ALIGNMENT_CENTER, r.size.x - 8, lbl_fs,
+                    Color(0, 0, 0, 0.45));
+        draw_string(font, Vector2(r.position.x + 4, ty), lbl,
+                    HORIZONTAL_ALIGNMENT_CENTER, r.size.x - 8, lbl_fs,
+                    Color(1, 1, 1, 0.95));
+    }
+
+    // Outer border
+    draw_rect(r, Color(0.25, 0.25, 0.30, 0.6), false, 1.0);
 }
 
 void VisualGasicFormDesigner::_draw_hud_counter_control(const Rect2 &r, const FormControlItem &item, const Ref<Font> &font, int font_size) {
-    // Transparent background with subtle dark backing
-    draw_rect(r, Color(0.1, 0.1, 0.12, 0.5));
+    // Runtime: HBoxContainer(sep=6, CENTER) → [TextureRect 24×24] + [Label fs=18, WHITE]
+    draw_rect(r, Color(0.08, 0.08, 0.10, 0.35));
 
     if (!font.is_valid()) return;
 
     String prefix = "", suffix = "";
     int value = 0;
-    Color font_color(1.0, 0.85, 0.2);  // Gold
+    Color font_color(1.0, 0.85, 0.2);
     int disp_fs = 18;
-    if (item.properties.has("Prefix")) prefix = String(item.properties["Prefix"]);
-    if (item.properties.has("Suffix")) suffix = String(item.properties["Suffix"]);
-    if (item.properties.has("Value")) value = int(item.properties["Value"]);
-    if (item.properties.has("FontSize")) disp_fs = vb6_pt_to_px(int(item.properties["FontSize"]));
+    if (item.properties.has("Prefix"))    prefix     = String(item.properties["Prefix"]);
+    if (item.properties.has("Suffix"))    suffix     = String(item.properties["Suffix"]);
+    if (item.properties.has("Value"))     value      = int(item.properties["Value"]);
+    if (item.properties.has("FontSize"))  disp_fs    = vb6_pt_to_px(int(item.properties["FontSize"]));
     if (item.properties.has("FontColor")) font_color = Color(item.properties["FontColor"]);
 
-    float pad = 6.0f;
+    float sep = 6.0f, pad = 4.0f;
     float x = r.position.x + pad;
-    float y = r.position.y;
 
-    // Icon placeholder
+    // Icon placeholder (24×24, centered vertically — runtime HBox CENTER)
     float icon_sz = MIN(24.0f, r.size.y - 4);
     if (r.size.x > icon_sz + 40) {
-        Rect2 icon_r(x, y + (r.size.y - icon_sz) * 0.5f, icon_sz, icon_sz);
-        draw_rect(icon_r, Color(0.3, 0.3, 0.35, 0.6));
-        draw_rect(icon_r, Color(0.5, 0.5, 0.55, 0.4), false, 1.0);
-        // Star hint inside icon
-        float star_cx = icon_r.position.x + icon_sz * 0.5f;
-        float star_cy = icon_r.position.y + icon_sz * 0.5f;
-        float sr = icon_sz * 0.2f;
-        draw_rect(Rect2(star_cx - sr, star_cy - sr, sr * 2, sr * 2), font_color * 0.6f);
-        x += icon_sz + 8;
+        float iy = r.position.y + (r.size.y - icon_sz) * 0.5f;
+        Rect2 icon_r(x, iy, icon_sz, icon_sz);
+        draw_rect(icon_r, Color(0.22, 0.22, 0.28, 0.7));
+        // Inner bevel
+        draw_rect(Rect2(x, iy, icon_sz, 1), Color(0.35, 0.35, 0.42, 0.5));
+        draw_rect(Rect2(x, iy, 1, icon_sz), Color(0.35, 0.35, 0.42, 0.5));
+        draw_rect(Rect2(x, iy + icon_sz - 1, icon_sz, 1), Color(0.12, 0.12, 0.16, 0.6));
+        draw_rect(Rect2(x + icon_sz - 1, iy, 1, icon_sz), Color(0.12, 0.12, 0.16, 0.6));
+        // Diamond/cross icon hint
+        float dsz = icon_sz * 0.28f;
+        float dcx = x + icon_sz * 0.5f;
+        float dcy = iy + icon_sz * 0.5f;
+        draw_rect(Rect2(dcx - dsz * 0.5f, dcy - dsz, dsz, dsz * 2),
+                  Color(font_color.r * 0.7f, font_color.g * 0.7f, font_color.b * 0.7f));
+        draw_rect(Rect2(dcx - dsz, dcy - dsz * 0.5f, dsz * 2, dsz),
+                  Color(font_color.r * 0.7f, font_color.g * 0.7f, font_color.b * 0.7f));
+        // Outer border
+        draw_rect(icon_r, Color(0.45, 0.45, 0.52, 0.5), false, 1.0);
+        x += icon_sz + sep;
     }
 
-    // Value text
+    // Value text with drop shadow
     String display = prefix + String::num_int64(value) + suffix;
-    float ty = y + (r.size.y + disp_fs * 0.7f) * 0.5f;
+    float ty = r.position.y + (r.size.y + disp_fs * 0.7f) * 0.5f;
+    float avail = r.size.x - (x - r.position.x) - pad;
+    draw_string(font, Vector2(x + 1, ty + 1), display,
+                HORIZONTAL_ALIGNMENT_LEFT, avail, disp_fs, Color(0, 0, 0, 0.5));
     draw_string(font, Vector2(x, ty), display,
-                HORIZONTAL_ALIGNMENT_LEFT, r.size.x - (x - r.position.x) - pad, disp_fs, font_color);
+                HORIZONTAL_ALIGNMENT_LEFT, avail, disp_fs, font_color);
 }
 
 void VisualGasicFormDesigner::_draw_cooldown_button_control(const Rect2 &r, const Ref<Font> &font, int font_size) {
-    // Square button with subtle radial overlay hint
-    Color face(0.25, 0.42, 0.65);
-    Color border(0.4, 0.55, 0.75, 0.8);
+    // Runtime: TextureButton 48×48, radial _draw() overlay.
+    //   Overlay: Color(0,0,0,0.55), radius = max(w,h)*0.72, 32 segments.
+    //   Label: fs=14, WHITE, shows ceili(remaining).
+
+    // Raised 3D button base
+    Color face(0.28, 0.32, 0.42);
+    Color hi(0.45, 0.50, 0.62);
+    Color sh(0.15, 0.18, 0.25);
+    Color dsh(0.08, 0.10, 0.15);
+
     draw_rect(r, face);
-    draw_rect(r, border, false, 1.5);
+    float bx = r.position.x, by = r.position.y;
+    float bw = r.size.x, bh = r.size.y;
+    // 3D raised edges
+    draw_rect(Rect2(bx, by, bw, 1), hi);
+    draw_rect(Rect2(bx + 1, by + 1, bw - 2, 1), Color(hi.r + 0.08f, hi.g + 0.08f, hi.b + 0.08f, 0.45f));
+    draw_rect(Rect2(bx, by, 1, bh), hi);
+    draw_rect(Rect2(bx + 1, by + 1, 1, bh - 2), Color(hi.r + 0.08f, hi.g + 0.08f, hi.b + 0.08f, 0.45f));
+    draw_rect(Rect2(bx, by + bh - 1, bw, 1), dsh);
+    draw_rect(Rect2(bx + 1, by + bh - 2, bw - 2, 1), sh);
+    draw_rect(Rect2(bx + bw - 1, by, 1, bh), dsh);
+    draw_rect(Rect2(bx + bw - 2, by + 1, 1, bh - 2), sh);
 
-    // Radial cooldown indicator (static wedge at ~40%)
-    float cx = r.position.x + r.size.x * 0.5f;
-    float cy = r.position.y + r.size.y * 0.5f;
-    float radius = MIN(r.size.x, r.size.y) * 0.35f;
-    Color overlay(0.0, 0.0, 0.0, 0.35);
+    // Radial overlay (static at ~40%)
+    float cx = bx + bw * 0.5f;
+    float cy = by + bh * 0.5f;
+    float radius = MIN(bw, bh) * 0.72f;
+    Color overlay(0.0, 0.0, 0.0, 0.55);
 
-    // Draw a few scanline rects to approximate a wedge (~40% from top)
     if (radius > 8) {
-        float start_angle = -Math_PI * 0.5f;
-        float end_angle = start_angle + Math_TAU * 0.4f;
-        int segments = 16;
-        for (int i = 0; i < segments; i++) {
-            float a1 = Math::lerp(start_angle, end_angle, float(i) / segments);
-            float a2 = Math::lerp(start_angle, end_angle, float(i + 1) / segments);
-            // Draw as tiny triangular strip approximation with rects
+        float start_a = -Math_PI * 0.5f;
+        float end_a   = start_a + Math_TAU * 0.4f;
+        int segs = 24;
+        for (int i = 0; i < segs; i++) {
+            float a1 = Math::lerp(start_a, end_a, float(i) / segs);
+            float a2 = Math::lerp(start_a, end_a, float(i + 1) / segs);
             float px1 = cx + Math::cos(a1) * radius;
             float py1 = cy + Math::sin(a1) * radius;
             float px2 = cx + Math::cos(a2) * radius;
             float py2 = cy + Math::sin(a2) * radius;
-            // Small rect at each segment point
-            float min_x = MIN(MIN(cx, px1), px2);
-            float max_x = MAX(MAX(cx, px1), px2);
-            float min_y = MIN(MIN(cy, py1), py2);
-            float max_y = MAX(MAX(cy, py1), py2);
-            draw_rect(Rect2(min_x, min_y, max_x - min_x + 1, max_y - min_y + 1), overlay);
+            float mn_x = MIN(MIN(cx, px1), px2);
+            float mx_x = MAX(MAX(cx, px1), px2);
+            float mn_y = MIN(MIN(cy, py1), py2);
+            float mx_y = MAX(MAX(cy, py1), py2);
+            draw_rect(Rect2(mn_x, mn_y, mx_x - mn_x + 1, mx_y - mn_y + 1), overlay);
         }
     }
 
-    // "CD" label in center
+    // Countdown label (runtime: fs=14, "2" as static hint)
     if (font.is_valid()) {
-        float ty = cy + font_size * 0.35f;
-        draw_string(font, Vector2(r.position.x + 2, ty), "CD",
-                    HORIZONTAL_ALIGNMENT_CENTER, r.size.x - 4, font_size, Color(1, 1, 1, 0.8));
+        int cd_fs = MIN(14, int(MIN(bw, bh) * 0.4f));
+        float ty = cy + cd_fs * 0.35f;
+        draw_string(font, Vector2(bx + 1, ty + 1), "2",
+                    HORIZONTAL_ALIGNMENT_CENTER, bw, cd_fs,
+                    Color(0, 0, 0, 0.5));
+        draw_string(font, Vector2(bx, ty), "2",
+                    HORIZONTAL_ALIGNMENT_CENTER, bw, cd_fs,
+                    Color(1, 1, 1, 0.9));
     }
 }
 
 void VisualGasicFormDesigner::_draw_notification_toast_control(const Rect2 &r, const String &name, const Ref<Font> &font, int font_size) {
-    // Dark rounded-feel rectangle
-    Color bg(0.18, 0.18, 0.22, 0.9);
-    Color border(0.4, 0.4, 0.48, 0.5);
+    // Runtime: PanelContainer min 250×40, margins 10h/6v,
+    //   HBox(sep=8) → [icon TextureRect 24×24] + [Label fs=14, WHITE, autowrap]
+    Color bg(0.18, 0.18, 0.22, 0.92);
+
     draw_rect(r, bg);
-    draw_rect(r, border, false, 1.0);
+    // 3D panel border (top/left lighter, bottom/right darker)
+    draw_rect(Rect2(r.position.x, r.position.y, r.size.x, 1),
+              Color(0.42, 0.42, 0.50, 0.35));
+    draw_rect(Rect2(r.position.x, r.position.y, 1, r.size.y),
+              Color(0.42, 0.42, 0.50, 0.35));
+    draw_rect(Rect2(r.position.x, r.position.y + r.size.y - 1, r.size.x, 1),
+              Color(0.10, 0.10, 0.14, 0.7));
+    draw_rect(Rect2(r.position.x + r.size.x - 1, r.position.y, 1, r.size.y),
+              Color(0.10, 0.10, 0.14, 0.7));
+    // Outer border
+    draw_rect(r, Color(0.32, 0.32, 0.38, 0.6), false, 1.0);
 
     if (!font.is_valid()) return;
-    float pad = 10.0f;
-    float x = r.position.x + pad;
-    float y = r.position.y;
+    float mh = 10.0f, mv = 6.0f;
+    float x = r.position.x + mh;
+    float cw = r.size.x - mh * 2;
 
-    // Icon placeholder
-    float icon_sz = MIN(24.0f, r.size.y - 8);
-    if (r.size.x > icon_sz + 60 && icon_sz > 10) {
-        Rect2 icon_r(x, y + (r.size.y - icon_sz) * 0.5f, icon_sz, icon_sz);
-        draw_rect(icon_r, Color(0.3, 0.3, 0.35, 0.6));
-        draw_rect(icon_r, Color(0.5, 0.5, 0.55, 0.4), false, 1.0);
-        // Bell/notification hint: small circle
-        float bell_cx = icon_r.position.x + icon_sz * 0.5f;
-        float bell_cy = icon_r.position.y + icon_sz * 0.4f;
-        float bell_r = icon_sz * 0.18f;
-        draw_rect(Rect2(bell_cx - bell_r, bell_cy - bell_r, bell_r * 2, bell_r * 2), Color(1, 0.85, 0.3, 0.7));
+    // Icon placeholder (24×24)
+    float icon_sz = MIN(24.0f, r.size.y - mv * 2);
+    if (cw > icon_sz + 60 && icon_sz > 10) {
+        float iy = r.position.y + (r.size.y - icon_sz) * 0.5f;
+        Rect2 icon_r(x, iy, icon_sz, icon_sz);
+        draw_rect(icon_r, Color(0.25, 0.25, 0.30, 0.7));
+        draw_rect(icon_r, Color(0.45, 0.45, 0.52, 0.5), false, 1.0);
+        // Bell body
+        float bcx = icon_r.position.x + icon_sz * 0.5f;
+        float bcy = icon_r.position.y + icon_sz * 0.38f;
+        float bw = icon_sz * 0.40f, bh = icon_sz * 0.35f;
+        draw_rect(Rect2(bcx - bw * 0.5f, bcy, bw, bh), Color(1.0, 0.85, 0.3, 0.8));
+        // Bell base (wider)
+        draw_rect(Rect2(bcx - bw * 0.65f, bcy + bh, bw * 1.3f, 2),
+                  Color(1.0, 0.85, 0.3, 0.8));
+        // Clapper
+        draw_rect(Rect2(bcx - 1, bcy + bh + 3, 2, 2), Color(1.0, 0.85, 0.3, 0.6));
         x += icon_sz + 8;
     }
 
-    // Message text
-    float ty = y + (r.size.y + font_size * 0.7f) * 0.5f;
+    // Message text (runtime: fs=14, Color.WHITE)
+    int msg_fs = MIN(14, font_size);
+    float ty = r.position.y + (r.size.y + msg_fs * 0.7f) * 0.5f;
     draw_string(font, Vector2(x, ty), "Notification message",
-                HORIZONTAL_ALIGNMENT_LEFT, r.size.x - (x - r.position.x) - pad, font_size, Color(0.9, 0.9, 0.95));
+                HORIZONTAL_ALIGNMENT_LEFT, r.size.x - (x - r.position.x) - mh,
+                msg_fs, Color(0.95, 0.95, 0.98));
+
+    // Close × hint (top-right)
+    float cl_x = r.position.x + r.size.x - mh - 10;
+    if (cl_x > x + 40) {
+        draw_string(font, Vector2(cl_x, r.position.y + mv + 10),
+                    String::utf8("\xc3\x97"),
+                    HORIZONTAL_ALIGNMENT_LEFT, 12, 12,
+                    Color(0.60, 0.60, 0.65, 0.45));
+    }
 }
 
 void VisualGasicFormDesigner::_draw_game_menu_control(const Rect2 &r, const FormControlItem &item, const Ref<Font> &font, int font_size) {
-    // Semi-transparent dark overlay
-    Color bg(0.0, 0.0, 0.0, 0.6);
-    draw_rect(r, bg);
+    // Runtime: ColorRect(0,0,0,0.6) FULL_RECT → CenterContainer
+    //   → VBox(sep=20) → [Title fs=28, WHITE] + [Buttons VBox(sep=10)]
+    //   Buttons: Button, min_width=200, fs=18.  Default: Resume, Settings, Quit.
+    draw_rect(r, Color(0.0, 0.0, 0.0, 0.6));
 
     if (!font.is_valid()) return;
 
-    // Read properties
     String title = "PAUSED";
     int title_fs = 28;
     int btn_fs = 18;
-    if (item.properties.has("Title")) title = String(item.properties["Title"]);
+    if (item.properties.has("Title"))         title    = String(item.properties["Title"]);
     if (item.properties.has("TitleFontSize")) title_fs = vb6_pt_to_px(int(item.properties["TitleFontSize"]));
-    if (item.properties.has("ButtonFontSize")) btn_fs = vb6_pt_to_px(int(item.properties["ButtonFontSize"]));
+    if (item.properties.has("ButtonFontSize")) btn_fs  = vb6_pt_to_px(int(item.properties["ButtonFontSize"]));
 
-    // Title centered
-    float title_y = r.position.y + r.size.y * 0.2f;
-    draw_string(font, Vector2(r.position.x, title_y + title_fs), title,
-                HORIZONTAL_ALIGNMENT_CENTER, r.size.x, title_fs, Color(1, 1, 1));
+    // Read custom button labels from properties if available
+    PackedStringArray labels;
+    if (item.properties.has("ButtonLabels")) {
+        String ls = String(item.properties["ButtonLabels"]);
+        labels = ls.split(",", false);
+        for (int i = 0; i < labels.size(); i++) {
+            labels.set(i, labels[i].strip_edges());
+        }
+    }
+    if (labels.is_empty()) {
+        labels.push_back("Resume");
+        labels.push_back("Settings");
+        labels.push_back("Quit");
+    }
+    int btn_count = labels.size();
 
-    // Button stack
-    const char *btn_labels[] = { "Resume", "Settings", "Quit" };
-    int btn_count = 3;
-    float btn_w = MIN(200.0f, r.size.x * 0.6f);
-    float btn_h = MAX(28.0f, btn_fs + 12.0f);
-    float btn_spacing = 10.0f;
-    float total_h = btn_count * btn_h + (btn_count - 1) * btn_spacing;
-    float btn_x = r.position.x + (r.size.x - btn_w) * 0.5f;
-    float btn_y = r.position.y + r.size.y * 0.4f;
+    // Runtime layout: CenterContainer → VBox(sep=20)
+    float vbox_sep = 20.0f;
+    float btn_sep  = 10.0f;
+    float btn_w = MIN(200.0f, r.size.x * 0.65f);
+    float btn_h = MAX(32.0f, btn_fs + 14.0f);
 
-    if (btn_y + total_h > r.position.y + r.size.y - 10) {
-        btn_y = r.position.y + r.size.y - total_h - 10;
+    float title_block = title_fs + 4;
+    float btns_block  = btn_count * btn_h + (btn_count - 1) * btn_sep;
+    float total_h     = title_block + vbox_sep + btns_block;
+
+    // Centered vertically
+    float cy = r.position.y + (r.size.y - total_h) * 0.5f;
+    cy = MAX(cy, r.position.y + 10);
+
+    // Title with drop shadow
+    float ty = cy + title_fs;
+    draw_string(font, Vector2(r.position.x + 2, ty + 2), title,
+                HORIZONTAL_ALIGNMENT_CENTER, r.size.x, title_fs,
+                Color(0, 0, 0, 0.5));
+    draw_string(font, Vector2(r.position.x, ty), title,
+                HORIZONTAL_ALIGNMENT_CENTER, r.size.x, title_fs,
+                Color(1, 1, 1));
+
+    // Buttons (raised rects — matches Godot default Button theme)
+    float bx = r.position.x + (r.size.x - btn_w) * 0.5f;
+    float by = cy + title_block + vbox_sep;
+    if (by + btns_block > r.position.y + r.size.y - 8) {
+        by = r.position.y + r.size.y - btns_block - 8;
     }
 
-    Color btn_bg(0.25, 0.25, 0.3, 0.8);
-    Color btn_border(0.5, 0.5, 0.6, 0.6);
-
     for (int i = 0; i < btn_count; i++) {
-        float by = btn_y + i * (btn_h + btn_spacing);
-        Rect2 btn_r(btn_x, by, btn_w, btn_h);
-        draw_rect(btn_r, btn_bg);
-        draw_rect(btn_r, btn_border, false, 1.0);
-        String btn_text = String(btn_labels[i]);
-        float text_y = by + (btn_h + btn_fs * 0.7f) * 0.5f;
-        draw_string(font, Vector2(btn_x, text_y), btn_text,
-                    HORIZONTAL_ALIGNMENT_CENTER, btn_w, btn_fs, Color(1, 1, 1, 0.95));
+        float bty = by + i * (btn_h + btn_sep);
+        Rect2 btn_r(bx, bty, btn_w, btn_h);
+        _draw_raised_rect(btn_r, sys_button_face);
+        float text_y = bty + (btn_h + btn_fs * 0.7f) * 0.5f;
+        draw_string(font, Vector2(bx, text_y), labels[i],
+                    HORIZONTAL_ALIGNMENT_CENTER, btn_w, btn_fs, color_text);
     }
 }
 
