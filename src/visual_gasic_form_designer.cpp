@@ -151,6 +151,14 @@ void VisualGasicFormDesigner::_update_min_size() {
 }
 
 void VisualGasicFormDesigner::_process(double p_delta) {
+    // ── Animated form designer: tick animation clock in game_ui_mode ──
+    if (game_ui_mode) {
+        anim_time += (float)p_delta;
+        // Wrap to avoid precision loss after long editing sessions
+        if (anim_time > 3600.0f) anim_time -= 3600.0f;
+        queue_redraw();
+    }
+
     // Detect toolbox drag (Engine meta set by C++ toolbox)
     if (Engine::get_singleton()->has_meta("_vg_active_drag")) {
         Variant meta = Engine::get_singleton()->get_meta("_vg_active_drag");
@@ -613,21 +621,21 @@ void VisualGasicFormDesigner::_draw_control(const FormControlItem &item, int ind
     } else if (item.type == "DriveListBox") {
         // DriveListBox: combo-style with "C:" text
         _draw_combobox_control(r, "C:\\", font, font_size);
-    // ── Game UI Tier 1 controls (v4.0 WYSIWYG) ──
+    // ── Game UI Tier 1 controls (v4.0 animated WYSIWYG) ──
     } else if (item.type == "DialogPanel") {
-        _draw_dialog_panel_control(r, item.name, font, font_size);
+        _draw_dialog_panel_control(r, item.name, font, font_size, anim_time);
     } else if (item.type == "InventoryGrid") {
-        _draw_inventory_grid_control(r, item, font, font_size);
+        _draw_inventory_grid_control(r, item, font, font_size, anim_time);
     } else if (item.type == "StatBar") {
-        _draw_stat_bar_control(r, item, font, font_size);
+        _draw_stat_bar_control(r, item, font, font_size, anim_time);
     } else if (item.type == "HUDCounter") {
-        _draw_hud_counter_control(r, item, font, font_size);
+        _draw_hud_counter_control(r, item, font, font_size, anim_time);
     } else if (item.type == "CooldownButton") {
-        _draw_cooldown_button_control(r, font, font_size);
+        _draw_cooldown_button_control(r, font, font_size, anim_time);
     } else if (item.type == "NotificationToast") {
-        _draw_notification_toast_control(r, item.name, font, font_size);
+        _draw_notification_toast_control(r, item.name, font, font_size, anim_time);
     } else if (item.type == "GameMenu") {
-        _draw_game_menu_control(r, item, font, font_size);
+        _draw_game_menu_control(r, item, font, font_size, anim_time);
     } else if (item.type == "HBoxContainer" || item.type == "VBoxContainer" ||
                item.type == "GridContainer" || item.type == "SubViewportContainer") {
         // Container types: dashed outline with label
@@ -1323,32 +1331,28 @@ void VisualGasicFormDesigner::_draw_shape_control(const Rect2 &r) {
 // so that WYSIWYG holds true at design time.
 // =============================================================================
 
-void VisualGasicFormDesigner::_draw_dialog_panel_control(const Rect2 &r, const String &name, const Ref<Font> &font, int font_size) {
-    // Runtime: PanelContainer bg(0.12,0.15,0.22,0.92), margins 12h/8v,
-    //   VBox(sep=6) → Header HBox(sep=8) [Portrait 48×48 + Name fs=16]
-    //                + Body RichTextLabel(min_h=40) + Choices VBox
+void VisualGasicFormDesigner::_draw_dialog_panel_control(const Rect2 &r, const String &name, const Ref<Font> &font, int font_size, float t) {
+    // Animated: typewriter text reveal (runtime: visible_ratio tween at 0.03s/char)
+    // plus blinking cursor at the reveal edge
     Color bg(0.12, 0.15, 0.22, 0.92);
-
-    // Panel fill
     draw_rect(r, bg);
 
-    // Double-border for PanelContainer depth (outer dark, inner lighter)
+    // Double-border for PanelContainer depth
     draw_rect(r, Color(0.22, 0.28, 0.42, 0.8), false, 2.0);
     Rect2 inner_b(r.position.x + 1, r.position.y + 1, r.size.x - 2, r.size.y - 2);
     draw_rect(inner_b, Color(0.35, 0.45, 0.65, 0.4), false, 1.0);
 
     if (!font.is_valid()) return;
-    float mh = 12.0f, mv = 8.0f;           // runtime margins
+    float mh = 12.0f, mv = 8.0f;
     float x = r.position.x + mh;
     float y = r.position.y + mv;
     float w = r.size.x - mh * 2;
 
-    // Portrait placeholder (48×48 matching runtime TextureRect)
+    // Portrait placeholder (48×48)
     float portrait_sz = MIN(48.0f, r.size.y - mv * 2 - 20.0f);
     if (portrait_sz > 16 && w > portrait_sz + 60) {
         Rect2 portrait(x, y, portrait_sz, portrait_sz);
         draw_rect(portrait, Color(0.18, 0.20, 0.28));
-        // Inner shadow edges
         draw_rect(Rect2(x, y, portrait_sz, 1), Color(0.10, 0.12, 0.18));
         draw_rect(Rect2(x, y, 1, portrait_sz), Color(0.10, 0.12, 0.18));
         draw_rect(Rect2(x, y + portrait_sz - 1, portrait_sz, 1), Color(0.30, 0.35, 0.42, 0.5));
@@ -1358,36 +1362,53 @@ void VisualGasicFormDesigner::_draw_dialog_panel_control(const Rect2 &r, const S
         float pcy = y + portrait_sz * 0.32f;
         float hr = portrait_sz * 0.14f;
         draw_rect(Rect2(pcx - hr, pcy - hr, hr * 2, hr * 2), Color(0.35, 0.38, 0.48));
-        float bw = hr * 3.0f, bh = portrait_sz * 0.28f;
-        draw_rect(Rect2(pcx - bw * 0.5f, pcy + hr + 3, bw, bh), Color(0.35, 0.38, 0.48));
-        // Border
+        float bw_s = hr * 3.0f, bh_s = portrait_sz * 0.28f;
+        draw_rect(Rect2(pcx - bw_s * 0.5f, pcy + hr + 3, bw_s, bh_s), Color(0.35, 0.38, 0.48));
         draw_rect(portrait, Color(0.40, 0.45, 0.58, 0.6), false, 1.0);
 
-        // Speaker name (right of portrait, runtime fs=16)
+        // Speaker name with a subtle fade-in (first 0.3s of each 6s cycle)
         int name_fs = MIN(16, font_size + 2);
         float nx = x + portrait_sz + 8;
+        float cycle = fmod(t, 6.0f);
+        float name_alpha = CLAMP(cycle / 0.3f, 0.0f, 1.0f);
         draw_string(font, Vector2(nx, y + name_fs), "Speaker Name",
                     HORIZONTAL_ALIGNMENT_LEFT, w - portrait_sz - 16, name_fs,
-                    Color(0.88, 0.88, 0.98));
+                    Color(0.88, 0.88, 0.98, name_alpha));
 
-        // Separator line (mimics VBox gap between header and body)
+        // Separator
         float sep_y = y + portrait_sz + 4;
         if (sep_y < r.position.y + r.size.y - mv - 16) {
             draw_rect(Rect2(x, sep_y, w, 1), Color(0.30, 0.35, 0.50, 0.4));
-            // Body text
             float ty = sep_y + 6;
             if (ty + font_size < r.position.y + r.size.y - mv) {
-                draw_string(font, Vector2(x, ty + font_size - 2),
-                            "Dialog text goes here...",
-                            HORIZONTAL_ALIGNMENT_LEFT, w, font_size - 1,
+                // ── Typewriter animation ──
+                // Full text cycles: 0.03s/char reveal, 1.5s hold, then restarts
+                String full_text = "Dialog text goes here...";
+                int total_chars = full_text.length();
+                float char_rate = 0.03f;                      // match runtime
+                float reveal_dur = total_chars * char_rate;
+                float hold_dur = 1.5f;
+                float type_cycle = fmod(cycle, reveal_dur + hold_dur);
+                int visible_chars = (type_cycle < reveal_dur)
+                    ? CLAMP(int(type_cycle / char_rate), 0, total_chars)
+                    : total_chars;
+
+                String visible_str = full_text.substr(0, visible_chars);
+                int body_fs = font_size - 1;
+                draw_string(font, Vector2(x, ty + body_fs - 2), visible_str,
+                            HORIZONTAL_ALIGNMENT_LEFT, w, body_fs,
                             Color(0.72, 0.74, 0.82, 0.85));
-                // Typewriter cursor hint
-                float cw = font->get_string_size("Dialog text goes here...",
-                               HORIZONTAL_ALIGNMENT_LEFT, -1, font_size - 1).x;
-                float cx = x + cw + 2;
-                if (cx < r.position.x + r.size.x - mh) {
-                    draw_rect(Rect2(cx, ty, 2, font_size),
-                              Color(0.80, 0.80, 0.90, 0.55));
+
+                // Blinking cursor at reveal edge (0.5s period)
+                if (visible_chars < total_chars) {
+                    float cw_t = font->get_string_size(visible_str,
+                                     HORIZONTAL_ALIGNMENT_LEFT, -1, body_fs).x;
+                    float cursor_x = x + cw_t + 2;
+                    float blink = fmod(t, 0.5f) < 0.25f ? 0.85f : 0.15f;
+                    if (cursor_x < r.position.x + r.size.x - mh) {
+                        draw_rect(Rect2(cursor_x, ty, 2, body_fs),
+                                  Color(0.80, 0.80, 0.90, blink));
+                    }
                 }
             }
         }
@@ -1398,10 +1419,8 @@ void VisualGasicFormDesigner::_draw_dialog_panel_control(const Rect2 &r, const S
     }
 }
 
-void VisualGasicFormDesigner::_draw_inventory_grid_control(const Rect2 &r, const FormControlItem &item, const Ref<Font> &font, int font_size) {
-    // Runtime: PanelContainer → GridContainer, margins=8.
-    //   Slot StyleBoxFlat: bg Color(0.2,0.2,0.25,0.8), corner_radius=4,
-    //     border_width=1, border_color Color(0.4,0.4,0.45,0.6).
+void VisualGasicFormDesigner::_draw_inventory_grid_control(const Rect2 &r, const FormControlItem &item, const Ref<Font> &font, int font_size, float t) {
+    // Animated: subtle breathing glow cycles through slot borders
     Color bg(0.14, 0.14, 0.18, 0.92);
     draw_rect(r, bg);
 
@@ -1441,8 +1460,14 @@ void VisualGasicFormDesigner::_draw_inventory_grid_control(const Rect2 &r, const
     // Exact runtime StyleBoxFlat colors
     Color slot_bg(0.20, 0.20, 0.25, 0.80);
     Color slot_border(0.40, 0.40, 0.45, 0.60);
-    Color slot_hi(0.28, 0.28, 0.33, 0.55);   // top/left inner highlight
-    Color slot_sh(0.12, 0.12, 0.16, 0.65);   // bottom/right inner shadow
+    Color slot_hi(0.28, 0.28, 0.33, 0.55);
+    Color slot_sh(0.12, 0.12, 0.16, 0.65);
+
+    // ── Breathing glow: a highlight wave sweeps across the grid ──
+    // Wave period = 3s, highlight covers ~2 slots wide
+    float wave_period = 3.0f;
+    float wave_pos = fmod(t, wave_period) / wave_period; // 0..1 progress
+    float total_slots = (float)(rows * cols);
 
     for (int row = 0; row < rows; row++) {
         for (int col = 0; col < cols; col++) {
@@ -1450,27 +1475,31 @@ void VisualGasicFormDesigner::_draw_inventory_grid_control(const Rect2 &r, const
             float sy = oy + row * (ssz + ssp);
             Rect2 slot(sx, sy, ssz, ssz);
 
-            // Fill
             draw_rect(slot, slot_bg);
 
-            // Inner bevel (simulates corner_radius=4 depth)
-            // Top highlight
+            // Inner bevel
             draw_rect(Rect2(sx + 2, sy,     ssz - 4, 1), slot_hi);
             draw_rect(Rect2(sx + 1, sy + 1, ssz - 2, 1), Color(slot_hi.r, slot_hi.g, slot_hi.b, slot_hi.a * 0.5f));
-            // Left highlight
             draw_rect(Rect2(sx,     sy + 2, 1, ssz - 4), slot_hi);
             draw_rect(Rect2(sx + 1, sy + 1, 1, ssz - 2), Color(slot_hi.r, slot_hi.g, slot_hi.b, slot_hi.a * 0.5f));
-            // Bottom shadow
             draw_rect(Rect2(sx + 2, sy + ssz - 1, ssz - 4, 1), slot_sh);
             draw_rect(Rect2(sx + 1, sy + ssz - 2, ssz - 2, 1), Color(slot_sh.r, slot_sh.g, slot_sh.b, slot_sh.a * 0.5f));
-            // Right shadow
             draw_rect(Rect2(sx + ssz - 1, sy + 2, 1, ssz - 4), slot_sh);
             draw_rect(Rect2(sx + ssz - 2, sy + 1, 1, ssz - 2), Color(slot_sh.r, slot_sh.g, slot_sh.b, slot_sh.a * 0.5f));
 
-            // Outer border (1px — runtime border_width=1)
-            draw_rect(slot, slot_border, false, 1.0);
+            // ── Animated breathing border glow ──
+            float slot_idx = (float)(row * cols + col);
+            float slot_norm = slot_idx / MAX(total_slots - 1.0f, 1.0f);
+            float dist = Math::abs(wave_pos - slot_norm);
+            dist = MIN(dist, 1.0f - dist); // wrap-around distance
+            float glow = MAX(0.0f, 1.0f - dist * total_slots * 0.5f);
+            Color border_c = slot_border;
+            border_c.r = Math::lerp(border_c.r, 0.55f, glow * 0.5f);
+            border_c.g = Math::lerp(border_c.g, 0.65f, glow * 0.5f);
+            border_c.b = Math::lerp(border_c.b, 0.85f, glow * 0.5f);
+            border_c.a = Math::lerp(border_c.a, 0.95f, glow);
+            draw_rect(slot, border_c, false, 1.0);
 
-            // Subtle inner top-edge shading for extra depth
             if (ssz > 20) {
                 draw_rect(Rect2(sx + 2, sy + 2, ssz - 4, 3),
                           Color(0.16, 0.16, 0.20, 0.25));
@@ -1479,11 +1508,9 @@ void VisualGasicFormDesigner::_draw_inventory_grid_control(const Rect2 &r, const
     }
 }
 
-void VisualGasicFormDesigner::_draw_stat_bar_control(const Rect2 &r, const FormControlItem &item, const Ref<Font> &font, int font_size) {
-    // Runtime: Control → ColorRect bg(0.15,0.15,0.18) + two ProgressBars
-    //   Fill StyleBoxFlat: default green(0.2,0.8,0.3)
-    //   Trail StyleBoxFlat: Color(0.9,0.2,0.2,0.6)
-    //   Label: fs=12, Color.WHITE, centered, format "{value} / {max}"
+void VisualGasicFormDesigner::_draw_stat_bar_control(const Rect2 &r, const FormControlItem &item, const Ref<Font> &font, int font_size, float t) {
+    // Animated: glossy shimmer sweeps across fill bar (2s period),
+    // trail bar pulses subtly, value animates between 65-85 range
     float value = 75.0f, max_val = 100.0f;
     Color bar_color(0.2, 0.8, 0.3);
     Color trail_color(0.9, 0.2, 0.2, 0.6);
@@ -1491,43 +1518,64 @@ void VisualGasicFormDesigner::_draw_stat_bar_control(const Rect2 &r, const FormC
     if (item.properties.has("MaxValue")) max_val = MAX(float(item.properties["MaxValue"]), 1.0f);
     if (item.properties.has("BarColor")) bar_color = Color(item.properties["BarColor"]);
 
-    float ratio = CLAMP(value / max_val, 0.0f, 1.0f);
+    // ── Animated value: oscillate ±10% around set value (4s cycle) ──
+    float osc = Math::sin(t * Math_PI * 0.5f) * max_val * 0.10f;
+    float anim_val = CLAMP(value + osc, 0.0f, max_val);
+    float ratio = CLAMP(anim_val / max_val, 0.0f, 1.0f);
 
     // Background
     draw_rect(r, Color(0.15, 0.15, 0.18));
-    // Inner shadow (top+left darker)
     draw_rect(Rect2(r.position.x + 1, r.position.y, r.size.x - 2, 1),
               Color(0.10, 0.10, 0.12, 0.5));
     draw_rect(Rect2(r.position.x, r.position.y + 1, 1, r.size.y - 2),
               Color(0.10, 0.10, 0.12, 0.5));
 
-    // Trail bar
-    float trail_ratio = MIN(ratio + 0.12f, 1.0f);
+    // ── Trail bar: lags behind main fill, 0.5s delay (runtime behavior) ──
+    float trail_osc = Math::sin((t - 0.5f) * Math_PI * 0.5f) * max_val * 0.10f;
+    float trail_val = CLAMP(value + trail_osc, 0.0f, max_val);
+    float trail_ratio = CLAMP(trail_val / max_val + 0.05f, 0.0f, 1.0f);
     float trail_w = r.size.x * trail_ratio;
     if (trail_w > 0) {
-        draw_rect(Rect2(r.position, Vector2(trail_w, r.size.y)), trail_color);
+        // Pulse the trail alpha slightly
+        float trail_pulse = 0.5f + Math::sin(t * 4.0f) * 0.1f;
+        Color tc = trail_color;
+        tc.a = trail_pulse;
+        draw_rect(Rect2(r.position, Vector2(trail_w, r.size.y)), tc);
     }
 
-    // Fill bar with glossy highlight
+    // Fill bar
     float fill_w = r.size.x * ratio;
     if (fill_w > 0) {
         draw_rect(Rect2(r.position, Vector2(fill_w, r.size.y)), bar_color);
-        // Top highlight for glossy effect
+
+        // ── Shimmer highlight sweeps left to right (2s cycle) ──
         if (r.size.y > 8) {
-            Color hi(MIN(bar_color.r + 0.15f, 1.0f),
-                     MIN(bar_color.g + 0.15f, 1.0f),
-                     MIN(bar_color.b + 0.15f, 1.0f), 0.35f);
+            float shimmer_w = MAX(fill_w * 0.15f, 8.0f);
+            float shimmer_cycle = fmod(t, 2.0f) / 2.0f; // 0..1
+            float shimmer_x = r.position.x + shimmer_cycle * (fill_w + shimmer_w) - shimmer_w;
+            float sx1 = MAX(shimmer_x, r.position.x);
+            float sx2 = MIN(shimmer_x + shimmer_w, r.position.x + fill_w);
+            if (sx2 > sx1) {
+                Color hi(MIN(bar_color.r + 0.25f, 1.0f),
+                         MIN(bar_color.g + 0.25f, 1.0f),
+                         MIN(bar_color.b + 0.25f, 1.0f), 0.45f);
+                draw_rect(Rect2(sx1, r.position.y + 1,
+                                sx2 - sx1, MAX(r.size.y * 0.35f, 2.0f)), hi);
+            }
+            // Static glossy top highlight (dimmer, behind shimmer)
+            Color hi_base(MIN(bar_color.r + 0.12f, 1.0f),
+                          MIN(bar_color.g + 0.12f, 1.0f),
+                          MIN(bar_color.b + 0.12f, 1.0f), 0.20f);
             draw_rect(Rect2(r.position.x, r.position.y + 1,
-                            fill_w, MAX(r.size.y * 0.3f, 2.0f)), hi);
+                            fill_w, MAX(r.size.y * 0.3f, 2.0f)), hi_base);
         }
     }
 
-    // Label (runtime: fs=12, Color.WHITE, centered)
+    // Label
     if (font.is_valid() && r.size.y >= 10) {
-        String lbl = String::num_int64(int(value)) + " / " + String::num_int64(int(max_val));
+        String lbl = String::num_int64(int(anim_val)) + " / " + String::num_int64(int(max_val));
         int lbl_fs = MIN(12, int(r.size.y - 4));
         float ty = r.position.y + (r.size.y + lbl_fs * 0.7f) * 0.5f;
-        // Drop shadow
         draw_string(font, Vector2(r.position.x + 5, ty + 1), lbl,
                     HORIZONTAL_ALIGNMENT_CENTER, r.size.x - 8, lbl_fs,
                     Color(0, 0, 0, 0.45));
@@ -1536,12 +1584,11 @@ void VisualGasicFormDesigner::_draw_stat_bar_control(const Rect2 &r, const FormC
                     Color(1, 1, 1, 0.95));
     }
 
-    // Outer border
     draw_rect(r, Color(0.25, 0.25, 0.30, 0.6), false, 1.0);
 }
 
-void VisualGasicFormDesigner::_draw_hud_counter_control(const Rect2 &r, const FormControlItem &item, const Ref<Font> &font, int font_size) {
-    // Runtime: HBoxContainer(sep=6, CENTER) → [TextureRect 24×24] + [Label fs=18, WHITE]
+void VisualGasicFormDesigner::_draw_hud_counter_control(const Rect2 &r, const FormControlItem &item, const Ref<Font> &font, int font_size, float t) {
+    // Animated: value ticks up every 2s with a punch-scale effect (runtime: 0.5s EASE_OUT, 1.3→1.0 in 0.2s)
     draw_rect(r, Color(0.08, 0.08, 0.10, 0.35));
 
     if (!font.is_valid()) return;
@@ -1556,21 +1603,35 @@ void VisualGasicFormDesigner::_draw_hud_counter_control(const Rect2 &r, const Fo
     if (item.properties.has("FontSize"))  disp_fs    = vb6_pt_to_px(int(item.properties["FontSize"]));
     if (item.properties.has("FontColor")) font_color = Color(item.properties["FontColor"]);
 
-    float sep = 6.0f, pad = 4.0f;
-    float x = r.position.x + pad;
+    // ── Animated value: increments by 10 every 2s, wraps at +100 ──
+    float tick_period = 2.0f;
+    float cycle_pos = fmod(t, tick_period * 10.0f); // 20s full cycle
+    int bonus = int(cycle_pos / tick_period) * 10;
+    int anim_val = value + bonus;
 
-    // Icon placeholder (24×24, centered vertically — runtime HBox CENTER)
+    // ── Punch scale: first 0.2s after each tick, scale 1.3→1.0 ──
+    float tick_frac = fmod(t, tick_period);
+    float punch = 1.0f;
+    if (tick_frac < 0.2f) {
+        float p = tick_frac / 0.2f;       // 0→1 over 0.2s
+        punch = Math::lerp(1.3f, 1.0f, p * p); // ease-out quadratic
+    }
+    int anim_fs = MAX(1, int(disp_fs * punch));
+
+    float sep = 6.0f, pad_x = 4.0f;
+    float x = r.position.x + pad_x;
+
+    // Icon placeholder (24×24, centered vertically)
     float icon_sz = MIN(24.0f, r.size.y - 4);
     if (r.size.x > icon_sz + 40) {
         float iy = r.position.y + (r.size.y - icon_sz) * 0.5f;
         Rect2 icon_r(x, iy, icon_sz, icon_sz);
         draw_rect(icon_r, Color(0.22, 0.22, 0.28, 0.7));
-        // Inner bevel
         draw_rect(Rect2(x, iy, icon_sz, 1), Color(0.35, 0.35, 0.42, 0.5));
         draw_rect(Rect2(x, iy, 1, icon_sz), Color(0.35, 0.35, 0.42, 0.5));
         draw_rect(Rect2(x, iy + icon_sz - 1, icon_sz, 1), Color(0.12, 0.12, 0.16, 0.6));
         draw_rect(Rect2(x + icon_sz - 1, iy, 1, icon_sz), Color(0.12, 0.12, 0.16, 0.6));
-        // Diamond/cross icon hint
+        // Diamond/cross icon
         float dsz = icon_sz * 0.28f;
         float dcx = x + icon_sz * 0.5f;
         float dcy = iy + icon_sz * 0.5f;
@@ -1578,25 +1639,33 @@ void VisualGasicFormDesigner::_draw_hud_counter_control(const Rect2 &r, const Fo
                   Color(font_color.r * 0.7f, font_color.g * 0.7f, font_color.b * 0.7f));
         draw_rect(Rect2(dcx - dsz, dcy - dsz * 0.5f, dsz * 2, dsz),
                   Color(font_color.r * 0.7f, font_color.g * 0.7f, font_color.b * 0.7f));
-        // Outer border
         draw_rect(icon_r, Color(0.45, 0.45, 0.52, 0.5), false, 1.0);
         x += icon_sz + sep;
     }
 
-    // Value text with drop shadow
-    String display = prefix + String::num_int64(value) + suffix;
-    float ty = r.position.y + (r.size.y + disp_fs * 0.7f) * 0.5f;
-    float avail = r.size.x - (x - r.position.x) - pad;
+    // Value text (with punch-scale font size)
+    String display = prefix + String::num_int64(anim_val) + suffix;
+    float ty = r.position.y + (r.size.y + anim_fs * 0.7f) * 0.5f;
+    float avail = r.size.x - (x - r.position.x) - pad_x;
+    // Drop shadow
     draw_string(font, Vector2(x + 1, ty + 1), display,
-                HORIZONTAL_ALIGNMENT_LEFT, avail, disp_fs, Color(0, 0, 0, 0.5));
+                HORIZONTAL_ALIGNMENT_LEFT, avail, anim_fs, Color(0, 0, 0, 0.5));
+
+    // ── Flash brighter on the tick moment (first 0.15s) ──
+    Color draw_color = font_color;
+    if (tick_frac < 0.15f) {
+        float flash = 1.0f - tick_frac / 0.15f;
+        draw_color.r = MIN(draw_color.r + flash * 0.4f, 1.0f);
+        draw_color.g = MIN(draw_color.g + flash * 0.4f, 1.0f);
+        draw_color.b = MIN(draw_color.b + flash * 0.4f, 1.0f);
+    }
     draw_string(font, Vector2(x, ty), display,
-                HORIZONTAL_ALIGNMENT_LEFT, avail, disp_fs, font_color);
+                HORIZONTAL_ALIGNMENT_LEFT, avail, anim_fs, draw_color);
 }
 
-void VisualGasicFormDesigner::_draw_cooldown_button_control(const Rect2 &r, const Ref<Font> &font, int font_size) {
-    // Runtime: TextureButton 48×48, radial _draw() overlay.
-    //   Overlay: Color(0,0,0,0.55), radius = max(w,h)*0.72, 32 segments.
-    //   Label: fs=14, WHITE, shows ceili(remaining).
+void VisualGasicFormDesigner::_draw_cooldown_button_control(const Rect2 &r, const Ref<Font> &font, int font_size, float t) {
+    // Animated: radial sweep rotates continuously (5s cycle = full cooldown)
+    // Runtime: overlay Color(0,0,0,0.55), radius=max(w,h)*0.72, 32 segments
 
     // Raised 3D button base
     Color face(0.28, 0.32, 0.42);
@@ -1607,7 +1676,6 @@ void VisualGasicFormDesigner::_draw_cooldown_button_control(const Rect2 &r, cons
     draw_rect(r, face);
     float bx = r.position.x, by = r.position.y;
     float bw = r.size.x, bh = r.size.y;
-    // 3D raised edges
     draw_rect(Rect2(bx, by, bw, 1), hi);
     draw_rect(Rect2(bx + 1, by + 1, bw - 2, 1), Color(hi.r + 0.08f, hi.g + 0.08f, hi.b + 0.08f, 0.45f));
     draw_rect(Rect2(bx, by, 1, bh), hi);
@@ -1617,16 +1685,19 @@ void VisualGasicFormDesigner::_draw_cooldown_button_control(const Rect2 &r, cons
     draw_rect(Rect2(bx + bw - 1, by, 1, bh), dsh);
     draw_rect(Rect2(bx + bw - 2, by + 1, 1, bh - 2), sh);
 
-    // Radial overlay (static at ~40%)
+    // ── Animated radial overlay sweep (5s cycle) ──
     float cx = bx + bw * 0.5f;
     float cy = by + bh * 0.5f;
     float radius = MIN(bw, bh) * 0.72f;
     Color overlay(0.0, 0.0, 0.0, 0.55);
 
-    if (radius > 8) {
+    float cd_period = 5.0f;
+    float cd_frac = fmod(t, cd_period) / cd_period; // 0..1 = fraction of cooldown remaining
+
+    if (radius > 8 && cd_frac > 0.01f) {
         float start_a = -Math_PI * 0.5f;
-        float end_a   = start_a + Math_TAU * 0.4f;
-        int segs = 24;
+        float end_a = start_a + Math_TAU * cd_frac;
+        int segs = 32;  // match runtime 32 segments
         for (int i = 0; i < segs; i++) {
             float a1 = Math::lerp(start_a, end_a, float(i) / segs);
             float a2 = Math::lerp(start_a, end_a, float(i + 1) / segs);
@@ -1642,95 +1713,142 @@ void VisualGasicFormDesigner::_draw_cooldown_button_control(const Rect2 &r, cons
         }
     }
 
-    // Countdown label (runtime: fs=14, "2" as static hint)
+    // Countdown label (shows remaining seconds, counting down)
     if (font.is_valid()) {
+        int remaining = int(Math::ceil(cd_frac * cd_period));
+        if (remaining <= 0) remaining = int(cd_period);
+        String cd_txt = String::num_int64(remaining);
         int cd_fs = MIN(14, int(MIN(bw, bh) * 0.4f));
         float ty = cy + cd_fs * 0.35f;
-        draw_string(font, Vector2(bx + 1, ty + 1), "2",
+        draw_string(font, Vector2(bx + 1, ty + 1), cd_txt,
                     HORIZONTAL_ALIGNMENT_CENTER, bw, cd_fs,
                     Color(0, 0, 0, 0.5));
-        draw_string(font, Vector2(bx, ty), "2",
+        // Flash text brighter at the top of each second
+        float sec_frac = fmod(cd_frac * cd_period, 1.0f);
+        float flash_a = sec_frac < 0.1f ? 1.0f : 0.9f;
+        draw_string(font, Vector2(bx, ty), cd_txt,
                     HORIZONTAL_ALIGNMENT_CENTER, bw, cd_fs,
-                    Color(1, 1, 1, 0.9));
+                    Color(1, 1, 1, flash_a));
     }
 }
 
-void VisualGasicFormDesigner::_draw_notification_toast_control(const Rect2 &r, const String &name, const Ref<Font> &font, int font_size) {
-    // Runtime: PanelContainer min 250×40, margins 10h/6v,
-    //   HBox(sep=8) → [icon TextureRect 24×24] + [Label fs=14, WHITE, autowrap]
-    Color bg(0.18, 0.18, 0.22, 0.92);
+void VisualGasicFormDesigner::_draw_notification_toast_control(const Rect2 &r, const String &name, const Ref<Font> &font, int font_size, float t) {
+    // Animated: slides in from top (runtime: SlideFromTop -50px TRANS_BACK),
+    // fade in 0.3s, bell icon pulses, auto-dismiss cycle 4s
+    float cycle = 4.0f;
+    float phase = fmod(t, cycle);
 
-    draw_rect(r, bg);
-    // 3D panel border (top/left lighter, bottom/right darker)
-    draw_rect(Rect2(r.position.x, r.position.y, r.size.x, 1),
-              Color(0.42, 0.42, 0.50, 0.35));
-    draw_rect(Rect2(r.position.x, r.position.y, 1, r.size.y),
-              Color(0.42, 0.42, 0.50, 0.35));
-    draw_rect(Rect2(r.position.x, r.position.y + r.size.y - 1, r.size.x, 1),
-              Color(0.10, 0.10, 0.14, 0.7));
-    draw_rect(Rect2(r.position.x + r.size.x - 1, r.position.y, 1, r.size.y),
-              Color(0.10, 0.10, 0.14, 0.7));
-    // Outer border
-    draw_rect(r, Color(0.32, 0.32, 0.38, 0.6), false, 1.0);
+    // ── Slide + fade animation ──
+    // 0.0–0.3s: slide in from above (y offset -30→0) + fade 0→1
+    // 0.3–2.5s: visible
+    // 2.5–3.0s: fade out + slide up
+    // 3.0–4.0s: invisible (gap before next)
+    float y_offset = 0.0f;
+    float alpha = 1.0f;
+    if (phase < 0.3f) {
+        float p = phase / 0.3f;
+        // TRANS_BACK overshoot curve approximation
+        float ease = p * p * (2.7f * p - 1.7f);
+        ease = CLAMP(ease, 0.0f, 1.0f);
+        y_offset = -30.0f * (1.0f - ease);
+        alpha = p;
+    } else if (phase > 2.5f && phase < 3.0f) {
+        float p = (phase - 2.5f) / 0.5f;
+        y_offset = -20.0f * p;
+        alpha = 1.0f - p;
+    } else if (phase >= 3.0f) {
+        alpha = 0.0f;
+    }
+
+    if (alpha < 0.01f) return; // nothing visible
+
+    Rect2 anim_r(r.position.x, r.position.y + y_offset, r.size.x, r.size.y);
+    Color bg(0.18, 0.18, 0.22, 0.92 * alpha);
+
+    draw_rect(anim_r, bg);
+    // 3D panel border
+    draw_rect(Rect2(anim_r.position.x, anim_r.position.y, anim_r.size.x, 1),
+              Color(0.42, 0.42, 0.50, 0.35 * alpha));
+    draw_rect(Rect2(anim_r.position.x, anim_r.position.y, 1, anim_r.size.y),
+              Color(0.42, 0.42, 0.50, 0.35 * alpha));
+    draw_rect(Rect2(anim_r.position.x, anim_r.position.y + anim_r.size.y - 1, anim_r.size.x, 1),
+              Color(0.10, 0.10, 0.14, 0.7 * alpha));
+    draw_rect(Rect2(anim_r.position.x + anim_r.size.x - 1, anim_r.position.y, 1, anim_r.size.y),
+              Color(0.10, 0.10, 0.14, 0.7 * alpha));
+    draw_rect(anim_r, Color(0.32, 0.32, 0.38, 0.6 * alpha), false, 1.0);
 
     if (!font.is_valid()) return;
     float mh = 10.0f, mv = 6.0f;
-    float x = r.position.x + mh;
-    float cw = r.size.x - mh * 2;
+    float x = anim_r.position.x + mh;
+    float cw = anim_r.size.x - mh * 2;
 
-    // Icon placeholder (24×24)
-    float icon_sz = MIN(24.0f, r.size.y - mv * 2);
+    // Icon placeholder (24×24) with pulse animation
+    float icon_sz = MIN(24.0f, anim_r.size.y - mv * 2);
     if (cw > icon_sz + 60 && icon_sz > 10) {
-        float iy = r.position.y + (r.size.y - icon_sz) * 0.5f;
+        float iy = anim_r.position.y + (anim_r.size.y - icon_sz) * 0.5f;
         Rect2 icon_r(x, iy, icon_sz, icon_sz);
-        draw_rect(icon_r, Color(0.25, 0.25, 0.30, 0.7));
-        draw_rect(icon_r, Color(0.45, 0.45, 0.52, 0.5), false, 1.0);
-        // Bell body
+        draw_rect(icon_r, Color(0.25, 0.25, 0.30, 0.7 * alpha));
+        draw_rect(icon_r, Color(0.45, 0.45, 0.52, 0.5 * alpha), false, 1.0);
+
+        // ── Bell icon with swing animation ──
+        float bell_pulse = 0.8f + Math::sin(t * 6.0f) * 0.2f;  // subtle size pulse
         float bcx = icon_r.position.x + icon_sz * 0.5f;
         float bcy = icon_r.position.y + icon_sz * 0.38f;
-        float bw = icon_sz * 0.40f, bh = icon_sz * 0.35f;
-        draw_rect(Rect2(bcx - bw * 0.5f, bcy, bw, bh), Color(1.0, 0.85, 0.3, 0.8));
-        // Bell base (wider)
-        draw_rect(Rect2(bcx - bw * 0.65f, bcy + bh, bw * 1.3f, 2),
-                  Color(1.0, 0.85, 0.3, 0.8));
-        // Clapper
-        draw_rect(Rect2(bcx - 1, bcy + bh + 3, 2, 2), Color(1.0, 0.85, 0.3, 0.6));
+        float bell_w = icon_sz * 0.40f * bell_pulse;
+        float bell_h = icon_sz * 0.35f;
+        Color bell_c(1.0, 0.85, 0.3, 0.8 * alpha);
+        draw_rect(Rect2(bcx - bell_w * 0.5f, bcy, bell_w, bell_h), bell_c);
+        draw_rect(Rect2(bcx - bell_w * 0.65f, bcy + bell_h, bell_w * 1.3f, 2), bell_c);
+        draw_rect(Rect2(bcx - 1, bcy + bell_h + 3, 2, 2),
+                  Color(1.0, 0.85, 0.3, 0.6 * alpha));
         x += icon_sz + 8;
     }
 
-    // Message text (runtime: fs=14, Color.WHITE)
+    // Message text
     int msg_fs = MIN(14, font_size);
-    float ty = r.position.y + (r.size.y + msg_fs * 0.7f) * 0.5f;
+    float ty = anim_r.position.y + (anim_r.size.y + msg_fs * 0.7f) * 0.5f;
     draw_string(font, Vector2(x, ty), "Notification message",
-                HORIZONTAL_ALIGNMENT_LEFT, r.size.x - (x - r.position.x) - mh,
-                msg_fs, Color(0.95, 0.95, 0.98));
+                HORIZONTAL_ALIGNMENT_LEFT, anim_r.size.x - (x - anim_r.position.x) - mh,
+                msg_fs, Color(0.95, 0.95, 0.98, alpha));
 
-    // Close × hint (top-right)
-    float cl_x = r.position.x + r.size.x - mh - 10;
+    // Close × hint
+    float cl_x = anim_r.position.x + anim_r.size.x - mh - 10;
     if (cl_x > x + 40) {
-        draw_string(font, Vector2(cl_x, r.position.y + mv + 10),
+        draw_string(font, Vector2(cl_x, anim_r.position.y + mv + 10),
                     String::utf8("\xc3\x97"),
                     HORIZONTAL_ALIGNMENT_LEFT, 12, 12,
-                    Color(0.60, 0.60, 0.65, 0.45));
+                    Color(0.60, 0.60, 0.65, 0.45 * alpha));
     }
 }
 
-void VisualGasicFormDesigner::_draw_game_menu_control(const Rect2 &r, const FormControlItem &item, const Ref<Font> &font, int font_size) {
-    // Runtime: ColorRect(0,0,0,0.6) FULL_RECT → CenterContainer
-    //   → VBox(sep=20) → [Title fs=28, WHITE] + [Buttons VBox(sep=10)]
-    //   Buttons: Button, min_width=200, fs=18.  Default: Resume, Settings, Quit.
-    draw_rect(r, Color(0.0, 0.0, 0.0, 0.6));
+void VisualGasicFormDesigner::_draw_game_menu_control(const Rect2 &r, const FormControlItem &item, const Ref<Font> &font, int font_size, float t) {
+    // Animated: fade-in + scale-up from 0.8→1.0 (runtime: FadeIn 0.3s, ScaleUp TRANS_BACK)
+    // Button hover glow cycles through buttons sequentially
+    float cycle = 6.0f;
+    float phase = fmod(t, cycle);
+
+    // ── Fade-in/scale-up: first 0.4s of each 6s cycle ──
+    float menu_alpha = 1.0f;
+    float menu_scale = 1.0f;
+    if (phase < 0.4f) {
+        float p = phase / 0.4f;
+        menu_alpha = p;
+        // TRANS_BACK approximation: overshoot to 1.05 then settle
+        menu_scale = Math::lerp(0.8f, 1.0f, p * (2.0f - p)); // ease-out quad
+    }
+
+    // Semi-transparent overlay
+    draw_rect(r, Color(0.0, 0.0, 0.0, 0.6 * menu_alpha));
 
     if (!font.is_valid()) return;
 
     String title = "PAUSED";
     int title_fs = 28;
     int btn_fs = 18;
-    if (item.properties.has("Title"))         title    = String(item.properties["Title"]);
-    if (item.properties.has("TitleFontSize")) title_fs = vb6_pt_to_px(int(item.properties["TitleFontSize"]));
-    if (item.properties.has("ButtonFontSize")) btn_fs  = vb6_pt_to_px(int(item.properties["ButtonFontSize"]));
+    if (item.properties.has("Title"))          title    = String(item.properties["Title"]);
+    if (item.properties.has("TitleFontSize"))  title_fs = vb6_pt_to_px(int(item.properties["TitleFontSize"]));
+    if (item.properties.has("ButtonFontSize")) btn_fs   = vb6_pt_to_px(int(item.properties["ButtonFontSize"]));
 
-    // Read custom button labels from properties if available
     PackedStringArray labels;
     if (item.properties.has("ButtonLabels")) {
         String ls = String(item.properties["ButtonLabels"]);
@@ -1746,43 +1864,70 @@ void VisualGasicFormDesigner::_draw_game_menu_control(const Rect2 &r, const Form
     }
     int btn_count = labels.size();
 
-    // Runtime layout: CenterContainer → VBox(sep=20)
     float vbox_sep = 20.0f;
-    float btn_sep  = 10.0f;
+    float btn_sep = 10.0f;
     float btn_w = MIN(200.0f, r.size.x * 0.65f);
     float btn_h = MAX(32.0f, btn_fs + 14.0f);
 
-    float title_block = title_fs + 4;
-    float btns_block  = btn_count * btn_h + (btn_count - 1) * btn_sep;
-    float total_h     = title_block + vbox_sep + btns_block;
+    // Apply scale around center
+    float scaled_btn_w = btn_w * menu_scale;
+    float scaled_btn_h = btn_h * menu_scale;
+    float scaled_title_fs = int(title_fs * menu_scale);
+    float scaled_btn_fs = int(btn_fs * menu_scale);
 
-    // Centered vertically
+    float title_block = scaled_title_fs + 4;
+    float btns_block = btn_count * scaled_btn_h + (btn_count - 1) * btn_sep;
+    float total_h = title_block + vbox_sep + btns_block;
+
     float cy = r.position.y + (r.size.y - total_h) * 0.5f;
     cy = MAX(cy, r.position.y + 10);
 
     // Title with drop shadow
-    float ty = cy + title_fs;
+    float ty = cy + scaled_title_fs;
     draw_string(font, Vector2(r.position.x + 2, ty + 2), title,
-                HORIZONTAL_ALIGNMENT_CENTER, r.size.x, title_fs,
-                Color(0, 0, 0, 0.5));
+                HORIZONTAL_ALIGNMENT_CENTER, r.size.x, scaled_title_fs,
+                Color(0, 0, 0, 0.5 * menu_alpha));
     draw_string(font, Vector2(r.position.x, ty), title,
-                HORIZONTAL_ALIGNMENT_CENTER, r.size.x, title_fs,
-                Color(1, 1, 1));
+                HORIZONTAL_ALIGNMENT_CENTER, r.size.x, scaled_title_fs,
+                Color(1, 1, 1, menu_alpha));
 
-    // Buttons (raised rects — matches Godot default Button theme)
-    float bx = r.position.x + (r.size.x - btn_w) * 0.5f;
-    float by = cy + title_block + vbox_sep;
-    if (by + btns_block > r.position.y + r.size.y - 8) {
-        by = r.position.y + r.size.y - btns_block - 8;
+    // ── Buttons with cycling hover glow ──
+    // One button glows at a time, cycling every 1.5s
+    float hover_period = 1.5f;
+    int hover_idx = int(fmod(t, hover_period * btn_count) / hover_period);
+    float hover_frac = fmod(t, hover_period) / hover_period;
+    // Smooth glow: ramp up then down
+    float glow_strength = Math::sin(hover_frac * Math_PI); // 0→1→0
+
+    float bx = r.position.x + (r.size.x - scaled_btn_w) * 0.5f;
+    float btn_y = cy + title_block + vbox_sep;
+    if (btn_y + btns_block > r.position.y + r.size.y - 8) {
+        btn_y = r.position.y + r.size.y - btns_block - 8;
     }
 
     for (int i = 0; i < btn_count; i++) {
-        float bty = by + i * (btn_h + btn_sep);
-        Rect2 btn_r(bx, bty, btn_w, btn_h);
-        _draw_raised_rect(btn_r, sys_button_face);
-        float text_y = bty + (btn_h + btn_fs * 0.7f) * 0.5f;
+        float bty = btn_y + i * (scaled_btn_h + btn_sep);
+        Rect2 btn_r(bx, bty, scaled_btn_w, scaled_btn_h);
+
+        // Hover glow: brighten the face color for the active button
+        Color btn_face = sys_button_face;
+        if (i == hover_idx && menu_alpha > 0.5f) {
+            btn_face.r = Math::lerp(btn_face.r, MIN(btn_face.r + 0.25f, 1.0f), glow_strength);
+            btn_face.g = Math::lerp(btn_face.g, MIN(btn_face.g + 0.25f, 1.0f), glow_strength);
+            btn_face.b = Math::lerp(btn_face.b, MIN(btn_face.b + 0.25f, 1.0f), glow_strength);
+        }
+        _draw_raised_rect(btn_r, btn_face);
+
+        // Glow border highlight on hovered button
+        if (i == hover_idx && glow_strength > 0.05f) {
+            Color glow_c(0.5, 0.6, 0.9, glow_strength * 0.6f * menu_alpha);
+            draw_rect(btn_r, glow_c, false, 2.0);
+        }
+
+        float text_y = bty + (scaled_btn_h + scaled_btn_fs * 0.7f) * 0.5f;
         draw_string(font, Vector2(bx, text_y), labels[i],
-                    HORIZONTAL_ALIGNMENT_CENTER, btn_w, btn_fs, color_text);
+                    HORIZONTAL_ALIGNMENT_CENTER, scaled_btn_w, scaled_btn_fs,
+                    Color(color_text.r, color_text.g, color_text.b, menu_alpha));
     }
 }
 

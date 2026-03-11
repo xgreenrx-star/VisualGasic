@@ -276,14 +276,17 @@ private:
     void _draw_tabstrip_control(const Rect2 &r, const String &text, const Ref<Font> &font, int font_size);
     void _draw_shape_control(const Rect2 &r);
 
-    // --- Game UI Tier 1 WYSIWYG drawing (v4.0) ---
-    void _draw_dialog_panel_control(const Rect2 &r, const String &name, const Ref<Font> &font, int font_size);
-    void _draw_inventory_grid_control(const Rect2 &r, const FormControlItem &item, const Ref<Font> &font, int font_size);
-    void _draw_stat_bar_control(const Rect2 &r, const FormControlItem &item, const Ref<Font> &font, int font_size);
-    void _draw_hud_counter_control(const Rect2 &r, const FormControlItem &item, const Ref<Font> &font, int font_size);
-    void _draw_cooldown_button_control(const Rect2 &r, const Ref<Font> &font, int font_size);
-    void _draw_notification_toast_control(const Rect2 &r, const String &name, const Ref<Font> &font, int font_size);
-    void _draw_game_menu_control(const Rect2 &r, const FormControlItem &item, const Ref<Font> &font, int font_size);
+    // --- Game UI Tier 1 animated WYSIWYG drawing (v4.0) ---
+    // When game_ui_mode is active, _process() ticks anim_time and requests
+    // redraws at ~30 fps.  Each method receives the accumulated time so it
+    // can drive looping animations (glow, sweep, shimmer, typewriter, etc.).
+    void _draw_dialog_panel_control(const Rect2 &r, const String &name, const Ref<Font> &font, int font_size, float t);
+    void _draw_inventory_grid_control(const Rect2 &r, const FormControlItem &item, const Ref<Font> &font, int font_size, float t);
+    void _draw_stat_bar_control(const Rect2 &r, const FormControlItem &item, const Ref<Font> &font, int font_size, float t);
+    void _draw_hud_counter_control(const Rect2 &r, const FormControlItem &item, const Ref<Font> &font, int font_size, float t);
+    void _draw_cooldown_button_control(const Rect2 &r, const Ref<Font> &font, int font_size, float t);
+    void _draw_notification_toast_control(const Rect2 &r, const String &name, const Ref<Font> &font, int font_size, float t);
+    void _draw_game_menu_control(const Rect2 &r, const FormControlItem &item, const Ref<Font> &font, int font_size, float t);
 
     // --- Hit testing ---
     int      _hit_test(const Vector2 &p_pos) const;
@@ -329,6 +332,8 @@ private:
     bool dirty = false;
     WindowType window_type = WINDOW_GAME;
     bool game_ui_mode = false;  // Game UI mode: dark canvas, CanvasLayer export, game controls
+    float anim_time = 0.0f;       // Accumulated animation time (only ticks in game_ui_mode)
+    static constexpr float ANIM_FPS = 30.0f;  // Target animation framerate for game UI
 
     // VB6 form properties
     FormBorderStyle form_border_style = BORDER_SIZABLE;  // Default: sizable with full chrome
