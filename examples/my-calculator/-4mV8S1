@@ -1,7 +1,10 @@
-[gd_scene load_steps=40 format=3]
+[gd_scene load_steps=43 format=3]
 
-[ext_resource type="Script" uid="uid://bx7leliybg671" path="res://Form1.vg" id="1"]
+[ext_resource type="Script" path=".vg" id="1"]
 [ext_resource type="Script" uid="uid://cixa1he0byrgy" path="res://addons/visual_gasic/form_editor_helper.gd" id="2"]
+[ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/game_ui/InventoryGrid.tscn" id="3"]
+[ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/game_ui/StatBar.tscn" id="4"]
+[ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/game_ui/GameMenu.tscn" id="5"]
 
 [sub_resource type="StyleBoxFlat" id="vb6_btn_normal"]
 bg_color = Color(0.831, 0.816, 0.784, 1.0)
@@ -435,19 +438,19 @@ offset_bottom = 720.0
 mouse_filter = 2
 script = ExtResource("2")
 
-[node name="lblPaused" type="Label" parent="."]
-offset_left = 540.0
-offset_top = 150.0
-offset_right = 740.0
-offset_bottom = 210.0
-text = "PAUSED"
+[node name="lblTitle" type="Label" parent="."]
+offset_left = 440.0
+offset_top = 100.0
+offset_right = 840.0
+offset_bottom = 180.0
+text = "GAME TITLE"
 
-[node name="btnResume" type="Button" parent="."]
+[node name="btnPlay" type="Button" parent="."]
 offset_left = 540.0
 offset_top = 280.0
 offset_right = 740.0
 offset_bottom = 330.0
-text = "Resume"
+text = "Play"
 
 [node name="btnOptions" type="Button" parent="."]
 offset_left = 540.0
@@ -456,17 +459,88 @@ offset_right = 740.0
 offset_bottom = 400.0
 text = "Options"
 
-[node name="btnMainMenu" type="Button" parent="."]
+[node name="btnCredits" type="Button" parent="."]
 offset_left = 540.0
 offset_top = 420.0
 offset_right = 740.0
 offset_bottom = 470.0
-text = "Main Menu"
+text = "Credits"
 
 [node name="btnQuit" type="Button" parent="."]
 offset_left = 540.0
 offset_top = 490.0
 offset_right = 740.0
 offset_bottom = 540.0
-text = "Quit Game"
+text = "Quit"
+
+[node name="InventoryGrid1" parent="." instance=ExtResource("3")]
+offset_left = 128.0
+offset_top = 232.0
+offset_right = 400.0
+offset_bottom = 496.0
+focus_mode = 2
+TabIndex = 5
+Tag = ""
+tooltip_text = ""
+mouse_default_cursor_shape = 0
+BackColor = Color(0.85, 0.85, 0.85, 1.0)
+ForeColor = Color(0.0, 0.0, 0.0, 1.0)
+FontName = "MS Sans Serif"
+FontBold = false
+FontItalic = false
+Appearance = 1
+BorderStyle = 0
+Rows = 4
+Columns = 4
+SlotSize = 48
+SlotSpacing = 4
+ShowAnimation = 1
+HideAnimation = 1
+TransitionSpeed = 0.3
+
+[node name="StatBar1" parent="." instance=ExtResource("4")]
+offset_left = 72.0
+offset_top = 80.0
+offset_right = 312.0
+offset_bottom = 152.0
+focus_mode = 0
+TabIndex = 7
+Tag = ""
+tooltip_text = ""
+mouse_default_cursor_shape = 0
+BackColor = Color(0.85, 0.85, 0.85, 1.0)
+ForeColor = Color(0.0, 0.0, 0.0, 1.0)
+FontName = "MS Sans Serif"
+FontBold = false
+FontItalic = false
+Appearance = 1
+BorderStyle = 0
+Value = 75.0
+MaxValue = 100.0
+ShowLabel = true
+LabelFormat = "{value} / {max}"
+TransitionSpeed = 0.4
+TrailDelay = 0.5
+
+[node name="GameMenu1" parent="." instance=ExtResource("5")]
+offset_left = 128.0
+offset_top = 536.0
+offset_right = 392.0
+offset_bottom = 672.0
+focus_mode = 0
+TabIndex = 7
+Tag = ""
+tooltip_text = ""
+mouse_default_cursor_shape = 0
+BackColor = Color(0.85, 0.85, 0.85, 1.0)
+ForeColor = Color(0.0, 0.0, 0.0, 1.0)
+FontName = "MS Sans Serif"
+FontBold = false
+FontItalic = false
+Appearance = 1
+BorderStyle = 0
+Title = "PAUSED"
+ShowAnimation = 0
+HideAnimation = 0
+TransitionSpeed = 0.3
 

@@ -18,6 +18,7 @@
 #include <godot_cpp/classes/texture2d.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <godot_cpp/classes/engine.hpp>
+#include <godot_cpp/classes/packed_scene.hpp>
 
 using namespace godot;
 
@@ -288,6 +289,17 @@ private:
     void _draw_notification_toast_control(const Rect2 &r, const String &name, const Ref<Font> &font, int font_size, float t);
     void _draw_game_menu_control(const Rect2 &r, const FormControlItem &item, const Ref<Font> &font, int font_size, float t);
 
+    // --- Live preview layer (scene-based rendering like Godot's editor) ---
+    void _create_preview_layer();
+    void _create_live_preview(int idx);
+    void _destroy_live_preview(const String &p_name);
+    void _sync_live_preview_rect(int idx);
+    void _sync_live_preview_properties(int idx);
+    void _rebuild_all_live_previews();
+    void _clear_all_live_previews();
+    void _on_overlay_draw();
+    static void _set_mouse_filter_recursive(Node *p_node);
+
     // --- Hit testing ---
     int      _hit_test(const Vector2 &p_pos) const;
     HandleID _hit_test_handle(const Vector2 &p_pos) const;
@@ -429,6 +441,11 @@ private:
 
     // Preview textures for custom controls (rendered thumbnails for design-time display)
     HashMap<String, Ref<Texture2D>> control_preview_textures;
+
+    // Live preview layer — actual Godot scene instances for WYSIWYG rendering
+    Control *preview_container = nullptr;  // Child: holds live scene instances at FORM_PADDING offset
+    Control *overlay_node = nullptr;       // Child: draws selection handles ON TOP of previews
+    HashMap<String, Node *> live_previews; // control name → instantiated scene node
 
     // Drawing constants
     static constexpr float HANDLE_SIZE      = 6.0f;

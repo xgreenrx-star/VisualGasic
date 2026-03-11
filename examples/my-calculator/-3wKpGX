@@ -1,7 +1,8 @@
-[gd_scene load_steps=40 format=3]
+[gd_scene load_steps=41 format=3]
 
-[ext_resource type="Script" uid="uid://bx7leliybg671" path="res://Form1.vg" id="1"]
+[ext_resource type="Script" path=".vg" id="1"]
 [ext_resource type="Script" uid="uid://cixa1he0byrgy" path="res://addons/visual_gasic/form_editor_helper.gd" id="2"]
+[ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/game_ui/InventoryGrid.tscn" id="3"]
 
 [sub_resource type="StyleBoxFlat" id="vb6_btn_normal"]
 bg_color = Color(0.831, 0.816, 0.784, 1.0)
@@ -435,19 +436,19 @@ offset_bottom = 720.0
 mouse_filter = 2
 script = ExtResource("2")
 
-[node name="lblPaused" type="Label" parent="."]
-offset_left = 540.0
-offset_top = 150.0
-offset_right = 740.0
-offset_bottom = 210.0
-text = "PAUSED"
+[node name="lblTitle" type="Label" parent="."]
+offset_left = 440.0
+offset_top = 100.0
+offset_right = 840.0
+offset_bottom = 180.0
+text = "GAME TITLE"
 
-[node name="btnResume" type="Button" parent="."]
+[node name="btnPlay" type="Button" parent="."]
 offset_left = 540.0
 offset_top = 280.0
 offset_right = 740.0
 offset_bottom = 330.0
-text = "Resume"
+text = "Play"
 
 [node name="btnOptions" type="Button" parent="."]
 offset_left = 540.0
@@ -456,17 +457,42 @@ offset_right = 740.0
 offset_bottom = 400.0
 text = "Options"
 
-[node name="btnMainMenu" type="Button" parent="."]
+[node name="btnCredits" type="Button" parent="."]
 offset_left = 540.0
 offset_top = 420.0
 offset_right = 740.0
 offset_bottom = 470.0
-text = "Main Menu"
+text = "Credits"
 
 [node name="btnQuit" type="Button" parent="."]
 offset_left = 540.0
 offset_top = 490.0
 offset_right = 740.0
 offset_bottom = 540.0
-text = "Quit Game"
+text = "Quit"
+
+[node name="InventoryGrid1" parent="." instance=ExtResource("3")]
+offset_left = 112.0
+offset_top = 184.0
+offset_right = 352.0
+offset_bottom = 368.0
+focus_mode = 2
+TabIndex = 5
+Tag = ""
+tooltip_text = ""
+mouse_default_cursor_shape = 0
+BackColor = Color(0.85, 0.85, 0.85, 1.0)
+ForeColor = Color(0.0, 0.0, 0.0, 1.0)
+FontName = "MS Sans Serif"
+FontBold = false
+FontItalic = false
+Appearance = 1
+BorderStyle = 0
+Rows = 4
+Columns = 4
+SlotSize = 48
+SlotSpacing = 4
+ShowAnimation = 1
+HideAnimation = 1
+TransitionSpeed = 0.3
 

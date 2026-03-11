@@ -118,6 +118,9 @@ void VisualGasicFormDesigner::_bind_methods() {
     ADD_SIGNAL(MethodInfo("form_resized", PropertyInfo(Variant::VECTOR2I, "size")));
     ADD_SIGNAL(MethodInfo("scene_file_dropped", PropertyInfo(Variant::STRING, "scene_path"), PropertyInfo(Variant::STRING, "control_name")));
     ADD_SIGNAL(MethodInfo("game_ui_mode_changed", PropertyInfo(Variant::BOOL, "enabled")));
+
+    // Internal methods (used for signal connections)
+    ClassDB::bind_method(D_METHOD("_on_overlay_draw"), &VisualGasicFormDesigner::_on_overlay_draw);
 }
 
 // =============================================================================
@@ -139,6 +142,7 @@ VisualGasicFormDesigner::~VisualGasicFormDesigner() {
 
 void VisualGasicFormDesigner::_ready() {
     _update_min_size();
+    _create_preview_layer();
 }
 
 void VisualGasicFormDesigner::_update_min_size() {
@@ -151,13 +155,11 @@ void VisualGasicFormDesigner::_update_min_size() {
 }
 
 void VisualGasicFormDesigner::_process(double p_delta) {
-    // ── Animated form designer: tick animation clock in game_ui_mode ──
-    if (game_ui_mode) {
-        anim_time += (float)p_delta;
-        // Wrap to avoid precision loss after long editing sessions
-        if (anim_time > 3600.0f) anim_time -= 3600.0f;
-        queue_redraw();
-    }
+    // ── Animated form designer: always tick animation clock ──
+    anim_time += (float)p_delta;
+    if (anim_time > 3600.0f) anim_time -= 3600.0f;
+    // Keep overlay in sync (selection handles, rubber band)
+    if (overlay_node) overlay_node->queue_redraw();
 
     // Detect toolbox drag (Engine meta set by C++ toolbox)
     if (Engine::get_singleton()->has_meta("_vg_active_drag")) {
@@ -200,28 +202,23 @@ void VisualGasicFormDesigner::_draw() {
     _draw_form_menu_bar();
     _draw_grid();
 
-    // Draw controls back-to-front
+    // Draw controls back-to-front (only those without live preview instances)
     for (int i = 0; i < controls.size(); i++) {
         if (controls[i].visible) {
+            if (live_previews.has(controls[i].name) && live_previews[controls[i].name] != nullptr) {
+                continue; // Rendered by live preview scene instance
+            }
             _draw_control(controls[i], i);
         }
     }
 
-    // Draw selection handles on top for selected controls
-    for (int i = 0; i < controls.size(); i++) {
-        if (controls[i].selected) {
-            _draw_selection_handles(controls[i].rect);
-        }
-    }
-
-    _draw_rubber_band();
     _draw_toolbox_preview();
 
     // Reset transform for form-level drawing
     draw_set_transform(Vector2());
 
-    // Form resize handles (drawn outside the form body transform)
-    _draw_form_resize_handles();
+    // Selection handles, rubber band, and form resize handles are drawn
+    // by the overlay_node (on top of live preview children).
 }
 
 void VisualGasicFormDesigner::_draw_form_background() {
@@ -681,10 +678,7 @@ void VisualGasicFormDesigner::_draw_control(const FormControlItem &item, int ind
         }
     }
 
-    // If selected, draw a blue selection border on top
-    if (item.selected) {
-        draw_rect(r, color_selected, false, 2.0);
-    }
+    // Selection border is drawn by the overlay_node (on top of live previews)
 }
 
 // =============================================================================
@@ -1931,6 +1925,181 @@ void VisualGasicFormDesigner::_draw_game_menu_control(const Rect2 &r, const Form
     }
 }
 
+// =============================================================================
+// Live Preview Layer — instantiates actual Godot scenes for WYSIWYG rendering
+// =============================================================================
+
+void VisualGasicFormDesigner::_set_mouse_filter_recursive(Node *p_node) {
+    Control *ctrl = Object::cast_to<Control>(p_node);
+    if (ctrl) {
+        ctrl->set_mouse_filter(Control::MOUSE_FILTER_IGNORE);
+    }
+    for (int i = 0; i < p_node->get_child_count(); i++) {
+        _set_mouse_filter_recursive(p_node->get_child(i));
+    }
+}
+
+void VisualGasicFormDesigner::_create_preview_layer() {
+    if (preview_container) return;
+
+    // Container for live scene instances — positioned at form body origin
+    preview_container = memnew(Control);
+    preview_container->set_name("__preview_container");
+    preview_container->set_position(Vector2(FORM_PADDING_X, FORM_PADDING_Y));
+    preview_container->set_size(Vector2(form_size));
+    preview_container->set_mouse_filter(Control::MOUSE_FILTER_IGNORE);
+    preview_container->set_clip_children_mode(CanvasItem::CLIP_CHILDREN_AND_DRAW);
+    add_child(preview_container);
+
+    // Overlay drawn ON TOP of preview children (for selection handles, rubber band, etc.)
+    overlay_node = memnew(Control);
+    overlay_node->set_name("__overlay");
+    overlay_node->set_anchors_and_offsets_preset(Control::PRESET_FULL_RECT);
+    overlay_node->set_mouse_filter(Control::MOUSE_FILTER_IGNORE);
+    add_child(overlay_node);
+    overlay_node->connect("draw", Callable(this, "_on_overlay_draw"));
+}
+
+void VisualGasicFormDesigner::_create_live_preview(int idx) {
+    if (!preview_container || idx < 0 || idx >= controls.size()) return;
+    const FormControlItem &item = controls[idx];
+
+    // Destroy existing preview for this name if any
+    _destroy_live_preview(item.name);
+
+    if (item.scene_path.is_empty()) return;
+
+    // Load and instantiate the prototype scene
+    Ref<PackedScene> scene = ResourceLoader::get_singleton()->load(item.scene_path);
+    if (!scene.is_valid()) {
+        UtilityFunctions::print("FormDesigner: Could not load scene for live preview: ", item.scene_path);
+        return;
+    }
+
+    Node *instance = scene->instantiate();
+    if (!instance) return;
+
+    Control *ctrl = Object::cast_to<Control>(instance);
+    if (!ctrl) {
+        // Not a Control — can't position in the form
+        memdelete(instance);
+        return;
+    }
+
+    ctrl->set_name("__lp_" + item.name);
+    ctrl->set_position(item.rect.position);
+    ctrl->set_custom_minimum_size(Vector2());
+    ctrl->set_size(item.rect.size);
+
+    // Prevent live preview from stealing mouse events
+    _set_mouse_filter_recursive(ctrl);
+
+    preview_container->add_child(ctrl);
+    live_previews[item.name] = ctrl;
+
+    // Sync basic display properties from the form data model
+    _sync_live_preview_properties(idx);
+}
+
+void VisualGasicFormDesigner::_destroy_live_preview(const String &p_name) {
+    if (!live_previews.has(p_name)) return;
+    Node *node = live_previews[p_name];
+    if (node) {
+        node->queue_free();
+    }
+    live_previews.erase(p_name);
+}
+
+void VisualGasicFormDesigner::_sync_live_preview_rect(int idx) {
+    if (idx < 0 || idx >= controls.size()) return;
+    const FormControlItem &item = controls[idx];
+    if (!live_previews.has(item.name)) return;
+
+    Control *ctrl = Object::cast_to<Control>(live_previews[item.name]);
+    if (ctrl) {
+        ctrl->set_position(item.rect.position);
+        ctrl->set_size(item.rect.size);
+    }
+}
+
+void VisualGasicFormDesigner::_sync_live_preview_properties(int idx) {
+    if (idx < 0 || idx >= controls.size()) return;
+    const FormControlItem &item = controls[idx];
+    if (!live_previews.has(item.name)) return;
+
+    Node *node = live_previews[item.name];
+    if (!node) return;
+
+    // Sync text property for text-bearing controls
+    if (!item.text.is_empty()) {
+        if (node->has_method("set_text")) {
+            node->call("set_text", item.text);
+        }
+    }
+
+    // Sync visibility
+    Control *ctrl = Object::cast_to<Control>(node);
+    if (ctrl) {
+        ctrl->set_visible(item.visible);
+    }
+}
+
+void VisualGasicFormDesigner::_rebuild_all_live_previews() {
+    _clear_all_live_previews();
+    if (!preview_container) return;
+
+    // Update preview container size to match current form
+    preview_container->set_size(Vector2(form_size));
+
+    for (int i = 0; i < controls.size(); i++) {
+        _create_live_preview(i);
+    }
+}
+
+void VisualGasicFormDesigner::_clear_all_live_previews() {
+    // Remove all preview instances from the container
+    for (const KeyValue<String, Node *> &kv : live_previews) {
+        if (kv.value) {
+            kv.value->queue_free();
+        }
+    }
+    live_previews.clear();
+}
+
+void VisualGasicFormDesigner::_on_overlay_draw() {
+    if (!overlay_node) return;
+
+    // Draw selection handles and rubber band in form-local coordinates
+    overlay_node->draw_set_transform(Vector2(FORM_PADDING_X, FORM_PADDING_Y));
+
+    // Selection border + 8 resize handles for each selected control
+    for (int i = 0; i < controls.size(); i++) {
+        if (controls[i].selected) {
+            Rect2 r = controls[i].rect;
+            overlay_node->draw_rect(r, color_selected, false, 2.0);
+            for (int h = 0; h < 8; h++) {
+                Rect2 hr = _get_handle_rect(r, (HandleID)h);
+                overlay_node->draw_rect(hr, color_handle);
+            }
+        }
+    }
+
+    // Rubber band selection rectangle
+    if (mode == MODE_SELECTING) {
+        Rect2 rb = rubber_band_rect.abs();
+        overlay_node->draw_rect(rb, color_rubber_band);
+        overlay_node->draw_rect(rb, color_selected, false, 1.0);
+    }
+
+    overlay_node->draw_set_transform(Vector2());
+
+    // Form resize handles (in widget space, outside the form body)
+    for (int h = 0; h < 8; h++) {
+        Rect2 hr = _get_form_handle_rect((HandleID)h);
+        overlay_node->draw_rect(hr, form_handle_color);
+    }
+}
+
 void VisualGasicFormDesigner::_draw_selection_handles(const Rect2 &rect) {
     for (int h = 0; h < 8; h++) {
         Rect2 hr = _get_handle_rect(rect, (HandleID)h);
@@ -2080,6 +2249,7 @@ void VisualGasicFormDesigner::set_form_size(const Vector2i &p_size) {
     form_size = p_size;
     if (form_size.x < 100) form_size.x = 100;
     if (form_size.y < 60) form_size.y = 60;
+    if (preview_container) preview_container->set_size(Vector2(form_size));
     _update_min_size();
     _mark_dirty();
     queue_redraw();
@@ -2377,6 +2547,7 @@ void VisualGasicFormDesigner::_on_mouse_motion(const Ref<InputEventMouseMotion> 
         if (new_size.y < 60) new_size.y = 60;
 
         form_size = new_size;
+        if (preview_container) preview_container->set_size(Vector2(form_size));
         _update_min_size();
         _mark_dirty();
         emit_signal("status_changed", get_status_text());
@@ -2404,6 +2575,7 @@ void VisualGasicFormDesigner::_on_mouse_motion(const Ref<InputEventMouseMotion> 
         for (int i = 0; i < controls.size(); i++) {
             if (controls[i].selected) {
                 controls.write[i].rect.position += delta;
+                _sync_live_preview_rect(i);
             }
         }
         _mark_dirty();
@@ -2456,6 +2628,7 @@ void VisualGasicFormDesigner::_on_mouse_motion(const Ref<InputEventMouseMotion> 
         if (r.size.y < MIN_CONTROL_SIZE) r.size.y = MIN_CONTROL_SIZE;
 
         controls.write[drag_control_index].rect = r;
+        _sync_live_preview_rect(drag_control_index);
         _mark_dirty();
         emit_signal("status_changed", get_status_text());
         queue_redraw();
@@ -2614,6 +2787,9 @@ int VisualGasicFormDesigner::add_control(const String &p_type, const String &p_s
     controls.push_back(item);
     int idx = controls.size() - 1;
 
+    // Create live preview scene instance
+    _create_live_preview(idx);
+
     // Push undo
     FormUndoAction action;
     action.type = FormUndoAction::ACTION_ADD;
@@ -2652,6 +2828,11 @@ void VisualGasicFormDesigner::remove_selected() {
         multi.sub_actions.push_back(sub);
     }
     _push_undo(multi);
+
+    // Destroy live previews for removed controls
+    for (int i = to_remove.size() - 1; i >= 0; i--) {
+        _destroy_live_preview(controls[to_remove[i]].name);
+    }
 
     // Remove in reverse order
     for (int i = to_remove.size() - 1; i >= 0; i--) {
@@ -2730,6 +2911,10 @@ void VisualGasicFormDesigner::set_control_property(int p_index, const String &p_
 
     action.after_state = controls[p_index];
     _push_undo(action);
+
+    // Sync live preview
+    _sync_live_preview_rect(p_index);
+    _sync_live_preview_properties(p_index);
 
     _mark_dirty();
     queue_redraw();
@@ -2932,6 +3117,7 @@ void VisualGasicFormDesigner::undo() {
     }
 
     redo_stack.push_back(action);
+    _rebuild_all_live_previews();
     _mark_dirty();
     queue_redraw();
 }
@@ -2970,6 +3156,7 @@ void VisualGasicFormDesigner::redo() {
     }
 
     undo_stack.push_back(action);
+    _rebuild_all_live_previews();
     _mark_dirty();
     queue_redraw();
 }
@@ -3040,6 +3227,7 @@ void VisualGasicFormDesigner::paste() {
             item.text = item.name;
         }
         controls.push_back(item);
+        _create_live_preview(controls.size() - 1);
     }
 
     _mark_dirty();
@@ -3653,6 +3841,8 @@ void VisualGasicFormDesigner::new_form(const String &p_name) {
     form_fore_color = Color(0.0, 0.0, 0.0, 1.0);
     form_icon = "";
     dirty = false;
+    _clear_all_live_previews();
+    if (preview_container) preview_container->set_size(Vector2(form_size));
     _update_min_size();
     queue_redraw();
     UtilityFunctions::print("FormDesigner: New form '", p_name, "'");
@@ -4624,6 +4814,7 @@ bool VisualGasicFormDesigner::open_form(const String &p_tscn_path) {
     undo_stack.clear();
     redo_stack.clear();
     _update_min_size();
+    _rebuild_all_live_previews();
     queue_redraw();
     UtilityFunctions::print("FormDesigner: Opened '", form_name, "' with ", controls.size(), " controls");
 
