@@ -1,6 +1,6 @@
 # VisualGasic Project Status
 
-**Version**: 3.8.0 (Compound Logical Operators, Enhanced Enums with Flags)  
+**Version**: 4.0.0 (Game UI Form Designer — Tier 1 Animated Controls)  
 **Last Updated**: March 2026
 
 ## Overview

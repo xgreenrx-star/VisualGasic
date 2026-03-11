@@ -2685,6 +2685,62 @@ void VisualGasicFormDesigner::_init_vb6_defaults(FormControlItem &item) const {
         p["BackColor"]   = Color(1.0, 1.0, 1.0);
         p["BorderStyle"] = 1;
     }
+    // ── Game UI Tier 1 controls (v4.0) ──
+    else if (t == "DialogPanel") {
+        p["SpeakerName"]    = String("");
+        p["DialogText"]     = String("");
+        p["ShowAnimation"]  = 0;    // SlideUp
+        p["HideAnimation"]  = 0;    // SlideDown
+        p["TransitionSpeed"]= 0.3;
+        p["TypewriterSpeed"]= 0.03;
+        p["TabStop"]        = false;
+    }
+    else if (t == "InventoryGrid") {
+        p["Rows"]           = 4;
+        p["Columns"]        = 4;
+        p["SlotSize"]       = 48;
+        p["SlotSpacing"]    = 4;
+        p["ShowAnimation"]  = 1;    // FadeIn
+        p["HideAnimation"]  = 1;    // FadeOut
+        p["TransitionSpeed"]= 0.3;
+    }
+    else if (t == "StatBar") {
+        p["Value"]          = 75.0;
+        p["MaxValue"]       = 100.0;
+        p["ShowLabel"]      = true;
+        p["LabelFormat"]    = String("{value} / {max}");
+        p["TransitionSpeed"]= 0.4;
+        p["TrailDelay"]     = 0.5;
+        p["TabStop"]        = false;
+    }
+    else if (t == "HUDCounter") {
+        p["Value"]          = 0;
+        p["Prefix"]         = String("");
+        p["Suffix"]         = String("");
+        p["FontSize"]       = 18;
+        p["CountSpeed"]     = 0.5;
+        p["PunchScale"]     = true;
+        p["TabStop"]        = false;
+    }
+    else if (t == "CooldownButton") {
+        p["CooldownTime"]   = 3.0;
+        p["ShowCountdown"]  = true;
+    }
+    else if (t == "NotificationToast") {
+        p["Message"]        = String("");
+        p["Duration"]       = 3.0;
+        p["ShowAnimation"]  = 0;    // SlideFromTop
+        p["TransitionSpeed"]= 0.35;
+        p["MaxVisible"]     = 3;
+        p["TabStop"]        = false;
+    }
+    else if (t == "GameMenu") {
+        p["Title"]          = String("PAUSED");
+        p["ShowAnimation"]  = 0;    // FadeIn
+        p["HideAnimation"]  = 0;    // FadeOut
+        p["TransitionSpeed"]= 0.3;
+        p["TabStop"]        = false;
+    }
 }
 
 // =============================================================================
@@ -2742,6 +2798,14 @@ Vector2 VisualGasicFormDesigner::_default_size_for_type(const String &p_type) co
     if (p_type == "Toolbar")     return Vector2(300, 32);
     if (p_type == "ListView")    return Vector2(200, 150);
     if (p_type == "Control")      return Vector2(150, 28); // VGComboBox
+    // ── Game UI Tier 1 controls (v4.0) ──
+    if (p_type == "DialogPanel")       return Vector2(320, 120);
+    if (p_type == "InventoryGrid")     return Vector2(220, 220);
+    if (p_type == "StatBar")           return Vector2(200, 24);
+    if (p_type == "HUDCounter")        return Vector2(120, 28);
+    if (p_type == "CooldownButton")    return Vector2(48, 48);
+    if (p_type == "NotificationToast") return Vector2(250, 40);
+    if (p_type == "GameMenu")          return Vector2(300, 250);
     return Vector2(80, 23);
 }
 
@@ -2762,6 +2826,14 @@ Color VisualGasicFormDesigner::_design_color_for_type(const String &p_type) cons
     if (p_type == "Panel")        return Color(0.85, 0.85, 0.85);
     if (p_type == "ColorRect")    return Color(0.5, 0.5, 0.5);
     if (p_type == "Timer")        return Color(0.9, 0.8, 0.6);
+    // ── Game UI Tier 1 (v4.0) ──
+    if (p_type == "DialogPanel")       return Color(0.18, 0.22, 0.30, 0.9);
+    if (p_type == "InventoryGrid")     return Color(0.20, 0.20, 0.25, 0.9);
+    if (p_type == "StatBar")           return Color(0.20, 0.80, 0.30);
+    if (p_type == "HUDCounter")        return Color(1.0, 0.85, 0.2);
+    if (p_type == "CooldownButton")    return Color(0.30, 0.55, 0.80);
+    if (p_type == "NotificationToast") return Color(0.25, 0.25, 0.30, 0.85);
+    if (p_type == "GameMenu")          return Color(0.0, 0.0, 0.0, 0.6);
     return Color(0.85, 0.85, 0.85);
 }
 
@@ -2788,6 +2860,14 @@ String VisualGasicFormDesigner::_display_label_for_type(const String &p_type) co
     if (p_type == "RichTextLabel") return "RTx";
     if (p_type == "TabContainer") return "Tab";
     if (p_type == "Control")      return "Ctl";
+    // ── Game UI Tier 1 (v4.0) ──
+    if (p_type == "DialogPanel")       return "Dlg";
+    if (p_type == "InventoryGrid")     return "Inv";
+    if (p_type == "StatBar")           return "Sta";
+    if (p_type == "HUDCounter")        return "HUD";
+    if (p_type == "CooldownButton")    return "CDb";
+    if (p_type == "NotificationToast") return "Tst";
+    if (p_type == "GameMenu")          return "Mnu";
     return p_type.left(3);
 }
 

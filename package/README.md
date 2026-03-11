@@ -218,7 +218,7 @@ VisualGasic welcomes contributions! Please see our [Contributing Guide](CONTRIBU
 
 ## 📊 **Project Status**
 
-**Current Version**: 3.8.0 (Compound Logical Operators, Enhanced Enums with Flags)
+**Current Version**: 4.0.0 (Game UI Form Designer — Tier 1 Animated Controls)
 
 **Completion Status**:
 - ✅ **Core Language** - 95% (VB6 compatibility — see docs/KNOWN_ISSUES.md)

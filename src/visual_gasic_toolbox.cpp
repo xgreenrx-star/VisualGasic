@@ -234,17 +234,20 @@ VisualGasicToolbox::VisualGasicToolbox() {
     add_tool("Timer", "Timer", "Timer", "res://addons/visual_gasic/prototypes/Timer.tscn"); 
 
     // ── Game UI Controls ── (for Game UI Mode)
-    add_tool("Pointer", "", "ToolSelect", "", "Game UI");
-    add_tool("HealthBar", "ProgressBar", "ProgressBar", "res://addons/visual_gasic/prototypes/ProgressBar.tscn", "Game UI");
-    add_tool("ScoreLabel", "Label", "Label", "res://addons/visual_gasic/prototypes/Label.tscn", "Game UI");
-    add_tool("DialogBox", "Panel", "Panel", "res://addons/visual_gasic/prototypes/Panel.tscn", "Game UI");
-    add_tool("MiniMap", "TextureRect", "TextureRect", "res://addons/visual_gasic/prototypes/TextureRect.tscn", "Game UI");
-    add_tool("Inventory", "Panel", "Panel", "res://addons/visual_gasic/prototypes/Panel.tscn", "Game UI");
-    add_tool("ActionButton", "Button", "Button", "res://addons/visual_gasic/prototypes/Button.tscn", "Game UI");
-    add_tool("AmmoCounter", "Label", "Label", "res://addons/visual_gasic/prototypes/Label.tscn", "Game UI");
-    add_tool("BossBar", "ProgressBar", "ProgressBar", "res://addons/visual_gasic/prototypes/ProgressBar.tscn", "Game UI");
-    add_tool("Crosshair", "TextureRect", "TextureRect", "res://addons/visual_gasic/prototypes/TextureRect.tscn", "Game UI");
-    add_tool("Tooltip", "Panel", "Panel", "res://addons/visual_gasic/prototypes/Panel.tscn", "Game UI");
+    add_tool("Pointer",           "",              "ToolSelect",    "",                                                                         "Game UI");
+    // Tier 1 — dedicated animated prototypes (v4.0)
+    add_tool("DialogPanel",       "PanelContainer","RichTextLabel", "res://addons/visual_gasic/prototypes/game_ui/DialogPanel.tscn",             "Game UI");
+    add_tool("InventoryGrid",     "PanelContainer","GridContainer", "res://addons/visual_gasic/prototypes/game_ui/InventoryGrid.tscn",           "Game UI");
+    add_tool("StatBar",           "Control",       "ProgressBar",   "res://addons/visual_gasic/prototypes/game_ui/StatBar.tscn",                 "Game UI");
+    add_tool("HUDCounter",        "HBoxContainer", "Label",         "res://addons/visual_gasic/prototypes/game_ui/HUDCounter.tscn",              "Game UI");
+    add_tool("CooldownButton",    "TextureButton", "TextureButton", "res://addons/visual_gasic/prototypes/game_ui/CooldownButton.tscn",          "Game UI");
+    add_tool("NotificationToast", "PanelContainer","PopupPanel",    "res://addons/visual_gasic/prototypes/game_ui/NotificationToast.tscn",       "Game UI");
+    add_tool("GameMenu",          "ColorRect",     "ColorRect",     "res://addons/visual_gasic/prototypes/game_ui/GameMenu.tscn",                "Game UI");
+    // Legacy aliases (kept for backward compatibility)
+    add_tool("HealthBar",    "ProgressBar",  "ProgressBar",  "res://addons/visual_gasic/prototypes/ProgressBar.tscn",  "Game UI");
+    add_tool("ScoreLabel",   "Label",         "Label",         "res://addons/visual_gasic/prototypes/Label.tscn",         "Game UI");
+    add_tool("ActionButton", "Button",        "Button",        "res://addons/visual_gasic/prototypes/Button.tscn",        "Game UI");
+    add_tool("Crosshair",    "TextureRect",   "TextureRect",   "res://addons/visual_gasic/prototypes/TextureRect.tscn",   "Game UI");
     
     // Mark these as default tools (won't be removed by clear_custom_tools)
     mark_defaults();

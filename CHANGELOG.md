@@ -5,6 +5,27 @@ All notable changes to Visual Gasic will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.0] - 2026-03-11
+
+### 🎮 Game UI Form Designer — Tier 1 Animated Controls
+
+#### Added
+- **DialogPanel** — Animated dialog box with portrait, speaker name, typewriter text, and branching choices
+- **InventoryGrid** — N×M slot grid with per-slot textures, selection, hover highlight, and click/double-click events
+- **StatBar** — Animated HP/MP/XP bar with damage trail, value flash, and label formatting (`{value} / {max}`)
+- **HUDCounter** — Animated score/gold/ammo counter with counting animation and punch-scale effect
+- **CooldownButton** — Texture button with radial cooldown overlay sweep and countdown text
+- **NotificationToast** — Slide-in/out notification messages with auto-dismiss timer and icon support
+- **GameMenu** — Full-screen pause/settings overlay with dim background and configurable button list
+
+#### Architecture
+- Each Game UI control is a dedicated `.tscn` prototype + `.gd` backing script in `prototypes/game_ui/`
+- All controls support built-in Tween animations: ShowAnimation, HideAnimation, TransitionSpeed properties
+- Registered in the **Game UI** toolbox tab with proper icons, default sizes, design-time colors, and display labels
+- Full VB6-style Properties panel integration with type-specific defaults
+- Legacy alias controls (HealthBar, ScoreLabel, ActionButton, Crosshair) preserved for backward compatibility
+- Removed redundant aliases (DialogBox→Panel, Inventory→Panel, Tooltip→Panel, AmmoCounter→Label, BossBar→ProgressBar, MiniMap→TextureRect) — replaced by dedicated Tier 1 controls
+
 ## [3.8.0] - 2026-03-12
 
 ### 🚀 v3.6 Wrap-Up — Compound Logical Operators & Enhanced Enums

@@ -1,0 +1,9 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://addons/visual_gasic/prototypes/game_ui/InventoryGrid.gd" id="1_inv"]
+
+[node name="InventoryGrid" type="PanelContainer"]
+custom_minimum_size = Vector2(220, 220)
+offset_right = 220.0
+offset_bottom = 220.0
+script = ExtResource("1_inv")
