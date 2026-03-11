@@ -613,6 +613,21 @@ void VisualGasicFormDesigner::_draw_control(const FormControlItem &item, int ind
     } else if (item.type == "DriveListBox") {
         // DriveListBox: combo-style with "C:" text
         _draw_combobox_control(r, "C:\\", font, font_size);
+    // ── Game UI Tier 1 controls (v4.0 WYSIWYG) ──
+    } else if (item.type == "DialogPanel") {
+        _draw_dialog_panel_control(r, item.name, font, font_size);
+    } else if (item.type == "InventoryGrid") {
+        _draw_inventory_grid_control(r, item, font, font_size);
+    } else if (item.type == "StatBar") {
+        _draw_stat_bar_control(r, item, font, font_size);
+    } else if (item.type == "HUDCounter") {
+        _draw_hud_counter_control(r, item, font, font_size);
+    } else if (item.type == "CooldownButton") {
+        _draw_cooldown_button_control(r, font, font_size);
+    } else if (item.type == "NotificationToast") {
+        _draw_notification_toast_control(r, item.name, font, font_size);
+    } else if (item.type == "GameMenu") {
+        _draw_game_menu_control(r, item, font, font_size);
     } else if (item.type == "HBoxContainer" || item.type == "VBoxContainer" ||
                item.type == "GridContainer" || item.type == "SubViewportContainer") {
         // Container types: dashed outline with label
@@ -1298,6 +1313,308 @@ void VisualGasicFormDesigner::_draw_tabstrip_control(const Rect2 &r, const Strin
 void VisualGasicFormDesigner::_draw_shape_control(const Rect2 &r) {
     draw_rect(r, Color(0.5, 0.5, 0.5));
     draw_rect(r, Color(0.0, 0.0, 0.0), false, 2.0);
+}
+
+// =============================================================================
+// Game UI Tier 1 — WYSIWYG control drawing (v4.0)
+// These render approximate visual representations matching the runtime appearance.
+// =============================================================================
+
+void VisualGasicFormDesigner::_draw_dialog_panel_control(const Rect2 &r, const String &name, const Ref<Font> &font, int font_size) {
+    // Dark navy panel with rounded-corner feel
+    Color bg(0.12, 0.15, 0.22, 0.92);
+    Color border(0.3, 0.4, 0.6, 0.7);
+    draw_rect(r, bg);
+    draw_rect(r, border, false, 1.5);
+
+    if (!font.is_valid()) return;
+    float pad = 8.0f;
+    float x = r.position.x + pad;
+    float y = r.position.y + pad;
+    float w = r.size.x - pad * 2;
+
+    // Portrait placeholder (square)
+    float portrait_sz = MIN(48.0f, r.size.y - pad * 2 - 20.0f);
+    if (portrait_sz > 16 && w > portrait_sz + 60) {
+        Rect2 portrait(x, y, portrait_sz, portrait_sz);
+        draw_rect(portrait, Color(0.25, 0.28, 0.35));
+        draw_rect(portrait, Color(0.4, 0.45, 0.55, 0.6), false, 1.0);
+        // Small silhouette hint
+        float cx = x + portrait_sz * 0.5f;
+        float cy = y + portrait_sz * 0.35f;
+        float head_r = portrait_sz * 0.15f;
+        // Head circle (approximated as small square)
+        draw_rect(Rect2(cx - head_r, cy - head_r, head_r * 2, head_r * 2), Color(0.4, 0.43, 0.5));
+        // Body (wider rect below)
+        draw_rect(Rect2(cx - head_r * 1.5f, cy + head_r + 2, head_r * 3, portrait_sz * 0.25f), Color(0.4, 0.43, 0.5));
+
+        // Speaker name to right of portrait
+        float name_x = x + portrait_sz + 10;
+        float name_y = y + 14;
+        draw_string(font, Vector2(name_x, name_y), "Speaker Name",
+                    HORIZONTAL_ALIGNMENT_LEFT, w - portrait_sz - 18, font_size, Color(0.85, 0.85, 0.95));
+
+        // Dialog text area below
+        float text_y = y + portrait_sz + 8;
+        if (text_y + font_size < r.position.y + r.size.y - pad) {
+            draw_string(font, Vector2(x, text_y + font_size - 2), "Dialog text goes here...",
+                        HORIZONTAL_ALIGNMENT_LEFT, w, font_size - 1, Color(0.7, 0.72, 0.8, 0.8));
+        }
+    } else {
+        // Small: just draw label
+        draw_string(font, Vector2(x, y + font_size), name,
+                    HORIZONTAL_ALIGNMENT_LEFT, w, font_size, Color(0.85, 0.85, 0.95));
+    }
+}
+
+void VisualGasicFormDesigner::_draw_inventory_grid_control(const Rect2 &r, const FormControlItem &item, const Ref<Font> &font, int font_size) {
+    // Dark panel background
+    Color bg(0.14, 0.14, 0.18, 0.92);
+    Color border(0.35, 0.35, 0.45, 0.6);
+    draw_rect(r, bg);
+    draw_rect(r, border, false, 1.5);
+
+    // Read grid properties
+    int rows = 4, cols = 4, slot_sz = 48, spacing = 4;
+    if (item.properties.has("Rows")) rows = MAX(int(item.properties["Rows"]), 1);
+    if (item.properties.has("Columns")) cols = MAX(int(item.properties["Columns"]), 1);
+    if (item.properties.has("SlotSize")) slot_sz = MAX(int(item.properties["SlotSize"]), 16);
+    if (item.properties.has("SlotSpacing")) spacing = MAX(int(item.properties["SlotSpacing"]), 0);
+
+    float pad = 8.0f;
+    float avail_w = r.size.x - pad * 2;
+    float avail_h = r.size.y - pad * 2;
+
+    // Auto-scale slot size to fit if needed
+    float needed_w = cols * slot_sz + (cols - 1) * spacing;
+    float needed_h = rows * slot_sz + (rows - 1) * spacing;
+    float scale_f = 1.0f;
+    if (needed_w > avail_w) scale_f = MIN(scale_f, avail_w / needed_w);
+    if (needed_h > avail_h) scale_f = MIN(scale_f, avail_h / needed_h);
+    float ssz = slot_sz * scale_f;
+    float ssp = spacing * scale_f;
+
+    // Center the grid
+    float grid_w = cols * ssz + (cols - 1) * ssp;
+    float grid_h = rows * ssz + (rows - 1) * ssp;
+    float ox = r.position.x + pad + (avail_w - grid_w) * 0.5f;
+    float oy = r.position.y + pad + (avail_h - grid_h) * 0.5f;
+
+    Color slot_bg(0.2, 0.2, 0.25, 0.8);
+    Color slot_border(0.4, 0.4, 0.45, 0.6);
+
+    for (int row = 0; row < rows; row++) {
+        for (int col = 0; col < cols; col++) {
+            float sx = ox + col * (ssz + ssp);
+            float sy = oy + row * (ssz + ssp);
+            Rect2 slot(sx, sy, ssz, ssz);
+            draw_rect(slot, slot_bg);
+            draw_rect(slot, slot_border, false, 1.0);
+        }
+    }
+}
+
+void VisualGasicFormDesigner::_draw_stat_bar_control(const Rect2 &r, const FormControlItem &item, const Ref<Font> &font, int font_size) {
+    // Read bar properties
+    float value = 75.0f, max_val = 100.0f;
+    Color bar_color(0.2, 0.8, 0.3);
+    Color trail_color(0.9, 0.2, 0.2, 0.4);
+    if (item.properties.has("Value")) value = float(item.properties["Value"]);
+    if (item.properties.has("MaxValue")) max_val = MAX(float(item.properties["MaxValue"]), 1.0f);
+    if (item.properties.has("BarColor")) {
+        bar_color = Color(item.properties["BarColor"]);
+    }
+
+    float ratio = CLAMP(value / max_val, 0.0f, 1.0f);
+
+    // Dark background
+    draw_rect(r, Color(0.15, 0.15, 0.18));
+
+    // Trail bar (slightly wider than fill, shown in red-ish)
+    float trail_ratio = MIN(ratio + 0.12f, 1.0f);
+    float trail_w = r.size.x * trail_ratio;
+    draw_rect(Rect2(r.position, Vector2(trail_w, r.size.y)), trail_color);
+
+    // Fill bar
+    float fill_w = r.size.x * ratio;
+    draw_rect(Rect2(r.position, Vector2(fill_w, r.size.y)), bar_color);
+
+    // Value label
+    if (font.is_valid() && r.size.y >= 12) {
+        String lbl = String::num_int64(int(value)) + " / " + String::num_int64(int(max_val));
+        int lbl_fs = MIN(font_size, int(r.size.y - 4));
+        float ty = r.position.y + (r.size.y + lbl_fs * 0.7f) * 0.5f;
+        draw_string(font, Vector2(r.position.x + 4, ty), lbl,
+                    HORIZONTAL_ALIGNMENT_CENTER, r.size.x - 8, lbl_fs, Color(1, 1, 1, 0.9));
+    }
+
+    // Subtle border
+    draw_rect(r, Color(0.3, 0.3, 0.35, 0.5), false, 1.0);
+}
+
+void VisualGasicFormDesigner::_draw_hud_counter_control(const Rect2 &r, const FormControlItem &item, const Ref<Font> &font, int font_size) {
+    // Transparent background with subtle dark backing
+    draw_rect(r, Color(0.1, 0.1, 0.12, 0.5));
+
+    if (!font.is_valid()) return;
+
+    String prefix = "", suffix = "";
+    int value = 0;
+    Color font_color(1.0, 0.85, 0.2);  // Gold
+    int disp_fs = 18;
+    if (item.properties.has("Prefix")) prefix = String(item.properties["Prefix"]);
+    if (item.properties.has("Suffix")) suffix = String(item.properties["Suffix"]);
+    if (item.properties.has("Value")) value = int(item.properties["Value"]);
+    if (item.properties.has("FontSize")) disp_fs = vb6_pt_to_px(int(item.properties["FontSize"]));
+    if (item.properties.has("FontColor")) font_color = Color(item.properties["FontColor"]);
+
+    float pad = 6.0f;
+    float x = r.position.x + pad;
+    float y = r.position.y;
+
+    // Icon placeholder
+    float icon_sz = MIN(24.0f, r.size.y - 4);
+    if (r.size.x > icon_sz + 40) {
+        Rect2 icon_r(x, y + (r.size.y - icon_sz) * 0.5f, icon_sz, icon_sz);
+        draw_rect(icon_r, Color(0.3, 0.3, 0.35, 0.6));
+        draw_rect(icon_r, Color(0.5, 0.5, 0.55, 0.4), false, 1.0);
+        // Star hint inside icon
+        float star_cx = icon_r.position.x + icon_sz * 0.5f;
+        float star_cy = icon_r.position.y + icon_sz * 0.5f;
+        float sr = icon_sz * 0.2f;
+        draw_rect(Rect2(star_cx - sr, star_cy - sr, sr * 2, sr * 2), font_color * 0.6f);
+        x += icon_sz + 8;
+    }
+
+    // Value text
+    String display = prefix + String::num_int64(value) + suffix;
+    float ty = y + (r.size.y + disp_fs * 0.7f) * 0.5f;
+    draw_string(font, Vector2(x, ty), display,
+                HORIZONTAL_ALIGNMENT_LEFT, r.size.x - (x - r.position.x) - pad, disp_fs, font_color);
+}
+
+void VisualGasicFormDesigner::_draw_cooldown_button_control(const Rect2 &r, const Ref<Font> &font, int font_size) {
+    // Square button with subtle radial overlay hint
+    Color face(0.25, 0.42, 0.65);
+    Color border(0.4, 0.55, 0.75, 0.8);
+    draw_rect(r, face);
+    draw_rect(r, border, false, 1.5);
+
+    // Radial cooldown indicator (static wedge at ~40%)
+    float cx = r.position.x + r.size.x * 0.5f;
+    float cy = r.position.y + r.size.y * 0.5f;
+    float radius = MIN(r.size.x, r.size.y) * 0.35f;
+    Color overlay(0.0, 0.0, 0.0, 0.35);
+
+    // Draw a few scanline rects to approximate a wedge (~40% from top)
+    if (radius > 8) {
+        float start_angle = -Math_PI * 0.5f;
+        float end_angle = start_angle + Math_TAU * 0.4f;
+        int segments = 16;
+        for (int i = 0; i < segments; i++) {
+            float a1 = Math::lerp(start_angle, end_angle, float(i) / segments);
+            float a2 = Math::lerp(start_angle, end_angle, float(i + 1) / segments);
+            // Draw as tiny triangular strip approximation with rects
+            float px1 = cx + Math::cos(a1) * radius;
+            float py1 = cy + Math::sin(a1) * radius;
+            float px2 = cx + Math::cos(a2) * radius;
+            float py2 = cy + Math::sin(a2) * radius;
+            // Small rect at each segment point
+            float min_x = MIN(MIN(cx, px1), px2);
+            float max_x = MAX(MAX(cx, px1), px2);
+            float min_y = MIN(MIN(cy, py1), py2);
+            float max_y = MAX(MAX(cy, py1), py2);
+            draw_rect(Rect2(min_x, min_y, max_x - min_x + 1, max_y - min_y + 1), overlay);
+        }
+    }
+
+    // "CD" label in center
+    if (font.is_valid()) {
+        float ty = cy + font_size * 0.35f;
+        draw_string(font, Vector2(r.position.x + 2, ty), "CD",
+                    HORIZONTAL_ALIGNMENT_CENTER, r.size.x - 4, font_size, Color(1, 1, 1, 0.8));
+    }
+}
+
+void VisualGasicFormDesigner::_draw_notification_toast_control(const Rect2 &r, const String &name, const Ref<Font> &font, int font_size) {
+    // Dark rounded-feel rectangle
+    Color bg(0.18, 0.18, 0.22, 0.9);
+    Color border(0.4, 0.4, 0.48, 0.5);
+    draw_rect(r, bg);
+    draw_rect(r, border, false, 1.0);
+
+    if (!font.is_valid()) return;
+    float pad = 10.0f;
+    float x = r.position.x + pad;
+    float y = r.position.y;
+
+    // Icon placeholder
+    float icon_sz = MIN(24.0f, r.size.y - 8);
+    if (r.size.x > icon_sz + 60 && icon_sz > 10) {
+        Rect2 icon_r(x, y + (r.size.y - icon_sz) * 0.5f, icon_sz, icon_sz);
+        draw_rect(icon_r, Color(0.3, 0.3, 0.35, 0.6));
+        draw_rect(icon_r, Color(0.5, 0.5, 0.55, 0.4), false, 1.0);
+        // Bell/notification hint: small circle
+        float bell_cx = icon_r.position.x + icon_sz * 0.5f;
+        float bell_cy = icon_r.position.y + icon_sz * 0.4f;
+        float bell_r = icon_sz * 0.18f;
+        draw_rect(Rect2(bell_cx - bell_r, bell_cy - bell_r, bell_r * 2, bell_r * 2), Color(1, 0.85, 0.3, 0.7));
+        x += icon_sz + 8;
+    }
+
+    // Message text
+    float ty = y + (r.size.y + font_size * 0.7f) * 0.5f;
+    draw_string(font, Vector2(x, ty), "Notification message",
+                HORIZONTAL_ALIGNMENT_LEFT, r.size.x - (x - r.position.x) - pad, font_size, Color(0.9, 0.9, 0.95));
+}
+
+void VisualGasicFormDesigner::_draw_game_menu_control(const Rect2 &r, const FormControlItem &item, const Ref<Font> &font, int font_size) {
+    // Semi-transparent dark overlay
+    Color bg(0.0, 0.0, 0.0, 0.6);
+    draw_rect(r, bg);
+
+    if (!font.is_valid()) return;
+
+    // Read properties
+    String title = "PAUSED";
+    int title_fs = 28;
+    int btn_fs = 18;
+    if (item.properties.has("Title")) title = String(item.properties["Title"]);
+    if (item.properties.has("TitleFontSize")) title_fs = vb6_pt_to_px(int(item.properties["TitleFontSize"]));
+    if (item.properties.has("ButtonFontSize")) btn_fs = vb6_pt_to_px(int(item.properties["ButtonFontSize"]));
+
+    // Title centered
+    float title_y = r.position.y + r.size.y * 0.2f;
+    draw_string(font, Vector2(r.position.x, title_y + title_fs), title,
+                HORIZONTAL_ALIGNMENT_CENTER, r.size.x, title_fs, Color(1, 1, 1));
+
+    // Button stack
+    const char *btn_labels[] = { "Resume", "Settings", "Quit" };
+    int btn_count = 3;
+    float btn_w = MIN(200.0f, r.size.x * 0.6f);
+    float btn_h = MAX(28.0f, btn_fs + 12.0f);
+    float btn_spacing = 10.0f;
+    float total_h = btn_count * btn_h + (btn_count - 1) * btn_spacing;
+    float btn_x = r.position.x + (r.size.x - btn_w) * 0.5f;
+    float btn_y = r.position.y + r.size.y * 0.4f;
+
+    if (btn_y + total_h > r.position.y + r.size.y - 10) {
+        btn_y = r.position.y + r.size.y - total_h - 10;
+    }
+
+    Color btn_bg(0.25, 0.25, 0.3, 0.8);
+    Color btn_border(0.5, 0.5, 0.6, 0.6);
+
+    for (int i = 0; i < btn_count; i++) {
+        float by = btn_y + i * (btn_h + btn_spacing);
+        Rect2 btn_r(btn_x, by, btn_w, btn_h);
+        draw_rect(btn_r, btn_bg);
+        draw_rect(btn_r, btn_border, false, 1.0);
+        String btn_text = String(btn_labels[i]);
+        float text_y = by + (btn_h + btn_fs * 0.7f) * 0.5f;
+        draw_string(font, Vector2(btn_x, text_y), btn_text,
+                    HORIZONTAL_ALIGNMENT_CENTER, btn_w, btn_fs, Color(1, 1, 1, 0.95));
+    }
 }
 
 void VisualGasicFormDesigner::_draw_selection_handles(const Rect2 &rect) {

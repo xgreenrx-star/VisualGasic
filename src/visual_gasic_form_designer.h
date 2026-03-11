@@ -276,6 +276,15 @@ private:
     void _draw_tabstrip_control(const Rect2 &r, const String &text, const Ref<Font> &font, int font_size);
     void _draw_shape_control(const Rect2 &r);
 
+    // --- Game UI Tier 1 WYSIWYG drawing (v4.0) ---
+    void _draw_dialog_panel_control(const Rect2 &r, const String &name, const Ref<Font> &font, int font_size);
+    void _draw_inventory_grid_control(const Rect2 &r, const FormControlItem &item, const Ref<Font> &font, int font_size);
+    void _draw_stat_bar_control(const Rect2 &r, const FormControlItem &item, const Ref<Font> &font, int font_size);
+    void _draw_hud_counter_control(const Rect2 &r, const FormControlItem &item, const Ref<Font> &font, int font_size);
+    void _draw_cooldown_button_control(const Rect2 &r, const Ref<Font> &font, int font_size);
+    void _draw_notification_toast_control(const Rect2 &r, const String &name, const Ref<Font> &font, int font_size);
+    void _draw_game_menu_control(const Rect2 &r, const FormControlItem &item, const Ref<Font> &font, int font_size);
+
     // --- Hit testing ---
     int      _hit_test(const Vector2 &p_pos) const;
     HandleID _hit_test_handle(const Vector2 &p_pos) const;
