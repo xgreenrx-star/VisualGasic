@@ -143,6 +143,11 @@ VisualGasicFormDesigner::~VisualGasicFormDesigner() {
 void VisualGasicFormDesigner::_ready() {
     _update_min_size();
     _create_preview_layer();
+    // If open_form was called before _ready (common with editor layout restore),
+    // the live previews couldn't be created. Rebuild them now.
+    if (preview_container && controls.size() > 0 && live_previews.size() == 0) {
+        _rebuild_all_live_previews();
+    }
 }
 
 void VisualGasicFormDesigner::_update_min_size() {
@@ -1941,6 +1946,7 @@ void VisualGasicFormDesigner::_set_mouse_filter_recursive(Node *p_node) {
 
 void VisualGasicFormDesigner::_create_preview_layer() {
     if (preview_container) return;
+    if (!is_inside_tree()) return; // Can't add children until in scene tree
 
     // Container for live scene instances — positioned at form body origin
     preview_container = memnew(Control);
@@ -1987,7 +1993,6 @@ void VisualGasicFormDesigner::_create_live_preview(int idx) {
     // Load and instantiate the prototype scene
     Ref<PackedScene> scene = ResourceLoader::get_singleton()->load(scene_path);
     if (!scene.is_valid()) {
-        UtilityFunctions::print("FormDesigner: Could not load scene for live preview: ", scene_path);
         return;
     }
 
@@ -2083,7 +2088,14 @@ void VisualGasicFormDesigner::_sync_live_preview_properties(int idx) {
 
 void VisualGasicFormDesigner::_rebuild_all_live_previews() {
     _clear_all_live_previews();
-    if (!preview_container) return;
+    // Lazy-create the preview layer if it hasn't been created yet
+    // (open_form can be called before _ready)
+    if (!preview_container) {
+        _create_preview_layer();
+    }
+    if (!preview_container) {
+        return;
+    }
 
     // Update preview container size to match current form
     preview_container->set_size(Vector2(form_size));

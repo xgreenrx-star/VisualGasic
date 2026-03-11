@@ -1,10 +1,8 @@
-[gd_scene load_steps=43 format=3]
+[gd_scene load_steps=41 format=3]
 
-[ext_resource type="Script" uid="uid://sao1y2hgbivu" path="res://Form2.vg" id="1"]
+[ext_resource type="Script" path=".vg" id="1"]
 [ext_resource type="Script" uid="uid://cixa1he0byrgy" path="res://addons/visual_gasic/form_editor_helper.gd" id="2"]
-[ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/Label.tscn" id="3"]
-[ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/Button.tscn" id="4"]
-[ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/WobblyButton.tscn" id="5"]
+[ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/WobblyButton.tscn" id="3"]
 
 [sub_resource type="StyleBoxFlat" id="vb6_btn_normal"]
 bg_color = Color(0.831, 0.816, 0.784, 1.0)
@@ -438,42 +436,42 @@ offset_bottom = 720.0
 mouse_filter = 2
 script = ExtResource("2")
 
-[node name="lblGameOver" parent="." instance=ExtResource("3")]
+[node name="lblGameOver" type="Label" parent="."]
 offset_left = 440.0
 offset_top = 150.0
 offset_right = 840.0
 offset_bottom = 230.0
 text = "GAME OVER"
 
-[node name="lblFinalScore" parent="." instance=ExtResource("3")]
+[node name="lblFinalScore" type="Label" parent="."]
 offset_left = 490.0
 offset_top = 280.0
 offset_right = 790.0
 offset_bottom = 320.0
 text = "Final Score: 0"
 
-[node name="lblHighScore" parent="." instance=ExtResource("3")]
+[node name="lblHighScore" type="Label" parent="."]
 offset_left = 490.0
 offset_top = 330.0
 offset_right = 790.0
 offset_bottom = 370.0
 text = "High Score: 0"
 
-[node name="btnRetry" parent="." instance=ExtResource("4")]
+[node name="btnRetry" type="Button" parent="."]
 offset_left = 440.0
 offset_top = 420.0
 offset_right = 620.0
 offset_bottom = 470.0
 text = "Try Again"
 
-[node name="btnMainMenu" parent="." instance=ExtResource("4")]
+[node name="btnMainMenu" type="Button" parent="."]
 offset_left = 660.0
 offset_top = 420.0
 offset_right = 840.0
 offset_bottom = 470.0
 text = "Main Menu"
 
-[node name="WobblyButton1" parent="." instance=ExtResource("5")]
+[node name="WobblyButton1" parent="." instance=ExtResource("3")]
 offset_left = 168.0
 offset_top = 536.0
 offset_right = 243.0
