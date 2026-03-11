@@ -362,6 +362,8 @@ func _enter_tree():
 			_form_designer.control_right_clicked.connect(_on_fd_control_right_clicked)
 		if _form_designer.has_signal("scene_file_dropped"):
 			_form_designer.scene_file_dropped.connect(_on_fd_scene_file_dropped)
+		if _form_designer.has_signal("game_ui_mode_changed"):
+			_form_designer.game_ui_mode_changed.connect(_on_game_ui_mode_changed)
 		# Keyboard fallback: catch shortcuts when canvas has focus
 		_form_designer.gui_input.connect(_on_canvas_gui_input)
 
@@ -1567,12 +1569,27 @@ func _create_form_from_template(template: Dictionary):
 ## @param vg_path: Path to the .vg script file
 ## @param template: Template dictionary
 func _finish_form_creation(path: String, form_name: String, vg_path: String, template: Dictionary):
-	# Now create the Window node - DO NOT attach VG script until after all children and owners are set
-	var root = Window.new()
-	root.name = form_name
-	root.title = form_name
-	root.position = Vector2i(10,36)  # Align with canvas origin in editor
-	root.size = template.get("size", Vector2(800, 600))
+	# Check if this is a Game UI (HUD) form — uses CanvasLayer root instead of Window
+	var is_hud: bool = template.get("is_hud", false)
+
+	var root: Node
+	if is_hud:
+		# Game UI mode: CanvasLayer root (rendered above game world)
+		root = CanvasLayer.new()
+		root.name = form_name
+		root.layer = 10
+		# Notify the C++ form designer
+		if _form_designer:
+			_form_designer.set_game_ui_mode(true)
+	else:
+		# VB6 Classic: Window root
+		root = Window.new()
+		root.name = form_name
+		root.title = form_name
+		root.position = Vector2i(10,36)  # Align with canvas origin in editor
+		root.size = template.get("size", Vector2(800, 600))
+		if _form_designer:
+			_form_designer.set_game_ui_mode(false)
 	
 	# Add MenuBar FIRST if specified - so _FormBackground comes AFTER and intercepts drops
 	if template.get("has_menu", false):
@@ -4927,6 +4944,20 @@ func _on_fd_form_modified() -> void:
 	_form_dirty = true
 	_update_dirty_indicator()
 
+## Called when the form designer's game_ui_mode changes.
+## Switches the toolbox tab to "Game UI" (index 2) or back to "2D Tools" (index 0).
+## @param enabled: Whether Game UI mode is now active
+func _on_game_ui_mode_changed(enabled: bool) -> void:
+	var real_toolbox = _get_toolbox_instance()
+	if real_toolbox:
+		for c in real_toolbox.get_children():
+			if c is TabContainer:
+				if enabled:
+					c.current_tab = 2  # Game UI
+				else:
+					c.current_tab = 0  # 2D Tools
+				break
+
 ## Update the title/status with a * dirty indicator when unsaved changes exist.
 func _update_dirty_indicator() -> void:
 	if not is_instance_valid(_status_bar) or not is_instance_valid(_form_designer):
@@ -6893,7 +6924,10 @@ func _on_main_screen_changed(screen_name: String):
 				break
 		
 		if tabs:
-			if screen_name == "3D":
+			# Check if the current form is Game UI mode
+			if _form_designer and _form_designer.get_game_ui_mode():
+				tabs.current_tab = 2 # Game UI
+			elif screen_name == "3D":
 				tabs.current_tab = 1 # 3D Index
 			elif screen_name == "2D":
 				tabs.current_tab = 0 # 2D Index

@@ -362,6 +362,8 @@ func _enter_tree():
 			_form_designer.control_right_clicked.connect(_on_fd_control_right_clicked)
 		if _form_designer.has_signal("scene_file_dropped"):
 			_form_designer.scene_file_dropped.connect(_on_fd_scene_file_dropped)
+		if _form_designer.has_signal("game_ui_mode_changed"):
+			_form_designer.game_ui_mode_changed.connect(_on_game_ui_mode_changed)
 		# Keyboard fallback: catch shortcuts when canvas has focus
 		_form_designer.gui_input.connect(_on_canvas_gui_input)
 
@@ -446,7 +448,7 @@ func _enter_tree():
 		var godot_btn = Button.new()
 		godot_btn.name = "BackToGodotBtn"
 		godot_btn.text = "\u21a9 Godot Editor"
-		godot_btn.tooltip_text = "Exit Form Designer and return to Godot Editor"
+		godot_btn.tooltip_text = "Exit Visual Gasic IDE and return to Godot Editor"
 		godot_btn.flat = true
 		godot_btn.add_theme_color_override("font_color", Color(0.2, 0.2, 0.2))
 		godot_btn.add_theme_color_override("font_hover_color", Color(0.0, 0.0, 0.5))
@@ -672,7 +674,7 @@ func _has_main_screen() -> bool:
 	return ClassDB.class_exists(&"VisualGasicFormDesigner")
 
 func _get_plugin_name() -> String:
-	return "Form Designer"
+	return "Visual Gasic IDE"
 
 func _get_plugin_icon() -> Texture2D:
 	var theme = get_editor_interface().get_base_control().get_theme()
@@ -711,34 +713,28 @@ func _make_visible(p_visible: bool) -> void:
 		# (so next time Form Designer opens it shows the form canvas)
 		if _showing_code_view:
 			_show_form_view()
-		# Leaving Form Designer → flush C++ state to disk.
+		# Leaving Form Designer → flush C++ state to disk only if dirty.
 		if is_instance_valid(_form_designer):
-			# Derive the save path: prefer scene_root.scene_file_path (the
-			# source of truth), then form_path, then fallback from form_name.
-			# We can NOT rely solely on get_form_path() — it may be empty if
-			# open_form was never called or form_path was cleared.
-			var save_path := ""
-			var scene_root = EditorInterface.get_edited_scene_root()
-			if scene_root and not scene_root.scene_file_path.is_empty():
-				save_path = scene_root.scene_file_path
-			if save_path.is_empty():
-				save_path = _form_designer.get_form_path()
-			if save_path.is_empty() and _form_designer.get_control_count() > 0:
-				save_path = "res://" + _form_designer.get_form_name() + ".tscn"
-			print("[VG-SYNC] _make_visible(false)  save_path='", save_path, "'  fp='", _form_designer.get_form_path(), "'  controls=", _form_designer.get_control_count())
-			if not save_path.is_empty():
-				_form_designer.save_form_as(save_path)
-				_strip_empty_menubar_from_tscn(save_path)
-				EditorInterface.get_resource_filesystem().update_file(save_path)
-				# Patch in-memory tree so Godot won't overwrite with stale data
-				_sync_form_state_to_scene_tree()
-				print("[VG-SYNC]   saved & update_file done for '", save_path, "'")
-				# Schedule reload for AFTER the screen transition completes.
-				# Godot's reload_scene_from_path() silently does nothing while
-				# is_changing_scene() is true (see editor_interface.cpp:707).
-				# We store the path and do the reload in _on_main_screen_changed.
-				if not _switching_to_code_editor:
-					_pending_reload_path = save_path
+			# Always patch in-memory tree so Godot's own saver writes correct data.
+			_sync_form_state_to_scene_tree()
+			# Only write to disk if the form has unsaved changes
+			if _form_dirty:
+				var save_path := ""
+				var scene_root = EditorInterface.get_edited_scene_root()
+				if scene_root and not scene_root.scene_file_path.is_empty():
+					save_path = scene_root.scene_file_path
+				if save_path.is_empty():
+					save_path = _form_designer.get_form_path()
+				if save_path.is_empty() and _form_designer.get_control_count() > 0:
+					save_path = "res://" + _form_designer.get_form_name() + ".tscn"
+				if not save_path.is_empty():
+					_form_designer.save_form_as(save_path)
+					_strip_empty_menubar_from_tscn(save_path)
+					EditorInterface.get_resource_filesystem().update_file(save_path)
+					_form_dirty = false
+					# Schedule reload for AFTER the screen transition completes.
+					if not _switching_to_code_editor:
+						_pending_reload_path = save_path
 		# Always clear the flag here (even when form_path was empty and
 		# the save block above was skipped — the previous code never
 		# reached the clear in that case, leaving the flag stuck true).
@@ -794,44 +790,52 @@ func _get_window_layout(config: ConfigFile):
 		var fpath = _form_designer.get_form_path()
 		if not fpath.is_empty():
 			config.set_value("VisualGasic", "form_path", fpath)
-			# CRITICAL: Re-save from C++ to overwrite any stale .tscn that
-			# Godot's scene saver just wrote.  The C++ FormDesigner's
-			# form_size is the source of truth.
-			_form_designer.save_form_as(fpath)
-			_strip_empty_menubar_from_tscn(fpath)
-			print("[VG-SYNC] _get_window_layout → re-saved form to overwrite stale Godot save")
+			# Patch in-memory tree so Godot's own saver writes correct data.
+			_sync_form_state_to_scene_tree()
+			# Only re-save from C++ if the form has unsaved changes.
+			# Unconditional writes here caused 'reload from disk?' prompts
+			# because Godot detects the file changed on every focus cycle.
+			if _form_dirty:
+				_form_designer.save_form_as(fpath)
+				_strip_empty_menubar_from_tscn(fpath)
+				EditorInterface.get_resource_filesystem().update_file(fpath)
+				_form_dirty = false
+				print("[VG-SYNC] _get_window_layout → re-saved dirty form")
 
 ## Called by the editor before saving any external data (scenes, resources).
-## We write the C++ Form Designer state to disk, then force Godot to reload
-## the scene so its in-memory scene tree matches our .tscn.  Without the
-## reload, Godot's own scene-save (which runs right after this) would
-## overwrite our file with its stale version.
+## Godot calls this on EVERY auto-save, including when the window loses focus.
+## We ONLY write the .tscn from C++ if the form has unsaved changes.
+## Otherwise we just patch the in-memory scene tree so Godot's own saver
+## writes correct data — this avoids the "reload from disk?" prompt that
+## occurs when we unconditionally write files on every focus-loss cycle.
 func _save_external_data() -> void:
 	if _saving_external:
 		return  # reentrancy guard — reload_scene can trigger another save cycle
 	_saving_external = true
 	if is_instance_valid(_form_designer):
 		var fp = _form_designer.get_form_path()
-		# Derive a save path if the form was never saved to disk yet
-		if fp.is_empty() and _form_designer.get_control_count() > 0:
-			var scene_root = EditorInterface.get_edited_scene_root()
-			if scene_root and not scene_root.scene_file_path.is_empty():
-				fp = scene_root.scene_file_path
-			else:
-				fp = "res://" + _form_designer.get_form_name() + ".tscn"
-			_form_designer.save_form_as(fp)
-		elif not fp.is_empty():
-			_form_designer.save_form()
-		# Notify Godot's filesystem and reload the scene
-		fp = _form_designer.get_form_path()
-		if not fp.is_empty():
-			# CRITICAL: Patch in-memory tree FIRST.  reload_scene_from_path()
-			# silently fails during Godot's save cycle (is_changing_scene),
-			# so we must ensure the tree already has the correct values.
-			_sync_form_state_to_scene_tree()
-			var scene_root = EditorInterface.get_edited_scene_root()
-			if scene_root and scene_root.scene_file_path == fp:
-				_force_godot_scene_reload(fp)
+		# Always patch Godot's in-memory scene tree so its own saver writes
+		# correct data, regardless of whether we write the file ourselves.
+		_sync_form_state_to_scene_tree()
+		# Only write to disk if the form is actually dirty
+		if _form_dirty:
+			# Derive a save path if the form was never saved to disk yet
+			if fp.is_empty() and _form_designer.get_control_count() > 0:
+				var scene_root = EditorInterface.get_edited_scene_root()
+				if scene_root and not scene_root.scene_file_path.is_empty():
+					fp = scene_root.scene_file_path
+				else:
+					fp = "res://" + _form_designer.get_form_name() + ".tscn"
+				_form_designer.save_form_as(fp)
+			elif not fp.is_empty():
+				_form_designer.save_form()
+			# Notify Godot's filesystem so it doesn't treat this as external
+			fp = _form_designer.get_form_path()
+			if not fp.is_empty():
+				EditorInterface.get_resource_filesystem().update_file(fp)
+				var scene_root = EditorInterface.get_edited_scene_root()
+				if scene_root and scene_root.scene_file_path == fp:
+					_force_godot_scene_reload(fp)
 	_saving_external = false
 
 ## Called when the plugin exits the editor tree.
@@ -1565,12 +1569,27 @@ func _create_form_from_template(template: Dictionary):
 ## @param vg_path: Path to the .vg script file
 ## @param template: Template dictionary
 func _finish_form_creation(path: String, form_name: String, vg_path: String, template: Dictionary):
-	# Now create the Window node - DO NOT attach VG script until after all children and owners are set
-	var root = Window.new()
-	root.name = form_name
-	root.title = form_name
-	root.position = Vector2i(10,36)  # Align with canvas origin in editor
-	root.size = template.get("size", Vector2(800, 600))
+	# Check if this is a Game UI (HUD) form — uses CanvasLayer root instead of Window
+	var is_hud: bool = template.get("is_hud", false)
+
+	var root: Node
+	if is_hud:
+		# Game UI mode: CanvasLayer root (rendered above game world)
+		root = CanvasLayer.new()
+		root.name = form_name
+		root.layer = 10
+		# Notify the C++ form designer
+		if _form_designer:
+			_form_designer.set_game_ui_mode(true)
+	else:
+		# VB6 Classic: Window root
+		root = Window.new()
+		root.name = form_name
+		root.title = form_name
+		root.position = Vector2i(10,36)  # Align with canvas origin in editor
+		root.size = template.get("size", Vector2(800, 600))
+		if _form_designer:
+			_form_designer.set_game_ui_mode(false)
 	
 	# Add MenuBar FIRST if specified - so _FormBackground comes AFTER and intercepts drops
 	if template.get("has_menu", false):
@@ -1812,7 +1831,7 @@ End Sub
 func _on_form_designer_pressed():
 	# Switch to our main screen tab (C++ Form Designer)
 	if _form_designer:
-		EditorInterface.set_main_screen_editor("Form Designer")
+		EditorInterface.set_main_screen_editor("Visual Gasic IDE")
 	else:
 		push_warning("VisualGasic: C++ FormDesigner not available — rebuild the editor library with 'scons target=editor platform=linux'")
 		EditorInterface.set_main_screen_editor("2D")
@@ -1834,8 +1853,8 @@ func open_form_in_designer(tscn_path: String) -> void:
 		EditorInterface.open_scene_from_path(tscn_path)
 	_form_designer.open_form(tscn_path)
 	_fixup_form_size_from_tscn(tscn_path)
-	EditorInterface.set_main_screen_editor("Form Designer")
-	print("VisualGasic: Opened '", tscn_path, "' in Form Designer")
+	EditorInterface.set_main_screen_editor("Visual Gasic IDE")
+	print("VisualGasic: Opened '", tscn_path, "' in Visual Gasic IDE")
 	# Apply VB6 theme to the live scene tree immediately
 	_apply_vb6_theme_to_scene_root()
 	# Also force a scene reload so the 2D viewport picks up any C++ changes.
@@ -2365,20 +2384,51 @@ func _build_vb6_scene_theme() -> Theme:
 	t.set_stylebox("fill", "ProgressBar", pb_fill)
 
 	# ── HScrollBar / VScrollBar ──
+	# Make the grabber dark so it is clearly visible against both the light
+	# IDE panels and the code editor's cream background.  The default Win98
+	# btn_face (0.83) is almost invisible against scrollbar_bg (0.87).
 	for sb_type in ["HScrollBar", "VScrollBar"]:
 		var scroll_sb = StyleBoxFlat.new()
 		scroll_sb.bg_color = scrollbar_bg
 		scroll_sb.set_content_margin_all(0)
 		t.set_stylebox("scroll", sb_type, scroll_sb)
 
-		var grabber_sb = _make_raised.call(btn_face)
+		var grabber_sb = StyleBoxFlat.new()
+		grabber_sb.bg_color = Color(0.45, 0.44, 0.42)   # dark gray grabber
+		grabber_sb.border_color = Color(0.30, 0.30, 0.28)
+		grabber_sb.set_border_width_all(1)
+		grabber_sb.set_corner_radius_all(2)
 		grabber_sb.content_margin_left = 2
 		grabber_sb.content_margin_right = 2
 		grabber_sb.content_margin_top = 2
 		grabber_sb.content_margin_bottom = 2
-		t.set_stylebox("grabber",         sb_type, grabber_sb)
-		t.set_stylebox("grabber_highlight",sb_type, grabber_sb)
-		t.set_stylebox("grabber_pressed", sb_type, grabber_sb)
+		t.set_stylebox("grabber", sb_type, grabber_sb)
+
+		var grabber_hl_sb = StyleBoxFlat.new()
+		grabber_hl_sb.bg_color = Color(0.35, 0.34, 0.32)  # darker on hover
+		grabber_hl_sb.border_color = Color(0.20, 0.20, 0.18)
+		grabber_hl_sb.set_border_width_all(1)
+		grabber_hl_sb.set_corner_radius_all(2)
+		grabber_hl_sb.content_margin_left = 2
+		grabber_hl_sb.content_margin_right = 2
+		grabber_hl_sb.content_margin_top = 2
+		grabber_hl_sb.content_margin_bottom = 2
+		t.set_stylebox("grabber_highlight", sb_type, grabber_hl_sb)
+
+		var grabber_pr_sb = StyleBoxFlat.new()
+		grabber_pr_sb.bg_color = Color(0.25, 0.24, 0.22)  # near-black pressed
+		grabber_pr_sb.border_color = Color(0.12, 0.12, 0.10)
+		grabber_pr_sb.set_border_width_all(1)
+		grabber_pr_sb.set_corner_radius_all(2)
+		grabber_pr_sb.content_margin_left = 2
+		grabber_pr_sb.content_margin_right = 2
+		grabber_pr_sb.content_margin_top = 2
+		grabber_pr_sb.content_margin_bottom = 2
+		t.set_stylebox("grabber_pressed", sb_type, grabber_pr_sb)
+
+	# Make scrollbars wider so the grabber is easy to click
+	t.set_constant("minimum_grab_thickness", "VScrollBar", 12)
+	t.set_constant("minimum_grab_thickness", "HScrollBar", 12)
 
 	# ── HSlider / VSlider ──
 	for sl_type in ["HSlider", "VSlider"]:
@@ -3271,6 +3321,9 @@ func _do_save_form() -> void:
 	_form_dirty = false
 	_track_recent_form(saved_path)
 	_update_dirty_indicator()
+	# Notify Godot's filesystem so it doesn't treat this as external change
+	if not saved_path.is_empty():
+		EditorInterface.get_resource_filesystem().update_file(saved_path)
 	# Patch Godot's in-memory scene tree so its scene saver won't overwrite
 	# our .tscn with stale values when the editor closes.
 	_sync_form_state_to_scene_tree()
@@ -3300,6 +3353,7 @@ func _do_save_form_as() -> void:
 	fd.file_selected.connect(func(path: String):
 		_form_designer.save_form_as(path)
 		print("[VisualGasic] Form saved as: ", path)
+		EditorInterface.get_resource_filesystem().update_file(path)
 		_sync_form_state_to_scene_tree()
 		_reload_scene_after_form_save(path)
 		fd.queue_free()
@@ -4890,6 +4944,20 @@ func _on_fd_form_modified() -> void:
 	_form_dirty = true
 	_update_dirty_indicator()
 
+## Called when the form designer's game_ui_mode changes.
+## Switches the toolbox tab to "Game UI" (index 2) or back to "2D Tools" (index 0).
+## @param enabled: Whether Game UI mode is now active
+func _on_game_ui_mode_changed(enabled: bool) -> void:
+	var real_toolbox = _get_toolbox_instance()
+	if real_toolbox:
+		for c in real_toolbox.get_children():
+			if c is TabContainer:
+				if enabled:
+					c.current_tab = 2  # Game UI
+				else:
+					c.current_tab = 0  # 2D Tools
+				break
+
 ## Update the title/status with a * dirty indicator when unsaved changes exist.
 func _update_dirty_indicator() -> void:
 	if not is_instance_valid(_status_bar) or not is_instance_valid(_form_designer):
@@ -5098,8 +5166,16 @@ func _on_fd_control_double_clicked(index: int) -> void:
 	var event_suffix = "Click"
 	if ctrl_type in ["LineEdit", "TextEdit"]:
 		event_suffix = "Change"
-	elif ctrl_type in ["HScrollBar", "VScrollBar", "HSlider", "VSlider"]:
+	elif ctrl_type in ["HScrollBar", "VScrollBar", "HSlider", "VSlider", "SpinBox"]:
 		event_suffix = "Change"
+	elif ctrl_type == "Timer":
+		event_suffix = "Timer"
+	elif ctrl_type == "RadioButton":
+		event_suffix = "Click"
+	elif ctrl_type in ["StatusBar", "Toolbar"]:
+		event_suffix = "Click"
+	elif ctrl_type == "ListView":
+		event_suffix = "Click"
 	# Get form path — try multiple fallbacks
 	var form_path = _form_designer.get_form_path()
 	if form_path.is_empty():
@@ -5649,12 +5725,12 @@ func _create_new_form(form_name: String):
 		timer.queue_free()
 		# Open the scene in the editor
 		get_editor_interface().open_scene_from_path(scene_path)
-		# Switch to Form Designer
-		EditorInterface.set_main_screen_editor("Form Designer")
+		# Switch to Visual Gasic IDE
+		EditorInterface.set_main_screen_editor("Visual Gasic IDE")
 		# Refresh Project Explorer
 		if is_instance_valid(_project_explorer) and _project_explorer.has_method("refresh"):
 			_project_explorer.refresh()
-		print("VisualGasic: Opened form '%s' in Form Designer" % form_name)
+		print("VisualGasic: Opened form '%s' in Visual Gasic IDE" % form_name)
 	)
 	get_editor_interface().get_base_control().add_child(timer)
 	timer.start()
@@ -6848,7 +6924,10 @@ func _on_main_screen_changed(screen_name: String):
 				break
 		
 		if tabs:
-			if screen_name == "3D":
+			# Check if the current form is Game UI mode
+			if _form_designer and _form_designer.get_game_ui_mode():
+				tabs.current_tab = 2 # Game UI
+			elif screen_name == "3D":
 				tabs.current_tab = 1 # 3D Index
 			elif screen_name == "2D":
 				tabs.current_tab = 0 # 2D Index

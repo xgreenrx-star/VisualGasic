@@ -113,6 +113,7 @@ void VisualGasicFormDesigner::_bind_methods() {
     ADD_SIGNAL(MethodInfo("status_changed", PropertyInfo(Variant::STRING, "text")));
     ADD_SIGNAL(MethodInfo("form_resized", PropertyInfo(Variant::VECTOR2I, "size")));
     ADD_SIGNAL(MethodInfo("scene_file_dropped", PropertyInfo(Variant::STRING, "scene_path"), PropertyInfo(Variant::STRING, "control_name")));
+    ADD_SIGNAL(MethodInfo("game_ui_mode_changed", PropertyInfo(Variant::BOOL, "enabled")));
 }
 
 // =============================================================================
@@ -2475,6 +2476,7 @@ void VisualGasicFormDesigner::set_game_ui_mode(bool p_enabled) {
     game_ui_mode = p_enabled;
     _mark_dirty();
     queue_redraw();
+    emit_signal("game_ui_mode_changed", p_enabled);
 }
 
 bool VisualGasicFormDesigner::get_game_ui_mode() const {
@@ -3774,6 +3776,12 @@ bool VisualGasicFormDesigner::_parse_tscn(const String &p_text) {
             if (current_node_parent.is_empty() && !line.contains("parent=")) {
                 form_name = current_node_name;
                 is_root_node = true;
+                // Auto-detect Game UI mode: CanvasLayer root → game_ui_mode
+                if (current_node_type == "CanvasLayer") {
+                    set_game_ui_mode(true);
+                } else {
+                    set_game_ui_mode(false);
+                }
             } else {
                 is_root_node = false;
             }
