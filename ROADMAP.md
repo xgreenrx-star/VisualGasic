@@ -1,7 +1,7 @@
 # Visual Gasic Development Roadmap
 
 **Last Updated**: March 2026  
-**Current Version**: 3.5.0-beta2 (IDE Themes, VB6 Importer, Custom Controls, Language Enhancements)
+**Current Version**: 3.7.0 (Method Overloading, Parameterized Constructors, Generics, Game UI Mode)
 
 This document outlines the planned improvements and features for Visual Gasic. Items are prioritized by impact and development effort.
 
@@ -452,7 +452,9 @@ Each feature has implementation notes that describe:
 
 ## 📝 Version History
 
-- **v3.5.0-beta2** (Current) - IDE Themes, Custom Theme Editor, Object Browser, VB6 Importer Enhancements, Documentation Generator, Custom Control Designer, Windows CI, 15+ Bug Fixes
+- **v3.7.0** (Current) - Method Overloading, Parameterized Constructors, Collection(Of T) Generics, Game UI Mode
+- **v3.6.0** - Compound Assignment (`+=` etc.), Bit-Shift (`<<` `>>`), `LongLong` type
+- **v3.5.0-beta2** - IDE Themes, Custom Theme Editor, Object Browser, VB6 Importer Enhancements, Documentation Generator, Custom Control Designer, Windows CI, 15+ Bug Fixes
 - **v3.3.0** - Language Enhancements: 18 new features (String Interpolation, Bitwise, StringBuilder, RegExp, Static locals, etc.)
 - **v3.2.0-beta1** - JIT Compiler, LSP, Performance, First Public Beta
 - **v3.1.0** - System-Level Programming: VGSystem, Signals, Permissions, Memory, IPC, Android, Real Threading

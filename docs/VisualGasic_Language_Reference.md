@@ -115,6 +115,12 @@
 - [Printer Object & PrintForm](#printer-object--printform-v350)
 - [Optional Parameters](#optional-parameters-v350)
 
+### [v3.7.0 Language Enhancements](#v370-language-enhancements)
+- [Method Overloading](#method-overloading)
+- [Parameterized Constructors](#parameterized-constructors)
+- [Generics — Collection(Of T)](#generics)
+- [Game UI Mode](#game-ui-mode)
+
 ---
 
 ## Getting Started
@@ -5782,6 +5788,87 @@ Dim rounded As LongLong = CLngLng(3.7)  ' 4 (banker's rounding)
 - Work with all arithmetic, comparison, and bit-shift operators
 - Can be used as array element types: `Dim arr(9) As LongLong`
 - Are interchangeable with `Long` in all contexts
+
+---
+
+## v3.7.0 Language Enhancements {#v370-language-enhancements}
+
+*Released in v3.7.0.* This release adds method overloading, parameterized constructors, generic typed collections, and a game UI mode for the form designer.
+
+### Method Overloading {#method-overloading-v370}
+
+Define multiple `Sub` or `Function` with the same name but different parameter counts. The runtime resolves to the best match by argument count (arity-based dispatch).
+
+```vb
+Sub Spawn(x As Single, y As Single)
+    ' 2-arg: default speed/angle
+End Sub
+
+Sub Spawn(x As Single, y As Single, speed As Single, angle As Single)
+    ' 4-arg: full control
+End Sub
+
+Spawn 10, 20            ' → calls 2-arg version
+Spawn 10, 20, 300, 45   ' → calls 4-arg version
+```
+
+Class methods also support overloading:
+
+```vb
+Class Calculator
+    Function Add(a As Integer) As Integer
+        Return a
+    End Function
+    Function Add(a As Integer, b As Integer) As Integer
+        Return a + b
+    End Function
+End Class
+```
+
+### Parameterized Constructors {#parameterized-constructors-v370}
+
+Pass arguments to `Class_Initialize` when creating objects:
+
+```vb
+Class Bullet
+    Public speed As Double, angle As Double, damage As Integer
+    Sub Class_Initialize(s As Double, a As Double, d As Integer)
+        speed = s : angle = a : damage = d
+    End Sub
+End Class
+
+Dim b1 = New Bullet(300, 45, 10)       ' inline New
+Dim b2 As New Bullet(200, 90, 25)      ' Dim As New
+```
+
+### Generics — Collection(Of T) {#generics-v370}
+
+Type-safe collections with runtime type validation on `.Add()`:
+
+```vb
+Dim scores As New Collection(Of Integer)
+scores.Add 100   ' OK
+scores.Add 200   ' OK
+
+Dim names As New Collection(Of String)
+names.Add "Alice"
+
+' Auto-instantiation without New:
+Dim items As Collection(Of Double)
+items.Add 3.14
+
+' Supported type parameters: Integer, Long, LongLong, Double, Single,
+' Float, String, Boolean, Variant, and any class name.
+```
+
+### Game UI Mode {#game-ui-mode-v370}
+
+The Form Designer supports a **Game UI Mode** that generates `CanvasLayer` overlays for in-game HUD elements instead of standalone `Window` nodes.
+
+- Set the form property `GameUIMode = True` to enable
+- Dark canvas background with crosshair guides and safe area rectangle
+- Exports `CanvasLayer` root (layer 10) with full-rect anchored `Control` child
+- 11 new Game UI toolbox controls: HealthBar, ScoreLabel, DialogBox, MiniMap, Inventory, ActionButton, AmmoCounter, BossBar, Crosshair, Tooltip, Pointer
 
 ---
 This documentation provides a comprehensive overview of VisualGasic's advanced capabilities and modern language features. The format is professional and showcases VisualGasic as a powerful, contemporary programming language for cross-platform application and game development.

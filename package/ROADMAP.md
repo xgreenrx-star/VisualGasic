@@ -1,7 +1,7 @@
 # Visual Gasic Development Roadmap
 
 **Last Updated**: March 2026  
-**Current Version**: 3.5.0-beta2 (IDE Themes, VB6 Importer, Custom Controls, Language Enhancements)
+**Current Version**: 3.7.0 (Method Overloading, Parameterized Constructors, Generics, Game UI Mode)
 
 This document outlines the planned improvements and features for Visual Gasic. Items are prioritized by impact and development effort.
 
@@ -452,7 +452,9 @@ Each feature has implementation notes that describe:
 
 ## 📝 Version History
 
-- **v3.5.0-beta2** (Current) - IDE Themes, Custom Theme Editor, Object Browser, VB6 Importer Enhancements, 15+ Bug Fixes
+- **v3.7.0** (Current) - Method Overloading, Parameterized Constructors, Collection(Of T) Generics, Game UI Mode
+- **v3.6.0** - Compound Assignment (`+=` etc.), Bit-Shift (`<<` `>>`), `LongLong` type
+- **v3.5.0-beta2** - IDE Themes, Custom Theme Editor, Object Browser, VB6 Importer Enhancements, Documentation Generator, Custom Control Designer, Windows CI, 15+ Bug Fixes
 - **v3.3.0** - Language Enhancements: 18 new features (String Interpolation, Bitwise, StringBuilder, RegExp, Static locals, etc.)
 - **v3.2.0-beta1** - JIT Compiler, LSP, Performance, First Public Beta
 - **v3.1.0** - System-Level Programming: VGSystem, Signals, Permissions, Memory, IPC, Android, Real Threading
@@ -537,11 +539,17 @@ All items from the system-programming audit are now implemented:
    `_reload_tool_script()` queues via `pending_reloads` to avoid re-entrancy.  
    Thread-safe via `std::mutex`.
 
-10. **Asset Library Submission**  
-    Package for Godot Asset Library (requires single-addon zip with proper plugin.cfg).
+10. **Asset Library Submission** ⏳  
+    Package for Godot Asset Library (requires single-addon zip with proper plugin.cfg).  
+    *Status*: Submitted March 2026, awaiting Godot team review.
 
-11. **Documentation Generator**  
-    Parse `''' XML-style` doc comments from .vg files and emit HTML/Markdown API docs.
+11. **Documentation Generator** ✅  
+    Parse `'''` doc comments from .vg files and emit HTML/Markdown API docs.  
+    *Implemented*: `doc_generator.gd` — Tools → Generate Documentation. Parses `'''` triple-apostrophe  
+    doc-comments with `@param`, `@return`, `@example` tags. Generates Markdown and/or HTML  
+    index + per-module detail pages. Supports Const, Dim, Enum, Type, Sub, Function.  
+    Filter options for private members and event handlers. VB6 cream-themed config dialog.  
+    Example project in `demos/Utilities/DocGen_Example/` with 4 fully-documented .vg files.
 
 12. **JIT Tier 2** ✅  
     Extend the JIT framework from simple loops to full function bodies (requires register allocator).  
@@ -552,21 +560,15 @@ All items from the system-programming audit are now implemented:
     branches, loops, return values.  Hot detection at threshold 50 calls; unsupported opcodes  
     gracefully fall back to interpreter.  Activated via `VG_JIT=2` environment variable.
 
-13. **Custom Control Designer (UserControl Editor)**  
+13. **Custom Control Designer (UserControl Editor)** ✅  
     A WYSIWYG editor for designing reusable custom controls — wobbly buttons, animated  
     dropdowns, themed game UI widgets, etc. Users design a control visually, save it as a  
     `.tscn`, and it appears in the Toolbox alongside the built-in controls for drag-and-drop  
     reuse across any form.  
-    **Scope**:  
-    - Mini design surface dialog (similar to Menu Editor) with live preview canvas  
-    - Property panel for theme overrides (fonts, colors, StyleBox), child node composition  
-      (icon + label + particle effect, etc.), and basic animation/shader parameters  
-    - "Save as Custom Control" writes to `res://custom_controls/` and auto-registers in Toolbox  
-      via `register_custom_control_type()`  
-    - Components dialog already supports add/remove; this adds the visual authoring step  
-    **Foundation already in place**: Toolbox custom control registration, Components dialog,  
-    right-click context menu plumbing, scene_path tracking per control, `_validate_scene_paths()`  
-    fallback system.
+    *Implemented*: `custom_control_designer.gd` (~630 lines). Tools → New Custom Control /  
+    Edit Custom Control. 16 child node types, snap grid, drag/move/resize handles,  
+    SubViewport live preview, PackedScene `.tscn` save with proper owner chain.  
+    Auto-registers in Toolbox via `register_custom_control_type()`.
 
 
 14. **Live Animation for Custom Controls in Form Designer (v4)**  
@@ -594,6 +596,241 @@ All items from the system-programming audit are now implemented:
     **Foundation already in place**: SubViewport capture pipeline in GDScript,
     `control_preview_textures` HashMap in C++, per-control rect tracking in
     `FormControlItem`, custom control `.tscn` scene_path storage.
+
+---
+
+## ✅ v3.6 Roadmap — "Modern Language Features"
+
+Language-level additions inspired by twinBASIC, VB.NET, and modern BASIC dialects.
+Strategic goal: make VisualGasic's *language* competitive with twinBASIC and RAD Basic
+while leaning into our unique advantage — cross-platform game engine integration.
+
+> **Already shipped:** `Inherits` (v2.4.0), `AndAlso`/`OrElse` (v3.4),
+> `Return <expr>` (v3.5), `Continue For/Do/While` (v3.5), Classes + Properties (v2.4).
+> **v3.6.0 shipped:** Compound Assignment (`+=` etc.), Bit-Shift (`<<` `>>`), `LongLong` type.
+> **v3.7.0 shipped:** Method Overloading, Parameterized Constructors, Generics Phase 1, Game UI Mode.
+
+### ✅ Shipped in v3.6.0
+
+1. **Compound Assignment Operators — `+=  -=  *=  /=  \=  &=  ^=  <<=  >>=`** ✅
+   Desugared at parse time into equivalent `x = x op y`. All 9 operators work on any L-value.
+   31 test assertions (10 compound, 12 bit-shift, 9 combined).
+
+2. **Bit-Shift Operators — `<<  >>`** ✅
+   New precedence level between comparison and addition (VB.NET-compatible).
+   `OP_SHL`/`OP_SHR` bytecode opcodes. 12 test assertions.
+
+3. **`LongLong` (64-bit Integer) Type** ✅
+   Type alias for `Long`. `CLngLng()` conversion function. Works in `Dim`, arrays,
+   arithmetic, bit-shift. 8 test assertions.
+
+### ✅ Shipped in v3.7.0
+
+4. **Method Overloading** ✅
+   Multiple `Sub`/`Function` signatures with the same name but different parameter counts.
+   Arity-based dispatch in compiler, bytecode VM, and AST interpreter. Class method
+   overloading via `find_method_in_hierarchy`. Falls back to first-match for backward compat.
+   11 test assertions.
+
+5. **Parameterized Constructors — `New ClassName(args)`** ✅
+   `New Bullet(speed, angle, damage)` and `Dim b As New Bullet(100, 45, 10)` both work.
+   Parser fixes for 2nd `New` path and `Dim As New` path. Runtime already supported args
+   passthrough to `Class_Initialize`. 8 test assertions.
+
+6. **Generics (Typed Collections) — `Collection(Of T)`** ✅
+   `Dim enemies As New Collection(Of Sprite)` with runtime type-check on `.Add()`.
+   Parser `(Of T)` lookahead distinguishes from constructor args. Auto-instantiation
+   for `Dim col As Collection(Of Integer)` without `New`. 12 test assertions.
+
+9. **Game UI Mode for Form Designer** ✅
+   Form Designer generates `CanvasLayer` root (layer 10) with full-rect `Control` child
+   instead of `Window` when game UI mode is enabled. Dark canvas background with crosshair
+   guides, safe area rectangle, and "GAME UI" badge. Toolbox gains 11 game UI controls:
+   HealthBar, ScoreLabel, DialogBox, MiniMap, Inventory, ActionButton, AmmoCounter,
+   BossBar, Crosshair, Tooltip, Pointer.
+
+### 🟢 Nice-to-Have — Ecosystem Alignment
+
+7. **Additional Compound Operators — `And=  Or=  Xor=  Mod=`**
+   Bitwise compound assignment for flag manipulation:
+   `collisionMask And= Not(LAYER_WATER)`. Lower priority than the arithmetic
+   compounds above because they're less commonly used.
+   **Effort**: ~1 hour (pattern identical to item 1)
+
+8. **`Enum` with Explicit Values**
+   VB6/twinBASIC `Enum` declarations with explicit member values. Currently VG
+   uses `Const` blocks for this. Proper `Enum` gives IntelliSense grouping,
+   type safety, and `Enum.ToString()`.
+   **Scope**:
+   - `Enum Direction: Up = 0 : Down = 1 : Left = 2 : Right = 3 : End Enum`
+   - Auto-increment when values are omitted
+   - `[Flags]` attribute for bitfield enums
+   **Effort**: ~3–4 hours
+
+### 📊 v3.6 Priority Matrix
+
+| # | Feature | Game Dev Value | Effort | Status |
+|---|---------|---------------|--------|--------|
+| 1 | Compound Assignment `+=` etc. | ⭐⭐⭐⭐⭐ | 2–3 hrs | ✅ Shipped |
+| 2 | Bit-Shift `<<` `>>` | ⭐⭐⭐⭐ | 2–3 hrs | ✅ Shipped |
+| 3 | `LongLong` type alias | ⭐⭐⭐ | 1 hr | ✅ Shipped |
+| 4 | Method Overloading | ⭐⭐⭐⭐ | 4–6 hrs | ✅ Shipped |
+| 5 | Parameterized Constructors | ⭐⭐⭐⭐⭐ | 3–4 hrs | ✅ Shipped |
+| 6 | Generics Phase 1 | ⭐⭐⭐⭐ | 6–8 hrs | ✅ Shipped |
+| 7 | Enum Declarations | ⭐⭐⭐ | 3–4 hrs | 🟢 Nice-to-have |
+| 8 | Game UI Mode | ⭐⭐⭐⭐⭐ | 6–8 hrs | ✅ Shipped |
+
+### ❌ Deliberately Skipped (Not Relevant to Game Engine)
+
+These twinBASIC / RAD Basic features were evaluated and intentionally excluded:
+
+| Feature | Reason |
+|---------|--------|
+| COM / ActiveX | Windows-only, no game use case |
+| Win32 API (`Declare Function`) | Godot has its own platform API |
+| Standalone `.exe` compilation | Godot handles export to all platforms |
+| WebView2 embedding | Use Godot's UI system instead |
+| Inline assembly | Security risk in a scripting language |
+| Static linking | Godot GDExtension handles linking |
+| LLVM backend | Our JIT + Godot VM is sufficient |
+| Report Designer | Not relevant to game development |
+| DPI awareness | Godot handles DPI scaling natively |
+
+---
+
+## �🚀 v4.0 Roadmap — "Next Generation"
+
+Targeted improvements for a major v4.0 release. Requires v3.5.0 stable first.
+
+### Prerequisites — Ship v3.5.0 Stable
+
+Before v4 development begins, the current beta must graduate:
+
+- [ ] **macOS / ARM64 CI build** — Add `platform=macos` CI job with universal binary (x86_64 + arm64). Validate GDExtension loads on Apple Silicon.
+- [ ] **Asset Library acceptance** — Submitted, awaiting Godot team review.
+- [ ] **Calculator tutorial screenshots** — Capture real screenshots for all 📸 placeholders in `docs/tutorials/calculator_form_designer.md`.
+- [ ] **Beta → Stable testing pass** — Full test suite run, verify all demos, tag v3.5.0 stable.
+
+### 🔴 High Priority — Flagship Features
+
+1. **Live Animation for Custom Controls in Form Designer**  
+   Replace static SubViewport snapshots with per-instance live SubViewports so  
+   `@tool` controls (WobblyButton, particle effects, shader animations) play in  
+   real time on the Form Designer design surface.  
+   **Approach**:  
+   - Per-instance `SubViewportContainer` + `SubViewport` for every custom control  
+   - Instantiate `.tscn` inside SubViewport so `_process()` runs every frame  
+   - Blit `ViewportTexture` in `_draw()` at the control's rect  
+   - "Freeze Previews" toolbar toggle for lightweight static mode  
+   - Throttle to ~15 FPS when Form Designer tab is unfocused  
+   **Foundation**: SubViewport capture pipeline, `control_preview_textures` HashMap,  
+   per-control rect tracking, `.tscn` scene_path storage.  
+   **Effort**: ~4–6 hours
+
+2. **Multi-Module Project Compilation**  
+   Currently each `.vg` file is standalone. Add a project-level compilation model  
+   where `Import MathHelpers` resolves symbols across files with proper symbol tables  
+   and cross-file IntelliSense.  
+   **Scope**:  
+   - `Import <ModuleName>` statement parsed in tokenizer/parser  
+   - Project-wide symbol table built at compile time  
+   - Cross-file go-to-definition and find-all-references  
+   - Circular import detection  
+   - IntelliSense autocomplete includes imported module members  
+   **Effort**: ~8–12 hours (parser + VM + IntelliSense changes)
+
+3. **Visual Form Debugger**  
+   Click a control on the running form → jump to its event handler source.  
+   Hover a control → tooltip shows its live property values. Inspect  
+   `Me.Controls` tree during a breakpoint.  
+   **Scope**:  
+   - Design-time control → source line mapping  
+   - Runtime overlay on form showing control names and live values  
+   - "Inspect" context menu on running forms  
+   - Integration with existing debugger protocol (watchpoints, breakpoints)  
+   **Effort**: ~6–8 hours
+
+### 🟡 Medium Priority — Ecosystem Features
+
+4. **Database Controls (Data, DBGrid, DBCombo)**  
+   VB6's killer feature: data-bound controls. SQLite-backed `Data` control with  
+   bound `DBGrid`/`DBCombo` for the VB6 nostalgia crowd.  
+   **Scope**:  
+   - `Data` control wrapping SQLite (via Godot's built-in SQLite or GDExtension)  
+   - `DBGrid` — read/write data grid bound to a `Data` source  
+   - `DBCombo` — dropdown populated from a query column  
+   - `Recordset` object with `MoveFirst`/`MoveNext`/`MoveLast`/`AddNew`/`Update`/`Delete`  
+   - SQL query property on `Data` control  
+   - Design-time column layout in Form Designer  
+   **Effort**: ~8–10 hours
+
+5. **Package Manager**  
+   `vg install <package>` to pull .vg libraries from a registry (GitHub-based).  
+   **Scope**:  
+   - `vg.json` project manifest with dependencies  
+   - `Imports` resolution from `vg_modules/` folder  
+   - GitHub-backed registry (simple JSON index + tagged releases)  
+   - `vg install`, `vg update`, `vg remove` CLI commands  
+   - Tools menu integration for GUI-based package browsing  
+   **Effort**: ~6–8 hours
+
+6. **Migration Wizard v2 (Full VBP Import)**  
+   Import entire VB6 `.vbp` projects (multi-form, modules, classes, references)  
+   in one click, not just individual `.frm` files.  
+   **Scope**:  
+   - Parse all `.vbp` entries: Form=, Module=, Class=, Reference=, Object=  
+   - Batch-import all forms, modules, and classes  
+   - Generate project structure with proper `Import` statements  
+   - Conversion report summarizing what worked and what needs manual fixes  
+   - Build on existing `frm_import_plugin.gd` and `vbp_parser` infrastructure  
+   **Effort**: ~4–6 hours
+
+### 🟢 Nice-to-Have — Performance & Platform
+
+7. **macOS Universal Binary**  
+   Fill the last platform gap with fat binary (x86_64 + arm64).  
+   **Scope**:  
+   - macOS CI job (GitHub Actions `macos-latest` or `macos-14` for ARM)  
+   - `lipo` to combine architectures into universal binary  
+   - Code-signing for Gatekeeper compliance  
+   - Release pipeline integration  
+   **Effort**: ~2–3 hours
+
+8. **JIT Tier 3 (Call Graph Compilation)**  
+   Extend JIT from hot function bodies to entire call graphs — inline small  
+   callees, eliminate call overhead for tight inner loops.  
+   **Scope**:  
+   - Call graph analysis to identify hot call chains  
+   - Function inlining heuristic (size threshold, call frequency)  
+   - Inter-procedural register allocation  
+   - Would push more benchmarks past C++  
+   **Effort**: ~10+ hours
+
+9. **WebAssembly Export Validation**  
+   Godot already exports to HTML5. Ensure VisualGasic scripts work correctly  
+   in web builds (bytecode VM path, no JIT) and document the workflow.  
+   **Scope**:  
+   - Test all language features in HTML5 export  
+   - Disable JIT gracefully on WASM (already falls back to interpreter)  
+   - Fix any threading/IPC issues (no real threads in WASM)  
+   - Demo project deployed to itch.io or GitHub Pages  
+   **Effort**: ~3–4 hours
+
+### 📊 v4.0 Priority Matrix
+
+| # | Feature | Impact | Effort | Priority |
+|---|---------|--------|--------|----------|
+| 1 | Live Animation | High | 4–6 hrs | 🔴 Must-have |
+| 2 | Multi-Module Imports | Very High | 8–12 hrs | 🔴 Must-have |
+| 3 | Visual Form Debugger | High | 6–8 hrs | 🔴 Must-have |
+| 4 | Database Controls | High | 8–10 hrs | 🟡 Should-have |
+| 5 | Package Manager | Medium | 6–8 hrs | 🟡 Should-have |
+| 6 | Migration Wizard v2 | Medium | 4–6 hrs | 🟡 Should-have |
+| 7 | macOS Universal | Medium | 2–3 hrs | 🟢 Nice-to-have |
+| 8 | JIT Tier 3 | Medium | 10+ hrs | 🟢 Nice-to-have |
+| 9 | WASM Validation | Low | 3–4 hrs | 🟢 Nice-to-have |
+| | **Total (must-have)** | | **~20–26 hrs** | |
+| | **Total (all)** | | **~52–67 hrs** | |
 
 ---
 

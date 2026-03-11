@@ -315,10 +315,9 @@ VisualGasic welcomes contributions! Please see our [Contributing Guide](CONTRIBU
 
 ## 📊 **Project Status**
 
-**Current Version**: 3.5.0-beta2 (IDE Themes, VB6 Importer, Custom Controls, Language Enhancements)
+**Current Version**: 3.7.0 (Method Overloading, Parameterized Constructors, Generics, Game UI Mode)
 
-> ⚠️ **Beta:** This is an active beta. We welcome testers and feedback.
-> See [RELEASE_NOTES_v3.5.0-beta2.md](RELEASE_NOTES_v3.5.0-beta2.md) for the latest changes.
+> See [RELEASE_NOTES_v3.7.0.md](RELEASE_NOTES_v3.7.0.md) for the latest changes.
 
 **Completion Status**:
 - ✅ **Core Language** - 95% (VB6 compatibility — see [Known Issues](docs/KNOWN_ISSUES.md) for edge cases)
