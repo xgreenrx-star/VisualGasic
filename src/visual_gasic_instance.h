@@ -321,7 +321,7 @@ public:
     // Inheritance helpers
     ClassDefinition* get_class_def(const String& class_name);
     void collect_class_hierarchy(ClassDefinition* cls, Vector<ClassDefinition*>& chain);
-    SubDefinition* find_method_in_hierarchy(ClassDefinition* cls, const String& method_name);
+    SubDefinition* find_method_in_hierarchy(ClassDefinition* cls, const String& method_name, int p_arg_count = -1);
     PropertyDefinition* find_property_in_hierarchy(ClassDefinition* cls, const String& prop_name, PropertyDefinition::PropertyType ptype);
     void init_members_from_hierarchy(ClassDefinition* cls, Dictionary& obj_data);
     

@@ -79,6 +79,10 @@ void VisualGasicFormDesigner::_bind_methods() {
     ClassDB::bind_method(D_METHOD("set_window_type", "type"), &VisualGasicFormDesigner::set_window_type);
     ClassDB::bind_method(D_METHOD("get_window_type"), &VisualGasicFormDesigner::get_window_type);
 
+    // Game UI Mode
+    ClassDB::bind_method(D_METHOD("set_game_ui_mode", "enabled"), &VisualGasicFormDesigner::set_game_ui_mode);
+    ClassDB::bind_method(D_METHOD("get_game_ui_mode"), &VisualGasicFormDesigner::get_game_ui_mode);
+
     // Theme colors
     ClassDB::bind_method(D_METHOD("set_theme_colors", "colors"), &VisualGasicFormDesigner::set_theme_colors);
     ClassDB::bind_method(D_METHOD("get_theme_colors"), &VisualGasicFormDesigner::get_theme_colors);
@@ -210,6 +214,30 @@ void VisualGasicFormDesigner::_draw() {
 void VisualGasicFormDesigner::_draw_form_background() {
     // Classic VB6 form background (drawn in form-local coordinates, 0,0 = top-left of form body)
     Rect2 bg = Rect2(Vector2(), Vector2(form_size));
+
+    // Game UI Mode: dark semi-transparent canvas (simulating a game viewport)
+    if (game_ui_mode) {
+        draw_rect(bg, Color(0.12, 0.12, 0.15, 1.0)); // Dark game background
+        // Crosshair guides at center
+        Color guide = Color(0.3, 0.6, 1.0, 0.25);
+        float cx = form_size.x * 0.5f;
+        float cy = form_size.y * 0.5f;
+        draw_line(Vector2(cx, 0), Vector2(cx, form_size.y), guide, 1.0);
+        draw_line(Vector2(0, cy), Vector2(form_size.x, cy), guide, 1.0);
+        // Safe area rectangle (80% of form)
+        float mx = form_size.x * 0.1f;
+        float my = form_size.y * 0.1f;
+        draw_rect(Rect2(mx, my, form_size.x - mx * 2, form_size.y - my * 2), Color(0.3, 0.6, 1.0, 0.12), false, 1.0);
+        // "GAME UI" badge in top-left
+        Ref<Font> font = get_theme_default_font();
+        if (font.is_valid()) {
+            draw_string(font, Vector2(6, 14), "GAME UI", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.3, 0.6, 1.0, 0.5));
+        }
+        // Thin outline border (design-time only)
+        draw_rect(bg, Color(0.3, 0.6, 1.0, 0.3), false, 1.0);
+        return;
+    }
+
     draw_rect(bg, color_form_bg);
 
     // BorderStyle 0 (None) = no border, no title bar at all
@@ -2443,6 +2471,16 @@ int VisualGasicFormDesigner::get_window_type() const {
     return (int)window_type;
 }
 
+void VisualGasicFormDesigner::set_game_ui_mode(bool p_enabled) {
+    game_ui_mode = p_enabled;
+    _mark_dirty();
+    queue_redraw();
+}
+
+bool VisualGasicFormDesigner::get_game_ui_mode() const {
+    return game_ui_mode;
+}
+
 // =============================================================================
 // Theme colors — configurable from GDScript via VGFormDesignerTheme
 // =============================================================================
@@ -2814,6 +2852,8 @@ void VisualGasicFormDesigner::set_form_property(const String &p_key, const Varia
         _update_min_size();
     } else if (p_key == "WindowType" || p_key == "windowtype") {
         window_type = (WindowType)(int)p_value;
+    } else if (p_key == "GameUIMode" || p_key == "gameuimode") {
+        game_ui_mode = (bool)p_value;
     } else {
         UtilityFunctions::print("FormDesigner: Unknown form property '", p_key, "'");
         return;
@@ -2840,6 +2880,7 @@ Variant VisualGasicFormDesigner::get_form_property(const String &p_key) const {
     if (p_key == "Width" || p_key == "width") return form_size.x;
     if (p_key == "Height" || p_key == "height") return form_size.y;
     if (p_key == "WindowType" || p_key == "windowtype") return (int)window_type;
+    if (p_key == "GameUIMode" || p_key == "gameuimode") return game_ui_mode;
     return Variant();
 }
 
@@ -2863,6 +2904,7 @@ Dictionary VisualGasicFormDesigner::get_form_properties() const {
     d["AutoRedraw"]       = form_auto_redraw;
     d["Icon"]             = form_icon;
     d["WindowType"]       = (int)window_type;
+    d["GameUIMode"]       = game_ui_mode;
     return d;
 }
 
@@ -3321,19 +3363,37 @@ String VisualGasicFormDesigner::_serialize_to_tscn() const {
     out += theme_res;
     out += empty_theme_res;
 
-    // Root node (Window) — with VB6 Classic Theme applied
-    // The theme is on the root so all child controls inherit VB6 styling.
-    // Custom controls get an empty Theme blocker to preserve their own look.
-    out += "[node name=\"" + form_name + "\" type=\"Window\"]\n";
-    out += "title = \"" + form_name + "\"\n";
-    out += "position = Vector2i(10, 36)\n";
-    out += "size = Vector2i(" + String::num_int64(form_size.x) + ", " + String::num_int64(form_size.y) + ")\n";
-    out += "theme = SubResource(\"vb6_theme\")\n";
-    out += "script = ExtResource(\"" + String::num_int64(path_to_idx[vg_script_path]) + "\")\n";
-    out += "\n";
+    // Root node — Game UI mode uses CanvasLayer → Control, VB6 mode uses Window
+    if (game_ui_mode) {
+        // Game UI: CanvasLayer root with a full-rect Control child
+        out += "[node name=\"" + form_name + "\" type=\"CanvasLayer\"]\n";
+        out += "layer = 10\n";  // Render above game world
+        out += "\n";
+        // Main UI container (anchored full-rect)
+        out += "[node name=\"UI\" type=\"Control\" parent=\".\"]\n";
+        out += "layout_mode = 1\n";  // Full Rect
+        out += "anchors_preset = 15\n";  // PRESET_FULL_RECT
+        out += "anchor_right = 1.0\n";
+        out += "anchor_bottom = 1.0\n";
+        out += "grow_horizontal = 2\n";
+        out += "grow_vertical = 2\n";
+        out += "theme = SubResource(\"vb6_theme\")\n";
+        out += "script = ExtResource(\"" + String::num_int64(path_to_idx[vg_script_path]) + "\")\n";
+        out += "\n";
+    } else {
+        // VB6 Classic: Window root with VB6 Classic Theme
+        out += "[node name=\"" + form_name + "\" type=\"Window\"]\n";
+        out += "title = \"" + form_name + "\"\n";
+        out += "position = Vector2i(10, 36)\n";
+        out += "size = Vector2i(" + String::num_int64(form_size.x) + ", " + String::num_int64(form_size.y) + ")\n";
+        out += "theme = SubResource(\"vb6_theme\")\n";
+        out += "script = ExtResource(\"" + String::num_int64(path_to_idx[vg_script_path]) + "\")\n";
+        out += "\n";
+    }
 
     // _FormBackground panel
-    out += "[node name=\"_FormBackground\" type=\"Panel\" parent=\".\"]\n";
+    String parent_path = game_ui_mode ? "UI" : ".";
+    out += "[node name=\"_FormBackground\" type=\"Panel\" parent=\"" + parent_path + "\"]\n";
     out += "offset_right = " + String::num_int64(form_size.x) + ".0\n";
     out += "offset_bottom = " + String::num_int64(form_size.y) + ".0\n";
     out += "mouse_filter = 2\n";  // MOUSE_FILTER_PASS
@@ -3373,10 +3433,10 @@ String VisualGasicFormDesigner::_serialize_to_tscn() const {
 
         if (!sp.is_empty() && path_to_idx.has(sp)) {
             // Instance from prototype scene
-            out += "[node name=\"" + ctrl.name + "\" parent=\".\" instance=ExtResource(\"" + String::num_int64(path_to_idx[sp]) + "\")]\n";
+            out += "[node name=\"" + ctrl.name + "\" parent=\"" + parent_path + "\" instance=ExtResource(\"" + String::num_int64(path_to_idx[sp]) + "\")]\n";
         } else {
             // Fallback: bare type node
-            out += "[node name=\"" + ctrl.name + "\" type=\"" + ctrl.type + "\" parent=\".\"]\n";
+            out += "[node name=\"" + ctrl.name + "\" type=\"" + ctrl.type + "\" parent=\"" + parent_path + "\"]\n";
         }
 
         out += "offset_left = " + String::num_int64((int)ctrl.rect.position.x) + ".0\n";

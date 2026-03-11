@@ -325,6 +325,13 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                          else if (t == "string") val = (String)val;
                          else if (t == "boolean") val = (bool)val;
                      }
+                     // Generics Phase 1: set element_type on Collection(Of T) instances
+                     if (!s->generic_type_param.is_empty() && val.get_type() == Variant::OBJECT) {
+                         Object *obj = val;
+                         if (obj && obj->has_method("set_element_type")) {
+                             obj->call("set_element_type", s->generic_type_param);
+                         }
+                     }
                      variables[s->variable_name] = val;
                 } else if (!s->type_name.is_empty()) {
                     if (struct_prototypes.has(s->type_name)) {
@@ -337,6 +344,17 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                         else if (t == "string") variables[s->variable_name] = "";
                         else if (t == "boolean") variables[s->variable_name] = false;
                         else if (t == "dictionary") variables[s->variable_name] = Dictionary();
+                        else if (t == "collection") {
+                            // Auto-instantiate Collection (with optional generic type param)
+                            Variant col = ClassDB::instantiate("VGCollection");
+                            if (!s->generic_type_param.is_empty() && col.get_type() == Variant::OBJECT) {
+                                Object *obj = col;
+                                if (obj && obj->has_method("set_element_type")) {
+                                    obj->call("set_element_type", s->generic_type_param);
+                                }
+                            }
+                            variables[s->variable_name] = col;
+                        }
                         else variables[s->variable_name] = Variant();
                     }
                 } else {

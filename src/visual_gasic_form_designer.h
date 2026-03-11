@@ -203,6 +203,10 @@ public:
     void set_window_type(int p_type);
     int  get_window_type() const;
 
+    // --- Game UI Mode ---
+    void set_game_ui_mode(bool p_enabled);
+    bool get_game_ui_mode() const;
+
     // --- Form size ---
     void set_form_size(const Vector2i &p_size);
     Vector2i get_form_size() const;
@@ -315,6 +319,7 @@ private:
     Vector2i form_size = Vector2i(600, 400);
     bool dirty = false;
     WindowType window_type = WINDOW_GAME;
+    bool game_ui_mode = false;  // Game UI mode: dark canvas, CanvasLayer export, game controls
 
     // VB6 form properties
     FormBorderStyle form_border_style = BORDER_SIZABLE;  // Default: sizable with full chrome

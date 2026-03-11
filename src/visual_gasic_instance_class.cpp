@@ -40,9 +40,38 @@ void VisualGasicInstance::collect_class_hierarchy(ClassDefinition* cls, Vector<C
 }
 
 // Walk inheritance chain (derived first) to find a method
-SubDefinition* VisualGasicInstance::find_method_in_hierarchy(ClassDefinition* cls, const String& method_name) {
+SubDefinition* VisualGasicInstance::find_method_in_hierarchy(ClassDefinition* cls, const String& method_name, int p_arg_count) {
     Vector<ClassDefinition*> chain;
     collect_class_hierarchy(cls, chain);
+
+    // If p_arg_count >= 0, do arity-aware overload resolution (same algorithm as call_internal)
+    if (p_arg_count >= 0) {
+        SubDefinition* best = nullptr;
+        for (int c = 0; c < chain.size(); c++) {
+            for (int i = 0; i < chain[c]->methods.size(); i++) {
+                SubDefinition* m = chain[c]->methods[i];
+                if (m->name.nocasecmp_to(method_name) != 0) continue;
+
+                // Count required / total / has_paramarray
+                int required = 0, total = m->parameters.size();
+                bool has_pa = false;
+                for (int p = 0; p < total; p++) {
+                    if (m->parameters[p].is_param_array) { has_pa = true; break; }
+                    if (!m->parameters[p].is_optional) required++;
+                }
+                if (has_pa) {
+                    if (p_arg_count >= required) return m; // ParamArray accepts any extra
+                }
+                if (p_arg_count >= required && p_arg_count <= total) {
+                    if (p_arg_count == total) return m; // exact match — best possible
+                    if (!best) best = m;
+                }
+            }
+        }
+        if (best) return best;
+    }
+
+    // Fallback: first name match (backward compat / -1 sentinel)
     for (int c = 0; c < chain.size(); c++) {
         for (int i = 0; i < chain[c]->methods.size(); i++) {
             if (chain[c]->methods[i]->name.nocasecmp_to(method_name) == 0) {
@@ -298,8 +327,8 @@ Variant VisualGasicInstance::call_object_method(int obj_id, const String& method
     ClassDefinition* cls = get_class_def(class_name);
     ERR_FAIL_NULL_V_MSG(cls, Variant(), "VisualGasic: class '" + class_name + "' not found in registry");
     
-    // Find method in class hierarchy (derived-first for polymorphism)
-    SubDefinition* method = find_method_in_hierarchy(cls, method_name);
+    // Find method in class hierarchy (derived-first for polymorphism, arity-aware)
+    SubDefinition* method = find_method_in_hierarchy(cls, method_name, args.size());
     if (method) {
         Variant ret;
         execute_class_method(cls, method, obj_id, args, ret);

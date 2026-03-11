@@ -244,12 +244,25 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
     temp_local_id = 0;
     current_sub = nullptr;
     
-    // Find the entry point sub
+    // Find the entry point sub (supports overloading via $N arity suffix)
     SubDefinition* sub = nullptr;
+    String base_entry = entry_point;
+    int target_arity = -1;
+    int dollar_pos = entry_point.find("$");
+    if (dollar_pos >= 0) {
+        base_entry = entry_point.substr(0, dollar_pos);
+        target_arity = entry_point.substr(dollar_pos + 1).to_int();
+    }
     for(int i=0; i<module->subs.size(); i++) {
-        if (module->subs[i]->name.nocasecmp_to(entry_point) == 0) {
-            sub = module->subs[i];
-            break;
+        if (module->subs[i]->name.nocasecmp_to(base_entry) == 0) {
+            if (target_arity >= 0) {
+                if (module->subs[i]->parameters.size() == target_arity) {
+                    sub = module->subs[i];
+                    break;
+                }
+            } else if (!sub) {
+                sub = module->subs[i]; // First match fallback
+            }
         }
     }
     
@@ -3259,9 +3272,20 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             // that could be written back (requires interpreter for write-back)
             // Also check for ParamArray which needs interpreter
             if (current_module) {
+                SubDefinition* target_func = nullptr;
+                SubDefinition* first_match_func = nullptr;
                 for (int i = 0; i < current_module->subs.size(); i++) {
                     if (current_module->subs[i]->name.nocasecmp_to(s->method_name) == 0) {
-                        SubDefinition* target_func = current_module->subs[i];
+                        if (!first_match_func) first_match_func = current_module->subs[i];
+                        // Overload resolution: prefer exact param count match
+                        if (current_module->subs[i]->parameters.size() == (int)s->arguments.size()) {
+                            target_func = current_module->subs[i];
+                            break;
+                        }
+                    }
+                }
+                if (!target_func) target_func = first_match_func;
+                if (target_func) {
                         for (int j = 0; j < target_func->parameters.size(); j++) {
                             // ParamArray requires interpreter
                             if (target_func->parameters[j].is_param_array) {
@@ -3277,8 +3301,6 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                                 break;
                             }
                         }
-                        break;
-                    }
                 }
             }
             if (!compile_ok) break;

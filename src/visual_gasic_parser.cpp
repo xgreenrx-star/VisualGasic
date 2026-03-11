@@ -1840,6 +1840,30 @@ ExpressionNode* VisualGasicParser::parse_factor() {
              NewNode* n = static_cast<NewNode*>(register_node(new NewNode()));
              n->class_name = peek().value;
              advance();
+
+             // Handle arguments for parameterized constructors: New Class(args)
+             if (check(VisualGasicTokenizer::TOKEN_PAREN_OPEN)) {
+                 advance(); // Eat (
+                 if (!check(VisualGasicTokenizer::TOKEN_PAREN_CLOSE)) {
+                     do {
+                         if (check(VisualGasicTokenizer::TOKEN_NEWLINE) || check(VisualGasicTokenizer::TOKEN_EOF)) break;
+                         {
+                             ExpressionNode* _tmp = parse_expression();
+                             if (_tmp) {
+                                 n->args.push_back(_tmp);
+                                 unregister_node(_tmp);
+                             }
+                         }
+                         if (check(VisualGasicTokenizer::TOKEN_COMMA)) {
+                             advance();
+                         } else {
+                             break;
+                         }
+                     } while (!is_at_end());
+                 }
+                 if (check(VisualGasicTokenizer::TOKEN_PAREN_CLOSE)) advance();
+             }
+
              return n;
         } else {
              error("Expected class name after New");
@@ -2147,10 +2171,52 @@ DimStatement* VisualGasicParser::parse_dim() {
                 stmt->type_name = peek().value;
                 advance();
                 
+                // Check for generic type parameter: Collection(Of T)
+                if (check(VisualGasicTokenizer::TOKEN_PAREN_OPEN)) {
+                    // Peek ahead to see if this is (Of ...) rather than constructor args or array dims
+                    int save_pos = current_pos;
+                    advance(); // Eat (
+                    if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("Of") == 0) {
+                        advance(); // Eat Of
+                        if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER) || check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
+                            stmt->generic_type_param = peek().value;
+                            advance();
+                        }
+                        if (check(VisualGasicTokenizer::TOKEN_PAREN_CLOSE)) advance(); // Eat )
+                    } else {
+                        // Not (Of ...) — rewind so the next section handles it
+                        current_pos = save_pos;
+                    }
+                }
+                
                 // If "As New ClassName", create a NewNode as the initializer
                 if (is_new) {
                     NewNode* nn = static_cast<NewNode*>(register_node(new NewNode()));
                     nn->class_name = stmt->type_name;
+
+                    // Handle arguments for parameterized constructors: Dim x As New Class(args)
+                    if (check(VisualGasicTokenizer::TOKEN_PAREN_OPEN)) {
+                        advance(); // Eat (
+                        if (!check(VisualGasicTokenizer::TOKEN_PAREN_CLOSE)) {
+                            do {
+                                if (check(VisualGasicTokenizer::TOKEN_NEWLINE) || check(VisualGasicTokenizer::TOKEN_EOF)) break;
+                                {
+                                    ExpressionNode* _tmp = parse_expression();
+                                    if (_tmp) {
+                                        nn->args.push_back(_tmp);
+                                        unregister_node(_tmp);
+                                    }
+                                }
+                                if (check(VisualGasicTokenizer::TOKEN_COMMA)) {
+                                    advance();
+                                } else {
+                                    break;
+                                }
+                            } while (!is_at_end());
+                        }
+                        if (check(VisualGasicTokenizer::TOKEN_PAREN_CLOSE)) advance();
+                    }
+
                     stmt->initializer = nn;
                     unregister_node(nn);
                 }

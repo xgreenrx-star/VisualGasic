@@ -606,6 +606,7 @@ while leaning into our unique advantage — cross-platform game engine integrati
 > **Already shipped:** `Inherits` (v2.4.0), `AndAlso`/`OrElse` (v3.4),
 > `Return <expr>` (v3.5), `Continue For/Do/While` (v3.5), Classes + Properties (v2.4).
 > **v3.6.0 shipped:** Compound Assignment (`+=` etc.), Bit-Shift (`<<` `>>`), `LongLong` type.
+> **v3.7.0 shipped:** Method Overloading, Parameterized Constructors, Generics Phase 1, Game UI Mode.
 
 ### ✅ Shipped in v3.6.0
 
@@ -621,69 +622,30 @@ while leaning into our unique advantage — cross-platform game engine integrati
    Type alias for `Long`. `CLngLng()` conversion function. Works in `Dim`, arrays,
    arithmetic, bit-shift. 8 test assertions.
 
-### 🟡 Medium Priority — Significant Language Features
+### ✅ Shipped in v3.7.0
 
-4. **Method Overloading**
-   Define multiple `Sub`/`Function` signatures with the same name but different
-   parameter counts or types. Common in game code: `Spawn(x, y)` vs
-   `Spawn(x, y, speed, angle)`.
-   **Scope**:
-   - Parser: allow multiple `Sub Foo(...)` / `Function Foo(...)` with different arity
-   - Symbol table: store overload sets keyed by `(name, param_count)`
-   - Compiler: at call site, resolve to best-match overload by argument count (VB6-style — no type-based resolution initially)
-   - Error on ambiguous calls
-   - IntelliSense: show all overloads in autocomplete popup with numbered signatures
-   **Syntax**:
-   ```vb
-   Sub Spawn(x As Single, y As Single)
-       Spawn x, y, 100, 0   ' calls 4-param version
-   End Sub
-   Sub Spawn(x As Single, y As Single, speed As Single, angle As Single)
-       ' full version
-   End Sub
-   ```
-   **Effort**: ~4–6 hours (symbol table + compiler dispatch)
+4. **Method Overloading** ✅
+   Multiple `Sub`/`Function` signatures with the same name but different parameter counts.
+   Arity-based dispatch in compiler, bytecode VM, and AST interpreter. Class method
+   overloading via `find_method_in_hierarchy`. Falls back to first-match for backward compat.
+   11 test assertions.
 
-5. **Parameterized Constructors — `New ClassName(args)`**
-   Currently `New ClassName` calls a parameterless constructor. Game objects almost
-   always need initialization arguments: `New Bullet(speed, angle, damage)`.
-   **Scope**:
-   - Parser: parse `New Foo(expr, expr, ...)` — currently stops at `New Foo`
-   - Compiler: after `OP_NEW`, emit `OP_CALL` to `Class_Initialize` with args
-   - Allow `Class_Initialize` to accept parameters (currently must be parameterless)
-   - Backward-compatible: `New Foo` with no parens still calls zero-arg constructor
-   **Example**:
-   ```vb
-   Class Bullet
-       Private speed As Single, angle As Single, damage As Integer
-       Sub Class_Initialize(s As Single, a As Single, d As Integer)
-           speed = s : angle = a : damage = d
-       End Sub
-   End Class
+5. **Parameterized Constructors — `New ClassName(args)`** ✅
+   `New Bullet(speed, angle, damage)` and `Dim b As New Bullet(100, 45, 10)` both work.
+   Parser fixes for 2nd `New` path and `Dim As New` path. Runtime already supported args
+   passthrough to `Class_Initialize`. 8 test assertions.
 
-   Dim b As Bullet = New Bullet(300, 45, 10)
-   ```
-   **Effort**: ~3–4 hours
+6. **Generics (Typed Collections) — `Collection(Of T)`** ✅
+   `Dim enemies As New Collection(Of Sprite)` with runtime type-check on `.Add()`.
+   Parser `(Of T)` lookahead distinguishes from constructor args. Auto-instantiation
+   for `Dim col As Collection(Of Integer)` without `New`. 12 test assertions.
 
-6. **Generics (Typed Collections) — `Collection(Of T)`**
-   Type-safe collections eliminate runtime type errors. Game code is full of
-   `Collection` objects that should be typed: enemies, bullets, particles.
-   **Scope (Phase 1 — Collection only)**:
-   - Tokenizer: register `Of` as keyword (already a contextual word in some paths)
-   - Parser: parse `Dim enemies As Collection(Of Enemy)` — store generic type parameter
-   - Compiler: emit runtime type-check on `.Add()` — error if wrong type inserted
-   - IntelliSense: filter `.Item()` return type to `T` for autocomplete
-   - No user-defined generic classes yet (Phase 2)
-   **Syntax**:
-   ```vb
-   Dim enemies As New Collection(Of Sprite)
-   enemies.Add New Sprite(100, 200)     ' OK
-   enemies.Add "hello"                  ' ← COMPILE ERROR: String is not Sprite
-   Dim e As Sprite = enemies.Item(1)    ' no cast needed
-   ```
-   **Phase 2 (v4.0)**: User-defined `Class Stack(Of T)` with type parameters in
-   method signatures. Requires full type inference pass.
-   **Effort**: Phase 1 ~6–8 hours, Phase 2 ~10+ hours
+9. **Game UI Mode for Form Designer** ✅
+   Form Designer generates `CanvasLayer` root (layer 10) with full-rect `Control` child
+   instead of `Window` when game UI mode is enabled. Dark canvas background with crosshair
+   guides, safe area rectangle, and "GAME UI" badge. Toolbox gains 11 game UI controls:
+   HealthBar, ScoreLabel, DialogBox, MiniMap, Inventory, ActionButton, AmmoCounter,
+   BossBar, Crosshair, Tooltip, Pointer.
 
 ### 🟢 Nice-to-Have — Ecosystem Alignment
 
@@ -703,19 +665,6 @@ while leaning into our unique advantage — cross-platform game engine integrati
    - `[Flags]` attribute for bitfield enums
    **Effort**: ~3–4 hours
 
-9. **Game UI Mode for Form Designer**
-   Reposition the Form Designer from "Windows desktop forms" to "game HUD/menu
-   builder". Instead of generating standalone Window nodes, generate CanvasLayer
-   overlays that integrate directly with the running game scene.
-   **Scope**:
-   - New "Game UI" project template alongside existing "Standard Form"
-   - Generates `CanvasLayer` root instead of `Window`
-   - Theme presets: Retro Pixel, Modern Flat, Sci-Fi, Fantasy
-   - Anchor/margin presets for common HUD layouts (health bar, minimap, score)
-   - Export to `.tscn` with proper Godot Control anchoring
-   - Existing Form Designer remains for desktop-style apps and tutorials
-   **Effort**: ~6–8 hours
-
 ### 📊 v3.6 Priority Matrix
 
 | # | Feature | Game Dev Value | Effort | Status |
@@ -723,11 +672,11 @@ while leaning into our unique advantage — cross-platform game engine integrati
 | 1 | Compound Assignment `+=` etc. | ⭐⭐⭐⭐⭐ | 2–3 hrs | ✅ Shipped |
 | 2 | Bit-Shift `<<` `>>` | ⭐⭐⭐⭐ | 2–3 hrs | ✅ Shipped |
 | 3 | `LongLong` type alias | ⭐⭐⭐ | 1 hr | ✅ Shipped |
-| 4 | Method Overloading | ⭐⭐⭐⭐ | 4–6 hrs | 🟡 Should-have |
-| 5 | Parameterized Constructors | ⭐⭐⭐⭐⭐ | 3–4 hrs | 🟡 Should-have |
-| 6 | Generics Phase 1 | ⭐⭐⭐⭐ | 6–8 hrs | 🟡 Should-have |
+| 4 | Method Overloading | ⭐⭐⭐⭐ | 4–6 hrs | ✅ Shipped |
+| 5 | Parameterized Constructors | ⭐⭐⭐⭐⭐ | 3–4 hrs | ✅ Shipped |
+| 6 | Generics Phase 1 | ⭐⭐⭐⭐ | 6–8 hrs | ✅ Shipped |
 | 7 | Enum Declarations | ⭐⭐⭐ | 3–4 hrs | 🟢 Nice-to-have |
-| 8 | Game UI Mode | ⭐⭐⭐⭐⭐ | 6–8 hrs | 🟢 Nice-to-have |
+| 8 | Game UI Mode | ⭐⭐⭐⭐⭐ | 6–8 hrs | ✅ Shipped |
 
 ### ❌ Deliberately Skipped (Not Relevant to Game Engine)
 

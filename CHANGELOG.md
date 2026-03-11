@@ -5,6 +5,25 @@ All notable changes to Visual Gasic will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.7.0] - 2026-03-11
+
+### 🚀 OOP Power-Up — Method Overloading, Parameterized Constructors, Generics, Game UI Mode
+
+### Added
+- **Method overloading** — Define multiple `Sub`/`Function` with the same name but different parameter counts. Arity-based dispatch in bytecode compiler, AST interpreter, and class method resolution. Falls back to first-match for backward compatibility
+- **Parameterized constructors** — `New Bullet(speed, angle, damage)` and `Dim b As New Bullet(100, 45, 10)` now parse and pass args to `Class_Initialize`. Both `New` paths and `Dim As New` path support arguments
+- **Generics Phase 1 — `Collection(Of T)`** — Type-safe collections with runtime type validation on `.Add()`. Parser lookahead distinguishes `(Of T)` from constructor args. Auto-instantiation: `Dim col As Collection(Of Integer)` creates collection without explicit `New`
+- **Game UI Mode for Form Designer** — Generates `CanvasLayer` root (layer 10) with full-rect anchored `Control` child instead of `Window`. Dark canvas with crosshair guides, safe area rectangle, and "GAME UI" badge. `GameUIMode` form property for persistence
+- **11 Game UI toolbox controls** — HealthBar, ScoreLabel, DialogBox, MiniMap, Inventory, ActionButton, AmmoCounter, BossBar, Crosshair, Tooltip, Pointer
+- **31 new test assertions** — `test_method_overloading.vg` (11), `test_parameterized_constructors.vg` (8), `test_generics.vg` (12)
+
+### Changed
+- `find_method_in_hierarchy` now accepts optional arg count for arity-aware class method dispatch
+- `VGCollection::add()` type validation handles VG's string-typed numeric literals (accepts `"10"` for Integer collections)
+- Bytecode cache key uses `name$arity` mangling when overloads exist
+- Compiler call-site lookup uses two-pass: exact param count match first, then first-match fallback
+- Total test suite: 64 files, 564 assertions, 562 pass
+
 ## [3.6.0] - 2026-03-10
 
 ### 🚀 Modern Language Features — Compound Assignment, Bit-Shift, LongLong

@@ -1,0 +1,159 @@
+' Test: Method overloading
+' Tests calling overloaded Subs/Functions with different parameter counts
+Attribute VB_Name = "TestMethodOverloading"
+
+' --- Module-level overloaded Subs ---
+Sub Greet()
+	testResult = "hello"
+End Sub
+
+Sub Greet(name As String)
+	testResult = "hello " & name
+End Sub
+
+Sub Greet(name As String, times As Integer)
+	testResult = "hello " & name & " x" & Str(times)
+End Sub
+
+' --- Overloaded Functions ---
+Function Add() As Integer
+	Return 0
+End Function
+
+Function Add(a As Integer) As Integer
+	Return a
+End Function
+
+Function Add(a As Integer, b As Integer) As Integer
+	Return a + b
+End Function
+
+Function Add(a As Integer, b As Integer, c As Integer) As Integer
+	Return a + b + c
+End Function
+
+' --- Overloaded with Optional params ---
+Sub OptSub(x As Integer)
+	testResult = "one:" & Str(x)
+End Sub
+
+Sub OptSub(x As Integer, y As Integer)
+	testResult = "two:" & Str(x) & "," & Str(y)
+End Sub
+
+' --- Class with overloaded methods ---
+Class Calculator
+	Public lastOp As String
+
+	Sub Reset()
+		lastOp = "reset0"
+	End Sub
+
+	Sub Reset(value As Integer)
+		lastOp = "reset1:" & Str(value)
+	End Sub
+
+	Function Compute(a As Integer) As Integer
+		Return a * 2
+	End Function
+
+	Function Compute(a As Integer, b As Integer) As Integer
+		Return a + b
+	End Function
+End Class
+
+Dim testResult As String
+
+Sub _Ready()
+	' --- Zero-arg Sub ---
+	testResult = ""
+	Greet
+	If testResult = "hello" Then
+		Print "PASS: overload_sub_0arg"
+	Else
+		Print "FAIL: overload_sub_0arg: got " & testResult
+	End If
+
+	' --- One-arg Sub ---
+	testResult = ""
+	Greet "Alice"
+	If testResult = "hello Alice" Then
+		Print "PASS: overload_sub_1arg"
+	Else
+		Print "FAIL: overload_sub_1arg: got " & testResult
+	End If
+
+	' --- Two-arg Sub ---
+	testResult = ""
+	Greet "Bob", 3
+	If testResult = "hello Bob x3" Then
+		Print "PASS: overload_sub_2arg"
+	Else
+		Print "FAIL: overload_sub_2arg: got " & testResult
+	End If
+
+	' --- Overloaded Function: 0 args ---
+	Dim r0 As Integer = Add()
+	If r0 = 0 Then
+		Print "PASS: overload_func_0arg"
+	Else
+		Print "FAIL: overload_func_0arg: got " & Str(r0)
+	End If
+
+	' --- Overloaded Function: 1 arg ---
+	Dim r1 As Integer = Add(7)
+	If r1 = 7 Then
+		Print "PASS: overload_func_1arg"
+	Else
+		Print "FAIL: overload_func_1arg: got " & Str(r1)
+	End If
+
+	' --- Overloaded Function: 2 args ---
+	Dim r2 As Integer = Add(3, 4)
+	If r2 = 7 Then
+		Print "PASS: overload_func_2arg"
+	Else
+		Print "FAIL: overload_func_2arg: got " & Str(r2)
+	End If
+
+	' --- Overloaded Function: 3 args ---
+	Dim r3 As Integer = Add(1, 2, 3)
+	If r3 = 6 Then
+		Print "PASS: overload_func_3arg"
+	Else
+		Print "FAIL: overload_func_3arg: got " & Str(r3)
+	End If
+
+	' --- Class method overloading ---
+	Dim calc = New Calculator
+
+	calc.Reset
+	If calc.lastOp = "reset0" Then
+		Print "PASS: overload_class_method_0arg"
+	Else
+		Print "FAIL: overload_class_method_0arg: got " & calc.lastOp
+	End If
+
+	calc.Reset 42
+	If calc.lastOp = "reset1:42" Then
+		Print "PASS: overload_class_method_1arg"
+	Else
+		Print "FAIL: overload_class_method_1arg: got " & calc.lastOp
+	End If
+
+	Dim cv1 As Integer = calc.Compute(5)
+	If cv1 = 10 Then
+		Print "PASS: overload_class_func_1arg"
+	Else
+		Print "FAIL: overload_class_func_1arg: got " & Str(cv1)
+	End If
+
+	Dim cv2 As Integer = calc.Compute(5, 3)
+	If cv2 = 8 Then
+		Print "PASS: overload_class_func_2arg"
+	Else
+		Print "FAIL: overload_class_func_2arg: got " & Str(cv2)
+	End If
+
+	Print "TEST_COMPLETE"
+End Sub

@@ -1,0 +1,119 @@
+' Test: Parameterized constructors
+' Tests New ClassName(args) and Dim x As New ClassName(args)
+Attribute VB_Name = "TestParameterizedConstructors"
+
+Class Bullet
+	Public speed As Double
+	Public angle As Double
+	Public damage As Integer
+
+	Sub Class_Initialize(s As Double, a As Double, d As Integer)
+		speed = s
+		angle = a
+		damage = d
+	End Sub
+End Class
+
+Class Greeter
+	Public message As String
+
+	Sub Class_Initialize(name As String)
+		message = "Hello, " & name & "!"
+	End Sub
+
+	Function GetMessage() As String
+		Return message
+	End Function
+End Class
+
+Class DefaultInit
+	Public value As Integer
+
+	Sub Class_Initialize()
+		value = 99
+	End Sub
+End Class
+
+Class TwoArgs
+	Public x As Integer
+	Public y As Integer
+
+	Sub Class_Initialize(a As Integer, b As Integer)
+		x = a
+		y = b
+	End Sub
+
+	Function Sum() As Integer
+		Return x + y
+	End Function
+End Class
+
+Sub _Ready()
+	' --- New with 3 args ---
+	Dim b = New Bullet(100.0, 45.0, 25)
+	If b.speed = 100.0 And b.angle = 45.0 And b.damage = 25 Then
+		Print "PASS: new_three_args"
+	Else
+		Print "FAIL: new_three_args: speed=" & Str(b.speed) & " angle=" & Str(b.angle) & " damage=" & Str(b.damage)
+	End If
+
+	' --- New with 1 string arg ---
+	Dim g = New Greeter("World")
+	If g.message = "Hello, World!" Then
+		Print "PASS: new_one_string_arg"
+	Else
+		Print "FAIL: new_one_string_arg: got " & g.message
+	End If
+
+	' --- Greeter method call after parameterized init ---
+	Dim msg As String = g.GetMessage()
+	If msg = "Hello, World!" Then
+		Print "PASS: new_method_after_init"
+	Else
+		Print "FAIL: new_method_after_init: got " & msg
+	End If
+
+	' --- Dim As New with args ---
+	Dim b2 As New Bullet(200.0, 90.0, 50)
+	If b2.speed = 200.0 And b2.angle = 90.0 And b2.damage = 50 Then
+		Print "PASS: dim_as_new_args"
+	Else
+		Print "FAIL: dim_as_new_args: speed=" & Str(b2.speed) & " angle=" & Str(b2.angle) & " damage=" & Str(b2.damage)
+	End If
+
+	' --- Default constructor still works ---
+	Dim d = New DefaultInit
+	If d.value = 99 Then
+		Print "PASS: default_constructor"
+	Else
+		Print "FAIL: default_constructor: got " & Str(d.value)
+	End If
+
+	' --- Dim As New without args (default) ---
+	Dim d2 As New DefaultInit
+	If d2.value = 99 Then
+		Print "PASS: dim_as_new_default"
+	Else
+		Print "FAIL: dim_as_new_default: got " & Str(d2.value)
+	End If
+
+	' --- Function call on parameterized object ---
+	Dim ta = New TwoArgs(10, 20)
+	Dim s As Integer = ta.Sum()
+	If s = 30 Then
+		Print "PASS: parameterized_method_call"
+	Else
+		Print "FAIL: parameterized_method_call: got " & Str(s)
+	End If
+
+	' --- Multiple instances with different args ---
+	Dim g1 = New Greeter("Alice")
+	Dim g2 = New Greeter("Bob")
+	If g1.message = "Hello, Alice!" And g2.message = "Hello, Bob!" Then
+		Print "PASS: multiple_parameterized_instances"
+	Else
+		Print "FAIL: multiple_parameterized_instances: g1=" & g1.message & " g2=" & g2.message
+	End If
+
+	Print "TEST_COMPLETE"
+End Sub

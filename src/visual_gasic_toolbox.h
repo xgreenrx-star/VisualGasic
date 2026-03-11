@@ -38,10 +38,12 @@ class VisualGasicToolbox : public PanelContainer {
     Control *tabs; // Using generic Control to avoid header dependency hell if TabContainer isn't included, but we'll include it.
     GridContainer *grid_2d;
     GridContainer *grid_3d;
+    GridContainer *grid_game_ui;  // Game UI controls tab
     
     // Track which tools are "default" vs "custom" for selective removal
     int default_tool_count_2d = 0;
     int default_tool_count_3d = 0;
+    int default_tool_count_game_ui = 0;
 
     // Active tool state (for click-to-place mode)
     String active_tool_class;       // e.g. "Button", "Label" — empty = Pointer

@@ -174,6 +174,14 @@ VisualGasicToolbox::VisualGasicToolbox() {
     grid_3d->set_v_size_flags(Control::SIZE_EXPAND_FILL);
     tabs->add_child(grid_3d);
 
+    // Game UI Grid
+    grid_game_ui = memnew(GridContainer);
+    grid_game_ui->set_name("Game UI");
+    grid_game_ui->set_columns(2);
+    grid_game_ui->set_h_size_flags(Control::SIZE_EXPAND_FILL);
+    grid_game_ui->set_v_size_flags(Control::SIZE_EXPAND_FILL);
+    tabs->add_child(grid_game_ui);
+
     // Add default tools organized by type (alphabetical within groups)
     // ── Pointer ──
     add_tool("Pointer", "", "ToolSelect"); 
@@ -224,6 +232,19 @@ VisualGasicToolbox::VisualGasicToolbox() {
     // ── Non-Visual Controls ── (alphabetical)
     add_tool("Files", "FileDialog", "FileDialog", "res://addons/visual_gasic/prototypes/FileDialog.tscn"); 
     add_tool("Timer", "Timer", "Timer", "res://addons/visual_gasic/prototypes/Timer.tscn"); 
+
+    // ── Game UI Controls ── (for Game UI Mode)
+    add_tool("Pointer", "", "ToolSelect", "", "Game UI");
+    add_tool("HealthBar", "ProgressBar", "ProgressBar", "res://addons/visual_gasic/prototypes/ProgressBar.tscn", "Game UI");
+    add_tool("ScoreLabel", "Label", "Label", "res://addons/visual_gasic/prototypes/Label.tscn", "Game UI");
+    add_tool("DialogBox", "Panel", "Panel", "res://addons/visual_gasic/prototypes/Panel.tscn", "Game UI");
+    add_tool("MiniMap", "TextureRect", "TextureRect", "res://addons/visual_gasic/prototypes/TextureRect.tscn", "Game UI");
+    add_tool("Inventory", "Panel", "Panel", "res://addons/visual_gasic/prototypes/Panel.tscn", "Game UI");
+    add_tool("ActionButton", "Button", "Button", "res://addons/visual_gasic/prototypes/Button.tscn", "Game UI");
+    add_tool("AmmoCounter", "Label", "Label", "res://addons/visual_gasic/prototypes/Label.tscn", "Game UI");
+    add_tool("BossBar", "ProgressBar", "ProgressBar", "res://addons/visual_gasic/prototypes/ProgressBar.tscn", "Game UI");
+    add_tool("Crosshair", "TextureRect", "TextureRect", "res://addons/visual_gasic/prototypes/TextureRect.tscn", "Game UI");
+    add_tool("Tooltip", "Panel", "Panel", "res://addons/visual_gasic/prototypes/Panel.tscn", "Game UI");
     
     // Mark these as default tools (won't be removed by clear_custom_tools)
     mark_defaults();
@@ -260,6 +281,8 @@ void VisualGasicToolbox::add_tool(const String &p_name, const String &p_godot_cl
     
     if (p_category == "3D") {
         grid_3d->add_child(btn);
+    } else if (p_category == "Game UI") {
+        grid_game_ui->add_child(btn);
     } else {
         grid_2d->add_child(btn);
     }
@@ -284,6 +307,15 @@ void VisualGasicToolbox::remove_tool(const String &p_name) {
             return;
         }
     }
+    // Search in Game UI grid
+    for (int i = 0; i < grid_game_ui->get_child_count(); i++) {
+        Node *child = grid_game_ui->get_child(i);
+        if (child->get_name() == p_name) {
+            grid_game_ui->remove_child(child);
+            child->queue_free();
+            return;
+        }
+    }
 }
 
 void VisualGasicToolbox::clear_custom_tools() {
@@ -300,11 +332,18 @@ void VisualGasicToolbox::clear_custom_tools() {
         grid_3d->remove_child(child);
         child->queue_free();
     }
+    // Game UI grid
+    while (grid_game_ui->get_child_count() > default_tool_count_game_ui) {
+        Node *child = grid_game_ui->get_child(grid_game_ui->get_child_count() - 1);
+        grid_game_ui->remove_child(child);
+        child->queue_free();
+    }
 }
 
 void VisualGasicToolbox::mark_defaults() {
     default_tool_count_2d = grid_2d->get_child_count();
     default_tool_count_3d = grid_3d->get_child_count();
+    default_tool_count_game_ui = grid_game_ui->get_child_count();
 }
 
 // =============================================================================
@@ -350,6 +389,7 @@ void VisualGasicToolbox::_update_button_states() {
     };
     _depress(grid_2d);
     _depress(grid_3d);
+    _depress(grid_game_ui);
 }
 
 String VisualGasicToolbox::get_active_tool_class() const {

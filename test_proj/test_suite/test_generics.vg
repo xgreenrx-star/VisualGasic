@@ -1,0 +1,75 @@
+' Test: Generics Phase 1 — Collection(Of T)
+' Tests typed collections with compile-time type parameter
+Attribute VB_Name = "TestGenerics"
+
+Sub _Ready()
+	' --- Collection(Of Integer) accepts integers ---
+	Dim intCol As New Collection(Of Integer)
+	intCol.Add 10
+	intCol.Add 20
+	intCol.Add 30
+	If intCol.Count = 3 Then
+		Print "PASS: collection_of_integer_add"
+	Else
+		Print "FAIL: collection_of_integer_add: count=" & Str(intCol.Count)
+	End If
+
+	' --- Read back values ---
+	If intCol.Item(1) = 10 And intCol.Item(2) = 20 And intCol.Item(3) = 30 Then
+		Print "PASS: collection_of_integer_read"
+	Else
+		Print "FAIL: collection_of_integer_read"
+	End If
+
+	' --- Collection(Of String) accepts strings ---
+	Dim strCol As New Collection(Of String)
+	strCol.Add "hello"
+	strCol.Add "world"
+	If strCol.Count = 2 And strCol.Item(1) = "hello" Then
+		Print "PASS: collection_of_string_add"
+	Else
+		Print "FAIL: collection_of_string_add"
+	End If
+
+	' --- Collection(Of Double) ---
+	Dim dblCol As New Collection(Of Double)
+	dblCol.Add 3.14
+	dblCol.Add 2.71
+	If dblCol.Count = 2 Then
+		Print "PASS: collection_of_double_add"
+	Else
+		Print "FAIL: collection_of_double_add: count=" & Str(dblCol.Count)
+	End If
+
+	' --- Untyped collection still works ---
+	Dim anyCol As New Collection
+	anyCol.Add 42
+	anyCol.Add "mixed"
+	anyCol.Add 3.14
+	If anyCol.Count = 3 Then
+		Print "PASS: untyped_collection"
+	Else
+		Print "FAIL: untyped_collection"
+	End If
+
+	' --- Dim without New auto-instantiates ---
+	Dim autoCol As Collection(Of Integer)
+	autoCol.Add 100
+	If autoCol.Count = 1 And autoCol.Item(1) = 100 Then
+		Print "PASS: auto_instantiate_typed"
+	Else
+		Print "FAIL: auto_instantiate_typed"
+	End If
+
+	' --- Collection with key ---
+	Dim keyCol As New Collection(Of String)
+	keyCol.Add "alpha", "a"
+	keyCol.Add "beta", "b"
+	If keyCol.Item("a") = "alpha" And keyCol.Item("b") = "beta" Then
+		Print "PASS: typed_collection_with_key"
+	Else
+		Print "FAIL: typed_collection_with_key"
+	End If
+
+	Print "TEST_COMPLETE"
+End Sub

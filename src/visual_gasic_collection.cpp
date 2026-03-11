@@ -27,6 +27,10 @@ void VGCollection::_bind_methods() {
     ClassDB::bind_method(D_METHOD("Keys"), &VGCollection::get_keys);
     ClassDB::bind_method(D_METHOD("Count"), &VGCollection::get_count);
 
+    // Generics Phase 1: element type constraint
+    ClassDB::bind_method(D_METHOD("set_element_type", "type"), &VGCollection::set_element_type);
+    ClassDB::bind_method(D_METHOD("get_element_type"), &VGCollection::get_element_type);
+
     ADD_PROPERTY(PropertyInfo(Variant::INT, "Count"), "", "get_count");
 }
 
@@ -34,6 +38,48 @@ VGCollection::VGCollection() {}
 VGCollection::~VGCollection() {}
 
 void VGCollection::add(const Variant &p_item, const String &p_key, int p_before, int p_after) {
+    // Generics Phase 1: type-check incoming item against element_type constraint
+    if (!element_type.is_empty()) {
+        bool type_ok = false;
+        String et = element_type.to_lower();
+        Variant::Type vt = p_item.get_type();
+        if (et == "integer" || et == "int" || et == "long" || et == "longlong") {
+            // VG stores numeric literals as strings; accept INT, FLOAT (truncatable), or numeric strings
+            type_ok = (vt == Variant::INT || vt == Variant::FLOAT ||
+                       (vt == Variant::STRING && String(p_item).is_valid_int()));
+        } else if (et == "double" || et == "single" || et == "float" || et == "currency") {
+            type_ok = (vt == Variant::FLOAT || vt == Variant::INT ||
+                       (vt == Variant::STRING && String(p_item).is_valid_float()));
+        } else if (et == "string") {
+            type_ok = (vt == Variant::STRING);
+        } else if (et == "boolean") {
+            type_ok = (vt == Variant::BOOL ||
+                       (vt == Variant::STRING && (String(p_item).to_lower() == "true" || String(p_item).to_lower() == "false")));
+        } else if (et == "variant") {
+            type_ok = true; // Any type
+        } else {
+            // Class type check: item should be an int (object ID) or Object
+            if (p_item.get_type() == Variant::OBJECT) {
+                Object *obj = p_item;
+                if (obj && obj->is_class(element_type)) type_ok = true;
+            } else if (p_item.get_type() == Variant::INT) {
+                type_ok = true; // VG class objects are stored as int IDs — trust at runtime
+            } else if (p_item.get_type() == Variant::DICTIONARY) {
+                // VG class instances are dictionaries with __class__ key
+                Dictionary d = p_item;
+                if (d.has("__class__")) {
+                    String cls = d["__class__"];
+                    type_ok = (cls.nocasecmp_to(element_type) == 0);
+                }
+            }
+        }
+        if (!type_ok) {
+            UtilityFunctions::printerr("[VGCollection] Type mismatch: expected '", element_type,
+                "', got ", Variant::get_type_name(p_item.get_type()));
+            return;
+        }
+    }
+
     // Check for duplicate key
     if (!p_key.is_empty()) {
         if (key_to_index.has(p_key)) {
@@ -147,4 +193,12 @@ void VGCollection::clear() {
 
 Array VGCollection::to_array() const {
     return items_array;
+}
+
+void VGCollection::set_element_type(const String &p_type) {
+    element_type = p_type;
+}
+
+String VGCollection::get_element_type() const {
+    return element_type;
 }

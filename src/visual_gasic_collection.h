@@ -37,6 +37,10 @@ public:
     // For Each support
     Array to_array() const;
 
+    // Generics Phase 1: Collection(Of T) type constraint
+    void set_element_type(const String &p_type);
+    String get_element_type() const;
+
     // VB6-style aliases
     // Add, Remove, Item, Count — bound in _bind_methods
 
@@ -44,6 +48,7 @@ private:
     Array items_array;           // Ordered items
     Array keys_array;            // Parallel array of String keys ("" if no key)
     Dictionary key_to_index;     // key → index in items_array (for fast lookup)
+    String element_type;         // Generic constraint: "" = any, "Integer"/"String"/"Sprite" etc.
 };
 
 } // namespace godot

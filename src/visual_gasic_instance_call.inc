@@ -15,12 +15,32 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
     }
 
     SubDefinition *func = nullptr;
+    SubDefinition *first_match = nullptr;
+    int call_arg_count = p_args.size();
     for(int i=0; i<script->ast_root->subs.size(); i++) {
         if (script->ast_root->subs[i]->name.nocasecmp_to(p_method) == 0) {
-            func = script->ast_root->subs[i];
-            break;
+            if (!first_match) first_match = script->ast_root->subs[i];
+            int param_count = script->ast_root->subs[i]->parameters.size();
+            // Exact param count match
+            if (param_count == call_arg_count) {
+                func = script->ast_root->subs[i];
+                break;
+            }
+            // Optional parameters: check if arg_count falls within [required, total] range
+            int required = 0;
+            for (int j = 0; j < param_count; j++) {
+                if (!script->ast_root->subs[i]->parameters[j].is_optional &&
+                    !script->ast_root->subs[i]->parameters[j].is_param_array)
+                    required++;
+            }
+            bool has_param_array = param_count > 0 && script->ast_root->subs[i]->parameters[param_count - 1].is_param_array;
+            if (has_param_array ? (call_arg_count >= required) : (call_arg_count >= required && call_arg_count <= param_count)) {
+                func = script->ast_root->subs[i];
+                break;
+            }
         }
     }
+    if (!func) func = first_match; // Backward compat: single-overload always matches
     
     if (!func) return Variant();
     r_found = true;
@@ -47,7 +67,16 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
     // the AST at runtime.  The compiler already collects every Dim/For/
     // ForEach variable name into BytecodeChunk::local_names, so we can
     // just iterate that flat vector — O(locals) instead of O(AST nodes).
-    BytecodeChunk *chunk_for_locals = script.is_valid() ? script->get_bytecode_for(func->name) : nullptr;
+    // v3.7: Use mangled bytecode key for overloaded functions (name$arity)
+    String bytecode_key = func->name;
+    for (int _oi = 0; _oi < script->ast_root->subs.size(); _oi++) {
+        if (script->ast_root->subs[_oi] != func &&
+            script->ast_root->subs[_oi]->name.nocasecmp_to(func->name) == 0) {
+            bytecode_key = func->name + "$" + String::num_int64(func->parameters.size());
+            break;
+        }
+    }
+    BytecodeChunk *chunk_for_locals = script.is_valid() ? script->get_bytecode_for(bytecode_key) : nullptr;
     if (chunk_for_locals) {
         for (int i = 0; i < chunk_for_locals->local_names.size(); i++) {
             const String &lname = chunk_for_locals->local_names[i];

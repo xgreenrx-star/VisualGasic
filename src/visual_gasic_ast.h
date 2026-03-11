@@ -355,6 +355,7 @@ struct DimStatement : public Statement {
     String variable_name;
     Vector<ExpressionNode*> array_sizes; // Empty if scalar
     String type_name; // "" for Variant/Object, or name of UDT
+    String generic_type_param; // For Collection(Of T) — stores "T" (e.g. "Sprite", "Integer")
     ExpressionNode* initializer;
     bool is_static;
     bool is_dynamic_array; // True for Dim arr() As Integer (empty parentheses)

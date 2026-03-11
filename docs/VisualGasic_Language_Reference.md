@@ -659,6 +659,41 @@ The **Property Inspector** (right dock) shows VB6-style properties for selected 
 - **Font** - Text font properties
 - **BackColor/ForeColor** - Colors
 
+### Game UI Mode (v3.7.0) {#game-ui-mode}
+
+The Form Designer supports a **Game UI Mode** that generates `CanvasLayer` overlays for in-game HUD elements instead of standalone `Window` nodes.
+
+**Enabling Game UI Mode:**
+- Set the form's `GameUIMode` property to `True` in the Property Inspector
+- Or call `set_game_ui_mode(true)` programmatically
+
+**Visual differences in Game UI Mode:**
+- Dark canvas background (game-like) instead of Windows-style form
+- Blue crosshair center guides for layout alignment
+- 80% safe area rectangle for mobile-friendly design
+- "GAME UI" badge in top-left corner
+
+**Export behavior:**
+- Generates `CanvasLayer` root node (layer 10) instead of `Window`
+- Child controls are parented to a full-rect `Control` node with `anchors_preset = 15` (full rect)
+- Compatible with running game scenes — the overlay sits on top of 2D/3D content
+
+**Game UI Toolbox Controls:**
+
+| Control | Description |
+|---------|-------------|
+| Pointer | Mouse cursor / selection tool |
+| HealthBar | Player health display |
+| ScoreLabel | Score/points display |
+| DialogBox | NPC dialogue / story text |
+| MiniMap | Mini-map overlay |
+| Inventory | Item grid / inventory panel |
+| ActionButton | Action/ability button |
+| AmmoCounter | Ammunition display |
+| BossBar | Boss health bar |
+| Crosshair | Aiming crosshair |
+| Tooltip | Hover tooltip |
+
 ### Menu Editor
 
 The **Menu Editor** provides visual menu bar design:
@@ -1938,6 +1973,105 @@ End Sub
 ---
 
 ## Object-Oriented Features
+
+### Method Overloading (v3.7.0) {#method-overloading}
+
+Define multiple `Sub` or `Function` with the same name but different parameter counts.
+The runtime selects the best match based on the number of arguments passed (arity-based dispatch).
+
+```vb
+' Module-level overloads
+Sub Spawn(x As Single, y As Single)
+    ' 2-arg version: uses default speed/angle
+    Spawn x, y, 100, 0
+End Sub
+
+Sub Spawn(x As Single, y As Single, speed As Single, angle As Single)
+    ' 4-arg version: full control
+    CreateBullet x, y, speed, angle
+End Sub
+
+' Class method overloads
+Class Calculator
+    Function Add(a As Integer) As Integer
+        Return a
+    End Function
+    Function Add(a As Integer, b As Integer) As Integer
+        Return a + b
+    End Function
+    Function Add(a As Integer, b As Integer, c As Integer) As Integer
+        Return a + b + c
+    End Function
+End Class
+
+Dim calc = New Calculator
+Print calc.Add(5)       ' → 5
+Print calc.Add(3, 4)    ' → 7
+Print calc.Add(1, 2, 3) ' → 6
+```
+
+**Rules:**
+- Overloads are resolved by argument count only (no type-based overloading yet)
+- If no exact arity match exists, Optional parameters are considered
+- Falls back to first-match if no arity match is found (backward compatibility)
+- Works in module-level subs/functions, class methods, and bytecode-compiled code
+
+### Parameterized Constructors (v3.7.0) {#parameterized-constructors}
+
+Pass arguments to `Class_Initialize` when creating new objects.
+
+```vb
+Class Bullet
+    Public speed As Double
+    Public angle As Double
+    Public damage As Integer
+
+    Sub Class_Initialize(s As Double, a As Double, d As Integer)
+        speed = s
+        angle = a
+        damage = d
+    End Sub
+End Class
+
+' Both syntaxes work:
+Dim b1 = New Bullet(300, 45, 10)
+Dim b2 As New Bullet(200, 90, 25)
+```
+
+**Notes:**
+- `New ClassName` with no parentheses still calls zero-arg `Class_Initialize`
+- Arguments are passed directly to `Class_Initialize` parameters
+- Works with `Dim x = New Class(args)` and `Dim x As New Class(args)` forms
+
+### Generics Phase 1 — Collection(Of T) (v3.7.0) {#generics}
+
+Type-safe collections with runtime type validation on `.Add()`.
+
+```vb
+' Typed collection — only accepts integers
+Dim scores As New Collection(Of Integer)
+scores.Add 100     ' OK
+scores.Add 200     ' OK
+' scores.Add "hi" ' ERROR: Type mismatch
+
+' Typed collection of strings
+Dim names As New Collection(Of String)
+names.Add "Alice"
+names.Add "Bob"
+
+' Auto-instantiation (no New required)
+Dim items As Collection(Of Double)
+items.Add 3.14    ' Collection created automatically
+
+' Untyped collection still works
+Dim anything As New Collection
+anything.Add 42
+anything.Add "mixed"
+anything.Add 3.14
+```
+
+**Supported type parameters:** `Integer`, `Long`, `LongLong`, `Double`, `Single`, `Float`,
+`String`, `Boolean`, `Variant` (any type), and any class name.
 
 ### Classes and Types
 
