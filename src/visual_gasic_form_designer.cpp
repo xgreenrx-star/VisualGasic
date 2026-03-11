@@ -1962,17 +1962,32 @@ void VisualGasicFormDesigner::_create_preview_layer() {
 
 void VisualGasicFormDesigner::_create_live_preview(int idx) {
     if (!preview_container || idx < 0 || idx >= controls.size()) return;
-    const FormControlItem &item = controls[idx];
+    FormControlItem &item = controls.write[idx];
 
     // Destroy existing preview for this name if any
     _destroy_live_preview(item.name);
 
-    if (item.scene_path.is_empty()) return;
+    // ── Resolve scene_path from type when empty ──
+    String scene_path = item.scene_path;
+    if (scene_path.is_empty() && !item.type.is_empty()) {
+        // Try game_ui subfolder first, then top-level prototypes
+        String game_ui_path = "res://addons/visual_gasic/prototypes/game_ui/" + item.type + ".tscn";
+        String standard_path = "res://addons/visual_gasic/prototypes/" + item.type + ".tscn";
+        if (FileAccess::file_exists(game_ui_path)) {
+            scene_path = game_ui_path;
+            item.scene_path = game_ui_path;
+        } else if (FileAccess::file_exists(standard_path)) {
+            scene_path = standard_path;
+            item.scene_path = standard_path;
+        }
+    }
+
+    if (scene_path.is_empty()) return;
 
     // Load and instantiate the prototype scene
-    Ref<PackedScene> scene = ResourceLoader::get_singleton()->load(item.scene_path);
+    Ref<PackedScene> scene = ResourceLoader::get_singleton()->load(scene_path);
     if (!scene.is_valid()) {
-        UtilityFunctions::print("FormDesigner: Could not load scene for live preview: ", item.scene_path);
+        UtilityFunctions::print("FormDesigner: Could not load scene for live preview: ", scene_path);
         return;
     }
 
@@ -1987,14 +2002,30 @@ void VisualGasicFormDesigner::_create_live_preview(int idx) {
     }
 
     ctrl->set_name("__lp_" + item.name);
+
+    // Add to tree FIRST so _ready() runs and _build_ui() creates children
+    preview_container->add_child(ctrl);
+
+    // ── Force design-time visibility ──
+    // Many prototypes (GameMenu, NotificationToast, etc.) set visible=false
+    // in _build_ui() — override that for design-time preview.
+    ctrl->set_visible(true);
+    ctrl->set_modulate(Color(1, 1, 1, 1));
+
+    // ── Reset anchors so our explicit position/size takes effect ──
+    // Prototypes like GameMenu call set_anchors_and_offsets_preset(FULL_RECT)
+    // which would stretch them to fill the preview_container.
+    ctrl->set_anchors_preset(Control::PRESET_TOP_LEFT);
+    ctrl->set_anchor(SIDE_RIGHT, 0);
+    ctrl->set_anchor(SIDE_BOTTOM, 0);
     ctrl->set_position(item.rect.position);
     ctrl->set_custom_minimum_size(Vector2());
     ctrl->set_size(item.rect.size);
 
-    // Prevent live preview from stealing mouse events
+    // ── Prevent live preview from stealing mouse events ──
+    // Apply AFTER add_child so _ready() children are already created.
     _set_mouse_filter_recursive(ctrl);
 
-    preview_container->add_child(ctrl);
     live_previews[item.name] = ctrl;
 
     // Sync basic display properties from the form data model
@@ -2017,6 +2048,10 @@ void VisualGasicFormDesigner::_sync_live_preview_rect(int idx) {
 
     Control *ctrl = Object::cast_to<Control>(live_previews[item.name]);
     if (ctrl) {
+        // Ensure anchors stay at top-left (prototypes may reset them)
+        ctrl->set_anchors_preset(Control::PRESET_TOP_LEFT);
+        ctrl->set_anchor(SIDE_RIGHT, 0);
+        ctrl->set_anchor(SIDE_BOTTOM, 0);
         ctrl->set_position(item.rect.position);
         ctrl->set_size(item.rect.size);
     }
@@ -2037,10 +2072,12 @@ void VisualGasicFormDesigner::_sync_live_preview_properties(int idx) {
         }
     }
 
-    // Sync visibility
+    // Force design-time visibility — override _build_ui() hiding
     Control *ctrl = Object::cast_to<Control>(node);
     if (ctrl) {
         ctrl->set_visible(item.visible);
+        // Always reset modulate to fully opaque so animations don't hide controls
+        ctrl->set_modulate(Color(1, 1, 1, 1));
     }
 }
 
