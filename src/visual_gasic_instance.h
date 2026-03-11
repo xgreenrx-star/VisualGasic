@@ -19,6 +19,7 @@ using namespace VisualGasic;
 class VisualGasicInstance {
     Ref<VisualGasicScript> script;
     Object *owner;
+    ModuleNode* cached_ast_root = nullptr; // Cached for enum/struct lookups
     Dictionary variables; // Variable storage
     Dictionary open_files; // Map<int, Ref<FileAccess>>
     Dictionary static_variables; // Persist across calls (Static keyword)

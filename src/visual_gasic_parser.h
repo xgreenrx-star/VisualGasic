@@ -105,7 +105,7 @@ private:
     ExpressionNode* parse_optional_access();
     ExpressionNode* parse_type_check();
     
-    void parse_enum(); // Parses Enum block
+    void parse_enum(bool p_is_flags = false); // Parses Enum block
 
     // Expression parsing
     ExpressionNode* parse_expression(); // Pythonic If-Else

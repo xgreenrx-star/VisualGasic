@@ -1650,6 +1650,16 @@ x <<= 4    ' x = x << 4      (left shift)
 x >>= 2    ' x = x >> 2      (right shift)
 ```
 
+#### Keyword Compound Assignment Operators *(v3.8.0)*
+```vb
+flags And= mask      ' flags = flags And mask   (bitwise AND)
+flags Or= newFlag    ' flags = flags Or newFlag (bitwise OR)
+flags Xor= toggle    ' flags = flags Xor toggle (bitwise XOR)
+x Mod= divisor       ' x = x Mod divisor       (modulo)
+```
+
+> **Note:** `And`, `Or`, and `Xor` perform **bitwise** operations when both operands are numeric (VB6 semantics). They fall back to **logical** boolean operations when either operand is non-numeric.
+
 ### Comments
 
 ```vb
@@ -5554,6 +5564,40 @@ Dim values = Color.Values()      ' → [{Name: "Red", Value: 1}, ...]
 Print Color.ToString(3)          ' → Blue
 ```
 
+#### `<Flags>` Enum *(v3.8.0)* {#flags-enum}
+
+Mark an enum as a bitfield with the `<Flags>` attribute. This enables `HasFlag()` and flags-aware `ToString()` decomposition:
+
+```vb
+<Flags>
+Enum Permissions
+    Read = 1
+    Write = 2
+    Execute = 4
+End Enum
+
+' Combine flags with Or
+Dim p = Permissions.Read Or Permissions.Write   ' 3
+
+' Check flags
+Print Permissions.HasFlag(p, Permissions.Read)   ' True
+Print Permissions.HasFlag(p, Permissions.Execute) ' False
+
+' Flags ToString decomposes combined values
+Print Permissions.ToString(3)    ' → "Read, Write"
+Print Permissions.ToString(7)    ' → "Read, Write, Execute"
+Print Permissions.ToString(5)    ' → "Read, Execute"
+
+' Compound assignment with keyword operators
+Dim mask = 0
+mask Or= Permissions.Read        ' Add Read flag
+mask Or= Permissions.Execute     ' Add Execute flag
+mask And= Not(Permissions.Read)  ' Remove Read flag
+mask Xor= Permissions.Execute    ' Toggle Execute flag
+```
+
+> **Note:** `ToString()` uses a greedy largest-first decomposition. If the combined value doesn't exactly decompose into named members, the raw integer is returned.
+
 ### Swap Statement
 
 ```vb
@@ -5734,6 +5778,10 @@ Compound assignment operators combine a binary operation with assignment. They a
 | `^=` | `x = x ^ y` | Exponentiation |
 | `<<=` | `x = x << y` | Left bit-shift |
 | `>>=` | `x = x >> y` | Right bit-shift |
+| `And=` | `x = x And y` | Bitwise AND *(v3.8.0)* |
+| `Or=` | `x = x Or y` | Bitwise OR *(v3.8.0)* |
+| `Xor=` | `x = x Xor y` | Bitwise XOR *(v3.8.0)* |
+| `Mod=` | `x = x Mod y` | Modulo *(v3.8.0)* |
 
 ```vb
 Dim score As Integer = 100
@@ -5869,6 +5917,82 @@ The Form Designer supports a **Game UI Mode** that generates `CanvasLayer` overl
 - Dark canvas background with crosshair guides and safe area rectangle
 - Exports `CanvasLayer` root (layer 10) with full-rect anchored `Control` child
 - 11 new Game UI toolbox controls: HealthBar, ScoreLabel, DialogBox, MiniMap, Inventory, ActionButton, AmmoCounter, BossBar, Crosshair, Tooltip, Pointer
+
+---
+
+## v3.8.0 Language Enhancements {#v380-language-enhancements}
+
+*Released in v3.8.0.* This release completes the v3.6 roadmap by adding keyword compound assignment operators and enhancing Enums with `<Flags>` attribute support.
+
+### Keyword Compound Assignment Operators {#keyword-compound-assignment-v380}
+
+Four new compound assignment operators that use VB keywords instead of symbolic operators:
+
+| Operator | Equivalent | Description |
+|----------|------------|-------------|
+| `And=` | `x = x And y` | Bitwise AND assignment |
+| `Or=` | `x = x Or y` | Bitwise OR assignment |
+| `Xor=` | `x = x Xor y` | Bitwise XOR assignment |
+| `Mod=` | `x = x Mod y` | Modulo assignment |
+
+```vb
+Dim flags As Integer = 15       ' 1111 in binary
+flags And= 6                    ' 0110 → flags = 6
+flags Or= 8                     ' 1110 → flags = 14
+flags Xor= 2                    ' 1100 → flags = 12
+Dim remainder As Integer = 17
+remainder Mod= 5                ' 2
+```
+
+These operators are desugared at parse time, just like `+=` and `-=`. They work on any L-value (simple variable, array element, object member).
+
+### Bitwise And/Or/Xor Semantics {#bitwise-semantics-v380}
+
+`And`, `Or`, and `Xor` now perform **bitwise** operations when both operands are numeric, matching VB6 semantics:
+
+```vb
+' Bitwise (both operands are numeric)
+Print 12 And 10     ' → 8   (1100 & 1010 = 1000)
+Print 12 Or 3       ' → 15  (1100 | 0011 = 1111)
+Print 12 Xor 10     ' → 6   (1100 ^ 1010 = 0110)
+
+' Logical (non-numeric operands — unchanged behaviour)
+If x > 0 And y > 0 Then ...    ' logical AND
+If a Or b Then ...              ' logical OR
+```
+
+### Enhanced Enum with `<Flags>` {#enhanced-enum-v380}
+
+The `<Flags>` attribute marks an enum as a bitfield, enabling two new capabilities:
+
+**`HasFlag(value, flag)`** — Tests whether a combined value contains a specific flag:
+
+```vb
+<Flags>
+Enum Layers
+    Ground = 1
+    Water = 2
+    Air = 4
+    All = 7
+End Enum
+
+Dim mask = Layers.Ground Or Layers.Air   ' 5
+Print Layers.HasFlag(mask, Layers.Ground)  ' True
+Print Layers.HasFlag(mask, Layers.Water)   ' False
+Print Layers.HasFlag(mask, Layers.All)     ' False (5 And 7 ≠ 7)
+```
+
+**Flags-aware `ToString()`** — Decomposes combined values into named members:
+
+```vb
+Print Layers.ToString(5)   ' → "Ground, Air"
+Print Layers.ToString(7)   ' → "All"  (exact match takes priority)
+Print Layers.ToString(3)   ' → "Ground, Water"
+```
+
+### Compile-Time Enum Resolution {#compile-time-enum-v380}
+
+Enum member access (`MyEnum.MemberName`) is now resolved at compile time in the bytecode compiler. This eliminates runtime member lookups and produces a simple constant-load instruction.
 
 ---
 This documentation provides a comprehensive overview of VisualGasic's advanced capabilities and modern language features. The format is professional and showcases VisualGasic as a powerful, contemporary programming language for cross-platform application and game development.

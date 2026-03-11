@@ -648,6 +648,7 @@ void VisualGasicInstance::prune_fast_dict_cache_if_needed() {
 VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object *p_owner) {
     script = p_script;
     owner = p_owner;
+    cached_ast_root = nullptr;
     error_state.mode = ErrorState::NONE;
     error_state.has_error = false;
     current_sub = nullptr;
@@ -847,6 +848,7 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
     if (script.is_valid()) {
         VisualGasicScript *vs = Object::cast_to<VisualGasicScript>(script.ptr());
         if (vs && vs->ast_root) {
+            cached_ast_root = vs->ast_root;
             // Module-level Variables
             // Note: Parser stores module level Dims in 'variables' (VariableDefinition) 
             // BUT parser.h says parse_program calls parse_statement... 

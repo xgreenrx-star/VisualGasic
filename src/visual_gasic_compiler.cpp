@@ -5555,6 +5555,7 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
         }
         case ExpressionNode::MEMBER_ACCESS: {
             MemberAccessNode* ma = (MemberAccessNode*)expr;
+            bool resolved = false;
             // Check for Color.White, Color.Red, etc. — named color constants
             if (ma->base_object && ma->base_object->type == ExpressionNode::VARIABLE) {
                 String base_name = ((VariableNode*)ma->base_object)->name;
@@ -5562,11 +5563,28 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                     Color c = Color::named(ma->member_name);
                     int cidx = current_chunk->add_constant(c);
                     emit_bytes(OP_CONSTANT, (uint8_t)cidx);
-                    break;
+                    resolved = true;
+                }
+                // VG Enum dot access: EnumName.MemberName → compile-time constant
+                if (!resolved && current_module) {
+                    for (int ei = 0; ei < current_module->enums.size(); ei++) {
+                        EnumDefinition* ed = current_module->enums[ei];
+                        if (ed->name.nocasecmp_to(base_name) == 0) {
+                            for (int vi = 0; vi < ed->values.size(); vi++) {
+                                if (ed->values[vi].name.nocasecmp_to(ma->member_name) == 0) {
+                                    int cidx = current_chunk->add_constant(Variant(ed->values[vi].value));
+                                    emit_bytes(OP_CONSTANT, (uint8_t)cidx);
+                                    resolved = true;
+                                    break;
+                                }
+                            }
+                            break; // Enum found but member not found — fall through
+                        }
+                    }
                 }
             }
             // Check if this is ClassName.CONSTANT (Godot class enum constant)
-            if (ma->base_object && ma->base_object->type == ExpressionNode::VARIABLE) {
+            if (!resolved && ma->base_object && ma->base_object->type == ExpressionNode::VARIABLE) {
                 String class_name = ((VariableNode*)ma->base_object)->name;
                 if (ClassDB::class_exists(class_name)) {
                     // Try member name as-is first, then UPPER_CASE.
@@ -5580,13 +5598,15 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                         int64_t val = ClassDB::class_get_integer_constant(class_name, mname);
                         int cidx = current_chunk->add_constant(Variant((int)val));
                         emit_bytes(OP_CONSTANT, (uint8_t)cidx);
-                        break;
+                        resolved = true;
                     }
                 }
             }
-            compile_expression(ma->base_object);
-            int idx = current_chunk->add_constant(ma->member_name);
-            emit_bytes(OP_GET_MEMBER, (uint8_t)idx);
+            if (!resolved) {
+                compile_expression(ma->base_object);
+                int idx = current_chunk->add_constant(ma->member_name);
+                emit_bytes(OP_GET_MEMBER, (uint8_t)idx);
+            }
             break;
         }
         case ExpressionNode::EXPRESSION_CALL: {

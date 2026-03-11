@@ -205,6 +205,22 @@ ModuleNode* VisualGasicParser::parse(const Vector<VisualGasicTokenizer::Token>& 
             continue;
         }
 
+        // <Flags> attribute for Enum (module-level)
+        if (t.type == VisualGasicTokenizer::TOKEN_OPERATOR && String(t.value) == "<") {
+            if (current_pos + 2 < (int)tokens.size() &&
+                String(tokens[current_pos + 1].value).nocasecmp_to("Flags") == 0 &&
+                String(tokens[current_pos + 2].value) == ">") {
+                advance(); // <
+                advance(); // Flags
+                advance(); // >
+                while (check(VisualGasicTokenizer::TOKEN_NEWLINE)) advance();
+                if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("enum") == 0) {
+                    parse_enum(true);
+                }
+                continue;
+            }
+        }
+
         // Enum Definition (module-level)
         if (t.type == VisualGasicTokenizer::TOKEN_KEYWORD && String(t.value).nocasecmp_to("enum") == 0) {
             parse_enum();
@@ -677,6 +693,22 @@ Statement* VisualGasicParser::parse_statement() {
     };
 
     // Only treat reserved words as statements when the tokenizer classified them as KEYWORD.
+    // <Flags> attribute for Enum (statement-level)
+    if (t.type == VisualGasicTokenizer::TOKEN_OPERATOR && String(t.value) == "<") {
+        if (current_pos + 2 < (int)tokens.size() &&
+            String(tokens[current_pos + 1].value).nocasecmp_to("Flags") == 0 &&
+            String(tokens[current_pos + 2].value) == ">") {
+            advance(); // <
+            advance(); // Flags
+            advance(); // >
+            while (check(VisualGasicTokenizer::TOKEN_NEWLINE)) advance();
+            if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("enum") == 0) {
+                parse_enum(true);
+            }
+            return nullptr;
+        }
+    }
+
     if (t.type == VisualGasicTokenizer::TOKEN_KEYWORD) {
         if (val == "enum") {
             parse_enum();
@@ -3034,6 +3066,36 @@ Statement* VisualGasicParser::parse_assignment_or_call() {
             return assign;
         }
     }
+
+    // Keyword-based compound assignment: And= Or= Xor= Mod=
+    if (check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
+        String kw = String(peek().value).to_lower();
+        if ((kw == "and" || kw == "or" || kw == "xor" || kw == "mod") &&
+            current_pos + 1 < (int)tokens.size() &&
+            tokens[current_pos + 1].type == VisualGasicTokenizer::TOKEN_OPERATOR &&
+            String(tokens[current_pos + 1].value) == "=") {
+
+            String bin_op = peek().value; // Preserve keyword casing
+            advance(); // Eat keyword (And/Or/Xor/Mod)
+            advance(); // Eat =
+
+            AssignmentStatement* assign = static_cast<AssignmentStatement*>(register_node(new AssignmentStatement()));
+            assign->target = head;
+            ExpressionNode* lhs_read = head->duplicate();
+
+            BinaryOpNode* bin = static_cast<BinaryOpNode*>(register_node(new BinaryOpNode()));
+            bin->left = lhs_read;
+            {
+                ExpressionNode* _tmp = parse_expression();
+                bin->right = _tmp;
+                unregister_node(_tmp);
+            }
+            bin->op = bin_op;
+
+            assign->value = bin;
+            return assign;
+        }
+    }
     
     // Call Statement conversion
             CallStatement* call = static_cast<CallStatement*>(register_node(new CallStatement()));
@@ -4233,7 +4295,7 @@ ResumeWheneverStatement* VisualGasicParser::parse_resume_whenever() {
     return stmt;
 }
 
-void VisualGasicParser::parse_enum() {
+void VisualGasicParser::parse_enum(bool p_is_flags) {
     // Enum Name
     // Member = Val
     // End Enum
@@ -4248,6 +4310,7 @@ void VisualGasicParser::parse_enum() {
     
     EnumDefinition* def = static_cast<EnumDefinition*>(register_node(new EnumDefinition()));
     def->name = enum_name;
+    def->is_flags = p_is_flags;
     
     int next_val = 0;
     

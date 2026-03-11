@@ -633,6 +633,7 @@ struct EnumValue {
 
 struct EnumDefinition : public ASTNode {
     String name;
+    bool is_flags = false;
     Vector<EnumValue> values;
 };
 

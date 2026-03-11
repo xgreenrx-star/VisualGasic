@@ -5,6 +5,26 @@ All notable changes to Visual Gasic will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.8.0] - 2026-03-12
+
+### 🚀 v3.6 Wrap-Up — Compound Logical Operators & Enhanced Enums
+
+### Added
+- **Keyword compound assignment operators** — `And=`, `Or=`, `Xor=`, `Mod=`. Desugared at parse time from two-token sequences (keyword + `=`). Works on any L-value, same as `+=`/`-=` etc.
+- **Bitwise semantics for `And`/`Or`/`Xor`** — When both operands are numeric (Integer/Long/Double), these operators now perform **bitwise** operations (`&`, `|`, `^` on int64_t). Logical boolean behaviour is preserved when either operand is non-numeric. Matches VB6 semantics.
+- **`<Flags>` attribute for Enum** — `<Flags> Enum Permissions ... End Enum` marks an enum as a bitfield. Enables flags-aware `ToString()` decomposition and `HasFlag()` method.
+- **`Enum.HasFlag(value, flag)`** — Returns `True` if `(value And flag) = flag`. Only available on `<Flags>` enums.
+- **Flags-aware `ToString()` decomposition** — For `<Flags>` enums, `ToString()` decomposes combined values: `Permissions.ToString(7)` → `"Read, Write, Execute"` (greedy largest-first walk)
+- **Compile-time enum dot access** — `MyEnum.MemberName` is now resolved at compile time as a constant in the bytecode compiler, avoiding runtime member lookups
+- **`cached_ast_root` for early execution** — Enum lookups in the AST interpreter work during first-run before the script reference is fully wired
+- **12 new test assertions** — `test_compound_logical.vg` (And=, Or=, Xor=, Mod= with chaining and edge cases)
+- **26 new test assertions** — `test_enum.vg` extended with dot access, mixed auto+explicit values, Parse, ToString, Values, Flags, HasFlag, flags ToString decomposition
+
+### Changed
+- `And`/`Or`/`Xor` operators upgraded from logical-only to bitwise-when-numeric (VB6 semantics)
+- Bytecode compiler MEMBER_ACCESS now resolves VG enum values as compile-time constants
+- Total test suite: 65 files, 602 assertions, 600 pass
+
 ## [3.7.0] - 2026-03-11
 
 ### 🚀 OOP Power-Up — Method Overloading, Parameterized Constructors, Generics, Game UI Mode

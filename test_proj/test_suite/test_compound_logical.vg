@@ -1,0 +1,87 @@
+Attribute VB_Name = "TestCompoundLogical"
+' Test And=, Or=, Xor=, Mod= compound assignment operators (v3.8.0)
+Option Explicit
+
+Dim passed As Integer
+Dim failed As Integer
+
+Sub AssertEqual(actual As Variant, expected As Variant, label As String)
+    If CStr(actual) = CStr(expected) Then
+        passed = passed + 1
+        Print "PASS: " & label
+    Else
+        failed = failed + 1
+        Print "FAIL: " & label & " — expected " & CStr(expected) & ", got " & CStr(actual)
+    End If
+End Sub
+
+Sub _Ready()
+    passed = 0
+    failed = 0
+    Print "=== Test: Compound Logical Operators ==="
+
+    ' --- And= ---
+    Dim a As Integer
+    a = 15          ' 1111 in binary
+    a And= 6       ' 0110 in binary → 0110 = 6
+    AssertEqual a, 6, "And= basic (15 And= 6)"
+
+    a = 255
+    a And= 240     ' 11110000 → keep top nibble
+    AssertEqual a, 240, "And= mask high nibble"
+
+    ' --- Or= ---
+    Dim b As Integer
+    b = 5           ' 0101
+    b Or= 10        ' 1010 → 1111 = 15
+    AssertEqual b, 15, "Or= basic (5 Or= 10)"
+
+    b = 0
+    b Or= 255
+    AssertEqual b, 255, "Or= from zero"
+
+    ' --- Xor= ---
+    Dim c As Integer
+    c = 15          ' 1111
+    c Xor= 9       ' 1001 → 0110 = 6
+    AssertEqual c, 6, "Xor= basic (15 Xor= 9)"
+
+    c = 42
+    c Xor= 42      ' same value XOR → 0
+    AssertEqual c, 0, "Xor= self cancels"
+
+    ' --- Mod= ---
+    Dim d As Integer
+    d = 17
+    d Mod= 5        ' 17 mod 5 = 2
+    AssertEqual d, 2, "Mod= basic (17 Mod= 5)"
+
+    d = 100
+    d Mod= 7        ' 100 mod 7 = 2
+    AssertEqual d, 2, "Mod= larger (100 Mod= 7)"
+
+    ' --- Chained / combined usage ---
+    Dim flags As Integer
+    flags = 0
+    flags Or= 1     ' Set bit 0
+    flags Or= 4     ' Set bit 2
+    AssertEqual flags, 5, "Or= chain set bits 0+2"
+
+    flags And= 4    ' Clear bit 0, keep bit 2
+    AssertEqual flags, 4, "And= clear bit 0"
+
+    flags Xor= 4    ' Toggle bit 2 off
+    AssertEqual flags, 0, "Xor= toggle bit 2 off"
+
+    ' --- Mod= with member access (object property) ---
+    Dim e As Integer
+    e = 29
+    e Mod= 10
+    AssertEqual e, 9, "Mod= with 10 (29 mod 10)"
+
+    Print "Passed: " & CStr(passed) & " / " & CStr(passed + failed)
+    If failed > 0 Then
+        Print "** " & CStr(failed) & " FAILED **"
+    End If
+    Print "=== End Test: Compound Logical Operators ==="
+End Sub

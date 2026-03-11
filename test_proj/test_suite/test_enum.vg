@@ -1,8 +1,9 @@
 ' Test: Enum
-' Tests Enum declaration, usage, auto-values, explicit values
+' Tests Enum declaration, usage, auto-values, explicit values,
+' dot access, Parse, ToString, Values, [Flags], HasFlag (v3.8.0)
 Attribute VB_Name = "TestEnum"
 
-Enum Color
+Enum MyColor
 	Red
 	Green
 	Blue
@@ -12,6 +13,24 @@ Enum Priority
 	Low = 1
 	Medium = 5
 	High = 10
+End Enum
+
+' Mixed auto-increment and explicit
+Enum Severity
+    Info
+    Warning
+    Severe = 10
+    Fatal
+End Enum
+
+' Flags enum
+<Flags>
+Enum Permissions
+    Read = 1
+    Write = 2
+    Execute = 4
+    ReadWrite = 3
+    All = 7
 End Enum
 
 Sub _Ready()
@@ -71,8 +90,8 @@ Sub _Ready()
 	
 	' --- Enum in Select Case ---
 	Dim result As String = ""
-	Dim myColor As Integer = Blue
-	Select Case myColor
+	Dim myClr As Integer = Blue
+	Select Case myClr
 		Case Red
 			result = "red"
 		Case Green
@@ -85,6 +104,134 @@ Sub _Ready()
 	Else
 		Print "FAIL: enum_select_case: got " & result
 	End If
+
+    ' --- v3.8.0: Dot access ---
+    If MyColor.Red = 0 Then
+        Print "PASS: enum_dot_access_red"
+    Else
+        Print "FAIL: enum_dot_access_red: got " & Str(MyColor.Red)
+    End If
+
+    If MyColor.Blue = 2 Then
+        Print "PASS: enum_dot_access_blue"
+    Else
+        Print "FAIL: enum_dot_access_blue: got " & Str(MyColor.Blue)
+    End If
+
+    ' --- v3.8.0: Mixed auto + explicit increment ---
+    If Info = 0 Then
+        Print "PASS: enum_mixed_auto_0"
+    Else
+        Print "FAIL: enum_mixed_auto_0: got " & Str(Info)
+    End If
+
+    If Warning = 1 Then
+        Print "PASS: enum_mixed_auto_1"
+    Else
+        Print "FAIL: enum_mixed_auto_1: got " & Str(Warning)
+    End If
+
+    If Severity.Severe = 10 Then
+        Print "PASS: enum_mixed_explicit_10"
+    Else
+        Print "FAIL: enum_mixed_explicit_10: got " & Str(Severity.Severe)
+    End If
+
+    If Fatal = 11 Then
+        Print "PASS: enum_mixed_auto_after_explicit"
+    Else
+        Print "FAIL: enum_mixed_auto_after_explicit: got " & Str(Fatal)
+    End If
+
+    ' --- v3.8.0: Enum.Parse ---
+    Dim parsed As Integer
+    parsed = MyColor.Parse("Green")
+    If parsed = 1 Then
+        Print "PASS: enum_parse_green"
+    Else
+        Print "FAIL: enum_parse_green: got " & Str(parsed)
+    End If
+
+    parsed = Priority.Parse("High")
+    If parsed = 10 Then
+        Print "PASS: enum_parse_high"
+    Else
+        Print "FAIL: enum_parse_high: got " & Str(parsed)
+    End If
+
+    ' --- v3.8.0: Enum.ToString ---
+    Dim name As String
+    name = MyColor.ToString(1)
+    If name = "Green" Then
+        Print "PASS: enum_tostring_green"
+    Else
+        Print "FAIL: enum_tostring_green: got " & name
+    End If
+
+    name = Priority.ToString(5)
+    If name = "Medium" Then
+        Print "PASS: enum_tostring_medium"
+    Else
+        Print "FAIL: enum_tostring_medium: got " & name
+    End If
+
+    ' --- v3.8.0: Enum.Values ---
+    Dim vals As Variant
+    vals = MyColor.Values()
+    If vals.size() = 3 Then
+        Print "PASS: enum_values_count"
+    Else
+        Print "FAIL: enum_values_count: got " & Str(vals.size())
+    End If
+
+    ' --- v3.8.0: Flags enum basics ---
+    Dim access As Integer
+    access = Permissions.Read Or Permissions.Write
+    If access = 3 Then
+        Print "PASS: flags_or_combine"
+    Else
+        Print "FAIL: flags_or_combine: got " & Str(access)
+    End If
+
+    ' --- v3.8.0: Flags HasFlag ---
+    Dim hr As Boolean
+    hr = Permissions.HasFlag(access, Permissions.Read)
+    If hr = True Then
+        Print "PASS: flags_hasflag_true"
+    Else
+        Print "FAIL: flags_hasflag_true: got " & Str(hr)
+    End If
+
+    Dim hx As Boolean
+    hx = Permissions.HasFlag(access, Permissions.Execute)
+    If hx = False Then
+        Print "PASS: flags_hasflag_false"
+    Else
+        Print "FAIL: flags_hasflag_false: got " & Str(hx)
+    End If
+
+    ' --- v3.8.0: Flags ToString decomposition ---
+    Dim fs As String
+    fs = Permissions.ToString(3)
+    If fs = "Read, Write" Then
+        Print "PASS: flags_tostring_decompose"
+    Else
+        Print "FAIL: flags_tostring_decompose: got " & fs
+    End If
+
+    fs = Permissions.ToString(7)
+    If fs = "All" Then
+        Print "PASS: flags_tostring_exact"
+    Else
+        Print "FAIL: flags_tostring_exact: got " & fs
+    End If
+
+    fs = Permissions.ToString(5)
+    If fs = "Read, Execute" Then
+        Print "PASS: flags_tostring_read_execute"
+    Else
+        Print "FAIL: flags_tostring_read_execute: got " & fs
+    End If
 	
 	Print "TEST_COMPLETE"
 End Sub

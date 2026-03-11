@@ -1,7 +1,7 @@
 # Visual Gasic Development Roadmap
 
 **Last Updated**: March 2026  
-**Current Version**: 3.7.0 (Method Overloading, Parameterized Constructors, Generics, Game UI Mode)
+**Current Version**: 3.8.0 (Compound Logical Operators, Enhanced Enums with Flags)
 
 This document outlines the planned improvements and features for Visual Gasic. Items are prioritized by impact and development effort.
 
@@ -649,23 +649,19 @@ while leaning into our unique advantage — cross-platform game engine integrati
    HealthBar, ScoreLabel, DialogBox, MiniMap, Inventory, ActionButton, AmmoCounter,
    BossBar, Crosshair, Tooltip, Pointer.
 
-### 🟢 Nice-to-Have — Ecosystem Alignment
+### 🟢 Nice-to-Have — Ecosystem Alignment (Shipped in v3.8.0)
 
-7. **Additional Compound Operators — `And=  Or=  Xor=  Mod=`**
+7. **Additional Compound Operators — `And=  Or=  Xor=  Mod=`** ✅
    Bitwise compound assignment for flag manipulation:
-   `collisionMask And= Not(LAYER_WATER)`. Lower priority than the arithmetic
-   compounds above because they're less commonly used.
-   **Effort**: ~1 hour (pattern identical to item 1)
+   `collisionMask And= Not(LAYER_WATER)`. These keywords are two-token sequences
+   (keyword + `=`) desugared at parse time. `And`/`Or`/`Xor` also upgraded to
+   bitwise-when-numeric (VB6 semantics). 12 test assertions.
 
-8. **`Enum` with Explicit Values**
-   VB6/twinBASIC `Enum` declarations with explicit member values. Currently VG
-   uses `Const` blocks for this. Proper `Enum` gives IntelliSense grouping,
-   type safety, and `Enum.ToString()`.
-   **Scope**:
-   - `Enum Direction: Up = 0 : Down = 1 : Left = 2 : Right = 3 : End Enum`
-   - Auto-increment when values are omitted
-   - `[Flags]` attribute for bitfield enums
-   **Effort**: ~3–4 hours
+8. **`Enum` with `<Flags>` Attribute** ✅
+   Enhanced existing Enum with `<Flags>` attribute for bitfield enums.
+   `HasFlag(value, flag)` method, flags-aware `ToString()` decomposition, and
+   compile-time dot access resolution in the bytecode compiler. 26 new test
+   assertions (35 total).
 
 ### 📊 v3.6 Priority Matrix
 
@@ -677,8 +673,9 @@ while leaning into our unique advantage — cross-platform game engine integrati
 | 4 | Method Overloading | ⭐⭐⭐⭐ | 4–6 hrs | ✅ Shipped |
 | 5 | Parameterized Constructors | ⭐⭐⭐⭐⭐ | 3–4 hrs | ✅ Shipped |
 | 6 | Generics Phase 1 | ⭐⭐⭐⭐ | 6–8 hrs | ✅ Shipped |
-| 7 | Enum Declarations | ⭐⭐⭐ | 3–4 hrs | 🟢 Nice-to-have |
-| 8 | Game UI Mode | ⭐⭐⭐⭐⭐ | 6–8 hrs | ✅ Shipped |
+| 7 | Compound Logical `And=` etc. | ⭐⭐⭐ | 1 hr | ✅ Shipped |
+| 8 | Enum `<Flags>` / HasFlag | ⭐⭐⭐ | 3–4 hrs | ✅ Shipped |
+| 9 | Game UI Mode | ⭐⭐⭐⭐⭐ | 6–8 hrs | ✅ Shipped |
 
 ### ❌ Deliberately Skipped (Not Relevant to Game Engine)
 

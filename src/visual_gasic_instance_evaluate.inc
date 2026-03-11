@@ -362,20 +362,23 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
                  }
              }
              // ── Enum value access: EnumName.MemberName ──
-             if (script.is_valid() && script->ast_root) {
-                 ModuleNode* root = script->ast_root;
-                 for (int ei = 0; ei < root->enums.size(); ei++) {
-                     EnumDefinition* ed = root->enums[ei];
-                     if (ed->name.nocasecmp_to(base_name) == 0) {
-                         // Enum.Parse("MemberName") / Enum.Values() / Enum.ToString(val)
-                         // These are handled via call dispatch, but direct member access:
-                         for (int vi = 0; vi < ed->values.size(); vi++) {
-                             if (ed->values[vi].name.nocasecmp_to(ma->member_name) == 0) {
-                                 return ed->values[vi].value;
+             {
+                 ModuleNode* root = cached_ast_root;
+                 if (!root && script.is_valid() && script->ast_root) {
+                     root = script->ast_root;
+                 }
+                 if (root) {
+                     for (int ei = 0; ei < root->enums.size(); ei++) {
+                         EnumDefinition* ed = root->enums[ei];
+                         if (ed->name.nocasecmp_to(base_name) == 0) {
+                             for (int vi = 0; vi < ed->values.size(); vi++) {
+                                 if (ed->values[vi].name.nocasecmp_to(ma->member_name) == 0) {
+                                     return ed->values[vi].value;
+                                 }
                              }
+                             raise_error("Enum '" + ed->name + "' has no member '" + ma->member_name + "'");
+                             return Variant();
                          }
-                         raise_error("Enum '" + ed->name + "' has no member '" + ma->member_name + "'");
-                         return Variant();
                      }
                  }
              }
@@ -983,9 +986,13 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
                     }
                     return Variant();
                 }
-                // ── Enum.Parse / Enum.Values / Enum.ToString ──
-                if (script.is_valid() && script->ast_root) {
-                    ModuleNode* root = script->ast_root;
+                // ── Enum.Parse / Enum.Values / Enum.ToString / Enum.HasFlag ──
+                {
+                    ModuleNode* root = cached_ast_root;
+                    if (!root && script.is_valid() && script->ast_root) {
+                        root = script->ast_root;
+                    }
+                    if (root) {
                     for (int ei = 0; ei < root->enums.size(); ei++) {
                         EnumDefinition* ed = root->enums[ei];
                         if (ed->name.nocasecmp_to(var_name) == 0) {
@@ -1014,14 +1021,37 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
                             if (call->method_name.nocasecmp_to("ToString") == 0 && call_args.size() >= 1) {
                                 // Enum.ToString(intValue) -> name string
                                 int val = (int)call_args[0];
+                                // Exact match first
                                 for (int vi = 0; vi < ed->values.size(); vi++) {
                                     if (ed->values[vi].value == val) {
                                         return ed->values[vi].name;
                                     }
                                 }
+                                // Flags decomposition for [Flags] enums
+                                if (ed->is_flags && val != 0) {
+                                    String result;
+                                    int remaining = val;
+                                    // Walk values largest-first to greedily decompose
+                                    for (int vi = ed->values.size() - 1; vi >= 0; vi--) {
+                                        int fv = ed->values[vi].value;
+                                        if (fv != 0 && (remaining & fv) == fv) {
+                                            if (!result.is_empty()) result = ed->values[vi].name + String(", ") + result;
+                                            else result = ed->values[vi].name;
+                                            remaining &= ~fv;
+                                        }
+                                    }
+                                    if (remaining == 0 && !result.is_empty()) return result;
+                                }
                                 return String::num_int64(val); // Unknown value
                             }
+                            if (call->method_name.nocasecmp_to("HasFlag") == 0 && call_args.size() >= 2) {
+                                // Enum.HasFlag(value, flag) -> Boolean
+                                int val = (int)call_args[0];
+                                int flag = (int)call_args[1];
+                                return (val & flag) == flag;
+                            }
                         }
+                    }
                     }
                 }
             }
@@ -2569,9 +2599,28 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
              return Variant((int64_t)l >> (int64_t)r);
         }
         
-        if (op.nocasecmp_to("And") == 0) return l.booleanize() && r.booleanize();
-        if (op.nocasecmp_to("Or") == 0) return l.booleanize() || r.booleanize();
-        if (op.nocasecmp_to("Xor") == 0) return l.booleanize() != r.booleanize();
+        if (op.nocasecmp_to("And") == 0) {
+            // VB6: bitwise when both operands are numeric, logical otherwise
+            if ((l.get_type() == Variant::INT || l.get_type() == Variant::FLOAT) &&
+                (r.get_type() == Variant::INT || r.get_type() == Variant::FLOAT)) {
+                return Variant((int64_t)l & (int64_t)r);
+            }
+            return l.booleanize() && r.booleanize();
+        }
+        if (op.nocasecmp_to("Or") == 0) {
+            if ((l.get_type() == Variant::INT || l.get_type() == Variant::FLOAT) &&
+                (r.get_type() == Variant::INT || r.get_type() == Variant::FLOAT)) {
+                return Variant((int64_t)l | (int64_t)r);
+            }
+            return l.booleanize() || r.booleanize();
+        }
+        if (op.nocasecmp_to("Xor") == 0) {
+            if ((l.get_type() == Variant::INT || l.get_type() == Variant::FLOAT) &&
+                (r.get_type() == Variant::INT || r.get_type() == Variant::FLOAT)) {
+                return Variant((int64_t)l ^ (int64_t)r);
+            }
+            return l.booleanize() != r.booleanize();
+        }
         if (op.nocasecmp_to("Like") == 0) {
             // VB6-style Like pattern matching
             // Pattern characters:
