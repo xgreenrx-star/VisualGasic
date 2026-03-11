@@ -1579,7 +1579,7 @@ func _finish_form_creation(path: String, form_name: String, vg_path: String, tem
 		root.name = form_name
 		root.layer = 10
 		# Notify the C++ form designer
-		if _form_designer:
+		if _form_designer and _form_designer.has_method("set_game_ui_mode"):
 			_form_designer.set_game_ui_mode(true)
 	else:
 		# VB6 Classic: Window root
@@ -1588,7 +1588,7 @@ func _finish_form_creation(path: String, form_name: String, vg_path: String, tem
 		root.title = form_name
 		root.position = Vector2i(10,36)  # Align with canvas origin in editor
 		root.size = template.get("size", Vector2(800, 600))
-		if _form_designer:
+		if _form_designer and _form_designer.has_method("set_game_ui_mode"):
 			_form_designer.set_game_ui_mode(false)
 	
 	# Add MenuBar FIRST if specified - so _FormBackground comes AFTER and intercepts drops
@@ -6925,7 +6925,7 @@ func _on_main_screen_changed(screen_name: String):
 		
 		if tabs:
 			# Check if the current form is Game UI mode
-			if _form_designer and _form_designer.get_game_ui_mode():
+			if _form_designer and _form_designer.has_method("get_game_ui_mode") and _form_designer.get_game_ui_mode():
 				tabs.current_tab = 2 # Game UI
 			elif screen_name == "3D":
 				tabs.current_tab = 1 # 3D Index

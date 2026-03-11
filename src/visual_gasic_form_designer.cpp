@@ -104,6 +104,10 @@ void VisualGasicFormDesigner::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_status_text"), &VisualGasicFormDesigner::get_status_text);
     ClassDB::bind_method(D_METHOD("get_mouse_canvas_pos"), &VisualGasicFormDesigner::get_mouse_canvas_pos);
 
+    // Game UI mode
+    ClassDB::bind_method(D_METHOD("set_game_ui_mode", "enabled"), &VisualGasicFormDesigner::set_game_ui_mode);
+    ClassDB::bind_method(D_METHOD("get_game_ui_mode"), &VisualGasicFormDesigner::get_game_ui_mode);
+
     // Signals
     ADD_SIGNAL(MethodInfo("control_selected", PropertyInfo(Variant::INT, "index")));
     ADD_SIGNAL(MethodInfo("control_deselected"));
