@@ -159,7 +159,7 @@ func _init():
 	name = "Properties"
 	size_flags_vertical = SIZE_EXPAND_FILL
 	size_flags_horizontal = SIZE_EXPAND_FILL
-	custom_minimum_size = Vector2(150, 100)  # Reduced for better dock resizing
+	custom_minimum_size = Vector2(100, 80)  # Reduced further for narrower right panel
 	
 	# === 1. Object Dropdown (VB6-style, at the very top) ===
 	_object_dropdown = OptionButton.new()
@@ -620,6 +620,31 @@ func show_control_properties(info: Dictionary, designer = null, ctrl_index: int 
 		_property_entries.append({"label": "CurrentDir", "value": str(props.get("CurrentDir", "")), "prop_key": "CurrentDir", "type": "string", "category": CATEGORY_BEHAVIOR})
 		_property_entries.append({"label": "CurrentFile", "value": str(props.get("CurrentFile", "")), "prop_key": "CurrentFile", "type": "string", "category": CATEGORY_BEHAVIOR})
 		_property_entries.append({"label": "ShowHiddenFiles", "value": bool(props.get("ShowHiddenFiles", false)), "prop_key": "ShowHiddenFiles", "type": "bool", "category": CATEGORY_BEHAVIOR})
+
+	# --------- RadioButton properties ---------
+	if ctrl_type == "RadioButton":
+		_property_entries.append({"label": "Caption", "value": text_val, "prop_key": "text", "type": "string", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "Value", "value": bool(props.get("Value", false)), "prop_key": "Value", "type": "bool", "category": CATEGORY_APPEARANCE})
+
+	# --------- StatusBar properties ---------
+	if ctrl_type == "StatusBar":
+		_property_entries.append({"label": "SimpleText", "value": str(props.get("SimpleText", "Ready")), "prop_key": "SimpleText", "type": "string", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "Style", "value": int(props.get("Style", 1)), "prop_key": "Style", "type": "number", "category": CATEGORY_APPEARANCE})
+
+	# --------- Toolbar properties ---------
+	if ctrl_type == "Toolbar":
+		_property_entries.append({"label": "ButtonCount", "value": int(props.get("ButtonCount", 6)), "prop_key": "ButtonCount", "type": "number", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "Flat", "value": bool(props.get("Flat", false)), "prop_key": "Flat", "type": "bool", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "Wrappable", "value": bool(props.get("Wrappable", true)), "prop_key": "Wrappable", "type": "bool", "category": CATEGORY_BEHAVIOR})
+
+	# --------- ListView properties ---------
+	if ctrl_type == "ListView":
+		_property_entries.append({"label": "View", "value": int(props.get("View", 3)), "prop_key": "View", "type": "number", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "Sorted", "value": bool(props.get("Sorted", false)), "prop_key": "Sorted", "type": "bool", "category": CATEGORY_BEHAVIOR})
+		_property_entries.append({"label": "MultiSelect", "value": int(props.get("MultiSelect", 0)), "prop_key": "MultiSelect", "type": "fd_enum_multiselect", "category": CATEGORY_BEHAVIOR})
+		_property_entries.append({"label": "GridLines", "value": bool(props.get("GridLines", false)), "prop_key": "GridLines", "type": "bool", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "FullRowSelect", "value": bool(props.get("FullRowSelect", false)), "prop_key": "FullRowSelect", "type": "bool", "category": CATEGORY_BEHAVIOR})
+		_property_entries.append({"label": "LabelEdit", "value": int(props.get("LabelEdit", 0)), "prop_key": "LabelEdit", "type": "number", "category": CATEGORY_BEHAVIOR})
 
 	# --------- Separator properties ---------
 	# HSeparator / VSeparator have no special properties beyond the universals

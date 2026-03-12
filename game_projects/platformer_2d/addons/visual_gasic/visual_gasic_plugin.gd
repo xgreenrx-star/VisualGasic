@@ -515,7 +515,7 @@ func _enter_tree():
 		# -- RIGHT: Project Explorer + Properties (resizable VSplitContainer) --
 		var right_vsplit = VSplitContainer.new()
 		right_vsplit.name = "RightPanelSplit"
-		right_vsplit.custom_minimum_size = Vector2(220, 0)
+		right_vsplit.custom_minimum_size = Vector2(120, 0)
 		right_vsplit.size_flags_horizontal = Control.SIZE_FILL
 		right_vsplit.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		right_vsplit.dragger_visibility = SplitContainer.DRAGGER_VISIBLE

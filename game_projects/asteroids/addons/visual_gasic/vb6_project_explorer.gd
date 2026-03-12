@@ -45,7 +45,7 @@ func _init():
 	name = "Project"
 	size_flags_vertical = SIZE_EXPAND_FILL
 	size_flags_horizontal = SIZE_EXPAND_FILL
-	custom_minimum_size = Vector2(150, 100)
+	custom_minimum_size = Vector2(100, 80)
 
 	# --- Toolbar (VB6-style: dark text on warm off-white) ---
 	_toolbar = HBoxContainer.new()
