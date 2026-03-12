@@ -206,6 +206,17 @@ const PROPERTY_DESCRIPTIONS: Dictionary = {
 	"EmptyColor": "Returns/sets the color of empty bar segments.",
 	"SegmentBorderColor": "Returns/sets the border color between bar segments.",
 	"FontSize": "Returns/sets the size of the font used in the control.",
+	# VB6 List editor properties
+	"List": "Returns/sets the list of items in the control. Click '...' to open the list editor where you can add items one per line.",
+	"Tabs": "Returns/sets the list of tab names. Click '...' to open the list editor.",
+	"BackStyle": "Returns/sets whether the Label background is transparent or opaque. 0=Transparent, 1=Opaque.",
+	"Indentation": "Returns/sets the indentation in pixels for each tree level.",
+	"HideSelection": "Returns/sets whether the TreeView hides the selection highlight when it loses focus.",
+	"Checkboxes": "Returns/sets whether TreeView items display a checkbox.",
+	"LargeChange": "Returns/sets the amount the value changes by a large increment (e.g. clicking the scrollbar track).",
+	"Indeterminate": "Returns/sets whether the ProgressBar shows an indeterminate (marquee) animation.",
+	"ComboStyle": "Returns/sets the style of the ComboBox. 0=Dropdown Combo, 1=Simple Combo, 2=Dropdown List.",
+	"ListStyle": "Returns/sets the style of the ListBox. 0=Standard, 1=Checkbox.",
 }
 
 func _init():
@@ -543,6 +554,7 @@ func show_control_properties(info: Dictionary, designer = null, ctrl_index: int 
 
 	# --------- Label properties ---------
 	if ctrl_type == "Label":
+		_property_entries.append({"label": "BackStyle", "value": int(props.get("BackStyle", 1)), "prop_key": "BackStyle", "type": "fd_enum_backstyle", "category": CATEGORY_APPEARANCE})
 		_property_entries.append({"label": "VerticalAlignment", "value": int(props.get("VerticalAlignment", 0)), "prop_key": "VerticalAlignment", "type": "fd_enum_valignment", "category": CATEGORY_APPEARANCE})
 		_property_entries.append({"label": "MaxLinesVisible", "value": int(props.get("MaxLinesVisible", -1)), "prop_key": "MaxLinesVisible", "type": "number", "category": CATEGORY_APPEARANCE})
 		_property_entries.append({"label": "ClipText", "value": bool(props.get("ClipText", false)), "prop_key": "ClipText", "type": "bool", "category": CATEGORY_APPEARANCE})
@@ -551,6 +563,7 @@ func show_control_properties(info: Dictionary, designer = null, ctrl_index: int 
 	# --------- CheckBox properties ---------
 	if ctrl_type in ["CheckBox", "CheckButton"]:
 		_property_entries.append({"label": "Value", "value": bool(props.get("Value", false)), "prop_key": "Value", "type": "bool", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "Style", "value": int(props.get("Style", 0)), "prop_key": "Style", "type": "fd_enum_style", "category": CATEGORY_APPEARANCE})
 
 	# --------- Range controls (ProgressBar, Slider, SpinBox, ScrollBar) ---------
 	if ctrl_type in ["ProgressBar", "HSlider", "VSlider", "SpinBox", "HScrollBar", "VScrollBar"]:
@@ -566,6 +579,7 @@ func show_control_properties(info: Dictionary, designer = null, ctrl_index: int 
 	if ctrl_type in ["HSlider", "VSlider"]:
 		_property_entries.append({"label": "TickCount", "value": int(props.get("TickCount", 0)), "prop_key": "TickCount", "type": "number", "category": CATEGORY_APPEARANCE})
 		_property_entries.append({"label": "TicksOnBorders", "value": bool(props.get("TicksOnBorders", false)), "prop_key": "TicksOnBorders", "type": "bool", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "LargeChange", "value": float(props.get("LargeChange", 10)), "prop_key": "LargeChange", "type": "number", "category": CATEGORY_BEHAVIOR})
 		_property_entries.append({"label": "Scrollable", "value": bool(props.get("Scrollable", true)), "prop_key": "Scrollable", "type": "bool", "category": CATEGORY_BEHAVIOR})
 
 	# --------- ScrollBar-specific ---------
@@ -576,6 +590,7 @@ func show_control_properties(info: Dictionary, designer = null, ctrl_index: int 
 	if ctrl_type == "ProgressBar":
 		_property_entries.append({"label": "ShowPercentage", "value": bool(props.get("ShowPercentage", true)), "prop_key": "ShowPercentage", "type": "bool", "category": CATEGORY_APPEARANCE})
 		_property_entries.append({"label": "FillMode", "value": int(props.get("FillMode", 0)), "prop_key": "FillMode", "type": "fd_enum_fillmode", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "Indeterminate", "value": bool(props.get("Indeterminate", false)), "prop_key": "Indeterminate", "type": "bool", "category": CATEGORY_BEHAVIOR})
 
 	# --------- SpinBox properties ---------
 	if ctrl_type == "SpinBox":
@@ -601,6 +616,8 @@ func show_control_properties(info: Dictionary, designer = null, ctrl_index: int 
 
 	# --------- ItemList / ListBox properties ---------
 	if ctrl_type == "ItemList":
+		_property_entries.append({"label": "List", "value": str(props.get("List", "")), "prop_key": "List", "type": "list_editor", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "ListStyle", "value": int(props.get("ListStyle", 0)), "prop_key": "ListStyle", "type": "fd_enum_liststyle", "category": CATEGORY_APPEARANCE})
 		_property_entries.append({"label": "IconMode", "value": int(props.get("IconMode", 1)), "prop_key": "IconMode", "type": "fd_enum_iconmode", "category": CATEGORY_APPEARANCE})
 		_property_entries.append({"label": "MaxColumns", "value": int(props.get("MaxColumns", 1)), "prop_key": "MaxColumns", "type": "number", "category": CATEGORY_APPEARANCE})
 		_property_entries.append({"label": "FixedColumnWidth", "value": int(props.get("FixedColumnWidth", 0)), "prop_key": "FixedColumnWidth", "type": "number", "category": CATEGORY_APPEARANCE})
@@ -614,8 +631,11 @@ func show_control_properties(info: Dictionary, designer = null, ctrl_index: int 
 
 	# --------- OptionButton / ComboBox properties ---------
 	if ctrl_type in ["OptionButton", "ComboBox", "VGComboBox"]:
-		_property_entries.append({"label": "ListItems", "value": str(props.get("ListItems", "")), "prop_key": "ListItems", "type": "string", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "ListItems", "value": str(props.get("ListItems", "")), "prop_key": "ListItems", "type": "list_editor", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "ComboStyle", "value": int(props.get("ComboStyle", 0)), "prop_key": "ComboStyle", "type": "fd_enum_combostyle", "category": CATEGORY_APPEARANCE})
 		_property_entries.append({"label": "Selected", "value": int(props.get("Selected", -1)), "prop_key": "Selected", "type": "number", "category": CATEGORY_BEHAVIOR})
+		_property_entries.append({"label": "Sorted", "value": bool(props.get("Sorted", false)), "prop_key": "Sorted", "type": "bool", "category": CATEGORY_BEHAVIOR})
+		_property_entries.append({"label": "Locked", "value": bool(props.get("Locked", false)), "prop_key": "Locked", "type": "bool", "category": CATEGORY_BEHAVIOR})
 		_property_entries.append({"label": "FitToLongestItem", "value": bool(props.get("FitToLongestItem", true)), "prop_key": "FitToLongestItem", "type": "bool", "category": CATEGORY_APPEARANCE})
 
 	# --------- Tree / TreeView properties ---------
@@ -630,9 +650,13 @@ func show_control_properties(info: Dictionary, designer = null, ctrl_index: int 
 		_property_entries.append({"label": "ColumnTitlesVisible", "value": bool(props.get("ColumnTitlesVisible", false)), "prop_key": "ColumnTitlesVisible", "type": "bool", "category": CATEGORY_APPEARANCE})
 		_property_entries.append({"label": "ScrollHorizontalEnabled", "value": bool(props.get("ScrollHorizontalEnabled", true)), "prop_key": "ScrollHorizontalEnabled", "type": "bool", "category": CATEGORY_BEHAVIOR})
 		_property_entries.append({"label": "ScrollVerticalEnabled", "value": bool(props.get("ScrollVerticalEnabled", true)), "prop_key": "ScrollVerticalEnabled", "type": "bool", "category": CATEGORY_BEHAVIOR})
+		_property_entries.append({"label": "Indentation", "value": int(props.get("Indentation", 16)), "prop_key": "Indentation", "type": "number", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "HideSelection", "value": bool(props.get("HideSelection", true)), "prop_key": "HideSelection", "type": "bool", "category": CATEGORY_BEHAVIOR})
+		_property_entries.append({"label": "Checkboxes", "value": bool(props.get("Checkboxes", false)), "prop_key": "Checkboxes", "type": "bool", "category": CATEGORY_APPEARANCE})
 
 	# --------- TabContainer / TabStrip properties ---------
 	if ctrl_type in ["TabContainer", "TabStrip"]:
+		_property_entries.append({"label": "Tabs", "value": str(props.get("Tabs", "")), "prop_key": "Tabs", "type": "list_editor", "category": CATEGORY_APPEARANCE, "list_auto_count": "TabCount", "list_min": 0, "list_max": 50})
 		_property_entries.append({"label": "CurrentTab", "value": int(props.get("CurrentTab", 0)), "prop_key": "CurrentTab", "type": "number", "category": CATEGORY_APPEARANCE})
 		_property_entries.append({"label": "TabAlignment", "value": int(props.get("TabAlignment", 0)), "prop_key": "TabAlignment", "type": "fd_enum_tabalignment", "category": CATEGORY_APPEARANCE})
 		_property_entries.append({"label": "ClipTabs", "value": bool(props.get("ClipTabs", true)), "prop_key": "ClipTabs", "type": "bool", "category": CATEGORY_APPEARANCE})
@@ -664,6 +688,7 @@ func show_control_properties(info: Dictionary, designer = null, ctrl_index: int 
 
 	# --------- GroupBox / Frame properties ---------
 	if ctrl_type in ["GroupBox", "Frame"]:
+		_property_entries.append({"label": "BorderStyle", "value": int(props.get("BorderStyle", 1)), "prop_key": "BorderStyle", "type": "fd_enum_borderstyle", "category": CATEGORY_APPEARANCE})
 		_property_entries.append({"label": "ClipContents", "value": bool(props.get("ClipContents", false)), "prop_key": "ClipContents", "type": "bool", "category": CATEGORY_APPEARANCE})
 
 	# --------- FileDialog properties ---------
@@ -678,6 +703,9 @@ func show_control_properties(info: Dictionary, designer = null, ctrl_index: int 
 	if ctrl_type == "RadioButton":
 		_property_entries.append({"label": "Caption", "value": text_val, "prop_key": "text", "type": "string", "category": CATEGORY_APPEARANCE})
 		_property_entries.append({"label": "Value", "value": bool(props.get("Value", false)), "prop_key": "Value", "type": "bool", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "Alignment", "value": int(props.get("Alignment", 0)), "prop_key": "Alignment", "type": "fd_enum_alignment", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "Style", "value": int(props.get("Style", 0)), "prop_key": "Style", "type": "fd_enum_style", "category": CATEGORY_APPEARANCE})
+		_property_entries.append({"label": "Appearance", "value": int(props.get("Appearance", 1)), "prop_key": "Appearance", "type": "fd_enum_appearance", "category": CATEGORY_APPEARANCE})
 
 	# --------- StatusBar properties ---------
 	if ctrl_type == "StatusBar":
@@ -915,9 +943,14 @@ func _load_prototype_properties(scene_path: String, props: Dictionary, ctrl_type
 				var def_float := float(default_str) if not default_str.is_empty() and default_str.is_valid_float() else 0.0
 				value = float(props.get(prop_name, def_float))
 			"String":
-				inspector_type = "string"
 				var def_str := default_str.trim_prefix('"').trim_suffix('"') if not default_str.is_empty() else ""
 				value = str(props.get(prop_name, def_str))
+				# Detect known list properties — use list_editor instead of plain string
+				var _list_prop_names := ["ItemLabels", "ListItems", "List", "TabNames", "Buttons", "Items", "Labels"]
+				if prop_name in _list_prop_names:
+					inspector_type = "list_editor"
+				else:
+					inspector_type = "string"
 			"Color":
 				inspector_type = "color"
 				var def_color := _parse_color_literal(default_str)
@@ -930,7 +963,7 @@ func _load_prototype_properties(scene_path: String, props: Dictionary, ctrl_type
 				inspector_type = "string"
 				value = str(props.get(prop_name, default_str))
 			"PackedStringArray":
-				inspector_type = "string"
+				inspector_type = "list_editor"
 				var stored = props.get(prop_name, "")
 				if stored is PackedStringArray:
 					value = ",".join(stored)
@@ -945,10 +978,20 @@ func _load_prototype_properties(scene_path: String, props: Dictionary, ctrl_type
 				# Unknown type — show as string
 				value = str(props.get(prop_name, default_str))
 
-		_property_entries.append({
+		var entry_dict := {
 			"label": prop_name, "value": value, "prop_key": prop_name,
 			"type": inspector_type, "category": category_name
-		})
+		}
+		# Auto-count associations for list properties
+		if prop_name == "ItemLabels":
+			entry_dict["list_auto_count"] = "ItemCount"
+			entry_dict["list_min"] = 2
+			entry_dict["list_max"] = 12
+		elif prop_name == "Buttons":
+			entry_dict["list_auto_count"] = "ButtonCount"
+			entry_dict["list_min"] = 1
+			entry_dict["list_max"] = 20
+		_property_entries.append(entry_dict)
 		pending_enum_items = PackedStringArray()
 		pending_range_hint = ""
 
@@ -1307,6 +1350,17 @@ func _render_property_entry(entry: Dictionary):
 		"prototype_enum":
 			var enum_items: Array = entry.get("enum_items", [])
 			_add_fd_enum_row(label_text, prop_key, value, enum_items)
+		"list_editor":
+			_add_list_editor_row(label_text, str(value), prop_key,
+				entry.get("list_auto_count", ""),
+				int(entry.get("list_min", 0)),
+				int(entry.get("list_max", 0)))
+		"fd_enum_combostyle":
+			_add_fd_enum_row(label_text, prop_key, value, ["0 - Dropdown Combo", "1 - Simple Combo", "2 - Dropdown List"])
+		"fd_enum_liststyle":
+			_add_fd_enum_row(label_text, prop_key, value, ["0 - Standard", "1 - Checkbox"])
+		"fd_enum_backstyle":
+			_add_fd_enum_row(label_text, prop_key, value, ["0 - Transparent", "1 - Opaque"])
 		_:
 			_add_prop_row(label_text, value, prop_key)
 
@@ -1493,6 +1547,150 @@ func _add_font_name_row(label_text: String, current_font: String, prop_key: Stri
 	opt.focus_entered.connect(func(): _show_description(prop_key.to_lower()))
 	property_grid.add_child(opt)
 	_prop_row_index += 1
+
+## VB6-style List property editor row — shows "[N items]" with a "..." button
+## that opens a popup dialog for editing list items one per line.
+func _add_list_editor_row(label_text: String, value: String, prop_key: String, auto_count_key: String = "", min_items: int = 0, max_items: int = 0):
+	var lbl = Label.new()
+	lbl.text = label_text
+	lbl.custom_minimum_size.x = 70
+	lbl.add_theme_color_override("font_color", Color(0.15, 0.15, 0.15))
+	var desc = PROPERTY_DESCRIPTIONS.get(prop_key, PROPERTY_DESCRIPTIONS.get(prop_key.to_lower(), ""))
+	if not desc.is_empty():
+		lbl.tooltip_text = desc
+	_apply_row_stripe(lbl)
+	lbl.mouse_filter = Control.MOUSE_FILTER_STOP
+	lbl.gui_input.connect(func(event):
+		if event is InputEventMouseButton and event.pressed:
+			_show_description(prop_key)
+	)
+	property_grid.add_child(lbl)
+
+	# Count items from comma-separated value
+	var items: PackedStringArray = []
+	if not value.is_empty():
+		for item in value.split(","):
+			var trimmed = item.strip_edges()
+			if not trimmed.is_empty():
+				items.append(trimmed)
+
+	var hbox = HBoxContainer.new()
+	hbox.size_flags_horizontal = SIZE_EXPAND_FILL
+
+	var display = LineEdit.new()
+	var n = items.size()
+	display.text = str(n) + " item" + ("s" if n != 1 else "")
+	display.editable = false
+	display.size_flags_horizontal = SIZE_EXPAND_FILL
+	_style_line_edit(display)
+	display.add_theme_color_override("font_color", Color(0.4, 0.4, 0.4))
+
+	var btn = Button.new()
+	btn.text = "..."
+	btn.tooltip_text = "Open list editor"
+	btn.custom_minimum_size.x = 28
+	btn.pressed.connect(func():
+		_show_list_editor_popup(prop_key, value, display, auto_count_key, min_items, max_items)
+	)
+
+	hbox.add_child(display)
+	hbox.add_child(btn)
+	property_grid.add_child(hbox)
+	_prop_row_index += 1
+
+## Open a VB6-style list editor popup dialog for editing list items one per line.
+func _show_list_editor_popup(prop_key: String, current_value: String, display_edit: LineEdit, auto_count_key: String, min_items: int, max_items: int):
+	# Parse current items
+	var items: PackedStringArray = []
+	if not current_value.is_empty():
+		for item in current_value.split(","):
+			var trimmed = item.strip_edges()
+			if not trimmed.is_empty():
+				items.append(trimmed)
+
+	var dialog = AcceptDialog.new()
+	dialog.title = prop_key + " - List Editor"
+	dialog.min_size = Vector2i(320, 380)
+	dialog.ok_button_text = "OK"
+	dialog.add_cancel_button("Cancel")
+
+	var vbox = VBoxContainer.new()
+	vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
+
+	var help_lbl = Label.new()
+	help_lbl.text = "Enter items, one per line:"
+	help_lbl.add_theme_color_override("font_color", Color(0.15, 0.15, 0.15))
+	vbox.add_child(help_lbl)
+
+	var te = TextEdit.new()
+	te.text = "\n".join(items)
+	te.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	te.custom_minimum_size = Vector2(300, 260)
+	# VB6-style light theme for the text editor
+	te.add_theme_color_override("font_color", Color(0.0, 0.0, 0.0))
+	te.add_theme_color_override("background_color", Color(1.0, 1.0, 1.0))
+	te.add_theme_color_override("caret_color", Color(0.0, 0.0, 0.0))
+	var te_style = StyleBoxFlat.new()
+	te_style.bg_color = Color(1.0, 1.0, 1.0)
+	te_style.border_color = Color(0.5, 0.5, 0.5)
+	te_style.set_border_width_all(1)
+	te_style.content_margin_left = 4
+	te_style.content_margin_right = 4
+	te_style.content_margin_top = 4
+	te_style.content_margin_bottom = 4
+	te.add_theme_stylebox_override("normal", te_style)
+	var te_focus = te_style.duplicate()
+	te_focus.border_color = Color(0.0, 0.47, 0.84)
+	te.add_theme_stylebox_override("focus", te_focus)
+	vbox.add_child(te)
+
+	if max_items > 0:
+		var hint_lbl = Label.new()
+		hint_lbl.text = "Min: " + str(min_items) + "  Max: " + str(max_items) + " items"
+		hint_lbl.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
+		hint_lbl.add_theme_font_size_override("font_size", 11)
+		vbox.add_child(hint_lbl)
+
+	dialog.add_child(vbox)
+
+	dialog.confirmed.connect(func():
+		var lines = te.text.split("\n")
+		var new_items: PackedStringArray = []
+		for line in lines:
+			var trimmed = line.strip_edges()
+			if not trimmed.is_empty():
+				new_items.append(trimmed)
+		var result = ",".join(new_items)
+		_apply_prop(prop_key, result)
+		# Update auto-count property if configured
+		if not auto_count_key.is_empty():
+			var count = new_items.size()
+			if min_items > 0:
+				count = max(count, min_items)
+			if max_items > 0:
+				count = min(count, max_items)
+			_apply_prop(auto_count_key, count)
+		# Update display
+		var nn = new_items.size()
+		display_edit.text = str(nn) + " item" + ("s" if nn != 1 else "")
+		dialog.queue_free()
+		# Refresh inspector if auto-count changed
+		if not auto_count_key.is_empty():
+			call_deferred("_refresh_fd_inspector")
+	)
+
+	dialog.canceled.connect(func():
+		dialog.queue_free()
+	)
+
+	add_child(dialog)
+	dialog.popup_centered()
+
+## Refresh the FormDesigner inspector after auto-count changes
+func _refresh_fd_inspector():
+	if _fd_mode and not _fd_form_mode and is_instance_valid(_fd_designer) and _fd_control_index >= 0:
+		var info = _fd_designer.get_control_info(_fd_control_index)
+		show_control_properties(info, _fd_designer, _fd_control_index)
 
 func _add_section_header(title: String):
 	var sep = HSeparator.new()
