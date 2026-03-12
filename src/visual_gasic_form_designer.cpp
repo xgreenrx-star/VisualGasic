@@ -209,11 +209,31 @@ void VisualGasicFormDesigner::_draw() {
 
     // Draw controls back-to-front (only those without live preview instances)
     for (int i = 0; i < controls.size(); i++) {
+        if (live_previews.has(controls[i].name) && live_previews[controls[i].name] != nullptr) {
+            // Rendered by live preview scene instance.
+            // If invisible, the live preview handles the ghost appearance.
+            continue;
+        }
         if (controls[i].visible) {
-            if (live_previews.has(controls[i].name) && live_previews[controls[i].name] != nullptr) {
-                continue; // Rendered by live preview scene instance
-            }
             _draw_control(controls[i], i);
+        } else {
+            // Design-time ghost: draw the control at reduced opacity so the
+            // designer can still see, select, and edit invisible controls.
+            _draw_control(controls[i], i);
+            // Overlay a semi-transparent hatch pattern to signal "invisible at runtime"
+            Rect2 r = controls[i].rect;
+            draw_rect(r, Color(0.5, 0.5, 0.5, 0.25));
+            // Diagonal hatch lines
+            float step = 8.0f;
+            Color hatch_color(0.4, 0.4, 0.4, 0.3);
+            for (float d = -r.size.y; d < r.size.x; d += step) {
+                Vector2 p1(MAX(r.position.x, r.position.x + d), r.position.y + MAX(0.0f, -d));
+                Vector2 p2(MIN(r.position.x + r.size.x, r.position.x + d + r.size.y),
+                           MIN(r.position.y + r.size.y, r.position.y + r.size.x - d));
+                if (p1.x < r.position.x + r.size.x && p2.y > r.position.y) {
+                    draw_line(p1, p2, hatch_color, 1.0);
+                }
+            }
         }
     }
 
@@ -2077,12 +2097,19 @@ void VisualGasicFormDesigner::_sync_live_preview_properties(int idx) {
         }
     }
 
-    // Force design-time visibility — override _build_ui() hiding
+    // Force design-time visibility — controls are ALWAYS visible in the
+    // designer so they can be selected and edited.  Invisible controls are
+    // shown at 35% opacity with a tint so the user can tell they're hidden
+    // at runtime.
     Control *ctrl = Object::cast_to<Control>(node);
     if (ctrl) {
-        ctrl->set_visible(item.visible);
-        // Always reset modulate to fully opaque so animations don't hide controls
-        ctrl->set_modulate(Color(1, 1, 1, 1));
+        ctrl->set_visible(true); // Always visible at design time
+        if (item.visible) {
+            ctrl->set_modulate(Color(1, 1, 1, 1));
+        } else {
+            // Ghost appearance: reduced opacity + slight gray tint
+            ctrl->set_modulate(Color(0.7, 0.7, 0.8, 0.35));
+        }
     }
 }
 
@@ -2120,6 +2147,39 @@ void VisualGasicFormDesigner::_on_overlay_draw() {
 
     // Draw selection handles and rubber band in form-local coordinates
     overlay_node->draw_set_transform(Vector2(FORM_PADDING_X, FORM_PADDING_Y));
+
+    // Invisible-control indicators: draw hatched outline + badge for every
+    // control with Visible=False so the designer clearly marks them.
+    Ref<Font> overlay_font = overlay_node->get_theme_default_font();
+    for (int i = 0; i < controls.size(); i++) {
+        if (!controls[i].visible) {
+            Rect2 r = controls[i].rect;
+            // Dashed border
+            Color inv_border(0.6, 0.6, 1.0, 0.5);
+            overlay_node->draw_rect(r, inv_border, false, 1.0);
+            // Diagonal hatch lines over the live preview area
+            float step = 8.0f;
+            Color hatch_color(0.5, 0.5, 0.7, 0.18);
+            for (float d = -r.size.y; d < r.size.x; d += step) {
+                Vector2 p1(MAX(r.position.x, r.position.x + d), r.position.y + MAX(0.0f, -d));
+                Vector2 p2(MIN(r.position.x + r.size.x, r.position.x + d + r.size.y),
+                           MIN(r.position.y + r.size.y, r.position.y + r.size.x - d));
+                if (p1.x < r.position.x + r.size.x && p2.y > r.position.y) {
+                    overlay_node->draw_line(p1, p2, hatch_color, 1.0);
+                }
+            }
+            // "Invisible" badge at top-left
+            if (overlay_font.is_valid()) {
+                String badge = "Invisible";
+                int badge_fs = 9;
+                float tw = overlay_font->get_string_size(badge, HORIZONTAL_ALIGNMENT_LEFT, -1, badge_fs).x;
+                Rect2 badge_bg(r.position.x, r.position.y - 14, tw + 6, 14);
+                overlay_node->draw_rect(badge_bg, Color(0.15, 0.15, 0.3, 0.8));
+                overlay_node->draw_string(overlay_font, Vector2(r.position.x + 3, r.position.y - 3),
+                                          badge, HORIZONTAL_ALIGNMENT_LEFT, -1, badge_fs, Color(0.7, 0.7, 1.0, 0.9));
+            }
+        }
+    }
 
     // Selection border + 8 resize handles for each selected control
     for (int i = 0; i < controls.size(); i++) {
@@ -2215,8 +2275,10 @@ void VisualGasicFormDesigner::_draw_toolbox_preview() {
 
 int VisualGasicFormDesigner::_hit_test(const Vector2 &p_pos) const {
     // Back-to-front (topmost first)
+    // Design-time: invisible controls are still selectable so the user
+    // can click them and change their properties (e.g. make them visible again).
     for (int i = controls.size() - 1; i >= 0; i--) {
-        if (controls[i].visible && controls[i].rect.has_point(p_pos)) {
+        if (controls[i].rect.has_point(p_pos)) {
             return i;
         }
     }
