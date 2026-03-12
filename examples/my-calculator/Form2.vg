@@ -53,3 +53,7 @@ End Sub
 Sub GameMenu1_Click()
 
 End Sub
+
+Sub RadialMenu1_Click()
+
+End Sub

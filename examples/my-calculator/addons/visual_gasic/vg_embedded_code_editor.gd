@@ -282,6 +282,10 @@ func save_file() -> void:
 		f.store_string(_code_edit.text)
 		f.close()
 		_dirty = false
+		# Notify Godot's filesystem so it doesn't treat this as an
+		# external modification and prompt "reload from disk?" on focus.
+		if Engine.is_editor_hint():
+			EditorInterface.get_resource_filesystem().update_file(_vg_path)
 		code_saved.emit(_vg_path)
 		print("VG Code Editor: Saved ", _vg_path)
 
@@ -303,15 +307,18 @@ func get_code_edit() -> CodeEdit:
 
 ## Ensure a Sub stub exists for the given event, and navigate the caret to it.
 ## If it already exists, just jump to it.
-func ensure_event_handler(sub_name: String) -> void:
+func ensure_event_handler(sub_name: String, params: String = "") -> void:
 	if not _code_edit:
 		return
 
-	var full_sub := "Sub " + sub_name + "()"
+	var param_str := "(" + params + ")" if not params.is_empty() else "()"
+	var full_sub := "Sub " + sub_name + param_str
+	# For searching, match just the Sub name (ignore params — user may have edited them)
+	var search_key := "Sub " + sub_name + "("
 	var text := _code_edit.text
 
 	# Check if sub already exists (case-insensitive)
-	if text.to_lower().find(full_sub.to_lower()) == -1:
+	if text.to_lower().find(search_key.to_lower()) == -1:
 		# Append the stub
 		if not text.ends_with("\n"):
 			text += "\n"
@@ -323,7 +330,7 @@ func ensure_event_handler(sub_name: String) -> void:
 	# Navigate to the body line (the blank line inside the Sub)
 	var lines := _code_edit.text.split("\n")
 	for i in lines.size():
-		if lines[i].strip_edges().to_lower().begins_with(full_sub.to_lower()):
+		if lines[i].strip_edges().to_lower().begins_with(search_key.to_lower()):
 			var body_line := i + 1
 			_code_edit.set_caret_line(body_line)
 			_code_edit.set_caret_column(4)

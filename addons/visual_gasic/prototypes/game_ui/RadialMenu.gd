@@ -3,7 +3,7 @@ extends Control
 ## Game UI — Radial / pie menu for quick item or ability selection.
 ## Draws wedge segments in a circle with icons and labels.
 
-signal item_selected(index: int)
+signal item_clicked(index: int)
 signal item_hovered(index: int)
 signal menu_opened
 signal menu_closed
@@ -147,4 +147,4 @@ func hide_menu() -> void:
 
 func select_item(index: int) -> void:
 	SelectedIndex = index
-	item_selected.emit(index)
+	item_clicked.emit(index)

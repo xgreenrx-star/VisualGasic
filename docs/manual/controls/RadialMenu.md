@@ -25,7 +25,7 @@
 
 | Signal | Description |
 |--------|-------------|
-| `item_selected(index: int)` | Emitted when a wedge is confirmed |
+| `item_clicked(index: int)` | Emitted when a wedge is clicked |
 | `item_hovered(index: int)` | Emitted when cursor enters a wedge |
 
 ## Methods
@@ -45,7 +45,7 @@ Sub Form_KeyDown(KeyCode, Shift)
     End If
 End Sub
 
-Sub RadialMenu1_item_selected(index)
+Sub RadialMenu1_item_clicked(index As Integer)
     Select Case index
         Case 0: Player.Attack
         Case 1: Player.Defend

@@ -20,7 +20,7 @@ Sub Form_KeyDown(KeyCode, Shift)
     End If
 End Sub
 
-Sub RadialMenu1_item_selected(index)
+Sub RadialMenu1_item_clicked(index As Integer)
     selection = index
     Dim labels() As String
     labels = Split(RadialMenu1.ItemLabels, ",")

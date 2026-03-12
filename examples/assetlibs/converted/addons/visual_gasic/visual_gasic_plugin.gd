@@ -5162,8 +5162,9 @@ func _on_fd_control_double_clicked(index: int) -> void:
 	if ctrl_name.is_empty():
 		push_warning("VisualGasic: Double-click — control has no name")
 		return
-	# Determine default event suffix based on type
+	# Determine default event suffix and parameters based on control type
 	var event_suffix = "Click"
+	var event_params = ""  # VB6-style parameter list
 	if ctrl_type in ["LineEdit", "TextEdit"]:
 		event_suffix = "Change"
 	elif ctrl_type in ["HScrollBar", "VScrollBar", "HSlider", "VSlider", "SpinBox"]:
@@ -5176,6 +5177,42 @@ func _on_fd_control_double_clicked(index: int) -> void:
 		event_suffix = "Click"
 	elif ctrl_type == "ListView":
 		event_suffix = "Click"
+	else:
+		# --- Game UI prototype detection ---
+		# Check if a prototype script exists for this type and has custom signals.
+		# If so, use the primary signal (first one with parameters) as the event.
+		var proto_script: GDScript = null
+		var scene_path = info.get("scene_path", "")
+		if not scene_path.is_empty() and FileAccess.file_exists(scene_path):
+			var gd_path = scene_path.replace(".tscn", ".gd")
+			if FileAccess.file_exists(gd_path):
+				proto_script = load(gd_path) as GDScript
+		if proto_script == null:
+			# Try standard lookup paths
+			for dir in ["res://addons/visual_gasic/prototypes/game_ui/", "res://addons/visual_gasic/prototypes/"]:
+				var gd_path = dir + ctrl_type + ".gd"
+				if FileAccess.file_exists(gd_path):
+					proto_script = load(gd_path) as GDScript
+					break
+		if proto_script:
+			var sig_list = proto_script.get_script_signal_list()
+			if sig_list.size() > 0:
+				# Prefer first signal with parameters (more useful as a handler)
+				var best_sig = null
+				for sig in sig_list:
+					if sig.has("args") and sig["args"].size() > 0:
+						best_sig = sig
+						break
+				if best_sig == null:
+					best_sig = sig_list[0]
+				event_suffix = best_sig["name"]
+				# Build VB6-style parameter list
+				if best_sig.has("args") and best_sig["args"].size() > 0:
+					var parts: PackedStringArray = []
+					for arg in best_sig["args"]:
+						var vb_type = _godot_type_to_vb6(arg.get("type", 0))
+						parts.append(arg["name"] + " As " + vb_type)
+					event_params = ", ".join(parts)
 	# Get form path — try multiple fallbacks
 	var form_path = _form_designer.get_form_path()
 	if form_path.is_empty():
@@ -5204,7 +5241,7 @@ func _on_fd_control_double_clicked(index: int) -> void:
 
 	# ── Use embedded code editor (VB6 style: stays within Form Designer) ──
 	if is_instance_valid(_embedded_code_editor):
-		_open_in_embedded_editor(vg_path, sub_name)
+		_open_in_embedded_editor(vg_path, sub_name, event_params)
 	else:
 		# Fallback: open in Godot's Script editor (old behavior)
 		_switching_to_code_editor = true
@@ -5216,7 +5253,7 @@ func _on_fd_control_double_clicked(index: int) -> void:
 
 ## Opens a .vg file in the embedded code editor and navigates to a sub.
 ## Switches the canvas area to code view while keeping all VB6 panels.
-func _open_in_embedded_editor(vg_path: String, sub_name: String) -> void:
+func _open_in_embedded_editor(vg_path: String, sub_name: String, params: String = "") -> void:
 	if not is_instance_valid(_embedded_code_editor):
 		return
 
@@ -5231,7 +5268,7 @@ func _open_in_embedded_editor(vg_path: String, sub_name: String) -> void:
 		_feed_control_names_to_editor()
 
 	# Ensure the event handler stub exists and navigate to it
-	_embedded_code_editor.ensure_event_handler(sub_name)
+	_embedded_code_editor.ensure_event_handler(sub_name, params)
 
 	# Switch to code view
 	_show_code_view()
