@@ -1,4 +1,4 @@
-[gd_scene load_steps=46 format=3]
+[gd_scene load_steps=47 format=3]
 
 [ext_resource type="Script" uid="uid://sao1y2hgbivu" path="res://Form2.vg" id="1"]
 [ext_resource type="Script" uid="uid://cixa1he0byrgy" path="res://addons/visual_gasic/form_editor_helper.gd" id="2"]
@@ -8,6 +8,7 @@
 [ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/TextureRect.tscn" id="6"]
 [ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/game_ui/RadialMenu.tscn" id="7"]
 [ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/game_ui/ChatBox.tscn" id="8"]
+[ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/ItemList.tscn" id="9"]
 
 [sub_resource type="StyleBoxFlat" id="vb6_btn_normal"]
 bg_color = Color(0.831, 0.816, 0.784, 1.0)
@@ -535,6 +536,7 @@ FontBold = false
 FontItalic = false
 Appearance = 1
 BorderStyle = 0
+ItemLabels = "Pizza,Defend,Magic,Items,Flee,Status"
 
 [node name="ChatBox1" parent="." instance=ExtResource("8")]
 offset_left = 936.0
@@ -553,4 +555,25 @@ FontBold = false
 FontItalic = false
 Appearance = 1
 BorderStyle = 0
+
+[node name="ItemList1" parent="." instance=ExtResource("9")]
+offset_left = 120.0
+offset_top = 504.0
+offset_right = 288.0
+offset_bottom = 640.0
+focus_mode = 2
+TabIndex = 9
+Tag = ""
+tooltip_text = ""
+mouse_default_cursor_shape = 0
+BackColor = Color(1.0, 1.0, 1.0, 1.0)
+ForeColor = Color(0.0, 0.0, 0.0, 1.0)
+FontName = "MS Sans Serif"
+FontBold = false
+FontItalic = false
+Appearance = 1
+BorderStyle = 1
+Sorted = false
+MultiSelect = 0
+Columns = 0
 

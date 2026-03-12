@@ -5,6 +5,22 @@
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/classes/editor_interface.hpp>
+#include <godot_cpp/classes/item_list.hpp>
+#include <godot_cpp/classes/option_button.hpp>
+#include <godot_cpp/classes/progress_bar.hpp>
+#include <godot_cpp/classes/spin_box.hpp>
+#include <godot_cpp/classes/check_box.hpp>
+#include <godot_cpp/classes/check_button.hpp>
+#include <godot_cpp/classes/tab_container.hpp>
+#include <godot_cpp/classes/line_edit.hpp>
+#include <godot_cpp/classes/text_edit.hpp>
+#include <godot_cpp/classes/range.hpp>
+#include <godot_cpp/classes/base_button.hpp>
+#include <godot_cpp/classes/button.hpp>
+#include <godot_cpp/classes/style_box_flat.hpp>
+#include <godot_cpp/classes/slider.hpp>
+#include <godot_cpp/classes/scroll_bar.hpp>
+#include <godot_cpp/classes/tree.hpp>
 
 using namespace godot;
 
@@ -2089,27 +2105,403 @@ void VisualGasicFormDesigner::_sync_live_preview_properties(int idx) {
 
     Node *node = live_previews[item.name];
     if (!node) return;
+    Control *ctrl = Object::cast_to<Control>(node);
 
-    // Sync text property for text-bearing controls
+    // ── 1. Sync text property for text-bearing controls ──
     if (!item.text.is_empty()) {
         if (node->has_method("set_text")) {
             node->call("set_text", item.text);
         }
     }
 
-    // Force design-time visibility — controls are ALWAYS visible in the
-    // designer so they can be selected and edited.  Invisible controls are
-    // shown at 35% opacity with a tint so the user can tell they're hidden
-    // at runtime.
-    Control *ctrl = Object::cast_to<Control>(node);
+    // ── 2. Force design-time visibility ──
     if (ctrl) {
-        ctrl->set_visible(true); // Always visible at design time
+        ctrl->set_visible(true);
         if (item.visible) {
             ctrl->set_modulate(Color(1, 1, 1, 1));
         } else {
-            // Ghost appearance: reduced opacity + slight gray tint
             ctrl->set_modulate(Color(0.7, 0.7, 0.8, 0.35));
         }
+    }
+
+    // ── 3. Apply generic properties from the properties dict ──
+    const Dictionary &props = item.properties;
+    String t = item.type;
+    bool is_prototype = !item.scene_path.is_empty() &&
+                        (item.scene_path.find("prototypes/game_ui/") >= 0 ||
+                         item.scene_path.find("prototypes/") >= 0);
+
+    // ---------- ItemList / ListBox ----------
+    ItemList *ilist = Object::cast_to<ItemList>(node);
+    if (ilist) {
+        // List items
+        if (props.has("List")) {
+            String list_str = props["List"];
+            ilist->clear();
+            if (!list_str.is_empty()) {
+                PackedStringArray items = list_str.split(",", false);
+                for (int i = 0; i < items.size(); i++) {
+                    ilist->add_item(items[i].strip_edges());
+                }
+            }
+        }
+        // ListStyle: 0=Standard, 1=Checkbox (not native to Godot ItemList but
+        // we can show a visual hint by enabling/disabling selectable items)
+        // Sorted
+        if (props.has("Sorted") && (bool)props["Sorted"]) {
+            ilist->sort_items_by_text();
+        }
+        // MultiSelect
+        if (props.has("MultiSelect")) {
+            int ms = props["MultiSelect"];
+            ilist->set_select_mode(ms == 0 ? ItemList::SELECT_SINGLE : ItemList::SELECT_MULTI);
+        }
+        // MaxColumns
+        if (props.has("MaxColumns")) {
+            ilist->set_max_columns(int(props["MaxColumns"]));
+        }
+        // FixedColumnWidth
+        if (props.has("FixedColumnWidth")) {
+            ilist->set_fixed_column_width(int(props["FixedColumnWidth"]));
+        }
+        // IconMode
+        if (props.has("IconMode")) {
+            ilist->set_icon_mode(int(props["IconMode"]) == 0 ? ItemList::ICON_MODE_TOP : ItemList::ICON_MODE_LEFT);
+        }
+        // AutoHeight
+        if (props.has("AutoHeight")) {
+            ilist->set_auto_height((bool)props["AutoHeight"]);
+        }
+        // SameColumnWidth
+        if (props.has("SameColumnWidth")) {
+            ilist->set_same_column_width((bool)props["SameColumnWidth"]);
+        }
+        // AllowReselect
+        if (props.has("AllowReselect")) {
+            ilist->set_allow_reselect((bool)props["AllowReselect"]);
+        }
+    }
+
+    // ---------- OptionButton / ComboBox ----------
+    OptionButton *opt = Object::cast_to<OptionButton>(node);
+    if (opt) {
+        if (props.has("ListItems")) {
+            String list_str = props["ListItems"];
+            opt->clear();
+            if (!list_str.is_empty()) {
+                PackedStringArray items = list_str.split(",", false);
+                for (int i = 0; i < items.size(); i++) {
+                    opt->add_item(items[i].strip_edges());
+                }
+            }
+        }
+        if (props.has("Selected")) {
+            int sel = props["Selected"];
+            if (sel >= 0 && sel < opt->get_item_count()) {
+                opt->select(sel);
+            }
+        }
+        if (props.has("FitToLongestItem")) {
+            opt->set_fit_to_longest_item((bool)props["FitToLongestItem"]);
+        }
+    }
+
+    // ---------- Range controls (ProgressBar, Slider, SpinBox, ScrollBar) ----------
+    Range *range = Object::cast_to<Range>(node);
+    if (range) {
+        // Apply Min first to avoid clamping issues
+        if (props.has("Min")) range->set_min(float(props["Min"]));
+        if (props.has("Max")) range->set_max(float(props["Max"]));
+        if (props.has("Step")) range->set_step(float(props["Step"]));
+        if (props.has("Value")) range->set_value(float(props["Value"]));
+        if (props.has("AllowGreater")) range->set_allow_greater((bool)props["AllowGreater"]);
+        if (props.has("AllowLesser")) range->set_allow_lesser((bool)props["AllowLesser"]);
+        if (props.has("Rounded")) range->set_use_rounded_values((bool)props["Rounded"]);
+    }
+
+    // ---------- ProgressBar-specific ----------
+    ProgressBar *pbar = Object::cast_to<ProgressBar>(node);
+    if (pbar) {
+        if (props.has("ShowPercentage")) pbar->set_show_percentage((bool)props["ShowPercentage"]);
+        if (props.has("Indeterminate")) pbar->set_indeterminate((bool)props["Indeterminate"]);
+        if (props.has("FillMode")) pbar->set_fill_mode(int(props["FillMode"]));
+    }
+
+    // ---------- SpinBox-specific ----------
+    SpinBox *sbox = Object::cast_to<SpinBox>(node);
+    if (sbox) {
+        if (props.has("Prefix")) sbox->set_prefix(String(props["Prefix"]));
+        if (props.has("Suffix")) sbox->set_suffix(String(props["Suffix"]));
+        if (props.has("Editable")) sbox->set_editable((bool)props["Editable"]);
+        if (props.has("Alignment")) sbox->set_horizontal_alignment(HorizontalAlignment(int(props["Alignment"])));
+        if (props.has("SelectAllOnFocus")) sbox->set_select_all_on_focus((bool)props["SelectAllOnFocus"]);
+    }
+
+    // ---------- Slider-specific (HSlider / VSlider) ----------
+    Slider *slider = Object::cast_to<Slider>(node);
+    if (slider) {
+        if (props.has("TickCount")) slider->set_ticks(int(props["TickCount"]));
+        if (props.has("TicksOnBorders")) slider->set_ticks_on_borders((bool)props["TicksOnBorders"]);
+        if (props.has("Scrollable")) slider->set_scrollable((bool)props["Scrollable"]);
+    }
+
+    // ---------- ScrollBar-specific (HScrollBar / VScrollBar) ----------
+    ScrollBar *sbar = Object::cast_to<ScrollBar>(node);
+    if (sbar) {
+        if (props.has("Page")) range->set_page(float(props["Page"]));
+        if (props.has("CustomStep")) sbar->set_custom_step(float(props["CustomStep"]));
+    }
+
+    // ---------- Tree / TreeView ----------
+    Tree *tree = Object::cast_to<Tree>(node);
+    if (tree) {
+        if (props.has("HideRoot")) tree->set_hide_root((bool)props["HideRoot"]);
+        if (props.has("HideFolding")) tree->set_hide_folding((bool)props["HideFolding"]);
+        if (props.has("AllowReselect")) tree->set_allow_reselect((bool)props["AllowReselect"]);
+        if (props.has("AllowRmbSelect")) tree->set_allow_rmb_select((bool)props["AllowRmbSelect"]);
+        if (props.has("SelectMode")) tree->set_select_mode(Tree::SelectMode(int(props["SelectMode"])));
+        if (props.has("Columns")) tree->set_columns(int(props["Columns"]));
+        if (props.has("ColumnTitlesVisible")) tree->set_column_titles_visible((bool)props["ColumnTitlesVisible"]);
+        if (props.has("ScrollHorizontalEnabled")) tree->set_h_scroll_enabled((bool)props["ScrollHorizontalEnabled"]);
+        if (props.has("ScrollVerticalEnabled")) tree->set_v_scroll_enabled((bool)props["ScrollVerticalEnabled"]);
+    }
+
+    // ---------- CheckBox / CheckButton ----------
+    CheckBox *chk = Object::cast_to<CheckBox>(node);
+    if (chk && props.has("Value")) {
+        chk->set_pressed((bool)props["Value"]);
+    }
+    CheckButton *chkbtn = Object::cast_to<CheckButton>(node);
+    if (chkbtn && props.has("Value")) {
+        chkbtn->set_pressed((bool)props["Value"]);
+    }
+
+    // ---------- Button-specific ----------
+    Button *btn = Object::cast_to<Button>(node);
+    if (btn) {
+        if (props.has("Flat")) btn->set_flat((bool)props["Flat"]);
+        if (props.has("ClipText")) btn->set_clip_text((bool)props["ClipText"]);
+    }
+
+    // ---------- LineEdit-specific ----------
+    LineEdit *le = Object::cast_to<LineEdit>(node);
+    if (le) {
+        if (props.has("MaxLength")) le->set_max_length(int(props["MaxLength"]));
+        if (props.has("PlaceholderText")) le->set_placeholder(String(props["PlaceholderText"]));
+        if (props.has("Locked")) le->set_editable(!(bool)props["Locked"]);
+        if (props.has("ClearButton")) le->set_clear_button_enabled((bool)props["ClearButton"]);
+        if (props.has("SelectAllOnFocus")) le->set_select_all_on_focus((bool)props["SelectAllOnFocus"]);
+        if (props.has("Alignment")) le->set_horizontal_alignment(HorizontalAlignment(int(props["Alignment"])));
+        if (props.has("PasswordChar")) {
+            String pc = props["PasswordChar"];
+            if (!pc.is_empty()) {
+                le->set_secret(true);
+                le->set_secret_character(pc);
+            } else {
+                le->set_secret(false);
+            }
+        }
+    }
+
+    // ---------- TextEdit-specific ----------
+    TextEdit *te = Object::cast_to<TextEdit>(node);
+    if (te) {
+        if (props.has("Locked") || props.has("Editable")) {
+            bool editable = true;
+            if (props.has("Locked")) editable = !(bool)props["Locked"];
+            if (props.has("Editable")) editable = (bool)props["Editable"];
+            te->set_editable(editable);
+        }
+        if (props.has("PlaceholderText")) te->set_placeholder(String(props["PlaceholderText"]));
+    }
+
+    // ---------- TabContainer-specific ----------
+    TabContainer *tabs = Object::cast_to<TabContainer>(node);
+    if (tabs) {
+        if (props.has("Tabs")) {
+            String tabs_str = props["Tabs"];
+            // Build child panels for each tab name
+            if (!tabs_str.is_empty()) {
+                PackedStringArray tab_names = tabs_str.split(",", false);
+                // Only rebuild if count differs (avoid flickering)
+                int current_count = tabs->get_tab_count();
+                if (current_count != tab_names.size()) {
+                    // Remove excess tabs
+                    while (tabs->get_child_count() > tab_names.size()) {
+                        Node *last = tabs->get_child(tabs->get_child_count() - 1);
+                        tabs->remove_child(last);
+                        last->queue_free();
+                    }
+                    // Add missing tabs
+                    while (tabs->get_child_count() < tab_names.size()) {
+                        Control *panel = memnew(Control);
+                        tabs->add_child(panel);
+                    }
+                }
+                // Set tab titles
+                for (int i = 0; i < tab_names.size(); i++) {
+                    tabs->set_tab_title(i, tab_names[i].strip_edges());
+                }
+            }
+        }
+        if (props.has("CurrentTab")) {
+            int ct = props["CurrentTab"];
+            if (ct >= 0 && ct < tabs->get_tab_count()) {
+                tabs->set_current_tab(ct);
+            }
+        }
+    }
+
+    // ---------- Label-specific ----------
+    if (t == "Label" && ctrl) {
+        if (props.has("Alignment") && node->has_method("set_horizontal_alignment")) {
+            node->call("set_horizontal_alignment", int(props["Alignment"]));
+        }
+        if (props.has("VerticalAlignment") && node->has_method("set_vertical_alignment")) {
+            node->call("set_vertical_alignment", int(props["VerticalAlignment"]));
+        }
+        if (props.has("WordWrap") && node->has_method("set_autowrap_mode")) {
+            node->call("set_autowrap_mode", (bool)props["WordWrap"] ? 3 : 0);  // AUTOWRAP_WORD_SMART=3
+        }
+        if (props.has("AutoSize") && node->has_method("set_autowrap_mode")) {
+            if ((bool)props["AutoSize"]) {
+                node->call("set_autowrap_mode", 0);  // AUTOWRAP_OFF
+            }
+        }
+        if (props.has("ClipText") && node->has_method("set_clip_text")) {
+            node->call("set_clip_text", (bool)props["ClipText"]);
+        }
+        if (props.has("MaxLinesVisible") && node->has_method("set_max_lines_visible")) {
+            node->call("set_max_lines_visible", int(props["MaxLinesVisible"]));
+        }
+    }
+
+    // ---------- RadioButton (treated as CheckBox variant) ----------
+    if (t == "RadioButton" && node->has_method("set_pressed")) {
+        if (props.has("Value")) {
+            node->call("set_pressed", (bool)props["Value"]);
+        }
+    }
+
+    // ── 4. Universal visual properties ──
+    if (ctrl) {
+        // FontSize — theme override
+        if (props.has("FontSize")) {
+            int vb6_pt = int(props["FontSize"]);
+            // VB6 8pt ≈ Godot 12px, rough scaling: px = pt * 1.5
+            int godot_px = (int)(vb6_pt * 1.5);
+            if (godot_px < 8) godot_px = 8;
+            ctrl->add_theme_font_size_override("font_size", godot_px);
+        }
+
+        // Opacity (0-100 → modulate alpha)
+        if (props.has("Opacity") && item.visible) {
+            float alpha = float(int(props["Opacity"])) / 100.0f;
+            ctrl->set_modulate(Color(1, 1, 1, CLAMP(alpha, 0.0f, 1.0f)));
+        }
+
+        // ForeColor → font_color override
+        if (props.has("ForeColor")) {
+            Variant v = props["ForeColor"];
+            if (v.get_type() == Variant::COLOR) {
+                Color fc = v;
+                ctrl->add_theme_color_override("font_color", fc);
+            }
+        }
+
+        // BackColor → use a StyleBoxFlat bg for controls that support it
+        if (props.has("BackColor")) {
+            Variant v = props["BackColor"];
+            if (v.get_type() == Variant::COLOR) {
+                Color bc = v;
+                // Only apply opaque backgrounds (alpha > 0.5)
+                if (bc.a > 0.5f) {
+                    Ref<StyleBoxFlat> sbf;
+                    sbf.instantiate();
+                    sbf->set_bg_color(bc);
+                    sbf->set_border_width_all(0);
+                    // Try "normal" first (most controls), then "panel" (Panel, TabContainer)
+                    if (ctrl->has_theme_stylebox("normal")) {
+                        ctrl->add_theme_stylebox_override("normal", sbf);
+                    } else if (ctrl->has_theme_stylebox("panel")) {
+                        ctrl->add_theme_stylebox_override("panel", sbf);
+                    }
+                }
+            }
+        }
+
+        // Enabled
+        if (props.has("Enabled")) {
+            BaseButton *bb = Object::cast_to<BaseButton>(node);
+            if (bb) {
+                bb->set_disabled(!(bool)props["Enabled"]);
+            }
+            if (le) {
+                le->set_editable((bool)props["Enabled"]);
+            }
+        }
+    }
+
+    // ── 5. Prototype / Game UI controls — set @export properties directly ──
+    if (is_prototype) {
+        // Build a set of known node properties ONCE for efficient lookup
+        Array prop_list = node->get_property_list();
+        HashMap<String, bool> node_props;
+        for (int pl = 0; pl < prop_list.size(); pl++) {
+            Dictionary pd = prop_list[pl];
+            node_props[String(pd["name"])] = true;
+        }
+
+        Array keys = props.keys();
+        for (int k = 0; k < keys.size(); k++) {
+            String key = keys[k];
+            Variant val = props[key];
+            // Skip universal properties already handled above
+            if (key == "Enabled" || key == "TabStop" || key == "TabIndex" ||
+                key == "Tag" || key == "ToolTipText" || key == "MousePointer" ||
+                key == "FontName" || key == "FontSize" || key == "FontBold" ||
+                key == "FontItalic" || key == "FontUnderline" || key == "FontStrikethrough" ||
+                key == "Appearance" || key == "BorderStyle" || key == "Opacity" ||
+                key == "BackColor" || key == "ForeColor" ||
+                key == "Rotation" || key == "ScaleX" || key == "ScaleY" ||
+                key == "PivotOffsetX" || key == "PivotOffsetY" ||
+                key == "MinWidth" || key == "MinHeight" || key == "ClipContents" ||
+                key == "SizeFlagsHorizontal" || key == "SizeFlagsVertical" ||
+                key == "GrowHorizontal" || key == "GrowVertical" ||
+                key == "LayoutDirection" || key == "SelfModulate" ||
+                key == "ShowBehindParent" || key == "MouseDefaultCursorShape" ||
+                key == "ThemeTypeVariation" || key == "FocusMode" ||
+                key == "MouseFilter" || key == "CausesValidation") {
+                continue;
+            }
+            // Try setting the property directly on the prototype node
+            if (!node_props.has(key)) continue;
+
+            // Convert comma-separated String to PackedStringArray if needed
+            if (val.get_type() == Variant::STRING) {
+                // Check if the node expects a PackedStringArray for this property
+                Variant current = node->get(key);
+                if (current.get_type() == Variant::PACKED_STRING_ARRAY) {
+                    PackedStringArray arr;
+                    String s = val;
+                    if (!s.is_empty()) {
+                        PackedStringArray parts = s.split(",", false);
+                        for (int p = 0; p < parts.size(); p++) {
+                            arr.push_back(parts[p].strip_edges());
+                        }
+                    }
+                    node->set(key, arr);
+                    continue;
+                }
+            }
+            node->set(key, val);
+        }
+    }
+
+    // ── 6. Re-apply mouse filter after property changes ──
+    // Some property setters may re-enable mouse events on children.
+    if (ctrl) {
+        _set_mouse_filter_recursive(ctrl);
     }
 }
 
