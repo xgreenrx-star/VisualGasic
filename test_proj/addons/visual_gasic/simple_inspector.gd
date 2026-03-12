@@ -153,6 +153,59 @@ const PROPERTY_DESCRIPTIONS: Dictionary = {
 	"ListItems": "Returns/sets the items in the list, separated by | characters.",
 	"FontUnderline": "Returns/sets whether the font is underlined.",
 	"FontStrikethrough": "Returns/sets whether the font has a strikethrough.",
+	# Game UI prototype properties
+	"ItemCount": "Returns/sets the number of items (wedges) displayed in the control.",
+	"Radius": "Returns/sets the outer radius of the control in pixels.",
+	"ItemLabels": "Returns/sets comma-separated labels for each item (e.g. 'Attack,Defend,Magic').",
+	"CenterRadius": "Returns/sets the radius of the center dead zone.",
+	"SelectedIndex": "Returns/sets the currently selected item index (-1 = none).",
+	"ShowAnimation": "Returns/sets the animation played when the control appears.",
+	"HideAnimation": "Returns/sets the animation played when the control disappears.",
+	"TransitionSpeed": "Returns/sets the animation duration in seconds.",
+	"WedgeColor": "Returns/sets the default fill color for wedge segments.",
+	"SelectedColor": "Returns/sets the highlight color for the selected wedge.",
+	"BorderColor": "Returns/sets the color of wedge border lines.",
+	"Value": "Returns/sets the current value of the control.",
+	"MaxValue": "Returns/sets the maximum value of the control.",
+	"BarColor": "Returns/sets the fill color of the progress/stat bar.",
+	"TrailColor": "Returns/sets the trailing damage color of the stat bar.",
+	"BackgroundColor": "Returns/sets the background color behind the bar.",
+	"ShowLabel": "Returns/sets whether a text label is displayed on the bar.",
+	"LabelFormat": "Returns/sets the label format string. Use {value} and {max} as placeholders.",
+	"TrailDelay": "Returns/sets the delay before the trail bar catches up (seconds).",
+	"Rows": "Returns/sets the number of rows in the grid.",
+	"Columns": "Returns/sets the number of columns in the grid.",
+	"SlotSize": "Returns/sets the size of each slot in pixels.",
+	"SlotSpacing": "Returns/sets the spacing between slots in pixels.",
+	"SlotColor": "Returns/sets the default background color of inventory slots.",
+	"SlotHoverColor": "Returns/sets the highlight color when hovering over a slot.",
+	"SelectedSlot": "Returns/sets the currently selected slot as 'row,col'.",
+	"CurrentAmmo": "Returns/sets the current ammo count in the active clip.",
+	"MaxClip": "Returns/sets the maximum ammo capacity of one clip.",
+	"ReserveAmmo": "Returns/sets the total reserve ammo count.",
+	"AmmoColor": "Returns/sets the text color for normal ammo display.",
+	"LowAmmoColor": "Returns/sets the text color when ammo is below the low threshold.",
+	"LowAmmoThreshold": "Returns/sets the fraction (0-1) below which ammo is considered low.",
+	"IconText": "Returns/sets the text or emoji used as the ammo icon.",
+	"Title": "Returns/sets the title text displayed at the top of the control.",
+	"Buttons": "Returns/sets the button labels as a comma-separated list.",
+	"DimColor": "Returns/sets the color of the dim overlay behind the menu.",
+	"TitleFontSize": "Returns/sets the font size for the title text.",
+	"ButtonFontSize": "Returns/sets the font size for button labels.",
+	"ButtonMinWidth": "Returns/sets the minimum width of menu buttons.",
+	"SpeakerName": "Returns/sets the name of the current speaker.",
+	"DialogText": "Returns/sets the dialog text to display with typewriter effect.",
+	"TypewriterSpeed": "Returns/sets the seconds between each character in the typewriter effect.",
+	"CurrentXP": "Returns/sets the current experience points.",
+	"MaxXP": "Returns/sets the XP required to reach the next level.",
+	"Level": "Returns/sets the current character level.",
+	"Segments": "Returns/sets the number of bar segments.",
+	"BarHeight": "Returns/sets the height of the bar in pixels.",
+	"BarWidth": "Returns/sets the width of the bar in pixels.",
+	"FillColor": "Returns/sets the color of filled bar segments.",
+	"EmptyColor": "Returns/sets the color of empty bar segments.",
+	"SegmentBorderColor": "Returns/sets the border color between bar segments.",
+	"FontSize": "Returns/sets the size of the font used in the control.",
 }
 
 func _init():
@@ -649,6 +702,11 @@ func show_control_properties(info: Dictionary, designer = null, ctrl_index: int 
 	# --------- Separator properties ---------
 	# HSeparator / VSeparator have no special properties beyond the universals
 
+	# ===== Game UI Prototype Properties (control-specific @exports) =====
+	var scene_path: String = info.get("scene_path", "")
+	if scene_path.contains("prototypes/game_ui/") or scene_path.contains("prototypes/"):
+		_load_prototype_properties(scene_path, props, ctrl_type)
+
 	# ===== Behavior Properties (universal) =====
 	_property_entries.append({"label": "Enabled", "value": bool(props.get("Enabled", true)), "prop_key": "Enabled", "type": "bool", "category": CATEGORY_BEHAVIOR})
 	_property_entries.append({"label": "Visible", "value": info.get("visible", true), "prop_key": "visible", "type": "bool", "category": CATEGORY_BEHAVIOR})
@@ -737,6 +795,175 @@ func _fd_color_from_props(props: Dictionary, key: String, default: Color) -> Col
 		if v is String and not v.is_empty():
 			return Color(v)
 	return default
+
+# ==========================================================================
+# Game UI Prototype — auto-discover @export properties from .gd scripts
+# ==========================================================================
+
+## Load @export properties from a Game UI prototype GDScript and add them
+## to _property_entries under a category named after the control type.
+func _load_prototype_properties(scene_path: String, props: Dictionary, ctrl_type: String) -> void:
+	# Derive .gd path from .tscn scene path
+	var gd_path := scene_path.replace(".tscn", ".gd")
+	if not FileAccess.file_exists(gd_path):
+		return
+
+	var source := FileAccess.get_file_as_string(gd_path)
+	if source.is_empty():
+		return
+
+	var category_name := ctrl_type  # e.g. "RadialMenu", "StatBar"
+	var lines := source.split("\n")
+	var pending_enum_items: PackedStringArray = []
+	var pending_range_hint: String = ""
+
+	for i in range(lines.size()):
+		var line := lines[i].strip_edges()
+
+		# Collect @export_enum / @export_range decorators (they precede the var line)
+		if line.begins_with("@export_enum("):
+			# May be on the same line as var, or a standalone decorator
+			var paren_start := line.find("(") + 1
+			var paren_end := line.find(")")
+			if paren_end > paren_start:
+				var enum_str := line.substr(paren_start, paren_end - paren_start)
+				pending_enum_items = PackedStringArray()
+				for item in enum_str.split(","):
+					var clean := item.strip_edges().trim_prefix('"').trim_suffix('"')
+					if not clean.is_empty():
+						pending_enum_items.append(clean)
+			# Check if var is on the SAME line (common pattern)
+			var var_pos_same := line.find("var ")
+			if var_pos_same < 0:
+				continue  # decorator only — var is on next line
+
+		if line.begins_with("@export_range("):
+			var paren_start := line.find("(") + 1
+			var paren_end := line.find(")")
+			if paren_end > paren_start:
+				pending_range_hint = line.substr(paren_start, paren_end - paren_start)
+			var var_pos_same := line.find("var ")
+			if var_pos_same < 0:
+				continue
+
+		if not line.begins_with("@export"):
+			# Reset decorators if we hit a non-export line without consuming them
+			if not line.is_empty() and not line.begins_with("#"):
+				pending_enum_items = PackedStringArray()
+				pending_range_hint = ""
+			continue
+
+		# Find "var " in the line
+		var var_pos := line.find("var ")
+		if var_pos < 0:
+			continue
+
+		var after_var := line.substr(var_pos + 4)  # e.g. "ItemCount: int = 6:"
+		var colon_pos := after_var.find(":")
+		if colon_pos < 0:
+			pending_enum_items = PackedStringArray()
+			pending_range_hint = ""
+			continue
+
+		var prop_name := after_var.substr(0, colon_pos).strip_edges()
+		var rest := after_var.substr(colon_pos + 1).strip_edges()
+
+		# Extract type and default value
+		var eq_pos := rest.find("=")
+		var type_str := ""
+		var default_str := ""
+		if eq_pos >= 0:
+			type_str = rest.substr(0, eq_pos).strip_edges()
+			default_str = rest.substr(eq_pos + 1).strip_edges()
+			# Remove trailing colon (setter block)
+			if default_str.ends_with(":"):
+				default_str = default_str.substr(0, default_str.length() - 1).strip_edges()
+		else:
+			type_str = rest
+			if type_str.ends_with(":"):
+				type_str = type_str.substr(0, type_str.length() - 1).strip_edges()
+
+		# Skip non-VB6 types (Texture2D, PackedScene, etc.) — show as string
+		var inspector_type := "string"
+		var value: Variant = ""
+
+		# Handle @export_enum
+		if pending_enum_items.size() > 0:
+			# Build numbered items: ["0 - FadeIn", "1 - ScaleUp", "2 - None"]
+			var numbered_items: Array = []
+			for idx in range(pending_enum_items.size()):
+				numbered_items.append(str(idx) + " - " + pending_enum_items[idx])
+			inspector_type = "prototype_enum"
+			var def_int := int(default_str) if not default_str.is_empty() and default_str.is_valid_int() else 0
+			value = int(props.get(prop_name, def_int))
+			_property_entries.append({
+				"label": prop_name, "value": value, "prop_key": prop_name,
+				"type": inspector_type, "category": category_name,
+				"enum_items": numbered_items
+			})
+			pending_enum_items = PackedStringArray()
+			pending_range_hint = ""
+			continue
+
+		match type_str:
+			"int":
+				inspector_type = "number"
+				var def_int := int(default_str) if not default_str.is_empty() and default_str.is_valid_int() else 0
+				value = int(props.get(prop_name, def_int))
+			"float":
+				inspector_type = "number"
+				var def_float := float(default_str) if not default_str.is_empty() and default_str.is_valid_float() else 0.0
+				value = float(props.get(prop_name, def_float))
+			"String":
+				inspector_type = "string"
+				var def_str := default_str.trim_prefix('"').trim_suffix('"') if not default_str.is_empty() else ""
+				value = str(props.get(prop_name, def_str))
+			"Color":
+				inspector_type = "color"
+				var def_color := _parse_color_literal(default_str)
+				value = _fd_color_from_props(props, prop_name, def_color)
+			"bool":
+				inspector_type = "bool"
+				var def_bool := (default_str.strip_edges().to_lower() == "true") if not default_str.is_empty() else false
+				value = bool(props.get(prop_name, def_bool))
+			"Vector2i":
+				inspector_type = "string"
+				value = str(props.get(prop_name, default_str))
+			"PackedStringArray":
+				inspector_type = "string"
+				var stored = props.get(prop_name, "")
+				if stored is PackedStringArray:
+					value = ",".join(stored)
+				else:
+					value = str(stored) if str(stored) != "" else default_str.trim_prefix('["').trim_suffix('"]').replace('", "', ',')
+			"Texture2D":
+				# Skip texture properties — can't edit in a text field meaningfully
+				pending_enum_items = PackedStringArray()
+				pending_range_hint = ""
+				continue
+			_:
+				# Unknown type — show as string
+				value = str(props.get(prop_name, default_str))
+
+		_property_entries.append({
+			"label": prop_name, "value": value, "prop_key": prop_name,
+			"type": inspector_type, "category": category_name
+		})
+		pending_enum_items = PackedStringArray()
+		pending_range_hint = ""
+
+## Parse a Color literal like "Color(0.15, 0.18, 0.25, 0.9)" into a Color.
+func _parse_color_literal(s: String) -> Color:
+	if s.begins_with("Color(") and s.ends_with(")"):
+		var inner := s.substr(6, s.length() - 7)
+		var parts := inner.split(",")
+		if parts.size() >= 4:
+			return Color(parts[0].strip_edges().to_float(), parts[1].strip_edges().to_float(),
+						 parts[2].strip_edges().to_float(), parts[3].strip_edges().to_float())
+		elif parts.size() >= 3:
+			return Color(parts[0].strip_edges().to_float(), parts[1].strip_edges().to_float(),
+						 parts[2].strip_edges().to_float())
+	return Color.WHITE
 
 # ==========================================================================
 # Form Designer Mode — shows FORM-LEVEL properties (VB6 style)
@@ -977,8 +1204,16 @@ func _render_categorized():
 		if entry["category"] == "" and _entry_matches_filter(entry):
 			_render_property_entry(entry)
 	
-	# Group by category
-	var categories_order = [CATEGORY_APPEARANCE, CATEGORY_BEHAVIOR, CATEGORY_FONT, CATEGORY_POSITION, "Layout", "Effects", CATEGORY_MISC]
+	# Group by category — include dynamic categories from Game UI prototypes
+	var static_cats := [CATEGORY_APPEARANCE]
+	var dynamic_cats: Array = []
+	var tail_cats := [CATEGORY_BEHAVIOR, CATEGORY_FONT, CATEGORY_POSITION, "Layout", "Effects", CATEGORY_MISC]
+	var known_cats := static_cats + tail_cats
+	for entry in _property_entries:
+		var cat: String = entry.get("category", "")
+		if cat != "" and cat not in known_cats and cat not in dynamic_cats:
+			dynamic_cats.append(cat)
+	var categories_order = static_cats + dynamic_cats + tail_cats
 	for cat in categories_order:
 		var cat_entries = _property_entries.filter(func(e): return e["category"] == cat and _entry_matches_filter(e))
 		if cat_entries.size() > 0:
@@ -1069,6 +1304,9 @@ func _render_property_entry(entry: Dictionary):
 			_add_fd_enum_row(label_text, prop_key, value, ["0 - Left", "1 - Center", "2 - Right"])
 		"font_name":
 			_add_font_name_row(label_text, value, prop_key)
+		"prototype_enum":
+			var enum_items: Array = entry.get("enum_items", [])
+			_add_fd_enum_row(label_text, prop_key, value, enum_items)
 		_:
 			_add_prop_row(label_text, value, prop_key)
 
