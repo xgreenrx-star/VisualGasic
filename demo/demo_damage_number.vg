@@ -1,0 +1,35 @@
+' demo_damage_number.vg — DamageNumber control demo
+' Pops floating numbers at random positions.
+
+Dim hitCount As Integer
+
+Sub Form_Load()
+    Print "DamageNumber Demo loaded"
+    DamageNumber1.FontSize = 22
+    DamageNumber1.PopStyle = 0  ' FloatUp
+    DamageNumber1.Duration = 0.8
+    hitCount = 0
+End Sub
+
+Sub AttackButton_Click()
+    hitCount = hitCount + 1
+    Dim dmg As Integer
+    dmg = 10 + Int(Rnd() * 90)
+    DamageNumber1.NumberColor = Color(1.0, 0.3, 0.2)
+    DamageNumber1.ShowCriticalEffect = False
+    DamageNumber1.pop dmg
+    Print "Hit #" & Str(hitCount) & " for " & Str(dmg) & " damage"
+End Sub
+
+Sub CritButton_Click()
+    Dim dmg As Integer
+    dmg = 200 + Int(Rnd() * 300)
+    DamageNumber1.NumberColor = Color(1.0, 0.9, 0.2)
+    DamageNumber1.ShowCriticalEffect = True
+    DamageNumber1.pop dmg
+    Print "CRITICAL HIT! " & Str(dmg)
+End Sub
+
+Sub DamageNumber1_pop_finished()
+    Print "Pop animation done"
+End Sub

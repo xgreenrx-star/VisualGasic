@@ -1,0 +1,31 @@
+' demo_game_popup.vg — GamePopup control demo
+' Modal popups for level-up, loot, etc.
+
+Dim popupCount As Integer
+
+Sub Form_Load()
+    Print "GamePopup Demo loaded"
+    GamePopup1.ShowAnimation = 1  ' ScaleUp
+    GamePopup1.AnimationSpeed = 0.25
+    GamePopup1.Visible = False
+    popupCount = 0
+End Sub
+
+Sub LevelUpButton_Click()
+    popupCount = popupCount + 1
+    GamePopup1.PopupTitle = "Level Up!"
+    GamePopup1.BodyText = "You reached level " & Str(popupCount + 1) & "!" & vbCrLf & "New ability unlocked."
+    GamePopup1.TitleColor = Color(1.0, 0.85, 0.3)
+    GamePopup1.show_popup
+End Sub
+
+Sub LootButton_Click()
+    GamePopup1.PopupTitle = "Loot Found"
+    GamePopup1.BodyText = "You received: Enchanted Shield (+5 DEF)"
+    GamePopup1.TitleColor = Color(0.3, 0.8, 1.0)
+    GamePopup1.show_popup
+End Sub
+
+Sub GamePopup1_popup_closed()
+    Print "Popup dismissed"
+End Sub

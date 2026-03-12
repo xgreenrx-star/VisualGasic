@@ -1,0 +1,41 @@
+' demo_compass.vg — Compass control demo
+' Horizontal strip compass that rotates with player.
+
+Dim playerAngle As Single
+
+Sub Form_Load()
+    Print "Compass Demo loaded"
+    Compass1.StripWidth = 200
+    Compass1.StripHeight = 28
+    Compass1.ShowMarkers = True
+    playerAngle = 0.0
+End Sub
+
+Sub _Process(delta)
+    ' Simulate slow rotation
+    playerAngle = playerAngle + 15.0 * delta
+    If playerAngle >= 360.0 Then playerAngle = playerAngle - 360.0
+    Compass1.set_bearing playerAngle
+End Sub
+
+Sub Compass1_bearing_changed(degrees)
+    ' Print current heading
+    Dim dir As String
+    If degrees >= 337.5 Or degrees < 22.5 Then
+        dir = "North"
+    ElseIf degrees < 67.5 Then
+        dir = "NE"
+    ElseIf degrees < 112.5 Then
+        dir = "East"
+    ElseIf degrees < 157.5 Then
+        dir = "SE"
+    ElseIf degrees < 202.5 Then
+        dir = "South"
+    ElseIf degrees < 247.5 Then
+        dir = "SW"
+    ElseIf degrees < 292.5 Then
+        dir = "West"
+    Else
+        dir = "NW"
+    End If
+End Sub

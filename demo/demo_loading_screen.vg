@@ -1,0 +1,24 @@
+' demo_loading_screen.vg — LoadingScreen control demo
+' Simulates a loading bar that fills over time.
+
+Dim loadProgress As Single
+
+Sub Form_Load()
+    Print "LoadingScreen Demo loaded"
+    LoadingScreen1.Visible = True
+    LoadingScreen1.TipText = "Generating terrain..."
+    LoadingScreen1.ProgressLabel = "Loading World"
+    LoadingScreen1.BarColor = Color(0.2, 0.7, 1.0)
+    loadProgress = 0.0
+End Sub
+
+Sub LoadTimer_Timer()
+    loadProgress = loadProgress + 0.02
+    LoadingScreen1.set_progress loadProgress
+    LoadingScreen1.ProgressLabel = "Loading... " & Str(Int(loadProgress * 100)) & "%"
+End Sub
+
+Sub LoadingScreen1_loading_finished()
+    Print "Loading complete!"
+    LoadingScreen1.Visible = False
+End Sub

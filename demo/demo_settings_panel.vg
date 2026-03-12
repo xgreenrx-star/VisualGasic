@@ -1,0 +1,26 @@
+' demo_settings_panel.vg — SettingsPanel control demo
+' Full options screen with Apply/Cancel.
+
+Sub Form_Load()
+    Print "SettingsPanel Demo loaded"
+    SettingsPanel1.PanelTitle = "Options"
+    SettingsPanel1.ShowAudio = True
+    SettingsPanel1.ShowVideo = True
+    SettingsPanel1.ShowControls = True
+End Sub
+
+Sub SettingsPanel1_settings_applied(data)
+    Print "Settings applied!"
+    Print "  Master Volume: " & Str(data["master_volume"])
+    Print "  Fullscreen: " & Str(data["fullscreen"])
+    Print "  VSync: " & Str(data["vsync"])
+End Sub
+
+Sub SettingsPanel1_settings_cancelled()
+    Print "Settings cancelled, reverting"
+    SettingsPanel1.Visible = False
+End Sub
+
+Sub OptionsButton_Click()
+    SettingsPanel1.Visible = True
+End Sub

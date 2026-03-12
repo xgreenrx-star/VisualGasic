@@ -1,0 +1,31 @@
+' demo_tooltip.vg — Tooltip control demo
+' Shows a tooltip when hovering over a button.
+
+Dim hoverCount As Integer
+
+Sub Form_Load()
+    Print "Tooltip Demo loaded"
+    Tooltip1.Title = "Magic Sword"
+    Tooltip1.Description = "A legendary blade forged in fire."
+    Tooltip1.ShowAnimation = 1  ' ScaleUp
+    Tooltip1.TransitionSpeed = 0.2
+    hoverCount = 0
+End Sub
+
+Sub Button1_MouseEnter()
+    hoverCount = hoverCount + 1
+    Print "Hover #" & Str(hoverCount)
+    Tooltip1.show_tooltip
+End Sub
+
+Sub Button1_MouseLeave()
+    Tooltip1.hide_tooltip
+End Sub
+
+Sub Tooltip1_tooltip_shown()
+    Print "Tooltip is now visible"
+End Sub
+
+Sub Tooltip1_tooltip_hidden()
+    Print "Tooltip hidden"
+End Sub

@@ -1,0 +1,34 @@
+' demo_ammo_counter.vg — AmmoCounter control demo
+' FPS-style ammo display with fire/reload.
+
+Sub Form_Load()
+    Print "AmmoCounter Demo loaded"
+    AmmoCounter1.CurrentAmmo = 30
+    AmmoCounter1.MaxClip = 30
+    AmmoCounter1.ReserveAmmo = 120
+    AmmoCounter1.ShowIcon = True
+    AmmoCounter1.FontSize = 18
+End Sub
+
+Sub FireButton_Click()
+    AmmoCounter1.fire 1
+    Print "Bang! " & Str(AmmoCounter1.CurrentAmmo) & " / " & Str(AmmoCounter1.ReserveAmmo)
+End Sub
+
+Sub BurstButton_Click()
+    AmmoCounter1.fire 3
+    Print "Burst! " & Str(AmmoCounter1.CurrentAmmo) & " / " & Str(AmmoCounter1.ReserveAmmo)
+End Sub
+
+Sub ReloadButton_Click()
+    AmmoCounter1.reload
+    Print "Reloaded: " & Str(AmmoCounter1.CurrentAmmo) & " / " & Str(AmmoCounter1.ReserveAmmo)
+End Sub
+
+Sub AmmoCounter1_ammo_empty()
+    Print "CLICK! Magazine empty — press R to reload"
+End Sub
+
+Sub AmmoCounter1_ammo_changed(current, reserve)
+    ' Update HUD color automatically handled by control
+End Sub

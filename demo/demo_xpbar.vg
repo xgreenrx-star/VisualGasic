@@ -1,0 +1,32 @@
+' demo_xpbar.vg — XPBar control demo
+' Segmented XP bar with auto level-up.
+
+Sub Form_Load()
+    Print "XPBar Demo loaded"
+    XPBar1.CurrentXP = 0
+    XPBar1.MaxXP = 100
+    XPBar1.Level = 1
+    XPBar1.Segments = 10
+    XPBar1.ShowLevel = True
+    Print "Level " & Str(XPBar1.Level) & " — 0 / 100 XP"
+End Sub
+
+Sub SmallXPButton_Click()
+    XPBar1.add_xp 15
+    Print "Gained 15 XP — now " & Str(XPBar1.CurrentXP) & " / " & Str(XPBar1.MaxXP)
+End Sub
+
+Sub BigXPButton_Click()
+    XPBar1.add_xp 50
+    Print "Gained 50 XP — now " & Str(XPBar1.CurrentXP) & " / " & Str(XPBar1.MaxXP)
+End Sub
+
+Sub XPBar1_level_up(new_level)
+    Print "*** LEVEL UP! Now level " & Str(new_level) & " ***"
+    ' Scale XP requirement
+    XPBar1.MaxXP = new_level * 100
+End Sub
+
+Sub XPBar1_xp_changed(current, max_xp)
+    ' Could update a label here
+End Sub

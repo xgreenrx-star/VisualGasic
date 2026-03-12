@@ -1,0 +1,33 @@
+' demo_radial_menu.vg — RadialMenu control demo
+' Opens a pie menu on Tab key press.
+
+Dim selection As Integer
+
+Sub Form_Load()
+    Print "RadialMenu Demo loaded"
+    RadialMenu1.ItemCount = 6
+    RadialMenu1.ItemLabels = "Attack,Defend,Magic,Item,Flee,Wait"
+    RadialMenu1.Radius = 90.0
+    RadialMenu1.Visible = False
+    selection = -1
+End Sub
+
+Sub Form_KeyDown(KeyCode, Shift)
+    If KeyCode = 9 Then   ' Tab
+        RadialMenu1.Visible = True
+        RadialMenu1.show_menu
+        Print "Menu opened"
+    End If
+End Sub
+
+Sub RadialMenu1_item_selected(index)
+    selection = index
+    Dim labels() As String
+    labels = Split(RadialMenu1.ItemLabels, ",")
+    Print "Selected: " & labels(index)
+    RadialMenu1.hide_menu
+End Sub
+
+Sub RadialMenu1_item_hovered(index)
+    Print "Hovering wedge " & Str(index)
+End Sub

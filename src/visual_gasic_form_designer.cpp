@@ -3742,6 +3742,24 @@ Vector2 VisualGasicFormDesigner::_default_size_for_type(const String &p_type) co
     if (p_type == "CooldownButton")    return Vector2(48, 48);
     if (p_type == "NotificationToast") return Vector2(250, 40);
     if (p_type == "GameMenu")          return Vector2(300, 250);
+    // ── Game UI Tier 2 controls (v4.1) ──
+    if (p_type == "Tooltip")            return Vector2(180, 60);
+    if (p_type == "RadialMenu")         return Vector2(200, 200);
+    if (p_type == "MiniMap")            return Vector2(140, 140);
+    if (p_type == "QuestTracker")       return Vector2(200, 160);
+    if (p_type == "SettingsPanel")      return Vector2(320, 280);
+    if (p_type == "ConfirmDialog")      return Vector2(280, 140);
+    if (p_type == "LoadingScreen")      return Vector2(320, 180);
+    if (p_type == "DamageNumber")       return Vector2(60, 28);
+    // ── Game UI Tier 3 controls (v4.1) ──
+    if (p_type == "SkillTree")          return Vector2(240, 240);
+    if (p_type == "ChatBox")            return Vector2(260, 180);
+    if (p_type == "ItemSlot")           return Vector2(48, 48);
+    if (p_type == "TabPanel")           return Vector2(300, 200);
+    if (p_type == "GamePopup")          return Vector2(260, 160);
+    if (p_type == "Compass")            return Vector2(200, 28);
+    if (p_type == "AmmoCounter")        return Vector2(110, 28);
+    if (p_type == "XPBar")              return Vector2(260, 20);
     return Vector2(80, 23);
 }
 
@@ -3770,6 +3788,24 @@ Color VisualGasicFormDesigner::_design_color_for_type(const String &p_type) cons
     if (p_type == "CooldownButton")    return Color(0.30, 0.55, 0.80);
     if (p_type == "NotificationToast") return Color(0.25, 0.25, 0.30, 0.85);
     if (p_type == "GameMenu")          return Color(0.0, 0.0, 0.0, 0.6);
+    // ── Game UI Tier 2 (v4.1) ──
+    if (p_type == "Tooltip")            return Color(0.15, 0.15, 0.20, 0.95);
+    if (p_type == "RadialMenu")         return Color(0.12, 0.14, 0.22, 0.9);
+    if (p_type == "MiniMap")            return Color(0.10, 0.15, 0.10, 0.9);
+    if (p_type == "QuestTracker")       return Color(0.15, 0.12, 0.20, 0.9);
+    if (p_type == "SettingsPanel")      return Color(0.12, 0.12, 0.18, 0.9);
+    if (p_type == "ConfirmDialog")      return Color(0.12, 0.12, 0.18, 0.95);
+    if (p_type == "LoadingScreen")      return Color(0.05, 0.05, 0.08, 1.0);
+    if (p_type == "DamageNumber")       return Color(1.0, 0.3, 0.2);
+    // ── Game UI Tier 3 (v4.1) ──
+    if (p_type == "SkillTree")          return Color(0.10, 0.12, 0.18, 0.9);
+    if (p_type == "ChatBox")            return Color(0.08, 0.08, 0.12, 0.85);
+    if (p_type == "ItemSlot")           return Color(0.12, 0.12, 0.18, 0.9);
+    if (p_type == "TabPanel")           return Color(0.08, 0.08, 0.12, 0.9);
+    if (p_type == "GamePopup")          return Color(0.10, 0.10, 0.16, 0.95);
+    if (p_type == "Compass")            return Color(0.08, 0.08, 0.12, 0.85);
+    if (p_type == "AmmoCounter")        return Color(1.0, 1.0, 1.0);
+    if (p_type == "XPBar")              return Color(0.30, 0.75, 1.0);
     return Color(0.85, 0.85, 0.85);
 }
 
@@ -3804,6 +3840,24 @@ String VisualGasicFormDesigner::_display_label_for_type(const String &p_type) co
     if (p_type == "CooldownButton")    return "CDb";
     if (p_type == "NotificationToast") return "Tst";
     if (p_type == "GameMenu")          return "Mnu";
+    // ── Game UI Tier 2 (v4.1) ──
+    if (p_type == "Tooltip")            return "Tip";
+    if (p_type == "RadialMenu")         return "Rad";
+    if (p_type == "MiniMap")            return "Map";
+    if (p_type == "QuestTracker")       return "Qst";
+    if (p_type == "SettingsPanel")      return "Set";
+    if (p_type == "ConfirmDialog")      return "Cfm";
+    if (p_type == "LoadingScreen")      return "Lod";
+    if (p_type == "DamageNumber")       return "Dmg";
+    // ── Game UI Tier 3 (v4.1) ──
+    if (p_type == "SkillTree")          return "Skl";
+    if (p_type == "ChatBox")            return "Cht";
+    if (p_type == "ItemSlot")           return "Itm";
+    if (p_type == "TabPanel")           return "TPn";
+    if (p_type == "GamePopup")          return "Pop";
+    if (p_type == "Compass")            return "Cmp";
+    if (p_type == "AmmoCounter")        return "Amo";
+    if (p_type == "XPBar")              return "XPB";
     return p_type.left(3);
 }
 

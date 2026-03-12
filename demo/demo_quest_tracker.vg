@@ -1,0 +1,26 @@
+' demo_quest_tracker.vg — QuestTracker control demo
+' Shows a sidebar quest log with add/complete.
+
+Sub Form_Load()
+    Print "QuestTracker Demo loaded"
+    QuestTracker1.TrackerTitle = "Active Quests"
+    QuestTracker1.ShowObjectives = True
+    QuestTracker1.MaxVisible = 5
+    QuestTracker1.add_quest "Find the Lost Sword"
+    QuestTracker1.add_quest "Defeat the Dragon"
+    QuestTracker1.add_quest "Rescue the Villagers"
+End Sub
+
+Sub CompleteButton_Click()
+    QuestTracker1.complete_quest 0
+    Print "Quest 0 completed!"
+End Sub
+
+Sub AddButton_Click()
+    QuestTracker1.add_quest "New Side Quest"
+    Print "Added a new quest"
+End Sub
+
+Sub QuestTracker1_quest_clicked(index)
+    Print "Clicked quest #" & Str(index)
+End Sub

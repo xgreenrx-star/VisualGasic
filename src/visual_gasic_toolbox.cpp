@@ -243,6 +243,24 @@ VisualGasicToolbox::VisualGasicToolbox() {
     add_tool("CooldownButton",    "TextureButton", "TextureButton", "res://addons/visual_gasic/prototypes/game_ui/CooldownButton.tscn",          "Game UI");
     add_tool("NotificationToast", "PanelContainer","PopupPanel",    "res://addons/visual_gasic/prototypes/game_ui/NotificationToast.tscn",       "Game UI");
     add_tool("GameMenu",          "ColorRect",     "ColorRect",     "res://addons/visual_gasic/prototypes/game_ui/GameMenu.tscn",                "Game UI");
+    // Tier 2 — additional animated prototypes (v4.1)
+    add_tool("Tooltip",           "PanelContainer","PopupPanel",    "res://addons/visual_gasic/prototypes/game_ui/Tooltip.tscn",                 "Game UI");
+    add_tool("RadialMenu",        "Control",       "GraphEdit",     "res://addons/visual_gasic/prototypes/game_ui/RadialMenu.tscn",              "Game UI");
+    add_tool("MiniMap",           "PanelContainer","SubViewport",   "res://addons/visual_gasic/prototypes/game_ui/MiniMap.tscn",                 "Game UI");
+    add_tool("QuestTracker",      "PanelContainer","RichTextLabel", "res://addons/visual_gasic/prototypes/game_ui/QuestTracker.tscn",            "Game UI");
+    add_tool("SettingsPanel",     "PanelContainer","VBoxContainer", "res://addons/visual_gasic/prototypes/game_ui/SettingsPanel.tscn",           "Game UI");
+    add_tool("ConfirmDialog",     "PanelContainer","AcceptDialog",  "res://addons/visual_gasic/prototypes/game_ui/ConfirmDialog.tscn",           "Game UI");
+    add_tool("LoadingScreen",     "ColorRect",     "ColorRect",     "res://addons/visual_gasic/prototypes/game_ui/LoadingScreen.tscn",           "Game UI");
+    add_tool("DamageNumber",      "Label",         "Label",         "res://addons/visual_gasic/prototypes/game_ui/DamageNumber.tscn",            "Game UI");
+    // Tier 3 — advanced game UI prototypes (v4.1)
+    add_tool("SkillTree",         "Control",       "GraphEdit",     "res://addons/visual_gasic/prototypes/game_ui/SkillTree.tscn",               "Game UI");
+    add_tool("ChatBox",           "PanelContainer","RichTextLabel", "res://addons/visual_gasic/prototypes/game_ui/ChatBox.tscn",                 "Game UI");
+    add_tool("ItemSlot",          "PanelContainer","GridContainer", "res://addons/visual_gasic/prototypes/game_ui/ItemSlot.tscn",                "Game UI");
+    add_tool("TabPanel",          "PanelContainer","TabContainer",  "res://addons/visual_gasic/prototypes/game_ui/TabPanel.tscn",                "Game UI");
+    add_tool("GamePopup",         "PanelContainer","PopupPanel",    "res://addons/visual_gasic/prototypes/game_ui/GamePopup.tscn",               "Game UI");
+    add_tool("Compass",           "Control",       "Control",       "res://addons/visual_gasic/prototypes/game_ui/Compass.tscn",                 "Game UI");
+    add_tool("AmmoCounter",       "HBoxContainer", "Label",         "res://addons/visual_gasic/prototypes/game_ui/AmmoCounter.tscn",             "Game UI");
+    add_tool("XPBar",             "Control",       "ProgressBar",   "res://addons/visual_gasic/prototypes/game_ui/XPBar.tscn",                   "Game UI");
     // Legacy aliases (kept for backward compatibility)
     add_tool("HealthBar",    "ProgressBar",  "ProgressBar",  "res://addons/visual_gasic/prototypes/ProgressBar.tscn",  "Game UI");
     add_tool("ScoreLabel",   "Label",         "Label",         "res://addons/visual_gasic/prototypes/Label.tscn",         "Game UI");

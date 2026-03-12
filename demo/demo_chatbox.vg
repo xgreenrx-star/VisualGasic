@@ -1,0 +1,25 @@
+' demo_chatbox.vg — ChatBox control demo
+' Multiplayer-style chat with player messages.
+
+Dim msgCount As Integer
+
+Sub Form_Load()
+    Print "ChatBox Demo loaded"
+    ChatBox1.ChatTitle = "Party Chat"
+    ChatBox1.MaxLines = 50
+    ChatBox1.ShowInput = True
+    ChatBox1.PlaceholderText = "Say something..."
+    ChatBox1.add_system_message "Welcome to the dungeon!"
+    msgCount = 0
+End Sub
+
+Sub ChatBox1_message_sent(text)
+    msgCount = msgCount + 1
+    ChatBox1.add_message "Player", text, Color(0.3, 0.8, 1.0)
+    Print "Sent message #" & Str(msgCount) & ": " & text
+
+    ' Simulate NPC reply
+    If InStr(LCase(text), "hello") > 0 Then
+        ChatBox1.add_message "NPC", "Greetings, adventurer!", Color(0.4, 1.0, 0.4)
+    End If
+End Sub

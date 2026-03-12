@@ -1,0 +1,20 @@
+' demo_minimap.vg — MiniMap control demo
+' Round minimap with a player dot and markers.
+
+Sub Form_Load()
+    Print "MiniMap Demo loaded"
+    MiniMap1.MapShape = 1   ' Round
+    MiniMap1.MapSize = 140
+    MiniMap1.ShowPlayerDot = True
+    MiniMap1.PlayerDotColor = Color(0.2, 0.8, 1.0)
+    MiniMap1.ShowBorder = True
+End Sub
+
+Sub AddEnemyMarker(x, y)
+    MiniMap1.add_marker "enemy1", Vector2(x, y), Color(1, 0, 0)
+    Print "Enemy marker placed at " & Str(x) & "," & Str(y)
+End Sub
+
+Sub MiniMap1_map_clicked(pos)
+    Print "Map clicked at " & Str(pos.x) & ", " & Str(pos.y)
+End Sub

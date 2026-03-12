@@ -1,0 +1,27 @@
+' demo_skill_tree.vg — SkillTree control demo
+' 9-node talent grid with unlocking.
+
+Dim skillPoints As Integer
+
+Sub Form_Load()
+    Print "SkillTree Demo loaded"
+    SkillTree1.NodeCount = 9
+    SkillTree1.Columns = 3
+    SkillTree1.SkillNames = "Slash,Block,Heal,Fireball,Ice,Thunder,Regen,Fury,Ultima"
+    skillPoints = 5
+    Print "You have " & Str(skillPoints) & " skill points"
+End Sub
+
+Sub SkillTree1_skill_selected(index)
+    If skillPoints > 0 Then
+        SkillTree1.unlock_skill index
+        skillPoints = skillPoints - 1
+        Print "Unlocked skill #" & Str(index) & " — " & Str(skillPoints) & " points left"
+    Else
+        Print "No skill points remaining!"
+    End If
+End Sub
+
+Sub SkillTree1_skill_unlocked(index)
+    Print "Skill node " & Str(index) & " is now unlocked"
+End Sub

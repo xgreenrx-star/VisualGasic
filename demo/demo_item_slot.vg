@@ -1,0 +1,33 @@
+' demo_item_slot.vg — ItemSlot control demo
+' Inventory slot that can hold and display items.
+
+Sub Form_Load()
+    Print "ItemSlot Demo loaded"
+    ' Set up 3 slots
+    ItemSlot1.set_item "Sword", 1, Color(0.3, 0.5, 1.0)   ' Rare blue
+    ItemSlot2.set_item "Potion", 5, Color(0.5, 0.5, 0.6)   ' Common gray
+    ItemSlot3.clear_slot                                      ' Empty
+    Print "Slot 1: " & ItemSlot1.ItemName
+    Print "Slot 2: " & ItemSlot2.ItemName & " x" & Str(ItemSlot2.ItemCount)
+    Print "Slot 3: Empty=" & Str(ItemSlot3.IsEmpty)
+End Sub
+
+Sub ItemSlot1_slot_clicked()
+    Print "Clicked: " & ItemSlot1.ItemName
+End Sub
+
+Sub ItemSlot2_slot_clicked()
+    If ItemSlot2.ItemCount > 0 Then
+        ItemSlot2.ItemCount = ItemSlot2.ItemCount - 1
+        Print "Used potion — " & Str(ItemSlot2.ItemCount) & " left"
+        If ItemSlot2.ItemCount = 0 Then
+            ItemSlot2.clear_slot
+        End If
+    End If
+End Sub
+
+Sub ItemSlot3_slot_clicked()
+    If ItemSlot3.IsEmpty Then
+        Print "Slot is empty"
+    End If
+End Sub

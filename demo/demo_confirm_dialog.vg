@@ -1,0 +1,25 @@
+' demo_confirm_dialog.vg — ConfirmDialog control demo
+' "Are you sure?" popup with Yes/No.
+
+Sub Form_Load()
+    Print "ConfirmDialog Demo loaded"
+    ConfirmDialog1.DialogTitle = "Quit Game"
+    ConfirmDialog1.Message = "All unsaved progress will be lost."
+    ConfirmDialog1.YesText = "Quit"
+    ConfirmDialog1.NoText = "Stay"
+    ConfirmDialog1.ShowAnimation = 2  ' PopBounce
+    ConfirmDialog1.Visible = False
+End Sub
+
+Sub QuitButton_Click()
+    ConfirmDialog1.show_dialog
+End Sub
+
+Sub ConfirmDialog1_confirmed()
+    Print "User confirmed quit"
+    ' SceneTree.Quit
+End Sub
+
+Sub ConfirmDialog1_cancelled()
+    Print "User cancelled — staying in game"
+End Sub

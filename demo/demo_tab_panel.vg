@@ -1,0 +1,31 @@
+' demo_tab_panel.vg — TabPanel control demo
+' Game-styled tabs for Inventory/Skills/Map.
+
+Dim currentTab As Integer
+
+Sub Form_Load()
+    Print "TabPanel Demo loaded"
+    TabPanel1.TabNames = "Inventory,Skills,Map,Journal"
+    TabPanel1.ActiveTab = 0
+    currentTab = 0
+End Sub
+
+Sub TabPanel1_tab_changed(index)
+    currentTab = index
+    Select Case index
+        Case 0
+            Print "Showing Inventory tab"
+        Case 1
+            Print "Showing Skills tab"
+        Case 2
+            Print "Showing Map tab"
+        Case 3
+            Print "Showing Journal tab"
+    End Select
+End Sub
+
+Sub NextTabButton_Click()
+    Dim nextIdx As Integer
+    nextIdx = (currentTab + 1) Mod 4
+    TabPanel1.set_tab nextIdx
+End Sub
