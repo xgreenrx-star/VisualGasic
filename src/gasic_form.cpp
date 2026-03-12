@@ -323,6 +323,27 @@ void GasicForm::wire_events(Node* root) {
             }
         }
 
+        // =================================================================
+        // Generic: Wire any script-defined signals (Game UI prototypes)
+        // Automatically connects signals declared by GDScript prototypes
+        // (e.g. item_selected, message_sent, skill_selected) to VB6-style
+        // Sub names like RadialMenu1_item_selected, ChatBox1_message_sent.
+        // =================================================================
+        Ref<Script> ctrl_script = child->get_script();
+        if (ctrl_script.is_valid()) {
+            TypedArray<Dictionary> script_signals = ctrl_script->get_script_signal_list();
+            for (int s = 0; s < script_signals.size(); s++) {
+                Dictionary sig = script_signals[s];
+                String sig_name = sig["name"];
+                String method_name = name + "_" + sig_name;
+                if (has_method(method_name) && child->has_signal(sig_name)
+                    && !child->is_connected(sig_name, Callable(this, method_name))) {
+                    child->connect(sig_name, Callable(this, method_name));
+                    UtilityFunctions::print("GasicForm: Wired ", name, ".", sig_name, " (script signal)");
+                }
+            }
+        }
+
         // Recurse into children (for Panels, GroupBoxes, etc.)
         wire_events(child);
     }

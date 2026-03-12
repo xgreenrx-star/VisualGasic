@@ -4,6 +4,7 @@ extends Control
 ## Draws wedge segments in a circle with icons and labels.
 
 signal item_selected(index: int)
+signal item_hovered(index: int)
 signal menu_opened
 signal menu_closed
 
@@ -37,12 +38,46 @@ signal menu_closed
 @export var BorderColor: Color = Color(0.4, 0.5, 0.7, 0.6)
 
 var _tween: Tween
+var _hovered_index: int = -1
 
 func _ready() -> void:
+	mouse_filter = Control.MOUSE_FILTER_STOP
 	custom_minimum_size = Vector2(Radius * 2 + 20, Radius * 2 + 20)
 	if Engine.is_editor_hint():
 		visible = true
 		modulate = Color(1, 1, 1, 1)
+
+func _gui_input(event: InputEvent) -> void:
+	if Engine.is_editor_hint():
+		return
+	if event is InputEventMouseButton:
+		if event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+			var idx := _get_wedge_at(event.position)
+			if idx >= 0:
+				select_item(idx)
+				accept_event()
+	elif event is InputEventMouseMotion:
+		var idx := _get_wedge_at(event.position)
+		if idx != _hovered_index:
+			_hovered_index = idx
+			if idx >= 0:
+				item_hovered.emit(idx)
+			queue_redraw()
+
+## Returns the wedge index at the given local position, or -1 if outside the ring.
+func _get_wedge_at(pos: Vector2) -> int:
+	var center := size * 0.5
+	var offset := pos - center
+	var dist := offset.length()
+	if dist < CenterRadius or dist > Radius:
+		return -1
+	var angle := atan2(offset.y, offset.x)
+	# Normalize: wedges start from top (-PI/2)
+	angle += PI / 2.0
+	if angle < 0.0:
+		angle += TAU
+	var step := TAU / float(ItemCount)
+	return int(angle / step) % ItemCount
 
 func _draw() -> void:
 	var center := size * 0.5
@@ -53,7 +88,8 @@ func _draw() -> void:
 		var start_angle := -PI / 2.0 + angle_step * i
 		var end_angle := start_angle + angle_step
 		var is_selected := (i == SelectedIndex)
-		var color := SelectedColor if is_selected else WedgeColor
+		var is_hovered := (i == _hovered_index and not is_selected)
+		var color := SelectedColor if is_selected else (WedgeColor.lightened(0.15) if is_hovered else WedgeColor)
 
 		# Draw wedge as polygon
 		var points := PackedVector2Array()

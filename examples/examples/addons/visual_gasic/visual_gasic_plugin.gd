@@ -6758,21 +6758,48 @@ func _handle_vg_control_drop(canvas_pos: Vector2, drag_data: Dictionary) -> bool
 func _generate_event_handler(node):
 	print("VisualGasic: Event Gen Request for " + node.name)
 	var sub_suffix = ""
+	var sub_params = ""  # VB6-style parameter list for the Sub signature
 	
-	# Mapping (VB6-ish style)
-	if node is BaseButton: 
-		sub_suffix = "Click"
-	elif node is LineEdit:
-		sub_suffix = "Change"
-	elif node is TextEdit:
-		sub_suffix = "Change"
-	elif node is ScrollBar:
-		sub_suffix = "Change"
-	elif node is Slider:
-		sub_suffix = "Change"
-	else:
-		# Fallback
-		sub_suffix = "Click"
+	# --- Check for Game UI prototype controls with custom signals ---
+	# If the control's script declares signals, use the primary one as the
+	# default event (first parameterised signal, or first signal overall).
+	var ctrl_script = node.get_script()
+	if ctrl_script and not (node is BaseButton or node is LineEdit or node is TextEdit or node is ScrollBar or node is Slider):
+		var sig_list = ctrl_script.get_script_signal_list()
+		if sig_list.size() > 0:
+			# Prefer the first signal that has parameters (more useful as a handler)
+			var best_sig = null
+			for sig in sig_list:
+				if sig.has("args") and sig["args"].size() > 0:
+					best_sig = sig
+					break
+			# Fallback to first signal if none have parameters
+			if best_sig == null:
+				best_sig = sig_list[0]
+			
+			sub_suffix = best_sig["name"]
+			# Build VB6-style parameter list
+			if best_sig.has("args") and best_sig["args"].size() > 0:
+				var parts: PackedStringArray = []
+				for arg in best_sig["args"]:
+					var vb_type = _godot_type_to_vb6(arg.get("type", 0))
+					parts.append(arg["name"] + " As " + vb_type)
+				sub_params = ", ".join(parts)
+	
+	# --- Standard Godot controls (VB6-ish style) ---
+	if sub_suffix.is_empty():
+		if node is BaseButton: 
+			sub_suffix = "Click"
+		elif node is LineEdit:
+			sub_suffix = "Change"
+		elif node is TextEdit:
+			sub_suffix = "Change"
+		elif node is ScrollBar:
+			sub_suffix = "Change"
+		elif node is Slider:
+			sub_suffix = "Change"
+		else:
+			sub_suffix = "Click"
 		
 	var root = get_editor_interface().get_edited_scene_root()
 	if not root: 
@@ -6802,16 +6829,26 @@ func _generate_event_handler(node):
 		get_editor_interface().get_resource_filesystem().scan()
 
 	# Open and Inject via Editor Buffer (to avoid disk reload conflicts)
-	_open_and_inject(bas_path, node.name, sub_suffix)
+	_open_and_inject(bas_path, node.name, sub_suffix, sub_params)
+
+## Converts Godot Variant.Type id to a VB6-style type name for Sub parameters.
+func _godot_type_to_vb6(type_id: int) -> String:
+	match type_id:
+		TYPE_BOOL: return "Boolean"
+		TYPE_INT: return "Integer"
+		TYPE_FLOAT: return "Double"
+		TYPE_STRING: return "String"
+		_: return "Variant"
 
 ## Opens the script file and injects the event handler code.
 ## Uses deferred polling to wait for filesystem scan completion.
 ## @param path: Path to the .vg script file
 ## @param obj: Name of the control (e.g., "Button1")
 ## @param event: Event suffix (e.g., "Click", "Change")
-func _open_and_inject(path: String, obj: String, event: String):
+## @param params: VB6-style parameter list (e.g., "index As Integer")
+func _open_and_inject(path: String, obj: String, event: String, params: String = ""):
 	# We rely on async scan, but we can't block here easily.
-	_poll_for_inject.call_deferred(path, obj, event, 0)
+	_poll_for_inject.call_deferred(path, obj, event, 0, params)
 
 ## Polls for script resource availability and injects event handler code.
 ## Retries up to 20 times (2 seconds) waiting for filesystem scan.
@@ -6819,7 +6856,8 @@ func _open_and_inject(path: String, obj: String, event: String):
 ## @param obj: Name of the control
 ## @param event: Event suffix
 ## @param attempts: Current retry count
-func _poll_for_inject(path: String, obj: String, event: String, attempts: int):
+## @param params: VB6-style parameter list (e.g., "index As Integer")
+func _poll_for_inject(path: String, obj: String, event: String, attempts: int, params: String = ""):
 	# Max retries: 20 * 0.1s = 2 seconds
 	if attempts > 20:
 		printerr("VisualGasic: Timeout waiting for script resource. Opening externally.")
@@ -6845,6 +6883,7 @@ func _poll_for_inject(path: String, obj: String, event: String, attempts: int):
 			
 			# INJECT CODE INTO BUFFER
 			var sub_name = "Sub " + obj + "_" + event
+			var param_str = "(" + params + ")" if not params.is_empty() else "()"
 			var script_editor = get_editor_interface().get_script_editor()
 			var current_editor = script_editor.get_current_editor()
 			
@@ -6854,8 +6893,8 @@ func _poll_for_inject(path: String, obj: String, event: String, attempts: int):
 					var text = code_edit.text
 					
 					if text.find(sub_name) == -1:
-						# Generate a clean event handler stub (no placeholder Print)
-						var new_code = "\n" + sub_name + "()\n    \nEnd Sub\n"
+						# Generate event handler stub with correct parameter signature
+						var new_code = "\n" + sub_name + param_str + "\n    \nEnd Sub\n"
 						code_edit.text += new_code
 						text = code_edit.text # Refresh for search
 					
@@ -6873,7 +6912,7 @@ func _poll_for_inject(path: String, obj: String, event: String, attempts: int):
 					_deferred_scroll_to_caret.call_deferred(code_edit)
 	else:
 		await get_tree().create_timer(0.1).timeout
-		_poll_for_inject(path, obj, event, attempts + 1)
+		_poll_for_inject(path, obj, event, attempts + 1, params)
 
 ## Deferred helper: scrolls the CodeEdit viewport to the caret position.
 ## Uses a short timer to let the Script editor fully lay out after a screen switch,
