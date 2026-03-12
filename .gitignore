@@ -43,6 +43,8 @@ __pycache__/
 *.tmp
 *.swp
 .DS_Store
+# Godot editor temp files (random hex names starting with -)
+-[a-zA-Z0-9]*
 
 # Config files (local)
 *.conf
