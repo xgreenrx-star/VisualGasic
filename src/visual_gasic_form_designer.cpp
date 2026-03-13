@@ -5120,9 +5120,168 @@ String VisualGasicFormDesigner::_serialize_to_tscn() const {
             else if (key == "MousePointer") {
                 godot_key = "mouse_default_cursor_shape";
             }
-            // BackColor/ForeColor stay as VB6 names — applied at runtime by
-            // bytecode VM or form_editor_helper theme.  Writing them as
-            // self_modulate here would conflict with the theme system.
+            // ── Simple 1:1 PascalCase → snake_case renames ──
+            else if (key == "Flat")                    { godot_key = "flat"; }
+            else if (key == "ClipText")                { godot_key = "clip_text"; }
+            else if (key == "PlaceholderText")         { godot_key = "placeholder_text"; }
+            else if (key == "ClearButton")             { godot_key = "clear_button_enabled"; }
+            else if (key == "SelectAllOnFocus")        { godot_key = "select_all_on_focus"; }
+            else if (key == "Prefix")                  { godot_key = "prefix"; }
+            else if (key == "Suffix")                  { godot_key = "suffix"; }
+            else if (key == "Editable")                { godot_key = "editable"; }
+            else if (key == "ShowPercentage")          { godot_key = "show_percentage"; }
+            else if (key == "Indeterminate")           { godot_key = "indeterminate"; }
+            else if (key == "FillMode")                { godot_key = "fill_mode"; }
+            else if (key == "TickCount")               { godot_key = "tick_count"; }
+            else if (key == "TicksOnBorders")          { godot_key = "ticks_on_borders"; }
+            else if (key == "Scrollable")              { godot_key = "scrollable"; }
+            else if (key == "HideRoot")                { godot_key = "hide_root"; }
+            else if (key == "HideFolding")             { godot_key = "hide_folding"; }
+            else if (key == "AllowReselect")           { godot_key = "allow_reselect"; }
+            else if (key == "AllowRmbSelect")          { godot_key = "allow_rmb_select"; }
+            else if (key == "SelectMode")              { godot_key = "select_mode"; }
+            else if (key == "Columns")                 { godot_key = "columns"; }
+            else if (key == "ColumnTitlesVisible")     { godot_key = "column_titles_visible"; }
+            else if (key == "ScrollHorizontalEnabled") { godot_key = "scroll_horizontal_enabled"; }
+            else if (key == "ScrollVerticalEnabled")   { godot_key = "scroll_vertical_enabled"; }
+            else if (key == "ClipTabs")                { godot_key = "clip_tabs"; }
+            else if (key == "DragToRearrangeEnabled")  { godot_key = "drag_to_rearrange_enabled"; }
+            else if (key == "TabAlignment")            { godot_key = "tab_alignment"; }
+            else if (key == "FitToLongestItem")        { godot_key = "fit_to_longest_item"; }
+            else if (key == "AutoHeight")              { godot_key = "auto_height"; }
+            else if (key == "SameColumnWidth")         { godot_key = "same_column_width"; }
+            else if (key == "MaxColumns")              { godot_key = "max_columns"; }
+            else if (key == "FixedColumnWidth")        { godot_key = "fixed_column_width"; }
+            else if (key == "BbcodeEnabled")           { godot_key = "bbcode_enabled"; }
+            else if (key == "FitContent")              { godot_key = "fit_content"; }
+            else if (key == "ScrollActive")            { godot_key = "scroll_active"; }
+            else if (key == "SelectionEnabled")        { godot_key = "selection_enabled"; }
+            else if (key == "FlipH")                   { godot_key = "flip_h"; }
+            else if (key == "FlipV")                   { godot_key = "flip_v"; }
+            else if (key == "StretchMode")             { godot_key = "stretch_mode"; }
+            else if (key == "IgnoreTextureSize")       { godot_key = "ignore_texture_size"; }
+            else if (key == "SwitchOnHover")           { godot_key = "switch_on_hover"; }
+            else if (key == "PreferGlobalMenu")        { godot_key = "prefer_global_menu"; }
+            else if (key == "VerticalAlignment")       { godot_key = "vertical_alignment"; }
+            else if (key == "ClipContents")            { godot_key = "clip_contents"; }
+            else if (key == "SizeFlagsHorizontal")     { godot_key = "size_flags_horizontal"; }
+            else if (key == "SizeFlagsVertical")       { godot_key = "size_flags_vertical"; }
+            else if (key == "GrowHorizontal")          { godot_key = "grow_horizontal"; }
+            else if (key == "GrowVertical")            { godot_key = "grow_vertical"; }
+            else if (key == "LayoutDirection")         { godot_key = "layout_direction"; }
+            else if (key == "VirtualKeyboardEnabled")  { godot_key = "virtual_keyboard_enabled"; }
+            else if (key == "KeepPressedOutside")      { godot_key = "keep_pressed_outside"; }
+            else if (key == "ActionMode")              { godot_key = "action_mode"; }
+            else if (key == "UpdateOnTextChanged")     { godot_key = "update_on_text_changed"; }
+            else if (key == "TextOverrunBehavior")     { godot_key = "text_overrun_behavior"; }
+            else if (key == "MaxLinesVisible")         { godot_key = "max_lines_visible"; }
+            else if (key == "CurrentTab")              { godot_key = "current_tab"; }
+            else if (key == "Page")                    { godot_key = "page"; }
+            else if (key == "CustomStep")              { godot_key = "custom_step"; }
+            else if (key == "ShowBehindParent")        { godot_key = "show_behind_parent"; }
+            else if (key == "Min")                     { godot_key = "min_value"; }
+            else if (key == "Max")                     { godot_key = "max_value"; }
+            else if (key == "Step")                    { godot_key = "step"; }
+            else if (key == "AllowGreater")            { godot_key = "allow_greater"; }
+            else if (key == "AllowLesser")             { godot_key = "allow_lesser"; }
+            else if (key == "Rounded")                 { godot_key = "rounded"; }
+            // ── Value: context-dependent ──
+            else if (key == "Value") {
+                // For CheckBox/CheckButton/RadioButton → button_pressed
+                // For Range controls (Slider/ProgressBar/SpinBox/ScrollBar) → value
+                if (ctrl.type == "CheckBox" || ctrl.type == "CheckButton" || ctrl.type == "RadioButton") {
+                    godot_key = "button_pressed";
+                } else {
+                    godot_key = "value";
+                }
+            }
+            // ── MultiSelect (ItemList): 0=single, 1+=multi ──
+            else if (key == "MultiSelect") {
+                godot_key = "select_mode";  // ItemList select_mode enum
+            }
+            else if (key == "IconMode")                { godot_key = "icon_mode"; }
+            // ── Rotation → rotation_degrees ──
+            else if (key == "Rotation")                { godot_key = "rotation_degrees"; }
+            // ── RightToLeft → text_direction (1=RTL, 0=LTR) ──
+            else if (key == "RightToLeft") {
+                godot_key = "text_direction";
+                val = (bool)val ? 2 : 0;  // TEXT_DIRECTION_RTL=2, AUTO=0
+            }
+            // ── Tag → metadata/Tag (preserved as node metadata) ──
+            else if (key == "Tag") {
+                godot_key = "metadata/Tag";
+            }
+            // ── PasswordChar → secret + secret_character ──
+            else if (key == "PasswordChar") {
+                String pc = val;
+                if (!pc.is_empty()) {
+                    out += "secret = true\n";
+                    out += "secret_character = \"" + pc + "\"\n";
+                }
+                skip = true;
+            }
+            // ── Opacity → modulate alpha ──
+            else if (key == "Opacity") {
+                int pct = val;
+                if (pct < 100) {
+                    float alpha = float(pct) / 100.0f;
+                    out += "modulate = Color(1.0000, 1.0000, 1.0000, " + String::num(alpha, 4) + ")\n";
+                }
+                skip = true;
+            }
+            // ── ScaleX/ScaleY → scale (Vector2) — handle as pair ──
+            else if (key == "ScaleX" || key == "ScaleY") {
+                // Only emit once (when we hit ScaleX), combine both
+                if (key == "ScaleX") {
+                    float sx = float(val);
+                    float sy = ctrl.properties.has("ScaleY") ? float(ctrl.properties["ScaleY"]) : 1.0f;
+                    if (sx != 1.0f || sy != 1.0f) {
+                        out += "scale = Vector2(" + String::num(sx, 4) + ", " + String::num(sy, 4) + ")\n";
+                    }
+                }
+                skip = true;
+            }
+            // ── PivotOffsetX/Y → pivot_offset (Vector2) ──
+            else if (key == "PivotOffsetX" || key == "PivotOffsetY") {
+                if (key == "PivotOffsetX") {
+                    float px = float(val);
+                    float py = ctrl.properties.has("PivotOffsetY") ? float(ctrl.properties["PivotOffsetY"]) : 0.0f;
+                    if (px != 0.0f || py != 0.0f) {
+                        out += "pivot_offset = Vector2(" + String::num(px, 4) + ", " + String::num(py, 4) + ")\n";
+                    }
+                }
+                skip = true;
+            }
+            // ── MinWidth/MinHeight → custom_minimum_size (Vector2) ──
+            else if (key == "MinWidth" || key == "MinHeight") {
+                if (key == "MinWidth") {
+                    float mw = float(int(val));
+                    float mh = ctrl.properties.has("MinHeight") ? float(int(ctrl.properties["MinHeight"])) : 0.0f;
+                    if (mw > 0.0f || mh > 0.0f) {
+                        out += "custom_minimum_size = Vector2(" + String::num(mw, 1) + ", " + String::num(mh, 1) + ")\n";
+                    }
+                }
+                skip = true;
+            }
+            // ── VB6-only / non-translatable — skip to avoid invalid .tscn keys ──
+            else if (key == "FontName" || key == "FontBold" || key == "FontItalic" ||
+                     key == "FontUnderline" || key == "FontStrikethrough" ||
+                     key == "Appearance" || key == "BorderStyle" || key == "BackStyle" ||
+                     key == "Style" || key == "ComboStyle" || key == "ListStyle" ||
+                     key == "CausesValidation" || key == "Default" || key == "Cancel" ||
+                     key == "DisabledFocusMode" || key == "TabIndex" ||
+                     key == "FocusMode" || key == "MouseFilter" ||
+                     key == "SelfModulate" || key == "Sorted" ||
+                     key == "LargeChange" || key == "Wrap" ||
+                     key == "BackColor" || key == "ForeColor" ||
+                     key == "ShapeColor" || key == "IconAlignment" ||
+                     key == "Icon" || key == "ExpandIcon" || key == "Picture" ||
+                     key == "RightToLeft" || key == "MultiLine" ||
+                     key == "ScrollBars" || key == "Tabs" || key == "TabCount" ||
+                     key == "List" || key == "ListItems" || key == "Selected" ||
+                     key == "FixedIconSize" || key == "AutoSize") {
+                skip = true;  // VB6 metadata — no direct Godot .tscn property
+            }
 
             if (skip) continue;
 
@@ -5361,6 +5520,7 @@ bool VisualGasicFormDesigner::_parse_tscn(const String &p_text) {
                     String vb6_key = key;
                     Variant parsed_val;
                     bool transform_val = false;
+                    bool skip = false;
                     if (key == "tooltip_text")                { vb6_key = "ToolTipText"; }
                     else if (key == "focus_mode") {
                         vb6_key = "TabStop";
@@ -5386,9 +5546,155 @@ bool VisualGasicFormDesigner::_parse_tscn(const String &p_text) {
                         transform_val = true;
                         parsed_val = !(val == "true");
                     }
+                    // ── Simple snake_case → PascalCase reverse mappings ──
+                    else if (key == "flat")                         { vb6_key = "Flat"; }
+                    else if (key == "clip_text")                    { vb6_key = "ClipText"; }
+                    else if (key == "placeholder_text")             { vb6_key = "PlaceholderText"; }
+                    else if (key == "clear_button_enabled")         { vb6_key = "ClearButton"; }
+                    else if (key == "select_all_on_focus")          { vb6_key = "SelectAllOnFocus"; }
+                    else if (key == "prefix")                       { vb6_key = "Prefix"; }
+                    else if (key == "suffix")                       { vb6_key = "Suffix"; }
+                    else if (key == "show_percentage")              { vb6_key = "ShowPercentage"; }
+                    else if (key == "indeterminate")                { vb6_key = "Indeterminate"; }
+                    else if (key == "fill_mode")                    { vb6_key = "FillMode"; }
+                    else if (key == "tick_count")                   { vb6_key = "TickCount"; }
+                    else if (key == "ticks_on_borders")             { vb6_key = "TicksOnBorders"; }
+                    else if (key == "scrollable")                   { vb6_key = "Scrollable"; }
+                    else if (key == "hide_root")                    { vb6_key = "HideRoot"; }
+                    else if (key == "hide_folding")                 { vb6_key = "HideFolding"; }
+                    else if (key == "allow_reselect")               { vb6_key = "AllowReselect"; }
+                    else if (key == "allow_rmb_select")             { vb6_key = "AllowRmbSelect"; }
+                    else if (key == "select_mode")                  { vb6_key = "SelectMode"; }
+                    else if (key == "column_titles_visible")        { vb6_key = "ColumnTitlesVisible"; }
+                    else if (key == "scroll_horizontal_enabled")    { vb6_key = "ScrollHorizontalEnabled"; }
+                    else if (key == "scroll_vertical_enabled")      { vb6_key = "ScrollVerticalEnabled"; }
+                    else if (key == "clip_tabs")                    { vb6_key = "ClipTabs"; }
+                    else if (key == "drag_to_rearrange_enabled")    { vb6_key = "DragToRearrangeEnabled"; }
+                    else if (key == "tab_alignment")                { vb6_key = "TabAlignment"; }
+                    else if (key == "fit_to_longest_item")          { vb6_key = "FitToLongestItem"; }
+                    else if (key == "auto_height")                  { vb6_key = "AutoHeight"; }
+                    else if (key == "same_column_width")            { vb6_key = "SameColumnWidth"; }
+                    else if (key == "max_columns")                  { vb6_key = "MaxColumns"; }
+                    else if (key == "fixed_column_width")           { vb6_key = "FixedColumnWidth"; }
+                    else if (key == "bbcode_enabled")               { vb6_key = "BbcodeEnabled"; }
+                    else if (key == "fit_content")                  { vb6_key = "FitContent"; }
+                    else if (key == "scroll_active")                { vb6_key = "ScrollActive"; }
+                    else if (key == "selection_enabled")            { vb6_key = "SelectionEnabled"; }
+                    else if (key == "flip_h")                       { vb6_key = "FlipH"; }
+                    else if (key == "flip_v")                       { vb6_key = "FlipV"; }
+                    else if (key == "stretch_mode")                 { vb6_key = "StretchMode"; }
+                    else if (key == "ignore_texture_size")          { vb6_key = "IgnoreTextureSize"; }
+                    else if (key == "switch_on_hover")              { vb6_key = "SwitchOnHover"; }
+                    else if (key == "prefer_global_menu")           { vb6_key = "PreferGlobalMenu"; }
+                    else if (key == "vertical_alignment")           { vb6_key = "VerticalAlignment"; }
+                    else if (key == "clip_contents")                { vb6_key = "ClipContents"; }
+                    else if (key == "size_flags_horizontal")        { vb6_key = "SizeFlagsHorizontal"; }
+                    else if (key == "size_flags_vertical")          { vb6_key = "SizeFlagsVertical"; }
+                    else if (key == "layout_direction")             { vb6_key = "LayoutDirection"; }
+                    else if (key == "virtual_keyboard_enabled")     { vb6_key = "VirtualKeyboardEnabled"; }
+                    else if (key == "keep_pressed_outside")         { vb6_key = "KeepPressedOutside"; }
+                    else if (key == "action_mode")                  { vb6_key = "ActionMode"; }
+                    else if (key == "update_on_text_changed")       { vb6_key = "UpdateOnTextChanged"; }
+                    else if (key == "text_overrun_behavior")        { vb6_key = "TextOverrunBehavior"; }
+                    else if (key == "max_lines_visible")            { vb6_key = "MaxLinesVisible"; }
+                    else if (key == "current_tab")                  { vb6_key = "CurrentTab"; }
+                    else if (key == "page")                         { vb6_key = "Page"; }
+                    else if (key == "custom_step")                  { vb6_key = "CustomStep"; }
+                    else if (key == "show_behind_parent")           { vb6_key = "ShowBehindParent"; }
+                    else if (key == "min_value")                    { vb6_key = "Min"; }
+                    else if (key == "max_value")                    { vb6_key = "Max"; }
+                    else if (key == "step")                         { vb6_key = "Step"; }
+                    else if (key == "allow_greater")                { vb6_key = "AllowGreater"; }
+                    else if (key == "allow_lesser")                 { vb6_key = "AllowLesser"; }
+                    else if (key == "rounded")                      { vb6_key = "Rounded"; }
+                    else if (key == "button_pressed")               { vb6_key = "Value"; }
+                    else if (key == "value")                        { vb6_key = "Value"; }
+                    else if (key == "icon_mode")                    { vb6_key = "IconMode"; }
+                    else if (key == "rotation_degrees")             { vb6_key = "Rotation"; }
+                    else if (key == "columns")                      { vb6_key = "Columns"; }
+                    else if (key == "grow_horizontal")              { vb6_key = "GrowHorizontal"; }
+                    else if (key == "grow_vertical")                { vb6_key = "GrowVertical"; }
+                    else if (key == "text_direction") {
+                        vb6_key = "RightToLeft";
+                        transform_val = true;
+                        parsed_val = (val.to_int() == 2);  // TEXT_DIRECTION_RTL=2
+                    }
+                    else if (key == "secret") { skip = true; }  // Handled with secret_character → PasswordChar
+                    else if (key == "secret_character") {
+                        vb6_key = "PasswordChar";
+                    }
+                    else if (key == "visible") {
+                        // visible is handled as item.visible, not as a property
+                        current_item.visible = (val == "true");
+                        skip = true;
+                    }
+                    // ── Vector2 composites: scale, pivot_offset, custom_minimum_size, modulate ──
+                    else if (key == "scale") {
+                        // Parse Vector2(sx, sy) → ScaleX, ScaleY
+                        if (val.begins_with("Vector2(")) {
+                            String inner = val.substr(8, val.length() - 9);
+                            PackedStringArray parts = inner.split(",");
+                            if (parts.size() >= 2) {
+                                current_item.properties["ScaleX"] = parts[0].strip_edges().to_float();
+                                current_item.properties["ScaleY"] = parts[1].strip_edges().to_float();
+                            }
+                        }
+                        skip = true;
+                    }
+                    else if (key == "pivot_offset") {
+                        if (val.begins_with("Vector2(")) {
+                            String inner = val.substr(8, val.length() - 9);
+                            PackedStringArray parts = inner.split(",");
+                            if (parts.size() >= 2) {
+                                current_item.properties["PivotOffsetX"] = parts[0].strip_edges().to_float();
+                                current_item.properties["PivotOffsetY"] = parts[1].strip_edges().to_float();
+                            }
+                        }
+                        skip = true;
+                    }
+                    else if (key == "custom_minimum_size") {
+                        if (val.begins_with("Vector2(")) {
+                            String inner = val.substr(8, val.length() - 9);
+                            PackedStringArray parts = inner.split(",");
+                            if (parts.size() >= 2) {
+                                current_item.properties["MinWidth"] = parts[0].strip_edges().to_int();
+                                current_item.properties["MinHeight"] = parts[1].strip_edges().to_int();
+                            }
+                        }
+                        skip = true;
+                    }
+                    else if (key == "modulate") {
+                        // modulate alpha → Opacity
+                        if (val.begins_with("Color(")) {
+                            String inner = val.substr(6, val.length() - 7);
+                            PackedStringArray parts = inner.split(",");
+                            if (parts.size() >= 4) {
+                                float alpha = parts[3].strip_edges().to_float();
+                                current_item.properties["Opacity"] = (int)(alpha * 100.0f);
+                            }
+                        }
+                        skip = true;
+                    }
+                    // anchors/offsets/grow — already parsed above, skip
+                    else if (key.begins_with("anchors_") || key.begins_with("anchor_") ||
+                             key.begins_with("offset_") ||
+                             key.begins_with("metadata/")) {
+                        // Already handled or kept as-is
+                        if (key.begins_with("metadata/")) {
+                            // Store metadata keys without the metadata/ prefix
+                            String meta_key = key.substr(9);
+                            if (meta_key == "Tag") {
+                                vb6_key = "Tag";
+                            }
+                        } else {
+                            skip = true;
+                        }
+                    }
                     // theme_override_font_sizes/font_size already parsed above as FontSize
 
-                    if (transform_val) {
+                    if (skip) {
+                        // Property already handled above (composites, visible, etc.)
+                    } else if (transform_val) {
                         current_item.properties[vb6_key] = parsed_val;
                     } else if (val.begins_with("\"") && val.ends_with("\"")) {
                         // Quoted string
