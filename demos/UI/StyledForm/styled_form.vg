@@ -1,0 +1,31 @@
+' ============================================================
+' StyledForm Demo — Font, Color, and Border Properties
+' ============================================================
+' Demonstrates the v4.1.0 property system: FontName, FontBold,
+' FontItalic, ForeColor, BackColor, BorderStyle, ShapeColor.
+'
+' Open in the Visual Gasic Form Designer to see live preview
+' of all styled properties. Press F5 to run — the .tscn
+' serializer translates all VB6 properties to Godot sub-resources.
+' ============================================================
+
+' --- Title label with custom font and color ---
+Private Sub Form_Load()
+    lblTitle.Caption = "Styled Form Demo"
+End Sub
+
+' --- Button click changes colors at runtime ---
+Private Sub btnChangeTheme_Click()
+    lblTitle.ForeColor = &HFF6600     ' Orange text
+    txtInput.BackColor = &H1A1A2E    ' Dark background
+    txtInput.ForeColor = &H00FF88    ' Green text
+    shpAccent.ShapeColor = &HFF3366  ' Pink accent
+End Sub
+
+' --- Reset to defaults ---
+Private Sub btnReset_Click()
+    lblTitle.ForeColor = &H000000
+    txtInput.BackColor = &HFFFFFF
+    txtInput.ForeColor = &H000000
+    shpAccent.ShapeColor = &H3366FF
+End Sub

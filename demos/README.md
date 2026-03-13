@@ -44,6 +44,7 @@ chmod +x setup_symlinks.sh
 |------|-------------|----------------------|
 | **Calculator/** | Four-function calculator | UI layout, event handling, string formatting |
 | **TodoApp/** | Full todo list application | **File I/O**, **Lambda** filtering, **Whenever** reactive stats |
+| **StyledForm/** | Font/Color/Border showcase | **FontName**, **BackColor**, **ForeColor**, **BorderStyle**, **ShapeColor** sub-resources |
 
 ### 💾 Data and Files
 

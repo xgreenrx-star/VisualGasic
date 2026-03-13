@@ -1,7 +1,7 @@
 # VisualGasic — A Modern Language for Godot 4
 
 [![CI](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml/badge.svg)](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/badge/version-3.5.0--beta2-blue.svg)](https://github.com/xgreenrx-star/VisualGasic/releases)
+[![Version](https://img.shields.io/badge/version-4.1.0-blue.svg)](https://github.com/xgreenrx-star/VisualGasic/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Godot](https://img.shields.io/badge/Godot-4.5+-purple.svg)](https://godotengine.org)
 
@@ -9,7 +9,7 @@
 
 > **VisualGasic is not a VB6 clone.** It is a modern language that draws inspiration from VB6's approachable syntax and ease of learning, while introducing advanced features that go well beyond what VB6 ever offered. VG is VB6-*compatible* where it makes sense — you can port VB6 projects and feel at home immediately — but the language itself is designed to look forwards, not backwards.
 
-> ⚠️ **Early Beta** — version number reflects internal dev history. Latest: v3.5.0-beta3 (Code Editor & Stability Release). [See release notes](RELEASE_NOTES_v3.5.0-beta3.md).
+> ⚠️ **Early Beta** — version number reflects internal dev history. Latest: v4.1.0 (Property System Overhaul). [See release notes](RELEASE_NOTES_v4.1.0.md).
 
 ## 🚀 **Key Features**
 
@@ -51,6 +51,8 @@
 - **Snippet Manager** - 40+ built-in snippets with custom snippet support
 - **Theme Support** - 8 built-in themes with full IDE chrome theming + Custom Theme Editor
 - **Visual Gasic IDE** - Full C++ WYSIWYG form editor with VB6-style Toolbox, Properties Panel, live Preview, 40+ controls
+- **Full Property Wiring** - 70+ VB6 properties translate to Godot at design-time *and* runtime, including Font, Colors, and Border sub-resources
+- **Game UI Controls** - 7 Tier 1 animated controls: DialogPanel, InventoryGrid, StatBar, HUDCounter, CooldownButton, NotificationToast, GameMenu
 
 ### **VB6-Style Visual Gasic IDE**
 
@@ -315,9 +317,9 @@ VisualGasic welcomes contributions! Please see our [Contributing Guide](CONTRIBU
 
 ## 📊 **Project Status**
 
-**Current Version**: 3.7.0 (Method Overloading, Parameterized Constructors, Generics, Game UI Mode)
+**Current Version**: 4.1.0 (Property System Overhaul — Font, Colors, Borders, 70+ Runtime Translations)
 
-> See [RELEASE_NOTES_v3.7.0.md](RELEASE_NOTES_v3.7.0.md) for the latest changes.
+> See [RELEASE_NOTES_v4.1.0.md](RELEASE_NOTES_v4.1.0.md) for the latest changes.
 
 **Completion Status**:
 - ✅ **Core Language** - 95% (VB6 compatibility — see [Known Issues](docs/KNOWN_ISSUES.md) for edge cases)

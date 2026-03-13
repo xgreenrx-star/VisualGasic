@@ -1,6 +1,6 @@
 # VisualGasic Project Status
 
-**Version**: 4.0.0 (Game UI Form Designer — Tier 1 Animated Controls)  
+**Version**: 4.1.0 (Property System Overhaul — Font, Colors, Borders, 70+ Runtime Translations)  
 **Last Updated**: March 2026
 
 ## Overview
@@ -256,20 +256,41 @@ MIT License - See [LICENSE](LICENSE)
 - Discord: Join our community (see [COMMUNITY_HUB.md](COMMUNITY_HUB.md))
 - Forums: Discussion and support
 
-## Recent Updates (v2.7.0)
+## Recent Updates
 
-### Bug Fixes
-- **Fix method call on Null objects** — On Error Resume Next now catches `.method()` on Null instead of silent failure
-- **Fix enum constants with keyword names** — `FileAccess.READ`, `.WRITE` now resolve correctly (tokenizer keyword normalization + UPPER_CASE fallback)
-- **Fix singleton instantiation crash** — `ProjectSettings.new()` no longer causes SIGILL
-- **Universal Godot singleton resolution** — All 37 singletons accessible by name (Engine, OS, Time, DisplayServer, AudioServer, etc.)
-- **Fix RefCounted object lifetime** — SphereMesh, StandardMaterial3D etc. no longer freed immediately
-- **Fix bytecode singleton resolution** — Input, Godot, Me, Super correctly resolved in bytecode VM
+### v4.1.0 — Property System Overhaul (March 13, 2026)
+- **70+ VB6→Godot runtime property translations** in serializer — previously only ~10 worked
+- **Font sub-resources** — FontName/FontBold/FontItalic → SystemFont per control
+- **Color support** — BackColor (StyleBoxFlat), ForeColor (font_color), ShapeColor (ColorRect)
+- **Border support** — BorderStyle 0/1 → StyleBoxFlat border_width
+- **Complete live preview** — ALL control properties now sync to design-time canvas
+- **Full round-trip parser** — 60+ reverse translations + sub_resource parsing for save→load→save
+- **Universal layout/effects** — Rotation, Scale, PivotOffset, MinSize, ClipContents, LayoutDirection
 
-### Testing
-- **ClassDB fuzzer expanded** — 11 test types, 2421 PASS / 0 FAIL / 0 ERRORS across 210 files
-- Test categories: instantiation, property get/set, enum constants, singleton access, method calls, setter calls, inheritance chains, With blocks, TypeOf/Is, singleton methods, VG language features
-- 34 Godot engine-level warnings properly separated from VG errors
+### v4.0.0 — Game UI Form Designer (March 11, 2026)
+- **7 Tier 1 animated controls** — DialogPanel, InventoryGrid, StatBar, HUDCounter, CooldownButton, NotificationToast, GameMenu
+- VB6-style Properties Panel integration with type-specific defaults
+- Legacy alias controls preserved for backward compatibility
+
+### v3.8.0 — Compound Logical Operators & Enhanced Enums (March 12, 2026)
+- `And=`, `Or=`, `Xor=`, `Mod=` compound assignment operators
+- Bitwise semantics for And/Or/Xor when both operands are numeric
+- `<Flags>` attribute for Enum with HasFlag and flags-aware ToString
+- Compile-time enum dot access
+
+### v3.7.0 — OOP Power-Up (March 11, 2026)
+- Method overloading (arity-based dispatch)
+- Parameterized constructors
+- Generics Phase 1 — Collection(Of T)
+- Game UI Mode for Form Designer
+
+### v3.6.0 — Modern Language Features (March 10, 2026)
+- Compound assignment operators (+=, -=, etc.)
+- Bit-shift operators (<<, >>)
+- LongLong type alias (64-bit)
+
+### Testing (v4.1.0)
+- **65 test files** · **602 assertions** · **600 pass** · **2 fail** (pre-existing symlink tests)
 
 ## Credits
 

@@ -5,6 +5,27 @@ All notable changes to Visual Gasic will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.1.0] - 2026-03-13
+
+### 🎨 Form Designer Property System Overhaul — Full Design-Time & Runtime Wiring
+
+#### Added
+- **Complete live preview property syncing** — Rewrote `_sync_live_preview_properties()` (~500 lines). All control types now sync all supported VB6 properties to the design-time canvas. Previously only `Text` and `Visible` were synced
+- **70+ VB6→Godot runtime property translations** — Serializer now translates 62 simple 1:1 properties, plus context-dependent (`Value`→`button_pressed`/`value`), composite (`PasswordChar`→`secret`+`secret_character`, `Opacity`→modulate alpha, `ScaleX`/`ScaleY`→`Vector2`), and metadata (`Tag`→`metadata/Tag`)
+- **Font sub-resources** — `FontName`, `FontBold`, `FontItalic` serialize as per-control `[sub_resource type="SystemFont"]` with `font_names`, `font_weight`, `font_italic`. Applied via `theme_override_fonts/font`
+- **BackColor sub-resources** — `BackColor` serializes as per-control `[sub_resource type="StyleBoxFlat"]` with `bg_color`. Applied via `theme_override_styles/normal` (or `theme_override_styles/panel` for Panel)
+- **ForeColor support** — Serializes as `theme_override_colors/font_color = Color(r,g,b,a)` (simple property, no sub-resource)
+- **ShapeColor support** — Serializes as `color = Color(r,g,b,a)` for ColorRect controls
+- **BorderStyle support** — `0` (None) = no border, `1` (Fixed Single) = 1px dark border. Combined with BackColor in single StyleBoxFlat sub-resource
+- **Universal layout/effects** — Rotation, Scale, PivotOffset, MinSize, ClipContents, LayoutDirection, SelfModulate, ShowBehindParent in both live preview and serializer
+- **Full round-trip parser** — 60+ reverse Godot→VB6 translations in `_parse_tscn()`. New sub_resource parsing pass reads back SystemFont and StyleBoxFlat blocks for proper save→load→save cycle
+- **Slider/ScrollBar/Tree/ColorRect/TextureRect/TextureButton/RichTextLabel/MenuBar** live preview sections added
+
+#### Changed
+- `_serialize_to_tscn()` now has a per-control sub_resource pre-pass generating `ctrl_font_*` and `ctrl_bg_*` sub_resources with unique integer IDs
+- Skip list updated: `FontUnderline`, `FontStrikethrough`, `Appearance`, `BackStyle`, `Style`, and 20+ VB6-only properties that have no Godot equivalent
+- Total test suite: 65 files, 603 assertions, 601 pass
+
 ## [4.0.0] - 2026-03-11
 
 ### 🎮 Game UI Form Designer — Tier 1 Animated Controls

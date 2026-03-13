@@ -699,14 +699,21 @@ These twinBASIC / RAD Basic features were evaluated and intentionally excluded:
 
 Targeted improvements for a major v4.0 release. Requires v3.5.0 stable first.
 
-### Prerequisites — Ship v3.5.0 Stable
+### ✅ Completed — v3.6.0 through v4.1.0
 
-Before v4 development begins, the current beta must graduate:
+These features shipped between March 10–13, 2026:
+
+- [x] **v3.6.0** — Compound assignment (`+=`, `-=`, etc.), bit-shift (`<<`, `>>`), `LongLong` type
+- [x] **v3.7.0** — Method overloading, parameterized constructors, Generics Phase 1, Game UI Mode
+- [x] **v3.8.0** — Keyword compound (`And=`, `Or=`, `Xor=`, `Mod=`), bitwise semantics, `<Flags>` enum, compile-time dot access
+- [x] **v4.0.0** — 7 Tier 1 animated Game UI controls (DialogPanel, InventoryGrid, StatBar, HUDCounter, CooldownButton, NotificationToast, GameMenu)
+- [x] **v4.1.0** — Property System Overhaul: 70+ runtime property translations, Font/BackColor/ForeColor/BorderStyle/ShapeColor sub-resources, complete live preview, full round-trip parser
+- [ ] **Calculator tutorial screenshots** — Capture real screenshots for all 📸 placeholders in `docs/tutorials/calculator_form_designer.md`
+
+### Prerequisites — Ship to Platform
 
 - [ ] **macOS / ARM64 CI build** — Add `platform=macos` CI job with universal binary (x86_64 + arm64). Validate GDExtension loads on Apple Silicon.
 - [ ] **Asset Library acceptance** — Submitted, awaiting Godot team review.
-- [ ] **Calculator tutorial screenshots** — Capture real screenshots for all 📸 placeholders in `docs/tutorials/calculator_form_designer.md`.
-- [ ] **Beta → Stable testing pass** — Full test suite run, verify all demos, tag v3.5.0 stable.
 
 ### 🔴 High Priority — Flagship Features
 
