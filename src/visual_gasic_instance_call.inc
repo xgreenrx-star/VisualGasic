@@ -325,6 +325,14 @@ void VisualGasicInstance::call(const StringName &p_method, const Variant *const 
         return;
     }
     
+    // Coroutine resume callback (v4.2.0) — invoked by signal/timer one-shot
+    if (p_method == StringName("_vg_resume_coroutine")) {
+        _resume_coroutine();
+        if (r_return) *r_return = Variant();
+        r_error->error = GDEXTENSION_CALL_OK;
+        return;
+    }
+    
     // Special debug introspection methods (allowed even in editor for debugging)
     if (p_method == StringName("_vg_get_all_variables")) {
         // Return all script variables for debugging

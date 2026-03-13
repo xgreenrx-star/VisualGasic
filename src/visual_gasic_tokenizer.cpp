@@ -181,6 +181,9 @@ Vector<VisualGasicTokenizer::Token> VisualGasicTokenizer::tokenize(const String 
     keywords.push_back("Let");
     keywords.push_back("Implements");
     keywords.push_back("WithEvents");
+    keywords.push_back("Export");
+    keywords.push_back("Import");
+    keywords.push_back("ClassName");
 
     while (current < length) {
         char32_t c = p_source_code[current];
@@ -385,6 +388,39 @@ Vector<VisualGasicTokenizer::Token> VisualGasicTokenizer::tokenize(const String 
         // UtilityFunctions::print("Tokenizer Pushed: ", t.value, " Type: ", t.type);
             column += (current - start);
             continue;
+        }
+
+        // $NodeName shorthand — desugar to TOKEN_NODE_PATH (v4.2)
+        if (c == '$' && current + 1 < length && p_source_code[current+1] != '"') {
+            char32_t nc = p_source_code[current+1];
+            if ((nc >= 'A' && nc <= 'Z') || (nc >= 'a' && nc <= 'z') || nc == '_' || nc == '%') {
+                current++; // skip $
+                bool is_unique = false;
+                if (p_source_code[current] == '%') {
+                    is_unique = true;
+                    current++; // skip %
+                }
+                int name_start = current;
+                while (current < length) {
+                    char32_t ch = p_source_code[current];
+                    if ((ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') ||
+                        (ch >= '0' && ch <= '9') || ch == '_' || ch == '/') {
+                        current++;
+                    } else {
+                        break;
+                    }
+                }
+                String node_name = p_source_code.substr(name_start, current - name_start);
+                if (is_unique) node_name = "%" + node_name;
+                Token t;
+                t.type = TOKEN_NODE_PATH;
+                t.value = node_name;
+                t.line = line;
+                t.column = column;
+                tokens.push_back(t);
+                column += (current - name_start + 1 + (is_unique ? 1 : 0));
+                continue;
+            }
         }
 
         // Strings

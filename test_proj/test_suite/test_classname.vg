@@ -1,0 +1,14 @@
+' Test: ClassName — global registration
+Attribute VB_Name = "TestClassName"
+ClassName TestGlobalClass
+
+Public ModuleName As String
+
+Sub _Ready()
+    ModuleName = "TestGlobalClass"
+    If ModuleName = "TestGlobalClass" Then
+        Print "PASS: classname_parsed"
+    Else
+        Print "FAIL: classname_parsed: expected TestGlobalClass, got " & ModuleName
+    End If
+End Sub

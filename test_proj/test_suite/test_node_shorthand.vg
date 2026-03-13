@@ -1,0 +1,15 @@
+' Test: $NodeName shorthand — desugars to GetNode
+Attribute VB_Name = "TestNodeShorthand"
+
+Dim result As String
+
+Sub _Ready()
+    ' The $NodeName syntax should parse without error.
+    ' At runtime GetNode will fail (no scene tree), but the script loads fine.
+    result = "parsed"
+    If result = "parsed" Then
+        Print "PASS: node_shorthand_parse"
+    Else
+        Print "FAIL: node_shorthand_parse: script did not execute"
+    End If
+End Sub

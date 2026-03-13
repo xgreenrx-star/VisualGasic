@@ -1,0 +1,45 @@
+' Test: Export keyword — variables appear in Godot Inspector
+Attribute VB_Name = "TestExport"
+
+Export Public Speed As Single
+Export Dim Health As Integer
+Export Public PlayerName As String
+Public NormalVar As Integer
+
+Sub _Ready()
+    Speed = 100.0
+    Health = 100
+    PlayerName = "Hero"
+    NormalVar = 42
+
+    If Speed = 100.0 Then
+        Print "PASS: export_single"
+    Else
+        Print "FAIL: export_single: expected 100.0, got " & Str(Speed)
+    End If
+
+    If Health = 100 Then
+        Print "PASS: export_integer"
+    Else
+        Print "FAIL: export_integer: expected 100, got " & Str(Health)
+    End If
+
+    If PlayerName = "Hero" Then
+        Print "PASS: export_string"
+    Else
+        Print "FAIL: export_string: expected Hero, got " & PlayerName
+    End If
+
+    If NormalVar = 42 Then
+        Print "PASS: non_export_public"
+    Else
+        Print "FAIL: non_export_public: expected 42, got " & Str(NormalVar)
+    End If
+
+    Speed = 200.0
+    If Speed = 200.0 Then
+        Print "PASS: export_reassign"
+    Else
+        Print "FAIL: export_reassign: expected 200.0, got " & Str(Speed)
+    End If
+End Sub

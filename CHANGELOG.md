@@ -5,6 +5,47 @@ All notable changes to Visual Gasic will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.2.0] - 2026-03-13
+
+### 🚀 GDScript Parity — Export, Await, Import, ClassName, $NodeName
+
+This release closes the four biggest feature gaps between VisualGasic and GDScript.
+
+#### Added — `Export` keyword (Inspector integration)
+- **`Export Dim`/`Export Public`** prefix — marks module-level variables for exposure to the Godot Inspector panel
+- `_get_script_property_list()` adds `PROPERTY_USAGE_EDITOR` flag for exported variables
+- `_has_property_default_value()` / `_get_property_default_value()` return literal defaults
+- Extended type mapping: `Color`, `Vector2`, `Vector3`, `NodePath`, `Float` now map correctly
+- Test: `test_export.vg` (5 assertions)
+
+#### Added — `Await` coroutine support (real signal/timer suspend)
+- **`Await <Signal>`** — connects one-shot, saves coroutine state (IP + locals), yields VM, resumes on fire
+- **`Await <seconds>`** — creates a SceneTree timer, suspends, resumes after timeout
+- Synchronous fallback for non-signal/non-timer values (string, zero, etc.)
+- `AwaitStatement` AST node replaces old `AssignmentStatement` hack
+- `OP_AWAIT` bytecode: pops value, checks type, dispatches suspend or no-op
+- `_resume_coroutine()` method resumes from `CoroutineState` at saved IP
+- `_vg_resume_coroutine` call dispatch for owner-mediated signal routing
+- Test: `test_await.vg` (2 assertions)
+
+#### Added — `Import` statement (cross-file module system)
+- **`Import "path/module.vg"`** or **`Import ModuleName`** at module level
+- Parser stores imports in `ModuleNode::imports` vector
+- Instance constructor loads imported .vg files, parses AST, registers Public variables/constants in `module_registry` Dictionary
+- Relative path resolution from current script directory
+- Test: parsing verified (runtime cross-module calls use existing member-access dispatch)
+
+#### Added — `ClassName` + `$NodeName` shorthand
+- **`ClassName MyName`** at module level — `_get_global_name()` returns the registered name for script-class registration
+- **`$NodeName`** shorthand — tokenizer emits `TOKEN_NODE_PATH`, parser desugars to `GetNode("NodeName")` call
+- **`$%UniqueNode`** — unique-name prefix support (desugars to `GetNode("%UniqueNode")`)
+- Path navigation: `$Parent/Child` tokenizes correctly
+- Test: `test_classname.vg` (1 assertion), `test_node_shorthand.vg` (1 assertion)
+
+#### Fixed — Known Issues audit
+- Verified 16 known bugs against current source — marked 11 as fixed in KNOWN_ISSUES.md
+- Updated test stats to 69 files / 611 assertions / 609 pass
+
 ## [4.1.0] - 2026-03-13
 
 ### 🎨 Form Designer Property System Overhaul — Full Design-Time & Runtime Wiring

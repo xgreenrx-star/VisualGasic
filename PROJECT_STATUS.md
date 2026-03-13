@@ -1,6 +1,6 @@
 # VisualGasic Project Status
 
-**Version**: 4.1.0 (Property System Overhaul — Font, Colors, Borders, 70+ Runtime Translations)  
+**Version**: 4.2.0 (GDScript Parity — Export, Await, Import, ClassName, $NodeName)  
 **Last Updated**: March 2026
 
 ## Overview
@@ -258,6 +258,15 @@ MIT License - See [LICENSE](LICENSE)
 
 ## Recent Updates
 
+### v4.2.0 — GDScript Parity (March 13, 2026)
+- `Export Dim`/`Export Public` — expose variables to Godot Inspector
+- `Await <Signal>` / `Await <seconds>` — real coroutine suspend/resume
+- `Import "module.vg"` — cross-file module system with namespace isolation
+- `ClassName MyName` — global script registration via `_get_global_name()`
+- `$NodeName` / `$%UniqueNode` — shorthand desugars to `GetNode()` call
+- Known Issues audit: 11 of 18 bugs marked fixed, 7 remain open
+- Test suite: 69 files, 611 assertions, 609 pass (99.7%)
+
 ### v4.1.0 — Property System Overhaul (March 13, 2026)
 - **70+ VB6→Godot runtime property translations** in serializer — previously only ~10 worked
 - **Font sub-resources** — FontName/FontBold/FontItalic → SystemFont per control
@@ -289,8 +298,8 @@ MIT License - See [LICENSE](LICENSE)
 - Bit-shift operators (<<, >>)
 - LongLong type alias (64-bit)
 
-### Testing (v4.1.0)
-- **65 test files** · **602 assertions** · **600 pass** · **2 fail** (pre-existing symlink tests)
+### Testing (v4.2.0)
+- **69 test files** · **611 assertions** · **609 pass** · **2 fail** (pre-existing symlink tests)
 
 ## Credits
 

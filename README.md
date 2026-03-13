@@ -1,7 +1,7 @@
 # VisualGasic — A Modern Language for Godot 4
 
 [![CI](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml/badge.svg)](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/badge/version-4.1.0-blue.svg)](https://github.com/xgreenrx-star/VisualGasic/releases)
+[![Version](https://img.shields.io/badge/version-4.2.0-blue.svg)](https://github.com/xgreenrx-star/VisualGasic/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Godot](https://img.shields.io/badge/Godot-4.5+-purple.svg)](https://godotengine.org)
 
@@ -9,7 +9,7 @@
 
 > **VisualGasic is not a VB6 clone.** It is a modern language that draws inspiration from VB6's approachable syntax and ease of learning, while introducing advanced features that go well beyond what VB6 ever offered. VG is VB6-*compatible* where it makes sense — you can port VB6 projects and feel at home immediately — but the language itself is designed to look forwards, not backwards.
 
-> ⚠️ **Early Beta** — version number reflects internal dev history. Latest: v4.1.0 (Property System Overhaul). [See release notes](RELEASE_NOTES_v4.1.0.md).
+> ⚠️ **Early Beta** — version number reflects internal dev history. Latest: v4.2.0 (GDScript Parity — Export, Await, Import, $Node). [See release notes](RELEASE_NOTES_v4.2.0.md).
 
 ## 🚀 **Key Features**
 
@@ -317,9 +317,9 @@ VisualGasic welcomes contributions! Please see our [Contributing Guide](CONTRIBU
 
 ## 📊 **Project Status**
 
-**Current Version**: 4.1.0 (Property System Overhaul — Font, Colors, Borders, 70+ Runtime Translations)
+**Current Version**: 4.2.0 (GDScript Parity — Export, Await, Import, ClassName, $NodeName)
 
-> See [RELEASE_NOTES_v4.1.0.md](RELEASE_NOTES_v4.1.0.md) for the latest changes.
+> See [RELEASE_NOTES_v4.2.0.md](RELEASE_NOTES_v4.2.0.md) for the latest changes.
 
 **Completion Status**:
 - ✅ **Core Language** - 95% (VB6 compatibility — see [Known Issues](docs/KNOWN_ISSUES.md) for edge cases)

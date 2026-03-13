@@ -5140,9 +5140,12 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             break;
         }
         case STMT_AWAIT: {
-            // The parser turns 'Await expr' into AssignmentStatement to
-            // __await_result__, so this case is rarely hit.  Emit OP_AWAIT
-            // as a placeholder for future coroutine dispatch.
+            // Await statement (v4.2.0): compile the expression (signal/coroutine),
+            // push it onto stack, then emit OP_AWAIT for VM coroutine dispatch.
+            AwaitStatement* s = (AwaitStatement*)stmt;
+            if (s->expression) {
+                compile_expression(s->expression);
+            }
             emit_byte(OP_AWAIT);
             break;
         }

@@ -360,8 +360,9 @@ struct DimStatement : public Statement {
     bool is_static;
     bool is_dynamic_array; // True for Dim arr() As Integer (empty parentheses)
     bool is_with_events;   // True for Dim WithEvents obj As ClassName (v3.5.0)
+    bool is_export;          // True for Export Dim x (v4.2.0)
     
-    DimStatement() : Statement(STMT_DIM) { initializer = nullptr; is_static = false; is_dynamic_array = false; is_with_events = false; }
+    DimStatement() : Statement(STMT_DIM) { initializer = nullptr; is_static = false; is_dynamic_array = false; is_with_events = false; is_export = false; }
     virtual ~DimStatement() { 
         for(int i=0; i<array_sizes.size(); i++) {
              if (array_sizes[i]) delete array_sizes[i];
@@ -645,10 +646,11 @@ struct VariableDefinition : public ASTNode {
     Visibility visibility;
     ExpressionNode* default_value;  // Optional initialization value
     bool is_with_events;            // WithEvents variable (v3.5.0)
+    bool is_export;                   // Export to Godot Inspector (v4.2.0)
     // Arrays?
     Vector<int> array_sizes; // if array
     
-    VariableDefinition() : default_value(nullptr), visibility(VIS_PRIVATE), is_with_events(false) {}
+    VariableDefinition() : default_value(nullptr), visibility(VIS_PRIVATE), is_with_events(false), is_export(false) {}
     ~VariableDefinition() { if(default_value) delete default_value; }
 };
 
@@ -769,6 +771,8 @@ struct ModuleNode {
     Vector<PropertyDefinition*> properties; // Module level properties (owned by ClassDefinitions)
     Vector<ClassDefinition*> class_defs; // Class definitions
     Vector<String> implements_list;      // Implements interfaces (v3.5.0)
+    Vector<String> imports;              // Import "path/module.vg" (v4.2.0)
+    String class_name_vg;               // ClassName MyName — global registration (v4.2.0)
     
     ModuleNode() { option_explicit = false; option_compare_text = false; }
 
@@ -810,6 +814,15 @@ struct AwaitExpression : ExpressionNode {
         expression = nullptr;
     }
     ~AwaitExpression() { if(expression) delete expression; }
+};
+
+// Await Statement (v4.2.0) — wraps AwaitExpression for coroutine dispatch
+struct AwaitStatement : public Statement {
+    ExpressionNode* expression;    // The signal or coroutine to await
+    String result_variable;        // Optional: store result into this variable
+    
+    AwaitStatement() : Statement(STMT_AWAIT), expression(nullptr) {}
+    ~AwaitStatement() { if(expression) delete expression; }
 };
 
 // Task.Run Statement  

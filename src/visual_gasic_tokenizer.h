@@ -26,6 +26,7 @@ public:
         TOKEN_COLON,
         TOKEN_SEMICOLON,
         TOKEN_COMMENT,
+        TOKEN_NODE_PATH,
         TOKEN_ERROR
     };
 

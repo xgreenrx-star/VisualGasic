@@ -987,6 +987,58 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
                 }
             }
             whenever_init_suppress = false;
+            
+            // Resolve Import statements (v4.2.0) — load imported modules
+            // and register their Public subs/variables in module_registry.
+            for (int ii = 0; ii < vs->ast_root->imports.size(); ii++) {
+                String import_path = vs->ast_root->imports[ii];
+                // Resolve relative to current script directory
+                String script_dir = vs->get_path().get_base_dir();
+                String full_path = import_path;
+                if (!import_path.begins_with("res://") && !import_path.begins_with("/")) {
+                    full_path = script_dir.path_join(import_path);
+                }
+                
+                if (FileAccess::file_exists(full_path)) {
+                    String import_source = FileAccess::get_file_as_string(full_path);
+                    VisualGasicTokenizer import_tok;
+                    Vector<VisualGasicTokenizer::Token> import_tokens = import_tok.tokenize(import_source);
+                    VisualGasicParser import_parser;
+                    ModuleNode* import_ast = import_parser.parse(import_tokens);
+                    
+                    if (import_ast && import_parser.errors.size() == 0) {
+                        // Extract module name from filename
+                        String mod_name = full_path.get_file().get_basename();
+                        
+                        Dictionary mod_dict;
+                        // Register public variables
+                        for (int vi = 0; vi < import_ast->variables.size(); vi++) {
+                            VariableDefinition* mv = import_ast->variables[vi];
+                            if (mv->visibility == VIS_PUBLIC) {
+                                String t = mv->type.to_lower();
+                                if (t == "integer" || t == "long") mod_dict[mv->name] = 0;
+                                else if (t == "single" || t == "double") mod_dict[mv->name] = 0.0;
+                                else if (t == "string") mod_dict[mv->name] = "";
+                                else if (t == "boolean") mod_dict[mv->name] = false;
+                                else mod_dict[mv->name] = Variant();
+                            }
+                        }
+                        // Register public constants
+                        for (int ci = 0; ci < import_ast->constants.size(); ci++) {
+                            ConstStatement* mc = import_ast->constants[ci];
+                            if (mc->value && mc->value->type == ExpressionNode::LITERAL) {
+                                mod_dict[mc->name] = static_cast<LiteralNode*>(mc->value)->value;
+                            }
+                        }
+                        
+                        module_registry[mod_name] = mod_dict;
+                        UtilityFunctions::print("[VG] Imported module: ", mod_name, " from ", full_path);
+                    }
+                    // Note: import_ast ownership — parser tracks nodes, will clean up
+                } else {
+                    UtilityFunctions::print("[VG] Import Error: File not found: ", full_path);
+                }
+            }
         }
     }
 

@@ -1,0 +1,26 @@
+' Test: Await keyword — proper AwaitStatement parsing
+Attribute VB_Name = "TestAwait"
+
+Dim counter As Integer
+
+Sub _Ready()
+    counter = 1
+
+    ' Await with 0 seconds should be synchronous (no-op fallback)
+    Await 0
+    counter = counter + 1
+    If counter = 2 Then
+        Print "PASS: await_sync_fallback"
+    Else
+        Print "FAIL: await_sync_fallback: expected 2, got " & Str(counter)
+    End If
+
+    ' Await a string (non-signal, non-numeric) should be synchronous
+    Await "hello"
+    counter = counter + 1
+    If counter = 3 Then
+        Print "PASS: await_non_signal"
+    Else
+        Print "FAIL: await_non_signal: expected 3, got " & Str(counter)
+    End If
+End Sub

@@ -88,6 +88,43 @@ Variant VisualGasicInstance::execute_await(ExpressionNode* expr) {
     return result;
 }
 
+void VisualGasicInstance::_resume_coroutine() {
+    // Resume a suspended coroutine after an Await signal/timer fires (v4.2.0).
+    if (coroutine_stack.is_empty()) return;
+    
+    CoroutineState cs = coroutine_stack[coroutine_stack.size() - 1];
+    coroutine_stack.remove_at(coroutine_stack.size() - 1);
+    
+    // Find the compiled bytecode chunk for the saved function.
+    Ref<VisualGasicScript> scr = script;
+    if (scr.is_null()) return;
+    
+    BytecodeChunk* chunk = scr->get_bytecode_for(cs.function_name);
+    SubDefinition* func_def = nullptr;
+    
+    // Look up the SubDefinition so execute_bytecode can set current_sub
+    if (scr->ast_root) {
+        for (int i = 0; i < scr->ast_root->subs.size(); i++) {
+            if (scr->ast_root->subs[i]->name.nocasecmp_to(cs.function_name) == 0) {
+                func_def = scr->ast_root->subs[i];
+                break;
+            }
+        }
+    }
+    
+    if (!chunk) return; // Cannot resume without compiled chunk
+    
+    // Merge saved locals back into instance variables (they'll be picked up
+    // by the VM's get_variable path).
+    Array keys = cs.local_variables.keys();
+    for (int i = 0; i < keys.size(); i++) {
+        variables[keys[i]] = cs.local_variables[keys[i]];
+    }
+    
+    Variant ret;
+    execute_bytecode(chunk, func_def, ret, cs.instruction_pointer);
+}
+
 void VisualGasicInstance::execute_task_run(TaskRunStatement* task) {
     TaskInfo task_info;
     task_info.task_name = task->task_name.is_empty() ? "Task_" + String::num(active_tasks.size()) : task->task_name;

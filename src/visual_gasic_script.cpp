@@ -356,6 +356,11 @@ Ref<Script> VisualGasicScript::_get_base_script() const {
 }
 
 StringName VisualGasicScript::_get_global_name() const {
+    // ClassName statement (v4.2.0) — register script globally so it can be
+    // used by class_name in other scripts or instantiated from the editor.
+    if (ast_root && !ast_root->class_name_vg.is_empty()) {
+        return StringName(ast_root->class_name_vg);
+    }
     return StringName();
 }
 
@@ -555,6 +560,7 @@ bool VisualGasicScript::_has_method(const StringName &p_method) const {
     }
     if (p_method == StringName("_OnSignal")) return true;
     if (p_method == StringName("_OnGuiInput")) return true;
+    if (p_method == StringName("_vg_resume_coroutine")) return true; // Await resume (v4.2.0)
     if (!ast_root) return false;
     
     String method_str = String(p_method);
@@ -635,10 +641,30 @@ TypedArray<Dictionary> VisualGasicScript::_get_script_signal_list() const {
 }
 
 bool VisualGasicScript::_has_property_default_value(const StringName &p_property) const {
+    // Export variables with default values (v4.2.0)
+    if (!ast_root) return false;
+    for (int i = 0; i < ast_root->variables.size(); i++) {
+        VariableDefinition* v = ast_root->variables[i];
+        if (v->is_export && v->name == String(p_property) && v->default_value) {
+            return true;
+        }
+    }
     return false;
 }
 
 Variant VisualGasicScript::_get_property_default_value(const StringName &p_property) const {
+    // Export variables with default values (v4.2.0)
+    if (!ast_root) return Variant();
+    for (int i = 0; i < ast_root->variables.size(); i++) {
+        VariableDefinition* v = ast_root->variables[i];
+        if (v->is_export && v->name == String(p_property) && v->default_value) {
+            // Evaluate static literal defaults
+            if (v->default_value->type == ExpressionNode::LITERAL) {
+                LiteralNode* lit = static_cast<LiteralNode*>(v->default_value);
+                return lit->value;
+            }
+        }
+    }
     return Variant();
 }
 
@@ -655,18 +681,26 @@ TypedArray<Dictionary> VisualGasicScript::_get_script_property_list() const {
 
     for (int i = 0; i < ast_root->variables.size(); i++) {
         VariableDefinition* v = ast_root->variables[i];
-        if (v->visibility == VIS_PUBLIC) {
+        if (v->visibility == VIS_PUBLIC || v->is_export) {
             Dictionary prop;
             prop["name"] = v->name;
             int usage = PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_SCRIPT_VARIABLE;
+            // Export flag (v4.2.0) — expose to Godot Inspector
+            if (v->is_export) {
+                usage |= PROPERTY_USAGE_EDITOR;
+            }
             prop["usage"] = usage;
             
             // Map VB Types to Godot Types
             String t = v->type.to_lower();
             if (t == "integer" || t == "long") prop["type"] = Variant::INT;
-            else if (t == "single" || t == "double") prop["type"] = Variant::FLOAT;
+            else if (t == "single" || t == "double" || t == "float") prop["type"] = Variant::FLOAT;
             else if (t == "string") prop["type"] = Variant::STRING;
             else if (t == "boolean") prop["type"] = Variant::BOOL;
+            else if (t == "color") prop["type"] = Variant::COLOR;
+            else if (t == "vector2") prop["type"] = Variant::VECTOR2;
+            else if (t == "vector3") prop["type"] = Variant::VECTOR3;
+            else if (t == "nodepath") prop["type"] = Variant::NODE_PATH;
             else prop["type"] = Variant::NIL; // Variant
             
             properties.push_back(prop);

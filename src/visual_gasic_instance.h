@@ -274,6 +274,7 @@ public:
     void execute_parallel_for(ParallelForStatement* par_for);
     void execute_parallel_section(ParallelSectionStatement* par_section);
     void update_tasks(); // Check task completion
+    void _resume_coroutine(); // Resume suspended coroutine after await (v4.2.0)
     static void _task_worker_function(void* user_data);
     static void _parallel_worker_function(void* user_data, uint32_t index);
     static void _pfor_bytecode_worker(void* user_data, uint32_t index);

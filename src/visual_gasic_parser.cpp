@@ -227,8 +227,18 @@ ModuleNode* VisualGasicParser::parse(const Vector<VisualGasicTokenizer::Token>& 
             continue;
         }
 
-        // Variable Declaration (Dim, Public, Private)
+        // Export prefix (v4.2.0) — Export Dim x As Integer / Export Public x As String
         String val = String(t.value).to_lower();
+        bool pending_export = false;
+        if (t.type == VisualGasicTokenizer::TOKEN_KEYWORD && val == "export") {
+            pending_export = true;
+            advance(); // Eat Export
+            while (check(VisualGasicTokenizer::TOKEN_NEWLINE)) advance();
+            t = peek(); // re-read for the Dim/Public/Private that follows
+            val = String(t.value).to_lower();
+        }
+
+        // Variable Declaration (Dim, Public, Private)
         if (t.type == VisualGasicTokenizer::TOKEN_KEYWORD && (val == "public" || val == "private" || val == "dim")) {
             // Parse DimStatement logic but store as global VariableDefinition
              DimStatement* dim = parse_dim(); // Reuse parse_dim which handles Dim A As Integer
@@ -238,6 +248,7 @@ ModuleNode* VisualGasicParser::parse(const Vector<VisualGasicTokenizer::Token>& 
                  v->type = dim->type_name; // can be empty
                  v->visibility = (val == "public") ? VIS_PUBLIC : (val == "private" ? VIS_PRIVATE : VIS_DIM);
                  v->is_with_events = dim->is_with_events; // Propagate WithEvents (v3.5.0)
+                 v->is_export = pending_export;            // Export to Inspector (v4.2.0)
                  
                  for(int i=0; i<dim->array_sizes.size(); i++) {
                      ExpressionNode* expr = dim->array_sizes[i];
@@ -310,6 +321,34 @@ ModuleNode* VisualGasicParser::parse(const Vector<VisualGasicTokenizer::Token>& 
                 advance();
             } else {
                 error("Expected interface name after 'Implements'");
+            }
+            continue;
+        }
+
+        // Import at module level (v4.2.0) — Import "path/module.vg"
+        if (t.type == VisualGasicTokenizer::TOKEN_KEYWORD && String(t.value).nocasecmp_to("import") == 0) {
+            advance(); // Eat Import
+            if (check(VisualGasicTokenizer::TOKEN_LITERAL_STRING)) {
+                module->imports.push_back(peek().value);
+                advance();
+            } else if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
+                // Allow Import ModuleName (no quotes — resolved by convention as ModuleName.vg)
+                module->imports.push_back(String(peek().value) + ".vg");
+                advance();
+            } else {
+                error("Expected module path string or identifier after 'Import'");
+            }
+            continue;
+        }
+
+        // ClassName at module level (v4.2.0) — ClassName MyGlobalName
+        if (t.type == VisualGasicTokenizer::TOKEN_KEYWORD && String(t.value).nocasecmp_to("classname") == 0) {
+            advance(); // Eat ClassName
+            if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER) || check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
+                module->class_name_vg = peek().value;
+                advance();
+            } else {
+                error("Expected name after 'ClassName'");
             }
             continue;
         }
@@ -1708,6 +1747,21 @@ ExpressionNode* VisualGasicParser::parse_factor() {
               return empty;
          }
          return root;
+    }
+
+    // $NodeName / $%UniqueNode shorthand (v4.2.0) — desugar to GetNode("name") call
+    if (check(VisualGasicTokenizer::TOKEN_NODE_PATH)) {
+        String node_name = peek().value;
+        advance();
+        
+        // Build CallExpression: GetNode("node_name")
+        CallExpression* call = static_cast<CallExpression*>(register_node(new CallExpression()));
+        call->method_name = "GetNode";
+        LiteralNode* arg = static_cast<LiteralNode*>(register_node(new LiteralNode()));
+        arg->value = node_name;
+        call->arguments.push_back(arg);
+        unregister_node(arg);
+        return call;
     }
 
 
@@ -4451,24 +4505,16 @@ AsyncFunctionStatement* VisualGasicParser::parse_async_function() {
 Statement* VisualGasicParser::parse_await() {
     advance(); // consume "await"
     
-    // For now, treat await as a special assignment/call
-    // Await expression -> result
+    // Parse the signal/coroutine expression to await
     ExpressionNode* expr = parse_expression();
     if (!expr) {
         error("Expected expression after 'Await'");
         return nullptr;
     }
     
-    // Create await statement using assignment AST
-    // Target is a VariableNode for __await_result__
-    AssignmentStatement* await_stmt = static_cast<AssignmentStatement*>(register_node(new AssignmentStatement()));
-    
-    VariableNode* target = new VariableNode();
-    target->name = "__await_result__";
-    
-    await_stmt->target = target;
-    await_stmt->value = expr;
-    
+    // Create proper AwaitStatement (v4.2.0) — compiler will emit OP_AWAIT
+    AwaitStatement* await_stmt = static_cast<AwaitStatement*>(register_node(new AwaitStatement()));
+    await_stmt->expression = expr;
     return await_stmt;
 }
 

@@ -25,6 +25,7 @@
 #include <godot_cpp/classes/dir_access.hpp>
 #include <godot_cpp/classes/json.hpp>
 #include <godot_cpp/classes/timer.hpp>
+#include <godot_cpp/classes/scene_tree_timer.hpp>
 #include <godot_cpp/classes/tween.hpp>
 #include <godot_cpp/classes/property_tweener.hpp>
 #include <godot_cpp/classes/sprite2d.hpp>
@@ -4587,11 +4588,56 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 VG_BREAK;
             }
 
-            // Await (v2.11.0 Phase 5) — placeholder for future coroutine dispatch.
+            // Await (v4.2.0) — coroutine dispatch with Signal/timer support.
+            // If top-of-stack is a Signal, connect one-shot and create a scene
+            // tree timer that resumes after the signal fires.  If it's a numeric
+            // value, treat as a timer duration (seconds).  Otherwise synchronous.
             VG_CASE(vg_op_await, OP_AWAIT): {
-                // Currently a no-op: the awaited expression was already evaluated
-                // synchronously.  This opcode establishes the infrastructure for
-                // future async dispatch (e.g. OP_ASYNC_CALL → future handle).
+                if (!ensure_stack(1)) { success = false; goto cleanup; }
+                Variant awaited = pop_value();
+                
+                if (awaited.get_type() == Variant::SIGNAL) {
+                    // Real signal await — connect one-shot, then yield
+                    Signal sig = (Signal)awaited;
+                    if (sig.get_object() && owner) {
+                        // Route resume through owner object's script dispatch
+                        Callable resume_cb = Callable(owner, "_vg_resume_coroutine");
+                        sig.get_object()->connect(sig.get_name(), resume_cb, Object::CONNECT_ONE_SHOT);
+                        
+                        // Save coroutine state for resume
+                        CoroutineState cs;
+                        cs.function_name = func ? func->name : String("<main>");
+                        cs.instruction_pointer = vm.ip;
+                        cs.is_awaiting = true;
+                        // Snapshot instance variables as local state
+                        cs.local_variables = variables.duplicate(true);
+                        coroutine_stack.push_back(cs);
+                        goto cleanup;  // Yield — exit VM loop
+                    }
+                } else if (awaited.get_type() == Variant::FLOAT || awaited.get_type() == Variant::INT) {
+                    // Await <number> → create timer for N seconds, then resume
+                    double seconds = (double)awaited;
+                    if (seconds > 0.0 && owner) {
+                        SceneTree* tree = Object::cast_to<SceneTree>(Engine::get_singleton()->get_main_loop());
+                        if (tree) {
+                            Ref<SceneTreeTimer> timer = tree->create_timer(seconds);
+                            if (timer.is_valid()) {
+                                Callable resume_cb = Callable(owner, "_vg_resume_coroutine");
+                                timer->connect("timeout", resume_cb, Object::CONNECT_ONE_SHOT);
+                                
+                                CoroutineState cs;
+                                cs.function_name = func ? func->name : String("<main>");
+                                cs.instruction_pointer = vm.ip;
+                                cs.is_awaiting = true;
+                                cs.local_variables = variables.duplicate(true);
+                                coroutine_stack.push_back(cs);
+                                goto cleanup;
+                            }
+                        }
+                    }
+                }
+                // For all other types (or failed timer/signal), treat as synchronous no-op.
+                // The awaited value has been consumed from the stack.
                 VG_BREAK;
             }
 
