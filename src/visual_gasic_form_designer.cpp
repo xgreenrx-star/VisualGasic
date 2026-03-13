@@ -28,6 +28,7 @@
 #include <godot_cpp/classes/menu_bar.hpp>
 #include <godot_cpp/classes/label.hpp>
 #include <godot_cpp/classes/tab_bar.hpp>
+#include <godot_cpp/classes/system_font.hpp>
 
 using namespace godot;
 
@@ -2476,6 +2477,60 @@ void VisualGasicFormDesigner::_sync_live_preview_properties(int idx) {
             ctrl->add_theme_font_size_override("font_size", godot_px);
         }
 
+        // FontName / FontBold / FontItalic → SystemFont theme override
+        {
+            String font_name = props.has("FontName") ? String(props["FontName"]) : "";
+            bool font_bold = props.has("FontBold") ? (bool)(props["FontBold"]) : false;
+            bool font_italic = props.has("FontItalic") ? (bool)(props["FontItalic"]) : false;
+
+            bool need_font = (!font_name.is_empty() && font_name != "MS Sans Serif") ||
+                             font_bold || font_italic;
+            if (need_font) {
+                Ref<SystemFont> sf;
+                sf.instantiate();
+                if (!font_name.is_empty() && font_name != "MS Sans Serif") {
+                    PackedStringArray names;
+                    names.push_back(font_name);
+                    sf->set_font_names(names);
+                }
+                if (font_bold) {
+                    sf->set_font_weight(700);
+                }
+                if (font_italic) {
+                    sf->set_font_italic(true);
+                }
+                ctrl->add_theme_font_override("font", sf);
+            }
+        }
+
+        // BorderStyle → StyleBoxFlat with/without border
+        if (props.has("BorderStyle")) {
+            int bs = int(props["BorderStyle"]);
+            // Only override for explicit 0 (None) or 1 (Fixed Single)
+            Ref<StyleBoxFlat> sbf;
+            sbf.instantiate();
+            // Preserve any existing BackColor, otherwise use a sensible default
+            Color bg_color(0.93f, 0.93f, 0.93f);  // light gray default
+            if (props.has("BackColor") && props["BackColor"].get_type() == Variant::COLOR) {
+                bg_color = Color(props["BackColor"]);
+            }
+            sbf->set_bg_color(bg_color);
+            sbf->set_content_margin_all(4.0f);
+            if (bs == 1) {
+                // Fixed Single: 1px dark border
+                sbf->set_border_width_all(1);
+                sbf->set_border_color(Color(0.4f, 0.4f, 0.4f));
+            } else {
+                // None: no border
+                sbf->set_border_width_all(0);
+            }
+            if (ctrl->has_theme_stylebox("normal")) {
+                ctrl->add_theme_stylebox_override("normal", sbf);
+            } else if (ctrl->has_theme_stylebox("panel")) {
+                ctrl->add_theme_stylebox_override("panel", sbf);
+            }
+        }
+
         // Opacity (0-100 → modulate alpha)
         if (props.has("Opacity") && item.visible) {
             float alpha = float(int(props["Opacity"])) / 100.0f;
@@ -4921,6 +4976,86 @@ String VisualGasicFormDesigner::_serialize_to_tscn() const {
     }
 
     // =========================================================================
+    // Per-control sub_resources: Font overrides + BackColor/BorderStyle StyleBoxes
+    // =========================================================================
+    String per_ctrl_sub_resources;
+    // Track which controls need font/style sub_resource references in the node section
+    HashMap<String, String> ctrl_font_ids;   // ctrl name → sub_resource id
+    HashMap<String, String> ctrl_style_ids;  // ctrl name → sub_resource id for "normal"
+
+    for (int ci = 0; ci < controls.size(); ci++) {
+        const FormControlItem &ctrl = controls[ci];
+        const Dictionary &props = ctrl.properties;
+
+        // ── Per-control SystemFont for FontName / FontBold / FontItalic ──
+        String font_name = props.has("FontName") ? String(props["FontName"]) : "";
+        bool font_bold = props.has("FontBold") ? (bool)(props["FontBold"]) : false;
+        bool font_italic = props.has("FontItalic") ? (bool)(props["FontItalic"]) : false;
+
+        // Only generate a font sub_resource if non-default
+        bool need_font = (!font_name.is_empty() && font_name != "MS Sans Serif") ||
+                         font_bold || font_italic;
+
+        if (need_font) {
+            String fid = "ctrl_font_" + ctrl.name;
+            per_ctrl_sub_resources += "[sub_resource type=\"SystemFont\" id=\"" + fid + "\"]\n";
+            if (!font_name.is_empty() && font_name != "MS Sans Serif") {
+                per_ctrl_sub_resources += "font_names = PackedStringArray(\"" + font_name + "\")\n";
+            }
+            if (font_bold) {
+                per_ctrl_sub_resources += "font_weight = 700\n";
+            }
+            if (font_italic) {
+                per_ctrl_sub_resources += "font_italic = true\n";
+            }
+            per_ctrl_sub_resources += "\n";
+            ctrl_font_ids[ctrl.name] = fid;
+        }
+
+        // ── Per-control StyleBoxFlat for BackColor / BorderStyle ──
+        bool has_back_color = props.has("BackColor") && props["BackColor"].get_type() == Variant::COLOR;
+        int border_style = props.has("BorderStyle") ? int(props["BorderStyle"]) : -1;
+
+        // Only generate a stylebox sub_resource if non-default
+        if (has_back_color || border_style == 1) {
+            String sid = "ctrl_bg_" + ctrl.name;
+            per_ctrl_sub_resources += "[sub_resource type=\"StyleBoxFlat\" id=\"" + sid + "\"]\n";
+
+            if (has_back_color) {
+                Color bc = Color(props["BackColor"]);
+                per_ctrl_sub_resources += "bg_color = " + fmt_color(bc) + "\n";
+            } else {
+                // Use the VB6 theme default: sys_window for edits, sys_button_face for buttons
+                bool is_edit = ctrl.type == "LineEdit" || ctrl.type == "TextEdit" ||
+                               ctrl.type == "RichTextLabel" || ctrl.type == "SpinBox";
+                per_ctrl_sub_resources += "bg_color = " + fmt_color(is_edit ? sys_window : sys_button_face) + "\n";
+            }
+
+            if (border_style == 1) {
+                // Fixed Single border: 1px solid dark border
+                per_ctrl_sub_resources += "border_width_top = 1\n";
+                per_ctrl_sub_resources += "border_width_right = 1\n";
+                per_ctrl_sub_resources += "border_width_bottom = 1\n";
+                per_ctrl_sub_resources += "border_width_left = 1\n";
+                per_ctrl_sub_resources += "border_color = " + fmt_color(sys_button_shadow) + "\n";
+            } else if (border_style == 0) {
+                // No border
+                per_ctrl_sub_resources += "border_width_top = 0\n";
+                per_ctrl_sub_resources += "border_width_right = 0\n";
+                per_ctrl_sub_resources += "border_width_bottom = 0\n";
+                per_ctrl_sub_resources += "border_width_left = 0\n";
+            }
+
+            per_ctrl_sub_resources += "content_margin_left = 4.0\n";
+            per_ctrl_sub_resources += "content_margin_top = 4.0\n";
+            per_ctrl_sub_resources += "content_margin_right = 4.0\n";
+            per_ctrl_sub_resources += "content_margin_bottom = 4.0\n";
+            per_ctrl_sub_resources += "\n";
+            ctrl_style_ids[ctrl.name] = sid;
+        }
+    }
+
+    // =========================================================================
     // Count sub_resources for load_steps header
     // =========================================================================
     // Count the [sub_resource] blocks we're about to emit
@@ -4929,6 +5064,12 @@ String VisualGasicFormDesigner::_serialize_to_tscn() const {
     {
         int pos = 0;
         while ((pos = sub_resources.find("[sub_resource", pos)) >= 0) {
+            sub_res_count++;
+            pos++;
+        }
+        // Per-control font + style sub_resources
+        pos = 0;
+        while ((pos = per_ctrl_sub_resources.find("[sub_resource", pos)) >= 0) {
             sub_res_count++;
             pos++;
         }
@@ -4953,8 +5094,9 @@ String VisualGasicFormDesigner::_serialize_to_tscn() const {
     }
     out += "\n";
 
-    // Sub-resources (StyleBoxes + Themes)
+    // Sub-resources (StyleBoxes + Themes + per-control font/style overrides)
     out += sub_resources;
+    out += per_ctrl_sub_resources;
     out += theme_res;
     out += empty_theme_res;
 
@@ -5069,6 +5211,32 @@ String VisualGasicFormDesigner::_serialize_to_tscn() const {
                 int godot_px = vb6_pt_to_px(vb6_pt);
                 out += "theme_override_font_sizes/font_size = " + String::num_int64(godot_px) + "\n";
             }
+        }
+
+        // Per-control font override: FontName / FontBold / FontItalic → SystemFont sub_resource
+        if (ctrl_font_ids.has(ctrl.name)) {
+            out += "theme_override_fonts/font = SubResource(\"" + ctrl_font_ids[ctrl.name] + "\")\n";
+        }
+
+        // Per-control ForeColor → theme_override_colors/font_color
+        if (ctrl.properties.has("ForeColor") && ctrl.properties["ForeColor"].get_type() == Variant::COLOR) {
+            Color fc = Color(ctrl.properties["ForeColor"]);
+            out += "theme_override_colors/font_color = " + fmt_color(fc) + "\n";
+        }
+
+        // Per-control ShapeColor → color (for ColorRect)
+        if (ctrl.properties.has("ShapeColor") && ctrl.type == "ColorRect") {
+            Variant sv = ctrl.properties["ShapeColor"];
+            if (sv.get_type() == Variant::COLOR) {
+                Color sc = Color(sv);
+                out += "color = " + fmt_color(sc) + "\n";
+            }
+        }
+
+        // Per-control BackColor / BorderStyle → StyleBoxFlat sub_resource
+        if (ctrl_style_ids.has(ctrl.name)) {
+            // Apply to "normal" style slot (works for LineEdit, TextEdit, Button, etc.)
+            out += "theme_override_styles/normal = SubResource(\"" + ctrl_style_ids[ctrl.name] + "\")\n";
         }
 
         // Write extra properties (VB6 properties stored in the form designer)
@@ -5357,7 +5525,42 @@ bool VisualGasicFormDesigner::_parse_tscn(const String &p_text) {
         i++;
     }
 
-    // Second pass: parse nodes
+    // Second pass: parse per-control sub_resources (SystemFont, StyleBoxFlat)
+    // We only care about sub_resources with our ctrl_font_ / ctrl_bg_ id prefixes
+    HashMap<String, Dictionary> sub_resource_props;  // id → { "font_names": ..., "font_weight": ..., etc. }
+    i = 0;
+    {
+        String current_sub_id;
+        bool in_sub = false;
+        while (i < lines.size()) {
+            String line = lines[i].strip_edges();
+            if (line.begins_with("[sub_resource ")) {
+                // Extract id
+                int id_start = line.find("id=\"");
+                if (id_start >= 0) {
+                    id_start += 4;
+                    int id_end = line.find("\"", id_start);
+                    current_sub_id = line.substr(id_start, id_end - id_start);
+                    if (current_sub_id.begins_with("ctrl_font_") || current_sub_id.begins_with("ctrl_bg_")) {
+                        in_sub = true;
+                        sub_resource_props[current_sub_id] = Dictionary();
+                    } else {
+                        in_sub = false;
+                    }
+                }
+            } else if (line.begins_with("[")) {
+                in_sub = false;
+            } else if (in_sub && line.contains("=")) {
+                int eq = line.find("=");
+                String key = line.substr(0, eq).strip_edges();
+                String val = line.substr(eq + 1).strip_edges();
+                sub_resource_props[current_sub_id][key] = val;
+            }
+            i++;
+        }
+    }
+
+    // Third pass: parse nodes
     i = 0;
     String current_node_name;
     String current_node_type;
@@ -5508,6 +5711,84 @@ bool VisualGasicFormDesigner::_parse_tscn(const String &p_text) {
                     int godot_px = val.to_int();
                     int vb6_pt = (godot_px > 0) ? (int)round(godot_px * 72.0 / 96.0) : 8;
                     current_item.properties["FontSize"] = vb6_pt;
+                } else if (key == "theme_override_fonts/font") {
+                    // Reverse-map SystemFont sub_resource → FontName/FontBold/FontItalic
+                    // val = SubResource("ctrl_font_XXX")
+                    if (val.begins_with("SubResource(\"") && val.ends_with("\")")) {
+                        String sub_id = val.substr(13, val.length() - 15);
+                        if (sub_resource_props.has(sub_id)) {
+                            Dictionary sp = sub_resource_props[sub_id];
+                            if (sp.has("font_names")) {
+                                // PackedStringArray("Arial") → extract "Arial"
+                                String fn = String(sp["font_names"]);
+                                int q1 = fn.find("\"");
+                                int q2 = fn.find("\"", q1 + 1);
+                                if (q1 >= 0 && q2 > q1) {
+                                    current_item.properties["FontName"] = fn.substr(q1 + 1, q2 - q1 - 1);
+                                }
+                            }
+                            if (sp.has("font_weight")) {
+                                int fw = String(sp["font_weight"]).to_int();
+                                current_item.properties["FontBold"] = (fw >= 700);
+                            }
+                            if (sp.has("font_italic")) {
+                                current_item.properties["FontItalic"] = (String(sp["font_italic"]) == "true");
+                            }
+                        }
+                    }
+                } else if (key == "theme_override_colors/font_color") {
+                    // Reverse-map → VB6 ForeColor
+                    if (val.begins_with("Color(") && val.ends_with(")")) {
+                        String inner = val.substr(6, val.length() - 7);
+                        PackedStringArray parts = inner.split(",");
+                        if (parts.size() >= 3) {
+                            float a = (parts.size() >= 4) ? parts[3].strip_edges().to_float() : 1.0f;
+                            Color c(parts[0].strip_edges().to_float(),
+                                    parts[1].strip_edges().to_float(),
+                                    parts[2].strip_edges().to_float(), a);
+                            current_item.properties["ForeColor"] = c;
+                        }
+                    }
+                } else if (key == "theme_override_styles/normal") {
+                    // Reverse-map per-control StyleBoxFlat → BackColor + BorderStyle
+                    if (val.begins_with("SubResource(\"") && val.ends_with("\")")) {
+                        String sub_id = val.substr(13, val.length() - 15);
+                        if (sub_resource_props.has(sub_id) && sub_id.begins_with("ctrl_bg_")) {
+                            Dictionary sp = sub_resource_props[sub_id];
+                            if (sp.has("bg_color")) {
+                                String bc_str = String(sp["bg_color"]);
+                                if (bc_str.begins_with("Color(") && bc_str.ends_with(")")) {
+                                    String inner = bc_str.substr(6, bc_str.length() - 7);
+                                    PackedStringArray parts = inner.split(",");
+                                    if (parts.size() >= 3) {
+                                        float a = (parts.size() >= 4) ? parts[3].strip_edges().to_float() : 1.0f;
+                                        Color c(parts[0].strip_edges().to_float(),
+                                                parts[1].strip_edges().to_float(),
+                                                parts[2].strip_edges().to_float(), a);
+                                        current_item.properties["BackColor"] = c;
+                                    }
+                                }
+                            }
+                            // Check border_width to determine BorderStyle
+                            if (sp.has("border_width_top")) {
+                                int bw = String(sp["border_width_top"]).to_int();
+                                current_item.properties["BorderStyle"] = (bw > 0) ? 1 : 0;
+                            }
+                        }
+                    }
+                } else if (key == "color" && current_node_type == "ColorRect") {
+                    // ColorRect color → ShapeColor
+                    if (val.begins_with("Color(") && val.ends_with(")")) {
+                        String inner = val.substr(6, val.length() - 7);
+                        PackedStringArray parts = inner.split(",");
+                        if (parts.size() >= 3) {
+                            float a = (parts.size() >= 4) ? parts[3].strip_edges().to_float() : 1.0f;
+                            Color c(parts[0].strip_edges().to_float(),
+                                    parts[1].strip_edges().to_float(),
+                                    parts[2].strip_edges().to_float(), a);
+                            current_item.properties["ShapeColor"] = c;
+                        }
+                    }
                 } else if (key == "metadata/vb6_control_array_index") {
                     // Restore VB6 control array index
                     current_item.control_array_index = val.to_int();
