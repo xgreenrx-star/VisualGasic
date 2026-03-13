@@ -1,4 +1,4 @@
-[gd_scene load_steps=47 format=3]
+[gd_scene load_steps=48 format=3]
 
 [ext_resource type="Script" uid="uid://sao1y2hgbivu" path="res://Form2.vg" id="1"]
 [ext_resource type="Script" uid="uid://cixa1he0byrgy" path="res://addons/visual_gasic/form_editor_helper.gd" id="2"]
@@ -9,6 +9,7 @@
 [ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/game_ui/RadialMenu.tscn" id="7"]
 [ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/game_ui/ChatBox.tscn" id="8"]
 [ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/ItemList.tscn" id="9"]
+[ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/game_ui/TabPanel.tscn" id="10"]
 
 [sub_resource type="StyleBoxFlat" id="vb6_btn_normal"]
 bg_color = Color(0.831, 0.816, 0.784, 1.0)
@@ -524,6 +525,7 @@ offset_left = 736.0
 offset_top = 120.0
 offset_right = 944.0
 offset_bottom = 256.0
+theme_override_font_sizes/font_size = 30
 focus_mode = 2
 TabIndex = 7
 Tag = ""
@@ -531,18 +533,20 @@ tooltip_text = ""
 mouse_default_cursor_shape = 0
 BackColor = Color(0.85, 0.85, 0.85, 1.0)
 ForeColor = Color(0.0, 0.0, 0.0, 1.0)
-FontName = "MS Sans Serif"
+FontName = "Verdana"
 FontBold = false
 FontItalic = false
 Appearance = 1
 BorderStyle = 0
-ItemLabels = "Pizza,Defend,Magic,Items,Flee,Status"
+ItemLabels = "Pizza,Defend,Magic,Items,Flee"
+ItemCount = 5
 
 [node name="ChatBox1" parent="." instance=ExtResource("8")]
 offset_left = 936.0
 offset_top = 368.0
 offset_right = 1144.0
 offset_bottom = 528.0
+theme_override_font_sizes/font_size = 30
 focus_mode = 2
 TabIndex = 8
 Tag = ""
@@ -550,11 +554,12 @@ tooltip_text = ""
 mouse_default_cursor_shape = 0
 BackColor = Color(0.85, 0.85, 0.85, 1.0)
 ForeColor = Color(0.0, 0.0, 0.0, 1.0)
-FontName = "MS Sans Serif"
+FontName = "Verdana"
 FontBold = false
 FontItalic = false
 Appearance = 1
 BorderStyle = 0
+FontUnderline = true
 
 [node name="ItemList1" parent="." instance=ExtResource("9")]
 offset_left = 120.0
@@ -576,4 +581,24 @@ BorderStyle = 1
 Sorted = false
 MultiSelect = 0
 Columns = 0
+List = "1,2,3,4,5,6"
+ListStyle = 0
+
+[node name="TabPanel1" parent="." instance=ExtResource("10")]
+offset_left = 104.0
+offset_top = 64.0
+offset_right = 296.0
+offset_bottom = 136.0
+focus_mode = 2
+TabIndex = 10
+Tag = ""
+tooltip_text = ""
+mouse_default_cursor_shape = 0
+BackColor = Color(0.85, 0.85, 0.85, 1.0)
+ForeColor = Color(0.0, 0.0, 0.0, 1.0)
+FontName = "MS Sans Serif"
+FontBold = false
+FontItalic = false
+Appearance = 1
+BorderStyle = 0
 

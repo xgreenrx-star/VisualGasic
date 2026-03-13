@@ -21,6 +21,13 @@
 #include <godot_cpp/classes/slider.hpp>
 #include <godot_cpp/classes/scroll_bar.hpp>
 #include <godot_cpp/classes/tree.hpp>
+#include <godot_cpp/classes/color_rect.hpp>
+#include <godot_cpp/classes/texture_rect.hpp>
+#include <godot_cpp/classes/texture_button.hpp>
+#include <godot_cpp/classes/rich_text_label.hpp>
+#include <godot_cpp/classes/menu_bar.hpp>
+#include <godot_cpp/classes/label.hpp>
+#include <godot_cpp/classes/tab_bar.hpp>
 
 using namespace godot;
 
@@ -2180,6 +2187,11 @@ void VisualGasicFormDesigner::_sync_live_preview_properties(int idx) {
         if (props.has("AllowReselect")) {
             ilist->set_allow_reselect((bool)props["AllowReselect"]);
         }
+        // FixedIconSize
+        if (props.has("FixedIconSize")) {
+            int icon_sz = int(props["FixedIconSize"]);
+            ilist->set_fixed_icon_size(Vector2i(icon_sz, icon_sz));
+        }
     }
 
     // ---------- OptionButton / ComboBox ----------
@@ -2235,6 +2247,7 @@ void VisualGasicFormDesigner::_sync_live_preview_properties(int idx) {
         if (props.has("Editable")) sbox->set_editable((bool)props["Editable"]);
         if (props.has("Alignment")) sbox->set_horizontal_alignment(HorizontalAlignment(int(props["Alignment"])));
         if (props.has("SelectAllOnFocus")) sbox->set_select_all_on_focus((bool)props["SelectAllOnFocus"]);
+        if (props.has("UpdateOnTextChanged")) sbox->set_update_on_text_changed((bool)props["UpdateOnTextChanged"]);
     }
 
     // ---------- Slider-specific (HSlider / VSlider) ----------
@@ -2282,6 +2295,12 @@ void VisualGasicFormDesigner::_sync_live_preview_properties(int idx) {
         if (props.has("Flat")) btn->set_flat((bool)props["Flat"]);
         if (props.has("ClipText")) btn->set_clip_text((bool)props["ClipText"]);
     }
+    // BaseButton behaviour (Button, CheckBox, CheckButton, etc.)
+    BaseButton *bbase = Object::cast_to<BaseButton>(node);
+    if (bbase) {
+        if (props.has("KeepPressedOutside")) bbase->set_keep_pressed_outside((bool)props["KeepPressedOutside"]);
+        if (props.has("ActionMode")) bbase->set_action_mode(BaseButton::ActionMode(int(props["ActionMode"])));
+    }
 
     // ---------- LineEdit-specific ----------
     LineEdit *le = Object::cast_to<LineEdit>(node);
@@ -2301,6 +2320,12 @@ void VisualGasicFormDesigner::_sync_live_preview_properties(int idx) {
                 le->set_secret(false);
             }
         }
+        if (props.has("RightToLeft")) {
+            le->set_text_direction((bool)props["RightToLeft"] ? Control::TEXT_DIRECTION_RTL : Control::TEXT_DIRECTION_LTR);
+        }
+        if (props.has("VirtualKeyboardEnabled")) {
+            le->set_virtual_keyboard_enabled((bool)props["VirtualKeyboardEnabled"]);
+        }
     }
 
     // ---------- TextEdit-specific ----------
@@ -2313,6 +2338,9 @@ void VisualGasicFormDesigner::_sync_live_preview_properties(int idx) {
             te->set_editable(editable);
         }
         if (props.has("PlaceholderText")) te->set_placeholder(String(props["PlaceholderText"]));
+        if (props.has("RightToLeft")) {
+            te->set_text_direction((bool)props["RightToLeft"] ? Control::TEXT_DIRECTION_RTL : Control::TEXT_DIRECTION_LTR);
+        }
     }
 
     // ---------- TabContainer-specific ----------
@@ -2350,6 +2378,9 @@ void VisualGasicFormDesigner::_sync_live_preview_properties(int idx) {
                 tabs->set_current_tab(ct);
             }
         }
+        if (props.has("TabAlignment")) tabs->set_tab_alignment(TabBar::AlignmentMode(int(props["TabAlignment"])));
+        if (props.has("ClipTabs")) tabs->set_clip_tabs((bool)props["ClipTabs"]);
+        if (props.has("DragToRearrangeEnabled")) tabs->set_drag_to_rearrange_enabled((bool)props["DragToRearrangeEnabled"]);
     }
 
     // ---------- Label-specific ----------
@@ -2374,6 +2405,9 @@ void VisualGasicFormDesigner::_sync_live_preview_properties(int idx) {
         if (props.has("MaxLinesVisible") && node->has_method("set_max_lines_visible")) {
             node->call("set_max_lines_visible", int(props["MaxLinesVisible"]));
         }
+        if (props.has("TextOverrunBehavior") && node->has_method("set_text_overrun_behavior")) {
+            node->call("set_text_overrun_behavior", int(props["TextOverrunBehavior"]));
+        }
     }
 
     // ---------- RadioButton (treated as CheckBox variant) ----------
@@ -2381,6 +2415,54 @@ void VisualGasicFormDesigner::_sync_live_preview_properties(int idx) {
         if (props.has("Value")) {
             node->call("set_pressed", (bool)props["Value"]);
         }
+    }
+
+    // ---------- ColorRect / Shape ----------
+    ColorRect *crect = Object::cast_to<ColorRect>(node);
+    if (crect) {
+        if (props.has("ShapeColor")) {
+            Variant v = props["ShapeColor"];
+            if (v.get_type() == Variant::COLOR) {
+                crect->set_color((Color)v);
+            }
+        }
+    }
+
+    // ---------- TextureRect / PictureBox ----------
+    TextureRect *trect = Object::cast_to<TextureRect>(node);
+    if (trect) {
+        if (props.has("FlipH")) trect->set_flip_h((bool)props["FlipH"]);
+        if (props.has("FlipV")) trect->set_flip_v((bool)props["FlipV"]);
+        if (props.has("StretchMode")) trect->set_stretch_mode(TextureRect::StretchMode(int(props["StretchMode"])));
+    }
+
+    // ---------- TextureButton ----------
+    TextureButton *tbtn = Object::cast_to<TextureButton>(node);
+    if (tbtn) {
+        if (props.has("FlipH")) tbtn->set_flip_h((bool)props["FlipH"]);
+        if (props.has("FlipV")) tbtn->set_flip_v((bool)props["FlipV"]);
+        if (props.has("IgnoreTextureSize")) tbtn->set_ignore_texture_size((bool)props["IgnoreTextureSize"]);
+        if (props.has("StretchMode")) tbtn->set_stretch_mode(TextureButton::StretchMode(int(props["StretchMode"])));
+    }
+
+    // ---------- RichTextLabel ----------
+    RichTextLabel *rtl = Object::cast_to<RichTextLabel>(node);
+    if (rtl) {
+        if (props.has("BbcodeEnabled")) rtl->set_use_bbcode((bool)props["BbcodeEnabled"]);
+        if (props.has("FitContent")) rtl->set_fit_content((bool)props["FitContent"]);
+        if (props.has("ScrollActive")) rtl->set_scroll_active((bool)props["ScrollActive"]);
+        if (props.has("SelectionEnabled")) rtl->set_selection_enabled((bool)props["SelectionEnabled"]);
+        if (props.has("WordWrap")) {
+            rtl->set_autowrap_mode((bool)props["WordWrap"] ? TextServer::AUTOWRAP_WORD_SMART : TextServer::AUTOWRAP_OFF);
+        }
+    }
+
+    // ---------- MenuBar ----------
+    MenuBar *mbar = Object::cast_to<MenuBar>(node);
+    if (mbar) {
+        if (props.has("Flat")) mbar->set_flat((bool)props["Flat"]);
+        if (props.has("SwitchOnHover")) mbar->set_switch_on_hover((bool)props["SwitchOnHover"]);
+        if (props.has("PreferGlobalMenu")) mbar->set_prefer_global_menu((bool)props["PreferGlobalMenu"]);
     }
 
     // ── 4. Universal visual properties ──
@@ -2439,6 +2521,55 @@ void VisualGasicFormDesigner::_sync_live_preview_properties(int idx) {
             if (le) {
                 le->set_editable((bool)props["Enabled"]);
             }
+        }
+
+        // Rotation (degrees → radians for Godot)
+        if (props.has("Rotation")) {
+            ctrl->set_rotation_degrees(float(props["Rotation"]));
+        }
+
+        // Scale
+        float sx = props.has("ScaleX") ? float(props["ScaleX"]) : 1.0f;
+        float sy = props.has("ScaleY") ? float(props["ScaleY"]) : 1.0f;
+        if (props.has("ScaleX") || props.has("ScaleY")) {
+            ctrl->set_scale(Vector2(sx, sy));
+        }
+
+        // PivotOffset
+        float px = props.has("PivotOffsetX") ? float(props["PivotOffsetX"]) : 0.0f;
+        float py = props.has("PivotOffsetY") ? float(props["PivotOffsetY"]) : 0.0f;
+        if (props.has("PivotOffsetX") || props.has("PivotOffsetY")) {
+            ctrl->set_pivot_offset(Vector2(px, py));
+        }
+
+        // MinWidth / MinHeight → custom_minimum_size
+        if (props.has("MinWidth") || props.has("MinHeight")) {
+            float mw = props.has("MinWidth") ? float(int(props["MinWidth"])) : 0.0f;
+            float mh = props.has("MinHeight") ? float(int(props["MinHeight"])) : 0.0f;
+            ctrl->set_custom_minimum_size(Vector2(mw, mh));
+        }
+
+        // ClipContents
+        if (props.has("ClipContents")) {
+            ctrl->set_clip_contents((bool)props["ClipContents"]);
+        }
+
+        // LayoutDirection
+        if (props.has("LayoutDirection")) {
+            ctrl->set_layout_direction(Control::LayoutDirection(int(props["LayoutDirection"])));
+        }
+
+        // SelfModulate
+        if (props.has("SelfModulate")) {
+            Variant v = props["SelfModulate"];
+            if (v.get_type() == Variant::COLOR) {
+                ctrl->set_self_modulate((Color)v);
+            }
+        }
+
+        // ShowBehindParent
+        if (props.has("ShowBehindParent")) {
+            ctrl->set_draw_behind_parent((bool)props["ShowBehindParent"]);
         }
     }
 
