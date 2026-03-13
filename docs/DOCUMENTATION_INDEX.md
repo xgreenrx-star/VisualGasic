@@ -1,5 +1,9 @@
 # VisualGasic Documentation Index
 
+## ⭐ Why VisualGasic?
+
+- [VG_ADVANTAGES_OVER_GDSCRIPT.md](guides/VG_ADVANTAGES_OVER_GDSCRIPT.md) - **19 capabilities VG has that GDScript does not** (Form Designer, JIT, GPU, REPL, threading, null safety, FFI, and more)
+
 ## Getting Started
 
 - [README.md](../README.md) - Project overview and quick start

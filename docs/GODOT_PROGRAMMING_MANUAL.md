@@ -67,6 +67,7 @@ Updated: February 2026
 36. [GDScript ↔ VisualGasic Quick Reference](#gdscript-vs-vg)
 37. [Case Study: Screen Space Shaders — GDScript vs VisualGasic](#screen-shaders-case-study)
 38. [Case Study: 3D Sky Shaders — GDScript vs VisualGasic](#sky-shaders-case-study)
+39. [Why VisualGasic — Advantages Over GDScript](#vg-advantages)
 
 ---
 
@@ -3744,6 +3745,154 @@ All syntax differences in one table:
 > proving VG handles **class enum constants** from any Godot class, **RefCounted**
 > resource creation, **deep property chains**, and automatic **StringName**
 > conversion — all with zero-friction syntax.
+
+---
+
+## Chapter 39: Why VisualGasic — Advantages Over GDScript {#vg-advantages}
+
+This chapter is a comprehensive inventory of capabilities that VisualGasic provides
+but GDScript does not. GDScript is an excellent language for what it does — this
+is not a criticism of GDScript, but a factual catalogue of what VG adds on top.
+For the full standalone document with code examples, see
+[VG Advantages Over GDScript](guides/VG_ADVANTAGES_OVER_GDSCRIPT.md).
+
+### 39.1 Summary — 19 Capability Categories
+
+| # | Capability | VG | GDScript |
+|---|-----------|:---:|:--------:|
+| 1 | Visual Form Designer (40+ controls, WYSIWYG canvas, Properties Panel) | ✅ | ❌ |
+| 2 | Automatic Event Wiring (name a Sub → it's connected) | ✅ | ❌ |
+| 3 | JIT Compilation (Tier 2 x86-64 native code) | ✅ | ❌ |
+| 4 | 9-Pass Peephole Optimizer (constant folding, DCE, jump threading) | ✅ | ❌ |
+| 5 | GPU Computing / SIMD (VGGpu class, 19 methods) | ✅ | ❌ |
+| 6 | System-Level Programming (7 modules: System, Signals, Permissions, Memory, IPC, Android, FFI) | ✅ | ❌ |
+| 7 | Real Threading — Parallel For, Task.Run, work-stealing | ✅ | ❌ |
+| 8 | Entity Component System (VGEcs, 18 methods) | ✅ | ❌ |
+| 9 | Interactive REPL (Immediate Window, data breakpoints) | ✅ | ❌ |
+| 10 | Package Manager (vgpkg.json, semantic versioning, publish) | ✅ | ❌ |
+| 11 | Generics / Union Types / Optional Types | ✅ | ❌ |
+| 12 | String Interpolation `$"Hello {name}"` | ✅ | ❌ |
+| 13 | Null Safety (`??` null-coalescing, `?.` safe navigation) | ✅ | ❌ |
+| 14 | FFI / COM / Native Calls (`Declare Function ... Lib "..."`) | ✅ | ❌ |
+| 15 | System Integration (ODBC, Crypto, XML, ZIP, Sockets, FileWatcher) | ✅ | ❌ |
+| 16 | Reactive Whenever Blocks (auto-fire on variable conditions) | ✅ | ❌ |
+| 17 | Time-Travel Debugging (step backwards) | ✅ | ❌ |
+| 18 | Custom Theme Editor (8 themes, 38 adjustable colors) | ✅ | ❌ |
+| 19 | VB6 Migration Tools (.vbp/.frm/.bas import, 108+ VB6 functions) | ✅ | N/A |
+
+### 39.2 Performance
+
+All 11 benchmarks faster than GDScript. VG wins 6 of 9 head-to-head vs native C++:
+
+| Benchmark | GDScript | VG | **Speedup** |
+|-----------|----------|-----|------------|
+| Branching | 6,988 µs | 59 µs | **118×** |
+| StringConcat | 5,007 µs | 60 µs | **83×** |
+| Interop | 8,096 µs | 120 µs | **67×** |
+| Allocations | 6,871 µs | 128 µs | **54×** |
+| ArraySum | 4,644 µs | 130 µs | **36×** |
+| Arithmetic | 5,333 µs | 331 µs | **16×** |
+| DictFastGet | 29,177 µs | 2,210 µs | **13×** |
+| DictFastSet | 19,266 µs | 2,519 µs | **7.6×** |
+| AllocationsFast | 10,309 µs | 1,817 µs | **5.7×** |
+| ArrayDict | 11,441 µs | 3,834 µs | **3×** |
+| FileIO | 982 µs | 456 µs | **2.2×** |
+
+### 39.3 Visual Form Designer
+
+GDScript has **no** visual UI builder. VisualGasic provides a complete VB6-style
+WYSIWYG IDE with:
+
+- **40+ controls** in a categorized Toolbox (Standard, Extended, 2D Game, 3D Game, Optional, Game UI)
+- **Properties Panel** — 70+ VB6→Godot property translations with Font/Color/Border sub-resources
+- **Live Preview** — changes appear instantly on the design canvas
+- **23 form templates** — Blank, Dialog, MDI, Splash, Game HUD, Inventory, Pause Menu, etc.
+- **7 Game UI Controls** — DialogPanel, InventoryGrid, StatBar, HUDCounter, CooldownButton, NotificationToast, GameMenu
+- **Alignment Toolbar** — align, distribute, same-size operations
+- **Custom Theme Editor** — 38 color pickers across 8 built-in IDE themes
+
+### 39.4 Automatic Event Wiring
+
+GDScript requires explicit `signal.connect(callable)` for every signal. VG wires
+events by **naming convention**:
+
+```vb
+' Just name the Sub — it's wired automatically
+Sub btnSave_Click()
+    SaveDocument
+End Sub
+
+Sub tmrAutoSave_Timer()
+    AutoSave
+End Sub
+
+Sub Player_AreaEntered(area)
+    If TypeOf area Is Coin Then CollectCoin area
+End Sub
+```
+
+No `connect()` calls. No boilerplate. In a project with 50 signals, that's 50
+fewer lines of wiring code.
+
+### 39.5 Language Syntax GDScript Lacks
+
+| Feature | VG Syntax | GDScript |
+|---------|-----------|----------|
+| Select Case ranges | `Case 1 To 10` | ❌ |
+| Pattern matching with guards | `Case Is String s When Len(s) > 5` | ❌ |
+| With blocks | `With obj : .X = 1 : End With` | ❌ |
+| GoTo / GoSub | `GoTo ErrorHandler` | ❌ |
+| On Error Resume Next | `On Error Resume Next` | ❌ |
+| ReDim Preserve | `ReDim Preserve arr(n)` | ❌ |
+| ByRef parameters | `Sub Inc(ByRef x As Integer)` | ❌ |
+| String interpolation | `$"Hello {name}"` | ❌ |
+| Null-coalescing | `value ?? "default"` | ❌ |
+| Null-safe navigation | `obj?.Prop?.Value` | ❌ |
+| Bit-shift operators | `x << 3`, `x >> 2` | ❌ |
+| Static locals | `Static count As Integer` | ❌ |
+| Generics | `Function Max(Of T)(a As T, b As T)` | ❌ |
+| Union types | `Dim v As Integer \| String` | ❌ |
+| Method overloading | Same name, different arity | ❌ |
+| Data/Read/Restore | Embedded data tables | ❌ |
+| Map/Filter/Reduce | `Map(arr, Fn(x) x*2)` | ❌ |
+
+### 39.6 System-Level & Integration
+
+VG provides modules that GDScript has no equivalent for:
+
+- **VGOdbc** — ODBC database connectivity (PostgreSQL, MySQL, SQL Server, SQLite)
+- **VGCrypto** — MD5, SHA1, SHA256, AES-256-CBC, HMAC, Base64, UUID
+- **VGXml** — XML load/save/parse with XPath-style queries
+- **VGZip** — Create, read, extract ZIP archives
+- **VGSystem** — Hostname, CPU, RAM, disk, OS, uptime, locale
+- **VGSignalHandler** — SIGINT/SIGTERM/SIGHUP/atexit handlers
+- **VGFilePermissions** — chmod, chown, symlinks, file locking
+- **VGMemoryBuffer** — Peek/Poke byte-level access, CopyMemory, FFI pointers
+- **VGIPC** — Named pipes, UNIX domain sockets, shared memory
+- **VGGpu** — GPU-accelerated vector math (19 methods, SIMD)
+- **VGEcs** — Entity Component System (18 methods)
+- **Native FFI** — `Declare Function ... Lib "..."` to call C libraries
+- **Real COM** — `CreateObject("Excel.Application")` on Windows
+
+### 39.7 When to Choose VG Over GDScript
+
+| Scenario | Why VG |
+|----------|--------|
+| Visual drag-and-drop UI design | Form Designer + 40+ control Toolbox |
+| Maximum scripting performance | 2×–118× faster, JIT compiled |
+| Porting existing VB6 code | Native VB6 syntax + import tools |
+| Zero-boilerplate event handling | Automatic wiring by naming convention |
+| Database access | VGOdbc module |
+| FFI / native library calls | Declare statement + libffi |
+| Parallel processing | Parallel For, Task.Run |
+| Reactive variable watching | Whenever blocks |
+| Functional Map/Filter/Reduce | Built-in collection functions |
+| GPU-accelerated math | VGGpu class |
+| Interactive live coding | REPL / Immediate Window |
+| Null-safe code | `??` and `?.` operators |
+
+> **Full reference:** See [VG Advantages Over GDScript](guides/VG_ADVANTAGES_OVER_GDSCRIPT.md)
+> for code examples, benchmark tables, and detailed explanations of all 19 categories.
 
 ---
 
