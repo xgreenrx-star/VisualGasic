@@ -1,7 +1,7 @@
 # Visual Gasic Development Roadmap
 
 **Last Updated**: March 2026  
-**Current Version**: 4.0.0 (Game UI Form Designer — Tier 1 Animated Controls)
+**Current Version**: 4.2.0-beta4 (GDScript Parity — Export, Await, Import, ClassName, $NodeName)
 
 This document outlines the planned improvements and features for Visual Gasic. Items are prioritized by impact and development effort.
 
@@ -452,7 +452,11 @@ Each feature has implementation notes that describe:
 
 ## 📝 Version History
 
-- **v3.7.0** (Current) - Method Overloading, Parameterized Constructors, Collection(Of T) Generics, Game UI Mode
+- **v4.2.0-beta4** (Current) - GDScript Parity: Export, Await, Import, ClassName, $NodeName + "Why VG" docs
+- **v4.1.0** - Property System Overhaul: 70+ runtime properties, Font/BackColor/ForeColor/BorderStyle sub-resources
+- **v4.0.0** - Game UI Form Designer: 7 Tier 1 animated controls (DialogPanel, InventoryGrid, StatBar, etc.)
+- **v3.8.0** - Compound logical operators (And=/Or=/Xor=/Mod=), `<Flags>` enum, compile-time dot access
+- **v3.7.0** - Method Overloading, Parameterized Constructors, Collection(Of T) Generics, Game UI Mode
 - **v3.6.0** - Compound Assignment (`+=` etc.), Bit-Shift (`<<` `>>`), `LongLong` type
 - **v3.5.0-beta2** - IDE Themes, Custom Theme Editor, Object Browser, VB6 Importer Enhancements, Documentation Generator, Custom Control Designer, Windows CI, 15+ Bug Fixes
 - **v3.3.0** - Language Enhancements: 18 new features (String Interpolation, Bitwise, StringBuilder, RegExp, Static locals, etc.)
@@ -708,6 +712,7 @@ These features shipped between March 10–13, 2026:
 - [x] **v3.8.0** — Keyword compound (`And=`, `Or=`, `Xor=`, `Mod=`), bitwise semantics, `<Flags>` enum, compile-time dot access
 - [x] **v4.0.0** — 7 Tier 1 animated Game UI controls (DialogPanel, InventoryGrid, StatBar, HUDCounter, CooldownButton, NotificationToast, GameMenu)
 - [x] **v4.1.0** — Property System Overhaul: 70+ runtime property translations, Font/BackColor/ForeColor/BorderStyle/ShapeColor sub-resources, complete live preview, full round-trip parser
+- [x] **v4.2.0** — GDScript Parity: `Export`, `Await`, `Import`, `ClassName`, `$NodeName` + "Why VisualGasic" documentation
 - [ ] **Calculator tutorial screenshots** — Capture real screenshots for all 📸 placeholders in `docs/tutorials/calculator_form_designer.md`
 
 ### Prerequisites — Ship to Platform
