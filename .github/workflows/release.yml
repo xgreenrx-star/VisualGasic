@@ -69,10 +69,68 @@ jobs:
           path: demo/bin/libvisualgasic.windows.*
 
   # ---------------------------------------------------------------------------
+  # macOS build — universal binary (x86_64 + arm64)
+  # ---------------------------------------------------------------------------
+  build-macos:
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        target: [editor, template_debug, template_release]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          brew install scons
+
+      - name: Build x86_64 (${{ matrix.target }})
+        run: scons platform=macos target=${{ matrix.target }} arch=x86_64 -j$(sysctl -n hw.logicalcpu)
+
+      - name: Build arm64 (${{ matrix.target }})
+        run: scons platform=macos target=${{ matrix.target }} arch=arm64 -j$(sysctl -n hw.logicalcpu)
+
+      - name: Create universal binary (${{ matrix.target }})
+        run: |
+          # Find the built binaries inside the framework directories
+          x86_bin=$(find demo/bin -path "*macos.${{ matrix.target }}*x86_64*" -not -name "*.framework" | head -1)
+          arm_bin=$(find demo/bin -path "*macos.${{ matrix.target }}*arm64*" -not -name "*.framework" | head -1)
+
+          # Determine framework output name
+          if [ "${{ matrix.target }}" = "editor" ]; then
+            fw_name="libvisualgasic.macos.editor.framework"
+          elif [ "${{ matrix.target }}" = "template_debug" ]; then
+            fw_name="libvisualgasic.macos.template_debug.framework"
+          else
+            fw_name="libvisualgasic.macos.template_release.framework"
+          fi
+
+          # Create the framework directory
+          mkdir -p "demo/bin/${fw_name}"
+
+          # Strip the .framework suffix for the inner binary name
+          inner_name="${fw_name%.framework}"
+
+          # Lipo into universal binary
+          lipo -create "$x86_bin" "$arm_bin" -output "demo/bin/${fw_name}/${inner_name}"
+
+          echo "Created universal binary:"
+          lipo -info "demo/bin/${fw_name}/${inner_name}"
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-${{ matrix.target }}
+          path: |
+            demo/bin/libvisualgasic.macos.${{ matrix.target }}.framework/
+
+  # ---------------------------------------------------------------------------
   # Package addon .zip and publish GitHub Release
   # ---------------------------------------------------------------------------
   publish:
-    needs: [build-linux, build-windows]
+    needs: [build-linux, build-windows, build-macos]
     runs-on: ubuntu-latest
 
     steps:
@@ -96,6 +154,13 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           pattern: windows-*
+          path: staging/addons/visual_gasic/bin
+          merge-multiple: true
+
+      - name: Download macOS artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: macos-*
           path: staging/addons/visual_gasic/bin
           merge-multiple: true
 
@@ -133,6 +198,7 @@ jobs:
             ### Platforms
             - **Linux** x86_64 (editor + template_debug + template_release)
             - **Windows** x86_64 (editor + template_debug + template_release)
+            - **macOS** Universal (x86_64 + arm64) (editor + template_debug + template_release)
 
             See [CHANGELOG.md](CHANGELOG.md) for full details.
           files: |

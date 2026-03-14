@@ -4,7 +4,8 @@
 **Platforms**: Linux x86_64, Windows x86_64, macOS Universal (x86_64 + arm64)  
 **Godot**: 4.5+ (tested on 4.6.1)  
 **Tag**: `v4.2.0-beta4`  
-**Commits since Beta 3**: 33
+**Commits since Beta 3**: 33  
+**CI**: All 3 platforms built automatically via GitHub Actions on tag push
 
 ---
 

@@ -717,7 +717,7 @@ These features shipped between March 10–13, 2026:
 
 ### Prerequisites — Ship to Platform
 
-- [ ] **macOS / ARM64 CI build** — Add `platform=macos` CI job with universal binary (x86_64 + arm64). Validate GDExtension loads on Apple Silicon.
+- [x] **macOS / ARM64 CI build** — Added `build-macos` job to `release.yml`. Builds x86_64 + arm64, `lipo` into universal framework. Triggered on tag push alongside Linux and Windows.
 - [ ] **Asset Library acceptance** — Submitted, awaiting Godot team review.
 
 ### 🔴 High Priority — Flagship Features
