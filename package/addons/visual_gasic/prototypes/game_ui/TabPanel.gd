@@ -99,7 +99,7 @@ func _rebuild_tabs() -> void:
 	var names := TabNames.split(",")
 	for i in names.size():
 		var btn := Button.new()
-		btn.text = names[i].strip_edge()
+		btn.text = names[i].strip_edges()
 		btn.custom_minimum_size = Vector2(0, TabHeight)
 		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		btn.flat = true

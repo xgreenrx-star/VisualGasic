@@ -392,21 +392,21 @@ func _draw_inventory_grid_map(size: Vector2, font: Font, fs: int, props: Diction
 	var grid_top := 24.0
 	var avail_w := size.x - 20.0
 	var avail_h := size.y - grid_top - 8.0
-	var cell_w := min(avail_w / cols, 40.0)
-	var cell_h := min(avail_h / rows, 28.0)
+	var cell_w: float = min(avail_w / cols, 40.0)
+	var cell_h: float = min(avail_h / rows, 28.0)
 	cell_w = max(cell_w, 18.0)
 	cell_h = max(cell_h, 16.0)
-	var grid_w := cols * cell_w
-	var grid_h := rows * cell_h
-	var ox := (size.x - grid_w) * 0.5
-	var oy := grid_top + (avail_h - grid_h) * 0.5
+	var grid_w: float = cols * cell_w
+	var grid_h: float = rows * cell_h
+	var ox: float = (size.x - grid_w) * 0.5
+	var oy: float = grid_top + (avail_h - grid_h) * 0.5
 	oy = max(oy, grid_top)
 
-	var small_fs := max(7, fs - 1)
+	var small_fs: int = max(7, fs - 1)
 	for row in range(rows):
 		for col in range(cols):
-			var cx := ox + col * cell_w
-			var cy := oy + row * cell_h
+			var cx: float = ox + col * cell_w
+			var cy: float = oy + row * cell_h
 			var cell_rect := Rect2(cx + 1, cy + 1, cell_w - 2, cell_h - 2)
 			_index_map_canvas.draw_rect(cell_rect, cell_bg)
 			_index_map_canvas.draw_rect(cell_rect, cell_border, false, 1.0)
@@ -435,8 +435,8 @@ func _draw_game_menu_map(size: Vector2, font: Font, fs: int, props: Dictionary,
 
 	var list_top := 24.0
 	var btn_h := 22.0
-	var btn_w := min(size.x * 0.6, 200.0)
-	var ox := (size.x - btn_w) * 0.5
+	var btn_w: float = min(size.x * 0.6, 200.0)
+	var ox: float = (size.x - btn_w) * 0.5
 	var badge_w := 24.0
 
 	for i in range(btn_count):
@@ -463,7 +463,7 @@ func _draw_game_menu_map(size: Vector2, font: Font, fs: int, props: Dictionary,
 func _draw_radial_menu_map(size: Vector2, font: Font, fs: int, props: Dictionary,
 		cell_bg: Color, cell_border: Color, label_color: Color, sig_color: Color, header_color: Color) -> void:
 	var item_count: int = int(props.get("ItemCount", 6))
-	item_count = max(item_count, 1)
+	item_count = maxi(item_count, 1)
 
 	_index_map_canvas.draw_string(font, Vector2(8, 14),
 		"Signal: item_clicked(index)    Items: " + str(item_count),
@@ -472,16 +472,16 @@ func _draw_radial_menu_map(size: Vector2, font: Font, fs: int, props: Dictionary
 	var diagram_top := 24.0
 	var avail_h := size.y - diagram_top - 8.0
 	var avail_w := size.x - 16.0
-	var radius := min(avail_w, avail_h) * 0.35
+	var radius: float = min(avail_w, avail_h) * 0.35
 	radius = max(radius, 20.0)
-	var cx := size.x * 0.5
-	var cy := diagram_top + avail_h * 0.5
+	var cx: float = size.x * 0.5
+	var cy: float = diagram_top + avail_h * 0.5
 
 	# Draw wedge indicators
 	for i in range(item_count):
 		var angle := float(i) / float(item_count) * TAU - PI * 0.5
-		var wx := cx + cos(angle) * radius
-		var wy := cy + sin(angle) * radius
+		var wx: float = cx + cos(angle) * radius
+		var wy: float = cy + sin(angle) * radius
 		# Circle
 		var circle_r := 12.0
 		var cr := Rect2(wx - circle_r, wy - circle_r, circle_r * 2, circle_r * 2)

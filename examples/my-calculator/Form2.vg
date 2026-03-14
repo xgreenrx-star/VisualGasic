@@ -65,3 +65,7 @@ End Sub
 Sub GameMenu1_button_clicked(index As Integer)
 
 End Sub
+
+Sub TabPanel1_Click()
+
+End Sub
