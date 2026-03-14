@@ -439,6 +439,20 @@ func _enter_tree():
 		view_obj_btn.pressed.connect(_on_view_object)
 		toolbar_row.add_child(view_obj_btn)
 
+		# ── Show Indexes toggle — displays index badges on control arrays + Game UI controls ──
+		var idx_sep = VSeparator.new()
+		toolbar_row.add_child(idx_sep)
+
+		var show_idx_btn = CheckButton.new()
+		show_idx_btn.name = "ShowIndexesBtn"
+		show_idx_btn.text = "🔢 Indexes"
+		show_idx_btn.tooltip_text = "Show control array indexes and Game UI slot/button indexes on the form"
+		show_idx_btn.button_pressed = false
+		show_idx_btn.add_theme_font_size_override("font_size", 11)
+		show_idx_btn.add_theme_color_override("font_color", Color(0.15, 0.15, 0.15))
+		show_idx_btn.toggled.connect(_on_show_indexes_toggled)
+		toolbar_row.add_child(show_idx_btn)
+
 		# Spacer to push "Godot Editor" button to the right
 		var spacer = Control.new()
 		spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -5299,6 +5313,12 @@ func _feed_control_names_to_editor() -> void:
 		if not n.is_empty():
 			names.append(n)
 	_embedded_code_editor.set_control_names(names)
+	# Also pass full control info for Index Map panel
+	if _embedded_code_editor.has_method("set_control_info_list"):
+		var info_list: Array[Dictionary] = []
+		for i in count:
+			info_list.append(_form_designer.get_control_info(i))
+		_embedded_code_editor.set_control_info_list(info_list)
 
 ## Switch the center panel from form canvas to code editor.
 func _show_code_view() -> void:
@@ -5423,6 +5443,11 @@ func _on_view_code() -> void:
 ## Opens the form view (View → Object menu or Shift+F7).
 func _on_view_object() -> void:
 	_show_form_view()
+
+## Toggles the "Show Indexes" overlay on the form designer canvas.
+func _on_show_indexes_toggled(pressed: bool) -> void:
+	if _form_designer and _form_designer.has_method("set_show_indexes"):
+		_form_designer.set_show_indexes(pressed)
 
 # =============================================================================
 # FORMLESS PROJECT HELPERS

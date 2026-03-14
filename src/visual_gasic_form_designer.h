@@ -169,6 +169,10 @@ public:
     void set_snap_enabled(bool p_enabled);
     bool get_snap_enabled() const;
 
+    // --- Show Indexes overlay ---
+    void set_show_indexes(bool p_show);
+    bool get_show_indexes() const;
+
     // --- Alignment helpers ---
     void align_left();
     void align_right();
@@ -422,6 +426,9 @@ private:
     String  preview_scene_path;
     Vector2 preview_pos;
     bool    show_preview = false;
+
+    // Show Indexes overlay (control array indices + Game UI slot/button indices)
+    bool    show_indexes = false;
 
     // Undo / Redo stacks
     Vector<FormUndoAction> undo_stack;

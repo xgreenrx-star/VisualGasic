@@ -61,3 +61,7 @@ End Sub
 Sub RadialMenu1_item_clicked(index As Integer)
 
 End Sub
+
+Sub GameMenu1_button_clicked(index As Integer)
+
+End Sub

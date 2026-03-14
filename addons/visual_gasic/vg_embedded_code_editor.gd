@@ -47,6 +47,13 @@ var _procedures: Array = []
 ## Known control names on the form (for Object dropdown)
 var _control_names: Array[String] = []
 
+## Index Map panel — shows live index diagrams for Game UI controls
+var _index_map_panel: PanelContainer = null
+var _index_map_canvas: Control = null
+var _index_map_toggle: Button = null
+var _index_map_visible: bool = false
+var _current_index_control: Dictionary = {}  # { name, type, properties }
+
 # VB6 cream theme colors
 const BG_COLOR := Color(0.96, 0.95, 0.92)         # warm cream — easy on the eyes
 const TEXT_COLOR := Color(0.1, 0.1, 0.1)           # near-black text
@@ -140,6 +147,70 @@ func _build_ui() -> void:
 	# Scrollbar children may not be ready until the node enters the tree,
 	# so apply scrollbar styling on a deferred call.
 	call_deferred("_apply_scrollbar_theme")
+
+	# ── Index Map panel — collapsible bottom panel ──
+	_build_index_map_panel()
+
+func _build_index_map_panel() -> void:
+	# Container for the whole panel: toggle header + drawing area
+	_index_map_panel = PanelContainer.new()
+	_index_map_panel.name = "IndexMapPanel"
+	_index_map_panel.visible = false
+	var panel_sb := StyleBoxFlat.new()
+	panel_sb.bg_color = Color(0.94, 0.93, 0.90)
+	panel_sb.border_color = BORDER_COLOR
+	panel_sb.border_width_top = 1
+	panel_sb.content_margin_left = 4
+	panel_sb.content_margin_right = 4
+	panel_sb.content_margin_top = 0
+	panel_sb.content_margin_bottom = 4
+	_index_map_panel.add_theme_stylebox_override("panel", panel_sb)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 2)
+
+	# Header row with toggle button + title
+	var header := HBoxContainer.new()
+	header.add_theme_constant_override("separation", 6)
+
+	_index_map_toggle = Button.new()
+	_index_map_toggle.text = "▼ Index Map"
+	_index_map_toggle.tooltip_text = "Show/hide indexed signal map for the current Game UI control"
+	_index_map_toggle.flat = true
+	_index_map_toggle.add_theme_font_size_override("font_size", 11)
+	_index_map_toggle.add_theme_color_override("font_color", Color(0.2, 0.2, 0.5))
+	_index_map_toggle.pressed.connect(_toggle_index_map)
+	header.add_child(_index_map_toggle)
+
+	var hspacer := Control.new()
+	hspacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.add_child(hspacer)
+
+	vbox.add_child(header)
+
+	# Drawing canvas for the index diagram
+	_index_map_canvas = Control.new()
+	_index_map_canvas.name = "IndexMapCanvas"
+	_index_map_canvas.custom_minimum_size = Vector2(0, 120)
+	_index_map_canvas.draw.connect(_draw_index_map)
+	_index_map_canvas.visible = true
+	vbox.add_child(_index_map_canvas)
+
+	_index_map_panel.add_child(vbox)
+	add_child(_index_map_panel)
+
+func _toggle_index_map() -> void:
+	_index_map_visible = not _index_map_visible
+	if _index_map_canvas:
+		_index_map_canvas.visible = _index_map_visible
+	if _index_map_toggle:
+		_index_map_toggle.text = ("▼ Index Map" if _index_map_visible else "▶ Index Map")
+	# Recalculate minimum size if collapsed
+	if _index_map_panel:
+		if _index_map_visible:
+			_index_map_panel.custom_minimum_size.y = 0
+		else:
+			_index_map_panel.custom_minimum_size.y = 0
 
 func _apply_vb6_theme() -> void:
 	if not _code_edit:
@@ -241,6 +312,192 @@ func _apply_scrollbar_theme() -> void:
 			bar.add_theme_stylebox_override("grabber_pressed", scroll_grabber_pr)
 			bar.add_theme_stylebox_override("scroll", scroll_track)
 			bar.custom_minimum_size = Vector2(14, 14)
+
+# =============================================================================
+# INDEX MAP PANEL — Live index diagram for Game UI controls
+# =============================================================================
+
+## Game UI control types that have indexed signals
+const INDEXED_CONTROL_TYPES := {
+	"InventoryGrid": { "signal": "slot_clicked(row, col)", "layout": "grid" },
+	"GameMenu": { "signal": "button_clicked(index)", "layout": "list" },
+	"RadialMenu": { "signal": "item_clicked(index)", "layout": "radial" },
+}
+
+## Called from the plugin to provide control info from the form designer
+func set_index_map_control(info: Dictionary) -> void:
+	_current_index_control = info
+	_update_index_map_visibility()
+	if _index_map_canvas and _index_map_canvas.visible:
+		_index_map_canvas.queue_redraw()
+
+## Update the index map when the selected object changes
+func _update_index_map_visibility() -> void:
+	if not _index_map_panel:
+		return
+	var ctrl_type: String = _current_index_control.get("type", "")
+	if ctrl_type in INDEXED_CONTROL_TYPES:
+		_index_map_panel.visible = true
+		_index_map_visible = true
+		if _index_map_toggle:
+			_index_map_toggle.text = "▼ Index Map — " + _current_index_control.get("name", "") + " (" + ctrl_type + ")"
+		if _index_map_canvas:
+			_index_map_canvas.visible = true
+	else:
+		_index_map_panel.visible = false
+
+## Custom draw callback for the index map canvas
+func _draw_index_map() -> void:
+	if not _index_map_canvas or _current_index_control.is_empty():
+		return
+	var ctrl_type: String = _current_index_control.get("type", "")
+	var ctrl_name: String = _current_index_control.get("name", "")
+	var props: Dictionary = _current_index_control.get("properties", {})
+	var size: Vector2 = _index_map_canvas.size
+	var font: Font = _index_map_canvas.get_theme_default_font()
+	if not font:
+		return
+	var fs := 10
+
+	# Background
+	_index_map_canvas.draw_rect(Rect2(Vector2.ZERO, size), Color(0.96, 0.96, 0.94))
+
+	# Colors
+	var cell_bg := Color(0.18, 0.22, 0.30, 0.85)
+	var cell_border := Color(0.35, 0.45, 0.60, 0.7)
+	var label_color := Color(0.85, 0.9, 1.0)
+	var sig_color := Color(0.2, 0.2, 0.5)
+	var header_color := Color(0.1, 0.1, 0.3)
+
+	if ctrl_type == "InventoryGrid":
+		_draw_inventory_grid_map(size, font, fs, props, cell_bg, cell_border, label_color, sig_color, header_color)
+	elif ctrl_type == "GameMenu":
+		_draw_game_menu_map(size, font, fs, props, cell_bg, cell_border, label_color, sig_color, header_color)
+	elif ctrl_type == "RadialMenu":
+		_draw_radial_menu_map(size, font, fs, props, cell_bg, cell_border, label_color, sig_color, header_color)
+
+func _draw_inventory_grid_map(size: Vector2, font: Font, fs: int, props: Dictionary,
+		cell_bg: Color, cell_border: Color, label_color: Color, sig_color: Color, header_color: Color) -> void:
+	var rows: int = int(props.get("Rows", 4))
+	var cols: int = int(props.get("Columns", 4))
+	rows = max(rows, 1)
+	cols = max(cols, 1)
+
+	# Signal info header
+	_index_map_canvas.draw_string(font, Vector2(8, 14),
+		"Signal: slot_clicked(row, col)    Rows: " + str(rows) + "  Cols: " + str(cols),
+		HORIZONTAL_ALIGNMENT_LEFT, size.x - 16, fs, sig_color)
+
+	# Grid diagram
+	var grid_top := 24.0
+	var avail_w := size.x - 20.0
+	var avail_h := size.y - grid_top - 8.0
+	var cell_w := min(avail_w / cols, 40.0)
+	var cell_h := min(avail_h / rows, 28.0)
+	cell_w = max(cell_w, 18.0)
+	cell_h = max(cell_h, 16.0)
+	var grid_w := cols * cell_w
+	var grid_h := rows * cell_h
+	var ox := (size.x - grid_w) * 0.5
+	var oy := grid_top + (avail_h - grid_h) * 0.5
+	oy = max(oy, grid_top)
+
+	var small_fs := max(7, fs - 1)
+	for row in range(rows):
+		for col in range(cols):
+			var cx := ox + col * cell_w
+			var cy := oy + row * cell_h
+			var cell_rect := Rect2(cx + 1, cy + 1, cell_w - 2, cell_h - 2)
+			_index_map_canvas.draw_rect(cell_rect, cell_bg)
+			_index_map_canvas.draw_rect(cell_rect, cell_border, false, 1.0)
+			# Label: "r,c"
+			var lbl := str(row) + "," + str(col)
+			var lw := font.get_string_size(lbl, HORIZONTAL_ALIGNMENT_LEFT, -1, small_fs).x
+			_index_map_canvas.draw_string(font,
+				Vector2(cx + (cell_w - lw) * 0.5, cy + (cell_h + small_fs * 0.7) * 0.5),
+				lbl, HORIZONTAL_ALIGNMENT_LEFT, -1, small_fs, label_color)
+
+func _draw_game_menu_map(size: Vector2, font: Font, fs: int, props: Dictionary,
+		cell_bg: Color, cell_border: Color, label_color: Color, sig_color: Color, header_color: Color) -> void:
+	var labels: PackedStringArray = []
+	if props.has("ButtonLabels"):
+		var ls: String = str(props["ButtonLabels"])
+		labels = ls.split(",", false)
+		for i in labels.size():
+			labels[i] = labels[i].strip_edges()
+	if labels.is_empty():
+		labels = PackedStringArray(["Resume", "Settings", "Quit"])
+	var btn_count := labels.size()
+
+	_index_map_canvas.draw_string(font, Vector2(8, 14),
+		"Signal: button_clicked(index)    Buttons: " + str(btn_count),
+		HORIZONTAL_ALIGNMENT_LEFT, size.x - 16, fs, sig_color)
+
+	var list_top := 24.0
+	var btn_h := 22.0
+	var btn_w := min(size.x * 0.6, 200.0)
+	var ox := (size.x - btn_w) * 0.5
+	var badge_w := 24.0
+
+	for i in range(btn_count):
+		var by := list_top + i * (btn_h + 4)
+		if by + btn_h > size.y:
+			break
+		# Index badge
+		var badge_rect := Rect2(ox - badge_w - 6, by, badge_w, btn_h)
+		_index_map_canvas.draw_rect(badge_rect, Color(0.1, 0.3, 0.6, 0.85))
+		var idx_str := str(i)
+		var idx_w := font.get_string_size(idx_str, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		_index_map_canvas.draw_string(font,
+			Vector2(badge_rect.position.x + (badge_w - idx_w) * 0.5, by + (btn_h + fs * 0.7) * 0.5),
+			idx_str, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, label_color)
+		# Button
+		var btn_rect := Rect2(ox, by, btn_w, btn_h)
+		_index_map_canvas.draw_rect(btn_rect, cell_bg)
+		_index_map_canvas.draw_rect(btn_rect, cell_border, false, 1.0)
+		_index_map_canvas.draw_string(font,
+			Vector2(ox + 8, by + (btn_h + fs * 0.7) * 0.5),
+			labels[i] if i < labels.size() else "",
+			HORIZONTAL_ALIGNMENT_LEFT, btn_w - 16, fs, label_color)
+
+func _draw_radial_menu_map(size: Vector2, font: Font, fs: int, props: Dictionary,
+		cell_bg: Color, cell_border: Color, label_color: Color, sig_color: Color, header_color: Color) -> void:
+	var item_count: int = int(props.get("ItemCount", 6))
+	item_count = max(item_count, 1)
+
+	_index_map_canvas.draw_string(font, Vector2(8, 14),
+		"Signal: item_clicked(index)    Items: " + str(item_count),
+		HORIZONTAL_ALIGNMENT_LEFT, size.x - 16, fs, sig_color)
+
+	var diagram_top := 24.0
+	var avail_h := size.y - diagram_top - 8.0
+	var avail_w := size.x - 16.0
+	var radius := min(avail_w, avail_h) * 0.35
+	radius = max(radius, 20.0)
+	var cx := size.x * 0.5
+	var cy := diagram_top + avail_h * 0.5
+
+	# Draw wedge indicators
+	for i in range(item_count):
+		var angle := float(i) / float(item_count) * TAU - PI * 0.5
+		var wx := cx + cos(angle) * radius
+		var wy := cy + sin(angle) * radius
+		# Circle
+		var circle_r := 12.0
+		var cr := Rect2(wx - circle_r, wy - circle_r, circle_r * 2, circle_r * 2)
+		_index_map_canvas.draw_rect(cr, cell_bg)
+		_index_map_canvas.draw_rect(cr, cell_border, false, 1.0)
+		# Index label
+		var idx_str := str(i)
+		var lw := font.get_string_size(idx_str, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		_index_map_canvas.draw_string(font,
+			Vector2(wx - lw * 0.5, wy + fs * 0.35),
+			idx_str, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, label_color)
+		# Line from center to wedge
+		_index_map_canvas.draw_line(Vector2(cx, cy), Vector2(wx, wy),
+			Color(0.4, 0.5, 0.7, 0.3), 1.0)
+	# Center dot
+	_index_map_canvas.draw_rect(Rect2(cx - 3, cy - 3, 6, 6), Color(0.3, 0.3, 0.5, 0.6))
 
 # =============================================================================
 # FILE I/O
@@ -396,6 +653,36 @@ func set_control_names(names: Array[String]) -> void:
 	_control_names = names
 	_rebuild_object_combo()
 
+## Full control info list from the form designer (for Index Map panel)
+var _control_info_list: Array[Dictionary] = []
+
+## Called from the plugin to store the complete control metadata.
+func set_control_info_list(info_list: Array[Dictionary]) -> void:
+	_control_info_list = info_list
+	# Update the index map if it's currently showing
+	_update_index_map_for_current_object()
+
+## Looks up control info by name from the cached list.
+func _find_control_info(ctrl_name: String) -> Dictionary:
+	for info in _control_info_list:
+		if info.get("name", "") == ctrl_name:
+			return info
+	return {}
+
+## Updates the index map panel based on the currently selected object in the dropdown.
+func _update_index_map_for_current_object() -> void:
+	if not _object_combo or _object_combo.get_selected_id() < 0:
+		return
+	var obj_name: String = _object_combo.get_item_text(_object_combo.selected)
+	if obj_name == "(General)":
+		set_index_map_control({})
+		return
+	var info := _find_control_info(obj_name)
+	if not info.is_empty():
+		set_index_map_control(info)
+	else:
+		set_index_map_control({})
+
 func _update_proc_selection() -> void:
 	if not _code_edit or _procedures.is_empty():
 		# Select (Declarations)
@@ -423,8 +710,11 @@ func _update_proc_selection() -> void:
 				if _object_combo.get_item_text(i) == obj_name:
 					_object_combo.select(i)
 					break
+		# Update Index Map for the current object
+		_update_index_map_for_current_object()
 	else:
 		_proc_combo.select(0)
+		_update_index_map_for_current_object()
 
 func _on_proc_selected(index: int) -> void:
 	if index == 0:
@@ -451,6 +741,7 @@ func _on_object_selected(index: int) -> void:
 		_code_edit.set_caret_column(0)
 		_code_edit.center_viewport_to_caret()
 		_code_edit.grab_focus()
+		_update_index_map_for_current_object()
 		return
 
 	# Filter procedures for this object and update proc combo
@@ -465,6 +756,9 @@ func _on_object_selected(index: int) -> void:
 		_code_edit.set_caret_column(4)
 		_code_edit.center_viewport_to_caret()
 		_code_edit.grab_focus()
+
+	# Update Index Map for the selected object
+	_update_index_map_for_current_object()
 
 # =============================================================================
 # CALLBACKS

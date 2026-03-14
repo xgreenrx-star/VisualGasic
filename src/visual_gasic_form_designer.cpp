@@ -67,6 +67,10 @@ void VisualGasicFormDesigner::_bind_methods() {
     ClassDB::bind_method(D_METHOD("set_snap_enabled", "enabled"), &VisualGasicFormDesigner::set_snap_enabled);
     ClassDB::bind_method(D_METHOD("get_snap_enabled"), &VisualGasicFormDesigner::get_snap_enabled);
 
+    // Show Indexes overlay
+    ClassDB::bind_method(D_METHOD("set_show_indexes", "show"), &VisualGasicFormDesigner::set_show_indexes);
+    ClassDB::bind_method(D_METHOD("get_show_indexes"), &VisualGasicFormDesigner::get_show_indexes);
+
     // Alignment
     ClassDB::bind_method(D_METHOD("align_left"), &VisualGasicFormDesigner::align_left);
     ClassDB::bind_method(D_METHOD("align_right"), &VisualGasicFormDesigner::align_right);
@@ -120,6 +124,7 @@ void VisualGasicFormDesigner::_bind_methods() {
     ADD_PROPERTY(PropertyInfo(Variant::INT, "grid_size"), "set_grid_size", "get_grid_size");
     ADD_PROPERTY(PropertyInfo(Variant::BOOL, "grid_visible"), "set_grid_visible", "get_grid_visible");
     ADD_PROPERTY(PropertyInfo(Variant::BOOL, "snap_enabled"), "set_snap_enabled", "get_snap_enabled");
+    ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_indexes"), "set_show_indexes", "get_show_indexes");
     ADD_PROPERTY(PropertyInfo(Variant::INT, "window_type"), "set_window_type", "get_window_type");
 
     // Form size
@@ -2759,6 +2764,153 @@ void VisualGasicFormDesigner::_on_overlay_draw() {
         }
     }
 
+    // ── Show Indexes overlay: numbered badges for control arrays + Game UI ──
+    if (show_indexes && overlay_font.is_valid()) {
+        int idx_fs = 10;
+        Color idx_bg_color(0.1, 0.3, 0.6, 0.85);      // dark blue pill
+        Color idx_text_color(1.0, 1.0, 1.0, 0.95);     // white text
+        Color slot_idx_bg(0.0, 0.0, 0.0, 0.55);        // semi-transparent black for slot labels
+        Color slot_idx_text(0.85, 0.9, 1.0, 0.9);      // light blue text for slot labels
+
+        for (int i = 0; i < controls.size(); i++) {
+            const FormControlItem &item = controls[i];
+            Rect2 r = item.rect;
+
+            // ── VB6 Control Array index badge — top-right pill "(N)" ──
+            if (item.control_array_index >= 0) {
+                String badge = "(" + String::num_int64(item.control_array_index) + ")";
+                float tw = overlay_font->get_string_size(badge, HORIZONTAL_ALIGNMENT_LEFT, -1, idx_fs).x;
+                float bw = tw + 8;
+                float bh = 16;
+                // Position at top-right corner of the control
+                Rect2 badge_rect(r.position.x + r.size.x - bw, r.position.y - bh, bw, bh);
+                // Rounded pill background
+                overlay_node->draw_rect(badge_rect, idx_bg_color);
+                // Top corners rounded illusion (small rects to soften)
+                overlay_node->draw_rect(Rect2(badge_rect.position.x + 1, badge_rect.position.y,
+                                              bw - 2, 1), idx_bg_color);
+                overlay_node->draw_string(overlay_font,
+                                          Vector2(badge_rect.position.x + 4, badge_rect.position.y + bh - 4),
+                                          badge, HORIZONTAL_ALIGNMENT_LEFT, -1, idx_fs, idx_text_color);
+            }
+
+            // ── InventoryGrid: row,col labels in each slot ──
+            if (item.type == "InventoryGrid") {
+                int rows = 4, cols = 4, slot_sz = 48, spacing = 4;
+                if (item.properties.has("Rows"))        rows    = MAX(int(item.properties["Rows"]), 1);
+                if (item.properties.has("Columns"))     cols    = MAX(int(item.properties["Columns"]), 1);
+                if (item.properties.has("SlotSize"))    slot_sz = MAX(int(item.properties["SlotSize"]), 16);
+                if (item.properties.has("SlotSpacing")) spacing = MAX(int(item.properties["SlotSpacing"]), 0);
+
+                float pad = 8.0f;
+                float avail_w = r.size.x - pad * 2;
+                float avail_h = r.size.y - pad * 2;
+                float needed_w = cols * slot_sz + (cols - 1) * spacing;
+                float needed_h = rows * slot_sz + (rows - 1) * spacing;
+                float scale_f = 1.0f;
+                if (needed_w > avail_w) scale_f = MIN(scale_f, avail_w / needed_w);
+                if (needed_h > avail_h) scale_f = MIN(scale_f, avail_h / needed_h);
+                float ssz = slot_sz * scale_f;
+                float ssp = spacing * scale_f;
+                float grid_w = cols * ssz + (cols - 1) * ssp;
+                float grid_h = rows * ssz + (rows - 1) * ssp;
+                float ox = r.position.x + pad + (avail_w - grid_w) * 0.5f;
+                float oy = r.position.y + pad + (avail_h - grid_h) * 0.5f;
+
+                int small_fs = MAX(7, (int)(idx_fs * scale_f));
+                for (int row = 0; row < rows; row++) {
+                    for (int col = 0; col < cols; col++) {
+                        float sx = ox + col * (ssz + ssp);
+                        float sy = oy + row * (ssz + ssp);
+                        String lbl = String::num_int64(row) + "," + String::num_int64(col);
+                        float lw = overlay_font->get_string_size(lbl, HORIZONTAL_ALIGNMENT_LEFT, -1, small_fs).x;
+                        // Center the label in the slot
+                        float lx = sx + (ssz - lw) * 0.5f;
+                        float ly = sy + (ssz + small_fs * 0.7f) * 0.5f;
+                        // Dark background pill behind the text
+                        Rect2 lbl_bg(lx - 2, ly - small_fs + 1, lw + 4, small_fs + 2);
+                        overlay_node->draw_rect(lbl_bg, slot_idx_bg);
+                        overlay_node->draw_string(overlay_font, Vector2(lx, ly),
+                                                  lbl, HORIZONTAL_ALIGNMENT_LEFT, -1, small_fs, slot_idx_text);
+                    }
+                }
+            }
+
+            // ── GameMenu: sequential index next to each button ──
+            if (item.type == "GameMenu") {
+                PackedStringArray labels;
+                if (item.properties.has("ButtonLabels")) {
+                    String ls = String(item.properties["ButtonLabels"]);
+                    labels = ls.split(",", false);
+                }
+                if (labels.is_empty()) {
+                    labels.push_back("Resume");
+                    labels.push_back("Settings");
+                    labels.push_back("Quit");
+                }
+                int btn_count = labels.size();
+                int btn_fs_prop = 18;
+                if (item.properties.has("ButtonFontSize")) btn_fs_prop = vb6_pt_to_px(int(item.properties["ButtonFontSize"]));
+                float btn_w = MIN(200.0f, r.size.x * 0.65f);
+                float btn_h = MAX(32.0f, btn_fs_prop + 14.0f);
+                float btn_sep = 10.0f;
+                float vbox_sep = 20.0f;
+                int title_fs = 28;
+                if (item.properties.has("TitleFontSize")) title_fs = vb6_pt_to_px(int(item.properties["TitleFontSize"]));
+                float title_block = title_fs + 4;
+                float btns_block = btn_count * btn_h + (btn_count - 1) * btn_sep;
+                float total_h = title_block + vbox_sep + btns_block;
+                float cy = r.position.y + (r.size.y - total_h) * 0.5f;
+                cy = MAX(cy, r.position.y + 10);
+                float bx = r.position.x + (r.size.x - btn_w) * 0.5f;
+                float btn_y = cy + title_block + vbox_sep;
+                if (btn_y + btns_block > r.position.y + r.size.y - 8) {
+                    btn_y = r.position.y + r.size.y - btns_block - 8;
+                }
+
+                for (int bi = 0; bi < btn_count; bi++) {
+                    float bty = btn_y + bi * (btn_h + btn_sep);
+                    // Index badge to the left of the button
+                    String bi_str = String::num_int64(bi);
+                    float biw = overlay_font->get_string_size(bi_str, HORIZONTAL_ALIGNMENT_LEFT, -1, idx_fs).x;
+                    float badge_w = biw + 8;
+                    float badge_h = 16;
+                    float badge_x = bx - badge_w - 4;
+                    float badge_y = bty + (btn_h - badge_h) * 0.5f;
+                    overlay_node->draw_rect(Rect2(badge_x, badge_y, badge_w, badge_h), idx_bg_color);
+                    overlay_node->draw_string(overlay_font,
+                                              Vector2(badge_x + 4, badge_y + badge_h - 4),
+                                              bi_str, HORIZONTAL_ALIGNMENT_LEFT, -1, idx_fs, idx_text_color);
+                }
+            }
+
+            // ── RadialMenu: numbered circles for each wedge/item ──
+            if (item.type == "RadialMenu") {
+                int item_count = 6;
+                if (item.properties.has("ItemCount")) item_count = MAX(int(item.properties["ItemCount"]), 1);
+                float cx = r.position.x + r.size.x * 0.5f;
+                float cy_rm = r.position.y + r.size.y * 0.5f;
+                float radius = MIN(r.size.x, r.size.y) * 0.35f;
+
+                for (int wi = 0; wi < item_count; wi++) {
+                    float angle = (float)wi / (float)item_count * Math_TAU - Math_PI * 0.5f;
+                    float wx = cx + Math::cos(angle) * radius;
+                    float wy = cy_rm + Math::sin(angle) * radius;
+                    // Draw a small numbered circle
+                    float circle_r = 10.0f;
+                    // Fill circle (approximated with rect for simplicity)
+                    Rect2 circle_rect(wx - circle_r, wy - circle_r, circle_r * 2, circle_r * 2);
+                    overlay_node->draw_rect(circle_rect, idx_bg_color);
+                    String wi_str = String::num_int64(wi);
+                    float wiw = overlay_font->get_string_size(wi_str, HORIZONTAL_ALIGNMENT_LEFT, -1, idx_fs).x;
+                    overlay_node->draw_string(overlay_font,
+                                              Vector2(wx - wiw * 0.5f, wy + idx_fs * 0.35f),
+                                              wi_str, HORIZONTAL_ALIGNMENT_LEFT, -1, idx_fs, idx_text_color);
+                }
+            }
+        }
+    }
+
     // Selection border + 8 resize handles for each selected control
     for (int i = 0; i < controls.size(); i++) {
         if (controls[i].selected) {
@@ -3660,6 +3812,13 @@ void VisualGasicFormDesigner::set_grid_visible(bool p_visible) { grid_visible = 
 bool VisualGasicFormDesigner::get_grid_visible() const { return grid_visible; }
 void VisualGasicFormDesigner::set_snap_enabled(bool p_enabled) { snap_enabled = p_enabled; }
 bool VisualGasicFormDesigner::get_snap_enabled() const { return snap_enabled; }
+
+void VisualGasicFormDesigner::set_show_indexes(bool p_show) {
+    show_indexes = p_show;
+    queue_redraw();
+    if (overlay_node) overlay_node->queue_redraw();
+}
+bool VisualGasicFormDesigner::get_show_indexes() const { return show_indexes; }
 
 // =============================================================================
 // Alignment
