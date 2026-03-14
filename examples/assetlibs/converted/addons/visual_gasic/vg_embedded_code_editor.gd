@@ -420,9 +420,17 @@ func _draw_inventory_grid_map(size: Vector2, font: Font, fs: int, props: Diction
 func _draw_game_menu_map(size: Vector2, font: Font, fs: int, props: Dictionary,
 		cell_bg: Color, cell_border: Color, label_color: Color, sig_color: Color, header_color: Color) -> void:
 	var labels: PackedStringArray = []
-	if props.has("ButtonLabels"):
-		var ls: String = str(props["ButtonLabels"])
-		labels = ls.split(",", false)
+	var _btn_raw := ""
+	if props.has("Buttons"):
+		_btn_raw = str(props["Buttons"])
+	elif props.has("ButtonLabels"):
+		_btn_raw = str(props["ButtonLabels"])
+	if not _btn_raw.is_empty():
+		# Strip PackedStringArray(...) wrapper if present
+		if _btn_raw.begins_with("PackedStringArray(") and _btn_raw.ends_with(")"):
+			_btn_raw = _btn_raw.substr(18, _btn_raw.length() - 19)
+			_btn_raw = _btn_raw.replace('"', '')
+		labels = _btn_raw.split(",", false)
 		for i in labels.size():
 			labels[i] = labels[i].strip_edges()
 	if labels.is_empty():

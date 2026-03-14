@@ -968,7 +968,12 @@ func _load_prototype_properties(scene_path: String, props: Dictionary, ctrl_type
 				if stored is PackedStringArray:
 					value = ",".join(stored)
 				else:
-					value = str(stored) if str(stored) != "" else default_str.trim_prefix('["').trim_suffix('"]').replace('", "', ',')
+					var s := str(stored)
+					# Strip PackedStringArray(...) wrapper if present (corrupted save)
+					if s.begins_with("PackedStringArray(") and s.ends_with(")"):
+						s = s.substr(18, s.length() - 19)
+						s = s.replace('"', '')
+					value = s if s != "" else default_str.trim_prefix('["').trim_suffix('"]').replace('", "', ',')
 			"Texture2D":
 				# Skip texture properties — can't edit in a text field meaningfully
 				pending_enum_items = PackedStringArray()

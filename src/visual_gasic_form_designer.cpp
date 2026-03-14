@@ -1898,11 +1898,23 @@ void VisualGasicFormDesigner::_draw_game_menu_control(const Rect2 &r, const Form
     if (item.properties.has("ButtonFontSize")) btn_fs   = vb6_pt_to_px(int(item.properties["ButtonFontSize"]));
 
     PackedStringArray labels;
-    if (item.properties.has("ButtonLabels")) {
-        String ls = String(item.properties["ButtonLabels"]);
-        labels = ls.split(",", false);
-        for (int i = 0; i < labels.size(); i++) {
-            labels.set(i, labels[i].strip_edges());
+    {
+        String btn_raw;
+        if (item.properties.has("Buttons")) {
+            btn_raw = String(item.properties["Buttons"]);
+        } else if (item.properties.has("ButtonLabels")) {
+            btn_raw = String(item.properties["ButtonLabels"]);
+        }
+        if (!btn_raw.is_empty()) {
+            // Strip PackedStringArray(...) wrapper if present (corrupted save)
+            if (btn_raw.begins_with("PackedStringArray(") && btn_raw.ends_with(")")) {
+                btn_raw = btn_raw.substr(18, btn_raw.length() - 19);
+                btn_raw = btn_raw.replace("\"", "");
+            }
+            labels = btn_raw.split(",", false);
+            for (int i = 0; i < labels.size(); i++) {
+                labels.set(i, labels[i].strip_edges());
+            }
         }
     }
     if (labels.is_empty()) {
@@ -2673,8 +2685,13 @@ void VisualGasicFormDesigner::_sync_live_preview_properties(int idx) {
                 // Check if the node expects a PackedStringArray for this property
                 Variant current = node->get(key);
                 if (current.get_type() == Variant::PACKED_STRING_ARRAY) {
-                    PackedStringArray arr;
                     String s = val;
+                    // Strip PackedStringArray(...) wrapper if present (corrupted save)
+                    if (s.begins_with("PackedStringArray(") && s.ends_with(")")) {
+                        s = s.substr(18, s.length() - 19);
+                        s = s.replace("\"", "");
+                    }
+                    PackedStringArray arr;
                     if (!s.is_empty()) {
                         PackedStringArray parts = s.split(",", false);
                         for (int p = 0; p < parts.size(); p++) {
@@ -2839,9 +2856,23 @@ void VisualGasicFormDesigner::_on_overlay_draw() {
             // ── GameMenu: sequential index next to each button ──
             if (item.type == "GameMenu") {
                 PackedStringArray labels;
-                if (item.properties.has("ButtonLabels")) {
-                    String ls = String(item.properties["ButtonLabels"]);
-                    labels = ls.split(",", false);
+                {
+                    String btn_raw;
+                    if (item.properties.has("Buttons")) {
+                        btn_raw = String(item.properties["Buttons"]);
+                    } else if (item.properties.has("ButtonLabels")) {
+                        btn_raw = String(item.properties["ButtonLabels"]);
+                    }
+                    if (!btn_raw.is_empty()) {
+                        if (btn_raw.begins_with("PackedStringArray(") && btn_raw.ends_with(")")) {
+                            btn_raw = btn_raw.substr(18, btn_raw.length() - 19);
+                            btn_raw = btn_raw.replace("\"", "");
+                        }
+                        labels = btn_raw.split(",", false);
+                        for (int li = 0; li < labels.size(); li++) {
+                            labels.set(li, labels[li].strip_edges());
+                        }
+                    }
                 }
                 if (labels.is_empty()) {
                     labels.push_back("Resume");
@@ -4409,6 +4440,7 @@ void VisualGasicFormDesigner::_init_vb6_defaults(FormControlItem &item) const {
     }
     else if (t == "GameMenu") {
         p["Title"]          = String("PAUSED");
+        p["Buttons"]        = String("Resume,Settings,Quit");
         p["ShowAnimation"]  = 0;    // FadeIn
         p["HideAnimation"]  = 0;    // FadeOut
         p["TransitionSpeed"]= 0.3;
@@ -5614,6 +5646,10 @@ String VisualGasicFormDesigner::_serialize_to_tscn() const {
 
             if (val.get_type() == Variant::STRING) {
                 out += godot_key + " = \"" + String(val) + "\"\n";
+            } else if (val.get_type() == Variant::PACKED_STRING_ARRAY) {
+                // Serialize PackedStringArray as a comma-separated quoted string
+                PackedStringArray arr = val;
+                out += godot_key + " = \"" + String(",").join(arr) + "\"\n";
             } else if (val.get_type() == Variant::COLOR) {
                 // Godot .tscn requires Color(r, g, b, a) format
                 Color c = val;
@@ -6139,6 +6175,11 @@ bool VisualGasicFormDesigner::_parse_tscn(const String &p_text) {
                     } else if (val.begins_with("\"") && val.ends_with("\"")) {
                         // Quoted string
                         val = val.substr(1, val.length() - 2);
+                        // Strip PackedStringArray(...) wrapper if present (corrupted save)
+                        if (val.begins_with("PackedStringArray(") && val.ends_with(")")) {
+                            val = val.substr(18, val.length() - 19);
+                            val = val.replace("\"", "");
+                        }
                         current_item.properties[vb6_key] = val;
                     } else if (val.begins_with("Color(") && val.ends_with(")")) {
                         // Color(r, g, b, a)

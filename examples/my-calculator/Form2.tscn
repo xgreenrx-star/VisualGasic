@@ -491,7 +491,7 @@ offset_top = 0.0
 offset_right = 300.0
 offset_bottom = 250.0
 color = Color(0.0, 0.0, 0.0, 0.6)
-Buttons = "PackedStringArray("Resume", "Settings", "Quit")"
+Buttons = "Resume,Settings,Quit"
 metadata/Tag = ""
 
 [node name="TextureRect1" parent="." instance=ExtResource("6")]
@@ -502,10 +502,10 @@ offset_bottom = 144.0
 metadata/Tag = ""
 
 [node name="RadialMenu1" parent="." instance=ExtResource("7")]
-offset_left = 736.0
-offset_top = 120.0
-offset_right = 944.0
-offset_bottom = 256.0
+offset_left = 784.0
+offset_top = 0.0
+offset_right = 1104.0
+offset_bottom = 304.0
 custom_minimum_size = Vector2(180.0, 180.0)
 layout_mode = 3
 focus_mode = 2
@@ -528,7 +528,7 @@ offset_top = 504.0
 offset_right = 288.0
 offset_bottom = 640.0
 theme_override_colors/font_color = Color(0.0, 0.0, 0.0, 1.0)
-DesignTimeList = "PackedStringArray()"
+DesignTimeList = ""
 metadata/Tag = ""
 
 [node name="TabPanel1" parent="." instance=ExtResource("10")]
