@@ -1455,6 +1455,42 @@ func _style_line_edit(le: LineEdit):
 	var le_focus = le_normal.duplicate()
 	le_focus.border_color = Color(0.0, 0.47, 0.84)
 	le.add_theme_stylebox_override("focus", le_focus)
+	# Theme the right-click context menu so it's readable on the light panel
+	le.context_menu_enabled = true
+	le.tree_entered.connect(func(): _style_context_menu(le.get_menu()))
+
+## Style a PopupMenu (LineEdit/TextEdit right-click context menu) for the light panel
+func _style_context_menu(menu: PopupMenu):
+	if not menu: return
+	menu.add_theme_color_override("font_color", Color(0.1, 0.1, 0.1))
+	menu.add_theme_color_override("font_hover_color", Color(1.0, 1.0, 1.0))
+	menu.add_theme_color_override("font_disabled_color", Color(0.55, 0.55, 0.55))
+	menu.add_theme_color_override("font_separator_color", Color(0.4, 0.4, 0.4))
+	menu.add_theme_color_override("font_accelerator_color", Color(0.45, 0.45, 0.45))
+	var panel_style = StyleBoxFlat.new()
+	panel_style.bg_color = Color(0.96, 0.95, 0.93)
+	panel_style.border_width_top = 1
+	panel_style.border_width_bottom = 1
+	panel_style.border_width_left = 1
+	panel_style.border_width_right = 1
+	panel_style.border_color = Color(0.55, 0.54, 0.52)
+	panel_style.content_margin_left = 4
+	panel_style.content_margin_right = 4
+	panel_style.content_margin_top = 4
+	panel_style.content_margin_bottom = 4
+	menu.add_theme_stylebox_override("panel", panel_style)
+	var hover_style = StyleBoxFlat.new()
+	hover_style.bg_color = Color(0.0, 0.47, 0.84)
+	hover_style.corner_radius_top_left = 2
+	hover_style.corner_radius_top_right = 2
+	hover_style.corner_radius_bottom_left = 2
+	hover_style.corner_radius_bottom_right = 2
+	menu.add_theme_stylebox_override("hover", hover_style)
+	var sep_style = StyleBoxFlat.new()
+	sep_style.bg_color = Color(0.78, 0.77, 0.75)
+	sep_style.content_margin_top = 4
+	sep_style.content_margin_bottom = 4
+	menu.add_theme_stylebox_override("separator", sep_style)
 
 ## Returns the large step used for Shift+Up / Shift+Down on numeric fields.
 ## Position / size properties use 10; Interval uses 100; everything else uses 10.
@@ -1647,6 +1683,8 @@ func _show_list_editor_popup(prop_key: String, current_value: String, display_ed
 	var te_focus = te_style.duplicate()
 	te_focus.border_color = Color(0.0, 0.47, 0.84)
 	te.add_theme_stylebox_override("focus", te_focus)
+	# Theme the right-click context menu
+	te.tree_entered.connect(func(): _style_context_menu(te.get_menu()))
 	vbox.add_child(te)
 
 	if max_items > 0:
