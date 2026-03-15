@@ -4,6 +4,8 @@
 @tool
 extends AcceptDialog
 
+const VGTheme = preload("res://addons/visual_gasic/vg_theme_utils.gd")
+
 # VB6 theme palette (matches components_dialog.gd)
 const VB6_PANEL_BG       = Color(0.941, 0.929, 0.910)   # #F0EDE8  cream
 const VB6_PANEL_BORDER   = Color(0.72, 0.71, 0.68)
@@ -66,6 +68,7 @@ func _build_ui():
 	library_option = OptionButton.new()
 	library_option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	library_option.item_selected.connect(_on_library_selected)
+	VGTheme.hook_option_button(library_option)
 	top_bar.add_child(library_option)
 
 	var search_label = Label.new()
@@ -73,9 +76,10 @@ func _build_ui():
 	top_bar.add_child(search_label)
 
 	search_edit = LineEdit.new()
-	search_edit.placeholder_text = "Type to filter…"
+	search_edit.placeholder_text = "Type to filter\u2026"
 	search_edit.custom_minimum_size.x = 160
 	search_edit.text_changed.connect(_on_search_changed)
+	VGTheme.hook_line_edit(search_edit)
 	top_bar.add_child(search_edit)
 
 	# ── Row 2: Classes | Members (side-by-side) ──

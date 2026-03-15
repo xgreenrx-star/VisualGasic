@@ -4,6 +4,7 @@ extends Window
 ## Launched from the script editor toolbar or Ctrl+Shift+S shortcut.
 
 const VGSnippetManager = preload("res://addons/visual_gasic/vg_snippet_manager.gd")
+const VGTheme = preload("res://addons/visual_gasic/vg_theme_utils.gd")
 
 signal snippet_insert_requested(text: String)
 
@@ -25,6 +26,8 @@ func _init():
 	visible = false
 
 func _ready():
+	theme = _build_vb6_theme()
+
 	# Main layout
 	var root = VBoxContainer.new()
 	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 8)
@@ -42,6 +45,7 @@ func _ready():
 	_search_field.placeholder_text = "Type to filter snippets..."
 	_search_field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_search_field.text_changed.connect(_on_search_changed)
+	VGTheme.hook_line_edit(_search_field)
 	top_bar.add_child(_search_field)
 
 	_add_btn = Button.new()
@@ -100,8 +104,7 @@ func _ready():
 	_preview_edit = TextEdit.new()
 	_preview_edit.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_preview_edit.editable = false
-	_preview_edit.add_theme_color_override("background_color", Color(0.12, 0.12, 0.16))
-	_preview_edit.add_theme_color_override("font_color", Color(0.85, 0.85, 0.9))
+	VGTheme.hook_text_edit(_preview_edit)
 	preview_panel.add_child(_preview_edit)
 
 	# Bottom bar — Insert / Delete
@@ -111,7 +114,6 @@ func _ready():
 
 	var info_label = Label.new()
 	info_label.text = "Double-click or press Insert to add snippet"
-	info_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.7))
 	info_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	bottom_bar.add_child(info_label)
 
@@ -231,6 +233,7 @@ func _on_add_snippet():
 	body_edit.custom_minimum_size = Vector2(0, 120)
 	body_edit.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body_edit.text = "' ${1:Your code here}\n"
+	VGTheme.hook_text_edit(body_edit)
 	form.add_child(body_edit)
 	
 	dlg.confirmed.connect(func():
@@ -256,5 +259,125 @@ func _make_field(parent: Control, label_text: String, placeholder: String) -> Li
 	field.placeholder_text = placeholder
 	field.text = placeholder
 	field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	VGTheme.hook_line_edit(field)
 	hbox.add_child(field)
 	return field
+
+func _build_vb6_theme() -> Theme:
+	var t = Theme.new()
+	var panel_bg     := Color(0.941, 0.929, 0.910)   # #F0EDE8 cream
+	var panel_border := Color(0.72, 0.71, 0.68)
+	var header_bg    := Color(0.58, 0.58, 0.62)
+	var header_border:= Color(0.4, 0.4, 0.4)
+	var text_color   := Color(0.0, 0.0, 0.0)
+	var list_bg      := Color(1.0, 1.0, 1.0)
+	var btn_hover    := Color(0.95, 0.94, 0.92)
+	var btn_pressed  := Color(0.88, 0.87, 0.85)
+	var active_title := Color(0.0, 0.0, 0.5)
+
+	# ── Window chrome ──
+	var win_sb = StyleBoxFlat.new()
+	win_sb.bg_color = header_bg
+	win_sb.border_color = header_border
+	win_sb.set_border_width_all(2)
+	win_sb.set_content_margin_all(4)
+	t.set_stylebox("embedded_border", "Window", win_sb)
+	var win_unfocus = win_sb.duplicate()
+	win_unfocus.bg_color = Color(0.50, 0.50, 0.50)
+	t.set_stylebox("embedded_unfocused_border", "Window", win_unfocus)
+	t.set_color("title_color", "Window", Color.WHITE)
+	t.set_color("title_outline_modulate", "Window", Color.TRANSPARENT)
+
+	# ── Panel (root background) ──
+	var p_sb = StyleBoxFlat.new()
+	p_sb.bg_color = panel_bg
+	p_sb.set_content_margin_all(0)
+	t.set_stylebox("panel", "Panel", p_sb)
+
+	# ── Label ──
+	t.set_color("font_color", "Label", text_color)
+
+	# ── LineEdit ──
+	var le_sb = StyleBoxFlat.new()
+	le_sb.bg_color = list_bg
+	le_sb.border_color = panel_border
+	le_sb.set_border_width_all(1)
+	le_sb.set_content_margin_all(4)
+	t.set_stylebox("normal", "LineEdit", le_sb)
+	t.set_stylebox("focus", "LineEdit", le_sb.duplicate())
+	t.set_color("font_color", "LineEdit", text_color)
+	t.set_color("font_placeholder_color", "LineEdit", Color(0.5, 0.5, 0.5))
+
+	# ── TextEdit (preview) ──
+	var te_sb = StyleBoxFlat.new()
+	te_sb.bg_color = list_bg
+	te_sb.border_color = panel_border
+	te_sb.set_border_width_all(1)
+	te_sb.set_content_margin_all(4)
+	t.set_stylebox("normal", "TextEdit", te_sb)
+	t.set_stylebox("focus", "TextEdit", te_sb.duplicate())
+	t.set_stylebox("read_only", "TextEdit", te_sb.duplicate())
+	t.set_color("font_color", "TextEdit", text_color)
+	t.set_color("font_readonly_color", "TextEdit", text_color)
+
+	# ── ItemList (categories + snippets) ──
+	var il_sb = StyleBoxFlat.new()
+	il_sb.bg_color = list_bg
+	il_sb.border_color = panel_border
+	il_sb.set_border_width_all(1)
+	t.set_stylebox("panel", "ItemList", il_sb)
+	t.set_color("font_color", "ItemList", text_color)
+	t.set_color("font_selected_color", "ItemList", Color.WHITE)
+	var il_sel = StyleBoxFlat.new()
+	il_sel.bg_color = active_title
+	t.set_stylebox("selected", "ItemList", il_sel)
+	t.set_stylebox("selected_focus", "ItemList", il_sel)
+
+	# ── Button ──
+	var btn_sb = StyleBoxFlat.new()
+	btn_sb.bg_color = panel_bg
+	btn_sb.border_color = panel_border
+	btn_sb.set_border_width_all(1)
+	btn_sb.content_margin_left = 8; btn_sb.content_margin_right = 8
+	btn_sb.content_margin_top = 3; btn_sb.content_margin_bottom = 3
+	t.set_stylebox("normal", "Button", btn_sb)
+	var bh = btn_sb.duplicate()
+	bh.bg_color = btn_hover
+	t.set_stylebox("hover", "Button", bh)
+	var bp = btn_sb.duplicate()
+	bp.bg_color = btn_pressed
+	t.set_stylebox("pressed", "Button", bp)
+	var bd = btn_sb.duplicate()
+	bd.bg_color = Color(0.90, 0.89, 0.87)
+	t.set_stylebox("disabled", "Button", bd)
+	t.set_color("font_color", "Button", text_color)
+	t.set_color("font_hover_color", "Button", text_color)
+	t.set_color("font_pressed_color", "Button", text_color)
+	t.set_color("font_disabled_color", "Button", Color(0.5, 0.5, 0.5))
+
+	# ── HSeparator ──
+	var sep_sb = StyleBoxFlat.new()
+	sep_sb.bg_color = panel_border
+	sep_sb.content_margin_top = 4; sep_sb.content_margin_bottom = 4
+	t.set_stylebox("separator", "HSeparator", sep_sb)
+
+	# ── ScrollBar ──
+	var scroll_bg = StyleBoxFlat.new()
+	scroll_bg.bg_color = Color(0.92, 0.91, 0.89)
+	scroll_bg.set_content_margin_all(2)
+	var grabber_sb = StyleBoxFlat.new()
+	grabber_sb.bg_color = Color(0.72, 0.71, 0.68)
+	grabber_sb.set_content_margin_all(2)
+	var grabber_hl = StyleBoxFlat.new()
+	grabber_hl.bg_color = Color(0.60, 0.59, 0.56)
+	grabber_hl.set_content_margin_all(2)
+	var grabber_pr = StyleBoxFlat.new()
+	grabber_pr.bg_color = Color(0.50, 0.49, 0.46)
+	grabber_pr.set_content_margin_all(2)
+	for sbar in ["VScrollBar", "HScrollBar"]:
+		t.set_stylebox("scroll", sbar, scroll_bg)
+		t.set_stylebox("grabber", sbar, grabber_sb)
+		t.set_stylebox("grabber_highlight", sbar, grabber_hl)
+		t.set_stylebox("grabber_pressed", sbar, grabber_pr)
+
+	return t

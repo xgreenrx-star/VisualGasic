@@ -1,6 +1,8 @@
 @tool
 extends VBoxContainer
 ## VB6-Style Embedded Code Editor
+
+const VGTheme = preload("res://addons/visual_gasic/vg_theme_utils.gd")
 ##
 ## Replaces the Form Designer canvas in-place when the user double-clicks a
 ## control or chooses View → Code.  The Toolbox, Properties panel, and Project
@@ -107,6 +109,7 @@ func _build_ui() -> void:
 	_object_combo.tooltip_text = "Object"
 	_object_combo.add_theme_font_size_override("font_size", 12)
 	_object_combo.item_selected.connect(_on_object_selected)
+	VGTheme.hook_option_button(_object_combo)
 	nav_hbox.add_child(_object_combo)
 
 	# Procedure dropdown (right half)
@@ -117,6 +120,7 @@ func _build_ui() -> void:
 	_proc_combo.tooltip_text = "Procedure"
 	_proc_combo.add_theme_font_size_override("font_size", 12)
 	_proc_combo.item_selected.connect(_on_proc_selected)
+	VGTheme.hook_option_button(_proc_combo)
 	nav_hbox.add_child(_proc_combo)
 
 	nav_panel.add_child(nav_hbox)
@@ -137,6 +141,7 @@ func _build_ui() -> void:
 
 	_code_edit.text_changed.connect(_on_code_changed)
 	_code_edit.caret_changed.connect(_on_caret_moved)
+	VGTheme.hook_text_edit(_code_edit)
 	add_child(_code_edit)
 
 	# Apply theme AFTER add_child so VGCodeEdit._ready() has already run.

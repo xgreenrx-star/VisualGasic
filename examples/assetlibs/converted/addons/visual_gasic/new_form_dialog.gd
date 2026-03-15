@@ -12,6 +12,7 @@ extends AcceptDialog
 # CONSTANTS & ENUMS
 # =============================================================================
 
+const VGTheme = preload("res://addons/visual_gasic/vg_theme_utils.gd")
 const CUSTOM_TEMPLATE_DIR_USER = "user://form_templates/"
 const CUSTOM_TEMPLATE_DIR_PROJECT = "res://form_templates/"
 
@@ -700,6 +701,7 @@ func _on_save_template_pressed():
 	var input = LineEdit.new()
 	input.text = "My Custom Template"
 	input.select_all()
+	VGTheme.hook_line_edit(input)
 	vbox.add_child(input)
 	
 	var lbl_desc = Label.new()
@@ -709,6 +711,7 @@ func _on_save_template_pressed():
 	var desc_input = TextEdit.new()
 	desc_input.custom_minimum_size = Vector2(300, 80)
 	desc_input.text = "A custom form template."
+	VGTheme.hook_text_edit(desc_input)
 	vbox.add_child(desc_input)
 	
 	var lbl_loc = Label.new()
@@ -718,6 +721,7 @@ func _on_save_template_pressed():
 	var loc_option = OptionButton.new()
 	loc_option.add_item("User Directory (user://form_templates/)")
 	loc_option.add_item("Project Directory (res://form_templates/)")
+	VGTheme.hook_option_button(loc_option)
 	vbox.add_child(loc_option)
 	
 	dialog.confirmed.connect(func():

@@ -4,6 +4,8 @@
 @tool
 extends AcceptDialog
 
+const VGTheme = preload("res://addons/visual_gasic/vg_theme_utils.gd")
+
 signal components_changed
 
 const CONFIG_PATH = "res://addons/visual_gasic/custom_components.cfg"
@@ -386,6 +388,7 @@ func _on_file_selected(path: String):
 	var name_edit = LineEdit.new()
 	name_edit.text = name
 	name_edit.custom_minimum_size.x = 200
+	VGTheme.hook_line_edit(name_edit)
 	name_dialog.add_child(name_edit)
 
 	var desc_label = Label.new()
@@ -395,6 +398,7 @@ func _on_file_selected(path: String):
 	var desc_edit = LineEdit.new()
 	desc_edit.placeholder_text = "Brief description shown on hover"
 	desc_edit.custom_minimum_size.x = 200
+	VGTheme.hook_line_edit(desc_edit)
 	name_dialog.add_child(desc_edit)
 
 	name_dialog.confirmed.connect(func():

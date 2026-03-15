@@ -5,14 +5,19 @@
 @tool
 extends AcceptDialog
 
+const VGTheme = preload("res://addons/visual_gasic/vg_theme_utils.gd")
+
 # VB6 theme palette (match visual_gasic_plugin.gd)
 const VB6_PANEL_BG       = Color(0.941, 0.929, 0.910)   # #F0EDE8  cream
 const VB6_PANEL_BORDER   = Color(0.72, 0.71, 0.68)
 const VB6_HEADER_BG      = Color(0.58, 0.58, 0.62)
+const VB6_HEADER_BORDER  = Color(0.4, 0.4, 0.4)
 const VB6_HEADER_TEXT    = Color(1.0, 1.0, 1.0)
 const VB6_TEXT           = Color(0.0, 0.0, 0.0)
 const VB6_LIST_BG        = Color(1.0, 1.0, 1.0)
 const VB6_BTN_FACE       = Color("#D4D0C8")
+const VB6_BTN_HOVER_BG   = Color(0.95, 0.94, 0.92)
+const VB6_BTN_PRESSED_BG = Color(0.88, 0.87, 0.85)
 const VB6_ACTIVE_TITLE   = Color(0.0, 0.0, 0.5)
 
 # ── Field references ──
@@ -47,21 +52,129 @@ func _init():
 	make.name = "Make"
 	tabs.add_child(make)
 
-	# Style the dialog background
-	var panel_sb = StyleBoxFlat.new()
-	panel_sb.bg_color = VB6_PANEL_BG
-	panel_sb.border_width_top = 1
-	panel_sb.border_width_bottom = 1
-	panel_sb.border_width_left = 1
-	panel_sb.border_width_right = 1
-	panel_sb.border_color = VB6_PANEL_BORDER
-	add_theme_stylebox_override("panel", panel_sb)
-
 	confirmed.connect(_on_ok)
 	canceled.connect(queue_free)
 
 func _ready():
+	# Apply the full VB6 theme so nothing inherits the dark editor theme
+	theme = _build_vb6_dialog_theme()
 	_load_settings()
+
+## Builds a VB6-style Theme for the entire dialog tree.
+func _build_vb6_dialog_theme() -> Theme:
+	var t = Theme.new()
+
+	# ── Window chrome (embedded title-bar) ──
+	var win_sb = StyleBoxFlat.new()
+	win_sb.bg_color = VB6_HEADER_BG
+	win_sb.border_color = VB6_HEADER_BORDER
+	win_sb.set_border_width_all(2)
+	win_sb.content_margin_left = 4; win_sb.content_margin_right = 4
+	win_sb.content_margin_top = 4; win_sb.content_margin_bottom = 4
+	t.set_stylebox("embedded_border", "Window", win_sb)
+	var win_unfocus = win_sb.duplicate()
+	win_unfocus.bg_color = Color(0.50, 0.50, 0.50)
+	t.set_stylebox("embedded_unfocused_border", "Window", win_unfocus)
+	t.set_color("title_color", "Window", VB6_HEADER_TEXT)
+	t.set_color("title_outline_modulate", "Window", Color.TRANSPARENT)
+
+	# ── AcceptDialog panel (cream background) ──
+	var panel_sb = StyleBoxFlat.new()
+	panel_sb.bg_color = VB6_PANEL_BG
+	panel_sb.border_color = VB6_PANEL_BORDER
+	panel_sb.set_border_width_all(1)
+	panel_sb.set_content_margin_all(10)
+	t.set_stylebox("panel", "AcceptDialog", panel_sb)
+
+	# ── TabContainer ──
+	# Tab panel (the content area below the tab bar)
+	var tab_panel = StyleBoxFlat.new()
+	tab_panel.bg_color = VB6_PANEL_BG
+	tab_panel.border_color = VB6_PANEL_BORDER
+	tab_panel.set_border_width_all(1)
+	tab_panel.set_content_margin_all(10)
+	t.set_stylebox("panel", "TabContainer", tab_panel)
+
+	# Selected tab
+	var tab_sel = StyleBoxFlat.new()
+	tab_sel.bg_color = VB6_PANEL_BG
+	tab_sel.border_color = VB6_PANEL_BORDER
+	tab_sel.border_width_top = 1; tab_sel.border_width_left = 1; tab_sel.border_width_right = 1
+	tab_sel.border_width_bottom = 0
+	tab_sel.content_margin_left = 10; tab_sel.content_margin_right = 10
+	tab_sel.content_margin_top = 4; tab_sel.content_margin_bottom = 4
+	t.set_stylebox("tab_selected", "TabContainer", tab_sel)
+
+	# Unselected tab
+	var tab_unsel = StyleBoxFlat.new()
+	tab_unsel.bg_color = VB6_BTN_FACE
+	tab_unsel.border_color = VB6_PANEL_BORDER
+	tab_unsel.set_border_width_all(1)
+	tab_unsel.content_margin_left = 10; tab_unsel.content_margin_right = 10
+	tab_unsel.content_margin_top = 4; tab_unsel.content_margin_bottom = 4
+	t.set_stylebox("tab_unselected", "TabContainer", tab_unsel)
+
+	# Hovered tab
+	var tab_hov = tab_unsel.duplicate()
+	tab_hov.bg_color = VB6_BTN_HOVER_BG
+	t.set_stylebox("tab_hovered", "TabContainer", tab_hov)
+
+	# Tab text colors
+	t.set_color("font_selected_color", "TabContainer", VB6_TEXT)
+	t.set_color("font_unselected_color", "TabContainer", VB6_TEXT)
+	t.set_color("font_hovered_color", "TabContainer", VB6_TEXT)
+
+	# ── Label ──
+	t.set_color("font_color", "Label", VB6_TEXT)
+
+	# ── LineEdit ──
+	var le_sb = StyleBoxFlat.new()
+	le_sb.bg_color = VB6_LIST_BG
+	le_sb.border_color = VB6_PANEL_BORDER
+	le_sb.set_border_width_all(1)
+	le_sb.content_margin_left = 4; le_sb.content_margin_right = 4
+	t.set_stylebox("normal", "LineEdit", le_sb)
+	t.set_stylebox("focus", "LineEdit", le_sb)
+	t.set_color("font_color", "LineEdit", VB6_TEXT)
+	t.set_color("font_placeholder_color", "LineEdit", Color(0.5, 0.5, 0.5))
+
+	# ── TextEdit ──
+	var te_sb = StyleBoxFlat.new()
+	te_sb.bg_color = VB6_LIST_BG
+	te_sb.border_color = VB6_PANEL_BORDER
+	te_sb.set_border_width_all(1)
+	te_sb.content_margin_left = 4; te_sb.content_margin_right = 4
+	t.set_stylebox("normal", "TextEdit", te_sb)
+	t.set_stylebox("focus", "TextEdit", te_sb)
+	t.set_color("font_color", "TextEdit", VB6_TEXT)
+
+	# ── Button (raised VB6 look) ──
+	var btn_sb = StyleBoxFlat.new()
+	btn_sb.bg_color = VB6_PANEL_BG
+	btn_sb.border_color = VB6_PANEL_BORDER
+	btn_sb.set_border_width_all(1)
+	btn_sb.content_margin_left = 8; btn_sb.content_margin_right = 8
+	btn_sb.content_margin_top = 3; btn_sb.content_margin_bottom = 3
+	t.set_stylebox("normal", "Button", btn_sb)
+	var btn_hov = StyleBoxFlat.new()
+	btn_hov.bg_color = VB6_BTN_HOVER_BG
+	btn_hov.border_color = VB6_PANEL_BORDER
+	btn_hov.set_border_width_all(1)
+	btn_hov.content_margin_left = 8; btn_hov.content_margin_right = 8
+	btn_hov.content_margin_top = 3; btn_hov.content_margin_bottom = 3
+	t.set_stylebox("hover", "Button", btn_hov)
+	var btn_pre = StyleBoxFlat.new()
+	btn_pre.bg_color = VB6_BTN_PRESSED_BG
+	btn_pre.border_color = VB6_PANEL_BORDER
+	btn_pre.set_border_width_all(1)
+	btn_pre.content_margin_left = 8; btn_pre.content_margin_right = 8
+	btn_pre.content_margin_top = 3; btn_pre.content_margin_bottom = 3
+	t.set_stylebox("pressed", "Button", btn_pre)
+	t.set_color("font_color", "Button", VB6_TEXT)
+	t.set_color("font_hover_color", "Button", VB6_TEXT)
+	t.set_color("font_pressed_color", "Button", VB6_TEXT)
+
+	return t
 
 # ─────────────────────────────────────────────────────────
 # TAB BUILDERS
@@ -75,23 +188,14 @@ func _build_general_tab() -> VBoxContainer:
 	vbox.add_child(_make_label("Project Name:"))
 	_name_edit = LineEdit.new()
 	_name_edit.custom_minimum_size.x = 400
-	_style_line_edit(_name_edit)
+	VGTheme.hook_line_edit(_name_edit)
 	vbox.add_child(_name_edit)
 
 	# Project Description
 	vbox.add_child(_make_label("Project Description:"))
 	_desc_edit = TextEdit.new()
 	_desc_edit.custom_minimum_size = Vector2(400, 60)
-	var desc_sb = StyleBoxFlat.new()
-	desc_sb.bg_color = VB6_LIST_BG
-	desc_sb.border_width_top = 1
-	desc_sb.border_width_bottom = 1
-	desc_sb.border_width_left = 1
-	desc_sb.border_width_right = 1
-	desc_sb.border_color = VB6_PANEL_BORDER
-	_desc_edit.add_theme_stylebox_override("normal", desc_sb)
-	_desc_edit.add_theme_color_override("font_color", VB6_TEXT)
-	_desc_edit.add_theme_font_size_override("font_size", 12)
+	VGTheme.hook_text_edit(_desc_edit)
 	vbox.add_child(_desc_edit)
 
 	# Startup Form
@@ -99,7 +203,7 @@ func _build_general_tab() -> VBoxContainer:
 	var startup_hbox = HBoxContainer.new()
 	_main_scene_edit = LineEdit.new()
 	_main_scene_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_style_line_edit(_main_scene_edit)
+	VGTheme.hook_line_edit(_main_scene_edit)
 	startup_hbox.add_child(_main_scene_edit)
 	_main_scene_browse = Button.new()
 	_main_scene_browse.text = "..."
@@ -119,7 +223,7 @@ func _build_make_tab() -> VBoxContainer:
 	_version_edit = LineEdit.new()
 	_version_edit.placeholder_text = "1.0.0"
 	_version_edit.custom_minimum_size.x = 200
-	_style_line_edit(_version_edit)
+	VGTheme.hook_line_edit(_version_edit)
 	vbox.add_child(_version_edit)
 
 	# Application Icon
@@ -127,7 +231,7 @@ func _build_make_tab() -> VBoxContainer:
 	var icon_hbox = HBoxContainer.new()
 	_icon_edit = LineEdit.new()
 	_icon_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_style_line_edit(_icon_edit)
+	VGTheme.hook_line_edit(_icon_edit)
 	icon_hbox.add_child(_icon_edit)
 	_icon_browse = Button.new()
 	_icon_browse.text = "..."
@@ -223,20 +327,4 @@ func _browse_main_scene():
 func _make_label(text: String) -> Label:
 	var lbl = Label.new()
 	lbl.text = text
-	lbl.add_theme_color_override("font_color", VB6_TEXT)
-	lbl.add_theme_font_size_override("font_size", 12)
 	return lbl
-
-func _style_line_edit(le: LineEdit) -> void:
-	var sb = StyleBoxFlat.new()
-	sb.bg_color = VB6_LIST_BG
-	sb.border_width_top = 1
-	sb.border_width_bottom = 1
-	sb.border_width_left = 1
-	sb.border_width_right = 1
-	sb.border_color = VB6_PANEL_BORDER
-	sb.content_margin_left = 4
-	sb.content_margin_right = 4
-	le.add_theme_stylebox_override("normal", sb)
-	le.add_theme_color_override("font_color", VB6_TEXT)
-	le.add_theme_font_size_override("font_size", 12)

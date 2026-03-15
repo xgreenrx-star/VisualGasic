@@ -5,6 +5,8 @@
 @tool
 extends AcceptDialog
 
+const VGTheme = preload("res://addons/visual_gasic/vg_theme_utils.gd")
+
 # VB6 theme palette (match visual_gasic_plugin.gd)
 const VB6_PANEL_BG       = Color(0.941, 0.929, 0.910)   # #F0EDE8  cream
 const VB6_PANEL_BORDER   = Color(0.72, 0.71, 0.68)
@@ -186,12 +188,14 @@ func _build_general_tab() -> VBoxContainer:
 	vbox.add_child(_make_label("Project Name:"))
 	_name_edit = LineEdit.new()
 	_name_edit.custom_minimum_size.x = 400
+	VGTheme.hook_line_edit(_name_edit)
 	vbox.add_child(_name_edit)
 
 	# Project Description
 	vbox.add_child(_make_label("Project Description:"))
 	_desc_edit = TextEdit.new()
 	_desc_edit.custom_minimum_size = Vector2(400, 60)
+	VGTheme.hook_text_edit(_desc_edit)
 	vbox.add_child(_desc_edit)
 
 	# Startup Form
@@ -199,6 +203,7 @@ func _build_general_tab() -> VBoxContainer:
 	var startup_hbox = HBoxContainer.new()
 	_main_scene_edit = LineEdit.new()
 	_main_scene_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	VGTheme.hook_line_edit(_main_scene_edit)
 	startup_hbox.add_child(_main_scene_edit)
 	_main_scene_browse = Button.new()
 	_main_scene_browse.text = "..."
@@ -218,6 +223,7 @@ func _build_make_tab() -> VBoxContainer:
 	_version_edit = LineEdit.new()
 	_version_edit.placeholder_text = "1.0.0"
 	_version_edit.custom_minimum_size.x = 200
+	VGTheme.hook_line_edit(_version_edit)
 	vbox.add_child(_version_edit)
 
 	# Application Icon
@@ -225,6 +231,7 @@ func _build_make_tab() -> VBoxContainer:
 	var icon_hbox = HBoxContainer.new()
 	_icon_edit = LineEdit.new()
 	_icon_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	VGTheme.hook_line_edit(_icon_edit)
 	icon_hbox.add_child(_icon_edit)
 	_icon_browse = Button.new()
 	_icon_browse.text = "..."

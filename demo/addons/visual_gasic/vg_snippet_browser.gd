@@ -4,6 +4,7 @@ extends Window
 ## Launched from the script editor toolbar or Ctrl+Shift+S shortcut.
 
 const VGSnippetManager = preload("res://addons/visual_gasic/vg_snippet_manager.gd")
+const VGTheme = preload("res://addons/visual_gasic/vg_theme_utils.gd")
 
 signal snippet_insert_requested(text: String)
 
@@ -44,6 +45,7 @@ func _ready():
 	_search_field.placeholder_text = "Type to filter snippets..."
 	_search_field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_search_field.text_changed.connect(_on_search_changed)
+	VGTheme.hook_line_edit(_search_field)
 	top_bar.add_child(_search_field)
 
 	_add_btn = Button.new()
@@ -102,6 +104,7 @@ func _ready():
 	_preview_edit = TextEdit.new()
 	_preview_edit.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_preview_edit.editable = false
+	VGTheme.hook_text_edit(_preview_edit)
 	preview_panel.add_child(_preview_edit)
 
 	# Bottom bar — Insert / Delete
@@ -230,6 +233,7 @@ func _on_add_snippet():
 	body_edit.custom_minimum_size = Vector2(0, 120)
 	body_edit.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body_edit.text = "' ${1:Your code here}\n"
+	VGTheme.hook_text_edit(body_edit)
 	form.add_child(body_edit)
 	
 	dlg.confirmed.connect(func():
@@ -255,6 +259,7 @@ func _make_field(parent: Control, label_text: String, placeholder: String) -> Li
 	field.placeholder_text = placeholder
 	field.text = placeholder
 	field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	VGTheme.hook_line_edit(field)
 	hbox.add_child(field)
 	return field
 

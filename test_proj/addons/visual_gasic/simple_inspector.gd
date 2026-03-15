@@ -1459,9 +1459,25 @@ func _style_line_edit(le: LineEdit):
 	le.context_menu_enabled = true
 	le.tree_entered.connect(func(): _style_context_menu(le.get_menu()))
 
-## Style a PopupMenu (LineEdit/TextEdit right-click context menu) for the light panel
+## Style a PopupMenu (LineEdit/TextEdit right-click context menu) for the light panel.
+## Also recursively themes any child sub-menus (e.g. "Text Writing Direction").
 func _style_context_menu(menu: PopupMenu):
 	if not menu: return
+	_apply_context_theme(menu)
+	# Theme existing child sub-menus immediately
+	for c in menu.get_children():
+		if c is PopupMenu:
+			_apply_context_theme(c)
+	# Catch lazily-created sub-menus on first popup show
+	if not menu.has_meta("_vg_ctx_themed"):
+		menu.set_meta("_vg_ctx_themed", true)
+		menu.about_to_popup.connect(func():
+			for c2 in menu.get_children():
+				if c2 is PopupMenu:
+					_apply_context_theme(c2)
+		)
+
+func _apply_context_theme(menu: PopupMenu):
 	menu.add_theme_color_override("font_color", Color(0.1, 0.1, 0.1))
 	menu.add_theme_color_override("font_hover_color", Color(1.0, 1.0, 1.0))
 	menu.add_theme_color_override("font_disabled_color", Color(0.55, 0.55, 0.55))

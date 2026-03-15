@@ -1,6 +1,8 @@
 @tool
 extends Window
 
+const VGTheme = preload("res://addons/visual_gasic/vg_theme_utils.gd")
+
 # VisualGasic Menu Editor
 # Allows creating MenuBar hierarchies visually
 
@@ -42,16 +44,19 @@ func _init():
 	txt_caption = LineEdit.new()
 	txt_caption.placeholder_text = "e.g. &File  (use & for hotkey)"
 	txt_caption.text_changed.connect(_on_caption_change)
+	VGTheme.hook_line_edit(txt_caption)
 	grid.add_child(txt_caption)
 	
 	grid.add_child(_lbl("Name:"))
 	txt_name = LineEdit.new()
 	txt_name.placeholder_text = "e.g. mnuFile"
+	VGTheme.hook_line_edit(txt_name)
 	grid.add_child(txt_name)
 
 	grid.add_child(_lbl("Shortcut:"))
 	txt_shortcut = LineEdit.new()
 	txt_shortcut.placeholder_text = "e.g. Ctrl+N"
+	VGTheme.hook_line_edit(txt_shortcut)
 	grid.add_child(txt_shortcut)
 	
 	# Options

@@ -3255,8 +3255,25 @@ func _make_shortcut(key: Key, ctrl: bool = false, shift: bool = false) -> Shortc
 	sc.events = [ev]
 	return sc
 
-## Applies VB6/Win95-style contrast styling to a PopupMenu.
+## Applies VB6/Win95-style contrast styling to a PopupMenu and its sub-menus.
 func _style_popup_menu(popup: PopupMenu) -> void:
+	if not popup:
+		return
+	_apply_vb6_popup_theme(popup)
+	# Recursively style existing child sub-menus
+	for c in popup.get_children():
+		if c is PopupMenu:
+			_apply_vb6_popup_theme(c)
+	# Catch lazily-created sub-menus on first popup show
+	if not popup.has_meta("_vg_popup_styled"):
+		popup.set_meta("_vg_popup_styled", true)
+		popup.about_to_popup.connect(func():
+			for c2 in popup.get_children():
+				if c2 is PopupMenu:
+					_apply_vb6_popup_theme(c2)
+		)
+
+func _apply_vb6_popup_theme(popup: PopupMenu) -> void:
 	# Light background panel (Win95 menu style)
 	var panel_sb = StyleBoxFlat.new()
 	panel_sb.bg_color = Color("#F0F0F0")
@@ -3980,6 +3997,7 @@ func _create_find_replace_bar() -> void:
 	_find_input = LineEdit.new()
 	_find_input.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_find_input.placeholder_text = "Search..."
+	_find_input.tree_entered.connect(func(): _style_popup_menu(_find_input.get_menu()))
 	find_row.add_child(_find_input)
 	var find_next_btn = Button.new()
 	find_next_btn.text = "Next"
@@ -4006,6 +4024,7 @@ func _create_find_replace_bar() -> void:
 	_replace_input = LineEdit.new()
 	_replace_input.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_replace_input.placeholder_text = "Replace with..."
+	_replace_input.tree_entered.connect(func(): _style_popup_menu(_replace_input.get_menu()))
 	replace_row.add_child(_replace_input)
 	var replace_btn = Button.new()
 	replace_btn.text = "Replace"
@@ -5051,6 +5070,7 @@ func _on_fd_control_right_clicked(index: int, position: Vector2) -> void:
 		_fd_context_menu.add_item("Form Properties", 41)
 	
 	_fd_context_menu.id_pressed.connect(_on_fd_context_menu_pressed)
+	_style_popup_menu(_fd_context_menu)
 	get_editor_interface().get_base_control().add_child(_fd_context_menu)
 	_fd_context_menu.popup(Rect2(position, Vector2.ZERO))
 
@@ -5820,6 +5840,7 @@ func _on_new_module():
 	name_edit.text = "Module1"
 	name_edit.placeholder_text = "Module1"
 	name_edit.select_all_on_focus = true
+	name_edit.tree_entered.connect(func(): _style_popup_menu(name_edit.get_menu()))
 	vbox.add_child(name_edit)
 	
 	var sep = HSeparator.new()
@@ -5834,6 +5855,7 @@ func _on_new_module():
 	type_option.add_item("Class Module")
 	type_option.add_item("Game Module")
 	type_option.add_item("Utility Module")
+	type_option.tree_entered.connect(func(): _style_popup_menu(type_option.get_popup()))
 	vbox.add_child(type_option)
 	
 	dlg.add_child(vbox)
@@ -7076,6 +7098,7 @@ func _setup_toolbox_context_menu():
 	popup.add_item("Components...", 0)
 	popup.add_separator()
 	popup.add_item("Add Tab...", 1)
+	_style_popup_menu(popup)
 	popup.id_pressed.connect(func(id):
 		match id:
 			0: _on_components()
