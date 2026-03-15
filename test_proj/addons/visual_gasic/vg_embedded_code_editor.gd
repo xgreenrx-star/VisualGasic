@@ -3,6 +3,7 @@ extends VBoxContainer
 ## VB6-Style Embedded Code Editor
 
 const VGTheme = preload("res://addons/visual_gasic/vg_theme_utils.gd")
+const VGCommandHelp = preload("res://addons/visual_gasic/vg_command_help.gd")
 ##
 ## Replaces the Form Designer canvas in-place when the user double-clicks a
 ## control or chooses View → Code.  The Toolbox, Properties panel, and Project
@@ -55,6 +56,13 @@ var _index_map_canvas: Control = null
 var _index_map_toggle: Button = null
 var _index_map_visible: bool = false
 var _current_index_control: Dictionary = {}  # { name, type, properties }
+
+## Command Help panel — shows syntax & examples for the keyword at the cursor
+var _bottom_panel: PanelContainer = null   # outer container for both panels
+var _bottom_split: HSplitContainer = null   # left=help, right=index map
+var _help_scroll: ScrollContainer = null
+var _help_label: RichTextLabel = null
+var _last_help_keyword: String = ""         # avoid redundant redraws
 
 # VB6 cream theme colors
 const BG_COLOR := Color(0.96, 0.95, 0.92)         # warm cream — easy on the eyes
@@ -153,14 +161,73 @@ func _build_ui() -> void:
 	# so apply scrollbar styling on a deferred call.
 	call_deferred("_apply_scrollbar_theme")
 
-	# ── Index Map panel — collapsible bottom panel ──
+	# ── Bottom panel: Command Help + Index Map ──
+	_build_bottom_panel()
+
+func _build_bottom_panel() -> void:
+	# Outer container wraps the whole bottom area
+	_bottom_panel = PanelContainer.new()
+	_bottom_panel.name = "BottomPanel"
+	var panel_sb := StyleBoxFlat.new()
+	panel_sb.bg_color = Color(0.94, 0.93, 0.90)
+	panel_sb.border_color = BORDER_COLOR
+	panel_sb.border_width_top = 1
+	panel_sb.content_margin_left = 4
+	panel_sb.content_margin_right = 4
+	panel_sb.content_margin_top = 0
+	panel_sb.content_margin_bottom = 4
+	_bottom_panel.add_theme_stylebox_override("panel", panel_sb)
+	_bottom_panel.custom_minimum_size.y = 140
+
+	_bottom_split = HSplitContainer.new()
+	_bottom_split.name = "BottomSplit"
+	_bottom_split.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_bottom_split.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_bottom_split.split_offset = 340  # left panel default width
+
+	# ── Left side: Command Help ──
+	_build_help_panel()
+	_bottom_split.add_child(_help_scroll)
+
+	# ── Right side: Index Map (preserves existing behavior) ──
 	_build_index_map_panel()
+	_bottom_split.add_child(_index_map_panel)
+
+	_bottom_panel.add_child(_bottom_split)
+	add_child(_bottom_panel)
+
+func _build_help_panel() -> void:
+	_help_scroll = ScrollContainer.new()
+	_help_scroll.name = "HelpScroll"
+	_help_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_help_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_help_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+
+	_help_label = RichTextLabel.new()
+	_help_label.name = "HelpLabel"
+	_help_label.bbcode_enabled = true
+	_help_label.fit_content = true
+	_help_label.scroll_active = false  # let the ScrollContainer handle scrolling
+	_help_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_help_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_help_label.add_theme_font_size_override("normal_font_size", 12)
+	_help_label.add_theme_font_size_override("bold_font_size", 12)
+	_help_label.add_theme_font_size_override("mono_font_size", 11)
+	_help_label.add_theme_color_override("default_color", TEXT_COLOR)
+
+	# Welcome text
+	_help_label.text = ""
+	_help_label.append_text("[color=#444444][i]Place the cursor on a keyword to see its documentation.[/i][/color]")
+
+	_help_scroll.add_child(_help_label)
 
 func _build_index_map_panel() -> void:
-	# Container for the whole panel: toggle header + drawing area
+	# Container for the index map: toggle header + drawing area
 	_index_map_panel = PanelContainer.new()
 	_index_map_panel.name = "IndexMapPanel"
 	_index_map_panel.visible = false
+	_index_map_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_index_map_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	var panel_sb := StyleBoxFlat.new()
 	panel_sb.bg_color = Color(0.94, 0.93, 0.90)
 	panel_sb.border_color = BORDER_COLOR
@@ -202,7 +269,7 @@ func _build_index_map_panel() -> void:
 	vbox.add_child(_index_map_canvas)
 
 	_index_map_panel.add_child(vbox)
-	add_child(_index_map_panel)
+	# Note: _index_map_panel is added to _bottom_split by _build_bottom_panel()
 
 func _toggle_index_map() -> void:
 	_index_map_visible = not _index_map_visible
@@ -338,6 +405,9 @@ func set_index_map_control(info: Dictionary) -> void:
 
 ## Update the index map when the selected object changes
 func _update_index_map_visibility() -> void:
+	# The bottom panel (help + index map) is always visible
+	if _bottom_panel:
+		_bottom_panel.visible = true
 	if not _index_map_panel:
 		return
 	var ctrl_type: String = _current_index_control.get("type", "")
@@ -786,6 +856,149 @@ func _on_code_changed() -> void:
 func _on_caret_moved() -> void:
 	_update_proc_selection()
 	_check_param_info()
+	_update_command_help()
+
+# =============================================================================
+# COMMAND HELP PANEL
+# =============================================================================
+
+## Returns the VB6 keyword at (or near) the caret, handling multi-word
+## keywords like "Select Case", "End If", "For Each", "On Error", etc.
+func _get_keyword_at_cursor() -> String:
+	if not _code_edit:
+		return ""
+	var line_idx := _code_edit.get_caret_line()
+	var col := _code_edit.get_caret_column()
+	var line_text := _code_edit.get_line(line_idx)
+	if line_text.is_empty():
+		return ""
+
+	# Find word boundaries around the caret
+	var word_start := col
+	var word_end := col
+	while word_start > 0 and (line_text[word_start - 1].is_valid_identifier() or line_text[word_start - 1] == "_"):
+		word_start -= 1
+	while word_end < line_text.length() and (line_text[word_end].is_valid_identifier() or line_text[word_end] == "_"):
+		word_end += 1
+	if word_start >= word_end:
+		return ""
+	var word := line_text.substr(word_start, word_end - word_start).strip_edges()
+
+	# Check for compound keywords — look at the word before/after
+	var compound_pairs := {
+		# "first second" compounds
+		"select": "Select Case",
+		"for": "For Each",
+		"on": "On Error",
+		"line": "Line Input",
+		"option": "Option Explicit",
+		# "End Xxx" compounds
+		"end": "",  # handled specially below
+	}
+
+	var lower := word.to_lower()
+
+	# If cursor is on "End", look at the next word
+	if lower == "end":
+		var rest := line_text.substr(word_end).strip_edges()
+		for suffix in ["If", "Sub", "Function", "Select", "Class", "With", "Type", "Enum"]:
+			if rest.begins_with(suffix):
+				return "End " + suffix
+		return "End"
+
+	# If cursor is on a word after "End", check backwards
+	if word_start > 0:
+		var before := line_text.substr(0, word_start).strip_edges()
+		if before.to_lower().ends_with("end"):
+			var kw := "End " + word
+			if VGCommandHelp.lookup(kw).size() > 0:
+				return kw
+
+	# Compound keywords where the cursor is on the first word
+	if lower == "select":
+		var rest := line_text.substr(word_end).strip_edges()
+		if rest.to_lower().begins_with("case"):
+			return "Select Case"
+	if lower == "for":
+		var rest := line_text.substr(word_end).strip_edges()
+		if rest.to_lower().begins_with("each"):
+			return "For Each"
+	if lower == "on":
+		var rest := line_text.substr(word_end).strip_edges()
+		if rest.to_lower().begins_with("error"):
+			return "On Error"
+	if lower == "line":
+		var rest := line_text.substr(word_end).strip_edges()
+		if rest.to_lower().begins_with("input"):
+			return "Line Input"
+	if lower == "option":
+		var rest := line_text.substr(word_end).strip_edges()
+		if rest.to_lower().begins_with("explicit"):
+			return "Option Explicit"
+
+	# Compound keywords where the cursor is on the second word
+	if lower == "case":
+		var before := line_text.substr(0, word_start).strip_edges()
+		if before.to_lower().ends_with("select"):
+			return "Select Case"
+	if lower == "each":
+		var before := line_text.substr(0, word_start).strip_edges()
+		if before.to_lower().ends_with("for"):
+			return "For Each"
+	if lower == "error":
+		var before := line_text.substr(0, word_start).strip_edges()
+		if before.to_lower().ends_with("on"):
+			return "On Error"
+
+	return word
+
+## Updates the Command Help panel with documentation for the keyword at cursor.
+func _update_command_help() -> void:
+	if not _help_label:
+		return
+	var keyword := _get_keyword_at_cursor()
+	if keyword == _last_help_keyword:
+		return  # No change
+	_last_help_keyword = keyword
+
+	if keyword.is_empty():
+		_help_label.text = ""
+		_help_label.append_text("[color=#444444][i]Place the cursor on a keyword to see its documentation.[/i][/color]")
+		return
+
+	var entry := VGCommandHelp.lookup(keyword)
+	if entry.is_empty():
+		_help_label.text = ""
+		_help_label.append_text("[color=#444444][i]No documentation for \"" + keyword + "\"[/i][/color]")
+		return
+
+	# Reset the scroll position
+	if _help_scroll:
+		_help_scroll.scroll_vertical = 0
+
+	_help_label.text = ""
+
+	# ── Keyword title ──
+	_help_label.append_text("[b][color=#00008B][font_size=14]" + entry.get("keyword", keyword) + "[/font_size][/color][/b]\n\n")
+
+	# ── Syntax ──
+	_help_label.append_text("[b][color=#333399]Syntax[/color][/b]\n")
+	_help_label.append_text("[code]" + entry.get("syntax", "") + "[/code]\n\n")
+
+	# ── Description ──
+	_help_label.append_text("[b][color=#333399]Description[/color][/b]\n")
+	_help_label.append_text(entry.get("desc", "") + "\n\n")
+
+	# ── Code Example ──
+	var code_text: String = entry.get("code", "")
+	if not code_text.is_empty():
+		_help_label.append_text("[b][color=#333399]Example[/color][/b]\n")
+		_help_label.append_text("[code]" + code_text + "[/code]\n\n")
+
+	# ── Reference link ──
+	var ref_line: int = entry.get("ref_line", 0)
+	if ref_line > 0:
+		_help_label.append_text("[color=#666666][i]📖 Programmer's Reference, line " + str(ref_line) + "[/i][/color]")
 
 # =============================================================================
 # PROCEDURE SEPARATOR LINES
