@@ -3852,7 +3852,7 @@ func _on_vb6_view_menu(id: int) -> void:
 		10: pass # Toolbox — already visible
 		11: pass # Project Explorer — already visible
 		12: pass # Properties — already visible
-		13: # Immediate Window — switch to code view (Immediate is always in bottom panel)
+		13: # Immediate Window — switch to code view and focus Immediate tab
 			if is_instance_valid(_embedded_code_editor):
 				if not _embedded_code_editor.visible:
 					_on_view_code()
@@ -5364,18 +5364,24 @@ func _show_code_view() -> void:
 		# Deferred focus so layout settles
 		_embedded_code_editor.get_code_edit().grab_focus.call_deferred()
 
-	# Swap left panel: hide Toolbox, show Command Help + Index Map
+	# Swap left panel: hide Toolbox (wrapper + header), show Command Help + Index Map
 	var toolbox_panel = _ide_layout.get_node_or_null("MainHSplit/ToolboxPanel")
-	if toolbox_panel and is_instance_valid(toolbox):
-		toolbox.visible = false
-	if toolbox_panel and is_instance_valid(_embedded_code_editor):
-		var help_panel = _embedded_code_editor.get_help_panel()
-		if help_panel and help_panel.get_parent() != toolbox_panel:
-			if help_panel.get_parent():
-				help_panel.get_parent().remove_child(help_panel)
-			toolbox_panel.add_child(help_panel)
-		if help_panel:
-			help_panel.visible = true
+	if toolbox_panel:
+		# Hide the ToolboxWrapper (contains VB6 header + toolbox content)
+		var wrapper = toolbox_panel.get_node_or_null("ToolboxWrapper")
+		if wrapper:
+			wrapper.visible = false
+		elif is_instance_valid(toolbox):
+			toolbox.visible = false
+		# Add the Command Help panel from the code editor
+		if is_instance_valid(_embedded_code_editor):
+			var help_panel = _embedded_code_editor.get_help_panel()
+			if help_panel and help_panel.get_parent() != toolbox_panel:
+				if help_panel.get_parent():
+					help_panel.get_parent().remove_child(help_panel)
+				toolbox_panel.add_child(help_panel)
+			if help_panel:
+				help_panel.visible = true
 
 	# Update status bar
 	if is_instance_valid(_status_bar):
@@ -5402,14 +5408,20 @@ func _show_form_view() -> void:
 	if is_instance_valid(_embedded_code_editor):
 		_embedded_code_editor.visible = false
 
-	# Swap left panel: hide Command Help, show Toolbox
+	# Swap left panel: hide Command Help, show Toolbox (wrapper + header)
 	var toolbox_panel = _ide_layout.get_node_or_null("MainHSplit/ToolboxPanel")
-	if toolbox_panel and is_instance_valid(_embedded_code_editor):
-		var help_panel = _embedded_code_editor.get_help_panel()
-		if help_panel:
-			help_panel.visible = false
-	if is_instance_valid(toolbox):
-		toolbox.visible = true
+	if toolbox_panel:
+		# Hide the help panel
+		if is_instance_valid(_embedded_code_editor):
+			var help_panel = _embedded_code_editor.get_help_panel()
+			if help_panel:
+				help_panel.visible = false
+		# Show the ToolboxWrapper (contains VB6 header + toolbox content)
+		var wrapper = toolbox_panel.get_node_or_null("ToolboxWrapper")
+		if wrapper:
+			wrapper.visible = true
+		elif is_instance_valid(toolbox):
+			toolbox.visible = true
 
 	# Update status bar
 	if is_instance_valid(_status_bar):

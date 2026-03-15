@@ -63,9 +63,12 @@ var _help_scroll: ScrollContainer = null
 var _help_label: RichTextLabel = null
 var _last_help_keyword: String = ""        # avoid redundant redraws
 
-## Bottom panel: Immediate Window only
+## Bottom panel: tabbed — Immediate, Output, System Console
 var _bottom_panel: PanelContainer = null   # outer container
+var _bottom_tabs: TabContainer = null      # tab switcher
 var _immediate_window_ref = null           # reference to the plugin's Immediate Window
+var _output_text: RichTextLabel = null     # Output tab: build/runtime messages
+var _console_text: RichTextLabel = null    # System Console tab: system log
 
 # VB6 cream theme colors
 const BG_COLOR := Color(0.96, 0.95, 0.92)         # warm cream — easy on the eyes
@@ -197,7 +200,6 @@ func _build_left_panel_content() -> void:
 
 
 func _build_bottom_panel() -> void:
-	# The bottom area is exclusively for the Immediate Window.
 	_bottom_panel = PanelContainer.new()
 	_bottom_panel.name = "BottomPanel"
 	var panel_sb := StyleBoxFlat.new()
@@ -209,33 +211,172 @@ func _build_bottom_panel() -> void:
 	panel_sb.content_margin_top = 0
 	panel_sb.content_margin_bottom = 0
 	_bottom_panel.add_theme_stylebox_override("panel", panel_sb)
-	_bottom_panel.custom_minimum_size.y = 140
+	_bottom_panel.custom_minimum_size.y = 160
+
+	# TabContainer with VB6-style tab theming
+	_bottom_tabs = TabContainer.new()
+	_bottom_tabs.name = "BottomTabs"
+	_bottom_tabs.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_bottom_tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_bottom_tabs.clip_contents = true
+	# VB6 cream theme for tabs
+	var tab_sb := StyleBoxFlat.new()
+	tab_sb.bg_color = Color(0.96, 0.95, 0.92)
+	tab_sb.border_color = BORDER_COLOR
+	tab_sb.set_border_width_all(1)
+	tab_sb.border_width_bottom = 0
+	tab_sb.content_margin_left = 8
+	tab_sb.content_margin_right = 8
+	tab_sb.content_margin_top = 3
+	tab_sb.content_margin_bottom = 3
+	var tab_unsel := StyleBoxFlat.new()
+	tab_unsel.bg_color = Color(0.88, 0.87, 0.84)
+	tab_unsel.border_color = BORDER_COLOR
+	tab_unsel.set_border_width_all(1)
+	tab_unsel.content_margin_left = 8
+	tab_unsel.content_margin_right = 8
+	tab_unsel.content_margin_top = 3
+	tab_unsel.content_margin_bottom = 3
+	var tab_panel_sb := StyleBoxFlat.new()
+	tab_panel_sb.bg_color = Color(0.94, 0.93, 0.90)
+	tab_panel_sb.border_color = BORDER_COLOR
+	tab_panel_sb.set_border_width_all(1)
+	tab_panel_sb.border_width_top = 0
+	tab_panel_sb.content_margin_left = 2
+	tab_panel_sb.content_margin_right = 2
+	tab_panel_sb.content_margin_top = 2
+	tab_panel_sb.content_margin_bottom = 2
+	_bottom_tabs.add_theme_stylebox_override("tab_selected", tab_sb)
+	_bottom_tabs.add_theme_stylebox_override("tab_unselected", tab_unsel)
+	_bottom_tabs.add_theme_stylebox_override("tab_hovered", tab_sb)
+	_bottom_tabs.add_theme_stylebox_override("panel", tab_panel_sb)
+	_bottom_tabs.add_theme_font_size_override("font_size", 11)
+	_bottom_tabs.add_theme_color_override("font_selected_color", Color(0.0, 0.0, 0.4))
+	_bottom_tabs.add_theme_color_override("font_unselected_color", Color(0.3, 0.3, 0.3))
+
+	# Tab 0: Immediate — placeholder, populated via set_immediate_window()
+	var imm_placeholder := Control.new()
+	imm_placeholder.name = "Immediate"
+	imm_placeholder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	imm_placeholder.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_bottom_tabs.add_child(imm_placeholder)
+
+	# Tab 1: Output — build messages, runtime output, Debug.Print
+	var output_container := VBoxContainer.new()
+	output_container.name = "Output"
+	output_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	output_container.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_output_text = RichTextLabel.new()
+	_output_text.name = "OutputText"
+	_output_text.bbcode_enabled = true
+	_output_text.scroll_following = true
+	_output_text.selection_enabled = true
+	_output_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_output_text.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var out_sb := StyleBoxFlat.new()
+	out_sb.bg_color = Color(0.96, 0.95, 0.92)
+	out_sb.content_margin_left = 6
+	out_sb.content_margin_right = 4
+	out_sb.content_margin_top = 4
+	out_sb.content_margin_bottom = 4
+	_output_text.add_theme_stylebox_override("normal", out_sb)
+	_output_text.add_theme_font_size_override("normal_font_size", 11)
+	_output_text.add_theme_font_size_override("mono_font_size", 11)
+	_output_text.add_theme_color_override("default_color", Color(0.1, 0.1, 0.1))
+	_output_text.text = ""
+	_output_text.append_text("[color=#555555][i]Build and runtime output will appear here.[/i][/color]\n")
+	output_container.add_child(_output_text)
+	_bottom_tabs.add_child(output_container)
+
+	# Tab 2: System Console — system-level log messages
+	var console_container := VBoxContainer.new()
+	console_container.name = "System Console"
+	console_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	console_container.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_console_text = RichTextLabel.new()
+	_console_text.name = "ConsoleText"
+	_console_text.bbcode_enabled = true
+	_console_text.scroll_following = true
+	_console_text.selection_enabled = true
+	_console_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_console_text.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var con_sb := StyleBoxFlat.new()
+	con_sb.bg_color = Color(0.12, 0.12, 0.14)  # dark console background
+	con_sb.content_margin_left = 6
+	con_sb.content_margin_right = 4
+	con_sb.content_margin_top = 4
+	con_sb.content_margin_bottom = 4
+	_console_text.add_theme_stylebox_override("normal", con_sb)
+	_console_text.add_theme_font_size_override("normal_font_size", 11)
+	_console_text.add_theme_font_size_override("mono_font_size", 11)
+	_console_text.add_theme_color_override("default_color", Color(0.8, 0.9, 0.8))  # green-on-dark
+	_console_text.text = ""
+	_console_text.append_text("[color=#6688aa]System Console ready.[/color]\n")
+	console_container.add_child(_console_text)
+	_bottom_tabs.add_child(console_container)
+
+	_bottom_panel.add_child(_bottom_tabs)
 	add_child(_bottom_panel)
-	# Immediate Window will be added here by set_immediate_window()
 
 ## Receives the existing Immediate Window from the plugin and embeds it here.
 func set_immediate_window(window: Control) -> void:
-	if not window or not _bottom_panel:
+	if not window or not _bottom_tabs:
 		return
 	_immediate_window_ref = window
-	# Reparent: remove from old parent, add into our bottom panel
+	# Reparent: remove from old parent
 	if window.get_parent():
 		window.get_parent().remove_child(window)
 	window.visible = true  # Was hidden while parked on the plugin
 	window.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	window.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_bottom_panel.add_child(window)
+	# Fix the internal HSplitContainer — it uses anchors that don't work
+	# inside a TabContainer. Convert to size_flags.
+	for child in window.get_children():
+		if child is Control:
+			child.anchor_left = 0
+			child.anchor_top = 0
+			child.anchor_right = 0
+			child.anchor_bottom = 0
+			child.offset_left = 0
+			child.offset_top = 0
+			child.offset_right = 0
+			child.offset_bottom = 0
+			child.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			child.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	# Remove the placeholder and insert the real window at index 0 (Immediate tab)
+	var placeholder = _bottom_tabs.get_child(0)
+	if placeholder and placeholder.name == "Immediate":
+		_bottom_tabs.remove_child(placeholder)
+		placeholder.queue_free()
+	window.name = "Immediate"
+	_bottom_tabs.add_child(window)
+	_bottom_tabs.move_child(window, 0)
+	_bottom_tabs.current_tab = 0
 
 ## Returns the Command Help + Index Map panel for the plugin to place
 ## in the left panel (ToolboxPanel) during Code view.
 func get_help_panel() -> Control:
 	return _left_panel_content
 
-## Called by the plugin when View > Immediate is selected.
+## Switch to the Immediate tab.
 func focus_immediate() -> void:
-	# In the new layout the Immediate Window is always visible in the bottom
-	# panel when in Code view — just ensure the code editor itself is showing.
-	pass
+	if _bottom_tabs:
+		_bottom_tabs.current_tab = 0
+
+## Switch to the Output tab.
+func focus_output() -> void:
+	if _bottom_tabs:
+		_bottom_tabs.current_tab = 1
+
+## Append a line to the Output tab.
+func append_output(msg: String, color: Color = Color(0.1, 0.1, 0.1)) -> void:
+	if _output_text:
+		_output_text.append_text("[color=#" + color.to_html(false) + "]" + msg + "[/color]\n")
+
+## Append a line to the System Console tab.
+func append_console(msg: String, color: Color = Color(0.8, 0.9, 0.8)) -> void:
+	if _console_text:
+		_console_text.append_text("[color=#" + color.to_html(false) + "]" + msg + "[/color]\n")
 
 func _build_help_panel() -> void:
 	_help_scroll = ScrollContainer.new()
