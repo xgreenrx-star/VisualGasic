@@ -63,6 +63,9 @@ var _help_scroll: ScrollContainer = null
 var _help_label: RichTextLabel = null
 var _last_help_keyword: String = ""        # avoid redundant redraws
 
+## Main split: code editor (top) / bottom panel (bottom) — resizable like VB6
+var _main_split: VSplitContainer = null
+
 ## Bottom panel: tabbed — Immediate, Output, System Console
 var _bottom_panel: PanelContainer = null   # outer container
 var _bottom_tabs: TabContainer = null      # tab switcher
@@ -156,7 +159,26 @@ func _build_ui() -> void:
 	_code_edit.text_changed.connect(_on_code_changed)
 	_code_edit.caret_changed.connect(_on_caret_moved)
 	VGTheme.hook_text_edit(_code_edit)
-	add_child(_code_edit)
+
+	# ── Left-panel content: Command Help + Index Map (reparented by plugin) ──
+	_build_left_panel_content()
+
+	# ── Bottom panel: Immediate Window ──
+	_build_bottom_panel()
+
+	# ── Main split: code editor (top) + bottom panel (bottom) ──
+	# VSplitContainer guarantees the bottom panel gets proper space and
+	# the user can drag the splitter to resize — just like VB6.
+	_main_split = VSplitContainer.new()
+	_main_split.name = "MainSplit"
+	_main_split.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_main_split.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_main_split.dragger_visibility = SplitContainer.DRAGGER_VISIBLE
+	_main_split.add_theme_constant_override("separation", 4)
+	_main_split.add_theme_constant_override("minimum_grab_thickness", 6)
+	_main_split.add_child(_code_edit)
+	_main_split.add_child(_bottom_panel)
+	add_child(_main_split)
 
 	# Apply theme AFTER add_child so VGCodeEdit._ready() has already run.
 	# _ready() creates a CodeHighlighter with dark-background colors;
@@ -166,12 +188,6 @@ func _build_ui() -> void:
 	# Scrollbar children may not be ready until the node enters the tree,
 	# so apply scrollbar styling on a deferred call.
 	call_deferred("_apply_scrollbar_theme")
-
-	# ── Left-panel content: Command Help + Index Map (reparented by plugin) ──
-	_build_left_panel_content()
-
-	# ── Bottom panel: Immediate Window ──
-	_build_bottom_panel()
 
 func _build_left_panel_content() -> void:
 	## Build Command Help + Index Map as a standalone VBoxContainer.
@@ -316,7 +332,7 @@ func _build_bottom_panel() -> void:
 	_bottom_tabs.add_child(console_container)
 
 	_bottom_panel.add_child(_bottom_tabs)
-	add_child(_bottom_panel)
+	# Don't add_child here — _build_ui() adds _bottom_panel to the VSplitContainer
 
 ## Receives the existing Immediate Window from the plugin and embeds it here.
 func set_immediate_window(window: Control) -> void:

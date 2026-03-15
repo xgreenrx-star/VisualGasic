@@ -3961,16 +3961,16 @@ func _show_find_replace_bar(show_replace: bool) -> void:
 	if not is_instance_valid(_find_replace_bar):
 		_create_find_replace_bar()
 	if not _find_replace_bar.get_parent():
-		# Insert above the code editor
+		# Insert above the main split (between nav bar and code area)
 		if is_instance_valid(_embedded_code_editor):
-			var code_idx = _embedded_code_editor.get_child_count()
-			# Insert just before the CodeEdit
+			var split_idx = _embedded_code_editor.get_child_count()
 			for i in _embedded_code_editor.get_child_count():
-				if _embedded_code_editor.get_child(i) is CodeEdit or _embedded_code_editor.get_child(i).name == "CodeEdit":
-					code_idx = i
+				var child = _embedded_code_editor.get_child(i)
+				if child is VSplitContainer or child.name == "MainSplit":
+					split_idx = i
 					break
 			_embedded_code_editor.add_child(_find_replace_bar)
-			_embedded_code_editor.move_child(_find_replace_bar, code_idx)
+			_embedded_code_editor.move_child(_find_replace_bar, split_idx)
 	_find_replace_bar.visible = true
 	_replace_input.visible = show_replace
 	if _replace_input.get_parent() and _replace_input.get_parent().has_method("get_child"):
