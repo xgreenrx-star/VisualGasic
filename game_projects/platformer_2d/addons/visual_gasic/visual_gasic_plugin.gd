@@ -526,10 +526,12 @@ func _enter_tree():
 			_embedded_code_editor.view_object_requested.connect(_show_form_view)
 			canvas_right_split.add_child(_embedded_code_editor)
 			print("VisualGasic: Embedded Code Editor created")
-			# Embed the Immediate Window into the code editor's bottom panel
+			# Embed the Immediate Window into the code editor's bottom panel.
+			# Must be deferred — both nodes need _ready() to run first so their
+			# UI children exist (TabContainer, HSplitContainer, etc.).
 			if is_instance_valid(immediate_window):
-				_embedded_code_editor.set_immediate_window(immediate_window)
-				print("VisualGasic: Immediate Window embedded in Code Editor bottom panel")
+				_embedded_code_editor.set_immediate_window.call_deferred(immediate_window)
+				print("VisualGasic: Immediate Window embedding deferred")
 
 		# -- RIGHT: Project Explorer + Properties (resizable VSplitContainer) --
 		var right_vsplit = VSplitContainer.new()

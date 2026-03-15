@@ -56,6 +56,7 @@ func _ready():
 	_show_welcome()
 	_setup_auto_refresh_timer()
 
+
 func _setup_auto_refresh_timer():
 	_auto_refresh_timer = Timer.new()
 	_auto_refresh_timer.wait_time = AUTO_REFRESH_INTERVAL

@@ -337,6 +337,7 @@ func _build_bottom_panel() -> void:
 ## Receives the existing Immediate Window from the plugin and embeds it here.
 func set_immediate_window(window: Control) -> void:
 	if not window or not _bottom_tabs:
+		push_warning("set_immediate_window: window or _bottom_tabs not ready")
 		return
 	_immediate_window_ref = window
 	# Reparent: remove from old parent
@@ -345,8 +346,6 @@ func set_immediate_window(window: Control) -> void:
 	window.visible = true  # Was hidden while parked on the plugin
 	window.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	window.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	# The Immediate Window is a MarginContainer — it properly sizes its child
-	# HSplitContainer via size_flags, so no manual anchor fixup is needed.
 	# Remove the placeholder and insert the real window at index 0 (Immediate tab)
 	var placeholder = _bottom_tabs.get_child(0)
 	if placeholder and placeholder.name == "Immediate":
