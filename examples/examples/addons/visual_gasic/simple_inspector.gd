@@ -1623,7 +1623,7 @@ func _add_list_editor_row(label_text: String, value: String, prop_key: String, a
 	)
 	property_grid.add_child(lbl)
 
-	# Count items from comma-separated value
+	# Parse items from comma-separated value
 	var items: PackedStringArray = []
 	if not value.is_empty():
 		for item in value.split(","):
@@ -1634,20 +1634,40 @@ func _add_list_editor_row(label_text: String, value: String, prop_key: String, a
 	var hbox = HBoxContainer.new()
 	hbox.size_flags_horizontal = SIZE_EXPAND_FILL
 
+	# Show actual item names (e.g. "Resume, Settings, Quit") instead of "3 items"
 	var display = LineEdit.new()
-	var n = items.size()
-	display.text = str(n) + " item" + ("s" if n != 1 else "")
+	display.text = ", ".join(items) if items.size() > 0 else "(empty)"
 	display.editable = false
 	display.size_flags_horizontal = SIZE_EXPAND_FILL
 	_style_line_edit(display)
-	display.add_theme_color_override("font_color", Color(0.4, 0.4, 0.4))
+	display.add_theme_color_override("font_color", Color(0.1, 0.1, 0.6))
+	display.tooltip_text = "Click to edit list items"
+	display.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 
 	var btn = Button.new()
-	btn.text = "..."
+	btn.text = "▼"
 	btn.tooltip_text = "Open list editor"
 	btn.custom_minimum_size.x = 28
-	btn.pressed.connect(func():
-		_show_list_editor_popup(prop_key, value, display, auto_count_key, min_items, max_items)
+	# VB6-style button theming for visibility
+	var btn_style = StyleBoxFlat.new()
+	btn_style.bg_color = Color(0.88, 0.88, 0.86)
+	btn_style.border_color = Color(0.5, 0.5, 0.5)
+	btn_style.set_border_width_all(1)
+	btn_style.content_margin_left = 2
+	btn_style.content_margin_right = 2
+	btn.add_theme_stylebox_override("normal", btn_style)
+	var btn_hover = btn_style.duplicate()
+	btn_hover.bg_color = Color(0.92, 0.92, 0.90)
+	btn.add_theme_stylebox_override("hover", btn_hover)
+	btn.add_theme_color_override("font_color", Color(0.1, 0.1, 0.1))
+
+	# Both the display field and the ▼ button open the list editor
+	var open_editor := func():
+		_show_list_editor_popup(prop_key, display, auto_count_key, min_items, max_items)
+	btn.pressed.connect(open_editor)
+	display.gui_input.connect(func(event):
+		if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+			open_editor.call()
 	)
 
 	hbox.add_child(display)
@@ -1656,10 +1676,20 @@ func _add_list_editor_row(label_text: String, value: String, prop_key: String, a
 	_prop_row_index += 1
 
 ## Open a VB6-style list editor popup dialog for editing list items one per line.
-func _show_list_editor_popup(prop_key: String, current_value: String, display_edit: LineEdit, auto_count_key: String, min_items: int, max_items: int):
+func _show_list_editor_popup(prop_key: String, display_edit: LineEdit, auto_count_key: String, min_items: int, max_items: int):
+	# Read CURRENT value from the control properties (not a stale capture)
+	var current_value := ""
+	if _fd_mode and not _fd_form_mode and is_instance_valid(_fd_designer) and _fd_control_index >= 0:
+		var info = _fd_designer.get_control_info(_fd_control_index)
+		var props: Dictionary = info.get("properties", {})
+		current_value = str(props.get(prop_key, ""))
+	if current_value.is_empty():
+		# Fallback: parse from display text
+		current_value = display_edit.text.replace(", ", ",")
+
 	# Parse current items
 	var items: PackedStringArray = []
-	if not current_value.is_empty():
+	if not current_value.is_empty() and current_value != "(empty)":
 		for item in current_value.split(","):
 			var trimmed = item.strip_edges()
 			if not trimmed.is_empty():
@@ -1729,9 +1759,8 @@ func _show_list_editor_popup(prop_key: String, current_value: String, display_ed
 			if max_items > 0:
 				count = min(count, max_items)
 			_apply_prop(auto_count_key, count)
-		# Update display
-		var nn = new_items.size()
-		display_edit.text = str(nn) + " item" + ("s" if nn != 1 else "")
+		# Update display to show actual item names
+		display_edit.text = ", ".join(new_items) if new_items.size() > 0 else "(empty)"
 		dialog.queue_free()
 		# Refresh inspector if auto-count changed
 		if not auto_count_key.is_empty():
