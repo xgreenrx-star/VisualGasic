@@ -493,6 +493,7 @@ offset_bottom = 250.0
 color = Color(0.0, 0.0, 0.0, 0.6)
 Buttons = "Resume,Settings,Quit"
 metadata/Tag = ""
+ButtonCount = 3
 
 [node name="TextureRect1" parent="." instance=ExtResource("6")]
 offset_left = 80.0

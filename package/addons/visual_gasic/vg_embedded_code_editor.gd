@@ -210,14 +210,27 @@ func _build_help_panel() -> void:
 	_help_label.scroll_active = false  # let the ScrollContainer handle scrolling
 	_help_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_help_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_help_label.add_theme_font_size_override("normal_font_size", 12)
-	_help_label.add_theme_font_size_override("bold_font_size", 12)
-	_help_label.add_theme_font_size_override("mono_font_size", 11)
-	_help_label.add_theme_color_override("default_color", TEXT_COLOR)
+
+	# Force VB6 cream theme — override the Godot editor dark theme
+	_help_label.add_theme_font_size_override("normal_font_size", 11)
+	_help_label.add_theme_font_size_override("bold_font_size", 11)
+	_help_label.add_theme_font_size_override("italics_font_size", 11)
+	_help_label.add_theme_font_size_override("mono_font_size", 10)
+	_help_label.add_theme_color_override("default_color", Color(0.1, 0.1, 0.1))
+	_help_label.add_theme_color_override("font_color", Color(0.1, 0.1, 0.1))
+
+	# Transparent background so the cream panel shows through
+	var help_sb := StyleBoxFlat.new()
+	help_sb.bg_color = Color(0.96, 0.95, 0.92)  # cream, matching BG_COLOR
+	help_sb.content_margin_left = 6
+	help_sb.content_margin_right = 4
+	help_sb.content_margin_top = 4
+	help_sb.content_margin_bottom = 4
+	_help_label.add_theme_stylebox_override("normal", help_sb)
 
 	# Welcome text
 	_help_label.text = ""
-	_help_label.append_text("[color=#444444][i]Place the cursor on a keyword to see its documentation.[/i][/color]")
+	_help_label.append_text("[color=#555555][i]Place the cursor on a keyword to see its documentation.[/i][/color]")
 
 	_help_scroll.add_child(_help_label)
 
@@ -963,13 +976,13 @@ func _update_command_help() -> void:
 
 	if keyword.is_empty():
 		_help_label.text = ""
-		_help_label.append_text("[color=#444444][i]Place the cursor on a keyword to see its documentation.[/i][/color]")
+		_help_label.append_text("[color=#555555][i]Place the cursor on a keyword to see its documentation.[/i][/color]")
 		return
 
 	var entry := VGCommandHelp.lookup(keyword)
 	if entry.is_empty():
 		_help_label.text = ""
-		_help_label.append_text("[color=#444444][i]No documentation for \"" + keyword + "\"[/i][/color]")
+		_help_label.append_text("[color=#555555][i]No documentation for \"" + keyword + "\"[/i][/color]")
 		return
 
 	# Reset the scroll position
@@ -979,26 +992,26 @@ func _update_command_help() -> void:
 	_help_label.text = ""
 
 	# ── Keyword title ──
-	_help_label.append_text("[b][color=#00008B][font_size=14]" + entry.get("keyword", keyword) + "[/font_size][/color][/b]\n\n")
+	_help_label.append_text("[b][color=#00006B][font_size=12]" + entry.get("keyword", keyword) + "[/font_size][/color][/b]\n\n")
 
 	# ── Syntax ──
-	_help_label.append_text("[b][color=#333399]Syntax[/color][/b]\n")
-	_help_label.append_text("[code]" + entry.get("syntax", "") + "[/code]\n\n")
+	_help_label.append_text("[b][color=#00006B]Syntax[/color][/b]\n")
+	_help_label.append_text("[color=#333333][code]" + entry.get("syntax", "") + "[/code][/color]\n\n")
 
 	# ── Description ──
-	_help_label.append_text("[b][color=#333399]Description[/color][/b]\n")
-	_help_label.append_text(entry.get("desc", "") + "\n\n")
+	_help_label.append_text("[b][color=#00006B]Description[/color][/b]\n")
+	_help_label.append_text("[color=#222222]" + entry.get("desc", "") + "[/color]\n\n")
 
 	# ── Code Example ──
 	var code_text: String = entry.get("code", "")
 	if not code_text.is_empty():
-		_help_label.append_text("[b][color=#333399]Example[/color][/b]\n")
-		_help_label.append_text("[code]" + code_text + "[/code]\n\n")
+		_help_label.append_text("[b][color=#00006B]Example[/color][/b]\n")
+		_help_label.append_text("[color=#333333][code]" + code_text + "[/code][/color]\n\n")
 
 	# ── Reference link ──
 	var ref_line: int = entry.get("ref_line", 0)
 	if ref_line > 0:
-		_help_label.append_text("[color=#666666][i]📖 Programmer's Reference, line " + str(ref_line) + "[/i][/color]")
+		_help_label.append_text("[color=#555555][i]📖 Programmer's Reference, line " + str(ref_line) + "[/i][/color]")
 
 # =============================================================================
 # PROCEDURE SEPARATOR LINES
