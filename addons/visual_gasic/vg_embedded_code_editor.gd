@@ -73,6 +73,12 @@ var _immediate_window_ref = null           # reference to the plugin's Immediate
 var _output_text: RichTextLabel = null     # Output tab: build/runtime messages
 var _console_text: RichTextLabel = null    # System Console tab: system log
 
+## System Console: Godot log file tailing (cross-platform)
+var _log_file_path: String = ""
+var _log_file_pos: int = 0                 # byte offset for incremental reads
+var _log_timer: Timer = null               # polls log file every 0.5s
+var _log_max_lines: int = 500              # keep console from growing unbounded
+
 # VB6 cream theme colors
 const BG_COLOR := Color(0.96, 0.95, 0.92)         # warm cream — easy on the eyes
 const TEXT_COLOR := Color(0.1, 0.1, 0.1)           # near-black text
@@ -188,6 +194,9 @@ func _build_ui() -> void:
 	# Scrollbar children may not be ready until the node enters the tree,
 	# so apply scrollbar styling on a deferred call.
 	call_deferred("_apply_scrollbar_theme")
+
+	# Start Godot log file tailing for System Console (cross-platform)
+	_start_log_tailing()
 
 func _build_left_panel_content() -> void:
 	## Build Command Help + Index Map as a standalone VBoxContainer.
@@ -380,6 +389,95 @@ func append_output(msg: String, color: Color = Color(0.1, 0.1, 0.1)) -> void:
 func append_console(msg: String, color: Color = Color(0.8, 0.9, 0.8)) -> void:
 	if _console_text:
 		_console_text.append_text("[color=#" + color.to_html(false) + "]" + msg + "[/color]\n")
+
+## Switch to the System Console tab.
+func focus_console() -> void:
+	if _bottom_tabs:
+		_bottom_tabs.current_tab = 2
+
+## Clear the Output tab.
+func clear_output() -> void:
+	if _output_text:
+		_output_text.clear()
+		_output_text.append_text("[color=#555555][i]Output cleared.[/i][/color]\n")
+
+## Clear the System Console tab.
+func clear_console() -> void:
+	if _console_text:
+		_console_text.clear()
+		_console_text.append_text("[color=#6688aa]Console cleared.[/color]\n")
+
+# =============================================================================
+# SYSTEM CONSOLE: Godot log file tailing (works on all platforms)
+# =============================================================================
+
+func _start_log_tailing() -> void:
+	# Godot writes logs to user://logs/godot.log on all platforms
+	_log_file_path = ProjectSettings.globalize_path("user://logs/godot.log")
+	if not FileAccess.file_exists(_log_file_path):
+		# Try alternate path
+		var alt = ProjectSettings.globalize_path("user://logs")
+		var dir = DirAccess.open(alt)
+		if dir:
+			dir.list_dir_begin()
+			var fname = dir.get_next()
+			while fname != "":
+				if fname.ends_with(".log"):
+					_log_file_path = alt + "/" + fname
+					break
+				fname = dir.get_next()
+			dir.list_dir_end()
+
+	# Seek to end of file (only show new messages)
+	if FileAccess.file_exists(_log_file_path):
+		var f = FileAccess.open(_log_file_path, FileAccess.READ)
+		if f:
+			_log_file_pos = f.get_length()
+			f.close()
+		append_console("Tailing: " + _log_file_path, Color(0.5, 0.6, 0.7))
+	else:
+		append_console("Log file not found — console shows manually routed messages only.", Color(0.7, 0.6, 0.4))
+
+	# Poll every 0.5s
+	_log_timer = Timer.new()
+	_log_timer.wait_time = 0.5
+	_log_timer.autostart = true
+	_log_timer.timeout.connect(_poll_log_file)
+	add_child(_log_timer)
+
+func _poll_log_file() -> void:
+	if _log_file_path.is_empty() or not FileAccess.file_exists(_log_file_path):
+		return
+	var f = FileAccess.open(_log_file_path, FileAccess.READ)
+	if not f:
+		return
+	var file_len = f.get_length()
+	if file_len <= _log_file_pos:
+		f.close()
+		return
+	# Read new bytes
+	f.seek(_log_file_pos)
+	var new_text = f.get_buffer(file_len - _log_file_pos).get_string_from_utf8()
+	_log_file_pos = file_len
+	f.close()
+
+	if new_text.is_empty():
+		return
+
+	# Parse each line and colorize by severity
+	for line in new_text.split("\n"):
+		if line.strip_edges().is_empty():
+			continue
+		var color := "#88aa88"  # default: muted green
+		var line_lower = line.to_lower()
+		if line_lower.contains("error") or line_lower.contains("err "):
+			color = "#ff6666"  # red for errors
+		elif line_lower.contains("warning") or line_lower.contains("warn"):
+			color = "#ddaa44"  # amber for warnings
+		elif line_lower.contains("visualgasic") or line_lower.contains("[vg"):
+			color = "#66ccff"  # cyan for VG messages
+		if _console_text:
+			_console_text.append_text("[color=" + color + "]" + line + "[/color]\n")
 
 func _build_help_panel() -> void:
 	_help_scroll = ScrollContainer.new()

@@ -532,6 +532,8 @@ func _enter_tree():
 			if is_instance_valid(immediate_window):
 				_embedded_code_editor.set_immediate_window.call_deferred(immediate_window)
 				print("VisualGasic: Immediate Window embedding deferred")
+			# Wire Output and System Console tabs to live data sources
+			_wire_output_tabs.call_deferred()
 
 		# -- RIGHT: Project Explorer + Properties (resizable VSplitContainer) --
 		var right_vsplit = VSplitContainer.new()
@@ -3904,20 +3906,30 @@ func _on_vb6_format_menu(id: int) -> void:
 
 func _on_vb6_debug_menu(id: int) -> void:
 	match id:
-		0: EditorInterface.play_main_scene()
-		1: EditorInterface.play_current_scene()
-		10: EditorInterface.stop_playing_scene()
+		0:
+			_log_output("▶ Running main scene...", Color(0.0, 0.4, 0.0))
+			EditorInterface.play_main_scene()
+		1:
+			_log_output("▶ Running current scene...", Color(0.0, 0.4, 0.0))
+			EditorInterface.play_current_scene()
+		10:
+			_log_output("■ Stopped.", Color(0.5, 0.0, 0.0))
+			EditorInterface.stop_playing_scene()
 
 func _on_vb6_run_menu(id: int) -> void:
 	match id:
 		0: # Preview Form
+			_log_output("▶ Preview Form...", Color(0.0, 0.3, 0.5))
 			if is_instance_valid(form_preview_toolbar) and form_preview_toolbar.has_method("_on_preview"):
 				form_preview_toolbar._on_preview()
 		1: # Preview + Debug
+			_log_output("▶ Preview + Debug...", Color(0.0, 0.3, 0.5))
 			if is_instance_valid(form_preview_toolbar) and form_preview_toolbar.has_method("_on_preview_debug"):
 				form_preview_toolbar._on_preview_debug()
 		10: pass # Build
-		11: EditorInterface.play_main_scene()
+		11:
+			_log_output("▶ Run Project...", Color(0.0, 0.4, 0.0))
+			EditorInterface.play_main_scene()
 
 func _on_vb6_tools_menu(id: int) -> void:
 	match id:
@@ -5350,6 +5362,48 @@ func _feed_control_names_to_editor() -> void:
 		for i in count:
 			info_list.append(_form_designer.get_control_info(i))
 		_embedded_code_editor.set_control_info_list(info_list)
+
+## Wire the Output and System Console tabs to live data sources.
+## Called deferred so the code editor's UI is fully built.
+func _wire_output_tabs() -> void:
+	if not is_instance_valid(_embedded_code_editor):
+		return
+
+	# 1) Route Debug.Print from running game → Output tab
+	if debugger_plugin and debugger_plugin.has_signal("debug_print_received"):
+		if not debugger_plugin.debug_print_received.is_connected(_on_debug_print_to_output):
+			debugger_plugin.debug_print_received.connect(_on_debug_print_to_output)
+
+	# 2) Route profiler data summaries → Output tab
+	if debugger_plugin and debugger_plugin.has_signal("profiler_data_received"):
+		if not debugger_plugin.profiler_data_received.is_connected(_on_profiler_to_output):
+			debugger_plugin.profiler_data_received.connect(_on_profiler_to_output)
+
+	# 3) Log an initial message so the Output tab isn't empty
+	var ts = Time.get_datetime_string_from_system(false, true)
+	_embedded_code_editor.append_output("Session started: " + ts, Color(0.3, 0.3, 0.6))
+
+	print("VisualGasic: Output and System Console tabs wired")
+
+## Debug.Print output from running game → Output tab
+func _on_debug_print_to_output(text: String) -> void:
+	if is_instance_valid(_embedded_code_editor):
+		_embedded_code_editor.append_output("[Debug.Print] " + text, Color(0.0, 0.4, 0.5))
+
+## Profiler report summary → Output tab
+func _on_profiler_to_output(report: Dictionary) -> void:
+	if is_instance_valid(_embedded_code_editor):
+		var summary := "Profiler: "
+		if report.has("total_time_ms"):
+			summary += str(snapped(report["total_time_ms"], 0.01)) + "ms"
+		if report.has("frame_count"):
+			summary += " (" + str(report["frame_count"]) + " frames)"
+		_embedded_code_editor.append_output(summary, Color(0.4, 0.4, 0.2))
+
+## Log a message to the Output tab (callable from anywhere in the plugin).
+func _log_output(msg: String, color: Color = Color(0.1, 0.1, 0.1)) -> void:
+	if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.has_method("append_output"):
+		_embedded_code_editor.append_output(msg, color)
 
 ## Switch the center panel from form canvas to code editor.
 func _show_code_view() -> void:
