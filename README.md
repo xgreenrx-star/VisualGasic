@@ -57,15 +57,41 @@
 
 ### **VB6-Style Visual Gasic IDE**
 
-![Visual Gasic IDE](docs/screenshots/form_designer_ide.png)
+![Form Designer](docs/screenshots/ide_form_designer.png)
 
-*Complete VB6 IDE: Toolbox (40+ controls) · WYSIWYG Canvas · Properties Panel · Project Explorer · Alignment Toolbar · Live Preview*
+*Form Designer: Toolbox (40+ controls) · WYSIWYG Canvas · Properties Panel · Project Explorer · Alignment Toolbar · Live Preview*
+
+![Code Editor with Bottom Panel](docs/screenshots/ide_bottom_panel.png)
+
+*Code Editor: Procedure navigation · Command Help panel · Tabbed bottom panel (Immediate Window, Output, System Console)*
+
+![Code Editor](docs/screenshots/ide_code_editor.png)
+
+*Code view: Left panel with Command Help & Index Map · Syntax-highlighted editor · Draggable split with bottom panel*
+
+### **Immediate Window & Debugging**
+
+![Immediate Window](docs/screenshots/ide_immediate_window.png)
+
+*Interactive REPL: Execute expressions live · Inspect variables · Remote debugging · Data breakpoints*
+
+### **Command Help & IDE Tools**
+
+![Command Help](docs/screenshots/ide_command_help.png)
+
+*Command Help panel: VB6-style keyword reference · Index Map for quick lookup · Cream-themed classic look*
 
 ### **Custom Theme Editor**
 
 ![Theme Editor](docs/screenshots/theme_picker_editor.png)
 
 *8 built-in themes + Custom Theme Editor with 38 adjustable colors and live preview*
+
+### **Game UI Controls**
+
+![Game UI Controls](docs/screenshots/game_ui_controls.png)
+
+*7 Tier 1 animated controls: DialogPanel · InventoryGrid · StatBar · HUDCounter · CooldownButton · NotificationToast · GameMenu*
 
 ### **Game Development**
 - **Entity Component System** - High-performance ECS with archetype optimization

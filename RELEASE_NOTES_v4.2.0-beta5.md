@@ -16,6 +16,16 @@
 
 This release focuses on **IDE bottom panel improvements** — making the Immediate Window, Output tab, and System Console fully functional.
 
+### Screenshots
+
+![Code Editor with Bottom Panel](docs/screenshots/ide_bottom_panel.png)
+
+*Code Editor with draggable bottom panel: Immediate Window · Output · System Console tabs*
+
+![Immediate Window](docs/screenshots/ide_immediate_window.png)
+
+*Immediate Window: Interactive REPL for live code execution and variable inspection*
+
 ### 🔧 Bottom Panel — Draggable VSplitContainer
 
 The bottom panel (Immediate / Output / System Console) now uses a **VSplitContainer** with a draggable splitter between the code editor and the tabbed panel below.
