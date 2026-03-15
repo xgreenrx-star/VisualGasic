@@ -5,6 +5,29 @@ All notable changes to Visual Gasic will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.2.0-beta5] - 2026-03-15
+
+### 🖥️ IDE Bottom Panel & Live Console
+
+This release makes the IDE's bottom panel (Immediate / Output / System Console) fully functional.
+
+#### Fixed
+- **Bottom panel zero height** — Replaced VBoxContainer with VSplitContainer for code editor / bottom panel split. Draggable splitter with 160px minimum panel height
+- **Immediate Window blank** — Root cause: `set_immediate_window()` was called before `_ready()` fired on target nodes. Fixed with `call_deferred()`. Also changed Immediate Window from `extends Control` to `extends MarginContainer` for proper container-compatible layout
+
+#### Added
+- **Output tab: Debug.Print routing** — `Debug.Print` statements in VB code now appear in the Output tab via the debugger protocol
+- **Output tab: Lifecycle events** — Build/run/stop actions log timestamped messages ("▶ Running main scene...", "■ Stopped.")
+- **Output tab: Profiler summaries** — Profiler reports route to the Output tab when profiling is active
+- **System Console: Live log tailing** — Tails `user://logs/godot.log` with 0.5s polling. Cross-platform (Linux, Windows, macOS)
+- **System Console: Color-coded output** — Red for errors, amber for warnings, cyan for VisualGasic messages, green for normal output
+- **System Console: Dark terminal theme** — Black background with green text, matching a classic terminal aesthetic
+
+#### Changed
+- Code editor + bottom panel now use VSplitContainer (draggable splitter)
+- Immediate Window extends MarginContainer (was Control)
+- `set_immediate_window()` and `_wire_output_tabs()` use `call_deferred()` for lifecycle safety
+
 ## [4.2.0] - 2026-03-13
 
 ### 🚀 GDScript Parity — Export, Await, Import, ClassName, $NodeName

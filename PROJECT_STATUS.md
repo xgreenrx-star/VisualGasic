@@ -1,6 +1,6 @@
 # VisualGasic Project Status
 
-**Version**: 4.2.0 (GDScript Parity — Export, Await, Import, ClassName, $NodeName)  
+**Version**: 4.2.0-beta5 (IDE Bottom Panel & Live Console)  
 **Last Updated**: March 2026
 
 ## Overview

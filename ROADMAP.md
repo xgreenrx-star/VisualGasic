@@ -1,7 +1,7 @@
 # Visual Gasic Development Roadmap
 
 **Last Updated**: March 2026  
-**Current Version**: 4.2.0-beta4 (GDScript Parity — Export, Await, Import, ClassName, $NodeName)
+**Current Version**: 4.2.0-beta5 (IDE Bottom Panel & Live Console)
 
 This document outlines the planned improvements and features for Visual Gasic. Items are prioritized by impact and development effort.
 
