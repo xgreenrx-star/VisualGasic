@@ -535,8 +535,8 @@ metadata/Tag = ""
 [node name="TabPanel1" parent="." instance=ExtResource("10")]
 offset_left = 440.0
 offset_top = 72.0
-offset_right = 632.0
-offset_bottom = 144.0
+offset_right = 712.0
+offset_bottom = 176.0
 theme_override_colors/font_color = Color(0.0, 0.0, 0.0, 1.0)
 theme_override_styles/normal = SubResource("ctrl_bg_TabPanel1")
 focus_mode = 2

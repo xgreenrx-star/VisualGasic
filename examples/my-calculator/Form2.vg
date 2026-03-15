@@ -73,3 +73,7 @@ End Sub
 Sub TextureRect1_Click()
 
 End Sub
+
+Sub TabPanel1_tab_changed(index As Integer)
+
+End Sub

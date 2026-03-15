@@ -1,5 +1,5 @@
 @tool
-extends Control
+extends MarginContainer
 
 ## Interactive Development Console
 ## Execute code expressions and statements in real-time during development
@@ -102,8 +102,8 @@ func set_debugger_plugin(plugin: EditorDebuggerPlugin) -> void:
 func _setup_ui():
 	# Main horizontal split: Console (left) + Panels (right)
 	var main_split = HSplitContainer.new()
-	main_split.anchor_right = 1.0
-	main_split.anchor_bottom = 1.0
+	main_split.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	main_split.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	add_child(main_split)
 	
 	# Left side: Console
