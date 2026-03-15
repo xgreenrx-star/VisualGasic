@@ -273,6 +273,7 @@ func set_immediate_window(window: Control) -> void:
 	# Reparent: remove from old parent, add into our container
 	if window.get_parent():
 		window.get_parent().remove_child(window)
+	window.visible = true  # Was hidden while parked on the plugin
 	window.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	window.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	window.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
