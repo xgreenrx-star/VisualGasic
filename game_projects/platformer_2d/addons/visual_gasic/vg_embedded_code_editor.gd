@@ -57,12 +57,18 @@ var _index_map_toggle: Button = null
 var _index_map_visible: bool = false
 var _current_index_control: Dictionary = {}  # { name, type, properties }
 
-## Command Help panel — shows syntax & examples for the keyword at the cursor
-var _bottom_panel: PanelContainer = null   # outer container for both panels
-var _bottom_split: HSplitContainer = null   # left=help, right=index map
+## Bottom panel with tabs: Command Help, Immediate
+var _bottom_panel: PanelContainer = null   # outer container
+var _bottom_tab_bar: TabBar = null         # tab switcher
+var _bottom_content: Control = null        # stacked content area
+var _bottom_split: HSplitContainer = null  # Command Help tab: left=help, right=index map
 var _help_scroll: ScrollContainer = null
 var _help_label: RichTextLabel = null
-var _last_help_keyword: String = ""         # avoid redundant redraws
+var _last_help_keyword: String = ""        # avoid redundant redraws
+var _immediate_container: Control = null   # Immediate tab: hosts the reparented window
+var _immediate_window_ref = null           # reference to the plugin's Immediate Window
+
+enum BottomTab { COMMAND_HELP = 0, IMMEDIATE = 1 }
 
 # VB6 cream theme colors
 const BG_COLOR := Color(0.96, 0.95, 0.92)         # warm cream — easy on the eyes
@@ -179,22 +185,110 @@ func _build_bottom_panel() -> void:
 	_bottom_panel.add_theme_stylebox_override("panel", panel_sb)
 	_bottom_panel.custom_minimum_size.y = 140
 
+	var outer_vbox := VBoxContainer.new()
+	outer_vbox.add_theme_constant_override("separation", 0)
+	outer_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	outer_vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
+
+	# ── Tab bar ──
+	_bottom_tab_bar = TabBar.new()
+	_bottom_tab_bar.name = "BottomTabBar"
+	_bottom_tab_bar.add_tab("Command Help")
+	_bottom_tab_bar.add_tab("Immediate")
+	_bottom_tab_bar.current_tab = BottomTab.COMMAND_HELP
+	_bottom_tab_bar.tab_changed.connect(_on_bottom_tab_changed)
+	_bottom_tab_bar.add_theme_font_size_override("font_size", 11)
+	# VB6-style tab theming
+	var tab_sb := StyleBoxFlat.new()
+	tab_sb.bg_color = Color(0.96, 0.95, 0.92)
+	tab_sb.border_color = BORDER_COLOR
+	tab_sb.set_border_width_all(1)
+	tab_sb.border_width_bottom = 0
+	tab_sb.content_margin_left = 8
+	tab_sb.content_margin_right = 8
+	tab_sb.content_margin_top = 3
+	tab_sb.content_margin_bottom = 3
+	var tab_unsel := StyleBoxFlat.new()
+	tab_unsel.bg_color = Color(0.88, 0.87, 0.84)
+	tab_unsel.border_color = BORDER_COLOR
+	tab_unsel.set_border_width_all(1)
+	tab_unsel.content_margin_left = 8
+	tab_unsel.content_margin_right = 8
+	tab_unsel.content_margin_top = 3
+	tab_unsel.content_margin_bottom = 3
+	_bottom_tab_bar.add_theme_stylebox_override("tab_selected", tab_sb)
+	_bottom_tab_bar.add_theme_stylebox_override("tab_unselected", tab_unsel)
+	_bottom_tab_bar.add_theme_stylebox_override("tab_hovered", tab_sb)
+	_bottom_tab_bar.add_theme_color_override("font_selected_color", Color(0.0, 0.0, 0.4))
+	_bottom_tab_bar.add_theme_color_override("font_unselected_color", Color(0.3, 0.3, 0.3))
+	outer_vbox.add_child(_bottom_tab_bar)
+
+	# ── Stacked content area ──
+	_bottom_content = Control.new()
+	_bottom_content.name = "BottomContent"
+	_bottom_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_bottom_content.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_bottom_content.clip_contents = true
+
+	# Tab 0: Command Help + Index Map
 	_bottom_split = HSplitContainer.new()
 	_bottom_split.name = "BottomSplit"
 	_bottom_split.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_bottom_split.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_bottom_split.split_offset = 340  # left panel default width
+	_bottom_split.split_offset = 340
+	_bottom_split.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
-	# ── Left side: Command Help ──
 	_build_help_panel()
 	_bottom_split.add_child(_help_scroll)
 
-	# ── Right side: Index Map (preserves existing behavior) ──
 	_build_index_map_panel()
 	_bottom_split.add_child(_index_map_panel)
 
-	_bottom_panel.add_child(_bottom_split)
+	_bottom_content.add_child(_bottom_split)
+
+	# Tab 1: Immediate Window placeholder (populated via set_immediate_window)
+	_immediate_container = Control.new()
+	_immediate_container.name = "ImmediateContainer"
+	_immediate_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_immediate_container.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_immediate_container.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_immediate_container.visible = false
+	_bottom_content.add_child(_immediate_container)
+
+	outer_vbox.add_child(_bottom_content)
+	_bottom_panel.add_child(outer_vbox)
 	add_child(_bottom_panel)
+
+func _on_bottom_tab_changed(tab_idx: int) -> void:
+	if _bottom_split:
+		_bottom_split.visible = (tab_idx == BottomTab.COMMAND_HELP)
+	if _immediate_container:
+		_immediate_container.visible = (tab_idx == BottomTab.IMMEDIATE)
+
+## Receives the existing Immediate Window from the plugin and embeds it here.
+func set_immediate_window(window: Control) -> void:
+	if not window or not _immediate_container:
+		return
+	_immediate_window_ref = window
+	# Reparent: remove from old parent, add into our container
+	if window.get_parent():
+		window.get_parent().remove_child(window)
+	window.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	window.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	window.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_immediate_container.add_child(window)
+
+## Switches to the Immediate tab (e.g. on debug break or View > Immediate).
+func focus_immediate_tab() -> void:
+	if _bottom_tab_bar:
+		_bottom_tab_bar.current_tab = BottomTab.IMMEDIATE
+		_on_bottom_tab_changed(BottomTab.IMMEDIATE)
+
+## Switches back to the Command Help tab.
+func focus_help_tab() -> void:
+	if _bottom_tab_bar:
+		_bottom_tab_bar.current_tab = BottomTab.COMMAND_HELP
+		_on_bottom_tab_changed(BottomTab.COMMAND_HELP)
 
 func _build_help_panel() -> void:
 	_help_scroll = ScrollContainer.new()

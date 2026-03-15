@@ -203,7 +203,10 @@ func _enter_tree():
 		# Pass the debugger plugin reference
 		if immediate_window.has_method("set_debugger_plugin"):
 			immediate_window.set_debugger_plugin(debugger_plugin)
-		add_control_to_bottom_panel(immediate_window, "Immediate")
+		# Don't add to bottom panel — will be embedded in the code editor's
+		# tabbed bottom panel via set_immediate_window() once the editor exists.
+		add_child(immediate_window)  # Keep in scene tree for _ready()
+		immediate_window.visible = false
 	else:
 		print("Warning: Could not load immediate_window.gd")
 
@@ -525,6 +528,10 @@ func _enter_tree():
 			# Move it before CanvasScroll's sibling index so the split works
 			# Actually, just add after canvas_scroll — when visible it takes over
 			print("VisualGasic: Embedded Code Editor created")
+			# Embed the Immediate Window into the code editor's tabbed bottom panel
+			if is_instance_valid(immediate_window):
+				_embedded_code_editor.set_immediate_window(immediate_window)
+				print("VisualGasic: Immediate Window embedded in Code Editor bottom panel")
 
 		# -- RIGHT: Project Explorer + Properties (resizable VSplitContainer) --
 		var right_vsplit = VSplitContainer.new()
@@ -911,7 +918,8 @@ func _exit_tree():
 	remove_tool_menu_item("VG: Theme Picker")
 	
 	if is_instance_valid(immediate_window):
-		remove_control_from_bottom_panel(immediate_window)
+		# Immediate window is embedded in the code editor's bottom panel;
+		# just free it (its parent will release it automatically)
 		immediate_window.queue_free()
 		immediate_window = null
 	
@@ -3846,9 +3854,12 @@ func _on_vb6_view_menu(id: int) -> void:
 		10: pass # Toolbox — already visible
 		11: pass # Project Explorer — already visible
 		12: pass # Properties — already visible
-		13: # Immediate Window — focus it in bottom panel
-			if is_instance_valid(immediate_window):
-				make_bottom_panel_item_visible(immediate_window)
+		13: # Immediate Window — focus it in code editor bottom tab
+			if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.has_method("focus_immediate_tab"):
+				# If in form view, switch to code view first
+				if not _embedded_code_editor.visible:
+					_on_view_code()
+				_embedded_code_editor.focus_immediate_tab()
 
 func _on_vb6_project_menu(id: int) -> void:
 	match id:
