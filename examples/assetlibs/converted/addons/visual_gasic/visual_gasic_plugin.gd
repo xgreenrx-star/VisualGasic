@@ -525,10 +525,8 @@ func _enter_tree():
 			_embedded_code_editor.visible = false
 			_embedded_code_editor.view_object_requested.connect(_show_form_view)
 			canvas_right_split.add_child(_embedded_code_editor)
-			# Move it before CanvasScroll's sibling index so the split works
-			# Actually, just add after canvas_scroll — when visible it takes over
 			print("VisualGasic: Embedded Code Editor created")
-			# Embed the Immediate Window into the code editor's tabbed bottom panel
+			# Embed the Immediate Window into the code editor's bottom panel
 			if is_instance_valid(immediate_window):
 				_embedded_code_editor.set_immediate_window(immediate_window)
 				print("VisualGasic: Immediate Window embedded in Code Editor bottom panel")
@@ -3854,12 +3852,12 @@ func _on_vb6_view_menu(id: int) -> void:
 		10: pass # Toolbox — already visible
 		11: pass # Project Explorer — already visible
 		12: pass # Properties — already visible
-		13: # Immediate Window — focus it in code editor bottom tab
-			if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.has_method("focus_immediate_tab"):
-				# If in form view, switch to code view first
+		13: # Immediate Window — switch to code view (Immediate is always in bottom panel)
+			if is_instance_valid(_embedded_code_editor):
 				if not _embedded_code_editor.visible:
 					_on_view_code()
-				_embedded_code_editor.focus_immediate_tab()
+				if _embedded_code_editor.has_method("focus_immediate"):
+					_embedded_code_editor.focus_immediate()
 
 func _on_vb6_project_menu(id: int) -> void:
 	match id:
@@ -5366,6 +5364,19 @@ func _show_code_view() -> void:
 		# Deferred focus so layout settles
 		_embedded_code_editor.get_code_edit().grab_focus.call_deferred()
 
+	# Swap left panel: hide Toolbox, show Command Help + Index Map
+	var toolbox_panel = _ide_layout.get_node_or_null("MainHSplit/ToolboxPanel")
+	if toolbox_panel and is_instance_valid(toolbox):
+		toolbox.visible = false
+	if toolbox_panel and is_instance_valid(_embedded_code_editor):
+		var help_panel = _embedded_code_editor.get_help_panel()
+		if help_panel and help_panel.get_parent() != toolbox_panel:
+			if help_panel.get_parent():
+				help_panel.get_parent().remove_child(help_panel)
+			toolbox_panel.add_child(help_panel)
+		if help_panel:
+			help_panel.visible = true
+
 	# Update status bar
 	if is_instance_valid(_status_bar):
 		var path = _embedded_code_editor.get_file_path() if is_instance_valid(_embedded_code_editor) else ""
@@ -5390,6 +5401,15 @@ func _show_form_view() -> void:
 		canvas_scroll.visible = true
 	if is_instance_valid(_embedded_code_editor):
 		_embedded_code_editor.visible = false
+
+	# Swap left panel: hide Command Help, show Toolbox
+	var toolbox_panel = _ide_layout.get_node_or_null("MainHSplit/ToolboxPanel")
+	if toolbox_panel and is_instance_valid(_embedded_code_editor):
+		var help_panel = _embedded_code_editor.get_help_panel()
+		if help_panel:
+			help_panel.visible = false
+	if is_instance_valid(toolbox):
+		toolbox.visible = true
 
 	# Update status bar
 	if is_instance_valid(_status_bar):
