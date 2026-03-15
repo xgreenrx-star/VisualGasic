@@ -329,20 +329,10 @@ func set_immediate_window(window: Control) -> void:
 	window.visible = true  # Was hidden while parked on the plugin
 	window.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	window.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	# Fix the internal HSplitContainer — it uses anchors that don't work
-	# inside a TabContainer. Convert to size_flags.
-	for child in window.get_children():
-		if child is Control:
-			child.anchor_left = 0
-			child.anchor_top = 0
-			child.anchor_right = 0
-			child.anchor_bottom = 0
-			child.offset_left = 0
-			child.offset_top = 0
-			child.offset_right = 0
-			child.offset_bottom = 0
-			child.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			child.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	# The internal HSplitContainer uses anchor_right=1, anchor_bottom=1 which
+	# is correct — it fills its parent (this Control). TabContainer will manage
+	# the immediate window's own rect, and the anchors work relative to that.
+	# Do NOT reset the internal anchors to 0 (that would make it 0×0).
 	# Remove the placeholder and insert the real window at index 0 (Immediate tab)
 	var placeholder = _bottom_tabs.get_child(0)
 	if placeholder and placeholder.name == "Immediate":
