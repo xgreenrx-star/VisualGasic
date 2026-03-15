@@ -60,12 +60,11 @@ var _current_index_control: Dictionary = {}  # { name, type, properties }
 ## Bottom panel with tabs: Command Help, Immediate
 var _bottom_panel: PanelContainer = null   # outer container
 var _bottom_tab_bar: TabBar = null         # tab switcher
-var _bottom_content: Control = null        # stacked content area
 var _bottom_split: HSplitContainer = null  # Command Help tab: left=help, right=index map
 var _help_scroll: ScrollContainer = null
 var _help_label: RichTextLabel = null
 var _last_help_keyword: String = ""        # avoid redundant redraws
-var _immediate_container: Control = null   # Immediate tab: hosts the reparented window
+var _immediate_container: MarginContainer = null  # Immediate tab: hosts the reparented window
 var _immediate_window_ref = null           # reference to the plugin's Immediate Window
 
 enum BottomTab { COMMAND_HELP = 0, IMMEDIATE = 1 }
@@ -223,20 +222,13 @@ func _build_bottom_panel() -> void:
 	_bottom_tab_bar.add_theme_color_override("font_unselected_color", Color(0.3, 0.3, 0.3))
 	outer_vbox.add_child(_bottom_tab_bar)
 
-	# ── Stacked content area ──
-	_bottom_content = Control.new()
-	_bottom_content.name = "BottomContent"
-	_bottom_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_bottom_content.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_bottom_content.clip_contents = true
-
-	# Tab 0: Command Help + Index Map
+	# Tab 0: Command Help + Index Map  (directly in outer_vbox)
 	_bottom_split = HSplitContainer.new()
 	_bottom_split.name = "BottomSplit"
 	_bottom_split.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_bottom_split.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_bottom_split.split_offset = 340
-	_bottom_split.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_bottom_split.clip_contents = true
 
 	_build_help_panel()
 	_bottom_split.add_child(_help_scroll)
@@ -244,18 +236,17 @@ func _build_bottom_panel() -> void:
 	_build_index_map_panel()
 	_bottom_split.add_child(_index_map_panel)
 
-	_bottom_content.add_child(_bottom_split)
+	outer_vbox.add_child(_bottom_split)
 
-	# Tab 1: Immediate Window placeholder (populated via set_immediate_window)
-	_immediate_container = Control.new()
+	# Tab 1: Immediate Window (populated via set_immediate_window)
+	# MarginContainer ensures proper sizing of the reparented window.
+	_immediate_container = MarginContainer.new()
 	_immediate_container.name = "ImmediateContainer"
 	_immediate_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_immediate_container.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_immediate_container.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_immediate_container.visible = false
-	_bottom_content.add_child(_immediate_container)
+	outer_vbox.add_child(_immediate_container)
 
-	outer_vbox.add_child(_bottom_content)
 	_bottom_panel.add_child(outer_vbox)
 	add_child(_bottom_panel)
 
@@ -276,8 +267,11 @@ func set_immediate_window(window: Control) -> void:
 	window.visible = true  # Was hidden while parked on the plugin
 	window.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	window.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	window.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_immediate_container.add_child(window)
+	# Force internal HSplitContainer to fill once it has a real parent size
+	for child in window.get_children():
+		if child is Control:
+			child.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
 ## Switches to the Immediate tab (e.g. on debug break or View > Immediate).
 func focus_immediate_tab() -> void:
