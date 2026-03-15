@@ -1,0 +1,76 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://VGVector.vg" id="1_vec"]
+[ext_resource type="Script" path="res://addons/visual_gasic/form_editor_helper.gd" id="2_fhelp"]
+
+[node name="VGVector" type="Window"]
+title = "VG Vector — Vector Graphics & Animation Editor"
+position = Vector2i(10, 36)
+size = Vector2i(1024, 700)
+script = ExtResource("1_vec")
+
+[node name="_FormBackground" type="Panel" parent="."]
+offset_right = 1024.0
+offset_bottom = 700.0
+mouse_filter = 2
+script = ExtResource("2_fhelp")
+
+[node name="MenuBar" type="MenuBar" parent="."]
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 30.0
+mouse_filter = 1
+
+[node name="mnuFile" type="PopupMenu" parent="MenuBar"]
+item_count = 7
+item_0/text = "New"
+item_0/id = 0
+item_1/text = "Open .VGV..."
+item_1/id = 1
+item_2/text = "Save"
+item_2/id = 2
+item_3/text = "Save As..."
+item_3/id = 3
+item_4/id = -1
+item_4/separator = true
+item_5/text = "Export Frame as PNG"
+item_5/id = 4
+item_6/text = "Exit"
+item_6/id = 5
+metadata/_menu_name = "File"
+
+[node name="mnuEdit" type="PopupMenu" parent="MenuBar"]
+item_count = 5
+item_0/text = "Undo (Ctrl+Z)"
+item_0/id = 0
+item_1/text = "Redo (Ctrl+Y)"
+item_1/id = 1
+item_2/id = -1
+item_2/separator = true
+item_3/text = "Delete Shape (Del)"
+item_3/id = 2
+item_4/text = "Duplicate Shape (Ctrl+D)"
+item_4/id = 3
+metadata/_menu_name = "Edit"
+
+[node name="mnuAnim" type="PopupMenu" parent="MenuBar"]
+item_count = 6
+item_0/text = "Add Frame"
+item_0/id = 0
+item_1/text = "Delete Frame"
+item_1/id = 1
+item_2/text = "Clone Frame"
+item_2/id = 2
+item_3/id = -1
+item_3/separator = true
+item_4/text = "Play / Pause (Space)"
+item_4/id = 3
+item_5/text = "Set FPS..."
+item_5/id = 4
+metadata/_menu_name = "Animation"
+
+[node name="mnuHelp" type="PopupMenu" parent="MenuBar"]
+item_count = 1
+item_0/text = "About VG Vector"
+item_0/id = 0
+metadata/_menu_name = "Help"

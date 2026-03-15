@@ -31,12 +31,16 @@ chmod +x setup_symlinks.sh
 | **Screensaver/** | Retro-style screensaver | DrawRect, DrawLine, DrawCircle, DrawString, Color functions |
 | **Screen_Space_Shaders/** | 11 full-screen 2D shader effects | ShaderMaterial, ResourceLoader, Select Case, animated _Draw scene |
 | **Sky_Shaders/** | Volumetric clouds + physical sky (3D) | MeshInstance3D, StandardMaterial3D, _Input mouselook, shader parameters |
+| **Graphics/VGPaint/** | MS Paint clone | 640×480 canvas, 9 tools, 28-color palette, Bresenham lines, flood fill, .VGP format |
+| **Graphics/VGVector/** | Vector graphics editor + animation | 7 tools, animation timeline (120 frames), **.VGV format**, onion skinning, polygons |
+| **Graphics/VGMovie/** | .VGV vector animation player | Play/Pause/Stop/Loop, timeline scrubber, zoom/fit, coordinate-based rendering |
 
 ### 🔊 Audio
 
 | Demo | Description | Features Demonstrated |
 |------|-------------|----------------------|
 | **Piano/** | Interactive piano keyboard | **PlayTone** for audio, DATA for note frequencies, recording |
+| **Audio/VGMusic/** | Live coding music synthesizer | **PlayTone** synthesis, Strudel-style English commands, multi-layer, visualizer, .VGS format |
 
 ### 🖥️ UI
 
@@ -92,6 +96,7 @@ chmod +x setup_symlinks.sh
 |------|-------------|----------------------|
 | **Networking/TCP/** | TCP/UDP socket programming | **WinSock** client/server, DNS, chat protocol patterns |
 | **Networking/HTTP/** | HTTP requests | **VGHttpRequest** GET, POST, headers, JSON, REST API |
+| **Networking/VGTerminal/** | ANSI BBS terminal client | **WinSock** TCP, ANSI parser state machine, 80×24 buffer, session logging, bookmarks |
 
 ### 🚀 Advanced
 
@@ -188,9 +193,13 @@ demos/
 ├── Graphics/
 │   ├── Screensaver/
 │   ├── Screen_Space_Shaders/
-│   └── Sky_Shaders/
+│   ├── Sky_Shaders/
+│   ├── VGPaint/
+│   ├── VGVector/
+│   └── VGMovie/
 ├── Audio/
-│   └── Piano/
+│   ├── Piano/
+│   └── VGMusic/
 ├── UI/
 │   ├── Calculator/
 │   └── TodoApp/
@@ -214,7 +223,8 @@ demos/
 │   └── IPC/
 ├── Networking/
 │   ├── TCP/
-│   └── HTTP/
+│   ├── HTTP/
+│   └── VGTerminal/
 ├── Advanced/
 │   ├── ECS/
 │   ├── GPU/

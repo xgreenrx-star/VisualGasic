@@ -59,6 +59,16 @@
 | **Galactic Defender** | `demos/2D_Games/Galactic_Defender/` | Full game project with scenes |
 | **Calculator** | `demos/UI/Calculator/` | Input handling, `Is` type-checking, _Draw() UI |
 
+### Application Demos
+
+| Demo | Location | Key Features |
+|------|----------|-------------|
+| **VG Terminal** | `demos/Networking/VGTerminal/` | ANSI BBS terminal, WinSock TCP, 80×24 buffer, session logging, bookmarks |
+| **VG Paint** | `demos/Graphics/VGPaint/` | MS Paint clone, 640×480 canvas, 9 tools, Bresenham lines, flood fill, .VGP format |
+| **VG Vector** | `demos/Graphics/VGVector/` | Vector editor, animation timeline, .VGV format, onion skinning, polygon tools |
+| **VG Movie** | `demos/Graphics/VGMovie/` | .VGV animation player, transport controls, timeline scrubber, zoom, built-in demo |
+| **VG Music** | `demos/Audio/VGMusic/` | Strudel-style live coding, PlayTone synthesis, multi-layer, visualizer, .VGS format |
+
 ### v3.0 System Integration Demos
 
 | Demo | Location | Key Features |

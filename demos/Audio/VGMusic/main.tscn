@@ -1,0 +1,4 @@
+[gd_scene format=3 uid="uid://vgmusic_main"]
+
+[node name="Main" type="Node2D"]
+script = ExtResource("VGMusic.vg")

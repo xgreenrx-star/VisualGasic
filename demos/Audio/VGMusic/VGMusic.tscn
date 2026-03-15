@@ -1,0 +1,77 @@
+[gd_scene load_steps=2 format=3 uid="uid://vgmusic_form"]
+
+[ext_resource type="Script" path="res://addons/visual_gasic/form_editor_helper.gd" id="1"]
+
+[node name="VGMusic" type="Window"]
+title = "VG Music — Live Coding Synthesizer"
+position = Vector2i(80, 40)
+size = Vector2i(900, 640)
+script = ExtResource("VGMusic.vg")
+positional_shadow_atlas_quad_0 = 0
+positional_shadow_atlas_quad_1 = 0
+positional_shadow_atlas_quad_2 = 0
+positional_shadow_atlas_quad_3 = 0
+
+[node name="_FormBackground" type="Panel" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+script = ExtResource("1")
+
+[node name="mnuFile" type="MenuBar" parent="."]
+offset_left = 0
+offset_top = 0
+offset_right = 900
+offset_bottom = 30
+
+[node name="File" type="PopupMenu" parent="mnuFile"]
+item_count = 5
+item_0/text = "New Song"
+item_0/id = 0
+item_1/text = "Open .VGS..."
+item_1/id = 1
+item_2/text = "Save .VGS..."
+item_2/id = 2
+item_3/text = ""
+item_3/id = 3
+item_3/separator = true
+item_4/text = "Exit"
+item_4/id = 4
+
+[node name="Playback" type="PopupMenu" parent="mnuFile"]
+item_count = 4
+item_0/text = "Play / Stop (Space)"
+item_0/id = 0
+item_1/text = "Set Tempo..."
+item_1/id = 1
+item_2/text = ""
+item_2/id = 2
+item_2/separator = true
+item_3/text = "Panic — Stop All Sound"
+item_3/id = 3
+
+[node name="Examples" type="PopupMenu" parent="mnuFile"]
+item_count = 6
+item_0/text = "Twinkle Twinkle"
+item_0/id = 0
+item_1/text = "Drum Pattern"
+item_1/id = 1
+item_2/text = "Bass Line"
+item_2/id = 2
+item_3/text = "Layered Beat"
+item_3/id = 3
+item_4/text = "Ambient Pad"
+item_4/id = 4
+item_5/text = "Arpeggio"
+item_5/id = 5
+
+[node name="Help" type="PopupMenu" parent="mnuFile"]
+item_count = 3
+item_0/text = "Language Reference"
+item_0/id = 0
+item_1/text = ""
+item_1/id = 1
+item_1/separator = true
+item_2/text = "About VG Music"
+item_2/id = 2

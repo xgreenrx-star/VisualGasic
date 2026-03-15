@@ -1,0 +1,749 @@
+' ============================================================================
+' VGMovie.vg — Vector Animation Player
+' ============================================================================
+' A dedicated player for .VGV (VisualGasic Vector) animation files created
+' with VG Vector. Reads coordinate-based vector shape data and renders it
+' frame-by-frame with smooth playback controls.
+'
+' This player renders ONLY vector data — coordinates and mathematical shapes.
+' No bitmaps or pixel data. Everything is drawn from shape definitions stored
+' in the .VGV file: lines, rectangles, ellipses, polygons, polylines, text.
+'
+' FEATURES:
+'   - Load and play .VGV animation files
+'   - Play / Pause / Stop / Step Frame controls
+'   - Loop mode for continuous playback
+'   - Frame scrubber (click timeline to jump to any frame)
+'   - Zoom: 1x, 2x, Fit to Window
+'   - Frame counter / progress display
+'   - Keyboard shortcuts for all controls
+'   - Remembers last opened file
+'   - Includes a built-in demo animation (bouncing shapes)
+'
+' OS INTEGRATION DEMONSTRATED:
+'   - File I/O (Load .VGV files with Open/Input #/Close)
+'   - SaveSetting/GetSetting (remember last file, playback prefs)
+'   - MsgBox/InputBox (dialogs)
+'   - Timer-based animation playback
+'
+' PLATFORMS: Linux, Windows, Android, Apple, HTML5
+' ============================================================================
+Option Explicit
+
+' ── Shape Storage (mirrors VGVector format) ───────────────────────────────
+Const MAX_SHAPES As Integer = 500
+Const MAX_FRAMES As Integer = 120
+Const MAX_POINTS As Integer = 50
+
+' Shape data arrays (flattened: frame * MAX_SHAPES + shape)
+Dim shapeType(60000) As String
+Dim shapeX1(60000) As Double
+Dim shapeY1(60000) As Double
+Dim shapeX2(60000) As Double
+Dim shapeY2(60000) As Double
+Dim shapeStrokeR(60000) As Integer
+Dim shapeStrokeG(60000) As Integer
+Dim shapeStrokeB(60000) As Integer
+Dim shapeStrokeA(60000) As Integer
+Dim shapeStrokeW(60000) As Double
+Dim shapeFillR(60000) As Integer
+Dim shapeFillG(60000) As Integer
+Dim shapeFillB(60000) As Integer
+Dim shapeFillA(60000) As Integer
+Dim shapeText(60000) As String
+
+' Polygon vertices
+Dim polyPointX(3000, 50) As Double
+Dim polyPointY(3000, 50) As Double
+Dim polyPointCount(3000) As Integer
+
+' Per-frame shape counts
+Dim frameShapeCount(120) As Integer
+
+' ── Document Properties ───────────────────────────────────────────────────
+Dim docWidth As Integer              ' Original document width
+Dim docHeight As Integer             ' Original document height
+Dim frameCount As Integer            ' Total frames loaded
+Dim fps As Integer                   ' Playback FPS
+Dim movieTitle As String             ' Display title (from filename)
+
+' ── Playback State ────────────────────────────────────────────────────────
+Dim currentFrame As Integer          ' Currently displayed frame
+Dim isPlaying As Boolean             ' True when playing
+Dim playTimer As Double              ' Time accumulator for frame advance
+Dim isLooping As Boolean             ' True when loop mode is on
+Dim isLoaded As Boolean              ' True when a file is loaded
+
+' ── View State ────────────────────────────────────────────────────────────
+Dim zoomLevel As Double              ' View zoom (1.0, 2.0, or fit)
+Dim fitToWindow As Boolean           ' Auto-fit to window size
+Dim showFrameCounter As Boolean      ' Show frame number overlay
+
+' ── UI Layout ─────────────────────────────────────────────────────────────
+Const MENU_H As Integer = 32         ' Menu bar height
+Const CONTROLS_H As Integer = 60     ' Bottom playback controls height
+Const STATUS_H As Integer = 22       ' Status bar height
+Const SCRUBBER_H As Integer = 20     ' Timeline scrubber height
+
+' ============================================================================
+' INITIALIZATION
+' ============================================================================
+
+Sub _Ready()
+    ' ── Defaults ──────────────────────────────────────────────────────────
+    frameCount = 0
+    currentFrame = 0
+    fps = 12
+    isPlaying = False
+    isLooping = True
+    isLoaded = False
+    playTimer = 0
+    zoomLevel = 1.0
+    fitToWindow = True
+    showFrameCounter = True
+    docWidth = 800
+    docHeight = 500
+    movieTitle = "No file loaded"
+
+    ' ── Load saved preferences ────────────────────────────────────────────
+    isLooping = (GetSetting("VGMovie", "Config", "Loop", "1") = "1")
+    showFrameCounter = (GetSetting("VGMovie", "Config", "FrameCounter", "1") = "1")
+
+    ' ── Generate built-in demo animation if no file loaded ────────────────
+    GenerateBuiltInDemo
+End Sub
+
+' ============================================================================
+' BUILT-IN DEMO — A simple bouncing shapes animation for first-run
+' ============================================================================
+
+Sub GenerateBuiltInDemo()
+    ' Create a 60-frame demo animation showing shapes moving and transforming
+    docWidth = 800 : docHeight = 500
+    fps = 24
+    frameCount = 60
+    movieTitle = "Built-in Demo: Bouncing Shapes"
+
+    Dim fr As Integer
+    For fr = 0 To frameCount - 1
+        frameShapeCount(fr) = 0
+
+        ' ── Background gradient rectangle ─────────────────────────────────
+        Dim bgIdx As Integer
+        bgIdx = fr * MAX_SHAPES + 0
+        shapeType(bgIdx) = "RECT"
+        shapeX1(bgIdx) = 0 : shapeY1(bgIdx) = 0
+        shapeX2(bgIdx) = 800 : shapeY2(bgIdx) = 500
+        shapeStrokeR(bgIdx) = 40 : shapeStrokeG(bgIdx) = 40 : shapeStrokeB(bgIdx) = 60
+        shapeStrokeA(bgIdx) = 255 : shapeStrokeW(bgIdx) = 0
+        shapeFillR(bgIdx) = 20 + fr : shapeFillG(bgIdx) = 20 : shapeFillB(bgIdx) = 40 + fr
+        shapeFillA(bgIdx) = 255
+        frameShapeCount(fr) = frameShapeCount(fr) + 1
+
+        ' ── Bouncing circle (using ellipse) ───────────────────────────────
+        ' Follows a sine wave path across the screen
+        Dim cx As Double, cy As Double, radius As Double
+        cx = 100 + (fr * 600.0 / 60.0)                     ' Move right
+        cy = 250 + Sin(fr * 0.2) * 150                      ' Bounce up/down
+        radius = 30 + Sin(fr * 0.15) * 10                   ' Pulse size
+
+        Dim circIdx As Integer
+        circIdx = fr * MAX_SHAPES + 1
+        shapeType(circIdx) = "ELLIPSE"
+        shapeX1(circIdx) = cx - radius : shapeY1(circIdx) = cy - radius
+        shapeX2(circIdx) = cx + radius : shapeY2(circIdx) = cy + radius
+        shapeStrokeR(circIdx) = 255 : shapeStrokeG(circIdx) = 200 : shapeStrokeB(circIdx) = 50
+        shapeStrokeA(circIdx) = 255 : shapeStrokeW(circIdx) = 3
+        shapeFillR(circIdx) = 255 : shapeFillG(circIdx) = 150 : shapeFillB(circIdx) = 0
+        shapeFillA(circIdx) = 180
+        frameShapeCount(fr) = frameShapeCount(fr) + 1
+
+        ' ── Rotating rectangle ────────────────────────────────────────────
+        ' Spins in the center of the screen
+        Dim angle As Double
+        angle = fr * 0.1
+        Dim rSize As Double
+        rSize = 60
+        Dim rcx As Double, rcy As Double
+        rcx = 400 : rcy = 250
+        ' Approximate rotation with offset corners
+        Dim rx1 As Double, ry1 As Double, rx2 As Double, ry2 As Double
+        rx1 = rcx - rSize * Cos(angle) : ry1 = rcy - rSize * Sin(angle)
+        rx2 = rcx + rSize * Cos(angle) : ry2 = rcy + rSize * Sin(angle)
+
+        Dim rectIdx As Integer
+        rectIdx = fr * MAX_SHAPES + 2
+        shapeType(rectIdx) = "RECT"
+        shapeX1(rectIdx) = rx1 : shapeY1(rectIdx) = ry1
+        shapeX2(rectIdx) = rx2 : shapeY2(rectIdx) = ry2
+        shapeStrokeR(rectIdx) = 100 : shapeStrokeG(rectIdx) = 200 : shapeStrokeB(rectIdx) = 255
+        shapeStrokeA(rectIdx) = 255 : shapeStrokeW(rectIdx) = 2
+        shapeFillR(rectIdx) = 50 : shapeFillG(rectIdx) = 120 : shapeFillB(rectIdx) = 200
+        shapeFillA(rectIdx) = 120
+        frameShapeCount(fr) = frameShapeCount(fr) + 1
+
+        ' ── Zigzag line across the bottom ─────────────────────────────────
+        Dim lineIdx As Integer
+        lineIdx = fr * MAX_SHAPES + 3
+        shapeType(lineIdx) = "LINE"
+        shapeX1(lineIdx) = 50 + fr * 2 : shapeY1(lineIdx) = 400
+        shapeX2(lineIdx) = 750 - fr * 2 : shapeY2(lineIdx) = 400 + Sin(fr * 0.3) * 50
+        shapeStrokeR(lineIdx) = 0 : shapeStrokeG(lineIdx) = 255 : shapeStrokeB(lineIdx) = 128
+        shapeStrokeA(lineIdx) = 200 : shapeStrokeW(lineIdx) = 2
+        shapeFillA(lineIdx) = 0
+        frameShapeCount(fr) = frameShapeCount(fr) + 1
+
+        ' ── Frame counter text ────────────────────────────────────────────
+        Dim txtIdx As Integer
+        txtIdx = fr * MAX_SHAPES + 4
+        shapeType(txtIdx) = "TEXT"
+        shapeX1(txtIdx) = 20 : shapeY1(txtIdx) = 20
+        shapeX2(txtIdx) = 200 : shapeY2(txtIdx) = 40
+        shapeStrokeR(txtIdx) = 200 : shapeStrokeG(txtIdx) = 200 : shapeStrokeB(txtIdx) = 200
+        shapeStrokeA(txtIdx) = 255 : shapeStrokeW(txtIdx) = 1
+        shapeFillA(txtIdx) = 0
+        shapeText(txtIdx) = "VGV Demo - Frame " & Str(fr + 1)
+        frameShapeCount(fr) = frameShapeCount(fr) + 1
+
+        ' ── Second bouncing ellipse (opposite direction) ──────────────────
+        Dim cx2 As Double, cy2 As Double
+        cx2 = 700 - (fr * 600.0 / 60.0)
+        cy2 = 250 + Cos(fr * 0.25) * 120
+
+        Dim circ2Idx As Integer
+        circ2Idx = fr * MAX_SHAPES + 5
+        shapeType(circ2Idx) = "ELLIPSE"
+        shapeX1(circ2Idx) = cx2 - 25 : shapeY1(circ2Idx) = cy2 - 40
+        shapeX2(circ2Idx) = cx2 + 25 : shapeY2(circ2Idx) = cy2 + 40
+        shapeStrokeR(circ2Idx) = 255 : shapeStrokeG(circ2Idx) = 80 : shapeStrokeB(circ2Idx) = 200
+        shapeStrokeA(circ2Idx) = 255 : shapeStrokeW(circ2Idx) = 2
+        shapeFillR(circ2Idx) = 200 : shapeFillG(circ2Idx) = 50 : shapeFillB(circ2Idx) = 150
+        shapeFillA(circ2Idx) = 160
+        frameShapeCount(fr) = frameShapeCount(fr) + 1
+    Next
+
+    isLoaded = True
+End Sub
+
+' ============================================================================
+' .VGV FILE LOADING (same format as VGVector saves)
+' ============================================================================
+
+Sub LoadVGV(filePath As String)
+    If Not FileExists(filePath) Then
+        MsgBox "File not found: " & filePath, vbExclamation, "Open Error"
+        Exit Sub
+    End If
+
+    ' Stop any current playback
+    isPlaying = False
+    currentFrame = 0
+
+    Dim f As Integer
+    f = FreeFile()
+    Open filePath For Input As #f
+
+    ' ── Read header ───────────────────────────────────────────────────────
+    Dim header As String
+    Line Input #f, header
+    If Left(header, 4) <> "VGV1" Then
+        MsgBox "Not a valid .VGV file!" & Chr(10) & _
+               "Expected VGV1 header, got: " & header, vbExclamation, "Format Error"
+        Close #f
+        Exit Sub
+    End If
+
+    ' ── Read document dimensions ──────────────────────────────────────────
+    Dim dimLine As String
+    Line Input #f, dimLine
+    Dim dimParts() As String
+    dimParts = Split(dimLine, ",")
+    docWidth = Val(dimParts(0))
+    docHeight = Val(dimParts(1))
+
+    ' ── Read animation settings ───────────────────────────────────────────
+    Dim animLine As String
+    Line Input #f, animLine
+    Dim animParts() As String
+    animParts = Split(animLine, ",")
+    frameCount = Val(animParts(0))
+    fps = Val(animParts(1))
+
+    ' ── Skip "FRAMES" marker ──────────────────────────────────────────────
+    Dim marker As String
+    Line Input #f, marker
+
+    ' ── Parse frame and shape data ────────────────────────────────────────
+    Dim curFr As Integer
+    curFr = -1
+    Dim curSh As Integer
+
+    Do While Not EOF(f)
+        Dim lineText As String
+        Line Input #f, lineText
+        lineText = Trim(lineText)
+
+        If Left(lineText, 5) = "FRAME" Then
+            ' Start of a new frame
+            curFr = curFr + 1
+            frameShapeCount(curFr) = 0
+            curSh = 0
+
+        ElseIf Left(lineText, 5) = "SHAPE" Then
+            ' Parse shape definition
+            Dim shapeData As String
+            shapeData = Mid(lineText, 7)
+            Dim parts() As String
+            parts = Split(shapeData, ",")
+
+            Dim idx As Integer
+            idx = curFr * MAX_SHAPES + curSh
+
+            shapeType(idx) = parts(0)
+            shapeX1(idx) = Val(parts(1))
+            shapeY1(idx) = Val(parts(2))
+            shapeX2(idx) = Val(parts(3))
+            shapeY2(idx) = Val(parts(4))
+            shapeStrokeR(idx) = Val(parts(5))
+            shapeStrokeG(idx) = Val(parts(6))
+            shapeStrokeB(idx) = Val(parts(7))
+            shapeStrokeA(idx) = Val(parts(8))
+            shapeStrokeW(idx) = Val(parts(9))
+            shapeFillR(idx) = Val(parts(10))
+            shapeFillG(idx) = Val(parts(11))
+            shapeFillB(idx) = Val(parts(12))
+            shapeFillA(idx) = Val(parts(13))
+            shapeText(idx) = ""
+
+            frameShapeCount(curFr) = curSh + 1
+            curSh = curSh + 1
+
+        ElseIf Left(lineText, 6) = "POINTS" Then
+            ' Parse polygon/polyline vertices
+            Dim ptData As String
+            ptData = Mid(lineText, 8)
+            Dim ptParts() As String
+            ptParts = Split(ptData, ",")
+            Dim pc As Integer
+            pc = Val(ptParts(0))
+            polyPointCount(curSh - 1) = pc
+            Dim p As Integer
+            For p = 0 To pc - 1
+                polyPointX(curSh - 1, p) = Val(ptParts(1 + p * 2))
+                polyPointY(curSh - 1, p) = Val(ptParts(2 + p * 2))
+            Next
+
+        ElseIf Left(lineText, 8) = "TEXTDATA" Then
+            ' Parse text content
+            Dim prevIdx As Integer
+            prevIdx = curFr * MAX_SHAPES + (curSh - 1)
+            shapeText(prevIdx) = Mid(lineText, 10)
+
+        ElseIf lineText = "ENDVGV" Then
+            Exit Do
+        End If
+    Loop
+
+    Close #f
+
+    ' ── Update state ──────────────────────────────────────────────────────
+    movieTitle = filePath
+    currentFrame = 0
+    isLoaded = True
+
+    ' Save as last opened file
+    SaveSetting "VGMovie", "Config", "LastFile", filePath
+End Sub
+
+' ============================================================================
+' PLAYBACK CONTROLS
+' ============================================================================
+
+Sub PlayPause()
+    If Not isLoaded Then Exit Sub
+    isPlaying = Not isPlaying
+    playTimer = 0
+End Sub
+
+Sub StopPlayback()
+    isPlaying = False
+    currentFrame = 0
+    playTimer = 0
+End Sub
+
+Sub NextFrame()
+    If Not isLoaded Then Exit Sub
+    isPlaying = False
+    currentFrame = currentFrame + 1
+    If currentFrame >= frameCount Then
+        If isLooping Then
+            currentFrame = 0
+        Else
+            currentFrame = frameCount - 1
+        End If
+    End If
+End Sub
+
+Sub PrevFrame()
+    If Not isLoaded Then Exit Sub
+    isPlaying = False
+    currentFrame = currentFrame - 1
+    If currentFrame < 0 Then
+        If isLooping Then
+            currentFrame = frameCount - 1
+        Else
+            currentFrame = 0
+        End If
+    End If
+End Sub
+
+Sub GoToStart()
+    isPlaying = False
+    currentFrame = 0
+    playTimer = 0
+End Sub
+
+' ============================================================================
+' INPUT HANDLING
+' ============================================================================
+
+Sub _Input(ev)
+    If TypeOf ev Is InputEventKey Then
+        If ev.pressed Then
+            Select Case ev.keycode
+                Case 32: PlayPause                           ' Space = Play/Pause
+                Case 4194305: StopPlayback                   ' Escape = Stop
+                Case 4194321: NextFrame                      ' Right arrow
+                Case 4194319: PrevFrame                      ' Left arrow
+                Case 4194317: GoToStart                      ' Home
+            End Select
+        End If
+    End If
+
+    ' ── Mouse click on timeline scrubber ──────────────────────────────────
+    If TypeOf ev Is InputEventMouseButton Then
+        If ev.pressed And ev.button_index = 1 Then
+            Dim mx As Integer, my As Integer
+            mx = Int(ev.position.x) : my = Int(ev.position.y)
+
+            ' Check if click is in the scrubber area
+            Dim scrubY As Integer
+            scrubY = 560 - CONTROLS_H - STATUS_H
+            If my >= scrubY And my < scrubY + SCRUBBER_H And frameCount > 0 Then
+                ' Calculate which frame was clicked
+                Dim pct As Double
+                pct = CDbl(mx) / 860.0
+                currentFrame = Int(pct * frameCount)
+                If currentFrame >= frameCount Then currentFrame = frameCount - 1
+                If currentFrame < 0 Then currentFrame = 0
+            End If
+
+            ' ── Playback control buttons ──────────────────────────────────
+            Dim ctrlY As Integer
+            ctrlY = scrubY + SCRUBBER_H
+            If my >= ctrlY And my < ctrlY + 40 Then
+                If mx >= 350 And mx < 390 Then PrevFrame        ' |<
+                If mx >= 400 And mx < 440 Then PlayPause        ' Play/Pause
+                If mx >= 450 And mx < 490 Then NextFrame        ' >|
+                If mx >= 500 And mx < 540 Then StopPlayback     ' Stop
+            End If
+        End If
+    End If
+End Sub
+
+' ============================================================================
+' MENU HANDLERS
+' ============================================================================
+
+Sub mnuFile_OpenVGV_Click()
+    Dim path As String
+    path = InputBox("Enter .VGV file path:", "Open Animation", "user://animation.vgv")
+    If Len(path) > 0 Then LoadVGV path
+End Sub
+
+Sub mnuFile_Exit_Click()
+    GetTree().Quit()
+End Sub
+
+Sub mnuPlayback_PlayPause_Click()
+    PlayPause
+End Sub
+
+Sub mnuPlayback_Stop_Click()
+    StopPlayback
+End Sub
+
+Sub mnuPlayback_NextFrame_Click()
+    NextFrame
+End Sub
+
+Sub mnuPlayback_PrevFrame_Click()
+    PrevFrame
+End Sub
+
+Sub mnuPlayback_GoToStart_Click()
+    GoToStart
+End Sub
+
+Sub mnuPlayback_LoopOnOff_Click()
+    isLooping = Not isLooping
+    SaveSetting "VGMovie", "Config", "Loop", CStr(CInt(isLooping))
+End Sub
+
+Sub mnuView_Zoom1x_Click()
+    fitToWindow = False : zoomLevel = 1.0
+End Sub
+
+Sub mnuView_Zoom2x_Click()
+    fitToWindow = False : zoomLevel = 2.0
+End Sub
+
+Sub mnuView_FitToWindow_Click()
+    fitToWindow = True
+End Sub
+
+Sub mnuView_ShowFrameCounter_Click()
+    showFrameCounter = Not showFrameCounter
+    SaveSetting "VGMovie", "Config", "FrameCounter", CStr(CInt(showFrameCounter))
+End Sub
+
+Sub mnuHelp_AboutVGMovie_Click()
+    MsgBox "VG Movie v1.0" & Chr(10) & Chr(10) & _
+           "Vector Animation Player" & Chr(10) & _
+           "Plays .VGV files from VG Vector" & Chr(10) & Chr(10) & _
+           "All rendering is coordinate-based vectors." & Chr(10) & _
+           "No bitmaps — pure mathematical shapes!" & Chr(10) & Chr(10) & _
+           "Controls: Space=Play, Esc=Stop, Arrows=Step" & Chr(10) & _
+           "Written in VisualGasic", vbInformation, "About VG Movie"
+End Sub
+
+' ============================================================================
+' ANIMATION FRAME ADVANCE
+' ============================================================================
+
+Sub _Process(delta)
+    If isPlaying And isLoaded And frameCount > 0 Then
+        playTimer = playTimer + delta
+        Dim interval As Double
+        interval = 1.0 / fps
+
+        ' Advance frame(s) based on elapsed time
+        Do While playTimer >= interval
+            playTimer = playTimer - interval
+            currentFrame = currentFrame + 1
+
+            If currentFrame >= frameCount Then
+                If isLooping Then
+                    currentFrame = 0
+                Else
+                    currentFrame = frameCount - 1
+                    isPlaying = False
+                End If
+            End If
+        Loop
+    End If
+
+    QueueRedraw
+End Sub
+
+' ============================================================================
+' RENDERING
+' ============================================================================
+
+Sub _Draw()
+    Dim winW As Integer, winH As Integer
+    winW = 860 : winH = 560
+
+    ' ── Calculate viewport area ───────────────────────────────────────────
+    Dim viewY As Integer
+    viewY = MENU_H
+    Dim scrubY As Integer
+    scrubY = winH - CONTROLS_H - STATUS_H
+    Dim viewH As Integer
+    viewH = scrubY - viewY
+    Dim viewW As Integer
+    viewW = winW
+
+    ' ── Calculate zoom/offset to center the document ──────────────────────
+    Dim scale As Double
+    If fitToWindow Then
+        Dim scaleX As Double, scaleY As Double
+        scaleX = CDbl(viewW) / CDbl(docWidth)
+        scaleY = CDbl(viewH) / CDbl(docHeight)
+        If scaleX < scaleY Then scale = scaleX Else scale = scaleY
+    Else
+        scale = zoomLevel
+    End If
+
+    Dim offsetX As Double, offsetY As Double
+    offsetX = (viewW - docWidth * scale) / 2.0
+    offsetY = viewY + (viewH - docHeight * scale) / 2.0
+
+    ' ── Draw viewport background (dark gray) ──────────────────────────────
+    DrawRect Rect2(0, viewY, viewW, viewH), Color(0.12, 0.12, 0.15)
+
+    ' ── Draw document area (white canvas) ─────────────────────────────────
+    DrawRect Rect2(offsetX, offsetY, docWidth * scale, docHeight * scale), Color(1, 1, 1)
+
+    ' ── Render current frame shapes ───────────────────────────────────────
+    If isLoaded And frameCount > 0 Then
+        RenderFrame currentFrame, offsetX, offsetY, scale
+    End If
+
+    ' ── Frame counter overlay ─────────────────────────────────────────────
+    If showFrameCounter And isLoaded Then
+        DrawRect Rect2(winW - 120, viewY + 8, 112, 28), Color(0, 0, 0, 0.6)
+        Dim frameLabel As String
+        frameLabel = "Frame " & Str(currentFrame + 1) & " / " & Str(frameCount)
+        DrawString GetThemeDefaultFont(), Vector2(winW - 114, viewY + 28), frameLabel, Color(1, 1, 1)
+    End If
+
+    ' ── Draw timeline scrubber ────────────────────────────────────────────
+    DrawRect Rect2(0, scrubY, winW, SCRUBBER_H), Color(0.2, 0.2, 0.25)
+
+    ' Progress bar
+    If frameCount > 0 Then
+        Dim progress As Double
+        progress = CDbl(currentFrame) / CDbl(frameCount)
+        DrawRect Rect2(0, scrubY, Int(winW * progress), SCRUBBER_H), Color(0.3, 0.5, 0.9)
+
+        ' Playhead marker
+        Dim playheadX As Integer
+        playheadX = Int(winW * progress)
+        DrawRect Rect2(playheadX - 2, scrubY, 4, SCRUBBER_H), Color(1, 1, 1)
+    End If
+
+    ' ── Draw playback controls ────────────────────────────────────────────
+    Dim ctrlY As Integer
+    ctrlY = scrubY + SCRUBBER_H
+    DrawRect Rect2(0, ctrlY, winW, CONTROLS_H - SCRUBBER_H), Color(0.18, 0.18, 0.22)
+
+    ' Control buttons
+    DrawControlButton 350, ctrlY + 8, 36, "|<"        ' Previous frame
+    If isPlaying Then
+        DrawControlButton 400, ctrlY + 8, 36, "||"    ' Pause
+    Else
+        DrawControlButton 400, ctrlY + 8, 36, ">"     ' Play
+    End If
+    DrawControlButton 450, ctrlY + 8, 36, ">|"        ' Next frame
+    DrawControlButton 500, ctrlY + 8, 36, "[]"        ' Stop
+
+    ' Playback info
+    Dim infoText As String
+    infoText = Str(fps) & " FPS"
+    If isLooping Then infoText = infoText & "  |  LOOP"
+    If isPlaying Then infoText = infoText & "  |  PLAYING" Else infoText = infoText & "  |  PAUSED"
+    DrawString GetThemeDefaultFont(), Vector2(20, ctrlY + 28), infoText, Color(0.6, 0.6, 0.7)
+
+    ' Movie title
+    DrawString GetThemeDefaultFont(), Vector2(winW - 350, ctrlY + 28), movieTitle, Color(0.5, 0.5, 0.6)
+
+    ' ── Draw status bar ───────────────────────────────────────────────────
+    Dim statusY As Integer
+    statusY = winH - STATUS_H
+    DrawRect Rect2(0, statusY, winW, STATUS_H), Color(0.15, 0.15, 0.18)
+
+    Dim statusText As String
+    statusText = "Doc: " & Str(docWidth) & "x" & Str(docHeight)
+    statusText = statusText & "  |  Shapes: " & Str(frameShapeCount(currentFrame))
+    statusText = statusText & "  |  Scale: " & Str(Int(scale * 100)) & "%"
+    DrawString GetThemeDefaultFont(), Vector2(8, statusY + 16), statusText, Color(0.5, 0.5, 0.6)
+End Sub
+
+' Draw a small control button
+Sub DrawControlButton(x As Integer, y As Integer, sz As Integer, label As String)
+    DrawRect Rect2(x, y, sz, sz), Color(0.3, 0.3, 0.38)
+    DrawString GetThemeDefaultFont(), Vector2(x + 6, y + 24), label, Color(0.9, 0.9, 0.95)
+End Sub
+
+' ============================================================================
+' RENDER A SINGLE FRAME (vector shapes at given offset and scale)
+' ============================================================================
+
+Sub RenderFrame(frameIdx As Integer, offX As Double, offY As Double, scale As Double)
+    Dim count As Integer
+    count = frameShapeCount(frameIdx)
+    Dim i As Integer
+
+    For i = 0 To count - 1
+        Dim idx As Integer
+        idx = frameIdx * MAX_SHAPES + i
+
+        ' ── Calculate scaled coordinates ──────────────────────────────────
+        Dim x1 As Double, y1 As Double, x2 As Double, y2 As Double
+        x1 = offX + shapeX1(idx) * scale
+        y1 = offY + shapeY1(idx) * scale
+        x2 = offX + shapeX2(idx) * scale
+        y2 = offY + shapeY2(idx) * scale
+
+        ' ── Build colors ─────────────────────────────────────────────────
+        Dim sColor As Color
+        sColor = Color8(shapeStrokeR(idx), shapeStrokeG(idx), shapeStrokeB(idx), shapeStrokeA(idx))
+        Dim fColor As Color
+        fColor = Color8(shapeFillR(idx), shapeFillG(idx), shapeFillB(idx), shapeFillA(idx))
+        Dim sw As Double
+        sw = shapeStrokeW(idx) * scale
+        If sw < 1 Then sw = 1
+
+        ' ── Render shape by type ──────────────────────────────────────────
+        Select Case shapeType(idx)
+
+        Case "LINE"
+            DrawLine Vector2(x1, y1), Vector2(x2, y2), sColor, sw
+
+        Case "RECT"
+            ' Fill
+            If shapeFillA(idx) > 0 Then
+                DrawRect Rect2(x1, y1, x2 - x1, y2 - y1), fColor
+            End If
+            ' Stroke (4 edges)
+            If shapeStrokeA(idx) > 0 Then
+                DrawLine Vector2(x1, y1), Vector2(x2, y1), sColor, sw
+                DrawLine Vector2(x2, y1), Vector2(x2, y2), sColor, sw
+                DrawLine Vector2(x2, y2), Vector2(x1, y2), sColor, sw
+                DrawLine Vector2(x1, y2), Vector2(x1, y1), sColor, sw
+            End If
+
+        Case "ELLIPSE"
+            Dim cx As Double, cy As Double, rx As Double, ry As Double
+            cx = (x1 + x2) / 2 : cy = (y1 + y2) / 2
+            rx = Abs(x2 - x1) / 2 : ry = Abs(y2 - y1) / 2
+
+            ' Draw ellipse as line segments
+            Dim segs As Integer
+            segs = Int((rx + ry) / 3)
+            If segs < 16 Then segs = 16
+            If segs > 80 Then segs = 80
+
+            Dim a As Integer
+            For a = 0 To segs - 1
+                Dim ang1 As Double, ang2 As Double
+                ang1 = (a * 6.2832) / segs
+                ang2 = ((a + 1) * 6.2832) / segs
+                DrawLine Vector2(cx + rx * Cos(ang1), cy + ry * Sin(ang1)), _
+                          Vector2(cx + rx * Cos(ang2), cy + ry * Sin(ang2)), sColor, sw
+            Next
+
+        Case "POLYGON", "POLYLINE"
+            Dim pc As Integer
+            pc = polyPointCount(i)
+            If pc >= 2 Then
+                Dim v As Integer
+                For v = 0 To pc - 2
+                    DrawLine Vector2(offX + polyPointX(i, v) * scale, offY + polyPointY(i, v) * scale), _
+                              Vector2(offX + polyPointX(i, v + 1) * scale, offY + polyPointY(i, v + 1) * scale), _
+                              sColor, sw
+                Next
+                If shapeType(idx) = "POLYGON" And pc >= 3 Then
+                    DrawLine Vector2(offX + polyPointX(i, pc - 1) * scale, offY + polyPointY(i, pc - 1) * scale), _
+                              Vector2(offX + polyPointX(i, 0) * scale, offY + polyPointY(i, 0) * scale), _
+                              sColor, sw
+                End If
+            End If
+
+        Case "TEXT"
+            DrawString GetThemeDefaultFont(), Vector2(x1, y1 + 14 * scale), shapeText(idx), sColor
+
+        End Select
+    Next
+End Sub

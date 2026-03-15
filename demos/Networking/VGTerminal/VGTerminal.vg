@@ -1,0 +1,913 @@
+' ============================================================================
+' VGTerminal.vg — ANSI BBS Terminal Client
+' ============================================================================
+' A full-featured terminal emulator with ANSI escape code support that can
+' connect to online BBS (Bulletin Board Systems) via TCP/Telnet.
+'
+' FEATURES:
+'   - TCP/Telnet client via WinSock (connects to any BBS on any port)
+'   - ANSI escape code parser (SGR colors, cursor movement, clear screen)
+'   - Bookmarks manager for favorite BBS addresses
+'   - Session capture / logging to text files
+'   - Local echo toggle, line mode vs character mode
+'   - Copy/paste support via system clipboard
+'   - Connection status indicator in status bar
+'   - Cross-platform: Linux, Windows, macOS, Android, HTML5
+'
+' OS INTEGRATION DEMONSTRATED:
+'   - WinSock TCP networking (connect, send, receive)
+'   - File I/O (session logging with Open/Print #/Close)
+'   - Clipboard (copy/paste terminal text)
+'   - SaveSetting / GetSetting (bookmarks persistence)
+'   - VGSystem (hostname, OS info in status bar)
+'   - Environ() (default paths)
+'   - Timer (poll for incoming data)
+'   - MsgBox / InputBox (dialogs)
+'
+' PLATFORMS: Linux, Windows, Android, Apple, HTML5
+' ============================================================================
+Option Explicit
+
+' ── Connection State ──────────────────────────────────────────────────────
+Dim sock As New WinSock             ' TCP socket for Telnet connection
+Dim isConnected As Boolean          ' True when connected to a BBS
+Dim remoteHost As String            ' Current host address
+Dim remotePort As Integer           ' Current port number
+
+' ── Terminal Buffer ───────────────────────────────────────────────────────
+' We store terminal content as a grid of characters with color attributes.
+' This allows us to render ANSI-colored text properly.
+Const TERM_COLS As Integer = 80     ' Terminal width in columns
+Const TERM_ROWS As Integer = 24     ' Terminal height in rows
+Const MAX_SCROLLBACK As Integer = 500 ' Max scrollback lines
+
+Dim termBuffer(600, 80) As String   ' Character grid (scrollback + visible)
+Dim termColors(600, 80) As Integer  ' Color attribute for each cell
+Dim cursorRow As Integer            ' Current cursor row (0-based)
+Dim cursorCol As Integer            ' Current cursor column (0-based)
+Dim scrollTop As Integer            ' Top of scrollback view
+Dim totalLines As Integer           ' Total lines written so far
+
+' ── ANSI Parser State ─────────────────────────────────────────────────────
+Dim ansiState As Integer            ' 0=normal, 1=got ESC, 2=in CSI sequence
+Dim ansiParams As String            ' Accumulated CSI parameter string
+Dim currentFG As Integer            ' Current foreground color index (0-7)
+Dim currentBG As Integer            ' Current background color index (0-7)
+Dim isBold As Boolean               ' Bold/bright attribute active
+
+' ── ANSI Color Palette ────────────────────────────────────────────────────
+' Standard 8 ANSI colors + 8 bright variants
+Dim ansiColorR(16) As Integer       ' Red component for each color
+Dim ansiColorG(16) As Integer       ' Green component for each color
+Dim ansiColorB(16) As Integer       ' Blue component for each color
+
+' ── UI Layout Constants ───────────────────────────────────────────────────
+Const MENU_HEIGHT As Integer = 32   ' Height of the menu bar area
+Const STATUS_HEIGHT As Integer = 28 ' Height of the status bar
+Const CHAR_WIDTH As Integer = 9     ' Monospace character width in pixels
+Const CHAR_HEIGHT As Integer = 18   ' Monospace character height in pixels
+Const PADDING As Integer = 4        ' Padding around terminal area
+Const INPUT_HEIGHT As Integer = 30  ' Height of the input line
+
+' ── Settings ──────────────────────────────────────────────────────────────
+Dim localEcho As Boolean            ' Whether to echo typed chars locally
+Dim lineMode As Boolean             ' True=send on Enter, False=send each char
+Dim inputBuffer As String           ' Text typed by user (line mode)
+Dim sessionLog As String            ' Accumulated session text for logging
+Dim isLogging As Boolean            ' Whether session logging is active
+
+' ── Bookmarks ─────────────────────────────────────────────────────────────
+Const MAX_BOOKMARKS As Integer = 20
+Dim bookmarkHosts(20) As String     ' Stored bookmark host:port strings
+Dim bookmarkCount As Integer        ' Number of bookmarks stored
+
+' ── System Info ───────────────────────────────────────────────────────────
+Dim sysInfo As String               ' OS/hostname for status bar display
+Dim statusMessage As String         ' Current status bar message
+Dim lastDataTime As Double          ' Timer value of last received data
+Dim blinkState As Boolean           ' Cursor blink state
+
+' ── Poll Timer ────────────────────────────────────────────────────────────
+Dim pollCounter As Integer          ' Frame counter for polling socket
+
+' ============================================================================
+' INITIALIZATION
+' ============================================================================
+
+Sub _Ready()
+    ' ── Initialize ANSI color palette ─────────────────────────────────────
+    ' Standard colors (indices 0-7)
+    InitColor 0,   0,   0,   0    ' Black
+    InitColor 1, 170,   0,   0    ' Red
+    InitColor 2,   0, 170,   0    ' Green
+    InitColor 3, 170,  85,   0    ' Yellow/Brown
+    InitColor 4,   0,   0, 170    ' Blue
+    InitColor 5, 170,   0, 170    ' Magenta
+    InitColor 6,   0, 170, 170    ' Cyan
+    InitColor 7, 170, 170, 170    ' White/Light Gray
+
+    ' Bright colors (indices 8-15)
+    InitColor 8,   85,  85,  85   ' Dark Gray (bright black)
+    InitColor 9,  255,  85,  85   ' Bright Red
+    InitColor 10,  85, 255,  85   ' Bright Green
+    InitColor 11, 255, 255,  85   ' Bright Yellow
+    InitColor 12,  85,  85, 255   ' Bright Blue
+    InitColor 13, 255,  85, 255   ' Bright Magenta
+    InitColor 14,  85, 255, 255   ' Bright Cyan
+    InitColor 15, 255, 255, 255   ' Bright White
+
+    ' ── Initialize terminal state ─────────────────────────────────────────
+    cursorRow = 0
+    cursorCol = 0
+    scrollTop = 0
+    totalLines = 0
+    currentFG = 7               ' Default: light gray text
+    currentBG = 0               ' Default: black background
+    isBold = False
+    ansiState = 0
+    ansiParams = ""
+
+    ' ── Initialize settings ───────────────────────────────────────────────
+    localEcho = False           ' BBS usually echoes; start with local off
+    lineMode = True             ' Send complete lines on Enter
+    inputBuffer = ""
+    sessionLog = ""
+    isLogging = False
+    isConnected = False
+    remoteHost = ""
+    remotePort = 23
+    pollCounter = 0
+    blinkState = True
+    statusMessage = "Ready - Use Connect menu to connect to a BBS"
+
+    ' ── Load bookmarks from saved settings ────────────────────────────────
+    LoadBookmarks
+
+    ' ── Get system info for status bar ────────────────────────────────────
+    Dim sys As New VGSystem
+    sysInfo = sys.OsFull & " | " & sys.Hostname
+
+    ' ── Clear the terminal buffer ─────────────────────────────────────────
+    ClearTerminal
+
+    ' ── Show welcome message ──────────────────────────────────────────────
+    PrintToTerminal "╔══════════════════════════════════════════════════════════════════╗" & Chr(10)
+    PrintToTerminal "║              VG Terminal — ANSI BBS Client v1.0                 ║" & Chr(10)
+    PrintToTerminal "║          Written in VisualGasic for Godot Engine                ║" & Chr(10)
+    PrintToTerminal "╠══════════════════════════════════════════════════════════════════╣" & Chr(10)
+    PrintToTerminal "║  Connect > Quick Connect    — connect to telehack.com           ║" & Chr(10)
+    PrintToTerminal "║  Connect > Connect...       — enter any host:port               ║" & Chr(10)
+    PrintToTerminal "║  Bookmarks                  — saved BBS addresses               ║" & Chr(10)
+    PrintToTerminal "║  Ctrl+V = Paste  |  Ctrl+L = Clear  |  Ctrl+S = Save Log       ║" & Chr(10)
+    PrintToTerminal "╚══════════════════════════════════════════════════════════════════╝" & Chr(10)
+    PrintToTerminal "" & Chr(10)
+End Sub
+
+' Helper to set up a color in the palette
+Sub InitColor(idx As Integer, r As Integer, g As Integer, b As Integer)
+    ansiColorR(idx) = r
+    ansiColorG(idx) = g
+    ansiColorB(idx) = b
+End Sub
+
+' ============================================================================
+' MAIN LOOP — polls socket for data, updates cursor blink
+' ============================================================================
+
+Sub _Process(delta)
+    ' ── Poll the socket every few frames for incoming data ────────────────
+    pollCounter = pollCounter + 1
+    If pollCounter >= 3 Then
+        pollCounter = 0
+        If isConnected Then
+            PollSocket
+        End If
+    End If
+
+    ' ── Cursor blink toggle (every ~0.5 seconds) ─────────────────────────
+    ' We use frame counting as a simple blink timer
+    Static blinkTimer As Double
+    blinkTimer = blinkTimer + delta
+    If blinkTimer >= 0.5 Then
+        blinkTimer = 0
+        blinkState = Not blinkState
+    End If
+
+    ' ── Redraw every frame ────────────────────────────────────────────────
+    QueueRedraw
+End Sub
+
+' ============================================================================
+' SOCKET COMMUNICATION
+' ============================================================================
+
+' Connect to a remote BBS host via TCP
+Sub ConnectToHost(host As String, port As Integer)
+    ' Disconnect any existing connection first
+    If isConnected Then
+        DisconnectFromHost
+    End If
+
+    statusMessage = "Connecting to " & host & ":" & Str(port) & "..."
+    remoteHost = host
+    remotePort = port
+
+    ' ── Create TCP connection using WinSock ───────────────────────────────
+    sock.Protocol = 0           ' 0 = TCP protocol
+    sock.Connect host, port
+
+    ' Check if connection succeeded
+    If sock.Connected Then
+        isConnected = True
+        statusMessage = "Connected to " & host & ":" & Str(port)
+        PrintToTerminal Chr(10) & "[Connected to " & host & ":" & Str(port) & "]" & Chr(10)
+        lastDataTime = Timer()
+    Else
+        statusMessage = "Connection failed: " & host & ":" & Str(port)
+        PrintToTerminal Chr(10) & "[Connection failed to " & host & ":" & Str(port) & "]" & Chr(10)
+        MsgBox "Could not connect to " & host & ":" & Str(port), vbExclamation, "Connection Failed"
+    End If
+End Sub
+
+' Disconnect from the current BBS
+Sub DisconnectFromHost()
+    If isConnected Then
+        sock.Close
+        isConnected = False
+        statusMessage = "Disconnected"
+        PrintToTerminal Chr(10) & "[Disconnected]" & Chr(10)
+    End If
+End Sub
+
+' Poll the socket for incoming data and process it
+Sub PollSocket()
+    If Not isConnected Then Exit Sub
+
+    ' ── Try to receive data from the socket ───────────────────────────────
+    Dim data As String
+    data = sock.Receive(4096)
+
+    ' If we got data, process it through the ANSI parser
+    If Len(data) > 0 Then
+        lastDataTime = Timer()
+
+        ' Append to session log if logging is active
+        If isLogging Then
+            sessionLog = sessionLog & data
+        End If
+
+        ' Process each character through the ANSI state machine
+        Dim i As Integer
+        For i = 1 To Len(data)
+            ProcessANSIChar Mid(data, i, 1)
+        Next
+    End If
+
+    ' ── Check if connection was lost ──────────────────────────────────────
+    If Not sock.Connected Then
+        isConnected = False
+        statusMessage = "Connection lost"
+        PrintToTerminal Chr(10) & "[Connection lost]" & Chr(10)
+    End If
+End Sub
+
+' Send text to the remote BBS
+Sub SendData(text As String)
+    If Not isConnected Then
+        statusMessage = "Not connected"
+        Exit Sub
+    End If
+
+    ' ── Send data through the socket ──────────────────────────────────────
+    sock.Send text
+
+    ' ── Local echo if enabled ─────────────────────────────────────────────
+    If localEcho Then
+        Dim i As Integer
+        For i = 1 To Len(text)
+            ProcessANSIChar Mid(text, i, 1)
+        Next
+    End If
+End Sub
+
+' ============================================================================
+' ANSI ESCAPE CODE PARSER
+' ============================================================================
+' Implements a state machine that processes characters one at a time:
+'   State 0: Normal text — print characters to terminal
+'   State 1: Got ESC (chr 27) — waiting for '[' to start CSI sequence
+'   State 2: In CSI sequence — accumulating parameters until final char
+'
+' Supported ANSI sequences:
+'   ESC[Nm        — SGR (Select Graphic Rendition) — colors & attributes
+'   ESC[nA/B/C/D  — Cursor movement (up/down/forward/back)
+'   ESC[H         — Cursor home (move to 0,0)
+'   ESC[2J        — Clear entire screen
+'   ESC[K         — Clear to end of line
+'   ESC[n;mH      — Move cursor to row n, column m
+
+Sub ProcessANSIChar(c As String)
+    Dim charCode As Integer
+    charCode = Asc(c)
+
+    Select Case ansiState
+
+    ' ── State 0: Normal character output ──────────────────────────────────
+    Case 0
+        If charCode = 27 Then
+            ' ESC character — enter escape state
+            ansiState = 1
+        ElseIf charCode = 10 Then
+            ' Line Feed — move cursor to next line
+            cursorRow = cursorRow + 1
+            cursorCol = 0
+            If cursorRow >= TERM_ROWS Then
+                ScrollUp
+                cursorRow = TERM_ROWS - 1
+            End If
+            totalLines = totalLines + 1
+        ElseIf charCode = 13 Then
+            ' Carriage Return — move cursor to beginning of line
+            cursorCol = 0
+        ElseIf charCode = 8 Then
+            ' Backspace — move cursor left one position
+            If cursorCol > 0 Then cursorCol = cursorCol - 1
+        ElseIf charCode = 9 Then
+            ' Tab — advance to next tab stop (every 8 columns)
+            cursorCol = ((cursorCol \ 8) + 1) * 8
+            If cursorCol >= TERM_COLS Then cursorCol = TERM_COLS - 1
+        ElseIf charCode = 7 Then
+            ' Bell — play a short beep
+            Beep
+        ElseIf charCode >= 32 Then
+            ' Printable character — write to terminal buffer
+            Dim bufRow As Integer
+            bufRow = scrollTop + cursorRow
+            If bufRow >= 0 And bufRow < 600 And cursorCol >= 0 And cursorCol < 80 Then
+                termBuffer(bufRow, cursorCol) = c
+                ' Encode color as: FG + BG*16 + bold*256
+                Dim colorAttr As Integer
+                colorAttr = currentFG + (currentBG * 16)
+                If isBold Then colorAttr = colorAttr + 256
+                termColors(bufRow, cursorCol) = colorAttr
+            End If
+            cursorCol = cursorCol + 1
+            If cursorCol >= TERM_COLS Then
+                ' Wrap to next line
+                cursorCol = 0
+                cursorRow = cursorRow + 1
+                If cursorRow >= TERM_ROWS Then
+                    ScrollUp
+                    cursorRow = TERM_ROWS - 1
+                End If
+            End If
+        End If
+
+    ' ── State 1: Got ESC, waiting for '[' ─────────────────────────────────
+    Case 1
+        If c = "[" Then
+            ' Start of CSI (Control Sequence Introducer)
+            ansiState = 2
+            ansiParams = ""
+        Else
+            ' Unknown escape sequence — ignore and return to normal
+            ansiState = 0
+        End If
+
+    ' ── State 2: Inside CSI sequence — accumulate params ──────────────────
+    Case 2
+        If (charCode >= 48 And charCode <= 57) Or c = ";" Then
+            ' Digit or semicolon — accumulate parameter characters
+            ansiParams = ansiParams & c
+        Else
+            ' Final character — execute the CSI command
+            ExecuteCSI c, ansiParams
+            ansiState = 0
+        End If
+
+    End Select
+End Sub
+
+' Execute a parsed CSI (Control Sequence Introducer) command
+Sub ExecuteCSI(cmd As String, params As String)
+    ' ── Parse parameters (semicolon-separated integers) ───────────────────
+    Dim parts() As String
+    Dim p1 As Integer, p2 As Integer
+    parts = Split(params, ";")
+    If UBound(parts) >= 0 And parts(0) <> "" Then p1 = Val(parts(0))
+    If UBound(parts) >= 1 Then p2 = Val(parts(1))
+
+    Select Case cmd
+
+    ' ── 'm' = SGR (Select Graphic Rendition) — colors & style ────────────
+    Case "m"
+        If params = "" Or params = "0" Then
+            ' Reset all attributes to default
+            currentFG = 7 : currentBG = 0 : isBold = False
+        Else
+            ' Process each parameter in the sequence
+            Dim i As Integer
+            For i = 0 To UBound(parts)
+                Dim code As Integer
+                code = Val(parts(i))
+                Select Case code
+                    Case 0: currentFG = 7 : currentBG = 0 : isBold = False  ' Reset
+                    Case 1: isBold = True                                     ' Bold on
+                    Case 22: isBold = False                                   ' Bold off
+                    Case 30: currentFG = 0   ' Black
+                    Case 31: currentFG = 1   ' Red
+                    Case 32: currentFG = 2   ' Green
+                    Case 33: currentFG = 3   ' Yellow
+                    Case 34: currentFG = 4   ' Blue
+                    Case 35: currentFG = 5   ' Magenta
+                    Case 36: currentFG = 6   ' Cyan
+                    Case 37: currentFG = 7   ' White
+                    Case 39: currentFG = 7   ' Default foreground
+                    Case 40: currentBG = 0   ' BG Black
+                    Case 41: currentBG = 1   ' BG Red
+                    Case 42: currentBG = 2   ' BG Green
+                    Case 43: currentBG = 3   ' BG Yellow
+                    Case 44: currentBG = 4   ' BG Blue
+                    Case 45: currentBG = 5   ' BG Magenta
+                    Case 46: currentBG = 6   ' BG Cyan
+                    Case 47: currentBG = 7   ' BG White
+                    Case 49: currentBG = 0   ' Default background
+                    Case 7                   ' Reverse video (swap FG/BG)
+                        Dim tmp As Integer
+                        tmp = currentFG : currentFG = currentBG : currentBG = tmp
+                End Select
+            Next
+        End If
+
+    ' ── 'A' = Cursor Up ───────────────────────────────────────────────────
+    Case "A"
+        If p1 = 0 Then p1 = 1
+        cursorRow = cursorRow - p1
+        If cursorRow < 0 Then cursorRow = 0
+
+    ' ── 'B' = Cursor Down ─────────────────────────────────────────────────
+    Case "B"
+        If p1 = 0 Then p1 = 1
+        cursorRow = cursorRow + p1
+        If cursorRow >= TERM_ROWS Then cursorRow = TERM_ROWS - 1
+
+    ' ── 'C' = Cursor Forward (Right) ──────────────────────────────────────
+    Case "C"
+        If p1 = 0 Then p1 = 1
+        cursorCol = cursorCol + p1
+        If cursorCol >= TERM_COLS Then cursorCol = TERM_COLS - 1
+
+    ' ── 'D' = Cursor Back (Left) ──────────────────────────────────────────
+    Case "D"
+        If p1 = 0 Then p1 = 1
+        cursorCol = cursorCol - p1
+        If cursorCol < 0 Then cursorCol = 0
+
+    ' ── 'H' or 'f' = Cursor Position (row;col) ───────────────────────────
+    Case "H", "f"
+        If p1 > 0 Then p1 = p1 - 1    ' Convert 1-based to 0-based
+        If p2 > 0 Then p2 = p2 - 1
+        cursorRow = p1
+        cursorCol = p2
+        If cursorRow >= TERM_ROWS Then cursorRow = TERM_ROWS - 1
+        If cursorCol >= TERM_COLS Then cursorCol = TERM_COLS - 1
+
+    ' ── 'J' = Erase in Display ────────────────────────────────────────────
+    Case "J"
+        If p1 = 2 Then
+            ' Clear entire screen
+            ClearTerminal
+            cursorRow = 0 : cursorCol = 0
+        ElseIf p1 = 0 Then
+            ' Clear from cursor to end of screen
+            ClearFromCursor
+        End If
+
+    ' ── 'K' = Erase in Line ──────────────────────────────────────────────
+    Case "K"
+        ' Clear from cursor to end of current line
+        Dim col As Integer
+        Dim bRow As Integer
+        bRow = scrollTop + cursorRow
+        For col = cursorCol To TERM_COLS - 1
+            If bRow >= 0 And bRow < 600 Then
+                termBuffer(bRow, col) = " "
+                termColors(bRow, col) = 7   ' Default color
+            End If
+        Next
+
+    End Select
+End Sub
+
+' ============================================================================
+' TERMINAL BUFFER MANAGEMENT
+' ============================================================================
+
+' Clear the entire terminal buffer
+Sub ClearTerminal()
+    Dim r As Integer, c As Integer
+    For r = 0 To 599
+        For c = 0 To 79
+            termBuffer(r, c) = " "
+            termColors(r, c) = 7       ' Default: light gray on black
+        Next
+    Next
+    cursorRow = 0
+    cursorCol = 0
+End Sub
+
+' Clear from cursor position to end of screen
+Sub ClearFromCursor()
+    Dim r As Integer, c As Integer
+    Dim bRow As Integer
+    ' Clear rest of current line
+    bRow = scrollTop + cursorRow
+    If bRow >= 0 And bRow < 600 Then
+        For c = cursorCol To TERM_COLS - 1
+            termBuffer(bRow, c) = " "
+            termColors(bRow, c) = 7
+        Next
+    End If
+    ' Clear all lines below cursor
+    For r = cursorRow + 1 To TERM_ROWS - 1
+        bRow = scrollTop + r
+        If bRow >= 0 And bRow < 600 Then
+            For c = 0 To TERM_COLS - 1
+                termBuffer(bRow, c) = " "
+                termColors(bRow, c) = 7
+            Next
+        End If
+    Next
+End Sub
+
+' Scroll the terminal up by one line
+Sub ScrollUp()
+    scrollTop = scrollTop + 1
+    ' Clear the new bottom line
+    Dim bRow As Integer
+    bRow = scrollTop + TERM_ROWS - 1
+    If bRow < 600 Then
+        Dim c As Integer
+        For c = 0 To TERM_COLS - 1
+            termBuffer(bRow, c) = " "
+            termColors(bRow, c) = 7
+        Next
+    End If
+End Sub
+
+' Print a string directly to the terminal (used for local messages)
+Sub PrintToTerminal(text As String)
+    Dim i As Integer
+    For i = 1 To Len(text)
+        ProcessANSIChar Mid(text, i, 1)
+    Next
+End Sub
+
+' ============================================================================
+' INPUT HANDLING
+' ============================================================================
+
+Sub _Input(ev)
+    ' ── Handle keyboard input ─────────────────────────────────────────────
+    If TypeOf ev Is InputEventKey Then
+        If ev.pressed Then
+            Dim keycode As Integer
+            keycode = ev.keycode
+
+            ' ── Ctrl+V = Paste from clipboard ─────────────────────────────
+            If ev.ctrl_pressed And keycode = 86 Then  ' V
+                Dim clipText As String
+                clipText = Clipboard.GetText()
+                If Len(clipText) > 0 Then
+                    If isConnected Then
+                        SendData clipText
+                    Else
+                        PrintToTerminal clipText
+                    End If
+                End If
+                GetTree().SetInputAsHandled()
+                Exit Sub
+            End If
+
+            ' ── Ctrl+L = Clear screen ─────────────────────────────────────
+            If ev.ctrl_pressed And keycode = 76 Then  ' L
+                ClearTerminal
+                GetTree().SetInputAsHandled()
+                Exit Sub
+            End If
+
+            ' ── Ctrl+S = Save session log ─────────────────────────────────
+            If ev.ctrl_pressed And keycode = 83 Then  ' S
+                SaveSessionLog
+                GetTree().SetInputAsHandled()
+                Exit Sub
+            End If
+
+            ' ── Enter key = Send line ─────────────────────────────────────
+            If keycode = 4194309 Then  ' KEY_ENTER
+                If lineMode Then
+                    ' Send the accumulated input line + CR/LF
+                    SendData inputBuffer & Chr(13) & Chr(10)
+                    inputBuffer = ""
+                Else
+                    SendData Chr(13) & Chr(10)
+                End If
+                GetTree().SetInputAsHandled()
+                Exit Sub
+            End If
+
+            ' ── Backspace ─────────────────────────────────────────────────
+            If keycode = 4194308 Then  ' KEY_BACKSPACE
+                If lineMode And Len(inputBuffer) > 0 Then
+                    inputBuffer = Left(inputBuffer, Len(inputBuffer) - 1)
+                End If
+                If isConnected And Not lineMode Then
+                    SendData Chr(8)
+                End If
+                GetTree().SetInputAsHandled()
+                Exit Sub
+            End If
+
+            ' ── Arrow keys → send ANSI escape sequences ───────────────────
+            If keycode = 4194320 Then SendData Chr(27) & "[A" : Exit Sub  ' Up
+            If keycode = 4194322 Then SendData Chr(27) & "[B" : Exit Sub  ' Down
+            If keycode = 4194321 Then SendData Chr(27) & "[C" : Exit Sub  ' Right
+            If keycode = 4194319 Then SendData Chr(27) & "[D" : Exit Sub  ' Left
+
+            ' ── Regular text input ────────────────────────────────────────
+            If ev.unicode > 0 And ev.unicode < 128 Then
+                Dim ch As String
+                ch = Chr(ev.unicode)
+                If lineMode Then
+                    inputBuffer = inputBuffer & ch
+                Else
+                    SendData ch
+                End If
+                GetTree().SetInputAsHandled()
+            End If
+        End If
+    End If
+End Sub
+
+' ============================================================================
+' MENU HANDLERS
+' ============================================================================
+
+' File menu
+Sub mnuFile_SaveSessionLog_Click()
+    SaveSessionLog
+End Sub
+
+Sub mnuFile_ClearScreen_Click()
+    ClearTerminal
+End Sub
+
+Sub mnuFile_Exit_Click()
+    If isConnected Then DisconnectFromHost
+    GetTree().Quit()
+End Sub
+
+' Connect menu
+Sub mnuConnect_Connect_Click()
+    ' Show input dialog for host:port
+    Dim address As String
+    address = InputBox("Enter BBS address (host:port):", "Connect", "telehack.com:23")
+    If Len(address) > 0 Then
+        ParseAndConnect address
+    End If
+End Sub
+
+Sub mnuConnect_Disconnect_Click()
+    DisconnectFromHost
+End Sub
+
+Sub mnuConnect_QuickConnect_Click()
+    ConnectToHost "telehack.com", 23
+End Sub
+
+' Bookmarks menu
+Sub mnuBookmarks_AddBookmark_Click()
+    If Len(remoteHost) > 0 And isConnected Then
+        Dim addr As String
+        addr = remoteHost & ":" & Str(remotePort)
+        If bookmarkCount < MAX_BOOKMARKS Then
+            bookmarkHosts(bookmarkCount) = addr
+            bookmarkCount = bookmarkCount + 1
+            SaveBookmarks
+            MsgBox "Bookmark added: " & addr, vbInformation, "Bookmarks"
+        End If
+    Else
+        Dim newAddr As String
+        newAddr = InputBox("Enter BBS address to bookmark:", "Add Bookmark", "")
+        If Len(newAddr) > 0 And bookmarkCount < MAX_BOOKMARKS Then
+            bookmarkHosts(bookmarkCount) = newAddr
+            bookmarkCount = bookmarkCount + 1
+            SaveBookmarks
+        End If
+    End If
+End Sub
+
+' Handle clicking a bookmark entry
+Sub BookmarkClicked(index As Integer)
+    If index >= 0 And index < bookmarkCount Then
+        ParseAndConnect bookmarkHosts(index)
+    End If
+End Sub
+
+' Settings menu
+Sub mnuSettings_LocalEcho_Click()
+    localEcho = Not localEcho
+    If localEcho Then
+        statusMessage = "Local echo: ON"
+    Else
+        statusMessage = "Local echo: OFF"
+    End If
+End Sub
+
+Sub mnuSettings_LineMode_Click()
+    lineMode = Not lineMode
+    If lineMode Then
+        statusMessage = "Mode: Line (send on Enter)"
+    Else
+        statusMessage = "Mode: Character (send each keypress)"
+    End If
+End Sub
+
+Sub mnuSettings_AboutVGTerminal_Click()
+    MsgBox "VG Terminal v1.0" & Chr(10) & Chr(10) & _
+           "An ANSI BBS terminal client" & Chr(10) & _
+           "Written in VisualGasic" & Chr(10) & _
+           "Supports ANSI escape codes, Telnet," & Chr(10) & _
+           "session logging, and bookmarks." & Chr(10) & Chr(10) & _
+           "Platforms: Linux, Windows, Android, Apple, HTML5", _
+           vbInformation, "About VG Terminal"
+End Sub
+
+' ============================================================================
+' UTILITY FUNCTIONS
+' ============================================================================
+
+' Parse a "host:port" string and connect
+Sub ParseAndConnect(address As String)
+    Dim colonPos As Integer
+    colonPos = InStr(address, ":")
+    If colonPos > 0 Then
+        Dim host As String
+        Dim port As Integer
+        host = Left(address, colonPos - 1)
+        port = Val(Mid(address, colonPos + 1))
+        If port = 0 Then port = 23   ' Default Telnet port
+        ConnectToHost host, port
+    Else
+        ConnectToHost address, 23    ' Default to port 23
+    End If
+End Sub
+
+' Save the session log to a file
+Sub SaveSessionLog()
+    Dim logFile As String
+    logFile = "user://vgterminal_session_" & Format(Now(), "yyyymmdd_hhnnss") & ".txt"
+
+    ' ── Build log from terminal buffer ────────────────────────────────────
+    Dim logText As String
+    Dim r As Integer, c As Integer
+    Dim line As String
+    For r = 0 To scrollTop + cursorRow
+        If r < 600 Then
+            line = ""
+            For c = 0 To TERM_COLS - 1
+                line = line & termBuffer(r, c)
+            Next
+            logText = logText & RTrim(line) & Chr(10)
+        End If
+    Next
+
+    ' ── Write to file using VB6-style File I/O ────────────────────────────
+    Dim f As Integer
+    f = FreeFile()
+    Open logFile For Output As #f
+    Print #f, logText
+    Close #f
+
+    statusMessage = "Session saved to " & logFile
+    MsgBox "Session log saved!", vbInformation, "Save Log"
+End Sub
+
+' Save bookmarks using SaveSetting (persistent storage)
+Sub SaveBookmarks()
+    Dim i As Integer
+    SaveSetting "VGTerminal", "Bookmarks", "Count", Str(bookmarkCount)
+    For i = 0 To bookmarkCount - 1
+        SaveSetting "VGTerminal", "Bookmarks", "BM" & Str(i), bookmarkHosts(i)
+    Next
+End Sub
+
+' Load bookmarks from saved settings
+Sub LoadBookmarks()
+    bookmarkCount = Val(GetSetting("VGTerminal", "Bookmarks", "Count", "4"))
+    ' Load defaults if no saved bookmarks
+    If bookmarkCount = 0 Then bookmarkCount = 4
+    ' Default bookmarks
+    bookmarkHosts(0) = GetSetting("VGTerminal", "Bookmarks", "BM0", "telehack.com:23")
+    bookmarkHosts(1) = GetSetting("VGTerminal", "Bookmarks", "BM1", "bbs.fozztexx.com:23")
+    bookmarkHosts(2) = GetSetting("VGTerminal", "Bookmarks", "BM2", "particlesbbs.dyndns.org:6400")
+    bookmarkHosts(3) = GetSetting("VGTerminal", "Bookmarks", "BM3", "bbs.archaicbinary.net:23")
+    Dim i As Integer
+    For i = 4 To MAX_BOOKMARKS - 1
+        bookmarkHosts(i) = GetSetting("VGTerminal", "Bookmarks", "BM" & Str(i), "")
+    Next
+End Sub
+
+' ============================================================================
+' RENDERING — Draw the terminal display
+' ============================================================================
+
+Sub _Draw()
+    Dim winW As Integer, winH As Integer
+    winW = 820 : winH = 620
+
+    ' ── Draw terminal background (black) ──────────────────────────────────
+    DrawRect Rect2(0, MENU_HEIGHT, winW, winH - MENU_HEIGHT - STATUS_HEIGHT - INPUT_HEIGHT), Color(0, 0, 0)
+
+    ' ── Draw terminal text with ANSI colors ───────────────────────────────
+    Dim r As Integer, c As Integer
+    Dim px As Integer, py As Integer
+    Dim bRow As Integer
+    Dim ch As String
+    Dim attr As Integer
+    Dim fgIdx As Integer, bgIdx As Integer, bold As Boolean
+
+    For r = 0 To TERM_ROWS - 1
+        bRow = scrollTop + r
+        If bRow >= 0 And bRow < 600 Then
+            py = MENU_HEIGHT + PADDING + (r * CHAR_HEIGHT)
+            For c = 0 To TERM_COLS - 1
+                px = PADDING + (c * CHAR_WIDTH)
+                ch = termBuffer(bRow, c)
+                attr = termColors(bRow, c)
+
+                ' Decode color attribute
+                fgIdx = attr Mod 16
+                bgIdx = (attr \ 16) Mod 16
+                bold = (attr >= 256)
+                If bold Then fgIdx = fgIdx + 8   ' Use bright color
+
+                ' Draw background if not black
+                If bgIdx > 0 Then
+                    DrawRect Rect2(px, py, CHAR_WIDTH, CHAR_HEIGHT), _
+                        Color8(ansiColorR(bgIdx), ansiColorG(bgIdx), ansiColorB(bgIdx), 255)
+                End If
+
+                ' Draw character if not space
+                If ch <> " " And ch <> "" Then
+                    ' Clamp fgIdx to valid range
+                    If fgIdx < 0 Then fgIdx = 7
+                    If fgIdx > 15 Then fgIdx = 15
+                    DrawString GetThemeDefaultFont(), Vector2(px, py + 14), ch, _
+                        Color8(ansiColorR(fgIdx), ansiColorG(fgIdx), ansiColorB(fgIdx), 255)
+                End If
+            Next
+        End If
+    Next
+
+    ' ── Draw blinking cursor ──────────────────────────────────────────────
+    If blinkState Then
+        px = PADDING + (cursorCol * CHAR_WIDTH)
+        py = MENU_HEIGHT + PADDING + (cursorRow * CHAR_HEIGHT)
+        DrawRect Rect2(px, py, CHAR_WIDTH, CHAR_HEIGHT), Color(0, 1, 0, 0.7)
+    End If
+
+    ' ── Draw input line area ──────────────────────────────────────────────
+    Dim inputY As Integer
+    inputY = winH - STATUS_HEIGHT - INPUT_HEIGHT
+    DrawRect Rect2(0, inputY, winW, INPUT_HEIGHT), Color(0.1, 0.1, 0.15)
+    DrawRect Rect2(0, inputY, winW, 1), Color(0, 0.6, 0)   ' Green separator
+
+    ' Draw input prompt and buffer text
+    Dim prompt As String
+    If isConnected Then
+        prompt = "> " & inputBuffer & "_"
+    Else
+        prompt = "(not connected) " & inputBuffer & "_"
+    End If
+    DrawString GetThemeDefaultFont(), Vector2(PADDING, inputY + 20), prompt, Color(0, 1, 0)
+
+    ' ── Draw status bar ───────────────────────────────────────────────────
+    Dim statusY As Integer
+    statusY = winH - STATUS_HEIGHT
+    DrawRect Rect2(0, statusY, winW, STATUS_HEIGHT), Color(0.15, 0.15, 0.2)
+    DrawRect Rect2(0, statusY, winW, 1), Color(0.3, 0.3, 0.4)  ' Top border
+
+    ' Connection indicator (green dot = connected, red = disconnected)
+    If isConnected Then
+        DrawCircle Vector2(12, statusY + 14), 5, Color(0, 1, 0)
+    Else
+        DrawCircle Vector2(12, statusY + 14), 5, Color(0.6, 0, 0)
+    End If
+
+    ' Status text
+    DrawString GetThemeDefaultFont(), Vector2(24, statusY + 19), statusMessage, Color(0.7, 0.7, 0.8)
+
+    ' System info on right side
+    DrawString GetThemeDefaultFont(), Vector2(winW - 300, statusY + 19), sysInfo, Color(0.5, 0.5, 0.6)
+End Sub

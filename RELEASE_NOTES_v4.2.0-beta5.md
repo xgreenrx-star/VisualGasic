@@ -91,7 +91,8 @@ The Immediate Window is now correctly embedded in the bottom `TabContainer`:
 
 ## What's included
 
-- **66 demo projects** — 2D games (Pong, Snake, Space Shooter, Platformer), 3D (Squash the Creeps), shaders, audio, UI apps, threading, networking, and more
+- **71 demo projects** — 2D games (Pong, Snake, Space Shooter, Platformer), 3D (Squash the Creeps), shaders, audio, UI apps, threading, networking, and more
+- **5 new application demos** — VG Terminal (BBS client), VG Paint (MS Paint clone), VG Vector (vector editor), VG Movie (.VGV player), VG Music (live coding synthesizer)
 - **4 ported official Godot demos** — Screen Space Shaders, Sky Shaders, 2D Platformer, Squash the Creeps
 - **Custom Controls system** — build your own .tscn controls with a wizard and drag them onto forms
 - **Form Designer** — full VB6-style WYSIWYG with 40+ controls, Properties panel, Toolbox, live preview

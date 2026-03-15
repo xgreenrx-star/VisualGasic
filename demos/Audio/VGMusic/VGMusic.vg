@@ -1,0 +1,1060 @@
+' ============================================================================
+' VGMusic.vg — Live Coding Music Synthesizer
+' ============================================================================
+' A Strudel-inspired live coding environment for creating music with plain
+' English BASIC commands. Write code in the editor, hit Play, and hear your
+' composition in real time. All commands are readable English words.
+'
+' CONCEPT:
+'   Instead of cryptic Strudel mini-notation like "bd sd [hh hh]",
+'   VG Music uses clear BASIC-style commands like:
+'       Play "C4", Quarter
+'       Rest Eighth
+'       Repeat 4, "bd sd hh hh"
+'
+' MUSIC LANGUAGE REFERENCE:
+'   Play <note>, <duration>     — Play a note (e.g., "C4", "A#3")
+'   PlayDrum <drum>, <duration> — Play a percussion sound
+'   Rest <duration>             — Wait for a duration
+'   Tempo <bpm>                 — Set beats per minute
+'   Wave <type>                 — Set waveform: Sine, Square, Saw, Triangle
+'   Volume <0-100>              — Set volume level
+'   Layer <name>                — Start a new simultaneous layer
+'   Repeat <count>              — Repeat the following block
+'   EndRepeat                   — End of repeat block
+'
+' DURATIONS: Whole, Half, Quarter, Eighth, Sixteenth, Triplet
+' NOTES: C, C#, D, D#, E, F, F#, G, G#, A, A#, B  (octaves 1-7)
+' DRUMS: Kick, Snare, HiHat, Clap, Tom, Rim, Cowbell
+' WAVES: Sine, Square, Saw, Triangle, Noise
+'
+' FEATURES:
+'   - Live text editor with syntax highlighting
+'   - Real-time audio via PlayTone
+'   - Scrolling visualizer showing notes as they play
+'   - Pre-loaded example songs
+'   - Save/Load .VGS (VG Song) files
+'   - Tempo control with visual BPM display
+'   - Panic button to silence everything
+'
+' OS INTEGRATION DEMONSTRATED:
+'   - PlayTone (waveform synthesis)
+'   - Timer-based sequencer
+'   - File I/O (save/load .VGS songs)
+'   - SaveSetting/GetSetting (preferences)
+'   - MsgBox/InputBox (dialogs)
+'   - Clipboard (copy/paste code)
+'
+' PLATFORMS: Linux, Windows, Android, Apple, HTML5
+' ============================================================================
+Option Explicit
+
+' ── Note Frequency Table ──────────────────────────────────────────────────
+' MIDI note numbers map to frequencies: freq = 440 * 2^((midi-69)/12)
+' We'll pre-calculate common notes
+
+' ── Song Data ─────────────────────────────────────────────────────────────
+Const MAX_EVENTS As Integer = 2000   ' Maximum events in a song
+Const MAX_LAYERS As Integer = 8      ' Maximum simultaneous layers
+
+' Events parsed from the editor text
+Dim evtType(2000) As String          ' "NOTE", "REST", "DRUM", "WAVE", "VOLUME"
+Dim evtNote(2000) As Double          ' Frequency for notes
+Dim evtDuration(2000) As Double      ' Duration in beats
+Dim evtLayer(2000) As Integer        ' Which layer this event belongs to
+Dim evtNoteName(2000) As String      ' Display name (e.g., "C4", "Kick")
+Dim eventCount As Integer            ' Total parsed events
+
+' Layer state
+Dim layerPos(8) As Integer           ' Current event position per layer
+Dim layerTimer(8) As Double          ' Time remaining on current event
+Dim layerWave(8) As String           ' Waveform per layer
+Dim layerVolume(8) As Integer        ' Volume per layer (0-100)
+Dim layerCount As Integer            ' Number of active layers
+
+' ── Playback State ────────────────────────────────────────────────────────
+Dim bpm As Integer                   ' Beats per minute
+Dim isPlaying As Boolean             ' Playback active
+Dim playTime As Double               ' Total elapsed play time
+Dim beatLength As Double             ' Seconds per beat
+Dim currentBeat As Double            ' Current beat position
+
+' ── Visualizer ────────────────────────────────────────────────────────────
+Const VIS_MAX As Integer = 200       ' Visualizer history slots
+Dim visNotes(200) As String          ' Note names in visualizer
+Dim visFreqs(200) As Double          ' Frequencies
+Dim visLayers(200) As Integer        ' Which layer
+Dim visTimes(200) As Double          ' When the note was played
+Dim visCount As Integer              ' Number of visualizer entries
+Dim visScroll As Double              ' Auto-scroll position
+
+' ── Editor Text ───────────────────────────────────────────────────────────
+Dim editorLines(500) As String       ' The code in the editor
+Dim editorLineCount As Integer       ' Number of lines
+Dim cursorLine As Integer            ' Current cursor line
+Dim cursorCol As Integer             ' Current cursor column
+Dim editorScroll As Integer          ' First visible line
+
+' ── UI State ──────────────────────────────────────────────────────────────
+Dim showHelp As Boolean              ' Show language reference panel
+Dim errorMessage As String           ' Parse error message to display
+Dim lastPlayedNote As String         ' For display
+
+' ============================================================================
+' INITIALIZATION
+' ============================================================================
+
+Sub _Ready()
+    bpm = 120
+    beatLength = 60.0 / bpm
+    isPlaying = False
+    playTime = 0
+    currentBeat = 0
+    eventCount = 0
+    visCount = 0
+    visScroll = 0
+    showHelp = False
+    errorMessage = ""
+    lastPlayedNote = ""
+    cursorLine = 0
+    cursorCol = 0
+    editorScroll = 0
+    layerCount = 1
+
+    ' Initialize layers
+    Dim l As Integer
+    For l = 0 To MAX_LAYERS - 1
+        layerPos(l) = 0
+        layerTimer(l) = 0
+        layerWave(l) = "Square"
+        layerVolume(l) = 80
+    Next
+
+    ' Load saved tempo preference
+    bpm = Val(GetSetting("VGMusic", "Config", "Tempo", "120"))
+    If bpm < 40 Then bpm = 40
+    If bpm > 300 Then bpm = 300
+    beatLength = 60.0 / bpm
+
+    ' Start with a default example song
+    LoadExample 0
+End Sub
+
+' ============================================================================
+' EXAMPLE SONGS
+' ============================================================================
+
+Sub LoadExample(exNum As Integer)
+    editorLineCount = 0
+
+    Select Case exNum
+    Case 0
+        ' ── Twinkle Twinkle Little Star ───────────────────────────────────
+        AddEditorLine "' Twinkle Twinkle Little Star"
+        AddEditorLine "' A classic melody in VG Music"
+        AddEditorLine ""
+        AddEditorLine "Tempo 100"
+        AddEditorLine "Wave Sine"
+        AddEditorLine "Volume 75"
+        AddEditorLine ""
+        AddEditorLine "Play C4, Quarter"
+        AddEditorLine "Play C4, Quarter"
+        AddEditorLine "Play G4, Quarter"
+        AddEditorLine "Play G4, Quarter"
+        AddEditorLine "Play A4, Quarter"
+        AddEditorLine "Play A4, Quarter"
+        AddEditorLine "Play G4, Half"
+        AddEditorLine ""
+        AddEditorLine "Play F4, Quarter"
+        AddEditorLine "Play F4, Quarter"
+        AddEditorLine "Play E4, Quarter"
+        AddEditorLine "Play E4, Quarter"
+        AddEditorLine "Play D4, Quarter"
+        AddEditorLine "Play D4, Quarter"
+        AddEditorLine "Play C4, Half"
+
+    Case 1
+        ' ── Drum Pattern ──────────────────────────────────────────────────
+        AddEditorLine "' Simple 4/4 Drum Beat"
+        AddEditorLine "' Kick on 1 and 3, Snare on 2 and 4"
+        AddEditorLine ""
+        AddEditorLine "Tempo 110"
+        AddEditorLine "Volume 90"
+        AddEditorLine ""
+        AddEditorLine "Repeat 4"
+        AddEditorLine "  PlayDrum Kick, Quarter"
+        AddEditorLine "  PlayDrum HiHat, Eighth"
+        AddEditorLine "  PlayDrum HiHat, Eighth"
+        AddEditorLine "  PlayDrum Snare, Quarter"
+        AddEditorLine "  PlayDrum HiHat, Eighth"
+        AddEditorLine "  PlayDrum HiHat, Eighth"
+        AddEditorLine "EndRepeat"
+
+    Case 2
+        ' ── Bass Line ─────────────────────────────────────────────────────
+        AddEditorLine "' Funky Bass Line"
+        AddEditorLine ""
+        AddEditorLine "Tempo 95"
+        AddEditorLine "Wave Saw"
+        AddEditorLine "Volume 70"
+        AddEditorLine ""
+        AddEditorLine "Repeat 2"
+        AddEditorLine "  Play E2, Eighth"
+        AddEditorLine "  Play E2, Sixteenth"
+        AddEditorLine "  Play E2, Sixteenth"
+        AddEditorLine "  Rest Eighth"
+        AddEditorLine "  Play G2, Eighth"
+        AddEditorLine "  Play A2, Quarter"
+        AddEditorLine "  Play G2, Eighth"
+        AddEditorLine "  Play E2, Eighth"
+        AddEditorLine "  Rest Quarter"
+        AddEditorLine "EndRepeat"
+
+    Case 3
+        ' ── Layered Beat ──────────────────────────────────────────────────
+        AddEditorLine "' Layered Music — Multiple voices at once"
+        AddEditorLine ""
+        AddEditorLine "Tempo 120"
+        AddEditorLine ""
+        AddEditorLine "' --- Melody Layer ---"
+        AddEditorLine "Layer Melody"
+        AddEditorLine "Wave Sine"
+        AddEditorLine "Volume 70"
+        AddEditorLine "Play E4, Quarter"
+        AddEditorLine "Play D4, Quarter"
+        AddEditorLine "Play C4, Quarter"
+        AddEditorLine "Play D4, Quarter"
+        AddEditorLine "Play E4, Quarter"
+        AddEditorLine "Play E4, Quarter"
+        AddEditorLine "Play E4, Half"
+        AddEditorLine ""
+        AddEditorLine "' --- Bass Layer ---"
+        AddEditorLine "Layer Bass"
+        AddEditorLine "Wave Square"
+        AddEditorLine "Volume 50"
+        AddEditorLine "Play C3, Half"
+        AddEditorLine "Play G2, Half"
+        AddEditorLine "Play C3, Half"
+        AddEditorLine "Play G2, Half"
+
+    Case 4
+        ' ── Ambient Pad ───────────────────────────────────────────────────
+        AddEditorLine "' Ambient Pad — Long tones"
+        AddEditorLine ""
+        AddEditorLine "Tempo 60"
+        AddEditorLine "Wave Triangle"
+        AddEditorLine "Volume 50"
+        AddEditorLine ""
+        AddEditorLine "Play C3, Whole"
+        AddEditorLine "Play E3, Whole"
+        AddEditorLine "Play G3, Whole"
+        AddEditorLine "Play C4, Whole"
+        AddEditorLine "Rest Half"
+        AddEditorLine "Play A3, Whole"
+        AddEditorLine "Play C4, Whole"
+        AddEditorLine "Play E4, Whole"
+
+    Case 5
+        ' ── Arpeggio ──────────────────────────────────────────────────────
+        AddEditorLine "' Fast Arpeggio Pattern"
+        AddEditorLine ""
+        AddEditorLine "Tempo 160"
+        AddEditorLine "Wave Saw"
+        AddEditorLine "Volume 60"
+        AddEditorLine ""
+        AddEditorLine "Repeat 3"
+        AddEditorLine "  Play C4, Sixteenth"
+        AddEditorLine "  Play E4, Sixteenth"
+        AddEditorLine "  Play G4, Sixteenth"
+        AddEditorLine "  Play C5, Sixteenth"
+        AddEditorLine "  Play G4, Sixteenth"
+        AddEditorLine "  Play E4, Sixteenth"
+        AddEditorLine "EndRepeat"
+        AddEditorLine ""
+        AddEditorLine "Repeat 3"
+        AddEditorLine "  Play A3, Sixteenth"
+        AddEditorLine "  Play C4, Sixteenth"
+        AddEditorLine "  Play E4, Sixteenth"
+        AddEditorLine "  Play A4, Sixteenth"
+        AddEditorLine "  Play E4, Sixteenth"
+        AddEditorLine "  Play C4, Sixteenth"
+        AddEditorLine "EndRepeat"
+    End Select
+
+    cursorLine = 0
+    cursorCol = 0
+    editorScroll = 0
+End Sub
+
+' Helper to add a line to the editor
+Sub AddEditorLine(txt As String)
+    editorLines(editorLineCount) = txt
+    editorLineCount = editorLineCount + 1
+End Sub
+
+' ============================================================================
+' MUSIC PARSER — Parse editor text into event sequence
+' ============================================================================
+
+Sub ParseSong()
+    ' Clear previous events
+    eventCount = 0
+    layerCount = 1
+    errorMessage = ""
+
+    Dim currentLayer As Integer
+    currentLayer = 0
+    Dim currentWave As String
+    currentWave = "Square"
+    Dim currentVolume As Integer
+    currentVolume = 80
+
+    ' Repeat stack
+    Dim repeatStart(10) As Integer   ' Line where Repeat began
+    Dim repeatCount(10) As Integer   ' How many times to repeat
+    Dim repeatDone(10) As Integer    ' How many times repeated so far
+    Dim repeatDepth As Integer
+    repeatDepth = 0
+
+    Dim i As Integer
+    For i = 0 To editorLineCount - 1
+        Dim ln As String
+        ln = Trim(editorLines(i))
+
+        ' Skip blank lines and comments
+        If Len(ln) = 0 Then GoTo NextLine
+        If Left(ln, 1) = "'" Then GoTo NextLine
+
+        ' ── Tokenize the line ────────────────────────────────────────────
+        Dim cmd As String
+        Dim rest As String
+        Dim spacePos As Integer
+        spacePos = InStr(ln, " ")
+        If spacePos > 0 Then
+            cmd = UCase(Left(ln, spacePos - 1))
+            rest = Trim(Mid(ln, spacePos + 1))
+        Else
+            cmd = UCase(ln)
+            rest = ""
+        End If
+
+        ' ── Parse command ─────────────────────────────────────────────────
+        Select Case cmd
+        Case "TEMPO"
+            bpm = Val(rest)
+            If bpm < 40 Then bpm = 40
+            If bpm > 300 Then bpm = 300
+            beatLength = 60.0 / bpm
+
+        Case "WAVE"
+            currentWave = rest
+            layerWave(currentLayer) = currentWave
+
+        Case "VOLUME"
+            currentVolume = Val(rest)
+            If currentVolume < 0 Then currentVolume = 0
+            If currentVolume > 100 Then currentVolume = 100
+            layerVolume(currentLayer) = currentVolume
+
+        Case "LAYER"
+            currentLayer = currentLayer + 1
+            If currentLayer >= MAX_LAYERS Then
+                errorMessage = "Too many layers (max " & Str(MAX_LAYERS) & ")"
+                currentLayer = MAX_LAYERS - 1
+            End If
+            layerWave(currentLayer) = currentWave
+            layerVolume(currentLayer) = currentVolume
+            If currentLayer + 1 > layerCount Then layerCount = currentLayer + 1
+
+        Case "PLAY"
+            ' Parse: Play <note>, <duration>
+            Dim playParts() As String
+            playParts = Split(rest, ",")
+            If UBound(playParts) >= 1 Then
+                Dim noteName As String
+                noteName = Trim(playParts(0))
+                Dim durName As String
+                durName = Trim(playParts(1))
+                Dim freq As Double
+                freq = NoteToFreq(noteName)
+                Dim dur As Double
+                dur = DurationToBeats(durName)
+
+                evtType(eventCount) = "NOTE"
+                evtNote(eventCount) = freq
+                evtDuration(eventCount) = dur
+                evtLayer(eventCount) = currentLayer
+                evtNoteName(eventCount) = noteName
+                eventCount = eventCount + 1
+            Else
+                errorMessage = "Line " & Str(i + 1) & ": Play needs <note>, <duration>"
+            End If
+
+        Case "PLAYDRUM"
+            ' Parse: PlayDrum <drum>, <duration>
+            Dim drumParts() As String
+            drumParts = Split(rest, ",")
+            If UBound(drumParts) >= 1 Then
+                Dim drumName As String
+                drumName = Trim(drumParts(0))
+                Dim drumDur As String
+                drumDur = Trim(drumParts(1))
+
+                evtType(eventCount) = "DRUM"
+                evtNote(eventCount) = DrumToFreq(drumName)
+                evtDuration(eventCount) = DurationToBeats(drumDur)
+                evtLayer(eventCount) = currentLayer
+                evtNoteName(eventCount) = drumName
+                eventCount = eventCount + 1
+            Else
+                errorMessage = "Line " & Str(i + 1) & ": PlayDrum needs <drum>, <duration>"
+            End If
+
+        Case "REST"
+            evtType(eventCount) = "REST"
+            evtNote(eventCount) = 0
+            evtDuration(eventCount) = DurationToBeats(rest)
+            evtLayer(eventCount) = currentLayer
+            evtNoteName(eventCount) = "Rest"
+            eventCount = eventCount + 1
+
+        Case "REPEAT"
+            repeatDepth = repeatDepth + 1
+            repeatStart(repeatDepth) = i + 1
+            repeatCount(repeatDepth) = Val(rest)
+            repeatDone(repeatDepth) = 0
+
+        Case "ENDREPEAT"
+            If repeatDepth > 0 Then
+                repeatDone(repeatDepth) = repeatDone(repeatDepth) + 1
+                If repeatDone(repeatDepth) < repeatCount(repeatDepth) Then
+                    i = repeatStart(repeatDepth) - 1  ' Jump back
+                Else
+                    repeatDepth = repeatDepth - 1
+                End If
+            End If
+
+        Case Else
+            If Len(cmd) > 0 Then
+                errorMessage = "Line " & Str(i + 1) & ": Unknown command '" & cmd & "'"
+            End If
+        End Select
+
+NextLine:
+    Next
+End Sub
+
+' ============================================================================
+' NOTE / FREQUENCY CONVERSION
+' ============================================================================
+
+Function NoteToFreq(noteName As String) As Double
+    ' Parse note like "C4", "A#3", "Db5" etc.
+    Dim note As String
+    Dim octave As Integer
+    Dim semitone As Integer
+
+    note = UCase(noteName)
+
+    ' Extract octave (last character)
+    octave = Val(Right(note, 1))
+    note = Left(note, Len(note) - 1)
+
+    ' Map note letter to semitone offset from C
+    Select Case Left(note, 1)
+        Case "C": semitone = 0
+        Case "D": semitone = 2
+        Case "E": semitone = 4
+        Case "F": semitone = 5
+        Case "G": semitone = 7
+        Case "A": semitone = 9
+        Case "B": semitone = 11
+        Case Else: semitone = 0
+    End Select
+
+    ' Handle sharps and flats
+    If Len(note) > 1 Then
+        If Right(note, 1) = "#" Then semitone = semitone + 1
+        If Right(note, 1) = "B" Then semitone = semitone - 1
+    End If
+
+    ' MIDI number: (octave + 1) * 12 + semitone
+    Dim midi As Integer
+    midi = (octave + 1) * 12 + semitone
+
+    ' Frequency: 440 * 2^((midi - 69) / 12)
+    NoteToFreq = 440.0 * (2.0 ^ ((midi - 69.0) / 12.0))
+End Function
+
+Function DrumToFreq(drumName As String) As Double
+    ' Map drum names to frequencies for PlayTone
+    ' These produce distinctive percussive sounds
+    Select Case UCase(Trim(drumName))
+        Case "KICK":    DrumToFreq = 60
+        Case "SNARE":   DrumToFreq = 200
+        Case "HIHAT":   DrumToFreq = 800
+        Case "CLAP":    DrumToFreq = 400
+        Case "TOM":     DrumToFreq = 100
+        Case "RIM":     DrumToFreq = 500
+        Case "COWBELL": DrumToFreq = 700
+        Case Else:      DrumToFreq = 300
+    End Select
+End Function
+
+Function DurationToBeats(durName As String) As Double
+    ' Convert duration name to beat count
+    Select Case UCase(Trim(durName))
+        Case "WHOLE":      DurationToBeats = 4.0
+        Case "HALF":       DurationToBeats = 2.0
+        Case "QUARTER":    DurationToBeats = 1.0
+        Case "EIGHTH":     DurationToBeats = 0.5
+        Case "SIXTEENTH":  DurationToBeats = 0.25
+        Case "TRIPLET":    DurationToBeats = 0.333
+        Case Else:         DurationToBeats = 1.0
+    End Select
+End Function
+
+' ============================================================================
+' PLAYBACK ENGINE
+' ============================================================================
+
+Sub StartPlayback()
+    ParseSong
+    If eventCount = 0 And Len(errorMessage) = 0 Then
+        errorMessage = "No music events found. Write some Play commands!"
+        Exit Sub
+    End If
+
+    ' Reset all layer positions
+    Dim l As Integer
+    For l = 0 To MAX_LAYERS - 1
+        layerPos(l) = 0
+        layerTimer(l) = 0
+    Next
+
+    isPlaying = True
+    playTime = 0
+    currentBeat = 0
+    visCount = 0
+End Sub
+
+Sub StopPlayback()
+    isPlaying = False
+    playTime = 0
+End Sub
+
+Sub PanicStop()
+    ' Emergency stop — silence everything
+    isPlaying = False
+    playTime = 0
+    ' PlayTone with 0 frequency to silence
+    PlayTone 0, 0, 0
+End Sub
+
+' ============================================================================
+' SEQUENCER — Runs in _Process to advance playback
+' ============================================================================
+
+Sub _Process(delta)
+    If isPlaying Then
+        playTime = playTime + delta
+
+        ' Process each layer independently
+        Dim l As Integer
+        Dim allDone As Boolean
+        allDone = True
+
+        For l = 0 To layerCount - 1
+            ' Count down timer for current event
+            layerTimer(l) = layerTimer(l) - delta
+
+            If layerTimer(l) <= 0 Then
+                ' Find the next event for this layer
+                Dim foundNext As Boolean
+                foundNext = False
+
+                Do While layerPos(l) < eventCount
+                    If evtLayer(layerPos(l)) = l Then
+                        ' This event belongs to this layer
+                        Dim eType As String
+                        eType = evtType(layerPos(l))
+                        Dim eDur As Double
+                        eDur = evtDuration(layerPos(l)) * beatLength
+
+                        If eType = "NOTE" Then
+                            ' Play the note using PlayTone
+                            Dim freq As Double
+                            freq = evtNote(layerPos(l))
+                            Dim vol As Double
+                            vol = layerVolume(l) / 100.0
+                            Dim toneDur As Double
+                            toneDur = eDur * 0.9  ' Slight gap between notes
+                            PlayTone freq, toneDur, vol
+                            lastPlayedNote = evtNoteName(layerPos(l))
+
+                            ' Add to visualizer
+                            AddVisEvent evtNoteName(layerPos(l)), freq, l
+
+                        ElseIf eType = "DRUM" Then
+                            ' Play drum sound (short burst)
+                            Dim drumFreq As Double
+                            drumFreq = evtNote(layerPos(l))
+                            PlayTone drumFreq, 0.05, layerVolume(l) / 100.0
+                            lastPlayedNote = evtNoteName(layerPos(l))
+                            AddVisEvent evtNoteName(layerPos(l)), drumFreq, l
+                        End If
+
+                        layerTimer(l) = eDur
+                        layerPos(l) = layerPos(l) + 1
+                        foundNext = True
+                        Exit Do
+                    Else
+                        layerPos(l) = layerPos(l) + 1
+                    End If
+                Loop
+
+                If Not foundNext Then
+                    ' Layer has no more events
+                Else
+                    allDone = False
+                End If
+            Else
+                allDone = False
+            End If
+        Next
+
+        ' Check if all layers are done
+        If allDone Then
+            isPlaying = False
+        End If
+
+        currentBeat = playTime / beatLength
+    End If
+
+    QueueRedraw
+End Sub
+
+Sub AddVisEvent(noteName As String, freq As Double, layer As Integer)
+    If visCount < VIS_MAX Then
+        visNotes(visCount) = noteName
+        visFreqs(visCount) = freq
+        visLayers(visCount) = layer
+        visTimes(visCount) = playTime
+        visCount = visCount + 1
+    End If
+End Sub
+
+' ============================================================================
+' INPUT HANDLING
+' ============================================================================
+
+Sub _Input(ev)
+    If TypeOf ev Is InputEventKey Then
+        If ev.pressed Then
+            Select Case ev.keycode
+                Case 32                                       ' Space
+                    ' Toggle play/stop
+                    If isPlaying Then StopPlayback Else StartPlayback
+
+                Case 4194305                                  ' Escape
+                    PanicStop
+            End Select
+        End If
+    End If
+End Sub
+
+' ============================================================================
+' MENU HANDLERS
+' ============================================================================
+
+Sub mnuFile_NewSong_Click()
+    editorLineCount = 0
+    AddEditorLine "' New Song"
+    AddEditorLine "Tempo 120"
+    AddEditorLine "Wave Sine"
+    AddEditorLine "Volume 80"
+    AddEditorLine ""
+    AddEditorLine "Play C4, Quarter"
+    StopPlayback
+End Sub
+
+Sub mnuFile_OpenVGS_Click()
+    Dim path As String
+    path = InputBox("Enter .VGS file path:", "Open Song", "user://song.vgs")
+    If Len(path) > 0 Then LoadSong path
+End Sub
+
+Sub mnuFile_SaveVGS_Click()
+    Dim path As String
+    path = InputBox("Enter .VGS file path:", "Save Song", "user://song.vgs")
+    If Len(path) > 0 Then SaveSong path
+End Sub
+
+Sub mnuFile_Exit_Click()
+    GetTree().Quit()
+End Sub
+
+Sub mnuPlayback_PlayStop_Click()
+    If isPlaying Then StopPlayback Else StartPlayback
+End Sub
+
+Sub mnuPlayback_SetTempo_Click()
+    Dim newBpm As String
+    newBpm = InputBox("Enter BPM (40-300):", "Set Tempo", Str(bpm))
+    If Len(newBpm) > 0 Then
+        bpm = Val(newBpm)
+        If bpm < 40 Then bpm = 40
+        If bpm > 300 Then bpm = 300
+        beatLength = 60.0 / bpm
+        SaveSetting "VGMusic", "Config", "Tempo", Str(bpm)
+    End If
+End Sub
+
+Sub mnuPlayback_Panic_Click()
+    PanicStop
+End Sub
+
+Sub mnuExamples_TwinkleTwinkle_Click()
+    LoadExample 0 : StopPlayback
+End Sub
+
+Sub mnuExamples_DrumPattern_Click()
+    LoadExample 1 : StopPlayback
+End Sub
+
+Sub mnuExamples_BassLine_Click()
+    LoadExample 2 : StopPlayback
+End Sub
+
+Sub mnuExamples_LayeredBeat_Click()
+    LoadExample 3 : StopPlayback
+End Sub
+
+Sub mnuExamples_AmbientPad_Click()
+    LoadExample 4 : StopPlayback
+End Sub
+
+Sub mnuExamples_Arpeggio_Click()
+    LoadExample 5 : StopPlayback
+End Sub
+
+Sub mnuHelp_LanguageReference_Click()
+    showHelp = Not showHelp
+End Sub
+
+Sub mnuHelp_AboutVGMusic_Click()
+    MsgBox "VG Music v1.0" & Chr(10) & Chr(10) & _
+           "Live Coding Music Synthesizer" & Chr(10) & _
+           "Inspired by Strudel, in plain English!" & Chr(10) & Chr(10) & _
+           "Write music with BASIC commands:" & Chr(10) & _
+           "  Play C4, Quarter" & Chr(10) & _
+           "  PlayDrum Kick, Eighth" & Chr(10) & _
+           "  Rest Half" & Chr(10) & Chr(10) & _
+           "Space = Play/Stop, Escape = Panic" & Chr(10) & _
+           "Written in VisualGasic", vbInformation, "About VG Music"
+End Sub
+
+' ============================================================================
+' FILE I/O — Save and Load .VGS (VG Song) files
+' ============================================================================
+
+Sub SaveSong(filePath As String)
+    Dim f As Integer
+    f = FreeFile()
+    Open filePath For Output As #f
+
+    ' Write header
+    Print #f, "VGS1"
+    Print #f, Str(bpm)
+
+    ' Write editor text
+    Dim i As Integer
+    For i = 0 To editorLineCount - 1
+        Print #f, editorLines(i)
+    Next
+
+    Print #f, "ENDVGS"
+    Close #f
+
+    MsgBox "Song saved to " & filePath, vbInformation, "Saved"
+    SaveSetting "VGMusic", "Config", "LastFile", filePath
+End Sub
+
+Sub LoadSong(filePath As String)
+    If Not FileExists(filePath) Then
+        MsgBox "File not found: " & filePath, vbExclamation, "Open Error"
+        Exit Sub
+    End If
+
+    StopPlayback
+    editorLineCount = 0
+
+    Dim f As Integer
+    f = FreeFile()
+    Open filePath For Input As #f
+
+    Dim header As String
+    Line Input #f, header
+    If Left(header, 4) <> "VGS1" Then
+        MsgBox "Not a valid .VGS file!", vbExclamation, "Format Error"
+        Close #f
+        Exit Sub
+    End If
+
+    Dim savedBpm As String
+    Line Input #f, savedBpm
+    bpm = Val(savedBpm)
+    beatLength = 60.0 / bpm
+
+    Do While Not EOF(f)
+        Dim ln As String
+        Line Input #f, ln
+        If ln = "ENDVGS" Then Exit Do
+        AddEditorLine ln
+    Loop
+
+    Close #f
+    SaveSetting "VGMusic", "Config", "LastFile", filePath
+End Sub
+
+' ============================================================================
+' RENDERING
+' ============================================================================
+
+Sub _Draw()
+    Dim winW As Integer, winH As Integer
+    winW = 900 : winH = 640
+
+    ' ── Background ────────────────────────────────────────────────────────
+    DrawRect Rect2(0, 0, winW, winH), Color(0.1, 0.1, 0.14)
+
+    ' ── Menu area (leave space for Godot MenuBar) ─────────────────────────
+    Dim topY As Integer
+    topY = 32
+
+    ' ── Layout: Editor on left, Visualizer on right ───────────────────────
+    Dim editorW As Integer
+    editorW = 460
+    Dim visX As Integer
+    visX = editorW + 10
+    Dim visW As Integer
+    visW = winW - visX - 10
+
+    ' ── Draw Editor Panel ─────────────────────────────────────────────────
+    DrawRect Rect2(8, topY + 4, editorW, winH - topY - 90), Color(0.14, 0.14, 0.18)
+
+    ' Editor title bar
+    DrawRect Rect2(8, topY + 4, editorW, 24), Color(0.2, 0.2, 0.28)
+    DrawString GetThemeDefaultFont(), Vector2(14, topY + 22), "CODE EDITOR", Color(0.7, 0.8, 1)
+
+    ' Editor text content
+    Dim edY As Integer
+    edY = topY + 32
+    Dim lineH As Integer
+    lineH = 18
+    Dim maxVisLines As Integer
+    maxVisLines = (winH - topY - 130) / lineH
+
+    Dim i As Integer
+    For i = 0 To maxVisLines - 1
+        Dim lineIdx As Integer
+        lineIdx = editorScroll + i
+        If lineIdx >= editorLineCount Then Exit For
+
+        Dim ln As String
+        ln = editorLines(lineIdx)
+        Dim textY As Integer
+        textY = edY + i * lineH + 14
+
+        ' Line number (gutter)
+        Dim lineNumStr As String
+        lineNumStr = Right("   " & Str(lineIdx + 1), 3)
+        DrawString GetThemeDefaultFont(), Vector2(12, textY), lineNumStr, Color(0.4, 0.4, 0.5)
+
+        ' Syntax color based on content
+        Dim textColor As Color
+        If Left(Trim(ln), 1) = "'" Then
+            textColor = Color(0.4, 0.6, 0.4)            ' Comments in green
+        ElseIf InStr(UCase(ln), "PLAY ") > 0 Then
+            textColor = Color(0.5, 0.8, 1)              ' Play commands in blue
+        ElseIf InStr(UCase(ln), "PLAYDRUM") > 0 Then
+            textColor = Color(1, 0.7, 0.3)              ' Drum commands in orange
+        ElseIf InStr(UCase(ln), "REST") > 0 Then
+            textColor = Color(0.6, 0.6, 0.7)            ' Rest in gray
+        ElseIf InStr(UCase(ln), "REPEAT") > 0 Or InStr(UCase(ln), "ENDREPEAT") > 0 Then
+            textColor = Color(1, 0.5, 0.8)              ' Repeat in pink
+        ElseIf InStr(UCase(ln), "TEMPO") > 0 Or InStr(UCase(ln), "WAVE") > 0 Or InStr(UCase(ln), "VOLUME") > 0 Then
+            textColor = Color(0.8, 0.8, 0.3)            ' Settings in yellow
+        ElseIf InStr(UCase(ln), "LAYER") > 0 Then
+            textColor = Color(0.3, 1, 0.6)              ' Layer in bright green
+        Else
+            textColor = Color(0.85, 0.85, 0.9)          ' Default white
+        End If
+
+        DrawString GetThemeDefaultFont(), Vector2(44, textY), ln, textColor
+    Next
+
+    ' ── Draw Visualizer Panel ─────────────────────────────────────────────
+    DrawRect Rect2(visX, topY + 4, visW, winH - topY - 90), Color(0.12, 0.12, 0.16)
+
+    ' Visualizer title bar
+    DrawRect Rect2(visX, topY + 4, visW, 24), Color(0.2, 0.22, 0.3)
+    DrawString GetThemeDefaultFont(), Vector2(visX + 8, topY + 22), "NOTE VISUALIZER", Color(0.7, 0.8, 1)
+
+    ' Draw note bars scrolling upward
+    Dim visBaseY As Integer
+    visBaseY = winH - 90
+    Dim visTopY As Integer
+    visTopY = topY + 32
+
+    ' Layer color palette
+    Dim layerColors(8) As Color
+    layerColors(0) = Color(0.3, 0.7, 1)
+    layerColors(1) = Color(1, 0.5, 0.3)
+    layerColors(2) = Color(0.4, 1, 0.5)
+    layerColors(3) = Color(1, 0.8, 0.2)
+    layerColors(4) = Color(0.8, 0.4, 1)
+    layerColors(5) = Color(1, 0.4, 0.6)
+    layerColors(6) = Color(0.4, 0.9, 0.9)
+    layerColors(7) = Color(0.9, 0.9, 0.5)
+
+    Dim v As Integer
+    For v = 0 To visCount - 1
+        ' Position based on time: recent events at bottom, older scroll up
+        Dim relTime As Double
+        relTime = playTime - visTimes(v)
+        Dim barY As Integer
+        barY = visBaseY - Int(relTime * 80)
+
+        ' Only draw if visible
+        If barY >= visTopY And barY < visBaseY Then
+            ' Bar width based on frequency (higher = more to the right)
+            Dim barX As Integer
+            barX = visX + Int((visFreqs(v) / 2000.0) * visW)
+            If barX < visX Then barX = visX
+            If barX > visX + visW - 50 Then barX = visX + visW - 50
+
+            Dim barColor As Color
+            barColor = layerColors(visLayers(v))
+
+            DrawRect Rect2(barX, barY, 48, 14), barColor
+            DrawString GetThemeDefaultFont(), Vector2(barX + 4, barY + 12), visNotes(v), Color(0, 0, 0)
+        End If
+    Next
+
+    ' ── Transport Bar ─────────────────────────────────────────────────────
+    Dim transY As Integer
+    transY = winH - 80
+    DrawRect Rect2(0, transY, winW, 80), Color(0.16, 0.16, 0.2)
+
+    ' Play/Stop button
+    If isPlaying Then
+        DrawRect Rect2(20, transY + 16, 80, 36), Color(0.8, 0.3, 0.3)
+        DrawString GetThemeDefaultFont(), Vector2(36, transY + 40), "STOP", Color(1, 1, 1)
+    Else
+        DrawRect Rect2(20, transY + 16, 80, 36), Color(0.3, 0.7, 0.3)
+        DrawString GetThemeDefaultFont(), Vector2(36, transY + 40), "PLAY", Color(1, 1, 1)
+    End If
+
+    ' BPM display
+    DrawString GetThemeDefaultFont(), Vector2(120, transY + 28), "BPM:", Color(0.6, 0.6, 0.7)
+    DrawRect Rect2(160, transY + 16, 60, 24), Color(0.22, 0.22, 0.28)
+    DrawString GetThemeDefaultFont(), Vector2(168, transY + 34), Str(bpm), Color(1, 0.9, 0.4)
+
+    ' Current beat display
+    DrawString GetThemeDefaultFont(), Vector2(240, transY + 28), "Beat:", Color(0.6, 0.6, 0.7)
+    DrawString GetThemeDefaultFont(), Vector2(284, transY + 28), Str(Int(currentBeat * 10) / 10), Color(0.5, 0.8, 1)
+
+    ' Events parsed
+    DrawString GetThemeDefaultFont(), Vector2(370, transY + 28), "Events: " & Str(eventCount), Color(0.6, 0.6, 0.7)
+
+    ' Layers
+    DrawString GetThemeDefaultFont(), Vector2(480, transY + 28), "Layers: " & Str(layerCount), Color(0.6, 0.6, 0.7)
+
+    ' Last played note
+    If Len(lastPlayedNote) > 0 Then
+        DrawString GetThemeDefaultFont(), Vector2(590, transY + 28), "Now: " & lastPlayedNote, Color(1, 1, 0.6)
+    End If
+
+    ' Error message
+    If Len(errorMessage) > 0 Then
+        DrawString GetThemeDefaultFont(), Vector2(20, transY + 62), errorMessage, Color(1, 0.3, 0.3)
+    Else
+        DrawString GetThemeDefaultFont(), Vector2(20, transY + 62), "Space = Play/Stop | Esc = Panic | Load examples from menu", Color(0.4, 0.4, 0.5)
+    End If
+
+    ' ── Help panel (if open) ──────────────────────────────────────────────
+    If showHelp Then
+        DrawHelpPanel
+    End If
+End Sub
+
+' ============================================================================
+' HELP PANEL — Language reference overlay
+' ============================================================================
+
+Sub DrawHelpPanel()
+    Dim px As Integer, py As Integer, pw As Integer, ph As Integer
+    px = 100 : py = 60 : pw = 700 : ph = 480
+
+    ' Background with slight transparency
+    DrawRect Rect2(px, py, pw, ph), Color(0.08, 0.08, 0.12, 0.95)
+    DrawRect Rect2(px, py, pw, 28), Color(0.2, 0.25, 0.35)
+    DrawString GetThemeDefaultFont(), Vector2(px + 10, py + 20), "VG MUSIC — LANGUAGE REFERENCE (click Help > Language Reference to close)", Color(0.9, 0.9, 1)
+
+    Dim lx As Integer, ly As Integer
+    lx = px + 16 : ly = py + 48
+
+    DrawString GetThemeDefaultFont(), Vector2(lx, ly), "=== COMMANDS ===", Color(0.5, 0.8, 1)
+    ly = ly + 22
+    DrawString GetThemeDefaultFont(), Vector2(lx, ly), "Play <note>, <duration>       Play a musical note", Color(0.8, 0.8, 0.9)
+    ly = ly + 18
+    DrawString GetThemeDefaultFont(), Vector2(lx, ly), "PlayDrum <drum>, <duration>   Play a percussion sound", Color(0.8, 0.8, 0.9)
+    ly = ly + 18
+    DrawString GetThemeDefaultFont(), Vector2(lx, ly), "Rest <duration>               Silent pause", Color(0.8, 0.8, 0.9)
+    ly = ly + 18
+    DrawString GetThemeDefaultFont(), Vector2(lx, ly), "Tempo <bpm>                   Set speed (40-300)", Color(0.8, 0.8, 0.9)
+    ly = ly + 18
+    DrawString GetThemeDefaultFont(), Vector2(lx, ly), "Wave <type>                   Set waveform", Color(0.8, 0.8, 0.9)
+    ly = ly + 18
+    DrawString GetThemeDefaultFont(), Vector2(lx, ly), "Volume <0-100>                Set volume level", Color(0.8, 0.8, 0.9)
+    ly = ly + 18
+    DrawString GetThemeDefaultFont(), Vector2(lx, ly), "Layer <name>                  Start new simultaneous voice", Color(0.8, 0.8, 0.9)
+    ly = ly + 18
+    DrawString GetThemeDefaultFont(), Vector2(lx, ly), "Repeat <count> / EndRepeat    Loop a section", Color(0.8, 0.8, 0.9)
+
+    ly = ly + 30
+    DrawString GetThemeDefaultFont(), Vector2(lx, ly), "=== NOTES ===", Color(0.5, 0.8, 1)
+    ly = ly + 22
+    DrawString GetThemeDefaultFont(), Vector2(lx, ly), "C, C#, D, D#, E, F, F#, G, G#, A, A#, B  (octaves 1-7)", Color(0.8, 0.8, 0.9)
+    ly = ly + 18
+    DrawString GetThemeDefaultFont(), Vector2(lx, ly), "Example: C4 = Middle C,  A4 = Concert A (440 Hz)", Color(0.8, 0.8, 0.9)
+
+    ly = ly + 30
+    DrawString GetThemeDefaultFont(), Vector2(lx, ly), "=== DURATIONS ===", Color(0.5, 0.8, 1)
+    ly = ly + 22
+    DrawString GetThemeDefaultFont(), Vector2(lx, ly), "Whole (4 beats)  Half (2)  Quarter (1)  Eighth (0.5)  Sixteenth (0.25)", Color(0.8, 0.8, 0.9)
+
+    ly = ly + 30
+    DrawString GetThemeDefaultFont(), Vector2(lx, ly), "=== DRUMS ===", Color(0.5, 0.8, 1)
+    ly = ly + 22
+    DrawString GetThemeDefaultFont(), Vector2(lx, ly), "Kick, Snare, HiHat, Clap, Tom, Rim, Cowbell", Color(0.8, 0.8, 0.9)
+
+    ly = ly + 30
+    DrawString GetThemeDefaultFont(), Vector2(lx, ly), "=== WAVEFORMS ===", Color(0.5, 0.8, 1)
+    ly = ly + 22
+    DrawString GetThemeDefaultFont(), Vector2(lx, ly), "Sine (smooth)  Square (retro)  Saw (bright)  Triangle (soft)", Color(0.8, 0.8, 0.9)
+
+    ly = ly + 30
+    DrawString GetThemeDefaultFont(), Vector2(lx, ly), "=== EXAMPLE ===", Color(0.5, 0.8, 1)
+    ly = ly + 22
+    DrawString GetThemeDefaultFont(), Vector2(lx, ly), "Tempo 120", Color(0.8, 0.8, 0.3)
+    ly = ly + 18
+    DrawString GetThemeDefaultFont(), Vector2(lx, ly), "Wave Sine", Color(0.8, 0.8, 0.3)
+    ly = ly + 18
+    DrawString GetThemeDefaultFont(), Vector2(lx, ly), "Play C4, Quarter", Color(0.5, 0.8, 1)
+    ly = ly + 18
+    DrawString GetThemeDefaultFont(), Vector2(lx, ly), "Play E4, Quarter", Color(0.5, 0.8, 1)
+    ly = ly + 18
+    DrawString GetThemeDefaultFont(), Vector2(lx, ly), "Play G4, Half", Color(0.5, 0.8, 1)
+End Sub

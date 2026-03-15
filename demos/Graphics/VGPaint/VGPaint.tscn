@@ -1,0 +1,68 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://VGPaint.vg" id="1_paint"]
+[ext_resource type="Script" path="res://addons/visual_gasic/form_editor_helper.gd" id="2_fhelp"]
+
+[node name="VGPaint" type="Window"]
+title = "VG Paint"
+position = Vector2i(10, 36)
+size = Vector2i(900, 660)
+script = ExtResource("1_paint")
+
+[node name="_FormBackground" type="Panel" parent="."]
+offset_right = 900.0
+offset_bottom = 660.0
+mouse_filter = 2
+script = ExtResource("2_fhelp")
+
+[node name="MenuBar" type="MenuBar" parent="."]
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 30.0
+mouse_filter = 1
+
+[node name="mnuFile" type="PopupMenu" parent="MenuBar"]
+item_count = 6
+item_0/text = "New"
+item_0/id = 0
+item_1/text = "Open..."
+item_1/id = 1
+item_2/text = "Save"
+item_2/id = 2
+item_3/text = "Save As..."
+item_3/id = 3
+item_4/id = -1
+item_4/separator = true
+item_5/text = "Exit"
+item_5/id = 4
+metadata/_menu_name = "File"
+
+[node name="mnuEdit" type="PopupMenu" parent="MenuBar"]
+item_count = 5
+item_0/text = "Undo (Ctrl+Z)"
+item_0/id = 0
+item_1/text = "Redo (Ctrl+Y)"
+item_1/id = 1
+item_2/id = -1
+item_2/separator = true
+item_3/text = "Copy (Ctrl+C)"
+item_3/id = 2
+item_4/text = "Paste (Ctrl+V)"
+item_4/id = 3
+metadata/_menu_name = "Edit"
+
+[node name="mnuImage" type="PopupMenu" parent="MenuBar"]
+item_count = 3
+item_0/text = "Resize Canvas..."
+item_0/id = 0
+item_1/text = "Clear Canvas"
+item_1/id = 1
+item_2/text = "Flip Horizontal"
+item_2/id = 2
+metadata/_menu_name = "Image"
+
+[node name="mnuHelp" type="PopupMenu" parent="MenuBar"]
+item_count = 1
+item_0/text = "About VG Paint"
+item_0/id = 0
+metadata/_menu_name = "Help"
