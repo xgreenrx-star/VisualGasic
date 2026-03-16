@@ -60,6 +60,7 @@ private:
 
     void emit_byte(uint8_t byte);
     void emit_bytes(uint8_t byte1, uint8_t byte2);
+    void emit_const_index(int idx);  // 2-byte LE constant pool index
     void emit_constant(const Variant& value);
     void emit_return();
     int emit_jump(uint8_t op);

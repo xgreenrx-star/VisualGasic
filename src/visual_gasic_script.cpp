@@ -156,20 +156,13 @@ String opcode_name(uint8_t op) {
 
 int opcode_operand_length(uint8_t op) {
     switch (op) {
-        case OP_CONSTANT:
-        case OP_GET_GLOBAL:
-        case OP_SET_GLOBAL:
+        // 1-byte operand: local slots, arg counts, flags
         case OP_GET_LOCAL:
         case OP_SET_LOCAL:
-        case OP_ADD_I64_CONST:
-        case OP_SUB_I64_CONST:
-        case OP_MUL_I64_CONST:
         case OP_ADD_LOCAL_I64_STACK:
         case OP_SUB_LOCAL_I64_STACK:
         case OP_INC_LOCAL_I64:
         case OP_BRANCH_SUM:
-        case OP_GET_MEMBER:
-        case OP_SET_MEMBER:
         case OP_GET_ARRAY:
         case OP_SET_ARRAY:
         case OP_GET_ARRAY_UNCHECKED:
@@ -182,27 +175,59 @@ int opcode_operand_length(uint8_t op) {
         case OP_SET_DICT_FAST:
         case OP_GET_DICT_TRUSTED:
         case OP_SET_DICT_TRUSTED:
+            return 1;
+        // 2-byte operand: single 16-bit constant pool index
+        case OP_CONSTANT:
+        case OP_CONSTANT_LONG:
+        case OP_GET_GLOBAL:
+        case OP_SET_GLOBAL:
+        case OP_GET_MEMBER:
+        case OP_SET_MEMBER:
+        case OP_ADD_I64_CONST:
+        case OP_SUB_I64_CONST:
+        case OP_MUL_I64_CONST:
         case OP_REGISTER_WHENEVER:
         case OP_SUSPEND_WHENEVER:
         case OP_RESUME_WHENEVER:
         case OP_ON_ERROR_GOTO:
-            return 1;
-        case OP_CONSTANT_LONG:
-        case OP_ADD_LOCAL_I64_CONST:
-        case OP_SUB_LOCAL_I64_CONST:
-        case OP_ARITH_SUM:
+        case OP_COERCE_TYPE:
+            return 2;
+        // 2-byte operand: non-const pairs (jump offsets, local+count, etc.)
         case OP_JUMP:
         case OP_JUMP_IF_FALSE:
         case OP_JUMP_IF_TRUE:
         case OP_LOOP:
-        case OP_CALL:
         case OP_CALL_BUILTIN:
+        case OP_SETUP_TRY:
+        case OP_DEBUG_LINE:
+        case OP_GOSUB:
+        case OP_ITER_ARRAY:
+        case OP_SET_DICT_LOCAL:
             return 2;
+        // 3-byte operand: const16 + 1 byte count/slot
+        case OP_CALL:
+        case OP_METHOD_CALL:
+        case OP_NEW_OBJECT:
+        case OP_RAISE_EVENT:
+        case OP_ADD_LOCAL_I64_CONST:
+        case OP_SUB_LOCAL_I64_CONST:
         case OP_STRING_REPEAT_OUTER:
         case OP_INTEROP_SET_NAME_LEN:
-            return 2;
+        case OP_SET_DICT_GLOBAL:
+        case OP_PARALLEL_FOR_BEGIN:
+            return 3;
+        // 4-byte operand: 2x const16
+        case OP_ARITH_SUM:
+            return 4;
+        // 4-byte operand: 1 local + 1 const16
+        case OP_ACCUM_I64_MULADD_CONST:
+            return 4;
+        // 5-byte operand: const16 + flag + body_len16
+        case OP_TASK_RUN_BEGIN:
+            return 5;
+        // 7-byte operand: 3 local + const16 + 2 local
         case OP_ALLOC_FILL_REPEAT_I64:
-            return 6;
+            return 7;
         default:
             return 0;
     }
@@ -221,22 +246,23 @@ String describe_jump_target(uint8_t op, const Array &operands, int offset) {
 }
 
 String describe_operands(uint8_t op, const Array &operands, const BytecodeChunk *chunk, int offset) {
+    // Helper: read a 16-bit LE constant pool index from two consecutive operand bytes
+    auto const16 = [&](int byte_offset) -> int {
+        if (byte_offset + 1 >= operands.size()) return 0;
+        return (int(operands[byte_offset + 1]) << 8) | int(operands[byte_offset]);
+    };
+
     switch (op) {
         case OP_CONSTANT:
-            if (operands.size() >= 1) {
-                return describe_constant(chunk, int(operands[0]));
-            }
-            break;
         case OP_CONSTANT_LONG:
             if (operands.size() >= 2) {
-                int idx = (int(operands[1]) << 8) | int(operands[0]);
-                return describe_constant(chunk, idx);
+                return describe_constant(chunk, const16(0));
             }
             break;
         case OP_GET_GLOBAL:
         case OP_SET_GLOBAL:
-            if (operands.size() >= 1) {
-                return describe_constant(chunk, int(operands[0]));
+            if (operands.size() >= 2) {
+                return describe_constant(chunk, const16(0));
             }
             break;
         case OP_GET_LOCAL:
@@ -251,32 +277,37 @@ String describe_operands(uint8_t op, const Array &operands, const BytecodeChunk 
             break;
         case OP_ADD_LOCAL_I64_CONST:
         case OP_SUB_LOCAL_I64_CONST:
-            if (operands.size() >= 2) {
+            // [LOCAL_SLOT] [CONST_LO] [CONST_HI]
+            if (operands.size() >= 3) {
+                int cidx = (int(operands[2]) << 8) | int(operands[1]);
                 return vformat("%s, %s",
                     describe_local_slot(chunk, int(operands[0])),
-                    describe_constant(chunk, int(operands[1])));
+                    describe_constant(chunk, cidx));
             }
             break;
         case OP_ADD_I64_CONST:
         case OP_SUB_I64_CONST:
         case OP_MUL_I64_CONST:
-            if (operands.size() >= 1) {
-                return describe_constant(chunk, int(operands[0]));
+            if (operands.size() >= 2) {
+                return describe_constant(chunk, const16(0));
             }
             break;
         case OP_ARITH_SUM:
-            if (operands.size() >= 2) {
+            // [K_LO] [K_HI] [C_LO] [C_HI]
+            if (operands.size() >= 4) {
                 return vformat("k=%s, c=%s",
-                    describe_constant(chunk, int(operands[0])),
-                    describe_constant(chunk, int(operands[1])));
+                    describe_constant(chunk, const16(0)),
+                    describe_constant(chunk, const16(2)));
             }
             break;
         case OP_STRING_REPEAT_OUTER:
         case OP_INTEROP_SET_NAME_LEN:
-            if (operands.size() >= 2) {
+            // [SLOT] [LIT_LO] [LIT_HI]
+            if (operands.size() >= 3) {
+                int cidx = (int(operands[2]) << 8) | int(operands[1]);
                 return vformat("%s, %s",
                     describe_local_slot(chunk, int(operands[0])),
-                    describe_constant(chunk, int(operands[1])));
+                    describe_constant(chunk, cidx));
             }
             break;
         case OP_JUMP:
@@ -285,10 +316,11 @@ String describe_operands(uint8_t op, const Array &operands, const BytecodeChunk 
         case OP_LOOP:
             return describe_jump_target(op, operands, offset);
         case OP_CALL:
-            if (operands.size() >= 2) {
+            // [NAME_LO] [NAME_HI] [ARG_COUNT]
+            if (operands.size() >= 3) {
                 return vformat("%s, argc=%d",
-                    describe_constant(chunk, int(operands[0])),
-                    int(operands[1]));
+                    describe_constant(chunk, const16(0)),
+                    int(operands[2]));
             }
             break;
         case OP_CALL_BUILTIN:
@@ -314,19 +346,21 @@ String describe_operands(uint8_t op, const Array &operands, const BytecodeChunk 
             break;
         case OP_GET_MEMBER:
         case OP_SET_MEMBER:
-            if (operands.size() >= 1) {
-                return describe_constant(chunk, int(operands[0]));
+            if (operands.size() >= 2) {
+                return describe_constant(chunk, const16(0));
             }
             break;
         case OP_ALLOC_FILL_REPEAT_I64:
-            if (operands.size() >= 6) {
+            // [SUM_SLOT] [ARR_SLOT] [TMP_SLOT] [LIT_LO] [LIT_HI] [ITER_SLOT] [SIZE_SLOT]
+            if (operands.size() >= 7) {
+                int lit_idx = (int(operands[4]) << 8) | int(operands[3]);
                 return vformat("sum=%s, arr=%s, tmp=%s, %s, iter=%s, size=%s",
                     describe_local_slot(chunk, int(operands[0])),
                     describe_local_slot(chunk, int(operands[1])),
                     describe_local_slot(chunk, int(operands[2])),
-                    describe_constant(chunk, int(operands[3])),
-                    describe_local_slot(chunk, int(operands[4])),
-                    describe_local_slot(chunk, int(operands[5])));
+                    describe_constant(chunk, lit_idx),
+                    describe_local_slot(chunk, int(operands[5])),
+                    describe_local_slot(chunk, int(operands[6])));
             }
             break;
     }

@@ -55,17 +55,10 @@ int VisualGasicOptimizer::instruction_size(const Vector<uint8_t>& code, int ip) 
         case OP_AWAIT:                                                // [OP] — async placeholder
             return 1;
 
-        // 2-byte instructions (opcode + 1 operand)
-        case OP_CONSTANT:
+        // 2-byte instructions (opcode + 1 single-byte operand: local slot / count / flag)
         case OP_TASK_WAIT:                                            // [OP] [WAIT_ALL_FLAG]
-        case OP_GET_GLOBAL: case OP_SET_GLOBAL:
-        case OP_GET_LOCAL: case OP_SET_LOCAL:
-        case OP_GET_MEMBER: case OP_SET_MEMBER:
-        case OP_REGISTER_WHENEVER: case OP_SUSPEND_WHENEVER: case OP_RESUME_WHENEVER:
-        case OP_ON_ERROR_GOTO:
-        case OP_COERCE_TYPE:                                                   // [OP] [TYPE_IDX]
-        case OP_INC_LOCAL_I64:
-        case OP_ADD_I64_CONST: case OP_SUB_I64_CONST:                 // [OP] [CONST_IDX]
+        case OP_GET_LOCAL: case OP_SET_LOCAL:                         // [OP] [SLOT_IDX]
+        case OP_INC_LOCAL_I64:                                        // [OP] [LOCAL_SLOT]
         case OP_ADD_LOCAL_I64_STACK: case OP_SUB_LOCAL_I64_STACK:      // [OP] [LOCAL_SLOT]
         case OP_BRANCH_SUM:                                            // [OP] [FLAG_SLOT]
         case OP_GET_ARRAY: case OP_SET_ARRAY:                         // [OP] [ARG_COUNT]
@@ -75,43 +68,65 @@ int VisualGasicOptimizer::instruction_size(const Vector<uint8_t>& code, int ip) 
         case OP_GET_DICT_FAST: case OP_SET_DICT_FAST:
         case OP_GET_DICT_TRUSTED: case OP_SET_DICT_TRUSTED:
         case OP_INTEROP_SET_NAME_LEN:                                 // [OP] [1 operand]
-        case OP_MUL_I64_CONST:                                        // [OP] [CONST_IDX]
         case OP_SUM_VGDICT_ALL_I64:                                   // [OP] [SLOT_IDX]
         case OP_NEW_VGDICT:                                           // [OP] [SLOT_IDX]
         case OP_GET_VGDICT_LOCAL:                                     // [OP] [SLOT_IDX]
         case OP_SET_VGDICT_LOCAL:                                     // [OP] [SLOT_IDX]
             return 2;
 
-        // 3-byte instructions (opcode + 2 operands)
-        case OP_CONSTANT_LONG:
-        case OP_JUMP: case OP_JUMP_IF_FALSE: case OP_JUMP_IF_TRUE: case OP_LOOP:
-        case OP_SETUP_TRY:                                            // [OP] [OFFSET_16]
-        case OP_CALL: case OP_CALL_BUILTIN:
-        case OP_METHOD_CALL:                                          // [OP] [NAME_IDX] [ARG_COUNT]
-        case OP_NEW_OBJECT:                                           // [OP] [CLASS_NAME_IDX] [ARG_COUNT]
-        case OP_RAISE_EVENT:                                          // [OP] [NAME_IDX] [ARG_COUNT]
-        case OP_ITER_ARRAY:                                           // [OP] [SLOT_IDX] [IDX_SLOT]
-        case OP_ADD_LOCAL_I64_CONST: case OP_SUB_LOCAL_I64_CONST:
-        case OP_ARITH_SUM:
-        case OP_STRING_REPEAT_OUTER: // [OP] [SLOT] [LIT_IDX]
-        case OP_DEBUG_LINE:
-        case OP_SET_DICT_LOCAL: case OP_SET_DICT_GLOBAL:              // [OP] [IDX] [ARG_COUNT]
+        // 3-byte instructions (opcode + 1 const-pool index [2-byte LE])
+        case OP_CONSTANT:                                              // [OP] [CONST_LO] [CONST_HI]
+        case OP_CONSTANT_LONG:                                         // [OP] [CONST_LO] [CONST_HI] (now same as OP_CONSTANT)
+        case OP_GET_GLOBAL: case OP_SET_GLOBAL:                       // [OP] [NAME_LO] [NAME_HI]
+        case OP_GET_MEMBER: case OP_SET_MEMBER:                       // [OP] [NAME_LO] [NAME_HI]
+        case OP_REGISTER_WHENEVER: case OP_SUSPEND_WHENEVER: case OP_RESUME_WHENEVER:
+        case OP_ON_ERROR_GOTO:                                        // [OP] [LABEL_LO] [LABEL_HI]
+        case OP_COERCE_TYPE:                                           // [OP] [TYPE_LO] [TYPE_HI]
+        case OP_ADD_I64_CONST: case OP_SUB_I64_CONST:                 // [OP] [CONST_LO] [CONST_HI]
+        case OP_MUL_I64_CONST:                                        // [OP] [CONST_LO] [CONST_HI]
             return 3;
 
-        // 4-byte instructions (opcode + 3 operands)
-        case OP_ALLOC_FILL_I64_OFFSET:
-        case OP_ARRAY_FILL_I64_OFFSET:
-        case OP_ACCUM_I64_MULADD_CONST:
-        case OP_PARALLEL_FOR_BEGIN:  // [OP] [VAR_SLOT] [BODY_LEN_HI] [BODY_LEN_LO]
+        // 3-byte instructions (opcode + 2 non-const operands: offsets, slots, counts)
+        case OP_JUMP: case OP_JUMP_IF_FALSE: case OP_JUMP_IF_TRUE: case OP_LOOP:
+        case OP_SETUP_TRY:                                            // [OP] [OFFSET_16]
+        case OP_ITER_ARRAY:                                           // [OP] [SLOT_IDX] [IDX_SLOT]
+        case OP_DEBUG_LINE:                                           // [OP] [LINE_LO] [LINE_HI]
+        case OP_SET_DICT_LOCAL:                                       // [OP] [SLOT_IDX] [ARG_COUNT]
+        case OP_CALL_BUILTIN:                                         // [OP] [FUNC_ID] [ARG_COUNT]
+        case OP_GOSUB:                                                // [OP] [OFFSET_16]
+            return 3;
+
+        // 4-byte instructions (opcode + 1 const-pool [2-byte] + 1 byte)
+        case OP_CALL:                                                 // [OP] [NAME_LO] [NAME_HI] [ARG_COUNT]
+        case OP_METHOD_CALL:                                          // [OP] [NAME_LO] [NAME_HI] [ARG_COUNT]
+        case OP_NEW_OBJECT:                                           // [OP] [CLASS_LO] [CLASS_HI] [ARG_COUNT]
+        case OP_RAISE_EVENT:                                          // [OP] [NAME_LO] [NAME_HI] [ARG_COUNT]
+        case OP_ADD_LOCAL_I64_CONST: case OP_SUB_LOCAL_I64_CONST:     // [OP] [LOCAL_SLOT] [CONST_LO] [CONST_HI]
+        case OP_STRING_REPEAT_OUTER:                                  // [OP] [SLOT] [LIT_LO] [LIT_HI]
+        case OP_SET_DICT_GLOBAL:                                      // [OP] [NAME_LO] [NAME_HI] [ARG_COUNT]
+        case OP_PARALLEL_FOR_BEGIN:                                   // [OP] [VAR_SLOT] [BODY_LEN_HI] [BODY_LEN_LO]
             return 4;
 
-        // 5-byte instructions (opcode + 4 operands)
-        case OP_TASK_RUN_BEGIN:      // [OP] [NAME_CONST] [BG_FLAG] [BODY_LEN_HI] [BODY_LEN_LO]
+        // 4-byte instructions (opcode + 3 non-const operands)
+        case OP_ALLOC_FILL_I64_OFFSET:                                // [OP] [SLOT] [COUNT] [STEP] (all local/lit)
+        case OP_ARRAY_FILL_I64_OFFSET:                                // [OP] [SLOT] [COUNT] [STEP] (all local/lit)
+            return 4;
+
+        // 5-byte instructions (opcode + 2 const-pool indices [2+2 bytes])
+        case OP_ARITH_SUM:                                            // [OP] [K_LO] [K_HI] [C_LO] [C_HI]
             return 5;
 
-        // 7-byte instructions (opcode + 6 operands)
-        case OP_ALLOC_FILL_REPEAT_I64:
-            return 7;
+        // 5-byte instructions (opcode + 2 local + 1 const-pool [2])
+        case OP_ACCUM_I64_MULADD_CONST:                               // [OP] [S_SLOT] [J_SLOT] [K_LO] [K_HI]
+            return 5;
+
+        // 6-byte instructions (opcode + 1 const-pool [2] + 3 bytes)
+        case OP_TASK_RUN_BEGIN:                                       // [OP] [NAME_LO] [NAME_HI] [BG_FLAG] [BODY_LEN_HI] [BODY_LEN_LO]
+            return 6;
+
+        // 8-byte instructions (opcode + 3 local + 1 const-pool [2] + 2 local)
+        case OP_ALLOC_FILL_REPEAT_I64:                                // [OP] [SUM_SLOT] [ARR_SLOT] [TMP_SLOT] [LIT_LO] [LIT_HI] [ITER_SLOT] [SIZE_SLOT]
+            return 8;
 
         default:
             // Unknown opcode — assume 1 byte (safest)
@@ -545,8 +560,9 @@ bool VisualGasicOptimizer::pass_redundant_load_store(BytecodeChunk* chunk, Stats
         }
 
         // Pattern: GET_GLOBAL x; POP → useless read → NOP both
+        // GET_GLOBAL is now 3 bytes (opcode + 2-byte const index)
         if (code[ip] == OP_GET_GLOBAL && code[next_ip] == OP_POP) {
-            nop_out(chunk, ip, 2 + 1);
+            nop_out(chunk, ip, 3 + 1); // 3 bytes for GET_GLOBAL, 1 for POP
             stats.dead_pop++;
             changed = true;
             ip = next_ip + 1;
@@ -594,27 +610,28 @@ bool VisualGasicOptimizer::pass_constant_fold(BytecodeChunk* chunk, Stats& stats
     auto& code = chunk->code;
     auto& constants = chunk->constants;
 
-    for (int ip = 0; ip + 4 < code.size();) {
+    for (int ip = 0; ip + 6 < code.size();) {
         // Look for: OP_CONSTANT idx_a; OP_CONSTANT idx_b; OP_binary
+        // OP_CONSTANT is 3 bytes: [OP] [IDX_LO] [IDX_HI]
         if (code[ip] != OP_CONSTANT) {
             ip += instruction_size(code, ip);
             continue;
         }
-        int ip_b = ip + 2;
-        if (ip_b >= code.size() || code[ip_b] != OP_CONSTANT) {
-            ip += 2;
+        int ip_b = ip + 3;
+        if (ip_b + 2 >= code.size() || code[ip_b] != OP_CONSTANT) {
+            ip += 3;
             continue;
         }
-        int ip_op = ip_b + 2;
+        int ip_op = ip_b + 3;
         if (ip_op >= code.size()) {
-            ip += 2;
+            ip += 3;
             continue;
         }
 
-        uint8_t idx_a = code[ip + 1];
-        uint8_t idx_b = code[ip_b + 1];
+        int idx_a = (code[ip + 2] << 8) | code[ip + 1];
+        int idx_b = (code[ip_b + 2] << 8) | code[ip_b + 1];
         if (idx_a >= constants.size() || idx_b >= constants.size()) {
-            ip += 2;
+            ip += 3;
             continue;
         }
 
@@ -677,20 +694,20 @@ bool VisualGasicOptimizer::pass_constant_fold(BytecodeChunk* chunk, Stats& stats
         if (can_fold) {
             // Add the result as a new constant
             int new_idx = chunk->add_constant(result);
-            if (new_idx <= 255) {
-                // Replace 5 bytes (CONST a + CONST b + OP) with CONST result + 4 NOPs
-                int line = (ip < chunk->lines.size()) ? chunk->lines[ip] : 0;
+            if (new_idx < 65536) {
+                // Replace 7 bytes (CONST_3 a + CONST_3 b + OP_1) with CONST_3 result + 4 NOPs
                 code.write[ip] = OP_CONSTANT;
-                code.write[ip + 1] = (uint8_t)new_idx;
-                nop_out(chunk, ip + 2, 3); // NOP out remaining 3 bytes
+                code.write[ip + 1] = (uint8_t)(new_idx & 0xFF);
+                code.write[ip + 2] = (uint8_t)((new_idx >> 8) & 0xFF);
+                nop_out(chunk, ip + 3, 4); // NOP out remaining 4 bytes
                 stats.constant_fold++;
                 changed = true;
-                ip += 5;
+                ip += 7;
                 continue;
             }
         }
 
-        ip += 2;
+        ip += 3;
     }
     return changed;
 }
@@ -785,11 +802,12 @@ bool VisualGasicOptimizer::pass_identity_ops(BytecodeChunk* chunk, Stats& stats)
     auto& code = chunk->code;
     auto& constants = chunk->constants;
 
-    for (int ip = 0; ip + 2 < code.size();) {
+    for (int ip = 0; ip + 3 < code.size();) {
         // Pattern: ... ; CONSTANT idx; OP  where the constant is an identity
-        if (code[ip] == OP_CONSTANT && ip + 2 < code.size()) {
-            uint8_t idx = code[ip + 1];
-            uint8_t next_op = code[ip + 2];
+        // OP_CONSTANT is 3 bytes: [OP] [IDX_LO] [IDX_HI]
+        if (code[ip] == OP_CONSTANT && ip + 3 < code.size()) {
+            int idx = (code[ip + 2] << 8) | code[ip + 1];
+            uint8_t next_op = code[ip + 3];
 
             if (idx < constants.size()) {
                 Variant val = constants[idx];
@@ -808,10 +826,10 @@ bool VisualGasicOptimizer::pass_identity_ops(BytecodeChunk* chunk, Stats& stats)
                 if (is_zero && (next_op == OP_ADD || next_op == OP_ADD_I64 ||
                                 next_op == OP_ADD_F64 || next_op == OP_SUBTRACT ||
                                 next_op == OP_SUB_I64 || next_op == OP_SUB_F64)) {
-                    nop_out(chunk, ip, 3); // remove CONSTANT 0 + ADD/SUB
+                    nop_out(chunk, ip, 4); // remove CONSTANT(3 bytes) + ADD/SUB(1 byte)
                     stats.identity_ops++;
                     changed = true;
-                    ip += 3;
+                    ip += 4;
                     continue;
                 }
 
@@ -819,10 +837,10 @@ bool VisualGasicOptimizer::pass_identity_ops(BytecodeChunk* chunk, Stats& stats)
                 if (is_one && (next_op == OP_MULTIPLY || next_op == OP_MUL_I64 ||
                                next_op == OP_MUL_F64 || next_op == OP_DIVIDE ||
                                next_op == OP_DIV_F64)) {
-                    nop_out(chunk, ip, 3);
+                    nop_out(chunk, ip, 4);
                     stats.identity_ops++;
                     changed = true;
-                    ip += 3;
+                    ip += 4;
                     continue;
                 }
 
@@ -876,16 +894,17 @@ bool VisualGasicOptimizer::pass_strength_reduction(BytecodeChunk* chunk, Stats& 
     auto& code = chunk->code;
     auto& constants = chunk->constants;
 
-    for (int ip = 0; ip + 2 < code.size();) {
+    for (int ip = 0; ip + 3 < code.size();) {
         // Pattern: CONST 2; MUL → can be strength-reduced if preceded by GET_LOCAL
         // GET_LOCAL x; CONST 2; MUL_I64 → GET_LOCAL x; GET_LOCAL x; ADD_I64
         // This is 3 instructions either way but ADD is faster than MUL.
         // We'd need to insert a byte, which changes offsets. Skip for safety.
 
         // Simpler pattern: CONST -1; MUL → NEGATE
-        if (code[ip] == OP_CONSTANT && ip + 2 < code.size()) {
-            uint8_t idx = code[ip + 1];
-            uint8_t next_op = code[ip + 2];
+        // OP_CONSTANT is 3 bytes: [OP] [IDX_LO] [IDX_HI]
+        if (code[ip] == OP_CONSTANT && ip + 3 < code.size()) {
+            int idx = (code[ip + 2] << 8) | code[ip + 1];
+            uint8_t next_op = code[ip + 3];
             if (idx < constants.size()) {
                 Variant val = constants[idx];
                 bool is_neg_one = false;
@@ -896,12 +915,12 @@ bool VisualGasicOptimizer::pass_strength_reduction(BytecodeChunk* chunk, Stats& 
                 }
 
                 if (is_neg_one && (next_op == OP_MULTIPLY || next_op == OP_MUL_I64 || next_op == OP_MUL_F64)) {
-                    // Replace CONST(-1) + MUL → NEGATE + NOP + NOP
+                    // Replace CONST(-1) + MUL → NEGATE + 3 NOPs
                     code.write[ip] = OP_NEGATE;
-                    nop_out(chunk, ip + 1, 2);
+                    nop_out(chunk, ip + 1, 3);
                     stats.strength_reduction++;
                     changed = true;
-                    ip += 3;
+                    ip += 4;
                     continue;
                 }
             }

@@ -475,38 +475,53 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                     // We use a simplified skip — if we encounter an unknown opcode, bail
                     int advance = 1;
                     switch (op) {
-                        case OP_CONSTANT: case OP_GET_LOCAL: case OP_SET_LOCAL:
-                        case OP_GET_GLOBAL: case OP_SET_GLOBAL:
+                        // 2-byte opcodes (op + 1 byte operand, no const pool index)
+                        case OP_GET_LOCAL: case OP_SET_LOCAL:
                         case OP_CALL_BUILTIN: case OP_NEW_ARRAY: case OP_NEW_ARRAY_I64:
                         case OP_OPEN_FILE: case OP_INC_LOCAL_I64:
                         case OP_ADD_LOCAL_I64_STACK: case OP_SUB_LOCAL_I64_STACK:
                             advance = 2; break;
-                        case OP_CALL: case OP_METHOD_CALL: case OP_GET_ARRAY: case OP_SET_ARRAY:
+                        // 3-byte opcodes (op + 2-byte const index, or other 2-byte operands)
+                        case OP_CONSTANT:
+                        case OP_GET_GLOBAL: case OP_SET_GLOBAL:
                         case OP_ADD_I64_CONST: case OP_SUB_I64_CONST: case OP_MUL_I64_CONST:
-                        case OP_ADD_LOCAL_I64_CONST: case OP_SUB_LOCAL_I64_CONST:
-                        case OP_ARITH_SUM:
                         case OP_GET_MEMBER: case OP_SET_MEMBER:
+                        case OP_GET_ARRAY: case OP_SET_ARRAY:
                         case OP_GET_ARRAY_FAST: case OP_SET_ARRAY_FAST:
                         case OP_GET_DICT_FAST: case OP_SET_DICT_FAST:
-                        case OP_SET_DICT_LOCAL: case OP_SET_DICT_GLOBAL:
+                        case OP_SET_DICT_LOCAL:
                         case OP_ITER_ARRAY: case OP_NEW_VGDICT:
                         case OP_GET_VGDICT_LOCAL: case OP_SET_VGDICT_LOCAL:
                         case OP_PRINT_FILE: case OP_WRITE_FILE: case OP_INPUT_FILE:
                         case OP_REGISTER_WHENEVER: case OP_SUSPEND_WHENEVER: case OP_RESUME_WHENEVER:
                         case OP_ON_ERROR_GOTO: case OP_GOSUB:
                         case OP_CONSTANT_LONG:
+                        case OP_COERCE_TYPE:
                             advance = 3; break;
                         case OP_DEBUG_LINE:
                             advance = 3; break;
                         case OP_JUMP: case OP_JUMP_IF_FALSE: case OP_JUMP_IF_TRUE: case OP_LOOP:
                         case OP_SETUP_TRY:
                             advance = 3; break;
-                        case OP_ACCUM_I64_MULADD_CONST:
-                            advance = 4; break;
-                        case OP_TASK_RUN_BEGIN:
-                            advance = 5; break;
+                        // 4-byte opcodes (op + 2-byte const index + 1 byte operand, etc.)
+                        case OP_CALL: case OP_METHOD_CALL:
+                        case OP_ADD_LOCAL_I64_CONST: case OP_SUB_LOCAL_I64_CONST:
+                        case OP_SET_DICT_GLOBAL:
+                        case OP_RAISE_EVENT:
+                        case OP_NEW_OBJECT:
+                        case OP_STRING_REPEAT_OUTER:
                         case OP_PARALLEL_FOR_BEGIN:
                             advance = 4; break;
+                        // 5-byte opcodes
+                        case OP_ARITH_SUM:
+                        case OP_ACCUM_I64_MULADD_CONST:
+                            advance = 5; break;
+                        // 6-byte opcodes
+                        case OP_TASK_RUN_BEGIN:
+                            advance = 6; break;
+                        // 8-byte opcodes
+                        case OP_ALLOC_FILL_REPEAT_I64:
+                            advance = 8; break;
                         // 1-byte opcodes
                         case OP_POP: case OP_ADD: case OP_SUBTRACT: case OP_MULTIPLY:
                         case OP_DIVIDE: case OP_NEGATE: case OP_CONCAT: case OP_MOD:
@@ -532,8 +547,6 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                             advance = 1; break;
                         case OP_TASK_WAIT: case OP_BRANCH_SUM:
                             advance = 2; break;
-                        case OP_RAISE_EVENT:
-                            advance = 3; break;
                         default:
                             advance = 1; break;
                     }
@@ -567,20 +580,23 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                     ip += 2; break;
                 case OP_ADD_LOCAL_I64_CONST: case OP_SUB_LOCAL_I64_CONST:
                     i64_pinned_slots.insert(code[ip + 1]);
-                    ip += 3; break;
+                    ip += 4; break;
                 case OP_DEBUG_LINE:
                     ip += 3; break;
                 case OP_JUMP: case OP_JUMP_IF_FALSE: case OP_JUMP_IF_TRUE: case OP_LOOP:
                     ip += 3; break;
                 case OP_CONSTANT: case OP_GET_GLOBAL: case OP_SET_GLOBAL:
+                    ip += 3; break;
                 case OP_GET_LOCAL: case OP_SET_LOCAL:
                     ip += 2; break;
                 case OP_CALL:
-                    ip += 3; break;
+                    ip += 4; break;
                 case OP_CALL_BUILTIN:
                     ip += 3; break;
-                case OP_CONSTANT_LONG: case OP_ACCUM_I64_MULADD_CONST:
-                    ip += 4; break;
+                case OP_CONSTANT_LONG:
+                    ip += 3; break;
+                case OP_ACCUM_I64_MULADD_CONST:
+                    ip += 5; break;
                 default:
                     ip += 1; break;
             }
@@ -604,7 +620,7 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
         
         switch (op) {
             case OP_CONSTANT: {
-                int idx = code[ip + 1];
+                int idx = (code[ip + 2] << 8) | code[ip + 1];
                 // Check if the constant is an integer or float
                 if (idx < chunk->constants.size()) {
                     Variant v = chunk->constants[idx];
@@ -634,7 +650,7 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                 } else {
                     return false;
                 }
-                ip += 2;
+                ip += 3;
                 break;
             }
             
@@ -729,7 +745,7 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
             // so the JIT can treat them as regular locals.
             
             case OP_GET_GLOBAL: {
-                int name_idx = code[ip + 1];
+                int name_idx = (code[ip + 2] << 8) | code[ip + 1];
                 // Resolve or assign virtual slot for this global
                 auto it = global_const_to_slot.find(name_idx);
                 int vslot;
@@ -756,12 +772,12 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                 inst.bc_offset = ip;
                 ir.push_back(inst);
                 vstack.push_back(inst.dest);
-                ip += 2;
+                ip += 3;
                 break;
             }
             
             case OP_SET_GLOBAL: {
-                int name_idx = code[ip + 1];
+                int name_idx = (code[ip + 2] << 8) | code[ip + 1];
                 if (vstack.empty()) return false;
                 int val = vstack.back(); vstack.pop_back();
                 // Resolve or assign virtual slot
@@ -784,7 +800,7 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                 inst.local_slot = vslot;
                 inst.bc_offset = ip;
                 ir.push_back(inst);
-                ip += 2;
+                ip += 3;
                 break;
             }
             
@@ -865,7 +881,7 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
             //   [OP] [SLOT] [CONST_IDX] — locals[slot] ±= constants[idx]
             case OP_ADD_LOCAL_I64_CONST: case OP_SUB_LOCAL_I64_CONST: {
                 int slot = code[ip + 1];
-                int cidx = code[ip + 2];
+                int cidx = (code[ip + 3] << 8) | code[ip + 2];
                 if (cidx >= chunk->constants.size()) return false;
                 Variant cv = chunk->constants[cidx];
                 if (cv.get_type() != Variant::INT) return false;
@@ -884,16 +900,16 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                 { IRInst st; st.op = IROp::STORE_LOCAL; st.src1 = result;
                   st.local_slot = slot; st.bc_offset = ip;
                   ir.push_back(st); }
-                ip += 3;
+                ip += 4;
                 break;
             }
             
             // OP_ACCUM_I64_MULADD_CONST:
-            //   [OP] [S_SLOT] [J_SLOT] [K_CONST] — locals[s] += locals[j] * K
+            //   [OP] [S_SLOT(1)] [J_SLOT(1)] [K_LO] [K_HI] — locals[s] += locals[j] * K
             case OP_ACCUM_I64_MULADD_CONST: {
                 int s_slot = code[ip + 1];
                 int j_slot = code[ip + 2];
-                int k_idx  = code[ip + 3];
+                int k_idx  = (code[ip + 4] << 8) | code[ip + 3];
                 if (k_idx >= chunk->constants.size()) return false;
                 Variant kv = chunk->constants[k_idx];
                 if (kv.get_type() != Variant::INT) return false;
@@ -925,7 +941,7 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                 { IRInst st; st.op = IROp::STORE_LOCAL; st.src1 = result;
                   st.local_slot = s_slot; st.bc_offset = ip;
                   ir.push_back(st); }
-                ip += 4;
+                ip += 5;
                 break;
             }
             
@@ -937,8 +953,8 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
             //           n_inner = inner_to + 1, n_outer = outer_to + 1
             //   (Assumes inner_to >= 0 and outer_to >= 0; guarded with jumps.)
             case OP_ARITH_SUM: {
-                int k_idx = code[ip + 1];
-                int c_idx = code[ip + 2];
+                int k_idx = (code[ip + 2] << 8) | code[ip + 1];
+                int c_idx = (code[ip + 4] << 8) | code[ip + 3];
                 if (k_idx >= chunk->constants.size() || c_idx >= chunk->constants.size()) return false;
                 Variant kv = chunk->constants[k_idx];
                 Variant cv = chunk->constants[c_idx];
@@ -1047,7 +1063,7 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                   ir.push_back(lbl); }
                 
                 vstack.push_back(v_result);
-                ip += 3;
+                ip += 5;
                 break;
             }
             
@@ -1074,17 +1090,16 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
             
             // Integer ops with constant operand
             case OP_ADD_I64_CONST: case OP_SUB_I64_CONST: case OP_MUL_I64_CONST: {
-                int const_idx = code[ip + 1];
-                int slot = code[ip + 2]; // Actually these opcodes use slot + const differently
-                // These opcodes: [OP] [SLOT] [CONST_IDX]
-                // They operate on local[slot] with constants[const_idx]
+                int const_idx = (code[ip + 2] << 8) | code[ip + 1];
+                // These opcodes: [OP] [CONST_LO] [CONST_HI]
+                // They apply constants[const_idx] to the operand
                 // Let's load, compute, and store back
                 if (const_idx >= chunk->constants.size()) return false;
                 Variant cv = chunk->constants[const_idx];
                 if (cv.get_type() != Variant::INT) return false;
                 int64_t cval = (int64_t)cv;
                 
-                // Actually the encoding is [OP][SLOT][CONST_IDX] — load from slot, apply const, push result
+                // Encoding: [OP][CONST_LO][CONST_HI] — load from slot, apply const, push result
                 int loaded = next_vreg++;
                 set_vreg_type(loaded, IRType::I64);
                 {

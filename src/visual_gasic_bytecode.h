@@ -10,13 +10,13 @@
 using namespace godot;
 
 enum OpCode {
-    OP_CONSTANT,      // [OP] [CONST_IDX] - Load constant
-    OP_CONSTANT_LONG, // [OP] [CONST_IDX_LO] [CONST_IDX_HI] (future proofing)
+    OP_CONSTANT,      // [OP] [CONST_LO] [CONST_HI] - Load constant (16-bit LE index)
+    OP_CONSTANT_LONG, // [OP] [CONST_LO] [CONST_HI] - Alias of OP_CONSTANT (kept for compat)
     OP_POP,      // [OP] - Pop stack
     
     // Variables
-    OP_GET_GLOBAL, // [OP] [NAME_IDX]
-    OP_SET_GLOBAL, // [OP] [NAME_IDX]
+    OP_GET_GLOBAL, // [OP] [NAME_LO] [NAME_HI]
+    OP_SET_GLOBAL, // [OP] [NAME_LO] [NAME_HI]
     OP_GET_LOCAL,  // [OP] [SLOT_IDX] (For future scoped locals)
     OP_SET_LOCAL,  // [OP] [SLOT_IDX]
 
@@ -230,8 +230,7 @@ struct BytecodeChunk {
     
     int add_constant(const Variant& value) {
         // Deduplicate: reuse existing constant if an identical value exists.
-        // This keeps the constant pool compact and avoids uint8_t index overflow
-        // in opcodes like OP_CALL, OP_METHOD_CALL, OP_SET_GLOBAL, etc.
+        // All constant pool indices are 16-bit (max 65 535 entries).
         for (int i = 0; i < (int)constants.size(); i++) {
             if (constants[i].get_type() == value.get_type() && constants[i] == value) {
                 return i;

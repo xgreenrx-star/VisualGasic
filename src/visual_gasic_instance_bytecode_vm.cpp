@@ -628,27 +628,22 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         int scan_ip = 0;
         while (scan_ip < code_size) {
             uint8_t scan_op = code[scan_ip++];
-            if (scan_op == OP_SET_GLOBAL && scan_ip < code_size) {
-                uint8_t idx = code[scan_ip];
-                if (idx < chunk->constants.size()) {
+            if (scan_op == OP_SET_GLOBAL && scan_ip + 1 < code_size) {
+                int idx = (code[scan_ip + 1] << 8) | code[scan_ip];
+                if (idx >= 0 && idx < chunk->constants.size()) {
                     String gname = chunk->constants[idx];
                     if (!saved_globals.has(gname) && variables.has(gname)) {
                         saved_globals[gname] = variables[gname];
                     }
                 }
-                scan_ip++; // skip the name index byte
+                scan_ip += 2; // skip the 2-byte name index
             } else {
                 // Skip operand bytes for multi-byte opcodes so the scan
                 // doesn't misinterpret data bytes as OP_SET_GLOBAL.
                 switch (scan_op) {
-                    // 2-byte opcodes (1 operand)
-                    case OP_CONSTANT: case OP_GET_GLOBAL: case OP_GET_LOCAL:
-                    case OP_SET_LOCAL:
-                    case OP_GET_MEMBER: case OP_SET_MEMBER:
-                    case OP_REGISTER_WHENEVER: case OP_SUSPEND_WHENEVER: case OP_RESUME_WHENEVER:
-                    case OP_ON_ERROR_GOTO:
+                    // 1-operand opcodes: local slot / non-const (1 byte)
+                    case OP_GET_LOCAL: case OP_SET_LOCAL:
                     case OP_INC_LOCAL_I64:
-                    case OP_ADD_I64_CONST: case OP_SUB_I64_CONST:
                     case OP_ADD_LOCAL_I64_STACK: case OP_SUB_LOCAL_I64_STACK:
                     case OP_BRANCH_SUM:
                     case OP_GET_ARRAY: case OP_SET_ARRAY:
@@ -658,36 +653,49 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     case OP_GET_DICT_FAST: case OP_SET_DICT_FAST:
                     case OP_GET_DICT_TRUSTED: case OP_SET_DICT_TRUSTED:
                     case OP_INTEROP_SET_NAME_LEN:
-                    case OP_MUL_I64_CONST:
                     case OP_SUM_VGDICT_ALL_I64:
                     case OP_NEW_VGDICT: case OP_GET_VGDICT_LOCAL: case OP_SET_VGDICT_LOCAL:
                     case OP_ITER_ARRAY:
                     case OP_NEW_ARRAY: case OP_NEW_ARRAY_I64:
                     case OP_GOSUB: case OP_PRINT_FILE:
                         scan_ip += 1; break;
-                    // 3-byte opcodes (2 operands)
-                    case OP_CONSTANT_LONG:
+                    // 1-operand opcodes: 2-byte const pool index
+                    case OP_CONSTANT: case OP_CONSTANT_LONG:
+                    case OP_GET_GLOBAL:
+                    case OP_GET_MEMBER: case OP_SET_MEMBER:
+                    case OP_REGISTER_WHENEVER: case OP_SUSPEND_WHENEVER: case OP_RESUME_WHENEVER:
+                    case OP_ON_ERROR_GOTO:
+                    case OP_ADD_I64_CONST: case OP_SUB_I64_CONST: case OP_MUL_I64_CONST:
+                    case OP_COERCE_TYPE:
+                    case OP_INPUT_FILE: case OP_LINE_INPUT:
+                        scan_ip += 2; break;
+                    // 2-operand opcodes: two 1-byte non-const operands
                     case OP_JUMP: case OP_JUMP_IF_FALSE: case OP_JUMP_IF_TRUE:
                     case OP_LOOP:
-                    case OP_CALL:
                     case OP_CALL_BUILTIN:
-                    case OP_METHOD_CALL:
                     case OP_SETUP_TRY:
-                    case OP_ADD_LOCAL_I64_CONST: case OP_SUB_LOCAL_I64_CONST:
-                    case OP_ARITH_SUM:
-                    case OP_STRING_REPEAT_OUTER:
                     case OP_DEBUG_LINE:
-                    case OP_SET_DICT_LOCAL: case OP_SET_DICT_GLOBAL:
-                    case OP_NEW_OBJECT:  // [OP] [CLASS_NAME_IDX] [ARG_COUNT]
-                    case OP_OPEN_FILE:   // [OP] [MODE]
-                    case OP_WRITE_FILE:  // [OP] [ARG_COUNT]
-                    case OP_INPUT_FILE:  // [OP] [VAR_COUNT]
+                    case OP_SET_DICT_LOCAL:
+                    case OP_OPEN_FILE:
+                    case OP_WRITE_FILE:
                         scan_ip += 2; break;
-                    // 4-byte opcodes (3 operands)
+                    // 2-byte const index + 1-byte operand = 3 bytes
+                    case OP_CALL:
+                    case OP_METHOD_CALL:
+                    case OP_ADD_LOCAL_I64_CONST: case OP_SUB_LOCAL_I64_CONST:
+                    case OP_STRING_REPEAT_OUTER:
+                    case OP_SET_DICT_GLOBAL:
+                    case OP_NEW_OBJECT:
+                    case OP_RAISE_EVENT:
+                        scan_ip += 3; break;
+                    // 4-byte opcodes (all-slot operands)
                     case OP_ALLOC_FILL_I64_OFFSET:
                     case OP_ARRAY_FILL_I64_OFFSET:
-                    case OP_ACCUM_I64_MULADD_CONST:
                         scan_ip += 3; break;
+                    // 4-byte opcodes (slots + 2-byte const)
+                    case OP_ACCUM_I64_MULADD_CONST:  // s_slot(1) + j_slot(1) + k_const(2)
+                    case OP_ARITH_SUM:  // k_const(2) + c_const(2)
+                        scan_ip += 4; break;
                     // OP_PARALLEL_FOR_BEGIN: [VAR_SLOT] [BODY_LEN_HI] [BODY_LEN_LO] + body bytes
                     // Must skip the 3 operand bytes PLUS the entire body length.
                     case OP_PARALLEL_FOR_BEGIN: {
@@ -701,10 +709,10 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         }
                         break;
                     }
-                    // OP_TASK_RUN_BEGIN: [NAME_CONST] [BG_FLAG] [BODY_LEN_HI] [BODY_LEN_LO] + body bytes
+                    // OP_TASK_RUN_BEGIN: [NAME_CONST(2)] [BG_FLAG] [BODY_LEN_HI] [BODY_LEN_LO] + body
                     case OP_TASK_RUN_BEGIN: {
-                        if (scan_ip + 3 < code_size) {
-                            scan_ip += 2; // name_const, bg_flag
+                        if (scan_ip + 4 < code_size) {
+                            scan_ip += 3; // name_const (2 bytes), bg_flag
                             int body_len = (code[scan_ip] << 8) | code[scan_ip + 1];
                             scan_ip += 2; // body_len_hi, body_len_lo
                             scan_ip += body_len; // skip entire body
@@ -713,9 +721,9 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         }
                         break;
                     }
-                    // 7-byte opcodes (6 operands)
+                    // OP_ALLOC_FILL_REPEAT_I64: 3 slots + lit_const(2) + 2 slots = 7 bytes
                     case OP_ALLOC_FILL_REPEAT_I64:
-                        scan_ip += 6; break;
+                        scan_ip += 7; break;
                     default:
                         // 1-byte opcodes (no operands) — nothing to skip
                         break;
@@ -729,6 +737,18 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
             return chunk->constants[idx];
         }
         return Variant();
+    };
+
+    // Read a 16-bit little-endian constant pool index from the bytecode
+    // stream, advancing vm.ip by 2.  All constant-pool operands use this
+    // encoding as of v4.3 (lifted from the old 1-byte / 256-entry limit).
+    auto read_const_index = [&]() -> int {
+        if (vm.ip + 1 >= code_size) {
+            return 0;
+        }
+        uint8_t lo = code[vm.ip++];
+        uint8_t hi = code[vm.ip++];
+        return (hi << 8) | lo;
     };
 
     // ── v3.2: Centralized error recovery (Runtime Error Recovery) ──
@@ -1037,11 +1057,11 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
 #endif
         switch (op) {
             VG_CASE(vg_op_constant, OP_CONSTANT): {
-                if (vm.ip >= code_size) {
+                if (vm.ip + 1 >= code_size) {
                     success = false;
                     goto cleanup;
                 }
-                uint8_t idx = code[vm.ip++];
+                int idx = read_const_index();
                 push_value(read_constant(idx));
                 break;
             }
@@ -1050,9 +1070,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     success = false;
                     goto cleanup;
                 }
-                uint8_t lo = code[vm.ip++];
-                uint8_t hi = code[vm.ip++];
-                int idx = (hi << 8) | lo;
+                int idx = read_const_index();
                 push_value(read_constant(idx));
                 break;
             }
@@ -1094,9 +1112,9 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 break;
             }
             VG_CASE(vg_op_new_object, OP_NEW_OBJECT): {
-                // [OP] [CLASS_NAME_IDX] [ARG_COUNT]
-                if (vm.ip + 1 >= code_size) { success = false; goto cleanup; }
-                uint8_t name_idx = code[vm.ip++];
+                // [OP] [CLASS_NAME_IDX(2)] [ARG_COUNT]
+                if (vm.ip + 2 >= code_size) { success = false; goto cleanup; }
+                int name_idx = read_const_index();
                 uint8_t arg_count = code[vm.ip++];
                 String class_name = read_constant(name_idx);
 
@@ -1224,11 +1242,11 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 break;
             }
             VG_CASE(vg_op_get_global, OP_GET_GLOBAL): {
-                if (vm.ip >= code_size) {
+                if (vm.ip + 1 >= code_size) {
                     success = false;
                     goto cleanup;
                 }
-                uint8_t idx = code[vm.ip++];
+                int idx = read_const_index();
                 Variant name_var = read_constant(idx);
                 String name = name_var;
                 
@@ -1352,11 +1370,11 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 break;
             }
             VG_CASE(vg_op_set_global, OP_SET_GLOBAL): {
-                if (vm.ip >= code_size) {
+                if (vm.ip + 1 >= code_size) {
                     success = false;
                     goto cleanup;
                 }
-                uint8_t idx = code[vm.ip++];
+                int idx = read_const_index();
                 Variant name_var = read_constant(idx);
                 String name = name_var;
                 if (!ensure_stack(1)) {
@@ -1614,9 +1632,9 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 break;
             }
             VG_CASE(vg_op_string_repeat_outer, OP_STRING_REPEAT_OUTER): {
-                if (vm.ip + 1 >= code_size) { success = false; goto cleanup; }
+                if (vm.ip + 2 >= code_size) { success = false; goto cleanup; }
                 uint8_t slot = code[vm.ip++];
-                uint8_t lit_idx = code[vm.ip++];
+                int lit_idx = read_const_index();
                 if (!ensure_stack(2)) { success = false; goto cleanup; }
                 Variant outer_variant = pop_value();
                 Variant inner_variant = pop_value();
@@ -1756,8 +1774,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 break;
             }
             VG_CASE(vg_op_add_i64_const, OP_ADD_I64_CONST): {
-                if (vm.ip >= code_size) { success = false; goto cleanup; }
-                uint8_t idx = code[vm.ip++];
+                if (vm.ip + 1 >= code_size) { success = false; goto cleanup; }
+                int idx = read_const_index();
                 if (!ensure_stack(2)) { success = false; goto cleanup; }
                 pop_value(); // discard literal operand on stack
                 int64_t a = to_int(pop_value());
@@ -1766,8 +1784,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 break;
             }
             VG_CASE(vg_op_sub_i64_const, OP_SUB_I64_CONST): {
-                if (vm.ip >= code_size) { success = false; goto cleanup; }
-                uint8_t idx = code[vm.ip++];
+                if (vm.ip + 1 >= code_size) { success = false; goto cleanup; }
+                int idx = read_const_index();
                 if (!ensure_stack(2)) { success = false; goto cleanup; }
                 pop_value();
                 int64_t a = to_int(pop_value());
@@ -1776,8 +1794,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 break;
             }
             VG_CASE(vg_op_mul_i64_const, OP_MUL_I64_CONST): {
-                if (vm.ip >= code_size) { success = false; goto cleanup; }
-                uint8_t idx = code[vm.ip++];
+                if (vm.ip + 1 >= code_size) { success = false; goto cleanup; }
+                int idx = read_const_index();
                 if (!ensure_stack(2)) { success = false; goto cleanup; }
                 pop_value();
                 int64_t a = to_int(pop_value());
@@ -1803,19 +1821,17 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 break;
             }
             VG_CASE(vg_op_add_local_i64_const, OP_ADD_LOCAL_I64_CONST): {
-                if (vm.ip >= code_size) { success = false; goto cleanup; }
+                if (vm.ip + 2 >= code_size) { success = false; goto cleanup; }
                 uint8_t slot = code[vm.ip++];
-                if (vm.ip >= code_size) { success = false; goto cleanup; }
-                uint8_t idx = code[vm.ip++];
+                int idx = read_const_index();
                 int64_t base = to_int(read_local(slot));
                 sync_local(slot, (int64_t)(base + to_int(read_constant(idx))));
                 break;
             }
             VG_CASE(vg_op_sub_local_i64_const, OP_SUB_LOCAL_I64_CONST): {
-                if (vm.ip >= code_size) { success = false; goto cleanup; }
+                if (vm.ip + 2 >= code_size) { success = false; goto cleanup; }
                 uint8_t slot = code[vm.ip++];
-                if (vm.ip >= code_size) { success = false; goto cleanup; }
-                uint8_t idx = code[vm.ip++];
+                int idx = read_const_index();
                 int64_t base = to_int(read_local(slot));
                 sync_local(slot, (int64_t)(base - to_int(read_constant(idx))));
                 break;
@@ -1828,12 +1844,12 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 break;
             }
             VG_CASE(vg_op_accum_i64_muladd_const, OP_ACCUM_I64_MULADD_CONST): {
-                // [OP] [S_SLOT] [J_SLOT] [K_CONST]
+                // [OP] [S_SLOT] [J_SLOT] [K_CONST(2)]
                 // locals[s] += locals[j] * K
-                if (vm.ip + 2 >= code_size) { success = false; goto cleanup; }
+                if (vm.ip + 3 >= code_size) { success = false; goto cleanup; }
                 uint8_t s_slot = code[vm.ip++];
                 uint8_t j_slot = code[vm.ip++];
-                uint8_t k_idx  = code[vm.ip++];
+                int k_idx  = read_const_index();
                 int64_t s_val = to_int(read_local(s_slot));
                 int64_t j_val = to_int(read_local(j_slot));
                 int64_t k_val = to_int(read_constant(k_idx));
@@ -1841,10 +1857,9 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 break;
             }
             VG_CASE(vg_op_arith_sum, OP_ARITH_SUM): {
-                if (vm.ip >= code_size) { success = false; goto cleanup; }
-                uint8_t k_idx = code[vm.ip++];
-                if (vm.ip >= code_size) { success = false; goto cleanup; }
-                uint8_t c_idx = code[vm.ip++];
+                if (vm.ip + 3 >= code_size) { success = false; goto cleanup; }
+                int k_idx = read_const_index();
+                int c_idx = read_const_index();
                 if (!ensure_stack(3)) { success = false; goto cleanup; }
                 Variant current_sum_var = pop_value();
                 Variant outer_variant = pop_value();
@@ -2021,9 +2036,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 break;
             }
             VG_CASE(vg_op_call, OP_CALL): {
-                if (vm.ip >= code_size) { success = false; goto cleanup; }
-                uint8_t name_idx = code[vm.ip++];
-                if (vm.ip >= code_size) { success = false; goto cleanup; }
+                if (vm.ip + 2 >= code_size) { success = false; goto cleanup; }
+                int name_idx = read_const_index();
                 uint8_t arg_count = code[vm.ip++];
                 if (!ensure_stack(arg_count)) { success = false; goto cleanup; }
                 Array args;
@@ -2538,8 +2552,14 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
             VG_CASE(vg_op_set_dict_local, OP_SET_DICT_LOCAL):
             VG_CASE(vg_op_set_dict_global, OP_SET_DICT_GLOBAL): {
                 PROFILE_OPCODE(SetDict);
-                if (vm.ip >= code_size) { success = false; goto cleanup; }
-                uint8_t slot_or_idx = code[vm.ip++];
+                int slot_or_idx;
+                if (op == OP_SET_DICT_LOCAL) {
+                    if (vm.ip >= code_size) { success = false; goto cleanup; }
+                    slot_or_idx = code[vm.ip++];
+                } else {
+                    if (vm.ip + 1 >= code_size) { success = false; goto cleanup; }
+                    slot_or_idx = read_const_index();
+                }
                 if (vm.ip >= code_size) { success = false; goto cleanup; }
                 uint8_t arg_count = code[vm.ip++];
                 
@@ -2751,11 +2771,11 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 break;
             }
             VG_CASE(vg_op_alloc_fill_repeat_i64, OP_ALLOC_FILL_REPEAT_I64): {
-                if (vm.ip + 5 >= code_size) { success = false; goto cleanup; }
+                if (vm.ip + 6 >= code_size) { success = false; goto cleanup; }
                 uint8_t sum_slot = code[vm.ip++];
                 uint8_t arr_slot = code[vm.ip++];
                 uint8_t tmp_slot = code[vm.ip++];
-                uint8_t lit_idx = code[vm.ip++];
+                int lit_idx = read_const_index();
                 uint8_t iter_slot = code[vm.ip++];
                 uint8_t size_slot = code[vm.ip++];
 
@@ -2796,8 +2816,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
             }
             VG_CASE(vg_op_get_member, OP_GET_MEMBER): {
                 PROFILE_OPCODE(GetMember);
-                if (vm.ip >= code_size) { success = false; goto cleanup; }
-                uint8_t idx = code[vm.ip++];
+                if (vm.ip + 1 >= code_size) { success = false; goto cleanup; }
+                int idx = read_const_index();
                 if (!ensure_stack(1)) { success = false; goto cleanup; }
                 int member_idx = idx;
                 if (member_idx >= member_name_cache.size()) {
@@ -3075,8 +3095,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
             }
             VG_CASE(vg_op_set_member, OP_SET_MEMBER): {
                 PROFILE_OPCODE(SetMember);
-                if (vm.ip >= code_size) { success = false; goto cleanup; }
-                uint8_t idx = code[vm.ip++];
+                if (vm.ip + 1 >= code_size) { success = false; goto cleanup; }
+                int idx = read_const_index();
                 if (!ensure_stack(2)) { success = false; goto cleanup; }
                 int member_idx = idx;
                 if (member_idx >= member_name_cache.size()) {
@@ -3434,8 +3454,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
             }
             VG_CASE(vg_op_register_whenever, OP_REGISTER_WHENEVER): {
                 // Register a Whenever section from compiled bytecode
-                if (vm.ip >= code_size) { success = false; goto cleanup; }
-                uint8_t data_idx = code[vm.ip++];
+                if (vm.ip + 1 >= code_size) { success = false; goto cleanup; }
+                int data_idx = read_const_index();
                 Variant data_var = read_constant(data_idx);
                 if (data_var.get_type() != Variant::DICTIONARY) {
                     UtilityFunctions::printerr("VisualGasic: OP_REGISTER_WHENEVER expected Dictionary");
@@ -3504,8 +3524,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 break;
             }
             VG_CASE(vg_op_suspend_whenever, OP_SUSPEND_WHENEVER): {
-                if (vm.ip >= code_size) { success = false; goto cleanup; }
-                uint8_t name_idx = code[vm.ip++];
+                if (vm.ip + 1 >= code_size) { success = false; goto cleanup; }
+                int name_idx = read_const_index();
                 String section_name = read_constant(name_idx);
                 
                 for (int ws_i = 0; ws_i < whenever_sections.size(); ws_i++) {
@@ -3517,8 +3537,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 break;
             }
             VG_CASE(vg_op_resume_whenever, OP_RESUME_WHENEVER): {
-                if (vm.ip >= code_size) { success = false; goto cleanup; }
-                uint8_t name_idx = code[vm.ip++];
+                if (vm.ip + 1 >= code_size) { success = false; goto cleanup; }
+                int name_idx = read_const_index();
                 String section_name = read_constant(name_idx);
                 
                 for (int ws_i = 0; ws_i < whenever_sections.size(); ws_i++) {
@@ -3615,7 +3635,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 break;
             }
             VG_CASE(vg_op_coerce_type, OP_COERCE_TYPE): {
-                uint8_t type_idx = code[vm.ip++];
+                int type_idx = read_const_index();
                 String type_name = chunk->constants[type_idx];
                 Variant val = pop_value();
                 push_value(coerce_to_type(val, type_name));
@@ -3628,8 +3648,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
             }
             VG_CASE(vg_op_on_error_goto, OP_ON_ERROR_GOTO): {
                 // Set On Error Goto label
-                if (vm.ip >= code_size) { success = false; goto cleanup; }
-                uint8_t label_idx = code[vm.ip++];
+                if (vm.ip + 1 >= code_size) { success = false; goto cleanup; }
+                int label_idx = read_const_index();
                 String label_name = read_constant(label_idx);
                 error_state.mode = ErrorState::GOTO_LABEL;
                 error_state.label = label_name;
@@ -3928,9 +3948,9 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
             VG_CASE(vg_op_method_call, OP_METHOD_CALL): {
                 // Object method call: base_object.Method(args...)
                 // Stack layout (top→bottom): argN, ..., arg1, base_object
-                // Operands: [METHOD_NAME_IDX] [ARG_COUNT]
-                if (vm.ip + 1 >= code_size) { success = false; goto cleanup; }
-                uint8_t name_idx = code[vm.ip++];
+                // Operands: [METHOD_NAME_IDX(2)] [ARG_COUNT]
+                if (vm.ip + 2 >= code_size) { success = false; goto cleanup; }
+                int name_idx = read_const_index();
                 uint8_t arg_count = code[vm.ip++];
                 if (!ensure_stack(arg_count + 1)) { success = false; goto cleanup; }
 
@@ -4268,7 +4288,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 VG_BREAK;
             }
             VG_CASE(vg_op_input_file, OP_INPUT_FILE): {
-                uint8_t var_idx = code[vm.ip++];
+                int var_idx = read_const_index();
                 String var_name = read_constant(var_idx);
                 int file_num = (int)pop_value();
                 if (open_files.has(file_num)) {
@@ -4286,7 +4306,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 VG_BREAK;
             }
             VG_CASE(vg_op_line_input, OP_LINE_INPUT): {
-                uint8_t var_idx = code[vm.ip++];
+                int var_idx = read_const_index();
                 String var_name = read_constant(var_idx);
                 int file_num = (int)pop_value();
                 if (open_files.has(file_num)) {
@@ -4473,9 +4493,9 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
 
             // Task.Run bytecode (v2.11.0 Phase 5)
             VG_CASE(vg_op_task_run_begin, OP_TASK_RUN_BEGIN): {
-                // Layout: OP_TASK_RUN_BEGIN [name_const] [bg_flag] [body_len_hi] [body_len_lo]
-                if (vm.ip + 3 >= code_size) { success = false; goto cleanup; }
-                uint8_t name_idx = code[vm.ip++];
+                // Layout: OP_TASK_RUN_BEGIN [name_const(2)] [bg_flag] [body_len_hi] [body_len_lo]
+                if (vm.ip + 4 >= code_size) { success = false; goto cleanup; }
+                int name_idx = read_const_index();
                 uint8_t bg_flag  = code[vm.ip++];
                 int body_len = (code[vm.ip] << 8) | code[vm.ip + 1];
                 vm.ip += 2;
@@ -4642,8 +4662,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
 
             // RaiseEvent (v3.5.0) — emit a Godot signal on the owner object.
             VG_CASE(vg_op_raise_event, OP_RAISE_EVENT): {
-                if (vm.ip + 1 >= code_size) { success = false; goto cleanup; }
-                uint8_t name_idx = code[vm.ip++];
+                if (vm.ip + 2 >= code_size) { success = false; goto cleanup; }
+                int name_idx = read_const_index();
                 uint8_t arg_count = code[vm.ip++];
                 if (!ensure_stack(arg_count)) { success = false; goto cleanup; }
                 StringName sname = String(read_constant(name_idx));

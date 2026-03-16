@@ -188,15 +188,26 @@ void VisualGasicCompiler::emit_bytes(uint8_t byte1, uint8_t byte2) {
     emit_byte(byte2);
 }
 
+void VisualGasicCompiler::emit_const_index(int idx) {
+    // Emit a 16-bit little-endian constant pool index (2 bytes).
+    // All opcodes that reference the constant pool use this encoding,
+    // lifting the old 256-constant limit to 65 535.
+    if (idx < 0 || idx >= 65536) {
+        UtilityFunctions::print("Compiler Error: constant pool index out of range: ", idx);
+        emit_byte(0);
+        emit_byte(0);
+        return;
+    }
+    emit_byte((uint8_t)(idx & 0xFF));        // lo
+    emit_byte((uint8_t)((idx >> 8) & 0xFF)); // hi
+}
+
 void VisualGasicCompiler::emit_constant(const Variant& value) {
     int idx = current_chunk->add_constant(value);
-    if (idx < 256) {
-        emit_bytes(OP_CONSTANT, (uint8_t)idx);
-    } else if (idx < 65536) {
-        // OP_CONSTANT_LONG: 2-byte little-endian index for > 255 constants
-        emit_byte(OP_CONSTANT_LONG);
-        emit_byte((uint8_t)(idx & 0xFF));       // lo
-        emit_byte((uint8_t)((idx >> 8) & 0xFF)); // hi
+    if (idx < 65536) {
+        // OP_CONSTANT always uses 2-byte index (v4.3 — widened from 1-byte).
+        emit_byte(OP_CONSTANT);
+        emit_const_index(idx);
     } else {
         UtilityFunctions::print("Compiler Error: Too many constants (>65535)");
     }
@@ -343,14 +354,16 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
         compile_expression(&iter_node);
         compile_expression(&size_node);
         int idx = current_chunk->add_constant(String("BenchFileIOFast"));
-        emit_bytes(OP_CALL, (uint8_t)idx);
+        emit_byte(OP_CALL);
+        emit_const_index(idx);
         emit_byte((uint8_t)2);
 
         int slot = get_or_add_local(sub->name, VT_INT);
         if (slot >= 0) emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
         else {
             int name_idx = current_chunk->add_constant(sub->name);
-            emit_bytes(OP_SET_GLOBAL, (uint8_t)name_idx);
+            emit_byte(OP_SET_GLOBAL);
+            emit_const_index(name_idx);
         }
         emit_return();
         return compile_ok;
@@ -423,7 +436,8 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
                             if (slot >= 0) emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
                             else {
                                 int idx = current_chunk->add_constant(rd_name);
-                                emit_bytes(OP_SET_GLOBAL, (uint8_t)idx);
+                                emit_byte(OP_SET_GLOBAL);
+                                emit_const_index(idx);
                             }
                             i++; // Skip the fill loop
                             continue;
@@ -2816,7 +2830,8 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                             emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
                         } else {
                             int idx = current_chunk->add_constant(s->variable_name);
-                            emit_bytes(OP_SET_GLOBAL, (uint8_t)idx);
+                            emit_byte(OP_SET_GLOBAL);
+                            emit_const_index(idx);
                         }
                         break;
                     }
@@ -2836,7 +2851,8 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                         emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
                     } else {
                         int idx = current_chunk->add_constant(s->variable_name);
-                        emit_bytes(OP_SET_GLOBAL, (uint8_t)idx);
+                        emit_byte(OP_SET_GLOBAL);
+                        emit_const_index(idx);
                     }
                 }
                 break;
@@ -2883,7 +2899,8 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                 if (slot >= 0) emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
                 else {
                     int idx = current_chunk->add_constant(s->variable_name);
-                    emit_bytes(OP_SET_GLOBAL, (uint8_t)idx);
+                    emit_byte(OP_SET_GLOBAL);
+                    emit_const_index(idx);
                 }
                 break;
             } else if (s->is_dynamic_array) {
@@ -2898,7 +2915,8 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                 if (slot >= 0) emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
                 else {
                     int idx = current_chunk->add_constant(s->variable_name);
-                    emit_bytes(OP_SET_GLOBAL, (uint8_t)idx);
+                    emit_byte(OP_SET_GLOBAL);
+                    emit_const_index(idx);
                 }
                 break;
             } else {
@@ -2943,7 +2961,8 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                 } else {
                     emit_constant(init_val);
                     int idx = current_chunk->add_constant(s->variable_name);
-                    emit_bytes(OP_SET_GLOBAL, (uint8_t)idx);
+                    emit_byte(OP_SET_GLOBAL);
+                    emit_const_index(idx);
                 }
             }
             break;
@@ -3039,12 +3058,10 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                          int j_slot = get_or_add_local(j_name, VT_INT);
                          if (s_slot >= 0 && j_slot >= 0) {
                              int k_idx = current_chunk->add_constant(Variant(k_val));
-                             int c_idx = current_chunk->add_constant(Variant(c_val));
                              emit_byte(OP_ACCUM_I64_MULADD_CONST);
                              emit_byte((uint8_t)s_slot);
                              emit_byte((uint8_t)j_slot);
-                             emit_byte((uint8_t)k_idx);
-                             emit_byte((uint8_t)c_idx);
+                             emit_const_index(k_idx);
                              break;
                          }
                      }
@@ -3080,7 +3097,7 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                          int idx = current_chunk->add_constant(((LiteralNode*)b->right)->value);
                          emit_byte(b->op == "+" ? OP_ADD_LOCAL_I64_CONST : OP_SUB_LOCAL_I64_CONST);
                          emit_byte((uint8_t)slot);
-                         emit_byte((uint8_t)idx);
+                         emit_const_index(idx);
                          break;
                      }
                  }
@@ -3106,7 +3123,8 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                      emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
                  } else {
                      int idx = current_chunk->add_constant(tv->name);
-                     emit_bytes(OP_SET_GLOBAL, (uint8_t)idx);
+                     emit_byte(OP_SET_GLOBAL);
+                     emit_const_index(idx);
                  }
              } else if (s->target->type == ExpressionNode::ARRAY_ACCESS) {
                  ArrayAccessNode* aa = (ArrayAccessNode*)s->target;
@@ -3162,7 +3180,8 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                 if (slot >= 0) emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
                 else {
                     int idx = current_chunk->add_constant(v->name);
-                    emit_bytes(OP_SET_GLOBAL, (uint8_t)idx);
+                    emit_byte(OP_SET_GLOBAL);
+                    emit_const_index(idx);
                 }
              } else if (s->target->type == ExpressionNode::EXPRESSION_CALL) {
                  CallExpression* call = (CallExpression*)s->target;
@@ -3190,7 +3209,8 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                          emit_bytes(OP_SET_DICT_LOCAL, (uint8_t)slot);
                      } else {
                          int idx = current_chunk->add_constant(call->method_name);
-                         emit_bytes(OP_SET_DICT_GLOBAL, (uint8_t)idx);
+                         emit_byte(OP_SET_DICT_GLOBAL);
+                         emit_const_index(idx);
                      }
                      emit_byte(1);  // arg count
                  } else {
@@ -3206,7 +3226,8 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                      if (slot >= 0) emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
                      else {
                          int idx = current_chunk->add_constant(call->method_name);
-                         emit_bytes(OP_SET_GLOBAL, (uint8_t)idx);
+                         emit_byte(OP_SET_GLOBAL);
+                         emit_const_index(idx);
                      }
                  }
              } else if (s->target->type == ExpressionNode::MEMBER_ACCESS) {
@@ -3218,7 +3239,8 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                  compile_expression(ma->base_object);
                  compile_expression(s->value);
                  int member_idx = current_chunk->add_constant(ma->member_name);
-                 emit_bytes(OP_SET_MEMBER, (uint8_t)member_idx);
+                 emit_byte(OP_SET_MEMBER);
+                 emit_const_index(member_idx);
 
                  bool stored = false;
                  if (ma->base_object->type == ExpressionNode::VARIABLE) {
@@ -3229,7 +3251,8 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                          stored = true;
                      } else {
                          int idx = current_chunk->add_constant(base_var->name);
-                         emit_bytes(OP_SET_GLOBAL, (uint8_t)idx);
+                         emit_byte(OP_SET_GLOBAL);
+                         emit_const_index(idx);
                          stored = true;
                      }
                  }
@@ -3254,7 +3277,7 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                         }
                         int name_idx = current_chunk->add_constant(var_name);
                         emit_byte(OP_NEW_OBJECT);
-                        emit_byte((uint8_t)name_idx);
+                        emit_const_index(name_idx);
                         emit_byte((uint8_t)s->arguments.size());
                         emit_byte(OP_POP); // discard return value (statement context)
                         break;
@@ -3266,8 +3289,8 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                     compile_expression(s->arguments[i]);
                 }
                 int idx = current_chunk->add_constant(s->method_name);
-                if (idx > 255) { compile_ok = false; break; }
-                emit_bytes(OP_METHOD_CALL, (uint8_t)idx);
+                emit_byte(OP_METHOD_CALL);
+                emit_const_index(idx);
                 emit_byte((uint8_t)s->arguments.size());
                 emit_byte(OP_POP); // discard return value (statement context)
                 break;
@@ -3314,8 +3337,8 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                 compile_expression(s->arguments[i]);
             }
             int idx = current_chunk->add_constant(s->method_name);
-            if (idx > 255) { compile_ok = false; break; }
-            emit_bytes(OP_CALL, (uint8_t)idx);
+            emit_byte(OP_CALL);
+            emit_const_index(idx);
             emit_byte((uint8_t)s->arguments.size());
             emit_byte(OP_POP);
             break;
@@ -3367,7 +3390,8 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                     int temp_slot = get_or_add_local(String("__alloc_") + name + String::num_int64(temp_local_id++), VT_UNKNOWN);
                     if (temp_slot >= 0) {
                         int idx = current_chunk->add_constant(name);
-                        emit_bytes(OP_GET_GLOBAL, (uint8_t)idx);
+                        emit_byte(OP_GET_GLOBAL);
+                        emit_const_index(idx);
                         emit_bytes(OP_SET_LOCAL, (uint8_t)temp_slot);
                         return temp_slot;
                     }
@@ -3388,7 +3412,7 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                     emit_byte((uint8_t)sum_slot);
                     emit_byte((uint8_t)arr_slot);
                     emit_byte((uint8_t)tmp_slot);
-                    emit_byte((uint8_t)lit_idx);
+                    emit_const_index(lit_idx);
                     emit_byte((uint8_t)iter_slot);
                     emit_byte((uint8_t)size_slot);
                     emit_bytes(OP_SET_LOCAL, (uint8_t)sum_slot);
@@ -3414,7 +3438,8 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                     if (slot >= 0) emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
                     else {
                         int idx = current_chunk->add_constant(fill_arr);
-                        emit_bytes(OP_SET_GLOBAL, (uint8_t)idx);
+                        emit_byte(OP_SET_GLOBAL);
+                        emit_const_index(idx);
                     }
                     break;
                 }
@@ -3468,7 +3493,8 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                 if (slot >= 0) emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
                 else {
                     int idx = current_chunk->add_constant(repeat_target);
-                    emit_bytes(OP_SET_GLOBAL, (uint8_t)idx);
+                    emit_byte(OP_SET_GLOBAL);
+                    emit_const_index(idx);
                 }
                 break;
             }
@@ -3504,7 +3530,7 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                     int lit_idx = current_chunk->add_constant(nested_literal);
                     emit_byte(OP_STRING_REPEAT_OUTER);
                     emit_byte((uint8_t)slot);
-                    emit_byte((uint8_t)lit_idx);
+                    emit_const_index(lit_idx);
                     break;
                 }
             }
@@ -3526,14 +3552,15 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                     int k_idx = current_chunk->add_constant(Variant(arith_k));
                     int c_idx = current_chunk->add_constant(Variant(arith_c));
                     emit_byte(OP_ARITH_SUM);
-                    emit_byte((uint8_t)k_idx);
-                    emit_byte((uint8_t)c_idx);
+                    emit_const_index(k_idx);
+                    emit_const_index(c_idx);
 
                     int slot = get_or_add_local(sum_var, VT_INT);
                     if (slot >= 0) emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
                     else {
                         int idx = current_chunk->add_constant(sum_var);
-                        emit_bytes(OP_SET_GLOBAL, (uint8_t)idx);
+                        emit_byte(OP_SET_GLOBAL);
+                        emit_const_index(idx);
                     }
                     break;
                 }
@@ -3555,14 +3582,15 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                     int k_idx = current_chunk->add_constant(Variant(arith_k));
                     int c_idx = current_chunk->add_constant(Variant(arith_c));
                     emit_byte(OP_ARITH_SUM);
-                    emit_byte((uint8_t)k_idx);
-                    emit_byte((uint8_t)c_idx);
+                    emit_const_index(k_idx);
+                    emit_const_index(c_idx);
 
                     int slot = get_or_add_local(sum_var, VT_INT);
                     if (slot >= 0) emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
                     else {
                         int idx = current_chunk->add_constant(sum_var);
-                        emit_bytes(OP_SET_GLOBAL, (uint8_t)idx);
+                        emit_byte(OP_SET_GLOBAL);
+                        emit_const_index(idx);
                     }
                     break;
                 }
@@ -3609,7 +3637,8 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                         if (slot >= 0) emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
                         else {
                             int idx = current_chunk->add_constant(branch_sum_var);
-                            emit_bytes(OP_SET_GLOBAL, (uint8_t)idx);
+                            emit_byte(OP_SET_GLOBAL);
+                            emit_const_index(idx);
                         }
                         break;
                     }
@@ -3638,7 +3667,8 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                         if (slot >= 0) emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
                         else {
                             int idx = current_chunk->add_constant(dks_sum);
-                            emit_bytes(OP_SET_GLOBAL, (uint8_t)idx);
+                            emit_byte(OP_SET_GLOBAL);
+                            emit_const_index(idx);
                         }
                         break;
                     }
@@ -3693,7 +3723,8 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                             if (slot >= 0) emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
                             else {
                                 int idx = current_chunk->add_constant(dkss_sum);
-                                emit_bytes(OP_SET_GLOBAL, (uint8_t)idx);
+                                emit_byte(OP_SET_GLOBAL);
+                                emit_const_index(idx);
                             }
 
                             // Fill dict with final iteration values: dict(keys(i)) = N + i
@@ -3718,7 +3749,8 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                                 if (keys_slot >= 0) emit_bytes(OP_GET_LOCAL, (uint8_t)keys_slot);
                                 else {
                                     int kidx = current_chunk->add_constant(dkss_keys);
-                                    emit_bytes(OP_GET_GLOBAL, (uint8_t)kidx);
+                                    emit_byte(OP_GET_GLOBAL);
+                                    emit_const_index(kidx);
                                 }
                                 if (fill_slot >= 0) emit_bytes(OP_GET_LOCAL, (uint8_t)fill_slot);
                                 emit_bytes(OP_GET_ARRAY_FAST, 1);
@@ -3766,7 +3798,8 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                 if (slot >= 0) emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
                 else {
                     int idx = current_chunk->add_constant(sum_var);
-                    emit_bytes(OP_SET_GLOBAL, (uint8_t)idx);
+                    emit_byte(OP_SET_GLOBAL);
+                    emit_const_index(idx);
                 }
                 break;
             }
@@ -3896,7 +3929,8 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                 if (slot >= 0) emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
                 else {
                     int idx = current_chunk->add_constant(sum_var);
-                    emit_bytes(OP_SET_GLOBAL, (uint8_t)idx);
+                    emit_byte(OP_SET_GLOBAL);
+                    emit_const_index(idx);
                 }
                 break;
             }
@@ -3919,7 +3953,8 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             }
             else {
                 int var_idx = current_chunk->add_constant(f->variable_name);
-                emit_bytes(OP_SET_GLOBAL, (uint8_t)var_idx);
+                emit_byte(OP_SET_GLOBAL);
+                emit_const_index(var_idx);
             }
 
             int to_slot = -1;
@@ -4000,7 +4035,8 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             }
             else {
                 int var_idx = current_chunk->add_constant(f->variable_name);
-                emit_bytes(OP_GET_GLOBAL, (uint8_t)var_idx);
+                emit_byte(OP_GET_GLOBAL);
+                emit_const_index(var_idx);
             }
 
             if (to_slot >= 0) {
@@ -4043,7 +4079,7 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
 
                 // Positive step path: counter <= limit
                 if (var_slot >= 0) emit_bytes(OP_GET_LOCAL, (uint8_t)var_slot);
-                else { int vi = current_chunk->add_constant(f->variable_name); emit_bytes(OP_GET_GLOBAL, (uint8_t)vi); }
+                else { int vi = current_chunk->add_constant(f->variable_name); emit_byte(OP_GET_GLOBAL); emit_const_index(vi); }
                 if (to_slot >= 0) emit_bytes(OP_GET_LOCAL, (uint8_t)to_slot);
                 else compile_expression(f->to_val);
                 emit_byte(use_int_compare ? OP_LESS_EQUAL_I64 : OP_LESS_EQUAL);
@@ -4052,7 +4088,7 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                 // Negative step path: counter >= limit
                 patch_jump(step_positive_jump);
                 if (var_slot >= 0) emit_bytes(OP_GET_LOCAL, (uint8_t)var_slot);
-                else { int vi = current_chunk->add_constant(f->variable_name); emit_bytes(OP_GET_GLOBAL, (uint8_t)vi); }
+                else { int vi = current_chunk->add_constant(f->variable_name); emit_byte(OP_GET_GLOBAL); emit_const_index(vi); }
                 if (to_slot >= 0) emit_bytes(OP_GET_LOCAL, (uint8_t)to_slot);
                 else compile_expression(f->to_val);
                 emit_byte(OP_GREATER_EQUAL);
@@ -4091,7 +4127,8 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                                         if (slot >= 0) emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
                                         else {
                                             int idx = current_chunk->add_constant(rd_name);
-                                            emit_bytes(OP_SET_GLOBAL, (uint8_t)idx);
+                                            emit_byte(OP_SET_GLOBAL);
+                                            emit_const_index(idx);
                                         }
                                         i++; // Skip the fill loop
                                         continue;
@@ -4123,7 +4160,8 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                 }
                 else {
                     int var_idx = current_chunk->add_constant(f->variable_name);
-                    emit_bytes(OP_GET_GLOBAL, (uint8_t)var_idx);
+                    emit_byte(OP_GET_GLOBAL);
+                    emit_const_index(var_idx);
                 }
 
                 if (step_slot >= 0) {
@@ -4157,7 +4195,8 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                 }
                 else {
                     int var_idx = current_chunk->add_constant(f->variable_name);
-                    emit_bytes(OP_SET_GLOBAL, (uint8_t)var_idx);
+                    emit_byte(OP_SET_GLOBAL);
+                    emit_const_index(var_idx);
                 }
             }
 
@@ -4257,7 +4296,8 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                     emit_bytes(OP_GET_LOCAL, (uint8_t)slot);
                 } else {
                     int gidx = current_chunk->add_constant(s->variable_name);
-                    emit_bytes(OP_GET_GLOBAL, (uint8_t)gidx);
+                    emit_byte(OP_GET_GLOBAL);
+                    emit_const_index(gidx);
                 }
 
                 // Push new size = expr + 1 (VB arrays are 0..N)
@@ -4273,7 +4313,8 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                     emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
                 } else {
                     int gidx = current_chunk->add_constant(s->variable_name);
-                    emit_bytes(OP_SET_GLOBAL, (uint8_t)gidx);
+                    emit_byte(OP_SET_GLOBAL);
+                    emit_const_index(gidx);
                 }
             } else {
                 // Non-preserve: create brand new array
@@ -4289,7 +4330,8 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                 if (slot >= 0) emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
                 else {
                     int idx = current_chunk->add_constant(s->variable_name);
-                    emit_bytes(OP_SET_GLOBAL, (uint8_t)idx);
+                    emit_byte(OP_SET_GLOBAL);
+                    emit_const_index(idx);
                 }
             }
             break;
@@ -4314,7 +4356,8 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                 emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
             } else {
                 int idx = current_chunk->add_constant(es->variable_name);
-                emit_bytes(OP_SET_GLOBAL, (uint8_t)idx);
+                emit_byte(OP_SET_GLOBAL);
+                emit_const_index(idx);
             }
             break;
         }
@@ -4381,21 +4424,21 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             
             int data_idx = current_chunk->add_constant(section_data);
             emit_byte(OP_REGISTER_WHENEVER);
-            emit_byte((uint8_t)data_idx);
+            emit_const_index(data_idx);
             break;
         }
         case STMT_SUSPEND_WHENEVER: {
             SuspendWheneverStatement* s = (SuspendWheneverStatement*)stmt;
             int name_idx = current_chunk->add_constant(s->section_name);
             emit_byte(OP_SUSPEND_WHENEVER);
-            emit_byte((uint8_t)name_idx);
+            emit_const_index(name_idx);
             break;
         }
         case STMT_RESUME_WHENEVER: {
             ResumeWheneverStatement* s = (ResumeWheneverStatement*)stmt;
             int name_idx = current_chunk->add_constant(s->section_name);
             emit_byte(OP_RESUME_WHENEVER);
-            emit_byte((uint8_t)name_idx);
+            emit_const_index(name_idx);
             break;
         }
         case STMT_SELECT: {
@@ -4605,7 +4648,8 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             } else {
                 // Restore to label - emit the label name for runtime lookup
                 int label_idx = current_chunk->add_constant(s->label_name);
-                emit_bytes(OP_CONSTANT, (uint8_t)label_idx);
+                emit_byte(OP_CONSTANT);
+                emit_const_index(label_idx);
             }
             emit_byte(OP_RESTORE_DATA);
             break;
@@ -4620,7 +4664,8 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                 // Typed Read coercion (Read x As Integer)
                 if (ri < s->type_names.size() && !s->type_names[ri].is_empty()) {
                     int type_idx = current_chunk->add_constant(s->type_names[ri]);
-                    emit_bytes(OP_COERCE_TYPE, (uint8_t)type_idx);
+                    emit_byte(OP_COERCE_TYPE);
+                    emit_const_index(type_idx);
                 }
                 // Store into target variable
                 if (target->type == ExpressionNode::VARIABLE) {
@@ -4630,7 +4675,8 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                         emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
                     } else {
                         int idx = current_chunk->add_constant(tv->name);
-                        emit_bytes(OP_SET_GLOBAL, (uint8_t)idx);
+                        emit_byte(OP_SET_GLOBAL);
+                        emit_const_index(idx);
                     }
                 } else if (target->type == ExpressionNode::ARRAY_ACCESS) {
                     ArrayAccessNode* aa = (ArrayAccessNode*)target;
@@ -4652,7 +4698,8 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                             if (arr_slot >= 0) emit_bytes(OP_SET_LOCAL, (uint8_t)arr_slot);
                             else {
                                 int idx = current_chunk->add_constant(v->name);
-                                emit_bytes(OP_SET_GLOBAL, (uint8_t)idx);
+                                emit_byte(OP_SET_GLOBAL);
+                                emit_const_index(idx);
                             }
                         } else {
                             compile_ok = false;
@@ -4677,7 +4724,8 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             } else {
                 // On Error Goto <label>
                 int label_idx = current_chunk->add_constant(s->label_name);
-                emit_bytes(OP_ON_ERROR_GOTO, (uint8_t)label_idx);
+                emit_byte(OP_ON_ERROR_GOTO);
+                emit_const_index(label_idx);
             }
             break;
         }
@@ -4805,7 +4853,8 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                 emit_bytes(OP_SET_LOCAL, (uint8_t)var_slot);
             } else {
                 int name_idx = current_chunk->add_constant(s->variable_name);
-                emit_bytes(OP_SET_GLOBAL, (uint8_t)name_idx);
+                emit_byte(OP_SET_GLOBAL);
+                emit_const_index(name_idx);
             }
 
             // --- loop body ---
@@ -5015,7 +5064,7 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                 if (s->variables.size() > 0 && s->variables[0]->type == ExpressionNode::VARIABLE) {
                     int idx = current_chunk->add_constant(((VariableNode*)s->variables[0])->name);
                     emit_byte(OP_LINE_INPUT);
-                    emit_byte((uint8_t)idx);
+                    emit_const_index(idx);
                 }
             } else if (s->file_number) {
                 // Input #n, var1, var2...
@@ -5024,7 +5073,7 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                     if (s->variables[i]->type == ExpressionNode::VARIABLE) {
                         int idx = current_chunk->add_constant(((VariableNode*)s->variables[i])->name);
                         emit_byte(OP_INPUT_FILE);
-                        emit_byte((uint8_t)idx);
+                        emit_const_index(idx);
                     }
                 }
             }
@@ -5085,7 +5134,7 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             }
             int name_idx = current_chunk->add_constant(Variant(s->expression_name));
             emit_byte(OP_RAISE_EVENT);
-            emit_byte((uint8_t)(name_idx & 0xFF));
+            emit_const_index(name_idx);
             emit_byte((uint8_t)(s->arguments.size() & 0xFF));
             break;
         }
@@ -5101,7 +5150,7 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             // Emit OP_TASK_RUN_BEGIN [name_const] [bg_flag] [body_len_hi] [body_len_lo]
             int name_idx = current_chunk->add_constant(Variant(s->task_name));
             emit_byte(OP_TASK_RUN_BEGIN);
-            emit_byte((uint8_t)(name_idx & 0xFF));
+            emit_const_index(name_idx);
             emit_byte(s->is_background ? 1 : 0);
             int body_len_offset = current_chunk->code.size();
             emit_byte(0xFF);
@@ -5223,7 +5272,7 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
             }
             int name_idx = current_chunk->add_constant(String(n->class_name));
             emit_byte(OP_NEW_OBJECT);
-            emit_byte((uint8_t)name_idx);
+            emit_const_index(name_idx);
             emit_byte((uint8_t)n->args.size());
             break;
         }
@@ -5231,14 +5280,16 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
             // "Me" keyword - compile as OP_GET_GLOBAL with "Me" constant
             // Runtime will resolve this to owner
             int idx = current_chunk->add_constant(String("Me"));
-            emit_bytes(OP_GET_GLOBAL, (uint8_t)idx);
+            emit_byte(OP_GET_GLOBAL);
+            emit_const_index(idx);
             break;
         }
         case ExpressionNode::SUPER: {
             // "Super" keyword — compile same pattern as "Me"
             // Runtime OP_GET_GLOBAL resolves "Super" to owner (parent class dispatch handled by method call)
             int idx = current_chunk->add_constant(String("Super"));
-            emit_bytes(OP_GET_GLOBAL, (uint8_t)idx);
+            emit_byte(OP_GET_GLOBAL);
+            emit_const_index(idx);
             break;
         }
         case ExpressionNode::VARIABLE: {
@@ -5248,7 +5299,8 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                 emit_bytes(OP_GET_LOCAL, (uint8_t)slot);
             } else {
                 int idx = current_chunk->add_constant(v->name);
-                emit_bytes(OP_GET_GLOBAL, (uint8_t)idx);
+                emit_byte(OP_GET_GLOBAL);
+                emit_const_index(idx);
             }
             break;
         }
@@ -5296,10 +5348,12 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                     if (lt == VT_INT && rt == VT_INT) {
                         if (b->right->type == ExpressionNode::LITERAL && ((LiteralNode*)b->right)->value.get_type() == Variant::INT) {
                             int idx = current_chunk->add_constant(((LiteralNode*)b->right)->value);
-                            emit_bytes(OP_ADD_I64_CONST, (uint8_t)idx);
+                            emit_byte(OP_ADD_I64_CONST);
+                            emit_const_index(idx);
                         } else if (b->left->type == ExpressionNode::LITERAL && ((LiteralNode*)b->left)->value.get_type() == Variant::INT) {
                             int idx = current_chunk->add_constant(((LiteralNode*)b->left)->value);
-                            emit_bytes(OP_ADD_I64_CONST, (uint8_t)idx);
+                            emit_byte(OP_ADD_I64_CONST);
+                            emit_const_index(idx);
                         } else {
                             emit_byte(OP_ADD_I64);
                         }
@@ -5311,7 +5365,8 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                     if (lt == VT_INT && rt == VT_INT) {
                         if (b->right->type == ExpressionNode::LITERAL && ((LiteralNode*)b->right)->value.get_type() == Variant::INT) {
                             int idx = current_chunk->add_constant(((LiteralNode*)b->right)->value);
-                            emit_bytes(OP_SUB_I64_CONST, (uint8_t)idx);
+                            emit_byte(OP_SUB_I64_CONST);
+                            emit_const_index(idx);
                         } else {
                             emit_byte(OP_SUB_I64);
                         }
@@ -5323,10 +5378,12 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                     if (lt == VT_INT && rt == VT_INT) {
                         if (b->right->type == ExpressionNode::LITERAL && ((LiteralNode*)b->right)->value.get_type() == Variant::INT) {
                             int idx = current_chunk->add_constant(((LiteralNode*)b->right)->value);
-                            emit_bytes(OP_MUL_I64_CONST, (uint8_t)idx);
+                            emit_byte(OP_MUL_I64_CONST);
+                            emit_const_index(idx);
                         } else if (b->left->type == ExpressionNode::LITERAL && ((LiteralNode*)b->left)->value.get_type() == Variant::INT) {
                             int idx = current_chunk->add_constant(((LiteralNode*)b->left)->value);
-                            emit_bytes(OP_MUL_I64_CONST, (uint8_t)idx);
+                            emit_byte(OP_MUL_I64_CONST);
+                            emit_const_index(idx);
                         } else {
                             emit_byte(OP_MUL_I64);
                         }
@@ -5386,10 +5443,12 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                 if (lt == VT_INT && rt == VT_INT) {
                     if (b->right->type == ExpressionNode::LITERAL && ((LiteralNode*)b->right)->value.get_type() == Variant::INT) {
                         int idx = current_chunk->add_constant(((LiteralNode*)b->right)->value);
-                        emit_bytes(OP_ADD_I64_CONST, (uint8_t)idx);
+                        emit_byte(OP_ADD_I64_CONST);
+                        emit_const_index(idx);
                     } else if (b->left->type == ExpressionNode::LITERAL && ((LiteralNode*)b->left)->value.get_type() == Variant::INT) {
                         int idx = current_chunk->add_constant(((LiteralNode*)b->left)->value);
-                        emit_bytes(OP_ADD_I64_CONST, (uint8_t)idx);
+                        emit_byte(OP_ADD_I64_CONST);
+                        emit_const_index(idx);
                     } else {
                         emit_byte(OP_ADD_I64);
                     }
@@ -5401,7 +5460,8 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                 if (lt == VT_INT && rt == VT_INT) {
                     if (b->right->type == ExpressionNode::LITERAL && ((LiteralNode*)b->right)->value.get_type() == Variant::INT) {
                         int idx = current_chunk->add_constant(((LiteralNode*)b->right)->value);
-                        emit_bytes(OP_SUB_I64_CONST, (uint8_t)idx);
+                        emit_byte(OP_SUB_I64_CONST);
+                        emit_const_index(idx);
                     } else {
                         emit_byte(OP_SUB_I64);
                     }
@@ -5413,10 +5473,12 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                 if (lt == VT_INT && rt == VT_INT) {
                     if (b->right->type == ExpressionNode::LITERAL && ((LiteralNode*)b->right)->value.get_type() == Variant::INT) {
                         int idx = current_chunk->add_constant(((LiteralNode*)b->right)->value);
-                        emit_bytes(OP_MUL_I64_CONST, (uint8_t)idx);
+                        emit_byte(OP_MUL_I64_CONST);
+                        emit_const_index(idx);
                     } else if (b->left->type == ExpressionNode::LITERAL && ((LiteralNode*)b->left)->value.get_type() == Variant::INT) {
                         int idx = current_chunk->add_constant(((LiteralNode*)b->left)->value);
-                        emit_bytes(OP_MUL_I64_CONST, (uint8_t)idx);
+                        emit_byte(OP_MUL_I64_CONST);
+                        emit_const_index(idx);
                     } else {
                         emit_byte(OP_MUL_I64);
                     }
@@ -5479,7 +5541,7 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                         }
                         int name_idx = current_chunk->add_constant(var_name);
                         emit_byte(OP_NEW_OBJECT);
-                        emit_byte((uint8_t)name_idx);
+                        emit_const_index(name_idx);
                         emit_byte((uint8_t)aa->indices.size());
                         break;
                     }
@@ -5490,8 +5552,8 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                     compile_expression(aa->indices[i]);
                 }
                 int midx = current_chunk->add_constant(ma->member_name);
-                if (midx > 255) { compile_ok = false; break; }
-                emit_bytes(OP_METHOD_CALL, (uint8_t)midx);
+                emit_byte(OP_METHOD_CALL);
+                emit_const_index(midx);
                 emit_byte((uint8_t)aa->indices.size());
                 break;
             }
@@ -5511,8 +5573,8 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                         compile_expression(aa->indices[i]);
                     }
                     int idx = current_chunk->add_constant(var_name);
-                    if (idx > 255) { compile_ok = false; break; }
-                    emit_bytes(OP_CALL, (uint8_t)idx);
+                    emit_byte(OP_CALL);
+                    emit_const_index(idx);
                     emit_byte((uint8_t)aa->indices.size());
                     break;
                 }
@@ -5573,7 +5635,8 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                 if (base_name.nocasecmp_to("Color") == 0 && !ma->member_name.is_empty()) {
                     Color c = Color::named(ma->member_name);
                     int cidx = current_chunk->add_constant(c);
-                    emit_bytes(OP_CONSTANT, (uint8_t)cidx);
+                    emit_byte(OP_CONSTANT);
+                    emit_const_index(cidx);
                     resolved = true;
                 }
                 // VG Enum dot access: EnumName.MemberName → compile-time constant
@@ -5584,7 +5647,8 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                             for (int vi = 0; vi < ed->values.size(); vi++) {
                                 if (ed->values[vi].name.nocasecmp_to(ma->member_name) == 0) {
                                     int cidx = current_chunk->add_constant(Variant(ed->values[vi].value));
-                                    emit_bytes(OP_CONSTANT, (uint8_t)cidx);
+                                    emit_byte(OP_CONSTANT);
+                                    emit_const_index(cidx);
                                     resolved = true;
                                     break;
                                 }
@@ -5608,7 +5672,8 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                     if (ClassDB::class_has_integer_constant(class_name, mname)) {
                         int64_t val = ClassDB::class_get_integer_constant(class_name, mname);
                         int cidx = current_chunk->add_constant(Variant((int)val));
-                        emit_bytes(OP_CONSTANT, (uint8_t)cidx);
+                        emit_byte(OP_CONSTANT);
+                        emit_const_index(cidx);
                         resolved = true;
                     }
                 }
@@ -5616,7 +5681,8 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
             if (!resolved) {
                 compile_expression(ma->base_object);
                 int idx = current_chunk->add_constant(ma->member_name);
-                emit_bytes(OP_GET_MEMBER, (uint8_t)idx);
+                emit_byte(OP_GET_MEMBER);
+                emit_const_index(idx);
             }
             break;
         }
@@ -5633,7 +5699,7 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                          }
                          int name_idx = current_chunk->add_constant(var_name);
                          emit_byte(OP_NEW_OBJECT);
-                         emit_byte((uint8_t)name_idx);
+                         emit_const_index(name_idx);
                          emit_byte((uint8_t)call->arguments.size());
                          // Return value stays on stack (expression context)
                          break;
@@ -5645,8 +5711,8 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                      compile_expression(call->arguments[i]);
                  }
                  int midx = current_chunk->add_constant(call->method_name);
-                 if (midx > 255) { compile_ok = false; break; }
-                 emit_bytes(OP_METHOD_CALL, (uint8_t)midx);
+                 emit_byte(OP_METHOD_CALL);
+                 emit_const_index(midx);
                  emit_byte((uint8_t)call->arguments.size());
                  // Return value stays on stack (expression context)
                  break;
@@ -5710,8 +5776,8 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
              }
              // Call
              int idx = current_chunk->add_constant(call->method_name);
-             if (idx > 255) { compile_ok = false; break; }
-             emit_bytes(OP_CALL, (uint8_t)idx);
+             emit_byte(OP_CALL);
+             emit_const_index(idx);
              emit_byte((uint8_t)call->arguments.size()); // Arg count
              break;
         }
@@ -5778,7 +5844,8 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
             // Not nil: do member access (base is still on stack from DUP)
             {
                 int name_idx = current_chunk->add_constant(oa->member_name);
-                emit_bytes(OP_GET_MEMBER, (uint8_t)name_idx);
+                emit_byte(OP_GET_MEMBER);
+                emit_const_index(name_idx);
             }
             int end_jump = emit_jump(OP_JUMP);
             // Nil path: pop the duplicated nil value, push nil result
