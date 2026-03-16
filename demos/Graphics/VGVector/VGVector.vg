@@ -386,16 +386,16 @@ Sub SaveVGV(filePath As String)
             idx = ShapeIdx(fr, s)
 
             ' Build shape line: TYPE,x1,y1,x2,y2,sR,sG,sB,sA,sW,fR,fG,fB,fA
-            Dim line As String
-            line = "SHAPE " & shapeType(idx) & ","
-            line = line & Str(shapeX1(idx)) & "," & Str(shapeY1(idx)) & ","
-            line = line & Str(shapeX2(idx)) & "," & Str(shapeY2(idx)) & ","
-            line = line & Str(shapeStrokeR(idx)) & "," & Str(shapeStrokeG(idx)) & ","
-            line = line & Str(shapeStrokeB(idx)) & "," & Str(shapeStrokeA(idx)) & ","
-            line = line & Str(shapeStrokeW(idx)) & ","
-            line = line & Str(shapeFillR(idx)) & "," & Str(shapeFillG(idx)) & ","
-            line = line & Str(shapeFillB(idx)) & "," & Str(shapeFillA(idx))
-            Print #f, line
+            Dim sLine As String
+            sLine = "SHAPE " & shapeType(idx) & ","
+            sLine = sLine & Str(shapeX1(idx)) & "," & Str(shapeY1(idx)) & ","
+            sLine = sLine & Str(shapeX2(idx)) & "," & Str(shapeY2(idx)) & ","
+            sLine = sLine & Str(shapeStrokeR(idx)) & "," & Str(shapeStrokeG(idx)) & ","
+            sLine = sLine & Str(shapeStrokeB(idx)) & "," & Str(shapeStrokeA(idx)) & ","
+            sLine = sLine & Str(shapeStrokeW(idx)) & ","
+            sLine = sLine & Str(shapeFillR(idx)) & "," & Str(shapeFillG(idx)) & ","
+            sLine = sLine & Str(shapeFillB(idx)) & "," & Str(shapeFillA(idx))
+            Print #f, sLine
 
             ' Write polygon vertices if applicable
             If shapeType(idx) = "POLYGON" Or shapeType(idx) = "POLYLINE" Then
@@ -903,15 +903,7 @@ Sub mnuAnim_SetFPS_Click()
 End Sub
 
 Sub mnuHelp_AboutVGVector_Click()
-    MsgBox "VG Vector v1.0" & Chr(10) & Chr(10) & _
-           "Vector Graphics & Animation Editor" & Chr(10) & _
-           "Written in VisualGasic" & Chr(10) & Chr(10) & _
-           "Saves to .VGV (VisualGasic Vector) format" & Chr(10) & _
-           "Coordinate-based shapes — NOT pixel/bitmap" & Chr(10) & _
-           "Tools: Select, Line, Rect, Ellipse, Polygon, Polyline, Text" & Chr(10) & _
-           "Animation: timeline, onion skin, play/pause" & Chr(10) & Chr(10) & _
-           "Shortcuts: 1-7=Tools, Space=Play, O=Onion, Arrows=Frames", _
-           vbInformation, "About VG Vector"
+    MsgBox "VG Vector v1.0" & Chr(10) & Chr(10) & "Vector Graphics & Animation Editor" & Chr(10) & "Written in VisualGasic" & Chr(10) & Chr(10) & "Saves to .VGV (VisualGasic Vector) format" & Chr(10) & "Coordinate-based shapes — NOT pixel/bitmap" & Chr(10) & "Tools: Select, Line, Rect, Ellipse, Polygon, Polyline, Text" & Chr(10) & "Animation: timeline, onion skin, play/pause" & Chr(10) & Chr(10) & "Shortcuts: 1-7=Tools, Space=Play, O=Onion, Arrows=Frames", vbInformation, "About VG Vector"
 End Sub
 
 ' ============================================================================
@@ -982,9 +974,7 @@ Sub _Draw()
     If tempPolyCount > 0 Then
         Dim v As Integer
         For v = 0 To tempPolyCount - 2
-            DrawLine Vector2(canvasX + tempPolyX(v), canvasY + tempPolyY(v)), _
-                      Vector2(canvasX + tempPolyX(v + 1), canvasY + tempPolyY(v + 1)), _
-                      Color(0, 0, 0.8), 2
+            DrawLine Vector2(canvasX + tempPolyX(v), canvasY + tempPolyY(v)), Vector2(canvasX + tempPolyX(v + 1), canvasY + tempPolyY(v + 1)), Color(0, 0, 0.8), 2
         Next
         ' Show vertices
         For v = 0 To tempPolyCount - 1
@@ -1048,15 +1038,13 @@ Sub _Draw()
     For ci = 0 To QPAL_COUNT - 1
         Dim cr As Integer, cc As Integer
         cr = ci \ 8 : cc = ci Mod 8
-        DrawRect Rect2(propsX + 8 + cc * 22, MENU_H + 112 + cr * 22, 20, 20), _
-                 Color8(qpalR(ci), qpalG(ci), qpalB(ci), 255)
+        DrawRect Rect2(propsX + 8 + cc * 22, MENU_H + 112 + cr * 22, 20, 20), Color8(qpalR(ci), qpalG(ci), qpalB(ci), 255)
     Next
 
     DrawString GetThemeDefaultFont(), Vector2(propsX + 8, MENU_H + 175), "Fill Colors:", Color(0.4, 0.4, 0.5)
     For ci = 0 To QPAL_COUNT - 1
         cr = ci \ 8 : cc = ci Mod 8
-        DrawRect Rect2(propsX + 8 + cc * 22, MENU_H + 182 + cr * 22, 20, 20), _
-                 Color8(qpalR(ci), qpalG(ci), qpalB(ci), 255)
+        DrawRect Rect2(propsX + 8 + cc * 22, MENU_H + 182 + cr * 22, 20, 20), Color8(qpalR(ci), qpalG(ci), qpalB(ci), 255)
     Next
 
     ' Shape info
@@ -1064,8 +1052,7 @@ Sub _Draw()
         Dim selIdx As Integer
         selIdx = ShapeIdx(currentFrame, selectedShape)
         DrawString GetThemeDefaultFont(), Vector2(propsX + 8, MENU_H + 260), "Selected: " & shapeType(selIdx), Color(0, 0.3, 0.6)
-        DrawString GetThemeDefaultFont(), Vector2(propsX + 8, MENU_H + 280), _
-            "Pos: " & Str(Int(shapeX1(selIdx))) & "," & Str(Int(shapeY1(selIdx))), Color(0.3, 0.3, 0.4)
+        DrawString GetThemeDefaultFont(), Vector2(propsX + 8, MENU_H + 280), "Pos: " & Str(Int(shapeX1(selIdx))) & "," & Str(Int(shapeY1(selIdx))), Color(0.3, 0.3, 0.4)
     End If
 
     ' ── Draw timeline ─────────────────────────────────────────────────────
@@ -1096,8 +1083,7 @@ Sub _Draw()
         ' Frame number
         DrawString GetThemeDefaultFont(), Vector2(fThumbX + 4, fThumbY + 15), Str(fr + 1), Color(1, 1, 1)
         ' Shape count
-        DrawString GetThemeDefaultFont(), Vector2(fThumbX + 4, fThumbY + 35), _
-            Str(frameShapeCount(fr)) & " shp", Color(0.7, 0.7, 0.8)
+        DrawString GetThemeDefaultFont(), Vector2(fThumbX + 4, fThumbY + 35), Str(frameShapeCount(fr)) & " shp", Color(0.7, 0.7, 0.8)
 
         ' Onion skin indicator
         If onionSkin And fr = currentFrame - 1 Then
@@ -1175,8 +1161,7 @@ Sub DrawFrameShapes(frameIdx As Integer, offsetX As Integer, offsetY As Integer,
                 Dim ang1 As Double, ang2 As Double
                 ang1 = (a * 6.2832) / segments
                 ang2 = ((a + 1) * 6.2832) / segments
-                DrawLine Vector2(cx + rx * Cos(ang1), cy + ry * Sin(ang1)), _
-                          Vector2(cx + rx * Cos(ang2), cy + ry * Sin(ang2)), sColor, sw
+                DrawLine Vector2(cx + rx * Cos(ang1), cy + ry * Sin(ang1)), Vector2(cx + rx * Cos(ang2), cy + ry * Sin(ang2)), sColor, sw
             Next
 
         Case "POLYGON", "POLYLINE"
@@ -1185,13 +1170,11 @@ Sub DrawFrameShapes(frameIdx As Integer, offsetX As Integer, offsetY As Integer,
             If pc >= 2 Then
                 Dim v As Integer
                 For v = 0 To pc - 2
-                    DrawLine Vector2(offsetX + polyPointX(i, v), offsetY + polyPointY(i, v)), _
-                              Vector2(offsetX + polyPointX(i, v + 1), offsetY + polyPointY(i, v + 1)), sColor, sw
+                    DrawLine Vector2(offsetX + polyPointX(i, v), offsetY + polyPointY(i, v)), Vector2(offsetX + polyPointX(i, v + 1), offsetY + polyPointY(i, v + 1)), sColor, sw
                 Next
                 ' Close polygon
                 If shapeType(idx) = "POLYGON" And pc >= 3 Then
-                    DrawLine Vector2(offsetX + polyPointX(i, pc - 1), offsetY + polyPointY(i, pc - 1)), _
-                              Vector2(offsetX + polyPointX(i, 0), offsetY + polyPointY(i, 0)), sColor, sw
+                    DrawLine Vector2(offsetX + polyPointX(i, pc - 1), offsetY + polyPointY(i, pc - 1)), Vector2(offsetX + polyPointX(i, 0), offsetY + polyPointY(i, 0)), sColor, sw
                 End If
             End If
 

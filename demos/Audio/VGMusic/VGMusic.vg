@@ -743,15 +743,7 @@ Sub mnuHelp_LanguageReference_Click()
 End Sub
 
 Sub mnuHelp_AboutVGMusic_Click()
-    MsgBox "VG Music v1.0" & Chr(10) & Chr(10) & _
-           "Live Coding Music Synthesizer" & Chr(10) & _
-           "Inspired by Strudel, in plain English!" & Chr(10) & Chr(10) & _
-           "Write music with BASIC commands:" & Chr(10) & _
-           "  Play C4, Quarter" & Chr(10) & _
-           "  PlayDrum Kick, Eighth" & Chr(10) & _
-           "  Rest Half" & Chr(10) & Chr(10) & _
-           "Space = Play/Stop, Escape = Panic" & Chr(10) & _
-           "Written in VisualGasic", vbInformation, "About VG Music"
+    MsgBox "VG Music v1.0" & Chr(10) & Chr(10) & "Live Coding Music Synthesizer" & Chr(10) & "Inspired by Strudel, in plain English!" & Chr(10) & Chr(10) & "Write music with BASIC commands:" & Chr(10) & "  Play C4, Quarter" & Chr(10) & "  PlayDrum Kick, Eighth" & Chr(10) & "  Rest Half" & Chr(10) & Chr(10) & "Space = Play/Stop, Escape = Panic" & Chr(10) & "Written in VisualGasic", vbInformation, "About VG Music"
 End Sub
 
 ' ============================================================================

@@ -734,13 +734,7 @@ Sub mnuSettings_LineMode_Click()
 End Sub
 
 Sub mnuSettings_AboutVGTerminal_Click()
-    MsgBox "VG Terminal v1.0" & Chr(10) & Chr(10) & _
-           "An ANSI BBS terminal client" & Chr(10) & _
-           "Written in VisualGasic" & Chr(10) & _
-           "Supports ANSI escape codes, Telnet," & Chr(10) & _
-           "session logging, and bookmarks." & Chr(10) & Chr(10) & _
-           "Platforms: Linux, Windows, Android, Apple, HTML5", _
-           vbInformation, "About VG Terminal"
+    MsgBox "VG Terminal v1.0" & Chr(10) & Chr(10) & "An ANSI BBS terminal client" & Chr(10) & "Written in VisualGasic" & Chr(10) & "Supports ANSI escape codes, Telnet," & Chr(10) & "session logging, and bookmarks." & Chr(10) & Chr(10) & "Platforms: Linux, Windows, Android, Apple, HTML5", vbInformation, "About VG Terminal"
 End Sub
 
 ' ============================================================================
@@ -771,14 +765,14 @@ Sub SaveSessionLog()
     ' ── Build log from terminal buffer ────────────────────────────────────
     Dim logText As String
     Dim r As Integer, c As Integer
-    Dim line As String
+    Dim sLine As String
     For r = 0 To scrollTop + cursorRow
         If r < 600 Then
-            line = ""
+            sLine = ""
             For c = 0 To TERM_COLS - 1
-                line = line & termBuffer(r, c)
+                sLine = sLine & termBuffer(r, c)
             Next
-            logText = logText & RTrim(line) & Chr(10)
+            logText = logText & RTrim(sLine) & Chr(10)
         End If
     Next
 
@@ -854,8 +848,7 @@ Sub _Draw()
 
                 ' Draw background if not black
                 If bgIdx > 0 Then
-                    DrawRect Rect2(px, py, CHAR_WIDTH, CHAR_HEIGHT), _
-                        Color8(ansiColorR(bgIdx), ansiColorG(bgIdx), ansiColorB(bgIdx), 255)
+                    DrawRect Rect2(px, py, CHAR_WIDTH, CHAR_HEIGHT), Color8(ansiColorR(bgIdx), ansiColorG(bgIdx), ansiColorB(bgIdx), 255)
                 End If
 
                 ' Draw character if not space
@@ -863,8 +856,7 @@ Sub _Draw()
                     ' Clamp fgIdx to valid range
                     If fgIdx < 0 Then fgIdx = 7
                     If fgIdx > 15 Then fgIdx = 15
-                    DrawString GetThemeDefaultFont(), Vector2(px, py + 14), ch, _
-                        Color8(ansiColorR(fgIdx), ansiColorG(fgIdx), ansiColorB(fgIdx), 255)
+                    DrawString GetThemeDefaultFont(), Vector2(px, py + 14), ch, Color8(ansiColorR(fgIdx), ansiColorG(fgIdx), ansiColorB(fgIdx), 255)
                 End If
             Next
         End If

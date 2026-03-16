@@ -748,11 +748,7 @@ Sub mnuImage_ClearCanvas_Click()
 End Sub
 
 Sub mnuHelp_AboutVGPaint_Click()
-    MsgBox "VG Paint v1.0" & Chr(10) & Chr(10) & _
-           "An MS Paint clone written in VisualGasic" & Chr(10) & _
-           "Tools: Pencil, Brush, Eraser, Line, Rect, Ellipse, Fill, Picker, Text" & Chr(10) & _
-           "Shortcuts: 1-9=Tools, +/-=Brush Size, Z=Zoom, Ctrl+S=Save", _
-           vbInformation, "About VG Paint"
+    MsgBox "VG Paint v1.0" & Chr(10) & Chr(10) & "An MS Paint clone written in VisualGasic" & Chr(10) & "Tools: Pencil, Brush, Eraser, Line, Rect, Ellipse, Fill, Picker, Text" & Chr(10) & "Shortcuts: 1-9=Tools, +/-=Brush Size, Z=Zoom, Ctrl+S=Save", vbInformation, "About VG Paint"
 End Sub
 
 ' ============================================================================
@@ -817,8 +813,7 @@ Sub _Draw()
             drawY = canvasAreaY + (y - scrollY) * pixSize
 
             ' Only draw if visible on screen
-            If drawX >= canvasAreaX And drawX < canvasAreaX + canvasAreaW And _
-               drawY >= canvasAreaY And drawY < canvasAreaY + canvasAreaH Then
+            If drawX >= canvasAreaX And drawX < canvasAreaX + canvasAreaW And drawY >= canvasAreaY And drawY < canvasAreaY + canvasAreaH Then
                 Dim pr As Integer, pg As Integer, pb As Integer
                 pr = canvasR(x, y) : pg = canvasG(x, y) : pb = canvasB(x, y)
                 DrawRect Rect2(drawX, drawY, pixSize, pixSize), Color8(pr, pg, pb, 255)
@@ -880,10 +875,7 @@ Sub _Draw()
 
     ' Show coordinates and tool name
     Dim statusText As String
-    statusText = toolNames(currentTool) & "  |  " & _
-                 Str(mouseCanvasX) & ", " & Str(mouseCanvasY) & _
-                 "  |  Canvas: " & Str(canvasW) & "x" & Str(canvasH) & _
-                 "  |  Zoom: " & Str(zoomLevel) & "x"
+    statusText = toolNames(currentTool) & "  |  " & Str(mouseCanvasX) & ", " & Str(mouseCanvasY) & "  |  Canvas: " & Str(canvasW) & "x" & Str(canvasH) & "  |  Zoom: " & Str(zoomLevel) & "x"
     If isModified Then statusText = statusText & "  |  * Modified"
     DrawString GetThemeDefaultFont(), Vector2(8, statusY + 17), statusText, Color(0.2, 0.2, 0.3)
 End Sub

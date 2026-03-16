@@ -247,8 +247,7 @@ Sub LoadVGV(filePath As String)
     Dim header As String
     Line Input #f, header
     If Left(header, 4) <> "VGV1" Then
-        MsgBox "Not a valid .VGV file!" & Chr(10) & _
-               "Expected VGV1 header, got: " & header, vbExclamation, "Format Error"
+        MsgBox "Not a valid .VGV file!" & Chr(10) & "Expected VGV1 header, got: " & header, vbExclamation, "Format Error"
         Close #f
         Exit Sub
     End If
@@ -508,13 +507,7 @@ Sub mnuView_ShowFrameCounter_Click()
 End Sub
 
 Sub mnuHelp_AboutVGMovie_Click()
-    MsgBox "VG Movie v1.0" & Chr(10) & Chr(10) & _
-           "Vector Animation Player" & Chr(10) & _
-           "Plays .VGV files from VG Vector" & Chr(10) & Chr(10) & _
-           "All rendering is coordinate-based vectors." & Chr(10) & _
-           "No bitmaps — pure mathematical shapes!" & Chr(10) & Chr(10) & _
-           "Controls: Space=Play, Esc=Stop, Arrows=Step" & Chr(10) & _
-           "Written in VisualGasic", vbInformation, "About VG Movie"
+    MsgBox "VG Movie v1.0" & Chr(10) & Chr(10) & "Vector Animation Player" & Chr(10) & "Plays .VGV files from VG Vector" & Chr(10) & Chr(10) & "All rendering is coordinate-based vectors." & Chr(10) & "No bitmaps — pure mathematical shapes!" & Chr(10) & Chr(10) & "Controls: Space=Play, Esc=Stop, Arrows=Step" & Chr(10) & "Written in VisualGasic", vbInformation, "About VG Movie"
 End Sub
 
 ' ============================================================================
@@ -720,8 +713,7 @@ Sub RenderFrame(frameIdx As Integer, offX As Double, offY As Double, scale As Do
                 Dim ang1 As Double, ang2 As Double
                 ang1 = (a * 6.2832) / segs
                 ang2 = ((a + 1) * 6.2832) / segs
-                DrawLine Vector2(cx + rx * Cos(ang1), cy + ry * Sin(ang1)), _
-                          Vector2(cx + rx * Cos(ang2), cy + ry * Sin(ang2)), sColor, sw
+                DrawLine Vector2(cx + rx * Cos(ang1), cy + ry * Sin(ang1)), Vector2(cx + rx * Cos(ang2), cy + ry * Sin(ang2)), sColor, sw
             Next
 
         Case "POLYGON", "POLYLINE"
@@ -730,14 +722,10 @@ Sub RenderFrame(frameIdx As Integer, offX As Double, offY As Double, scale As Do
             If pc >= 2 Then
                 Dim v As Integer
                 For v = 0 To pc - 2
-                    DrawLine Vector2(offX + polyPointX(i, v) * scale, offY + polyPointY(i, v) * scale), _
-                              Vector2(offX + polyPointX(i, v + 1) * scale, offY + polyPointY(i, v + 1) * scale), _
-                              sColor, sw
+                    DrawLine Vector2(offX + polyPointX(i, v) * scale, offY + polyPointY(i, v) * scale), Vector2(offX + polyPointX(i, v + 1) * scale, offY + polyPointY(i, v + 1) * scale), sColor, sw
                 Next
                 If shapeType(idx) = "POLYGON" And pc >= 3 Then
-                    DrawLine Vector2(offX + polyPointX(i, pc - 1) * scale, offY + polyPointY(i, pc - 1) * scale), _
-                              Vector2(offX + polyPointX(i, 0) * scale, offY + polyPointY(i, 0) * scale), _
-                              sColor, sw
+                    DrawLine Vector2(offX + polyPointX(i, pc - 1) * scale, offY + polyPointY(i, pc - 1) * scale), Vector2(offX + polyPointX(i, 0) * scale, offY + polyPointY(i, 0) * scale), sColor, sw
                 End If
             End If
 
