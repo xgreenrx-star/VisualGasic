@@ -4936,6 +4936,9 @@ func _sync_scene_to_form_designer() -> void:
 	var scene_root = EditorInterface.get_edited_scene_root()
 	if not scene_root:
 		return
+	# Only sync Window or CanvasLayer roots — never Node2D game scenes
+	if not (scene_root is Window) and not (scene_root is CanvasLayer):
+		return
 	var scene_path = scene_root.scene_file_path
 	if scene_path.is_empty():
 		scene_path = scene_root.get_meta("_edit_scene_file_path", "") if scene_root.has_meta("_edit_scene_file_path") else ""

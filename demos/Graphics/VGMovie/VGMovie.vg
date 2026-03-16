@@ -150,7 +150,9 @@ Sub GenerateBuiltInDemo()
 
         ' ── Bouncing circle (using ellipse) ───────────────────────────────
         ' Follows a sine wave path across the screen
-        Dim cx As Double, cy As Double, radius As Double
+        Dim cx As Double
+        Dim cy As Double
+        Dim radius As Double
         cx = 100 + (fr * 600.0 / 60.0)                     ' Move right
         cy = 250 + Sin(fr * 0.2) * 150                      ' Bounce up/down
         radius = 30 + Sin(fr * 0.15) * 10                   ' Pulse size
@@ -179,11 +181,15 @@ Sub GenerateBuiltInDemo()
         angle = fr * 0.1
         Dim rSize As Double
         rSize = 60
-        Dim rcx As Double, rcy As Double
+        Dim rcx As Double
+        Dim rcy As Double
         rcx = 400
         rcy = 250
         ' Approximate rotation with offset corners
-        Dim rx1 As Double, ry1 As Double, rx2 As Double, ry2 As Double
+        Dim rx1 As Double
+        Dim ry1 As Double
+        Dim rx2 As Double
+        Dim ry2 As Double
         rx1 = rcx - rSize * Cos(angle)
         ry1 = rcy - rSize * Sin(angle)
         rx2 = rcx + rSize * Cos(angle)
@@ -241,7 +247,8 @@ Sub GenerateBuiltInDemo()
         frameShapeCount(fr) = frameShapeCount(fr) + 1
 
         ' ── Second bouncing ellipse (opposite direction) ──────────────────
-        Dim cx2 As Double, cy2 As Double
+        Dim cx2 As Double
+        Dim cy2 As Double
         cx2 = 700 - (fr * 600.0 / 60.0)
         cy2 = 250 + Cos(fr * 0.25) * 120
 
@@ -464,7 +471,8 @@ Sub _Input(ev)
     ' ── Mouse click on timeline scrubber ──────────────────────────────────
     If TypeOf ev Is InputEventMouseButton Then
         If ev.pressed And ev.button_index = 1 Then
-            Dim mx As Integer, my As Integer
+            Dim mx As Integer
+            Dim my As Integer
             mx = Int(ev.position.x)
             my = Int(ev.position.y)
 
@@ -589,7 +597,8 @@ End Sub
 ' ============================================================================
 
 Sub _Draw()
-    Dim winW As Integer, winH As Integer
+    Dim winW As Integer
+    Dim winH As Integer
     winW = 860
     winH = 560
 
@@ -606,15 +615,21 @@ Sub _Draw()
     ' ── Calculate zoom/offset to center the document ──────────────────────
     Dim scale As Double
     If fitToWindow Then
-        Dim scaleX As Double, scaleY As Double
+        Dim scaleX As Double
+        Dim scaleY As Double
         scaleX = CDbl(viewW) / CDbl(docWidth)
         scaleY = CDbl(viewH) / CDbl(docHeight)
-        If scaleX < scaleY Then scale = scaleX Else scale = scaleY
+        If scaleX < scaleY Then
+            scale = scaleX
+        Else
+            scale = scaleY
+        End If
     Else
         scale = zoomLevel
     End If
 
-    Dim offsetX As Double, offsetY As Double
+    Dim offsetX As Double
+    Dim offsetY As Double
     offsetX = (viewW - docWidth * scale) / 2.0
     offsetY = viewY + (viewH - docHeight * scale) / 2.0
 
@@ -671,7 +686,11 @@ Sub _Draw()
     Dim infoText As String
     infoText = Str(fps) & " FPS"
     If isLooping Then infoText = infoText & "  |  LOOP"
-    If isPlaying Then infoText = infoText & "  |  PLAYING" Else infoText = infoText & "  |  PAUSED"
+    If isPlaying Then
+        infoText = infoText & "  |  PLAYING"
+    Else
+        infoText = infoText & "  |  PAUSED"
+    End If
     DrawString GetThemeDefaultFont(), Vector2(20, ctrlY + 28), infoText, Color(0.6, 0.6, 0.7)
 
     ' Movie title
@@ -709,7 +728,10 @@ Sub RenderFrame(frameIdx As Integer, offX As Double, offY As Double, scale As Do
         idx = frameIdx * MAX_SHAPES + i
 
         ' ── Calculate scaled coordinates ──────────────────────────────────
-        Dim x1 As Double, y1 As Double, x2 As Double, y2 As Double
+        Dim x1 As Double
+        Dim y1 As Double
+        Dim x2 As Double
+        Dim y2 As Double
         x1 = offX + shapeX1(idx) * scale
         y1 = offY + shapeY1(idx) * scale
         x2 = offX + shapeX2(idx) * scale
@@ -744,7 +766,10 @@ Sub RenderFrame(frameIdx As Integer, offX As Double, offY As Double, scale As Do
             End If
 
         Case "ELLIPSE"
-            Dim cx As Double, cy As Double, rx As Double, ry As Double
+            Dim cx As Double
+            Dim cy As Double
+            Dim rx As Double
+            Dim ry As Double
             cx = (x1 + x2) / 2
             cy = (y1 + y2) / 2
             rx = Abs(x2 - x1) / 2
@@ -758,7 +783,8 @@ Sub RenderFrame(frameIdx As Integer, offX As Double, offY As Double, scale As Do
 
             Dim a As Integer
             For a = 0 To segs - 1
-                Dim ang1 As Double, ang2 As Double
+                Dim ang1 As Double
+                Dim ang2 As Double
                 ang1 = (a * 6.2832) / segs
                 ang2 = ((a + 1) * 6.2832) / segs
                 DrawLine Vector2(cx + rx * Cos(ang1), cy + ry * Sin(ang1)), Vector2(cx + rx * Cos(ang2), cy + ry * Sin(ang2)), sColor, sw

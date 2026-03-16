@@ -44,13 +44,20 @@ Dim canvasB(640, 480) As Integer     ' Blue channel (0-255)
 Dim currentTool As Integer           ' Currently selected tool
 Dim brushSize As Integer             ' Brush/eraser size in pixels
 Dim isDrawing As Boolean             ' True while mouse button held down
-Dim startX As Integer, startY As Integer   ' Line/rect/ellipse start point
-Dim lastX As Integer, lastY As Integer     ' Last pencil/brush position
-Dim previewEndX As Integer, previewEndY As Integer  ' Shape preview endpoint
+Dim startX As Integer  ' Line/rect/ellipse start point
+Dim startY As Integer
+Dim lastX As Integer  ' Last pencil/brush position
+Dim lastY As Integer
+Dim previewEndX As Integer  ' Shape preview endpoint
+Dim previewEndY As Integer
 
 ' ── Color State ───────────────────────────────────────────────────────────
-Dim fgColorR As Integer, fgColorG As Integer, fgColorB As Integer  ' Foreground
-Dim bgColorR As Integer, bgColorG As Integer, bgColorB As Integer  ' Background
+Dim fgColorR As Integer  ' Foreground
+Dim fgColorG As Integer
+Dim fgColorB As Integer
+Dim bgColorR As Integer  ' Background
+Dim bgColorG As Integer
+Dim bgColorB As Integer
 
 ' ── Palette Colors ────────────────────────────────────────────────────────
 ' Classic 28-color palette (2 rows of 14 colors)
@@ -77,7 +84,8 @@ Const TOOL_BTN_SIZE As Integer = 24  ' Tool button size
 
 ' ── View State ────────────────────────────────────────────────────────────
 Dim zoomLevel As Integer             ' 1, 2, or 4
-Dim scrollX As Integer, scrollY As Integer  ' Canvas scroll offset
+Dim scrollX As Integer  ' Canvas scroll offset
+Dim scrollY As Integer
 Dim mouseCanvasX As Integer          ' Mouse position on canvas (pixels)
 Dim mouseCanvasY As Integer          ' Mouse position on canvas (pixels)
 
@@ -188,7 +196,8 @@ End Sub
 
 ' Clear the entire canvas to a specified color
 Sub ClearCanvas(r As Integer, g As Integer, b As Integer)
-    Dim x As Integer, y As Integer
+    Dim x As Integer
+    Dim y As Integer
     For y = 0 To canvasH - 1
         For x = 0 To canvasW - 1
             canvasR(x, y) = r
@@ -238,7 +247,8 @@ Sub DrawBrushAt(cx As Integer, cy As Integer, r As Integer, g As Integer, b As I
     Dim radius As Integer
     radius = brushSize \ 2
     If radius < 1 Then radius = 1
-    Dim dx As Integer, dy As Integer
+    Dim dx As Integer
+    Dim dy As Integer
     For dy = -radius To radius
         For dx = -radius To radius
             If (dx * dx + dy * dy) <= (radius * radius) Then
@@ -250,16 +260,28 @@ End Sub
 
 ' Draw a line using Bresenham's algorithm (for Line tool and Pencil interpolation)
 Sub DrawLinePixels(x1 As Integer, y1 As Integer, x2 As Integer, y2 As Integer, r As Integer, g As Integer, b As Integer)
-    Dim dx As Integer, dy As Integer
-    Dim sx As Integer, sy As Integer
-    Dim err As Integer, e2 As Integer
+    Dim dx As Integer
+    Dim dy As Integer
+    Dim sx As Integer
+    Dim sy As Integer
+    Dim err As Integer
+    Dim e2 As Integer
     dx = Abs(x2 - x1)
     dy = Abs(y2 - y1)
-    If x1 < x2 Then sx = 1 Else sx = -1
-    If y1 < y2 Then sy = 1 Else sy = -1
+    If x1 < x2 Then
+        sx = 1
+    Else
+        sx = -1
+    End If
+    If y1 < y2 Then
+        sy = 1
+    Else
+        sy = -1
+    End If
     err = dx - dy
 
-    Dim cx As Integer, cy As Integer
+    Dim cx As Integer
+    Dim cy As Integer
     cx = x1
     cy = y1
     Do
@@ -276,7 +298,10 @@ End Sub
 ' Draw a rectangle outline on the canvas
 Sub DrawRectPixels(x1 As Integer, y1 As Integer, x2 As Integer, y2 As Integer, r As Integer, g As Integer, b As Integer)
     ' Normalize coordinates
-    Dim lx As Integer, ly As Integer, rx As Integer, ry As Integer
+    Dim lx As Integer
+    Dim ly As Integer
+    Dim rx As Integer
+    Dim ry As Integer
     If x1 < x2 Then lx = x1
     rx = x2 Else lx = x2
     rx = x1
@@ -295,10 +320,13 @@ End Sub
 Sub DrawEllipsePixels(cx As Integer, cy As Integer, rx As Integer, ry As Integer, r As Integer, g As Integer, b As Integer)
     If rx < 1 Then rx = 1
     If ry < 1 Then ry = 1
-    Dim a As Integer, ang As Double
+    Dim a As Integer
+    Dim ang As Double
     ' Approximate with many line segments
-    Dim prevX As Integer, prevY As Integer
-    Dim curX As Integer, curY As Integer
+    Dim prevX As Integer
+    Dim prevY As Integer
+    Dim curX As Integer
+    Dim curY As Integer
     Dim steps As Integer
     steps = (rx + ry) * 2
     If steps < 20 Then steps = 20
@@ -320,7 +348,9 @@ Sub FloodFill(sx As Integer, sy As Integer, r As Integer, g As Integer, b As Int
     If sx < 0 Or sx >= canvasW Or sy < 0 Or sy >= canvasH Then Exit Sub
 
     ' Get the target color (the color we're replacing)
-    Dim targetR As Integer, targetG As Integer, targetB As Integer
+    Dim targetR As Integer
+    Dim targetG As Integer
+    Dim targetB As Integer
     targetR = canvasR(sx, sy)
     targetG = canvasG(sx, sy)
     targetB = canvasB(sx, sy)
@@ -339,7 +369,8 @@ Sub FloodFill(sx As Integer, sy As Integer, r As Integer, g As Integer, b As Int
     iterations = 0
 
     Do While stackTop >= 0 And iterations < 100000
-        Dim px As Integer, py As Integer
+        Dim px As Integer
+        Dim py As Integer
         px = stackX(stackTop)
         py = stackY(stackTop)
         stackTop = stackTop - 1
@@ -410,7 +441,8 @@ Sub _Input(ev)
 End Sub
 
 Sub HandleMouseButton(ev)
-    Dim mx As Integer, my As Integer
+    Dim mx As Integer
+    Dim my As Integer
     mx = Int(ev.position.x)
     my = Int(ev.position.y)
 
@@ -434,7 +466,8 @@ Sub HandleMouseButton(ev)
     If my >= paletteY And my < paletteY + PALETTE_H Then
         If ev.pressed Then
             Dim palIdx As Integer
-            Dim palRow As Integer, palCol As Integer
+            Dim palRow As Integer
+            Dim palCol As Integer
             palCol = (mx - TOOLBAR_W - 80) \ 22
             palRow = (my - paletteY - 4) \ 22
             palIdx = palRow * 14 + palCol
@@ -470,7 +503,8 @@ Sub HandleMouseButton(ev)
     End If
 
     ' ── Canvas area mouse handling ────────────────────────────────────────
-    Dim canvasAreaX As Integer, canvasAreaY As Integer
+    Dim canvasAreaX As Integer
+    Dim canvasAreaY As Integer
     canvasAreaX = TOOLBAR_W + 2
     canvasAreaY = MENU_H + 2
     mouseCanvasX = (mx - canvasAreaX) \ zoomLevel + scrollX
@@ -522,7 +556,10 @@ Sub HandleMouseButton(ev)
                     Case 4  ' Rectangle — draw final rectangle
                         DrawRectPixels startX, startY, mouseCanvasX, mouseCanvasY, fgColorR, fgColorG, fgColorB
                     Case 5  ' Ellipse — draw final ellipse
-                        Dim ecx As Integer, ecy As Integer, erx As Integer, ery As Integer
+                        Dim ecx As Integer
+                        Dim ecy As Integer
+                        Dim erx As Integer
+                        Dim ery As Integer
                         ecx = (startX + mouseCanvasX) \ 2
                         ecy = (startY + mouseCanvasY) \ 2
                         erx = Abs(mouseCanvasX - startX) \ 2
@@ -543,12 +580,14 @@ Sub HandleMouseButton(ev)
 End Sub
 
 Sub HandleMouseMotion(ev)
-    Dim mx As Integer, my As Integer
+    Dim mx As Integer
+    Dim my As Integer
     mx = Int(ev.position.x)
     my = Int(ev.position.y)
 
     ' Update canvas coordinates
-    Dim canvasAreaX As Integer, canvasAreaY As Integer
+    Dim canvasAreaX As Integer
+    Dim canvasAreaY As Integer
     canvasAreaX = TOOLBAR_W + 2
     canvasAreaY = MENU_H + 2
     mouseCanvasX = (mx - canvasAreaX) \ zoomLevel + scrollX
@@ -635,7 +674,8 @@ Sub DrawTextOnCanvas(x As Integer, y As Integer, text As String)
         Dim cx As Integer
         cx = x + (i - 1) * 6
         ' Draw a simple block for each character (placeholder)
-        Dim px As Integer, py As Integer
+        Dim px As Integer
+        Dim py As Integer
         For py = 0 To 6
             For px = 0 To 4
                 SetPixel cx + px, y + py, fgColorR, fgColorG, fgColorB
@@ -665,7 +705,8 @@ Sub SaveCanvasToFile()
     Print #f, Str(canvasH)        ' Canvas height
 
     ' Write pixel data row by row (as CSV RGB triplets)
-    Dim x As Integer, y As Integer
+    Dim x As Integer
+    Dim y As Integer
     For y = 0 To canvasH - 1
         Dim rowData As String
         rowData = ""
@@ -701,14 +742,16 @@ Sub LoadCanvasFromFile(filePath As String)
         Exit Sub
     End If
 
-    Dim w As Integer, h As Integer
+    Dim w As Integer
+    Dim h As Integer
     Input #f, w
     Input #f, h
     canvasW = w
     canvasH = h
 
     ' Read pixel data
-    Dim x As Integer, y As Integer
+    Dim x As Integer
+    Dim y As Integer
     Dim rowLine As String
     Dim parts() As String
     For y = 0 To canvasH - 1
@@ -797,7 +840,8 @@ Sub _Process(delta)
 End Sub
 
 Sub _Draw()
-    Dim winW As Integer, winH As Integer
+    Dim winW As Integer
+    Dim winH As Integer
     winW = 900
     winH = 660
 
@@ -819,7 +863,8 @@ Sub _Draw()
     toolIcons(8) = "Tx"
 
     For t = 0 To 8
-        Dim btnX As Integer, btnY As Integer
+        Dim btnX As Integer
+        Dim btnY As Integer
         btnX = 4
         btnY = MENU_H + 4 + t * (TOOL_BTN_SIZE + 4)
 
@@ -835,8 +880,10 @@ Sub _Draw()
     Next
 
     ' ── Draw canvas area ──────────────────────────────────────────────────
-    Dim canvasAreaX As Integer, canvasAreaY As Integer
-    Dim canvasAreaW As Integer, canvasAreaH As Integer
+    Dim canvasAreaX As Integer
+    Dim canvasAreaY As Integer
+    Dim canvasAreaW As Integer
+    Dim canvasAreaH As Integer
     canvasAreaX = TOOLBAR_W + 2
     canvasAreaY = MENU_H + 2
     canvasAreaW = winW - TOOLBAR_W - 4
@@ -846,8 +893,10 @@ Sub _Draw()
     DrawRect Rect2(canvasAreaX - 1, canvasAreaY - 1, canvasAreaW + 2, canvasAreaH + 2), Color(0.5, 0.5, 0.55)
 
     ' ── Draw canvas pixels (scaled by zoom) ───────────────────────────────
-    Dim x As Integer, y As Integer
-    Dim drawX As Integer, drawY As Integer
+    Dim x As Integer
+    Dim y As Integer
+    Dim drawX As Integer
+    Dim drawY As Integer
     Dim pixSize As Integer
     pixSize = zoomLevel
 
@@ -858,7 +907,9 @@ Sub _Draw()
 
             ' Only draw if visible on screen
             If drawX >= canvasAreaX And drawX < canvasAreaX + canvasAreaW And drawY >= canvasAreaY And drawY < canvasAreaY + canvasAreaH Then
-                Dim pr As Integer, pg As Integer, pb As Integer
+                Dim pr As Integer
+                Dim pg As Integer
+                Dim pb As Integer
                 pr = canvasR(x, y)
                 pg = canvasG(x, y)
                 pb = canvasB(x, y)
@@ -869,7 +920,10 @@ Sub _Draw()
 
     ' ── Draw shape preview while dragging ─────────────────────────────────
     If isDrawing And (currentTool = 3 Or currentTool = 4 Or currentTool = 5) Then
-        Dim sx1 As Integer, sy1 As Integer, sx2 As Integer, sy2 As Integer
+        Dim sx1 As Integer
+        Dim sy1 As Integer
+        Dim sx2 As Integer
+        Dim sy2 As Integer
         sx1 = canvasAreaX + (startX - scrollX) * pixSize
         sy1 = canvasAreaY + (startY - scrollY) * pixSize
         sx2 = canvasAreaX + (previewEndX - scrollX) * pixSize
@@ -878,7 +932,8 @@ Sub _Draw()
         If currentTool = 3 Then ' Line preview
             DrawLine Vector2(sx1, sy1), Vector2(sx2, sy2), Color(0, 0, 0, 0.5), 1
         ElseIf currentTool = 4 Then ' Rectangle preview
-            Dim rw As Integer, rh As Integer
+            Dim rw As Integer
+            Dim rh As Integer
             rw = sx2 - sx1
             rh = sy2 - sy1
             DrawRect Rect2(sx1, sy1, rw, rh), Color(0, 0, 0, 0.3)
@@ -904,10 +959,12 @@ Sub _Draw()
     ' Palette swatches (2 rows of 14)
     Dim pi As Integer
     For pi = 0 To PALETTE_COUNT - 1
-        Dim palRow As Integer, palCol As Integer
+        Dim palRow As Integer
+        Dim palCol As Integer
         palRow = pi \ 14
         palCol = pi Mod 14
-        Dim psx As Integer, psy As Integer
+        Dim psx As Integer
+        Dim psy As Integer
         psx = TOOLBAR_W + 80 + palCol * 22
         psy = paletteY + 4 + palRow * 22
         DrawRect Rect2(psx, psy, 20, 20), Color8(palR(pi), palG(pi), palB(pi), 255)

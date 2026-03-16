@@ -21,7 +21,7 @@
 '   - SaveSetting / GetSetting (bookmarks persistence)
 '   - VGSystem (hostname, OS info in status bar)
 '   - Environ() (default paths)
-'   - Timer (poll for incoming data)
+'   - Timer (poll for incoming sData)
 '   - MsgBox / InputBox (dialogs)
 '
 ' PLATFORMS: Linux, Windows, Android, Apple, HTML5
@@ -84,7 +84,7 @@ Dim bookmarkCount As Integer        ' Number of bookmarks stored
 ' ── System Info ───────────────────────────────────────────────────────────
 Dim sysInfo As String               ' OS/hostname for status bar display
 Dim statusMessage As String         ' Current status bar message
-Dim lastDataTime As Double          ' Timer value of last received data
+Dim lastDataTime As Double          ' Timer value of last received sData
 Dim blinkState As Boolean           ' Cursor blink state
 
 ' ── Poll Timer ────────────────────────────────────────────────────────────
@@ -171,11 +171,11 @@ Sub InitColor(idx As Integer, r As Integer, g As Integer, b As Integer)
 End Sub
 
 ' ============================================================================
-' MAIN LOOP — polls socket for data, updates cursor blink
+' MAIN LOOP — polls socket for sData, updates cursor blink
 ' ============================================================================
 
 Sub _Process(delta)
-    ' ── Poll the socket every few frames for incoming data ────────────────
+    ' ── Poll the socket every few frames for incoming sData ────────────────
     pollCounter = pollCounter + 1
     If pollCounter >= 3 Then
         pollCounter = 0
@@ -239,27 +239,27 @@ Sub DisconnectFromHost()
     End If
 End Sub
 
-' Poll the socket for incoming data and process it
+' Poll the socket for incoming sData and process it
 Sub PollSocket()
     If Not isConnected Then Exit Sub
 
-    ' ── Try to receive data from the socket ───────────────────────────────
-    Dim data As String
-    data = sock.Receive(4096)
+    ' ── Try to receive sData from the socket ───────────────────────────────
+    Dim sData As String
+    sData = sock.Receive(4096)
 
-    ' If we got data, process it through the ANSI parser
-    If Len(data) > 0 Then
+    ' If we got sData, process it through the ANSI parser
+    If Len(sData) > 0 Then
         lastDataTime = Timer()
 
         ' Append to session log if logging is active
         If isLogging Then
-            sessionLog = sessionLog & data
+            sessionLog = sessionLog & sData
         End If
 
         ' Process each character through the ANSI state machine
         Dim i As Integer
-        For i = 1 To Len(data)
-            ProcessANSIChar Mid(data, i, 1)
+        For i = 1 To Len(sData)
+            ProcessANSIChar Mid(sData, i, 1)
         Next
     End If
 
@@ -278,7 +278,7 @@ Sub SendData(text As String)
         Exit Sub
     End If
 
-    ' ── Send data through the socket ──────────────────────────────────────
+    ' ── Send sData through the socket ──────────────────────────────────────
     sock.Send text
 
     ' ── Local echo if enabled ─────────────────────────────────────────────
@@ -392,7 +392,8 @@ End Sub
 Sub ExecuteCSI(cmd As String, params As String)
     ' ── Parse parameters (semicolon-separated integers) ───────────────────
     Dim parts() As String
-    Dim p1 As Integer, p2 As Integer
+    Dim p1 As Integer
+    Dim p2 As Integer
     parts = Split(params, ";")
     If UBound(parts) >= 0 And parts(0) <> "" Then p1 = Val(parts(0))
     If UBound(parts) >= 1 Then p2 = Val(parts(1))
@@ -512,7 +513,8 @@ End Sub
 
 ' Clear the entire terminal buffer
 Sub ClearTerminal()
-    Dim r As Integer, c As Integer
+    Dim r As Integer
+    Dim c As Integer
     For r = 0 To 599
         For c = 0 To 79
             termBuffer(r, c) = " "
@@ -525,7 +527,8 @@ End Sub
 
 ' Clear from cursor position to end of screen
 Sub ClearFromCursor()
-    Dim r As Integer, c As Integer
+    Dim r As Integer
+    Dim c As Integer
     Dim bRow As Integer
     ' Clear rest of current line
     bRow = scrollTop + cursorRow
@@ -775,7 +778,8 @@ Sub SaveSessionLog()
 
     ' ── Build log from terminal buffer ────────────────────────────────────
     Dim logText As String
-    Dim r As Integer, c As Integer
+    Dim r As Integer
+    Dim c As Integer
     Dim sLine As String
     For r = 0 To scrollTop + cursorRow
         If r < 600 Then
@@ -828,7 +832,8 @@ End Sub
 ' ============================================================================
 
 Sub _Draw()
-    Dim winW As Integer, winH As Integer
+    Dim winW As Integer
+    Dim winH As Integer
     winW = 820
     winH = 620
 
@@ -836,12 +841,16 @@ Sub _Draw()
     DrawRect Rect2(0, MENU_HEIGHT, winW, winH - MENU_HEIGHT - STATUS_HEIGHT - INPUT_HEIGHT), Color(0, 0, 0)
 
     ' ── Draw terminal text with ANSI colors ───────────────────────────────
-    Dim r As Integer, c As Integer
-    Dim px As Integer, py As Integer
+    Dim r As Integer
+    Dim c As Integer
+    Dim px As Integer
+    Dim py As Integer
     Dim bRow As Integer
     Dim ch As String
     Dim attr As Integer
-    Dim fgIdx As Integer, bgIdx As Integer, bold As Boolean
+    Dim fgIdx As Integer
+    Dim bgIdx As Integer
+    Dim bold As Boolean
 
     For r = 0 To TERM_ROWS - 1
         bRow = scrollTop + r

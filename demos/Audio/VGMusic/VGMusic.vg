@@ -654,7 +654,11 @@ Sub _Input(ev)
             Select Case ev.keycode
                 Case 32                                       ' Space
                     ' Toggle play/stop
-                    If isPlaying Then StopPlayback Else StartPlayback
+                    If isPlaying Then
+                        StopPlayback
+                    Else
+                        StartPlayback
+                    End If
 
                 Case 4194305                                  ' Escape
                     PanicStop
@@ -695,7 +699,11 @@ Sub mnuFile_Exit_Click()
 End Sub
 
 Sub mnuPlayback_PlayStop_Click()
-    If isPlaying Then StopPlayback Else StartPlayback
+    If isPlaying Then
+        StopPlayback
+    Else
+        StartPlayback
+    End If
 End Sub
 
 Sub mnuPlayback_SetTempo_Click()
@@ -820,7 +828,8 @@ End Sub
 ' ============================================================================
 
 Sub _Draw()
-    Dim winW As Integer, winH As Integer
+    Dim winW As Integer
+    Dim winH As Integer
     winW = 900
     winH = 640
 
@@ -993,7 +1002,10 @@ End Sub
 ' ============================================================================
 
 Sub DrawHelpPanel()
-    Dim px As Integer, py As Integer, pw As Integer, ph As Integer
+    Dim px As Integer
+    Dim py As Integer
+    Dim pw As Integer
+    Dim ph As Integer
     px = 100
     py = 60
     pw = 700
@@ -1004,7 +1016,8 @@ Sub DrawHelpPanel()
     DrawRect Rect2(px, py, pw, 28), Color(0.2, 0.25, 0.35)
     DrawString GetThemeDefaultFont(), Vector2(px + 10, py + 20), "VG MUSIC — LANGUAGE REFERENCE (click Help > Language Reference to close)", Color(0.9, 0.9, 1)
 
-    Dim lx As Integer, ly As Integer
+    Dim lx As Integer
+    Dim ly As Integer
     lx = px + 16
     ly = py + 48
 

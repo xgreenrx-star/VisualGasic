@@ -1,6 +1,8 @@
 #include "visual_gasic_builtins.h"
 #include <godot_cpp/classes/json.hpp>
 #include <godot_cpp/classes/file_access.hpp>
+#include <godot_cpp/classes/theme_db.hpp>
+#include <godot_cpp/classes/font.hpp>
 #include <godot_cpp/classes/dir_access.hpp>
 #include "visual_gasic_expression_evaluator.h"
 #include "visual_gasic_profiler.h"
@@ -678,6 +680,11 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
         r_handled = true;
         if (args.size() == 4) return Rect2((real_t)(double)args[0], (real_t)(double)args[1], (real_t)(double)args[2], (real_t)(double)args[3]);
         return Rect2();
+    }
+    // GetThemeDefaultFont() — returns fallback font for Godot-style DrawString calls
+    if (METHOD_IS("getthemedefaultfont")) {
+        r_handled = true;
+        return Variant(ThemeDB::get_singleton()->get_fallback_font());
     }
 
     // Input functions

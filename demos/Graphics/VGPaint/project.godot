@@ -8,10 +8,6 @@
 
 config_version=5
 
-[animation]
-
-compatibility/default_parent_skeleton_in_mesh_instance_3d=true
-
 [application]
 
 config/name="VG Paint — Bitmap Graphics Editor"
@@ -19,15 +15,7 @@ config/description="MS Paint-style bitmap editor written in VisualGasic"
 run/main_scene="res://main.tscn"
 config/features=PackedStringArray("4.6", "Forward Plus")
 
-[autoload]
-
-VGDebugHandler="*res://addons/visual_gasic/vg_debug_handler.gd"
-
 [display]
 
 window/size/viewport_width=900
 window/size/viewport_height=660
-
-[editor_plugins]
-
-enabled=PackedStringArray("res://addons/visual_gasic/plugin.cfg")

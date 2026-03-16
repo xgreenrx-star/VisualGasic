@@ -6295,7 +6295,9 @@ bool VisualGasicFormDesigner::open_form(const String &p_tscn_path) {
 
     // Auto-inject VB6 Classic Theme if the .tscn was saved before the theme
     // feature existed.  Only writes once; subsequent opens find the marker and skip.
-    if (text.find("vb6_theme") < 0) {
+    // Guard: only inject on Window or CanvasLayer roots — not on Node2D game scenes.
+    bool is_form_scene = text.find("type=\"Window\"") >= 0 || text.find("type=\"CanvasLayer\"") >= 0;
+    if (is_form_scene && text.find("vb6_theme") < 0) {
         save_form_as(p_tscn_path);
         UtilityFunctions::print("FormDesigner: Auto-injected VB6 Classic Theme into ", p_tscn_path);
     }

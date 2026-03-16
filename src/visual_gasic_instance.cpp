@@ -1363,18 +1363,32 @@ void VisualGasicInstance::dispatch_builtin_call(const String &p_method, const Ar
     if (owner) {
         CanvasItem *ci = Object::cast_to<CanvasItem>(owner);
         if (ci) {
+            // DrawString — VG style: DrawString text, x, y, color[, fontSize]
+            //              Godot style: DrawString font, Vector2(x, y), text, color[, fontSize]
             if (p_method.nocasecmp_to("DrawString") == 0 && p_args.size() >= 4) {
-                String text = p_args[0];
-                float x = p_args[1];
-                float y = p_args[2];
-                Color col = p_args[3];
-                int font_size = 16;
-                if (p_args.size() > 4) font_size = (int)p_args[4];
                 Ref<Font> font = ThemeDB::get_singleton()->get_fallback_font();
-                ci->draw_string(font, Vector2(x, y + font_size), text, HorizontalAlignment::HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, col);
+                int font_size = 16;
+                // Godot style: first arg is Font (Object), second is Vector2
+                if (p_args[0].get_type() == Variant::OBJECT && p_args.size() >= 4) {
+                    Vector2 pos = p_args[1];
+                    String text = p_args[2];
+                    Color col = Color(1,1,1,1);
+                    if (p_args.size() > 3) col = p_args[3];
+                    if (p_args.size() > 4) font_size = (int)p_args[4];
+                    ci->draw_string(font, pos, text, HorizontalAlignment::HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, col);
+                } else {
+                    // VG style: DrawString text, x, y, color
+                    String text = p_args[0];
+                    float x = p_args[1];
+                    float y = p_args[2];
+                    Color col = p_args[3];
+                    if (p_args.size() > 4) font_size = (int)p_args[4];
+                    ci->draw_string(font, Vector2(x, y + font_size), text, HorizontalAlignment::HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, col);
+                }
                 r_found = true;
                 return;
             }
+            // DrawText — DrawText Vector2(x, y), text[, color]
             if (p_method.nocasecmp_to("DrawText") == 0 && p_args.size() >= 2) {
                 Vector2 pos = p_args[0];
                 String text = p_args[1];
@@ -1385,31 +1399,65 @@ void VisualGasicInstance::dispatch_builtin_call(const String &p_method, const Ar
                 r_found = true;
                 return;
             }
-            if (p_method.nocasecmp_to("DrawLine") == 0 && p_args.size() >= 4) {
-                float x1 = p_args[0], y1 = p_args[1], x2 = p_args[2], y2 = p_args[3];
+            // DrawLine — VG style: DrawLine x1, y1, x2, y2[, color][, width]
+            //            Godot style: DrawLine Vector2(x1,y1), Vector2(x2,y2)[, color][, width]
+            if (p_method.nocasecmp_to("DrawLine") == 0 && p_args.size() >= 2) {
                 Color col = Color(1,1,1,1);
                 float width = 1.0;
-                if (p_args.size() > 4) col = p_args[4];
-                if (p_args.size() > 5) width = p_args[5];
-                ci->draw_line(Vector2(x1, y1), Vector2(x2, y2), col, width);
+                if (p_args[0].get_type() == Variant::VECTOR2 && p_args.size() >= 2) {
+                    // Godot style: Vector2, Vector2[, Color][, width]
+                    Vector2 from = p_args[0];
+                    Vector2 to = p_args[1];
+                    if (p_args.size() > 2) col = p_args[2];
+                    if (p_args.size() > 3) width = p_args[3];
+                    ci->draw_line(from, to, col, width);
+                } else if (p_args.size() >= 4) {
+                    // VG style: x1, y1, x2, y2[, Color][, width]
+                    float x1 = p_args[0], y1 = p_args[1], x2 = p_args[2], y2 = p_args[3];
+                    if (p_args.size() > 4) col = p_args[4];
+                    if (p_args.size() > 5) width = p_args[5];
+                    ci->draw_line(Vector2(x1, y1), Vector2(x2, y2), col, width);
+                }
                 r_found = true;
                 return;
             }
-            if (p_method.nocasecmp_to("DrawRect") == 0 && p_args.size() >= 4) {
-                float x = p_args[0], y = p_args[1], w = p_args[2], h = p_args[3];
+            // DrawRect — VG style: DrawRect x, y, w, h[, color][, filled]
+            //            Godot style: DrawRect Rect2(x,y,w,h)[, color][, filled]
+            if (p_method.nocasecmp_to("DrawRect") == 0 && p_args.size() >= 1) {
                 Color col = Color(1,1,1,1);
                 bool filled = true;
-                if (p_args.size() > 4) col = p_args[4];
-                if (p_args.size() > 5) filled = (bool)p_args[5];
-                ci->draw_rect(Rect2(x, y, w, h), col, filled);
+                if (p_args[0].get_type() == Variant::RECT2) {
+                    // Godot style: Rect2[, Color][, filled]
+                    Rect2 rect = p_args[0];
+                    if (p_args.size() > 1) col = p_args[1];
+                    if (p_args.size() > 2) filled = (bool)p_args[2];
+                    ci->draw_rect(rect, col, filled);
+                } else if (p_args.size() >= 4) {
+                    // VG style: x, y, w, h[, Color][, filled]
+                    float x = p_args[0], y = p_args[1], w = p_args[2], h = p_args[3];
+                    if (p_args.size() > 4) col = p_args[4];
+                    if (p_args.size() > 5) filled = (bool)p_args[5];
+                    ci->draw_rect(Rect2(x, y, w, h), col, filled);
+                }
                 r_found = true;
                 return;
             }
-            if (p_method.nocasecmp_to("DrawCircle") == 0 && p_args.size() >= 3) {
-                float x = p_args[0], y = p_args[1], radius = p_args[2];
+            // DrawCircle — VG style: DrawCircle x, y, radius[, color]
+            //              Godot style: DrawCircle Vector2(x,y), radius[, color]
+            if (p_method.nocasecmp_to("DrawCircle") == 0 && p_args.size() >= 2) {
                 Color col = Color(1,1,1,1);
-                if (p_args.size() > 3) col = p_args[3];
-                ci->draw_circle(Vector2(x, y), radius, col);
+                if (p_args[0].get_type() == Variant::VECTOR2 && p_args.size() >= 2) {
+                    // Godot style: Vector2, radius[, Color]
+                    Vector2 pos = p_args[0];
+                    float radius = p_args[1];
+                    if (p_args.size() > 2) col = p_args[2];
+                    ci->draw_circle(pos, radius, col);
+                } else if (p_args.size() >= 3) {
+                    // VG style: x, y, radius[, Color]
+                    float x = p_args[0], y = p_args[1], radius = p_args[2];
+                    if (p_args.size() > 3) col = p_args[3];
+                    ci->draw_circle(Vector2(x, y), radius, col);
+                }
                 r_found = true;
                 return;
             }

@@ -109,8 +109,14 @@ Dim tempPolyY(50) As Double
 Dim tempPolyCount As Integer            ' Number of temp vertices so far
 
 ' ── Color State ───────────────────────────────────────────────────────────
-Dim strokeR As Integer, strokeG As Integer, strokeB As Integer, strokeA As Integer
-Dim fillR As Integer, fillG As Integer, fillB As Integer, fillA As Integer
+Dim strokeR As Integer
+Dim strokeG As Integer
+Dim strokeB As Integer
+Dim strokeA As Integer
+Dim fillR As Integer
+Dim fillG As Integer
+Dim fillB As Integer
+Dim fillA As Integer
 Dim strokeWidth As Double
 
 ' ── Animation Playback ────────────────────────────────────────────────────
@@ -131,11 +137,15 @@ Dim vecToolNames(7) As String
 
 ' ── Palette for quick color selection ─────────────────────────────────────
 Const QPAL_COUNT As Integer = 16
-Dim qpalR(16) As Integer, qpalG(16) As Integer, qpalB(16) As Integer
+Dim qpalR(16) As Integer
+Dim qpalG(16) As Integer
+Dim qpalB(16) As Integer
 
 ' Mouse tracking
-Dim mouseScrX As Integer, mouseScrY As Integer  ' Screen coordinates
-Dim mouseDocX As Double, mouseDocY As Double    ' Document coordinates
+Dim mouseScrX As Integer  ' Screen coordinates
+Dim mouseScrY As Integer
+Dim mouseDocX As Double  ' Document coordinates
+Dim mouseDocY As Double
 
 ' ============================================================================
 ' INITIALIZATION
@@ -269,7 +279,8 @@ Sub DeleteShape(shapeIndex As Integer)
     ' Shift all shapes above the deleted one down by one
     Dim i As Integer
     For i = shapeIndex To count - 2
-        Dim src As Integer, dst As Integer
+        Dim src As Integer
+        Dim dst As Integer
         src = ShapeIdx(currentFrame, i + 1)
         dst = ShapeIdx(currentFrame, i)
         shapeType(dst) = shapeType(src)
@@ -332,7 +343,8 @@ Sub CloneFrame()
 
     Dim i As Integer
     For i = 0 To count - 1
-        Dim src As Integer, dst As Integer
+        Dim src As Integer
+        Dim dst As Integer
         src = ShapeIdx(srcFrame, i)
         dst = ShapeIdx(dstFrame, i)
         shapeType(dst) = shapeType(src)
@@ -575,7 +587,8 @@ Sub _Input(ev)
 End Sub
 
 Sub HandleMouseClick(ev)
-    Dim mx As Integer, my As Integer
+    Dim mx As Integer
+    Dim my As Integer
     mx = Int(ev.position.x)
     my = Int(ev.position.y)
 
@@ -691,7 +704,11 @@ Sub HandleMouseClick(ev)
     If ev.button_index = 2 And ev.pressed Then
         If tempPolyCount >= 2 And (currentToolIdx = 4 Or currentToolIdx = 5) Then
             Dim sType As String
-            If currentToolIdx = 4 Then sType = "POLYGON" Else sType = "POLYLINE"
+            If currentToolIdx = 4 Then
+                sType = "POLYGON"
+            Else
+                sType = "POLYLINE"
+            End If
             Dim newIdx As Integer
             newIdx = AddShape(sType, tempPolyX(0), tempPolyY(0), tempPolyX(tempPolyCount - 1), tempPolyY(tempPolyCount - 1))
             If newIdx >= 0 Then
@@ -722,7 +739,8 @@ Sub HandleMouseMove(ev)
     If isDragging And selectedShape >= 0 Then
         Dim si As Integer
         si = ShapeIdx(currentFrame, selectedShape)
-        Dim dx As Double, dy As Double
+        Dim dx As Double
+        Dim dy As Double
         dx = (mouseDocX - dragOffsetX) - shapeX1(si)
         dy = (mouseDocY - dragOffsetY) - shapeY1(si)
         shapeX1(si) = shapeX1(si) + dx
@@ -745,14 +763,20 @@ Function HitTestShapes(px As Double, py As Double) As Integer
     For i = count - 1 To 0 Step -1
         Dim idx As Integer
         idx = ShapeIdx(currentFrame, i)
-        Dim x1 As Double, y1 As Double, x2 As Double, y2 As Double
+        Dim x1 As Double
+        Dim y1 As Double
+        Dim x2 As Double
+        Dim y2 As Double
         x1 = shapeX1(idx)
         y1 = shapeY1(idx)
         x2 = shapeX2(idx)
         y2 = shapeY2(idx)
 
         ' Simple bounding box test
-        Dim minX As Double, minY As Double, maxX As Double, maxY As Double
+        Dim minX As Double
+        Dim minY As Double
+        Dim maxX As Double
+        Dim maxY As Double
         If x1 < x2 Then minX = x1
         maxX = x2 Else minX = x2
         maxX = x1
@@ -958,10 +982,12 @@ End Sub
 ' ============================================================================
 
 Sub _Draw()
-    Dim winW As Integer, winH As Integer
+    Dim winW As Integer
+    Dim winH As Integer
     winW = 1024
     winH = 700
-    Dim canvasX As Integer, canvasY As Integer
+    Dim canvasX As Integer
+    Dim canvasY As Integer
     canvasX = TOOLBAR_W
     canvasY = MENU_H
 
@@ -985,7 +1011,10 @@ Sub _Draw()
 
     ' ── Draw shape preview while creating ─────────────────────────────────
     If isDrawingShape Then
-        Dim sx As Double, sy As Double, ex As Double, ey As Double
+        Dim sx As Double
+        Dim sy As Double
+        Dim ex As Double
+        Dim ey As Double
         sx = canvasX + drawStartX
         sy = canvasY + drawStartY
         ex = canvasX + drawEndX
@@ -994,7 +1023,10 @@ Sub _Draw()
             Case 1: DrawLine Vector2(sx, sy), Vector2(ex, ey), Color(0, 0, 0, 0.5), 2
             Case 2: DrawRect Rect2(sx, sy, ex - sx, ey - sy), Color(0, 0, 0, 0.3)
             Case 3
-                Dim ecx As Double, ecy As Double, erx As Double, ery As Double
+                Dim ecx As Double
+                Dim ecy As Double
+                Dim erx As Double
+                Dim ery As Double
                 ecx = (sx + ex) / 2
                 ecy = (sy + ey) / 2
                 erx = Abs(ex - sx) / 2
@@ -1020,7 +1052,10 @@ Sub _Draw()
     If selectedShape >= 0 And Not isPlaying Then
         Dim si As Integer
         si = ShapeIdx(currentFrame, selectedShape)
-        Dim selX1 As Double, selY1 As Double, selX2 As Double, selY2 As Double
+        Dim selX1 As Double
+        Dim selY1 As Double
+        Dim selX2 As Double
+        Dim selY2 As Double
         selX1 = canvasX + shapeX1(si)
         selY1 = canvasY + shapeY1(si)
         selX2 = canvasX + shapeX2(si)
@@ -1046,7 +1081,8 @@ Sub _Draw()
 
     Dim t As Integer
     For t = 0 To 6
-        Dim bx As Integer, by As Integer
+        Dim bx As Integer
+        Dim by As Integer
         bx = 4
         by = MENU_H + 4 + t * (TOOL_BTN_SZ + 4)
         If t = currentToolIdx Then
@@ -1077,7 +1113,8 @@ Sub _Draw()
     DrawString GetThemeDefaultFont(), Vector2(propsX + 8, MENU_H + 105), "Stroke Colors:", Color(0.4, 0.4, 0.5)
     Dim ci As Integer
     For ci = 0 To QPAL_COUNT - 1
-        Dim cr As Integer, cc As Integer
+        Dim cr As Integer
+        Dim cc As Integer
         cr = ci \ 8
         cc = ci Mod 8
         DrawRect Rect2(propsX + 8 + cc * 22, MENU_H + 112 + cr * 22, 20, 20), Color8(qpalR(ci), qpalG(ci), qpalB(ci), 255)
@@ -1105,7 +1142,11 @@ Sub _Draw()
     ' Timeline label
     DrawString GetThemeDefaultFont(), Vector2(8, timelineY + 16), "Timeline", Color(0.6, 0.6, 0.7)
     Dim playLabel As String
-    If isPlaying Then playLabel = "PLAYING" Else playLabel = "PAUSED"
+    If isPlaying Then
+        playLabel = "PLAYING"
+    Else
+        playLabel = "PAUSED"
+    End If
     DrawString GetThemeDefaultFont(), Vector2(8, timelineY + 34), playLabel, Color(0.4, 0.8, 0.4)
 
     ' Frame thumbnails
@@ -1161,7 +1202,10 @@ Sub DrawFrameShapes(frameIdx As Integer, offsetX As Integer, offsetY As Integer,
         Dim idx As Integer
         idx = ShapeIdx(frameIdx, i)
 
-        Dim x1 As Double, y1 As Double, x2 As Double, y2 As Double
+        Dim x1 As Double
+        Dim y1 As Double
+        Dim x2 As Double
+        Dim y2 As Double
         x1 = offsetX + shapeX1(idx)
         y1 = offsetY + shapeY1(idx)
         x2 = offsetX + shapeX2(idx)
@@ -1191,7 +1235,10 @@ Sub DrawFrameShapes(frameIdx As Integer, offsetX As Integer, offsetY As Integer,
             DrawLine Vector2(x1, y2), Vector2(x1, y1), sColor, sw
 
         Case "ELLIPSE"
-            Dim cx As Double, cy As Double, rx As Double, ry As Double
+            Dim cx As Double
+            Dim cy As Double
+            Dim rx As Double
+            Dim ry As Double
             cx = (x1 + x2) / 2
             cy = (y1 + y2) / 2
             rx = Abs(x2 - x1) / 2
@@ -1203,7 +1250,8 @@ Sub DrawFrameShapes(frameIdx As Integer, offsetX As Integer, offsetY As Integer,
             If segments > 64 Then segments = 64
             Dim a As Integer
             For a = 0 To segments - 1
-                Dim ang1 As Double, ang2 As Double
+                Dim ang1 As Double
+                Dim ang2 As Double
                 ang1 = (a * 6.2832) / segments
                 ang2 = ((a + 1) * 6.2832) / segments
                 DrawLine Vector2(cx + rx * Cos(ang1), cy + ry * Sin(ang1)), Vector2(cx + rx * Cos(ang2), cy + ry * Sin(ang2)), sColor, sw

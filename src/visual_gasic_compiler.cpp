@@ -192,9 +192,13 @@ void VisualGasicCompiler::emit_constant(const Variant& value) {
     int idx = current_chunk->add_constant(value);
     if (idx < 256) {
         emit_bytes(OP_CONSTANT, (uint8_t)idx);
+    } else if (idx < 65536) {
+        // OP_CONSTANT_LONG: 2-byte little-endian index for > 255 constants
+        emit_byte(OP_CONSTANT_LONG);
+        emit_byte((uint8_t)(idx & 0xFF));       // lo
+        emit_byte((uint8_t)((idx >> 8) & 0xFF)); // hi
     } else {
-        // Handle > 256 constants? Need OP_CONSTANT_LONG or similar. For now just truncate or error?
-        UtilityFunctions::print("Compiler Error: Too many constants");
+        UtilityFunctions::print("Compiler Error: Too many constants (>65535)");
     }
 }
 

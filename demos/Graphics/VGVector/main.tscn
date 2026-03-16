@@ -1,6 +1,6 @@
 [gd_scene load_steps=2 format=3]
 
-[ext_resource type="Script" path="res://VGVector.vg" id="1_vec"]
+[ext_resource type="Script" path="res://VGVector.vg" id="1_vector"]
 
 [node name="Main" type="Node2D"]
-script = ExtResource("1_vec")
+script = ExtResource("1_vector")
