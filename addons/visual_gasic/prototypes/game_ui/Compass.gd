@@ -60,7 +60,7 @@ func _draw() -> void:
 		var diff := fmod(deg - Bearing + 540.0, 360.0) - 180.0
 		if abs(diff) > degrees_visible * 0.5: continue
 		var px := w * 0.5 + diff * px_per_deg
-		var is_cardinal := (label.length() == 1)
+		var is_cardinal: bool = (label.length() == 1)
 		var col: Color = CardinalColor if is_cardinal else TickColor
 		var tick_h := h * 0.5 if is_cardinal else h * 0.3
 		draw_line(Vector2(px, 0), Vector2(px, tick_h), col, 1.5 if is_cardinal else 1.0)

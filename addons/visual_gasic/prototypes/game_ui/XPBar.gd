@@ -87,7 +87,7 @@ func _draw() -> void:
 	if ShowLevel:
 		var bcx := badge_w * 0.5
 		var bcy := bar_h * 0.5
-		var br := min(badge_w, bar_h) * 0.45
+		var br: float = min(badge_w, bar_h) * 0.45
 		draw_circle(Vector2(bcx, bcy), br, LevelBadgeColor.lerp(Color(0.1, 0.1, 0.15), 0.3))
 		draw_arc(Vector2(bcx, bcy), br, 0, TAU, 32, LevelBadgeColor, 1.5)
 		var font := ThemeDB.fallback_font

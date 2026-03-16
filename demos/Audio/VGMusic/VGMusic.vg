@@ -715,27 +715,33 @@ Sub mnuPlayback_Panic_Click()
 End Sub
 
 Sub mnuExamples_TwinkleTwinkle_Click()
-    LoadExample 0 : StopPlayback
+    LoadExample 0
+    StopPlayback
 End Sub
 
 Sub mnuExamples_DrumPattern_Click()
-    LoadExample 1 : StopPlayback
+    LoadExample 1
+    StopPlayback
 End Sub
 
 Sub mnuExamples_BassLine_Click()
-    LoadExample 2 : StopPlayback
+    LoadExample 2
+    StopPlayback
 End Sub
 
 Sub mnuExamples_LayeredBeat_Click()
-    LoadExample 3 : StopPlayback
+    LoadExample 3
+    StopPlayback
 End Sub
 
 Sub mnuExamples_AmbientPad_Click()
-    LoadExample 4 : StopPlayback
+    LoadExample 4
+    StopPlayback
 End Sub
 
 Sub mnuExamples_Arpeggio_Click()
-    LoadExample 5 : StopPlayback
+    LoadExample 5
+    StopPlayback
 End Sub
 
 Sub mnuHelp_LanguageReference_Click()
@@ -815,7 +821,8 @@ End Sub
 
 Sub _Draw()
     Dim winW As Integer, winH As Integer
-    winW = 900 : winH = 640
+    winW = 900
+    winH = 640
 
     ' ── Background ────────────────────────────────────────────────────────
     DrawRect Rect2(0, 0, winW, winH), Color(0.1, 0.1, 0.14)
@@ -987,7 +994,10 @@ End Sub
 
 Sub DrawHelpPanel()
     Dim px As Integer, py As Integer, pw As Integer, ph As Integer
-    px = 100 : py = 60 : pw = 700 : ph = 480
+    px = 100
+    py = 60
+    pw = 700
+    ph = 480
 
     ' Background with slight transparency
     DrawRect Rect2(px, py, pw, ph), Color(0.08, 0.08, 0.12, 0.95)
@@ -995,7 +1005,8 @@ Sub DrawHelpPanel()
     DrawString GetThemeDefaultFont(), Vector2(px + 10, py + 20), "VG MUSIC — LANGUAGE REFERENCE (click Help > Language Reference to close)", Color(0.9, 0.9, 1)
 
     Dim lx As Integer, ly As Integer
-    lx = px + 16 : ly = py + 48
+    lx = px + 16
+    ly = py + 48
 
     DrawString GetThemeDefaultFont(), Vector2(lx, ly), "=== COMMANDS ===", Color(0.5, 0.8, 1)
     ly = ly + 22

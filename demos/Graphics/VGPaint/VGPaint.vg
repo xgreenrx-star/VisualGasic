@@ -102,13 +102,18 @@ Sub _Ready()
     brushSize = 2
     isDrawing = False
     zoomLevel = 1
-    scrollX = 0 : scrollY = 0
+    scrollX = 0
+    scrollY = 0
     isModified = False
     currentFile = ""
 
     ' ── Set default colors ────────────────────────────────────────────────
-    fgColorR = 0 : fgColorG = 0 : fgColorB = 0           ' Black foreground
-    bgColorR = 255 : bgColorG = 255 : bgColorB = 255     ' White background
+    fgColorR = 0
+    fgColorG = 0
+    fgColorB = 0           ' Black foreground
+    bgColorR = 255
+    bgColorG = 255
+    bgColorB = 255     ' White background
 
     ' ── Load last-used settings ───────────────────────────────────────────
     brushSize = Val(GetSetting("VGPaint", "Config", "BrushSize", "2"))
@@ -172,7 +177,9 @@ Sub InitPalette()
 End Sub
 
 Sub SetPal(idx As Integer, r As Integer, g As Integer, b As Integer)
-    palR(idx) = r : palG(idx) = g : palB(idx) = b
+    palR(idx) = r
+    palG(idx) = g
+    palB(idx) = b
 End Sub
 
 ' ============================================================================
@@ -253,13 +260,16 @@ Sub DrawLinePixels(x1 As Integer, y1 As Integer, x2 As Integer, y2 As Integer, r
     err = dx - dy
 
     Dim cx As Integer, cy As Integer
-    cx = x1 : cy = y1
+    cx = x1
+    cy = y1
     Do
         DrawBrushAt cx, cy, r, g, b
         If cx = x2 And cy = y2 Then Exit Do
         e2 = 2 * err
-        If e2 > -dy Then err = err - dy : cx = cx + sx
-        If e2 < dx Then err = err + dx : cy = cy + sy
+        If e2 > -dy Then err = err - dy
+        cx = cx + sx
+        If e2 < dx Then err = err + dx
+        cy = cy + sy
     Loop
 End Sub
 
@@ -267,8 +277,12 @@ End Sub
 Sub DrawRectPixels(x1 As Integer, y1 As Integer, x2 As Integer, y2 As Integer, r As Integer, g As Integer, b As Integer)
     ' Normalize coordinates
     Dim lx As Integer, ly As Integer, rx As Integer, ry As Integer
-    If x1 < x2 Then lx = x1 : rx = x2 Else lx = x2 : rx = x1
-    If y1 < y2 Then ly = y1 : ry = y2 Else ly = y2 : ry = y1
+    If x1 < x2 Then lx = x1
+    rx = x2 Else lx = x2
+    rx = x1
+    If y1 < y2 Then ly = y1
+    ry = y2 Else ly = y2
+    ry = y1
 
     ' Draw four sides
     DrawLinePixels lx, ly, rx, ly, r, g, b   ' Top
@@ -296,7 +310,8 @@ Sub DrawEllipsePixels(cx As Integer, cy As Integer, rx As Integer, ry As Integer
         If a > 0 Then
             DrawLinePixels prevX, prevY, curX, curY, r, g, b
         End If
-        prevX = curX : prevY = curY
+        prevX = curX
+        prevY = curY
     Next
 End Sub
 
@@ -318,13 +333,15 @@ Sub FloodFill(sx As Integer, sy As Integer, r As Integer, g As Integer, b As Int
     Dim stackY(10000) As Integer
     Dim stackTop As Integer
     stackTop = 0
-    stackX(0) = sx : stackY(0) = sy
+    stackX(0) = sx
+    stackY(0) = sy
     Dim iterations As Integer
     iterations = 0
 
     Do While stackTop >= 0 And iterations < 100000
         Dim px As Integer, py As Integer
-        px = stackX(stackTop) : py = stackY(stackTop)
+        px = stackX(stackTop)
+        py = stackY(stackTop)
         stackTop = stackTop - 1
         iterations = iterations + 1
 
@@ -337,10 +354,18 @@ Sub FloodFill(sx As Integer, sy As Integer, r As Integer, g As Integer, b As Int
 
                 ' Push neighbors (4-connected)
                 If stackTop < 9996 Then
-                    stackTop = stackTop + 1 : stackX(stackTop) = px + 1 : stackY(stackTop) = py
-                    stackTop = stackTop + 1 : stackX(stackTop) = px - 1 : stackY(stackTop) = py
-                    stackTop = stackTop + 1 : stackX(stackTop) = px : stackY(stackTop) = py + 1
-                    stackTop = stackTop + 1 : stackX(stackTop) = px : stackY(stackTop) = py - 1
+                    stackTop = stackTop + 1
+                    stackX(stackTop) = px + 1
+                    stackY(stackTop) = py
+                    stackTop = stackTop + 1
+                    stackX(stackTop) = px - 1
+                    stackY(stackTop) = py
+                    stackTop = stackTop + 1
+                    stackX(stackTop) = px
+                    stackY(stackTop) = py + 1
+                    stackTop = stackTop + 1
+                    stackX(stackTop) = px
+                    stackY(stackTop) = py - 1
                 End If
             End If
         End If
@@ -416,10 +441,14 @@ Sub HandleMouseButton(ev)
             If palIdx >= 0 And palIdx < PALETTE_COUNT Then
                 If ev.button_index = 1 Then
                     ' Left click = set foreground color
-                    fgColorR = palR(palIdx) : fgColorG = palG(palIdx) : fgColorB = palB(palIdx)
+                    fgColorR = palR(palIdx)
+                    fgColorG = palG(palIdx)
+                    fgColorB = palB(palIdx)
                 ElseIf ev.button_index = 2 Then
                     ' Right click = set background color
-                    bgColorR = palR(palIdx) : bgColorG = palG(palIdx) : bgColorB = palB(palIdx)
+                    bgColorR = palR(palIdx)
+                    bgColorG = palG(palIdx)
+                    bgColorB = palB(palIdx)
                 End If
             End If
         End If
@@ -451,9 +480,12 @@ Sub HandleMouseButton(ev)
         If ev.pressed Then
             ' Start drawing
             isDrawing = True
-            startX = mouseCanvasX : startY = mouseCanvasY
-            lastX = mouseCanvasX : lastY = mouseCanvasY
-            previewEndX = mouseCanvasX : previewEndY = mouseCanvasY
+            startX = mouseCanvasX
+            startY = mouseCanvasY
+            lastX = mouseCanvasX
+            lastY = mouseCanvasY
+            previewEndX = mouseCanvasX
+            previewEndY = mouseCanvasY
             PushUndo
 
             ' For immediate-effect tools, apply now
@@ -527,15 +559,19 @@ Sub HandleMouseMotion(ev)
         Select Case currentTool
             Case 0  ' Pencil — draw line from last position
                 DrawLinePixels lastX, lastY, mouseCanvasX, mouseCanvasY, fgColorR, fgColorG, fgColorB
-                lastX = mouseCanvasX : lastY = mouseCanvasY
+                lastX = mouseCanvasX
+                lastY = mouseCanvasY
             Case 1  ' Brush — draw line from last position
                 DrawLinePixels lastX, lastY, mouseCanvasX, mouseCanvasY, fgColorR, fgColorG, fgColorB
-                lastX = mouseCanvasX : lastY = mouseCanvasY
+                lastX = mouseCanvasX
+                lastY = mouseCanvasY
             Case 2  ' Eraser — erase line from last position
                 DrawLinePixels lastX, lastY, mouseCanvasX, mouseCanvasY, bgColorR, bgColorG, bgColorB
-                lastX = mouseCanvasX : lastY = mouseCanvasY
+                lastX = mouseCanvasX
+                lastY = mouseCanvasY
             Case 3, 4, 5  ' Shape tools — update preview endpoint
-                previewEndX = mouseCanvasX : previewEndY = mouseCanvasY
+                previewEndX = mouseCanvasX
+                previewEndY = mouseCanvasY
         End Select
     End If
 
@@ -668,7 +704,8 @@ Sub LoadCanvasFromFile(filePath As String)
     Dim w As Integer, h As Integer
     Input #f, w
     Input #f, h
-    canvasW = w : canvasH = h
+    canvasW = w
+    canvasH = h
 
     ' Read pixel data
     Dim x As Integer, y As Integer
@@ -761,7 +798,8 @@ End Sub
 
 Sub _Draw()
     Dim winW As Integer, winH As Integer
-    winW = 900 : winH = 660
+    winW = 900
+    winH = 660
 
     ' ── Draw toolbar background ───────────────────────────────────────────
     DrawRect Rect2(0, MENU_H, TOOLBAR_W, winH - MENU_H), Color(0.85, 0.85, 0.88)
@@ -770,9 +808,15 @@ Sub _Draw()
     ' ── Draw tool buttons ─────────────────────────────────────────────────
     Dim t As Integer
     Dim toolIcons(9) As String
-    toolIcons(0) = "Pn" : toolIcons(1) = "Br" : toolIcons(2) = "Er"
-    toolIcons(3) = "Ln" : toolIcons(4) = "Rc" : toolIcons(5) = "El"
-    toolIcons(6) = "Fl" : toolIcons(7) = "Pk" : toolIcons(8) = "Tx"
+    toolIcons(0) = "Pn"
+    toolIcons(1) = "Br"
+    toolIcons(2) = "Er"
+    toolIcons(3) = "Ln"
+    toolIcons(4) = "Rc"
+    toolIcons(5) = "El"
+    toolIcons(6) = "Fl"
+    toolIcons(7) = "Pk"
+    toolIcons(8) = "Tx"
 
     For t = 0 To 8
         Dim btnX As Integer, btnY As Integer
@@ -815,7 +859,9 @@ Sub _Draw()
             ' Only draw if visible on screen
             If drawX >= canvasAreaX And drawX < canvasAreaX + canvasAreaW And drawY >= canvasAreaY And drawY < canvasAreaY + canvasAreaH Then
                 Dim pr As Integer, pg As Integer, pb As Integer
-                pr = canvasR(x, y) : pg = canvasG(x, y) : pb = canvasB(x, y)
+                pr = canvasR(x, y)
+                pg = canvasG(x, y)
+                pb = canvasB(x, y)
                 DrawRect Rect2(drawX, drawY, pixSize, pixSize), Color8(pr, pg, pb, 255)
             End If
         Next
@@ -833,7 +879,8 @@ Sub _Draw()
             DrawLine Vector2(sx1, sy1), Vector2(sx2, sy2), Color(0, 0, 0, 0.5), 1
         ElseIf currentTool = 4 Then ' Rectangle preview
             Dim rw As Integer, rh As Integer
-            rw = sx2 - sx1 : rh = sy2 - sy1
+            rw = sx2 - sx1
+            rh = sy2 - sy1
             DrawRect Rect2(sx1, sy1, rw, rh), Color(0, 0, 0, 0.3)
         End If
     End If

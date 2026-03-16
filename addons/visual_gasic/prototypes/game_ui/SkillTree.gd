@@ -89,7 +89,7 @@ func _draw() -> void:
 			draw_arc(center, NodeRadius + 4, 0, TAU, 32, Color(1.0, 0.9, 0.3), 2.0)
 
 		# Label
-		var label: String = names[i].strip_edge() if i < names.size() else str(i + 1)
+		var label: String = names[i].strip_edges() if i < names.size() else str(i + 1)
 		var font := ThemeDB.fallback_font
 		var fsize := 9
 		if font:

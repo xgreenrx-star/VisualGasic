@@ -112,7 +112,7 @@ func _draw_spinner() -> void:
 	if not _spinner: return
 	var cx := _spinner.size.x * 0.5
 	var cy := _spinner.size.y * 0.5
-	var r := min(cx, cy) - 2.0
+	var r: float = min(cx, cy) - 2.0
 	for i in range(8):
 		var angle := _spin_angle + i * TAU / 8.0
 		var alpha := 1.0 - float(i) / 8.0

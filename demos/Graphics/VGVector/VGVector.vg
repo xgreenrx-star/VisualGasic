@@ -159,8 +159,14 @@ Sub _Ready()
     tempPolyCount = 0
 
     ' ── Color defaults ────────────────────────────────────────────────────
-    strokeR = 0 : strokeG = 0 : strokeB = 0 : strokeA = 255
-    fillR = 100 : fillG = 150 : fillB = 255 : fillA = 128
+    strokeR = 0
+    strokeG = 0
+    strokeB = 0
+    strokeA = 255
+    fillR = 100
+    fillG = 150
+    fillB = 255
+    fillA = 128
     strokeWidth = 2.0
 
     ' ── Animation defaults ────────────────────────────────────────────────
@@ -204,7 +210,9 @@ Sub _Ready()
 End Sub
 
 Sub SetQPal(idx As Integer, r As Integer, g As Integer, b As Integer)
-    qpalR(idx) = r : qpalG(idx) = g : qpalB(idx) = b
+    qpalR(idx) = r
+    qpalG(idx) = g
+    qpalB(idx) = b
 End Sub
 
 ' ============================================================================
@@ -265,8 +273,10 @@ Sub DeleteShape(shapeIndex As Integer)
         src = ShapeIdx(currentFrame, i + 1)
         dst = ShapeIdx(currentFrame, i)
         shapeType(dst) = shapeType(src)
-        shapeX1(dst) = shapeX1(src) : shapeY1(dst) = shapeY1(src)
-        shapeX2(dst) = shapeX2(src) : shapeY2(dst) = shapeY2(src)
+        shapeX1(dst) = shapeX1(src)
+        shapeY1(dst) = shapeY1(src)
+        shapeX2(dst) = shapeX2(src)
+        shapeY2(dst) = shapeY2(src)
         shapeStrokeR(dst) = shapeStrokeR(src)
         shapeStrokeG(dst) = shapeStrokeG(src)
         shapeStrokeB(dst) = shapeStrokeB(src)
@@ -326,8 +336,10 @@ Sub CloneFrame()
         src = ShapeIdx(srcFrame, i)
         dst = ShapeIdx(dstFrame, i)
         shapeType(dst) = shapeType(src)
-        shapeX1(dst) = shapeX1(src) : shapeY1(dst) = shapeY1(src)
-        shapeX2(dst) = shapeX2(src) : shapeY2(dst) = shapeY2(src)
+        shapeX1(dst) = shapeX1(src)
+        shapeY1(dst) = shapeY1(src)
+        shapeX2(dst) = shapeX2(src)
+        shapeY2(dst) = shapeY2(src)
         shapeStrokeR(dst) = shapeStrokeR(src)
         shapeStrokeG(dst) = shapeStrokeG(src)
         shapeStrokeB(dst) = shapeStrokeB(src)
@@ -734,13 +746,19 @@ Function HitTestShapes(px As Double, py As Double) As Integer
         Dim idx As Integer
         idx = ShapeIdx(currentFrame, i)
         Dim x1 As Double, y1 As Double, x2 As Double, y2 As Double
-        x1 = shapeX1(idx) : y1 = shapeY1(idx)
-        x2 = shapeX2(idx) : y2 = shapeY2(idx)
+        x1 = shapeX1(idx)
+        y1 = shapeY1(idx)
+        x2 = shapeX2(idx)
+        y2 = shapeY2(idx)
 
         ' Simple bounding box test
         Dim minX As Double, minY As Double, maxX As Double, maxY As Double
-        If x1 < x2 Then minX = x1 : maxX = x2 Else minX = x2 : maxX = x1
-        If y1 < y2 Then minY = y1 : maxY = y2 Else minY = y2 : maxY = y1
+        If x1 < x2 Then minX = x1
+        maxX = x2 Else minX = x2
+        maxX = x1
+        If y1 < y2 Then minY = y1
+        maxY = y2 Else minY = y2
+        maxY = y1
 
         ' Add some margin for thin shapes
         If px >= minX - 5 And px <= maxX + 5 And py >= minY - 5 And py <= maxY + 5 Then
@@ -787,10 +805,12 @@ Sub HandleKeyInput(ev)
 
     ' ── Left/Right arrows = navigate frames ───────────────────────────────
     If ev.keycode = 4194319 Then  ' Left
-        If currentFrame > 0 Then currentFrame = currentFrame - 1 : selectedShape = -1
+        If currentFrame > 0 Then currentFrame = currentFrame - 1
+        selectedShape = -1
     End If
     If ev.keycode = 4194321 Then  ' Right
-        If currentFrame < frameCount - 1 Then currentFrame = currentFrame + 1 : selectedShape = -1
+        If currentFrame < frameCount - 1 Then currentFrame = currentFrame + 1
+        selectedShape = -1
     End If
 
     ' ── O = toggle onion skin ─────────────────────────────────────────────
@@ -814,7 +834,9 @@ Sub HandlePropsClick(relX As Integer, absY As Integer)
         Dim ci As Integer
         ci = ((absY - palStartY) \ 22) * 8 + (relX \ 22)
         If ci >= 0 And ci < QPAL_COUNT Then
-            strokeR = qpalR(ci) : strokeG = qpalG(ci) : strokeB = qpalB(ci)
+            strokeR = qpalR(ci)
+            strokeG = qpalG(ci)
+            strokeB = qpalB(ci)
         End If
     End If
 
@@ -825,7 +847,10 @@ Sub HandlePropsClick(relX As Integer, absY As Integer)
         Dim fi As Integer
         fi = ((absY - fillPalY) \ 22) * 8 + (relX \ 22)
         If fi >= 0 And fi < QPAL_COUNT Then
-            fillR = qpalR(fi) : fillG = qpalG(fi) : fillB = qpalB(fi) : fillA = 180
+            fillR = qpalR(fi)
+            fillG = qpalG(fi)
+            fillB = qpalB(fi)
+            fillA = 180
         End If
     End If
 
@@ -846,9 +871,12 @@ End Sub
 ' ============================================================================
 
 Sub mnuFile_New_Click()
-    frameCount = 1 : currentFrame = 0
+    frameCount = 1
+    currentFrame = 0
     frameShapeCount(0) = 0
-    selectedShape = -1 : currentFile = "" : isModified = False
+    selectedShape = -1
+    currentFile = ""
+    isModified = False
 End Sub
 
 Sub mnuFile_OpenVGV_Click()
@@ -888,7 +916,8 @@ Sub mnuAnim_CloneFrame_Click()
 End Sub
 
 Sub mnuAnim_PlayPause_Click()
-    isPlaying = Not isPlaying : playTimer = 0
+    isPlaying = Not isPlaying
+    playTimer = 0
 End Sub
 
 Sub mnuAnim_SetFPS_Click()
@@ -930,7 +959,8 @@ End Sub
 
 Sub _Draw()
     Dim winW As Integer, winH As Integer
-    winW = 1024 : winH = 700
+    winW = 1024
+    winH = 700
     Dim canvasX As Integer, canvasY As Integer
     canvasX = TOOLBAR_W
     canvasY = MENU_H
@@ -956,15 +986,19 @@ Sub _Draw()
     ' ── Draw shape preview while creating ─────────────────────────────────
     If isDrawingShape Then
         Dim sx As Double, sy As Double, ex As Double, ey As Double
-        sx = canvasX + drawStartX : sy = canvasY + drawStartY
-        ex = canvasX + drawEndX : ey = canvasY + drawEndY
+        sx = canvasX + drawStartX
+        sy = canvasY + drawStartY
+        ex = canvasX + drawEndX
+        ey = canvasY + drawEndY
         Select Case currentToolIdx
             Case 1: DrawLine Vector2(sx, sy), Vector2(ex, ey), Color(0, 0, 0, 0.5), 2
             Case 2: DrawRect Rect2(sx, sy, ex - sx, ey - sy), Color(0, 0, 0, 0.3)
             Case 3
                 Dim ecx As Double, ecy As Double, erx As Double, ery As Double
-                ecx = (sx + ex) / 2 : ecy = (sy + ey) / 2
-                erx = Abs(ex - sx) / 2 : ery = Abs(ey - sy) / 2
+                ecx = (sx + ex) / 2
+                ecy = (sy + ey) / 2
+                erx = Abs(ex - sx) / 2
+                ery = Abs(ey - sy) / 2
                 ' Approximate ellipse with arc segments
                 DrawCircle Vector2(ecx, ecy), (erx + ery) / 2, Color(0, 0, 0, 0.3)
         End Select
@@ -987,8 +1021,10 @@ Sub _Draw()
         Dim si As Integer
         si = ShapeIdx(currentFrame, selectedShape)
         Dim selX1 As Double, selY1 As Double, selX2 As Double, selY2 As Double
-        selX1 = canvasX + shapeX1(si) : selY1 = canvasY + shapeY1(si)
-        selX2 = canvasX + shapeX2(si) : selY2 = canvasY + shapeY2(si)
+        selX1 = canvasX + shapeX1(si)
+        selY1 = canvasY + shapeY1(si)
+        selX2 = canvasX + shapeX2(si)
+        selY2 = canvasY + shapeY2(si)
         ' Bounding box
         DrawRect Rect2(selX1 - 3, selY1 - 3, selX2 - selX1 + 6, selY2 - selY1 + 6), Color(0, 0.5, 1, 0.3)
         ' Corner handles
@@ -1000,14 +1036,19 @@ Sub _Draw()
     DrawRect Rect2(0, MENU_H, TOOLBAR_W, winH - MENU_H), Color(0.88, 0.88, 0.9)
 
     Dim toolLabels(7) As String
-    toolLabels(0) = "Sel" : toolLabels(1) = "Lin" : toolLabels(2) = "Rct"
-    toolLabels(3) = "Ell" : toolLabels(4) = "Pgn" : toolLabels(5) = "PLn"
+    toolLabels(0) = "Sel"
+    toolLabels(1) = "Lin"
+    toolLabels(2) = "Rct"
+    toolLabels(3) = "Ell"
+    toolLabels(4) = "Pgn"
+    toolLabels(5) = "PLn"
     toolLabels(6) = "Txt"
 
     Dim t As Integer
     For t = 0 To 6
         Dim bx As Integer, by As Integer
-        bx = 4 : by = MENU_H + 4 + t * (TOOL_BTN_SZ + 4)
+        bx = 4
+        by = MENU_H + 4 + t * (TOOL_BTN_SZ + 4)
         If t = currentToolIdx Then
             DrawRect Rect2(bx, by, TOOLBAR_W - 8, TOOL_BTN_SZ), Color(0.3, 0.5, 0.9)
             DrawString GetThemeDefaultFont(), Vector2(bx + 6, by + 17), toolLabels(t), Color(1, 1, 1)
@@ -1037,13 +1078,15 @@ Sub _Draw()
     Dim ci As Integer
     For ci = 0 To QPAL_COUNT - 1
         Dim cr As Integer, cc As Integer
-        cr = ci \ 8 : cc = ci Mod 8
+        cr = ci \ 8
+        cc = ci Mod 8
         DrawRect Rect2(propsX + 8 + cc * 22, MENU_H + 112 + cr * 22, 20, 20), Color8(qpalR(ci), qpalG(ci), qpalB(ci), 255)
     Next
 
     DrawString GetThemeDefaultFont(), Vector2(propsX + 8, MENU_H + 175), "Fill Colors:", Color(0.4, 0.4, 0.5)
     For ci = 0 To QPAL_COUNT - 1
-        cr = ci \ 8 : cc = ci Mod 8
+        cr = ci \ 8
+        cc = ci Mod 8
         DrawRect Rect2(propsX + 8 + cc * 22, MENU_H + 182 + cr * 22, 20, 20), Color8(qpalR(ci), qpalG(ci), qpalB(ci), 255)
     Next
 
@@ -1149,8 +1192,10 @@ Sub DrawFrameShapes(frameIdx As Integer, offsetX As Integer, offsetY As Integer,
 
         Case "ELLIPSE"
             Dim cx As Double, cy As Double, rx As Double, ry As Double
-            cx = (x1 + x2) / 2 : cy = (y1 + y2) / 2
-            rx = Abs(x2 - x1) / 2 : ry = Abs(y2 - y1) / 2
+            cx = (x1 + x2) / 2
+            cy = (y1 + y2) / 2
+            rx = Abs(x2 - x1) / 2
+            ry = Abs(y2 - y1) / 2
             ' Approximate with line segments
             Dim segments As Integer
             segments = Int((rx + ry) / 2)

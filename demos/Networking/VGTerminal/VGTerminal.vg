@@ -403,7 +403,9 @@ Sub ExecuteCSI(cmd As String, params As String)
     Case "m"
         If params = "" Or params = "0" Then
             ' Reset all attributes to default
-            currentFG = 7 : currentBG = 0 : isBold = False
+            currentFG = 7
+            currentBG = 0
+            isBold = False
         Else
             ' Process each parameter in the sequence
             Dim i As Integer
@@ -411,7 +413,9 @@ Sub ExecuteCSI(cmd As String, params As String)
                 Dim code As Integer
                 code = Val(parts(i))
                 Select Case code
-                    Case 0: currentFG = 7 : currentBG = 0 : isBold = False  ' Reset
+                    Case 0: currentFG = 7
+                    currentBG = 0
+                    isBold = False  ' Reset
                     Case 1: isBold = True                                     ' Bold on
                     Case 22: isBold = False                                   ' Bold off
                     Case 30: currentFG = 0   ' Black
@@ -434,7 +438,9 @@ Sub ExecuteCSI(cmd As String, params As String)
                     Case 49: currentBG = 0   ' Default background
                     Case 7                   ' Reverse video (swap FG/BG)
                         Dim tmp As Integer
-                        tmp = currentFG : currentFG = currentBG : currentBG = tmp
+                        tmp = currentFG
+                        currentFG = currentBG
+                        currentBG = tmp
                 End Select
             Next
         End If
@@ -477,7 +483,8 @@ Sub ExecuteCSI(cmd As String, params As String)
         If p1 = 2 Then
             ' Clear entire screen
             ClearTerminal
-            cursorRow = 0 : cursorCol = 0
+            cursorRow = 0
+            cursorCol = 0
         ElseIf p1 = 0 Then
             ' Clear from cursor to end of screen
             ClearFromCursor
@@ -629,10 +636,14 @@ Sub _Input(ev)
             End If
 
             ' ── Arrow keys → send ANSI escape sequences ───────────────────
-            If keycode = 4194320 Then SendData Chr(27) & "[A" : Exit Sub  ' Up
-            If keycode = 4194322 Then SendData Chr(27) & "[B" : Exit Sub  ' Down
-            If keycode = 4194321 Then SendData Chr(27) & "[C" : Exit Sub  ' Right
-            If keycode = 4194319 Then SendData Chr(27) & "[D" : Exit Sub  ' Left
+            If keycode = 4194320 Then SendData Chr(27) & "[A"
+            Exit Sub  ' Up
+            If keycode = 4194322 Then SendData Chr(27) & "[B"
+            Exit Sub  ' Down
+            If keycode = 4194321 Then SendData Chr(27) & "[C"
+            Exit Sub  ' Right
+            If keycode = 4194319 Then SendData Chr(27) & "[D"
+            Exit Sub  ' Left
 
             ' ── Regular text input ────────────────────────────────────────
             If ev.unicode > 0 And ev.unicode < 128 Then
@@ -818,7 +829,8 @@ End Sub
 
 Sub _Draw()
     Dim winW As Integer, winH As Integer
-    winW = 820 : winH = 620
+    winW = 820
+    winH = 620
 
     ' ── Draw terminal background (black) ──────────────────────────────────
     DrawRect Rect2(0, MENU_HEIGHT, winW, winH - MENU_HEIGHT - STATUS_HEIGHT - INPUT_HEIGHT), Color(0, 0, 0)

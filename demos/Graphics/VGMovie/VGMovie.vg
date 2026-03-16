@@ -119,7 +119,8 @@ End Sub
 
 Sub GenerateBuiltInDemo()
     ' Create a 60-frame demo animation showing shapes moving and transforming
-    docWidth = 800 : docHeight = 500
+    docWidth = 800
+    docHeight = 500
     fps = 24
     frameCount = 60
     movieTitle = "Built-in Demo: Bouncing Shapes"
@@ -132,11 +133,18 @@ Sub GenerateBuiltInDemo()
         Dim bgIdx As Integer
         bgIdx = fr * MAX_SHAPES + 0
         shapeType(bgIdx) = "RECT"
-        shapeX1(bgIdx) = 0 : shapeY1(bgIdx) = 0
-        shapeX2(bgIdx) = 800 : shapeY2(bgIdx) = 500
-        shapeStrokeR(bgIdx) = 40 : shapeStrokeG(bgIdx) = 40 : shapeStrokeB(bgIdx) = 60
-        shapeStrokeA(bgIdx) = 255 : shapeStrokeW(bgIdx) = 0
-        shapeFillR(bgIdx) = 20 + fr : shapeFillG(bgIdx) = 20 : shapeFillB(bgIdx) = 40 + fr
+        shapeX1(bgIdx) = 0
+        shapeY1(bgIdx) = 0
+        shapeX2(bgIdx) = 800
+        shapeY2(bgIdx) = 500
+        shapeStrokeR(bgIdx) = 40
+        shapeStrokeG(bgIdx) = 40
+        shapeStrokeB(bgIdx) = 60
+        shapeStrokeA(bgIdx) = 255
+        shapeStrokeW(bgIdx) = 0
+        shapeFillR(bgIdx) = 20 + fr
+        shapeFillG(bgIdx) = 20
+        shapeFillB(bgIdx) = 40 + fr
         shapeFillA(bgIdx) = 255
         frameShapeCount(fr) = frameShapeCount(fr) + 1
 
@@ -150,11 +158,18 @@ Sub GenerateBuiltInDemo()
         Dim circIdx As Integer
         circIdx = fr * MAX_SHAPES + 1
         shapeType(circIdx) = "ELLIPSE"
-        shapeX1(circIdx) = cx - radius : shapeY1(circIdx) = cy - radius
-        shapeX2(circIdx) = cx + radius : shapeY2(circIdx) = cy + radius
-        shapeStrokeR(circIdx) = 255 : shapeStrokeG(circIdx) = 200 : shapeStrokeB(circIdx) = 50
-        shapeStrokeA(circIdx) = 255 : shapeStrokeW(circIdx) = 3
-        shapeFillR(circIdx) = 255 : shapeFillG(circIdx) = 150 : shapeFillB(circIdx) = 0
+        shapeX1(circIdx) = cx - radius
+        shapeY1(circIdx) = cy - radius
+        shapeX2(circIdx) = cx + radius
+        shapeY2(circIdx) = cy + radius
+        shapeStrokeR(circIdx) = 255
+        shapeStrokeG(circIdx) = 200
+        shapeStrokeB(circIdx) = 50
+        shapeStrokeA(circIdx) = 255
+        shapeStrokeW(circIdx) = 3
+        shapeFillR(circIdx) = 255
+        shapeFillG(circIdx) = 150
+        shapeFillB(circIdx) = 0
         shapeFillA(circIdx) = 180
         frameShapeCount(fr) = frameShapeCount(fr) + 1
 
@@ -165,20 +180,30 @@ Sub GenerateBuiltInDemo()
         Dim rSize As Double
         rSize = 60
         Dim rcx As Double, rcy As Double
-        rcx = 400 : rcy = 250
+        rcx = 400
+        rcy = 250
         ' Approximate rotation with offset corners
         Dim rx1 As Double, ry1 As Double, rx2 As Double, ry2 As Double
-        rx1 = rcx - rSize * Cos(angle) : ry1 = rcy - rSize * Sin(angle)
-        rx2 = rcx + rSize * Cos(angle) : ry2 = rcy + rSize * Sin(angle)
+        rx1 = rcx - rSize * Cos(angle)
+        ry1 = rcy - rSize * Sin(angle)
+        rx2 = rcx + rSize * Cos(angle)
+        ry2 = rcy + rSize * Sin(angle)
 
         Dim rectIdx As Integer
         rectIdx = fr * MAX_SHAPES + 2
         shapeType(rectIdx) = "RECT"
-        shapeX1(rectIdx) = rx1 : shapeY1(rectIdx) = ry1
-        shapeX2(rectIdx) = rx2 : shapeY2(rectIdx) = ry2
-        shapeStrokeR(rectIdx) = 100 : shapeStrokeG(rectIdx) = 200 : shapeStrokeB(rectIdx) = 255
-        shapeStrokeA(rectIdx) = 255 : shapeStrokeW(rectIdx) = 2
-        shapeFillR(rectIdx) = 50 : shapeFillG(rectIdx) = 120 : shapeFillB(rectIdx) = 200
+        shapeX1(rectIdx) = rx1
+        shapeY1(rectIdx) = ry1
+        shapeX2(rectIdx) = rx2
+        shapeY2(rectIdx) = ry2
+        shapeStrokeR(rectIdx) = 100
+        shapeStrokeG(rectIdx) = 200
+        shapeStrokeB(rectIdx) = 255
+        shapeStrokeA(rectIdx) = 255
+        shapeStrokeW(rectIdx) = 2
+        shapeFillR(rectIdx) = 50
+        shapeFillG(rectIdx) = 120
+        shapeFillB(rectIdx) = 200
         shapeFillA(rectIdx) = 120
         frameShapeCount(fr) = frameShapeCount(fr) + 1
 
@@ -186,10 +211,15 @@ Sub GenerateBuiltInDemo()
         Dim lineIdx As Integer
         lineIdx = fr * MAX_SHAPES + 3
         shapeType(lineIdx) = "LINE"
-        shapeX1(lineIdx) = 50 + fr * 2 : shapeY1(lineIdx) = 400
-        shapeX2(lineIdx) = 750 - fr * 2 : shapeY2(lineIdx) = 400 + Sin(fr * 0.3) * 50
-        shapeStrokeR(lineIdx) = 0 : shapeStrokeG(lineIdx) = 255 : shapeStrokeB(lineIdx) = 128
-        shapeStrokeA(lineIdx) = 200 : shapeStrokeW(lineIdx) = 2
+        shapeX1(lineIdx) = 50 + fr * 2
+        shapeY1(lineIdx) = 400
+        shapeX2(lineIdx) = 750 - fr * 2
+        shapeY2(lineIdx) = 400 + Sin(fr * 0.3) * 50
+        shapeStrokeR(lineIdx) = 0
+        shapeStrokeG(lineIdx) = 255
+        shapeStrokeB(lineIdx) = 128
+        shapeStrokeA(lineIdx) = 200
+        shapeStrokeW(lineIdx) = 2
         shapeFillA(lineIdx) = 0
         frameShapeCount(fr) = frameShapeCount(fr) + 1
 
@@ -197,10 +227,15 @@ Sub GenerateBuiltInDemo()
         Dim txtIdx As Integer
         txtIdx = fr * MAX_SHAPES + 4
         shapeType(txtIdx) = "TEXT"
-        shapeX1(txtIdx) = 20 : shapeY1(txtIdx) = 20
-        shapeX2(txtIdx) = 200 : shapeY2(txtIdx) = 40
-        shapeStrokeR(txtIdx) = 200 : shapeStrokeG(txtIdx) = 200 : shapeStrokeB(txtIdx) = 200
-        shapeStrokeA(txtIdx) = 255 : shapeStrokeW(txtIdx) = 1
+        shapeX1(txtIdx) = 20
+        shapeY1(txtIdx) = 20
+        shapeX2(txtIdx) = 200
+        shapeY2(txtIdx) = 40
+        shapeStrokeR(txtIdx) = 200
+        shapeStrokeG(txtIdx) = 200
+        shapeStrokeB(txtIdx) = 200
+        shapeStrokeA(txtIdx) = 255
+        shapeStrokeW(txtIdx) = 1
         shapeFillA(txtIdx) = 0
         shapeText(txtIdx) = "VGV Demo - Frame " & Str(fr + 1)
         frameShapeCount(fr) = frameShapeCount(fr) + 1
@@ -213,11 +248,18 @@ Sub GenerateBuiltInDemo()
         Dim circ2Idx As Integer
         circ2Idx = fr * MAX_SHAPES + 5
         shapeType(circ2Idx) = "ELLIPSE"
-        shapeX1(circ2Idx) = cx2 - 25 : shapeY1(circ2Idx) = cy2 - 40
-        shapeX2(circ2Idx) = cx2 + 25 : shapeY2(circ2Idx) = cy2 + 40
-        shapeStrokeR(circ2Idx) = 255 : shapeStrokeG(circ2Idx) = 80 : shapeStrokeB(circ2Idx) = 200
-        shapeStrokeA(circ2Idx) = 255 : shapeStrokeW(circ2Idx) = 2
-        shapeFillR(circ2Idx) = 200 : shapeFillG(circ2Idx) = 50 : shapeFillB(circ2Idx) = 150
+        shapeX1(circ2Idx) = cx2 - 25
+        shapeY1(circ2Idx) = cy2 - 40
+        shapeX2(circ2Idx) = cx2 + 25
+        shapeY2(circ2Idx) = cy2 + 40
+        shapeStrokeR(circ2Idx) = 255
+        shapeStrokeG(circ2Idx) = 80
+        shapeStrokeB(circ2Idx) = 200
+        shapeStrokeA(circ2Idx) = 255
+        shapeStrokeW(circ2Idx) = 2
+        shapeFillR(circ2Idx) = 200
+        shapeFillG(circ2Idx) = 50
+        shapeFillB(circ2Idx) = 150
         shapeFillA(circ2Idx) = 160
         frameShapeCount(fr) = frameShapeCount(fr) + 1
     Next
@@ -423,7 +465,8 @@ Sub _Input(ev)
     If TypeOf ev Is InputEventMouseButton Then
         If ev.pressed And ev.button_index = 1 Then
             Dim mx As Integer, my As Integer
-            mx = Int(ev.position.x) : my = Int(ev.position.y)
+            mx = Int(ev.position.x)
+            my = Int(ev.position.y)
 
             ' Check if click is in the scrubber area
             Dim scrubY As Integer
@@ -490,11 +533,13 @@ Sub mnuPlayback_LoopOnOff_Click()
 End Sub
 
 Sub mnuView_Zoom1x_Click()
-    fitToWindow = False : zoomLevel = 1.0
+    fitToWindow = False
+    zoomLevel = 1.0
 End Sub
 
 Sub mnuView_Zoom2x_Click()
-    fitToWindow = False : zoomLevel = 2.0
+    fitToWindow = False
+    zoomLevel = 2.0
 End Sub
 
 Sub mnuView_FitToWindow_Click()
@@ -545,7 +590,8 @@ End Sub
 
 Sub _Draw()
     Dim winW As Integer, winH As Integer
-    winW = 860 : winH = 560
+    winW = 860
+    winH = 560
 
     ' ── Calculate viewport area ───────────────────────────────────────────
     Dim viewY As Integer
@@ -699,8 +745,10 @@ Sub RenderFrame(frameIdx As Integer, offX As Double, offY As Double, scale As Do
 
         Case "ELLIPSE"
             Dim cx As Double, cy As Double, rx As Double, ry As Double
-            cx = (x1 + x2) / 2 : cy = (y1 + y2) / 2
-            rx = Abs(x2 - x1) / 2 : ry = Abs(y2 - y1) / 2
+            cx = (x1 + x2) / 2
+            cy = (y1 + y2) / 2
+            rx = Abs(x2 - x1) / 2
+            ry = Abs(y2 - y1) / 2
 
             ' Draw ellipse as line segments
             Dim segs As Integer

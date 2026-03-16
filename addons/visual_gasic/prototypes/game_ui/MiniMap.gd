@@ -66,7 +66,7 @@ func _draw() -> void:
 	if not Engine.is_editor_hint(): return
 	# Design-time: draw compass lines
 	var center := size * 0.5
-	var r := min(size.x, size.y) * 0.35
+	var r: float = min(size.x, size.y) * 0.35
 	var line_color := Color(0.3, 0.5, 0.3, 0.3)
 	draw_line(center - Vector2(r, 0), center + Vector2(r, 0), line_color, 1.0)
 	draw_line(center - Vector2(0, r), center + Vector2(0, r), line_color, 1.0)
