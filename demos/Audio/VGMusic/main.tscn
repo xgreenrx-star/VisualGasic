@@ -1,6 +1,6 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene format=3 uid="uid://c1eaitcd2lrjn"]
 
-[ext_resource type="Script" path="res://VGMusic.vg" id="1_music"]
+[ext_resource type="Script" uid="uid://c5djkpmvfus48" path="res://VGMusic.vg" id="1_music"]
 
-[node name="Main" type="Node2D"]
+[node name="Main" type="Node2D" unique_id=1752903878]
 script = ExtResource("1_music")

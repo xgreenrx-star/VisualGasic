@@ -670,7 +670,6 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
 
         case STMT_CALL: {
             CallStatement* s = (CallStatement*)stmt;
-            
             Array call_args;
             int arg_count = s->arguments.size();
             for(int i=0; i<arg_count; i++) {
@@ -1851,7 +1850,12 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                             if (owner->has_method(s->method_name)) {
                                  owner->callv(s->method_name, call_args);
                             } else {
-                                 UtilityFunctions::print("Runtime Error: Object does not have method ", s->method_name);
+                                 String snake = s->method_name.to_snake_case();
+                                 if (owner->has_method(snake)) {
+                                     owner->callv(snake, call_args);
+                                 } else {
+                                     UtilityFunctions::print("Runtime Error: Object does not have method ", s->method_name);
+                                 }
                             }
                         } else {
                              raise_error("No owner for method call");

@@ -3266,6 +3266,7 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                     compile_expression(s->arguments[i]);
                 }
                 int idx = current_chunk->add_constant(s->method_name);
+                if (idx > 255) { compile_ok = false; break; }
                 emit_bytes(OP_METHOD_CALL, (uint8_t)idx);
                 emit_byte((uint8_t)s->arguments.size());
                 emit_byte(OP_POP); // discard return value (statement context)
@@ -3313,6 +3314,7 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                 compile_expression(s->arguments[i]);
             }
             int idx = current_chunk->add_constant(s->method_name);
+            if (idx > 255) { compile_ok = false; break; }
             emit_bytes(OP_CALL, (uint8_t)idx);
             emit_byte((uint8_t)s->arguments.size());
             emit_byte(OP_POP);
@@ -5488,6 +5490,7 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                     compile_expression(aa->indices[i]);
                 }
                 int midx = current_chunk->add_constant(ma->member_name);
+                if (midx > 255) { compile_ok = false; break; }
                 emit_bytes(OP_METHOD_CALL, (uint8_t)midx);
                 emit_byte((uint8_t)aa->indices.size());
                 break;
@@ -5508,6 +5511,7 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                         compile_expression(aa->indices[i]);
                     }
                     int idx = current_chunk->add_constant(var_name);
+                    if (idx > 255) { compile_ok = false; break; }
                     emit_bytes(OP_CALL, (uint8_t)idx);
                     emit_byte((uint8_t)aa->indices.size());
                     break;
@@ -5641,6 +5645,7 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                      compile_expression(call->arguments[i]);
                  }
                  int midx = current_chunk->add_constant(call->method_name);
+                 if (midx > 255) { compile_ok = false; break; }
                  emit_bytes(OP_METHOD_CALL, (uint8_t)midx);
                  emit_byte((uint8_t)call->arguments.size());
                  // Return value stays on stack (expression context)
@@ -5705,6 +5710,7 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
              }
              // Call
              int idx = current_chunk->add_constant(call->method_name);
+             if (idx > 255) { compile_ok = false; break; }
              emit_bytes(OP_CALL, (uint8_t)idx);
              emit_byte((uint8_t)call->arguments.size()); // Arg count
              break;

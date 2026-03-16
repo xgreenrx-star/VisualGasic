@@ -614,7 +614,9 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
              if (owner) {
                  if (owner->has_method(func_name)) return owner->callv(func_name, call_args);
                  String snake = func_name.to_snake_case();
-                 if (owner->has_method(snake)) return owner->callv(snake, call_args);
+                 if (owner->has_method(snake)) {
+                     return owner->callv(snake, call_args);
+                 }
              }
              
              if (func_name == "Len" && call_args.size() == 1) return String(call_args[0]).length();

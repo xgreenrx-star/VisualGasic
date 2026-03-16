@@ -1,6 +1,6 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene format=3 uid="uid://do6qbr17sguv8"]
 
-[ext_resource type="Script" path="res://VGVector.vg" id="1_vector"]
+[ext_resource type="Script" uid="uid://dugvuvj4oetcj" path="res://VGVector.vg" id="1_vector"]
 
-[node name="Main" type="Node2D"]
+[node name="Main" type="Node2D" unique_id=1430608207]
 script = ExtResource("1_vector")

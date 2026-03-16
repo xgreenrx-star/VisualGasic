@@ -210,7 +210,6 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         r_ret = Variant();
         return false;
     }
-
     // Detect when running on a WorkerThreadPool thread.  Worker callbacks
     // set the file-scope thread_local tl_on_worker_thread flag via
     // WorkerThreadGuard.  When true, skip all non-thread-safe debug/
