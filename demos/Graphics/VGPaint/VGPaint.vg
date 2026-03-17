@@ -136,7 +136,7 @@ Sub _Ready()
     bgColorB = 255     ' White background
 
     ' ── Load last-used settings ───────────────────────────────────────────
-    brushSize = Val(GetSetting("VGPaint", "Config", "BrushSize", "2"))
+    brushSize = Val(GetSetting("VGPaint", "Config", "BrushSize", "4"))
     currentTool = Val(GetSetting("VGPaint", "Config", "LastTool", "0"))
 
     ' ── Tool names for display ────────────────────────────────────────────
@@ -214,7 +214,6 @@ End Sub
 Sub SetPixel(x As Integer, y As Integer, r As Integer, g As Integer, b As Integer)
     If x >= 0 And x < canvasW And y >= 0 And y < canvasH Then
         SetImagePixel canvasImage, x, y, Color8(r, g, b, 255)
-        canvasDirty = True
     End If
 End Sub
 
@@ -249,20 +248,31 @@ Function GetPixelB(x As Integer, y As Integer) As Integer
     End If
 End Function
 
-' Draw a filled circle of pixels (for brush/eraser)
+' Draw a square brush stamp using FillImageRect (1 call instead of N² pixel loops)
 Sub DrawBrushAt(cx As Integer, cy As Integer, r As Integer, g As Integer, b As Integer)
-    Dim radius As Integer
-    radius = brushSize \ 2
-    If radius < 1 Then radius = 1
-    Dim dx As Integer
-    Dim dy As Integer
-    For dy = -radius To radius
-        For dx = -radius To radius
-            If (dx * dx + dy * dy) <= (radius * radius) Then
-                SetPixel cx + dx, cy + dy, r, g, b
-            End If
-        Next
-    Next
+    Dim half As Integer
+    half = brushSize \ 2
+    Dim bx As Integer
+    Dim by As Integer
+    Dim bw As Integer
+    Dim bh As Integer
+    bx = cx - half
+    by = cy - half
+    bw = brushSize
+    bh = brushSize
+    If bx < 0 Then
+        bw = bw + bx
+        bx = 0
+    End If
+    If by < 0 Then
+        bh = bh + by
+        by = 0
+    End If
+    If bx + bw > canvasW Then bw = canvasW - bx
+    If by + bh > canvasH Then bh = canvasH - by
+    If bw > 0 And bh > 0 Then
+        FillImageRect canvasImage, bx, by, bw, bh, Color8(r, g, b, 255)
+    End If
 End Sub
 
 ' Draw a line using Bresenham's algorithm (for Line tool and Pencil interpolation)
@@ -309,6 +319,53 @@ Sub DrawLinePixels(x1 As Integer, y1 As Integer, x2 As Integer, y2 As Integer, r
     Loop
 End Sub
 
+' Draw a 1-pixel line using Bresenham (for pencil tool and shape outlines)
+Sub DrawPencilLine(x1 As Integer, y1 As Integer, x2 As Integer, y2 As Integer, r As Integer, g As Integer, b As Integer)
+    Dim dx As Integer
+    Dim dy As Integer
+    Dim sx As Integer
+    Dim sy As Integer
+    Dim err As Integer
+    Dim e2 As Integer
+    Dim penColor As Variant
+    penColor = Color8(r, g, b, 255)
+    dx = Abs(x2 - x1)
+    dy = Abs(y2 - y1)
+    If x1 < x2 Then
+        sx = 1
+    Else
+        sx = -1
+    End If
+    If y1 < y2 Then
+        sy = 1
+    Else
+        sy = -1
+    End If
+    err = dx - dy
+    Dim cx As Integer
+    Dim cy As Integer
+    Dim maxSteps As Integer
+    maxSteps = dx + dy + 2
+    cx = x1
+    cy = y1
+    Do While maxSteps > 0
+        maxSteps = maxSteps - 1
+        If cx >= 0 And cx < canvasW And cy >= 0 And cy < canvasH Then
+            SetImagePixel canvasImage, cx, cy, penColor
+        End If
+        If cx = x2 And cy = y2 Then Exit Do
+        e2 = 2 * err
+        If e2 > -dy Then
+            err = err - dy
+            cx = cx + sx
+        End If
+        If e2 < dx Then
+            err = err + dx
+            cy = cy + sy
+        End If
+    Loop
+End Sub
+
 ' Draw a rectangle outline on the canvas
 Sub DrawRectPixels(x1 As Integer, y1 As Integer, x2 As Integer, y2 As Integer, r As Integer, g As Integer, b As Integer)
     ' Normalize coordinates
@@ -331,11 +388,11 @@ Sub DrawRectPixels(x1 As Integer, y1 As Integer, x2 As Integer, y2 As Integer, r
         ry = y1
     End If
 
-    ' Draw four sides
-    DrawLinePixels lx, ly, rx, ly, r, g, b   ' Top
-    DrawLinePixels lx, ry, rx, ry, r, g, b   ' Bottom
-    DrawLinePixels lx, ly, lx, ry, r, g, b   ' Left
-    DrawLinePixels rx, ly, rx, ry, r, g, b   ' Right
+    ' Draw four sides (1-pixel outline)
+    DrawPencilLine lx, ly, rx, ly, r, g, b   ' Top
+    DrawPencilLine lx, ry, rx, ry, r, g, b   ' Bottom
+    DrawPencilLine lx, ly, lx, ry, r, g, b   ' Left
+    DrawPencilLine rx, ly, rx, ry, r, g, b   ' Right
 End Sub
 
 ' Draw an ellipse outline using midpoint algorithm
@@ -358,7 +415,7 @@ Sub DrawEllipsePixels(cx As Integer, cy As Integer, rx As Integer, ry As Integer
         curX = cx + Int(rx * Cos(ang))
         curY = cy + Int(ry * Sin(ang))
         If a > 0 Then
-            DrawLinePixels prevX, prevY, curX, curY, r, g, b
+            DrawPencilLine prevX, prevY, curX, curY, r, g, b
         End If
         prevX = curX
         prevY = curY
@@ -494,7 +551,7 @@ Sub HandleMouseButton(ev)
     ' ── Check if click is in the palette area ─────────────────────────────
     Dim paletteY As Integer
     paletteY = 660 - PALETTE_H - STATUS_H
-    If my >= paletteY And my < paletteY + PALETTE_H Then
+    If my >= paletteY And my < paletteY + PALETTE_H And mx >= TOOLBAR_W + 70 Then
         If ev.pressed Then
             Dim palIdx As Integer
             Dim palRow As Integer
@@ -521,12 +578,13 @@ Sub HandleMouseButton(ev)
 
     ' ── Check if click is in the brush size area ──────────────────────────
     If mx >= TOOLBAR_W And mx < TOOLBAR_W + 70 And my >= paletteY And my < paletteY + PALETTE_H Then
-        If ev.pressed And ev.button_index = 1 Then
-            ' Cycle brush size: 1 -> 2 -> 4 -> 8 -> 16 -> 1
-            If brushSize >= 16 Then
-                brushSize = 1
-            Else
-                brushSize = brushSize * 2
+        If ev.pressed Then
+            If ev.button_index = 1 Then
+                ' Left click = increase brush size
+                If brushSize < 32 Then brushSize = brushSize + 1
+            ElseIf ev.button_index = 2 Then
+                ' Right click = decrease brush size
+                If brushSize > 1 Then brushSize = brushSize - 1
             End If
             SaveSetting "VGPaint", "Config", "BrushSize", Str(brushSize)
         End If
@@ -555,11 +613,13 @@ Sub HandleMouseButton(ev)
 
             ' For immediate-effect tools, apply now
             Select Case currentTool
-                Case 0  ' Pencil
+                Case 0  ' Pencil — always 1 pixel
+                    If mouseCanvasX >= 0 And mouseCanvasX < canvasW And mouseCanvasY >= 0 And mouseCanvasY < canvasH Then
+                        SetImagePixel canvasImage, mouseCanvasX, mouseCanvasY, Color8(fgColorR, fgColorG, fgColorB, 255)
+                    End If
+                Case 1  ' Brush — uses brush size
                     DrawBrushAt mouseCanvasX, mouseCanvasY, fgColorR, fgColorG, fgColorB
-                Case 1  ' Brush
-                    DrawBrushAt mouseCanvasX, mouseCanvasY, fgColorR, fgColorG, fgColorB
-                Case 2  ' Eraser
+                Case 2  ' Eraser — uses brush size
                     DrawBrushAt mouseCanvasX, mouseCanvasY, bgColorR, bgColorG, bgColorB
                 Case 6  ' Fill
                     FloodFill mouseCanvasX, mouseCanvasY, fgColorR, fgColorG, fgColorB
@@ -577,6 +637,7 @@ Sub HandleMouseButton(ev)
                     End If
                     isDrawing = False
             End Select
+            canvasDirty = True
             isModified = True
         Else
             ' Release — finalize shape tools
@@ -597,6 +658,7 @@ Sub HandleMouseButton(ev)
                         ery = Abs(mouseCanvasY - startY) \ 2
                         DrawEllipsePixels ecx, ecy, erx, ery, fgColorR, fgColorG, fgColorB
                 End Select
+                canvasDirty = True
                 isDrawing = False
             End If
         End If
@@ -627,18 +689,21 @@ Sub HandleMouseMotion(ev)
     ' Continue drawing if mouse is held
     If isDrawing Then
         Select Case currentTool
-            Case 0  ' Pencil — draw line from last position
+            Case 0  ' Pencil — 1px line from last position
+                DrawPencilLine lastX, lastY, mouseCanvasX, mouseCanvasY, fgColorR, fgColorG, fgColorB
+                lastX = mouseCanvasX
+                lastY = mouseCanvasY
+                canvasDirty = True
+            Case 1  ' Brush — thick line from last position
                 DrawLinePixels lastX, lastY, mouseCanvasX, mouseCanvasY, fgColorR, fgColorG, fgColorB
                 lastX = mouseCanvasX
                 lastY = mouseCanvasY
-            Case 1  ' Brush — draw line from last position
-                DrawLinePixels lastX, lastY, mouseCanvasX, mouseCanvasY, fgColorR, fgColorG, fgColorB
-                lastX = mouseCanvasX
-                lastY = mouseCanvasY
-            Case 2  ' Eraser — erase line from last position
+                canvasDirty = True
+            Case 2  ' Eraser — thick erase from last position
                 DrawLinePixels lastX, lastY, mouseCanvasX, mouseCanvasY, bgColorR, bgColorG, bgColorB
                 lastX = mouseCanvasX
                 lastY = mouseCanvasY
+                canvasDirty = True
             Case 3, 4, 5  ' Shape tools — update preview endpoint
                 previewEndX = mouseCanvasX
                 previewEndY = mouseCanvasY
@@ -673,7 +738,7 @@ Sub HandleKeyPress(ev)
 
     ' ── +/- = Brush size ──────────────────────────────────────────────────
     If ev.keycode = 43 Or ev.keycode = 61 Then  ' + or =
-        If brushSize < 20 Then brushSize = brushSize + 1
+        If brushSize < 32 Then brushSize = brushSize + 1
     End If
     If ev.keycode = 45 Then  ' -
         If brushSize > 1 Then brushSize = brushSize - 1
@@ -1014,11 +1079,14 @@ Sub _Draw()
     paletteY = winH - PALETTE_H - STATUS_H
     DrawRect Rect2(0, paletteY, winW, PALETTE_H), Color(0.85, 0.85, 0.88)
 
-    ' Brush size indicator
-    DrawString GetThemeDefaultFont(), Vector2(TOOLBAR_W + 4, paletteY + 18), "Size:", Color(0.3, 0.3, 0.3)
-    DrawString GetThemeDefaultFont(), Vector2(TOOLBAR_W + 38, paletteY + 18), Str(brushSize), Color(0, 0, 0)
-    ' Draw brush preview circle
-    DrawCircle Vector2(TOOLBAR_W + 35, paletteY + 38), brushSize, Color(0, 0, 0)
+    ' Brush size indicator with click hint
+    DrawString GetThemeDefaultFont(), Vector2(TOOLBAR_W + 4, paletteY + 16), "Size:" & Str(brushSize), Color(0.2, 0.2, 0.2)
+    DrawString GetThemeDefaultFont(), Vector2(TOOLBAR_W + 4, paletteY + 30), "click +/-", Color(0.5, 0.5, 0.55)
+    ' Draw brush preview square
+    Dim prevSz As Integer
+    prevSz = brushSize
+    If prevSz > 20 Then prevSz = 20
+    DrawRect Rect2(TOOLBAR_W + 4, paletteY + 36, prevSz, prevSz), Color(0, 0, 0)
 
     ' Current colors display
     DrawRect Rect2(TOOLBAR_W + 4, paletteY + 24, 24, 24), Color8(bgColorR, bgColorG, bgColorB, 255)

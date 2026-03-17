@@ -453,72 +453,72 @@ offset_left = 4.0
 offset_top = 4.0
 offset_right = 78.0
 offset_bottom = 28.0
-tooltip_text = "Pencil — freehand drawing (1)"
 text = "Pencil"
+tooltip_text = "Pencil — freehand drawing (1)"
 
 [node name="btnBrush" parent="." instance=ExtResource("4")]
 offset_left = 4.0
 offset_top = 32.0
 offset_right = 78.0
 offset_bottom = 56.0
-tooltip_text = "Brush — thick freehand drawing (2)"
 text = "Brush"
+tooltip_text = "Brush — thick freehand drawing (2)"
 
 [node name="btnEraser" parent="." instance=ExtResource("4")]
 offset_left = 4.0
 offset_top = 60.0
 offset_right = 78.0
 offset_bottom = 84.0
-tooltip_text = "Eraser — erase to background color (3)"
 text = "Eraser"
+tooltip_text = "Eraser — erase to background color (3)"
 
 [node name="btnLine" parent="." instance=ExtResource("4")]
 offset_left = 4.0
 offset_top = 88.0
 offset_right = 78.0
 offset_bottom = 112.0
-tooltip_text = "Line — draw straight lines (4)"
 text = "Line"
+tooltip_text = "Line — draw straight lines (4)"
 
 [node name="btnRect" parent="." instance=ExtResource("4")]
 offset_left = 4.0
 offset_top = 116.0
 offset_right = 78.0
 offset_bottom = 140.0
-tooltip_text = "Rectangle — draw rectangles (5)"
 text = "Rect"
+tooltip_text = "Rectangle — draw rectangles (5)"
 
 [node name="btnEllipse" parent="." instance=ExtResource("4")]
 offset_left = 4.0
 offset_top = 144.0
 offset_right = 78.0
 offset_bottom = 168.0
-tooltip_text = "Ellipse — draw ovals and circles (6)"
 text = "Ellipse"
+tooltip_text = "Ellipse — draw ovals and circles (6)"
 
 [node name="btnFill" parent="." instance=ExtResource("4")]
 offset_left = 4.0
 offset_top = 172.0
 offset_right = 78.0
 offset_bottom = 196.0
-tooltip_text = "Fill — flood fill an area with color (7)"
 text = "Fill"
+tooltip_text = "Fill — flood fill an area with color (7)"
 
 [node name="btnPicker" parent="." instance=ExtResource("4")]
 offset_left = 4.0
 offset_top = 200.0
 offset_right = 78.0
 offset_bottom = 224.0
-tooltip_text = "Color Picker — pick a color from the canvas (8)"
 text = "Picker"
+tooltip_text = "Color Picker — pick a color from the canvas (8)"
 
 [node name="btnText" parent="." instance=ExtResource("4")]
 offset_left = 4.0
 offset_top = 228.0
 offset_right = 78.0
 offset_bottom = 252.0
-tooltip_text = "Text — type text on the canvas (9)"
 text = "Text"
+tooltip_text = "Text — type text on the canvas (9)"
 
 [node name="picCanvas" parent="." instance=ExtResource("5")]
 offset_left = 84.0
