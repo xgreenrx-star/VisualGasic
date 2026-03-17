@@ -1,0 +1,54 @@
+' Form1.vg — VG Music — Main Form
+' Live-coding music synthesizer with note visualizer
+' This form provides the visual design for the VG IDE form designer.
+Option Explicit
+
+Dim isPlaying As Boolean
+Dim bpm As Integer
+Dim currentBeat As Double
+Dim eventCount As Integer
+Dim layerCount As Integer
+
+Sub Form_Load()
+    Me.Caption = "VG Music"
+    isPlaying = False
+    bpm = 120
+    currentBeat = 0.0
+    eventCount = 0
+    layerCount = 1
+    txtBPM.Text = CStr(bpm)
+    lblBeat.Caption = "Beat: 0.0"
+    lblEvents.Caption = "Events: 0"
+    lblLayers.Caption = "Layers: 1"
+    lblNowPlaying.Caption = "Now: " & Chr(8212)
+    lblHelp.Caption = "Space = Play/Stop | Esc = Panic | Load examples from menu"
+
+    ' Load default example
+    txtCodeEditor.Text = "' VGMusic — Simple Melody" & vbCrLf & _
+        "Tempo 120" & vbCrLf & _
+        "Layer 1" & vbCrLf & _
+        "Note C4, 1" & vbCrLf & _
+        "Note E4, 1" & vbCrLf & _
+        "Note G4, 2" & vbCrLf & _
+        "Rest 1" & vbCrLf & _
+        "Note C5, 4"
+End Sub
+
+Sub btnPlayStop_Click()
+    isPlaying = Not isPlaying
+    If isPlaying Then
+        btnPlayStop.Caption = "STOP"
+    Else
+        btnPlayStop.Caption = "PLAY"
+        currentBeat = 0.0
+        lblBeat.Caption = "Beat: 0.0"
+    End If
+End Sub
+
+Sub txtBPM_Change()
+    Dim newBPM As Integer
+    newBPM = Val(txtBPM.Text)
+    If newBPM >= 20 And newBPM <= 300 Then
+        bpm = newBPM
+    End If
+End Sub

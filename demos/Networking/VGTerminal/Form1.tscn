@@ -1,0 +1,90 @@
+[gd_scene load_steps=9 format=3]
+
+[ext_resource type="Script" path="res://Form1.vg" id="1_script"]
+[ext_resource type="Script" path="res://addons/visual_gasic/form_editor_helper.gd" id="2_helper"]
+[ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/Panel.tscn" id="3_panel"]
+[ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/TextureRect.tscn" id="4_texrect"]
+[ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/Label.tscn" id="5_label"]
+[ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/LineEdit.tscn" id="6_lineedit"]
+[ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/ColorRect.tscn" id="7_colrect"]
+[ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/StatusBar.tscn" id="8_status"]
+
+[node name="Form1" type="Window"]
+title = "VG Terminal"
+position = Vector2i(10, 36)
+size = Vector2i(820, 620)
+script = ExtResource("1_script")
+
+[node name="_FormBackground" type="Panel" parent="."]
+offset_right = 820.0
+offset_bottom = 620.0
+mouse_filter = 1
+script = ExtResource("2_helper")
+
+[node name="picTerminal" parent="." instance=ExtResource("4_texrect")]
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 820.0
+offset_bottom = 562.0
+custom_minimum_size = Vector2(820, 562)
+
+[node name="pnlInputLine" parent="." instance=ExtResource("3_panel")]
+offset_left = 0.0
+offset_top = 562.0
+offset_right = 820.0
+offset_bottom = 594.0
+custom_minimum_size = Vector2(820, 32)
+
+[node name="clrSeparator" parent="." instance=ExtResource("7_colrect")]
+offset_left = 0.0
+offset_top = 562.0
+offset_right = 820.0
+offset_bottom = 564.0
+custom_minimum_size = Vector2(820, 2)
+color = Color(0, 0.6, 0, 1)
+
+[node name="lblPrompt" parent="." instance=ExtResource("5_label")]
+offset_left = 4.0
+offset_top = 568.0
+offset_right = 20.0
+offset_bottom = 588.0
+text = ">"
+
+[node name="txtInput" parent="." instance=ExtResource("6_lineedit")]
+offset_left = 22.0
+offset_top = 566.0
+offset_right = 816.0
+offset_bottom = 592.0
+custom_minimum_size = Vector2(794, 26)
+placeholder_text = "Type command and press Enter..."
+
+[node name="pnlStatusBar" parent="." instance=ExtResource("3_panel")]
+offset_left = 0.0
+offset_top = 594.0
+offset_right = 820.0
+offset_bottom = 620.0
+custom_minimum_size = Vector2(820, 26)
+
+[node name="clrConnIndicator" parent="." instance=ExtResource("7_colrect")]
+offset_left = 8.0
+offset_top = 600.0
+offset_right = 18.0
+offset_bottom = 610.0
+custom_minimum_size = Vector2(10, 10)
+color = Color(0.8, 0, 0, 1)
+
+[node name="lblStatus" parent="." instance=ExtResource("5_label")]
+offset_left = 24.0
+offset_top = 598.0
+offset_right = 500.0
+offset_bottom = 614.0
+text = "Ready — Use Connect menu to connect to a host"
+
+[node name="lblSysInfo" parent="." instance=ExtResource("5_label")]
+offset_left = 520.0
+offset_top = 598.0
+offset_right = 812.0
+offset_bottom = 614.0
+text = "Linux"
+
+[node name="StatusBar1" parent="." instance=ExtResource("8_status")]

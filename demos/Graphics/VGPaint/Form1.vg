@@ -1,0 +1,63 @@
+' Form1.vg — VG Paint — Main Form
+' MS Paint-style raster graphics editor
+' This form provides the visual design for the VG IDE form designer.
+Option Explicit
+
+' ── Tool Constants ──
+Const TOOL_PENCIL As Integer = 0
+Const TOOL_BRUSH As Integer = 1
+Const TOOL_ERASER As Integer = 2
+Const TOOL_LINE As Integer = 3
+Const TOOL_RECT As Integer = 4
+Const TOOL_ELLIPSE As Integer = 5
+Const TOOL_FILL As Integer = 6
+Const TOOL_PICKER As Integer = 7
+Const TOOL_TEXT As Integer = 8
+
+Dim currentTool As Integer
+Dim brushSize As Integer
+Dim isDrawing As Boolean
+
+Sub Form_Load()
+    Me.Caption = "VG Paint"
+    currentTool = TOOL_PENCIL
+    brushSize = 2
+    isDrawing = False
+    lblBrushSize.Caption = "Size: " & CStr(brushSize)
+End Sub
+
+Sub btnPencil_Click()
+    currentTool = TOOL_PENCIL
+End Sub
+
+Sub btnBrush_Click()
+    currentTool = TOOL_BRUSH
+End Sub
+
+Sub btnEraser_Click()
+    currentTool = TOOL_ERASER
+End Sub
+
+Sub btnLine_Click()
+    currentTool = TOOL_LINE
+End Sub
+
+Sub btnRect_Click()
+    currentTool = TOOL_RECT
+End Sub
+
+Sub btnEllipse_Click()
+    currentTool = TOOL_ELLIPSE
+End Sub
+
+Sub btnFill_Click()
+    currentTool = TOOL_FILL
+End Sub
+
+Sub btnPicker_Click()
+    currentTool = TOOL_PICKER
+End Sub
+
+Sub btnText_Click()
+    currentTool = TOOL_TEXT
+End Sub

@@ -19,3 +19,7 @@ config/features=PackedStringArray("4.6", "Forward Plus")
 
 window/size/viewport_width=1024
 window/size/viewport_height=768
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/visual_gasic/plugin.cfg")

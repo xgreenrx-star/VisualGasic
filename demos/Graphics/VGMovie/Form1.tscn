@@ -1,0 +1,97 @@
+[gd_scene load_steps=9 format=3]
+
+[ext_resource type="Script" path="res://Form1.vg" id="1_script"]
+[ext_resource type="Script" path="res://addons/visual_gasic/form_editor_helper.gd" id="2_helper"]
+[ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/Button.tscn" id="3_btn"]
+[ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/Panel.tscn" id="4_panel"]
+[ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/TextureRect.tscn" id="5_texrect"]
+[ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/Label.tscn" id="6_label"]
+[ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/HSlider.tscn" id="7_hslider"]
+[ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/StatusBar.tscn" id="8_status"]
+
+[node name="Form1" type="Window"]
+title = "VG Movie"
+position = Vector2i(10, 36)
+size = Vector2i(860, 560)
+script = ExtResource("1_script")
+
+[node name="_FormBackground" type="Panel" parent="."]
+offset_right = 860.0
+offset_bottom = 560.0
+mouse_filter = 1
+script = ExtResource("2_helper")
+
+[node name="picViewport" parent="." instance=ExtResource("5_texrect")]
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 860.0
+offset_bottom = 446.0
+custom_minimum_size = Vector2(860, 446)
+
+[node name="lblFrameCounter" parent="." instance=ExtResource("6_label")]
+offset_left = 740.0
+offset_top = 8.0
+offset_right = 852.0
+offset_bottom = 32.0
+text = "Frame 1 / 60"
+
+[node name="sldScrubber" parent="." instance=ExtResource("7_hslider")]
+offset_left = 0.0
+offset_top = 448.0
+offset_right = 860.0
+offset_bottom = 468.0
+custom_minimum_size = Vector2(860, 20)
+min_value = 0.0
+max_value = 100.0
+value = 0.0
+
+[node name="pnlControls" parent="." instance=ExtResource("4_panel")]
+offset_left = 0.0
+offset_top = 470.0
+offset_right = 860.0
+offset_bottom = 514.0
+custom_minimum_size = Vector2(860, 44)
+
+[node name="btnPrevFrame" parent="." instance=ExtResource("3_btn")]
+offset_left = 350.0
+offset_top = 478.0
+offset_right = 390.0
+offset_bottom = 506.0
+text = "|<"
+
+[node name="btnPlayPause" parent="." instance=ExtResource("3_btn")]
+offset_left = 394.0
+offset_top = 478.0
+offset_right = 434.0
+offset_bottom = 506.0
+text = "Play"
+
+[node name="btnNextFrame" parent="." instance=ExtResource("3_btn")]
+offset_left = 438.0
+offset_top = 478.0
+offset_right = 478.0
+offset_bottom = 506.0
+text = ">|"
+
+[node name="btnStop" parent="." instance=ExtResource("3_btn")]
+offset_left = 482.0
+offset_top = 478.0
+offset_right = 522.0
+offset_bottom = 506.0
+text = "Stop"
+
+[node name="lblPlaybackInfo" parent="." instance=ExtResource("6_label")]
+offset_left = 20.0
+offset_top = 518.0
+offset_right = 340.0
+offset_bottom = 534.0
+text = "12 FPS | LOOP | PAUSED"
+
+[node name="lblMovieTitle" parent="." instance=ExtResource("6_label")]
+offset_left = 500.0
+offset_top = 518.0
+offset_right = 852.0
+offset_bottom = 534.0
+text = "Built-in Demo: Bouncing Shapes"
+
+[node name="StatusBar1" parent="." instance=ExtResource("8_status")]

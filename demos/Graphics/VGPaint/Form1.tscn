@@ -1,0 +1,131 @@
+[gd_scene load_steps=9 format=3]
+
+[ext_resource type="Script" path="res://Form1.vg" id="1_script"]
+[ext_resource type="Script" path="res://addons/visual_gasic/form_editor_helper.gd" id="2_helper"]
+[ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/Button.tscn" id="3_btn"]
+[ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/Panel.tscn" id="4_panel"]
+[ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/TextureRect.tscn" id="5_texrect"]
+[ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/Label.tscn" id="6_label"]
+[ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/ColorRect.tscn" id="7_colrect"]
+[ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/StatusBar.tscn" id="8_status"]
+
+[node name="Form1" type="Window"]
+title = "VG Paint"
+position = Vector2i(10, 36)
+size = Vector2i(900, 660)
+script = ExtResource("1_script")
+
+[node name="_FormBackground" type="Panel" parent="."]
+offset_right = 900.0
+offset_bottom = 660.0
+mouse_filter = 1
+script = ExtResource("2_helper")
+
+[node name="pnlToolbar" parent="." instance=ExtResource("4_panel")]
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 56.0
+offset_bottom = 580.0
+custom_minimum_size = Vector2(56, 580)
+
+[node name="btnPencil" parent="." instance=ExtResource("3_btn")]
+offset_left = 4.0
+offset_top = 4.0
+offset_right = 52.0
+offset_bottom = 28.0
+text = "Pn"
+
+[node name="btnBrush" parent="." instance=ExtResource("3_btn")]
+offset_left = 4.0
+offset_top = 32.0
+offset_right = 52.0
+offset_bottom = 56.0
+text = "Br"
+
+[node name="btnEraser" parent="." instance=ExtResource("3_btn")]
+offset_left = 4.0
+offset_top = 60.0
+offset_right = 52.0
+offset_bottom = 84.0
+text = "Er"
+
+[node name="btnLine" parent="." instance=ExtResource("3_btn")]
+offset_left = 4.0
+offset_top = 88.0
+offset_right = 52.0
+offset_bottom = 112.0
+text = "Ln"
+
+[node name="btnRect" parent="." instance=ExtResource("3_btn")]
+offset_left = 4.0
+offset_top = 116.0
+offset_right = 52.0
+offset_bottom = 140.0
+text = "Rc"
+
+[node name="btnEllipse" parent="." instance=ExtResource("3_btn")]
+offset_left = 4.0
+offset_top = 144.0
+offset_right = 52.0
+offset_bottom = 168.0
+text = "El"
+
+[node name="btnFill" parent="." instance=ExtResource("3_btn")]
+offset_left = 4.0
+offset_top = 172.0
+offset_right = 52.0
+offset_bottom = 196.0
+text = "Fl"
+
+[node name="btnPicker" parent="." instance=ExtResource("3_btn")]
+offset_left = 4.0
+offset_top = 200.0
+offset_right = 52.0
+offset_bottom = 224.0
+text = "Pk"
+
+[node name="btnText" parent="." instance=ExtResource("3_btn")]
+offset_left = 4.0
+offset_top = 228.0
+offset_right = 52.0
+offset_bottom = 252.0
+text = "Tx"
+
+[node name="picCanvas" parent="." instance=ExtResource("5_texrect")]
+offset_left = 58.0
+offset_top = 2.0
+offset_right = 898.0
+offset_bottom = 576.0
+custom_minimum_size = Vector2(840, 574)
+
+[node name="pnlPalette" parent="." instance=ExtResource("4_panel")]
+offset_left = 0.0
+offset_top = 580.0
+offset_right = 900.0
+offset_bottom = 636.0
+custom_minimum_size = Vector2(900, 56)
+
+[node name="lblBrushSize" parent="." instance=ExtResource("6_label")]
+offset_left = 60.0
+offset_top = 594.0
+offset_right = 130.0
+offset_bottom = 612.0
+text = "Size: 2"
+
+[node name="clrForeground" parent="." instance=ExtResource("7_colrect")]
+offset_left = 8.0
+offset_top = 586.0
+offset_right = 36.0
+offset_bottom = 614.0
+custom_minimum_size = Vector2(28, 28)
+color = Color(0, 0, 0, 1)
+
+[node name="clrBackground" parent="." instance=ExtResource("7_colrect")]
+offset_left = 20.0
+offset_top = 598.0
+offset_right = 48.0
+offset_bottom = 626.0
+custom_minimum_size = Vector2(28, 28)
+color = Color(1, 1, 1, 1)
+
+[node name="StatusBar1" parent="." instance=ExtResource("8_status")]

@@ -1,0 +1,61 @@
+' Form1.vg — VG Movie — Main Form
+' Vector animation player with timeline scrubbing
+' This form provides the visual design for the VG IDE form designer.
+Option Explicit
+
+Dim currentFrame As Integer
+Dim totalFrames As Integer
+Dim isPlaying As Boolean
+Dim isLooping As Boolean
+Dim fps As Integer
+
+Sub Form_Load()
+    Me.Caption = "VG Movie"
+    currentFrame = 0
+    totalFrames = 60
+    isPlaying = False
+    isLooping = True
+    fps = 12
+    lblFrameCounter.Caption = "Frame 1 / " & CStr(totalFrames)
+    lblPlaybackInfo.Caption = CStr(fps) & " FPS | LOOP | PAUSED"
+    sldScrubber.Max = totalFrames - 1
+    sldScrubber.Value = 0
+End Sub
+
+Sub btnPlayPause_Click()
+    isPlaying = Not isPlaying
+    If isPlaying Then
+        btnPlayPause.Caption = "Pause"
+    Else
+        btnPlayPause.Caption = "Play"
+    End If
+End Sub
+
+Sub btnStop_Click()
+    isPlaying = False
+    currentFrame = 0
+    btnPlayPause.Caption = "Play"
+    sldScrubber.Value = 0
+    lblFrameCounter.Caption = "Frame 1 / " & CStr(totalFrames)
+End Sub
+
+Sub btnPrevFrame_Click()
+    If currentFrame > 0 Then
+        currentFrame = currentFrame - 1
+        sldScrubber.Value = currentFrame
+        lblFrameCounter.Caption = "Frame " & CStr(currentFrame + 1) & " / " & CStr(totalFrames)
+    End If
+End Sub
+
+Sub btnNextFrame_Click()
+    If currentFrame < totalFrames - 1 Then
+        currentFrame = currentFrame + 1
+        sldScrubber.Value = currentFrame
+        lblFrameCounter.Caption = "Frame " & CStr(currentFrame + 1) & " / " & CStr(totalFrames)
+    End If
+End Sub
+
+Sub sldScrubber_Change()
+    currentFrame = CInt(sldScrubber.Value)
+    lblFrameCounter.Caption = "Frame " & CStr(currentFrame + 1) & " / " & CStr(totalFrames)
+End Sub

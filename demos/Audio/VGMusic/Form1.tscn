@@ -1,0 +1,137 @@
+[gd_scene load_steps=10 format=3]
+
+[ext_resource type="Script" path="res://Form1.vg" id="1_script"]
+[ext_resource type="Script" path="res://addons/visual_gasic/form_editor_helper.gd" id="2_helper"]
+[ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/Button.tscn" id="3_btn"]
+[ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/Panel.tscn" id="4_panel"]
+[ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/TextureRect.tscn" id="5_texrect"]
+[ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/Label.tscn" id="6_label"]
+[ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/LineEdit.tscn" id="7_lineedit"]
+[ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/TextEdit.tscn" id="8_textedit"]
+[ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/StatusBar.tscn" id="9_status"]
+
+[node name="Form1" type="Window"]
+title = "VG Music"
+position = Vector2i(10, 36)
+size = Vector2i(900, 640)
+script = ExtResource("1_script")
+
+[node name="_FormBackground" type="Panel" parent="."]
+offset_right = 900.0
+offset_bottom = 640.0
+mouse_filter = 1
+script = ExtResource("2_helper")
+
+[node name="pnlEditorFrame" parent="." instance=ExtResource("4_panel")]
+offset_left = 8.0
+offset_top = 0.0
+offset_right = 468.0
+offset_bottom = 554.0
+custom_minimum_size = Vector2(460, 554)
+
+[node name="lblEditorTitle" parent="." instance=ExtResource("6_label")]
+offset_left = 8.0
+offset_top = 0.0
+offset_right = 468.0
+offset_bottom = 24.0
+text = "CODE EDITOR"
+
+[node name="txtCodeEditor" parent="." instance=ExtResource("8_textedit")]
+offset_left = 8.0
+offset_top = 26.0
+offset_right = 468.0
+offset_bottom = 554.0
+custom_minimum_size = Vector2(460, 528)
+placeholder_text = "' Enter VGMusic code here...
+' Example:
+'   Tempo 120
+'   Layer 1
+'   Note C4, 1
+'   Note E4, 1
+'   Note G4, 2"
+
+[node name="pnlVisualizerFrame" parent="." instance=ExtResource("4_panel")]
+offset_left = 474.0
+offset_top = 0.0
+offset_right = 892.0
+offset_bottom = 554.0
+custom_minimum_size = Vector2(418, 554)
+
+[node name="lblVisTitle" parent="." instance=ExtResource("6_label")]
+offset_left = 474.0
+offset_top = 0.0
+offset_right = 892.0
+offset_bottom = 24.0
+text = "NOTE VISUALIZER"
+
+[node name="picVisualizer" parent="." instance=ExtResource("5_texrect")]
+offset_left = 474.0
+offset_top = 26.0
+offset_right = 892.0
+offset_bottom = 554.0
+custom_minimum_size = Vector2(418, 528)
+
+[node name="pnlTransport" parent="." instance=ExtResource("4_panel")]
+offset_left = 0.0
+offset_top = 558.0
+offset_right = 900.0
+offset_bottom = 640.0
+custom_minimum_size = Vector2(900, 82)
+
+[node name="btnPlayStop" parent="." instance=ExtResource("3_btn")]
+offset_left = 20.0
+offset_top = 568.0
+offset_right = 100.0
+offset_bottom = 600.0
+text = "PLAY"
+
+[node name="lblBPM" parent="." instance=ExtResource("6_label")]
+offset_left = 116.0
+offset_top = 576.0
+offset_right = 156.0
+offset_bottom = 592.0
+text = "BPM:"
+
+[node name="txtBPM" parent="." instance=ExtResource("7_lineedit")]
+offset_left = 160.0
+offset_top = 568.0
+offset_right = 220.0
+offset_bottom = 596.0
+text = "120"
+
+[node name="lblBeat" parent="." instance=ExtResource("6_label")]
+offset_left = 236.0
+offset_top = 576.0
+offset_right = 316.0
+offset_bottom = 592.0
+text = "Beat: 0.0"
+
+[node name="lblEvents" parent="." instance=ExtResource("6_label")]
+offset_left = 330.0
+offset_top = 576.0
+offset_right = 430.0
+offset_bottom = 592.0
+text = "Events: 0"
+
+[node name="lblLayers" parent="." instance=ExtResource("6_label")]
+offset_left = 444.0
+offset_top = 576.0
+offset_right = 544.0
+offset_bottom = 592.0
+text = "Layers: 1"
+
+[node name="lblNowPlaying" parent="." instance=ExtResource("6_label")]
+offset_left = 558.0
+offset_top = 576.0
+offset_right = 700.0
+offset_bottom = 592.0
+text = "Now: —"
+
+[node name="lblHelp" parent="." instance=ExtResource("6_label")]
+offset_left = 20.0
+offset_top = 606.0
+offset_right = 880.0
+offset_bottom = 622.0
+text = "Space = Play/Stop | Esc = Panic | Load examples from menu"
+
+[node name="StatusBar1" parent="." instance=ExtResource("9_status")]

@@ -1,0 +1,59 @@
+' Form1.vg — VG Vector — Main Form
+' Vector graphics & animation editor
+' This form provides the visual design for the VG IDE form designer.
+Option Explicit
+
+' ── Tool Constants ──
+Const TOOL_SELECT As Integer = 0
+Const TOOL_LINE As Integer = 1
+Const TOOL_RECT As Integer = 2
+Const TOOL_ELLIPSE As Integer = 3
+Const TOOL_POLYGON As Integer = 4
+Const TOOL_POLYLINE As Integer = 5
+Const TOOL_TEXT As Integer = 6
+
+Dim currentTool As Integer
+Dim strokeWidth As Double
+Dim currentFrame As Integer
+Dim totalFrames As Integer
+Dim isPlaying As Boolean
+
+Sub Form_Load()
+    Me.Caption = "VG Vector"
+    currentTool = TOOL_SELECT
+    strokeWidth = 2.0
+    currentFrame = 0
+    totalFrames = 1
+    isPlaying = False
+    lblStrokeWidth.Caption = "W: " & CStr(strokeWidth)
+    lblPlayState.Caption = "PAUSED"
+    lblFPS.Caption = "0 FPS"
+End Sub
+
+Sub btnSelect_Click()
+    currentTool = TOOL_SELECT
+End Sub
+
+Sub btnLine_Click()
+    currentTool = TOOL_LINE
+End Sub
+
+Sub btnRect_Click()
+    currentTool = TOOL_RECT
+End Sub
+
+Sub btnEllipse_Click()
+    currentTool = TOOL_ELLIPSE
+End Sub
+
+Sub btnPolygon_Click()
+    currentTool = TOOL_POLYGON
+End Sub
+
+Sub btnPolyline_Click()
+    currentTool = TOOL_POLYLINE
+End Sub
+
+Sub btnText_Click()
+    currentTool = TOOL_TEXT
+End Sub

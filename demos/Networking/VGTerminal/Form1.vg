@@ -1,0 +1,51 @@
+' Form1.vg — VG Terminal — Main Form
+' ANSI BBS terminal client with Telnet support
+' This form provides the visual design for the VG IDE form designer.
+Option Explicit
+
+Dim isConnected As Boolean
+Dim hostName As String
+Dim portNumber As Integer
+Dim localEcho As Boolean
+Dim lineMode As Boolean
+
+Sub Form_Load()
+    Me.Caption = "VG Terminal"
+    isConnected = False
+    hostName = ""
+    portNumber = 23
+    localEcho = False
+    lineMode = False
+    lblStatus.Caption = "Ready " & Chr(8212) & " Use Connect menu to connect to a host"
+    lblSysInfo.Caption = "Linux"
+    clrConnIndicator.BackColor = vbRed
+End Sub
+
+Sub txtInput_KeyPress(KeyAscii As Integer)
+    If KeyAscii = 13 Then  ' Enter key
+        Dim cmd As String
+        cmd = txtInput.Text
+        txtInput.Text = ""
+        ' Send command to remote host
+        If isConnected Then
+            ' Send data over TCP
+        Else
+            lblStatus.Caption = "Not connected — use Connect menu first"
+        End If
+    End If
+End Sub
+
+Sub mnuConnect_Click()
+    Dim host As String
+    host = InputBox("Enter host:port", "Connect", "telehack.com:23")
+    If Len(host) > 0 Then
+        hostName = host
+        lblStatus.Caption = "Connecting to " & host & "..."
+    End If
+End Sub
+
+Sub mnuDisconnect_Click()
+    isConnected = False
+    clrConnIndicator.BackColor = vbRed
+    lblStatus.Caption = "Disconnected"
+End Sub
