@@ -560,7 +560,7 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
         case STMT_WHILE: {
             WhileStatement* s = (WhileStatement*)stmt;
             int safety = 0;
-            while (safety < 10000) {
+            while (safety < 10000000) {
                 if (!evaluate_expression(s->condition).booleanize()) break;
                 for(int i=0; i<s->body.size(); i++) {
                     execute_statement(s->body[i]);
@@ -584,13 +584,13 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                 
                 safety++;
             }
-            if (safety >= 10000) UtilityFunctions::print("Runtime: While loop limit reached.");
+            if (safety >= 10000000) UtilityFunctions::print("Runtime: While loop limit reached.");
             break;
         }
         case STMT_DO: {
             DoStatement* s = (DoStatement*)stmt;
             int safety = 0;
-            while (safety < 10000) {
+            while (safety < 10000000) {
                 // Pre Check
                 if (!s->is_post_condition && s->condition_type != DoStatement::NONE) {
                     bool res = evaluate_expression(s->condition).booleanize();
@@ -636,7 +636,7 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                 
                 safety++;
             }
-            if (safety >= 10000) UtilityFunctions::print("Runtime: Do loop limit reached.");
+            if (safety >= 10000000) UtilityFunctions::print("Runtime: Do loop limit reached.");
             break;
         }
 
