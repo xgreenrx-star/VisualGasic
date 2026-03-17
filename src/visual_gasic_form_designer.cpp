@@ -5694,9 +5694,10 @@ bool VisualGasicFormDesigner::_parse_tscn(const String &p_text) {
         if (line.begins_with("[ext_resource")) {
             // Extract id, path, type
             String id, path, type;
-            int id_start = line.find("id=\"");
+            // Use " id=\"" (with leading space) to avoid matching inside uid="..."
+            int id_start = line.find(" id=\"");
             if (id_start >= 0) {
-                id_start += 4;
+                id_start += 5;  // skip ' id="'
                 int id_end = line.find("\"", id_start);
                 id = line.substr(id_start, id_end - id_start);
             }
@@ -5780,15 +5781,17 @@ bool VisualGasicFormDesigner::_parse_tscn(const String &p_text) {
                     } else {
                         controls.push_back(current_item);
                     }
-                } else if (!menu_bar_node_name.is_empty() && current_node_parent == menu_bar_node_name) {
-                    // Child of the MenuBar (PopupMenu) → store raw block + extract title
-                    menu_child_raw_blocks.push_back(current_raw_block);
-                    // Derive display title from node name: "mnuFile" → "File", "Edit" → "Edit"
-                    String title = current_node_name;
-                    if (title.begins_with("mnu") && title.length() > 3) {
-                        title = title.substr(3);
+                } else {
+                    if (!menu_bar_node_name.is_empty() && current_node_parent == menu_bar_node_name) {
+                        // Child of the MenuBar (PopupMenu) → store raw block + extract title
+                        menu_child_raw_blocks.push_back(current_raw_block);
+                        // Derive display title from node name: "mnuFile" → "File", "Edit" → "Edit"
+                        String title = current_node_name;
+                        if (title.begins_with("mnu") && title.length() > 3) {
+                            title = title.substr(3);
+                        }
+                        menu_titles.push_back(title);
                     }
-                    menu_titles.push_back(title);
                 }
             }
 
@@ -5796,6 +5799,7 @@ bool VisualGasicFormDesigner::_parse_tscn(const String &p_text) {
             current_item = FormControlItem();
             in_node = true;
             current_node_parent = "";
+            current_node_type = "";
             current_instance_id = "";
 
             // Extract name
@@ -5867,7 +5871,7 @@ bool VisualGasicFormDesigner::_parse_tscn(const String &p_text) {
                 String key = line.substr(0, eq_pos).strip_edges();
                 String val = line.substr(eq_pos + 3).strip_edges();
 
-                if (key == "offset_left" || key == "offset_left") {
+                if (key == "offset_left") {
                     current_item.rect.position.x = val.to_float();
                 } else if (key == "offset_top") {
                     current_item.rect.position.y = val.to_float();
@@ -5971,7 +5975,7 @@ bool VisualGasicFormDesigner::_parse_tscn(const String &p_text) {
                             }
                         }
                     }
-                } else if (key == "color" && current_node_type == "ColorRect") {
+                } else if (key == "color" && current_item.type == "ColorRect") {
                     // ColorRect color → ShapeColor
                     if (val.begins_with("Color(") && val.ends_with(")")) {
                         String inner = val.substr(6, val.length() - 7);

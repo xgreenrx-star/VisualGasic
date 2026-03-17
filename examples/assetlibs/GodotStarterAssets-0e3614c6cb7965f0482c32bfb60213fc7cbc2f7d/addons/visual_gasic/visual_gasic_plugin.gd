@@ -4936,6 +4936,9 @@ func _sync_scene_to_form_designer() -> void:
 	var scene_root = EditorInterface.get_edited_scene_root()
 	if not scene_root:
 		return
+	# Only sync Window or CanvasLayer roots — never Node2D game scenes
+	if not (scene_root is Window) and not (scene_root is CanvasLayer):
+		return
 	var scene_path = scene_root.scene_file_path
 	if scene_path.is_empty():
 		scene_path = scene_root.get_meta("_edit_scene_file_path", "") if scene_root.has_meta("_edit_scene_file_path") else ""
@@ -5623,29 +5626,65 @@ func _collect_vg_files(path: String, modules: Array[String], forms: Array[String
 	dir.list_dir_end()
 
 ## Called on deferred when the Form Designer opens.
-## If no form is loaded and the embedded code editor is empty, automatically
-## find and open the first .vg module so formless projects get an editor view.
+## If no form is loaded in the C++ form designer, automatically find and open
+## the first form in the project.  For formless projects (no .vg with
+## Form_Load), open the first .vg module in the embedded code editor.
 func _auto_open_formless_module() -> void:
-	if not is_instance_valid(_embedded_code_editor):
+	# Check whether the C++ form designer already has a form loaded
+	if is_instance_valid(_form_designer) and not _form_designer.get_form_path().is_empty():
+		return  # A form is already loaded — nothing to do
+
+	# Try to find and auto-open the first form in the project
+	var first_form := _find_first_form_scene_in_project()
+	if not first_form.is_empty():
+		print("VisualGasic: Auto-opening first form: ", first_form)
+		call_deferred("open_form_in_designer", first_form)
 		return
-	# Only act if the embedded editor has nothing loaded yet
-	if not _embedded_code_editor.get_file_path().is_empty():
-		return
-	# Check whether a form is already loaded (normal case)
-	var form_path := ""
-	if _form_designer:
-		form_path = _form_designer.get_form_path()
-	if form_path.is_empty():
-		var scene_root = EditorInterface.get_edited_scene_root()
-		if scene_root and not scene_root.scene_file_path.is_empty():
-			form_path = scene_root.scene_file_path
-	if not form_path.is_empty():
-		return  # A form is loaded — normal workflow, do nothing extra
-	# No form → try to find a standalone .vg file
-	var first_vg := _find_first_vg_in_project()
-	if not first_vg.is_empty():
-		print("VisualGasic: No form detected — auto-opening module: ", first_vg)
-		open_module_in_embedded_editor(first_vg)
+
+	# No forms → try to find a standalone .vg module for formless projects
+	if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.get_file_path().is_empty():
+		var first_vg := _find_first_vg_in_project()
+		if not first_vg.is_empty():
+			print("VisualGasic: No form detected — auto-opening module: ", first_vg)
+			open_module_in_embedded_editor(first_vg)
+
+## Scan the project for the first .vg file that has form content with a
+## matching .tscn scene.  Returns the .tscn path, or "" if none found.
+func _find_first_form_scene_in_project() -> String:
+	return _scan_for_first_form("res://")
+
+func _scan_for_first_form(path: String) -> String:
+	var dir = DirAccess.open(path)
+	if not dir:
+		return ""
+	dir.list_dir_begin()
+	var file_name = dir.get_next()
+	# Collect subdirs to scan after files (prefer root-level forms)
+	var subdirs: PackedStringArray = []
+	while file_name != "":
+		var full_path = path.path_join(file_name)
+		if dir.current_is_dir():
+			if not file_name.begins_with(".") and file_name != "addons" and file_name != ".godot":
+				subdirs.append(full_path)
+		elif file_name.ends_with(".vg"):
+			var tscn_path = full_path.get_basename() + ".tscn"
+			if FileAccess.file_exists(tscn_path):
+				# Check for form content (Sub Form_Load, etc.)
+				var f = FileAccess.open(full_path, FileAccess.READ)
+				if f:
+					var content = f.get_as_text()
+					f.close()
+					if content.find("Sub Form_Load") != -1 or content.find("Sub Form_") != -1:
+						dir.list_dir_end()
+						return tscn_path
+		file_name = dir.get_next()
+	dir.list_dir_end()
+	# Recurse into subdirs
+	for subdir in subdirs:
+		var result = _scan_for_first_form(subdir)
+		if not result.is_empty():
+			return result
+	return ""
 
 ## Opens the .vg file in the embedded code editor directly (View Code context menu on control)
 func _open_in_embedded_editor_for_control(index: int) -> void:

@@ -416,8 +416,17 @@ func _on_item_activated():
 		return
 
 	match file_type:
-		"form", "component":
-			# Double-clicking a form or component opens its code.
+		"form":
+			# Double-clicking a form opens it in the Form Designer (like VB6).
+			var scene_path = file_path.get_basename() + ".tscn"
+			if FileAccess.file_exists(scene_path) and editor_plugin.has_method("open_form_in_designer"):
+				editor_plugin.open_form_in_designer(scene_path)
+			elif editor_plugin.has_method("open_module_in_embedded_editor"):
+				editor_plugin.open_module_in_embedded_editor(file_path)
+			else:
+				_open_script(file_path)
+		"component":
+			# Double-clicking a component opens its code.
 			if editor_plugin.has_method("open_module_in_embedded_editor"):
 				editor_plugin.open_module_in_embedded_editor(file_path)
 			else:
