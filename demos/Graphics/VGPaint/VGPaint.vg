@@ -28,15 +28,16 @@ Option Explicit
 
 ' ── Canvas Data ───────────────────────────────────────────────────────────
 ' The canvas is a 2D array of color values. Each cell stores an integer
-' that encodes RGBA. We use a fixed-size canvas with configurable dimensions.
-Const MAX_CANVAS_W As Integer = 640
-Const MAX_CANVAS_H As Integer = 480
+' that encodes RGBA. We use a smaller canvas that gets scaled up for display,
+' keeping the per-pixel DrawRect count manageable (~19K pixels at 160x120).
+Const MAX_CANVAS_W As Integer = 160
+Const MAX_CANVAS_H As Integer = 120
 Dim canvasW As Integer               ' Current canvas width
 Dim canvasH As Integer               ' Current canvas height
-Dim canvas(640, 480) As Integer      ' Pixel color data (encoded)
-Dim canvasR(640, 480) As Integer     ' Red channel (0-255)
-Dim canvasG(640, 480) As Integer     ' Green channel (0-255)
-Dim canvasB(640, 480) As Integer     ' Blue channel (0-255)
+Dim canvas(160, 120) As Integer      ' Pixel color data (encoded)
+Dim canvasR(160, 120) As Integer     ' Red channel (0-255)
+Dim canvasG(160, 120) As Integer     ' Green channel (0-255)
+Dim canvasB(160, 120) As Integer     ' Blue channel (0-255)
 
 ' ── Tool State ────────────────────────────────────────────────────────────
 ' Tool IDs: 0=Pencil, 1=Brush, 2=Eraser, 3=Line, 4=Rectangle,
@@ -84,6 +85,7 @@ Const TOOL_BTN_SIZE As Integer = 24  ' Tool button size
 
 ' ── View State ────────────────────────────────────────────────────────────
 Dim zoomLevel As Integer             ' 1, 2, or 4
+Dim displayPixSize As Integer        ' Effective screen pixels per canvas pixel (auto-scale * zoom)
 Dim scrollX As Integer  ' Canvas scroll offset
 Dim scrollY As Integer
 Dim mouseCanvasX As Integer          ' Mouse position on canvas (pixels)
@@ -102,14 +104,17 @@ Dim toolNames(9) As String
 
 Sub _Ready()
     ' ── Set default canvas size ───────────────────────────────────────────
-    canvasW = 640
-    canvasH = 400
+    ' Keep canvas small so per-pixel DrawRect calls stay under ~20K/frame.
+    ' The display scales pixels up to fill the canvas area (auto zoom).
+    canvasW = 160
+    canvasH = 120
 
     ' ── Initialize tool state ─────────────────────────────────────────────
     currentTool = 0              ' Pencil
     brushSize = 2
     isDrawing = False
     zoomLevel = 1
+    displayPixSize = 1
     scrollX = 0
     scrollY = 0
     isModified = False
@@ -507,8 +512,8 @@ Sub HandleMouseButton(ev)
     Dim canvasAreaY As Integer
     canvasAreaX = TOOLBAR_W + 2
     canvasAreaY = MENU_H + 2
-    mouseCanvasX = (mx - canvasAreaX) \ zoomLevel + scrollX
-    mouseCanvasY = (my - canvasAreaY) \ zoomLevel + scrollY
+    mouseCanvasX = (mx - canvasAreaX) \ displayPixSize + scrollX
+    mouseCanvasY = (my - canvasAreaY) \ displayPixSize + scrollY
 
     If ev.button_index = 1 Then  ' Left mouse button
         If ev.pressed Then
@@ -590,8 +595,8 @@ Sub HandleMouseMotion(ev)
     Dim canvasAreaY As Integer
     canvasAreaX = TOOLBAR_W + 2
     canvasAreaY = MENU_H + 2
-    mouseCanvasX = (mx - canvasAreaX) \ zoomLevel + scrollX
-    mouseCanvasY = (my - canvasAreaY) \ zoomLevel + scrollY
+    mouseCanvasX = (mx - canvasAreaX) \ displayPixSize + scrollX
+    mouseCanvasY = (my - canvasAreaY) \ displayPixSize + scrollY
 
     ' Continue drawing if mouse is held
     If isDrawing Then
@@ -892,28 +897,51 @@ Sub _Draw()
     ' White canvas border
     DrawRect Rect2(canvasAreaX - 1, canvasAreaY - 1, canvasAreaW + 2, canvasAreaH + 2), Color(0.5, 0.5, 0.55)
 
-    ' ── Draw canvas pixels (scaled by zoom) ───────────────────────────────
+    ' ── Draw canvas ────────────────────────────────────────────────────────
+    ' Auto-scale pixels to fill the canvas area for small canvases.
+    Dim pixSize As Integer
+    Dim scaleX As Integer
+    Dim scaleY As Integer
+    scaleX = canvasAreaW \ canvasW
+    scaleY = canvasAreaH \ canvasH
+    If scaleX < scaleY Then
+        pixSize = scaleX
+    Else
+        pixSize = scaleY
+    End If
+    If pixSize < 1 Then pixSize = 1
+    If pixSize < zoomLevel Then pixSize = zoomLevel
+    displayPixSize = pixSize
+
+    ' Fill the visible canvas area with white background in one call
+    Dim visW As Integer
+    Dim visH As Integer
+    visW = canvasW * pixSize
+    visH = canvasH * pixSize
+    If visW > canvasAreaW Then visW = canvasAreaW
+    If visH > canvasAreaH Then visH = canvasAreaH
+    DrawRect Rect2(canvasAreaX, canvasAreaY, visW, visH), Color(1, 1, 1)
+
+    ' Only draw NON-WHITE pixels (skip background — huge optimization)
     Dim x As Integer
     Dim y As Integer
     Dim drawX As Integer
     Dim drawY As Integer
-    Dim pixSize As Integer
-    pixSize = zoomLevel
-
     For y = 0 To canvasH - 1
         For x = 0 To canvasW - 1
-            drawX = canvasAreaX + (x - scrollX) * pixSize
-            drawY = canvasAreaY + (y - scrollY) * pixSize
-
-            ' Only draw if visible on screen
-            If drawX >= canvasAreaX And drawX < canvasAreaX + canvasAreaW And drawY >= canvasAreaY And drawY < canvasAreaY + canvasAreaH Then
-                Dim pr As Integer
-                Dim pg As Integer
-                Dim pb As Integer
-                pr = canvasR(x, y)
-                pg = canvasG(x, y)
-                pb = canvasB(x, y)
-                DrawRect Rect2(drawX, drawY, pixSize, pixSize), Color8(pr, pg, pb, 255)
+            Dim pr As Integer
+            Dim pg As Integer
+            Dim pb As Integer
+            pr = canvasR(x, y)
+            pg = canvasG(x, y)
+            pb = canvasB(x, y)
+            ' Only draw non-white (non-background) pixels
+            If Not (pr = 255 And pg = 255 And pb = 255) Then
+                drawX = canvasAreaX + (x - scrollX) * pixSize
+                drawY = canvasAreaY + (y - scrollY) * pixSize
+                If drawX >= canvasAreaX And drawX < canvasAreaX + canvasAreaW And drawY >= canvasAreaY And drawY < canvasAreaY + canvasAreaH Then
+                    DrawRect Rect2(drawX, drawY, pixSize, pixSize), Color8(pr, pg, pb, 255)
+                End If
             End If
         Next
     Next
