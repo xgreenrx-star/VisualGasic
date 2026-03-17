@@ -67,7 +67,7 @@ var _last_help_keyword: String = ""        # avoid redundant redraws
 var _main_split: VSplitContainer = null
 
 ## Bottom panel: tabbed — Immediate, Output, System Console
-var _bottom_panel: PanelContainer = null   # outer container
+var _bottom_panel: Control = null           # outer container (plain Control — NOT PanelContainer)
 var _bottom_tabs: TabContainer = null      # tab switcher
 var _immediate_window_ref = null           # reference to the plugin's Immediate Window
 var _output_text: RichTextLabel = null     # Output tab: build/runtime messages
@@ -231,6 +231,7 @@ func _build_bottom_panel() -> void:
 	_bottom_panel = Control.new()
 	_bottom_panel.name = "BottomPanel"
 	_bottom_panel.clip_contents = true
+	_bottom_panel.custom_minimum_size = Vector2(0, 80)
 	_bottom_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	# Draw VB6 cream background via a Panel child
 	var bg_panel := Panel.new()
