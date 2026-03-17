@@ -80,7 +80,7 @@ Dim redoCount As Integer             ' Number of redo states stored
 
 ' ── UI Layout Constants ───────────────────────────────────────────────────
 Const MENU_H As Integer = 32         ' Menu bar height
-Const TOOLBAR_W As Integer = 56      ' Toolbar width on left side
+Const TOOLBAR_W As Integer = 82      ' Toolbar width on left side
 Const PALETTE_H As Integer = 56      ' Color palette height at bottom
 Const STATUS_H As Integer = 24       ' Status bar height
 Const TOOL_BTN_SIZE As Integer = 24  ' Tool button size
@@ -289,9 +289,12 @@ Sub DrawLinePixels(x1 As Integer, y1 As Integer, x2 As Integer, y2 As Integer, r
 
     Dim cx As Integer
     Dim cy As Integer
+    Dim maxSteps As Integer
+    maxSteps = dx + dy + 2
     cx = x1
     cy = y1
-    Do
+    Do While maxSteps > 0
+        maxSteps = maxSteps - 1
         DrawBrushAt cx, cy, r, g, b
         If cx = x2 And cy = y2 Then Exit Do
         e2 = 2 * err
@@ -496,7 +499,7 @@ Sub HandleMouseButton(ev)
             Dim palIdx As Integer
             Dim palRow As Integer
             Dim palCol As Integer
-            palCol = (mx - TOOLBAR_W - 80) \ 22
+            palCol = (mx - TOOLBAR_W - 70) \ 22
             palRow = (my - paletteY - 4) \ 22
             palIdx = palRow * 14 + palCol
             If palIdx >= 0 And palIdx < PALETTE_COUNT Then
@@ -910,16 +913,18 @@ Sub _Draw()
     ' ── Draw tool buttons ─────────────────────────────────────────────────
     Dim t As Integer
     Dim toolIcons(9) As String
-    toolIcons(0) = "Pn"
-    toolIcons(1) = "Br"
-    toolIcons(2) = "Er"
-    toolIcons(3) = "Ln"
-    toolIcons(4) = "Rc"
-    toolIcons(5) = "El"
-    toolIcons(6) = "Fl"
-    toolIcons(7) = "Pk"
-    toolIcons(8) = "Tx"
+    toolIcons(0) = "Pencil"
+    toolIcons(1) = "Brush"
+    toolIcons(2) = "Eraser"
+    toolIcons(3) = "Line"
+    toolIcons(4) = "Rect"
+    toolIcons(5) = "Ellipse"
+    toolIcons(6) = "Fill"
+    toolIcons(7) = "Picker"
+    toolIcons(8) = "Text"
 
+    Dim btnW As Integer
+    btnW = TOOLBAR_W - 8
     For t = 0 To 8
         Dim btnX As Integer
         Dim btnY As Integer
@@ -928,12 +933,13 @@ Sub _Draw()
 
         ' Highlight selected tool
         If t = currentTool Then
-            DrawRect Rect2(btnX, btnY, TOOL_BTN_SIZE + 20, TOOL_BTN_SIZE), Color(0.3, 0.5, 0.9)
-            DrawString GetThemeDefaultFont(), Vector2(btnX + 3, btnY + 17), toolIcons(t), Color(1, 1, 1)
+            DrawRect Rect2(btnX, btnY, btnW, TOOL_BTN_SIZE), Color(0.3, 0.5, 0.9)
+            DrawRect btnX, btnY, btnW, TOOL_BTN_SIZE, Color(0.15, 0.3, 0.7), False
+            DrawString GetThemeDefaultFont(), Vector2(btnX + 6, btnY + 17), toolIcons(t), Color(1, 1, 1)
         Else
-            DrawRect Rect2(btnX, btnY, TOOL_BTN_SIZE + 20, TOOL_BTN_SIZE), Color(0.95, 0.95, 0.97)
-            DrawRect Rect2(btnX, btnY, TOOL_BTN_SIZE + 20, TOOL_BTN_SIZE), Color(0.7, 0.7, 0.75)
-            DrawString GetThemeDefaultFont(), Vector2(btnX + 3, btnY + 17), toolIcons(t), Color(0.2, 0.2, 0.2)
+            DrawRect Rect2(btnX, btnY, btnW, TOOL_BTN_SIZE), Color(0.92, 0.92, 0.94)
+            DrawRect btnX, btnY, btnW, TOOL_BTN_SIZE, Color(0.7, 0.7, 0.75), False
+            DrawString GetThemeDefaultFont(), Vector2(btnX + 6, btnY + 17), toolIcons(t), Color(0.15, 0.15, 0.2)
         End If
     Next
 
@@ -1017,7 +1023,7 @@ Sub _Draw()
     ' Current colors display
     DrawRect Rect2(TOOLBAR_W + 4, paletteY + 24, 24, 24), Color8(bgColorR, bgColorG, bgColorB, 255)
     DrawRect Rect2(TOOLBAR_W + 0, paletteY + 20, 24, 24), Color8(fgColorR, fgColorG, fgColorB, 255)
-    DrawRect Rect2(TOOLBAR_W + 0, paletteY + 20, 24, 24), Color(0, 0, 0)
+    DrawRect TOOLBAR_W + 0, paletteY + 20, 24, 24, Color(0, 0, 0), False
 
     ' Palette swatches (2 rows of 14)
     Dim pi As Integer
@@ -1028,10 +1034,10 @@ Sub _Draw()
         palCol = pi Mod 14
         Dim psx As Integer
         Dim psy As Integer
-        psx = TOOLBAR_W + 80 + palCol * 22
+        psx = TOOLBAR_W + 70 + palCol * 22
         psy = paletteY + 4 + palRow * 22
         DrawRect Rect2(psx, psy, 20, 20), Color8(palR(pi), palG(pi), palB(pi), 255)
-        DrawRect Rect2(psx, psy, 20, 20), Color(0, 0, 0, 0.3)
+        DrawRect psx, psy, 20, 20, Color(0, 0, 0, 0.3), False
     Next
 
     ' ── Draw status bar ───────────────────────────────────────────────────

@@ -444,79 +444,88 @@ script = ExtResource("2")
 [node name="pnlToolbar" parent="." instance=ExtResource("3")]
 offset_left = 0.0
 offset_top = 0.0
-offset_right = 56.0
+offset_right = 82.0
 offset_bottom = 580.0
-custom_minimum_size = Vector2(56.0, 580.0)
+custom_minimum_size = Vector2(82.0, 580.0)
 
 [node name="btnPencil" parent="." instance=ExtResource("4")]
 offset_left = 4.0
 offset_top = 4.0
-offset_right = 52.0
+offset_right = 78.0
 offset_bottom = 28.0
-text = "Pn"
+tooltip_text = "Pencil — freehand drawing (1)"
+text = "Pencil"
 
 [node name="btnBrush" parent="." instance=ExtResource("4")]
 offset_left = 4.0
 offset_top = 32.0
-offset_right = 52.0
+offset_right = 78.0
 offset_bottom = 56.0
-text = "Br"
+tooltip_text = "Brush — thick freehand drawing (2)"
+text = "Brush"
 
 [node name="btnEraser" parent="." instance=ExtResource("4")]
 offset_left = 4.0
 offset_top = 60.0
-offset_right = 52.0
+offset_right = 78.0
 offset_bottom = 84.0
-text = "Er"
+tooltip_text = "Eraser — erase to background color (3)"
+text = "Eraser"
 
 [node name="btnLine" parent="." instance=ExtResource("4")]
 offset_left = 4.0
 offset_top = 88.0
-offset_right = 52.0
+offset_right = 78.0
 offset_bottom = 112.0
-text = "Ln"
+tooltip_text = "Line — draw straight lines (4)"
+text = "Line"
 
 [node name="btnRect" parent="." instance=ExtResource("4")]
 offset_left = 4.0
 offset_top = 116.0
-offset_right = 52.0
+offset_right = 78.0
 offset_bottom = 140.0
-text = "Rc"
+tooltip_text = "Rectangle — draw rectangles (5)"
+text = "Rect"
 
 [node name="btnEllipse" parent="." instance=ExtResource("4")]
 offset_left = 4.0
 offset_top = 144.0
-offset_right = 52.0
+offset_right = 78.0
 offset_bottom = 168.0
-text = "El"
+tooltip_text = "Ellipse — draw ovals and circles (6)"
+text = "Ellipse"
 
 [node name="btnFill" parent="." instance=ExtResource("4")]
 offset_left = 4.0
 offset_top = 172.0
-offset_right = 52.0
+offset_right = 78.0
 offset_bottom = 196.0
-text = "Fl"
+tooltip_text = "Fill — flood fill an area with color (7)"
+text = "Fill"
 
 [node name="btnPicker" parent="." instance=ExtResource("4")]
 offset_left = 4.0
 offset_top = 200.0
-offset_right = 52.0
+offset_right = 78.0
 offset_bottom = 224.0
-text = "Pk"
+tooltip_text = "Color Picker — pick a color from the canvas (8)"
+text = "Picker"
 
 [node name="btnText" parent="." instance=ExtResource("4")]
 offset_left = 4.0
 offset_top = 228.0
-offset_right = 52.0
+offset_right = 78.0
 offset_bottom = 252.0
-text = "Tx"
+tooltip_text = "Text — type text on the canvas (9)"
+text = "Text"
 
 [node name="picCanvas" parent="." instance=ExtResource("5")]
-offset_left = 58.0
+offset_left = 84.0
 offset_top = 2.0
 offset_right = 898.0
 offset_bottom = 576.0
-custom_minimum_size = Vector2(840.0, 574.0)
+custom_minimum_size = Vector2(814.0, 574.0)
 
 [node name="pnlPalette" parent="." instance=ExtResource("3")]
 offset_left = 0.0
