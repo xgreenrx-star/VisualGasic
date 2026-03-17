@@ -689,6 +689,50 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
         return Variant(ThemeDB::get_singleton()->get_fallback_font());
     }
 
+    // InputBox(prompt[, title][, default]) — modal text input dialog, returns String
+    if (METHOD_IS("inputbox")) {
+        r_handled = true;
+        if (!instance->get_owner()) return String("");
+        Node *root = Object::cast_to<Node>(instance->get_owner());
+        if (!root) return String("");
+
+        String prompt = "";
+        if (args.size() > 0) prompt = String(args[0]);
+        String title = "VisualGasic";
+        if (args.size() > 1) title = String(args[1]);
+        String def = "";
+        if (args.size() > 2) def = String(args[2]);
+
+        AcceptDialog *dialog = memnew(AcceptDialog);
+        dialog->set_title(title);
+        VBoxContainer *vbox = memnew(VBoxContainer);
+        Label *lbl = memnew(Label);
+        lbl->set_text(prompt);
+        vbox->add_child(lbl);
+        LineEdit *le = memnew(LineEdit);
+        le->set_text(def);
+        vbox->add_child(le);
+        dialog->add_child(vbox);
+        root->add_child(dialog);
+        dialog->set_meta("result_ok", false);
+        dialog->connect("confirmed", Callable(dialog, "set_meta").bind("result_ok", true));
+        dialog->popup_centered();
+        le->grab_focus();
+        le->select_all();
+
+        while (dialog->is_visible() && dialog->is_inside_tree()) {
+            DisplayServer::get_singleton()->process_events();
+            OS::get_singleton()->delay_msec(10);
+        }
+
+        String result = "";
+        if ((bool)dialog->get_meta("result_ok")) {
+            result = le->get_text();
+        }
+        dialog->queue_free();
+        return result;
+    }
+
     // ── Image / Texture creation builtins (BASIC-style) ──────────────────
     // CreateImage(width, height[, color]) — returns an Image (RGBA8)
     if (METHOD_IS("createimage") && args.size() >= 2) {

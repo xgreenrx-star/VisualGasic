@@ -1022,6 +1022,34 @@ Sub _Draw()
             rw = sx2 - sx1
             rh = sy2 - sy1
             DrawRect Rect2(sx1, sy1, rw, rh), Color(0, 0, 0, 0.3)
+        ElseIf currentTool = 5 Then ' Ellipse preview
+            Dim ecxP As Integer
+            Dim ecyP As Integer
+            Dim erxP As Integer
+            Dim eryP As Integer
+            ecxP = (sx1 + sx2) \ 2
+            ecyP = (sy1 + sy2) \ 2
+            erxP = Abs(sx2 - sx1) \ 2
+            eryP = Abs(sy2 - sy1) \ 2
+            ' Draw approximate ellipse preview using line segments
+            Dim prevEX As Integer
+            Dim prevEY As Integer
+            Dim curEX As Integer
+            Dim curEY As Integer
+            Dim eSteps As Integer
+            eSteps = 36
+            Dim eAng As Double
+            Dim eIdx As Integer
+            For eIdx = 0 To eSteps
+                eAng = (eIdx * 6.2832) / eSteps
+                curEX = ecxP + Int(erxP * Cos(eAng))
+                curEY = ecyP + Int(eryP * Sin(eAng))
+                If eIdx > 0 Then
+                    DrawLine Vector2(prevEX, prevEY), Vector2(curEX, curEY), Color(0, 0, 0, 0.5), 1
+                End If
+                prevEX = curEX
+                prevEY = curEY
+            Next
         End If
     End If
 
