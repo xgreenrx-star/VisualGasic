@@ -225,8 +225,16 @@ func _build_left_panel_content() -> void:
 
 
 func _build_bottom_panel() -> void:
-	_bottom_panel = PanelContainer.new()
+	# Use a plain Control (NOT PanelContainer) so that child minimum sizes
+	# are NOT propagated to the VSplitContainer — this lets the user drag
+	# the splitter to collapse the bottom panel as small as they want.
+	_bottom_panel = Control.new()
 	_bottom_panel.name = "BottomPanel"
+	_bottom_panel.clip_contents = true
+	_bottom_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	# Draw VB6 cream background via a Panel child
+	var bg_panel := Panel.new()
+	bg_panel.name = "BG"
 	var panel_sb := StyleBoxFlat.new()
 	panel_sb.bg_color = Color(0.94, 0.93, 0.90)
 	panel_sb.border_color = BORDER_COLOR
@@ -235,12 +243,14 @@ func _build_bottom_panel() -> void:
 	panel_sb.content_margin_right = 0
 	panel_sb.content_margin_top = 0
 	panel_sb.content_margin_bottom = 0
-	_bottom_panel.add_theme_stylebox_override("panel", panel_sb)
-	_bottom_panel.custom_minimum_size.y = 80
+	bg_panel.add_theme_stylebox_override("panel", panel_sb)
+	bg_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_bottom_panel.add_child(bg_panel)
 
 	# TabContainer with VB6-style tab theming
 	_bottom_tabs = TabContainer.new()
 	_bottom_tabs.name = "BottomTabs"
+	_bottom_tabs.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_bottom_tabs.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_bottom_tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_bottom_tabs.clip_contents = true
