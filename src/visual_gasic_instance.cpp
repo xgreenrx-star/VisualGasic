@@ -1703,10 +1703,136 @@ void VisualGasicInstance::dispatch_builtin_call(const String &p_method, const Ar
                 r_found = true;
                 return;
             }
+            // ── Native Image Drawing Builtins ─────────────────────────────────
+            // These do pixel loops entirely in C++ for maximum speed.
+
+            // DrawImageLine image, x1, y1, x2, y2, color[, width]
+            // Bresenham line directly on an Image (1px default, or thick with width)
+            if (p_method.nocasecmp_to("DrawImageLine") == 0 && p_args.size() >= 6) {
+                if (p_args[0].get_type() == Variant::OBJECT) {
+                    Ref<Image> img = p_args[0];
+                    if (img.is_valid()) {
+                        int x1 = (int)p_args[1], y1 = (int)p_args[2];
+                        int x2 = (int)p_args[3], y2 = (int)p_args[4];
+                        Color col = p_args[5];
+                        int w = img->get_width(), h = img->get_height();
+                        int dx = abs(x2 - x1), dy = abs(y2 - y1);
+                        int sx = (x1 < x2) ? 1 : -1;
+                        int sy = (y1 < y2) ? 1 : -1;
+                        int err = dx - dy;
+                        int max_steps = dx + dy + 2;
+                        int cx = x1, cy = y1;
+                        while (max_steps-- > 0) {
+                            if (cx >= 0 && cx < w && cy >= 0 && cy < h)
+                                img->set_pixel(cx, cy, col);
+                            if (cx == x2 && cy == y2) break;
+                            int e2 = 2 * err;
+                            if (e2 > -dy) { err -= dy; cx += sx; }
+                            if (e2 < dx)  { err += dx; cy += sy; }
+                        }
+                    }
+                }
+                r_found = true;
+                return;
+            }
+            // DrawImageRect image, x1, y1, x2, y2, color
+            // Draws a 1px outline rectangle on the Image using fill_rect for each edge
+            if (p_method.nocasecmp_to("DrawImageRect") == 0 && p_args.size() >= 6) {
+                if (p_args[0].get_type() == Variant::OBJECT) {
+                    Ref<Image> img = p_args[0];
+                    if (img.is_valid()) {
+                        int x1 = (int)p_args[1], y1 = (int)p_args[2];
+                        int x2 = (int)p_args[3], y2 = (int)p_args[4];
+                        Color col = p_args[5];
+                        // Normalize
+                        int lx = MIN(x1, x2), ly = MIN(y1, y2);
+                        int rx = MAX(x1, x2), ry = MAX(y1, y2);
+                        int iw = img->get_width(), ih = img->get_height();
+                        // Clamp to image bounds
+                        lx = CLAMP(lx, 0, iw - 1); rx = CLAMP(rx, 0, iw - 1);
+                        ly = CLAMP(ly, 0, ih - 1); ry = CLAMP(ry, 0, ih - 1);
+                        int rw = rx - lx + 1, rh = ry - ly + 1;
+                        if (rw > 0 && rh > 0) {
+                            img->fill_rect(Rect2i(lx, ly, rw, 1), col); // Top
+                            img->fill_rect(Rect2i(lx, ry, rw, 1), col); // Bottom
+                            img->fill_rect(Rect2i(lx, ly, 1, rh), col); // Left
+                            img->fill_rect(Rect2i(rx, ly, 1, rh), col); // Right
+                        }
+                    }
+                }
+                r_found = true;
+                return;
+            }
+            // DrawImageEllipse image, cx, cy, rx, ry, color
+            // Midpoint ellipse algorithm entirely in C++
+            if (p_method.nocasecmp_to("DrawImageEllipse") == 0 && p_args.size() >= 6) {
+                if (p_args[0].get_type() == Variant::OBJECT) {
+                    Ref<Image> img = p_args[0];
+                    if (img.is_valid()) {
+                        int ecx = (int)p_args[1], ecy = (int)p_args[2];
+                        int erx = (int)p_args[3], ery = (int)p_args[4];
+                        Color col = p_args[5];
+                        int iw = img->get_width(), ih = img->get_height();
+                        if (erx < 1) erx = 1;
+                        if (ery < 1) ery = 1;
+                        auto set_px = [&](int px, int py) {
+                            if (px >= 0 && px < iw && py >= 0 && py < ih)
+                                img->set_pixel(px, py, col);
+                        };
+                        // Midpoint ellipse
+                        int64_t rx2 = (int64_t)erx * erx, ry2 = (int64_t)ery * ery;
+                        int64_t two_rx2 = 2 * rx2, two_ry2 = 2 * ry2;
+                        int x = 0, y = ery;
+                        int64_t px = 0, py = two_rx2 * y;
+                        // Region 1
+                        int64_t p1 = ry2 - rx2 * ery + rx2 / 4;
+                        while (px < py) {
+                            set_px(ecx + x, ecy + y); set_px(ecx - x, ecy + y);
+                            set_px(ecx + x, ecy - y); set_px(ecx - x, ecy - y);
+                            x++; px += two_ry2;
+                            if (p1 < 0) { p1 += ry2 + px; }
+                            else { y--; py -= two_rx2; p1 += ry2 + px - py; }
+                        }
+                        // Region 2
+                        int64_t p2 = ry2 * ((int64_t)x * x + x) + ry2 / 4 + rx2 * ((int64_t)y - 1) * ((int64_t)y - 1) - rx2 * ry2;
+                        while (y >= 0) {
+                            set_px(ecx + x, ecy + y); set_px(ecx - x, ecy + y);
+                            set_px(ecx + x, ecy - y); set_px(ecx - x, ecy - y);
+                            y--; py -= two_rx2;
+                            if (p2 > 0) { p2 += rx2 - py; }
+                            else { x++; px += two_ry2; p2 += rx2 - py + px; }
+                        }
+                    }
+                }
+                r_found = true;
+                return;
+            }
+            // DrawImageCircle image, cx, cy, radius, color
+            // Filled circle on an Image using scanlines
+            if (p_method.nocasecmp_to("DrawImageCircle") == 0 && p_args.size() >= 5) {
+                if (p_args[0].get_type() == Variant::OBJECT) {
+                    Ref<Image> img = p_args[0];
+                    if (img.is_valid()) {
+                        int ccx = (int)p_args[1], ccy = (int)p_args[2], rad = (int)p_args[3];
+                        Color col = p_args[4];
+                        int iw = img->get_width(), ih = img->get_height();
+                        for (int dy2 = -rad; dy2 <= rad; dy2++) {
+                            int py2 = ccy + dy2;
+                            if (py2 < 0 || py2 >= ih) continue;
+                            int half_w = (int)Math::sqrt((double)(rad * rad - dy2 * dy2));
+                            int x_start = MAX(0, ccx - half_w);
+                            int x_end = MIN(iw - 1, ccx + half_w);
+                            if (x_start <= x_end) {
+                                img->fill_rect(Rect2i(x_start, py2, x_end - x_start + 1, 1), col);
+                            }
+                        }
+                    }
+                }
+                r_found = true;
+                return;
+            }
         }
     }
-
-    // Audio commands — require owner to be a Node
     if (owner) {
         Node *n = Object::cast_to<Node>(owner);
         if (n) {

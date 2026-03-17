@@ -1989,19 +1989,24 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                         }
                     }
                     if (!found) {
-                        if (owner) {
-                            if (owner->has_method(s->method_name)) {
-                                 owner->callv(s->method_name, call_args);
+                        // Try drawing/image builtins (SetImagePixel, FillImageRect, etc.)
+                        bool stmt_found = false;
+                        dispatch_builtin_call(s->method_name, call_args, stmt_found);
+                        if (!stmt_found) {
+                            if (owner) {
+                                if (owner->has_method(s->method_name)) {
+                                     owner->callv(s->method_name, call_args);
+                                } else {
+                                     String snake = s->method_name.to_snake_case();
+                                     if (owner->has_method(snake)) {
+                                         owner->callv(snake, call_args);
+                                     } else {
+                                         UtilityFunctions::print("Runtime Error: Object does not have method ", s->method_name);
+                                     }
+                                }
                             } else {
-                                 String snake = s->method_name.to_snake_case();
-                                 if (owner->has_method(snake)) {
-                                     owner->callv(snake, call_args);
-                                 } else {
-                                     UtilityFunctions::print("Runtime Error: Object does not have method ", s->method_name);
-                                 }
+                                 raise_error("No owner for method call");
                             }
-                        } else {
-                             raise_error("No owner for method call");
                         }
                     }
                 }

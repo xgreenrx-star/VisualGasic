@@ -914,6 +914,10 @@ Dictionary VisualGasicLanguage::_complete_code(const String &p_code, const Strin
     keywords.push_back("FillImage");
     keywords.push_back("FillImageRect");
     keywords.push_back("BlitImage");
+    keywords.push_back("DrawImageLine");
+    keywords.push_back("DrawImageRect");
+    keywords.push_back("DrawImageEllipse");
+    keywords.push_back("DrawImageCircle");
     keywords.push_back("UpdateTexture");
     keywords.push_back("ImageWidth");
     keywords.push_back("ImageHeight");

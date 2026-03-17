@@ -368,58 +368,14 @@ End Sub
 
 ' Draw a rectangle outline on the canvas
 Sub DrawRectPixels(x1 As Integer, y1 As Integer, x2 As Integer, y2 As Integer, r As Integer, g As Integer, b As Integer)
-    ' Normalize coordinates
-    Dim lx As Integer
-    Dim ly As Integer
-    Dim rx As Integer
-    Dim ry As Integer
-    If x1 < x2 Then
-        lx = x1
-        rx = x2
-    Else
-        lx = x2
-        rx = x1
-    End If
-    If y1 < y2 Then
-        ly = y1
-        ry = y2
-    Else
-        ly = y2
-        ry = y1
-    End If
-
-    ' Draw four sides (1-pixel outline)
-    DrawPencilLine lx, ly, rx, ly, r, g, b   ' Top
-    DrawPencilLine lx, ry, rx, ry, r, g, b   ' Bottom
-    DrawPencilLine lx, ly, lx, ry, r, g, b   ' Left
-    DrawPencilLine rx, ly, rx, ry, r, g, b   ' Right
+    ' Use native C++ DrawImageRect for maximum speed (4 fill_rect calls in C++)
+    DrawImageRect canvasImage, x1, y1, x2, y2, Color8(r, g, b, 255)
 End Sub
 
 ' Draw an ellipse outline using midpoint algorithm
 Sub DrawEllipsePixels(cx As Integer, cy As Integer, rx As Integer, ry As Integer, r As Integer, g As Integer, b As Integer)
-    If rx < 1 Then rx = 1
-    If ry < 1 Then ry = 1
-    Dim a As Integer
-    Dim ang As Double
-    ' Approximate with many line segments
-    Dim prevX As Integer
-    Dim prevY As Integer
-    Dim curX As Integer
-    Dim curY As Integer
-    Dim steps As Integer
-    steps = (rx + ry) * 2
-    If steps < 20 Then steps = 20
-    If steps > 200 Then steps = 200
-    For a = 0 To steps
-        ang = (a * 6.2832) / steps
-        curX = cx + Int(rx * Cos(ang))
-        curY = cy + Int(ry * Sin(ang))
-        If a > 0 Then
-            DrawPencilLine prevX, prevY, curX, curY, r, g, b
-        End If
-        prevX = curX
-        prevY = curY
-    Next
+    ' Use native C++ DrawImageEllipse — midpoint algorithm runs entirely in C++
+    DrawImageEllipse canvasImage, cx, cy, rx, ry, Color8(r, g, b, 255)
 End Sub
 
 ' Flood fill using a simple stack-based algorithm
@@ -689,8 +645,8 @@ Sub HandleMouseMotion(ev)
     ' Continue drawing if mouse is held
     If isDrawing Then
         Select Case currentTool
-            Case 0  ' Pencil — 1px line from last position
-                DrawPencilLine lastX, lastY, mouseCanvasX, mouseCanvasY, fgColorR, fgColorG, fgColorB
+            Case 0  ' Pencil — 1px line from last position (native C++)
+                DrawImageLine canvasImage, lastX, lastY, mouseCanvasX, mouseCanvasY, Color8(fgColorR, fgColorG, fgColorB, 255)
                 lastX = mouseCanvasX
                 lastY = mouseCanvasY
                 canvasDirty = True
@@ -763,20 +719,15 @@ End Sub
 
 ' Draw text as simple pixel characters on the canvas
 Sub DrawTextOnCanvas(x As Integer, y As Integer, text As String)
-    ' For each character, draw a simple 5x7 pixel representation
-    ' This is a simplified text renderer — uses basic block shapes
+    ' For each character, draw a simple 5x7 pixel block
+    ' Uses native FillImageRect for speed (1 call per char instead of 35 SetPixel)
     Dim i As Integer
+    Dim charColor As Variant
+    charColor = Color8(fgColorR, fgColorG, fgColorB, 255)
     For i = 1 To Len(text)
         Dim cx As Integer
         cx = x + (i - 1) * 6
-        ' Draw a simple block for each character (placeholder)
-        Dim px As Integer
-        Dim py As Integer
-        For py = 0 To 6
-            For px = 0 To 4
-                SetPixel cx + px, y + py, fgColorR, fgColorG, fgColorB
-            Next
-        Next
+        FillImageRect canvasImage, cx, y, 5, 7, charColor
     Next
 End Sub
 
