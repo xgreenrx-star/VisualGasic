@@ -236,7 +236,7 @@ func _build_bottom_panel() -> void:
 	panel_sb.content_margin_top = 0
 	panel_sb.content_margin_bottom = 0
 	_bottom_panel.add_theme_stylebox_override("panel", panel_sb)
-	_bottom_panel.custom_minimum_size.y = 160
+	_bottom_panel.custom_minimum_size.y = 80
 
 	# TabContainer with VB6-style tab theming
 	_bottom_tabs = TabContainer.new()

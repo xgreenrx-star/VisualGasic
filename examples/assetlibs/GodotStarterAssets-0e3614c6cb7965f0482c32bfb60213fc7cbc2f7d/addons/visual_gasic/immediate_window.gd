@@ -223,7 +223,7 @@ func _setup_ui():
 	_output_text.bbcode_enabled = true
 	_output_text.scroll_following = true
 	_output_text.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_output_text.custom_minimum_size = Vector2(0, 200)
+	_output_text.custom_minimum_size = Vector2(0, 60)
 	_output_text.context_menu_enabled = true
 	_output_text.selection_enabled = true
 	console_vbox.add_child(_output_text)
@@ -241,7 +241,7 @@ func _setup_ui():
 	
 	_input_field = CodeEdit.new()
 	_input_field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_input_field.custom_minimum_size = Vector2(0, 60)
+	_input_field.custom_minimum_size = Vector2(0, 28)
 	_input_field.placeholder_text = "Type expression or statement... (Shift+Enter: new line, Enter: execute)"
 	_input_field.syntax_highlighter = _create_syntax_highlighter()
 	_input_field.gutters_draw_line_numbers = true
