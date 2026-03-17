@@ -24,6 +24,35 @@ File/dir helpers (delegate to `VisualGasicInstance` wrappers):
 - `LOF(fileHandle)`, `Loc(fileHandle)`, `EOF(fileHandle)`, `FreeFile([range])`, `FileLen(path)`, `Dir(...)`, `Randomize()`
 - `Timer()` — Seconds since midnight as Double *(New in v2.10.0)*
 
+Drawing commands (statement-level, available in `_Draw()`):
+- `DrawPixel(x, y, color)`, `PSet(x, y, color)` — single pixel
+- `DrawString(font, pos, text, color)` — text with font
+- `DrawTexture(texture, x, y [, modulate])` — render texture
+- `DrawTextureRect(texture, rect, tile [, modulate])` — stretch texture into rect
+- `DrawArc(x, y, radius, startAngle, endAngle [, points, color, width])` — arc
+- `DrawPolygon(points, color)` — filled polygon from Vector2 array
+- `DrawPolyline(points, color [, width])` — multi-segment line
+- `SetDrawTransform(x, y [, rotation, scaleX, scaleY])` — set 2D transform
+- `ResetDrawTransform()` — reset to identity
+- `QueueRedraw()` — request redraw
+- `CLS()` — clear screen
+
+Image & Texture builtins *(New in v4.2.0)*:
+- `CreateImage(w, h [, fillColor])` — create RGBA8 Image (1–4096 px)
+- `CreateTexture(image)` or `CreateTexture(w, h [, fillColor])` — create ImageTexture
+- `ImageToTexture(image)` — convert Image → ImageTexture
+- `SetImagePixel(image, x, y, color)` — write pixel to Image
+- `GetImagePixel(image, x, y)` — read pixel from Image → Color
+- `FillImage(image, color)` — fill entire Image
+- `FillImageRect(image, rect, color)` — fill rectangular region
+- `BlitImage(dest, src, srcRect, destPos)` — copy pixel region between Images
+- `UpdateTexture(texture, image)` — push Image data to ImageTexture
+- `ImageWidth(image)`, `ImageHeight(image)` — Image dimensions
+- `TextureWidth(texture)`, `TextureHeight(texture)` — Texture dimensions
+- `GetTextureImage(texture)` — extract Image from ImageTexture
+- `SaveImage(image, path)` — save Image as PNG
+- `LoadImage(path)` — load image file as Image object
+
 Data introspection helpers *(New in v3.2.0)*:
 - `DataCount()` — total number of items in the data tape
 - `DataCount("label")` — number of items in a named data section (case-insensitive)

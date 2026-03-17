@@ -862,3 +862,207 @@ static func _build_db() -> void:
 		"Modulo operator — returns the remainder after integer division.",
 		"If i Mod 2 = 0 Then\n    Print i & \" is even\"\nEnd If\n\nframe = frame Mod maxFrames",
 		1335)
+
+	# =========================================================================
+	# DRAWING COMMANDS — Primitives
+	# =========================================================================
+	_add("DrawRect",
+		"DrawRect x, y, width, height, color [, filled]\nDrawRect Rect2(x, y, w, h), color",
+		"Draws a rectangle on screen in _Draw(). Can use VB-style (x, y, w, h) or Godot-style (Rect2) arguments. If filled is False, draws only the outline.",
+		"Sub _Draw()\n    DrawRect 10, 10, 200, 100, Color(1, 0, 0)     ' Filled red rect\n    DrawRect 10, 10, 200, 100, Color(0, 0, 0), False  ' Black outline\n    DrawRect Rect2(50, 50, 100, 80), Color(0, 0, 1)   ' Godot-style\nEnd Sub",
+		0)
+
+	_add("DrawCircle",
+		"DrawCircle x, y, radius, color\nDrawCircle Vector2(x, y), radius, color",
+		"Draws a filled circle at the specified center position with the given radius and color.",
+		"Sub _Draw()\n    DrawCircle 200, 150, 50, Color(0, 1, 0)        ' Green circle\n    DrawCircle Vector2(400, 300), 30, Color.Red      ' Godot-style\nEnd Sub",
+		0)
+
+	_add("DrawLine",
+		"DrawLine x1, y1, x2, y2, color [, width]\nDrawLine Vector2(x1,y1), Vector2(x2,y2), color [, width]",
+		"Draws a line between two points with an optional width.",
+		"Sub _Draw()\n    DrawLine 0, 0, 100, 100, Color(1, 1, 0), 2     ' Yellow 2px line\n    DrawLine Vector2(50, 50), Vector2(200, 100), Color.White\nEnd Sub",
+		0)
+
+	_add("DrawPixel",
+		"DrawPixel x, y, color",
+		"Draws a single pixel at the specified position. Equivalent to PSet. For per-pixel rendering, consider using CreateImage + SetImagePixel + DrawTexture instead for much better performance.",
+		"Sub _Draw()\n    DrawPixel 100, 50, Color(1, 0, 0)   ' Red pixel\n    PSet 101, 50, Color(0, 1, 0)         ' Green pixel (alias)\nEnd Sub\n\n' For heavy pixel work, use Image APIs:\nDim img = CreateImage(320, 240)\nSetImagePixel img, 100, 50, Color(1, 0, 0)",
+		0)
+
+	_add("PSet",
+		"PSet x, y, color",
+		"Draws a single pixel (VB6-style name). Alias for DrawPixel.",
+		"PSet 100, 50, Color(1, 0, 0)   ' Red pixel\nPSet 101, 50, RGB(0, 255, 0)   ' Green pixel",
+		0)
+
+	_add("DrawString",
+		"DrawString font, position, text, color [, fontSize]",
+		"Draws text using a Godot Font object at the specified position. Use GetThemeDefaultFont() to get the default font.",
+		"Sub _Draw()\n    Dim f As Variant = GetThemeDefaultFont()\n    DrawString f, Vector2(10, 20), \"Hello World!\", Color.White\n    DrawString f, Vector2(10, 40), \"Score: \" & score, Color.Yellow\nEnd Sub",
+		0)
+
+	_add("DrawTexture",
+		"DrawTexture texture, x, y [, modulate]\nDrawTexture texture, Vector2(x, y) [, modulate]",
+		"Draws a Texture2D at the given position. Use with LoadPicture, CreateTexture, or ImageToTexture. The modulate parameter tints the texture with a color.",
+		"' Load and draw a texture\nDim tex As Variant = LoadPicture(\"res://icon.png\")\nSub _Draw()\n    DrawTexture tex, 100, 100\n    DrawTexture tex, 300, 100, Color(1, 0.5, 0.5, 0.8)  ' Tinted\nEnd Sub\n\n' Draw from an Image\nDim img = CreateImage(64, 64, Color.Red)\nDim tex2 = CreateTexture(img)\nDrawTexture tex2, 0, 0",
+		0)
+
+	_add("DrawTextureRect",
+		"DrawTextureRect texture, Rect2(x, y, w, h), tile [, modulate]\nDrawTextureRect texture, x, y, w, h [, tile] [, modulate]",
+		"Draws a texture stretched or tiled into a rectangular area. Set tile=True to tile the texture instead of stretching. Essential for rendering Image-based canvases at a display scale.",
+		"' Stretch a texture to fill a region\nDim tex = LoadPicture(\"res://icon.png\")\nSub _Draw()\n    DrawTextureRect tex, Rect2(0, 0, 640, 480), False\nEnd Sub\n\n' Image-based canvas with scaled display:\nDim img = CreateImage(160, 120)   ' Small canvas\nDim tex = CreateTexture(img)\nSub _Draw()\n    UpdateTexture tex, img\n    DrawTextureRect tex, Rect2(0, 0, 640, 480), False  ' 4x scale\nEnd Sub",
+		0)
+
+	_add("DrawArc",
+		"DrawArc x, y, radius, startAngle, endAngle [, pointCount] [, color] [, width]",
+		"Draws an arc (partial circle outline) centered at (x,y). Angles are in radians (0 = right, PI/2 = down). pointCount controls smoothness (default 32).",
+		"Sub _Draw()\n    ' Half circle (0 to PI)\n    DrawArc 200, 200, 80, 0, 3.14159, 32, Color.Red, 2\n    ' Quarter circle\n    DrawArc 400, 200, 60, 0, 1.5708, 16, Color.Blue, 3\n    ' Full circle outline\n    DrawArc 300, 300, 100, 0, 6.28318, 64, Color.White, 1\nEnd Sub",
+		0)
+
+	_add("DrawPolygon",
+		"DrawPolygon points, color",
+		"Draws a filled polygon from an array of Vector2 points. Points should be in order (clockwise or counter-clockwise). Use for triangles, custom shapes, filled regions.",
+		"Sub _Draw()\n    ' Triangle\n    Dim tri As Variant = Array(Vector2(100,200), Vector2(200,50), Vector2(300,200))\n    DrawPolygon tri, Color.Green\n    ' Pentagon\n    Dim pent As Variant = Array( _\n        Vector2(200,50), Vector2(300,120), Vector2(260,230), _\n        Vector2(140,230), Vector2(100,120))\n    DrawPolygon pent, Color(0.5, 0.2, 0.8)\nEnd Sub",
+		0)
+
+	_add("DrawPolyline",
+		"DrawPolyline points, color [, width]",
+		"Draws a multi-segment line through an array of Vector2 points. Unlike DrawPolygon, this draws open lines (not filled). Great for graphs, paths, vector shapes.",
+		"Sub _Draw()\n    ' Zigzag line\n    Dim pts As Variant = Array( _\n        Vector2(10,100), Vector2(50,50), Vector2(90,100), _\n        Vector2(130,50), Vector2(170,100))\n    DrawPolyline pts, Color.Yellow, 2\nEnd Sub",
+		0)
+
+	_add("SetDrawTransform",
+		"SetDrawTransform x, y [, rotation] [, scaleX] [, scaleY]",
+		"Sets a 2D transform for all subsequent draw calls. Translation (x,y), rotation in radians, and scale factors. Use to draw rotated or scaled groups of shapes.",
+		"Sub _Draw()\n    ' Draw a rotated square\n    SetDrawTransform 200, 200, 0.785  ' 45 degrees\n    DrawRect -25, -25, 50, 50, Color.Red\n    ResetDrawTransform\n\n    ' Draw scaled UI\n    SetDrawTransform 0, 0, 0, 2.0, 2.0  ' 2x scale\n    DrawRect 0, 0, 50, 50, Color.Blue    ' Appears as 100x100\n    ResetDrawTransform\nEnd Sub",
+		0)
+
+	_add("ResetDrawTransform",
+		"ResetDrawTransform",
+		"Resets the drawing transform to identity (no translation, rotation, or scale). Always call after SetDrawTransform to restore normal coordinates.",
+		"SetDrawTransform 100, 100, 0.5, 2.0, 2.0\nDrawCircle 0, 0, 30, Color.Red   ' Drawn transformed\nResetDrawTransform                    ' Back to normal\nDrawCircle 50, 50, 10, Color.Blue ' Drawn at actual 50,50",
+		0)
+
+	_add("QueueRedraw",
+		"QueueRedraw",
+		"Requests the node to redraw on the next frame. Call this after changing any visual state that should be reflected in _Draw(). Useful in _Process() or event handlers to trigger a visual update.",
+		"Sub _Process(delta)\n    If stateChanged Then\n        QueueRedraw  ' Triggers _Draw() next frame\n    End If\nEnd Sub\n\n' Or simply call every frame:\nSub _Process(delta)\n    QueueRedraw\nEnd Sub",
+		0)
+
+	_add("CLS",
+		"CLS\nCLS()",
+		"Clears the screen/canvas. Removes all dynamically created child nodes and triggers a redraw. VB6 classic command.",
+		"CLS  ' Clear everything\n\n' Typical usage: clear before redrawing\nSub _Draw()\n    ' CLS is implicit in _Draw — each frame starts clean\n    DrawRect 0, 0, 640, 480, Color.Black   ' Background\n    DrawString GetThemeDefaultFont(), Vector2(10, 20), \"Game Over\", Color.White\nEnd Sub",
+		0)
+
+	# =========================================================================
+	# IMAGE & TEXTURE MANIPULATION
+	# =========================================================================
+	_add("CreateImage",
+		"CreateImage(width, height [, fillColor]) As Image",
+		"Creates a new RGBA8 Image object with the specified dimensions (1-4096 pixels). The optional fillColor sets all pixels to that color (default is transparent black). Images are in-memory pixel buffers — use SetImagePixel to draw on them, then CreateTexture or UpdateTexture to display them.",
+		"' Create a white 640x480 canvas\nDim img As Variant = CreateImage(640, 480, Color(1, 1, 1, 1))\n\n' Create a transparent 256x256 sprite sheet\nDim sheet As Variant = CreateImage(256, 256)\n\n' Draw on it\nSetImagePixel img, 100, 100, Color.Red\nSetImagePixel img, 101, 100, Color.Red\n\n' Display it\nDim tex As Variant = CreateTexture(img)\nDrawTexture tex, 0, 0",
+		0)
+
+	_add("CreateTexture",
+		"CreateTexture(image) As ImageTexture\nCreateTexture(width, height [, fillColor]) As ImageTexture",
+		"Creates an ImageTexture for display with DrawTexture. Can accept an existing Image, or width/height to create both an Image and Texture in one call. ImageTextures live on the GPU and are fast to render.",
+		"' From an existing Image\nDim img = CreateImage(320, 240, Color.White)\nDim tex = CreateTexture(img)\n\n' Quick one-liner: create texture directly\nDim tex2 = CreateTexture(64, 64, Color.Blue)\n\n' Display in _Draw()\nSub _Draw()\n    DrawTexture tex, 0, 0\nEnd Sub",
+		0)
+
+	_add("ImageToTexture",
+		"ImageToTexture(image) As ImageTexture",
+		"Converts an Image object to a new ImageTexture. Similar to CreateTexture(image) but always creates a new texture object.",
+		"Dim img = CreateImage(100, 100, Color.Green)\nDim tex = ImageToTexture(img)\nDrawTexture tex, 50, 50",
+		0)
+
+	_add("SetImagePixel",
+		"SetImagePixel image, x, y, color",
+		"Sets a pixel color on an Image object. After modifying pixels, call UpdateTexture to push changes to the display texture. Use Color() or Color8() to create the color value.",
+		"Dim img = CreateImage(100, 100)\nDim tex = CreateTexture(img)\n\n' Draw a red diagonal line\nFor i = 0 To 99\n    SetImagePixel img, i, i, Color(1, 0, 0, 1)\nNext\nUpdateTexture tex, img  ' Push changes to GPU\n\n' Using Color8 (0-255 range)\nSetImagePixel img, 50, 50, Color8(0, 255, 0, 255)",
+		0)
+
+	_add("GetImagePixel",
+		"GetImagePixel(image, x, y) As Color",
+		"Returns the color of a pixel from an Image. The returned Color has .r, .g, .b, .a properties (0.0 to 1.0 range). Multiply by 255 for integer RGB values.",
+		"Dim img = CreateImage(100, 100, Color.Red)\nDim c As Variant = GetImagePixel(img, 50, 50)\nPrint \"R=\" & Str(c.r)   ' 1.0\nPrint \"G=\" & Str(c.g)   ' 0.0\n\n' Get as integer 0-255\nDim r As Integer = Int(c.r * 255)\nDim g As Integer = Int(c.g * 255)\nDim b As Integer = Int(c.b * 255)",
+		0)
+
+	_add("FillImage",
+		"FillImage image, color",
+		"Fills the entire Image with a solid color. Much faster than looping over every pixel with SetImagePixel. Use for clearing a canvas or setting a background.",
+		"Dim img = CreateImage(640, 480)\n\n' Clear to white\nFillImage img, Color(1, 1, 1, 1)\n\n' Clear to black\nFillImage img, Color(0, 0, 0, 1)\n\n' Using Color8\nFillImage img, Color8(100, 150, 200, 255)",
+		0)
+
+	_add("FillImageRect",
+		"FillImageRect image, Rect2i(x, y, w, h), color\nFillImageRect image, x, y, w, h, color",
+		"Fills a rectangular region of an Image with a color. Faster than per-pixel loops for rectangular fills.",
+		"Dim img = CreateImage(320, 240, Color.White)\n\n' Draw a green rectangle\nFillImageRect img, Rect2i(10, 10, 100, 50), Color(0, 1, 0, 1)\n\n' VB-style arguments\nFillImageRect img, 50, 80, 200, 30, Color.Blue",
+		0)
+
+	_add("BlitImage",
+		"BlitImage destImage, srcImage, srcRect, destPos",
+		"Copies a rectangular region of pixels from a source Image to a destination Image. srcRect is a Rect2i defining the source region, destPos is a Vector2i for the destination top-left corner.",
+		"Dim canvas = CreateImage(640, 480, Color.White)\nDim stamp = CreateImage(32, 32, Color.Red)\n\n' Stamp the red square onto the canvas at (100, 100)\nBlitImage canvas, stamp, Rect2i(0, 0, 32, 32), Vector2i(100, 100)\n\n' Copy part of canvas to another location\nBlitImage canvas, canvas, Rect2i(0, 0, 100, 100), Vector2i(200, 200)",
+		0)
+
+	_add("UpdateTexture",
+		"UpdateTexture texture, image",
+		"Pushes updated Image pixel data to an existing ImageTexture. Call this after modifying pixels with SetImagePixel, FillImage, or BlitImage to make the changes visible on screen. This is an essential step in the Image → Texture rendering pipeline.",
+		"Dim img = CreateImage(320, 240)\nDim tex = CreateTexture(img)\n\n' Modify pixels\nFor x = 0 To 319\n    SetImagePixel img, x, 120, Color.Red\nNext\n\n' IMPORTANT: Push to GPU\nUpdateTexture tex, img\n\n' Now DrawTexture will show the changes\nSub _Draw()\n    DrawTexture tex, 0, 0\nEnd Sub",
+		0)
+
+	_add("ImageWidth",
+		"ImageWidth(image) As Integer",
+		"Returns the width of an Image in pixels.",
+		"Dim img = CreateImage(320, 240)\nPrint ImageWidth(img)   ' 320\nPrint ImageHeight(img)  ' 240",
+		0)
+
+	_add("ImageHeight",
+		"ImageHeight(image) As Integer",
+		"Returns the height of an Image in pixels.",
+		"Dim img = CreateImage(320, 240)\nPrint ImageHeight(img)  ' 240\n\n' Iterate all pixels\nFor y = 0 To ImageHeight(img) - 1\n    For x = 0 To ImageWidth(img) - 1\n        SetImagePixel img, x, y, Color(x/320.0, y/240.0, 0.5, 1)\n    Next\nNext",
+		0)
+
+	_add("TextureWidth",
+		"TextureWidth(texture) As Integer",
+		"Returns the width of a Texture2D in pixels.",
+		"Dim tex = LoadPicture(\"res://icon.png\")\nPrint TextureWidth(tex)   ' e.g. 128\nPrint TextureHeight(tex)  ' e.g. 128",
+		0)
+
+	_add("TextureHeight",
+		"TextureHeight(texture) As Integer",
+		"Returns the height of a Texture2D in pixels.",
+		"Dim tex = CreateTexture(256, 128)\nPrint TextureWidth(tex)    ' 256\nPrint TextureHeight(tex)   ' 128",
+		0)
+
+	_add("GetTextureImage",
+		"GetTextureImage(texture) As Image",
+		"Extracts the Image data from an ImageTexture. Useful for reading pixel data from a loaded texture. The returned Image can be modified and pushed back with UpdateTexture.",
+		"Dim tex = LoadPicture(\"res://icon.png\")\nDim img = GetTextureImage(tex)\nDim c = GetImagePixel(img, 0, 0)  ' Read top-left pixel\nPrint \"Top-left color: R=\" & Str(Int(c.r * 255))",
+		0)
+
+	_add("SaveImage",
+		"SaveImage(image, path) As Boolean",
+		"Saves an Image to a PNG file. Returns True on success. Use user:// paths for writable locations. Great for screenshots or saving user-created art.",
+		"Dim img = CreateImage(640, 480, Color.White)\n' ... draw on img ...\nDim ok As Boolean = SaveImage(img, \"user://screenshot.png\")\nIf ok Then\n    Print \"Saved!\"\nEnd If",
+		0)
+
+	_add("LoadImage",
+		"LoadImage(path) As Image",
+		"Loads an image file (PNG, JPG, BMP, etc.) and returns it as an RGBA8 Image object. Unlike LoadPicture (which returns a Texture2D), LoadImage gives you direct pixel access via GetImagePixel.",
+		"Dim img = LoadImage(\"user://painting.png\")\nPrint \"Size: \" & Str(ImageWidth(img)) & \"x\" & Str(ImageHeight(img))\n\n' Read a pixel\nDim c = GetImagePixel(img, 0, 0)\nPrint \"R=\" & Str(Int(c.r * 255))\n\n' Convert to texture for display\nDim tex = ImageToTexture(img)\nDrawTexture tex, 0, 0",
+		0)
+
+	_add("LoadPicture",
+		"LoadPicture(path) As Texture2D",
+		"Loads an image file from the given resource path and returns a Texture2D for use with DrawTexture. The classic VB6-style way to load images.",
+		"Dim tex As Variant = LoadPicture(\"res://icon.png\")\nSub _Draw()\n    DrawTexture tex, 100, 100\nEnd Sub",
+		0)
+
+	_add("RGB",
+		"RGB(red, green, blue) As Color",
+		"Creates a Color from integer red, green, blue values (0-255). VB6-compatible function.",
+		"Dim c As Variant = RGB(255, 0, 0)  ' Red\nDrawRect 0, 0, 100, 100, RGB(0, 128, 255)  ' Sky blue",
+		0)

@@ -1463,12 +1463,39 @@ VisualGasic provides a comprehensive set of keywords for modern game development
 - `IsKeyPressed` - Check keyboard input
 - `IsActionPressed` - Check input action
 
-#### **Graphics & Drawing**
-- `DrawText` - Draw text
-- `DrawLine` - Draw line
-- `DrawRect` - Draw rectangle
+#### **Graphics & Drawing — Primitives**
+- `DrawText` - Draw text at position
+- `DrawString` - Draw text using a font object
+- `DrawLine` - Draw line between two points
+- `DrawRect` - Draw rectangle (filled or outline)
 - `DrawCircle` - Draw circle
-- `LoadPicture` - Load image
+- `DrawPixel` / `PSet` - Draw a single pixel
+- `DrawTexture` - Draw a texture at a position
+- `DrawTextureRect` - Draw a texture stretched into a rectangle
+- `DrawArc` - Draw an arc (partial circle)
+- `DrawPolygon` - Draw a filled polygon
+- `DrawPolyline` - Draw a multi-segment line
+- `SetDrawTransform` - Set translation/rotation/scale for drawing
+- `ResetDrawTransform` - Reset draw transform to identity
+- `QueueRedraw` - Request a redraw on next frame
+- `CLS` - Clear the screen/canvas
+- `LoadPicture` - Load image as texture
+
+#### **Graphics & Drawing — Image Manipulation**
+- `CreateImage` - Create a new Image object (RGBA8)
+- `CreateTexture` - Create an ImageTexture from Image or dimensions
+- `ImageToTexture` - Convert Image to ImageTexture
+- `SetImagePixel` - Set a pixel on an Image
+- `GetImagePixel` - Get a pixel color from an Image
+- `FillImage` - Fill entire Image with a color
+- `FillImageRect` - Fill a rectangular region of an Image
+- `BlitImage` - Copy pixels between Images
+- `UpdateTexture` - Push Image data to ImageTexture
+- `ImageWidth` / `ImageHeight` - Get Image dimensions
+- `TextureWidth` / `TextureHeight` - Get Texture dimensions
+- `LoadImage` - Load image file as Image object
+- `SaveImage` - Save Image as PNG file
+- `GetTextureImage` - Extract Image from ImageTexture
 
 #### **Audio**
 - `PlaySound` - Play sound effect
@@ -1512,20 +1539,25 @@ VisualGasic provides a comprehensive set of keywords for modern game development
 ### **Complete Alphabetical Index**
 
 ```
-Abs, AndAlso, Append, As, Beep, ByRef, ByVal, Call, Case, Catch, ChDir, 
-ChangeScene, Close, Clamp, Const, Continue, CreateActor2D, CurDir, Data, 
-Dictionary, Dim, Do, DoEvents, DrawCircle, DrawLine, DrawRect, DrawText, 
-each, Elif, Else, ElseIf, End, Environ, Error, Event, Exit, Explicit, 
-Extends, False, FileCopy, Finally, For, Format, Function, GetCollider, 
-GetSetting, Global, Goto, HasCollided, If, IIf, in, Include, Inherits, 
-Input, Int, IsActionPressed, IsKeyPressed, Lerp, Line, LoadForm, 
-LoadPicture, Loop, Me, MkDir, MonthName, MsgBox, New, Next, Not, Nothing, 
-On, Open, Optional, Option, Or, OrElse, Output, ParamArray, Pass, 
-PlaySound, PlayTone, Preserve, Print, Private, Public, QBColor, 
-RaiseEvent, Randomize, RandRange, Read, Redim, Resume, Return, RmDir, 
-Rnd, Round, SaveDatabase, SaveSetting, Select, Set, SetScreenSize, 
-SetTitle, Shell, Sleep, Static, Step, Stop, Sub, Then, To, True, Try, 
-Type, TypeName, Until, Weekday, WeekdayName, Wend, While, with, Xor
+Abs, AndAlso, Append, As, Beep, BlitImage, ByRef, ByVal, Call, Case,
+Catch, ChDir, ChangeScene, CLS, Close, Clamp, Const, Continue,
+CreateActor2D, CreateImage, CreateTexture, CurDir, Data, Dictionary,
+Dim, Do, DoEvents, DrawArc, DrawCircle, DrawLine, DrawPixel, DrawPolygon,
+DrawPolyline, DrawRect, DrawString, DrawText, DrawTexture, DrawTextureRect,
+each, Elif, Else, ElseIf, End, Environ, Error, Event, Exit, Explicit,
+Extends, False, FileCopy, FillImage, FillImageRect, Finally, For, Format,
+Function, GetCollider, GetImagePixel, GetSetting, GetTextureImage, Global,
+Goto, HasCollided, If, IIf, ImageHeight, ImageToTexture, ImageWidth, in,
+Include, Inherits, Input, Int, IsActionPressed, IsKeyPressed, Lerp, Line,
+LoadForm, LoadImage, LoadPicture, Loop, Me, MkDir, MonthName, MsgBox, New,
+Next, Not, Nothing, On, Open, Optional, Option, Or, OrElse, Output,
+ParamArray, Pass, PlaySound, PlayTone, Preserve, Print, Private, PSet,
+Public, QBColor, QueueRedraw, RaiseEvent, Randomize, RandRange, Read,
+Redim, ResetDrawTransform, Resume, Return, RmDir, Rnd, Round,
+SaveDatabase, SaveImage, SaveSetting, Select, Set, SetDrawTransform,
+SetImagePixel, SetScreenSize, SetTitle, Shell, Sleep, Static, Step, Stop,
+Sub, TextureHeight, TextureWidth, Then, To, True, Try, Type, TypeName,
+Until, UpdateTexture, Weekday, WeekdayName, Wend, While, with, Xor
 ```
 
 **Total: 115+ Keywords Available**
@@ -3520,6 +3552,65 @@ Sleep(500)                          ' Pause for 0.5 seconds
 ' Utility (general application functions)
 Cls                                 ' Clear screen
 Dim choice = Choose(score > 100, "Winner!", "Try again!")
+```
+
+#### Drawing Primitives
+
+```vb
+' Basic drawing (available in _Draw())
+DrawRect 10, 10, 100, 50, Color(1, 0, 0)          ' Red filled rectangle
+DrawCircle 200, 100, 30, Color(0, 0, 1)           ' Blue circle
+DrawLine 0, 0, 100, 100, Color(0, 1, 0), 2        ' Green line, 2px wide
+DrawPixel 50, 50, Color(1, 1, 0)                   ' Yellow pixel (also: PSet)
+DrawString GetThemeDefaultFont(), Vector2(10, 20), "Hello!", Color.White
+
+' Textures
+Dim tex As Variant = LoadPicture("res://icon.png")
+DrawTexture tex, 100, 100                          ' Draw at position
+DrawTextureRect tex, Rect2(0, 0, 200, 200), False  ' Stretch into rect
+
+' Advanced shapes
+DrawArc 100, 100, 50, 0, 3.14, 32, Color.Red, 2   ' Half-circle arc
+DrawPolygon Array(Vector2(0,0), Vector2(100,0), Vector2(50,80)), Color.Green
+DrawPolyline Array(Vector2(0,0), Vector2(50,30), Vector2(100,0)), Color.Blue, 2
+
+' Transform
+SetDrawTransform 100, 100, 0.5, 2.0, 2.0          ' Translate, rotate, scale
+DrawRect 0, 0, 50, 50, Color.Red                   ' Drawn at transformed position
+ResetDrawTransform                                  ' Back to normal
+```
+
+#### Image & Texture Manipulation
+
+```vb
+' Create an Image and Texture (for pixel-level drawing)
+Dim img As Variant = CreateImage(320, 240, Color(1, 1, 1, 1))  ' White 320x240
+Dim tex As Variant = CreateTexture(img)
+
+' Draw pixels on the Image
+SetImagePixel img, 10, 20, Color(1, 0, 0, 1)       ' Red pixel
+Dim c As Variant = GetImagePixel(img, 10, 20)       ' Read it back
+Print "Red: " & Str(c.r)                            ' Prints 1.0
+
+' Bulk operations (much faster than per-pixel loops)
+FillImage img, Color(0, 0, 0, 1)                    ' Fill entire image black
+FillImageRect img, Rect2i(10, 10, 100, 50), Color(0, 1, 0, 1)  ' Green rect
+
+' Copy between images
+Dim img2 As Variant = CreateImage(320, 240)
+BlitImage img2, img, Rect2i(0, 0, 100, 100), Vector2i(50, 50)  ' Copy region
+
+' Push changes to texture and draw
+UpdateTexture tex, img                              ' Sync Image → Texture
+DrawTexture tex, 0, 0                               ' Render in _Draw()
+
+' File I/O
+SaveImage img, "user://screenshot.png"              ' Save as PNG
+Dim loaded As Variant = LoadImage("user://screenshot.png")  ' Load back
+
+' Query dimensions
+Print "Image: " & Str(ImageWidth(img)) & "x" & Str(ImageHeight(img))
+Print "Texture: " & Str(TextureWidth(tex)) & "x" & Str(TextureHeight(tex))
 ```
 
 ---
