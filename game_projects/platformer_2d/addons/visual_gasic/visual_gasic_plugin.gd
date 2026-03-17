@@ -800,6 +800,8 @@ func _set_window_layout(config: ConfigFile):
 			# Apply VB6 theme to the live scene tree (deferred — scene root
 			# may not be fully set up yet during layout restoration).
 			call_deferred("_apply_vb6_theme_to_scene_root")
+			# Populate Properties panel with form props on restore
+			call_deferred("_populate_properties_for_form")
 
 ## Called by the editor when saving window layout.
 ## CRITICAL: This fires AFTER Godot has saved all open scene tabs to disk.
@@ -1881,6 +1883,8 @@ func open_form_in_designer(tscn_path: String) -> void:
 	print("VisualGasic: Opened '", tscn_path, "' in Visual Gasic IDE")
 	# Apply VB6 theme to the live scene tree immediately
 	_apply_vb6_theme_to_scene_root()
+	# Populate Properties panel with form-level properties (VB6 behaviour)
+	_populate_properties_for_form()
 	# Also force a scene reload so the 2D viewport picks up any C++ changes.
 	get_tree().create_timer(0.3).timeout.connect(_force_godot_scene_reload.bind(tscn_path))
 
@@ -4975,6 +4979,17 @@ func _sync_scene_to_form_designer() -> void:
 	# This ensures Godot's 2D viewport shows VB6 styling and Godot's own
 	# save serializer will persist the theme into the .tscn.
 	_apply_vb6_theme_to_scene_root()
+	# Auto-populate the Properties panel with form-level properties so it
+	# isn't empty on initial load (VB6 always shows the form's props).
+	_populate_properties_for_form()
+
+## Helper: populate the Properties panel with form-level properties.
+## Called after a form is loaded into the C++ designer so the user
+## immediately sees the form's props (like VB6) instead of an empty grid.
+func _populate_properties_for_form() -> void:
+	if is_instance_valid(_properties_inspector) and is_instance_valid(_form_designer):
+		if _properties_inspector.has_method("show_form_properties"):
+			_properties_inspector.show_form_properties(_form_designer)
 
 ## Signal: A control was selected in the C++ Form Designer canvas.
 func _on_fd_control_selected(index: int) -> void:

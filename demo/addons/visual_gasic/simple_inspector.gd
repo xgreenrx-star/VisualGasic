@@ -348,6 +348,51 @@ func setup(plugin: EditorPlugin):
 
 # === Object Dropdown Management ===
 
+# Map Godot class names → VB6-style type names for the Properties dropdown.
+const _CLASS_TO_VB6 := {
+	"Window": "Form",
+	"Control": "UserControl",
+	"Button": "CommandButton",
+	"Label": "Label",
+	"LineEdit": "TextBox",
+	"TextEdit": "TextBox",
+	"RichTextLabel": "RichTextBox",
+	"CheckBox": "CheckBox",
+	"CheckButton": "CheckBox",
+	"OptionButton": "ComboBox",
+	"SpinBox": "SpinBox",
+	"HSlider": "HSlider",
+	"VSlider": "VSlider",
+	"HScrollBar": "HScrollBar",
+	"VScrollBar": "VScrollBar",
+	"ProgressBar": "ProgressBar",
+	"TextureRect": "PictureBox",
+	"Panel": "Frame",
+	"PanelContainer": "Frame",
+	"TabContainer": "TabStrip",
+	"Tree": "TreeView",
+	"ItemList": "ListBox",
+	"MenuBar": "MenuBar",
+	"ColorRect": "Shape",
+	"Timer": "Timer",
+	"VideoStreamPlayer": "Video",
+	"AudioStreamPlayer": "AudioPlayer",
+	"GridContainer": "FlexGrid",
+	"HBoxContainer": "HBoxLayout",
+	"VBoxContainer": "VBoxLayout",
+	"ScrollContainer": "ScrollFrame",
+	"FileDialog": "CommonDialog",
+	"ColorPickerButton": "ColorBtn",
+	"CanvasLayer": "Form",
+}
+
+func _godot_class_to_vb6(godot_class: String) -> String:
+	if godot_class.is_empty():
+		return "Control"
+	if _CLASS_TO_VB6.has(godot_class):
+		return _CLASS_TO_VB6[godot_class]
+	return godot_class
+
 func _refresh_object_dropdown():
 	"""Rebuild the object dropdown with all controls in the current form."""
 	_object_dropdown.clear()
@@ -367,7 +412,10 @@ func _refresh_object_dropdown():
 		var node = _all_form_nodes[i]
 		if not is_instance_valid(node):
 			continue
-		var label = str(node.name) + "  " + str(node.get_class())
+		var cls: String = node.get_class() if node.get_class() else ""
+		# Map Godot class names to VB6-style type names
+		var vb6_type := _godot_class_to_vb6(cls)
+		var label = str(node.name) + "  " + vb6_type
 		_object_dropdown.add_item(label)
 		_object_dropdown.set_item_metadata(_object_dropdown.item_count - 1, node)
 	
@@ -407,20 +455,23 @@ func _on_alphabetic_pressed():
 	_view_mode = 0
 	_alpha_btn.button_pressed = true
 	_cat_btn.button_pressed = false
-	if current_node:
-		update_properties(current_node)
+	_rerender_properties()
 
 func _on_categorized_pressed():
 	_view_mode = 1
 	_alpha_btn.button_pressed = false
 	_cat_btn.button_pressed = true
-	if current_node:
-		update_properties(current_node)
+	_rerender_properties()
 
 # === Selection Changed ===
 
 func _on_selection_changed():
 	if not is_instance_valid(editor_plugin):
+		return
+	# When the Properties panel is showing Form Designer properties (form
+	# or control), ignore Godot's scene-tree selection changes — they would
+	# clobber the FD state and show "<null>" for custom C++ nodes.
+	if _fd_mode or _fd_form_mode:
 		return
 	var sel = editor_plugin.get_editor_interface().get_selection().get_selected_nodes()
 	if sel.size() == 1:
