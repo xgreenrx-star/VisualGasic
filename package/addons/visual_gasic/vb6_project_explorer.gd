@@ -277,6 +277,10 @@ func _scan_directory(path: String, forms: Array[Dictionary], components: Array[D
 				_scan_directory(full_path, forms, components, modules, resources)
 		else:
 			if file_name.ends_with(".vg"):
+				# Skip stray files with empty basename (e.g. literally ".vg")
+				var base_name := file_name.get_basename()
+				if base_name.is_empty():
+					continue
 				# Three-way classification:
 				#   Form      = has VB6 form content (Form_Load, Begin VB.Form, etc.)
 				#   Component = has a visual scene (.tscn) but no form markers
@@ -284,14 +288,17 @@ func _scan_directory(path: String, forms: Array[Dictionary], components: Array[D
 				var has_form = _has_form_content(full_path)
 				var has_scene = FileAccess.file_exists(full_path.get_basename() + ".tscn")
 				if has_form:
-					forms.append({"name": file_name.get_basename(), "path": full_path})
+					forms.append({"name": base_name, "path": full_path})
 				elif has_scene:
-					components.append({"name": file_name.get_basename(), "path": full_path})
+					components.append({"name": base_name, "path": full_path})
 				else:
-					modules.append({"name": file_name.get_basename(), "path": full_path})
+					modules.append({"name": base_name, "path": full_path})
 			elif file_name.ends_with(".tscn") or file_name.ends_with(".scn"):
-				# Only add scenes not already represented by a .vg file
-				resources.append({"name": file_name.get_basename(), "path": full_path, "type": "scene"})
+				# Only add scenes that do NOT have a paired .vg file —
+				# those are already shown under Forms or Components.
+				var vg_sibling := full_path.get_basename() + ".vg"
+				if not FileAccess.file_exists(vg_sibling):
+					resources.append({"name": file_name.get_basename(), "path": full_path, "type": "scene"})
 			elif file_name.ends_with(".tres") or file_name.ends_with(".res"):
 				resources.append({"name": file_name.get_basename(), "path": full_path, "type": "resource"})
 		file_name = dir.get_next()
@@ -353,14 +360,14 @@ func _populate_with_folders(root: TreeItem, forms: Array[Dictionary], components
 			item.set_tooltip_text(0, entry.path + "  (double-click to edit)")
 			item.set_metadata(0, {"type": "module", "path": entry.path})
 
-	# Resources folder — collapsed by default to keep focus on code files
+	# Resources folder — expanded by default like VB6 so items are visible
 	if resources.size() > 0:
 		var folder = tree.create_item(root)
 		folder.set_text(0, FOLDER_RESOURCES + " (" + str(resources.size()) + ")")
 		folder.set_tooltip_text(0, "Scene and resource files")
 		folder.set_selectable(0, true)
 		folder.set_metadata(0, {"type": "folder", "folder": FOLDER_RESOURCES})
-		folder.set_collapsed(true)  # Collapse to reduce clutter
+		folder.set_collapsed(false)  # Expanded like VB6 Project Explorer
 		for entry in resources:
 			var item = tree.create_item(folder)
 			item.set_text(0, entry.name)
