@@ -49,6 +49,8 @@
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/classes/sprite2d.hpp>
 #include <godot_cpp/classes/texture2d.hpp>
+#include <godot_cpp/classes/image_texture.hpp>
+#include <godot_cpp/classes/image.hpp>
 #include <godot_cpp/classes/audio_stream.hpp>
 #include <godot_cpp/classes/canvas_item.hpp>
 #include <godot_cpp/classes/shader.hpp>
@@ -1457,6 +1459,246 @@ void VisualGasicInstance::dispatch_builtin_call(const String &p_method, const Ar
                     float x = p_args[0], y = p_args[1], radius = p_args[2];
                     if (p_args.size() > 3) col = p_args[3];
                     ci->draw_circle(Vector2(x, y), radius, col);
+                }
+                r_found = true;
+                return;
+            }
+            // DrawPixel / PSet — PSet x, y, color
+            if ((p_method.nocasecmp_to("DrawPixel") == 0 || p_method.nocasecmp_to("PSet") == 0) && p_args.size() >= 3) {
+                float x = p_args[0], y = p_args[1];
+                Color col = p_args[2];
+                ci->draw_rect(Rect2(x, y, 1, 1), col, true);
+                r_found = true;
+                return;
+            }
+            // DrawTexture — VG style: DrawTexture texture, x, y[, color]
+            //               Godot style: DrawTexture texture, Vector2[, color]
+            if (p_method.nocasecmp_to("DrawTexture") == 0 && p_args.size() >= 2) {
+                Ref<Texture2D> tex;
+                if (p_args[0].get_type() == Variant::OBJECT) {
+                    tex = p_args[0];
+                }
+                if (tex.is_valid()) {
+                    Color modulate = Color(1,1,1,1);
+                    if (p_args[1].get_type() == Variant::VECTOR2) {
+                        // Godot style: texture, Vector2[, color]
+                        Vector2 pos = p_args[1];
+                        if (p_args.size() > 2) modulate = p_args[2];
+                        ci->draw_texture(tex, pos, modulate);
+                    } else if (p_args.size() >= 3) {
+                        // VG style: texture, x, y[, color]
+                        float x = p_args[1], y = p_args[2];
+                        if (p_args.size() > 3) modulate = p_args[3];
+                        ci->draw_texture(tex, Vector2(x, y), modulate);
+                    }
+                }
+                r_found = true;
+                return;
+            }
+            // DrawTextureRect — DrawTextureRect texture, Rect2[, tile][, color]
+            //                   DrawTextureRect texture, x, y, w, h[, tile][, color]
+            if (p_method.nocasecmp_to("DrawTextureRect") == 0 && p_args.size() >= 2) {
+                Ref<Texture2D> tex;
+                if (p_args[0].get_type() == Variant::OBJECT) {
+                    tex = p_args[0];
+                }
+                if (tex.is_valid()) {
+                    bool tile = false;
+                    Color modulate = Color(1,1,1,1);
+                    if (p_args[1].get_type() == Variant::RECT2) {
+                        // Godot style: texture, Rect2[, tile][, color]
+                        Rect2 rect = p_args[1];
+                        if (p_args.size() > 2) tile = (bool)p_args[2];
+                        if (p_args.size() > 3) modulate = p_args[3];
+                        ci->draw_texture_rect(tex, rect, tile, modulate);
+                    } else if (p_args.size() >= 5) {
+                        // VG style: texture, x, y, w, h[, tile][, color]
+                        float x = p_args[1], y = p_args[2], w = p_args[3], h = p_args[4];
+                        if (p_args.size() > 5) tile = (bool)p_args[5];
+                        if (p_args.size() > 6) modulate = p_args[6];
+                        ci->draw_texture_rect(tex, Rect2(x, y, w, h), tile, modulate);
+                    }
+                }
+                r_found = true;
+                return;
+            }
+            // DrawArc — DrawArc x, y, radius, startAngle, endAngle[, pointCount][, color][, width]
+            //           DrawArc Vector2, radius, startAngle, endAngle[, pointCount][, color][, width]
+            if (p_method.nocasecmp_to("DrawArc") == 0 && p_args.size() >= 4) {
+                Color col = Color(1,1,1,1);
+                float width = 1.0;
+                int point_count = 32;
+                if (p_args[0].get_type() == Variant::VECTOR2 && p_args.size() >= 4) {
+                    // Godot style: center, radius, startAngle, endAngle[, pointCount][, color][, width]
+                    Vector2 center = p_args[0];
+                    float radius = p_args[1];
+                    float start = p_args[2];
+                    float end = p_args[3];
+                    if (p_args.size() > 4) point_count = (int)p_args[4];
+                    if (p_args.size() > 5) col = p_args[5];
+                    if (p_args.size() > 6) width = p_args[6];
+                    ci->draw_arc(center, radius, start, end, point_count, col, width);
+                } else if (p_args.size() >= 5) {
+                    // VG style: x, y, radius, startAngle, endAngle[, pointCount][, color][, width]
+                    float x = p_args[0], y = p_args[1], radius = p_args[2];
+                    float start = p_args[3], end = p_args[4];
+                    if (p_args.size() > 5) point_count = (int)p_args[5];
+                    if (p_args.size() > 6) col = p_args[6];
+                    if (p_args.size() > 7) width = p_args[7];
+                    ci->draw_arc(Vector2(x, y), radius, start, end, point_count, col, width);
+                }
+                r_found = true;
+                return;
+            }
+            // DrawPolygon — DrawPolygon points, color
+            //               (points is a PackedVector2Array or Array of Vector2)
+            if (p_method.nocasecmp_to("DrawPolygon") == 0 && p_args.size() >= 2) {
+                PackedVector2Array pts;
+                if (p_args[0].get_type() == Variant::PACKED_VECTOR2_ARRAY) {
+                    pts = p_args[0];
+                } else if (p_args[0].get_type() == Variant::ARRAY) {
+                    Array arr = p_args[0];
+                    for (int i = 0; i < arr.size(); i++) pts.push_back(arr[i]);
+                }
+                if (pts.size() >= 3) {
+                    Color col = p_args[1];
+                    PackedColorArray colors;
+                    colors.push_back(col);
+                    ci->draw_polygon(pts, colors);
+                }
+                r_found = true;
+                return;
+            }
+            // DrawPolyline — DrawPolyline points, color[, width]
+            if (p_method.nocasecmp_to("DrawPolyline") == 0 && p_args.size() >= 2) {
+                PackedVector2Array pts;
+                if (p_args[0].get_type() == Variant::PACKED_VECTOR2_ARRAY) {
+                    pts = p_args[0];
+                } else if (p_args[0].get_type() == Variant::ARRAY) {
+                    Array arr = p_args[0];
+                    for (int i = 0; i < arr.size(); i++) pts.push_back(arr[i]);
+                }
+                if (pts.size() >= 2) {
+                    Color col = p_args[1];
+                    float width = 1.0;
+                    if (p_args.size() > 2) width = p_args[2];
+                    ci->draw_polyline(pts, col, width);
+                }
+                r_found = true;
+                return;
+            }
+            // SetDrawTransform — SetDrawTransform x, y[, rotation][, scaleX, scaleY]
+            if (p_method.nocasecmp_to("SetDrawTransform") == 0 && p_args.size() >= 2) {
+                float x = p_args[0], y = p_args[1];
+                float rot = 0.0;
+                Vector2 sc = Vector2(1, 1);
+                if (p_args.size() > 2) rot = p_args[2];
+                if (p_args.size() > 4) { sc.x = p_args[3]; sc.y = p_args[4]; }
+                Transform2D xform;
+                xform.set_rotation_and_scale(rot, sc);
+                xform.set_origin(Vector2(x, y));
+                ci->draw_set_transform_matrix(xform);
+                r_found = true;
+                return;
+            }
+            // ResetDrawTransform — reset to identity
+            if (p_method.nocasecmp_to("ResetDrawTransform") == 0) {
+                ci->draw_set_transform_matrix(Transform2D());
+                r_found = true;
+                return;
+            }
+            // QueueRedraw — force a redraw next frame
+            if (p_method.nocasecmp_to("QueueRedraw") == 0) {
+                ci->queue_redraw();
+                r_found = true;
+                return;
+            }
+            // CLS / ClearScreen — clear the canvas and queue redraw
+            if (p_method.nocasecmp_to("CLS") == 0 || p_method.nocasecmp_to("ClearScreen") == 0) {
+                ci->queue_redraw();
+                r_found = true;
+                return;
+            }
+            // SetImagePixel — SetImagePixel image, x, y, color
+            if (p_method.nocasecmp_to("SetImagePixel") == 0 && p_args.size() >= 4) {
+                if (p_args[0].get_type() == Variant::OBJECT) {
+                    Ref<Image> img = p_args[0];
+                    if (img.is_valid()) {
+                        int x = (int)p_args[1], y = (int)p_args[2];
+                        Color col = p_args[3];
+                        if (x >= 0 && x < img->get_width() && y >= 0 && y < img->get_height()) {
+                            img->set_pixel(x, y, col);
+                        }
+                    }
+                }
+                r_found = true;
+                return;
+            }
+            // UpdateTexture — UpdateTexture texture, image
+            // Updates an ImageTexture with modified Image data
+            if (p_method.nocasecmp_to("UpdateTexture") == 0 && p_args.size() >= 2) {
+                if (p_args[0].get_type() == Variant::OBJECT && p_args[1].get_type() == Variant::OBJECT) {
+                    Ref<ImageTexture> tex = p_args[0];
+                    Ref<Image> img = p_args[1];
+                    if (tex.is_valid() && img.is_valid()) {
+                        tex->update(img);
+                    }
+                }
+                r_found = true;
+                return;
+            }
+            // FillImage — FillImage image, color
+            // Fills the entire image with a single color
+            if (p_method.nocasecmp_to("FillImage") == 0 && p_args.size() >= 2) {
+                if (p_args[0].get_type() == Variant::OBJECT) {
+                    Ref<Image> img = p_args[0];
+                    if (img.is_valid()) {
+                        Color col = p_args[1];
+                        img->fill(col);
+                    }
+                }
+                r_found = true;
+                return;
+            }
+            // FillImageRect — FillImageRect image, x, y, w, h, color
+            //                 FillImageRect image, Rect2i, color
+            if (p_method.nocasecmp_to("FillImageRect") == 0 && p_args.size() >= 3) {
+                if (p_args[0].get_type() == Variant::OBJECT) {
+                    Ref<Image> img = p_args[0];
+                    if (img.is_valid()) {
+                        if (p_args[1].get_type() == Variant::RECT2I && p_args.size() >= 3) {
+                            Rect2i rect = p_args[1];
+                            Color col = p_args[2];
+                            img->fill_rect(rect, col);
+                        } else if (p_args.size() >= 6) {
+                            int x = (int)p_args[1], y = (int)p_args[2], w = (int)p_args[3], h = (int)p_args[4];
+                            Color col = p_args[5];
+                            img->fill_rect(Rect2i(x, y, w, h), col);
+                        }
+                    }
+                }
+                r_found = true;
+                return;
+            }
+            // BlitImage — BlitImage destImage, srcImage, srcRect, destPos
+            //             Copies a rectangular region from one image to another (like BitBlt / PaintPicture)
+            if (p_method.nocasecmp_to("BlitImage") == 0 && p_args.size() >= 4) {
+                if (p_args[0].get_type() == Variant::OBJECT && p_args[1].get_type() == Variant::OBJECT) {
+                    Ref<Image> dst = p_args[0];
+                    Ref<Image> src = p_args[1];
+                    if (dst.is_valid() && src.is_valid()) {
+                        Rect2i src_rect;
+                        Vector2i dst_pos;
+                        if (p_args[2].get_type() == Variant::RECT2I) {
+                            src_rect = p_args[2];
+                            dst_pos = p_args[3];
+                        } else if (p_args.size() >= 8) {
+                            // BlitImage dst, src, sx, sy, sw, sh, dx, dy
+                            src_rect = Rect2i((int)p_args[2], (int)p_args[3], (int)p_args[4], (int)p_args[5]);
+                            dst_pos = Vector2i((int)p_args[6], (int)p_args[7]);
+                        }
+                        dst->blit_rect(src, src_rect, dst_pos);
+                    }
                 }
                 r_found = true;
                 return;

@@ -25,6 +25,8 @@
 #include <godot_cpp/classes/viewport.hpp>
 #include <godot_cpp/classes/viewport_texture.hpp>
 #include <godot_cpp/classes/image.hpp>
+#include <godot_cpp/classes/image_texture.hpp>
+#include <godot_cpp/classes/texture2d.hpp>
 // System-level class headers for built-in function dispatch
 #include "visual_gasic_process.h"
 #include "visual_gasic_database.h"
@@ -685,6 +687,149 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
     if (METHOD_IS("getthemedefaultfont")) {
         r_handled = true;
         return Variant(ThemeDB::get_singleton()->get_fallback_font());
+    }
+
+    // ── Image / Texture creation builtins (BASIC-style) ──────────────────
+    // CreateImage(width, height[, color]) — returns an Image (RGBA8)
+    if (METHOD_IS("createimage") && args.size() >= 2) {
+        r_handled = true;
+        int w = (int)args[0], h = (int)args[1];
+        if (w < 1) w = 1;
+        if (h < 1) h = 1;
+        if (w > 4096) w = 4096;
+        if (h > 4096) h = 4096;
+        Ref<Image> img = Image::create_empty(w, h, false, Image::FORMAT_RGBA8);
+        if (img.is_valid()) {
+            Color fill_col = Color(1, 1, 1, 1); // white by default
+            if (args.size() > 2) fill_col = (Color)args[2];
+            img->fill(fill_col);
+        }
+        return img;
+    }
+    // CreateTexture(image) — creates an ImageTexture from an Image
+    // CreateTexture(width, height[, color]) — shortcut: create Image + ImageTexture in one call
+    if (METHOD_IS("createtexture") && args.size() >= 1) {
+        r_handled = true;
+        if (args[0].get_type() == Variant::OBJECT) {
+            // CreateTexture(image) — wrap existing Image in ImageTexture
+            Ref<Image> img = args[0];
+            if (img.is_valid()) {
+                Ref<ImageTexture> tex = ImageTexture::create_from_image(img);
+                return tex;
+            }
+        } else if (args.size() >= 2) {
+            // CreateTexture(width, height[, color]) — convenience shortcut
+            int w = (int)args[0], h = (int)args[1];
+            if (w < 1) w = 1; if (h < 1) h = 1;
+            if (w > 4096) w = 4096; if (h > 4096) h = 4096;
+            Ref<Image> img = Image::create_empty(w, h, false, Image::FORMAT_RGBA8);
+            if (img.is_valid()) {
+                Color fill_col = Color(1, 1, 1, 1);
+                if (args.size() > 2) fill_col = (Color)args[2];
+                img->fill(fill_col);
+                Ref<ImageTexture> tex = ImageTexture::create_from_image(img);
+                return tex;
+            }
+        }
+        return Variant();
+    }
+    // ImageToTexture(image) — alias for CreateTexture(image)
+    if (METHOD_IS("imagetotexture") && args.size() == 1) {
+        r_handled = true;
+        if (args[0].get_type() == Variant::OBJECT) {
+            Ref<Image> img = args[0];
+            if (img.is_valid()) {
+                return ImageTexture::create_from_image(img);
+            }
+        }
+        return Variant();
+    }
+    // GetImagePixel(image, x, y) — returns Color at pixel
+    if (METHOD_IS("getimagepixel") && args.size() == 3) {
+        r_handled = true;
+        if (args[0].get_type() == Variant::OBJECT) {
+            Ref<Image> img = args[0];
+            if (img.is_valid()) {
+                int x = (int)args[1], y = (int)args[2];
+                if (x >= 0 && x < img->get_width() && y >= 0 && y < img->get_height()) {
+                    return img->get_pixel(x, y);
+                }
+            }
+        }
+        return Color(0, 0, 0, 0);
+    }
+    // ImageWidth(image) / ImageHeight(image) — get image dimensions
+    if (METHOD_IS("imagewidth") && args.size() == 1) {
+        r_handled = true;
+        if (args[0].get_type() == Variant::OBJECT) {
+            Ref<Image> img = args[0];
+            if (img.is_valid()) return img->get_width();
+        }
+        return 0;
+    }
+    if (METHOD_IS("imageheight") && args.size() == 1) {
+        r_handled = true;
+        if (args[0].get_type() == Variant::OBJECT) {
+            Ref<Image> img = args[0];
+            if (img.is_valid()) return img->get_height();
+        }
+        return 0;
+    }
+    // TextureWidth(texture) / TextureHeight(texture) — get texture dimensions
+    if (METHOD_IS("texturewidth") && args.size() == 1) {
+        r_handled = true;
+        if (args[0].get_type() == Variant::OBJECT) {
+            Ref<Texture2D> tex = args[0];
+            if (tex.is_valid()) return tex->get_width();
+        }
+        return 0;
+    }
+    if (METHOD_IS("textureheight") && args.size() == 1) {
+        r_handled = true;
+        if (args[0].get_type() == Variant::OBJECT) {
+            Ref<Texture2D> tex = args[0];
+            if (tex.is_valid()) return tex->get_height();
+        }
+        return 0;
+    }
+    // GetTextureImage(texture) — extract Image data from a Texture2D
+    if (METHOD_IS("gettextureimage") && args.size() == 1) {
+        r_handled = true;
+        if (args[0].get_type() == Variant::OBJECT) {
+            Ref<Texture2D> tex = args[0];
+            if (tex.is_valid()) {
+                return tex->get_image();
+            }
+        }
+        return Variant();
+    }
+    // SaveImage(image, path) — save Image to PNG file
+    if (METHOD_IS("saveimage") && args.size() == 2) {
+        r_handled = true;
+        if (args[0].get_type() == Variant::OBJECT) {
+            Ref<Image> img = args[0];
+            if (img.is_valid()) {
+                String path = args[1];
+                if (!path.begins_with("res://") && !path.begins_with("user://")) path = "user://" + path;
+                img->save_png(path);
+                return true;
+            }
+        }
+        return false;
+    }
+    // LoadImage(path) — load Image from file (not a texture — for pixel manipulation)
+    if (METHOD_IS("loadimage") && args.size() == 1) {
+        r_handled = true;
+        String path = args[0];
+        if (!path.begins_with("res://") && !path.begins_with("user://")) path = "res://" + path;
+        Ref<Image> img;
+        img.instantiate();
+        if (img->load(path) == OK) {
+            // Ensure RGBA8 format for pixel operations
+            if (img->get_format() != Image::FORMAT_RGBA8) img->convert(Image::FORMAT_RGBA8);
+            return img;
+        }
+        return Variant();
     }
 
     // Input functions

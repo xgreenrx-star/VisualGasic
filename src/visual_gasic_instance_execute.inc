@@ -1623,6 +1623,149 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                      }
                      break;
                 }
+                // DrawTexture — VG style: DrawTexture texture, x, y[, color]
+                //               Godot style: DrawTexture texture, Vector2[, color]
+                if (s->method_name.nocasecmp_to("DrawTexture") == 0 && call_args.size() >= 2) {
+                     if (owner) {
+                          CanvasItem *ci = Object::cast_to<CanvasItem>(owner);
+                          if (ci) {
+                               Ref<Texture2D> tex;
+                               if (call_args[0].get_type() == Variant::OBJECT) tex = call_args[0];
+                               if (tex.is_valid()) {
+                                    Color modulate = Color(1,1,1,1);
+                                    if (call_args[1].get_type() == Variant::VECTOR2) {
+                                         Vector2 pos = call_args[1];
+                                         if (call_args.size() > 2) modulate = call_args[2];
+                                         ci->draw_texture(tex, pos, modulate);
+                                    } else if (call_args.size() >= 3) {
+                                         float x = call_args[1], y = call_args[2];
+                                         if (call_args.size() > 3) modulate = call_args[3];
+                                         ci->draw_texture(tex, Vector2(x, y), modulate);
+                                    }
+                               }
+                          }
+                     }
+                     break;
+                }
+                // DrawTextureRect — DrawTextureRect texture, Rect2[, tile][, color]
+                //                   DrawTextureRect texture, x, y, w, h[, tile][, color]
+                if (s->method_name.nocasecmp_to("DrawTextureRect") == 0 && call_args.size() >= 2) {
+                     if (owner) {
+                          CanvasItem *ci = Object::cast_to<CanvasItem>(owner);
+                          if (ci) {
+                               Ref<Texture2D> tex;
+                               if (call_args[0].get_type() == Variant::OBJECT) tex = call_args[0];
+                               if (tex.is_valid()) {
+                                    bool tile = false;
+                                    Color modulate = Color(1,1,1,1);
+                                    if (call_args[1].get_type() == Variant::RECT2) {
+                                         Rect2 rect = call_args[1];
+                                         if (call_args.size() > 2) tile = (bool)call_args[2];
+                                         if (call_args.size() > 3) modulate = call_args[3];
+                                         ci->draw_texture_rect(tex, rect, tile, modulate);
+                                    } else if (call_args.size() >= 5) {
+                                         float x = call_args[1], y = call_args[2], w = call_args[3], h = call_args[4];
+                                         if (call_args.size() > 5) tile = (bool)call_args[5];
+                                         if (call_args.size() > 6) modulate = call_args[6];
+                                         ci->draw_texture_rect(tex, Rect2(x, y, w, h), tile, modulate);
+                                    }
+                               }
+                          }
+                     }
+                     break;
+                }
+                // DrawArc — DrawArc x, y, radius, startAngle, endAngle[, pointCount][, color][, width]
+                if (s->method_name.nocasecmp_to("DrawArc") == 0 && call_args.size() >= 4) {
+                     if (owner) {
+                          CanvasItem *ci = Object::cast_to<CanvasItem>(owner);
+                          if (ci) {
+                               Color c = Color(1,1,1);
+                               float width = 1.0;
+                               int point_count = 32;
+                               if (call_args[0].get_type() == Variant::VECTOR2 && call_args.size() >= 4) {
+                                    Vector2 center = call_args[0];
+                                    float radius = call_args[1], start = call_args[2], end = call_args[3];
+                                    if (call_args.size() > 4) point_count = (int)call_args[4];
+                                    if (call_args.size() > 5) c = (Color)call_args[5];
+                                    if (call_args.size() > 6) width = (float)call_args[6];
+                                    ci->draw_arc(center, radius, start, end, point_count, c, width);
+                               } else if (call_args.size() >= 5) {
+                                    float x = call_args[0], y = call_args[1], radius = call_args[2];
+                                    float start = call_args[3], end = call_args[4];
+                                    if (call_args.size() > 5) point_count = (int)call_args[5];
+                                    if (call_args.size() > 6) c = (Color)call_args[6];
+                                    if (call_args.size() > 7) width = (float)call_args[7];
+                                    ci->draw_arc(Vector2(x, y), radius, start, end, point_count, c, width);
+                               }
+                          }
+                     }
+                     break;
+                }
+                // DrawPolygon — DrawPolygon points, color
+                if (s->method_name.nocasecmp_to("DrawPolygon") == 0 && call_args.size() >= 2) {
+                     if (owner) {
+                          CanvasItem *ci = Object::cast_to<CanvasItem>(owner);
+                          if (ci) {
+                               PackedVector2Array pts;
+                               if (call_args[0].get_type() == Variant::PACKED_VECTOR2_ARRAY) {
+                                    pts = call_args[0];
+                               } else if (call_args[0].get_type() == Variant::ARRAY) {
+                                    Array arr = call_args[0]; for (int i = 0; i < arr.size(); i++) pts.push_back(arr[i]);
+                               }
+                               if (pts.size() >= 3) {
+                                    Color c = call_args[1];
+                                    PackedColorArray colors; colors.push_back(c);
+                                    ci->draw_polygon(pts, colors);
+                               }
+                          }
+                     }
+                     break;
+                }
+                // DrawPolyline — DrawPolyline points, color[, width]
+                if (s->method_name.nocasecmp_to("DrawPolyline") == 0 && call_args.size() >= 2) {
+                     if (owner) {
+                          CanvasItem *ci = Object::cast_to<CanvasItem>(owner);
+                          if (ci) {
+                               PackedVector2Array pts;
+                               if (call_args[0].get_type() == Variant::PACKED_VECTOR2_ARRAY) {
+                                    pts = call_args[0];
+                               } else if (call_args[0].get_type() == Variant::ARRAY) {
+                                    Array arr = call_args[0]; for (int i = 0; i < arr.size(); i++) pts.push_back(arr[i]);
+                               }
+                               if (pts.size() >= 2) {
+                                    Color c = call_args[1];
+                                    float w = 1.0;
+                                    if (call_args.size() > 2) w = (float)call_args[2];
+                                    ci->draw_polyline(pts, c, w);
+                               }
+                          }
+                     }
+                     break;
+                }
+                // SetDrawTransform / ResetDrawTransform
+                if (s->method_name.nocasecmp_to("SetDrawTransform") == 0 && call_args.size() >= 2) {
+                     if (owner) {
+                          CanvasItem *ci = Object::cast_to<CanvasItem>(owner);
+                          if (ci) {
+                               float x = call_args[0], y = call_args[1];
+                               float rot = 0.0; Vector2 sc = Vector2(1, 1);
+                               if (call_args.size() > 2) rot = call_args[2];
+                               if (call_args.size() > 4) { sc.x = call_args[3]; sc.y = call_args[4]; }
+                               Transform2D xform;
+                               xform.set_rotation_and_scale(rot, sc);
+                               xform.set_origin(Vector2(x, y));
+                               ci->draw_set_transform_matrix(xform);
+                          }
+                     }
+                     break;
+                }
+                if (s->method_name.nocasecmp_to("ResetDrawTransform") == 0) {
+                     if (owner) {
+                          CanvasItem *ci = Object::cast_to<CanvasItem>(owner);
+                          if (ci) ci->draw_set_transform_matrix(Transform2D());
+                     }
+                     break;
+                }
 
                 // --- 3D Primitive Shapes ---
                 if (s->method_name.nocasecmp_to("CreateCube") == 0 && call_args.size() >= 3) {

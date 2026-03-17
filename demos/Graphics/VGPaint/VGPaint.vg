@@ -14,6 +14,10 @@
 '   - File operations: New, Save, Open (via Godot user:// path)
 '   - Coordinate display in status bar
 '
+' RENDERING:  Uses Image + ImageTexture + DrawTexture for the canvas,
+'   so the entire bitmap is composited in a single GPU call — no per-pixel
+'   DrawRect loop. This allows a full 640×480 canvas at smooth frame rates.
+'
 ' OS INTEGRATION DEMONSTRATED:
 '   - File I/O (Save/Load canvas data with Open/Print #/Close)
 '   - Clipboard (copy/paste as text-based pixel data)
@@ -27,17 +31,15 @@
 Option Explicit
 
 ' ── Canvas Data ───────────────────────────────────────────────────────────
-' The canvas is a 2D array of color values. Each cell stores an integer
-' that encodes RGBA. We use a smaller canvas that gets scaled up for display,
-' keeping the per-pixel DrawRect count manageable (~19K pixels at 160x120).
-Const MAX_CANVAS_W As Integer = 160
-Const MAX_CANVAS_H As Integer = 120
+' The canvas is an Image object (RGBA8). The display texture is rebuilt
+' from the Image each frame so we get a single DrawTexture call.
+Const MAX_CANVAS_W As Integer = 640
+Const MAX_CANVAS_H As Integer = 480
 Dim canvasW As Integer               ' Current canvas width
 Dim canvasH As Integer               ' Current canvas height
-Dim canvas(160, 120) As Integer      ' Pixel color data (encoded)
-Dim canvasR(160, 120) As Integer     ' Red channel (0-255)
-Dim canvasG(160, 120) As Integer     ' Green channel (0-255)
-Dim canvasB(160, 120) As Integer     ' Blue channel (0-255)
+Dim canvasImage As Variant           ' Image object (RGBA8 pixel data)
+Dim canvasTexture As Variant         ' ImageTexture for DrawTexture display
+Dim canvasDirty As Boolean           ' True if image needs texture update
 
 ' ── Tool State ────────────────────────────────────────────────────────────
 ' Tool IDs: 0=Pencil, 1=Brush, 2=Eraser, 3=Line, 4=Rectangle,
@@ -85,7 +87,7 @@ Const TOOL_BTN_SIZE As Integer = 24  ' Tool button size
 
 ' ── View State ────────────────────────────────────────────────────────────
 Dim zoomLevel As Integer             ' 1, 2, or 4
-Dim displayPixSize As Integer        ' Effective screen pixels per canvas pixel (auto-scale * zoom)
+Dim displayPixSize As Integer        ' Effective screen pixels per canvas pixel
 Dim scrollX As Integer  ' Canvas scroll offset
 Dim scrollY As Integer
 Dim mouseCanvasX As Integer          ' Mouse position on canvas (pixels)
@@ -98,16 +100,21 @@ Dim isModified As Boolean            ' True if canvas has unsaved changes
 ' ── Tool Names (for status bar) ───────────────────────────────────────────
 Dim toolNames(9) As String
 
+
 ' ============================================================================
 ' INITIALIZATION
 ' ============================================================================
 
 Sub _Ready()
     ' ── Set default canvas size ───────────────────────────────────────────
-    ' Keep canvas small so per-pixel DrawRect calls stay under ~20K/frame.
-    ' The display scales pixels up to fill the canvas area (auto zoom).
-    canvasW = 160
-    canvasH = 120
+    ' Now that we use Image + DrawTexture, we can do full 640x480.
+    canvasW = 640
+    canvasH = 480
+
+    ' ── Create the Image and Texture ──────────────────────────────────────
+    canvasImage = CreateImage(canvasW, canvasH, Color(1, 1, 1, 1))
+    canvasTexture = CreateTexture(canvasImage)
+    canvasDirty = False
 
     ' ── Initialize tool state ─────────────────────────────────────────────
     currentTool = 0              ' Pencil
@@ -145,9 +152,6 @@ Sub _Ready()
 
     ' ── Initialize palette with classic Paint colors ──────────────────────
     InitPalette
-
-    ' ── Clear canvas to white ─────────────────────────────────────────────
-    ClearCanvas 255, 255, 255
 
     ' ── Save initial undo state ───────────────────────────────────────────
     undoCount = 0
@@ -196,36 +200,30 @@ Sub SetPal(idx As Integer, r As Integer, g As Integer, b As Integer)
 End Sub
 
 ' ============================================================================
-' CANVAS OPERATIONS
+' CANVAS OPERATIONS (Image-based)
 ' ============================================================================
 
 ' Clear the entire canvas to a specified color
 Sub ClearCanvas(r As Integer, g As Integer, b As Integer)
-    Dim x As Integer
-    Dim y As Integer
-    For y = 0 To canvasH - 1
-        For x = 0 To canvasW - 1
-            canvasR(x, y) = r
-            canvasG(x, y) = g
-            canvasB(x, y) = b
-        Next
-    Next
+    FillImage canvasImage, Color8(r, g, b, 255)
+    canvasDirty = True
     isModified = True
 End Sub
 
 ' Set a single pixel on the canvas (with bounds checking)
 Sub SetPixel(x As Integer, y As Integer, r As Integer, g As Integer, b As Integer)
     If x >= 0 And x < canvasW And y >= 0 And y < canvasH Then
-        canvasR(x, y) = r
-        canvasG(x, y) = g
-        canvasB(x, y) = b
+        SetImagePixel canvasImage, x, y, Color8(r, g, b, 255)
+        canvasDirty = True
     End If
 End Sub
 
 ' Get a pixel color from the canvas
 Function GetPixelR(x As Integer, y As Integer) As Integer
     If x >= 0 And x < canvasW And y >= 0 And y < canvasH Then
-        GetPixelR = canvasR(x, y)
+        Dim c As Variant
+        c = GetImagePixel(canvasImage, x, y)
+        GetPixelR = Int(c.r * 255)
     Else
         GetPixelR = 255
     End If
@@ -233,7 +231,9 @@ End Function
 
 Function GetPixelG(x As Integer, y As Integer) As Integer
     If x >= 0 And x < canvasW And y >= 0 And y < canvasH Then
-        GetPixelG = canvasG(x, y)
+        Dim c As Variant
+        c = GetImagePixel(canvasImage, x, y)
+        GetPixelG = Int(c.g * 255)
     Else
         GetPixelG = 255
     End If
@@ -241,7 +241,9 @@ End Function
 
 Function GetPixelB(x As Integer, y As Integer) As Integer
     If x >= 0 And x < canvasW And y >= 0 And y < canvasH Then
-        GetPixelB = canvasB(x, y)
+        Dim c As Variant
+        c = GetImagePixel(canvasImage, x, y)
+        GetPixelB = Int(c.b * 255)
     Else
         GetPixelB = 255
     End If
@@ -293,10 +295,14 @@ Sub DrawLinePixels(x1 As Integer, y1 As Integer, x2 As Integer, y2 As Integer, r
         DrawBrushAt cx, cy, r, g, b
         If cx = x2 And cy = y2 Then Exit Do
         e2 = 2 * err
-        If e2 > -dy Then err = err - dy
-        cx = cx + sx
-        If e2 < dx Then err = err + dx
-        cy = cy + sy
+        If e2 > -dy Then
+            err = err - dy
+            cx = cx + sx
+        End If
+        If e2 < dx Then
+            err = err + dx
+            cy = cy + sy
+        End If
     Loop
 End Sub
 
@@ -307,12 +313,20 @@ Sub DrawRectPixels(x1 As Integer, y1 As Integer, x2 As Integer, y2 As Integer, r
     Dim ly As Integer
     Dim rx As Integer
     Dim ry As Integer
-    If x1 < x2 Then lx = x1
-    rx = x2 Else lx = x2
-    rx = x1
-    If y1 < y2 Then ly = y1
-    ry = y2 Else ly = y2
-    ry = y1
+    If x1 < x2 Then
+        lx = x1
+        rx = x2
+    Else
+        lx = x2
+        rx = x1
+    End If
+    If y1 < y2 Then
+        ly = y1
+        ry = y2
+    Else
+        ly = y2
+        ry = y1
+    End If
 
     ' Draw four sides
     DrawLinePixels lx, ly, rx, ly, r, g, b   ' Top
@@ -356,16 +370,16 @@ Sub FloodFill(sx As Integer, sy As Integer, r As Integer, g As Integer, b As Int
     Dim targetR As Integer
     Dim targetG As Integer
     Dim targetB As Integer
-    targetR = canvasR(sx, sy)
-    targetG = canvasG(sx, sy)
-    targetB = canvasB(sx, sy)
+    targetR = GetPixelR(sx, sy)
+    targetG = GetPixelG(sx, sy)
+    targetB = GetPixelB(sx, sy)
 
     ' Don't fill if target color is same as fill color
     If targetR = r And targetG = g And targetB = b Then Exit Sub
 
-    ' Simple scanline flood fill (limited iterations for safety)
-    Dim stackX(10000) As Integer
-    Dim stackY(10000) As Integer
+    ' Stack-based flood fill with direct Image pixel ops
+    Dim stackX(20000) As Integer
+    Dim stackY(20000) As Integer
     Dim stackTop As Integer
     stackTop = 0
     stackX(0) = sx
@@ -373,7 +387,10 @@ Sub FloodFill(sx As Integer, sy As Integer, r As Integer, g As Integer, b As Int
     Dim iterations As Integer
     iterations = 0
 
-    Do While stackTop >= 0 And iterations < 100000
+    Dim fillColor As Variant
+    fillColor = Color8(r, g, b, 255)
+
+    Do While stackTop >= 0 And iterations < 500000
         Dim px As Integer
         Dim py As Integer
         px = stackX(stackTop)
@@ -382,14 +399,20 @@ Sub FloodFill(sx As Integer, sy As Integer, r As Integer, g As Integer, b As Int
         iterations = iterations + 1
 
         If px >= 0 And px < canvasW And py >= 0 And py < canvasH Then
-            If canvasR(px, py) = targetR And canvasG(px, py) = targetG And canvasB(px, py) = targetB Then
-                ' Fill this pixel
-                canvasR(px, py) = r
-                canvasG(px, py) = g
-                canvasB(px, py) = b
+            Dim pc As Variant
+            pc = GetImagePixel(canvasImage, px, py)
+            Dim pcr As Integer
+            Dim pcg As Integer
+            Dim pcb As Integer
+            pcr = Int(pc.r * 255)
+            pcg = Int(pc.g * 255)
+            pcb = Int(pc.b * 255)
+            If pcr = targetR And pcg = targetG And pcb = targetB Then
+                ' Fill this pixel directly on the Image
+                SetImagePixel canvasImage, px, py, fillColor
 
                 ' Push neighbors (4-connected)
-                If stackTop < 9996 Then
+                If stackTop < 19996 Then
                     stackTop = stackTop + 1
                     stackX(stackTop) = px + 1
                     stackY(stackTop) = py
@@ -406,17 +429,17 @@ Sub FloodFill(sx As Integer, sy As Integer, r As Integer, g As Integer, b As Int
             End If
         End If
     Loop
+    canvasDirty = True
 End Sub
 
 ' ============================================================================
-' UNDO / REDO (simple snapshot system using checksums for changes)
+' UNDO / REDO (simple snapshot system)
 ' ============================================================================
 
-' Save current canvas state for undo (stores a diff-summary)
+' Save current canvas state for undo
 Sub PushUndo()
-    ' For simplicity, we store a hash/marker. Real undo would serialize pixels.
-    ' Here we note that a change happened. Full pixel undo is memory-intensive
-    ' so we keep a lightweight marker system.
+    ' Note: Full pixel-level undo would require serializing the entire
+    ' Image each time. For now we track change counts for UI purposes.
     If undoCount < MAX_UNDO Then
         undoCount = undoCount + 1
     End If
@@ -716,8 +739,10 @@ Sub SaveCanvasToFile()
         Dim rowData As String
         rowData = ""
         For x = 0 To canvasW - 1
+            Dim c As Variant
+            c = GetImagePixel(canvasImage, x, y)
             If x > 0 Then rowData = rowData & ","
-            rowData = rowData & Str(canvasR(x, y)) & "," & Str(canvasG(x, y)) & "," & Str(canvasB(x, y))
+            rowData = rowData & Str(Int(c.r * 255)) & "," & Str(Int(c.g * 255)) & "," & Str(Int(c.b * 255))
         Next
         Print #f, rowData
     Next
@@ -754,6 +779,9 @@ Sub LoadCanvasFromFile(filePath As String)
     canvasW = w
     canvasH = h
 
+    ' Recreate image at new size
+    canvasImage = CreateImage(canvasW, canvasH, Color(1, 1, 1, 1))
+
     ' Read pixel data
     Dim x As Integer
     Dim y As Integer
@@ -766,14 +794,21 @@ Sub LoadCanvasFromFile(filePath As String)
             Dim idx As Integer
             idx = x * 3
             If idx + 2 <= UBound(parts) Then
-                canvasR(x, y) = Val(parts(idx))
-                canvasG(x, y) = Val(parts(idx + 1))
-                canvasB(x, y) = Val(parts(idx + 2))
+                Dim pr As Integer
+                Dim pg As Integer
+                Dim pb As Integer
+                pr = Val(parts(idx))
+                pg = Val(parts(idx + 1))
+                pb = Val(parts(idx + 2))
+                SetImagePixel canvasImage, x, y, Color8(pr, pg, pb, 255)
             End If
         Next
     Next
 
     Close #f
+    ' Rebuild texture from loaded image
+    canvasTexture = CreateTexture(canvasImage)
+    canvasDirty = False
     currentFile = filePath
     isModified = False
 End Sub
@@ -818,12 +853,30 @@ Sub mnuImage_ResizeCanvas_Click()
         Dim xPos As Integer
         xPos = InStr(newSize, "x")
         If xPos > 0 Then
-            canvasW = Val(Left(newSize, xPos - 1))
-            canvasH = Val(Mid(newSize, xPos + 1))
-            If canvasW > MAX_CANVAS_W Then canvasW = MAX_CANVAS_W
-            If canvasH > MAX_CANVAS_H Then canvasH = MAX_CANVAS_H
-            If canvasW < 16 Then canvasW = 16
-            If canvasH < 16 Then canvasH = 16
+            Dim newW As Integer
+            Dim newH As Integer
+            newW = Val(Left(newSize, xPos - 1))
+            newH = Val(Mid(newSize, xPos + 1))
+            If newW > MAX_CANVAS_W Then newW = MAX_CANVAS_W
+            If newH > MAX_CANVAS_H Then newH = MAX_CANVAS_H
+            If newW < 16 Then newW = 16
+            If newH < 16 Then newH = 16
+            ' Create new image and blit old content
+            Dim oldImage As Variant
+            oldImage = canvasImage
+            canvasW = newW
+            canvasH = newH
+            canvasImage = CreateImage(canvasW, canvasH, Color(1, 1, 1, 1))
+            ' Copy old content using BlitImage
+            Dim srcW As Integer
+            Dim srcH As Integer
+            srcW = ImageWidth(oldImage)
+            srcH = ImageHeight(oldImage)
+            If srcW > canvasW Then srcW = canvasW
+            If srcH > canvasH Then srcH = canvasH
+            BlitImage canvasImage, oldImage, Rect2i(0, 0, srcW, srcH), Vector2i(0, 0)
+            canvasTexture = CreateTexture(canvasImage)
+            canvasDirty = False
         End If
     End If
 End Sub
@@ -833,7 +886,7 @@ Sub mnuImage_ClearCanvas_Click()
 End Sub
 
 Sub mnuHelp_AboutVGPaint_Click()
-    MsgBox "VG Paint v1.0" & Chr(10) & Chr(10) & "An MS Paint clone written in VisualGasic" & Chr(10) & "Tools: Pencil, Brush, Eraser, Line, Rect, Ellipse, Fill, Picker, Text" & Chr(10) & "Shortcuts: 1-9=Tools, +/-=Brush Size, Z=Zoom, Ctrl+S=Save", vbInformation, "About VG Paint"
+    MsgBox "VG Paint v2.0" & Chr(10) & Chr(10) & "An MS Paint clone written in VisualGasic" & Chr(10) & "Now uses Image + DrawTexture for fast 640x480 rendering!" & Chr(10) & "Tools: Pencil, Brush, Eraser, Line, Rect, Ellipse, Fill, Picker, Text" & Chr(10) & "Shortcuts: 1-9=Tools, +/-=Brush Size, Z=Zoom, Ctrl+S=Save", vbInformation, "About VG Paint"
 End Sub
 
 ' ============================================================================
@@ -897,8 +950,14 @@ Sub _Draw()
     ' White canvas border
     DrawRect Rect2(canvasAreaX - 1, canvasAreaY - 1, canvasAreaW + 2, canvasAreaH + 2), Color(0.5, 0.5, 0.55)
 
-    ' ── Draw canvas ────────────────────────────────────────────────────────
-    ' Auto-scale pixels to fill the canvas area for small canvases.
+    ' ── Update texture from Image if pixels changed ───────────────────────
+    If canvasDirty Then
+        UpdateTexture canvasTexture, canvasImage
+        canvasDirty = False
+    End If
+
+    ' ── Draw the canvas as a single texture (ONE draw call!) ──────────────
+    ' Compute display scale: fit canvas into available area, then apply zoom
     Dim pixSize As Integer
     Dim scaleX As Integer
     Dim scaleY As Integer
@@ -910,41 +969,17 @@ Sub _Draw()
         pixSize = scaleY
     End If
     If pixSize < 1 Then pixSize = 1
-    If pixSize < zoomLevel Then pixSize = zoomLevel
+    pixSize = pixSize * zoomLevel
     displayPixSize = pixSize
 
-    ' Fill the visible canvas area with white background in one call
+    ' Draw the canvas texture scaled to fit
     Dim visW As Integer
     Dim visH As Integer
     visW = canvasW * pixSize
     visH = canvasH * pixSize
     If visW > canvasAreaW Then visW = canvasAreaW
     If visH > canvasAreaH Then visH = canvasAreaH
-    DrawRect Rect2(canvasAreaX, canvasAreaY, visW, visH), Color(1, 1, 1)
-
-    ' Only draw NON-WHITE pixels (skip background — huge optimization)
-    Dim x As Integer
-    Dim y As Integer
-    Dim drawX As Integer
-    Dim drawY As Integer
-    For y = 0 To canvasH - 1
-        For x = 0 To canvasW - 1
-            Dim pr As Integer
-            Dim pg As Integer
-            Dim pb As Integer
-            pr = canvasR(x, y)
-            pg = canvasG(x, y)
-            pb = canvasB(x, y)
-            ' Only draw non-white (non-background) pixels
-            If Not (pr = 255 And pg = 255 And pb = 255) Then
-                drawX = canvasAreaX + (x - scrollX) * pixSize
-                drawY = canvasAreaY + (y - scrollY) * pixSize
-                If drawX >= canvasAreaX And drawX < canvasAreaX + canvasAreaW And drawY >= canvasAreaY And drawY < canvasAreaY + canvasAreaH Then
-                    DrawRect Rect2(drawX, drawY, pixSize, pixSize), Color8(pr, pg, pb, 255)
-                End If
-            End If
-        Next
-    Next
+    DrawTextureRect canvasTexture, Rect2(canvasAreaX, canvasAreaY, visW, visH), False
 
     ' ── Draw shape preview while dragging ─────────────────────────────────
     If isDrawing And (currentTool = 3 Or currentTool = 4 Or currentTool = 5) Then
