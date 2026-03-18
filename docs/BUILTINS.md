@@ -53,6 +53,13 @@ Image & Texture builtins *(New in v4.2.0)*:
 - `SaveImage(image, path)` — save Image as PNG
 - `LoadImage(path)` — load image file as Image object
 
+Native Image drawing builtins *(New in v4.2.0-beta5)*:
+- `DrawImageLine(image, x1, y1, x2, y2, color)` — Bresenham line on Image
+- `DrawImageRect(image, x1, y1, x2, y2, color)` — 1px outline rectangle on Image
+- `DrawImageEllipse(image, cx, cy, rx, ry, color)` — midpoint ellipse outline on Image
+- `DrawImageCircle(image, cx, cy, radius, color)` — filled circle on Image (scanline)
+- `FloodFillImage(image, x, y, color)` — 4-connected flood fill on Image (native C++)
+
 Data introspection helpers *(New in v3.2.0)*:
 - `DataCount()` — total number of items in the data tape
 - `DataCount("label")` — number of items in a named data section (case-insensitive)

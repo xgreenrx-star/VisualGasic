@@ -1497,6 +1497,13 @@ VisualGasic provides a comprehensive set of keywords for modern game development
 - `SaveImage` - Save Image as PNG file
 - `GetTextureImage` - Extract Image from ImageTexture
 
+#### **Graphics & Drawing — Native Image Drawing** *(New in v4.2.0-beta5)*
+- `DrawImageLine` - Draw a line on an Image (Bresenham)
+- `DrawImageRect` - Draw an outline rectangle on an Image
+- `DrawImageEllipse` - Draw an ellipse outline on an Image (midpoint algorithm)
+- `DrawImageCircle` - Draw a filled circle on an Image
+- `FloodFillImage` - Flood-fill a region on an Image (4-connected, native C++)
+
 #### **Audio**
 - `PlaySound` - Play sound effect
 - `PlayTone` - Play tone
@@ -1542,10 +1549,12 @@ VisualGasic provides a comprehensive set of keywords for modern game development
 Abs, AndAlso, Append, As, Beep, BlitImage, ByRef, ByVal, Call, Case,
 Catch, ChDir, ChangeScene, CLS, Close, Clamp, Const, Continue,
 CreateActor2D, CreateImage, CreateTexture, CurDir, Data, Dictionary,
-Dim, Do, DoEvents, DrawArc, DrawCircle, DrawLine, DrawPixel, DrawPolygon,
+Dim, Do, DoEvents, DrawArc, DrawCircle, DrawImageCircle, DrawImageEllipse,
+DrawImageLine, DrawImageRect, DrawLine, DrawPixel, DrawPolygon,
 DrawPolyline, DrawRect, DrawString, DrawText, DrawTexture, DrawTextureRect,
 each, Elif, Else, ElseIf, End, Environ, Error, Event, Exit, Explicit,
-Extends, False, FileCopy, FillImage, FillImageRect, Finally, For, Format,
+Extends, False, FileCopy, FillImage, FillImageRect, Finally, FloodFillImage,
+For, Format,
 Function, GetCollider, GetImagePixel, GetSetting, GetTextureImage, Global,
 Goto, HasCollided, If, IIf, ImageHeight, ImageToTexture, ImageWidth, in,
 Include, Inherits, Input, Int, IsActionPressed, IsKeyPressed, Lerp, Line,
@@ -3603,6 +3612,13 @@ BlitImage img2, img, Rect2i(0, 0, 100, 100), Vector2i(50, 50)  ' Copy region
 ' Push changes to texture and draw
 UpdateTexture tex, img                              ' Sync Image → Texture
 DrawTexture tex, 0, 0                               ' Render in _Draw()
+
+' Native drawing builtins (fast C++ pixel operations)
+DrawImageLine img, 10, 10, 200, 150, Color(1, 0, 0, 1)       ' Red line
+DrawImageRect img, 20, 20, 120, 80, Color(0, 0, 1, 1)        ' Blue rect outline
+DrawImageEllipse img, 160, 120, 60, 40, Color(0, 1, 0, 1)    ' Green ellipse
+DrawImageCircle img, 200, 200, 30, Color(1, 1, 0, 1)         ' Yellow filled circle
+FloodFillImage img, 50, 50, Color(1, 0, 1, 1)                ' Magenta flood fill
 
 ' File I/O
 SaveImage img, "user://screenshot.png"              ' Save as PNG

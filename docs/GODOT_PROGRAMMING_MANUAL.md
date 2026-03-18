@@ -1757,7 +1757,7 @@ a single `.vg` file using classic BASIC patterns.
 | **Player node** | `CharacterBody2D` with `move_and_slide()` | Manual `_Process(delta)` + custom tile collision |
 | **Enemy node** | `CharacterBody2D` with `RayCast2D` detectors | Array-based entity pool with manual edge/wall checks |
 | **Level format** | `TileMap` node (editor-painted) | `DATA` / `Read` / `Restore` ASCII art maps |
-| **Rendering** | Imported `.png` sprites + `AnimatedSprite2D` | `_Draw()` primitives: `DrawRect`, `DrawCircle`, `DrawString`, `DrawTexture`, `DrawPolygon`, `DrawArc` + Image APIs (`CreateImage`, `SetImagePixel`, `UpdateTexture`) |
+| **Rendering** | Imported `.png` sprites + `AnimatedSprite2D` | `_Draw()` primitives: `DrawRect`, `DrawCircle`, `DrawString`, `DrawTexture`, `DrawPolygon`, `DrawArc` + Image APIs (`CreateImage`, `SetImagePixel`, `DrawImageLine`, `FloodFillImage`, `UpdateTexture`) |
 | **Coins** | Instanced coin scenes with `Area2D` pickup | Array pool with distance-check pickup |
 | **Camera** | `Camera2D` node with limits | Manual lerp + clamp to level bounds |
 | **Physics** | Engine `CharacterBody2D` collision | Custom `ResolveHorizontalCollision` / `ResolveVerticalCollision` |

@@ -630,6 +630,39 @@ Pauses execution for `ms` milliseconds.
 ### Assert(condition, message)
 Raises error if condition is False.
 
+### Image & Texture APIs *(New in v4.2.0)*
+
+**Creation:**
+- `CreateImage(w, h [, fillColor])` — create RGBA8 Image (1–4096 px)
+- `CreateTexture(image)` / `CreateTexture(w, h [, fillColor])` — create ImageTexture
+- `ImageToTexture(image)` — convert Image → ImageTexture
+
+**Pixel Access:**
+- `SetImagePixel(image, x, y, color)` — write pixel
+- `GetImagePixel(image, x, y)` — read pixel → Color
+- `FillImage(image, color)` — fill entire Image
+- `FillImageRect(image, x, y, w, h, color)` — fill rectangular region
+
+**Native Drawing** *(v4.2.0-beta5)*:
+- `DrawImageLine(image, x1, y1, x2, y2, color)` — Bresenham line
+- `DrawImageRect(image, x1, y1, x2, y2, color)` — 1px outline rectangle
+- `DrawImageEllipse(image, cx, cy, rx, ry, color)` — midpoint ellipse outline
+- `DrawImageCircle(image, cx, cy, radius, color)` — filled circle (scanline)
+- `FloodFillImage(image, x, y, color)` — 4-connected flood fill (native C++)
+
+**Copy / Sync:**
+- `BlitImage(dest, src, srcRect, destPos)` — copy pixel region between Images
+- `UpdateTexture(texture, image)` — push Image data to ImageTexture
+
+**Query:**
+- `ImageWidth(image)`, `ImageHeight(image)` — Image dimensions
+- `TextureWidth(texture)`, `TextureHeight(texture)` — Texture dimensions
+- `GetTextureImage(texture)` — extract Image from ImageTexture
+
+**File I/O:**
+- `SaveImage(image, path)` — save as PNG
+- `LoadImage(path)` — load image file as Image
+
 ---
 
 ## See Also
