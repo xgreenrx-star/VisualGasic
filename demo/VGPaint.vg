@@ -429,6 +429,46 @@ Sub HandleMouseButton(ev)
     mx = Int(ev.position.x)
     my = Int(ev.position.y)
 
+    ' ── If we are currently drawing and the user RELEASES the mouse button,
+    '    always finalize the drawing operation regardless of cursor position.
+    '    Without this, releasing over the toolbar/palette eats the event and
+    '    leaves isDrawing=True (ghost-drawing bug).
+    If isDrawing And ev.button_index = 1 And Not ev.pressed Then
+        ' Compute canvas coordinates from the release position
+        Dim relAreaX As Integer
+        Dim relAreaY As Integer
+        relAreaX = TOOLBAR_W + 2
+        relAreaY = MENU_H + 2
+        mouseCanvasX = (mx - relAreaX) \ displayPixSize + scrollX
+        mouseCanvasY = (my - relAreaY) \ displayPixSize + scrollY
+
+        Select Case currentTool
+            Case 0  ' Pencil — draw final 1px segment to release point
+                DrawImageLine canvasImage, lastX, lastY, mouseCanvasX, mouseCanvasY, Color8(fgColorR, fgColorG, fgColorB, 255)
+            Case 1  ' Brush — draw final thick segment to release point
+                DrawLinePixels lastX, lastY, mouseCanvasX, mouseCanvasY, fgColorR, fgColorG, fgColorB
+            Case 2  ' Eraser — draw final erase segment to release point
+                DrawLinePixels lastX, lastY, mouseCanvasX, mouseCanvasY, bgColorR, bgColorG, bgColorB
+            Case 3  ' Line — draw final line from start to release
+                DrawLinePixels startX, startY, mouseCanvasX, mouseCanvasY, fgColorR, fgColorG, fgColorB
+            Case 4  ' Rectangle — draw final rectangle
+                DrawRectPixels startX, startY, mouseCanvasX, mouseCanvasY, fgColorR, fgColorG, fgColorB
+            Case 5  ' Ellipse — draw final ellipse
+                Dim ecx As Integer
+                Dim ecy As Integer
+                Dim erx As Integer
+                Dim ery As Integer
+                ecx = (startX + mouseCanvasX) \ 2
+                ecy = (startY + mouseCanvasY) \ 2
+                erx = Abs(mouseCanvasX - startX) \ 2
+                ery = Abs(mouseCanvasY - startY) \ 2
+                DrawEllipsePixels ecx, ecy, erx, ery, fgColorR, fgColorG, fgColorB
+        End Select
+        canvasDirty = True
+        isDrawing = False
+        Exit Sub
+    End If
+
     ' ── Check if click is in the toolbar area ─────────────────────────────
     If mx < TOOLBAR_W And my > MENU_H And my < (MENU_H + 9 * (TOOL_BTN_SIZE + 4)) Then
         If ev.pressed And ev.button_index = 1 Then
@@ -534,28 +574,6 @@ Sub HandleMouseButton(ev)
             End Select
             canvasDirty = True
             isModified = True
-        Else
-            ' Release — finalize shape tools
-            If isDrawing Then
-                Select Case currentTool
-                    Case 3  ' Line — draw final line
-                        DrawLinePixels startX, startY, mouseCanvasX, mouseCanvasY, fgColorR, fgColorG, fgColorB
-                    Case 4  ' Rectangle — draw final rectangle
-                        DrawRectPixels startX, startY, mouseCanvasX, mouseCanvasY, fgColorR, fgColorG, fgColorB
-                    Case 5  ' Ellipse — draw final ellipse
-                        Dim ecx As Integer
-                        Dim ecy As Integer
-                        Dim erx As Integer
-                        Dim ery As Integer
-                        ecx = (startX + mouseCanvasX) \ 2
-                        ecy = (startY + mouseCanvasY) \ 2
-                        erx = Abs(mouseCanvasX - startX) \ 2
-                        ery = Abs(mouseCanvasY - startY) \ 2
-                        DrawEllipsePixels ecx, ecy, erx, ery, fgColorR, fgColorG, fgColorB
-                End Select
-                canvasDirty = True
-                isDrawing = False
-            End If
         End If
     End If
 
@@ -658,16 +676,11 @@ End Sub
 
 ' Draw text as simple pixel characters on the canvas
 Sub DrawTextOnCanvas(x As Integer, y As Integer, text As String)
-    ' For each character, draw a simple 5x7 pixel block
-    ' Uses native FillImageRect for speed (1 call per char instead of 35 SetPixel)
-    Dim i As Integer
+    ' Render actual text glyphs onto the canvas image using the native bitmap font.
+    ' Scale 2 gives readable 10x14 pixel characters; use 1 for tiny 5x7.
     Dim charColor As Variant
     charColor = Color8(fgColorR, fgColorG, fgColorB, 255)
-    For i = 1 To Len(text)
-        Dim cx As Integer
-        cx = x + (i - 1) * 6
-        FillImageRect canvasImage, cx, y, 5, 7, charColor
-    Next
+    DrawImageText canvasImage, x, y, text, charColor, 2
 End Sub
 
 ' ============================================================================
