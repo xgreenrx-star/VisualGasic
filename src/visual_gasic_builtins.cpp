@@ -48,6 +48,59 @@ using namespace godot;
 
 namespace VisualGasicBuiltins {
 
+// ---------------------------------------------------------------------------
+// Native OS text-input dialog — uses zenity (GTK) or kdialog (Qt/KDE).
+// OS::execute() blocks the calling thread while the external dialog is open,
+// and the window-manager renders it independently of Godot's render loop,
+// so the dialog is always visible and interactive.
+// ---------------------------------------------------------------------------
+String native_input_box(const String &p_prompt, const String &p_title, const String &p_default) {
+    // --- Try zenity (GNOME / GTK) -------------------------------------------
+    {
+        PackedStringArray args;
+        args.push_back("--entry");
+        args.push_back("--text=" + p_prompt);
+        args.push_back("--title=" + p_title);
+        if (!p_default.is_empty()) {
+            args.push_back("--entry-text=" + p_default);
+        }
+        Array output;
+        int64_t exit_code = OS::get_singleton()->execute("zenity", args, output);
+        if (exit_code == 0) {
+            return (output.size() > 0) ? String(output[0]).strip_edges() : String("");
+        }
+        // Distinguish "user cancelled" (zenity exists) from "not installed".
+        PackedStringArray w;
+        w.push_back("zenity");
+        if (OS::get_singleton()->execute("which", w, Array()) == 0) {
+            return String(""); // zenity exists — user pressed Cancel
+        }
+    }
+    // --- Try kdialog (KDE / Qt) ---------------------------------------------
+    {
+        PackedStringArray args;
+        args.push_back("--inputbox");
+        args.push_back(p_prompt);
+        if (!p_default.is_empty()) {
+            args.push_back(p_default);
+        }
+        args.push_back("--title");
+        args.push_back(p_title);
+        Array output;
+        int64_t exit_code = OS::get_singleton()->execute("kdialog", args, output);
+        if (exit_code == 0) {
+            return (output.size() > 0) ? String(output[0]).strip_edges() : String("");
+        }
+        PackedStringArray w;
+        w.push_back("kdialog");
+        if (OS::get_singleton()->execute("which", w, Array()) == 0) {
+            return String(""); // kdialog exists — user pressed Cancel
+        }
+    }
+    // No dialog tool available — return the default value as-is.
+    return p_default;
+}
+
 // Static working directory for ChDir/CurDir (shared across all instances).
 // We CANNOT use godot::String at file scope because its constructor runs
 // during .so static-init before the Godot memory allocator is ready,
@@ -199,41 +252,10 @@ bool call_builtin(VisualGasicInstance *instance, const String &p_method, const A
 
     if (method.nocasecmp_to("InputBox") == 0) {
         r_found = true;
-        if (!instance->get_owner()) return true;
-        Node *root = Object::cast_to<Node>(instance->get_owner());
-        if (!root) return true;
-
-        String prompt = "";
-        if (p_args.size() > 0) prompt = String(p_args[0]);
-        String title = "VisualGasic";
-        if (p_args.size() > 1) title = String(p_args[1]);
-        String def = "";
-        if (p_args.size() > 2) def = String(p_args[2]);
-
-        AcceptDialog *dialog = memnew(AcceptDialog);
-        dialog->set_title(title);
-        dialog->set_ok_button_text("OK");
-        VBoxContainer *vbox = memnew(VBoxContainer);
-        Label *lbl = memnew(Label);
-        lbl->set_text(prompt);
-        vbox->add_child(lbl);
-        LineEdit *le = memnew(LineEdit);
-        le->set_text(def);
-        le->set_custom_minimum_size(Vector2(300, 0));
-        vbox->add_child(le);
-        dialog->add_child(vbox);
-        root->add_child(dialog);
-        dialog->popup_centered(Vector2i(400, 150));
-        le->grab_focus();
-
-        while (dialog->is_visible() && dialog->is_inside_tree()) {
-            DisplayServer::get_singleton()->process_events();
-            OS::get_singleton()->delay_msec(10);
-        }
-
-        String result = le->get_text();
-        dialog->queue_free();
-        r_ret = result;
+        String prompt = (p_args.size() > 0) ? String(p_args[0]) : String("");
+        String title  = (p_args.size() > 1) ? String(p_args[1]) : String("VisualGasic");
+        String def    = (p_args.size() > 2) ? String(p_args[2]) : String("");
+        r_ret = native_input_box(prompt, title, def);
         return true;
     }
 
@@ -692,42 +714,10 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
     // InputBox(prompt[, title][, default]) — modal text input dialog, returns String
     if (METHOD_IS("inputbox")) {
         r_handled = true;
-        if (!instance->get_owner()) return String("");
-        Node *root = Object::cast_to<Node>(instance->get_owner());
-        if (!root) return String("");
-
-        String prompt = "";
-        if (args.size() > 0) prompt = String(args[0]);
-        String title = "VisualGasic";
-        if (args.size() > 1) title = String(args[1]);
-        String def = "";
-        if (args.size() > 2) def = String(args[2]);
-
-        AcceptDialog *dialog = memnew(AcceptDialog);
-        dialog->set_title(title);
-        dialog->set_ok_button_text("OK");
-        VBoxContainer *vbox = memnew(VBoxContainer);
-        Label *lbl = memnew(Label);
-        lbl->set_text(prompt);
-        vbox->add_child(lbl);
-        LineEdit *le = memnew(LineEdit);
-        le->set_text(def);
-        le->set_custom_minimum_size(Vector2(300, 0));
-        vbox->add_child(le);
-        dialog->add_child(vbox);
-        root->add_child(dialog);
-        dialog->popup_centered(Vector2i(400, 150));
-        le->grab_focus();
-        le->select_all();
-
-        while (dialog->is_visible() && dialog->is_inside_tree()) {
-            DisplayServer::get_singleton()->process_events();
-            OS::get_singleton()->delay_msec(10);
-        }
-
-        String result = le->get_text();
-        dialog->queue_free();
-        return result;
+        String prompt = (args.size() > 0) ? String(args[0]) : String("");
+        String title  = (args.size() > 1) ? String(args[1]) : String("VisualGasic");
+        String def    = (args.size() > 2) ? String(args[2]) : String("");
+        return native_input_box(prompt, title, def);
     }
 
     // ── Image / Texture creation builtins (BASIC-style) ──────────────────

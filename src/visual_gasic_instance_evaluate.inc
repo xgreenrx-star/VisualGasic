@@ -797,49 +797,12 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
                  return Dictionary(); 
              }
              
-             // InputBox Implementation
+             // InputBox — uses native OS dialog (zenity/kdialog)
              if (func_name == "InputBox") {
-                 String prompt = "";
-                 if (call_args.size() > 0) prompt = call_args[0];
-                 String title = "VisualGasic";
-                 if (call_args.size() > 1) title = call_args[1];
-                 String def = "";
-                 if (call_args.size() > 2) def = call_args[2];
-
-                 if (!owner || !Object::cast_to<Node>(owner)) {
-                      return def;
-                 }
-                 Node *root = Object::cast_to<Node>(owner);
-                 
-                 AcceptDialog *dialog = memnew(AcceptDialog);
-                 dialog->set_title(title);
-                 dialog->set_ok_button_text("OK");
-                 
-                 VBoxContainer *vbox = memnew(VBoxContainer);
-                 Label *lbl = memnew(Label);
-                 lbl->set_text(prompt);
-                 vbox->add_child(lbl);
-                 
-                 LineEdit *le = memnew(LineEdit);
-                 le->set_text(def);
-                 le->set_custom_minimum_size(Vector2(300, 0));
-                 vbox->add_child(le);
-                 
-                 dialog->add_child(vbox);
-                 root->add_child(dialog);
-                 
-                 dialog->popup_centered(Vector2i(400, 150));
-                 le->grab_focus();
-                 le->select_all();
-                 
-                 while (dialog->is_visible() && dialog->is_inside_tree()) {
-                      DisplayServer::get_singleton()->process_events();
-                      OS::get_singleton()->delay_msec(10);
-                 }
-                 
-                 String result = le->get_text();
-                 dialog->queue_free();
-                 return result;
+                 String prompt = (call_args.size() > 0) ? String(call_args[0]) : String("");
+                 String title  = (call_args.size() > 1) ? String(call_args[1]) : String("VisualGasic");
+                 String def    = (call_args.size() > 2) ? String(call_args[2]) : String("");
+                 return VisualGasicBuiltins::native_input_box(prompt, title, def);
              }
          }
          return Variant();

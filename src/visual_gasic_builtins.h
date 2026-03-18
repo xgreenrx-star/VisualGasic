@@ -22,6 +22,11 @@ namespace VisualGasicBuiltins {
     bool call_builtin_for_base_object(VisualGasicInstance *instance, const Variant &p_base, const String &p_method, const Array &p_args, Variant &r_ret);
     // Handle calls where the base is any Variant (dictionary, object, etc.)
     bool call_builtin_for_base_variant(VisualGasicInstance *instance, const Variant &p_base, const String &p_method, const Array &p_args, Variant &r_ret);
+
+    // Native OS text-input dialog (zenity/kdialog on Linux).
+    // Blocks until the user closes the dialog.  Returns entered text, or
+    // empty string on cancel, or p_default if no dialog tool is available.
+    String native_input_box(const String &p_prompt, const String &p_title, const String &p_default);
 }
 
 #endif // VISUAL_GASIC_BUILTINS_H
