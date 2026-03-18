@@ -643,13 +643,6 @@ Raises error if condition is False.
 - `FillImage(image, color)` — fill entire Image
 - `FillImageRect(image, x, y, w, h, color)` — fill rectangular region
 
-**Native Drawing** *(v4.2.0-beta5)*:
-- `DrawImageLine(image, x1, y1, x2, y2, color)` — Bresenham line
-- `DrawImageRect(image, x1, y1, x2, y2, color)` — 1px outline rectangle
-- `DrawImageEllipse(image, cx, cy, rx, ry, color)` — midpoint ellipse outline
-- `DrawImageCircle(image, cx, cy, radius, color)` — filled circle (scanline)
-- `FloodFillImage(image, x, y, color)` — 4-connected flood fill (native C++)
-
 **Copy / Sync:**
 - `BlitImage(dest, src, srcRect, destPos)` — copy pixel region between Images
 - `UpdateTexture(texture, image)` — push Image data to ImageTexture
@@ -662,6 +655,205 @@ Raises error if condition is False.
 **File I/O:**
 - `SaveImage(image, path)` — save as PNG
 - `LoadImage(path)` — load image file as Image
+
+---
+
+### Native Image Drawing Commands *(New in v4.2.0-beta5)*
+
+These builtins perform pixel-level drawing operations **entirely in native C++**,
+making them orders of magnitude faster than equivalent VG script loops.
+All operate directly on an `Image` object — call `UpdateTexture` afterwards
+to push changes to screen.
+
+---
+
+### DrawImageLine
+
+```vb
+DrawImageLine image, x1, y1, x2, y2, color
+```
+
+Draws a 1-pixel-wide line from `(x1, y1)` to `(x2, y2)` on the Image using
+the Bresenham line algorithm. Pixels outside the Image bounds are silently
+skipped.
+
+| Parameter | Type    | Description                                     |
+|-----------|---------|--------------------------------------------------|
+| `image`   | Image   | The target Image (created via `CreateImage`)     |
+| `x1`      | Integer | Start X coordinate                               |
+| `y1`      | Integer | Start Y coordinate                               |
+| `x2`      | Integer | End X coordinate                                 |
+| `y2`      | Integer | End Y coordinate                                 |
+| `color`   | Color   | Line color (use `Color8(r,g,b,a)` for 0–255)    |
+
+**Example:**
+```vb
+Dim img As Variant = CreateImage(320, 240, Color(1, 1, 1, 1))
+Dim tex As Variant = CreateTexture(img)
+
+' Draw a red diagonal line
+DrawImageLine img, 0, 0, 319, 239, Color(1, 0, 0, 1)
+
+' Draw a blue horizontal line
+DrawImageLine img, 10, 120, 310, 120, Color8(0, 0, 255, 255)
+
+UpdateTexture tex, img
+```
+
+---
+
+### DrawImageRect
+
+```vb
+DrawImageRect image, x1, y1, x2, y2, color
+```
+
+Draws a 1-pixel-wide **outline** rectangle on the Image. The rectangle is
+defined by two opposite corners `(x1, y1)` and `(x2, y2)`. Coordinates are
+automatically normalized (min/max), so the corner order doesn't matter.
+
+| Parameter | Type    | Description                                     |
+|-----------|---------|--------------------------------------------------|
+| `image`   | Image   | The target Image                                 |
+| `x1`      | Integer | First corner X                                   |
+| `y1`      | Integer | First corner Y                                   |
+| `x2`      | Integer | Opposite corner X                                |
+| `y2`      | Integer | Opposite corner Y                                |
+| `color`   | Color   | Outline color                                    |
+
+> **Note:** This draws an outline only. To draw a **filled** rectangle, use
+> `FillImageRect image, x, y, w, h, color`.
+
+**Example:**
+```vb
+Dim img As Variant = CreateImage(320, 240, Color(1, 1, 1, 1))
+
+' Draw a blue rectangle outline from (20,20) to (200,150)
+DrawImageRect img, 20, 20, 200, 150, Color(0, 0, 1, 1)
+
+' Draw a green rectangle (corner order reversed — same result)
+DrawImageRect img, 300, 200, 220, 30, Color(0, 1, 0, 1)
+
+UpdateTexture tex, img
+```
+
+---
+
+### DrawImageEllipse
+
+```vb
+DrawImageEllipse image, cx, cy, rx, ry, color
+```
+
+Draws a 1-pixel-wide ellipse **outline** centered at `(cx, cy)` with
+horizontal radius `rx` and vertical radius `ry`, using the midpoint ellipse
+algorithm. For a circle outline, set `rx = ry`.
+
+| Parameter | Type    | Description                                     |
+|-----------|---------|--------------------------------------------------|
+| `image`   | Image   | The target Image                                 |
+| `cx`      | Integer | Center X coordinate                              |
+| `cy`      | Integer | Center Y coordinate                              |
+| `rx`      | Integer | Horizontal radius (minimum 1)                    |
+| `ry`      | Integer | Vertical radius (minimum 1)                      |
+| `color`   | Color   | Outline color                                    |
+
+**Example:**
+```vb
+Dim img As Variant = CreateImage(320, 240, Color(1, 1, 1, 1))
+
+' Draw a red ellipse in the center of the image
+DrawImageEllipse img, 160, 120, 100, 60, Color(1, 0, 0, 1)
+
+' Draw a perfect circle outline (rx = ry)
+DrawImageEllipse img, 80, 80, 40, 40, Color8(0, 128, 255, 255)
+
+UpdateTexture tex, img
+```
+
+---
+
+### DrawImageCircle
+
+```vb
+DrawImageCircle image, cx, cy, radius, color
+```
+
+Draws a **filled** circle centered at `(cx, cy)` with the given `radius`.
+Uses scanline fill for speed — each horizontal row is drawn with a single
+`fill_rect` call.
+
+| Parameter | Type    | Description                                     |
+|-----------|---------|--------------------------------------------------|
+| `image`   | Image   | The target Image                                 |
+| `cx`      | Integer | Center X coordinate                              |
+| `cy`      | Integer | Center Y coordinate                              |
+| `radius`  | Integer | Circle radius in pixels                          |
+| `color`   | Color   | Fill color                                       |
+
+> **Note:** This draws a **filled** circle. For an outline-only circle, use
+> `DrawImageEllipse image, cx, cy, r, r, color`.
+
+**Example:**
+```vb
+Dim img As Variant = CreateImage(320, 240, Color(1, 1, 1, 1))
+
+' Draw a filled yellow sun
+DrawImageCircle img, 260, 50, 35, Color(1, 1, 0, 1)
+
+' Draw a small red dot
+DrawImageCircle img, 100, 100, 3, Color8(255, 0, 0, 255)
+
+UpdateTexture tex, img
+```
+
+---
+
+### FloodFillImage
+
+```vb
+FloodFillImage image, x, y, color
+```
+
+Performs a **4-connected flood fill** starting at `(x, y)`, replacing all
+contiguous pixels of the same color as the target pixel with the new `color`.
+The algorithm runs entirely in native C++ for maximum speed.
+
+The fill stops when it encounters a pixel that doesn't match the target
+color (within a tiny floating-point tolerance of 1/512). It is bounded by
+`width × height` iterations as a safety limit.
+
+If the pixel at `(x, y)` is already the fill color, no work is done.
+
+| Parameter | Type    | Description                                     |
+|-----------|---------|--------------------------------------------------|
+| `image`   | Image   | The target Image                                 |
+| `x`       | Integer | Seed X coordinate (where the fill starts)        |
+| `y`       | Integer | Seed Y coordinate                                |
+| `color`   | Color   | The new fill color                               |
+
+**Example:**
+```vb
+Dim img As Variant = CreateImage(320, 240, Color(1, 1, 1, 1))  ' White canvas
+
+' Draw a closed black rectangle outline
+DrawImageRect img, 50, 50, 200, 150, Color(0, 0, 0, 1)
+
+' Flood-fill the inside of the rectangle with blue
+FloodFillImage img, 100, 100, Color(0, 0, 1, 1)
+
+' The white area outside the rectangle is untouched
+' Only the white pixels connected to (100,100) inside the rect turn blue
+
+UpdateTexture tex, img
+```
+
+**Paint bucket example (VGPaint-style):**
+```vb
+' In a paint app, on mouse click with the Fill tool:
+FloodFillImage canvasImage, mouseCanvasX, mouseCanvasY, Color8(fgColorR, fgColorG, fgColorB, 255)
+canvasDirty = True    ' Flag texture for UpdateTexture in _Draw
+```
 
 ---
 

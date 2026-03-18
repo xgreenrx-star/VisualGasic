@@ -1498,11 +1498,15 @@ VisualGasic provides a comprehensive set of keywords for modern game development
 - `GetTextureImage` - Extract Image from ImageTexture
 
 #### **Graphics & Drawing — Native Image Drawing** *(New in v4.2.0-beta5)*
-- `DrawImageLine` - Draw a line on an Image (Bresenham)
-- `DrawImageRect` - Draw an outline rectangle on an Image
-- `DrawImageEllipse` - Draw an ellipse outline on an Image (midpoint algorithm)
-- `DrawImageCircle` - Draw a filled circle on an Image
-- `FloodFillImage` - Flood-fill a region on an Image (4-connected, native C++)
+
+These builtins draw directly on an `Image` object in **native C++** for maximum speed.
+Call `UpdateTexture tex, img` afterwards to push changes to screen.
+
+- `DrawImageLine image, x1, y1, x2, y2, color` — Draw a 1px Bresenham line
+- `DrawImageRect image, x1, y1, x2, y2, color` — Draw a 1px outline rectangle (corners auto-normalized)
+- `DrawImageEllipse image, cx, cy, rx, ry, color` — Draw a 1px ellipse outline (midpoint algorithm; use rx=ry for circle)
+- `DrawImageCircle image, cx, cy, radius, color` — Draw a **filled** circle (scanline; for outline use DrawImageEllipse)
+- `FloodFillImage image, x, y, color` — Flood-fill connected pixels from seed point (4-connected, bounded by w×h)
 
 #### **Audio**
 - `PlaySound` - Play sound effect
@@ -3614,11 +3618,31 @@ UpdateTexture tex, img                              ' Sync Image → Texture
 DrawTexture tex, 0, 0                               ' Render in _Draw()
 
 ' Native drawing builtins (fast C++ pixel operations)
-DrawImageLine img, 10, 10, 200, 150, Color(1, 0, 0, 1)       ' Red line
+' These run entirely in native code — much faster than VG script loops.
+
+' Line: Bresenham from (x1,y1) to (x2,y2)
+DrawImageLine img, 10, 10, 200, 150, Color(1, 0, 0, 1)       ' Red diagonal
+DrawImageLine img, 0, 120, 319, 120, Color8(0, 0, 255, 255)  ' Blue horizontal
+
+' Rectangle: 1px outline between two corners (auto-normalized)
 DrawImageRect img, 20, 20, 120, 80, Color(0, 0, 1, 1)        ' Blue rect outline
+' For a FILLED rectangle, use FillImageRect instead:
+FillImageRect img, 130, 20, 60, 40, Color(0, 1, 0, 1)        ' Green filled rect
+
+' Ellipse: midpoint algorithm, center (cx,cy), radii (rx,ry)
 DrawImageEllipse img, 160, 120, 60, 40, Color(0, 1, 0, 1)    ' Green ellipse
-DrawImageCircle img, 200, 200, 30, Color(1, 1, 0, 1)         ' Yellow filled circle
-FloodFillImage img, 50, 50, Color(1, 0, 1, 1)                ' Magenta flood fill
+DrawImageEllipse img, 80, 80, 30, 30, Color(1, 0, 1, 1)      ' Circle outline (rx=ry)
+
+' Circle: FILLED circle using scanline fill
+DrawImageCircle img, 260, 50, 35, Color(1, 1, 0, 1)          ' Yellow filled sun
+' For an outline-only circle, use DrawImageEllipse with rx=ry instead
+
+' FloodFill: fill connected region from seed point
+DrawImageRect img, 50, 160, 150, 230, Color(0, 0, 0, 1)      ' Black outline box
+FloodFillImage img, 100, 195, Color(0, 0, 1, 1)              ' Blue fill inside
+' Only pixels connected to seed (100,195) that match the target color are filled
+
+UpdateTexture tex, img    ' Push all changes to texture for display
 
 ' File I/O
 SaveImage img, "user://screenshot.png"              ' Save as PNG

@@ -54,11 +54,48 @@ Image & Texture builtins *(New in v4.2.0)*:
 - `LoadImage(path)` — load image file as Image object
 
 Native Image drawing builtins *(New in v4.2.0-beta5)*:
-- `DrawImageLine(image, x1, y1, x2, y2, color)` — Bresenham line on Image
-- `DrawImageRect(image, x1, y1, x2, y2, color)` — 1px outline rectangle on Image
-- `DrawImageEllipse(image, cx, cy, rx, ry, color)` — midpoint ellipse outline on Image
-- `DrawImageCircle(image, cx, cy, radius, color)` — filled circle on Image (scanline)
-- `FloodFillImage(image, x, y, color)` — 4-connected flood fill on Image (native C++)
+
+These builtins perform pixel-level drawing entirely in **native C++**, making
+them orders of magnitude faster than script-level loops. All operate on an
+`Image` object — call `UpdateTexture` afterwards to display changes.
+
+- **`DrawImageLine(image, x1, y1, x2, y2, color)`** — Draws a 1px line from
+  `(x1,y1)` to `(x2,y2)` using the Bresenham algorithm. Out-of-bounds pixels
+  are silently skipped.
+  ```vb
+  DrawImageLine img, 0, 0, 319, 239, Color(1, 0, 0, 1)   ' Red diagonal
+  ```
+
+- **`DrawImageRect(image, x1, y1, x2, y2, color)`** — Draws a 1px **outline**
+  rectangle between two corners. Corner order doesn't matter (auto-normalized).
+  For a filled rectangle, use `FillImageRect` instead.
+  ```vb
+  DrawImageRect img, 20, 20, 200, 150, Color(0, 0, 1, 1)  ' Blue outline
+  ```
+
+- **`DrawImageEllipse(image, cx, cy, rx, ry, color)`** — Draws a 1px ellipse
+  **outline** centered at `(cx,cy)` with radii `rx`, `ry` (midpoint algorithm).
+  Use `rx = ry` for a perfect circle outline.
+  ```vb
+  DrawImageEllipse img, 160, 120, 80, 50, Color(0, 1, 0, 1)  ' Green ellipse
+  ```
+
+- **`DrawImageCircle(image, cx, cy, radius, color)`** — Draws a **filled**
+  circle using scanline fill (one `fill_rect` per row). For an outline-only
+  circle, use `DrawImageEllipse` with `rx = ry`.
+  ```vb
+  DrawImageCircle img, 200, 200, 30, Color(1, 1, 0, 1)    ' Yellow sun
+  ```
+
+- **`FloodFillImage(image, x, y, color)`** — 4-connected flood fill starting
+  at seed `(x,y)`. Replaces all contiguous pixels matching the target color
+  with the new color. Runs entirely in C++ with a safety bound of
+  `width × height` iterations. Does nothing if target color equals fill color.
+  ```vb
+  ' Draw a closed shape, then fill its interior:
+  DrawImageRect img, 50, 50, 200, 150, Color(0, 0, 0, 1)   ' Black outline
+  FloodFillImage img, 100, 100, Color(0, 0, 1, 1)           ' Blue fill inside
+  ```
 
 Data introspection helpers *(New in v3.2.0)*:
 - `DataCount()` — total number of items in the data tape
