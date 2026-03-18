@@ -658,16 +658,11 @@ End Sub
 
 ' Draw text as simple pixel characters on the canvas
 Sub DrawTextOnCanvas(x As Integer, y As Integer, text As String)
-    ' For each character, draw a simple 5x7 pixel block
-    ' Uses native FillImageRect for speed (1 call per char instead of 35 SetPixel)
-    Dim i As Integer
+    ' Render actual text glyphs onto the canvas image using the native bitmap font.
+    ' Scale 2 gives readable 10x14 pixel characters; use 1 for tiny 5x7.
     Dim charColor As Variant
     charColor = Color8(fgColorR, fgColorG, fgColorB, 255)
-    For i = 1 To Len(text)
-        Dim cx As Integer
-        cx = x + (i - 1) * 6
-        FillImageRect canvasImage, cx, y, 5, 7, charColor
-    Next
+    DrawImageText canvasImage, x, y, text, charColor, 2
 End Sub
 
 ' ============================================================================
