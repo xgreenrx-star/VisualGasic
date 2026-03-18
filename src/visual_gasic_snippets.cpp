@@ -188,6 +188,7 @@ void SnippetHelper::initialize_parameter_hints() {
     (*parameter_hints)["DrawImageRect"] = "DrawImageRect(image As Image, x1 As Integer, y1 As Integer, x2 As Integer, y2 As Integer, color As Color)";
     (*parameter_hints)["DrawImageEllipse"] = "DrawImageEllipse(image As Image, cx As Integer, cy As Integer, rx As Integer, ry As Integer, color As Color)";
     (*parameter_hints)["DrawImageCircle"] = "DrawImageCircle(image As Image, cx As Integer, cy As Integer, radius As Integer, color As Color)";
+    (*parameter_hints)["FloodFillImage"] = "FloodFillImage(image As Image, x As Integer, y As Integer, color As Color)";
     (*parameter_hints)["UpdateTexture"] = "UpdateTexture(texture As ImageTexture, image As Image)";
     (*parameter_hints)["ImageWidth"] = "ImageWidth(image As Image) As Integer";
     (*parameter_hints)["ImageHeight"] = "ImageHeight(image As Image) As Integer";

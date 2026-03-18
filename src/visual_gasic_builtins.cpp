@@ -212,16 +212,18 @@ bool call_builtin(VisualGasicInstance *instance, const String &p_method, const A
 
         AcceptDialog *dialog = memnew(AcceptDialog);
         dialog->set_title(title);
+        dialog->set_ok_button_text("OK");
         VBoxContainer *vbox = memnew(VBoxContainer);
         Label *lbl = memnew(Label);
         lbl->set_text(prompt);
         vbox->add_child(lbl);
         LineEdit *le = memnew(LineEdit);
         le->set_text(def);
+        le->set_custom_minimum_size(Vector2(300, 0));
         vbox->add_child(le);
         dialog->add_child(vbox);
         root->add_child(dialog);
-        dialog->popup_centered();
+        dialog->popup_centered(Vector2i(400, 150));
         le->grab_focus();
 
         while (dialog->is_visible() && dialog->is_inside_tree()) {
@@ -229,9 +231,7 @@ bool call_builtin(VisualGasicInstance *instance, const String &p_method, const A
             OS::get_singleton()->delay_msec(10);
         }
 
-        String result = "";
-        // No reliable meta-setting here; assume accepted if not visible
-        result = le->get_text();
+        String result = le->get_text();
         dialog->queue_free();
         r_ret = result;
         return true;
@@ -705,18 +705,18 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
 
         AcceptDialog *dialog = memnew(AcceptDialog);
         dialog->set_title(title);
+        dialog->set_ok_button_text("OK");
         VBoxContainer *vbox = memnew(VBoxContainer);
         Label *lbl = memnew(Label);
         lbl->set_text(prompt);
         vbox->add_child(lbl);
         LineEdit *le = memnew(LineEdit);
         le->set_text(def);
+        le->set_custom_minimum_size(Vector2(300, 0));
         vbox->add_child(le);
         dialog->add_child(vbox);
         root->add_child(dialog);
-        dialog->set_meta("result_ok", false);
-        dialog->connect("confirmed", Callable(dialog, "set_meta").bind("result_ok", true));
-        dialog->popup_centered();
+        dialog->popup_centered(Vector2i(400, 150));
         le->grab_focus();
         le->select_all();
 
@@ -725,10 +725,7 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
             OS::get_singleton()->delay_msec(10);
         }
 
-        String result = "";
-        if ((bool)dialog->get_meta("result_ok")) {
-            result = le->get_text();
-        }
+        String result = le->get_text();
         dialog->queue_free();
         return result;
     }

@@ -1831,6 +1831,50 @@ void VisualGasicInstance::dispatch_builtin_call(const String &p_method, const Ar
                 r_found = true;
                 return;
             }
+            // FloodFillImage image, x, y, color
+            // Stack-based flood fill entirely in C++ for maximum speed.
+            // Replaces all connected pixels of the target color with the fill color.
+            if (p_method.nocasecmp_to("FloodFillImage") == 0 && p_args.size() >= 4) {
+                if (p_args[0].get_type() == Variant::OBJECT) {
+                    Ref<Image> img = p_args[0];
+                    if (img.is_valid()) {
+                        int sx = (int)p_args[1], sy = (int)p_args[2];
+                        Color fill_col = p_args[3];
+                        int iw = img->get_width(), ih = img->get_height();
+                        if (sx >= 0 && sx < iw && sy >= 0 && sy < ih) {
+                            Color target_col = img->get_pixel(sx, sy);
+                            // Don't fill if target == fill (avoid infinite loop)
+                            if (!target_col.is_equal_approx(fill_col)) {
+                                // Stack-based 4-connected flood fill
+                                // Use a vector as a stack (much faster than script arrays)
+                                struct Pt { int x, y; };
+                                Vector<Pt> stack;
+                                stack.push_back({sx, sy});
+                                // Tolerance for color comparison (avoids float precision issues)
+                                const float tol = 1.0f / 512.0f;
+                                int max_iterations = iw * ih; // absolute safety limit
+                                while (stack.size() > 0 && max_iterations-- > 0) {
+                                    Pt p = stack[stack.size() - 1];
+                                    stack.resize(stack.size() - 1);
+                                    if (p.x < 0 || p.x >= iw || p.y < 0 || p.y >= ih) continue;
+                                    Color pc = img->get_pixel(p.x, p.y);
+                                    if (Math::abs(pc.r - target_col.r) > tol ||
+                                        Math::abs(pc.g - target_col.g) > tol ||
+                                        Math::abs(pc.b - target_col.b) > tol ||
+                                        Math::abs(pc.a - target_col.a) > tol) continue;
+                                    img->set_pixel(p.x, p.y, fill_col);
+                                    stack.push_back({p.x + 1, p.y});
+                                    stack.push_back({p.x - 1, p.y});
+                                    stack.push_back({p.x, p.y + 1});
+                                    stack.push_back({p.x, p.y - 1});
+                                }
+                            }
+                        }
+                    }
+                }
+                r_found = true;
+                return;
+            }
         }
     }
     if (owner) {

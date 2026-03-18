@@ -813,6 +813,7 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
                  
                  AcceptDialog *dialog = memnew(AcceptDialog);
                  dialog->set_title(title);
+                 dialog->set_ok_button_text("OK");
                  
                  VBoxContainer *vbox = memnew(VBoxContainer);
                  Label *lbl = memnew(Label);
@@ -821,16 +822,13 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
                  
                  LineEdit *le = memnew(LineEdit);
                  le->set_text(def);
+                 le->set_custom_minimum_size(Vector2(300, 0));
                  vbox->add_child(le);
                  
                  dialog->add_child(vbox);
                  root->add_child(dialog);
                  
-                 // Signal Magic: Connect 'confirmed' to set_meta('result_ok', true) on the dialog itself
-                 dialog->set_meta("result_ok", false);
-                 dialog->connect("confirmed", Callable(dialog, "set_meta").bind("result_ok", true));
-                 
-                 dialog->popup_centered();
+                 dialog->popup_centered(Vector2i(400, 150));
                  le->grab_focus();
                  le->select_all();
                  
@@ -839,11 +837,7 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
                       OS::get_singleton()->delay_msec(10);
                  }
                  
-                 String result = "";
-                 if ((bool)dialog->get_meta("result_ok")) {
-                      result = le->get_text();
-                 }
-                 
+                 String result = le->get_text();
                  dialog->queue_free();
                  return result;
              }
