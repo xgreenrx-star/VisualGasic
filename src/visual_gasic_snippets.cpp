@@ -184,7 +184,8 @@ void SnippetHelper::initialize_parameter_hints() {
     (*parameter_hints)["FillImage"] = "FillImage(image As Image, color As Color)";
     (*parameter_hints)["FillImageRect"] = "FillImageRect(image As Image, x As Integer, y As Integer, w As Integer, h As Integer, color As Color)";
     (*parameter_hints)["BlitImage"] = "BlitImage(destImage As Image, srcImage As Image, srcRect As Rect2i, destPos As Vector2i)";
-    (*parameter_hints)["DrawImageLine"] = "DrawImageLine(image As Image, x1 As Integer, y1 As Integer, x2 As Integer, y2 As Integer, color As Color)";
+    (*parameter_hints)["DrawImageLine"] = "DrawImageLine(image As Image, x1 As Integer, y1 As Integer, x2 As Integer, y2 As Integer, color As Color, [width As Integer])";
+    (*parameter_hints)["Line"] = "Line(image As Image, x1 As Integer, y1 As Integer, x2 As Integer, y2 As Integer, color As Color, [width As Integer])  ' Alias for DrawImageLine";
     (*parameter_hints)["DrawImageRect"] = "DrawImageRect(image As Image, x1 As Integer, y1 As Integer, x2 As Integer, y2 As Integer, color As Color)";
     (*parameter_hints)["DrawImageEllipse"] = "DrawImageEllipse(image As Image, cx As Integer, cy As Integer, rx As Integer, ry As Integer, color As Color)";
     (*parameter_hints)["DrawImageCircle"] = "DrawImageCircle(image As Image, cx As Integer, cy As Integer, radius As Integer, color As Color)";

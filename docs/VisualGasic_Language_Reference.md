@@ -1502,7 +1502,8 @@ VisualGasic provides a comprehensive set of keywords for modern game development
 These builtins draw directly on an `Image` object in **native C++** for maximum speed.
 Call `UpdateTexture tex, img` afterwards to push changes to screen.
 
-- `DrawImageLine image, x1, y1, x2, y2, color` — Draw a 1px Bresenham line
+- `DrawImageLine image, x1, y1, x2, y2, color[, width]` — Draw a Bresenham line (1px default; pass width for thick brush)
+- `Line image, x1, y1, x2, y2, color[, width]` — VB6-style alias for `DrawImageLine`
 - `DrawImageRect image, x1, y1, x2, y2, color` — Draw a 1px outline rectangle (corners auto-normalized)
 - `DrawImageEllipse image, cx, cy, rx, ry, color` — Draw a 1px ellipse outline (midpoint algorithm; use rx=ry for circle)
 - `DrawImageCircle image, cx, cy, radius, color` — Draw a **filled** circle (scanline; for outline use DrawImageEllipse)
@@ -3620,9 +3621,10 @@ DrawTexture tex, 0, 0                               ' Render in _Draw()
 ' Native drawing builtins (fast C++ pixel operations)
 ' These run entirely in native code — much faster than VG script loops.
 
-' Line: Bresenham from (x1,y1) to (x2,y2)
-DrawImageLine img, 10, 10, 200, 150, Color(1, 0, 0, 1)       ' Red diagonal
-DrawImageLine img, 0, 120, 319, 120, Color8(0, 0, 255, 255)  ' Blue horizontal
+' Line: Bresenham from (x1,y1) to (x2,y2) — optional width for thick brush
+DrawImageLine img, 10, 10, 200, 150, Color(1, 0, 0, 1)         ' 1px red diagonal
+DrawImageLine img, 0, 120, 319, 120, Color8(0, 0, 255, 255), 8 ' 8px blue brush
+Line img, 10, 180, 200, 180, Color(0, 1, 0, 1), 4              ' VB6 alias, 4px
 
 ' Rectangle: 1px outline between two corners (auto-normalized)
 DrawImageRect img, 20, 20, 120, 80, Color(0, 0, 1, 1)        ' Blue rect outline

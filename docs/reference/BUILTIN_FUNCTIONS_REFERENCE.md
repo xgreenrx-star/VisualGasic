@@ -670,32 +670,41 @@ to push changes to screen.
 ### DrawImageLine
 
 ```vb
-DrawImageLine image, x1, y1, x2, y2, color
+DrawImageLine image, x1, y1, x2, y2, color[, width]
 ```
 
-Draws a 1-pixel-wide line from `(x1, y1)` to `(x2, y2)` on the Image using
-the Bresenham line algorithm. Pixels outside the Image bounds are silently
-skipped.
+Draws a line from `(x1, y1)` to `(x2, y2)` on the Image using the Bresenham
+line algorithm. When `width` is omitted or 1, draws a single-pixel line.
+When `width` > 1, stamps a filled square brush (width × width) at each
+Bresenham step — useful for thick brush/eraser strokes. Pixels outside the
+Image bounds are silently skipped.
 
-| Parameter | Type    | Description                                     |
-|-----------|---------|--------------------------------------------------|
-| `image`   | Image   | The target Image (created via `CreateImage`)     |
-| `x1`      | Integer | Start X coordinate                               |
-| `y1`      | Integer | Start Y coordinate                               |
-| `x2`      | Integer | End X coordinate                                 |
-| `y2`      | Integer | End Y coordinate                                 |
-| `color`   | Color   | Line color (use `Color8(r,g,b,a)` for 0–255)    |
+The VB6-style command `Line` is an alias for `DrawImageLine` — they are
+interchangeable.
+
+| Parameter | Type    | Description                                           |
+|-----------|---------|--------------------------------------------------------|
+| `image`   | Image   | The target Image (created via `CreateImage`)           |
+| `x1`      | Integer | Start X coordinate                                     |
+| `y1`      | Integer | Start Y coordinate                                     |
+| `x2`      | Integer | End X coordinate                                       |
+| `y2`      | Integer | End Y coordinate                                       |
+| `color`   | Color   | Line color (use `Color8(r,g,b,a)` for 0–255)          |
+| `width`   | Integer | *(Optional)* Brush width in pixels. Default = 1 (1px). |
 
 **Example:**
 ```vb
 Dim img As Variant = CreateImage(320, 240, Color(1, 1, 1, 1))
 Dim tex As Variant = CreateTexture(img)
 
-' Draw a red diagonal line
+' Draw a red diagonal line (1px)
 DrawImageLine img, 0, 0, 319, 239, Color(1, 0, 0, 1)
 
-' Draw a blue horizontal line
-DrawImageLine img, 10, 120, 310, 120, Color8(0, 0, 255, 255)
+' Draw a thick blue horizontal line (8px brush)
+DrawImageLine img, 10, 120, 310, 120, Color8(0, 0, 255, 255), 8
+
+' VB6-style alias works identically:
+Line img, 10, 150, 310, 150, Color(0, 1, 0, 1), 4
 
 UpdateTexture tex, img
 ```

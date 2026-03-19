@@ -856,6 +856,10 @@ Statement* VisualGasicParser::parse_statement() {
             if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("input") == 0) {
                  return set_line(parse_input(true));
             }
+            // Not "Line Input" — treat as VB6-style Line drawing command.
+            // Back up so parse_assignment_or_call sees "Line" as the method name.
+            current_pos--;
+            return set_line(parse_assignment_or_call());
         }
 
         if (val == "var") {

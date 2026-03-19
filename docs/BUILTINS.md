@@ -59,11 +59,15 @@ These builtins perform pixel-level drawing entirely in **native C++**, making
 them orders of magnitude faster than script-level loops. All operate on an
 `Image` object — call `UpdateTexture` afterwards to display changes.
 
-- **`DrawImageLine(image, x1, y1, x2, y2, color)`** — Draws a 1px line from
-  `(x1,y1)` to `(x2,y2)` using the Bresenham algorithm. Out-of-bounds pixels
-  are silently skipped.
+- **`DrawImageLine(image, x1, y1, x2, y2, color[, width])`** — Draws a line
+  from `(x1,y1)` to `(x2,y2)` using the Bresenham algorithm. Omit `width`
+  (or pass 1) for a 1px line; pass a larger value for a thick brush stroke.
+  Out-of-bounds pixels are silently skipped.
+  The VB6-style command **`Line`** is an alias for `DrawImageLine`.
   ```vb
-  DrawImageLine img, 0, 0, 319, 239, Color(1, 0, 0, 1)   ' Red diagonal
+  DrawImageLine img, 0, 0, 319, 239, Color(1, 0, 0, 1)       ' 1px red diagonal
+  DrawImageLine img, 10, 120, 310, 120, Color8(0,0,255,255), 8 ' 8px blue line
+  Line img, 0, 200, 319, 200, Color(0, 1, 0, 1), 4            ' VB6 alias
   ```
 
 - **`DrawImageRect(image, x1, y1, x2, y2, color)`** — Draws a 1px **outline**

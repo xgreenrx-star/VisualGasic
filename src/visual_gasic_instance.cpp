@@ -1706,11 +1706,12 @@ void VisualGasicInstance::dispatch_builtin_call(const String &p_method, const Ar
             // ── Native Image Drawing Builtins ─────────────────────────────────
             // These do pixel loops entirely in C++ for maximum speed.
 
-            // DrawImageLine image, x1, y1, x2, y2, color[, width]
+            // DrawImageLine / Line — image, x1, y1, x2, y2, color[, width]
             // Bresenham line directly on an Image.
+            //   "Line" is the VB6-style alias for "DrawImageLine".
             //   width=1 (default): single-pixel set_pixel per step
             //   width>1: stamps a filled rectangle (brush) centered on each step
-            if (p_method.nocasecmp_to("DrawImageLine") == 0 && p_args.size() >= 6) {
+            if ((p_method.nocasecmp_to("DrawImageLine") == 0 || p_method.nocasecmp_to("Line") == 0) && p_args.size() >= 6) {
                 if (p_args[0].get_type() == Variant::OBJECT) {
                     Ref<Image> img = p_args[0];
                     if (img.is_valid()) {
