@@ -846,6 +846,19 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
     variables["comRTS"] = 2;
     variables["comRTSXOnXOff"] = 3;
 
+    // StrConv Constants (v4.2.0)
+    variables["vbUpperCase"] = 1;
+    variables["vbLowerCase"] = 2;
+    variables["vbProperCase"] = 3;
+    variables["vbUnicode"] = 64;
+    variables["vbFromUnicode"] = 128;
+
+    // CallByName CallType Constants (v4.2.0)
+    variables["vbMethod"] = 1;
+    variables["vbGet"] = 2;
+    variables["vbLet"] = 4;
+    variables["vbSet"] = 8;
+
     // Initialize Global Variables from Script
     if (script.is_valid()) {
         VisualGasicScript *vs = Object::cast_to<VisualGasicScript>(script.ptr());
@@ -1826,9 +1839,10 @@ void VisualGasicInstance::dispatch_builtin_call(const String &p_method, const Ar
                 r_found = true;
                 return;
             }
-            // DrawImageCircle image, cx, cy, radius, color
+            // DrawImageCircle / Circle — image, cx, cy, radius, color
+            // "Circle" is the VB6-style alias for "DrawImageCircle".
             // Filled circle on an Image using scanlines
-            if (p_method.nocasecmp_to("DrawImageCircle") == 0 && p_args.size() >= 5) {
+            if ((p_method.nocasecmp_to("DrawImageCircle") == 0 || p_method.nocasecmp_to("Circle") == 0) && p_args.size() >= 5) {
                 if (p_args[0].get_type() == Variant::OBJECT) {
                     Ref<Image> img = p_args[0];
                     if (img.is_valid()) {

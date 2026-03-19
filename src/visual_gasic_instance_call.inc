@@ -708,6 +708,7 @@ void VisualGasicInstance::raise_error(String msg, int code, const String &source
     error_state.has_error = true;
     error_state.message = msg;
     error_state.code = code;
+    error_state.error_line = debug_state.current_line; // Capture line for Erl
     if (error_state.mode == ErrorState::NONE) {
         UtilityFunctions::print("Runtime Error ", code, ": ", msg);
     }
@@ -2059,5 +2060,30 @@ void VisualGasicInstance::assign_to_target(ExpressionNode* target, Variant val) 
          err += " (type " + Variant::get_type_name(container.get_type()) + ")";
          raise_error(err);
     }
+}
+
+// CallByName support — call a VG sub/function by string name
+Variant VisualGasicInstance::call_method_by_name(const String &p_name, const Array &p_args) {
+    if (!script.is_valid()) {
+        raise_error("CallByName: no script loaded", 35);
+        return Variant();
+    }
+    VisualGasicScript *vs = Object::cast_to<VisualGasicScript>(script.ptr());
+    if (!vs || !vs->ast_root) {
+        raise_error("CallByName: no AST available", 35);
+        return Variant();
+    }
+    // Search for the sub/function in the AST
+    for (int i = 0; i < vs->ast_root->subs.size(); i++) {
+        if (vs->ast_root->subs[i]->name.nocasecmp_to(p_name) == 0) {
+            // Found it — invoke via call_internal
+            bool found = false;
+            Variant result = call_internal(p_name, p_args, found);
+            if (found) return result;
+            return Variant();
+        }
+    }
+    raise_error("Sub or Function not defined: " + p_name, 35);
+    return Variant();
 }
 

@@ -2580,6 +2580,22 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
             }
             return l.booleanize() != r.booleanize();
         }
+        // VB6 Eqv: logical equivalence (XNOR). Bitwise when numeric, logical otherwise.
+        if (op.nocasecmp_to("Eqv") == 0) {
+            if ((l.get_type() == Variant::INT || l.get_type() == Variant::FLOAT) &&
+                (r.get_type() == Variant::INT || r.get_type() == Variant::FLOAT)) {
+                return Variant(~((int64_t)l ^ (int64_t)r)); // bitwise XNOR
+            }
+            return l.booleanize() == r.booleanize();
+        }
+        // VB6 Imp: logical implication. Bitwise: (Not A) Or B. Logical: (Not A) Or B.
+        if (op.nocasecmp_to("Imp") == 0) {
+            if ((l.get_type() == Variant::INT || l.get_type() == Variant::FLOAT) &&
+                (r.get_type() == Variant::INT || r.get_type() == Variant::FLOAT)) {
+                return Variant(~(int64_t)l | (int64_t)r); // bitwise implication
+            }
+            return !l.booleanize() || r.booleanize();
+        }
         if (op.nocasecmp_to("Like") == 0) {
             // VB6-style Like pattern matching
             // Pattern characters:

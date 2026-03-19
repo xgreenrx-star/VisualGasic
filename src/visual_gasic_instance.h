@@ -169,6 +169,7 @@ class VisualGasicInstance {
         bool has_error;
         String message;
         int code; // Added
+        int error_line = 0; // Line number where error occurred (Erl)
     } error_state;
     
     // Debug state for breakpoint support
@@ -251,10 +252,14 @@ public:
 
     // Accessors for builtins module (Err.Clear etc.)
     Dictionary &get_variables() { return variables; }
+    Dictionary &get_open_files() { return open_files; }
+    int get_error_line() const { return error_state.error_line; }
+    Variant call_method_by_name(const String &p_name, const Array &p_args);
     void clear_error_state() {
         error_state.has_error = false;
         error_state.message = "";
         error_state.code = 0;
+        error_state.error_line = 0;
         error_state.mode = ErrorState::NONE;
     }
     

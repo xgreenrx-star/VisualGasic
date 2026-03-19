@@ -2795,6 +2795,445 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
         return result;
     }
 
+    // ============================================
+    // VB6 Compatibility Functions (v4.2.0)
+    // ============================================
+
+    // Point(image, x, y) — VB6-style alias for GetImagePixel
+    if ((METHOD_IS("point")) && args.size() == 3) {
+        r_handled = true;
+        if (args[0].get_type() == Variant::OBJECT) {
+            Ref<Image> img = args[0];
+            if (img.is_valid()) {
+                int x = (int)args[1], y = (int)args[2];
+                if (x >= 0 && x < img->get_width() && y >= 0 && y < img->get_height()) {
+                    return img->get_pixel(x, y);
+                }
+            }
+        }
+        return Color(0, 0, 0, 0);
+    }
+
+    // SavePicture image, path — VB6-style alias for SaveImage
+    if (METHOD_IS("savepicture") && args.size() == 2) {
+        r_handled = true;
+        if (args[0].get_type() == Variant::OBJECT) {
+            Ref<Image> img = args[0];
+            if (img.is_valid()) {
+                String path = args[1];
+                if (!path.begins_with("res://") && !path.begins_with("user://")) path = "user://" + path;
+                img->save_png(path);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // Error n — raise runtime error with error number
+    if (METHOD_IS("error") && args.size() >= 1) {
+        r_handled = true;
+        int code = (int)args[0];
+        // Standard VB6 error descriptions
+        String desc;
+        switch (code) {
+            case 5: desc = "Invalid procedure call or argument"; break;
+            case 6: desc = "Overflow"; break;
+            case 7: desc = "Out of memory"; break;
+            case 9: desc = "Subscript out of range"; break;
+            case 11: desc = "Division by zero"; break;
+            case 13: desc = "Type mismatch"; break;
+            case 14: desc = "Out of string space"; break;
+            case 28: desc = "Out of stack space"; break;
+            case 35: desc = "Sub or Function not defined"; break;
+            case 48: desc = "Error in loading DLL"; break;
+            case 52: desc = "Bad file name or number"; break;
+            case 53: desc = "File not found"; break;
+            case 54: desc = "Bad file mode"; break;
+            case 55: desc = "File already open"; break;
+            case 57: desc = "Device I/O error"; break;
+            case 58: desc = "File already exists"; break;
+            case 61: desc = "Disk full"; break;
+            case 62: desc = "Input past end of file"; break;
+            case 67: desc = "Too many files"; break;
+            case 68: desc = "Device unavailable"; break;
+            case 70: desc = "Permission denied"; break;
+            case 71: desc = "Disk not ready"; break;
+            case 75: desc = "Path/File access error"; break;
+            case 76: desc = "Path not found"; break;
+            case 91: desc = "Object variable or With block variable not set"; break;
+            case 94: desc = "Invalid use of Null"; break;
+            case 380: desc = "Invalid property value"; break;
+            case 422: desc = "Property not found"; break;
+            case 424: desc = "Object required"; break;
+            case 429: desc = "ActiveX component can't create object"; break;
+            case 438: desc = "Object doesn't support this property or method"; break;
+            case 440: desc = "Automation error"; break;
+            case 445: desc = "Object doesn't support this action"; break;
+            case 448: desc = "Named argument not found"; break;
+            case 449: desc = "Argument not optional"; break;
+            case 450: desc = "Wrong number of arguments or invalid property assignment"; break;
+            case 451: desc = "Property let procedure not defined"; break;
+            case 452: desc = "Invalid ordinal"; break;
+            case 453: desc = "Specified DLL function not found"; break;
+            case 457: desc = "This key is already associated with an element of this collection"; break;
+            case 458: desc = "Variable uses an Automation type not supported in VG"; break;
+            case 481: desc = "Invalid picture"; break;
+            case 482: desc = "Printer error"; break;
+            default: desc = "Application-defined or object-defined error"; break;
+        }
+        if (args.size() >= 2) desc = String(args[1]); // Optional custom description
+        instance->raise_runtime_error(desc, code);
+        return Variant();
+    }
+
+    // Error$([errornumber]) — return error description for error number
+    if ((METHOD_IS("error$") || METHOD_IS("errordesc")) && args.size() >= 0) {
+        r_handled = true;
+        if (args.size() >= 1) {
+            int code = (int)args[0];
+            switch (code) {
+                case 5: return String("Invalid procedure call or argument");
+                case 6: return String("Overflow");
+                case 7: return String("Out of memory");
+                case 9: return String("Subscript out of range");
+                case 11: return String("Division by zero");
+                case 13: return String("Type mismatch");
+                case 52: return String("Bad file name or number");
+                case 53: return String("File not found");
+                case 54: return String("Bad file mode");
+                case 55: return String("File already open");
+                case 62: return String("Input past end of file");
+                case 70: return String("Permission denied");
+                case 75: return String("Path/File access error");
+                case 76: return String("Path not found");
+                case 91: return String("Object variable or With block variable not set");
+                case 94: return String("Invalid use of Null");
+                case 424: return String("Object required");
+                case 438: return String("Object doesn't support this property or method");
+                default: return String("Application-defined or object-defined error");
+            }
+        }
+        // No args: return current error description
+        if (instance->get_variables().has("Err")) {
+            Variant v = instance->get_variables()["Err"];
+            if (v.get_type() == Variant::DICTIONARY) {
+                Dictionary err = v;
+                if (err.has("Description")) return err["Description"];
+            }
+        }
+        return String("");
+    }
+
+    // Reset — close all open files
+    if (METHOD_IS("reset") && args.size() == 0) {
+        r_handled = true;
+        instance->get_open_files().clear();
+        return Variant();
+    }
+
+    // IsMissing(var) — returns True if an Optional parameter was not supplied
+    if (METHOD_IS("ismissing") && args.size() == 1) {
+        r_handled = true;
+        return args[0].get_type() == Variant::NIL;
+    }
+
+    // Erl — returns the line number where the last error occurred
+    if (METHOD_IS("erl") && args.size() == 0) {
+        r_handled = true;
+        return (int64_t)instance->get_error_line();
+    }
+
+    // LSet(string, length) — left-aligns string within a space of given length
+    if (METHOD_IS("lset") && args.size() == 2) {
+        r_handled = true;
+        String s = args[0];
+        int length = (int)args[1];
+        if (s.length() >= length) return s.left(length);
+        String result = s;
+        for (int i = s.length(); i < length; i++) result += " ";
+        return result;
+    }
+
+    // RSet(string, length) — right-aligns string within a space of given length
+    if (METHOD_IS("rset") && args.size() == 2) {
+        r_handled = true;
+        String s = args[0];
+        int length = (int)args[1];
+        if (s.length() >= length) return s.right(length);
+        String result;
+        for (int i = s.length(); i < length; i++) result += " ";
+        result += s;
+        return result;
+    }
+
+    // ChrW(charcode) — Unicode character from code point (alias for Chr in VG, since Godot is Unicode)
+    if (METHOD_IS("chrw") && args.size() == 1) {
+        r_handled = true;
+        return String::chr((int)args[0]);
+    }
+
+    // AscW(string) — Unicode code point of first character (alias for Asc in VG)
+    if (METHOD_IS("ascw") && args.size() == 1) {
+        r_handled = true;
+        String s = args[0];
+        if (s.length() > 0) return (int64_t)s.unicode_at(0);
+        return (int64_t)0;
+    }
+
+    // DateValue(datestring) — extracts the date portion from a date/time string
+    if (METHOD_IS("datevalue") && args.size() == 1) {
+        r_handled = true;
+        String s = String(args[0]).strip_edges();
+        // If it contains a space (date + time), take the date part
+        if (s.contains(" ")) {
+            PackedStringArray parts = s.split(" ");
+            s = parts[0];
+        }
+        // Validate it looks like a date (contains / or -)
+        if (s.contains("/") || s.contains("-")) {
+            return s;
+        }
+        return s; // Return as-is
+    }
+
+    // TimeValue(timestring) — extracts the time portion from a date/time string
+    if (METHOD_IS("timevalue") && args.size() == 1) {
+        r_handled = true;
+        String s = String(args[0]).strip_edges();
+        // If it contains a space (date + time), take the time part(s)
+        if (s.contains(" ") && s.contains(":")) {
+            PackedStringArray parts = s.split(" ");
+            String result;
+            for (int i = 0; i < parts.size(); i++) {
+                if (parts[i].contains(":")) {
+                    result = parts[i];
+                    // Append AM/PM if next part is one
+                    if (i + 1 < parts.size()) {
+                        String next = parts[i + 1].to_upper();
+                        if (next == "AM" || next == "PM") {
+                            result += " " + parts[i + 1];
+                        }
+                    }
+                    return result;
+                }
+            }
+        }
+        return s; // Already a time string
+    }
+
+    // StrConv(string, conversion) — string conversion
+    // vbUpperCase = 1, vbLowerCase = 2, vbProperCase = 3
+    if (METHOD_IS("strconv") && args.size() >= 2) {
+        r_handled = true;
+        String s = args[0];
+        int conv = (int)args[1];
+        if (conv == 1) return s.to_upper(); // vbUpperCase
+        if (conv == 2) return s.to_lower(); // vbLowerCase
+        if (conv == 3) { // vbProperCase — capitalize first letter of each word
+            String result;
+            bool cap_next = true;
+            for (int i = 0; i < s.length(); i++) {
+                char32_t c = s[i];
+                if (cap_next && c >= 'a' && c <= 'z') {
+                    result += String::chr(c - 32);
+                    cap_next = false;
+                } else {
+                    result += String::chr(c);
+                    cap_next = (c == ' ' || c == '\t' || c == '\n' || c == '-' || c == '\'');
+                }
+            }
+            return result;
+        }
+        if (conv == 64) return s; // vbUnicode — already Unicode in Godot
+        if (conv == 128) return s; // vbFromUnicode — noop in Godot
+        return s;
+    }
+
+    // FormatNumber(expression[, numDigitsAfterDecimal[, includeLeadingDigit[, useParensForNegativeNumbers[, groupDigits]]]])
+    if (METHOD_IS("formatnumber") && args.size() >= 1) {
+        r_handled = true;
+        double num = (double)args[0];
+        int decimals = (args.size() >= 2) ? (int)args[1] : 2;
+        bool leading = (args.size() >= 3) ? (bool)args[2] : true;
+        bool parens = (args.size() >= 4) ? (bool)args[3] : false;
+        bool group = (args.size() >= 5) ? (bool)args[4] : true;
+
+        bool negative = num < 0;
+        if (negative) num = -num;
+        String result = String::num(num, decimals);
+
+        if (group) {
+            // Add thousand separators
+            int dot_pos = result.find(".");
+            String int_part = (dot_pos >= 0) ? result.left(dot_pos) : result;
+            String dec_part = (dot_pos >= 0) ? result.substr(dot_pos) : "";
+            String grouped;
+            int count = 0;
+            for (int i = int_part.length() - 1; i >= 0; i--) {
+                if (count > 0 && count % 3 == 0) grouped = "," + grouped;
+                grouped = String::chr(int_part[i]) + grouped;
+                count++;
+            }
+            result = grouped + dec_part;
+        }
+
+        if (!leading && result.begins_with("0.")) {
+            result = result.substr(1);
+        }
+
+        if (negative) {
+            result = parens ? ("(" + result + ")") : ("-" + result);
+        }
+        return result;
+    }
+
+    // FormatCurrency(expression[, numDigitsAfterDecimal[, includeLeadingDigit[, useParensForNegativeNumbers[, groupDigits]]]])
+    if (METHOD_IS("formatcurrency") && args.size() >= 1) {
+        r_handled = true;
+        double num = (double)args[0];
+        int decimals = (args.size() >= 2) ? (int)args[1] : 2;
+        bool parens = (args.size() >= 4) ? (bool)args[3] : false;
+        bool group = (args.size() >= 5) ? (bool)args[4] : true;
+
+        bool negative = num < 0;
+        if (negative) num = -num;
+        String result = String::num(num, decimals);
+
+        if (group) {
+            int dot_pos = result.find(".");
+            String int_part = (dot_pos >= 0) ? result.left(dot_pos) : result;
+            String dec_part = (dot_pos >= 0) ? result.substr(dot_pos) : "";
+            String grouped;
+            int count = 0;
+            for (int i = int_part.length() - 1; i >= 0; i--) {
+                if (count > 0 && count % 3 == 0) grouped = "," + grouped;
+                grouped = String::chr(int_part[i]) + grouped;
+                count++;
+            }
+            result = grouped + dec_part;
+        }
+
+        if (negative) {
+            result = parens ? ("($" + result + ")") : ("-$" + result);
+        } else {
+            result = "$" + result;
+        }
+        return result;
+    }
+
+    // FormatPercent(expression[, numDigitsAfterDecimal[, includeLeadingDigit[, useParensForNegativeNumbers[, groupDigits]]]])
+    if (METHOD_IS("formatpercent") && args.size() >= 1) {
+        r_handled = true;
+        double num = (double)args[0] * 100.0;
+        int decimals = (args.size() >= 2) ? (int)args[1] : 2;
+        bool parens = (args.size() >= 4) ? (bool)args[3] : false;
+
+        bool negative = num < 0;
+        if (negative) num = -num;
+        String result = String::num(num, decimals) + "%";
+
+        if (negative) {
+            result = parens ? ("(" + result + ")") : ("-" + result);
+        }
+        return result;
+    }
+
+    // FileDateTime(pathname) — returns the date/time a file was last modified
+    if (METHOD_IS("filedatetime") && args.size() == 1) {
+        r_handled = true;
+        String path = args[0];
+        if (!path.begins_with("res://") && !path.begins_with("user://")) path = "res://" + path;
+        uint64_t mod_time = FileAccess::get_modified_time(path);
+        if (mod_time > 0) {
+            Dictionary datetime = Time::get_singleton()->get_datetime_dict_from_unix_time(mod_time);
+            int year = (int)datetime["year"];
+            int month = (int)datetime["month"];
+            int day = (int)datetime["day"];
+            int hour = (int)datetime["hour"];
+            int minute = (int)datetime["minute"];
+            int second = (int)datetime["second"];
+            String ampm = hour >= 12 ? "PM" : "AM";
+            int hour12 = hour % 12;
+            if (hour12 == 0) hour12 = 12;
+            return String::num_int64(month) + "/" + String::num_int64(day) + "/" + String::num_int64(year) + " " +
+                   String::num_int64(hour12) + ":" + (minute < 10 ? "0" : "") + String::num_int64(minute) + ":" +
+                   (second < 10 ? "0" : "") + String::num_int64(second) + " " + ampm;
+        }
+        return String("");
+    }
+
+    // TextWidth(text[, fontSize]) — returns width of text in pixels using default font
+    if (METHOD_IS("textwidth") && args.size() >= 1) {
+        r_handled = true;
+        String text = args[0];
+        int font_size = (args.size() >= 2) ? (int)args[1] : 16;
+        Ref<Font> font = ThemeDB::get_singleton()->get_fallback_font();
+        if (font.is_valid()) {
+            Vector2 size = font->get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size);
+            return (int64_t)size.x;
+        }
+        return (int64_t)(text.length() * font_size); // Rough fallback
+    }
+
+    // TextHeight(text[, fontSize]) — returns height of text in pixels using default font
+    if (METHOD_IS("textheight") && args.size() >= 1) {
+        r_handled = true;
+        String text = args[0];
+        int font_size = (args.size() >= 2) ? (int)args[1] : 16;
+        Ref<Font> font = ThemeDB::get_singleton()->get_fallback_font();
+        if (font.is_valid()) {
+            Vector2 size = font->get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size);
+            return (int64_t)size.y;
+        }
+        return (int64_t)font_size; // Rough fallback
+    }
+
+    // Input$(n, filenumber) — read n characters from file
+    if ((METHOD_IS("input$") || METHOD_IS("inputstr")) && args.size() == 2) {
+        r_handled = true;
+        int n = (int)args[0];
+        int fn = (int)args[1];
+        if (instance->get_open_files().has(fn)) {
+            Ref<FileAccess> fa = instance->get_open_files()[fn];
+            if (fa.is_valid()) {
+                String result;
+                for (int i = 0; i < n && !fa->eof_reached(); i++) {
+                    result += String::chr(fa->get_8());
+                }
+                return result;
+            }
+        }
+        instance->raise_runtime_error("Bad file name or number", 52);
+        return String("");
+    }
+
+    // CallByName(object, procname, calltype[, args...])
+    // calltype: 1=Method, 2=Get, 4=Let
+    if (METHOD_IS("callbyname") && args.size() >= 3) {
+        r_handled = true;
+        Variant obj = args[0];
+        String proc_name = args[1];
+        int call_type = (int)args[2];
+
+        if (obj.get_type() == Variant::DICTIONARY) {
+            Dictionary dict = obj;
+            if (call_type == 2) { // vbGet
+                if (dict.has(proc_name)) return dict[proc_name];
+                return Variant();
+            } else if (call_type == 4) { // vbLet
+                if (args.size() >= 4) dict[proc_name] = args[3];
+                return Variant();
+            }
+        }
+        // For method calls (vbMethod=1), try to call as a VG sub/function
+        if (call_type == 1) {
+            Array call_args;
+            for (int i = 3; i < args.size(); i++) call_args.push_back(args[i]);
+            return instance->call_method_by_name(proc_name, call_args);
+        }
+        return Variant();
+    }
+
     // ── Functional Programming: Map, Filter, Reduce, Any, All, Find ──
     if (METHOD_IS("map") && args.size() == 2) {
         r_handled = true;

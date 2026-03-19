@@ -184,6 +184,9 @@ Vector<VisualGasicTokenizer::Token> VisualGasicTokenizer::tokenize(const String 
     keywords.push_back("Export");
     keywords.push_back("Import");
     keywords.push_back("ClassName");
+    keywords.push_back("Eqv");
+    keywords.push_back("Imp");
+    keywords.push_back("Reset");
 
     while (current < length) {
         char32_t c = p_source_code[current];

@@ -861,6 +861,36 @@ Statement* VisualGasicParser::parse_statement() {
             current_pos--;
             return set_line(parse_assignment_or_call());
         }
+        // VB6-style Circle and Point commands — treat as function calls
+        if (val == "circle" || val == "point" || val == "savepicture") {
+            current_pos--;
+            return set_line(parse_assignment_or_call());
+        }
+        // VB6 "Error n" statement — raises runtime error with the given number
+        if (val == "error") {
+            advance();
+            // Check if this is the standalone "Error <expr>" statement (not part of "On Error")
+            if (!check(VisualGasicTokenizer::TOKEN_NEWLINE) && !check(VisualGasicTokenizer::TOKEN_EOF)) {
+                // Parse the error number expression
+                ExpressionNode* err_expr = parse_expression();
+                CallStatement* cs = static_cast<CallStatement*>(register_node(new CallStatement()));
+                cs->method_name = "Error";
+                cs->arguments.push_back(err_expr);
+                if (err_expr) unregister_node(err_expr);
+                return set_line(cs);
+            }
+            // "Error" on its own — treat as call with no args
+            CallStatement* cs = static_cast<CallStatement*>(register_node(new CallStatement()));
+            cs->method_name = "Error";
+            return set_line(cs);
+        }
+        // VB6 "Reset" statement — close all open files
+        if (val == "reset") {
+            advance();
+            CallStatement* cs = static_cast<CallStatement*>(register_node(new CallStatement()));
+            cs->method_name = "Reset";
+            return set_line(cs);
+        }
 
         if (val == "var") {
              return set_line(parse_dim()); // Helper alias for Var -> Dim
@@ -1374,7 +1404,8 @@ ExpressionNode* VisualGasicParser::parse_logical_or() {
     ExpressionNode* expr = parse_and();
     while (check(VisualGasicTokenizer::TOKEN_KEYWORD) || check(VisualGasicTokenizer::TOKEN_OPERATOR)) {
         String op = String(peek().value);
-        if (op.nocasecmp_to("Or") == 0 || op.nocasecmp_to("Xor") == 0 || op.nocasecmp_to("OrElse") == 0) {
+        if (op.nocasecmp_to("Or") == 0 || op.nocasecmp_to("Xor") == 0 || op.nocasecmp_to("OrElse") == 0 ||
+            op.nocasecmp_to("Eqv") == 0 || op.nocasecmp_to("Imp") == 0) {
             advance();
             ExpressionNode* right = parse_and();
             BinaryOpNode* bin = static_cast<BinaryOpNode*>(register_node(new BinaryOpNode()));
