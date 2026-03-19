@@ -429,22 +429,48 @@ Sub HandleMouseButton(ev)
     mx = Int(ev.position.x)
     my = Int(ev.position.y)
 
+    ' ── If we are currently drawing and the user RELEASES the mouse button,
+    '    always finalize the drawing operation regardless of cursor position.
+    '    We use the motion-tracked coordinates (mouseCanvasX/Y, previewEndX/Y)
+    '    rather than ev.position, because mouse button release events may
+    '    report the original press position instead of the actual release position.
+    If isDrawing And ev.button_index = 1 And Not ev.pressed Then
+        Select Case currentTool
+            Case 0  ' Pencil — already drawn continuously during drag, nothing to finalize
+            Case 1  ' Brush — already drawn continuously during drag
+            Case 2  ' Eraser — already drawn continuously during drag
+            Case 3  ' Line — draw final line from start to last tracked mouse position
+                DrawLinePixels startX, startY, previewEndX, previewEndY, fgColorR, fgColorG, fgColorB
+            Case 4  ' Rectangle — draw final rectangle
+                DrawRectPixels startX, startY, previewEndX, previewEndY, fgColorR, fgColorG, fgColorB
+            Case 5  ' Ellipse — draw final ellipse
+                Dim ecx As Integer
+                Dim ecy As Integer
+                Dim erx As Integer
+                Dim ery As Integer
+                ecx = (startX + previewEndX) \ 2
+                ecy = (startY + previewEndY) \ 2
+                erx = Abs(previewEndX - startX) \ 2
+                ery = Abs(previewEndY - startY) \ 2
+                DrawEllipsePixels ecx, ecy, erx, ery, fgColorR, fgColorG, fgColorB
+        End Select
+        canvasDirty = True
+        isDrawing = False
+        Exit Sub
+    End If
+
     ' ── Check if click is in the toolbar area ─────────────────────────────
-    ' Only Exit Sub on press events — release events must fall through so
-    ' shape tools can finalize even if the cursor is over the toolbar.
     If mx < TOOLBAR_W And my > MENU_H And my < (MENU_H + 9 * (TOOL_BTN_SIZE + 4)) Then
-        If ev.pressed Then
-            If ev.button_index = 1 Then
-                ' Calculate which tool button was clicked
-                Dim toolIdx As Integer
-                toolIdx = (my - MENU_H - 4) \ (TOOL_BTN_SIZE + 4)
-                If toolIdx >= 0 And toolIdx <= 8 Then
-                    currentTool = toolIdx
-                    SaveSetting "VGPaint", "Config", "LastTool", Str(currentTool)
-                End If
+        If ev.pressed And ev.button_index = 1 Then
+            ' Calculate which tool button was clicked
+            Dim toolIdx As Integer
+            toolIdx = (my - MENU_H - 4) \ (TOOL_BTN_SIZE + 4)
+            If toolIdx >= 0 And toolIdx <= 8 Then
+                currentTool = toolIdx
+                SaveSetting "VGPaint", "Config", "LastTool", Str(currentTool)
             End If
-            Exit Sub
         End If
+        Exit Sub
     End If
 
     ' ── Check if click is in the palette area ─────────────────────────────
@@ -471,8 +497,8 @@ Sub HandleMouseButton(ev)
                     bgColorB = palB(palIdx)
                 End If
             End If
-            Exit Sub
         End If
+        Exit Sub
     End If
 
     ' ── Check if click is in the brush size area ──────────────────────────
@@ -486,8 +512,8 @@ Sub HandleMouseButton(ev)
                 If brushSize > 1 Then brushSize = brushSize - 1
             End If
             SaveSetting "VGPaint", "Config", "BrushSize", Str(brushSize)
-            Exit Sub
         End If
+        Exit Sub
     End If
 
     ' ── Canvas area mouse handling ────────────────────────────────────────
@@ -538,31 +564,6 @@ Sub HandleMouseButton(ev)
             End Select
             canvasDirty = True
             isModified = True
-        Else
-            ' ── Mouse RELEASE — finalize shape tools ──────────────────────
-            ' Use previewEndX/Y which are continuously updated by HandleMouseMotion
-            ' during drag, rather than ev.position which may not reflect the
-            ' actual release coordinates.
-            If isDrawing Then
-                Select Case currentTool
-                    Case 3  ' Line — draw from start to last dragged position
-                        DrawLinePixels startX, startY, previewEndX, previewEndY, fgColorR, fgColorG, fgColorB
-                    Case 4  ' Rectangle
-                        DrawRectPixels startX, startY, previewEndX, previewEndY, fgColorR, fgColorG, fgColorB
-                    Case 5  ' Ellipse
-                        Dim ecx As Integer
-                        Dim ecy As Integer
-                        Dim erx As Integer
-                        Dim ery As Integer
-                        ecx = (startX + previewEndX) \ 2
-                        ecy = (startY + previewEndY) \ 2
-                        erx = Abs(previewEndX - startX) \ 2
-                        ery = Abs(previewEndY - startY) \ 2
-                        DrawEllipsePixels ecx, ecy, erx, ery, fgColorR, fgColorG, fgColorB
-                End Select
-                canvasDirty = True
-                isDrawing = False
-            End If
         End If
     End If
 
