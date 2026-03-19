@@ -61,15 +61,14 @@ class VisualGasicInstance {
     void clear_data_tape();
     static Variant coerce_to_type(const Variant &val, const String &type_name);
 
-    Dictionary defined_structs; // Name -> StructDefinition* (wrapped or pointer?)
-    // Storing pointers in Variant Dictionary is unsafe if not RefCounted.
-    // StructDefinition is not RefCounted.
-    // We can store a map: HashMap<String, StructDefinition*> struct_map;
-    // But godot::HashMap is header internal?
-    // Let's use std::map or just iterate script structs if number is low.
-    // Or we can construct a Dictionary of Default Values for each struct eagerly.
-    // Name -> Dictionary(default object).
-    Dictionary struct_prototypes; 
+    // Struct/Type system
+    Dictionary struct_prototypes;  // Name -> Dictionary(default prototype)
+    // Hidden key stored in each struct dictionary instance to track its type
+    static inline const String STRUCT_TYPE_KEY = "__vg_type__";
+    // Look up a StructDefinition by name from the current script AST
+    StructDefinition* find_struct_definition(const String &name) const;
+    // Coerce a value for strict struct member assignment; returns coerced value
+    Variant coerce_struct_member(const String &struct_type, const String &member_name, const Variant &val);
     
     // Class system storage
     struct FastKeyCacheEntry {

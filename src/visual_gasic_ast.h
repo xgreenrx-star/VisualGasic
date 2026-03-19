@@ -619,7 +619,8 @@ struct SubDefinition : public ASTNode {
 
 struct StructMember {
     String name;
-    String type; // "Integer", "String", or UDT name. We might treat simple types as just Variant for now unless we do strict typing.
+    String type; // "Integer", "String", or UDT name.
+    int fixed_length = 0; // For fixed-length strings: Name As String * 30 → fixed_length=30
 };
 
 struct StructDefinition : public ASTNode {

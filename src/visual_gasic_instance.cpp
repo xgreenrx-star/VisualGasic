@@ -927,6 +927,7 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
                      ModuleNode* module;
                      Dictionary cache;
                      Vector<String> processing;
+                     String struct_type_key;
                      
                      Variant get_proto(String name) {
                          if (cache.has(name)) return cache[name];
@@ -949,12 +950,25 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
                          processing.push_back(name);
                          
                          Dictionary dict;
+                         // Tag the dictionary with its struct type for strict member checking
+                         dict[struct_type_key] = name;
+                         
                          for(int i=0; i<def->members.size(); i++) {
                              String mname = def->members[i].name;
                              String mtype = def->members[i].type;
+                             int fixed_len = def->members[i].fixed_length;
 
                              if (mtype.nocasecmp_to("Integer") == 0 || mtype.nocasecmp_to("Long") == 0) dict[mname] = 0;
-                             else if (mtype.nocasecmp_to("String") == 0) dict[mname] = "";
+                             else if (mtype.nocasecmp_to("String") == 0) {
+                                 // Fixed-length string: initialize with spaces padded to length
+                                 if (fixed_len > 0) {
+                                     String s;
+                                     s = String(" ").repeat(fixed_len);
+                                     dict[mname] = s;
+                                 } else {
+                                     dict[mname] = "";
+                                 }
+                             }
                              else if (mtype.nocasecmp_to("Single") == 0 || mtype.nocasecmp_to("Double") == 0) dict[mname] = 0.0;
                              else if (mtype.nocasecmp_to("Boolean") == 0) dict[mname] = false;
                              else if (mtype.nocasecmp_to("Variant") == 0) dict[mname] = Variant();
@@ -976,6 +990,7 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
                 
                 ProtoBuilder builder;
                 builder.module = vs->ast_root;
+                builder.struct_type_key = STRUCT_TYPE_KEY;
                 
                 for(int si=0; si<vs->ast_root->structs.size(); si++) {
                      String name = vs->ast_root->structs[si]->name;
@@ -1199,6 +1214,46 @@ Variant VisualGasicInstance::coerce_to_type(const Variant &val, const String &ty
         return Variant(val.booleanize());
     }
     return val; // unknown type, pass through
+}
+
+StructDefinition* VisualGasicInstance::find_struct_definition(const String &name) const {
+    if (!script.is_valid()) return nullptr;
+    VisualGasicScript *vs = Object::cast_to<VisualGasicScript>(script.ptr());
+    if (!vs || !vs->ast_root) return nullptr;
+    for (int i = 0; i < vs->ast_root->structs.size(); i++) {
+        if (vs->ast_root->structs[i]->name.nocasecmp_to(name) == 0) {
+            return vs->ast_root->structs[i];
+        }
+    }
+    return nullptr;
+}
+
+Variant VisualGasicInstance::coerce_struct_member(const String &struct_type, const String &member_name, const Variant &val) {
+    StructDefinition *def = find_struct_definition(struct_type);
+    if (!def) return val;
+    
+    for (int i = 0; i < def->members.size(); i++) {
+        if (def->members[i].name.nocasecmp_to(member_name) == 0) {
+            String mtype = def->members[i].type;
+            int fixed_len = def->members[i].fixed_length;
+            
+            // Coerce to declared type
+            Variant coerced = coerce_to_type(val, mtype);
+            
+            // Fixed-length string: pad or truncate
+            if (mtype.nocasecmp_to("String") == 0 && fixed_len > 0) {
+                String s = String(coerced);
+                if (s.length() > fixed_len) {
+                    s = s.substr(0, fixed_len);
+                } else {
+                    while (s.length() < fixed_len) s += " ";
+                }
+                return s;
+            }
+            return coerced;
+        }
+    }
+    return val; // Member not in definition (shouldn't happen)
 }
 
 void VisualGasicInstance::collect_data_from_block(const Vector<Statement*>& block) {

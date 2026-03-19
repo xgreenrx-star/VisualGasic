@@ -144,6 +144,20 @@ void SnippetHelper::initialize_snippets() {
     main["insert_text"] = "Sub Main()\n\t\nEnd Sub";
     snippets->push_back(main);
     
+    // Type (struct/UDT) definition
+    Dictionary typ;
+    typ["trigger"] = "type";
+    typ["description"] = "User-Defined Type (struct)";
+    typ["insert_text"] = "Type MyType\n\tName As String\n\tValue As Integer\nEnd Type";
+    snippets->push_back(typ);
+    
+    // Type with fixed-length string
+    Dictionary typf;
+    typf["trigger"] = "typef";
+    typf["description"] = "Type with fixed-length string";
+    typf["insert_text"] = "Type Record\n\tName As String * 30\n\tAge As Integer\nEnd Type";
+    snippets->push_back(typf);
+    
     initialized = true;
 }
 
@@ -225,6 +239,20 @@ void SnippetHelper::initialize_parameter_hints() {
     (*parameter_hints)["Input$"] = "Input$(n As Integer, fileNumber As Integer) As String  ' Reads n characters from file";
     (*parameter_hints)["InputStr"] = "InputStr(n As Integer, fileNumber As Integer) As String  ' Alias for Input$";
     (*parameter_hints)["CallByName"] = "CallByName(object As Variant, procName As String, callType As Integer[, args...]) As Variant  ' 1=Method, 2=Get, 4=Let";
+    // Financial Functions
+    (*parameter_hints)["Pmt"] = "Pmt(rate As Double, nper As Double, pv As Double[, fv As Double][, type As Integer]) As Double  ' Periodic payment (0=end, 1=begin)";
+    (*parameter_hints)["FV"] = "FV(rate As Double, nper As Double, pmt As Double[, pv As Double][, type As Integer]) As Double  ' Future value";
+    (*parameter_hints)["PV"] = "PV(rate As Double, nper As Double, pmt As Double[, fv As Double][, type As Integer]) As Double  ' Present value";
+    (*parameter_hints)["NPV"] = "NPV(rate As Double, values() As Double) As Double  ' Net present value";
+    (*parameter_hints)["IRR"] = "IRR(values() As Double[, guess As Double]) As Double  ' Internal rate of return";
+    (*parameter_hints)["Rate"] = "Rate(nper As Double, pmt As Double, pv As Double[, fv As Double][, type As Integer][, guess As Double]) As Double  ' Interest rate per period";
+    (*parameter_hints)["NPER"] = "NPER(rate As Double, pmt As Double, pv As Double[, fv As Double][, type As Integer]) As Double  ' Number of periods";
+    (*parameter_hints)["SLN"] = "SLN(cost As Double, salvage As Double, life As Double) As Double  ' Straight-line depreciation";
+    (*parameter_hints)["SYD"] = "SYD(cost As Double, salvage As Double, life As Double, period As Double) As Double  ' Sum-of-years-digits depreciation";
+    (*parameter_hints)["DDB"] = "DDB(cost As Double, salvage As Double, life As Double, period As Double[, factor As Double]) As Double  ' Double declining balance (default factor=2)";
+    (*parameter_hints)["IPmt"] = "IPmt(rate As Double, per As Double, nper As Double, pv As Double[, fv As Double][, type As Integer]) As Double  ' Interest portion of payment";
+    (*parameter_hints)["PPmt"] = "PPmt(rate As Double, per As Double, nper As Double, pv As Double[, fv As Double][, type As Integer]) As Double  ' Principal portion of payment";
+    (*parameter_hints)["MIRR"] = "MIRR(values() As Double, financeRate As Double, reinvestRate As Double) As Double  ' Modified internal rate of return";
     (*parameter_hints)["RGB"] = "RGB(red As Integer, green As Integer, blue As Integer) As Color";
     (*parameter_hints)["PlaySound"] = "PlaySound(soundPath As String, volume As Double)";
     (*parameter_hints)["SetTitle"] = "SetTitle(title As String)";

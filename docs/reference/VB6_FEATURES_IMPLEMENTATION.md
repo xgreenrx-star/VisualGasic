@@ -442,3 +442,142 @@ Four new bytecode opcodes for compiled file I/O statements:
 - `OP_LINE_INPUT_FILE` — `Line Input #n, var`
 
 These complement the existing `Open`/`Close` statements and File Mode Keywords (Section 4).
+
+---
+
+## 11. USER-DEFINED TYPES — Enhanced (v4.2.0)
+
+### Overview
+User-Defined Types (`Type...End Type`) now support **fixed-length strings**, **strict member type checking**, and **IntelliSense autocomplete** for struct members.
+
+### Fixed-Length Strings
+
+Members can be declared with a fixed character width using `As String * N`:
+
+```vb
+Type CustomerRecord
+    Name As String * 30       ' Always exactly 30 characters (space-padded)
+    AccountCode As String * 8 ' Always exactly 8 characters
+    Balance As Double
+End Type
+```
+
+On assignment, values are **right-padded with spaces** if shorter, or **truncated** if longer:
+
+```vb
+Dim c As CustomerRecord
+c.Name = "Alice"              ' Stored as "Alice                         " (30 chars)
+c.AccountCode = "ABCDEFGHIJKL" ' Stored as "ABCDEFGH" (truncated to 8)
+```
+
+### Strict Member Type Checking
+
+When assigning to a struct member, the value is **automatically coerced** to the declared type:
+
+```vb
+Type Point
+    X As Integer
+    Y As Integer
+    Label As String
+End Type
+
+Dim p As Point
+p.X = 3.14     ' Coerced to 3 (Integer)
+p.Y = "42"     ' Coerced to 42 (Integer)
+p.Label = 100  ' Coerced to "100" (String)
+```
+
+This matches VB6 behavior: type coercion on assignment, with error on incompatible types.
+
+### IntelliSense for Struct Members
+
+When typing `variableName.` where the variable was declared as a UDT, the editor shows autocomplete with all struct member names and their types. Works for variables declared with `Dim`, `Private`, `Public`, or `Static`.
+
+### Infrastructure
+
+| Layer | Implementation |
+|-------|---------------|
+| **AST** | `StructMember.fixed_length` stores the character width (0 = variable-length) |
+| **Parser** | `parse_struct()` detects `As String * N` after type name |
+| **ProtoBuilder** | Initializes fixed-length strings to N spaces; tags dict with `__vg_type__` |
+| **assign_to_target** | Reads `__vg_type__` tag, coerces value to declared member type |
+| **Language Server** | Parses `Dim x As TypeName` + `Type TypeName` for dot-completion |
+
+---
+
+## 12. FINANCIAL FUNCTIONS (v4.2.0)
+
+All 13 VB6 financial functions, implemented as pure math with no external dependencies.
+
+### Loan/Annuity Functions
+
+| Function | Syntax | Description |
+|----------|--------|-------------|
+| **Pmt** | `Pmt(rate, nper, pv[, fv][, type])` | Periodic payment for a loan |
+| **FV** | `FV(rate, nper, pmt[, pv][, type])` | Future value of an investment |
+| **PV** | `PV(rate, nper, pmt[, fv][, type])` | Present value |
+| **Rate** | `Rate(nper, pmt, pv[, fv][, type][, guess])` | Interest rate per period |
+| **NPER** | `NPER(rate, pmt, pv[, fv][, type])` | Number of periods |
+| **IPmt** | `IPmt(rate, per, nper, pv[, fv][, type])` | Interest portion of payment |
+| **PPmt** | `PPmt(rate, per, nper, pv[, fv][, type])` | Principal portion of payment |
+
+The `type` parameter: 0 = payment at end of period (default), 1 = payment at beginning.
+
+### Investment Analysis Functions
+
+| Function | Syntax | Description |
+|----------|--------|-------------|
+| **NPV** | `NPV(rate, values())` | Net present value |
+| **IRR** | `IRR(values()[, guess])` | Internal rate of return (Newton-Raphson) |
+| **MIRR** | `MIRR(values(), financeRate, reinvestRate)` | Modified internal rate of return |
+
+### Depreciation Functions
+
+| Function | Syntax | Description |
+|----------|--------|-------------|
+| **SLN** | `SLN(cost, salvage, life)` | Straight-line depreciation |
+| **SYD** | `SYD(cost, salvage, life, period)` | Sum-of-years-digits depreciation |
+| **DDB** | `DDB(cost, salvage, life, period[, factor])` | Double declining balance (default factor=2) |
+
+### Example: Mortgage Calculator
+
+```vb
+' Monthly mortgage payment
+Dim principal As Double = 250000
+Dim annualRate As Double = 0.065
+Dim years As Integer = 30
+
+Dim monthlyRate As Double = annualRate / 12
+Dim numPayments As Integer = years * 12
+
+Dim payment As Double = Pmt(monthlyRate, numPayments, -principal)
+Print "Monthly Payment: $" & FormatNumber(payment, 2)
+
+' Break down first payment into interest and principal
+Dim interestPart As Double = IPmt(monthlyRate, 1, numPayments, -principal)
+Dim principalPart As Double = PPmt(monthlyRate, 1, numPayments, -principal)
+Print "First Payment Interest: $" & FormatNumber(interestPart, 2)
+Print "First Payment Principal: $" & FormatNumber(principalPart, 2)
+```
+
+### Example: Investment Analysis
+
+```vb
+' Evaluate a project investment
+Dim cashFlows() As Double = {-100000, 25000, 35000, 40000, 30000, 20000}
+
+Dim npvResult As Double = NPV(0.10, cashFlows)
+Print "NPV at 10%: $" & FormatNumber(npvResult, 2)
+
+Dim irrResult As Double = IRR(cashFlows)
+Print "IRR: " & FormatPercent(irrResult, 2)
+
+' Equipment depreciation
+Dim cost As Double = 50000
+Dim salvage As Double = 5000
+Dim life As Double = 7
+
+Print "Straight-line: $" & FormatNumber(SLN(cost, salvage, life), 2) & "/year"
+Print "Year 1 SYD: $" & FormatNumber(SYD(cost, salvage, life, 1), 2)
+Print "Year 1 DDB: $" & FormatNumber(DDB(cost, salvage, life, 1), 2)
+```

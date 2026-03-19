@@ -3292,6 +3292,15 @@ StructDefinition* VisualGasicParser::parse_struct() {
                 if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER) || check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
                     member.type = peek().value;
                     advance();
+                    
+                    // Fixed-length string: As String * 30
+                    if (member.type.nocasecmp_to("String") == 0 && check(VisualGasicTokenizer::TOKEN_OPERATOR) && String(peek().value) == "*") {
+                        advance(); // Eat *
+                        if (check(VisualGasicTokenizer::TOKEN_LITERAL_INTEGER)) {
+                            member.fixed_length = String(peek().value).to_int();
+                            advance();
+                        }
+                    }
                 }
             } else {
                 member.type = "Variant";

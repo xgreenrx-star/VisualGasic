@@ -1717,8 +1717,12 @@ void VisualGasicInstance::assign_to_target(ExpressionNode* target, Variant val) 
 
          if (base.get_type() == Variant::DICTIONARY) {
              Dictionary dict = base;
+             // Strict struct member type checking
+             if (dict.has(STRUCT_TYPE_KEY)) {
+                 String struct_type = dict[STRUCT_TYPE_KEY];
+                 val = coerce_struct_member(struct_type, ma->member_name, val);
+             }
              dict[ma->member_name] = val;
-             // UtilityFunctions::print("Assigned to Dictionary Key: ", ma->member_name, " Value: ", val);
              // Dictionaries are RefCounted handles, so modification sticks.
          } 
          else if (base.get_type() == Variant::OBJECT) {

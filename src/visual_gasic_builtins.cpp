@@ -3234,6 +3234,308 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
         return Variant();
     }
 
+    // ══════════════════════════════════════════════════════════════════════════
+    // ── Financial Functions (VB6-compatible) ─────────────────────────────────
+    // ══════════════════════════════════════════════════════════════════════════
+
+    // Pmt(rate, nper, pv[, fv][, type]) — Periodic payment for a loan/annuity
+    if (METHOD_IS("pmt") && args.size() >= 3) {
+        r_handled = true;
+        double rate = (double)args[0];
+        double nper = (double)args[1];
+        double pv   = (double)args[2];
+        double fv   = (args.size() > 3) ? (double)args[3] : 0.0;
+        int    due  = (args.size() > 4) ? (int)args[4] : 0; // 0=end, 1=beginning
+        
+        if (rate == 0.0) {
+            return -(pv + fv) / nper;
+        }
+        double temp = Math::pow(1.0 + rate, nper);
+        double pmt = (rate * (fv + pv * temp)) / ((1.0 + rate * due) * (1.0 - temp));
+        return pmt;
+    }
+
+    // FV(rate, nper, pmt[, pv][, type]) — Future value
+    if (METHOD_IS("fv") && args.size() >= 3) {
+        r_handled = true;
+        double rate = (double)args[0];
+        double nper = (double)args[1];
+        double pmt  = (double)args[2];
+        double pv   = (args.size() > 3) ? (double)args[3] : 0.0;
+        int    due  = (args.size() > 4) ? (int)args[4] : 0;
+        
+        if (rate == 0.0) {
+            return -(pv + pmt * nper);
+        }
+        double temp = Math::pow(1.0 + rate, nper);
+        double fv_result = -pv * temp - pmt * (1.0 + rate * due) * (temp - 1.0) / rate;
+        return fv_result;
+    }
+
+    // PV(rate, nper, pmt[, fv][, type]) — Present value
+    if (METHOD_IS("pv") && args.size() >= 3) {
+        r_handled = true;
+        double rate = (double)args[0];
+        double nper = (double)args[1];
+        double pmt  = (double)args[2];
+        double fv   = (args.size() > 3) ? (double)args[3] : 0.0;
+        int    due  = (args.size() > 4) ? (int)args[4] : 0;
+        
+        if (rate == 0.0) {
+            return -(fv + pmt * nper);
+        }
+        double temp = Math::pow(1.0 + rate, nper);
+        double pv_result = -(fv + pmt * (1.0 + rate * due) * (temp - 1.0) / rate) / temp;
+        return pv_result;
+    }
+
+    // NPV(rate, values()) — Net present value
+    if (METHOD_IS("npv") && args.size() >= 2) {
+        r_handled = true;
+        double rate = (double)args[0];
+        Array values;
+        if (args[1].get_type() == Variant::ARRAY) {
+            values = args[1];
+        } else {
+            // Remaining args are the cash flow values
+            for (int i = 1; i < args.size(); i++) values.push_back(args[i]);
+        }
+        double npv = 0.0;
+        for (int i = 0; i < values.size(); i++) {
+            npv += (double)values[i] / Math::pow(1.0 + rate, (double)(i + 1));
+        }
+        return npv;
+    }
+
+    // IRR(values()[, guess]) — Internal rate of return (Newton-Raphson)
+    if (METHOD_IS("irr") && args.size() >= 1) {
+        r_handled = true;
+        Array values;
+        if (args[0].get_type() == Variant::ARRAY) {
+            values = args[0];
+        } else {
+            for (int i = 0; i < args.size() - ((args.size() > 1 && args[args.size()-1].get_type() != Variant::ARRAY) ? 1 : 0); i++) {
+                if (args[i].get_type() == Variant::ARRAY) { values = args[i]; break; }
+            }
+            if (values.size() == 0) {
+                for (int i = 0; i < args.size(); i++) values.push_back(args[i]);
+            }
+        }
+        double guess = (args.size() > 1 && args[args.size()-1].get_type() != Variant::ARRAY) ? (double)args[args.size()-1] : 0.1;
+        
+        double rate = guess;
+        for (int iter = 0; iter < 100; iter++) {
+            double npv = 0.0, dnpv = 0.0;
+            for (int i = 0; i < values.size(); i++) {
+                double v = (double)values[i];
+                double p = Math::pow(1.0 + rate, (double)i);
+                npv += v / p;
+                if (i > 0) dnpv -= i * v / (p * (1.0 + rate));
+            }
+            if (Math::abs(dnpv) < 1e-15) break;
+            double new_rate = rate - npv / dnpv;
+            if (Math::abs(new_rate - rate) < 1e-10) { rate = new_rate; break; }
+            rate = new_rate;
+        }
+        return rate;
+    }
+
+    // Rate(nper, pmt, pv[, fv][, type][, guess]) — Interest rate per period (Newton-Raphson)
+    if (METHOD_IS("rate") && args.size() >= 3) {
+        r_handled = true;
+        double nper = (double)args[0];
+        double pmt  = (double)args[1];
+        double pv   = (double)args[2];
+        double fv   = (args.size() > 3) ? (double)args[3] : 0.0;
+        int    due  = (args.size() > 4) ? (int)args[4] : 0;
+        double guess = (args.size() > 5) ? (double)args[5] : 0.1;
+        
+        double rate = guess;
+        for (int iter = 0; iter < 100; iter++) {
+            double temp = Math::pow(1.0 + rate, nper);
+            double f_val, f_deriv;
+            if (rate == 0.0) {
+                f_val = pv + pmt * nper + fv;
+                f_deriv = pmt * nper * (nper - 1.0) / 2.0;
+            } else {
+                double pmt_factor = (1.0 + rate * due) * (temp - 1.0) / rate;
+                f_val = pv * temp + pmt * pmt_factor + fv;
+                // Derivative
+                double dt_dr = nper * Math::pow(1.0 + rate, nper - 1.0);
+                double dpf_dr = (1.0 + rate * due) * (dt_dr * rate - (temp - 1.0)) / (rate * rate)
+                              + due * (temp - 1.0) / rate;
+                f_deriv = pv * dt_dr + pmt * dpf_dr;
+            }
+            if (Math::abs(f_deriv) < 1e-15) break;
+            double new_rate = rate - f_val / f_deriv;
+            if (Math::abs(new_rate - rate) < 1e-10) { rate = new_rate; break; }
+            rate = new_rate;
+        }
+        return rate;
+    }
+
+    // NPER(rate, pmt, pv[, fv][, type]) — Number of periods
+    if (METHOD_IS("nper") && args.size() >= 3) {
+        r_handled = true;
+        double rate = (double)args[0];
+        double pmt  = (double)args[1];
+        double pv   = (double)args[2];
+        double fv   = (args.size() > 3) ? (double)args[3] : 0.0;
+        int    due  = (args.size() > 4) ? (int)args[4] : 0;
+        
+        if (rate == 0.0) {
+            if (pmt == 0.0) return Variant(); // Error
+            return -(pv + fv) / pmt;
+        }
+        double pmt_adj = pmt * (1.0 + rate * due);
+        double nper_result = Math::log((-fv * rate + pmt_adj) / (pv * rate + pmt_adj)) / Math::log(1.0 + rate);
+        return nper_result;
+    }
+
+    // SLN(cost, salvage, life) — Straight-line depreciation
+    if (METHOD_IS("sln") && args.size() >= 3) {
+        r_handled = true;
+        double cost    = (double)args[0];
+        double salvage = (double)args[1];
+        double life    = (double)args[2];
+        if (life == 0.0) { instance->raise_runtime_error("SLN: Life cannot be zero"); return Variant(); }
+        return (cost - salvage) / life;
+    }
+
+    // SYD(cost, salvage, life, period) — Sum-of-years-digits depreciation
+    if (METHOD_IS("syd") && args.size() >= 4) {
+        r_handled = true;
+        double cost    = (double)args[0];
+        double salvage = (double)args[1];
+        double life    = (double)args[2];
+        double period  = (double)args[3];
+        if (life <= 0.0) { instance->raise_runtime_error("SYD: Life must be positive"); return Variant(); }
+        double syd_total = life * (life + 1.0) / 2.0;
+        return (cost - salvage) * (life - period + 1.0) / syd_total;
+    }
+
+    // DDB(cost, salvage, life, period[, factor]) — Double declining balance depreciation
+    if (METHOD_IS("ddb") && args.size() >= 4) {
+        r_handled = true;
+        double cost    = (double)args[0];
+        double salvage = (double)args[1];
+        double life    = (double)args[2];
+        double period  = (double)args[3];
+        double factor  = (args.size() > 4) ? (double)args[4] : 2.0;
+        
+        if (life <= 0.0) { instance->raise_runtime_error("DDB: Life must be positive"); return Variant(); }
+        double book_value = cost;
+        double rate_ddb = factor / life;
+        double depreciation = 0.0;
+        for (int p = 1; p <= (int)period; p++) {
+            depreciation = book_value * rate_ddb;
+            if (book_value - depreciation < salvage) {
+                depreciation = book_value - salvage;
+            }
+            if (depreciation < 0.0) depreciation = 0.0;
+            book_value -= depreciation;
+        }
+        return depreciation;
+    }
+
+    // IPmt(rate, per, nper, pv[, fv][, type]) — Interest portion of a payment
+    if (METHOD_IS("ipmt") && args.size() >= 4) {
+        r_handled = true;
+        double rate = (double)args[0];
+        double per  = (double)args[1];
+        double nper = (double)args[2];
+        double pv   = (double)args[3];
+        double fv   = (args.size() > 4) ? (double)args[4] : 0.0;
+        int    due  = (args.size() > 5) ? (int)args[5] : 0;
+        
+        // Calculate total payment first
+        double pmt_val;
+        if (rate == 0.0) {
+            pmt_val = -(pv + fv) / nper;
+        } else {
+            double temp = Math::pow(1.0 + rate, nper);
+            pmt_val = (rate * (fv + pv * temp)) / ((1.0 + rate * due) * (1.0 - temp));
+        }
+        
+        // Calculate balance at period (per-1)
+        double balance;
+        if (rate == 0.0) {
+            balance = pv + pmt_val * (per - 1.0);
+        } else {
+            double temp1 = Math::pow(1.0 + rate, per - 1.0);
+            balance = pv * temp1 + pmt_val * (1.0 + rate * due) * (temp1 - 1.0) / rate;
+        }
+        
+        double ipmt_val = balance * rate;
+        if (due == 1 && per == 1.0) ipmt_val = 0.0; // First period, beginning: no interest yet
+        return ipmt_val;
+    }
+
+    // PPmt(rate, per, nper, pv[, fv][, type]) — Principal portion of a payment
+    if (METHOD_IS("ppmt") && args.size() >= 4) {
+        r_handled = true;
+        double rate = (double)args[0];
+        double per  = (double)args[1];
+        double nper = (double)args[2];
+        double pv   = (double)args[3];
+        double fv   = (args.size() > 4) ? (double)args[4] : 0.0;
+        int    due  = (args.size() > 5) ? (int)args[5] : 0;
+        
+        // Total payment
+        double pmt_val;
+        if (rate == 0.0) {
+            pmt_val = -(pv + fv) / nper;
+        } else {
+            double temp = Math::pow(1.0 + rate, nper);
+            pmt_val = (rate * (fv + pv * temp)) / ((1.0 + rate * due) * (1.0 - temp));
+        }
+        
+        // Interest portion
+        double balance;
+        if (rate == 0.0) {
+            balance = pv + pmt_val * (per - 1.0);
+        } else {
+            double temp1 = Math::pow(1.0 + rate, per - 1.0);
+            balance = pv * temp1 + pmt_val * (1.0 + rate * due) * (temp1 - 1.0) / rate;
+        }
+        double ipmt_val = balance * rate;
+        if (due == 1 && per == 1.0) ipmt_val = 0.0;
+        
+        return pmt_val - ipmt_val; // PPmt = Pmt - IPmt
+    }
+
+    // MIRR(values(), finance_rate, reinvest_rate) — Modified internal rate of return
+    if (METHOD_IS("mirr") && args.size() >= 3) {
+        r_handled = true;
+        Array values;
+        if (args[0].get_type() == Variant::ARRAY) {
+            values = args[0];
+        } else {
+            instance->raise_runtime_error("MIRR: First argument must be an array of cash flows");
+            return Variant();
+        }
+        double finance_rate  = (double)args[1];
+        double reinvest_rate = (double)args[2];
+        int n = values.size();
+        if (n < 2) { instance->raise_runtime_error("MIRR: Need at least 2 cash flows"); return Variant(); }
+        
+        // PV of negative cash flows (at finance_rate)
+        // FV of positive cash flows (at reinvest_rate)
+        double pv_neg = 0.0, fv_pos = 0.0;
+        for (int i = 0; i < n; i++) {
+            double v = (double)values[i];
+            if (v < 0.0) {
+                pv_neg += v / Math::pow(1.0 + finance_rate, (double)i);
+            } else {
+                fv_pos += v * Math::pow(1.0 + reinvest_rate, (double)(n - 1 - i));
+            }
+        }
+        if (pv_neg == 0.0) { instance->raise_runtime_error("MIRR: No negative cash flows"); return Variant(); }
+        
+        double mirr = Math::pow(-fv_pos / pv_neg, 1.0 / (double)(n - 1)) - 1.0;
+        return mirr;
+    }
+
     // ── Functional Programming: Map, Filter, Reduce, Any, All, Find ──
     if (METHOD_IS("map") && args.size() == 2) {
         r_handled = true;

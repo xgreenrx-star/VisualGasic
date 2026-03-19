@@ -975,3 +975,213 @@ Configure the language server for optimal development experience:
 ```
 
 This comprehensive advanced features manual demonstrates VisualGasic's evolution into a professional-grade programming language with cutting-edge capabilities while maintaining the accessibility and rapid development benefits of VisualGasic.
+
+---
+
+## User-Defined Types (Enhanced)
+
+### Type...End Type with Fixed-Length Strings
+
+VisualGasic supports VB6-compatible User-Defined Types with fixed-length string members:
+
+```vb
+Type Employee
+    FirstName As String * 20    ' Fixed at 20 characters
+    LastName As String * 25     ' Fixed at 25 characters
+    EmployeeID As Long
+    Salary As Double
+    Active As Boolean
+End Type
+
+Sub Main()
+    Dim emp As Employee
+    emp.FirstName = "John"       ' Padded to "John                " (20 chars)
+    emp.LastName = "Smith"
+    emp.EmployeeID = 12345
+    emp.Salary = 75000.50
+    emp.Active = True
+    
+    Print emp.FirstName & "|" & emp.LastName
+    Print "Salary: $" & FormatNumber(emp.Salary, 2)
+End Sub
+```
+
+### Strict Member Type Checking
+
+Struct members enforce their declared type on assignment. Values are coerced automatically where possible:
+
+```vb
+Type GameConfig
+    MaxPlayers As Integer
+    Difficulty As Double
+    Title As String
+    Fullscreen As Boolean
+End Type
+
+Dim cfg As GameConfig
+cfg.MaxPlayers = 3.7       ' Coerced to 3 (Integer)
+cfg.Difficulty = "1.5"     ' Coerced to 1.5 (Double)
+cfg.Title = 42             ' Coerced to "42" (String)
+cfg.Fullscreen = 1         ' Coerced to True (Boolean)
+```
+
+### IntelliSense for Struct Members
+
+When you type a variable name followed by `.`, the editor shows autocomplete suggestions with member names and types for any variable declared as a User-Defined Type. This works for `Dim`, `Private`, `Public`, and `Static` declarations.
+
+### Nested Types
+
+Types can contain other Types as members:
+
+```vb
+Type Address
+    Street As String * 40
+    City As String * 20
+    ZipCode As String * 10
+End Type
+
+Type Contact
+    Name As String * 30
+    HomeAddress As Address
+    WorkAddress As Address
+End Type
+
+Dim c As Contact
+c.Name = "Alice"
+c.HomeAddress.Street = "123 Main St"
+c.HomeAddress.City = "Springfield"
+```
+
+---
+
+## Financial Functions
+
+VisualGasic includes all 13 VB6 financial functions for desktop application development — loan calculators, accounting tools, investment analysis, and business applications.
+
+### Loan & Payment Functions
+
+#### Pmt — Periodic Payment
+```vb
+' Calculate monthly mortgage payment
+Dim monthlyRate As Double = 0.065 / 12   ' 6.5% annual rate
+Dim payment As Double = Pmt(monthlyRate, 360, -250000)
+Print "Monthly Payment: $" & FormatNumber(payment, 2)
+' Output: Monthly Payment: $1580.17
+```
+
+**Syntax**: `Pmt(rate, nper, pv[, fv][, type]) As Double`
+- `rate` — Interest rate per period
+- `nper` — Total number of payment periods
+- `pv` — Present value (principal), negative = loan amount
+- `fv` — Future value (default 0)
+- `type` — 0 = payment at end (default), 1 = payment at beginning
+
+#### FV — Future Value
+```vb
+' How much will $100/month grow to in 20 years at 8% annual?
+Dim futureValue As Double = FV(0.08/12, 240, -100, 0, 0)
+Print "Future Value: $" & FormatNumber(futureValue, 2)
+```
+
+**Syntax**: `FV(rate, nper, pmt[, pv][, type]) As Double`
+
+#### PV — Present Value
+```vb
+' What lump sum equals $500/month for 10 years at 5%?
+Dim presentValue As Double = PV(0.05/12, 120, -500)
+Print "Present Value: $" & FormatNumber(presentValue, 2)
+```
+
+**Syntax**: `PV(rate, nper, pmt[, fv][, type]) As Double`
+
+#### Rate — Interest Rate Per Period
+```vb
+' What rate makes $200/month pay off $20000 in 10 years?
+Dim monthlyRate As Double = Rate(120, -200, 20000)
+Print "Annual Rate: " & FormatPercent(monthlyRate * 12, 2)
+```
+
+**Syntax**: `Rate(nper, pmt, pv[, fv][, type][, guess]) As Double`
+
+#### NPER — Number of Periods
+```vb
+' How many months to pay off $15000 at 4% with $350/month?
+Dim months As Double = NPER(0.04/12, -350, 15000)
+Print "Months: " & Int(months)
+```
+
+**Syntax**: `NPER(rate, pmt, pv[, fv][, type]) As Double`
+
+#### IPmt / PPmt — Interest and Principal Portions
+```vb
+' Break down payment #1 of a mortgage
+Dim r As Double = 0.06 / 12
+Dim n As Integer = 360
+Dim p As Double = -200000
+
+Dim interest As Double = IPmt(r, 1, n, p)
+Dim principal As Double = PPmt(r, 1, n, p)
+Print "Interest: $" & FormatNumber(interest, 2)
+Print "Principal: $" & FormatNumber(principal, 2)
+```
+
+**Syntax**: `IPmt(rate, per, nper, pv[, fv][, type]) As Double`
+**Syntax**: `PPmt(rate, per, nper, pv[, fv][, type]) As Double`
+
+### Investment Analysis Functions
+
+#### NPV — Net Present Value
+```vb
+Dim cashFlows() As Double = {-100000, 25000, 35000, 40000, 30000}
+Dim result As Double = NPV(0.10, cashFlows)
+Print "NPV at 10%: $" & FormatNumber(result, 2)
+```
+
+**Syntax**: `NPV(rate, values()) As Double`
+
+#### IRR — Internal Rate of Return
+```vb
+Dim flows() As Double = {-50000, 15000, 18000, 20000, 12000}
+Dim irrResult As Double = IRR(flows)
+Print "IRR: " & FormatPercent(irrResult, 2)
+```
+
+**Syntax**: `IRR(values()[, guess]) As Double`
+Uses Newton-Raphson iteration; `guess` defaults to 0.1 (10%).
+
+#### MIRR — Modified Internal Rate of Return
+```vb
+Dim flows() As Double = {-120000, 39000, 30000, 21000, 37000, 46000}
+Dim mirrResult As Double = MIRR(flows, 0.10, 0.12)
+Print "MIRR: " & FormatPercent(mirrResult, 2)
+```
+
+**Syntax**: `MIRR(values(), financeRate, reinvestRate) As Double`
+
+### Depreciation Functions
+
+#### SLN — Straight-Line Depreciation
+```vb
+Dim annualDep As Double = SLN(50000, 5000, 7)
+Print "Annual Depreciation: $" & FormatNumber(annualDep, 2)
+```
+
+**Syntax**: `SLN(cost, salvage, life) As Double`
+
+#### SYD — Sum-of-Years-Digits Depreciation
+```vb
+For yr = 1 To 5
+    Print "Year " & yr & ": $" & FormatNumber(SYD(30000, 3000, 5, yr), 2)
+Next yr
+```
+
+**Syntax**: `SYD(cost, salvage, life, period) As Double`
+
+#### DDB — Double Declining Balance Depreciation
+```vb
+Print "Year 1 DDB: $" & FormatNumber(DDB(50000, 5000, 7, 1), 2)
+Print "Year 1 DDB (1.5x): $" & FormatNumber(DDB(50000, 5000, 7, 1, 1.5), 2)
+```
+
+**Syntax**: `DDB(cost, salvage, life, period[, factor]) As Double`
+Default `factor` is 2.0 (double declining). Use 1.5 for 150% declining balance.

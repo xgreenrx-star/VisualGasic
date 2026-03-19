@@ -668,20 +668,131 @@ Dictionary VisualGasicLanguage::_complete_code(const String &p_code, const Strin
             // Add common form properties
             _add_form_properties_to_completion(options, after_dot);
         } else if (!identifier.is_empty()) {
-            // Try to find this control in the form
-            String control_class = "";
-            if (p_owner) {
-                Node *owner_node = Object::cast_to<Node>(p_owner);
-                if (owner_node) {
-                    Node *found = _find_control_recursive(owner_node, identifier);
-                    if (found) {
-                        control_class = found->get_class();
+            // --- Struct/Type member IntelliSense ---
+            // Scan code for "Dim <identifier> As <TypeName>" to resolve struct type
+            String struct_type = "";
+            {
+                // Search for patterns like: Dim identifier As TypeName
+                // Case-insensitive search through the full code
+                PackedStringArray lines = p_code.split("\n");
+                for (int li = 0; li < lines.size(); li++) {
+                    String line = lines[li].strip_edges();
+                    // Match: [Dim|Private|Public] identifier As TypeName
+                    String line_lower = line.to_lower();
+                    int dim_pos = -1;
+                    if (line_lower.begins_with("dim ")) dim_pos = 4;
+                    else if (line_lower.begins_with("private ")) dim_pos = 8;
+                    else if (line_lower.begins_with("public ")) dim_pos = 7;
+                    else if (line_lower.begins_with("static ")) dim_pos = 7;
+                    if (dim_pos < 0) continue;
+                    
+                    String rest = line.substr(dim_pos).strip_edges();
+                    // Extract variable name
+                    String var_name = "";
+                    int ri = 0;
+                    while (ri < rest.length() && is_identifier_char(rest[ri])) {
+                        var_name += String::chr(rest[ri]);
+                        ri++;
+                    }
+                    if (var_name.nocasecmp_to(identifier) != 0) continue;
+                    
+                    // Look for "As"
+                    String after_var = rest.substr(ri).strip_edges();
+                    if (after_var.to_lower().begins_with("as ")) {
+                        String type_part = after_var.substr(3).strip_edges();
+                        // Skip "New" keyword if present
+                        if (type_part.to_lower().begins_with("new ")) {
+                            type_part = type_part.substr(4).strip_edges();
+                        }
+                        // Extract type name
+                        String tname = "";
+                        for (int ti = 0; ti < type_part.length(); ti++) {
+                            if (is_identifier_char(type_part[ti])) {
+                                tname += String::chr(type_part[ti]);
+                            } else break;
+                        }
+                        if (!tname.is_empty()) {
+                            struct_type = tname;
+                            break;
+                        }
                     }
                 }
             }
             
-            // Add control-specific or generic properties
-            _add_control_properties_to_completion(control_class, options, after_dot);
+            // If we found a struct type, look for its Type definition in the code
+            if (!struct_type.is_empty()) {
+                PackedStringArray lines = p_code.split("\n");
+                bool in_struct = false;
+                for (int li = 0; li < lines.size(); li++) {
+                    String line = lines[li].strip_edges();
+                    String line_lower = line.to_lower();
+                    
+                    if (!in_struct) {
+                        // Look for "Type StructName"
+                        if (line_lower.begins_with("type ")) {
+                            String tname = line.substr(5).strip_edges();
+                            // Extract just the name
+                            String name_only = "";
+                            for (int ci = 0; ci < tname.length(); ci++) {
+                                if (is_identifier_char(tname[ci])) name_only += String::chr(tname[ci]);
+                                else break;
+                            }
+                            if (name_only.nocasecmp_to(struct_type) == 0) {
+                                in_struct = true;
+                            }
+                        }
+                    } else {
+                        // Inside the struct definition
+                        if (line_lower.begins_with("end type")) {
+                            break; // Done
+                        }
+                        // Parse member: MemberName As Type [* N]
+                        if (!line.is_empty()) {
+                            String mem_name = "";
+                            int mi = 0;
+                            while (mi < line.length() && is_identifier_char(line[mi])) {
+                                mem_name += String::chr(line[mi]);
+                                mi++;
+                            }
+                            if (!mem_name.is_empty() && mem_name.to_lower() != "end") {
+                                // Extract type info for display
+                                String mem_type = "Variant";
+                                String after_mem = line.substr(mi).strip_edges();
+                                if (after_mem.to_lower().begins_with("as ")) {
+                                    mem_type = after_mem.substr(3).strip_edges();
+                                }
+                                
+                                // Filter by what user has typed after dot
+                                if (after_dot.is_empty() || mem_name.to_lower().begins_with(after_dot.to_lower())) {
+                                    Dictionary opt;
+                                    opt["kind"] = 5; // Field
+                                    opt["label"] = mem_name;
+                                    opt["insert_text"] = mem_name;
+                                    opt["display"] = mem_name + " As " + mem_type;
+                                    options.push_back(opt);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Try to find this control in the form (existing logic)
+            if (options.size() == 0) {
+                String control_class = "";
+                if (p_owner) {
+                    Node *owner_node = Object::cast_to<Node>(p_owner);
+                    if (owner_node) {
+                        Node *found = _find_control_recursive(owner_node, identifier);
+                        if (found) {
+                            control_class = found->get_class();
+                        }
+                    }
+                }
+                
+                // Add control-specific or generic properties
+                _add_control_properties_to_completion(control_class, options, after_dot);
+            }
         }
         
         if (options.size() > 0) {
@@ -953,6 +1064,20 @@ Dictionary VisualGasicLanguage::_complete_code(const String &p_code, const Strin
     keywords.push_back("CallByName");
     keywords.push_back("Eqv");
     keywords.push_back("Imp");
+    // Financial Functions
+    keywords.push_back("Pmt");
+    keywords.push_back("FV");
+    keywords.push_back("PV");
+    keywords.push_back("NPV");
+    keywords.push_back("IRR");
+    keywords.push_back("Rate");
+    keywords.push_back("NPER");
+    keywords.push_back("SLN");
+    keywords.push_back("SYD");
+    keywords.push_back("DDB");
+    keywords.push_back("IPmt");
+    keywords.push_back("PPmt");
+    keywords.push_back("MIRR");
     keywords.push_back("PlaySound");
     keywords.push_back("PlayTone");
     keywords.push_back("SetTitle");

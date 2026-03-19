@@ -71,17 +71,24 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
         }
         
         // Custom Structs or Types?
-        // Check struct definitions
+        // Use struct_prototypes for proper typed defaults + fixed-length strings
+        if (struct_prototypes.has(n->class_name)) {
+            return ((Dictionary)struct_prototypes[n->class_name]).duplicate(true);
+        }
+        // Case-insensitive fallback
         if (script.is_valid() && script->ast_root) {
             for(int i=0; i<script->ast_root->structs.size(); i++) {
                 if (script->ast_root->structs[i]->name.nocasecmp_to(n->class_name) == 0) {
-                     // Instantiate Struct (Dictionary)
-                     // Re-use ProtoBuilder logic? Or simple manual create
+                     String actual_name = script->ast_root->structs[i]->name;
+                     if (struct_prototypes.has(actual_name)) {
+                         return ((Dictionary)struct_prototypes[actual_name]).duplicate(true);
+                     }
+                     // Fallback: create with basic defaults
                      Dictionary d;
+                     d[STRUCT_TYPE_KEY] = actual_name;
                      StructDefinition* def = script->ast_root->structs[i];
                      for(int m=0; m<def->members.size(); m++) {
-                         // Default init
-                         d[def->members[m].name] = Variant(); // Better defaults later
+                         d[def->members[m].name] = Variant();
                      }
                      return d;
                 }

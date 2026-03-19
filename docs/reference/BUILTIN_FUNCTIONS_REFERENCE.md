@@ -518,6 +518,28 @@ These were already implemented and still work:
 
 **Grand Total**: 57 new functions + 52 existing + 13 v2.10.0 features = **122 builtins & features!**
 
+### Financial Functions (v4.2.0)
+- `Pmt(rate, nper, pv[, fv][, type])` — Periodic payment for a loan/annuity
+- `FV(rate, nper, pmt[, pv][, type])` — Future value of an investment
+- `PV(rate, nper, pmt[, fv][, type])` — Present value
+- `Rate(nper, pmt, pv[, fv][, type][, guess])` — Interest rate per period
+- `NPER(rate, pmt, pv[, fv][, type])` — Number of periods
+- `IPmt(rate, per, nper, pv[, fv][, type])` — Interest portion of a payment
+- `PPmt(rate, per, nper, pv[, fv][, type])` — Principal portion of a payment
+- `NPV(rate, values())` — Net present value
+- `IRR(values()[, guess])` — Internal rate of return
+- `MIRR(values(), financeRate, reinvestRate)` — Modified internal rate of return
+- `SLN(cost, salvage, life)` — Straight-line depreciation
+- `SYD(cost, salvage, life, period)` — Sum-of-years-digits depreciation
+- `DDB(cost, salvage, life, period[, factor])` — Double declining balance depreciation
+
+**= 13 financial functions**
+
+### Type/Struct Enhancements (v4.2.0)
+- Fixed-length strings: `Name As String * 30`
+- Strict member type checking with automatic coercion
+- IntelliSense for struct member dot-completion
+
 ---
 
 ## Usage Tips
