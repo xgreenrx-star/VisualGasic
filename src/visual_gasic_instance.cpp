@@ -1707,7 +1707,9 @@ void VisualGasicInstance::dispatch_builtin_call(const String &p_method, const Ar
             // These do pixel loops entirely in C++ for maximum speed.
 
             // DrawImageLine image, x1, y1, x2, y2, color[, width]
-            // Bresenham line directly on an Image (1px default, or thick with width)
+            // Bresenham line directly on an Image.
+            //   width=1 (default): single-pixel set_pixel per step
+            //   width>1: stamps a filled rectangle (brush) centered on each step
             if (p_method.nocasecmp_to("DrawImageLine") == 0 && p_args.size() >= 6) {
                 if (p_args[0].get_type() == Variant::OBJECT) {
                     Ref<Image> img = p_args[0];
@@ -1715,6 +1717,8 @@ void VisualGasicInstance::dispatch_builtin_call(const String &p_method, const Ar
                         int x1 = (int)p_args[1], y1 = (int)p_args[2];
                         int x2 = (int)p_args[3], y2 = (int)p_args[4];
                         Color col = p_args[5];
+                        int brush = (p_args.size() >= 7) ? (int)p_args[6] : 1;
+                        if (brush < 1) brush = 1;
                         int w = img->get_width(), h = img->get_height();
                         int dx = abs(x2 - x1), dy = abs(y2 - y1);
                         int sx = (x1 < x2) ? 1 : -1;
@@ -1723,8 +1727,22 @@ void VisualGasicInstance::dispatch_builtin_call(const String &p_method, const Ar
                         int max_steps = dx + dy + 2;
                         int cx = x1, cy = y1;
                         while (max_steps-- > 0) {
-                            if (cx >= 0 && cx < w && cy >= 0 && cy < h)
-                                img->set_pixel(cx, cy, col);
+                            if (brush <= 1) {
+                                // Single-pixel line
+                                if (cx >= 0 && cx < w && cy >= 0 && cy < h)
+                                    img->set_pixel(cx, cy, col);
+                            } else {
+                                // Thick line: stamp a filled square (brush) at each point
+                                int half = brush / 2;
+                                int bx = cx - half, by = cy - half;
+                                int bw = brush, bh = brush;
+                                if (bx < 0) { bw += bx; bx = 0; }
+                                if (by < 0) { bh += by; by = 0; }
+                                if (bx + bw > w) bw = w - bx;
+                                if (by + bh > h) bh = h - by;
+                                if (bw > 0 && bh > 0)
+                                    img->fill_rect(Rect2i(bx, by, bw, bh), col);
+                            }
                             if (cx == x2 && cy == y2) break;
                             int e2 = 2 * err;
                             if (e2 > -dy) { err -= dy; cx += sx; }

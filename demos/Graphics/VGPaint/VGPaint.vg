@@ -429,36 +429,6 @@ Sub HandleMouseButton(ev)
     mx = Int(ev.position.x)
     my = Int(ev.position.y)
 
-    ' ── If we are currently drawing and the user RELEASES the mouse button,
-    '    always finalize the drawing operation regardless of cursor position.
-    '    We use the motion-tracked coordinates (mouseCanvasX/Y, previewEndX/Y)
-    '    rather than ev.position, because mouse button release events may
-    '    report the original press position instead of the actual release position.
-    If isDrawing And ev.button_index = 1 And Not ev.pressed Then
-        Select Case currentTool
-            Case 0  ' Pencil — already drawn continuously during drag, nothing to finalize
-            Case 1  ' Brush — already drawn continuously during drag
-            Case 2  ' Eraser — already drawn continuously during drag
-            Case 3  ' Line — draw final line from start to last tracked mouse position
-                DrawLinePixels startX, startY, previewEndX, previewEndY, fgColorR, fgColorG, fgColorB
-            Case 4  ' Rectangle — draw final rectangle
-                DrawRectPixels startX, startY, previewEndX, previewEndY, fgColorR, fgColorG, fgColorB
-            Case 5  ' Ellipse — draw final ellipse
-                Dim ecx As Integer
-                Dim ecy As Integer
-                Dim erx As Integer
-                Dim ery As Integer
-                ecx = (startX + previewEndX) \ 2
-                ecy = (startY + previewEndY) \ 2
-                erx = Abs(previewEndX - startX) \ 2
-                ery = Abs(previewEndY - startY) \ 2
-                DrawEllipsePixels ecx, ecy, erx, ery, fgColorR, fgColorG, fgColorB
-        End Select
-        canvasDirty = True
-        isDrawing = False
-        Exit Sub
-    End If
-
     ' ── Check if click is in the toolbar area ─────────────────────────────
     If mx < TOOLBAR_W And my > MENU_H And my < (MENU_H + 9 * (TOOL_BTN_SIZE + 4)) Then
         If ev.pressed And ev.button_index = 1 Then
@@ -564,6 +534,28 @@ Sub HandleMouseButton(ev)
             End Select
             canvasDirty = True
             isModified = True
+        Else
+            ' Release — finalize shape tools
+            If isDrawing Then
+                Select Case currentTool
+                    Case 3  ' Line — draw final line (native C++ with brush width)
+                        DrawImageLine canvasImage, startX, startY, mouseCanvasX, mouseCanvasY, Color8(fgColorR, fgColorG, fgColorB, 255), brushSize
+                    Case 4  ' Rectangle — draw final rectangle
+                        DrawRectPixels startX, startY, mouseCanvasX, mouseCanvasY, fgColorR, fgColorG, fgColorB
+                    Case 5  ' Ellipse — draw final ellipse
+                        Dim ecx As Integer
+                        Dim ecy As Integer
+                        Dim erx As Integer
+                        Dim ery As Integer
+                        ecx = (startX + mouseCanvasX) \ 2
+                        ecy = (startY + mouseCanvasY) \ 2
+                        erx = Abs(mouseCanvasX - startX) \ 2
+                        ery = Abs(mouseCanvasY - startY) \ 2
+                        DrawEllipsePixels ecx, ecy, erx, ery, fgColorR, fgColorG, fgColorB
+                End Select
+                canvasDirty = True
+                isDrawing = False
+            End If
         End If
     End If
 
@@ -597,13 +589,13 @@ Sub HandleMouseMotion(ev)
                 lastX = mouseCanvasX
                 lastY = mouseCanvasY
                 canvasDirty = True
-            Case 1  ' Brush — thick line from last position
-                DrawLinePixels lastX, lastY, mouseCanvasX, mouseCanvasY, fgColorR, fgColorG, fgColorB
+            Case 1  ' Brush — thick line from last position (native C++)
+                DrawImageLine canvasImage, lastX, lastY, mouseCanvasX, mouseCanvasY, Color8(fgColorR, fgColorG, fgColorB, 255), brushSize
                 lastX = mouseCanvasX
                 lastY = mouseCanvasY
                 canvasDirty = True
-            Case 2  ' Eraser — thick erase from last position
-                DrawLinePixels lastX, lastY, mouseCanvasX, mouseCanvasY, bgColorR, bgColorG, bgColorB
+            Case 2  ' Eraser — thick erase from last position (native C++)
+                DrawImageLine canvasImage, lastX, lastY, mouseCanvasX, mouseCanvasY, Color8(bgColorR, bgColorG, bgColorB, 255), brushSize
                 lastX = mouseCanvasX
                 lastY = mouseCanvasY
                 canvasDirty = True
