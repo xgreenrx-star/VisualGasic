@@ -10,6 +10,7 @@ class_name VGCommandHelp
 # ref_line points to the line number in docs/VisualGasic_Language_Reference.md
 
 static var _db: Dictionary = {}
+static var _see_also: Dictionary = {}
 static var _initialized := false
 
 static func _ensure_init() -> void:
@@ -17,6 +18,7 @@ static func _ensure_init() -> void:
 		return
 	_initialized = true
 	_build_db()
+	_build_see_also()
 
 static func lookup(keyword: String) -> Dictionary:
 	_ensure_init()
@@ -33,6 +35,14 @@ static func get_all_keywords() -> PackedStringArray:
 		keys.append(k)
 	keys.sort()
 	return keys
+
+## Returns an array of related keyword names for the given keyword (#6 See Also).
+static func get_see_also(keyword: String) -> Array:
+	_ensure_init()
+	var key := keyword.strip_edges().to_lower()
+	if _see_also.has(key):
+		return _see_also[key]
+	return []
 
 static func _add(keyword: String, syntax: String, desc: String, code: String, ref_line: int = 0) -> void:
 	_db[keyword.to_lower()] = {
@@ -1066,3 +1076,78 @@ static func _build_db() -> void:
 		"Creates a Color from integer red, green, blue values (0-255). VB6-compatible function.",
 		"Dim c As Variant = RGB(255, 0, 0)  ' Red\nDrawRect 0, 0, 100, 100, RGB(0, 128, 255)  ' Sky blue",
 		0)
+
+## =========================================================================
+## SEE ALSO — cross-reference groups (#6)
+## =========================================================================
+static func _build_see_also() -> void:
+	# Helper: assign bidirectional see-also for a group of keywords
+	var groups: Array = [
+		# Variable declaration
+		["Dim", "Private", "Public", "Global", "Static", "Const", "ReDim", "Type"],
+		# Data types
+		["Integer", "Long", "Single", "Double", "String", "Boolean", "Variant", "Array"],
+		# If / branching
+		["If", "Then", "Else", "ElseIf", "End If", "Select Case", "IIf"],
+		# Select
+		["Select", "Select Case", "Case", "End Select"],
+		# For loop
+		["For", "Next", "For Each", "Continue", "Exit"],
+		# Do loop
+		["Do", "Loop", "While", "Wend", "Until", "Exit"],
+		# Error handling
+		["On Error", "Try", "Catch", "Finally", "Throw"],
+		# Procedures
+		["Sub", "Function", "End Sub", "End Function", "Call", "Return", "ByRef", "ByVal", "Optional", "Lambda"],
+		# String functions
+		["Left", "Right", "Mid", "Trim", "LCase", "UCase", "Len", "InStr", "Replace", "Split", "Join", "Format"],
+		# Type conversion
+		["CInt", "CStr", "Val", "Str", "Int"],
+		# Math
+		["Abs", "Int", "Sqr", "Rnd", "Randomize", "RandRange", "Round", "Clamp", "Lerp", "Mod"],
+		# Trig
+		["Sin", "Cos"],
+		# Logical operators
+		["And", "Or", "Not", "Xor"],
+		# Drawing — shapes
+		["DrawLine", "DrawRect", "DrawCircle", "DrawArc", "DrawPixel", "DrawPolygon", "DrawPolyline", "PSet", "CLS", "QueueRedraw"],
+		# Drawing — text & images
+		["DrawString", "DrawTexture", "DrawTextureRect"],
+		# Drawing — transform
+		["SetDrawTransform", "ResetDrawTransform"],
+		# Image manipulation
+		["CreateImage", "FillImage", "FillImageRect", "GetImagePixel", "SetImagePixel", "BlitImage", "ImageWidth", "ImageHeight"],
+		# Image ↔ Texture
+		["ImageToTexture", "CreateTexture", "UpdateTexture", "GetTextureImage", "TextureWidth", "TextureHeight"],
+		# Image I/O
+		["LoadImage", "LoadPicture", "SaveImage", "RGB"],
+		# File I/O
+		["Open", "Close", "Line Input", "Data", "Read", "Restore"],
+		# OOP
+		["Class", "End Class", "New", "Set", "Me", "Implements", "Inherits", "Interface", "Property"],
+		# Events
+		["Event", "RaiseEvent", "WithEvents"],
+		# UI
+		["MsgBox", "InputBox", "LoadForm"],
+		# Boolean literals
+		["True", "False", "Nothing"],
+		# Array functions
+		["Array", "ReDim", "LBound", "UBound"],
+		# Async
+		["Async", "Await", "DoEvents"],
+		# Scope modifiers
+		["With", "End With", "Using"],
+		# Game
+		["IsActionPressed", "IsKeyPressed", "PlaySound", "ChangeScene", "CreateActor2D"],
+		# GoTo
+		["GoTo", "GoSub", "Return"],
+	]
+	for group in groups:
+		for kw in group:
+			var key := (kw as String).to_lower()
+			if not _see_also.has(key):
+				_see_also[key] = []
+			for other in group:
+				if (other as String).to_lower() != key:
+					if not _see_also[key].has(other):
+						_see_also[key].append(other)
