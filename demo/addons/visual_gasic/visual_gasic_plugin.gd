@@ -736,28 +736,15 @@ func _make_visible(p_visible: bool) -> void:
 		# (so next time Form Designer opens it shows the form canvas)
 		if _showing_code_view:
 			_show_form_view()
-		# Leaving Form Designer → flush C++ state to disk only if dirty.
+		# Leaving Form Designer → patch in-memory tree so Godot's own saver
+		# writes correct data.  Do NOT write to disk here — writing via C++
+		# FileAccess bypasses Godot's resource system, causing the
+		# "files modified outside Godot" prompt on every focus cycle.
+		# The user's changes are safe in C++ memory and the patched tree;
+		# they'll be flushed to disk on the next explicit save (Ctrl+S,
+		# Build, Run, or editor shutdown).
 		if is_instance_valid(_form_designer):
-			# Always patch in-memory tree so Godot's own saver writes correct data.
 			_sync_form_state_to_scene_tree()
-			# Only write to disk if the form has unsaved changes
-			if _form_dirty:
-				var save_path := ""
-				var scene_root = EditorInterface.get_edited_scene_root()
-				if scene_root and not scene_root.scene_file_path.is_empty():
-					save_path = scene_root.scene_file_path
-				if save_path.is_empty():
-					save_path = _form_designer.get_form_path()
-				if save_path.is_empty() and _form_designer.get_control_count() > 0:
-					save_path = "res://" + _form_designer.get_form_name() + ".tscn"
-				if not save_path.is_empty():
-					_form_designer.save_form_as(save_path)
-					_strip_empty_menubar_from_tscn(save_path)
-					EditorInterface.get_resource_filesystem().update_file(save_path)
-					_form_dirty = false
-					# Schedule reload for AFTER the screen transition completes.
-					if not _switching_to_code_editor:
-						_pending_reload_path = save_path
 		# Always clear the flag here (even when form_path was empty and
 		# the save block above was skipped — the previous code never
 		# reached the clear in that case, leaving the flag stuck true).
@@ -803,10 +790,9 @@ func _set_window_layout(config: ConfigFile):
 			# Populate Properties panel with form props on restore
 			call_deferred("_populate_properties_for_form")
 
-## Called by the editor when saving window layout.
-## CRITICAL: This fires AFTER Godot has saved all open scene tabs to disk.
-## We re-save the form .tscn from C++ here to overwrite any stale data
-## that Godot's scene saver may have written from its in-memory tree.
+## Called by the editor when saving window layout (fires on focus loss and
+## editor close).  We persist the current form path to survive editor restarts
+## and patch the in-memory tree.  No disk writes — see _save_external_data().
 func _get_window_layout(config: ConfigFile):
 	if is_instance_valid(_layout_manager):
 		_layout_manager.on_window_layout_saving(config)
@@ -816,51 +802,28 @@ func _get_window_layout(config: ConfigFile):
 		if not fpath.is_empty():
 			config.set_value("VisualGasic", "form_path", fpath)
 			# Patch in-memory tree so Godot's own saver writes correct data.
+			# Do NOT write to disk here — C++ FileAccess writes bypass Godot's
+			# resource system and trigger 'modified outside Godot' dialogs.
 			_sync_form_state_to_scene_tree()
-			# Only re-save from C++ if the form has unsaved changes.
-			# Unconditional writes here caused 'reload from disk?' prompts
-			# because Godot detects the file changed on every focus cycle.
-			if _form_dirty:
-				_form_designer.save_form_as(fpath)
-				_strip_empty_menubar_from_tscn(fpath)
-				EditorInterface.get_resource_filesystem().update_file(fpath)
-				_form_dirty = false
-				print("[VG-SYNC] _get_window_layout → re-saved dirty form")
 
 ## Called by the editor before saving any external data (scenes, resources).
-## Godot calls this on EVERY auto-save, including when the window loses focus.
-## We ONLY write the .tscn from C++ if the form has unsaved changes.
-## Otherwise we just patch the in-memory scene tree so Godot's own saver
-## writes correct data — this avoids the "reload from disk?" prompt that
-## occurs when we unconditionally write files on every focus-loss cycle.
+## Godot calls this on EVERY auto-save, including when the window loses focus
+## AND on Ctrl+S.  We NEVER write the .tscn from C++ here — writing via C++
+## FileAccess bypasses Godot's ResourceSaver and causes the "files have been
+## modified outside Godot" dialog every time the window regains focus.
+##
+## Instead we only patch the in-memory scene tree so that if Godot's own
+## saver writes the scene (e.g. on Ctrl+S), it produces correct data.
+## Actual C++ saves only happen via explicit user actions: _do_save_form()
+## (Ctrl+S intercepted by our plugin), Build, Run, or editor shutdown.
 func _save_external_data() -> void:
 	if _saving_external:
-		return  # reentrancy guard — reload_scene can trigger another save cycle
+		return  # reentrancy guard
 	_saving_external = true
 	if is_instance_valid(_form_designer):
-		var fp = _form_designer.get_form_path()
-		# Always patch Godot's in-memory scene tree so its own saver writes
-		# correct data, regardless of whether we write the file ourselves.
+		# Patch Godot's in-memory scene tree so its own saver writes
+		# correct data (positions, sizes, text).  No disk writes here.
 		_sync_form_state_to_scene_tree()
-		# Only write to disk if the form is actually dirty
-		if _form_dirty:
-			# Derive a save path if the form was never saved to disk yet
-			if fp.is_empty() and _form_designer.get_control_count() > 0:
-				var scene_root = EditorInterface.get_edited_scene_root()
-				if scene_root and not scene_root.scene_file_path.is_empty():
-					fp = scene_root.scene_file_path
-				else:
-					fp = "res://" + _form_designer.get_form_name() + ".tscn"
-				_form_designer.save_form_as(fp)
-			elif not fp.is_empty():
-				_form_designer.save_form()
-			# Notify Godot's filesystem so it doesn't treat this as external
-			fp = _form_designer.get_form_path()
-			if not fp.is_empty():
-				EditorInterface.get_resource_filesystem().update_file(fp)
-				var scene_root = EditorInterface.get_edited_scene_root()
-				if scene_root and scene_root.scene_file_path == fp:
-					_force_godot_scene_reload(fp)
 	_saving_external = false
 
 ## Called when the plugin exits the editor tree.
@@ -3762,15 +3725,11 @@ func _sync_form_state_to_scene_tree() -> void:
 		return
 	var scene_root = EditorInterface.get_edited_scene_root()
 	if not scene_root:
-		print("[VG-SYNC] _sync: no edited scene root")
 		return
 	if scene_root.scene_file_path != fp:
-		# The form is not the active scene tab.  Check if it's open in another tab.
-		var open_scenes = EditorInterface.get_open_scenes()
-		if fp in open_scenes:
-			print("[VG-SYNC] _sync: form '", fp, "' is open but not active (active='", scene_root.scene_file_path, "').  Cannot patch non-active tab — relying on _get_window_layout backup save.")
-		else:
-			print("[VG-SYNC] _sync: form '", fp, "' not in open scene tabs — skipping sync")
+		# The form is not the active scene tab — we can only patch the active
+		# tab's tree.  Changes are safe in C++ memory and will be written on
+		# the next explicit save.
 		return
 
 	# ── Sync form size ──
@@ -3779,13 +3738,16 @@ func _sync_form_state_to_scene_tree() -> void:
 		if scene_root.size != fd_size:
 			scene_root.size = fd_size
 			print("[VG-SYNC] Patched Window.size → ", fd_size)
-	# Also patch the _FormBackground Panel offsets
+	# Also patch the _FormBackground Panel offsets (only if changed)
 	var bg = scene_root.get_node_or_null("_FormBackground")
 	if bg:
-		bg.offset_right = float(fd_size.x)
-		bg.offset_bottom = float(fd_size.y)
+		var new_right := float(fd_size.x)
+		var new_bottom := float(fd_size.y)
+		if not is_equal_approx(bg.offset_right, new_right) or not is_equal_approx(bg.offset_bottom, new_bottom):
+			bg.offset_right = new_right
+			bg.offset_bottom = new_bottom
 
-	# ── Sync each child control's position + size ──
+	# ── Sync each child control's position + size (only if changed) ──
 	var ctrl_count = _form_designer.get_control_count()
 	for i in ctrl_count:
 		var info: Dictionary = _form_designer.get_control_info(i)
@@ -3796,16 +3758,23 @@ func _sync_form_state_to_scene_tree() -> void:
 		if not child or not child is Control:
 			continue
 		var r: Rect2 = info.get("rect", Rect2())
-		child.offset_left   = r.position.x
-		child.offset_top    = r.position.y
-		child.offset_right  = r.position.x + r.size.x
-		child.offset_bottom = r.position.y + r.size.y
-		# Sync text/caption
+		var new_left   := r.position.x
+		var new_top    := r.position.y
+		var new_right  := r.position.x + r.size.x
+		var new_bottom := r.position.y + r.size.y
+		if not is_equal_approx(child.offset_left, new_left) or \
+		   not is_equal_approx(child.offset_top, new_top) or \
+		   not is_equal_approx(child.offset_right, new_right) or \
+		   not is_equal_approx(child.offset_bottom, new_bottom):
+			child.offset_left   = new_left
+			child.offset_top    = new_top
+			child.offset_right  = new_right
+			child.offset_bottom = new_bottom
+		# Sync text/caption (only if changed)
 		var text_val = info.get("text", "")
 		if child.has_method("set_text") and not text_val.is_empty():
-			child.set("text", text_val)
-
-	print("[VG-SYNC] Scene tree patched: ", ctrl_count, " controls, form size=", fd_size)
+			if child.get("text") != text_val:
+				child.set("text", text_val)
 
 func _on_vb6_edit_menu(id: int) -> void:
 	# Code editor actions (Find, Replace, Comment, Bookmarks, Indent)
@@ -3930,8 +3899,13 @@ func _on_vb6_run_menu(id: int) -> void:
 			_log_output("▶ Preview + Debug...", Color(0.0, 0.3, 0.5))
 			if is_instance_valid(form_preview_toolbar) and form_preview_toolbar.has_method("_on_preview_debug"):
 				form_preview_toolbar._on_preview_debug()
-		10: pass # Build
+		10: # Build
+			_do_save_form()
+			if is_instance_valid(form_preview_toolbar) and form_preview_toolbar.has_method("_on_build_pressed"):
+				form_preview_toolbar._on_build_pressed()
 		11:
+			# Save form to disk before running so the game sees latest changes
+			_do_save_form()
 			_log_output("▶ Run Project...", Color(0.0, 0.4, 0.0))
 			EditorInterface.play_main_scene()
 
