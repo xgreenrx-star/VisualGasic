@@ -67,7 +67,7 @@ var _last_help_keyword: String = ""        # avoid redundant redraws
 var _main_split: VSplitContainer = null
 
 ## Bottom panel: tabbed — Immediate, Output, System Console
-var _bottom_panel: PanelContainer = null   # outer container
+var _bottom_panel: Control = null           # outer container (plain Control — NOT PanelContainer)
 var _bottom_tabs: TabContainer = null      # tab switcher
 var _immediate_window_ref = null           # reference to the plugin's Immediate Window
 var _output_text: RichTextLabel = null     # Output tab: build/runtime messages
@@ -225,8 +225,17 @@ func _build_left_panel_content() -> void:
 
 
 func _build_bottom_panel() -> void:
-	_bottom_panel = PanelContainer.new()
+	# Use a plain Control (NOT PanelContainer) so that child minimum sizes
+	# are NOT propagated to the VSplitContainer — this lets the user drag
+	# the splitter to collapse the bottom panel as small as they want.
+	_bottom_panel = Control.new()
 	_bottom_panel.name = "BottomPanel"
+	_bottom_panel.clip_contents = true
+	_bottom_panel.custom_minimum_size = Vector2(0, 80)
+	_bottom_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	# Draw VB6 cream background via a Panel child
+	var bg_panel := Panel.new()
+	bg_panel.name = "BG"
 	var panel_sb := StyleBoxFlat.new()
 	panel_sb.bg_color = Color(0.94, 0.93, 0.90)
 	panel_sb.border_color = BORDER_COLOR
@@ -235,12 +244,14 @@ func _build_bottom_panel() -> void:
 	panel_sb.content_margin_right = 0
 	panel_sb.content_margin_top = 0
 	panel_sb.content_margin_bottom = 0
-	_bottom_panel.add_theme_stylebox_override("panel", panel_sb)
-	_bottom_panel.custom_minimum_size.y = 160
+	bg_panel.add_theme_stylebox_override("panel", panel_sb)
+	bg_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_bottom_panel.add_child(bg_panel)
 
 	# TabContainer with VB6-style tab theming
 	_bottom_tabs = TabContainer.new()
 	_bottom_tabs.name = "BottomTabs"
+	_bottom_tabs.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_bottom_tabs.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_bottom_tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_bottom_tabs.clip_contents = true
@@ -1264,9 +1275,14 @@ func _update_command_help() -> void:
 
 	var entry := VGCommandHelp.lookup(keyword)
 	if entry.is_empty():
-		_help_label.text = ""
-		_help_label.append_text("[color=#555555][i]No documentation for \"" + keyword + "\"[/i][/color]")
-		return
+		# ── Fallback: scan current script for user-declared symbols ──
+		var user_entry := _lookup_user_symbol(keyword)
+		if not user_entry.is_empty():
+			entry = user_entry
+		else:
+			_help_label.text = ""
+			_help_label.append_text("[color=#555555][i]No documentation for \"" + keyword + "\"[/i][/color]")
+			return
 
 	# Reset the scroll position
 	if _help_scroll:
@@ -1295,6 +1311,184 @@ func _update_command_help() -> void:
 	var ref_line: int = entry.get("ref_line", 0)
 	if ref_line > 0:
 		_help_label.append_text("[color=#555555][i]📖 Programmer's Reference, line " + str(ref_line) + "[/i][/color]")
+
+## Scans the current script for user-declared variables, constants, and
+## Sub/Function definitions matching the given keyword.
+## Returns a Dictionary in the same format as VGCommandHelp entries, or empty.
+func _lookup_user_symbol(keyword: String) -> Dictionary:
+	if not _code_edit or keyword.is_empty():
+		return {}
+	var kw_lower := keyword.to_lower()
+	var lines := _code_edit.text.split("\n")
+
+	# ── Pass 1: Variable declarations (Dim / Private / Public / Static / Global) ──
+	for i in lines.size():
+		var sline := lines[i].strip_edges()
+		var sl := sline.to_lower()
+
+		# Determine declaration keyword and offset
+		var decl_kw := ""
+		var offset := 0
+		if sl.begins_with("dim "):
+			decl_kw = "Dim"; offset = 4
+		elif sl.begins_with("private ") and not sl.begins_with("private sub ") and not sl.begins_with("private function ") and not sl.begins_with("private const "):
+			decl_kw = "Private"; offset = 8
+		elif sl.begins_with("public ") and not sl.begins_with("public sub ") and not sl.begins_with("public function ") and not sl.begins_with("public const "):
+			decl_kw = "Public"; offset = 7
+		elif sl.begins_with("static "):
+			decl_kw = "Static"; offset = 7
+		elif sl.begins_with("global "):
+			decl_kw = "Global"; offset = 7
+		else:
+			# Not a variable declaration — check next patterns below
+			pass
+
+		if not decl_kw.is_empty():
+			var rest := sline.substr(offset).strip_edges()
+			# Extract variable name
+			var vname := ""
+			var ci := 0
+			while ci < rest.length() and (rest[ci].is_valid_identifier() or rest[ci] == "_"):
+				vname += rest[ci]
+				ci += 1
+			if vname.to_lower() == kw_lower:
+				# Extract type
+				var vtype := "Variant"
+				var after := rest.substr(ci).strip_edges()
+				# Handle array parens: Dim arr(10) As Integer
+				if after.begins_with("("):
+					var close := after.find(")")
+					if close >= 0:
+						after = after.substr(close + 1).strip_edges()
+						vtype = "Array"
+				if after.to_lower().begins_with("as "):
+					var tpart := after.substr(3).strip_edges()
+					if tpart.to_lower().begins_with("new "):
+						tpart = tpart.substr(4).strip_edges()
+					# Extract type name (may include * N for fixed-length strings)
+					var tname := ""
+					for ti in tpart.length():
+						var tc := tpart[ti]
+						if tc.is_valid_identifier() or tc == "_" or tc == "*" or tc == " ":
+							tname += tc
+						else:
+							break
+					tname = tname.strip_edges()
+					if not tname.is_empty():
+						vtype = tname
+				# Check for initial value: = something
+				var init_val := ""
+				var eq_pos := rest.find("=")
+				if eq_pos >= 0:
+					init_val = rest.substr(eq_pos).strip_edges()
+					# Remove trailing comment
+					var cmt := init_val.find("'")
+					if cmt >= 0:
+						init_val = init_val.substr(0, cmt).strip_edges()
+				var scope := decl_kw
+				if decl_kw == "Dim":
+					scope = "Local variable"
+				elif decl_kw == "Private":
+					scope = "Private variable"
+				elif decl_kw == "Public":
+					scope = "Public variable"
+				elif decl_kw == "Global":
+					scope = "Global variable"
+				elif decl_kw == "Static":
+					scope = "Static variable"
+				var syntax_str := decl_kw + " " + vname + " As " + vtype
+				if not init_val.is_empty():
+					syntax_str += " " + init_val
+				var desc_str := scope + " declared on line " + str(i + 1) + ".\nType: " + vtype
+				if not init_val.is_empty():
+					desc_str += "\nInitial value: " + init_val.substr(2).strip_edges() if init_val.begins_with("= ") else "\nInitial value: " + init_val.substr(1).strip_edges()
+				return {
+					"keyword": vname + "  As " + vtype,
+					"syntax": syntax_str,
+					"desc": desc_str,
+					"code": "",
+					"ref_line": 0,
+				}
+
+	# ── Pass 2: Const declarations ──
+	for i in lines.size():
+		var sline := lines[i].strip_edges()
+		var sl := sline.to_lower()
+
+		var const_offset := -1
+		var const_scope := ""
+		if sl.begins_with("const "):
+			const_offset = 6; const_scope = "Const"
+		elif sl.begins_with("public const "):
+			const_offset = 14; const_scope = "Public Const"
+		elif sl.begins_with("private const "):
+			const_offset = 15; const_scope = "Private Const"
+
+		if const_offset >= 0:
+			var rest := sline.substr(const_offset).strip_edges()
+			var cname := ""
+			var ci := 0
+			while ci < rest.length() and (rest[ci].is_valid_identifier() or rest[ci] == "_"):
+				cname += rest[ci]
+				ci += 1
+			if cname.to_lower() == kw_lower:
+				var after := rest.substr(ci).strip_edges()
+				# Remove trailing comment
+				var cmt := after.find("'")
+				if cmt >= 0:
+					after = after.substr(0, cmt).strip_edges()
+				return {
+					"keyword": cname + "  (Const)",
+					"syntax": const_scope + " " + cname + " " + after,
+					"desc": "Constant declared on line " + str(i + 1) + ".\nValue cannot be changed at runtime.",
+					"code": "",
+					"ref_line": 0,
+				}
+
+	# ── Pass 3: Sub / Function definitions ──
+	var rx := RegEx.new()
+	rx.compile("(?i)^\\s*(?:(Public|Private|Static)\\s+)?(?:(Sub|Function))\\s+" + keyword.replace("(", "\\(") + "\\s*\\(([^)]*)\\)(.*)")
+	for i in lines.size():
+		var m := rx.search(lines[i])
+		if m:
+			var scope := m.get_string(1) if not m.get_string(1).is_empty() else "Public"
+			var kind := m.get_string(2)  # Sub or Function
+			var params := m.get_string(3).strip_edges()
+			var trailer := m.get_string(4).strip_edges()
+			# Extract return type for Functions
+			var ret_type := ""
+			if kind.to_lower() == "function":
+				var tl := trailer.to_lower()
+				var as_pos := tl.find("as ")
+				if as_pos >= 0:
+					ret_type = trailer.substr(as_pos + 3).strip_edges()
+					# Remove trailing comment
+					var cmt := ret_type.find("'")
+					if cmt >= 0:
+						ret_type = ret_type.substr(0, cmt).strip_edges()
+			var syntax_str := scope + " " + kind + " " + keyword + "(" + params + ")"
+			if not ret_type.is_empty():
+				syntax_str += " As " + ret_type
+			var param_desc := ""
+			if not params.is_empty():
+				param_desc = "\nParameters: " + params
+			else:
+				param_desc = "\nParameters: (none)"
+			var desc_str := scope + " " + kind + " defined on line " + str(i + 1) + "." + param_desc
+			if not ret_type.is_empty():
+				desc_str += "\nReturns: " + ret_type
+			var title := keyword + "(" + params + ")"
+			if not ret_type.is_empty():
+				title += " As " + ret_type
+			return {
+				"keyword": title,
+				"syntax": syntax_str,
+				"desc": desc_str,
+				"code": "",
+				"ref_line": 0,
+			}
+
+	return {}
 
 # =============================================================================
 # PROCEDURE SEPARATOR LINES

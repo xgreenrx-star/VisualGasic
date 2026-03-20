@@ -917,6 +917,46 @@ Dictionary VisualGasicLanguage::_complete_code(const String &p_code, const Strin
             
             if (!func_name.is_empty()) {
                 Dictionary hint = SnippetHelper::get_parameter_hint(func_name);
+                
+                // Fallback: scan script for user-defined Sub/Function declarations
+                if (!hint.get("found", false)) {
+                    PackedStringArray code_lines = p_code.split("\n");
+                    for (int li = 0; li < code_lines.size(); li++) {
+                        String sline = code_lines[li].strip_edges();
+                        String sline_lower = sline.to_lower();
+                        // Match: [Public|Private] Sub/Function FuncName(...)
+                        int name_start = -1;
+                        bool is_function = false;
+                        if (sline_lower.begins_with("sub ")) { name_start = 4; }
+                        else if (sline_lower.begins_with("function ")) { name_start = 9; is_function = true; }
+                        else if (sline_lower.begins_with("public sub ")) { name_start = 11; }
+                        else if (sline_lower.begins_with("private sub ")) { name_start = 12; }
+                        else if (sline_lower.begins_with("public function ")) { name_start = 16; is_function = true; }
+                        else if (sline_lower.begins_with("private function ")) { name_start = 17; is_function = true; }
+                        if (name_start < 0) continue;
+                        
+                        // Extract the procedure name
+                        String proc_name = "";
+                        int pi = name_start;
+                        while (pi < sline.length() && is_identifier_char(sline[pi])) {
+                            proc_name += String::chr(sline[pi]);
+                            pi++;
+                        }
+                        if (proc_name.nocasecmp_to(func_name) != 0) continue;
+                        
+                        // Found it — extract the full signature from the source line
+                        // Build: "FuncName(params) [As ReturnType]"
+                        String sig = sline.substr(name_start).strip_edges();
+                        // Remove trailing comments
+                        int comment_pos = sig.find("'");
+                        if (comment_pos >= 0) sig = sig.substr(0, comment_pos).strip_edges();
+                        
+                        hint["signature"] = sig;
+                        hint["found"] = true;
+                        break;
+                    }
+                }
+                
                 if (hint.get("found", false)) {
                     Dictionary opt;
                     opt["kind"] = ScriptLanguageExtension::CODE_COMPLETION_KIND_FUNCTION;
@@ -1120,6 +1160,144 @@ Dictionary VisualGasicLanguage::_complete_code(const String &p_code, const Strin
              opt["icon"] = Variant();
              opt["default_value"] = Variant();
              options.push_back(opt);
+        }
+    }
+    
+    // 7. USER-DECLARED VARIABLES with types + CONST values
+    // Scan the current script for Dim/Private/Public/Static and Const declarations
+    {
+        PackedStringArray code_lines = p_code.split("\n");
+        // Track names we've already added to avoid duplicates
+        PackedStringArray added_vars;
+        
+        for (int li = 0; li < code_lines.size(); li++) {
+            String sline = code_lines[li].strip_edges();
+            String sline_lower = sline.to_lower();
+            
+            // --- Const declarations: "Const NAME = value" or "Public Const ..." ---
+            {
+                int const_pos = -1;
+                if (sline_lower.begins_with("const ")) const_pos = 6;
+                else if (sline_lower.begins_with("public const ")) const_pos = 14;
+                else if (sline_lower.begins_with("private const ")) const_pos = 15;
+                
+                if (const_pos >= 0) {
+                    String rest = sline.substr(const_pos).strip_edges();
+                    // Extract name
+                    String cname = "";
+                    int ci = 0;
+                    while (ci < rest.length() && is_identifier_char(rest[ci])) {
+                        cname += String::chr(rest[ci]);
+                        ci++;
+                    }
+                    if (!cname.is_empty()) {
+                        // Extract everything after name for display (type + value)
+                        String after_name = rest.substr(ci).strip_edges();
+                        // Remove comment
+                        int cmt = after_name.find("'");
+                        if (cmt >= 0) after_name = after_name.substr(0, cmt).strip_edges();
+                        
+                        String display_text = cname;
+                        if (!after_name.is_empty()) {
+                            display_text += " " + after_name;
+                        }
+                        display_text += "  (Const)";
+                        
+                        // Filter by prefix
+                        if (last_word.is_empty() || cname.to_lower().begins_with(last_word.to_lower())) {
+                            bool already = false;
+                            for (int ai = 0; ai < added_vars.size(); ai++) {
+                                if (added_vars[ai].nocasecmp_to(cname) == 0) { already = true; break; }
+                            }
+                            if (!already) {
+                                Dictionary opt;
+                                opt["kind"] = ScriptLanguageExtension::CODE_COMPLETION_KIND_CONSTANT;
+                                opt["display"] = display_text;
+                                opt["insert_text"] = cname;
+                                opt["location"] = 0;
+                                opt["font_color"] = Color(0.6, 0.9, 1.0, 1);
+                                opt["icon"] = Variant();
+                                opt["default_value"] = Variant();
+                                options.push_back(opt);
+                                added_vars.push_back(cname);
+                            }
+                        }
+                    }
+                    continue; // Done with this line
+                }
+            }
+            
+            // --- Variable declarations: Dim/Private/Public/Static x As Type ---
+            {
+                int dim_pos = -1;
+                if (sline_lower.begins_with("dim ")) dim_pos = 4;
+                else if (sline_lower.begins_with("private ") && !sline_lower.begins_with("private sub ") && !sline_lower.begins_with("private function ") && !sline_lower.begins_with("private const ")) dim_pos = 8;
+                else if (sline_lower.begins_with("public ") && !sline_lower.begins_with("public sub ") && !sline_lower.begins_with("public function ") && !sline_lower.begins_with("public const ")) dim_pos = 7;
+                else if (sline_lower.begins_with("static ")) dim_pos = 7;
+                
+                if (dim_pos < 0) continue;
+                
+                String rest = sline.substr(dim_pos).strip_edges();
+                // Extract variable name
+                String vname = "";
+                int vi = 0;
+                while (vi < rest.length() && is_identifier_char(rest[vi])) {
+                    vname += String::chr(rest[vi]);
+                    vi++;
+                }
+                if (vname.is_empty()) continue;
+                
+                // Extract type: look for "As TypeName"
+                String vtype = "Variant";
+                String after_var = rest.substr(vi).strip_edges();
+                // Handle array parens: Dim arr(10) As Integer
+                if (after_var.begins_with("(")) {
+                    int close = after_var.find(")");
+                    if (close >= 0) {
+                        after_var = after_var.substr(close + 1).strip_edges();
+                        vtype = "Array";
+                    }
+                }
+                if (after_var.to_lower().begins_with("as ")) {
+                    String type_part = after_var.substr(3).strip_edges();
+                    // Skip "New" keyword
+                    if (type_part.to_lower().begins_with("new ")) {
+                        type_part = type_part.substr(4).strip_edges();
+                    }
+                    // Extract type name (may include * N for fixed-length strings)
+                    String tname = "";
+                    for (int ti = 0; ti < type_part.length(); ti++) {
+                        char32_t tc = type_part[ti];
+                        if (is_identifier_char(tc) || tc == '*' || tc == ' ') {
+                            tname += String::chr(tc);
+                        } else break;
+                    }
+                    tname = tname.strip_edges();
+                    if (!tname.is_empty()) vtype = tname;
+                }
+                
+                String display_text = vname + "  As " + vtype;
+                
+                // Filter by prefix
+                if (last_word.is_empty() || vname.to_lower().begins_with(last_word.to_lower())) {
+                    bool already = false;
+                    for (int ai = 0; ai < added_vars.size(); ai++) {
+                        if (added_vars[ai].nocasecmp_to(vname) == 0) { already = true; break; }
+                    }
+                    if (!already) {
+                        Dictionary opt;
+                        opt["kind"] = ScriptLanguageExtension::CODE_COMPLETION_KIND_VARIABLE;
+                        opt["display"] = display_text;
+                        opt["insert_text"] = vname;
+                        opt["location"] = 0;
+                        opt["font_color"] = Color(0.8, 1.0, 0.8, 1);
+                        opt["icon"] = Variant();
+                        opt["default_value"] = Variant();
+                        options.push_back(opt);
+                        added_vars.push_back(vname);
+                    }
+                }
+            }
         }
     }
     
