@@ -585,6 +585,7 @@ func _enter_tree():
 
 	add_tool_menu_item("Add Form...", Callable(self, "_on_add_form"))
 	add_tool_menu_item("New Module...", Callable(self, "_on_new_module"))
+	add_tool_menu_item("New VG Project...", Callable(self, "_on_new_project"))
 	add_tool_menu_item("Import VB6 Form...", Callable(self, "_on_import_vb6_form"))
 	add_tool_menu_item("Import VB6 Project...", Callable(self, "_on_import_vb6_project"))
 	add_tool_menu_item("Visual Gasic Menu Editor", Callable(self, "_on_menu_editor"))
@@ -874,6 +875,7 @@ func _exit_tree():
 	remove_tool_menu_item("Toggle VG IDE Layout")
 	remove_tool_menu_item("Add Form...")
 	remove_tool_menu_item("New Module...")
+	remove_tool_menu_item("New VG Project...")
 	remove_tool_menu_item("Import VB6 Form...")
 	remove_tool_menu_item("Import VB6 Project...")
 	remove_tool_menu_item("Visual Gasic Menu Editor")
@@ -3023,6 +3025,7 @@ func _create_vb6_menu_bar() -> MenuBar:
 	_style_popup_menu(file_menu)
 	file_menu.add_item("New Form", 0)
 	file_menu.add_item("New Module", 1)
+	file_menu.add_item("New Project...", 3)
 	file_menu.add_separator()
 	file_menu.add_item("Open Project...", 2)
 	file_menu.add_separator()
@@ -3295,6 +3298,7 @@ func _on_vb6_file_menu(id: int) -> void:
 		0: _on_add_form()
 		1: _on_new_module()
 		2: _on_open_project()
+		3: _on_new_project()
 		10: _do_save_form()
 		11: _do_save_form_as()
 		12: _do_save_all()
@@ -3387,6 +3391,262 @@ func _on_open_project() -> void:
 	fd.canceled.connect(fd.queue_free)
 	get_editor_interface().get_base_control().add_child(fd)
 	fd.popup_centered()
+
+# =============================================================================
+# NEW PROJECT DIALOG
+# =============================================================================
+
+## File > New Project...  —  creates a brand-new Godot project with VG
+## pre-installed, then opens it in a new Godot instance.
+func _on_new_project() -> void:
+	var dlg = AcceptDialog.new()
+	dlg.title = "New VisualGasic Project"
+	dlg.ok_button_text = "Create"
+	dlg.min_size = Vector2i(500, 260)
+
+	var vbox = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 8)
+
+	# ── Project Name ──
+	var name_label = Label.new()
+	name_label.text = "Project Name:"
+	vbox.add_child(name_label)
+
+	var name_edit = LineEdit.new()
+	name_edit.text = "MyGame"
+	name_edit.placeholder_text = "MyGame"
+	name_edit.select_all_on_focus = true
+	name_edit.caret_blink = true
+	vbox.add_child(name_edit)
+
+	# ── Location ──
+	var loc_label = Label.new()
+	loc_label.text = "Location:"
+	vbox.add_child(loc_label)
+
+	var loc_hbox = HBoxContainer.new()
+	loc_hbox.add_theme_constant_override("separation", 4)
+
+	var loc_edit = LineEdit.new()
+	loc_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	# Default to user's home/Documents or home directory
+	var default_dir = OS.get_environment("HOME")
+	var docs_dir = default_dir + "/Documents"
+	if DirAccess.dir_exists_absolute(docs_dir):
+		default_dir = docs_dir
+	loc_edit.text = default_dir
+	loc_edit.caret_blink = true
+	loc_hbox.add_child(loc_edit)
+
+	var browse_btn = Button.new()
+	browse_btn.text = "Browse..."
+	browse_btn.pressed.connect(func():
+		var fd2 = FileDialog.new()
+		fd2.file_mode = FileDialog.FILE_MODE_OPEN_DIR
+		fd2.access = FileDialog.ACCESS_FILESYSTEM
+		fd2.title = "Select Project Location"
+		fd2.min_size = Vector2i(600, 400)
+		fd2.current_dir = loc_edit.text
+		fd2.dir_selected.connect(func(path: String):
+			loc_edit.text = path
+			fd2.queue_free()
+		)
+		fd2.canceled.connect(fd2.queue_free)
+		get_editor_interface().get_base_control().add_child(fd2)
+		fd2.popup_centered()
+	)
+	loc_hbox.add_child(browse_btn)
+	vbox.add_child(loc_hbox)
+
+	# ── Full path preview ──
+	var preview_label = Label.new()
+	preview_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+	preview_label.text = loc_edit.text + "/" + name_edit.text
+	vbox.add_child(preview_label)
+
+	# Update preview as user types
+	var update_preview = func():
+		preview_label.text = loc_edit.text.path_join(name_edit.text)
+	name_edit.text_changed.connect(func(_t): update_preview.call())
+	loc_edit.text_changed.connect(func(_t): update_preview.call())
+
+	# ── Info label ──
+	var info = Label.new()
+	info.text = "Creates a new Godot project with VG pre-installed and enabled."
+	info.add_theme_font_size_override("font_size", 12)
+	info.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
+	vbox.add_child(info)
+
+	dlg.add_child(vbox)
+
+	# ── Create handler ──
+	dlg.confirmed.connect(func():
+		var proj_name = name_edit.text.strip_edges()
+		var proj_dir = loc_edit.text.strip_edges().path_join(proj_name)
+
+		# Validate
+		if proj_name.is_empty():
+			push_warning("[VisualGasic] New Project: name cannot be empty")
+			_flash_status_message("Project name cannot be empty")
+			return
+		if DirAccess.dir_exists_absolute(proj_dir):
+			push_warning("[VisualGasic] New Project: directory already exists: " + proj_dir)
+			_flash_status_message("Directory already exists: " + proj_dir)
+			return
+
+		_create_new_vg_project(proj_name, proj_dir)
+		dlg.queue_free()
+	)
+	dlg.canceled.connect(dlg.queue_free)
+
+	# Allow Enter to confirm from the name field
+	name_edit.text_submitted.connect(func(_t): dlg.confirmed.emit())
+
+	get_editor_interface().get_base_control().add_child(dlg)
+	dlg.popup_centered()
+	name_edit.grab_focus()
+	name_edit.select_all()
+
+
+## Creates a new VG-ready Godot project on disk and opens it.
+func _create_new_vg_project(proj_name: String, proj_dir: String) -> void:
+	# ── Create directory structure ──
+	var da = DirAccess.open("res://")
+	var err = DirAccess.make_dir_recursive_absolute(proj_dir)
+	if err != OK:
+		push_error("[VisualGasic] Failed to create project directory: " + proj_dir + " (error " + str(err) + ")")
+		_flash_status_message("Failed to create directory")
+		return
+
+	err = DirAccess.make_dir_recursive_absolute(proj_dir + "/addons")
+	if err != OK:
+		push_error("[VisualGasic] Failed to create addons directory")
+		_flash_status_message("Failed to create addons directory")
+		return
+
+	# ── Copy addon from current project ──
+	# The addon is already in this project — copy it to the new one
+	var src_addon = ProjectSettings.globalize_path("res://addons/visual_gasic")
+	var dst_addon = proj_dir + "/addons/visual_gasic"
+
+	err = _copy_dir_recursive(src_addon, dst_addon)
+	if err != OK:
+		push_error("[VisualGasic] Failed to copy addon: " + str(err))
+		_flash_status_message("Failed to copy addon files")
+		return
+
+	# ── Create project.godot ──
+	var display_name = proj_name.replace("_", " ").replace("-", " ")
+	var project_godot = ""
+	project_godot += "; Engine configuration file.\n"
+	project_godot += "; It's best edited using the editor UI and not directly,\n"
+	project_godot += "; since the parameters that go here are not all obvious.\n"
+	project_godot += ";\n"
+	project_godot += "; Format:\n"
+	project_godot += ";   [section] ; section goes between []\n"
+	project_godot += ";   param=value ; assign values to parameters\n\n"
+	project_godot += "config_version=5\n\n"
+	project_godot += "[application]\n\n"
+	project_godot += "config/name=\"%s\"\n" % display_name
+	project_godot += "config/features=PackedStringArray(\"4.6\", \"Forward Plus\")\n"
+	project_godot += "config/icon=\"res://icon.svg\"\n\n"
+	project_godot += "[autoload]\n\n"
+	project_godot += "VGDebugHandler=\"*res://addons/visual_gasic/vg_debug_handler.gd\"\n\n"
+	project_godot += "[editor_plugins]\n\n"
+	project_godot += "enabled=PackedStringArray(\"res://addons/visual_gasic/plugin.cfg\")\n"
+
+	var f = FileAccess.open(proj_dir + "/project.godot", FileAccess.WRITE)
+	if f:
+		f.store_string(project_godot)
+		f.close()
+	else:
+		push_error("[VisualGasic] Failed to create project.godot")
+		return
+
+	# ── Create starter Form1.vg ──
+	var form_code = "' Form1.vg — Your first VisualGasic form\n"
+	form_code += "' Double-click this file in the Godot editor to open the Form Designer\n\n"
+	form_code += "Option Explicit\n\n"
+	form_code += "Private Sub Form_Load()\n"
+	form_code += "    Me.Caption = \"Hello World\"\n"
+	form_code += "    Me.Width = 800\n"
+	form_code += "    Me.Height = 600\n"
+	form_code += "    Print \"Welcome to VisualGasic!\"\n"
+	form_code += "End Sub\n\n"
+	form_code += "Private Sub Form_Click()\n"
+	form_code += "    Print \"You clicked the form!\"\n"
+	form_code += "End Sub\n"
+
+	f = FileAccess.open(proj_dir + "/Form1.vg", FileAccess.WRITE)
+	if f:
+		f.store_string(form_code)
+		f.close()
+
+	# ── Copy icon ──
+	var icon_src = ProjectSettings.globalize_path("res://addons/visual_gasic/icon.svg")
+	if FileAccess.file_exists(icon_src):
+		_copy_file(icon_src, proj_dir + "/icon.svg")
+	elif FileAccess.file_exists(ProjectSettings.globalize_path("res://icon.svg")):
+		_copy_file(ProjectSettings.globalize_path("res://icon.svg"), proj_dir + "/icon.svg")
+
+	# ── Create .gitignore ──
+	f = FileAccess.open(proj_dir + "/.gitignore", FileAccess.WRITE)
+	if f:
+		f.store_string("# Godot\n.godot/\n*.import\nexport_presets.cfg\n\n# OS\n.DS_Store\nThumbs.db\n")
+		f.close()
+
+	print("[VisualGasic] New project created at: " + proj_dir)
+	_flash_status_message("Project created: " + proj_name)
+
+	# ── Open the new project in a new Godot instance ──
+	var godot_path = OS.get_executable_path()
+	var args = ["--path", proj_dir, "--editor"]
+	print("[VisualGasic] Launching: " + godot_path + " " + " ".join(args))
+	OS.create_process(godot_path, args)
+
+	_flash_status_message("Opened " + proj_name + " in new Godot window")
+
+
+## Recursively copy a directory from src to dst (absolute paths).
+func _copy_dir_recursive(src: String, dst: String) -> Error:
+	var err = DirAccess.make_dir_recursive_absolute(dst)
+	if err != OK:
+		return err
+
+	var dir = DirAccess.open(src)
+	if not dir:
+		return ERR_CANT_OPEN
+
+	dir.list_dir_begin()
+	var entry = dir.get_next()
+	while entry != "":
+		if entry == "." or entry == "..":
+			entry = dir.get_next()
+			continue
+		var src_path = src + "/" + entry
+		var dst_path = dst + "/" + entry
+		if dir.current_is_dir():
+			err = _copy_dir_recursive(src_path, dst_path)
+			if err != OK:
+				dir.list_dir_end()
+				return err
+		else:
+			# Skip .uid files — they get regenerated per-project
+			if entry.ends_with(".uid"):
+				entry = dir.get_next()
+				continue
+			err = DirAccess.copy_absolute(src_path, dst_path)
+			if err != OK:
+				push_warning("[VisualGasic] Failed to copy: " + src_path + " -> " + dst_path)
+		entry = dir.get_next()
+	dir.list_dir_end()
+	return OK
+
+
+## Copy a single file (absolute paths).
+func _copy_file(src: String, dst: String) -> Error:
+	return DirAccess.copy_absolute(src, dst)
+
 
 ## Handle renaming a form: rename .tscn, .vg, .vg.uid files on disk,
 ## update form_path in C++, close old scene tab, and reload from new path.

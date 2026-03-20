@@ -154,8 +154,24 @@ VisualGasic/
 3. Click **Download** → **Install**
 4. Enable the plugin: **Project → Project Settings → Plugins → VisualGasic ✓**
 
+**Using the `vg` CLI (Fastest for new projects):**
+```bash
+# Install (one time)
+curl -sSL https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/main/install.sh | bash
+
+# Create a new project with VG pre-installed
+vg new MyGame
+cd MyGame && godot .
+```
+The `vg` CLI stores the addon globally so you never need to copy it manually. See `vg help` for all commands.
+
+**From the VG IDE (inside Godot):**
+1. In an existing VG project, go to **File → New Project...**
+2. Enter a name and pick a folder
+3. A new VG-ready project is created and opened
+
 **From GitHub Release:**
-1. Download from [Releases](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v3.2.0-beta1)
+1. Download from [Releases](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v4.2.0-beta6)
 2. Copy the `addons/visual_gasic/` folder into your project's `addons/` directory
 3. Enable the plugin: **Project → Project Settings → Plugins → VisualGasic ✓**
 
@@ -165,7 +181,7 @@ git clone --recurse-submodules https://github.com/xgreenrx-star/VisualGasic.git
 cd VisualGasic
 scons platform=linux target=editor -j$(nproc)   # or platform=windows / platform=macos
 ```
-See [INSTALLATION.md](INSTALLATION.md) for full build instructions.
+See [INSTALLATION.md](docs/guides/INSTALLATION.md) for full build instructions.
 
 ## 🎯 **Usage Examples**
 

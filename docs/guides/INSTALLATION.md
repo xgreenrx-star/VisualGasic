@@ -2,7 +2,9 @@
 
 Choose your preferred installation method:
 
-## 🚀 Quick Install (Recommended)
+## 🚀 Quick Install — `vg` CLI (Recommended)
+
+The `vg` command-line tool installs VisualGasic globally and lets you create new projects instantly.
 
 ### Linux / macOS
 ```bash
@@ -16,13 +18,55 @@ iwr -useb https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/main/insta
 
 ### Cross-Platform (Python)
 ```bash
-curl -sSL https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/main/install.py | python3
+python3 install.py          # From the repo root
+python3 install.py --github # Or download from GitHub automatically
 ```
 
-Or download and run:
+### Using the `vg` CLI
+
+After installation, the `vg` command is available:
+
 ```bash
-python3 install.py
+# Create a new Godot project with VG pre-installed and enabled
+vg new MyGame
+cd MyGame && godot .
+
+# Add VG to an existing Godot project
+cd /path/to/existing/project
+vg install
+
+# Update your global VG installation (from the repo)
+cd /path/to/VisualGasic
+vg update
+
+# Show version and help
+vg version
+vg help
 ```
+
+The `vg new` command creates:
+- `project.godot` with the VG plugin already enabled
+- `addons/visual_gasic/` with all binaries
+- A starter `Form1.vg` file
+- `.gitignore` configured for Godot
+
+> **Note:** The `vg` tool is installed to `~/.local/bin/`. If it's not in your PATH, add it:
+> ```bash
+> echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc && source ~/.bashrc
+> ```
+
+---
+
+## 🎨 From the VG IDE (Inside Godot)
+
+If you already have a VG project open in Godot:
+
+1. Switch to the **Visual Gasic IDE** main screen
+2. Go to **File → New Project...**
+3. Enter a project name and choose a folder
+4. Click **Create** — a new VG-ready project is created and opened in a new Godot instance
+
+This is the easiest way to start a new project without leaving the editor.
 
 ---
 
@@ -57,41 +101,21 @@ Then enable the plugin in Godot.
 
 ---
 
-## 🎯 Project Template Installation
+## 🎯 Global Installation Details
 
-The installer scripts automatically set up VisualGasic as a project template.
+The installer scripts store the VG addon at a global location so `vg new` can create projects without downloading every time:
 
-### Manual Template Setup
+| Platform | Global Location |
+|----------|----------------|
+| **Linux** | `~/.local/share/visual_gasic/` |
+| **macOS** | `~/Library/Application Support/VisualGasic/` |
+| **Windows** | `%APPDATA%\VisualGasic\` |
 
-1. Locate your Godot templates directory:
-   - **Linux**: `~/.local/share/godot/project_templates/`
-   - **Windows**: `%APPDATA%\Godot\project_templates\`
-   - **macOS**: `~/Library/Application Support/Godot/project_templates/`
-
-2. Create a `VisualGasic` folder inside the templates directory
-
-3. Copy these files/folders into it:
-   - `addons/visual_gasic/` (the plugin)
-   - `project.godot` (project configuration)
-   - `.template.cfg` (template metadata)
-   - `examples/` (optional starter scripts)
-
-4. Create `.template.cfg` with:
-   ```ini
-   [template]
-   name="VisualGasic Project"
-   description="A new VisualGasic project with the language already installed and configured."
-   version="1.0.0"
-   icon="res://icon.svg"
-   ```
-
-### Using the Template
-
-1. Open Godot
-2. Click "New Project"
-3. In the template dropdown, select **"VisualGasic Project"**
-4. Name your project and click "Create & Edit"
-5. Start coding in `.vg` files!
+To update the global installation from source:
+```bash
+cd /path/to/VisualGasic
+vg update
+```
 
 ---
 
