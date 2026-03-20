@@ -6129,3 +6129,383 @@ Enum member access (`MyEnum.MemberName`) is now resolved at compile time in the 
 
 ---
 This documentation provides a comprehensive overview of VisualGasic's advanced capabilities and modern language features. The format is professional and showcases VisualGasic as a powerful, contemporary programming language for cross-platform application and game development.
+
+---
+
+---
+
+## Alphabetical Index
+
+*Quick-jump: [#](#index-symbols) · [A](#index-a) · [B](#index-b) · [C](#index-c) · [D](#index-d) · [E](#index-e) · [F](#index-f) · [G](#index-g) · [I](#index-i) · [J](#index-j) · [K](#index-k) · [L](#index-l) · [M](#index-m) · [N](#index-n) · [O](#index-o) · [P](#index-p) · [R](#index-r) · [S](#index-s) · [T](#index-t) · [U](#index-u) · [V](#index-v) · [W](#index-w) · [Y](#index-y)*
+
+
+### # {#index-symbols}
+
+- **#built-in-functions** — [[Built-in Functions](#built-in-functions)](#built-in-functions)
+- **#com-style-objects** — [[COM-Style Objects (v2.10.0)](#com-style-objects)](#com-style-objects-v2100)
+- **#control-flow** — [[Control Flow](#control-flow)](#control-flow)
+- **#getting-started** — [[Getting Started](#getting-started)](#getting-started)
+- **#godot-integration** — [[Godot Integration](#godot-integration)](#godot-integration)
+- **#language-basics** — [[Language Basics](#language-basics)](#language-basics)
+- **#modern-language-features** — [[Modern Language Features](#modern-language-features)](#modern-language-features)
+- **#object-oriented-features** — [[Object-Oriented Features](#object-oriented-features)](#object-oriented-features)
+- **#procedures-and-functions** — [[Procedures and Functions](#procedures-and-functions)](#procedures-and-functions)
+- **#system-integration** — [[System Integration (v3.0)](#system-integration)](#system-integration-v30)
+- **#system-level-programming** — [[System-Level Programming (v3.1)](#system-level-programming)](#system-level-programming-v31)
+- **#v350-beta4-language-enhancements** — [[v3.5.0-beta4 Language Enhancements](#v350-beta4-language-enhancements)](#v350-beta4-language-enhancements)
+- **#v360-language-enhancements** — [[v3.6.0 Language Enhancements](#v360-language-enhancements)](#v360-language-enhancements)
+- **#v370-language-enhancements** — [[v3.7.0 Language Enhancements](#v370-language-enhancements)](#v370-language-enhancements)
+- **#vb6-global-objects** — [[VB6 Global Objects (v2.10.0)](#vb6-global-objects)](#vb6-global-objects-v2100)
+- **<Flags> Enum** — [<Flags> Enum (v3.8.0)](#flags-enum)
+- **[Built-in Functions]** — [[Built-in Functions](#built-in-functions)](#built-in-functions)
+- **[COM-Style Objects (v2.10.0)]** — [[COM-Style Objects (v2.10.0)](#com-style-objects)](#com-style-objects-v2100)
+- **[Control Flow]** — [[Control Flow](#control-flow)](#control-flow)
+- **[Getting Started]** — [[Getting Started](#getting-started)](#getting-started)
+- **[Godot Integration]** — [[Godot Integration](#godot-integration)](#godot-integration)
+- **[Language Basics]** — [[Language Basics](#language-basics)](#language-basics)
+- **[Modern Language Features]** — [[Modern Language Features](#modern-language-features)](#modern-language-features)
+- **[Object-Oriented Features]** — [[Object-Oriented Features](#object-oriented-features)](#object-oriented-features)
+- **[Procedures and Functions]** — [[Procedures and Functions](#procedures-and-functions)](#procedures-and-functions)
+- **[System Integration (v3.0)]** — [[System Integration (v3.0)](#system-integration)](#system-integration-v30)
+- **[System-Level Programming (v3.1)]** — [[System-Level Programming (v3.1)](#system-level-programming)](#system-level-programming-v31)
+- **[v3.5.0-beta4 Language Enhancements]** — [[v3.5.0-beta4 Language Enhancements](#v350-beta4-language-enhancements)](#v350-beta4-language-enhancements)
+- **[v3.6.0 Language Enhancements]** — [[v3.6.0 Language Enhancements](#v360-language-enhancements)](#v360-language-enhancements)
+- **[v3.7.0 Language Enhancements]** — [[v3.7.0 Language Enhancements](#v370-language-enhancements)](#v370-language-enhancements)
+- **[VB6 Global Objects (v2.10.0)]** — [[VB6 Global Objects (v2.10.0)](#vb6-global-objects)](#vb6-global-objects-v2100)
+
+### A {#index-a}
+
+- **Advanced Complex Expressions** — [Advanced Complex Expressions](#advanced-complex-expressions)
+- **Advanced Cross-Language Features** — [Advanced Cross-Language Features](#advanced-cross-language-features)
+- **Advanced Features** — [Advanced Features](#advanced-features)
+- **Advanced Patterns and Best Practices** — [Advanced Patterns and Best Practices](#advanced-patterns-and-best-practices)
+- **AI Functions** — [AI Functions](#ai-functions)
+- **App Object** — [App Object](#app-object)
+- **Arithmetic Operators** — [Arithmetic Operators](#arithmetic-operators)
+- **Array Access Normalization** — [5. Array Access Normalization](#5-array-access-normalization)
+- **Array and Dictionary Literals** — [Array and Dictionary Literals](#array-and-dictionary-literals)
+- **Array Functions** — [Array Functions](#array-functions)
+- **Array Utility Functions** — [Array Utility Functions](#array-utility-functions)
+- **Async/Await Programming** — [Async/Await Programming](#asyncawait-programming)
+- **Async/Parallel Programming** — [Async/Parallel Programming (Multitasking)](#asyncparallel-programming-multitasking)
+- **Audio** — [Audio](#audio)
+
+### B {#index-b}
+
+- **Background Task Processing** — [Background Task Processing](#background-task-processing)
+- **Basic DATA and READ** — [Basic DATA and READ](#basic-data-and-read)
+- **Binary File I/O** — [Get # / Put # (Binary File I/O)](#get-put-binary-file-io)
+- **Bit-Shift Operators** — [Bit-Shift Operators (v3.6.0)](#bit-shift-operators-v360) · [Bit-Shift Operators](#bit-shift-operators)
+- **Bitwise And/Or/Xor Semantics** — [Bitwise And/Or/Xor Semantics](#bitwise-semantics-v380)
+- **Bitwise Functions** — [Bitwise Functions](#bitwise-functions)
+- **Built-in Functions** — [Built-in Functions](#built-in-functions)
+- **Built-in Functions & Statements** — [Built-in Functions & Statements](#built-in-functions-statements)
+
+### C {#index-c}
+
+- **Classes and Types** — [Classes and Types](#classes-and-types)
+- **Classic DATA Statements** — [Classic DATA Statements](#classic-data-statements)
+- **Classic Use Cases** — [Classic Use Cases](#classic-use-cases)
+- **Classic VB6 Style** — [File I/O Functions (Classic VB6 Style)](#file-io-functions-classic-vb6-style)
+- **ClearData Statement** — [ClearData Statement (New in v3.2.0)](#cleardata-statement-new-in-v320)
+- **Clipboard Functions** — [Clipboard Functions](#clipboard-functions)
+- **Code Navigator** — [Code Navigator](#code-navigator)
+- **Code Transformation** — [Code Transformation](#code-transformation)
+- **Collections & Iteration** — [Collections & Iteration](#collections-iteration)
+- **Collision Detection** — [Collision Detection](#collision-detection)
+- **Color Functions** — [Color Functions](#color-functions)
+- **COM-Style Objects** — [COM-Style Objects](#com-style-objects)
+- **Comments** — [Comments](#comments)
+- **Comparison Operators** — [Comparison Operators](#comparison-operators)
+- **Comparison with Other Frameworks** — [Comparison with Other Frameworks](#comparison-with-other-frameworks)
+- **Compile-Time Enum Resolution** — [Compile-Time Enum Resolution](#compile-time-enum-v380)
+- **Complete Alphabetical Index** — [Complete Alphabetical Index](#complete-alphabetical-index)
+- **Complete Cross-Language Compatibility Matrix** — [Complete Cross-Language Compatibility Matrix](#complete-cross-language-compatibility-matrix)
+- **Compound Assignment Operators** — [Compound Assignment Operators (v3.6.0)](#compound-assignment-operators-v360) · [Compound Assignment Operators](#compound-assignment-operators)
+- **Conditional Statements** — [Conditional Statements](#conditional-statements)
+- **Control Arrays** — [Control Arrays](#control-arrays)
+- **Control Flow** — [Control Flow](#control-flow)
+- **Core Language Keywords** — [Core Language Keywords](#core-language-keywords)
+- **Core Whenever Concepts** — [Core Whenever Concepts](#core-whenever-concepts)
+- **Count** — [Count() Function](#count-function)
+- **Cross-Platform System Classes** — [Cross-Platform System Classes](#cross-platform-system-classes)
+
+### D {#index-d}
+
+- **Data Introspection Functions** — [Data Introspection Functions (New in v3.2.0)](#data-introspection-functions-new-in-v320)
+- **Data Processing** — [Data Processing](#data-processing)
+- **Data Types** — [Data Types](#data-types)
+- **Data Types & Literals** — [Data Types & Literals](#data-types-literals)
+- **Database Functions** — [Database Functions](#database-functions)
+- **DataFile** — [DataFile — Load from External Files](#datafile-load-from-external-files)
+- **DataFromString Statement** — [DataFromString Statement (New in v3.2.0)](#datafromstring-statement-new-in-v320)
+- **Date/Time Functions** — [Date/Time Functions (New in v2.5.0)](#datetime-functions-new-in-v250)
+- **Debouncing and Performance Control** — [Debouncing and Performance Control](#debouncing-and-performance-control)
+- **Debug.Print and Assert** — [Debug.Print and Assert](#debugprint-and-assert)
+- **Debugging and Monitoring Tools** — [Debugging and Monitoring Tools](#debugging-and-monitoring-tools)
+- **Debugging Statements** — [Debugging Statements (New in v2.5.0)](#debugging-statements-new-in-v250)
+- **Declaring and Raising Events** — [Declaring and Raising Events](#declaring-and-raising-events)
+- **Dictionary Functions** — [Dictionary Functions](#dictionary-functions)
+- **Do-Loop** — [Do-Loop](#do-loop)
+- **Drawing Primitives** — [Drawing Primitives](#drawing-primitives)
+
+### E {#index-e}
+
+- **Editor Shortcuts** — [Editor Shortcuts](#editor-shortcuts)
+- **Empty Data Slots** — [Empty Data Slots (New in v3.2.0)](#empty-data-slots-new-in-v320)
+- **Enhanced Enum with <Flags>** — [Enhanced Enum with <Flags>](#enhanced-enum-v380)
+- **Enum Improvements** — [Enum Improvements](#enum-improvements)
+- **Err Object** — [Err Object](#err-object)
+- **Error Handling** — [Error Handling](#error-handling)
+- **Error Handling in Async Context** — [Error Handling in Async Context](#error-handling-in-async-context)
+- **Event Wiring at a Glance** — [Event Wiring at a Glance](#event-wiring-at-a-glance)
+- **Event-Driven Programming with Whenever** — [Event-Driven Programming with Whenever](#event-driven-programming-with-whenever)
+- **Events** — [Events (WithEvents / RaiseEvent)](#events-withevents--raiseevent)
+- **Extended** — [String Functions (Extended)](#string-functions-extended)
+- **Extended Array Functions** — [Extended Array Functions](#extended-array-functions)
+
+### F {#index-f}
+
+- **File I/O Functions** — [File I/O Functions (Classic VB6 Style)](#file-io-functions-classic-vb6-style)
+- **File I/O Statements** — [File I/O Statements (v2.10.0)](#file-io-statements-v2100)
+- **File Operations** — [File Operations](#file-operations)
+- **File System** — [File System](#file-system)
+- **File System Functions** — [File System Functions (New in v2.5.0)](#file-system-functions-new-in-v250)
+- **For Each With Index** — [For Each With Index](#for-each-with-index)
+- **For-Each Loop** — [For-Each Loop](#for-each-loop)
+- **For-Next Loop** — [For-Next Loop](#for-next-loop)
+- **Framework Comparison** — [Framework Comparison](#framework-comparison)
+- **Function Declaration Auto-Completion** — [1. Function Declaration Auto-Completion](#1-function-declaration-auto-completion)
+- **Functions** — [Functions](#functions)
+
+### G {#index-g}
+
+- **Game and Application Development Functions** — [Game and Application Development Functions](#game-and-application-development-functions)
+- **Game Data Example** — [Game Data Example](#game-data-example)
+- **Game Development** — [Game Development](#game-development)
+- **Game UI Mode** — [Game UI Mode (v3.7.0)](#game-ui-mode) · [Game UI Mode](#game-ui-mode-v370)
+- **Generics Phase 1 — Collection(Of T)** — [Generics Phase 1 — Collection(Of T) (v3.7.0)](#generics)
+- **Generics — Collection** — [Generics — Collection(Of T)](#generics-v370)
+- **Get # / Put #** — [Get # / Put # (Binary File I/O)](#get-put-binary-file-io)
+- **Getting Started** — [Getting Started](#getting-started)
+- **Godot Class Enum Constants** — [Godot Class Enum Constants](#godot-class-enum-constants)
+- **Godot Integration** — [Godot Integration](#godot-integration)
+- **Godot Singleton Access** — [Godot Singleton Access](#godot-singleton-access)
+- **GoSub** — [GoSub / Return](#gosub-return)
+- **Graphics & Drawing — Image Manipulation** — [Graphics & Drawing — Image Manipulation](#graphics-drawing-image-manipulation)
+- **Graphics & Drawing — Native Image Drawing** — [Graphics & Drawing — Native Image Drawing (New in v4.2.0-beta5)](#graphics-drawing-native-image-drawing-new-in-v420-beta5)
+- **Graphics & Drawing — Primitives** — [Graphics & Drawing — Primitives](#graphics-drawing-primitives)
+
+### I {#index-i}
+
+- **I/O Operations** — [I/O Operations](#io-operations)
+- **If-Then-Else** — [If-Then-Else](#if-then-else)
+- **IIf Function** — [IIf Function (Ternary Operator)](#iif-function-ternary-operator)
+- **Image & Texture Manipulation** — [Image & Texture Manipulation](#image-texture-manipulation)
+- **Immediate Window** — [Immediate Window](#immediate-window)
+- **Implementation Notes** — [Implementation Notes](#implementation-notes)
+- **Implements Verification** — [Implements Verification (v3.5.0)](#implements-verification-v350)
+- **Import Report** — [Import Report](#import-report)
+- **Importing VB6 Projects** — [Importing VB6 Projects](#importing-vb6-projects)
+- **Incomplete Control Structure Completion** — [6. Incomplete Control Structure Completion](#6-incomplete-control-structure-completion)
+- **Inheritance** — [Inheritance](#inheritance)
+- **Input Functions** — [Input Functions](#input-functions)
+- **Input Handling** — [Input Handling](#input-handling)
+- **Installation** — [Installation](#installation)
+- **Interfaces** — [Interfaces](#interfaces)
+
+### J {#index-j}
+
+- **JSON Functions** — [JSON Functions](#json-functions)
+
+### K {#index-k}
+
+- **Keyword Compound Assignment Operators** — [Keyword Compound Assignment Operators (v3.8.0)](#keyword-compound-assignment-operators-v380) · [Keyword Compound Assignment Operators](#keyword-compound-assignment-v380)
+- **Keyword Usage Notes** — [Keyword Usage Notes](#keyword-usage-notes)
+- **Keywords Reference** — [Keywords Reference](#keywords-reference)
+
+### L {#index-l}
+
+- **Labeled Data Sections** — [Labeled Data Sections](#labeled-data-sections)
+- **Lambda Expressions** — [Lambda Expressions](#lambda-expressions)
+- **Language Basics** — [Language Basics](#language-basics)
+- **LoadData** — [LoadData — Runtime File Loading](#loaddata-runtime-file-loading)
+- **Logical Operators** — [Logical Operators](#logical-operators)
+- **LongLong Type** — [LongLong Type](#longlong-type)
+- **Loop Pattern Shortcuts** — [4. Loop Pattern Shortcuts](#4-loop-pattern-shortcuts)
+- **Loops** — [Loops](#loops)
+
+### M {#index-m}
+
+- **Math Constants** — [Math Constants](#math-constants)
+- **Math Functions** — [Math Functions](#math-functions)
+- **Mathematical Functions** — [Mathematical Functions](#mathematical-functions)
+- **Menu Editor** — [Menu Editor](#menu-editor)
+- **Method Overloading** — [Method Overloading (v3.7.0)](#method-overloading) · [Method Overloading](#method-overloading-v370)
+- **Methods** — [Methods](#methods)
+- **Modern Features** — [Modern Features](#modern-features)
+- **Modern File System Functions** — [Modern File System Functions](#modern-file-system-functions)
+- **Modern Language Features** — [Modern Language Features](#modern-language-features)
+- **Module Statement** — [Module Statement](#module-statement)
+- **Multiple Callback Execution** — [Multiple Callback Execution](#multiple-callback-execution)
+- **Multiple Expressions** — [Print Semicolons (Multiple Expressions)](#print-semicolons-multiple-expressions)
+- **Multitasking** — [Async/Parallel Programming (Multitasking)](#asyncparallel-programming-multitasking)
+- **Multitasking and Concurrency** — [Multitasking and Concurrency](#multitasking-and-concurrency)
+- **Multitasking Capabilities Summary** — [Multitasking Capabilities Summary](#multitasking-capabilities-summary)
+
+### N {#index-n}
+
+- **Named Pipes** — [Named Pipes](#named-pipes)
+- **NativeLibrary** — [NativeLibrary (FFI)](#nativelibrary-ffi)
+- **NativeStruct** — [NativeStruct](#nativestruct)
+- **Node Interaction** — [Node Interaction](#node-interaction)
+- **Null-Safe Operations** — [Null-Safe Operations](#null-safe-operations)
+
+### O {#index-o}
+
+- **Object Browser** — [Object Browser](#object-browser)
+- **Object-Oriented Features** — [Object-Oriented Features](#object-oriented-features)
+- **Of T** — [Generics — Collection(Of T)](#generics-v370)
+- **On Error Resume Next** — [On Error Resume Next](#on-error-resume-next)
+- **On n GoSub** — [On n GoTo / On n GoSub](#on-n-goto-on-n-gosub)
+- **On n GoTo** — [On n GoTo / On n GoSub](#on-n-goto-on-n-gosub)
+- **Open For Binary** — [Open For Binary / Open For Random](#open-for-binary-open-for-random)
+- **Open For Random** — [Open For Binary / Open For Random](#open-for-binary-open-for-random)
+- **Operators** — [Operators](#operators)
+- **Optional Parameters** — [Optional Parameters (v3.5.0)](#optional-parameters-v350)
+
+### P {#index-p}
+
+- **Parallel Processing** — [Parallel Processing](#parallel-processing)
+- **Parameterized Constructors** — [Parameterized Constructors (v3.7.0)](#parameterized-constructors) · [Parameterized Constructors](#parameterized-constructors-v370)
+- **Parameters** — [Parameters](#parameters)
+- **Pattern Matching** — [Pattern Matching](#pattern-matching)
+- **Pattern Matching & Type Checking** — [Pattern Matching & Type Checking](#pattern-matching-type-checking)
+- **Performance and Architecture** — [Performance and Architecture](#performance-and-architecture)
+- **Performance Optimizations** — [Performance Optimizations](#performance-optimizations)
+- **Performance: Data/Read vs Arrays** — [Performance: Data/Read vs Arrays](#performance-dataread-vs-arrays)
+- **Print Semicolons** — [Print Semicolons (Multiple Expressions)](#print-semicolons-multiple-expressions)
+- **Printer Object** — [Printer Object](#printer-object)
+- **Printer Object & PrintForm** — [Printer Object & PrintForm (v3.5.0)](#printer-object--printform-v350)
+- **PrintForm Statement** — [PrintForm Statement](#printform-statement)
+- **Procedures & Functions** — [Procedures & Functions](#procedures-functions)
+- **Procedures and Functions** — [Procedures and Functions](#procedures-and-functions)
+- **Programmatic Import API** — [Programmatic Import API](#programmatic-import-api)
+- **Project Properties** — [Project Properties](#project-properties)
+- **Properties** — [Properties](#properties)
+- **Properties and Methods** — [Properties and Methods](#properties-and-methods)
+- **Property Inspector** — [Property Inspector](#property-inspector)
+- **Property Mapping** — [Property Mapping](#property-mapping)
+- **Property/Method Chaining Assistance** — [7. Property/Method Chaining Assistance](#7-propertymethod-chaining-assistance)
+- **Putting It All Together** — [Putting It All Together (v3.2.0 Features)](#putting-it-all-together-v320-features)
+
+### R {#index-r}
+
+- **Reactive Programming** — [Reactive Programming (Whenever System)](#reactive-programming-whenever-system)
+- **Real COM Interop** — [Real COM Interop (Windows)](#real-com-interop-windows)
+- **Real-World Example: Game Engine Integration** — [Real-World Example: Game Engine Integration](#real-world-example-game-engine-integration)
+- **Regular Expressions** — [Regular Expressions](#regular-expressions)
+- **Resource Loading** — [Resource Loading](#resource-loading)
+- **RESTORE Statement** — [RESTORE Statement](#restore-statement)
+- **Resume** — [Resume / Resume Next / Resume Label](#resume-resume-next-resume-label)
+- **Resume Label** — [Resume / Resume Next / Resume Label](#resume-resume-next-resume-label)
+- **Resume Next** — [Resume / Resume Next / Resume Label](#resume-resume-next-resume-label)
+- **Return** — [GoSub / Return](#gosub-return)
+
+### S {#index-s}
+
+- **Safe Import/Using Statement Conversion** — [8. Safe Import/Using Statement Conversion](#8-safe-importusing-statement-conversion)
+- **Scene Management** — [Scene Management](#scene-management)
+- **Scope and Lifetime** — [Scope and Lifetime](#scope-and-lifetime)
+- **Scoped Sections with Automatic Cleanup** — [Scoped Sections with Automatic Cleanup](#scoped-sections-with-automatic-cleanup)
+- **Screen Object** — [Screen Object](#screen-object)
+- **Select Case** — [Select Case](#select-case)
+- **Shared Memory** — [Shared Memory](#shared-memory)
+- **Signal System** — [Signal System](#signal-system)
+- **Sleep Function** — [Sleep Function](#sleep-function)
+- **Smart Variable Declaration System** — [Smart Variable Declaration System](#smart-variable-declaration-system)
+- **Spc** — [Spc() and Tab() Functions](#spc-and-tab-functions)
+- **Static Local Variables** — [Static Local Variables](#static-local-variables)
+- **String Functions** — [String Functions](#string-functions) · [String Functions (Extended)](#string-functions-extended)
+- **String Interpolation** — [String Interpolation](#string-interpolation)
+- **String Interpolation Conversion** — [2. String Interpolation Conversion](#2-string-interpolation-conversion)
+- **String Operators** — [String Operators](#string-operators)
+- **String Utility Functions** — [String Utility Functions](#string-utility-functions)
+- **StringBuilder** — [StringBuilder](#stringbuilder)
+- **Subroutines** — [Subroutines](#subroutines)
+- **Supported VB6 Controls** — [Supported VB6 Controls](#supported-vb6-controls)
+- **Suspend and Resume Control** — [Suspend and Resume Control](#suspend-and-resume-control)
+- **Swap Statement** — [Swap Statement](#swap-statement)
+- **Syntax Overview** — [Syntax Overview](#syntax-overview)
+- **System Functions** — [System Functions](#system-functions)
+- **System Integration** — [System Integration](#system-integration)
+- **System-Level Programming** — [System-Level Programming](#system-level-programming)
+- **System/Environment Functions** — [System/Environment Functions (New in v2.5.0)](#systemenvironment-functions-new-in-v250)
+
+### T {#index-t}
+
+- **Tab Order Editor** — [Tab Order Editor](#tab-order-editor)
+- **Task Coordination and Synchronization** — [Task Coordination and Synchronization](#task-coordination-and-synchronization)
+- **Ternary Operator** — [IIf Function (Ternary Operator)](#iif-function-ternary-operator)
+- **Ternary Operator Conversion** — [3. Ternary Operator Conversion](#3-ternary-operator-conversion)
+- **The VisualGasic IDE** — [The VisualGasic IDE](#the-visualgasic-ide)
+- **Thread-Safe Reactive Programming** — [Thread-Safe Reactive Programming](#thread-safe-reactive-programming)
+- **Toolbox Panel** — [Toolbox Panel](#toolbox-panel)
+- **Type Checking Functions** — [Type Checking Functions](#type-checking-functions)
+- **Type Conversion** — [Type Conversion](#type-conversion)
+- **Type Inference** — [Type Inference](#type-inference)
+- **Typed Read** — [Typed Read (New in v3.2.0)](#typed-read-new-in-v320)
+
+### U {#index-u}
+
+- **UNIX Domain Sockets** — [UNIX Domain Sockets](#unix-domain-sockets)
+
+### V {#index-v}
+
+- **v3.3.0 Language Enhancements** — [v3.3.0 Language Enhancements](#v330-language-enhancements)
+- **v3.5.0-beta4 Language Enhancements** — [v3.5.0-beta4 Language Enhancements](#v350-beta4-language-enhancements)
+- **v3.6.0 Language Enhancements** — [v3.6.0 Language Enhancements](#v360-language-enhancements)
+- **v3.7.0 Language Enhancements** — [v3.7.0 Language Enhancements](#v370-language-enhancements)
+- **v3.8.0 Language Enhancements** — [v3.8.0 Language Enhancements](#v380-language-enhancements)
+- **Variable Declaration** — [Variable Declaration](#variable-declaration)
+- **Variables and Data Types** — [Variables and Data Types](#variables-and-data-types)
+- **VB6 Compatibility** — [VB6 Compatibility](#vb6-compatibility)
+- **VB6 Constants** — [VB6 Constants](#vb6-constants)
+- **VB6 Functions** — [VB6 Functions](#vb6-functions)
+- **VB6 Global Objects** — [VB6 Global Objects](#vb6-global-objects)
+- **VB6 Intrinsic Constants** — [VB6 Intrinsic Constants](#vb6-intrinsic-constants)
+- **VB6 Menu Support** — [VB6 Menu Support](#vb6-menu-support)
+- **Vector Math Functions** — [Vector Math Functions](#vector-math-functions)
+- **VGAndroidBridge** — [VGAndroidBridge (Android Platform)](#vgandroidbridge-android-platform)
+- **VGCollection** — [VGCollection](#vgcollection)
+- **VGCrypto** — [VGCrypto (Cryptography)](#vgcrypto-cryptography)
+- **VGFilePermissions** — [VGFilePermissions (Permissions & Links)](#vgfilepermissions-permissions--links)
+- **VGHttpRequest** — [VGHttpRequest](#vghttprequest)
+- **VGIPC** — [VGIPC (Inter-Process Communication)](#vgipc-inter-process-communication)
+- **VGMemoryBuffer** — [VGMemoryBuffer (Raw Memory)](#vgmemorybuffer-raw-memory)
+- **VGOdbc** — [VGOdbc (Database)](#vgodbc-database)
+- **VGRegEx** — [VGRegEx](#vgregex)
+- **VGSignalHandler** — [VGSignalHandler (OS Signals)](#vgsignalhandler-os-signals)
+- **VGSystem** — [VGSystem (System Info)](#vgsystem-system-info)
+- **VGTask** — [VGTask (Async Tasks)](#vgtask-async-tasks)
+- **VGTaskRunner** — [VGTaskRunner (Parallel)](#vgtaskrunner-parallel)
+- **VGTimer** — [VGTimer](#vgtimer)
+- **VGXml** — [VGXml (XML Processing)](#vgxml-xml-processing)
+- **VGZip** — [VGZip (ZIP Archives)](#vgzip-zip-archives)
+- **Visual Basic Heritage** — [Visual Basic Heritage](#visual-basic-heritage)
+- **Visual Gasic IDE** — [Visual Gasic IDE](#visual-gasic-ide)
+- **VisualGasicPackage** — [VisualGasicPackage (Package Manager)](#visualgasicpackage-package-manager)
+
+### W {#index-w}
+
+- **What is BASIC?** — [What is BASIC?](#what-is-basic)
+- **Whenever System** — [Reactive Programming (Whenever System)](#reactive-programming-whenever-system)
+- **While-Wend Loop** — [While-Wend Loop](#while-wend-loop)
+- **Why DATA Statements?** — [Why DATA Statements?](#why-data-statements)
+- **Windows** — [Real COM Interop (Windows)](#real-com-interop-windows)
+- **WithEvents** — [WithEvents — Automatic Event Wiring](#withevents-automatic-event-wiring)
+- **WithEvents / RaiseEvent** — [WithEvents / RaiseEvent (v3.5.0)](#withevents--raiseevent-v350)
+
+### Y {#index-y}
+
+- **Your First Script** — [Your First Script](#your-first-script)

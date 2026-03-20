@@ -2,6 +2,287 @@
 
 Quick reference for all newly implemented builtin functions (44 total).
 
+
+## Table of Contents
+
+- [String Functions (5)](#string-functions-5)
+- [Array Functions (15)](#array-functions-15)
+  - [Array Manipulation](#array-manipulation)
+  - [Array Search](#array-search)
+  - [Array Transform](#array-transform)
+  - [Array Generation](#array-generation)
+- [Dictionary Functions (5)](#dictionary-functions-5)
+- [Type Checking Functions (6)](#type-checking-functions-6)
+- [JSON Functions (2)](#json-functions-2)
+- [File System Functions (5)](#file-system-functions-5)
+- [Functional Programming Functions (6) ✅](#functional-programming-functions-6)
+  - [Map — Transform Each Element](#map-transform-each-element)
+  - [Filter — Select Matching Elements](#filter-select-matching-elements)
+  - [Reduce — Fold to Single Value](#reduce-fold-to-single-value)
+  - [Any — Check If Any Match](#any-check-if-any-match)
+  - [All — Check If All Match](#all-check-if-all-match)
+  - [Find — First Matching Element](#find-first-matching-element)
+  - [Chaining Functional Operations](#chaining-functional-operations)
+- [Date/Time Functions (4) — Updated in v2.10.0](#datetime-functions-4-updated-in-v2100)
+- [System/Environment Functions (3) — New in v2.5.0](#systemenvironment-functions-3-new-in-v250)
+- [File System Functions (5) — New in v2.5.0](#file-system-functions-5-new-in-v250)
+- [Debugging Statements (1) — New in v2.5.0](#debugging-statements-1-new-in-v250)
+- [VB6 Global Objects (3) — New in v2.10.0](#vb6-global-objects-3-new-in-v2100)
+- [COM-Style Objects (4) — New in v2.10.0](#com-style-objects-4-new-in-v2100)
+  - [VGCollection](#vgcollection)
+  - [VGRegEx](#vgregex)
+  - [VGHttpRequest](#vghttprequest)
+  - [VGTimer](#vgtimer)
+- [File I/O Statements (4 opcodes) — New in v2.10.0](#file-io-statements-4-opcodes-new-in-v2100)
+- [GoSub/Return — New in v2.10.0](#gosubreturn-new-in-v2100)
+- [Existing VB6 Functions Still Available](#existing-vb6-functions-still-available)
+  - [String Functions](#string-functions)
+  - [Array Functions](#array-functions)
+  - [Math Functions](#math-functions)
+  - [Type Conversion](#type-conversion)
+  - [File Functions](#file-functions)
+  - [Vector Math](#vector-math)
+  - [Utility](#utility)
+- [Complete Function Count](#complete-function-count)
+  - [Financial Functions (v4.2.0)](#financial-functions-v420)
+  - [Type/Struct Enhancements (v4.2.0)](#typestruct-enhancements-v420)
+- [Usage Tips](#usage-tips)
+  - [String Operations](#string-operations)
+  - [Array Processing](#array-processing)
+  - [Dictionary Usage](#dictionary-usage)
+  - [JSON for Data Exchange](#json-for-data-exchange)
+  - [Type Safety](#type-safety)
+- [v3.3.0 New Builtins](#v330-new-builtins)
+  - [Count(collection)](#countcollection)
+  - [Spc(n) / Tab(n)](#spcn-tabn)
+  - [Bitwise Functions](#bitwise-functions)
+  - [Math Functions](#math-functions)
+  - [Array Utilities](#array-utilities)
+  - [String Utilities](#string-utilities)
+  - [RegExp](#regexp)
+  - [StringBuilder](#stringbuilder)
+  - [Sleep(ms)](#sleepms)
+  - [Assert(condition, message)](#assertcondition-message)
+  - [Image & Texture APIs (New in v4.2.0)](#image-texture-apis-new-in-v420)
+  - [Native Image Drawing Commands (New in v4.2.0-beta5)](#native-image-drawing-commands-new-in-v420-beta5)
+  - [DrawImageLine](#drawimageline)
+  - [DrawImageRect](#drawimagerect)
+  - [DrawImageEllipse](#drawimageellipse)
+  - [DrawImageCircle](#drawimagecircle)
+  - [FloodFillImage](#floodfillimage)
+- [See Also](#see-also)
+
+
+## Table of Contents
+
+- [String Functions (5)](#string-functions-5)
+- [Array Functions (15)](#array-functions-15)
+  - [Array Manipulation](#array-manipulation)
+  - [Array Search](#array-search)
+  - [Array Transform](#array-transform)
+  - [Array Generation](#array-generation)
+- [Dictionary Functions (5)](#dictionary-functions-5)
+- [Type Checking Functions (6)](#type-checking-functions-6)
+- [JSON Functions (2)](#json-functions-2)
+- [File System Functions (5)](#file-system-functions-5)
+- [Functional Programming Functions (6) ✅](#functional-programming-functions-6)
+  - [Map — Transform Each Element](#map-transform-each-element)
+  - [Filter — Select Matching Elements](#filter-select-matching-elements)
+  - [Reduce — Fold to Single Value](#reduce-fold-to-single-value)
+  - [Any — Check If Any Match](#any-check-if-any-match)
+  - [All — Check If All Match](#all-check-if-all-match)
+  - [Find — First Matching Element](#find-first-matching-element)
+  - [Chaining Functional Operations](#chaining-functional-operations)
+- [Date/Time Functions (4) — Updated in v2.10.0](#datetime-functions-4-updated-in-v2100)
+- [System/Environment Functions (3) — New in v2.5.0](#systemenvironment-functions-3-new-in-v250)
+- [File System Functions (5) — New in v2.5.0](#file-system-functions-5-new-in-v250)
+- [Debugging Statements (1) — New in v2.5.0](#debugging-statements-1-new-in-v250)
+- [VB6 Global Objects (3) — New in v2.10.0](#vb6-global-objects-3-new-in-v2100)
+- [COM-Style Objects (4) — New in v2.10.0](#com-style-objects-4-new-in-v2100)
+  - [VGCollection](#vgcollection)
+  - [VGRegEx](#vgregex)
+  - [VGHttpRequest](#vghttprequest)
+  - [VGTimer](#vgtimer)
+- [File I/O Statements (4 opcodes) — New in v2.10.0](#file-io-statements-4-opcodes-new-in-v2100)
+- [GoSub/Return — New in v2.10.0](#gosubreturn-new-in-v2100)
+- [Existing VB6 Functions Still Available](#existing-vb6-functions-still-available)
+  - [String Functions](#string-functions)
+  - [Array Functions](#array-functions)
+  - [Math Functions](#math-functions)
+  - [Type Conversion](#type-conversion)
+  - [File Functions](#file-functions)
+  - [Vector Math](#vector-math)
+  - [Utility](#utility)
+- [Complete Function Count](#complete-function-count)
+  - [Financial Functions (v4.2.0)](#financial-functions-v420)
+  - [Type/Struct Enhancements (v4.2.0)](#typestruct-enhancements-v420)
+- [Usage Tips](#usage-tips)
+  - [String Operations](#string-operations)
+  - [Array Processing](#array-processing)
+  - [Dictionary Usage](#dictionary-usage)
+  - [JSON for Data Exchange](#json-for-data-exchange)
+  - [Type Safety](#type-safety)
+- [v3.3.0 New Builtins](#v330-new-builtins)
+  - [Count(collection)](#countcollection)
+  - [Spc(n) / Tab(n)](#spcn-tabn)
+  - [Bitwise Functions](#bitwise-functions)
+  - [Math Functions](#math-functions)
+  - [Array Utilities](#array-utilities)
+  - [String Utilities](#string-utilities)
+  - [RegExp](#regexp)
+  - [StringBuilder](#stringbuilder)
+  - [Sleep(ms)](#sleepms)
+  - [Assert(condition, message)](#assertcondition-message)
+  - [Image & Texture APIs (New in v4.2.0)](#image-texture-apis-new-in-v420)
+  - [Native Image Drawing Commands (New in v4.2.0-beta5)](#native-image-drawing-commands-new-in-v420-beta5)
+  - [DrawImageLine](#drawimageline)
+  - [DrawImageRect](#drawimagerect)
+  - [DrawImageEllipse](#drawimageellipse)
+  - [DrawImageCircle](#drawimagecircle)
+  - [FloodFillImage](#floodfillimage)
+- [See Also](#see-also)
+
+
+## Table of Contents
+
+- [String Functions (5)](#string-functions-5)
+- [Array Functions (15)](#array-functions-15)
+  - [Array Manipulation](#array-manipulation)
+  - [Array Search](#array-search)
+  - [Array Transform](#array-transform)
+  - [Array Generation](#array-generation)
+- [Dictionary Functions (5)](#dictionary-functions-5)
+- [Type Checking Functions (6)](#type-checking-functions-6)
+- [JSON Functions (2)](#json-functions-2)
+- [File System Functions (5)](#file-system-functions-5)
+- [Functional Programming Functions (6) ✅](#functional-programming-functions-6)
+  - [Map — Transform Each Element](#map-transform-each-element)
+  - [Filter — Select Matching Elements](#filter-select-matching-elements)
+  - [Reduce — Fold to Single Value](#reduce-fold-to-single-value)
+  - [Any — Check If Any Match](#any-check-if-any-match)
+  - [All — Check If All Match](#all-check-if-all-match)
+  - [Find — First Matching Element](#find-first-matching-element)
+  - [Chaining Functional Operations](#chaining-functional-operations)
+- [Date/Time Functions (4) — Updated in v2.10.0](#datetime-functions-4-updated-in-v2100)
+- [System/Environment Functions (3) — New in v2.5.0](#systemenvironment-functions-3-new-in-v250)
+- [File System Functions (5) — New in v2.5.0](#file-system-functions-5-new-in-v250)
+- [Debugging Statements (1) — New in v2.5.0](#debugging-statements-1-new-in-v250)
+- [VB6 Global Objects (3) — New in v2.10.0](#vb6-global-objects-3-new-in-v2100)
+- [COM-Style Objects (4) — New in v2.10.0](#com-style-objects-4-new-in-v2100)
+  - [VGCollection](#vgcollection)
+  - [VGRegEx](#vgregex)
+  - [VGHttpRequest](#vghttprequest)
+  - [VGTimer](#vgtimer)
+- [File I/O Statements (4 opcodes) — New in v2.10.0](#file-io-statements-4-opcodes-new-in-v2100)
+- [GoSub/Return — New in v2.10.0](#gosubreturn-new-in-v2100)
+- [Existing VB6 Functions Still Available](#existing-vb6-functions-still-available)
+  - [String Functions](#string-functions)
+  - [Array Functions](#array-functions)
+  - [Math Functions](#math-functions)
+  - [Type Conversion](#type-conversion)
+  - [File Functions](#file-functions)
+  - [Vector Math](#vector-math)
+  - [Utility](#utility)
+- [Complete Function Count](#complete-function-count)
+  - [Financial Functions (v4.2.0)](#financial-functions-v420)
+  - [Type/Struct Enhancements (v4.2.0)](#typestruct-enhancements-v420)
+- [Usage Tips](#usage-tips)
+  - [String Operations](#string-operations)
+  - [Array Processing](#array-processing)
+  - [Dictionary Usage](#dictionary-usage)
+  - [JSON for Data Exchange](#json-for-data-exchange)
+  - [Type Safety](#type-safety)
+- [v3.3.0 New Builtins](#v330-new-builtins)
+  - [Count(collection)](#countcollection)
+  - [Spc(n) / Tab(n)](#spcn-tabn)
+  - [Bitwise Functions](#bitwise-functions)
+  - [Math Functions](#math-functions)
+  - [Array Utilities](#array-utilities)
+  - [String Utilities](#string-utilities)
+  - [RegExp](#regexp)
+  - [StringBuilder](#stringbuilder)
+  - [Sleep(ms)](#sleepms)
+  - [Assert(condition, message)](#assertcondition-message)
+  - [Image & Texture APIs (New in v4.2.0)](#image-texture-apis-new-in-v420)
+  - [Native Image Drawing Commands (New in v4.2.0-beta5)](#native-image-drawing-commands-new-in-v420-beta5)
+  - [DrawImageLine](#drawimageline)
+  - [DrawImageRect](#drawimagerect)
+  - [DrawImageEllipse](#drawimageellipse)
+  - [DrawImageCircle](#drawimagecircle)
+  - [FloodFillImage](#floodfillimage)
+- [See Also](#see-also)
+
+
+## Table of Contents
+
+- [String Functions (5)](#string-functions-5)
+- [Array Functions (15)](#array-functions-15)
+  - [Array Manipulation](#array-manipulation)
+  - [Array Search](#array-search)
+  - [Array Transform](#array-transform)
+  - [Array Generation](#array-generation)
+- [Dictionary Functions (5)](#dictionary-functions-5)
+- [Type Checking Functions (6)](#type-checking-functions-6)
+- [JSON Functions (2)](#json-functions-2)
+- [File System Functions (5)](#file-system-functions-5)
+- [Functional Programming Functions (6) ✅](#functional-programming-functions-6)
+  - [Map — Transform Each Element](#map-transform-each-element)
+  - [Filter — Select Matching Elements](#filter-select-matching-elements)
+  - [Reduce — Fold to Single Value](#reduce-fold-to-single-value)
+  - [Any — Check If Any Match](#any-check-if-any-match)
+  - [All — Check If All Match](#all-check-if-all-match)
+  - [Find — First Matching Element](#find-first-matching-element)
+  - [Chaining Functional Operations](#chaining-functional-operations)
+- [Date/Time Functions (4) — Updated in v2.10.0](#datetime-functions-4-updated-in-v2100)
+- [System/Environment Functions (3) — New in v2.5.0](#systemenvironment-functions-3-new-in-v250)
+- [File System Functions (5) — New in v2.5.0](#file-system-functions-5-new-in-v250)
+- [Debugging Statements (1) — New in v2.5.0](#debugging-statements-1-new-in-v250)
+- [VB6 Global Objects (3) — New in v2.10.0](#vb6-global-objects-3-new-in-v2100)
+- [COM-Style Objects (4) — New in v2.10.0](#com-style-objects-4-new-in-v2100)
+  - [VGCollection](#vgcollection)
+  - [VGRegEx](#vgregex)
+  - [VGHttpRequest](#vghttprequest)
+  - [VGTimer](#vgtimer)
+- [File I/O Statements (4 opcodes) — New in v2.10.0](#file-io-statements-4-opcodes-new-in-v2100)
+- [GoSub/Return — New in v2.10.0](#gosubreturn-new-in-v2100)
+- [Existing VB6 Functions Still Available](#existing-vb6-functions-still-available)
+  - [String Functions](#string-functions)
+  - [Array Functions](#array-functions)
+  - [Math Functions](#math-functions)
+  - [Type Conversion](#type-conversion)
+  - [File Functions](#file-functions)
+  - [Vector Math](#vector-math)
+  - [Utility](#utility)
+- [Complete Function Count](#complete-function-count)
+  - [Financial Functions (v4.2.0)](#financial-functions-v420)
+  - [Type/Struct Enhancements (v4.2.0)](#typestruct-enhancements-v420)
+- [Usage Tips](#usage-tips)
+  - [String Operations](#string-operations)
+  - [Array Processing](#array-processing)
+  - [Dictionary Usage](#dictionary-usage)
+  - [JSON for Data Exchange](#json-for-data-exchange)
+  - [Type Safety](#type-safety)
+- [v3.3.0 New Builtins](#v330-new-builtins)
+  - [Count(collection)](#countcollection)
+  - [Spc(n) / Tab(n)](#spcn-tabn)
+  - [Bitwise Functions](#bitwise-functions)
+  - [Math Functions](#math-functions)
+  - [Array Utilities](#array-utilities)
+  - [String Utilities](#string-utilities)
+  - [RegExp](#regexp)
+  - [StringBuilder](#stringbuilder)
+  - [Sleep(ms)](#sleepms)
+  - [Assert(condition, message)](#assertcondition-message)
+  - [Image & Texture APIs (New in v4.2.0)](#image-texture-apis-new-in-v420)
+  - [Native Image Drawing Commands (New in v4.2.0-beta5)](#native-image-drawing-commands-new-in-v420-beta5)
+  - [DrawImageLine](#drawimageline)
+  - [DrawImageRect](#drawimagerect)
+  - [DrawImageEllipse](#drawimageellipse)
+  - [DrawImageCircle](#drawimagecircle)
+  - [FloodFillImage](#floodfillimage)
+- [See Also](#see-also)
+
+
 ## String Functions (5)
 
 ```vb
@@ -894,3 +1175,132 @@ canvasDirty = True    ' Flag texture for UpdateTexture in _Draw
 - [VisualGasic Language Reference](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/VisualGasic_Language_Reference.md) - Complete language manual
 - [System Integration (v3.0)](../SYSTEM_INTEGRATION.md) - FFI, ODBC, Crypto, XML, ZIP, Async, Packages
 - [test_new_builtins.vg](https://github.com/xgreenrx-star/VisualGasic/blob/main/test_proj/test_suite/test_new_builtins.vg) - Comprehensive test examples
+
+---
+
+---
+
+---
+
+---
+
+## Alphabetical Index
+
+*Quick-jump: [#](#index-symbols) · [A](#index-a) · [B](#index-b) · [C](#index-c) · [D](#index-d) · [E](#index-e) · [F](#index-f) · [G](#index-g) · [I](#index-i) · [J](#index-j) · [M](#index-m) · [N](#index-n) · [R](#index-r) · [S](#index-s) · [T](#index-t) · [U](#index-u) · [V](#index-v)*
+
+
+### # {#index-symbols}
+
+- **15** — [Array Functions (15)](#array-functions-15)
+- **2** — [JSON Functions (2)](#json-functions-2)
+- **5** — [String Functions (5)](#string-functions-5) · [Dictionary Functions (5)](#dictionary-functions-5) · [File System Functions (5)](#file-system-functions-5)
+- **6** — [Type Checking Functions (6)](#type-checking-functions-6) · [Functional Programming Functions (6)](#functional-programming-functions-6)
+
+### A {#index-a}
+
+- **All** — [All — Check If All Match](#all-check-if-all-match)
+- **Any** — [Any — Check If Any Match](#any-check-if-any-match)
+- **Array Functions** — [Array Functions (15)](#array-functions-15) · [Array Functions](#array-functions)
+- **Array Generation** — [Array Generation](#array-generation)
+- **Array Manipulation** — [Array Manipulation](#array-manipulation)
+- **Array Processing** — [Array Processing](#array-processing)
+- **Array Search** — [Array Search](#array-search)
+- **Array Transform** — [Array Transform](#array-transform)
+- **Array Utilities** — [Array Utilities](#array-utilities)
+- **Assert** — [Assert(condition, message)](#assertcondition-message)
+
+### B {#index-b}
+
+- **Bitwise Functions** — [Bitwise Functions](#bitwise-functions)
+
+### C {#index-c}
+
+- **Chaining Functional Operations** — [Chaining Functional Operations](#chaining-functional-operations)
+- **COM-Style Objects (4) — New in v2.10.0** — [COM-Style Objects (4) — New in v2.10.0](#com-style-objects-4-new-in-v2100)
+- **Complete Function Count** — [Complete Function Count](#complete-function-count)
+- **Count** — [Count(collection)](#countcollection)
+
+### D {#index-d}
+
+- **Date/Time Functions (4) — Updated in v2.10.0** — [Date/Time Functions (4) — Updated in v2.10.0](#datetime-functions-4-updated-in-v2100)
+- **Debugging Statements (1) — New in v2.5.0** — [Debugging Statements (1) — New in v2.5.0](#debugging-statements-1-new-in-v250)
+- **Dictionary Functions** — [Dictionary Functions (5)](#dictionary-functions-5)
+- **Dictionary Usage** — [Dictionary Usage](#dictionary-usage)
+- **DrawImageCircle** — [DrawImageCircle](#drawimagecircle)
+- **DrawImageEllipse** — [DrawImageEllipse](#drawimageellipse)
+- **DrawImageLine** — [DrawImageLine](#drawimageline)
+- **DrawImageRect** — [DrawImageRect](#drawimagerect)
+
+### E {#index-e}
+
+- **Existing VB6 Functions Still Available** — [Existing VB6 Functions Still Available](#existing-vb6-functions-still-available)
+
+### F {#index-f}
+
+- **File Functions** — [File Functions](#file-functions)
+- **File I/O Statements (4 opcodes) — New in v2.10.0** — [File I/O Statements (4 opcodes) — New in v2.10.0](#file-io-statements-4-opcodes-new-in-v2100)
+- **File System Functions** — [File System Functions (5)](#file-system-functions-5)
+- **File System Functions (5) — New in v2.5.0** — [File System Functions (5) — New in v2.5.0](#file-system-functions-5-new-in-v250)
+- **Filter** — [Filter — Select Matching Elements](#filter-select-matching-elements)
+- **Financial Functions** — [Financial Functions (v4.2.0)](#financial-functions-v420)
+- **Find** — [Find — First Matching Element](#find-first-matching-element)
+- **FloodFillImage** — [FloodFillImage](#floodfillimage)
+- **Functional Programming Functions** — [Functional Programming Functions (6)](#functional-programming-functions-6)
+
+### G {#index-g}
+
+- **GoSub/Return — New in v2.10.0** — [GoSub/Return — New in v2.10.0](#gosubreturn-new-in-v2100)
+
+### I {#index-i}
+
+- **Image & Texture APIs** — [Image & Texture APIs (New in v4.2.0)](#image-texture-apis-new-in-v420)
+
+### J {#index-j}
+
+- **JSON for Data Exchange** — [JSON for Data Exchange](#json-for-data-exchange)
+- **JSON Functions** — [JSON Functions (2)](#json-functions-2)
+
+### M {#index-m}
+
+- **Map** — [Map — Transform Each Element](#map-transform-each-element)
+- **Math Functions** — [Math Functions](#math-functions)
+
+### N {#index-n}
+
+- **Native Image Drawing Commands** — [Native Image Drawing Commands (New in v4.2.0-beta5)](#native-image-drawing-commands-new-in-v420-beta5)
+
+### R {#index-r}
+
+- **Reduce** — [Reduce — Fold to Single Value](#reduce-fold-to-single-value)
+- **RegExp** — [RegExp](#regexp)
+
+### S {#index-s}
+
+- **Sleep** — [Sleep(ms)](#sleepms)
+- **Spc** — [Spc(n) / Tab(n)](#spcn-tabn)
+- **String Functions** — [String Functions (5)](#string-functions-5) · [String Functions](#string-functions)
+- **String Operations** — [String Operations](#string-operations)
+- **String Utilities** — [String Utilities](#string-utilities)
+- **StringBuilder** — [StringBuilder](#stringbuilder)
+- **System/Environment Functions (3) — New in v2.5.0** — [System/Environment Functions (3) — New in v2.5.0](#systemenvironment-functions-3-new-in-v250)
+
+### T {#index-t}
+
+- **Type Checking Functions** — [Type Checking Functions (6)](#type-checking-functions-6)
+- **Type Conversion** — [Type Conversion](#type-conversion)
+- **Type Safety** — [Type Safety](#type-safety)
+- **Type/Struct Enhancements** — [Type/Struct Enhancements (v4.2.0)](#typestruct-enhancements-v420)
+
+### U {#index-u}
+
+- **Utility** — [Utility](#utility)
+
+### V {#index-v}
+
+- **v3.3.0 New Builtins** — [v3.3.0 New Builtins](#v330-new-builtins)
+- **VB6 Global Objects (3) — New in v2.10.0** — [VB6 Global Objects (3) — New in v2.10.0](#vb6-global-objects-3-new-in-v2100)
+- **Vector Math** — [Vector Math](#vector-math)
+- **VGCollection** — [VGCollection](#vgcollection)
+- **VGHttpRequest** — [VGHttpRequest](#vghttprequest)
+- **VGRegEx** — [VGRegEx](#vgregex)
+- **VGTimer** — [VGTimer](#vgtimer)

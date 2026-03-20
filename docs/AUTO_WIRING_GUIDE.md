@@ -1,5 +1,78 @@
 # VGFormBase Auto-Wiring Guide
 
+
+## Table of Contents
+
+- [Overview](#overview)
+- [How It Works](#how-it-works)
+  - [Naming Pattern](#naming-pattern)
+  - [Supported Events](#supported-events)
+- [Example: Before and After](#example-before-and-after)
+  - [❌ OLD WAY (Manual Connection)](#old-way-manual-connection)
+  - [✅ NEW WAY (Auto-Wired)](#new-way-auto-wired)
+- [Complete Working Example](#complete-working-example)
+- [Key Points](#key-points)
+- [When Auto-Wiring Occurs](#when-auto-wiring-occurs)
+- [Troubleshooting](#troubleshooting)
+  - [Events not firing?](#events-not-firing)
+- [Benefits](#benefits)
+- [Migration from Manual Wiring](#migration-from-manual-wiring)
+
+
+## Table of Contents
+
+- [Overview](#overview)
+- [How It Works](#how-it-works)
+  - [Naming Pattern](#naming-pattern)
+  - [Supported Events](#supported-events)
+- [Example: Before and After](#example-before-and-after)
+  - [❌ OLD WAY (Manual Connection)](#old-way-manual-connection)
+  - [✅ NEW WAY (Auto-Wired)](#new-way-auto-wired)
+- [Complete Working Example](#complete-working-example)
+- [Key Points](#key-points)
+- [When Auto-Wiring Occurs](#when-auto-wiring-occurs)
+- [Troubleshooting](#troubleshooting)
+  - [Events not firing?](#events-not-firing)
+- [Benefits](#benefits)
+- [Migration from Manual Wiring](#migration-from-manual-wiring)
+
+
+## Table of Contents
+
+- [Overview](#overview)
+- [How It Works](#how-it-works)
+  - [Naming Pattern](#naming-pattern)
+  - [Supported Events](#supported-events)
+- [Example: Before and After](#example-before-and-after)
+  - [❌ OLD WAY (Manual Connection)](#old-way-manual-connection)
+  - [✅ NEW WAY (Auto-Wired)](#new-way-auto-wired)
+- [Complete Working Example](#complete-working-example)
+- [Key Points](#key-points)
+- [When Auto-Wiring Occurs](#when-auto-wiring-occurs)
+- [Troubleshooting](#troubleshooting)
+  - [Events not firing?](#events-not-firing)
+- [Benefits](#benefits)
+- [Migration from Manual Wiring](#migration-from-manual-wiring)
+
+
+## Table of Contents
+
+- [Overview](#overview)
+- [How It Works](#how-it-works)
+  - [Naming Pattern](#naming-pattern)
+  - [Supported Events](#supported-events)
+- [Example: Before and After](#example-before-and-after)
+  - [❌ OLD WAY (Manual Connection)](#old-way-manual-connection)
+  - [✅ NEW WAY (Auto-Wired)](#new-way-auto-wired)
+- [Complete Working Example](#complete-working-example)
+- [Key Points](#key-points)
+- [When Auto-Wiring Occurs](#when-auto-wiring-occurs)
+- [Troubleshooting](#troubleshooting)
+  - [Events not firing?](#events-not-firing)
+- [Benefits](#benefits)
+- [Migration from Manual Wiring](#migration-from-manual-wiring)
+
+
 ## Overview
 
 The new WinForms-style forms in Visual Gasic now include **automatic event wiring** - you no longer need to manually call `.connect()` on your controls!
@@ -204,3 +277,59 @@ If you have existing forms with manual `.connect()` calls:
 4. Test that events still fire
 
 That's it! Your forms will now use the automatic event wiring system.
+
+---
+
+---
+
+---
+
+---
+
+## Alphabetical Index
+
+*Quick-jump: [A](#index-a) · [C](#index-c) · [E](#index-e) · [H](#index-h) · [M](#index-m) · [N](#index-n) · [O](#index-o) · [S](#index-s) · [T](#index-t) · [W](#index-w)*
+
+
+### A {#index-a}
+
+- **Auto-Wired** — [NEW WAY (Auto-Wired)](#new-way-auto-wired)
+
+### C {#index-c}
+
+- **Complete Working Example** — [Complete Working Example](#complete-working-example)
+
+### E {#index-e}
+
+- **Events not firing?** — [Events not firing?](#events-not-firing)
+- **Example: Before and After** — [Example: Before and After](#example-before-and-after)
+
+### H {#index-h}
+
+- **How It Works** — [How It Works](#how-it-works)
+
+### M {#index-m}
+
+- **Manual Connection** — [OLD WAY (Manual Connection)](#old-way-manual-connection)
+- **Migration from Manual Wiring** — [Migration from Manual Wiring](#migration-from-manual-wiring)
+
+### N {#index-n}
+
+- **Naming Pattern** — [Naming Pattern](#naming-pattern)
+- **NEW WAY** — [NEW WAY (Auto-Wired)](#new-way-auto-wired)
+
+### O {#index-o}
+
+- **OLD WAY** — [OLD WAY (Manual Connection)](#old-way-manual-connection)
+
+### S {#index-s}
+
+- **Supported Events** — [Supported Events](#supported-events)
+
+### T {#index-t}
+
+- **Troubleshooting** — [Troubleshooting](#troubleshooting)
+
+### W {#index-w}
+
+- **When Auto-Wiring Occurs** — [When Auto-Wiring Occurs](#when-auto-wiring-occurs)

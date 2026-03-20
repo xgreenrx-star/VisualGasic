@@ -1,5 +1,274 @@
 # VB6 Advanced Features Implementation Summary
 
+
+## Table of Contents
+
+- [Implementation Date: January 24, 2026](#implementation-date-january-24-2026)
+- [1. CLASS MODULES (Fully Implemented)](#1-class-modules-fully-implemented)
+  - [Infrastructure](#infrastructure)
+  - [Parsing](#parsing)
+  - [Runtime](#runtime)
+  - [Example](#example)
+- [2. PROPERTY PROCEDURES (Fully Implemented)](#2-property-procedures-fully-implemented)
+  - [AST Enhancements](#ast-enhancements)
+  - [Parsing](#parsing)
+  - [Runtime Framework](#runtime-framework)
+  - [Example](#example)
+- [3. OOP KEYWORDS (Fully Implemented)](#3-oop-keywords-fully-implemented)
+  - [Friend Visibility](#friend-visibility)
+  - [Implements Interface](#implements-interface)
+  - [WithEvents](#withevents)
+  - [Example](#example)
+- [4. FILE MODE KEYWORDS (Fully Implemented)](#4-file-mode-keywords-fully-implemented)
+  - [Enhanced Open Statement](#enhanced-open-statement)
+  - [Implementation Details](#implementation-details)
+  - [Example](#example)
+- [5. DECLARE/FFI INFRASTRUCTURE (Fully Implemented)](#5-declareffi-infrastructure-fully-implemented)
+  - [DeclareStatement Enhancements](#declarestatement-enhancements)
+  - [Runtime FFI Support](#runtime-ffi-support)
+  - [Parsing](#parsing)
+  - [Example](#example)
+- [6. ADDITIONAL ENHANCEMENTS](#6-additional-enhancements)
+  - [Visibility Enum](#visibility-enum)
+  - [SubDefinition Enhancements](#subdefinition-enhancements)
+  - [VariableDefinition Enhancements](#variabledefinition-enhancements)
+- [FILES MODIFIED](#files-modified)
+  - [Core Infrastructure](#core-infrastructure)
+  - [New Implementation Files](#new-implementation-files)
+  - [Parsing](#parsing)
+  - [Expression Evaluation](#expression-evaluation)
+- [TEST FILES CREATED](#test-files-created)
+- [COMPILATION STATUS](#compilation-status)
+- [FEATURE COMPLETENESS](#feature-completeness)
+  - [✅ Fully Operational](#fully-operational)
+  - [⚙️ Runtime Framework in Place](#runtime-framework-in-place)
+  - [📋 Ready for Enhancement](#ready-for-enhancement)
+- [NEXT STEPS (Optional Enhancements)](#next-steps-optional-enhancements)
+- [SUMMARY](#summary)
+- [7. COM-STYLE OBJECT CLASSES (Fully Implemented — v2.10.0)](#7-com-style-object-classes-fully-implemented-v2100)
+  - [VGCollection](#vgcollection)
+  - [VGRegEx + VGRegExMatch](#vgregex-vgregexmatch)
+  - [VGHttpRequest](#vghttprequest)
+  - [VGTimer](#vgtimer)
+  - [Files Added](#files-added)
+- [8. VB6 GLOBAL OBJECTS (Fully Implemented — v2.10.0)](#8-vb6-global-objects-fully-implemented-v2100)
+- [9. GoSub/Return (Fully Implemented — v2.10.0)](#9-gosubreturn-fully-implemented-v2100)
+- [10. FILE I/O BYTECODE OPCODES (Fully Implemented — v2.10.0)](#10-file-io-bytecode-opcodes-fully-implemented-v2100)
+- [11. USER-DEFINED TYPES — Enhanced (v4.2.0)](#11-user-defined-types-enhanced-v420)
+  - [Overview](#overview)
+  - [Fixed-Length Strings](#fixed-length-strings)
+  - [Strict Member Type Checking](#strict-member-type-checking)
+  - [IntelliSense for Struct Members](#intellisense-for-struct-members)
+  - [Infrastructure](#infrastructure)
+- [12. FINANCIAL FUNCTIONS (v4.2.0)](#12-financial-functions-v420)
+  - [Loan/Annuity Functions](#loanannuity-functions)
+  - [Investment Analysis Functions](#investment-analysis-functions)
+  - [Depreciation Functions](#depreciation-functions)
+  - [Example: Mortgage Calculator](#example-mortgage-calculator)
+  - [Example: Investment Analysis](#example-investment-analysis)
+
+
+## Table of Contents
+
+- [Implementation Date: January 24, 2026](#implementation-date-january-24-2026)
+- [1. CLASS MODULES (Fully Implemented)](#1-class-modules-fully-implemented)
+  - [Infrastructure](#infrastructure)
+  - [Parsing](#parsing)
+  - [Runtime](#runtime)
+  - [Example](#example)
+- [2. PROPERTY PROCEDURES (Fully Implemented)](#2-property-procedures-fully-implemented)
+  - [AST Enhancements](#ast-enhancements)
+  - [Parsing](#parsing)
+  - [Runtime Framework](#runtime-framework)
+  - [Example](#example)
+- [3. OOP KEYWORDS (Fully Implemented)](#3-oop-keywords-fully-implemented)
+  - [Friend Visibility](#friend-visibility)
+  - [Implements Interface](#implements-interface)
+  - [WithEvents](#withevents)
+  - [Example](#example)
+- [4. FILE MODE KEYWORDS (Fully Implemented)](#4-file-mode-keywords-fully-implemented)
+  - [Enhanced Open Statement](#enhanced-open-statement)
+  - [Implementation Details](#implementation-details)
+  - [Example](#example)
+- [5. DECLARE/FFI INFRASTRUCTURE (Fully Implemented)](#5-declareffi-infrastructure-fully-implemented)
+  - [DeclareStatement Enhancements](#declarestatement-enhancements)
+  - [Runtime FFI Support](#runtime-ffi-support)
+  - [Parsing](#parsing)
+  - [Example](#example)
+- [6. ADDITIONAL ENHANCEMENTS](#6-additional-enhancements)
+  - [Visibility Enum](#visibility-enum)
+  - [SubDefinition Enhancements](#subdefinition-enhancements)
+  - [VariableDefinition Enhancements](#variabledefinition-enhancements)
+- [FILES MODIFIED](#files-modified)
+  - [Core Infrastructure](#core-infrastructure)
+  - [New Implementation Files](#new-implementation-files)
+  - [Parsing](#parsing)
+  - [Expression Evaluation](#expression-evaluation)
+- [TEST FILES CREATED](#test-files-created)
+- [COMPILATION STATUS](#compilation-status)
+- [FEATURE COMPLETENESS](#feature-completeness)
+  - [✅ Fully Operational](#fully-operational)
+  - [⚙️ Runtime Framework in Place](#runtime-framework-in-place)
+  - [📋 Ready for Enhancement](#ready-for-enhancement)
+- [NEXT STEPS (Optional Enhancements)](#next-steps-optional-enhancements)
+- [SUMMARY](#summary)
+- [7. COM-STYLE OBJECT CLASSES (Fully Implemented — v2.10.0)](#7-com-style-object-classes-fully-implemented-v2100)
+  - [VGCollection](#vgcollection)
+  - [VGRegEx + VGRegExMatch](#vgregex-vgregexmatch)
+  - [VGHttpRequest](#vghttprequest)
+  - [VGTimer](#vgtimer)
+  - [Files Added](#files-added)
+- [8. VB6 GLOBAL OBJECTS (Fully Implemented — v2.10.0)](#8-vb6-global-objects-fully-implemented-v2100)
+- [9. GoSub/Return (Fully Implemented — v2.10.0)](#9-gosubreturn-fully-implemented-v2100)
+- [10. FILE I/O BYTECODE OPCODES (Fully Implemented — v2.10.0)](#10-file-io-bytecode-opcodes-fully-implemented-v2100)
+- [11. USER-DEFINED TYPES — Enhanced (v4.2.0)](#11-user-defined-types-enhanced-v420)
+  - [Overview](#overview)
+  - [Fixed-Length Strings](#fixed-length-strings)
+  - [Strict Member Type Checking](#strict-member-type-checking)
+  - [IntelliSense for Struct Members](#intellisense-for-struct-members)
+  - [Infrastructure](#infrastructure)
+- [12. FINANCIAL FUNCTIONS (v4.2.0)](#12-financial-functions-v420)
+  - [Loan/Annuity Functions](#loanannuity-functions)
+  - [Investment Analysis Functions](#investment-analysis-functions)
+  - [Depreciation Functions](#depreciation-functions)
+  - [Example: Mortgage Calculator](#example-mortgage-calculator)
+  - [Example: Investment Analysis](#example-investment-analysis)
+
+
+## Table of Contents
+
+- [Implementation Date: January 24, 2026](#implementation-date-january-24-2026)
+- [1. CLASS MODULES (Fully Implemented)](#1-class-modules-fully-implemented)
+  - [Infrastructure](#infrastructure)
+  - [Parsing](#parsing)
+  - [Runtime](#runtime)
+  - [Example](#example)
+- [2. PROPERTY PROCEDURES (Fully Implemented)](#2-property-procedures-fully-implemented)
+  - [AST Enhancements](#ast-enhancements)
+  - [Parsing](#parsing)
+  - [Runtime Framework](#runtime-framework)
+  - [Example](#example)
+- [3. OOP KEYWORDS (Fully Implemented)](#3-oop-keywords-fully-implemented)
+  - [Friend Visibility](#friend-visibility)
+  - [Implements Interface](#implements-interface)
+  - [WithEvents](#withevents)
+  - [Example](#example)
+- [4. FILE MODE KEYWORDS (Fully Implemented)](#4-file-mode-keywords-fully-implemented)
+  - [Enhanced Open Statement](#enhanced-open-statement)
+  - [Implementation Details](#implementation-details)
+  - [Example](#example)
+- [5. DECLARE/FFI INFRASTRUCTURE (Fully Implemented)](#5-declareffi-infrastructure-fully-implemented)
+  - [DeclareStatement Enhancements](#declarestatement-enhancements)
+  - [Runtime FFI Support](#runtime-ffi-support)
+  - [Parsing](#parsing)
+  - [Example](#example)
+- [6. ADDITIONAL ENHANCEMENTS](#6-additional-enhancements)
+  - [Visibility Enum](#visibility-enum)
+  - [SubDefinition Enhancements](#subdefinition-enhancements)
+  - [VariableDefinition Enhancements](#variabledefinition-enhancements)
+- [FILES MODIFIED](#files-modified)
+  - [Core Infrastructure](#core-infrastructure)
+  - [New Implementation Files](#new-implementation-files)
+  - [Parsing](#parsing)
+  - [Expression Evaluation](#expression-evaluation)
+- [TEST FILES CREATED](#test-files-created)
+- [COMPILATION STATUS](#compilation-status)
+- [FEATURE COMPLETENESS](#feature-completeness)
+  - [✅ Fully Operational](#fully-operational)
+  - [⚙️ Runtime Framework in Place](#runtime-framework-in-place)
+  - [📋 Ready for Enhancement](#ready-for-enhancement)
+- [NEXT STEPS (Optional Enhancements)](#next-steps-optional-enhancements)
+- [SUMMARY](#summary)
+- [7. COM-STYLE OBJECT CLASSES (Fully Implemented — v2.10.0)](#7-com-style-object-classes-fully-implemented-v2100)
+  - [VGCollection](#vgcollection)
+  - [VGRegEx + VGRegExMatch](#vgregex-vgregexmatch)
+  - [VGHttpRequest](#vghttprequest)
+  - [VGTimer](#vgtimer)
+  - [Files Added](#files-added)
+- [8. VB6 GLOBAL OBJECTS (Fully Implemented — v2.10.0)](#8-vb6-global-objects-fully-implemented-v2100)
+- [9. GoSub/Return (Fully Implemented — v2.10.0)](#9-gosubreturn-fully-implemented-v2100)
+- [10. FILE I/O BYTECODE OPCODES (Fully Implemented — v2.10.0)](#10-file-io-bytecode-opcodes-fully-implemented-v2100)
+- [11. USER-DEFINED TYPES — Enhanced (v4.2.0)](#11-user-defined-types-enhanced-v420)
+  - [Overview](#overview)
+  - [Fixed-Length Strings](#fixed-length-strings)
+  - [Strict Member Type Checking](#strict-member-type-checking)
+  - [IntelliSense for Struct Members](#intellisense-for-struct-members)
+  - [Infrastructure](#infrastructure)
+- [12. FINANCIAL FUNCTIONS (v4.2.0)](#12-financial-functions-v420)
+  - [Loan/Annuity Functions](#loanannuity-functions)
+  - [Investment Analysis Functions](#investment-analysis-functions)
+  - [Depreciation Functions](#depreciation-functions)
+  - [Example: Mortgage Calculator](#example-mortgage-calculator)
+  - [Example: Investment Analysis](#example-investment-analysis)
+
+
+## Table of Contents
+
+- [Implementation Date: January 24, 2026](#implementation-date-january-24-2026)
+- [1. CLASS MODULES (Fully Implemented)](#1-class-modules-fully-implemented)
+  - [Infrastructure](#infrastructure)
+  - [Parsing](#parsing)
+  - [Runtime](#runtime)
+  - [Example](#example)
+- [2. PROPERTY PROCEDURES (Fully Implemented)](#2-property-procedures-fully-implemented)
+  - [AST Enhancements](#ast-enhancements)
+  - [Parsing](#parsing)
+  - [Runtime Framework](#runtime-framework)
+  - [Example](#example)
+- [3. OOP KEYWORDS (Fully Implemented)](#3-oop-keywords-fully-implemented)
+  - [Friend Visibility](#friend-visibility)
+  - [Implements Interface](#implements-interface)
+  - [WithEvents](#withevents)
+  - [Example](#example)
+- [4. FILE MODE KEYWORDS (Fully Implemented)](#4-file-mode-keywords-fully-implemented)
+  - [Enhanced Open Statement](#enhanced-open-statement)
+  - [Implementation Details](#implementation-details)
+  - [Example](#example)
+- [5. DECLARE/FFI INFRASTRUCTURE (Fully Implemented)](#5-declareffi-infrastructure-fully-implemented)
+  - [DeclareStatement Enhancements](#declarestatement-enhancements)
+  - [Runtime FFI Support](#runtime-ffi-support)
+  - [Parsing](#parsing)
+  - [Example](#example)
+- [6. ADDITIONAL ENHANCEMENTS](#6-additional-enhancements)
+  - [Visibility Enum](#visibility-enum)
+  - [SubDefinition Enhancements](#subdefinition-enhancements)
+  - [VariableDefinition Enhancements](#variabledefinition-enhancements)
+- [FILES MODIFIED](#files-modified)
+  - [Core Infrastructure](#core-infrastructure)
+  - [New Implementation Files](#new-implementation-files)
+  - [Parsing](#parsing)
+  - [Expression Evaluation](#expression-evaluation)
+- [TEST FILES CREATED](#test-files-created)
+- [COMPILATION STATUS](#compilation-status)
+- [FEATURE COMPLETENESS](#feature-completeness)
+  - [✅ Fully Operational](#fully-operational)
+  - [⚙️ Runtime Framework in Place](#runtime-framework-in-place)
+  - [📋 Ready for Enhancement](#ready-for-enhancement)
+- [NEXT STEPS (Optional Enhancements)](#next-steps-optional-enhancements)
+- [SUMMARY](#summary)
+- [7. COM-STYLE OBJECT CLASSES (Fully Implemented — v2.10.0)](#7-com-style-object-classes-fully-implemented-v2100)
+  - [VGCollection](#vgcollection)
+  - [VGRegEx + VGRegExMatch](#vgregex-vgregexmatch)
+  - [VGHttpRequest](#vghttprequest)
+  - [VGTimer](#vgtimer)
+  - [Files Added](#files-added)
+- [8. VB6 GLOBAL OBJECTS (Fully Implemented — v2.10.0)](#8-vb6-global-objects-fully-implemented-v2100)
+- [9. GoSub/Return (Fully Implemented — v2.10.0)](#9-gosubreturn-fully-implemented-v2100)
+- [10. FILE I/O BYTECODE OPCODES (Fully Implemented — v2.10.0)](#10-file-io-bytecode-opcodes-fully-implemented-v2100)
+- [11. USER-DEFINED TYPES — Enhanced (v4.2.0)](#11-user-defined-types-enhanced-v420)
+  - [Overview](#overview)
+  - [Fixed-Length Strings](#fixed-length-strings)
+  - [Strict Member Type Checking](#strict-member-type-checking)
+  - [IntelliSense for Struct Members](#intellisense-for-struct-members)
+  - [Infrastructure](#infrastructure)
+- [12. FINANCIAL FUNCTIONS (v4.2.0)](#12-financial-functions-v420)
+  - [Loan/Annuity Functions](#loanannuity-functions)
+  - [Investment Analysis Functions](#investment-analysis-functions)
+  - [Depreciation Functions](#depreciation-functions)
+  - [Example: Mortgage Calculator](#example-mortgage-calculator)
+  - [Example: Investment Analysis](#example-investment-analysis)
+
+
 ## Implementation Date: January 24, 2026
 
 This document summarizes the comprehensive implementation of advanced VB6 features in VisualGasic.
@@ -581,3 +850,112 @@ Print "Straight-line: $" & FormatNumber(SLN(cost, salvage, life), 2) & "/year"
 Print "Year 1 SYD: $" & FormatNumber(SYD(cost, salvage, life, 1), 2)
 Print "Year 1 DDB: $" & FormatNumber(DDB(cost, salvage, life, 1), 2)
 ```
+
+---
+
+---
+
+---
+
+---
+
+## Alphabetical Index
+
+*Quick-jump: [A](#index-a) · [C](#index-c) · [D](#index-d) · [E](#index-e) · [F](#index-f) · [G](#index-g) · [I](#index-i) · [L](#index-l) · [N](#index-n) · [O](#index-o) · [P](#index-p) · [R](#index-r) · [S](#index-s) · [U](#index-u) · [V](#index-v) · [W](#index-w)*
+
+
+### A {#index-a}
+
+- **ADDITIONAL ENHANCEMENTS** — [6. ADDITIONAL ENHANCEMENTS](#6-additional-enhancements)
+- **AST Enhancements** — [AST Enhancements](#ast-enhancements)
+
+### C {#index-c}
+
+- **CLASS MODULES** — [1. CLASS MODULES (Fully Implemented)](#1-class-modules-fully-implemented)
+- **COM-STYLE OBJECT CLASSES** — [7. COM-STYLE OBJECT CLASSES (Fully Implemented — v2.10.0)](#7-com-style-object-classes-fully-implemented-v2100)
+- **Core Infrastructure** — [Core Infrastructure](#core-infrastructure)
+
+### D {#index-d}
+
+- **DECLARE/FFI INFRASTRUCTURE** — [5. DECLARE/FFI INFRASTRUCTURE (Fully Implemented)](#5-declareffi-infrastructure-fully-implemented)
+- **DeclareStatement Enhancements** — [DeclareStatement Enhancements](#declarestatement-enhancements)
+- **Depreciation Functions** — [Depreciation Functions](#depreciation-functions)
+
+### E {#index-e}
+
+- **Enhanced Open Statement** — [Enhanced Open Statement](#enhanced-open-statement)
+- **Example: Investment Analysis** — [Example: Investment Analysis](#example-investment-analysis)
+- **Example: Mortgage Calculator** — [Example: Mortgage Calculator](#example-mortgage-calculator)
+- **Expression Evaluation** — [Expression Evaluation](#expression-evaluation)
+
+### F {#index-f}
+
+- **FILE I/O BYTECODE OPCODES** — [10. FILE I/O BYTECODE OPCODES (Fully Implemented — v2.10.0)](#10-file-io-bytecode-opcodes-fully-implemented-v2100)
+- **FILE MODE KEYWORDS** — [4. FILE MODE KEYWORDS (Fully Implemented)](#4-file-mode-keywords-fully-implemented)
+- **Files Added** — [Files Added](#files-added)
+- **FINANCIAL FUNCTIONS** — [12. FINANCIAL FUNCTIONS (v4.2.0)](#12-financial-functions-v420)
+- **Fixed-Length Strings** — [Fixed-Length Strings](#fixed-length-strings)
+- **Friend Visibility** — [Friend Visibility](#friend-visibility)
+- **Fully Operational** — [Fully Operational](#fully-operational)
+
+### G {#index-g}
+
+- **GoSub/Return** — [9. GoSub/Return (Fully Implemented — v2.10.0)](#9-gosubreturn-fully-implemented-v2100)
+
+### I {#index-i}
+
+- **Implementation Details** — [Implementation Details](#implementation-details)
+- **Implements Interface** — [Implements Interface](#implements-interface)
+- **Infrastructure** — [Infrastructure](#infrastructure)
+- **IntelliSense for Struct Members** — [IntelliSense for Struct Members](#intellisense-for-struct-members)
+- **Investment Analysis Functions** — [Investment Analysis Functions](#investment-analysis-functions)
+
+### L {#index-l}
+
+- **Loan/Annuity Functions** — [Loan/Annuity Functions](#loanannuity-functions)
+
+### N {#index-n}
+
+- **New Implementation Files** — [New Implementation Files](#new-implementation-files)
+- **NEXT STEPS** — [NEXT STEPS (Optional Enhancements)](#next-steps-optional-enhancements)
+
+### O {#index-o}
+
+- **OOP KEYWORDS** — [3. OOP KEYWORDS (Fully Implemented)](#3-oop-keywords-fully-implemented)
+- **Optional Enhancements** — [NEXT STEPS (Optional Enhancements)](#next-steps-optional-enhancements)
+
+### P {#index-p}
+
+- **Parsing** — [Parsing](#parsing)
+- **PROPERTY PROCEDURES** — [2. PROPERTY PROCEDURES (Fully Implemented)](#2-property-procedures-fully-implemented)
+
+### R {#index-r}
+
+- **Ready for Enhancement** — [Ready for Enhancement](#ready-for-enhancement)
+- **Runtime** — [Runtime](#runtime)
+- **Runtime FFI Support** — [Runtime FFI Support](#runtime-ffi-support)
+- **Runtime Framework** — [Runtime Framework](#runtime-framework)
+- **Runtime Framework in Place** — [Runtime Framework in Place](#runtime-framework-in-place)
+
+### S {#index-s}
+
+- **Strict Member Type Checking** — [Strict Member Type Checking](#strict-member-type-checking)
+- **SubDefinition Enhancements** — [SubDefinition Enhancements](#subdefinition-enhancements)
+
+### U {#index-u}
+
+- **USER-DEFINED TYPES — Enhanced** — [11. USER-DEFINED TYPES — Enhanced (v4.2.0)](#11-user-defined-types-enhanced-v420)
+
+### V {#index-v}
+
+- **VariableDefinition Enhancements** — [VariableDefinition Enhancements](#variabledefinition-enhancements)
+- **VB6 GLOBAL OBJECTS** — [8. VB6 GLOBAL OBJECTS (Fully Implemented — v2.10.0)](#8-vb6-global-objects-fully-implemented-v2100)
+- **VGCollection** — [VGCollection](#vgcollection)
+- **VGHttpRequest** — [VGHttpRequest](#vghttprequest)
+- **VGRegEx + VGRegExMatch** — [VGRegEx + VGRegExMatch](#vgregex-vgregexmatch)
+- **VGTimer** — [VGTimer](#vgtimer)
+- **Visibility Enum** — [Visibility Enum](#visibility-enum)
+
+### W {#index-w}
+
+- **WithEvents** — [WithEvents](#withevents)

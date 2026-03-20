@@ -1280,3 +1280,141 @@ VisualGasic now includes **60+ Godot-specific functions** plus universal singlet
 - ✅ **Enum Constants** — ClassName.CONSTANT_NAME for all Godot class enums
 
 These functions provide seamless integration between VB6-style syntax and Godot 4's powerful game engine features!
+
+---
+
+---
+
+---
+
+---
+
+## Alphabetical Index
+
+*Quick-jump: [A](#index-a) · [C](#index-c) · [D](#index-d) · [E](#index-e) · [F](#index-f) · [G](#index-g) · [H](#index-h) · [I](#index-i) · [L](#index-l) · [M](#index-m) · [O](#index-o) · [P](#index-p) · [Q](#index-q) · [R](#index-r) · [S](#index-s) · [T](#index-t)*
+
+
+### A {#index-a}
+
+- **AudioServer** — [AudioServer](#audioserver)
+
+### C {#index-c}
+
+- **ChangeScene** — [ChangeScene(path As String) As Integer](#changescenepath-as-string-as-integer)
+- **Clamp** — [Clamp(value As Float, min As Float, max As Float) As Float](#clampvalue-as-float-min-as-float-max-as-float-as-float)
+- **Complete Examples** — [Complete Examples](#complete-examples)
+- **ConnectSignal** — [ConnectSignal(signal_name As String, method_name As String) As Integer](#connectsignalsignal_name-as-string-method_name-as-string-as-integer)
+
+### D {#index-d}
+
+- **Deg2Rad** — [Deg2Rad(degrees As Float) As Float](#deg2raddegrees-as-float-as-float)
+- **DisconnectSignal** — [DisconnectSignal(signal_name As String, method_name As String)](#disconnectsignalsignal_name-as-string-method_name-as-string)
+- **DisplayServer** — [DisplayServer](#displayserver)
+
+### E {#index-e}
+
+- **EmitSignal** — [EmitSignal(signal_name As String, [args...])](#emitsignalsignal_name-as-string-args)
+- **Engine** — [Engine](#engine)
+- **Engine Info** — [Engine Info](#engine-info)
+- **Example 1: Player Movement** — [Example 1: Player Movement](#example-1-player-movement)
+- **Example 2: Physics Character** — [Example 2: Physics Character](#example-2-physics-character)
+- **Example 3: Scene Management** — [Example 3: Scene Management](#example-3-scene-management)
+
+### F {#index-f}
+
+- **FindChild** — [FindChild(name As String, [recursive As Boolean = True]) As Node](#findchildname-as-string-recursive-as-boolean-true-as-node)
+
+### G {#index-g}
+
+- **GetActionStrength** — [GetActionStrength(action As String) As Float](#getactionstrengthaction-as-string-as-float)
+- **GetChildren** — [GetChildren() As Array](#getchildren-as-array)
+- **GetCurrentScene** — [GetCurrentScene() As Node](#getcurrentscene-as-node)
+- **GetDeltaTime** — [GetDeltaTime() As Float](#getdeltatime-as-float)
+- **GetEngineVersion** — [GetEngineVersion() As Dictionary](#getengineversion-as-dictionary)
+- **GetFPS** — [GetFPS() As Integer](#getfps-as-integer)
+- **GetGlobalPosition** — [GetGlobalPosition() As Vector2](#getglobalposition-as-vector2)
+- **GetKey** — [GetKey(key As String|Integer) As Boolean](#getkeykey-as-stringinteger-as-boolean)
+- **GetLastMouseVelocity** — [GetLastMouseVelocity() As Vector2](#getlastmousevelocity-as-vector2)
+- **GetModulate** — [GetModulate() As Color](#getmodulate-as-color)
+- **GetMousePosition** — [GetMousePosition() As Vector2](#getmouseposition-as-vector2)
+- **GetNode** — [GetNode(path As String) As Node](#getnodepath-as-string-as-node)
+- **GetParent** — [GetParent() As Node](#getparent-as-node)
+- **GetPhysicsDeltaTime** — [GetPhysicsDeltaTime() As Float](#getphysicsdeltatime-as-float)
+- **GetPosition** — [GetPosition() As Vector2](#getposition-as-vector2)
+- **GetRoot** — [GetRoot() As Node](#getroot-as-node)
+- **GetRotation** — [GetRotation() As Float](#getrotation-as-float)
+- **GetScale** — [GetScale() As Vector2](#getscale-as-vector2)
+- **GetTree** — [GetTree() As SceneTree](#gettree-as-scenetree)
+- **GetVelocity** — [GetVelocity() As Vector2](#getvelocity-as-vector2)
+- **Godot Class Enum Constants** — [Godot Class Enum Constants](#godot-class-enum-constants)
+- **Godot Singleton Access** — [Godot Singleton Access](#godot-singleton-access)
+
+### H {#index-h}
+
+- **HasNode** — [HasNode(path As String) As Boolean](#hasnodepath-as-string-as-boolean)
+
+### I {#index-i}
+
+- **Input Functions** — [Input Functions](#input-functions)
+- **IsActionJustPressed** — [IsActionJustPressed(action As String) As Boolean](#isactionjustpressedaction-as-string-as-boolean)
+- **IsActionJustReleased** — [IsActionJustReleased(action As String) As Boolean](#isactionjustreleasedaction-as-string-as-boolean)
+- **IsActionPressed** — [IsActionPressed(action As String) As Boolean](#isactionpressedaction-as-string-as-boolean)
+- **IsEditorHint** — [IsEditorHint() As Boolean](#iseditorhint-as-boolean)
+- **IsKeyDown** — [IsKeyDown(key As String|Integer) As Boolean](#iskeydownkey-as-stringinteger-as-boolean)
+- **IsKeyPressed** — [IsKeyPressed(keycode As Integer) As Boolean](#iskeypressedkeycode-as-integer-as-boolean)
+- **IsMouseButtonDown** — [IsMouseButtonDown(button As Integer) As Boolean](#ismousebuttondownbutton-as-integer-as-boolean)
+- **IsMouseButtonPressed** — [IsMouseButtonPressed(button As Integer) As Boolean](#ismousebuttonpressedbutton-as-integer-as-boolean)
+- **IsOnCeiling** — [IsOnCeiling() As Boolean](#isonceiling-as-boolean)
+- **IsOnFloor** — [IsOnFloor() As Boolean](#isonfloor-as-boolean)
+- **IsOnWall** — [IsOnWall() As Boolean](#isonwall-as-boolean)
+- **IsVisible** — [IsVisible() As Boolean](#isvisible-as-boolean)
+
+### L {#index-l}
+
+- **Lerp** — [Lerp(from As Float, to As Float, weight As Float) As Float](#lerpfrom-as-float-to-as-float-weight-as-float-as-float)
+- **LoadScene** — [LoadScene(path As String) As PackedScene](#loadscenepath-as-string-as-packedscene)
+
+### M {#index-m}
+
+- **Math Helpers** — [Math Helpers](#math-helpers)
+- **Memory/Lifecycle** — [Memory/Lifecycle](#memorylifecycle)
+- **MoveAndCollide** — [MoveAndCollide(velocity As Vector2) As KinematicCollision2D](#moveandcollidevelocity-as-vector2-as-kinematiccollision2d)
+- **MoveAndSlide** — [MoveAndSlide() As Boolean](#moveandslide-as-boolean)
+- **MoveToward** — [MoveToward(from As Float, to As Float, delta As Float) As Float](#movetowardfrom-as-float-to-as-float-delta-as-float-as-float)
+
+### O {#index-o}
+
+- **OS** — [OS](#os)
+
+### P {#index-p}
+
+- **Physics Functions** — [Physics Functions](#physics-functions)
+
+### Q {#index-q}
+
+- **QueueFree** — [QueueFree()](#queuefree)
+
+### R {#index-r}
+
+- **Rad2Deg** — [Rad2Deg(radians As Float) As Float](#rad2degradians-as-float-as-float)
+- **ReloadCurrentScene** — [ReloadCurrentScene() As Integer](#reloadcurrentscene-as-integer)
+- **Rendering** — [Rendering](#rendering)
+
+### S {#index-s}
+
+- **Scene Loading** — [Scene Loading](#scene-loading)
+- **Scene/Node Management** — [Scene/Node Management](#scenenode-management)
+- **SetGlobalPosition** — [SetGlobalPosition(x As Float, y As Float)](#setglobalpositionx-as-float-y-as-float) · [SetGlobalPosition(pos As Vector2)](#setglobalpositionpos-as-vector2)
+- **SetModulate** — [SetModulate(color As Color)](#setmodulatecolor-as-color)
+- **SetPosition** — [SetPosition(x As Float, y As Float)](#setpositionx-as-float-y-as-float) · [SetPosition(pos As Vector2)](#setpositionpos-as-vector2)
+- **SetRotation** — [SetRotation(angle As Float)](#setrotationangle-as-float)
+- **SetScale** — [SetScale(x As Float, y As Float)](#setscalex-as-float-y-as-float) · [SetScale(scale As Vector2)](#setscalescale-as-vector2)
+- **SetVelocity** — [SetVelocity(x As Float, y As Float)](#setvelocityx-as-float-y-as-float) · [SetVelocity(velocity As Vector2)](#setvelocityvelocity-as-vector2)
+- **SetVisible** — [SetVisible(visible As Boolean)](#setvisiblevisible-as-boolean)
+- **Signals** — [Signals](#signals)
+
+### T {#index-t}
+
+- **Time** — [Time](#time)
+- **Timing Functions** — [Timing Functions](#timing-functions)
+- **Transform/Position** — [Transform/Position](#transformposition)

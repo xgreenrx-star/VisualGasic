@@ -1,5 +1,102 @@
 # WinForms-Style Forms in Visual Gasic
 
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Understanding Form Windows](#understanding-form-windows)
+  - [Forms are OS Windows](#forms-are-os-windows)
+  - [When to Use Forms vs. Controls](#when-to-use-forms-vs-controls)
+  - [Embedded Mode (Optional)](#embedded-mode-optional)
+  - [Main Scene Configuration](#main-scene-configuration)
+- [Form Base Class Architecture](#form-base-class-architecture)
+  - [Key Features](#key-features)
+- [Creating a Form in Visual Gasic](#creating-a-form-in-visual-gasic)
+  - [Basic Form Structure](#basic-form-structure)
+- [FormBorderStyle Options](#formborderstyle-options)
+- [StartPosition Options](#startposition-options)
+- [WindowState](#windowstate)
+- [Modal Dialogs](#modal-dialogs)
+- [Standard Methods](#standard-methods)
+- [Comparison with WinForms](#comparison-with-winforms)
+- [Best Practices](#best-practices)
+- [Example: Complete Login Form](#example-complete-login-form)
+- [Migration from Old System](#migration-from-old-system)
+- [Future Enhancements](#future-enhancements)
+
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Understanding Form Windows](#understanding-form-windows)
+  - [Forms are OS Windows](#forms-are-os-windows)
+  - [When to Use Forms vs. Controls](#when-to-use-forms-vs-controls)
+  - [Embedded Mode (Optional)](#embedded-mode-optional)
+  - [Main Scene Configuration](#main-scene-configuration)
+- [Form Base Class Architecture](#form-base-class-architecture)
+  - [Key Features](#key-features)
+- [Creating a Form in Visual Gasic](#creating-a-form-in-visual-gasic)
+  - [Basic Form Structure](#basic-form-structure)
+- [FormBorderStyle Options](#formborderstyle-options)
+- [StartPosition Options](#startposition-options)
+- [WindowState](#windowstate)
+- [Modal Dialogs](#modal-dialogs)
+- [Standard Methods](#standard-methods)
+- [Comparison with WinForms](#comparison-with-winforms)
+- [Best Practices](#best-practices)
+- [Example: Complete Login Form](#example-complete-login-form)
+- [Migration from Old System](#migration-from-old-system)
+- [Future Enhancements](#future-enhancements)
+
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Understanding Form Windows](#understanding-form-windows)
+  - [Forms are OS Windows](#forms-are-os-windows)
+  - [When to Use Forms vs. Controls](#when-to-use-forms-vs-controls)
+  - [Embedded Mode (Optional)](#embedded-mode-optional)
+  - [Main Scene Configuration](#main-scene-configuration)
+- [Form Base Class Architecture](#form-base-class-architecture)
+  - [Key Features](#key-features)
+- [Creating a Form in Visual Gasic](#creating-a-form-in-visual-gasic)
+  - [Basic Form Structure](#basic-form-structure)
+- [FormBorderStyle Options](#formborderstyle-options)
+- [StartPosition Options](#startposition-options)
+- [WindowState](#windowstate)
+- [Modal Dialogs](#modal-dialogs)
+- [Standard Methods](#standard-methods)
+- [Comparison with WinForms](#comparison-with-winforms)
+- [Best Practices](#best-practices)
+- [Example: Complete Login Form](#example-complete-login-form)
+- [Migration from Old System](#migration-from-old-system)
+- [Future Enhancements](#future-enhancements)
+
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Understanding Form Windows](#understanding-form-windows)
+  - [Forms are OS Windows](#forms-are-os-windows)
+  - [When to Use Forms vs. Controls](#when-to-use-forms-vs-controls)
+  - [Embedded Mode (Optional)](#embedded-mode-optional)
+  - [Main Scene Configuration](#main-scene-configuration)
+- [Form Base Class Architecture](#form-base-class-architecture)
+  - [Key Features](#key-features)
+- [Creating a Form in Visual Gasic](#creating-a-form-in-visual-gasic)
+  - [Basic Form Structure](#basic-form-structure)
+- [FormBorderStyle Options](#formborderstyle-options)
+- [StartPosition Options](#startposition-options)
+- [WindowState](#windowstate)
+- [Modal Dialogs](#modal-dialogs)
+- [Standard Methods](#standard-methods)
+- [Comparison with WinForms](#comparison-with-winforms)
+- [Best Practices](#best-practices)
+- [Example: Complete Login Form](#example-complete-login-form)
+- [Migration from Old System](#migration-from-old-system)
+- [Future Enhancements](#future-enhancements)
+
+
 ## Overview
 
 Visual Gasic now provides a proper WinForms-compatible Form implementation that follows the same patterns and lifecycle as Windows Forms.
@@ -364,3 +461,65 @@ The new system provides:
 - Form inheritance in designer
 - Component model integration
 - Property grid support
+
+---
+
+---
+
+---
+
+---
+
+## Alphabetical Index
+
+*Quick-jump: [B](#index-b) · [C](#index-c) · [E](#index-e) · [F](#index-f) · [K](#index-k) · [M](#index-m) · [O](#index-o) · [S](#index-s) · [U](#index-u) · [W](#index-w)*
+
+
+### B {#index-b}
+
+- **Basic Form Structure** — [Basic Form Structure](#basic-form-structure)
+
+### C {#index-c}
+
+- **Comparison with WinForms** — [Comparison with WinForms](#comparison-with-winforms)
+- **Creating a Form in Visual Gasic** — [Creating a Form in Visual Gasic](#creating-a-form-in-visual-gasic)
+
+### E {#index-e}
+
+- **Embedded Mode** — [Embedded Mode (Optional)](#embedded-mode-optional)
+- **Example: Complete Login Form** — [Example: Complete Login Form](#example-complete-login-form)
+
+### F {#index-f}
+
+- **Form Base Class Architecture** — [Form Base Class Architecture](#form-base-class-architecture)
+- **FormBorderStyle Options** — [FormBorderStyle Options](#formborderstyle-options)
+- **Forms are OS Windows** — [Forms are OS Windows](#forms-are-os-windows)
+- **Future Enhancements** — [Future Enhancements](#future-enhancements)
+
+### K {#index-k}
+
+- **Key Features** — [Key Features](#key-features)
+
+### M {#index-m}
+
+- **Main Scene Configuration** — [Main Scene Configuration](#main-scene-configuration)
+- **Migration from Old System** — [Migration from Old System](#migration-from-old-system)
+- **Modal Dialogs** — [Modal Dialogs](#modal-dialogs)
+
+### O {#index-o}
+
+- **Optional** — [Embedded Mode (Optional)](#embedded-mode-optional)
+
+### S {#index-s}
+
+- **Standard Methods** — [Standard Methods](#standard-methods)
+- **StartPosition Options** — [StartPosition Options](#startposition-options)
+
+### U {#index-u}
+
+- **Understanding Form Windows** — [Understanding Form Windows](#understanding-form-windows)
+
+### W {#index-w}
+
+- **When to Use Forms vs. Controls** — [When to Use Forms vs. Controls](#when-to-use-forms-vs-controls)
+- **WindowState** — [WindowState](#windowstate)

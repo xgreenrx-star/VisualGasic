@@ -1185,3 +1185,126 @@ Print "Year 1 DDB (1.5x): $" & FormatNumber(DDB(50000, 5000, 7, 1, 1.5), 2)
 
 **Syntax**: `DDB(cost, salvage, life, period[, factor]) As Double`
 Default `factor` is 2.0 (double declining). Use 1.5 for 150% declining balance.
+
+---
+
+---
+
+---
+
+---
+
+## Alphabetical Index
+
+*Quick-jump: [A](#index-a) · [B](#index-b) · [C](#index-c) · [D](#index-d) · [E](#index-e) · [F](#index-f) · [G](#index-g) · [I](#index-i) · [L](#index-l) · [M](#index-m) · [N](#index-n) · [O](#index-o) · [P](#index-p) · [R](#index-r) · [S](#index-s) · [T](#index-t) · [U](#index-u)*
+
+
+### A {#index-a}
+
+- **Advanced Debugging** — [Advanced Debugging](#advanced-debugging)
+- **Advanced REPL Features** — [Advanced REPL Features](#advanced-repl-features)
+- **Advanced Type System** — [Advanced Type System](#advanced-type-system)
+
+### B {#index-b}
+
+- **Breakpoint Management** — [Breakpoint Management](#breakpoint-management)
+
+### C {#index-c}
+
+- **Core ECS Usage** — [Core ECS Usage](#core-ecs-usage)
+- **Core Pattern Matching** — [Core Pattern Matching](#core-pattern-matching)
+- **Custom Components** — [Custom Components](#custom-components)
+- **Custom Systems** — [Custom Systems](#custom-systems)
+
+### D {#index-d}
+
+- **DDB** — [DDB — Double Declining Balance Depreciation](#ddb-double-declining-balance-depreciation)
+- **Depreciation Functions** — [Depreciation Functions](#depreciation-functions)
+- **Destructuring Patterns** — [Destructuring Patterns](#destructuring-patterns)
+
+### E {#index-e}
+
+- **ECS Performance Features** — [ECS Performance Features](#ecs-performance-features)
+- **Enhanced** — [User-Defined Types (Enhanced)](#user-defined-types-enhanced)
+- **Entity Component System** — [Entity Component System](#entity-component-system)
+
+### F {#index-f}
+
+- **Financial Functions** — [Financial Functions](#financial-functions)
+- **FV** — [FV — Future Value](#fv-future-value)
+
+### G {#index-g}
+
+- **Generics** — [Generics](#generics)
+- **GPU Computing** — [GPU Computing](#gpu-computing)
+- **Guard Clauses** — [Guard Clauses](#guard-clauses)
+
+### I {#index-i}
+
+- **IDE Integration Features** — [IDE Integration Features](#ide-integration-features)
+- **Installing and Managing Packages** — [Installing and Managing Packages](#installing-and-managing-packages)
+- **IntelliSense for Struct Members** — [IntelliSense for Struct Members](#intellisense-for-struct-members)
+- **Interactive REPL** — [Interactive REPL](#interactive-repl)
+- **Investment Analysis Functions** — [Investment Analysis Functions](#investment-analysis-functions)
+- **IPmt** — [IPmt / PPmt — Interest and Principal Portions](#ipmt-ppmt-interest-and-principal-portions)
+- **IRR** — [IRR — Internal Rate of Return](#irr-internal-rate-of-return)
+
+### L {#index-l}
+
+- **Language Server Protocol** — [Language Server Protocol](#language-server-protocol)
+- **Loan & Payment Functions** — [Loan & Payment Functions](#loan-payment-functions)
+- **LSP Configuration** — [LSP Configuration](#lsp-configuration)
+
+### M {#index-m}
+
+- **Map-Reduce Operations** — [Map-Reduce Operations](#map-reduce-operations)
+- **Memory Analysis** — [Memory Analysis](#memory-analysis)
+- **MIRR** — [MIRR — Modified Internal Rate of Return](#mirr-modified-internal-rate-of-return)
+
+### N {#index-n}
+
+- **Nested Types** — [Nested Types](#nested-types)
+- **NPER** — [NPER — Number of Periods](#nper-number-of-periods)
+- **NPV** — [NPV — Net Present Value](#npv-net-present-value)
+
+### O {#index-o}
+
+- **Optional Types** — [Optional Types](#optional-types)
+
+### P {#index-p}
+
+- **Package Management** — [Package Management](#package-management)
+- **Parallel Processing** — [Parallel Processing](#parallel-processing)
+- **Pattern Matching** — [Pattern Matching](#pattern-matching)
+- **Performance Profiling** — [Performance Profiling](#performance-profiling)
+- **Performance Snapshot** — [Performance Snapshot](#performance-snapshot)
+- **Pmt** — [Pmt — Periodic Payment](#pmt-periodic-payment)
+- **PPmt — Interest and Principal Portions** — [IPmt / PPmt — Interest and Principal Portions](#ipmt-ppmt-interest-and-principal-portions)
+- **Project Configuration** — [Project Configuration](#project-configuration)
+- **Publishing Packages** — [Publishing Packages](#publishing-packages)
+- **PV** — [PV — Present Value](#pv-present-value)
+
+### R {#index-r}
+
+- **Rate** — [Rate — Interest Rate Per Period](#rate-interest-rate-per-period)
+- **REPL Commands** — [REPL Commands](#repl-commands)
+
+### S {#index-s}
+
+- **SIMD Vector Operations** — [SIMD Vector Operations](#simd-vector-operations)
+- **SLN** — [SLN — Straight-Line Depreciation](#sln-straight-line-depreciation)
+- **Starting the REPL** — [Starting the REPL](#starting-the-repl)
+- **Strict Member Type Checking** — [Strict Member Type Checking](#strict-member-type-checking)
+- **SYD** — [SYD — Sum-of-Years-Digits Depreciation](#syd-sum-of-years-digits-depreciation)
+
+### T {#index-t}
+
+- **Time-Travel Debugging** — [Time-Travel Debugging](#time-travel-debugging)
+- **Type Inference** — [Type Inference](#type-inference)
+- **Type...End Type with Fixed-Length Strings** — [Type...End Type with Fixed-Length Strings](#typeend-type-with-fixed-length-strings)
+
+### U {#index-u}
+
+- **Union Types** — [Union Types](#union-types)
+- **User-Defined Types** — [User-Defined Types (Enhanced)](#user-defined-types-enhanced)
+- **Using Installed Packages** — [Using Installed Packages](#using-installed-packages)

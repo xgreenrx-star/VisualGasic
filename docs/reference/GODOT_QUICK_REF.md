@@ -2,6 +2,175 @@
 
 Essential Godot functions for VisualGasic game development.
 
+
+## Table of Contents
+
+- [🎮 Top 10 Most Used Functions](#top-10-most-used-functions)
+  - [1. GetNode(path) - Access scene nodes](#1-getnodepath-access-scene-nodes)
+  - [2. IsActionPressed(action) - Check input](#2-isactionpressedaction-check-input)
+  - [3. GetDeltaTime() - Frame timing](#3-getdeltatime-frame-timing)
+  - [4. GetPosition() / SetPosition() - Node position](#4-getposition-setposition-node-position)
+  - [5. IsOnFloor() - Physics check](#5-isonfloor-physics-check)
+  - [6. GetVelocity() / SetVelocity() - Physics movement](#6-getvelocity-setvelocity-physics-movement)
+  - [7. EmitSignal(name) - Signal events](#7-emitsignalname-signal-events)
+  - [8. LoadScene(path) - Load scenes](#8-loadscenepath-load-scenes)
+  - [9. Deg2Rad(degrees) - Angle conversion](#9-deg2raddegrees-angle-conversion)
+  - [10. GetFPS() - Performance monitoring](#10-getfps-performance-monitoring)
+- [📋 Quick Categories](#quick-categories)
+  - [Scene/Node](#scenenode)
+  - [Input](#input)
+  - [Timing](#timing)
+  - [Transform](#transform)
+  - [Physics (CharacterBody2D)](#physics-characterbody2d)
+  - [Scene Management](#scene-management)
+  - [Signals](#signals)
+  - [Math](#math)
+  - [Rendering](#rendering)
+  - [Engine](#engine)
+  - [Singletons (Direct Access)](#singletons-direct-access)
+  - [Enum Constants](#enum-constants)
+- [🎯 Common Patterns](#common-patterns)
+  - [Basic Movement](#basic-movement)
+  - [Physics Movement](#physics-movement)
+  - [Node Access](#node-access)
+  - [Scene Loading](#scene-loading)
+  - [Input Handling](#input-handling)
+  - [Angle Rotation](#angle-rotation)
+  - [Smooth Movement](#smooth-movement)
+- [🔑 Key Codes Reference](#key-codes-reference)
+- [🎨 Mouse Buttons](#mouse-buttons)
+- [⚙️ Common Actions (project.godot)](#common-actions-projectgodot)
+- [💡 Best Practices](#best-practices)
+- [🚀 Complete Game Loop Example](#complete-game-loop-example)
+  - [💡 Tips](#tips)
+
+
+## Table of Contents
+
+- [🎮 Top 10 Most Used Functions](#top-10-most-used-functions)
+  - [1. GetNode(path) - Access scene nodes](#1-getnodepath-access-scene-nodes)
+  - [2. IsActionPressed(action) - Check input](#2-isactionpressedaction-check-input)
+  - [3. GetDeltaTime() - Frame timing](#3-getdeltatime-frame-timing)
+  - [4. GetPosition() / SetPosition() - Node position](#4-getposition-setposition-node-position)
+  - [5. IsOnFloor() - Physics check](#5-isonfloor-physics-check)
+  - [6. GetVelocity() / SetVelocity() - Physics movement](#6-getvelocity-setvelocity-physics-movement)
+  - [7. EmitSignal(name) - Signal events](#7-emitsignalname-signal-events)
+  - [8. LoadScene(path) - Load scenes](#8-loadscenepath-load-scenes)
+  - [9. Deg2Rad(degrees) - Angle conversion](#9-deg2raddegrees-angle-conversion)
+  - [10. GetFPS() - Performance monitoring](#10-getfps-performance-monitoring)
+- [📋 Quick Categories](#quick-categories)
+  - [Scene/Node](#scenenode)
+  - [Input](#input)
+  - [Timing](#timing)
+  - [Transform](#transform)
+  - [Physics (CharacterBody2D)](#physics-characterbody2d)
+  - [Scene Management](#scene-management)
+  - [Signals](#signals)
+  - [Math](#math)
+  - [Rendering](#rendering)
+  - [Engine](#engine)
+  - [Singletons (Direct Access)](#singletons-direct-access)
+  - [Enum Constants](#enum-constants)
+- [🎯 Common Patterns](#common-patterns)
+  - [Basic Movement](#basic-movement)
+  - [Physics Movement](#physics-movement)
+  - [Node Access](#node-access)
+  - [Scene Loading](#scene-loading)
+  - [Input Handling](#input-handling)
+  - [Angle Rotation](#angle-rotation)
+  - [Smooth Movement](#smooth-movement)
+- [🔑 Key Codes Reference](#key-codes-reference)
+- [🎨 Mouse Buttons](#mouse-buttons)
+- [⚙️ Common Actions (project.godot)](#common-actions-projectgodot)
+- [💡 Best Practices](#best-practices)
+- [🚀 Complete Game Loop Example](#complete-game-loop-example)
+  - [💡 Tips](#tips)
+
+
+## Table of Contents
+
+- [🎮 Top 10 Most Used Functions](#top-10-most-used-functions)
+  - [1. GetNode(path) - Access scene nodes](#1-getnodepath-access-scene-nodes)
+  - [2. IsActionPressed(action) - Check input](#2-isactionpressedaction-check-input)
+  - [3. GetDeltaTime() - Frame timing](#3-getdeltatime-frame-timing)
+  - [4. GetPosition() / SetPosition() - Node position](#4-getposition-setposition-node-position)
+  - [5. IsOnFloor() - Physics check](#5-isonfloor-physics-check)
+  - [6. GetVelocity() / SetVelocity() - Physics movement](#6-getvelocity-setvelocity-physics-movement)
+  - [7. EmitSignal(name) - Signal events](#7-emitsignalname-signal-events)
+  - [8. LoadScene(path) - Load scenes](#8-loadscenepath-load-scenes)
+  - [9. Deg2Rad(degrees) - Angle conversion](#9-deg2raddegrees-angle-conversion)
+  - [10. GetFPS() - Performance monitoring](#10-getfps-performance-monitoring)
+- [📋 Quick Categories](#quick-categories)
+  - [Scene/Node](#scenenode)
+  - [Input](#input)
+  - [Timing](#timing)
+  - [Transform](#transform)
+  - [Physics (CharacterBody2D)](#physics-characterbody2d)
+  - [Scene Management](#scene-management)
+  - [Signals](#signals)
+  - [Math](#math)
+  - [Rendering](#rendering)
+  - [Engine](#engine)
+  - [Singletons (Direct Access)](#singletons-direct-access)
+  - [Enum Constants](#enum-constants)
+- [🎯 Common Patterns](#common-patterns)
+  - [Basic Movement](#basic-movement)
+  - [Physics Movement](#physics-movement)
+  - [Node Access](#node-access)
+  - [Scene Loading](#scene-loading)
+  - [Input Handling](#input-handling)
+  - [Angle Rotation](#angle-rotation)
+  - [Smooth Movement](#smooth-movement)
+- [🔑 Key Codes Reference](#key-codes-reference)
+- [🎨 Mouse Buttons](#mouse-buttons)
+- [⚙️ Common Actions (project.godot)](#common-actions-projectgodot)
+- [💡 Best Practices](#best-practices)
+- [🚀 Complete Game Loop Example](#complete-game-loop-example)
+  - [💡 Tips](#tips)
+
+
+## Table of Contents
+
+- [🎮 Top 10 Most Used Functions](#top-10-most-used-functions)
+  - [1. GetNode(path) - Access scene nodes](#1-getnodepath-access-scene-nodes)
+  - [2. IsActionPressed(action) - Check input](#2-isactionpressedaction-check-input)
+  - [3. GetDeltaTime() - Frame timing](#3-getdeltatime-frame-timing)
+  - [4. GetPosition() / SetPosition() - Node position](#4-getposition-setposition-node-position)
+  - [5. IsOnFloor() - Physics check](#5-isonfloor-physics-check)
+  - [6. GetVelocity() / SetVelocity() - Physics movement](#6-getvelocity-setvelocity-physics-movement)
+  - [7. EmitSignal(name) - Signal events](#7-emitsignalname-signal-events)
+  - [8. LoadScene(path) - Load scenes](#8-loadscenepath-load-scenes)
+  - [9. Deg2Rad(degrees) - Angle conversion](#9-deg2raddegrees-angle-conversion)
+  - [10. GetFPS() - Performance monitoring](#10-getfps-performance-monitoring)
+- [📋 Quick Categories](#quick-categories)
+  - [Scene/Node](#scenenode)
+  - [Input](#input)
+  - [Timing](#timing)
+  - [Transform](#transform)
+  - [Physics (CharacterBody2D)](#physics-characterbody2d)
+  - [Scene Management](#scene-management)
+  - [Signals](#signals)
+  - [Math](#math)
+  - [Rendering](#rendering)
+  - [Engine](#engine)
+  - [Singletons (Direct Access)](#singletons-direct-access)
+  - [Enum Constants](#enum-constants)
+- [🎯 Common Patterns](#common-patterns)
+  - [Basic Movement](#basic-movement)
+  - [Physics Movement](#physics-movement)
+  - [Node Access](#node-access)
+  - [Scene Loading](#scene-loading)
+  - [Input Handling](#input-handling)
+  - [Angle Rotation](#angle-rotation)
+  - [Smooth Movement](#smooth-movement)
+- [🔑 Key Codes Reference](#key-codes-reference)
+- [🎨 Mouse Buttons](#mouse-buttons)
+- [⚙️ Common Actions (project.godot)](#common-actions-projectgodot)
+- [💡 Best Practices](#best-practices)
+- [🚀 Complete Game Loop Example](#complete-game-loop-example)
+  - [💡 Tips](#tips)
+
+
 ---
 
 ## 🎮 Top 10 Most Used Functions
@@ -375,3 +544,101 @@ End Sub
 - Enum constants like `FileAccess.READ` work even when the constant name matches a VG keyword
 
 For complete documentation, see **GODOT_FUNCTIONS_REFERENCE.md**
+
+---
+
+---
+
+---
+
+---
+
+## Alphabetical Index
+
+*Quick-jump: [A](#index-a) · [B](#index-b) · [C](#index-c) · [D](#index-d) · [E](#index-e) · [G](#index-g) · [I](#index-i) · [K](#index-k) · [L](#index-l) · [M](#index-m) · [N](#index-n) · [P](#index-p) · [Q](#index-q) · [R](#index-r) · [S](#index-s) · [T](#index-t)*
+
+
+### A {#index-a}
+
+- **Angle Rotation** — [Angle Rotation](#angle-rotation)
+
+### B {#index-b}
+
+- **Basic Movement** — [Basic Movement](#basic-movement)
+
+### C {#index-c}
+
+- **Common Actions** — [Common Actions (project.godot)](#common-actions-projectgodot)
+- **Common Patterns** — [Common Patterns](#common-patterns)
+- **Complete Game Loop Example** — [Complete Game Loop Example](#complete-game-loop-example)
+
+### D {#index-d}
+
+- **Deg2Rad** — [9. Deg2Rad(degrees) - Angle conversion](#9-deg2raddegrees-angle-conversion)
+
+### E {#index-e}
+
+- **EmitSignal** — [7. EmitSignal(name) - Signal events](#7-emitsignalname-signal-events)
+- **Engine** — [Engine](#engine)
+- **Enum Constants** — [Enum Constants](#enum-constants)
+
+### G {#index-g}
+
+- **GetDeltaTime** — [3. GetDeltaTime() - Frame timing](#3-getdeltatime-frame-timing)
+- **GetFPS** — [10. GetFPS() - Performance monitoring](#10-getfps-performance-monitoring)
+- **GetNode** — [1. GetNode(path) - Access scene nodes](#1-getnodepath-access-scene-nodes)
+- **GetPosition** — [4. GetPosition() / SetPosition() - Node position](#4-getposition-setposition-node-position)
+- **GetVelocity** — [6. GetVelocity() / SetVelocity() - Physics movement](#6-getvelocity-setvelocity-physics-movement)
+
+### I {#index-i}
+
+- **Input** — [Input](#input)
+- **Input Handling** — [Input Handling](#input-handling)
+- **IsActionPressed** — [2. IsActionPressed(action) - Check input](#2-isactionpressedaction-check-input)
+- **IsOnFloor** — [5. IsOnFloor() - Physics check](#5-isonfloor-physics-check)
+
+### K {#index-k}
+
+- **Key Codes Reference** — [Key Codes Reference](#key-codes-reference)
+
+### L {#index-l}
+
+- **LoadScene** — [8. LoadScene(path) - Load scenes](#8-loadscenepath-load-scenes)
+
+### M {#index-m}
+
+- **Math** — [Math](#math)
+- **Mouse Buttons** — [Mouse Buttons](#mouse-buttons)
+
+### N {#index-n}
+
+- **Node Access** — [Node Access](#node-access)
+
+### P {#index-p}
+
+- **Physics** — [Physics (CharacterBody2D)](#physics-characterbody2d)
+- **Physics Movement** — [Physics Movement](#physics-movement)
+- **project.godot** — [Common Actions (project.godot)](#common-actions-projectgodot)
+
+### Q {#index-q}
+
+- **Quick Categories** — [Quick Categories](#quick-categories)
+
+### R {#index-r}
+
+- **Rendering** — [Rendering](#rendering)
+
+### S {#index-s}
+
+- **Scene Loading** — [Scene Loading](#scene-loading)
+- **Scene Management** — [Scene Management](#scene-management)
+- **Scene/Node** — [Scene/Node](#scenenode)
+- **Signals** — [Signals](#signals)
+- **Singletons** — [Singletons (Direct Access)](#singletons-direct-access)
+- **Smooth Movement** — [Smooth Movement](#smooth-movement)
+
+### T {#index-t}
+
+- **Timing** — [Timing](#timing)
+- **Top 10 Most Used Functions** — [Top 10 Most Used Functions](#top-10-most-used-functions)
+- **Transform** — [Transform](#transform)

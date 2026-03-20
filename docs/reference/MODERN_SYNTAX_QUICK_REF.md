@@ -1,5 +1,114 @@
 # VisualGasic Modern Syntax - Quick Reference
 
+
+## Table of Contents
+
+- [Quick Comparison: Traditional vs Modern](#quick-comparison-traditional-vs-modern)
+  - [Array Creation](#array-creation)
+  - [Dictionary Creation](#dictionary-creation)
+  - [Null Checking](#null-checking)
+  - [Null-Safe Member Access](#null-safe-member-access)
+  - [String Building](#string-building)
+  - [Resource Management](#resource-management)
+  - [Range Generation](#range-generation)
+- [Modern Operators](#modern-operators)
+- [Modern Keywords](#modern-keywords)
+- [Type Aliases (Clear vs Confusing)](#type-aliases-clear-vs-confusing)
+- [Status Legend](#status-legend)
+- [Examples in One Place](#examples-in-one-place)
+- [When to Use Modern Features](#when-to-use-modern-features)
+  - [Use Array Literals When:](#use-array-literals-when)
+  - [Use Dict Literals When:](#use-dict-literals-when)
+  - [Use ?? When:](#use-when)
+  - [Use ?. When:](#use-when)
+  - [Use Using When:](#use-using-when)
+  - [Use Ranges When:](#use-ranges-when)
+  - [Use Classes When:](#use-classes-when)
+  - [Use Functional Builtins When:](#use-functional-builtins-when)
+- [Mixing Traditional and Modern](#mixing-traditional-and-modern)
+
+
+## Table of Contents
+
+- [Quick Comparison: Traditional vs Modern](#quick-comparison-traditional-vs-modern)
+  - [Array Creation](#array-creation)
+  - [Dictionary Creation](#dictionary-creation)
+  - [Null Checking](#null-checking)
+  - [Null-Safe Member Access](#null-safe-member-access)
+  - [String Building](#string-building)
+  - [Resource Management](#resource-management)
+  - [Range Generation](#range-generation)
+- [Modern Operators](#modern-operators)
+- [Modern Keywords](#modern-keywords)
+- [Type Aliases (Clear vs Confusing)](#type-aliases-clear-vs-confusing)
+- [Status Legend](#status-legend)
+- [Examples in One Place](#examples-in-one-place)
+- [When to Use Modern Features](#when-to-use-modern-features)
+  - [Use Array Literals When:](#use-array-literals-when)
+  - [Use Dict Literals When:](#use-dict-literals-when)
+  - [Use ?? When:](#use-when)
+  - [Use ?. When:](#use-when)
+  - [Use Using When:](#use-using-when)
+  - [Use Ranges When:](#use-ranges-when)
+  - [Use Classes When:](#use-classes-when)
+  - [Use Functional Builtins When:](#use-functional-builtins-when)
+- [Mixing Traditional and Modern](#mixing-traditional-and-modern)
+
+
+## Table of Contents
+
+- [Quick Comparison: Traditional vs Modern](#quick-comparison-traditional-vs-modern)
+  - [Array Creation](#array-creation)
+  - [Dictionary Creation](#dictionary-creation)
+  - [Null Checking](#null-checking)
+  - [Null-Safe Member Access](#null-safe-member-access)
+  - [String Building](#string-building)
+  - [Resource Management](#resource-management)
+  - [Range Generation](#range-generation)
+- [Modern Operators](#modern-operators)
+- [Modern Keywords](#modern-keywords)
+- [Type Aliases (Clear vs Confusing)](#type-aliases-clear-vs-confusing)
+- [Status Legend](#status-legend)
+- [Examples in One Place](#examples-in-one-place)
+- [When to Use Modern Features](#when-to-use-modern-features)
+  - [Use Array Literals When:](#use-array-literals-when)
+  - [Use Dict Literals When:](#use-dict-literals-when)
+  - [Use ?? When:](#use-when)
+  - [Use ?. When:](#use-when)
+  - [Use Using When:](#use-using-when)
+  - [Use Ranges When:](#use-ranges-when)
+  - [Use Classes When:](#use-classes-when)
+  - [Use Functional Builtins When:](#use-functional-builtins-when)
+- [Mixing Traditional and Modern](#mixing-traditional-and-modern)
+
+
+## Table of Contents
+
+- [Quick Comparison: Traditional vs Modern](#quick-comparison-traditional-vs-modern)
+  - [Array Creation](#array-creation)
+  - [Dictionary Creation](#dictionary-creation)
+  - [Null Checking](#null-checking)
+  - [Null-Safe Member Access](#null-safe-member-access)
+  - [String Building](#string-building)
+  - [Resource Management](#resource-management)
+  - [Range Generation](#range-generation)
+- [Modern Operators](#modern-operators)
+- [Modern Keywords](#modern-keywords)
+- [Type Aliases (Clear vs Confusing)](#type-aliases-clear-vs-confusing)
+- [Status Legend](#status-legend)
+- [Examples in One Place](#examples-in-one-place)
+- [When to Use Modern Features](#when-to-use-modern-features)
+  - [Use Array Literals When:](#use-array-literals-when)
+  - [Use Dict Literals When:](#use-dict-literals-when)
+  - [Use ?? When:](#use-when)
+  - [Use ?. When:](#use-when)
+  - [Use Using When:](#use-using-when)
+  - [Use Ranges When:](#use-ranges-when)
+  - [Use Classes When:](#use-classes-when)
+  - [Use Functional Builtins When:](#use-functional-builtins-when)
+- [Mixing Traditional and Modern](#mixing-traditional-and-modern)
+
+
 ## Quick Comparison: Traditional vs Modern
 
 ### Array Creation
@@ -284,3 +393,71 @@ End If
 **Quick Start**: Try array literals and null-coalescing first - they're the easiest wins!
 
 **Reference**: See [MODERN_FEATURES.md](MODERN_FEATURES.md) for full documentation.
+
+---
+
+---
+
+---
+
+---
+
+## Alphabetical Index
+
+*Quick-jump: [A](#index-a) · [C](#index-c) · [D](#index-d) · [M](#index-m) · [N](#index-n) · [Q](#index-q) · [R](#index-r) · [S](#index-s) · [T](#index-t) · [U](#index-u) · [W](#index-w)*
+
+
+### A {#index-a}
+
+- **Array Creation** — [Array Creation](#array-creation)
+
+### C {#index-c}
+
+- **Clear vs Confusing** — [Type Aliases (Clear vs Confusing)](#type-aliases-clear-vs-confusing)
+
+### D {#index-d}
+
+- **Dictionary Creation** — [Dictionary Creation](#dictionary-creation)
+
+### M {#index-m}
+
+- **Mixing Traditional and Modern** — [Mixing Traditional and Modern](#mixing-traditional-and-modern)
+- **Modern Keywords** — [Modern Keywords](#modern-keywords)
+- **Modern Operators** — [Modern Operators](#modern-operators)
+
+### N {#index-n}
+
+- **Null Checking** — [Null Checking](#null-checking)
+- **Null-Safe Member Access** — [Null-Safe Member Access](#null-safe-member-access)
+
+### Q {#index-q}
+
+- **Quick Comparison: Traditional vs Modern** — [Quick Comparison: Traditional vs Modern](#quick-comparison-traditional-vs-modern)
+
+### R {#index-r}
+
+- **Range Generation** — [Range Generation](#range-generation)
+- **Resource Management** — [Resource Management](#resource-management)
+
+### S {#index-s}
+
+- **String Building** — [String Building](#string-building)
+
+### T {#index-t}
+
+- **Type Aliases** — [Type Aliases (Clear vs Confusing)](#type-aliases-clear-vs-confusing)
+
+### U {#index-u}
+
+- **Use ?. When:** — [Use ?. When:](#use-when)
+- **Use ?? When:** — [Use ?? When:](#use-when)
+- **Use Array Literals When:** — [Use Array Literals When:](#use-array-literals-when)
+- **Use Classes When:** — [Use Classes When:](#use-classes-when)
+- **Use Dict Literals When:** — [Use Dict Literals When:](#use-dict-literals-when)
+- **Use Functional Builtins When:** — [Use Functional Builtins When:](#use-functional-builtins-when)
+- **Use Ranges When:** — [Use Ranges When:](#use-ranges-when)
+- **Use Using When:** — [Use Using When:](#use-using-when)
+
+### W {#index-w}
+
+- **When to Use Modern Features** — [When to Use Modern Features](#when-to-use-modern-features)
