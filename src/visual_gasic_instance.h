@@ -64,7 +64,7 @@ class VisualGasicInstance {
     // Struct/Type system
     Dictionary struct_prototypes;  // Name -> Dictionary(default prototype)
     // Hidden key stored in each struct dictionary instance to track its type
-    static inline const String STRUCT_TYPE_KEY = "__vg_type__";
+    static constexpr const char* STRUCT_TYPE_KEY_CSTR = "__vg_type__";
     // Look up a StructDefinition by name from the current script AST
     StructDefinition* find_struct_definition(const String &name) const;
     // Coerce a value for strict struct member assignment; returns coerced value

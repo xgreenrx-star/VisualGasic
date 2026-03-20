@@ -1718,8 +1718,8 @@ void VisualGasicInstance::assign_to_target(ExpressionNode* target, Variant val) 
          if (base.get_type() == Variant::DICTIONARY) {
              Dictionary dict = base;
              // Strict struct member type checking
-             if (dict.has(STRUCT_TYPE_KEY)) {
-                 String struct_type = dict[STRUCT_TYPE_KEY];
+             if (dict.has(STRUCT_TYPE_KEY_CSTR)) {
+                 String struct_type = dict[STRUCT_TYPE_KEY_CSTR];
                  val = coerce_struct_member(struct_type, ma->member_name, val);
              }
              dict[ma->member_name] = val;

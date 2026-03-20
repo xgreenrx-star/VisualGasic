@@ -85,7 +85,7 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
                      }
                      // Fallback: create with basic defaults
                      Dictionary d;
-                     d[STRUCT_TYPE_KEY] = actual_name;
+                     d[STRUCT_TYPE_KEY_CSTR] = actual_name;
                      StructDefinition* def = script->ast_root->structs[i];
                      for(int m=0; m<def->members.size(); m++) {
                          d[def->members[m].name] = Variant();

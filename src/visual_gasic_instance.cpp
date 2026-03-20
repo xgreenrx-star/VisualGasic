@@ -990,7 +990,7 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
                 
                 ProtoBuilder builder;
                 builder.module = vs->ast_root;
-                builder.struct_type_key = STRUCT_TYPE_KEY;
+                builder.struct_type_key = STRUCT_TYPE_KEY_CSTR;
                 
                 for(int si=0; si<vs->ast_root->structs.size(); si++) {
                      String name = vs->ast_root->structs[si]->name;
