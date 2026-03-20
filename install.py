@@ -1,145 +1,233 @@
 #!/usr/bin/env python3
-"""
-VisualGasic Template Installer
-Cross-platform installer for VisualGasic project templates
-Usage: python3 install.py
+"""VisualGasic Installer — Cross-platform Python installer.
+
+Installs the VisualGasic addon globally and the `vg` CLI tool.
+
+Usage:
+    python3 install.py           # Install from local source (run from repo root)
+    python3 install.py --github  # Download and install from GitHub
+
+After installation:
+    vg new MyGame
+    cd MyGame && godot .
 """
 
 import os
 import sys
-import platform
 import shutil
-import urllib.request
-import zipfile
+import platform
 import tempfile
+import zipfile
 from pathlib import Path
 
-def get_template_directory():
-    """Get the Godot project templates directory for the current OS"""
+try:
+    from urllib.request import urlretrieve
+    HAS_URLLIB = True
+except ImportError:
+    HAS_URLLIB = False
+
+
+# ── Platform-specific paths ─────────────────────────────────────────────────
+
+def get_global_dir():
+    """Get the global VG installation directory."""
     system = platform.system()
-    
+    if system == "Darwin":
+        return Path.home() / "Library" / "Application Support" / "VisualGasic"
+    elif system == "Windows":
+        appdata = os.environ.get("APPDATA", str(Path.home() / "AppData" / "Roaming"))
+        return Path(appdata) / "VisualGasic"
+    else:
+        return Path.home() / ".local" / "share" / "visual_gasic"
+
+
+def get_bin_dir():
+    """Get the directory for the vg CLI tool."""
+    system = platform.system()
     if system == "Windows":
-        return Path(os.environ.get("APPDATA", "")) / "Godot" / "project_templates"
-    elif system == "Darwin":  # macOS
-        return Path.home() / "Library" / "Application Support" / "Godot" / "project_templates"
-    else:  # Linux and others
-        return Path.home() / ".local" / "share" / "godot" / "project_templates"
+        return Path.home() / ".local" / "bin"  # User can add to PATH
+    else:
+        return Path.home() / ".local" / "bin"
 
-def download_file(url, destination):
-    """Download a file with progress indication"""
-    print(f"Downloading from {url}...")
-    try:
-        urllib.request.urlretrieve(url, destination)
-        return True
-    except Exception as e:
-        print(f"Download failed: {e}")
-        return False
 
-def install_template():
-    """Main installation function"""
-    print("=" * 45)
-    print("  VisualGasic Template Installer")
-    print("=" * 45)
+# ── Installer ───────────────────────────────────────────────────────────────
+
+def find_source_dir():
+    """Find the VisualGasic source directory."""
+    # Check current directory
+    cwd = Path.cwd()
+    if (cwd / "addons" / "visual_gasic" / "plugin.cfg").exists() and (cwd / "SConstruct").exists():
+        return cwd
+
+    # Check common locations
+    for candidate in [
+        Path.home() / "Documents" / "VisualGasic",
+        Path.home() / "VisualGasic",
+    ]:
+        if (candidate / "addons" / "visual_gasic" / "plugin.cfg").exists():
+            return candidate
+
+    return None
+
+
+def download_from_github(temp_dir):
+    """Download VisualGasic from GitHub and return the source directory."""
+    if not HAS_URLLIB:
+        print("Error: urllib not available. Cannot download from GitHub.")
+        sys.exit(1)
+
+    url = "https://github.com/xgreenrx-star/VisualGasic/archive/refs/heads/main.zip"
+    zip_path = os.path.join(temp_dir, "visualgasic.zip")
+
+    print("  Downloading from GitHub...")
+    urlretrieve(url, zip_path)
+
+    print("  Extracting...")
+    with zipfile.ZipFile(zip_path, "r") as zf:
+        zf.extractall(temp_dir)
+
+    return Path(temp_dir) / "VisualGasic-main"
+
+
+def install(source_dir):
+    """Install VG addon and CLI tool from a source directory."""
+    global_dir = get_global_dir()
+    bin_dir = get_bin_dir()
+    addon_dir = global_dir / "addons" / "visual_gasic"
+
+    print(f"  Source:  {source_dir}")
+    print(f"  Target:  {global_dir}")
+    print(f"  CLI:     {bin_dir / 'vg'}")
     print()
-    
-    # Get template directory
-    template_dir = get_template_directory()
-    install_dir = template_dir / "VisualGasic"
-    
-    print(f"Installing to: {install_dir}")
+
+    # Create directories
+    addon_dir.parent.mkdir(parents=True, exist_ok=True)
+    bin_dir.mkdir(parents=True, exist_ok=True)
+
+    # Remove old addon install
+    if addon_dir.exists():
+        shutil.rmtree(addon_dir)
+
+    # Copy addon
+    print("  Copying addon files...")
+    src_addon = source_dir / "addons" / "visual_gasic"
+    shutil.copytree(src_addon, addon_dir)
+
+    # Remove .uid files (regenerated per-project)
+    for uid_file in addon_dir.rglob("*.uid"):
+        uid_file.unlink()
+
+    # Copy VERSION
+    version_src = source_dir / "VERSION"
+    if version_src.exists():
+        shutil.copy2(version_src, global_dir / "VERSION")
+
+    # Install vg CLI tool
+    vg_src = source_dir / "vg"
+    if vg_src.exists():
+        print("  Installing 'vg' CLI tool...")
+        vg_dst = bin_dir / "vg"
+        shutil.copy2(vg_src, vg_dst)
+        # Make executable on Unix
+        if platform.system() != "Windows":
+            os.chmod(vg_dst, 0o755)
+
+    # On Windows, also create vg.cmd wrapper
+    if platform.system() == "Windows" and vg_src.exists():
+        vg_cmd = bin_dir / "vg.cmd"
+        with open(vg_cmd, "w") as f:
+            f.write('@echo off\n')
+            f.write(f'bash "%~dp0vg" %*\n')
+        print(f"  Created Windows wrapper: {vg_cmd}")
+
+    return global_dir, addon_dir, bin_dir
+
+
+def print_summary(global_dir, addon_dir, bin_dir):
+    """Print installation summary."""
+    version = "unknown"
+    ver_file = global_dir / "VERSION"
+    if ver_file.exists():
+        version = ver_file.read_text().strip()
+
+    file_count = sum(1 for _ in addon_dir.rglob("*") if _.is_file())
+
+    # Calculate size
+    total_size = sum(f.stat().st_size for f in addon_dir.rglob("*") if f.is_file())
+    if total_size > 1024 * 1024 * 1024:
+        size_str = f"{total_size / (1024*1024*1024):.1f}G"
+    elif total_size > 1024 * 1024:
+        size_str = f"{total_size / (1024*1024):.0f}M"
+    else:
+        size_str = f"{total_size / 1024:.0f}K"
+
     print()
-    
-    # Create directory
-    install_dir.mkdir(parents=True, exist_ok=True)
-    
-    # Download and extract
-    temp_dir = Path(tempfile.mkdtemp())
-    zip_path = temp_dir / "visualgasic.zip"
-    
-    try:
-        # Download
-        download_url = "https://github.com/xgreenrx-star/VisualGasic/archive/refs/heads/main.zip"
-        if not download_file(download_url, zip_path):
-            print("Failed to download VisualGasic. Please check your internet connection.")
-            return False
-        
-        # Extract
-        print("Extracting template...")
-        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-            zip_ref.extractall(temp_dir)
-        
-        source_dir = temp_dir / "VisualGasic-main"
-        
-        # Copy addons
-        if (source_dir / "addons").exists():
-            print("Copying VisualGasic addons...")
-            if (install_dir / "addons").exists():
-                shutil.rmtree(install_dir / "addons")
-            shutil.copytree(source_dir / "addons", install_dir / "addons")
-        
-        # Copy or create project.godot
-        project_file = install_dir / "project.godot"
-        if (source_dir / "project.godot").exists():
-            shutil.copy2(source_dir / "project.godot", project_file)
+    print("  ╔══════════════════════════════════════╗")
+    print("  ║     ✅ Installation Complete!         ║")
+    print("  ╚══════════════════════════════════════╝")
+    print()
+    print(f"  Version:  {version}")
+    print(f"  Files:    {file_count} files ({size_str})")
+    print(f"  Addon:    {global_dir}")
+    print(f"  CLI:      {bin_dir / 'vg'}")
+    print()
+    print("  Quick Start:")
+    print("    vg new MyGame        # Create a new VG project")
+    print("    cd MyGame && godot . # Open in Godot")
+    print()
+    print("  Add VG to an existing project:")
+    print("    cd /path/to/project")
+    print("    vg install")
+    print()
+
+    # Check PATH
+    path_dirs = os.environ.get("PATH", "").split(os.pathsep)
+    if str(bin_dir) not in path_dirs:
+        print(f"  ⚠  {bin_dir} is not in your PATH.")
+        if platform.system() == "Windows":
+            print(f'    Add it: setx PATH "%PATH%;{bin_dir}"')
+        elif os.path.exists(os.path.expanduser("~/.zshrc")):
+            print(f'    Add it: echo \'export PATH="$HOME/.local/bin:$PATH"\' >> ~/.zshrc')
         else:
-            project_file.write_text('project_name="VisualGasic Project"\n')
-        
-        # Create template configuration
-        template_cfg = install_dir / ".template.cfg"
-        template_cfg.write_text("""[template]
-name="VisualGasic Project"
-description="A new VisualGasic project with the language already installed and configured."
-version="1.0.0"
-icon="res://icon.svg"
-""")
-        
-        # Copy example scripts
-        examples_dir = install_dir / "examples"
-        examples_dir.mkdir(exist_ok=True)
-        
-        source_examples = source_dir / "examples"
-        if source_examples.exists():
-            print("Copying example scripts...")
-            for vg_file in source_examples.glob("*.vg"):
-                try:
-                    shutil.copy2(vg_file, examples_dir)
-                except:
-                    pass
-        
+            print(f'    Add it: echo \'export PATH="$HOME/.local/bin:$PATH"\' >> ~/.bashrc')
         print()
-        print("=" * 45)
-        print("  ✅ Installation Complete!")
-        print("=" * 45)
-        print()
-        print("VisualGasic template has been installed to:")
-        print(f"  {install_dir}")
-        print()
-        print("To use it:")
-        print("  1. Open Godot")
-        print("  2. Create New Project")
-        print("  3. Select 'VisualGasic Project' from templates")
-        print("  4. Start coding in .vg files!")
-        print()
-        print("Documentation: https://github.com/xgreenrx-star/VisualGasic")
-        print()
-        
-        return True
-        
-    except Exception as e:
-        print(f"Installation failed: {e}")
-        return False
-        
-    finally:
-        # Cleanup
+
+
+# ── Main ────────────────────────────────────────────────────────────────────
+
+def main():
+    print()
+    print("  ╔══════════════════════════════════════╗")
+    print("  ║     VisualGasic Installer             ║")
+    print("  ║    VB6-style language for Godot 4     ║")
+    print("  ╚══════════════════════════════════════╝")
+    print()
+
+    use_github = "--github" in sys.argv
+
+    temp_dir = None
+
+    if use_github:
+        temp_dir = tempfile.mkdtemp()
         try:
-            shutil.rmtree(temp_dir)
-        except:
-            pass
+            source_dir = download_from_github(temp_dir)
+        except Exception as e:
+            print(f"  Error downloading: {e}")
+            sys.exit(1)
+    else:
+        source_dir = find_source_dir()
+        if source_dir is None:
+            print("  Could not find VisualGasic source directory.")
+            print("  Run this script from the repo root, or use --github to download.")
+            sys.exit(1)
+
+    try:
+        global_dir, addon_dir, bin_dir = install(source_dir)
+        print_summary(global_dir, addon_dir, bin_dir)
+    finally:
+        if temp_dir:
+            shutil.rmtree(temp_dir, ignore_errors=True)
+
 
 if __name__ == "__main__":
-    try:
-        success = install_template()
-        sys.exit(0 if success else 1)
-    except KeyboardInterrupt:
-        print("\nInstallation cancelled by user.")
-        sys.exit(1)
+    main()

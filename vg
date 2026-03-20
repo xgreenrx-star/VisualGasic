@@ -1,0 +1,359 @@
+#!/bin/bash
+# VisualGasic CLI — Create and manage VG-enabled Godot projects
+# Usage:
+#   vg new <project-name>     Create a new Godot project with VG pre-installed
+#   vg install                Install VG addon into the current Godot project
+#   vg update                 Update the global VG installation from source
+#   vg version                Show version info
+#   vg help                   Show this help message
+
+set -e
+
+# ── Paths ───────────────────────────────────────────────────────────────────
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    VG_GLOBAL_DIR="$HOME/Library/Application Support/VisualGasic"
+elif [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" ]]; then
+    VG_GLOBAL_DIR="$APPDATA/VisualGasic"
+else
+    VG_GLOBAL_DIR="$HOME/.local/share/visual_gasic"
+fi
+
+VG_ADDON_DIR="$VG_GLOBAL_DIR/addons/visual_gasic"
+VG_VERSION_FILE="$VG_GLOBAL_DIR/VERSION"
+
+# ── Colors ──────────────────────────────────────────────────────────────────
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
+BOLD='\033[1m'
+NC='\033[0m' # No Color
+
+# ── Helpers ─────────────────────────────────────────────────────────────────
+info()    { echo -e "${CYAN}ℹ${NC}  $1"; }
+success() { echo -e "${GREEN}✅${NC} $1"; }
+warn()    { echo -e "${YELLOW}⚠${NC}  $1"; }
+error()   { echo -e "${RED}✗${NC}  $1" >&2; }
+
+banner() {
+    echo -e "${BOLD}${CYAN}"
+    echo "  ╔══════════════════════════════════════╗"
+    echo "  ║         VisualGasic CLI               ║"
+    echo "  ║    VB6-style language for Godot 4     ║"
+    echo "  ╚══════════════════════════════════════╝"
+    echo -e "${NC}"
+}
+
+# ── Check if global addon is installed ──────────────────────────────────────
+check_global_install() {
+    if [[ ! -d "$VG_ADDON_DIR" ]]; then
+        error "VisualGasic is not installed globally."
+        echo ""
+        echo "  Run this from the VisualGasic source directory:"
+        echo -e "    ${BOLD}vg update${NC}"
+        echo ""
+        echo "  Or install from GitHub:"
+        echo -e "    ${BOLD}curl -sSL https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/main/install.sh | bash${NC}"
+        echo ""
+        exit 1
+    fi
+}
+
+# ── vg new <name> ──────────────────────────────────────────────────────────
+cmd_new() {
+    local project_name="$1"
+
+    if [[ -z "$project_name" ]]; then
+        error "Usage: vg new <project-name>"
+        exit 1
+    fi
+
+    # Validate name (no spaces, no special chars beyond - and _)
+    if [[ ! "$project_name" =~ ^[a-zA-Z][a-zA-Z0-9_-]*$ ]]; then
+        error "Project name must start with a letter and contain only letters, digits, hyphens, and underscores."
+        exit 1
+    fi
+
+    if [[ -d "$project_name" ]]; then
+        error "Directory '$project_name' already exists."
+        exit 1
+    fi
+
+    check_global_install
+
+    local vg_version="unknown"
+    [[ -f "$VG_VERSION_FILE" ]] && vg_version=$(cat "$VG_VERSION_FILE")
+
+    banner
+    info "Creating project: ${BOLD}$project_name${NC}"
+    info "VisualGasic version: ${BOLD}$vg_version${NC}"
+    echo ""
+
+    # ── Create project structure ────────────────────────────────────────────
+    mkdir -p "$project_name/addons"
+
+    # Copy addon from global install
+    info "Copying VisualGasic addon..."
+    cp -r "$VG_ADDON_DIR" "$project_name/addons/visual_gasic"
+
+    # ── Create project.godot ────────────────────────────────────────────────
+    # Human-friendly display name (replace _ and - with spaces, title case)
+    local display_name
+    display_name=$(echo "$project_name" | sed 's/[-_]/ /g' | sed 's/\b\(.\)/\u\1/g')
+
+    cat > "$project_name/project.godot" << EOF
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
+config_version=5
+
+[application]
+
+config/name="$display_name"
+config/features=PackedStringArray("4.6", "Forward Plus")
+config/icon="res://icon.svg"
+
+[autoload]
+
+VGDebugHandler="*res://addons/visual_gasic/vg_debug_handler.gd"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/visual_gasic/plugin.cfg")
+EOF
+
+    # ── Create default icon ─────────────────────────────────────────────────
+    # Copy icon from addon if available, else create a minimal SVG
+    if [[ -f "$VG_ADDON_DIR/icon.svg" ]]; then
+        cp "$VG_ADDON_DIR/icon.svg" "$project_name/icon.svg"
+    elif [[ -f "$VG_ADDON_DIR/icon.png" ]]; then
+        cp "$VG_ADDON_DIR/icon.png" "$project_name/icon.svg"
+    else
+        cat > "$project_name/icon.svg" << 'ICON'
+<svg height="128" width="128" xmlns="http://www.w3.org/2000/svg">
+  <rect width="128" height="128" rx="16" fill="#3d5a80"/>
+  <text x="64" y="78" font-size="48" font-family="monospace" font-weight="bold"
+        text-anchor="middle" fill="#e0e1dd">VG</text>
+</svg>
+ICON
+    fi
+
+    # ── Create a starter Form1.vg ───────────────────────────────────────────
+    cat > "$project_name/Form1.vg" << 'VG'
+' Form1.vg — Your first VisualGasic form
+' Double-click this file in the Godot editor to open the Form Designer
+
+Option Explicit
+
+Private Sub Form_Load()
+    Me.Caption = "Hello World"
+    Me.Width = 800
+    Me.Height = 600
+    Print "Welcome to VisualGasic!"
+End Sub
+
+Private Sub Form_Click()
+    Print "You clicked the form!"
+End Sub
+VG
+
+    # ── Create .gitignore ───────────────────────────────────────────────────
+    cat > "$project_name/.gitignore" << 'GI'
+# Godot
+.godot/
+*.import
+export_presets.cfg
+
+# OS
+.DS_Store
+Thumbs.db
+GI
+
+    echo ""
+    success "Project '${BOLD}$project_name${NC}' created!"
+    echo ""
+    echo -e "  ${BOLD}Next steps:${NC}"
+    echo "    cd $project_name"
+    echo "    godot ."
+    echo ""
+    echo -e "  Your starter file: ${BOLD}Form1.vg${NC}"
+    echo "  The VisualGasic addon is already enabled — just open and code!"
+    echo ""
+}
+
+# ── vg install ──────────────────────────────────────────────────────────────
+cmd_install() {
+    # Install VG addon into the current directory (must be a Godot project)
+    if [[ ! -f "project.godot" ]]; then
+        error "No project.godot found in current directory."
+        echo "  Run this command from the root of your Godot project."
+        exit 1
+    fi
+
+    check_global_install
+
+    local vg_version="unknown"
+    [[ -f "$VG_VERSION_FILE" ]] && vg_version=$(cat "$VG_VERSION_FILE")
+
+    info "Installing VisualGasic v$vg_version into current project..."
+
+    # Copy addon
+    mkdir -p addons
+    if [[ -d "addons/visual_gasic" ]]; then
+        warn "Existing addons/visual_gasic/ will be replaced."
+        rm -rf addons/visual_gasic
+    fi
+    cp -r "$VG_ADDON_DIR" addons/visual_gasic
+
+    # Check if plugin is enabled in project.godot
+    if grep -q 'res://addons/visual_gasic/plugin.cfg' project.godot 2>/dev/null; then
+        info "Plugin already enabled in project.godot"
+    else
+        info "Enabling plugin in project.godot..."
+
+        # Check if [editor_plugins] section exists
+        if grep -q '^\[editor_plugins\]' project.godot; then
+            # Section exists — append to the enabled array
+            # This is a best-effort text edit; complex cases may need manual help
+            if grep -q '^enabled=PackedStringArray(' project.godot; then
+                # Add our plugin to the existing array
+                sed -i 's|^enabled=PackedStringArray(\(.*\))|enabled=PackedStringArray("res://addons/visual_gasic/plugin.cfg", \1)|' project.godot
+                info "Added VG to existing enabled plugins list."
+            else
+                echo 'enabled=PackedStringArray("res://addons/visual_gasic/plugin.cfg")' >> project.godot
+            fi
+        else
+            # No editor_plugins section — add it
+            echo '' >> project.godot
+            echo '[editor_plugins]' >> project.godot
+            echo '' >> project.godot
+            echo 'enabled=PackedStringArray("res://addons/visual_gasic/plugin.cfg")' >> project.godot
+        fi
+
+        # Also add autoload if missing
+        if ! grep -q 'VGDebugHandler' project.godot 2>/dev/null; then
+            if grep -q '^\[autoload\]' project.godot; then
+                sed -i '/^\[autoload\]/a VGDebugHandler="*res://addons/visual_gasic/vg_debug_handler.gd"' project.godot
+            else
+                # Insert [autoload] before [editor_plugins]
+                sed -i '/^\[editor_plugins\]/i [autoload]\n\nVGDebugHandler="*res://addons/visual_gasic/vg_debug_handler.gd"\n' project.godot
+            fi
+            info "Added VGDebugHandler autoload."
+        fi
+    fi
+
+    echo ""
+    success "VisualGasic installed! Reopen the project in Godot to activate."
+    echo ""
+}
+
+# ── vg update ───────────────────────────────────────────────────────────────
+cmd_update() {
+    banner
+    info "Updating global VisualGasic installation..."
+    echo ""
+
+    # Try to find the source directory
+    local source_dir=""
+
+    # Check if we're inside the VG source tree
+    if [[ -f "addons/visual_gasic/plugin.cfg" && -f "SConstruct" ]]; then
+        source_dir="$(pwd)"
+    elif [[ -f "$HOME/Documents/VisualGasic/addons/visual_gasic/plugin.cfg" ]]; then
+        source_dir="$HOME/Documents/VisualGasic"
+    else
+        error "Cannot find VisualGasic source directory."
+        echo "  Run this command from the VisualGasic repo root, or clone it to ~/Documents/VisualGasic"
+        exit 1
+    fi
+
+    info "Source: $source_dir"
+    info "Target: $VG_GLOBAL_DIR"
+    echo ""
+
+    # Create global dir
+    mkdir -p "$VG_GLOBAL_DIR/addons"
+
+    # Remove old install
+    [[ -d "$VG_ADDON_DIR" ]] && rm -rf "$VG_ADDON_DIR"
+
+    # Copy addon (excluding .uid files and dev-only files)
+    info "Copying addon files..."
+    cp -r "$source_dir/addons/visual_gasic" "$VG_ADDON_DIR"
+
+    # Remove .uid files (they get regenerated per-project)
+    find "$VG_ADDON_DIR" -name "*.uid" -delete 2>/dev/null || true
+
+    # Copy version
+    if [[ -f "$source_dir/VERSION" ]]; then
+        cp "$source_dir/VERSION" "$VG_VERSION_FILE"
+    fi
+
+    local vg_version="unknown"
+    [[ -f "$VG_VERSION_FILE" ]] && vg_version=$(cat "$VG_VERSION_FILE")
+
+    echo ""
+    success "Global installation updated to v$vg_version"
+
+    # Count files
+    local file_count
+    file_count=$(find "$VG_ADDON_DIR" -type f | wc -l)
+    local dir_size
+    dir_size=$(du -sh "$VG_ADDON_DIR" | cut -f1)
+    info "Installed: $file_count files ($dir_size)"
+    echo ""
+    echo -e "  New projects created with ${BOLD}vg new${NC} will use this version."
+    echo -e "  To update an existing project, cd into it and run ${BOLD}vg install${NC}."
+    echo ""
+}
+
+# ── vg version ──────────────────────────────────────────────────────────────
+cmd_version() {
+    local vg_version="not installed"
+    [[ -f "$VG_VERSION_FILE" ]] && vg_version=$(cat "$VG_VERSION_FILE")
+    echo "VisualGasic CLI"
+    echo "  Global install: $VG_GLOBAL_DIR"
+    echo "  Version: $vg_version"
+    echo "  Addon: $([ -d "$VG_ADDON_DIR" ] && echo "installed" || echo "not found")"
+}
+
+# ── vg help ─────────────────────────────────────────────────────────────────
+cmd_help() {
+    banner
+    echo -e "  ${BOLD}Usage:${NC}"
+    echo "    vg new <project-name>    Create a new Godot project with VG pre-installed"
+    echo "    vg install               Install VG addon into the current Godot project"
+    echo "    vg update                Update the global VG installation from source"
+    echo "    vg version               Show version info"
+    echo "    vg help                  Show this help message"
+    echo ""
+    echo -e "  ${BOLD}Quick Start:${NC}"
+    echo -e "    1. Run ${CYAN}vg update${NC} from the VisualGasic source directory"
+    echo -e "    2. Run ${CYAN}vg new MyGame${NC} from anywhere"
+    echo -e "    3. Run ${CYAN}cd MyGame && godot .${NC}"
+    echo "    4. Start coding in .vg files!"
+    echo ""
+    echo -e "  ${BOLD}Adding VG to an existing project:${NC}"
+    echo "    cd /path/to/your/godot/project"
+    echo "    vg install"
+    echo ""
+}
+
+# ── Main dispatcher ─────────────────────────────────────────────────────────
+case "${1:-help}" in
+    new)     cmd_new "$2" ;;
+    install) cmd_install ;;
+    update)  cmd_update ;;
+    version) cmd_version ;;
+    help|--help|-h) cmd_help ;;
+    *)
+        error "Unknown command: $1"
+        echo -e "  Run ${BOLD}vg help${NC} for usage."
+        exit 1
+        ;;
+esac
