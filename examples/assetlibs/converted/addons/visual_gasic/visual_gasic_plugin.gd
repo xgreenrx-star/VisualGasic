@@ -585,6 +585,7 @@ func _enter_tree():
 
 	add_tool_menu_item("Add Form...", Callable(self, "_on_add_form"))
 	add_tool_menu_item("New Module...", Callable(self, "_on_new_module"))
+	add_tool_menu_item("New VG Project...", Callable(self, "_on_new_project"))
 	add_tool_menu_item("Import VB6 Form...", Callable(self, "_on_import_vb6_form"))
 	add_tool_menu_item("Import VB6 Project...", Callable(self, "_on_import_vb6_project"))
 	add_tool_menu_item("Visual Gasic Menu Editor", Callable(self, "_on_menu_editor"))
@@ -736,28 +737,15 @@ func _make_visible(p_visible: bool) -> void:
 		# (so next time Form Designer opens it shows the form canvas)
 		if _showing_code_view:
 			_show_form_view()
-		# Leaving Form Designer → flush C++ state to disk only if dirty.
+		# Leaving Form Designer → patch in-memory tree so Godot's own saver
+		# writes correct data.  Do NOT write to disk here — writing via C++
+		# FileAccess bypasses Godot's resource system, causing the
+		# "files modified outside Godot" prompt on every focus cycle.
+		# The user's changes are safe in C++ memory and the patched tree;
+		# they'll be flushed to disk on the next explicit save (Ctrl+S,
+		# Build, Run, or editor shutdown).
 		if is_instance_valid(_form_designer):
-			# Always patch in-memory tree so Godot's own saver writes correct data.
 			_sync_form_state_to_scene_tree()
-			# Only write to disk if the form has unsaved changes
-			if _form_dirty:
-				var save_path := ""
-				var scene_root = EditorInterface.get_edited_scene_root()
-				if scene_root and not scene_root.scene_file_path.is_empty():
-					save_path = scene_root.scene_file_path
-				if save_path.is_empty():
-					save_path = _form_designer.get_form_path()
-				if save_path.is_empty() and _form_designer.get_control_count() > 0:
-					save_path = "res://" + _form_designer.get_form_name() + ".tscn"
-				if not save_path.is_empty():
-					_form_designer.save_form_as(save_path)
-					_strip_empty_menubar_from_tscn(save_path)
-					EditorInterface.get_resource_filesystem().update_file(save_path)
-					_form_dirty = false
-					# Schedule reload for AFTER the screen transition completes.
-					if not _switching_to_code_editor:
-						_pending_reload_path = save_path
 		# Always clear the flag here (even when form_path was empty and
 		# the save block above was skipped — the previous code never
 		# reached the clear in that case, leaving the flag stuck true).
@@ -803,10 +791,9 @@ func _set_window_layout(config: ConfigFile):
 			# Populate Properties panel with form props on restore
 			call_deferred("_populate_properties_for_form")
 
-## Called by the editor when saving window layout.
-## CRITICAL: This fires AFTER Godot has saved all open scene tabs to disk.
-## We re-save the form .tscn from C++ here to overwrite any stale data
-## that Godot's scene saver may have written from its in-memory tree.
+## Called by the editor when saving window layout (fires on focus loss and
+## editor close).  We persist the current form path to survive editor restarts
+## and patch the in-memory tree.  No disk writes — see _save_external_data().
 func _get_window_layout(config: ConfigFile):
 	if is_instance_valid(_layout_manager):
 		_layout_manager.on_window_layout_saving(config)
@@ -816,51 +803,28 @@ func _get_window_layout(config: ConfigFile):
 		if not fpath.is_empty():
 			config.set_value("VisualGasic", "form_path", fpath)
 			# Patch in-memory tree so Godot's own saver writes correct data.
+			# Do NOT write to disk here — C++ FileAccess writes bypass Godot's
+			# resource system and trigger 'modified outside Godot' dialogs.
 			_sync_form_state_to_scene_tree()
-			# Only re-save from C++ if the form has unsaved changes.
-			# Unconditional writes here caused 'reload from disk?' prompts
-			# because Godot detects the file changed on every focus cycle.
-			if _form_dirty:
-				_form_designer.save_form_as(fpath)
-				_strip_empty_menubar_from_tscn(fpath)
-				EditorInterface.get_resource_filesystem().update_file(fpath)
-				_form_dirty = false
-				print("[VG-SYNC] _get_window_layout → re-saved dirty form")
 
 ## Called by the editor before saving any external data (scenes, resources).
-## Godot calls this on EVERY auto-save, including when the window loses focus.
-## We ONLY write the .tscn from C++ if the form has unsaved changes.
-## Otherwise we just patch the in-memory scene tree so Godot's own saver
-## writes correct data — this avoids the "reload from disk?" prompt that
-## occurs when we unconditionally write files on every focus-loss cycle.
+## Godot calls this on EVERY auto-save, including when the window loses focus
+## AND on Ctrl+S.  We NEVER write the .tscn from C++ here — writing via C++
+## FileAccess bypasses Godot's ResourceSaver and causes the "files have been
+## modified outside Godot" dialog every time the window regains focus.
+##
+## Instead we only patch the in-memory scene tree so that if Godot's own
+## saver writes the scene (e.g. on Ctrl+S), it produces correct data.
+## Actual C++ saves only happen via explicit user actions: _do_save_form()
+## (Ctrl+S intercepted by our plugin), Build, Run, or editor shutdown.
 func _save_external_data() -> void:
 	if _saving_external:
-		return  # reentrancy guard — reload_scene can trigger another save cycle
+		return  # reentrancy guard
 	_saving_external = true
 	if is_instance_valid(_form_designer):
-		var fp = _form_designer.get_form_path()
-		# Always patch Godot's in-memory scene tree so its own saver writes
-		# correct data, regardless of whether we write the file ourselves.
+		# Patch Godot's in-memory scene tree so its own saver writes
+		# correct data (positions, sizes, text).  No disk writes here.
 		_sync_form_state_to_scene_tree()
-		# Only write to disk if the form is actually dirty
-		if _form_dirty:
-			# Derive a save path if the form was never saved to disk yet
-			if fp.is_empty() and _form_designer.get_control_count() > 0:
-				var scene_root = EditorInterface.get_edited_scene_root()
-				if scene_root and not scene_root.scene_file_path.is_empty():
-					fp = scene_root.scene_file_path
-				else:
-					fp = "res://" + _form_designer.get_form_name() + ".tscn"
-				_form_designer.save_form_as(fp)
-			elif not fp.is_empty():
-				_form_designer.save_form()
-			# Notify Godot's filesystem so it doesn't treat this as external
-			fp = _form_designer.get_form_path()
-			if not fp.is_empty():
-				EditorInterface.get_resource_filesystem().update_file(fp)
-				var scene_root = EditorInterface.get_edited_scene_root()
-				if scene_root and scene_root.scene_file_path == fp:
-					_force_godot_scene_reload(fp)
 	_saving_external = false
 
 ## Called when the plugin exits the editor tree.
@@ -911,6 +875,7 @@ func _exit_tree():
 	remove_tool_menu_item("Toggle VG IDE Layout")
 	remove_tool_menu_item("Add Form...")
 	remove_tool_menu_item("New Module...")
+	remove_tool_menu_item("New VG Project...")
 	remove_tool_menu_item("Import VB6 Form...")
 	remove_tool_menu_item("Import VB6 Project...")
 	remove_tool_menu_item("Visual Gasic Menu Editor")
@@ -2471,6 +2436,34 @@ func _build_vb6_scene_theme() -> Theme:
 		t.set_stylebox("grabber_area",            sl_type, sl_grabber)
 		t.set_stylebox("grabber_area_highlight",  sl_type, sl_grabber)
 
+	# ── HSeparator / VSeparator ──
+	# VB6 separators: etched line (dark on top/left, highlight on bottom/right)
+	var hsep_sb = StyleBoxFlat.new()
+	hsep_sb.bg_color = Color(0, 0, 0, 0)  # Transparent background
+	hsep_sb.border_color = btn_shadow
+	hsep_sb.border_width_top = 1
+	hsep_sb.border_width_bottom = 0
+	hsep_sb.border_width_left = 0
+	hsep_sb.border_width_right = 0
+	hsep_sb.set_content_margin_all(0)
+	hsep_sb.content_margin_top = 2
+	hsep_sb.content_margin_bottom = 2
+	t.set_stylebox("separator", "HSeparator", hsep_sb)
+	t.set_constant("separation", "HSeparator", 4)
+
+	var vsep_sb = StyleBoxFlat.new()
+	vsep_sb.bg_color = Color(0, 0, 0, 0)
+	vsep_sb.border_color = btn_shadow
+	vsep_sb.border_width_left = 1
+	vsep_sb.border_width_right = 0
+	vsep_sb.border_width_top = 0
+	vsep_sb.border_width_bottom = 0
+	vsep_sb.set_content_margin_all(0)
+	vsep_sb.content_margin_left = 2
+	vsep_sb.content_margin_right = 2
+	t.set_stylebox("separator", "VSeparator", vsep_sb)
+	t.set_constant("separation", "VSeparator", 4)
+
 	# ── MenuBar ──
 	var menu_sb = StyleBoxFlat.new()
 	menu_sb.bg_color = btn_face
@@ -3060,6 +3053,7 @@ func _create_vb6_menu_bar() -> MenuBar:
 	_style_popup_menu(file_menu)
 	file_menu.add_item("New Form", 0)
 	file_menu.add_item("New Module", 1)
+	file_menu.add_item("New Project...", 3)
 	file_menu.add_separator()
 	file_menu.add_item("Open Project...", 2)
 	file_menu.add_separator()
@@ -3332,6 +3326,7 @@ func _on_vb6_file_menu(id: int) -> void:
 		0: _on_add_form()
 		1: _on_new_module()
 		2: _on_open_project()
+		3: _on_new_project()
 		10: _do_save_form()
 		11: _do_save_form_as()
 		12: _do_save_all()
@@ -3424,6 +3419,262 @@ func _on_open_project() -> void:
 	fd.canceled.connect(fd.queue_free)
 	get_editor_interface().get_base_control().add_child(fd)
 	fd.popup_centered()
+
+# =============================================================================
+# NEW PROJECT DIALOG
+# =============================================================================
+
+## File > New Project...  —  creates a brand-new Godot project with VG
+## pre-installed, then opens it in a new Godot instance.
+func _on_new_project() -> void:
+	var dlg = AcceptDialog.new()
+	dlg.title = "New VisualGasic Project"
+	dlg.ok_button_text = "Create"
+	dlg.min_size = Vector2i(500, 260)
+
+	var vbox = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 8)
+
+	# ── Project Name ──
+	var name_label = Label.new()
+	name_label.text = "Project Name:"
+	vbox.add_child(name_label)
+
+	var name_edit = LineEdit.new()
+	name_edit.text = "MyGame"
+	name_edit.placeholder_text = "MyGame"
+	name_edit.select_all_on_focus = true
+	name_edit.caret_blink = true
+	vbox.add_child(name_edit)
+
+	# ── Location ──
+	var loc_label = Label.new()
+	loc_label.text = "Location:"
+	vbox.add_child(loc_label)
+
+	var loc_hbox = HBoxContainer.new()
+	loc_hbox.add_theme_constant_override("separation", 4)
+
+	var loc_edit = LineEdit.new()
+	loc_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	# Default to user's home/Documents or home directory
+	var default_dir = OS.get_environment("HOME")
+	var docs_dir = default_dir + "/Documents"
+	if DirAccess.dir_exists_absolute(docs_dir):
+		default_dir = docs_dir
+	loc_edit.text = default_dir
+	loc_edit.caret_blink = true
+	loc_hbox.add_child(loc_edit)
+
+	var browse_btn = Button.new()
+	browse_btn.text = "Browse..."
+	browse_btn.pressed.connect(func():
+		var fd2 = FileDialog.new()
+		fd2.file_mode = FileDialog.FILE_MODE_OPEN_DIR
+		fd2.access = FileDialog.ACCESS_FILESYSTEM
+		fd2.title = "Select Project Location"
+		fd2.min_size = Vector2i(600, 400)
+		fd2.current_dir = loc_edit.text
+		fd2.dir_selected.connect(func(path: String):
+			loc_edit.text = path
+			fd2.queue_free()
+		)
+		fd2.canceled.connect(fd2.queue_free)
+		get_editor_interface().get_base_control().add_child(fd2)
+		fd2.popup_centered()
+	)
+	loc_hbox.add_child(browse_btn)
+	vbox.add_child(loc_hbox)
+
+	# ── Full path preview ──
+	var preview_label = Label.new()
+	preview_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+	preview_label.text = loc_edit.text + "/" + name_edit.text
+	vbox.add_child(preview_label)
+
+	# Update preview as user types
+	var update_preview = func():
+		preview_label.text = loc_edit.text.path_join(name_edit.text)
+	name_edit.text_changed.connect(func(_t): update_preview.call())
+	loc_edit.text_changed.connect(func(_t): update_preview.call())
+
+	# ── Info label ──
+	var info = Label.new()
+	info.text = "Creates a new Godot project with VG pre-installed and enabled."
+	info.add_theme_font_size_override("font_size", 12)
+	info.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
+	vbox.add_child(info)
+
+	dlg.add_child(vbox)
+
+	# ── Create handler ──
+	dlg.confirmed.connect(func():
+		var proj_name = name_edit.text.strip_edges()
+		var proj_dir = loc_edit.text.strip_edges().path_join(proj_name)
+
+		# Validate
+		if proj_name.is_empty():
+			push_warning("[VisualGasic] New Project: name cannot be empty")
+			_flash_status_message("Project name cannot be empty")
+			return
+		if DirAccess.dir_exists_absolute(proj_dir):
+			push_warning("[VisualGasic] New Project: directory already exists: " + proj_dir)
+			_flash_status_message("Directory already exists: " + proj_dir)
+			return
+
+		_create_new_vg_project(proj_name, proj_dir)
+		dlg.queue_free()
+	)
+	dlg.canceled.connect(dlg.queue_free)
+
+	# Allow Enter to confirm from the name field
+	name_edit.text_submitted.connect(func(_t): dlg.confirmed.emit())
+
+	get_editor_interface().get_base_control().add_child(dlg)
+	dlg.popup_centered()
+	name_edit.grab_focus()
+	name_edit.select_all()
+
+
+## Creates a new VG-ready Godot project on disk and opens it.
+func _create_new_vg_project(proj_name: String, proj_dir: String) -> void:
+	# ── Create directory structure ──
+	var da = DirAccess.open("res://")
+	var err = DirAccess.make_dir_recursive_absolute(proj_dir)
+	if err != OK:
+		push_error("[VisualGasic] Failed to create project directory: " + proj_dir + " (error " + str(err) + ")")
+		_flash_status_message("Failed to create directory")
+		return
+
+	err = DirAccess.make_dir_recursive_absolute(proj_dir + "/addons")
+	if err != OK:
+		push_error("[VisualGasic] Failed to create addons directory")
+		_flash_status_message("Failed to create addons directory")
+		return
+
+	# ── Copy addon from current project ──
+	# The addon is already in this project — copy it to the new one
+	var src_addon = ProjectSettings.globalize_path("res://addons/visual_gasic")
+	var dst_addon = proj_dir + "/addons/visual_gasic"
+
+	err = _copy_dir_recursive(src_addon, dst_addon)
+	if err != OK:
+		push_error("[VisualGasic] Failed to copy addon: " + str(err))
+		_flash_status_message("Failed to copy addon files")
+		return
+
+	# ── Create project.godot ──
+	var display_name = proj_name.replace("_", " ").replace("-", " ")
+	var project_godot = ""
+	project_godot += "; Engine configuration file.\n"
+	project_godot += "; It's best edited using the editor UI and not directly,\n"
+	project_godot += "; since the parameters that go here are not all obvious.\n"
+	project_godot += ";\n"
+	project_godot += "; Format:\n"
+	project_godot += ";   [section] ; section goes between []\n"
+	project_godot += ";   param=value ; assign values to parameters\n\n"
+	project_godot += "config_version=5\n\n"
+	project_godot += "[application]\n\n"
+	project_godot += "config/name=\"%s\"\n" % display_name
+	project_godot += "config/features=PackedStringArray(\"4.6\", \"Forward Plus\")\n"
+	project_godot += "config/icon=\"res://icon.svg\"\n\n"
+	project_godot += "[autoload]\n\n"
+	project_godot += "VGDebugHandler=\"*res://addons/visual_gasic/vg_debug_handler.gd\"\n\n"
+	project_godot += "[editor_plugins]\n\n"
+	project_godot += "enabled=PackedStringArray(\"res://addons/visual_gasic/plugin.cfg\")\n"
+
+	var f = FileAccess.open(proj_dir + "/project.godot", FileAccess.WRITE)
+	if f:
+		f.store_string(project_godot)
+		f.close()
+	else:
+		push_error("[VisualGasic] Failed to create project.godot")
+		return
+
+	# ── Create starter Form1.vg ──
+	var form_code = "' Form1.vg — Your first VisualGasic form\n"
+	form_code += "' Double-click this file in the Godot editor to open the Form Designer\n\n"
+	form_code += "Option Explicit\n\n"
+	form_code += "Private Sub Form_Load()\n"
+	form_code += "    Me.Caption = \"Hello World\"\n"
+	form_code += "    Me.Width = 800\n"
+	form_code += "    Me.Height = 600\n"
+	form_code += "    Print \"Welcome to VisualGasic!\"\n"
+	form_code += "End Sub\n\n"
+	form_code += "Private Sub Form_Click()\n"
+	form_code += "    Print \"You clicked the form!\"\n"
+	form_code += "End Sub\n"
+
+	f = FileAccess.open(proj_dir + "/Form1.vg", FileAccess.WRITE)
+	if f:
+		f.store_string(form_code)
+		f.close()
+
+	# ── Copy icon ──
+	var icon_src = ProjectSettings.globalize_path("res://addons/visual_gasic/icon.svg")
+	if FileAccess.file_exists(icon_src):
+		_copy_file(icon_src, proj_dir + "/icon.svg")
+	elif FileAccess.file_exists(ProjectSettings.globalize_path("res://icon.svg")):
+		_copy_file(ProjectSettings.globalize_path("res://icon.svg"), proj_dir + "/icon.svg")
+
+	# ── Create .gitignore ──
+	f = FileAccess.open(proj_dir + "/.gitignore", FileAccess.WRITE)
+	if f:
+		f.store_string("# Godot\n.godot/\n*.import\nexport_presets.cfg\n\n# OS\n.DS_Store\nThumbs.db\n")
+		f.close()
+
+	print("[VisualGasic] New project created at: " + proj_dir)
+	_flash_status_message("Project created: " + proj_name)
+
+	# ── Open the new project in a new Godot instance ──
+	var godot_path = OS.get_executable_path()
+	var args = ["--path", proj_dir, "--editor"]
+	print("[VisualGasic] Launching: " + godot_path + " " + " ".join(args))
+	OS.create_process(godot_path, args)
+
+	_flash_status_message("Opened " + proj_name + " in new Godot window")
+
+
+## Recursively copy a directory from src to dst (absolute paths).
+func _copy_dir_recursive(src: String, dst: String) -> Error:
+	var err = DirAccess.make_dir_recursive_absolute(dst)
+	if err != OK:
+		return err
+
+	var dir = DirAccess.open(src)
+	if not dir:
+		return ERR_CANT_OPEN
+
+	dir.list_dir_begin()
+	var entry = dir.get_next()
+	while entry != "":
+		if entry == "." or entry == "..":
+			entry = dir.get_next()
+			continue
+		var src_path = src + "/" + entry
+		var dst_path = dst + "/" + entry
+		if dir.current_is_dir():
+			err = _copy_dir_recursive(src_path, dst_path)
+			if err != OK:
+				dir.list_dir_end()
+				return err
+		else:
+			# Skip .uid files — they get regenerated per-project
+			if entry.ends_with(".uid"):
+				entry = dir.get_next()
+				continue
+			err = DirAccess.copy_absolute(src_path, dst_path)
+			if err != OK:
+				push_warning("[VisualGasic] Failed to copy: " + src_path + " -> " + dst_path)
+		entry = dir.get_next()
+	dir.list_dir_end()
+	return OK
+
+
+## Copy a single file (absolute paths).
+func _copy_file(src: String, dst: String) -> Error:
+	return DirAccess.copy_absolute(src, dst)
+
 
 ## Handle renaming a form: rename .tscn, .vg, .vg.uid files on disk,
 ## update form_path in C++, close old scene tab, and reload from new path.
@@ -3762,15 +4013,11 @@ func _sync_form_state_to_scene_tree() -> void:
 		return
 	var scene_root = EditorInterface.get_edited_scene_root()
 	if not scene_root:
-		print("[VG-SYNC] _sync: no edited scene root")
 		return
 	if scene_root.scene_file_path != fp:
-		# The form is not the active scene tab.  Check if it's open in another tab.
-		var open_scenes = EditorInterface.get_open_scenes()
-		if fp in open_scenes:
-			print("[VG-SYNC] _sync: form '", fp, "' is open but not active (active='", scene_root.scene_file_path, "').  Cannot patch non-active tab — relying on _get_window_layout backup save.")
-		else:
-			print("[VG-SYNC] _sync: form '", fp, "' not in open scene tabs — skipping sync")
+		# The form is not the active scene tab — we can only patch the active
+		# tab's tree.  Changes are safe in C++ memory and will be written on
+		# the next explicit save.
 		return
 
 	# ── Sync form size ──
@@ -3779,13 +4026,16 @@ func _sync_form_state_to_scene_tree() -> void:
 		if scene_root.size != fd_size:
 			scene_root.size = fd_size
 			print("[VG-SYNC] Patched Window.size → ", fd_size)
-	# Also patch the _FormBackground Panel offsets
+	# Also patch the _FormBackground Panel offsets (only if changed)
 	var bg = scene_root.get_node_or_null("_FormBackground")
 	if bg:
-		bg.offset_right = float(fd_size.x)
-		bg.offset_bottom = float(fd_size.y)
+		var new_right := float(fd_size.x)
+		var new_bottom := float(fd_size.y)
+		if not is_equal_approx(bg.offset_right, new_right) or not is_equal_approx(bg.offset_bottom, new_bottom):
+			bg.offset_right = new_right
+			bg.offset_bottom = new_bottom
 
-	# ── Sync each child control's position + size ──
+	# ── Sync each child control's position + size (only if changed) ──
 	var ctrl_count = _form_designer.get_control_count()
 	for i in ctrl_count:
 		var info: Dictionary = _form_designer.get_control_info(i)
@@ -3796,16 +4046,23 @@ func _sync_form_state_to_scene_tree() -> void:
 		if not child or not child is Control:
 			continue
 		var r: Rect2 = info.get("rect", Rect2())
-		child.offset_left   = r.position.x
-		child.offset_top    = r.position.y
-		child.offset_right  = r.position.x + r.size.x
-		child.offset_bottom = r.position.y + r.size.y
-		# Sync text/caption
+		var new_left   := r.position.x
+		var new_top    := r.position.y
+		var new_right  := r.position.x + r.size.x
+		var new_bottom := r.position.y + r.size.y
+		if not is_equal_approx(child.offset_left, new_left) or \
+		   not is_equal_approx(child.offset_top, new_top) or \
+		   not is_equal_approx(child.offset_right, new_right) or \
+		   not is_equal_approx(child.offset_bottom, new_bottom):
+			child.offset_left   = new_left
+			child.offset_top    = new_top
+			child.offset_right  = new_right
+			child.offset_bottom = new_bottom
+		# Sync text/caption (only if changed)
 		var text_val = info.get("text", "")
 		if child.has_method("set_text") and not text_val.is_empty():
-			child.set("text", text_val)
-
-	print("[VG-SYNC] Scene tree patched: ", ctrl_count, " controls, form size=", fd_size)
+			if child.get("text") != text_val:
+				child.set("text", text_val)
 
 func _on_vb6_edit_menu(id: int) -> void:
 	# Code editor actions (Find, Replace, Comment, Bookmarks, Indent)
@@ -3930,8 +4187,13 @@ func _on_vb6_run_menu(id: int) -> void:
 			_log_output("▶ Preview + Debug...", Color(0.0, 0.3, 0.5))
 			if is_instance_valid(form_preview_toolbar) and form_preview_toolbar.has_method("_on_preview_debug"):
 				form_preview_toolbar._on_preview_debug()
-		10: pass # Build
+		10: # Build
+			_do_save_form()
+			if is_instance_valid(form_preview_toolbar) and form_preview_toolbar.has_method("_on_build_pressed"):
+				form_preview_toolbar._on_build_pressed()
 		11:
+			# Save form to disk before running so the game sees latest changes
+			_do_save_form()
 			_log_output("▶ Run Project...", Color(0.0, 0.4, 0.0))
 			EditorInterface.play_main_scene()
 

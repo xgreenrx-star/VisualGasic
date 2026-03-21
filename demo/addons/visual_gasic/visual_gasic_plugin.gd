@@ -2436,6 +2436,34 @@ func _build_vb6_scene_theme() -> Theme:
 		t.set_stylebox("grabber_area",            sl_type, sl_grabber)
 		t.set_stylebox("grabber_area_highlight",  sl_type, sl_grabber)
 
+	# ── HSeparator / VSeparator ──
+	# VB6 separators: etched line (dark on top/left, highlight on bottom/right)
+	var hsep_sb = StyleBoxFlat.new()
+	hsep_sb.bg_color = Color(0, 0, 0, 0)  # Transparent background
+	hsep_sb.border_color = btn_shadow
+	hsep_sb.border_width_top = 1
+	hsep_sb.border_width_bottom = 0
+	hsep_sb.border_width_left = 0
+	hsep_sb.border_width_right = 0
+	hsep_sb.set_content_margin_all(0)
+	hsep_sb.content_margin_top = 2
+	hsep_sb.content_margin_bottom = 2
+	t.set_stylebox("separator", "HSeparator", hsep_sb)
+	t.set_constant("separation", "HSeparator", 4)
+
+	var vsep_sb = StyleBoxFlat.new()
+	vsep_sb.bg_color = Color(0, 0, 0, 0)
+	vsep_sb.border_color = btn_shadow
+	vsep_sb.border_width_left = 1
+	vsep_sb.border_width_right = 0
+	vsep_sb.border_width_top = 0
+	vsep_sb.border_width_bottom = 0
+	vsep_sb.set_content_margin_all(0)
+	vsep_sb.content_margin_left = 2
+	vsep_sb.content_margin_right = 2
+	t.set_stylebox("separator", "VSeparator", vsep_sb)
+	t.set_constant("separation", "VSeparator", 4)
+
 	# ── MenuBar ──
 	var menu_sb = StyleBoxFlat.new()
 	menu_sb.bg_color = btn_face
