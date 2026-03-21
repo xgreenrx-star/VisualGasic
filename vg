@@ -6,6 +6,13 @@
 #   vg update                 Update the global VG installation from source
 #   vg version                Show version info
 #   vg help                   Show this help message
+#   vg pkg install <name>     Install a VG package from the registry
+#   vg pkg remove <name>      Remove an installed package
+#   vg pkg search <query>     Search the package registry
+#   vg pkg list               List installed packages
+#   vg pkg info <name>        Show package details
+#   vg pkg init [name]        Create a vg.json manifest
+#   vg pkg update [name]      Update packages
 
 set -e
 
@@ -332,6 +339,15 @@ cmd_help() {
     echo "    vg version               Show version info"
     echo "    vg help                  Show this help message"
     echo ""
+    echo -e "  ${BOLD}Package Manager:${NC}"
+    echo "    vg pkg install <name>[@version]   Install a package from the registry"
+    echo "    vg pkg remove <name>              Remove an installed package"
+    echo "    vg pkg search <query>             Search the package registry"
+    echo "    vg pkg list                       List installed packages"
+    echo "    vg pkg info <name>                Show package details"
+    echo "    vg pkg init [name]                Create a vg.json manifest"
+    echo "    vg pkg update [name]              Update all or a specific package"
+    echo ""
     echo -e "  ${BOLD}Quick Start:${NC}"
     echo -e "    1. Run ${CYAN}vg update${NC} from the VisualGasic source directory"
     echo -e "    2. Run ${CYAN}vg new MyGame${NC} from anywhere"
@@ -344,11 +360,74 @@ cmd_help() {
     echo ""
 }
 
+# ── vg pkg <subcommand> ────────────────────────────────────────────────────
+cmd_pkg() {
+    local subcmd="${1:-help}"
+    local arg="$2"
+    local ver=""
+
+    # Parse name@version syntax
+    if [[ "$arg" == *"@"* ]]; then
+        ver="${arg#*@}"
+        arg="${arg%%@*}"
+    fi
+
+    if [[ "$subcmd" == "help" || "$subcmd" == "--help" ]]; then
+        echo -e "${BOLD}vg pkg${NC} — VisualGasic Package Manager"
+        echo ""
+        echo "  install <name>[@version]   Install a package"
+        echo "  remove <name>              Uninstall a package"
+        echo "  search <query>             Search the registry"
+        echo "  list                       List installed packages"
+        echo "  info <name>                Show package info"
+        echo "  init [name]                Create vg.json"
+        echo "  update [name]              Update package(s)"
+        return
+    fi
+
+    # Locate Godot binary
+    local godot_bin=""
+    if command -v godot &>/dev/null; then
+        godot_bin="godot"
+    elif [[ -f "$VG_GLOBAL_DIR/godot" ]]; then
+        godot_bin="$VG_GLOBAL_DIR/godot"
+    else
+        # Try common locations
+        for candidate in /usr/local/bin/godot /usr/bin/godot "$HOME/bin/godot"; do
+            if [[ -x "$candidate" ]]; then
+                godot_bin="$candidate"
+                break
+            fi
+        done
+    fi
+
+    if [[ -z "$godot_bin" ]]; then
+        error "Godot binary not found. Install Godot or add it to PATH."
+        exit 1
+    fi
+
+    # Locate the CLI helper script
+    local cli_script=""
+    if [[ -f "addons/visual_gasic/vg_pkg_cli.gd" ]]; then
+        cli_script="addons/visual_gasic/vg_pkg_cli.gd"
+    elif [[ -f "$VG_ADDON_DIR/vg_pkg_cli.gd" ]]; then
+        cli_script="$VG_ADDON_DIR/vg_pkg_cli.gd"
+    else
+        error "Cannot find vg_pkg_cli.gd. Make sure VisualGasic addon is installed."
+        exit 1
+    fi
+
+    info "Running: vg pkg $subcmd ${arg:+$arg}${ver:+ @$ver}"
+    VG_PKG_CMD="$subcmd" VG_PKG_ARG="$arg" VG_PKG_VERSION="$ver" VG_PKG_DIR="$(pwd)" \
+        "$godot_bin" --headless --path . -s "$cli_script" 2>/dev/null
+}
+
 # ── Main dispatcher ─────────────────────────────────────────────────────────
 case "${1:-help}" in
     new)     cmd_new "$2" ;;
     install) cmd_install ;;
     update)  cmd_update ;;
+    pkg)     shift; cmd_pkg "$@" ;;
     version) cmd_version ;;
     help|--help|-h) cmd_help ;;
     *)

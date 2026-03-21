@@ -230,8 +230,13 @@ VisualGasicToolbox::VisualGasicToolbox() {
     add_tool("VSlider", "VSlider", "VSlider", "res://addons/visual_gasic/prototypes/VSlider.tscn");
     
     // ── Non-Visual Controls ── (alphabetical)
+    add_tool("Data", "Node", "Timer", "res://addons/visual_gasic/prototypes/Data.tscn");
     add_tool("Files", "FileDialog", "FileDialog", "res://addons/visual_gasic/prototypes/FileDialog.tscn"); 
     add_tool("Timer", "Timer", "Timer", "res://addons/visual_gasic/prototypes/Timer.tscn"); 
+
+    // ── Data Controls ── (v4.3.0 — database binding)
+    add_tool("DBGrid", "Control", "ItemList", "res://addons/visual_gasic/prototypes/DBGrid.tscn");
+    add_tool("DBCombo", "Control", "OptionButton", "res://addons/visual_gasic/prototypes/DBCombo.tscn");
 
     // ── Game UI Controls ── (for Game UI Mode)
     add_tool("Pointer",           "",              "ToolSelect",    "",                                                                         "Game UI");

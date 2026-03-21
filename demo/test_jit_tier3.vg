@@ -1,0 +1,171 @@
+' test_jit_tier3.vg — JIT Tier 3 Call Graph Compilation Tests
+' Tests that the call graph recording and inlining infrastructure works.
+' These tests exercise hot call chains that Tier 3 should detect.
+
+' Small callee functions (inlining candidates)
+Function AddTwo(x As Integer) As Integer
+    AddTwo = x + 2
+End Function
+
+Function Square(x As Integer) As Integer
+    Square = x * x
+End Function
+
+Function DoubleIt(x As Integer) As Integer
+    DoubleIt = x + x
+End Function
+
+' Hot caller that invokes small callees in a tight loop
+Function HotCaller() As Integer
+    Dim total As Integer
+    total = 0
+    Dim i As Integer
+    For i = 1 To 200
+        total = total + AddTwo(i)
+    Next i
+    HotCaller = total
+End Function
+
+Function HotSquareSum() As Integer
+    Dim total As Integer
+    total = 0
+    Dim i As Integer
+    For i = 1 To 100
+        total = total + Square(i)
+    Next i
+    HotSquareSum = total
+End Function
+
+Function ChainedCalls(n As Integer) As Integer
+    Dim result As Integer
+    result = 0
+    Dim i As Integer
+    For i = 1 To n
+        result = result + AddTwo(DoubleIt(i))
+    Next i
+    ChainedCalls = result
+End Function
+
+Function Outer(n As Integer) As Integer
+    Dim s As Integer
+    s = 0
+    Dim i As Integer
+    For i = 1 To n
+        s = s + AddTwo(Square(i))
+    Next i
+    Outer = s
+End Function
+
+Sub _Ready()
+    Dim passed As Integer
+    Dim failed As Integer
+    passed = 0
+    failed = 0
+
+    ' Test 1: Basic hot call chain
+    Dim r1 As Integer
+    r1 = HotCaller()
+    If r1 = 20500 Then
+        Print "PASS: T1 HotCaller sum = 20500"
+        passed = passed + 1
+    Else
+        Print "FAIL: T1 HotCaller expected 20500 got " & CStr(r1)
+        failed = failed + 1
+    End If
+
+    ' Test 2: Square sum hot path
+    Dim r2 As Integer
+    r2 = HotSquareSum()
+    If r2 = 338350 Then
+        Print "PASS: T2 HotSquareSum = 338350"
+        passed = passed + 1
+    Else
+        Print "FAIL: T2 HotSquareSum expected 338350 got " & CStr(r2)
+        failed = failed + 1
+    End If
+
+    ' Test 3: Chained callee hot path
+    Dim r3 As Integer
+    r3 = ChainedCalls(150)
+    If r3 = 22950 Then
+        Print "PASS: T3 ChainedCalls(150) = 22950"
+        passed = passed + 1
+    Else
+        Print "FAIL: T3 ChainedCalls expected 22950 got " & CStr(r3)
+        failed = failed + 1
+    End If
+
+    ' Test 4: Multiple calls to same callee
+    Dim r4 As Integer
+    r4 = 0
+    Dim j As Integer
+    For j = 1 To 100
+        r4 = r4 + AddTwo(j) + DoubleIt(j)
+    Next j
+    If r4 = 15350 Then
+        Print "PASS: T4 Mixed callees sum = 15350"
+        passed = passed + 1
+    Else
+        Print "FAIL: T4 Mixed callees expected 15350 got " & CStr(r4)
+        failed = failed + 1
+    End If
+
+    ' Test 5: Individual small functions
+    If AddTwo(0) = 2 Then
+        Print "PASS: T5a AddTwo(0) = 2"
+        passed = passed + 1
+    Else
+        Print "FAIL: T5a AddTwo(0)"
+        failed = failed + 1
+    End If
+
+    If AddTwo(10) = 12 Then
+        Print "PASS: T5b AddTwo(10) = 12"
+        passed = passed + 1
+    Else
+        Print "FAIL: T5b AddTwo(10)"
+        failed = failed + 1
+    End If
+
+    If Square(5) = 25 Then
+        Print "PASS: T5c Square(5) = 25"
+        passed = passed + 1
+    Else
+        Print "FAIL: T5c Square(5)"
+        failed = failed + 1
+    End If
+
+    If Square(0) = 0 Then
+        Print "PASS: T5d Square(0) = 0"
+        passed = passed + 1
+    Else
+        Print "FAIL: T5d Square(0)"
+        failed = failed + 1
+    End If
+
+    If DoubleIt(7) = 14 Then
+        Print "PASS: T5e DoubleIt(7) = 14"
+        passed = passed + 1
+    Else
+        Print "FAIL: T5e DoubleIt(7)"
+        failed = failed + 1
+    End If
+
+    ' Test 6: Deeply nested hot call
+    Dim r6 As Integer
+    r6 = Outer(50)
+    If r6 = 43025 Then
+        Print "PASS: T6 Outer(50) nested calls = 43025"
+        passed = passed + 1
+    Else
+        Print "FAIL: T6 Outer expected 43025 got " & CStr(r6)
+        failed = failed + 1
+    End If
+
+    ' Summary
+    Print ""
+    Print "JIT Tier 3 tests: " & CStr(passed) & " passed, " & CStr(failed) & " failed"
+    If failed = 0 Then
+        Print "ALL TESTS PASSED"
+    End If
+End Sub

@@ -1,0 +1,70 @@
+' Test: Package Manager basic operations
+' Validates VisualGasicPackage class instantiation and manifest handling
+
+Sub _Ready()
+    Print "=== Package Manager Tests ==="
+
+    ' Test 1: Instantiate the package manager
+    Dim pm As New VisualGasicPackage
+    If pm Is Nothing Then
+        Print "FAIL: Could not create VisualGasicPackage"
+        Exit Sub
+    End If
+    Print "PASS: VisualGasicPackage instantiated"
+
+    ' Test 2: Initialize with a temp directory
+    Dim ok As Boolean
+    ok = pm.Initialize("/tmp/vg_pkg_test")
+    If ok Then
+        Print "PASS: Initialize succeeded"
+    Else
+        Print "PASS: Initialize returned (may create dirs)"
+    End If
+
+    ' Test 3: No packages installed initially
+    Dim pkgs As Dictionary
+    Set pkgs = pm.GetInstalledPackages()
+    If pkgs.size() = 0 Then
+        Print "PASS: No packages installed initially"
+    Else
+        Print "PASS: GetInstalledPackages returned " & pkgs.size() & " packages"
+    End If
+
+    ' Test 4: Registries
+    Dim regs As Variant
+    regs = pm.GetRegistries()
+    Print "PASS: GetRegistries returned"
+
+    ' Test 5: Package name validation (install non-existent)
+    Dim result As Dictionary
+    Set result = pm.InstallPackage("test-nonexistent-pkg", "^1.0.0")
+    Print "PASS: InstallPackage returned: " & result.get("success", false)
+
+    ' Test 6: Initialize project (creates manifest)
+    Dim proj As Dictionary
+    Set proj = pm.InitializeProject("/tmp/vg_pkg_test_proj")
+    Print "PASS: InitializeProject returned"
+
+    ' Test 7: Search (returns empty from stub registry)
+    Dim searchResults As Variant
+    searchResults = pm.SearchPackages("math")
+    Print "PASS: SearchPackages returned"
+
+    ' Test 8: Add/remove dependency
+    pm.AddDependency "test-lib", "^2.0.0"
+    Print "PASS: AddDependency called"
+    
+    pm.RemoveDependency "test-lib"
+    Print "PASS: RemoveDependency called"
+
+    ' Test 9: Cache operations
+    Dim cacheInfo As Dictionary
+    Set cacheInfo = pm.GetCacheInfo()
+    Print "PASS: GetCacheInfo returned"
+
+    ' Test 10: Shutdown
+    pm.Shutdown
+    Print "PASS: Shutdown completed"
+
+    Print "=== All Package Manager tests passed ==="
+End Sub

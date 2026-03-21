@@ -704,6 +704,39 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
 
 
             if (s->base_object) {
+                // ── Cross-module qualified call: ModuleName.SubName(args) (v4.3.0) ──
+                if (s->base_object->type == ExpressionNode::VARIABLE) {
+                    String var_name = ((VariableNode*)s->base_object)->name;
+                    // Check if this is an imported module name
+                    if (module_registry.has(var_name)) {
+                        SubDefinition* mod_sub = find_sub_in_module(var_name, s->method_name, call_args.size());
+                        if (mod_sub) {
+                            bool found = false;
+                            Variant ret = call_internal(mod_sub->name, call_args, found);
+                            if (!found) {
+                                // Direct execution for imported sub
+                                SubDefinition* prev_sub = current_sub;
+                                int prev_jump = jump_target;
+                                ErrorState prev_error = error_state;
+                                current_sub = mod_sub;
+                                jump_target = -1;
+                                error_state = ErrorState();
+                                // Set parameters
+                                for (int pi = 0; pi < mod_sub->parameters.size() && pi < call_args.size(); pi++) {
+                                    variables[mod_sub->parameters[pi].name] = call_args[pi];
+                                }
+                                for (int si2 = 0; si2 < mod_sub->statements.size(); si2++) {
+                                    execute_statement(mod_sub->statements[si2]);
+                                }
+                                current_sub = prev_sub;
+                                jump_target = prev_jump;
+                                error_state = prev_error;
+                            }
+                            break;
+                        }
+                    }
+                }
+
                 // Delegate variable-base builtins (Clipboard etc.) to centralized handler
                  if (s->base_object->type == ExpressionNode::VARIABLE) {
                      String var_name = ((VariableNode*)s->base_object)->name;

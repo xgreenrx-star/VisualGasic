@@ -1,0 +1,10 @@
+' Minimal test: just instantiate a Recordset
+Sub _Ready()
+    Print "Starting..."
+    Dim rs As New Recordset
+    If rs Is Nothing Then
+        Print "FAIL: rs is Nothing"
+    Else
+        Print "PASS: Recordset instantiated"
+    End If
+End Sub

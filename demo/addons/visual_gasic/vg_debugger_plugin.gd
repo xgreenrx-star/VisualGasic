@@ -11,6 +11,9 @@ signal debug_state_received(state: Dictionary)
 signal debug_break_hit(file: String, line: int)
 signal debug_print_received(text: String)
 signal profiler_data_received(report: Dictionary)
+signal form_controls_received(controls: Array)
+signal debug_continued()
+signal debug_session_stopped()
 
 var _active_session: EditorDebuggerSession = null
 var _pending_requests: Dictionary = {}
@@ -121,6 +124,12 @@ func _capture(message: String, data: Array, session_id: int) -> bool:
 			if data.size() >= 1:
 				profiler_data_received.emit(data[0])
 			return true
+		
+		"form_controls":
+			# v4.3: Controls Inspector — list of form controls with properties
+			if data.size() >= 1:
+				form_controls_received.emit(data[0])
+			return true
 	
 	return false
 
@@ -157,7 +166,7 @@ func _on_session_breaked(can_debug: bool) -> void:
 
 func _on_session_continued() -> void:
 	"""Called when the remote game continues from break."""
-	pass
+	debug_continued.emit()
 
 func _session_stopped() -> void:
 	_active_session = null
@@ -165,6 +174,7 @@ func _session_stopped() -> void:
 	if _breakpoint_poll_timer:
 		_breakpoint_poll_timer.stop()
 	instances_updated.emit([])
+	debug_session_stopped.emit()
 
 func _poll_breakpoints_from_editor() -> void:
 	"""Poll breakpoints from ScriptEditor - workaround since _breakpoint_set_in_tree 

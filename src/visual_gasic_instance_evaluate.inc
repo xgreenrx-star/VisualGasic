@@ -143,6 +143,8 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
                     // v3.2 aliases – GPU & ECS
                     else if (alias.nocasecmp_to("Gpu") == 0 || alias.nocasecmp_to("VGGpu") == 0) resolved = "VisualGasicGPU";
                     else if (alias.nocasecmp_to("ECS") == 0 || alias.nocasecmp_to("VGEcs") == 0) resolved = "VisualGasicECS";
+                    // v4.3 aliases – Database controls
+                    else if (alias.nocasecmp_to("Recordset") == 0 || alias.nocasecmp_to("ADODB.Recordset") == 0) resolved = "VGRecordset";
                     // Also resolve full VG* names for v3.0+ (bypass can_instantiate issue)
                     else if (alias.begins_with("VG") && ClassDB::class_exists(alias)) resolved = alias;
 
@@ -399,6 +401,28 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
                  }
                  if (ClassDB::class_has_integer_constant(base_name, mname)) {
                      return (int)ClassDB::class_get_integer_constant(base_name, mname);
+                 }
+             }
+             
+             // ── Imported module member access: ModuleName.Variable / .Constant (v4.3.0) ──
+             if (module_registry.has(base_name)) {
+                 Dictionary mod_dict = module_registry[base_name];
+                 if (mod_dict.has(ma->member_name)) {
+                     return mod_dict[ma->member_name];
+                 }
+                 // Check enums in imported module
+                 for (int m = 0; m < imported_modules.size(); m++) {
+                     if (imported_modules[m].module_name.nocasecmp_to(base_name) == 0 && imported_modules[m].ast) {
+                         ModuleNode* imod = imported_modules[m].ast;
+                         for (int ei = 0; ei < imod->enums.size(); ei++) {
+                             for (int vi = 0; vi < imod->enums[ei]->values.size(); vi++) {
+                                 if (imod->enums[ei]->values[vi].name.nocasecmp_to(ma->member_name) == 0) {
+                                     return imod->enums[ei]->values[vi].value;
+                                 }
+                             }
+                         }
+                         break;
+                     }
                  }
              }
          }

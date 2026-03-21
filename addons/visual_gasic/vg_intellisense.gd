@@ -370,6 +370,53 @@ static func get_completions(prefix: String, context: Dictionary = {}) -> Array[D
 					"detail": "Variable"
 				})
 	
+	# Imported module names and their public symbols (v4.3.0)
+	if context.has("imported_modules"):
+		for mod_info in context["imported_modules"]:
+			var mod_name: String = mod_info.get("name", "")
+			if mod_name.to_lower().begins_with(prefix_lower):
+				results.append({
+					"text": mod_name,
+					"kind": "module",
+					"detail": "Imported Module"
+				})
+			# Also add public subs/functions directly (unqualified)
+			if mod_info.has("subs"):
+				for sub_name in mod_info["subs"]:
+					if sub_name.to_lower().begins_with(prefix_lower):
+						results.append({
+							"text": sub_name,
+							"kind": "function",
+							"detail": "From " + mod_name
+						})
+	
+	# Dot-completion for imported modules: ModuleName.
+	if context.has("imported_modules") and context.has("dot_base"):
+		var dot_base: String = context["dot_base"]
+		for mod_info in context["imported_modules"]:
+			if mod_info.get("name", "").nocasecmp_to(dot_base) == 0:
+				if mod_info.has("subs"):
+					for sub_name in mod_info["subs"]:
+						results.append({
+							"text": sub_name,
+							"kind": "function",
+							"detail": mod_info["name"] + "." + sub_name + "()"
+						})
+				if mod_info.has("variables"):
+					for var_name in mod_info["variables"]:
+						results.append({
+							"text": var_name,
+							"kind": "property",
+							"detail": mod_info["name"] + "." + var_name
+						})
+				if mod_info.has("constants"):
+					for const_name in mod_info["constants"]:
+						results.append({
+							"text": const_name,
+							"kind": "constant",
+							"detail": mod_info["name"] + "." + const_name
+						})
+	
 	return results
 
 ## Generates method completions for a given object type

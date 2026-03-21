@@ -176,6 +176,32 @@ jobs:
             cp -r addons/visual_gasic/prototypes staging/addons/visual_gasic/
           fi
 
+          # Copy installers and CLI tool to release root
+          cp install.sh staging/
+          cp install.ps1 staging/
+          cp install.py staging/
+          cp vg staging/
+          chmod +x staging/vg staging/install.sh
+
+          # Copy documentation
+          cp README.md staging/
+          cp CHANGELOG.md staging/
+          cp LICENSE staging/
+          cp RELEASE_NOTES_v*.md staging/ 2>/dev/null || true
+          cp -r docs staging/ 2>/dev/null || true
+          rm -rf staging/docs/archive staging/docs/development 2>/dev/null || true
+
+          # Copy examples, demos, and tutorials
+          cp -r examples staging/ 2>/dev/null || true
+          cp -r demos staging/ 2>/dev/null || true
+          cp -r tutorials staging/ 2>/dev/null || true
+
+          # Clean up build artifacts and caches
+          find staging -name "*.uid" -delete 2>/dev/null || true
+          find staging -name ".godot" -type d -exec rm -rf {} + 2>/dev/null || true
+          find staging -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
+          find staging -name ".DS_Store" -delete 2>/dev/null || true
+
       - name: List packaged files
         run: find staging -type f | sort
 
@@ -190,18 +216,47 @@ jobs:
           body: |
             ## VisualGasic v${{ steps.version.outputs.version }}
 
-            ### Installation
+            ### 🚀 Quick Install
+
+            **Linux / macOS:**
+            ```bash
+            curl -sSL https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/main/install.sh | bash
+            vg new MyGame && cd MyGame && godot .
+            ```
+
+            **Windows (PowerShell):**
+            ```powershell
+            irm https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/main/install.ps1 | iex
+            vg new MyGame; cd MyGame; godot .
+            ```
+
+            **Python (all platforms):**
+            ```bash
+            python3 install.py --github
+            ```
+
+            ### 📥 Manual Installation
             1. Download `VisualGasic-v${{ steps.version.outputs.version }}.zip`
             2. Extract into your Godot 4.6+ project root
-            3. Enable the plugin in **Project → Project Settings → Plugins**
+            3. Enable the plugin: **Project → Project Settings → Plugins → VisualGasic ✓**
 
-            ### Platforms
+            ### 🎨 From the VG IDE
+            Already in a VG project? **File → New Project...** creates a new project without leaving the editor.
+
+            ### 🖥️ Platforms
             - **Linux** x86_64 (editor + template_debug + template_release)
             - **Windows** x86_64 (editor + template_debug + template_release)
             - **macOS** Universal (x86_64 + arm64) (editor + template_debug + template_release)
 
-            See [CHANGELOG.md](CHANGELOG.md) for full details.
+            ### 📦 What's Included
+            - Pre-built binaries for all 3 platforms
+            - `install.sh` / `install.ps1` / `install.py` installers
+            - `vg` CLI tool for project creation and management
+            - 14 playable demo projects
+            - Complete documentation and tutorials
+
+            See [RELEASE_NOTES_v${{ steps.version.outputs.version }}.md](RELEASE_NOTES_v${{ steps.version.outputs.version }}.md) and [CHANGELOG.md](CHANGELOG.md) for full details.
           files: |
             VisualGasic-v${{ steps.version.outputs.version }}.zip
           draft: false
-          prerelease: false
+          prerelease: ${{ contains(steps.version.outputs.version, 'rc') || contains(steps.version.outputs.version, 'beta') }}

@@ -239,7 +239,22 @@ ModuleNode* VisualGasicParser::parse(const Vector<VisualGasicTokenizer::Token>& 
         }
 
         // Variable Declaration (Dim, Public, Private)
+        // But NOT if Public/Private is followed by Sub/Function — those are subs
         if (t.type == VisualGasicTokenizer::TOKEN_KEYWORD && (val == "public" || val == "private" || val == "dim")) {
+            // Peek ahead: if Public/Private is followed by Sub/Function, treat as a sub definition
+            if (val == "public" || val == "private") {
+                VisualGasicTokenizer::Token next_t = peek(1);
+                String next_val = String(next_t.value).to_lower();
+                if (next_val == "sub" || next_val == "function") {
+                    advance(); // Eat Public/Private
+                    SubDefinition* sub = parse_sub();
+                    if (sub) {
+                        module->subs.push_back(sub);
+                        unregister_node(sub);
+                    }
+                    continue;
+                }
+            }
             // Parse DimStatement logic but store as global VariableDefinition
              DimStatement* dim = parse_dim(); // Reuse parse_dim which handles Dim A As Integer
              if (dim) {

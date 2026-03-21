@@ -1,0 +1,37 @@
+' test_multi_module.vg — Tests multi-module Import & cross-module calls
+' MAX_FRAMES: 5
+Import "test_math_lib.vg"
+
+Sub _Ready()
+    ' Test 0: Simple imported function returning literal
+    Dim v As Integer
+    v = GetFortyTwo()
+    If v = 42 Then
+        Print "PASS: multi_module_simple_return"
+    Else
+        Print "FAIL: multi_module_simple_return: expected 42"
+    End If
+
+    ' Test 1: Call imported function with params
+    Dim result As Double
+    result = AddNums(10, 20)
+    If result = 30 Then
+        Print "PASS: multi_module_unqualified_call"
+    Else
+        Print "FAIL: multi_module_unqualified_call: expected 30"
+    End If
+    
+    ' Test 2: Call another imported function
+    result = MultiplyNums(5, 6)
+    If result = 30 Then
+        Print "PASS: multi_module_multiply"
+    Else
+        Print "FAIL: multi_module_multiply: expected 30"
+    End If
+    
+    ' Test 3: Call imported Sub
+    PrintBanner
+    Print "PASS: multi_module_sub_call"
+    
+    Print "PASS: multi_module_complete"
+End Sub

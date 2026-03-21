@@ -9,6 +9,7 @@
 #include "visual_gasic_debugger.h"
 #include "visual_gasic_profiler.h"
 #include "visual_gasic_jit_tier2.h"
+#include "visual_gasic_jit_tier3.h"
 #include "gasic_ai_controller.h"
 #include "visual_gasic_comm.h"
 
@@ -278,7 +279,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         vm.ip = previous_ip;
     };
 
-    // ── JIT Tier 2: attempt native execution for hot functions ──────────
+    // ── JIT Tier 2/3: attempt native execution for hot functions ──────────
 #ifdef __linux__
     if (p_ip_start == 0 && p_ip_end <= 0 && func && !p_initial_locals) {
         std::string jit_name;
@@ -286,6 +287,58 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
             jit_name = std::string(func->name.utf8().get_data());
         }
         if (!jit_name.empty()) {
+            // ── Tier 3: record bytecode size for call-graph profiling ───
+            vgjit3::Tier3& t3 = vgjit3::thread_jit3();
+            if (t3.enabled()) {
+                t3.record_bytecode_size(jit_name, chunk->code.size());
+            }
+
+            // ── Tier 3: try fused call-graph compilation first ──────────
+            if (t3.enabled()) {
+                // Provide a chunk resolver that looks up compiled chunks
+                // from this script instance's function table.
+                struct ResolverCtx {
+                    VisualGasicInstance* self;
+                };
+                ResolverCtx rctx { this };
+                auto chunk_resolver = [](const std::string& name, void* ctx) -> BytecodeChunk* {
+                    auto* rc = static_cast<ResolverCtx*>(ctx);
+                    String gname = String(name.c_str());
+                    if (rc->self->script.is_valid()) {
+                        return rc->self->script->get_bytecode_for(gname);
+                    }
+                    return nullptr;
+                };
+                vgjit2::CompiledFunc* fused = t3.get_or_compile(jit_name, chunk_resolver, &rctx);
+                if (fused && fused->fn) {
+                    int slot_count = fused->total_slots > 0 ? fused->total_slots : chunk->local_count;
+                    if (slot_count < 1) slot_count = 1;
+                    std::vector<int64_t> jit_locals(slot_count, 0);
+                    for (int i = 0; i < chunk->local_count && i < chunk->local_names.size(); i++) {
+                        const String &lname = chunk->local_names[i];
+                        if (!lname.is_empty() && variables.has(lname)) {
+                            Variant v = variables[lname];
+                            if (v.get_type() == Variant::INT) jit_locals[i] = (int64_t)v;
+                            else if (v.get_type() == Variant::FLOAT) {
+                                double d = (double)v; memcpy(&jit_locals[i], &d, 8);
+                            }
+                        }
+                    }
+                    int64_t has_retval = fused->fn(jit_locals.data(), (int64_t)slot_count);
+                    for (int i = 0; i < chunk->local_count && i < chunk->local_names.size(); i++) {
+                        const String &lname = chunk->local_names[i];
+                        if (!lname.is_empty()) variables[lname] = Variant((int64_t)jit_locals[i]);
+                    }
+                    if (has_retval) {
+                        r_ret = Variant((int64_t)jit_locals[0]);
+                    } else {
+                        r_ret = Variant();
+                    }
+                    return true;
+                }
+            }
+
+            // ── Tier 2: per-function native compilation ─────────────────
             vgjit2::CompiledFunc* native = vgjit2::thread_jit().get_or_compile(jit_name, chunk);
             if (native && native->fn) {
                 // Marshal locals + virtual global slots into int64 array
@@ -1201,6 +1254,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     // v3.2 aliases – GPU & ECS
                     else if (class_name.nocasecmp_to("Gpu") == 0 || class_name.nocasecmp_to("VGGpu") == 0) resolved = "VisualGasicGPU";
                     else if (class_name.nocasecmp_to("ECS") == 0 || class_name.nocasecmp_to("VGEcs") == 0) resolved = "VisualGasicECS";
+                    // v4.3 aliases – Database controls
+                    else if (class_name.nocasecmp_to("Recordset") == 0 || class_name.nocasecmp_to("ADODB.Recordset") == 0) resolved = "VGRecordset";
                     // Also resolve full VG* names for v3.0+ (bypass can_instantiate issue)
                     else if (class_name.begins_with("VG") && ClassDB::class_exists(class_name)) resolved = class_name;
 
@@ -2046,6 +2101,19 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     args[i] = pop_value();
                 }
                 String method = read_constant(name_idx);
+
+                // ── Tier 3 call graph recording ───────────────────────────
+                {
+                    vgjit3::Tier3& t3 = vgjit3::thread_jit3();
+                    if (t3.enabled() && func && !method.is_empty()) {
+                        std::string caller_name(func->name.utf8().get_data());
+                        std::string callee_name(method.utf8().get_data());
+                        if (!caller_name.empty() && !callee_name.empty()) {
+                            t3.record_call(caller_name, callee_name);
+                        }
+                    }
+                }
+
                 bool handled = false;
                 Variant call_ret = VisualGasicBuiltins::call_builtin_expr_evaluated(this, method, args, handled);
 

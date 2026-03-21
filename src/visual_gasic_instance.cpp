@@ -121,6 +121,9 @@
 static std::mutex vg_debug_instance_registry_mutex;
 static std::set<VisualGasicInstance*> vg_debug_active_instances;
 
+// Thread-local import stack for circular import detection (v4.3.0)
+thread_local Vector<String> VisualGasicInstance::import_stack;
+
 namespace VisualGasicDebug {
 
 void register_instance(VisualGasicInstance* instance) {
@@ -1018,8 +1021,13 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
             }
             whenever_init_suppress = false;
             
-            // Resolve Import statements (v4.2.0) — load imported modules
-            // and register their Public subs/variables in module_registry.
+            // Resolve Import statements (v4.3.0) — load imported modules,
+            // store full ASTs for cross-module function calls, and register
+            // public variables/constants in module_registry for dot-access.
+            // Circular import detection via thread-local import_stack.
+            String this_path = vs->get_path();
+            import_stack.push_back(this_path);
+            
             for (int ii = 0; ii < vs->ast_root->imports.size(); ii++) {
                 String import_path = vs->ast_root->imports[ii];
                 // Resolve relative to current script directory
@@ -1029,19 +1037,42 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
                     full_path = script_dir.path_join(import_path);
                 }
                 
+                // Circular import detection
+                bool is_circular = false;
+                for (int ci = 0; ci < import_stack.size() - 1; ci++) {
+                    if (import_stack[ci] == full_path) {
+                        is_circular = true;
+                        break;
+                    }
+                }
+                if (is_circular) {
+                    UtilityFunctions::print("[VG] Import Warning: Circular import detected for: ", full_path, " — skipping");
+                    continue;
+                }
+                
                 if (FileAccess::file_exists(full_path)) {
-                    String import_source = FileAccess::get_file_as_string(full_path);
-                    VisualGasicTokenizer import_tok;
-                    Vector<VisualGasicTokenizer::Token> import_tokens = import_tok.tokenize(import_source);
-                    VisualGasicParser import_parser;
-                    ModuleNode* import_ast = import_parser.parse(import_tokens);
+                    // Allocate on heap so AST nodes survive past this scope
+                    VisualGasicTokenizer* import_tok = new VisualGasicTokenizer();
+                    Vector<VisualGasicTokenizer::Token> import_tokens = import_tok->tokenize(
+                        FileAccess::get_file_as_string(full_path));
+                    VisualGasicParser* import_parser = new VisualGasicParser();
+                    ModuleNode* import_ast = import_parser->parse(import_tokens);
                     
-                    if (import_ast && import_parser.errors.size() == 0) {
-                        // Extract module name from filename
+                    if (import_ast && import_parser->errors.size() == 0) {
                         String mod_name = full_path.get_file().get_basename();
                         
+                        // Store the full AST for cross-module function calls
+                        ImportedModule im;
+                        im.module_name = mod_name;
+                        im.full_path = full_path;
+                        im.ast = import_ast;
+                        im.parser = import_parser;
+                        im.tokenizer = import_tok;
+                        imported_modules.push_back(im);
+                        
+                        // Also populate module_registry for backward compat
+                        // and ModuleName.Variable dot-access
                         Dictionary mod_dict;
-                        // Register public variables
                         for (int vi = 0; vi < import_ast->variables.size(); vi++) {
                             VariableDefinition* mv = import_ast->variables[vi];
                             if (mv->visibility == VIS_PUBLIC) {
@@ -1053,21 +1084,36 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
                                 else mod_dict[mv->name] = Variant();
                             }
                         }
-                        // Register public constants
                         for (int ci = 0; ci < import_ast->constants.size(); ci++) {
                             ConstStatement* mc = import_ast->constants[ci];
                             if (mc->value && mc->value->type == ExpressionNode::LITERAL) {
                                 mod_dict[mc->name] = static_cast<LiteralNode*>(mc->value)->value;
                             }
                         }
+                        // Register sub/function names for IntelliSense hints
+                        // (all module-level subs are public by default in VB6)
+                        for (int si = 0; si < import_ast->subs.size(); si++) {
+                            SubDefinition* sd = import_ast->subs[si];
+                            mod_dict[String("__sub__") + sd->name] = sd->parameters.size();
+                        }
                         
                         module_registry[mod_name] = mod_dict;
-                        UtilityFunctions::print("[VG] Imported module: ", mod_name, " from ", full_path);
+                        UtilityFunctions::print("[VG] Imported module: ", mod_name, " (", 
+                            import_ast->subs.size(), " subs, ",
+                            import_ast->variables.size(), " vars) from ", full_path);
+                    } else {
+                        // Parse failed — clean up
+                        delete import_parser;
+                        delete import_tok;
                     }
-                    // Note: import_ast ownership — parser tracks nodes, will clean up
                 } else {
                     UtilityFunctions::print("[VG] Import Error: File not found: ", full_path);
                 }
+            }
+            
+            // Pop import stack
+            if (import_stack.size() > 0) {
+                import_stack.remove_at(import_stack.size() - 1);
             }
         }
     }
@@ -1296,6 +1342,79 @@ VisualGasicInstance::~VisualGasicInstance() {
     for(int i=0; i<runtime_data_nodes.size(); i++) {
         if (runtime_data_nodes[i]) delete runtime_data_nodes[i];
     }
+    
+    // Clean up imported module ASTs (v4.3.0)
+    for (int i = 0; i < imported_modules.size(); i++) {
+        if (imported_modules[i].parser) delete imported_modules[i].parser;
+        if (imported_modules[i].tokenizer) delete imported_modules[i].tokenizer;
+    }
+    imported_modules.clear();
+}
+
+// ── Multi-Module: find a Sub/Function across all imported modules (v4.3.0) ──
+SubDefinition* VisualGasicInstance::find_imported_sub(const String& name, int arg_count, String* r_module_name) {
+    for (int m = 0; m < imported_modules.size(); m++) {
+        ModuleNode* ast = imported_modules[m].ast;
+        if (!ast) continue;
+        SubDefinition* first_match = nullptr;
+        for (int s = 0; s < ast->subs.size(); s++) {
+            SubDefinition* sd = ast->subs[s];
+            if (sd->name.nocasecmp_to(name) == 0) {
+                if (!first_match) first_match = sd;
+                if (arg_count < 0) { // No arity filter
+                    if (r_module_name) *r_module_name = imported_modules[m].module_name;
+                    return sd;
+                }
+                int param_count = sd->parameters.size();
+                if (param_count == arg_count) {
+                    if (r_module_name) *r_module_name = imported_modules[m].module_name;
+                    return sd;
+                }
+                // Optional params
+                int required = 0;
+                for (int j = 0; j < param_count; j++) {
+                    if (!sd->parameters[j].is_optional && !sd->parameters[j].is_param_array) required++;
+                }
+                bool has_param_array = param_count > 0 && sd->parameters[param_count - 1].is_param_array;
+                if (has_param_array ? (arg_count >= required) : (arg_count >= required && arg_count <= param_count)) {
+                    if (r_module_name) *r_module_name = imported_modules[m].module_name;
+                    return sd;
+                }
+            }
+        }
+        if (first_match) {
+            if (r_module_name) *r_module_name = imported_modules[m].module_name;
+            return first_match;
+        }
+    }
+    return nullptr;
+}
+
+// ── Multi-Module: find Sub/Function in a specific module by name (v4.3.0) ──
+SubDefinition* VisualGasicInstance::find_sub_in_module(const String& module_name, const String& sub_name, int arg_count) {
+    for (int m = 0; m < imported_modules.size(); m++) {
+        if (imported_modules[m].module_name.nocasecmp_to(module_name) != 0) continue;
+        ModuleNode* ast = imported_modules[m].ast;
+        if (!ast) continue;
+        SubDefinition* first_match = nullptr;
+        for (int s = 0; s < ast->subs.size(); s++) {
+            SubDefinition* sd = ast->subs[s];
+            if (sd->name.nocasecmp_to(sub_name) == 0) {
+                if (!first_match) first_match = sd;
+                if (arg_count < 0) return sd;
+                int param_count = sd->parameters.size();
+                if (param_count == arg_count) return sd;
+                int required = 0;
+                for (int j = 0; j < param_count; j++) {
+                    if (!sd->parameters[j].is_optional && !sd->parameters[j].is_param_array) required++;
+                }
+                bool has_param_array = param_count > 0 && sd->parameters[param_count - 1].is_param_array;
+                if (has_param_array ? (arg_count >= required) : (arg_count >= required && arg_count <= param_count)) return sd;
+            }
+        }
+        return first_match;
+    }
+    return nullptr;
 }
 
 Variant VisualGasicInstance::evaluate_expression_for_builtins(ExpressionNode* expr) {

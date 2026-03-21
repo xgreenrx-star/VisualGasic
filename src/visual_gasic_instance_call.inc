@@ -42,6 +42,12 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
     }
     if (!func) func = first_match; // Backward compat: single-overload always matches
     
+    // ── Cross-module function resolution (v4.3.0) ──
+    // If the function wasn't found in the current script, search imported modules
+    if (!func && imported_modules.size() > 0) {
+        func = find_imported_sub(p_method, call_arg_count);
+    }
+    
     if (!func) return Variant();
     r_found = true;
 

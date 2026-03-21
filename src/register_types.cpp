@@ -43,6 +43,9 @@
 #include "visual_gasic_task.h"
 #include "visual_gasic_package.h"
 
+// v4.3 – database controls
+#include "visual_gasic_recordset.h"
+
 // v3.1 – system-level programming
 #include "visual_gasic_system.h"
 #include "visual_gasic_signal_handler.h"
@@ -132,6 +135,9 @@ void initialize_visual_gasic_module(ModuleInitializationLevel p_level) {
 
         // v3.2 – LSP integration
         ClassDB::register_class<VisualGasicLSP>();      // Language server: completions, hover, definitions
+
+        // v4.3 – database controls
+        ClassDB::register_class<VGRecordset>();          // ADODB.Recordset-compatible cursor
 
         visual_gasic_language = memnew(VisualGasicLanguage);
         Engine::get_singleton()->register_script_language(visual_gasic_language);

@@ -1,11 +1,13 @@
 # VisualGasic Project Status
 
-**Version**: 4.2.0-beta5 (IDE Bottom Panel & Live Console)  
+**Version**: 4.4.0-rc1 (Release Candidate)  
 **Last Updated**: March 2026
 
 ## Overview
 
 VisualGasic is a modern programming language for Godot Engine 4.x, implemented as a GDExtension. Inspired by VB6's approachable syntax and ease of learning, VisualGasic is its own language — VB6-compatible where it counts, but packed with modern features (lambdas, async/await, pattern matching, generics, GPU computing, JIT compilation) that go far beyond what VB6 ever offered. It is designed to look forwards, not backwards.
+
+> **🚀 RC1 Status**: v4.4.0-rc1 is feature-complete with cross-platform binaries, installers, and IDE project creation. All major development is done — community testing is needed before the stable v4.4.0 release.
 
 ## Performance
 
@@ -99,6 +101,21 @@ All documentation is organized in [docs/DOCUMENTATION_INDEX.md](docs/DOCUMENTATI
   - VGIPC — named pipes, UNIX domain sockets, shared memory
   - VGAndroidBridge — JNI device info, permissions, intents, toast, vibrate
   - Real threading — Task.Run / Parallel For / Parallel Section backed by std::thread
+- ✅ **Drawing APIs (v4.2.0-beta6)**: Line, Circle, PSet, Cls, Print, CurrentX/Y, DrawWidth, FillStyle
+- ✅ **VB6 Command Parity (v4.2.0-beta6)**: 18 new commands — Beep, DoEvents, SendKeys, AppActivate, Shell, Environ$, Command$, financial functions (13)
+- ✅ **Multi-Module Compilation (v4.3.0)**: Cross-file Import, project-wide symbol tables, circular import detection
+- ✅ **Visual Form Debugger (v4.3.0)**: Controls Inspector panel, tree view, click-to-source, debugger integration
+- ✅ **Database Controls (v4.3.0)**: VGRecordset (ADODB.Recordset API), Data/DBGrid/DBCombo controls, 13 tests pass
+- ✅ **Package Manager (v4.3.0)**: vg pkg CLI, vg.json manifests, GitHub registry, GUI Package Browser, 11 tests pass
+- ✅ **macOS Universal Binary (v4.3.0)**: x86_64 + arm64 fat binary build script + CI workflow
+- ✅ **JIT Tier 3 (v4.3.0)**: Call graph compilation, function inlining, 5-tier JIT stack (Tier 0→0.5→1→2→3), 10 tests pass
+
+### Release & Distribution: ✅ Complete
+- ✅ **Cross-Platform Installer** — `install.sh` (Linux/macOS), `install.ps1` (Windows), `install.py` (Python)
+- ✅ **`vg` CLI Tool** — `vg new`, `vg install`, `vg update`, `vg pkg`, `vg version`
+- ✅ **Pre-Built Binaries** — Linux x86_64, Windows x86_64, macOS Universal (x86_64 + arm64)
+- ✅ **IDE Project Creation** — File → New Project from within VG IDE, Tools menu integration
+- ✅ **CI/CD Pipeline** — GitHub Actions builds all 3 platforms, creates GitHub Releases with installers
 
 ### Testing: ✅ Comprehensive
 - ✅ Unit tests for all features
@@ -235,8 +252,9 @@ See [ROADMAP.md](ROADMAP.md) for the complete development roadmap including:
 - **Theme Support (Classic VB6 gray)**
 
 ### Planned Features
-- JIT compilation for hot paths
+- ~~JIT compilation for hot paths~~ ✅ Complete (5-tier JIT: Tier 0 → 0.5 → 1 → 2 → 3)
 - WebSocket/networking controls
+- WebAssembly export validation
 
 ### ✅ Completed (v2.4.1)
 - **Dictionary optimization** — VGFastStringDict + loop fusion + escape analysis
@@ -257,6 +275,23 @@ MIT License - See [LICENSE](LICENSE)
 - Forums: Discussion and support
 
 ## Recent Updates
+
+### v4.3.0 — v4.0 Roadmap Complete (March 21, 2026)
+- **Multi-Module Compilation** — Cross-file `Import` with project-wide symbol tables and circular import detection
+- **Visual Form Debugger** — Controls Inspector panel with tree view, click-to-source, debugger integration
+- **Database Controls** — VGRecordset C++ class (ADODB.Recordset API), Data/DBGrid/DBCombo toolbox controls
+- **Package Manager** — `vg pkg` CLI, `vg.json` manifests, GitHub-backed registry, GUI Package Browser
+- **macOS Universal Binary** — `scripts/build_macos_universal.sh` + CI workflow
+- **JIT Tier 3** — Call graph compilation with function inlining, completing the 5-tier JIT stack
+- Test suite: 75+ test files, 650+ assertions
+
+### v4.2.0-beta6 — Drawing APIs & VB6 Command Parity (March 18, 2026)
+- **Drawing APIs** — Line, Circle, PSet, Cls, Print, CurrentX/Y, DrawWidth, FillStyle, FillColor
+- **18 New VB6 Commands** — Beep, DoEvents, SendKeys, AppActivate, Shell, Environ$, Command$
+- **13 Financial Functions** — Pmt, PV, FV, Rate, NPer, IPmt, PPmt, NPV, IRR, MIRR, SLN, SYD, DDB
+- **IDE Enhancements** — Tab close buttons, Recent Files list, Status Bar, Output Window
+- **macOS Build** — Initial macOS build support in CI
+- **Documentation Overhaul** — 35 commits across all docs
 
 ### v4.2.0 — GDScript Parity (March 13, 2026)
 - `Export Dim`/`Export Public` — expose variables to Godot Inspector
@@ -298,8 +333,8 @@ MIT License - See [LICENSE](LICENSE)
 - Bit-shift operators (<<, >>)
 - LongLong type alias (64-bit)
 
-### Testing (v4.2.0)
-- **69 test files** · **611 assertions** · **609 pass** · **2 fail** (pre-existing symlink tests)
+### Testing (v4.3.0)
+- **75+ test files** · **650+ assertions** · Database Controls: 13 pass · Package Manager: 11 pass · JIT Tier 3: 10 pass
 
 ## Credits
 

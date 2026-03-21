@@ -1,0 +1,129 @@
+' Test Database Controls — VGRecordset (v4.3.0)
+' Tests: Recordset Open/Close, MoveFirst/MoveNext/MoveLast,
+'        Fields access, AddNew/Update, EOF/BOF
+
+Sub _Ready()
+    Dim db As New Database
+    
+    Dim testDb As String
+    testDb = "/tmp/vg_test_db_controls2.db"
+    
+    db.Open testDb
+    
+    If db.IsOpen Then
+        Print "PASS: Database opened"
+    Else
+        Print "FAIL: Database not opened"
+        Exit Sub
+    End If
+    
+    ' Create test table with IF NOT EXISTS
+    db.Execute "DROP TABLE IF EXISTS users"
+    db.Execute "CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, age INTEGER)"
+    db.Execute "INSERT INTO users VALUES (1, 'Alice', 30)"
+    db.Execute "INSERT INTO users VALUES (2, 'Bob', 25)"
+    db.Execute "INSERT INTO users VALUES (3, 'Charlie', 35)"
+    
+    ' Test Recordset
+    Dim rs As New Recordset
+    rs.Open "SELECT * FROM users ORDER BY id", db
+    
+    If rs.IsOpen Then
+        Print "PASS: Recordset opened"
+    Else
+        Print "FAIL: Recordset not opened"
+        Exit Sub
+    End If
+    
+    ' Test RecordCount
+    If rs.RecordCount = 3 Then
+        Print "PASS: RecordCount is 3"
+    Else
+        Print "FAIL: RecordCount wrong"
+    End If
+    
+    ' Test Fields by name
+    Dim firstName As Variant
+    firstName = rs.Fields("name")
+    If firstName = "Alice" Then
+        Print "PASS: Fields by name works"
+    Else
+        Print "FAIL: Fields expected Alice"
+    End If
+    
+    ' Test MoveNext
+    rs.MoveNext
+    Dim secondName As Variant
+    secondName = rs.Fields("name")
+    If secondName = "Bob" Then
+        Print "PASS: MoveNext works"
+    Else
+        Print "FAIL: MoveNext expected Bob"
+    End If
+    
+    ' Test MoveLast
+    rs.MoveLast
+    If rs.Fields("name") = "Charlie" Then
+        Print "PASS: MoveLast works"
+    Else
+        Print "FAIL: MoveLast failed"
+    End If
+    
+    ' Test MoveFirst
+    rs.MoveFirst
+    If rs.Fields("name") = "Alice" Then
+        Print "PASS: MoveFirst works"
+    Else
+        Print "FAIL: MoveFirst failed"
+    End If
+    
+    ' Test EOF
+    rs.MoveLast
+    rs.MoveNext
+    If rs.EOF Then
+        Print "PASS: EOF detection works"
+    Else
+        Print "FAIL: EOF should be True"
+    End If
+    
+    ' Test BOF
+    rs.MoveFirst
+    rs.MovePrevious
+    If rs.BOF Then
+        Print "PASS: BOF detection works"
+    Else
+        Print "FAIL: BOF should be True"
+    End If
+    
+    ' Test AddNew / Update
+    rs.AddNew
+    rs.SetField "id", 4
+    rs.SetField "name", "Diana"
+    rs.SetField "age", 28
+    rs.Update
+    
+    If rs.RecordCount = 4 Then
+        Print "PASS: AddNew/Update works"
+    Else
+        Print "FAIL: After AddNew expected 4"
+    End If
+    
+    ' Verify the new record
+    rs.MoveLast
+    If rs.Fields("name") = "Diana" Then
+        Print "PASS: New record verified"
+    Else
+        Print "FAIL: New record not found"
+    End If
+    
+    ' Test Close
+    rs.Close
+    If Not rs.IsOpen Then
+        Print "PASS: Recordset closed"
+    Else
+        Print "FAIL: Recordset should be closed"
+    End If
+    
+    db.Close
+    Print "PASS: All Recordset tests completed"
+End Sub

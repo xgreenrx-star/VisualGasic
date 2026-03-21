@@ -1,7 +1,7 @@
 # VisualGasic — A Modern Language for Godot 4
 
 [![CI](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml/badge.svg)](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/badge/version-4.2.0--beta5-blue.svg)](https://github.com/xgreenrx-star/VisualGasic/releases)
+[![Version](https://img.shields.io/badge/version-4.4.0--rc1-blue.svg)](https://github.com/xgreenrx-star/VisualGasic/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Godot](https://img.shields.io/badge/Godot-4.5+-purple.svg)](https://godotengine.org)
 
@@ -9,7 +9,7 @@
 
 > **VisualGasic is not a VB6 clone.** It is a modern language that draws inspiration from VB6's approachable syntax and ease of learning, while introducing advanced features that go well beyond what VB6 ever offered. VG is VB6-*compatible* where it makes sense — you can port VB6 projects and feel at home immediately — but the language itself is designed to look forwards, not backwards.
 
-> ⚠️ **Early Beta** — version number reflects internal dev history. Latest: v4.2.0-beta5 (IDE Bottom Panel & Live Console). [See release notes](RELEASE_NOTES_v4.2.0-beta5.md).
+> 🚀 **Release Candidate** — v4.4.0-rc1 is feature-complete with cross-platform binaries, installers, and IDE project creation. Community testing welcome! [See release notes](RELEASE_NOTES_v4.4.0-rc1.md).
 
 ## 🚀 **Key Features**
 
@@ -41,6 +41,7 @@
 - **GPU Acceleration** - SIMD vector operations and compute shaders
 - **Parallel Processing** - Automatic GPU/CPU fallback for optimal performance
 - **Memory Optimization** - Efficient memory management and leak detection
+- **JIT Compilation** - 5-tier JIT stack (Tier 0 interpreter → 0.5 loop → 1 AST → 2 function body x86-64 → 3 call graph) with function inlining
 
 ### **Professional Development Tools**
 - **IntelliSense** - Code completion with 80+ functions, snippets, and Godot types
@@ -54,6 +55,10 @@
 - **Full Property Wiring** - 70+ VB6 properties translate to Godot at design-time *and* runtime, including Font, Colors, and Border sub-resources
 - **Game UI Controls** - 7 Tier 1 animated controls: DialogPanel, InventoryGrid, StatBar, HUDCounter, CooldownButton, NotificationToast, GameMenu
 - **IDE Bottom Panel** - Draggable VSplitContainer with Immediate Window (REPL), Output (Debug.Print + lifecycle), and System Console (live Godot log tailing)
+- **Database Controls** - VGRecordset (ADODB.Recordset API), Data/DBGrid/DBCombo toolbox controls, SQL queries at design time
+- **Package Manager** - `vg pkg` CLI, `vg.json` manifests, GitHub-backed registry, GUI Package Browser panel
+- **Multi-Module Compilation** - Cross-file `Import` with project-wide symbol tables and circular import detection
+- **Visual Form Debugger** - Controls Inspector panel with tree view, click-to-source, debugger integration
 
 ### **VB6-Style Visual Gasic IDE**
 
@@ -122,6 +127,8 @@ VisualGasic/
 │   ├── visual_gasic_linter.*    # Static analysis & warnings
 │   ├── visual_gasic_optimizer.* # Bytecode peephole optimizer
 │   ├── visual_gasic_package.*   # Package management
+│   ├── visual_gasic_recordset.* # Database Controls (VGRecordset)
+│   ├── visual_gasic_jit_tier3.* # JIT Tier 3 call graph compilation
 │   └── visual_gasic_ecs.*       # Entity component system
 │   ├── visual_gasic_system.*    # System info (hostname, CPU, RAM, OS)
 │   ├── visual_gasic_signal_handler.* # OS signal handling
@@ -171,7 +178,7 @@ The `vg` CLI stores the addon globally so you never need to copy it manually. Se
 3. A new VG-ready project is created and opened
 
 **From GitHub Release:**
-1. Download from [Releases](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v4.2.0-beta6)
+1. Download from [Releases](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v4.3.0)
 2. Copy the `addons/visual_gasic/` folder into your project's `addons/` directory
 3. Enable the plugin: **Project → Project Settings → Plugins → VisualGasic ✓**
 
@@ -360,9 +367,9 @@ VisualGasic welcomes contributions! Please see our [Contributing Guide](CONTRIBU
 
 ## 📊 **Project Status**
 
-**Current Version**: 4.2.0-beta5 (IDE Bottom Panel & Live Console)
+**Current Version**: 4.4.0-rc1 (Release Candidate)
 
-> See [RELEASE_NOTES_v4.2.0-beta5.md](RELEASE_NOTES_v4.2.0-beta5.md) for the latest changes.
+> See [RELEASE_NOTES_v4.4.0-rc1.md](RELEASE_NOTES_v4.4.0-rc1.md) for the latest changes.
 
 **Completion Status**:
 - ✅ **Core Language** - 95% (VB6 compatibility — see [Known Issues](docs/KNOWN_ISSUES.md) for edge cases)
@@ -379,6 +386,14 @@ VisualGasic welcomes contributions! Please see our [Contributing Guide](CONTRIBU
 - ✅ **Game Demos** - 100% (14 demos: Pong, Snake, Space Shooter, Galactic Defender, Calculator, Piano, and more)
 - ✅ **Documentation** - 100% (Comprehensive guides and references)
 - ✅ **Performance** - 11/11 benchmarks faster than GDScript (up to 118× faster) — VG wins 6/9 vs C++
+- ✅ **Database Controls** - 100% (VGRecordset, Data/DBGrid/DBCombo, 13 tests pass)
+- ✅ **Package Manager** - 100% (vg pkg CLI, vg.json, GitHub registry, GUI browser, 11 tests pass)
+- ✅ **JIT Compilation** - 100% (5-tier stack: Tier 0→0.5→1→2→3, call graph compilation, 10 tests pass)
+- ✅ **Multi-Module** - 100% (Cross-file Import, project-wide symbols, circular import detection)
+- ✅ **macOS Universal** - 100% (x86_64 + arm64 fat binary, CI workflow)
+- ✅ **Cross-Platform Installer** - 100% (install.sh, install.ps1, install.py, vg CLI)
+- ✅ **Pre-Built Binaries** - 100% (Linux x86_64, Windows x86_64, macOS Universal)
+- ✅ **IDE Project Creation** - 100% (File → New Project from within VG IDE)
 
 > **Note:** See [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md) for a complete list
 > of confirmed engine bugs and workarounds.
@@ -386,7 +401,9 @@ VisualGasic welcomes contributions! Please see our [Contributing Guide](CONTRIBU
 ### 🚧 Coming Soon
 
 See [ROADMAP.md](ROADMAP.md) for the full development roadmap:
+- **Stable Release (v4.4.0)** - Pending community testing of RC1
 - **Asset Library** - Publish to Godot Asset Library
+- **WebAssembly Validation** - Verify HTML5 export compatibility
 
 ## 📄 **License**
 

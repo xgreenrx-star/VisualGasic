@@ -1,0 +1,19 @@
+' test_math_lib.vg — Utility module for multi-module testing
+
+Public Const PI_VALUE As Double = 3.14159265
+
+Public Function AddNums(a As Double, b As Double) As Double
+    AddNums = a + b
+End Function
+
+Public Function MultiplyNums(a As Double, b As Double) As Double
+    MultiplyNums = a * b
+End Function
+
+Public Function GetFortyTwo() As Integer
+    GetFortyTwo = 42
+End Function
+
+Public Sub PrintBanner()
+    Debug.Print "=== MathLib Module Loaded ==="
+End Sub

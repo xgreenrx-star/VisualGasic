@@ -1,0 +1,91 @@
+name: macOS Universal Binary
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'SConstruct'
+      - 'godot-cpp/**'
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-macos-universal:
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        target: [editor, template_debug, template_release]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install SCons
+        run: pip install scons
+
+      - name: Install libffi (for VGNativeLibrary FFI support)
+        run: brew install libffi
+
+      - name: Build Universal Binary
+        run: |
+          chmod +x scripts/build_macos_universal.sh
+          ./scripts/build_macos_universal.sh ${{ matrix.target }}
+        env:
+          PKG_CONFIG_PATH: /opt/homebrew/opt/libffi/lib/pkgconfig
+
+      - name: Verify Universal Binary
+        run: |
+          FRAMEWORK="demo/bin/libvisualgasic.macos.${{ matrix.target }}.framework"
+          DYLIB="$FRAMEWORK/libvisualgasic.macos.${{ matrix.target }}"
+          echo "Checking: $DYLIB"
+          lipo -info "$DYLIB"
+          file "$DYLIB"
+          # Ensure both architectures are present
+          lipo -info "$DYLIB" | grep -q "arm64" || (echo "FAIL: missing arm64" && exit 1)
+          lipo -info "$DYLIB" | grep -q "x86_64" || (echo "FAIL: missing x86_64" && exit 1)
+          echo "PASS: Universal binary contains both architectures"
+
+      - name: Upload Framework Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-${{ matrix.target }}-framework
+          path: demo/bin/libvisualgasic.macos.${{ matrix.target }}.framework/
+          retention-days: 30
+
+  package-universal:
+    needs: build-macos-universal
+    runs-on: macos-latest
+    steps:
+      - name: Download all frameworks
+        uses: actions/download-artifact@v4
+        with:
+          path: frameworks
+
+      - name: Package
+        run: |
+          mkdir -p release/macos/bin
+          for target in editor template_debug template_release; do
+            src="frameworks/macos-${target}-framework"
+            dst="release/macos/bin/libvisualgasic.macos.${target}.framework"
+            if [ -d "$src" ]; then
+              cp -r "$src" "$dst"
+              echo "Packaged: $dst"
+            fi
+          done
+          cd release && zip -r ../VisualGasic-macos-universal.zip macos/
+
+      - name: Upload Release Package
+        uses: actions/upload-artifact@v4
+        with:
+          name: VisualGasic-macos-universal
+          path: VisualGasic-macos-universal.zip
+          retention-days: 90

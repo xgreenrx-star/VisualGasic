@@ -25,6 +25,17 @@ class VisualGasicInstance {
     Dictionary static_variables; // Persist across calls (Static keyword)
     Dictionary module_registry; // Module name -> Dictionary of module variables
 
+    // Multi-module compilation (v4.3.0) — imported module ASTs for cross-file calls
+    struct ImportedModule {
+        String module_name;         // Base filename without extension
+        String full_path;           // Resolved absolute path
+        ModuleNode* ast = nullptr;  // Parsed AST (owned by parser, cleaned up below)
+        VisualGasicParser* parser = nullptr; // Keep alive so AST nodes aren't freed
+        VisualGasicTokenizer* tokenizer = nullptr;
+    };
+    Vector<ImportedModule> imported_modules;
+    static thread_local Vector<String> import_stack; // Circular import detection
+
     Ref<DirAccess> current_dir; // For Dir() iteration
     String dir_pattern; 
     bool option_compare_text;
@@ -356,6 +367,11 @@ public:
 
     // Lambda invocation helper (used by builtins for Map/Filter/Reduce etc.)
     Variant invoke_lambda(const Dictionary& lambda_dict, const Array& args);
+
+    // Multi-module: find a Sub/Function across imported modules
+    SubDefinition* find_imported_sub(const String& name, int arg_count = -1, String* r_module_name = nullptr);
+    // Multi-module: find a Sub/Function in a specific imported module
+    SubDefinition* find_sub_in_module(const String& module_name, const String& sub_name, int arg_count = -1);
 
     static const GDExtensionScriptInstanceInfo3 *get_script_instance_info();
 };

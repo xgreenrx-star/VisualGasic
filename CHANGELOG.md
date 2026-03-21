@@ -5,6 +5,127 @@ All notable changes to Visual Gasic will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.4.0-rc1] - 2026-03-21
+
+### 🏁 Release Candidate 1 — Installer, Cross-Platform Binaries & Screenshot Gallery
+
+First release candidate. All v4.0 roadmap features complete. Seeking community testing before stable.
+
+#### Added — Cross-Platform Installer
+- **Linux/macOS**: `curl -sSL .../install.sh | bash` — one-line install with `vg` CLI
+- **Windows**: `irm .../install.ps1 | iex` — PowerShell one-line install with `vg.cmd` wrapper
+- **Python (all platforms)**: `python3 install.py` or `python3 install.py --github`
+- All installers register the global `vg` CLI for project creation and management
+
+#### Added — Pre-Built Binaries (All 3 Platforms)
+- **Linux** x86_64: editor + template_debug + template_release
+- **Windows** x86_64: editor + template_debug + template_release (MinGW cross-compiled)
+- **macOS** Universal (x86_64 + arm64): editor + template_debug + template_release (`lipo` combined)
+- All binaries included in the release zip — no build from source required
+
+#### Added — IDE Project Creation ("File → New Project...")
+- Create VG-ready Godot projects without leaving the editor
+- Enter project name, choose folder → new project created and opened
+- Generated project includes: `project.godot` (plugin enabled), `addons/visual_gasic/`, starter `Form1.vg`, `.gitignore`
+- Also available via CLI: `vg new MyGame`
+
+#### Added — Screenshot Gallery in Release Notes
+- Form Designer with WYSIWYG canvas, Toolbox, Properties Panel
+- Code Editor with syntax highlighting, Bottom Panel (Immediate Window, Output, System Console)
+- Game demos: Pong, Space Shooter, Galactic Defender, Screensaver, Piano, Screen Shaders
+- Custom Theme Editor, Command Help, Snippet Browser
+- Game UI Controls: DialogPanel, InventoryGrid, StatBar, HUDCounter
+
+#### Added — Installation Documentation Overhaul
+- Updated INSTALLATION.md with all 4 install methods (CLI, IDE, manual, build from source)
+- Platform-specific instructions for Linux, Windows, macOS
+- Global installation paths table
+- `vg` CLI command reference
+
+#### Changed
+- Version bumped from 4.3.0 to 4.4.0-rc1
+- Release status: Beta → Release Candidate (RC1)
+- README badge: updated to 4.4.0-rc1, "Early Beta" → "Release Candidate"
+- CI release workflow: updated body text with installer instructions for all platforms
+
+## [4.3.0] - 2026-03-21
+
+### 🎯 v4.0 Roadmap Complete — All Flagship Features Shipped
+
+This release completes all seven remaining v4.0 roadmap features, bringing VisualGasic to full parity with the planned "Next Generation" milestone.
+
+#### Added — Multi-Module Project Compilation (#2)
+- **Cross-file symbol resolution** — `Import MathHelpers` resolves public Functions/Subs/Constants across .vg files
+- **Project-wide symbol table** — built at compile time with proper scope isolation
+- **Circular import detection** — prevents infinite loops in module dependencies
+- **Cross-file IntelliSense** — imported module members appear in autocomplete
+- Test: `test_multi_module.vg` — all assertions pass
+
+#### Added — Visual Form Debugger (#3)
+- **Controls Inspector panel** — Tree view showing all form controls with live property values
+- **Click-to-source** — click a control in the Inspector to jump to its event handler
+- **Debugger integration** — Inspector updates during breakpoint halts
+- GDScript: `vg_controls_inspector.gd` with `_on_control_selected` signal
+
+#### Added — Database Controls (#4)
+- **VGRecordset** C++ class — ADODB.Recordset-compatible cursor with full CRUD
+- `Open`/`Close`, `MoveFirst`/`MoveNext`/`MoveLast`/`MovePrevious` navigation
+- `Fields(name)` access, `AddNew`/`Update`/`Edit`/`Delete` record operations
+- `EOF`/`BOF` boundary detection, `Bookmark`/`AbsolutePosition`
+- **Data, DBGrid, DBCombo** toolbox entries with GDScript prototype scenes
+- Test: `test_db_controls.vg` (13 tests pass), `test_rs_minimal.vg` (1 test pass)
+
+#### Added — Package Manager (#5)
+- **`vg pkg` CLI** — `install`, `remove`, `search`, `list`, `info`, `init`, `update` subcommands
+- **`vg.json` project manifest** with name, version, description, dependencies
+- **GitHub-backed registry** — search, download, and install packages from tagged releases
+- **GUI Package Browser** — editor bottom panel with Installed/Registry/Info tabs
+- **Headless CLI helper** (`vg_pkg_cli.gd`) — invoked by `vg` CLI for package operations
+- Test: `test_pkg_manager.vg` (11 tests pass)
+
+#### Added — macOS Universal Binary (#7)
+- **`scripts/build_macos_universal.sh`** — builds arm64 + x86_64, combines with `lipo`, ad-hoc codesigns
+- **`.github/workflows/macos-universal.yml`** — CI workflow for editor + debug + release targets
+- Matrix strategy: builds all three targets, packages into single release zip
+
+#### Added — JIT Tier 3: Call Graph Compilation (#8)
+- **Call graph profiling** — tracks caller→callee edges with frequency counts in the bytecode VM
+- **Inline candidate selection** — BFS through hot edges respecting policy thresholds (max callee 128 bytes, min 50 calls, max depth 3, max 8 inlines)
+- **Callee IR lowering** — bytecode→IR with slot/label offset remapping for inlined functions
+- **Fused compilation** — merges root + callee IR, runs linear-scan register allocation, emits x86-64
+- **Executable memory** — `mmap`/`mprotect` for native code, macOS `sys_icache_invalidate` support
+- **LRU cache eviction** — `MAX_FUSED_CACHE=32` entries, evicts least-executed
+- Complete JIT tier stack: Tier 0 (interpreter) → 0.5 (loop) → 1 (AST) → 2 (function body) → **3 (call graph)**
+- Test: `test_jit_tier3.vg` (10 tests pass)
+
+#### Changed
+- Version bumped from 4.2.0-beta6 to 4.3.0
+- Roadmap: all v4.0 "Next Generation" features now marked complete
+- Total test suite: 35+ new assertions across 5 new test files
+
+## [4.2.0-beta6] - 2026-03-20
+
+### 🎨 Drawing APIs, VB6 Parity & macOS Support
+
+Major release with 35 commits covering Image-based drawing APIs, 18 new VB6 commands, IDE enhancements, documentation overhaul, and first-ever macOS build.
+
+#### Added
+- **Image-based drawing pipeline** — VGPaint rewritten from PictureBox to direct Image manipulation
+- **Native drawing primitives** — FloodFillImage, DrawImageLine/Circle/Rect/Ellipse, DrawImageText (5×7 bitmap font)
+- **18 new VB6 commands** — Space, String$, StrReverse, StrConv, InStrRev, Replace, Filter, Join, Fix, Sgn, Oct$, Hex$ (extended), IsEmpty, IsNull, TypeName, VarType, Eqv, Imp
+- **All 13 VB6 financial functions** — FV, PV, NPV, IRR, PMT, IPmt, PPmt, Rate, NPer, SLN, SYD, DDB, DB
+- **Type/End Type enhancements** — fixed-length strings, strict type checking, IntelliSense support
+- **Command Help panel** — 8 enhancements: variable types, const values, user Sub/Function signatures, Ctrl+G Go To Line
+- **macOS builds** — first-ever macOS editor + template frameworks (cross-compiled via osxcross)
+- **Documentation overhaul** — Table of Contents + Alphabetical Indexes for all 10 reference documents
+
+#### Fixed
+- Segfault from `static inline const String` in headers → `constexpr const char*`
+- Focus-loss "files modified outside Godot" dialog eliminated
+- Bytecode constant pool widened from 8-bit to 16-bit (was silently truncating >256 constants)
+- InputBox now uses native OS dialogs (zenity/kdialog)
+- Do/While loop safety limit raised to 10,000,000
+
 ## [4.2.0-beta5] - 2026-03-15
 
 ### 🖥️ IDE Bottom Panel & Live Console
