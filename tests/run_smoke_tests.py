@@ -59,11 +59,23 @@ if __name__ == '__main__':
         with open(ext_list, 'w') as f:
             f.write('res://addons/visual_gasic/visual_gasic.gdextension\n')
 
-    # Import project first to generate caches
-    print('Importing project...')
-    run(f'{godot} --path demo --headless --import')
+    # Debug: verify binary and gdextension paths
+    so_path = 'demo/addons/visual_gasic/bin/libvisualgasic.linux.template_debug.x86_64.so'
+    gdext_path = 'demo/addons/visual_gasic/visual_gasic.gdextension'
+    print(f'GDExtension file exists: {os.path.exists(gdext_path)}')
+    print(f'Library .so exists: {os.path.exists(so_path)}')
+    print(f'Library .so (realpath): {os.path.realpath(so_path)}')
+    bin_path = 'demo/addons/visual_gasic/bin'
+    print(f'bin is symlink: {os.path.islink(bin_path)}')
+    if os.path.islink(bin_path):
+        print(f'bin symlink target: {os.readlink(bin_path)}')
+    if os.path.isdir(bin_path):
+        print(f'bin contents: {os.listdir(bin_path)}')
+    # Also check demo/bin directly
+    demo_bin = 'demo/bin/libvisualgasic.linux.template_debug.x86_64.so'
+    print(f'demo/bin .so exists: {os.path.exists(demo_bin)}')
 
-    # Run headless demo
+    # Run headless demo (skip import, go directly to test)
     rc, out_lines = run(f'{godot} --path demo --headless -s run_full.gd')
     if rc != 0:
         print('Godot run failed')
