@@ -166,10 +166,16 @@ jobs:
         run: pip install scons
 
       - name: Build (Windows template_debug, MSVC)
-        run: scons platform=windows target=template_debug -j$env:NUMBER_OF_PROCESSORS
+        shell: pwsh
+        run: |
+          $threads = $env:NUMBER_OF_PROCESSORS
+          scons platform=windows target=template_debug -j$threads
 
       - name: Build parser unit tests
-        run: scons -Q -j$env:NUMBER_OF_PROCESSORS tools/parser_unit_std_test tools/parser_unit_std_cli_test tools/parser_unit_std_golden_test
+        shell: pwsh
+        run: |
+          $threads = $env:NUMBER_OF_PROCESSORS
+          scons -Q -j$threads tools/parser_unit_std_test tools/parser_unit_std_cli_test tools/parser_unit_std_golden_test
 
       - name: Run parser unit tests
         run: |
@@ -178,4 +184,7 @@ jobs:
           ./tools/parser_unit_std_golden_test.exe
 
       - name: Build (Windows template_release, MSVC)
-        run: scons platform=windows target=template_release -j$env:NUMBER_OF_PROCESSORS
+        shell: pwsh
+        run: |
+          $threads = $env:NUMBER_OF_PROCESSORS
+          scons platform=windows target=template_release -j$threads

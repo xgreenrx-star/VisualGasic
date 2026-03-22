@@ -7,6 +7,7 @@
 #include <godot_cpp/variant/array.hpp>
 #include <godot_cpp/variant/dictionary.hpp>
 #include <godot_cpp/variant/variant.hpp>
+#include <string>
 #include <vector>
 #include <unordered_map>
 #include <unordered_set>

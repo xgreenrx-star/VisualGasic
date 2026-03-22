@@ -6,6 +6,7 @@
 #include <godot_cpp/classes/os.hpp>
 
 #if defined(__linux__) || defined(__APPLE__)
+#include <cstdio>
 #include <unistd.h>
 #include <sys/wait.h>
 #include <sys/types.h>
