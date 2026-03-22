@@ -3,6 +3,8 @@ import subprocess
 import sys
 import shlex
 import shutil
+import os
+import glob
 
 expected_lines = [
     "Testing All Features",
@@ -38,8 +40,31 @@ if __name__ == '__main__':
         print('Build failed')
         sys.exit(rc)
 
+    # Detect Godot binary: prefer 4.5.x, then 4.6.x, then any version
+    godot = None
+    for pattern in ['./Godot_v4.5*_linux.x86_64', './Godot_v4.6*_linux.x86_64', './Godot_v*_linux.x86_64']:
+        matches = sorted(glob.glob(pattern))
+        if matches:
+            godot = matches[-1]
+            break
+    if not godot:
+        print('No Godot binary found')
+        sys.exit(1)
+    print(f'Using Godot: {godot}')
+
+    # Ensure .godot/extension_list.cfg exists (may be gitignored)
+    ext_list = 'demo/.godot/extension_list.cfg'
+    os.makedirs('demo/.godot', exist_ok=True)
+    if not os.path.exists(ext_list):
+        with open(ext_list, 'w') as f:
+            f.write('res://addons/visual_gasic/visual_gasic.gdextension\n')
+
+    # Import project first to generate caches
+    print('Importing project...')
+    run(f'{godot} --path demo --headless --import')
+
     # Run headless demo
-    rc, out_lines = run('./Godot_v4.6.1-stable_linux.x86_64 --path demo --headless -s run_full.gd')
+    rc, out_lines = run(f'{godot} --path demo --headless -s run_full.gd')
     if rc != 0:
         print('Godot run failed')
         sys.exit(rc)

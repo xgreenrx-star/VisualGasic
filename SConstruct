@@ -34,14 +34,14 @@ _is_msvc = env.get("is_msvc", False) or _cc.endswith("cl") or _cc.endswith("cl.e
 # Build variant flags: simple debug vs release heuristics driven by env['target']
 if "debug" in env.get("target", "").lower() or env.get("debug_build", False):
     if _is_msvc:
-        env.Append(CCFLAGS=["/Zi", "/Od"])
+        env.Append(CCFLAGS=["/Z7", "/Od"])
         env.Append(LINKFLAGS=["/DEBUG"])
     else:
         env.Append(CCFLAGS=["-g", "-O0"])
 else:
     # Ship release binaries with symbols so perf reports can resolve VisualGasic frames
     if _is_msvc:
-        env.Append(CCFLAGS=["/O2", "/DNDEBUG", "/Zi"])
+        env.Append(CCFLAGS=["/O2", "/DNDEBUG", "/Z7"])
         env.Append(LINKFLAGS=["/DEBUG"])
     else:
         env.Append(CCFLAGS=["-O3", "-DNDEBUG", "-g"])
