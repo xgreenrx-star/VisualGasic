@@ -1,6 +1,9 @@
 #include <godot_cpp/classes/file_dialog.hpp>
 #include <godot_cpp/classes/tween.hpp>
 #include <cstdlib>
+#ifdef _MSC_VER
+#include <intrin.h>
+#endif
 #include <godot_cpp/classes/viewport.hpp>
 #include <godot_cpp/classes/area2d.hpp>
 #include <godot_cpp/classes/collision_shape2d.hpp>
@@ -246,6 +249,17 @@ void set_whenever_active(int index, const String& section_name, bool active) {
 
 namespace {
 
+// Portable count-trailing-zeros for 64-bit values
+static inline int vg_ctz64(uint64_t v) {
+#ifdef _MSC_VER
+    unsigned long idx;
+    _BitScanForward64(&idx, v);
+    return static_cast<int>(idx);
+#else
+    return __builtin_ctzll(v);
+#endif
+}
+
 // Variant pool for reducing allocation overhead
 struct VariantPool {
     static constexpr size_t POOL_SIZE = 64;
@@ -260,7 +274,7 @@ struct VariantPool {
             return nullptr; // Pool exhausted, caller must allocate
         }
         // Find first free slot (rightmost 1-bit)
-        int slot = __builtin_ctzll(free_mask);
+        int slot = vg_ctz64(free_mask);
         free_mask &= ~(1ULL << slot);
         reuse_count++;
         return &pool[slot];

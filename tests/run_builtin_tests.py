@@ -2,6 +2,7 @@
 import subprocess
 import sys
 import shlex
+import shutil
 
 expected_substrings = [
     "BUILTINS_START",
@@ -34,8 +35,13 @@ def run(cmd):
     return p.returncode, out_lines
 
 if __name__ == '__main__':
+    # Find scons: prefer venv, then system PATH
+    scons = './.venv/bin/scons'
+    if not shutil.which(scons):
+        scons = shutil.which('scons') or 'scons'
+
     # Build
-    rc, _ = run('./.venv/bin/scons platform=linux target=template_debug -j4')
+    rc, _ = run(f'{scons} platform=linux target=template_debug -j4')
     if rc != 0:
         print('Build failed')
         sys.exit(rc)

@@ -2,6 +2,7 @@
 import subprocess
 import sys
 import shlex
+import shutil
 
 expected_ok = [
     "TEST_OK:01_string",
@@ -23,8 +24,13 @@ def run(cmd):
     return p.returncode, out_lines
 
 if __name__ == '__main__':
+    # Find scons: prefer venv, then system PATH
+    scons = './.venv/bin/scons'
+    if not shutil.which(scons):
+        scons = shutil.which('scons') or 'scons'
+
     # No rebuild by default — assume built library is present. Build if missing.
-    rc, _ = run('./.venv/bin/scons platform=linux target=template_debug -j4')
+    rc, _ = run(f'{scons} platform=linux target=template_debug -j4')
     if rc != 0:
         print('Build failed')
         sys.exit(rc)
