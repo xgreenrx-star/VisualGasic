@@ -1,18 +1,13 @@
 {
   "entries": [
     {
-      "code": "[0, 0, 6, 0, 0, 1, 6, 1, 0, 2, 6, 2, 0, 3, 6, 0, 3, 4, 0, 5, 20, 6, 4, 5, 4, 6, 3, 0, 6, 6, 5, 5, 0, 5, 3, 46, 55, 0, 28, 3, 7, 0, 8, 20, 6, 6, 5, 6, 0, 9, 5, 2, 29, 10, 11, 6, 2, 5, 0, 5, 5, 19, 6, 0, 56, 0, 36, 5, 2, 4, 12, 59]",
+      "code": "[117, 4, 0, 0, 0, 0, 6, 0, 117, 5, 0, 0, 0, 0, 6, 1, 117, 6, 0, 0, 0, 0, 6, 2, 117, 8, 0, 0, 1, 0, 6, 0, 3, 2, 0, 0, 3, 0, 26, 6, 4, 5, 4, 6, 3, 0, 3, 0, 6, 5, 5, 0, 5, 3, 54, 63, 0, 31, 117, 9, 0, 3, 4, 0, 0, 3, 0, 26, 6, 6, 5, 6, 0, 0, 0, 5, 2, 35, 5, 0, 6, 0, 6, 2, 34, 0, 65, 0, 39, 117, 14, 0, 5, 2, 4, 7, 0, 68]",
       "constants": [
-        0,
-        0,
         0,
         0.0,
         "iterations",
         1.0,
-        1.0,
         "inner",
-        1.0,
-        0,
         3,
         -7,
         "BenchArithmetic"
@@ -20,158 +15,209 @@
       "entry_point": "BenchArithmetic",
       "instructions": [
         {
-          "detail": "const[0]=0",
-          "line": 0,
-          "name": "OP_CONSTANT",
+          "detail": "",
+          "line": 4,
+          "name": "OP_UNKNOWN_117",
           "offset": 0,
+          "opcode": 117,
+          "operands": [
+            4,
+            0
+          ]
+        },
+        {
+          "detail": "const[0]=0",
+          "line": 4,
+          "name": "OP_CONSTANT",
+          "offset": 3,
           "opcode": 0,
           "operands": [
+            0,
             0
           ]
         },
         {
           "detail": "slot[0]=i",
-          "line": 0,
-          "name": "OP_SET_LOCAL",
-          "offset": 2,
-          "opcode": 6,
-          "operands": [
-            0
-          ]
-        },
-        {
-          "detail": "const[1]=0",
-          "line": 0,
-          "name": "OP_CONSTANT",
-          "offset": 4,
-          "opcode": 0,
-          "operands": [
-            1
-          ]
-        },
-        {
-          "detail": "slot[1]=j",
-          "line": 0,
+          "line": 4,
           "name": "OP_SET_LOCAL",
           "offset": 6,
           "opcode": 6,
           "operands": [
-            1
+            0
           ]
         },
         {
-          "detail": "const[2]=0",
-          "line": 0,
-          "name": "OP_CONSTANT",
+          "detail": "",
+          "line": 5,
+          "name": "OP_UNKNOWN_117",
           "offset": 8,
-          "opcode": 0,
+          "opcode": 117,
           "operands": [
-            2
+            5,
+            0
           ]
         },
         {
-          "detail": "slot[2]=s",
-          "line": 0,
-          "name": "OP_SET_LOCAL",
-          "offset": 10,
-          "opcode": 6,
-          "operands": [
-            2
-          ]
-        },
-        {
-          "detail": "const[3]=0.0",
-          "line": 0,
+          "detail": "const[0]=0",
+          "line": 5,
           "name": "OP_CONSTANT",
-          "offset": 12,
+          "offset": 11,
           "opcode": 0,
           "operands": [
-            3
+            0,
+            0
           ]
         },
         {
-          "detail": "slot[0]=i",
-          "line": 0,
+          "detail": "slot[1]=j",
+          "line": 5,
           "name": "OP_SET_LOCAL",
           "offset": 14,
           "opcode": 6,
           "operands": [
-            0
-          ]
-        },
-        {
-          "detail": "const[4]=\"iterations\"",
-          "line": 0,
-          "name": "OP_GET_GLOBAL",
-          "offset": 16,
-          "opcode": 3,
-          "operands": [
-            4
-          ]
-        },
-        {
-          "detail": "const[5]=1.0",
-          "line": 0,
-          "name": "OP_CONSTANT",
-          "offset": 18,
-          "opcode": 0,
-          "operands": [
-            5
+            1
           ]
         },
         {
           "detail": "",
-          "line": 0,
-          "name": "OP_SUB_F64",
-          "offset": 20,
-          "opcode": 20,
-          "operands": []
+          "line": 6,
+          "name": "OP_UNKNOWN_117",
+          "offset": 16,
+          "opcode": 117,
+          "operands": [
+            6,
+            0
+          ]
         },
         {
-          "detail": "slot[4]=__cse_1",
-          "line": 0,
+          "detail": "const[0]=0",
+          "line": 6,
+          "name": "OP_CONSTANT",
+          "offset": 19,
+          "opcode": 0,
+          "operands": [
+            0,
+            0
+          ]
+        },
+        {
+          "detail": "slot[2]=s",
+          "line": 6,
           "name": "OP_SET_LOCAL",
-          "offset": 21,
+          "offset": 22,
           "opcode": 6,
           "operands": [
-            4
+            2
           ]
         },
         {
-          "detail": "slot[4]=__cse_1",
-          "line": 0,
-          "name": "OP_GET_LOCAL",
-          "offset": 23,
-          "opcode": 5,
+          "detail": "",
+          "line": 8,
+          "name": "OP_UNKNOWN_117",
+          "offset": 24,
+          "opcode": 117,
           "operands": [
-            4
+            8,
+            0
           ]
         },
         {
-          "detail": "slot[3]=__inv_to_0",
-          "line": 0,
-          "name": "OP_SET_LOCAL",
-          "offset": 25,
-          "opcode": 6,
-          "operands": [
-            3
-          ]
-        },
-        {
-          "detail": "const[6]=1.0",
-          "line": 0,
+          "detail": "const[1]=0.0",
+          "line": 8,
           "name": "OP_CONSTANT",
           "offset": 27,
           "opcode": 0,
           "operands": [
-            6
+            1,
+            0
+          ]
+        },
+        {
+          "detail": "slot[0]=i",
+          "line": 8,
+          "name": "OP_SET_LOCAL",
+          "offset": 30,
+          "opcode": 6,
+          "operands": [
+            0
+          ]
+        },
+        {
+          "detail": "const[2]=\"iterations\"",
+          "line": 8,
+          "name": "OP_GET_GLOBAL",
+          "offset": 32,
+          "opcode": 3,
+          "operands": [
+            2,
+            0
+          ]
+        },
+        {
+          "detail": "const[3]=1.0",
+          "line": 8,
+          "name": "OP_CONSTANT",
+          "offset": 35,
+          "opcode": 0,
+          "operands": [
+            3,
+            0
+          ]
+        },
+        {
+          "detail": "",
+          "line": 8,
+          "name": "OP_SUB_F64",
+          "offset": 38,
+          "opcode": 26,
+          "operands": []
+        },
+        {
+          "detail": "slot[4]=__cse_1",
+          "line": 8,
+          "name": "OP_SET_LOCAL",
+          "offset": 39,
+          "opcode": 6,
+          "operands": [
+            4
+          ]
+        },
+        {
+          "detail": "slot[4]=__cse_1",
+          "line": 8,
+          "name": "OP_GET_LOCAL",
+          "offset": 41,
+          "opcode": 5,
+          "operands": [
+            4
+          ]
+        },
+        {
+          "detail": "slot[3]=__inv_to_0",
+          "line": 8,
+          "name": "OP_SET_LOCAL",
+          "offset": 43,
+          "opcode": 6,
+          "operands": [
+            3
+          ]
+        },
+        {
+          "detail": "const[3]=1.0",
+          "line": 8,
+          "name": "OP_CONSTANT",
+          "offset": 45,
+          "opcode": 0,
+          "operands": [
+            3,
+            0
           ]
         },
         {
           "detail": "slot[5]=__const_step_2",
-          "line": 0,
+          "line": 8,
           "name": "OP_SET_LOCAL",
-          "offset": 29,
+          "offset": 48,
           "opcode": 6,
           "operands": [
             5
@@ -179,9 +225,9 @@
         },
         {
           "detail": "slot[0]=i",
-          "line": 0,
+          "line": 8,
           "name": "OP_GET_LOCAL",
-          "offset": 31,
+          "offset": 50,
           "opcode": 5,
           "operands": [
             0
@@ -189,9 +235,9 @@
         },
         {
           "detail": "slot[3]=__inv_to_0",
-          "line": 0,
+          "line": 8,
           "name": "OP_GET_LOCAL",
-          "offset": 33,
+          "offset": 52,
           "opcode": 5,
           "operands": [
             3
@@ -199,263 +245,289 @@
         },
         {
           "detail": "",
-          "line": 0,
+          "line": 8,
           "name": "OP_LESS_EQUAL",
-          "offset": 35,
-          "opcode": 46,
+          "offset": 54,
+          "opcode": 54,
           "operands": []
         },
         {
-          "detail": "delta=28 -> 0067",
-          "line": 0,
+          "detail": "delta=31 -> 0089",
+          "line": 8,
           "name": "OP_JUMP_IF_FALSE",
-          "offset": 36,
-          "opcode": 55,
+          "offset": 55,
+          "opcode": 63,
           "operands": [
             0,
-            28
+            31
           ]
         },
         {
-          "detail": "const[7]=\"inner\"",
-          "line": 0,
+          "detail": "",
+          "line": 9,
+          "name": "OP_UNKNOWN_117",
+          "offset": 58,
+          "opcode": 117,
+          "operands": [
+            9,
+            0
+          ]
+        },
+        {
+          "detail": "const[4]=\"inner\"",
+          "line": 9,
           "name": "OP_GET_GLOBAL",
-          "offset": 39,
+          "offset": 61,
           "opcode": 3,
           "operands": [
-            7
-          ]
-        },
-        {
-          "detail": "const[8]=1.0",
-          "line": 0,
-          "name": "OP_CONSTANT",
-          "offset": 41,
-          "opcode": 0,
-          "operands": [
-            8
-          ]
-        },
-        {
-          "detail": "",
-          "line": 0,
-          "name": "OP_SUB_F64",
-          "offset": 43,
-          "opcode": 20,
-          "operands": []
-        },
-        {
-          "detail": "slot[6]=__cse_3",
-          "line": 0,
-          "name": "OP_SET_LOCAL",
-          "offset": 44,
-          "opcode": 6,
-          "operands": [
-            6
-          ]
-        },
-        {
-          "detail": "slot[6]=__cse_3",
-          "line": 0,
-          "name": "OP_GET_LOCAL",
-          "offset": 46,
-          "opcode": 5,
-          "operands": [
-            6
-          ]
-        },
-        {
-          "detail": "const[9]=0",
-          "line": 0,
-          "name": "OP_CONSTANT",
-          "offset": 48,
-          "opcode": 0,
-          "operands": [
-            9
-          ]
-        },
-        {
-          "detail": "slot[2]=s",
-          "line": 0,
-          "name": "OP_GET_LOCAL",
-          "offset": 50,
-          "opcode": 5,
-          "operands": [
-            2
-          ]
-        },
-        {
-          "detail": "k=const[10]=3, c=const[11]=-7",
-          "line": 0,
-          "name": "OP_ARITH_SUM",
-          "offset": 52,
-          "opcode": 29,
-          "operands": [
-            10,
-            11
-          ]
-        },
-        {
-          "detail": "slot[2]=s",
-          "line": 0,
-          "name": "OP_SET_LOCAL",
-          "offset": 55,
-          "opcode": 6,
-          "operands": [
-            2
-          ]
-        },
-        {
-          "detail": "slot[0]=i",
-          "line": 0,
-          "name": "OP_GET_LOCAL",
-          "offset": 57,
-          "opcode": 5,
-          "operands": [
+            4,
             0
           ]
         },
         {
-          "detail": "slot[5]=__const_step_2",
-          "line": 0,
-          "name": "OP_GET_LOCAL",
-          "offset": 59,
-          "opcode": 5,
-          "operands": [
-            5
-          ]
-        },
-        {
-          "detail": "",
-          "line": 0,
-          "name": "OP_ADD_F64",
-          "offset": 61,
-          "opcode": 19,
-          "operands": []
-        },
-        {
-          "detail": "slot[0]=i",
-          "line": 0,
-          "name": "OP_SET_LOCAL",
-          "offset": 62,
-          "opcode": 6,
-          "operands": [
-            0
-          ]
-        },
-        {
-          "detail": "delta=36 -> 0031",
-          "line": 0,
-          "name": "OP_LOOP",
+          "detail": "const[3]=1.0",
+          "line": 9,
+          "name": "OP_CONSTANT",
           "offset": 64,
-          "opcode": 56,
+          "opcode": 0,
+          "operands": [
+            3,
+            0
+          ]
+        },
+        {
+          "detail": "",
+          "line": 9,
+          "name": "OP_SUB_F64",
+          "offset": 67,
+          "opcode": 26,
+          "operands": []
+        },
+        {
+          "detail": "slot[6]=__cse_3",
+          "line": 9,
+          "name": "OP_SET_LOCAL",
+          "offset": 68,
+          "opcode": 6,
+          "operands": [
+            6
+          ]
+        },
+        {
+          "detail": "slot[6]=__cse_3",
+          "line": 9,
+          "name": "OP_GET_LOCAL",
+          "offset": 70,
+          "opcode": 5,
+          "operands": [
+            6
+          ]
+        },
+        {
+          "detail": "const[0]=0",
+          "line": 9,
+          "name": "OP_CONSTANT",
+          "offset": 72,
+          "opcode": 0,
           "operands": [
             0,
-            36
+            0
           ]
         },
         {
           "detail": "slot[2]=s",
-          "line": 0,
+          "line": 9,
           "name": "OP_GET_LOCAL",
-          "offset": 67,
+          "offset": 75,
           "opcode": 5,
           "operands": [
             2
           ]
         },
         {
-          "detail": "const[12]=\"BenchArithmetic\"",
-          "line": 0,
-          "name": "OP_SET_GLOBAL",
-          "offset": 69,
-          "opcode": 4,
+          "detail": "k=const[5]=3, c=const[6]=-7",
+          "line": 9,
+          "name": "OP_ARITH_SUM",
+          "offset": 77,
+          "opcode": 35,
           "operands": [
-            12
+            5,
+            0,
+            6,
+            0
+          ]
+        },
+        {
+          "detail": "slot[2]=s",
+          "line": 9,
+          "name": "OP_SET_LOCAL",
+          "offset": 82,
+          "opcode": 6,
+          "operands": [
+            2
+          ]
+        },
+        {
+          "detail": "slot[0]=i",
+          "line": 9,
+          "name": "OP_INC_LOCAL_I64",
+          "offset": 84,
+          "opcode": 34,
+          "operands": [
+            0
+          ]
+        },
+        {
+          "detail": "delta=39 -> 0050",
+          "line": 9,
+          "name": "OP_LOOP",
+          "offset": 86,
+          "opcode": 65,
+          "operands": [
+            0,
+            39
           ]
         },
         {
           "detail": "",
-          "line": 0,
+          "line": 14,
+          "name": "OP_UNKNOWN_117",
+          "offset": 89,
+          "opcode": 117,
+          "operands": [
+            14,
+            0
+          ]
+        },
+        {
+          "detail": "slot[2]=s",
+          "line": 14,
+          "name": "OP_GET_LOCAL",
+          "offset": 92,
+          "opcode": 5,
+          "operands": [
+            2
+          ]
+        },
+        {
+          "detail": "const[7]=\"BenchArithmetic\"",
+          "line": 14,
+          "name": "OP_SET_GLOBAL",
+          "offset": 94,
+          "opcode": 4,
+          "operands": [
+            7,
+            0
+          ]
+        },
+        {
+          "detail": "",
+          "line": 14,
           "name": "OP_RETURN",
-          "offset": 71,
-          "opcode": 59,
+          "offset": 97,
+          "opcode": 68,
           "operands": []
         }
       ],
       "lines": [
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+        6,
+        6,
+        6,
+        6,
+        6,
+        6,
+        6,
+        6,
+        8,
+        8,
+        8,
+        8,
+        8,
+        8,
+        8,
+        8,
+        8,
+        8,
+        8,
+        8,
+        8,
+        8,
+        8,
+        8,
+        8,
+        8,
+        8,
+        8,
+        8,
+        8,
+        8,
+        8,
+        8,
+        8,
+        8,
+        8,
+        8,
+        8,
+        8,
+        8,
+        8,
+        8,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        14,
+        14,
+        14,
+        14,
+        14,
+        14,
+        14,
+        14,
+        14
       ],
       "local_count": 7,
       "local_names": [
@@ -467,313 +539,355 @@
         "__const_step_2",
         "__cse_3"
       ],
-      "local_types": "[2, 1, 1, 2, 0, 2, 0]"
+      "local_types": "[1, 1, 1, 2, 0, 2, 0]"
     },
     {
-      "code": "[0, 0, 6, 0, 0, 1, 6, 1, 0, 2, 6, 2, 0, 3, 0, 4, 7, 63, 6, 3, 3, 5, 0, 6, 20, 6, 4, 5, 4, 0, 7, 13, 34, 6, 3, 5, 3, 31, 3, 8, 0, 9, 20, 6, 5, 5, 5, 0, 10, 13, 17, 5, 2, 13, 6, 2, 5, 2, 4, 11, 59]",
+      "code": "[117, 18, 0, 0, 0, 0, 6, 0, 117, 19, 0, 0, 0, 0, 6, 1, 117, 20, 0, 0, 0, 0, 6, 2, 117, 21, 0, 0, 4, 0, 73, 6, 3, 3, 3, 0, 0, 4, 0, 26, 6, 4, 5, 4, 0, 2, 0, 19, 41, 6, 3, 117, 28, 0, 5, 3, 37, 3, 5, 0, 0, 4, 0, 26, 6, 5, 5, 5, 0, 2, 0, 19, 23, 5, 2, 19, 6, 2, 117, 34, 0, 5, 2, 4, 6, 0, 68]",
       "constants": [
-        0,
-        0,
         0,
         0.0,
         1,
         "size",
         1.0,
-        1,
         "iterations",
-        1.0,
-        1,
         "BenchArraySum"
       ],
       "entry_point": "BenchArraySum",
       "instructions": [
         {
-          "detail": "const[0]=0",
-          "line": 0,
-          "name": "OP_CONSTANT",
+          "detail": "",
+          "line": 18,
+          "name": "OP_UNKNOWN_117",
           "offset": 0,
+          "opcode": 117,
+          "operands": [
+            18,
+            0
+          ]
+        },
+        {
+          "detail": "const[0]=0",
+          "line": 18,
+          "name": "OP_CONSTANT",
+          "offset": 3,
           "opcode": 0,
           "operands": [
+            0,
             0
           ]
         },
         {
           "detail": "slot[0]=i",
-          "line": 0,
+          "line": 18,
           "name": "OP_SET_LOCAL",
-          "offset": 2,
+          "offset": 6,
           "opcode": 6,
           "operands": [
             0
           ]
         },
         {
-          "detail": "const[1]=0",
-          "line": 0,
+          "detail": "",
+          "line": 19,
+          "name": "OP_UNKNOWN_117",
+          "offset": 8,
+          "opcode": 117,
+          "operands": [
+            19,
+            0
+          ]
+        },
+        {
+          "detail": "const[0]=0",
+          "line": 19,
           "name": "OP_CONSTANT",
-          "offset": 4,
+          "offset": 11,
           "opcode": 0,
           "operands": [
-            1
+            0,
+            0
           ]
         },
         {
           "detail": "slot[1]=k",
-          "line": 0,
+          "line": 19,
           "name": "OP_SET_LOCAL",
-          "offset": 6,
+          "offset": 14,
           "opcode": 6,
           "operands": [
             1
           ]
         },
         {
-          "detail": "const[2]=0",
-          "line": 0,
-          "name": "OP_CONSTANT",
-          "offset": 8,
-          "opcode": 0,
-          "operands": [
-            2
-          ]
-        },
-        {
-          "detail": "slot[2]=s",
-          "line": 0,
-          "name": "OP_SET_LOCAL",
-          "offset": 10,
-          "opcode": 6,
-          "operands": [
-            2
-          ]
-        },
-        {
-          "detail": "const[3]=0.0",
-          "line": 0,
-          "name": "OP_CONSTANT",
-          "offset": 12,
-          "opcode": 0,
-          "operands": [
-            3
-          ]
-        },
-        {
-          "detail": "const[4]=1",
-          "line": 0,
-          "name": "OP_CONSTANT",
-          "offset": 14,
-          "opcode": 0,
-          "operands": [
-            4
-          ]
-        },
-        {
           "detail": "",
-          "line": 0,
-          "name": "OP_ADD",
+          "line": 20,
+          "name": "OP_UNKNOWN_117",
           "offset": 16,
-          "opcode": 7,
-          "operands": []
-        },
-        {
-          "detail": "",
-          "line": 0,
-          "name": "OP_NEW_ARRAY_I64",
-          "offset": 17,
-          "opcode": 63,
-          "operands": []
-        },
-        {
-          "detail": "slot[3]=arr",
-          "line": 0,
-          "name": "OP_SET_LOCAL",
-          "offset": 18,
-          "opcode": 6,
+          "opcode": 117,
           "operands": [
-            3
+            20,
+            0
           ]
         },
         {
-          "detail": "const[5]=\"size\"",
-          "line": 0,
-          "name": "OP_GET_GLOBAL",
-          "offset": 20,
-          "opcode": 3,
-          "operands": [
-            5
-          ]
-        },
-        {
-          "detail": "const[6]=1.0",
-          "line": 0,
+          "detail": "const[0]=0",
+          "line": 20,
           "name": "OP_CONSTANT",
+          "offset": 19,
+          "opcode": 0,
+          "operands": [
+            0,
+            0
+          ]
+        },
+        {
+          "detail": "slot[2]=s",
+          "line": 20,
+          "name": "OP_SET_LOCAL",
           "offset": 22,
-          "opcode": 0,
+          "opcode": 6,
           "operands": [
-            6
+            2
           ]
         },
         {
           "detail": "",
-          "line": 0,
-          "name": "OP_SUB_F64",
+          "line": 21,
+          "name": "OP_UNKNOWN_117",
           "offset": 24,
-          "opcode": 20,
-          "operands": []
-        },
-        {
-          "detail": "slot[4]=__cse_0",
-          "line": 0,
-          "name": "OP_SET_LOCAL",
-          "offset": 25,
-          "opcode": 6,
+          "opcode": 117,
           "operands": [
-            4
+            21,
+            0
           ]
         },
         {
-          "detail": "slot[4]=__cse_0",
-          "line": 0,
-          "name": "OP_GET_LOCAL",
-          "offset": 27,
-          "opcode": 5,
-          "operands": [
-            4
-          ]
-        },
-        {
-          "detail": "const[7]=1",
-          "line": 0,
+          "detail": "const[4]=1.0",
+          "line": 21,
           "name": "OP_CONSTANT",
-          "offset": 29,
+          "offset": 27,
           "opcode": 0,
           "operands": [
-            7
+            4,
+            0
           ]
         },
         {
           "detail": "",
-          "line": 0,
-          "name": "OP_ADD_I64",
-          "offset": 31,
-          "opcode": 13,
-          "operands": []
-        },
-        {
-          "detail": "",
-          "line": 0,
-          "name": "OP_ALLOC_FILL_I64",
-          "offset": 32,
-          "opcode": 34,
+          "line": 21,
+          "name": "OP_NEW_ARRAY_I64",
+          "offset": 30,
+          "opcode": 73,
           "operands": []
         },
         {
           "detail": "slot[3]=arr",
-          "line": 0,
+          "line": 21,
           "name": "OP_SET_LOCAL",
-          "offset": 33,
+          "offset": 31,
           "opcode": 6,
           "operands": [
             3
           ]
         },
         {
-          "detail": "slot[3]=arr",
-          "line": 0,
-          "name": "OP_GET_LOCAL",
-          "offset": 35,
-          "opcode": 5,
-          "operands": [
-            3
-          ]
-        },
-        {
-          "detail": "",
-          "line": 0,
-          "name": "OP_SUM_ARRAY_I64",
-          "offset": 37,
-          "opcode": 31,
-          "operands": []
-        },
-        {
-          "detail": "const[8]=\"iterations\"",
-          "line": 0,
+          "detail": "const[3]=\"size\"",
+          "line": 21,
           "name": "OP_GET_GLOBAL",
-          "offset": 38,
+          "offset": 33,
           "opcode": 3,
           "operands": [
-            8
+            3,
+            0
           ]
         },
         {
-          "detail": "const[9]=1.0",
-          "line": 0,
+          "detail": "const[4]=1.0",
+          "line": 21,
           "name": "OP_CONSTANT",
-          "offset": 40,
+          "offset": 36,
           "opcode": 0,
           "operands": [
-            9
+            4,
+            0
           ]
         },
         {
           "detail": "",
-          "line": 0,
+          "line": 21,
           "name": "OP_SUB_F64",
-          "offset": 42,
-          "opcode": 20,
+          "offset": 39,
+          "opcode": 26,
           "operands": []
         },
         {
-          "detail": "slot[5]=__cse_1",
-          "line": 0,
+          "detail": "slot[4]=__cse_0",
+          "line": 21,
           "name": "OP_SET_LOCAL",
-          "offset": 43,
+          "offset": 40,
           "opcode": 6,
           "operands": [
-            5
+            4
           ]
         },
         {
-          "detail": "slot[5]=__cse_1",
-          "line": 0,
+          "detail": "slot[4]=__cse_0",
+          "line": 21,
           "name": "OP_GET_LOCAL",
-          "offset": 45,
+          "offset": 42,
           "opcode": 5,
           "operands": [
-            5
+            4
           ]
         },
         {
-          "detail": "const[10]=1",
-          "line": 0,
+          "detail": "const[2]=1",
+          "line": 21,
           "name": "OP_CONSTANT",
-          "offset": 47,
+          "offset": 44,
           "opcode": 0,
           "operands": [
-            10
+            2,
+            0
           ]
         },
         {
           "detail": "",
-          "line": 0,
+          "line": 21,
           "name": "OP_ADD_I64",
-          "offset": 49,
-          "opcode": 13,
+          "offset": 47,
+          "opcode": 19,
           "operands": []
         },
         {
           "detail": "",
-          "line": 0,
+          "line": 21,
+          "name": "OP_ALLOC_FILL_I64",
+          "offset": 48,
+          "opcode": 41,
+          "operands": []
+        },
+        {
+          "detail": "slot[3]=arr",
+          "line": 21,
+          "name": "OP_SET_LOCAL",
+          "offset": 49,
+          "opcode": 6,
+          "operands": [
+            3
+          ]
+        },
+        {
+          "detail": "",
+          "line": 28,
+          "name": "OP_UNKNOWN_117",
+          "offset": 51,
+          "opcode": 117,
+          "operands": [
+            28,
+            0
+          ]
+        },
+        {
+          "detail": "slot[3]=arr",
+          "line": 28,
+          "name": "OP_GET_LOCAL",
+          "offset": 54,
+          "opcode": 5,
+          "operands": [
+            3
+          ]
+        },
+        {
+          "detail": "",
+          "line": 28,
+          "name": "OP_SUM_ARRAY_I64",
+          "offset": 56,
+          "opcode": 37,
+          "operands": []
+        },
+        {
+          "detail": "const[5]=\"iterations\"",
+          "line": 28,
+          "name": "OP_GET_GLOBAL",
+          "offset": 57,
+          "opcode": 3,
+          "operands": [
+            5,
+            0
+          ]
+        },
+        {
+          "detail": "const[4]=1.0",
+          "line": 28,
+          "name": "OP_CONSTANT",
+          "offset": 60,
+          "opcode": 0,
+          "operands": [
+            4,
+            0
+          ]
+        },
+        {
+          "detail": "",
+          "line": 28,
+          "name": "OP_SUB_F64",
+          "offset": 63,
+          "opcode": 26,
+          "operands": []
+        },
+        {
+          "detail": "slot[5]=__cse_1",
+          "line": 28,
+          "name": "OP_SET_LOCAL",
+          "offset": 64,
+          "opcode": 6,
+          "operands": [
+            5
+          ]
+        },
+        {
+          "detail": "slot[5]=__cse_1",
+          "line": 28,
+          "name": "OP_GET_LOCAL",
+          "offset": 66,
+          "opcode": 5,
+          "operands": [
+            5
+          ]
+        },
+        {
+          "detail": "const[2]=1",
+          "line": 28,
+          "name": "OP_CONSTANT",
+          "offset": 68,
+          "opcode": 0,
+          "operands": [
+            2,
+            0
+          ]
+        },
+        {
+          "detail": "",
+          "line": 28,
+          "name": "OP_ADD_I64",
+          "offset": 71,
+          "opcode": 19,
+          "operands": []
+        },
+        {
+          "detail": "",
+          "line": 28,
           "name": "OP_MUL_I64",
-          "offset": 50,
-          "opcode": 17,
+          "offset": 72,
+          "opcode": 23,
           "operands": []
         },
         {
           "detail": "slot[2]=s",
-          "line": 0,
+          "line": 28,
           "name": "OP_GET_LOCAL",
-          "offset": 51,
+          "offset": 73,
           "opcode": 5,
           "operands": [
             2
@@ -781,113 +895,151 @@
         },
         {
           "detail": "",
-          "line": 0,
+          "line": 28,
           "name": "OP_ADD_I64",
-          "offset": 53,
-          "opcode": 13,
+          "offset": 75,
+          "opcode": 19,
           "operands": []
         },
         {
           "detail": "slot[2]=s",
-          "line": 0,
+          "line": 28,
           "name": "OP_SET_LOCAL",
-          "offset": 54,
+          "offset": 76,
           "opcode": 6,
           "operands": [
             2
           ]
         },
         {
+          "detail": "",
+          "line": 34,
+          "name": "OP_UNKNOWN_117",
+          "offset": 78,
+          "opcode": 117,
+          "operands": [
+            34,
+            0
+          ]
+        },
+        {
           "detail": "slot[2]=s",
-          "line": 0,
+          "line": 34,
           "name": "OP_GET_LOCAL",
-          "offset": 56,
+          "offset": 81,
           "opcode": 5,
           "operands": [
             2
           ]
         },
         {
-          "detail": "const[11]=\"BenchArraySum\"",
-          "line": 0,
+          "detail": "const[6]=\"BenchArraySum\"",
+          "line": 34,
           "name": "OP_SET_GLOBAL",
-          "offset": 58,
+          "offset": 83,
           "opcode": 4,
           "operands": [
-            11
+            6,
+            0
           ]
         },
         {
           "detail": "",
-          "line": 0,
+          "line": 34,
           "name": "OP_RETURN",
-          "offset": 60,
-          "opcode": 59,
+          "offset": 86,
+          "opcode": 68,
           "operands": []
         }
       ],
       "lines": [
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0
+        18,
+        18,
+        18,
+        18,
+        18,
+        18,
+        18,
+        18,
+        19,
+        19,
+        19,
+        19,
+        19,
+        19,
+        19,
+        19,
+        20,
+        20,
+        20,
+        20,
+        20,
+        20,
+        20,
+        20,
+        21,
+        21,
+        21,
+        21,
+        21,
+        21,
+        21,
+        21,
+        21,
+        21,
+        21,
+        21,
+        21,
+        21,
+        21,
+        21,
+        21,
+        21,
+        21,
+        21,
+        21,
+        21,
+        21,
+        21,
+        21,
+        21,
+        21,
+        28,
+        28,
+        28,
+        28,
+        28,
+        28,
+        28,
+        28,
+        28,
+        28,
+        28,
+        28,
+        28,
+        28,
+        28,
+        28,
+        28,
+        28,
+        28,
+        28,
+        28,
+        28,
+        28,
+        28,
+        28,
+        28,
+        28,
+        34,
+        34,
+        34,
+        34,
+        34,
+        34,
+        34,
+        34,
+        34
       ],
       "local_count": 6,
       "local_names": [
@@ -901,9 +1053,8 @@
       "local_types": "[1, 1, 1, 0, 0, 0]"
     },
     {
-      "code": "[0, 0, 6, 0, 0, 1, 6, 1, 0, 2, 6, 2, 3, 3, 6, 3, 3, 4, 6, 4, 5, 3, 5, 4, 37, 2, 5, 5, 2, 40, 4, 6, 59]",
+      "code": "[117, 38, 0, 0, 0, 0, 6, 0, 117, 39, 0, 0, 0, 0, 6, 1, 117, 40, 0, 0, 1, 0, 6, 2, 117, 42, 0, 3, 2, 0, 6, 3, 3, 3, 0, 6, 4, 5, 3, 5, 4, 45, 2, 4, 0, 117, 49, 0, 5, 2, 48, 4, 5, 0, 68]",
       "constants": [
-        0,
         0,
         "",
         "inner",
@@ -914,141 +1065,202 @@
       "entry_point": "BenchStringConcat",
       "instructions": [
         {
-          "detail": "const[0]=0",
-          "line": 0,
-          "name": "OP_CONSTANT",
+          "detail": "",
+          "line": 38,
+          "name": "OP_UNKNOWN_117",
           "offset": 0,
+          "opcode": 117,
+          "operands": [
+            38,
+            0
+          ]
+        },
+        {
+          "detail": "const[0]=0",
+          "line": 38,
+          "name": "OP_CONSTANT",
+          "offset": 3,
           "opcode": 0,
           "operands": [
+            0,
             0
           ]
         },
         {
           "detail": "slot[0]=i",
-          "line": 0,
+          "line": 38,
           "name": "OP_SET_LOCAL",
-          "offset": 2,
+          "offset": 6,
           "opcode": 6,
           "operands": [
             0
           ]
         },
         {
-          "detail": "const[1]=0",
-          "line": 0,
+          "detail": "",
+          "line": 39,
+          "name": "OP_UNKNOWN_117",
+          "offset": 8,
+          "opcode": 117,
+          "operands": [
+            39,
+            0
+          ]
+        },
+        {
+          "detail": "const[0]=0",
+          "line": 39,
           "name": "OP_CONSTANT",
-          "offset": 4,
+          "offset": 11,
           "opcode": 0,
           "operands": [
-            1
+            0,
+            0
           ]
         },
         {
           "detail": "slot[1]=j",
-          "line": 0,
+          "line": 39,
           "name": "OP_SET_LOCAL",
-          "offset": 6,
+          "offset": 14,
           "opcode": 6,
           "operands": [
             1
           ]
         },
         {
-          "detail": "const[2]=\"\"",
-          "line": 0,
+          "detail": "",
+          "line": 40,
+          "name": "OP_UNKNOWN_117",
+          "offset": 16,
+          "opcode": 117,
+          "operands": [
+            40,
+            0
+          ]
+        },
+        {
+          "detail": "const[1]=\"\"",
+          "line": 40,
           "name": "OP_CONSTANT",
-          "offset": 8,
+          "offset": 19,
           "opcode": 0,
           "operands": [
-            2
+            1,
+            0
           ]
         },
         {
           "detail": "slot[2]=s",
-          "line": 0,
+          "line": 40,
           "name": "OP_SET_LOCAL",
-          "offset": 10,
+          "offset": 22,
           "opcode": 6,
           "operands": [
             2
           ]
         },
         {
-          "detail": "const[3]=\"inner\"",
-          "line": 0,
-          "name": "OP_GET_GLOBAL",
-          "offset": 12,
-          "opcode": 3,
-          "operands": [
-            3
-          ]
-        },
-        {
-          "detail": "slot[3]=__fused_count_0",
-          "line": 0,
-          "name": "OP_SET_LOCAL",
-          "offset": 14,
-          "opcode": 6,
-          "operands": [
-            3
-          ]
-        },
-        {
-          "detail": "const[4]=\"iterations\"",
-          "line": 0,
-          "name": "OP_GET_GLOBAL",
-          "offset": 16,
-          "opcode": 3,
-          "operands": [
-            4
-          ]
-        },
-        {
-          "detail": "slot[4]=__fused_count_1",
-          "line": 0,
-          "name": "OP_SET_LOCAL",
-          "offset": 18,
-          "opcode": 6,
-          "operands": [
-            4
-          ]
-        },
-        {
-          "detail": "slot[3]=__fused_count_0",
-          "line": 0,
-          "name": "OP_GET_LOCAL",
-          "offset": 20,
-          "opcode": 5,
-          "operands": [
-            3
-          ]
-        },
-        {
-          "detail": "slot[4]=__fused_count_1",
-          "line": 0,
-          "name": "OP_GET_LOCAL",
-          "offset": 22,
-          "opcode": 5,
-          "operands": [
-            4
-          ]
-        },
-        {
-          "detail": "slot[2]=s, const[5]=\"x\"",
-          "line": 0,
-          "name": "OP_STRING_REPEAT_OUTER",
+          "detail": "",
+          "line": 42,
+          "name": "OP_UNKNOWN_117",
           "offset": 24,
-          "opcode": 37,
+          "opcode": 117,
+          "operands": [
+            42,
+            0
+          ]
+        },
+        {
+          "detail": "const[2]=\"inner\"",
+          "line": 42,
+          "name": "OP_GET_GLOBAL",
+          "offset": 27,
+          "opcode": 3,
           "operands": [
             2,
-            5
+            0
+          ]
+        },
+        {
+          "detail": "slot[3]=__fused_count_0",
+          "line": 42,
+          "name": "OP_SET_LOCAL",
+          "offset": 30,
+          "opcode": 6,
+          "operands": [
+            3
+          ]
+        },
+        {
+          "detail": "const[3]=\"iterations\"",
+          "line": 42,
+          "name": "OP_GET_GLOBAL",
+          "offset": 32,
+          "opcode": 3,
+          "operands": [
+            3,
+            0
+          ]
+        },
+        {
+          "detail": "slot[4]=__fused_count_1",
+          "line": 42,
+          "name": "OP_SET_LOCAL",
+          "offset": 35,
+          "opcode": 6,
+          "operands": [
+            4
+          ]
+        },
+        {
+          "detail": "slot[3]=__fused_count_0",
+          "line": 42,
+          "name": "OP_GET_LOCAL",
+          "offset": 37,
+          "opcode": 5,
+          "operands": [
+            3
+          ]
+        },
+        {
+          "detail": "slot[4]=__fused_count_1",
+          "line": 42,
+          "name": "OP_GET_LOCAL",
+          "offset": 39,
+          "opcode": 5,
+          "operands": [
+            4
+          ]
+        },
+        {
+          "detail": "slot[2]=s, const[4]=\"x\"",
+          "line": 42,
+          "name": "OP_STRING_REPEAT_OUTER",
+          "offset": 41,
+          "opcode": 45,
+          "operands": [
+            2,
+            4,
+            0
+          ]
+        },
+        {
+          "detail": "",
+          "line": 49,
+          "name": "OP_UNKNOWN_117",
+          "offset": 45,
+          "opcode": 117,
+          "operands": [
+            49,
+            0
           ]
         },
         {
           "detail": "slot[2]=s",
-          "line": 0,
+          "line": 49,
           "name": "OP_GET_LOCAL",
-          "offset": 27,
+          "offset": 48,
           "opcode": 5,
           "operands": [
             2
@@ -1056,65 +1268,88 @@
         },
         {
           "detail": "",
-          "line": 0,
+          "line": 49,
           "name": "OP_LEN",
-          "offset": 29,
-          "opcode": 40,
+          "offset": 50,
+          "opcode": 48,
           "operands": []
         },
         {
-          "detail": "const[6]=\"BenchStringConcat\"",
-          "line": 0,
+          "detail": "const[5]=\"BenchStringConcat\"",
+          "line": 49,
           "name": "OP_SET_GLOBAL",
-          "offset": 30,
+          "offset": 51,
           "opcode": 4,
           "operands": [
-            6
+            5,
+            0
           ]
         },
         {
           "detail": "",
-          "line": 0,
+          "line": 49,
           "name": "OP_RETURN",
-          "offset": 32,
-          "opcode": 59,
+          "offset": 54,
+          "opcode": 68,
           "operands": []
         }
       ],
       "lines": [
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0
+        38,
+        38,
+        38,
+        38,
+        38,
+        38,
+        38,
+        38,
+        39,
+        39,
+        39,
+        39,
+        39,
+        39,
+        39,
+        39,
+        40,
+        40,
+        40,
+        40,
+        40,
+        40,
+        40,
+        40,
+        42,
+        42,
+        42,
+        42,
+        42,
+        42,
+        42,
+        42,
+        42,
+        42,
+        42,
+        42,
+        42,
+        42,
+        42,
+        42,
+        42,
+        42,
+        42,
+        42,
+        42,
+        49,
+        49,
+        49,
+        49,
+        49,
+        49,
+        49,
+        49,
+        49,
+        49
       ],
       "local_count": 5,
       "local_names": [
@@ -1127,11 +1362,8 @@
       "local_types": "[1, 1, 0, 1, 1]"
     },
     {
-      "code": "[0, 0, 6, 0, 0, 1, 6, 1, 0, 2, 6, 2, 0, 3, 6, 3, 3, 4, 6, 4, 3, 5, 6, 5, 5, 4, 5, 5, 5, 2, 30, 3, 6, 2, 5, 2, 4, 6, 59]",
+      "code": "[117, 53, 0, 0, 0, 0, 6, 0, 117, 54, 0, 0, 0, 0, 6, 1, 117, 55, 0, 0, 0, 0, 6, 2, 117, 56, 0, 0, 0, 0, 6, 3, 117, 58, 0, 3, 1, 0, 6, 4, 3, 2, 0, 6, 5, 5, 4, 5, 5, 5, 2, 36, 3, 6, 2, 117, 71, 0, 5, 2, 4, 3, 0, 68]",
       "constants": [
-        0,
-        0,
-        0,
         0,
         "inner",
         "iterations",
@@ -1140,130 +1372,191 @@
       "entry_point": "BenchBranch",
       "instructions": [
         {
-          "detail": "const[0]=0",
-          "line": 0,
-          "name": "OP_CONSTANT",
+          "detail": "",
+          "line": 53,
+          "name": "OP_UNKNOWN_117",
           "offset": 0,
+          "opcode": 117,
+          "operands": [
+            53,
+            0
+          ]
+        },
+        {
+          "detail": "const[0]=0",
+          "line": 53,
+          "name": "OP_CONSTANT",
+          "offset": 3,
           "opcode": 0,
           "operands": [
+            0,
             0
           ]
         },
         {
           "detail": "slot[0]=i",
-          "line": 0,
+          "line": 53,
           "name": "OP_SET_LOCAL",
-          "offset": 2,
+          "offset": 6,
           "opcode": 6,
           "operands": [
             0
           ]
         },
         {
-          "detail": "const[1]=0",
-          "line": 0,
+          "detail": "",
+          "line": 54,
+          "name": "OP_UNKNOWN_117",
+          "offset": 8,
+          "opcode": 117,
+          "operands": [
+            54,
+            0
+          ]
+        },
+        {
+          "detail": "const[0]=0",
+          "line": 54,
           "name": "OP_CONSTANT",
-          "offset": 4,
+          "offset": 11,
           "opcode": 0,
           "operands": [
-            1
+            0,
+            0
           ]
         },
         {
           "detail": "slot[1]=j",
-          "line": 0,
+          "line": 54,
           "name": "OP_SET_LOCAL",
-          "offset": 6,
+          "offset": 14,
           "opcode": 6,
           "operands": [
             1
           ]
         },
         {
-          "detail": "const[2]=0",
-          "line": 0,
+          "detail": "",
+          "line": 55,
+          "name": "OP_UNKNOWN_117",
+          "offset": 16,
+          "opcode": 117,
+          "operands": [
+            55,
+            0
+          ]
+        },
+        {
+          "detail": "const[0]=0",
+          "line": 55,
           "name": "OP_CONSTANT",
-          "offset": 8,
+          "offset": 19,
           "opcode": 0,
           "operands": [
-            2
+            0,
+            0
           ]
         },
         {
           "detail": "slot[2]=s",
-          "line": 0,
-          "name": "OP_SET_LOCAL",
-          "offset": 10,
-          "opcode": 6,
-          "operands": [
-            2
-          ]
-        },
-        {
-          "detail": "const[3]=0",
-          "line": 0,
-          "name": "OP_CONSTANT",
-          "offset": 12,
-          "opcode": 0,
-          "operands": [
-            3
-          ]
-        },
-        {
-          "detail": "slot[3]=flag",
-          "line": 0,
-          "name": "OP_SET_LOCAL",
-          "offset": 14,
-          "opcode": 6,
-          "operands": [
-            3
-          ]
-        },
-        {
-          "detail": "const[4]=\"inner\"",
-          "line": 0,
-          "name": "OP_GET_GLOBAL",
-          "offset": 16,
-          "opcode": 3,
-          "operands": [
-            4
-          ]
-        },
-        {
-          "detail": "slot[4]=__fused_count_0",
-          "line": 0,
-          "name": "OP_SET_LOCAL",
-          "offset": 18,
-          "opcode": 6,
-          "operands": [
-            4
-          ]
-        },
-        {
-          "detail": "const[5]=\"iterations\"",
-          "line": 0,
-          "name": "OP_GET_GLOBAL",
-          "offset": 20,
-          "opcode": 3,
-          "operands": [
-            5
-          ]
-        },
-        {
-          "detail": "slot[5]=__fused_count_1",
-          "line": 0,
+          "line": 55,
           "name": "OP_SET_LOCAL",
           "offset": 22,
           "opcode": 6,
           "operands": [
+            2
+          ]
+        },
+        {
+          "detail": "",
+          "line": 56,
+          "name": "OP_UNKNOWN_117",
+          "offset": 24,
+          "opcode": 117,
+          "operands": [
+            56,
+            0
+          ]
+        },
+        {
+          "detail": "const[0]=0",
+          "line": 56,
+          "name": "OP_CONSTANT",
+          "offset": 27,
+          "opcode": 0,
+          "operands": [
+            0,
+            0
+          ]
+        },
+        {
+          "detail": "slot[3]=flag",
+          "line": 56,
+          "name": "OP_SET_LOCAL",
+          "offset": 30,
+          "opcode": 6,
+          "operands": [
+            3
+          ]
+        },
+        {
+          "detail": "",
+          "line": 58,
+          "name": "OP_UNKNOWN_117",
+          "offset": 32,
+          "opcode": 117,
+          "operands": [
+            58,
+            0
+          ]
+        },
+        {
+          "detail": "const[1]=\"inner\"",
+          "line": 58,
+          "name": "OP_GET_GLOBAL",
+          "offset": 35,
+          "opcode": 3,
+          "operands": [
+            1,
+            0
+          ]
+        },
+        {
+          "detail": "slot[4]=__fused_count_0",
+          "line": 58,
+          "name": "OP_SET_LOCAL",
+          "offset": 38,
+          "opcode": 6,
+          "operands": [
+            4
+          ]
+        },
+        {
+          "detail": "const[2]=\"iterations\"",
+          "line": 58,
+          "name": "OP_GET_GLOBAL",
+          "offset": 40,
+          "opcode": 3,
+          "operands": [
+            2,
+            0
+          ]
+        },
+        {
+          "detail": "slot[5]=__fused_count_1",
+          "line": 58,
+          "name": "OP_SET_LOCAL",
+          "offset": 43,
+          "opcode": 6,
+          "operands": [
             5
           ]
         },
         {
           "detail": "slot[4]=__fused_count_0",
-          "line": 0,
+          "line": 58,
           "name": "OP_GET_LOCAL",
-          "offset": 24,
+          "offset": 45,
           "opcode": 5,
           "operands": [
             4
@@ -1271,9 +1564,9 @@
         },
         {
           "detail": "slot[5]=__fused_count_1",
-          "line": 0,
+          "line": 58,
           "name": "OP_GET_LOCAL",
-          "offset": 26,
+          "offset": 47,
           "opcode": 5,
           "operands": [
             5
@@ -1281,9 +1574,9 @@
         },
         {
           "detail": "slot[2]=s",
-          "line": 0,
+          "line": 58,
           "name": "OP_GET_LOCAL",
-          "offset": 28,
+          "offset": 49,
           "opcode": 5,
           "operands": [
             2
@@ -1291,93 +1584,130 @@
         },
         {
           "detail": "slot[3]=flag",
-          "line": 0,
+          "line": 58,
           "name": "OP_BRANCH_SUM",
-          "offset": 30,
-          "opcode": 30,
+          "offset": 51,
+          "opcode": 36,
           "operands": [
             3
           ]
         },
         {
           "detail": "slot[2]=s",
-          "line": 0,
+          "line": 58,
           "name": "OP_SET_LOCAL",
-          "offset": 32,
+          "offset": 53,
           "opcode": 6,
           "operands": [
             2
           ]
         },
         {
+          "detail": "",
+          "line": 71,
+          "name": "OP_UNKNOWN_117",
+          "offset": 55,
+          "opcode": 117,
+          "operands": [
+            71,
+            0
+          ]
+        },
+        {
           "detail": "slot[2]=s",
-          "line": 0,
+          "line": 71,
           "name": "OP_GET_LOCAL",
-          "offset": 34,
+          "offset": 58,
           "opcode": 5,
           "operands": [
             2
           ]
         },
         {
-          "detail": "const[6]=\"BenchBranch\"",
-          "line": 0,
+          "detail": "const[3]=\"BenchBranch\"",
+          "line": 71,
           "name": "OP_SET_GLOBAL",
-          "offset": 36,
+          "offset": 60,
           "opcode": 4,
           "operands": [
-            6
+            3,
+            0
           ]
         },
         {
           "detail": "",
-          "line": 0,
+          "line": 71,
           "name": "OP_RETURN",
-          "offset": 38,
-          "opcode": 59,
+          "offset": 63,
+          "opcode": 68,
           "operands": []
         }
       ],
       "lines": [
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0
+        53,
+        53,
+        53,
+        53,
+        53,
+        53,
+        53,
+        53,
+        54,
+        54,
+        54,
+        54,
+        54,
+        54,
+        54,
+        54,
+        55,
+        55,
+        55,
+        55,
+        55,
+        55,
+        55,
+        55,
+        56,
+        56,
+        56,
+        56,
+        56,
+        56,
+        56,
+        56,
+        58,
+        58,
+        58,
+        58,
+        58,
+        58,
+        58,
+        58,
+        58,
+        58,
+        58,
+        58,
+        58,
+        58,
+        58,
+        58,
+        58,
+        58,
+        58,
+        58,
+        58,
+        58,
+        58,
+        71,
+        71,
+        71,
+        71,
+        71,
+        71,
+        71,
+        71,
+        71
       ],
       "local_count": 6,
       "local_names": [
@@ -1391,5 +1721,5 @@
       "local_types": "[1, 1, 1, 1, 1, 1]"
     }
   ],
-  "script_path": "res://bench.bas"
+  "script_path": "res://bench.vg"
 }
