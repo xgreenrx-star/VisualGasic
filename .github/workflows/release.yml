@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 env:
-  GODOT_CPP_VERSION: "4.6"
+  GODOT_CPP_VERSION: "4.5"
 
 jobs:
   # ---------------------------------------------------------------------------
@@ -84,40 +84,35 @@ jobs:
 
       - name: Install dependencies
         run: |
-          brew install scons
+          brew install scons libffi
+          export PKG_CONFIG_PATH="$(brew --prefix libffi)/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
 
       - name: Build x86_64 (${{ matrix.target }})
-        run: scons platform=macos target=${{ matrix.target }} arch=x86_64 -j$(sysctl -n hw.logicalcpu)
+        run: |
+          scons platform=macos target=${{ matrix.target }} arch=x86_64 -j$(sysctl -n hw.logicalcpu)
+          # Save x86_64 binary before arm64 build overwrites it (SConstruct output has no arch suffix)
+          fw="demo/bin/libvisualgasic.macos.${{ matrix.target }}.framework"
+          cp "${fw}/libvisualgasic.macos.${{ matrix.target }}" "${fw}/libvisualgasic.macos.${{ matrix.target }}.x86_64"
 
       - name: Build arm64 (${{ matrix.target }})
-        run: scons platform=macos target=${{ matrix.target }} arch=arm64 -j$(sysctl -n hw.logicalcpu)
+        run: |
+          scons platform=macos target=${{ matrix.target }} arch=arm64 -j$(sysctl -n hw.logicalcpu)
+          # Save arm64 binary
+          fw="demo/bin/libvisualgasic.macos.${{ matrix.target }}.framework"
+          cp "${fw}/libvisualgasic.macos.${{ matrix.target }}" "${fw}/libvisualgasic.macos.${{ matrix.target }}.arm64"
 
       - name: Create universal binary (${{ matrix.target }})
         run: |
-          # Find the built binaries inside the framework directories
-          x86_bin=$(find demo/bin -path "*macos.${{ matrix.target }}*x86_64*" -not -name "*.framework" | head -1)
-          arm_bin=$(find demo/bin -path "*macos.${{ matrix.target }}*arm64*" -not -name "*.framework" | head -1)
+          fw="demo/bin/libvisualgasic.macos.${{ matrix.target }}.framework"
+          inner="libvisualgasic.macos.${{ matrix.target }}"
 
-          # Determine framework output name
-          if [ "${{ matrix.target }}" = "editor" ]; then
-            fw_name="libvisualgasic.macos.editor.framework"
-          elif [ "${{ matrix.target }}" = "template_debug" ]; then
-            fw_name="libvisualgasic.macos.template_debug.framework"
-          else
-            fw_name="libvisualgasic.macos.template_release.framework"
-          fi
+          lipo -create "${fw}/${inner}.x86_64" "${fw}/${inner}.arm64" -output "${fw}/${inner}"
 
-          # Create the framework directory
-          mkdir -p "demo/bin/${fw_name}"
-
-          # Strip the .framework suffix for the inner binary name
-          inner_name="${fw_name%.framework}"
-
-          # Lipo into universal binary
-          lipo -create "$x86_bin" "$arm_bin" -output "demo/bin/${fw_name}/${inner_name}"
+          # Clean up single-arch copies
+          rm -f "${fw}/${inner}.x86_64" "${fw}/${inner}.arm64"
 
           echo "Created universal binary:"
-          lipo -info "demo/bin/${fw_name}/${inner_name}"
+          lipo -info "${fw}/${inner}"
 
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
