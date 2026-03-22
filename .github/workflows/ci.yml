@@ -168,14 +168,12 @@ jobs:
       - name: Build (Windows template_debug, MSVC)
         shell: pwsh
         run: |
-          $threads = $env:NUMBER_OF_PROCESSORS
-          scons platform=windows target=template_debug -j$threads
+          scons platform=windows target=template_debug "-j$($env:NUMBER_OF_PROCESSORS)"
 
       - name: Build parser unit tests
         shell: pwsh
         run: |
-          $threads = $env:NUMBER_OF_PROCESSORS
-          scons -Q -j$threads tools/parser_unit_std_test tools/parser_unit_std_cli_test tools/parser_unit_std_golden_test
+          scons -Q "-j$($env:NUMBER_OF_PROCESSORS)" tools/parser_unit_std_test tools/parser_unit_std_cli_test tools/parser_unit_std_golden_test
 
       - name: Run parser unit tests
         run: |
@@ -186,5 +184,4 @@ jobs:
       - name: Build (Windows template_release, MSVC)
         shell: pwsh
         run: |
-          $threads = $env:NUMBER_OF_PROCESSORS
-          scons platform=windows target=template_release -j$threads
+          scons platform=windows target=template_release "-j$($env:NUMBER_OF_PROCESSORS)"

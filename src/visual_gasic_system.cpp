@@ -28,6 +28,7 @@
     #endif
 #endif
 
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
