@@ -93,8 +93,11 @@ if env["platform"] == "linux":
 # ws2_32: Winsock2 (sockets, networking)
 # ole32 + oleaut32: COM interop (VGComObject)
 # uuid: COM interface IIDs (IID_IDispatch, etc.)
+# user32: CreateWindowEx, DestroyWindow, LoadIcon, RegisterClass (VGSysTray)
+# shell32: Shell_NotifyIcon, ShellExecute (VGSysTray, VGSystem)
+# advapi32: Registry APIs, GetUserName (VGSystem, VGRegistry)
 if env["platform"] == "windows":
-    env.Append(LIBS=["ws2_32", "ole32", "oleaut32", "uuid"])
+    env.Append(LIBS=["ws2_32", "ole32", "oleaut32", "uuid", "user32", "shell32", "advapi32"])
 
 # --- Android build support ---
 if env["platform"] == "android":

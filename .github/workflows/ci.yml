@@ -15,11 +15,11 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Download Godot 4.6.1
+      - name: Download Godot 4.5.1
         run: |
-          wget -q https://github.com/godotengine/godot/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip
-          unzip -q Godot_v4.6.1-stable_linux.x86_64.zip
-          chmod +x Godot_v4.6.1-stable_linux.x86_64
+          wget -q https://github.com/godotengine/godot/releases/download/4.5.1-stable/Godot_v4.5.1-stable_linux.x86_64.zip
+          unzip -q Godot_v4.5.1-stable_linux.x86_64.zip
+          chmod +x Godot_v4.5.1-stable_linux.x86_64
 
       - name: Install dependencies
         run: |
