@@ -27,17 +27,32 @@ exclude_files = [
 ]
 sources = [s for s in sources if str(s) not in exclude_files]
 
+# Detect MSVC vs GCC/Clang toolchain
+_cc = str(env.subst("$CC")).lower()
+_is_msvc = env.get("is_msvc", False) or _cc.endswith("cl") or _cc.endswith("cl.exe")
+
 # Build variant flags: simple debug vs release heuristics driven by env['target']
 if "debug" in env.get("target", "").lower() or env.get("debug_build", False):
-    env.Append(CCFLAGS=["-g", "-O0"])
+    if _is_msvc:
+        env.Append(CCFLAGS=["/Zi", "/Od"])
+        env.Append(LINKFLAGS=["/DEBUG"])
+    else:
+        env.Append(CCFLAGS=["-g", "-O0"])
 else:
     # Ship release binaries with symbols so perf reports can resolve VisualGasic frames
-    env.Append(CCFLAGS=["-O3", "-DNDEBUG", "-g"])
-    env.Append(LINKFLAGS=["-g"])
+    if _is_msvc:
+        env.Append(CCFLAGS=["/O2", "/DNDEBUG", "/Zi"])
+        env.Append(LINKFLAGS=["/DEBUG"])
+    else:
+        env.Append(CCFLAGS=["-O3", "-DNDEBUG", "-g"])
+        env.Append(LINKFLAGS=["-g"])
 
 # Ensure debug symbols are preserved for template_debug builds (force link debug flags)
 if "template_debug" in env.get("target", "").lower() or env.get("debug_build", False):
-    env.Append(LINKFLAGS=["-g"])
+    if _is_msvc:
+        env.Append(LINKFLAGS=["/DEBUG"])
+    else:
+        env.Append(LINKFLAGS=["-g"])
     # -rdynamic is Linux-only for backtrace symbol export
     if env["platform"] != "windows":
         env.Append(LINKFLAGS=["-rdynamic"])

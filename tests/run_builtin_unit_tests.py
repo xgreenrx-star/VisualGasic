@@ -35,7 +35,7 @@ if __name__ == '__main__':
         print('Build failed')
         sys.exit(rc)
 
-    rc, out_lines = run('./Godot_v4.6.1-stable_linux.x86_64 --path demo --no-window -s run_builtin_unit_tests.gd')
+    rc, out_lines = run('./Godot_v4.6.1-stable_linux.x86_64 --path demo --headless -s run_builtin_unit_tests.gd')
     if rc != 0:
         print('Godot run failed')
         sys.exit(rc)
