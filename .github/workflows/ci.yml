@@ -34,11 +34,6 @@ jobs:
       - name: Build
         run: scons platform=linux target=template_debug -j2
 
-      - name: Install extension binary
-        run: |
-          mkdir -p demo/addons/visual_gasic/bin
-          cp demo/bin/libvisualgasic.linux.template_debug.x86_64.so demo/addons/visual_gasic/bin/
-
       - name: Run smoke tests
         env:
           DISPLAY: ""
