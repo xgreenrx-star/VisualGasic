@@ -32,7 +32,7 @@ if __name__ == '__main__':
         scons = shutil.which('scons') or 'scons'
 
     # No rebuild by default — assume built library is present. Build if missing.
-    rc, _ = run(f'{scons} platform=linux target=template_debug -j4')
+    rc, _ = run(f'{scons} platform=linux target=editor -j4')
     if rc != 0:
         print('Build failed')
         sys.exit(rc)

@@ -32,14 +32,14 @@ jobs:
           ./scripts/check_dim_types.py
 
       - name: Build
-        run: scons platform=linux target=template_debug -j2
+        run: scons platform=linux target=editor -j2
 
       - name: Prepare GDExtension for testing
         run: |
           # Replace symlink with actual bin directory for Godot compatibility
           rm -f demo/addons/visual_gasic/bin
           mkdir -p demo/addons/visual_gasic/bin
-          cp demo/bin/libvisualgasic.linux.template_debug.x86_64.so demo/addons/visual_gasic/bin/
+          cp demo/bin/libvisualgasic.linux.editor.x86_64.so demo/addons/visual_gasic/bin/
           ls -la demo/addons/visual_gasic/bin/
 
       - name: Run smoke tests

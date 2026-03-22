@@ -43,7 +43,7 @@ if __name__ == '__main__':
         scons = shutil.which('scons') or 'scons'
 
     # Build
-    rc, _ = run(f'{scons} platform=linux target=template_debug -j4')
+    rc, _ = run(f'{scons} platform=linux target=editor -j4')
     if rc != 0:
         print('Build failed')
         sys.exit(rc)

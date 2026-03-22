@@ -35,7 +35,7 @@ if __name__ == '__main__':
         scons = shutil.which('scons') or 'scons'
 
     # Build
-    rc, _ = run(f'{scons} platform=linux target=template_debug -j4')
+    rc, _ = run(f'{scons} platform=linux target=editor -j4')
     if rc != 0:
         print('Build failed')
         sys.exit(rc)
@@ -64,18 +64,13 @@ if __name__ == '__main__':
     gdext_path = 'demo/addons/visual_gasic/visual_gasic.gdextension'
     print(f'GDExtension file exists: {os.path.exists(gdext_path)}')
     print(f'Library .so exists: {os.path.exists(so_path)}')
-    print(f'Library .so (realpath): {os.path.realpath(so_path)}')
-    bin_path = 'demo/addons/visual_gasic/bin'
-    print(f'bin is symlink: {os.path.islink(bin_path)}')
-    if os.path.islink(bin_path):
-        print(f'bin symlink target: {os.readlink(bin_path)}')
-    if os.path.isdir(bin_path):
-        print(f'bin contents: {os.listdir(bin_path)}')
-    # Also check demo/bin directly
-    demo_bin = 'demo/bin/libvisualgasic.linux.template_debug.x86_64.so'
-    print(f'demo/bin .so exists: {os.path.exists(demo_bin)}')
 
-    # Run headless demo (skip import, go directly to test)
+    # Godot requires the project to be opened once to initialize .godot cache.
+    # First run: --editor --headless --quit-after 2 to generate filesystem cache
+    print('Initializing Godot project cache...')
+    run(f'{godot} --path demo --headless --editor --quit-after 2')
+
+    # Run headless demo
     rc, out_lines = run(f'{godot} --path demo --headless -s run_full.gd')
     if rc != 0:
         print('Godot run failed')
