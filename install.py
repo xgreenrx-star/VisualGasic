@@ -140,6 +140,16 @@ def install(source_dir):
             f.write(f'bash "%~dp0vg" %*\n')
         print(f"  Created Windows wrapper: {vg_cmd}")
 
+    # Create conflict-proof 'visualgasic' alias
+    if platform.system() != "Windows":
+        vg_alias = bin_dir / "visualgasic"
+        try:
+            if vg_alias.exists() or vg_alias.is_symlink():
+                vg_alias.unlink()
+            vg_alias.symlink_to(bin_dir / "vg")
+        except OSError:
+            pass
+
     return global_dir, addon_dir, bin_dir
 
 
@@ -169,7 +179,7 @@ def print_summary(global_dir, addon_dir, bin_dir):
     print(f"  Version:  {version}")
     print(f"  Files:    {file_count} files ({size_str})")
     print(f"  Addon:    {global_dir}")
-    print(f"  CLI:      {bin_dir / 'vg'}")
+    print(f"  CLI:      {bin_dir / 'vg'}  (also available as 'visualgasic')")
     print()
     print("  Quick Start:")
     print("    vg new MyGame        # Create a new VG project")
@@ -191,6 +201,30 @@ def print_summary(global_dir, addon_dir, bin_dir):
         else:
             print(f'    Add it: echo \'export PATH="$HOME/.local/bin:$PATH"\' >> ~/.bashrc')
         print()
+
+    # Detect naming conflict with system vg (cgvg package)
+    if platform.system() != "Windows":
+        system_vg = None
+        for p in ["/usr/bin/vg", "/bin/vg", "/usr/local/bin/vg"]:
+            if os.path.isfile(p) and os.access(p, os.X_OK) and p != str(bin_dir / "vg"):
+                try:
+                    with open(p, "r") as f:
+                        first_line = f.readline()
+                    if "perl" in first_line:
+                        system_vg = p
+                        break
+                except (OSError, UnicodeDecodeError):
+                    pass
+
+        if system_vg:
+            print(f"  ⚠  Name conflict: {system_vg} (from the 'cgvg' package)")
+            print()
+            print("  Your shell may run the wrong 'vg'. To fix:")
+            print("    hash -r              # Refresh shell cache, then: vg version")
+            print("    sudo apt remove cgvg # Or remove the conflicting package")
+            print(f"    {bin_dir / 'vg'}     # Or use the full path")
+            print("    visualgasic new MyGame  # Or use the alias")
+            print()
 
 
 # ── Main ────────────────────────────────────────────────────────────────────

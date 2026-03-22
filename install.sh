@@ -122,6 +122,39 @@ if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
     echo ""
 fi
 
+# ── Detect naming conflict with system vg (cgvg package) ───────────────────
+SYSTEM_VG=""
+for p in /usr/bin/vg /bin/vg /usr/local/bin/vg; do
+    if [[ -x "$p" && "$p" != "$BIN_DIR/vg" ]]; then
+        # Check if it's the cgvg Perl helper, not ours
+        if head -1 "$p" 2>/dev/null | grep -q perl; then
+            SYSTEM_VG="$p"
+            break
+        fi
+    fi
+done
+
+if [[ -n "$SYSTEM_VG" ]]; then
+    warn "Name conflict detected: ${BOLD}$SYSTEM_VG${NC} (from the 'cgvg' package)"
+    echo ""
+    echo "  Your shell may run the wrong 'vg' command. To fix this:"
+    echo ""
+    echo "  ${BOLD}Option 1:${NC} Refresh your shell's command cache:"
+    echo "    hash -r            # then try: vg version"
+    echo ""
+    echo "  ${BOLD}Option 2:${NC} Remove the conflicting package:"
+    echo "    sudo apt remove cgvg"
+    echo ""
+    echo "  ${BOLD}Option 3:${NC} Use the full path:"
+    echo "    $BIN_DIR/vg new MyGame"
+    echo ""
+    echo "  You can also use ${BOLD}visualgasic${NC} as an alias (installed alongside vg)."
+    echo ""
+fi
+
+# ── Install 'visualgasic' alias (conflict-proof) ───────────────────────────
+ln -sf "$BIN_DIR/vg" "$BIN_DIR/visualgasic"
+
 # ── Summary ─────────────────────────────────────────────────────────────────
 echo ""
 VG_VER="unknown"
@@ -137,7 +170,7 @@ echo -e "${NC}"
 echo "  Version:  $VG_VER"
 echo "  Files:    $FILE_COUNT files ($DIR_SIZE)"
 echo "  Addon:    $VG_GLOBAL_DIR"
-echo "  CLI:      $BIN_DIR/vg"
+echo "  CLI:      $BIN_DIR/vg  (also available as 'visualgasic')"
 echo ""
 echo -e "  ${BOLD}Quick Start:${NC}"
 echo "    vg new MyGame        # Create a new VG project"
