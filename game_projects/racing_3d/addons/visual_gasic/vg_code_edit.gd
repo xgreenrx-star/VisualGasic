@@ -372,6 +372,19 @@ func _infer_type(var_name: String) -> String:
 func _on_text_changed() -> void:
 	_parse_variables()
 	code_changed.emit(get_text())
+	# Explicitly request code completion — the built-in prefix auto-trigger
+	# is unreliable in @tool / embedded editor contexts.  Deferred so the
+	# caret position has settled after the text change.
+	call_deferred("_request_completion_deferred")
+
+func _request_completion_deferred() -> void:
+	if not has_focus():
+		return
+	# Only trigger when the caret is at the end of a word (not after delete/space)
+	var line := get_line(get_caret_line())
+	var col := get_caret_column()
+	if col > 0 and _is_word_char(line[col - 1]):
+		request_code_completion(true)
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and event.keycode == KEY_ENTER:

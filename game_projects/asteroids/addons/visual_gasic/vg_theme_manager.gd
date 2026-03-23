@@ -633,43 +633,75 @@ static func apply_to_code_edit(code_edit: CodeEdit) -> void:
 		hl.add_color_region('"', '"', theme.string_color)
 
 	# ── Scrollbar styling ──
-	# Godot inherits scrollbar colors from the editor theme which can make
-	# the grabber invisible on light code-editor backgrounds.  Explicitly
-	# style the vertical and horizontal scrollbars so they are always visible.
+	# Force dark grabber on light backgrounds via BOTH:
+	# 1. Theme on CodeEdit (for internal child resolution)
+	# 2. Per-node overrides on the actual VScrollBar/HScrollBar
+	# 3. custom_minimum_size to widen the scrollbar
 	var is_light_bg: bool = theme.background_color.get_luminance() > 0.5
 	if is_light_bg:
 		var scroll_grabber := StyleBoxFlat.new()
-		scroll_grabber.bg_color = Color(0.18, 0.18, 0.16)  # near-black grabber
-		scroll_grabber.border_color = Color(0.12, 0.12, 0.10)
+		scroll_grabber.bg_color = Color(0.25, 0.25, 0.22)
+		scroll_grabber.border_color = Color(0.15, 0.15, 0.12)
 		scroll_grabber.set_border_width_all(1)
-		scroll_grabber.corner_radius_top_left = 3
-		scroll_grabber.corner_radius_top_right = 3
-		scroll_grabber.corner_radius_bottom_left = 3
-		scroll_grabber.corner_radius_bottom_right = 3
-		var scroll_grabber_hl := StyleBoxFlat.new()
-		scroll_grabber_hl.bg_color = Color(0.10, 0.10, 0.08)  # black on hover
-		scroll_grabber_hl.border_color = Color(0.05, 0.05, 0.04)
-		scroll_grabber_hl.set_border_width_all(1)
-		scroll_grabber_hl.corner_radius_top_left = 3
-		scroll_grabber_hl.corner_radius_top_right = 3
-		scroll_grabber_hl.corner_radius_bottom_left = 3
-		scroll_grabber_hl.corner_radius_bottom_right = 3
-		var scroll_grabber_pressed := StyleBoxFlat.new()
-		scroll_grabber_pressed.bg_color = Color(0.05, 0.05, 0.04)  # black when pressed
-		scroll_grabber_pressed.border_color = Color(0.0, 0.0, 0.0)
-		scroll_grabber_pressed.set_border_width_all(1)
-		scroll_grabber_pressed.corner_radius_top_left = 3
-		scroll_grabber_pressed.corner_radius_top_right = 3
-		scroll_grabber_pressed.corner_radius_bottom_left = 3
-		scroll_grabber_pressed.corner_radius_bottom_right = 3
+		scroll_grabber.set_corner_radius_all(2)
+		scroll_grabber.content_margin_left = 3
+		scroll_grabber.content_margin_right = 3
+		scroll_grabber.content_margin_top = 3
+		scroll_grabber.content_margin_bottom = 3
+		var scroll_grabber_hl := scroll_grabber.duplicate()
+		scroll_grabber_hl.bg_color = Color(0.18, 0.18, 0.16)
+		var scroll_grabber_pr := scroll_grabber.duplicate()
+		scroll_grabber_pr.bg_color = Color(0.10, 0.10, 0.08)
 		var scroll_track := StyleBoxFlat.new()
-		scroll_track.bg_color = Color(0.86, 0.85, 0.82)  # warm track
-		for bar_node in code_edit.get_children():
-			if bar_node is VScrollBar or bar_node is HScrollBar:
-				bar_node.add_theme_stylebox_override("grabber", scroll_grabber)
-				bar_node.add_theme_stylebox_override("grabber_highlight", scroll_grabber_hl)
-				bar_node.add_theme_stylebox_override("grabber_pressed", scroll_grabber_pressed)
-				bar_node.add_theme_stylebox_override("scroll", scroll_track)
+		scroll_track.bg_color = Color(0.88, 0.87, 0.84)
+
+		# Method 1: Theme on CodeEdit
+		var scroll_theme := Theme.new()
+		for sb_type in ["VScrollBar", "HScrollBar", "ScrollBar"]:
+			scroll_theme.set_stylebox("grabber", sb_type, scroll_grabber)
+			scroll_theme.set_stylebox("grabber_highlight", sb_type, scroll_grabber_hl)
+			scroll_theme.set_stylebox("grabber_pressed", sb_type, scroll_grabber_pr)
+			scroll_theme.set_stylebox("scroll", sb_type, scroll_track)
+
+		# Code completion popup styles (so the popup is visible on light bg)
+		var popup_bg := StyleBoxFlat.new()
+		popup_bg.bg_color = Color(1.0, 1.0, 0.94)
+		popup_bg.border_color = Color(0.55, 0.55, 0.5)
+		popup_bg.set_border_width_all(1)
+		popup_bg.set_corner_radius_all(2)
+		popup_bg.content_margin_left = 4
+		popup_bg.content_margin_right = 4
+		popup_bg.content_margin_top = 4
+		popup_bg.content_margin_bottom = 4
+		for popup_type in ["PopupPanel", "PopupMenu", "Panel"]:
+			scroll_theme.set_stylebox("panel", popup_type, popup_bg)
+		scroll_theme.set_color("font_color", "PopupMenu", Color(0.1, 0.1, 0.1))
+		scroll_theme.set_color("font_hovered_color", "PopupMenu", Color(1, 1, 1))
+		var hover_sb := StyleBoxFlat.new()
+		hover_sb.bg_color = Color(0.2, 0.4, 0.8)
+		hover_sb.set_corner_radius_all(2)
+		scroll_theme.set_stylebox("hover", "PopupMenu", hover_sb)
+		scroll_theme.set_stylebox("selected", "PopupMenu", hover_sb)
+
+		# CodeEdit-specific completion colors
+		code_edit.add_theme_color_override("code_completion_background_color", Color(1.0, 1.0, 0.94))
+		code_edit.add_theme_color_override("code_completion_selected_color", Color(0.2, 0.4, 0.8, 0.4))
+		code_edit.add_theme_color_override("code_completion_existing_color", Color(0.2, 0.4, 0.8, 0.3))
+		code_edit.add_theme_color_override("code_completion_scroll_color", Color(0.55, 0.55, 0.5))
+		code_edit.add_theme_color_override("code_completion_scroll_hovered_color", Color(0.3, 0.3, 0.28))
+
+		code_edit.theme = scroll_theme
+
+		# Method 2: Per-node overrides on actual scrollbar nodes
+		var vbar = code_edit.get_v_scroll_bar()
+		var hbar = code_edit.get_h_scroll_bar()
+		for bar in [vbar, hbar]:
+			if bar:
+				bar.add_theme_stylebox_override("grabber", scroll_grabber)
+				bar.add_theme_stylebox_override("grabber_highlight", scroll_grabber_hl)
+				bar.add_theme_stylebox_override("grabber_pressed", scroll_grabber_pr)
+				bar.add_theme_stylebox_override("scroll", scroll_track)
+				bar.custom_minimum_size = Vector2(14, 14)
 
 ## Get the current theme's IDE chrome colors as a Dictionary
 ## (compatible with the plugin's _theme dictionary format)

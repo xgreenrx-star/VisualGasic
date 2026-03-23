@@ -697,6 +697,35 @@ func _apply_scrollbar_theme() -> void:
 		t.set_stylebox("grabber_highlight", sb_type, scroll_grabber_hl)
 		t.set_stylebox("grabber_pressed", sb_type, scroll_grabber_pr)
 		t.set_stylebox("scroll", sb_type, scroll_track)
+
+	# ── Code completion popup styles ──
+	# Without these the popup inherits the minimal Theme and may be invisible.
+	var popup_bg := StyleBoxFlat.new()
+	popup_bg.bg_color = Color(1.0, 1.0, 0.94)   # warm cream
+	popup_bg.border_color = Color(0.55, 0.55, 0.5)
+	popup_bg.set_border_width_all(1)
+	popup_bg.set_corner_radius_all(2)
+	popup_bg.content_margin_left = 4
+	popup_bg.content_margin_right = 4
+	popup_bg.content_margin_top = 4
+	popup_bg.content_margin_bottom = 4
+	for popup_type in ["PopupPanel", "PopupMenu", "Panel"]:
+		t.set_stylebox("panel", popup_type, popup_bg)
+	t.set_color("font_color", "PopupMenu", Color(0.1, 0.1, 0.1))
+	t.set_color("font_hovered_color", "PopupMenu", Color(1, 1, 1))
+	var hover_sb := StyleBoxFlat.new()
+	hover_sb.bg_color = Color(0.2, 0.4, 0.8)
+	hover_sb.set_corner_radius_all(2)
+	t.set_stylebox("hover", "PopupMenu", hover_sb)
+	t.set_stylebox("selected", "PopupMenu", hover_sb)
+
+	# ── Code completion specific colors on CodeEdit ──
+	_code_edit.add_theme_color_override("code_completion_background_color", Color(1.0, 1.0, 0.94))
+	_code_edit.add_theme_color_override("code_completion_selected_color", Color(0.2, 0.4, 0.8, 0.4))
+	_code_edit.add_theme_color_override("code_completion_existing_color", Color(0.2, 0.4, 0.8, 0.3))
+	_code_edit.add_theme_color_override("code_completion_scroll_color", Color(0.55, 0.55, 0.5))
+	_code_edit.add_theme_color_override("code_completion_scroll_hovered_color", Color(0.3, 0.3, 0.28))
+
 	_code_edit.theme = t
 
 	# ── Method 2: Per-node overrides on the actual scrollbar nodes ──

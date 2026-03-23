@@ -522,11 +522,29 @@ func _build_help_panel() -> void:
 	help_sb.content_margin_bottom = 4
 	_help_label.add_theme_stylebox_override("normal", help_sb)
 
+	# Enable clickable links (for "Used on lines" / "Modified on lines" etc.)
+	_help_label.meta_underlined = true
+	_help_label.meta_clicked.connect(_on_help_meta_clicked)
+
 	# Welcome text
 	_help_label.text = ""
 	_help_label.append_text("[color=#555555][i]Place the cursor on a keyword to see its documentation.[/i][/color]")
 
 	_help_scroll.add_child(_help_label)
+
+## Handles clickable links in the Command Help panel (e.g. "Used on lines: 27, 34").
+## Links use the format [url=goto:LINE_NUMBER]LINE_NUMBER[/url].
+func _on_help_meta_clicked(meta: Variant) -> void:
+	var s := str(meta)
+	if s.begins_with("goto:"):
+		var line_str := s.substr(5)
+		if line_str.is_valid_int():
+			var target_line := line_str.to_int() - 1  # CodeEdit is 0-based
+			if _code_edit and target_line >= 0 and target_line < _code_edit.get_line_count():
+				_code_edit.set_caret_line(target_line)
+				_code_edit.set_caret_column(0)
+				_code_edit.center_viewport_to_caret()
+				_code_edit.grab_focus()
 
 func _build_index_map_panel() -> void:
 	# Container for the index map: toggle header + drawing area
@@ -679,6 +697,35 @@ func _apply_scrollbar_theme() -> void:
 		t.set_stylebox("grabber_highlight", sb_type, scroll_grabber_hl)
 		t.set_stylebox("grabber_pressed", sb_type, scroll_grabber_pr)
 		t.set_stylebox("scroll", sb_type, scroll_track)
+
+	# ── Code completion popup styles ──
+	# Without these the popup inherits the minimal Theme and may be invisible.
+	var popup_bg := StyleBoxFlat.new()
+	popup_bg.bg_color = Color(1.0, 1.0, 0.94)   # warm cream
+	popup_bg.border_color = Color(0.55, 0.55, 0.5)
+	popup_bg.set_border_width_all(1)
+	popup_bg.set_corner_radius_all(2)
+	popup_bg.content_margin_left = 4
+	popup_bg.content_margin_right = 4
+	popup_bg.content_margin_top = 4
+	popup_bg.content_margin_bottom = 4
+	for popup_type in ["PopupPanel", "PopupMenu", "Panel"]:
+		t.set_stylebox("panel", popup_type, popup_bg)
+	t.set_color("font_color", "PopupMenu", Color(0.1, 0.1, 0.1))
+	t.set_color("font_hovered_color", "PopupMenu", Color(1, 1, 1))
+	var hover_sb := StyleBoxFlat.new()
+	hover_sb.bg_color = Color(0.2, 0.4, 0.8)
+	hover_sb.set_corner_radius_all(2)
+	t.set_stylebox("hover", "PopupMenu", hover_sb)
+	t.set_stylebox("selected", "PopupMenu", hover_sb)
+
+	# ── Code completion specific colors on CodeEdit ──
+	_code_edit.add_theme_color_override("code_completion_background_color", Color(1.0, 1.0, 0.94))
+	_code_edit.add_theme_color_override("code_completion_selected_color", Color(0.2, 0.4, 0.8, 0.4))
+	_code_edit.add_theme_color_override("code_completion_existing_color", Color(0.2, 0.4, 0.8, 0.3))
+	_code_edit.add_theme_color_override("code_completion_scroll_color", Color(0.55, 0.55, 0.5))
+	_code_edit.add_theme_color_override("code_completion_scroll_hovered_color", Color(0.3, 0.3, 0.28))
+
 	_code_edit.theme = t
 
 	# ── Method 2: Per-node overrides on the actual scrollbar nodes ──
@@ -1042,6 +1089,9 @@ func _rebuild_object_combo() -> void:
 func set_control_names(names: Array[String]) -> void:
 	_control_names = names
 	_rebuild_object_combo()
+	# Forward to VGCodeEdit so auto-complete can suggest control names
+	if _code_edit and _code_edit.has_method("set_known_controls"):
+		_code_edit.set_known_controls(names)
 
 ## Full control info list from the form designer (for Index Map panel)
 var _control_info_list: Array[Dictionary] = []
@@ -1274,15 +1324,21 @@ func _update_command_help() -> void:
 		return
 
 	var entry := VGCommandHelp.lookup(keyword)
+	var is_builtin := not entry.is_empty()
 	if entry.is_empty():
-		# ── Fallback: scan current script for user-declared symbols ──
+		# ── Fallback 1: scan current script for user-declared symbols ──
 		var user_entry := _lookup_user_symbol(keyword)
 		if not user_entry.is_empty():
 			entry = user_entry
 		else:
-			_help_label.text = ""
-			_help_label.append_text("[color=#555555][i]No documentation for \"" + keyword + "\"[/i][/color]")
-			return
+			# ── Fallback 2: control/widget name (#2) ──
+			var ctrl := _find_control_info(keyword)
+			if not ctrl.is_empty():
+				entry = _build_control_help_entry(ctrl)
+			else:
+				_help_label.text = ""
+				_help_label.append_text("[color=#555555][i]No documentation for \"" + keyword + "\"[/i][/color]")
+				return
 
 	# Reset the scroll position
 	if _help_scroll:
@@ -1294,12 +1350,33 @@ func _update_command_help() -> void:
 	_help_label.append_text("[b][color=#00006B][font_size=12]" + entry.get("keyword", keyword) + "[/font_size][/color][/b]\n\n")
 
 	# ── Syntax ──
-	_help_label.append_text("[b][color=#00006B]Syntax[/color][/b]\n")
-	_help_label.append_text("[color=#333333][code]" + entry.get("syntax", "") + "[/code][/color]\n\n")
+	var syntax_text: String = entry.get("syntax", "")
+	if not syntax_text.is_empty():
+		_help_label.append_text("[b][color=#00006B]Syntax[/color][/b]\n")
+		_help_label.append_text("[color=#333333][code]" + syntax_text + "[/code][/color]\n\n")
 
 	# ── Description ──
 	_help_label.append_text("[b][color=#00006B]Description[/color][/b]\n")
 	_help_label.append_text("[color=#222222]" + entry.get("desc", "") + "[/color]\n\n")
+
+	# ── Developer Note — inline comment (#1) ──
+	var comment: String = entry.get("comment", "")
+	if not comment.is_empty():
+		_help_label.append_text("[b][color=#00006B]Developer Note[/color][/b]\n")
+		_help_label.append_text("[color=#336633]💬 " + comment + "[/color]\n\n")
+
+	# ── Scope indicator (#7) ──
+	var scope_info: String = entry.get("scope_info", "")
+	if not scope_info.is_empty():
+		_help_label.append_text("[color=#555555]📌 Scope: [b]" + scope_info + "[/b][/color]\n\n")
+
+	# ── Type Members (#3) ──
+	var type_members: Array = entry.get("type_members", [])
+	if not type_members.is_empty():
+		_help_label.append_text("[b][color=#00006B]Members[/color][/b]\n")
+		for member in type_members:
+			_help_label.append_text("[color=#333333]  • [code]" + str(member) + "[/code][/color]\n")
+		_help_label.append_text("\n")
 
 	# ── Code Example ──
 	var code_text: String = entry.get("code", "")
@@ -1307,14 +1384,91 @@ func _update_command_help() -> void:
 		_help_label.append_text("[b][color=#00006B]Example[/color][/b]\n")
 		_help_label.append_text("[color=#333333][code]" + code_text + "[/code][/color]\n\n")
 
+	# ── Used on lines (#4) — clickable links ──
+	var used_on: Array = entry.get("used_on_lines", [])
+	if not used_on.is_empty():
+		_help_label.append_text("[color=#555555]🔍 Used on lines: ")
+		for ui in used_on.size():
+			if ui > 0:
+				_help_label.append_text(", ")
+			var ln: int = used_on[ui]
+			_help_label.append_text("[url=goto:" + str(ln) + "][color=#0000CC]" + str(ln) + "[/color][/url]")
+		_help_label.append_text("[/color]\n\n")
+
+	# ── Modified on lines (#8) — clickable links ──
+	var modified_on: Array = entry.get("modified_on_lines", [])
+	if not modified_on.is_empty():
+		_help_label.append_text("[color=#555555]✏️ Modified on lines: ")
+		for mi in modified_on.size():
+			if mi > 0:
+				_help_label.append_text(", ")
+			var ln: int = modified_on[mi]
+			_help_label.append_text("[url=goto:" + str(ln) + "][color=#CC6600]" + str(ln) + "[/color][/url]")
+		_help_label.append_text("[/color]\n\n")
+
+	# ── Called from (#5) — clickable links ──
+	var called_from: Array = entry.get("called_from_lines", [])
+	if not called_from.is_empty():
+		_help_label.append_text("[color=#555555]📞 Called from lines: ")
+		for ci in called_from.size():
+			if ci > 0:
+				_help_label.append_text(", ")
+			var ln: int = called_from[ci]
+			_help_label.append_text("[url=goto:" + str(ln) + "][color=#0000CC]" + str(ln) + "[/color][/url]")
+		_help_label.append_text("[/color]\n\n")
+
+	# ── See Also (#6) ──
+	if is_builtin:
+		var see_also: Array = VGCommandHelp.get_see_also(keyword)
+		if not see_also.is_empty():
+			_help_label.append_text("[b][color=#00006B]See Also[/color][/b]\n")
+			_help_label.append_text("[color=#333333]👉 " + ", ".join(see_also) + "[/color]\n\n")
+
 	# ── Reference link ──
 	var ref_line: int = entry.get("ref_line", 0)
 	if ref_line > 0:
 		_help_label.append_text("[color=#555555][i]📖 Programmer's Reference, line " + str(ref_line) + "[/i][/color]")
 
+## Builds a help entry for a form control/widget (#2).
+func _build_control_help_entry(ctrl: Dictionary) -> Dictionary:
+	var ctrl_name: String = ctrl.get("name", "")
+	var ctrl_type: String = ctrl.get("type", "Unknown")
+	var x: float = ctrl.get("x", 0)
+	var y: float = ctrl.get("y", 0)
+	var w: float = ctrl.get("width", 0)
+	var h: float = ctrl.get("height", 0)
+	var text_val: String = ctrl.get("text", "")
+	var vis: bool = ctrl.get("visible", true)
+
+	var desc := "Form control of type [b]" + ctrl_type + "[/b].\n"
+	desc += "Position: (" + str(int(x)) + ", " + str(int(y)) + ")  Size: " + str(int(w)) + " × " + str(int(h)) + "\n"
+	if not text_val.is_empty():
+		desc += "Text: \"" + text_val + "\"\n"
+	desc += "Visible: " + ("Yes" if vis else "No")
+
+	# Show custom properties
+	var props: Dictionary = ctrl.get("properties", {})
+	var prop_lines := ""
+	for key in props.keys():
+		prop_lines += "\n  • " + str(key) + " = " + str(props[key])
+
+	if not prop_lines.is_empty():
+		desc += "\n\nProperties:" + prop_lines
+
+	return {
+		"keyword": ctrl_name + "  (" + ctrl_type + ")",
+		"syntax": ctrl_type + " " + ctrl_name,
+		"desc": desc,
+		"code": "",
+		"ref_line": 0,
+		"symbol_kind": "control",
+	}
+
 ## Scans the current script for user-declared variables, constants, and
 ## Sub/Function definitions matching the given keyword.
 ## Returns a Dictionary in the same format as VGCommandHelp entries, or empty.
+## Enhanced fields: comment, scope_info, used_on_lines, modified_on_lines,
+## called_from_lines, type_members, symbol_kind.
 func _lookup_user_symbol(keyword: String) -> Dictionary:
 	if not _code_edit or keyword.is_empty():
 		return {}
@@ -1340,7 +1494,6 @@ func _lookup_user_symbol(keyword: String) -> Dictionary:
 		elif sl.begins_with("global "):
 			decl_kw = "Global"; offset = 7
 		else:
-			# Not a variable declaration — check next patterns below
 			pass
 
 		if not decl_kw.is_empty():
@@ -1365,7 +1518,6 @@ func _lookup_user_symbol(keyword: String) -> Dictionary:
 					var tpart := after.substr(3).strip_edges()
 					if tpart.to_lower().begins_with("new "):
 						tpart = tpart.substr(4).strip_edges()
-					# Extract type name (may include * N for fixed-length strings)
 					var tname := ""
 					for ti in tpart.length():
 						var tc := tpart[ti]
@@ -1381,10 +1533,18 @@ func _lookup_user_symbol(keyword: String) -> Dictionary:
 				var eq_pos := rest.find("=")
 				if eq_pos >= 0:
 					init_val = rest.substr(eq_pos).strip_edges()
-					# Remove trailing comment
 					var cmt := init_val.find("'")
 					if cmt >= 0:
 						init_val = init_val.substr(0, cmt).strip_edges()
+				# ── NEW: Extract trailing comment (#1) ──
+				var comment := _extract_trailing_comment(sline)
+				# ── NEW: Scope indicator (#7) ──
+				var scope_info := _find_scope_for_line(lines, i)
+				# ── NEW: Usage scanning (#4) ──
+				var used_on := _scan_usages(lines, vname, i)
+				# ── NEW: Assignment tracking (#8) ──
+				var modified_on := _scan_assignments(lines, vname, i)
+
 				var scope := decl_kw
 				if decl_kw == "Dim":
 					scope = "Local variable"
@@ -1408,6 +1568,11 @@ func _lookup_user_symbol(keyword: String) -> Dictionary:
 					"desc": desc_str,
 					"code": "",
 					"ref_line": 0,
+					"symbol_kind": "variable",
+					"comment": comment,
+					"scope_info": scope_info,
+					"used_on_lines": used_on,
+					"modified_on_lines": modified_on,
 				}
 
 	# ── Pass 2: Const declarations ──
@@ -1433,16 +1598,22 @@ func _lookup_user_symbol(keyword: String) -> Dictionary:
 				ci += 1
 			if cname.to_lower() == kw_lower:
 				var after := rest.substr(ci).strip_edges()
-				# Remove trailing comment
 				var cmt := after.find("'")
 				if cmt >= 0:
 					after = after.substr(0, cmt).strip_edges()
+				var comment := _extract_trailing_comment(sline)
+				var scope_info := _find_scope_for_line(lines, i)
+				var used_on := _scan_usages(lines, cname, i)
 				return {
 					"keyword": cname + "  (Const)",
 					"syntax": const_scope + " " + cname + " " + after,
 					"desc": "Constant declared on line " + str(i + 1) + ".\nValue cannot be changed at runtime.",
 					"code": "",
 					"ref_line": 0,
+					"symbol_kind": "const",
+					"comment": comment,
+					"scope_info": scope_info,
+					"used_on_lines": used_on,
 				}
 
 	# ── Pass 3: Sub / Function definitions ──
@@ -1455,17 +1626,17 @@ func _lookup_user_symbol(keyword: String) -> Dictionary:
 			var kind := m.get_string(2)  # Sub or Function
 			var params := m.get_string(3).strip_edges()
 			var trailer := m.get_string(4).strip_edges()
-			# Extract return type for Functions
 			var ret_type := ""
 			if kind.to_lower() == "function":
 				var tl := trailer.to_lower()
 				var as_pos := tl.find("as ")
 				if as_pos >= 0:
 					ret_type = trailer.substr(as_pos + 3).strip_edges()
-					# Remove trailing comment
 					var cmt := ret_type.find("'")
 					if cmt >= 0:
 						ret_type = ret_type.substr(0, cmt).strip_edges()
+			var comment := _extract_trailing_comment(lines[i])
+			var called_from := _scan_callers(lines, keyword, i)
 			var syntax_str := scope + " " + kind + " " + keyword + "(" + params + ")"
 			if not ret_type.is_empty():
 				syntax_str += " As " + ret_type
@@ -1486,9 +1657,178 @@ func _lookup_user_symbol(keyword: String) -> Dictionary:
 				"desc": desc_str,
 				"code": "",
 				"ref_line": 0,
+				"symbol_kind": kind.to_lower(),
+				"comment": comment,
+				"called_from_lines": called_from,
+			}
+
+	# ── Pass 4: Type definitions ──
+	var type_rx := RegEx.new()
+	type_rx.compile("(?i)^\\s*(?:Public\\s+|Private\\s+)?Type\\s+" + keyword.replace("(", "\\(") + "\\s*$")
+	for i in lines.size():
+		if type_rx.search(lines[i]):
+			var comment := _extract_trailing_comment(lines[i])
+			var members := _scan_type_members(lines, i)
+			var used_on := _scan_usages(lines, keyword, i)
+			var scope_kw := "Public"
+			var sl := lines[i].strip_edges().to_lower()
+			if sl.begins_with("private"):
+				scope_kw = "Private"
+			return {
+				"keyword": keyword + "  (Type)",
+				"syntax": scope_kw + " Type " + keyword,
+				"desc": "User-defined Type declared on line " + str(i + 1) + ".",
+				"code": "",
+				"ref_line": 0,
+				"symbol_kind": "type",
+				"comment": comment,
+				"scope_info": "Module-level",
+				"used_on_lines": used_on,
+				"type_members": members,
 			}
 
 	return {}
+
+# =============================================================================
+# COMMAND HELP — HELPER FUNCTIONS
+# =============================================================================
+
+## Extracts the trailing comment from a line of code.
+## e.g. "Dim score As Integer  ' keeps track of points" → "keeps track of points"
+func _extract_trailing_comment(line: String) -> String:
+	# Skip lines that are purely comments (start with ')
+	var stripped := line.strip_edges()
+	if stripped.begins_with("'") or stripped.to_lower().begins_with("rem "):
+		return ""
+	# Find the comment marker — be careful to skip ' inside string literals
+	var in_string := false
+	for ci in line.length():
+		var ch := line[ci]
+		if ch == '"':
+			in_string = not in_string
+		elif ch == "'" and not in_string:
+			var comment := line.substr(ci + 1).strip_edges()
+			if not comment.is_empty():
+				return comment
+			return ""
+	return ""
+
+## Determines the scope (module-level or local) for a given line.
+## Returns e.g. "Module-level", "Local to Sub UpdateScore", "Local to Function CalcTotal".
+func _find_scope_for_line(lines: PackedStringArray, line_idx: int) -> String:
+	var proc_rx := RegEx.new()
+	proc_rx.compile("(?i)^\\s*(?:(?:Public|Private|Static)\\s+)?(?:Sub|Function)\\s+(\\w+)")
+	var end_rx := RegEx.new()
+	end_rx.compile("(?i)^\\s*End\\s+(?:Sub|Function)")
+	# Walk backward to find enclosing Sub/Function
+	var inside_proc := ""
+	var depth := 0
+	for j in range(line_idx - 1, -1, -1):
+		var em := end_rx.search(lines[j])
+		if em:
+			depth += 1  # entering a closed procedure (going backward)
+		var pm := proc_rx.search(lines[j])
+		if pm:
+			if depth > 0:
+				depth -= 1  # this End matched a prior proc header
+			else:
+				inside_proc = pm.get_string(1)
+				# Determine Sub or Function
+				var kind_rx := RegEx.new()
+				kind_rx.compile("(?i)\\b(Sub|Function)\\b")
+				var km := kind_rx.search(lines[j])
+				if km:
+					return "Local to " + km.get_string(1) + " " + inside_proc
+				return "Local to " + inside_proc
+	return "Module-level"
+
+## Scans all lines for usage of a symbol (case-insensitive, word boundary).
+## Excludes the declaration line itself and pure comment lines.
+## Returns an Array of 1-based line numbers.
+func _scan_usages(lines: PackedStringArray, symbol: String, decl_line: int) -> Array:
+	var result: Array = []
+	var rx := RegEx.new()
+	rx.compile("(?i)\\b" + symbol.replace("(", "\\(").replace(")", "\\)") + "\\b")
+	for i in lines.size():
+		if i == decl_line:
+			continue
+		var stripped := lines[i].strip_edges()
+		if stripped.begins_with("'") or stripped.to_lower().begins_with("rem "):
+			continue
+		# Skip the declaration's own Sub/Function header and End Sub/Function
+		if rx.search(lines[i]):
+			result.append(i + 1)  # 1-based
+	return result
+
+## Scans for lines where a variable is assigned (appears on left side of =).
+## Excludes the declaration line, comments, and comparison contexts.
+## Returns an Array of 1-based line numbers.
+func _scan_assignments(lines: PackedStringArray, symbol: String, decl_line: int) -> Array:
+	var result: Array = []
+	var sym_lower := symbol.to_lower()
+	var assign_rx := RegEx.new()
+	# Match: symbol =, symbol(...)  =, symbol.member = (but not ==, <=, >=, <>)
+	assign_rx.compile("(?i)^[^']*\\b" + symbol.replace("(", "\\(").replace(")", "\\)") + "\\b[^=<>!]*=[^=]")
+	for i in lines.size():
+		if i == decl_line:
+			continue
+		var stripped := lines[i].strip_edges()
+		if stripped.begins_with("'") or stripped.to_lower().begins_with("rem "):
+			continue
+		# Also skip If/ElseIf/While/Until/Case lines (comparisons, not assignments)
+		var sl := stripped.to_lower()
+		if sl.begins_with("if ") or sl.begins_with("elseif ") or sl.begins_with("while ") \
+			or sl.begins_with("until ") or sl.begins_with("case ") or sl.begins_with("select ") \
+			or sl.begins_with("debug.print") or sl.begins_with("print ") \
+			or sl.begins_with("msgbox") or sl.begins_with("call "):
+			continue
+		# Skip Sub/Function/End lines
+		if sl.begins_with("sub ") or sl.begins_with("function ") or sl.begins_with("end ") \
+			or sl.begins_with("public sub") or sl.begins_with("private sub") \
+			or sl.begins_with("public function") or sl.begins_with("private function"):
+			continue
+		if assign_rx.search(lines[i]):
+			result.append(i + 1)  # 1-based
+	return result
+
+## Scans for lines that call a Sub or Function (excluding its own definition).
+## Returns an Array of 1-based line numbers.
+func _scan_callers(lines: PackedStringArray, proc_name: String, def_line: int) -> Array:
+	var result: Array = []
+	var call_rx := RegEx.new()
+	# Match the proc name followed by ( or space (for Sub calls without parens)
+	call_rx.compile("(?i)\\b" + proc_name.replace("(", "\\(").replace(")", "\\)") + "\\b")
+	var def_rx := RegEx.new()
+	def_rx.compile("(?i)^\\s*(?:(?:Public|Private|Static)\\s+)?(?:Sub|Function)\\s+" + proc_name.replace("(", "\\(") + "\\b")
+	var end_rx := RegEx.new()
+	end_rx.compile("(?i)^\\s*End\\s+(?:Sub|Function)")
+	for i in lines.size():
+		if i == def_line:
+			continue
+		var stripped := lines[i].strip_edges()
+		if stripped.begins_with("'") or stripped.to_lower().begins_with("rem "):
+			continue
+		# Skip the definition header and end lines
+		if def_rx.search(lines[i]):
+			continue
+		if call_rx.search(lines[i]):
+			result.append(i + 1)  # 1-based
+	return result
+
+## Scans a Type...End Type block starting at the given line for member fields.
+## Returns an Array of strings like "name As String", "age As Integer".
+func _scan_type_members(lines: PackedStringArray, type_line: int) -> Array:
+	var result: Array = []
+	var end_rx := RegEx.new()
+	end_rx.compile("(?i)^\\s*End\\s+Type")
+	for i in range(type_line + 1, lines.size()):
+		if end_rx.search(lines[i]):
+			break
+		var stripped := lines[i].strip_edges()
+		if stripped.is_empty() or stripped.begins_with("'"):
+			continue
+		result.append(stripped)
+	return result
 
 # =============================================================================
 # PROCEDURE SEPARATOR LINES
@@ -1713,6 +2053,64 @@ func _input(event: InputEvent) -> void:
 		elif event.keycode == KEY_F7 and not event.ctrl_pressed and not event.alt_pressed:
 			view_object_requested.emit()
 			get_viewport().set_input_as_handled()
+		# Ctrl+G → Go To Line
+		elif event.ctrl_pressed and event.keycode == KEY_G and not event.alt_pressed and not event.shift_pressed:
+			_show_goto_line_dialog()
+			get_viewport().set_input_as_handled()
+
+# =============================================================================
+# GO TO LINE DIALOG (Ctrl+G)
+# =============================================================================
+
+var _goto_dialog: AcceptDialog = null
+var _goto_line_edit: LineEdit = null
+
+## Shows a small dialog asking for a line number, then jumps to it.
+func _show_goto_line_dialog() -> void:
+	if not _code_edit:
+		return
+	# Create dialog if it doesn't exist yet
+	if not _goto_dialog:
+		_goto_dialog = AcceptDialog.new()
+		_goto_dialog.title = "Go To Line"
+		_goto_dialog.ok_button_text = "Go"
+		_goto_dialog.min_size = Vector2i(280, 0)
+		add_child(_goto_dialog)
+		var vb := VBoxContainer.new()
+		var lbl := Label.new()
+		lbl.text = "Line number (1 – " + str(_code_edit.get_line_count()) + "):"
+		lbl.add_theme_font_size_override("font_size", 12)
+		vb.add_child(lbl)
+		_goto_line_edit = LineEdit.new()
+		_goto_line_edit.placeholder_text = "e.g. 42"
+		_goto_line_edit.add_theme_font_size_override("font_size", 12)
+		vb.add_child(_goto_line_edit)
+		_goto_dialog.add_child(vb)
+		_goto_dialog.confirmed.connect(_on_goto_confirmed)
+		_goto_line_edit.text_submitted.connect(func(_t): _goto_dialog.hide(); _on_goto_confirmed())
+	# Update max line in label
+	var lbl_node = _goto_dialog.get_child(1)  # VBoxContainer
+	if lbl_node and lbl_node.get_child_count() > 0:
+		var lbl := lbl_node.get_child(0) as Label
+		if lbl:
+			lbl.text = "Line number (1 – " + str(_code_edit.get_line_count()) + "):"
+	# Pre-fill with current line
+	_goto_line_edit.text = str(_code_edit.get_caret_line() + 1)
+	_goto_dialog.popup_centered()
+	_goto_line_edit.select_all()
+	_goto_line_edit.grab_focus()
+
+func _on_goto_confirmed() -> void:
+	if not _code_edit or not _goto_line_edit:
+		return
+	var txt := _goto_line_edit.text.strip_edges()
+	if txt.is_valid_int():
+		var target := txt.to_int() - 1  # 0-based
+		target = clampi(target, 0, _code_edit.get_line_count() - 1)
+		_code_edit.set_caret_line(target)
+		_code_edit.set_caret_column(0)
+		_code_edit.center_viewport_to_caret()
+		_code_edit.grab_focus()
 
 # =============================================================================
 # PRETTY LISTING (VB6 Auto-Format on Save)

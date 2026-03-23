@@ -68,15 +68,60 @@ const VB6_KEYWORD_CASING: Dictionary = {
 }
 
 # Auto-indent settings
-var _indent_triggers: Array[String] = [
-	"Sub", "Function", "If", "For", "While", "Do", "Select Case",
-	"Class", "Try", "Whenever", "With", "Property"
+# These are checked against the *stripped* previous line.  The matching logic
+# in _handle_auto_indent uses _line_starts_block() which handles optional
+# access modifiers (Public/Private/Static/Friend) before the keyword.
+var _block_start_keywords: Array[String] = [
+	"Sub", "Function", "Property", "Class", "Type", "Enum",
+	"For", "While", "Do", "Select Case", "With", "Try", "Whenever"
 ]
 var _dedent_triggers: Array[String] = [
 	"End Sub", "End Function", "End If", "Next", "Wend", "Loop",
 	"End Select", "End Class", "End Try", "End Whenever", "End With",
-	"End Property", "Else", "ElseIf", "Case", "Catch", "Finally"
+	"End Property", "End Type", "End Enum",
+	"Else", "ElseIf", "Case", "Catch", "Finally"
 ]
+
+# CBM two-letter abbreviation mappings (Commodore-style shortcuts)
+# Unambiguous: always expand.  Ambiguous: show completion menu.
+const CBM_UNAMBIGUOUS: Dictionary = {
+	"IF": "If", "TH": "Then", "WE": "Wend", "LO": "Loop",
+	"DO": "Do", "NE": "Next", "AS": "As", "TO": "To",
+	"ST": "Step", "GO": "GoTo", "GS": "GoSub", "CA": "Case",
+	"TR": "Try", "FI": "Finally", "EX": "Exit", "CO": "Continue",
+	"IS": "Is", "OF": "Of", "ME": "Me", "BY": "ByVal",
+	"BR": "ByRef", "OP": "Option", "MO": "Module", "US": "Using",
+	"NA": "Namespace", "IM": "Implements", "IN": "Inherits",
+	"OV": "Overrides", "MU": "MustOverride", "NO": "NotOverridable",
+	"SH": "Shared", "PA": "Parallel", "AW": "Await",
+	"TA": "Task", "MA": "Match",
+}
+const CBM_AMBIGUOUS: Dictionary = {
+	"PR": ["Print", "Private", "Property"],
+	"FO": ["For", "Format"],
+	"FU": ["Function"],
+	"SU": ["Sub"],
+	"EN": ["End", "Enum"],
+	"WH": ["While", "With", "When"],
+	"SE": ["Select", "Set"],
+	"DI": ["Dim"],
+	"RE": ["Return", "ReDim"],
+	"EL": ["Else", "ElseIf"],
+	"CL": ["Class"],
+	"PU": ["Public"],
+	"FR": ["Friend"],
+	"EA": ["Each"],
+	"GE": ["Get"],
+	"UN": ["Until"],
+	"TY": ["TypeOf", "Type"],
+	"CH": ["Catch"],
+	"TW": ["Throw"],
+	"SR": ["Static", "String", "Structure"],
+	"AN": ["And", "AndAlso"],
+	"OR": ["Or", "OrElse"],
+	"NT": ["Not"],
+	"XO": ["Xor"],
+}
 
 # =============================================================================
 # LIFECYCLE
@@ -130,7 +175,14 @@ func _setup_syntax_highlighter() -> void:
 func _setup_code_completion() -> void:
 	# Enable code completion
 	code_completion_enabled = true
-	code_completion_prefixes = [".", " "]
+	# Trigger on dot (member access), space (after keywords), and all letters
+	# so completion fires as the user types identifiers/keywords/CBM abbreviations
+	var prefixes: Array[String] = [".", " "]
+	for ch_code in range("a".unicode_at(0), "z".unicode_at(0) + 1):
+		prefixes.append(String.chr(ch_code))
+	for ch_code in range("A".unicode_at(0), "Z".unicode_at(0) + 1):
+		prefixes.append(String.chr(ch_code))
+	code_completion_prefixes = prefixes
 	
 	# Set up auto-complete delay (lower = faster response)
 	# auto_brace_completion_enabled = true
@@ -141,7 +193,10 @@ func _setup_code_completion() -> void:
 	# }
 
 func _setup_auto_indent() -> void:
-	indent_automatic = true
+	# NOTE: Do NOT set indent_automatic = true — Godot's built-in auto-indent
+	# fires on Enter *before* our _handle_auto_indent runs via call_deferred,
+	# causing double-indentation.  We handle it ourselves in _handle_auto_indent.
+	indent_automatic = false
 	indent_size = 4
 	indent_use_spaces = false  # VB6 traditionally uses tabs
 	auto_brace_completion_enabled = true
@@ -186,6 +241,35 @@ func _on_code_completion_requested() -> void:
 		if parts.size() > 0:
 			var obj_name = parts[0].strip_edges().get_slice(" ", -1)
 			_show_member_completions(obj_name)
+			return
+	
+	# ── CBM abbreviation check ──
+	# If the user typed exactly 2 uppercase letters at a statement boundary,
+	# offer CBM expansion(s) before regular completions.
+	if word.length() == 2 and word == word.to_upper() and _is_cbm_boundary(line, column):
+		var upper_word = word.to_upper()
+		if CBM_UNAMBIGUOUS.has(upper_word):
+			var expansion: String = CBM_UNAMBIGUOUS[upper_word]
+			add_code_completion_option(
+				CodeEdit.KIND_PLAIN_TEXT,
+				expansion + " (CBM: " + upper_word + ")",
+				expansion,
+				Color(0.5, 1.0, 0.5),  # green tint for CBM
+				null, null, 0
+			)
+			update_code_completion_options(true)
+			return
+		if CBM_AMBIGUOUS.has(upper_word):
+			var options: Array = CBM_AMBIGUOUS[upper_word]
+			for opt in options:
+				add_code_completion_option(
+					CodeEdit.KIND_PLAIN_TEXT,
+					opt + " (CBM: " + upper_word + ")",
+					opt,
+					Color(0.5, 1.0, 0.5),
+					null, null, 0
+				)
+			update_code_completion_options(true)
 			return
 	
 	# Regular completions
@@ -288,6 +372,19 @@ func _infer_type(var_name: String) -> String:
 func _on_text_changed() -> void:
 	_parse_variables()
 	code_changed.emit(get_text())
+	# Explicitly request code completion — the built-in prefix auto-trigger
+	# is unreliable in @tool / embedded editor contexts.  Deferred so the
+	# caret position has settled after the text change.
+	call_deferred("_request_completion_deferred")
+
+func _request_completion_deferred() -> void:
+	if not has_focus():
+		return
+	# Only trigger when the caret is at the end of a word (not after delete/space)
+	var line := get_line(get_caret_line())
+	var col := get_caret_column()
+	if col > 0 and _is_word_char(line[col - 1]):
+		request_code_completion(true)
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and event.keycode == KEY_ENTER:
@@ -303,13 +400,19 @@ func _handle_auto_indent() -> void:
 	var current_indent = _get_line_indent(line_idx - 1)
 	
 	# Check if previous line should increase indent
-	for trigger in _indent_triggers:
-		if prev_line.begins_with(trigger) or prev_line.ends_with(trigger):
-			# Check it's not a single-line If
-			if trigger == "If" and "Then" in prev_line and not prev_line.ends_with("Then"):
-				continue
-			_set_line_indent(line_idx, current_indent + 1)
-			return
+	if _line_starts_block(prev_line):
+		_set_line_indent(line_idx, current_indent + 1)
+		return
+	
+	# Check If...Then on same line (single-line If — no indent increase)
+	# Multi-line If ends with "Then" and nothing after → indent
+	var pl = prev_line.to_lower()
+	if pl.begins_with("if ") and pl.ends_with(" then"):
+		_set_line_indent(line_idx, current_indent + 1)
+		return
+	if pl == "else" or pl.begins_with("elseif ") or pl.begins_with("case ") or pl == "case else":
+		_set_line_indent(line_idx, current_indent + 1)
+		return
 	
 	# Check if current line should decrease indent
 	var current_line = get_line(line_idx).strip_edges()
@@ -320,6 +423,37 @@ func _handle_auto_indent() -> void:
 	
 	# Keep same indent
 	_set_line_indent(line_idx, current_indent)
+
+## Returns true if `line` is a block-opening statement, handling optional
+## access modifiers: Public Sub, Private Function, Static Property Get, etc.
+func _line_starts_block(line: String) -> bool:
+	var work := line
+	# Strip optional access modifier prefix
+	for prefix in ["Public ", "Private ", "Static ", "Friend "]:
+		if work.begins_with(prefix):
+			work = work.substr(prefix.length())
+			break  # only one modifier
+	# Now check against block keywords
+	for kw in _block_start_keywords:
+		if work.begins_with(kw + " ") or work.begins_with(kw + "(") or work == kw:
+			return true
+	return false
+
+## Check if a two-letter abbreviation is at a valid CBM expansion point
+func _is_cbm_boundary(line: String, col: int) -> bool:
+	if col < 2:
+		return false
+	# Must be at start of statement (start of line, after space, after Then/Else/:)
+	var before = line.substr(0, col - 2).strip_edges()
+	if before.is_empty():
+		return true
+	var last_char = before[-1]
+	if last_char == ":" or last_char == " ":
+		return true
+	var bl = before.to_lower()
+	if bl.ends_with("then") or bl.ends_with("else"):
+		return true
+	return false
 
 func _get_line_indent(line_idx: int) -> int:
 	var line = get_line(line_idx)
