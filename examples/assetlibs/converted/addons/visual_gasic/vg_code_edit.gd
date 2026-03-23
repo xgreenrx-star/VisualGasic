@@ -67,6 +67,22 @@ const VB6_KEYWORD_CASING: Dictionary = {
 	"iif": "IIf",
 }
 
+# Cross-language keyword translations (modern languages → VB6 equivalents)
+# Applied in _auto_capitalize_line() when the user leaves a line.
+const CROSS_LANG_TRANSLATIONS: Dictionary = {
+	"var": "Dim",
+	"func": "Function",
+	"def": "Function",
+	"void": "Sub",
+	"elif": "ElseIf",
+	"elsif": "ElseIf",
+	"switch": "Select Case",
+	"foreach": "For Each",
+	"none": "Nothing",
+	"undefined": "Nothing",
+	"nil": "Nothing",
+}
+
 # Auto-indent settings
 # These are checked against the *stripped* previous line.  The matching logic
 # in _handle_auto_indent uses _line_starts_block() which handles optional
@@ -295,11 +311,11 @@ func _show_member_completions(obj_name: String) -> void:
 	# Try to determine the type of the object
 	var obj_type = _infer_type(obj_name)
 	
-	# Get method completions
+	# Get method + signal completions
 	var methods = VGIntelliSense.get_method_completions(obj_type)
 	for method in methods:
 		add_code_completion_option(
-			CodeEdit.KIND_FUNCTION,
+			_convert_kind(method.get("kind", "method")),
 			method["text"],
 			method["text"],
 			Color.WHITE,
@@ -312,7 +328,7 @@ func _show_member_completions(obj_name: String) -> void:
 	var properties = VGIntelliSense.get_property_completions(obj_type)
 	for prop in properties:
 		add_code_completion_option(
-			CodeEdit.KIND_MEMBER,
+			_convert_kind(prop.get("kind", "property")),
 			prop["text"],
 			prop["text"],
 			Color.WHITE,
@@ -333,6 +349,9 @@ func _convert_kind(kind_string: String) -> int:
 		"snippet": return CodeEdit.KIND_PLAIN_TEXT
 		"method": return CodeEdit.KIND_FUNCTION
 		"property": return CodeEdit.KIND_MEMBER
+		"signal": return CodeEdit.KIND_SIGNAL
+		"constant": return CodeEdit.KIND_CONSTANT
+		"module": return CodeEdit.KIND_CLASS
 		_: return CodeEdit.KIND_PLAIN_TEXT
 
 func _get_word_at_position(line: String, column: int) -> String:
@@ -402,6 +421,10 @@ func _handle_auto_indent() -> void:
 	# Check if previous line should increase indent
 	if _line_starts_block(prev_line):
 		_set_line_indent(line_idx, current_indent + 1)
+		# Auto-insert closing keyword (End Sub, Next, Wend, etc.)
+		var closer := _get_block_closer(prev_line)
+		if not closer.is_empty() and _should_insert_closer(line_idx, current_indent, closer):
+			_insert_block_closer(line_idx, current_indent, closer)
 		return
 	
 	# Check If...Then on same line (single-line If — no indent increase)
@@ -409,6 +432,8 @@ func _handle_auto_indent() -> void:
 	var pl = prev_line.to_lower()
 	if pl.begins_with("if ") and pl.ends_with(" then"):
 		_set_line_indent(line_idx, current_indent + 1)
+		if _should_insert_closer(line_idx, current_indent, "End If"):
+			_insert_block_closer(line_idx, current_indent, "End If")
 		return
 	if pl == "else" or pl.begins_with("elseif ") or pl.begins_with("case ") or pl == "case else":
 		_set_line_indent(line_idx, current_indent + 1)
@@ -476,6 +501,73 @@ func _set_line_indent(line_idx: int, indent_level: int) -> void:
 	# Replace the line
 	select(line_idx, 0, line_idx, line.length())
 	insert_text_at_caret(new_line)
+
+# =============================================================================
+# BLOCK AUTO-CLOSE HELPERS
+# =============================================================================
+
+## Returns the matching closing keyword for a block-opening statement.
+func _get_block_closer(line: String) -> String:
+	var work := line
+	# Strip optional access modifier prefix
+	for prefix in ["Public ", "Private ", "Static ", "Friend "]:
+		if work.begins_with(prefix):
+			work = work.substr(prefix.length())
+			break
+	if work.begins_with("Sub ") or work.begins_with("Sub(") or work == "Sub":
+		return "End Sub"
+	if work.begins_with("Function ") or work.begins_with("Function(") or work == "Function":
+		return "End Function"
+	if work.begins_with("Property "):
+		return "End Property"
+	if work.begins_with("Class ") or work == "Class":
+		return "End Class"
+	if work.begins_with("Type ") or work == "Type":
+		return "End Type"
+	if work.begins_with("Enum ") or work == "Enum":
+		return "End Enum"
+	if work.begins_with("For Each ") or work.begins_with("For "):
+		return "Next"
+	if work.begins_with("While ") or work == "While":
+		return "Wend"
+	if work.begins_with("Do ") or work == "Do":
+		return "Loop"
+	if work.begins_with("Select Case") or work.begins_with("Select Match"):
+		return "End Select"
+	if work.begins_with("With ") or work == "With":
+		return "End With"
+	if work == "Try" or work.begins_with("Try "):
+		return "End Try"
+	if work.begins_with("Whenever ") or work == "Whenever":
+		return "End Whenever"
+	return ""
+
+## Returns true if a block closer should be auto-inserted (not already present).
+func _should_insert_closer(from_line: int, parent_indent: int, closer: String) -> bool:
+	for i in range(from_line + 1, get_line_count()):
+		var lt := get_line(i)
+		var line_stripped := lt.strip_edges()
+		if line_stripped.is_empty():
+			continue
+		var line_indent := _get_line_indent(i)
+		# Found matching closer at same indent — don't duplicate
+		if line_indent == parent_indent and line_stripped.nocasecmp_to(closer) == 0:
+			return false
+		# Hit content at same or lower indent that isn't the closer — block is unclosed
+		if line_indent <= parent_indent:
+			break
+	return true
+
+## Inserts a closing keyword below the current cursor line.
+func _insert_block_closer(cursor_line: int, parent_indent: int, closer: String) -> void:
+	var close_text := "\t".repeat(parent_indent) + closer
+	var save_col := get_line(cursor_line).length()
+	set_caret_line(cursor_line)
+	set_caret_column(save_col)
+	insert_text_at_caret("\n" + close_text)
+	# Restore cursor to the middle line (between opener and closer)
+	set_caret_line(cursor_line)
+	set_caret_column(save_col)
 
 # =============================================================================
 # VARIABLE PARSING
@@ -614,9 +706,22 @@ func _auto_capitalize_line(line_idx: int) -> void:
 	if line_text.strip_edges().is_empty():
 		return
 	
+	# ── Comment syntax translation (pre-pass) ──
+	# Translate // and # comment prefixes to VB6's ' prefix
+	var orig_line: String = line_text
+	var stripped_cmnt := line_text.strip_edges(true, false)
+	if stripped_cmnt.begins_with("//"):
+		var ws := line_text.substr(0, line_text.length() - stripped_cmnt.length())
+		line_text = ws + "'" + stripped_cmnt.substr(2)
+	elif stripped_cmnt.begins_with("# ") or stripped_cmnt == "#":
+		var ws := line_text.substr(0, line_text.length() - stripped_cmnt.length())
+		line_text = ws + "'" + stripped_cmnt.substr(1)
+	
 	# Skip comment lines (don't touch content after ')
 	var stripped = line_text.strip_edges()
 	if stripped.begins_with("'") or stripped.to_upper().begins_with("REM "):
+		if line_text != orig_line:
+			set_line(line_idx, line_text)
 		return
 	
 	# Walk through the line replacing keywords with correct casing
@@ -656,8 +761,11 @@ func _auto_capitalize_line(line_idx: int) -> void:
 			var word: String = line_text.substr(word_start, i - word_start)
 			var lower_word: String = word.to_lower()
 			
-			# Check if it's a VB6 keyword
-			if VB6_KEYWORD_CASING.has(lower_word):
+			# Check cross-language translations first (var→Dim, func→Function, etc.)
+			if CROSS_LANG_TRANSLATIONS.has(lower_word):
+				new_line += CROSS_LANG_TRANSLATIONS[lower_word]
+			# Check VB6 keyword casing
+			elif VB6_KEYWORD_CASING.has(lower_word):
 				new_line += VB6_KEYWORD_CASING[lower_word]
 			else:
 				# Also check builtin functions for proper casing
@@ -673,8 +781,13 @@ func _auto_capitalize_line(line_idx: int) -> void:
 			new_line += ch
 			i += 1
 	
-	# Only update the line if it actually changed
-	if new_line != line_text:
+	# Post-process: "Else If " → "ElseIf " (common cross-language pattern)
+	new_line = new_line.replace("Else If ", "ElseIf ")
+	if new_line.ends_with("Else If"):
+		new_line = new_line.substr(0, new_line.length() - 7) + "ElseIf"
+	
+	# Only update the line if it actually changed (compare against original)
+	if new_line != orig_line:
 		# Save caret position — we're editing a line the caret is NOT on
 		set_line(line_idx, new_line)
 

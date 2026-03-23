@@ -11,6 +11,10 @@ extends RefCounted
 
 class_name VGIntelliSense
 
+# ClassDB completion cache { type_name → Array[Dictionary] }
+static var _method_cache: Dictionary = {}
+static var _property_cache: Dictionary = {}
+
 # =============================================================================
 # VB6 KEYWORDS
 # =============================================================================
@@ -292,6 +296,185 @@ const SNIPPETS: Array[Dictionary] = [
 ]
 
 # =============================================================================
+# VARIANT TYPE MEMBERS (not in ClassDB)
+# =============================================================================
+
+const VARIANT_METHODS: Dictionary = {
+	"Vector2": [
+		{"text": "length", "kind": "method", "detail": "length() → Double"},
+		{"text": "length_squared", "kind": "method", "detail": "length_squared() → Double"},
+		{"text": "normalized", "kind": "method", "detail": "normalized() → Vector2"},
+		{"text": "is_normalized", "kind": "method", "detail": "is_normalized() → Boolean"},
+		{"text": "distance_to", "kind": "method", "detail": "distance_to(to: Vector2) → Double"},
+		{"text": "angle", "kind": "method", "detail": "angle() → Double"},
+		{"text": "angle_to", "kind": "method", "detail": "angle_to(to: Vector2) → Double"},
+		{"text": "dot", "kind": "method", "detail": "dot(with: Vector2) → Double"},
+		{"text": "cross", "kind": "method", "detail": "cross(with: Vector2) → Double"},
+		{"text": "lerp", "kind": "method", "detail": "lerp(to: Vector2, weight: Double) → Vector2"},
+		{"text": "slerp", "kind": "method", "detail": "slerp(to: Vector2, weight: Double) → Vector2"},
+		{"text": "move_toward", "kind": "method", "detail": "move_toward(to: Vector2, delta: Double) → Vector2"},
+		{"text": "rotated", "kind": "method", "detail": "rotated(angle: Double) → Vector2"},
+		{"text": "abs", "kind": "method", "detail": "abs() → Vector2"},
+		{"text": "sign", "kind": "method", "detail": "sign() → Vector2"},
+		{"text": "floor", "kind": "method", "detail": "floor() → Vector2"},
+		{"text": "ceil", "kind": "method", "detail": "ceil() → Vector2"},
+		{"text": "round", "kind": "method", "detail": "round() → Vector2"},
+		{"text": "clamp", "kind": "method", "detail": "clamp(min: Vector2, max: Vector2) → Vector2"},
+		{"text": "snapped", "kind": "method", "detail": "snapped(step: Vector2) → Vector2"},
+	],
+	"Vector2i": [
+		{"text": "length", "kind": "method", "detail": "length() → Double"},
+		{"text": "abs", "kind": "method", "detail": "abs() → Vector2i"},
+		{"text": "sign", "kind": "method", "detail": "sign() → Vector2i"},
+		{"text": "clamp", "kind": "method", "detail": "clamp(min: Vector2i, max: Vector2i) → Vector2i"},
+	],
+	"Vector3": [
+		{"text": "length", "kind": "method", "detail": "length() → Double"},
+		{"text": "length_squared", "kind": "method", "detail": "length_squared() → Double"},
+		{"text": "normalized", "kind": "method", "detail": "normalized() → Vector3"},
+		{"text": "is_normalized", "kind": "method", "detail": "is_normalized() → Boolean"},
+		{"text": "distance_to", "kind": "method", "detail": "distance_to(to: Vector3) → Double"},
+		{"text": "dot", "kind": "method", "detail": "dot(with: Vector3) → Double"},
+		{"text": "cross", "kind": "method", "detail": "cross(with: Vector3) → Vector3"},
+		{"text": "lerp", "kind": "method", "detail": "lerp(to: Vector3, weight: Double) → Vector3"},
+		{"text": "slerp", "kind": "method", "detail": "slerp(to: Vector3, weight: Double) → Vector3"},
+		{"text": "move_toward", "kind": "method", "detail": "move_toward(to: Vector3, delta: Double) → Vector3"},
+		{"text": "rotated", "kind": "method", "detail": "rotated(axis: Vector3, angle: Double) → Vector3"},
+		{"text": "abs", "kind": "method", "detail": "abs() → Vector3"},
+		{"text": "sign", "kind": "method", "detail": "sign() → Vector3"},
+		{"text": "floor", "kind": "method", "detail": "floor() → Vector3"},
+		{"text": "ceil", "kind": "method", "detail": "ceil() → Vector3"},
+		{"text": "round", "kind": "method", "detail": "round() → Vector3"},
+		{"text": "clamp", "kind": "method", "detail": "clamp(min: Vector3, max: Vector3) → Vector3"},
+		{"text": "snapped", "kind": "method", "detail": "snapped(step: Vector3) → Vector3"},
+	],
+	"Vector3i": [
+		{"text": "length", "kind": "method", "detail": "length() → Double"},
+		{"text": "abs", "kind": "method", "detail": "abs() → Vector3i"},
+		{"text": "sign", "kind": "method", "detail": "sign() → Vector3i"},
+		{"text": "clamp", "kind": "method", "detail": "clamp(min: Vector3i, max: Vector3i) → Vector3i"},
+	],
+	"Color": [
+		{"text": "to_html", "kind": "method", "detail": "to_html(with_alpha: Boolean) → String"},
+		{"text": "lerp", "kind": "method", "detail": "lerp(to: Color, weight: Double) → Color"},
+		{"text": "lightened", "kind": "method", "detail": "lightened(amount: Double) → Color"},
+		{"text": "darkened", "kind": "method", "detail": "darkened(amount: Double) → Color"},
+		{"text": "inverted", "kind": "method", "detail": "inverted() → Color"},
+		{"text": "clamp", "kind": "method", "detail": "clamp(min: Color, max: Color) → Color"},
+	],
+	"Rect2": [
+		{"text": "has_point", "kind": "method", "detail": "has_point(point: Vector2) → Boolean"},
+		{"text": "intersects", "kind": "method", "detail": "intersects(b: Rect2) → Boolean"},
+		{"text": "intersection", "kind": "method", "detail": "intersection(b: Rect2) → Rect2"},
+		{"text": "merge", "kind": "method", "detail": "merge(b: Rect2) → Rect2"},
+		{"text": "expand", "kind": "method", "detail": "expand(to: Vector2) → Rect2"},
+		{"text": "grow", "kind": "method", "detail": "grow(amount: Double) → Rect2"},
+		{"text": "abs", "kind": "method", "detail": "abs() → Rect2"},
+		{"text": "get_area", "kind": "method", "detail": "get_area() → Double"},
+		{"text": "has_area", "kind": "method", "detail": "has_area() → Boolean"},
+	],
+	"Rect2i": [
+		{"text": "has_point", "kind": "method", "detail": "has_point(point: Vector2i) → Boolean"},
+		{"text": "intersects", "kind": "method", "detail": "intersects(b: Rect2i) → Boolean"},
+		{"text": "intersection", "kind": "method", "detail": "intersection(b: Rect2i) → Rect2i"},
+		{"text": "merge", "kind": "method", "detail": "merge(b: Rect2i) → Rect2i"},
+		{"text": "expand", "kind": "method", "detail": "expand(to: Vector2i) → Rect2i"},
+		{"text": "grow", "kind": "method", "detail": "grow(amount: Integer) → Rect2i"},
+		{"text": "get_area", "kind": "method", "detail": "get_area() → Integer"},
+		{"text": "has_area", "kind": "method", "detail": "has_area() → Boolean"},
+	],
+	"Transform2D": [
+		{"text": "affine_inverse", "kind": "method", "detail": "affine_inverse() → Transform2D"},
+		{"text": "inverse", "kind": "method", "detail": "inverse() → Transform2D"},
+		{"text": "rotated", "kind": "method", "detail": "rotated(angle: Double) → Transform2D"},
+		{"text": "scaled", "kind": "method", "detail": "scaled(scale: Vector2) → Transform2D"},
+		{"text": "translated", "kind": "method", "detail": "translated(offset: Vector2) → Transform2D"},
+		{"text": "get_origin", "kind": "method", "detail": "get_origin() → Vector2"},
+		{"text": "get_rotation", "kind": "method", "detail": "get_rotation() → Double"},
+		{"text": "get_scale", "kind": "method", "detail": "get_scale() → Vector2"},
+	],
+	"NodePath": [
+		{"text": "get_name", "kind": "method", "detail": "get_name(idx: Integer) → StringName"},
+		{"text": "get_name_count", "kind": "method", "detail": "get_name_count() → Integer"},
+		{"text": "get_subname", "kind": "method", "detail": "get_subname(idx: Integer) → StringName"},
+		{"text": "get_subname_count", "kind": "method", "detail": "get_subname_count() → Integer"},
+		{"text": "is_empty", "kind": "method", "detail": "is_empty() → Boolean"},
+		{"text": "is_absolute", "kind": "method", "detail": "is_absolute() → Boolean"},
+	],
+	"AABB": [
+		{"text": "has_point", "kind": "method", "detail": "has_point(point: Vector3) → Boolean"},
+		{"text": "intersects", "kind": "method", "detail": "intersects(with: AABB) → Boolean"},
+		{"text": "intersection", "kind": "method", "detail": "intersection(with: AABB) → AABB"},
+		{"text": "merge", "kind": "method", "detail": "merge(with: AABB) → AABB"},
+		{"text": "expand", "kind": "method", "detail": "expand(to: Vector3) → AABB"},
+		{"text": "grow", "kind": "method", "detail": "grow(by: Double) → AABB"},
+		{"text": "get_volume", "kind": "method", "detail": "get_volume() → Double"},
+		{"text": "has_volume", "kind": "method", "detail": "has_volume() → Boolean"},
+		{"text": "abs", "kind": "method", "detail": "abs() → AABB"},
+	],
+}
+
+const VARIANT_PROPERTIES: Dictionary = {
+	"Vector2": [
+		{"text": "x", "kind": "property", "detail": "Double — X component"},
+		{"text": "y", "kind": "property", "detail": "Double — Y component"},
+	],
+	"Vector2i": [
+		{"text": "x", "kind": "property", "detail": "Integer — X component"},
+		{"text": "y", "kind": "property", "detail": "Integer — Y component"},
+	],
+	"Vector3": [
+		{"text": "x", "kind": "property", "detail": "Double — X component"},
+		{"text": "y", "kind": "property", "detail": "Double — Y component"},
+		{"text": "z", "kind": "property", "detail": "Double — Z component"},
+	],
+	"Vector3i": [
+		{"text": "x", "kind": "property", "detail": "Integer — X component"},
+		{"text": "y", "kind": "property", "detail": "Integer — Y component"},
+		{"text": "z", "kind": "property", "detail": "Integer — Z component"},
+	],
+	"Vector4": [
+		{"text": "x", "kind": "property", "detail": "Double — X component"},
+		{"text": "y", "kind": "property", "detail": "Double — Y component"},
+		{"text": "z", "kind": "property", "detail": "Double — Z component"},
+		{"text": "w", "kind": "property", "detail": "Double — W component"},
+	],
+	"Color": [
+		{"text": "r", "kind": "property", "detail": "Double — Red (0.0–1.0)"},
+		{"text": "g", "kind": "property", "detail": "Double — Green (0.0–1.0)"},
+		{"text": "b", "kind": "property", "detail": "Double — Blue (0.0–1.0)"},
+		{"text": "a", "kind": "property", "detail": "Double — Alpha (0.0–1.0)"},
+		{"text": "r8", "kind": "property", "detail": "Integer — Red (0–255)"},
+		{"text": "g8", "kind": "property", "detail": "Integer — Green (0–255)"},
+		{"text": "b8", "kind": "property", "detail": "Integer — Blue (0–255)"},
+		{"text": "a8", "kind": "property", "detail": "Integer — Alpha (0–255)"},
+		{"text": "h", "kind": "property", "detail": "Double — Hue"},
+		{"text": "s", "kind": "property", "detail": "Double — Saturation"},
+		{"text": "v", "kind": "property", "detail": "Double — Value"},
+	],
+	"Rect2": [
+		{"text": "position", "kind": "property", "detail": "Vector2 — Top-left corner"},
+		{"text": "size", "kind": "property", "detail": "Vector2 — Width and height"},
+		{"text": "end", "kind": "property", "detail": "Vector2 — Bottom-right corner"},
+	],
+	"Rect2i": [
+		{"text": "position", "kind": "property", "detail": "Vector2i — Top-left corner"},
+		{"text": "size", "kind": "property", "detail": "Vector2i — Width and height"},
+		{"text": "end", "kind": "property", "detail": "Vector2i — Bottom-right corner"},
+	],
+	"Transform2D": [
+		{"text": "origin", "kind": "property", "detail": "Vector2 — Translation"},
+		{"text": "x", "kind": "property", "detail": "Vector2 — X basis vector"},
+		{"text": "y", "kind": "property", "detail": "Vector2 — Y basis vector"},
+	],
+	"AABB": [
+		{"text": "position", "kind": "property", "detail": "Vector3 — Origin"},
+		{"text": "size", "kind": "property", "detail": "Vector3 — Size"},
+		{"text": "end", "kind": "property", "detail": "Vector3 — End point"},
+	],
+}
+
+# =============================================================================
 # COMPLETION GENERATION
 # =============================================================================
 
@@ -419,51 +602,138 @@ static func get_completions(prefix: String, context: Dictionary = {}) -> Array[D
 	
 	return results
 
-## Generates method completions for a given object type
+## Generates method completions for a given object type.
+## Uses ClassDB for Godot Object-derived types, hardcoded data for Variant types.
 static func get_method_completions(type_name: String) -> Array[Dictionary]:
+	# Check cache first
+	if _method_cache.has(type_name):
+		return _method_cache[type_name]
+	
 	var results: Array[Dictionary] = []
 	
-	# Common Control methods
-	if type_name in ["Button", "Label", "LineEdit", "TextEdit", "Control"]:
+	# Variant types (not in ClassDB)
+	if VARIANT_METHODS.has(type_name):
+		results.append_array(VARIANT_METHODS[type_name])
+		_method_cache[type_name] = results
+		return results
+	
+	# ClassDB for Object-derived types (Node, Control, Sprite2D, etc.)
+	if ClassDB.class_exists(type_name):
+		var methods := ClassDB.class_get_method_list(type_name, false)
+		for method in methods:
+			var mname: String = method["name"]
+			if mname.begins_with("_"):
+				continue
+			var args_str := _format_method_args(method)
+			var ret: Dictionary = method.get("return", {})
+			var ret_type: String = _type_id_to_name(ret.get("type", 0), ret.get("class_name", ""))
+			var detail := mname + "(" + args_str + ")"
+			if ret_type != "void":
+				detail += " → " + ret_type
+			results.append({"text": mname, "kind": "method", "detail": detail})
+		
+		# Signals
+		var signals := ClassDB.class_get_signal_list(type_name, false)
+		for sig in signals:
+			var sname: String = sig["name"]
+			if sname.begins_with("_"):
+				continue
+			results.append({"text": sname, "kind": "signal", "detail": "Signal: " + sname})
+	else:
+		# Unknown type — fallback to basic Node methods
 		results.append_array([
-			{"text": "show", "kind": "method", "detail": "show()"},
-			{"text": "hide", "kind": "method", "detail": "hide()"},
-			{"text": "set_visible", "kind": "method", "detail": "set_visible(visible: bool)"},
-			{"text": "grab_focus", "kind": "method", "detail": "grab_focus()"},
-			{"text": "release_focus", "kind": "method", "detail": "release_focus()"},
+			{"text": "add_child", "kind": "method", "detail": "add_child(node: Node)"},
+			{"text": "remove_child", "kind": "method", "detail": "remove_child(node: Node)"},
+			{"text": "get_child", "kind": "method", "detail": "get_child(idx: Integer) → Node"},
+			{"text": "get_children", "kind": "method", "detail": "get_children() → Array"},
+			{"text": "get_parent", "kind": "method", "detail": "get_parent() → Node"},
+			{"text": "queue_free", "kind": "method", "detail": "queue_free()"},
 		])
 	
-	# Node methods (always available)
-	results.append_array([
-		{"text": "add_child", "kind": "method", "detail": "add_child(node: Node)"},
-		{"text": "remove_child", "kind": "method", "detail": "remove_child(node: Node)"},
-		{"text": "get_child", "kind": "method", "detail": "get_child(idx: int) As Node"},
-		{"text": "get_children", "kind": "method", "detail": "get_children() As Array"},
-		{"text": "get_parent", "kind": "method", "detail": "get_parent() As Node"},
-		{"text": "queue_free", "kind": "method", "detail": "queue_free()"},
-	])
-	
+	_method_cache[type_name] = results
 	return results
 
-## Gets property completions for a given object type
+## Formats ClassDB method arguments into a readable string.
+static func _format_method_args(method: Dictionary) -> String:
+	var args: Array = method.get("args", [])
+	var parts: PackedStringArray = []
+	for arg in args:
+		var aname: String = arg.get("name", "")
+		var atype: String = _type_id_to_name(arg.get("type", 0), arg.get("class_name", ""))
+		parts.append(aname + ": " + atype)
+	return ", ".join(parts)
+
+## Converts a Variant type id + class_name to a VB6-friendly display name.
+static func _type_id_to_name(type_id: int, class_name_str: String) -> String:
+	if not class_name_str.is_empty():
+		return class_name_str
+	match type_id:
+		TYPE_NIL: return "void"
+		TYPE_BOOL: return "Boolean"
+		TYPE_INT: return "Integer"
+		TYPE_FLOAT: return "Double"
+		TYPE_STRING: return "String"
+		TYPE_VECTOR2: return "Vector2"
+		TYPE_VECTOR2I: return "Vector2i"
+		TYPE_VECTOR3: return "Vector3"
+		TYPE_VECTOR3I: return "Vector3i"
+		TYPE_VECTOR4: return "Vector4"
+		TYPE_VECTOR4I: return "Vector4i"
+		TYPE_RECT2: return "Rect2"
+		TYPE_RECT2I: return "Rect2i"
+		TYPE_TRANSFORM2D: return "Transform2D"
+		TYPE_TRANSFORM3D: return "Transform3D"
+		TYPE_COLOR: return "Color"
+		TYPE_NODE_PATH: return "NodePath"
+		TYPE_STRING_NAME: return "StringName"
+		TYPE_OBJECT: return "Object"
+		TYPE_DICTIONARY: return "Dictionary"
+		TYPE_ARRAY: return "Array"
+		TYPE_CALLABLE: return "Callable"
+		TYPE_SIGNAL: return "Signal"
+		TYPE_PACKED_BYTE_ARRAY: return "Array(Byte)"
+		TYPE_PACKED_INT32_ARRAY: return "Array(Integer)"
+		TYPE_PACKED_FLOAT32_ARRAY: return "Array(Single)"
+		TYPE_PACKED_STRING_ARRAY: return "Array(String)"
+		TYPE_PACKED_VECTOR2_ARRAY: return "Array(Vector2)"
+		TYPE_PACKED_VECTOR3_ARRAY: return "Array(Vector3)"
+		TYPE_PACKED_COLOR_ARRAY: return "Array(Color)"
+		_: return "Variant"
+
+## Gets property completions for a given object type.
+## Uses ClassDB for Godot Object-derived types, hardcoded data for Variant types.
 static func get_property_completions(type_name: String) -> Array[Dictionary]:
+	# Check cache first
+	if _property_cache.has(type_name):
+		return _property_cache[type_name]
+	
 	var results: Array[Dictionary] = []
 	
-	# Control properties
-	if type_name in ["Button", "Label", "LineEdit", "TextEdit", "Control"]:
+	# Variant types (not in ClassDB)
+	if VARIANT_PROPERTIES.has(type_name):
+		results.append_array(VARIANT_PROPERTIES[type_name])
+		_property_cache[type_name] = results
+		return results
+	
+	# ClassDB for Object-derived types
+	if ClassDB.class_exists(type_name):
+		var props := ClassDB.class_get_property_list(type_name, false)
+		for prop in props:
+			var pname: String = prop.get("name", "")
+			if pname.is_empty() or pname.begins_with("_") or "/" in pname:
+				continue
+			var usage: int = prop.get("usage", 0)
+			# Skip category/group/subgroup headers
+			if usage & PROPERTY_USAGE_CATEGORY or usage & PROPERTY_USAGE_GROUP or usage & PROPERTY_USAGE_SUBGROUP:
+				continue
+			var ptype: String = _type_id_to_name(prop.get("type", 0), prop.get("class_name", ""))
+			results.append({"text": pname, "kind": "property", "detail": ptype + " — " + pname})
+	else:
+		# Unknown type — fallback
 		results.append_array([
-			{"text": "text", "kind": "property", "detail": "String - Display text"},
-			{"text": "visible", "kind": "property", "detail": "bool - Visibility"},
-			{"text": "position", "kind": "property", "detail": "Vector2 - Position"},
-			{"text": "size", "kind": "property", "detail": "Vector2 - Size"},
-			{"text": "modulate", "kind": "property", "detail": "Color - Tint color"},
-			{"text": "tooltip_text", "kind": "property", "detail": "String - Tooltip"},
+			{"text": "name", "kind": "property", "detail": "String — Node name"},
+			{"text": "owner", "kind": "property", "detail": "Node — Scene owner"},
 		])
 	
-	# Node properties
-	results.append_array([
-		{"text": "name", "kind": "property", "detail": "String - Node name"},
-		{"text": "owner", "kind": "property", "detail": "Node - Scene owner"},
-	])
-	
+	_property_cache[type_name] = results
 	return results
