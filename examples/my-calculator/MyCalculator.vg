@@ -5,7 +5,12 @@ Private Sub Form_Load()
 End Sub
 
 Sub btnEquals_Click()
-	var test
+	Dim test
+	Dim test43
+	For ${1:i} = ${2:1} To ${3:10}
+		${0}
+	Next
+
 End Sub
 
 Sub btnPlay_Click()

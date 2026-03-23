@@ -29,6 +29,7 @@ var _completion_active: bool = false
 var _last_word: String = ""
 var _prev_caret_line: int = -1  # Track line changes for auto-capitalize
 var _snippet_regex: RegEx = null  # Lazy-init for snippet placeholder expansion
+var _prev_line_count: int = 0    # Track line count for auto-indent on real Enter
 
 # VB6 keywords with correct casing (for auto-capitalize on line leave)
 const VB6_KEYWORD_CASING: Dictionary = {
@@ -149,6 +150,7 @@ func _ready() -> void:
 	_setup_code_completion()
 	_setup_auto_indent()
 	_connect_signals()
+	_prev_line_count = get_line_count()
 
 func _setup_syntax_highlighter() -> void:
 	var highlighter = CodeHighlighter.new()
@@ -421,6 +423,13 @@ func _expand_snippet_text(code: String) -> String:
 # =============================================================================
 
 func _on_text_changed() -> void:
+	var cur_line_count := get_line_count()
+	# Detect a real Enter press (exactly +1 line).  Multi-line snippet
+	# insertions add >1 line and already include closing keywords.
+	if cur_line_count == _prev_line_count + 1:
+		call_deferred("_handle_auto_indent")
+	_prev_line_count = cur_line_count
+	
 	_parse_variables()
 	code_changed.emit(get_text())
 	# Explicitly request code completion — the built-in prefix auto-trigger
@@ -436,13 +445,6 @@ func _request_completion_deferred() -> void:
 	var col := get_caret_column()
 	if col > 0 and _is_word_char(line[col - 1]):
 		request_code_completion(true)
-
-func _input(event: InputEvent) -> void:
-	if not has_focus():
-		return
-	if event is InputEventKey and event.pressed and event.keycode == KEY_ENTER:
-		# Handle auto-indent on Enter
-		call_deferred("_handle_auto_indent")
 
 func _handle_auto_indent() -> void:
 	var line_idx = get_caret_line()
