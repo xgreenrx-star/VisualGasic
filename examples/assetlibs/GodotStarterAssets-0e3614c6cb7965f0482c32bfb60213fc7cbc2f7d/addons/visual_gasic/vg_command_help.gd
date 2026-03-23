@@ -53,6 +53,19 @@ static func _add(keyword: String, syntax: String, desc: String, code: String, re
 		"ref_line": ref_line,
 	}
 
+## Adds a Godot API entry with a link to official docs.
+static func _add_godot(keyword: String, syntax: String, desc: String, code: String,
+		godot_class: String, godot_method: String = "") -> void:
+	_db[keyword.to_lower()] = {
+		"keyword": keyword,
+		"syntax": syntax,
+		"desc": desc,
+		"code": code,
+		"ref_line": 0,
+		"godot_class": godot_class,
+		"godot_method": godot_method,
+	}
+
 static func _build_db() -> void:
 	# =========================================================================
 	# VARIABLE DECLARATION
@@ -1077,6 +1090,213 @@ static func _build_db() -> void:
 		"Dim c As Variant = RGB(255, 0, 0)  ' Red\nDrawRect 0, 0, 100, 100, RGB(0, 128, 255)  ' Sky blue",
 		0)
 
+	# =========================================================================
+	# GODOT API — common game-dev methods, properties, and callbacks
+	# =========================================================================
+	_add_godot("move_and_slide",
+		"move_and_slide() As Boolean",
+		"Moves the body based on [b]velocity[/b], sliding along collisions. Call in [b]_PhysicsProcess[/b]. Returns True if a collision occurred.",
+		"Sub _PhysicsProcess(delta As Single)\n    velocity.y += 980 * delta   ' gravity\n    move_and_slide\nEnd Sub",
+		"CharacterBody2D", "move_and_slide")
+
+	_add_godot("velocity",
+		"velocity As Vector2",
+		"The current velocity vector of a CharacterBody2D or CharacterBody3D. Set this before calling [b]move_and_slide[/b].",
+		"velocity.x = 200   ' move right\nvelocity.y = -400  ' jump\nmove_and_slide",
+		"CharacterBody2D")
+
+	_add_godot("position",
+		"position As Vector2",
+		"The position of the node relative to its parent. For Node2D and Control nodes.",
+		"position = Vector2(100, 200)\nposition.x += 5  ' move right",
+		"Node2D")
+
+	_add_godot("rotation",
+		"rotation As Single",
+		"The rotation of the node in radians. For Node2D and Node3D.",
+		"rotation = 1.57     ' 90 degrees\nrotation += delta   ' spin continuously",
+		"Node2D")
+
+	_add_godot("rotation_degrees",
+		"rotation_degrees As Single",
+		"The rotation of the node in degrees. Convenience wrapper around [b]rotation[/b].",
+		"rotation_degrees = 90\nrotation_degrees += 180 * delta",
+		"Node2D")
+
+	_add_godot("scale",
+		"scale As Vector2",
+		"The scale of the node. Vector2(1, 1) is the default (no scaling).",
+		"scale = Vector2(2, 2)  ' double size\nscale *= 0.5           ' halve size",
+		"Node2D")
+
+	_add_godot("global_position",
+		"global_position As Vector2",
+		"The position of the node in global (world) coordinates, not relative to the parent.",
+		"global_position = Vector2(500, 300)\nDim dist As Single = global_position.distance_to(target.global_position)",
+		"Node2D")
+
+	_add_godot("delta",
+		"delta As Single",
+		"The elapsed time since the previous frame (in seconds). Passed to [b]_Process[/b] and [b]_PhysicsProcess[/b]. Use it to make movement frame-rate independent.",
+		"Sub _Process(delta As Single)\n    position.x += speed * delta\nEnd Sub",
+		"Node", "_process")
+
+	_add_godot("get_node",
+		"get_node(path As NodePath) As Node",
+		"Returns the node at the given path relative to this node. Also available via the [b]$[/b] shorthand.",
+		"Dim player As Node = get_node(\"Player\")\nDim label As Node = get_node(\"UI/ScoreLabel\")",
+		"Node", "get_node")
+
+	_add_godot("queue_free",
+		"queue_free()",
+		"Queues this node for deletion at the end of the current frame. Safer than calling [b]free()[/b] directly.",
+		"Sub _on_body_entered(body)\n    body.queue_free   ' destroy the other node\nEnd Sub",
+		"Node", "queue_free")
+
+	_add_godot("add_child",
+		"add_child(node As Node)",
+		"Adds a child node to this node. The child will appear in the scene tree under this node.",
+		"Dim bullet As Node2D = preload(\"res://Bullet.tscn\").instantiate()\nadd_child bullet",
+		"Node", "add_child")
+
+	_add_godot("remove_child",
+		"remove_child(node As Node)",
+		"Removes a child node from this node without freeing it.",
+		"remove_child(oldNode)\noldNode.queue_free",
+		"Node", "remove_child")
+
+	_add_godot("connect",
+		"connect(signal_name As String, callable As Callable)",
+		"Connects a signal to a callback method. Use Godot 4 Callable syntax.",
+		"connect(\"body_entered\", _on_body_entered)\ntimer.connect(\"timeout\", _on_timeout)",
+		"Object", "connect")
+
+	_add_godot("emit_signal",
+		"emit_signal(signal_name As String, ...)",
+		"Emits the given signal, optionally passing arguments to connected callbacks.",
+		"emit_signal(\"health_changed\", currentHP)\nemit_signal(\"died\")",
+		"Object", "emit_signal")
+
+	_add_godot("_ready",
+		"Sub _Ready()",
+		"Called when the node and all its children have entered the scene tree. Use for initialization.",
+		"Sub _Ready()\n    Dim startPos As Vector2 = position\n    visible = True\nEnd Sub",
+		"Node", "_ready")
+
+	_add_godot("_process",
+		"Sub _Process(delta As Single)",
+		"Called every frame. [b]delta[/b] is the elapsed time in seconds. Use for game logic, animation, and non-physics movement.",
+		"Sub _Process(delta As Single)\n    rotation_degrees += 90 * delta\nEnd Sub",
+		"Node", "_process")
+
+	_add_godot("_physics_process",
+		"Sub _PhysicsProcess(delta As Single)",
+		"Called every physics frame (default 60 fps). Use for physics-based movement and collision detection.",
+		"Sub _PhysicsProcess(delta As Single)\n    velocity.y += gravity * delta\n    move_and_slide\nEnd Sub",
+		"Node", "_physics_process")
+
+	_add_godot("_input",
+		"Sub _Input(event As InputEvent)",
+		"Called when any input event occurs (keyboard, mouse, touch, gamepad). Consume with [b]set_input_as_handled[/b].",
+		"Sub _Input(event As InputEvent)\n    If event.is_action_pressed(\"jump\") Then\n        velocity.y = -400\n    End If\nEnd Sub",
+		"Node", "_input")
+
+	_add_godot("_draw",
+		"Sub _Draw()",
+		"Called when the CanvasItem needs to be redrawn. Use draw_* methods inside. Call [b]queue_redraw[/b] to trigger.",
+		"Sub _Draw()\n    DrawCircle 100, 100, 50, RGB(255, 0, 0)\n    DrawLine 0, 0, 200, 200, RGB(0, 255, 0)\nEnd Sub",
+		"CanvasItem", "_draw")
+
+	_add_godot("visible",
+		"visible As Boolean",
+		"Controls whether this CanvasItem (2D) or Node3D is visible. Setting to False hides the node and its children.",
+		"visible = False  ' hide\nvisible = True   ' show",
+		"CanvasItem")
+
+	_add_godot("modulate",
+		"modulate As Color",
+		"The color modulation applied to this CanvasItem and its children. Useful for tinting or fading.",
+		"modulate = Color(1, 0, 0, 1)      ' tint red\nmodulate.a = 0.5                   ' semi-transparent",
+		"CanvasItem")
+
+	_add_godot("show",
+		"show()",
+		"Makes this node visible. Equivalent to setting [b]visible = True[/b].",
+		"show   ' make visible",
+		"CanvasItem", "show")
+
+	_add_godot("hide",
+		"hide()",
+		"Makes this node invisible. Equivalent to setting [b]visible = False[/b].",
+		"hide   ' make invisible",
+		"CanvasItem", "hide")
+
+	_add_godot("queue_redraw",
+		"queue_redraw()",
+		"Queues a redraw of this CanvasItem. This triggers [b]_Draw[/b] to be called again.",
+		"score += 1\nqueue_redraw   ' refresh the display",
+		"CanvasItem", "queue_redraw")
+
+	_add_godot("get_tree",
+		"get_tree() As SceneTree",
+		"Returns the SceneTree this node belongs to. Used for scene management, groups, and timers.",
+		"get_tree().change_scene_to_file(\"res://GameOver.tscn\")\nget_tree().quit()",
+		"Node", "get_tree")
+
+	_add_godot("instantiate",
+		"instantiate() As Node",
+		"Creates an instance of a PackedScene. Load the scene first with [b]preload[/b] or [b]load[/b].",
+		"Dim scene As PackedScene = preload(\"res://Bullet.tscn\")\nDim bullet As Node = scene.instantiate()\nadd_child bullet",
+		"PackedScene", "instantiate")
+
+	_add_godot("is_on_floor",
+		"is_on_floor() As Boolean",
+		"Returns True if the CharacterBody was on the floor during the last [b]move_and_slide[/b] call.",
+		"If is_on_floor() Then\n    velocity.y = -jump_force\nEnd If",
+		"CharacterBody2D", "is_on_floor")
+
+	_add_godot("is_on_wall",
+		"is_on_wall() As Boolean",
+		"Returns True if the CharacterBody was touching a wall during the last [b]move_and_slide[/b] call.",
+		"If is_on_wall() Then\n    ' wall slide or wall jump\nEnd If",
+		"CharacterBody2D", "is_on_wall")
+
+	_add_godot("look_at",
+		"look_at(target As Vector2)",
+		"Rotates the node so it points toward the target position.",
+		"look_at(get_global_mouse_position())",
+		"Node2D", "look_at")
+
+	_add_godot("get_global_mouse_position",
+		"get_global_mouse_position() As Vector2",
+		"Returns the mouse position in global coordinates.",
+		"Dim mouse As Vector2 = get_global_mouse_position()\nlook_at(mouse)",
+		"CanvasItem", "get_global_mouse_position")
+
+	_add_godot("set_process",
+		"set_process(enable As Boolean)",
+		"Enables or disables [b]_Process[/b] for this node.",
+		"set_process(False)   ' pause processing\nset_process(True)    ' resume",
+		"Node", "set_process")
+
+	_add_godot("is_action_pressed",
+		"Input.is_action_pressed(action As String) As Boolean",
+		"Returns True while the specified input action is held down. Defined in Project → Input Map.",
+		"If Input.is_action_pressed(\"move_left\") Then\n    velocity.x = -speed\nEnd If",
+		"Input", "is_action_pressed")
+
+	_add_godot("is_action_just_pressed",
+		"Input.is_action_just_pressed(action As String) As Boolean",
+		"Returns True only on the frame the action was first pressed.",
+		"If Input.is_action_just_pressed(\"jump\") And is_on_floor() Then\n    velocity.y = -jump_force\nEnd If",
+		"Input", "is_action_just_pressed")
+
+	_add_godot("is_action_just_released",
+		"Input.is_action_just_released(action As String) As Boolean",
+		"Returns True only on the frame the action was released.",
+		"If Input.is_action_just_released(\"shoot\") Then\n    ' fire charged shot\nEnd If",
+		"Input", "is_action_just_released")
+
 ## =========================================================================
 ## SEE ALSO — cross-reference groups (#6)
 ## =========================================================================
@@ -1141,6 +1361,20 @@ static func _build_see_also() -> void:
 		["IsActionPressed", "IsKeyPressed", "PlaySound", "ChangeScene", "CreateActor2D"],
 		# GoTo
 		["GoTo", "GoSub", "Return"],
+		# Godot — Movement / Physics
+		["move_and_slide", "velocity", "is_on_floor", "is_on_wall", "_physics_process", "delta"],
+		# Godot — Position / Transform
+		["position", "global_position", "rotation", "rotation_degrees", "scale", "look_at"],
+		# Godot — Node lifecycle
+		["_ready", "_process", "_physics_process", "_input", "_draw"],
+		# Godot — Scene tree
+		["get_node", "add_child", "remove_child", "queue_free", "get_tree", "instantiate"],
+		# Godot — Signals
+		["connect", "emit_signal"],
+		# Godot — Visibility
+		["visible", "show", "hide", "modulate"],
+		# Godot — Input
+		["is_action_pressed", "is_action_just_pressed", "is_action_just_released"],
 	]
 	for group in groups:
 		for kw in group:
