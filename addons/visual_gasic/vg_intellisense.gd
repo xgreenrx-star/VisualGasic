@@ -296,6 +296,94 @@ const SNIPPETS: Array[Dictionary] = [
 ]
 
 # =============================================================================
+# GODOT API COMPLETIONS — common methods/properties used without dot-access
+# =============================================================================
+
+const GODOT_API_COMPLETIONS: Array[Dictionary] = [
+	# CharacterBody2D / CharacterBody3D — Movement
+	{"name": "move_and_slide", "signature": "move_and_slide() As Boolean", "description": "Moves the body based on velocity, sliding along collisions (CharacterBody2D/3D)"},
+	{"name": "is_on_floor", "signature": "is_on_floor() As Boolean", "description": "True if on the floor after last move_and_slide (CharacterBody2D/3D)"},
+	{"name": "is_on_wall", "signature": "is_on_wall() As Boolean", "description": "True if touching a wall after last move_and_slide (CharacterBody2D/3D)"},
+	{"name": "is_on_ceiling", "signature": "is_on_ceiling() As Boolean", "description": "True if touching the ceiling after last move_and_slide (CharacterBody2D/3D)"},
+	{"name": "get_slide_collision", "signature": "get_slide_collision(idx As Integer) As KinematicCollision2D", "description": "Returns collision info from last move_and_slide"},
+	{"name": "get_slide_collision_count", "signature": "get_slide_collision_count() As Integer", "description": "Returns number of collisions from last move_and_slide"},
+
+	# Node — Lifecycle callbacks
+	{"name": "_ready", "signature": "Sub _Ready()", "description": "Called when the node enters the scene tree for the first time"},
+	{"name": "_process", "signature": "Sub _Process(delta As Single)", "description": "Called every frame. delta = seconds since last frame"},
+	{"name": "_physics_process", "signature": "Sub _PhysicsProcess(delta As Single)", "description": "Called every physics frame (default 60fps). Use for physics movement"},
+	{"name": "_input", "signature": "Sub _Input(event As InputEvent)", "description": "Called on any input event (keyboard, mouse, gamepad)"},
+	{"name": "_unhandled_input", "signature": "Sub _UnhandledInput(event As InputEvent)", "description": "Called for input not handled by _input or GUI"},
+	{"name": "_draw", "signature": "Sub _Draw()", "description": "Called when the CanvasItem needs redrawing. Use draw_* commands inside"},
+	{"name": "_enter_tree", "signature": "Sub _EnterTree()", "description": "Called when node enters the scene tree"},
+	{"name": "_exit_tree", "signature": "Sub _ExitTree()", "description": "Called when node exits the scene tree"},
+
+	# Node — Scene tree
+	{"name": "get_node", "signature": "get_node(path As NodePath) As Node", "description": "Returns the node at the given path relative to this node"},
+	{"name": "get_parent", "signature": "get_parent() As Node", "description": "Returns this node's parent"},
+	{"name": "get_child", "signature": "get_child(idx As Integer) As Node", "description": "Returns a child node by index"},
+	{"name": "get_children", "signature": "get_children() As Array", "description": "Returns all child nodes as an Array"},
+	{"name": "get_child_count", "signature": "get_child_count() As Integer", "description": "Returns the number of child nodes"},
+	{"name": "add_child", "signature": "add_child(node As Node)", "description": "Adds a child node to this node"},
+	{"name": "remove_child", "signature": "remove_child(node As Node)", "description": "Removes a child node without freeing it"},
+	{"name": "queue_free", "signature": "queue_free()", "description": "Queues this node for deletion at end of frame"},
+	{"name": "get_tree", "signature": "get_tree() As SceneTree", "description": "Returns the SceneTree this node belongs to"},
+	{"name": "is_inside_tree", "signature": "is_inside_tree() As Boolean", "description": "True if this node is currently in the scene tree"},
+	{"name": "get_index", "signature": "get_index() As Integer", "description": "Returns this node's index among its siblings"},
+
+	# Node2D — Transform
+	{"name": "look_at", "signature": "look_at(target As Vector2)", "description": "Rotates to point at the target position (Node2D)"},
+	{"name": "get_global_mouse_position", "signature": "get_global_mouse_position() As Vector2", "description": "Returns mouse position in global coordinates"},
+	{"name": "to_local", "signature": "to_local(global_point As Vector2) As Vector2", "description": "Converts global coordinates to local"},
+	{"name": "to_global", "signature": "to_global(local_point As Vector2) As Vector2", "description": "Converts local coordinates to global"},
+
+	# CanvasItem — Visibility
+	{"name": "show", "signature": "show()", "description": "Makes this node visible"},
+	{"name": "hide", "signature": "hide()", "description": "Makes this node invisible"},
+	{"name": "queue_redraw", "signature": "queue_redraw()", "description": "Requests a redraw — triggers _Draw() again"},
+	{"name": "is_visible", "signature": "is_visible() As Boolean", "description": "Returns whether this node is visible"},
+
+	# Object — Signals
+	{"name": "connect", "signature": "connect(signal_name As String, callable As Callable)", "description": "Connects a signal to a callback"},
+	{"name": "disconnect", "signature": "disconnect(signal_name As String, callable As Callable)", "description": "Disconnects a signal from a callback"},
+	{"name": "emit_signal", "signature": "emit_signal(signal_name As String, ...)", "description": "Emits the given signal with optional arguments"},
+	{"name": "is_connected", "signature": "is_connected(signal_name As String, callable As Callable) As Boolean", "description": "True if signal is connected to the callable"},
+
+	# Node — Processing control
+	{"name": "set_process", "signature": "set_process(enable As Boolean)", "description": "Enables or disables _Process for this node"},
+	{"name": "set_physics_process", "signature": "set_physics_process(enable As Boolean)", "description": "Enables or disables _PhysicsProcess for this node"},
+	{"name": "set_input_as_handled", "signature": "set_input_as_handled()", "description": "Marks input event as handled (stops propagation)"},
+
+	# Input singleton
+	{"name": "Input.is_action_pressed", "signature": "Input.is_action_pressed(action As String) As Boolean", "description": "True while the input action is held down"},
+	{"name": "Input.is_action_just_pressed", "signature": "Input.is_action_just_pressed(action As String) As Boolean", "description": "True only on the frame the action was first pressed"},
+	{"name": "Input.is_action_just_released", "signature": "Input.is_action_just_released(action As String) As Boolean", "description": "True only on the frame the action was released"},
+	{"name": "Input.get_axis", "signature": "Input.get_axis(neg As String, pos As String) As Single", "description": "Returns a value between -1 and 1 for two opposing actions"},
+	{"name": "Input.get_vector", "signature": "Input.get_vector(negX As String, posX As String, negY As String, posY As String) As Vector2", "description": "Returns a 2D input vector from four actions"},
+
+	# PackedScene
+	{"name": "instantiate", "signature": "instantiate() As Node", "description": "Creates an instance of a PackedScene"},
+
+	# Timer
+	{"name": "start", "signature": "start([time As Single])", "description": "Starts or restarts the Timer"},
+	{"name": "stop", "signature": "stop()", "description": "Stops the Timer"},
+
+	# Common properties (used directly on self)
+	{"name": "velocity", "signature": "velocity As Vector2", "description": "Current velocity of a CharacterBody2D/3D"},
+	{"name": "position", "signature": "position As Vector2", "description": "Position relative to parent (Node2D/Control)"},
+	{"name": "global_position", "signature": "global_position As Vector2", "description": "Position in world coordinates (Node2D)"},
+	{"name": "rotation", "signature": "rotation As Single", "description": "Rotation in radians (Node2D/Node3D)"},
+	{"name": "rotation_degrees", "signature": "rotation_degrees As Single", "description": "Rotation in degrees (Node2D/Node3D)"},
+	{"name": "scale", "signature": "scale As Vector2", "description": "Scale of the node (Node2D/Node3D)"},
+	{"name": "visible", "signature": "visible As Boolean", "description": "Whether the node is visible (CanvasItem/Node3D)"},
+	{"name": "modulate", "signature": "modulate As Color", "description": "Color tint applied to this node and children"},
+	{"name": "self_modulate", "signature": "self_modulate As Color", "description": "Color tint applied to this node only (not children)"},
+	{"name": "z_index", "signature": "z_index As Integer", "description": "Drawing order. Higher = drawn on top"},
+	{"name": "name", "signature": "name As String", "description": "The name of this node in the scene tree"},
+	{"name": "process_mode", "signature": "process_mode As Integer", "description": "Controls when this node processes (inherit/pausable/always/disabled)"},
+]
+
+# =============================================================================
 # VARIANT TYPE MEMBERS (not in ClassDB)
 # =============================================================================
 
@@ -533,6 +621,16 @@ static func get_completions(prefix: String, context: Dictionary = {}) -> Array[D
 				"insert_text": snippet["code"]
 			})
 	
+	# Godot API methods/properties (common game-dev calls)
+	for api_info in GODOT_API_COMPLETIONS:
+		if api_info["name"].to_lower().begins_with(prefix_lower):
+			results.append({
+				"text": api_info["name"],
+				"kind": "function" if "(" in api_info["signature"] else "property",
+				"detail": api_info["signature"],
+				"documentation": api_info["description"]
+			})
+
 	# Control names from context (if provided)
 	if context.has("controls"):
 		for ctrl_name in context["controls"]:
