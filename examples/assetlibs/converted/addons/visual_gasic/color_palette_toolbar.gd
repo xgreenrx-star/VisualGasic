@@ -54,62 +54,88 @@ var _fore_preview: ColorRect
 var _back_preview: ColorRect
 var _current_forecolor: Color = Color.BLACK
 var _current_backcolor: Color = Color.WHITE
+var _palette_popup: PopupPanel
+var _dropdown_btn: Button
 
 func _init():
 	name = "VG Color Palette"
-	custom_minimum_size = Vector2(0, 24)
-	
-	# Fore/Back color preview (compact)
+	custom_minimum_size = Vector2(0, 26)
+
+	# ── Fore / Back color preview — overlapping squares (classic VB6 style) ──
 	var preview_container = Control.new()
 	preview_container.custom_minimum_size = Vector2(28, 22)
-	
+
 	_back_preview = ColorRect.new()
 	_back_preview.color = _current_backcolor
-	_back_preview.position = Vector2(6, 4)
+	_back_preview.position = Vector2(8, 6)
 	_back_preview.size = Vector2(14, 14)
 	_back_preview.tooltip_text = "BackColor"
 	preview_container.add_child(_back_preview)
-	
+
 	_fore_preview = ColorRect.new()
 	_fore_preview.color = _current_forecolor
 	_fore_preview.position = Vector2(0, 0)
 	_fore_preview.size = Vector2(14, 14)
 	_fore_preview.tooltip_text = "ForeColor"
 	preview_container.add_child(_fore_preview)
-	
+
 	add_child(preview_container)
-	
-	# Compact palette grid — 16 columns × 2 rows, tiny swatches
+
+	# ── Dropdown button to open the full palette popup ──
+	_dropdown_btn = Button.new()
+	_dropdown_btn.text = "▼"
+	_dropdown_btn.tooltip_text = "Color Palette — Left=ForeColor  Right=BackColor"
+	_dropdown_btn.custom_minimum_size = Vector2(20, 22)
+	_dropdown_btn.pressed.connect(_toggle_palette_popup)
+	add_child(_dropdown_btn)
+
+	# ── Build the popup (hidden until user clicks ▼) ──
+	_palette_popup = PopupPanel.new()
+	_palette_popup.transparent_bg = false
+
+	var popup_vbox = VBoxContainer.new()
+	popup_vbox.add_theme_constant_override("separation", 4)
+
+	# Palette grid — 16 columns × 2 rows
 	var palette_grid = GridContainer.new()
 	palette_grid.columns = 16
-	palette_grid.add_theme_constant_override("h_separation", 0)
-	palette_grid.add_theme_constant_override("v_separation", 0)
-	
-	# Row 1: Standard VB6 16 colors
+	palette_grid.add_theme_constant_override("h_separation", 1)
+	palette_grid.add_theme_constant_override("v_separation", 1)
+
 	for color in VB6_COLORS:
-		var swatch = _create_swatch(color)
-		palette_grid.add_child(swatch)
-	
-	# Row 2: Extended 16 colors
+		palette_grid.add_child(_create_swatch(color))
 	for color in VB6_EXTENDED:
-		var swatch = _create_swatch(color)
-		palette_grid.add_child(swatch)
-	
-	add_child(palette_grid)
-	
-	# Custom color button
+		palette_grid.add_child(_create_swatch(color))
+
+	popup_vbox.add_child(palette_grid)
+
+	# Custom color button inside the popup
 	var custom_btn = Button.new()
-	custom_btn.text = "..."
-	custom_btn.tooltip_text = "Custom Color"
-	custom_btn.custom_minimum_size = Vector2(20, 20)
+	custom_btn.text = "Custom Color..."
+	custom_btn.tooltip_text = "Open full color picker"
+	custom_btn.custom_minimum_size = Vector2(0, 24)
 	custom_btn.pressed.connect(_on_custom_color)
-	add_child(custom_btn)
+	popup_vbox.add_child(custom_btn)
+
+	_palette_popup.add_child(popup_vbox)
+	add_child(_palette_popup)
+
+func _toggle_palette_popup():
+	if _palette_popup.visible:
+		_palette_popup.hide()
+		return
+	# Position just below the dropdown button
+	var btn_rect = _dropdown_btn.get_global_rect()
+	_palette_popup.popup(Rect2i(
+		Vector2i(int(btn_rect.position.x), int(btn_rect.position.y + btn_rect.size.y + 2)),
+		Vector2i(0, 0)  # auto-size
+	))
 
 func _create_swatch(color: Color) -> Button:
-	"""Create a tiny clickable color swatch."""
+	"""Create a clickable color swatch for the popup palette."""
 	var btn = Button.new()
-	btn.custom_minimum_size = Vector2(10, 10)
-	btn.size = Vector2(10, 10)
+	btn.custom_minimum_size = Vector2(16, 16)
+	btn.size = Vector2(16, 16)
 	btn.flat = true
 	btn.tooltip_text = "Left=ForeColor  Right=BackColor\n#" + color.to_html(false).to_upper()
 	
@@ -140,8 +166,10 @@ func _create_swatch(color: Color) -> Button:
 		if event is InputEventMouseButton and event.pressed:
 			if event.button_index == MOUSE_BUTTON_LEFT:
 				_apply_forecolor(color)
+				_palette_popup.hide()
 			elif event.button_index == MOUSE_BUTTON_RIGHT:
 				_apply_backcolor(color)
+				_palette_popup.hide()
 	)
 	
 	return btn
