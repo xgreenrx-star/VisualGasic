@@ -154,6 +154,12 @@ var _theme_picker = null
 ## Profiler Panel (v2.6.0) — bottom panel for bytecode profiling
 var _profiler_panel = null
 
+## Controls Inspector (v4.3.0) — Visual Form Debugger panel
+var _controls_inspector = null
+
+## Package Browser (v4.3.0) — Package Manager panel
+var _package_browser = null
+
 ## Tip of the Day dialog (v3.5)
 var _tip_of_day_dialog: Window = null
 var _tip_label: Label = null
@@ -306,6 +312,28 @@ func _enter_tree():
 			_profiler_panel.set_debugger_plugin(debugger_plugin)
 		add_control_to_bottom_panel(_profiler_panel, "VG Profiler")
 		print("VisualGasic: Profiler Panel created (bottom panel)")
+	
+	# Create Controls Inspector (v4.3.0) — Visual Form Debugger
+	var inspector_script = load("res://addons/visual_gasic/vg_controls_inspector.gd")
+	if inspector_script:
+		_controls_inspector = inspector_script.new()
+		_controls_inspector.setup(debugger_plugin)
+		if debugger_plugin:
+			debugger_plugin.form_controls_received.connect(_on_form_controls_received)
+			debugger_plugin.debug_break_hit.connect(_on_debug_break_for_controls_inspector)
+			debugger_plugin.debug_continued.connect(_on_debug_continued_for_controls_inspector)
+			debugger_plugin.debug_session_stopped.connect(_on_debug_stopped_for_controls_inspector)
+		_controls_inspector.navigate_to_event.connect(_on_controls_navigate_to_event)
+		add_control_to_bottom_panel(_controls_inspector, "VG Controls")
+		print("VisualGasic: Controls Inspector created (bottom panel)")
+
+	# Create Package Browser (v4.3.0) — Package Manager panel
+	var pkg_browser_script = load("res://addons/visual_gasic/vg_package_browser.gd")
+	if pkg_browser_script:
+		_package_browser = pkg_browser_script.new()
+		_package_browser.setup(EditorInterface.get_editor_paths().get_project_settings_dir().get_base_dir())
+		add_control_to_bottom_panel(_package_browser, "VG Packages")
+		print("VisualGasic: Package Browser created (bottom panel)")
 	
 	# Register custom .vg file icon in the editor theme
 	call_deferred("_register_vg_file_icon")
@@ -898,6 +926,19 @@ func _exit_tree():
 		_profiler_panel.queue_free()
 		_profiler_panel = null
 	
+	# Cleanup Controls Inspector
+	if is_instance_valid(_controls_inspector):
+		remove_control_from_bottom_panel(_controls_inspector)
+		_controls_inspector.queue_free()
+		_controls_inspector = null
+
+	# Cleanup Package Browser
+	if is_instance_valid(_package_browser):
+		_package_browser.cleanup()
+		remove_control_from_bottom_panel(_package_browser)
+		_package_browser.queue_free()
+		_package_browser = null
+	
 	# Cleanup Code Navigator (injected above code editor)
 	if is_instance_valid(_code_navigator):
 		if _code_navigator.get_parent():
@@ -982,6 +1023,19 @@ func _exit_tree():
 	# Disconnect node_added handler
 	if get_tree().node_added.is_connected(_on_node_added):
 		get_tree().node_added.disconnect(_on_node_added)
+
+# =============================================================================
+# DEBUGGER BREAKPOINTS — called by form_preview_toolbar to persist breakpoints
+# =============================================================================
+
+## Returns the current breakpoint dictionary from the debugger plugin.
+## Key: script_path (String), Value: Array of line numbers (int).
+func get_debugger_breakpoints() -> Dictionary:
+	if debugger_plugin and is_instance_valid(debugger_plugin):
+		# vg_debugger_plugin stores breakpoints in _breakpoints dict
+		if "_breakpoints" in debugger_plugin:
+			return debugger_plugin._breakpoints
+	return {}
 
 ## Intercept keyboard shortcuts BEFORE Godot's editor consumes them.
 ## Uses _input() — the FIRST callback in Godot's input chain — so our
@@ -5581,6 +5635,57 @@ func _on_fd_control_double_clicked(index: int) -> void:
 		_open_in_embedded_editor(vg_path, sub_name, event_params)
 	else:
 		# Fallback: open in Godot's Script editor (old behavior)
+		_switching_to_code_editor = true
+		_open_or_create_event_handler(vg_path, sub_name)
+
+# =============================================================================
+# CONTROLS INSPECTOR — Visual Form Debugger callbacks (v4.3.0)
+# =============================================================================
+
+## Called when the debugger plugin receives form control data from the game process.
+func _on_form_controls_received(controls: Array) -> void:
+	if is_instance_valid(_controls_inspector):
+		_controls_inspector.receive_controls(controls)
+
+## Called when the debugger hits a breakpoint — activates the Controls Inspector.
+func _on_debug_break_for_controls_inspector(_file: String, _line: int) -> void:
+	if is_instance_valid(_controls_inspector):
+		_controls_inspector.set_debugging(true)
+		# Use instance 0 by default (first attached script)
+		_controls_inspector.set_instance_id(0)
+
+## Called when the game continues from a breakpoint.
+func _on_debug_continued_for_controls_inspector() -> void:
+	if is_instance_valid(_controls_inspector):
+		_controls_inspector.set_debugging(false)
+
+## Called when the debug session ends entirely.
+func _on_debug_stopped_for_controls_inspector() -> void:
+	if is_instance_valid(_controls_inspector):
+		_controls_inspector.set_debugging(false)
+
+## Called when the user double-clicks a control in the Controls Inspector to
+## navigate to its event handler (e.g. Command1_Click).
+func _on_controls_navigate_to_event(control_name: String, event_suffix: String) -> void:
+	if control_name.is_empty() or event_suffix.is_empty():
+		return
+	# Determine the .vg file path from the current form
+	var vg_path := ""
+	if _form_designer:
+		var form_path = _form_designer.get_form_path()
+		if not form_path.is_empty():
+			vg_path = form_path.get_basename() + ".vg"
+	# Fallback: use the embedded code editor's current file
+	if vg_path.is_empty() and is_instance_valid(_embedded_code_editor):
+		vg_path = _embedded_code_editor.get_file_path()
+	if vg_path.is_empty():
+		push_warning("VisualGasic: Controls Inspector — no .vg file associated with the current form.")
+		return
+	var sub_name = control_name + "_" + event_suffix
+	print("VisualGasic: Controls Inspector → opening ", sub_name, " in ", vg_path)
+	if is_instance_valid(_embedded_code_editor):
+		_open_in_embedded_editor(vg_path, sub_name)
+	else:
 		_switching_to_code_editor = true
 		_open_or_create_event_handler(vg_path, sub_name)
 

@@ -1,0 +1,1 @@
+../../../../addons/visual_gasic/vg_controls_inspector.gd

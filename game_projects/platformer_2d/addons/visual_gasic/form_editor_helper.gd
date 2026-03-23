@@ -66,6 +66,12 @@ func _ready() -> void:
 			if all_empty:
 				main_menu.queue_free()
 				print("[VG-THEME] Removed empty default MainMenu from '", parent_window.name, "'")
+		
+		# ── Apply radio-button circle icons to CheckBoxes tagged as RadioButton ──
+		# Godot has no native RadioButton node, so we use CheckBox + circle icons.
+		# The metadata/vb6_type = "RadioButton" tag is written by the C++ serializer.
+		# Deferred to avoid iterating children while the scene tree is still building.
+		call_deferred("_apply_radio_icons", parent_window)
 	else:
 		print("[VG-THEME] Parent is not Window: ", parent_window.get_class() if parent_window else "null")
 
@@ -445,6 +451,78 @@ func set_show_grid(show: bool) -> void:
 func toggle_grid() -> void:
 	grid_enabled = not grid_enabled
 	queue_redraw()
+
+# =============================================================================
+# RADIO BUTTON ICON APPLICATION (deferred from _ready)
+# =============================================================================
+
+func _apply_radio_icons(win: Window) -> void:
+	if not is_instance_valid(win):
+		return
+	var radio_unchecked: ImageTexture = null
+	var radio_checked: ImageTexture = null
+	for child in win.get_children():
+		if not is_instance_valid(child):
+			continue
+		if child is CheckBox and child.has_meta("vb6_type") and child.get_meta("vb6_type") == "RadioButton":
+			# Lazily create radio icons on first hit
+			if radio_unchecked == null:
+				radio_unchecked = _make_radio_icon(false)
+				radio_checked = _make_radio_icon(true)
+			child.add_theme_icon_override("checked", radio_checked)
+			child.add_theme_icon_override("unchecked", radio_unchecked)
+			child.add_theme_icon_override("checked_disabled", radio_checked)
+			child.add_theme_icon_override("unchecked_disabled", radio_unchecked)
+
+# =============================================================================
+# RADIO BUTTON ICON GENERATOR
+# =============================================================================
+# Creates 16×16 circle icons for RadioButton (Godot's CheckBox with overrides).
+# Matches the VB6 Win32 look: sunken circle with optional center dot.
+
+static func _make_radio_icon(checked: bool) -> ImageTexture:
+	var size := 16
+	var img := Image.create(size, size, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))  # transparent background
+	
+	var cx := size / 2.0
+	var cy := size / 2.0
+	var r_outer := 6.0   # outer circle radius
+	var r_inner := 5.0   # inner white fill radius
+	
+	# Draw pixels in a circle
+	for y in range(size):
+		for x in range(size):
+			var dx := x + 0.5 - cx
+			var dy := y + 0.5 - cy
+			var dist := sqrt(dx * dx + dy * dy)
+			
+			if dist <= r_outer + 0.5:
+				if dist > r_inner - 0.5:
+					# Border ring — use shadow/highlight for 3D effect
+					var angle := atan2(dy, dx)
+					# Top-left quadrant = dark shadow, bottom-right = highlight
+					if angle >= -PI * 0.75 and angle <= PI * 0.25:
+						# Right / bottom side — highlight
+						img.set_pixel(x, y, Color(0.87, 0.87, 0.87, 1.0))
+					else:
+						# Left / top side — shadow
+						img.set_pixel(x, y, Color(0.51, 0.51, 0.51, 1.0))
+				else:
+					# Inner fill — white
+					img.set_pixel(x, y, Color(1, 1, 1, 1))
+	
+	# Draw center dot if checked
+	if checked:
+		var r_dot := 2.5
+		for y in range(size):
+			for x in range(size):
+				var dx := x + 0.5 - cx
+				var dy := y + 0.5 - cy
+				if sqrt(dx * dx + dy * dy) <= r_dot:
+					img.set_pixel(x, y, Color(0, 0, 0, 1))
+	
+	return ImageTexture.create_from_image(img)
 
 # =============================================================================
 # VB6 CLASSIC (WIN98) THEME — applied to parent Window for WYSIWYG fidelity

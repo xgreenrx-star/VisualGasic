@@ -162,6 +162,12 @@ func _on_debugger_message(message: String, data: Array) -> bool:
 			if data.size() >= 3:
 				_set_conditional_breakpoint(data[0], data[1], data[2])
 			return true
+		
+		# v4.3: Visual Form Debugger — Controls Inspector
+		"get_form_controls":
+			if data.size() >= 1:
+				_send_form_controls(data[0])
+			return true
 	
 	return false
 
@@ -565,3 +571,105 @@ func _set_conditional_breakpoint(script_path: String, line: int, condition: Stri
 			set_meta("_conditional_bps", cond_bps)
 	print("[VisualGasic] Conditional breakpoint set at %s:%d [%s]" % [script_path, line, condition])
 	EngineDebugger.send_message("visualgasic:conditional_bp_set", [script_path, line, condition])
+
+# ============================================================================
+# v4.3: VISUAL FORM DEBUGGER — Controls Inspector
+# ============================================================================
+
+func _send_form_controls(instance_id: int) -> void:
+	"""Collect all child controls of the instance's owner Node and send
+	   their names, types, and key properties to the editor."""
+	var inst = _get_instance(instance_id)
+	if inst == null:
+		EngineDebugger.send_message("visualgasic:form_controls", [[]])
+		return
+	
+	var owner_node: Node = inst if inst is Node else null
+	if owner_node == null:
+		EngineDebugger.send_message("visualgasic:form_controls", [[]])
+		return
+	
+	var controls: Array = []
+	_collect_controls(owner_node, controls)
+	EngineDebugger.send_message("visualgasic:form_controls", [controls])
+
+func _collect_controls(node: Node, out: Array) -> void:
+	"""Recursively collect child controls with their properties."""
+	for child in node.get_children():
+		var entry: Dictionary = {}
+		entry["name"] = child.name
+		entry["type"] = child.get_class()
+		entry["path"] = str(child.get_path())
+		
+		var props: Dictionary = {}
+		# Collect commonly inspected VB6-style properties
+		if child is Control:
+			props["Visible"] = child.visible
+			props["Position"] = str(child.position)
+			props["Size"] = str(child.size)
+			props["Enabled"] = not child.is_set_as_top_level() if child.has_method("is_set_as_top_level") else true
+		
+		if child is BaseButton:
+			props["Text"] = child.text if "text" in child else ""
+			props["Disabled"] = child.disabled
+			props["Pressed"] = child.button_pressed if child.toggle_mode else false
+		
+		if child is Label:
+			props["Text"] = child.text
+			props["AutoSize"] = child.autowrap_mode != TextServer.AUTOWRAP_OFF
+		
+		if child is LineEdit:
+			props["Text"] = child.text
+			props["MaxLength"] = child.max_length
+			props["ReadOnly"] = not child.editable
+			props["PasswordChar"] = child.secret_character if child.secret else ""
+		
+		if child is TextEdit:
+			props["Text"] = child.text
+			props["ReadOnly"] = not child.editable
+		
+		if child is Range:
+			props["Value"] = child.value
+			props["Min"] = child.min_value
+			props["Max"] = child.max_value
+		
+		if child is ItemList:
+			props["ListCount"] = child.item_count
+		
+		if child is OptionButton:
+			props["ListCount"] = child.item_count
+			props["Selected"] = child.selected
+			if child.selected >= 0 and child.selected < child.item_count:
+				props["SelectedText"] = child.get_item_text(child.selected)
+		
+		if child is CheckBox or child is CheckButton:
+			props["Checked"] = child.button_pressed
+			props["Text"] = child.text
+		
+		if child is ProgressBar:
+			props["Value"] = child.value
+			props["Min"] = child.min_value
+			props["Max"] = child.max_value
+		
+		if child is Timer:
+			props["Interval"] = child.wait_time
+			props["Enabled"] = not child.is_stopped()
+			props["OneShot"] = child.one_shot
+		
+		if child is TabContainer:
+			props["CurrentTab"] = child.current_tab
+			props["TabCount"] = child.get_tab_count()
+		
+		# Always include modulate/self_modulate for color debugging
+		if child is CanvasItem:
+			if child.modulate != Color(1, 1, 1, 1):
+				props["Modulate"] = str(child.modulate)
+			if child.self_modulate != Color(1, 1, 1, 1):
+				props["SelfModulate"] = str(child.self_modulate)
+		
+		entry["properties"] = props
+		out.append(entry)
+		
+		# Recurse into children (but skip deeply nested internal nodes)
+		if child.get_child_count() > 0 and child.get_child_count() < 50:
+			_collect_controls(child, out)

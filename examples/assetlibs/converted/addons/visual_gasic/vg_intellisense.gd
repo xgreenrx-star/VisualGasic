@@ -200,6 +200,38 @@ const BUILTIN_FUNCTIONS: Array[Dictionary] = [
 	{"name": "Environ", "signature": "Environ(varName As String) As String", "description": "Returns the value of an OS environment variable"},
 	{"name": "Beep", "signature": "Beep", "description": "Produces a system beep sound"},
 	
+	# Drawing Commands — Primitives
+	{"name": "DrawPixel", "signature": "DrawPixel(x As Double, y As Double, color As Color)", "description": "Draws a single pixel at the given position"},
+	{"name": "PSet", "signature": "PSet(x As Double, y As Double, color As Color)", "description": "Draws a single pixel (VB6-style alias for DrawPixel)"},
+	{"name": "DrawString", "signature": "DrawString(font As Font, position As Vector2, text As String, color As Color, [fontSize As Integer])", "description": "Draws text using a font object at the specified position"},
+	{"name": "DrawTexture", "signature": "DrawTexture(texture As Texture2D, x As Double, y As Double, [modulate As Color])", "description": "Draws a texture at a position. Use with CreateTexture or LoadPicture"},
+	{"name": "DrawTextureRect", "signature": "DrawTextureRect(texture As Texture2D, rect As Rect2, tile As Boolean, [modulate As Color])", "description": "Draws a texture stretched/tiled into a rectangle region"},
+	{"name": "DrawArc", "signature": "DrawArc(x As Double, y As Double, radius As Double, startAngle As Double, endAngle As Double, [pointCount As Integer], [color As Color], [width As Double])", "description": "Draws an arc (partial circle outline) between two angles in radians"},
+	{"name": "DrawPolygon", "signature": "DrawPolygon(points As Array, color As Color)", "description": "Draws a filled polygon from an array of Vector2 points"},
+	{"name": "DrawPolyline", "signature": "DrawPolyline(points As Array, color As Color, [width As Double])", "description": "Draws a multi-segment line through an array of Vector2 points"},
+	{"name": "SetDrawTransform", "signature": "SetDrawTransform(x As Double, y As Double, [rotation As Double], [scaleX As Double], [scaleY As Double])", "description": "Sets a 2D transform for all subsequent draw calls (translate, rotate, scale)"},
+	{"name": "ResetDrawTransform", "signature": "ResetDrawTransform()", "description": "Resets the draw transform back to identity (no translation/rotation/scale)"},
+	{"name": "QueueRedraw", "signature": "QueueRedraw()", "description": "Requests the node to redraw on the next frame. Call after changing visual state"},
+	{"name": "CLS", "signature": "CLS()", "description": "Clears the screen / canvas. Removes dynamic child nodes and triggers redraw"},
+	
+	# Image Creation & Manipulation
+	{"name": "CreateImage", "signature": "CreateImage(width As Integer, height As Integer, [fillColor As Color]) As Image", "description": "Creates a new RGBA8 Image object. Size clamped to 1-4096. Use with SetImagePixel/GetImagePixel"},
+	{"name": "CreateTexture", "signature": "CreateTexture(imageOrWidth, [height As Integer], [fillColor As Color]) As ImageTexture", "description": "Creates an ImageTexture from an Image, or creates Image+Texture from width/height. Use with DrawTexture"},
+	{"name": "ImageToTexture", "signature": "ImageToTexture(image As Image) As ImageTexture", "description": "Converts an Image object to an ImageTexture for rendering with DrawTexture"},
+	{"name": "SetImagePixel", "signature": "SetImagePixel(image As Image, x As Integer, y As Integer, color As Color)", "description": "Sets a pixel color on an Image. Call UpdateTexture after to see changes on screen"},
+	{"name": "GetImagePixel", "signature": "GetImagePixel(image As Image, x As Integer, y As Integer) As Color", "description": "Gets the color of a pixel from an Image. Returns Color with .r, .g, .b, .a (0.0-1.0)"},
+	{"name": "FillImage", "signature": "FillImage(image As Image, color As Color)", "description": "Fills the entire Image with a solid color. Much faster than per-pixel SetImagePixel loops"},
+	{"name": "FillImageRect", "signature": "FillImageRect(image As Image, rect As Rect2i, color As Color)", "description": "Fills a rectangular region of the Image with a color"},
+	{"name": "BlitImage", "signature": "BlitImage(destImage As Image, srcImage As Image, srcRect As Rect2i, destPos As Vector2i)", "description": "Copies a rectangular region of pixels from one Image to another"},
+	{"name": "UpdateTexture", "signature": "UpdateTexture(texture As ImageTexture, image As Image)", "description": "Pushes updated Image pixel data to an existing ImageTexture. Call after SetImagePixel changes"},
+	{"name": "ImageWidth", "signature": "ImageWidth(image As Image) As Integer", "description": "Returns the width of an Image in pixels"},
+	{"name": "ImageHeight", "signature": "ImageHeight(image As Image) As Integer", "description": "Returns the height of an Image in pixels"},
+	{"name": "TextureWidth", "signature": "TextureWidth(texture As Texture2D) As Integer", "description": "Returns the width of a Texture2D in pixels"},
+	{"name": "TextureHeight", "signature": "TextureHeight(texture As Texture2D) As Integer", "description": "Returns the height of a Texture2D in pixels"},
+	{"name": "GetTextureImage", "signature": "GetTextureImage(texture As Texture2D) As Image", "description": "Extracts the Image data from an ImageTexture for pixel-level reading"},
+	{"name": "SaveImage", "signature": "SaveImage(image As Image, path As String) As Boolean", "description": "Saves an Image to a PNG file. Returns True on success. Path should use user:// or res://"},
+	{"name": "LoadImage", "signature": "LoadImage(path As String) As Image", "description": "Loads an image file (PNG, JPG, etc.) and returns it as an RGBA8 Image object"},
+	
 	# Godot Integration
 	{"name": "get_node", "signature": "get_node(path As String) As Node", "description": "Gets node by path"},
 	{"name": "preload", "signature": "preload(path As String) As Resource", "description": "Preloads a resource"},
@@ -337,6 +369,53 @@ static func get_completions(prefix: String, context: Dictionary = {}) -> Array[D
 					"kind": "variable",
 					"detail": "Variable"
 				})
+	
+	# Imported module names and their public symbols (v4.3.0)
+	if context.has("imported_modules"):
+		for mod_info in context["imported_modules"]:
+			var mod_name: String = mod_info.get("name", "")
+			if mod_name.to_lower().begins_with(prefix_lower):
+				results.append({
+					"text": mod_name,
+					"kind": "module",
+					"detail": "Imported Module"
+				})
+			# Also add public subs/functions directly (unqualified)
+			if mod_info.has("subs"):
+				for sub_name in mod_info["subs"]:
+					if sub_name.to_lower().begins_with(prefix_lower):
+						results.append({
+							"text": sub_name,
+							"kind": "function",
+							"detail": "From " + mod_name
+						})
+	
+	# Dot-completion for imported modules: ModuleName.
+	if context.has("imported_modules") and context.has("dot_base"):
+		var dot_base: String = context["dot_base"]
+		for mod_info in context["imported_modules"]:
+			if mod_info.get("name", "").nocasecmp_to(dot_base) == 0:
+				if mod_info.has("subs"):
+					for sub_name in mod_info["subs"]:
+						results.append({
+							"text": sub_name,
+							"kind": "function",
+							"detail": mod_info["name"] + "." + sub_name + "()"
+						})
+				if mod_info.has("variables"):
+					for var_name in mod_info["variables"]:
+						results.append({
+							"text": var_name,
+							"kind": "property",
+							"detail": mod_info["name"] + "." + var_name
+						})
+				if mod_info.has("constants"):
+					for const_name in mod_info["constants"]:
+						results.append({
+							"text": const_name,
+							"kind": "constant",
+							"detail": mod_info["name"] + "." + const_name
+						})
 	
 	return results
 

@@ -168,7 +168,7 @@ func _on_form_item_activated():
 				editor_plugin.open_form_in_designer(path)
 			else:
 				EditorInterface.open_scene_from_path(path)
-				EditorInterface.set_main_screen_editor("Form Designer")
+				EditorInterface.set_main_screen_editor("Visual Gasic IDE")
 		elif path.ends_with(".vg"):
 			var script = load(path)
 			if script:
@@ -187,7 +187,7 @@ func _on_new_module():
 		editor_plugin._on_new_module()
 
 func _on_switch_to_form_designer():
-	EditorInterface.set_main_screen_editor("Form Designer")
+	EditorInterface.set_main_screen_editor("Visual Gasic IDE")
 
 # =============================================================================
 # LAYOUT PERSISTENCE (minimal — no splits to save)

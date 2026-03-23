@@ -56,6 +56,8 @@ var _current_forecolor: Color = Color.BLACK
 var _current_backcolor: Color = Color.WHITE
 var _palette_popup: PopupPanel
 var _dropdown_btn: Button
+var _color_picker_win: Window
+var _color_picker: ColorPicker
 
 func _init():
 	name = "VG Color Palette"
@@ -120,6 +122,64 @@ func _init():
 	_palette_popup.add_child(popup_vbox)
 	add_child(_palette_popup)
 
+	# ── Persistent Color-Picker window (shown by "Custom Color..." button) ──
+	_color_picker_win = Window.new()
+	_color_picker_win.title = "Custom Color"
+	_color_picker_win.size = Vector2i(380, 440)
+	_color_picker_win.transient = true
+	_color_picker_win.exclusive = true
+	_color_picker_win.visible = false
+	_color_picker_win.wrap_controls = true
+	_color_picker_win.close_requested.connect(func(): _color_picker_win.hide())
+
+	var cp_margin = MarginContainer.new()
+	cp_margin.anchor_right = 1.0
+	cp_margin.anchor_bottom = 1.0
+	cp_margin.add_theme_constant_override("margin_left", 8)
+	cp_margin.add_theme_constant_override("margin_right", 8)
+	cp_margin.add_theme_constant_override("margin_top", 8)
+	cp_margin.add_theme_constant_override("margin_bottom", 8)
+
+	var cp_vbox = VBoxContainer.new()
+	cp_vbox.add_theme_constant_override("separation", 8)
+
+	_color_picker = ColorPicker.new()
+	_color_picker.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	cp_vbox.add_child(_color_picker)
+
+	var btn_row = HBoxContainer.new()
+	btn_row.alignment = BoxContainer.ALIGNMENT_END
+	btn_row.add_theme_constant_override("separation", 8)
+
+	var ok_btn = Button.new()
+	ok_btn.text = "OK — Set ForeColor"
+	ok_btn.custom_minimum_size = Vector2(130, 28)
+	ok_btn.pressed.connect(func():
+		_apply_forecolor(_color_picker.color)
+		_color_picker_win.hide()
+	)
+	btn_row.add_child(ok_btn)
+
+	var back_btn = Button.new()
+	back_btn.text = "Set BackColor"
+	back_btn.custom_minimum_size = Vector2(110, 28)
+	back_btn.pressed.connect(func():
+		_apply_backcolor(_color_picker.color)
+		_color_picker_win.hide()
+	)
+	btn_row.add_child(back_btn)
+
+	var cancel_btn = Button.new()
+	cancel_btn.text = "Cancel"
+	cancel_btn.custom_minimum_size = Vector2(80, 28)
+	cancel_btn.pressed.connect(func(): _color_picker_win.hide())
+	btn_row.add_child(cancel_btn)
+
+	cp_vbox.add_child(btn_row)
+	cp_margin.add_child(cp_vbox)
+	_color_picker_win.add_child(cp_margin)
+	add_child(_color_picker_win)
+
 func _toggle_palette_popup():
 	if _palette_popup.visible:
 		_palette_popup.hide()
@@ -136,30 +196,28 @@ func _create_swatch(color: Color) -> Button:
 	var btn = Button.new()
 	btn.custom_minimum_size = Vector2(16, 16)
 	btn.size = Vector2(16, 16)
-	btn.flat = true
+	# NOTE: Do NOT set btn.flat = true — flat buttons skip drawing the
+	# "normal" StyleBox, so the color wouldn't be visible at rest.
 	btn.tooltip_text = "Left=ForeColor  Right=BackColor\n#" + color.to_html(false).to_upper()
-	
-	# Use a StyleBoxFlat for the button's normal state
-	var style = StyleBoxFlat.new()
-	style.bg_color = color
-	style.set_border_width_all(1)
-	style.border_color = Color(0.3, 0.3, 0.3, 0.5)
-	style.set_content_margin_all(0)
-	btn.add_theme_stylebox_override("normal", style)
-	
-	var hover_style = StyleBoxFlat.new()
-	hover_style.bg_color = color.lightened(0.15)
-	hover_style.set_border_width_all(1)
-	hover_style.border_color = Color.WHITE
-	hover_style.set_content_margin_all(0)
-	btn.add_theme_stylebox_override("hover", hover_style)
-	
-	var pressed_style = StyleBoxFlat.new()
-	pressed_style.bg_color = color.darkened(0.15)
-	pressed_style.set_border_width_all(1)
-	pressed_style.border_color = Color.WHITE
-	pressed_style.set_content_margin_all(0)
-	btn.add_theme_stylebox_override("pressed", pressed_style)
+
+	# Override every button state so the swatch color is always visible
+	for state_name in ["normal", "hover", "pressed", "disabled", "focus"]:
+		var sb = StyleBoxFlat.new()
+		sb.set_content_margin_all(0)
+		sb.set_border_width_all(1)
+		if state_name == "hover":
+			sb.bg_color = color.lightened(0.2)
+			sb.border_color = Color.WHITE
+		elif state_name == "pressed":
+			sb.bg_color = color.darkened(0.2)
+			sb.border_color = Color.WHITE
+		elif state_name == "focus":
+			sb.bg_color = color
+			sb.border_color = Color.WHITE
+		else:
+			sb.bg_color = color
+			sb.border_color = Color(0.3, 0.3, 0.3, 0.5)
+		btn.add_theme_stylebox_override(state_name, sb)
 	
 	# Left click = ForeColor, Right click = BackColor
 	btn.gui_input.connect(func(event):
@@ -222,15 +280,6 @@ func _get_selected_control() -> Node:
 
 func _on_custom_color():
 	"""Open a full ColorPicker dialog."""
-	var dialog = ColorPicker.new()
-	var popup = PopupPanel.new()
-	popup.add_child(dialog)
-	
-	dialog.color = _current_forecolor
-	dialog.color_changed.connect(func(c):
-		_apply_forecolor(c)
-	)
-	
-	if editor_plugin and is_instance_valid(editor_plugin):
-		editor_plugin.get_editor_interface().get_base_control().add_child(popup)
-		popup.popup_centered(Vector2(350, 380))
+	_palette_popup.hide()
+	_color_picker.color = _current_forecolor
+	_color_picker_win.popup_centered()
