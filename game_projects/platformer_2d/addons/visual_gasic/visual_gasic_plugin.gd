@@ -157,6 +157,9 @@ var _profiler_panel = null
 ## Controls Inspector (v4.3.0) — Visual Form Debugger panel
 var _controls_inspector = null
 
+## Package Browser (v4.3.0) — Package Manager panel
+var _package_browser = null
+
 ## Tip of the Day dialog (v3.5)
 var _tip_of_day_dialog: Window = null
 var _tip_label: Label = null
@@ -323,6 +326,14 @@ func _enter_tree():
 		_controls_inspector.navigate_to_event.connect(_on_controls_navigate_to_event)
 		add_control_to_bottom_panel(_controls_inspector, "VG Controls")
 		print("VisualGasic: Controls Inspector created (bottom panel)")
+
+	# Create Package Browser (v4.3.0) — Package Manager panel
+	var pkg_browser_script = load("res://addons/visual_gasic/vg_package_browser.gd")
+	if pkg_browser_script:
+		_package_browser = pkg_browser_script.new()
+		_package_browser.setup(EditorInterface.get_editor_paths().get_project_settings_dir().get_base_dir())
+		add_control_to_bottom_panel(_package_browser, "VG Packages")
+		print("VisualGasic: Package Browser created (bottom panel)")
 	
 	# Register custom .vg file icon in the editor theme
 	call_deferred("_register_vg_file_icon")
@@ -920,6 +931,13 @@ func _exit_tree():
 		remove_control_from_bottom_panel(_controls_inspector)
 		_controls_inspector.queue_free()
 		_controls_inspector = null
+
+	# Cleanup Package Browser
+	if is_instance_valid(_package_browser):
+		_package_browser.cleanup()
+		remove_control_from_bottom_panel(_package_browser)
+		_package_browser.queue_free()
+		_package_browser = null
 	
 	# Cleanup Code Navigator (injected above code editor)
 	if is_instance_valid(_code_navigator):
@@ -1005,6 +1023,19 @@ func _exit_tree():
 	# Disconnect node_added handler
 	if get_tree().node_added.is_connected(_on_node_added):
 		get_tree().node_added.disconnect(_on_node_added)
+
+# =============================================================================
+# DEBUGGER BREAKPOINTS — called by form_preview_toolbar to persist breakpoints
+# =============================================================================
+
+## Returns the current breakpoint dictionary from the debugger plugin.
+## Key: script_path (String), Value: Array of line numbers (int).
+func get_debugger_breakpoints() -> Dictionary:
+	if debugger_plugin and is_instance_valid(debugger_plugin):
+		# vg_debugger_plugin stores breakpoints in _breakpoints dict
+		if "_breakpoints" in debugger_plugin:
+			return debugger_plugin._breakpoints
+	return {}
 
 ## Intercept keyboard shortcuts BEFORE Godot's editor consumes them.
 ## Uses _input() — the FIRST callback in Godot's input chain — so our

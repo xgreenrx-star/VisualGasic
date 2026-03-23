@@ -1,9 +1,13 @@
 ' MyCalculator - VisualGasic Form
 
 Private Sub Form_Load()
-	' Initialization code here
+' Initialization code here
 End Sub
 
 Sub btnEquals_Click()
-	
+
+End Sub
+
+Sub btnPlay_Click()
+	Print "Hello"
 End Sub

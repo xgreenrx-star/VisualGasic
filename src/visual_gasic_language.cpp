@@ -823,7 +823,9 @@ Dictionary VisualGasicLanguage::_complete_code(const String &p_code, const Strin
                         Dictionary opt;
                         opt["kind"] = ScriptLanguageExtension::CODE_COMPLETION_KIND_PLAIN_TEXT;
                         opt["display"] = String(cbm_completions[0]) + " (CBM: " + last_two.to_upper() + ")";
-                        opt["insert_text"] = "\b\b" + String(cbm_completions[0]); // Delete 2 chars, insert expansion
+                        // Godot's completion system replaces the typed prefix automatically;
+                        // do NOT use "\b\b" — it gets inserted literally.
+                        opt["insert_text"] = String(cbm_completions[0]);
                         opt["location"] = 0;
                         opt["font_color"] = Color(1, 1, 1, 1);
                         opt["icon"] = Variant();
@@ -842,7 +844,7 @@ Dictionary VisualGasicLanguage::_complete_code(const String &p_code, const Strin
                         Dictionary opt;
                         opt["kind"] = ScriptLanguageExtension::CODE_COMPLETION_KIND_PLAIN_TEXT;
                         opt["display"] = String(cbm_completions[i]) + " (CBM: " + last_two.to_upper() + ")";
-                        opt["insert_text"] = "\b\b" + String(cbm_completions[i]);
+                        opt["insert_text"] = String(cbm_completions[i]);
                         opt["location"] = 0;
                         opt["font_color"] = Color(1, 1, 1, 1);
                         opt["icon"] = Variant();
@@ -1386,6 +1388,18 @@ void VisualGasicLanguage::_bind_methods() {
     ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_get_live_script_count"), &VisualGasicLanguage::get_live_script_count);
 }
 
+// Helper: strip a leading access modifier (public/private/static/friend) from
+// a lowercased line and return the remainder, so "public sub foo()" -> "sub foo()".
+static String strip_access_modifier(const String &line_lower) {
+    static const char *modifiers[] = { "public ", "private ", "static ", "friend ", nullptr };
+    for (int i = 0; modifiers[i]; i++) {
+        if (line_lower.begins_with(modifiers[i])) {
+            return line_lower.substr(String(modifiers[i]).length());
+        }
+    }
+    return line_lower;
+}
+
 String VisualGasicLanguage::format_source_code(const String &p_code) const {
     String indented_code;
     PackedStringArray lines = p_code.split("\n");
@@ -1394,6 +1408,8 @@ String VisualGasicLanguage::format_source_code(const String &p_code) const {
     for (int i = 0; i < lines.size(); i++) {
         String line = lines[i].strip_edges();
         String line_lower = line.to_lower();
+        // Also check the line with access modifier stripped
+        String core = strip_access_modifier(line_lower);
         
         // Skip empty lines (preserve them without indentation)
         if (line.is_empty()) {
@@ -1447,17 +1463,18 @@ String VisualGasicLanguage::format_source_code(const String &p_code) const {
         }
         
         if (!is_single_line_if) {
-            if (line_lower.begins_with("sub ") ||
-                line_lower.begins_with("function ") ||
-                line_lower.begins_with("property ") ||
-                line_lower.begins_with("class ") ||
+            // Check both original line and access-modifier-stripped version
+            if (core.begins_with("sub ") || core == "sub" ||
+                core.begins_with("function ") || core == "function" ||
+                core.begins_with("property ") ||
+                core.begins_with("class ") || core == "class" ||
                 line_lower.begins_with("for ") ||
                 line_lower.begins_with("while ") ||
                 line_lower.begins_with("do") ||
                 line_lower.begins_with("select case ") ||
                 line_lower.begins_with("with ") ||
-                line_lower.begins_with("type ") ||
-                line_lower.begins_with("enum ") ||
+                core.begins_with("type ") || core == "type" ||
+                core.begins_with("enum ") || core == "enum" ||
                 line_lower.begins_with("whenever ") ||
                 line_lower.begins_with("try") ||
                 (line_lower.begins_with("if ") && line_lower.ends_with(" then")) ||
@@ -1473,7 +1490,34 @@ String VisualGasicLanguage::format_source_code(const String &p_code) const {
 }
 
 String VisualGasicLanguage::_auto_indent_code(const String &p_code, int32_t p_from_line, int32_t p_to_line) const {
-    return format_source_code(p_code); 
+    // Godot calls this when the user presses Enter.  It expects the returned
+    // code to have only the affected region reindented — NOT the entire file.
+    // We reformat the full document to compute correct indent levels, then
+    // splice only the changed region back into the original code.
+    String formatted = format_source_code(p_code);
+    
+    // If from/to cover the whole file (or are -1), return the full result
+    PackedStringArray orig_lines = p_code.split("\n");
+    PackedStringArray fmt_lines  = formatted.split("\n");
+    
+    if (p_from_line < 0) p_from_line = 0;
+    if (p_to_line < 0 || p_to_line >= orig_lines.size()) p_to_line = orig_lines.size() - 1;
+    
+    // If the line counts match, splice only the requested range
+    if (orig_lines.size() == fmt_lines.size()) {
+        PackedStringArray result;
+        for (int i = 0; i < orig_lines.size(); i++) {
+            if (i >= p_from_line && i <= p_to_line) {
+                result.push_back(fmt_lines[i]);
+            } else {
+                result.push_back(orig_lines[i]);
+            }
+        }
+        return String("\n").join(result);
+    }
+    
+    // Line counts differ (e.g. user just inserted a line) — return full format
+    return formatted;
 }
 
 void VisualGasicLanguage::_add_global_constant(const StringName &p_name, const Variant &p_value) {

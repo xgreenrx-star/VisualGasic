@@ -1060,6 +1060,9 @@ func _rebuild_object_combo() -> void:
 func set_control_names(names: Array[String]) -> void:
 	_control_names = names
 	_rebuild_object_combo()
+	# Forward to VGCodeEdit so auto-complete can suggest control names
+	if _code_edit and _code_edit.has_method("set_known_controls"):
+		_code_edit.set_known_controls(names)
 
 ## Full control info list from the form designer (for Index Map panel)
 var _control_info_list: Array[Dictionary] = []

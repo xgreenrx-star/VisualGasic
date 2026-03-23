@@ -1024,6 +1024,19 @@ func _exit_tree():
 	if get_tree().node_added.is_connected(_on_node_added):
 		get_tree().node_added.disconnect(_on_node_added)
 
+# =============================================================================
+# DEBUGGER BREAKPOINTS — called by form_preview_toolbar to persist breakpoints
+# =============================================================================
+
+## Returns the current breakpoint dictionary from the debugger plugin.
+## Key: script_path (String), Value: Array of line numbers (int).
+func get_debugger_breakpoints() -> Dictionary:
+	if debugger_plugin and is_instance_valid(debugger_plugin):
+		# vg_debugger_plugin stores breakpoints in _breakpoints dict
+		if "_breakpoints" in debugger_plugin:
+			return debugger_plugin._breakpoints
+	return {}
+
 ## Intercept keyboard shortcuts BEFORE Godot's editor consumes them.
 ## Uses _input() — the FIRST callback in Godot's input chain — so our
 ## plugin sees key events before any GUI Control or built-in handler.

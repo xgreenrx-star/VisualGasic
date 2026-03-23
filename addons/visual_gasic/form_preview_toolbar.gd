@@ -280,20 +280,19 @@ func _save_breakpoints_for_preview() -> void:
 	# Try to get the debugger plugin's breakpoints
 	var breakpoints = {}
 	
-	# Check if the plugin has a debugger reference
+	# Get breakpoints from the debugger plugin (which polls them from ScriptEditor)
 	if _editor_plugin.has_method("get_debugger_breakpoints"):
 		breakpoints = _editor_plugin.get_debugger_breakpoints()
 	else:
-		# Scan .vg files for breakpoint markers from editor
-		# The editor stores breakpoints per-file; we persist them
-		var bp_path = "res://addons/visual_gasic/.breakpoints.json"
+		# Fallback: check if the debugger plugin already saved a breakpoints file
+		var bp_path = "res://.vg_breakpoints.json"
 		if FileAccess.file_exists(bp_path):
 			print("VisualGasic: Using existing breakpoints file for debug session")
 			return
 	
-	# Save to JSON for the game-side debug handler
+	# Save to the same JSON path that vg_debug_handler.gd reads on game startup
 	if not breakpoints.is_empty():
-		var bp_path = "res://addons/visual_gasic/.breakpoints.json"
+		var bp_path = "res://.vg_breakpoints.json"
 		var f = FileAccess.open(bp_path, FileAccess.WRITE)
 		if f:
 			f.store_string(JSON.stringify(breakpoints, "\t"))
