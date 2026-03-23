@@ -5,7 +5,7 @@ Private Sub Form_Load()
 End Sub
 
 Sub btnEquals_Click()
-
+	var test
 End Sub
 
 Sub btnPlay_Click()

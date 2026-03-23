@@ -28,6 +28,7 @@ var _known_variables: Array[String] = []
 var _completion_active: bool = false
 var _last_word: String = ""
 var _prev_caret_line: int = -1  # Track line changes for auto-capitalize
+var _snippet_regex: RegEx = null  # Lazy-init for snippet placeholder expansion
 
 # VB6 keywords with correct casing (for auto-capitalize on line leave)
 const VB6_KEYWORD_CASING: Dictionary = {
@@ -295,6 +296,10 @@ func _on_code_completion_requested() -> void:
 		var kind = _convert_kind(completion.get("kind", "text"))
 		var insert_text = completion.get("insert_text", completion["text"])
 		
+		# Expand snippet placeholders (${N:default} → default, ${0} → "")
+		if completion.get("kind", "") == "snippet":
+			insert_text = _expand_snippet_text(insert_text)
+		
 		add_code_completion_option(
 			kind,
 			completion["text"],
@@ -385,6 +390,33 @@ func _infer_type(var_name: String) -> String:
 	return "Object"
 
 # =============================================================================
+# SNIPPET EXPANSION
+# =============================================================================
+
+## Expands snippet template placeholders into clean VB6 code.
+## ${N:default} → default, ${0} → removed.
+## Adds the current line's indentation to continuation lines.
+func _expand_snippet_text(code: String) -> String:
+	if _snippet_regex == null:
+		_snippet_regex = RegEx.new()
+		_snippet_regex.compile("\\$\\{\\d+:([^}]*)\\}")
+	var result := _snippet_regex.sub(code, "$1", true)
+	result = result.replace("${0}", "")
+	# Strip trailing whitespace left by ${0} removal
+	var lines := result.split("\n")
+	if lines.size() <= 1:
+		return result
+	# Add current line's indentation to continuation lines
+	var base_indent := "\t".repeat(_get_line_indent(get_caret_line()))
+	var indented: PackedStringArray = []
+	for i in range(lines.size()):
+		if i == 0:
+			indented.append(lines[i])
+		else:
+			indented.append(base_indent + lines[i])
+	return "\n".join(indented)
+
+# =============================================================================
 # AUTO-INDENTATION
 # =============================================================================
 
@@ -406,6 +438,8 @@ func _request_completion_deferred() -> void:
 		request_code_completion(true)
 
 func _input(event: InputEvent) -> void:
+	if not has_focus():
+		return
 	if event is InputEventKey and event.pressed and event.keycode == KEY_ENTER:
 		# Handle auto-indent on Enter
 		call_deferred("_handle_auto_indent")
