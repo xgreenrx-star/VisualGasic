@@ -136,30 +136,28 @@ func _create_swatch(color: Color) -> Button:
 	var btn = Button.new()
 	btn.custom_minimum_size = Vector2(16, 16)
 	btn.size = Vector2(16, 16)
-	btn.flat = true
+	# NOTE: Do NOT set btn.flat = true — flat buttons skip drawing the
+	# "normal" StyleBox, so the color wouldn't be visible at rest.
 	btn.tooltip_text = "Left=ForeColor  Right=BackColor\n#" + color.to_html(false).to_upper()
-	
-	# Use a StyleBoxFlat for the button's normal state
-	var style = StyleBoxFlat.new()
-	style.bg_color = color
-	style.set_border_width_all(1)
-	style.border_color = Color(0.3, 0.3, 0.3, 0.5)
-	style.set_content_margin_all(0)
-	btn.add_theme_stylebox_override("normal", style)
-	
-	var hover_style = StyleBoxFlat.new()
-	hover_style.bg_color = color.lightened(0.15)
-	hover_style.set_border_width_all(1)
-	hover_style.border_color = Color.WHITE
-	hover_style.set_content_margin_all(0)
-	btn.add_theme_stylebox_override("hover", hover_style)
-	
-	var pressed_style = StyleBoxFlat.new()
-	pressed_style.bg_color = color.darkened(0.15)
-	pressed_style.set_border_width_all(1)
-	pressed_style.border_color = Color.WHITE
-	pressed_style.set_content_margin_all(0)
-	btn.add_theme_stylebox_override("pressed", pressed_style)
+
+	# Override every button state so the swatch color is always visible
+	for state_name in ["normal", "hover", "pressed", "disabled", "focus"]:
+		var sb = StyleBoxFlat.new()
+		sb.set_content_margin_all(0)
+		sb.set_border_width_all(1)
+		if state_name == "hover":
+			sb.bg_color = color.lightened(0.2)
+			sb.border_color = Color.WHITE
+		elif state_name == "pressed":
+			sb.bg_color = color.darkened(0.2)
+			sb.border_color = Color.WHITE
+		elif state_name == "focus":
+			sb.bg_color = color
+			sb.border_color = Color.WHITE
+		else:
+			sb.bg_color = color
+			sb.border_color = Color(0.3, 0.3, 0.3, 0.5)
+		btn.add_theme_stylebox_override(state_name, sb)
 	
 	# Left click = ForeColor, Right click = BackColor
 	btn.gui_input.connect(func(event):
