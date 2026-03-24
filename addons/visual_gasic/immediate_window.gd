@@ -50,6 +50,7 @@ var _right_tabs: TabContainer = null  # Right panel tabs (Vars, Watch, Props, Wh
 var _vars_label: Label = null  # Label showing variable count
 var _var_sort_column: int = 0  # Current sort column (0=Name, 1=Type, 2=Value)
 var _var_sort_ascending: bool = true  # Sort direction
+var _var_filter_field: LineEdit = null  # Search/filter field for variables
 const AUTO_REFRESH_INTERVAL: float = 0.5  # Update every 500ms
 
 func _ready():
@@ -299,6 +300,13 @@ func _setup_ui():
 	auto_refresh_btn.toggled.connect(_on_auto_refresh_toggled)
 	var_toolbar.add_child(auto_refresh_btn)
 	
+	# Search/filter field for variables
+	_var_filter_field = LineEdit.new()
+	_var_filter_field.placeholder_text = "🔍 Filter variables..."
+	_var_filter_field.clear_button_enabled = true
+	_var_filter_field.text_changed.connect(_on_var_filter_changed)
+	var_panel.add_child(_var_filter_field)
+
 	_var_tree = Tree.new()
 	_var_tree.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_var_tree.columns = 3
@@ -307,6 +315,7 @@ func _setup_ui():
 	_var_tree.set_column_title(2, "Value")
 	_var_tree.column_titles_visible = true
 	_var_tree.select_mode = Tree.SELECT_ROW
+	_var_tree.hide_root = true
 	_var_tree.set_column_clip_content(0, true)
 	_var_tree.set_column_clip_content(1, true)
 	_var_tree.set_column_clip_content(2, true)
@@ -913,6 +922,11 @@ func _update_variables_tree():
 	_var_tree.clear()
 	var root = _var_tree.create_item()
 	
+	# Get the filter text (case-insensitive)
+	var filter_text := ""
+	if _var_filter_field:
+		filter_text = _var_filter_field.text.strip_edges().to_lower()
+	
 	# Update the label with variable count
 	if _vars_label:
 		if _variables.is_empty():
@@ -952,7 +966,15 @@ func _update_variables_tree():
 	if not _var_sort_ascending:
 		sorted_names.reverse()
 	
+	var shown_count := 0
 	for var_name in sorted_names:
+		# Apply filter — match against name, type, or value
+		if not filter_text.is_empty():
+			var type_name = _get_type_name(_variables[var_name]).to_lower()
+			var value_str = str(_variables[var_name]).to_lower()
+			if filter_text not in var_name.to_lower() and filter_text not in type_name and filter_text not in value_str:
+				continue
+		shown_count += 1
 		var value = _variables[var_name]
 		var item = _var_tree.create_item(root)
 		item.set_text(0, var_name)
@@ -970,6 +992,10 @@ func _update_variables_tree():
 		
 		# Color code the value based on type
 		item.set_custom_color(2, _get_value_color(value))
+	
+	# Update label with filtered count when filter is active
+	if _vars_label and not filter_text.is_empty() and not _variables.is_empty():
+		_vars_label.text = "Variables (%d/%d)" % [shown_count, _variables.size()]
 
 func _get_type_color(type_name: String) -> Color:
 	"""Return color for type name display"""
@@ -1049,6 +1075,10 @@ func _on_var_column_title_clicked(column: int, mouse_button_index: int) -> void:
 		if i == _var_sort_column:
 			title += " ▲" if _var_sort_ascending else " ▼"
 		_var_tree.set_column_title(i, title)
+	_update_variables_tree()
+
+func _on_var_filter_changed(_new_text: String) -> void:
+	"""Re-filter the variables tree when the search box text changes."""
 	_update_variables_tree()
 
 func _on_var_item_activated():
@@ -2149,7 +2179,17 @@ func _evaluate_remote(expr: String) -> String:
 		else:
 			var_name = expr.strip_edges().substr(6).strip_edges()
 		
-		# Request variable from remote - result comes async
+		# If it's a string literal (quoted), evaluate as code
+		if var_name.begins_with("\"") or var_name.begins_with("'"):
+			_debugger_plugin.evaluate_code(_connected_remote_id, expr.strip_edges(), func(result):
+				if result == null:
+					_append_output("[color=gray](no return value)[/color]\n")
+				else:
+					_append_output("[color=lime]" + str(result) + "[/color] [color=gray](remote)[/color]\n")
+			)
+			return "[color=gray]Evaluating...[/color]"
+		
+		# Simple variable name — request its value from remote
 		_debugger_plugin.request_variable(_connected_remote_id, var_name)
 		return "[color=gray]Requesting " + var_name + "...[/color]"
 	
@@ -2171,8 +2211,13 @@ func _evaluate_remote(expr: String) -> String:
 		_debugger_plugin.set_variable(_connected_remote_id, var_name, value)
 		return "[color=lime]Set " + var_name + " = " + str(value) + "[/color] [color=gray](remote)[/color]"
 	
-	# Generic evaluation
-	_debugger_plugin.request_variable(_connected_remote_id, expr.strip_edges())
+	# Generic evaluation — execute as VB6 code on the remote instance
+	_debugger_plugin.evaluate_code(_connected_remote_id, expr.strip_edges(), func(result):
+		if result == null:
+			_append_output("[color=gray](no return value)[/color]\n")
+		else:
+			_append_output("[color=lime]" + str(result) + "[/color] [color=gray](remote)[/color]\n")
+	)
 	return "[color=gray]Evaluating...[/color]"
 
 # ============================================================================
