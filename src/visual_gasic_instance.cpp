@@ -2447,6 +2447,81 @@ bool VisualGasicInstance::is_placeholder() {
     return script->has_reload_errors();
 }
 
+// ============================================================================
+// Immediate Window evaluation — parse & execute a VB snippet on this instance
+// ============================================================================
+Dictionary VisualGasicInstance::evaluate_immediate(const String &p_code) {
+    Dictionary result;
+    result["success"] = false;
+    result["result"] = "";
+
+    String trimmed = p_code.strip_edges();
+    if (trimmed.is_empty()) {
+        result["success"] = true;
+        return result;
+    }
+
+    String upper = trimmed.to_upper();
+
+    // ---- Print / ? — variable or expression ----------------------------------
+    bool is_print = upper.begins_with("PRINT ") || trimmed.begins_with("? ");
+    if (is_print) {
+        String arg = trimmed.begins_with("? ") ? trimmed.substr(2).strip_edges()
+                                                 : trimmed.substr(6).strip_edges();
+        // String literal
+        if ((arg.begins_with("\"") && arg.ends_with("\"")) ||
+            (arg.begins_with("'") && arg.ends_with("'"))) {
+            result["success"] = true;
+            result["result"] = arg.substr(1, arg.length() - 2);
+            return result;
+        }
+        // Direct variable lookup
+        Variant val;
+        if (get_variable(arg, val)) {
+            result["success"] = true;
+            result["result"] = String(val);
+            return result;
+        }
+        // Fall through to general parse+execute below
+    }
+
+    // ---- General: tokenize → parse → execute ---------------------------------
+    VisualGasicTokenizer tokenizer;
+    Vector<VisualGasicTokenizer::Token> tokens = tokenizer.tokenize(trimmed);
+    VisualGasicParser parser;
+    ModuleNode* mod = parser.parse(tokens);
+
+    if (mod && parser.errors.size() == 0 && mod->global_statements.size() > 0) {
+        for (int i = 0; i < mod->global_statements.size(); i++) {
+            execute_statement(mod->global_statements[i]);
+        }
+        result["success"] = true;
+        result["result"] = "OK";
+    } else if (mod && parser.errors.size() > 0) {
+        // Parse failed — maybe it's a bare variable name
+        Variant val;
+        if (get_variable(trimmed, val)) {
+            result["success"] = true;
+            result["result"] = String(val);
+        } else {
+            result["success"] = false;
+            result["result"] = "Parse error: " + parser.errors[0].message;
+        }
+    } else {
+        Variant val;
+        if (get_variable(trimmed, val)) {
+            result["success"] = true;
+            result["result"] = String(val);
+        } else {
+            result["success"] = false;
+            result["result"] = "Cannot evaluate: " + trimmed;
+        }
+    }
+
+    if (mod) delete mod;
+    return result;
+}
+
 
 // ============================================================================
 // Expression evaluation (evaluate_expression + helpers)

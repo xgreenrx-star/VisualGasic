@@ -348,6 +348,9 @@ func _setup_ui():
 	print("[ImmediateWindow] var_tree item_edited signal connected")
 	var_panel.add_child(_var_tree)
 	
+	# Make the Tree scrollbar grabber more visible
+	_style_tree_scrollbar(_var_tree)
+	
 	# Create context menu for variables
 	_var_context_menu = PopupMenu.new()
 	_var_context_menu.add_item("Insert in Input", 0)
@@ -1097,6 +1100,39 @@ func _on_var_column_title_clicked(column: int, mouse_button_index: int) -> void:
 			title += " ▲" if _var_sort_ascending else " ▼"
 		_var_tree.set_column_title(i, title)
 	_update_variables_tree()
+
+func _style_tree_scrollbar(tree: Tree) -> void:
+	"""Make the Tree's vertical scrollbar grabber clearly visible."""
+	# Defer so the internal VScrollBar child exists after layout
+	tree.ready.connect(func():
+		for child in tree.get_children():
+			if child is VScrollBar:
+				var grabber = StyleBoxFlat.new()
+				grabber.bg_color = Color(0.55, 0.55, 0.6, 1.0)
+				grabber.set_corner_radius_all(3)
+				var grabber_hl = StyleBoxFlat.new()
+				grabber_hl.bg_color = Color(0.7, 0.7, 0.75, 1.0)
+				grabber_hl.set_corner_radius_all(3)
+				var grabber_pressed = StyleBoxFlat.new()
+				grabber_pressed.bg_color = Color(0.45, 0.65, 1.0, 1.0)
+				grabber_pressed.set_corner_radius_all(3)
+				var scroll_bg = StyleBoxFlat.new()
+				scroll_bg.bg_color = Color(0.12, 0.12, 0.14, 1.0)
+				scroll_bg.set_corner_radius_all(2)
+				child.add_theme_stylebox_override("grabber", grabber)
+				child.add_theme_stylebox_override("grabber_highlight", grabber_hl)
+				child.add_theme_stylebox_override("grabber_pressed", grabber_pressed)
+				child.add_theme_stylebox_override("scroll", scroll_bg)
+			if child is HScrollBar:
+				var grabber = StyleBoxFlat.new()
+				grabber.bg_color = Color(0.55, 0.55, 0.6, 1.0)
+				grabber.set_corner_radius_all(3)
+				var grabber_hl = StyleBoxFlat.new()
+				grabber_hl.bg_color = Color(0.7, 0.7, 0.75, 1.0)
+				grabber_hl.set_corner_radius_all(3)
+				child.add_theme_stylebox_override("grabber", grabber)
+				child.add_theme_stylebox_override("grabber_highlight", grabber_hl)
+	)
 
 func _on_var_filter_changed(_new_text: String) -> void:
 	"""Re-filter the variables tree when the search box text changes."""

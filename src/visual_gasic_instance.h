@@ -265,6 +265,10 @@ public:
     Dictionary &get_open_files() { return open_files; }
     int get_error_line() const { return error_state.error_line; }
     Variant call_method_by_name(const String &p_name, const Array &p_args);
+
+    // Immediate Window: parse and execute a single VB statement on this instance
+    Dictionary evaluate_immediate(const String &p_code);
+    
     void clear_error_state() {
         error_state.has_error = false;
         error_state.message = "";

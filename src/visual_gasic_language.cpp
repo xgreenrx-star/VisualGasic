@@ -5,6 +5,8 @@
 #include "visual_gasic_instance.h"
 #include "visual_gasic_debugger.h"
 #include "visual_gasic_linter.h"
+#include "visual_gasic_tokenizer.h"
+#include "visual_gasic_parser.h"
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/classes/node.hpp>
 #include <godot_cpp/classes/window.hpp>
@@ -162,6 +164,32 @@ static bool forward_to_gdscript_handler(const String& p_message, const Array& p_
             Array msg_data;
             msg_data.push_back(sections);
             debugger->send_message("visualgasic:whenever_sections", msg_data);
+        }
+        return true;
+    }
+    
+    // Handle evaluate directly using C++ registry — the GDScript handler
+    // cannot resolve instances because C++ manages its own registry.
+    if (p_message == "evaluate" && p_data.size() >= 3) {
+        int instance_id = p_data[0];
+        String code = p_data[1];
+        int request_id = p_data[2];
+        
+        Dictionary result;
+        result["success"] = false;
+        result["result"] = "Instance not found";
+        
+        VisualGasicInstance* inst = VisualGasicDebug::get_instance_by_index(instance_id);
+        if (inst) {
+            result = inst->evaluate_immediate(code);
+        }
+        
+        EngineDebugger* debugger = EngineDebugger::get_singleton();
+        if (debugger) {
+            Array msg_data;
+            msg_data.push_back(request_id);
+            msg_data.push_back(result);
+            debugger->send_message("visualgasic:eval_result", msg_data);
         }
         return true;
     }
