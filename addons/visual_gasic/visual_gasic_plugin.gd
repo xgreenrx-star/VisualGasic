@@ -5696,7 +5696,7 @@ func _on_debug_break_navigate(file: String, line: int) -> void:
 		_feed_control_names_to_editor()
 
 	# Switch to the VG IDE main screen + code view
-	EditorInterface.set_main_screen_editor(get_plugin_name())
+	EditorInterface.set_main_screen_editor(_get_plugin_name())
 	_show_code_view()
 
 	# Navigate to the breakpoint line (1-based → 0-based for CodeEdit)

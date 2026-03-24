@@ -321,6 +321,7 @@ func _enter_tree():
 		if debugger_plugin:
 			debugger_plugin.form_controls_received.connect(_on_form_controls_received)
 			debugger_plugin.debug_break_hit.connect(_on_debug_break_for_controls_inspector)
+			debugger_plugin.debug_break_hit.connect(_on_debug_break_navigate)
 			debugger_plugin.debug_continued.connect(_on_debug_continued_for_controls_inspector)
 			debugger_plugin.debug_session_stopped.connect(_on_debug_stopped_for_controls_inspector)
 		_controls_inspector.navigate_to_event.connect(_on_controls_navigate_to_event)
@@ -1028,14 +1029,37 @@ func _exit_tree():
 # DEBUGGER BREAKPOINTS — called by form_preview_toolbar to persist breakpoints
 # =============================================================================
 
-## Returns the current breakpoint dictionary from the debugger plugin.
-## Key: script_path (String), Value: Array of line numbers (int).
+## Returns the current breakpoint dictionary from ALL sources:
+## 1. The embedded VG code editor (primary — where users actually set breakpoints)
+## 2. The debugger plugin (ScriptEditor polling — fallback)
+## Key: script_path (String), Value: Array of line numbers (int, 1-based).
 func get_debugger_breakpoints() -> Dictionary:
+	var result: Dictionary = {}
+
+	# Source 1: Embedded VG code editor (0-based → 1-based conversion)
+	if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.has_method("get_file_path") and _embedded_code_editor.has_method("get_code_edit"):
+		var vg_path: String = _embedded_code_editor.get_file_path()
+		var code_edit = _embedded_code_editor.get_code_edit()
+		if not vg_path.is_empty() and code_edit:
+			var bp_lines = code_edit.get_breakpointed_lines()
+			if not bp_lines.is_empty():
+				var lines_array: Array = []
+				for line_idx in bp_lines:
+					lines_array.append(line_idx + 1)  # 0-based → 1-based
+				result[vg_path] = lines_array
+
+	# Source 2: Debugger plugin (ScriptEditor polling)
 	if debugger_plugin and is_instance_valid(debugger_plugin):
-		# vg_debugger_plugin stores breakpoints in _breakpoints dict
 		if "_breakpoints" in debugger_plugin:
-			return debugger_plugin._breakpoints
-	return {}
+			for path in debugger_plugin._breakpoints:
+				if not result.has(path):
+					result[path] = debugger_plugin._breakpoints[path]
+				else:
+					for l in debugger_plugin._breakpoints[path]:
+						if l not in result[path]:
+							result[path].append(l)
+
+	return result
 
 ## Intercept keyboard shortcuts BEFORE Godot's editor consumes them.
 ## Uses _input() — the FIRST callback in Godot's input chain — so our
@@ -5653,6 +5677,37 @@ func _on_debug_break_for_controls_inspector(_file: String, _line: int) -> void:
 		_controls_inspector.set_debugging(true)
 		# Use instance 0 by default (first attached script)
 		_controls_inspector.set_instance_id(0)
+
+## Called when the debugger hits a breakpoint on a .vg script — navigate
+## to the correct file and line in the embedded VG code editor.
+func _on_debug_break_navigate(file: String, line: int) -> void:
+	if not file.ends_with(".vg"):
+		return
+	if not is_instance_valid(_embedded_code_editor):
+		return
+
+	# If we're already showing code for a different file, save first
+	if _embedded_code_editor.is_dirty() and _embedded_code_editor.get_file_path() != file:
+		_embedded_code_editor.save_file()
+
+	# Load the file (only reloads if path changed)
+	if _embedded_code_editor.get_file_path() != file:
+		_embedded_code_editor.load_file(file)
+		_feed_control_names_to_editor()
+
+	# Switch to the VG IDE main screen + code view
+	EditorInterface.set_main_screen_editor(_get_plugin_name())
+	_show_code_view()
+
+	# Navigate to the breakpoint line (1-based → 0-based for CodeEdit)
+	var code_edit = _embedded_code_editor.get_code_edit()
+	if code_edit and line > 0:
+		var zero_line := line - 1
+		code_edit.set_caret_line(zero_line)
+		code_edit.set_caret_column(0)
+		code_edit.center_viewport_to_caret()
+		code_edit.grab_focus()
+		print("VisualGasic: Debug break → navigated to ", file.get_file(), " line ", line)
 
 ## Called when the game continues from a breakpoint.
 func _on_debug_continued_for_controls_inspector() -> void:

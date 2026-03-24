@@ -97,7 +97,10 @@ func _on_debug_break_hit(file: String, line: int) -> void:
 	"""Called when a breakpoint or step is hit - navigate to the line."""
 	_current_break_file = file
 	_current_break_line = line
-	navigate_to_line(file, line)
+	# For .vg files, the main plugin handles navigation to the embedded code editor
+	# via its own debug_break_hit handler. Only navigate here for non-.vg scripts.
+	if not file.ends_with(".vg"):
+		navigate_to_line(file, line)
 
 func navigate_to_line(file_path: String, line: int) -> void:
 	"""Navigate the script editor to a specific file and line."""

@@ -1,9 +1,10 @@
-[gd_scene load_steps=42 format=3]
+[gd_scene load_steps=44 format=3]
 
 [ext_resource type="Script" uid="uid://bx7leliybg671" path="res://Form1.vg" id="1"]
 [ext_resource type="Script" uid="uid://cixa1he0byrgy" path="res://addons/visual_gasic/form_editor_helper.gd" id="2"]
 [ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/Label.tscn" id="3"]
-[ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/TextureRect.tscn" id="4"]
+[ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/Button.tscn" id="4"]
+[ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/game_ui/InventoryGrid.tscn" id="5"]
 
 [sub_resource type="StyleBoxFlat" id="vb6_btn_normal"]
 bg_color = Color(0.831, 0.816, 0.784, 1.0)
@@ -347,6 +348,17 @@ content_margin_top = 2.0
 content_margin_right = 2.0
 content_margin_bottom = 2.0
 
+[sub_resource type="StyleBoxFlat" id="ctrl_bg_InventoryGrid1"]
+bg_color = Color(0.85, 0.85, 0.85, 1.0)
+border_width_top = 0
+border_width_right = 0
+border_width_bottom = 0
+border_width_left = 0
+content_margin_left = 4.0
+content_margin_top = 4.0
+content_margin_right = 4.0
+content_margin_bottom = 4.0
+
 [sub_resource type="Theme" id="vb6_theme"]
 default_font_size = 12
 Button/colors/font_color = Color(0.0, 0.0, 0.0, 1.0)
@@ -437,98 +449,57 @@ offset_bottom = 720.0
 mouse_filter = 2
 script = ExtResource("2")
 
-[node name="lblPaused" type="Label" parent="."]
-offset_left = 540.0
-offset_top = 150.0
-offset_right = 740.0
-offset_bottom = 210.0
-text = "PAUSED"
+[node name="lblTitle" parent="." instance=ExtResource("3")]
+offset_left = 440.0
+offset_top = 100.0
+offset_right = 840.0
+offset_bottom = 180.0
+text = "GAME TITLE"
 
-[node name="btnResume" type="Button" parent="."]
+[node name="btnPlay" parent="." instance=ExtResource("4")]
 offset_left = 540.0
 offset_top = 280.0
 offset_right = 740.0
 offset_bottom = 330.0
-text = "Resume"
+text = "Play"
 
-[node name="btnOptions" type="Button" parent="."]
+[node name="btnOptions" parent="." instance=ExtResource("4")]
 offset_left = 540.0
 offset_top = 350.0
 offset_right = 740.0
 offset_bottom = 400.0
 text = "Options"
 
-[node name="btnMainMenu" type="Button" parent="."]
+[node name="btnCredits" parent="." instance=ExtResource("4")]
 offset_left = 540.0
 offset_top = 420.0
 offset_right = 740.0
 offset_bottom = 470.0
-text = "Main Menu"
+text = "Credits"
 
-[node name="btnQuit" type="Button" parent="."]
+[node name="btnQuit" parent="." instance=ExtResource("4")]
 offset_left = 540.0
 offset_top = 490.0
 offset_right = 740.0
 offset_bottom = 540.0
-text = "Quit Game"
+text = "Quit"
 
-[node name="Label1" parent="." instance=ExtResource("3")]
-offset_left = 64.0
-offset_top = 176.0
-offset_right = 328.0
-offset_bottom = 248.0
-text = "Label1"
-focus_mode = 0
-TabIndex = 5
-Tag = ""
-tooltip_text = ""
-mouse_default_cursor_shape = 0
-BackColor = Color(0.753, 0.753, 0.753, 0.0)
-ForeColor = Color(0.0, 0.0, 0.0, 1.0)
-FontName = "MS Sans Serif"
-FontBold = false
-FontItalic = false
-Appearance = 1
-BorderStyle = 0
-horizontal_alignment = 0
-AutoSize = false
-autowrap_mode = 0
-
-[node name="TextureRect1" parent="." instance=ExtResource("4")]
-offset_left = 40.0
-offset_top = 304.0
-offset_right = 272.0
-offset_bottom = 384.0
-focus_mode = 0
-TabIndex = 6
-Tag = ""
-tooltip_text = ""
-mouse_default_cursor_shape = 0
-BackColor = Color(0.85, 0.85, 0.85, 1.0)
-ForeColor = Color(0.0, 0.0, 0.0, 1.0)
-FontName = "MS Sans Serif"
-FontBold = false
-FontItalic = false
-Appearance = 1
-BorderStyle = 0
-Picture = ""
-Stretch = false
-
-[node name="WobblyButton1" type="WobblyButton" parent="."]
-offset_left = 176.0
-offset_top = 504.0
-offset_right = 251.0
-offset_bottom = 527.0
+[node name="InventoryGrid1" parent="." instance=ExtResource("5")]
+offset_left = 112.0
+offset_top = 184.0
+offset_right = 352.0
+offset_bottom = 368.0
+theme_override_colors/font_color = Color(0.0, 0.0, 0.0, 1.0)
+theme_override_styles/normal = SubResource("ctrl_bg_InventoryGrid1")
 focus_mode = 2
-TabIndex = 7
-Tag = ""
+metadata/Tag = ""
 tooltip_text = ""
 mouse_default_cursor_shape = 0
-BackColor = Color(0.85, 0.85, 0.85, 1.0)
-ForeColor = Color(0.0, 0.0, 0.0, 1.0)
-FontName = "MS Sans Serif"
-FontBold = false
-FontItalic = false
-Appearance = 1
-BorderStyle = 0
+Rows = 4
+columns = 4
+SlotSize = 48
+SlotSpacing = 4
+ShowAnimation = 1
+HideAnimation = 1
+TransitionSpeed = 0.3
 
