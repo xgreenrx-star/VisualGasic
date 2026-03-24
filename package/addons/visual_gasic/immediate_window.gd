@@ -1022,43 +1022,43 @@ func _update_variables_tree():
 		_vars_label.text = "Variables (%d/%d)" % [shown_count, _variables.size()]
 
 func _get_type_color(type_name: String) -> Color:
-	"""Return color for type name display"""
+	"""Return color for type name display (dark-on-light palette)"""
 	match type_name.to_lower():
 		"integer", "int":
-			return Color.CYAN
+			return Color(0.0, 0.35, 0.65)       # dark steel blue
 		"float", "double", "single":
-			return Color.CYAN
+			return Color(0.0, 0.35, 0.65)       # dark steel blue
 		"string":
-			return Color.ORANGE
+			return Color(0.72, 0.33, 0.0)       # burnt orange
 		"boolean", "bool":
-			return Color.MAGENTA
+			return Color(0.6, 0.0, 0.55)        # dark magenta
 		"array":
-			return Color.YELLOW
+			return Color(0.55, 0.45, 0.0)       # dark goldenrod
 		"dictionary":
-			return Color.YELLOW
+			return Color(0.55, 0.45, 0.0)       # dark goldenrod
 		"null", "nothing":
-			return Color.GRAY
+			return Color(0.45, 0.45, 0.45)      # medium gray
 		"object":
-			return Color.LIME_GREEN
+			return Color(0.0, 0.5, 0.15)        # dark green
 		_:
-			return Color.WHITE
+			return Color(0.25, 0.25, 0.25)      # dark gray
 
 func _get_value_color(value) -> Color:
-	"""Return color for value display based on actual value"""
+	"""Return color for value display based on actual value (dark-on-light palette)"""
 	if value == null:
-		return Color.GRAY
+		return Color(0.45, 0.45, 0.45)        # medium gray
 	elif value is bool:
-		return Color.LIGHT_CORAL if not value else Color.LIME_GREEN
+		return Color(0.7, 0.15, 0.15) if not value else Color(0.0, 0.5, 0.15)
 	elif value is int or value is float:
-		return Color.AQUA
+		return Color(0.0, 0.3, 0.6)            # dark blue
 	elif value is String:
-		return Color.SANDY_BROWN
+		return Color(0.65, 0.3, 0.0)           # dark brown-orange
 	elif value is Array:
-		return Color.KHAKI
+		return Color(0.5, 0.4, 0.0)            # dark gold
 	elif value is Dictionary:
-		return Color.KHAKI
+		return Color(0.5, 0.4, 0.0)            # dark gold
 	else:
-		return Color.WHITE
+		return Color(0.25, 0.25, 0.25)         # dark gray
 
 func _format_value_for_display(value) -> String:
 	"""Format value for display in tree - truncate long strings/arrays"""
