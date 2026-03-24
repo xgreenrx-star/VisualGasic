@@ -48,6 +48,8 @@ var _whenever_sections: Array = []  # Cached Whenever sections from remote
 var _debug_status_label: Label = null  # Shows current debug state (paused at line X)
 var _right_tabs: TabContainer = null  # Right panel tabs (Vars, Watch, Props, Whenever)
 var _vars_label: Label = null  # Label showing variable count
+var _var_sort_column: int = 0  # Current sort column (0=Name, 1=Type, 2=Value)
+var _var_sort_ascending: bool = true  # Sort direction
 const AUTO_REFRESH_INTERVAL: float = 0.5  # Update every 500ms
 
 func _ready():
@@ -212,11 +214,18 @@ func _setup_ui():
 	debug_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	debug_toolbar.add_child(debug_spacer)
 	
-	# Debug status label
+	# Debug status label — wrapped in dark panel for visibility on any theme
+	var status_panel = PanelContainer.new()
+	var status_style = StyleBoxFlat.new()
+	status_style.bg_color = Color(0.1, 0.1, 0.1, 0.9)  # Near-black background
+	status_style.set_content_margin_all(4)
+	status_style.set_corner_radius_all(3)
+	status_panel.add_theme_stylebox_override("panel", status_style)
 	_debug_status_label = Label.new()
 	_debug_status_label.text = ""
 	_debug_status_label.add_theme_color_override("font_color", Color.YELLOW)
-	debug_toolbar.add_child(_debug_status_label)
+	status_panel.add_child(_debug_status_label)
+	debug_toolbar.add_child(status_panel)
 	
 	# Output area
 	_output_text = RichTextLabel.new()
@@ -298,10 +307,14 @@ func _setup_ui():
 	_var_tree.set_column_title(2, "Value")
 	_var_tree.column_titles_visible = true
 	_var_tree.select_mode = Tree.SELECT_ROW
+	_var_tree.set_column_clip_content(0, true)
+	_var_tree.set_column_clip_content(1, true)
+	_var_tree.set_column_clip_content(2, true)
 	_var_tree.item_activated.connect(_on_var_item_activated)  # Double-click -> go to definition
 	_var_tree.item_edited.connect(_on_var_item_edited)
 	_var_tree.item_selected.connect(_on_var_item_selected)
 	_var_tree.gui_input.connect(_on_var_tree_gui_input)  # Right-click handling
+	_var_tree.column_title_clicked.connect(_on_var_column_title_clicked)
 	print("[ImmediateWindow] var_tree item_edited signal connected")
 	var_panel.add_child(_var_tree)
 	
@@ -915,9 +928,29 @@ func _update_variables_tree():
 		empty_item.set_selectable(0, false)
 		return
 	
-	# Sort variable names for consistent display
+	# Sort variables by current sort column
 	var sorted_names = _variables.keys()
-	sorted_names.sort()
+	if _var_sort_column == 0:
+		# Sort by Name
+		sorted_names.sort()
+	elif _var_sort_column == 1:
+		# Sort by Type
+		sorted_names.sort_custom(func(a, b):
+			var ta = _get_type_name(_variables[a]).to_lower()
+			var tb = _get_type_name(_variables[b]).to_lower()
+			if ta == tb:
+				return a.nocasecmp_to(b) < 0
+			return ta < tb)
+	elif _var_sort_column == 2:
+		# Sort by Value (string representation)
+		sorted_names.sort_custom(func(a, b):
+			var va = str(_variables[a]).to_lower()
+			var vb = str(_variables[b]).to_lower()
+			if va == vb:
+				return a.nocasecmp_to(b) < 0
+			return va < vb)
+	if not _var_sort_ascending:
+		sorted_names.reverse()
 	
 	for var_name in sorted_names:
 		var value = _variables[var_name]
@@ -999,6 +1032,24 @@ func _format_value_for_display(value) -> String:
 		return "True" if value else "False"
 	else:
 		return str(value)
+
+func _on_var_column_title_clicked(column: int, mouse_button_index: int) -> void:
+	"""Sort variables by clicked column header."""
+	if mouse_button_index != MOUSE_BUTTON_LEFT:
+		return
+	if column == _var_sort_column:
+		_var_sort_ascending = not _var_sort_ascending
+	else:
+		_var_sort_column = column
+		_var_sort_ascending = true
+	# Update column titles to show sort indicator
+	var arrows = ["Name", "Type", "Value"]
+	for i in range(3):
+		var title = arrows[i]
+		if i == _var_sort_column:
+			title += " ▲" if _var_sort_ascending else " ▼"
+		_var_tree.set_column_title(i, title)
+	_update_variables_tree()
 
 func _on_var_item_activated():
 	"""Double-click: Navigate to variable definition in code"""
@@ -2176,6 +2227,9 @@ func _on_debug_break_hit(file: String, line: int) -> void:
 	# Switch to Variables tab to show current state
 	if _right_tabs:
 		_right_tabs.current_tab = 0  # Vars tab
+	# Auto-connect to the remote debug session if not already connected
+	if not _is_connected_to_remote() and _debugger_plugin and _debugger_plugin.is_session_active():
+		_refresh_running_instances()
 	# Navigate to the line in the script editor
 	_go_to_script_line(file, line)
 

@@ -19,12 +19,30 @@ var _active_session: EditorDebuggerSession = null
 var _pending_requests: Dictionary = {}
 var _request_id: int = 0
 
+# Track the last break emission to deduplicate (break_hit + debug_state both emit)
+var _last_break_file: String = ""
+var _last_break_line: int = -1
+var _last_break_time: int = 0  # msec timestamp
+
 # Breakpoint tracking - stores all VG breakpoints set in editor
 # Key: script_path (String), Value: Array of line numbers (int)
 var _breakpoints: Dictionary = {}
 
 # Timer to poll breakpoints from ScriptEditor (workaround for custom script languages)
 var _breakpoint_poll_timer: Timer = null
+
+## Emit debug_break_hit only if this file:line wasn't already emitted recently
+## (within 500ms). Prevents duplicates from break_hit + debug_state arriving
+## for the same pause event.
+func _emit_break_hit_deduped(file: String, line: int) -> void:
+	var now := Time.get_ticks_msec()
+	if file == _last_break_file and line == _last_break_line and (now - _last_break_time) < 500:
+		print("[VG Debugger Plugin] Skipping duplicate break_hit: ", file, ":", line)
+		return
+	_last_break_file = file
+	_last_break_line = line
+	_last_break_time = now
+	debug_break_hit.emit(file, line)
 
 func _has_capture(prefix: String) -> bool:
 	# Debug: Log all prefixes to see what's coming through
@@ -40,7 +58,7 @@ func _goto_script_line(script: Script, line: int) -> void:
 	print("[VG Debugger Plugin] _goto_script_line: ", script.resource_path if script else "null", " line ", line, " -> 1-based ", one_based_line)
 	if script and script.resource_path.ends_with(".vg"):
 		_navigate_to_script_line(script.resource_path, one_based_line)
-		debug_break_hit.emit(script.resource_path, one_based_line)
+		_emit_break_hit_deduped(script.resource_path, one_based_line)
 
 func _capture(message: String, data: Array, session_id: int) -> bool:
 	# Debug: Log all messages to see what's coming through
@@ -101,7 +119,7 @@ func _capture(message: String, data: Array, session_id: int) -> bool:
 			if not current_file.is_empty() and current_line > 0:
 				print("[VG Debugger Plugin] Navigating from debug_state...")
 				_navigate_to_script_line(current_file, current_line)
-				debug_break_hit.emit(current_file, current_line)
+				_emit_break_hit_deduped(current_file, current_line)
 			return true
 		
 		"break_hit":
@@ -110,7 +128,7 @@ func _capture(message: String, data: Array, session_id: int) -> bool:
 				print("[VG Debugger Plugin] Received break_hit: ", data[0], ":", data[1])
 				# Navigate directly to the script line
 				_navigate_to_script_line(data[0], data[1])
-				debug_break_hit.emit(data[0], data[1])
+				_emit_break_hit_deduped(data[0], data[1])
 			return true
 		
 		"debug_print":
