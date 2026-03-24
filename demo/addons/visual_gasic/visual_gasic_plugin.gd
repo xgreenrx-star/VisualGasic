@@ -5700,19 +5700,32 @@ func _on_debug_break_navigate(file: String, line: int) -> void:
 	# Without this, the sync may call save_form_as() via C++ FileAccess (which
 	# bypasses Godot's ResourceSaver) and trigger the "Files have been modified
 	# outside Godot" dialog.
+	#
+	# We must defer the screen switch because Godot's built-in ScriptEditorDebugger
+	# also reacts to the break event and switches to the Script editor via an
+	# internal deferred call.  By deferring ours, we guarantee we run AFTER
+	# Godot's own switch and end up on the VG IDE screen.
+	_switching_to_code_editor = true
+	call_deferred("_deferred_switch_to_vg_code_view", file, line)
+
+## Deferred helper: switch to VG IDE code view and navigate to the breakpoint line.
+## Must run after Godot's built-in ScriptEditorDebugger finishes its own
+## deferred switch to the Script editor, so we win the screen-switch race.
+func _deferred_switch_to_vg_code_view(file: String, line: int) -> void:
 	_switching_to_code_editor = true
 	EditorInterface.set_main_screen_editor(_get_plugin_name())
 	_show_code_view()
 
 	# Navigate to the breakpoint line (1-based → 0-based for CodeEdit)
-	var code_edit = _embedded_code_editor.get_code_edit()
-	if code_edit and line > 0:
-		var zero_line := line - 1
-		code_edit.set_caret_line(zero_line)
-		code_edit.set_caret_column(0)
-		code_edit.center_viewport_to_caret()
-		code_edit.grab_focus()
-		print("VisualGasic: Debug break → navigated to ", file.get_file(), " line ", line)
+	if is_instance_valid(_embedded_code_editor):
+		var code_edit = _embedded_code_editor.get_code_edit()
+		if code_edit and line > 0:
+			var zero_line := line - 1
+			code_edit.set_caret_line(zero_line)
+			code_edit.set_caret_column(0)
+			code_edit.center_viewport_to_caret()
+			code_edit.grab_focus()
+			print("VisualGasic: Debug break → navigated to ", file.get_file(), " line ", line)
 
 ## Called when the game continues from a breakpoint.
 func _on_debug_continued_for_controls_inspector() -> void:

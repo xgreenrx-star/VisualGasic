@@ -2255,6 +2255,11 @@ func _go_to_script_line(file_path: String, line: int) -> void:
 		print("[VG Immediate] Invalid file_path or line")
 		return
 	
+	# .vg files are handled by the main plugin's _on_debug_break_navigate handler
+	# which opens them in the embedded VG code editor. Skip Godot's Script editor.
+	if file_path.ends_with(".vg"):
+		return
+	
 	# Load the script resource
 	if not ResourceLoader.exists(file_path):
 		print("[VG Immediate] Script not found: ", file_path)
