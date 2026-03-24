@@ -402,23 +402,10 @@ ModuleNode* VisualGasicParser::parse(const Vector<VisualGasicTokenizer::Token>& 
         }
     }
 
-    // If parsing recorded errors, return nullptr so callers know parsing failed.
-    // NOTE: We intentionally DON'T delete the module or allocated nodes here.
-    // There is a memory corruption issue with the destructor cascade that causes
-    // crashes. Accepting a small memory leak on parse errors is preferable to
-    // crashing the editor. The parser object's destructor will NOT clean up
-    // these nodes either since we clear the lists.
-    if (errors.size() > 0) {
-        // Don't delete module - its destructor causes crashes due to invalid pointers
-        // Just clear tracking lists to prevent double-free attempts
-        allocated_nodes.clear();
-        allocated_expr_nodes.clear();
-        return nullptr;
-    }
-
-    // Successful parse: ownership of AST nodes should now belong to
-    // the ModuleNode and its sub-structures. Clear the allocated_nodes
-    // tracker without deleting to avoid double-free.
+    // If parsing recorded errors, we still return the module with the
+    // successfully-parsed subs.  VB6-style: errors in one Sub should not
+    // prevent the rest of the script from running.
+    // Clear tracking lists to prevent double-free on parser destruction.
     allocated_nodes.clear();
     allocated_expr_nodes.clear();
 

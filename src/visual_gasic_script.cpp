@@ -554,9 +554,13 @@ Error VisualGasicScript::_reload(bool p_keep_state) {
     UtilityFunctions::print("[VG] Parse completed, errors: ", parser.errors.size());
     
     if (parser.errors.size() > 0) {
-         UtilityFunctions::print("[VG] Parser Error: ", parser.errors[0].message, " at line ", parser.errors[0].line);
-            last_reload_had_error = true;
-            return ERR_PARSE_ERROR;
+         for (int i = 0; i < parser.errors.size(); i++) {
+             UtilityFunctions::print("[VG] Parser Error: ", parser.errors[i].message, " at line ", parser.errors[i].line);
+         }
+         // Continue with partially-parsed AST (VB6-style: errors in one Sub
+         // should not prevent other Subs from running).  Mark that we had
+         // errors so the editor can show them, but do NOT bail out.
+         last_reload_had_error = true;
     }
         if (!ast_root) {
            last_reload_had_error = true;
