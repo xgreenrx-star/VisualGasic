@@ -5695,7 +5695,12 @@ func _on_debug_break_navigate(file: String, line: int) -> void:
 		_embedded_code_editor.load_file(file)
 		_feed_control_names_to_editor()
 
-	# Switch to the VG IDE main screen + code view
+	# Switch to the VG IDE main screen + code view.
+	# Set the guard flag so _make_visible(true) skips _sync_scene_to_form_designer().
+	# Without this, the sync may call save_form_as() via C++ FileAccess (which
+	# bypasses Godot's ResourceSaver) and trigger the "Files have been modified
+	# outside Godot" dialog.
+	_switching_to_code_editor = true
 	EditorInterface.set_main_screen_editor(_get_plugin_name())
 	_show_code_view()
 
