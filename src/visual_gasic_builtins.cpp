@@ -49,7 +49,14 @@ using namespace godot;
 namespace VisualGasicBuiltins {
 
 // ---------------------------------------------------------------------------
-// Native OS message box — uses zenity (GTK), kdialog (Qt/KDE), or OS::alert().
+// Native OS message box — cross-platform, blocking.
+//
+// Uses the appropriate native dialog tool on each platform:
+//   Linux  : zenity (GTK) → kdialog (KDE) → OS::alert() fallback
+//   Windows: PowerShell [System.Windows.Forms.MessageBox]
+//   macOS  : osascript (AppleScript display dialog)
+//   Other  : OS::alert() fallback (Android, iOS, Web)
+//
 // OS::execute() blocks the calling thread while the external dialog is open,
 // and the window-manager renders it independently of Godot's render loop,
 // so the dialog is always visible and interactive.
@@ -58,66 +65,150 @@ namespace VisualGasicBuiltins {
 // btn_type: 0=vbOKOnly, 1=vbOKCancel, 4=vbYesNo, 5=vbRetryCancel
 // ---------------------------------------------------------------------------
 int native_msgbox(const String &p_msg, const String &p_title, int p_btn_type) {
-    // --- Try zenity (GNOME / GTK) -------------------------------------------
-    {
-        PackedStringArray w;
-        w.push_back("zenity");
-        Array dummy;
-        bool has_zenity = (OS::get_singleton()->execute("which", w, dummy) == 0);
-        if (has_zenity) {
-            PackedStringArray args;
-            if (p_btn_type == 4) { // vbYesNo
-                args.push_back("--question");
-                args.push_back("--text=" + p_msg);
-                args.push_back("--title=" + p_title);
-                args.push_back("--ok-label=Yes");
-                args.push_back("--cancel-label=No");
-            } else if (p_btn_type == 1) { // vbOKCancel
-                args.push_back("--question");
-                args.push_back("--text=" + p_msg);
-                args.push_back("--title=" + p_title);
-                args.push_back("--ok-label=OK");
-                args.push_back("--cancel-label=Cancel");
-            } else { // vbOKOnly (default)
-                args.push_back("--info");
-                args.push_back("--text=" + p_msg);
-                args.push_back("--title=" + p_title);
+    String os_name = OS::get_singleton()->get_name();
+
+    // =================================================================
+    //  Windows — PowerShell MessageBox
+    // =================================================================
+    if (os_name == "Windows") {
+        // Map VB6 button type to .NET MessageBoxButtons enum name
+        String buttons_enum = "OK";                  // default
+        if (p_btn_type == 1) buttons_enum = "OKCancel";
+        if (p_btn_type == 4) buttons_enum = "YesNo";
+
+        // Escape single-quotes in message/title for PowerShell
+        String safe_msg   = p_msg.replace("'", "''");
+        String safe_title = p_title.replace("'", "''");
+
+        String ps_cmd = String("Add-Type -AssemblyName System.Windows.Forms; ")
+            + "[System.Windows.Forms.MessageBox]::Show('"
+            + safe_msg + "', '" + safe_title + "', '"
+            + buttons_enum + "')";
+
+        PackedStringArray args;
+        args.push_back("-NoProfile");
+        args.push_back("-Command");
+        args.push_back(ps_cmd);
+        Array output;
+        OS::get_singleton()->execute("powershell", args, output);
+
+        // PowerShell prints the DialogResult enum name: OK, Cancel, Yes, No
+        String result = (output.size() > 0) ? String(output[0]).strip_edges() : String("OK");
+        if (result == "Yes")    return 6;
+        if (result == "No")     return 7;
+        if (result == "Cancel") return 2;
+        return 1; // OK
+    }
+
+    // =================================================================
+    //  macOS — osascript (AppleScript)
+    // =================================================================
+    if (os_name == "macOS") {
+        // Escape double-quotes and backslashes for AppleScript strings
+        String safe_msg   = p_msg.replace("\\", "\\\\").replace("\"", "\\\"");
+        String safe_title = p_title.replace("\\", "\\\\").replace("\"", "\\\"");
+
+        String script;
+        if (p_btn_type == 4) { // vbYesNo
+            script = "display dialog \"" + safe_msg + "\" with title \""
+                + safe_title + "\" buttons {\"No\", \"Yes\"} default button \"Yes\"";
+        } else if (p_btn_type == 1) { // vbOKCancel
+            script = "display dialog \"" + safe_msg + "\" with title \""
+                + safe_title + "\" buttons {\"Cancel\", \"OK\"} default button \"OK\"";
+        } else { // vbOKOnly
+            script = "display dialog \"" + safe_msg + "\" with title \""
+                + safe_title + "\" buttons {\"OK\"} default button \"OK\"";
+        }
+
+        PackedStringArray args;
+        args.push_back("-e");
+        args.push_back(script);
+        Array output;
+        int64_t exit_code = OS::get_singleton()->execute("osascript", args, output);
+
+        // exit_code != 0 means the user pressed Cancel (AppleScript raises error 128)
+        if (exit_code != 0) {
+            if (p_btn_type == 4) return 7; // No
+            if (p_btn_type == 1) return 2; // Cancel
+            return 1;
+        }
+        // Parse the "button returned:Yes" from output
+        String out_str = (output.size() > 0) ? String(output[0]).strip_edges() : String("");
+        if (out_str.find("No") >= 0)     return 7;
+        if (out_str.find("Cancel") >= 0) return 2;
+        if (out_str.find("Yes") >= 0)    return 6;
+        return 1; // OK
+    }
+
+    // =================================================================
+    //  Linux — zenity (GTK) → kdialog (KDE) → fallback
+    // =================================================================
+    if (os_name == "Linux" || os_name == "FreeBSD") {
+        // --- Try zenity (GNOME / GTK) ---
+        {
+            PackedStringArray w;
+            w.push_back("zenity");
+            Array dummy;
+            bool has_zenity = (OS::get_singleton()->execute("which", w, dummy) == 0);
+            if (has_zenity) {
+                PackedStringArray args;
+                if (p_btn_type == 4) { // vbYesNo
+                    args.push_back("--question");
+                    args.push_back("--text=" + p_msg);
+                    args.push_back("--title=" + p_title);
+                    args.push_back("--ok-label=Yes");
+                    args.push_back("--cancel-label=No");
+                } else if (p_btn_type == 1) { // vbOKCancel
+                    args.push_back("--question");
+                    args.push_back("--text=" + p_msg);
+                    args.push_back("--title=" + p_title);
+                    args.push_back("--ok-label=OK");
+                    args.push_back("--cancel-label=Cancel");
+                } else { // vbOKOnly (default)
+                    args.push_back("--info");
+                    args.push_back("--text=" + p_msg);
+                    args.push_back("--title=" + p_title);
+                }
+                Array output;
+                int64_t exit_code = OS::get_singleton()->execute("zenity", args, output);
+                if (p_btn_type == 4) return (exit_code == 0) ? 6 : 7;   // Yes / No
+                if (p_btn_type == 1) return (exit_code == 0) ? 1 : 2;   // OK / Cancel
+                return 1; // vbOK
             }
-            Array output;
-            int64_t exit_code = OS::get_singleton()->execute("zenity", args, output);
-            if (p_btn_type == 4) return (exit_code == 0) ? 6 : 7;   // Yes / No
-            if (p_btn_type == 1) return (exit_code == 0) ? 1 : 2;   // OK / Cancel
-            return 1; // vbOK
+        }
+        // --- Try kdialog (KDE / Qt) ---
+        {
+            PackedStringArray w;
+            w.push_back("kdialog");
+            Array dummy;
+            bool has_kdialog = (OS::get_singleton()->execute("which", w, dummy) == 0);
+            if (has_kdialog) {
+                PackedStringArray args;
+                args.push_back("--title");
+                args.push_back(p_title);
+                if (p_btn_type == 4) { // vbYesNo
+                    args.push_back("--yesno");
+                    args.push_back(p_msg);
+                } else if (p_btn_type == 1) { // vbOKCancel
+                    args.push_back("--warningcontinuecancel");
+                    args.push_back(p_msg);
+                } else { // vbOKOnly
+                    args.push_back("--msgbox");
+                    args.push_back(p_msg);
+                }
+                Array output;
+                int64_t exit_code = OS::get_singleton()->execute("kdialog", args, output);
+                if (p_btn_type == 4) return (exit_code == 0) ? 6 : 7;
+                if (p_btn_type == 1) return (exit_code == 0) ? 1 : 2;
+                return 1; // vbOK
+            }
         }
     }
-    // --- Try kdialog (KDE / Qt) ---------------------------------------------
-    {
-        PackedStringArray w;
-        w.push_back("kdialog");
-        Array dummy;
-        bool has_kdialog = (OS::get_singleton()->execute("which", w, dummy) == 0);
-        if (has_kdialog) {
-            PackedStringArray args;
-            args.push_back("--title");
-            args.push_back(p_title);
-            if (p_btn_type == 4) { // vbYesNo
-                args.push_back("--yesno");
-                args.push_back(p_msg);
-            } else if (p_btn_type == 1) { // vbOKCancel
-                args.push_back("--warningcontinuecancel");
-                args.push_back(p_msg);
-            } else { // vbOKOnly
-                args.push_back("--msgbox");
-                args.push_back(p_msg);
-            }
-            Array output;
-            int64_t exit_code = OS::get_singleton()->execute("kdialog", args, output);
-            if (p_btn_type == 4) return (exit_code == 0) ? 6 : 7;
-            if (p_btn_type == 1) return (exit_code == 0) ? 1 : 2;
-            return 1; // vbOK
-        }
-    }
-    // --- Fallback: OS::alert() (OK-only, but at least doesn't hang) ---------
+
+    // =================================================================
+    //  Fallback for all platforms (Android, iOS, Web, or if nothing above worked)
+    //  OS::alert() is OK-only but at least doesn't hang.
+    // =================================================================
     OS::get_singleton()->alert(p_msg, p_title);
     if (p_btn_type == 4) return 6; // default Yes
     return 1; // vbOK
