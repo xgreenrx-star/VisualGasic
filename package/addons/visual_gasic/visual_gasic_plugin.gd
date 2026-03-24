@@ -5701,17 +5701,26 @@ func _on_debug_break_navigate(file: String, line: int) -> void:
 	# bypasses Godot's ResourceSaver) and trigger the "Files have been modified
 	# outside Godot" dialog.
 	#
-	# We must defer the screen switch because Godot's built-in ScriptEditorDebugger
-	# also reacts to the break event and switches to the Script editor via an
-	# internal deferred call.  By deferring ours, we guarantee we run AFTER
-	# Godot's own switch and end up on the VG IDE screen.
+	# We use a short timer (NOT call_deferred) because Godot's C++ engine
+	# reacts to the break event at multiple points:
+	#   1. EditorDebuggerNode::_breaked() → selects Script editor (synchronous)
+	#   2. ScriptEditor::goto_line()      → selects Script editor (synchronous)
+	#   3. Various engine deferred calls that may also touch the main screen
+	# A call_deferred from GDScript is placed in the same deferred queue and
+	# can be overridden by later C++ deferred calls in the same frame.
+	# A timer fires in a FUTURE frame, after all engine-level processing for
+	# the current break event has fully settled.
 	_switching_to_code_editor = true
-	call_deferred("_deferred_switch_to_vg_code_view", file, line)
+	get_tree().create_timer(0.15).timeout.connect(
+		_deferred_switch_to_vg_code_view.bind(file, line)
+	)
 
-## Deferred helper: switch to VG IDE code view and navigate to the breakpoint line.
-## Must run after Godot's built-in ScriptEditorDebugger finishes its own
-## deferred switch to the Script editor, so we win the screen-switch race.
+## Timer-delayed helper: switch to VG IDE code view and navigate to the
+## breakpoint line.  Runs ~150ms after the break event, which is long enough
+## for all of Godot's built-in Script-editor switches to have completed.
 func _deferred_switch_to_vg_code_view(file: String, line: int) -> void:
+	if not is_inside_tree():
+		return
 	_switching_to_code_editor = true
 	EditorInterface.set_main_screen_editor(_get_plugin_name())
 	_show_code_view()
