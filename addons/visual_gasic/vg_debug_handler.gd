@@ -294,19 +294,13 @@ func _get_instance(instance_id: int) -> Object:
 
 func _get_instance_by_cpp_index(index: int) -> Object:
 	"""Fallback lookup: when the C++ extension is active, instance IDs sent
-	   from the editor are 0-based array indexes into the C++ registry, not
-	   GDScript _registered_instances keys.  Use the VisualGasicLanguage
-	   static helper to resolve them."""
-	if not ClassDB.class_exists("VisualGasicLanguage"):
+	   from the editor are 0-based array indexes into the C++ registry.
+	   Map them to GDScript _registered_instances keys by sorted position."""
+	var keys = _registered_instances.keys()
+	keys.sort()
+	if index < 0 or index >= keys.size():
 		return null
-	var instances: Array = VisualGasicLanguage.vg_get_running_instances()
-	if index < 0 or index >= instances.size():
-		return null
-	var info: Dictionary = instances[index]
-	var owner_id = info.get("owner_id", 0)
-	if owner_id == 0:
-		return null
-	return instance_from_id(owner_id)
+	return _get_instance(keys[index])
 
 func _get_instance_flexible(instance_id: int) -> Object:
 	"""Try GDScript registration first, then C++ index-based lookup."""
