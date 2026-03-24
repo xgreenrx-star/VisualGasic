@@ -175,13 +175,18 @@ static bool forward_to_gdscript_handler(const String& p_message, const Array& p_
         String code = p_data[1];
         int request_id = p_data[2];
         
+        UtilityFunctions::print("[VisualGasic C++] evaluate: instance_id=", instance_id, " code='", code, "' request_id=", request_id);
+        
         Dictionary result;
         result["success"] = false;
-        result["result"] = "Instance not found";
+        result["result"] = "Instance not found (C++ handler)";
         
         VisualGasicInstance* inst = VisualGasicDebug::get_instance_by_index(instance_id);
+        UtilityFunctions::print("[VisualGasic C++] get_instance_by_index(", instance_id, ") = ", inst ? "found" : "NULL");
+        
         if (inst) {
             result = inst->evaluate_immediate(code);
+            UtilityFunctions::print("[VisualGasic C++] evaluate_immediate result: success=", result.get("success", false), " result='", result.get("result", ""), "'");
         }
         
         EngineDebugger* debugger = EngineDebugger::get_singleton();
@@ -211,10 +216,6 @@ static bool forward_to_gdscript_handler(const String& p_message, const Array& p_
     }
     else if (p_message == "set_variable" && p_data.size() >= 3) {
         handler->call("_set_variable", p_data[0], p_data[1], p_data[2]);
-        return true;
-    }
-    else if (p_message == "evaluate" && p_data.size() >= 3) {
-        handler->call("_evaluate_code", p_data[0], p_data[1], p_data[2]);
         return true;
     }
     else if (p_message == "get_debug_state") {

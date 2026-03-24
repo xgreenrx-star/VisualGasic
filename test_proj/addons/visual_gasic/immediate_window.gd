@@ -1103,9 +1103,10 @@ func _on_var_column_title_clicked(column: int, mouse_button_index: int) -> void:
 
 func _style_tree_scrollbar(tree: Tree) -> void:
 	"""Make the Tree's vertical scrollbar grabber clearly visible."""
-	# Defer so the internal VScrollBar child exists after layout
-	tree.ready.connect(func():
-		for child in tree.get_children():
+	# The scrollbars are *internal* children — must pass true to get_children.
+	# Use call_deferred so the internal layout has been created.
+	(func():
+		for child in tree.get_children(true):  # true = include internal children
 			if child is VScrollBar:
 				var grabber = StyleBoxFlat.new()
 				grabber.bg_color = Color(0.55, 0.55, 0.6, 1.0)
@@ -1123,6 +1124,7 @@ func _style_tree_scrollbar(tree: Tree) -> void:
 				child.add_theme_stylebox_override("grabber_highlight", grabber_hl)
 				child.add_theme_stylebox_override("grabber_pressed", grabber_pressed)
 				child.add_theme_stylebox_override("scroll", scroll_bg)
+				child.custom_minimum_size.x = 12  # Ensure scrollbar is wide enough
 			if child is HScrollBar:
 				var grabber = StyleBoxFlat.new()
 				grabber.bg_color = Color(0.55, 0.55, 0.6, 1.0)
@@ -1132,7 +1134,7 @@ func _style_tree_scrollbar(tree: Tree) -> void:
 				grabber_hl.set_corner_radius_all(3)
 				child.add_theme_stylebox_override("grabber", grabber)
 				child.add_theme_stylebox_override("grabber_highlight", grabber_hl)
-	)
+	).call_deferred()
 
 func _on_var_filter_changed(_new_text: String) -> void:
 	"""Re-filter the variables tree when the search box text changes."""
