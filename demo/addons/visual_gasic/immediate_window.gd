@@ -305,6 +305,25 @@ func _setup_ui():
 	_var_filter_field.placeholder_text = "🔍 Filter variables..."
 	_var_filter_field.clear_button_enabled = true
 	_var_filter_field.text_changed.connect(_on_var_filter_changed)
+	# Style: visible border + caret color so focus state is obvious
+	var filter_normal = StyleBoxFlat.new()
+	filter_normal.bg_color = Color(0.15, 0.15, 0.18, 1.0)
+	filter_normal.border_color = Color(0.35, 0.35, 0.4, 1.0)
+	filter_normal.set_border_width_all(1)
+	filter_normal.set_corner_radius_all(3)
+	filter_normal.set_content_margin_all(4)
+	var filter_focus = StyleBoxFlat.new()
+	filter_focus.bg_color = Color(0.15, 0.15, 0.18, 1.0)
+	filter_focus.border_color = Color(0.45, 0.65, 1.0, 1.0)
+	filter_focus.set_border_width_all(2)
+	filter_focus.set_corner_radius_all(3)
+	filter_focus.set_content_margin_all(4)
+	_var_filter_field.add_theme_stylebox_override("normal", filter_normal)
+	_var_filter_field.add_theme_stylebox_override("focus", filter_focus)
+	_var_filter_field.add_theme_color_override("caret_color", Color(1.0, 1.0, 1.0, 1.0))
+	_var_filter_field.add_theme_color_override("font_placeholder_color", Color(0.55, 0.55, 0.6, 1.0))
+	_var_filter_field.caret_blink = true
+	_var_filter_field.caret_blink_interval = 0.5
 	var_panel.add_child(_var_filter_field)
 
 	_var_tree = Tree.new()
@@ -316,6 +335,8 @@ func _setup_ui():
 	_var_tree.column_titles_visible = true
 	_var_tree.select_mode = Tree.SELECT_ROW
 	_var_tree.hide_root = true
+	_var_tree.scroll_horizontal_enabled = true
+	_var_tree.scroll_vertical_enabled = true
 	_var_tree.set_column_clip_content(0, true)
 	_var_tree.set_column_clip_content(1, true)
 	_var_tree.set_column_clip_content(2, true)

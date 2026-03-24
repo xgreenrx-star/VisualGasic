@@ -292,8 +292,31 @@ func _get_instance(instance_id: int) -> Object:
 		return ref.get_ref()
 	return null
 
-func _send_variable(instance_id: int, var_name: String) -> void:
+func _get_instance_by_cpp_index(index: int) -> Object:
+	"""Fallback lookup: when the C++ extension is active, instance IDs sent
+	   from the editor are 0-based array indexes into the C++ registry, not
+	   GDScript _registered_instances keys.  Use the VisualGasicLanguage
+	   static helper to resolve them."""
+	if not ClassDB.class_exists("VisualGasicLanguage"):
+		return null
+	var instances: Array = VisualGasicLanguage.vg_get_running_instances()
+	if index < 0 or index >= instances.size():
+		return null
+	var info: Dictionary = instances[index]
+	var owner_id = info.get("owner_id", 0)
+	if owner_id == 0:
+		return null
+	return instance_from_id(owner_id)
+
+func _get_instance_flexible(instance_id: int) -> Object:
+	"""Try GDScript registration first, then C++ index-based lookup."""
 	var inst = _get_instance(instance_id)
+	if inst == null:
+		inst = _get_instance_by_cpp_index(instance_id)
+	return inst
+
+func _send_variable(instance_id: int, var_name: String) -> void:
+	var inst = _get_instance_flexible(instance_id)
 	if inst == null:
 		EngineDebugger.send_message("visualgasic:variable", [var_name, null])
 		return
@@ -307,7 +330,7 @@ func _send_variable(instance_id: int, var_name: String) -> void:
 	EngineDebugger.send_message("visualgasic:variable", [var_name, value])
 
 func _send_all_variables(instance_id: int) -> void:
-	var inst = _get_instance(instance_id)
+	var inst = _get_instance_flexible(instance_id)
 	if inst == null:
 		EngineDebugger.send_message("visualgasic:variables_list", [{}])
 		return
@@ -329,7 +352,7 @@ func _send_all_variables(instance_id: int) -> void:
 	EngineDebugger.send_message("visualgasic:variables_list", [vars])
 
 func _set_variable(instance_id: int, var_name: String, value: Variant) -> void:
-	var inst = _get_instance(instance_id)
+	var inst = _get_instance_flexible(instance_id)
 	if inst == null:
 		return
 	
@@ -373,7 +396,7 @@ func _parse_value(value: Variant) -> Variant:
 	return str_val
 
 func _evaluate_code(instance_id: int, code: String, request_id: int) -> void:
-	var inst = _get_instance(instance_id)
+	var inst = _get_instance_flexible(instance_id)
 	var result = {"success": false, "result": "Instance not found"}
 	
 	if inst != null:
@@ -420,7 +443,7 @@ func _evaluate_code(instance_id: int, code: String, request_id: int) -> void:
 	EngineDebugger.send_message("visualgasic:eval_result", [request_id, result])
 
 func _send_whenever_sections(instance_id: int) -> void:
-	var inst = _get_instance(instance_id)
+	var inst = _get_instance_flexible(instance_id)
 	if inst == null:
 		EngineDebugger.send_message("visualgasic:whenever_sections", [[]])
 		return
@@ -433,7 +456,7 @@ func _send_whenever_sections(instance_id: int) -> void:
 	EngineDebugger.send_message("visualgasic:whenever_sections", [sections])
 
 func _set_whenever_active(instance_id: int, section_name: String, active: bool) -> void:
-	var inst = _get_instance(instance_id)
+	var inst = _get_instance_flexible(instance_id)
 	if inst == null:
 		return
 	
@@ -517,7 +540,7 @@ func _eval_watch_expressions(instance_id: int, expressions: Array) -> void:
 	"""Evaluate a list of watch expressions and send results back.
 	   Each expression is evaluated in the context of the given instance."""
 	var results: Array = []
-	var inst = _get_instance(instance_id)
+	var inst = _get_instance_flexible(instance_id)
 	
 	for expr in expressions:
 		var result_entry: Dictionary = {"expr": expr, "value": "", "error": false}
@@ -579,7 +602,7 @@ func _set_conditional_breakpoint(script_path: String, line: int, condition: Stri
 func _send_form_controls(instance_id: int) -> void:
 	"""Collect all child controls of the instance's owner Node and send
 	   their names, types, and key properties to the editor."""
-	var inst = _get_instance(instance_id)
+	var inst = _get_instance_flexible(instance_id)
 	if inst == null:
 		EngineDebugger.send_message("visualgasic:form_controls", [[]])
 		return
