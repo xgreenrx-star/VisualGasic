@@ -1094,48 +1094,9 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                      String title = "VisualGasic";
                      if (call_args.size() >= 3) title = call_args[2];
 
-                     if (!owner || !Object::cast_to<Node>(owner)) {
-                          break;
-                     }
-                     Node *root = Object::cast_to<Node>(owner);
-
-                     AcceptDialog *dlg = nullptr;
-                     bool is_confirm = false;
-
-                     // Determine Dialog Type
-                     if (buttons == 4 || buttons == 1) { // vbYesNo or vbOKCancel
-                          ConfirmationDialog *cd = memnew(ConfirmationDialog);
-                          if (buttons == 4) {
-                               cd->get_ok_button()->set_text("Yes");
-                               cd->get_cancel_button()->set_text("No");
-                          }
-                          dlg = cd;
-                          is_confirm = true;
-                     } else {
-                          dlg = memnew(AcceptDialog);
-                     }
-                     
-                     dlg->set_title(title);
-                     dlg->set_text(msg);
-                     root->add_child(dlg);
-
-                     // Signal Magic
-                     dlg->set_meta("result_ok", false);
-                     dlg->connect("confirmed", Callable(dlg, "set_meta").bind("result_ok", true));
-
-                     dlg->popup_centered();
-                     
-                     while (dlg->is_visible() && dlg->is_inside_tree()) {
-                          DisplayServer::get_singleton()->process_events();
-                          OS::get_singleton()->delay_msec(10);
-                     }
-                     
-                     bool ok = (bool)dlg->get_meta("result_ok");
-                     dlg->queue_free();
-                     
-                     // Return Value logic (though this is a Statement, VB6 MsgBox statement ignores return)
-                     // If used as function, it's handled in expression parser.
-                     // But here we might just block.
+                     // Use native OS dialog — always works, doesn't hang the Godot loop
+                     int btn_type = buttons & 0x0F;
+                     VisualGasicBuiltins::native_msgbox(msg, title, btn_type);
                      break;
                 }
 

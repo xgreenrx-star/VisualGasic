@@ -3,16 +3,18 @@
 Private Sub Form_Load()
 ' Initialization code here
 End Sub
+Sub test()
 
+End Sub
 Sub btnEquals_Click()
 	Dim test
 	Dim test43
 	For i = 1 To 10
-
+		'GoTo
 	Next
 
 End Sub
 
 Sub btnPlay_Click()
-	Print "Hello"
+	MsgBox ("test")
 End Sub

@@ -1376,44 +1376,9 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
              String title = "VisualGasic";
              if (call_args.size() >= 3) title = call_args[2];
 
-             if (!owner || !Object::cast_to<Node>(owner)) return 0;
-             Node *root = Object::cast_to<Node>(owner);
-
-             AcceptDialog *dlg = nullptr;
-             
-             // Determine Dialog Type
-             if (buttons == 4 || buttons == 1) { // vbYesNo or vbOKCancel
-                  ConfirmationDialog *cd = memnew(ConfirmationDialog);
-                  if (buttons == 4) {
-                       cd->get_ok_button()->set_text("Yes");
-                       cd->get_cancel_button()->set_text("No");
-                  }
-                  dlg = cd;
-             } else {
-                  dlg = memnew(AcceptDialog);
-             }
-             
-             dlg->set_title(title);
-             dlg->set_text(msg);
-             root->add_child(dlg);
-
-             // Signal Magic
-             dlg->set_meta("result_ok", false);
-             dlg->connect("confirmed", Callable(dlg, "set_meta").bind("result_ok", true));
-
-             dlg->popup_centered();
-             
-             while (dlg->is_visible() && dlg->is_inside_tree()) {
-                  DisplayServer::get_singleton()->process_events();
-                  OS::get_singleton()->delay_msec(10);
-             }
-             
-             bool ok = (bool)dlg->get_meta("result_ok");
-             dlg->queue_free(); // destroy immediately
-
-             if (buttons == 4) return ok ? 6 : 7; // Yes=6, No=7
-             if (buttons == 1) return ok ? 1 : 2; // OK=1, Cancel=2
-             return 1; // vbOK
+             // Use native OS dialog — always works, doesn't hang the Godot loop
+             int btn_type = buttons & 0x0F;
+             return VisualGasicBuiltins::native_msgbox(msg, title, btn_type);
         }
 
         // Godot Types

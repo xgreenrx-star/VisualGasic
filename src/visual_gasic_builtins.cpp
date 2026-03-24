@@ -49,6 +49,81 @@ using namespace godot;
 namespace VisualGasicBuiltins {
 
 // ---------------------------------------------------------------------------
+// Native OS message box — uses zenity (GTK), kdialog (Qt/KDE), or OS::alert().
+// OS::execute() blocks the calling thread while the external dialog is open,
+// and the window-manager renders it independently of Godot's render loop,
+// so the dialog is always visible and interactive.
+//
+// Returns VB6-style result: vbOK=1, vbCancel=2, vbYes=6, vbNo=7
+// btn_type: 0=vbOKOnly, 1=vbOKCancel, 4=vbYesNo, 5=vbRetryCancel
+// ---------------------------------------------------------------------------
+int native_msgbox(const String &p_msg, const String &p_title, int p_btn_type) {
+    // --- Try zenity (GNOME / GTK) -------------------------------------------
+    {
+        PackedStringArray w;
+        w.push_back("zenity");
+        Array dummy;
+        bool has_zenity = (OS::get_singleton()->execute("which", w, dummy) == 0);
+        if (has_zenity) {
+            PackedStringArray args;
+            if (p_btn_type == 4) { // vbYesNo
+                args.push_back("--question");
+                args.push_back("--text=" + p_msg);
+                args.push_back("--title=" + p_title);
+                args.push_back("--ok-label=Yes");
+                args.push_back("--cancel-label=No");
+            } else if (p_btn_type == 1) { // vbOKCancel
+                args.push_back("--question");
+                args.push_back("--text=" + p_msg);
+                args.push_back("--title=" + p_title);
+                args.push_back("--ok-label=OK");
+                args.push_back("--cancel-label=Cancel");
+            } else { // vbOKOnly (default)
+                args.push_back("--info");
+                args.push_back("--text=" + p_msg);
+                args.push_back("--title=" + p_title);
+            }
+            Array output;
+            int64_t exit_code = OS::get_singleton()->execute("zenity", args, output);
+            if (p_btn_type == 4) return (exit_code == 0) ? 6 : 7;   // Yes / No
+            if (p_btn_type == 1) return (exit_code == 0) ? 1 : 2;   // OK / Cancel
+            return 1; // vbOK
+        }
+    }
+    // --- Try kdialog (KDE / Qt) ---------------------------------------------
+    {
+        PackedStringArray w;
+        w.push_back("kdialog");
+        Array dummy;
+        bool has_kdialog = (OS::get_singleton()->execute("which", w, dummy) == 0);
+        if (has_kdialog) {
+            PackedStringArray args;
+            args.push_back("--title");
+            args.push_back(p_title);
+            if (p_btn_type == 4) { // vbYesNo
+                args.push_back("--yesno");
+                args.push_back(p_msg);
+            } else if (p_btn_type == 1) { // vbOKCancel
+                args.push_back("--warningcontinuecancel");
+                args.push_back(p_msg);
+            } else { // vbOKOnly
+                args.push_back("--msgbox");
+                args.push_back(p_msg);
+            }
+            Array output;
+            int64_t exit_code = OS::get_singleton()->execute("kdialog", args, output);
+            if (p_btn_type == 4) return (exit_code == 0) ? 6 : 7;
+            if (p_btn_type == 1) return (exit_code == 0) ? 1 : 2;
+            return 1; // vbOK
+        }
+    }
+    // --- Fallback: OS::alert() (OK-only, but at least doesn't hang) ---------
+    OS::get_singleton()->alert(p_msg, p_title);
+    if (p_btn_type == 4) return 6; // default Yes
+    return 1; // vbOK
+}
+
+// ---------------------------------------------------------------------------
 // Native OS text-input dialog — uses zenity (GTK) or kdialog (Qt/KDE).
 // OS::execute() blocks the calling thread while the external dialog is open,
 // and the window-manager renders it independently of Godot's render loop,
@@ -174,10 +249,6 @@ bool call_builtin(VisualGasicInstance *instance, const String &p_method, const A
     // MsgBox - VB6-style message box with button options
     if (method.nocasecmp_to("MsgBox") == 0) {
         r_found = true;
-        if (!instance->get_owner()) return true;
-        Node *root = Object::cast_to<Node>(instance->get_owner());
-        if (!root) return true;
-
         String msg = "";
         if (p_args.size() > 0) msg = String(p_args[0]);
         int buttons = 0;
@@ -187,66 +258,9 @@ bool call_builtin(VisualGasicInstance *instance, const String &p_method, const A
 
         // Button type is lowest 4 bits
         int btn_type = buttons & 0x0F;
-        // Icon type is in bits 4-6 (can be used for future icon support)
-        // int icon_type = buttons & 0x70;
 
-        int result = 1; // Default vbOK
-
-        if (btn_type == 0) { // vbOKOnly
-            AcceptDialog *dlg = memnew(AcceptDialog);
-            dlg->set_title(title);
-            dlg->set_text(msg);
-            dlg->set_ok_button_text("OK");
-            root->add_child(dlg);
-            dlg->popup_centered();
-            while (dlg->is_visible() && dlg->is_inside_tree()) {
-                DisplayServer::get_singleton()->process_events();
-                OS::get_singleton()->delay_msec(10);
-            }
-            dlg->queue_free();
-            result = 1; // vbOK
-        } else if (btn_type == 1 || btn_type == 4) { // vbOKCancel or vbYesNo
-            ConfirmationDialog *dlg = memnew(ConfirmationDialog);
-            dlg->set_title(title);
-            dlg->set_text(msg);
-            if (btn_type == 4) {
-                dlg->set_ok_button_text("Yes");
-                dlg->set_cancel_button_text("No");
-            } else {
-                dlg->set_ok_button_text("OK");
-                dlg->set_cancel_button_text("Cancel");
-            }
-            dlg->set_meta("_confirmed", false);
-            dlg->connect("confirmed", Callable(dlg, "set_meta").bind("_confirmed", true));
-            root->add_child(dlg);
-            dlg->popup_centered();
-            while (dlg->is_visible() && dlg->is_inside_tree()) {
-                DisplayServer::get_singleton()->process_events();
-                OS::get_singleton()->delay_msec(10);
-            }
-            bool confirmed = dlg->get_meta("_confirmed", false);
-            if (btn_type == 4) {
-                result = confirmed ? 6 : 7; // vbYes or vbNo
-            } else {
-                result = confirmed ? 1 : 2; // vbOK or vbCancel
-            }
-            dlg->queue_free();
-        } else {
-            // Default fallback
-            AcceptDialog *dlg = memnew(AcceptDialog);
-            dlg->set_title(title);
-            dlg->set_text(msg);
-            root->add_child(dlg);
-            dlg->popup_centered();
-            while (dlg->is_visible() && dlg->is_inside_tree()) {
-                DisplayServer::get_singleton()->process_events();
-                OS::get_singleton()->delay_msec(10);
-            }
-            dlg->queue_free();
-            result = 1;
-        }
-        
-        r_ret = result;
+        // Use native OS dialog — always works, doesn't hang the Godot loop
+        r_ret = native_msgbox(msg, title, btn_type);
         return true;
     }
 

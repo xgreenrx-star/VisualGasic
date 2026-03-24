@@ -23,6 +23,12 @@ namespace VisualGasicBuiltins {
     // Handle calls where the base is any Variant (dictionary, object, etc.)
     bool call_builtin_for_base_variant(VisualGasicInstance *instance, const Variant &p_base, const String &p_method, const Array &p_args, Variant &r_ret);
 
+    // Native OS message box (zenity/kdialog on Linux, OS::alert() fallback).
+    // Blocks until the user closes the dialog.  Returns VB6-style result:
+    // vbOK=1, vbCancel=2, vbYes=6, vbNo=7.
+    // btn_type: 0=vbOKOnly, 1=vbOKCancel, 4=vbYesNo.
+    int native_msgbox(const String &p_msg, const String &p_title, int p_btn_type);
+
     // Native OS text-input dialog (zenity/kdialog on Linux).
     // Blocks until the user closes the dialog.  Returns entered text, or
     // empty string on cancel, or p_default if no dialog tool is available.
