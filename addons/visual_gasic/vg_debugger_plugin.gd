@@ -369,12 +369,19 @@ func set_conditional_breakpoint(script_path: String, line: int, condition: Strin
 # ============================================================================
 
 func _navigate_to_script_line(file_path: String, line: int) -> void:
-	"""Navigate the editor to a specific script file and line."""
+	"""Navigate the editor to a specific script file and line.
+	For .vg files, we skip Godot's Script editor — the main VisualGasic plugin
+	listens to the debug_break_hit signal and opens the embedded VG code editor.
+	For non-.vg scripts we fall back to Godot's built-in Script editor."""
 	print("[VG Debugger Plugin] Navigating to: ", file_path, " line ", line)
 	if file_path.is_empty() or line <= 0:
 		return
-	
-	# Load the script resource
+
+	# .vg files are handled by the main plugin via debug_break_hit signal
+	if file_path.ends_with(".vg"):
+		return
+
+	# Non-.vg scripts: use Godot's built-in Script editor
 	if not ResourceLoader.exists(file_path):
 		print("[VG Debugger Plugin] Script not found: ", file_path)
 		return

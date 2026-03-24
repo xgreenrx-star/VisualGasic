@@ -321,6 +321,7 @@ func _enter_tree():
 		if debugger_plugin:
 			debugger_plugin.form_controls_received.connect(_on_form_controls_received)
 			debugger_plugin.debug_break_hit.connect(_on_debug_break_for_controls_inspector)
+			debugger_plugin.debug_break_hit.connect(_on_debug_break_navigate)
 			debugger_plugin.debug_continued.connect(_on_debug_continued_for_controls_inspector)
 			debugger_plugin.debug_session_stopped.connect(_on_debug_stopped_for_controls_inspector)
 		_controls_inspector.navigate_to_event.connect(_on_controls_navigate_to_event)
@@ -5676,6 +5677,37 @@ func _on_debug_break_for_controls_inspector(_file: String, _line: int) -> void:
 		_controls_inspector.set_debugging(true)
 		# Use instance 0 by default (first attached script)
 		_controls_inspector.set_instance_id(0)
+
+## Called when the debugger hits a breakpoint on a .vg script — navigate
+## to the correct file and line in the embedded VG code editor.
+func _on_debug_break_navigate(file: String, line: int) -> void:
+	if not file.ends_with(".vg"):
+		return
+	if not is_instance_valid(_embedded_code_editor):
+		return
+
+	# If we're already showing code for a different file, save first
+	if _embedded_code_editor.is_dirty() and _embedded_code_editor.get_file_path() != file:
+		_embedded_code_editor.save_file()
+
+	# Load the file (only reloads if path changed)
+	if _embedded_code_editor.get_file_path() != file:
+		_embedded_code_editor.load_file(file)
+		_feed_control_names_to_editor()
+
+	# Switch to the VG IDE main screen + code view
+	EditorInterface.set_main_screen_editor(get_plugin_name())
+	_show_code_view()
+
+	# Navigate to the breakpoint line (1-based → 0-based for CodeEdit)
+	var code_edit = _embedded_code_editor.get_code_edit()
+	if code_edit and line > 0:
+		var zero_line := line - 1
+		code_edit.set_caret_line(zero_line)
+		code_edit.set_caret_column(0)
+		code_edit.center_viewport_to_caret()
+		code_edit.grab_focus()
+		print("VisualGasic: Debug break → navigated to ", file.get_file(), " line ", line)
 
 ## Called when the game continues from a breakpoint.
 func _on_debug_continued_for_controls_inspector() -> void:
