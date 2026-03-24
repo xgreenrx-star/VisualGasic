@@ -75,9 +75,8 @@ func _preview_current_form(with_debug: bool) -> void:
 	# Save all scenes / scripts so the latest code is on disk
 	editor.save_all_scenes()
 
-	# Save breakpoints when running with debug
-	if with_debug:
-		_save_breakpoints_for_preview()
+	# Always save breakpoints so the game process can check them at startup
+	_save_breakpoints_for_preview()
 
 	# Find the scene to run: currently edited scene first
 	var scene_path := ""
@@ -221,6 +220,9 @@ func _run_project() -> void:
 	# Save all open scenes first
 	editor.save_all_scenes()
 
+	# Save breakpoints so the game process can check them at startup
+	_save_breakpoints_for_preview()
+
 	# 1. Check for project main scene (explicit setting always wins)
 	var main_scene = ProjectSettings.get_setting("application/run/main_scene", "")
 	if main_scene is String and not main_scene.is_empty():
@@ -266,32 +268,50 @@ func _find_startup_form() -> String:
 
 func _save_breakpoints_for_preview() -> void:
 	"""Save breakpoints to file so they're available during preview.
-	Writes breakpoints from the debugger plugin to a JSON file that
-	vg_debug_handler.gd can load on the game side."""
+	Collects breakpoints from the embedded VG code editor (primary source)
+	and the debugger plugin (ScriptEditor fallback), then writes to a JSON
+	file that the C++ runtime reads at game startup."""
 	if not _editor_plugin:
 		return
-	
-	# Try to get the debugger plugin's breakpoints
-	var breakpoints = {}
-	
-	# Get breakpoints from the debugger plugin (which polls them from ScriptEditor)
+
+	var breakpoints: Dictionary = {}
+
+	# Source 1: Embedded VG code editor — this is where the user actually sets
+	# breakpoints (the red dots in the code view). CodeEdit line indices are
+	# 0-based; the parser/runtime uses 1-based, so we add 1.
+	if "_embedded_code_editor" in _editor_plugin:
+		var ece = _editor_plugin._embedded_code_editor
+		if ece and is_instance_valid(ece) and ece.has_method("get_file_path") and ece.has_method("get_code_edit"):
+			var vg_path: String = ece.get_file_path()
+			var code_edit = ece.get_code_edit()
+			if not vg_path.is_empty() and code_edit:
+				var bp_lines = code_edit.get_breakpointed_lines()
+				if not bp_lines.is_empty():
+					var lines_array: Array = []
+					for line_idx in bp_lines:
+						lines_array.append(line_idx + 1)  # 0-based → 1-based
+					breakpoints[vg_path] = lines_array
+
+	# Source 2: Debugger plugin (polls ScriptEditor — rarely has .vg entries
+	# but merge them in just in case)
 	if _editor_plugin.has_method("get_debugger_breakpoints"):
-		breakpoints = _editor_plugin.get_debugger_breakpoints()
-	else:
-		# Fallback: check if the debugger plugin already saved a breakpoints file
-		var bp_path = "res://.vg_breakpoints.json"
-		if FileAccess.file_exists(bp_path):
-			print("VisualGasic: Using existing breakpoints file for debug session")
-			return
-	
-	# Save to the same JSON path that vg_debug_handler.gd reads on game startup
-	if not breakpoints.is_empty():
-		var bp_path = "res://.vg_breakpoints.json"
-		var f = FileAccess.open(bp_path, FileAccess.WRITE)
-		if f:
-			f.store_string(JSON.stringify(breakpoints, "\t"))
-			f.close()
-			print("VisualGasic: Saved breakpoints for debug preview")
+		var dbg_bps: Dictionary = _editor_plugin.get_debugger_breakpoints()
+		for path in dbg_bps:
+			if not breakpoints.has(path):
+				breakpoints[path] = dbg_bps[path]
+			else:
+				for l in dbg_bps[path]:
+					if l not in breakpoints[path]:
+						breakpoints[path].append(l)
+
+	# Always write the file (even if empty — clears stale breakpoints)
+	var bp_path := "res://.vg_breakpoints.json"
+	var f = FileAccess.open(bp_path, FileAccess.WRITE)
+	if f:
+		f.store_string(JSON.stringify(breakpoints, "\t"))
+		f.close()
+		if not breakpoints.is_empty():
+			print("VisualGasic: Saved ", breakpoints.size(), " script breakpoint set(s) for debug session")
 
 func _input(event: InputEvent) -> void:
 	# F5 to preview current form

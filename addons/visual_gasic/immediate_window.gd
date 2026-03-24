@@ -246,7 +246,10 @@ func _setup_ui():
 	_input_field.syntax_highlighter = _create_syntax_highlighter()
 	_input_field.gutters_draw_line_numbers = true
 	_input_field.auto_brace_completion_enabled = true
-	_input_field.code_completion_enabled = true
+	# Disable built-in code completion — it hijacks Enter to accept GDScript
+	# completions (e.g. replacing 'Prin' with 'print'), corrupting VB6 input.
+	# The Immediate Window has its own completion via Ctrl+Space instead.
+	_input_field.code_completion_enabled = false
 	_input_field.gui_input.connect(_on_input_gui_input)
 	input_hbox.add_child(_input_field)
 	

@@ -1028,14 +1028,37 @@ func _exit_tree():
 # DEBUGGER BREAKPOINTS — called by form_preview_toolbar to persist breakpoints
 # =============================================================================
 
-## Returns the current breakpoint dictionary from the debugger plugin.
-## Key: script_path (String), Value: Array of line numbers (int).
+## Returns the current breakpoint dictionary from ALL sources:
+## 1. The embedded VG code editor (primary — where users actually set breakpoints)
+## 2. The debugger plugin (ScriptEditor polling — fallback)
+## Key: script_path (String), Value: Array of line numbers (int, 1-based).
 func get_debugger_breakpoints() -> Dictionary:
+	var result: Dictionary = {}
+
+	# Source 1: Embedded VG code editor (0-based → 1-based conversion)
+	if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.has_method("get_file_path") and _embedded_code_editor.has_method("get_code_edit"):
+		var vg_path: String = _embedded_code_editor.get_file_path()
+		var code_edit = _embedded_code_editor.get_code_edit()
+		if not vg_path.is_empty() and code_edit:
+			var bp_lines = code_edit.get_breakpointed_lines()
+			if not bp_lines.is_empty():
+				var lines_array: Array = []
+				for line_idx in bp_lines:
+					lines_array.append(line_idx + 1)  # 0-based → 1-based
+				result[vg_path] = lines_array
+
+	# Source 2: Debugger plugin (ScriptEditor polling)
 	if debugger_plugin and is_instance_valid(debugger_plugin):
-		# vg_debugger_plugin stores breakpoints in _breakpoints dict
 		if "_breakpoints" in debugger_plugin:
-			return debugger_plugin._breakpoints
-	return {}
+			for path in debugger_plugin._breakpoints:
+				if not result.has(path):
+					result[path] = debugger_plugin._breakpoints[path]
+				else:
+					for l in debugger_plugin._breakpoints[path]:
+						if l not in result[path]:
+							result[path].append(l)
+
+	return result
 
 ## Intercept keyboard shortcuts BEFORE Godot's editor consumes them.
 ## Uses _input() — the FIRST callback in Godot's input chain — so our
