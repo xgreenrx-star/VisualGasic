@@ -69,41 +69,33 @@ func _preview_current_form(with_debug: bool) -> void:
 	if not _editor_plugin:
 		push_error("FormPreviewToolbar: No editor plugin set")
 		return
-	
-	# Get the form designer from the plugin
-	var designer = _editor_plugin.get("_form_designer") if "_form_designer" in _editor_plugin else null
-	if not designer:
-		push_warning("No form designer active — open a form first")
+
+	var editor = _editor_plugin.get_editor_interface()
+
+	# Save all scenes / scripts so the latest code is on disk
+	editor.save_all_scenes()
+
+	# Save breakpoints when running with debug
+	if with_debug:
+		_save_breakpoints_for_preview()
+
+	# Find the scene to run: currently edited scene first
+	var scene_path := ""
+	var scene_root = editor.get_edited_scene_root()
+	if scene_root and not scene_root.scene_file_path.is_empty():
+		scene_path = scene_root.scene_file_path
+	else:
+		# Fallback: ask the form designer
+		var designer = _editor_plugin.get("_form_designer") if "_form_designer" in _editor_plugin else null
+		if designer and designer.has_method("get_form_scene_path"):
+			scene_path = designer.get_form_scene_path()
+
+	if scene_path.is_empty():
+		push_warning("No form is open — open a form first, then click Preview.")
 		return
-	
-	if not designer.has_method("get_control_count"):
-		push_warning("Form designer does not support preview (missing get_control_count)")
-		return
-	
-	# Close any existing preview window
-	if is_instance_valid(_preview_window):
-		_preview_window.queue_free()
-		_preview_window = null
-	
-	# Load and instantiate the preview window
-	var preview_script = load("res://addons/visual_gasic/form_preview_window.gd")
-	if not preview_script:
-		push_error("FormPreviewToolbar: Cannot load form_preview_window.gd")
-		return
-	
-	_preview_window = Window.new()
-	_preview_window.set_script(preview_script)
-	
-	# Add to the editor tree so it can display
-	_editor_plugin.get_editor_interface().get_base_control().add_child(_preview_window)
-	
-	# Build the preview from the designer data
-	_preview_window.build_from_designer(designer)
-	
-	# Show it
-	_preview_window.popup_centered()
-	
-	print("VisualGasic: Form preview opened — ", designer.get_form_name())
+
+	print("VisualGasic: Running form preview: ", scene_path)
+	editor.play_custom_scene(scene_path)
 
 func _build_project() -> void:
 	"""Validate all .vg files in the project by scanning for syntax issues"""
@@ -223,32 +215,34 @@ func _run_project() -> void:
 	if not _editor_plugin:
 		push_error("FormPreviewToolbar: No editor plugin set")
 		return
-	
+
 	var editor = _editor_plugin.get_editor_interface()
-	
+
 	# Save all open scenes first
 	editor.save_all_scenes()
-	
-	# Check for project main scene
+
+	# 1. Check for project main scene (explicit setting always wins)
 	var main_scene = ProjectSettings.get_setting("application/run/main_scene", "")
-	
 	if main_scene is String and not main_scene.is_empty():
 		print("VisualGasic: Running project main scene: ", main_scene)
 		editor.play_main_scene()
-	else:
-		# Try to find a startup form
-		var startup = _find_startup_form()
-		if not startup.is_empty():
-			print("VisualGasic: Running startup form: ", startup)
-			editor.play_custom_scene(startup)
-		else:
-			# Fall back to currently edited scene
-			var scene_root = editor.get_edited_scene_root()
-			if scene_root and not scene_root.scene_file_path.is_empty():
-				print("VisualGasic: Running current scene: ", scene_root.scene_file_path)
-				editor.play_custom_scene(scene_root.scene_file_path)
-			else:
-				push_warning("No main scene set and no form is open. Set a main scene in Project Settings.")
+		return
+
+	# 2. Prefer the currently edited scene (the user is looking at it)
+	var scene_root = editor.get_edited_scene_root()
+	if scene_root and not scene_root.scene_file_path.is_empty():
+		print("VisualGasic: Running current scene: ", scene_root.scene_file_path)
+		editor.play_custom_scene(scene_root.scene_file_path)
+		return
+
+	# 3. Try to find a startup form
+	var startup = _find_startup_form()
+	if not startup.is_empty():
+		print("VisualGasic: Running startup form: ", startup)
+		editor.play_custom_scene(startup)
+		return
+
+	push_warning("No main scene set and no form is open. Set a main scene in Project Settings.")
 
 func _find_startup_form() -> String:
 	"""Find a startup form - looks for Form1.tscn or first .tscn in res://"""

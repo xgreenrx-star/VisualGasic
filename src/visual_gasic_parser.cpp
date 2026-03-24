@@ -1093,6 +1093,10 @@ Statement* VisualGasicParser::parse_statement() {
             GotoStatement* g = static_cast<GotoStatement*>(register_node(new GotoStatement()));
             g->label_name = label;
             return set_line(g);
+        } else {
+            error("Expected label name after GoTo");
+            synchronize();
+            return nullptr;
         }
     }
 
