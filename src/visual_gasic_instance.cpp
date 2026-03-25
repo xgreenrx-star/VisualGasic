@@ -167,12 +167,21 @@ Array get_all_instances() {
 
 VisualGasicInstance* get_instance_by_index(int index) {
     std::lock_guard<std::mutex> lock(vg_debug_instance_registry_mutex);
-    if (index < 0 || index >= (int)vg_debug_active_instances.size()) {
+    if (index < 0) {
         return nullptr;
     }
-    auto it = vg_debug_active_instances.begin();
-    std::advance(it, index);
-    return *it;
+    // Must apply the same owner-check filter as get_all_instances(),
+    // because the editor receives dense 0-based IDs from the filtered list.
+    int valid_count = 0;
+    for (auto* inst : vg_debug_active_instances) {
+        if (inst && inst->get_owner()) {
+            if (valid_count == index) {
+                return inst;
+            }
+            valid_count++;
+        }
+    }
+    return nullptr;
 }
 
 Dictionary get_instance_variables(int index) {
