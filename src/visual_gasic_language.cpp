@@ -175,19 +175,7 @@ static bool forward_to_gdscript_handler(const String& p_message, const Array& p_
         String code = p_data[1];
         int request_id = p_data[2];
         
-        UtilityFunctions::print("[VisualGasic C++] evaluate: instance_id=", instance_id, " code='", code, "' request_id=", request_id);
-        
-        Dictionary result;
-        result["success"] = false;
-        result["result"] = "Instance not found (C++ handler)";
-        
-        VisualGasicInstance* inst = VisualGasicDebug::get_instance_by_index(instance_id);
-        UtilityFunctions::print("[VisualGasic C++] get_instance_by_index(", instance_id, ") = ", inst ? "found" : "NULL");
-        
-        if (inst) {
-            result = inst->evaluate_immediate(code);
-            UtilityFunctions::print("[VisualGasic C++] evaluate_immediate result: success=", result.get("success", false), " result='", result.get("result", ""), "'");
-        }
+        Dictionary result = VisualGasicLanguage::evaluate_immediate_by_index(instance_id, code);
         
         EngineDebugger* debugger = EngineDebugger::get_singleton();
         if (debugger) {
@@ -1413,6 +1401,9 @@ void VisualGasicLanguage::_bind_methods() {
     // Expression evaluation in debug context
     ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_evaluate_expression", "expression"), &VisualGasicLanguage::evaluate_expression_in_context);
     
+    // Immediate Window evaluate — callable from GDScript when C++ manages the instance registry
+    ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_evaluate_immediate", "instance_index", "code"), &VisualGasicLanguage::evaluate_immediate_by_index);
+    
     // Hot Reload
     ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_get_live_script_count"), &VisualGasicLanguage::get_live_script_count);
 }
@@ -2222,6 +2213,23 @@ String VisualGasicLanguage::evaluate_expression_in_context(const String& express
     }
     
     return "[Cannot evaluate: " + trimmed + "]";
+}
+
+// ============================================================================
+// IMMEDIATE WINDOW EVALUATE — GDScript-callable static method
+// ============================================================================
+
+Dictionary VisualGasicLanguage::evaluate_immediate_by_index(int instance_index, const String& code) {
+    Dictionary result;
+    result["success"] = false;
+    result["result"] = "Instance not found";
+
+    VisualGasicInstance* inst = VisualGasicDebug::get_instance_by_index(instance_index);
+    if (inst) {
+        result = inst->evaluate_immediate(code);
+    }
+
+    return result;
 }
 
 // ============================================================================

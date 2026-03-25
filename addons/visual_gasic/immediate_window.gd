@@ -237,6 +237,8 @@ func _setup_ui():
 	_output_text.context_menu_enabled = true
 	_output_text.selection_enabled = true
 	console_vbox.add_child(_output_text)
+	# Style the built-in context menu so it's readable on dark backgrounds
+	_style_context_menu(_output_text.get_menu())
 	
 	# Input area with multi-line support
 	var input_container = VBoxContainer.new()
@@ -262,6 +264,8 @@ func _setup_ui():
 	_input_field.code_completion_enabled = false
 	_input_field.gui_input.connect(_on_input_gui_input)
 	input_hbox.add_child(_input_field)
+	# Style the CodeEdit's built-in context menu
+	_style_context_menu(_input_field.get_menu())
 	
 	_send_button = Button.new()
 	_send_button.text = "Execute\n(Enter)"
@@ -362,6 +366,7 @@ func _setup_ui():
 	_var_context_menu.add_item("Rename Everywhere...", 4)
 	_var_context_menu.id_pressed.connect(_on_var_context_menu_selected)
 	add_child(_var_context_menu)
+	_style_context_menu(_var_context_menu)
 	
 	# Watch panel
 	var watch_panel = VBoxContainer.new()
@@ -400,6 +405,7 @@ func _setup_ui():
 	_watch_context_menu.add_item("Copy Expression", 3)
 	_watch_context_menu.id_pressed.connect(_on_watch_context_menu_selected)
 	add_child(_watch_context_menu)
+	_style_context_menu(_watch_context_menu)
 	
 	# Load persisted watch expressions
 	_load_watch_expressions()
@@ -1100,6 +1106,26 @@ func _on_var_column_title_clicked(column: int, mouse_button_index: int) -> void:
 			title += " ▲" if _var_sort_ascending else " ▼"
 		_var_tree.set_column_title(i, title)
 	_update_variables_tree()
+
+func _style_context_menu(popup: PopupMenu) -> void:
+	"""Style a PopupMenu so it's readable (light bg, dark text) in our dark-themed panel."""
+	var panel_style = StyleBoxFlat.new()
+	panel_style.bg_color = Color(0.95, 0.95, 0.95, 1.0)  # Light background
+	panel_style.set_corner_radius_all(4)
+	panel_style.border_color = Color(0.6, 0.6, 0.6, 1.0)
+	panel_style.set_border_width_all(1)
+	popup.add_theme_stylebox_override("panel", panel_style)
+	
+	var hover_style = StyleBoxFlat.new()
+	hover_style.bg_color = Color(0.3, 0.55, 0.9, 1.0)  # Blue highlight
+	hover_style.set_corner_radius_all(2)
+	popup.add_theme_stylebox_override("hover", hover_style)
+	
+	popup.add_theme_color_override("font_color", Color(0.1, 0.1, 0.1, 1.0))           # Dark text
+	popup.add_theme_color_override("font_hover_color", Color(1.0, 1.0, 1.0, 1.0))     # White on hover
+	popup.add_theme_color_override("font_disabled_color", Color(0.5, 0.5, 0.5, 1.0))  # Grey for disabled
+	popup.add_theme_color_override("font_separator_color", Color(0.3, 0.3, 0.3, 1.0))
+	popup.add_theme_color_override("font_accelerator_color", Color(0.4, 0.4, 0.5, 1.0))
 
 func _style_tree_scrollbar(tree: Tree) -> void:
 	"""Make the Tree's vertical scrollbar grabber clearly visible."""

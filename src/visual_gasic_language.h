@@ -201,6 +201,9 @@ public:
     
     // Expression evaluation in debug context
     static String evaluate_expression_in_context(const String& expression);
+
+    // Immediate Window evaluate — callable from GDScript
+    static Dictionary evaluate_immediate_by_index(int instance_index, const String& code);
     
     // Hot Reload — script registry
     static void register_script(VisualGasicScript* script);

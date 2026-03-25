@@ -390,6 +390,16 @@ func _parse_value(value: Variant) -> Variant:
 	return str_val
 
 func _evaluate_code(instance_id: int, code: String, request_id: int) -> void:
+	# When C++ extension is loaded, delegate to C++ which owns the instance registry.
+	# Use Engine.get_singleton to get the registered ScriptLanguage and call the
+	# bound static method through ClassDB to avoid GDScript parse errors when the
+	# native extension is absent.
+	if ClassDB.class_exists(&"VisualGasicLanguage") and ClassDB.class_has_method(&"VisualGasicLanguage", &"vg_evaluate_immediate"):
+		var result: Dictionary = ClassDB.class_call_static(&"VisualGasicLanguage", &"vg_evaluate_immediate", instance_id, code)
+		EngineDebugger.send_message("visualgasic:eval_result", [request_id, result])
+		return
+	
+	# Fallback: GDScript-only path (no C++ extension)
 	var inst = _get_instance_flexible(instance_id)
 	var result = {"success": false, "result": "Instance not found"}
 	
