@@ -1128,7 +1128,7 @@ static func resolve_control_type(vb6_type: String) -> String:
 
 ## Returns VB6-friendly property aliases for a Godot control type.
 ## These are shown at the top of the completion list with VB6-style names.
-static func get_vb6_property_aliases(godot_type: String) -> Array[Dictionary]:
+static func get_vb6_property_aliases(godot_type: String) -> Array:
 	if VB6_CONTROL_PROPERTIES.has(godot_type):
 		return VB6_CONTROL_PROPERTIES[godot_type]
 	return []

@@ -1133,6 +1133,11 @@ func set_control_names(names: Array[String]) -> void:
 	if _code_edit and _code_edit.has_method("set_known_controls"):
 		_code_edit.set_known_controls(names)
 
+## Sets the form name so Form1. works like Me. in IntelliSense.
+func set_form_name(form_name: String) -> void:
+	if _code_edit and _code_edit.has_method("set_form_name"):
+		_code_edit.set_form_name(form_name)
+
 ## Full control info list from the form designer (for Index Map panel)
 var _control_info_list: Array[Dictionary] = []
 

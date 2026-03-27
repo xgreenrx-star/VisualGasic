@@ -37,6 +37,7 @@ var _known_enums: Dictionary = {}                ## Enum name → Array[String] 
 var _known_udts: Dictionary = {}                 ## Type name → Array[Dictionary] of {name, type} fields
 var _known_functions: Dictionary = {}            ## Function name (lower) → return type (String)
 var _imported_modules: Array[Dictionary] = []    ## [{name, path, subs, variables, constants}]
+var _form_name: String = ""                       ## Current form name (e.g. "Form1") — treated like Me
 var _completion_active: bool = false
 var _last_word: String = ""
 var _prev_caret_line: int = -1  # Track line changes for auto-capitalize
@@ -591,8 +592,11 @@ func _show_member_completions(obj_name: String) -> void:
 			update_code_completion_options(true)
 			return
 	
-	# ── 3. Me. — show form controls + form-level properties/methods ──
-	if obj_name.nocasecmp_to("Me") == 0 or obj_name.nocasecmp_to("Form") == 0:
+	# ── 3. Me. / Form. / Form1. — show form controls + form-level properties/methods ──
+	var _is_form_ref := (obj_name.nocasecmp_to("Me") == 0
+		or obj_name.nocasecmp_to("Form") == 0
+		or (not _form_name.is_empty() and obj_name.nocasecmp_to(_form_name) == 0))
+	if _is_form_ref:
 		# Form's own controls
 		for ctrl_name in _known_controls:
 			var ctrl_type := _get_control_type(ctrl_name)
@@ -780,8 +784,10 @@ func _resolve_dot_chain(chain: Array) -> String:
 		first_clean = first_clean.get_slice("(", 0).strip_edges()
 		first_had_parens = true
 	
-	# Is first element Me/Form?
-	if first_clean.nocasecmp_to("Me") == 0 or first_clean.nocasecmp_to("Form") == 0:
+	# Is first element Me/Form/Form1?
+	if (first_clean.nocasecmp_to("Me") == 0
+		or first_clean.nocasecmp_to("Form") == 0
+		or (not _form_name.is_empty() and first_clean.nocasecmp_to(_form_name) == 0)):
 		current_type = "Form"
 	elif VGIntelliSense.is_global_object(first_clean):
 		current_type = "GlobalObject:" + first_clean
@@ -904,6 +910,10 @@ func _is_word_char(c: String) -> bool:
 	return c.is_valid_identifier() or c == "_"
 
 func _infer_type(var_name: String) -> String:
+	# 0. Form name reference (Form1 → Form type, same as Me)
+	if not _form_name.is_empty() and var_name.nocasecmp_to(_form_name) == 0:
+		return "Form"
+	
 	# 1. Check the parsed variable type map first (Dim x As Type)
 	var lower_name := var_name.to_lower()
 	if _variable_types.has(lower_name):
@@ -1351,6 +1361,10 @@ func _parse_variables() -> void:
 	
 	# ── Scan for Import directives and parse imported module symbols ──
 	_scan_imported_modules(lines)
+
+## Sets the current form name (e.g. "Form1") so Form1. works like Me.
+func set_form_name(form_name: String) -> void:
+	_form_name = form_name
 
 ## Sets the known form controls for IntelliSense
 func set_known_controls(controls: Array[String]) -> void:

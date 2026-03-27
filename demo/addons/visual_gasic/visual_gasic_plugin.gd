@@ -6125,7 +6125,7 @@ func open_module_in_embedded_editor(vg_path: String) -> void:
 		_embedded_code_editor.set_control_names([])
 	_show_code_view()
 
-## Feed the current form's control names to the embedded code editor.
+## Feed the current form's control names and form name to the embedded code editor.
 func _feed_control_names_to_editor() -> void:
 	if not is_instance_valid(_embedded_code_editor) or not _form_designer:
 		return
@@ -6137,6 +6137,10 @@ func _feed_control_names_to_editor() -> void:
 		if not n.is_empty():
 			names.append(n)
 	_embedded_code_editor.set_control_names(names)
+	# Pass the form name so Form1. works like Me. in IntelliSense
+	var form_name = _form_designer.get_form_name() if _form_designer.has_method("get_form_name") else "Form1"
+	if _embedded_code_editor.has_method("set_form_name"):
+		_embedded_code_editor.set_form_name(form_name)
 	# Also pass full control info for Index Map panel
 	if _embedded_code_editor.has_method("set_control_info_list"):
 		var info_list: Array[Dictionary] = []
