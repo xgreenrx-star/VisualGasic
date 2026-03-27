@@ -3471,20 +3471,28 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                                 }
                                 sbf->set_bg_color(c);
                                 ctrl->add_theme_stylebox_override(sb_name, sbf);
-                                // Force immediate visual update.  Normally the
-                                // stylebox override queues a redraw that only
-                                // submits draw-commands on the NEXT MessageQueue
-                                // flush.  If a blocking MsgBox follows, the main
-                                // loop never gets there, so the screen never
-                                // updates.  We manually clear the canvas item and
-                                // re-trigger NOTIFICATION_DRAW (30) so the Panel
-                                // submits its new draw commands to the
-                                // RenderingServer right now.  The subsequent
-                                // force_draw() in MsgBox will then render them.
+                                // Force immediate visual update so the color
+                                // appears before any blocking MsgBox/InputBox.
+                                //
+                                // add_theme_stylebox_override() calls queue_redraw()
+                                // which pushes to the MessageQueue — a deferred
+                                // queue that only flushes in the main loop.
+                                // If MsgBox follows, OS::execute() blocks the main
+                                // thread before the flush, so the screen never
+                                // updates.
+                                //
+                                // We bypass this by directly drawing the stylebox
+                                // onto the control's canvas item via
+                                // StyleBox::draw(RID, Rect2).  This writes draw
+                                // commands straight to the RenderingServer without
+                                // needing the CanvasItem's internal 'drawing' flag
+                                // (which is only set during the engine's proper
+                                // draw cycle).  force_draw() in MsgBox then
+                                // renders the correct frame.
                                 RID ci = ctrl->get_canvas_item();
                                 if (ci.is_valid()) {
                                     RenderingServer::get_singleton()->canvas_item_clear(ci);
-                                    ctrl->notification(CanvasItem::NOTIFICATION_DRAW);
+                                    sbf->draw(ci, Rect2(Vector2(), ctrl->get_size()));
                                 }
                             }
                             push_value(base);
