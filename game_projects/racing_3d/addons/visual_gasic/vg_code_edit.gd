@@ -31,6 +31,9 @@ signal bookmark_toggled(line: int, enabled: bool)              ## Emitted when u
 var _intellisense: VGIntelliSense
 var _known_controls: Array[String] = []
 var _known_variables: Array[String] = []
+var _control_info_list: Array[Dictionary] = []  ## Full control info from form designer (name, type, rect, etc.)
+var _variable_types: Dictionary = {}             ## Variable name → declared type (from Dim x As Type)
+var _known_enums: Dictionary = {}                ## Enum name → Array[String] of member names
 var _completion_active: bool = false
 var _last_word: String = ""
 var _prev_caret_line: int = -1  # Track line changes for auto-capitalize
@@ -306,10 +309,25 @@ func _on_code_completion_requested() -> void:
 	# Check if we're after a dot (member access)
 	var before_cursor = line.substr(0, column)
 	if "." in before_cursor:
+		# Extract the dot-chain expression before cursor.
+		# e.g. "  Me.Text1." → ["Me", "Text1"]
+		#      "  x = obj.Method." → ["obj", "Method"]
+		#      "  Text1." → ["Text1"]
 		var parts = before_cursor.rsplit(".", true, 1)
 		if parts.size() > 0:
-			var obj_name = parts[0].strip_edges().get_slice(" ", -1)
-			_show_member_completions(obj_name)
+			# Get the full expression before the last dot
+			var expr = parts[0].strip_edges().get_slice(" ", -1)
+			# Also strip away any leading = or ( for cases like "x = obj."
+			for strip_char in ["=", "(", ",", "+"]:
+				if strip_char in expr:
+					expr = expr.rsplit(strip_char, true, 1)[-1].strip_edges()
+			# Handle chained dots: Me.Text1. → resolve Me → get Text1's type
+			if "." in expr:
+				var chain := expr.split(".")
+				var resolved_type := _resolve_dot_chain(chain)
+				_show_member_completions_for_type(resolved_type)
+			else:
+				_show_member_completions(expr)
 			return
 	
 	# ── CBM abbreviation check ──
@@ -350,8 +368,20 @@ func _on_code_completion_requested() -> void:
 	if goto_match:
 		var label_prefix := goto_match.get_string(2).to_lower()
 		var labels := _scan_labels()
+		# Collect labels that match the typed prefix
+		var matching_labels: Array[String] = []
 		for lbl in labels:
 			if label_prefix.is_empty() or lbl.to_lower().begins_with(label_prefix):
+				matching_labels.append(lbl)
+		# If the only match is an exact match for what's already typed the
+		# user has finished the label — don't re-pop the completion list
+		# (otherwise Enter / Tab get swallowed by the popup forever).
+		var already_complete := false
+		if not label_prefix.is_empty() and matching_labels.size() == 1 \
+				and matching_labels[0].to_lower() == label_prefix:
+			already_complete = true
+		if not already_complete and not matching_labels.is_empty():
+			for lbl in matching_labels:
 				add_code_completion_option(
 					CodeEdit.KIND_PLAIN_TEXT,
 					lbl + "  (Label)",
@@ -359,11 +389,10 @@ func _on_code_completion_requested() -> void:
 					Color(1.0, 0.85, 0.4),  # gold tint for labels
 					null, null, 0
 				)
-		if not labels.is_empty():
 			update_code_completion_options(true)
 			return
-		# No labels found — fall through to regular completions so the user
-		# still gets keyword / variable suggestions.
+		# Already complete or no labels — fall through to regular completions
+		# so the user still gets keyword / variable suggestions.
 	
 	# Regular completions
 	var completions = VGIntelliSense.get_completions(word, context)
@@ -389,36 +418,222 @@ func _on_code_completion_requested() -> void:
 	update_code_completion_options(true)
 
 func _show_member_completions(obj_name: String) -> void:
-	# Try to determine the type of the object
-	var obj_type = _infer_type(obj_name)
+	# ── 1. VB6 Global Objects: App., Screen., Clipboard., Err., Debug., Printer. ──
+	var global_members := VGIntelliSense.get_global_object_members(obj_name)
+	if not global_members.is_empty():
+		for member in global_members:
+			add_code_completion_option(
+				_convert_kind(member.get("kind", "method")),
+				member["text"],
+				member["text"],
+				Color(0.9, 0.85, 0.6),  # gold tint for global objects
+				null, null, 0
+			)
+		update_code_completion_options(true)
+		return
 	
-	# Get method + signal completions
-	var methods = VGIntelliSense.get_method_completions(obj_type)
+	# ── 2. Enum members: MyEnum. → show enum values ──
+	if _known_enums.has(obj_name):
+		var members: Array = _known_enums[obj_name]
+		for member_name in members:
+			add_code_completion_option(
+				CodeEdit.KIND_CONSTANT,
+				member_name,
+				member_name,
+				Color(0.7, 0.9, 0.7),  # green tint for enum members
+				null, null, 0
+			)
+		update_code_completion_options(true)
+		return
+	
+	# ── 3. Me. — show form controls + form-level properties/methods ──
+	if obj_name.nocasecmp_to("Me") == 0 or obj_name.nocasecmp_to("Form") == 0:
+		# Form's own controls
+		for ctrl_name in _known_controls:
+			var ctrl_type := _get_control_type(ctrl_name)
+			add_code_completion_option(
+				CodeEdit.KIND_MEMBER,
+				ctrl_name,
+				ctrl_name,
+				Color(0.6, 0.9, 1.0),  # cyan tint for controls
+				null, null, 0
+			)
+		# Form-level members (Caption, Width, Height, Show, Hide, etc.)
+		for member in VGIntelliSense.get_form_members():
+			add_code_completion_option(
+				_convert_kind(member.get("kind", "property")),
+				member["text"],
+				member["text"],
+				Color(0.85, 0.85, 1.0),  # light blue for form members
+				null, null, 0
+			)
+		update_code_completion_options(true)
+		return
+	
+	# ── 3. Resolve the object's type ──
+	var obj_type := _infer_type(obj_name)
+	
+	# ── 5. VB6 String members ──
+	if obj_type == "String":
+		for member in VGIntelliSense.get_string_members():
+			add_code_completion_option(
+				_convert_kind(member.get("kind", "method")),
+				member["text"],
+				member["text"],
+				Color(0.9, 0.8, 0.5),
+				null, null, 0
+			)
+		update_code_completion_options(true)
+		return
+	
+	# ── 6. VB6 Collection / Dictionary members ──
+	if obj_type == "Collection":
+		for member in VGIntelliSense.get_collection_members():
+			add_code_completion_option(
+				_convert_kind(member.get("kind", "method")),
+				member["text"],
+				member["text"],
+				Color(0.9, 0.8, 0.5),
+				null, null, 0
+			)
+		update_code_completion_options(true)
+		return
+	if obj_type == "Dictionary":
+		for member in VGIntelliSense.get_dictionary_members():
+			add_code_completion_option(
+				_convert_kind(member.get("kind", "method")),
+				member["text"],
+				member["text"],
+				Color(0.9, 0.8, 0.5),
+				null, null, 0
+			)
+		update_code_completion_options(true)
+		return
+	
+	# ── 7. Resolve VB6 control type → Godot class for ClassDB lookup ──
+	var godot_type := VGIntelliSense.resolve_control_type(obj_type)
+	
+	# ── 8. VB6-friendly property aliases (Caption, Value, Text, etc.) ──
+	# Show these first so VB6 users see familiar names at the top.
+	var vb6_aliases := VGIntelliSense.get_vb6_property_aliases(godot_type)
+	for alias in vb6_aliases:
+		add_code_completion_option(
+			_convert_kind(alias.get("kind", "property")),
+			alias["text"],
+			alias["text"],
+			Color(1.0, 0.95, 0.7),  # warm yellow for VB6 aliases
+			null, null, 0
+		)
+	
+	# ── 9. ClassDB / Variant methods + properties ──
+	var methods := VGIntelliSense.get_method_completions(godot_type)
 	for method in methods:
 		add_code_completion_option(
 			_convert_kind(method.get("kind", "method")),
 			method["text"],
 			method["text"],
 			Color.WHITE,
-			null,
-			null,
-			0
+			null, null, 0
 		)
 	
-	# Get property completions
-	var properties = VGIntelliSense.get_property_completions(obj_type)
+	var properties := VGIntelliSense.get_property_completions(godot_type)
 	for prop in properties:
 		add_code_completion_option(
 			_convert_kind(prop.get("kind", "property")),
 			prop["text"],
 			prop["text"],
 			Color.WHITE,
-			null,
-			null,
-			0
+			null, null, 0
 		)
 	
 	update_code_completion_options(true)
+
+## Shows member completions for an already-resolved type name (used for chained dots).
+func _show_member_completions_for_type(type_name: String) -> void:
+	# String type
+	if type_name == "String":
+		for member in VGIntelliSense.get_string_members():
+			add_code_completion_option(
+				_convert_kind(member.get("kind", "method")),
+				member["text"], member["text"],
+				Color(0.9, 0.8, 0.5), null, null, 0)
+		update_code_completion_options(true)
+		return
+	# Collection / Dictionary
+	if type_name == "Collection":
+		for member in VGIntelliSense.get_collection_members():
+			add_code_completion_option(
+				_convert_kind(member.get("kind", "method")),
+				member["text"], member["text"],
+				Color(0.9, 0.8, 0.5), null, null, 0)
+		update_code_completion_options(true)
+		return
+	if type_name == "Dictionary":
+		for member in VGIntelliSense.get_dictionary_members():
+			add_code_completion_option(
+				_convert_kind(member.get("kind", "method")),
+				member["text"], member["text"],
+				Color(0.9, 0.8, 0.5), null, null, 0)
+		update_code_completion_options(true)
+		return
+	# Resolve to Godot type
+	var godot_type := VGIntelliSense.resolve_control_type(type_name)
+	# VB6 aliases first
+	var vb6_aliases := VGIntelliSense.get_vb6_property_aliases(godot_type)
+	for alias in vb6_aliases:
+		add_code_completion_option(
+			_convert_kind(alias.get("kind", "property")),
+			alias["text"], alias["text"],
+			Color(1.0, 0.95, 0.7), null, null, 0)
+	# ClassDB / Variant methods + properties
+	for method in VGIntelliSense.get_method_completions(godot_type):
+		add_code_completion_option(
+			_convert_kind(method.get("kind", "method")),
+			method["text"], method["text"],
+			Color.WHITE, null, null, 0)
+	for prop in VGIntelliSense.get_property_completions(godot_type):
+		add_code_completion_option(
+			_convert_kind(prop.get("kind", "property")),
+			prop["text"], prop["text"],
+			Color.WHITE, null, null, 0)
+	update_code_completion_options(true)
+
+## Resolves a chained dot expression like ["Me", "Text1"] to a final type.
+## Me.Text1. → resolve "Me" finds "Text1" is a control → return its Godot type.
+func _resolve_dot_chain(chain: Array) -> String:
+	if chain.is_empty():
+		return "Object"
+	
+	# Start with the first element
+	var current_name: String = chain[0]
+	var current_type := ""
+	
+	# Is first element Me/Form?
+	if current_name.nocasecmp_to("Me") == 0 or current_name.nocasecmp_to("Form") == 0:
+		current_type = "Form"
+	elif VGIntelliSense.is_global_object(current_name):
+		current_type = "GlobalObject:" + current_name
+	else:
+		current_type = _infer_type(current_name)
+	
+	# Walk the rest of the chain
+	for i in range(1, chain.size()):
+		var member_name: String = chain[i]
+		if member_name.is_empty():
+			continue
+		# If current context is a Form, the member might be a control name
+		if current_type == "Form":
+			if member_name in _known_controls:
+				current_type = _get_control_type(member_name)
+				continue
+			# Otherwise it's a form property — hard to resolve further
+			current_type = "Variant"
+		else:
+			# For other types, we'd need return-type resolution from ClassDB
+			# which is complex. For now, treat the chain end as Variant.
+			current_type = "Variant"
+	
+	return current_type
 
 ## Scans the entire script text for VB6-style labels.
 ## A label is an identifier followed by a colon at the start of a line
@@ -485,21 +700,38 @@ func _is_word_char(c: String) -> bool:
 	return c.is_valid_identifier() or c == "_"
 
 func _infer_type(var_name: String) -> String:
-	# Try to find the variable declaration in the code
+	# 1. Check the parsed variable type map first (Dim x As Type)
+	var lower_name := var_name.to_lower()
+	if _variable_types.has(lower_name):
+		return _variable_types[lower_name]
+	
+	# 2. Check if it's a known control — resolve to its actual type
+	if var_name in _known_controls:
+		return _get_control_type(var_name)
+	
+	# 3. Try Dim regex as fallback for dynamically typed vars
 	var text = get_text()
 	var regex = RegEx.new()
-	regex.compile("Dim\\s+" + var_name + "\\s+As\\s+(\\w+)")
+	regex.compile("(?i)(?:Dim|Private|Public|Static)\\s+" + var_name + "\\s+As\\s+(\\w+)")
 	var match = regex.search(text)
-	
 	if match:
 		return match.get_string(1)
 	
-	# Check if it's a known control
-	if var_name in _known_controls:
-		# Could be more sophisticated - for now assume Control
-		return "Control"
+	# 4. Check if it's a Godot type name (for static member access like Vector2.ZERO)
+	if ClassDB.class_exists(var_name):
+		return var_name
 	
 	return "Object"
+
+## Returns the Godot-equivalent type name for a form control by looking up
+## its "type" field from the control info list.
+func _get_control_type(ctrl_name: String) -> String:
+	for info in _control_info_list:
+		if info.get("name", "") == ctrl_name:
+			var vb6_type: String = info.get("type", "")
+			if not vb6_type.is_empty():
+				return VGIntelliSense.resolve_control_type(vb6_type)
+	return "Control"
 
 # =============================================================================
 # SNIPPET EXPANSION
@@ -550,11 +782,14 @@ func _on_text_changed() -> void:
 func _request_completion_deferred() -> void:
 	if not has_focus():
 		return
-	# Only trigger when the caret is at the end of a word (not after delete/space)
+	# Trigger when the caret is at the end of a word OR right after a dot
+	# (dot triggers member-access completion even with no partial word typed yet)
 	var line := get_line(get_caret_line())
 	var col := get_caret_column()
-	if col > 0 and _is_word_char(line[col - 1]):
-		request_code_completion(true)
+	if col > 0:
+		var last_char := line[col - 1]
+		if _is_word_char(last_char) or last_char == ".":
+			request_code_completion(true)
 
 func _handle_auto_indent() -> void:
 	var line_idx = get_caret_line()
@@ -721,22 +956,73 @@ func _insert_block_closer(cursor_line: int, parent_indent: int, closer: String) 
 
 func _parse_variables() -> void:
 	_known_variables.clear()
+	_variable_types.clear()
 	
 	var text = get_text()
 	var regex = RegEx.new()
 	
-	# Match Dim statements
-	regex.compile("(?:Dim|Private|Public|Static)\\s+(\\w+)")
+	# Match Dim/Private/Public/Static declarations, capturing optional As Type
+	regex.compile("(?i)(?:Dim|Private|Public|Static)\\s+(\\w+)(?:\\s+As\\s+(?:New\\s+)?(\\w+))?")
 	var matches = regex.search_all(text)
 	
-	for match in matches:
-		var var_name = match.get_string(1)
+	for m in matches:
+		var var_name = m.get_string(1)
 		if var_name not in _known_variables:
 			_known_variables.append(var_name)
+		# Store the declared type if present
+		var type_str := m.get_string(2)
+		if not type_str.is_empty():
+			_variable_types[var_name.to_lower()] = type_str
+	
+	# Also catch "Set x = New Type" patterns for type inference
+	var set_regex := RegEx.new()
+	set_regex.compile("(?i)Set\\s+(\\w+)\\s*=\\s*New\\s+(\\w+)")
+	var set_matches := set_regex.search_all(text)
+	for sm in set_matches:
+		var var_name := sm.get_string(1)
+		var type_str := sm.get_string(2)
+		if not var_name.is_empty() and not type_str.is_empty():
+			_variable_types[var_name.to_lower()] = type_str
+	
+	# Scan for Enum blocks and store members: _known_enums[EnumName] = [Member1, Member2, ...]
+	_known_enums.clear()
+	var lines := text.split("\n")
+	var in_enum := false
+	var enum_name := ""
+	var enum_members: Array[String] = []
+	for line in lines:
+		var stripped := line.strip_edges()
+		var sl := stripped.to_lower()
+		if not in_enum:
+			if sl.begins_with("enum ") or (sl.begins_with("public enum ") or sl.begins_with("private enum ")):
+				in_enum = true
+				# Extract enum name
+				var enum_re := RegEx.new()
+				enum_re.compile("(?i)(?:Public\\s+|Private\\s+)?Enum\\s+(\\w+)")
+				var em := enum_re.search(stripped)
+				if em:
+					enum_name = em.get_string(1)
+					enum_members = []
+		else:
+			if sl == "end enum":
+				if not enum_name.is_empty():
+					_known_enums[enum_name] = enum_members.duplicate()
+				in_enum = false
+				enum_name = ""
+			elif not stripped.is_empty() and not sl.begins_with("'"):
+				# Enum member: could be "MemberName" or "MemberName = value"
+				var member := stripped.get_slice("=", 0).get_slice(" ", 0).strip_edges()
+				if not member.is_empty():
+					enum_members.append(member)
 
 ## Sets the known form controls for IntelliSense
 func set_known_controls(controls: Array[String]) -> void:
 	_known_controls = controls
+
+## Sets the full control info list (name, type, rect, etc.) from the form designer.
+## This enables type-aware dot-completion: Text1. → LineEdit properties.
+func set_control_info(info_list: Array[Dictionary]) -> void:
+	_control_info_list = info_list
 
 ## Adds a known control for IntelliSense
 func add_known_control(control_name: String) -> void:
@@ -1079,11 +1365,13 @@ func _draw() -> void:
 			# Don't draw separator above the very first line
 			if line_idx == 0:
 				continue
-			# Get the Y position for the top of this line
-			var line_pos: Vector2i = get_line_column_at_pos(Vector2(0, 0))
-			# Calculate Y offset relative to the editor viewport
+			# get_pos_at_line_column returns the BOTTOM of the line; subtract
+			# row_height to get the TOP (which is where the separator goes).
 			var row_height: float = get_line_height()
-			var y_offset: float = (line_idx - first_visible) * row_height
+			var sep_pos := get_pos_at_line_column(line_idx, 0)
+			if sep_pos.y < 0:
+				continue
+			var y_offset: float = float(sep_pos.y) - row_height
 			# Draw the separator line across the full width
 			var from_x: float = get_total_gutter_width() if has_method("get_total_gutter_width") else 48.0
 			var to_x: float = size.x
@@ -1110,21 +1398,23 @@ func _ensure_arrow_overlay() -> void:
 
 ## Called when the overlay needs to repaint — draws arrows on top of everything.
 func _on_arrow_overlay_draw() -> void:
-	var first_visible: int = get_first_visible_line()
+	# get_pos_at_line_column() returns the BOTTOM of the line (caret baseline),
+	# so we subtract row_height to obtain the TOP of the line for drawing.
+	var rh: float = get_line_height()
 	
 	# ── Dragging: ghost at original + solid at drag target ──
 	if _arrow_dragging and _arrow_drag_line >= 0:
 		# Ghost arrow at the original executing line (dimmed)
 		if _executing_line >= 0:
-			var rh: float = get_line_height()
-			var oy: float = (_executing_line - first_visible) * rh
-			if oy >= 0.0 and oy < size.y:
+			var opos := get_pos_at_line_column(_executing_line, 0)
+			var oy := float(opos.y) - rh
+			if opos.y >= 0 and oy < size.y:
 				_draw_yellow_arrow_on(oy, rh, Color(1.0, 0.85, 0.0, 0.3))
 		# Full-opacity arrow + highlight at drag destination
 		if _arrow_drag_line != _executing_line:
-			var rh: float = get_line_height()
-			var dy: float = (_arrow_drag_line - first_visible) * rh
-			if dy >= 0.0 and dy < size.y:
+			var dpos := get_pos_at_line_column(_arrow_drag_line, 0)
+			var dy := float(dpos.y) - rh
+			if dpos.y >= 0 and dy < size.y:
 				var gw: float = get_total_gutter_width() if has_method("get_total_gutter_width") else 48.0
 				_arrow_overlay.draw_rect(Rect2(gw, dy, size.x - gw, rh),
 					Color(1.0, 1.0, 0.0, 0.22))
@@ -1132,9 +1422,9 @@ func _on_arrow_overlay_draw() -> void:
 	
 	# ── Not dragging: solid arrow at executing line ──
 	elif _is_debug_paused and _executing_line >= 0:
-		var rh: float = get_line_height()
-		var ey: float = (_executing_line - first_visible) * rh
-		if ey >= 0.0 and ey < size.y:
+		var epos := get_pos_at_line_column(_executing_line, 0)
+		var ey := float(epos.y) - rh
+		if epos.y >= 0 and ey < size.y:
 			_draw_yellow_arrow_on(ey, rh, Color(1.0, 0.85, 0.0, 1.0))
 
 ## Draw a VB6-style yellow right-pointing arrow on the overlay.
@@ -1178,12 +1468,10 @@ func _draw_yellow_arrow_on(y_pos: float, row_height: float, color: Color) -> voi
 
 ## Convert a Y pixel position to a line index (0-based).
 func _get_line_at_y(y: float) -> int:
-	var row_height := get_line_height()
-	if row_height <= 0:
-		return 0
-	var first_visible := get_first_visible_line()
-	var line := first_visible + int(y / row_height)
-	return clampi(line, 0, get_line_count() - 1)
+	# Use Godot's built-in coordinate mapping which accounts for
+	# StyleBox content margin and sub-line scroll offset.
+	var lc := get_line_column_at_pos(Vector2i(0, int(y)), true)
+	return clampi(lc.y, 0, get_line_count() - 1)
 
 ## Set the executing line indicator (0-based line index). Call with -1 to clear.
 func set_executing_line(line: int) -> void:

@@ -545,6 +545,40 @@ func _on_help_meta_clicked(meta: Variant) -> void:
 				_code_edit.set_caret_column(0)
 				_code_edit.center_viewport_to_caret()
 				_code_edit.grab_focus()
+	elif s.begins_with("ref:"):
+		# Open the Programmer's Reference .md file at the given line
+		var line_str := s.substr(4)
+		var ref_path := "res://addons/visual_gasic/../../docs/VisualGasic_Language_Reference.md"
+		var abs_path := ProjectSettings.globalize_path(ref_path)
+		# Try to find it relative to the addon
+		for candidate in [
+			"res://docs/VisualGasic_Language_Reference.md",
+			"res://addons/visual_gasic/../../docs/VisualGasic_Language_Reference.md"
+		]:
+			if FileAccess.file_exists(candidate):
+				abs_path = ProjectSettings.globalize_path(candidate)
+				break
+		# Try the repo-level docs/ folder directly
+		var plugin_script := (self as Node).get_script() as Script
+		if plugin_script:
+			var plugin_dir: String = plugin_script.resource_path.get_base_dir()
+			var repo_doc := plugin_dir.path_join("../../docs/VisualGasic_Language_Reference.md")
+			if FileAccess.file_exists(repo_doc):
+				abs_path = ProjectSettings.globalize_path(repo_doc)
+		# Open in OS editor at line if possible, else just open the file
+		if abs_path and FileAccess.file_exists(abs_path):
+			OS.shell_open(abs_path)
+		else:
+			# Fallback: search for it in typical locations
+			var fallback := OS.get_executable_path().get_base_dir().path_join("docs/VisualGasic_Language_Reference.md")
+			if FileAccess.file_exists(fallback):
+				OS.shell_open(fallback)
+			else:
+				push_warning("[VG] Could not find Language Reference at: " + abs_path)
+	elif s.begins_with("web:"):
+		# Open URL in the default browser
+		var url := s.substr(4)
+		OS.shell_open(url)
 
 func _build_index_map_panel() -> void:
 	# Container for the index map: toggle header + drawing area
@@ -960,6 +994,9 @@ func load_file(path: String) -> void:
 		_dirty = false
 		_rebuild_proc_list()
 		_rebuild_object_combo()
+		# Load bookmarks for this file
+		if _code_edit.has_method("load_bookmarks"):
+			_code_edit.load_bookmarks(path)
 		# Update status
 		print("VG Code Editor: Loaded ", path)
 	else:
@@ -976,6 +1013,9 @@ func save_file() -> void:
 		f.store_string(_code_edit.text)
 		f.close()
 		_dirty = false
+		# Save bookmarks alongside the file
+		if _code_edit.has_method("save_bookmarks"):
+			_code_edit.save_bookmarks(_vg_path)
 		# Notify Godot's filesystem so it doesn't treat this as an
 		# external modification and prompt "reload from disk?" on focus.
 		if Engine.is_editor_hint():
@@ -1099,6 +1139,9 @@ var _control_info_list: Array[Dictionary] = []
 ## Called from the plugin to store the complete control metadata.
 func set_control_info_list(info_list: Array[Dictionary]) -> void:
 	_control_info_list = info_list
+	# Forward to VGCodeEdit so dot-completion knows each control's type
+	if _code_edit and _code_edit.has_method("set_control_info"):
+		_code_edit.set_control_info(info_list)
 	# Update the index map if it's currently showing
 	_update_index_map_for_current_object()
 
@@ -1336,9 +1379,15 @@ func _update_command_help() -> void:
 			if not ctrl.is_empty():
 				entry = _build_control_help_entry(ctrl)
 			else:
-				_help_label.text = ""
-				_help_label.append_text("[color=#555555][i]No documentation for \"" + keyword + "\"[/i][/color]")
-				return
+				# ── Fallback 3: Godot ClassDB API ──
+				var godot_entry := _lookup_godot_api(keyword)
+				if not godot_entry.is_empty():
+					entry = godot_entry
+					is_builtin = true
+				else:
+					_help_label.text = ""
+					_help_label.append_text("[color=#555555][i]No documentation for \"" + keyword + "\"[/i][/color]")
+					return
 
 	# Reset the scroll position
 	if _help_scroll:
@@ -1427,7 +1476,18 @@ func _update_command_help() -> void:
 	# ── Reference link ──
 	var ref_line: int = entry.get("ref_line", 0)
 	if ref_line > 0:
-		_help_label.append_text("[color=#555555][i]📖 Programmer's Reference, line " + str(ref_line) + "[/i][/color]")
+		_help_label.append_text("[url=ref:" + str(ref_line) + "][color=#0000CC][i]📖 Programmer's Reference, line " + str(ref_line) + "[/i][/color][/url]\n")
+
+	# ── Godot documentation link ──
+	var godot_class: String = entry.get("godot_class", "")
+	if not godot_class.is_empty():
+		var godot_method: String = entry.get("godot_method", "")
+		var url := "https://docs.godotengine.org/en/stable/classes/class_" + godot_class.to_lower() + ".html"
+		if not godot_method.is_empty():
+			url += "#class-" + godot_class.to_lower() + "-method-" + godot_method.to_lower()
+		_help_label.append_text("[url=web:" + url + "][color=#0000CC][i]🌐 Godot Docs: " + godot_class
+			+ (("." + godot_method + "()") if not godot_method.is_empty() else "")
+			+ "[/i][/color][/url]\n")
 
 ## Builds a help entry for a form control/widget (#2).
 func _build_control_help_entry(ctrl: Dictionary) -> Dictionary:
@@ -1463,6 +1523,94 @@ func _build_control_help_entry(ctrl: Dictionary) -> Dictionary:
 		"ref_line": 0,
 		"symbol_kind": "control",
 	}
+
+## Looks up a Godot API method, property, signal, or class via ClassDB.
+## Returns a help entry dict with godot_class / godot_method fields, or empty.
+func _lookup_godot_api(keyword: String) -> Dictionary:
+	# Check if keyword is a Godot class name
+	if ClassDB.class_exists(keyword):
+		var parent: String = ClassDB.get_parent_class(keyword)
+		var desc := "Godot engine class."
+		if not parent.is_empty():
+			desc += " Inherits from [b]" + parent + "[/b]."
+		return {
+			"keyword": keyword,
+			"syntax": keyword,
+			"desc": desc,
+			"code": "Dim obj As " + keyword + " = New " + keyword,
+			"ref_line": 0,
+			"godot_class": keyword,
+			"godot_method": "",
+		}
+
+	# Search common game-dev classes for the keyword as a method or property
+	var search_classes: Array[String] = [
+		"Node", "Node2D", "Node3D", "Control",
+		"CharacterBody2D", "CharacterBody3D",
+		"RigidBody2D", "RigidBody3D",
+		"Area2D", "Area3D",
+		"Sprite2D", "Sprite3D", "AnimatedSprite2D",
+		"Camera2D", "Camera3D",
+		"Timer", "AnimationPlayer", "Tween",
+		"AudioStreamPlayer", "AudioStreamPlayer2D",
+		"CollisionShape2D", "CollisionShape3D",
+		"TileMapLayer",
+		"CanvasItem", "Viewport",
+		"Input", "OS", "Engine", "ProjectSettings",
+	]
+	for cls in search_classes:
+		if not ClassDB.class_exists(cls):
+			continue
+		# Check methods
+		var methods := ClassDB.class_get_method_list(cls, false)
+		for method in methods:
+			var mname: String = method["name"]
+			if mname == keyword or mname == keyword.to_snake_case():
+				var args := VGIntelliSense._format_method_args(method)
+				var ret: Dictionary = method.get("return", {})
+				var ret_type := VGIntelliSense._type_id_to_name(ret.get("type", 0), ret.get("class_name", ""))
+				var syntax := mname + "(" + args + ")"
+				if ret_type != "void":
+					syntax += " → " + ret_type
+				return {
+					"keyword": mname + "  (" + cls + ")",
+					"syntax": syntax,
+					"desc": "Method of Godot's [b]" + cls + "[/b] class.",
+					"code": "",
+					"ref_line": 0,
+					"godot_class": cls,
+					"godot_method": mname,
+				}
+		# Check properties
+		var props := ClassDB.class_get_property_list(cls, false)
+		for prop in props:
+			var pname: String = prop.get("name", "")
+			if pname == keyword or pname == keyword.to_snake_case():
+				var ptype := VGIntelliSense._type_id_to_name(prop.get("type", 0), prop.get("class_name", ""))
+				return {
+					"keyword": pname + "  (" + cls + ")",
+					"syntax": pname + " As " + ptype,
+					"desc": "Property of Godot's [b]" + cls + "[/b] class. Type: " + ptype + ".",
+					"code": "",
+					"ref_line": 0,
+					"godot_class": cls,
+					"godot_method": "",
+				}
+		# Check signals
+		var signals := ClassDB.class_get_signal_list(cls, false)
+		for sig in signals:
+			var sname: String = sig["name"]
+			if sname == keyword or sname == keyword.to_snake_case():
+				return {
+					"keyword": sname + "  (" + cls + " signal)",
+					"syntax": "Signal " + sname,
+					"desc": "Signal emitted by Godot's [b]" + cls + "[/b] class.",
+					"code": "",
+					"ref_line": 0,
+					"godot_class": cls,
+					"godot_method": "",
+				}
+	return {}
 
 ## Scans the current script for user-declared variables, constants, and
 ## Sub/Function definitions matching the given keyword.

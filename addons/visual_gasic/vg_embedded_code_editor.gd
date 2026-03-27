@@ -1139,6 +1139,9 @@ var _control_info_list: Array[Dictionary] = []
 ## Called from the plugin to store the complete control metadata.
 func set_control_info_list(info_list: Array[Dictionary]) -> void:
 	_control_info_list = info_list
+	# Forward to VGCodeEdit so dot-completion knows each control's type
+	if _code_edit and _code_edit.has_method("set_control_info"):
+		_code_edit.set_control_info(info_list)
 	# Update the index map if it's currently showing
 	_update_index_map_for_current_object()
 

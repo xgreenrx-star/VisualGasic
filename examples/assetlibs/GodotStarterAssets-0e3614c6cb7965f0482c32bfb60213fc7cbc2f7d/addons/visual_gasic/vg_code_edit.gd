@@ -17,6 +17,12 @@ class_name VGCodeEdit
 
 signal code_changed(text: String)
 signal parse_requested()
+signal set_next_statement_requested(line: int)  ## Emitted when user drags the yellow arrow
+signal run_to_cursor_requested(line: int)       ## Emitted for Run to Cursor (Ctrl+F10)
+signal tracepoint_set(line: int, message: String) ## Emitted when user sets/changes a tracepoint log message
+signal edit_and_continue_requested()             ## Emitted for Edit & Continue (Ctrl+Shift+Enter)
+signal pin_inline_value_requested(line: int, variable: String) ## Emitted when user pins an inline value
+signal bookmark_toggled(line: int, enabled: bool)              ## Emitted when user toggles a bookmark
 
 # =============================================================================
 # VARIABLES
@@ -25,11 +31,40 @@ signal parse_requested()
 var _intellisense: VGIntelliSense
 var _known_controls: Array[String] = []
 var _known_variables: Array[String] = []
+var _control_info_list: Array[Dictionary] = []  ## Full control info from form designer (name, type, rect, etc.)
+var _variable_types: Dictionary = {}             ## Variable name → declared type (from Dim x As Type)
+var _known_enums: Dictionary = {}                ## Enum name → Array[String] of member names
 var _completion_active: bool = false
 var _last_word: String = ""
 var _prev_caret_line: int = -1  # Track line changes for auto-capitalize
 var _snippet_regex: RegEx = null  # Lazy-init for snippet placeholder expansion
 var _prev_line_count: int = 0    # Track line count for auto-indent on real Enter
+
+# VB6-style yellow arrow (Set Next Statement) state
+var _executing_line: int = -1         # Current executing line (0-based), -1 = none
+var _is_debug_paused: bool = false    # Whether the debugger is currently paused
+var _arrow_dragging: bool = false     # True while user is dragging the yellow arrow
+var _arrow_drag_line: int = -1        # Line being dragged to (0-based)
+var _arrow_hover: bool = false        # True when mouse is over the arrow gutter area
+var _arrow_overlay: Control = null    # Overlay drawn ON TOP of CodeEdit for the arrow
+
+# Data Tips — hover-to-inspect variables during debugging
+var _data_tips_ref = null              # Reference to VGDataTips (set by plugin)
+
+# Tracepoints (log points) — breakpoints that log instead of pausing
+var _tracepoints: Dictionary = {}     # line_number → log message string
+var _tp_dialog: AcceptDialog = null
+var _tp_input: LineEdit = null
+var _tp_line: int = -1
+
+# Pinned Inline Values — show live variable values next to code lines
+var _pinned_values: Dictionary = {}   # line_number(0-based) → variable_name
+var _pinned_data: Dictionary = {}     # variable_name → last known value (String)
+var _pin_overlay: Control = null      # Overlay drawn ON TOP of CodeEdit for pins
+
+# Bookmarks — VB6-style code bookmarks (Ctrl+B to toggle)
+var _bookmarks: Dictionary = {}       # line_number(0-based) → true
+var _bookmark_overlay: Control = null  # Overlay drawn in gutter for bookmark icons
 
 # VB6 keywords with correct casing (for auto-capitalize on line leave)
 const VB6_KEYWORD_CASING: Dictionary = {
@@ -219,6 +254,21 @@ func _setup_auto_indent() -> void:
 	indent_size = 4
 	indent_use_spaces = false  # VB6 traditionally uses tabs
 	auto_brace_completion_enabled = true
+	# Explicit pairs — omit "\"": "\"" to prevent completions being wrapped in quotes
+	auto_brace_completion_pairs = {
+		"(": ")",
+		"[": "]",
+	}
+	
+	# ── Fix VB6 delimiter semantics ──
+	# Godot's CodeEdit constructor registers both " and ' as *string* delimiters.
+	# In VB6, ' is a *comment* prefix, NOT a string delimiter.  Leaving the
+	# default causes is_in_string() to return true after any ' comment, which
+	# confuses the code-completion filter and can wrap completions in quotes.
+	clear_string_delimiters()
+	clear_comment_delimiters()
+	add_string_delimiter("\"", "\"", false)   # "..." = string literal
+	add_comment_delimiter("'", "", true)       # '    = line comment
 	
 	# Enable line numbers in the gutter
 	gutters_draw_line_numbers = true
@@ -229,6 +279,9 @@ func _setup_auto_indent() -> void:
 	
 	# Enable built-in breakpoint gutter (VB6 F9 behavior)
 	gutters_draw_breakpoints_gutter = true
+	
+	# Disable built-in executing line gutter — we draw our own yellow arrow overlay
+	gutters_draw_executing_lines = false
 
 func _connect_signals() -> void:
 	text_changed.connect(_on_text_changed)
@@ -256,10 +309,25 @@ func _on_code_completion_requested() -> void:
 	# Check if we're after a dot (member access)
 	var before_cursor = line.substr(0, column)
 	if "." in before_cursor:
+		# Extract the dot-chain expression before cursor.
+		# e.g. "  Me.Text1." → ["Me", "Text1"]
+		#      "  x = obj.Method." → ["obj", "Method"]
+		#      "  Text1." → ["Text1"]
 		var parts = before_cursor.rsplit(".", true, 1)
 		if parts.size() > 0:
-			var obj_name = parts[0].strip_edges().get_slice(" ", -1)
-			_show_member_completions(obj_name)
+			# Get the full expression before the last dot
+			var expr = parts[0].strip_edges().get_slice(" ", -1)
+			# Also strip away any leading = or ( for cases like "x = obj."
+			for strip_char in ["=", "(", ",", "+"]:
+				if strip_char in expr:
+					expr = expr.rsplit(strip_char, true, 1)[-1].strip_edges()
+			# Handle chained dots: Me.Text1. → resolve Me → get Text1's type
+			if "." in expr:
+				var chain := expr.split(".")
+				var resolved_type := _resolve_dot_chain(chain)
+				_show_member_completions_for_type(resolved_type)
+			else:
+				_show_member_completions(expr)
 			return
 	
 	# ── CBM abbreviation check ──
@@ -291,6 +359,41 @@ func _on_code_completion_requested() -> void:
 			update_code_completion_options(true)
 			return
 	
+	# ── GoTo / GoSub label completion ──
+	# If the text before cursor ends with  GoTo <partial>  or  GoSub <partial>,
+	# offer only labels defined in the current script.
+	var _goto_re := RegEx.new()
+	_goto_re.compile("(?i)\\b(goto|gosub)\\s+(\\w*)$")
+	var goto_match := _goto_re.search(before_cursor)
+	if goto_match:
+		var label_prefix := goto_match.get_string(2).to_lower()
+		var labels := _scan_labels()
+		# Collect labels that match the typed prefix
+		var matching_labels: Array[String] = []
+		for lbl in labels:
+			if label_prefix.is_empty() or lbl.to_lower().begins_with(label_prefix):
+				matching_labels.append(lbl)
+		# If the only match is an exact match for what's already typed the
+		# user has finished the label — don't re-pop the completion list
+		# (otherwise Enter / Tab get swallowed by the popup forever).
+		var already_complete := false
+		if not label_prefix.is_empty() and matching_labels.size() == 1 \
+				and matching_labels[0].to_lower() == label_prefix:
+			already_complete = true
+		if not already_complete and not matching_labels.is_empty():
+			for lbl in matching_labels:
+				add_code_completion_option(
+					CodeEdit.KIND_PLAIN_TEXT,
+					lbl + "  (Label)",
+					lbl,
+					Color(1.0, 0.85, 0.4),  # gold tint for labels
+					null, null, 0
+				)
+			update_code_completion_options(true)
+			return
+		# Already complete or no labels — fall through to regular completions
+		# so the user still gets keyword / variable suggestions.
+	
 	# Regular completions
 	var completions = VGIntelliSense.get_completions(word, context)
 	
@@ -315,36 +418,258 @@ func _on_code_completion_requested() -> void:
 	update_code_completion_options(true)
 
 func _show_member_completions(obj_name: String) -> void:
-	# Try to determine the type of the object
-	var obj_type = _infer_type(obj_name)
+	# ── 1. VB6 Global Objects: App., Screen., Clipboard., Err., Debug., Printer. ──
+	var global_members := VGIntelliSense.get_global_object_members(obj_name)
+	if not global_members.is_empty():
+		for member in global_members:
+			add_code_completion_option(
+				_convert_kind(member.get("kind", "method")),
+				member["text"],
+				member["text"],
+				Color(0.9, 0.85, 0.6),  # gold tint for global objects
+				null, null, 0
+			)
+		update_code_completion_options(true)
+		return
 	
-	# Get method + signal completions
-	var methods = VGIntelliSense.get_method_completions(obj_type)
+	# ── 2. Enum members: MyEnum. → show enum values ──
+	if _known_enums.has(obj_name):
+		var members: Array = _known_enums[obj_name]
+		for member_name in members:
+			add_code_completion_option(
+				CodeEdit.KIND_CONSTANT,
+				member_name,
+				member_name,
+				Color(0.7, 0.9, 0.7),  # green tint for enum members
+				null, null, 0
+			)
+		update_code_completion_options(true)
+		return
+	
+	# ── 3. Me. — show form controls + form-level properties/methods ──
+	if obj_name.nocasecmp_to("Me") == 0 or obj_name.nocasecmp_to("Form") == 0:
+		# Form's own controls
+		for ctrl_name in _known_controls:
+			var ctrl_type := _get_control_type(ctrl_name)
+			add_code_completion_option(
+				CodeEdit.KIND_MEMBER,
+				ctrl_name,
+				ctrl_name,
+				Color(0.6, 0.9, 1.0),  # cyan tint for controls
+				null, null, 0
+			)
+		# Form-level members (Caption, Width, Height, Show, Hide, etc.)
+		for member in VGIntelliSense.get_form_members():
+			add_code_completion_option(
+				_convert_kind(member.get("kind", "property")),
+				member["text"],
+				member["text"],
+				Color(0.85, 0.85, 1.0),  # light blue for form members
+				null, null, 0
+			)
+		update_code_completion_options(true)
+		return
+	
+	# ── 3. Resolve the object's type ──
+	var obj_type := _infer_type(obj_name)
+	
+	# ── 5. VB6 String members ──
+	if obj_type == "String":
+		for member in VGIntelliSense.get_string_members():
+			add_code_completion_option(
+				_convert_kind(member.get("kind", "method")),
+				member["text"],
+				member["text"],
+				Color(0.9, 0.8, 0.5),
+				null, null, 0
+			)
+		update_code_completion_options(true)
+		return
+	
+	# ── 6. VB6 Collection / Dictionary members ──
+	if obj_type == "Collection":
+		for member in VGIntelliSense.get_collection_members():
+			add_code_completion_option(
+				_convert_kind(member.get("kind", "method")),
+				member["text"],
+				member["text"],
+				Color(0.9, 0.8, 0.5),
+				null, null, 0
+			)
+		update_code_completion_options(true)
+		return
+	if obj_type == "Dictionary":
+		for member in VGIntelliSense.get_dictionary_members():
+			add_code_completion_option(
+				_convert_kind(member.get("kind", "method")),
+				member["text"],
+				member["text"],
+				Color(0.9, 0.8, 0.5),
+				null, null, 0
+			)
+		update_code_completion_options(true)
+		return
+	
+	# ── 7. Resolve VB6 control type → Godot class for ClassDB lookup ──
+	var godot_type := VGIntelliSense.resolve_control_type(obj_type)
+	
+	# ── 8. VB6-friendly property aliases (Caption, Value, Text, etc.) ──
+	# Show these first so VB6 users see familiar names at the top.
+	var vb6_aliases := VGIntelliSense.get_vb6_property_aliases(godot_type)
+	for alias in vb6_aliases:
+		add_code_completion_option(
+			_convert_kind(alias.get("kind", "property")),
+			alias["text"],
+			alias["text"],
+			Color(1.0, 0.95, 0.7),  # warm yellow for VB6 aliases
+			null, null, 0
+		)
+	
+	# ── 9. ClassDB / Variant methods + properties ──
+	var methods := VGIntelliSense.get_method_completions(godot_type)
 	for method in methods:
 		add_code_completion_option(
 			_convert_kind(method.get("kind", "method")),
 			method["text"],
 			method["text"],
 			Color.WHITE,
-			null,
-			null,
-			0
+			null, null, 0
 		)
 	
-	# Get property completions
-	var properties = VGIntelliSense.get_property_completions(obj_type)
+	var properties := VGIntelliSense.get_property_completions(godot_type)
 	for prop in properties:
 		add_code_completion_option(
 			_convert_kind(prop.get("kind", "property")),
 			prop["text"],
 			prop["text"],
 			Color.WHITE,
-			null,
-			null,
-			0
+			null, null, 0
 		)
 	
 	update_code_completion_options(true)
+
+## Shows member completions for an already-resolved type name (used for chained dots).
+func _show_member_completions_for_type(type_name: String) -> void:
+	# String type
+	if type_name == "String":
+		for member in VGIntelliSense.get_string_members():
+			add_code_completion_option(
+				_convert_kind(member.get("kind", "method")),
+				member["text"], member["text"],
+				Color(0.9, 0.8, 0.5), null, null, 0)
+		update_code_completion_options(true)
+		return
+	# Collection / Dictionary
+	if type_name == "Collection":
+		for member in VGIntelliSense.get_collection_members():
+			add_code_completion_option(
+				_convert_kind(member.get("kind", "method")),
+				member["text"], member["text"],
+				Color(0.9, 0.8, 0.5), null, null, 0)
+		update_code_completion_options(true)
+		return
+	if type_name == "Dictionary":
+		for member in VGIntelliSense.get_dictionary_members():
+			add_code_completion_option(
+				_convert_kind(member.get("kind", "method")),
+				member["text"], member["text"],
+				Color(0.9, 0.8, 0.5), null, null, 0)
+		update_code_completion_options(true)
+		return
+	# Resolve to Godot type
+	var godot_type := VGIntelliSense.resolve_control_type(type_name)
+	# VB6 aliases first
+	var vb6_aliases := VGIntelliSense.get_vb6_property_aliases(godot_type)
+	for alias in vb6_aliases:
+		add_code_completion_option(
+			_convert_kind(alias.get("kind", "property")),
+			alias["text"], alias["text"],
+			Color(1.0, 0.95, 0.7), null, null, 0)
+	# ClassDB / Variant methods + properties
+	for method in VGIntelliSense.get_method_completions(godot_type):
+		add_code_completion_option(
+			_convert_kind(method.get("kind", "method")),
+			method["text"], method["text"],
+			Color.WHITE, null, null, 0)
+	for prop in VGIntelliSense.get_property_completions(godot_type):
+		add_code_completion_option(
+			_convert_kind(prop.get("kind", "property")),
+			prop["text"], prop["text"],
+			Color.WHITE, null, null, 0)
+	update_code_completion_options(true)
+
+## Resolves a chained dot expression like ["Me", "Text1"] to a final type.
+## Me.Text1. → resolve "Me" finds "Text1" is a control → return its Godot type.
+func _resolve_dot_chain(chain: Array) -> String:
+	if chain.is_empty():
+		return "Object"
+	
+	# Start with the first element
+	var current_name: String = chain[0]
+	var current_type := ""
+	
+	# Is first element Me/Form?
+	if current_name.nocasecmp_to("Me") == 0 or current_name.nocasecmp_to("Form") == 0:
+		current_type = "Form"
+	elif VGIntelliSense.is_global_object(current_name):
+		current_type = "GlobalObject:" + current_name
+	else:
+		current_type = _infer_type(current_name)
+	
+	# Walk the rest of the chain
+	for i in range(1, chain.size()):
+		var member_name: String = chain[i]
+		if member_name.is_empty():
+			continue
+		# If current context is a Form, the member might be a control name
+		if current_type == "Form":
+			if member_name in _known_controls:
+				current_type = _get_control_type(member_name)
+				continue
+			# Otherwise it's a form property — hard to resolve further
+			current_type = "Variant"
+		else:
+			# For other types, we'd need return-type resolution from ClassDB
+			# which is complex. For now, treat the chain end as Variant.
+			current_type = "Variant"
+	
+	return current_type
+
+## Scans the entire script text for VB6-style labels.
+## A label is an identifier followed by a colon at the start of a line
+## (with optional leading whitespace), e.g.  MyLabel:
+## Returns an Array[String] of unique label names (preserving original casing).
+func _scan_labels() -> Array[String]:
+	var labels: Array[String] = []
+	var seen := {}  # lowercase → true, to avoid duplicates
+	var label_re := RegEx.new()
+	# Match:  optional whitespace, then an identifier, then a colon.
+	# Negative lookahead avoids matching  Sub Foo():  or  Function Bar():
+	# by requiring the colon to come right after the identifier (with
+	# optional whitespace), NOT after parentheses.
+	label_re.compile("^[ \\t]*([A-Za-z_]\\w*)\\s*:")
+	
+	# Keywords that might appear with a colon in other contexts
+	var excluded := {
+		"sub": true, "function": true, "property": true, "end": true,
+		"private": true, "public": true, "friend": true, "static": true,
+		"dim": true, "redim": true, "const": true, "type": true,
+		"enum": true, "class": true, "if": true, "elseif": true,
+		"else": true, "select": true, "case": true, "for": true,
+		"do": true, "while": true, "with": true, "get": true,
+		"set": true, "let": true, "default": true, "rem": true,
+	}
+	
+	for i in range(get_line_count()):
+		var line_text := get_line(i)
+		var m := label_re.search(line_text)
+		if m:
+			var name := m.get_string(1)
+			var lower := name.to_lower()
+			if lower not in excluded and lower not in seen:
+				seen[lower] = true
+				labels.append(name)
+	return labels
 
 func _convert_kind(kind_string: String) -> int:
 	match kind_string:
@@ -375,21 +700,38 @@ func _is_word_char(c: String) -> bool:
 	return c.is_valid_identifier() or c == "_"
 
 func _infer_type(var_name: String) -> String:
-	# Try to find the variable declaration in the code
+	# 1. Check the parsed variable type map first (Dim x As Type)
+	var lower_name := var_name.to_lower()
+	if _variable_types.has(lower_name):
+		return _variable_types[lower_name]
+	
+	# 2. Check if it's a known control — resolve to its actual type
+	if var_name in _known_controls:
+		return _get_control_type(var_name)
+	
+	# 3. Try Dim regex as fallback for dynamically typed vars
 	var text = get_text()
 	var regex = RegEx.new()
-	regex.compile("Dim\\s+" + var_name + "\\s+As\\s+(\\w+)")
+	regex.compile("(?i)(?:Dim|Private|Public|Static)\\s+" + var_name + "\\s+As\\s+(\\w+)")
 	var match = regex.search(text)
-	
 	if match:
 		return match.get_string(1)
 	
-	# Check if it's a known control
-	if var_name in _known_controls:
-		# Could be more sophisticated - for now assume Control
-		return "Control"
+	# 4. Check if it's a Godot type name (for static member access like Vector2.ZERO)
+	if ClassDB.class_exists(var_name):
+		return var_name
 	
 	return "Object"
+
+## Returns the Godot-equivalent type name for a form control by looking up
+## its "type" field from the control info list.
+func _get_control_type(ctrl_name: String) -> String:
+	for info in _control_info_list:
+		if info.get("name", "") == ctrl_name:
+			var vb6_type: String = info.get("type", "")
+			if not vb6_type.is_empty():
+				return VGIntelliSense.resolve_control_type(vb6_type)
+	return "Control"
 
 # =============================================================================
 # SNIPPET EXPANSION
@@ -440,11 +782,14 @@ func _on_text_changed() -> void:
 func _request_completion_deferred() -> void:
 	if not has_focus():
 		return
-	# Only trigger when the caret is at the end of a word (not after delete/space)
+	# Trigger when the caret is at the end of a word OR right after a dot
+	# (dot triggers member-access completion even with no partial word typed yet)
 	var line := get_line(get_caret_line())
 	var col := get_caret_column()
-	if col > 0 and _is_word_char(line[col - 1]):
-		request_code_completion(true)
+	if col > 0:
+		var last_char := line[col - 1]
+		if _is_word_char(last_char) or last_char == ".":
+			request_code_completion(true)
 
 func _handle_auto_indent() -> void:
 	var line_idx = get_caret_line()
@@ -611,22 +956,73 @@ func _insert_block_closer(cursor_line: int, parent_indent: int, closer: String) 
 
 func _parse_variables() -> void:
 	_known_variables.clear()
+	_variable_types.clear()
 	
 	var text = get_text()
 	var regex = RegEx.new()
 	
-	# Match Dim statements
-	regex.compile("(?:Dim|Private|Public|Static)\\s+(\\w+)")
+	# Match Dim/Private/Public/Static declarations, capturing optional As Type
+	regex.compile("(?i)(?:Dim|Private|Public|Static)\\s+(\\w+)(?:\\s+As\\s+(?:New\\s+)?(\\w+))?")
 	var matches = regex.search_all(text)
 	
-	for match in matches:
-		var var_name = match.get_string(1)
+	for m in matches:
+		var var_name = m.get_string(1)
 		if var_name not in _known_variables:
 			_known_variables.append(var_name)
+		# Store the declared type if present
+		var type_str := m.get_string(2)
+		if not type_str.is_empty():
+			_variable_types[var_name.to_lower()] = type_str
+	
+	# Also catch "Set x = New Type" patterns for type inference
+	var set_regex := RegEx.new()
+	set_regex.compile("(?i)Set\\s+(\\w+)\\s*=\\s*New\\s+(\\w+)")
+	var set_matches := set_regex.search_all(text)
+	for sm in set_matches:
+		var var_name := sm.get_string(1)
+		var type_str := sm.get_string(2)
+		if not var_name.is_empty() and not type_str.is_empty():
+			_variable_types[var_name.to_lower()] = type_str
+	
+	# Scan for Enum blocks and store members: _known_enums[EnumName] = [Member1, Member2, ...]
+	_known_enums.clear()
+	var lines := text.split("\n")
+	var in_enum := false
+	var enum_name := ""
+	var enum_members: Array[String] = []
+	for line in lines:
+		var stripped := line.strip_edges()
+		var sl := stripped.to_lower()
+		if not in_enum:
+			if sl.begins_with("enum ") or (sl.begins_with("public enum ") or sl.begins_with("private enum ")):
+				in_enum = true
+				# Extract enum name
+				var enum_re := RegEx.new()
+				enum_re.compile("(?i)(?:Public\\s+|Private\\s+)?Enum\\s+(\\w+)")
+				var em := enum_re.search(stripped)
+				if em:
+					enum_name = em.get_string(1)
+					enum_members = []
+		else:
+			if sl == "end enum":
+				if not enum_name.is_empty():
+					_known_enums[enum_name] = enum_members.duplicate()
+				in_enum = false
+				enum_name = ""
+			elif not stripped.is_empty() and not sl.begins_with("'"):
+				# Enum member: could be "MemberName" or "MemberName = value"
+				var member := stripped.get_slice("=", 0).get_slice(" ", 0).strip_edges()
+				if not member.is_empty():
+					enum_members.append(member)
 
 ## Sets the known form controls for IntelliSense
 func set_known_controls(controls: Array[String]) -> void:
 	_known_controls = controls
+
+## Sets the full control info list (name, type, rect, etc.) from the form designer.
+## This enables type-aware dot-completion: Text1. → LineEdit properties.
+func set_control_info(info_list: Array[Dictionary]) -> void:
+	_control_info_list = info_list
 
 ## Adds a known control for IntelliSense
 func add_known_control(control_name: String) -> void:
@@ -642,6 +1038,62 @@ func get_known_variables() -> Array[String]:
 # =============================================================================
 
 func _gui_input(event: InputEvent) -> void:
+	# ── Yellow arrow drag handling (Set Next Statement) ──
+	if _is_debug_paused and _executing_line >= 0:
+		# Handle ongoing drag first — release and motion anywhere on the control
+		if _arrow_dragging:
+			if event is InputEventMouseButton:
+				var mb := event as InputEventMouseButton
+				if mb.button_index == MOUSE_BUTTON_LEFT and not mb.pressed:
+					# Release — commit the Set Next Statement
+					var target_line := _arrow_drag_line
+					_arrow_dragging = false
+					mouse_default_cursor_shape = Control.CURSOR_IBEAM
+					if target_line >= 0 and target_line != _executing_line:
+						# VB6 rule: can only Set Next Statement within the current procedure
+						var exec_range := _get_enclosing_procedure_range(_executing_line)
+						var target_range := _get_enclosing_procedure_range(target_line)
+						if exec_range != target_range:
+							push_warning("Set Next Statement: can only move within the current procedure.")
+						else:
+							var target_line_1based := target_line + 1
+							set_executing_line(target_line)
+							set_next_statement_requested.emit(target_line_1based)
+					_arrow_drag_line = -1
+					queue_redraw()
+					if _arrow_overlay:
+						_arrow_overlay.queue_redraw()
+					accept_event()
+					return
+			if event is InputEventMouseMotion:
+				var mm := event as InputEventMouseMotion
+				_arrow_drag_line = _get_line_at_y(mm.position.y)
+				queue_redraw()
+				if _arrow_overlay:
+					_arrow_overlay.queue_redraw()
+				accept_event()
+				return
+		
+		# Start drag when clicking on the executing-line arrow in the gutter.
+		# Only intercept clicks on the actual arrow line — clicks on other
+		# lines must pass through so users can still toggle breakpoints (F9
+		# behaviour / gutter click) while paused.
+		if event is InputEventMouseButton:
+			var mb := event as InputEventMouseButton
+			var gutter_width := get_total_gutter_width() if has_method("get_total_gutter_width") else 48.0
+			if mb.position.x < gutter_width and mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed:
+				var clicked_line := _get_line_at_y(mb.position.y)
+				if clicked_line == _executing_line:
+					_arrow_dragging = true
+					_arrow_drag_line = clicked_line
+					mouse_default_cursor_shape = Control.CURSOR_DRAG
+					_ensure_arrow_overlay()
+					queue_redraw()
+					if _arrow_overlay:
+						_arrow_overlay.queue_redraw()
+					accept_event()
+					return
+	
 	if event is InputEventKey and event.pressed:
 		match event.keycode:
 			KEY_PARENLEFT:
@@ -657,6 +1109,57 @@ func _gui_input(event: InputEvent) -> void:
 				elif event.ctrl_pressed and event.shift_pressed:
 					set_conditional_breakpoint(get_caret_line())
 					accept_event()
+			KEY_F10:
+				if event.ctrl_pressed and event.shift_pressed and _is_debug_paused:
+					# Ctrl+Shift+F10 = Set Next Statement (VB6 shortcut)
+					var target_line_0 := get_caret_line()
+					var exec_range := _get_enclosing_procedure_range(_executing_line)
+					var target_range := _get_enclosing_procedure_range(target_line_0)
+					if exec_range != target_range:
+						push_warning("Set Next Statement: can only move within the current procedure.")
+					else:
+						var target := target_line_0 + 1  # 1-based
+						set_executing_line(target_line_0)
+						set_next_statement_requested.emit(target)
+					accept_event()
+				elif event.ctrl_pressed and not event.shift_pressed and _is_debug_paused:
+					# Ctrl+F10 = Run to Cursor
+					var target := get_caret_line() + 1  # 1-based
+					run_to_cursor_requested.emit(target)
+					accept_event()
+			KEY_F11:
+				if event.ctrl_pressed and event.shift_pressed:
+					# Ctrl+Shift+F11 = Set/Edit Tracepoint (Log Point)
+					set_tracepoint(get_caret_line())
+					accept_event()
+			KEY_ENTER:
+				if event.ctrl_pressed and event.shift_pressed and _is_debug_paused:
+					# Ctrl+Shift+Enter = Edit and Continue (VB6 signature)
+					edit_and_continue_requested.emit()
+					accept_event()
+			KEY_P:
+				if event.ctrl_pressed and event.shift_pressed and event.alt_pressed and _is_debug_paused:
+					# Ctrl+Shift+Alt+P = Pin inline value at current line
+					_pin_variable_at_caret()
+					accept_event()
+			KEY_B:
+				if event.ctrl_pressed and not event.shift_pressed and not event.alt_pressed:
+					# Ctrl+B = Toggle Bookmark
+					toggle_bookmark(get_caret_line())
+					accept_event()
+				elif event.ctrl_pressed and event.shift_pressed and not event.alt_pressed:
+					# Ctrl+Shift+B = Go to Next Bookmark
+					goto_next_bookmark()
+					accept_event()
+				elif event.ctrl_pressed and not event.shift_pressed and event.alt_pressed:
+					# Ctrl+Alt+B = Go to Previous Bookmark
+					goto_prev_bookmark()
+					accept_event()
+
+# ── Data Tips: forward mouse motion to VGDataTips for hover-to-inspect ──
+	if event is InputEventMouseMotion and _is_debug_paused and _data_tips_ref and not _arrow_dragging:
+		var mm := event as InputEventMouseMotion
+		_data_tips_ref.check_hover(self, mm.position)
 
 ## Show a small popup dialog to jump to a specific line number.
 func _show_goto_line_dialog() -> void:
@@ -862,15 +1365,201 @@ func _draw() -> void:
 			# Don't draw separator above the very first line
 			if line_idx == 0:
 				continue
-			# Get the Y position for the top of this line
-			var line_pos: Vector2i = get_line_column_at_pos(Vector2(0, 0))
-			# Calculate Y offset relative to the editor viewport
+			# get_pos_at_line_column returns the BOTTOM of the line; subtract
+			# row_height to get the TOP (which is where the separator goes).
 			var row_height: float = get_line_height()
-			var y_offset: float = (line_idx - first_visible) * row_height
+			var sep_pos := get_pos_at_line_column(line_idx, 0)
+			if sep_pos.y < 0:
+				continue
+			var y_offset: float = float(sep_pos.y) - row_height
 			# Draw the separator line across the full width
 			var from_x: float = get_total_gutter_width() if has_method("get_total_gutter_width") else 48.0
 			var to_x: float = size.x
 			draw_line(Vector2(from_x, y_offset), Vector2(to_x, y_offset), separator_color, line_width)
+	
+	# ── Keep overlay in sync with scrolling / redraws ──
+	if _arrow_overlay and (_is_debug_paused or _arrow_dragging):
+		_arrow_overlay.queue_redraw()
+	if _bookmark_overlay and not _bookmarks.is_empty():
+		_bookmark_overlay.queue_redraw()
+	if _pin_overlay and not _pinned_values.is_empty():
+		_pin_overlay.queue_redraw()
+
+## Create the arrow overlay Control (draws ON TOP of CodeEdit gutters/text).
+func _ensure_arrow_overlay() -> void:
+	if _arrow_overlay != null:
+		return
+	_arrow_overlay = Control.new()
+	_arrow_overlay.name = "ArrowOverlay"
+	_arrow_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_arrow_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(_arrow_overlay)
+	_arrow_overlay.draw.connect(_on_arrow_overlay_draw)
+
+## Called when the overlay needs to repaint — draws arrows on top of everything.
+func _on_arrow_overlay_draw() -> void:
+	# get_pos_at_line_column() returns the BOTTOM of the line (caret baseline),
+	# so we subtract row_height to obtain the TOP of the line for drawing.
+	var rh: float = get_line_height()
+	
+	# ── Dragging: ghost at original + solid at drag target ──
+	if _arrow_dragging and _arrow_drag_line >= 0:
+		# Ghost arrow at the original executing line (dimmed)
+		if _executing_line >= 0:
+			var opos := get_pos_at_line_column(_executing_line, 0)
+			var oy := float(opos.y) - rh
+			if opos.y >= 0 and oy < size.y:
+				_draw_yellow_arrow_on(oy, rh, Color(1.0, 0.85, 0.0, 0.3))
+		# Full-opacity arrow + highlight at drag destination
+		if _arrow_drag_line != _executing_line:
+			var dpos := get_pos_at_line_column(_arrow_drag_line, 0)
+			var dy := float(dpos.y) - rh
+			if dpos.y >= 0 and dy < size.y:
+				var gw: float = get_total_gutter_width() if has_method("get_total_gutter_width") else 48.0
+				_arrow_overlay.draw_rect(Rect2(gw, dy, size.x - gw, rh),
+					Color(1.0, 1.0, 0.0, 0.22))
+				_draw_yellow_arrow_on(dy, rh, Color(1.0, 0.85, 0.0, 1.0))
+	
+	# ── Not dragging: solid arrow at executing line ──
+	elif _is_debug_paused and _executing_line >= 0:
+		var epos := get_pos_at_line_column(_executing_line, 0)
+		var ey := float(epos.y) - rh
+		if epos.y >= 0 and ey < size.y:
+			_draw_yellow_arrow_on(ey, rh, Color(1.0, 0.85, 0.0, 1.0))
+
+## Draw a VB6-style yellow right-pointing arrow on the overlay.
+func _draw_yellow_arrow_on(y_pos: float, row_height: float, color: Color) -> void:
+	var arrow_size: float = mini(row_height - 2, 16)
+	var x_start: float = 4.0
+	var y_center: float = y_pos + row_height * 0.5
+	
+	# Arrow body (rectangle)
+	var body_width: float = arrow_size * 0.6
+	var body_height: float = arrow_size * 0.5
+	_arrow_overlay.draw_rect(Rect2(x_start, y_center - body_height * 0.5, body_width, body_height), color)
+	
+	# Arrow head (triangle pointing right)
+	var head_x: float = x_start + body_width
+	var head_half_h: float = arrow_size * 0.55
+	var head_tip_x: float = head_x + arrow_size * 0.5
+	var points := PackedVector2Array([
+		Vector2(head_x, y_center - head_half_h),
+		Vector2(head_tip_x, y_center),
+		Vector2(head_x, y_center + head_half_h)
+	])
+	_arrow_overlay.draw_colored_polygon(points, color)
+	
+	# Dark outline for visibility
+	var outline_color := Color(0.3, 0.25, 0.0, color.a)
+	_arrow_overlay.draw_polyline(PackedVector2Array([
+		Vector2(x_start, y_center - body_height * 0.5),
+		Vector2(head_x, y_center - body_height * 0.5),
+		Vector2(head_x, y_center - head_half_h),
+		Vector2(head_tip_x, y_center),
+		Vector2(head_x, y_center + head_half_h),
+		Vector2(head_x, y_center + body_height * 0.5),
+		Vector2(x_start, y_center + body_height * 0.5),
+		Vector2(x_start, y_center - body_height * 0.5),
+	]), outline_color, 1.0)
+
+# =============================================================================
+# SET NEXT STATEMENT — VB6-style yellow arrow helpers
+# =============================================================================
+
+## Convert a Y pixel position to a line index (0-based).
+func _get_line_at_y(y: float) -> int:
+	# Use Godot's built-in coordinate mapping which accounts for
+	# StyleBox content margin and sub-line scroll offset.
+	var lc := get_line_column_at_pos(Vector2i(0, int(y)), true)
+	return clampi(lc.y, 0, get_line_count() - 1)
+
+## Set the executing line indicator (0-based line index). Call with -1 to clear.
+func set_executing_line(line: int) -> void:
+	_executing_line = line
+	if line >= 0:
+		_ensure_arrow_overlay()
+		if _arrow_overlay:
+			_arrow_overlay.visible = true
+	queue_redraw()
+	if _arrow_overlay:
+		_arrow_overlay.queue_redraw()
+
+## Clear the executing line indicator and hide the arrow overlay.
+func clear_executing_line() -> void:
+	_executing_line = -1
+	_is_debug_paused = false
+	_arrow_dragging = false
+	_arrow_drag_line = -1
+	queue_redraw()
+	if _arrow_overlay:
+		_arrow_overlay.visible = false
+		_arrow_overlay.queue_redraw()
+
+## Set the debug paused state (enables/disables arrow dragging).
+func set_debug_paused(paused: bool) -> void:
+	_is_debug_paused = paused
+	if not paused:
+		clear_executing_line()
+
+## Reset the yellow arrow back to the actual executing line (e.g. after a
+## failed Set Next Statement attempt).  Called from the plugin when the VM
+## reports that the target line was not found in the current bytecode chunk.
+func reset_arrow_to_executing_line() -> void:
+	if _executing_line >= 0:
+		queue_redraw()
+		if _arrow_overlay:
+			_arrow_overlay.queue_redraw()
+
+# =============================================================================
+# PROCEDURE BOUNDARY DETECTION (for Set Next Statement guard)
+# =============================================================================
+
+## Returns true if `text` (stripped) is a Sub or Function declaration line.
+func _is_procedure_start(text: String) -> bool:
+	var lower := text.to_lower()
+	# Strip optional Public/Private/Friend prefix
+	for prefix in ["public ", "private ", "friend "]:
+		if lower.begins_with(prefix):
+			lower = lower.substr(prefix.length()).strip_edges()
+			break
+	# Strip optional Static prefix
+	if lower.begins_with("static "):
+		lower = lower.substr(7).strip_edges()
+	return lower.begins_with("sub ") or lower.begins_with("function ")
+
+## Returns true if `text` (stripped) is an End Sub or End Function line.
+func _is_procedure_end(text: String) -> bool:
+	var lower := text.to_lower().strip_edges()
+	return lower == "end sub" or lower == "end function"
+
+## Returns the 0-based line range [start, end] of the Sub/Function enclosing
+## the given 0-based line, or Vector2i(-1, -1) if the line is outside any procedure.
+func _get_enclosing_procedure_range(line_0based: int) -> Vector2i:
+	var lc := get_line_count()
+	if line_0based < 0 or line_0based >= lc:
+		return Vector2i(-1, -1)
+	# Scan backward to find the nearest Sub/Function declaration
+	var proc_start := -1
+	for i in range(line_0based, -1, -1):
+		var stripped := get_line(i).strip_edges()
+		if _is_procedure_start(stripped):
+			proc_start = i
+			break
+		# If we hit End Sub/End Function before a start, we're between procedures
+		if _is_procedure_end(stripped) and i < line_0based:
+			return Vector2i(-1, -1)
+	if proc_start < 0:
+		return Vector2i(-1, -1)
+	# Scan forward from proc_start to find the matching End Sub/End Function
+	for i in range(proc_start + 1, lc):
+		var stripped := get_line(i).strip_edges()
+		if _is_procedure_end(stripped):
+			return Vector2i(proc_start, i)
+		# Another Sub/Function start means the first one wasn't closed properly
+		if _is_procedure_start(stripped):
+			return Vector2i(proc_start, i - 1)
+	# Reached end of file without End Sub/Function
+	return Vector2i(proc_start, lc - 1)
 
 # =============================================================================
 # BREAKPOINTS
@@ -939,3 +1628,303 @@ func get_all_breakpoints() -> Dictionary:
 		if is_line_breakpointed(line):
 			result[line] = _breakpoint_conditions.get(line, "")
 	return result
+
+# =============================================================================
+# TRACEPOINTS (LOG POINTS) — breakpoints that log a message instead of pausing
+# =============================================================================
+
+func set_tracepoint(line: int) -> void:
+	## Opens a dialog to set/edit a tracepoint log message for this line.
+	## If no breakpoint exists, creates one first.
+	if not is_line_breakpointed(line):
+		set_line_as_breakpoint(line, true)
+	
+	if not _tp_dialog:
+		_tp_dialog = AcceptDialog.new()
+		_tp_dialog.title = "Tracepoint — Log Message"
+		_tp_dialog.min_size = Vector2i(450, 140)
+		var vb = VBoxContainer.new()
+		var lbl = Label.new()
+		lbl.text = "Log message (use {variable} to interpolate values):"
+		vb.add_child(lbl)
+		_tp_input = LineEdit.new()
+		_tp_input.placeholder_text = 'e.g. i = {i}, total = {total}'
+		vb.add_child(_tp_input)
+		var hint = Label.new()
+		hint.text = "Leave empty to remove tracepoint (keeps breakpoint)."
+		hint.add_theme_font_size_override("font_size", 11)
+		hint.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+		vb.add_child(hint)
+		_tp_dialog.add_child(vb)
+		_tp_dialog.confirmed.connect(_on_tp_confirmed)
+		add_child(_tp_dialog)
+	
+	_tp_line = line
+	_tp_input.text = _tracepoints.get(line, "")
+	_tp_dialog.popup_centered()
+	_tp_input.grab_focus()
+
+func _on_tp_confirmed() -> void:
+	if _tp_line >= 0:
+		var msg = _tp_input.text.strip_edges()
+		if msg.is_empty():
+			_tracepoints.erase(_tp_line)
+		else:
+			_tracepoints[_tp_line] = msg
+		tracepoint_set.emit(_tp_line, msg)
+
+func is_tracepoint(line: int) -> bool:
+	return _tracepoints.has(line)
+
+func get_tracepoint_message(line: int) -> String:
+	return _tracepoints.get(line, "")
+
+func get_all_tracepoints() -> Dictionary:
+	## Returns {line: log_message} for all tracepoints.
+	return _tracepoints.duplicate()
+
+# =============================================================================
+# PINNED INLINE VALUES — show live variable values next to source lines
+# =============================================================================
+
+func _pin_variable_at_caret() -> void:
+	## Pin the variable under/near the caret on the current line.
+	## Extracts the word at the caret position and pins it.
+	var line := get_caret_line()
+	var col := get_caret_column()
+	var line_text := get_line(line)
+	if line_text.is_empty():
+		return
+	# Extract word at caret
+	var start := col
+	var end_pos := col
+	while start > 0 and _is_ident_char(line_text[start - 1]):
+		start -= 1
+	while end_pos < line_text.length() and _is_ident_char(line_text[end_pos]):
+		end_pos += 1
+	var word := line_text.substr(start, end_pos - start).strip_edges()
+	if word.is_empty():
+		return
+	_toggle_pin(line, word)
+
+func _toggle_pin(line: int, variable: String) -> void:
+	## Toggle a pinned inline value on/off for a line.
+	if _pinned_values.has(line) and _pinned_values[line] == variable:
+		_pinned_values.erase(line)
+	else:
+		_pinned_values[line] = variable
+	_ensure_pin_overlay()
+	if _pin_overlay:
+		_pin_overlay.queue_redraw()
+	pin_inline_value_requested.emit(line, variable)
+
+func update_pinned_values(variables: Dictionary) -> void:
+	## Called by the plugin when debug variables arrive.
+	## variables is {name: value_string}.
+	_pinned_data = variables
+	if _pin_overlay:
+		_pin_overlay.queue_redraw()
+
+func get_pinned_variables() -> Dictionary:
+	return _pinned_values.duplicate()
+
+func clear_all_pins() -> void:
+	_pinned_values.clear()
+	if _pin_overlay:
+		_pin_overlay.queue_redraw()
+
+func _ensure_pin_overlay() -> void:
+	if _pin_overlay and is_instance_valid(_pin_overlay):
+		return
+	_pin_overlay = Control.new()
+	_pin_overlay.name = "PinOverlay"
+	_pin_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_pin_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_pin_overlay.draw.connect(_draw_pinned_values)
+	add_child(_pin_overlay)
+
+func _draw_pinned_values() -> void:
+	## Draw pinned variable values to the right of their source lines.
+	if _pinned_values.is_empty() or not _pin_overlay:
+		return
+	var font := get_theme_font("font") if has_theme_font("font") else ThemeDB.fallback_font
+	var font_size := get_theme_font_size("font_size") if has_theme_font_size("font_size") else 14
+	var line_height := get_line_height()
+	var scroll_v := get_v_scroll_bar().value if get_v_scroll_bar() else 0.0
+	var first_visible := get_first_visible_line()
+	var last_visible := first_visible + int(size.y / line_height) + 2
+
+	var bg_color := Color(0.15, 0.15, 0.35, 0.85)   # Dark blue background
+	var text_color := Color(0.7, 0.9, 1.0)            # Light cyan text
+	var pin_color := Color(1.0, 0.85, 0.3)            # Gold pin icon
+	var padding := 8.0
+
+	for line_num in _pinned_values:
+		if line_num < first_visible or line_num > last_visible:
+			continue
+		var var_name: String = _pinned_values[line_num]
+		var value_str := "?"
+		if var_name in _pinned_data:
+			value_str = str(_pinned_data[var_name])
+		elif var_name.to_lower() in _pinned_data:
+			value_str = str(_pinned_data[var_name.to_lower()])
+		var display := "📌 " + var_name + " = " + value_str
+
+		# Position: to the right of the line text
+		var line_text := get_line(line_num)
+		var text_width := font.get_string_size(line_text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
+		var x_offset := _get_gutter_total_width() + text_width + 30.0
+		var y_pos: float = float(line_num - first_visible) * line_height
+		# Fallback y calculation is always used (CodeEdit doesn't have get_line_y_offset)
+
+		var display_size := font.get_string_size(display, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size)
+		var rect := Rect2(x_offset - padding, y_pos + 1, display_size.x + padding * 2, line_height - 2)
+
+		# Draw background pill
+		_pin_overlay.draw_rect(rect, bg_color, true)
+		_pin_overlay.draw_rect(rect, pin_color * Color(1, 1, 1, 0.4), false, 1.0)
+		# Draw text
+		_pin_overlay.draw_string(font, Vector2(x_offset, y_pos + line_height * 0.75), display, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, text_color)
+
+## Utility: get total gutter width (accounts for all gutters).
+func _get_gutter_total_width() -> float:
+	var total := 0.0
+	for i in get_gutter_count():
+		total += get_gutter_width(i)
+	return total
+
+# =============================================================================
+# BOOKMARKS — VB6-style code bookmarks
+# =============================================================================
+
+func toggle_bookmark(line: int) -> void:
+	## Toggle a bookmark on the given line (0-based).
+	if line < 0 or line >= get_line_count():
+		return
+	if _bookmarks.has(line):
+		_bookmarks.erase(line)
+		bookmark_toggled.emit(line, false)
+	else:
+		_bookmarks[line] = true
+		bookmark_toggled.emit(line, true)
+	_ensure_bookmark_overlay()
+	if _bookmark_overlay:
+		_bookmark_overlay.queue_redraw()
+
+func goto_next_bookmark() -> void:
+	## Navigate to the next bookmark after the caret line.
+	if _bookmarks.is_empty():
+		return
+	var sorted_lines := _bookmarks.keys()
+	sorted_lines.sort()
+	var current := get_caret_line()
+	for bm_line in sorted_lines:
+		if bm_line > current:
+			set_caret_line(bm_line)
+			center_viewport_to_caret()
+			return
+	# Wrap around to first bookmark
+	set_caret_line(sorted_lines[0])
+	center_viewport_to_caret()
+
+func goto_prev_bookmark() -> void:
+	## Navigate to the previous bookmark before the caret line.
+	if _bookmarks.is_empty():
+		return
+	var sorted_lines := _bookmarks.keys()
+	sorted_lines.sort()
+	var current := get_caret_line()
+	for i in range(sorted_lines.size() - 1, -1, -1):
+		if sorted_lines[i] < current:
+			set_caret_line(sorted_lines[i])
+			center_viewport_to_caret()
+			return
+	# Wrap around to last bookmark
+	set_caret_line(sorted_lines[-1])
+	center_viewport_to_caret()
+
+func clear_all_bookmarks() -> void:
+	## Clear all bookmarks.
+	_bookmarks.clear()
+	if _bookmark_overlay:
+		_bookmark_overlay.queue_redraw()
+
+func get_bookmarks() -> Dictionary:
+	## Return the bookmarks dictionary (line → true).
+	return _bookmarks.duplicate()
+
+func set_bookmarks(bookmarks: Dictionary) -> void:
+	## Restore bookmarks from a saved dictionary.
+	_bookmarks = bookmarks
+	_ensure_bookmark_overlay()
+	if _bookmark_overlay:
+		_bookmark_overlay.queue_redraw()
+
+func _ensure_bookmark_overlay() -> void:
+	if _bookmark_overlay and is_instance_valid(_bookmark_overlay):
+		return
+	_bookmark_overlay = Control.new()
+	_bookmark_overlay.name = "BookmarkOverlay"
+	_bookmark_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_bookmark_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_bookmark_overlay.draw.connect(_draw_bookmarks)
+	add_child(_bookmark_overlay)
+
+func _draw_bookmarks() -> void:
+	## Draw bookmark icons (blue rectangles) in the gutter area.
+	if _bookmarks.is_empty() or not _bookmark_overlay:
+		return
+	var line_height := get_line_height()
+	var first_visible := get_first_visible_line()
+	var last_visible := first_visible + int(size.y / line_height) + 2
+	# Draw in the gutter area (left-most 6 pixels)
+	var bm_color := Color(0.2, 0.5, 1.0, 0.8)  # Blue bookmark
+	var bm_outline := Color(0.4, 0.7, 1.0, 0.6)
+	var icon_x := 2.0
+	var icon_w := 10.0
+	for line_num in _bookmarks:
+		if line_num < first_visible or line_num > last_visible:
+			continue
+		var y_pos := float(line_num - first_visible) * line_height
+		if y_pos < 0.0 or y_pos > size.y:
+			continue
+		var icon_h := line_height - 4.0
+		var rect := Rect2(icon_x, y_pos + 2, icon_w, icon_h)
+		# Draw a filled rectangle with a flag shape
+		_bookmark_overlay.draw_rect(rect, bm_color, true)
+		_bookmark_overlay.draw_rect(rect, bm_outline, false, 1.0)
+		# Small triangle notch on the right side for flag effect
+		var tri_points := PackedVector2Array([
+			Vector2(icon_x + icon_w, y_pos + 2 + icon_h * 0.3),
+			Vector2(icon_x + icon_w + 4, y_pos + 2 + icon_h * 0.5),
+			Vector2(icon_x + icon_w, y_pos + 2 + icon_h * 0.7),
+		])
+		_bookmark_overlay.draw_colored_polygon(tri_points, bm_color)
+
+func save_bookmarks(file_path: String) -> void:
+	## Save bookmarks to a sidecar file (.vg.bookmarks).
+	var bm_path := file_path + ".bookmarks"
+	if _bookmarks.is_empty():
+		if FileAccess.file_exists(bm_path):
+			DirAccess.remove_absolute(bm_path)
+		return
+	var lines: PackedInt32Array = PackedInt32Array()
+	for line_num in _bookmarks:
+		lines.append(line_num)
+	var config := ConfigFile.new()
+	config.set_value("bookmarks", "lines", lines)
+	config.save(bm_path)
+
+func load_bookmarks(file_path: String) -> void:
+	## Load bookmarks from a sidecar file (.vg.bookmarks).
+	var bm_path := file_path + ".bookmarks"
+	_bookmarks.clear()
+	var config := ConfigFile.new()
+	if config.load(bm_path) == OK:
+		var lines = config.get_value("bookmarks", "lines", PackedInt32Array())
+		for line_num in lines:
+			if line_num >= 0 and line_num < get_line_count():
+				_bookmarks[line_num] = true
+	_ensure_bookmark_overlay()
+	if _bookmark_overlay:
+		_bookmark_overlay.queue_redraw()

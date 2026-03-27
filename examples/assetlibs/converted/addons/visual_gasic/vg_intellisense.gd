@@ -16,6 +16,282 @@ static var _method_cache: Dictionary = {}
 static var _property_cache: Dictionary = {}
 
 # =============================================================================
+# VB6 CONTROL TYPE → GODOT TYPE MAPPING
+# =============================================================================
+
+## Maps VB6-style control type names (from the Form Designer) to their
+## underlying Godot class names for ClassDB lookup.
+const VB6_CONTROL_TYPE_MAP: Dictionary = {
+	# Standard VB6 controls → Godot equivalents
+	"CommandButton": "Button", "Button": "Button",
+	"TextBox": "LineEdit", "LineEdit": "LineEdit", "TextEdit": "TextEdit",
+	"Label": "Label", "RichTextLabel": "RichTextLabel",
+	"CheckBox": "CheckBox", "CheckButton": "CheckButton",
+	"OptionButton": "OptionButton", "RadioButton": "CheckBox",
+	"ListBox": "ItemList", "ItemList": "ItemList",
+	"ComboBox": "OptionButton",
+	"PictureBox": "TextureRect", "TextureRect": "TextureRect",
+	"Image": "TextureRect",
+	"Frame": "PanelContainer", "Panel": "Panel", "PanelContainer": "PanelContainer",
+	"Timer": "Timer",
+	"HScrollBar": "HScrollBar", "VScrollBar": "VScrollBar",
+	"HSlider": "HSlider", "VSlider": "VSlider",
+	"ProgressBar": "ProgressBar",
+	"TabContainer": "TabContainer", "TabBar": "TabBar",
+	"Tree": "Tree",
+	"MenuBar": "MenuBar",
+	"FileDialog": "FileDialog",
+	"ColorPicker": "ColorPicker", "ColorPickerButton": "ColorPickerButton",
+	"SpinBox": "SpinBox",
+	"ScrollContainer": "ScrollContainer",
+	"MarginContainer": "MarginContainer",
+	"HBoxContainer": "HBoxContainer", "VBoxContainer": "VBoxContainer",
+	"GridContainer": "GridContainer", "FlowContainer": "FlowContainer",
+	"Sprite2D": "Sprite2D", "AnimatedSprite2D": "AnimatedSprite2D",
+	"Camera2D": "Camera2D", "Camera3D": "Camera3D",
+	"AudioStreamPlayer": "AudioStreamPlayer",
+	"Area2D": "Area2D", "Area3D": "Area3D",
+	"CharacterBody2D": "CharacterBody2D", "CharacterBody3D": "CharacterBody3D",
+	"RigidBody2D": "RigidBody2D", "RigidBody3D": "RigidBody3D",
+	"Line": "Line2D",
+	"DriveListBox": "OptionButton",
+	# Custom controls → base Control
+	"WobblyButton": "Button",
+}
+
+# =============================================================================
+# VB6-STYLE PROPERTY ALIASES — friendly names shown alongside Godot properties
+# =============================================================================
+
+## Extra VB6-friendly property names to show for controls.
+## These are appended to the ClassDB results so VB6 users see familiar names.
+const VB6_CONTROL_PROPERTIES: Dictionary = {
+	"Button": [
+		{"text": "Caption", "kind": "property", "detail": "String — Button text (alias for .text)"},
+		{"text": "Enabled", "kind": "property", "detail": "Boolean — Whether the button is enabled (alias for .disabled inverted)"},
+		{"text": "Visible", "kind": "property", "detail": "Boolean — Whether visible"},
+		{"text": "ToolTipText", "kind": "property", "detail": "String — Tooltip on hover (alias for .tooltip_text)"},
+		{"text": "Flat", "kind": "property", "detail": "Boolean — Flat style with no background"},
+	],
+	"Label": [
+		{"text": "Caption", "kind": "property", "detail": "String — Label text (alias for .text)"},
+		{"text": "Alignment", "kind": "property", "detail": "Integer — Text alignment"},
+		{"text": "AutoSize", "kind": "property", "detail": "Boolean — Auto-size to fit text (alias for .autowrap_mode)"},
+		{"text": "Visible", "kind": "property", "detail": "Boolean — Whether visible"},
+	],
+	"LineEdit": [
+		{"text": "Text", "kind": "property", "detail": "String — Current text content"},
+		{"text": "MaxLength", "kind": "property", "detail": "Integer — Maximum text length (alias for .max_length)"},
+		{"text": "ReadOnly", "kind": "property", "detail": "Boolean — Prevent editing (alias for .editable inverted)"},
+		{"text": "PasswordChar", "kind": "property", "detail": "String — Mask character (alias for .secret)"},
+		{"text": "PlaceholderText", "kind": "property", "detail": "String — Placeholder text"},
+		{"text": "Visible", "kind": "property", "detail": "Boolean — Whether visible"},
+	],
+	"TextEdit": [
+		{"text": "Text", "kind": "property", "detail": "String — Full text content"},
+		{"text": "ReadOnly", "kind": "property", "detail": "Boolean — Prevent editing (alias for .editable inverted)"},
+		{"text": "WordWrap", "kind": "property", "detail": "Boolean — Wrap long lines (alias for .wrap_mode)"},
+		{"text": "Visible", "kind": "property", "detail": "Boolean — Whether visible"},
+		{"text": "SelectAll", "kind": "method", "detail": "select_all() — Select all text"},
+	],
+	"CheckBox": [
+		{"text": "Caption", "kind": "property", "detail": "String — Checkbox label text (alias for .text)"},
+		{"text": "Value", "kind": "property", "detail": "Boolean — Checked state (alias for .button_pressed)"},
+		{"text": "Checked", "kind": "property", "detail": "Boolean — Whether checked (alias for .button_pressed)"},
+		{"text": "Visible", "kind": "property", "detail": "Boolean — Whether visible"},
+	],
+	"OptionButton": [
+		{"text": "ListIndex", "kind": "property", "detail": "Integer — Selected index (alias for .selected)"},
+		{"text": "ListCount", "kind": "property", "detail": "Integer — Number of items (alias for .item_count)"},
+		{"text": "Text", "kind": "property", "detail": "String — Text of selected item"},
+		{"text": "AddItem", "kind": "method", "detail": "add_item(label: String) — Add an item"},
+		{"text": "Clear", "kind": "method", "detail": "clear() — Remove all items"},
+		{"text": "RemoveItem", "kind": "method", "detail": "remove_item(idx: Integer) — Remove item at index"},
+		{"text": "Visible", "kind": "property", "detail": "Boolean — Whether visible"},
+	],
+	"ItemList": [
+		{"text": "ListCount", "kind": "property", "detail": "Integer — Number of items (alias for .item_count)"},
+		{"text": "ListIndex", "kind": "property", "detail": "Integer — Selected index"},
+		{"text": "AddItem", "kind": "method", "detail": "add_item(text: String) — Add an item"},
+		{"text": "Clear", "kind": "method", "detail": "clear() — Remove all items"},
+		{"text": "RemoveItem", "kind": "method", "detail": "remove_item(idx: Integer) — Remove item by index"},
+		{"text": "Visible", "kind": "property", "detail": "Boolean — Whether visible"},
+	],
+	"TextureRect": [
+		{"text": "Picture", "kind": "property", "detail": "Texture2D — The image (alias for .texture)"},
+		{"text": "Stretch", "kind": "property", "detail": "Integer — Stretch mode (alias for .stretch_mode)"},
+		{"text": "Visible", "kind": "property", "detail": "Boolean — Whether visible"},
+	],
+	"Timer": [
+		{"text": "Interval", "kind": "property", "detail": "Double — Seconds between ticks (alias for .wait_time)"},
+		{"text": "Enabled", "kind": "property", "detail": "Boolean — Whether running (alias for .autostart / is stopped)"},
+		{"text": "Start", "kind": "method", "detail": "start([time]) — Start the timer"},
+		{"text": "Stop", "kind": "method", "detail": "stop() — Stop the timer"},
+	],
+	"ProgressBar": [
+		{"text": "Value", "kind": "property", "detail": "Double — Current value"},
+		{"text": "Min", "kind": "property", "detail": "Double — Minimum value (alias for .min_value)"},
+		{"text": "Max", "kind": "property", "detail": "Double — Maximum value (alias for .max_value)"},
+		{"text": "Visible", "kind": "property", "detail": "Boolean — Whether visible"},
+	],
+	"HSlider": [
+		{"text": "Value", "kind": "property", "detail": "Double — Current value"},
+		{"text": "Min", "kind": "property", "detail": "Double — Minimum value (alias for .min_value)"},
+		{"text": "Max", "kind": "property", "detail": "Double — Maximum value (alias for .max_value)"},
+		{"text": "Step", "kind": "property", "detail": "Double — Step size (alias for .step)"},
+	],
+	"VSlider": [
+		{"text": "Value", "kind": "property", "detail": "Double — Current value"},
+		{"text": "Min", "kind": "property", "detail": "Double — Minimum value (alias for .min_value)"},
+		{"text": "Max", "kind": "property", "detail": "Double — Maximum value (alias for .max_value)"},
+		{"text": "Step", "kind": "property", "detail": "Double — Step size (alias for .step)"},
+	],
+	"SpinBox": [
+		{"text": "Value", "kind": "property", "detail": "Double — Current value"},
+		{"text": "Min", "kind": "property", "detail": "Double — Minimum value (alias for .min_value)"},
+		{"text": "Max", "kind": "property", "detail": "Double — Maximum value (alias for .max_value)"},
+		{"text": "Step", "kind": "property", "detail": "Double — Step size (alias for .step)"},
+	],
+	"RichTextLabel": [
+		{"text": "Text", "kind": "property", "detail": "String — BBCode text content"},
+		{"text": "Clear", "kind": "method", "detail": "clear() — Remove all text"},
+		{"text": "AppendText", "kind": "method", "detail": "append_text(bbcode: String) — Append BBCode text"},
+		{"text": "Visible", "kind": "property", "detail": "Boolean — Whether visible"},
+	],
+}
+
+# =============================================================================
+# VB6 GLOBAL OBJECTS — App, Screen, Clipboard, Err, Debug, Printer
+# =============================================================================
+
+## Members available via dot-access on VB6 global objects.
+const VB6_GLOBAL_OBJECTS: Dictionary = {
+	"App": [
+		{"text": "Title", "kind": "property", "detail": "String — Application title"},
+		{"text": "Path", "kind": "property", "detail": "String — Application executable path"},
+		{"text": "EXEName", "kind": "property", "detail": "String — Executable filename"},
+		{"text": "Major", "kind": "property", "detail": "Integer — Major version number"},
+		{"text": "Minor", "kind": "property", "detail": "Integer — Minor version number"},
+		{"text": "Revision", "kind": "property", "detail": "Integer — Revision number"},
+		{"text": "ProductName", "kind": "property", "detail": "String — Product name"},
+		{"text": "CompanyName", "kind": "property", "detail": "String — Company name"},
+		{"text": "LegalCopyright", "kind": "property", "detail": "String — Copyright text"},
+		{"text": "Comments", "kind": "property", "detail": "String — Application comments"},
+	],
+	"Screen": [
+		{"text": "Width", "kind": "property", "detail": "Integer — Screen width in pixels"},
+		{"text": "Height", "kind": "property", "detail": "Integer — Screen height in pixels"},
+		{"text": "TwipsPerPixelX", "kind": "property", "detail": "Double — Twips per pixel (horizontal)"},
+		{"text": "TwipsPerPixelY", "kind": "property", "detail": "Double — Twips per pixel (vertical)"},
+		{"text": "MousePointer", "kind": "property", "detail": "Integer — Current mouse cursor shape"},
+		{"text": "ActiveForm", "kind": "property", "detail": "Form — Currently active form"},
+		{"text": "ActiveControl", "kind": "property", "detail": "Control — Currently focused control"},
+		{"text": "FontCount", "kind": "property", "detail": "Integer — Number of available fonts"},
+		{"text": "Fonts", "kind": "property", "detail": "String() — Array of font names"},
+	],
+	"Clipboard": [
+		{"text": "Clear", "kind": "method", "detail": "Clear() — Clears the clipboard"},
+		{"text": "GetText", "kind": "method", "detail": "GetText() As String — Gets text from clipboard"},
+		{"text": "SetText", "kind": "method", "detail": "SetText(text As String) — Sets text to clipboard"},
+		{"text": "GetData", "kind": "method", "detail": "GetData(format) As Variant — Gets data in format"},
+		{"text": "SetData", "kind": "method", "detail": "SetData(format, data) — Sets data in format"},
+		{"text": "GetFormat", "kind": "method", "detail": "GetFormat(format) As Boolean — Checks if format available"},
+	],
+	"Err": [
+		{"text": "Number", "kind": "property", "detail": "Integer — Error number (0 = no error)"},
+		{"text": "Description", "kind": "property", "detail": "String — Error description text"},
+		{"text": "Source", "kind": "property", "detail": "String — Source of the error"},
+		{"text": "HelpFile", "kind": "property", "detail": "String — Help file for the error"},
+		{"text": "HelpContext", "kind": "property", "detail": "Integer — Help context ID"},
+		{"text": "Clear", "kind": "method", "detail": "Clear() — Clears the current error"},
+		{"text": "Raise", "kind": "method", "detail": "Raise(number, [source], [description]) — Raises an error"},
+	],
+	"Debug": [
+		{"text": "Print", "kind": "method", "detail": "Print(text As String) — Output to Immediate Window"},
+		{"text": "Assert", "kind": "method", "detail": "Assert(condition As Boolean, [message]) — Break if false"},
+	],
+	"Printer": [
+		{"text": "Print", "kind": "method", "detail": "Print(text As String) — Print text"},
+		{"text": "NewPage", "kind": "method", "detail": "NewPage() — Start a new page"},
+		{"text": "EndDoc", "kind": "method", "detail": "EndDoc() — Finish printing"},
+		{"text": "KillDoc", "kind": "method", "detail": "KillDoc() — Cancel print job"},
+	],
+}
+
+# =============================================================================
+# VB6 STRING MEMBERS — for String variable dot-completion
+# =============================================================================
+
+const VB6_STRING_MEMBERS: Array[Dictionary] = [
+	{"text": "Length", "kind": "property", "detail": "Integer — Number of characters (alias for Len())"},
+	{"text": "ToUpper", "kind": "method", "detail": "ToUpper() As String — Convert to uppercase"},
+	{"text": "ToLower", "kind": "method", "detail": "ToLower() As String — Convert to lowercase"},
+	{"text": "Trim", "kind": "method", "detail": "Trim() As String — Remove leading/trailing whitespace"},
+	{"text": "Contains", "kind": "method", "detail": "Contains(substr As String) As Boolean — Check if contains substring"},
+	{"text": "StartsWith", "kind": "method", "detail": "StartsWith(prefix As String) As Boolean — Check if starts with prefix"},
+	{"text": "EndsWith", "kind": "method", "detail": "EndsWith(suffix As String) As Boolean — Check if ends with suffix"},
+	{"text": "Replace", "kind": "method", "detail": "Replace(find As String, replacement As String) As String — Replace occurrences"},
+	{"text": "Split", "kind": "method", "detail": "Split(delimiter As String) As String() — Split into array"},
+	{"text": "Substring", "kind": "method", "detail": "Substring(start As Integer, [length]) As String — Extract portion"},
+	{"text": "IndexOf", "kind": "method", "detail": "IndexOf(substr As String) As Integer — Find position of substring"},
+	{"text": "PadLeft", "kind": "method", "detail": "PadLeft(totalWidth As Integer, [padChar]) As String — Pad from left"},
+	{"text": "PadRight", "kind": "method", "detail": "PadRight(totalWidth As Integer, [padChar]) As String — Pad from right"},
+	{"text": "Insert", "kind": "method", "detail": "Insert(index As Integer, value As String) As String — Insert at position"},
+	{"text": "Remove", "kind": "method", "detail": "Remove(start As Integer, [count]) As String — Remove characters"},
+	{"text": "Chars", "kind": "method", "detail": "Chars(index As Integer) As String — Character at index"},
+]
+
+# =============================================================================
+# VB6 COLLECTION / DICTIONARY MEMBERS
+# =============================================================================
+
+const VB6_COLLECTION_MEMBERS: Array[Dictionary] = [
+	{"text": "Add", "kind": "method", "detail": "Add(item, [key], [before], [after]) — Add item to collection"},
+	{"text": "Remove", "kind": "method", "detail": "Remove(index) — Remove item by index or key"},
+	{"text": "Item", "kind": "method", "detail": "Item(index) As Variant — Get item by index or key"},
+	{"text": "Count", "kind": "property", "detail": "Integer — Number of items"},
+	{"text": "Clear", "kind": "method", "detail": "Clear() — Remove all items"},
+]
+
+const VB6_DICTIONARY_MEMBERS: Array[Dictionary] = [
+	{"text": "Add", "kind": "method", "detail": "Add(key, item) — Add key-value pair"},
+	{"text": "Remove", "kind": "method", "detail": "Remove(key) — Remove item by key"},
+	{"text": "Item", "kind": "method", "detail": "Item(key) As Variant — Get/set item by key"},
+	{"text": "Exists", "kind": "method", "detail": "Exists(key) As Boolean — Check if key exists"},
+	{"text": "Count", "kind": "property", "detail": "Integer — Number of key-value pairs"},
+	{"text": "Keys", "kind": "method", "detail": "Keys() As Variant() — Array of all keys"},
+	{"text": "Items", "kind": "method", "detail": "Items() As Variant() — Array of all values"},
+	{"text": "RemoveAll", "kind": "method", "detail": "RemoveAll() — Remove all items"},
+	{"text": "CompareMode", "kind": "property", "detail": "Integer — Key comparison mode (0=Binary, 1=Text)"},
+]
+
+# =============================================================================
+# VB6 FORM MEMBERS — shown for Me. and Form.
+# =============================================================================
+
+const VB6_FORM_MEMBERS: Array[Dictionary] = [
+	{"text": "Caption", "kind": "property", "detail": "String — Form title bar text"},
+	{"text": "BackColor", "kind": "property", "detail": "Color — Form background color"},
+	{"text": "Width", "kind": "property", "detail": "Integer — Form width in pixels"},
+	{"text": "Height", "kind": "property", "detail": "Integer — Form height in pixels"},
+	{"text": "Left", "kind": "property", "detail": "Integer — Form left position"},
+	{"text": "Top", "kind": "property", "detail": "Integer — Form top position"},
+	{"text": "Visible", "kind": "property", "detail": "Boolean — Whether the form is visible"},
+	{"text": "Enabled", "kind": "property", "detail": "Boolean — Whether the form accepts input"},
+	{"text": "WindowState", "kind": "property", "detail": "Integer — 0=Normal, 1=Minimized, 2=Maximized"},
+	{"text": "MousePointer", "kind": "property", "detail": "Integer — Mouse cursor shape"},
+	{"text": "Name", "kind": "property", "detail": "String — Form name"},
+	{"text": "ScaleWidth", "kind": "property", "detail": "Integer — Internal drawing width"},
+	{"text": "ScaleHeight", "kind": "property", "detail": "Integer — Internal drawing height"},
+	{"text": "Show", "kind": "method", "detail": "Show([modal]) — Display the form"},
+	{"text": "Hide", "kind": "method", "detail": "Hide() — Hide the form"},
+	{"text": "Refresh", "kind": "method", "detail": "Refresh() — Force repaint"},
+	{"text": "Print", "kind": "method", "detail": "Print(text As String) — Print text on form surface"},
+	{"text": "CLS", "kind": "method", "detail": "CLS() — Clear form drawing surface"},
+	{"text": "Controls", "kind": "property", "detail": "Collection — All controls on the form"},
+]
+
+# =============================================================================
 # VB6 KEYWORDS
 # =============================================================================
 
@@ -296,6 +572,94 @@ const SNIPPETS: Array[Dictionary] = [
 ]
 
 # =============================================================================
+# GODOT API COMPLETIONS — common methods/properties used without dot-access
+# =============================================================================
+
+const GODOT_API_COMPLETIONS: Array[Dictionary] = [
+	# CharacterBody2D / CharacterBody3D — Movement
+	{"name": "move_and_slide", "signature": "move_and_slide() As Boolean", "description": "Moves the body based on velocity, sliding along collisions (CharacterBody2D/3D)"},
+	{"name": "is_on_floor", "signature": "is_on_floor() As Boolean", "description": "True if on the floor after last move_and_slide (CharacterBody2D/3D)"},
+	{"name": "is_on_wall", "signature": "is_on_wall() As Boolean", "description": "True if touching a wall after last move_and_slide (CharacterBody2D/3D)"},
+	{"name": "is_on_ceiling", "signature": "is_on_ceiling() As Boolean", "description": "True if touching the ceiling after last move_and_slide (CharacterBody2D/3D)"},
+	{"name": "get_slide_collision", "signature": "get_slide_collision(idx As Integer) As KinematicCollision2D", "description": "Returns collision info from last move_and_slide"},
+	{"name": "get_slide_collision_count", "signature": "get_slide_collision_count() As Integer", "description": "Returns number of collisions from last move_and_slide"},
+
+	# Node — Lifecycle callbacks
+	{"name": "_ready", "signature": "Sub _Ready()", "description": "Called when the node enters the scene tree for the first time"},
+	{"name": "_process", "signature": "Sub _Process(delta As Single)", "description": "Called every frame. delta = seconds since last frame"},
+	{"name": "_physics_process", "signature": "Sub _PhysicsProcess(delta As Single)", "description": "Called every physics frame (default 60fps). Use for physics movement"},
+	{"name": "_input", "signature": "Sub _Input(event As InputEvent)", "description": "Called on any input event (keyboard, mouse, gamepad)"},
+	{"name": "_unhandled_input", "signature": "Sub _UnhandledInput(event As InputEvent)", "description": "Called for input not handled by _input or GUI"},
+	{"name": "_draw", "signature": "Sub _Draw()", "description": "Called when the CanvasItem needs redrawing. Use draw_* commands inside"},
+	{"name": "_enter_tree", "signature": "Sub _EnterTree()", "description": "Called when node enters the scene tree"},
+	{"name": "_exit_tree", "signature": "Sub _ExitTree()", "description": "Called when node exits the scene tree"},
+
+	# Node — Scene tree
+	{"name": "get_node", "signature": "get_node(path As NodePath) As Node", "description": "Returns the node at the given path relative to this node"},
+	{"name": "get_parent", "signature": "get_parent() As Node", "description": "Returns this node's parent"},
+	{"name": "get_child", "signature": "get_child(idx As Integer) As Node", "description": "Returns a child node by index"},
+	{"name": "get_children", "signature": "get_children() As Array", "description": "Returns all child nodes as an Array"},
+	{"name": "get_child_count", "signature": "get_child_count() As Integer", "description": "Returns the number of child nodes"},
+	{"name": "add_child", "signature": "add_child(node As Node)", "description": "Adds a child node to this node"},
+	{"name": "remove_child", "signature": "remove_child(node As Node)", "description": "Removes a child node without freeing it"},
+	{"name": "queue_free", "signature": "queue_free()", "description": "Queues this node for deletion at end of frame"},
+	{"name": "get_tree", "signature": "get_tree() As SceneTree", "description": "Returns the SceneTree this node belongs to"},
+	{"name": "is_inside_tree", "signature": "is_inside_tree() As Boolean", "description": "True if this node is currently in the scene tree"},
+	{"name": "get_index", "signature": "get_index() As Integer", "description": "Returns this node's index among its siblings"},
+
+	# Node2D — Transform
+	{"name": "look_at", "signature": "look_at(target As Vector2)", "description": "Rotates to point at the target position (Node2D)"},
+	{"name": "get_global_mouse_position", "signature": "get_global_mouse_position() As Vector2", "description": "Returns mouse position in global coordinates"},
+	{"name": "to_local", "signature": "to_local(global_point As Vector2) As Vector2", "description": "Converts global coordinates to local"},
+	{"name": "to_global", "signature": "to_global(local_point As Vector2) As Vector2", "description": "Converts local coordinates to global"},
+
+	# CanvasItem — Visibility
+	{"name": "show", "signature": "show()", "description": "Makes this node visible"},
+	{"name": "hide", "signature": "hide()", "description": "Makes this node invisible"},
+	{"name": "queue_redraw", "signature": "queue_redraw()", "description": "Requests a redraw — triggers _Draw() again"},
+	{"name": "is_visible", "signature": "is_visible() As Boolean", "description": "Returns whether this node is visible"},
+
+	# Object — Signals
+	{"name": "connect", "signature": "connect(signal_name As String, callable As Callable)", "description": "Connects a signal to a callback"},
+	{"name": "disconnect", "signature": "disconnect(signal_name As String, callable As Callable)", "description": "Disconnects a signal from a callback"},
+	{"name": "emit_signal", "signature": "emit_signal(signal_name As String, ...)", "description": "Emits the given signal with optional arguments"},
+	{"name": "is_connected", "signature": "is_connected(signal_name As String, callable As Callable) As Boolean", "description": "True if signal is connected to the callable"},
+
+	# Node — Processing control
+	{"name": "set_process", "signature": "set_process(enable As Boolean)", "description": "Enables or disables _Process for this node"},
+	{"name": "set_physics_process", "signature": "set_physics_process(enable As Boolean)", "description": "Enables or disables _PhysicsProcess for this node"},
+	{"name": "set_input_as_handled", "signature": "set_input_as_handled()", "description": "Marks input event as handled (stops propagation)"},
+
+	# Input singleton
+	{"name": "Input.is_action_pressed", "signature": "Input.is_action_pressed(action As String) As Boolean", "description": "True while the input action is held down"},
+	{"name": "Input.is_action_just_pressed", "signature": "Input.is_action_just_pressed(action As String) As Boolean", "description": "True only on the frame the action was first pressed"},
+	{"name": "Input.is_action_just_released", "signature": "Input.is_action_just_released(action As String) As Boolean", "description": "True only on the frame the action was released"},
+	{"name": "Input.get_axis", "signature": "Input.get_axis(neg As String, pos As String) As Single", "description": "Returns a value between -1 and 1 for two opposing actions"},
+	{"name": "Input.get_vector", "signature": "Input.get_vector(negX As String, posX As String, negY As String, posY As String) As Vector2", "description": "Returns a 2D input vector from four actions"},
+
+	# PackedScene
+	{"name": "instantiate", "signature": "instantiate() As Node", "description": "Creates an instance of a PackedScene"},
+
+	# Timer
+	{"name": "start", "signature": "start([time As Single])", "description": "Starts or restarts the Timer"},
+	{"name": "stop", "signature": "stop()", "description": "Stops the Timer"},
+
+	# Common properties (used directly on self)
+	{"name": "velocity", "signature": "velocity As Vector2", "description": "Current velocity of a CharacterBody2D/3D"},
+	{"name": "position", "signature": "position As Vector2", "description": "Position relative to parent (Node2D/Control)"},
+	{"name": "global_position", "signature": "global_position As Vector2", "description": "Position in world coordinates (Node2D)"},
+	{"name": "rotation", "signature": "rotation As Single", "description": "Rotation in radians (Node2D/Node3D)"},
+	{"name": "rotation_degrees", "signature": "rotation_degrees As Single", "description": "Rotation in degrees (Node2D/Node3D)"},
+	{"name": "scale", "signature": "scale As Vector2", "description": "Scale of the node (Node2D/Node3D)"},
+	{"name": "visible", "signature": "visible As Boolean", "description": "Whether the node is visible (CanvasItem/Node3D)"},
+	{"name": "modulate", "signature": "modulate As Color", "description": "Color tint applied to this node and children"},
+	{"name": "self_modulate", "signature": "self_modulate As Color", "description": "Color tint applied to this node only (not children)"},
+	{"name": "z_index", "signature": "z_index As Integer", "description": "Drawing order. Higher = drawn on top"},
+	{"name": "name", "signature": "name As String", "description": "The name of this node in the scene tree"},
+	{"name": "process_mode", "signature": "process_mode As Integer", "description": "Controls when this node processes (inherit/pausable/always/disabled)"},
+]
+
+# =============================================================================
 # VARIANT TYPE MEMBERS (not in ClassDB)
 # =============================================================================
 
@@ -533,6 +897,16 @@ static func get_completions(prefix: String, context: Dictionary = {}) -> Array[D
 				"insert_text": snippet["code"]
 			})
 	
+	# Godot API methods/properties (common game-dev calls)
+	for api_info in GODOT_API_COMPLETIONS:
+		if api_info["name"].to_lower().begins_with(prefix_lower):
+			results.append({
+				"text": api_info["name"],
+				"kind": "function" if "(" in api_info["signature"] else "property",
+				"detail": api_info["signature"],
+				"documentation": api_info["description"]
+			})
+
 	# Control names from context (if provided)
 	if context.has("controls"):
 		for ctrl_name in context["controls"]:
@@ -737,3 +1111,56 @@ static func get_property_completions(type_name: String) -> Array[Dictionary]:
 	
 	_property_cache[type_name] = results
 	return results
+
+# =============================================================================
+# VB6 DOT-COMPLETION HELPERS
+# =============================================================================
+
+## Resolves a VB6 form-designer control type to a Godot class name.
+## e.g. "CommandButton" → "Button", "TextBox" → "LineEdit"
+static func resolve_control_type(vb6_type: String) -> String:
+	if VB6_CONTROL_TYPE_MAP.has(vb6_type):
+		return VB6_CONTROL_TYPE_MAP[vb6_type]
+	# Try direct — already a Godot class name
+	if ClassDB.class_exists(vb6_type):
+		return vb6_type
+	return "Control"  # safe fallback
+
+## Returns VB6-friendly property aliases for a Godot control type.
+## These are shown at the top of the completion list with VB6-style names.
+static func get_vb6_property_aliases(godot_type: String) -> Array[Dictionary]:
+	if VB6_CONTROL_PROPERTIES.has(godot_type):
+		return VB6_CONTROL_PROPERTIES[godot_type]
+	return []
+
+## Returns members for a VB6 global object (App, Screen, Err, etc.)
+## Returns empty array if name is not a known global object.
+static func get_global_object_members(obj_name: String) -> Array[Dictionary]:
+	# Case-insensitive lookup
+	for key in VB6_GLOBAL_OBJECTS:
+		if key.nocasecmp_to(obj_name) == 0:
+			return VB6_GLOBAL_OBJECTS[key]
+	return []
+
+## Returns true if the name is a VB6 global object.
+static func is_global_object(name: String) -> bool:
+	for key in VB6_GLOBAL_OBJECTS:
+		if key.nocasecmp_to(name) == 0:
+			return true
+	return false
+
+## Returns form-level members (for Me. completion).
+static func get_form_members() -> Array[Dictionary]:
+	return VB6_FORM_MEMBERS
+
+## Returns String type members (for String variable dot-completion).
+static func get_string_members() -> Array[Dictionary]:
+	return VB6_STRING_MEMBERS
+
+## Returns Collection members.
+static func get_collection_members() -> Array[Dictionary]:
+	return VB6_COLLECTION_MEMBERS
+
+## Returns Dictionary members.
+static func get_dictionary_members() -> Array[Dictionary]:
+	return VB6_DICTIONARY_MEMBERS

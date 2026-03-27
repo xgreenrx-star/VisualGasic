@@ -994,6 +994,9 @@ func load_file(path: String) -> void:
 		_dirty = false
 		_rebuild_proc_list()
 		_rebuild_object_combo()
+		# Load bookmarks for this file
+		if _code_edit.has_method("load_bookmarks"):
+			_code_edit.load_bookmarks(path)
 		# Update status
 		print("VG Code Editor: Loaded ", path)
 	else:
@@ -1010,6 +1013,9 @@ func save_file() -> void:
 		f.store_string(_code_edit.text)
 		f.close()
 		_dirty = false
+		# Save bookmarks alongside the file
+		if _code_edit.has_method("save_bookmarks"):
+			_code_edit.save_bookmarks(_vg_path)
 		# Notify Godot's filesystem so it doesn't treat this as an
 		# external modification and prompt "reload from disk?" on focus.
 		if Engine.is_editor_hint():
@@ -1133,6 +1139,9 @@ var _control_info_list: Array[Dictionary] = []
 ## Called from the plugin to store the complete control metadata.
 func set_control_info_list(info_list: Array[Dictionary]) -> void:
 	_control_info_list = info_list
+	# Forward to VGCodeEdit so dot-completion knows each control's type
+	if _code_edit and _code_edit.has_method("set_control_info"):
+		_code_edit.set_control_info(info_list)
 	# Update the index map if it's currently showing
 	_update_index_map_for_current_object()
 
