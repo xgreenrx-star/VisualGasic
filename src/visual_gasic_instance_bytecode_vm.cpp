@@ -1352,6 +1352,14 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     push_value(owner ? Variant(owner) : Variant());
                     break;
                 }
+                // Form name reference (e.g. "Form1") → same as Me (self reference)
+                if (owner) {
+                    Node *owner_node = Object::cast_to<Node>(owner);
+                    if (owner_node && name.nocasecmp_to(owner_node->get_name()) == 0) {
+                        push_value(Variant(owner));
+                        break;
+                    }
+                }
                 // "Input" singleton
                 if (name.nocasecmp_to("Input") == 0) {
                     push_value(Variant(Input::get_singleton()));
@@ -3122,8 +3130,17 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         // BackColor → StyleBox bg_color or self_modulate fallback
                         else if (prop_name == "BackColor") {
                             Control *ctrl = Object::cast_to<Control>(obj);
+                            // If obj is a Window (form root), target _FormBackground Panel child
+                            if (!ctrl) {
+                                Window *win = Object::cast_to<Window>(obj);
+                                if (win) {
+                                    Node *bg = win->find_child("_FormBackground", false, false);
+                                    if (bg) ctrl = Object::cast_to<Control>(bg);
+                                }
+                            }
                             if (ctrl) {
-                                Ref<StyleBox> sb = ctrl->get_theme_stylebox("normal");
+                                String sb_name = (ctrl->get_class() == "Panel") ? "panel" : "normal";
+                                Ref<StyleBox> sb = ctrl->get_theme_stylebox(sb_name);
                                 if (sb.is_valid()) {
                                     Ref<StyleBoxFlat> sbf = sb;
                                     if (sbf.is_valid()) {
@@ -3407,11 +3424,21 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         // BackColor → StyleBox override bg_color
                         else if (prop_name == "BackColor") {
                             Control *ctrl = Object::cast_to<Control>(obj);
+                            // If obj is a Window (form root), target _FormBackground Panel child
+                            if (!ctrl) {
+                                Window *win = Object::cast_to<Window>(obj);
+                                if (win) {
+                                    Node *bg = win->find_child("_FormBackground", false, false);
+                                    if (bg) ctrl = Object::cast_to<Control>(bg);
+                                }
+                            }
                             if (ctrl) {
                                 Color c = value;
-                                // Create a new StyleBoxFlat override for the "normal" stylebox
+                                // Create a new StyleBoxFlat override for the "normal" / "panel" stylebox
                                 Ref<StyleBoxFlat> sbf;
-                                Ref<StyleBox> existing = ctrl->get_theme_stylebox("normal");
+                                // Panel uses "panel" theme stylebox, other Controls use "normal"
+                                String sb_name = (ctrl->get_class() == "Panel") ? "panel" : "normal";
+                                Ref<StyleBox> existing = ctrl->get_theme_stylebox(sb_name);
                                 if (existing.is_valid()) {
                                     Ref<StyleBoxFlat> existing_flat = existing;
                                     if (existing_flat.is_valid()) {
@@ -3422,7 +3449,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                                     sbf.instantiate();
                                 }
                                 sbf->set_bg_color(c);
-                                ctrl->add_theme_stylebox_override("normal", sbf);
+                                ctrl->add_theme_stylebox_override(sb_name, sbf);
                             }
                             push_value(base);
                             break;

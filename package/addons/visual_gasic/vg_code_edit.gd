@@ -209,6 +209,10 @@ func _setup_syntax_highlighter() -> void:
 	for func_info in VGIntelliSense.BUILTIN_FUNCTIONS:
 		highlighter.add_keyword_color(func_info["name"], Color(0.9, 0.8, 0.4))
 	
+	# Built-in constants (magenta-pink — distinct from variables, keywords, and functions)
+	for const_info in VGIntelliSense.VB6_CONSTANTS:
+		highlighter.add_keyword_color(const_info["name"], Color(0.85, 0.55, 0.85))
+	
 	# String color (orange)
 	highlighter.add_color_region("\"", "\"", Color(0.9, 0.6, 0.4))
 	
