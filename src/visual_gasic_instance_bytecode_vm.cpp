@@ -1454,6 +1454,26 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     }
                 }
                 
+                // Cross-form reference: search scene tree root for another
+                // loaded form Window with the matching name (e.g. "Form1"
+                // accessed from MyCalculator context).  VB6 allows referencing
+                // any loaded form by its Name.
+                if (val.get_type() == Variant::NIL && owner) {
+                    SceneTree *tree = Object::cast_to<SceneTree>(Engine::get_singleton()->get_main_loop());
+                    if (tree) {
+                        Window *root = tree->get_root();
+                        if (root) {
+                            for (int i = 0; i < root->get_child_count(); i++) {
+                                Node *child = root->get_child(i);
+                                if (child && name.nocasecmp_to(child->get_name()) == 0) {
+                                    val = Variant(child);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+
                 // If not found in variables, search for child control by name (VB6 style)
                 if (val.get_type() == Variant::NIL && owner) {
                     Node* owner_node = Object::cast_to<Node>(owner);

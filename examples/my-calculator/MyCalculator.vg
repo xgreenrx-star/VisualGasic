@@ -18,12 +18,13 @@ Sub btnEquals_Click()
 	End Sub
 
 	Sub btnPlay_Click()
-		Me.BackColor = vb
+		Me.BackColor = vbGreen
 		MsgBox ("test")
-		MsgBox "test2"
-	End Sub
+		form1.BackColor = vbBlue
+			MsgBox "test2"
+		End Sub
 
-	Sub btnOptions_Click()
-		fg
-		GoTo thisisalable
-	End Sub
+		Sub btnOptions_Click()
+			fg
+			GoTo thisisalable
+		End Sub

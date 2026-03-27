@@ -18,6 +18,7 @@
 #include <godot_cpp/classes/label.hpp>
 #include <godot_cpp/classes/v_box_container.hpp>
 #include <godot_cpp/classes/display_server.hpp>
+#include <godot_cpp/classes/rendering_server.hpp>
 #include <godot_cpp/classes/os.hpp>
 #include <godot_cpp/classes/input.hpp>
 #include <godot_cpp/classes/time.hpp>
@@ -350,6 +351,12 @@ bool call_builtin(VisualGasicInstance *instance, const String &p_method, const A
         // Button type is lowest 4 bits
         int btn_type = buttons & 0x0F;
 
+        // Force Godot to render the current frame before blocking.
+        // BackColor or other visual changes made before MsgBox won't
+        // appear until the render loop runs, but OS::execute() blocks
+        // the main thread, so we must flush one frame here.
+        RenderingServer::get_singleton()->force_draw(true, 0.0);
+
         // Use native OS dialog — always works, doesn't hang the Godot loop
         r_ret = native_msgbox(msg, title, btn_type);
         return true;
@@ -360,6 +367,8 @@ bool call_builtin(VisualGasicInstance *instance, const String &p_method, const A
         String prompt = (p_args.size() > 0) ? String(p_args[0]) : String("");
         String title  = (p_args.size() > 1) ? String(p_args[1]) : String("VisualGasic");
         String def    = (p_args.size() > 2) ? String(p_args[2]) : String("");
+        // Flush pending visual changes before blocking on OS dialog
+        RenderingServer::get_singleton()->force_draw(true, 0.0);
         r_ret = native_input_box(prompt, title, def);
         return true;
     }
