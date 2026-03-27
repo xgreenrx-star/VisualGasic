@@ -34,6 +34,9 @@ var _known_variables: Array[String] = []
 var _control_info_list: Array[Dictionary] = []  ## Full control info from form designer (name, type, rect, etc.)
 var _variable_types: Dictionary = {}             ## Variable name → declared type (from Dim x As Type)
 var _known_enums: Dictionary = {}                ## Enum name → Array[String] of member names
+var _known_udts: Dictionary = {}                 ## Type name → Array[Dictionary] of {name, type} fields
+var _known_functions: Dictionary = {}            ## Function name (lower) → return type (String)
+var _imported_modules: Array[Dictionary] = []    ## [{name, path, subs, variables, constants}]
 var _completion_active: bool = false
 var _last_word: String = ""
 var _prev_caret_line: int = -1  # Track line changes for auto-capitalize
@@ -309,6 +312,19 @@ func _on_code_completion_requested() -> void:
 	# Check if we're after a dot (member access)
 	var before_cursor = line.substr(0, column)
 	if "." in before_cursor:
+		# ── With block context: bare .Property inside With...End With ──
+		# If the text before cursor looks like just  <whitespace>.  with no
+		# identifier before the dot (or the dot is the first non-space char),
+		# resolve the enclosing With object.
+		var stripped_bc := before_cursor.strip_edges()
+		if stripped_bc == "." or stripped_bc.begins_with("."):
+			# Check if the very first token is a dot (bare .Property in With block)
+			var _bc_no_ws := before_cursor.lstrip(" \t")
+			if _bc_no_ws.begins_with("."):
+				var with_type := _resolve_with_context()
+				if not with_type.is_empty():
+					_show_member_completions_for_type(with_type)
+					return
 		# Extract the dot-chain expression before cursor.
 		# e.g. "  Me.Text1." → ["Me", "Text1"]
 		#      "  x = obj.Method." → ["obj", "Method"]
@@ -318,16 +334,52 @@ func _on_code_completion_requested() -> void:
 			# Get the full expression before the last dot
 			var expr = parts[0].strip_edges().get_slice(" ", -1)
 			# Also strip away any leading = or ( for cases like "x = obj."
-			for strip_char in ["=", "(", ",", "+"]:
+			for strip_char in ["=", "(", ",", "+", "-", "*", "/", "&"]:
 				if strip_char in expr:
 					expr = expr.rsplit(strip_char, true, 1)[-1].strip_edges()
+			
+			# ── Array element dot: arr(0). or col(key). ──
+			# If expr ends with ), extract the base and resolve element type
+			if expr.ends_with(")"):
+				var paren_pos := expr.rfind("(")
+				if paren_pos > 0:
+					var arr_name := expr.substr(0, paren_pos).strip_edges()
+					# Strip leading operators from arr_name too
+					for sc in ["=", "(", ",", "+", "-", "*", "/", "&"]:
+						if sc in arr_name:
+							arr_name = arr_name.rsplit(sc, true, 1)[-1].strip_edges()
+					var elem_type := _infer_array_element_type(arr_name)
+					if not elem_type.is_empty() and elem_type != "Variant" and elem_type != "Object":
+						_show_member_completions_for_type(elem_type)
+						return
+			
+			# ── Function return type dot: GetName(). ──
+			# If expr ends with ) and is a known function, resolve its return type
+			if expr.ends_with(")"):
+				var paren_pos := expr.rfind("(")
+				if paren_pos > 0:
+					var func_name := expr.substr(0, paren_pos).strip_edges()
+					for sc in ["=", "(", ",", "+", "-"]:
+						if sc in func_name:
+							func_name = func_name.rsplit(sc, true, 1)[-1].strip_edges()
+					var ret_type := _get_function_return_type(func_name)
+					if not ret_type.is_empty() and ret_type != "Variant":
+						_show_member_completions_for_type(ret_type)
+						return
+			
 			# Handle chained dots: Me.Text1. → resolve Me → get Text1's type
 			if "." in expr:
 				var chain := expr.split(".")
 				var resolved_type := _resolve_dot_chain(chain)
 				_show_member_completions_for_type(resolved_type)
-			else:
+			elif not expr.is_empty():
 				_show_member_completions(expr)
+			else:
+				# Empty expr after stripping operators — could be With context
+				# e.g. "x = .Text" or "If .Visible Then" inside a With block
+				var with_type := _resolve_with_context()
+				if not with_type.is_empty():
+					_show_member_completions_for_type(with_type)
 			return
 	
 	# ── CBM abbreviation check ──
@@ -446,6 +498,70 @@ func _show_member_completions(obj_name: String) -> void:
 		update_code_completion_options(true)
 		return
 	
+	# ── 2b. UDT/Type members: Dim p As Player → p. shows x, y, score ──
+	var udt_type := _variable_types.get(obj_name.to_lower(), "")
+	if not udt_type.is_empty() and _known_udts.has(udt_type):
+		var udt_fields: Array = _known_udts[udt_type]
+		for field in udt_fields:
+			add_code_completion_option(
+				CodeEdit.KIND_MEMBER,
+				field["name"],
+				field["name"],
+				Color(0.7, 0.85, 1.0),  # light blue for UDT fields
+				null, null, 0
+			)
+		update_code_completion_options(true)
+		return
+	# Also check if obj_name itself is a UDT type name (static member access)
+	if _known_udts.has(obj_name):
+		var udt_fields: Array = _known_udts[obj_name]
+		for field in udt_fields:
+			add_code_completion_option(
+				CodeEdit.KIND_MEMBER,
+				field["name"],
+				field["name"],
+				Color(0.7, 0.85, 1.0),
+				null, null, 0
+			)
+		update_code_completion_options(true)
+		return
+	
+	# ── 2c. Module dot-completion: Module1. → show public subs/vars/consts ──
+	for mod_info in _imported_modules:
+		if mod_info.get("name", "").nocasecmp_to(obj_name) == 0:
+			# Subs/Functions
+			if mod_info.has("subs"):
+				for sub_name in mod_info["subs"]:
+					add_code_completion_option(
+						CodeEdit.KIND_FUNCTION,
+						sub_name,
+						sub_name,
+						Color(0.6, 0.9, 0.6),  # green for module functions
+						null, null, 0
+					)
+			# Variables
+			if mod_info.has("variables"):
+				for var_name in mod_info["variables"]:
+					add_code_completion_option(
+						CodeEdit.KIND_VARIABLE,
+						var_name,
+						var_name,
+						Color(0.8, 0.8, 0.6),  # warm for module variables
+						null, null, 0
+					)
+			# Constants
+			if mod_info.has("constants"):
+				for const_name in mod_info["constants"]:
+					add_code_completion_option(
+						CodeEdit.KIND_CONSTANT,
+						const_name,
+						const_name,
+						Color(0.9, 0.7, 0.5),  # orange for constants
+						null, null, 0
+					)
+			update_code_completion_options(true)
+			return
+	
 	# ── 3. Me. — show form controls + form-level properties/methods ──
 	if obj_name.nocasecmp_to("Me") == 0 or obj_name.nocasecmp_to("Form") == 0:
 		# Form's own controls
@@ -550,6 +666,16 @@ func _show_member_completions(obj_name: String) -> void:
 
 ## Shows member completions for an already-resolved type name (used for chained dots).
 func _show_member_completions_for_type(type_name: String) -> void:
+	# UDT/Type members: if the type is a known UDT, show its fields
+	if _known_udts.has(type_name):
+		var udt_fields: Array = _known_udts[type_name]
+		for field in udt_fields:
+			add_code_completion_option(
+				CodeEdit.KIND_MEMBER,
+				field["name"], field["name"],
+				Color(0.7, 0.85, 1.0), null, null, 0)
+		update_code_completion_options(true)
+		return
 	# String type
 	if type_name == "String":
 		for member in VGIntelliSense.get_string_members():
@@ -628,6 +754,17 @@ func _resolve_dot_chain(chain: Array) -> String:
 				continue
 			# Otherwise it's a form property — hard to resolve further
 			current_type = "Variant"
+		elif _known_udts.has(current_type):
+			# UDT chain: player.pos → look up "pos" field → get its type
+			var udt_fields: Array = _known_udts[current_type]
+			var found := false
+			for field in udt_fields:
+				if field["name"].nocasecmp_to(member_name) == 0:
+					current_type = field.get("type", "Variant")
+					found = true
+					break
+			if not found:
+				current_type = "Variant"
 		else:
 			# For other types, we'd need return-type resolution from ClassDB
 			# which is complex. For now, treat the chain end as Variant.
@@ -732,6 +869,83 @@ func _get_control_type(ctrl_name: String) -> String:
 			if not vb6_type.is_empty():
 				return VGIntelliSense.resolve_control_type(vb6_type)
 	return "Control"
+
+## Resolves the With context at the cursor position by walking backwards
+## through lines to find the enclosing With <expression> statement.
+## Returns the type of the With object, or "" if not inside a With block.
+func _resolve_with_context() -> String:
+	var caret_line := get_caret_line()
+	var with_depth := 0  # Track nested With/End With
+	
+	for i in range(caret_line, -1, -1):
+		var line_stripped := get_line(i).strip_edges().to_lower()
+		# Count End With (increases nesting when walking backwards)
+		if line_stripped == "end with":
+			with_depth += 1
+			continue
+		# Found a With statement
+		if line_stripped.begins_with("with "):
+			if with_depth > 0:
+				with_depth -= 1  # This With is paired with an End With we saw
+				continue
+			# This is our enclosing With — extract the object expression
+			var with_line := get_line(i).strip_edges()
+			var with_expr := with_line.substr(5).strip_edges()  # Skip "With "
+			# Resolve the With expression to a type
+			if with_expr.nocasecmp_to("Me") == 0:
+				return "Form"
+			# Check if it's a known variable
+			var with_type := _infer_type(with_expr)
+			if with_type != "Object":
+				return with_type
+			# Check if it's a known control
+			if with_expr in _known_controls:
+				return _get_control_type(with_expr)
+			# Could be a chained expression: With Me.Text1
+			if "." in with_expr:
+				var chain := with_expr.split(".")
+				return _resolve_dot_chain(chain)
+			return with_type
+	
+	return ""  # Not inside a With block
+
+## Returns the element type for an array or collection variable.
+## e.g. Dim arr() As String → "String", Dim items As Collection → "Variant"
+func _infer_array_element_type(var_name: String) -> String:
+	var lower_name := var_name.to_lower()
+	# Check parsed variable types first — arrays declared as Dim arr() As Type
+	# store the element type directly
+	if _variable_types.has(lower_name):
+		return _variable_types[lower_name]
+	# Fallback: scan for Dim arr(...) As Type
+	var text := get_text()
+	var regex := RegEx.new()
+	regex.compile("(?i)(?:Dim|Private|Public|Static)\\s+" + var_name + "\\s*\\([^)]*\\)\\s+As\\s+(\\w+)")
+	var m := regex.search(text)
+	if m:
+		return m.get_string(1)
+	return "Variant"
+
+## Returns the return type of a Function by scanning declarations.
+## e.g. Function GetName() As String → "String"
+func _get_function_return_type(func_name: String) -> String:
+	var lower_name := func_name.to_lower()
+	# Check the parsed function return types cache
+	if _known_functions.has(lower_name):
+		return _known_functions[lower_name]
+	# Fallback: regex scan
+	var text := get_text()
+	var regex := RegEx.new()
+	regex.compile("(?i)(?:Public\\s+|Private\\s+|Static\\s+|Friend\\s+)?Function\\s+" + func_name + "\\s*\\([^)]*\\)\\s+As\\s+(\\w+)")
+	var m := regex.search(text)
+	if m:
+		return m.get_string(1)
+	# Check for Property Get with return type
+	regex.compile("(?i)(?:Public\\s+|Private\\s+)?Property\\s+Get\\s+" + func_name + "\\s*\\([^)]*\\)\\s+As\\s+(\\w+)")
+	m = regex.search(text)
+	if m:
+		return m.get_string(1)
+	return ""
 
 # =============================================================================
 # SNIPPET EXPANSION
@@ -962,7 +1176,8 @@ func _parse_variables() -> void:
 	var regex = RegEx.new()
 	
 	# Match Dim/Private/Public/Static declarations, capturing optional As Type
-	regex.compile("(?i)(?:Dim|Private|Public|Static)\\s+(\\w+)(?:\\s+As\\s+(?:New\\s+)?(\\w+))?")
+	# Also handles array declarations: Dim arr(10) As Integer, Dim arr() As String
+	regex.compile("(?i)(?:Dim|Private|Public|Static)\\s+(\\w+)(?:\\s*\\([^)]*\\))?(?:\\s+As\\s+(?:New\\s+)?(\\w+))?")
 	var matches = regex.search_all(text)
 	
 	for m in matches:
@@ -984,19 +1199,18 @@ func _parse_variables() -> void:
 		if not var_name.is_empty() and not type_str.is_empty():
 			_variable_types[var_name.to_lower()] = type_str
 	
-	# Scan for Enum blocks and store members: _known_enums[EnumName] = [Member1, Member2, ...]
+	# ── Scan for Enum blocks: _known_enums[EnumName] = [Member1, Member2, ...] ──
 	_known_enums.clear()
 	var lines := text.split("\n")
 	var in_enum := false
 	var enum_name := ""
 	var enum_members: Array[String] = []
-	for line in lines:
-		var stripped := line.strip_edges()
+	for line_text in lines:
+		var stripped := line_text.strip_edges()
 		var sl := stripped.to_lower()
 		if not in_enum:
 			if sl.begins_with("enum ") or (sl.begins_with("public enum ") or sl.begins_with("private enum ")):
 				in_enum = true
-				# Extract enum name
 				var enum_re := RegEx.new()
 				enum_re.compile("(?i)(?:Public\\s+|Private\\s+)?Enum\\s+(\\w+)")
 				var em := enum_re.search(stripped)
@@ -1010,10 +1224,66 @@ func _parse_variables() -> void:
 				in_enum = false
 				enum_name = ""
 			elif not stripped.is_empty() and not sl.begins_with("'"):
-				# Enum member: could be "MemberName" or "MemberName = value"
 				var member := stripped.get_slice("=", 0).get_slice(" ", 0).strip_edges()
 				if not member.is_empty():
 					enum_members.append(member)
+	
+	# ── Scan for Type/Struct (UDT) blocks: _known_udts[TypeName] = [{name, type}] ──
+	_known_udts.clear()
+	var in_type := false
+	var type_name := ""
+	var type_fields: Array[Dictionary] = []
+	for line_text in lines:
+		var stripped := line_text.strip_edges()
+		var sl := stripped.to_lower()
+		if not in_type:
+			if sl.begins_with("type ") or sl.begins_with("public type ") or sl.begins_with("private type "):
+				in_type = true
+				var type_re := RegEx.new()
+				type_re.compile("(?i)(?:Public\\s+|Private\\s+)?Type\\s+(\\w+)")
+				var tm := type_re.search(stripped)
+				if tm:
+					type_name = tm.get_string(1)
+					type_fields = []
+		else:
+			if sl == "end type":
+				if not type_name.is_empty():
+					_known_udts[type_name] = type_fields.duplicate()
+				in_type = false
+				type_name = ""
+			elif not stripped.is_empty() and not sl.begins_with("'"):
+				# UDT field: "fieldName As Type" or just "fieldName"
+				var field_re := RegEx.new()
+				field_re.compile("(?i)(\\w+)(?:\\s+As\\s+(\\w+))?")
+				var fm := field_re.search(stripped)
+				if fm:
+					type_fields.append({
+						"name": fm.get_string(1),
+						"type": fm.get_string(2) if not fm.get_string(2).is_empty() else "Variant"
+					})
+	
+	# ── Scan for Function return types: _known_functions[name_lower] = ReturnType ──
+	_known_functions.clear()
+	var func_re := RegEx.new()
+	func_re.compile("(?i)(?:Public\\s+|Private\\s+|Static\\s+|Friend\\s+)?Function\\s+(\\w+)\\s*\\([^)]*\\)\\s+As\\s+(\\w+)")
+	var func_matches := func_re.search_all(text)
+	for fm in func_matches:
+		var fn_name := fm.get_string(1)
+		var fn_ret := fm.get_string(2)
+		if not fn_name.is_empty() and not fn_ret.is_empty():
+			_known_functions[fn_name.to_lower()] = fn_ret
+	# Also scan Property Get return types
+	var prop_re := RegEx.new()
+	prop_re.compile("(?i)(?:Public\\s+|Private\\s+)?Property\\s+Get\\s+(\\w+)\\s*\\([^)]*\\)\\s+As\\s+(\\w+)")
+	var prop_matches := prop_re.search_all(text)
+	for pm in prop_matches:
+		var pn := pm.get_string(1)
+		var pt := pm.get_string(2)
+		if not pn.is_empty() and not pt.is_empty():
+			_known_functions[pn.to_lower()] = pt
+	
+	# ── Scan for Import directives and parse imported module symbols ──
+	_scan_imported_modules(lines)
 
 ## Sets the known form controls for IntelliSense
 func set_known_controls(controls: Array[String]) -> void:
@@ -1032,6 +1302,153 @@ func add_known_control(control_name: String) -> void:
 ## Gets the current list of known variables
 func get_known_variables() -> Array[String]:
 	return _known_variables
+
+## Sets pre-parsed imported module info (from plugin).
+## Each entry: {name: String, path: String, subs: Array, variables: Array, constants: Array}
+func set_imported_modules(modules: Array[Dictionary]) -> void:
+	_imported_modules = modules
+
+## Scans Import directives in the current file and parses the referenced .vg
+## files to extract their public symbols for Module. dot-completion.
+func _scan_imported_modules(lines: PackedStringArray) -> void:
+	_imported_modules.clear()
+	var import_re := RegEx.new()
+	import_re.compile("(?i)^\\s*Import\\s+(?:\"([^\"]+)\"|([\\w]+))")
+	
+	for line_text in lines:
+		var m := import_re.search(line_text)
+		if not m:
+			continue
+		var import_path := m.get_string(1)  # Import "path/module.vg"
+		var import_name := m.get_string(2)  # Import ModuleName
+		
+		# Determine the module name and the file path to parse
+		var mod_name := ""
+		var mod_path := ""
+		if not import_path.is_empty():
+			mod_path = import_path
+			mod_name = import_path.get_file().get_basename()
+		elif not import_name.is_empty():
+			mod_name = import_name
+			mod_path = import_name + ".vg"
+		
+		if mod_name.is_empty():
+			continue
+		
+		# Try to resolve the path relative to res://
+		var try_paths: Array[String] = [
+			"res://" + mod_path,
+			"res://" + mod_path.get_file(),
+		]
+		# If the current file has a path, also try relative to it
+		# (but we don't have direct access to file path in CodeEdit, so use res://)
+		
+		var resolved_path := ""
+		for tp in try_paths:
+			if FileAccess.file_exists(tp):
+				resolved_path = tp
+				break
+		
+		if resolved_path.is_empty():
+			# Even without the file, still register the module name so
+			# at least it shows up as a recognizable identifier
+			_imported_modules.append({"name": mod_name, "subs": [], "variables": [], "constants": []})
+			continue
+		
+		# Parse the imported file to extract public symbols
+		var mod_info := _parse_module_symbols(resolved_path, mod_name)
+		_imported_modules.append(mod_info)
+	
+	# Also scan for Module...End Module blocks within the current file
+	var in_module := false
+	var current_mod_name := ""
+	var mod_subs: Array[String] = []
+	var mod_vars: Array[String] = []
+	var mod_consts: Array[String] = []
+	for line_text in lines:
+		var stripped := line_text.strip_edges()
+		var sl := stripped.to_lower()
+		if not in_module:
+			if sl.begins_with("module ") or sl.begins_with("public module ") or sl.begins_with("private module "):
+				in_module = true
+				var mod_re := RegEx.new()
+				mod_re.compile("(?i)(?:Public\\s+|Private\\s+)?Module\\s+(\\w+)")
+				var mm := mod_re.search(stripped)
+				if mm:
+					current_mod_name = mm.get_string(1)
+					mod_subs = []
+					mod_vars = []
+					mod_consts = []
+		else:
+			if sl == "end module":
+				if not current_mod_name.is_empty():
+					_imported_modules.append({
+						"name": current_mod_name,
+						"subs": mod_subs.duplicate(),
+						"variables": mod_vars.duplicate(),
+						"constants": mod_consts.duplicate()
+					})
+				in_module = false
+				current_mod_name = ""
+			elif not stripped.is_empty() and not sl.begins_with("'"):
+				# Extract sub/function/variable/const from inside the Module block
+				var sub_re := RegEx.new()
+				sub_re.compile("(?i)(?:Public\\s+|Private\\s+)?(?:Sub|Function)\\s+(\\w+)")
+				var sm := sub_re.search(stripped)
+				if sm:
+					mod_subs.append(sm.get_string(1))
+					continue
+				var const_re := RegEx.new()
+				const_re.compile("(?i)(?:Public\\s+)?Const\\s+(\\w+)")
+				var cm := const_re.search(stripped)
+				if cm:
+					mod_consts.append(cm.get_string(1))
+					continue
+				var dim_re := RegEx.new()
+				dim_re.compile("(?i)(?:Public\\s+|Dim\\s+)(\\w+)")
+				var dm := dim_re.search(stripped)
+				if dm:
+					mod_vars.append(dm.get_string(1))
+
+## Parses a .vg module file and extracts its public Subs, Functions, Variables, and Constants.
+func _parse_module_symbols(file_path: String, mod_name: String) -> Dictionary:
+	var result := {"name": mod_name, "path": file_path, "subs": [], "variables": [], "constants": []}
+	
+	var f := FileAccess.open(file_path, FileAccess.READ)
+	if not f:
+		return result
+	var content := f.get_as_text()
+	f.close()
+	
+	# Extract public Sub/Function names
+	var sub_re := RegEx.new()
+	sub_re.compile("(?i)(?:Public\\s+)?(?:Sub|Function)\\s+(\\w+)")
+	for m in sub_re.search_all(content):
+		var name := m.get_string(1)
+		if name not in result["subs"]:
+			result["subs"].append(name)
+	
+	# Extract public variables (Public x As Type, or Dim at module level)
+	var var_re := RegEx.new()
+	var_re.compile("(?i)Public\\s+(\\w+)(?:\\s+As\\s+\\w+)?")
+	for m in var_re.search_all(content):
+		var name := m.get_string(1)
+		# Skip if it's a Sub/Function/Const/Enum/Type keyword
+		var lower := name.to_lower()
+		if lower in ["sub", "function", "const", "enum", "type", "property", "module", "class"]:
+			continue
+		if name not in result["variables"]:
+			result["variables"].append(name)
+	
+	# Extract constants
+	var const_re := RegEx.new()
+	const_re.compile("(?i)(?:Public\\s+)?Const\\s+(\\w+)")
+	for m in const_re.search_all(content):
+		var name := m.get_string(1)
+		if name not in result["constants"]:
+			result["constants"].append(name)
+	
+	return result
 
 # =============================================================================
 # BRACKET MATCHING
