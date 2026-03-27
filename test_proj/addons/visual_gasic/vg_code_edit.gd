@@ -312,7 +312,7 @@ func _on_code_completion_requested() -> void:
 	
 	# Check if we're after a dot (member access)
 	var before_cursor = line.substr(0, column)
-	if "." in before_cursor:
+	if "." in before_cursor and _is_dot_in_current_expr(before_cursor):
 		# ── With block context: bare .Property inside With...End With ──
 		# If the text before cursor is just a dot or starts with a dot-chain
 		# (e.g. ".Text1."), resolve the enclosing With object.
@@ -895,6 +895,22 @@ func _convert_kind(kind_string: String) -> int:
 		"constant": return CodeEdit.KIND_CONSTANT
 		"module": return CodeEdit.KIND_CLASS
 		_: return CodeEdit.KIND_PLAIN_TEXT
+
+func _is_dot_in_current_expr(before_cursor: String) -> bool:
+	## Check whether the last dot in before_cursor belongs to the current
+	## sub-expression.  If an expression-breaking operator (=, +, (, etc.)
+	## appears *after* the last dot, the dot is in a previous sub-expression
+	## and we should fall through to global completions instead.
+	## Example: "me.BackColor=vb" → dot is before '=' → return false
+	##          "Me."            → dot at end        → return true
+	var last_dot_pos := before_cursor.rfind(".")
+	if last_dot_pos < 0:
+		return false
+	var text_after_dot := before_cursor.substr(last_dot_pos + 1)
+	for bc in ["=", "(", ")", ",", "+", "-", "*", "/", "&", "<", ">"]:
+		if bc in text_after_dot:
+			return false
+	return true
 
 func _get_word_at_position(line: String, column: int) -> String:
 	if column == 0:
