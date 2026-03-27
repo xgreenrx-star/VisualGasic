@@ -1,1 +1,1 @@
-test_suite/test_jit_tier3.vg
+res://test_suite/test_withevents.vg

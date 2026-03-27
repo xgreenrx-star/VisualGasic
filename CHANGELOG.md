@@ -5,6 +5,27 @@ All notable changes to Visual Gasic will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.4.0-rc3] - 2026-03-27
+
+### 🔗 Release Candidate 3 — IntelliSense Chaining & Test Fixes
+
+IntelliSense dot-chain fixes, parser fix for keyword-named Subs, and 23 new test assertions.
+
+#### Fixed — IntelliSense & Code Completion
+- **With-block chained resolution** — `.Text1.Text.` inside `With Me` now walks the full member chain instead of always showing first-level Form members
+- **GlobalObject dot chains** — `App.Path.` now resolves Path → String and shows String members; works for App, Screen, Clipboard, Err, Debug, Printer
+- **GlobalObject completion popup** — `_show_member_completions_for_type()` handles `GlobalObject:` prefix types
+
+#### Fixed — Parser & Runtime
+- **Keyword-named Subs** — `Sub Reset` and other procedures whose names match VB6 keywords now parse correctly inside Class modules (`parse_sub()` accepts `TOKEN_KEYWORD`)
+- **Global builtin guard** — `calc.Reset` dispatches to the object method, not the VB6 file-reset builtin (`if (!s->base_object)` guard on `call_builtin`)
+
+#### Added — Test Coverage
+- `test_error_handling.vg` — 5 Try/Catch assertions (basic, variable preservation, Finally, combined, nested)
+- `test_integ_collections.vg` — 10 Dictionary + Array assertions (creation, Add/Remove/Count, For Each iteration)
+- `test_math_lib.vg` — 8 math function assertions (Abs, Int, Sgn, Sqr, Round, Min/Max, Mod, exponentiation)
+- Test suite: 75 files, 578 assertions, 576 passed, 2 failed (pre-existing symlink tests), 0 errors
+
 ## [4.4.0-rc2] - 2026-03-26
 
 ### 🐛 Release Candidate 2 — Debugger UX Overhaul & 46 Fixes

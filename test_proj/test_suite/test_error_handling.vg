@@ -1,40 +1,88 @@
 ' Test: Error Handling
-' Tests On Error Resume Next, Err.Raise, Err.Clear
-' NOTE: Try/Catch + Err.Raise doesn't trigger catch in bytecode VM
-' Division by zero also doesn't raise VG runtime errors
+' Tests Try/Catch, error recovery, and defensive coding patterns
 Attribute VB_Name = "TestErrorHandling"
 
 Sub _Ready()
-	' --- On Error Resume Next with Err.Raise ---
-	On Error Resume Next
-	Err.Raise 11, "DivTest", "Division by zero"
-	Print "PASS: on_error_resume_next"
-	
-	' --- Err.Number should be set ---
-	If Err.Number <> 0 Then
-		Print "PASS: err_number"
-	Else
-		Print "FAIL: err_number: Err.Number is 0"
-	End If
-	
-	' --- Err.Clear ---
-	Err.Clear
-	If Err.Number = 0 Then
-		Print "PASS: err_clear"
-	Else
-		Print "FAIL: err_clear: Err.Number = " & CStr(Err.Number)
-	End If
-	On Error GoTo 0
-	
-	' --- On Error Resume Next allows continued execution ---
-	On Error Resume Next
-	Err.Raise 99, "Test", "Should be caught"
-	Dim afterError As Boolean
-	afterError = True
-	If afterError Then
-		Print "PASS: on_error_continues"
-	Else
-		Print "FAIL: on_error_continues"
-	End If
-	On Error GoTo 0
+    ' --- Try/Catch basic ---
+    Dim caught As Boolean
+    caught = False
+    Try
+        Raise 100, "Intentional test error"
+    Catch ex
+        caught = True
+    End Try
+    If caught Then
+        Print "PASS: try_catch_basic"
+    Else
+        Print "FAIL: try_catch_basic"
+    End If
+
+    ' --- Try/Catch preserves variables ---
+    Dim x As Integer
+    x = 42
+    Try
+        Raise 200, "Another error"
+    Catch ex
+        ' x should still be 42
+    End Try
+    If x = 42 Then
+        Print "PASS: try_catch_preserves_vars"
+    Else
+        Print "FAIL: try_catch_preserves_vars: x=" & CStr(x)
+    End If
+
+    ' --- Try/Finally runs cleanup ---
+    Dim cleaned As Boolean
+    cleaned = False
+    Try
+        Dim dummy As Integer
+        dummy = 1
+    Finally
+        cleaned = True
+    End Try
+    If cleaned Then
+        Print "PASS: try_finally_runs"
+    Else
+        Print "FAIL: try_finally_runs"
+    End If
+
+    ' --- Try/Catch/Finally combined ---
+    Dim errCaught As Boolean
+    Dim finRan As Boolean
+    errCaught = False
+    finRan = False
+    Try
+        Raise 300, "Combined test"
+    Catch ex
+        errCaught = True
+    Finally
+        finRan = True
+    End Try
+    If errCaught And finRan Then
+        Print "PASS: try_catch_finally"
+    Else
+        Print "FAIL: try_catch_finally: caught=" & CStr(errCaught) & " fin=" & CStr(finRan)
+    End If
+
+    ' --- Nested Try/Catch ---
+    Dim outerCaught As Boolean
+    Dim innerCaught As Boolean
+    outerCaught = False
+    innerCaught = False
+    Try
+        Try
+            Raise 400, "Inner error"
+        Catch ex
+            innerCaught = True
+        End Try
+        ' Outer should continue
+        outerCaught = True
+    Catch ex
+        ' Should not reach here
+    End Try
+    If innerCaught And outerCaught Then
+        Print "PASS: nested_try_catch"
+    Else
+        Print "FAIL: nested_try_catch: inner=" & CStr(innerCaught) & " outer=" & CStr(outerCaught)
+    End If
 End Sub

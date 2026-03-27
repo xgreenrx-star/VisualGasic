@@ -460,7 +460,9 @@ SubDefinition* VisualGasicParser::parse_sub() {
     bool is_function = (String(start_token.value).nocasecmp_to("Function") == 0);
     current_pos++; // Eat Sub or Function
 
-    if (!check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
+    // Accept both identifiers and keywords as procedure names — VB6 allows
+    // keywords like "Reset", "Name", etc. as Sub/Function names inside classes.
+    if (!check(VisualGasicTokenizer::TOKEN_IDENTIFIER) && !check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
         error("Expected procedure name");
         return nullptr;
     }

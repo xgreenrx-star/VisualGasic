@@ -1171,6 +1171,15 @@ static func get_dictionary_members() -> Array[Dictionary]:
 static func resolve_member_type(type_name: String, member_name: String) -> String:
 	var member_lower := member_name.to_lower()
 	
+	# ── 0. GlobalObject: prefix (e.g. "GlobalObject:App") ──
+	if type_name.begins_with("GlobalObject:"):
+		var obj_name := type_name.substr(len("GlobalObject:"))
+		var members := get_global_object_members(obj_name)
+		for m in members:
+			if m["text"].to_lower() == member_lower:
+				return _extract_type_from_detail(m["detail"])
+		return ""
+	
 	# ── 1. VB6 String members ──
 	if type_name == "String":
 		for m in VB6_STRING_MEMBERS:

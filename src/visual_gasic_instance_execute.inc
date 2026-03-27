@@ -657,7 +657,10 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
             }
 
             // Try centralized statement-level builtins first
-            {
+            // Only for bare calls (no base_object) — otherwise "calc.Reset"
+            // would be intercepted by the global Reset builtin instead of
+            // dispatching to the class method.
+            if (!s->base_object) {
                 Variant _bg_ret;
                 bool _bg_found = false;
                 if (VisualGasicBuiltins::call_builtin(this, s->method_name, call_args, _bg_ret, _bg_found)) {

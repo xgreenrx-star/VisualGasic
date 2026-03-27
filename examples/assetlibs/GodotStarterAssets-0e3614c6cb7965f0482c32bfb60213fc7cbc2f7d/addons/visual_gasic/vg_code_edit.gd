@@ -313,18 +313,45 @@ func _on_code_completion_requested() -> void:
 	var before_cursor = line.substr(0, column)
 	if "." in before_cursor:
 		# ── With block context: bare .Property inside With...End With ──
-		# If the text before cursor looks like just  <whitespace>.  with no
-		# identifier before the dot (or the dot is the first non-space char),
-		# resolve the enclosing With object.
+		# If the text before cursor is just a dot or starts with a dot-chain
+		# (e.g. ".Text1."), resolve the enclosing With object.
 		var stripped_bc := before_cursor.strip_edges()
 		if stripped_bc == "." or stripped_bc.begins_with("."):
-			# Check if the very first token is a dot (bare .Property in With block)
 			var _bc_no_ws := before_cursor.lstrip(" \t")
 			if _bc_no_ws.begins_with("."):
 				var with_type := _resolve_with_context()
 				if not with_type.is_empty():
-					_show_member_completions_for_type(with_type)
-					return
+					# Count dots to determine depth: bare "." → 1st level,
+					# ".Text1." → chained resolution needed
+					var dot_expr := _bc_no_ws.substr(1)  # Strip leading dot
+					if dot_expr.is_empty() or not "." in dot_expr:
+						# Simple bare .  or  .partial — show With object members
+						_show_member_completions_for_type(with_type)
+						return
+					else:
+						# Chained: .Text1.  → resolve With_type.Text1
+						# Strip trailing dot and split the chain
+						if dot_expr.ends_with("."):
+							dot_expr = dot_expr.substr(0, dot_expr.length() - 1)
+						var chain_parts := dot_expr.split(".")
+						# Walk from with_type through each member
+						var cur_type := with_type
+						for part in chain_parts:
+							if part.is_empty():
+								continue
+							var member_clean := part
+							if "(" in member_clean:
+								member_clean = member_clean.get_slice("(", 0).strip_edges()
+							if cur_type == "Form" and member_clean in _known_controls:
+								cur_type = _get_control_type(member_clean)
+							else:
+								var resolved := VGIntelliSense.resolve_member_type(cur_type, member_clean)
+								if resolved.is_empty() or resolved == "void":
+									cur_type = "Variant"
+									break
+								cur_type = resolved
+						_show_member_completions_for_type(cur_type)
+						return
 		# Extract the dot-chain expression before cursor.
 		# e.g. "  Me.Text1." → ["Me", "Text1"]
 		#      "  x = obj.Method." → ["obj", "Method"]
@@ -700,6 +727,16 @@ func _show_member_completions_for_type(type_name: String) -> void:
 				_convert_kind(member.get("kind", "method")),
 				member["text"], member["text"],
 				Color(0.9, 0.8, 0.5), null, null, 0)
+		update_code_completion_options(true)
+		return
+	# Global objects (App, Screen, Clipboard, Err, Debug, Printer)
+	if type_name.begins_with("GlobalObject:"):
+		var obj_name := type_name.substr(len("GlobalObject:"))
+		for member in VGIntelliSense.get_global_object_members(obj_name):
+			add_code_completion_option(
+				_convert_kind(member.get("kind", "property")),
+				member["text"], member["text"],
+				Color(0.95, 0.85, 0.6), null, null, 0)
 		update_code_completion_options(true)
 		return
 	# Resolve to Godot type

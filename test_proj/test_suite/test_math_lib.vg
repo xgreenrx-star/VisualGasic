@@ -1,4 +1,5 @@
-' test_math_lib.vg — Utility module for multi-module testing
+' test_math_lib.vg — Utility module for multi-module testing + math function tests
+Attribute VB_Name = "TestMathLib"
 
 Public Const PI_VALUE As Double = 3.14159265
 
@@ -16,4 +17,62 @@ End Function
 
 Public Sub PrintBanner()
     Debug.Print "=== MathLib Module Loaded ==="
+End Sub
+
+Sub _Ready()
+    ' --- Abs ---
+    If Abs(-5) = 5 And Abs(3) = 3 Then
+        Print "PASS: math_abs"
+    Else
+        Print "FAIL: math_abs"
+    End If
+
+    ' --- Int ---
+    If Int(3.7) = 3 And Int(-3.7) = -4 Then
+        Print "PASS: math_int"
+    Else
+        Print "FAIL: math_int: Int(3.7)=" & CStr(Int(3.7)) & " Int(-3.7)=" & CStr(Int(-3.7))
+    End If
+
+    ' --- Sgn ---
+    If Sgn(10) = 1 And Sgn(-10) = -1 And Sgn(0) = 0 Then
+        Print "PASS: math_sgn"
+    Else
+        Print "FAIL: math_sgn"
+    End If
+
+    ' --- Sqr ---
+    If Sqr(25) = 5 And Sqr(0) = 0 Then
+        Print "PASS: math_sqr"
+    Else
+        Print "FAIL: math_sqr"
+    End If
+
+    ' --- Round ---
+    If Round(3.456, 2) = 3.46 Then
+        Print "PASS: math_round"
+    Else
+        Print "FAIL: math_round: got " & CStr(Round(3.456, 2))
+    End If
+
+    ' --- Min / Max ---
+    If Min(3, 7) = 3 And Max(3, 7) = 7 Then
+        Print "PASS: math_min_max"
+    Else
+        Print "FAIL: math_min_max"
+    End If
+
+    ' --- Mod operator ---
+    If 10 Mod 3 = 1 And 15 Mod 5 = 0 Then
+        Print "PASS: math_mod"
+    Else
+        Print "FAIL: math_mod"
+    End If
+
+    ' --- Exponentiation ---
+    If 2 ^ 3 = 8 And 5 ^ 0 = 1 Then
+        Print "PASS: math_exponent"
+    Else
+        Print "FAIL: math_exponent"
+    End If
 End Sub
