@@ -1164,3 +1164,123 @@ static func get_collection_members() -> Array[Dictionary]:
 ## Returns Dictionary members.
 static func get_dictionary_members() -> Array[Dictionary]:
 	return VB6_DICTIONARY_MEMBERS
+
+## Resolves the return type of a member (property or method) on a given type.
+## This powers chained dot-completion: Text1.Text. → String members.
+## Returns "" if the member is not found, "void" for methods with no return.
+static func resolve_member_type(type_name: String, member_name: String) -> String:
+	var member_lower := member_name.to_lower()
+	
+	# ── 1. VB6 String members ──
+	if type_name == "String":
+		for m in VB6_STRING_MEMBERS:
+			if m["text"].to_lower() == member_lower:
+				return _extract_type_from_detail(m["detail"])
+		return ""
+	
+	# ── 2. VB6 Collection members ──
+	if type_name == "Collection":
+		for m in VB6_COLLECTION_MEMBERS:
+			if m["text"].to_lower() == member_lower:
+				return _extract_type_from_detail(m["detail"])
+		return ""
+	
+	# ── 3. VB6 Dictionary members ──
+	if type_name == "Dictionary":
+		for m in VB6_DICTIONARY_MEMBERS:
+			if m["text"].to_lower() == member_lower:
+				return _extract_type_from_detail(m["detail"])
+		return ""
+	
+	# ── 4. VB6 Form members ──
+	for m in VB6_FORM_MEMBERS:
+		if m["text"].to_lower() == member_lower:
+			return _extract_type_from_detail(m["detail"])
+	
+	# ── 5. Resolve VB6 type → Godot type for ClassDB ──
+	var godot_type := type_name
+	if VB6_CONTROL_TYPE_MAP.has(type_name):
+		godot_type = VB6_CONTROL_TYPE_MAP[type_name]
+	
+	# ── 6. VB6 control property aliases ──
+	if VB6_CONTROL_PROPERTIES.has(godot_type):
+		for alias in VB6_CONTROL_PROPERTIES[godot_type]:
+			if alias["text"].to_lower() == member_lower:
+				return _extract_type_from_detail(alias["detail"])
+	
+	# ── 7. Variant type methods (Vector2, Color, Rect2, etc.) ──
+	if VARIANT_METHODS.has(godot_type):
+		for m in VARIANT_METHODS[godot_type]:
+			if m["text"].to_lower() == member_lower:
+				return _extract_return_from_method_detail(m["detail"])
+	
+	# ── 8. Variant type properties ──
+	if VARIANT_PROPERTIES.has(godot_type):
+		for p in VARIANT_PROPERTIES[godot_type]:
+			if p["text"].to_lower() == member_lower:
+				return _extract_type_from_detail(p["detail"])
+	
+	# ── 9. ClassDB method return types ──
+	if ClassDB.class_exists(godot_type):
+		var methods := ClassDB.class_get_method_list(godot_type, true)
+		for method in methods:
+			var mname: String = method["name"]
+			if mname.to_lower() == member_lower:
+				var ret: Dictionary = method.get("return", {})
+				var ret_class: String = ret.get("class_name", "")
+				var ret_type_id: int = ret.get("type", 0)
+				var ret_type := _type_id_to_name(ret_type_id, ret_class)
+				if ret_type == "void":
+					return "void"
+				return ret_type
+		
+		# ── 10. ClassDB property types ──
+		var props := ClassDB.class_get_property_list(godot_type, true)
+		for prop in props:
+			var pname: String = prop.get("name", "")
+			if pname.to_lower() == member_lower:
+				var pclass: String = prop.get("class_name", "")
+				var ptype_id: int = prop.get("type", 0)
+				return _type_id_to_name(ptype_id, pclass)
+	
+	return ""
+
+## Extracts the type name from a VB6-style detail string.
+## "String — Button text"     → "String"
+## "Integer — Number of items" → "Integer"
+## "Boolean — Whether visible" → "Boolean"
+## "Collection — All controls" → "Collection"
+static func _extract_type_from_detail(detail: String) -> String:
+	# VB6 property details use "Type — Description" format
+	if " — " in detail:
+		var type_part := detail.get_slice(" — ", 0).strip_edges()
+		# Handle parenthesized array types: "Variant()" → "Array"
+		if type_part.ends_with("()"):
+			return "Array"
+		return type_part
+	# Method details: "method() As ReturnType — desc" or just "ReturnType — desc"
+	return "Variant"
+
+## Extracts the return type from a method detail signature.
+## "ToUpper() As String — Convert to uppercase" → "String"
+## "Split(delimiter As String) As String() — ..." → "Array"
+## "add_child(node: Node)" → "void"
+## "get_child(idx: Integer) → Node" → "Node"
+static func _extract_return_from_method_detail(detail: String) -> String:
+	# Check for " As " return type (VB6-style)
+	if " As " in detail:
+		var after_as := detail.rsplit(" As ", true, 1)
+		if after_as.size() > 1:
+			var ret_part := after_as[1].strip_edges()
+			# Strip description after " — "
+			if " — " in ret_part:
+				ret_part = ret_part.get_slice(" — ", 0).strip_edges()
+			if ret_part.ends_with("()"):
+				return "Array"
+			return ret_part
+	# Check for " → " return type (Godot-style)
+	if " → " in detail:
+		var after_arrow := detail.rsplit(" → ", true, 1)
+		if after_arrow.size() > 1:
+			return after_arrow[1].strip_edges()
+	return "void"

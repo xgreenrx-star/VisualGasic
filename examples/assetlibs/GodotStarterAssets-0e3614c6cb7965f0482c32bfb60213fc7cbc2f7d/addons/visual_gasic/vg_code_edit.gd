@@ -734,41 +734,69 @@ func _resolve_dot_chain(chain: Array) -> String:
 	var current_name: String = chain[0]
 	var current_type := ""
 	
-	# Is first element Me/Form?
-	if current_name.nocasecmp_to("Me") == 0 or current_name.nocasecmp_to("Form") == 0:
-		current_type = "Form"
-	elif VGIntelliSense.is_global_object(current_name):
-		current_type = "GlobalObject:" + current_name
-	else:
-		current_type = _infer_type(current_name)
+	# Strip parentheses from first element too (e.g. GetName().ToUpper.)
+	var first_clean := current_name
+	var first_had_parens := false
+	if "(" in first_clean:
+		first_clean = first_clean.get_slice("(", 0).strip_edges()
+		first_had_parens = true
 	
-	# Walk the rest of the chain
+	# Is first element Me/Form?
+	if first_clean.nocasecmp_to("Me") == 0 or first_clean.nocasecmp_to("Form") == 0:
+		current_type = "Form"
+	elif VGIntelliSense.is_global_object(first_clean):
+		current_type = "GlobalObject:" + first_clean
+	elif first_had_parens:
+		# First element is a function call — resolve its return type
+		var ret := _get_function_return_type(first_clean)
+		if not ret.is_empty() and ret != "Variant":
+			current_type = ret
+		else:
+			current_type = _infer_type(first_clean)
+	else:
+		current_type = _infer_type(first_clean)
+	
+	# Walk the rest of the chain, resolving each member's return type
 	for i in range(1, chain.size()):
 		var member_name: String = chain[i]
 		if member_name.is_empty():
 			continue
+		
+		# Strip parentheses from method calls in chains:
+		# e.g. "get_parent()" → "get_parent",  "Item(1)" → "Item"
+		var member_clean := member_name
+		if "(" in member_clean:
+			member_clean = member_clean.get_slice("(", 0).strip_edges()
+		
 		# If current context is a Form, the member might be a control name
 		if current_type == "Form":
-			if member_name in _known_controls:
-				current_type = _get_control_type(member_name)
+			if member_clean in _known_controls:
+				current_type = _get_control_type(member_clean)
 				continue
-			# Otherwise it's a form property — hard to resolve further
-			current_type = "Variant"
+			# Check Form members (Show, Hide, Caption, etc.)
+			var form_resolved := VGIntelliSense.resolve_member_type("Form", member_clean)
+			if not form_resolved.is_empty() and form_resolved != "void":
+				current_type = form_resolved
+			else:
+				current_type = "Variant"
 		elif _known_udts.has(current_type):
 			# UDT chain: player.pos → look up "pos" field → get its type
 			var udt_fields: Array = _known_udts[current_type]
 			var found := false
 			for field in udt_fields:
-				if field["name"].nocasecmp_to(member_name) == 0:
+				if field["name"].nocasecmp_to(member_clean) == 0:
 					current_type = field.get("type", "Variant")
 					found = true
 					break
 			if not found:
 				current_type = "Variant"
 		else:
-			# For other types, we'd need return-type resolution from ClassDB
-			# which is complex. For now, treat the chain end as Variant.
-			current_type = "Variant"
+			# Resolve member return type via VGIntelliSense (ClassDB, VB6 aliases, etc.)
+			var resolved := VGIntelliSense.resolve_member_type(current_type, member_clean)
+			if resolved.is_empty() or resolved == "void":
+				current_type = "Variant"
+			else:
+				current_type = resolved
 	
 	return current_type
 
