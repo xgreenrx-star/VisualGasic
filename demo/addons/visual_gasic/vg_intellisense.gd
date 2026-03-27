@@ -1135,7 +1135,7 @@ static func get_vb6_property_aliases(godot_type: String) -> Array[Dictionary]:
 
 ## Returns members for a VB6 global object (App, Screen, Err, etc.)
 ## Returns empty array if name is not a known global object.
-static func get_global_object_members(obj_name: String) -> Array[Dictionary]:
+static func get_global_object_members(obj_name: String) -> Array:
 	# Case-insensitive lookup
 	for key in VB6_GLOBAL_OBJECTS:
 		if key.nocasecmp_to(obj_name) == 0:

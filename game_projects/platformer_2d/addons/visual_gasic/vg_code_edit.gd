@@ -359,7 +359,9 @@ func _on_code_completion_requested() -> void:
 		var parts = before_cursor.rsplit(".", true, 1)
 		if parts.size() > 0:
 			# Get the full expression before the last dot
-			var expr = parts[0].strip_edges().get_slice(" ", -1)
+			# Note: get_slice() doesn't support negative indices, use split()[-1]
+			var stripped_lhs := parts[0].strip_edges()
+			var expr := stripped_lhs.split(" ")[-1] if " " in stripped_lhs else stripped_lhs
 			# Also strip away any leading = or ( for cases like "x = obj."
 			for strip_char in ["=", "(", ",", "+", "-", "*", "/", "&"]:
 				if strip_char in expr:
