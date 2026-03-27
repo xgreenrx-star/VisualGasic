@@ -63,6 +63,7 @@
 #include <godot_cpp/classes/theme_db.hpp>
 #include <godot_cpp/classes/theme.hpp>
 #include <godot_cpp/classes/style_box_flat.hpp>
+#include <godot_cpp/classes/rendering_server.hpp>
 #include <godot_cpp/classes/gpu_particles2d.hpp>
 #include <godot_cpp/classes/gpu_particles3d.hpp>
 #include <godot_cpp/classes/particle_process_material.hpp>
@@ -3470,6 +3471,21 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                                 }
                                 sbf->set_bg_color(c);
                                 ctrl->add_theme_stylebox_override(sb_name, sbf);
+                                // Force immediate visual update.  Normally the
+                                // stylebox override queues a redraw that only
+                                // submits draw-commands on the NEXT MessageQueue
+                                // flush.  If a blocking MsgBox follows, the main
+                                // loop never gets there, so the screen never
+                                // updates.  We manually clear the canvas item and
+                                // re-trigger NOTIFICATION_DRAW (30) so the Panel
+                                // submits its new draw commands to the
+                                // RenderingServer right now.  The subsequent
+                                // force_draw() in MsgBox will then render them.
+                                RID ci = ctrl->get_canvas_item();
+                                if (ci.is_valid()) {
+                                    RenderingServer::get_singleton()->canvas_item_clear(ci);
+                                    ctrl->notification(CanvasItem::NOTIFICATION_DRAW);
+                                }
                             }
                             push_value(base);
                             break;
