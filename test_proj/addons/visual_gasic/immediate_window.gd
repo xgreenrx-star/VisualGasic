@@ -48,9 +48,23 @@ var _whenever_sections: Array = []  # Cached Whenever sections from remote
 var _debug_status_label: Label = null  # Shows current debug state (paused at line X)
 var _right_tabs: TabContainer = null  # Right panel tabs (Vars, Watch, Props, Whenever)
 var _vars_label: Label = null  # Label showing variable count
+
+# Debug session state — tracked locally from signals rather than polling
+# the debugger plugin, because is_session_active() can return false during break.
+var _debug_session_active: bool = false
+
+# Debug toolbar buttons (stored for enable/disable based on debug state)
+var _btn_continue: Button = null
+var _btn_break: Button = null
+var _btn_step_over: Button = null
+var _btn_step_into: Button = null
+var _btn_step_out: Button = null
+var _btn_stop: Button = null
 var _var_sort_column: int = 0  # Current sort column (0=Name, 1=Type, 2=Value)
 var _var_sort_ascending: bool = true  # Sort direction
 var _var_filter_field: LineEdit = null  # Search/filter field for variables
+var _scene_poll_timer: Timer = null  # Polls EditorInterface.is_playing_scene()
+var _was_scene_playing: bool = false  # Last known state for edge detection
 const AUTO_REFRESH_INTERVAL: float = 0.5  # Update every 500ms
 
 func _ready():
@@ -58,6 +72,7 @@ func _ready():
 	_initialize_repl()
 	_show_welcome()
 	_setup_auto_refresh_timer()
+	_setup_scene_poll_timer()
 
 
 func _setup_auto_refresh_timer():
@@ -66,6 +81,25 @@ func _setup_auto_refresh_timer():
 	_auto_refresh_timer.autostart = false
 	_auto_refresh_timer.timeout.connect(_on_auto_refresh_timeout)
 	add_child(_auto_refresh_timer)
+
+func _setup_scene_poll_timer():
+	_scene_poll_timer = Timer.new()
+	_scene_poll_timer.wait_time = 0.3
+	_scene_poll_timer.autostart = true
+	_scene_poll_timer.timeout.connect(_on_scene_poll_timeout)
+	add_child(_scene_poll_timer)
+
+func _on_scene_poll_timeout():
+	## Detect scene play/stop transitions and update Break/Stop buttons.
+	var playing = EditorInterface.is_playing_scene()
+	if playing and not _was_scene_playing:
+		# Scene just started — enable Break + Stop
+		set_debug_active(true, false)
+	elif not playing and _was_scene_playing:
+		# Scene just stopped — grey out everything
+		_debug_session_active = false
+		set_debug_active(false, false)
+	_was_scene_playing = playing
 
 func _on_auto_refresh_timeout():
 	# Only auto-refresh when connected to a remote instance and not editing
@@ -96,12 +130,64 @@ func set_debugger_plugin(plugin: EditorDebuggerPlugin) -> void:
 		# Connect Debug.Print output routing
 		if _debugger_plugin.has_signal("debug_print_received"):
 			_debugger_plugin.debug_print_received.connect(_on_debug_print_received)
+		# Connect debug session lifecycle for button enable/disable
+		if _debugger_plugin.has_signal("debug_session_stopped"):
+			_debugger_plugin.debug_session_stopped.connect(_on_debug_session_stopped)
+		if _debugger_plugin.has_signal("debug_continued"):
+			_debugger_plugin.debug_continued.connect(_on_debug_session_continued)
+		if _debugger_plugin.has_signal("debug_session_started"):
+			_debugger_plugin.debug_session_started.connect(_on_debug_session_started)
 		
 		# Connect call stack panel to debugger
 		if _right_tabs:
 			for child in _right_tabs.get_children():
 				if child.has_meta("_call_stack_panel"):
 					child.set_debugger_plugin(_debugger_plugin)
+
+## Update debug button enabled/disabled state based on debug session state.
+## Call with paused=true when broken at a breakpoint (all buttons active).
+## Call with running=true when the game is running but not paused (only Stop active).
+## Call with both false when no session is active (all buttons greyed out).
+func set_debug_active(running: bool, paused: bool = false) -> void:
+	if paused:
+		# Broken at a breakpoint - all step controls + stop are active, Break is greyed
+		if _btn_continue: _btn_continue.disabled = false
+		if _btn_break: _btn_break.disabled = true  # Already paused — Break not applicable
+		if _btn_step_over: _btn_step_over.disabled = false
+		if _btn_step_into: _btn_step_into.disabled = false
+		if _btn_step_out: _btn_step_out.disabled = false
+		if _btn_stop: _btn_stop.disabled = false
+	elif running:
+		# Game running, not paused - Break + Stop are active
+		if _btn_continue: _btn_continue.disabled = true
+		if _btn_break: _btn_break.disabled = false  # Can pause a running game
+		if _btn_step_over: _btn_step_over.disabled = true
+		if _btn_step_into: _btn_step_into.disabled = true
+		if _btn_step_out: _btn_step_out.disabled = true
+		if _btn_stop: _btn_stop.disabled = false
+	else:
+		# No active session - everything greyed out
+		if _btn_continue: _btn_continue.disabled = true
+		if _btn_break: _btn_break.disabled = true
+		if _btn_step_over: _btn_step_over.disabled = true
+		if _btn_step_into: _btn_step_into.disabled = true
+		if _btn_step_out: _btn_step_out.disabled = true
+		if _btn_stop: _btn_stop.disabled = true
+
+func _on_debug_session_stopped() -> void:
+	## Called when the debug session ends — grey out all debug buttons
+	_debug_session_active = false
+	set_debug_active(false, false)
+
+func _on_debug_session_continued() -> void:
+	## Called when the game resumes from a breakpoint — only Stop is active
+	_debug_session_active = true
+	set_debug_active(true, false)
+
+func _on_debug_session_started() -> void:
+	## Called when a debug session begins — game is running, only Stop is active
+	_debug_session_active = true
+	set_debug_active(true, false)
 
 func _setup_ui():
 	# Main horizontal split: Console (left) + Panels (right)
@@ -186,29 +272,55 @@ func _setup_ui():
 	debug_label.text = "Debug:"
 	debug_toolbar.add_child(debug_label)
 	
-	var btn_continue = Button.new()
-	btn_continue.text = "▶ Continue"
-	btn_continue.tooltip_text = "Resume execution (F5)"
-	btn_continue.pressed.connect(_on_debug_continue)
-	debug_toolbar.add_child(btn_continue)
+	_btn_continue = Button.new()
+	_btn_continue.text = "▶ Continue"
+	_btn_continue.tooltip_text = "Resume execution (F5)"
+	_btn_continue.pressed.connect(_on_debug_continue)
+	_btn_continue.disabled = true
+	debug_toolbar.add_child(_btn_continue)
 	
-	var btn_step_over = Button.new()
-	btn_step_over.text = "⤵ Step Over"
-	btn_step_over.tooltip_text = "Step to next line (F10)"
-	btn_step_over.pressed.connect(_on_debug_step_over)
-	debug_toolbar.add_child(btn_step_over)
+	_btn_break = Button.new()
+	_btn_break.text = "⏸ Break"
+	_btn_break.tooltip_text = "Pause execution at current line (Ctrl+Break)"
+	_btn_break.pressed.connect(_on_debug_break)
+	_btn_break.disabled = true
+	debug_toolbar.add_child(_btn_break)
 	
-	var btn_step_into = Button.new()
-	btn_step_into.text = "↓ Step Into"
-	btn_step_into.tooltip_text = "Step into function (F11)"
-	btn_step_into.pressed.connect(_on_debug_step_into)
-	debug_toolbar.add_child(btn_step_into)
+	_btn_step_over = Button.new()
+	_btn_step_over.text = "⤵ Step Over"
+	_btn_step_over.tooltip_text = "Step to next line (F10)"
+	_btn_step_over.pressed.connect(_on_debug_step_over)
+	_btn_step_over.disabled = true
+	debug_toolbar.add_child(_btn_step_over)
 	
-	var btn_step_out = Button.new()
-	btn_step_out.text = "↑ Step Out"
-	btn_step_out.tooltip_text = "Step out of function (Shift+F11)"
-	btn_step_out.pressed.connect(_on_debug_step_out)
-	debug_toolbar.add_child(btn_step_out)
+	_btn_step_into = Button.new()
+	_btn_step_into.text = "↓ Step Into"
+	_btn_step_into.tooltip_text = "Step into function (F11)"
+	_btn_step_into.pressed.connect(_on_debug_step_into)
+	_btn_step_into.disabled = true
+	debug_toolbar.add_child(_btn_step_into)
+	
+	_btn_step_out = Button.new()
+	_btn_step_out.text = "↑ Step Out"
+	_btn_step_out.tooltip_text = "Step out of function (Shift+F11)"
+	_btn_step_out.pressed.connect(_on_debug_step_out)
+	_btn_step_out.disabled = true
+	debug_toolbar.add_child(_btn_step_out)
+	
+	_btn_stop = Button.new()
+	_btn_stop.text = "■ Stop"
+	_btn_stop.tooltip_text = "Stop execution (Shift+F5)"
+	_btn_stop.pressed.connect(_on_debug_stop)
+	_btn_stop.disabled = true
+	debug_toolbar.add_child(_btn_stop)
+	
+	# Set Next Statement hint label
+	var sns_label = Label.new()
+	sns_label.text = "⬤ Drag yellow arrow in gutter to Set Next Statement"
+	sns_label.add_theme_font_size_override("font_size", 10)
+	sns_label.add_theme_color_override("font_color", Color(0.7, 0.65, 0.3, 0.8))
+	sns_label.tooltip_text = "When paused, drag the yellow arrow in the code editor gutter to change where execution continues (VB6-style Set Next Statement)"
+	debug_toolbar.add_child(sns_label)
 	
 	# Spacer
 	var debug_spacer = Control.new()
@@ -237,6 +349,8 @@ func _setup_ui():
 	_output_text.context_menu_enabled = true
 	_output_text.selection_enabled = true
 	console_vbox.add_child(_output_text)
+	# Style the built-in context menu so it's readable on dark backgrounds
+	_style_context_menu(_output_text.get_menu())
 	
 	# Input area with multi-line support
 	var input_container = VBoxContainer.new()
@@ -262,6 +376,15 @@ func _setup_ui():
 	_input_field.code_completion_enabled = false
 	_input_field.gui_input.connect(_on_input_gui_input)
 	input_hbox.add_child(_input_field)
+	# Style the CodeEdit's built-in context menu
+	_style_context_menu(_input_field.get_menu())
+	
+	# Auto-complete popup — VB6-style IntelliSense for the Immediate Window
+	_auto_complete_popup = PopupMenu.new()
+	_auto_complete_popup.name = "ImmAutoComplete"
+	_auto_complete_popup.max_size = Vector2i(350, 300)
+	_auto_complete_popup.id_pressed.connect(_on_autocomplete_selected)
+	add_child(_auto_complete_popup)
 	
 	_send_button = Button.new()
 	_send_button.text = "Execute\n(Enter)"
@@ -362,6 +485,7 @@ func _setup_ui():
 	_var_context_menu.add_item("Rename Everywhere...", 4)
 	_var_context_menu.id_pressed.connect(_on_var_context_menu_selected)
 	add_child(_var_context_menu)
+	_style_context_menu(_var_context_menu)
 	
 	# Watch panel
 	var watch_panel = VBoxContainer.new()
@@ -382,10 +506,15 @@ func _setup_ui():
 	
 	_watch_tree = Tree.new()
 	_watch_tree.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_watch_tree.columns = 2
+	_watch_tree.columns = 3
 	_watch_tree.set_column_title(0, "Expression")
-	_watch_tree.set_column_title(1, "Value")
+	_watch_tree.set_column_title(1, "Condition")
+	_watch_tree.set_column_title(2, "Value")
 	_watch_tree.column_titles_visible = true
+	_watch_tree.set_column_expand(0, true)
+	_watch_tree.set_column_expand(1, false)
+	_watch_tree.set_column_custom_minimum_width(1, 100)
+	_watch_tree.set_column_expand(2, true)
 	_watch_tree.item_activated.connect(_on_watch_item_activated)
 	_watch_tree.item_edited.connect(_on_watch_item_edited)
 	_watch_tree.gui_input.connect(_on_watch_tree_gui_input)  # Right-click handling
@@ -398,8 +527,12 @@ func _setup_ui():
 	_watch_context_menu.add_separator()
 	_watch_context_menu.add_item("Copy Value", 2)
 	_watch_context_menu.add_item("Copy Expression", 3)
+	_watch_context_menu.add_separator()
+	_watch_context_menu.add_item("Edit Condition...", 4)
+	_watch_context_menu.add_item("Clear Condition", 5)
 	_watch_context_menu.id_pressed.connect(_on_watch_context_menu_selected)
 	add_child(_watch_context_menu)
+	_style_context_menu(_watch_context_menu)
 	
 	# Load persisted watch expressions
 	_load_watch_expressions()
@@ -563,6 +696,22 @@ func _on_input_gui_input(event: InputEvent):
 			# Trigger auto-completion
 			_show_completions()
 			accept_event()
+		elif event.keycode == KEY_TAB and not event.shift_pressed:
+			# Tab: show completions or accept first one if popup is visible
+			if _auto_complete_popup and _auto_complete_popup.visible:
+				# Accept the focused item
+				var focused := _auto_complete_popup.get_focused_item()
+				if focused >= 0:
+					_on_autocomplete_selected(focused)
+				_auto_complete_popup.hide()
+			else:
+				_show_completions()
+			accept_event()
+		elif event.keycode == KEY_ESCAPE:
+			# Dismiss autocomplete popup
+			if _auto_complete_popup and _auto_complete_popup.visible:
+				_auto_complete_popup.hide()
+				accept_event()
 
 func _on_send_pressed():
 	_execute_input(_input_field.text)
@@ -588,7 +737,8 @@ func _execute_input(input: String):
 	
 	# Execute code
 	var result = _evaluate_expression(input)
-	_append_output(result + "\n")
+	if result != "":
+		_append_output(result + "\n")
 	
 	# Update variables display
 	_refresh_variables()
@@ -676,6 +826,22 @@ func _evaluate_expression(expr: String) -> String:
 	if _is_connected_to_remote():
 		return _evaluate_remote(expr)
 	
+	# If there's an active debug session but no explicit connection, auto-route
+	# through the debugger protocol using instance 0 (first/default instance).
+	# This covers the case where the game is paused at a breakpoint but the
+	# Immediate Window hasn't formally connected to an instance yet.
+	# We use our local _debug_session_active flag as the primary indicator,
+	# but double-check the plugin still has a session. is_session_active()
+	# checks _active_session != null (safe during break — session object is
+	# still present, only session.is_active() would be false).
+	if _debug_session_active and _debugger_plugin:
+		if _debugger_plugin.is_session_alive():
+			return _evaluate_via_session(expr)
+		else:
+			# Session was cleaned up but our flag wasn't cleared — fix it now
+			_debug_session_active = false
+			set_debug_active(false, false)
+	
 	# Use VisualGasicImmediate if available for true BASIC execution
 	if _vg_repl != null:
 		# If connected to a running instance, use evaluate_in_context for runtime access
@@ -757,10 +923,10 @@ func _handle_assignment(expr: String) -> String:
 	var var_name = parts[0].strip_edges()
 	var value_expr = parts[1].strip_edges()
 	
-	var value = _eval_simple(value_expr)
+	var value = _parse_assignment_value(value_expr)
 	_variables[var_name] = value
 	
-	return "[color=green]✓ " + var_name + " = " + str(value) + "[/color]"
+	return "[color=green]✓ " + var_name + " = " + str(value) + " (" + _get_type_name(value) + ")[/color]"
 
 func _eval_simple(expr: String) -> Variant:
 	# Check if it's a variable reference
@@ -889,13 +1055,74 @@ func _create_syntax_highlighter() -> SyntaxHighlighter:
 	return highlighter
 
 func _show_completions():
-	# Show auto-completion popup
+	# Show auto-completion popup with VB6-style IntelliSense
 	var completions = _get_completions(_input_field.text)
 	if completions.is_empty():
+		if _auto_complete_popup and _auto_complete_popup.visible:
+			_auto_complete_popup.hide()
 		return
 	
-	# For now, just show in output
-	_append_output("[color=gray]Suggestions: " + ", ".join(completions) + "[/color]\n")
+	if not _auto_complete_popup:
+		return
+	
+	_auto_complete_popup.clear()
+	for i in completions.size():
+		_auto_complete_popup.add_item(completions[i], i)
+	
+	# Style the popup — dark VB6 theme
+	_auto_complete_popup.add_theme_color_override("font_color", Color(1.0, 1.0, 0.9))
+	
+	# Position near the caret in the input field
+	var caret_line := _input_field.get_caret_line()
+	var caret_col := _input_field.get_caret_column()
+	var font := _input_field.get_theme_font("font") if _input_field.has_theme_font("font") else ThemeDB.fallback_font
+	var font_size := _input_field.get_theme_font_size("font_size") if _input_field.has_theme_font_size("font_size") else 14
+	var text_before := _input_field.get_line(caret_line).substr(0, caret_col)
+	var text_width := font.get_string_size(text_before, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
+	var line_height := _input_field.get_line_height()
+	
+	var input_global := _input_field.global_position
+	var popup_pos := Vector2i(
+		int(input_global.x + text_width + 40),
+		int(input_global.y + (caret_line + 1) * line_height + 4)
+	)
+	
+	# Clamp to screen
+	var screen_size := DisplayServer.screen_get_size()
+	popup_pos.x = mini(popup_pos.x, screen_size.x - 360)
+	popup_pos.y = mini(popup_pos.y, screen_size.y - 320)
+	
+	_auto_complete_popup.position = popup_pos
+	_auto_complete_popup.popup()
+	
+	# Select first item
+	if _auto_complete_popup.item_count > 0:
+		_auto_complete_popup.set_focused_item(0)
+
+func _on_autocomplete_selected(id: int) -> void:
+	"""Insert the selected completion into the input field."""
+	if not _auto_complete_popup or id < 0 or id >= _auto_complete_popup.item_count:
+		return
+	var selected_text := _auto_complete_popup.get_item_text(id)
+	var current_word := _get_current_word(_input_field.text)
+	
+	# Replace the current partial word with the completion
+	var caret_line := _input_field.get_caret_line()
+	var caret_col := _input_field.get_caret_column()
+	var line := _input_field.get_line(caret_line)
+	
+	# Find the start of the word being completed
+	var start := caret_col
+	while start > 0 and line[start - 1].is_valid_identifier():
+		start -= 1
+	
+	# Replace word with completion
+	var before := line.substr(0, start)
+	var after := line.substr(caret_col)
+	var new_line := before + selected_text + after
+	_input_field.set_line(caret_line, new_line)
+	_input_field.set_caret_column(start + selected_text.length())
+	_input_field.grab_focus()
 
 func _get_completions(text: String) -> Array[String]:
 	var completions: Array[String] = []
@@ -904,23 +1131,58 @@ func _get_completions(text: String) -> Array[String]:
 	if word.is_empty():
 		return completions
 	
-	# Built-in functions
-	var functions = ["Print", "Len", "Left", "Right", "Mid", "UCase", "LCase", "Trim",
-					"Chr", "Asc", "Sin", "Cos", "Tan", "Abs", "Int", "Round", "Sqrt"]
+	# Built-in VB6 functions (comprehensive list)
+	var functions = [
+		"Print", "Len", "Left", "Right", "Mid", "UCase", "LCase", "Trim",
+		"Chr", "Asc", "Sin", "Cos", "Tan", "Abs", "Int", "Round", "Sqrt",
+		"LTrim", "RTrim", "Str", "Val", "CStr", "CInt", "CLng", "CDbl",
+		"CBool", "CSng", "CByte", "CDate", "Hex", "Oct", "Space", "String",
+		"InStr", "InStrRev", "Replace", "Split", "Join", "StrComp",
+		"Format", "FormatNumber", "FormatCurrency", "FormatPercent",
+		"IsNumeric", "IsDate", "IsEmpty", "IsNull", "IsNothing", "IsArray",
+		"TypeName", "VarType", "Array", "UBound", "LBound",
+		"MsgBox", "InputBox", "DoEvents", "Timer", "Now", "Date", "Time",
+		"DateAdd", "DateDiff", "DatePart", "DateSerial", "TimeSerial",
+		"Year", "Month", "Day", "Hour", "Minute", "Second",
+		"Sgn", "Exp", "Log", "Sqr", "Rnd", "Randomize", "Fix",
+		"Atn", "Atan2",
+	]
 	for fn in functions:
-		if fn.to_lower().begins_with(word.to_lower()):
+		if fn.to_lower().begins_with(word.to_lower()) and fn not in completions:
 			completions.append(fn)
 	
 	# Keywords
-	var keywords = ["Dim", "As", "If", "Then", "Else", "For", "To", "Next", "While"]
+	var keywords = [
+		"Dim", "As", "If", "Then", "Else", "ElseIf", "End",
+		"For", "To", "Step", "Next", "Each", "In",
+		"Do", "Loop", "While", "Wend", "Until",
+		"Select", "Case", "With",
+		"Sub", "Function", "Property", "Exit", "Return",
+		"Set", "Let", "New", "Nothing", "Null", "Empty",
+		"True", "False", "And", "Or", "Not", "Xor", "Mod",
+		"Public", "Private", "Static", "Const",
+		"ByVal", "ByRef", "Optional", "ParamArray",
+		"On", "Error", "Resume", "GoTo",
+		"ReDim", "Preserve", "Erase",
+		"Call", "Debug", "Print",
+	]
 	for keyword in keywords:
-		if keyword.to_lower().begins_with(word.to_lower()):
+		if keyword.to_lower().begins_with(word.to_lower()) and keyword not in completions:
 			completions.append(keyword)
 	
-	# Variables
+	# Local variables (from REPL and assignments)
 	for var_name in _variables.keys():
-		if var_name.to_lower().begins_with(word.to_lower()):
-			completions.append(var_name)
+		if str(var_name).to_lower().begins_with(word.to_lower()) and str(var_name) not in completions:
+			completions.append(str(var_name))
+	
+	# Immediate Window commands (prefixed with :)
+	if word.begins_with(":"):
+		var commands = [":help", ":clear", ":vars", ":history", ":reset",
+						":instances", ":connect", ":disconnect", ":watch",
+						":save", ":load"]
+		for cmd in commands:
+			if cmd.begins_with(word) and cmd not in completions:
+				completions.append(cmd)
 	
 	return completions
 
@@ -1100,6 +1362,26 @@ func _on_var_column_title_clicked(column: int, mouse_button_index: int) -> void:
 			title += " ▲" if _var_sort_ascending else " ▼"
 		_var_tree.set_column_title(i, title)
 	_update_variables_tree()
+
+func _style_context_menu(popup: PopupMenu) -> void:
+	"""Style a PopupMenu so it's readable (light bg, dark text) in our dark-themed panel."""
+	var panel_style = StyleBoxFlat.new()
+	panel_style.bg_color = Color(0.95, 0.95, 0.95, 1.0)  # Light background
+	panel_style.set_corner_radius_all(4)
+	panel_style.border_color = Color(0.6, 0.6, 0.6, 1.0)
+	panel_style.set_border_width_all(1)
+	popup.add_theme_stylebox_override("panel", panel_style)
+	
+	var hover_style = StyleBoxFlat.new()
+	hover_style.bg_color = Color(0.3, 0.55, 0.9, 1.0)  # Blue highlight
+	hover_style.set_corner_radius_all(2)
+	popup.add_theme_stylebox_override("hover", hover_style)
+	
+	popup.add_theme_color_override("font_color", Color(0.1, 0.1, 0.1, 1.0))           # Dark text
+	popup.add_theme_color_override("font_hover_color", Color(1.0, 1.0, 1.0, 1.0))     # White on hover
+	popup.add_theme_color_override("font_disabled_color", Color(0.5, 0.5, 0.5, 1.0))  # Grey for disabled
+	popup.add_theme_color_override("font_separator_color", Color(0.3, 0.3, 0.3, 1.0))
+	popup.add_theme_color_override("font_accelerator_color", Color(0.4, 0.4, 0.5, 1.0))
 
 func _style_tree_scrollbar(tree: Tree) -> void:
 	"""Make the Tree's vertical scrollbar grabber clearly visible."""
@@ -1568,14 +1850,21 @@ func _add_watch_expression():
 	var input = LineEdit.new()
 	input.placeholder_text = "e.g., player.health"
 	vbox.add_child(input)
+	var cond_label = Label.new()
+	cond_label.text = "Condition (optional — only evaluate when true):"
+	cond_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	vbox.add_child(cond_label)
+	var cond_input = LineEdit.new()
+	cond_input.placeholder_text = "e.g., score > 100"
+	vbox.add_child(cond_input)
 	dialog.confirmed.connect(func():
 		if not input.text.is_empty():
-			_watch_expressions.append({"expr": input.text, "value": ""})
+			_watch_expressions.append({"expr": input.text, "value": "", "condition": cond_input.text})
 			_save_watch_expressions()  # Persist
 			_update_watch_expressions()
 	)
 	add_child(dialog)
-	dialog.popup_centered(Vector2(300, 100))
+	dialog.popup_centered(Vector2(350, 150))
 
 func _update_watch_expressions():
 	_watch_tree.clear()
@@ -1586,27 +1875,51 @@ func _update_watch_expressions():
 	for watch in _watch_expressions:
 		var item = _watch_tree.create_item(root)
 		item.set_text(0, watch["expr"])
-		var value
-		# Use remote variables if connected to remote instance
-		if _connected_remote_id >= 0 and _variables.has(watch["expr"]):
-			value = _variables[watch["expr"]]
+		
+		# Show condition in column 1
+		var condition: String = watch.get("condition", "")
+		item.set_text(1, condition if not condition.is_empty() else "—")
+		if condition.is_empty():
+			item.set_custom_color(1, Color(0.5, 0.5, 0.5))  # Gray for no condition
 		else:
-			value = _eval_simple(watch["expr"])
-		var value_str = str(value)
-		item.set_text(1, value_str)
-		item.set_editable(1, true)  # Make Value column editable
+			item.set_custom_color(1, Color(0.9, 0.7, 0.3))  # Amber for active condition
+		
+		# Check condition — skip evaluation if condition is false
+		var condition_met := true
+		if not condition.is_empty():
+			var cond_val
+			if _connected_remote_id >= 0 and _variables.has(condition):
+				cond_val = _variables[condition]
+			else:
+				cond_val = _eval_simple(condition)
+			# Treat non-truthy results as condition not met
+			if cond_val == null or cond_val == false or cond_val == 0 or str(cond_val) == "False":
+				condition_met = false
+		
+		var value_str: String
+		if not condition_met:
+			value_str = "— (condition false)"
+			item.set_custom_color(2, Color(0.5, 0.5, 0.5))  # Gray out
+		else:
+			var value
+			# Use remote variables if connected to remote instance
+			if _connected_remote_id >= 0 and _variables.has(watch["expr"]):
+				value = _variables[watch["expr"]]
+			else:
+				value = _eval_simple(watch["expr"])
+			value_str = str(value)
+			
+			# Color-code based on value changes
+			var prev_value = _watch_previous_values.get(watch["expr"], "")
+			if prev_value != "" and prev_value != value_str:
+				item.set_custom_color(2, Color.YELLOW)  # Value changed
+			else:
+				item.set_custom_color(2, Color.LIME_GREEN)  # No change
+			_watch_previous_values[watch["expr"]] = value_str
+		
+		item.set_text(2, value_str)
+		item.set_editable(2, true)  # Make Value column editable
 		item.set_metadata(0, watch["expr"])  # Store expression name for editing
-		
-		# Color-code based on value changes
-		var prev_value = _watch_previous_values.get(watch["expr"], "")
-		if prev_value != "" and prev_value != value_str:
-			# Value changed - highlight in yellow
-			item.set_custom_color(1, Color.YELLOW)
-		else:
-			# No change or first time - default green
-			item.set_custom_color(1, Color.LIME_GREEN)
-		
-		_watch_previous_values[watch["expr"]] = value_str
 		watch["value"] = value_str
 
 func _on_watch_tree_gui_input(event: InputEvent):
@@ -1635,27 +1948,44 @@ func _on_watch_context_menu_selected(id: int):
 			_update_watch_expressions()
 		2:  # Copy Value
 			if selected:
-				DisplayServer.clipboard_set(selected.get_text(1))
+				DisplayServer.clipboard_set(selected.get_text(2))
 		3:  # Copy Expression
 			if selected:
 				DisplayServer.clipboard_set(selected.get_text(0))
+		4:  # Edit Condition
+			if selected:
+				_edit_watch_condition(selected.get_text(0))
+		5:  # Clear Condition
+			if selected:
+				var expr = selected.get_text(0)
+				for w in _watch_expressions:
+					if w["expr"] == expr:
+						w["condition"] = ""
+						break
+				_save_watch_expressions()
+				_update_watch_expressions()
 
 func _save_watch_expressions():
-	"""Persist watch expressions to user data"""
+	## Persist watch expressions to user data (including conditions).
 	var config = ConfigFile.new()
 	var expressions: Array[String] = []
+	var conditions: Array[String] = []
 	for watch in _watch_expressions:
 		expressions.append(watch["expr"])
+		conditions.append(watch.get("condition", ""))
 	config.set_value("watch", "expressions", expressions)
+	config.set_value("watch", "conditions", conditions)
 	config.save("user://vg_watch_expressions.cfg")
 
 func _load_watch_expressions():
-	"""Load persisted watch expressions"""
+	## Load persisted watch expressions (including conditions).
 	var config = ConfigFile.new()
 	if config.load("user://vg_watch_expressions.cfg") == OK:
 		var expressions = config.get_value("watch", "expressions", [])
-		for expr in expressions:
-			_watch_expressions.append({"expr": expr, "value": ""})
+		var conditions = config.get_value("watch", "conditions", [])
+		for i in range(expressions.size()):
+			var cond: String = conditions[i] if i < conditions.size() else ""
+			_watch_expressions.append({"expr": expressions[i], "value": "", "condition": cond})
 		if not _watch_expressions.is_empty():
 			_update_watch_expressions()
 
@@ -1666,14 +1996,48 @@ func _on_watch_item_activated():
 		_input_field.text = expr
 		_input_field.grab_focus()
 
+func _edit_watch_condition(expr: String) -> void:
+	## Show a dialog to edit the condition for a watch expression.
+	var dialog = AcceptDialog.new()
+	dialog.title = "Edit Watch Condition"
+	var vbox = VBoxContainer.new()
+	dialog.add_child(vbox)
+	var label = Label.new()
+	label.text = "Condition for '%s':" % expr
+	vbox.add_child(label)
+	var hint = Label.new()
+	hint.text = "Only evaluate when this expression is true."
+	hint.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+	hint.add_theme_font_size_override("font_size", 12)
+	vbox.add_child(hint)
+	var input = LineEdit.new()
+	input.placeholder_text = "e.g., score > 100"
+	# Pre-fill existing condition
+	for w in _watch_expressions:
+		if w["expr"] == expr:
+			input.text = w.get("condition", "")
+			break
+	vbox.add_child(input)
+	dialog.confirmed.connect(func():
+		for w in _watch_expressions:
+			if w["expr"] == expr:
+				w["condition"] = input.text
+				break
+		_save_watch_expressions()
+		_update_watch_expressions()
+	)
+	add_child(dialog)
+	dialog.popup_centered(Vector2(350, 120))
+	input.grab_focus()
+
 func _on_watch_item_edited():
-	"""Called when user edits a watch value in the tree"""
+	## Called when user edits a watch value in the tree.
 	var selected = _watch_tree.get_selected()
 	if not selected:
 		return
 	
 	var var_name = selected.get_metadata(0)
-	var new_value_str = selected.get_text(1)
+	var new_value_str = selected.get_text(2)
 	
 	# Send the assignment command
 	if _connected_remote_id >= 0 and _debugger_plugin:
@@ -2223,6 +2587,61 @@ func _is_connected_to_instance() -> bool:
 	"""Check if currently connected to a running instance"""
 	return _vg_repl != null and _vg_repl.is_instance_connected()
 
+func _display_eval_result(result) -> void:
+	"""Display the result of an evaluate_code callback in the Immediate Window.
+	   The result is a Dictionary with 'success' and 'result' fields from C++."""
+	if result == null:
+		_append_output("[color=gray](no return value)[/color]\n")
+	elif result is Dictionary:
+		var success = result.get("success", false)
+		var value = result.get("result", "")
+		if success:
+			if value == "" or value == "OK":
+				# Statement executed with no return value (e.g. MsgBox)
+				_append_output("[color=lime]OK[/color]\n")
+			else:
+				_append_output("[color=lime]" + str(value) + "[/color]\n")
+		else:
+			_append_output("[color=red]" + str(value) + "[/color]\n")
+	else:
+		_append_output("[color=lime]" + str(result) + "[/color]\n")
+
+func _evaluate_via_session(expr: String) -> String:
+	"""Evaluate an expression via the active debug session without requiring
+	   a formal instance connection. Uses instance 0 (first registered instance)
+	   as the target. This allows Immediate Window commands to work as soon as
+	   the game is paused at a breakpoint."""
+	# Guard: if the session was already torn down, bail out immediately
+	# and reset our local flag so we don't try again on the next command.
+	# Use is_session_alive() which checks is_active() OR is_breaked().
+	if not _debugger_plugin or not _debugger_plugin.is_session_alive():
+		_debug_session_active = false
+		set_debug_active(false, false)
+		return "[color=yellow]Debug session ended — use local REPL.[/color]"
+	
+	var instance_id := 0  # Default to first instance
+	var upper := expr.strip_edges().to_upper()
+	
+	print("[VG Immediate] _evaluate_via_session: expr='%s' _debug_session_active=%s plugin=%s" % [expr, str(_debug_session_active), str(_debugger_plugin != null)])
+	
+	# Handle assignment — set variable on instance 0
+	if "=" in expr and not "==" in expr and not "<=" in expr and not ">=" in expr and not "!=" in expr:
+		var parts = expr.split("=", true, 1)
+		var var_name = parts[0].strip_edges()
+		var value_str = parts[1].strip_edges() if parts.size() > 1 else ""
+		if not " " in var_name and not var_name.is_empty():
+			var value: Variant = _parse_assignment_value(value_str)
+			_debugger_plugin.set_variable(instance_id, var_name, value)
+			_variables[var_name] = value
+			return "[color=lime]Set " + var_name + " = " + str(value) + "[/color] [color=gray](remote)[/color]"
+	
+	# Everything else — send to the game's evaluate_immediate via debugger
+	_debugger_plugin.evaluate_code(instance_id, expr.strip_edges(), func(result):
+		print("[VG Immediate] evaluate_code callback received: ", result)
+		_display_eval_result(result)
+	)
+	return ""
+
 func _evaluate_remote(expr: String) -> String:
 	"""Evaluate an expression on the remote game instance"""
 	if not _debugger_plugin or _connected_remote_id < 0:
@@ -2230,54 +2649,99 @@ func _evaluate_remote(expr: String) -> String:
 	
 	var upper = expr.strip_edges().to_upper()
 	
-	# Handle Print/? queries
+	# Handle Print/? queries — always send to C++ evaluate_immediate which
+	# handles string literals, variable lookup, and numeric expressions.
 	if upper.begins_with("PRINT ") or expr.strip_edges().begins_with("? "):
-		var var_name = ""
-		if expr.strip_edges().begins_with("? "):
-			var_name = expr.strip_edges().substr(2).strip_edges()
-		else:
-			var_name = expr.strip_edges().substr(6).strip_edges()
-		
-		# If it's a string literal (quoted), evaluate as code
-		if var_name.begins_with("\"") or var_name.begins_with("'"):
-			_debugger_plugin.evaluate_code(_connected_remote_id, expr.strip_edges(), func(result):
-				if result == null:
-					_append_output("[color=gray](no return value)[/color]\n")
-				else:
-					_append_output("[color=lime]" + str(result) + "[/color] [color=gray](remote)[/color]\n")
-			)
-			return "[color=gray]Evaluating...[/color]"
-		
-		# Simple variable name — request its value from remote
-		_debugger_plugin.request_variable(_connected_remote_id, var_name)
-		return "[color=gray]Requesting " + var_name + "...[/color]"
+		_debugger_plugin.evaluate_code(_connected_remote_id, expr.strip_edges(), func(result):
+			_display_eval_result(result)
+		)
+		return ""
 	
 	# Handle assignment
-	if "=" in expr and not "==" in expr:
+	if "=" in expr and not "==" in expr and not "<=" in expr and not ">=" in expr and not "!=" in expr:
 		var parts = expr.split("=", true, 1)
 		var var_name = parts[0].strip_edges()
 		var value_str = parts[1].strip_edges() if parts.size() > 1 else ""
 		
-		# Parse simple values
-		var value: Variant
-		if value_str.is_valid_int():
-			value = value_str.to_int()
-		elif value_str.is_valid_float():
-			value = value_str.to_float()
+		# Skip if left side contains operators (not actually an assignment)
+		if " " in var_name or var_name.is_empty():
+			# Fall through to generic evaluation
+			pass
 		else:
-			value = value_str
-		
-		_debugger_plugin.set_variable(_connected_remote_id, var_name, value)
-		return "[color=lime]Set " + var_name + " = " + str(value) + "[/color] [color=gray](remote)[/color]"
+			# Parse values with full type support
+			var value: Variant = _parse_assignment_value(value_str)
+			
+			_debugger_plugin.set_variable(_connected_remote_id, var_name, value)
+			_variables[var_name] = value  # Keep local copy in sync
+			return "[color=lime]Set " + var_name + " = " + str(value) + "[/color] [color=gray](remote)[/color]"
 	
 	# Generic evaluation — execute as VB6 code on the remote instance
 	_debugger_plugin.evaluate_code(_connected_remote_id, expr.strip_edges(), func(result):
-		if result == null:
-			_append_output("[color=gray](no return value)[/color]\n")
-		else:
-			_append_output("[color=lime]" + str(result) + "[/color] [color=gray](remote)[/color]\n")
+		_display_eval_result(result)
 	)
-	return "[color=gray]Evaluating...[/color]"
+	return ""
+
+# ============================================================================
+# ASSIGNMENT VALUE PARSER — robust type detection for variable assignment
+# ============================================================================
+
+func _parse_assignment_value(value_str: String) -> Variant:
+	"""Parse a string value into the correct Variant type.
+	   Supports: integers, floats, booleans, null/nothing, strings, arrays."""
+	var v := value_str.strip_edges()
+	var upper := v.to_upper()
+	
+	# Boolean literals
+	if upper == "TRUE":
+		return true
+	if upper == "FALSE":
+		return false
+	
+	# Null / Nothing
+	if upper == "NULL" or upper == "NOTHING" or upper == "EMPTY":
+		return null
+	
+	# Integer
+	if v.is_valid_int():
+		return v.to_int()
+	
+	# Hex integer (e.g. &HFF or 0xFF)
+	if upper.begins_with("&H") or v.begins_with("0x") or v.begins_with("0X"):
+		var hex_str := v
+		if upper.begins_with("&H"):
+			hex_str = "0x" + v.substr(2)
+		return hex_str.hex_to_int()
+	
+	# Float
+	if v.is_valid_float():
+		return v.to_float()
+	
+	# Quoted string — strip quotes
+	if (v.begins_with("\"") and v.ends_with("\"")) or \
+	   (v.begins_with("'") and v.ends_with("'")):
+		return v.substr(1, v.length() - 2)
+	
+	# Array literal: Array(1, 2, 3) or {1, 2, 3}
+	if upper.begins_with("ARRAY(") and v.ends_with(")"):
+		var inner := v.substr(6, v.length() - 7)
+		return _parse_array_literal(inner)
+	if v.begins_with("{") and v.ends_with("}"):
+		var inner := v.substr(1, v.length() - 2)
+		return _parse_array_literal(inner)
+	
+	# Variable reference — check if it's a known variable
+	if v in _variables:
+		return _variables[v]
+	
+	# Fallback: treat as string
+	return v
+
+func _parse_array_literal(inner: String) -> Array:
+	"""Parse comma-separated values into an Array."""
+	var result: Array = []
+	for item in inner.split(","):
+		result.append(_parse_assignment_value(item.strip_edges()))
+	return result
 
 # ============================================================================
 # STEP DEBUGGING UI HANDLERS
@@ -2289,6 +2753,17 @@ func _on_debug_continue() -> void:
 		_debugger_plugin.debug_continue()
 		_update_debug_status("Running...")
 		_append_output("[color=lime]▶ Continuing execution...[/color]\n")
+	else:
+		_append_output("[color=yellow]No active debug session[/color]\n")
+
+func _on_debug_break() -> void:
+	"""Pause execution at the current line (VB6-style Break button)."""
+	if _debugger_plugin:
+		_debugger_plugin.debug_break()
+		_update_debug_status("Break requested...")
+		_append_output("[color=yellow]⏸ Break requested — pausing at next statement...[/color]\n")
+	elif EditorInterface.is_playing_scene():
+		_append_output("[color=yellow]⏸ Break requested but debugger not yet connected[/color]\n")
 	else:
 		_append_output("[color=yellow]No active debug session[/color]\n")
 
@@ -2319,6 +2794,18 @@ func _on_debug_step_out() -> void:
 	else:
 		_append_output("[color=yellow]No active debug session[/color]\n")
 
+func _on_debug_stop() -> void:
+	"""Stop execution — terminate the running game."""
+	if _debugger_plugin:
+		_debugger_plugin.debug_stop()
+		_update_debug_status("")
+		_append_output("[color=red]■ Execution stopped[/color]\n")
+	else:
+		# Fallback: stop directly via EditorInterface
+		EditorInterface.stop_playing_scene()
+		_update_debug_status("")
+		_append_output("[color=red]■ Execution stopped[/color]\n")
+
 func _update_debug_status(status: String) -> void:
 	"""Update the debug status label."""
 	if _debug_status_label:
@@ -2326,8 +2813,11 @@ func _update_debug_status(status: String) -> void:
 
 func _on_debug_break_hit(file: String, line: int) -> void:
 	"""Called when a breakpoint or step is hit."""
+	_debug_session_active = true
 	_update_debug_status("⏸ Paused at %s:%d" % [file.get_file(), line])
 	_append_output("[color=yellow]⏸ Paused at %s line %d[/color]\n" % [file.get_file(), line])
+	# Enable all debug buttons — we are paused at a breakpoint
+	set_debug_active(true, true)
 	# Switch to Variables tab to show current state
 	if _right_tabs:
 		_right_tabs.current_tab = 0  # Vars tab

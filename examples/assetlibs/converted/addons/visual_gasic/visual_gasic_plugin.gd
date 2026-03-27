@@ -157,6 +157,9 @@ var _profiler_panel = null
 ## Controls Inspector (v4.3.0) — Visual Form Debugger panel
 var _controls_inspector = null
 
+## Exception Assistant — VB6-style error popup
+var _exception_assistant = null
+
 ## Package Browser (v4.3.0) — Package Manager panel
 var _package_browser = null
 
@@ -284,6 +287,11 @@ func _enter_tree():
 		_data_tips = data_tips_script.new()
 		add_child(_data_tips)
 		_data_tips.setup(self)
+		# Wire Data Tips to debugger signals
+		if debugger_plugin:
+			debugger_plugin.variables_list_received.connect(_on_data_tips_variables_received)
+			debugger_plugin.debug_continued.connect(_on_data_tips_debug_ended)
+			debugger_plugin.debug_session_stopped.connect(_on_data_tips_debug_ended)
 		print("VisualGasic: Data Tips initialized")
 	
 	# Create Snippet Browser (v2.4.1)
@@ -321,11 +329,31 @@ func _enter_tree():
 		if debugger_plugin:
 			debugger_plugin.form_controls_received.connect(_on_form_controls_received)
 			debugger_plugin.debug_break_hit.connect(_on_debug_break_for_controls_inspector)
+			debugger_plugin.debug_break_hit.connect(_on_debug_break_navigate)
+			debugger_plugin.debug_break_hit.connect(_on_run_to_cursor_break_hit)
 			debugger_plugin.debug_continued.connect(_on_debug_continued_for_controls_inspector)
 			debugger_plugin.debug_session_stopped.connect(_on_debug_stopped_for_controls_inspector)
 		_controls_inspector.navigate_to_event.connect(_on_controls_navigate_to_event)
 		add_control_to_bottom_panel(_controls_inspector, "VG Controls")
 		print("VisualGasic: Controls Inspector created (bottom panel)")
+
+	# Create Exception Assistant (VB6-style error popup)
+	var exception_script = load("res://addons/visual_gasic/vg_exception_assistant.gd")
+	if exception_script:
+		_exception_assistant = exception_script.new()
+		add_child(_exception_assistant)
+		_exception_assistant.debug_requested.connect(_on_exception_debug)
+		_exception_assistant.continue_requested.connect(_on_exception_continue)
+		_exception_assistant.end_requested.connect(_on_exception_end)
+		if debugger_plugin:
+			if debugger_plugin.has_signal("error_break_received"):
+				debugger_plugin.error_break_received.connect(_on_error_break_received)
+			if debugger_plugin.has_signal("set_next_statement_failed"):
+				debugger_plugin.set_next_statement_failed.connect(_on_set_next_statement_failed)
+			# Call Stack Navigation — when a frame is inspected, update variables
+			if debugger_plugin.has_signal("stack_level_locals_received"):
+				debugger_plugin.stack_level_locals_received.connect(_on_stack_level_locals_received)
+		print("VisualGasic: Exception Assistant created")
 
 	# Create Package Browser (v4.3.0) — Package Manager panel
 	var pkg_browser_script = load("res://addons/visual_gasic/vg_package_browser.gd")
@@ -1028,14 +1056,37 @@ func _exit_tree():
 # DEBUGGER BREAKPOINTS — called by form_preview_toolbar to persist breakpoints
 # =============================================================================
 
-## Returns the current breakpoint dictionary from the debugger plugin.
-## Key: script_path (String), Value: Array of line numbers (int).
+## Returns the current breakpoint dictionary from ALL sources:
+## 1. The embedded VG code editor (primary — where users actually set breakpoints)
+## 2. The debugger plugin (ScriptEditor polling — fallback)
+## Key: script_path (String), Value: Array of line numbers (int, 1-based).
 func get_debugger_breakpoints() -> Dictionary:
+	var result: Dictionary = {}
+
+	# Source 1: Embedded VG code editor (0-based → 1-based conversion)
+	if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.has_method("get_file_path") and _embedded_code_editor.has_method("get_code_edit"):
+		var vg_path: String = _embedded_code_editor.get_file_path()
+		var code_edit = _embedded_code_editor.get_code_edit()
+		if not vg_path.is_empty() and code_edit:
+			var bp_lines = code_edit.get_breakpointed_lines()
+			if not bp_lines.is_empty():
+				var lines_array: Array = []
+				for line_idx in bp_lines:
+					lines_array.append(line_idx + 1)  # 0-based → 1-based
+				result[vg_path] = lines_array
+
+	# Source 2: Debugger plugin (ScriptEditor polling)
 	if debugger_plugin and is_instance_valid(debugger_plugin):
-		# vg_debugger_plugin stores breakpoints in _breakpoints dict
 		if "_breakpoints" in debugger_plugin:
-			return debugger_plugin._breakpoints
-	return {}
+			for path in debugger_plugin._breakpoints:
+				if not result.has(path):
+					result[path] = debugger_plugin._breakpoints[path]
+				else:
+					for l in debugger_plugin._breakpoints[path]:
+						if l not in result[path]:
+							result[path].append(l)
+
+	return result
 
 ## Intercept keyboard shortcuts BEFORE Godot's editor consumes them.
 ## Uses _input() — the FIRST callback in Godot's input chain — so our
@@ -3249,6 +3300,8 @@ func _create_vb6_menu_bar() -> MenuBar:
 	debug_menu.add_item("Run Current Scene", 1)
 	debug_menu.set_item_shortcut(debug_menu.get_item_index(1), _make_shortcut(KEY_F6))
 	debug_menu.add_separator()
+	debug_menu.add_item("Break", 2)
+	debug_menu.set_item_shortcut(debug_menu.get_item_index(2), _make_shortcut(KEY_PAUSE))
 	debug_menu.add_item("Stop", 10)
 	debug_menu.id_pressed.connect(_on_vb6_debug_menu)
 	mb.add_child(debug_menu)
@@ -3393,6 +3446,8 @@ func _do_save_all() -> void:
 	_do_save_form()
 	if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.has_method("save_file"):
 		_embedded_code_editor.save_file()
+		# Also save bookmarks for the current file
+		_save_bookmarks_for_current_file()
 	_form_dirty = false
 	_update_dirty_indicator()
 	_flash_status_message("All files saved")
@@ -4224,12 +4279,23 @@ func _on_vb6_debug_menu(id: int) -> void:
 		0:
 			_log_output("▶ Running main scene...", Color(0.0, 0.4, 0.0))
 			EditorInterface.play_main_scene()
+			if is_instance_valid(immediate_window) and immediate_window.has_method("set_debug_active"):
+				immediate_window.set_debug_active(true, false)
 		1:
 			_log_output("▶ Running current scene...", Color(0.0, 0.4, 0.0))
 			EditorInterface.play_current_scene()
+			if is_instance_valid(immediate_window) and immediate_window.has_method("set_debug_active"):
+				immediate_window.set_debug_active(true, false)
+		2:
+			# VB6-style Break — pause at next statement
+			_log_output("⏸ Break requested...", Color(0.8, 0.6, 0.0))
+			if is_instance_valid(debugger_plugin) and debugger_plugin.has_method("debug_break"):
+				debugger_plugin.debug_break()
 		10:
 			_log_output("■ Stopped.", Color(0.5, 0.0, 0.0))
 			EditorInterface.stop_playing_scene()
+			if is_instance_valid(immediate_window) and immediate_window.has_method("set_debug_active"):
+				immediate_window.set_debug_active(false, false)
 
 func _on_vb6_run_menu(id: int) -> void:
 	match id:
@@ -4250,6 +4316,8 @@ func _on_vb6_run_menu(id: int) -> void:
 			_do_save_form()
 			_log_output("▶ Run Project...", Color(0.0, 0.4, 0.0))
 			EditorInterface.play_main_scene()
+			if is_instance_valid(immediate_window) and immediate_window.has_method("set_debug_active"):
+				immediate_window.set_debug_active(true, false)
 
 func _on_vb6_tools_menu(id: int) -> void:
 	match id:
@@ -4733,12 +4801,12 @@ func _create_tip_of_day_dialog() -> void:
 	dialog.transient = true
 	dialog.close_requested.connect(dialog.hide)
 
-	# Background panel — light Win95 gray
+	# Background panel — dark theme matching the Godot editor
 	var panel = PanelContainer.new()
 	panel.set_anchors_preset(Control.PRESET_FULL_RECT)
 	var panel_sb = StyleBoxFlat.new()
-	panel_sb.bg_color = Color("#F0F0F0")
-	panel_sb.border_color = Color("#808080")
+	panel_sb.bg_color = Color("#2B2B2B")
+	panel_sb.border_color = Color("#555555")
 	panel_sb.border_width_top = 1
 	panel_sb.border_width_bottom = 1
 	panel_sb.border_width_left = 1
@@ -4761,7 +4829,7 @@ func _create_tip_of_day_dialog() -> void:
 	var header = Label.new()
 	header.text = "\ud83d\udca1  Did you know?"
 	header.add_theme_font_size_override("font_size", 17)
-	header.add_theme_color_override("font_color", Color("#000080"))
+	header.add_theme_color_override("font_color", Color("#FFD866"))
 	vbox.add_child(header)
 
 	# Separator
@@ -4773,8 +4841,8 @@ func _create_tip_of_day_dialog() -> void:
 	_tip_label.name = "TipText"
 	_tip_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_tip_label.custom_minimum_size = Vector2(460, 80)
-	_tip_label.add_theme_font_size_override("font_size", 13)
-	_tip_label.add_theme_color_override("font_color", Color("#1A1A1A"))
+	_tip_label.add_theme_font_size_override("font_size", 14)
+	_tip_label.add_theme_color_override("font_color", Color("#E0E0E0"))
 	_tip_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	_tip_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	vbox.add_child(_tip_label)
@@ -4785,7 +4853,7 @@ func _create_tip_of_day_dialog() -> void:
 	_tip_checkbox.text = "  Show tips at startup"
 	_tip_checkbox.button_pressed = _show_tips_on_startup
 	_tip_checkbox.add_theme_font_size_override("font_size", 12)
-	_tip_checkbox.add_theme_color_override("font_color", Color("#1A1A1A"))
+	_tip_checkbox.add_theme_color_override("font_color", Color("#C0C0C0"))
 	_tip_checkbox.toggled.connect(_on_tip_checkbox_toggled)
 	vbox.add_child(_tip_checkbox)
 
@@ -4841,7 +4909,7 @@ func _on_tip_checkbox_toggled(pressed: bool) -> void:
 	_save_tip_config()
 
 ## Config file path for Tip of the Day preference.
-const _TIP_CFG_PATH = "res://addons/visual_gasic/tip_of_day.cfg"
+const _TIP_CFG_PATH = "user://vg_tip_config.cfg"
 
 ## Loads Tip of the Day preferences from disk.
 func _load_tip_config() -> void:
@@ -5654,15 +5722,343 @@ func _on_debug_break_for_controls_inspector(_file: String, _line: int) -> void:
 		# Use instance 0 by default (first attached script)
 		_controls_inspector.set_instance_id(0)
 
+## Called when the debugger hits a breakpoint on a .vg script — navigate
+## to the correct file and line in the embedded VG code editor.
+func _on_debug_break_navigate(file: String, line: int) -> void:
+	if not file.ends_with(".vg"):
+		return
+	if not is_instance_valid(_embedded_code_editor):
+		return
+
+	# If we're already showing code for a different file, save first
+	if _embedded_code_editor.is_dirty() and _embedded_code_editor.get_file_path() != file:
+		_embedded_code_editor.save_file()
+
+	# Load the file (only reloads if path changed)
+	if _embedded_code_editor.get_file_path() != file:
+		_embedded_code_editor.load_file(file)
+		_feed_control_names_to_editor()
+
+	# Switch to the VG IDE main screen + code view.
+	# Set the guard flag so _make_visible(true) skips _sync_scene_to_form_designer().
+	# Without this, the sync may call save_form_as() via C++ FileAccess (which
+	# bypasses Godot's ResourceSaver) and trigger the "Files have been modified
+	# outside Godot" dialog.
+	#
+	# We use a short timer (NOT call_deferred) because Godot's C++ engine
+	# reacts to the break event at multiple points:
+	#   1. EditorDebuggerNode::_breaked() → selects Script editor (synchronous)
+	#   2. ScriptEditor::goto_line()      → selects Script editor (synchronous)
+	#   3. Various engine deferred calls that may also touch the main screen
+	# A call_deferred from GDScript is placed in the same deferred queue and
+	# can be overridden by later C++ deferred calls in the same frame.
+	# A timer fires in a FUTURE frame, after all engine-level processing for
+	# the current break event has fully settled.
+	_switching_to_code_editor = true
+	get_tree().create_timer(0.15).timeout.connect(
+		_deferred_switch_to_vg_code_view.bind(file, line)
+	)
+
+## Timer-delayed helper: switch to VG IDE code view and navigate to the
+## breakpoint line.  Runs ~150ms after the break event, which is long enough
+## for all of Godot's built-in Script-editor switches to have completed.
+func _deferred_switch_to_vg_code_view(file: String, line: int) -> void:
+	if not is_inside_tree():
+		return
+	_switching_to_code_editor = true
+	EditorInterface.set_main_screen_editor(_get_plugin_name())
+	_show_code_view()
+
+	# Navigate to the breakpoint line (1-based → 0-based for CodeEdit)
+	if is_instance_valid(_embedded_code_editor):
+		var code_edit = _embedded_code_editor.get_code_edit()
+		if code_edit and line > 0:
+			var zero_line := line - 1
+			code_edit.set_caret_line(zero_line)
+			code_edit.set_caret_column(0)
+			code_edit.center_viewport_to_caret()
+			code_edit.grab_focus()
+			# VB6-style yellow arrow: mark the executing line
+			if code_edit.has_method("set_debug_paused"):
+				code_edit.set_debug_paused(true)
+				code_edit.set_executing_line(zero_line)
+			# Pass Data Tips reference to code editor for hover-to-inspect
+			if _data_tips and "_data_tips_ref" in code_edit:
+				code_edit._data_tips_ref = _data_tips
+			# Connect set_next_statement signal (only once)
+			if code_edit.has_signal("set_next_statement_requested") \
+				and not code_edit.set_next_statement_requested.is_connected(_on_set_next_statement):
+				code_edit.set_next_statement_requested.connect(_on_set_next_statement)
+			# Connect run_to_cursor signal (only once)
+			if code_edit.has_signal("run_to_cursor_requested") \
+				and not code_edit.run_to_cursor_requested.is_connected(_on_run_to_cursor):
+				code_edit.run_to_cursor_requested.connect(_on_run_to_cursor)
+			# Connect tracepoint signal (only once)
+			if code_edit.has_signal("tracepoint_set") \
+				and not code_edit.tracepoint_set.is_connected(_on_tracepoint_set):
+				code_edit.tracepoint_set.connect(_on_tracepoint_set)
+			# Connect Edit & Continue signal (only once)
+			if code_edit.has_signal("edit_and_continue_requested") \
+				and not code_edit.edit_and_continue_requested.is_connected(_on_edit_and_continue):
+				code_edit.edit_and_continue_requested.connect(_on_edit_and_continue)
+			# Connect Pinned Inline Values signal (only once)
+			if code_edit.has_signal("pin_inline_value_requested") \
+				and not code_edit.pin_inline_value_requested.is_connected(_on_pin_inline_value):
+				code_edit.pin_inline_value_requested.connect(_on_pin_inline_value)
+			# Load bookmarks for this file (only once per file load)
+			if code_edit.has_method("load_bookmarks"):
+				code_edit.load_bookmarks(file)
+			print("VisualGasic: Debug break → navigated to ", file.get_file(), " line ", line)
+
 ## Called when the game continues from a breakpoint.
 func _on_debug_continued_for_controls_inspector() -> void:
 	if is_instance_valid(_controls_inspector):
 		_controls_inspector.set_debugging(false)
+	# Clear the VB6-style yellow arrow
+	_clear_executing_line_indicator()
 
 ## Called when the debug session ends entirely.
 func _on_debug_stopped_for_controls_inspector() -> void:
 	if is_instance_valid(_controls_inspector):
 		_controls_inspector.set_debugging(false)
+	# Clear the VB6-style yellow arrow
+	_clear_executing_line_indicator()
+
+## Clear the yellow executing line arrow from the code editor.
+func _clear_executing_line_indicator() -> void:
+	if is_instance_valid(_embedded_code_editor):
+		var code_edit = _embedded_code_editor.get_code_edit()
+		if code_edit and code_edit.has_method("clear_executing_line"):
+			code_edit.clear_executing_line()
+
+## Called when the user drags the yellow arrow to a new line (Set Next Statement).
+func _on_set_next_statement(target_line_1based: int) -> void:
+	if debugger_plugin and debugger_plugin.is_session_active():
+		print("VisualGasic: Set Next Statement → line ", target_line_1based)
+		debugger_plugin.set_next_statement(target_line_1based)
+	else:
+		push_warning("VisualGasic: Set Next Statement — no active debug session")
+
+## Called when the VM reports the Set Next Statement target was not found in
+## the current bytecode chunk (defense-in-depth; the editor guard should have
+## caught this already, but race conditions or edge cases are possible).
+func _on_set_next_statement_failed(requested_line: int, actual_line: int) -> void:
+	push_warning("Set Next Statement: line %d not in current procedure. Reverting to line %d." % [requested_line, actual_line])
+	if is_instance_valid(_embedded_code_editor):
+		var code_edit = _embedded_code_editor.get_code_edit()
+		if code_edit and code_edit.has_method("set_executing_line"):
+			# actual_line is 1-based from VM, set_executing_line expects 0-based
+			code_edit.set_executing_line(actual_line - 1)
+
+# =============================================================================
+# DATA TIPS — hover-to-inspect wiring
+# =============================================================================
+
+func _on_data_tips_variables_received(variables: Dictionary) -> void:
+	if is_instance_valid(_data_tips):
+		_data_tips.set_debug_variables(variables)
+	# Also update pinned inline values with the same data
+	_update_pinned_inline_values(variables)
+
+func _on_data_tips_debug_ended() -> void:
+	if is_instance_valid(_data_tips):
+		_data_tips.clear_debug_state()
+
+# =============================================================================
+# RUN TO CURSOR — set temp breakpoint, continue, auto-remove on hit
+# =============================================================================
+
+var _run_to_cursor_file: String = ""
+var _run_to_cursor_line: int = -1
+
+func _on_run_to_cursor(target_line_1based: int) -> void:
+	if not debugger_plugin or not debugger_plugin.is_session_active():
+		push_warning("VisualGasic: Run to Cursor — no active debug session")
+		return
+	# Get the current script path from the embedded code editor
+	var script_path := ""
+	if is_instance_valid(_embedded_code_editor):
+		script_path = _embedded_code_editor.get_file_path()
+	if script_path.is_empty():
+		push_warning("VisualGasic: Run to Cursor — no script file")
+		return
+	# Remember the temp breakpoint so we can remove it when hit
+	_run_to_cursor_file = script_path
+	_run_to_cursor_line = target_line_1based
+	# Inject a temporary breakpoint at the target line
+	if not debugger_plugin._breakpoints.has(script_path):
+		debugger_plugin._breakpoints[script_path] = []
+	var bp_list: Array = debugger_plugin._breakpoints[script_path]
+	if target_line_1based not in bp_list:
+		bp_list.append(target_line_1based)
+	# Sync to game and continue execution
+	debugger_plugin._sync_breakpoints_to_game()
+	debugger_plugin.debug_continue()
+	print("VisualGasic: Run to Cursor → ", script_path.get_file(), ":", target_line_1based)
+
+func _on_run_to_cursor_break_hit(file: String, line: int) -> void:
+	## Check if this break was from our Run-to-Cursor temp breakpoint.
+	if _run_to_cursor_line > 0 and file == _run_to_cursor_file and line == _run_to_cursor_line:
+		# Remove the temp breakpoint
+		if debugger_plugin._breakpoints.has(_run_to_cursor_file):
+			var bp_list: Array = debugger_plugin._breakpoints[_run_to_cursor_file]
+			bp_list.erase(_run_to_cursor_line)
+			debugger_plugin._sync_breakpoints_to_game()
+		# Also remove from the CodeEdit gutter if visible
+		if is_instance_valid(_embedded_code_editor):
+			var code_edit = _embedded_code_editor.get_code_edit()
+			if code_edit:
+				var zero_line := _run_to_cursor_line - 1
+				if zero_line >= 0 and zero_line < code_edit.get_line_count() \
+					and code_edit.is_line_breakpointed(zero_line):
+					code_edit.set_line_as_breakpoint(zero_line, false)
+		print("VisualGasic: Run to Cursor → hit, temp breakpoint removed")
+		_run_to_cursor_file = ""
+		_run_to_cursor_line = -1
+
+# =============================================================================
+# EXCEPTION ASSISTANT — VB6-style unhandled error popup
+# =============================================================================
+
+var _last_error_variables: Dictionary = {}
+
+func _on_error_break_received(file: String, line: int, message: String, code: int) -> void:
+	## Show the Exception Assistant popup when an unhandled runtime error breaks.
+	print("VisualGasic: Exception Assistant → %s:%d — Error %d: %s" % [file.get_file(), line, code, message])
+	# Collect current variables from the Data Tips cache (they're sent with the break)
+	_last_error_variables.clear()
+	if is_instance_valid(_data_tips) and _data_tips.has_method("get_debug_variables"):
+		_last_error_variables = _data_tips.get_debug_variables()
+	# Defer the popup show — the error_break message arrives before
+	# Godot's debug_enter is fully processed, so showing immediately
+	# can get buried behind editor panels.  A short delay lets the break
+	# state settle before we pop the dialog to the front.
+	if is_instance_valid(_exception_assistant):
+		_exception_assistant.call_deferred("show_error", file, line, message, code, _last_error_variables)
+
+func _on_exception_debug() -> void:
+	## User chose Debug — stay paused to inspect state.
+	print("VisualGasic: Exception Assistant → Debug (staying paused)")
+	# Nothing to do — already paused in vg_debug_wait()
+
+func _on_exception_continue() -> void:
+	## User chose Continue — resume execution past the error.
+	print("VisualGasic: Exception Assistant → Continue")
+	if debugger_plugin and debugger_plugin.is_session_active():
+		debugger_plugin.debug_continue()
+
+func _on_exception_end() -> void:
+	## User chose End — stop the running game.
+	print("VisualGasic: Exception Assistant → End (stopping game)")
+	if debugger_plugin:
+		debugger_plugin.debug_stop()
+
+# =============================================================================
+# CALL STACK NAVIGATION — frame-level variable inspection
+# =============================================================================
+
+func _on_stack_level_locals_received(level: int, locals: Dictionary) -> void:
+	## Update the Immediate Window's variables panel with locals from a specific frame.
+	if is_instance_valid(immediate_window):
+		# Temporarily replace variables with this frame's locals
+		immediate_window._variables = locals
+		if immediate_window.has_method("_refresh_variables_tree"):
+			immediate_window._refresh_variables_tree()
+		elif immediate_window._var_tree:
+			# Manual refresh if no dedicated method
+			immediate_window._update_watch_expressions()
+		print("VisualGasic: Stack frame %d locals → %d variables" % [level, locals.size()])
+
+# =============================================================================
+# BOOKMARKS — save/load sidecar files on file save/open
+# =============================================================================
+
+func _save_bookmarks_for_current_file() -> void:
+	## Save bookmarks for the currently open file in the embedded code editor.
+	if not is_instance_valid(_embedded_code_editor):
+		return
+	var file_path: String = ""
+	if _embedded_code_editor.has_method("get_file_path"):
+		file_path = _embedded_code_editor.get_file_path()
+	if file_path.is_empty():
+		return
+	var code_edit = _embedded_code_editor.get_code_edit()
+	if code_edit and code_edit.has_method("save_bookmarks"):
+		code_edit.save_bookmarks(file_path)
+
+func _load_bookmarks_for_current_file() -> void:
+	## Load bookmarks for the currently open file in the embedded code editor.
+	if not is_instance_valid(_embedded_code_editor):
+		return
+	var file_path: String = ""
+	if _embedded_code_editor.has_method("get_file_path"):
+		file_path = _embedded_code_editor.get_file_path()
+	if file_path.is_empty():
+		return
+	var code_edit = _embedded_code_editor.get_code_edit()
+	if code_edit and code_edit.has_method("load_bookmarks"):
+		code_edit.load_bookmarks(file_path)
+
+# =============================================================================
+# TRACEPOINTS (LOG POINTS) — breakpoints that log instead of pausing
+# =============================================================================
+
+func _on_tracepoint_set(line: int, message: String) -> void:
+	## Called when the user sets/changes a tracepoint in the code editor.
+	## Sends to the running game so the debug handler can log-and-continue.
+	var script_path := ""
+	if is_instance_valid(_embedded_code_editor):
+		script_path = _embedded_code_editor.get_file_path()
+	if script_path.is_empty():
+		return
+	var line_1based := line + 1  # CodeEdit is 0-based, debugger is 1-based
+	if debugger_plugin and debugger_plugin.is_session_active():
+		if message.is_empty():
+			debugger_plugin.remove_tracepoint(script_path, line_1based)
+			print("VisualGasic: Tracepoint removed → ", script_path.get_file(), ":", line_1based)
+		else:
+			debugger_plugin.set_tracepoint(script_path, line_1based, message)
+			print("VisualGasic: Tracepoint set → ", script_path.get_file(), ":", line_1based, " msg='", message, "'")
+
+# =============================================================================
+# EDIT AND CONTINUE — VB6 signature feature: apply edits while debug-paused
+# =============================================================================
+
+func _on_edit_and_continue() -> void:
+	## Called when the user presses Ctrl+Shift+Enter (or the toolbar button).
+	## Sends the current editor source to the running game for hot-reload.
+	if not debugger_plugin or not debugger_plugin.is_session_active():
+		push_warning("VisualGasic: Edit & Continue — no active debug session")
+		return
+	if not is_instance_valid(_embedded_code_editor):
+		return
+	var script_path: String = _embedded_code_editor.get_file_path()
+	if script_path.is_empty():
+		return
+	var code_edit = _embedded_code_editor.get_code_edit()
+	if not code_edit:
+		return
+	var new_source: String = code_edit.text
+	debugger_plugin.edit_and_continue(script_path, new_source)
+	print("VisualGasic: Edit & Continue → sent ", script_path.get_file(), " (", new_source.length(), " chars)")
+	# Visual feedback: flash the status bar
+	if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.has_method("show_status_message"):
+		_embedded_code_editor.show_status_message("✓ Edit & Continue applied")
+
+# =============================================================================
+# PINNED INLINE VALUES — live variable values next to source lines
+# =============================================================================
+
+func _on_pin_inline_value(line: int, variable: String) -> void:
+	## Called when the user pins/unpins an inline value (Ctrl+Shift+Alt+P).
+	print("VisualGasic: Pin inline value → line ", line, " var '", variable, "'")
+
+func _update_pinned_inline_values(variables: Dictionary) -> void:
+	## Forward current debug variables to the code editor's pinned values overlay.
+	if is_instance_valid(_embedded_code_editor):
+		var code_edit = _embedded_code_editor.get_code_edit()
+		if code_edit and code_edit.has_method("update_pinned_values"):
+			code_edit.update_pinned_values(variables)
 
 ## Called when the user double-clicks a control in the Controls Inspector to
 ## navigate to its event handler (e.g. Command1_Click).

@@ -26,6 +26,12 @@ void VisualGasicInstance::_execute_statement_impl(Statement* stmt) {
 				args.push_back(_evaluate_expression_impl(expr));
 			}
 			dispatch_builtin_call(c->method_name, args, found);
+			if (!found) {
+				call_internal(c->method_name, args, found);
+			}
+			if (!found) {
+				raise_error("Sub or Function not defined: " + c->method_name, 35);
+			}
 			break;
 		}
 		case STMT_IF: {

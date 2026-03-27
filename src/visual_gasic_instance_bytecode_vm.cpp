@@ -836,6 +836,42 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         // Priority 3: On Error GoTo Label — return false so caller does
         // goto cleanup → AST fallback handles the label jump.
         // Also NONE mode: return false → abort.
+        
+        // Exception Assistant: break into debugger on unhandled errors (VB6 style)
+        if (error_state.mode == ErrorState::NONE && VisualGasicLanguage::get_break_on_error()) {
+            EngineDebugger* err_debugger = EngineDebugger::get_singleton();
+            String err_script_path = debug_state.current_file;
+            if (err_debugger && err_debugger->is_active() && !err_script_path.is_empty()) {
+                VisualGasicLanguage::set_current_break_location(err_script_path, debug_state.current_line);
+                
+                // Send error_break message with error details
+                Array error_data;
+                error_data.push_back(err_script_path);
+                error_data.push_back(debug_state.current_line);
+                error_data.push_back(error_state.message);
+                error_data.push_back(error_state.code);
+                err_debugger->send_message("visualgasic:error_break", error_data);
+                
+                // Also send current state for inspection
+                _send_variables_to_debugger(err_debugger);
+                _send_call_stack_to_debugger(err_debugger);
+                err_debugger->line_poll();
+                
+                VisualGasicLanguage::vg_debug_wait();
+                
+                // VB6 behavior: when the user presses Continue (or Debug
+                // then later Continue), the error is dismissed and execution
+                // resumes past the errored statement.  Clear the error state
+                // and return true so the opcode handler continues normally
+                // instead of propagating to a native_msgbox.
+                // (If the user chose End, the game process is terminated by
+                // the editor, so we'll never reach this point.)
+                error_state.has_error = false;
+                if (push_default) push_value(default_val);
+                return true;
+            }
+        }
+        
         return false;
     };
 
@@ -1446,11 +1482,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     EngineDebugger* debugger = EngineDebugger::get_singleton();
                     debugger->send_message("visualgasic:watchpoint_hit", 
                         Array::make(name, variables.get(name, Variant()), value, debug_file, wp_line));
-                    // Use Godot's script_debug() for proper pause/resume
-                    VisualGasicLanguage* lang = VisualGasicLanguage::get_singleton();
-                    if (lang) {
-                        debugger->script_debug(lang, true, false);
-                    }
+                    VisualGasicLanguage::vg_debug_wait();
                 }
                 
                 // Type-preservation matching assign_variable() behavior
@@ -2295,11 +2327,23 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                                     if (owner->has_method(snake)) {
                                         call_ret = owner->callv(snake, args);
                                     } else {
-                                        call_ret = Variant();
+                                        raise_error("Sub or Function not defined: " + method, 35);
+                                        if (try_recover_error(Variant())) {
+                                            call_ret = Variant();
+                                        } else {
+                                            success = false;
+                                            goto cleanup;
+                                        }
                                     }
                                 }
-                            } else {
-                                call_ret = Variant();
+                            } else if (!stmt_found) {
+                                raise_error("Sub or Function not defined: " + method, 35);
+                                if (try_recover_error(Variant())) {
+                                    call_ret = Variant();
+                                } else {
+                                    success = false;
+                                    goto cleanup;
+                                }
                             }
                         }
                     }
@@ -3743,6 +3787,32 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 }
 
                 int line_number = (line_hi << 8) | line_lo;
+
+                // ── Set Next Statement (early check) ──
+                // If a set_next_statement message arrived between
+                // instructions (after the previous vg_debug_wait
+                // returned), catch it NOW before executing this line.
+                if (VisualGasicLanguage::is_next_statement_requested()) {
+                    int sns_target = VisualGasicLanguage::get_next_statement_line();
+                    if (sns_target != line_number) {
+                        VisualGasicLanguage::clear_next_statement();
+                        // Scan bytecode for the target OP_DEBUG_LINE
+                        for (int si = 0; si + 2 < code_size; si++) {
+                            if (code[si] == OP_DEBUG_LINE) {
+                                int el = (code[si + 2] << 8) | code[si + 1];
+                                if (el == sns_target) {
+                                    vm.ip = si;  // point AT the target OP_DEBUG_LINE
+                                    UtilityFunctions::print("[VG Debug] Set Next Statement (early): redirected to line ", sns_target);
+                                    break;  // exit scan loop — the main dispatch will process the target OP_DEBUG_LINE
+                                }
+                            }
+                        }
+                        break;  // exit this OP_DEBUG_LINE handler; the VM loop will fetch the target
+                    } else {
+                        // Already at the target line — just clear the flag
+                        VisualGasicLanguage::clear_next_statement();
+                    }
+                }
                 
                 // Update debug state
                 debug_state.current_line = line_number;
@@ -3759,29 +3829,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 EngineDebugger* engine_debugger = EngineDebugger::get_singleton();
                 bool should_break = false;
                 
-                // First check Godot's built-in stepping mechanism (set by debugger panel buttons)
-                if (engine_debugger && engine_debugger->is_active()) {
-                    int lines_left = engine_debugger->get_lines_left();
-                    int godot_depth = engine_debugger->get_depth();
-                    int current_depth = VisualGasicLanguage::get_current_stack_depth();
-                    
-                    // Godot's stepping:
-                    // - Step Into: lines_left = 1, depth = -1 (break on any next line)
-                    // - Step Over: lines_left = 1, depth = current (break at same or shallower depth)
-                    // - Step Out: lines_left = 0, depth = current-1 (break when returning to parent)
-                    if (lines_left > 0) {
-                        if (godot_depth < 0 || current_depth <= godot_depth) {
-                            should_break = true;
-                            // Decrement lines_left to consume this step
-                            engine_debugger->set_lines_left(lines_left - 1);
-                        }
-                    } else if (godot_depth >= 0 && current_depth <= godot_depth) {
-                        // Step out mode: break when returning to shallower depth
-                        should_break = true;
-                    }
-                }
-                
-                // Also check our custom step mode (for file-based debugging fallback)
+                // Check our custom step mode (set by IW buttons via visualgasic:debug_* messages)
                 VGStepMode current_step_mode = VisualGasicLanguage::get_step_mode();
                 if (current_step_mode != VG_STEP_NONE && engine_debugger && engine_debugger->is_active()) {
                     int current_depth = VisualGasicLanguage::get_current_stack_depth();
@@ -3789,15 +3837,12 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     
                     switch (current_step_mode) {
                         case VG_STEP_INTO:
-                            // Always break on next line
                             should_break = true;
                             break;
                         case VG_STEP_OVER:
-                            // Break if at same or shallower depth
                             should_break = (current_depth <= target_depth);
                             break;
                         case VG_STEP_OUT:
-                            // Break if at shallower depth (returned from function)
                             should_break = (current_depth <= target_depth);
                             break;
                         default:
@@ -3805,29 +3850,25 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     }
                     
                     if (should_break) {
-                        // Clear step mode before breaking
                         VisualGasicLanguage::set_step_mode(VG_STEP_NONE);
-                        
-                        // Send break notification directly to editor via EngineDebugger
-                        Array break_data;
-                        break_data.push_back(script_path);
-                        break_data.push_back(line_number);
-                        engine_debugger->send_message("visualgasic:break_hit", break_data);
-                        
-                        // Send current variables and call stack for inspection
-                        _send_variables_to_debugger(engine_debugger);
-                        _send_call_stack_to_debugger(engine_debugger);
-                        
-                        // Poll to ensure messages are sent before blocking
-                        engine_debugger->line_poll();
-                        
-                        // Use Godot's built-in script_debug() for proper pause/resume
-                        // This integrates with Godot's debugger panel (Continue, Step buttons)
-                        VisualGasicLanguage* lang = VisualGasicLanguage::get_singleton();
-                        if (lang) {
-                            engine_debugger->script_debug(lang, true, false);
-                        }
                     }
+                }
+                
+                // Unified step-break handler: pause if ANY mechanism set should_break
+                // (Godot's lines_left/depth OR our custom step mode)
+                if (should_break && engine_debugger && engine_debugger->is_active() && !script_path.is_empty()) {
+                    VisualGasicLanguage::set_current_break_location(script_path, line_number);
+                    
+                    Array break_data;
+                    break_data.push_back(script_path);
+                    break_data.push_back(line_number);
+                    engine_debugger->send_message("visualgasic:break_hit", break_data);
+                    
+                    _send_variables_to_debugger(engine_debugger);
+                    _send_call_stack_to_debugger(engine_debugger);
+                    engine_debugger->line_poll();
+                    
+                    VisualGasicLanguage::vg_debug_wait();
                 }
                 
                 // Check for breakpoints using Godot's EngineDebugger
@@ -3858,12 +3899,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         // Poll to ensure messages are sent before blocking
                         engine_debugger->line_poll();
                         
-                        // Use Godot's built-in script_debug() for proper pause/resume
-                        // This integrates with Godot's debugger panel (Continue, Step buttons)
-                        VisualGasicLanguage* lang = VisualGasicLanguage::get_singleton();
-                        if (lang) {
-                            engine_debugger->script_debug(lang, true, false);
-                        }
+                        VisualGasicLanguage::vg_debug_wait();
                     }
                 }
                 
@@ -3900,11 +3936,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         _send_call_stack_to_debugger(engine_debugger);
                         engine_debugger->line_poll();
                         
-                        // Use Godot's script_debug() for proper pause/resume
-                        VisualGasicLanguage* lang = VisualGasicLanguage::get_singleton();
-                        if (lang) {
-                            engine_debugger->script_debug(lang, true, false);
-                        }
+                        VisualGasicLanguage::vg_debug_wait();
                     }
                 }
                 
@@ -3940,10 +3972,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                                 _send_call_stack_to_debugger(engine_debugger);
                                 engine_debugger->line_poll();
                                 
-                                VisualGasicLanguage* lang = VisualGasicLanguage::get_singleton();
-                                if (lang) {
-                                    engine_debugger->script_debug(lang, true, false);
-                                }
+                                VisualGasicLanguage::vg_debug_wait();
                                 break;  // Only break once per debug line
                             }
                         }
@@ -3966,9 +3995,50 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     _send_call_stack_to_debugger(engine_debugger);
                     engine_debugger->line_poll();
                     
-                    VisualGasicLanguage* lang = VisualGasicLanguage::get_singleton();
-                    if (lang) {
-                        engine_debugger->script_debug(lang, true, false);
+                    VisualGasicLanguage::vg_debug_wait();
+                }
+                
+                // ── Set Next Statement: after ANY debug wait returns, check if the
+                //    user dragged the yellow arrow to a new line.  Scan the bytecode
+                //    chunk for the first OP_DEBUG_LINE that encodes the target line
+                //    and redirect vm.ip there. ──
+                if (VisualGasicLanguage::is_next_statement_requested()) {
+                    int target_line = VisualGasicLanguage::get_next_statement_line();
+                    VisualGasicLanguage::clear_next_statement();
+                    
+                    // Scan bytecode for OP_DEBUG_LINE with matching line number
+                    bool found_target = false;
+                    for (int scan_ip = 0; scan_ip + 2 < code_size; scan_ip++) {
+                        if (code[scan_ip] == OP_DEBUG_LINE) {
+                            uint8_t lo = code[scan_ip + 1];
+                            uint8_t hi = code[scan_ip + 2];
+                            int encoded_line = (hi << 8) | lo;
+                            if (encoded_line == target_line) {
+                                // Point vm.ip AT the target OP_DEBUG_LINE so
+                                // the VM naturally processes it on the next
+                                // dispatch cycle — step mode, breakpoints,
+                                // watchpoints etc. all work without an extra
+                                // pause.  The main loop does op=code[vm.ip++],
+                                // so placing ip at scan_ip means the target
+                                // OP_DEBUG_LINE fires as if the VM just
+                                // reached that line.
+                                vm.ip = scan_ip;
+                                found_target = true;
+                                UtilityFunctions::print("[VG Debug] Set Next Statement: redirected to line ", target_line);
+                                break;
+                            }
+                        }
+                    }
+                    if (!found_target) {
+                        UtilityFunctions::print("[VG Debug] Set Next Statement: line ", target_line, " not found in bytecode — ignoring");
+                        // Notify the editor so it can snap the yellow arrow back
+                        EngineDebugger* sns_dbg = EngineDebugger::get_singleton();
+                        if (sns_dbg && sns_dbg->is_active()) {
+                            Array fail_data;
+                            fail_data.push_back(target_line);
+                            fail_data.push_back(debug_state.current_line);  // actual executing line
+                            sns_dbg->send_message("visualgasic:set_next_statement_failed", fail_data);
+                        }
                     }
                 }
                 break;
@@ -3990,10 +4060,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     _send_variables_to_debugger(stop_debugger);
                     _send_call_stack_to_debugger(stop_debugger);
                     stop_debugger->line_poll();
-                    VisualGasicLanguage* lang = VisualGasicLanguage::get_singleton();
-                    if (lang) {
-                        stop_debugger->script_debug(lang, true, false);
-                    }
+                    VisualGasicLanguage::vg_debug_wait();
                 } else {
                     UtilityFunctions::print("[VG] Stop statement hit (no debugger attached)");
                 }

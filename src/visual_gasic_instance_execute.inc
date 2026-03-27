@@ -9,7 +9,7 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
         if (engine_debugger && engine_debugger->is_active() && !script_path.is_empty()) {
             bool should_break = false;
             
-            // Check step mode first
+            // Check our custom step mode (set by IW buttons via visualgasic:debug_* messages)
             VGStepMode current_step_mode = VisualGasicLanguage::get_step_mode();
             if (current_step_mode != VG_STEP_NONE) {
                 int current_depth = VisualGasicLanguage::get_current_stack_depth();
@@ -31,29 +31,23 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                 
                 if (should_break) {
                     VisualGasicLanguage::set_step_mode(VG_STEP_NONE);
-                    
-                    // Store breakpoint location before blocking (for editor query)
-                    VisualGasicLanguage::set_current_break_location(script_path, stmt->line);
-                    
-                    // Send break notification directly to editor via EngineDebugger
-                    Array break_data;
-                    break_data.push_back(script_path);
-                    break_data.push_back(stmt->line);
-                    engine_debugger->send_message("visualgasic:break_hit", break_data);
-                    
-                    // Send current variables and call stack for inspection
-                    _send_variables_to_debugger(engine_debugger);
-                    _send_call_stack_to_debugger(engine_debugger);
-                    
-                    // Poll to ensure messages are sent before blocking
-                    engine_debugger->line_poll();
-                    
-                    // Use Godot's script_debug() for proper pause/resume
-                    VisualGasicLanguage* lang = VisualGasicLanguage::get_singleton();
-                    if (lang) {
-                        engine_debugger->script_debug(lang, true, false);
-                    }
                 }
+            }
+            
+            // Unified step-break handler: pause if ANY mechanism set should_break
+            if (should_break) {
+                VisualGasicLanguage::set_current_break_location(script_path, stmt->line);
+                
+                Array break_data;
+                break_data.push_back(script_path);
+                break_data.push_back(stmt->line);
+                engine_debugger->send_message("visualgasic:break_hit", break_data);
+                
+                _send_variables_to_debugger(engine_debugger);
+                _send_call_stack_to_debugger(engine_debugger);
+                engine_debugger->line_poll();
+                
+                VisualGasicLanguage::vg_debug_wait();
             }
             
             // Check VGDebugHandler for breakpoints (using C++ check to avoid GDScript call during debug)
@@ -77,11 +71,7 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                     // Poll to ensure messages are sent before blocking
                     engine_debugger->line_poll();
                     
-                    // Use Godot's script_debug() for proper pause/resume
-                    VisualGasicLanguage* lang = VisualGasicLanguage::get_singleton();
-                    if (lang) {
-                        engine_debugger->script_debug(lang, true, false);
-                    }
+                    VisualGasicLanguage::vg_debug_wait();
                 }
             }
             
@@ -113,11 +103,7 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                         _send_variables_to_debugger(engine_debugger);
                         _send_call_stack_to_debugger(engine_debugger);
                         
-                        // Use Godot's script_debug() for proper pause/resume
-                        VisualGasicLanguage* lang = VisualGasicLanguage::get_singleton();
-                        if (lang) {
-                            engine_debugger->script_debug(lang, true, false);
-                        }
+                        VisualGasicLanguage::vg_debug_wait();
                     }
                 }
             }
@@ -137,10 +123,7 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                 _send_call_stack_to_debugger(engine_debugger);
                 engine_debugger->line_poll();
                 
-                VisualGasicLanguage* lang = VisualGasicLanguage::get_singleton();
-                if (lang) {
-                    engine_debugger->script_debug(lang, true, false);
-                }
+                VisualGasicLanguage::vg_debug_wait();
             }
         }
     }
@@ -164,10 +147,7 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                 _send_variables_to_debugger(stop_dbg);
                 _send_call_stack_to_debugger(stop_dbg);
                 stop_dbg->line_poll();
-                VisualGasicLanguage* lang = VisualGasicLanguage::get_singleton();
-                if (lang) {
-                    stop_dbg->script_debug(lang, true, false);
-                }
+                VisualGasicLanguage::vg_debug_wait();
             } else {
                 UtilityFunctions::print("[VG] Stop statement hit (no debugger attached)");
             }
@@ -1995,11 +1975,11 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                                      if (owner->has_method(snake)) {
                                          owner->callv(snake, call_args);
                                      } else {
-                                         UtilityFunctions::print("Runtime Error: Object does not have method ", s->method_name);
+                                         raise_error("Sub or Function not defined: " + s->method_name, 35);
                                      }
                                 }
                             } else {
-                                 raise_error("No owner for method call");
+                                 raise_error("Sub or Function not defined: " + s->method_name, 35);
                             }
                         }
                     }

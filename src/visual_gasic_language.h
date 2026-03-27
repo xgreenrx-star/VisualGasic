@@ -67,6 +67,18 @@ class VisualGasicLanguage : public ScriptLanguageExtension {
     // Pause/Break request flag (atomic-safe: only set by editor thread, cleared by script thread)
     static bool break_requested;
     
+    // Exception Assistant: break into debugger on unhandled errors (VB6 style)
+    static bool break_on_unhandled_error;
+    
+    // Set Next Statement state
+    static bool next_statement_requested;
+    static int next_statement_line;
+    
+    // Edit & Continue state
+    static bool edit_and_continue_pending;
+    static std::string edit_and_continue_source;
+    static std::string edit_and_continue_path;
+    
     // Hot Reload infrastructure — track all live scripts for reload-on-save
     static std::set<VisualGasicScript*> live_scripts;
     static std::mutex live_scripts_mutex;
@@ -210,6 +222,25 @@ public:
     static void unregister_script(VisualGasicScript* script);
     static void queue_hot_reload(VisualGasicScript* script);
     static int get_live_script_count();
+    
+    // Debug wait — enters Godot's EngineDebugger::script_debug() loop
+    static void vg_debug_wait();
+    
+    // Exception Assistant: break on unhandled error (VB6-style)
+    static bool get_break_on_error();
+    static void set_break_on_error(bool enabled);
+    
+    // Set Next Statement (yellow-arrow drag)
+    static void set_next_statement(int line);
+    static bool is_next_statement_requested();
+    static int get_next_statement_line();
+    static void clear_next_statement();
+    
+    // Edit & Continue
+    static bool apply_edit_and_continue(const String& script_path, const String& new_source);
+    
+    // Stack locals by level (for debug message handler)
+    static Dictionary get_stack_locals_by_level(int level);
 };
 
 #endif // VISUAL_GASIC_LANGUAGE_H

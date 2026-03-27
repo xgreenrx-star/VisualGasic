@@ -6,11 +6,13 @@ extends VBoxContainer
 ## Click on any frame to navigate to that location in the code.
 
 signal frame_selected(file: String, line: int, function_name: String)
+signal frame_locals_received(level: int, locals: Dictionary)
 
 var _tree: Tree
 var _debugger_plugin: EditorDebuggerPlugin = null
 var _current_stack: Array = []
 var _status_label: Label
+var _selected_frame_level: int = 0  # Currently selected stack frame level
 
 func _ready() -> void:
 	name = "Call Stack"
@@ -55,31 +57,37 @@ func _setup_ui() -> void:
 	_tree.set_column_expand(2, true)
 	_tree.select_mode = Tree.SELECT_ROW
 	_tree.item_activated.connect(_on_frame_activated)
+	_tree.item_selected.connect(_on_frame_selected)
 	add_child(_tree)
 
 func set_debugger_plugin(plugin: EditorDebuggerPlugin) -> void:
 	_debugger_plugin = plugin
 	if _debugger_plugin:
 		if _debugger_plugin.has_signal("call_stack_received"):
-			_debugger_plugin.call_stack_received.connect(_on_call_stack_received)
+			if not _debugger_plugin.call_stack_received.is_connected(_on_call_stack_received):
+				_debugger_plugin.call_stack_received.connect(_on_call_stack_received)
 		if _debugger_plugin.has_signal("debug_break_hit"):
-			_debugger_plugin.debug_break_hit.connect(_on_debug_break_hit)
+			if not _debugger_plugin.debug_break_hit.is_connected(_on_debug_break_hit):
+				_debugger_plugin.debug_break_hit.connect(_on_debug_break_hit)
+		if _debugger_plugin.has_signal("stack_level_locals_received"):
+			if not _debugger_plugin.stack_level_locals_received.is_connected(_on_stack_level_locals_received):
+				_debugger_plugin.stack_level_locals_received.connect(_on_stack_level_locals_received)
 
 func _on_debug_break_hit(file: String, line: int) -> void:
-	"""When we hit a breakpoint, request the call stack"""
+	## When we hit a breakpoint, request the call stack
 	_status_label.text = "⏸ Paused at %s:%d" % [file.get_file(), line]
 	_status_label.add_theme_color_override("font_color", Color.YELLOW)
 	_refresh_stack()
 
 func _refresh_stack() -> void:
-	"""Request call stack from the running game"""
+	## Request call stack from the running game
 	if _debugger_plugin and _debugger_plugin.has_method("request_call_stack"):
 		_debugger_plugin.request_call_stack()
 	elif _debugger_plugin and _debugger_plugin._active_session:
 		_debugger_plugin._active_session.send_message("visualgasic:get_call_stack", [])
 
 func _on_call_stack_received(stack: Array) -> void:
-	"""Update the display with the received call stack"""
+	## Update the display with the received call stack
 	_current_stack = stack
 	_update_display()
 
@@ -132,7 +140,7 @@ func _update_display() -> void:
 		_tree.get_root().get_first_child().select(0)
 
 func _on_frame_activated() -> void:
-	"""Navigate to the selected stack frame"""
+	## Navigate to the selected stack frame
 	var selected = _tree.get_selected()
 	if not selected:
 		return
@@ -150,7 +158,7 @@ func _on_frame_activated() -> void:
 		frame_selected.emit(file_path, line, func_name)
 
 func _navigate_to_line(file_path: String, line: int) -> void:
-	"""Navigate to a specific line in the script editor"""
+	## Navigate to a specific line in the script editor
 	if file_path.is_empty() or line <= 0:
 		return
 	
@@ -182,8 +190,54 @@ func _center_on_line(line: int) -> void:
 		code_edit.grab_focus()
 
 func clear_stack() -> void:
-	"""Clear the call stack display (when resuming)"""
+	## Clear the call stack display (when resuming)
 	_current_stack.clear()
 	_tree.clear()
+	_selected_frame_level = 0
 	_status_label.text = "Running..."
 	_status_label.add_theme_color_override("font_color", Color.LIME_GREEN)
+
+func _on_frame_selected() -> void:
+	## Single-click on a frame — request its locals for the Variables panel.
+	var selected = _tree.get_selected()
+	if not selected:
+		return
+	var meta = selected.get_metadata(0)
+	if not meta:
+		return
+	var level: int = meta.get("index", 0)
+	_selected_frame_level = level
+	# Highlight the selected frame row
+	var root = _tree.get_root()
+	if root:
+		var child = root.get_first_child()
+		while child:
+			var idx: int = child.get_metadata(0).get("index", -1)
+			if idx == level:
+				child.set_custom_color(0, Color.CYAN)
+				child.set_custom_color(1, Color.CYAN)
+				child.set_custom_color(2, Color.CYAN)
+			elif idx == 0:
+				child.set_custom_color(0, Color.LIME_GREEN)
+				child.set_custom_color(1, Color.LIME_GREEN)
+				child.set_custom_color(2, Color.LIME_GREEN)
+			else:
+				child.clear_custom_color(0)
+				child.clear_custom_color(1)
+				child.clear_custom_color(2)
+			child = child.get_next()
+	# Request locals for this frame level
+	if _debugger_plugin and _debugger_plugin.has_method("request_stack_level_locals"):
+		_debugger_plugin.request_stack_level_locals(level)
+	# Also emit for navigation
+	var file_path: String = meta.get("file", "")
+	var line: int = meta.get("line", 0)
+	var func_name: String = meta.get("function", "")
+	frame_selected.emit(file_path, line, func_name)
+
+func _on_stack_level_locals_received(level: int, locals: Dictionary) -> void:
+	## Received locals for the selected frame level — forward to UI.
+	frame_locals_received.emit(level, locals)
+
+func get_selected_frame_level() -> int:
+	return _selected_frame_level

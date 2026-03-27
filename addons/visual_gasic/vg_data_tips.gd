@@ -80,17 +80,26 @@ func check_hover(code_edit: CodeEdit, mouse_pos: Vector2):
 	if not _is_debugging:
 		return
 	
+	# Hide if mouse is outside the editor text area (e.g. in gutter or off-control)
+	var gutter_w := code_edit.get_total_gutter_width() if code_edit.has_method("get_total_gutter_width") else 48.0
+	if mouse_pos.x < gutter_w or mouse_pos.x > code_edit.size.x \
+		or mouse_pos.y < 0 or mouse_pos.y > code_edit.size.y:
+		hide_tip()
+		return
+	
 	# Get the word under the mouse cursor
 	var word = _get_word_at_mouse(code_edit, mouse_pos)
-	if word.is_empty() or word == _last_hover_word:
+	if word.is_empty():
+		hide_tip()
 		return
+	
+	if word == _last_hover_word:
+		return  # Already showing or timer running for this word
 	
 	_last_hover_word = word
 	
-	# Check if this variable exists in debug context
-	if _debug_variables.has(word):
-		_hover_timer.start()
-	elif _debug_variables.has(word.to_lower()):
+	# Check if this variable exists in debug context (case-insensitive, VB6-style)
+	if _debug_variables.has(word) or _debug_variables.has(word.to_lower()):
 		_hover_timer.start()
 	else:
 		hide_tip()

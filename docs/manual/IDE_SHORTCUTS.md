@@ -102,6 +102,31 @@ The bottom status bar shows real-time information:
 
 ---
 
+## Debug Menu
+
+| Menu Item | Shortcut | Action |
+|-----------|----------|--------|
+| **Start** | — | Run main scene with debugger |
+| **Start Current** | — | Run current scene with debugger |
+| **Break** | **Pause** | Pause execution at next statement |
+| **Stop** | — | Stop the running scene |
+
+### Debug Toolbar (Immediate Window)
+
+| Button | Shortcut | Action |
+|--------|----------|--------|
+| **▶ Continue** | F5 | Resume execution |
+| **⏸ Break** | Pause | Pause at next statement |
+| **⏩ Step Over** | F10 | Execute line, skip into calls |
+| **⬇ Step Into** | F11 | Execute line, enter calls |
+| **⬆ Step Out** | Shift+F11 | Run until current procedure returns |
+| **■ Stop** | — | End the program |
+| **Yellow arrow drag** | — | Set Next Statement (move execution point) |
+
+For full debugging documentation, see [Debugging Guide](debugging.md).
+
+---
+
 ## Properties Panel
 
 ### Filter & Search

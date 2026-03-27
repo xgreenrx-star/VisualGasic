@@ -196,7 +196,16 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
         // AST fallback can re-execute without a rollback copy.
         used_bytecode = execute_bytecode(chunk_for_locals, func, bytecode_ret);
         if (!used_bytecode) {
-            error_state = bytecode_error_backup;
+            if (error_state.has_error) {
+                // Bytecode VM hit a runtime error (e.g. "Sub or Function not
+                // defined").  Don't fall back to the AST interpreter — that
+                // would re-execute partially-completed statements and double-
+                // mutate state.  Mark as "used" to skip the AST loop; the
+                // error will propagate to the caller at cleanup below.
+                used_bytecode = true;
+            } else {
+                error_state = bytecode_error_backup;
+            }
         }
     }
 
@@ -268,7 +277,20 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
     // Restore
     current_sub = prev_sub;
     jump_target = prev_jump;
+    // VB6-style error propagation: if there's an unhandled runtime error
+    // (mode == NONE means no On Error handler caught it), propagate it to
+    // the caller so its own On Error handler gets a chance.  If no handler
+    // exists anywhere up the call stack, the top-level event dispatcher
+    // will report the error and halt execution.
+    bool had_unhandled_error = error_state.has_error && error_state.mode == ErrorState::NONE;
+    ErrorState propagated_error = error_state;
     error_state = prev_error;
+    if (had_unhandled_error) {
+        error_state.has_error = true;
+        error_state.message = propagated_error.message;
+        error_state.code = propagated_error.code;
+        error_state.error_line = propagated_error.error_line;
+    }
     
     // Save any static variables before restoring locals
     // Check func body for Static Dim statements and persist their values
@@ -522,6 +544,21 @@ void VisualGasicInstance::call(const StringName &p_method, const Variant *const 
              bool found = false;
              call_internal(sub_name, sub_args, found);
              
+             // VB6-style: show native error dialog for unhandled runtime errors
+             if (error_state.has_error && error_state.mode == ErrorState::NONE) {
+                 String err_msg = "Run-time error '" + String::num_int64(error_state.code) + "':\n\n"
+                     + error_state.message;
+                 if (error_state.error_line > 0) {
+                     err_msg += "\n\nLine: " + String::num_int64(error_state.error_line);
+                 }
+                 UtilityFunctions::printerr(
+                     "Unhandled runtime error in '", sub_name, "': Error ",
+                     error_state.code, ": ", error_state.message,
+                     " (Line ", error_state.error_line, ")");
+                 VisualGasicBuiltins::native_msgbox(err_msg, "VisualGasic", 0);
+                 error_state.has_error = false;
+             }
+             
              if (r_return) *r_return = Variant();
              r_error->error = GDEXTENSION_CALL_OK;
              return;
@@ -633,6 +670,21 @@ void VisualGasicInstance::call(const StringName &p_method, const Variant *const 
                  }
              }
 
+             // VB6-style: show native error dialog for unhandled runtime errors
+             if (error_state.has_error && error_state.mode == ErrorState::NONE) {
+                 String err_msg = "Run-time error '" + String::num_int64(error_state.code) + "':\n\n"
+                     + error_state.message;
+                 if (error_state.error_line > 0) {
+                     err_msg += "\n\nLine: " + String::num_int64(error_state.error_line);
+                 }
+                 UtilityFunctions::printerr(
+                     "Unhandled runtime error in '", ctrl_name, "' event handler: Error ",
+                     error_state.code, ": ", error_state.message,
+                     " (Line ", error_state.error_line, ")");
+                 VisualGasicBuiltins::native_msgbox(err_msg, "VisualGasic", 0);
+                 error_state.has_error = false;
+             }
+
              if (r_return) *r_return = Variant();
              r_error->error = GDEXTENSION_CALL_OK;
              return;
@@ -677,6 +729,21 @@ void VisualGasicInstance::call(const StringName &p_method, const Variant *const 
     if (found) {
         if (r_return) *r_return = ret;
         r_error->error = GDEXTENSION_CALL_OK;
+        
+        // VB6-style: show native error dialog for unhandled runtime errors
+        if (error_state.has_error && error_state.mode == ErrorState::NONE) {
+            String err_msg = "Run-time error '" + String::num_int64(error_state.code) + "':\n\n"
+                + error_state.message;
+            if (error_state.error_line > 0) {
+                err_msg += "\n\nLine: " + String::num_int64(error_state.error_line);
+            }
+            UtilityFunctions::printerr(
+                "Unhandled runtime error in '", String(p_method), "': Error ",
+                error_state.code, ": ", error_state.message,
+                " (Line ", error_state.error_line, ")");
+            VisualGasicBuiltins::native_msgbox(err_msg, "VisualGasic", 0);
+            error_state.has_error = false;
+        }
         
         // After handling input events, trigger a redraw so visual changes
         // (e.g. updated display text) are painted on the next frame.
@@ -939,6 +1006,20 @@ void VisualGasicInstance::notification(int32_t p_what) {
          }
          ready_executed = true;
          
+         // === Parse-error diagnostics (VB6-style: warn but continue) ===
+         // VB6 allows forms with parse errors to load — only the affected
+         // Sub/Function fails at call time.  Log warnings but do NOT block
+         // signal wiring or Form_Load execution.
+         if (script.is_valid() && script->has_reload_errors()) {
+             String script_path = script->get_path();
+             UtilityFunctions::print_rich("[color=yellow][b]VisualGasic Warning:[/b] Script '" + script_path + "' has parse warnings. Affected Subs may fail at runtime.[/color]");
+             const Vector<VisualGasicParser::ParsingError>& errors = script->get_parser_errors();
+             for (int i = 0; i < errors.size(); i++) {
+                 UtilityFunctions::print_rich(vformat("[color=yellow]  Line %d: %s[/color]", errors[i].line, errors[i].message));
+             }
+             // Do NOT return — continue with signal wiring and Form_Load
+         }
+         
          // NOTE: Instance registration is handled in C++ at construction time
          // (see VisualGasicDebug::register_instance call in constructor)
          // We do NOT call the GDScript debug_handler->register_instance() here
@@ -967,6 +1048,11 @@ void VisualGasicInstance::notification(int32_t p_what) {
              if (has_form_load && !Engine::get_singleton()->is_editor_hint()) {
                  bool found;
                  call_internal("Form_Load", Array(), found);
+                 // Clear any runtime error from Form_Load so it doesn't
+                 // pollute subsequent button-click dispatches.  The error
+                 // was already handled (Exception Assistant or msgbox) inside
+                 // call_internal / try_recover_error.
+                 error_state.has_error = false;
              }
          }
 
@@ -974,6 +1060,7 @@ void VisualGasicInstance::notification(int32_t p_what) {
          if (script.is_valid() && script->_has_method("_Ready") && !Engine::get_singleton()->is_editor_hint()) {
              bool found;
              call_internal("_Ready", Array(), found);
+             error_state.has_error = false;  // Same cleanup as Form_Load above
          }
          
          // Run Auto-Wire again for nodes created in _Ready/Form_Load (Dynamic Controls)
@@ -1295,11 +1382,7 @@ void VisualGasicInstance::assign_variable(const String& name, Variant val) {
         EngineDebugger* debugger = EngineDebugger::get_singleton();
         debugger->send_message("visualgasic:watchpoint_hit", 
             Array::make(name, variables.get(name, Variant()), val, path, line));
-        // Use Godot's script_debug() for proper pause/resume
-        VisualGasicLanguage* lang = VisualGasicLanguage::get_singleton();
-        if (lang) {
-            debugger->script_debug(lang, true, false);
-        }
+        VisualGasicLanguage::vg_debug_wait();
     }
     
     // Check Whenever sections for this variable

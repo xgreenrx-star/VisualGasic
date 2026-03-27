@@ -184,6 +184,16 @@ VisualGasicInstance* get_instance_by_index(int index) {
     return nullptr;
 }
 
+String get_debug_registry_info() {
+    std::lock_guard<std::mutex> lock(vg_debug_instance_registry_mutex);
+    int total = (int)vg_debug_active_instances.size();
+    int valid = 0;
+    for (auto* inst : vg_debug_active_instances) {
+        if (inst && inst->get_owner()) valid++;
+    }
+    return String("set_size=") + String::num_int64(total) + " valid=" + String::num_int64(valid);
+}
+
 Dictionary get_instance_variables(int index) {
     VisualGasicInstance* inst = get_instance_by_index(index);
     if (!inst) {
@@ -2472,6 +2482,25 @@ Dictionary VisualGasicInstance::evaluate_immediate(const String &p_code) {
 
     String upper = trimmed.to_upper();
 
+    // ---- Normalize commands with no space before arguments --------------------
+    // VB6 allows e.g. msgbox"test" or print"hello" (no space).  Insert a space
+    // after the keyword so the tokenizer/parser can handle it correctly.
+    static const char* keyword_cmds[] = {
+        "PRINT", "MSGBOX", "DEBUG.PRINT", "INPUT", "OPEN", nullptr
+    };
+    for (int k = 0; keyword_cmds[k]; k++) {
+        String kw = keyword_cmds[k];
+        if (upper.begins_with(kw) && trimmed.length() > kw.length()) {
+            char32_t next_ch = trimmed[kw.length()];
+            if (next_ch != ' ' && next_ch != '\t' && next_ch != '(') {
+                // Insert space: "msgbox"test"" → "msgbox "test""
+                trimmed = trimmed.substr(0, kw.length()) + " " + trimmed.substr(kw.length());
+                upper = trimmed.to_upper();
+                break;
+            }
+        }
+    }
+
     // ---- Print / ? — variable or expression ----------------------------------
     bool is_print = upper.begins_with("PRINT ") || trimmed.begins_with("? ");
     if (is_print) {
@@ -2491,18 +2520,63 @@ Dictionary VisualGasicInstance::evaluate_immediate(const String &p_code) {
             result["result"] = String(val);
             return result;
         }
+        // Try evaluating as a numeric literal or simple expression
+        // For numeric literals, return directly
+        if (arg.is_valid_int()) {
+            result["success"] = true;
+            result["result"] = arg;
+            return result;
+        }
+        if (arg.is_valid_float()) {
+            result["success"] = true;
+            result["result"] = arg;
+            return result;
+        }
+        // For complex expressions (e.g. 1+2, Len(x)), use temp variable trick
+        {
+            VisualGasicTokenizer et;
+            VisualGasicParser ep;
+            String eval_code = "__imm_result__ = " + arg;
+            Vector<VisualGasicTokenizer::Token> et_tokens = et.tokenize(eval_code);
+            ModuleNode* em = ep.parse(et_tokens);
+            if (em && ep.errors.size() == 0 && em->global_statements.size() > 0) {
+                execute_statement(em->global_statements[0]);
+                Variant tmp_val;
+                if (get_variable("__imm_result__", tmp_val)) {
+                    result["success"] = true;
+                    result["result"] = String(tmp_val);
+                    delete em;
+                    return result;
+                }
+            }
+            if (em) delete em;
+        }
         // Fall through to general parse+execute below
     }
 
     // ---- General: tokenize → parse → execute ---------------------------------
+    // Wrap in a dummy Sub so the parser treats the code as statement-level
+    // (module-level only allows declarations, not executable statements like MsgBox).
+    String wrapped = "Sub __imm__\n" + trimmed + "\nEnd Sub";
     VisualGasicTokenizer tokenizer;
-    Vector<VisualGasicTokenizer::Token> tokens = tokenizer.tokenize(trimmed);
+    Vector<VisualGasicTokenizer::Token> tokens = tokenizer.tokenize(wrapped);
     VisualGasicParser parser;
     ModuleNode* mod = parser.parse(tokens);
 
-    if (mod && parser.errors.size() == 0 && mod->global_statements.size() > 0) {
-        for (int i = 0; i < mod->global_statements.size(); i++) {
-            execute_statement(mod->global_statements[i]);
+    // Find the dummy sub and execute its body statements
+    SubDefinition* imm_sub = nullptr;
+    if (mod) {
+        for (int i = 0; i < mod->subs.size(); i++) {
+            if (mod->subs[i]->name.nocasecmp_to("__imm__") == 0) {
+                imm_sub = mod->subs[i];
+                break;
+            }
+        }
+    }
+
+    if (imm_sub && parser.errors.size() == 0 && imm_sub->statements.size() > 0) {
+        for (int i = 0; i < imm_sub->statements.size(); i++) {
+            execute_statement(imm_sub->statements[i]);
         }
         result["success"] = true;
         result["result"] = "OK";

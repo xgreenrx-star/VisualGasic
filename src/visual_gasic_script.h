@@ -75,6 +75,7 @@ public:
     virtual bool _has_static_method(const StringName &p_method) const override;
     virtual TypedArray<Dictionary> _get_documentation() const override;
     bool has_reload_errors() const { return last_reload_had_error; }
+    const Vector<VisualGasicParser::ParsingError>& get_parser_errors() const { return parser.errors; }
 
     // Tools
     void format_source_code();

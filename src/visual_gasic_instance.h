@@ -384,6 +384,7 @@ public:
 namespace VisualGasicDebug {
     Array get_all_instances();
     VisualGasicInstance* get_instance_by_index(int index);
+    String get_debug_registry_info();
     Dictionary get_instance_variables(int index);
     Array get_whenever_sections(int index);
     void set_whenever_active(int index, const String& section_name, bool active);

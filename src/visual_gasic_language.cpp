@@ -40,6 +40,18 @@ int VisualGasicLanguage::current_break_line = 0;
 std::map<std::string, std::vector<int>> VisualGasicLanguage::breakpoints;
 bool VisualGasicLanguage::breakpoints_loaded = false;
 
+// Exception Assistant: break on unhandled errors (VB6-style, defaults ON)
+bool VisualGasicLanguage::break_on_unhandled_error = true;
+
+// Set Next Statement state
+bool VisualGasicLanguage::next_statement_requested = false;
+int VisualGasicLanguage::next_statement_line = 0;
+
+// Edit & Continue state
+bool VisualGasicLanguage::edit_and_continue_pending = false;
+std::string VisualGasicLanguage::edit_and_continue_source;
+std::string VisualGasicLanguage::edit_and_continue_path;
+
 // Hot Reload infrastructure
 std::set<VisualGasicScript*> VisualGasicLanguage::live_scripts;
 std::mutex VisualGasicLanguage::live_scripts_mutex;
@@ -241,6 +253,12 @@ static bool vg_debug_message_handler(const String& p_message, const Array& p_dat
     else if (p_message == "set_breakpoints") {
         // Forward to GDScript handler to update its breakpoint storage
         forward_to_gdscript_handler(p_message, p_data);
+        return true;
+    }
+    else if (p_message == "set_next_statement" && p_data.size() >= 1) {
+        int line = p_data[0];
+        VisualGasicLanguage::set_next_statement(line);
+        UtilityFunctions::print("[VG Debug] C++ set_next_statement → line ", line);
         return true;
     }
     
@@ -1395,6 +1413,9 @@ void VisualGasicLanguage::_bind_methods() {
     ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_clear_watchpoints"), &VisualGasicLanguage::clear_watchpoints);
     ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_get_watchpoints"), &VisualGasicLanguage::get_watchpoints);
     
+    // Set Next Statement (yellow-arrow drag)
+    ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_set_next_statement", "line"), &VisualGasicLanguage::set_next_statement);
+    
     // Pause / Break request
     ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_request_break"), &VisualGasicLanguage::request_break);
     
@@ -2268,4 +2289,85 @@ void VisualGasicLanguage::queue_hot_reload(VisualGasicScript* script) {
 int VisualGasicLanguage::get_live_script_count() {
     std::lock_guard<std::mutex> lock(live_scripts_mutex);
     return (int)live_scripts.size();
+}
+
+// ============================================================================
+// DEBUG WAIT — enters Godot's EngineDebugger::script_debug() loop
+// ============================================================================
+
+void VisualGasicLanguage::vg_debug_wait() {
+    VisualGasicLanguage *lang = get_singleton();
+    if (!lang) return;
+    
+    EngineDebugger *debugger = EngineDebugger::get_singleton();
+    if (!debugger || !debugger->is_active()) return;
+    
+    // Enter Godot's standard debug loop — this blocks until the user
+    // presses Continue / Step / etc. in the editor's debugger panel.
+    debugger->script_debug(lang, true, false);
+    
+    // Flush any messages that arrived during or just after script_debug().
+    // This is critical for Set Next Statement: the editor sends the
+    // set_next_statement message while we're blocked, and it may not be
+    // dispatched until we poll here.
+    if (debugger->is_active()) {
+        debugger->line_poll();
+    }
+}
+
+// ============================================================================
+// EXCEPTION ASSISTANT — break on unhandled error (VB6-style)
+// ============================================================================
+
+bool VisualGasicLanguage::get_break_on_error() {
+    return break_on_unhandled_error;
+}
+
+void VisualGasicLanguage::set_break_on_error(bool enabled) {
+    break_on_unhandled_error = enabled;
+}
+
+// ============================================================================
+// SET NEXT STATEMENT (yellow-arrow drag)
+// ============================================================================
+
+void VisualGasicLanguage::set_next_statement(int line) {
+    next_statement_requested = true;
+    next_statement_line = line;
+}
+
+bool VisualGasicLanguage::is_next_statement_requested() {
+    return next_statement_requested;
+}
+
+int VisualGasicLanguage::get_next_statement_line() {
+    return next_statement_line;
+}
+
+void VisualGasicLanguage::clear_next_statement() {
+    next_statement_requested = false;
+    next_statement_line = 0;
+}
+
+// ============================================================================
+// EDIT & CONTINUE
+// ============================================================================
+
+bool VisualGasicLanguage::apply_edit_and_continue(const String& script_path, const String& new_source) {
+    // Store the pending edit — the bytecode VM will pick it up on next iteration
+    edit_and_continue_pending = true;
+    edit_and_continue_source = new_source.utf8().get_data();
+    edit_and_continue_path = script_path.utf8().get_data();
+    return true;
+}
+
+// ============================================================================
+// STACK LOCALS BY LEVEL (for debug message handler)
+// ============================================================================
+
+Dictionary VisualGasicLanguage::get_stack_locals_by_level(int level) {
+    // Delegate to the standard debug_get_stack_level_locals
+    VisualGasicLanguage *lang = get_singleton();
+    if (!lang) return Dictionary();
+    return lang->_debug_get_stack_level_locals(level, 100, 2);
 }

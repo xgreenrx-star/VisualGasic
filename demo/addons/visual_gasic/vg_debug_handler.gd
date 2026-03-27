@@ -33,8 +33,8 @@ func _ready() -> void:
 			print("[VisualGasic] Debug handler registered")
 
 func _load_breakpoints_from_file() -> void:
-	"""Load breakpoints saved by the editor at startup.
-	   This allows breakpoints to work for init code that runs before the debug session connects."""
+	## Load breakpoints saved by the editor at startup.
+	## This allows breakpoints to work for init code that runs before the debug session connects.
 	if not FileAccess.file_exists("res://.vg_breakpoints.json"):
 		return
 	var file = FileAccess.open("res://.vg_breakpoints.json", FileAccess.READ)
@@ -98,6 +98,10 @@ func _on_debugger_message(message: String, data: Array) -> bool:
 			return true
 		
 		# Step debugging commands
+		"debug_break":
+			_debug_break()
+			return true
+		
 		"debug_continue":
 			_debug_continue()
 			return true
@@ -163,10 +167,32 @@ func _on_debugger_message(message: String, data: Array) -> bool:
 				_set_conditional_breakpoint(data[0], data[1], data[2])
 			return true
 		
+		# Set Next Statement — VB6-style "move the yellow arrow" to change execution point
+		"set_next_statement":
+			if data.size() >= 1:
+				_set_next_statement(int(data[0]))
+			return true
+		
 		# v4.3: Visual Form Debugger — Controls Inspector
 		"get_form_controls":
 			if data.size() >= 1:
 				_send_form_controls(data[0])
+			return true
+		
+		# Tracepoints (Log Points) — breakpoints that log a message instead of pausing
+		"set_tracepoint":
+			if data.size() >= 3:
+				_set_tracepoint(data[0], int(data[1]), data[2])
+			return true
+		"remove_tracepoint":
+			if data.size() >= 2:
+				_remove_tracepoint(data[0], int(data[1]))
+			return true
+		
+		# Edit and Continue — VB6 signature: hot-reload script while debug-paused
+		"edit_and_continue":
+			if data.size() >= 2:
+				_apply_edit_and_continue(data[0], data[1])
 			return true
 	
 	return false
@@ -176,8 +202,89 @@ func _on_debugger_message(message: String, data: Array) -> bool:
 # ============================================================================
 
 func _set_breakpoints(breakpoints_dict: Dictionary) -> void:
-	"""Receive breakpoints from the editor debugger plugin."""
+	## Receive breakpoints from the editor debugger plugin.
 	_breakpoints = breakpoints_dict
+
+# ============================================================================
+# TRACEPOINTS (LOG POINTS)
+# ============================================================================
+
+## Tracepoints: script_path → { line_number: log_message }
+var _tracepoints: Dictionary = {}
+
+# ============================================================================
+# EDIT AND CONTINUE — VB6 signature: hot-reload script while debug-paused
+# ============================================================================
+
+func _apply_edit_and_continue(script_path: String, new_source: String) -> void:
+	## Apply edited code to a running script. This is a GDScript fallback
+	## for when the C++ side doesn't handle it (non-VG scripts, etc.).
+	## The C++ message handler has priority and handles .vg scripts directly.
+	print("[VG Debug] Edit & Continue (GDScript fallback): ", script_path.get_file())
+	# The C++ handler (vg_debug_message_handler) should have already processed
+	# this for .vg scripts. This fallback is for future extension to GDScript
+	# or other script types.
+	var result = ClassDB.class_call_static("VisualGasicLanguage", "vg_edit_and_continue", script_path, new_source)
+	if result:
+		print("[VG Debug] Edit & Continue succeeded: ", script_path.get_file())
+	else:
+		push_warning("[VG Debug] Edit & Continue failed: ", script_path.get_file())
+
+func _set_tracepoint(script_path: String, line: int, message: String) -> void:
+	## Set a tracepoint at the given line. When the line is hit during execution,
+	## the message is interpolated with variable values and sent to the editor
+	## as a debug_print message, without pausing execution.
+	if not _tracepoints.has(script_path):
+		_tracepoints[script_path] = {}
+	_tracepoints[script_path][line] = message
+	print("[VG Debug] Tracepoint set: ", script_path.get_file(), ":", line, " → '", message, "'")
+
+func _remove_tracepoint(script_path: String, line: int) -> void:
+	## Remove a tracepoint at the given line.
+	if _tracepoints.has(script_path):
+		_tracepoints[script_path].erase(line)
+		if _tracepoints[script_path].is_empty():
+			_tracepoints.erase(script_path)
+
+func is_tracepoint(script_path: String, line: int) -> bool:
+	## Check if there's a tracepoint at the given location.
+	if not _tracepoints.has(script_path):
+		return false
+	return _tracepoints[script_path].has(line)
+
+func evaluate_tracepoint(script_path: String, line: int, instance_id: int) -> void:
+	## Evaluate a tracepoint: interpolate the log message with variable values
+	## and send it to the editor as debug_print output.
+	if not _tracepoints.has(script_path) or not _tracepoints[script_path].has(line):
+		return
+	var message: String = _tracepoints[script_path][line]
+	# Interpolate {variable} placeholders with actual values
+	var output := _interpolate_tracepoint_message(message, instance_id)
+	var prefix := "[Tracepoint] " + script_path.get_file() + ":" + str(line) + " — "
+	EngineDebugger.send_message("visualgasic:debug_print", [prefix + output])
+
+func _interpolate_tracepoint_message(message: String, instance_id: int) -> String:
+	## Replace {variable} placeholders in a tracepoint message with actual values.
+	var result := message
+	# Find all {name} patterns
+	var regex := RegEx.new()
+	regex.compile("\\{(\\w+)\\}")
+	var matches := regex.search_all(message)
+	for m in matches:
+		var var_name: String = m.get_string(1)
+		var value = _get_variable_value(instance_id, var_name)
+		result = result.replace("{" + var_name + "}", str(value))
+	return result
+
+func _get_variable_value(instance_id: int, var_name: String) -> Variant:
+	## Get a variable's value from a running VG instance (for tracepoint interpolation).
+	var inst = _get_instance_flexible(instance_id)
+	if inst != null:
+		if inst.has_method("_vg_get_variable"):
+			return inst._vg_get_variable(var_name)
+		elif var_name in inst:
+			return inst.get(var_name)
+	return "<undefined>"
 
 # ============================================================================
 # STEP DEBUGGING
@@ -186,27 +293,40 @@ func _set_breakpoints(breakpoints_dict: Dictionary) -> void:
 # ============================================================================
 
 func _debug_continue() -> void:
-	"""Resume execution after a breakpoint or step."""
-	if ClassDB.class_exists("VisualGasicLanguage"):
-		VisualGasicLanguage.vg_debug_continue()
+	## Resume execution after a breakpoint or step.
+	if ClassDB.class_exists(&"VisualGasicLanguage"):
+		ClassDB.class_call_static(&"VisualGasicLanguage", &"vg_debug_continue")
+
+func _debug_break() -> void:
+	## VB6-style Break — request a pause at the next statement.
+	## Sets a flag that the bytecode VM checks at every OP_DEBUG_LINE.
+	if ClassDB.class_exists(&"VisualGasicLanguage"):
+		ClassDB.class_call_static(&"VisualGasicLanguage", &"vg_request_break")
 
 func _debug_step_into() -> void:
-	"""Step to the next line, entering function calls."""
-	if ClassDB.class_exists("VisualGasicLanguage"):
-		VisualGasicLanguage.vg_debug_step_into()
+	## Step to the next line, entering function calls.
+	if ClassDB.class_exists(&"VisualGasicLanguage"):
+		ClassDB.class_call_static(&"VisualGasicLanguage", &"vg_debug_step_into")
 
 func _debug_step_over() -> void:
-	"""Step to the next line, stepping over function calls."""
-	if ClassDB.class_exists("VisualGasicLanguage"):
-		VisualGasicLanguage.vg_debug_step_over()
+	## Step to the next line, stepping over function calls.
+	if ClassDB.class_exists(&"VisualGasicLanguage"):
+		ClassDB.class_call_static(&"VisualGasicLanguage", &"vg_debug_step_over")
 
 func _debug_step_out() -> void:
-	"""Step out of the current function."""
-	if ClassDB.class_exists("VisualGasicLanguage"):
-		VisualGasicLanguage.vg_debug_step_out()
+	## Step out of the current function.
+	if ClassDB.class_exists(&"VisualGasicLanguage"):
+		ClassDB.class_call_static(&"VisualGasicLanguage", &"vg_debug_step_out")
+
+func _set_next_statement(line: int) -> void:
+	## Set Next Statement — VB6-style 'move the yellow arrow' to change execution point.
+	## Tells the C++ VM to jump to the specified source line when it resumes.
+	## Uses ClassDB.class_call_static to avoid parse-time errors with older .so builds.
+	if ClassDB.class_exists(&"VisualGasicLanguage"):
+		ClassDB.class_call_static(&"VisualGasicLanguage", &"vg_set_next_statement", line)
 
 func _send_debug_state() -> void:
-	"""Send the current debug state to the editor."""
+	## Send the current debug state to the editor.
 	var state = {
 		"step_mode": 0,
 		"current_line": 0,
@@ -214,21 +334,36 @@ func _send_debug_state() -> void:
 		"has_error": false,
 		"error_message": ""
 	}
-	if ClassDB.class_exists("VisualGasicLanguage"):
-		state["step_mode"] = VisualGasicLanguage.vg_get_step_mode()
-		state["current_line"] = VisualGasicLanguage.vg_get_current_debug_line()
-		state["current_file"] = VisualGasicLanguage.vg_get_current_debug_file()
+	if ClassDB.class_exists(&"VisualGasicLanguage"):
+		state["step_mode"] = ClassDB.class_call_static(&"VisualGasicLanguage", &"vg_get_step_mode")
+		state["current_line"] = ClassDB.class_call_static(&"VisualGasicLanguage", &"vg_get_current_debug_line")
+		state["current_file"] = ClassDB.class_call_static(&"VisualGasicLanguage", &"vg_get_current_debug_file")
 	EngineDebugger.send_message("visualgasic:debug_state", [state])
 
 func has_breakpoint(script_path: String, line: int) -> bool:
-	"""Check if there's a breakpoint at the given location.
-	   Called by C++ code to determine if execution should pause."""
+	## Check if there's a breakpoint at the given location.
+	## Called by C++ code to determine if execution should pause.
+	## If the line is a tracepoint, we evaluate it (log the message) and
+	## return false so execution continues without pausing.
 	if not _breakpoints.has(script_path):
 		return false
-	return line in _breakpoints[script_path]
+	if line not in _breakpoints[script_path]:
+		return false
+	# If this line is a tracepoint, log it and DON'T pause
+	if is_tracepoint(script_path, line):
+		# Find the instance ID for this script (use 0 as default)
+		var inst_id := 0
+		for id in _registered_instances:
+			var info = _registered_instances[id]
+			if info.get("script_path", "") == script_path:
+				inst_id = id
+				break
+		evaluate_tracepoint(script_path, line, inst_id)
+		return false  # Don't pause — it's a log point
+	return true
 
 func get_breakpoints_for_script(script_path: String) -> Array:
-	"""Get all breakpoint line numbers for a script."""
+	## Get all breakpoint line numbers for a script.
 	if _breakpoints.has(script_path):
 		return _breakpoints[script_path]
 	return []
@@ -293,9 +428,9 @@ func _get_instance(instance_id: int) -> Object:
 	return null
 
 func _get_instance_by_cpp_index(index: int) -> Object:
-	"""Fallback lookup: when the C++ extension is active, instance IDs sent
-	   from the editor are 0-based array indexes into the C++ registry.
-	   Map them to GDScript _registered_instances keys by sorted position."""
+	## Fallback lookup: when the C++ extension is active, instance IDs sent
+	## from the editor are 0-based array indexes into the C++ registry.
+	## Map them to GDScript _registered_instances keys by sorted position.
 	var keys = _registered_instances.keys()
 	keys.sort()
 	if index < 0 or index >= keys.size():
@@ -303,7 +438,7 @@ func _get_instance_by_cpp_index(index: int) -> Object:
 	return _get_instance(keys[index])
 
 func _get_instance_flexible(instance_id: int) -> Object:
-	"""Try GDScript registration first, then C++ index-based lookup."""
+	## Try GDScript registration first, then C++ index-based lookup.
 	var inst = _get_instance(instance_id)
 	if inst == null:
 		inst = _get_instance_by_cpp_index(instance_id)
@@ -361,7 +496,7 @@ func _set_variable(instance_id: int, var_name: String, value: Variant) -> void:
 		inst.set(var_name, parsed_value)
 
 func _parse_value(value: Variant) -> Variant:
-	"""Parse a string value to the appropriate type"""
+	## Parse a string value to the appropriate type
 	if not value is String:
 		return value
 	
@@ -391,17 +526,18 @@ func _parse_value(value: Variant) -> Variant:
 
 func _evaluate_code(instance_id: int, code: String, request_id: int) -> void:
 	# When C++ extension is loaded, delegate to C++ which owns the instance registry.
-	# Use Engine.get_singleton to get the registered ScriptLanguage and call the
-	# bound static method through ClassDB to avoid GDScript parse errors when the
-	# native extension is absent.
-	if ClassDB.class_exists(&"VisualGasicLanguage") and ClassDB.class_has_method(&"VisualGasicLanguage", &"vg_evaluate_immediate"):
-		var result: Dictionary = ClassDB.class_call_static(&"VisualGasicLanguage", &"vg_evaluate_immediate", instance_id, code)
-		EngineDebugger.send_message("visualgasic:eval_result", [request_id, result])
-		return
+	# Try class_call_static directly — class_has_method may return false for static
+	# methods bound via bind_static_method in GDExtension.
+	if ClassDB.class_exists(&"VisualGasicLanguage"):
+		var cpp_result = ClassDB.class_call_static(&"VisualGasicLanguage", &"vg_evaluate_immediate", instance_id, code)
+		if cpp_result is Dictionary:
+			EngineDebugger.send_message("visualgasic:eval_result", [request_id, cpp_result])
+			return
 	
-	# Fallback: GDScript-only path (no C++ extension)
+	# Fallback: GDScript-only path (no C++ extension or call failed)
+	var has_m = ClassDB.class_has_method(&"VisualGasicLanguage", &"vg_evaluate_immediate") if ClassDB.class_exists(&"VisualGasicLanguage") else false
 	var inst = _get_instance_flexible(instance_id)
-	var result = {"success": false, "result": "Instance not found"}
+	var result = {"success": false, "result": "GDScript fallback: id=" + str(instance_id) + " reg=" + str(_registered_instances.size()) + " cap=" + str(_capture_registered) + " has_method=" + str(has_m)}
 	
 	if inst != null:
 		# Try to evaluate using the instance's call method if it has one
@@ -474,7 +610,7 @@ func _set_whenever_active(instance_id: int, section_name: String, active: bool) 
 # ============================================================================
 
 func _profiler_start() -> void:
-	"""Enable C++ profiler and start collecting data."""
+	## Enable C++ profiler and start collecting data.
 	# Call the C++ VisualGasicProfiler singleton
 	for inst_id in _registered_instances:
 		var inst = _get_instance(inst_id)
@@ -483,7 +619,7 @@ func _profiler_start() -> void:
 	print("[VisualGasic] Profiler started")
 
 func _profiler_stop() -> void:
-	"""Disable C++ profiler."""
+	## Disable C++ profiler.
 	for inst_id in _registered_instances:
 		var inst = _get_instance(inst_id)
 		if inst and inst.has_method("_vg_profiler_enable"):
@@ -491,7 +627,7 @@ func _profiler_stop() -> void:
 	print("[VisualGasic] Profiler stopped")
 
 func _profiler_send_data() -> void:
-	"""Collect profiler report from C++ and send to editor."""
+	## Collect profiler report from C++ and send to editor.
 	var report: Dictionary = {}
 	for inst_id in _registered_instances:
 		var inst = _get_instance(inst_id)
@@ -504,7 +640,7 @@ func _profiler_send_data() -> void:
 	EngineDebugger.send_message("visualgasic:profiler_data", [report])
 
 func _profiler_clear() -> void:
-	"""Reset C++ profiler counters."""
+	## Reset C++ profiler counters.
 	for inst_id in _registered_instances:
 		var inst = _get_instance(inst_id)
 		if inst and inst.has_method("_vg_profiler_clear"):
@@ -516,33 +652,33 @@ func _profiler_clear() -> void:
 # ============================================================================
 
 func _add_watchpoint(variable_name: String) -> void:
-	"""Add a data breakpoint (watchpoint) on a variable."""
-	if ClassDB.class_exists("VisualGasicLanguage"):
-		VisualGasicLanguage.vg_add_watchpoint(variable_name)
+	## Add a data breakpoint (watchpoint) on a variable.
+	if ClassDB.class_exists(&"VisualGasicLanguage"):
+		ClassDB.class_call_static(&"VisualGasicLanguage", &"vg_add_watchpoint", variable_name)
 	EngineDebugger.send_message("visualgasic:watchpoint_added", [variable_name])
 
 func _remove_watchpoint(variable_name: String) -> void:
-	"""Remove a data breakpoint (watchpoint)."""
-	if ClassDB.class_exists("VisualGasicLanguage"):
-		VisualGasicLanguage.vg_remove_watchpoint(variable_name)
+	## Remove a data breakpoint (watchpoint).
+	if ClassDB.class_exists(&"VisualGasicLanguage"):
+		ClassDB.class_call_static(&"VisualGasicLanguage", &"vg_remove_watchpoint", variable_name)
 	EngineDebugger.send_message("visualgasic:watchpoint_removed", [variable_name])
 
 func _clear_watchpoints() -> void:
-	"""Clear all data breakpoints."""
-	if ClassDB.class_exists("VisualGasicLanguage"):
-		VisualGasicLanguage.vg_clear_watchpoints()
+	## Clear all data breakpoints.
+	if ClassDB.class_exists(&"VisualGasicLanguage"):
+		ClassDB.class_call_static(&"VisualGasicLanguage", &"vg_clear_watchpoints")
 	EngineDebugger.send_message("visualgasic:watchpoints_cleared", [])
 
 func _send_watchpoints() -> void:
-	"""Send current watchpoint list to editor."""
+	## Send current watchpoint list to editor.
 	var watchpoints: Array = []
-	if ClassDB.class_exists("VisualGasicLanguage"):
-		watchpoints = VisualGasicLanguage.vg_get_watchpoints()
+	if ClassDB.class_exists(&"VisualGasicLanguage"):
+		watchpoints = ClassDB.class_call_static(&"VisualGasicLanguage", &"vg_get_watchpoints")
 	EngineDebugger.send_message("visualgasic:watchpoints_list", [watchpoints])
 
 func _eval_watch_expressions(instance_id: int, expressions: Array) -> void:
-	"""Evaluate a list of watch expressions and send results back.
-	   Each expression is evaluated in the context of the given instance."""
+	## Evaluate a list of watch expressions and send results back.
+	## Each expression is evaluated in the context of the given instance.
 	var results: Array = []
 	var inst = _get_instance_flexible(instance_id)
 	
@@ -558,8 +694,8 @@ func _eval_watch_expressions(instance_id: int, expressions: Array) -> void:
 				result_entry["value"] = str(val)
 			else:
 				# Fall back to C++ expression evaluator
-				if ClassDB.class_exists("VisualGasicLanguage"):
-					var eval_result = VisualGasicLanguage.vg_evaluate_expression(expr)
+				if ClassDB.class_exists(&"VisualGasicLanguage"):
+					var eval_result = ClassDB.class_call_static(&"VisualGasicLanguage", &"vg_evaluate_expression", expr)
 					result_entry["value"] = eval_result
 				else:
 					result_entry["value"] = "<cannot evaluate>"
@@ -577,7 +713,7 @@ func _eval_watch_expressions(instance_id: int, expressions: Array) -> void:
 	EngineDebugger.send_message("visualgasic:watch_results", [results])
 
 func _set_conditional_breakpoint(script_path: String, line: int, condition: String) -> void:
-	"""Set a conditional breakpoint via the C++ debugger."""
+	## Set a conditional breakpoint via the C++ debugger.
 	# Use the global debugger instance — do NOT instantiate a throwaway one,
 	# as breakpoint data would be lost when the temporary object is freed.
 	if ClassDB.class_exists("VisualGasicDebugger") and ClassDB.class_has_method("VisualGasicDebugger", "get_global_debugger"):
@@ -604,8 +740,8 @@ func _set_conditional_breakpoint(script_path: String, line: int, condition: Stri
 # ============================================================================
 
 func _send_form_controls(instance_id: int) -> void:
-	"""Collect all child controls of the instance's owner Node and send
-	   their names, types, and key properties to the editor."""
+	## Collect all child controls of the instance's owner Node and send
+	## their names, types, and key properties to the editor.
 	var inst = _get_instance_flexible(instance_id)
 	if inst == null:
 		EngineDebugger.send_message("visualgasic:form_controls", [[]])
@@ -621,7 +757,7 @@ func _send_form_controls(instance_id: int) -> void:
 	EngineDebugger.send_message("visualgasic:form_controls", [controls])
 
 func _collect_controls(node: Node, out: Array) -> void:
-	"""Recursively collect child controls with their properties."""
+	## Recursively collect child controls with their properties.
 	for child in node.get_children():
 		var entry: Dictionary = {}
 		entry["name"] = child.name

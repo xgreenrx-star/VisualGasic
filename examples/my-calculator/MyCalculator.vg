@@ -1,5 +1,7 @@
 ' MyCalculator - VisualGasic Form
+Whenever condition Then
 
+End Whenever
 Private Sub Form_Load()
 ' Initialization code here
 End Sub
@@ -10,11 +12,17 @@ Sub btnEquals_Click()
 	Dim test
 	Dim test43
 	For i = 1 To 10
-		'GoTo
-	Next
 
+	Next
+	thisisalable:
 End Sub
 
 Sub btnPlay_Click()
 	MsgBox ("test")
+	MsgBox "test2"
+End Sub
+
+Sub btnOptions_Click()
+	fg
+	GoTo thisisalable
 End Sub

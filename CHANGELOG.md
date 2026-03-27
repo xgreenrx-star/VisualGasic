@@ -5,6 +5,81 @@ All notable changes to Visual Gasic will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.4.0-rc2] - 2026-03-26
+
+### 🐛 Release Candidate 2 — Debugger UX Overhaul & 46 Fixes
+
+Debugger-focused polish release with full VB6-style debug toolbar, Set Next Statement, Exception Assistant, and dozens of IDE fixes.
+
+#### Added — VB6-Style Debug Toolbar
+- **⏸ Break button** — pause a running program at the next executable statement (Pause key shortcut)
+- **Complete toolbar**: ▶ Continue · ⏸ Break · ⏩ Step Over · ⬇ Step Into · ⬆ Step Out · ■ Stop
+- **Scene-playing poll timer** — Break/Stop buttons auto-enable when a scene starts, disable when it stops
+- **Debug menu**: Start, Start Current, Break (Pause), Stop items with keyboard shortcuts
+- **Debug break session fallback** — acquires debugger session on-demand if not yet connected
+
+#### Added — Set Next Statement (Yellow Arrow Drag)
+- Drag the yellow execution arrow in the gutter to move the execution point
+- Constrained to current procedure (Sub/Function) — cannot drag past End Sub/End Function
+- Snaps to nearest executable line
+- Re-execute or skip lines without restarting
+
+#### Added — Exception Assistant Popup
+- Popup dialog on unhandled runtime errors with Continue / Break / Stop buttons
+- `call_deferred` + `move_to_foreground()` for reliable timing during Form_Load/_Ready
+- Continue advances past the faulting line; Break pauses for inspection
+
+#### Added — Debug Documentation
+- New `docs/manual/debugging.md` — comprehensive debugging guide
+- Updated `docs/manual/IDE_SHORTCUTS.md` — debug toolbar and menu shortcuts added
+
+#### Fixed — Debugger & Runtime (16 fixes)
+- Yellow arrow positioning: `get_pos_at_line_column() - row_height`
+- Exception Assistant popup timing
+- VM error continue behavior (clears error state, advances IP)
+- Button click regression from pre-execution syntax error check (warning-only, no early return)
+- Break button permanently disabled (scene-playing poll timer)
+- Breakpoint screen switch timing (timer instead of call_deferred)
+- Godot Script editor opening on .vg breakpoint hit
+- "Files modified outside Godot" dialog during debug break
+- Debug break navigation: use `_get_plugin_name()` correctly
+
+#### Fixed — Immediate Window (8 fixes)
+- "Instance not found" for evaluate commands (owner filter + sorted keys)
+- Variable tree Type/Value colors for white-background themes
+- Context menu colors for evaluate results
+- Scrollbar with `get_children(true)` for internal nodes
+- Search/filter for variable list
+- Deduped pause messages, sortable variables, auto-connect
+
+#### Fixed — Code Editor & IntelliSense (8 fixes)
+- Autocomplete quote-wrapping for GoTo/GoSub labels
+- Label completion infinite popup loop
+- Auto-close block on first Enter press
+- Snippet placeholder expansion (`${N:default}` → real expansion)
+- Code completion trigger + themed popup
+- Auto-indent, CBM shortcuts, breakpoints regression
+- Added Godot API methods/properties to IntelliSense
+- Auto-translations, block auto-close, ClassDB IntelliSense
+
+#### Fixed — UI & Theme (3 fixes)
+- Custom Color button opens persistent Window-based ColorPicker
+- Color palette swatches rendering black (removed flat=true)
+- Color palette toolbar clipped (dropdown popup)
+
+#### Fixed — Build & CI (11 fixes)
+- GCC 13+ and MinGW 13 compilation errors
+- MSVC builds: __builtin_ctzll compat, PDB contention, link libraries
+- GDExtension loading in CI (correct paths, symlink handling)
+- `/usr/bin/vg` (cgvg) name collision detection in installers
+- Bytecode baseline for editor target build
+
+#### Fixed — Other (4 fixes)
+- MsgBox cross-platform (Windows/macOS/Linux native dialogs)
+- MsgBox hang + empty script path
+- Parser continues with partial AST on errors (VB6-style resilience)
+- Command Help: clickable Programmer's Reference + Godot API docs
+
 ## [4.4.0-rc1] - 2026-03-21
 
 ### 🏁 Release Candidate 1 — Installer, Cross-Platform Binaries & Screenshot Gallery
