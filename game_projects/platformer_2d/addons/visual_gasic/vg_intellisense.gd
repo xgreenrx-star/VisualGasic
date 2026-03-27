@@ -368,6 +368,166 @@ const VB6_TYPES: Array[String] = [
 ]
 
 # =============================================================================
+# VB6 BUILT-IN CONSTANTS — available at runtime via C++ global variables
+# =============================================================================
+
+const VB6_CONSTANTS: Array[Dictionary] = [
+	# ── Colors ──
+	{"name": "vbBlack", "detail": "Color — Black (0, 0, 0)", "category": "Color"},
+	{"name": "vbWhite", "detail": "Color — White (255, 255, 255)", "category": "Color"},
+	{"name": "vbRed", "detail": "Color — Red (255, 0, 0)", "category": "Color"},
+	{"name": "vbGreen", "detail": "Color — Green (0, 255, 0)", "category": "Color"},
+	{"name": "vbBlue", "detail": "Color — Blue (0, 0, 255)", "category": "Color"},
+	{"name": "vbYellow", "detail": "Color — Yellow (255, 255, 0)", "category": "Color"},
+	{"name": "vbCyan", "detail": "Color — Cyan (0, 255, 255)", "category": "Color"},
+	{"name": "vbMagenta", "detail": "Color — Magenta (255, 0, 255)", "category": "Color"},
+
+	# ── MsgBox Button Constants ──
+	{"name": "vbOKOnly", "detail": "Integer = 0 — OK button only", "category": "MsgBox"},
+	{"name": "vbOKCancel", "detail": "Integer = 1 — OK and Cancel buttons", "category": "MsgBox"},
+	{"name": "vbAbortRetryIgnore", "detail": "Integer = 2 — Abort, Retry, Ignore buttons", "category": "MsgBox"},
+	{"name": "vbYesNoCancel", "detail": "Integer = 3 — Yes, No, Cancel buttons", "category": "MsgBox"},
+	{"name": "vbYesNo", "detail": "Integer = 4 — Yes and No buttons", "category": "MsgBox"},
+	{"name": "vbRetryCancel", "detail": "Integer = 5 — Retry and Cancel buttons", "category": "MsgBox"},
+
+	# ── MsgBox Icon Constants ──
+	{"name": "vbCritical", "detail": "Integer = 16 — Critical/error icon", "category": "MsgBox"},
+	{"name": "vbQuestion", "detail": "Integer = 32 — Question mark icon", "category": "MsgBox"},
+	{"name": "vbExclamation", "detail": "Integer = 48 — Warning icon", "category": "MsgBox"},
+	{"name": "vbInformation", "detail": "Integer = 64 — Info icon", "category": "MsgBox"},
+
+	# ── MsgBox Return Values ──
+	{"name": "vbOK", "detail": "Integer = 1 — User clicked OK", "category": "MsgBox"},
+	{"name": "vbCancel", "detail": "Integer = 2 — User clicked Cancel", "category": "MsgBox"},
+	{"name": "vbAbort", "detail": "Integer = 3 — User clicked Abort", "category": "MsgBox"},
+	{"name": "vbRetry", "detail": "Integer = 4 — User clicked Retry", "category": "MsgBox"},
+	{"name": "vbIgnore", "detail": "Integer = 5 — User clicked Ignore", "category": "MsgBox"},
+	{"name": "vbYes", "detail": "Integer = 6 — User clicked Yes", "category": "MsgBox"},
+	{"name": "vbNo", "detail": "Integer = 7 — User clicked No", "category": "MsgBox"},
+
+	# ── String Constants ──
+	{"name": "vbTab", "detail": "String — Tab character (Chr(9))", "category": "String"},
+	{"name": "vbCr", "detail": "String — Carriage return (Chr(13))", "category": "String"},
+	{"name": "vbLf", "detail": "String — Line feed (Chr(10))", "category": "String"},
+	{"name": "vbCrLf", "detail": "String — Carriage return + line feed", "category": "String"},
+	{"name": "vbNullString", "detail": "String — Empty string (\"\")", "category": "String"},
+
+	# ── VB6 Key Constants ──
+	{"name": "vbKeyReturn", "detail": "Integer — Enter/Return key", "category": "Key"},
+	{"name": "vbKeyEnter", "detail": "Integer — Enter key (alias)", "category": "Key"},
+	{"name": "vbKeySpace", "detail": "Integer — Space bar", "category": "Key"},
+	{"name": "vbKeyEscape", "detail": "Integer — Escape key", "category": "Key"},
+	{"name": "vbKeyUp", "detail": "Integer — Up arrow key", "category": "Key"},
+	{"name": "vbKeyDown", "detail": "Integer — Down arrow key", "category": "Key"},
+	{"name": "vbKeyLeft", "detail": "Integer — Left arrow key", "category": "Key"},
+	{"name": "vbKeyRight", "detail": "Integer — Right arrow key", "category": "Key"},
+
+	# ── StrConv Constants ──
+	{"name": "vbUpperCase", "detail": "Integer = 1 — Convert to uppercase", "category": "StrConv"},
+	{"name": "vbLowerCase", "detail": "Integer = 2 — Convert to lowercase", "category": "StrConv"},
+	{"name": "vbProperCase", "detail": "Integer = 3 — Convert to proper case", "category": "StrConv"},
+	{"name": "vbUnicode", "detail": "Integer = 64 — Convert to Unicode", "category": "StrConv"},
+	{"name": "vbFromUnicode", "detail": "Integer = 128 — Convert from Unicode", "category": "StrConv"},
+
+	# ── CallByName CallType Constants ──
+	{"name": "vbMethod", "detail": "Integer = 1 — Call a method", "category": "CallByName"},
+	{"name": "vbGet", "detail": "Integer = 2 — Read a property", "category": "CallByName"},
+	{"name": "vbLet", "detail": "Integer = 4 — Write a property (value)", "category": "CallByName"},
+	{"name": "vbSet", "detail": "Integer = 8 — Write a property (object)", "category": "CallByName"},
+
+	# ── MSComm Constants ──
+	{"name": "comNone", "detail": "Integer = 0 — No handshaking", "category": "MSComm"},
+	{"name": "comXOnXOff", "detail": "Integer = 1 — XOn/XOff handshaking", "category": "MSComm"},
+	{"name": "comRTS", "detail": "Integer = 2 — RTS handshaking", "category": "MSComm"},
+	{"name": "comRTSXOnXOff", "detail": "Integer = 3 — RTS + XOn/XOff", "category": "MSComm"},
+
+	# ── Godot Key Constants ──
+	{"name": "KEY_SPACE", "detail": "Integer — Space key", "category": "Godot Key"},
+	{"name": "KEY_ENTER", "detail": "Integer — Enter key", "category": "Godot Key"},
+	{"name": "KEY_ESCAPE", "detail": "Integer — Escape key", "category": "Godot Key"},
+	{"name": "KEY_TAB", "detail": "Integer — Tab key", "category": "Godot Key"},
+	{"name": "KEY_BACKSPACE", "detail": "Integer — Backspace key", "category": "Godot Key"},
+	{"name": "KEY_DELETE", "detail": "Integer — Delete key", "category": "Godot Key"},
+	{"name": "KEY_INSERT", "detail": "Integer — Insert key", "category": "Godot Key"},
+	{"name": "KEY_HOME", "detail": "Integer — Home key", "category": "Godot Key"},
+	{"name": "KEY_END", "detail": "Integer — End key", "category": "Godot Key"},
+	{"name": "KEY_PAGEUP", "detail": "Integer — Page Up key", "category": "Godot Key"},
+	{"name": "KEY_PAGEDOWN", "detail": "Integer — Page Down key", "category": "Godot Key"},
+	{"name": "KEY_UP", "detail": "Integer — Up arrow", "category": "Godot Key"},
+	{"name": "KEY_DOWN", "detail": "Integer — Down arrow", "category": "Godot Key"},
+	{"name": "KEY_LEFT", "detail": "Integer — Left arrow", "category": "Godot Key"},
+	{"name": "KEY_RIGHT", "detail": "Integer — Right arrow", "category": "Godot Key"},
+	{"name": "KEY_SHIFT", "detail": "Integer — Shift key", "category": "Godot Key"},
+	{"name": "KEY_CTRL", "detail": "Integer — Ctrl key", "category": "Godot Key"},
+	{"name": "KEY_ALT", "detail": "Integer — Alt key", "category": "Godot Key"},
+	{"name": "KEY_CAPSLOCK", "detail": "Integer — Caps Lock key", "category": "Godot Key"},
+	{"name": "KEY_A", "detail": "Integer — A key", "category": "Godot Key"},
+	{"name": "KEY_B", "detail": "Integer — B key", "category": "Godot Key"},
+	{"name": "KEY_C", "detail": "Integer — C key", "category": "Godot Key"},
+	{"name": "KEY_D", "detail": "Integer — D key", "category": "Godot Key"},
+	{"name": "KEY_E", "detail": "Integer — E key", "category": "Godot Key"},
+	{"name": "KEY_F", "detail": "Integer — F key", "category": "Godot Key"},
+	{"name": "KEY_G", "detail": "Integer — G key", "category": "Godot Key"},
+	{"name": "KEY_H", "detail": "Integer — H key", "category": "Godot Key"},
+	{"name": "KEY_I", "detail": "Integer — I key", "category": "Godot Key"},
+	{"name": "KEY_J", "detail": "Integer — J key", "category": "Godot Key"},
+	{"name": "KEY_K", "detail": "Integer — K key", "category": "Godot Key"},
+	{"name": "KEY_L", "detail": "Integer — L key", "category": "Godot Key"},
+	{"name": "KEY_M", "detail": "Integer — M key", "category": "Godot Key"},
+	{"name": "KEY_N", "detail": "Integer — N key", "category": "Godot Key"},
+	{"name": "KEY_O", "detail": "Integer — O key", "category": "Godot Key"},
+	{"name": "KEY_P", "detail": "Integer — P key", "category": "Godot Key"},
+	{"name": "KEY_Q", "detail": "Integer — Q key", "category": "Godot Key"},
+	{"name": "KEY_R", "detail": "Integer — R key", "category": "Godot Key"},
+	{"name": "KEY_S", "detail": "Integer — S key", "category": "Godot Key"},
+	{"name": "KEY_T", "detail": "Integer — T key", "category": "Godot Key"},
+	{"name": "KEY_U", "detail": "Integer — U key", "category": "Godot Key"},
+	{"name": "KEY_V", "detail": "Integer — V key", "category": "Godot Key"},
+	{"name": "KEY_W", "detail": "Integer — W key", "category": "Godot Key"},
+	{"name": "KEY_X", "detail": "Integer — X key", "category": "Godot Key"},
+	{"name": "KEY_Y", "detail": "Integer — Y key", "category": "Godot Key"},
+	{"name": "KEY_Z", "detail": "Integer — Z key", "category": "Godot Key"},
+	{"name": "KEY_0", "detail": "Integer — 0 key", "category": "Godot Key"},
+	{"name": "KEY_1", "detail": "Integer — 1 key", "category": "Godot Key"},
+	{"name": "KEY_2", "detail": "Integer — 2 key", "category": "Godot Key"},
+	{"name": "KEY_3", "detail": "Integer — 3 key", "category": "Godot Key"},
+	{"name": "KEY_4", "detail": "Integer — 4 key", "category": "Godot Key"},
+	{"name": "KEY_5", "detail": "Integer — 5 key", "category": "Godot Key"},
+	{"name": "KEY_6", "detail": "Integer — 6 key", "category": "Godot Key"},
+	{"name": "KEY_7", "detail": "Integer — 7 key", "category": "Godot Key"},
+	{"name": "KEY_8", "detail": "Integer — 8 key", "category": "Godot Key"},
+	{"name": "KEY_9", "detail": "Integer — 9 key", "category": "Godot Key"},
+	{"name": "KEY_F1", "detail": "Integer — F1 key", "category": "Godot Key"},
+	{"name": "KEY_F2", "detail": "Integer — F2 key", "category": "Godot Key"},
+	{"name": "KEY_F3", "detail": "Integer — F3 key", "category": "Godot Key"},
+	{"name": "KEY_F4", "detail": "Integer — F4 key", "category": "Godot Key"},
+	{"name": "KEY_F5", "detail": "Integer — F5 key", "category": "Godot Key"},
+	{"name": "KEY_F6", "detail": "Integer — F6 key", "category": "Godot Key"},
+	{"name": "KEY_F7", "detail": "Integer — F7 key", "category": "Godot Key"},
+	{"name": "KEY_F8", "detail": "Integer — F8 key", "category": "Godot Key"},
+	{"name": "KEY_F9", "detail": "Integer — F9 key", "category": "Godot Key"},
+	{"name": "KEY_F10", "detail": "Integer — F10 key", "category": "Godot Key"},
+	{"name": "KEY_F11", "detail": "Integer — F11 key", "category": "Godot Key"},
+	{"name": "KEY_F12", "detail": "Integer — F12 key", "category": "Godot Key"},
+
+	# ── Mouse Constants ──
+	{"name": "MOUSE_BUTTON_LEFT", "detail": "Integer — Left mouse button", "category": "Mouse"},
+	{"name": "MOUSE_BUTTON_RIGHT", "detail": "Integer — Right mouse button", "category": "Mouse"},
+	{"name": "MOUSE_BUTTON_MIDDLE", "detail": "Integer — Middle mouse button", "category": "Mouse"},
+	{"name": "MOUSE_BUTTON_WHEEL_UP", "detail": "Integer — Mouse wheel up", "category": "Mouse"},
+	{"name": "MOUSE_BUTTON_WHEEL_DOWN", "detail": "Integer — Mouse wheel down", "category": "Mouse"},
+	{"name": "MOUSE_BUTTON_WHEEL_LEFT", "detail": "Integer — Mouse wheel left", "category": "Mouse"},
+	{"name": "MOUSE_BUTTON_WHEEL_RIGHT", "detail": "Integer — Mouse wheel right", "category": "Mouse"},
+	{"name": "MOUSE_BUTTON_XBUTTON1", "detail": "Integer — Extra button 1", "category": "Mouse"},
+	{"name": "MOUSE_BUTTON_XBUTTON2", "detail": "Integer — Extra button 2", "category": "Mouse"},
+	{"name": "MOUSE_MODE_VISIBLE", "detail": "Integer — Mouse cursor visible", "category": "Mouse"},
+	{"name": "MOUSE_MODE_HIDDEN", "detail": "Integer — Mouse cursor hidden", "category": "Mouse"},
+	{"name": "MOUSE_MODE_CAPTURED", "detail": "Integer — Mouse captured (FPS-style)", "category": "Mouse"},
+	{"name": "MOUSE_MODE_CONFINED", "detail": "Integer — Mouse confined to window", "category": "Mouse"},
+	{"name": "MOUSE_MODE_CONFINED_HIDDEN", "detail": "Integer — Confined + hidden", "category": "Mouse"},
+]
+
+# =============================================================================
 # BUILT-IN FUNCTIONS
 # =============================================================================
 
@@ -885,6 +1045,16 @@ static func get_completions(prefix: String, context: Dictionary = {}) -> Array[D
 				"kind": "function",
 				"detail": func_info["signature"],
 				"documentation": func_info["description"]
+			})
+	
+	# Built-in Constants (vbRed, vbYesNo, KEY_SPACE, MOUSE_BUTTON_LEFT, etc.)
+	for const_info in VB6_CONSTANTS:
+		if const_info["name"].to_lower().begins_with(prefix_lower):
+			results.append({
+				"text": const_info["name"],
+				"kind": "constant",
+				"detail": const_info["detail"],
+				"documentation": const_info.get("category", "Constant")
 			})
 	
 	# Snippets
