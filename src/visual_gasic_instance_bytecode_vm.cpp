@@ -1564,6 +1564,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 Variant val = read_local(slot);
                 
                 // If local is NIL, check if it's actually a control name (VB6 style)
+                // or a form name reference (Form1.BackColor from within Form1)
                 if (val.get_type() == Variant::NIL && owner) {
                     String local_name;
                     if (slot < chunk->local_names.size()) {
@@ -1572,9 +1573,45 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     if (!local_name.is_empty()) {
                         Node* owner_node = Object::cast_to<Node>(owner);
                         if (owner_node) {
-                            Node *found = owner_node->find_child(local_name, true, false);
-                            if (found) {
-                                val = found;
+                            // Form name self-reference (e.g. "Form1" inside Form1's code)
+                            if (local_name.nocasecmp_to(owner_node->get_name()) == 0) {
+                                val = Variant(owner);
+                            } else {
+                                // Child control lookup (e.g. btnPlay, txtName)
+                                Node *found = owner_node->find_child(local_name, true, false);
+                                if (found) {
+                                    val = found;
+                                }
+                            }
+                        }
+                        // Cross-form reference: search scene tree for another form
+                        if (val.get_type() == Variant::NIL) {
+                            SceneTree *tree = Object::cast_to<SceneTree>(Engine::get_singleton()->get_main_loop());
+                            if (tree) {
+                                Window *root = tree->get_root();
+                                if (root) {
+                                    for (int i = 0; i < root->get_child_count(); i++) {
+                                        Node *child = root->get_child(i);
+                                        if (child && local_name.nocasecmp_to(child->get_name()) == 0) {
+                                            val = Variant(child);
+                                            break;
+                                        }
+                                    }
+                                    // VB6 auto-load: try to load .tscn from project
+                                    if (val.get_type() == Variant::NIL) {
+                                        String tscn_path = "res://" + local_name + ".tscn";
+                                        if (ResourceLoader::get_singleton()->exists(tscn_path)) {
+                                            Ref<PackedScene> scene = ResourceLoader::get_singleton()->load(tscn_path);
+                                            if (scene.is_valid()) {
+                                                Node *instance = scene->instantiate();
+                                                if (instance) {
+                                                    root->add_child(instance);
+                                                    val = Variant(instance);
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -3519,12 +3556,21 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                                     }
                                 }
 
+                                // Immediately update the theme cache so that the new
+                                // stylebox is used during the next force_draw() or
+                                // normal render.  add_theme_stylebox_override() defers
+                                // the NOTIFICATION_THEME_CHANGED via call_deferred,
+                                // which means force_draw() in MsgBox would still see
+                                // the OLD theme cache.  Sending the notification now
+                                // forces an immediate cache update.
+                                ctrl->notification(Control::NOTIFICATION_THEME_CHANGED);
+
                                 // Force immediate visual update ONLY for the form
                                 // background Panel.  For other controls (Button, etc.)
                                 // canvas_item_clear is destructive — it wipes text,
                                 // icons, and all child drawing.  Those controls will
-                                // update on the next normal frame, or when force_draw()
-                                // fires in a subsequent MsgBox.
+                                // re-draw properly on force_draw() since the theme
+                                // cache is now up-to-date.
                                 if (is_form_background) {
                                     RID ci = ctrl->get_canvas_item();
                                     if (ci.is_valid()) {
