@@ -1464,11 +1464,28 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     if (tree) {
                         Window *root = tree->get_root();
                         if (root) {
+                            // First check already-loaded forms
                             for (int i = 0; i < root->get_child_count(); i++) {
                                 Node *child = root->get_child(i);
                                 if (child && name.nocasecmp_to(child->get_name()) == 0) {
                                     val = Variant(child);
                                     break;
+                                }
+                            }
+                            // VB6 auto-load: if not found, try to load the .tscn
+                            // from the project (res://<Name>.tscn).  In VB6,
+                            // referencing a form by name implicitly loads it.
+                            if (val.get_type() == Variant::NIL) {
+                                String tscn_path = "res://" + name + ".tscn";
+                                if (ResourceLoader::get_singleton()->exists(tscn_path)) {
+                                    Ref<PackedScene> scene = ResourceLoader::get_singleton()->load(tscn_path);
+                                    if (scene.is_valid()) {
+                                        Node *instance = scene->instantiate();
+                                        if (instance) {
+                                            root->add_child(instance);
+                                            val = Variant(instance);
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -3445,54 +3462,63 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         // BackColor → StyleBox override bg_color
                         else if (prop_name == "BackColor") {
                             Control *ctrl = Object::cast_to<Control>(obj);
+                            bool is_form_background = false;
                             // If obj is a Window (form root), target _FormBackground Panel child
                             if (!ctrl) {
                                 Window *win = Object::cast_to<Window>(obj);
                                 if (win) {
                                     Node *bg = win->find_child("_FormBackground", false, false);
-                                    if (bg) ctrl = Object::cast_to<Control>(bg);
+                                    if (bg) {
+                                        ctrl = Object::cast_to<Control>(bg);
+                                        is_form_background = true;
+                                    }
                                 }
                             }
                             if (ctrl) {
                                 Color c = value;
-                                // Create a new StyleBoxFlat override for the "normal" / "panel" stylebox
-                                Ref<StyleBoxFlat> sbf;
                                 // Panel uses "panel" theme stylebox, other Controls use "normal"
-                                String sb_name = (ctrl->get_class() == "Panel") ? "panel" : "normal";
-                                Ref<StyleBox> existing = ctrl->get_theme_stylebox(sb_name);
-                                if (existing.is_valid()) {
-                                    Ref<StyleBoxFlat> existing_flat = existing;
-                                    if (existing_flat.is_valid()) {
-                                        sbf = existing_flat->duplicate();
+                                bool is_panel = (ctrl->get_class() == "Panel");
+                                String sb_name = is_panel ? "panel" : "normal";
+
+                                // Helper: create a StyleBoxFlat with the given color,
+                                // cloning from the existing stylebox if possible.
+                                auto make_color_sbf = [&](const String &name) -> Ref<StyleBoxFlat> {
+                                    Ref<StyleBoxFlat> sbf;
+                                    Ref<StyleBox> existing = ctrl->get_theme_stylebox(name);
+                                    if (existing.is_valid()) {
+                                        Ref<StyleBoxFlat> ef = existing;
+                                        if (ef.is_valid()) sbf = ef->duplicate();
+                                    }
+                                    if (sbf.is_null()) sbf.instantiate();
+                                    sbf->set_bg_color(c);
+                                    return sbf;
+                                };
+
+                                Ref<StyleBoxFlat> sbf = make_color_sbf(sb_name);
+                                ctrl->add_theme_stylebox_override(sb_name, sbf);
+
+                                // For Button-like controls, also override hover/pressed/disabled
+                                // so the color persists across all interaction states.
+                                if (!is_panel) {
+                                    static const char* extra_states[] = {"hover", "pressed", "disabled", nullptr};
+                                    for (int si = 0; extra_states[si]; si++) {
+                                        Ref<StyleBoxFlat> state_sbf = make_color_sbf(extra_states[si]);
+                                        ctrl->add_theme_stylebox_override(extra_states[si], state_sbf);
                                     }
                                 }
-                                if (sbf.is_null()) {
-                                    sbf.instantiate();
-                                }
-                                sbf->set_bg_color(c);
-                                ctrl->add_theme_stylebox_override(sb_name, sbf);
-                                // Force immediate visual update so the color
-                                // appears before any blocking MsgBox/InputBox.
-                                //
-                                // add_theme_stylebox_override() calls queue_redraw()
-                                // which pushes to the MessageQueue — a deferred
-                                // queue that only flushes in the main loop.
-                                // If MsgBox follows, OS::execute() blocks the main
-                                // thread before the flush, so the screen never
-                                // updates.
-                                //
-                                // We bypass this by directly drawing the stylebox
-                                // onto the control's canvas item via
-                                // StyleBox::draw(RID, Rect2).  This writes draw
-                                // commands straight to the RenderingServer without
-                                // needing the CanvasItem's internal 'drawing' flag
-                                // (which is only set during the engine's proper
-                                // draw cycle).  force_draw() in MsgBox then
-                                // renders the correct frame.
-                                RID ci = ctrl->get_canvas_item();
-                                if (ci.is_valid()) {
-                                    RenderingServer::get_singleton()->canvas_item_clear(ci);
-                                    sbf->draw(ci, Rect2(Vector2(), ctrl->get_size()));
+
+                                // Force immediate visual update ONLY for the form
+                                // background Panel.  For other controls (Button, etc.)
+                                // canvas_item_clear is destructive — it wipes text,
+                                // icons, and all child drawing.  Those controls will
+                                // update on the next normal frame, or when force_draw()
+                                // fires in a subsequent MsgBox.
+                                if (is_form_background) {
+                                    RID ci = ctrl->get_canvas_item();
+                                    if (ci.is_valid()) {
+                                        RenderingServer::get_singleton()->canvas_item_clear(ci);
+                                        sbf->draw(ci, Rect2(Vector2(), ctrl->get_size()));
+                                    }
                                 }
                             }
                             push_value(base);

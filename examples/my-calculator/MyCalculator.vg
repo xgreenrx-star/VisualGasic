@@ -18,9 +18,9 @@ Sub btnEquals_Click()
 	End Sub
 
 	Sub btnPlay_Click()
-		Me.BackColor = vbGreen
+		Me.btnPlay. BackColor = vbGreen
 		MsgBox ("test")
-		form1.BackColor = vbBlue
+		Form1.BackColor = vbBlue
 			MsgBox "test2"
 		End Sub
 
