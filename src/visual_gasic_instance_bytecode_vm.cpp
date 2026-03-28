@@ -3243,7 +3243,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         }
                         // Fallback: if result is still NIL, try class integer constants
                         // This handles ClassName.ENUM_VALUE (e.g. Input.MOUSE_MODE_CAPTURED)
-                        // Try as-is first, then UPPER_CASE (tokenizer normalises keywords
+                        // Try as-is first, then UPPER_CASE (tokeniser normalises keywords
                         // like READ → "Read" but Godot constants are ALL_CAPS).
                         if (result.get_type() == Variant::NIL && obj) {
                             StringName cn = obj->get_class();
@@ -3253,6 +3253,18 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                             }
                             if (ClassDB::class_has_integer_constant(cn, mname)) {
                                 result = (int)ClassDB::class_get_integer_constant(cn, mname);
+                            }
+                        }
+                        // VB6-style child control access: Me.btnPlay, Form1.txtName
+                        // If the property wasn't found on the object, try find_child()
+                        // to locate a child node with that name.
+                        if (result.get_type() == Variant::NIL && obj) {
+                            Node *node = Object::cast_to<Node>(obj);
+                            if (node) {
+                                Node *child = node->find_child(cache.primary_string, true, false);
+                                if (child) {
+                                    result = Variant(child);
+                                }
                             }
                         }
                     }
