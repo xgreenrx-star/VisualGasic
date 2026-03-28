@@ -60,10 +60,20 @@
 #include <godot_cpp/classes/shader.hpp>
 #include <godot_cpp/classes/shader_material.hpp>
 #include <godot_cpp/classes/font.hpp>
+#include <godot_cpp/classes/system_font.hpp>
+#include <godot_cpp/classes/font_variation.hpp>
 #include <godot_cpp/classes/theme_db.hpp>
 #include <godot_cpp/classes/theme.hpp>
 #include <godot_cpp/classes/style_box_flat.hpp>
+#include <godot_cpp/classes/style_box_empty.hpp>
 #include <godot_cpp/classes/rendering_server.hpp>
+#include <godot_cpp/classes/texture_rect.hpp>
+#include <godot_cpp/classes/option_button.hpp>
+#include <godot_cpp/classes/check_box.hpp>
+#include <godot_cpp/classes/check_button.hpp>
+#include <godot_cpp/classes/spin_box.hpp>
+#include <godot_cpp/classes/tab_container.hpp>
+#include <godot_cpp/classes/rich_text_label.hpp>
 #include <godot_cpp/classes/gpu_particles2d.hpp>
 #include <godot_cpp/classes/gpu_particles3d.hpp>
 #include <godot_cpp/classes/particle_process_material.hpp>
@@ -3229,6 +3239,433 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                                 }
                             }
                         }
+                        // ---- Font properties ----
+                        // FontBold → theme font override embolden > 0
+                        else if (prop_name == "FontBold") {
+                            Control *ctrl = Object::cast_to<Control>(obj);
+                            if (ctrl) {
+                                Ref<Font> fnt = ctrl->get_theme_font("font");
+                                if (fnt.is_valid()) {
+                                    Ref<FontVariation> fv = fnt;
+                                    if (fv.is_valid()) {
+                                        result = fv->get_variation_embolden() > 0.0f;
+                                    } else {
+                                        Ref<SystemFont> sf = fnt;
+                                        if (sf.is_valid()) {
+                                            PackedStringArray names = sf->get_font_names();
+                                            // Heuristic: check if name contains "Bold"
+                                            for (int fi = 0; fi < names.size(); fi++) {
+                                                if (String(names[fi]).findn("Bold") >= 0) { result = true; break; }
+                                            }
+                                            if (result.get_type() == Variant::NIL) result = false;
+                                        } else {
+                                            result = false;
+                                        }
+                                    }
+                                } else {
+                                    result = false;
+                                }
+                                handled = true;
+                            }
+                        }
+                        // FontItalic → theme font override variation_transform skew
+                        else if (prop_name == "FontItalic") {
+                            Control *ctrl = Object::cast_to<Control>(obj);
+                            if (ctrl) {
+                                Ref<Font> fnt = ctrl->get_theme_font("font");
+                                if (fnt.is_valid()) {
+                                    Ref<FontVariation> fv = fnt;
+                                    if (fv.is_valid()) {
+                                        Transform2D t = fv->get_variation_transform();
+                                        result = (t[0][1] != 0.0f); // skew indicates italic
+                                    } else {
+                                        Ref<SystemFont> sf = fnt;
+                                        if (sf.is_valid()) {
+                                            result = sf->get_font_italic();
+                                        } else {
+                                            result = false;
+                                        }
+                                    }
+                                } else {
+                                    result = false;
+                                }
+                                handled = true;
+                            }
+                        }
+                        // FontName → system font family name
+                        else if (prop_name == "FontName") {
+                            Control *ctrl = Object::cast_to<Control>(obj);
+                            if (ctrl) {
+                                Ref<Font> fnt = ctrl->get_theme_font("font");
+                                if (fnt.is_valid()) {
+                                    Ref<FontVariation> fv = fnt;
+                                    if (fv.is_valid()) {
+                                        Ref<Font> base = fv->get_base_font();
+                                        Ref<SystemFont> sf = base;
+                                        if (sf.is_valid()) {
+                                            PackedStringArray names = sf->get_font_names();
+                                            result = names.size() > 0 ? String(names[0]) : String("");
+                                        } else {
+                                            result = String("");
+                                        }
+                                    } else {
+                                        Ref<SystemFont> sf = fnt;
+                                        if (sf.is_valid()) {
+                                            PackedStringArray names = sf->get_font_names();
+                                            result = names.size() > 0 ? String(names[0]) : String("");
+                                        } else {
+                                            result = String("");
+                                        }
+                                    }
+                                } else {
+                                    result = String("");
+                                }
+                                handled = true;
+                            }
+                        }
+                        // FontUnderline → stored as meta (Godot has no native underline on Control fonts)
+                        else if (prop_name == "FontUnderline") {
+                            result = obj->has_meta("vg_font_underline") ? (bool)obj->get_meta("vg_font_underline") : false;
+                            handled = true;
+                        }
+                        // FontStrikethrough → stored as meta
+                        else if (prop_name == "FontStrikethrough") {
+                            result = obj->has_meta("vg_font_strikethrough") ? (bool)obj->get_meta("vg_font_strikethrough") : false;
+                            handled = true;
+                        }
+                        // ---- Border / Appearance ----
+                        // BorderStyle → 0=None, 1=FixedSingle (check if stylebox has border)
+                        else if (prop_name == "BorderStyle") {
+                            Control *ctrl = Object::cast_to<Control>(obj);
+                            if (ctrl) {
+                                Ref<StyleBox> sb = ctrl->get_theme_stylebox("normal");
+                                Ref<StyleBoxFlat> sbf = sb;
+                                if (sbf.is_valid()) {
+                                    // If any border width > 0 → FixedSingle (1)
+                                    result = (sbf->get_border_width(SIDE_LEFT) > 0 ||
+                                              sbf->get_border_width(SIDE_TOP) > 0 ||
+                                              sbf->get_border_width(SIDE_RIGHT) > 0 ||
+                                              sbf->get_border_width(SIDE_BOTTOM) > 0) ? 1 : 0;
+                                } else {
+                                    result = 0;
+                                }
+                                handled = true;
+                            }
+                        }
+                        // Style / Flat → Button.flat
+                        else if (prop_name == "Style" || prop_name == "Flat") {
+                            Button *btn = Object::cast_to<Button>(obj);
+                            if (btn) {
+                                result = btn->is_flat();
+                                handled = true;
+                            }
+                        }
+                        // ---- TextBox-specific ----
+                        // MultiLine → true if the control IS a TextEdit (vs LineEdit)
+                        else if (prop_name == "MultiLine") {
+                            TextEdit *te = Object::cast_to<TextEdit>(obj);
+                            result = (te != nullptr);
+                            handled = true;
+                        }
+                        // ScrollBars → TextEdit scroll settings (0=None,1=Horiz,2=Vert,3=Both)
+                        else if (prop_name == "ScrollBars") {
+                            TextEdit *te = Object::cast_to<TextEdit>(obj);
+                            if (te) {
+                                bool h = te->is_scroll_past_end_of_file_enabled(); // rough proxy
+                                // Godot TextEdit always has vertical scroll; no direct horiz toggle
+                                result = 2; // VB6 default: vertical only
+                                handled = true;
+                            }
+                        }
+                        // PasswordChar → LineEdit secret_character
+                        else if (prop_name == "PasswordChar") {
+                            LineEdit *le = Object::cast_to<LineEdit>(obj);
+                            if (le) {
+                                if (le->is_secret()) {
+                                    result = String(String::chr(le->get("secret_character")));
+                                } else {
+                                    result = String("");
+                                }
+                                handled = true;
+                            }
+                        }
+                        // PlaceholderText → placeholder_text
+                        else if (prop_name == "PlaceholderText") {
+                            result = obj->get("placeholder_text");
+                            handled = true;
+                        }
+                        // Editable → editable (direct, not inverted like Locked)
+                        else if (prop_name == "Editable") {
+                            Variant ed = obj->get("editable");
+                            if (ed.get_type() == Variant::BOOL) {
+                                result = ed;
+                            } else {
+                                result = true;
+                            }
+                            handled = true;
+                        }
+                        // SelStart → caret column / selection start
+                        else if (prop_name == "SelStart") {
+                            LineEdit *le = Object::cast_to<LineEdit>(obj);
+                            if (le) {
+                                if (le->has_selection()) {
+                                    // selection_begin gives the start of the selection
+                                    result = le->get("caret_column");
+                                } else {
+                                    result = le->get_caret_column();
+                                }
+                                handled = true;
+                            } else {
+                                TextEdit *te = Object::cast_to<TextEdit>(obj);
+                                if (te) {
+                                    result = te->get_caret_column();
+                                    handled = true;
+                                }
+                            }
+                        }
+                        // SelLength → length of current selection
+                        else if (prop_name == "SelLength") {
+                            LineEdit *le = Object::cast_to<LineEdit>(obj);
+                            if (le) {
+                                if (le->has_selection()) {
+                                    String sel = le->get_selected_text();
+                                    result = sel.length();
+                                } else {
+                                    result = 0;
+                                }
+                                handled = true;
+                            } else {
+                                TextEdit *te = Object::cast_to<TextEdit>(obj);
+                                if (te) {
+                                    String sel = te->get_selected_text();
+                                    result = sel.length();
+                                    handled = true;
+                                }
+                            }
+                        }
+                        // SelText → selected text content
+                        else if (prop_name == "SelText") {
+                            LineEdit *le = Object::cast_to<LineEdit>(obj);
+                            if (le) {
+                                result = le->get_selected_text();
+                                handled = true;
+                            } else {
+                                TextEdit *te = Object::cast_to<TextEdit>(obj);
+                                if (te) {
+                                    result = te->get_selected_text();
+                                    handled = true;
+                                }
+                            }
+                        }
+                        // ---- Picture / Icon ----
+                        // Picture → TextureRect.texture or meta path
+                        else if (prop_name == "Picture") {
+                            TextureRect *tr = Object::cast_to<TextureRect>(obj);
+                            if (tr) {
+                                result = Variant(tr->get_texture());
+                                handled = true;
+                            } else if (obj->has_meta("vg_picture_path")) {
+                                result = obj->get_meta("vg_picture_path");
+                                handled = true;
+                            }
+                        }
+                        // Icon → Button.icon
+                        else if (prop_name == "Icon") {
+                            Button *btn = Object::cast_to<Button>(obj);
+                            if (btn) {
+                                result = Variant(btn->get_button_icon());
+                                handled = true;
+                            }
+                        }
+                        // ---- Tag (generic user data) ----
+                        else if (prop_name == "Tag") {
+                            result = obj->has_meta("vg_tag") ? obj->get_meta("vg_tag") : Variant();
+                            handled = true;
+                        }
+                        // ---- Timer properties ----
+                        // Interval → wait_time * 1000 (Godot seconds → VB6 milliseconds)
+                        else if (prop_name == "Interval") {
+                            Timer *tmr = Object::cast_to<Timer>(obj);
+                            if (tmr) {
+                                result = (int)(tmr->get_wait_time() * 1000.0);
+                                handled = true;
+                            }
+                        }
+                        // OneShot → one_shot (Timer)
+                        else if (prop_name == "OneShot") {
+                            Timer *tmr = Object::cast_to<Timer>(obj);
+                            if (tmr) {
+                                result = tmr->is_one_shot();
+                                handled = true;
+                            }
+                        }
+                        // Autostart → autostart (Timer)
+                        else if (prop_name == "Autostart") {
+                            Timer *tmr = Object::cast_to<Timer>(obj);
+                            if (tmr) {
+                                result = tmr->has_autostart();
+                                handled = true;
+                            }
+                        }
+                        // ---- ListBox / ComboBox properties ----
+                        // ListCount → item_count (ItemList / OptionButton)
+                        else if (prop_name == "ListCount") {
+                            ItemList *il = Object::cast_to<ItemList>(obj);
+                            if (il) {
+                                result = il->get_item_count();
+                                handled = true;
+                            } else {
+                                OptionButton *ob = Object::cast_to<OptionButton>(obj);
+                                if (ob) {
+                                    result = ob->get_item_count();
+                                    handled = true;
+                                }
+                            }
+                        }
+                        // ListIndex → selected index
+                        else if (prop_name == "ListIndex") {
+                            ItemList *il = Object::cast_to<ItemList>(obj);
+                            if (il) {
+                                PackedInt32Array sel = il->get_selected_items();
+                                result = sel.size() > 0 ? (int)sel[0] : -1;
+                                handled = true;
+                            } else {
+                                OptionButton *ob = Object::cast_to<OptionButton>(obj);
+                                if (ob) {
+                                    result = ob->get_selected();
+                                    handled = true;
+                                }
+                            }
+                        }
+                        // Sorted → meta flag (ItemList)
+                        else if (prop_name == "Sorted") {
+                            result = obj->has_meta("vg_sorted") ? (bool)obj->get_meta("vg_sorted") : false;
+                            handled = true;
+                        }
+                        // ---- AutoSize / ClipText ----
+                        // AutoSize → Label clip_text inverted
+                        else if (prop_name == "AutoSize") {
+                            Label *lbl = Object::cast_to<Label>(obj);
+                            if (lbl) {
+                                result = (lbl->get_autowrap_mode() == TextServer::AUTOWRAP_OFF &&
+                                          !lbl->is_clipping_text());
+                                handled = true;
+                            }
+                        }
+                        // ClipText → Button clip_text
+                        else if (prop_name == "ClipText") {
+                            Button *btn = Object::cast_to<Button>(obj);
+                            if (btn) {
+                                result = btn->get_clip_text();
+                                handled = true;
+                            }
+                        }
+                        // ---- Form-level properties (Window) ----
+                        // WindowState → 0=Normal, 1=Minimized, 2=Maximized
+                        else if (prop_name == "WindowState") {
+                            Window *win = Object::cast_to<Window>(obj);
+                            if (win) {
+                                if (win->get_mode() == Window::MODE_MINIMIZED) result = 1;
+                                else if (win->get_mode() == Window::MODE_MAXIMIZED) result = 2;
+                                else result = 0;
+                                handled = true;
+                            }
+                        }
+                        // ShowInTaskbar → Window flag (always_on_top inverse proxy)
+                        else if (prop_name == "ShowInTaskbar") {
+                            Window *win = Object::cast_to<Window>(obj);
+                            if (win) {
+                                result = !win->get_flag(Window::FLAG_NO_FOCUS);
+                                handled = true;
+                            }
+                        }
+                        // Moveable → Window unresizable inverse
+                        else if (prop_name == "Moveable") {
+                            Window *win = Object::cast_to<Window>(obj);
+                            if (win) {
+                                result = !win->get_flag(Window::FLAG_RESIZE_DISABLED);
+                                handled = true;
+                            }
+                        }
+                        // MinButton → Window flag
+                        else if (prop_name == "MinButton") {
+                            Window *win = Object::cast_to<Window>(obj);
+                            if (win) {
+                                result = !win->get_flag(Window::FLAG_RESIZE_DISABLED);
+                                handled = true;
+                            }
+                        }
+                        // MaxButton → Window flag
+                        else if (prop_name == "MaxButton") {
+                            Window *win = Object::cast_to<Window>(obj);
+                            if (win) {
+                                result = !win->get_flag(Window::FLAG_RESIZE_DISABLED);
+                                handled = true;
+                            }
+                        }
+                        // ControlBox → borderless inverse
+                        else if (prop_name == "ControlBox") {
+                            Window *win = Object::cast_to<Window>(obj);
+                            if (win) {
+                                result = !win->get_flag(Window::FLAG_BORDERLESS);
+                                handled = true;
+                            }
+                        }
+                        // ---- Misc ----
+                        // ZOrder → z_index (Control/Node2D)
+                        else if (prop_name == "ZOrder") {
+                            result = obj->get("z_index");
+                            handled = true;
+                        }
+                        // Rotation → rotation_degrees (Control)
+                        else if (prop_name == "Rotation") {
+                            Control *ctrl = Object::cast_to<Control>(obj);
+                            if (ctrl) {
+                                result = Math::rad_to_deg(ctrl->get_rotation());
+                                handled = true;
+                            }
+                        }
+                        // hWnd → instance ID (compatibility alias)
+                        else if (prop_name == "hWnd") {
+                            result = (int64_t)obj->get_instance_id();
+                            handled = true;
+                        }
+                        // Name → node name
+                        else if (prop_name == "Name") {
+                            Node *node = Object::cast_to<Node>(obj);
+                            if (node) {
+                                result = node->get_name();
+                                handled = true;
+                            }
+                        }
+                        // ---- Custom control VG_Properties support ----
+                        // If the node has a "VG_Properties" meta dictionary, look
+                        // up the VB6 property name there.  The dictionary maps
+                        //   "PropertyName" → "godot_property"       (on self)
+                        //   "PropertyName" → "Child:godot_property"  (on child)
+                        if (!handled) {
+                            Node *node = Object::cast_to<Node>(obj);
+                            if (node && node->has_meta("VG_Properties")) {
+                                Dictionary vgp = node->get_meta("VG_Properties");
+                                if (vgp.has(prop_name)) {
+                                    String mapping = vgp[prop_name];
+                                    int colon = mapping.find(":");
+                                    if (colon >= 0) {
+                                        String child_path = mapping.substr(0, colon);
+                                        String gprop = mapping.substr(colon + 1);
+                                        Node *child = node->find_child(child_path, false, false);
+                                        if (!child) child = node->get_node_or_null(NodePath(child_path));
+                                        if (child) {
+                                            result = child->get(gprop);
+                                            handled = true;
+                                        }
+                                    } else {
+                                        result = obj->get(mapping);
+                                        handled = true;
+                                    }
+                                }
+                            }
+                        }
                         
                         if (handled) {
                             push_value(result);
@@ -3581,6 +4018,437 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                             }
                             push_value(base);
                             break;
+                        }
+                        // ---- Font properties (SET) ----
+                        // FontBold → create/modify FontVariation with embolden
+                        else if (prop_name == "FontBold") {
+                            Control *ctrl = Object::cast_to<Control>(obj);
+                            if (ctrl) {
+                                bool bold = (bool)value;
+                                Ref<Font> existing = ctrl->get_theme_font("font");
+                                Ref<FontVariation> fv;
+                                if (existing.is_valid()) {
+                                    fv = existing;
+                                }
+                                if (fv.is_null()) {
+                                    fv.instantiate();
+                                    if (existing.is_valid()) fv->set_base_font(existing);
+                                }
+                                fv->set_variation_embolden(bold ? 1.2f : 0.0f);
+                                ctrl->add_theme_font_override("font", fv);
+                            }
+                            push_value(base);
+                            break;
+                        }
+                        // FontItalic → create/modify FontVariation with skew transform
+                        else if (prop_name == "FontItalic") {
+                            Control *ctrl = Object::cast_to<Control>(obj);
+                            if (ctrl) {
+                                bool italic = (bool)value;
+                                Ref<Font> existing = ctrl->get_theme_font("font");
+                                Ref<FontVariation> fv;
+                                if (existing.is_valid()) {
+                                    fv = existing;
+                                }
+                                if (fv.is_null()) {
+                                    fv.instantiate();
+                                    if (existing.is_valid()) fv->set_base_font(existing);
+                                }
+                                Transform2D t = Transform2D();
+                                if (italic) {
+                                    t[0][1] = 0.2f; // skew for italic effect
+                                }
+                                fv->set_variation_transform(t);
+                                ctrl->add_theme_font_override("font", fv);
+                            }
+                            push_value(base);
+                            break;
+                        }
+                        // FontName → create SystemFont with given family name
+                        else if (prop_name == "FontName") {
+                            Control *ctrl = Object::cast_to<Control>(obj);
+                            if (ctrl) {
+                                String font_name = value;
+                                Ref<SystemFont> sf;
+                                sf.instantiate();
+                                PackedStringArray names;
+                                names.push_back(font_name);
+                                sf->set_font_names(names);
+                                // Preserve existing bold/italic via FontVariation wrapper
+                                Ref<Font> existing = ctrl->get_theme_font("font");
+                                Ref<FontVariation> fv_existing;
+                                if (existing.is_valid()) fv_existing = existing;
+                                if (fv_existing.is_valid()) {
+                                    // Keep the variation, just swap base font
+                                    Ref<FontVariation> fv;
+                                    fv.instantiate();
+                                    fv->set_base_font(sf);
+                                    fv->set_variation_embolden(fv_existing->get_variation_embolden());
+                                    fv->set_variation_transform(fv_existing->get_variation_transform());
+                                    ctrl->add_theme_font_override("font", fv);
+                                } else {
+                                    ctrl->add_theme_font_override("font", sf);
+                                }
+                            }
+                            push_value(base);
+                            break;
+                        }
+                        // FontUnderline → stored as meta (no native Godot support on Control fonts)
+                        else if (prop_name == "FontUnderline") {
+                            obj->set_meta("vg_font_underline", (bool)value);
+                            push_value(base);
+                            break;
+                        }
+                        // FontStrikethrough → stored as meta
+                        else if (prop_name == "FontStrikethrough") {
+                            obj->set_meta("vg_font_strikethrough", (bool)value);
+                            push_value(base);
+                            break;
+                        }
+                        // ---- Border / Appearance (SET) ----
+                        // BorderStyle → 0=None (remove borders), 1=FixedSingle (1px border)
+                        else if (prop_name == "BorderStyle") {
+                            Control *ctrl = Object::cast_to<Control>(obj);
+                            if (ctrl) {
+                                int bs = (int)value;
+                                String sb_name = "normal";
+                                Ref<StyleBox> existing = ctrl->get_theme_stylebox(sb_name);
+                                Ref<StyleBoxFlat> sbf;
+                                if (existing.is_valid()) {
+                                    sbf = existing;
+                                    if (sbf.is_valid()) sbf = sbf->duplicate();
+                                }
+                                if (sbf.is_null()) sbf.instantiate();
+                                if (bs == 0) {
+                                    sbf->set_border_width(SIDE_LEFT, 0);
+                                    sbf->set_border_width(SIDE_TOP, 0);
+                                    sbf->set_border_width(SIDE_RIGHT, 0);
+                                    sbf->set_border_width(SIDE_BOTTOM, 0);
+                                } else {
+                                    sbf->set_border_width(SIDE_LEFT, 1);
+                                    sbf->set_border_width(SIDE_TOP, 1);
+                                    sbf->set_border_width(SIDE_RIGHT, 1);
+                                    sbf->set_border_width(SIDE_BOTTOM, 1);
+                                    sbf->set_border_color(Color(0, 0, 0));
+                                }
+                                ctrl->add_theme_stylebox_override(sb_name, sbf);
+                                ctrl->notification(Control::NOTIFICATION_THEME_CHANGED);
+                            }
+                            push_value(base);
+                            break;
+                        }
+                        // Style / Flat → Button.flat
+                        else if (prop_name == "Style" || prop_name == "Flat") {
+                            Button *btn = Object::cast_to<Button>(obj);
+                            if (btn) {
+                                btn->set_flat((bool)value);
+                            }
+                            push_value(base);
+                            break;
+                        }
+                        // ---- TextBox-specific (SET) ----
+                        // ScrollBars → TextEdit (placeholder — Godot always has vert scroll)
+                        else if (prop_name == "ScrollBars") {
+                            // Godot TextEdit doesn't expose h/v scroll toggles directly;
+                            // store as meta for design-time reference.
+                            obj->set_meta("vg_scrollbars", (int)value);
+                            push_value(base);
+                            break;
+                        }
+                        // PasswordChar → LineEdit secret + secret_character
+                        else if (prop_name == "PasswordChar") {
+                            LineEdit *le = Object::cast_to<LineEdit>(obj);
+                            if (le) {
+                                String ch = value;
+                                if (ch.is_empty()) {
+                                    le->set_secret(false);
+                                } else {
+                                    le->set_secret(true);
+                                    le->set("secret_character", ch.unicode_at(0));
+                                }
+                            }
+                            push_value(base);
+                            break;
+                        }
+                        // PlaceholderText → placeholder_text
+                        else if (prop_name == "PlaceholderText") {
+                            godot_prop = "placeholder_text";
+                        }
+                        // Editable → editable (direct)
+                        else if (prop_name == "Editable") {
+                            godot_prop = "editable";
+                        }
+                        // SelStart → set caret column
+                        else if (prop_name == "SelStart") {
+                            LineEdit *le = Object::cast_to<LineEdit>(obj);
+                            if (le) {
+                                le->set_caret_column((int)value);
+                            } else {
+                                TextEdit *te = Object::cast_to<TextEdit>(obj);
+                                if (te) {
+                                    te->set_caret_column((int)value);
+                                }
+                            }
+                            push_value(base);
+                            break;
+                        }
+                        // SelLength → select from current caret
+                        else if (prop_name == "SelLength") {
+                            LineEdit *le = Object::cast_to<LineEdit>(obj);
+                            if (le) {
+                                int start = le->get_caret_column();
+                                le->select(start, start + (int)value);
+                            } else {
+                                TextEdit *te = Object::cast_to<TextEdit>(obj);
+                                if (te) {
+                                    int col = te->get_caret_column();
+                                    int line = te->get_caret_line();
+                                    te->select(line, col, line, col + (int)value);
+                                }
+                            }
+                            push_value(base);
+                            break;
+                        }
+                        // SelText → replace selected text
+                        else if (prop_name == "SelText") {
+                            LineEdit *le = Object::cast_to<LineEdit>(obj);
+                            if (le) {
+                                if (le->has_selection()) {
+                                    le->delete_text(le->get_selection_from_column(), le->get_selection_to_column());
+                                    le->insert_text_at_caret(String(value));
+                                } else {
+                                    le->insert_text_at_caret(String(value));
+                                }
+                            } else {
+                                TextEdit *te = Object::cast_to<TextEdit>(obj);
+                                if (te) {
+                                    te->insert_text_at_caret(String(value));
+                                }
+                            }
+                            push_value(base);
+                            break;
+                        }
+                        // ---- Picture / Icon (SET) ----
+                        // Picture → load texture from path and set on TextureRect
+                        else if (prop_name == "Picture") {
+                            TextureRect *tr = Object::cast_to<TextureRect>(obj);
+                            if (tr) {
+                                if (value.get_type() == Variant::STRING) {
+                                    String path = value;
+                                    Ref<Texture2D> tex = ResourceLoader::get_singleton()->load(path);
+                                    if (tex.is_valid()) tr->set_texture(tex);
+                                    obj->set_meta("vg_picture_path", path);
+                                } else if (value.get_type() == Variant::OBJECT) {
+                                    Ref<Texture2D> tex = value;
+                                    if (tex.is_valid()) tr->set_texture(tex);
+                                }
+                            } else {
+                                // For non-TextureRect, store path as meta
+                                obj->set_meta("vg_picture_path", String(value));
+                            }
+                            push_value(base);
+                            break;
+                        }
+                        // Icon → Button icon
+                        else if (prop_name == "Icon") {
+                            Button *btn = Object::cast_to<Button>(obj);
+                            if (btn) {
+                                if (value.get_type() == Variant::STRING) {
+                                    String path = value;
+                                    Ref<Texture2D> tex = ResourceLoader::get_singleton()->load(path);
+                                    if (tex.is_valid()) btn->set_button_icon(tex);
+                                } else if (value.get_type() == Variant::OBJECT) {
+                                    Ref<Texture2D> tex = value;
+                                    if (tex.is_valid()) btn->set_button_icon(tex);
+                                }
+                            }
+                            push_value(base);
+                            break;
+                        }
+                        // ---- Tag (SET) ----
+                        else if (prop_name == "Tag") {
+                            obj->set_meta("vg_tag", value);
+                            push_value(base);
+                            break;
+                        }
+                        // ---- Timer properties (SET) ----
+                        // Interval → wait_time (VB6 milliseconds → Godot seconds)
+                        else if (prop_name == "Interval") {
+                            Timer *tmr = Object::cast_to<Timer>(obj);
+                            if (tmr) {
+                                double ms = (double)value;
+                                tmr->set_wait_time(ms / 1000.0);
+                            }
+                            push_value(base);
+                            break;
+                        }
+                        // OneShot → one_shot (Timer)
+                        else if (prop_name == "OneShot") {
+                            Timer *tmr = Object::cast_to<Timer>(obj);
+                            if (tmr) tmr->set_one_shot((bool)value);
+                            push_value(base);
+                            break;
+                        }
+                        // Autostart → autostart (Timer)
+                        else if (prop_name == "Autostart") {
+                            Timer *tmr = Object::cast_to<Timer>(obj);
+                            if (tmr) tmr->set_autostart((bool)value);
+                            push_value(base);
+                            break;
+                        }
+                        // ---- ListBox / ComboBox (SET) ----
+                        // ListIndex → select item
+                        else if (prop_name == "ListIndex") {
+                            ItemList *il = Object::cast_to<ItemList>(obj);
+                            if (il) {
+                                int idx_val = (int)value;
+                                il->deselect_all();
+                                if (idx_val >= 0 && idx_val < il->get_item_count()) {
+                                    il->select(idx_val);
+                                }
+                            } else {
+                                OptionButton *ob = Object::cast_to<OptionButton>(obj);
+                                if (ob) {
+                                    ob->select((int)value);
+                                }
+                            }
+                            push_value(base);
+                            break;
+                        }
+                        // Sorted → meta flag + sort items
+                        else if (prop_name == "Sorted") {
+                            obj->set_meta("vg_sorted", (bool)value);
+                            ItemList *il = Object::cast_to<ItemList>(obj);
+                            if (il && (bool)value) {
+                                il->sort_items_by_text();
+                            }
+                            push_value(base);
+                            break;
+                        }
+                        // ---- AutoSize / ClipText (SET) ----
+                        // AutoSize → Label: turn off clip_text + set autowrap OFF
+                        else if (prop_name == "AutoSize") {
+                            Label *lbl = Object::cast_to<Label>(obj);
+                            if (lbl) {
+                                bool autosize = (bool)value;
+                                lbl->set_clip_text(!autosize);
+                                if (autosize) lbl->set_autowrap_mode(TextServer::AUTOWRAP_OFF);
+                            }
+                            push_value(base);
+                            break;
+                        }
+                        // ClipText → Button clip_text
+                        else if (prop_name == "ClipText") {
+                            Button *btn = Object::cast_to<Button>(obj);
+                            if (btn) btn->set_clip_text((bool)value);
+                            push_value(base);
+                            break;
+                        }
+                        // ---- Form-level (SET) ----
+                        // WindowState → 0=Normal, 1=Minimized, 2=Maximized
+                        else if (prop_name == "WindowState") {
+                            Window *win = Object::cast_to<Window>(obj);
+                            if (win) {
+                                int ws = (int)value;
+                                if (ws == 1) win->set_mode(Window::MODE_MINIMIZED);
+                                else if (ws == 2) win->set_mode(Window::MODE_MAXIMIZED);
+                                else win->set_mode(Window::MODE_WINDOWED);
+                            }
+                            push_value(base);
+                            break;
+                        }
+                        // ShowInTaskbar → Window no-focus flag
+                        else if (prop_name == "ShowInTaskbar") {
+                            Window *win = Object::cast_to<Window>(obj);
+                            if (win) {
+                                win->set_flag(Window::FLAG_NO_FOCUS, !(bool)value);
+                            }
+                            push_value(base);
+                            break;
+                        }
+                        // Moveable → Window resize-disabled flag (inverse)
+                        else if (prop_name == "Moveable") {
+                            Window *win = Object::cast_to<Window>(obj);
+                            if (win) {
+                                win->set_flag(Window::FLAG_RESIZE_DISABLED, !(bool)value);
+                            }
+                            push_value(base);
+                            break;
+                        }
+                        // MinButton / MaxButton → Window resize-disabled flag
+                        else if (prop_name == "MinButton" || prop_name == "MaxButton") {
+                            Window *win = Object::cast_to<Window>(obj);
+                            if (win) {
+                                win->set_flag(Window::FLAG_RESIZE_DISABLED, !(bool)value);
+                            }
+                            push_value(base);
+                            break;
+                        }
+                        // ControlBox → Window borderless flag (inverse)
+                        else if (prop_name == "ControlBox") {
+                            Window *win = Object::cast_to<Window>(obj);
+                            if (win) {
+                                win->set_flag(Window::FLAG_BORDERLESS, !(bool)value);
+                            }
+                            push_value(base);
+                            break;
+                        }
+                        // ---- Misc (SET) ----
+                        // ZOrder → z_index
+                        else if (prop_name == "ZOrder") {
+                            godot_prop = "z_index";
+                        }
+                        // Rotation → rotation in degrees
+                        else if (prop_name == "Rotation") {
+                            Control *ctrl = Object::cast_to<Control>(obj);
+                            if (ctrl) {
+                                ctrl->set_rotation(Math::deg_to_rad((double)value));
+                            }
+                            push_value(base);
+                            break;
+                        }
+                        // hWnd → read-only, ignore SET
+                        else if (prop_name == "hWnd") {
+                            push_value(base);
+                            break;
+                        }
+                        // Name → node name
+                        else if (prop_name == "Name") {
+                            Node *node = Object::cast_to<Node>(obj);
+                            if (node) {
+                                node->set_name(String(value));
+                            }
+                            push_value(base);
+                            break;
+                        }
+                        // ---- Custom control VG_Properties support (SET) ----
+                        {
+                            bool custom_handled = false;
+                            Node *node = Object::cast_to<Node>(obj);
+                            if (node && node->has_meta("VG_Properties")) {
+                                Dictionary vgp = node->get_meta("VG_Properties");
+                                if (vgp.has(prop_name)) {
+                                    String mapping = vgp[prop_name];
+                                    int colon = mapping.find(":");
+                                    if (colon >= 0) {
+                                        String child_path = mapping.substr(0, colon);
+                                        String gprop = mapping.substr(colon + 1);
+                                        Node *child = node->find_child(child_path, false, false);
+                                        if (!child) child = node->get_node_or_null(NodePath(child_path));
+                                        if (child) {
+                                            child->set(gprop, value);
+                                            custom_handled = true;
+                                        }
+                                    } else {
+                                        obj->set(mapping, value);
+                                        custom_handled = true;
+                                    }
+                                }
+                            }
+                            if (custom_handled) {
+                                push_value(base);
+                                break;
+                            }
                         }
                         
                         if (!godot_prop.is_empty()) {
