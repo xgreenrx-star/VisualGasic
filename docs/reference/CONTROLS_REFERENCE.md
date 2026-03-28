@@ -1236,19 +1236,60 @@ When you drag a control from the Toolbox onto the form, the wrapper is automatic
 
 Every wrapped control has `Tag` (general-purpose string storage, VB6 convention).
 
-The C++ runtime also provides these aliased properties on **all** form controls:
+The C++ runtime provides **55 aliased VB6 properties** on form controls at runtime.
+The full reference with code examples is in **[Runtime Properties Reference](RUNTIME_PROPERTIES_REFERENCE.md)**.
 
-| VB6 Property | Godot Property | Description |
-|-------------|---------------|-------------|
-| `Text` / `Caption` | `.text` | Display text |
-| `Left` | `position.x` | X position |
-| `Top` | `position.y` | Y position |
-| `Width` | `size.x` | Control width |
-| `Height` | `size.y` | Control height |
-| `Visible` | `visible` | Whether control is shown |
-| `Enabled` | (varies) | Whether control accepts input |
-| `BackColor` | (varies) | Background color |
-| `ForeColor` | (varies) | Text/foreground color |
+Here is the summary:
+
+| VB6 Property | Godot Mapping | Category |
+|---|---|---|
+| `Text` / `Caption` | `.text` | Common |
+| `Visible` | `.visible` | Common |
+| `Enabled` | `.disabled` (inverted) | Common |
+| `Left` / `Top` | `position.x` / `.y` | Common |
+| `Width` / `Height` | `size.x` / `.y` | Common |
+| `BackColor` | StyleBoxFlat `bg_color` | Common |
+| `ForeColor` | theme `font_color` | Common |
+| `FontSize` | theme `font_size` | Common |
+| `FontBold` | FontVariation `embolden` | Font |
+| `FontItalic` | FontVariation skew transform | Font |
+| `FontName` | SystemFont `font_names` | Font |
+| `FontUnderline` / `FontStrikethrough` | meta | Font |
+| `Value` | `.value` | Common |
+| `ToolTipText` | `.tooltip_text` | Common |
+| `TabStop` | `.focus_mode` | Common |
+| `Opacity` | `modulate.a` (0–100) | Common |
+| `MousePointer` | `.mouse_default_cursor_shape` | Common |
+| `Locked` | `!editable` | Common |
+| `MaxLength` | `.max_length` | TextBox |
+| `Alignment` | `.horizontal_alignment` | Common |
+| `WordWrap` | `.autowrap_mode` | Label |
+| `Tag` | meta `vg_tag` | Common |
+| `Name` | node `.name` | Common |
+| `hWnd` | `instance_id` (read-only) | Common |
+| `MultiLine` | (type check, read-only) | TextBox |
+| `ScrollBars` | meta `vg_scrollbars` | TextArea |
+| `PasswordChar` | LineEdit `.secret` | TextBox |
+| `PlaceholderText` | `.placeholder_text` | TextBox |
+| `Editable` | `.editable` | TextBox |
+| `SelStart` / `SelLength` / `SelText` | caret / selection API | Selection |
+| `Style` / `Flat` | Button `.flat` | Button |
+| `ClipText` | Button `.clip_text` | Button |
+| `Icon` | Button `.icon` | Button |
+| `Picture` | TextureRect `.texture` | Picture |
+| `Interval` | Timer `.wait_time` (ms↔s) | Timer |
+| `OneShot` / `Autostart` | Timer properties | Timer |
+| `ListCount` | `.item_count` (read-only) | List |
+| `ListIndex` | selected index | List |
+| `Sorted` | meta `vg_sorted` | List |
+| `AutoSize` | Label `!clip_text` | Layout |
+| `BorderStyle` | StyleBoxFlat border widths | Layout |
+| `WindowState` | Window `.mode` (0/1/2) | Form |
+| `ShowInTaskbar` / `Moveable` | Window flags | Form |
+| `MinButton` / `MaxButton` / `ControlBox` | Window flags | Form |
+| `ZOrder` | `.z_index` | Misc |
+| `Rotation` | rotation (degrees) | Misc |
+| *(custom)* | **VG_Properties** dictionary | Custom Controls |
 
 ---
 
@@ -1533,6 +1574,40 @@ When you click the form background (no control selected), these properties appea
 You can design your own controls in Godot and add them to the Toolbox.
 See the **[Custom Controls Guide](../guides/CUSTOM_CONTROLS.md)** for
 step-by-step instructions on creating, registering, and using custom controls.
+
+### Runtime Properties for Custom Controls (VG_Properties)
+
+Custom controls can expose **named VB6 properties** via a `VG_Properties`
+metadata Dictionary on the root node. This lets your VB6 code read and write
+properties like `Me.HealthBar1.Health = 75` — the VM maps them to Godot
+properties on the control or its children.
+
+**Quick example:**
+
+```gdscript
+# In your custom control's _ready():
+set_meta("VG_Properties", {
+    "Health":    "ProgressBar:value",
+    "MaxHealth": "ProgressBar:max_value",
+    "BarColor":  "ProgressBar:self_modulate",
+    "LabelText": "Label:text"
+})
+```
+
+```vb
+' In your VB6 code:
+Me.HealthBar1.Health = 75
+Me.HealthBar1.LabelText = "Player HP"
+Debug.Print Me.HealthBar1.Health
+```
+
+**Dictionary format:**
+- `"PropName": "godot_property"` — reads/writes on self
+- `"PropName": "ChildName:godot_property"` — reads/writes on a child node
+
+For the full walkthrough see:
+- **[Custom Controls Guide — Exposing Runtime Properties](../guides/CUSTOM_CONTROLS.md#exposing-runtime-properties-vg_properties)**
+- **[Runtime Properties Reference — VG_Properties](RUNTIME_PROPERTIES_REFERENCE.md#custom-control-properties-vg_properties)**
 
 ---
 

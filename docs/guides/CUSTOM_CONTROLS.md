@@ -239,3 +239,239 @@ Use **Preview** (or F5) to see the actual rendered control.
 A: The Visual Gasic IDE detects missing files at save time and falls back to the
 built-in prototype for that control type. Your form won't break — it just
 reverts to a standard control.
+
+---
+
+## Exposing Runtime Properties (VG_Properties)
+
+Custom controls can expose **named VB6 properties** that your `.vg` code can
+read and write at runtime — just like the built-in properties (`Text`, `Visible`,
+`BackColor`, etc.) work on standard controls.
+
+This is done by adding a **`VG_Properties` metadata Dictionary** to the custom
+control's root node. The VisualGasic bytecode VM checks this dictionary
+automatically whenever a property access doesn't match one of the 50+ built-in
+VB6 aliases.
+
+### How the Lookup Chain Works
+
+When your VB6 code accesses `Me.MyWidget1.SomeProperty`, the VM tries — in order:
+
+1. **Built-in VB6 aliases** (Text, Visible, BackColor, FontBold, etc.)
+2. **VG_Properties dictionary** on the node's metadata ← *your custom mappings*
+3. **Native Godot property** (`obj.get("SomeProperty")` / `obj.set(...)`)
+4. **Child node lookup** (`find_child("SomeProperty")`)
+
+So your custom property names take priority over Godot-native properties, but
+built-in VB6 aliases always win.
+
+---
+
+### Step-by-Step: Creating a Custom Control with Runtime Properties
+
+This walkthrough builds a **HealthBar** custom control with `Health`, `MaxHealth`,
+`BarColor`, and `LabelText` properties that can be read and written from VB6 code.
+
+#### Step 1: Create the Godot Scene
+
+1. In Godot's **FileSystem** dock, right-click → **New Scene**
+2. Choose **PanelContainer** as the root node
+3. Add children:
+
+```
+HealthBar.tscn
+├── PanelContainer (root)
+│   ├── VBoxContainer
+│   │   ├── Label (name: "Label")
+│   │   └── ProgressBar (name: "ProgressBar")
+```
+
+4. Configure the ProgressBar:
+   - `min_value` = 0
+   - `max_value` = 100
+   - `value` = 100
+   - `show_percentage` = true
+
+5. Configure the Label:
+   - `text` = "HP"
+   - `horizontal_alignment` = Center
+
+#### Step 2: Attach a Script with VG_Properties
+
+Attach a GDScript to the **root PanelContainer**:
+
+```gdscript
+# health_bar.gd
+extends PanelContainer
+
+@export var max_health: float = 100.0
+
+func _ready():
+    # Register VB6 property names → Godot property mappings
+    set_meta("VG_Properties", {
+        "Health":     "ProgressBar:value",       # ProgressBar child, "value" property
+        "MaxHealth":  "ProgressBar:max_value",   # ProgressBar child, "max_value" property
+        "BarColor":   "ProgressBar:self_modulate",  # ProgressBar child, "self_modulate" property
+        "LabelText":  "Label:text",              # Label child, "text" property
+        "ShowLabel":  "Label:visible"            # Label child, "visible" property
+    })
+
+    # Initialize
+    $ProgressBar.max_value = max_health
+    $ProgressBar.value = max_health
+```
+
+6. Save as `res://custom_controls/HealthBar.tscn`
+
+#### Step 3: Add to the Toolbox
+
+1. Open **Project → Components**
+2. Click **Browse** → select `HealthBar.tscn`
+3. Name it "HealthBar" → click **Add** → **OK**
+
+#### Step 4: Use It on a Form
+
+1. Click "HealthBar" in the Toolbox
+2. Draw it on your form
+3. The design-time placeholder shows as a colored rectangle labeled "HealthBar1"
+
+#### Step 5: Write VB6 Code
+
+```vb
+Sub Form_Load()
+    ' Initialize the health bar
+    Me.HealthBar1.MaxHealth = 200
+    Me.HealthBar1.Health = 200
+    Me.HealthBar1.LabelText = "Player HP"
+    Me.HealthBar1.BarColor = vbGreen
+    Me.HealthBar1.ShowLabel = True
+End Sub
+
+Sub btnTakeDamage_Click()
+    Dim hp As Integer
+    hp = Me.HealthBar1.Health
+    hp = hp - 25
+    If hp < 0 Then hp = 0
+    Me.HealthBar1.Health = hp
+
+    ' Change color based on remaining health
+    If hp < 50 Then
+        Me.HealthBar1.BarColor = vbYellow
+    End If
+    If hp < 25 Then
+        Me.HealthBar1.BarColor = vbRed
+    End If
+End Sub
+
+Sub btnHeal_Click()
+    Me.HealthBar1.Health = Me.HealthBar1.MaxHealth
+    Me.HealthBar1.BarColor = vbGreen
+End Sub
+```
+
+#### Step 6: Run and Test
+
+Press **F5** (or Preview). The HealthBar renders as a real ProgressBar with a label.
+Clicking "Take Damage" decreases the health and changes the bar color.
+Clicking "Heal" restores it.
+
+---
+
+### VG_Properties Dictionary Format
+
+The dictionary maps VB6 property names to Godot properties:
+
+| Format | Meaning | Example |
+|---|---|---|
+| `"PropertyName": "godot_property"` | Read/write `godot_property` on **self** (the root node) | `"Opacity": "modulate:a"` → `self.modulate.a` |
+| `"PropertyName": "ChildName:godot_property"` | Read/write `godot_property` on a **child node** | `"Health": "ProgressBar:value"` → `ProgressBar.value` |
+
+**Child resolution:** The child name is first tried with `find_child()` (searches
+by node name), then with `get_node_or_null()` (accepts relative paths like
+`"VBox/ProgressBar"`).
+
+**Any Godot property works:** You can map to any property that Godot's
+`Object.get()` / `Object.set()` supports — including theme overrides, transforms,
+materials, and custom `@export` variables.
+
+---
+
+### More Examples
+
+#### Skill Cooldown Button
+
+```gdscript
+# cooldown_button.gd
+extends Button
+
+@export var cooldown_time: float = 5.0
+
+func _ready():
+    set_meta("VG_Properties", {
+        "CooldownTime":  "cooldown_time",        # @export var on self
+        "IsReady":       "disabled",             # Godot native (note: inverted semantics)
+        "ButtonText":    "text"                  # native property on self
+    })
+```
+
+```vb
+Sub Form_Load()
+    Me.SkillBtn1.CooldownTime = 3.0
+    Me.SkillBtn1.ButtonText = "Fire!"
+End Sub
+```
+
+#### Stat Display Panel
+
+```gdscript
+# stat_display.gd
+extends PanelContainer
+
+func _ready():
+    set_meta("VG_Properties", {
+        "StatName":      "HBox/NameLabel:text",
+        "StatValue":     "HBox/ValueLabel:text",
+        "BarPercent":    "HBox/MiniBar:value",
+        "NameColor":     "HBox/NameLabel:self_modulate",
+        "ValueColor":    "HBox/ValueLabel:self_modulate"
+    })
+```
+
+```vb
+Sub Form_Load()
+    Me.StatPanel1.StatName = "Strength"
+    Me.StatPanel1.StatValue = "42"
+    Me.StatPanel1.BarPercent = 84
+End Sub
+```
+
+---
+
+### Tips for VG_Properties
+
+1. **Keep property names VB6-style** — PascalCase, descriptive (e.g. `BarColor`
+   not `bar_color`), since your users write VB6 code
+
+2. **Set VG_Properties in `_ready()`** — the dictionary must exist before the
+   first VB6 property access, which happens after `_ready()` completes
+
+3. **You can update the dictionary at runtime** — call `set_meta("VG_Properties", ...)`
+   again if you need to add or change mappings dynamically
+
+4. **Built-in names take priority** — if you name a custom property `"Text"` or
+   `"Visible"`, the built-in alias wins. Pick unique names for your custom properties
+
+5. **Type conversion is automatic** — the VM passes Variant values through, so
+   Color, int, float, String, bool all work seamlessly
+
+6. **Works with events too** — if your custom control emits Godot signals (e.g.
+   `pressed`, `value_changed`), the auto-wiring system picks them up. Combined
+   with VG_Properties, you get a fully interactive custom control with readable
+   state
+
+---
+
+### See Also
+
+- [Runtime Properties Reference](../reference/RUNTIME_PROPERTIES_REFERENCE.md) — full list of all 50+ built-in property aliases
+- [Controls Reference](../reference/CONTROLS_REFERENCE.md) — design-time property tables for every control type
