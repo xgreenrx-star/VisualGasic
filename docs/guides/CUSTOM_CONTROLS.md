@@ -473,5 +473,5 @@ End Sub
 
 ### See Also
 
-- [Runtime Properties Reference](../reference/RUNTIME_PROPERTIES_REFERENCE.md) — full list of all 50+ built-in property aliases
+- [Runtime Properties Reference](../reference/RUNTIME_PROPERTIES_REFERENCE.md) — full list of all 62+ built-in property aliases
 - [Controls Reference](../reference/CONTROLS_REFERENCE.md) — design-time property tables for every control type

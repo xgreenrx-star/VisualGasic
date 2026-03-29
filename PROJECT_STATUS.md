@@ -194,7 +194,7 @@ All documentation is organized in [docs/DOCUMENTATION_INDEX.md](docs/DOCUMENTATI
 - **New Opcodes**: OP_JUMP_IF_TRUE, OP_RESTORE_DATA, OP_MOD, OP_INT_DIVIDE, OP_LIKE
 
 ### Editor Plugin Features
-- IntelliSense with 70+ keywords, 80+ functions
+- IntelliSense with 70+ keywords, 80+ functions, 62+ VB6 property completions
 - Go To Definition across all .vg files
 - Static code linter with 10 issue types
 - 30+ code snippets with tab stops

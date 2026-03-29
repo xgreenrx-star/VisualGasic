@@ -1,4 +1,4 @@
-' Test: Runtime Properties — All 55 VB6 property aliases
+' Test: Runtime Properties — All 62 VB6 property aliases
 ' Tests GET and SET for every property on dynamically created controls.
 ' MAX_FRAMES: 10
 Attribute VB_Name = "TestRuntimeProperties"

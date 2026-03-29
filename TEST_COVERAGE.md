@@ -1,10 +1,10 @@
 # VisualGasic Test Coverage Report
 
-**Test Suite**: 75 files · **578 assertions** · **99.7% pass rate** (576 pass, 2 fail)
+**Test Suite**: 82 files · **646 assertions** · **99.7% pass rate** (644 pass, 2 fail)
 
 Run with: `bash run_test_suite.sh`
 
-*Last updated: v4.4.0-rc3 (2026-03-27)*
+*Last updated: v4.4.0-rc4 (2026-03-29)*
 
 ---
 
@@ -118,7 +118,8 @@ Run with: `bash run_test_suite.sh`
 
 | Version | Files | Assertions | Pass Rate |
 |---------|:-----:|:----------:|:---------:|
-| v4.4.0+ | 75 | 578 | 99.7% |
+| v4.4.0-rc4 | 82 | 646 | 99.7% |
+| v4.4.0-rc3 | 75 | 578 | 99.7% |
 | v4.1.0 | 65 | 602 | 99.7% |
 | v3.8.0 | 65 | 602 | 99.7% |
 | v3.7.0 | 64 | 564 | 99.6% |

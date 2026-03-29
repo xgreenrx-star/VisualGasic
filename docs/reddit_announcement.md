@@ -91,11 +91,11 @@ Double-click any control to jump straight to its event handler. It's the RAD wor
 - **66 demo projects** — 2D games (Pong, Snake, Space Shooter, Platformer), 3D (Squash the Creeps), shaders, audio, UI apps, threading, networking, and more
 - **4 ported official Godot demos** — proving real Godot projects run naturally in VG
 - **Custom Controls system** — create your own .tscn controls with a wizard, preview them in the designer, and share them across projects
-- **IntelliSense** with 80+ completions, snippets, and Godot type awareness
+- **IntelliSense** with 80+ function completions, 62+ VB6 property completions, snippets, and Godot type awareness
 - **Debugger** with conditional breakpoints, watch window, call stack, and time-travel debugging
 - **108 built-in functions** (string, math, file I/O, date/time, collections, and more)
 - **Linux, Windows, and macOS binaries** — drop into your project and go
-- **481 tests passing**
+- **646 tests passing** (82 test files)
 
 &nbsp;
 

@@ -106,7 +106,7 @@
 ### Code Editing Tools
 | Tool | Description | Location |
 |------|-------------|----------|
-| IntelliSense | Code completion with 80+ functions | Automatic in .vg files |
+| IntelliSense | Code completion with 80+ functions, 62+ VB6 property completions | Automatic in .vg files |
 | Linter | Static analysis (10 issue codes) | Automatic in .vg files |
 | Snippet Manager | 40+ built-in code snippets | IntelliSense suggestions |
 | Code Formatter | Auto-indent, keyword capitalization | Tools menu |

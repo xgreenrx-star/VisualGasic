@@ -473,7 +473,7 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
              Object* obj = base;
              String prop_name = ma->member_name;
              
-             // VB6 Property Aliasing (Read) — shared helper handles all 55 aliases
+             // VB6 Property Aliasing (Read) — shared helper handles all 62 aliases
              if (obj) {
                   Variant vb6_result;
                   if (_vb6_read_property(obj, prop_name, vb6_result)) {

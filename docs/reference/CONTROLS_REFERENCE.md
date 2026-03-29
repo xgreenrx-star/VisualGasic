@@ -1236,7 +1236,7 @@ When you drag a control from the Toolbox onto the form, the wrapper is automatic
 
 Every wrapped control has `Tag` (general-purpose string storage, VB6 convention).
 
-The C++ runtime provides **55 aliased VB6 properties** on form controls at runtime.
+The C++ runtime provides **62 aliased VB6 properties** on form controls at runtime.
 The full reference with code examples is in **[Runtime Properties Reference](RUNTIME_PROPERTIES_REFERENCE.md)**.
 
 Here is the summary:

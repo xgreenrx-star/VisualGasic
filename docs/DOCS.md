@@ -229,6 +229,7 @@ Internal docs for contributors and maintainers.
 
 | Version | File | Highlights |
 |---------|------|------------|
+| v4.4.0-rc4 | [RELEASE_NOTES_v4.4.0-rc4.md](../RELEASE_NOTES_v4.4.0-rc4.md) | VB6 Property System v2: 62 properties, events, IntelliSense, Watch Window |
 | v4.4.0-rc3 | [RELEASE_NOTES_v4.4.0-rc3.md](../RELEASE_NOTES_v4.4.0-rc3.md) | IntelliSense chaining, keyword-named Subs |
 | v4.4.0-rc2 | [RELEASE_NOTES_v4.4.0-rc2.md](../RELEASE_NOTES_v4.4.0-rc2.md) | Debugger UX overhaul, Set Next Statement |
 | v4.4.0-rc1 | [RELEASE_NOTES_v4.4.0-rc1.md](../RELEASE_NOTES_v4.4.0-rc1.md) | Release candidate — feature-complete |
