@@ -21,6 +21,27 @@ The Immediate Window is a comprehensive development tool featuring:
 - ✅ **Expression evaluation** - Evaluate expressions in paused debug context
 - ✅ **Data breakpoints (Watchpoints)** - Break when variable values change
 
+## VB6-Style Output Formatting
+
+All values displayed in the Immediate Window, Watch tab, and REPL output use
+**VB6-compatible formatting** for a familiar experience:
+
+| Value | GDScript Default | VB6-Style Output |
+|-------|-----------------|------------------|
+| `True` | `true` | `True` |
+| `False` | `false` | `False` |
+| `100.0` | `100.0` | `100` |
+| `3.14` | `3.14` | `3.14` |
+| `42` | `42` | `42` |
+
+**Rules:**
+- Booleans display with initial caps: `True` / `False`
+- Whole-number floats drop the decimal: `100.0` → `100`
+- Integers never show `.0`
+- Strings display without quotes (matching VB6’s Immediate Window)
+
+This formatting is applied automatically by the C++ `_vb6_format_variant()` helper.
+
 ## Interface Layout
 
 The window is split into three main sections:
@@ -82,6 +103,7 @@ Monitor specific expressions continuously:
 ```
 > :watch player_health * 2
 > :watch enemy.position.x
+> :watch Me.Text1.Caption
 ```
 
 Or click **➕ Add** button in Watch tab.
@@ -91,6 +113,7 @@ Or click **➕ Add** button in Watch tab.
 - Persistent across commands
 - Click expression to edit
 - Remove by right-clicking (future)
+- **VB6 property evaluation** — Expressions like `Me.Text1.Caption`, `btnOK.Enabled`, and `lblScore.ForeColor` are evaluated through the VG Immediate Window engine (`_eval_vg_immediate()`), so all 62+ VB6 runtime property aliases resolve correctly in watch expressions
 
 **Watch Tab Display:**
 | Expression | Value |

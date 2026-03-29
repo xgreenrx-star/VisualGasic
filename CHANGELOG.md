@@ -5,6 +5,53 @@ All notable changes to Visual Gasic will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.4.0-rc4] - 2026-03-29
+
+### 🏗️ Release Candidate 4 — VB6 Property System v2
+
+Comprehensive property system upgrade: VB6-style formatting, StringName hashing, 7 new runtime properties, property change events, IntelliSense completions for 62+ properties, and Watch Window VB6 property evaluation.
+
+#### Added — VB6-Style Output Formatting
+- **`_vb6_format_variant()`** — Immediate Window and REPL output now uses VB6 conventions:
+  - Booleans display as `True` / `False` (not `true` / `false`)
+  - Whole-number floats display without decimals: `100` not `100.0`
+  - Integers never show `.0` suffix
+
+#### Added — IntelliSense Property Completions
+- **62+ VB6 property completions** — Typing a dot after any control now suggests all VB6 property aliases (Name, Caption, Text, Visible, Enabled, Left, Top, Width, Height, BackColor, ForeColor, FontSize, FontBold, FontItalic, FontName, FontUnderline, FontStrikethrough, Tag, ToolTipText, TabStop, TabIndex, MousePointer, BorderStyle, Opacity, ZOrder, Rotation, hWnd, BackStyle, Appearance, Parent, Container, Index, DragMode, and more)
+- **Type-specific properties** — LineEdit shows MaxLength/PasswordChar/SelStart, Timer shows Interval/OneShot/Autostart, Button shows Style/Flat/ClipText/Icon, etc.
+- **Common methods** — Show, Hide, Move, SetFocus, Refresh appear in completions
+
+#### Added — 7 New Runtime Properties
+- `BackStyle` — 0 = Transparent, 1 = Opaque (meta `vg_backstyle`; adjusts `self_modulate` alpha)
+- `Appearance` — 0 = Flat, 1 = 3D (meta `vg_appearance`)
+- `TabIndex` — Tab order index (meta `vg_tabindex`)
+- `Parent` — Returns the parent node (read-only)
+- `Container` — Alias for Parent (read-only)
+- `Index` — Control array index (meta `vg_index`)
+- `DragMode` — 0 = Manual, 1 = Automatic (meta `vg_dragmode`)
+- All 7 properties work in both AST interpreter and bytecode VM paths
+
+#### Added — StringName HashMap for Property Dispatch
+- **`_vb6_prop_id()` HashMap** — O(1) property name lookup using a static `HashMap<StringName, int>` with all 62 property identifiers
+- **Fast-reject** — Unknown property names are rejected at the top of both `_vb6_read_property()` and `_vb6_write_property()` before any if/else chain, eliminating unnecessary comparisons
+
+#### Added — Property Change Events
+- **`_Change` event firing** — Setting `Text`, `Caption`, or `Value` programmatically now fires the corresponding `controlName_Change` event handler, matching VB6 behavior
+- Works in both the AST interpreter (`call.inc`) and the bytecode VM (`OP_SET_MEMBER`)
+- Example: `txtName.Text = "Hello"` fires `Sub txtName_Change()`
+
+#### Added — Watch Window VB6 Property Evaluation
+- **`_eval_vg_immediate()`** — Watch expressions now evaluate through the VG Immediate Window engine, so `Me.Text1.Caption` and other VB6 property expressions resolve correctly in the Watch tab
+- Falls back to the simple GDScript evaluator for non-VG expressions
+
+#### Added — Test Coverage
+- `test_me_properties.vg` — 23 assertions: Me.Name, Me.hWnd, Me.Tag, Me.BackStyle, Me.Appearance, Me.TabIndex, Me.DragMode, Me.Index, plus control-specific properties on child Button
+- `test_prop_events.vg` — 5 assertions: _Change event firing on programmatic Text/Caption SET
+- `test_design_persist.vg` — 30+ assertions: property roundtrip on Button, Label, Timer, LineEdit, Panel
+- `run_immediate_test.gd` expanded to 53 assertions (was 34): VB6 formatting, new properties, compound expressions, error handling
+- Test suite: 82 files, 646 assertions, 644 passed, 2 failed (pre-existing symlink tests)
+
 ## [4.4.0-rc3] - 2026-03-27
 
 ### 🔗 Release Candidate 3 — IntelliSense Chaining & Test Fixes

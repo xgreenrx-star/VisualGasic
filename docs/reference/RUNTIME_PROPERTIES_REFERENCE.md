@@ -4,9 +4,13 @@ This document lists every VB6 property that the VisualGasic bytecode VM handles
 at **runtime** — i.e. properties you can read and write in your `.vg` code at
 run time, not just at design time in the Properties panel.
 
-All 50 property aliases are resolved inside the C++ `OP_GET_MEMBER` and
+All 62 property aliases are resolved inside the C++ `OP_GET_MEMBER` and
 `OP_SET_MEMBER` handlers, so they work on any Godot `Control`, `Window`, or
 `Node` that the corresponding Godot property applies to.
+
+> **Performance:** Property names are resolved via a static `HashMap<StringName, int>`
+> (`_vb6_prop_id()`) for O(1) lookup. Unknown property names are fast-rejected
+> before any if/else chain, so non-VB6 Godot property access has near-zero overhead.
 
 > **Design-time properties** (the Properties panel in the Form Designer) are
 > documented in [CONTROLS_REFERENCE.md](CONTROLS_REFERENCE.md).
@@ -26,6 +30,7 @@ All 50 property aliases are resolved inside the C++ `OP_GET_MEMBER` and
 - [ListBox / ComboBox Properties](#listbox--combobox-properties)
 - [Layout Properties](#layout-properties)
 - [Form / Window Properties](#form--window-properties)
+- [Container & Index Properties](#container--index-properties)
 - [Miscellaneous Properties](#miscellaneous-properties)
 - [Custom Control Properties (VG_Properties)](#custom-control-properties-vg_properties)
 - [Quick Reference Table](#quick-reference-table)
@@ -353,6 +358,48 @@ End Sub
 
 ---
 
+## Container & Index Properties
+
+These properties provide container relationships and control-array-style indexing.
+
+| VB6 Property | Godot Mapping | Type | Read | Write | Notes |
+|---|---|---|:---:|:---:|---|
+| `BackStyle` | meta `vg_backstyle` | Number | ✅ | ✅ | 0 = Transparent, 1 = Opaque; writing 0 sets `self_modulate.a = 0` |
+| `Appearance` | meta `vg_appearance` | Number | ✅ | ✅ | 0 = Flat, 1 = 3D; stored as metadata |
+| `TabIndex` | meta `vg_tabindex` | Number | ✅ | ✅ | Tab-order index for the control |
+| `Parent` | `get_parent()` | Object | ✅ | ❌ | Returns the parent node (read-only) |
+| `Container` | `get_parent()` | Object | ✅ | ❌ | Alias for Parent (read-only) |
+| `Index` | meta `vg_index` | Number | ✅ | ✅ | Control array index; stored as metadata |
+| `DragMode` | meta `vg_dragmode` | Number | ✅ | ✅ | 0 = Manual, 1 = Automatic; stored as metadata |
+
+### Code Example — Container & Index Properties
+
+```vb
+Sub Form_Load()
+    ' Check transparency
+    If Me.lblOverlay.BackStyle = 0 Then
+        Print "Label is transparent"
+    End If
+    Me.lblOverlay.BackStyle = 1   ' Make opaque
+
+    ' Navigate parent
+    Dim p As Object
+    Set p = Me.btnOK.Parent
+    Print p.Name   ' Prints the form's name
+
+    ' Control array indexing
+    Me.optChoice.Index = 0
+    Me.optChoice2.Index = 1
+
+    ' Tab order
+    Me.txtFirst.TabIndex = 0
+    Me.txtLast.TabIndex = 1
+    Me.btnSubmit.TabIndex = 2
+End Sub
+```
+
+---
+
 ## Miscellaneous Properties
 
 | VB6 Property | Godot Mapping | Type | Read | Write | Notes |
@@ -388,7 +435,7 @@ Both GET (read) and SET (write) are fully supported.
 When you access a property on a control (e.g. `Me.HealthBar1.Health`), the
 VM checks — in order:
 
-1. **Built-in VB6 aliases** (the 50 properties listed above)
+1. **Built-in VB6 aliases** (the 62 properties listed above)
 2. **VG_Properties dictionary** (custom mappings from the control's metadata)
 3. **Native Godot properties** (direct obj.get / obj.set)
 4. **Child node lookup** (find_child fallback)
@@ -468,7 +515,7 @@ End Sub
 
 ## Quick Reference Table
 
-All 50 runtime properties in one table.
+All 62 runtime properties in one table.
 
 | # | VB6 Property | Category | Read | Write | Applies To |
 |---|---|---|:---:|:---:|---|
@@ -527,4 +574,11 @@ All 50 runtime properties in one table.
 | 53 | `ControlBox` | Form | ✅ | ✅ | Form (Window) |
 | 54 | `ZOrder` | Misc | ✅ | ✅ | All Controls |
 | 55 | `Rotation` | Misc | ✅ | ✅ | All Controls |
+| 56 | `BackStyle` | Container | ✅ | ✅ | All Controls |
+| 57 | `Appearance` | Container | ✅ | ✅ | All Controls |
+| 58 | `TabIndex` | Container | ✅ | ✅ | All Controls |
+| 59 | `Parent` | Container | ✅ | ❌ | All Nodes |
+| 60 | `Container` | Container | ✅ | ❌ | All Nodes |
+| 61 | `Index` | Container | ✅ | ✅ | All Controls |
+| 62 | `DragMode` | Container | ✅ | ✅ | All Controls |
 | — | *(custom)* | VG_Properties | ✅ | ✅ | Custom Controls |

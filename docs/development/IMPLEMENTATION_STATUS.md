@@ -32,6 +32,12 @@ Created 3 production-ready header-only modules:
    - ~90% faster reload on unchanged scripts
    - Automatic cache directory creation
 
+4. **Property Dispatch HashMap** (`visual_gasic_instance.cpp`)
+   - `_vb6_prop_id()`: Static `HashMap<StringName, int>` mapping all 62 VB6 property names to integer IDs
+   - O(1) property name lookup; fast-reject for unknown names before any if/else chain
+   - Used at top of both `_vb6_read_property()` and `_vb6_write_property()` for immediate validation
+   - Near-zero overhead for non-VB6 Godot property access
+
 ### Phase 3: Remote Debugging & IDE Features ✅
 
 1. **Remote Debugging** (`vg_debugger_plugin.gd`, `vg_debug_handler.gd`)
@@ -47,6 +53,8 @@ Created 3 production-ready header-only modules:
    - Object inspector with deep drill-down
    - Editable values (double-click to modify)
    - Go to Definition feature
+   - **VB6-style output formatting** - `_vb6_format_variant()`: True/False, no .0 on integers, whole floats as integers
+   - **Watch Window VB6 property evaluation** - `_eval_vg_immediate()` routes watch expressions through VG engine
    - **`:eval` command** - Evaluate expressions in paused debug context
    - **`:wp` commands** - Data breakpoints (watchpoints) for breaking on variable changes
 

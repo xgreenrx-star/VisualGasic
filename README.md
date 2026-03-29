@@ -44,7 +44,7 @@
 - **JIT Compilation** - 5-tier JIT stack (Tier 0 interpreter → 0.5 loop → 1 AST → 2 function body x86-64 → 3 call graph) with function inlining
 
 ### **Professional Development Tools**
-- **IntelliSense** - Code completion with 80+ functions, snippets, and Godot types
+- **IntelliSense** - Code completion with 80+ functions, 62+ VB6 property completions, snippets, and Godot types
 - **Interactive REPL** - Live coding with variable inspection and session management
 - **Language Server Protocol** - Intelligent IDE integration with completion and diagnostics
 - **Advanced Debugger** - Conditional breakpoint expressions, Stop statement, call stack, watch window, time-travel debugging
@@ -52,7 +52,7 @@
 - **Snippet Manager** - 40+ built-in snippets with custom snippet support
 - **Theme Support** - 8 built-in themes with full IDE chrome theming + Custom Theme Editor
 - **Visual Gasic IDE** - Full C++ WYSIWYG form editor with VB6-style Toolbox, Properties Panel, live Preview, 40+ controls
-- **Full Property Wiring** - 70+ VB6 properties translate to Godot at design-time *and* runtime, including Font, Colors, and Border sub-resources
+- **Full Property Wiring** - 62+ VB6 runtime property aliases with O(1) StringName HashMap dispatch, including Font, Colors, Border sub-resources, and `_Change` event firing on programmatic SET
 - **Game UI Controls** - 7 Tier 1 animated controls: DialogPanel, InventoryGrid, StatBar, HUDCounter, CooldownButton, NotificationToast, GameMenu
 - **IDE Bottom Panel** - Draggable VSplitContainer with Immediate Window (REPL), Output (Debug.Print + lifecycle), and System Console (live Godot log tailing)
 - **Database Controls** - VGRecordset (ADODB.Recordset API), Data/DBGrid/DBCombo toolbox controls, SQL queries at design time

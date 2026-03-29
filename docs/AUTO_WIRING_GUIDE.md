@@ -107,6 +107,20 @@ ControlName_EventType
 | Any Control | `gui_input` (drag) | `DragDrop` | `lstTarget_DragDrop(data, x, y)` |
 | Any Control | `gui_input` (drag) | `DragOver` | `lstTarget_DragOver(data, x, y)` |
 
+### Programmatic `_Change` Events
+
+In VB6, the `_Change` event fires not only when the user types in a control, but also when you set a property **programmatically**. VisualGasic matches this behavior:
+
+```vb
+' This fires txtName_Change() automatically:
+txtName.Text = "Hello"
+
+' This fires lblScore_Change() automatically:
+lblScore.Caption = "Score: 100"
+```
+
+The `_Change` event fires whenever `Text`, `Caption`, or `Value` is SET on any control — whether by user input (Godot signal) or by code assignment. This works in both the AST interpreter and the bytecode VM.
+
 ## Example: Before and After
 
 ### ❌ OLD WAY (Manual Connection)

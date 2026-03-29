@@ -192,6 +192,10 @@ The **Watch** tab lets you monitor specific expressions:
 
 Watch expressions persist across debug sessions.
 
+**VB6 Property Support:** Watch expressions can include VB6 property aliases like `Me.Text1.Caption`, `btnOK.Enabled`, or `lblScore.ForeColor`. These are evaluated through the VG Immediate Window engine and resolve all 62+ runtime property aliases.
+
+**VB6-Style Formatting:** Values in the Watch and Immediate Window display using VB6 conventions: booleans show as `True`/`False`, whole-number floats display without decimals (`100` not `100.0`), and integers never show a `.0` suffix.
+
 ---
 
 ## Call Stack

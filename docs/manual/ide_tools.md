@@ -14,6 +14,7 @@ Enhanced variable watching with color-coded changes.
 *   **Context Menu**: Right-click to delete watches
 *   **Persistence**: Watch expressions saved between sessions
 *   **Previous Value Tracking**: Compare current vs. previous values
+*   **VB6 Property Evaluation**: Watch expressions like `Me.Text1.Caption` or `btnOK.Enabled` resolve through the VG Immediate Window engine, so all 62+ VB6 property aliases work in watch expressions
 
 ### Snap-to-Grid & Alignment Tools
 **Location**: `2D Canvas Editor Toolbar`
@@ -41,6 +42,9 @@ Full code completion for VB6-style programming.
 *   **50+ VB6 Keywords**: Dim, Sub, Function, If, For, etc.
 *   **12 VB6 Data Types**: Integer, Long, String, Boolean, etc.
 *   **80+ Built-in Functions**: With signatures and descriptions
+*   **62+ VB6 Property Completions**: Caption, Text, Visible, Enabled, Left, Top, Width, Height, BackColor, ForeColor, FontSize, FontBold, Tag, BackStyle, Appearance, TabIndex, Parent, DragMode, and more — appears when typing a dot after any control name
+*   **Type-Specific Properties**: LineEdit shows MaxLength/PasswordChar/SelStart; Timer shows Interval/OneShot/Autostart; Button shows Style/Flat/ClipText/Icon
+*   **Common Methods**: Show, Hide, Move, SetFocus, Refresh
 *   **30+ Godot Types**: Node, Control, Sprite2D, etc.
 *   **14 Code Snippets**: sub, func, if, for, select, try, class
 
