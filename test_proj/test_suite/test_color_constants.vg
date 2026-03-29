@@ -1,0 +1,104 @@
+' Test: Builtin Constants (colors, keys, strings, msgbox)
+' Verifies constants still work after builtin_constants separation
+Attribute VB_Name = "TestBuiltinConstants"
+
+Sub _Ready()
+    ' --- Color constants ---
+    Dim c As Variant
+    c = vbGreen
+    If c = Color(0, 1, 0) Then
+        Print "PASS: vbGreen"
+    Else
+        Print "FAIL: vbGreen: got " & Str(c)
+    End If
+
+    c = vbRed
+    If c = Color(1, 0, 0) Then
+        Print "PASS: vbRed"
+    Else
+        Print "FAIL: vbRed: got " & Str(c)
+    End If
+
+    c = vbBlue
+    If c = Color(0, 0, 1) Then
+        Print "PASS: vbBlue"
+    Else
+        Print "FAIL: vbBlue: got " & Str(c)
+    End If
+
+    c = vbWhite
+    If c = Color(1, 1, 1) Then
+        Print "PASS: vbWhite"
+    Else
+        Print "FAIL: vbWhite: got " & Str(c)
+    End If
+
+    c = vbYellow
+    If c = Color(1, 1, 0) Then
+        Print "PASS: vbYellow"
+    Else
+        Print "FAIL: vbYellow: got " & Str(c)
+    End If
+
+    c = vbCyan
+    If c = Color(0, 1, 1) Then
+        Print "PASS: vbCyan"
+    Else
+        Print "FAIL: vbCyan: got " & Str(c)
+    End If
+
+    c = vbMagenta
+    If c = Color(1, 0, 1) Then
+        Print "PASS: vbMagenta"
+    Else
+        Print "FAIL: vbMagenta: got " & Str(c)
+    End If
+
+    ' --- Key constants ---
+    Dim k As Integer
+    k = KEY_A
+    If k = 65 Then
+        Print "PASS: KEY_A"
+    Else
+        Print "FAIL: KEY_A: got " & Str(k)
+    End If
+
+    k = KEY_SPACE
+    If k = 32 Then
+        Print "PASS: KEY_SPACE"
+    Else
+        Print "FAIL: KEY_SPACE: got " & Str(k)
+    End If
+
+    ' --- String constants ---
+    Dim s As String
+    s = vbCrLf
+    If Len(s) = 2 Then
+        Print "PASS: vbCrLf"
+    Else
+        Print "FAIL: vbCrLf len: got " & Str(Len(s))
+    End If
+
+    s = vbTab
+    If Len(s) = 1 Then
+        Print "PASS: vbTab"
+    Else
+        Print "FAIL: vbTab len: got " & Str(Len(s))
+    End If
+
+    ' --- MsgBox constants ---
+    Dim m As Integer
+    m = vbYesNo
+    If m = 4 Then
+        Print "PASS: vbYesNo"
+    Else
+        Print "FAIL: vbYesNo: got " & Str(m)
+    End If
+
+    m = vbInformation
+    If m = 64 Then
+        Print "PASS: vbInformation"
+    Else
+        Print "FAIL: vbInformation: got " & Str(m)
+    End If
+End Sub

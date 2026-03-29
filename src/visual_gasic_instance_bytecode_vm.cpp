@@ -327,8 +327,10 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     std::vector<int64_t> jit_locals(slot_count, 0);
                     for (int i = 0; i < chunk->local_count && i < chunk->local_names.size(); i++) {
                         const String &lname = chunk->local_names[i];
-                        if (!lname.is_empty() && variables.has(lname)) {
-                            Variant v = variables[lname];
+                        if (!lname.is_empty()) {
+                            Variant v;
+                            if (variables.has(lname)) v = variables[lname];
+                            else if (builtin_constants.has(lname)) v = builtin_constants[lname];
                             if (v.get_type() == Variant::INT) jit_locals[i] = (int64_t)v;
                             else if (v.get_type() == Variant::FLOAT) {
                                 double d = (double)v; memcpy(&jit_locals[i], &d, 8);
@@ -338,7 +340,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     int64_t has_retval = fused->fn(jit_locals.data(), (int64_t)slot_count);
                     for (int i = 0; i < chunk->local_count && i < chunk->local_names.size(); i++) {
                         const String &lname = chunk->local_names[i];
-                        if (!lname.is_empty()) variables[lname] = Variant((int64_t)jit_locals[i]);
+                        if (!lname.is_empty() && !builtin_constants.has(lname)) variables[lname] = Variant((int64_t)jit_locals[i]);
                     }
                     if (has_retval) {
                         r_ret = Variant((int64_t)jit_locals[0]);
@@ -359,8 +361,10 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 // Pre-populate real locals from variable values
                 for (int i = 0; i < chunk->local_count && i < chunk->local_names.size(); i++) {
                     const String &lname = chunk->local_names[i];
-                    if (!lname.is_empty() && variables.has(lname)) {
-                        Variant v = variables[lname];
+                    if (!lname.is_empty()) {
+                        Variant v;
+                        if (variables.has(lname)) v = variables[lname];
+                        else if (builtin_constants.has(lname)) v = builtin_constants[lname];
                         if (v.get_type() == Variant::INT) {
                             jit_locals[i] = (int64_t)v;
                         } else if (v.get_type() == Variant::FLOAT) {
@@ -373,8 +377,10 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 for (const auto& gs : native->global_slots) {
                     String gname = String(gs.first.c_str());
                     int slot = gs.second;
-                    if (slot >= 0 && slot < slot_count && variables.has(gname)) {
-                        Variant v = variables[gname];
+                    if (slot >= 0 && slot < slot_count) {
+                        Variant v;
+                        if (variables.has(gname)) v = variables[gname];
+                        else if (builtin_constants.has(gname)) v = builtin_constants[gname];
                         if (v.get_type() == Variant::INT) {
                             jit_locals[slot] = (int64_t)v;
                         } else if (v.get_type() == Variant::FLOAT) {
@@ -384,18 +390,18 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     }
                 }
                 int64_t has_retval = native->fn(jit_locals.data(), (int64_t)slot_count);
-                // Sync real locals back to variables
+                // Sync real locals back to variables (skip built-in constants)
                 for (int i = 0; i < chunk->local_count && i < chunk->local_names.size(); i++) {
                     const String &lname = chunk->local_names[i];
-                    if (!lname.is_empty()) {
+                    if (!lname.is_empty() && !builtin_constants.has(lname)) {
                         variables[lname] = Variant((int64_t)jit_locals[i]);
                     }
                 }
-                // Sync virtual global slots back to variables
+                // Sync virtual global slots back to variables (skip built-in constants)
                 for (const auto& gs : native->global_slots) {
                     String gname = String(gs.first.c_str());
                     int slot = gs.second;
-                    if (slot >= 0 && slot < slot_count) {
+                    if (slot >= 0 && slot < slot_count && !builtin_constants.has(gname)) {
                         variables[gname] = Variant((int64_t)jit_locals[slot]);
                     }
                 }
@@ -440,8 +446,12 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
             Variant initial;
             if (i < chunk->local_names.size()) {
                 const String &name = chunk->local_names[i];
-                if (!name.is_empty() && variables.has(name)) {
-                    initial = variables[name];
+                if (!name.is_empty()) {
+                    if (variables.has(name)) {
+                        initial = variables[name];
+                    } else if (builtin_constants.has(name)) {
+                        initial = builtin_constants[name];
+                    }
                 }
             }
             locals.write[i] = initial;
@@ -470,7 +480,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         // Also skip when running as isolated parallel worker (v4.1).
         if (needs_var_sync && !isolated_locals) {
             String name = get_local_name(slot);
-            if (!name.is_empty()) {
+            if (!name.is_empty() && !builtin_constants.has(name)) {
                 variables[name] = value;
             }
         }
@@ -487,10 +497,17 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
             // Slow path: read from variables dictionary to pick up
             // changes made by Whenever callbacks or nested calls
             String name = get_local_name(slot);
-            if (!name.is_empty() && variables.has(name)) {
-                Variant current = variables[name];
-                locals.write[slot] = current;
-                return current;
+            if (!name.is_empty()) {
+                if (variables.has(name)) {
+                    Variant current = variables[name];
+                    locals.write[slot] = current;
+                    return current;
+                }
+                if (builtin_constants.has(name)) {
+                    Variant current = builtin_constants[name];
+                    locals.write[slot] = current;
+                    return current;
+                }
             }
             return locals[slot];
         }
@@ -5649,7 +5666,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 // see the parent scope.
                 for (int li = 0; li < locals.size() && li < chunk->local_names.size(); li++) {
                     const String &lname = chunk->local_names[li];
-                    if (!lname.is_empty()) {
+                    if (!lname.is_empty() && !builtin_constants.has(lname)) {
                         variables[lname] = locals[li];
                     }
                 }
@@ -5676,8 +5693,9 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     // OP_GET_LOCAL picks up body changes (e.g. total).
                     for (int li = 0; li < locals.size() && li < chunk->local_names.size(); li++) {
                         const String &lname = chunk->local_names[li];
-                        if (!lname.is_empty() && variables.has(lname)) {
-                            locals.write[li] = variables[lname];
+                        if (!lname.is_empty()) {
+                            if (variables.has(lname)) locals.write[li] = variables[lname];
+                            else if (builtin_constants.has(lname)) locals.write[li] = builtin_constants[lname];
                         }
                     }
                     vm.ip = body_end_ip;
@@ -5726,8 +5744,9 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 // Refresh parent locals from variables[] after parallel body.
                 for (int li = 0; li < locals.size() && li < chunk->local_names.size(); li++) {
                     const String &lname = chunk->local_names[li];
-                    if (!lname.is_empty() && variables.has(lname)) {
-                        locals.write[li] = variables[lname];
+                    if (!lname.is_empty()) {
+                        if (variables.has(lname)) locals.write[li] = variables[lname];
+                        else if (builtin_constants.has(lname)) locals.write[li] = builtin_constants[lname];
                     }
                 }
 
@@ -5763,7 +5782,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 // Flush locals to variables[] so the worker body can see them.
                 for (int li = 0; li < locals.size() && li < chunk->local_names.size(); li++) {
                     const String &lname = chunk->local_names[li];
-                    if (!lname.is_empty()) {
+                    if (!lname.is_empty() && !builtin_constants.has(lname)) {
                         variables[lname] = locals[li];
                     }
                 }
@@ -5799,8 +5818,9 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 // Refresh locals from variables[] after task completes.
                 for (int li = 0; li < locals.size() && li < chunk->local_names.size(); li++) {
                     const String &lname = chunk->local_names[li];
-                    if (!lname.is_empty() && variables.has(lname)) {
-                        locals.write[li] = variables[lname];
+                    if (!lname.is_empty()) {
+                        if (variables.has(lname)) locals.write[li] = variables[lname];
+                        else if (builtin_constants.has(lname)) locals.write[li] = builtin_constants[lname];
                     }
                 }
                 delete data;
@@ -5852,8 +5872,9 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 // Refresh locals from variables[] after wait.
                 for (int li = 0; li < locals.size() && li < chunk->local_names.size(); li++) {
                     const String &lname = chunk->local_names[li];
-                    if (!lname.is_empty() && variables.has(lname)) {
-                        locals.write[li] = variables[lname];
+                    if (!lname.is_empty()) {
+                        if (variables.has(lname)) locals.write[li] = variables[lname];
+                        else if (builtin_constants.has(lname)) locals.write[li] = builtin_constants[lname];
                     }
                 }
                 VG_BREAK;
@@ -5995,7 +6016,7 @@ cleanup:
     if (success && !needs_var_sync && !p_initial_locals) {
         for (int i = 0; i < locals.size() && i < chunk->local_names.size(); i++) {
             const String &name = chunk->local_names[i];
-            if (!name.is_empty()) {
+            if (!name.is_empty() && !builtin_constants.has(name)) {
                 variables[name] = locals[i];
             }
         }
