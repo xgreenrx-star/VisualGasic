@@ -473,70 +473,33 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
              Object* obj = base;
              String prop_name = ma->member_name;
              
-             // VB6 Property Aliasing (Read)
+             // VB6 Property Aliasing (Read) — shared helper handles all 55 aliases
              if (obj) {
-                  if (obj->is_class("Node")) {
-                      if (prop_name == "Caption") prop_name = "text";
-                      else if (prop_name == "Text") prop_name = "text";  // LineEdit, Label, Button, etc.
-                      
-                      if (obj->is_class("Timer")) {
-                          if (prop_name == "Interval") {
-                              return (double)obj->get("wait_time") * 1000.0;
-                          }
-                          if (prop_name == "Enabled") {
-                              return !Object::cast_to<Timer>(obj)->is_stopped();
-                          }
-                      }
-                      
-                      bool is_control = obj->is_class("Control");
-                      bool is_2d = obj->is_class("Node2D");
-                      bool is_range = obj->is_class("Range");
-
-                      if (is_range) {
-                           if (prop_name == "Min") return obj->get("min_value");
-                           if (prop_name == "Max") return obj->get("max_value");
-                           if (prop_name == "Value") return obj->get("value");
-                      }
-                      
-                      if (is_control || is_2d) {
-                          if (prop_name == "Left") {
-                               if (is_control) return Object::cast_to<Control>(obj)->get_position().x;
-                               if (is_2d) return Object::cast_to<Node2D>(obj)->get_position().x;
-                          }
-                          if (prop_name == "Top") {
-                               if (is_control) return Object::cast_to<Control>(obj)->get_position().y;
-                               if (is_2d) return Object::cast_to<Node2D>(obj)->get_position().y;
-                          }
-                      }
-                      if (is_control) {
-                          if (prop_name == "Width") return Object::cast_to<Control>(obj)->get_size().x;
-                          if (prop_name == "Height") return Object::cast_to<Control>(obj)->get_size().y;
-                          if (prop_name == "Visible") return Object::cast_to<Control>(obj)->is_visible();
-                          
-                          // VB6 Enabled property - maps to Godot's disabled (inverted) or editable
-                          if (prop_name == "Enabled") {
-                              Variant disabled_val = obj->get("disabled");
-                              if (disabled_val.get_type() == Variant::BOOL) {
-                                  return !(bool)disabled_val;
-                              }
-                              // Fallback for LineEdit/TextEdit which use editable
-                              Variant editable_val = obj->get("editable");
-                              if (editable_val.get_type() == Variant::BOOL) {
-                                  return (bool)editable_val;
-                              }
-                              return true; // Default to enabled
-                          }
-                          
-                          if (obj->is_class("Tree")) {
-                               if (prop_name == "Rows") {
-                                   Tree *t = Object::cast_to<Tree>(obj);
-                                   return t->get_root() ? t->get_root()->get_child_count() : 0;
-                               }
-                               if (prop_name == "Cols") {
-                                   return Object::cast_to<Tree>(obj)->get_columns();
-                               }
-                          }
-                      }
+                  Variant vb6_result;
+                  if (_vb6_read_property(obj, prop_name, vb6_result)) {
+                      return vb6_result;
+                  }
+                  
+                  // Range: Min, Max (not in shared helper — AST-specific)
+                  if (obj->is_class("Range")) {
+                       if (prop_name == "Min") return obj->get("min_value");
+                       if (prop_name == "Max") return obj->get("max_value");
+                  }
+                  
+                  // Timer.Enabled (start/stop, not shared)
+                  if (obj->is_class("Timer") && prop_name == "Enabled") {
+                      return !Object::cast_to<Timer>(obj)->is_stopped();
+                  }
+                  
+                  // Tree: Rows, Cols
+                  if (obj->is_class("Tree")) {
+                       if (prop_name == "Rows") {
+                           Tree *t = Object::cast_to<Tree>(obj);
+                           return t->get_root() ? t->get_root()->get_child_count() : 0;
+                       }
+                       if (prop_name == "Cols") {
+                           return Object::cast_to<Tree>(obj)->get_columns();
+                       }
                   }
              }
              if (obj) {

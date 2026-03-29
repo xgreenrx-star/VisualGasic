@@ -3371,9 +3371,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         else if (prop_name == "ScrollBars") {
                             TextEdit *te = Object::cast_to<TextEdit>(obj);
                             if (te) {
-                                bool h = te->is_scroll_past_end_of_file_enabled(); // rough proxy
-                                // Godot TextEdit always has vertical scroll; no direct horiz toggle
-                                result = 2; // VB6 default: vertical only
+                                if (te->has_meta("vg_scrollbars")) result = (int)te->get_meta("vg_scrollbars"); else result = 2;
                                 handled = true;
                             }
                         }
@@ -3382,7 +3380,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                             LineEdit *le = Object::cast_to<LineEdit>(obj);
                             if (le) {
                                 if (le->is_secret()) {
-                                    result = String(String::chr(le->get("secret_character")));
+                                    result = String(le->get("secret_character"));
                                 } else {
                                     result = String("");
                                 }
@@ -4164,7 +4162,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                                     le->set_secret(false);
                                 } else {
                                     le->set_secret(true);
-                                    le->set("secret_character", ch.unicode_at(0));
+                                    le->set("secret_character", String(String::chr(ch[0])));
                                 }
                             }
                             push_value(base);
@@ -4278,23 +4276,28 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                             if (tmr) {
                                 double ms = (double)value;
                                 tmr->set_wait_time(ms / 1000.0);
+                                push_value(base);
+                                break;
                             }
-                            push_value(base);
-                            break;
+                            // Fall through for non-Timer objects (e.g. VGTimer)
                         }
                         // OneShot → one_shot (Timer)
                         else if (prop_name == "OneShot") {
                             Timer *tmr = Object::cast_to<Timer>(obj);
-                            if (tmr) tmr->set_one_shot((bool)value);
-                            push_value(base);
-                            break;
+                            if (tmr) {
+                                tmr->set_one_shot((bool)value);
+                                push_value(base);
+                                break;
+                            }
                         }
                         // Autostart → autostart (Timer)
                         else if (prop_name == "Autostart") {
                             Timer *tmr = Object::cast_to<Timer>(obj);
-                            if (tmr) tmr->set_autostart((bool)value);
-                            push_value(base);
-                            break;
+                            if (tmr) {
+                                tmr->set_autostart((bool)value);
+                                push_value(base);
+                                break;
+                            }
                         }
                         // ---- ListBox / ComboBox (SET) ----
                         // ListIndex → select item

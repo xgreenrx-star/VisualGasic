@@ -1,0 +1,693 @@
+' Test: Runtime Properties — All 55 VB6 property aliases
+' Tests GET and SET for every property on dynamically created controls.
+' MAX_FRAMES: 10
+Attribute VB_Name = "TestRuntimeProperties"
+
+Dim alreadyRan As Boolean
+
+Sub _Ready()
+    Print "=== _Ready START ==="
+    If alreadyRan = True Then
+        Print "=== _Ready SKIPPED (already ran) ==="
+        Exit Sub
+    End If
+    alreadyRan = True
+    ' ================================================================
+    ' Create controls dynamically so we can test properties headlessly
+    ' ================================================================
+    Dim btn As Object
+    Set btn = CreateNode("Button")
+    btn.name = "btnTest"
+    AddChild btn
+
+    Dim lbl As Object
+    Set lbl = CreateNode("Label")
+    lbl.name = "lblTest"
+    AddChild lbl
+
+    Dim le As Object
+    Set le = CreateNode("LineEdit")
+    le.name = "txtTest"
+    AddChild le
+
+    Dim te As Object
+    Set te = CreateNode("TextEdit")
+    te.name = "txtArea"
+    AddChild te
+
+    Dim pnl As Object
+    Set pnl = CreateNode("Panel")
+    pnl.name = "pnlTest"
+    AddChild pnl
+
+    Dim tr As Object
+    Set tr = CreateNode("TextureRect")
+    tr.name = "picTest"
+    AddChild tr
+
+    Dim tmr As Object
+    Set tmr = CreateNode("Timer")
+    tmr.name = "tmrTest"
+    AddChild tmr
+
+    Dim il As Object
+    Set il = CreateNode("ItemList")
+    il.name = "lstTest"
+    AddChild il
+
+    Dim ob As Object
+    Set ob = CreateNode("OptionButton")
+    ob.name = "cboTest"
+    AddChild ob
+
+    Dim cb As Object
+    Set cb = CreateNode("CheckBox")
+    cb.name = "chkTest"
+    AddChild cb
+
+    Dim pb As Object
+    Set pb = CreateNode("ProgressBar")
+    pb.name = "prgTest"
+    AddChild pb
+
+    ' Add some items to ItemList and OptionButton for list tests
+    il.add_item("Banana")
+    il.add_item("Apple")
+    il.add_item("Cherry")
+    ob.add_item("Red")
+    ob.add_item("Green")
+    ob.add_item("Blue")
+
+    ' Set some initial text so selection tests have content
+    le.text = "Hello World"
+    te.text = "Multi line text here"
+
+    ' ================================================================
+    ' TEST: Text / Caption
+    ' ================================================================
+    btn.Caption = "Click Me"
+    If btn.Caption = "Click Me" Then
+        Print "PASS: btn_caption_set_get"
+    Else
+        Print "FAIL: btn_caption_set_get: got '" & btn.Caption & "'"
+    End If
+
+    lbl.Text = "Label Text"
+    If lbl.Text = "Label Text" Then
+        Print "PASS: lbl_text_set_get"
+    Else
+        Print "FAIL: lbl_text_set_get: got '" & lbl.Text & "'"
+    End If
+
+    ' ================================================================
+    ' TEST: Visible
+    ' ================================================================
+    btn.Visible = False
+    If btn.Visible = False Then
+        Print "PASS: visible_set_false"
+    Else
+        Print "FAIL: visible_set_false"
+    End If
+    btn.Visible = True
+    If btn.Visible = True Then
+        Print "PASS: visible_set_true"
+    Else
+        Print "FAIL: visible_set_true"
+    End If
+
+    ' ================================================================
+    ' TEST: Enabled
+    ' ================================================================
+    btn.Enabled = False
+    If btn.Enabled = False Then
+        Print "PASS: enabled_set_false"
+    Else
+        Print "FAIL: enabled_set_false"
+    End If
+    btn.Enabled = True
+    If btn.Enabled = True Then
+        Print "PASS: enabled_set_true"
+    Else
+        Print "FAIL: enabled_set_true"
+    End If
+
+    ' ================================================================
+    ' TEST: Left, Top, Width, Height
+    ' ================================================================
+    btn.Left = 50
+    If btn.Left = 50 Then
+        Print "PASS: left_set_get"
+    Else
+        Print "FAIL: left_set_get: got " & Str(btn.Left)
+    End If
+
+    btn.Top = 75
+    If btn.Top = 75 Then
+        Print "PASS: top_set_get"
+    Else
+        Print "FAIL: top_set_get: got " & Str(btn.Top)
+    End If
+
+    btn.Width = 200
+    If btn.Width = 200 Then
+        Print "PASS: width_set_get"
+    Else
+        Print "FAIL: width_set_get: got " & Str(btn.Width)
+    End If
+
+    btn.Height = 40
+    If btn.Height = 40 Then
+        Print "PASS: height_set_get"
+    Else
+        Print "FAIL: height_set_get: got " & Str(btn.Height)
+    End If
+
+    ' ================================================================
+    ' TEST: Value (ProgressBar)
+    ' ================================================================
+    pb.Value = 75
+    If pb.Value = 75 Then
+        Print "PASS: value_set_get"
+    Else
+        Print "FAIL: value_set_get: got " & Str(pb.Value)
+    End If
+
+    ' ================================================================
+    ' TEST: ToolTipText
+    ' ================================================================
+    btn.ToolTipText = "Hover info"
+    If btn.ToolTipText = "Hover info" Then
+        Print "PASS: tooltiptext_set_get"
+    Else
+        Print "FAIL: tooltiptext_set_get: got '" & btn.ToolTipText & "'"
+    End If
+
+    ' ================================================================
+    ' TEST: TabStop
+    ' ================================================================
+    btn.TabStop = False
+    If btn.TabStop = False Then
+        Print "PASS: tabstop_set_false"
+    Else
+        Print "FAIL: tabstop_set_false"
+    End If
+    btn.TabStop = True
+    If btn.TabStop = True Then
+        Print "PASS: tabstop_set_true"
+    Else
+        Print "FAIL: tabstop_set_true"
+    End If
+
+    ' ================================================================
+    ' TEST: Opacity
+    ' ================================================================
+    btn.Opacity = 50
+    Dim opac As Integer
+    opac = btn.Opacity
+    If opac >= 49 And opac <= 51 Then
+        Print "PASS: opacity_set_get"
+    Else
+        Print "FAIL: opacity_set_get: got " & Str(opac)
+    End If
+    btn.Opacity = 100
+
+    ' ================================================================
+    ' TEST: MousePointer
+    ' ================================================================
+    btn.MousePointer = 2
+    If btn.MousePointer = 2 Then
+        Print "PASS: mousepointer_set_get"
+    Else
+        Print "FAIL: mousepointer_set_get: got " & Str(btn.MousePointer)
+    End If
+
+    ' ================================================================
+    ' TEST: Locked (LineEdit)
+    ' ================================================================
+    le.Locked = True
+    If le.Locked = True Then
+        Print "PASS: locked_set_true"
+    Else
+        Print "FAIL: locked_set_true"
+    End If
+    le.Locked = False
+    If le.Locked = False Then
+        Print "PASS: locked_set_false"
+    Else
+        Print "FAIL: locked_set_false"
+    End If
+
+    ' ================================================================
+    ' TEST: MaxLength (LineEdit)
+    ' ================================================================
+    le.MaxLength = 50
+    If le.MaxLength = 50 Then
+        Print "PASS: maxlength_set_get"
+    Else
+        Print "FAIL: maxlength_set_get: got " & Str(le.MaxLength)
+    End If
+
+    ' ================================================================
+    ' TEST: Alignment (Label)
+    ' ================================================================
+    lbl.Alignment = 1
+    If lbl.Alignment = 1 Then
+        Print "PASS: alignment_set_get"
+    Else
+        Print "FAIL: alignment_set_get: got " & Str(lbl.Alignment)
+    End If
+
+    ' ================================================================
+    ' TEST: WordWrap (Label)
+    ' ================================================================
+    lbl.WordWrap = True
+    If lbl.WordWrap = True Then
+        Print "PASS: wordwrap_set_true"
+    Else
+        Print "FAIL: wordwrap_set_true"
+    End If
+    lbl.WordWrap = False
+    If lbl.WordWrap = False Then
+        Print "PASS: wordwrap_set_false"
+    Else
+        Print "FAIL: wordwrap_set_false"
+    End If
+
+    ' ================================================================
+    ' TEST: FontSize
+    ' ================================================================
+    btn.FontSize = 20
+    If btn.FontSize = 20 Then
+        Print "PASS: fontsize_set_get"
+    Else
+        Print "FAIL: fontsize_set_get: got " & Str(btn.FontSize)
+    End If
+
+    ' ================================================================
+    ' TEST: ForeColor
+    ' ================================================================
+    btn.ForeColor = Color(1, 0, 0)
+    Dim fc
+    fc = btn.ForeColor
+    ' ForeColor returns a Color; check the red component
+    If fc.r = 1 Then
+        Print "PASS: forecolor_set_get"
+    Else
+        Print "FAIL: forecolor_set_get: got " & Str(fc.r)
+    End If
+
+    ' ================================================================
+    ' TEST: BackColor
+    ' ================================================================
+    btn.BackColor = Color(0, 0, 1)
+    Dim bc
+    bc = btn.BackColor
+    If bc.b = 1 Then
+        Print "PASS: backcolor_set_get"
+    Else
+        Print "FAIL: backcolor_set_get: got " & Str(bc.b)
+    End If
+
+    ' ================================================================
+    ' TEST: FontBold
+    ' ================================================================
+    btn.FontBold = True
+    If btn.FontBold = True Then
+        Print "PASS: fontbold_set_true"
+    Else
+        Print "FAIL: fontbold_set_true"
+    End If
+    btn.FontBold = False
+    If btn.FontBold = False Then
+        Print "PASS: fontbold_set_false"
+    Else
+        Print "FAIL: fontbold_set_false"
+    End If
+
+    ' ================================================================
+    ' TEST: FontItalic
+    ' ================================================================
+    btn.FontItalic = True
+    If btn.FontItalic = True Then
+        Print "PASS: fontitalic_set_true"
+    Else
+        Print "FAIL: fontitalic_set_true"
+    End If
+    btn.FontItalic = False
+    If btn.FontItalic = False Then
+        Print "PASS: fontitalic_set_false"
+    Else
+        Print "FAIL: fontitalic_set_false"
+    End If
+
+    ' ================================================================
+    ' TEST: FontName
+    ' ================================================================
+    btn.FontName = "Arial"
+    Dim fntName As String
+    fntName = btn.FontName
+    If fntName = "Arial" Then
+        Print "PASS: fontname_set_get"
+    Else
+        Print "FAIL: fontname_set_get: got '" & fntName & "'"
+    End If
+
+    ' ================================================================
+    ' TEST: FontUnderline
+    ' ================================================================
+    btn.FontUnderline = True
+    If btn.FontUnderline = True Then
+        Print "PASS: fontunderline_set_true"
+    Else
+        Print "FAIL: fontunderline_set_true"
+    End If
+
+    ' ================================================================
+    ' TEST: FontStrikethrough
+    ' ================================================================
+    btn.FontStrikethrough = True
+    If btn.FontStrikethrough = True Then
+        Print "PASS: fontstrike_set_true"
+    Else
+        Print "FAIL: fontstrike_set_true"
+    End If
+
+    ' ================================================================
+    ' TEST: BorderStyle (Label)
+    ' ================================================================
+    lbl.BorderStyle = 1
+    If lbl.BorderStyle = 1 Then
+        Print "PASS: borderstyle_set_1"
+    Else
+        Print "FAIL: borderstyle_set_1: got " & Str(lbl.BorderStyle)
+    End If
+    lbl.BorderStyle = 0
+    If lbl.BorderStyle = 0 Then
+        Print "PASS: borderstyle_set_0"
+    Else
+        Print "FAIL: borderstyle_set_0: got " & Str(lbl.BorderStyle)
+    End If
+
+    ' ================================================================
+    ' TEST: Style / Flat (Button)
+    ' ================================================================
+    btn.Flat = True
+    If btn.Flat = True Then
+        Print "PASS: flat_set_true"
+    Else
+        Print "FAIL: flat_set_true"
+    End If
+    btn.Flat = False
+    If btn.Flat = False Then
+        Print "PASS: flat_set_false"
+    Else
+        Print "FAIL: flat_set_false"
+    End If
+
+    ' ================================================================
+    ' TEST: MultiLine (read-only)
+    ' ================================================================
+    If le.MultiLine = False Then
+        Print "PASS: multiline_lineedit_false"
+    Else
+        Print "FAIL: multiline_lineedit_false"
+    End If
+    If te.MultiLine = True Then
+        Print "PASS: multiline_textedit_true"
+    Else
+        Print "FAIL: multiline_textedit_true"
+    End If
+
+    ' ================================================================
+    ' TEST: PasswordChar (LineEdit)
+    ' ================================================================
+    le.PasswordChar = "*"
+    Dim pc As String
+    pc = le.PasswordChar
+    If pc = "*" Then
+        Print "PASS: passwordchar_set_get"
+    Else
+        Print "FAIL: passwordchar_set_get: got '" & pc & "'"
+    End If
+    le.PasswordChar = ""
+
+    ' ================================================================
+    ' TEST: PlaceholderText
+    ' ================================================================
+    le.PlaceholderText = "Enter here..."
+    If le.PlaceholderText = "Enter here..." Then
+        Print "PASS: placeholder_set_get"
+    Else
+        Print "FAIL: placeholder_set_get: got '" & le.PlaceholderText & "'"
+    End If
+
+    ' ================================================================
+    ' TEST: Editable (LineEdit)
+    ' ================================================================
+    le.Editable = False
+    If le.Editable = False Then
+        Print "PASS: editable_set_false"
+    Else
+        Print "FAIL: editable_set_false"
+    End If
+    le.Editable = True
+
+    ' ================================================================
+    ' TEST: SelStart, SelLength, SelText (LineEdit)
+    ' ================================================================
+    le.text = "Hello World"
+    le.SelStart = 6
+    Dim ss As Integer
+    ss = le.SelStart
+    ' SelStart maps to caret_column — should be 6
+    If ss = 6 Then
+        Print "PASS: selstart_set_get"
+    Else
+        Print "FAIL: selstart_set_get: got " & Str(ss)
+    End If
+
+    ' SelLength — select 5 chars from position 6
+    le.SelLength = 5
+    Dim sl As Integer
+    sl = le.SelLength
+    If sl = 5 Then
+        Print "PASS: sellength_set_get"
+    Else
+        Print "FAIL: sellength_set_get: got " & Str(sl)
+    End If
+
+    ' SelText — read selected text
+    Dim st As String
+    st = le.SelText
+    If st = "World" Then
+        Print "PASS: seltext_get"
+    Else
+        Print "FAIL: seltext_get: got '" & st & "'"
+    End If
+
+    ' SelText — replace selection
+    le.SelText = "VG"
+    If le.text = "Hello VG" Then
+        Print "PASS: seltext_replace"
+    Else
+        Print "FAIL: seltext_replace: got '" & le.text & "'"
+    End If
+
+    ' ================================================================
+    ' TEST: Tag
+    ' ================================================================
+    btn.Tag = "my_custom_data"
+    If btn.Tag = "my_custom_data" Then
+        Print "PASS: tag_set_get_string"
+    Else
+        Print "FAIL: tag_set_get_string: got '" & btn.Tag & "'"
+    End If
+
+    btn.Tag = 42
+    If btn.Tag = 42 Then
+        Print "PASS: tag_set_get_int"
+    Else
+        Print "FAIL: tag_set_get_int"
+    End If
+
+    ' ================================================================
+    ' TEST: Name
+    ' ================================================================
+    Dim origName As String
+    origName = btn.Name
+    If origName = "btnTest" Then
+        Print "PASS: name_get"
+    Else
+        Print "FAIL: name_get: got '" & origName & "'"
+    End If
+
+    ' ================================================================
+    ' TEST: hWnd (read-only)
+    ' ================================================================
+    Dim hw As Long
+    hw = btn.hWnd
+    If hw > 0 Then
+        Print "PASS: hwnd_get"
+    Else
+        Print "FAIL: hwnd_get: got " & Str(hw)
+    End If
+
+    ' ================================================================
+    ' TEST: Interval (Timer) — ms ↔ seconds
+    ' ================================================================
+    tmr.Interval = 2000
+    Dim iv As Integer
+    iv = tmr.Interval
+    If iv = 2000 Then
+        Print "PASS: interval_set_get"
+    Else
+        Print "FAIL: interval_set_get: got " & Str(iv)
+    End If
+
+    ' ================================================================
+    ' TEST: OneShot (Timer)
+    ' ================================================================
+    tmr.OneShot = True
+    If tmr.OneShot = True Then
+        Print "PASS: oneshot_set_true"
+    Else
+        Print "FAIL: oneshot_set_true"
+    End If
+
+    ' ================================================================
+    ' TEST: Autostart (Timer)
+    ' ================================================================
+    tmr.Autostart = True
+    If tmr.Autostart = True Then
+        Print "PASS: autostart_set_true"
+    Else
+        Print "FAIL: autostart_set_true"
+    End If
+
+    ' ================================================================
+    ' TEST: ListCount (ItemList — read-only)
+    ' ================================================================
+    Dim lc As Integer
+    lc = il.ListCount
+    If lc = 3 Then
+        Print "PASS: listcount_get"
+    Else
+        Print "FAIL: listcount_get: got " & Str(lc)
+    End If
+
+    ' ================================================================
+    ' TEST: ListIndex (ItemList)
+    ' ================================================================
+    il.ListIndex = 1
+    Dim li As Integer
+    li = il.ListIndex
+    If li = 1 Then
+        Print "PASS: listindex_set_get"
+    Else
+        Print "FAIL: listindex_set_get: got " & Str(li)
+    End If
+
+    ' ================================================================
+    ' TEST: ListCount (OptionButton)
+    ' ================================================================
+    Dim olc As Integer
+    olc = ob.ListCount
+    If olc = 3 Then
+        Print "PASS: optionbtn_listcount"
+    Else
+        Print "FAIL: optionbtn_listcount: got " & Str(olc)
+    End If
+
+    ' ================================================================
+    ' TEST: ListIndex (OptionButton)
+    ' ================================================================
+    ob.ListIndex = 2
+    Dim oli As Integer
+    oli = ob.ListIndex
+    If oli = 2 Then
+        Print "PASS: optionbtn_listindex"
+    Else
+        Print "FAIL: optionbtn_listindex: got " & Str(oli)
+    End If
+
+    ' ================================================================
+    ' TEST: Sorted (ItemList)
+    ' ================================================================
+    il.Sorted = True
+    If il.Sorted = True Then
+        Print "PASS: sorted_set_true"
+    Else
+        Print "FAIL: sorted_set_true"
+    End If
+
+    ' ================================================================
+    ' TEST: AutoSize (Label)
+    ' ================================================================
+    lbl.AutoSize = True
+    If lbl.AutoSize = True Then
+        Print "PASS: autosize_set_true"
+    Else
+        Print "FAIL: autosize_set_true"
+    End If
+
+    ' ================================================================
+    ' TEST: ClipText (Button)
+    ' ================================================================
+    btn.ClipText = True
+    If btn.ClipText = True Then
+        Print "PASS: cliptext_set_true"
+    Else
+        Print "FAIL: cliptext_set_true"
+    End If
+
+    ' ================================================================
+    ' TEST: ZOrder
+    ' ================================================================
+    btn.ZOrder = 5
+    If btn.ZOrder = 5 Then
+        Print "PASS: zorder_set_get"
+    Else
+        Print "FAIL: zorder_set_get: got " & Str(btn.ZOrder)
+    End If
+
+    ' ================================================================
+    ' TEST: Rotation (degrees)
+    ' ================================================================
+    btn.Rotation = 45
+    Dim rot As Double
+    rot = btn.Rotation
+    If rot > 44 And rot < 46 Then
+        Print "PASS: rotation_set_get"
+    Else
+        Print "FAIL: rotation_set_get: got " & Str(rot)
+    End If
+
+    ' ================================================================
+    ' TEST: ScrollBars (TextEdit — stored as meta)
+    ' ================================================================
+    te.ScrollBars = 3
+    If te.ScrollBars = 3 Then
+        Print "PASS: scrollbars_set_get"
+    Else
+        Print "FAIL: scrollbars_set_get: got " & Str(te.ScrollBars)
+    End If
+
+    ' ================================================================
+    ' TEST: Icon (Button — verify no crash on GET)
+    ' ================================================================
+    Dim iconVal
+    iconVal = btn.Icon
+    Print "PASS: icon_get_no_crash"
+
+    ' ================================================================
+    ' TEST: Picture (TextureRect — verify no crash on GET)
+    ' ================================================================
+    Dim picVal
+    picVal = tr.Picture
+    Print "PASS: picture_get_no_crash"
+
+    ' ================================================================
+    ' Done!
+    ' ================================================================
+    Print "PASS: all_property_tests_complete"
+End Sub

@@ -59,8 +59,12 @@
 #include <godot_cpp/classes/shader.hpp>
 #include <godot_cpp/classes/shader_material.hpp>
 #include <godot_cpp/classes/font.hpp>
+#include <godot_cpp/classes/system_font.hpp>
+#include <godot_cpp/classes/font_variation.hpp>
 #include <godot_cpp/classes/theme_db.hpp>
 #include <godot_cpp/classes/theme.hpp>
+#include <godot_cpp/classes/style_box_flat.hpp>
+#include <godot_cpp/classes/style_box_empty.hpp>
 #include <godot_cpp/classes/gpu_particles2d.hpp>
 #include <godot_cpp/classes/gpu_particles3d.hpp>
 #include <godot_cpp/classes/particle_process_material.hpp>
@@ -2603,6 +2607,822 @@ Dictionary VisualGasicInstance::evaluate_immediate(const String &p_code) {
 
     if (mod) delete mod;
     return result;
+}
+
+
+// ============================================================================
+// Shared VB6 Property Alias Helpers
+// Called from both AST interpreter (evaluate.inc / call.inc) and bytecode VM.
+// ============================================================================
+
+// VB6 property READ alias resolution.
+// Returns true if the property was handled; result is set to the value.
+static bool _vb6_read_property(Object* obj, const String& prop_name, Variant& result) {
+    if (!obj) return false;
+
+    // Text / Caption
+    if (prop_name == "Text" || prop_name == "Caption") {
+        result = obj->get("text");
+        return true;
+    }
+    // Visible
+    if (prop_name == "Visible") {
+        result = obj->get("visible");
+        return true;
+    }
+    // Enabled (invert disabled; fallback editable)
+    if (prop_name == "Enabled") {
+        if (Object::cast_to<Timer>(obj)) {
+            return false; // Timer.Enabled handled separately by AST
+        }
+        Variant disabled_val = obj->get(StringName("disabled"));
+        if (disabled_val.get_type() == Variant::BOOL) { result = !(bool)disabled_val; return true; }
+        Variant editable_val = obj->get(StringName("editable"));
+        if (editable_val.get_type() == Variant::BOOL) { result = (bool)editable_val; return true; }
+        result = true;
+        return true;
+    }
+    // Position
+    if (prop_name == "Left") {
+        Control* ctrl = Object::cast_to<Control>(obj);
+        if (ctrl) { result = ctrl->get_position().x; return true; }
+        Node2D* n2d = Object::cast_to<Node2D>(obj);
+        if (n2d) { result = n2d->get_position().x; return true; }
+    }
+    if (prop_name == "Top") {
+        Control* ctrl = Object::cast_to<Control>(obj);
+        if (ctrl) { result = ctrl->get_position().y; return true; }
+        Node2D* n2d = Object::cast_to<Node2D>(obj);
+        if (n2d) { result = n2d->get_position().y; return true; }
+    }
+    // Size
+    if (prop_name == "Width") {
+        Control* ctrl = Object::cast_to<Control>(obj);
+        if (ctrl) { result = ctrl->get_size().x; return true; }
+    }
+    if (prop_name == "Height") {
+        Control* ctrl = Object::cast_to<Control>(obj);
+        if (ctrl) { result = ctrl->get_size().y; return true; }
+    }
+    // Value
+    if (prop_name == "Value") {
+        result = obj->get("value");
+        return true;
+    }
+    // ToolTipText
+    if (prop_name == "ToolTipText") {
+        result = obj->get("tooltip_text");
+        return true;
+    }
+    // TabStop → focus_mode
+    if (prop_name == "TabStop") {
+        int fm = (int)obj->get("focus_mode");
+        result = (fm != 0);
+        return true;
+    }
+    // Opacity → modulate.a (0-100)
+    if (prop_name == "Opacity") {
+        Control* ctrl = Object::cast_to<Control>(obj);
+        if (ctrl) { result = (int)(ctrl->get_modulate().a * 100.0f); return true; }
+    }
+    // MousePointer
+    if (prop_name == "MousePointer") {
+        result = obj->get("mouse_default_cursor_shape");
+        return true;
+    }
+    // Locked → !editable
+    if (prop_name == "Locked") {
+        Variant ed = obj->get("editable");
+        if (ed.get_type() == Variant::BOOL) { result = !(bool)ed; } else { result = false; }
+        return true;
+    }
+    // MaxLength
+    if (prop_name == "MaxLength") {
+        result = obj->get("max_length");
+        return true;
+    }
+    // Alignment
+    if (prop_name == "Alignment") {
+        result = obj->get("horizontal_alignment");
+        return true;
+    }
+    // WordWrap
+    if (prop_name == "WordWrap") {
+        int mode = (int)obj->get("autowrap_mode");
+        result = (mode != 0);
+        return true;
+    }
+    // FontSize
+    if (prop_name == "FontSize") {
+        Control* ctrl = Object::cast_to<Control>(obj);
+        if (ctrl) { result = ctrl->get_theme_font_size("font_size"); return true; }
+    }
+    // ForeColor
+    if (prop_name == "ForeColor") {
+        Control* ctrl = Object::cast_to<Control>(obj);
+        if (ctrl) { result = ctrl->get_theme_color("font_color"); return true; }
+    }
+    // BackColor
+    if (prop_name == "BackColor") {
+        Control* ctrl = Object::cast_to<Control>(obj);
+        if (!ctrl) {
+            Window* win = Object::cast_to<Window>(obj);
+            if (win) {
+                Node* bg = win->find_child("_FormBackground", false, false);
+                if (bg) ctrl = Object::cast_to<Control>(bg);
+            }
+        }
+        if (ctrl) {
+            String sb_name = (ctrl->get_class() == "Panel") ? "panel" : "normal";
+            Ref<StyleBox> sb = ctrl->get_theme_stylebox(sb_name);
+            if (sb.is_valid()) {
+                Ref<StyleBoxFlat> sbf = sb;
+                if (sbf.is_valid()) { result = sbf->get_bg_color(); return true; }
+            }
+            result = ctrl->get_self_modulate();
+            return true;
+        }
+    }
+    // FontBold
+    if (prop_name == "FontBold") {
+        Control* ctrl = Object::cast_to<Control>(obj);
+        if (ctrl) {
+            Ref<Font> fnt = ctrl->get_theme_font("font");
+            if (fnt.is_valid()) {
+                Ref<FontVariation> fv = fnt;
+                if (fv.is_valid()) { result = fv->get_variation_embolden() > 0.0f; return true; }
+                Ref<SystemFont> sf = fnt;
+                if (sf.is_valid()) {
+                    PackedStringArray names = sf->get_font_names();
+                    result = false;
+                    for (int fi = 0; fi < names.size(); fi++) {
+                        if (String(names[fi]).findn("Bold") >= 0) { result = true; break; }
+                    }
+                    return true;
+                }
+            }
+            result = false;
+            return true;
+        }
+    }
+    // FontItalic
+    if (prop_name == "FontItalic") {
+        Control* ctrl = Object::cast_to<Control>(obj);
+        if (ctrl) {
+            Ref<Font> fnt = ctrl->get_theme_font("font");
+            if (fnt.is_valid()) {
+                Ref<FontVariation> fv = fnt;
+                if (fv.is_valid()) {
+                    Transform2D t = fv->get_variation_transform();
+                    result = (t[0][1] != 0.0f);
+                    return true;
+                }
+                Ref<SystemFont> sf = fnt;
+                if (sf.is_valid()) { result = sf->get_font_italic(); return true; }
+            }
+            result = false;
+            return true;
+        }
+    }
+    // FontName
+    if (prop_name == "FontName") {
+        Control* ctrl = Object::cast_to<Control>(obj);
+        if (ctrl) {
+            Ref<Font> fnt = ctrl->get_theme_font("font");
+            if (fnt.is_valid()) {
+                Ref<FontVariation> fv = fnt;
+                if (fv.is_valid()) {
+                    Ref<Font> base = fv->get_base_font();
+                    Ref<SystemFont> sf = base;
+                    if (sf.is_valid()) {
+                        PackedStringArray names = sf->get_font_names();
+                        result = names.size() > 0 ? String(names[0]) : String("");
+                        return true;
+                    }
+                } else {
+                    Ref<SystemFont> sf = fnt;
+                    if (sf.is_valid()) {
+                        PackedStringArray names = sf->get_font_names();
+                        result = names.size() > 0 ? String(names[0]) : String("");
+                        return true;
+                    }
+                }
+            }
+            result = String("");
+            return true;
+        }
+    }
+    // FontUnderline / FontStrikethrough (meta)
+    if (prop_name == "FontUnderline") {
+        result = obj->has_meta("vg_font_underline") ? (bool)obj->get_meta("vg_font_underline") : false;
+        return true;
+    }
+    if (prop_name == "FontStrikethrough") {
+        result = obj->has_meta("vg_font_strikethrough") ? (bool)obj->get_meta("vg_font_strikethrough") : false;
+        return true;
+    }
+    // BorderStyle
+    if (prop_name == "BorderStyle") {
+        Control* ctrl = Object::cast_to<Control>(obj);
+        if (ctrl) {
+            Ref<StyleBox> sb = ctrl->get_theme_stylebox("normal");
+            Ref<StyleBoxFlat> sbf = sb;
+            if (sbf.is_valid()) {
+                result = (sbf->get_border_width(SIDE_LEFT) > 0 || sbf->get_border_width(SIDE_TOP) > 0 ||
+                          sbf->get_border_width(SIDE_RIGHT) > 0 || sbf->get_border_width(SIDE_BOTTOM) > 0) ? 1 : 0;
+            } else { result = 0; }
+            return true;
+        }
+    }
+    // Style / Flat (Button)
+    if (prop_name == "Style" || prop_name == "Flat") {
+        Button* btn = Object::cast_to<Button>(obj);
+        if (btn) { result = btn->is_flat(); return true; }
+    }
+    // MultiLine
+    if (prop_name == "MultiLine") {
+        TextEdit* te = Object::cast_to<TextEdit>(obj);
+        result = (te != nullptr);
+        return true;
+    }
+    // ScrollBars (TextEdit meta)
+    if (prop_name == "ScrollBars") {
+        if (obj->has_meta("vg_scrollbars")) {
+            result = (int)obj->get_meta("vg_scrollbars");
+        } else {
+            result = 2; // default vertical
+        }
+        return true;
+    }
+    // PasswordChar
+    if (prop_name == "PasswordChar") {
+        LineEdit* le = Object::cast_to<LineEdit>(obj);
+        if (le) {
+            if (le->is_secret()) {
+                result = String(le->get("secret_character"));
+            } else { result = String(""); }
+            return true;
+        }
+    }
+    // PlaceholderText
+    if (prop_name == "PlaceholderText") {
+        result = obj->get("placeholder_text");
+        return true;
+    }
+    // Editable
+    if (prop_name == "Editable") {
+        Variant ed = obj->get("editable");
+        if (ed.get_type() == Variant::BOOL) { result = ed; } else { result = true; }
+        return true;
+    }
+    // SelStart
+    if (prop_name == "SelStart") {
+        LineEdit* le = Object::cast_to<LineEdit>(obj);
+        if (le) { result = le->get_caret_column(); return true; }
+        TextEdit* te = Object::cast_to<TextEdit>(obj);
+        if (te) { result = te->get_caret_column(); return true; }
+    }
+    // SelLength
+    if (prop_name == "SelLength") {
+        LineEdit* le = Object::cast_to<LineEdit>(obj);
+        if (le) { result = le->has_selection() ? (int)le->get_selected_text().length() : 0; return true; }
+        TextEdit* te = Object::cast_to<TextEdit>(obj);
+        if (te) { result = (int)te->get_selected_text().length(); return true; }
+    }
+    // SelText
+    if (prop_name == "SelText") {
+        LineEdit* le = Object::cast_to<LineEdit>(obj);
+        if (le) { result = le->get_selected_text(); return true; }
+        TextEdit* te = Object::cast_to<TextEdit>(obj);
+        if (te) { result = te->get_selected_text(); return true; }
+    }
+    // Picture
+    if (prop_name == "Picture") {
+        TextureRect* tr = Object::cast_to<TextureRect>(obj);
+        if (tr) { result = Variant(tr->get_texture()); return true; }
+        if (obj->has_meta("vg_picture_path")) { result = obj->get_meta("vg_picture_path"); return true; }
+    }
+    // Icon
+    if (prop_name == "Icon") {
+        Button* btn = Object::cast_to<Button>(obj);
+        if (btn) { result = Variant(btn->get_button_icon()); return true; }
+    }
+    // Tag
+    if (prop_name == "Tag") {
+        result = obj->has_meta("vg_tag") ? obj->get_meta("vg_tag") : Variant();
+        return true;
+    }
+    // Timer: Interval (ms), OneShot, Autostart
+    if (prop_name == "Interval") {
+        Timer* tmr = Object::cast_to<Timer>(obj);
+        if (tmr) { result = (int)(tmr->get_wait_time() * 1000.0); return true; }
+    }
+    if (prop_name == "OneShot") {
+        Timer* tmr = Object::cast_to<Timer>(obj);
+        if (tmr) { result = tmr->is_one_shot(); return true; }
+    }
+    if (prop_name == "Autostart") {
+        Timer* tmr = Object::cast_to<Timer>(obj);
+        if (tmr) { result = tmr->has_autostart(); return true; }
+    }
+    // ListCount
+    if (prop_name == "ListCount") {
+        ItemList* il = Object::cast_to<ItemList>(obj);
+        if (il) { result = il->get_item_count(); return true; }
+        OptionButton* ob = Object::cast_to<OptionButton>(obj);
+        if (ob) { result = ob->get_item_count(); return true; }
+    }
+    // ListIndex
+    if (prop_name == "ListIndex") {
+        ItemList* il = Object::cast_to<ItemList>(obj);
+        if (il) {
+            PackedInt32Array sel = il->get_selected_items();
+            result = sel.size() > 0 ? (int)sel[0] : -1;
+            return true;
+        }
+        OptionButton* ob = Object::cast_to<OptionButton>(obj);
+        if (ob) { result = ob->get_selected(); return true; }
+    }
+    // Sorted
+    if (prop_name == "Sorted") {
+        result = obj->has_meta("vg_sorted") ? (bool)obj->get_meta("vg_sorted") : false;
+        return true;
+    }
+    // AutoSize (Label)
+    if (prop_name == "AutoSize") {
+        Label* lbl = Object::cast_to<Label>(obj);
+        if (lbl) {
+            result = (lbl->get_autowrap_mode() == TextServer::AUTOWRAP_OFF && !lbl->is_clipping_text());
+            return true;
+        }
+    }
+    // ClipText (Button)
+    if (prop_name == "ClipText") {
+        Button* btn = Object::cast_to<Button>(obj);
+        if (btn) { result = btn->get_clip_text(); return true; }
+    }
+    // Window properties
+    if (prop_name == "WindowState") {
+        Window* win = Object::cast_to<Window>(obj);
+        if (win) {
+            if (win->get_mode() == Window::MODE_MINIMIZED) result = 1;
+            else if (win->get_mode() == Window::MODE_MAXIMIZED) result = 2;
+            else result = 0;
+            return true;
+        }
+    }
+    if (prop_name == "ShowInTaskbar") {
+        Window* win = Object::cast_to<Window>(obj);
+        if (win) { result = !win->get_flag(Window::FLAG_NO_FOCUS); return true; }
+    }
+    if (prop_name == "Moveable") {
+        Window* win = Object::cast_to<Window>(obj);
+        if (win) { result = !win->get_flag(Window::FLAG_RESIZE_DISABLED); return true; }
+    }
+    if (prop_name == "MinButton" || prop_name == "MaxButton") {
+        Window* win = Object::cast_to<Window>(obj);
+        if (win) { result = !win->get_flag(Window::FLAG_RESIZE_DISABLED); return true; }
+    }
+    if (prop_name == "ControlBox") {
+        Window* win = Object::cast_to<Window>(obj);
+        if (win) { result = !win->get_flag(Window::FLAG_BORDERLESS); return true; }
+    }
+    // ZOrder
+    if (prop_name == "ZOrder") {
+        result = obj->get("z_index");
+        return true;
+    }
+    // Rotation (degrees)
+    if (prop_name == "Rotation") {
+        Control* ctrl = Object::cast_to<Control>(obj);
+        if (ctrl) { result = Math::rad_to_deg(ctrl->get_rotation()); return true; }
+    }
+    // hWnd
+    if (prop_name == "hWnd") {
+        result = (int64_t)obj->get_instance_id();
+        return true;
+    }
+    // Name
+    if (prop_name == "Name") {
+        Node* node = Object::cast_to<Node>(obj);
+        if (node) { result = node->get_name(); return true; }
+    }
+
+    return false; // Not a VB6 alias
+}
+
+// VB6 property WRITE alias resolution.
+// Returns true if the property was handled.
+static bool _vb6_write_property(Object* obj, const String& prop_name, const Variant& value) {
+    if (!obj) return false;
+
+    // Text / Caption
+    if (prop_name == "Text" || prop_name == "Caption") {
+        obj->set("text", value);
+        return true;
+    }
+    // Visible
+    if (prop_name == "Visible") {
+        obj->set("visible", value);
+        return true;
+    }
+    // Enabled
+    if (prop_name == "Enabled") {
+        if (Object::cast_to<Timer>(obj)) {
+            if ((bool)value) obj->call("start"); else obj->call("stop");
+            return true;
+        }
+        Variant test_disabled = obj->get("disabled");
+        if (test_disabled.get_type() == Variant::BOOL) { obj->set("disabled", !(bool)value); return true; }
+        Variant test_editable = obj->get("editable");
+        if (test_editable.get_type() == Variant::BOOL) { obj->set("editable", (bool)value); return true; }
+    }
+    // Position
+    if (prop_name == "Left") {
+        Control* c = Object::cast_to<Control>(obj);
+        if (c) { c->set_position(Vector2((double)value, c->get_position().y)); return true; }
+        Node2D* n = Object::cast_to<Node2D>(obj);
+        if (n) { n->set_position(Vector2((double)value, n->get_position().y)); return true; }
+    }
+    if (prop_name == "Top") {
+        Control* c = Object::cast_to<Control>(obj);
+        if (c) { c->set_position(Vector2(c->get_position().x, (double)value)); return true; }
+        Node2D* n = Object::cast_to<Node2D>(obj);
+        if (n) { n->set_position(Vector2(n->get_position().x, (double)value)); return true; }
+    }
+    // Size
+    if (prop_name == "Width") {
+        Control* c = Object::cast_to<Control>(obj);
+        if (c) { c->set_size(Vector2((double)value, c->get_size().y)); return true; }
+    }
+    if (prop_name == "Height") {
+        Control* c = Object::cast_to<Control>(obj);
+        if (c) { c->set_size(Vector2(c->get_size().x, (double)value)); return true; }
+    }
+    // Value
+    if (prop_name == "Value") {
+        obj->set("value", value);
+        return true;
+    }
+    // ToolTipText
+    if (prop_name == "ToolTipText") {
+        obj->set("tooltip_text", value);
+        return true;
+    }
+    // TabStop
+    if (prop_name == "TabStop") {
+        obj->set("focus_mode", (bool)value ? 2 : 0); // FOCUS_ALL=2, FOCUS_NONE=0
+        return true;
+    }
+    // Opacity
+    if (prop_name == "Opacity") {
+        Control* ctrl = Object::cast_to<Control>(obj);
+        if (ctrl) {
+            Color m = ctrl->get_modulate();
+            m.a = (float)((double)value / 100.0);
+            ctrl->set_modulate(m);
+            return true;
+        }
+    }
+    // MousePointer
+    if (prop_name == "MousePointer") {
+        obj->set("mouse_default_cursor_shape", value);
+        return true;
+    }
+    // Locked
+    if (prop_name == "Locked") {
+        Variant ed = obj->get("editable");
+        if (ed.get_type() == Variant::BOOL) { obj->set("editable", !(bool)value); return true; }
+    }
+    // MaxLength
+    if (prop_name == "MaxLength") {
+        obj->set("max_length", value);
+        return true;
+    }
+    // Alignment
+    if (prop_name == "Alignment") {
+        obj->set("horizontal_alignment", value);
+        return true;
+    }
+    // WordWrap
+    if (prop_name == "WordWrap") {
+        obj->set("autowrap_mode", (bool)value ? 3 : 0); // WORD_SMART=3
+        return true;
+    }
+    // FontSize
+    if (prop_name == "FontSize") {
+        Control* ctrl = Object::cast_to<Control>(obj);
+        if (ctrl) { ctrl->add_theme_font_size_override("font_size", (int)value); return true; }
+    }
+    // ForeColor
+    if (prop_name == "ForeColor") {
+        Control* ctrl = Object::cast_to<Control>(obj);
+        if (ctrl) {
+            Color c = value;
+            ctrl->add_theme_color_override("font_color", c);
+            return true;
+        }
+    }
+    // BackColor
+    if (prop_name == "BackColor") {
+        Control* ctrl = Object::cast_to<Control>(obj);
+        if (!ctrl) {
+            Window* win = Object::cast_to<Window>(obj);
+            if (win) {
+                Node* bg = win->find_child("_FormBackground", false, false);
+                if (bg) ctrl = Object::cast_to<Control>(bg);
+            }
+        }
+        if (ctrl) {
+            Color c = value;
+            String sb_name = (ctrl->get_class() == "Panel") ? "panel" : "normal";
+            Ref<StyleBox> existing = ctrl->get_theme_stylebox(sb_name);
+            Ref<StyleBoxFlat> sbf;
+            if (existing.is_valid()) {
+                sbf = existing->duplicate();
+            }
+            if (!sbf.is_valid()) sbf.instantiate();
+            sbf->set_bg_color(c);
+            ctrl->add_theme_stylebox_override(sb_name, sbf);
+            return true;
+        }
+    }
+    // FontBold
+    if (prop_name == "FontBold") {
+        Control* ctrl = Object::cast_to<Control>(obj);
+        if (ctrl) {
+            Ref<Font> fnt = ctrl->get_theme_font("font");
+            Ref<FontVariation> fv;
+            if (fnt.is_valid()) { fv = fnt; }
+            if (!fv.is_valid()) {
+                fv.instantiate();
+                Ref<SystemFont> sf;
+                sf.instantiate();
+                sf->set_font_names(PackedStringArray());
+                fv->set_base_font(sf);
+            }
+            fv->set_variation_embolden((bool)value ? 1.2f : 0.0f);
+            ctrl->add_theme_font_override("font", fv);
+            return true;
+        }
+    }
+    // FontItalic
+    if (prop_name == "FontItalic") {
+        Control* ctrl = Object::cast_to<Control>(obj);
+        if (ctrl) {
+            Ref<Font> fnt = ctrl->get_theme_font("font");
+            Ref<FontVariation> fv;
+            if (fnt.is_valid()) { fv = fnt; }
+            if (!fv.is_valid()) {
+                fv.instantiate();
+                Ref<SystemFont> sf;
+                sf.instantiate();
+                sf->set_font_names(PackedStringArray());
+                fv->set_base_font(sf);
+            }
+            Transform2D t = fv->get_variation_transform();
+            t[0][1] = (bool)value ? 0.2f : 0.0f;
+            fv->set_variation_transform(t);
+            ctrl->add_theme_font_override("font", fv);
+            return true;
+        }
+    }
+    // FontName
+    if (prop_name == "FontName") {
+        Control* ctrl = Object::cast_to<Control>(obj);
+        if (ctrl) {
+            Ref<Font> fnt = ctrl->get_theme_font("font");
+            Ref<FontVariation> fv;
+            if (fnt.is_valid()) { fv = fnt; }
+            if (!fv.is_valid()) {
+                fv.instantiate();
+            }
+            Ref<SystemFont> sf;
+            Ref<Font> base = fv->get_base_font();
+            if (base.is_valid()) { sf = base; }
+            if (!sf.is_valid()) { sf.instantiate(); }
+            PackedStringArray names;
+            names.push_back(String(value));
+            sf->set_font_names(names);
+            fv->set_base_font(sf);
+            ctrl->add_theme_font_override("font", fv);
+            return true;
+        }
+    }
+    // FontUnderline / FontStrikethrough
+    if (prop_name == "FontUnderline") {
+        obj->set_meta("vg_font_underline", (bool)value);
+        return true;
+    }
+    if (prop_name == "FontStrikethrough") {
+        obj->set_meta("vg_font_strikethrough", (bool)value);
+        return true;
+    }
+    // BorderStyle
+    if (prop_name == "BorderStyle") {
+        Control* ctrl = Object::cast_to<Control>(obj);
+        if (ctrl) {
+            Ref<StyleBox> existing = ctrl->get_theme_stylebox("normal");
+            if ((int)value == 0) {
+                Ref<StyleBoxEmpty> sbe;
+                sbe.instantiate();
+                ctrl->add_theme_stylebox_override("normal", sbe);
+            } else {
+                Ref<StyleBoxFlat> sbf;
+                if (existing.is_valid()) sbf = existing->duplicate();
+                if (!sbf.is_valid()) sbf.instantiate();
+                sbf->set_border_width_all(1);
+                sbf->set_border_color(Color(0, 0, 0));
+                ctrl->add_theme_stylebox_override("normal", sbf);
+            }
+            return true;
+        }
+    }
+    // Style / Flat
+    if (prop_name == "Style" || prop_name == "Flat") {
+        Button* btn = Object::cast_to<Button>(obj);
+        if (btn) { btn->set_flat((bool)value); return true; }
+    }
+    // ScrollBars (meta)
+    if (prop_name == "ScrollBars") {
+        obj->set_meta("vg_scrollbars", (int)value);
+        return true;
+    }
+    // PasswordChar
+    if (prop_name == "PasswordChar") {
+        LineEdit* le = Object::cast_to<LineEdit>(obj);
+        if (le) {
+            String ch = String(value);
+            if (ch.length() > 0) {
+                le->set_secret(true);
+                le->set("secret_character", String(String::chr(ch[0])));
+            } else {
+                le->set_secret(false);
+            }
+            return true;
+        }
+    }
+    // PlaceholderText
+    if (prop_name == "PlaceholderText") {
+        obj->set("placeholder_text", value);
+        return true;
+    }
+    // Editable
+    if (prop_name == "Editable") {
+        obj->set("editable", value);
+        return true;
+    }
+    // SelStart
+    if (prop_name == "SelStart") {
+        LineEdit* le = Object::cast_to<LineEdit>(obj);
+        if (le) { le->set_caret_column((int)value); return true; }
+        TextEdit* te = Object::cast_to<TextEdit>(obj);
+        if (te) { te->set_caret_column((int)value); return true; }
+    }
+    // SelLength
+    if (prop_name == "SelLength") {
+        LineEdit* le = Object::cast_to<LineEdit>(obj);
+        if (le) {
+            int start = le->get_caret_column();
+            le->select(start, start + (int)value);
+            return true;
+        }
+        TextEdit* te = Object::cast_to<TextEdit>(obj);
+        if (te) {
+            int col = te->get_caret_column();
+            int line = te->get_caret_line();
+            te->select(line, col, line, col + (int)value);
+            return true;
+        }
+    }
+    // SelText
+    if (prop_name == "SelText") {
+        LineEdit* le = Object::cast_to<LineEdit>(obj);
+        if (le) {
+            if (le->has_selection()) le->delete_text(le->get_selection_from_column(), le->get_selection_to_column());
+            le->insert_text_at_caret(String(value));
+            return true;
+        }
+        TextEdit* te = Object::cast_to<TextEdit>(obj);
+        if (te) { te->insert_text_at_caret(String(value)); return true; }
+    }
+    // Picture
+    if (prop_name == "Picture") {
+        TextureRect* tr = Object::cast_to<TextureRect>(obj);
+        if (tr) {
+            if (value.get_type() == Variant::OBJECT) { tr->set_texture(value); }
+            else if (value.get_type() == Variant::STRING) {
+                Ref<Texture2D> tex = ResourceLoader::get_singleton()->load(String(value));
+                if (tex.is_valid()) tr->set_texture(tex);
+                obj->set_meta("vg_picture_path", value);
+            }
+            return true;
+        }
+    }
+    // Icon
+    if (prop_name == "Icon") {
+        Button* btn = Object::cast_to<Button>(obj);
+        if (btn) {
+            if (value.get_type() == Variant::OBJECT) { btn->set_button_icon(value); }
+            else if (value.get_type() == Variant::STRING) {
+                Ref<Texture2D> tex = ResourceLoader::get_singleton()->load(String(value));
+                if (tex.is_valid()) btn->set_button_icon(tex);
+            }
+            return true;
+        }
+    }
+    // Tag (meta)
+    if (prop_name == "Tag") {
+        obj->set_meta("vg_tag", value);
+        return true;
+    }
+    // Timer properties
+    if (prop_name == "Interval") {
+        Timer* tmr = Object::cast_to<Timer>(obj);
+        if (tmr) { tmr->set_wait_time((double)value / 1000.0); return true; }
+    }
+    if (prop_name == "OneShot") {
+        Timer* tmr = Object::cast_to<Timer>(obj);
+        if (tmr) { tmr->set_one_shot((bool)value); return true; }
+    }
+    if (prop_name == "Autostart") {
+        Timer* tmr = Object::cast_to<Timer>(obj);
+        if (tmr) { tmr->set_autostart((bool)value); return true; }
+    }
+    // ListIndex
+    if (prop_name == "ListIndex") {
+        ItemList* il = Object::cast_to<ItemList>(obj);
+        if (il) { il->select((int)value); return true; }
+        OptionButton* ob = Object::cast_to<OptionButton>(obj);
+        if (ob) { ob->select((int)value); return true; }
+    }
+    // Sorted (meta)
+    if (prop_name == "Sorted") {
+        obj->set_meta("vg_sorted", (bool)value);
+        if ((bool)value) {
+            ItemList* il = Object::cast_to<ItemList>(obj);
+            if (il) il->sort_items_by_text();
+        }
+        return true;
+    }
+    // AutoSize (Label)
+    if (prop_name == "AutoSize") {
+        Label* lbl = Object::cast_to<Label>(obj);
+        if (lbl) {
+            if ((bool)value) {
+                lbl->set_autowrap_mode(TextServer::AUTOWRAP_OFF);
+                lbl->set_clip_text(false);
+            } else {
+                lbl->set_clip_text(true);
+            }
+            return true;
+        }
+    }
+    // ClipText (Button)
+    if (prop_name == "ClipText") {
+        Button* btn = Object::cast_to<Button>(obj);
+        if (btn) { btn->set_clip_text((bool)value); return true; }
+    }
+    // Window properties
+    if (prop_name == "WindowState") {
+        Window* win = Object::cast_to<Window>(obj);
+        if (win) {
+            int s = (int)value;
+            if (s == 1) win->set_mode(Window::MODE_MINIMIZED);
+            else if (s == 2) win->set_mode(Window::MODE_MAXIMIZED);
+            else win->set_mode(Window::MODE_WINDOWED);
+            return true;
+        }
+    }
+    if (prop_name == "ShowInTaskbar") {
+        Window* win = Object::cast_to<Window>(obj);
+        if (win) { win->set_flag(Window::FLAG_NO_FOCUS, !(bool)value); return true; }
+    }
+    if (prop_name == "Moveable") {
+        Window* win = Object::cast_to<Window>(obj);
+        if (win) { win->set_flag(Window::FLAG_RESIZE_DISABLED, !(bool)value); return true; }
+    }
+    if (prop_name == "ControlBox") {
+        Window* win = Object::cast_to<Window>(obj);
+        if (win) { win->set_flag(Window::FLAG_BORDERLESS, !(bool)value); return true; }
+    }
+    // ZOrder
+    if (prop_name == "ZOrder") {
+        obj->set("z_index", value);
+        return true;
+    }
+    // Rotation
+    if (prop_name == "Rotation") {
+        Control* ctrl = Object::cast_to<Control>(obj);
+        if (ctrl) { ctrl->set_rotation(Math::deg_to_rad((double)value)); return true; }
+    }
+    // Name
+    if (prop_name == "Name") {
+        Node* node = Object::cast_to<Node>(obj);
+        if (node) { node->set_name(String(value)); return true; }
+    }
+
+    return false; // Not a VB6 alias
 }
 
 
