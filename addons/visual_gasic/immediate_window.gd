@@ -945,6 +945,18 @@ func _eval_simple(expr: String) -> Variant:
 	
 	return result
 
+## Evaluate an expression using the VB6 Immediate Window API (C++ engine).
+## Returns null if no VG instance is active or evaluation fails.
+func _eval_vg_immediate(expr: String) -> Variant:
+	if not ClassDB.class_has_method("VisualGasicLanguage", "vg_evaluate_immediate"):
+		return null
+	# Try instance 0 (the active VG script)
+	var code := "? " + expr
+	var r = ClassDB.class_call_static("VisualGasicLanguage", "vg_evaluate_immediate", 0, code)
+	if r is Dictionary and r.get("success", false):
+		return r.get("result", null)
+	return null
+
 func _get_type_name(value: Variant) -> String:
 	match typeof(value):
 		TYPE_NIL: return "Null"
@@ -1906,7 +1918,12 @@ func _update_watch_expressions():
 			if _connected_remote_id >= 0 and _variables.has(watch["expr"]):
 				value = _variables[watch["expr"]]
 			else:
-				value = _eval_simple(watch["expr"])
+				# Try VB6 Immediate Window API first (handles btn.Caption etc.)
+				var vg_result = _eval_vg_immediate(watch["expr"])
+				if vg_result != null:
+					value = vg_result
+				else:
+					value = _eval_simple(watch["expr"])
 			value_str = str(value)
 			
 			# Color-code based on value changes

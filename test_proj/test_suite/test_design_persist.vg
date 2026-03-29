@@ -1,0 +1,120 @@
+' Test: Design-Time Property Persistence — set properties, verify they survive
+' Tests that properties set via code at startup can be read back accurately,
+' simulating the design-time → runtime property pipeline.
+' MAX_FRAMES: 10
+Attribute VB_Name = "TestDesignPersist"
+
+Dim alreadyRan As Boolean
+
+Sub _Ready()
+    If alreadyRan = True Then Exit Sub
+    alreadyRan = True
+
+    ' Create controls with design-time-like property initialization
+    Dim btn As Object
+    Set btn = CreateNode("Button")
+    btn.name = "btnPersist"
+    AddChild btn
+
+    ' Simulate design-time property initialization (what form designer does)
+    btn.Caption = "OK"
+    btn.Left = 120
+    btn.Top = 80
+    btn.Width = 100
+    btn.Height = 32
+    btn.Enabled = True
+    btn.Visible = True
+    btn.FontSize = 14
+    btn.FontBold = True
+    btn.Tag = "accept_button"
+    btn.ToolTipText = "Click to accept"
+    btn.TabStop = True
+    btn.TabIndex = 1
+    btn.BackStyle = 1
+    btn.Appearance = 1
+    btn.DragMode = 0
+    btn.Index = 0
+
+    ' Read back ALL properties and verify roundtrip
+    Assert btn.Caption = "OK", "persist_caption"
+    Assert btn.Left = 120, "persist_left"
+    Assert btn.Top = 80, "persist_top"
+    Assert btn.Width = 100, "persist_width"
+    Assert btn.Height = 32, "persist_height"
+    Assert btn.Enabled = True, "persist_enabled"
+    Assert btn.Visible = True, "persist_visible"
+    Assert btn.FontSize = 14, "persist_fontsize"
+    Assert btn.FontBold = True, "persist_fontbold"
+    Assert btn.Tag = "accept_button", "persist_tag"
+    Assert btn.ToolTipText = "Click to accept", "persist_tooltip"
+    Assert btn.TabStop = True, "persist_tabstop"
+    Assert btn.TabIndex = 1, "persist_tabindex"
+    Assert btn.BackStyle = 1, "persist_backstyle"
+    Assert btn.Appearance = 1, "persist_appearance"
+    Assert btn.DragMode = 0, "persist_dragmode"
+    Assert btn.Index = 0, "persist_index"
+
+    ' Test a second control type (Label)
+    Dim lbl As Object
+    Set lbl = CreateNode("Label")
+    lbl.name = "lblPersist"
+    AddChild lbl
+    lbl.Caption = "Status:"
+    lbl.FontSize = 12
+    lbl.ForeColor = Color(1, 0, 0)
+    lbl.WordWrap = True
+    lbl.AutoSize = False
+    lbl.Tag = "status_label"
+    lbl.BackStyle = 0
+
+    Assert lbl.Caption = "Status:", "persist_lbl_caption"
+    Assert lbl.FontSize = 12, "persist_lbl_fontsize"
+    Assert lbl.WordWrap = True, "persist_lbl_wordwrap"
+    Assert lbl.Tag = "status_label", "persist_lbl_tag"
+    Assert lbl.BackStyle = 0, "persist_lbl_backstyle"
+
+    ' Test Timer
+    Dim tmr As Object
+    Set tmr = CreateNode("Timer")
+    tmr.name = "tmrPersist"
+    AddChild tmr
+    tmr.Interval = 2000
+    tmr.OneShot = True
+    tmr.Autostart = False
+
+    Assert tmr.Interval = 2000, "persist_tmr_interval"
+    Assert tmr.OneShot = True, "persist_tmr_oneshot"
+
+    ' Test LineEdit
+    Dim le As Object
+    Set le = CreateNode("LineEdit")
+    le.name = "txtPersist"
+    AddChild le
+    le.Text = "Default Text"
+    le.MaxLength = 50
+    le.PlaceholderText = "Enter text..."
+    le.PasswordChar = ""
+    le.Editable = True
+
+    Assert le.Text = "Default Text", "persist_le_text"
+    Assert le.MaxLength = 50, "persist_le_maxlength"
+    Assert le.PlaceholderText = "Enter text...", "persist_le_placeholder"
+    Assert le.Editable = True, "persist_le_editable"
+
+    ' Test Panel
+    Dim pnl As Object
+    Set pnl = CreateNode("Panel")
+    pnl.name = "pnlPersist"
+    AddChild pnl
+    pnl.Visible = True
+    pnl.BackStyle = 1
+    pnl.Tag = "main_panel"
+    pnl.TabIndex = 10
+
+    Assert pnl.Visible = True, "persist_pnl_visible"
+    Assert pnl.BackStyle = 1, "persist_pnl_backstyle"
+    Assert pnl.Tag = "main_panel", "persist_pnl_tag"
+    Assert pnl.TabIndex = 10, "persist_pnl_tabindex"
+
+    Print "PASS: all_design_persist_tests_complete"
+End Sub

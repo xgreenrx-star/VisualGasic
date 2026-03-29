@@ -3636,6 +3636,48 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                                 handled = true;
                             }
                         }
+                        // ---- New properties (v4.4.0) ----
+                        // BackStyle: 0=Transparent, 1=Opaque
+                        else if (prop_name == "BackStyle") {
+                            result = obj->has_meta("vg_backstyle") ? (int)obj->get_meta("vg_backstyle") : 1;
+                            handled = true;
+                        }
+                        // Appearance: 0=Flat, 1=3D
+                        else if (prop_name == "Appearance") {
+                            result = obj->has_meta("vg_appearance") ? (int)obj->get_meta("vg_appearance") : 1;
+                            handled = true;
+                        }
+                        // TabIndex
+                        else if (prop_name == "TabIndex") {
+                            result = obj->has_meta("vg_tabindex") ? (int)obj->get_meta("vg_tabindex") : 0;
+                            handled = true;
+                        }
+                        // Parent — returns parent Node
+                        else if (prop_name == "Parent") {
+                            Node *node = Object::cast_to<Node>(obj);
+                            if (node && node->get_parent()) {
+                                result = Variant(node->get_parent());
+                            }
+                            handled = true;
+                        }
+                        // Container — returns parent container
+                        else if (prop_name == "Container") {
+                            Node *node = Object::cast_to<Node>(obj);
+                            if (node && node->get_parent()) {
+                                result = Variant(node->get_parent());
+                            }
+                            handled = true;
+                        }
+                        // Index (control array index)
+                        else if (prop_name == "Index") {
+                            result = obj->has_meta("vg_index") ? (int)obj->get_meta("vg_index") : -1;
+                            handled = true;
+                        }
+                        // DragMode: 0=Manual, 1=Automatic
+                        else if (prop_name == "DragMode") {
+                            result = obj->has_meta("vg_dragmode") ? (int)obj->get_meta("vg_dragmode") : 0;
+                            handled = true;
+                        }
                         // ---- Custom control VG_Properties support ----
                         // If the node has a "VG_Properties" meta dictionary, look
                         // up the VB6 property name there.  The dictionary maps
@@ -4424,6 +4466,41 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                             push_value(base);
                             break;
                         }
+                        // ---- New properties (v4.4.0) ----
+                        // BackStyle: 0=Transparent, 1=Opaque
+                        else if (prop_name == "BackStyle") {
+                            obj->set_meta("vg_backstyle", (int)value);
+                            Control *ctrl = Object::cast_to<Control>(obj);
+                            if (ctrl) {
+                                ctrl->set_self_modulate((int)value == 0 ? Color(1,1,1,0) : Color(1,1,1,1));
+                            }
+                            push_value(base);
+                            break;
+                        }
+                        // Appearance: 0=Flat, 1=3D
+                        else if (prop_name == "Appearance") {
+                            obj->set_meta("vg_appearance", (int)value);
+                            push_value(base);
+                            break;
+                        }
+                        // TabIndex
+                        else if (prop_name == "TabIndex") {
+                            obj->set_meta("vg_tabindex", (int)value);
+                            push_value(base);
+                            break;
+                        }
+                        // Index (control array index)
+                        else if (prop_name == "Index") {
+                            obj->set_meta("vg_index", (int)value);
+                            push_value(base);
+                            break;
+                        }
+                        // DragMode: 0=Manual, 1=Automatic
+                        else if (prop_name == "DragMode") {
+                            obj->set_meta("vg_dragmode", (int)value);
+                            push_value(base);
+                            break;
+                        }
                         // ---- Custom control VG_Properties support (SET) ----
                         {
                             bool custom_handled = false;
@@ -4456,6 +4533,15 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         
                         if (!godot_prop.is_empty()) {
                             obj->set(godot_prop, value);
+                            // Fire _Change event for data-changing properties (VB6 compat)
+                            if (prop_name == "Text" || prop_name == "Caption" || prop_name == "Value") {
+                                Node *_ce_node = Object::cast_to<Node>(obj);
+                                if (_ce_node) {
+                                    String _ce_sub = String(_ce_node->get_name()) + "_Change";
+                                    bool _ce_found = false;
+                                    call_internal(_ce_sub, Array(), _ce_found);
+                                }
+                            }
                             push_value(base);
                             break;
                         }

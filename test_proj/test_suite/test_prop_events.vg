@@ -1,0 +1,54 @@
+' Test: Property Change Events — _Change fires on programmatic Text/Caption/Value set
+' MAX_FRAMES: 10
+Attribute VB_Name = "TestPropEvents"
+
+Dim alreadyRan As Boolean
+Dim changeCount As Integer
+Dim lastChangeSource As String
+
+Dim txt As Object
+Dim lbl As Object
+
+Sub _Ready()
+    If alreadyRan = True Then Exit Sub
+    alreadyRan = True
+
+    changeCount = 0
+    lastChangeSource = ""
+
+    ' Create a LineEdit named "txtTest"
+    Set txt = CreateNode("LineEdit")
+    txt.name = "txtTest"
+    AddChild txt
+
+    ' Create a Label named "lblTest"
+    Set lbl = CreateNode("Label")
+    lbl.name = "lblTest"
+    AddChild lbl
+
+    ' Set Text programmatically — should fire txtTest_Change
+    txt.Text = "Hello"
+    Assert changeCount = 1, "txt_change_fired_on_text_set"
+    Assert lastChangeSource = "txtTest", "txt_change_source"
+
+    ' Set Caption on label — should fire lblTest_Change
+    lbl.Caption = "World"
+    Assert changeCount = 2, "lbl_change_fired_on_caption_set"
+    Assert lastChangeSource = "lblTest", "lbl_change_source"
+
+    ' Set Text again
+    txt.Text = "Updated"
+    Assert changeCount = 3, "txt_change_fired_again"
+
+    Print "PASS: all_prop_event_tests_complete"
+End Sub
+
+Sub txtTest_Change()
+    changeCount = changeCount + 1
+    lastChangeSource = "txtTest"
+End Sub
+
+Sub lblTest_Change()
+    changeCount = changeCount + 1
+    lastChangeSource = "lblTest"
+End Sub

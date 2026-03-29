@@ -1,0 +1,84 @@
+' Test: Me.Property — verify Me.Tag, Me.Name, Me.hWnd etc.
+' Also tests VB6 property access on a Control created as "self" proxy.
+' MAX_FRAMES: 10
+Attribute VB_Name = "TestMeProperties"
+
+Dim alreadyRan As Boolean
+
+Sub _Ready()
+    If alreadyRan = True Then Exit Sub
+    alreadyRan = True
+
+    ' --- Me.Name (works on any Node) ---
+    Assert Me.Name <> "", "me_name_not_empty"
+
+    ' --- Me.hWnd (works on any Node — instance ID) ---
+    Assert Me.hWnd > 0, "me_hwnd_positive"
+
+    ' --- Me.Tag (meta, works on any Object) ---
+    Me.Tag = "form_tag_test"
+    Assert Me.Tag = "form_tag_test", "me_tag"
+
+    ' --- Me.BackStyle (meta, works on any Object) ---
+    Me.BackStyle = 0
+    Assert Me.BackStyle = 0, "me_backstyle_transparent"
+    Me.BackStyle = 1
+    Assert Me.BackStyle = 1, "me_backstyle_opaque"
+
+    ' --- Me.Appearance (meta) ---
+    Me.Appearance = 0
+    Assert Me.Appearance = 0, "me_appearance_flat"
+    Me.Appearance = 1
+    Assert Me.Appearance = 1, "me_appearance_3d"
+
+    ' --- Me.TabIndex (meta) ---
+    Me.TabIndex = 5
+    Assert Me.TabIndex = 5, "me_tabindex_5"
+
+    ' --- Me.DragMode (meta) ---
+    Me.DragMode = 1
+    Assert Me.DragMode = 1, "me_dragmode_auto"
+    Me.DragMode = 0
+    Assert Me.DragMode = 0, "me_dragmode_manual"
+
+    ' --- Me.Index (meta) ---
+    Me.Index = 3
+    Assert Me.Index = 3, "me_index_3"
+
+    ' Now test Control-specific properties on a real Control child
+    Dim ctrl As Object
+    Set ctrl = CreateNode("Button")
+    ctrl.name = "btnSelf"
+    AddChild ctrl
+
+    ctrl.Caption = "Test Form Title"
+    Assert ctrl.Caption = "Test Form Title", "ctrl_caption_set_read"
+
+    ctrl.Left = 42
+    Assert ctrl.Left = 42, "ctrl_left_42"
+    ctrl.Top = 99
+    Assert ctrl.Top = 99, "ctrl_top_99"
+
+    ctrl.Width = 400
+    Assert ctrl.Width = 400, "ctrl_width_400"
+    ctrl.Height = 300
+    Assert ctrl.Height = 300, "ctrl_height_300"
+
+    ctrl.Enabled = False
+    Assert ctrl.Enabled = False, "ctrl_enabled_false"
+    ctrl.Enabled = True
+    Assert ctrl.Enabled = True, "ctrl_enabled_true"
+
+    ctrl.FontSize = 20
+    Assert ctrl.FontSize = 20, "ctrl_fontsize_20"
+
+    ctrl.ToolTipText = "Form tooltip"
+    Assert ctrl.ToolTipText = "Form tooltip", "ctrl_tooltiptext"
+
+    ctrl.Visible = False
+    Assert ctrl.Visible = False, "ctrl_visible_false"
+    ctrl.Visible = True
+    Assert ctrl.Visible = True, "ctrl_visible_true"
+
+    Print "PASS: all_me_property_tests_complete"
+End Sub

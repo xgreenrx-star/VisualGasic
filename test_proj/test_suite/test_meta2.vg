@@ -1,0 +1,24 @@
+' MAX_FRAMES: 10
+Attribute VB_Name = "TestMeta2"
+Dim alreadyRan As Boolean
+Sub _Ready()
+    If alreadyRan = True Then Exit Sub
+    alreadyRan = True
+    Dim btn As Object
+    Set btn = CreateNode("Button")
+    btn.name = "btnM2"
+    AddChild btn
+    ' These existing properties work:
+    btn.Tag = "hello"
+    Print "Tag: " & btn.Tag
+    btn.TabStop = True
+    Print "TabStop: " & btn.TabStop
+    ' These new properties:
+    Print "Testing BackStyle write..."
+    btn.BackStyle = 1
+    Print "Testing BackStyle read..."
+    Dim bs
+    bs = btn.BackStyle
+    Print "BackStyle raw: " & bs
+    Print "DONE"
+End Sub

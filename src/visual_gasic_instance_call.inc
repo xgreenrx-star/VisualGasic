@@ -1818,9 +1818,18 @@ void VisualGasicInstance::assign_to_target(ExpressionNode* target, Variant val) 
              Object* obj = base;
              String prop_name = ma->member_name;
              
-             // VB6 Property Aliasing — shared helper handles all 55 aliases
+             // VB6 Property Aliasing — shared helper handles all 55+ aliases
              if (obj) {
                  if (_vb6_write_property(obj, prop_name, val)) {
+                     // Fire _Change event for data-changing properties (VB6 compat)
+                     if (prop_name == "Text" || prop_name == "Caption" || prop_name == "Value") {
+                         Node* _ce_node = Object::cast_to<Node>(obj);
+                         if (_ce_node) {
+                             String _ce_sub = String(_ce_node->get_name()) + "_Change";
+                             bool _ce_found = false;
+                             call_internal(_ce_sub, Array(), _ce_found);
+                         }
+                     }
                      return;
                  }
                  

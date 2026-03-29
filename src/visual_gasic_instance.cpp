@@ -2471,6 +2471,30 @@ bool VisualGasicInstance::is_placeholder() {
 }
 
 // ============================================================================
+// VB6-style Variant formatting for Immediate Window output.
+// - Whole floats → integer string (100.0 → "100")
+// - Booleans → "True" / "False"
+// - Integers → no trailing ".0"
+// ============================================================================
+static String _vb6_format_variant(const Variant &val) {
+    switch (val.get_type()) {
+        case Variant::BOOL:
+            return (bool)val ? "True" : "False";
+        case Variant::FLOAT: {
+            double d = (double)val;
+            if (Math::is_finite(d) && d == Math::floor(d)) {
+                return String::num_int64((int64_t)d);
+            }
+            return String::num(d);
+        }
+        case Variant::INT:
+            return String::num_int64((int64_t)val);
+        default:
+            return String(val);
+    }
+}
+
+// ============================================================================
 // Immediate Window evaluation — parse & execute a VB snippet on this instance
 // ============================================================================
 Dictionary VisualGasicInstance::evaluate_immediate(const String &p_code) {
@@ -2521,7 +2545,7 @@ Dictionary VisualGasicInstance::evaluate_immediate(const String &p_code) {
         Variant val;
         if (get_variable(arg, val)) {
             result["success"] = true;
-            result["result"] = String(val);
+            result["result"] = _vb6_format_variant(val);
             return result;
         }
         // Try evaluating as a numeric literal or simple expression
@@ -2560,7 +2584,7 @@ Dictionary VisualGasicInstance::evaluate_immediate(const String &p_code) {
                 Variant tmp_val;
                 if (get_variable("__imm_result__", tmp_val)) {
                     result["success"] = true;
-                    result["result"] = String(tmp_val);
+                    result["result"] = _vb6_format_variant(tmp_val);
                     delete em;
                     return result;
                 }
@@ -2601,7 +2625,7 @@ Dictionary VisualGasicInstance::evaluate_immediate(const String &p_code) {
         Variant val;
         if (get_variable(trimmed, val)) {
             result["success"] = true;
-            result["result"] = String(val);
+            result["result"] = _vb6_format_variant(val);
         } else {
             result["success"] = false;
             result["result"] = "Parse error: " + parser.errors[0].message;
@@ -2610,7 +2634,7 @@ Dictionary VisualGasicInstance::evaluate_immediate(const String &p_code) {
         Variant val;
         if (get_variable(trimmed, val)) {
             result["success"] = true;
-            result["result"] = String(val);
+            result["result"] = _vb6_format_variant(val);
         } else {
             result["success"] = false;
             result["result"] = "Cannot evaluate: " + trimmed;
@@ -2627,10 +2651,50 @@ Dictionary VisualGasicInstance::evaluate_immediate(const String &p_code) {
 // Called from both AST interpreter (evaluate.inc / call.inc) and bytecode VM.
 // ============================================================================
 
+// ============================================================================
+// StringName-hashed property dispatch — O(1) lookup via HashMap
+// ============================================================================
+static int _vb6_prop_id(const String& name) {
+    static HashMap<StringName, int> map;
+    if (map.is_empty()) {
+        // Build once — StringName keys are interned for O(1) comparison
+        const struct { const char* name; int id; } entries[] = {
+            {"Text",1}, {"Caption",1}, {"Visible",2}, {"Enabled",3},
+            {"Left",4}, {"Top",5}, {"Width",6}, {"Height",7},
+            {"Value",8}, {"ToolTipText",9}, {"TabStop",10}, {"Opacity",11},
+            {"MousePointer",12}, {"Locked",13}, {"MaxLength",14},
+            {"Alignment",15}, {"WordWrap",16}, {"FontSize",17},
+            {"ForeColor",18}, {"BackColor",19}, {"FontBold",20},
+            {"FontItalic",21}, {"FontName",22}, {"FontUnderline",23},
+            {"FontStrikethrough",24}, {"BorderStyle",25}, {"Style",26},
+            {"Flat",26}, {"MultiLine",27}, {"ScrollBars",28},
+            {"PasswordChar",29}, {"PlaceholderText",30}, {"Editable",31},
+            {"SelStart",32}, {"SelLength",33}, {"SelText",34},
+            {"Picture",35}, {"Icon",36}, {"Tag",37}, {"Interval",38},
+            {"OneShot",39}, {"Autostart",40}, {"ListCount",41},
+            {"ListIndex",42}, {"Sorted",43}, {"AutoSize",44},
+            {"ClipText",45}, {"WindowState",46}, {"ShowInTaskbar",47},
+            {"Moveable",48}, {"MinButton",49}, {"MaxButton",50},
+            {"ControlBox",51}, {"ZOrder",52}, {"Rotation",53},
+            {"hWnd",54}, {"Name",55},
+            // New properties (v4.4.0)
+            {"BackStyle",56}, {"Appearance",57}, {"TabIndex",58},
+            {"Parent",59}, {"Container",60}, {"Index",61}, {"DragMode",62},
+        };
+        for (const auto& e : entries) {
+            map[StringName(e.name)] = e.id;
+        }
+    }
+    const int* p = map.getptr(StringName(name));
+    return p ? *p : -1;
+}
+
 // VB6 property READ alias resolution.
 // Returns true if the property was handled; result is set to the value.
 static bool _vb6_read_property(Object* obj, const String& prop_name, Variant& result) {
     if (!obj) return false;
+    // O(1) fast-reject for unknown property names
+    if (_vb6_prop_id(prop_name) < 0) return false;
 
     // Text / Caption
     if (prop_name == "Text" || prop_name == "Caption") {
@@ -3019,6 +3083,46 @@ static bool _vb6_read_property(Object* obj, const String& prop_name, Variant& re
         Node* node = Object::cast_to<Node>(obj);
         if (node) { result = node->get_name(); return true; }
     }
+    // ---- New properties (v4.4.0) ----
+    // BackStyle: 0 = Transparent, 1 = Opaque
+    if (prop_name == "BackStyle") {
+        result = obj->has_meta("vg_backstyle") ? (int)obj->get_meta("vg_backstyle") : 1;
+        return true;
+    }
+    // Appearance: 0 = Flat, 1 = 3D
+    if (prop_name == "Appearance") {
+        result = obj->has_meta("vg_appearance") ? (int)obj->get_meta("vg_appearance") : 1;
+        return true;
+    }
+    // TabIndex
+    if (prop_name == "TabIndex") {
+        result = obj->has_meta("vg_tabindex") ? (int)obj->get_meta("vg_tabindex") : 0;
+        return true;
+    }
+    // Parent — returns the parent Node
+    if (prop_name == "Parent") {
+        Node* node = Object::cast_to<Node>(obj);
+        if (node && node->get_parent()) { result = Variant(node->get_parent()); return true; }
+        result = Variant();
+        return true;
+    }
+    // Container — returns the parent container
+    if (prop_name == "Container") {
+        Node* node = Object::cast_to<Node>(obj);
+        if (node && node->get_parent()) { result = Variant(node->get_parent()); return true; }
+        result = Variant();
+        return true;
+    }
+    // Index (control array index)
+    if (prop_name == "Index") {
+        result = obj->has_meta("vg_index") ? (int)obj->get_meta("vg_index") : -1;
+        return true;
+    }
+    // DragMode: 0 = Manual, 1 = Automatic
+    if (prop_name == "DragMode") {
+        result = obj->has_meta("vg_dragmode") ? (int)obj->get_meta("vg_dragmode") : 0;
+        return true;
+    }
 
     return false; // Not a VB6 alias
 }
@@ -3027,6 +3131,8 @@ static bool _vb6_read_property(Object* obj, const String& prop_name, Variant& re
 // Returns true if the property was handled.
 static bool _vb6_write_property(Object* obj, const String& prop_name, const Variant& value) {
     if (!obj) return false;
+    // O(1) fast-reject for unknown property names
+    if (_vb6_prop_id(prop_name) < 0) return false;
 
     // Text / Caption
     if (prop_name == "Text" || prop_name == "Caption") {
@@ -3432,6 +3538,40 @@ static bool _vb6_write_property(Object* obj, const String& prop_name, const Vari
     if (prop_name == "Name") {
         Node* node = Object::cast_to<Node>(obj);
         if (node) { node->set_name(String(value)); return true; }
+    }
+    // ---- New properties (v4.4.0) ----
+    // BackStyle: 0 = Transparent, 1 = Opaque
+    if (prop_name == "BackStyle") {
+        obj->set_meta("vg_backstyle", (int)value);
+        Control* ctrl = Object::cast_to<Control>(obj);
+        if (ctrl) {
+            if ((int)value == 0) {
+                ctrl->set_self_modulate(Color(1, 1, 1, 0)); // Transparent
+            } else {
+                ctrl->set_self_modulate(Color(1, 1, 1, 1)); // Opaque
+            }
+        }
+        return true;
+    }
+    // Appearance: 0 = Flat, 1 = 3D
+    if (prop_name == "Appearance") {
+        obj->set_meta("vg_appearance", (int)value);
+        return true;
+    }
+    // TabIndex
+    if (prop_name == "TabIndex") {
+        obj->set_meta("vg_tabindex", (int)value);
+        return true;
+    }
+    // Index (control array index)
+    if (prop_name == "Index") {
+        obj->set_meta("vg_index", (int)value);
+        return true;
+    }
+    // DragMode: 0 = Manual, 1 = Automatic
+    if (prop_name == "DragMode") {
+        obj->set_meta("vg_dragmode", (int)value);
+        return true;
     }
 
     return false; // Not a VB6 alias

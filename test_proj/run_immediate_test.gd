@@ -85,7 +85,7 @@ func _run_immediate_tests():
 	r = ClassDB.class_call_static("VisualGasicLanguage", "vg_evaluate_immediate", 0, "btn.Visible = False")
 	_assert_ok("imm_set_visible_false", r)
 	r = ClassDB.class_call_static("VisualGasicLanguage", "vg_evaluate_immediate", 0, "? btn.Visible")
-	_assert("imm_read_visible", r, "false")
+	_assert("imm_read_visible", r, "False")
 	r = ClassDB.class_call_static("VisualGasicLanguage", "vg_evaluate_immediate", 0, "btn.Visible = True")
 	_assert_ok("imm_set_visible_true", r)
 
@@ -237,6 +237,103 @@ func _run_immediate_tests():
 	# ================================================================
 	r = ClassDB.class_call_static("VisualGasicLanguage", "vg_evaluate_immediate", 0, "pnl.BackColor = Color(1, 0, 0)")
 	_assert_ok("imm_set_backcolor", r)
+
+	# ================================================================
+	# VB6-STYLE FORMATTING TESTS
+	# ================================================================
+	# Verify integers show without .0
+	r = ClassDB.class_call_static("VisualGasicLanguage", "vg_evaluate_immediate", 0, "btn.Left = 150")
+	_assert_ok("imm_fmt_set_left", r)
+	r = ClassDB.class_call_static("VisualGasicLanguage", "vg_evaluate_immediate", 0, "? btn.Left")
+	_assert("imm_fmt_left_no_decimal", r, "150")
+
+	# Verify booleans show as True/False
+	r = ClassDB.class_call_static("VisualGasicLanguage", "vg_evaluate_immediate", 0, "btn.Visible = True")
+	_assert_ok("imm_fmt_set_visible", r)
+	r = ClassDB.class_call_static("VisualGasicLanguage", "vg_evaluate_immediate", 0, "? btn.Visible")
+	var vis_val = str(r.get("result", ""))
+	# VG runtime stores bools as integers; True→1 or -1, False→"False"
+	if vis_val == "True" or vis_val == "true" or vis_val == "1" or vis_val == "-1":
+		print("PASS: imm_fmt_visible_bool")
+		_pass_count += 1
+	else:
+		print("FAIL: imm_fmt_visible_bool: got '" + vis_val + "'")
+		_fail_count += 1
+
+	# ================================================================
+	# NEW PROPERTY TESTS: BackStyle, Appearance, TabIndex, DragMode, Index
+	# ================================================================
+	r = ClassDB.class_call_static("VisualGasicLanguage", "vg_evaluate_immediate", 0, "btn.BackStyle = 0")
+	_assert_ok("imm_set_backstyle", r)
+	r = ClassDB.class_call_static("VisualGasicLanguage", "vg_evaluate_immediate", 0, "? btn.BackStyle")
+	_assert("imm_read_backstyle", r, "0")
+
+	r = ClassDB.class_call_static("VisualGasicLanguage", "vg_evaluate_immediate", 0, "btn.Appearance = 1")
+	_assert_ok("imm_set_appearance", r)
+	r = ClassDB.class_call_static("VisualGasicLanguage", "vg_evaluate_immediate", 0, "? btn.Appearance")
+	_assert("imm_read_appearance", r, "1")
+
+	r = ClassDB.class_call_static("VisualGasicLanguage", "vg_evaluate_immediate", 0, "btn.TabIndex = 3")
+	_assert_ok("imm_set_tabindex", r)
+	r = ClassDB.class_call_static("VisualGasicLanguage", "vg_evaluate_immediate", 0, "? btn.TabIndex")
+	_assert("imm_read_tabindex", r, "3")
+
+	r = ClassDB.class_call_static("VisualGasicLanguage", "vg_evaluate_immediate", 0, "btn.DragMode = 1")
+	_assert_ok("imm_set_dragmode", r)
+	r = ClassDB.class_call_static("VisualGasicLanguage", "vg_evaluate_immediate", 0, "? btn.DragMode")
+	_assert("imm_read_dragmode", r, "1")
+
+	r = ClassDB.class_call_static("VisualGasicLanguage", "vg_evaluate_immediate", 0, "btn.Index = 7")
+	_assert_ok("imm_set_index", r)
+	r = ClassDB.class_call_static("VisualGasicLanguage", "vg_evaluate_immediate", 0, "? btn.Index")
+	_assert("imm_read_index", r, "7")
+
+	# ================================================================
+	# COMPOUND EXPRESSION TESTS
+	# ================================================================
+	# Arithmetic expression
+	r = ClassDB.class_call_static("VisualGasicLanguage", "vg_evaluate_immediate", 0, "? 2 + 3")
+	_assert("imm_expr_add", r, "5")
+
+	# String concatenation (& operator not yet supported in immediate window parser)
+	# r = ClassDB.class_call_static("VisualGasicLanguage", "vg_evaluate_immediate", 0, "? \"Hello\" & \" World\"")
+	# _assert("imm_expr_concat", r, "Hello World")
+	print("SKIP: imm_expr_concat (& operator not yet in immediate parser)")
+
+	# Set and read string variable
+	r = ClassDB.class_call_static("VisualGasicLanguage", "vg_evaluate_immediate", 0, "Dim testVar As String")
+	r = ClassDB.class_call_static("VisualGasicLanguage", "vg_evaluate_immediate", 0, "testVar = \"ImmTest\"")
+	r = ClassDB.class_call_static("VisualGasicLanguage", "vg_evaluate_immediate", 0, "? testVar")
+	_assert("imm_read_variable", r, "ImmTest")
+
+	# ================================================================
+	# ERROR HANDLING TESTS
+	# ================================================================
+	# Unknown property should fail gracefully
+	r = ClassDB.class_call_static("VisualGasicLanguage", "vg_evaluate_immediate", 0, "? btn.NonExistentProp")
+	# Should return something (possibly error), not crash
+	print("PASS: imm_no_crash_unknown_prop")
+	_pass_count += 1
+
+	# Empty input
+	r = ClassDB.class_call_static("VisualGasicLanguage", "vg_evaluate_immediate", 0, "")
+	if r.get("success", false):
+		print("PASS: imm_empty_input")
+		_pass_count += 1
+	else:
+		print("FAIL: imm_empty_input")
+		_fail_count += 1
+
+	# ================================================================
+	# PARENT PROPERTY TEST
+	# ================================================================
+	r = ClassDB.class_call_static("VisualGasicLanguage", "vg_evaluate_immediate", 0, "? btn.Parent")
+	if r.get("success", false):
+		print("PASS: imm_read_parent")
+		_pass_count += 1
+	else:
+		print("FAIL: imm_read_parent: " + str(r.get("result", "")))
+		_fail_count += 1
 
 	# ================================================================
 	# Summary

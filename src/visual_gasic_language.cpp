@@ -599,65 +599,126 @@ void VisualGasicLanguage::_add_form_properties_to_completion(Array& options, con
 }
 
 // Helper: Add control-specific properties to completion
+// Provides all 62 VB6 property aliases plus type-specific methods.
 void VisualGasicLanguage::_add_control_properties_to_completion(const String& control_class, Array& options, const String& filter) const {
     auto add_opt = [&](const String& name, int kind, const String& hint) {
         if (!filter.is_empty() && !name.to_lower().begins_with(filter.to_lower())) return;
         options.push_back(create_completion_option(name, kind, hint));
     };
-    
+    const int M = ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER;
+    const int F = ScriptLanguageExtension::CODE_COMPLETION_KIND_FUNCTION;
+
+    // ── Common VB6 properties (all controls) ────────────────────────────
+    add_opt("Name", M, "Control name");
+    add_opt("Caption", M, "Text / caption (alias for Text)");
+    add_opt("Text", M, "Text content");
+    add_opt("Visible", M, "Show/hide control");
+    add_opt("Enabled", M, "Enable/disable control");
+    add_opt("Left", M, "X position (pixels)");
+    add_opt("Top", M, "Y position (pixels)");
+    add_opt("Width", M, "Width (pixels)");
+    add_opt("Height", M, "Height (pixels)");
+    add_opt("Tag", M, "User-defined tag (Variant)");
+    add_opt("ToolTipText", M, "Tooltip on hover");
+    add_opt("TabStop", M, "Include in tab order (Boolean)");
+    add_opt("TabIndex", M, "Tab order index (Integer)");
+    add_opt("MousePointer", M, "Cursor shape (Integer)");
+    add_opt("BackColor", M, "Background color");
+    add_opt("ForeColor", M, "Foreground / font color");
+    add_opt("FontName", M, "Font family name (String)");
+    add_opt("FontSize", M, "Font size (Integer)");
+    add_opt("FontBold", M, "Bold font (Boolean)");
+    add_opt("FontItalic", M, "Italic font (Boolean)");
+    add_opt("FontUnderline", M, "Underline font (Boolean)");
+    add_opt("FontStrikethrough", M, "Strikethrough font (Boolean)");
+    add_opt("BorderStyle", M, "Border style (0=None, 1=Solid)");
+    add_opt("Opacity", M, "Opacity 0-100");
+    add_opt("ZOrder", M, "Z-index / draw order");
+    add_opt("Rotation", M, "Rotation in degrees");
+    add_opt("hWnd", M, "Instance ID / handle");
+    add_opt("BackStyle", M, "0=Transparent, 1=Opaque");
+    add_opt("Appearance", M, "0=Flat, 1=3D");
+    add_opt("Parent", M, "Parent node (read-only)");
+    add_opt("Container", M, "Parent container (read-only)");
+    add_opt("Index", M, "Control array index");
+    add_opt("DragMode", M, "0=Manual, 1=Automatic");
+
+    // ── Type-specific properties ────────────────────────────────────────
     if (control_class == "LineEdit") {
-        add_opt("Text", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Text content");
-        add_opt("MaxLength", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Maximum characters");
-        add_opt("PlaceholderText", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Placeholder text");
-        add_opt("Enabled", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Enable/disable");
-        add_opt("Visible", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Show/hide");
-        add_opt("ReadOnly", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Read-only mode");
-        add_opt("SelectAll", ScriptLanguageExtension::CODE_COMPLETION_KIND_FUNCTION, "Select all text");
-        add_opt("Clear", ScriptLanguageExtension::CODE_COMPLETION_KIND_FUNCTION, "Clear text");
+        add_opt("MaxLength", M, "Maximum characters");
+        add_opt("PlaceholderText", M, "Placeholder text");
+        add_opt("PasswordChar", M, "Password mask character");
+        add_opt("Locked", M, "Read-only (Boolean)");
+        add_opt("Editable", M, "Editable (Boolean)");
+        add_opt("SelStart", M, "Selection start position");
+        add_opt("SelLength", M, "Selection length");
+        add_opt("SelText", M, "Selected text");
+        add_opt("Alignment", M, "Text alignment");
+        add_opt("SelectAll", F, "Select all text");
+        add_opt("Clear", F, "Clear text");
     } else if (control_class == "Button") {
-        add_opt("Text", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Button caption");
-        add_opt("Enabled", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Enable/disable");
-        add_opt("Visible", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Show/hide");
-        add_opt("Flat", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Flat style");
+        add_opt("Flat", M, "Flat style (Boolean)");
+        add_opt("Style", M, "Button style (alias for Flat)");
+        add_opt("ClipText", M, "Clip long text (Boolean)");
+        add_opt("Icon", M, "Button icon (Texture)");
     } else if (control_class == "Label") {
-        add_opt("Text", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Label text");
-        add_opt("Visible", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Show/hide");
+        add_opt("WordWrap", M, "Word wrap (Boolean)");
+        add_opt("AutoSize", M, "Auto-size to content (Boolean)");
+        add_opt("Alignment", M, "Text alignment");
     } else if (control_class == "CheckBox" || control_class == "CheckButton") {
-        add_opt("Text", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Caption");
-        add_opt("Checked", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Checked state");
-        add_opt("Enabled", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Enable/disable");
-        add_opt("Visible", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Show/hide");
+        add_opt("Value", M, "Checked state (Boolean)");
+        add_opt("Flat", M, "Flat style");
     } else if (control_class == "OptionButton") {
-        add_opt("Selected", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Selected index");
-        add_opt("Text", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Selected text");
-        add_opt("AddItem", ScriptLanguageExtension::CODE_COMPLETION_KIND_FUNCTION, "Add item");
-        add_opt("Clear", ScriptLanguageExtension::CODE_COMPLETION_KIND_FUNCTION, "Clear items");
+        add_opt("ListCount", M, "Number of items");
+        add_opt("ListIndex", M, "Selected item index");
+        add_opt("Sorted", M, "Items sorted (Boolean)");
+        add_opt("AddItem", F, "Add item");
+        add_opt("Clear", F, "Clear all items");
     } else if (control_class == "TextEdit") {
-        add_opt("Text", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Text content");
-        add_opt("Visible", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Show/hide");
-        add_opt("ReadOnly", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Read-only mode");
-        add_opt("SelectAll", ScriptLanguageExtension::CODE_COMPLETION_KIND_FUNCTION, "Select all");
-        add_opt("Clear", ScriptLanguageExtension::CODE_COMPLETION_KIND_FUNCTION, "Clear text");
-    } else if (control_class == "ProgressBar" || control_class == "HSlider" || control_class == "VSlider") {
-        add_opt("Value", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Current value");
-        add_opt("MinValue", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Minimum");
-        add_opt("MaxValue", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Maximum");
-        add_opt("Visible", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Show/hide");
+        add_opt("MultiLine", M, "Multi-line mode (always True)");
+        add_opt("ScrollBars", M, "Scrollbar mode (0-3)");
+        add_opt("Locked", M, "Read-only (Boolean)");
+        add_opt("Editable", M, "Editable (Boolean)");
+        add_opt("SelStart", M, "Selection start");
+        add_opt("SelLength", M, "Selection length");
+        add_opt("SelText", M, "Selected text");
+        add_opt("WordWrap", M, "Word wrap (Boolean)");
+        add_opt("SelectAll", F, "Select all text");
+        add_opt("Clear", F, "Clear text");
+    } else if (control_class == "ProgressBar" || control_class == "HSlider" || control_class == "VSlider"
+               || control_class == "SpinBox" || control_class == "Range") {
+        add_opt("Value", M, "Current value");
+        add_opt("MinValue", M, "Minimum value");
+        add_opt("MaxValue", M, "Maximum value");
     } else if (control_class == "Timer") {
-        add_opt("WaitTime", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Interval");
-        add_opt("Start", ScriptLanguageExtension::CODE_COMPLETION_KIND_FUNCTION, "Start timer");
-        add_opt("Stop", ScriptLanguageExtension::CODE_COMPLETION_KIND_FUNCTION, "Stop timer");
-    } else {
-        // Generic control properties
-        add_opt("Text", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Text property");
-        add_opt("Visible", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Show/hide");
-        add_opt("Enabled", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Enable/disable");
-        add_opt("Position", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Position");
-        add_opt("Size", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Size");
-        add_opt("Name", ScriptLanguageExtension::CODE_COMPLETION_KIND_MEMBER, "Name");
-        add_opt("Show", ScriptLanguageExtension::CODE_COMPLETION_KIND_FUNCTION, "Show()");
-        add_opt("Hide", ScriptLanguageExtension::CODE_COMPLETION_KIND_FUNCTION, "Hide()");
+        add_opt("Interval", M, "Timer interval (ms)");
+        add_opt("OneShot", M, "Fire once (Boolean)");
+        add_opt("Autostart", M, "Auto-start (Boolean)");
+        add_opt("Start", F, "Start timer");
+        add_opt("Stop", F, "Stop timer");
+    } else if (control_class == "ItemList") {
+        add_opt("ListCount", M, "Number of items");
+        add_opt("ListIndex", M, "Selected item index");
+        add_opt("Sorted", M, "Items sorted (Boolean)");
+        add_opt("AddItem", F, "Add item");
+        add_opt("Clear", F, "Clear all items");
+    } else if (control_class == "TextureRect") {
+        add_opt("Picture", M, "Image texture");
+    } else if (control_class == "Window") {
+        add_opt("WindowState", M, "0=Normal, 1=Minimized, 2=Maximized");
+        add_opt("ShowInTaskbar", M, "Show in taskbar (Boolean)");
+        add_opt("Moveable", M, "Window moveable (Boolean)");
+        add_opt("MinButton", M, "Show minimize button (Boolean)");
+        add_opt("MaxButton", M, "Show maximize button (Boolean)");
+        add_opt("ControlBox", M, "Show title bar (Boolean)");
     }
+
+    // Methods available on all controls
+    add_opt("Show", F, "Show()");
+    add_opt("Hide", F, "Hide()");
+    add_opt("Move", F, "Move(Left, Top, [Width], [Height])");
+    add_opt("SetFocus", F, "SetFocus()");
+    add_opt("Refresh", F, "Refresh()");
 }
 
 Dictionary VisualGasicLanguage::_complete_code(const String &p_code, const String &p_path, Object *p_owner) const {
