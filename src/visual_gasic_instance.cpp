@@ -2537,14 +2537,26 @@ Dictionary VisualGasicInstance::evaluate_immediate(const String &p_code) {
             return result;
         }
         // For complex expressions (e.g. 1+2, Len(x)), use temp variable trick
+        // Wrap in a Sub so the parser handles assignments, member access, etc.
         {
             VisualGasicTokenizer et;
             VisualGasicParser ep;
-            String eval_code = "__imm_result__ = " + arg;
+            String eval_code = "Sub __imm_eval__\n__imm_result__ = " + arg + "\nEnd Sub";
             Vector<VisualGasicTokenizer::Token> et_tokens = et.tokenize(eval_code);
             ModuleNode* em = ep.parse(et_tokens);
-            if (em && ep.errors.size() == 0 && em->global_statements.size() > 0) {
-                execute_statement(em->global_statements[0]);
+            SubDefinition* eval_sub = nullptr;
+            if (em) {
+                for (int i = 0; i < em->subs.size(); i++) {
+                    if (em->subs[i]->name.nocasecmp_to("__imm_eval__") == 0) {
+                        eval_sub = em->subs[i];
+                        break;
+                    }
+                }
+            }
+            if (eval_sub && ep.errors.size() == 0 && eval_sub->statements.size() > 0) {
+                for (int i = 0; i < eval_sub->statements.size(); i++) {
+                    execute_statement(eval_sub->statements[i]);
+                }
                 Variant tmp_val;
                 if (get_variable("__imm_result__", tmp_val)) {
                     result["success"] = true;

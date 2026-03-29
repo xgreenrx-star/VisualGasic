@@ -1,0 +1,43 @@
+' Test: Immediate Window — VB6 property GET/SET via evaluate_immediate
+' This script creates controls; the GDScript runner tests property access
+' through the Immediate Window API.
+' MAX_FRAMES: 20
+Attribute VB_Name = "TestImmediateProperties"
+
+Dim alreadyRan As Boolean
+
+' Module-level variables so Immediate Window can access them
+Dim btn As Object
+Dim lbl As Object
+Dim le As Object
+Dim tmr As Object
+Dim pnl As Object
+
+Sub _Ready()
+    If alreadyRan = True Then Exit Sub
+    alreadyRan = True
+
+    ' Create controls and store in module-level variables
+    Set btn = CreateNode("Button")
+    btn.name = "btnImm"
+    AddChild btn
+    btn.Caption = "Original"
+
+    Set lbl = CreateNode("Label")
+    lbl.name = "lblImm"
+    AddChild lbl
+
+    Set le = CreateNode("LineEdit")
+    le.name = "txtImm"
+    AddChild le
+
+    Set tmr = CreateNode("Timer")
+    tmr.name = "tmrImm"
+    AddChild tmr
+
+    Set pnl = CreateNode("Panel")
+    pnl.name = "pnlImm"
+    AddChild pnl
+
+    Print "READY: controls_created"
+End Sub
