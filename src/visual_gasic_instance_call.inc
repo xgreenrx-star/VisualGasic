@@ -370,8 +370,17 @@ void VisualGasicInstance::call(const StringName &p_method, const Variant *const 
         for (int i = 0; i < keys.size(); i++) {
             String key = keys[i];
             // Skip internal/mutable objects that aren't user variables
-            if (key != "Err" && key != "__vg_Printer") {
+            if (key != "Err" && key != "__vg_Printer" && !builtin_constants.has(key)) {
                 result[key] = variables[key];
+            }
+        }
+        // Include bytecode locals from the current execution frame.
+        if (debug_bc_locals && debug_bc_chunk) {
+            for (int i = 0; i < debug_bc_chunk->local_names.size() && i < debug_bc_locals->size(); i++) {
+                const String &name = debug_bc_chunk->local_names[i];
+                if (!name.is_empty() && !name.begins_with("__") && !builtin_constants.has(name) && !result.has(name)) {
+                    result[name] = (*debug_bc_locals)[i];
+                }
             }
         }
         if (r_return) *r_return = result;
@@ -386,6 +395,19 @@ void VisualGasicInstance::call(const StringName &p_method, const Variant *const 
                 if (r_return) *r_return = variables[var_name];
             } else if (builtin_constants.has(var_name)) {
                 if (r_return) *r_return = builtin_constants[var_name];
+            } else if (debug_bc_locals && debug_bc_chunk) {
+                // Check bytecode locals for the current frame
+                bool found = false;
+                for (int i = 0; i < debug_bc_chunk->local_names.size() && i < debug_bc_locals->size(); i++) {
+                    if (debug_bc_chunk->local_names[i] == var_name) {
+                        if (r_return) *r_return = (*debug_bc_locals)[i];
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    if (r_return) *r_return = Variant();
+                }
             } else {
                 if (r_return) *r_return = Variant();
             }
@@ -1613,9 +1635,23 @@ void VisualGasicInstance::exit_scope(const String& scope_name) {
 }
 
 Dictionary VisualGasicInstance::get_debug_locals() const {
-    // Return current local variables for debugger
-    // Includes both function parameters and locally Dim'd variables
+    // Return current local variables for debugger.
+    // Prefers the live bytecode locals vector (debug_bc_locals) since
+    // bytecode locals may not be synced to the variables dictionary.
     Dictionary locals;
+
+    // If we're inside a bytecode frame, read directly from the locals vector.
+    if (debug_bc_locals && debug_bc_chunk) {
+        for (int i = 0; i < debug_bc_chunk->local_names.size() && i < debug_bc_locals->size(); i++) {
+            const String &name = debug_bc_chunk->local_names[i];
+            if (!name.is_empty() && !name.begins_with("__") && !builtin_constants.has(name)) {
+                locals[name] = (*debug_bc_locals)[i];
+            }
+        }
+        return locals;
+    }
+
+    // Fallback: AST interpreter path — read from variables dictionary.
     if (current_sub) {
         // Include parameters defined in current function
         for (int i = 0; i < current_sub->parameters.size(); i++) {
@@ -1756,8 +1792,8 @@ void VisualGasicInstance::_send_variables_to_debugger(EngineDebugger* debugger) 
     Array keys = variables.keys();
     for (int i = 0; i < keys.size(); i++) {
         String key = keys[i];
-        // Skip internal constants starting with "vb" and the Err object
-        if (!key.begins_with("vb") && key != "Err") {
+        // Skip internal objects that aren't user variables
+        if (key != "Err" && key != "__vg_Printer" && !builtin_constants.has(key)) {
             Variant val = variables[key];
             // Convert complex types to string representation for display
             if (val.get_type() == Variant::OBJECT) {
@@ -1769,6 +1805,23 @@ void VisualGasicInstance::_send_variables_to_debugger(EngineDebugger* debugger) 
                 }
             } else {
                 vars[key] = val;
+            }
+        }
+    }
+
+    // Include bytecode locals from the current execution frame.
+    // These live on the stack, not in the variables dictionary.
+    if (debug_bc_locals && debug_bc_chunk) {
+        for (int i = 0; i < debug_bc_chunk->local_names.size() && i < debug_bc_locals->size(); i++) {
+            const String &name = debug_bc_chunk->local_names[i];
+            if (!name.is_empty() && !name.begins_with("__") && !builtin_constants.has(name) && !vars.has(name)) {
+                Variant val = (*debug_bc_locals)[i];
+                if (val.get_type() == Variant::OBJECT) {
+                    Object* obj = val;
+                    vars[name] = obj ? (String("<") + obj->get_class() + String(">")) : String("Nothing");
+                } else {
+                    vars[name] = val;
+                }
             }
         }
     }

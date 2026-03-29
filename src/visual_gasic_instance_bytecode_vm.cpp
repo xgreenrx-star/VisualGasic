@@ -458,6 +458,14 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         }
     }
 
+    // Expose the current bytecode frame's locals to the debugger.
+    // Saved/restored so nested execute_bytecode() calls (e.g. Function calls)
+    // don't clobber the outer frame's pointer on return.
+    Vector<Variant>* prev_debug_bc_locals = debug_bc_locals;
+    BytecodeChunk*   prev_debug_bc_chunk  = debug_bc_chunk;
+    debug_bc_locals = &locals;
+    debug_bc_chunk  = chunk;
+
     // When running as a parallel worker (p_initial_locals provided), keep
     // all local variable access thread-local — never touch the shared
     // variables[] Dictionary.  This enables lock-free parallel execution.
@@ -6051,6 +6059,10 @@ cleanup:
     restore_vm();
     finalize_stack_profile();
     finalize_profile();
+
+    // Restore the outer frame's debug pointers (for nested calls).
+    debug_bc_locals = prev_debug_bc_locals;
+    debug_bc_chunk  = prev_debug_bc_chunk;
     
     // Pop debug stack frame (must match push above; skipped for parallel workers and sub-range bodies)
     if (!is_parallel_worker && !is_sub_range) {

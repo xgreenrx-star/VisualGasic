@@ -26,6 +26,13 @@ class VisualGasicInstance {
     Dictionary static_variables; // Persist across calls (Static keyword)
     Dictionary module_registry; // Module name -> Dictionary of module variables
 
+    // Debug: pointer to the current bytecode frame's locals so the debugger
+    // can inspect local variables during a breakpoint pause.
+    // Set at the top of execute_bytecode(), cleared on exit.  Only valid
+    // during execution (never stored across calls).
+    Vector<Variant>* debug_bc_locals = nullptr;
+    BytecodeChunk*   debug_bc_chunk  = nullptr;
+
     // Multi-module compilation (v4.3.0) — imported module ASTs for cross-file calls
     struct ImportedModule {
         String module_name;         // Base filename without extension
