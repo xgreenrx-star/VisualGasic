@@ -280,6 +280,8 @@ See the [demos/](demos/) directory for source code.
 
 ## 📖 **Documentation**
 
+> 📚 **[Documentation Hub](docs/DOCS.md)** — Master index linking to every doc file with descriptions.
+
 ### **Core Documentation**
 - [**Built-in Functions Reference**](docs/reference/BUILTIN_FUNCTIONS_REFERENCE.md) - Complete API documentation (108 functions)
 - [**VB6 Features**](docs/reference/VB6_FEATURES_IMPLEMENTATION.md) - VB6 compatibility reference
