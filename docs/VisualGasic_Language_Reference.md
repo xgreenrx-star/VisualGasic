@@ -58,20 +58,20 @@
   - [Performance: Data/Read vs Arrays](#performance-dataread-vs-arrays)
 - [Game and Application Development Functions](#game-and-application-development-functions)
 
-### [VB6 Global Objects (v2.10.0)](#vb6-global-objects)
+### [VB6 Global Objects](#vb6-global-objects)
 - [App Object](#app-object)
 - [Screen Object](#screen-object)
 - [Err Object](#err-object)
 - [Printer Object](#printer-object)
 - [PrintForm Statement](#printform-statement)
 
-### [COM-Style Objects (v2.10.0)](#com-style-objects)
+### [COM-Style Objects](#com-style-objects)
 - [VGCollection](#vgcollection)
 - [VGRegEx](#vgregex)
 - [VGHttpRequest](#vghttprequest)
 - [VGTimer](#vgtimer)
 
-### [System Integration (v3.0)](#system-integration)
+### [System Integration](#system-integration)
 - [NativeLibrary (FFI)](#nativelibrary-ffi)
 - [NativeStruct](#nativestruct)
 - [VGOdbc (Database)](#vgodbc-database)
@@ -82,7 +82,7 @@
 - [VGTaskRunner (Parallel)](#vgtaskrunner-parallel)
 - [VisualGasicPackage (Package Manager)](#visualgasicpackage-package-manager)
 
-### [System-Level Programming (v3.1)](#system-level-programming)
+### [System-Level Programming](#system-level-programming)
 - [VGSystem (System Info)](#vgsystem-system-info)
 - [VGSignalHandler (OS Signals)](#vgsignalhandler-os-signals)
 - [VGFilePermissions (Permissions & Links)](#vgfilepermissions-permissions--links)
@@ -145,8 +145,7 @@ Whether you're creating desktop applications, mobile apps, web software, or inte
 - Built-in functions for game and application development
 - Type safety with optional explicit typing
 
-### Visual Basic Heritage {#visual-basic-heritage}
-
+### Visual Basic Heritage
 VisualGasic takes its inspiration from **Visual Basic 6.0** (VB6), one of the most successful programming languages in history. If you have experience with VB6, VBA (Visual Basic for Applications), or any BASIC dialect, you'll feel right at home with VisualGasic.
 
 However, **VisualGasic is not a VB6 clone or reimplementation**. It is its own language. VB6's genius was its simplicity — anyone could learn it, and you could build real software in minutes. VisualGasic preserves that spirit while adding the features that modern developers expect: lambda expressions, async/await concurrency, pattern matching, null-safe operators (`??`, `?.`), generics, GPU computing, and a JIT-compiled bytecode engine. VB6 code will often run in VisualGasic with minimal changes, but VisualGasic code can do things VB6 never could.
@@ -665,8 +664,7 @@ The **Property Inspector** (right dock) shows VB6-style properties for selected 
 - **Font** - Text font properties
 - **BackColor/ForeColor** - Colors
 
-### Game UI Mode (v3.7.0) {#game-ui-mode}
-
+### Game UI Mode
 The Form Designer supports a **Game UI Mode** that generates `CanvasLayer` overlays for in-game HUD elements instead of standalone `Window` nodes.
 
 **Enabling Game UI Mode:**
@@ -1326,7 +1324,7 @@ VisualGasic provides a comprehensive set of keywords for modern game development
 - `Error` - Error keyword
 - `Resume` - Resume after error
 - `Resume Next` - Resume at next statement after error
-- `GoSub` - Jump to label and return (v2.10.0 — fully implemented)
+- `GoSub` - Jump to label and return
 - `Return` - Return from GoSub
 - `GoTo` - Jump to label
 - `Try` - Start try block
@@ -1374,21 +1372,21 @@ VisualGasic provides a comprehensive set of keywords for modern game development
 - `Data` - Data statement (supports empty slots with consecutive commas)
 - `Read` - Read data (supports typed Read: `Read x As Integer`)
 - `Restore` - Restore data pointer (case-insensitive label matching)
-- `ClearData` - Clear data tape and reset pointer *(New in v3.2.0)*
-- `DataFromString` - Parse a string as data values and append to tape *(New in v3.2.0)*
+- `ClearData` - Clear data tape and reset pointer
+- `DataFromString` - Parse a string as data values and append to tape
 - `DataFile` - Include data from external file at parse time
 - `LoadData` - Load data from external file at runtime
-- `DataCount()` - Total items or items in named section *(New in v3.2.0)*
-- `DataRemain()` - Items remaining from current pointer *(New in v3.2.0)*
-- `DataSectionCount()` - Items in current labeled section *(New in v3.2.0)*
-- `DataSectionRemain()` - Remaining items in current section *(New in v3.2.0)*
-- `DataPointer()` - Current read position *(New in v3.2.0)*
-- `PeekData(index)` - Random-access read by absolute index *(New in v3.2.0)*
-- `PeekData("label", offset)` - Random-access read relative to a labeled section *(New in v3.2.0)*
-- `SetDataPointer(n)` - Set the read pointer to an arbitrary position *(New in v3.2.0)*
-- `DataLabels()` - Array of all label names in the data tape *(New in v3.2.0)*
-- `DataSectionName()` - Label name of the current section *(New in v3.2.0)*
-- `DataToArray()` / `DataToArray("label")` / `DataToArray(n)` - Bulk-read data into an Array *(New in v3.2.0)*
+- `DataCount()` - Total items or items in named section
+- `DataRemain()` - Items remaining from current pointer
+- `DataSectionCount()` - Items in current labeled section
+- `DataSectionRemain()` - Remaining items in current section
+- `DataPointer()` - Current read position
+- `PeekData(index)` - Random-access read by absolute index
+- `PeekData("label", offset)` - Random-access read relative to a labeled section
+- `SetDataPointer(n)` - Set the read pointer to an arbitrary position
+- `DataLabels()` - Array of all label names in the data tape
+- `DataSectionName()` - Label name of the current section
+- `DataToArray()` / `DataToArray("label")` / `DataToArray(n)` - Bulk-read data into an Array
 
 #### **Advanced Features**
 - `Include` - Include external file
@@ -1497,7 +1495,7 @@ VisualGasic provides a comprehensive set of keywords for modern game development
 - `SaveImage` - Save Image as PNG file
 - `GetTextureImage` - Extract Image from ImageTexture
 
-#### **Graphics & Drawing — Native Image Drawing** *(New in v4.2.0-beta5)*
+#### **Graphics & Drawing — Native Image Drawing**
 
 These builtins draw directly on an `Image` object in **native C++** for maximum speed.
 Call `UpdateTexture tex, img` afterwards to push changes to screen.
@@ -1676,14 +1674,14 @@ fullName = firstName & " " & lastName  ' Concatenation
 If pattern Like "A*" Then              ' Pattern matching
 ```
 
-#### Bit-Shift Operators *(v3.6.0)*
+#### Bit-Shift Operators
 ```vb
 result = 1 << 4    ' Left shift  (16)
 result = 256 >> 3   ' Right shift (32)
 result = flags << n  ' Shift by variable amount
 ```
 
-#### Compound Assignment Operators *(v3.6.0)*
+#### Compound Assignment Operators
 ```vb
 x += 5     ' x = x + 5
 x -= 3     ' x = x - 3
@@ -1696,7 +1694,7 @@ x <<= 4    ' x = x << 4      (left shift)
 x >>= 2    ' x = x >> 2      (right shift)
 ```
 
-#### Keyword Compound Assignment Operators *(v3.8.0)*
+#### Keyword Compound Assignment Operators
 ```vb
 flags And= mask      ' flags = flags And mask   (bitwise AND)
 flags Or= newFlag    ' flags = flags Or newFlag (bitwise OR)
@@ -1895,9 +1893,9 @@ End Sub
 The `Err` object provides:
 - `Err.Number` — Error code (0 = no error)
 - `Err.Description` — Human-readable error message
-- `Err.Source` — Source of the error (v2.10.0)
+- `Err.Source` — Source of the error
 - `Err.Clear` — Reset the error state
-- `Err.Raise number, source, description` — Raise a custom error (v2.10.0)
+- `Err.Raise number, source, description` — Raise a custom error
 
 ```vb
 ' Raise a custom error
@@ -2036,8 +2034,7 @@ End Sub
 
 ## Object-Oriented Features
 
-### Method Overloading (v3.7.0) {#method-overloading}
-
+### Method Overloading
 Define multiple `Sub` or `Function` with the same name but different parameter counts.
 The runtime selects the best match based on the number of arguments passed (arity-based dispatch).
 
@@ -2078,8 +2075,7 @@ Print calc.Add(1, 2, 3) ' → 6
 - Falls back to first-match if no arity match is found (backward compatibility)
 - Works in module-level subs/functions, class methods, and bytecode-compiled code
 
-### Parameterized Constructors (v3.7.0) {#parameterized-constructors}
-
+### Parameterized Constructors
 Pass arguments to `Class_Initialize` when creating new objects.
 
 ```vb
@@ -2105,8 +2101,7 @@ Dim b2 As New Bullet(200, 90, 25)
 - Arguments are passed directly to `Class_Initialize` parameters
 - Works with `Dim x = New Class(args)` and `Dim x As New Class(args)` forms
 
-### Generics Phase 1 — Collection(Of T) (v3.7.0) {#generics}
-
+### Generics Phase 1 — Collection(Of T)
 Type-safe collections with runtime type validation on `.Add()`.
 
 ```vb
@@ -2210,10 +2205,9 @@ Class Enemy Implements IDamageable
 End Class
 ```
 
-> **Implements Runtime Verification (v3.5.0):** When a module declares `Implements IFoo`, VisualGasic checks at load time that at least one `IFoo_*` method exists in the module. If none is found, a warning is printed to the console so you can catch unimplemented interfaces early.
+> **Implements Runtime Verification:** When a module declares `Implements IFoo`, VisualGasic checks at load time that at least one `IFoo_*` method exists in the module. If none is found, a warning is printed to the console so you can catch unimplemented interfaces early.
 
-### Events (WithEvents / RaiseEvent) {#events-withevents--raiseevent}
-
+### Events (WithEvents / RaiseEvent)
 VisualGasic supports VB6-style custom events with `Event`, `RaiseEvent`, and `WithEvents`.
 
 #### Declaring and Raising Events
@@ -2426,7 +2420,7 @@ Dim padded = PadRight("Hi", 5)          ' "Hi   "
 Dim reversed = StrReverse("Hello")      ' "olleH"
 ```
 
-### Date/Time Functions *(New in v2.5.0)*
+### Date/Time Functions
 
 ```vb
 ' Day of week (1=Sunday, 7=Saturday by default)
@@ -2440,7 +2434,7 @@ Dim month = MonthName(1)                ' "January"
 Dim mabbr = MonthName(1, True)          ' "Jan"
 ```
 
-### System/Environment Functions *(New in v2.5.0)*
+### System/Environment Functions
 
 ```vb
 ' VB6 16-color palette
@@ -2456,7 +2450,7 @@ Dim home = Environ("HOME")
 Beep                                    ' Prints "[BEEP]" to console
 ```
 
-### File System Functions *(New in v2.5.0)*
+### File System Functions
 
 ```vb
 ' Directory management
@@ -2469,7 +2463,7 @@ RmDir "res://temp"                      ' Remove directory
 FileCopy "source.txt", "dest.txt"       ' Copy a file
 ```
 
-### Debugging Statements *(New in v2.5.0)*
+### Debugging Statements
 
 ```vb
 ' Break into debugger — equivalent to VB6 Stop
@@ -2597,8 +2591,7 @@ Clipboard.SetText("Hello!")       ' Copy text to clipboard
 Clipboard.Clear()                 ' Clear clipboard contents
 ```
 
-### File I/O Functions (Classic VB6 Style) {#file-io-functions-classic-vb6-style}
-
+### File I/O Functions (Classic VB6 Style)
 ```vb
 ' File operations
 Dim fileNum As Integer = FreeFile()  ' Get available file handle
@@ -2622,8 +2615,7 @@ Dim size As Long = FileLen("data.txt")
 Dim exists As Boolean = (Dir("data.txt") <> "")
 ```
 
-#### File I/O Statements (v2.10.0)
-
+#### File I/O Statements
 `Print #`, `Write #`, `Input #`, and `Line Input #` statements are now compiled to dedicated bytecode opcodes for full VB6-compatible sequential file I/O:
 
 ```vb
@@ -2645,8 +2637,7 @@ Print name & ": " & CStr(score)    ' "Alice: 100"
 Close f
 ```
 
-### Classic DATA Statements {#classic-data-statements}
-
+### Classic DATA Statements
 **Classic DATA statements are back — and better than ever!**
 
 Remember storing game data, level layouts, and lookup tables right in your code? VisualGasic brings back the beloved `Data`, `Read`, and `Restore` statements from classic BASIC, enhanced with modern features like external data files and labeled data sections.
@@ -2775,7 +2766,7 @@ For i = 1 To enemyCount
 Next
 ```
 
-#### Typed Read *(New in v3.2.0)*
+#### Typed Read
 
 Coerce values to a specific type at read time with `Read variable As Type`:
 
@@ -2837,7 +2828,7 @@ For i = 1 To 2
 Next
 ```
 
-#### Empty Data Slots *(New in v3.2.0)*
+#### Empty Data Slots
 
 Use consecutive commas to insert `Nothing` (null) values:
 
@@ -2888,7 +2879,7 @@ Data,, True,            ' Checkpoint 3: has boss only
 Data True, True,, True  ' Checkpoint 4: key + shop + safe
 ```
 
-#### ClearData Statement *(New in v3.2.0)*
+#### ClearData Statement
 
 Clear the entire data tape and reset the read pointer:
 
@@ -2951,7 +2942,7 @@ RunTest "42, 42"    ' PASS
 RunTest "10, 20"    ' FAIL: got 10 expected 20
 ```
 
-#### DataFromString Statement *(New in v3.2.0)*
+#### DataFromString Statement
 
 Parse a string expression as comma-separated data values and append them to the data tape. This is the runtime equivalent of `LoadData` but takes a string variable or expression instead of a file path:
 
@@ -3062,7 +3053,7 @@ Sub SaveSettings()
 End Sub
 ```
 
-#### Data Introspection Functions *(New in v3.2.0)*
+#### Data Introspection Functions
 
 Query the state of the data tape at runtime:
 
@@ -3384,7 +3375,7 @@ Dim targetFPS As Integer
 Read title, width, height, fullscreen, targetFPS
 ```
 
-#### Putting It All Together *(v3.2.0 Features)*
+#### Putting It All Together
 
 This example combines **DataFromString**, **ClearData**, **Typed Read**, **Empty Data Slots**, **Data Introspection**, **PeekData**, **SetDataPointer**, **DataLabels**, **DataSectionName**, and **DataToArray** in a realistic game scenario:
 
@@ -3521,8 +3512,7 @@ Sub _Ready()
 End Sub
 ```
 
-#### Performance: Data/Read vs Arrays {#performance-dataread-vs-arrays}
-
+#### Performance: Data/Read vs Arrays
 Benchmark: 500 values × 200 iterations (100,000 sequential reads per test). All tests produce the same checksum to ensure correctness.
 
 | Test | Time (µs) | Reads/sec | vs Array Read |
@@ -3541,8 +3531,7 @@ Benchmark: 500 values × 200 iterations (100,000 sequential reads per test). All
 
 > *Benchmark script: `demo/bench_data_vs_array.vg` — run with `./Godot --headless --path demo -s run_vg.gd -- bench_data_vs_array.vg`*
 
-### Game and Application Development Functions {#game-and-application-development-functions}
-
+### Game and Application Development Functions
 ```vb
 ' Audio (games and multimedia applications)
 Volume 75                           ' Set master volume (0-100)
@@ -3657,12 +3646,10 @@ Print "Texture: " & Str(TextureWidth(tex)) & "x" & Str(TextureHeight(tex))
 
 ---
 
-## VB6 Global Objects {#vb6-global-objects}
+## VB6 Global Objects
+These virtual objects emulate VB6's built-in global objects. They are resolved automatically when referenced by name — no `Dim` or `New` required.
 
-*Added in v2.10.0.* These virtual objects emulate VB6's built-in global objects. They are resolved automatically when referenced by name — no `Dim` or `New` required.
-
-### App Object {#app-object}
-
+### App Object
 The `App` object provides information about the running application, mirroring VB6's `App` global.
 
 | Property | Type | Description |
@@ -3682,8 +3669,7 @@ Print "Running from: " & App.Path
 Print "Application: " & App.Title & " v" & CStr(App.Major) & "." & CStr(App.Minor)
 ```
 
-### Screen Object {#screen-object}
-
+### Screen Object
 The `Screen` object provides display information, mirroring VB6's `Screen` global.
 
 | Property | Type | Description |
@@ -3698,8 +3684,7 @@ The `Screen` object provides display information, mirroring VB6's `Screen` globa
 Print "Resolution: " & CStr(Screen.Width) & "x" & CStr(Screen.Height)
 ```
 
-### Err Object {#err-object}
-
+### Err Object
 The `Err` object is also documented under [Error Handling](#error-handling). It provides runtime error information and supports `Err.Raise` and `Err.Clear`:
 
 ```vb
@@ -3712,9 +3697,8 @@ Err.Clear
 On Error GoTo 0
 ```
 
-### Printer Object {#printer-object}
-
-*Added in v3.5.0-beta4.* The `Printer` object emulates VB6's global `Printer` object for generating printed output. It is resolved automatically by name — no `Dim` required.
+### Printer Object
+The `Printer` object emulates VB6's global `Printer` object for generating printed output. It is resolved automatically by name — no `Dim` required.
 
 #### Methods
 
@@ -3759,9 +3743,8 @@ Printer.Print "Page 2 content"
 Printer.EndDoc
 ```
 
-### PrintForm Statement {#printform-statement}
-
-*Added in v3.5.0-beta4.* `PrintForm` captures the current viewport to a PNG image file, emulating VB6's `PrintForm` statement.
+### PrintForm Statement
+`PrintForm` captures the current viewport to a PNG image file, emulating VB6's `PrintForm` statement.
 
 ```vb
 ' Capture the current form/viewport to an image
@@ -3772,12 +3755,10 @@ The image is saved to `user://printform_output.png` in the Godot user data direc
 
 ---
 
-## COM-Style Objects {#com-style-objects}
+## COM-Style Objects
+These classes emulate common VB6/VBScript COM objects. Instantiate with `Dim obj As New ClassName` or via `CreateObject("ProgID")`.
 
-*Added in v2.10.0.* These classes emulate common VB6/VBScript COM objects. Instantiate with `Dim obj As New ClassName` or via `CreateObject("ProgID")`.
-
-### VGCollection {#vgcollection}
-
+### VGCollection
 A VB6-compatible ordered collection with optional string keys and **1-based indexing**.
 
 **Aliases:** `New Collection` · `CreateObject("VB6.Collection")` · `CreateObject("VBA.Collection")`
@@ -3808,8 +3789,7 @@ Print col.Count              ' 2
 col.Clear
 ```
 
-### VGRegEx {#vgregex}
-
+### VGRegEx
 VBScript.RegExp emulation wrapping Godot's PCRE2-based RegEx engine.
 
 **Aliases:** `New RegExp` · `CreateObject("VBScript.RegExp")`
@@ -3836,8 +3816,7 @@ Dim result As String = re.Replace("abc123def456", "NUM")
 Print result    ' "abcNUMdefNUM"
 ```
 
-### VGHttpRequest {#vghttprequest}
-
+### VGHttpRequest
 MSXML2.XMLHTTP emulation wrapping Godot HTTPClient. Suitable for REST API calls.
 
 **Aliases:** `New HttpRequest` · `New XMLHTTP` · `CreateObject("MSXML2.XMLHTTP")`
@@ -3861,8 +3840,7 @@ If http.status = 200 Then
 End If
 ```
 
-### VGTimer {#vgtimer}
-
+### VGTimer
 A poll-based timer control for periodic events. Also provides the `Timer()` function.
 
 **Aliases:** `New VBTimer` · `New Timer`
@@ -3887,14 +3865,12 @@ tmr.Enabled = True
 
 ---
 
-## System Integration {#system-integration}
-
-*Added in v3.0.* These classes provide C#-level system integration: native FFI, ODBC databases, cryptography, XML, ZIP, async threading, and package management. All classes use VB6-style PascalCase aliases for a familiar BASIC feel.
+## System Integration
+These classes provide C#-level system integration: native FFI, ODBC databases, cryptography, XML, ZIP, async threading, and package management. All classes use VB6-style PascalCase aliases for a familiar BASIC feel.
 
 > **See also:** [docs/SYSTEM_INTEGRATION.md](SYSTEM_INTEGRATION.md) for the full API reference with extended examples.
 
-### NativeLibrary (FFI) {#nativelibrary-ffi}
-
+### NativeLibrary (FFI)
 Load any shared library (`.so`, `.dll`, `.dylib`) and call its C functions — the cross-platform equivalent of VB6's `Declare Function`.
 
 **Aliases:** `New NativeLibrary`
@@ -3929,8 +3905,7 @@ lib.Unload
 
 **Supported FFI Types:** `void`, `int`, `uint`, `long`, `ulong`, `float`, `double`, `pointer`, `string`, `int8`, `uint8`, `int16`, `uint16`, `int32`, `uint32`, `int64`, `uint64`
 
-### NativeStruct {#nativestruct}
-
+### NativeStruct
 Describe C struct memory layouts and allocate/read/write fields.
 
 **Aliases:** `New NativeStruct`
@@ -3963,8 +3938,7 @@ Print s.GetField(h, "x")                    ' 100
 s.Destroy h
 ```
 
-### VGOdbc (Database) {#vgodbc-database}
-
+### VGOdbc (Database)
 Connect to any ODBC database — PostgreSQL, MySQL, SQL Server, SQLite, Oracle, and more. The ODBC driver is loaded dynamically at runtime.
 
 **Aliases:** `New VGOdbc`
@@ -4012,8 +3986,7 @@ db.CommitTransaction
 db.Close
 ```
 
-### VGCrypto (Cryptography) {#vgcrypto-cryptography}
-
+### VGCrypto (Cryptography)
 Static utility class for hashing, encoding, encryption, and random generation.
 
 | Method | Description |
@@ -4046,8 +4019,7 @@ Dim id As String = VGCrypto.generate_uuid()
 Print id   ' "550e8400-e29b-41d4-a716-446655440000"
 ```
 
-### VGXml (XML Processing) {#vgxml-xml-processing}
-
+### VGXml (XML Processing)
 Read, write, parse, and query XML documents.
 
 **Aliases:** `New VGXml`
@@ -4081,8 +4053,7 @@ Print "Found " & CStr(books.size()) & " books"
 xml.SaveFile "user://output.xml"
 ```
 
-### VGZip (ZIP Archives) {#vgzip-zip-archives}
-
+### VGZip (ZIP Archives)
 Create, read, and extract ZIP archives.
 
 **Aliases:** `New VGZip`
@@ -4122,8 +4093,7 @@ reader.extract_to "user://restored/"
 reader.Close
 ```
 
-### VGTask (Async Tasks) {#vgtask-async-tasks}
-
+### VGTask (Async Tasks)
 Run work on a background thread without freezing the game. Wraps `std::thread` with Godot-safe signalling.
 
 **Aliases:** `New VGTask`
@@ -4161,8 +4131,7 @@ task.Cancel
 Print task.IsCancelled   ' True
 ```
 
-### VGTaskRunner (Parallel) {#vgtaskrunner-parallel}
-
+### VGTaskRunner (Parallel)
 Run multiple tasks in parallel and collect their results.
 
 **Aliases:** `New VGTaskRunner`
@@ -4193,8 +4162,7 @@ For i = 0 To results.size() - 1
 Next i
 ```
 
-### VisualGasicPackage (Package Manager) {#visualgasicpackage-package-manager}
-
+### VisualGasicPackage (Package Manager)
 Manage project dependencies with semantic versioning, registries, and `vgpkg.json` manifests.
 
 **Aliases:** `New VisualGasicPackage`
@@ -4270,14 +4238,12 @@ xl.Cells(1, 1).Value = "Hello from VisualGasic!"
 
 ---
 
-## System-Level Programming {#system-level-programming}
-
-*Added in v3.1.* These classes close every gap identified in the system-programming audit, making VisualGasic a proper system-level language on Linux, Windows, macOS, and Android.
+## System-Level Programming
+These classes close every gap identified in the system-programming audit, making VisualGasic a proper system-level language on Linux, Windows, macOS, and Android.
 
 > **See also:** [docs/SYSTEM_INTEGRATION.md](SYSTEM_INTEGRATION.md) for the full API reference with extended examples.
 
-### VGSystem (System Info) {#vgsystem-system-info}
-
+### VGSystem (System Info)
 Cross-platform system information queries — hostname, CPU, RAM, disk, OS, uptime, environment variables, and locale.
 
 | Method | Returns | Description |
@@ -4321,8 +4287,7 @@ Print "Locale: " & sys.GetLocale()
 Print "HOME=" & sys.GetEnv("HOME")
 ```
 
-### VGSignalHandler (OS Signals) {#vgsignalhandler-os-signals}
-
+### VGSignalHandler (OS Signals)
 Handle OS-level signals (SIGINT, SIGTERM, SIGHUP) and atexit cleanup. On Windows, maps to `SetConsoleCtrlHandler` events.
 
 | Method | Description |
@@ -4348,8 +4313,7 @@ sh.OnExit(Lambda() => Print("Cleaning up..."))
 sh.OnTerminate(Lambda() => Print("Shutting down gracefully"))
 ```
 
-### VGFilePermissions (Permissions & Links) {#vgfilepermissions-permissions--links}
-
+### VGFilePermissions (Permissions & Links)
 UNIX file permissions, ownership, symbolic links, file locking, and VB6-style file attributes.
 
 | Method | Returns | Description |
@@ -4395,8 +4359,7 @@ If fp.TryLockFile("/tmp/data.lock") Then
 End If
 ```
 
-### VGMemoryBuffer (Raw Memory) {#vgmemorybuffer-raw-memory}
-
+### VGMemoryBuffer (Raw Memory)
 Raw byte-level memory buffer with Peek/Poke access — the VB6 equivalent of `CopyMemory` / `RtlMoveMemory`. Useful for binary protocols, FFI interop, and system programming.
 
 | Method | Description |
@@ -4446,8 +4409,7 @@ Print buf.HexDump(0, 16)
 buf.Free
 ```
 
-### VGIPC (Inter-Process Communication) {#vgipc-inter-process-communication}
-
+### VGIPC (Inter-Process Communication)
 Named pipes, UNIX domain sockets, and POSIX shared memory for communicating between processes.
 
 #### Named Pipes
@@ -4513,8 +4475,7 @@ srv.WriteSocket "ACK: " & msg
 srv.CloseSocket
 ```
 
-### VGAndroidBridge (Android Platform) {#vgandroidbridge-android-platform}
-
+### VGAndroidBridge (Android Platform)
 JNI bridge for Android platform APIs. All methods return safe defaults on non-Android platforms (Linux, Windows, macOS).
 
 | Method | Returns | Description |
@@ -5697,8 +5658,7 @@ Dim values = Color.Values()      ' → [{Name: "Red", Value: 1}, ...]
 Print Color.ToString(3)          ' → Blue
 ```
 
-#### `<Flags>` Enum *(v3.8.0)* {#flags-enum}
-
+#### `<Flags>` Enum
 Mark an enum as a bitfield with the `<Flags>` attribute. This enables `HasFlag()` and flags-aware `ToString()` decomposition:
 
 ```vb
@@ -5817,12 +5777,10 @@ End Module
 
 ---
 
-## v3.5.0-beta4 Language Enhancements {#v350-beta4-language-enhancements}
-
+## v3.5.0-beta4 Language Enhancements
 *Released in v3.5.0-beta4.* This release adds core VB6 desktop-application features to bring VisualGasic closer to full VB6 parity.
 
-### WithEvents / RaiseEvent (v3.5.0) {#withevents--raiseevent-v350}
-
+### WithEvents / RaiseEvent
 Full VB6-style custom event support:
 
 - **`Event`** — declare a custom event (compiles to a Godot signal).
@@ -5848,8 +5806,7 @@ End Sub
 
 See [Events (WithEvents / RaiseEvent)](#events-withevents--raiseevent) for full details.
 
-### Implements Verification (v3.5.0) {#implements-verification-v350}
-
+### Implements Verification
 When a module declares `Implements InterfaceName`, VisualGasic now verifies at load time that at least one method matching `InterfaceName_*` exists. If the interface is completely unimplemented, a warning is printed to the console:
 
 ```
@@ -5858,8 +5815,7 @@ VisualGasic: Module 'MyForm' declares Implements ISerializable but has no ISeria
 
 This catches missing interface implementations early without a hard runtime error.
 
-### Printer Object & PrintForm (v3.5.0) {#printer-object--printform-v350}
-
+### Printer Object & PrintForm
 The global `Printer` object provides 20+ VB6-compatible properties and methods for generating printed output (font, orientation, page control, drawing primitives). `PrintForm` captures the current viewport to a PNG file.
 
 ```vb
@@ -5875,9 +5831,8 @@ PrintForm   ' → saves user://printform_output.png
 
 See [Printer Object](#printer-object) and [PrintForm Statement](#printform-statement) for full property/method tables.
 
-### Optional Parameters (v3.5.0) {#optional-parameters-v350}
-
-Optional parameters with default values have been fully supported since v2.x and continue to work as expected:
+### Optional Parameters
+Optional parameters with default values have been fully supported and continue to work as expected:
 
 ```vb
 Sub CreateWindow(title As String, Optional width As Integer = 800, Optional height As Integer = 600)
@@ -5892,12 +5847,10 @@ The VM automatically fills missing arguments with their declared default values 
 
 ---
 
-## v3.6.0 Language Enhancements {#v360-language-enhancements}
-
+## v3.6.0 Language Enhancements
 *Released in v3.6.0.* This release adds essential VB.NET/TwinBASIC operators and a 64-bit integer type alias.
 
-### Compound Assignment Operators {#compound-assignment-operators}
-
+### Compound Assignment Operators
 Compound assignment operators combine a binary operation with assignment. They are desugared at parse time into the equivalent `x = x op expr` form, so they work on any valid L-value (simple variable, array element, object member).
 
 | Operator | Equivalent | Description |
@@ -5911,10 +5864,10 @@ Compound assignment operators combine a binary operation with assignment. They a
 | `^=` | `x = x ^ y` | Exponentiation |
 | `<<=` | `x = x << y` | Left bit-shift |
 | `>>=` | `x = x >> y` | Right bit-shift |
-| `And=` | `x = x And y` | Bitwise AND *(v3.8.0)* |
-| `Or=` | `x = x Or y` | Bitwise OR *(v3.8.0)* |
-| `Xor=` | `x = x Xor y` | Bitwise XOR *(v3.8.0)* |
-| `Mod=` | `x = x Mod y` | Modulo *(v3.8.0)* |
+| `And=` | `x = x And y` | Bitwise AND |
+| `Or=` | `x = x Or y` | Bitwise OR |
+| `Xor=` | `x = x Xor y` | Bitwise XOR |
+| `Mod=` | `x = x Mod y` | Modulo |
 
 ```vb
 Dim score As Integer = 100
@@ -5930,8 +5883,7 @@ flags <<= 8        ' 256
 flags >>= 4        ' 16
 ```
 
-### Bit-Shift Operators {#bit-shift-operators}
-
+### Bit-Shift Operators
 The `<<` (left shift) and `>>` (right shift) operators perform bitwise shifting on integer values, matching VB.NET/TwinBASIC syntax.
 
 ```vb
@@ -5952,8 +5904,7 @@ Dim c As Integer = 5 << 3     ' 40
 - Efficient power-of-2 multiply/divide: `value = n << 2` (×4)
 - Flag manipulation: `flags = flags Or (1 << FLAG_BIT)`
 
-### LongLong Type {#longlong-type}
-
+### LongLong Type
 `LongLong` is a type alias for `Long` (64-bit signed integer). It is provided for compatibility with VBA 7+ / TwinBASIC code that declares 64-bit integers explicitly.
 
 ```vb
@@ -5972,12 +5923,10 @@ Dim rounded As LongLong = CLngLng(3.7)  ' 4 (banker's rounding)
 
 ---
 
-## v3.7.0 Language Enhancements {#v370-language-enhancements}
-
+## v3.7.0 Language Enhancements
 *Released in v3.7.0.* This release adds method overloading, parameterized constructors, generic typed collections, and a game UI mode for the form designer.
 
-### Method Overloading {#method-overloading-v370}
-
+### Method Overloading
 Define multiple `Sub` or `Function` with the same name but different parameter counts. The runtime resolves to the best match by argument count (arity-based dispatch).
 
 ```vb
@@ -6006,8 +5955,7 @@ Class Calculator
 End Class
 ```
 
-### Parameterized Constructors {#parameterized-constructors-v370}
-
+### Parameterized Constructors
 Pass arguments to `Class_Initialize` when creating objects:
 
 ```vb
@@ -6022,8 +5970,7 @@ Dim b1 = New Bullet(300, 45, 10)       ' inline New
 Dim b2 As New Bullet(200, 90, 25)      ' Dim As New
 ```
 
-### Generics — Collection(Of T) {#generics-v370}
-
+### Generics — Collection(Of T)
 Type-safe collections with runtime type validation on `.Add()`:
 
 ```vb
@@ -6042,8 +5989,7 @@ items.Add 3.14
 ' Float, String, Boolean, Variant, and any class name.
 ```
 
-### Game UI Mode {#game-ui-mode-v370}
-
+### Game UI Mode
 The Form Designer supports a **Game UI Mode** that generates `CanvasLayer` overlays for in-game HUD elements instead of standalone `Window` nodes.
 
 - Set the form property `GameUIMode = True` to enable
@@ -6053,12 +5999,10 @@ The Form Designer supports a **Game UI Mode** that generates `CanvasLayer` overl
 
 ---
 
-## v3.8.0 Language Enhancements {#v380-language-enhancements}
-
+## v3.8.0 Language Enhancements
 *Released in v3.8.0.* This release completes the v3.6 roadmap by adding keyword compound assignment operators and enhancing Enums with `<Flags>` attribute support.
 
-### Keyword Compound Assignment Operators {#keyword-compound-assignment-v380}
-
+### Keyword Compound Assignment Operators
 Four new compound assignment operators that use VB keywords instead of symbolic operators:
 
 | Operator | Equivalent | Description |
@@ -6079,8 +6023,7 @@ remainder Mod= 5                ' 2
 
 These operators are desugared at parse time, just like `+=` and `-=`. They work on any L-value (simple variable, array element, object member).
 
-### Bitwise And/Or/Xor Semantics {#bitwise-semantics-v380}
-
+### Bitwise And/Or/Xor Semantics
 `And`, `Or`, and `Xor` now perform **bitwise** operations when both operands are numeric, matching VB6 semantics:
 
 ```vb
@@ -6094,8 +6037,7 @@ If x > 0 And y > 0 Then ...    ' logical AND
 If a Or b Then ...              ' logical OR
 ```
 
-### Enhanced Enum with `<Flags>` {#enhanced-enum-v380}
-
+### Enhanced Enum with `<Flags>`
 The `<Flags>` attribute marks an enum as a bitfield, enabling two new capabilities:
 
 **`HasFlag(value, flag)`** — Tests whether a combined value contains a specific flag:
@@ -6123,8 +6065,7 @@ Print Layers.ToString(7)   ' → "All"  (exact match takes priority)
 Print Layers.ToString(3)   ' → "Ground, Water"
 ```
 
-### Compile-Time Enum Resolution {#compile-time-enum-v380}
-
+### Compile-Time Enum Resolution
 Enum member access (`MyEnum.MemberName`) is now resolved at compile time in the bytecode compiler. This eliminates runtime member lookups and produces a simple constant-load instruction.
 
 ---
@@ -6139,42 +6080,40 @@ This documentation provides a comprehensive overview of VisualGasic's advanced c
 *Quick-jump: [#](#index-symbols) · [A](#index-a) · [B](#index-b) · [C](#index-c) · [D](#index-d) · [E](#index-e) · [F](#index-f) · [G](#index-g) · [I](#index-i) · [J](#index-j) · [K](#index-k) · [L](#index-l) · [M](#index-m) · [N](#index-n) · [O](#index-o) · [P](#index-p) · [R](#index-r) · [S](#index-s) · [T](#index-t) · [U](#index-u) · [V](#index-v) · [W](#index-w) · [Y](#index-y)*
 
 
-### # {#index-symbols}
+### #
+- **#built-in-functions** — [Built-in Functions](#built-in-functions)
+- **#com-style-objects** — [COM-Style Objects](#com-style-objects)
+- **#control-flow** — [Control Flow](#control-flow)
+- **#getting-started** — [Getting Started](#getting-started)
+- **#godot-integration** — [Godot Integration](#godot-integration)
+- **#language-basics** — [Language Basics](#language-basics)
+- **#modern-language-features** — [Modern Language Features](#modern-language-features)
+- **#object-oriented-features** — [Object-Oriented Features](#object-oriented-features)
+- **#procedures-and-functions** — [Procedures and Functions](#procedures-and-functions)
+- **#system-integration** — [System Integration](#system-integration)
+- **#system-level-programming** — [System-Level Programming](#system-level-programming)
+- **#v350-beta4-language-enhancements** — [v3.5.0-beta4 Language Enhancements](#v350-beta4-language-enhancements)
+- **#v360-language-enhancements** — [v3.6.0 Language Enhancements](#v360-language-enhancements)
+- **#v370-language-enhancements** — [v3.7.0 Language Enhancements](#v370-language-enhancements)
+- **#vb6-global-objects** — [VB6 Global Objects](#vb6-global-objects)
+- **<Flags> Enum** — [<Flags> Enum](#flags-enum)
+- **[Built-in Functions]** — [Built-in Functions](#built-in-functions)
+- **COM-Style Objects** — [COM-Style Objects](#com-style-objects)
+- **[Control Flow]** — [Control Flow](#control-flow)
+- **[Getting Started]** — [Getting Started](#getting-started)
+- **[Godot Integration]** — [Godot Integration](#godot-integration)
+- **[Language Basics]** — [Language Basics](#language-basics)
+- **[Modern Language Features]** — [Modern Language Features](#modern-language-features)
+- **[Object-Oriented Features]** — [Object-Oriented Features](#object-oriented-features)
+- **[Procedures and Functions]** — [Procedures and Functions](#procedures-and-functions)
+- **System Integration** — [System Integration](#system-integration)
+- **System-Level Programming** — [System-Level Programming](#system-level-programming)
+- **[v3.5.0-beta4 Language Enhancements]** — [v3.5.0-beta4 Language Enhancements](#v350-beta4-language-enhancements)
+- **[v3.6.0 Language Enhancements]** — [v3.6.0 Language Enhancements](#v360-language-enhancements)
+- **[v3.7.0 Language Enhancements]** — [v3.7.0 Language Enhancements](#v370-language-enhancements)
+- **VB6 Global Objects** — [VB6 Global Objects](#vb6-global-objects)
 
-- **#built-in-functions** — [[Built-in Functions](#built-in-functions)](#built-in-functions)
-- **#com-style-objects** — [[COM-Style Objects (v2.10.0)](#com-style-objects)](#com-style-objects-v2100)
-- **#control-flow** — [[Control Flow](#control-flow)](#control-flow)
-- **#getting-started** — [[Getting Started](#getting-started)](#getting-started)
-- **#godot-integration** — [[Godot Integration](#godot-integration)](#godot-integration)
-- **#language-basics** — [[Language Basics](#language-basics)](#language-basics)
-- **#modern-language-features** — [[Modern Language Features](#modern-language-features)](#modern-language-features)
-- **#object-oriented-features** — [[Object-Oriented Features](#object-oriented-features)](#object-oriented-features)
-- **#procedures-and-functions** — [[Procedures and Functions](#procedures-and-functions)](#procedures-and-functions)
-- **#system-integration** — [[System Integration (v3.0)](#system-integration)](#system-integration-v30)
-- **#system-level-programming** — [[System-Level Programming (v3.1)](#system-level-programming)](#system-level-programming-v31)
-- **#v350-beta4-language-enhancements** — [[v3.5.0-beta4 Language Enhancements](#v350-beta4-language-enhancements)](#v350-beta4-language-enhancements)
-- **#v360-language-enhancements** — [[v3.6.0 Language Enhancements](#v360-language-enhancements)](#v360-language-enhancements)
-- **#v370-language-enhancements** — [[v3.7.0 Language Enhancements](#v370-language-enhancements)](#v370-language-enhancements)
-- **#vb6-global-objects** — [[VB6 Global Objects (v2.10.0)](#vb6-global-objects)](#vb6-global-objects-v2100)
-- **<Flags> Enum** — [<Flags> Enum (v3.8.0)](#flags-enum)
-- **[Built-in Functions]** — [[Built-in Functions](#built-in-functions)](#built-in-functions)
-- **[COM-Style Objects (v2.10.0)]** — [[COM-Style Objects (v2.10.0)](#com-style-objects)](#com-style-objects-v2100)
-- **[Control Flow]** — [[Control Flow](#control-flow)](#control-flow)
-- **[Getting Started]** — [[Getting Started](#getting-started)](#getting-started)
-- **[Godot Integration]** — [[Godot Integration](#godot-integration)](#godot-integration)
-- **[Language Basics]** — [[Language Basics](#language-basics)](#language-basics)
-- **[Modern Language Features]** — [[Modern Language Features](#modern-language-features)](#modern-language-features)
-- **[Object-Oriented Features]** — [[Object-Oriented Features](#object-oriented-features)](#object-oriented-features)
-- **[Procedures and Functions]** — [[Procedures and Functions](#procedures-and-functions)](#procedures-and-functions)
-- **[System Integration (v3.0)]** — [[System Integration (v3.0)](#system-integration)](#system-integration-v30)
-- **[System-Level Programming (v3.1)]** — [[System-Level Programming (v3.1)](#system-level-programming)](#system-level-programming-v31)
-- **[v3.5.0-beta4 Language Enhancements]** — [[v3.5.0-beta4 Language Enhancements](#v350-beta4-language-enhancements)](#v350-beta4-language-enhancements)
-- **[v3.6.0 Language Enhancements]** — [[v3.6.0 Language Enhancements](#v360-language-enhancements)](#v360-language-enhancements)
-- **[v3.7.0 Language Enhancements]** — [[v3.7.0 Language Enhancements](#v370-language-enhancements)](#v370-language-enhancements)
-- **[VB6 Global Objects (v2.10.0)]** — [[VB6 Global Objects (v2.10.0)](#vb6-global-objects)](#vb6-global-objects-v2100)
-
-### A {#index-a}
-
+### A
 - **Advanced Complex Expressions** — [Advanced Complex Expressions](#advanced-complex-expressions)
 - **Advanced Cross-Language Features** — [Advanced Cross-Language Features](#advanced-cross-language-features)
 - **Advanced Features** — [Advanced Features](#advanced-features)
@@ -6190,24 +6129,22 @@ This documentation provides a comprehensive overview of VisualGasic's advanced c
 - **Async/Parallel Programming** — [Async/Parallel Programming (Multitasking)](#asyncparallel-programming-multitasking)
 - **Audio** — [Audio](#audio)
 
-### B {#index-b}
-
+### B
 - **Background Task Processing** — [Background Task Processing](#background-task-processing)
 - **Basic DATA and READ** — [Basic DATA and READ](#basic-data-and-read)
 - **Binary File I/O** — [Get # / Put # (Binary File I/O)](#get-put-binary-file-io)
-- **Bit-Shift Operators** — [Bit-Shift Operators (v3.6.0)](#bit-shift-operators-v360) · [Bit-Shift Operators](#bit-shift-operators)
+- **Bit-Shift Operators** — [Bit-Shift Operators](#bit-shift-operators) · [Bit-Shift Operators](#bit-shift-operators)
 - **Bitwise And/Or/Xor Semantics** — [Bitwise And/Or/Xor Semantics](#bitwise-semantics-v380)
 - **Bitwise Functions** — [Bitwise Functions](#bitwise-functions)
 - **Built-in Functions** — [Built-in Functions](#built-in-functions)
 - **Built-in Functions & Statements** — [Built-in Functions & Statements](#built-in-functions-statements)
 
-### C {#index-c}
-
+### C
 - **Classes and Types** — [Classes and Types](#classes-and-types)
 - **Classic DATA Statements** — [Classic DATA Statements](#classic-data-statements)
 - **Classic Use Cases** — [Classic Use Cases](#classic-use-cases)
 - **Classic VB6 Style** — [File I/O Functions (Classic VB6 Style)](#file-io-functions-classic-vb6-style)
-- **ClearData Statement** — [ClearData Statement (New in v3.2.0)](#cleardata-statement-new-in-v320)
+- **ClearData Statement** — [ClearData Statement](#cleardata-statement)
 - **Clipboard Functions** — [Clipboard Functions](#clipboard-functions)
 - **Code Navigator** — [Code Navigator](#code-navigator)
 - **Code Transformation** — [Code Transformation](#code-transformation)
@@ -6221,7 +6158,7 @@ This documentation provides a comprehensive overview of VisualGasic's advanced c
 - **Compile-Time Enum Resolution** — [Compile-Time Enum Resolution](#compile-time-enum-v380)
 - **Complete Alphabetical Index** — [Complete Alphabetical Index](#complete-alphabetical-index)
 - **Complete Cross-Language Compatibility Matrix** — [Complete Cross-Language Compatibility Matrix](#complete-cross-language-compatibility-matrix)
-- **Compound Assignment Operators** — [Compound Assignment Operators (v3.6.0)](#compound-assignment-operators-v360) · [Compound Assignment Operators](#compound-assignment-operators)
+- **Compound Assignment Operators** — [Compound Assignment Operators](#compound-assignment-operators) · [Compound Assignment Operators](#compound-assignment-operators)
 - **Conditional Statements** — [Conditional Statements](#conditional-statements)
 - **Control Arrays** — [Control Arrays](#control-arrays)
 - **Control Flow** — [Control Flow](#control-flow)
@@ -6230,29 +6167,27 @@ This documentation provides a comprehensive overview of VisualGasic's advanced c
 - **Count** — [Count() Function](#count-function)
 - **Cross-Platform System Classes** — [Cross-Platform System Classes](#cross-platform-system-classes)
 
-### D {#index-d}
-
-- **Data Introspection Functions** — [Data Introspection Functions (New in v3.2.0)](#data-introspection-functions-new-in-v320)
+### D
+- **Data Introspection Functions** — [Data Introspection Functions](#data-introspection-functions)
 - **Data Processing** — [Data Processing](#data-processing)
 - **Data Types** — [Data Types](#data-types)
 - **Data Types & Literals** — [Data Types & Literals](#data-types-literals)
 - **Database Functions** — [Database Functions](#database-functions)
 - **DataFile** — [DataFile — Load from External Files](#datafile-load-from-external-files)
-- **DataFromString Statement** — [DataFromString Statement (New in v3.2.0)](#datafromstring-statement-new-in-v320)
-- **Date/Time Functions** — [Date/Time Functions (New in v2.5.0)](#datetime-functions-new-in-v250)
+- **DataFromString Statement** — [DataFromString Statement](#datafromstring-statement)
+- **Date/Time Functions** — [Date/Time Functions](#datetime-functions)
 - **Debouncing and Performance Control** — [Debouncing and Performance Control](#debouncing-and-performance-control)
 - **Debug.Print and Assert** — [Debug.Print and Assert](#debugprint-and-assert)
 - **Debugging and Monitoring Tools** — [Debugging and Monitoring Tools](#debugging-and-monitoring-tools)
-- **Debugging Statements** — [Debugging Statements (New in v2.5.0)](#debugging-statements-new-in-v250)
+- **Debugging Statements** — [Debugging Statements](#debugging-statements)
 - **Declaring and Raising Events** — [Declaring and Raising Events](#declaring-and-raising-events)
 - **Dictionary Functions** — [Dictionary Functions](#dictionary-functions)
 - **Do-Loop** — [Do-Loop](#do-loop)
 - **Drawing Primitives** — [Drawing Primitives](#drawing-primitives)
 
-### E {#index-e}
-
+### E
 - **Editor Shortcuts** — [Editor Shortcuts](#editor-shortcuts)
-- **Empty Data Slots** — [Empty Data Slots (New in v3.2.0)](#empty-data-slots-new-in-v320)
+- **Empty Data Slots** — [Empty Data Slots](#empty-data-slots)
 - **Enhanced Enum with <Flags>** — [Enhanced Enum with <Flags>](#enhanced-enum-v380)
 - **Enum Improvements** — [Enum Improvements](#enum-improvements)
 - **Err Object** — [Err Object](#err-object)
@@ -6264,13 +6199,12 @@ This documentation provides a comprehensive overview of VisualGasic's advanced c
 - **Extended** — [String Functions (Extended)](#string-functions-extended)
 - **Extended Array Functions** — [Extended Array Functions](#extended-array-functions)
 
-### F {#index-f}
-
+### F
 - **File I/O Functions** — [File I/O Functions (Classic VB6 Style)](#file-io-functions-classic-vb6-style)
-- **File I/O Statements** — [File I/O Statements (v2.10.0)](#file-io-statements-v2100)
+- **File I/O Statements** — [File I/O Statements](#file-io-statements)
 - **File Operations** — [File Operations](#file-operations)
 - **File System** — [File System](#file-system)
-- **File System Functions** — [File System Functions (New in v2.5.0)](#file-system-functions-new-in-v250)
+- **File System Functions** — [File System Functions](#file-system-functions)
 - **For Each With Index** — [For Each With Index](#for-each-with-index)
 - **For-Each Loop** — [For-Each Loop](#for-each-loop)
 - **For-Next Loop** — [For-Next Loop](#for-next-loop)
@@ -6278,13 +6212,12 @@ This documentation provides a comprehensive overview of VisualGasic's advanced c
 - **Function Declaration Auto-Completion** — [1. Function Declaration Auto-Completion](#1-function-declaration-auto-completion)
 - **Functions** — [Functions](#functions)
 
-### G {#index-g}
-
+### G
 - **Game and Application Development Functions** — [Game and Application Development Functions](#game-and-application-development-functions)
 - **Game Data Example** — [Game Data Example](#game-data-example)
 - **Game Development** — [Game Development](#game-development)
-- **Game UI Mode** — [Game UI Mode (v3.7.0)](#game-ui-mode) · [Game UI Mode](#game-ui-mode-v370)
-- **Generics Phase 1 — Collection(Of T)** — [Generics Phase 1 — Collection(Of T) (v3.7.0)](#generics)
+- **Game UI Mode** — [Game UI Mode](#game-ui-mode) · [Game UI Mode](#game-ui-mode-v370)
+- **Generics Phase 1 — Collection(Of T)** — [Generics Phase 1 — Collection(Of T)](#generics-phase-1--collectionof-t)
 - **Generics — Collection** — [Generics — Collection(Of T)](#generics-v370)
 - **Get # / Put #** — [Get # / Put # (Binary File I/O)](#get-put-binary-file-io)
 - **Getting Started** — [Getting Started](#getting-started)
@@ -6293,18 +6226,17 @@ This documentation provides a comprehensive overview of VisualGasic's advanced c
 - **Godot Singleton Access** — [Godot Singleton Access](#godot-singleton-access)
 - **GoSub** — [GoSub / Return](#gosub-return)
 - **Graphics & Drawing — Image Manipulation** — [Graphics & Drawing — Image Manipulation](#graphics-drawing-image-manipulation)
-- **Graphics & Drawing — Native Image Drawing** — [Graphics & Drawing — Native Image Drawing (New in v4.2.0-beta5)](#graphics-drawing-native-image-drawing-new-in-v420-beta5)
+- **Graphics & Drawing — Native Image Drawing** — [Graphics and Drawing: Native Image Drawing](#graphics-and-drawing-native-image-drawing)
 - **Graphics & Drawing — Primitives** — [Graphics & Drawing — Primitives](#graphics-drawing-primitives)
 
-### I {#index-i}
-
+### I
 - **I/O Operations** — [I/O Operations](#io-operations)
 - **If-Then-Else** — [If-Then-Else](#if-then-else)
 - **IIf Function** — [IIf Function (Ternary Operator)](#iif-function-ternary-operator)
 - **Image & Texture Manipulation** — [Image & Texture Manipulation](#image-texture-manipulation)
 - **Immediate Window** — [Immediate Window](#immediate-window)
 - **Implementation Notes** — [Implementation Notes](#implementation-notes)
-- **Implements Verification** — [Implements Verification (v3.5.0)](#implements-verification-v350)
+- **Implements Verification** — [Implements Verification](#implements-verification)
 - **Import Report** — [Import Report](#import-report)
 - **Importing VB6 Projects** — [Importing VB6 Projects](#importing-vb6-projects)
 - **Incomplete Control Structure Completion** — [6. Incomplete Control Structure Completion](#6-incomplete-control-structure-completion)
@@ -6314,18 +6246,15 @@ This documentation provides a comprehensive overview of VisualGasic's advanced c
 - **Installation** — [Installation](#installation)
 - **Interfaces** — [Interfaces](#interfaces)
 
-### J {#index-j}
-
+### J
 - **JSON Functions** — [JSON Functions](#json-functions)
 
-### K {#index-k}
-
-- **Keyword Compound Assignment Operators** — [Keyword Compound Assignment Operators (v3.8.0)](#keyword-compound-assignment-operators-v380) · [Keyword Compound Assignment Operators](#keyword-compound-assignment-v380)
+### K
+- **Keyword Compound Assignment Operators** — [Keyword Compound Assignment Operators](#keyword-compound-assignment-operators) · [Keyword Compound Assignment Operators](#keyword-compound-assignment-v380)
 - **Keyword Usage Notes** — [Keyword Usage Notes](#keyword-usage-notes)
 - **Keywords Reference** — [Keywords Reference](#keywords-reference)
 
-### L {#index-l}
-
+### L
 - **Labeled Data Sections** — [Labeled Data Sections](#labeled-data-sections)
 - **Lambda Expressions** — [Lambda Expressions](#lambda-expressions)
 - **Language Basics** — [Language Basics](#language-basics)
@@ -6335,13 +6264,12 @@ This documentation provides a comprehensive overview of VisualGasic's advanced c
 - **Loop Pattern Shortcuts** — [4. Loop Pattern Shortcuts](#4-loop-pattern-shortcuts)
 - **Loops** — [Loops](#loops)
 
-### M {#index-m}
-
+### M
 - **Math Constants** — [Math Constants](#math-constants)
 - **Math Functions** — [Math Functions](#math-functions)
 - **Mathematical Functions** — [Mathematical Functions](#mathematical-functions)
 - **Menu Editor** — [Menu Editor](#menu-editor)
-- **Method Overloading** — [Method Overloading (v3.7.0)](#method-overloading) · [Method Overloading](#method-overloading-v370)
+- **Method Overloading** — [Method Overloading](#method-overloading) · [Method Overloading](#method-overloading-v370)
 - **Methods** — [Methods](#methods)
 - **Modern Features** — [Modern Features](#modern-features)
 - **Modern File System Functions** — [Modern File System Functions](#modern-file-system-functions)
@@ -6353,16 +6281,14 @@ This documentation provides a comprehensive overview of VisualGasic's advanced c
 - **Multitasking and Concurrency** — [Multitasking and Concurrency](#multitasking-and-concurrency)
 - **Multitasking Capabilities Summary** — [Multitasking Capabilities Summary](#multitasking-capabilities-summary)
 
-### N {#index-n}
-
+### N
 - **Named Pipes** — [Named Pipes](#named-pipes)
 - **NativeLibrary** — [NativeLibrary (FFI)](#nativelibrary-ffi)
 - **NativeStruct** — [NativeStruct](#nativestruct)
 - **Node Interaction** — [Node Interaction](#node-interaction)
 - **Null-Safe Operations** — [Null-Safe Operations](#null-safe-operations)
 
-### O {#index-o}
-
+### O
 - **Object Browser** — [Object Browser](#object-browser)
 - **Object-Oriented Features** — [Object-Oriented Features](#object-oriented-features)
 - **Of T** — [Generics — Collection(Of T)](#generics-v370)
@@ -6372,12 +6298,11 @@ This documentation provides a comprehensive overview of VisualGasic's advanced c
 - **Open For Binary** — [Open For Binary / Open For Random](#open-for-binary-open-for-random)
 - **Open For Random** — [Open For Binary / Open For Random](#open-for-binary-open-for-random)
 - **Operators** — [Operators](#operators)
-- **Optional Parameters** — [Optional Parameters (v3.5.0)](#optional-parameters-v350)
+- **Optional Parameters** — [Optional Parameters](#optional-parameters)
 
-### P {#index-p}
-
+### P
 - **Parallel Processing** — [Parallel Processing](#parallel-processing)
-- **Parameterized Constructors** — [Parameterized Constructors (v3.7.0)](#parameterized-constructors) · [Parameterized Constructors](#parameterized-constructors-v370)
+- **Parameterized Constructors** — [Parameterized Constructors](#parameterized-constructors) · [Parameterized Constructors](#parameterized-constructors-v370)
 - **Parameters** — [Parameters](#parameters)
 - **Pattern Matching** — [Pattern Matching](#pattern-matching)
 - **Pattern Matching & Type Checking** — [Pattern Matching & Type Checking](#pattern-matching-type-checking)
@@ -6386,7 +6311,7 @@ This documentation provides a comprehensive overview of VisualGasic's advanced c
 - **Performance: Data/Read vs Arrays** — [Performance: Data/Read vs Arrays](#performance-dataread-vs-arrays)
 - **Print Semicolons** — [Print Semicolons (Multiple Expressions)](#print-semicolons-multiple-expressions)
 - **Printer Object** — [Printer Object](#printer-object)
-- **Printer Object & PrintForm** — [Printer Object & PrintForm (v3.5.0)](#printer-object--printform-v350)
+- **Printer Object & PrintForm** — [Printer Object & PrintForm](#printer-object--printform)
 - **PrintForm Statement** — [PrintForm Statement](#printform-statement)
 - **Procedures & Functions** — [Procedures & Functions](#procedures-functions)
 - **Procedures and Functions** — [Procedures and Functions](#procedures-and-functions)
@@ -6397,10 +6322,9 @@ This documentation provides a comprehensive overview of VisualGasic's advanced c
 - **Property Inspector** — [Property Inspector](#property-inspector)
 - **Property Mapping** — [Property Mapping](#property-mapping)
 - **Property/Method Chaining Assistance** — [7. Property/Method Chaining Assistance](#7-propertymethod-chaining-assistance)
-- **Putting It All Together** — [Putting It All Together (v3.2.0 Features)](#putting-it-all-together-v320-features)
+- **Putting It All Together** — [Putting It All Together](#putting-it-all-together)
 
-### R {#index-r}
-
+### R
 - **Reactive Programming** — [Reactive Programming (Whenever System)](#reactive-programming-whenever-system)
 - **Real COM Interop** — [Real COM Interop (Windows)](#real-com-interop-windows)
 - **Real-World Example: Game Engine Integration** — [Real-World Example: Game Engine Integration](#real-world-example-game-engine-integration)
@@ -6412,8 +6336,7 @@ This documentation provides a comprehensive overview of VisualGasic's advanced c
 - **Resume Next** — [Resume / Resume Next / Resume Label](#resume-resume-next-resume-label)
 - **Return** — [GoSub / Return](#gosub-return)
 
-### S {#index-s}
-
+### S
 - **Safe Import/Using Statement Conversion** — [8. Safe Import/Using Statement Conversion](#8-safe-importusing-statement-conversion)
 - **Scene Management** — [Scene Management](#scene-management)
 - **Scope and Lifetime** — [Scope and Lifetime](#scope-and-lifetime)
@@ -6440,10 +6363,9 @@ This documentation provides a comprehensive overview of VisualGasic's advanced c
 - **System Functions** — [System Functions](#system-functions)
 - **System Integration** — [System Integration](#system-integration)
 - **System-Level Programming** — [System-Level Programming](#system-level-programming)
-- **System/Environment Functions** — [System/Environment Functions (New in v2.5.0)](#systemenvironment-functions-new-in-v250)
+- **System/Environment Functions** — [System/Environment Functions](#systemenvironment-functions)
 
-### T {#index-t}
-
+### T
 - **Tab Order Editor** — [Tab Order Editor](#tab-order-editor)
 - **Task Coordination and Synchronization** — [Task Coordination and Synchronization](#task-coordination-and-synchronization)
 - **Ternary Operator** — [IIf Function (Ternary Operator)](#iif-function-ternary-operator)
@@ -6454,14 +6376,12 @@ This documentation provides a comprehensive overview of VisualGasic's advanced c
 - **Type Checking Functions** — [Type Checking Functions](#type-checking-functions)
 - **Type Conversion** — [Type Conversion](#type-conversion)
 - **Type Inference** — [Type Inference](#type-inference)
-- **Typed Read** — [Typed Read (New in v3.2.0)](#typed-read-new-in-v320)
+- **Typed Read** — [Typed Read](#typed-read)
 
-### U {#index-u}
-
+### U
 - **UNIX Domain Sockets** — [UNIX Domain Sockets](#unix-domain-sockets)
 
-### V {#index-v}
-
+### V
 - **v3.3.0 Language Enhancements** — [v3.3.0 Language Enhancements](#v330-language-enhancements)
 - **v3.5.0-beta4 Language Enhancements** — [v3.5.0-beta4 Language Enhancements](#v350-beta4-language-enhancements)
 - **v3.6.0 Language Enhancements** — [v3.6.0 Language Enhancements](#v360-language-enhancements)
@@ -6496,16 +6416,14 @@ This documentation provides a comprehensive overview of VisualGasic's advanced c
 - **Visual Gasic IDE** — [Visual Gasic IDE](#visual-gasic-ide)
 - **VisualGasicPackage** — [VisualGasicPackage (Package Manager)](#visualgasicpackage-package-manager)
 
-### W {#index-w}
-
+### W
 - **What is BASIC?** — [What is BASIC?](#what-is-basic)
 - **Whenever System** — [Reactive Programming (Whenever System)](#reactive-programming-whenever-system)
 - **While-Wend Loop** — [While-Wend Loop](#while-wend-loop)
 - **Why DATA Statements?** — [Why DATA Statements?](#why-data-statements)
 - **Windows** — [Real COM Interop (Windows)](#real-com-interop-windows)
 - **WithEvents** — [WithEvents — Automatic Event Wiring](#withevents-automatic-event-wiring)
-- **WithEvents / RaiseEvent** — [WithEvents / RaiseEvent (v3.5.0)](#withevents--raiseevent-v350)
+- **WithEvents / RaiseEvent** — [WithEvents / RaiseEvent](#withevents--raiseevent)
 
-### Y {#index-y}
-
+### Y
 - **Your First Script** — [Your First Script](#your-first-script)

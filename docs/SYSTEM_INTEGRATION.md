@@ -1,9 +1,9 @@
-# VisualGasic v3.0 / v3.1 — System Integration Reference
+# VisualGasic System Integration Reference
 
-Complete reference for the system-level features added in v3.0 and v3.1.  
-v3.0 brings C#-class integration: native FFI, ODBC databases, cryptography,
+Complete reference for system-level integration features.  
+VisualGasic includes C#-class integration: native FFI, ODBC databases, cryptography,
 XML, ZIP, async threading, and package management.  
-v3.1 adds system-level programming: system info, OS signals, file permissions,
+System-level programming includes: system info, OS signals, file permissions,
 raw memory, IPC, real threading, and an Android JNI bridge.
 
 ---
@@ -584,8 +584,8 @@ All system classes now work on **Linux**, **macOS**, and **Windows**:
 | `VGFileWatcher` | inotify / kqueue | FindFirstChangeNotification |
 | `VGSysTray` | (stub — desktop-specific) | Shell_NotifyIcon + HWND_MESSAGE |
 
-These classes were introduced in v2.9.0 and have been available since then.
-In v3.0 the Windows and macOS backends were completed so the same VG code
+These classes are available in current VisualGasic releases.
+The Windows and macOS backends are complete, so the same VG code
 runs on all three platforms without changes.
 
 ```vb
@@ -642,7 +642,7 @@ xl.Cells(1, 1).Value = "Hello from VisualGasic!"
 | **ODBC** | `demos/Data_and_Files/ODBC/demo_odbc.vg` | Database connect, query, transactions |
 | **Async Tasks** | `demos/Threading/demo_async_tasks.vg` | VGTask, VGTaskRunner, cancellation |
 | **Packages** | `demos/Utilities/PackageManager/demo_packages.vg` | Install, registries, dependencies |
-| **Smoke Test** | `demo/test_v3_features.vg` | Automated test of all v3.0 classes |
+| **Smoke Test** | `demo/test_v3_features.vg` | Automated test of all system classes |
 
 Run the smoke test:
 ```bash
@@ -654,7 +654,7 @@ cd demo
 
 ## 10. VGSystem (System Info)
 
-*Added in v3.1.* Cross-platform system information queries.
+Cross-platform system information queries.
 
 ### Quick Start
 
@@ -701,7 +701,7 @@ Print "Locale: " & sys.GetLocale()
 
 ## 11. VGSignalHandler (OS Signals)
 
-*Added in v3.1.* Handle OS signals and atexit cleanup. Thread-safe via `call_deferred`.
+Handle OS signals and atexit cleanup. Thread-safe via `call_deferred`.
 
 ```vb
 Dim sh As Object = New VGSignalHandler
@@ -734,7 +734,7 @@ sh.OnExit(Lambda() => Print("Cleanup..."))
 
 ## 12. VGFilePermissions (Permissions & Links)
 
-*Added in v3.1.* UNIX permissions, ownership, symlinks, file locking, VB6-style attributes.
+UNIX permissions, ownership, symlinks, file locking, VB6-style attributes.
 
 ```vb
 Dim fp As Object = New VGFilePermissions
@@ -780,7 +780,7 @@ If attr And 1 Then Print "Read-only"
 
 ## 13. VGMemoryBuffer (Raw Memory)
 
-*Added in v3.1.* Raw byte buffer with Peek/Poke — the VB6 equivalent of `CopyMemory`.
+Raw byte buffer with Peek/Poke — the VB6 equivalent of `CopyMemory`.
 
 ```vb
 Dim buf As Object = New VGMemoryBuffer
@@ -824,7 +824,7 @@ buf.Free
 
 ## 14. VGIPC (Inter-Process Communication)
 
-*Added in v3.1.* Named pipes, UNIX domain sockets, and POSIX shared memory.
+Named pipes, UNIX domain sockets, and POSIX shared memory.
 
 ### Named Pipes
 
@@ -906,7 +906,7 @@ r.CloseSharedMemory
 
 ## 15. VGAndroidBridge (Android Platform)
 
-*Added in v3.1.* JNI bridge for Android APIs. Returns safe defaults on non-Android platforms.
+JNI bridge for Android APIs. Returns safe defaults on non-Android platforms.
 
 ```vb
 Dim android As Object = New VGAndroidBridge
@@ -943,9 +943,9 @@ End If
 
 ## 16. Real Threading
 
-*Added in v3.1.* The multitask runtime now uses real OS threads instead of serial execution stubs.
+The multitask runtime now uses real OS threads instead of serial execution stubs.
 
-| Feature | Before (v3.0) | After (v3.1) |
+| Feature | Before | After |
 |---------|--------------|---------------|
 | `Task.Run` | Serial (inline) | `std::thread` with scope clone |
 | `Parallel For` | Serial loop | Partitioned across `hardware_concurrency()` cores |

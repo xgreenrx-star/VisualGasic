@@ -660,11 +660,11 @@ End Class
 | Spread Operator | 🔜 Planned | 🔜 | 🔜 | Future feature |
 | Async/Await | 🔜 Planned | 🔜 | 🔜 | Complex feature |
 | Whenever Sections | ✅ Complete | ✅ | ✅ | Bytecode compiled |
-| GoSub/Return | ✅ Complete | ✅ | ✅ | Bytecode OP_GOSUB/OP_RETURN_GOSUB (v2.10.0) |
-| Implements Keyword | ✅ Complete | ✅ | ✅ | Interface declaration in classes (v2.10.0) |
-| COM-Style Objects | ✅ Complete | ✅ | ✅ | VGCollection, VGRegEx, VGHttpRequest, VGTimer (v2.10.0) |
-| VB6 Global Objects | ✅ Complete | ✅ | ✅ | App, Screen, Err virtual objects (v2.10.0) |
-| File I/O Opcodes | ✅ Complete | ✅ | ✅ | Print#, Write#, Input#, Line Input# (v2.10.0) |
+| GoSub/Return | ✅ Complete | ✅ | ✅ | Bytecode OP_GOSUB/OP_RETURN_GOSUB |
+| Implements Keyword | ✅ Complete | ✅ | ✅ | Interface declaration in classes |
+| COM-Style Objects | ✅ Complete | ✅ | ✅ | VGCollection, VGRegEx, VGHttpRequest, VGTimer |
+| VB6 Global Objects | ✅ Complete | ✅ | ✅ | App, Screen, Err virtual objects |
+| File I/O Opcodes | ✅ Complete | ✅ | ✅ | Print#, Write#, Input#, Line Input# |
 
 Legend:
 - ✅ Complete and tested

@@ -6,6 +6,11 @@
 
 ## Getting Started
 
+- [Introduction](getting_started/introduction.md) - What is VisualGasic? Why use it?
+- [Installation](getting_started/installation.md) - Install scripts, manual setup, `vg` CLI
+- [Nodes and Scenes](getting_started/nodes_and_scenes.md) - Godot's building blocks
+- [Scripting](getting_started/scripting.md) - Writing your first VisualGasic code
+- [Signals](getting_started/signals.md) - VB6-style auto-wiring and event handling
 - [README.md](../README.md) - Project overview and quick start
 - [GET_STARTED.md](guides/GET_STARTED.md) - Installation and first steps
 - [MIGRATION_GUIDE.md](guides/MIGRATION_GUIDE.md) - Migrating from VB6/VBA
@@ -36,8 +41,8 @@
 
 ## API Documentation
 
-- [SYSTEM_INTEGRATION.md](SYSTEM_INTEGRATION.md) - **v3.0/v3.1 System Integration Reference** (FFI, ODBC, Crypto, XML, ZIP, Async, Packages, System Info, Signals, Permissions, Memory, IPC, Android)
-- [VisualGasic_Language_Reference.md](VisualGasic_Language_Reference.md) - **Complete language reference** (4000+ lines)
+- [SYSTEM_INTEGRATION.md](SYSTEM_INTEGRATION.md) - **System Integration Reference** (FFI, ODBC, Crypto, XML, ZIP, Async, Packages, System Info, Signals, Permissions, Memory, IPC, Android)
+- [VisualGasic_Language_Reference.md](VisualGasic_Language_Reference.md) - **Complete language reference** (6400+ lines)
 - [WINFORMS_FORM_GUIDE.md](WINFORMS_FORM_GUIDE.md) - WinForms-style form development
 - [BUILTINS.md](BUILTINS.md) - Built-in functions overview
 
@@ -69,7 +74,7 @@
 | **VG Movie** | `demos/Graphics/VGMovie/` | .VGV animation player, transport controls, timeline scrubber, zoom, built-in demo |
 | **VG Music** | `demos/Audio/VGMusic/` | Strudel-style live coding, PlayTone synthesis, multi-layer, visualizer, .VGS format |
 
-### v3.0 System Integration Demos
+### System Integration Demos
 
 | Demo | Location | Key Features |
 |------|----------|-------------|
@@ -81,7 +86,7 @@
 | **Async Tasks** | `demos/Threading/` | VGTask, VGTaskRunner, background work |
 | **Package Manager** | `demos/Utilities/PackageManager/` | Install, registries, semver |
 
-### v3.1 System-Level Programming Classes
+### System-Level Programming Classes
 
 | Class | Description | Platform |
 |-------|-------------|----------|
@@ -164,13 +169,20 @@
 
 ### Release Notes
 - [CHANGELOG.md](../CHANGELOG.md) - Full change log
-- [RELEASE_NOTES_v2.10.0.md](../RELEASE_NOTES_v2.10.0.md) - v2.10.0 release notes (COM Objects, VB6 Globals, GoSub, File I/O)
-- [RELEASE_NOTES_v2.9.0.md](../RELEASE_NOTES_v2.9.0.md) - v2.9.0 release notes
-- [RELEASE_NOTES_v2.8.0.md](../RELEASE_NOTES_v2.8.0.md) - v2.8.0 release notes (C++ Visual Gasic IDE, Live Preview)
-- [RELEASE_NOTES_v2.3.0.md](../RELEASE_NOTES_v2.3.0.md) - v2.3.0 release notes
-- [RELEASE_NOTES_v2.4.0.md](../RELEASE_NOTES_v2.4.0.md) - v2.4.0 release notes
-- [RELEASE_NOTES_v2.4.1.md](../RELEASE_NOTES_v2.4.1.md) - v2.4.1 release notes
-- [RELEASE_NOTES_v2.4.2.md](../RELEASE_NOTES_v2.4.2.md) - v2.4.2 release notes
+- [RELEASE_NOTES_v4.4.0-rc4.md](../RELEASE_NOTES_v4.4.0-rc4.md) - v4.4.0-rc4 (latest)
+- [RELEASE_NOTES_v4.3.0.md](../RELEASE_NOTES_v4.3.0.md) - v4.3.0
+- [RELEASE_NOTES_v4.2.0.md](../RELEASE_NOTES_v4.2.0.md) - v4.2.0
+- [RELEASE_NOTES_v4.1.0.md](../RELEASE_NOTES_v4.1.0.md) - v4.1.0
+- [RELEASE_NOTES_v4.0.0.md](../RELEASE_NOTES_v4.0.0.md) - v4.0.0
+- [RELEASE_NOTES_v3.8.0.md](../RELEASE_NOTES_v3.8.0.md) - v3.8.0
+- [RELEASE_NOTES_v3.7.0.md](../RELEASE_NOTES_v3.7.0.md) - v3.7.0
+- [RELEASE_NOTES_v3.5.0-beta4.md](../RELEASE_NOTES_v3.5.0-beta4.md) - v3.5.0-beta4
+- [RELEASE_NOTES_v3.4.1.md](../RELEASE_NOTES_v3.4.1.md) - v3.4.1
+- [RELEASE_NOTES_v3.3.0.md](../RELEASE_NOTES_v3.3.0.md) - v3.3.0
+- [RELEASE_NOTES_v3.2.0-beta1.md](../RELEASE_NOTES_v3.2.0-beta1.md) - v3.2.0-beta1
+- [RELEASE_NOTES_v2.10.0.md](../RELEASE_NOTES_v2.10.0.md) - v2.10.0
+- [RELEASE_NOTES_v2.9.0.md](../RELEASE_NOTES_v2.9.0.md) - v2.9.0
+- [RELEASE_NOTES_v2.8.0.md](../RELEASE_NOTES_v2.8.0.md) - v2.8.0
 
 ### Development
 - [CONTRIBUTING.md](../CONTRIBUTING.md) - Contribution guidelines

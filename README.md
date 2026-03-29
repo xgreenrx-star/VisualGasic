@@ -105,7 +105,7 @@
 - **Godot Enum Constants** - `ClassName.CONSTANT_NAME` for all class enums with keyword-safe resolution
 - **Built-in Components** - Transform, Velocity, Render, and custom component support
 
-### **System-Level Programming** *(New in v3.1)*
+### **System-Level Programming**
 - **System Info** - Hostname, CPU, RAM, disk, OS, uptime, environment, locale via `VGSystem`
 - **OS Signals** - SIGINT/SIGTERM/SIGHUP/atexit handling via `VGSignalHandler`
 - **File Permissions** - chmod, chown, symlinks, file locking, VB6 GetAttr/SetAttr via `VGFilePermissions`

@@ -10,7 +10,7 @@ This page summarizes the built‑in benchmark suite results for Visual Gasic ver
 - Build: Visual Gasic GDExtension (template_debug)
 - Date: 2026‑02‑25
 
-## Latest Results — v3.2 (elapsed time in microseconds, lower is faster)
+## Latest Results (elapsed time in microseconds, lower is faster)
 
 **All 11 benchmarks faster than GDScript. VG wins 6/9 vs C++.** All checksums verified.
 
@@ -28,7 +28,7 @@ This page summarizes the built‑in benchmark suite results for Visual Gasic ver
 | AllocationsFast | 1,817 | 366 | 10,309 | **5.7× faster** | C++ |
 | FileIO | 456 | 383 | 982 | **2.2× faster** | C++ |
 
-### v3.2 Improvements vs v2.8
+### Recent Improvements
 
 - **Arithmetic**: 307→331 µs (within variance)
 - **Branching**: 65→59 µs — now **118× faster** than GDScript, **tied with C++** 🚀

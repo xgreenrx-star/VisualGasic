@@ -24,8 +24,7 @@ for games. Each control has:
 
 ---
 
-## Tier 1 Controls (v4.0)
-
+## Tier 1 Controls
 | Control | Purpose |
 |---------|---------|
 | DialogPanel | RPG dialog box with speaker name and typewriter effect |
@@ -38,8 +37,7 @@ for games. Each control has:
 
 ---
 
-## Tier 2 Controls (v4.1)
-
+## Tier 2 Controls
 ### Tooltip
 Hover popup with icon, title, and description. Three show animations.
 
@@ -121,8 +119,7 @@ DamageNumber1.pop 999                        ' Big yellow crit
 
 ---
 
-## Tier 3 Controls (v4.1)
-
+## Tier 3 Controls
 ### SkillTree
 Grid of skill nodes connected by lines. Nodes unlock on click.
 

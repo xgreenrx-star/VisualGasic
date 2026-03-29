@@ -47,7 +47,7 @@ The complete language specification and syntax reference.
 
 | Document | Description |
 |----------|-------------|
-| [Language Reference](VisualGasic_Language_Reference.md) | **Comprehensive reference** (6500+ lines) — every keyword, statement, operator, and data type |
+| [Language Reference](VisualGasic_Language_Reference.md) | **Comprehensive reference** (6400+ lines) — every keyword, statement, operator, and data type |
 | [Keywords Reference](manual/keywords.md) | Core BASIC keywords and syntax quick-reference |
 | [Built-in Functions](reference/BUILTIN_FUNCTIONS_REFERENCE.md) | All 108+ built-in functions with signatures and examples (Print, Input, MsgBox, Len, Mid, Val, Format, etc.) |
 | [Godot Functions](reference/GODOT_FUNCTIONS_REFERENCE.md) | Godot-specific functions (CreateNode, AddChild, LoadScene, GetTree, etc.) |
@@ -91,7 +91,7 @@ Interactive debugging, REPL, Watch Window, and data breakpoints.
 | Document | Description |
 |----------|-------------|
 | [Debugging Guide](manual/debugging.md) | **Full debugging reference** — Debug toolbar, breakpoints, conditional breakpoints, Step Into/Over/Out, Set Next Statement, Exception Assistant, Variables panel, Watch expressions (with VB6 property eval), Call Stack, data breakpoints |
-| [Immediate Window](IMMEDIATE_WINDOW.md) | **Interactive REPL console** (882 lines) — multi-line input, variable inspector, Watch tab (with VB6 property evaluation), Whenever tab, remote debugging, data breakpoints, VB6-style output formatting (True/False, no `.0`) |
+| [Immediate Window](IMMEDIATE_WINDOW.md) | **Interactive REPL console** (900+ lines) — multi-line input, variable inspector, Watch tab (with VB6 property evaluation), Whenever tab, remote debugging, data breakpoints, VB6-style output formatting (True/False, no `.0`) |
 
 ---
 
@@ -132,7 +132,7 @@ Step-by-step guides from beginner to advanced.
 | Tutorial | Description |
 |----------|-------------|
 | [Custom Wobbly Form](tutorials/custom_wobbly_form.md) | Creating animated form effects with custom controls and shaders |
-| [Game UI Controls](tutorials/game_ui_controls.md) | Using the 23 Game UI drag-and-drop controls (InventoryGrid, StatBar, HUDCounter, etc.) |
+| [Game UI Controls](tutorials/game_ui_controls.md) | Using the 16 Game UI drag-and-drop controls (InventoryGrid, StatBar, HUDCounter, etc.) |
 | [Tutorials Index](../tutorials/README.md) | Master tutorial listing — 20 tutorials from Hello World to Advanced Game Dev |
 
 ---

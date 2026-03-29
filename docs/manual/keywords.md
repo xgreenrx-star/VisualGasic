@@ -15,9 +15,9 @@ Standard flow control and declaration.
 | `Do ... Loop` | Condition loops. |
 | `Sub ... End Sub` | Define a subroutine (void function). |
 | `Function ... End Function` | Define a function returning a value. |
-| `GoSub label` | Jump to a label and push return address. *(v2.10.0)* |
-| `Return` | Return from a `GoSub` call. *(v2.10.0)* |
-| `Implements InterfaceName` | Declare interface implementation in a class. *(v2.10.0)* |
+| `GoSub label` | Jump to a label and push return address. |
+| `Return` | Return from a `GoSub` call. |
+| `Implements InterfaceName` | Declare interface implementation in a class. |
 
 ## Built-in Functions
 
@@ -54,16 +54,16 @@ Standard flow control and declaration.
 | `MsgBox(text)` | Show a standard alert dialog. |
 | `Shell(cmd)` | Execute global OS commands. |
 | `Sleep(ms)` | Pause execution. |
-| `Timer()` | Seconds since midnight as Double. *(v2.10.0)* |
+| `Timer()` | Seconds since midnight as Double. |
 
-### VB6 Global Objects *(v2.10.0)*
+### VB6 Global Objects
 | Object | Description |
 | :--- | :--- |
 | `App` | Application info: `App.Path`, `App.Title`, `App.Major`, etc. |
 | `Screen` | Display info: `Screen.Width`, `Screen.Height`. |
 | `Err` | Error state: `Err.Number`, `Err.Description`, `Err.Source`, `Err.Raise`, `Err.Clear`. |
 
-### COM-Style Objects *(v2.10.0)*
+### COM-Style Objects
 | Class | ProgID | Description |
 | :--- | :--- | :--- |
 | `Collection` | `VB6.Collection` | 1-based ordered collection with keys. |
@@ -71,7 +71,7 @@ Standard flow control and declaration.
 | `HttpRequest` | `MSXML2.XMLHTTP` | HTTP client for REST APIs. |
 | `VBTimer` | — | Poll-based timer with Interval/Enabled. |
 
-### File I/O Statements *(v2.10.0)*
+### File I/O Statements
 | Statement | Description |
 | :--- | :--- |
 | `Print #n, expr` | Write formatted output to file. |

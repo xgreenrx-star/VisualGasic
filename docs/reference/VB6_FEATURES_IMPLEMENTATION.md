@@ -4,26 +4,26 @@
 ## Table of Contents
 
 - [Implementation Date: January 24, 2026](#implementation-date-january-24-2026)
-- [1. CLASS MODULES (Fully Implemented)](#1-class-modules-fully-implemented)
+- [1. CLASS MODULES](#1-class-modules-fully-implemented)
   - [Infrastructure](#infrastructure)
   - [Parsing](#parsing)
   - [Runtime](#runtime)
   - [Example](#example)
-- [2. PROPERTY PROCEDURES (Fully Implemented)](#2-property-procedures-fully-implemented)
+- [2. PROPERTY PROCEDURES](#2-property-procedures-fully-implemented)
   - [AST Enhancements](#ast-enhancements)
   - [Parsing](#parsing)
   - [Runtime Framework](#runtime-framework)
   - [Example](#example)
-- [3. OOP KEYWORDS (Fully Implemented)](#3-oop-keywords-fully-implemented)
+- [3. OOP KEYWORDS](#3-oop-keywords-fully-implemented)
   - [Friend Visibility](#friend-visibility)
   - [Implements Interface](#implements-interface)
   - [WithEvents](#withevents)
   - [Example](#example)
-- [4. FILE MODE KEYWORDS (Fully Implemented)](#4-file-mode-keywords-fully-implemented)
+- [4. FILE MODE KEYWORDS](#4-file-mode-keywords-fully-implemented)
   - [Enhanced Open Statement](#enhanced-open-statement)
   - [Implementation Details](#implementation-details)
   - [Example](#example)
-- [5. DECLARE/FFI INFRASTRUCTURE (Fully Implemented)](#5-declareffi-infrastructure-fully-implemented)
+- [5. DECLARE/FFI INFRASTRUCTURE](#5-declareffi-infrastructure-fully-implemented)
   - [DeclareStatement Enhancements](#declarestatement-enhancements)
   - [Runtime FFI Support](#runtime-ffi-support)
   - [Parsing](#parsing)
@@ -45,22 +45,22 @@
   - [📋 Ready for Enhancement](#ready-for-enhancement)
 - [NEXT STEPS (Optional Enhancements)](#next-steps-optional-enhancements)
 - [SUMMARY](#summary)
-- [7. COM-STYLE OBJECT CLASSES (Fully Implemented — v2.10.0)](#7-com-style-object-classes-fully-implemented-v2100)
+- [7. COM-STYLE OBJECT CLASSES](#7-com-style-object-classes-fully-implemented-v2100)
   - [VGCollection](#vgcollection)
   - [VGRegEx + VGRegExMatch](#vgregex-vgregexmatch)
   - [VGHttpRequest](#vghttprequest)
   - [VGTimer](#vgtimer)
   - [Files Added](#files-added)
-- [8. VB6 GLOBAL OBJECTS (Fully Implemented — v2.10.0)](#8-vb6-global-objects-fully-implemented-v2100)
-- [9. GoSub/Return (Fully Implemented — v2.10.0)](#9-gosubreturn-fully-implemented-v2100)
-- [10. FILE I/O BYTECODE OPCODES (Fully Implemented — v2.10.0)](#10-file-io-bytecode-opcodes-fully-implemented-v2100)
-- [11. USER-DEFINED TYPES — Enhanced (v4.2.0)](#11-user-defined-types-enhanced-v420)
+- [8. VB6 GLOBAL OBJECTS](#8-vb6-global-objects-fully-implemented-v2100)
+- [9. GoSub/Return](#9-gosubreturn-fully-implemented-v2100)
+- [10. FILE I/O BYTECODE OPCODES](#10-file-io-bytecode-opcodes-fully-implemented-v2100)
+- [11. USER-DEFINED TYPES — Enhanced](#11-user-defined-types--enhanced)
   - [Overview](#overview)
   - [Fixed-Length Strings](#fixed-length-strings)
   - [Strict Member Type Checking](#strict-member-type-checking)
   - [IntelliSense for Struct Members](#intellisense-for-struct-members)
   - [Infrastructure](#infrastructure)
-- [12. FINANCIAL FUNCTIONS (v4.2.0)](#12-financial-functions-v420)
+- [12. FINANCIAL FUNCTIONS](#12-financial-functions)
   - [Loan/Annuity Functions](#loanannuity-functions)
   - [Investment Analysis Functions](#investment-analysis-functions)
   - [Depreciation Functions](#depreciation-functions)
@@ -71,26 +71,26 @@
 ## Table of Contents
 
 - [Implementation Date: January 24, 2026](#implementation-date-january-24-2026)
-- [1. CLASS MODULES (Fully Implemented)](#1-class-modules-fully-implemented)
+- [1. CLASS MODULES](#1-class-modules-fully-implemented)
   - [Infrastructure](#infrastructure)
   - [Parsing](#parsing)
   - [Runtime](#runtime)
   - [Example](#example)
-- [2. PROPERTY PROCEDURES (Fully Implemented)](#2-property-procedures-fully-implemented)
+- [2. PROPERTY PROCEDURES](#2-property-procedures-fully-implemented)
   - [AST Enhancements](#ast-enhancements)
   - [Parsing](#parsing)
   - [Runtime Framework](#runtime-framework)
   - [Example](#example)
-- [3. OOP KEYWORDS (Fully Implemented)](#3-oop-keywords-fully-implemented)
+- [3. OOP KEYWORDS](#3-oop-keywords-fully-implemented)
   - [Friend Visibility](#friend-visibility)
   - [Implements Interface](#implements-interface)
   - [WithEvents](#withevents)
   - [Example](#example)
-- [4. FILE MODE KEYWORDS (Fully Implemented)](#4-file-mode-keywords-fully-implemented)
+- [4. FILE MODE KEYWORDS](#4-file-mode-keywords-fully-implemented)
   - [Enhanced Open Statement](#enhanced-open-statement)
   - [Implementation Details](#implementation-details)
   - [Example](#example)
-- [5. DECLARE/FFI INFRASTRUCTURE (Fully Implemented)](#5-declareffi-infrastructure-fully-implemented)
+- [5. DECLARE/FFI INFRASTRUCTURE](#5-declareffi-infrastructure-fully-implemented)
   - [DeclareStatement Enhancements](#declarestatement-enhancements)
   - [Runtime FFI Support](#runtime-ffi-support)
   - [Parsing](#parsing)
@@ -112,22 +112,22 @@
   - [📋 Ready for Enhancement](#ready-for-enhancement)
 - [NEXT STEPS (Optional Enhancements)](#next-steps-optional-enhancements)
 - [SUMMARY](#summary)
-- [7. COM-STYLE OBJECT CLASSES (Fully Implemented — v2.10.0)](#7-com-style-object-classes-fully-implemented-v2100)
+- [7. COM-STYLE OBJECT CLASSES](#7-com-style-object-classes-fully-implemented-v2100)
   - [VGCollection](#vgcollection)
   - [VGRegEx + VGRegExMatch](#vgregex-vgregexmatch)
   - [VGHttpRequest](#vghttprequest)
   - [VGTimer](#vgtimer)
   - [Files Added](#files-added)
-- [8. VB6 GLOBAL OBJECTS (Fully Implemented — v2.10.0)](#8-vb6-global-objects-fully-implemented-v2100)
-- [9. GoSub/Return (Fully Implemented — v2.10.0)](#9-gosubreturn-fully-implemented-v2100)
-- [10. FILE I/O BYTECODE OPCODES (Fully Implemented — v2.10.0)](#10-file-io-bytecode-opcodes-fully-implemented-v2100)
-- [11. USER-DEFINED TYPES — Enhanced (v4.2.0)](#11-user-defined-types-enhanced-v420)
+- [8. VB6 GLOBAL OBJECTS](#8-vb6-global-objects-fully-implemented-v2100)
+- [9. GoSub/Return](#9-gosubreturn-fully-implemented-v2100)
+- [10. FILE I/O BYTECODE OPCODES](#10-file-io-bytecode-opcodes-fully-implemented-v2100)
+- [11. USER-DEFINED TYPES — Enhanced](#11-user-defined-types--enhanced)
   - [Overview](#overview)
   - [Fixed-Length Strings](#fixed-length-strings)
   - [Strict Member Type Checking](#strict-member-type-checking)
   - [IntelliSense for Struct Members](#intellisense-for-struct-members)
   - [Infrastructure](#infrastructure)
-- [12. FINANCIAL FUNCTIONS (v4.2.0)](#12-financial-functions-v420)
+- [12. FINANCIAL FUNCTIONS](#12-financial-functions)
   - [Loan/Annuity Functions](#loanannuity-functions)
   - [Investment Analysis Functions](#investment-analysis-functions)
   - [Depreciation Functions](#depreciation-functions)
@@ -138,26 +138,26 @@
 ## Table of Contents
 
 - [Implementation Date: January 24, 2026](#implementation-date-january-24-2026)
-- [1. CLASS MODULES (Fully Implemented)](#1-class-modules-fully-implemented)
+- [1. CLASS MODULES](#1-class-modules-fully-implemented)
   - [Infrastructure](#infrastructure)
   - [Parsing](#parsing)
   - [Runtime](#runtime)
   - [Example](#example)
-- [2. PROPERTY PROCEDURES (Fully Implemented)](#2-property-procedures-fully-implemented)
+- [2. PROPERTY PROCEDURES](#2-property-procedures-fully-implemented)
   - [AST Enhancements](#ast-enhancements)
   - [Parsing](#parsing)
   - [Runtime Framework](#runtime-framework)
   - [Example](#example)
-- [3. OOP KEYWORDS (Fully Implemented)](#3-oop-keywords-fully-implemented)
+- [3. OOP KEYWORDS](#3-oop-keywords-fully-implemented)
   - [Friend Visibility](#friend-visibility)
   - [Implements Interface](#implements-interface)
   - [WithEvents](#withevents)
   - [Example](#example)
-- [4. FILE MODE KEYWORDS (Fully Implemented)](#4-file-mode-keywords-fully-implemented)
+- [4. FILE MODE KEYWORDS](#4-file-mode-keywords-fully-implemented)
   - [Enhanced Open Statement](#enhanced-open-statement)
   - [Implementation Details](#implementation-details)
   - [Example](#example)
-- [5. DECLARE/FFI INFRASTRUCTURE (Fully Implemented)](#5-declareffi-infrastructure-fully-implemented)
+- [5. DECLARE/FFI INFRASTRUCTURE](#5-declareffi-infrastructure-fully-implemented)
   - [DeclareStatement Enhancements](#declarestatement-enhancements)
   - [Runtime FFI Support](#runtime-ffi-support)
   - [Parsing](#parsing)
@@ -179,22 +179,22 @@
   - [📋 Ready for Enhancement](#ready-for-enhancement)
 - [NEXT STEPS (Optional Enhancements)](#next-steps-optional-enhancements)
 - [SUMMARY](#summary)
-- [7. COM-STYLE OBJECT CLASSES (Fully Implemented — v2.10.0)](#7-com-style-object-classes-fully-implemented-v2100)
+- [7. COM-STYLE OBJECT CLASSES](#7-com-style-object-classes-fully-implemented-v2100)
   - [VGCollection](#vgcollection)
   - [VGRegEx + VGRegExMatch](#vgregex-vgregexmatch)
   - [VGHttpRequest](#vghttprequest)
   - [VGTimer](#vgtimer)
   - [Files Added](#files-added)
-- [8. VB6 GLOBAL OBJECTS (Fully Implemented — v2.10.0)](#8-vb6-global-objects-fully-implemented-v2100)
-- [9. GoSub/Return (Fully Implemented — v2.10.0)](#9-gosubreturn-fully-implemented-v2100)
-- [10. FILE I/O BYTECODE OPCODES (Fully Implemented — v2.10.0)](#10-file-io-bytecode-opcodes-fully-implemented-v2100)
-- [11. USER-DEFINED TYPES — Enhanced (v4.2.0)](#11-user-defined-types-enhanced-v420)
+- [8. VB6 GLOBAL OBJECTS](#8-vb6-global-objects-fully-implemented-v2100)
+- [9. GoSub/Return](#9-gosubreturn-fully-implemented-v2100)
+- [10. FILE I/O BYTECODE OPCODES](#10-file-io-bytecode-opcodes-fully-implemented-v2100)
+- [11. USER-DEFINED TYPES — Enhanced](#11-user-defined-types--enhanced)
   - [Overview](#overview)
   - [Fixed-Length Strings](#fixed-length-strings)
   - [Strict Member Type Checking](#strict-member-type-checking)
   - [IntelliSense for Struct Members](#intellisense-for-struct-members)
   - [Infrastructure](#infrastructure)
-- [12. FINANCIAL FUNCTIONS (v4.2.0)](#12-financial-functions-v420)
+- [12. FINANCIAL FUNCTIONS](#12-financial-functions)
   - [Loan/Annuity Functions](#loanannuity-functions)
   - [Investment Analysis Functions](#investment-analysis-functions)
   - [Depreciation Functions](#depreciation-functions)
@@ -205,26 +205,26 @@
 ## Table of Contents
 
 - [Implementation Date: January 24, 2026](#implementation-date-january-24-2026)
-- [1. CLASS MODULES (Fully Implemented)](#1-class-modules-fully-implemented)
+- [1. CLASS MODULES](#1-class-modules-fully-implemented)
   - [Infrastructure](#infrastructure)
   - [Parsing](#parsing)
   - [Runtime](#runtime)
   - [Example](#example)
-- [2. PROPERTY PROCEDURES (Fully Implemented)](#2-property-procedures-fully-implemented)
+- [2. PROPERTY PROCEDURES](#2-property-procedures-fully-implemented)
   - [AST Enhancements](#ast-enhancements)
   - [Parsing](#parsing)
   - [Runtime Framework](#runtime-framework)
   - [Example](#example)
-- [3. OOP KEYWORDS (Fully Implemented)](#3-oop-keywords-fully-implemented)
+- [3. OOP KEYWORDS](#3-oop-keywords-fully-implemented)
   - [Friend Visibility](#friend-visibility)
   - [Implements Interface](#implements-interface)
   - [WithEvents](#withevents)
   - [Example](#example)
-- [4. FILE MODE KEYWORDS (Fully Implemented)](#4-file-mode-keywords-fully-implemented)
+- [4. FILE MODE KEYWORDS](#4-file-mode-keywords-fully-implemented)
   - [Enhanced Open Statement](#enhanced-open-statement)
   - [Implementation Details](#implementation-details)
   - [Example](#example)
-- [5. DECLARE/FFI INFRASTRUCTURE (Fully Implemented)](#5-declareffi-infrastructure-fully-implemented)
+- [5. DECLARE/FFI INFRASTRUCTURE](#5-declareffi-infrastructure-fully-implemented)
   - [DeclareStatement Enhancements](#declarestatement-enhancements)
   - [Runtime FFI Support](#runtime-ffi-support)
   - [Parsing](#parsing)
@@ -246,22 +246,22 @@
   - [📋 Ready for Enhancement](#ready-for-enhancement)
 - [NEXT STEPS (Optional Enhancements)](#next-steps-optional-enhancements)
 - [SUMMARY](#summary)
-- [7. COM-STYLE OBJECT CLASSES (Fully Implemented — v2.10.0)](#7-com-style-object-classes-fully-implemented-v2100)
+- [7. COM-STYLE OBJECT CLASSES](#7-com-style-object-classes-fully-implemented-v2100)
   - [VGCollection](#vgcollection)
   - [VGRegEx + VGRegExMatch](#vgregex-vgregexmatch)
   - [VGHttpRequest](#vghttprequest)
   - [VGTimer](#vgtimer)
   - [Files Added](#files-added)
-- [8. VB6 GLOBAL OBJECTS (Fully Implemented — v2.10.0)](#8-vb6-global-objects-fully-implemented-v2100)
-- [9. GoSub/Return (Fully Implemented — v2.10.0)](#9-gosubreturn-fully-implemented-v2100)
-- [10. FILE I/O BYTECODE OPCODES (Fully Implemented — v2.10.0)](#10-file-io-bytecode-opcodes-fully-implemented-v2100)
-- [11. USER-DEFINED TYPES — Enhanced (v4.2.0)](#11-user-defined-types-enhanced-v420)
+- [8. VB6 GLOBAL OBJECTS](#8-vb6-global-objects-fully-implemented-v2100)
+- [9. GoSub/Return](#9-gosubreturn-fully-implemented-v2100)
+- [10. FILE I/O BYTECODE OPCODES](#10-file-io-bytecode-opcodes-fully-implemented-v2100)
+- [11. USER-DEFINED TYPES — Enhanced](#11-user-defined-types--enhanced)
   - [Overview](#overview)
   - [Fixed-Length Strings](#fixed-length-strings)
   - [Strict Member Type Checking](#strict-member-type-checking)
   - [IntelliSense for Struct Members](#intellisense-for-struct-members)
   - [Infrastructure](#infrastructure)
-- [12. FINANCIAL FUNCTIONS (v4.2.0)](#12-financial-functions-v420)
+- [12. FINANCIAL FUNCTIONS](#12-financial-functions)
   - [Loan/Annuity Functions](#loanannuity-functions)
   - [Investment Analysis Functions](#investment-analysis-functions)
   - [Depreciation Functions](#depreciation-functions)
@@ -275,7 +275,7 @@ This document summarizes the comprehensive implementation of advanced VB6 featur
 
 ---
 
-## 1. CLASS MODULES (Fully Implemented)
+## 1. CLASS MODULES
 
 ### Infrastructure
 - **ClassDefinition** AST node with complete metadata
@@ -325,7 +325,7 @@ End Class
 
 ---
 
-## 2. PROPERTY PROCEDURES (Fully Implemented)
+## 2. PROPERTY PROCEDURES
 
 ### AST Enhancements
 - PropertyDefinition with PROP_GET, PROP_LET, PROP_SET types
@@ -359,7 +359,7 @@ End Property
 
 ---
 
-## 3. OOP KEYWORDS (Fully Implemented)
+## 3. OOP KEYWORDS
 
 ### Friend Visibility
 - Module-level visibility between project files
@@ -392,7 +392,7 @@ End Class
 
 ---
 
-## 4. FILE MODE KEYWORDS (Fully Implemented)
+## 4. FILE MODE KEYWORDS
 
 ### Enhanced Open Statement
 - **Binary** - Byte-level file access
@@ -427,7 +427,7 @@ Open "shared.txt" For Input Lock Shared As #3
 
 ---
 
-## 5. DECLARE/FFI INFRASTRUCTURE (Fully Implemented)
+## 5. DECLARE/FFI INFRASTRUCTURE
 
 ### DeclareStatement Enhancements
 - **Lib** - Library name specification
@@ -643,7 +643,7 @@ All features are **fully parsed**, **AST nodes created**, **runtime infrastructu
 
 ---
 
-## 7. COM-STYLE OBJECT CLASSES (Fully Implemented — v2.10.0)
+## 7. COM-STYLE OBJECT CLASSES
 
 Four new C++ classes registered with Godot ClassDB, emulating common VB6/VBScript COM objects.
 
@@ -679,7 +679,7 @@ Four new C++ classes registered with Godot ClassDB, emulating common VB6/VBScrip
 
 ---
 
-## 8. VB6 GLOBAL OBJECTS (Fully Implemented — v2.10.0)
+## 8. VB6 GLOBAL OBJECTS
 
 Three virtual global objects initialized as Dictionaries in the VisualGasicInstance constructor.
 
@@ -693,7 +693,7 @@ Three virtual global objects initialized as Dictionaries in the VisualGasicInsta
 
 ---
 
-## 9. GoSub/Return (Fully Implemented — v2.10.0)
+## 9. GoSub/Return
 
 Intra-procedure branching with return address stack:
 - Compiled to `OP_GOSUB` and `OP_RETURN_GOSUB` bytecode opcodes
@@ -702,7 +702,7 @@ Intra-procedure branching with return address stack:
 
 ---
 
-## 10. FILE I/O BYTECODE OPCODES (Fully Implemented — v2.10.0)
+## 10. FILE I/O BYTECODE OPCODES
 
 Four new bytecode opcodes for compiled file I/O statements:
 - `OP_PRINT_FILE` — `Print #n, expr`
@@ -714,8 +714,7 @@ These complement the existing `Open`/`Close` statements and File Mode Keywords (
 
 ---
 
-## 11. USER-DEFINED TYPES — Enhanced (v4.2.0)
-
+## 11. USER-DEFINED TYPES — Enhanced
 ### Overview
 User-Defined Types (`Type...End Type`) now support **fixed-length strings**, **strict member type checking**, and **IntelliSense autocomplete** for struct members.
 
@@ -774,8 +773,7 @@ When typing `variableName.` where the variable was declared as a UDT, the editor
 
 ---
 
-## 12. FINANCIAL FUNCTIONS (v4.2.0)
-
+## 12. FINANCIAL FUNCTIONS
 All 13 VB6 financial functions, implemented as pure math with no external dependencies.
 
 ### Loan/Annuity Functions
@@ -871,13 +869,13 @@ Print "Year 1 DDB: $" & FormatNumber(DDB(cost, salvage, life, 1), 2)
 
 ### C {#index-c}
 
-- **CLASS MODULES** — [1. CLASS MODULES (Fully Implemented)](#1-class-modules-fully-implemented)
-- **COM-STYLE OBJECT CLASSES** — [7. COM-STYLE OBJECT CLASSES (Fully Implemented — v2.10.0)](#7-com-style-object-classes-fully-implemented-v2100)
+- **CLASS MODULES** — [1. CLASS MODULES](#1-class-modules-fully-implemented)
+- **COM-STYLE OBJECT CLASSES** — [7. COM-STYLE OBJECT CLASSES](#7-com-style-object-classes-fully-implemented-v2100)
 - **Core Infrastructure** — [Core Infrastructure](#core-infrastructure)
 
 ### D {#index-d}
 
-- **DECLARE/FFI INFRASTRUCTURE** — [5. DECLARE/FFI INFRASTRUCTURE (Fully Implemented)](#5-declareffi-infrastructure-fully-implemented)
+- **DECLARE/FFI INFRASTRUCTURE** — [5. DECLARE/FFI INFRASTRUCTURE](#5-declareffi-infrastructure-fully-implemented)
 - **DeclareStatement Enhancements** — [DeclareStatement Enhancements](#declarestatement-enhancements)
 - **Depreciation Functions** — [Depreciation Functions](#depreciation-functions)
 
@@ -890,17 +888,17 @@ Print "Year 1 DDB: $" & FormatNumber(DDB(cost, salvage, life, 1), 2)
 
 ### F {#index-f}
 
-- **FILE I/O BYTECODE OPCODES** — [10. FILE I/O BYTECODE OPCODES (Fully Implemented — v2.10.0)](#10-file-io-bytecode-opcodes-fully-implemented-v2100)
-- **FILE MODE KEYWORDS** — [4. FILE MODE KEYWORDS (Fully Implemented)](#4-file-mode-keywords-fully-implemented)
+- **FILE I/O BYTECODE OPCODES** — [10. FILE I/O BYTECODE OPCODES](#10-file-io-bytecode-opcodes-fully-implemented-v2100)
+- **FILE MODE KEYWORDS** — [4. FILE MODE KEYWORDS](#4-file-mode-keywords-fully-implemented)
 - **Files Added** — [Files Added](#files-added)
-- **FINANCIAL FUNCTIONS** — [12. FINANCIAL FUNCTIONS (v4.2.0)](#12-financial-functions-v420)
+- **FINANCIAL FUNCTIONS** — [12. FINANCIAL FUNCTIONS](#12-financial-functions)
 - **Fixed-Length Strings** — [Fixed-Length Strings](#fixed-length-strings)
 - **Friend Visibility** — [Friend Visibility](#friend-visibility)
 - **Fully Operational** — [Fully Operational](#fully-operational)
 
 ### G {#index-g}
 
-- **GoSub/Return** — [9. GoSub/Return (Fully Implemented — v2.10.0)](#9-gosubreturn-fully-implemented-v2100)
+- **GoSub/Return** — [9. GoSub/Return](#9-gosubreturn-fully-implemented-v2100)
 
 ### I {#index-i}
 
@@ -921,13 +919,13 @@ Print "Year 1 DDB: $" & FormatNumber(DDB(cost, salvage, life, 1), 2)
 
 ### O {#index-o}
 
-- **OOP KEYWORDS** — [3. OOP KEYWORDS (Fully Implemented)](#3-oop-keywords-fully-implemented)
+- **OOP KEYWORDS** — [3. OOP KEYWORDS](#3-oop-keywords-fully-implemented)
 - **Optional Enhancements** — [NEXT STEPS (Optional Enhancements)](#next-steps-optional-enhancements)
 
 ### P {#index-p}
 
 - **Parsing** — [Parsing](#parsing)
-- **PROPERTY PROCEDURES** — [2. PROPERTY PROCEDURES (Fully Implemented)](#2-property-procedures-fully-implemented)
+- **PROPERTY PROCEDURES** — [2. PROPERTY PROCEDURES](#2-property-procedures-fully-implemented)
 
 ### R {#index-r}
 
@@ -944,12 +942,12 @@ Print "Year 1 DDB: $" & FormatNumber(DDB(cost, salvage, life, 1), 2)
 
 ### U {#index-u}
 
-- **USER-DEFINED TYPES — Enhanced** — [11. USER-DEFINED TYPES — Enhanced (v4.2.0)](#11-user-defined-types-enhanced-v420)
+- **USER-DEFINED TYPES — Enhanced** — [11. USER-DEFINED TYPES — Enhanced](#11-user-defined-types--enhanced)
 
 ### V {#index-v}
 
 - **VariableDefinition Enhancements** — [VariableDefinition Enhancements](#variabledefinition-enhancements)
-- **VB6 GLOBAL OBJECTS** — [8. VB6 GLOBAL OBJECTS (Fully Implemented — v2.10.0)](#8-vb6-global-objects-fully-implemented-v2100)
+- **VB6 GLOBAL OBJECTS** — [8. VB6 GLOBAL OBJECTS](#8-vb6-global-objects-fully-implemented-v2100)
 - **VGCollection** — [VGCollection](#vgcollection)
 - **VGHttpRequest** — [VGHttpRequest](#vghttprequest)
 - **VGRegEx + VGRegExMatch** — [VGRegEx + VGRegExMatch](#vgregex-vgregexmatch)

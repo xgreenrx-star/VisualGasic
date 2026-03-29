@@ -22,7 +22,7 @@ Math helpers (some handled in `call_builtin_expr_evaluated` — they expect alre
 
 File/dir helpers (delegate to `VisualGasicInstance` wrappers):
 - `LOF(fileHandle)`, `Loc(fileHandle)`, `EOF(fileHandle)`, `FreeFile([range])`, `FileLen(path)`, `Dir(...)`, `Randomize()`
-- `Timer()` — Seconds since midnight as Double *(New in v2.10.0)*
+- `Timer()` — Seconds since midnight as Double
 
 Drawing commands (statement-level, available in `_Draw()`):
 - `DrawPixel(x, y, color)`, `PSet(x, y, color)` — single pixel
@@ -37,7 +37,7 @@ Drawing commands (statement-level, available in `_Draw()`):
 - `QueueRedraw()` — request redraw
 - `CLS()` — clear screen
 
-Image & Texture builtins *(New in v4.2.0)*:
+Image & Texture builtins:
 - `CreateImage(w, h [, fillColor])` — create RGBA8 Image (1–4096 px)
 - `CreateTexture(image)` or `CreateTexture(w, h [, fillColor])` — create ImageTexture
 - `ImageToTexture(image)` — convert Image → ImageTexture
@@ -53,7 +53,7 @@ Image & Texture builtins *(New in v4.2.0)*:
 - `SaveImage(image, path)` — save Image as PNG
 - `LoadImage(path)` — load image file as Image object
 
-Native Image drawing builtins *(New in v4.2.0-beta5)*:
+Native Image drawing builtins:
 
 These builtins perform pixel-level drawing entirely in **native C++**, making
 them orders of magnitude faster than script-level loops. All operate on an
@@ -101,7 +101,7 @@ them orders of magnitude faster than script-level loops. All operate on an
   FloodFillImage img, 100, 100, Color(0, 0, 1, 1)           ' Blue fill inside
   ```
 
-Data introspection helpers *(New in v3.2.0)*:
+Data introspection helpers:
 - `DataCount()` — total number of items in the data tape
 - `DataCount("label")` — number of items in a named data section (case-insensitive)
 - `DataRemain()` — items remaining from current read pointer to end of tape
@@ -178,7 +178,7 @@ Base-specific handlers:
 - `Connect` helpers that simplify signal wiring
 - `Err`-style dictionary helpers (`Clear`, `Raise`) which call back into the instance to raise runtime errors
 
-### VB6 Global Objects *(New in v2.10.0)*
+### VB6 Global Objects
 
 Three virtual objects are resolved automatically when referenced by name (no `Dim` required):
 
@@ -188,7 +188,7 @@ Three virtual objects are resolved automatically when referenced by name (no `Di
 
 These are `Dictionary` instances initialized in the constructor and added to `non_local_names` in the compiler so they bypass local variable scoping.
 
-### COM-Style Object Classes *(New in v2.10.0)*
+### COM-Style Object Classes
 
 Four C++ classes are registered with Godot ClassDB and instantiable via `New` or `CreateObject()`:
 
@@ -199,7 +199,7 @@ Four C++ classes are registered with Godot ClassDB and instantiable via `New` or
 | `VGHttpRequest` | `MSXML2.XMLHTTP` | HTTP client wrapping Godot HTTPClient |
 | `VGTimer` | *(via New VBTimer)* | Poll-based timer with Interval/Enabled |
 
-### File I/O Bytecode Opcodes *(New in v2.10.0)*
+### File I/O Bytecode Opcodes
 
 Four new bytecode opcodes for compiled file I/O:
 - `OP_PRINT_FILE` — `Print #n, expr`
@@ -207,14 +207,14 @@ Four new bytecode opcodes for compiled file I/O:
 - `OP_INPUT_FILE` — `Input #n, var`
 - `OP_LINE_INPUT_FILE` — `Line Input #n, var`
 
-### GoSub/Return *(New in v2.10.0)*
+### GoSub/Return
 
 Intra-procedure branching compiled to bytecode:
 - `OP_GOSUB` — Push return address and jump to label
 - `OP_RETURN_GOSUB` — Pop and return to address
 - Managed via a `gosub_stack` (Vector<int>) in the bytecode VM.
 
-### Enhanced Data/Read System *(New in v3.2.0)*
+### Enhanced Data/Read System
 
 Three new bytecode opcodes for the enhanced Data system:
 - `OP_LOAD_DATA` — Pop path string from stack, open file, parse comma-separated values, append to data tape
