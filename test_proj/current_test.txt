@@ -1,1 +1,1 @@
-test_suite/test_file_permissions.vg
+res://test_suite/test_withevents.vg

@@ -716,188 +716,191 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
     variables["Err"] = err_obj;
 
     // --- Global Constants (VB6 Style) ---
+    // Stored in builtin_constants (separate from user variables) so the
+    // debugger Variables panel only shows user-defined variables.
+    // Variable reads fall back to builtin_constants automatically.
     // Colors
-    variables["vbRed"] = Color(1, 0, 0);
-    variables["vbGreen"] = Color(0, 1, 0);
-    variables["vbBlue"] = Color(0, 0, 1);
-    variables["vbBlack"] = Color(0, 0, 0);
-    variables["vbWhite"] = Color(1, 1, 1);
-    variables["vbYellow"] = Color(1, 1, 0);
-    variables["vbCyan"] = Color(0, 1, 1);
-    variables["vbMagenta"] = Color(1, 0, 1);
+    builtin_constants["vbRed"] = Color(1, 0, 0);
+    builtin_constants["vbGreen"] = Color(0, 1, 0);
+    builtin_constants["vbBlue"] = Color(0, 0, 1);
+    builtin_constants["vbBlack"] = Color(0, 0, 0);
+    builtin_constants["vbWhite"] = Color(1, 1, 1);
+    builtin_constants["vbYellow"] = Color(1, 1, 0);
+    builtin_constants["vbCyan"] = Color(0, 1, 1);
+    builtin_constants["vbMagenta"] = Color(1, 0, 1);
     
     // Keys (Mapped to Godot Key Enum values roughly)
-    variables["vbKeyReturn"] = (int)Key::KEY_ENTER;
-    variables["vbKeyEnter"] = (int)Key::KEY_ENTER;
-    variables["vbKeySpace"] = (int)Key::KEY_SPACE;
-    variables["vbKeyEscape"] = (int)Key::KEY_ESCAPE;
-    variables["vbKeyUp"] = (int)Key::KEY_UP;
-    variables["vbKeyDown"] = (int)Key::KEY_DOWN;
-    variables["vbKeyLeft"] = (int)Key::KEY_LEFT;
-    variables["vbKeyRight"] = (int)Key::KEY_RIGHT;
+    builtin_constants["vbKeyReturn"] = (int)Key::KEY_ENTER;
+    builtin_constants["vbKeyEnter"] = (int)Key::KEY_ENTER;
+    builtin_constants["vbKeySpace"] = (int)Key::KEY_SPACE;
+    builtin_constants["vbKeyEscape"] = (int)Key::KEY_ESCAPE;
+    builtin_constants["vbKeyUp"] = (int)Key::KEY_UP;
+    builtin_constants["vbKeyDown"] = (int)Key::KEY_DOWN;
+    builtin_constants["vbKeyLeft"] = (int)Key::KEY_LEFT;
+    builtin_constants["vbKeyRight"] = (int)Key::KEY_RIGHT;
     
     // Godot-style Key Constants (for Input.IsKeyPressed)
-    variables["KEY_NONE"] = (int)Key::KEY_NONE;
-    variables["KEY_SPACE"] = (int)Key::KEY_SPACE;
-    variables["KEY_ENTER"] = (int)Key::KEY_ENTER;
-    variables["KEY_ESCAPE"] = (int)Key::KEY_ESCAPE;
-    variables["KEY_TAB"] = (int)Key::KEY_TAB;
-    variables["KEY_BACKSPACE"] = (int)Key::KEY_BACKSPACE;
-    variables["KEY_DELETE"] = (int)Key::KEY_DELETE;
-    variables["KEY_INSERT"] = (int)Key::KEY_INSERT;
-    variables["KEY_HOME"] = (int)Key::KEY_HOME;
-    variables["KEY_END"] = (int)Key::KEY_END;
-    variables["KEY_PAGEUP"] = (int)Key::KEY_PAGEUP;
-    variables["KEY_PAGEDOWN"] = (int)Key::KEY_PAGEDOWN;
-    variables["KEY_UP"] = (int)Key::KEY_UP;
-    variables["KEY_DOWN"] = (int)Key::KEY_DOWN;
-    variables["KEY_LEFT"] = (int)Key::KEY_LEFT;
-    variables["KEY_RIGHT"] = (int)Key::KEY_RIGHT;
-    variables["KEY_SHIFT"] = (int)Key::KEY_SHIFT;
-    variables["KEY_CTRL"] = (int)Key::KEY_CTRL;
-    variables["KEY_ALT"] = (int)Key::KEY_ALT;
-    variables["KEY_CAPSLOCK"] = (int)Key::KEY_CAPSLOCK;
+    builtin_constants["KEY_NONE"] = (int)Key::KEY_NONE;
+    builtin_constants["KEY_SPACE"] = (int)Key::KEY_SPACE;
+    builtin_constants["KEY_ENTER"] = (int)Key::KEY_ENTER;
+    builtin_constants["KEY_ESCAPE"] = (int)Key::KEY_ESCAPE;
+    builtin_constants["KEY_TAB"] = (int)Key::KEY_TAB;
+    builtin_constants["KEY_BACKSPACE"] = (int)Key::KEY_BACKSPACE;
+    builtin_constants["KEY_DELETE"] = (int)Key::KEY_DELETE;
+    builtin_constants["KEY_INSERT"] = (int)Key::KEY_INSERT;
+    builtin_constants["KEY_HOME"] = (int)Key::KEY_HOME;
+    builtin_constants["KEY_END"] = (int)Key::KEY_END;
+    builtin_constants["KEY_PAGEUP"] = (int)Key::KEY_PAGEUP;
+    builtin_constants["KEY_PAGEDOWN"] = (int)Key::KEY_PAGEDOWN;
+    builtin_constants["KEY_UP"] = (int)Key::KEY_UP;
+    builtin_constants["KEY_DOWN"] = (int)Key::KEY_DOWN;
+    builtin_constants["KEY_LEFT"] = (int)Key::KEY_LEFT;
+    builtin_constants["KEY_RIGHT"] = (int)Key::KEY_RIGHT;
+    builtin_constants["KEY_SHIFT"] = (int)Key::KEY_SHIFT;
+    builtin_constants["KEY_CTRL"] = (int)Key::KEY_CTRL;
+    builtin_constants["KEY_ALT"] = (int)Key::KEY_ALT;
+    builtin_constants["KEY_CAPSLOCK"] = (int)Key::KEY_CAPSLOCK;
     // Letter keys A-Z
-    variables["KEY_A"] = (int)Key::KEY_A;
-    variables["KEY_B"] = (int)Key::KEY_B;
-    variables["KEY_C"] = (int)Key::KEY_C;
-    variables["KEY_D"] = (int)Key::KEY_D;
-    variables["KEY_E"] = (int)Key::KEY_E;
-    variables["KEY_F"] = (int)Key::KEY_F;
-    variables["KEY_G"] = (int)Key::KEY_G;
-    variables["KEY_H"] = (int)Key::KEY_H;
-    variables["KEY_I"] = (int)Key::KEY_I;
-    variables["KEY_J"] = (int)Key::KEY_J;
-    variables["KEY_K"] = (int)Key::KEY_K;
-    variables["KEY_L"] = (int)Key::KEY_L;
-    variables["KEY_M"] = (int)Key::KEY_M;
-    variables["KEY_N"] = (int)Key::KEY_N;
-    variables["KEY_O"] = (int)Key::KEY_O;
-    variables["KEY_P"] = (int)Key::KEY_P;
-    variables["KEY_Q"] = (int)Key::KEY_Q;
-    variables["KEY_R"] = (int)Key::KEY_R;
-    variables["KEY_S"] = (int)Key::KEY_S;
-    variables["KEY_T"] = (int)Key::KEY_T;
-    variables["KEY_U"] = (int)Key::KEY_U;
-    variables["KEY_V"] = (int)Key::KEY_V;
-    variables["KEY_W"] = (int)Key::KEY_W;
-    variables["KEY_X"] = (int)Key::KEY_X;
-    variables["KEY_Y"] = (int)Key::KEY_Y;
-    variables["KEY_Z"] = (int)Key::KEY_Z;
+    builtin_constants["KEY_A"] = (int)Key::KEY_A;
+    builtin_constants["KEY_B"] = (int)Key::KEY_B;
+    builtin_constants["KEY_C"] = (int)Key::KEY_C;
+    builtin_constants["KEY_D"] = (int)Key::KEY_D;
+    builtin_constants["KEY_E"] = (int)Key::KEY_E;
+    builtin_constants["KEY_F"] = (int)Key::KEY_F;
+    builtin_constants["KEY_G"] = (int)Key::KEY_G;
+    builtin_constants["KEY_H"] = (int)Key::KEY_H;
+    builtin_constants["KEY_I"] = (int)Key::KEY_I;
+    builtin_constants["KEY_J"] = (int)Key::KEY_J;
+    builtin_constants["KEY_K"] = (int)Key::KEY_K;
+    builtin_constants["KEY_L"] = (int)Key::KEY_L;
+    builtin_constants["KEY_M"] = (int)Key::KEY_M;
+    builtin_constants["KEY_N"] = (int)Key::KEY_N;
+    builtin_constants["KEY_O"] = (int)Key::KEY_O;
+    builtin_constants["KEY_P"] = (int)Key::KEY_P;
+    builtin_constants["KEY_Q"] = (int)Key::KEY_Q;
+    builtin_constants["KEY_R"] = (int)Key::KEY_R;
+    builtin_constants["KEY_S"] = (int)Key::KEY_S;
+    builtin_constants["KEY_T"] = (int)Key::KEY_T;
+    builtin_constants["KEY_U"] = (int)Key::KEY_U;
+    builtin_constants["KEY_V"] = (int)Key::KEY_V;
+    builtin_constants["KEY_W"] = (int)Key::KEY_W;
+    builtin_constants["KEY_X"] = (int)Key::KEY_X;
+    builtin_constants["KEY_Y"] = (int)Key::KEY_Y;
+    builtin_constants["KEY_Z"] = (int)Key::KEY_Z;
     // Number keys 0-9
-    variables["KEY_0"] = (int)Key::KEY_0;
-    variables["KEY_1"] = (int)Key::KEY_1;
-    variables["KEY_2"] = (int)Key::KEY_2;
-    variables["KEY_3"] = (int)Key::KEY_3;
-    variables["KEY_4"] = (int)Key::KEY_4;
-    variables["KEY_5"] = (int)Key::KEY_5;
-    variables["KEY_6"] = (int)Key::KEY_6;
-    variables["KEY_7"] = (int)Key::KEY_7;
-    variables["KEY_8"] = (int)Key::KEY_8;
-    variables["KEY_9"] = (int)Key::KEY_9;
+    builtin_constants["KEY_0"] = (int)Key::KEY_0;
+    builtin_constants["KEY_1"] = (int)Key::KEY_1;
+    builtin_constants["KEY_2"] = (int)Key::KEY_2;
+    builtin_constants["KEY_3"] = (int)Key::KEY_3;
+    builtin_constants["KEY_4"] = (int)Key::KEY_4;
+    builtin_constants["KEY_5"] = (int)Key::KEY_5;
+    builtin_constants["KEY_6"] = (int)Key::KEY_6;
+    builtin_constants["KEY_7"] = (int)Key::KEY_7;
+    builtin_constants["KEY_8"] = (int)Key::KEY_8;
+    builtin_constants["KEY_9"] = (int)Key::KEY_9;
     // Function keys F1-F12
-    variables["KEY_F1"] = (int)Key::KEY_F1;
-    variables["KEY_F2"] = (int)Key::KEY_F2;
-    variables["KEY_F3"] = (int)Key::KEY_F3;
-    variables["KEY_F4"] = (int)Key::KEY_F4;
-    variables["KEY_F5"] = (int)Key::KEY_F5;
-    variables["KEY_F6"] = (int)Key::KEY_F6;
-    variables["KEY_F7"] = (int)Key::KEY_F7;
-    variables["KEY_F8"] = (int)Key::KEY_F8;
-    variables["KEY_F9"] = (int)Key::KEY_F9;
-    variables["KEY_F10"] = (int)Key::KEY_F10;
-    variables["KEY_F11"] = (int)Key::KEY_F11;
-    variables["KEY_F12"] = (int)Key::KEY_F12;
+    builtin_constants["KEY_F1"] = (int)Key::KEY_F1;
+    builtin_constants["KEY_F2"] = (int)Key::KEY_F2;
+    builtin_constants["KEY_F3"] = (int)Key::KEY_F3;
+    builtin_constants["KEY_F4"] = (int)Key::KEY_F4;
+    builtin_constants["KEY_F5"] = (int)Key::KEY_F5;
+    builtin_constants["KEY_F6"] = (int)Key::KEY_F6;
+    builtin_constants["KEY_F7"] = (int)Key::KEY_F7;
+    builtin_constants["KEY_F8"] = (int)Key::KEY_F8;
+    builtin_constants["KEY_F9"] = (int)Key::KEY_F9;
+    builtin_constants["KEY_F10"] = (int)Key::KEY_F10;
+    builtin_constants["KEY_F11"] = (int)Key::KEY_F11;
+    builtin_constants["KEY_F12"] = (int)Key::KEY_F12;
     // Symbol / punctuation keys
-    variables["KEY_PLUS"] = (int)Key::KEY_PLUS;
-    variables["KEY_MINUS"] = (int)Key::KEY_MINUS;
-    variables["KEY_ASTERISK"] = (int)Key::KEY_ASTERISK;
-    variables["KEY_SLASH"] = (int)Key::KEY_SLASH;
-    variables["KEY_PERIOD"] = (int)Key::KEY_PERIOD;
-    variables["KEY_EQUAL"] = (int)Key::KEY_EQUAL;
-    variables["KEY_PERCENT"] = (int)Key::KEY_PERCENT;
+    builtin_constants["KEY_PLUS"] = (int)Key::KEY_PLUS;
+    builtin_constants["KEY_MINUS"] = (int)Key::KEY_MINUS;
+    builtin_constants["KEY_ASTERISK"] = (int)Key::KEY_ASTERISK;
+    builtin_constants["KEY_SLASH"] = (int)Key::KEY_SLASH;
+    builtin_constants["KEY_PERIOD"] = (int)Key::KEY_PERIOD;
+    builtin_constants["KEY_EQUAL"] = (int)Key::KEY_EQUAL;
+    builtin_constants["KEY_PERCENT"] = (int)Key::KEY_PERCENT;
     // Numeric keypad keys
-    variables["KEY_KP_0"] = (int)Key::KEY_KP_0;
-    variables["KEY_KP_1"] = (int)Key::KEY_KP_1;
-    variables["KEY_KP_2"] = (int)Key::KEY_KP_2;
-    variables["KEY_KP_3"] = (int)Key::KEY_KP_3;
-    variables["KEY_KP_4"] = (int)Key::KEY_KP_4;
-    variables["KEY_KP_5"] = (int)Key::KEY_KP_5;
-    variables["KEY_KP_6"] = (int)Key::KEY_KP_6;
-    variables["KEY_KP_7"] = (int)Key::KEY_KP_7;
-    variables["KEY_KP_8"] = (int)Key::KEY_KP_8;
-    variables["KEY_KP_9"] = (int)Key::KEY_KP_9;
-    variables["KEY_KP_ENTER"] = (int)Key::KEY_KP_ENTER;
-    variables["KEY_KP_ADD"] = (int)Key::KEY_KP_ADD;
-    variables["KEY_KP_SUBTRACT"] = (int)Key::KEY_KP_SUBTRACT;
-    variables["KEY_KP_MULTIPLY"] = (int)Key::KEY_KP_MULTIPLY;
-    variables["KEY_KP_DIVIDE"] = (int)Key::KEY_KP_DIVIDE;
-    variables["KEY_KP_PERIOD"] = (int)Key::KEY_KP_PERIOD;
+    builtin_constants["KEY_KP_0"] = (int)Key::KEY_KP_0;
+    builtin_constants["KEY_KP_1"] = (int)Key::KEY_KP_1;
+    builtin_constants["KEY_KP_2"] = (int)Key::KEY_KP_2;
+    builtin_constants["KEY_KP_3"] = (int)Key::KEY_KP_3;
+    builtin_constants["KEY_KP_4"] = (int)Key::KEY_KP_4;
+    builtin_constants["KEY_KP_5"] = (int)Key::KEY_KP_5;
+    builtin_constants["KEY_KP_6"] = (int)Key::KEY_KP_6;
+    builtin_constants["KEY_KP_7"] = (int)Key::KEY_KP_7;
+    builtin_constants["KEY_KP_8"] = (int)Key::KEY_KP_8;
+    builtin_constants["KEY_KP_9"] = (int)Key::KEY_KP_9;
+    builtin_constants["KEY_KP_ENTER"] = (int)Key::KEY_KP_ENTER;
+    builtin_constants["KEY_KP_ADD"] = (int)Key::KEY_KP_ADD;
+    builtin_constants["KEY_KP_SUBTRACT"] = (int)Key::KEY_KP_SUBTRACT;
+    builtin_constants["KEY_KP_MULTIPLY"] = (int)Key::KEY_KP_MULTIPLY;
+    builtin_constants["KEY_KP_DIVIDE"] = (int)Key::KEY_KP_DIVIDE;
+    builtin_constants["KEY_KP_PERIOD"] = (int)Key::KEY_KP_PERIOD;
     // Mouse button constants
-    variables["MOUSE_BUTTON_LEFT"] = (int)MouseButton::MOUSE_BUTTON_LEFT;
-    variables["MOUSE_BUTTON_RIGHT"] = (int)MouseButton::MOUSE_BUTTON_RIGHT;
-    variables["MOUSE_BUTTON_MIDDLE"] = (int)MouseButton::MOUSE_BUTTON_MIDDLE;
-    variables["MOUSE_BUTTON_WHEEL_UP"] = (int)MouseButton::MOUSE_BUTTON_WHEEL_UP;
-    variables["MOUSE_BUTTON_WHEEL_DOWN"] = (int)MouseButton::MOUSE_BUTTON_WHEEL_DOWN;
-    variables["MOUSE_BUTTON_WHEEL_LEFT"] = (int)MouseButton::MOUSE_BUTTON_WHEEL_LEFT;
-    variables["MOUSE_BUTTON_WHEEL_RIGHT"] = (int)MouseButton::MOUSE_BUTTON_WHEEL_RIGHT;
-    variables["MOUSE_BUTTON_XBUTTON1"] = (int)MouseButton::MOUSE_BUTTON_XBUTTON1;
-    variables["MOUSE_BUTTON_XBUTTON2"] = (int)MouseButton::MOUSE_BUTTON_XBUTTON2;
+    builtin_constants["MOUSE_BUTTON_LEFT"] = (int)MouseButton::MOUSE_BUTTON_LEFT;
+    builtin_constants["MOUSE_BUTTON_RIGHT"] = (int)MouseButton::MOUSE_BUTTON_RIGHT;
+    builtin_constants["MOUSE_BUTTON_MIDDLE"] = (int)MouseButton::MOUSE_BUTTON_MIDDLE;
+    builtin_constants["MOUSE_BUTTON_WHEEL_UP"] = (int)MouseButton::MOUSE_BUTTON_WHEEL_UP;
+    builtin_constants["MOUSE_BUTTON_WHEEL_DOWN"] = (int)MouseButton::MOUSE_BUTTON_WHEEL_DOWN;
+    builtin_constants["MOUSE_BUTTON_WHEEL_LEFT"] = (int)MouseButton::MOUSE_BUTTON_WHEEL_LEFT;
+    builtin_constants["MOUSE_BUTTON_WHEEL_RIGHT"] = (int)MouseButton::MOUSE_BUTTON_WHEEL_RIGHT;
+    builtin_constants["MOUSE_BUTTON_XBUTTON1"] = (int)MouseButton::MOUSE_BUTTON_XBUTTON1;
+    builtin_constants["MOUSE_BUTTON_XBUTTON2"] = (int)MouseButton::MOUSE_BUTTON_XBUTTON2;
     // Input mouse mode constants (also accessible via Input.MOUSE_MODE_xxx)
-    variables["MOUSE_MODE_VISIBLE"] = (int)Input::MOUSE_MODE_VISIBLE;
-    variables["MOUSE_MODE_HIDDEN"] = (int)Input::MOUSE_MODE_HIDDEN;
-    variables["MOUSE_MODE_CAPTURED"] = (int)Input::MOUSE_MODE_CAPTURED;
-    variables["MOUSE_MODE_CONFINED"] = (int)Input::MOUSE_MODE_CONFINED;
-    variables["MOUSE_MODE_CONFINED_HIDDEN"] = (int)Input::MOUSE_MODE_CONFINED_HIDDEN;
+    builtin_constants["MOUSE_MODE_VISIBLE"] = (int)Input::MOUSE_MODE_VISIBLE;
+    builtin_constants["MOUSE_MODE_HIDDEN"] = (int)Input::MOUSE_MODE_HIDDEN;
+    builtin_constants["MOUSE_MODE_CAPTURED"] = (int)Input::MOUSE_MODE_CAPTURED;
+    builtin_constants["MOUSE_MODE_CONFINED"] = (int)Input::MOUSE_MODE_CONFINED;
+    builtin_constants["MOUSE_MODE_CONFINED_HIDDEN"] = (int)Input::MOUSE_MODE_CONFINED_HIDDEN;
     
     // MsgBox Button Constants (VB6-style)
-    variables["vbOKOnly"] = 0;
-    variables["vbOKCancel"] = 1;
-    variables["vbAbortRetryIgnore"] = 2;
-    variables["vbYesNoCancel"] = 3;
-    variables["vbYesNo"] = 4;
-    variables["vbRetryCancel"] = 5;
+    builtin_constants["vbOKOnly"] = 0;
+    builtin_constants["vbOKCancel"] = 1;
+    builtin_constants["vbAbortRetryIgnore"] = 2;
+    builtin_constants["vbYesNoCancel"] = 3;
+    builtin_constants["vbYesNo"] = 4;
+    builtin_constants["vbRetryCancel"] = 5;
     
     // MsgBox Icon Constants
-    variables["vbCritical"] = 16;
-    variables["vbQuestion"] = 32;
-    variables["vbExclamation"] = 48;
-    variables["vbInformation"] = 64;
+    builtin_constants["vbCritical"] = 16;
+    builtin_constants["vbQuestion"] = 32;
+    builtin_constants["vbExclamation"] = 48;
+    builtin_constants["vbInformation"] = 64;
     
     // MsgBox Return Values
-    variables["vbOK"] = 1;
-    variables["vbCancel"] = 2;
-    variables["vbAbort"] = 3;
-    variables["vbRetry"] = 4;
-    variables["vbIgnore"] = 5;
-    variables["vbYes"] = 6;
-    variables["vbNo"] = 7;
+    builtin_constants["vbOK"] = 1;
+    builtin_constants["vbCancel"] = 2;
+    builtin_constants["vbAbort"] = 3;
+    builtin_constants["vbRetry"] = 4;
+    builtin_constants["vbIgnore"] = 5;
+    builtin_constants["vbYes"] = 6;
+    builtin_constants["vbNo"] = 7;
     
     // Strings
-    variables["vbTab"] = "\t";
-    variables["vbCr"] = "\r";
-    variables["vbLf"] = "\n";
-    variables["vbCrLf"] = "\r\n";
-    variables["vbNullString"] = "";
+    builtin_constants["vbTab"] = "\t";
+    builtin_constants["vbCr"] = "\r";
+    builtin_constants["vbLf"] = "\n";
+    builtin_constants["vbCrLf"] = "\r\n";
+    builtin_constants["vbNullString"] = "";
 
     // MSComm Constants
-    variables["comNone"] = 0;
-    variables["comXOnXOff"] = 1;
-    variables["comRTS"] = 2;
-    variables["comRTSXOnXOff"] = 3;
+    builtin_constants["comNone"] = 0;
+    builtin_constants["comXOnXOff"] = 1;
+    builtin_constants["comRTS"] = 2;
+    builtin_constants["comRTSXOnXOff"] = 3;
 
     // StrConv Constants (v4.2.0)
-    variables["vbUpperCase"] = 1;
-    variables["vbLowerCase"] = 2;
-    variables["vbProperCase"] = 3;
-    variables["vbUnicode"] = 64;
-    variables["vbFromUnicode"] = 128;
+    builtin_constants["vbUpperCase"] = 1;
+    builtin_constants["vbLowerCase"] = 2;
+    builtin_constants["vbProperCase"] = 3;
+    builtin_constants["vbUnicode"] = 64;
+    builtin_constants["vbFromUnicode"] = 128;
 
     // CallByName CallType Constants (v4.2.0)
-    variables["vbMethod"] = 1;
-    variables["vbGet"] = 2;
-    variables["vbLet"] = 4;
-    variables["vbSet"] = 8;
+    builtin_constants["vbMethod"] = 1;
+    builtin_constants["vbGet"] = 2;
+    builtin_constants["vbLet"] = 4;
+    builtin_constants["vbSet"] = 8;
 
     // Initialize Global Variables from Script
     if (script.is_valid()) {
@@ -1563,13 +1566,23 @@ bool VisualGasicInstance::get(const StringName &p_name, Variant &r_ret) {
         r_ret = variables[p_name];
         return true;
     }
+    // Fallback to built-in constants (separated so debugger only shows user vars)
+    if (builtin_constants.has(p_name)) {
+        r_ret = builtin_constants[p_name];
+        return true;
+    }
     return false;
 }
 
 // Retrieve a variable by name into r_ret. Returns true if found.
+// Falls back to builtin_constants for VB6/Godot constants.
 bool VisualGasicInstance::get_variable(const String &p_name, Variant &r_ret) {
     if (variables.has(p_name)) {
         r_ret = variables[p_name];
+        return true;
+    }
+    if (builtin_constants.has(p_name)) {
+        r_ret = builtin_constants[p_name];
         return true;
     }
     return false;

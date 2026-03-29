@@ -1451,6 +1451,11 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 
                 Variant val = variables.get(name, Variant());
                 
+                // Fallback to built-in constants (separated so debugger only shows user vars)
+                if (val.get_type() == Variant::NIL && builtin_constants.has(name)) {
+                    val = builtin_constants[name];
+                }
+                
                 if (name.nocasecmp_to("wheneverTriggered") == 0) {
                 }
                 

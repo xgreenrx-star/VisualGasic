@@ -20,7 +20,8 @@ class VisualGasicInstance {
     Ref<VisualGasicScript> script;
     Object *owner;
     ModuleNode* cached_ast_root = nullptr; // Cached for enum/struct lookups
-    Dictionary variables; // Variable storage
+    Dictionary variables; // Variable storage (user-defined only)
+    Dictionary builtin_constants; // Built-in VB6/Godot constants (separate from user vars so they don't clutter debugger)
     Dictionary open_files; // Map<int, Ref<FileAccess>>
     Dictionary static_variables; // Persist across calls (Static keyword)
     Dictionary module_registry; // Module name -> Dictionary of module variables
@@ -262,6 +263,7 @@ public:
 
     // Accessors for builtins module (Err.Clear etc.)
     Dictionary &get_variables() { return variables; }
+    const Dictionary &get_builtin_constants() const { return builtin_constants; }
     Dictionary &get_open_files() { return open_files; }
     int get_error_line() const { return error_state.error_line; }
     Variant call_method_by_name(const String &p_name, const Array &p_args);

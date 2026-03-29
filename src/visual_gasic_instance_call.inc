@@ -363,13 +363,14 @@ void VisualGasicInstance::call(const StringName &p_method, const Variant *const 
     
     // Special debug introspection methods (allowed even in editor for debugging)
     if (p_method == StringName("_vg_get_all_variables")) {
-        // Return all script variables for debugging
+        // Return user-defined variables only (built-in constants live in
+        // builtin_constants and are excluded from the debugger Vars panel).
         Dictionary result;
         Array keys = variables.keys();
         for (int i = 0; i < keys.size(); i++) {
             String key = keys[i];
-            // Skip internal constants starting with "vb"
-            if (!key.begins_with("vb") && key != "Err") {
+            // Skip internal/mutable objects that aren't user variables
+            if (key != "Err" && key != "__vg_Printer") {
                 result[key] = variables[key];
             }
         }
@@ -383,6 +384,8 @@ void VisualGasicInstance::call(const StringName &p_method, const Variant *const 
             String var_name = *p_args[0];
             if (variables.has(var_name)) {
                 if (r_return) *r_return = variables[var_name];
+            } else if (builtin_constants.has(var_name)) {
+                if (r_return) *r_return = builtin_constants[var_name];
             } else {
                 if (r_return) *r_return = Variant();
             }

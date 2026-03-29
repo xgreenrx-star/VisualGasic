@@ -297,6 +297,10 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
             }
             return variables[name];
         }
+        // Fallback to built-in constants (separated so debugger only shows user vars)
+        if (builtin_constants.has(name)) {
+            return builtin_constants[name];
+        }
         
         // Debug
         // UtilityFunctions::print("Variable not found in map: ", name);
