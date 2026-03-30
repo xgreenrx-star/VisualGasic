@@ -204,8 +204,16 @@ Dictionary get_instance_variables(int index) {
         return Dictionary();
     }
     
-    // Get all variables from the instance
+    // Get all variables from the instance (globals + bytecode locals)
     Dictionary raw_vars = inst->get_debug_globals();
+    
+    // Merge in bytecode locals (if the VM is paused mid-execution).
+    // Locals shadow globals of the same name, which is correct.
+    Dictionary bc_locals = inst->get_debug_locals();
+    Array local_keys = bc_locals.keys();
+    for (int i = 0; i < local_keys.size(); i++) {
+        raw_vars[local_keys[i]] = bc_locals[local_keys[i]];
+    }
     
     // Filter and convert to serializable types for debugger protocol
     Dictionary result;

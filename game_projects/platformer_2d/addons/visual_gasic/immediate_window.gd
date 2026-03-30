@@ -456,7 +456,9 @@ func _setup_ui():
 	_var_filter_field.add_theme_stylebox_override("normal", filter_normal)
 	_var_filter_field.add_theme_stylebox_override("focus", filter_focus)
 	_var_filter_field.add_theme_color_override("caret_color", Color(1.0, 1.0, 1.0, 1.0))
+	_var_filter_field.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9, 1.0))
 	_var_filter_field.add_theme_color_override("font_placeholder_color", Color(0.55, 0.55, 0.6, 1.0))
+	_var_filter_field.add_theme_color_override("selection_color", Color(0.3, 0.5, 0.8, 0.5))
 	_var_filter_field.caret_blink = true
 	_var_filter_field.caret_blink_interval = 0.5
 	var_panel.add_child(_var_filter_field)
