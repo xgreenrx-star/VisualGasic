@@ -163,6 +163,9 @@ var _exception_assistant = null
 ## Package Browser (v4.3.0) — Package Manager panel
 var _package_browser = null
 
+## AI Help Panel (v4.4.0) — local Ollama-powered code assistant
+var _ai_help_panel = null
+
 ## Tip of the Day dialog (v3.5)
 var _tip_of_day_dialog: Window = null
 var _tip_label: Label = null
@@ -345,6 +348,8 @@ func _enter_tree():
 		_exception_assistant.debug_requested.connect(_on_exception_debug)
 		_exception_assistant.continue_requested.connect(_on_exception_continue)
 		_exception_assistant.end_requested.connect(_on_exception_end)
+		if _exception_assistant.has_signal("ai_help_requested"):
+			_exception_assistant.ai_help_requested.connect(_on_exception_ask_ai)
 		if debugger_plugin:
 			if debugger_plugin.has_signal("error_break_received"):
 				debugger_plugin.error_break_received.connect(_on_error_break_received)
@@ -362,6 +367,13 @@ func _enter_tree():
 		_package_browser.setup(EditorInterface.get_editor_paths().get_project_settings_dir().get_base_dir())
 		add_control_to_bottom_panel(_package_browser, "VG Packages")
 		print("VisualGasic: Package Browser created (bottom panel)")
+	
+	# Create AI Help Panel (v4.4.0) — local Ollama-powered code assistant
+	var ai_help_script = load("res://addons/visual_gasic/vg_ai_help.gd")
+	if ai_help_script:
+		_ai_help_panel = ai_help_script.new()
+		add_control_to_bottom_panel(_ai_help_panel, "AI Help")
+		print("VisualGasic: AI Help panel created (bottom panel)")
 	
 	# Register custom .vg file icon in the editor theme
 	call_deferred("_register_vg_file_icon")
@@ -966,6 +978,12 @@ func _exit_tree():
 		remove_control_from_bottom_panel(_package_browser)
 		_package_browser.queue_free()
 		_package_browser = null
+
+	# Cleanup AI Help Panel
+	if is_instance_valid(_ai_help_panel):
+		remove_control_from_bottom_panel(_ai_help_panel)
+		_ai_help_panel.queue_free()
+		_ai_help_panel = null
 	
 	# Cleanup Code Navigator (injected above code editor)
 	if is_instance_valid(_code_navigator):
@@ -5935,6 +5953,9 @@ func _on_error_break_received(file: String, line: int, message: String, code: in
 	# state settle before we pop the dialog to the front.
 	if is_instance_valid(_exception_assistant):
 		_exception_assistant.call_deferred("show_error", file, line, message, code, _last_error_variables)
+	# Also update AI Help panel's error context silently
+	if is_instance_valid(_ai_help_panel):
+		_ai_help_panel.set_error_context(file, line, message, _last_error_variables)
 
 func _on_exception_debug() -> void:
 	## User chose Debug — stay paused to inspect state.
@@ -5952,6 +5973,16 @@ func _on_exception_end() -> void:
 	print("VisualGasic: Exception Assistant → End (stopping game)")
 	if debugger_plugin:
 		debugger_plugin.debug_stop()
+
+func _on_exception_ask_ai(file: String, line: int, message: String, code: int, variables: Dictionary) -> void:
+	## User chose Ask AI — send error context to the AI Help panel.
+	print("VisualGasic: Exception Assistant → Ask AI")
+	if is_instance_valid(_ai_help_panel):
+		_ai_help_panel.set_error_context(file, line, message, variables)
+		# Auto-trigger the "Explain Last Error" action
+		_ai_help_panel._on_explain_error()
+		# Switch to the AI Help bottom panel
+		make_bottom_panel_item_visible(_ai_help_panel)
 
 # =============================================================================
 # CALL STACK NAVIGATION — frame-level variable inspection

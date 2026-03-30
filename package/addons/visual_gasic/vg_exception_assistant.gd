@@ -9,6 +9,7 @@ extends AcceptDialog
 signal debug_requested()   ## User chose to stay paused and inspect
 signal end_requested()     ## User chose to stop the game
 signal continue_requested()  ## User chose to continue past the error
+signal ai_help_requested(file: String, line: int, message: String, code: int, variables: Dictionary)  ## User wants AI to explain
 
 var _error_label: RichTextLabel
 var _vars_tree: Tree
@@ -18,6 +19,12 @@ var _code_label: Label
 var _debug_btn: Button
 var _end_btn: Button
 var _continue_btn: Button
+var _ai_btn: Button
+var _last_file := ""
+var _last_line := 0
+var _last_message := ""
+var _last_code := 0
+var _last_variables := {}
 
 func _init() -> void:
 	title = "⚠️ VisualGasic Runtime Error"
@@ -139,8 +146,24 @@ func _setup_ui() -> void:
 	_end_btn.pressed.connect(_on_end)
 	btn_row.add_child(_end_btn)
 
+	var spacer3 := Control.new()
+	spacer3.custom_minimum_size = Vector2(20, 0)
+	btn_row.add_child(spacer3)
+
+	_ai_btn = Button.new()
+	_ai_btn.text = "🤖 Ask AI"
+	_ai_btn.tooltip_text = "Ask AI to explain this error and suggest a fix"
+	_ai_btn.custom_minimum_size = Vector2(120, 36)
+	_ai_btn.pressed.connect(_on_ask_ai)
+	btn_row.add_child(_ai_btn)
+
 func show_error(file: String, line: int, message: String, code: int, variables: Dictionary = {}) -> void:
 	## Show the exception assistant with error details.
+	_last_file = file
+	_last_line = line
+	_last_message = message
+	_last_code = code
+	_last_variables = variables.duplicate()
 	_file_label.text = file.get_file() if not file.is_empty() else "(unknown)"
 	_line_label.text = str(line)
 	_code_label.text = str(code)
@@ -174,3 +197,7 @@ func _on_continue() -> void:
 func _on_end() -> void:
 	hide()
 	end_requested.emit()
+
+func _on_ask_ai() -> void:
+	hide()
+	ai_help_requested.emit(_last_file, _last_line, _last_message, _last_code, _last_variables)
