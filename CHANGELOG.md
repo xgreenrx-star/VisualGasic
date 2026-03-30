@@ -5,6 +5,38 @@ All notable changes to Visual Gasic will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.4.0-rc5] - 2026-03-30
+
+### 🏗️ Release Candidate 5 — Debugger Stability & Built-in Constants
+
+Major debugger reliability pass: built-in constants separation, bytecode locals exposure, Break-when-idle, auto-connect, and Variables panel fixes. Plus a 17-file documentation overhaul.
+
+#### Added — Built-in Constants Separation
+- **`builtin_constants` Dictionary** — ~109 built-in constants (`vbRed`, `vbCrLf`, `KEY_SPACE`, `True`, `False`, etc.) moved out of `variables` into a dedicated protected Dictionary
+- **`is_builtin_constant()` accessor** — Clean API for checking constant status
+- Constants no longer appear in the debugger Variables panel, reducing clutter
+
+#### Added — Documentation Overhaul
+- **17 documentation files** updated across getting started guides, manual pages, tutorials, and API reference
+- **`nodes_and_scenes.md`** — Expanded from 44 lines to a comprehensive guide with VB6 forms, property aliases, Me keyword, and complete working examples
+
+#### Fixed — Built-in Constants Not Resolved in Bytecode VM
+- Added `builtin_constants` fallback to **13 code paths** in the bytecode VM
+- All VB6 color constants, key constants, and string constants now resolve correctly after the separation
+
+#### Fixed — Debugger Locals Invisible in Variables Panel
+- Added `debug_bc_locals` / `debug_bc_chunk` pointer members to instance
+- Four debugger query functions now include bytecode locals
+
+#### Fixed — Break Button Not Working When Idle
+- **`idle_break()` C++ static method** — Checks break-request flag from GDScript
+- **`_process()` in `vg_debug_handler.gd`** — Polls `vg_idle_break()` every frame
+- **Auto-refresh** in `immediate_window.gd` — Retries connection to running game on launch
+
+#### Fixed — Variables Panel Empty + Dark Filter Text
+- `get_instance_variables()` now merges `get_debug_locals()` into globals
+- Filter LineEdit has explicit `font_color` and `selection_color` overrides
+
 ## [4.4.0-rc4] - 2026-03-29
 
 ### 🏗️ Release Candidate 4 — VB6 Property System v2
