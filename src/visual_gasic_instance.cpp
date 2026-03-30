@@ -213,8 +213,8 @@ Dictionary get_instance_variables(int index) {
     for (int i = 0; i < keys.size(); i++) {
         String key = keys[i];
         
-        // Skip internal VB constants (vbCrLf, vbNewLine, etc.) and Err object
-        if (key.begins_with("vb") || key == "Err") {
+        // Skip builtin constants (vbCrLf, vbGreen, vbKeyEscape, etc.) and Err object
+        if (key == "Err" || inst->is_builtin_constant(key)) {
             continue;
         }
         

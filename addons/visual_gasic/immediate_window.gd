@@ -65,6 +65,7 @@ var _var_sort_ascending: bool = true  # Sort direction
 var _var_filter_field: LineEdit = null  # Search/filter field for variables
 var _scene_poll_timer: Timer = null  # Polls EditorInterface.is_playing_scene()
 var _was_scene_playing: bool = false  # Last known state for edge detection
+var _scene_connect_retries: int = 0  # Retry counter for auto-connect
 const AUTO_REFRESH_INTERVAL: float = 0.5  # Update every 500ms
 
 func _ready():
@@ -91,14 +92,25 @@ func _setup_scene_poll_timer():
 
 func _on_scene_poll_timeout():
 	## Detect scene play/stop transitions and update Break/Stop buttons.
+	## Also auto-connect to running VG instances when not yet connected.
 	var playing = EditorInterface.is_playing_scene()
 	if playing and not _was_scene_playing:
 		# Scene just started — enable Break + Stop
 		set_debug_active(true, false)
+		_scene_connect_retries = 0  # Reset retry counter
 	elif not playing and _was_scene_playing:
 		# Scene just stopped — grey out everything
 		_debug_session_active = false
 		set_debug_active(false, false)
+		_scene_connect_retries = 0
+	
+	# Auto-discover and connect to running VG instances while not connected.
+	# Retry a few times with ~1s spacing (every 3rd poll at 0.3s interval).
+	if playing and _connected_remote_id < 0 and _scene_connect_retries < 10:
+		_scene_connect_retries += 1
+		if _scene_connect_retries % 3 == 0:  # every ~0.9s
+			_refresh_running_instances()
+	
 	_was_scene_playing = playing
 
 func _on_auto_refresh_timeout():

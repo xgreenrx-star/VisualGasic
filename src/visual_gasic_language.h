@@ -226,6 +226,9 @@ public:
     // Debug wait — enters Godot's EngineDebugger::script_debug() loop
     static void vg_debug_wait();
     
+    // Idle break — called from _process to handle break-when-idle
+    static void idle_break();
+    
     // Exception Assistant: break on unhandled error (VB6-style)
     static bool get_break_on_error();
     static void set_break_on_error(bool enabled);

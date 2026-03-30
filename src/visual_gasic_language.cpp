@@ -1479,6 +1479,9 @@ void VisualGasicLanguage::_bind_methods() {
     
     // Pause / Break request
     ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_request_break"), &VisualGasicLanguage::request_break);
+    ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_is_break_requested"), &VisualGasicLanguage::is_break_requested);
+    ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_clear_break_request"), &VisualGasicLanguage::clear_break_request);
+    ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_idle_break"), &VisualGasicLanguage::idle_break);
     
     // Expression evaluation in debug context
     ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_evaluate_expression", "expression"), &VisualGasicLanguage::evaluate_expression_in_context);
@@ -2236,6 +2239,53 @@ bool VisualGasicLanguage::is_break_requested() {
 
 void VisualGasicLanguage::clear_break_request() {
     break_requested = false;
+}
+
+void VisualGasicLanguage::idle_break() {
+    if (!break_requested) return;
+    break_requested = false;
+
+    EngineDebugger* debugger = EngineDebugger::get_singleton();
+    if (!debugger || !debugger->is_active()) return;
+
+    // Find the first active instance via the C++ registry
+    Array instances = VisualGasicDebug::get_all_instances();
+    String script_path;
+    int line = 1;
+
+    if (!instances.is_empty()) {
+        Dictionary info = instances[0];
+        script_path = info.get("script_path", "");
+    }
+
+    if (script_path.is_empty()) {
+        UtilityFunctions::print("[VG Debug] Break requested but no VG instances found");
+        return;
+    }
+
+    set_current_break_location(script_path, line);
+
+    // Notify editor of break
+    Array break_data;
+    break_data.push_back(script_path);
+    break_data.push_back(line);
+    debugger->send_message("visualgasic:break_hit", break_data);
+
+    // Send variables for the first instance
+    Dictionary vars = VisualGasicDebug::get_instance_variables(0);
+    Array var_data;
+    var_data.push_back(vars);
+    debugger->send_message("visualgasic:variables_list", var_data);
+
+    // Send empty call stack (idle — no subs on the stack)
+    Array stack_data;
+    stack_data.push_back(Array());
+    debugger->send_message("visualgasic:call_stack", stack_data);
+
+    debugger->line_poll();
+
+    UtilityFunctions::print("[VG Debug] Idle break at ", script_path, ":", line);
+    vg_debug_wait();
 }
 
 // ============================================================================

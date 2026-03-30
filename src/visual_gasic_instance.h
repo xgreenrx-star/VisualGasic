@@ -370,6 +370,7 @@ public:
     DebugState::StepMode get_step_mode() const { return debug_state.step_mode; }
     Dictionary get_debug_locals() const;
     Dictionary get_debug_globals() const { return variables; }
+    bool is_builtin_constant(const String& key) const { return builtin_constants.has(key); }
     SubDefinition* get_current_sub() const { return current_sub; }
     void _send_variables_to_debugger(EngineDebugger* debugger);
     void _send_call_stack_to_debugger(EngineDebugger* debugger);

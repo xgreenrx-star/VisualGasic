@@ -18,6 +18,9 @@ func _ready() -> void:
 	# This ensures breakpoints work for init code
 	_load_breakpoints_from_file()
 	
+	# Enable _process for idle-break polling
+	set_process(true)
+	
 	# Register our message capture with the engine debugger.
 	# The C++ language runtime already registers "visualgasic" when loaded,
 	# so skip registration here when the native extension is active to
@@ -31,6 +34,14 @@ func _ready() -> void:
 			EngineDebugger.register_message_capture(_capture_prefix, _on_debugger_message)
 			_capture_registered = true
 			print("[VisualGasic] Debug handler registered")
+
+func _process(_delta: float) -> void:
+	## Poll for break-when-idle: the editor may request a break while no VG
+	## bytecode is executing.  The C++ idle_break() checks the flag, finds the
+	## first active instance, sends break_hit + variables to the editor and
+	## enters the debug wait loop (blocking until Continue is pressed).
+	if EngineDebugger.is_active() and ClassDB.class_exists(&"VisualGasicLanguage"):
+		ClassDB.class_call_static(&"VisualGasicLanguage", &"vg_idle_break")
 
 func _load_breakpoints_from_file() -> void:
 	## Load breakpoints saved by the editor at startup.
