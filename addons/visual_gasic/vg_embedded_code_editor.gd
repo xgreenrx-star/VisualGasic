@@ -376,6 +376,34 @@ func set_immediate_window(window: Control) -> void:
 	_bottom_tabs.move_child(window, 0)
 	_bottom_tabs.current_tab = 0
 
+## Add an external panel as a new tab in the IDE's bottom TabContainer.
+## Used by the plugin to embed VG Profiler, VG Controls, VG Packages, AI Help, etc.
+func add_bottom_tab(title: String, panel: Control) -> void:
+	if not _bottom_tabs:
+		push_warning("add_bottom_tab: _bottom_tabs not ready yet")
+		return
+	if panel.get_parent():
+		panel.get_parent().remove_child(panel)
+	panel.name = title
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_bottom_tabs.add_child(panel)
+
+## Remove a previously-added bottom tab by reference.
+func remove_bottom_tab(panel: Control) -> void:
+	if not _bottom_tabs:
+		return
+	if panel.get_parent() == _bottom_tabs:
+		_bottom_tabs.remove_child(panel)
+
+## Switch to a specific bottom tab by panel reference.
+func focus_bottom_tab(panel: Control) -> void:
+	if not _bottom_tabs or not panel:
+		return
+	var idx := panel.get_index()
+	if idx >= 0:
+		_bottom_tabs.current_tab = idx
+
 ## Returns the Command Help + Index Map panel for the plugin to place
 ## in the left panel (ToolboxPanel) during Code view.
 func get_help_panel() -> Control:
