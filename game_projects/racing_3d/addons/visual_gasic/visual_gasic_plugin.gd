@@ -163,6 +163,9 @@ var _exception_assistant = null
 ## Package Browser (v4.3.0) — Package Manager panel
 var _package_browser = null
 
+## AI Help Panel (v4.4.0) — local Ollama-powered code assistant
+var _ai_help_panel = null
+
 ## Tip of the Day dialog (v3.5)
 var _tip_of_day_dialog: Window = null
 var _tip_label: Label = null
@@ -283,16 +286,21 @@ func _enter_tree():
 	
 	# Add VB6-style Data Tips (hover variable values during debugging)
 	var data_tips_script = load("res://addons/visual_gasic/vg_data_tips.gd")
-	if data_tips_script:
+	if data_tips_script and data_tips_script.can_instantiate():
 		_data_tips = data_tips_script.new()
-		add_child(_data_tips)
-		_data_tips.setup(self)
-		# Wire Data Tips to debugger signals
-		if debugger_plugin:
-			debugger_plugin.variables_list_received.connect(_on_data_tips_variables_received)
-			debugger_plugin.debug_continued.connect(_on_data_tips_debug_ended)
-			debugger_plugin.debug_session_stopped.connect(_on_data_tips_debug_ended)
-		print("VisualGasic: Data Tips initialized")
+		if is_instance_valid(_data_tips):
+			add_child(_data_tips)
+			_data_tips.setup(self)
+			# Wire Data Tips to debugger signals
+			if debugger_plugin:
+				debugger_plugin.variables_list_received.connect(_on_data_tips_variables_received)
+				debugger_plugin.debug_continued.connect(_on_data_tips_debug_ended)
+				debugger_plugin.debug_session_stopped.connect(_on_data_tips_debug_ended)
+			print("VisualGasic: Data Tips initialized")
+		else:
+			push_warning("VisualGasic: Data Tips .new() failed — skipping")
+	else:
+		push_warning("VisualGasic: Data Tips script failed to load — skipping")
 	
 	# Create Snippet Browser (v2.4.1)
 	var snippet_browser_script = load("res://addons/visual_gasic/vg_snippet_browser.gd")
@@ -312,14 +320,15 @@ func _enter_tree():
 		add_tool_menu_item("VG: Theme Picker", Callable(self, "_on_open_theme_picker"))
 		print("VisualGasic: Theme Picker created")
 	
-	# Create Profiler Panel (v2.6.0) — bottom panel for bytecode profiling
+	# Create Profiler Panel (v2.6.0) — will be embedded in VB6 IDE bottom tabs
 	var profiler_script = load("res://addons/visual_gasic/vg_profiler_panel.gd")
 	if profiler_script:
 		_profiler_panel = profiler_script.new()
 		if _profiler_panel.has_method("set_debugger_plugin"):
 			_profiler_panel.set_debugger_plugin(debugger_plugin)
-		add_control_to_bottom_panel(_profiler_panel, "VG Profiler")
-		print("VisualGasic: Profiler Panel created (bottom panel)")
+		add_child(_profiler_panel)  # Park on plugin until IDE is ready
+		_profiler_panel.visible = false
+		print("VisualGasic: Profiler Panel created (will embed in IDE)")
 	
 	# Create Controls Inspector (v4.3.0) — Visual Form Debugger
 	var inspector_script = load("res://addons/visual_gasic/vg_controls_inspector.gd")
@@ -334,8 +343,9 @@ func _enter_tree():
 			debugger_plugin.debug_continued.connect(_on_debug_continued_for_controls_inspector)
 			debugger_plugin.debug_session_stopped.connect(_on_debug_stopped_for_controls_inspector)
 		_controls_inspector.navigate_to_event.connect(_on_controls_navigate_to_event)
-		add_control_to_bottom_panel(_controls_inspector, "VG Controls")
-		print("VisualGasic: Controls Inspector created (bottom panel)")
+		add_child(_controls_inspector)  # Park on plugin until IDE is ready
+		_controls_inspector.visible = false
+		print("VisualGasic: Controls Inspector created (will embed in IDE)")
 
 	# Create Exception Assistant (VB6-style error popup)
 	var exception_script = load("res://addons/visual_gasic/vg_exception_assistant.gd")
@@ -345,6 +355,8 @@ func _enter_tree():
 		_exception_assistant.debug_requested.connect(_on_exception_debug)
 		_exception_assistant.continue_requested.connect(_on_exception_continue)
 		_exception_assistant.end_requested.connect(_on_exception_end)
+		if _exception_assistant.has_signal("ai_help_requested"):
+			_exception_assistant.ai_help_requested.connect(_on_exception_ask_ai)
 		if debugger_plugin:
 			if debugger_plugin.has_signal("error_break_received"):
 				debugger_plugin.error_break_received.connect(_on_error_break_received)
@@ -355,13 +367,22 @@ func _enter_tree():
 				debugger_plugin.stack_level_locals_received.connect(_on_stack_level_locals_received)
 		print("VisualGasic: Exception Assistant created")
 
-	# Create Package Browser (v4.3.0) — Package Manager panel
+	# Create Package Browser (v4.3.0) — will be embedded in VB6 IDE bottom tabs
 	var pkg_browser_script = load("res://addons/visual_gasic/vg_package_browser.gd")
 	if pkg_browser_script:
 		_package_browser = pkg_browser_script.new()
 		_package_browser.setup(EditorInterface.get_editor_paths().get_project_settings_dir().get_base_dir())
-		add_control_to_bottom_panel(_package_browser, "VG Packages")
-		print("VisualGasic: Package Browser created (bottom panel)")
+		add_child(_package_browser)  # Park on plugin until IDE is ready
+		_package_browser.visible = false
+		print("VisualGasic: Package Browser created (will embed in IDE)")
+	
+	# Create AI Help Panel (v4.4.0) — will be embedded in VB6 IDE bottom tabs
+	var ai_help_script = load("res://addons/visual_gasic/vg_ai_help.gd")
+	if ai_help_script:
+		_ai_help_panel = ai_help_script.new()
+		add_child(_ai_help_panel)  # Park on plugin until IDE is ready
+		_ai_help_panel.visible = false
+		print("VisualGasic: AI Help panel created (will embed in IDE)")
 	
 	# Register custom .vg file icon in the editor theme
 	call_deferred("_register_vg_file_icon")
@@ -590,6 +611,8 @@ func _enter_tree():
 				print("VisualGasic: Immediate Window embedding deferred")
 			# Wire Output and System Console tabs to live data sources
 			_wire_output_tabs.call_deferred()
+			# Embed VG panels (Profiler, Controls, Packages, AI Help) into IDE bottom tabs
+			_embed_ide_bottom_panels.call_deferred()
 
 		# -- RIGHT: Project Explorer + Properties (resizable VSplitContainer) --
 		var right_vsplit = VSplitContainer.new()
@@ -948,24 +971,42 @@ func _exit_tree():
 		immediate_window.queue_free()
 		immediate_window = null
 	
-	# Cleanup Profiler Panel
+	# Cleanup Profiler Panel (embedded in IDE bottom tabs)
 	if is_instance_valid(_profiler_panel):
-		remove_control_from_bottom_panel(_profiler_panel)
+		if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.has_method("remove_bottom_tab"):
+			_embedded_code_editor.remove_bottom_tab(_profiler_panel)
+		elif _profiler_panel.get_parent():
+			_profiler_panel.get_parent().remove_child(_profiler_panel)
 		_profiler_panel.queue_free()
 		_profiler_panel = null
 	
-	# Cleanup Controls Inspector
+	# Cleanup Controls Inspector (embedded in IDE bottom tabs)
 	if is_instance_valid(_controls_inspector):
-		remove_control_from_bottom_panel(_controls_inspector)
+		if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.has_method("remove_bottom_tab"):
+			_embedded_code_editor.remove_bottom_tab(_controls_inspector)
+		elif _controls_inspector.get_parent():
+			_controls_inspector.get_parent().remove_child(_controls_inspector)
 		_controls_inspector.queue_free()
 		_controls_inspector = null
 
-	# Cleanup Package Browser
+	# Cleanup Package Browser (embedded in IDE bottom tabs)
 	if is_instance_valid(_package_browser):
 		_package_browser.cleanup()
-		remove_control_from_bottom_panel(_package_browser)
+		if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.has_method("remove_bottom_tab"):
+			_embedded_code_editor.remove_bottom_tab(_package_browser)
+		elif _package_browser.get_parent():
+			_package_browser.get_parent().remove_child(_package_browser)
 		_package_browser.queue_free()
 		_package_browser = null
+
+	# Cleanup AI Help Panel (embedded in IDE bottom tabs)
+	if is_instance_valid(_ai_help_panel):
+		if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.has_method("remove_bottom_tab"):
+			_embedded_code_editor.remove_bottom_tab(_ai_help_panel)
+		elif _ai_help_panel.get_parent():
+			_ai_help_panel.get_parent().remove_child(_ai_help_panel)
+		_ai_help_panel.queue_free()
+		_ai_help_panel = null
 	
 	# Cleanup Code Navigator (injected above code editor)
 	if is_instance_valid(_code_navigator):
@@ -5935,6 +5976,9 @@ func _on_error_break_received(file: String, line: int, message: String, code: in
 	# state settle before we pop the dialog to the front.
 	if is_instance_valid(_exception_assistant):
 		_exception_assistant.call_deferred("show_error", file, line, message, code, _last_error_variables)
+	# Also update AI Help panel's error context silently
+	if is_instance_valid(_ai_help_panel):
+		_ai_help_panel.set_error_context(file, line, message, _last_error_variables)
 
 func _on_exception_debug() -> void:
 	## User chose Debug — stay paused to inspect state.
@@ -5952,6 +5996,17 @@ func _on_exception_end() -> void:
 	print("VisualGasic: Exception Assistant → End (stopping game)")
 	if debugger_plugin:
 		debugger_plugin.debug_stop()
+
+func _on_exception_ask_ai(file: String, line: int, message: String, code: int, variables: Dictionary) -> void:
+	## User chose Ask AI — send error context to the AI Help panel.
+	print("VisualGasic: Exception Assistant → Ask AI")
+	if is_instance_valid(_ai_help_panel):
+		_ai_help_panel.set_error_context(file, line, message, variables)
+		# Auto-trigger the "Explain Last Error" action
+		_ai_help_panel._on_explain_error()
+		# Switch to the AI Help tab in the IDE's bottom tabs
+		if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.has_method("focus_bottom_tab"):
+			_embedded_code_editor.focus_bottom_tab(_ai_help_panel)
 
 # =============================================================================
 # CALL STACK NAVIGATION — frame-level variable inspection
@@ -6169,6 +6224,30 @@ func _wire_output_tabs() -> void:
 	_embedded_code_editor.append_output("Session started: " + ts, Color(0.3, 0.3, 0.6))
 
 	print("VisualGasic: Output and System Console tabs wired")
+
+## Embed VG panels into the IDE's bottom TabContainer (deferred after IDE layout is built).
+func _embed_ide_bottom_panels() -> void:
+	if not is_instance_valid(_embedded_code_editor):
+		return
+	if not _embedded_code_editor.has_method("add_bottom_tab"):
+		push_warning("VisualGasic: Embedded code editor missing add_bottom_tab — panels stay parked")
+		return
+
+	if is_instance_valid(_profiler_panel):
+		_embedded_code_editor.add_bottom_tab("Profiler", _profiler_panel)
+		print("VisualGasic: Profiler embedded in IDE bottom tabs")
+
+	if is_instance_valid(_controls_inspector):
+		_embedded_code_editor.add_bottom_tab("Controls", _controls_inspector)
+		print("VisualGasic: Controls Inspector embedded in IDE bottom tabs")
+
+	if is_instance_valid(_package_browser):
+		_embedded_code_editor.add_bottom_tab("Packages", _package_browser)
+		print("VisualGasic: Package Browser embedded in IDE bottom tabs")
+
+	if is_instance_valid(_ai_help_panel):
+		_embedded_code_editor.add_bottom_tab("AI Help", _ai_help_panel)
+		print("VisualGasic: AI Help embedded in IDE bottom tabs")
 
 ## Debug.Print output from running game → Output tab
 func _on_debug_print_to_output(text: String) -> void:

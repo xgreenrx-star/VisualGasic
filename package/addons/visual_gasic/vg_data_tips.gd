@@ -6,7 +6,8 @@ extends Node
 ## code editor, a tooltip popup appears showing the variable's current value,
 ## just like VB6's Data Tips feature.
 
-class_name VGDataTips
+# NOTE: No class_name here — loaded dynamically via load(), class_name causes
+# "hides a global script class" errors when multiple copies exist in the project.
 
 var editor_plugin: EditorPlugin
 var _tip_popup: PopupPanel

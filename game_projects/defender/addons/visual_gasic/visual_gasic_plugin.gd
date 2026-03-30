@@ -286,16 +286,21 @@ func _enter_tree():
 	
 	# Add VB6-style Data Tips (hover variable values during debugging)
 	var data_tips_script = load("res://addons/visual_gasic/vg_data_tips.gd")
-	if data_tips_script:
+	if data_tips_script and data_tips_script.can_instantiate():
 		_data_tips = data_tips_script.new()
-		add_child(_data_tips)
-		_data_tips.setup(self)
-		# Wire Data Tips to debugger signals
-		if debugger_plugin:
-			debugger_plugin.variables_list_received.connect(_on_data_tips_variables_received)
-			debugger_plugin.debug_continued.connect(_on_data_tips_debug_ended)
-			debugger_plugin.debug_session_stopped.connect(_on_data_tips_debug_ended)
-		print("VisualGasic: Data Tips initialized")
+		if is_instance_valid(_data_tips):
+			add_child(_data_tips)
+			_data_tips.setup(self)
+			# Wire Data Tips to debugger signals
+			if debugger_plugin:
+				debugger_plugin.variables_list_received.connect(_on_data_tips_variables_received)
+				debugger_plugin.debug_continued.connect(_on_data_tips_debug_ended)
+				debugger_plugin.debug_session_stopped.connect(_on_data_tips_debug_ended)
+			print("VisualGasic: Data Tips initialized")
+		else:
+			push_warning("VisualGasic: Data Tips .new() failed — skipping")
+	else:
+		push_warning("VisualGasic: Data Tips script failed to load — skipping")
 	
 	# Create Snippet Browser (v2.4.1)
 	var snippet_browser_script = load("res://addons/visual_gasic/vg_snippet_browser.gd")
