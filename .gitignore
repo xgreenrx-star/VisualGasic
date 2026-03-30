@@ -66,7 +66,25 @@ bytecode_diff*.txt
 
 # Release archives — artifacts live on GitHub Releases, not in-tree
 release/
-
-# External test repos
-Semi-VB-Decompiler/
 releases/
+
+# External / third-party repos
+Semi-VB-Decompiler/
+Calculator-vb6-main/
+
+# Old backup directories (removed from repo)
+vbnet_examples_backup/
+vbnet_samples_backup/
+docs/archive/
+community_support/
+video_tutorials/
+perf_reports/
+.rmv/
+
+# One-off / stale files
+UPLOAD_TO_GITHUB.sh
+performance_results.json
+PROJECT_STATUS.md
+TEST_COVERAGE.md
+COMMUNITY_HUB.md
+Makefile.tests

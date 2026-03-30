@@ -1,0 +1,276 @@
+# VisualGasic Installation Guide
+
+**Version**: 4.4.0-rc1 (Release Candidate)  
+**Requires**: Godot 4.5+ (4.6.1 recommended)
+
+Choose your preferred installation method. The `vg` CLI method is the fastest way to get started.
+
+---
+
+## 🚀 Method 1: One-Line Install with `vg` CLI (Recommended)
+
+The `vg` command-line tool installs VisualGasic globally and lets you create new projects instantly.
+
+### Linux / macOS
+```bash
+curl -sSL https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/main/install.sh | bash
+```
+
+### Windows (PowerShell — run as Administrator or normal user)
+```powershell
+irm https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/main/install.ps1 | iex
+```
+
+### Cross-Platform (Python 3)
+```bash
+python3 install.py          # From the repo root (local install)
+python3 install.py --github # Download from GitHub automatically
+```
+
+### What the Installer Does
+
+1. Downloads the latest VisualGasic release from GitHub
+2. Installs the addon to a global location:
+
+   | Platform | Global Location |
+   |----------|----------------|
+   | **Linux** | `~/.local/share/visual_gasic/` |
+   | **macOS** | `~/Library/Application Support/VisualGasic/` |
+   | **Windows** | `%APPDATA%\VisualGasic\` |
+
+3. Installs the `vg` CLI tool to `~/.local/bin/` (or `%USERPROFILE%\.local\bin\vg.cmd` on Windows)
+
+### Using the `vg` CLI
+
+After installation, the `vg` command is available from any terminal:
+
+```bash
+# Create a new Godot project with VG pre-installed and enabled
+vg new MyGame
+cd MyGame && godot .
+
+# Add VG to an existing Godot project
+cd /path/to/existing/project
+vg install
+
+# Update your global VG installation (from the source repo)
+cd /path/to/VisualGasic
+vg update
+
+# Package management
+vg pkg install MathLibrary@^2.1.0
+vg pkg search "physics"
+vg pkg list
+
+# Show version and help
+vg version
+vg help
+```
+
+**What `vg new` creates:**
+```
+MyGame/
+├── project.godot          # Plugin already enabled, autoloads configured
+├── addons/visual_gasic/   # Complete addon with binaries
+├── Form1.vg               # Starter form with Form_Load and Form_Click
+├── icon.svg               # Project icon
+└── .gitignore             # Configured for Godot
+```
+
+> **Note:** If `~/.local/bin` is not in your PATH, add it:
+> ```bash
+> echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc && source ~/.bashrc
+> ```
+
+---
+
+## 🎨 Method 2: From the VG IDE (Inside Godot)
+
+If you already have a VG project open in Godot, you can create new projects without leaving the editor:
+
+### Step-by-Step Walkthrough
+
+1. **Open an existing VG project** in Godot (or create one with `vg new` first)
+
+2. **Switch to the Visual Gasic IDE** main screen tab (top of the editor, between "2D", "3D", "Script", etc.)
+
+3. **Go to File → New Project...** in the VG IDE menu bar
+
+4. **Enter a project name** — only letters, digits, hyphens, and underscores allowed
+
+5. **Choose a folder** — a file browser opens to select the parent directory
+
+6. **Click Create** — the new project is generated with:
+   - `project.godot` with the VG plugin already enabled
+   - `addons/visual_gasic/` copied from your current project
+   - A starter `Form1.vg` file ready to edit
+   - The project opens in a new Godot instance
+
+### Also Available from the Tools Menu
+
+The VG plugin registers a **Tools → New VG Project...** menu item, so you can also create projects from the main Godot menu without switching to the VG IDE screen.
+
+### Creating New Forms and Modules
+
+Within an existing project, use the VG IDE's File menu:
+- **File → New Form** — creates a new `.vg` form file with Form_Load stub
+- **File → New Module** — creates a new `.vg` module file
+- **File → Open** — opens an existing `.vg` file
+
+---
+
+## 📥 Method 3: Manual Installation (From GitHub Release)
+
+### Download
+
+1. Go to [Releases](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v4.4.0-rc1)
+2. Download `VisualGasic-v4.4.0-rc1.zip`
+
+### Install into a New Project
+
+```bash
+# Create a Godot project first (or use an existing one)
+mkdir MyGame && cd MyGame
+# Initialize a minimal project.godot if needed:
+echo 'config_version=5
+[application]
+config/name="MyGame"' > project.godot
+
+# Extract the addon
+unzip VisualGasic-v4.4.0-rc1.zip
+cp -r addons/ .
+
+# Open in Godot
+godot .
+```
+
+Then enable the plugin: **Project → Project Settings → Plugins → VisualGasic ✓**
+
+### Install into an Existing Project
+
+```bash
+cd /path/to/your/godot/project
+unzip VisualGasic-v4.4.0-rc1.zip -d /tmp/vg_temp
+cp -r /tmp/vg_temp/addons/visual_gasic addons/
+rm -rf /tmp/vg_temp
+```
+
+Restart Godot and enable the plugin in Project Settings.
+
+### Pre-Built Binaries (Included)
+
+The release zip contains pre-compiled binaries for all platforms:
+
+| Platform | Binary Files |
+|----------|-------------|
+| **Linux** x86_64 | `libvisualgasic.linux.editor.x86_64.so`, `...template_debug...`, `...template_release...` |
+| **Windows** x86_64 | `libvisualgasic.windows.editor.x86_64.dll`, `...template_debug...`, `...template_release...` |
+| **macOS** Universal | `libvisualgasic.macos.editor.framework/`, `...template_debug...`, `...template_release...` |
+
+---
+
+## 🔧 Method 4: Build from Source
+
+### Prerequisites
+- **Godot 4.5+** binary (4.6.1 recommended)
+- **SCons** build system (`pip install scons`)
+- **Git** with submodules
+- **C++ compiler**: GCC 9+, Clang 10+, or MSVC 2019+
+- **MinGW** (optional, for Windows cross-compilation): `sudo apt install g++-mingw-w64-x86-64`
+
+### Build Steps
+
+```bash
+# Clone with submodules
+git clone --recurse-submodules https://github.com/xgreenrx-star/VisualGasic.git
+cd VisualGasic
+
+# Build for your platform
+scons platform=linux target=editor -j$(nproc)        # Linux
+scons platform=windows target=editor -j$(nproc)       # Windows (MinGW cross-compile)
+scons platform=macos target=editor -j$(sysctl -n hw.logicalcpu)  # macOS
+
+# The compiled extension appears in demo/bin/
+```
+
+### Install into Your Project
+
+```bash
+mkdir -p YourProject/addons/visual_gasic/bin/
+cp -r addons/visual_gasic/* YourProject/addons/visual_gasic/
+cp demo/bin/libvisualgasic.* YourProject/addons/visual_gasic/bin/
+```
+
+### Build All Platforms (Release Script)
+
+For building distributable release packages:
+
+```bash
+# Build Linux + Windows (from Linux with MinGW), creates release zips
+./scripts/build_release.sh
+
+# Or on macOS (builds all three including universal binary)
+./scripts/build_release.sh
+```
+
+Output goes to `release/v<version>/`.
+
+---
+
+## ✅ Verification
+
+After installation, verify VisualGasic is working:
+
+1. **Check the plugin is enabled**: Project → Project Settings → Plugins → VisualGasic should show ✓
+2. **Switch to the Visual Gasic IDE** main screen — you should see the Form Designer with Toolbox, Canvas, and Properties Panel
+3. **Create a test file** — create `hello.vg`:
+   ```vb
+   Sub Main()
+       Print "Hello from VisualGasic!"
+   End Sub
+   ```
+4. **Attach to a node** and run — you should see the output in the console
+5. **Try the Immediate Window** — click the "Immediate" tab in the bottom panel, type `2 + 2` and press Enter
+
+---
+
+## 🆘 Troubleshooting
+
+### Plugin Not Showing Up
+- Restart Godot after installation
+- Check that `addons/visual_gasic/plugin.cfg` exists
+- Verify the extension binary is in `addons/visual_gasic/bin/`
+
+### Extension Failed to Load
+- Ensure you downloaded the correct platform version
+- Check Godot console (Output tab) for error messages
+- Verify Godot version is 4.5 or newer
+- On macOS: right-click the Godot app → Open (bypasses Gatekeeper on first run)
+
+### `vg` Command Not Found
+- Ensure `~/.local/bin` is in your PATH
+- On Windows: ensure `%USERPROFILE%\.local\bin` is in your system PATH
+- Try running the installer again
+
+### Build Issues
+- Update godot-cpp submodule: `git submodule update --init --recursive`
+- Install SCons: `pip install scons`
+- On Linux: `sudo apt install build-essential libffi-dev`
+- On macOS: `xcode-select --install`
+
+---
+
+## 📚 Next Steps
+
+After installation:
+
+1. **[Getting Started Guide](GET_STARTED.md)** — beginner-friendly walkthrough
+2. **[Built-in Functions Reference](../reference/BUILTIN_FUNCTIONS_REFERENCE.md)** — all 108 functions
+3. **[VB6 Features](../reference/VB6_FEATURES_IMPLEMENTATION.md)** — VB6 compatibility reference
+4. **[Examples](../../examples/)** — example programs
+5. **[Demo Projects](../../demos/)** — 14 playable game demos
+6. **[Community](../../COMMUNITY_HUB.md)** — get help, share projects
+
+---
+
+*Installation help: [GitHub Issues](https://github.com/xgreenrx-star/VisualGasic/issues) · [Community Hub](../../COMMUNITY_HUB.md)*

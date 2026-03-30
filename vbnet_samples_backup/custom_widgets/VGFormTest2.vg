@@ -1,4 +1,0 @@
-Sub Test()
-    Dim r As Rect2
-    r = Rect2(Me.position, Me.size)
-End Sub

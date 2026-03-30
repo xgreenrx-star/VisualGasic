@@ -1,5 +1,0 @@
-[gd_scene format=3 uid="uid://line_proto"]
-
-[node name="Line" type="HSeparator"]
-offset_right = 200.0
-offset_bottom = 4.0

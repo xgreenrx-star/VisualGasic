@@ -5,37 +5,6 @@ All notable changes to Visual Gasic will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [4.4.0-rc6] - 2026-03-30
-
-### 🧹 Release Candidate 6 — Repository Cleanup
-
-Massive repository cleanup: removed 150+ stale files, old release notes, backup directories, and archive cruft. Package directory now ships all 3 platform binaries (Linux, Windows, macOS), 69 documentation files, and install scripts.
-
-#### Removed — 32 Old Release Notes
-- Removed all `RELEASE_NOTES_v2.x` through `v4.4.0-rc4` — history lives in CHANGELOG.md and git tags
-- Only the current `RELEASE_NOTES_v4.4.0-rc5.md` remains in-tree
-
-#### Removed — Backup & Archive Directories
-- `Calculator-vb6-main/` — External VB6 project (not part of VisualGasic)
-- `vbnet_examples_backup/`, `vbnet_samples_backup/` — Old code backups
-- `docs/archive/` — 31 stale status reports, gap analyses, and implementation summaries
-- `community_support/`, `video_tutorials/` — Placeholder directories
-- `perf_reports/`, `.rmv/` — Build logs and irrelevant config
-
-#### Removed — Stale Root Files
-- `PROJECT_STATUS.md`, `TEST_COVERAGE.md`, `COMMUNITY_HUB.md` — Outdated status docs
-- `UPLOAD_TO_GITHUB.sh`, `Makefile.tests`, `performance_results.json` — One-off scripts and local data
-- `VisualGasic` binary — Should never have been tracked
-- Duplicate `PROJECT_STATUS.md` / `ROADMAP.md` in `package/` and `examples/`
-
-#### Added — Complete Package Distribution
-- **package/bin/** — All 9 binaries: Linux (.so), Windows (.dll), macOS (.framework) × editor/debug/release
-- **package/docs/** — 69 documentation files: getting started, manual, guides, reference, tutorials
-- **package/** — Install scripts: `install.sh` (Linux), `install.ps1` (Windows), `install.py` (cross-platform)
-
-#### Updated — .gitignore
-- Added entries for all removed directories to prevent re-introduction
-
 ## [4.4.0-rc5] - 2026-03-30
 
 ### 🏗️ Release Candidate 5 — Debugger Stability & Built-in Constants

@@ -1,0 +1,1087 @@
+# VisualGasic Builtin Functions Reference
+
+Quick reference for all builtin functions and features (122+).
+
+
+## Table of Contents
+
+- [String Functions (5)](#string-functions-5)
+- [Array Functions (15)](#array-functions-15)
+  - [Array Manipulation](#array-manipulation)
+  - [Array Search](#array-search)
+  - [Array Transform](#array-transform)
+  - [Array Generation](#array-generation)
+- [Dictionary Functions (5)](#dictionary-functions-5)
+- [Type Checking Functions (6)](#type-checking-functions-6)
+- [JSON Functions (2)](#json-functions-2)
+- [File System Functions (5)](#file-system-functions-5)
+- [Functional Programming Functions (6)](#functional-programming-functions-6)
+  - [Map: Transform Each Element](#map-transform-each-element)
+  - [Filter: Select Matching Elements](#filter-select-matching-elements)
+  - [Reduce: Fold to Single Value](#reduce-fold-to-single-value)
+  - [Any: Check If Any Match](#any-check-if-any-match)
+  - [All: Check If All Match](#all-check-if-all-match)
+  - [Find: First Matching Element](#find-first-matching-element)
+  - [Chaining Functional Operations](#chaining-functional-operations)
+- [Date/Time Functions (4)](#datetime-functions-4)
+- [System/Environment Functions (3)](#systemenvironment-functions-3)
+- [File System Statements (5)](#file-system-statements-5)
+- [Debugging Statements (1)](#debugging-statements-1)
+- [VB6 Global Objects (3)](#vb6-global-objects-3)
+- [COM-Style Objects (4)](#com-style-objects-4)
+  - [VGCollection](#vgcollection)
+  - [VGRegEx](#vgregex)
+  - [VGHttpRequest](#vghttprequest)
+  - [VGTimer](#vgtimer)
+- [File I/O Statements (4 opcodes)](#file-io-statements-4-opcodes)
+- [GoSub/Return](#gosubreturn)
+- [Existing VB6 Functions Still Available](#existing-vb6-functions-still-available)
+  - [String Functions](#string-functions)
+  - [Array Functions](#array-functions)
+  - [Math Functions](#math-functions)
+  - [Type Conversion](#type-conversion)
+  - [File Functions](#file-functions)
+  - [Vector Math](#vector-math)
+  - [Utility](#utility)
+- [Complete Function Count](#complete-function-count)
+  - [Financial Functions](#financial-functions)
+  - [Type/Struct Enhancements](#typestruct-enhancements)
+- [Usage Tips](#usage-tips)
+  - [String Operations](#string-operations)
+  - [Array Processing](#array-processing)
+  - [Dictionary Usage](#dictionary-usage)
+  - [JSON for Data Exchange](#json-for-data-exchange)
+  - [Type Safety](#type-safety)
+- [Additional Builtins](#additional-builtins)
+  - [Count(collection)](#countcollection)
+  - [Spc(n) and Tab(n)](#spcn-and-tabn)
+  - [Bitwise Functions](#bitwise-functions)
+  - [Additional Math Functions](#additional-math-functions)
+  - [Array Utilities](#array-utilities)
+  - [String Utilities](#string-utilities)
+  - [RegExp](#regexp)
+  - [StringBuilder](#stringbuilder)
+  - [Sleep(ms)](#sleepms)
+  - [Assert(condition, message)](#assertcondition-message)
+  - [Image and Texture APIs](#image-and-texture-apis)
+  - [Native Image Drawing Commands](#native-image-drawing-commands)
+  - [DrawImageLine](#drawimageline)
+  - [DrawImageRect](#drawimagerect)
+  - [DrawImageEllipse](#drawimageellipse)
+  - [DrawImageCircle](#drawimagecircle)
+  - [FloodFillImage](#floodfillimage)
+- [See Also](#see-also)
+
+## String Functions (5)
+
+```vb
+' String testing
+StartsWith(string, prefix)      ' Returns True if string starts with prefix
+EndsWith(string, suffix)         ' Returns True if string ends with suffix  
+Contains(string, substring)      ' Returns True if string contains substring
+
+' String padding
+PadLeft(string, length)          ' Pad left with spaces: PadLeft("5", 3) → "  5"
+PadLeft(string, length, char)    ' Pad with custom char: PadLeft("5", 3, "0") → "005"
+PadRight(string, length)         ' Pad right with spaces
+PadRight(string, length, char)   ' Pad right with custom char
+```
+
+**Examples:**
+```vb
+StartsWith("Hello", "He")     ' True
+EndsWith("World", "ld")       ' True
+Contains("Hello", "ell")      ' True
+PadLeft("42", 5)              ' "   42"
+PadRight("42", 5, "0")        ' "42000"
+```
+
+---
+
+## Array Functions (15)
+
+### Array Manipulation
+```vb
+Push(array, value)              ' Add element to end: Push([1,2], 3) → [1,2,3]
+Pop(array)                      ' Remove and return last element
+Slice(array, start, end)        ' Get subarray: Slice([1,2,3,4,5], 1, 3) → [2,3]
+```
+
+### Array Search
+```vb
+IndexOf(array, value)           ' Find index: IndexOf([1,2,3], 2) → 1
+Contains(array, value)          ' Check if exists: Contains([1,2,3], 2) → True
+```
+
+### Array Transform
+```vb
+Reverse(array)                  ' Reverse: Reverse([1,2,3]) → [3,2,1]
+Sort(array)                     ' Sort ascending: Sort([3,1,2]) → [1,2,3]
+Unique(array)                   ' Remove duplicates: Unique([1,2,2,3]) → [1,2,3]
+Flatten(array)                  ' Flatten nested: Flatten([[1,2],[3]]) → [1,2,3]
+```
+
+### Array Generation
+```vb
+Repeat(value, count)            ' Repeat value: Repeat("X", 3) → ["X","X","X"]
+Range(start, end, step)         ' Range with step: Range(0, 10, 2) → [0,2,4,6,8,10]
+Zip(array1, array2)             ' Combine arrays: Zip([1,2], ["a","b"]) → [[1,"a"],[2,"b"]]
+```
+
+**Examples:**
+```vb
+Dim arr = [1, 2, 3, 4, 5]
+Dim arr2 = Push(arr, 6)         ' [1,2,3,4,5,6]
+Dim last = Pop(arr2)            ' 6
+Dim sub = Slice(arr, 1, 3)      ' [2,3]
+Dim idx = IndexOf(arr, 3)       ' 2
+Dim sorted = Sort([5,2,8,1])    ' [1,2,5,8]
+Dim unique = Unique([1,2,2,3])  ' [1,2,3]
+Dim flat = Flatten([[1,2],[3]]) ' [1,2,3]
+```
+
+---
+
+## Dictionary Functions (5)
+
+```vb
+Keys(dictionary)                ' Get array of all keys
+Values(dictionary)              ' Get array of all values
+HasKey(dictionary, key)         ' Check if key exists: HasKey(dict, "name") → True
+Merge(dict1, dict2)             ' Combine dictionaries (dict2 overwrites dict1)
+Remove(dictionary, key)         ' Remove key from dictionary
+Clear(dictionary)               ' Remove all keys
+```
+
+**Examples:**
+```vb
+Dim person = {"name": "Alice", "age": 30}
+Dim k = Keys(person)            ' ["name", "age"]
+Dim v = Values(person)          ' ["Alice", 30]
+Dim has = HasKey(person, "age") ' True
+
+Dim extra = {"city": "NYC"}
+Dim merged = Merge(person, extra) ' {"name":"Alice", "age":30, "city":"NYC"}
+
+Dim removed = Remove(person, "age") ' {"name": "Alice"}
+```
+
+---
+
+## Type Checking Functions (6)
+
+```vb
+IsArray(value)                  ' Returns True if value is an Array
+IsDict(value)                   ' Returns True if value is a Dictionary
+IsString(value)                 ' Returns True if value is a String
+IsNumber(value)                 ' Returns True if value is Int or Float
+IsNull(value)                   ' Returns True if value is Null/Nil
+TypeName(value)                 ' Returns type name as string: "Array", "Dictionary", etc.
+```
+
+**Examples:**
+```vb
+IsArray([1,2,3])               ' True
+IsDict({"key": "val"})         ' True
+IsString("hello")              ' True
+IsNumber(42)                   ' True
+IsNull(Null)                   ' True
+TypeName([1,2,3])              ' "Array"
+TypeName(42)                   ' "Int"
+```
+
+---
+
+## JSON Functions (2)
+
+```vb
+JsonParse(json_string)                          ' Parse JSON string to Dictionary/Array
+JsonStringify(value)                            ' Convert value to JSON string
+JsonStringify(value, indent)                    ' Pretty-print with indent
+JsonStringify(value, indent, sort_keys, full)   ' Full control
+```
+
+**Examples:**
+```vb
+' Parse JSON
+Dim json = '{"name":"Bob","age":25}'
+Dim data = JsonParse(json)
+Print data["name"]              ' "Bob"
+
+' Create JSON
+Dim person = {"name": "Alice", "age": 30}
+Dim str = JsonStringify(person)
+Print str                       ' {"name":"Alice","age":30}
+
+' Pretty-print with indent
+Dim pretty = JsonStringify(person, "  ")
+```
+
+---
+
+## File System Functions (5)
+
+```vb
+FileExists(path)                ' Check if file exists: FileExists("data.txt") → True
+DirExists(path)                 ' Check if directory exists: DirExists("folder") → True
+ReadAllText(path)               ' Read entire file as string
+WriteAllText(path, text)        ' Write string to file (overwrites)
+ReadLines(path)                 ' Read file as array of lines
+```
+
+**Examples:**
+```vb
+' Write file
+WriteAllText("test.txt", "Hello" & Chr(10) & "World")
+
+' Check existence
+If FileExists("test.txt") Then
+    Print "File exists!"
+End If
+
+' Read entire file
+Dim content = ReadAllText("test.txt")
+Print content
+
+' Read as lines
+Dim lines = ReadLines("test.txt")
+Print lines(0)  ' "Hello"
+Print lines(1)  ' "World"
+
+' Check directory
+If DirExists("./folder") Then
+    Print "Directory exists!"
+End If
+```
+
+---
+
+## Functional Programming Functions (6)
+
+### Map: Transform Each Element
+```vb
+Map(array, lambda)              ' Transform: Map([1,2,3], Fn(x) x*2) → [2,4,6]
+```
+
+**Examples:**
+```vb
+Dim nums = [1, 2, 3, 4, 5]
+Dim doubled = Map(nums, Fn(x) x * 2)       ' [2, 4, 6, 8, 10]
+Dim labels = Map(nums, Fn(x) "Item " & CStr(x))  ' ["Item 1", "Item 2", ...]
+
+' With block lambda
+Dim result = Map(nums, Function(x)
+    Dim label = "Val: " & CStr(x * 10)
+    Return label
+End Function)
+```
+
+### Filter: Select Matching Elements
+```vb
+Filter(array, lambda)           ' Filter: Filter([1,2,3,4], Fn(x) x>2) → [3,4]
+```
+
+**Examples:**
+```vb
+Dim nums = [1, 2, 3, 4, 5, 6, 7, 8]
+Dim evens = Filter(nums, Fn(x) x Mod 2 = 0)    ' [2, 4, 6, 8]
+Dim big = Filter(nums, Fn(x) x > 5)             ' [6, 7, 8]
+```
+
+### Reduce: Fold to Single Value
+```vb
+Reduce(array, lambda, init)     ' With initial: Reduce([1,2,3], Fn(a,b) a+b, 0) → 6
+Reduce(array, lambda)           ' Without initial: uses first element as accumulator
+```
+
+**Examples:**
+```vb
+Dim nums = [1, 2, 3, 4, 5]
+Dim sum = Reduce(nums, Fn(a, b) a + b, 0)        ' 15
+Dim product = Reduce(nums, Fn(a, b) a * b)        ' 120 (no init, uses 1 as start)
+Dim maxVal = Reduce(nums, Fn(a, b) IIf(a > b, a, b))  ' 5
+```
+
+### Any: Check If Any Match
+```vb
+Any(array, lambda)              ' True if any element matches predicate
+```
+
+**Examples:**
+```vb
+Dim nums = [1, 2, 3, 4, 5]
+Dim hasEven = Any(nums, Fn(x) x Mod 2 = 0)     ' True
+Dim hasHuge = Any(nums, Fn(x) x > 100)          ' False
+```
+
+### All: Check If All Match
+```vb
+All(array, lambda)              ' True if all elements match predicate
+```
+
+**Examples:**
+```vb
+Dim evens = [2, 4, 6, 8]
+Dim allEven = All(evens, Fn(x) x Mod 2 = 0)    ' True
+
+Dim mixed = [1, 2, 3]
+Dim allEvenMixed = All(mixed, Fn(x) x Mod 2 = 0)  ' False
+```
+
+### Find: First Matching Element
+```vb
+Find(array, lambda)             ' Returns first element matching predicate, or Null
+```
+
+**Examples:**
+```vb
+Dim nums = [1, 2, 3, 4, 5]
+Dim firstBig = Find(nums, Fn(x) x > 3)          ' 4
+Dim firstHuge = Find(nums, Fn(x) x > 100)       ' Null
+```
+
+### Chaining Functional Operations
+```vb
+' Pipeline: filter → map → reduce
+Dim data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+Dim evens = Filter(data, Fn(x) x Mod 2 = 0)     ' [2, 4, 6, 8, 10]
+Dim doubled = Map(evens, Fn(x) x * 2)            ' [4, 8, 12, 16, 20]
+Dim total = Reduce(doubled, Fn(a, b) a + b, 0)   ' 60
+```
+
+---
+
+## Date/Time Functions (4)
+
+```vb
+Weekday(date, [firstDayOfWeek])   ' Day of week 1-7 (1=Sunday default)
+WeekdayName(day, [abbreviate])    ' Name from number: WeekdayName(6) → "Friday"
+MonthName(month, [abbreviate])    ' Name from number: MonthName(1) → "January"
+Timer()                           ' Seconds since midnight as Double
+```
+
+**Examples:**
+```vb
+Dim d = Weekday("7/4/2025")        ' 6 (Friday)
+Dim full = WeekdayName(6)           ' "Friday"
+Dim short = WeekdayName(6, True)    ' "Fri"
+Dim month = MonthName(12)           ' "December"
+Dim abbr = MonthName(12, True)      ' "Dec"
+```
+
+---
+
+## System/Environment Functions (3)
+
+```vb
+QBColor(colorIndex)               ' Classic VB6 16-color palette (0-15)
+Environ(variable)                 ' Read OS environment variable
+Beep                              ' System beep (prints "[BEEP]" to console)
+```
+
+**Examples:**
+```vb
+Dim black = QBColor(0)             ' 0x000000
+Dim white = QBColor(15)            ' 0xFFFFFF
+Dim red = QBColor(4)               ' 0xAA0000
+Dim path = Environ("PATH")         ' OS PATH variable
+Dim home = Environ("HOME")         ' Home directory
+Beep                               ' Audible alert
+```
+
+---
+
+## File System Statements (5)
+
+```vb
+MkDir path                        ' Create directory
+RmDir path                        ' Remove directory
+ChDir path                        ' Change current working directory
+CurDir()                          ' Get current working directory
+FileCopy source, destination      ' Copy a file
+```
+
+**Examples:**
+```vb
+MkDir "res://saves"
+ChDir "res://saves"
+Print CurDir()                     ' "res://saves"
+FileCopy "res://template.dat", "res://saves/game.dat"
+RmDir "res://temp"
+```
+
+---
+
+## Debugging Statements (1)
+
+```vb
+Stop                              ' Break into debugger (VB6-compatible)
+```
+
+**Examples:**
+```vb
+Sub ProcessData(value)
+    If value < 0 Then
+        Stop                       ' Break here to inspect negative value
+    End If
+    ' ... processing
+End Sub
+```
+
+---
+
+## VB6 Global Objects (3)
+
+Virtual global objects resolved automatically — no `Dim` or `New` required.
+
+```vb
+App.Path                          ' Directory containing the executable
+App.EXEName                       ' Executable filename
+App.Title                         ' Application title
+App.Major / App.Minor / App.Revision  ' Version numbers
+
+Screen.Width / Screen.Height      ' Screen dimensions in pixels
+Screen.TwipsPerPixelX/Y           ' Always 1 (pixel units)
+
+Err.Number                        ' Last error number
+Err.Description                   ' Last error description
+Err.Source                        ' Error source module
+Err.Clear                         ' Reset error state
+Err.Raise number, source, desc    ' Raise a runtime error
+```
+
+---
+
+## COM-Style Objects (4)
+
+Instantiate with `Dim obj As New ClassName` or `CreateObject("ProgID")`.
+
+### VGCollection
+```vb
+Dim col As New Collection         ' or CreateObject("VB6.Collection")
+col.Add item [, key] [, Before n] [, After n]
+col.Remove index_or_key
+col.Item(index_or_key)            ' 1-based indexing
+col.Count                         ' Number of items
+col.HasKey(key)                   ' Check key existence
+col.Clear                         ' Remove all items
+col.ToArray                       ' Return all items as Array
+```
+
+### VGRegEx
+```vb
+Dim re As New RegExp              ' or CreateObject("VBScript.RegExp")
+re.Pattern = "\d+"
+re.Global = True
+re.IgnoreCase = False
+re.Test(string)                   ' Returns True if pattern matches
+re.Execute(string)                ' Returns Array of VGRegExMatch objects
+re.Replace(string, replacement)   ' Replace matched text
+```
+
+### VGHttpRequest
+```vb
+Dim http As New HttpRequest       ' or CreateObject("MSXML2.XMLHTTP")
+http.open method, url
+http.setRequestHeader name, value
+http.send [body]
+http.responseText                 ' Response body string
+http.status                       ' HTTP status code
+http.getAllResponseHeaders         ' All headers as string
+```
+
+### VGTimer
+```vb
+Dim tmr As New VBTimer
+tmr.Interval = 1000               ' Milliseconds
+tmr.Enabled = True                ' Start/stop the timer
+Timer()                           ' Seconds since midnight as Double
+```
+
+---
+
+## File I/O Statements (4 opcodes)
+
+Bytecode-compiled file I/O statements:
+
+```vb
+Print #fileNum, expression        ' Write formatted output
+Write #fileNum, expression        ' Write CSV-style quoted output
+Input #fileNum, variable          ' Read delimited value
+Line Input #fileNum, variable     ' Read entire line
+```
+
+---
+
+## GoSub/Return
+
+Intra-procedure branching with return address stack:
+
+```vb
+GoSub label                       ' Push return address and jump to label
+Return                            ' Pop and return to caller
+```
+
+---
+
+## Existing VB6 Functions Still Available
+
+These were already implemented and still work:
+
+### String Functions
+- `Len()`, `Left()`, `Right()`, `Mid()`
+- `UCase()`, `LCase()`
+- `Trim()`, `LTrim()`, `RTrim()`
+- `Asc()`, `Chr()`, `Space()`, `String()`
+- `Str()`, `Val()`, `InStr()`
+- `Replace()`, `Split()`, `Join()`
+- `StrReverse()`, `Hex()`, `Oct()`
+
+### Array Functions
+- `UBound()`, `LBound()`
+
+### Math Functions
+- `Sin()`, `Cos()`, `Tan()`, `Atn()`, `Log()`, `Exp()`
+- `Sqr()`, `Abs()`, `Sgn()`, `Int()`, `Rnd()`
+- `Round()`, `RandRange()`, `Lerp()`, `Clamp()`
+
+### Type Conversion
+- `CInt()`, `CDbl()`, `CBool()`
+
+### File Functions
+- `LOF()`, `Loc()`, `EOF()`, `FreeFile()`, `FileLen()`, `Dir()`
+
+### Vector Math
+- `Vec2()`, `Vec3()` - Create vector from components
+- `VAdd()`, `VSub()`, `VMul()` - Vector arithmetic
+- `VDot()`, `VCross()` - Vector products
+- `VLen()`, `VNormalize()` - Vector length and normalization
+- `VDistance()`, `VLerp()` - Distance and interpolation
+
+### Utility
+- `SetProp(obj, property, value)` - Set object property dynamically
+- `AddChild(child)` - Add node as child of current form/script owner
+
+---
+
+## Complete Function Count
+
+- **String**: 5 new + 13 existing = **18 total**
+- **Array**: 15 new + 2 existing = **17 total**
+- **Dictionary**: 5 new = **5 total**
+- **Type Checking**: 6 new = **6 total**
+- **JSON**: 2 new = **2 total**
+- **File System**: 5 new + 5 new + 6 existing = **16 total**
+- **Functional**: 6 new = **6 total**
+- **Date/Time**: 3 + 1 (Timer) = **4 total**
+- **System/Environment**: 3 new = **3 total**
+- **Debugging**: 1 new (Stop statement) = **1 total**
+- **Math**: 0 new + 11 existing = **11 total**
+- **Vector**: 12 (Vec2, Vec3, VAdd, VSub, VMul, VDot, VCross, VLen, VNormalize, VDistance, VLerp, SetProp) = **12 total**
+- **Utility**: 2 new (SetProp, AddChild) = **2 total**
+- **VB6 Global Objects**: App, Screen, Err = **3 virtual objects**
+- **COM-Style Objects**: VGCollection, VGRegEx, VGHttpRequest, VGTimer = **4 classes**
+- **File I/O Opcodes**: Print#, Write#, Input#, Line Input# = **4 statements**
+- **GoSub/Return**: GoSub, Return = **2 flow-control statements**
+
+**Grand Total**: 57 new functions + 52 existing + 13 additional features = **122 builtins & features!**
+
+### Financial Functions
+- `Pmt(rate, nper, pv[, fv][, type])` — Periodic payment for a loan/annuity
+- `FV(rate, nper, pmt[, pv][, type])` — Future value of an investment
+- `PV(rate, nper, pmt[, fv][, type])` — Present value
+- `Rate(nper, pmt, pv[, fv][, type][, guess])` — Interest rate per period
+- `NPER(rate, pmt, pv[, fv][, type])` — Number of periods
+- `IPmt(rate, per, nper, pv[, fv][, type])` — Interest portion of a payment
+- `PPmt(rate, per, nper, pv[, fv][, type])` — Principal portion of a payment
+- `NPV(rate, values())` — Net present value
+- `IRR(values()[, guess])` — Internal rate of return
+- `MIRR(values(), financeRate, reinvestRate)` — Modified internal rate of return
+- `SLN(cost, salvage, life)` — Straight-line depreciation
+- `SYD(cost, salvage, life, period)` — Sum-of-years-digits depreciation
+- `DDB(cost, salvage, life, period[, factor])` — Double declining balance depreciation
+
+**= 13 financial functions**
+
+### Type/Struct Enhancements
+- Fixed-length strings: `Name As String * 30`
+- Strict member type checking with automatic coercion
+- IntelliSense for struct member dot-completion
+
+---
+
+## Usage Tips
+
+### String Operations
+```vb
+' Modern approach with new functions
+If StartsWith(filename, "data_") And EndsWith(filename, ".txt") Then
+    Print "Valid data file"
+End If
+```
+
+### Array Processing
+```vb
+' Build arrays easily
+Dim data = [1, 2, 3, 4, 5]
+data = Push(data, 6)
+data = Sort(data)
+data = Unique(data)
+```
+
+### Dictionary Usage
+```vb
+' Work with configuration
+Dim config = {"host": "localhost", "port": 8080}
+If HasKey(config, "timeout") Then
+    Print "Timeout:", config["timeout"]
+Else
+    config["timeout"] = 30
+End If
+```
+
+### JSON for Data Exchange
+```vb
+' Save/load data as JSON
+Dim settings = {"theme": "dark", "fontSize": 14}
+WriteAllText("settings.json", JsonStringify(settings, "  "))
+
+' Later...
+Dim loaded = JsonParse(ReadAllText("settings.json"))
+Print "Theme:", loaded["theme"]
+```
+
+### Type Safety
+```vb
+' Validate input
+Function ProcessData(input)
+    If Not IsArray(input) Then
+        Print "Error: Expected array, got", TypeName(input)
+        Exit Function
+    End If
+    ' Process array...
+End Function
+```
+
+---
+
+## Additional Builtins
+
+### Count(collection)
+Returns element count for Array, Dictionary, or String length.
+```vb
+Count(Array(1,2,3))   ' → 3
+Count("Hello")         ' → 5
+```
+
+### Spc(n) and Tab(n)
+`Spc(n)` returns n spaces. `Tab(n)` returns spaces to fill to column n.
+```vb
+Print "A"; Spc(5); "B"    ' → A     B
+Print "A"; Tab(10); "B"   ' → A         B
+```
+
+### Bitwise Functions
+`BitAnd(a,b)`, `BitOr(a,b)`, `BitXor(a,b)`, `BitNot(a)`, `BitShiftLeft(val,bits)`, `BitShiftRight(val,bits)`
+
+### Additional Math Functions
+`Ceiling(n)` — round up. `Floor(n)` — round down. `Atan2(y,x)` — arc tangent of y/x.
+
+### Array Utilities
+- `Array.Copy(arr)` — deep copy
+- `Array.Fill(size, value)` — create filled array
+- `Array.Shuffle(arr)` — randomize in place
+- `Array.Transpose(matrix)` — transpose 2D array
+
+### String Utilities
+- `String.Contains(str, search)` / `StrContains(str, search)` — boolean
+- `String.Repeat(str, n)` / `StrRepeat(str, n)` — repeat string n times
+
+### RegExp
+- `RegExp.Test(str, pattern)` — returns Boolean
+- `RegExp.Execute(str, pattern)` — returns Array of matches
+- `RegExp.Replace(str, pattern, replacement)` — returns new string
+
+### StringBuilder
+```vb
+Dim sb = NewStringBuilder()
+sb.Append "text"
+sb.AppendLine "with newline"
+sb.Insert 0, "prefix"
+sb.Replace "old", "new"
+sb.Length  ' property
+sb.ToString()
+sb.Clear
+```
+
+### Sleep(ms)
+Pauses execution for `ms` milliseconds.
+
+### Assert(condition, message)
+Raises error if condition is False.
+
+### Image and Texture APIs
+
+**Creation:**
+- `CreateImage(w, h [, fillColor])` — create RGBA8 Image (1–4096 px)
+- `CreateTexture(image)` / `CreateTexture(w, h [, fillColor])` — create ImageTexture
+- `ImageToTexture(image)` — convert Image → ImageTexture
+
+**Pixel Access:**
+- `SetImagePixel(image, x, y, color)` — write pixel
+- `GetImagePixel(image, x, y)` — read pixel → Color
+- `FillImage(image, color)` — fill entire Image
+- `FillImageRect(image, x, y, w, h, color)` — fill rectangular region
+
+**Copy / Sync:**
+- `BlitImage(dest, src, srcRect, destPos)` — copy pixel region between Images
+- `UpdateTexture(texture, image)` — push Image data to ImageTexture
+
+**Query:**
+- `ImageWidth(image)`, `ImageHeight(image)` — Image dimensions
+- `TextureWidth(texture)`, `TextureHeight(texture)` — Texture dimensions
+- `GetTextureImage(texture)` — extract Image from ImageTexture
+
+**File I/O:**
+- `SaveImage(image, path)` — save as PNG
+- `LoadImage(path)` — load image file as Image
+
+---
+
+### Native Image Drawing Commands
+
+These builtins perform pixel-level drawing operations **entirely in native C++**,
+making them orders of magnitude faster than equivalent VG script loops.
+All operate directly on an `Image` object — call `UpdateTexture` afterwards
+to push changes to screen.
+
+---
+
+### DrawImageLine
+
+```vb
+DrawImageLine image, x1, y1, x2, y2, color[, width]
+```
+
+Draws a line from `(x1, y1)` to `(x2, y2)` on the Image using the Bresenham
+line algorithm. When `width` is omitted or 1, draws a single-pixel line.
+When `width` > 1, stamps a filled square brush (width × width) at each
+Bresenham step — useful for thick brush/eraser strokes. Pixels outside the
+Image bounds are silently skipped.
+
+The VB6-style command `Line` is an alias for `DrawImageLine` — they are
+interchangeable.
+
+| Parameter | Type    | Description                                           |
+|-----------|---------|--------------------------------------------------------|
+| `image`   | Image   | The target Image (created via `CreateImage`)           |
+| `x1`      | Integer | Start X coordinate                                     |
+| `y1`      | Integer | Start Y coordinate                                     |
+| `x2`      | Integer | End X coordinate                                       |
+| `y2`      | Integer | End Y coordinate                                       |
+| `color`   | Color   | Line color (use `Color8(r,g,b,a)` for 0–255)          |
+| `width`   | Integer | *(Optional)* Brush width in pixels. Default = 1 (1px). |
+
+**Example:**
+```vb
+Dim img As Variant = CreateImage(320, 240, Color(1, 1, 1, 1))
+Dim tex As Variant = CreateTexture(img)
+
+' Draw a red diagonal line (1px)
+DrawImageLine img, 0, 0, 319, 239, Color(1, 0, 0, 1)
+
+' Draw a thick blue horizontal line (8px brush)
+DrawImageLine img, 10, 120, 310, 120, Color8(0, 0, 255, 255), 8
+
+' VB6-style alias works identically:
+Line img, 10, 150, 310, 150, Color(0, 1, 0, 1), 4
+
+UpdateTexture tex, img
+```
+
+---
+
+### DrawImageRect
+
+```vb
+DrawImageRect image, x1, y1, x2, y2, color
+```
+
+Draws a 1-pixel-wide **outline** rectangle on the Image. The rectangle is
+defined by two opposite corners `(x1, y1)` and `(x2, y2)`. Coordinates are
+automatically normalized (min/max), so the corner order doesn't matter.
+
+| Parameter | Type    | Description                                     |
+|-----------|---------|--------------------------------------------------|
+| `image`   | Image   | The target Image                                 |
+| `x1`      | Integer | First corner X                                   |
+| `y1`      | Integer | First corner Y                                   |
+| `x2`      | Integer | Opposite corner X                                |
+| `y2`      | Integer | Opposite corner Y                                |
+| `color`   | Color   | Outline color                                    |
+
+> **Note:** This draws an outline only. To draw a **filled** rectangle, use
+> `FillImageRect image, x, y, w, h, color`.
+
+**Example:**
+```vb
+Dim img As Variant = CreateImage(320, 240, Color(1, 1, 1, 1))
+
+' Draw a blue rectangle outline from (20,20) to (200,150)
+DrawImageRect img, 20, 20, 200, 150, Color(0, 0, 1, 1)
+
+' Draw a green rectangle (corner order reversed — same result)
+DrawImageRect img, 300, 200, 220, 30, Color(0, 1, 0, 1)
+
+UpdateTexture tex, img
+```
+
+---
+
+### DrawImageEllipse
+
+```vb
+DrawImageEllipse image, cx, cy, rx, ry, color
+```
+
+Draws a 1-pixel-wide ellipse **outline** centered at `(cx, cy)` with
+horizontal radius `rx` and vertical radius `ry`, using the midpoint ellipse
+algorithm. For a circle outline, set `rx = ry`.
+
+| Parameter | Type    | Description                                     |
+|-----------|---------|--------------------------------------------------|
+| `image`   | Image   | The target Image                                 |
+| `cx`      | Integer | Center X coordinate                              |
+| `cy`      | Integer | Center Y coordinate                              |
+| `rx`      | Integer | Horizontal radius (minimum 1)                    |
+| `ry`      | Integer | Vertical radius (minimum 1)                      |
+| `color`   | Color   | Outline color                                    |
+
+**Example:**
+```vb
+Dim img As Variant = CreateImage(320, 240, Color(1, 1, 1, 1))
+
+' Draw a red ellipse in the center of the image
+DrawImageEllipse img, 160, 120, 100, 60, Color(1, 0, 0, 1)
+
+' Draw a perfect circle outline (rx = ry)
+DrawImageEllipse img, 80, 80, 40, 40, Color8(0, 128, 255, 255)
+
+UpdateTexture tex, img
+```
+
+---
+
+### DrawImageCircle
+
+```vb
+DrawImageCircle image, cx, cy, radius, color
+```
+
+Draws a **filled** circle centered at `(cx, cy)` with the given `radius`.
+Uses scanline fill for speed — each horizontal row is drawn with a single
+`fill_rect` call.
+
+| Parameter | Type    | Description                                     |
+|-----------|---------|--------------------------------------------------|
+| `image`   | Image   | The target Image                                 |
+| `cx`      | Integer | Center X coordinate                              |
+| `cy`      | Integer | Center Y coordinate                              |
+| `radius`  | Integer | Circle radius in pixels                          |
+| `color`   | Color   | Fill color                                       |
+
+> **Note:** This draws a **filled** circle. For an outline-only circle, use
+> `DrawImageEllipse image, cx, cy, r, r, color`.
+
+**Example:**
+```vb
+Dim img As Variant = CreateImage(320, 240, Color(1, 1, 1, 1))
+
+' Draw a filled yellow sun
+DrawImageCircle img, 260, 50, 35, Color(1, 1, 0, 1)
+
+' Draw a small red dot
+DrawImageCircle img, 100, 100, 3, Color8(255, 0, 0, 255)
+
+UpdateTexture tex, img
+```
+
+---
+
+### FloodFillImage
+
+```vb
+FloodFillImage image, x, y, color
+```
+
+Performs a **4-connected flood fill** starting at `(x, y)`, replacing all
+contiguous pixels of the same color as the target pixel with the new `color`.
+The algorithm runs entirely in native C++ for maximum speed.
+
+The fill stops when it encounters a pixel that doesn't match the target
+color (within a tiny floating-point tolerance of 1/512). It is bounded by
+`width × height` iterations as a safety limit.
+
+If the pixel at `(x, y)` is already the fill color, no work is done.
+
+| Parameter | Type    | Description                                     |
+|-----------|---------|--------------------------------------------------|
+| `image`   | Image   | The target Image                                 |
+| `x`       | Integer | Seed X coordinate (where the fill starts)        |
+| `y`       | Integer | Seed Y coordinate                                |
+| `color`   | Color   | The new fill color                               |
+
+**Example:**
+```vb
+Dim img As Variant = CreateImage(320, 240, Color(1, 1, 1, 1))  ' White canvas
+
+' Draw a closed black rectangle outline
+DrawImageRect img, 50, 50, 200, 150, Color(0, 0, 0, 1)
+
+' Flood-fill the inside of the rectangle with blue
+FloodFillImage img, 100, 100, Color(0, 0, 1, 1)
+
+' The white area outside the rectangle is untouched
+' Only the white pixels connected to (100,100) inside the rect turn blue
+
+UpdateTexture tex, img
+```
+
+**Paint bucket example (VGPaint-style):**
+```vb
+' In a paint app, on mouse click with the Fill tool:
+FloodFillImage canvasImage, mouseCanvasX, mouseCanvasY, Color8(fgColorR, fgColorG, fgColorB, 255)
+canvasDirty = True    ' Flag texture for UpdateTexture in _Draw
+```
+
+---
+
+## See Also
+
+- [Modern Features Guide](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/guides/MODERN_FEATURES.md) - Modern syntax features
+- [VisualGasic Language Reference](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/VisualGasic_Language_Reference.md) - Complete language manual
+- [System Integration](../SYSTEM_INTEGRATION.md) - FFI, ODBC, Crypto, XML, ZIP, Async, Packages
+- [test_new_builtins.vg](https://github.com/xgreenrx-star/VisualGasic/blob/main/test_proj/test_suite/test_new_builtins.vg) - Comprehensive test examples
+
+---
+
+## Alphabetical Index
+
+*Quick-jump: [#](#symbols) · [A](#a) · [B](#b) · [C](#c) · [D](#d) · [E](#e) · [F](#f) · [G](#g) · [I](#i) · [J](#j) · [M](#m) · [N](#n) · [R](#r) · [S](#s) · [T](#t) · [U](#u) · [V](#v)*
+
+
+### Symbols
+
+- **15** — [Array Functions (15)](#array-functions-15)
+- **2** — [JSON Functions (2)](#json-functions-2)
+- **5** — [String Functions (5)](#string-functions-5) · [Dictionary Functions (5)](#dictionary-functions-5) · [File System Functions (5)](#file-system-functions-5)
+- **6** — [Type Checking Functions (6)](#type-checking-functions-6) · [Functional Programming Functions (6)](#functional-programming-functions-6)
+
+### A
+
+- **All** — [All: Check If All Match](#all-check-if-all-match)
+- **Any** — [Any: Check If Any Match](#any-check-if-any-match)
+- **Array Functions** — [Array Functions (15)](#array-functions-15) · [Array Functions](#array-functions)
+- **Array Generation** — [Array Generation](#array-generation)
+- **Array Manipulation** — [Array Manipulation](#array-manipulation)
+- **Array Processing** — [Array Processing](#array-processing)
+- **Array Search** — [Array Search](#array-search)
+- **Array Transform** — [Array Transform](#array-transform)
+- **Array Utilities** — [Array Utilities](#array-utilities)
+- **Assert** — [Assert(condition, message)](#assertcondition-message)
+
+### B
+
+- **Bitwise Functions** — [Bitwise Functions](#bitwise-functions)
+
+### C
+
+- **Chaining Functional Operations** — [Chaining Functional Operations](#chaining-functional-operations)
+- **COM-Style Objects (4)** — [COM-Style Objects (4)](#com-style-objects-4)
+- **Complete Function Count** — [Complete Function Count](#complete-function-count)
+- **Count** — [Count(collection)](#countcollection)
+
+### D
+
+- **Date/Time Functions (4)** — [Date/Time Functions (4)](#datetime-functions-4)
+- **Debugging Statements (1)** — [Debugging Statements (1)](#debugging-statements-1)
+- **Dictionary Functions** — [Dictionary Functions (5)](#dictionary-functions-5)
+- **Dictionary Usage** — [Dictionary Usage](#dictionary-usage)
+- **DrawImageCircle** — [DrawImageCircle](#drawimagecircle)
+- **DrawImageEllipse** — [DrawImageEllipse](#drawimageellipse)
+- **DrawImageLine** — [DrawImageLine](#drawimageline)
+- **DrawImageRect** — [DrawImageRect](#drawimagerect)
+
+### E
+
+- **Existing VB6 Functions Still Available** — [Existing VB6 Functions Still Available](#existing-vb6-functions-still-available)
+
+### F
+
+- **File Functions** — [File Functions](#file-functions)
+- **File I/O Statements (4 opcodes)** — [File I/O Statements (4 opcodes)](#file-io-statements-4-opcodes)
+- **File System Functions** — [File System Functions (5)](#file-system-functions-5)
+- **File System Statements (5)** — [File System Statements (5)](#file-system-statements-5)
+- **Filter** — [Filter: Select Matching Elements](#filter-select-matching-elements)
+- **Financial Functions** — [Financial Functions](#financial-functions)
+- **Find** — [Find: First Matching Element](#find-first-matching-element)
+- **FloodFillImage** — [FloodFillImage](#floodfillimage)
+- **Functional Programming Functions** — [Functional Programming Functions (6)](#functional-programming-functions-6)
+
+### G
+
+- **GoSub/Return** — [GoSub/Return](#gosubreturn)
+
+### I
+
+- **Image and Texture APIs** — [Image and Texture APIs](#image-and-texture-apis)
+
+### J
+
+- **JSON for Data Exchange** — [JSON for Data Exchange](#json-for-data-exchange)
+- **JSON Functions** — [JSON Functions (2)](#json-functions-2)
+
+### M
+
+- **Map** — [Map: Transform Each Element](#map-transform-each-element)
+- **Math Functions** — [Math Functions](#math-functions) · [Additional Math Functions](#additional-math-functions)
+
+### N
+
+- **Native Image Drawing Commands** — [Native Image Drawing Commands](#native-image-drawing-commands)
+
+### R
+
+- **Reduce** — [Reduce: Fold to Single Value](#reduce-fold-to-single-value)
+- **RegExp** — [RegExp](#regexp)
+
+### S
+
+- **Sleep** — [Sleep(ms)](#sleepms)
+- **Spc** — [Spc(n) and Tab(n)](#spcn-and-tabn)
+- **String Functions** — [String Functions (5)](#string-functions-5) · [String Functions](#string-functions)
+- **String Operations** — [String Operations](#string-operations)
+- **String Utilities** — [String Utilities](#string-utilities)
+- **StringBuilder** — [StringBuilder](#stringbuilder)
+- **System/Environment Functions (3)** — [System/Environment Functions (3)](#systemenvironment-functions-3)
+
+### T
+
+- **Type Checking Functions** — [Type Checking Functions (6)](#type-checking-functions-6)
+- **Type Conversion** — [Type Conversion](#type-conversion)
+- **Type Safety** — [Type Safety](#type-safety)
+- **Type/Struct Enhancements** — [Type/Struct Enhancements](#typestruct-enhancements)
+
+### U
+
+- **Utility** — [Utility](#utility)
+
+### V
+
+- **Additional Builtins** — [Additional Builtins](#additional-builtins)
+- **VB6 Global Objects (3)** — [VB6 Global Objects (3)](#vb6-global-objects-3)
+- **Vector Math** — [Vector Math](#vector-math)
+- **VGCollection** — [VGCollection](#vgcollection)
+- **VGHttpRequest** — [VGHttpRequest](#vghttprequest)
+- **VGRegEx** — [VGRegEx](#vgregex)
+- **VGTimer** — [VGTimer](#vgtimer)
