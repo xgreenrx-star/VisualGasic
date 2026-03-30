@@ -59,9 +59,11 @@ jobs:
       - name: Capture bytecode dump
         env:
           DISPLAY: ""
-          GODOT_BIN: ./Godot_v4.5.1-stable_linux.x86_64
-          SCONS_ARGS: platform=linux target=editor
-        run: make -f Makefile.tests bytecode-dump
+        run: |
+          ./Godot_v4.5.1-stable_linux.x86_64 --headless --path demo \
+            --script dump_bytecode.gd \
+            --entries=BenchArithmetic,BenchArraySum,BenchStringConcat,BenchBranch \
+            --json --out=${{ github.workspace }}/bytecode_dump.json
 
       - name: Compare bytecode dump to baseline
         id: compare_release
