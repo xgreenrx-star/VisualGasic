@@ -65,7 +65,7 @@ var _stop_btn: Button
 var _ollama_available := false
 var _is_generating := false
 var _current_model := DEFAULT_MODEL
-var _history: PackedStringArray = []
+var _history: PackedStringArray = PackedStringArray()
 var _history_idx := -1
 var _accumulated_response := ""
 
@@ -327,10 +327,10 @@ func _on_ping_response(result: int, code: int, _headers: PackedStringArray, body
 		_model_dropdown.clear()
 		var found_default := false
 		for m in json["models"]:
-			var name: String = m.get("name", "")
-			if not name.is_empty():
-				_model_dropdown.add_item(name)
-				if name == _current_model or name.begins_with(_current_model.split(":")[0]):
+			var model_name: String = m.get("name", "")
+			if not model_name.is_empty():
+				_model_dropdown.add_item(model_name)
+				if model_name == _current_model or model_name.begins_with(_current_model.split(":")[0]):
 					found_default = true
 					_model_dropdown.select(_model_dropdown.item_count - 1)
 		if not found_default and _model_dropdown.item_count > 0:
