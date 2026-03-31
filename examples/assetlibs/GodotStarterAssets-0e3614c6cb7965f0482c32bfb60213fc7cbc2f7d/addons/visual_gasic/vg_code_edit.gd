@@ -41,6 +41,7 @@ var _form_name: String = ""                       ## Current form name (e.g. "Fo
 var _completion_active: bool = false
 var _last_word: String = ""
 var _prev_caret_line: int = -1  # Track line changes for auto-capitalize
+var _highlight_word: String = ""  # Word under cursor — all occurrences are highlighted
 var _snippet_regex: RegEx = null  # Lazy-init for snippet placeholder expansion
 var _prev_line_count: int = 0    # Track line count for auto-indent on real Enter
 
@@ -2000,6 +2001,12 @@ func _on_caret_changed() -> void:
 		# Caret moved to a different line — capitalize keywords on the previous line
 		_auto_capitalize_line(_prev_caret_line)
 	_prev_caret_line = current_line
+	
+	# ── Occurrence highlighting: extract the word under the caret ──
+	var old_hw := _highlight_word
+	_highlight_word = _get_word_under_caret()
+	if _highlight_word != old_hw:
+		queue_redraw()
 
 func _auto_capitalize_line(line_idx: int) -> void:
 	if line_idx < 0 or line_idx >= get_line_count():
@@ -2140,6 +2147,9 @@ func _draw() -> void:
 			var to_x: float = size.x
 			draw_line(Vector2(from_x, y_offset), Vector2(to_x, y_offset), separator_color, line_width)
 	
+	# ── Occurrence highlighting: draw coloured rects behind all matches ──
+	_draw_occurrence_highlights(first_visible, last_visible)
+	
 	# ── Keep overlay in sync with scrolling / redraws ──
 	if _arrow_overlay and (_is_debug_paused or _arrow_dragging):
 		_arrow_overlay.queue_redraw()
@@ -2147,6 +2157,91 @@ func _draw() -> void:
 		_bookmark_overlay.queue_redraw()
 	if _pin_overlay and not _pinned_values.is_empty():
 		_pin_overlay.queue_redraw()
+
+# =============================================================================
+# OCCURRENCE HIGHLIGHTING — colour all copies of the word under the caret
+# =============================================================================
+
+## Extract the full identifier word under the caret (expanding left and right).
+func _get_word_under_caret() -> String:
+	var line_text := get_line(get_caret_line())
+	var col := get_caret_column()
+	if line_text.is_empty():
+		return ""
+	# Clamp column into valid range
+	if col > line_text.length():
+		col = line_text.length()
+	# Expand left
+	var start := col
+	while start > 0 and _is_word_char(line_text[start - 1]):
+		start -= 1
+	# Expand right
+	var end_pos := col
+	while end_pos < line_text.length() and _is_word_char(line_text[end_pos]):
+		end_pos += 1
+	if start == end_pos:
+		return ""
+	return line_text.substr(start, end_pos - start)
+
+## Draw semi-transparent highlight rectangles behind every visible occurrence
+## of _highlight_word.  Uses case-insensitive matching (VB6 convention).
+func _draw_occurrence_highlights(first_visible: int, last_visible: int) -> void:
+	if _highlight_word.is_empty() or _highlight_word.length() < 2:
+		return
+	
+	var hw_lower := _highlight_word.to_lower()
+	var hw_len := _highlight_word.length()
+	var row_height := get_line_height()
+	# Soft yellow-gold with transparency — visible but not distracting
+	var highlight_color := Color(1.0, 0.85, 0.3, 0.22)
+	# Thin border for readability on dark backgrounds
+	var border_color := Color(1.0, 0.85, 0.3, 0.45)
+	
+	for line_idx in range(first_visible, last_visible):
+		var line_text := get_line(line_idx)
+		if line_text.is_empty():
+			continue
+		var line_lower := line_text.to_lower()
+		# Find all occurrences of the word in this line
+		var search_from := 0
+		while true:
+			var found := line_lower.find(hw_lower, search_from)
+			if found < 0:
+				break
+			# Ensure whole-word match (not a substring of a larger identifier)
+			var before_ok := (found == 0) or not _is_word_char(line_text[found - 1])
+			var after_pos := found + hw_len
+			var after_ok := (after_pos >= line_text.length()) or not _is_word_char(line_text[after_pos])
+			if before_ok and after_ok:
+				# Skip the occurrence at the caret itself (the word you're on)
+				# — only highlight the *other* copies
+				if not _is_caret_inside(line_idx, found, after_pos):
+					_draw_word_rect(line_idx, found, after_pos, row_height,
+									highlight_color, border_color)
+			search_from = found + 1
+
+## Returns true if the caret is inside the character range [col_start, col_end)
+## on the given line — used to skip highlighting the word directly under the cursor.
+func _is_caret_inside(line_idx: int, col_start: int, col_end: int) -> bool:
+	if get_caret_line() != line_idx:
+		return false
+	var cc := get_caret_column()
+	return cc >= col_start and cc <= col_end
+
+## Draw one highlight rectangle for a word at [col_start..col_end) on `line_idx`.
+func _draw_word_rect(line_idx: int, col_start: int, col_end: int,
+					 row_height: float, bg_color: Color, border_color: Color) -> void:
+	# get_pos_at_line_column returns the baseline (BOTTOM) of the line
+	var pos_start := get_pos_at_line_column(line_idx, col_start)
+	var pos_end := get_pos_at_line_column(line_idx, col_end)
+	if pos_start.y < 0 and pos_end.y < 0:
+		return  # not visible
+	var x0 := float(pos_start.x)
+	var x1 := float(pos_end.x)
+	var y := float(pos_start.y) - row_height
+	var rect := Rect2(x0, y, x1 - x0, row_height)
+	draw_rect(rect, bg_color)
+	draw_rect(rect, border_color, false, 1.0)
 
 ## Create the arrow overlay Control (draws ON TOP of CodeEdit gutters/text).
 func _ensure_arrow_overlay() -> void:
