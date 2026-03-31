@@ -6602,12 +6602,22 @@ func _on_open_snippet_browser():
 	if _snippet_browser:
 		_snippet_browser.popup_centered()
 
-## Inserts a snippet at the current cursor position in the code editor
+## Inserts a snippet at the current cursor position in the code editor.
+## Checks the native Godot script editor first, then falls back to the
+## VB6 IDE embedded code editor.
 func _on_snippet_insert(text: String):
+	var target: CodeEdit = null
+
+	# 1. Try the Godot script editor's active CodeEdit
 	if _current_code_edit and is_instance_valid(_current_code_edit):
-		var line = _current_code_edit.get_caret_line()
-		var col = _current_code_edit.get_caret_column()
-		_current_code_edit.insert_text_at_caret(text)
+		target = _current_code_edit
+	# 2. Fall back to the VB6 IDE embedded code editor
+	elif is_instance_valid(_embedded_code_editor):
+		target = _embedded_code_editor.get_code_edit()
+
+	if target and is_instance_valid(target):
+		target.insert_text_at_caret(text)
+		target.grab_focus()
 
 ## Opens the Theme Picker dialog (v2.4.1)
 func _on_open_theme_picker():
