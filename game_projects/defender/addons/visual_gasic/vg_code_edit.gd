@@ -184,10 +184,13 @@ const CBM_AMBIGUOUS: Dictionary = {
 # LIFECYCLE
 # =============================================================================
 
+var _context_menu: PopupMenu
+
 func _ready() -> void:
 	_setup_syntax_highlighter()
 	_setup_code_completion()
 	_setup_auto_indent()
+	_setup_context_menu()
 	_connect_signals()
 	_prev_line_count = get_line_count()
 
@@ -290,6 +293,230 @@ func _setup_auto_indent() -> void:
 	
 	# Disable built-in executing line gutter — we draw our own yellow arrow overlay
 	gutters_draw_executing_lines = false
+
+## IDs for the right-click context menu items.
+enum ContextMenuItem {
+	CUT,
+	COPY,
+	PASTE,
+	SELECT_ALL,
+	FIX_INDENTATION,
+	COMMENT_TOGGLE,
+	GOTO_LINE,
+	TOGGLE_BREAKPOINT,
+	TOGGLE_BOOKMARK,
+}
+
+func _setup_context_menu() -> void:
+	_context_menu = PopupMenu.new()
+	_context_menu.name = "VGContextMenu"
+	_context_menu.add_item("Cut                     Ctrl+X", ContextMenuItem.CUT)
+	_context_menu.add_item("Copy                    Ctrl+C", ContextMenuItem.COPY)
+	_context_menu.add_item("Paste                   Ctrl+V", ContextMenuItem.PASTE)
+	_context_menu.add_separator()
+	_context_menu.add_item("Select All              Ctrl+A", ContextMenuItem.SELECT_ALL)
+	_context_menu.add_separator()
+	_context_menu.add_item("Fix Indentation       Ctrl+Shift+I", ContextMenuItem.FIX_INDENTATION)
+	_context_menu.add_item("Comment/Uncomment     Ctrl+'", ContextMenuItem.COMMENT_TOGGLE)
+	_context_menu.add_separator()
+	_context_menu.add_item("Go To Line...           Ctrl+G", ContextMenuItem.GOTO_LINE)
+	_context_menu.add_item("Toggle Breakpoint       F9", ContextMenuItem.TOGGLE_BREAKPOINT)
+	_context_menu.add_item("Toggle Bookmark         Ctrl+B", ContextMenuItem.TOGGLE_BOOKMARK)
+	_context_menu.id_pressed.connect(_on_context_menu_item)
+	add_child(_context_menu)
+
+func _on_context_menu_item(id: int) -> void:
+	match id:
+		ContextMenuItem.CUT:
+			cut()
+		ContextMenuItem.COPY:
+			copy()
+		ContextMenuItem.PASTE:
+			paste()
+		ContextMenuItem.SELECT_ALL:
+			select_all()
+		ContextMenuItem.FIX_INDENTATION:
+			fix_indentation()
+		ContextMenuItem.COMMENT_TOGGLE:
+			toggle_comment_selection()
+		ContextMenuItem.GOTO_LINE:
+			_show_goto_line_dialog()
+		ContextMenuItem.TOGGLE_BREAKPOINT:
+			toggle_breakpoint(get_caret_line())
+		ContextMenuItem.TOGGLE_BOOKMARK:
+			toggle_bookmark(get_caret_line())
+
+func _show_context_menu(at_position: Vector2) -> void:
+	# Enable/disable items based on context
+	var sel_active := has_selection()
+	_context_menu.set_item_disabled(_context_menu.get_item_index(ContextMenuItem.CUT), not sel_active)
+	_context_menu.set_item_disabled(_context_menu.get_item_index(ContextMenuItem.COPY), not sel_active)
+	_context_menu.position = Vector2i(global_position + at_position)
+	_context_menu.popup()
+
+# =============================================================================
+# FIX INDENTATION — VB6-aware whole-document re-indenter
+# =============================================================================
+
+## Re-indent the entire document (or selection) according to VB6 block structure.
+## Walks each line, tracking indent depth by recognising block openers/closers.
+func fix_indentation() -> void:
+	var from_line := 0
+	var to_line := get_line_count() - 1
+	
+	# If there is a selection, only reindent the selected lines
+	if has_selection():
+		from_line = get_selection_from_line()
+		to_line = get_selection_to_line()
+	
+	begin_complex_operation()
+	
+	var indent_level := 0
+	
+	# If reindenting a partial selection, start with the indent of the line
+	# before the selection so nested blocks stay correct
+	if from_line > 0:
+		indent_level = _get_line_indent(from_line - 1)
+		var prev_stripped := get_line(from_line - 1).strip_edges()
+		if _is_indent_opener(prev_stripped):
+			indent_level += 1
+	
+	for i in range(from_line, to_line + 1):
+		var raw_line := get_line(i)
+		var stripped := raw_line.strip_edges()
+		
+		# Skip completely blank lines — don't add whitespace
+		if stripped.is_empty():
+			if raw_line != "":
+				_set_line_indent_raw(i, "")
+			continue
+		
+		# Check if this line is a dedent trigger (closer or mid-block keyword)
+		var is_closer := _is_indent_closer(stripped)
+		var is_mid_block := _is_mid_block_keyword(stripped)
+		
+		# Dedent BEFORE writing this line for closers/mid-block
+		if is_closer or is_mid_block:
+			indent_level = maxi(0, indent_level - 1)
+		
+		# Apply indent
+		_set_line_indent(i, indent_level)
+		
+		# Re-indent AFTER for mid-block keywords (Else, Case, etc.)
+		if is_mid_block:
+			indent_level += 1
+		
+		# If this line opens a block, increase indent for following lines
+		if _is_indent_opener(stripped):
+			indent_level += 1
+	
+	end_complex_operation()
+
+## Returns true if `stripped_line` opens a new indentation block.
+## Handles: Sub, Function, Property, For, While, Do, Select Case, With, Try,
+## Whenever, Class, Type, Enum, If...Then (multi-line).
+func _is_indent_opener(stripped_line: String) -> bool:
+	# First check multi-line If...Then (line begins with If, ends with Then)
+	var sl := stripped_line.to_lower()
+	if sl.begins_with("if ") and sl.ends_with(" then"):
+		return true
+	# Use existing _line_starts_block (handles access modifiers)
+	return _line_starts_block(stripped_line)
+
+## Returns true if `stripped_line` is a block closer that should decrease indent.
+func _is_indent_closer(stripped_line: String) -> bool:
+	var sl := stripped_line.to_lower()
+	for trigger in ["end sub", "end function", "end if", "next", "wend", "loop",
+					 "end select", "end class", "end try", "end whenever",
+					 "end with", "end property", "end type", "end enum"]:
+		if sl == trigger or sl.begins_with(trigger + " "):
+			return true
+	return false
+
+## Returns true if `stripped_line` is a mid-block keyword (Else, ElseIf, Case, Catch, Finally).
+## These lines dedent to match the parent, then re-indent for the following block.
+func _is_mid_block_keyword(stripped_line: String) -> bool:
+	var sl := stripped_line.to_lower()
+	if sl == "else":
+		return true
+	if sl.begins_with("elseif "):
+		return true
+	if sl.begins_with("case ") or sl == "case else":
+		return true
+	if sl == "catch" or sl.begins_with("catch "):
+		return true
+	if sl == "finally":
+		return true
+	return false
+
+## Low-level: replace a line's leading whitespace with an exact string.
+func _set_line_indent_raw(line_idx: int, indent_str: String) -> void:
+	var line := get_line(line_idx)
+	# Find first non-whitespace character
+	var first_non_ws := 0
+	for c in line:
+		if c == "\t" or c == " ":
+			first_non_ws += 1
+		else:
+			break
+	var content := line.substr(first_non_ws)
+	var new_line := indent_str + content
+	if new_line != line:
+		select(line_idx, 0, line_idx, line.length())
+		insert_text_at_caret(new_line)
+
+# =============================================================================
+# TOGGLE COMMENT — VB6 ' prefix
+# =============================================================================
+
+## Toggle line comments (' prefix) on the current line or selected lines.
+func toggle_comment_selection() -> void:
+	var from_line := get_caret_line()
+	var to_line := from_line
+	
+	if has_selection():
+		from_line = get_selection_from_line()
+		to_line = get_selection_to_line()
+	
+	begin_complex_operation()
+	
+	# Determine whether to comment or uncomment: if ALL lines are commented, uncomment.
+	var all_commented := true
+	for i in range(from_line, to_line + 1):
+		var stripped := get_line(i).strip_edges()
+		if stripped.is_empty():
+			continue
+		if not stripped.begins_with("'"):
+			all_commented = false
+			break
+	
+	for i in range(from_line, to_line + 1):
+		var line := get_line(i)
+		if all_commented:
+			# Uncomment: remove first ' (and optional trailing space)
+			var idx := line.find("'")
+			if idx >= 0:
+				var remove_len := 1
+				if idx + 1 < line.length() and line[idx + 1] == " ":
+					remove_len = 2
+				var new_line := line.substr(0, idx) + line.substr(idx + remove_len)
+				select(i, 0, i, line.length())
+				insert_text_at_caret(new_line)
+		else:
+			# Comment: insert ' after leading whitespace
+			var indent_end := 0
+			for c in line:
+				if c == "\t" or c == " ":
+					indent_end += 1
+				else:
+					break
+			if line.strip_edges().is_empty():
+				continue  # skip blank lines
+			var new_line := line.substr(0, indent_end) + "' " + line.substr(indent_end)
+			select(i, 0, i, line.length())
+			insert_text_at_caret(new_line)
+	
+	end_complex_operation()
 
 func _connect_signals() -> void:
 	text_changed.connect(_on_text_changed)
@@ -1612,10 +1839,28 @@ func _gui_input(event: InputEvent) -> void:
 					accept_event()
 					return
 	
+	# ── Right-click context menu ──
+	if event is InputEventMouseButton:
+		var mb := event as InputEventMouseButton
+		if mb.button_index == MOUSE_BUTTON_RIGHT and mb.pressed:
+			_show_context_menu(mb.position)
+			accept_event()
+			return
+	
 	if event is InputEventKey and event.pressed:
 		match event.keycode:
 			KEY_PARENLEFT:
 				_show_parameter_hint()
+			KEY_I:
+				if event.ctrl_pressed and event.shift_pressed and not event.alt_pressed:
+					# Ctrl+Shift+I = Fix Indentation
+					fix_indentation()
+					accept_event()
+			KEY_APOSTROPHE:
+				if event.ctrl_pressed and not event.shift_pressed and not event.alt_pressed:
+					# Ctrl+' = Toggle Comment
+					toggle_comment_selection()
+					accept_event()
 			KEY_G:
 				if event.ctrl_pressed and not event.shift_pressed:
 					_show_goto_line_dialog()
