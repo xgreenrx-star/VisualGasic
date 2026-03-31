@@ -42,8 +42,25 @@ var _completion_active: bool = false
 var _last_word: String = ""
 var _prev_caret_line: int = -1  # Track line changes for auto-capitalize
 var _highlight_word: String = ""  # Word under cursor — all occurrences are highlighted
+var _highlight_scope: Vector2i = Vector2i(-1, -1)  # Scope range for scope-aware highlighting
 var _snippet_regex: RegEx = null  # Lazy-init for snippet placeholder expansion
 var _prev_line_count: int = 0    # Track line count for auto-indent on real Enter
+
+# Change tracking gutter — yellow = unsaved, green = saved-since-open
+var _change_base_lines: PackedStringArray = []   # Text lines at last save (or initial load)
+var _change_saved_lines: PackedStringArray = []  # Text lines after last save (for green markers)
+var _change_base_set: bool = false               # Whether base has been captured
+
+# Sticky scroll — shows enclosing Sub/Function at top of editor
+var _sticky_scroll_panel: PanelContainer = null
+var _sticky_scroll_label: Label = null
+var _sticky_scroll_proc: String = ""             # Current procedure text shown
+
+# Semantic token data — parsed per text change
+var _semantic_params: Dictionary = {}    # param_name(lower) → true — parameters of current procs
+var _semantic_locals: Dictionary = {}    # var_name(lower) → line_idx — Dim inside a Sub/Function
+var _semantic_module_vars: Dictionary = {} # var_name(lower) → true — Dim/Public at module level
+var _semantic_consts: Dictionary = {}    # const_name(lower) → true — Const declarations
 
 # VB6-style yellow arrow (Set Next Statement) state
 var _executing_line: int = -1         # Current executing line (0-based), -1 = none
@@ -192,6 +209,8 @@ func _ready() -> void:
 	_setup_code_completion()
 	_setup_auto_indent()
 	_setup_context_menu()
+	_setup_sticky_scroll()
+	_setup_change_tracking_gutter()
 	_connect_signals()
 	_prev_line_count = get_line_count()
 
@@ -295,6 +314,13 @@ func _setup_auto_indent() -> void:
 	# Disable built-in executing line gutter — we draw our own yellow arrow overlay
 	gutters_draw_executing_lines = false
 
+	# ── Add custom gutter for change tracking (leftmost, before line numbers) ──
+	add_gutter(0)
+	set_gutter_type(0, TextEdit.GUTTER_TYPE_CUSTOM)
+	set_gutter_width(0, 4)
+	set_gutter_draw(0, true)
+	set_gutter_name(0, "change_tracking")
+
 ## IDs for the right-click context menu items.
 enum ContextMenuItem {
 	CUT,
@@ -306,6 +332,8 @@ enum ContextMenuItem {
 	GOTO_LINE,
 	TOGGLE_BREAKPOINT,
 	TOGGLE_BOOKMARK,
+	FOLD_ALL,
+	UNFOLD_ALL,
 }
 
 func _setup_context_menu() -> void:
@@ -323,6 +351,9 @@ func _setup_context_menu() -> void:
 	_context_menu.add_item("Go To Line...           Ctrl+G", ContextMenuItem.GOTO_LINE)
 	_context_menu.add_item("Toggle Breakpoint       F9", ContextMenuItem.TOGGLE_BREAKPOINT)
 	_context_menu.add_item("Toggle Bookmark         Ctrl+B", ContextMenuItem.TOGGLE_BOOKMARK)
+	_context_menu.add_separator()
+	_context_menu.add_item("Fold All Procedures", ContextMenuItem.FOLD_ALL)
+	_context_menu.add_item("Unfold All", ContextMenuItem.UNFOLD_ALL)
 	_context_menu.id_pressed.connect(_on_context_menu_item)
 	add_child(_context_menu)
 
@@ -346,6 +377,10 @@ func _on_context_menu_item(id: int) -> void:
 			toggle_breakpoint(get_caret_line())
 		ContextMenuItem.TOGGLE_BOOKMARK:
 			toggle_bookmark(get_caret_line())
+		ContextMenuItem.FOLD_ALL:
+			fold_all_procedures()
+		ContextMenuItem.UNFOLD_ALL:
+			unfold_all()
 
 func _show_context_menu(at_position: Vector2) -> void:
 	# Enable/disable items based on context
@@ -518,6 +553,50 @@ func toggle_comment_selection() -> void:
 			insert_text_at_caret(new_line)
 	
 	end_complex_operation()
+
+func _setup_sticky_scroll() -> void:
+	# Create a small panel overlay at the top of the editor that shows
+	# the enclosing Sub/Function declaration (VS Code-style sticky scroll).
+	_sticky_scroll_panel = PanelContainer.new()
+	_sticky_scroll_panel.name = "StickyScrollPanel"
+	_sticky_scroll_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Style: dark semi-transparent background
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.15, 0.15, 0.2, 0.92)
+	style.border_color = Color(0.3, 0.3, 0.4, 0.6)
+	style.border_width_bottom = 1
+	style.content_margin_left = 8
+	style.content_margin_right = 8
+	style.content_margin_top = 2
+	style.content_margin_bottom = 2
+	_sticky_scroll_panel.add_theme_stylebox_override("panel", style)
+	
+	_sticky_scroll_label = Label.new()
+	_sticky_scroll_label.name = "StickyLabel"
+	_sticky_scroll_label.add_theme_color_override("font_color", Color(0.6, 0.75, 1.0, 0.9))
+	_sticky_scroll_label.add_theme_font_size_override("font_size", 12)
+	_sticky_scroll_panel.add_child(_sticky_scroll_label)
+	
+	add_child(_sticky_scroll_panel)
+	_sticky_scroll_panel.visible = false
+	# Position at top of the code area (past gutter)
+	_sticky_scroll_panel.set_anchors_preset(Control.PRESET_TOP_WIDE)
+
+func _setup_change_tracking_gutter() -> void:
+	# Capture the initial text as our "saved" baseline for change tracking
+	call_deferred("_capture_change_base")
+
+func _capture_change_base() -> void:
+	_change_base_lines = get_text().split("\n")
+	_change_saved_lines = _change_base_lines.duplicate()
+	_change_base_set = true
+
+## Call this when the file is saved to update change-tracking state.
+## Yellow bars (unsaved changes) become green (saved changes), and
+## lines that match the original revert to no marker.
+func mark_saved() -> void:
+	_change_saved_lines = get_text().split("\n")
+	queue_redraw()
 
 func _connect_signals() -> void:
 	text_changed.connect(_on_text_changed)
@@ -1312,6 +1391,7 @@ func _on_text_changed() -> void:
 	_prev_line_count = cur_line_count
 	
 	_parse_variables()
+	_parse_semantic_tokens()
 	code_changed.emit(get_text())
 	# Explicitly request code completion — the built-in prefix auto-trigger
 	# is unreliable in @tool / embedded editor contexts.  Deferred so the
@@ -2002,11 +2082,16 @@ func _on_caret_changed() -> void:
 		_auto_capitalize_line(_prev_caret_line)
 	_prev_caret_line = current_line
 	
-	# ── Occurrence highlighting: extract the word under the caret ──
+	# ── Scope-aware occurrence highlighting ──
 	var old_hw := _highlight_word
 	_highlight_word = _get_word_under_caret()
+	# Determine the scope (Sub/Function range) the caret is in
+	_highlight_scope = _get_enclosing_procedure_range(current_line)
 	if _highlight_word != old_hw:
 		queue_redraw()
+	
+	# ── Sticky scroll: show enclosing procedure at top ──
+	_update_sticky_scroll(current_line)
 
 func _auto_capitalize_line(line_idx: int) -> void:
 	if line_idx < 0 or line_idx >= get_line_count():
@@ -2147,8 +2232,20 @@ func _draw() -> void:
 			var to_x: float = size.x
 			draw_line(Vector2(from_x, y_offset), Vector2(to_x, y_offset), separator_color, line_width)
 	
-	# ── Occurrence highlighting: draw coloured rects behind all matches ──
+	# ── Scope-aware occurrence highlighting ──
 	_draw_occurrence_highlights(first_visible, last_visible)
+	
+	# ── Rainbow brackets ──
+	_draw_rainbow_brackets(first_visible, last_visible)
+	
+	# ── Semantic token underlines ──
+	_draw_semantic_underlines(first_visible, last_visible)
+	
+	# ── Change tracking gutter ──
+	_draw_change_tracking(first_visible, last_visible)
+	
+	# ── Minimap occurrence markers (right edge) ──
+	_draw_minimap_markers()
 	
 	# ── Keep overlay in sync with scrolling / redraws ──
 	if _arrow_overlay and (_is_debug_paused or _arrow_dragging):
@@ -2159,7 +2256,7 @@ func _draw() -> void:
 		_pin_overlay.queue_redraw()
 
 # =============================================================================
-# OCCURRENCE HIGHLIGHTING — colour all copies of the word under the caret
+# OCCURRENCE HIGHLIGHTING — scope-aware, colours copies of word under caret
 # =============================================================================
 
 ## Extract the full identifier word under the caret (expanding left and right).
@@ -2168,14 +2265,11 @@ func _get_word_under_caret() -> String:
 	var col := get_caret_column()
 	if line_text.is_empty():
 		return ""
-	# Clamp column into valid range
 	if col > line_text.length():
 		col = line_text.length()
-	# Expand left
 	var start := col
 	while start > 0 and _is_word_char(line_text[start - 1]):
 		start -= 1
-	# Expand right
 	var end_pos := col
 	while end_pos < line_text.length() and _is_word_char(line_text[end_pos]):
 		end_pos += 1
@@ -2184,7 +2278,8 @@ func _get_word_under_caret() -> String:
 	return line_text.substr(start, end_pos - start)
 
 ## Draw semi-transparent highlight rectangles behind every visible occurrence
-## of _highlight_word.  Uses case-insensitive matching (VB6 convention).
+## of _highlight_word.  Scope-aware: local variables only highlight within
+## the enclosing Sub/Function; module-level variables highlight everywhere.
 func _draw_occurrence_highlights(first_visible: int, last_visible: int) -> void:
 	if _highlight_word.is_empty() or _highlight_word.length() < 2:
 		return
@@ -2192,56 +2287,410 @@ func _draw_occurrence_highlights(first_visible: int, last_visible: int) -> void:
 	var hw_lower := _highlight_word.to_lower()
 	var hw_len := _highlight_word.length()
 	var row_height := get_line_height()
-	# Soft yellow-gold with transparency — visible but not distracting
 	var highlight_color := Color(1.0, 0.85, 0.3, 0.22)
-	# Thin border for readability on dark backgrounds
 	var border_color := Color(1.0, 0.85, 0.3, 0.45)
 	
-	for line_idx in range(first_visible, last_visible):
+	# Scope-awareness: if the word is a local variable/param, restrict to procedure scope
+	var scope_start := first_visible
+	var scope_end := last_visible
+	var is_local := _semantic_locals.has(hw_lower) or _semantic_params.has(hw_lower)
+	if is_local and _highlight_scope.x >= 0:
+		scope_start = maxi(first_visible, _highlight_scope.x)
+		scope_end = mini(last_visible, _highlight_scope.y + 1)
+	
+	for line_idx in range(scope_start, scope_end):
 		var line_text := get_line(line_idx)
 		if line_text.is_empty():
 			continue
 		var line_lower := line_text.to_lower()
-		# Find all occurrences of the word in this line
 		var search_from := 0
 		while true:
 			var found := line_lower.find(hw_lower, search_from)
 			if found < 0:
 				break
-			# Ensure whole-word match (not a substring of a larger identifier)
 			var before_ok := (found == 0) or not _is_word_char(line_text[found - 1])
 			var after_pos := found + hw_len
 			var after_ok := (after_pos >= line_text.length()) or not _is_word_char(line_text[after_pos])
 			if before_ok and after_ok:
-				# Skip the occurrence at the caret itself (the word you're on)
-				# — only highlight the *other* copies
 				if not _is_caret_inside(line_idx, found, after_pos):
 					_draw_word_rect(line_idx, found, after_pos, row_height,
 									highlight_color, border_color)
 			search_from = found + 1
 
-## Returns true if the caret is inside the character range [col_start, col_end)
-## on the given line — used to skip highlighting the word directly under the cursor.
 func _is_caret_inside(line_idx: int, col_start: int, col_end: int) -> bool:
 	if get_caret_line() != line_idx:
 		return false
 	var cc := get_caret_column()
 	return cc >= col_start and cc <= col_end
 
-## Draw one highlight rectangle for a word at [col_start..col_end) on `line_idx`.
 func _draw_word_rect(line_idx: int, col_start: int, col_end: int,
 					 row_height: float, bg_color: Color, border_color: Color) -> void:
-	# get_pos_at_line_column returns the baseline (BOTTOM) of the line
 	var pos_start := get_pos_at_line_column(line_idx, col_start)
 	var pos_end := get_pos_at_line_column(line_idx, col_end)
 	if pos_start.y < 0 and pos_end.y < 0:
-		return  # not visible
+		return
 	var x0 := float(pos_start.x)
 	var x1 := float(pos_end.x)
 	var y := float(pos_start.y) - row_height
 	var rect := Rect2(x0, y, x1 - x0, row_height)
 	draw_rect(rect, bg_color)
 	draw_rect(rect, border_color, false, 1.0)
+
+# =============================================================================
+# RAINBOW BRACKETS — colour () [] at different nesting depths
+# =============================================================================
+
+## Rainbow colour palette for bracket nesting depths.
+const RAINBOW_COLORS: Array[Color] = [
+	Color(1.0, 0.85, 0.3),   # Gold
+	Color(0.6, 0.5, 1.0),    # Purple
+	Color(0.3, 0.85, 0.85),  # Cyan
+	Color(1.0, 0.5, 0.5),    # Red-pink
+	Color(0.5, 1.0, 0.5),    # Green
+	Color(1.0, 0.65, 0.3),   # Orange
+]
+
+func _draw_rainbow_brackets(first_visible: int, last_visible: int) -> void:
+	# Pre-scan from start to first_visible to get the running nesting depth
+	var depth := 0
+	var in_string := false
+	var in_comment := false
+	for i in range(0, first_visible):
+		var lt := get_line(i)
+		in_string = false
+		in_comment = false
+		for ch in lt:
+			if in_comment:
+				break
+			if ch == "\"":
+				in_string = not in_string
+				continue
+			if ch == "'" and not in_string:
+				break
+			if in_string:
+				continue
+			if ch == "(" or ch == "[":
+				depth += 1
+			elif ch == ")" or ch == "]":
+				depth = maxi(0, depth - 1)
+	
+	var row_height := get_line_height()
+	var font := get_theme_font("font") if has_theme_font("font") else ThemeDB.fallback_font
+	var font_size := get_theme_font_size("font_size") if has_theme_font_size("font_size") else 14
+	
+	for line_idx in range(first_visible, last_visible):
+		var line_text := get_line(line_idx)
+		in_string = false
+		in_comment = false
+		for col in range(line_text.length()):
+			var ch := line_text[col]
+			if in_comment:
+				break
+			if ch == "\"":
+				in_string = not in_string
+				continue
+			if ch == "'" and not in_string:
+				break
+			if in_string:
+				continue
+			
+			if ch == "(" or ch == "[":
+				var color := RAINBOW_COLORS[depth % RAINBOW_COLORS.size()]
+				_draw_bracket_overlay(line_idx, col, ch, row_height, font, font_size, color)
+				depth += 1
+			elif ch == ")" or ch == "]":
+				depth = maxi(0, depth - 1)
+				var color := RAINBOW_COLORS[depth % RAINBOW_COLORS.size()]
+				_draw_bracket_overlay(line_idx, col, ch, row_height, font, font_size, color)
+
+func _draw_bracket_overlay(line_idx: int, col: int, ch: String,
+						   row_height: float, font: Font, font_size: int,
+						   color: Color) -> void:
+	var pos := get_pos_at_line_column(line_idx, col)
+	if pos.y < 0:
+		return
+	var x := float(pos.x)
+	var y := float(pos.y)  # baseline (bottom of line)
+	# Draw a solid background rect to cover the default symbol colour, then draw coloured text
+	var char_width := font.get_char_size(ch.unicode_at(0), font_size).x
+	var bg_rect := Rect2(x, y - row_height, char_width, row_height)
+	# Use the editor background colour to "erase" the default text
+	var bg := Color(0.12, 0.12, 0.15, 1.0)
+	draw_rect(bg_rect, bg)
+	# Draw the coloured bracket
+	draw_string(font, Vector2(x, y - row_height * 0.18), ch, HORIZONTAL_ALIGNMENT_LEFT,
+				-1, font_size, color)
+
+# =============================================================================
+# SEMANTIC TOKEN COLOURING — underlines for locals, params, module vars, consts
+# =============================================================================
+
+## Semantic token colours:
+const SEMANTIC_COLOR_PARAM := Color(0.9, 0.65, 0.4, 0.7)     # Warm orange underline
+const SEMANTIC_COLOR_LOCAL := Color(0.55, 0.75, 1.0, 0.6)     # Soft blue underline
+const SEMANTIC_COLOR_MODULE := Color(0.7, 0.55, 0.85, 0.6)    # Soft purple underline
+const SEMANTIC_COLOR_CONST := Color(0.85, 0.55, 0.85, 0.7)    # Magenta-pink underline
+
+## Parse the document to classify identifiers by semantic role.
+func _parse_semantic_tokens() -> void:
+	_semantic_params.clear()
+	_semantic_locals.clear()
+	_semantic_module_vars.clear()
+	_semantic_consts.clear()
+	
+	var in_proc := false
+	var lc := get_line_count()
+	
+	for i in range(lc):
+		var line_text := get_line(i)
+		var stripped := line_text.strip_edges()
+		var sl := stripped.to_lower()
+		
+		# Track procedure boundaries
+		if _is_procedure_start(stripped):
+			in_proc = true
+			# Parse parameters from the signature: Sub Name(ByVal x As Integer, y As String)
+			var paren_start := stripped.find("(")
+			var paren_end := stripped.rfind(")")
+			if paren_start >= 0 and paren_end > paren_start:
+				var params_str := stripped.substr(paren_start + 1, paren_end - paren_start - 1)
+				for param in params_str.split(","):
+					var pt := param.strip_edges().to_lower()
+					# Strip ByVal/ByRef/Optional/ParamArray
+					for prefix in ["byval ", "byref ", "optional ", "paramarray "]:
+						if pt.begins_with(prefix):
+							pt = pt.substr(prefix.length()).strip_edges()
+					# Get the name (before As or end)
+					var pname := pt.get_slice(" ", 0).strip_edges()
+					if not pname.is_empty():
+						_semantic_params[pname] = true
+		elif _is_procedure_end(stripped):
+			in_proc = false
+		
+		# Const declarations
+		if sl.begins_with("const ") or sl.begins_with("public const ") or sl.begins_with("private const "):
+			var const_re := RegEx.new()
+			const_re.compile("(?i)(?:Public\\s+|Private\\s+)?Const\\s+(\\w+)")
+			var cm := const_re.search(stripped)
+			if cm:
+				_semantic_consts[cm.get_string(1).to_lower()] = true
+		
+		# Dim / Static inside a procedure = local; outside = module-level
+		if sl.begins_with("dim ") or sl.begins_with("static "):
+			var dim_re := RegEx.new()
+			dim_re.compile("(?i)(?:Dim|Static)\\s+(\\w+)")
+			var dm := dim_re.search(stripped)
+			if dm:
+				var vname := dm.get_string(1).to_lower()
+				if in_proc:
+					_semantic_locals[vname] = i
+				else:
+					_semantic_module_vars[vname] = true
+		elif sl.begins_with("public ") or sl.begins_with("private "):
+			# Module-level Public/Private var (not Sub/Function/Const)
+			if not (_is_procedure_start(stripped) or sl.contains(" const ")):
+				var mod_re := RegEx.new()
+				mod_re.compile("(?i)(?:Public|Private)\\s+(\\w+)")
+				var mm := mod_re.search(stripped)
+				if mm:
+					var vname := mm.get_string(1).to_lower()
+					if not in_proc:
+						_semantic_module_vars[vname] = true
+
+## Draw thin underlines beneath identifiers based on their semantic role.
+func _draw_semantic_underlines(first_visible: int, last_visible: int) -> void:
+	if _semantic_params.is_empty() and _semantic_locals.is_empty() and \
+	   _semantic_module_vars.is_empty() and _semantic_consts.is_empty():
+		return
+	
+	var row_height := get_line_height()
+	
+	for line_idx in range(first_visible, last_visible):
+		var line_text := get_line(line_idx)
+		if line_text.is_empty():
+			continue
+		
+		# Skip comment lines
+		var stripped := line_text.strip_edges()
+		if stripped.begins_with("'") or stripped.to_lower().begins_with("rem "):
+			continue
+		
+		# Scan for identifiers in this line
+		var col := 0
+		var in_string := false
+		while col < line_text.length():
+			var ch := line_text[col]
+			if ch == "\"":
+				in_string = not in_string
+				col += 1
+				continue
+			if ch == "'" and not in_string:
+				break  # rest is comment
+			if in_string:
+				col += 1
+				continue
+			
+			if _is_word_char(ch):
+				var word_start := col
+				while col < line_text.length() and _is_word_char(line_text[col]):
+					col += 1
+				var word := line_text.substr(word_start, col - word_start)
+				var wl := word.to_lower()
+				
+				# Determine semantic colour
+				var sem_color := Color.TRANSPARENT
+				if _semantic_consts.has(wl):
+					sem_color = SEMANTIC_COLOR_CONST
+				elif _semantic_params.has(wl):
+					sem_color = SEMANTIC_COLOR_PARAM
+				elif _semantic_locals.has(wl):
+					sem_color = SEMANTIC_COLOR_LOCAL
+				elif _semantic_module_vars.has(wl):
+					sem_color = SEMANTIC_COLOR_MODULE
+				
+				if sem_color.a > 0:
+					_draw_underline(line_idx, word_start, col, row_height, sem_color)
+			else:
+				col += 1
+
+func _draw_underline(line_idx: int, col_start: int, col_end: int,
+					 row_height: float, color: Color) -> void:
+	var pos_start := get_pos_at_line_column(line_idx, col_start)
+	var pos_end := get_pos_at_line_column(line_idx, col_end)
+	if pos_start.y < 0 and pos_end.y < 0:
+		return
+	var x0 := float(pos_start.x)
+	var x1 := float(pos_end.x)
+	var y := float(pos_start.y) - 1.0  # Just above baseline
+	draw_line(Vector2(x0, y), Vector2(x1, y), color, 1.5)
+
+# =============================================================================
+# CHANGE TRACKING GUTTER — yellow (unsaved) / green (saved-since-open)
+# =============================================================================
+
+func _draw_change_tracking(first_visible: int, last_visible: int) -> void:
+	if not _change_base_set:
+		return
+	
+	var current_lines := get_text().split("\n")
+	var row_height := get_line_height()
+	var gutter_x := 1.0  # Left edge of our custom gutter
+	var gutter_w := 3.0
+	
+	for line_idx in range(first_visible, last_visible):
+		var current_text := current_lines[line_idx] if line_idx < current_lines.size() else ""
+		var base_text := _change_base_lines[line_idx] if line_idx < _change_base_lines.size() else ""
+		var saved_text := _change_saved_lines[line_idx] if line_idx < _change_saved_lines.size() else ""
+		
+		var pos := get_pos_at_line_column(line_idx, 0)
+		if pos.y < 0:
+			continue
+		var y := float(pos.y) - row_height
+		
+		if current_text != base_text:
+			if current_text == saved_text and saved_text != base_text:
+				# Green: changed and saved (different from original, matches last save)
+				draw_rect(Rect2(gutter_x, y + 2, gutter_w, row_height - 4),
+						  Color(0.3, 0.8, 0.3, 0.8))
+			else:
+				# Yellow: unsaved change (different from both base and last save)
+				draw_rect(Rect2(gutter_x, y + 2, gutter_w, row_height - 4),
+						  Color(0.9, 0.8, 0.2, 0.8))
+
+# =============================================================================
+# MINIMAP OCCURRENCE MARKERS — thin markers on right edge showing all matches
+# =============================================================================
+
+func _draw_minimap_markers() -> void:
+	if _highlight_word.is_empty() or _highlight_word.length() < 2:
+		return
+	
+	var hw_lower := _highlight_word.to_lower()
+	var total_lines := get_line_count()
+	if total_lines <= 0:
+		return
+	
+	# Draw on the right edge of the editor
+	var marker_x := size.x - 12.0
+	var marker_w := 8.0
+	var usable_height := size.y - 4.0  # Margin
+	var marker_h := maxf(2.0, usable_height / float(total_lines))
+	var marker_color := Color(1.0, 0.85, 0.3, 0.5)
+	
+	for line_idx in range(total_lines):
+		var line_text := get_line(line_idx)
+		if line_text.is_empty():
+			continue
+		var line_lower := line_text.to_lower()
+		if line_lower.find(hw_lower) >= 0:
+			# Check whole-word
+			var found := line_lower.find(hw_lower)
+			var before_ok := (found == 0) or not _is_word_char(line_text[found - 1])
+			var after_pos := found + hw_lower.length()
+			var after_ok := (after_pos >= line_text.length()) or not _is_word_char(line_text[after_pos])
+			if before_ok and after_ok:
+				var y := 2.0 + (float(line_idx) / float(total_lines)) * usable_height
+				draw_rect(Rect2(marker_x, y, marker_w, marker_h), marker_color)
+
+# =============================================================================
+# STICKY SCROLL — shows enclosing Sub/Function at top of editor
+# =============================================================================
+
+func _update_sticky_scroll(current_line: int) -> void:
+	if not _sticky_scroll_panel or not _sticky_scroll_label:
+		return
+	
+	var proc_range := _get_enclosing_procedure_range(current_line)
+	if proc_range.x < 0:
+		# Not inside a procedure — hide
+		if _sticky_scroll_panel.visible:
+			_sticky_scroll_panel.visible = false
+			_sticky_scroll_proc = ""
+		return
+	
+	# Only show sticky scroll when the procedure header has scrolled off-screen
+	var first_vis := get_first_visible_line()
+	if proc_range.x >= first_vis:
+		# Header is still visible — no need for sticky
+		if _sticky_scroll_panel.visible:
+			_sticky_scroll_panel.visible = false
+			_sticky_scroll_proc = ""
+		return
+	
+	var proc_text := get_line(proc_range.x).strip_edges()
+	if proc_text != _sticky_scroll_proc:
+		_sticky_scroll_proc = proc_text
+		_sticky_scroll_label.text = proc_text
+	
+	if not _sticky_scroll_panel.visible:
+		_sticky_scroll_panel.visible = true
+	
+	# Position: at the top of the code area, past the gutter
+	var gw := get_total_gutter_width() if has_method("get_total_gutter_width") else 48.0
+	_sticky_scroll_panel.position = Vector2(gw, 0)
+	_sticky_scroll_panel.size = Vector2(size.x - gw, 0)  # Auto-height from content
+
+# =============================================================================
+# CODE FOLDING — ensure VB6 blocks are properly foldable
+# =============================================================================
+
+## CodeEdit's built-in folding is indent-based, which works for properly
+## indented VB6 code.  The fold_line() / unfold_line() / is_line_folded()
+## API is available.  We just need to make sure indent-based folding is on
+## (done in _setup_auto_indent) and optionally provide "Fold All" / "Unfold All".
+
+## Fold all top-level Sub/Function/Property blocks.
+func fold_all_procedures() -> void:
+	for i in range(get_line_count()):
+		if _is_procedure_start(get_line(i).strip_edges()):
+			if can_fold_line(i):
+				fold_line(i)
+
+## Unfold all lines.
+func unfold_all() -> void:
+	for i in range(get_line_count()):
+		if is_line_folded(i):
+			unfold_line(i)
 
 ## Create the arrow overlay Control (draws ON TOP of CodeEdit gutters/text).
 func _ensure_arrow_overlay() -> void:
