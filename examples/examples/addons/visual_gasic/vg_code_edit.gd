@@ -304,9 +304,11 @@ func _setup_auto_indent() -> void:
 	# Enable line numbers in the gutter
 	gutters_draw_line_numbers = true
 	
-	# Enable code folding (indent-based) — property names vary by Godot version
-	set("line_folding_enabled", true)
-	set("gutters_draw_folding", true)
+	# Enable code folding (indent-based)
+	# Property names: "line_folding" (NOT "line_folding_enabled"),
+	#                 "gutters_draw_fold_gutter" (NOT "gutters_draw_folding")
+	set("line_folding", true)
+	set("gutters_draw_fold_gutter", true)
 	
 	# Enable built-in breakpoint gutter (VB6 F9 behavior)
 	gutters_draw_breakpoints_gutter = true

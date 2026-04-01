@@ -235,8 +235,8 @@ func _test_change_tracking(ce: VGCodeEdit) -> void:
 func _test_code_folding(ce: VGCodeEdit) -> void:
 	print("── Code Folding ──")
 
-	# Ensure folding is enabled (VGCodeEdit._setup_auto_indent uses set() calls)
-	ce.indent_automatic = true
+	# Ensure folding is enabled — the correct property name is "line_folding"
+	ce.set("line_folding", true)
 	ce.indent_size = 4
 	ce.indent_use_spaces = false
 	# Forcibly re-set the text so CodeEdit recalculates indent levels
@@ -247,22 +247,31 @@ func _test_code_folding(ce: VGCodeEdit) -> void:
 	# First unfold everything
 	ce.unfold_all()
 
-	# Count procedure-start lines that our code identifies as foldable
-	var proc_start_count := 0
+	# Count procedure-start lines that can_fold_line() reports as foldable
+	var foldable_count := 0
 	for i in range(ce.get_line_count()):
-		if ce._is_procedure_start(ce.get_line(i).strip_edges()):
-			proc_start_count += 1
-	_assert(proc_start_count >= 3,
-			"found %d procedure start lines (Form_Load, GetScore, cmdReset)" % proc_start_count)
+		if ce._is_procedure_start(ce.get_line(i).strip_edges()) and ce.can_fold_line(i):
+			foldable_count += 1
+	_assert(foldable_count >= 3,
+			"found %d foldable procedure lines (expected 3: Form_Load, GetScore, cmdReset)" % foldable_count)
 
-	# can_fold_line() depends on Godot's renderer; it returns false in headless mode.
-	# Verify our fold_all_procedures() and unfold_all() don't crash (regression guard).
-	ce.fold_all_procedures()  # Should not error even if nothing actually folds
-	ce.unfold_all()           # Should not error
-	_assert(true, "fold_all_procedures + unfold_all execute without error")
+	# Fold all procedures and verify they actually fold
+	ce.fold_all_procedures()
+	var folded_count := 0
+	for i in range(ce.get_line_count()):
+		if ce.is_line_folded(i):
+			folded_count += 1
+	_assert(folded_count >= 3, "fold_all_procedures folded %d lines (expected 3)" % folded_count)
+
+	# Unfold all and verify nothing remains folded
+	ce.unfold_all()
+	var still_folded := 0
+	for i in range(ce.get_line_count()):
+		if ce.is_line_folded(i):
+			still_folded += 1
+	_assert(still_folded == 0, "unfold_all: no lines remain folded")
 
 	# Verify that fold_all_procedures only targets proc-start lines (logic test)
-	# We can inspect this by checking _is_procedure_start for known lines
 	_assert(ce._is_procedure_start("Private Sub Form_Load(ByVal sender As Object, ByRef e As EventArgs)"),
 			"Form_Load line is a valid fold target")
 	_assert(not ce._is_procedure_start("End Sub"),
