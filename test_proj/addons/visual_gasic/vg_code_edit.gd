@@ -2354,9 +2354,19 @@ func _draw_word_rect(line_idx: int, col_start: int, col_end: int,
 
 ## Rainbow colour palette for bracket nesting depths.
 const RAINBOW_COLORS: Array[Color] = [
+	Color(0.85, 0.65, 0.1),  # Dark gold
+	Color(0.45, 0.3, 0.85),  # Deep purple
+	Color(0.1, 0.65, 0.65),  # Teal
+	Color(0.85, 0.3, 0.3),   # Crimson
+	Color(0.2, 0.7, 0.2),    # Forest green
+	Color(0.85, 0.45, 0.1),  # Burnt orange
+]
+
+## Rainbow colour palette for dark backgrounds.
+const RAINBOW_COLORS_DARK: Array[Color] = [
 	Color(1.0, 0.85, 0.3),   # Gold
-	Color(0.6, 0.5, 1.0),    # Purple
-	Color(0.3, 0.85, 0.85),  # Cyan
+	Color(0.7, 0.6, 1.0),    # Purple
+	Color(0.3, 0.9, 0.9),    # Cyan
 	Color(1.0, 0.5, 0.5),    # Red-pink
 	Color(0.5, 1.0, 0.5),    # Green
 	Color(1.0, 0.65, 0.3),   # Orange
@@ -2390,6 +2400,10 @@ func _draw_rainbow_brackets(first_visible: int, last_visible: int) -> void:
 	var font := get_theme_font("font") if has_theme_font("font") else ThemeDB.fallback_font
 	var font_size := get_theme_font_size("font_size") if has_theme_font_size("font_size") else 14
 	
+	# Choose palette based on background luminance
+	var bg_color := get_theme_color("background_color") if has_theme_color("background_color") else Color(0.12, 0.12, 0.15)
+	var palette := RAINBOW_COLORS if bg_color.get_luminance() > 0.5 else RAINBOW_COLORS_DARK
+	
 	for line_idx in range(first_visible, last_visible):
 		var line_text := get_line(line_idx)
 		in_string = false
@@ -2407,12 +2421,12 @@ func _draw_rainbow_brackets(first_visible: int, last_visible: int) -> void:
 				continue
 			
 			if ch == "(" or ch == "[":
-				var color := RAINBOW_COLORS[depth % RAINBOW_COLORS.size()]
+				var color := palette[depth % palette.size()]
 				_draw_bracket_overlay(line_idx, col, ch, row_height, font, font_size, color)
 				depth += 1
 			elif ch == ")" or ch == "]":
 				depth = maxi(0, depth - 1)
-				var color := RAINBOW_COLORS[depth % RAINBOW_COLORS.size()]
+				var color := palette[depth % palette.size()]
 				_draw_bracket_overlay(line_idx, col, ch, row_height, font, font_size, color)
 
 func _draw_bracket_overlay(line_idx: int, col: int, ch: String,
@@ -2423,15 +2437,14 @@ func _draw_bracket_overlay(line_idx: int, col: int, ch: String,
 		return
 	var x := float(pos.x)
 	var y := float(pos.y)  # baseline (bottom of line)
-	# Draw a solid background rect to cover the default symbol colour, then draw coloured text
 	var char_width := font.get_char_size(ch.unicode_at(0), font_size).x
-	var bg_rect := Rect2(x, y - row_height, char_width, row_height)
-	# Use the actual editor background colour to "erase" the default text
-	var bg := get_theme_color("background_color") if has_theme_color("background_color") else Color(0.12, 0.12, 0.15, 1.0)
-	_features_overlay.draw_rect(bg_rect, bg)
-	# Draw the coloured bracket
-	_features_overlay.draw_string(font, Vector2(x, y - row_height * 0.18), ch, HORIZONTAL_ALIGNMENT_LEFT,
-				-1, font_size, color)
+	# Draw a thick coloured underline beneath the bracket character
+	var underline_y := y - 2.0
+	_features_overlay.draw_line(Vector2(x, underline_y), Vector2(x + char_width, underline_y),
+							   color, 2.5)
+	# Draw a subtle coloured background tint behind the bracket
+	var tint := Color(color.r, color.g, color.b, 0.12)
+	_features_overlay.draw_rect(Rect2(x, y - row_height, char_width, row_height), tint)
 
 # =============================================================================
 # SEMANTIC TOKEN COLOURING — underlines for locals, params, module vars, consts
