@@ -87,6 +87,7 @@ var _pin_overlay: Control = null      # Overlay drawn ON TOP of CodeEdit for pin
 # Bookmarks — VB6-style code bookmarks (Ctrl+B to toggle)
 var _bookmarks: Dictionary = {}       # line_number(0-based) → true
 var _bookmark_overlay: Control = null  # Overlay drawn in gutter for bookmark icons
+var _features_overlay: Control = null  # Overlay for rainbow brackets, highlights, change tracking
 
 # VB6 keywords with correct casing (for auto-capitalize on line leave)
 const VB6_KEYWORD_CASING: Dictionary = {
@@ -212,6 +213,7 @@ func _ready() -> void:
 	_setup_sticky_scroll()
 	_setup_change_tracking_gutter()
 	_connect_signals()
+	_setup_features_overlay()
 	_prev_line_count = get_line_count()
 
 func _setup_syntax_highlighter() -> void:
@@ -599,6 +601,24 @@ func _capture_change_base() -> void:
 func mark_saved() -> void:
 	_change_saved_lines = get_text().split("\n")
 	queue_redraw()
+
+func _setup_features_overlay() -> void:
+	_features_overlay = Control.new()
+	_features_overlay.name = "FeaturesOverlay"
+	_features_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_features_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(_features_overlay)
+	_features_overlay.draw.connect(_on_features_overlay_draw)
+
+func _on_features_overlay_draw() -> void:
+	var first_visible: int = get_first_visible_line()
+	var last_visible: int = first_visible + get_visible_line_count() + 1
+	last_visible = mini(last_visible, get_line_count())
+	_draw_occurrence_highlights(first_visible, last_visible)
+	_draw_rainbow_brackets(first_visible, last_visible)
+	_draw_semantic_underlines(first_visible, last_visible)
+	_draw_change_tracking(first_visible, last_visible)
+	_draw_minimap_markers()
 
 func _connect_signals() -> void:
 	text_changed.connect(_on_text_changed)
@@ -2234,20 +2254,10 @@ func _draw() -> void:
 			var to_x: float = size.x
 			draw_line(Vector2(from_x, y_offset), Vector2(to_x, y_offset), separator_color, line_width)
 	
-	# ── Scope-aware occurrence highlighting ──
-	_draw_occurrence_highlights(first_visible, last_visible)
-	
-	# ── Rainbow brackets ──
-	_draw_rainbow_brackets(first_visible, last_visible)
-	
-	# ── Semantic token underlines ──
-	_draw_semantic_underlines(first_visible, last_visible)
-	
-	# ── Change tracking gutter ──
-	_draw_change_tracking(first_visible, last_visible)
-	
-	# ── Minimap occurrence markers (right edge) ──
-	_draw_minimap_markers()
+	# ── Features overlay: trigger redraw of the child overlay that draws
+	#    ON TOP of text (rainbow brackets, highlights, change tracking, etc.) ──
+	if _features_overlay:
+		_features_overlay.queue_redraw()
 	
 	# ── Keep overlay in sync with scrolling / redraws ──
 	if _arrow_overlay and (_is_debug_paused or _arrow_dragging):
@@ -2289,8 +2299,8 @@ func _draw_occurrence_highlights(first_visible: int, last_visible: int) -> void:
 	var hw_lower := _highlight_word.to_lower()
 	var hw_len := _highlight_word.length()
 	var row_height := get_line_height()
-	var highlight_color := Color(1.0, 0.85, 0.3, 0.22)
-	var border_color := Color(1.0, 0.85, 0.3, 0.45)
+	var highlight_color := Color(1.0, 0.85, 0.3, 0.35)
+	var border_color := Color(1.0, 0.85, 0.3, 0.65)
 	
 	# Scope-awareness: if the word is a local variable/param, restrict to procedure scope
 	var scope_start := first_visible
@@ -2335,8 +2345,8 @@ func _draw_word_rect(line_idx: int, col_start: int, col_end: int,
 	var x1 := float(pos_end.x)
 	var y := float(pos_start.y) - row_height
 	var rect := Rect2(x0, y, x1 - x0, row_height)
-	draw_rect(rect, bg_color)
-	draw_rect(rect, border_color, false, 1.0)
+	_features_overlay.draw_rect(rect, bg_color)
+	_features_overlay.draw_rect(rect, border_color, false, 1.0)
 
 # =============================================================================
 # RAINBOW BRACKETS — colour () [] at different nesting depths
@@ -2416,11 +2426,11 @@ func _draw_bracket_overlay(line_idx: int, col: int, ch: String,
 	# Draw a solid background rect to cover the default symbol colour, then draw coloured text
 	var char_width := font.get_char_size(ch.unicode_at(0), font_size).x
 	var bg_rect := Rect2(x, y - row_height, char_width, row_height)
-	# Use the editor background colour to "erase" the default text
-	var bg := Color(0.12, 0.12, 0.15, 1.0)
-	draw_rect(bg_rect, bg)
+	# Use the actual editor background colour to "erase" the default text
+	var bg := get_theme_color("background_color") if has_theme_color("background_color") else Color(0.12, 0.12, 0.15, 1.0)
+	_features_overlay.draw_rect(bg_rect, bg)
 	# Draw the coloured bracket
-	draw_string(font, Vector2(x, y - row_height * 0.18), ch, HORIZONTAL_ALIGNMENT_LEFT,
+	_features_overlay.draw_string(font, Vector2(x, y - row_height * 0.18), ch, HORIZONTAL_ALIGNMENT_LEFT,
 				-1, font_size, color)
 
 # =============================================================================
@@ -2564,7 +2574,7 @@ func _draw_underline(line_idx: int, col_start: int, col_end: int,
 	var x0 := float(pos_start.x)
 	var x1 := float(pos_end.x)
 	var y := float(pos_start.y) - 1.0  # Just above baseline
-	draw_line(Vector2(x0, y), Vector2(x1, y), color, 1.5)
+	_features_overlay.draw_line(Vector2(x0, y), Vector2(x1, y), color, 1.5)
 
 # =============================================================================
 # CHANGE TRACKING GUTTER — yellow (unsaved) / green (saved-since-open)
@@ -2576,7 +2586,8 @@ func _draw_change_tracking(first_visible: int, last_visible: int) -> void:
 	
 	var current_lines := get_text().split("\n")
 	var row_height := get_line_height()
-	var gutter_x := 1.0  # Left edge of our custom gutter
+	# Draw the change bar in the leftmost custom gutter (change_tracking, index 0, width=4)
+	var gutter_x := 1.0
 	var gutter_w := 3.0
 	
 	for line_idx in range(first_visible, last_visible):
@@ -2592,12 +2603,12 @@ func _draw_change_tracking(first_visible: int, last_visible: int) -> void:
 		if current_text != base_text:
 			if current_text == saved_text and saved_text != base_text:
 				# Green: changed and saved (different from original, matches last save)
-				draw_rect(Rect2(gutter_x, y + 2, gutter_w, row_height - 4),
-						  Color(0.3, 0.8, 0.3, 0.8))
+				_features_overlay.draw_rect(Rect2(gutter_x, y + 2, gutter_w, row_height - 4),
+						  Color(0.3, 0.8, 0.3, 0.9))
 			else:
 				# Yellow: unsaved change (different from both base and last save)
-				draw_rect(Rect2(gutter_x, y + 2, gutter_w, row_height - 4),
-						  Color(0.9, 0.8, 0.2, 0.8))
+				_features_overlay.draw_rect(Rect2(gutter_x, y + 2, gutter_w, row_height - 4),
+						  Color(0.9, 0.8, 0.2, 0.9))
 
 # =============================================================================
 # MINIMAP OCCURRENCE MARKERS — thin markers on right edge showing all matches
@@ -2632,7 +2643,7 @@ func _draw_minimap_markers() -> void:
 			var after_ok := (after_pos >= line_text.length()) or not _is_word_char(line_text[after_pos])
 			if before_ok and after_ok:
 				var y := 2.0 + (float(line_idx) / float(total_lines)) * usable_height
-				draw_rect(Rect2(marker_x, y, marker_w, marker_h), marker_color)
+				_features_overlay.draw_rect(Rect2(marker_x, y, marker_w, marker_h), marker_color)
 
 # =============================================================================
 # STICKY SCROLL — shows enclosing Sub/Function at top of editor

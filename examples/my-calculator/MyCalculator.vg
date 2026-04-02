@@ -16,11 +16,13 @@ Sub btnEquals_Click()
 End Sub
 
 Sub btnPlay_Click()
+	a = (12 * (22 - 1 + (2) - 1) + 2)
 	Dim test As Integer
 	Me.btnPlay. BackColor = vbGreen
 	MsgBox ("test")
 	Form1.BackColor = vbBlue
 		MsgBox "test2"
+		a = a + 2
 	End Sub
 
 	Sub btnOptions_Click()
