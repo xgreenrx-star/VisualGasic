@@ -2293,14 +2293,26 @@ func _get_word_under_caret() -> String:
 ## of _highlight_word.  Scope-aware: local variables only highlight within
 ## the enclosing Sub/Function; module-level variables highlight everywhere.
 func _draw_occurrence_highlights(first_visible: int, last_visible: int) -> void:
-	if _highlight_word.is_empty() or _highlight_word.length() < 2:
+	if _highlight_word.is_empty():
 		return
 	
 	var hw_lower := _highlight_word.to_lower()
 	var hw_len := _highlight_word.length()
 	var row_height := get_line_height()
-	var highlight_color := Color(1.0, 0.85, 0.3, 0.35)
-	var border_color := Color(1.0, 0.85, 0.3, 0.65)
+	# Adaptive colours: use a visible tint on both light and dark backgrounds
+	var bg_lum := 0.15
+	if has_theme_color("background_color"):
+		bg_lum = get_theme_color("background_color").get_luminance()
+	var highlight_color: Color
+	var border_color: Color
+	if bg_lum > 0.5:
+		# Light background — use a warm peach/amber tint
+		highlight_color = Color(0.95, 0.75, 0.2, 0.3)
+		border_color = Color(0.8, 0.55, 0.1, 0.7)
+	else:
+		# Dark background — use a brighter gold tint
+		highlight_color = Color(1.0, 0.85, 0.3, 0.25)
+		border_color = Color(1.0, 0.85, 0.3, 0.6)
 	
 	# Scope-awareness: if the word is a local variable/param, restrict to procedure scope
 	var scope_start := first_visible
@@ -2337,16 +2349,17 @@ func _is_caret_inside(line_idx: int, col_start: int, col_end: int) -> bool:
 
 func _draw_word_rect(line_idx: int, col_start: int, col_end: int,
 					 row_height: float, bg_color: Color, border_color: Color) -> void:
-	var pos_start := get_pos_at_line_column(line_idx, col_start)
+	var rect_start := get_rect_at_line_column(line_idx, col_start)
 	var pos_end := get_pos_at_line_column(line_idx, col_end)
-	if pos_start.y < 0 and pos_end.y < 0:
+	if rect_start.position.x < 0 and rect_start.position.y < 0:
 		return
-	var x0 := float(pos_start.x)
+	var x0 := float(rect_start.position.x)
 	var x1 := float(pos_end.x)
-	var y := float(pos_start.y) - row_height
-	var rect := Rect2(x0, y, x1 - x0, row_height)
+	var y := float(rect_start.position.y)
+	var h := float(rect_start.size.y)
+	var rect := Rect2(x0, y, x1 - x0, h)
 	_features_overlay.draw_rect(rect, bg_color)
-	_features_overlay.draw_rect(rect, border_color, false, 1.0)
+	_features_overlay.draw_rect(rect, border_color, false, 1.5)
 
 # =============================================================================
 # RAINBOW BRACKETS — colour () [] at different nesting depths
@@ -2432,19 +2445,20 @@ func _draw_rainbow_brackets(first_visible: int, last_visible: int) -> void:
 func _draw_bracket_overlay(line_idx: int, col: int, ch: String,
 						   row_height: float, font: Font, font_size: int,
 						   color: Color) -> void:
-	var pos := get_pos_at_line_column(line_idx, col)
-	if pos.y < 0:
+	var char_rect := get_rect_at_line_column(line_idx, col)
+	if char_rect.position.x < 0 and char_rect.position.y < 0:
 		return
-	var x := float(pos.x)
-	var y := float(pos.y)  # baseline (bottom of line)
-	var char_width := font.get_char_size(ch.unicode_at(0), font_size).x
-	# Draw a thick coloured underline beneath the bracket character
-	var underline_y := y - 2.0
-	_features_overlay.draw_line(Vector2(x, underline_y), Vector2(x + char_width, underline_y),
+	var x := float(char_rect.position.x)
+	var y := float(char_rect.position.y)
+	var w := float(char_rect.size.x)
+	var h := float(char_rect.size.y)
+	# Draw a thick coloured underline at the bottom of the bracket character
+	var underline_y := y + h - 2.0
+	_features_overlay.draw_line(Vector2(x, underline_y), Vector2(x + w, underline_y),
 							   color, 2.5)
 	# Draw a subtle coloured background tint behind the bracket
-	var tint := Color(color.r, color.g, color.b, 0.12)
-	_features_overlay.draw_rect(Rect2(x, y - row_height, char_width, row_height), tint)
+	var tint := Color(color.r, color.g, color.b, 0.15)
+	_features_overlay.draw_rect(Rect2(x, y, w, h), tint)
 
 # =============================================================================
 # SEMANTIC TOKEN COLOURING — underlines for locals, params, module vars, consts
@@ -2580,13 +2594,13 @@ func _draw_semantic_underlines(first_visible: int, last_visible: int) -> void:
 
 func _draw_underline(line_idx: int, col_start: int, col_end: int,
 					 row_height: float, color: Color) -> void:
-	var pos_start := get_pos_at_line_column(line_idx, col_start)
+	var rect_start := get_rect_at_line_column(line_idx, col_start)
 	var pos_end := get_pos_at_line_column(line_idx, col_end)
-	if pos_start.y < 0 and pos_end.y < 0:
+	if rect_start.position.x < 0 and rect_start.position.y < 0:
 		return
-	var x0 := float(pos_start.x)
+	var x0 := float(rect_start.position.x)
 	var x1 := float(pos_end.x)
-	var y := float(pos_start.y) - 1.0  # Just above baseline
+	var y := float(rect_start.position.y) + float(rect_start.size.y) - 1.0
 	_features_overlay.draw_line(Vector2(x0, y), Vector2(x1, y), color, 1.5)
 
 # =============================================================================
@@ -2608,19 +2622,20 @@ func _draw_change_tracking(first_visible: int, last_visible: int) -> void:
 		var base_text := _change_base_lines[line_idx] if line_idx < _change_base_lines.size() else ""
 		var saved_text := _change_saved_lines[line_idx] if line_idx < _change_saved_lines.size() else ""
 		
-		var pos := get_pos_at_line_column(line_idx, 0)
-		if pos.y < 0:
+		var rect := get_rect_at_line_column(line_idx, 0)
+		if rect.position.x < 0 and rect.position.y < 0:
 			continue
-		var y := float(pos.y) - row_height
+		var y := float(rect.position.y)
+		var h := float(rect.size.y)
 		
 		if current_text != base_text:
 			if current_text == saved_text and saved_text != base_text:
 				# Green: changed and saved (different from original, matches last save)
-				_features_overlay.draw_rect(Rect2(gutter_x, y + 2, gutter_w, row_height - 4),
+				_features_overlay.draw_rect(Rect2(gutter_x, y + 2, gutter_w, h - 4),
 						  Color(0.3, 0.8, 0.3, 0.9))
 			else:
 				# Yellow: unsaved change (different from both base and last save)
-				_features_overlay.draw_rect(Rect2(gutter_x, y + 2, gutter_w, row_height - 4),
+				_features_overlay.draw_rect(Rect2(gutter_x, y + 2, gutter_w, h - 4),
 						  Color(0.9, 0.8, 0.2, 0.9))
 
 # =============================================================================
@@ -2628,7 +2643,7 @@ func _draw_change_tracking(first_visible: int, last_visible: int) -> void:
 # =============================================================================
 
 func _draw_minimap_markers() -> void:
-	if _highlight_word.is_empty() or _highlight_word.length() < 2:
+	if _highlight_word.is_empty():
 		return
 	
 	var hw_lower := _highlight_word.to_lower()
