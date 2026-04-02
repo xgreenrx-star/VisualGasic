@@ -2349,8 +2349,12 @@ func _is_caret_inside(line_idx: int, col_start: int, col_end: int) -> bool:
 
 func _draw_word_rect(line_idx: int, col_start: int, col_end: int,
 					 row_height: float, bg_color: Color, border_color: Color) -> void:
-	var pos_start := get_pos_at_line_column(line_idx, col_start)
-	var pos_end := get_pos_at_line_column(line_idx, col_end)
+	# Workaround: Godot's shaped_text_get_grapheme_bounds has an inclusive-end
+	# boundary check (end >= pos) that causes get_pos_at_line_column(line, col)
+	# to return the position of character col-1 for col >= 1.  Adding +1 fixes it.
+	var line_len := get_line(line_idx).length()
+	var pos_start := get_pos_at_line_column(line_idx, mini(col_start + 1, line_len))
+	var pos_end := get_pos_at_line_column(line_idx, mini(col_end + 1, line_len))
 	if pos_start.y < 0 and pos_end.y < 0:
 		return
 	var x0 := float(pos_start.x)
@@ -2445,8 +2449,10 @@ func _draw_rainbow_brackets(first_visible: int, last_visible: int) -> void:
 func _draw_bracket_overlay(line_idx: int, col: int, ch: String,
 						   row_height: float, font: Font, font_size: int,
 						   color: Color) -> void:
-	var pos := get_pos_at_line_column(line_idx, col)
-	var pos_next := get_pos_at_line_column(line_idx, col + 1)
+	# +1 workaround: see _draw_word_rect comment for details.
+	var line_len := get_line(line_idx).length()
+	var pos := get_pos_at_line_column(line_idx, mini(col + 1, line_len))
+	var pos_next := get_pos_at_line_column(line_idx, mini(col + 2, line_len))
 	if pos.y < 0:
 		return
 	var x := float(pos.x)
@@ -2597,8 +2603,10 @@ func _draw_semantic_underlines(first_visible: int, last_visible: int) -> void:
 
 func _draw_underline(line_idx: int, col_start: int, col_end: int,
 					 row_height: float, color: Color) -> void:
-	var pos_start := get_pos_at_line_column(line_idx, col_start)
-	var pos_end := get_pos_at_line_column(line_idx, col_end)
+	# +1 workaround: see _draw_word_rect comment for details.
+	var line_len := get_line(line_idx).length()
+	var pos_start := get_pos_at_line_column(line_idx, mini(col_start + 1, line_len))
+	var pos_end := get_pos_at_line_column(line_idx, mini(col_end + 1, line_len))
 	if pos_start.y < 0 and pos_end.y < 0:
 		return
 	var x0 := float(pos_start.x)
