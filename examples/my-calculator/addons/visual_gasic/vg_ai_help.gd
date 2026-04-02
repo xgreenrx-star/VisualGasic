@@ -11,7 +11,8 @@ signal ai_panel_ready
 const OLLAMA_URL := "http://localhost:11434/api/generate"
 const DEFAULT_MODEL := "qwen2.5-coder:7b"
 const CONNECT_TIMEOUT := 3.0
-const REQUEST_TIMEOUT := 120.0
+const REQUEST_TIMEOUT := 300.0  # Cold model load can take 60-120s
+const WARMUP_TIMEOUT := 180.0
 
 const SYSTEM_PROMPT := """You are a VisualGasic programming assistant. VisualGasic is a VB6-syntax language that compiles to bytecode and runs inside the Godot 4 game engine via GDExtension.
 
@@ -54,6 +55,7 @@ Keep answers concise and use VB6/VisualGasic syntax in all code examples. Never 
 # ---------------------------------------------------------------------------
 var _http: HTTPRequest
 var _ping_http: HTTPRequest
+var _warmup_http: HTTPRequest
 var _output: RichTextLabel
 var _input: CodeEdit
 var _send_btn: Button
@@ -64,6 +66,7 @@ var _stop_btn: Button
 
 var _ollama_available := false
 var _is_generating := false
+var _model_warm := false
 var _current_model := DEFAULT_MODEL
 var _history: PackedStringArray = PackedStringArray()
 var _history_idx := -1
@@ -86,10 +89,29 @@ func _ready() -> void:
 	_setup_http()
 	_ping_ollama()
 
+func _enter_tree() -> void:
+	# When the panel is reparented (e.g. from plugin → bottom tab),
+	# _ready() doesn't fire again, but the pending HTTP requests were
+	# cancelled when the node exited the tree.  Re-ping to recover.
+	if _ping_http:  # Guard: skip the very first _enter_tree (before _ready)
+		_reinit_after_reparent.call_deferred()
+
+## Cancel stale HTTP state and re-ping Ollama after reparent.
+func _reinit_after_reparent() -> void:
+	_ping_http.cancel_request()
+	if _is_generating:
+		_http.cancel_request()
+	_warmup_http.cancel_request()
+	_is_generating = false
+	_ollama_available = false
+	_model_warm = false
+	_ping_ollama()
+
 func _setup_http() -> void:
 	_http = HTTPRequest.new()
 	_http.name = "AIRequest"
 	_http.timeout = REQUEST_TIMEOUT
+	_http.use_threads = true  # Required: Ollama uses chunked encoding for long responses
 	add_child(_http)
 	_http.request_completed.connect(_on_response)
 
@@ -98,6 +120,12 @@ func _setup_http() -> void:
 	_ping_http.timeout = CONNECT_TIMEOUT
 	add_child(_ping_http)
 	_ping_http.request_completed.connect(_on_ping_response)
+
+	_warmup_http = HTTPRequest.new()
+	_warmup_http.name = "WarmupRequest"
+	_warmup_http.timeout = WARMUP_TIMEOUT
+	add_child(_warmup_http)
+	_warmup_http.request_completed.connect(_on_warmup_response)
 
 # ---------------------------------------------------------------------------
 # UI construction — all in code, matching Immediate Window patterns
@@ -338,6 +366,9 @@ func _on_ping_response(result: int, code: int, _headers: PackedStringArray, body
 			_current_model = _model_dropdown.get_item_text(0)
 	_append_system("Connected to Ollama. Model: [color=cyan]%s[/color]\n" % _current_model)
 	ai_panel_ready.emit()
+	# Pre-warm the model so the first real query doesn't wait 60+ seconds
+	if not _model_warm:
+		_warmup_model()
 
 func _set_offline() -> void:
 	_ollama_available = false
@@ -347,6 +378,39 @@ func _set_offline() -> void:
 	_append_system("[color=gray]  curl -fsSL https://ollama.com/install.sh | sh[/color]\n")
 	_append_system("[color=gray]  ollama pull %s[/color]\n" % DEFAULT_MODEL)
 	_append_system("[color=gray]  ollama serve[/color]\n\n")
+
+# ---------------------------------------------------------------------------
+# Model pre-warming — load the model into memory in the background so the
+# first real query doesn't stall for 60–120 seconds.
+# ---------------------------------------------------------------------------
+func _warmup_model() -> void:
+	if _model_warm or not _ollama_available:
+		return
+	_status_label.text = "🔥 Loading model..."
+	_status_label.add_theme_color_override("font_color", Color(1.0, 0.7, 0.3))
+	var body := JSON.stringify({
+		"model": _current_model,
+		"prompt": "hi",
+		"stream": false,
+		"options": {"num_predict": 1},
+	})
+	var headers := ["Content-Type: application/json"]
+	var err := _warmup_http.request(OLLAMA_URL, headers, HTTPClient.METHOD_POST, body)
+	if err != OK:
+		# Non-critical — the first real query will just be slower
+		_status_label.text = "✅ Ollama connected"
+		_status_label.add_theme_color_override("font_color", Color(0.4, 0.9, 0.4))
+
+func _on_warmup_response(result: int, _code: int, _headers: PackedStringArray, _body: PackedByteArray) -> void:
+	_model_warm = true
+	if result == HTTPRequest.RESULT_SUCCESS:
+		_status_label.text = "✅ Ready"
+		_status_label.add_theme_color_override("font_color", Color(0.4, 0.9, 0.4))
+		_append_system("[color=green]Model loaded and ready.[/color]\n")
+	else:
+		# Warmup failed — non-critical, just reset status
+		_status_label.text = "✅ Ollama connected"
+		_status_label.add_theme_color_override("font_color", Color(0.4, 0.9, 0.4))
 
 # ---------------------------------------------------------------------------
 # Input handling
@@ -408,7 +472,8 @@ func _send_query(prompt: String) -> void:
 	}
 
 	var headers := ["Content-Type: application/json"]
-	var err := _http.request(OLLAMA_URL, headers, HTTPClient.METHOD_POST, JSON.stringify(body))
+	var json_body := JSON.stringify(body)
+	var err := _http.request(OLLAMA_URL, headers, HTTPClient.METHOD_POST, json_body)
 	if err != OK:
 		_append_system("[color=red]Failed to send request: %s[/color]\n" % error_string(err))
 		return
@@ -486,7 +551,18 @@ func _append_system(text: String) -> void:
 	_output.append_text("[color=gray]%s[/color]" % text)
 
 func _escape_bbcode(text: String) -> String:
-	return text.replace("[", "[lb]").replace("]", "[rb]")
+	# Character-by-character to avoid double-escaping
+	# (the old .replace("[","[lb]").replace("]","[rb]") mangled [lb] → [lb[rb])
+	var result := ""
+	for i in text.length():
+		var c := text[i]
+		if c == "[":
+			result += "[lb]"
+		elif c == "]":
+			result += "[rb]"
+		else:
+			result += c
+	return result
 
 func _format_code_blocks(text: String) -> String:
 	# Convert ```vb ... ``` or ```bas ... ``` blocks to colored BBCode
