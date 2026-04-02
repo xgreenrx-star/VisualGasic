@@ -601,8 +601,13 @@ static func apply_to_code_edit(code_edit: CodeEdit) -> void:
 	
 	# Ensure line numbers and code folding are enabled
 	code_edit.gutters_draw_line_numbers = true
-	code_edit.set("line_folding_enabled", true)
-	code_edit.set("gutters_draw_folding", true)
+	code_edit.set("line_folding", true)
+	code_edit.set("gutters_draw_fold_gutter", true)
+	
+	# Make fold arrows visible on the current background
+	var is_dark: bool = theme.background_color.get_luminance() < 0.5
+	var fold_color := Color(0.75, 0.75, 0.75, 0.85) if is_dark else Color(0.4, 0.4, 0.4, 0.85)
+	code_edit.add_theme_color_override("code_folding_color", fold_color)
 	
 	# Background and text
 	code_edit.add_theme_color_override("background_color", theme.background_color)

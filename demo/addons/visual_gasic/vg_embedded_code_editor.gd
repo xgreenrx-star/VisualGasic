@@ -694,6 +694,7 @@ func _apply_vb6_theme() -> void:
 	_code_edit.add_theme_color_override("selection_color", Color(0.2, 0.4, 0.8, 0.5))
 	_code_edit.add_theme_color_override("current_line_color", Color(0.93, 0.92, 0.88))
 	_code_edit.add_theme_color_override("line_number_color", Color(0.5, 0.5, 0.5))
+	_code_edit.add_theme_color_override("code_folding_color", Color(0.4, 0.4, 0.4, 0.85))
 
 	# Override syntax highlighter colors for VB6 look
 	if _code_edit.syntax_highlighter and _code_edit.syntax_highlighter is CodeHighlighter:
