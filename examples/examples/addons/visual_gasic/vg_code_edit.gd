@@ -2349,15 +2349,15 @@ func _is_caret_inside(line_idx: int, col_start: int, col_end: int) -> bool:
 
 func _draw_word_rect(line_idx: int, col_start: int, col_end: int,
 					 row_height: float, bg_color: Color, border_color: Color) -> void:
-	var rect_start := get_rect_at_line_column(line_idx, col_start)
+	var pos_start := get_pos_at_line_column(line_idx, col_start)
 	var pos_end := get_pos_at_line_column(line_idx, col_end)
-	if rect_start.position.x < 0 and rect_start.position.y < 0:
+	if pos_start.y < 0 and pos_end.y < 0:
 		return
-	var x0 := float(rect_start.position.x)
+	var x0 := float(pos_start.x)
 	var x1 := float(pos_end.x)
-	var y := float(rect_start.position.y)
-	var h := float(rect_start.size.y)
-	var rect := Rect2(x0, y, x1 - x0, h)
+	# pos.y is the BOTTOM (baseline) of the line; subtract row_height to get top
+	var y := float(pos_start.y) - row_height
+	var rect := Rect2(x0, y, x1 - x0, row_height)
 	_features_overlay.draw_rect(rect, bg_color)
 	_features_overlay.draw_rect(rect, border_color, false, 1.5)
 
@@ -2445,20 +2445,23 @@ func _draw_rainbow_brackets(first_visible: int, last_visible: int) -> void:
 func _draw_bracket_overlay(line_idx: int, col: int, ch: String,
 						   row_height: float, font: Font, font_size: int,
 						   color: Color) -> void:
-	var char_rect := get_rect_at_line_column(line_idx, col)
-	if char_rect.position.x < 0 and char_rect.position.y < 0:
+	var pos := get_pos_at_line_column(line_idx, col)
+	var pos_next := get_pos_at_line_column(line_idx, col + 1)
+	if pos.y < 0:
 		return
-	var x := float(char_rect.position.x)
-	var y := float(char_rect.position.y)
-	var w := float(char_rect.size.x)
-	var h := float(char_rect.size.y)
+	var x := float(pos.x)
+	var w := float(pos_next.x) - x
+	if w < 2.0:
+		w = font.get_char_size(ch.unicode_at(0), font_size).x  # fallback
+	# pos.y is the baseline (bottom of line); top = pos.y - row_height
+	var top := float(pos.y) - row_height
 	# Draw a thick coloured underline at the bottom of the bracket character
-	var underline_y := y + h - 2.0
+	var underline_y := float(pos.y) - 2.0
 	_features_overlay.draw_line(Vector2(x, underline_y), Vector2(x + w, underline_y),
 							   color, 2.5)
 	# Draw a subtle coloured background tint behind the bracket
 	var tint := Color(color.r, color.g, color.b, 0.15)
-	_features_overlay.draw_rect(Rect2(x, y, w, h), tint)
+	_features_overlay.draw_rect(Rect2(x, top, w, row_height), tint)
 
 # =============================================================================
 # SEMANTIC TOKEN COLOURING — underlines for locals, params, module vars, consts
@@ -2594,13 +2597,14 @@ func _draw_semantic_underlines(first_visible: int, last_visible: int) -> void:
 
 func _draw_underline(line_idx: int, col_start: int, col_end: int,
 					 row_height: float, color: Color) -> void:
-	var rect_start := get_rect_at_line_column(line_idx, col_start)
+	var pos_start := get_pos_at_line_column(line_idx, col_start)
 	var pos_end := get_pos_at_line_column(line_idx, col_end)
-	if rect_start.position.x < 0 and rect_start.position.y < 0:
+	if pos_start.y < 0 and pos_end.y < 0:
 		return
-	var x0 := float(rect_start.position.x)
+	var x0 := float(pos_start.x)
 	var x1 := float(pos_end.x)
-	var y := float(rect_start.position.y) + float(rect_start.size.y) - 1.0
+	# pos.y is the baseline; draw underline just above it
+	var y := float(pos_start.y) - 1.0
 	_features_overlay.draw_line(Vector2(x0, y), Vector2(x1, y), color, 1.5)
 
 # =============================================================================
@@ -2622,20 +2626,19 @@ func _draw_change_tracking(first_visible: int, last_visible: int) -> void:
 		var base_text := _change_base_lines[line_idx] if line_idx < _change_base_lines.size() else ""
 		var saved_text := _change_saved_lines[line_idx] if line_idx < _change_saved_lines.size() else ""
 		
-		var rect := get_rect_at_line_column(line_idx, 0)
-		if rect.position.x < 0 and rect.position.y < 0:
+		var pos := get_pos_at_line_column(line_idx, 0)
+		if pos.y < 0:
 			continue
-		var y := float(rect.position.y)
-		var h := float(rect.size.y)
+		var y := float(pos.y) - row_height
 		
 		if current_text != base_text:
 			if current_text == saved_text and saved_text != base_text:
 				# Green: changed and saved (different from original, matches last save)
-				_features_overlay.draw_rect(Rect2(gutter_x, y + 2, gutter_w, h - 4),
+				_features_overlay.draw_rect(Rect2(gutter_x, y + 2, gutter_w, row_height - 4),
 						  Color(0.3, 0.8, 0.3, 0.9))
 			else:
 				# Yellow: unsaved change (different from both base and last save)
-				_features_overlay.draw_rect(Rect2(gutter_x, y + 2, gutter_w, h - 4),
+				_features_overlay.draw_rect(Rect2(gutter_x, y + 2, gutter_w, row_height - 4),
 						  Color(0.9, 0.8, 0.2, 0.9))
 
 # =============================================================================
