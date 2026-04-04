@@ -14,6 +14,7 @@ const OLLAMA_PORT := 11434
 const DEFAULT_MODEL := "qwen2.5-coder:7b"
 const CONNECT_TIMEOUT := 3.0
 const REQUEST_TIMEOUT := 300.0  # Cold model load can take 60-120s
+const FIRST_TOKEN_TIMEOUT := 90.0  # Abort if no tokens arrive within this window (model runner may be hung)
 const WARMUP_TIMEOUT := 180.0
 const STREAM_POLL_INTERVAL := 0.016  # ~60 fps polling for streaming chunks
 
@@ -292,6 +293,9 @@ func _reinit_after_reparent() -> void:
 	if _is_generating:
 		_stop_generation()
 	_warmup_http.cancel_request()
+	if _health_check_http != null:
+		_health_check_http.cancel_request()
+	_health_pending_prompt = ""
 	_is_generating = false
 	_ollama_available = false
 	_model_warm = false
@@ -356,11 +360,19 @@ func _on_poll_timer() -> void:
 		_finish_generation()
 		return
 
-	# Safety timeout
+	# Safety timeout — two tiers:
+	# 1. If no tokens arrived at all, abort early (model runner likely hung)
+	# 2. Overall hard timeout for very long responses
 	var elapsed := (Time.get_ticks_msec() - _stream_start_time) / 1000.0
-	if _is_generating and elapsed > REQUEST_TIMEOUT:
-		_stop_generation()
-		_append_system("[color=red]Request timed out after %ds.[/color]\n" % int(REQUEST_TIMEOUT))
+	if _is_generating:
+		if not _stream_started and elapsed > FIRST_TOKEN_TIMEOUT:
+			_stop_generation()
+			_append_system("[color=red]No response from Ollama after %ds — the model runner may be stuck.[/color]\n" % int(FIRST_TOKEN_TIMEOUT))
+			_append_system("[color=yellow]Try: [color=gray]sudo systemctl restart ollama[/color] then click Send again.[/color]\n")
+			_model_warm = false  # Force re-warmup on next query
+		elif elapsed > REQUEST_TIMEOUT:
+			_stop_generation()
+			_append_system("[color=red]Request timed out after %ds.[/color]\n" % int(REQUEST_TIMEOUT))
 
 ## Worker thread entry point — uses raw TCP with HTTP/1.1 and chunked
 ## transfer encoding decoding for streaming Ollama responses.
@@ -915,7 +927,10 @@ func _on_warmup_response(result: int, _code: int, _headers: PackedStringArray, _
 		var pending := _queued_query
 		_queued_query = ""
 		_append_system("[color=#44bb88]Sending queued query now...[/color]\n")
-		_send_query(pending)
+		# User message + history were already handled when the query was first queued,
+		# so call _send_query_internal directly (skips health check too — warmup
+		# just proved the model runner is alive).
+		_send_query_internal(pending)
 
 # ---------------------------------------------------------------------------
 # Input handling
@@ -947,6 +962,38 @@ func _on_send() -> void:
 		return
 	_send_query(prompt)
 
+## Quick health check — verifies Ollama can accept requests before sending.
+## Detects a hung model runner that still passes /api/tags but can't generate.
+var _health_check_http: HTTPRequest
+var _health_pending_prompt := ""
+
+func _ensure_health_check_http() -> void:
+	if _health_check_http == null:
+		_health_check_http = HTTPRequest.new()
+		_health_check_http.name = "HealthCheckRequest"
+		_health_check_http.timeout = 10.0  # Fast check
+		add_child(_health_check_http)
+		_health_check_http.request_completed.connect(_on_health_check_response)
+	else:
+		_health_check_http.cancel_request()
+
+func _on_health_check_response(result: int, code: int, _h: PackedStringArray, _b: PackedByteArray) -> void:
+	if result != HTTPRequest.RESULT_SUCCESS or code != 200:
+		_append_system("[color=red]Ollama health check failed — the service may need restarting.[/color]\n")
+		_append_system("[color=yellow]Try: [color=gray]sudo systemctl restart ollama[/color][/color]\n")
+		_model_warm = false
+		if is_instance_valid(_send_btn):
+			_send_btn.visible = true
+		if is_instance_valid(_stop_btn):
+			_stop_btn.visible = false
+		_health_pending_prompt = ""
+		return
+	# Health check passed — send the pending query
+	if not _health_pending_prompt.is_empty():
+		var p := _health_pending_prompt
+		_health_pending_prompt = ""
+		_send_query_internal(p)
+
 func _send_query(prompt: String) -> void:
 	if not _ollama_available:
 		_append_system("[color=yellow]Ollama is not running. Start it first.[/color]\n")
@@ -965,13 +1012,25 @@ func _send_query(prompt: String) -> void:
 		_append_system("[color=#ffcc44]⏳ Model is still loading — your query will be sent automatically when ready...[/color]\n")
 		return
 
-	# Save to history
+	# Run a fast health check before sending the real query
+	_ensure_health_check_http()
+	_health_pending_prompt = prompt
 	_history.append(prompt)
 	_history_idx = _history.size()
 	_input.text = ""
-
-	# Show the user's question
 	_append_user(prompt)
+	var hc_body := JSON.stringify({"model": _current_model, "prompt": "", "stream": false, "options": {"num_predict": 0}})
+	var hc_err := _health_check_http.request(OLLAMA_URL, ["Content-Type: application/json"], HTTPClient.METHOD_POST, hc_body)
+	if hc_err != OK:
+		# Health check couldn't even start — just send directly
+		_health_pending_prompt = ""
+		_send_query_internal(prompt)
+	return
+
+## Internal: actually sends the query (called after health check passes).
+func _send_query_internal(prompt: String) -> void:
+	if _is_generating:
+		return
 
 	# Build context-aware prompt with conversation history
 	var full_prompt := ""
